@@ -695,21 +695,26 @@ void run(engine::core::tasks::execution_mode mode) {
   until([&] { return service.take(completion); });
   check(completion.state == texture_load_state::failed &&
         resources.share_texture(rid) == previous && cache.size() == 1U);
-  // GPU 已完成但缓存身份被同步事务替换：丢弃候选，不能覆盖新的缓存。
+  // 同步重载保持 RID，但更新内容与修订号；迟到的 GPU 候选不能覆盖它。
   uploaded = false;
   ready = false;
   check(service.submit(uris, 1U, 5U, request) == GNEISS_SUCCESS);
   until([&] { return uploaded; });
   asset_diagnostic diagnostic;
   const std::vector<render_asset_reload> synchronous{{uris.front(), render_asset_type::texture}};
+  files->pixel(std::byte{30});
   check(loader.reload_assets(synchronous, diagnostic) == GNEISS_SUCCESS);
   render_asset_lease newer;
   check(loader.acquire_cached(synchronous.front(), newer) == GNEISS_SUCCESS);
   const auto newer_rid = newer.get();
+  const auto newer_data = resources.share_texture(newer_rid);
+  check(newer_rid == rid && newer_data != previous &&
+        newer_data->levels.front().pixels.front() == std::byte{30});
   ready = true;
   until([&] { return service.take(completion); });
   check(completion.state == texture_load_state::failed && discarded == 1U &&
-        resources.share_texture(rid) == previous);
+        resources.share_texture(rid) == newer_data &&
+        previous->levels.front().pixels.front() == std::byte{20});
   lease = std::move(newer);
   // 未获提交许可的卸载不能被迟到候选复活。
   check(service.submit(uris, 1U, 5U, request) == GNEISS_SUCCESS);

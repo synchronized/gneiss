@@ -162,7 +162,8 @@ public:
                                                asset_diagnostic& out_diagnostic) noexcept;
   [[nodiscard]] gneiss_result acquire_texture(std::string_view uri, texture_asset_lease& out_lease,
                                               asset_diagnostic& out_diagnostic) noexcept;
-  /** 按依赖顺序构造并原子提交一组渲染资源。 */
+  /** 同步复用通用 CPU 准备和发布流程；旧 URI 资源保留 RID，失败保旧。
+   * 不等待 GPU 上传；后续渲染帧按 CPU 内容重建镜像。固定版本消费者不由此入口采用。 */
   [[nodiscard]] gneiss_result reload_assets(std::span<const render_asset_reload> assets,
                                             asset_diagnostic& out_diagnostic) noexcept;
   void release_unused() noexcept { cache_.release_unused(); }

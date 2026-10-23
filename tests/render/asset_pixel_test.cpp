@@ -69,6 +69,43 @@ struct fixture {
                  static_cast<std::streamsize>(bytes.size()));
   }
 };
+void run_sync_reload() {
+  fixture files(true);
+  files.color(std::byte{255}, std::byte{0});
+  test_support::application_owner app;
+  const auto root = files.root.string();
+  auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
+  desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
+  desc.asset_root = root.data();
+  desc.asset_root_length = static_cast<std::uint32_t>(root.size());
+  check(gneiss_application_create(&desc, app.put()) == GNEISS_SUCCESS);
+  constexpr std::string_view uri = "asset://s.scene.json";
+  gneiss_scene_instance scene{};
+  check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
+  const auto pixel = [&] {
+    engine::render::frame_image image;
+    check(runtime::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
+    constexpr auto offset = ((64U * 128U) + 64U) * 4U;
+    return std::array{
+        std::to_integer<unsigned>(image.pixels[offset]),
+        std::to_integer<unsigned>(image.pixels[offset + 2U]),
+    };
+  };
+  const auto initial = pixel();
+  check(initial[0] > initial[1] + 30U);
+  files.color(std::byte{0}, std::byte{255});
+  const std::array requests{engine::render::render_asset_reload{
+      .uri = "asset://t.texture.json", .type = engine::render::render_asset_type::texture}};
+  check(runtime::reload_render_assets(app.get(), requests) == GNEISS_SUCCESS);
+  // 不重载场景、不重建材质：已有引用必须看到同一纹理 RID 的新内容。
+  const auto updated = pixel();
+  check(updated[1] > updated[0] + 30U);
+  std::ofstream(files.root / "t.texture.json") << "{";
+  check(runtime::reload_render_assets(app.get(), requests) == GNEISS_ERROR_INVALID_ARGUMENT);
+  check(pixel() == updated);
+}
+
 void run_pending_resources() {
   fixture files(true);
   files.color(std::byte{255}, std::byte{0});
@@ -736,6 +773,7 @@ int main(int argc, char* argv[]) try {
     return 0;
   }
   std::fprintf(stderr, "asset-pixel: pending resources\n");
+  run_sync_reload();
   run_pending_resources();
   std::fprintf(stderr, "asset-pixel: mip\n");
   run_mip_sampling();

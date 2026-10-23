@@ -773,62 +773,26 @@ gneiss_result render_asset_loader::reload_assets(std::span<const render_asset_re
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
-    std::vector<render_asset_reload> ordered(assets.begin(), assets.end());
-    const auto priority = [](render_asset_type type) {
-      switch (type) {
-      case render_asset_type::invalid:
-        return 3U;
-      case render_asset_type::texture:
-        return 0U;
-      case render_asset_type::material:
-        return 1U;
-      case render_asset_type::mesh:
-        return 2U;
-      }
-      return 3U;
-    };
-    std::stable_sort(ordered.begin(), ordered.end(), [&](const auto& left, const auto& right) {
-      return priority(left.type) < priority(right.type);
-    });
-    std::vector<engine::resource::resource_cache::reload_request> requests;
-    requests.reserve(ordered.size());
-    for (const auto& asset : ordered) {
-      if (priority(asset.type) == 3U) {
-        return GNEISS_ERROR_INVALID_ARGUMENT;
-      }
-      requests.push_back({.uri = asset.uri,
-                          .type = static_cast<std::uint32_t>(asset.type),
-                          .load = [this, uri = asset.uri, type = asset.type, &out_diagnostic](
-                                      engine::resource::resource_cache& staging,
-                                      std::shared_ptr<void>& output) -> gneiss_result {
-                            render_asset_loader loader(file_system_, staging, resources_);
-                            gneiss_result result = GNEISS_ERROR_INVALID_ARGUMENT;
-                            if (type == render_asset_type::texture) {
-                              texture_asset_lease lease;
-                              result = loader.acquire_texture(uri, lease, out_diagnostic);
-                              if (result == GNEISS_SUCCESS) {
-                                output = lease.entry_->resource;
-                              }
-                            } else if (type == render_asset_type::material) {
-                              material_asset_lease lease;
-                              result = loader.acquire_material(uri, lease, out_diagnostic);
-                              if (result == GNEISS_SUCCESS) {
-                                output = lease.entry_->resource;
-                              }
-                            } else if (type == render_asset_type::mesh) {
-                              mesh_asset_lease lease;
-                              result = loader.acquire_mesh(uri, lease, out_diagnostic);
-                              if (result == GNEISS_SUCCESS) {
-                                output = lease.entry_->resource;
-                              }
-                            }
-                            return result;
-                          }});
+    prepared_render_batch batch;
+    auto result = prepare_render_assets(file_system_, assets, batch, out_diagnostic, {}, 256U,
+                                        std::size_t{256U} * 1024U * 1024U, default_profile_);
+    if (result != GNEISS_SUCCESS) {
+      return result;
     }
-    std::vector<std::shared_ptr<const engine::resource::resource_cache::entry>> committed;
-    const auto result = cache_.reload_transaction(requests, committed);
-    if (result != GNEISS_SUCCESS && out_diagnostic.result == GNEISS_SUCCESS) {
-      fail(out_diagnostic, result, "", "渲染资产事务重载失败");
+    std::vector<asset_candidate> candidates;
+    candidates.reserve(batch.assets.size());
+    for (auto& prepared : batch.assets) {
+      asset_candidate candidate;
+      result = stage_asset(std::move(prepared), candidates, candidate);
+      if (result != GNEISS_SUCCESS) {
+        fail(out_diagnostic, result, "", "同步重载资产暂存失败");
+        return result;
+      }
+      candidates.push_back(std::move(candidate));
+    }
+    result = publish_assets(candidates);
+    if (result != GNEISS_SUCCESS) {
+      fail(out_diagnostic, result, "", "同步重载资产发布失败");
     }
     return result;
   } catch (const std::bad_alloc&) {

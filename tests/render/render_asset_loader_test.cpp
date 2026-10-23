@@ -749,6 +749,9 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   const auto old_mesh = textured_mesh.get();
   const auto old_material = textured_material.get();
   const auto old_texture = first_texture.get();
+  const auto old_mesh_data = resources.share_mesh(old_mesh);
+  const auto old_material_data = resources.share_material(old_material);
+  const auto old_texture_data = resources.share_texture(old_texture);
   memory->files["models/textured.mesh.json"] =
       R"({"format":"gneiss.mesh","version":2,"topology":"triangle_list","vertices":[[-1,-1,0],[1,-1,0],[0,1,0]],"uvs":[[0,0],[1,0],[0.5,1]]})";
   memory->files["materials/textured.material.json"] =
@@ -771,24 +774,33 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   if (loader.acquire_mesh(reloads[0].uri, reloaded_mesh, diagnostic) != GNEISS_SUCCESS ||
       loader.acquire_material(reloads[1].uri, reloaded_material, diagnostic) != GNEISS_SUCCESS ||
       loader.acquire_texture(reloads[2].uri, reloaded_texture, diagnostic) != GNEISS_SUCCESS ||
-      reloaded_mesh.get() == old_mesh || reloaded_material.get() == old_material ||
-      reloaded_texture.get() == old_texture) {
+      reloaded_mesh.get() != old_mesh || reloaded_material.get() != old_material ||
+      reloaded_texture.get() != old_texture) {
     return 17;
   }
   const auto* reloaded_material_resource = resources.get_material(reloaded_material.get());
   if (reloaded_material_resource == nullptr ||
       reloaded_material_resource->base_color_texture != reloaded_texture.get() ||
-      resources.get_mesh(old_mesh) == nullptr || resources.get_material(old_material) == nullptr ||
-      resources.get_texture(old_texture) == nullptr) {
+      resources.share_mesh(old_mesh) == old_mesh_data ||
+      resources.share_material(old_material) == old_material_data ||
+      resources.share_texture(old_texture) == old_texture_data ||
+      old_material_data->red == reloaded_material_resource->red ||
+      reloaded_material_resource->red != 0.2F) {
     return 18;
   }
+  const auto updated_mesh_data = resources.share_mesh(old_mesh);
+  const auto updated_material_data = resources.share_material(old_material);
+  const auto updated_texture_data = resources.share_texture(old_texture);
   memory->files["materials/textured.material.json"] = "{";
   if (loader.reload_assets(reloads, diagnostic) != GNEISS_ERROR_INVALID_ARGUMENT) {
     return 19;
   }
   gneiss::engine::render::material_asset_lease after_failed_reload;
   if (loader.acquire_material(reloads[1].uri, after_failed_reload, diagnostic) != GNEISS_SUCCESS ||
-      after_failed_reload.get() != reloaded_material.get()) {
+      after_failed_reload.get() != reloaded_material.get() ||
+      resources.share_mesh(old_mesh) != updated_mesh_data ||
+      resources.share_material(old_material) != updated_material_data ||
+      resources.share_texture(old_texture) != updated_texture_data) {
     return 20;
   }
 
@@ -841,7 +853,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   reloaded_texture = {};
   after_failed_reload = {};
   loader.release_unused();
-  if (cache.size() != 0U) {
+  if (cache.size() != 2U) {
     return 21;
   }
   if (resources.live_resource_count() != 2U) {

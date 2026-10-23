@@ -83,7 +83,8 @@ GNEISS_API gneiss_result poll_textures(gneiss_application application,
                                        bool& ready) noexcept;
 GNEISS_API gneiss_result cancel_textures(gneiss_application application) noexcept;
 
-/** 在 Application 主线程原子重载一组渲染资产；仅供 Gneiss 宿主使用。 */
+/** 主线程同步准备并发布旧 URI 缓存资源，保留其 RID；失败保留旧内容。
+ * 不等待 GPU，后续帧重建镜像；不采用固定版本场景资源。仅供 Gneiss 宿主使用。 */
 GNEISS_API gneiss_result
 reload_render_assets(gneiss_application application,
                      std::span<const engine::render::render_asset_reload> assets) noexcept;
