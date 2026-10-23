@@ -95,21 +95,11 @@ public:
   /** 不读文件、不按版本排序；未采用或资源已回收时返回空弱引用。 */
   [[nodiscard]] std::weak_ptr<const entry> observe_selected(const selection_key& key) const;
 
-  struct reload_request final {
-    std::string uri;
-    std::uint32_t type = 0U;
-    std::function<gneiss_result(resource_cache&, std::shared_ptr<void>&)> load;
-  };
-
   [[nodiscard]] gneiss_result acquire(std::string_view uri, std::uint32_t type, const loader& load,
                                       std::shared_ptr<const entry>& out_entry) noexcept;
   /** 强制重新加载并在成功后替换缓存项；失败时保留原缓存。 */
   [[nodiscard]] gneiss_result reload(std::string_view uri, std::uint32_t type, const loader& load,
                                      std::shared_ptr<const entry>& out_entry) noexcept;
-  /** 先构造全部候选，全部成功后一次提交缓存映射；失败时不改变任何缓存项。 */
-  [[nodiscard]] gneiss_result
-  reload_transaction(std::span<const reload_request> requests,
-                     std::vector<std::shared_ptr<const entry>>& out_entries) noexcept;
   void release_unused() noexcept;
   /** 只观察当前身份，不触发加载；返回的弱引用不会阻止卸载。 */
   [[nodiscard]] std::weak_ptr<const entry> observe(std::string_view uri) const;

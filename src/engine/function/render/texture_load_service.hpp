@@ -89,6 +89,10 @@ public:
       std::size_t prepare_limit = maximum_candidate_bytes,
       render_asset_loader::publication_mode mode = render_asset_loader::publication_mode::reload);
   [[nodiscard]] bool progress(asset_load_progress& output) const;
+  /** 所属线程借用请求目标，普通模式提交成功即可取得；下一次推进/取回执后重新查询。
+   * 需要长期引用的使用者复制租约；固定版本模式在完成前不提供目标。
+   * 目标有效不代表 CPU/GPU 已就绪；失败目标在使用者释放租约后由缓存清理回收。 */
+  [[nodiscard]] std::span<const render_asset_lease> requested_assets() const;
   [[nodiscard]] bool busy() const noexcept { return pending_ != nullptr || completed_.has_value(); }
   [[nodiscard]] texture_prepare_profile profile() const noexcept { return backend_.profile; }
   void advance();

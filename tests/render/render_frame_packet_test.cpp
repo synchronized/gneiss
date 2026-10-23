@@ -19,6 +19,7 @@ bool pending_resources() {
   rid cancelled{};
   if (resources.reserve_mesh(nullptr) != GNEISS_ERROR_INVALID_ARGUMENT ||
       resources.reserve_texture(nullptr) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      resources.reserve_material(nullptr) != GNEISS_ERROR_INVALID_ARGUMENT ||
       resources.reserve_mesh(&cancelled) != GNEISS_SUCCESS ||
       resources.destroy_mesh(cancelled) != GNEISS_SUCCESS ||
       resources.mesh_status(cancelled) != GNEISS_ERROR_INVALID_HANDLE ||
@@ -47,6 +48,39 @@ bool pending_resources() {
   }
   render_snapshot scene;
   scene.instances.push_back({.mesh = mesh, .material = material, .transform = {}});
+  rid pending_material{};
+  if (resources.reserve_material(&pending_material) != GNEISS_SUCCESS ||
+      resources.material_status(pending_material) != GNEISS_ERROR_NOT_READY ||
+      foreign.material_status(pending_material) != GNEISS_ERROR_INVALID_HANDLE ||
+      resources.material_status(mesh) != GNEISS_ERROR_INVALID_HANDLE) {
+    return false;
+  }
+  auto pending_scene = scene;
+  pending_scene.instances.front().material = pending_material;
+  render_frame_packet fallback;
+  if (capture_render_frame_packet({}, pending_scene, resources, {}, {}, fallback) !=
+          GNEISS_SUCCESS ||
+      fallback.resources.get_material(pending_material) == nullptr ||
+      fallback.resources.get_material(0U) != nullptr) {
+    return false;
+  }
+  const auto* neutral = fallback.resources.get_material(pending_material);
+  auto material_data = std::make_shared<material_resource>(description);
+  if (!resources.replace_material(pending_material, material_data) ||
+      resources.material_status(pending_material) != GNEISS_SUCCESS) {
+    return false;
+  }
+  render_frame_packet filled;
+  if (capture_render_frame_packet({}, pending_scene, resources, {}, {}, filled) != GNEISS_SUCCESS ||
+      filled.resources.get_material(pending_material) != material_data.get() ||
+      fallback.resources.get_material(pending_material) != neutral ||
+      neutral->base_color_texture != 0U ||
+      resources.destroy_material(pending_material) != GNEISS_SUCCESS ||
+      resources.destroy_material(pending_material) != GNEISS_ERROR_INVALID_HANDLE ||
+      resources.material_status(pending_material) != GNEISS_ERROR_INVALID_HANDLE ||
+      resources.replace_material(pending_material, material_data)) {
+    return false;
+  }
   render_frame_packet before;
   if (capture_render_frame_packet({}, scene, resources, {}, {}, before) != GNEISS_SUCCESS ||
       !before.resources.mesh_pending(mesh) || !before.resources.texture_pending(texture) ||

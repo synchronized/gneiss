@@ -20,6 +20,7 @@ namespace gneiss::engine::render {
 class render_resource_snapshot final {
 public:
   [[nodiscard]] const mesh_resource* get_mesh(engine::core::rid mesh) const noexcept;
+  /** 已捕获的预留材质返回中性缺省参数；未捕获或无效句柄仍返回空。 */
   [[nodiscard]] const material_resource* get_material(engine::core::rid material) const noexcept;
   [[nodiscard]] const texture_resource* get_texture(engine::core::rid texture) const noexcept;
   [[nodiscard]] bool mesh_pending(engine::core::rid mesh) const noexcept;

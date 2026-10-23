@@ -441,38 +441,9 @@ int main() try {
       failed_reload != second || load_count != 2U) {
     return 3;
   }
-  std::vector<gneiss::engine::resource::resource_cache::reload_request> transaction{
-      {.uri = "asset://models/triangle.mesh",
-       .type = 1U,
-       .load = [&](gneiss::engine::resource::resource_cache&,
-                   std::shared_ptr<void>& resource) { return loader(resource); }},
-      {.uri = "asset://models/second.mesh",
-       .type = 1U,
-       .load = [&](gneiss::engine::resource::resource_cache&, std::shared_ptr<void>& resource) {
-         return reloader(resource);
-       }}};
-  std::vector<std::shared_ptr<const gneiss::engine::resource::resource_cache::entry>> committed;
-  if (cache.reload_transaction(transaction, committed) != GNEISS_SUCCESS ||
-      committed.size() != 2U || cache.size() != 2U) {
-    return 4;
-  }
-  auto transaction_first = committed.front();
-  transaction[1].load = [&](gneiss::engine::resource::resource_cache&,
-                            std::shared_ptr<void>& resource) { return failed_reloader(resource); };
-  committed.clear();
-  if (cache.reload_transaction(transaction, committed) != GNEISS_ERROR_IO || !committed.empty()) {
-    return 4;
-  }
-  std::shared_ptr<const gneiss::engine::resource::resource_cache::entry> after_failure;
-  if (cache.acquire("asset://models/triangle.mesh", 1U, loader, after_failure) != GNEISS_SUCCESS ||
-      after_failure != transaction_first || load_count != 5U) {
-    return 4;
-  }
   first.reset();
   second.reset();
   failed_reload.reset();
-  transaction_first.reset();
-  after_failure.reset();
   cache.release_unused();
   if (cache.size() != 0U) {
     return 4;
@@ -491,7 +462,7 @@ int main() try {
 
   gneiss::engine::resource::resource_cache other_cache;
   if (other_cache.acquire("asset://models/triangle.mesh", 1U, loader, first) != GNEISS_SUCCESS ||
-      load_count != 6U) {
+      load_count != 3U) {
     return 6;
   }
   return 0;

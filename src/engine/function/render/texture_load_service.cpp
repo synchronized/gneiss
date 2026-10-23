@@ -25,6 +25,7 @@ struct texture_load_service::pending {
   };
   std::shared_ptr<cpu_result> cpu{std::make_shared<cpu_result>()};
   std::vector<render_asset_loader::asset_candidate> candidates;
+  std::vector<render_asset_lease> targets;
   texture_upload_backend::data data;
   render_asset_loader::revision_stamp observed;
   texture_load_completion completion;
@@ -141,6 +142,19 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
     value->completion.assets.clear();
   }
   engine::resource::material_document_decoder decode;
+  if (mode == render_asset_loader::publication_mode::reload) {
+    value->targets.reserve(sources.size());
+    for (const auto& source : sources) {
+      render_asset_lease target;
+      const auto reserved = loader_.reserve_asset(source, target);
+      if (reserved != GNEISS_SUCCESS) {
+        value.reset();
+        loader_.release_unused();
+        return reserved;
+      }
+      value->targets.push_back(std::move(target));
+    }
+  }
   if (documents_) {
     value->cpu->documents = documents_->begin();
     decode = [documents = value->cpu->documents](const auto& bytes, auto& parameters, auto& uris,
@@ -160,10 +174,13 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
       engine::core::diagnostics::measure(engine::core::diagnostics::loop_stage::task_submit,
                                          [&] { return submit_preparation(*value); });
   if (accepted != engine::core::tasks::submit_result::success) {
+    value.reset();
+    loader_.release_unused();
     return accepted == engine::core::tasks::submit_result::full ? GNEISS_ERROR_NOT_READY
                                                                 : GNEISS_ERROR_INVALID_STATE;
   }
   request = value->completion.request;
+  value->observed = loader_.revision();
   pending_ = std::move(value);
   return GNEISS_SUCCESS;
 }
@@ -215,11 +232,20 @@ void texture_load_service::finish(gneiss_result result, texture_load_state state
     notification_->notify();
   }
   pending_.reset();
+  loader_.release_unused();
 }
 void texture_load_service::check_owner() const {
   if (std::this_thread::get_id() != owner_) {
     throw std::logic_error("资产服务线程错误");
   }
+}
+std::span<const render_asset_lease> texture_load_service::requested_assets() const {
+  check_owner();
+  if (pending_) {
+    return pending_->targets;
+  }
+  return completed_ ? std::span<const render_asset_lease>{completed_->assets}
+                    : std::span<const render_asset_lease>{};
 }
 void texture_load_service::advance() {
   GNEISS_PROFILE_SCOPE("asset.advance");
@@ -319,10 +345,16 @@ void texture_load_service::advance_impl() {
     for (unsigned count = 0U;
          value.candidates.size() < value.cpu->batch.assets.size() && count < 4U; ++count) {
       render_asset_loader::asset_candidate candidate;
+      const auto& source = value.cpu->batch.assets[value.candidates.size()].source;
+      const auto target = std::ranges::find_if(value.targets, [&](const auto& lease) {
+        return lease.uri() == source.uri && lease.type() == source.type;
+      });
       const auto result = engine::core::diagnostics::measure(
           engine::core::diagnostics::loop_stage::asset_stage, [&] {
             return loader_.stage_asset(std::move(value.cpu->batch.assets[value.candidates.size()]),
-                                       value.candidates, candidate, value.mode);
+                                       value.candidates, candidate, value.mode,
+                                       target == value.targets.end() ? render_asset_lease{}
+                                                                     : *target);
           });
       if (result != GNEISS_SUCCESS) {
         value.cpu->message = "资产候选暂存失败";
@@ -359,8 +391,10 @@ void texture_load_service::advance_impl() {
       }
     }
     if (value.candidates.size() != value.cpu->batch.assets.size()) {
+      value.observed = loader_.revision();
       return;
     }
+    value.observed = loader_.revision();
   }
   if (value.in_flight) {
     gneiss_result result{};

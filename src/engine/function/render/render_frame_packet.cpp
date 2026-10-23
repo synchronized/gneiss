@@ -44,7 +44,11 @@ const mesh_resource* render_resource_snapshot::get_mesh(engine::core::rid mesh) 
 const material_resource*
 render_resource_snapshot::get_material(engine::core::rid material) const noexcept {
   const auto found = materials_.find(material);
-  return found == materials_.end() ? nullptr : found->second.get();
+  if (found == materials_.end()) {
+    return nullptr;
+  }
+  static const material_resource fallback{};
+  return found->second ? found->second.get() : &fallback;
 }
 
 const texture_resource*
@@ -77,13 +81,14 @@ gneiss_result capture_render_frame_packet(const engine::platform::native_window_
       if (result != GNEISS_SUCCESS) {
         return result;
       }
-      result =
-          capture_resource(instance.material, candidate.resources.materials_,
-                           [&](const auto handle) { return resources.share_material(handle); });
+      result = capture_resource(
+          instance.material, candidate.resources.materials_,
+          [&](const auto handle) { return resources.share_material(handle); },
+          resources.material_status(instance.material) == GNEISS_ERROR_NOT_READY);
       if (result != GNEISS_SUCCESS) {
         return result;
       }
-      const auto& material = *candidate.resources.materials_.at(instance.material);
+      const auto& material = *candidate.resources.get_material(instance.material);
       for (const auto texture : material.texture_handles()) {
         if (texture == engine::core::null_rid)
           continue;

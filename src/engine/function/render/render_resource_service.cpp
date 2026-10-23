@@ -72,6 +72,17 @@ gneiss_result render_resource_service::mesh_status(engine::core::rid mesh) const
   const auto* slot = meshes_.get(mesh, engine::core::resource_type::mesh);
   return !slot ? GNEISS_ERROR_INVALID_HANDLE : (*slot ? GNEISS_SUCCESS : GNEISS_ERROR_NOT_READY);
 }
+gneiss_result render_resource_service::reserve_material(engine::core::rid* output) noexcept {
+  return materials_.create(engine::core::resource_type::material,
+                           std::shared_ptr<const material_resource>{}, output);
+}
+gneiss_result render_resource_service::material_status(engine::core::rid material) const noexcept {
+  const auto* slot = materials_.get(material, engine::core::resource_type::material);
+  if (slot == nullptr) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  return *slot ? GNEISS_SUCCESS : GNEISS_ERROR_NOT_READY;
+}
 gneiss_result render_resource_service::texture_status(engine::core::rid texture) const noexcept {
   const auto* slot = textures_.get(texture, engine::core::resource_type::texture);
   return !slot ? GNEISS_ERROR_INVALID_HANDLE : (*slot ? GNEISS_SUCCESS : GNEISS_ERROR_NOT_READY);

@@ -40,9 +40,11 @@ public:
    * 不创建后端对象；所有权属于调用方，销毁和跨服务校验与普通 RID 一致。 */
   [[nodiscard]] GNEISS_API gneiss_result reserve_mesh(engine::core::rid* output) noexcept;
   [[nodiscard]] GNEISS_API gneiss_result reserve_texture(engine::core::rid* output) noexcept;
+  [[nodiscard]] gneiss_result reserve_material(engine::core::rid* output) noexcept;
   /** 只查询 CPU 内容：SUCCESS 已填充，NOT_READY 仅预留，INVALID_HANDLE 已失效或不属于本服务。 */
   [[nodiscard]] gneiss_result mesh_status(engine::core::rid mesh) const noexcept;
   [[nodiscard]] gneiss_result texture_status(engine::core::rid texture) const noexcept;
+  [[nodiscard]] gneiss_result material_status(engine::core::rid material) const noexcept;
   [[nodiscard]] gneiss_result create_mesh(const engine::resource::mesh_view& desc,
                                           engine::core::rid* out_mesh) noexcept;
   /** 校验并接收拥有型网格，成功路径不再复制数组。 */

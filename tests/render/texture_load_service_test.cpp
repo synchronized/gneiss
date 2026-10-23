@@ -242,6 +242,35 @@ void shared_mesh_documents() {
   frame.reset();
   check(lifetime.expired());
 }
+void reserved_material_lifetime() {
+  auto source = std::make_shared<memory_files>();
+  virtual_file_system files;
+  check(files.mount("asset://", source) == GNEISS_SUCCESS);
+  render_resource_service resources;
+  resource_cache cache;
+  render_asset_loader loader(files, cache, resources);
+  const render_asset_reload request{"asset://material", render_asset_type::material};
+  render_asset_lease target;
+  check(loader.reserve_asset(request, target) == GNEISS_SUCCESS);
+  const auto rid = target.get();
+  auto document = std::make_shared<material_document_lease>();
+  std::weak_ptr<const material_document_lease> lifetime = document;
+  prepared_render_asset prepared;
+  prepared.source = request;
+  prepared.material_document = document;
+  std::array<render_asset_loader::asset_candidate, 1> candidates;
+  check(loader.stage_asset(std::move(prepared), {}, candidates.front(),
+                           render_asset_loader::publication_mode::reload,
+                           target) == GNEISS_SUCCESS);
+  document.reset();
+  check(!lifetime.expired() && resources.material_status(rid) == GNEISS_ERROR_NOT_READY);
+  check(loader.publish_assets(candidates) == GNEISS_SUCCESS);
+  candidates = {};
+  check(!lifetime.expired() && resources.material_status(rid) == GNEISS_SUCCESS);
+  target = {};
+  cache.release_unused();
+  check(lifetime.expired() && resources.material_status(rid) == GNEISS_ERROR_INVALID_HANDLE);
+}
 void fixed_version_publication(engine::core::tasks::execution_mode mode) {
   auto source = std::make_shared<memory_files>();
   source->pixel(std::byte{10});
@@ -534,18 +563,37 @@ void delayed_single_texture_update() {
   const std::array<std::string, 1> uris{"asset://texture"};
   std::uint64_t request{};
   texture_load_completion completion;
+  // 首次解析失败仍保留使用者持有的逻辑 RID，显式重试填充同一槽位。
+  auto payload = std::move(files->files.at("image.ktx2"));
+  files->files.erase("image.ktx2");
   check(service.submit(uris, 1U, 1U, request) == GNEISS_SUCCESS);
+  auto first_target = service.requested_assets().front();
+  bool failed{};
+  until([&] { return failed || (failed = service.take(completion)); });
+  check(completion.state == texture_load_state::failed && accepted == 0U &&
+        resources.texture_status(first_target.get()) == GNEISS_ERROR_NOT_READY);
+  render_asset_lease cached;
+  check(loader.acquire_cached({uris.front(), render_asset_type::texture}, cached) ==
+        GNEISS_ERROR_NOT_READY);
+  files->files["image.ktx2"] = std::move(payload);
+  check(service.submit(uris, 1U, 1U, request) == GNEISS_SUCCESS);
+  check(service.requested_assets().size() == 1U);
+  const auto reserved_rid = service.requested_assets().front().get();
+  check(reserved_rid == first_target.get());
+  first_target = {};
+  check(resources.texture_status(reserved_rid) == GNEISS_ERROR_NOT_READY && cache.size() == 1U);
   until([&] { return attempts != 0U; });
   for (unsigned frame = 0U; frame < 8U; ++frame) {
     advance();
-    check(accepted == 0U && cache.size() == 0U && !service.take(completion));
+    check(accepted == 0U && cache.size() == 1U && !service.take(completion));
   }
   budget_available = true;
   until([&] { return accepted == 1U; });
   const auto submitted_attempts = attempts;
   for (unsigned frame = 0U; frame < 8U; ++frame) {
     advance();
-    check(attempts == submitted_attempts && cache.size() == 0U && !retained.empty());
+    check(attempts == submitted_attempts && cache.size() == 1U && !retained.empty() &&
+          resources.texture_status(reserved_rid) == GNEISS_ERROR_NOT_READY);
   }
   acknowledged = true;
   bool initial_complete{};
@@ -554,6 +602,7 @@ void delayed_single_texture_update() {
         completion.assets.front().type() == gneiss::engine::render::render_asset_type::texture);
   auto lease = completion.assets.front();
   const auto rid = lease.get();
+  check(rid == reserved_rid && resources.texture_status(rid) == GNEISS_SUCCESS);
   auto old_frame = resources.share_texture(rid);
   check(old_frame && old_frame->levels.front().pixels.front() == std::byte{10});
 
@@ -654,7 +703,8 @@ void run(engine::core::tasks::execution_mode mode) {
   std::uint64_t rejected{};
   check(service.submit(uris, 1U, 2U, rejected) == GNEISS_ERROR_NOT_READY);
   until([&] { return uploaded; });
-  check(cache.size() == 0U);
+  check(cache.size() == 1U && resources.texture_status(service.requested_assets().front().get()) ==
+                                  GNEISS_ERROR_NOT_READY);
   check((files->reader == std::this_thread::get_id()) ==
         (mode == engine::core::tasks::execution_mode::cooperative));
   texture_load_completion completion;
@@ -716,13 +766,15 @@ void run(engine::core::tasks::execution_mode mode) {
         resources.share_texture(rid) == newer_data &&
         previous->levels.front().pixels.front() == std::byte{20});
   lease = std::move(newer);
-  // 未获提交许可的卸载不能被迟到候选复活。
+  // 请求持有目标租约；显式销毁后仍不能被迟到候选复活。
   check(service.submit(uris, 1U, 5U, request) == GNEISS_SUCCESS);
+  check(resources.destroy_texture(newer_rid) == GNEISS_SUCCESS);
   lease = {};
   completion = {};
   cache.release_unused();
   check(resources.get_texture(newer_rid) == nullptr);
   until([&] { return service.take(completion); });
+  cache.release_unused();
   check(completion.state == texture_load_state::failed && cache.size() == 0U);
   check(service.submit(uris, 2U, 1U, request) == GNEISS_SUCCESS);
   service.cancel();
@@ -1101,7 +1153,7 @@ void cancel_unpublished_upload(engine::core::tasks::execution_mode mode) {
   upload_ack = true;
   until([&] { return discards == 1U; });
   advance();
-  check(!service.take(completion) && uploads == 1U && cache.size() == 0U && !retained.empty());
+  check(!service.take(completion) && uploads == 1U && cache.size() == 2U && !retained.empty());
   discard_ack = true;
   until([&] { return service.take(completion); });
   check(completion.state == texture_load_state::cancelled && retained.empty() &&
@@ -1114,6 +1166,7 @@ void cancel_unpublished_upload(engine::core::tasks::execution_mode mode) {
 } // namespace
 
 int main() try {
+  reserved_material_lifetime();
   delayed_single_texture_update();
   shared_mesh_documents();
   fixed_version_publication(engine::core::tasks::execution_mode::cooperative);

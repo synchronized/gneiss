@@ -27,7 +27,7 @@ class render_resource_service;
 
 class render_asset_lease {
 public:
-  /** 比较是否持有同一个已发布版本，不读取或刷新来源。 */
+  /** 比较是否持有同一缓存条目；普通资产内容可更新，不读取或刷新来源。 */
   [[nodiscard]] bool operator==(const render_asset_lease&) const noexcept = default;
   [[nodiscard]] std::uint64_t get() const noexcept;
   [[nodiscard]] render_asset_type type() const noexcept {
@@ -111,6 +111,7 @@ public:
     std::shared_ptr<const material_resource> material;
     std::shared_ptr<const texture_resource> texture;
     std::shared_ptr<const void> previous;
+    std::shared_ptr<const engine::resource::material_document_lease> document;
     std::array<std::shared_ptr<const engine::resource::resource_cache::entry>, 5> dependencies;
     std::array<std::shared_ptr<const texture_resource>, 5> dependency_textures;
     std::size_t bytes{};
@@ -132,12 +133,20 @@ public:
                                              render_asset_lease& output,
                                              texture_prepare_profile profile = {}) const noexcept;
   [[nodiscard]] revision_stamp revision() const noexcept { return {cache_.revision(), revision_}; }
+  /** 所属线程取得请求目标；同 URI 复用缓存中的 RID，缺失时先建立空内容槽位。
+   * 缓存条目存在不表示 CPU/GPU 就绪；失败后的无使用者目标由 release_unused 回收。
+   * 只供普通加载使用，调用方仍须等待上传成功再 publish 内容。 */
+  [[nodiscard]] gneiss_result reserve_asset(const render_asset_reload& source,
+                                            render_asset_lease& output) noexcept;
   /** 固定版本模式要求已复验的版本键；existed 表示已发布复用，调用方应跳过上传。
-   * 新候选拥有独立 RID，未发布前销毁即撤回；GPU 上传须先确认或撤回再释放候选。
+   * 固定版本新候选拥有独立 RID；普通加载复用缓存 RID，仅在成功后替换内容。
+   * GPU 上传须先确认或撤回再释放候选。
    * 不可混合两种发布模式；材质依赖须先以确切版本准备并置于 staged。 */
-  [[nodiscard]] gneiss_result
-  stage_asset(prepared_render_asset prepared, std::span<const asset_candidate> staged,
-              asset_candidate& output, publication_mode mode = publication_mode::reload) noexcept;
+  [[nodiscard]] gneiss_result stage_asset(prepared_render_asset prepared,
+                                          std::span<const asset_candidate> staged,
+                                          asset_candidate& output,
+                                          publication_mode mode = publication_mode::reload,
+                                          const render_asset_lease& reserved = {}) noexcept;
   [[nodiscard]] gneiss_result publish_assets(std::span<asset_candidate> candidates) noexcept;
   [[nodiscard]] static mesh_asset_lease mesh_lease(const render_asset_lease& lease) noexcept;
   [[nodiscard]] static material_asset_lease
