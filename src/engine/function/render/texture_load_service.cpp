@@ -119,7 +119,6 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
   value->completion.profile = backend_.profile;
   value->candidates.reserve(maximum_assets);
   value->data.reserve(maximum_assets);
-  value->completion.textures.reserve(maximum_assets);
   value->completion.assets.reserve(maximum_assets);
   value->completion.versions.reserve(maximum_assets);
   if (!reload && mode == render_asset_loader::publication_mode::reload) {
@@ -131,9 +130,6 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
         break;
       }
       value->completion.assets.push_back(lease);
-      if (lease.type() == render_asset_type::texture) {
-        value->completion.textures.push_back(loader_.texture_lease(lease));
-      }
     }
     if (cached) {
       value->completion.state = texture_load_state::applied;
@@ -143,7 +139,6 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
       return GNEISS_SUCCESS;
     }
     value->completion.assets.clear();
-    value->completion.textures.clear();
   }
   engine::resource::material_document_decoder decode;
   if (documents_) {
@@ -474,9 +469,6 @@ void texture_load_service::advance_impl() {
   }
   for (const auto& candidate : value.candidates) {
     value.completion.assets.push_back(candidate.lease);
-    if (candidate.texture) {
-      value.completion.textures.push_back(loader_.texture_lease(candidate.lease));
-    }
   }
   value.completion.commit_ms = std::chrono::duration<double, std::milli>(
                                    std::chrono::steady_clock::now() - value.commit_started)

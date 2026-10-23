@@ -467,8 +467,10 @@ void cooperative_read_slices() {
                              "，消息=" + completion.message);
   }
   check(files->bytes_read->load() >= 2U * files->files["image.ktx2"].size());
-  check(completion.textures.size() == 1U && cache.size() == 1U);
-  const auto texture = resources.share_texture(completion.textures.front().get());
+  check(completion.assets.size() == 1U &&
+        completion.assets.front().type() == gneiss::engine::render::render_asset_type::texture &&
+        cache.size() == 1U);
+  const auto texture = resources.share_texture(completion.assets.front().get());
   check(texture && texture->levels.front().pixels.size() == std::size_t{4U} * 1024U * 1024U &&
         texture->levels.front().pixels.back() == std::byte{127});
 }
@@ -548,8 +550,9 @@ void delayed_single_texture_update() {
   acknowledged = true;
   bool initial_complete{};
   until([&] { return initial_complete || (initial_complete = service.take(completion)); });
-  check(completion.state == texture_load_state::applied && completion.textures.size() == 1U);
-  auto lease = completion.textures.front();
+  check(completion.state == texture_load_state::applied && completion.assets.size() == 1U &&
+        completion.assets.front().type() == gneiss::engine::render::render_asset_type::texture);
+  auto lease = completion.assets.front();
   const auto rid = lease.get();
   auto old_frame = resources.share_texture(rid);
   check(old_frame && old_frame->levels.front().pixels.front() == std::byte{10});
@@ -574,7 +577,7 @@ void delayed_single_texture_update() {
     check(completion.result == expected && retained.empty());
     check(old_frame->levels.front().pixels.front() == std::byte{10});
     if (expected == GNEISS_SUCCESS) {
-      check(completion.textures.front().get() == rid &&
+      check(completion.assets.front().get() == rid &&
             resources.share_texture(rid)->levels.front().pixels.front() == std::byte{20});
     } else {
       check(resources.share_texture(rid) == old_frame);
@@ -664,14 +667,15 @@ void run(engine::core::tasks::execution_mode mode) {
   upload_result = GNEISS_SUCCESS;
   check(service.submit(uris, 1U, 2U, request) == GNEISS_SUCCESS);
   until([&] { return service.take(completion); });
-  check(completion.state == texture_load_state::applied && completion.textures.size() == 1U);
-  auto lease = completion.textures.front();
+  check(completion.state == texture_load_state::applied && completion.assets.size() == 1U &&
+        completion.assets.front().type() == gneiss::engine::render::render_asset_type::texture);
+  auto lease = completion.assets.front();
   const auto rid = lease.get();
   auto previous = resources.share_texture(rid);
   check(previous && previous->levels.front().pixels.front() == std::byte{10});
   files->reader = {};
   check(service.submit(uris, 1U, 2U, request, false) == GNEISS_SUCCESS);
-  check(service.take(completion) && completion.textures.front().get() == rid &&
+  check(service.take(completion) && completion.assets.front().get() == rid &&
         files->reader == std::thread::id{});
   files->pixel(std::byte{20});
   uploaded = false;
@@ -682,8 +686,8 @@ void run(engine::core::tasks::execution_mode mode) {
   service.cancel(); // 上传已获许可，迟到取消不撤销提交。
   ready = true;
   until([&] { return service.take(completion); });
-  check(completion.state == texture_load_state::applied &&
-        completion.textures.front().get() == rid && resources.share_texture(rid) != previous &&
+  check(completion.state == texture_load_state::applied && completion.assets.front().get() == rid &&
+        resources.share_texture(rid) != previous &&
         previous->levels.front().pixels.front() == std::byte{10});
   previous = resources.share_texture(rid);
   const std::vector<std::string> broken{uris.front(), "asset://b.texture.json"};
@@ -699,8 +703,8 @@ void run(engine::core::tasks::execution_mode mode) {
   asset_diagnostic diagnostic;
   const std::vector<render_asset_reload> synchronous{{uris.front(), render_asset_type::texture}};
   check(loader.reload_assets(synchronous, diagnostic) == GNEISS_SUCCESS);
-  texture_asset_lease newer;
-  check(loader.acquire_texture(uris.front(), newer, diagnostic) == GNEISS_SUCCESS);
+  render_asset_lease newer;
+  check(loader.acquire_cached(synchronous.front(), newer) == GNEISS_SUCCESS);
   const auto newer_rid = newer.get();
   ready = true;
   until([&] { return service.take(completion); });

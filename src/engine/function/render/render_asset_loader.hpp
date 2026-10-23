@@ -139,7 +139,6 @@ public:
   stage_asset(prepared_render_asset prepared, std::span<const asset_candidate> staged,
               asset_candidate& output, publication_mode mode = publication_mode::reload) noexcept;
   [[nodiscard]] gneiss_result publish_assets(std::span<asset_candidate> candidates) noexcept;
-  [[nodiscard]] texture_asset_lease texture_lease(const render_asset_lease& lease) const noexcept;
   [[nodiscard]] static mesh_asset_lease mesh_lease(const render_asset_lease& lease) noexcept;
   [[nodiscard]] static material_asset_lease
   material_lease(const render_asset_lease& lease) noexcept;

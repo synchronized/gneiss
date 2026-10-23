@@ -80,7 +80,8 @@ void run(gneiss::engine::core::tasks::execution_mode mode) {
     std::this_thread::yield();
   }
   check(completion.result == GNEISS_SUCCESS && completion.request == request &&
-        completion.textures.size() == 1U);
+        completion.assets.size() == 1U &&
+        completion.assets.front().type() == gneiss::engine::render::render_asset_type::texture);
   const auto wait = [&] {
     bool completed = false;
     const auto limit = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -202,7 +203,7 @@ void run(gneiss::engine::core::tasks::execution_mode mode) {
   wait();
   check(completion.result == GNEISS_ERROR_INVALID_STATE &&
         completion.state == engine::render::texture_load_state::failed &&
-        completion.assets.empty() && completion.textures.empty() && completion.versions.empty());
+        completion.assets.empty() && completion.versions.empty());
   const std::array unchanged{
       engine::world::mesh_renderer_replacement{.entity = gneiss::entity_id{node.entity},
                                                .expected = {external.mesh, external.material},

@@ -162,15 +162,6 @@ std::uint64_t render_asset_lease::get() const noexcept {
   }
   return 0U;
 }
-texture_asset_lease
-render_asset_loader::texture_lease(const render_asset_lease& lease) const noexcept {
-  texture_asset_lease result;
-  if (lease.type() == render_asset_type::texture) {
-    result.entry_ = lease.entry_;
-  }
-  return result;
-}
-
 bool render_asset_loader::owns(const render_asset_lease& lease) const noexcept {
   if (!lease.entry_ || !lease.entry_->resource) {
     return false;

@@ -25,7 +25,6 @@ struct texture_load_completion {
   texture_load_state state{texture_load_state::failed};
   gneiss_result result{GNEISS_ERROR_INTERNAL};
   std::string message{};
-  std::vector<engine::render::texture_asset_lease> textures;
   std::vector<engine::render::render_asset_lease> assets;
   /** 固定版本模式下与 assets 一一对应；旧 URI 模式为空。失败不返回部分版本。 */
   std::vector<engine::resource::asset_version_key> versions;

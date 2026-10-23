@@ -253,7 +253,6 @@ gneiss_result scene_session::poll_assets(engine::render::texture_load_completion
       completion.state = engine::render::texture_load_state::failed;
     }
     completion.assets.clear();
-    completion.textures.clear();
     completion.versions.clear();
   }
   previous_assets_.clear();

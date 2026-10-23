@@ -128,6 +128,7 @@ S0/S1 正在执行，S2～S5 未实施；不把设计图描述为当前源码。
 | 步骤 | 删除目标与现有调用者 | 前提及验收 | 状态 |
 | --- | --- | --- | --- |
 | 1 无依赖冗余 | 纹理专用 observe/stage/publish、texture_target/candidate；仅旧测试调用 | 测试改走通用候选，保留负载移动及设备配置断言；相关加载回归 | 此项已删除，见[记录](../records/2026-10-23-render-asset-removals.md)；其他冗余继续审计 |
+| 1 重复回执 | texture_load_completion.textures 与 assets 重复持有租约；生产只写入/清空 textures | 回执统一为 assets，单纹理测试同时核对类型、RID 与寿命 | 已删除，完整回归 201/201 通过 |
 | 1 元数据复核 | material_document 的摘要与字节数；material_document_versions 仍校验 | 先将同次读取的来源证据绑定到加载结果，再去重，不能直接删校验 | 待迁移 |
 | 2 稳定 RID 闭环 | 普通路径 fixed_version、prepare_adoption、整批发布/回滚；加载服务及 scene_session 使用 | 请求取得预留租约；逐项成功填充；首次失败缺省、更新保旧、乱序及销毁迟到均验证 | 待实施 |
 | 3 场景提前激活 | scene_load_service 的全部视觉依赖等待与激活前整批采用 | 节点可引用待加载资产；活动场景接管未完成任务；切换/取消/关闭回归 | 待实施 |
