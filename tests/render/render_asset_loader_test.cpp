@@ -313,18 +313,22 @@ void selected_variants() {
               files, requests, batch, diagnostic, [&] { return ++cancellation_checks == 2U; }, 1U,
               limit, compressed) == GNEISS_ERROR_INVALID_STATE &&
           batch.assets.empty());
-  // 单纹理暂存入口同样接收纯准备数据，移动后保留 payload 与设备身份。
+  // 单纹理也走通用候选入口；移动后仍保留负载与设备身份。
   require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, binary.size(),
                           false, binary.size(), compressed) == GNEISS_SUCCESS);
   const auto* single_payload = texture.payload.data();
-  render_asset_loader::texture_target target;
-  require(loader.observe_texture("asset://single.texture.json", target) == GNEISS_SUCCESS);
-  std::array<render_asset_loader::texture_candidate, 1> single;
-  require(loader.stage_texture(target, std::move(texture), single.front()) == GNEISS_SUCCESS);
-  require(single.front().data->payload.data() == single_payload &&
-          single.front().data->profile == compressed &&
-          single.front().data->selected_variant == 0U);
-  require(loader.publish_textures(single) == GNEISS_SUCCESS);
+  prepared_render_asset single_prepared;
+  single_prepared.source = {"asset://single.texture.json", render_asset_type::texture};
+  single_prepared.texture = std::move(texture);
+  std::array<render_asset_loader::asset_candidate, 1> single;
+  require(loader.stage_asset(std::move(single_prepared), {}, single.front()) == GNEISS_SUCCESS);
+  require(single.front().texture_payload &&
+          single.front().texture_payload->data() == single_payload &&
+          single.front().texture->payload.empty() &&
+          single.front().texture->upload_payload.lock() == single.front().texture_payload &&
+          single.front().texture->profile == compressed &&
+          single.front().texture->selected_variant == 0U);
+  require(loader.publish_assets(single) == GNEISS_SUCCESS);
 
 #endif
 }
