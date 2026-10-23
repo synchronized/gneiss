@@ -242,6 +242,40 @@ void shared_mesh_documents() {
   frame.reset();
   check(lifetime.expired());
 }
+void independent_update_sequences() {
+  virtual_file_system files;
+  render_resource_service resources;
+  resource_cache cache;
+  render_asset_loader loader(files, cache, resources);
+  const render_asset_reload source_a{"asset://a", render_asset_type::material};
+  const render_asset_reload source_b{"asset://b", render_asset_type::material};
+  render_asset_lease a, b;
+  check(loader.reserve_asset(source_a, a) == GNEISS_SUCCESS);
+  check(loader.reserve_asset(source_b, b) == GNEISS_SUCCESS);
+  const auto stage = [&](const auto& source, const auto& target, auto sequence, auto& output) {
+    prepared_render_asset prepared;
+    prepared.source = source;
+    return loader.stage_asset(std::move(prepared), {}, output,
+                              render_asset_loader::publication_mode::reload, target, sequence);
+  };
+  std::array<render_asset_loader::asset_candidate, 1> first, unrelated, late, latest;
+  const auto first_sequence = loader.next_update_sequence();
+  check(stage(source_a, a, first_sequence, first.front()) == GNEISS_SUCCESS);
+  check(stage(source_b, b, loader.next_update_sequence(), unrelated.front()) == GNEISS_SUCCESS);
+  check(loader.publish_assets(unrelated) == GNEISS_SUCCESS);
+  check(loader.publish_assets(first) == GNEISS_SUCCESS);
+  const auto previous = resources.share_material(a.get());
+  const auto old_sequence = loader.next_update_sequence();
+  check(stage(source_a, a, old_sequence, late.front()) == GNEISS_SUCCESS);
+  const auto new_sequence = loader.next_update_sequence();
+  check(loader.claim_update(a, new_sequence));
+  // 新请求尚未完成也阻止旧任务覆盖；最新请求失败时仍保留当前成功内容。
+  check(loader.publish_assets(late) == GNEISS_ERROR_INVALID_STATE);
+  check(resources.share_material(a.get()) == previous);
+  check(stage(source_a, a, old_sequence, late.front()) == GNEISS_ERROR_INVALID_STATE);
+  check(stage(source_a, a, new_sequence, latest.front()) == GNEISS_SUCCESS);
+  check(loader.publish_assets(latest) == GNEISS_SUCCESS);
+}
 void reserved_material_lifetime() {
   auto source = std::make_shared<memory_files>();
   virtual_file_system files;
@@ -819,6 +853,7 @@ void mixed(engine::core::tasks::execution_mode mode, bool pbr = false) {
   resource_cache cache;
   render_asset_loader loader(vfs, cache, resources);
   unsigned chunks{}, discards{};
+  std::size_t first_chunk{};
   bool fail = true;
   bool uploaded = false;
   bool ack = true;
@@ -833,6 +868,9 @@ void mixed(engine::core::tasks::execution_mode mode, bool pbr = false) {
             }
             check(data.size() == 1U || bytes <= texture_load_service::upload_budget_bytes);
             ++chunks;
+            if (chunks == 1U) {
+              first_chunk = data.size();
+            }
             uploaded = true;
             sequence = ++serial;
             return GNEISS_SUCCESS;
@@ -844,7 +882,7 @@ void mixed(engine::core::tasks::execution_mode mode, bool pbr = false) {
           },
       .discard =
           [&](auto data, auto& sequence) {
-            check(data.size() == expected_assets);
+            check(data.size() == expected_assets - first_chunk);
             ++discards;
             sequence = ++serial;
             return GNEISS_SUCCESS;
@@ -1078,7 +1116,7 @@ void packaged_lifetime(engine::core::tasks::execution_mode mode) {
 }
 }
 namespace {
-void cancel_unpublished_upload(engine::core::tasks::execution_mode mode) {
+void cancel_unpublished_upload(engine::core::tasks::execution_mode mode, bool after_first = false) {
   engine::core::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   auto files = std::make_shared<memory_files>();
   files->pixel(std::byte{10});
@@ -1117,7 +1155,7 @@ void cancel_unpublished_upload(engine::core::tasks::execution_mode mode) {
           },
       .discard =
           [&](auto data, auto& sequence) {
-            check(data.size() == 2U);
+            check(data.size() == (after_first ? 1U : 2U));
             retained = std::move(data);
             sequence = 2U;
             ++discards;
@@ -1146,26 +1184,45 @@ void cancel_unpublished_upload(engine::core::tasks::execution_mode mode) {
   std::uint64_t request{};
   texture_load_completion completion;
   check(service.submit(uris, 1U, 1U, request, false) == GNEISS_SUCCESS);
+  auto first = after_first ? service.requested_assets().front() : render_asset_lease{};
   until([&] { return uploads == 1U; });
+  if (after_first) {
+    upload_ack = true;
+    until([&] { return uploads == 2U; });
+    upload_ack = false;
+    check(resources.texture_status(first.get()) == GNEISS_SUCCESS);
+    check(!service.take(completion));
+  }
+  const auto submitted = uploads;
   check(!service.cancel() && service.cancel_unpublished() && service.cancel_unpublished());
   advance();
-  check(!service.take(completion) && uploads == 1U && discards == 0U && !retained.empty());
+  check(!service.take(completion) && uploads == submitted && discards == 0U && !retained.empty());
   upload_ack = true;
   until([&] { return discards == 1U; });
   advance();
-  check(!service.take(completion) && uploads == 1U && cache.size() == 2U && !retained.empty());
+  check(!service.take(completion) && uploads == submitted && cache.size() == 2U &&
+        !retained.empty());
   discard_ack = true;
   until([&] { return service.take(completion); });
   check(completion.state == texture_load_state::cancelled && retained.empty() &&
-        resources.live_resource_count() == 0U && !service.cancel_unpublished());
+        resources.live_resource_count() == (after_first ? 1U : 0U) &&
+        !service.cancel_unpublished());
+  if (after_first) {
+    check(resources.texture_status(first.get()) == GNEISS_SUCCESS && cache.size() == 1U);
+    check(completion.results.size() == 2U && completion.results.front().applied &&
+          completion.results.front().result == GNEISS_SUCCESS &&
+          !completion.results.back().applied &&
+          completion.results.back().result == GNEISS_ERROR_INVALID_STATE);
+  }
   check(service.submit(uris, 1U, 2U, request, false) == GNEISS_SUCCESS);
   until([&] { return service.take(completion); });
-  check(completion.state == texture_load_state::applied && uploads == 3U && discards == 1U &&
-        cache.size() == 2U);
+  check(completion.state == texture_load_state::applied && uploads == submitted + 2U &&
+        discards == 1U && cache.size() == 2U);
 }
 } // namespace
 
 int main() try {
+  independent_update_sequences();
   reserved_material_lifetime();
   delayed_single_texture_update();
   shared_mesh_documents();
@@ -1175,6 +1232,8 @@ int main() try {
   cooperative_read_slices();
   cancel_unpublished_upload(engine::core::tasks::execution_mode::cooperative);
   cancel_unpublished_upload(engine::core::tasks::execution_mode::thread_pool);
+  cancel_unpublished_upload(engine::core::tasks::execution_mode::cooperative, true);
+  cancel_unpublished_upload(engine::core::tasks::execution_mode::thread_pool, true);
   packaged_lifetime(engine::core::tasks::execution_mode::cooperative);
   packaged_lifetime(engine::core::tasks::execution_mode::thread_pool);
   mixed(engine::core::tasks::execution_mode::cooperative, true);

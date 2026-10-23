@@ -14,6 +14,7 @@ namespace gneiss::engine::render {
 struct texture_load_service::pending {
   render_asset_loader::publication_mode mode{render_asset_loader::publication_mode::reload};
   std::size_t reused_assets{};
+  std::uint64_t update_sequence{};
   struct cpu_result {
     prepared_render_batch batch;
     std::shared_ptr<engine::resource::cpu_document_batch> documents;
@@ -37,6 +38,7 @@ struct texture_load_service::pending {
   bool cancelled{};
   std::size_t next_upload{};
   std::size_t completed_uploads{};
+  std::size_t published_uploads{};
   std::uint64_t upload{};
   std::size_t upload_reserved_bytes{};
   gneiss_result failure{GNEISS_SUCCESS};
@@ -122,6 +124,10 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
   value->data.reserve(maximum_assets);
   value->completion.assets.reserve(maximum_assets);
   value->completion.versions.reserve(maximum_assets);
+  value->completion.results.reserve(maximum_assets);
+  for (const auto& source : sources) {
+    value->completion.results.push_back({.source = source});
+  }
   if (!reload && mode == render_asset_loader::publication_mode::reload) {
     bool cached = true;
     for (const auto& source : sources) {
@@ -133,6 +139,10 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
       value->completion.assets.push_back(lease);
     }
     if (cached) {
+      for (auto& item : value->completion.results) {
+        item.result = GNEISS_SUCCESS;
+        item.applied = true;
+      }
       value->completion.state = texture_load_state::applied;
       value->completion.result = GNEISS_SUCCESS;
       request = value->completion.request;
@@ -143,6 +153,7 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
   }
   engine::resource::material_document_decoder decode;
   if (mode == render_asset_loader::publication_mode::reload) {
+    value->update_sequence = loader_.next_update_sequence();
     value->targets.reserve(sources.size());
     for (const auto& source : sources) {
       render_asset_lease target;
@@ -178,6 +189,10 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
     loader_.release_unused();
     return accepted == engine::core::tasks::submit_result::full ? GNEISS_ERROR_NOT_READY
                                                                 : GNEISS_ERROR_INVALID_STATE;
+  }
+  // 任务被接受后才取代旧请求；队列满等提交失败不会使旧任务失效。
+  for (const auto& target : value->targets) {
+    (void)loader_.claim_update(target, value->update_sequence);
   }
   request = value->completion.request;
   value->observed = loader_.revision();
@@ -224,6 +239,12 @@ void texture_load_service::finish(gneiss_result result, texture_load_state state
   pending_->completion.state = state;
   pending_->completion.prepare_ms = pending_->cpu->milliseconds;
   pending_->completion.candidate_bytes = pending_->cpu->batch.bytes;
+  for (auto& item : pending_->completion.results) {
+    if (!item.applied) {
+      item.result = result;
+      item.applied = result == GNEISS_SUCCESS;
+    }
+  }
   if (result != GNEISS_SUCCESS) {
     pending_->completion.versions.clear();
   }
@@ -336,7 +357,8 @@ void texture_load_service::advance_impl() {
       finish(GNEISS_ERROR_INVALID_STATE, texture_load_state::cancelled);
       return;
     }
-    if (value.observed != loader_.revision()) {
+    if (value.mode == render_asset_loader::publication_mode::fixed_version &&
+        value.observed != loader_.revision()) {
       value.cpu->message = "资产准备期间发布版本发生变化";
       finish(GNEISS_ERROR_INVALID_STATE, texture_load_state::failed);
       return;
@@ -346,6 +368,10 @@ void texture_load_service::advance_impl() {
          value.candidates.size() < value.cpu->batch.assets.size() && count < 4U; ++count) {
       render_asset_loader::asset_candidate candidate;
       const auto& source = value.cpu->batch.assets[value.candidates.size()].source;
+      if (std::ranges::none_of(value.completion.results,
+                               [&](const auto& item) { return item.source.uri == source.uri; })) {
+        value.completion.results.push_back({.source = source});
+      }
       const auto target = std::ranges::find_if(value.targets, [&](const auto& lease) {
         return lease.uri() == source.uri && lease.type() == source.type;
       });
@@ -354,7 +380,8 @@ void texture_load_service::advance_impl() {
             return loader_.stage_asset(std::move(value.cpu->batch.assets[value.candidates.size()]),
                                        value.candidates, candidate, value.mode,
                                        target == value.targets.end() ? render_asset_lease{}
-                                                                     : *target);
+                                                                     : *target,
+                                       value.update_sequence);
           });
       if (result != GNEISS_SUCCESS) {
         value.cpu->message = "资产候选暂存失败";
@@ -419,6 +446,26 @@ void texture_load_service::advance_impl() {
       value.failure = result;
     } else {
       value.completed_uploads = value.next_upload;
+      if (!value.cancelled && value.mode == render_asset_loader::publication_mode::reload) {
+        // 普通资源各自就绪即可使用；后续失败不撤回已经可见的内容。
+        while (value.published_uploads < value.completed_uploads) {
+          const auto published = loader_.publish_assets(
+              std::span(value.candidates).subspan(value.published_uploads, 1U));
+          if (published != GNEISS_SUCCESS) {
+            value.failure = published;
+            value.cpu->message = "资产内容更新失败";
+            break;
+          }
+          const auto& source = value.candidates[value.published_uploads].source;
+          auto item = std::ranges::find_if(value.completion.results, [&](const auto& entry) {
+            return entry.source.uri == source.uri;
+          });
+          item->result = GNEISS_SUCCESS;
+          item->applied = true;
+          ++value.published_uploads;
+          value.observed = loader_.revision();
+        }
+      }
       if (backend_.elapsed_ms) {
         value.completion.upload_ms += backend_.elapsed_ms();
       }
@@ -428,12 +475,14 @@ void texture_load_service::advance_impl() {
     value.failure = GNEISS_ERROR_INVALID_STATE;
   }
   if (value.failure != GNEISS_SUCCESS) {
-    if (value.data.empty()) {
+    if (value.published_uploads == value.data.size()) {
       finish(value.failure,
              value.cancelled ? texture_load_state::cancelled : texture_load_state::failed);
       return;
     }
-    const auto result = backend_.discard(value.data, value.upload);
+    const auto remaining = std::span(value.data).subspan(value.published_uploads);
+    texture_upload_backend::data unpublished(remaining.begin(), remaining.end());
+    const auto result = backend_.discard(std::move(unpublished), value.upload);
     if (result == GNEISS_ERROR_NOT_READY) {
       return;
     }
@@ -491,11 +540,14 @@ void texture_load_service::advance_impl() {
     value.next_upload = end;
     return;
   }
-  auto result = value.observed == loader_.revision()
-                    ? engine::core::diagnostics::measure(
-                          engine::core::diagnostics::loop_stage::asset_publish,
-                          [&] { return loader_.publish_assets(value.candidates); })
-                    : GNEISS_ERROR_INVALID_STATE;
+  auto result = GNEISS_SUCCESS;
+  if (value.mode == render_asset_loader::publication_mode::fixed_version) {
+    result = value.observed == loader_.revision()
+                 ? engine::core::diagnostics::measure(
+                       engine::core::diagnostics::loop_stage::asset_publish,
+                       [&] { return loader_.publish_assets(value.candidates); })
+                 : GNEISS_ERROR_INVALID_STATE;
+  }
   if (result != GNEISS_SUCCESS) {
     value.cpu->message = "资产候选发布失败";
     value.failure = result;

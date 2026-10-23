@@ -76,6 +76,7 @@ struct mesh_asset final {
   mesh_asset& operator=(const mesh_asset&) = delete;
   gneiss::engine::render::render_resource_service* resources;
   gneiss::engine::core::rid rid;
+  std::uint64_t update_sequence{};
   ~mesh_asset() {
     if (resources != nullptr && rid != gneiss::engine::core::null_rid) {
       (void)resources->destroy_mesh(rid);
@@ -93,6 +94,7 @@ struct material_asset final {
   material_asset& operator=(const material_asset&) = delete;
   gneiss::engine::render::render_resource_service* resources;
   gneiss::engine::core::rid rid;
+  std::uint64_t update_sequence{};
   std::array<std::shared_ptr<const gneiss::engine::resource::resource_cache::entry>, 5> textures;
   std::shared_ptr<const gneiss::engine::resource::material_document_lease> document;
   ~material_asset() {
@@ -110,6 +112,7 @@ struct texture_asset final {
   texture_asset& operator=(const texture_asset&) = delete;
   gneiss::engine::render::render_resource_service* resources;
   gneiss::engine::core::rid rid;
+  std::uint64_t update_sequence{};
   ~texture_asset() {
     if (resources != nullptr && rid != gneiss::engine::core::null_rid) {
       (void)resources->destroy_texture(rid);
@@ -322,6 +325,33 @@ gneiss_result render_asset_loader::acquire_cached(const render_asset_reload& sou
   }
 }
 
+std::uint64_t*
+render_asset_loader::update_sequence(const render_asset_lease& lease) const noexcept {
+  if (!owns(lease)) {
+    return nullptr;
+  }
+  switch (lease.type()) {
+  case render_asset_type::mesh:
+    return &std::static_pointer_cast<mesh_asset>(lease.entry_->resource)->update_sequence;
+  case render_asset_type::texture:
+    return &std::static_pointer_cast<texture_asset>(lease.entry_->resource)->update_sequence;
+  case render_asset_type::material:
+    return &std::static_pointer_cast<material_asset>(lease.entry_->resource)->update_sequence;
+  case render_asset_type::invalid:
+    return nullptr;
+  }
+  return nullptr;
+}
+bool render_asset_loader::claim_update(const render_asset_lease& lease,
+                                       std::uint64_t sequence) noexcept {
+  auto* current = update_sequence(lease);
+  if (current == nullptr || sequence == 0U || sequence < *current) {
+    return false;
+  }
+  *current = sequence;
+  return true;
+}
+
 gneiss_result render_asset_loader::reserve_asset(const render_asset_reload& source,
                                                  render_asset_lease& output) noexcept {
   output = {};
@@ -382,7 +412,8 @@ gneiss_result render_asset_loader::reserve_asset(const render_asset_reload& sour
 gneiss_result render_asset_loader::stage_asset(prepared_render_asset prepared,
                                                std::span<const asset_candidate> staged,
                                                asset_candidate& output, publication_mode mode,
-                                               const render_asset_lease& reserved) noexcept {
+                                               const render_asset_lease& reserved,
+                                               std::uint64_t sequence) noexcept {
   output = {};
   try {
     asset_candidate candidate;
@@ -400,6 +431,12 @@ gneiss_result render_asset_loader::stage_asset(prepared_render_asset prepared,
     if (reserved && (fixed || reserved.type() != prepared.source.type ||
                      reserved.uri() != prepared.source.uri || !owns(reserved))) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    if (!fixed) {
+      candidate.update_sequence = sequence == 0U ? next_update_sequence() : sequence;
+      if (!claim_update(target, candidate.update_sequence)) {
+        return GNEISS_ERROR_INVALID_STATE;
+      }
     }
     if (fixed) {
       candidate.version = std::move(prepared.version);
@@ -594,7 +631,8 @@ gneiss_result render_asset_loader::publish_assets(std::span<asset_candidate> can
         previous = resources_.share_material(candidate.lease.get());
       }
       if (!owns(candidate.lease) || !current || current != candidate.expected.lock() ||
-          previous != candidate.previous) {
+          previous != candidate.previous ||
+          *update_sequence(candidate.lease) != candidate.update_sequence) {
         return GNEISS_ERROR_INVALID_STATE;
       }
     }

@@ -106,6 +106,7 @@ public:
     render_asset_reload source;
     render_asset_lease lease;
     bool existed{};
+    std::uint64_t update_sequence{};
     std::weak_ptr<const engine::resource::resource_cache::entry> expected;
     std::shared_ptr<const mesh_resource> mesh;
     std::shared_ptr<const material_resource> material;
@@ -117,6 +118,9 @@ public:
     std::size_t bytes{};
     std::shared_ptr<const std::vector<std::byte>> texture_payload{};
   };
+  /** 所属线程分配请求顺序；仅用于拒绝迟到结果，不是内容版本或缓存失效序号。 */
+  [[nodiscard]] std::uint64_t next_update_sequence() noexcept { return ++update_sequence_; }
+  [[nodiscard]] bool claim_update(const render_asset_lease& lease, std::uint64_t sequence) noexcept;
   using revision_stamp = std::pair<std::uint64_t, std::uint64_t>;
   /** 完整编码当前准备配置；保守隔离不同设备代次及格式能力，不读取来源。 */
   [[nodiscard]] static engine::resource::resource_cache::selection_key
@@ -142,11 +146,10 @@ public:
    * 固定版本新候选拥有独立 RID；普通加载复用缓存 RID，仅在成功后替换内容。
    * GPU 上传须先确认或撤回再释放候选。
    * 不可混合两种发布模式；材质依赖须先以确切版本准备并置于 staged。 */
-  [[nodiscard]] gneiss_result stage_asset(prepared_render_asset prepared,
-                                          std::span<const asset_candidate> staged,
-                                          asset_candidate& output,
-                                          publication_mode mode = publication_mode::reload,
-                                          const render_asset_lease& reserved = {}) noexcept;
+  [[nodiscard]] gneiss_result
+  stage_asset(prepared_render_asset prepared, std::span<const asset_candidate> staged,
+              asset_candidate& output, publication_mode mode = publication_mode::reload,
+              const render_asset_lease& reserved = {}, std::uint64_t sequence = 0U) noexcept;
   [[nodiscard]] gneiss_result publish_assets(std::span<asset_candidate> candidates) noexcept;
   [[nodiscard]] static mesh_asset_lease mesh_lease(const render_asset_lease& lease) noexcept;
   [[nodiscard]] static material_asset_lease
@@ -178,6 +181,8 @@ public:
   void release_unused() noexcept { cache_.release_unused(); }
 
 private:
+  [[nodiscard]] std::uint64_t* update_sequence(const render_asset_lease& lease) const noexcept;
+  std::uint64_t update_sequence_{};
   texture_prepare_profile default_profile_{};
   std::uint64_t revision_{};
   const engine::resource::virtual_file_system& file_system_;

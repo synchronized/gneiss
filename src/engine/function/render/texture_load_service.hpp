@@ -18,6 +18,12 @@ class cpu_document_cache;
 namespace gneiss::engine::render {
 
 enum class texture_load_state : std::uint8_t { preparing, uploading, applied, failed, cancelled };
+/** 请求中每项资源的结果；未生效项的 result 表示停止处理的原因，不表示旧内容失效。 */
+struct asset_load_result {
+  render_asset_reload source;
+  gneiss_result result{GNEISS_ERROR_NOT_READY};
+  bool applied{};
+};
 struct texture_load_completion {
   std::uint64_t request{};
   std::uint64_t session{};
@@ -26,6 +32,8 @@ struct texture_load_completion {
   gneiss_result result{GNEISS_ERROR_INTERNAL};
   std::string message{};
   std::vector<engine::render::render_asset_lease> assets;
+  /** 包含显式请求及已发现依赖；取消/失败也保留已成功项，元数据不延长资源寿命。 */
+  std::vector<asset_load_result> results;
   /** 固定版本模式下与 assets 一一对应；旧 URI 模式为空。失败不返回部分版本。 */
   std::vector<engine::resource::asset_version_key> versions;
   /** 本次准备实际使用的能力快照，用于已采用版本的兼容选择域。 */
@@ -99,7 +107,7 @@ public:
   [[nodiscard]] bool take(texture_load_completion& output);
   /** 提交许可前取消；已进入 GPU 阶段的批次完成或回滚。 */
   bool cancel();
-  /** 隔离场景候选专用：停止后续上传，等待在途回执并回滚，完成清理前不报告终态。 */
+  /** 停止后续上传并安全清理未生效内容；普通模式已生效内容保留，固定版本模式撤回候选。 */
   bool cancel_unpublished();
   void request_stop();
   [[nodiscard]] bool stopped() const;
