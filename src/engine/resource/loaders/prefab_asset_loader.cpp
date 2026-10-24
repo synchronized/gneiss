@@ -32,14 +32,10 @@ void fail(gneiss::engine::resource::scene_diagnostic& diagnostic,
 
 namespace gneiss::engine::resource {
 
-const prefab_description* prefab_asset_lease::get() const noexcept {
-  return entry_ ? static_cast<const prefab_description*>(entry_->resource.get()) : nullptr;
-}
-
 gneiss::engine::core::result
 prefab_asset_loader::install_prepared(std::string_view uri, prefab_description description,
-                                      prefab_asset_lease& out_lease) noexcept {
-  out_lease.entry_.reset();
+                                      prefab_asset_ref& out_lease) noexcept {
+  out_lease.reset();
   if (engine::resource::validate_uri(uri) != gneiss::engine::core::result::success ||
       description.objects.empty()) {
     return gneiss::engine::core::result::invalid_argument;
@@ -50,7 +46,7 @@ prefab_asset_loader::install_prepared(std::string_view uri, prefab_description d
     return identified;
   }
   try {
-    std::shared_ptr<const engine::resource::resource_cache::entry> entry;
+    gneiss::engine::resource::asset_ref<const engine::resource::resource_cache::entry> entry;
     const auto result = cache_.reload(
         uri, prefab_resource_type,
         [&description](std::shared_ptr<void>& resource) {
@@ -59,7 +55,7 @@ prefab_asset_loader::install_prepared(std::string_view uri, prefab_description d
         },
         entry, identity.source);
     if (result == gneiss::engine::core::result::success) {
-      out_lease.entry_ = std::move(entry);
+      out_lease = entry.alias(static_cast<const prefab_description*>(entry->resource.get()));
     }
     return result;
   } catch (const std::bad_alloc&) {
@@ -70,9 +66,9 @@ prefab_asset_loader::install_prepared(std::string_view uri, prefab_description d
 }
 
 gneiss::engine::core::result
-prefab_asset_loader::acquire(std::string_view uri, prefab_asset_lease& out_lease,
+prefab_asset_loader::acquire(std::string_view uri, prefab_asset_ref& out_lease,
                              scene_diagnostic& out_diagnostic) noexcept {
-  out_lease.entry_.reset();
+  out_lease.reset();
   out_diagnostic = {};
   if (engine::resource::validate_uri(uri) != gneiss::engine::core::result::success) {
     fail(out_diagnostic, gneiss::engine::core::result::invalid_argument, "", "Prefab URI 无效");
@@ -83,7 +79,7 @@ prefab_asset_loader::acquire(std::string_view uri, prefab_asset_lease& out_lease
   const auto identified = file_system_.identify(uri, prefab_resource_type, identity);
   if (identified != gneiss::engine::core::result::success)
     return identified;
-  std::shared_ptr<const engine::resource::resource_cache::entry> entry;
+  gneiss::engine::resource::asset_ref<const engine::resource::resource_cache::entry> entry;
   auto result = cache_.acquire(
       uri, prefab_resource_type,
       [this, uri, &out_diagnostic](std::shared_ptr<void>& out_resource) noexcept {
@@ -111,14 +107,14 @@ prefab_asset_loader::acquire(std::string_view uri, prefab_asset_lease& out_lease
     }
     return result;
   }
-  out_lease.entry_ = std::move(entry);
+  out_lease = entry.alias(static_cast<const prefab_description*>(entry->resource.get()));
   return gneiss::engine::core::result::success;
 }
 
 gneiss::engine::core::result
-prefab_asset_loader::reload(std::string_view uri, prefab_asset_lease& out_lease,
+prefab_asset_loader::reload(std::string_view uri, prefab_asset_ref& out_lease,
                             scene_diagnostic& out_diagnostic) noexcept {
-  out_lease.entry_.reset();
+  out_lease.reset();
   out_diagnostic = {};
   if (engine::resource::validate_uri(uri) != gneiss::engine::core::result::success) {
     fail(out_diagnostic, gneiss::engine::core::result::invalid_argument, "", "Prefab URI 无效");
@@ -128,7 +124,7 @@ prefab_asset_loader::reload(std::string_view uri, prefab_asset_lease& out_lease,
   const auto identified = file_system_.identify(uri, prefab_resource_type, identity);
   if (identified != gneiss::engine::core::result::success)
     return identified;
-  std::shared_ptr<const engine::resource::resource_cache::entry> entry;
+  gneiss::engine::resource::asset_ref<const engine::resource::resource_cache::entry> entry;
   const auto result = cache_.reload(
       uri, prefab_resource_type,
       [this, uri, &out_diagnostic](std::shared_ptr<void>& out_resource) noexcept {
@@ -156,7 +152,7 @@ prefab_asset_loader::reload(std::string_view uri, prefab_asset_lease& out_lease,
     }
     return result;
   }
-  out_lease.entry_ = std::move(entry);
+  out_lease = entry.alias(static_cast<const prefab_description*>(entry->resource.get()));
   return gneiss::engine::core::result::success;
 }
 

@@ -125,7 +125,7 @@ void visual_failure(engine::core::tasks::execution_mode mode) {
   auto material = binding.material;
   until([&] { return !app->visual_assets_loading(); });
   check(failures == 1U);
-  engine::render::render_asset_lease ready;
+  engine::render::render_asset_ref ready;
   check(app->query_ready_asset({"asset://mesh.json", engine::render::render_asset_type::mesh},
                                ready) == gneiss::engine::core::result::success);
   check(ready == binding.mesh);
@@ -233,7 +233,7 @@ void run(engine::core::tasks::execution_mode mode) {
   const auto prepared = await_phase(scene_load_phase::ready);
   // 结构 ready 时视觉内容尚未读取或上传。
   check(prepared.resident_bytes == 0U && !prepared.gpu_in_flight);
-  engine::render::render_asset_lease not_ready;
+  engine::render::render_asset_ref not_ready;
   check(query_ready_asset(app.get(), {"asset://mesh.json", engine::render::render_asset_type::mesh},
                           not_ready) == gneiss::engine::core::result::not_ready);
   check(prepared.cpu_data_bytes == prepared.resident_bytes);
@@ -415,7 +415,7 @@ void shared_scene_assets(engine::core::tasks::execution_mode mode) {
     return progress;
   };
   auto selected = [&](engine::render::render_asset_type type, const char* uri) {
-    engine::render::render_asset_lease lease;
+    engine::render::render_asset_ref lease;
     check(query_ready_asset(app.get(), {.uri = uri, .type = type}, lease) ==
           gneiss::engine::core::result::success);
     return lease;

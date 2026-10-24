@@ -1077,7 +1077,7 @@ gneiss::engine::core::result application::collect_unused_edit_assets() noexcept 
 
 gneiss::engine::core::result
 application::query_ready_asset(const engine::render::render_asset_reload& source,
-                               engine::render::render_asset_lease& output) noexcept {
+                               engine::render::render_asset_ref& output) noexcept {
   output = {};
   const auto valid = is_owner_thread() && accepts_requests()
                          ? gneiss::engine::core::result::success

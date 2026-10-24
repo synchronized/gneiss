@@ -168,7 +168,7 @@ void run(engine::core::tasks::execution_mode mode) {
   drive();
   check(edit.operation() == gneiss::engine::core::result::invalid_state &&
         history.size() == creation_count);
-  engine::render::render_asset_lease unused;
+  engine::render::render_asset_ref unused;
   check(runtime::query_ready_asset(
             app.get(),
             {.uri = "asset://c.json", .type = engine::render::render_asset_type::material},

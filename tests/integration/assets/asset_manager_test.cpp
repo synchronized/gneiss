@@ -61,6 +61,72 @@ public:
     return gneiss::engine::core::result::success;
   }
 };
+void reference_lifetime() {
+  struct tracked {
+    explicit tracked(unsigned& count) : destroyed(count) {}
+    ~tracked() { ++destroyed; }
+    unsigned& destroyed;
+    int payload{7};
+  };
+  static_assert(!std::constructible_from<asset_ref<tracked>, tracked*>);
+  static_assert(!std::constructible_from<asset_ref<tracked>, asset_ref<const tracked>>);
+  unsigned destroyed = 0;
+  asset_ref<tracked> owner{std::make_shared<tracked>(destroyed)};
+  asset_ref<const tracked> read_only = owner;
+  auto field = owner.alias(&owner->payload);
+  auto moved = std::move(owner);
+  check(!owner && moved && read_only->payload == 7, "move and const conversion");
+  moved.reset();
+  read_only.reset();
+  check(destroyed == 0 && *field == 7, "alias retains owner");
+  field.reset();
+  check(destroyed == 1, "last reference destroys exactly once");
+  field.reset();
+  check(destroyed == 1, "empty reset does not destroy twice");
+}
+void cache_collection() {
+  auto source = std::make_shared<memory_files>();
+  virtual_file_system files;
+  check(files.mount("asset://", source) == engine::core::result::success, "collection mount");
+  task_scheduler executor({.workers = 0, .mode = execution_mode::cooperative});
+  asset_manager assets(files);
+  check(assets.register_loader(std::make_shared<loader>()) == engine::core::result::success,
+        "collection loader");
+  assets.attach_task_executor(executor);
+  asset_ref<const value> held;
+  check(assets.load_sync("asset://value", held) == engine::core::result::success, "seed cache");
+  assets.collect_unused();
+  asset_request<value> request;
+  check(assets.load("asset://value", request) == engine::core::result::success, "cached load");
+  asset_ref<const value> copy;
+  check(request.take(copy) == engine::core::result::success && held == copy && source->reads == 1,
+        "external reference prevents collection");
+  held.reset();
+  copy.reset();
+  assets.collect_unused();
+  source->byte = 'b';
+  check(assets.load("asset://value", request) == engine::core::result::success,
+        "load after collection");
+  // 取消观察者后，活动任务仍必须拥有完成所需的索引。
+  request.cancel();
+  assets.collect_unused();
+  check(executor.run_ready().status == drive_status::success, "cancelled work completes");
+  assets.advance_resources();
+  assets.collect_unused();
+  check(assets.load("asset://value", request) == engine::core::result::success,
+        "retry collected load");
+  for (unsigned i = 0; i < 10 && !copy; ++i) {
+    check(executor.run_ready().status == drive_status::success, "collection drive");
+    assets.advance_resources();
+    assets.collect_unused();
+    const auto status = request.take(copy);
+    check(status == engine::core::result::success || status == engine::core::result::not_ready,
+          "collection preserves active request");
+  }
+  check(copy && copy->byte == 'b', "new content after collection");
+  assets.stop_resources();
+  check(copy->byte == 'b', "reference survives manager stop");
+}
 void run() {
   auto source = std::make_shared<memory_files>();
   virtual_file_system files;
@@ -79,7 +145,7 @@ void run() {
     check(executor.run_ready().status == drive_status::success, "drive");
     assets.advance_resources();
   };
-  auto wait = [&](asset_request<value>& request, std::shared_ptr<const value>& output) {
+  auto wait = [&](asset_request<value>& request, asset_ref<const value>& output) {
     for (unsigned i = 0; i < 100; ++i) {
       const auto status = request.take(output);
       if (status != gneiss::engine::core::result::not_ready)
@@ -91,13 +157,13 @@ void run() {
   check(assets.load("asset://value", first) == gneiss::engine::core::result::success, "first");
   check(source->reads == 0, "request does not perform inline I/O");
   check(assets.load("asset://value", second) == gneiss::engine::core::result::success, "second");
-  std::shared_ptr<const value> a, b;
+  asset_ref<const value> a, b;
   check(first.take(a) == gneiss::engine::core::result::not_ready, "initial pending");
   check(wait(first, a) == gneiss::engine::core::result::success &&
             wait(second, b) == gneiss::engine::core::result::success,
         "coalesced load");
-  check(a == b && a->byte == 'a' && parser->decodes == 1 && source->reads == 2,
-        "one read and verification shared");
+  check(a == b && a->byte == 'a' && parser->decodes == 1 && source->reads == 1,
+        "one read and read and decode shared");
   check(first.take(b) == gneiss::engine::core::result::invalid_state && b == a,
         "consume once preserves output");
   check(assets.register_loader(std::make_shared<loader>()) ==
@@ -137,10 +203,10 @@ void run() {
         "first-load overlap");
   check(executor.run_ready().status == drive_status::success, "first-load work ready");
   source->byte = 'y';
-  std::shared_ptr<const value> independent;
+  asset_ref<const value> independent;
   check(assets.load_sync("asset://new", independent) == gneiss::engine::core::result::success,
         "first-load sync");
-  std::shared_ptr<const value> old;
+  asset_ref<const value> old;
   check(wait(first, old) == gneiss::engine::core::result::success && old->byte == 'x',
         "first-load old observer");
   check(assets.load("asset://new", first) == gneiss::engine::core::result::success,
@@ -176,7 +242,9 @@ void run() {
   source->change = true;
   check(assets.load("asset://value", first, true) == gneiss::engine::core::result::success,
         "changing source");
-  check(wait(first, a) == gneiss::engine::core::result::io, "source mismatch rejected");
+  check(wait(first, a) == gneiss::engine::core::result::success && a->byte == 'e',
+        "source read once without revalidation");
+  b = a;
   first.cancel();
   source->change = false;
   source->missing = true;
@@ -212,7 +280,7 @@ void run() {
   check(assets.load("asset://value", second) == gneiss::engine::core::result::invalid_state,
         "closed rejects");
   check(executor.stats().retained == 0 && executor.stats().running == 0, "scope drained");
-  check(a->byte == 'd', "reference survives shutdown");
+  check(a->byte == 'e', "reference survives shutdown");
 
   task_scheduler stopped({.workers = 0, .mode = execution_mode::cooperative});
   asset_manager rejected(files);
@@ -229,6 +297,8 @@ void run() {
 }
 int main() {
   try {
+    reference_lifetime();
+    cache_collection();
     run();
     return 0;
   } catch (const std::exception& error) {

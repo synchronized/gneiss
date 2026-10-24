@@ -528,7 +528,7 @@ endif()
 
 file(MAKE_DIRECTORY "${fixture}/src/engine/resource")
 foreach(symbol IN ITEMS texture_load_service texture_upload_backend texture_load_completion
-    "engine::render::render_asset_loader" "engine::render::render_asset_lease")
+    "engine::render::render_asset_loader" "engine::render::render_asset_ref")
   file(WRITE "${fixture}/src/engine/resource/asset_manager.hpp" "struct ${symbol};\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"

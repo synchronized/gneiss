@@ -74,34 +74,34 @@ void run() {
   engine::render::render_asset_loader candidate_render(vfs, candidate_cache, resources);
   engine::resource::asset_manager candidate_assets(vfs);
   {
-    engine::render::mesh_asset_lease first, second;
+    engine::render::render_asset_ref first, second;
     engine::render::asset_diagnostic diagnostic;
     check(active_render.acquire_mesh("asset://m.mesh", first, diagnostic) ==
           gneiss::engine::core::result::success);
     check(active_render.acquire_mesh("asset://m.mesh", second, diagnostic) ==
           gneiss::engine::core::result::success);
-    check(first.get() == second.get());
+    check(gneiss::engine::render::asset_rid(first) == gneiss::engine::render::asset_rid(second));
     active_assets.collect_unused();
     active_render.release_unused();
-    check(resources.get_mesh(first.get()) != nullptr);
+    check(resources.get_mesh(gneiss::engine::render::asset_rid(first)) != nullptr);
     const auto render_count = resources.live_resource_count();
-    engine::resource::prefab_asset_lease prefab;
+    engine::resource::prefab_asset_ref prefab;
     engine::resource::scene_diagnostic prefab_diagnostic;
     check(active_assets.acquire("asset://p.prefab", prefab, prefab_diagnostic) ==
           gneiss::engine::core::result::success);
     check(prefab.get() != nullptr);
     check(resources.live_resource_count() == render_count);
     active_assets.collect_unused();
-    check(resources.get_mesh(first.get()) != nullptr);
-    engine::render::render_asset_lease invalid;
+    check(resources.get_mesh(gneiss::engine::render::asset_rid(first)) != nullptr);
+    engine::render::render_asset_ref invalid;
     check(!active_render.owns(invalid));
     engine::render::render_resource_service foreign_resources;
     engine::resource::resource_cache foreign_cache;
     engine::render::render_asset_loader foreign_assets(vfs, foreign_cache, foreign_resources);
-    engine::render::mesh_asset_lease foreign_mesh;
+    engine::render::render_asset_ref foreign_mesh;
     check(foreign_assets.acquire_mesh("asset://m.mesh", foreign_mesh, diagnostic) ==
           gneiss::engine::core::result::success);
-    check(!active_render.owns(engine::render::render_asset_loader::asset_lease(foreign_mesh)));
+    check(!active_render.owns(foreign_mesh));
   }
   auto active = std::make_unique<runtime::scene_domain>();
   check(active->native_world() == nullptr && active->world() == GNEISS_NULL_WORLD &&
@@ -119,11 +119,11 @@ void run() {
   engine::scene::scene_node_view old_info;
   check(active->scenes()->get_node_info(old_scene, 0U, old_info) ==
         gneiss::engine::core::result::success);
-  engine::render::material_asset_lease old_material;
+  engine::render::render_asset_ref old_material;
   engine::render::asset_diagnostic diagnostic;
   check(active_render.acquire_material("asset://m.material", old_material, diagnostic) ==
         gneiss::engine::core::result::success);
-  auto old_pixels = resources.share_material(old_material.get());
+  auto old_pixels = resources.share_material(gneiss::engine::render::asset_rid(old_material));
   check(old_pixels && old_pixels->red == 1.0F);
   files->files["m.material"] = R"({"format":"gneiss.material","version":1,"color":[0,1,0,1]})";
   const auto empty_instances = files->files["s.scene"].find("\"prefab_instances\":[]");
@@ -137,12 +137,12 @@ void run() {
   auto candidate = std::make_unique<runtime::scene_domain>();
   check(candidate->initialize(candidate_assets, candidate_render) ==
         gneiss::engine::core::result::success);
-  std::vector<engine::render::render_asset_lease> captured{engine::render::render_asset_lease{}};
+  std::vector<engine::render::render_asset_ref> captured{engine::render::render_asset_ref{}};
   check(candidate->scenes()->capture_render_assets(captured) ==
             gneiss::engine::core::result::success &&
         captured.empty());
-  check(!engine::render::render_asset_loader::asset_lease(engine::render::mesh_asset_lease{}));
-  check(!engine::render::render_asset_loader::asset_lease(engine::render::material_asset_lease{}));
+  check(!engine::render::render_asset_ref{});
+  check(!engine::render::render_asset_ref{});
   const std::array requests{engine::render::render_asset_reload{
                                 "asset://m.mesh", engine::render::render_asset_type::mesh},
                             engine::render::render_asset_reload{
@@ -162,24 +162,26 @@ void run() {
   }
   engine::scene::scene_instances::asset_bindings bindings;
   for (const auto& value : staged) {
-    bindings.emplace(std::string(value.target.uri()), value.target);
+    bindings.emplace(std::string(gneiss::engine::render::asset_uri(value.target)), value.target);
   }
   auto material =
-      engine::render::render_asset_loader::material_lease(bindings.at("asset://m.material"));
-  const auto mesh_rid = bindings.at("asset://m.mesh").get();
-  check(material && material.get() != old_material.get());
-  check(resources.get_material(material.get())->green == 1.0F);
-  check(!engine::render::render_asset_loader::mesh_lease(bindings.at("asset://m.material")));
-  check(!engine::render::render_asset_loader::material_lease(bindings.at("asset://m.mesh")));
-  engine::render::render_asset_lease uncached;
+      engine::render::render_asset_loader::material_ref(bindings.at("asset://m.material"));
+  const auto mesh_rid = gneiss::engine::render::asset_rid(bindings.at("asset://m.mesh"));
+  check(material && gneiss::engine::render::asset_rid(material) !=
+                        gneiss::engine::render::asset_rid(old_material));
+  check(resources.get_material(gneiss::engine::render::asset_rid(material))->green == 1.0F);
+  check(!engine::render::render_asset_loader::mesh_ref(bindings.at("asset://m.material")));
+  check(!engine::render::render_asset_loader::material_ref(bindings.at("asset://m.mesh")));
+  engine::render::render_asset_ref uncached;
   check(candidate_render.acquire_cached(requests.front(), uncached) ==
         gneiss::engine::core::result::success);
   // 绑定复用稳定资源；另一个 URI 的蓝色材质不影响它。
   files->files["blue.material"] = R"({"format":"gneiss.material","version":1,"color":[0,0,1,1]})";
-  engine::render::material_asset_lease unrelated;
+  engine::render::render_asset_ref unrelated;
   check(candidate_render.acquire_material("asset://blue.material", unrelated, diagnostic) ==
         gneiss::engine::core::result::success);
-  check(unrelated.get() != material.get());
+  check(gneiss::engine::render::asset_rid(unrelated) !=
+        gneiss::engine::render::asset_rid(material));
   staged.clear();
   const auto reads = files->reads;
   gneiss_scene_instance new_scene{};
@@ -190,11 +192,11 @@ void run() {
   check(gneiss::engine::core::result{gneiss_world_entity_count(
             active->world(), &unchanged_count)} == gneiss::engine::core::result::success &&
         unchanged_count == 1U);
-  check(resources.get_material(old_material.get())->red == 1.0F);
+  check(resources.get_material(gneiss::engine::render::asset_rid(old_material))->red == 1.0F);
   check(files->reads == reads);
   // 候选仅持有一份运行时；移动、失败和取消不得泄漏或提前发布。
   {
-    engine::resource::prefab_asset_lease source;
+    engine::resource::prefab_asset_ref source;
     engine::resource::prefab_instance_description author;
     check(candidate->scenes()->capture_prefab_header(
               new_scene, "00000000-0000-4000-8000-000000000004", author, source) ==
@@ -257,32 +259,37 @@ void run() {
           count == 3);
     check(files->reads == transaction_reads);
   }
-  const auto selected_material = material.get();
+  const auto selected_material = gneiss::engine::render::asset_rid(material);
   check(candidate->scenes()->capture_render_assets(captured) ==
         gneiss::engine::core::result::success);
   check(captured.size() == 2U && files->reads == reads);
   const auto has_rid = [&](std::uint64_t rid) {
-    return std::ranges::any_of(captured, [rid](const auto& lease) { return lease.get() == rid; });
+    return std::ranges::any_of(captured, [rid](const auto& lease) {
+      return gneiss::engine::render::asset_rid(lease) == rid;
+    });
   };
-  check(has_rid(mesh_rid) && has_rid(selected_material) && !has_rid(unrelated.get()));
+  check(has_rid(mesh_rid) && has_rid(selected_material) &&
+        !has_rid(gneiss::engine::render::asset_rid(unrelated)));
   // 多个场景共享相同 URI 的资源，按 RID 去重。
   gneiss_scene_instance additional{};
   check(candidate->scenes()->load("asset://s.scene", &additional) ==
         gneiss::engine::core::result::success);
   check(candidate->scenes()->capture_render_assets(captured) ==
         gneiss::engine::core::result::success);
-  check(captured.size() == 2U && has_rid(selected_material) && !has_rid(unrelated.get()));
+  check(captured.size() == 2U && has_rid(selected_material) &&
+        !has_rid(gneiss::engine::render::asset_rid(unrelated)));
   gneiss_scene_instance duplicate_scene{};
   check(candidate->scenes()->load("asset://s.scene", &duplicate_scene) ==
         gneiss::engine::core::result::success);
   check(candidate->scenes()->capture_render_assets(captured) ==
         gneiss::engine::core::result::success);
-  check(captured.size() == 2U && has_rid(selected_material) && !has_rid(unrelated.get()));
+  check(captured.size() == 2U && has_rid(selected_material) &&
+        !has_rid(gneiss::engine::render::asset_rid(unrelated)));
   check(candidate->scenes()->unload(duplicate_scene) == gneiss::engine::core::result::success);
   check(candidate->scenes()->unload(additional) == gneiss::engine::core::result::success);
   check(candidate->scenes()->capture_render_assets(captured) ==
         gneiss::engine::core::result::success);
-  check(captured.size() == 2U && !has_rid(unrelated.get()));
+  check(captured.size() == 2U && !has_rid(gneiss::engine::render::asset_rid(unrelated)));
   gneiss::engine::core::result snapshot_thread = gneiss::engine::core::result::success;
   std::thread snapshot_worker(
       [&] { snapshot_thread = candidate->scenes()->capture_render_assets(captured); });
@@ -293,7 +300,7 @@ void run() {
   candidate_render.release_unused();
   check(resources.get_material(selected_material) != nullptr &&
         resources.get_material(selected_material)->green == 1.0F);
-  engine::render::render_asset_lease next_version;
+  engine::render::render_asset_ref next_version;
   check(candidate_render.acquire_cached(requests.back(), next_version) ==
         gneiss::engine::core::result::success);
   engine::scene::scene_node_view ordinary;
@@ -322,16 +329,16 @@ void run() {
   check(candidate->scenes()->set_mesh_renderer(new_scene, ordinary.node, "asset://m.mesh",
                                                "asset://other.material") ==
         gneiss::engine::core::result::success);
-  engine::render::material_asset_lease edited_material;
+  engine::render::render_asset_ref edited_material;
   check(candidate_render.acquire_material("asset://other.material", edited_material, diagnostic) ==
         gneiss::engine::core::result::success);
-  const gneiss::engine::world::mesh_renderer edited{.mesh = mesh_rid,
-                                                    .material = edited_material.get()};
+  const gneiss::engine::world::mesh_renderer edited{
+      .mesh = mesh_rid, .material = gneiss::engine::render::asset_rid(edited_material)};
   const std::array material_only{engine::world::mesh_renderer_replacement{
       .entity = ordinary.entity, .expected = edited, .replacement = edited}};
   check(engine::world::replace_mesh_renderers(candidate->world(), material_only) ==
         gneiss::engine::core::result::success);
-  check(resources.get_material(old_material.get())->red == 1.0F);
+  check(resources.get_material(gneiss::engine::render::asset_rid(old_material))->red == 1.0F);
   candidate_render.release_unused();
   check(resources.get_material(selected_material) != nullptr);
   captured.clear();
@@ -365,8 +372,8 @@ void run() {
         .uuid = "00000000-0000-4000-8000-000000000099",
         .name = "prepared",
         .parent = {},
-        .mesh_uri = before.mesh.uri(),
-        .material_uri = before.material.uri(),
+        .mesh_uri = gneiss::engine::render::asset_uri(before.mesh),
+        .material_uri = gneiss::engine::render::asset_uri(before.material),
     };
     gneiss::scene_node_id created{};
     check(candidate->scenes()->create_mesh_renderer_node_ready(new_scene, creation, invalid,
@@ -389,7 +396,8 @@ void run() {
   const auto snapshot_reads = files->reads;
   check(candidate->scenes()->capture_render_assets(captured) ==
         gneiss::engine::core::result::success);
-  check(captured.size() == 2U && has_rid(mesh_rid) && has_rid(next_version.get()));
+  check(captured.size() == 2U && has_rid(mesh_rid) &&
+        has_rid(gneiss::engine::render::asset_rid(next_version)));
   check(files->reads == snapshot_reads);
   captured.clear();
   const auto old_world = active->world();

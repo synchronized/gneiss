@@ -38,7 +38,7 @@ struct prepared_scene_description;
 class GNEISS_API scene_instances final {
 public:
   using mesh_binding = scene_mesh_binding;
-  using asset_bindings = std::map<std::string, engine::render::render_asset_lease, std::less<>>;
+  using asset_bindings = std::map<std::string, engine::render::render_asset_ref, std::less<>>;
   /** 所属线程同步创建整个实例；只消费已准备描述和资源引用，不读取文件。
    * 失败回收已创建节点并清空输出；调用期间不支持暂停或取消。 */
   [[nodiscard]] gneiss::engine::core::result
@@ -49,7 +49,7 @@ public:
   [[nodiscard]] gneiss::engine::core::result
   begin_prefab_candidate(gneiss_scene_instance instance,
                          const gneiss::engine::resource::prefab_instance_description& author,
-                         gneiss::engine::resource::prefab_asset_lease prefab,
+                         gneiss::engine::resource::prefab_asset_ref prefab,
                          gneiss::engine::resource::prefab_description prepared,
                          prefab_candidate& output, bool replacing = false) noexcept;
   /** 已预留容量、调用方已准备镜像和历史后提交。成功消耗候选，失败保留。 */
@@ -83,7 +83,7 @@ public:
    * 成功替换 output，失败保持 output；快照延长资源寿命，须早于渲染服务释放。
    * 不包含裸 ECS RID 使用者；后续切换仍需验证使用者当前状态。 */
   [[nodiscard]] gneiss::engine::core::result
-  capture_render_assets(std::vector<engine::render::render_asset_lease>& output) noexcept;
+  capture_render_assets(std::vector<engine::render::render_asset_ref>& output) noexcept;
   /** 验证普通作者节点归属，不接受 Prefab 的只读来源节点。 */
   [[nodiscard]] gneiss::engine::core::result
   validate_editable_node(gneiss_scene_instance instance, scene_node_id node) const noexcept;
@@ -124,7 +124,7 @@ public:
   [[nodiscard]] gneiss::engine::core::result
   capture_prefab_header(gneiss_scene_instance instance, std::string_view uuid,
                         gneiss::engine::resource::prefab_instance_description& author,
-                        gneiss::engine::resource::prefab_asset_lease& source) const noexcept;
+                        gneiss::engine::resource::prefab_asset_ref& source) const noexcept;
   /** 按来源索引捕获实际资源租约，允许调用方分帧构建历史快照。 */
   [[nodiscard]] gneiss::engine::core::result
   capture_prefab_binding(gneiss_scene_instance instance, std::string_view uuid, std::size_t index,

@@ -65,7 +65,7 @@ public:
   [[nodiscard]] gneiss::engine::core::result collect_unused_edit_assets() noexcept;
   [[nodiscard]] gneiss::engine::core::result
   query_ready_asset(const engine::render::render_asset_reload& source,
-                    engine::render::render_asset_lease& output) noexcept;
+                    engine::render::render_asset_ref& output) noexcept;
   [[nodiscard]] gneiss::engine::core::result
   capture_mesh_binding(gneiss_scene_instance scene, scene_node_id node,
                        engine::scene::scene_mesh_binding& output) noexcept;

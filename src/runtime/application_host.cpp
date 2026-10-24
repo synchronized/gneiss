@@ -49,7 +49,7 @@ gneiss::runtime::collect_unused_edit_assets(gneiss_application application) noex
 gneiss::engine::core::result
 gneiss::runtime::query_ready_asset(gneiss_application application,
                                    const engine::render::render_asset_reload& source,
-                                   engine::render::render_asset_lease& output) noexcept {
+                                   engine::render::render_asset_ref& output) noexcept {
   output = {};
   auto state = find_application(application);
   const auto valid = validate_application(state);

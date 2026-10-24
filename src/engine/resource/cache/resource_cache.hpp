@@ -5,6 +5,7 @@
 #define GNEISS_ASSET_RESOURCE_CACHE_HPP_
 
 #include "engine/core/result.hpp"
+#include "engine/resource/asset_ref.hpp"
 #include "engine/resource/types/asset_identity.hpp"
 
 #include <cstdint>
@@ -38,12 +39,12 @@ public:
 
   [[nodiscard]] gneiss::engine::core::result
   acquire(std::string_view uri, std::uint32_t type, const loader& load,
-          std::shared_ptr<const entry>& out_entry,
+          asset_ref<const entry>& out_entry,
           std::shared_ptr<const asset_source_domain> source = {}) noexcept;
   /** 强制重新加载并在成功后替换缓存项；失败时保留原缓存。 */
   [[nodiscard]] gneiss::engine::core::result
   reload(std::string_view uri, std::uint32_t type, const loader& load,
-         std::shared_ptr<const entry>& out_entry,
+         asset_ref<const entry>& out_entry,
          std::shared_ptr<const asset_source_domain> source = {}) noexcept;
   void release_unused() noexcept;
   /** 只观察当前身份，不触发加载；返回的弱引用不会阻止卸载。 */
@@ -51,7 +52,7 @@ public:
   [[nodiscard]] std::size_t size() const noexcept { return entries_.size(); }
 
 private:
-  std::unordered_map<std::string, std::shared_ptr<const entry>> entries_;
+  std::unordered_map<std::string, asset_ref<const entry>> entries_;
 };
 
 } // namespace gneiss::engine::resource

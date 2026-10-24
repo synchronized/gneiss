@@ -389,7 +389,7 @@ struct editor_prefab_edit::state {
   std::unique_ptr<runtime::prefab_preparation> preparation;
   engine::resource::prefab_instance_description author;
   engine::scene::prepared_scene_description prepared;
-  std::vector<engine::render::render_asset_lease> assets;
+  std::vector<engine::render::render_asset_ref> assets;
   engine::render::texture_load_completion completion;
   std::unique_ptr<editor_command> command;
   std::unique_ptr<editor_history_operation> operation;
@@ -467,7 +467,7 @@ struct editor_prefab_edit::state {
     if (status.ok() && !cancelled) {
       std::vector<engine::render::render_asset_reload> missing;
       for (const auto& asset : prepared.assets) {
-        engine::render::render_asset_lease lease;
+        engine::render::render_asset_ref lease;
         const auto ready = refreshing ? gneiss::engine::core::result::not_ready
                                       : application.query_ready_asset(asset, lease);
         if (ready == gneiss::engine::core::result::success) {

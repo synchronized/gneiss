@@ -17,15 +17,7 @@ class virtual_file_system;
 
 namespace gneiss::engine::resource {
 
-class prefab_asset_lease final {
-public:
-  [[nodiscard]] const prefab_description* get() const noexcept;
-  [[nodiscard]] explicit operator bool() const noexcept { return entry_ != nullptr; }
-
-private:
-  friend class prefab_asset_loader;
-  std::shared_ptr<const engine::resource::resource_cache::entry> entry_;
-};
+using prefab_asset_ref = asset_ref<const prefab_description>;
 
 class prefab_asset_loader final {
 public:
@@ -34,16 +26,16 @@ public:
       : file_system_(file_system), cache_(cache) {}
 
   [[nodiscard]] gneiss::engine::core::result acquire(std::string_view uri,
-                                                     prefab_asset_lease& out_lease,
+                                                     prefab_asset_ref& out_lease,
                                                      scene_diagnostic& out_diagnostic) noexcept;
   [[nodiscard]] gneiss::engine::core::result reload(std::string_view uri,
-                                                    prefab_asset_lease& out_lease,
+                                                    prefab_asset_ref& out_lease,
                                                     scene_diagnostic& out_diagnostic) noexcept;
   /** 所属线程将已解析描述放入 URI 缓存，不读文件；旧实例引用仍保持有效。
    * 租约可独立于加载器存活，失败不替换已有缓存。 */
-  [[nodiscard]] gneiss::engine::core::result
-  install_prepared(std::string_view uri, prefab_description description,
-                   prefab_asset_lease& out_lease) noexcept;
+  [[nodiscard]] gneiss::engine::core::result install_prepared(std::string_view uri,
+                                                              prefab_description description,
+                                                              prefab_asset_ref& out_lease) noexcept;
 
 private:
   const engine::resource::virtual_file_system& file_system_;

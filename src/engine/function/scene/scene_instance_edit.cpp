@@ -17,8 +17,8 @@ scene_instance::capture_mesh_binding(scene_node_id node,
     return gneiss::engine::core::result::invalid_handle;
   }
   output = {
-      .mesh = engine::render::render_asset_loader::asset_lease(found->mesh),
-      .material = engine::render::render_asset_loader::asset_lease(found->material),
+      .mesh = found->mesh,
+      .material = found->material,
   };
   return gneiss::engine::core::result::success;
 }
@@ -26,6 +26,12 @@ scene_instance::capture_mesh_binding(scene_node_id node,
 gneiss::engine::core::result
 scene_instance::replace_mesh_binding(scene_node_id node_value, const scene_mesh_binding& expected,
                                      const scene_mesh_binding& replacement) noexcept try {
+  if (engine::render::asset_kind(replacement.mesh) != engine::render::render_asset_type::mesh ||
+      engine::render::asset_kind(replacement.material) !=
+          engine::render::render_asset_type::material ||
+      !loader_.owns(replacement.mesh) || !loader_.owns(replacement.material)) {
+    return gneiss::engine::core::result::invalid_argument;
+  }
   const auto node = node_value.get();
   using loader = engine::render::render_asset_loader;
   scene_mesh_binding current;
@@ -33,20 +39,22 @@ scene_instance::replace_mesh_binding(scene_node_id node_value, const scene_mesh_
   if (captured != gneiss::engine::core::result::success) {
     return captured;
   }
-  if (current.mesh.get() != expected.mesh.get() ||
-      current.material.get() != expected.material.get()) {
+  if (engine::render::asset_rid(current.mesh) != engine::render::asset_rid(expected.mesh) ||
+      engine::render::asset_rid(current.material) != engine::render::asset_rid(expected.material)) {
     return gneiss::engine::core::result::invalid_state;
   }
   const auto found = std::ranges::find(objects_, node, &scene_instance::object::node);
   gneiss::engine::resource::mesh_renderer_description author{
-      .mesh_uri = std::string(replacement.mesh.uri()),
-      .material_uri = std::string(replacement.material.uri()),
+      .mesh_uri = std::string(gneiss::engine::render::asset_uri(replacement.mesh)),
+      .material_uri = std::string(gneiss::engine::render::asset_uri(replacement.material)),
   };
   const std::array changes{
       engine::world::mesh_renderer_replacement{
           .entity = entity_id{found->entity},
-          .expected = {.mesh = expected.mesh.get(), .material = expected.material.get()},
-          .replacement = {.mesh = replacement.mesh.get(), .material = replacement.material.get()},
+          .expected = {.mesh = engine::render::asset_rid(expected.mesh),
+                       .material = engine::render::asset_rid(expected.material)},
+          .replacement = {.mesh = engine::render::asset_rid(replacement.mesh),
+                          .material = engine::render::asset_rid(replacement.material)},
       },
   };
   const auto changed = native_world_.replace_mesh_renderers(changes);
@@ -55,8 +63,8 @@ scene_instance::replace_mesh_binding(scene_node_id node_value, const scene_mesh_
   }
   const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
   description_.objects[index].mesh_renderer = std::move(author);
-  found->mesh = loader::mesh_lease(replacement.mesh);
-  found->material = loader::material_lease(replacement.material);
+  found->mesh = loader::mesh_ref(replacement.mesh);
+  found->material = loader::material_ref(replacement.material);
   return gneiss::engine::core::result::success;
 } catch (const std::bad_alloc&) {
   return gneiss::engine::core::result::out_of_memory;

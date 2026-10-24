@@ -47,36 +47,21 @@ struct asset_manager::resource_state {
     std::shared_ptr<const asset_loader> loader;
     std::shared_ptr<detail::asset_state> observer{std::make_shared<detail::asset_state>()};
     asset_source source;
-    asset_source verification;
     std::shared_ptr<const void> value;
-    bool decoded{};
     std::atomic_bool settled{false};
     gneiss::engine::core::result status{gneiss::engine::core::result::not_ready};
     operation(key id, std::uint64_t version, std::shared_ptr<const asset_loader> parser,
               const virtual_file_system& files)
         : identity(std::move(id)), generation(version), loader(std::move(parser)),
-          source(files, identity.second, loader->maximum_bytes()),
-          verification(files, identity.second, loader->maximum_bytes()) {}
+          source(files, identity.second, loader->maximum_bytes()) {}
     void advance() {
-      if (!decoded) {
-        status = source.advance();
-        if (status != gneiss::engine::core::result::success) {
-          return;
-        }
-        status = loader->decode(source.bytes(), value);
-        if (status != gneiss::engine::core::result::success) {
-          return;
-        }
-        if (!value) {
-          status = gneiss::engine::core::result::internal;
-          return;
-        }
-        decoded = true;
+      status = source.advance();
+      if (status != gneiss::engine::core::result::success) {
+        return;
       }
-      status = verification.advance();
-      if (status == gneiss::engine::core::result::success &&
-          source.bytes() != verification.bytes()) {
-        status = gneiss::engine::core::result::io;
+      status = loader->decode(source.bytes(), value);
+      if (status == gneiss::engine::core::result::success && !value) {
+        status = gneiss::engine::core::result::internal;
       }
     }
   };
@@ -238,7 +223,6 @@ asset_manager::load_sync_erased(std::type_index type, std::string_view uri,
   state.frozen = true;
   const auto& loader = *found->second;
   std::vector<std::byte> bytes;
-  std::vector<std::byte> verified;
   auto status = files_.read_bounded(uri, loader.maximum_bytes(), bytes);
   if (status != gneiss::engine::core::result::success) {
     return status;
@@ -250,13 +234,6 @@ asset_manager::load_sync_erased(std::type_index type, std::string_view uri,
   }
   if (!value) {
     return gneiss::engine::core::result::internal;
-  }
-  status = files_.read_bounded(uri, loader.maximum_bytes(), verified);
-  if (status != gneiss::engine::core::result::success) {
-    return status;
-  }
-  if (bytes != verified) {
-    return gneiss::engine::core::result::invalid_state;
   }
   auto& entry = state.requests[{type, std::string(uri)}];
   ++entry.generation;
@@ -271,7 +248,7 @@ asset_manager::load_sync_erased(std::type_index type, std::string_view uri,
 }
 gneiss::engine::core::result asset_manager::load_input(std::string_view uri,
                                                        action_map& output) noexcept try {
-  std::shared_ptr<const action_map_asset> value;
+  asset_ref<const action_map_asset> value;
   const auto status = load_sync(uri, value);
   if (status == gneiss::engine::core::result::success) {
     auto copy = value->map;
@@ -332,6 +309,16 @@ void asset_manager::advance_resources() {
     }
     it = state.active.erase(it);
   }
+}
+void asset_manager::collect_unused() noexcept {
+  prefab_cache_.release_unused();
+  auto& state = *resource_state_;
+  std::erase_if(state.requests, [&](const auto& item) {
+    const auto& [identity, entry] = item;
+    const bool active = std::ranges::any_of(
+        state.active, [&](const auto& work) { return work->identity == identity; });
+    return !active && entry.pending.expired() && (!entry.current || entry.current.use_count() == 1);
+  });
 }
 void asset_manager::stop_resources() noexcept { resource_state_->stop(); }
 }

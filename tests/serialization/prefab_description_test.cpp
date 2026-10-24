@@ -105,11 +105,11 @@ bool prepared_description_contract() {
       gneiss::engine::core::result::success) {
     return false;
   }
-  gneiss::engine::resource::prefab_asset_lease legacy;
+  gneiss::engine::resource::prefab_asset_ref legacy;
   if (loader.acquire(uri, legacy, diagnostic) != gneiss::engine::core::result::success) {
     return false;
   }
-  gneiss::engine::resource::prefab_asset_lease first, reused, changed, foreign;
+  gneiss::engine::resource::prefab_asset_ref first, reused, changed, foreign;
   if (loader.install_prepared(uri, description, first) != gneiss::engine::core::result::success ||
       copied.install_prepared(uri, description, reused) != gneiss::engine::core::result::success ||
       first.get() == reused.get() || first.get() == legacy.get() || backend->read_count != 1U) {
@@ -124,12 +124,12 @@ bool prepared_description_contract() {
       foreign.get() == changed.get() || backend->read_count != 1U) {
     return false;
   }
-  gneiss::engine::resource::prefab_asset_lease ordinary;
+  gneiss::engine::resource::prefab_asset_ref ordinary;
   if (loader.acquire(uri, ordinary, diagnostic) != gneiss::engine::core::result::success ||
       ordinary.get() != changed.get()) {
     return false;
   }
-  gneiss::engine::resource::prefab_asset_lease failed = first;
+  gneiss::engine::resource::prefab_asset_ref failed = first;
   if (loader.install_prepared("asset://unmounted/lamp.prefab.json", description, failed) !=
           gneiss::engine::core::result::not_found ||
       failed) {
@@ -241,8 +241,8 @@ int main() try {
   gneiss::engine::resource::virtual_file_system file_system;
   gneiss::engine::resource::resource_cache cache;
   gneiss::engine::resource::prefab_asset_loader loader(file_system, cache);
-  gneiss::engine::resource::prefab_asset_lease first;
-  gneiss::engine::resource::prefab_asset_lease second;
+  gneiss::engine::resource::prefab_asset_ref first;
+  gneiss::engine::resource::prefab_asset_ref second;
   if (file_system.mount("asset://prefabs/", mounted) != gneiss::engine::core::result::success ||
       loader.acquire("asset://prefabs/lamp.prefab.json", first, diagnostic) !=
           gneiss::engine::core::result::success ||
@@ -252,14 +252,14 @@ int main() try {
       cache.size() != 1U) {
     return 7;
   }
-  gneiss::engine::resource::prefab_asset_lease reloaded;
+  gneiss::engine::resource::prefab_asset_ref reloaded;
   if (loader.reload("asset://prefabs/lamp.prefab.json", reloaded, diagnostic) !=
           gneiss::engine::core::result::success ||
       !reloaded || reloaded.get() == first.get() || mounted->read_count != 2U ||
       cache.size() != 1U) {
     return 7;
   }
-  gneiss::engine::resource::prefab_asset_lease invalid;
+  gneiss::engine::resource::prefab_asset_ref invalid;
   if (loader.acquire("asset://prefabs/../lamp.prefab.json", invalid, diagnostic) !=
           gneiss::engine::core::result::invalid_argument ||
       invalid || diagnostic.message.empty()) {

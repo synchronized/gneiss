@@ -81,6 +81,7 @@
 ## 路线图与开发计划
 
 - [移除 CAORS、采用 Granit 示例资产管理模型：迁移与八项问题分析](plans/PLAN-051-asset-manager-replacement.md)
+- [统一资源强引用与生命周期规则](plans/PLAN-051-asset-references.md)
 - [渲染资产逐步就绪与加载结构简化（计划）](plans/PLAN-051-progressive-render-assets.md)
 - [Application 接入 CAORS 输入资源：边界与实施方案](plans/PLAN-051-caors-application-integration.md)
 - [第三方源码获取与共享缓存实施计划](plans/PLAN-051-dependency-source-cache.md)
@@ -260,6 +261,7 @@
 - [ADR-066：候选属性写入与发布后通知分离](decisions/ADR-066-candidate-properties-and-notifications.md)
 - [ADR-067：编辑器视口相机与运行时主相机分离](decisions/ADR-067-editor-viewport-camera.md)
 - [ADR-076：删除独立 CPU 文档缓存](decisions/ADR-076-remove-cpu-document-cache.md)
+- [ADR-077：统一资源强引用入口](decisions/ADR-077-asset-references.md)
 
 ## 实施与验收记录
 

@@ -21,11 +21,11 @@ scene_instances::instantiate_prepared(prepared_scene_description prepared,
   try {
     const auto find_asset = [&](std::string_view uri) {
       const auto found = assets.find(uri);
-      return found == assets.end() ? engine::render::render_asset_lease{} : found->second;
+      return found == assets.end() ? engine::render::render_asset_ref{} : found->second;
     };
-    std::map<std::string, engine::resource::prefab_asset_lease> prefabs;
+    std::map<std::string, engine::resource::prefab_asset_ref> prefabs;
     for (auto& [uri, source] : prepared.prefabs) {
-      engine::resource::prefab_asset_lease lease;
+      engine::resource::prefab_asset_ref lease;
       const auto result =
           prefab_loader_.install_prepared(uri, std::move(source.description), lease);
       if (result != gneiss::engine::core::result::success) {
@@ -42,12 +42,12 @@ scene_instances::instantiate_prepared(prepared_scene_description prepared,
       const auto& source = instance->source().objects.at(index);
       const auto result = instance->create_staged_node(
           index, source.parent_uuid ? nodes.at(*source.parent_uuid) : GNEISS_NULL_SCENE_NODE_ID,
-          engine::render::render_asset_loader::mesh_lease(
+          engine::render::render_asset_loader::mesh_ref(
               source.mesh_renderer ? find_asset(source.mesh_renderer->mesh_uri)
-                                   : engine::render::render_asset_lease{}),
-          engine::render::render_asset_loader::material_lease(
+                                   : engine::render::render_asset_ref{}),
+          engine::render::render_asset_loader::material_ref(
               source.mesh_renderer ? find_asset(source.mesh_renderer->material_uri)
-                                   : engine::render::render_asset_lease{}));
+                                   : engine::render::render_asset_ref{}));
       if (result != gneiss::engine::core::result::success) {
         return result;
       }
@@ -73,12 +73,12 @@ scene_instances::instantiate_prepared(prepared_scene_description prepared,
         const auto& node = lease.get()->objects.at(index);
         result = prefab->create_staged_node(
             index, node.parent_uuid ? prefab_nodes.at(*node.parent_uuid) : prefab->root(),
-            engine::render::render_asset_loader::mesh_lease(
+            engine::render::render_asset_loader::mesh_ref(
                 node.mesh_renderer ? find_asset(node.mesh_renderer->mesh_uri)
-                                   : engine::render::render_asset_lease{}),
-            engine::render::render_asset_loader::material_lease(
+                                   : engine::render::render_asset_ref{}),
+            engine::render::render_asset_loader::material_ref(
                 node.mesh_renderer ? find_asset(node.mesh_renderer->material_uri)
-                                   : engine::render::render_asset_lease{}));
+                                   : engine::render::render_asset_ref{}));
         if (result != gneiss::engine::core::result::success) {
           return result;
         }

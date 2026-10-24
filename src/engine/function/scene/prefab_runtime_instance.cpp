@@ -103,17 +103,18 @@ apply_camera(gneiss::engine::world::world& native_world, gneiss_entity_id entity
 
 namespace gneiss::engine::scene {
 
-prefab_runtime_instance::prefab_runtime_instance(
-    engine::world::world& native_world, gneiss_world world,
-    engine::render::render_asset_loader& loader,
-    gneiss::engine::resource::prefab_asset_lease prefab, std::string instance_uuid) noexcept
+prefab_runtime_instance::prefab_runtime_instance(engine::world::world& native_world,
+                                                 gneiss_world world,
+                                                 engine::render::render_asset_loader& loader,
+                                                 gneiss::engine::resource::prefab_asset_ref prefab,
+                                                 std::string instance_uuid) noexcept
     : native_world_(native_world), reflection_context_(world), loader_(loader),
       prefab_(std::move(prefab)), instance_uuid_(std::move(instance_uuid)) {}
 
 prefab_runtime_instance::~prefab_runtime_instance() noexcept { rollback(); }
 
 gneiss::engine::core::result prefab_runtime_instance::validate_reload(
-    const gneiss::engine::resource::prefab_asset_lease& candidate, gneiss_type_registry registry,
+    const gneiss::engine::resource::prefab_asset_ref& candidate, gneiss_type_registry registry,
     const std::vector<gneiss::engine::resource::prefab_property_override>& overrides) {
   if (!candidate || !prefab_ || candidate.get()->uuid != prefab_.get()->uuid ||
       candidate.get()->objects.empty()) {
@@ -125,8 +126,8 @@ gneiss::engine::core::result prefab_runtime_instance::validate_reload(
     return result;
   }
 
-  std::vector<engine::render::mesh_asset_lease> meshes(candidate.get()->objects.size());
-  std::vector<engine::render::material_asset_lease> materials(candidate.get()->objects.size());
+  std::vector<engine::render::render_asset_ref> meshes(candidate.get()->objects.size());
+  std::vector<engine::render::render_asset_ref> materials(candidate.get()->objects.size());
   for (std::size_t index = 0U; index < candidate.get()->objects.size(); ++index) {
     const auto& source = candidate.get()->objects[index];
     if (!source.mesh_renderer) {
@@ -168,7 +169,7 @@ gneiss::engine::core::result prefab_runtime_instance::validate_reload(
 }
 
 gneiss::engine::core::result prefab_runtime_instance::reload(
-    gneiss::engine::resource::prefab_asset_lease candidate, gneiss_type_registry registry,
+    gneiss::engine::resource::prefab_asset_ref candidate, gneiss_type_registry registry,
     const std::vector<gneiss::engine::resource::prefab_property_override>& overrides) {
   if (publication_ && !published_) {
     return gneiss::engine::core::result::invalid_state;
@@ -273,8 +274,9 @@ gneiss::engine::core::result prefab_runtime_instance::reload(
       result = apply_camera(native_world_, target.entity, source.camera);
     }
     if (result == gneiss::engine::core::result::success && source.mesh_renderer) {
-      const gneiss::engine::world::mesh_renderer renderer{.mesh = target.mesh.get(),
-                                                          .material = target.material.get()};
+      const gneiss::engine::world::mesh_renderer renderer{
+          .mesh = engine::render::asset_rid(target.mesh),
+          .material = engine::render::asset_rid(target.material)};
       result = native_world_.entity_set_mesh_renderer(gneiss::entity_id{target.entity}, renderer);
     }
     if (result == gneiss::engine::core::result::success && publication_) {
@@ -324,8 +326,8 @@ gneiss::engine::core::result prefab_runtime_instance::reload(
         const auto& old_source = prefab_.get()->objects[snapshot.old_index];
         if (old_source.mesh_renderer) {
           const gneiss::engine::world::mesh_renderer renderer{
-              .mesh = nodes_[snapshot.old_index].mesh.get(),
-              .material = nodes_[snapshot.old_index].material.get()};
+              .mesh = engine::render::asset_rid(nodes_[snapshot.old_index].mesh),
+              .material = engine::render::asset_rid(nodes_[snapshot.old_index].material)};
           (void)native_world_.entity_set_mesh_renderer(gneiss::entity_id{target.entity}, renderer);
         } else {
           (void)native_world_.entity_remove_mesh_renderer(gneiss::entity_id{target.entity});
@@ -394,8 +396,9 @@ gneiss::engine::core::result prefab_runtime_instance::reload(
     if (result == gneiss::engine::core::result::success &&
         has_change(update.changes, structural_change::mesh_renderer)) {
       if (source.mesh_renderer) {
-        const gneiss::engine::world::mesh_renderer renderer{.mesh = target.mesh.get(),
-                                                            .material = target.material.get()};
+        const gneiss::engine::world::mesh_renderer renderer{
+            .mesh = engine::render::asset_rid(target.mesh),
+            .material = engine::render::asset_rid(target.material)};
         result = native_world_.entity_set_mesh_renderer(gneiss::entity_id{target.entity}, renderer);
       } else {
         result = native_world_.entity_remove_mesh_renderer(gneiss::entity_id{target.entity});
@@ -435,9 +438,8 @@ gneiss::engine::core::result prefab_runtime_instance::reload(
 
 gneiss::engine::core::result prefab_runtime_instance::create(
     engine::world::world& native_world, gneiss_world world,
-    engine::render::render_asset_loader& loader,
-    gneiss::engine::resource::prefab_asset_lease prefab, gneiss_type_registry registry,
-    std::string_view instance_uuid, gneiss_scene_node_id parent,
+    engine::render::render_asset_loader& loader, gneiss::engine::resource::prefab_asset_ref prefab,
+    gneiss_type_registry registry, std::string_view instance_uuid, gneiss_scene_node_id parent,
     const gneiss::engine::core::math::transform& root_transform,
     const std::vector<gneiss::engine::resource::prefab_property_override>& overrides,
     std::unique_ptr<prefab_runtime_instance>& out_instance) noexcept {
@@ -703,8 +705,9 @@ gneiss::engine::core::result prefab_runtime_instance::commit_node(std::size_t in
                 .near_plane = source.camera->near_plane,
                 .far_plane = source.camera->far_plane};
     }
-    const gneiss::engine::world::mesh_renderer renderer{.mesh = target.mesh.get(),
-                                                        .material = target.material.get()};
+    const gneiss::engine::world::mesh_renderer renderer{
+        .mesh = engine::render::asset_rid(target.mesh),
+        .material = engine::render::asset_rid(target.material)};
     engine::world::staged_object object;
     const auto result = native_world_.create_staged_object(
         publication_,
@@ -741,8 +744,9 @@ gneiss::engine::core::result prefab_runtime_instance::commit_node(std::size_t in
     }
   }
   if (result == gneiss::engine::core::result::success && source.mesh_renderer) {
-    const gneiss::engine::world::mesh_renderer renderer{.mesh = target.mesh.get(),
-                                                        .material = target.material.get()};
+    const gneiss::engine::world::mesh_renderer renderer{
+        .mesh = engine::render::asset_rid(target.mesh),
+        .material = engine::render::asset_rid(target.material)};
     result = native_world_.entity_set_mesh_renderer(gneiss::entity_id{target.entity}, renderer);
   }
   return result;
@@ -881,8 +885,8 @@ prefab_runtime_instance::begin_staged(gneiss_scene_node_id parent,
 
 gneiss::engine::core::result
 prefab_runtime_instance::create_staged_node(std::size_t index, gneiss_scene_node_id parent,
-                                            engine::render::mesh_asset_lease mesh,
-                                            engine::render::material_asset_lease material) {
+                                            engine::render::render_asset_ref mesh,
+                                            engine::render::render_asset_ref material) {
   if (!staged_ || published_ || cancelling_ || !root_node_ || !prefab_ || index >= nodes_.size() ||
       nodes_[index].entity != GNEISS_NULL_ENTITY_ID || nodes_[index].staged_attempted) {
     return gneiss::engine::core::result::invalid_state;
@@ -894,6 +898,11 @@ prefab_runtime_instance::create_staged_node(std::size_t index, gneiss_scene_node
   if (source.mesh_renderer) {
     if (!mesh || !material) {
       return gneiss::engine::core::result::not_ready;
+    }
+    if (engine::render::asset_kind(mesh) != engine::render::render_asset_type::mesh ||
+        engine::render::asset_kind(material) != engine::render::render_asset_type::material ||
+        !loader_.owns(mesh) || !loader_.owns(material)) {
+      return gneiss::engine::core::result::invalid_argument;
     }
     target.mesh = std::move(mesh);
     target.material = std::move(material);

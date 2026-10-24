@@ -53,11 +53,11 @@ public:
   /** 同步读取不驱动任务队列；成功发布使同键较早异步请求失去当前缓存写入权。 */
   template <typename T>
   [[nodiscard]] gneiss::engine::core::result load_sync(std::string_view uri,
-                                                       std::shared_ptr<const T>& output) noexcept {
+                                                       asset_ref<const T>& output) noexcept {
     std::shared_ptr<const void> value;
     const auto status = load_sync_erased(typeid(T), uri, value);
     if (status == gneiss::engine::core::result::success)
-      output = std::static_pointer_cast<const T>(value);
+      output = asset_ref<const T>{std::static_pointer_cast<const T>(value)};
     return status;
   }
   asset_manager(const asset_manager&) = delete;
@@ -65,9 +65,10 @@ public:
   [[nodiscard]] const engine::resource::virtual_file_system& files() const noexcept {
     return files_;
   }
-  void collect_unused() noexcept { prefab_cache_.release_unused(); }
+  /** 所属线程回收无外部引用且无在途任务的缓存；不强制卸载活跃资源。 */
+  void collect_unused() noexcept;
   [[nodiscard]] gneiss::engine::core::result
-  acquire(std::string_view uri, engine::resource::prefab_asset_lease& output,
+  acquire(std::string_view uri, engine::resource::prefab_asset_ref& output,
           engine::resource::scene_diagnostic& diagnostic) noexcept {
     return prefabs_.acquire(uri, output, diagnostic);
   }

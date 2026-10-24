@@ -20,9 +20,10 @@ bool prefab_candidate::is_valid() const noexcept { return runtime_ != nullptr; }
 scene_node_id prefab_candidate::root() const noexcept {
   return runtime_ ? scene_node_id{runtime_->root()} : scene_node_id{};
 }
-gneiss::engine::core::result prefab_candidate::create_node(
-    std::size_t index, scene_node_id parent, engine::render::mesh_asset_lease mesh,
-    engine::render::material_asset_lease material, scene_node_id& output) {
+gneiss::engine::core::result
+prefab_candidate::create_node(std::size_t index, scene_node_id parent,
+                              engine::render::render_asset_ref mesh,
+                              engine::render::render_asset_ref material, scene_node_id& output) {
   if (!runtime_ || !runtime_->native_world_.is_owner_thread() || runtime_->published_ ||
       runtime_->cancelling_)
     return gneiss::engine::core::result::invalid_state;

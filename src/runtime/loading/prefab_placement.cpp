@@ -60,7 +60,7 @@ gneiss::engine::core::result
 prefab_placement::freeze(runtime::application& application,
                          engine::scene::prepared_prefab_description prepared,
                          engine::resource::prefab_instance_description author,
-                         std::vector<engine::render::render_asset_lease> assets,
+                         std::vector<engine::render::render_asset_ref> assets,
                          std::shared_ptr<const prefab_placement_snapshot>& output) noexcept try {
   auto* host = &application;
   const auto validation = host->is_owner_thread() && host->accepts_requests()
@@ -79,7 +79,7 @@ prefab_placement::freeze(runtime::application& application,
   value->author = std::move(author);
   value->order = std::move(prepared.parent_first);
   for (auto& asset : assets) {
-    value->assets.emplace(asset.uri(), std::move(asset));
+    value->assets.emplace(gneiss::engine::render::asset_uri(asset), std::move(asset));
   }
   output = std::move(value);
   return gneiss::engine::core::result::success;
@@ -135,7 +135,7 @@ gneiss::engine::core::result prefab_placement::create_next_node() {
   const auto& source = snapshot_->prefab.get()->objects.at(index);
   const auto find = [&](const std::string& uri) {
     const auto found = snapshot_->assets.find(uri);
-    return found == snapshot_->assets.end() ? engine::render::render_asset_lease{} : found->second;
+    return found == snapshot_->assets.end() ? engine::render::render_asset_ref{} : found->second;
   };
   engine::scene::scene_mesh_binding binding;
   if (!snapshot_->bindings.empty()) {
@@ -149,8 +149,8 @@ gneiss::engine::core::result prefab_placement::create_next_node() {
   scene_node_id node{};
   const auto result = candidate_.create_node(
       index, source.parent_uuid ? nodes_.at(*source.parent_uuid) : candidate_.root(),
-      engine::render::render_asset_loader::mesh_lease(binding.mesh),
-      engine::render::render_asset_loader::material_lease(binding.material), node);
+      engine::render::render_asset_loader::mesh_ref(binding.mesh),
+      engine::render::render_asset_loader::material_ref(binding.material), node);
   if (result != gneiss::engine::core::result::success)
     return result;
   nodes_.emplace(source.uuid, node);

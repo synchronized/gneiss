@@ -67,7 +67,8 @@ gneiss::engine::core::result editor_asset_edit::commit(runtime::application& app
       return gneiss::engine::core::result::invalid_state;
     }
     return session.commit_mesh_renderer(
-        node, replacement.mesh.uri(), replacement.material.uri(),
+        node, engine::render::asset_uri(replacement.mesh),
+        engine::render::asset_uri(replacement.material),
         [&] { return application.replace_mesh_binding(scene, node, expected, replacement); });
   };
   const auto was_dirty = session.is_dirty();
@@ -145,7 +146,7 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
   std::vector<engine::render::render_asset_reload> missing;
   const auto resolve = [&](std::string_view uri, engine::render::render_asset_type type,
                            const auto& previous, auto& next) {
-    if (previous.uri() == uri) {
+    if (engine::render::asset_uri(previous) == uri) {
       next = previous;
       return;
     }
@@ -210,12 +211,12 @@ void editor_asset_edit::advance(runtime::application& application, scene_documen
   }
   if (operation_.ok()) {
     for (const auto& lease : completion.assets) {
-      if (!next_.mesh && lease.uri() == mesh_ &&
-          lease.type() == engine::render::render_asset_type::mesh) {
+      if (!next_.mesh && engine::render::asset_uri(lease) == mesh_ &&
+          engine::render::asset_kind(lease) == engine::render::render_asset_type::mesh) {
         next_.mesh = lease;
       }
-      if (!next_.material && lease.uri() == material_ &&
-          lease.type() == engine::render::render_asset_type::material) {
+      if (!next_.material && engine::render::asset_uri(lease) == material_ &&
+          engine::render::asset_kind(lease) == engine::render::render_asset_type::material) {
         next_.material = lease;
       }
     }

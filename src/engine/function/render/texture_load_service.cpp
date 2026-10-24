@@ -22,7 +22,7 @@ struct texture_load_service::pending {
   };
   std::shared_ptr<cpu_result> cpu;
   render_asset_loader::asset_upload item;
-  std::vector<render_asset_lease> targets;
+  std::vector<render_asset_ref> targets;
   texture_load_completion completion;
   engine::core::tasks::task_handle task;
   std::size_t explicit_count{};
@@ -131,7 +131,7 @@ gneiss::engine::core::result texture_load_service::submit_assets(
   value->completion.assets.reserve(maximum_assets);
   bool cached = !reload;
   for (const auto& source : sources) {
-    render_asset_lease target;
+    render_asset_ref target;
     const auto ready = loader_.acquire_cached(source, target, backend_.profile);
     cached = cached && ready == gneiss::engine::core::result::success;
     const auto reserved = loader_.reserve_asset(source, target);
@@ -157,7 +157,7 @@ gneiss::engine::core::result texture_load_service::submit_assets(
   }
   // 服务槽位接受整个请求；执行器暂满时由后续推进重试调度。
   for (std::size_t index = 0; index < value->targets.size(); ++index) {
-    render_asset_lease ready;
+    render_asset_ref ready;
     if (reload || loader_.acquire_cached(sources[index], ready, backend_.profile) !=
                       gneiss::engine::core::result::success) {
       (void)loader_.claim_update(value->targets[index], value->sequence);
@@ -230,7 +230,7 @@ texture_load_service::enqueue_dependencies(pending& value, const prepared_render
       return gneiss::engine::core::result::invalid_argument;
     }
     render_asset_reload source{.uri = uri, .type = render_asset_type::texture};
-    render_asset_lease target;
+    render_asset_ref target;
     const auto reserved = loader_.reserve_asset(source, target);
     if (reserved != gneiss::engine::core::result::success) {
       return reserved;
@@ -338,7 +338,7 @@ void texture_load_service::poll_upload(pending& value) {
 }
 bool texture_load_service::start_item(pending& value) {
   const auto& source = value.completion.results[value.cursor].source;
-  render_asset_lease cached;
+  render_asset_ref cached;
   if ((!value.reload || value.cursor >= value.explicit_count) &&
       loader_.acquire_cached(source, cached, backend_.profile) ==
           gneiss::engine::core::result::success) {
@@ -459,13 +459,13 @@ void texture_load_service::advance_impl() {
       std::max(value.completion.peak_upload_bytes, value.upload_reserved_bytes);
   value.ever_uploaded = value.in_flight = true;
 }
-std::span<const render_asset_lease> texture_load_service::requested_assets() const {
+std::span<const render_asset_ref> texture_load_service::requested_assets() const {
   check_owner();
   if (pending_) {
     return std::span(pending_->targets).first(pending_->explicit_count);
   }
-  return completed_ ? std::span<const render_asset_lease>{completed_->assets}
-                    : std::span<const render_asset_lease>{};
+  return completed_ ? std::span<const render_asset_ref>{completed_->assets}
+                    : std::span<const render_asset_ref>{};
 }
 bool texture_load_service::take(texture_load_completion& output) {
   check_owner();

@@ -87,7 +87,8 @@ void run(gneiss::engine::core::tasks::execution_mode mode) {
   }
   check(completion.result == gneiss::engine::core::result::success &&
         completion.request == request && completion.assets.size() == 1U &&
-        completion.assets.front().type() == gneiss::engine::render::render_asset_type::texture);
+        gneiss::engine::render::asset_kind(completion.assets.front()) ==
+            gneiss::engine::render::render_asset_type::texture);
   const auto wait = [&] {
     bool completed = false;
     const auto limit = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -137,7 +138,7 @@ void run(gneiss::engine::core::tasks::execution_mode mode) {
         completion.assets.size() == 1U);
   const engine::render::render_asset_reload material_source{
       .uri = "asset://m.material", .type = engine::render::render_asset_type::material};
-  engine::render::render_asset_lease selected_before;
+  engine::render::render_asset_ref selected_before;
   check(runtime::query_ready_asset(app.get(), material_source, selected_before) ==
         gneiss::engine::core::result::success);
   write_material(false);
@@ -145,7 +146,7 @@ void run(gneiss::engine::core::tasks::execution_mode mode) {
         gneiss::engine::core::result::success);
   wait();
   check(completion.result == gneiss::engine::core::result::success);
-  engine::render::render_asset_lease selected_after;
+  engine::render::render_asset_ref selected_after;
   check(runtime::query_ready_asset(app.get(), material_source, selected_after) ==
             gneiss::engine::core::result::success &&
         selected_before == selected_after);

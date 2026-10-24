@@ -165,8 +165,8 @@ int main() try {
     resource = std::make_shared<int>(42);
     return gneiss::engine::core::result::success;
   };
-  std::shared_ptr<const gneiss::engine::resource::resource_cache::entry> first;
-  std::shared_ptr<const gneiss::engine::resource::resource_cache::entry> second;
+  gneiss::engine::resource::asset_ref<const gneiss::engine::resource::resource_cache::entry> first;
+  gneiss::engine::resource::asset_ref<const gneiss::engine::resource::resource_cache::entry> second;
   if (cache.acquire("asset://models/triangle.mesh", 1U, loader, first) !=
           gneiss::engine::core::result::success ||
       cache.acquire("asset://models/triangle.mesh", 1U, loader, second) !=
@@ -188,7 +188,8 @@ int main() try {
       *static_cast<const int*>(second->resource.get()) != 84 || cache.size() != 1U) {
     return 3;
   }
-  std::shared_ptr<const gneiss::engine::resource::resource_cache::entry> failed_reload;
+  gneiss::engine::resource::asset_ref<const gneiss::engine::resource::resource_cache::entry>
+      failed_reload;
   const auto failed_reloader = [](std::shared_ptr<void>&) {
     return gneiss::engine::core::result::io;
   };

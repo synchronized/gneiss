@@ -23,8 +23,8 @@ public:
     std::string uuid;
     gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
     gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;
-    engine::render::mesh_asset_lease mesh;
-    engine::render::material_asset_lease material;
+    engine::render::render_asset_ref mesh;
+    engine::render::render_asset_ref material;
   };
 
   void rollback() noexcept;
@@ -32,8 +32,8 @@ public:
   void initialize_staged(gneiss::engine::resource::scene_description candidate);
   [[nodiscard]] gneiss::engine::core::result
   create_staged_node(std::size_t index, gneiss_scene_node_id parent,
-                     engine::render::mesh_asset_lease mesh,
-                     engine::render::material_asset_lease material);
+                     engine::render::render_asset_ref mesh,
+                     engine::render::render_asset_ref material);
 
   [[nodiscard]] gneiss_scene_node_id find_node(std::string_view uuid) const noexcept;
   [[nodiscard]] gneiss::engine::core::result serialize(std::string& out_json) const;
@@ -91,16 +91,17 @@ public:
 
   /** 单场景 Prefab 实例事务；服务已校验线程与句柄，不修改 Prefab 源资源。
    * instance 参数仅用于候选所属场景校验，不拥有或重新解析公共句柄。 */
-  [[nodiscard]] gneiss::engine::core::result capture_prefab_instance_header(
-      std::string_view uuid, gneiss::engine::resource::prefab_instance_description& author,
-      gneiss::engine::resource::prefab_asset_lease& source) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  capture_prefab_instance_header(std::string_view uuid,
+                                 gneiss::engine::resource::prefab_instance_description& author,
+                                 gneiss::engine::resource::prefab_asset_ref& source) const noexcept;
   [[nodiscard]] gneiss::engine::core::result
   capture_prefab_instance_binding(std::string_view uuid, std::size_t index,
                                   scene_mesh_binding& output) const noexcept;
   [[nodiscard]] gneiss::engine::core::result prepare_prefab_instance_candidate(
       gneiss_scene_instance instance,
       const gneiss::engine::resource::prefab_instance_description& author,
-      gneiss::engine::resource::prefab_asset_lease prefab,
+      gneiss::engine::resource::prefab_asset_ref prefab,
       const gneiss::engine::resource::prefab_description& prepared, prefab_candidate& output,
       bool replacing) noexcept;
   [[nodiscard]] gneiss::engine::core::result
@@ -118,7 +119,7 @@ public:
    * Scene 和节点存储必须存活且保持稳定；放弃事务不修改绑定。 */
   /** 所属线程收集普通节点与 Prefab 的资源引用；追加至事务临时数组，分配失败向调用者传播。
    * 不去重、不发布资源，也不改变场景；服务负责跨实例去重和失败输出保留。 */
-  void append_render_assets(std::vector<engine::render::render_asset_lease>& output) const;
+  void append_render_assets(std::vector<engine::render::render_asset_ref>& output) const;
 
   /** 调用方服务已验证所属线程和租约归属；实例负责作者数据与 ECS 同步提交。 */
   [[nodiscard]] gneiss::engine::core::result
@@ -154,7 +155,7 @@ private:
   struct prefab_refresh_transaction final {
     gneiss_scene_prefab_refresh_token token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
     std::string instance_uuid;
-    gneiss::engine::resource::prefab_asset_lease alternate;
+    gneiss::engine::resource::prefab_asset_ref alternate;
   };
 
   engine::world::world& native_world_;

@@ -40,7 +40,7 @@ public:
 
   prefab_runtime_instance(engine::world::world& native_world, gneiss_world world,
                           engine::render::render_asset_loader& loader,
-                          gneiss::engine::resource::prefab_asset_lease prefab,
+                          gneiss::engine::resource::prefab_asset_ref prefab,
                           std::string instance_uuid) noexcept;
   ~prefab_runtime_instance() noexcept;
 
@@ -50,7 +50,7 @@ public:
   [[nodiscard]] static gneiss::engine::core::result
   create(engine::world::world& native_world, gneiss_world world,
          engine::render::render_asset_loader& loader,
-         gneiss::engine::resource::prefab_asset_lease prefab, gneiss_type_registry registry,
+         gneiss::engine::resource::prefab_asset_ref prefab, gneiss_type_registry registry,
          std::string_view instance_uuid, gneiss_scene_node_id parent,
          const gneiss::engine::core::math::transform& root_transform,
          const std::vector<gneiss::engine::resource::prefab_property_override>& overrides,
@@ -58,7 +58,7 @@ public:
 
   [[nodiscard]] gneiss_scene_node_id root() const noexcept { return root_node_; }
   [[nodiscard]] gneiss_entity_id root_entity() const noexcept { return root_entity_; }
-  [[nodiscard]] gneiss::engine::resource::prefab_asset_lease prefab_lease() const noexcept {
+  [[nodiscard]] gneiss::engine::resource::prefab_asset_ref prefab_lease() const noexcept {
     return prefab_;
   }
   /** 仅供未发布候选的镜像准备；返回值有效期不超过实例或下一次重载。 */
@@ -75,12 +75,12 @@ public:
                                                            node_info& out_info) const noexcept;
   /** 验证候选来源、覆盖与资源是否可提交，不修改 World。 */
   [[nodiscard]] gneiss::engine::core::result
-  validate_reload(const gneiss::engine::resource::prefab_asset_lease& candidate,
+  validate_reload(const gneiss::engine::resource::prefab_asset_ref& candidate,
                   gneiss_type_registry registry,
                   const std::vector<gneiss::engine::resource::prefab_property_override>& overrides);
   /** 保持实例根与匹配来源节点身份，提交已经验证的来源修订。 */
   [[nodiscard]] gneiss::engine::core::result
-  reload(gneiss::engine::resource::prefab_asset_lease candidate, gneiss_type_registry registry,
+  reload(gneiss::engine::resource::prefab_asset_ref candidate, gneiss_type_registry registry,
          const std::vector<gneiss::engine::resource::prefab_property_override>& overrides);
 
   /** 候选 World 专用的分阶段构造；每次只创建一个节点，渲染资源由调用方传入租约。 */
@@ -96,8 +96,8 @@ public:
   [[nodiscard]] gneiss::engine::core::result prepare_retirement_step(bool& complete);
   [[nodiscard]] gneiss::engine::core::result
   create_staged_node(std::size_t index, gneiss_scene_node_id parent,
-                     engine::render::mesh_asset_lease mesh,
-                     engine::render::material_asset_lease material);
+                     engine::render::render_asset_ref mesh,
+                     engine::render::render_asset_ref material);
   [[nodiscard]] gneiss::engine::core::result
   apply_staged_override(gneiss_type_registry registry,
                         const gneiss::engine::resource::prefab_property_override& value) noexcept;
@@ -117,8 +117,8 @@ private:
     gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
     gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;
     gneiss_scene_node_id parent = GNEISS_NULL_SCENE_NODE_ID;
-    engine::render::mesh_asset_lease mesh;
-    engine::render::material_asset_lease material;
+    engine::render::render_asset_ref mesh;
+    engine::render::render_asset_ref material;
     bool staged_attempted{};
   };
 
@@ -136,7 +136,7 @@ private:
   // 仅供 ABI 反射回调定位；不拥有 World，不用于普通场景操作。
   gneiss_world reflection_context_;
   engine::render::render_asset_loader& loader_;
-  gneiss::engine::resource::prefab_asset_lease prefab_;
+  gneiss::engine::resource::prefab_asset_ref prefab_;
   std::string instance_uuid_;
   gneiss_entity_id root_entity_ = GNEISS_NULL_ENTITY_ID;
   gneiss_scene_node_id root_node_ = GNEISS_NULL_SCENE_NODE_ID;

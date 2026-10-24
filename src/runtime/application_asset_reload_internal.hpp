@@ -29,7 +29,7 @@ collect_unused_edit_assets(gneiss_application application) noexcept;
 /** 内部编辑接口：只读就绪选择、捕获及提交实际租约；不加载文件。 */
 GNEISS_API gneiss::engine::core::result
 query_ready_asset(gneiss_application application, const engine::render::render_asset_reload& source,
-                  engine::render::render_asset_lease& output) noexcept;
+                  engine::render::render_asset_ref& output) noexcept;
 GNEISS_API gneiss::engine::core::result capture_mesh_binding(gneiss_application application,
                                                              gneiss_scene_instance scene,
                                                              gneiss_scene_node_id node,

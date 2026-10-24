@@ -28,7 +28,7 @@ struct texture_load_completion {
   texture_load_state state{texture_load_state::failed};
   gneiss::engine::core::result result{gneiss::engine::core::result::internal};
   std::string message{};
-  std::vector<engine::render::render_asset_lease> assets;
+  std::vector<engine::render::render_asset_ref> assets;
   /** 包含显式请求及已发现依赖；取消/失败也保留已成功项，元数据不延长资源寿命。 */
   std::vector<asset_load_result> results;
   /** 本次准备使用的设备能力。 */
@@ -92,7 +92,7 @@ public:
   /** 所属线程借用请求目标，普通模式提交成功即可取得；下一次推进/取回执后重新查询。
    * 需要长期引用的使用者复制租约；引用有效不代表内容已就绪。
    * 目标有效不代表 CPU/GPU 已就绪；失败目标在使用者释放租约后由缓存清理回收。 */
-  [[nodiscard]] std::span<const render_asset_lease> requested_assets() const;
+  [[nodiscard]] std::span<const render_asset_ref> requested_assets() const;
   [[nodiscard]] bool busy() const noexcept { return pending_ != nullptr || completed_.has_value(); }
   [[nodiscard]] texture_prepare_profile profile() const noexcept { return backend_.profile; }
   void advance();

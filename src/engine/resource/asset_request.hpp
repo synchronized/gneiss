@@ -3,6 +3,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "asset_ref.hpp"
 #include "engine/core/result.hpp"
 #include <memory>
 #include <mutex>
@@ -21,7 +22,7 @@ struct asset_state {
  * 不驱动队列、不等待 I/O；结果可晚于 manager 销毁。请求对象限所属线程操作。 */
 template <typename T> class asset_request final {
 public:
-  using reference = std::shared_ptr<const T>;
+  using reference = asset_ref<const T>;
   asset_request() noexcept = default;
   explicit asset_request(std::shared_ptr<detail::asset_state> state) noexcept
       : state_(std::move(state)) {}
@@ -40,7 +41,7 @@ public:
       return state->status;
     if (!state->value)
       return gneiss::engine::core::result::internal;
-    output = std::static_pointer_cast<const T>(state->value);
+    output = reference{std::static_pointer_cast<const T>(state->value)};
     state_.reset();
     return gneiss::engine::core::result::success;
   }

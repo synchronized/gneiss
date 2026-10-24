@@ -14,10 +14,10 @@ namespace gneiss::runtime {
 /** 历史持有的不可变来源与实际资产租约，不保存隐藏实例。 */
 struct prefab_placement_snapshot {
   engine::resource::prefab_instance_description author;
-  engine::resource::prefab_asset_lease prefab;
+  engine::resource::prefab_asset_ref prefab;
   std::vector<std::size_t> order;
   std::vector<engine::scene::scene_mesh_binding> bindings;
-  std::map<std::string, engine::render::render_asset_lease, std::less<>> assets;
+  std::map<std::string, engine::render::render_asset_ref, std::less<>> assets;
 };
 class GNEISS_API prefab_placement final {
 public:
@@ -29,7 +29,7 @@ public:
   static gneiss::engine::core::result
   freeze(runtime::application& application, engine::scene::prepared_prefab_description prepared,
          engine::resource::prefab_instance_description author,
-         std::vector<engine::render::render_asset_lease> assets,
+         std::vector<engine::render::render_asset_ref> assets,
          std::shared_ptr<const prefab_placement_snapshot>& output) noexcept;
   static gneiss::engine::core::result
   begin(runtime::application& application, gneiss_scene_instance scene,

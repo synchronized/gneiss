@@ -105,7 +105,7 @@ void test_asset_request_boundaries() {
     check(!app->scene_progress(scene_progress) && scene_completion.scene == 29);
     engine::render::texture_load_completion completion;
     completion.request = 23;
-    engine::render::render_asset_lease lease;
+    engine::render::render_asset_ref lease;
     engine::scene::scene_instances::mesh_binding binding;
     gneiss::scene_node_id created{19};
     check(app->create_mesh_node_ready(0, {}, {}, created) ==

@@ -3,6 +3,7 @@
 
 #include "engine/resource/cache/resource_cache.hpp"
 #include "engine/core/result.hpp"
+#include "engine/resource/asset_ref.hpp"
 
 #include "engine/resource/vfs/asset_uri.hpp"
 
@@ -14,7 +15,7 @@ namespace gneiss::engine::resource {
 
 gneiss::engine::core::result
 resource_cache::acquire(std::string_view uri, std::uint32_t type, const loader& load,
-                        std::shared_ptr<const entry>& out_entry,
+                        asset_ref<const entry>& out_entry,
                         std::shared_ptr<const asset_source_domain> source) noexcept {
   out_entry.reset();
   if (type == 0U || !load || validate_uri(uri) != gneiss::engine::core::result::success) {
@@ -41,7 +42,7 @@ resource_cache::acquire(std::string_view uri, std::uint32_t type, const loader& 
     value->source = std::move(source);
     value->type = type;
     value->state = resource_state::loading;
-    entries_.emplace(value->uri, value);
+    entries_.emplace(value->uri, asset_ref<const entry>{value});
 
     std::shared_ptr<void> resource;
     const auto result = load(resource);
@@ -55,7 +56,7 @@ resource_cache::acquire(std::string_view uri, std::uint32_t type, const loader& 
     }
     value->resource = std::move(resource);
     value->state = resource_state::ready;
-    out_entry = std::move(value);
+    out_entry = asset_ref<const entry>{std::move(value)};
     return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
     return gneiss::engine::core::result::out_of_memory;
@@ -66,7 +67,7 @@ resource_cache::acquire(std::string_view uri, std::uint32_t type, const loader& 
 
 gneiss::engine::core::result
 resource_cache::reload(std::string_view uri, std::uint32_t type, const loader& load,
-                       std::shared_ptr<const entry>& out_entry,
+                       asset_ref<const entry>& out_entry,
                        std::shared_ptr<const asset_source_domain> source) noexcept {
   out_entry.reset();
   if (type == 0U || !load || validate_uri(uri) != gneiss::engine::core::result::success) {
@@ -92,8 +93,8 @@ resource_cache::reload(std::string_view uri, std::uint32_t type, const loader& l
     }
     value->resource = std::move(resource);
     value->state = resource_state::ready;
-    entries_.insert_or_assign(value->uri, value);
-    out_entry = std::move(value);
+    entries_.insert_or_assign(value->uri, asset_ref<const entry>{value});
+    out_entry = asset_ref<const entry>{std::move(value)};
     return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
     return gneiss::engine::core::result::out_of_memory;
@@ -121,7 +122,8 @@ void resource_cache::release_unused() noexcept {
 
 std::weak_ptr<const resource_cache::entry> resource_cache::observe(std::string_view uri) const {
   const auto found = entries_.find(std::string(uri));
-  return found == entries_.end() ? std::weak_ptr<const entry>{} : found->second;
+  return found == entries_.end() ? std::weak_ptr<const entry>{}
+                                 : std::weak_ptr<const entry>{found->second.shared()};
 }
 
 } // namespace gneiss::engine::resource

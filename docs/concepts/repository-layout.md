@@ -218,7 +218,7 @@ Scene 服务完成入口校验后转交实例，不直接修改这些事务的�
 资产流程。跨场景资产替换继续由 Scene 服务协调，与单场景实例事务的职责不同。
 
 应用级资源管理器位于 `src/engine/resource/asset_manager.hpp`，由 Application 拥有，
-管理 CPU 文档、输入资源请求与 Prefab 描述缓存。渲染租约缓存与 Loader 由 Application
+管理通用 CPU 资源请求与 Prefab 描述缓存。渲染租约缓存与 Loader 由 Application
 独立拥有，上传通道由应用加载流程装配。资源描述解析同在 resource，不依赖运行时实例化。
 管理器不进入安装 SDK，也不拥有编辑状态；缓存实现尚未全部统一到泛型请求。
 
@@ -294,7 +294,7 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 ## 内部资源请求
 
 `engine/resource/asset_request.hpp` 提供移动所有的 `asset_request<T>`；结果为
-`shared_ptr<const T>`，取消只放弃当前观察者，不取消独立订阅。成功领取一次，失败不改变输出。
+`asset_ref<const T>`，取消只放弃当前观察者，不取消独立订阅。成功领取一次，失败不改变输出。
 `asset_manager` 移植 Granit 示例的共享请求与类型 Loader 模型，固定持有本实例的 VFS 来源；
 任务经宿主执行器运行，结果由 `advance_resources()` 发布，同步成功使较早异步失去缓存写入权。
 `runtime/loading/action_map_application` 领取结果、复制映射并应用 InputService。
@@ -312,3 +312,7 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 由渲染资源和仍在使用它的帧保活；最后一个引用释放时销毁。
 不再提供按来源、URI 和内容摘要去重的独立 CPU 文档缓存，见
 [ADR-076](../decisions/ADR-076-remove-cpu-document-cache.md)。
+
+统一强引用位于 `resource/asset_ref.hpp`。Prefab 引用直接访问描述并保活缓存拥有者；
+渲染资产使用同一种缓存条目引用，专用 Mesh/Material/Texture lease 类已删除。
+身份、回收、重载和线程规则见[资产引用契约](../reference/assets.md#缓存与生命周期)。

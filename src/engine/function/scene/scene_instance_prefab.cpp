@@ -10,13 +10,13 @@
 
 namespace gneiss::engine::scene {
 void scene_instance::append_render_assets(
-    std::vector<engine::render::render_asset_lease>& output) const {
+    std::vector<engine::render::render_asset_ref>& output) const {
   const auto append = [&](const auto& node) {
     if (node.mesh) {
-      output.push_back(engine::render::render_asset_loader::asset_lease(node.mesh));
+      output.push_back(node.mesh);
     }
     if (node.material) {
-      output.push_back(engine::render::render_asset_loader::asset_lease(node.material));
+      output.push_back(node.material);
     }
   };
   for (const auto& node : objects_) {
@@ -31,7 +31,7 @@ void scene_instance::append_render_assets(
 
 gneiss::engine::core::result scene_instance::capture_prefab_instance_header(
     std::string_view uuid, gneiss::engine::resource::prefab_instance_description& author,
-    gneiss::engine::resource::prefab_asset_lease& source) const noexcept try {
+    gneiss::engine::resource::prefab_asset_ref& source) const noexcept try {
   const auto found =
       std::ranges::find(description_.prefab_instances, uuid,
                         &gneiss::engine::resource::prefab_instance_description::instance_uuid);
@@ -71,8 +71,8 @@ scene_instance::capture_prefab_instance_binding(std::string_view uuid, std::size
   }
   const auto& node = (*found)->nodes_[index];
   output = {
-      .mesh = engine::render::render_asset_loader::asset_lease(node.mesh),
-      .material = engine::render::render_asset_loader::asset_lease(node.material),
+      .mesh = node.mesh,
+      .material = node.material,
   };
   return gneiss::engine::core::result::success;
 }
@@ -80,7 +80,7 @@ scene_instance::capture_prefab_instance_binding(std::string_view uuid, std::size
 gneiss::engine::core::result scene_instance::prepare_prefab_instance_candidate(
     gneiss_scene_instance instance,
     const gneiss::engine::resource::prefab_instance_description& author,
-    gneiss::engine::resource::prefab_asset_lease prefab,
+    gneiss::engine::resource::prefab_asset_ref prefab,
     const gneiss::engine::resource::prefab_description& prepared, prefab_candidate& output,
     bool replacing) noexcept try {
   if (output.is_valid()) {
