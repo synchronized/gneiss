@@ -1108,12 +1108,12 @@ if(TARGET gneiss_editor_ui)
 endif()
 
 # 共享 C++ 绘制描述的转换、借用数组及 C ABI 提交验证。
-add_executable(gneiss_cpp_draw_submission_test cpp_draw_submission_test.cpp)
-target_link_libraries(gneiss_cpp_draw_submission_test PRIVATE gneiss::engine)
-target_compile_features(gneiss_cpp_draw_submission_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_cpp_draw_submission_test)
-gneiss_target_output_directories(gneiss_cpp_draw_submission_test)
-add_test(NAME gneiss.cpp-draw-submission COMMAND gneiss_cpp_draw_submission_test)
+add_executable(gneiss_native_draw_submission_test native_draw_submission_test.cpp)
+target_link_libraries(gneiss_native_draw_submission_test PRIVATE gneiss::engine gneiss_native_interface)
+target_compile_features(gneiss_native_draw_submission_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_native_draw_submission_test)
+gneiss_target_output_directories(gneiss_native_draw_submission_test)
+add_test(NAME gneiss.native-draw-submission COMMAND gneiss_native_draw_submission_test)
 
 if(COMMAND gneiss_enable_asset_libuv)
   gneiss_enable_asset_libuv(gneiss_read_source_test)

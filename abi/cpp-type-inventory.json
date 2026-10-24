@@ -1312,25 +1312,25 @@
         {
           "symbol": "gneiss_camera",
           "kind": "struct",
-          "cpp_mapping": "gneiss::camera",
+          "cpp_mapping": "gneiss::engine::camera_settings + primary 参数",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_camera_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::camera_desc",
+          "cpp_mapping": "gneiss::engine::camera_settings",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_debug_draw_list_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::debug_draw_list_desc",
+          "cpp_mapping": "std::span<const gneiss::engine::debug_line>",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_debug_line",
           "kind": "struct",
-          "cpp_mapping": "gneiss::debug_line",
+          "cpp_mapping": "gneiss::engine::debug_line",
           "native_review": "implemented"
         },
         {
@@ -1378,7 +1378,7 @@
         {
           "symbol": "gneiss_mesh_renderer",
           "kind": "struct",
-          "cpp_mapping": "gneiss::mesh_renderer",
+          "cpp_mapping": "gneiss::engine::mesh_renderer",
           "native_review": "implemented"
         },
         {
@@ -1450,19 +1450,19 @@
         {
           "symbol": "gneiss_ui_draw_command",
           "kind": "struct",
-          "cpp_mapping": "gneiss::ui_draw_command",
+          "cpp_mapping": "gneiss::engine::ui_draw_command",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_ui_draw_list_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::ui_draw_list_desc",
+          "cpp_mapping": "gneiss::engine::ui_draw_view",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_ui_vertex",
           "kind": "struct",
-          "cpp_mapping": "gneiss::ui_vertex",
+          "cpp_mapping": "gneiss::engine::ui_vertex",
           "native_review": "implemented"
         }
       ],
@@ -1470,17 +1470,17 @@
         {
           "symbol": "GNEISS_CAMERA_DESC_INIT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::camera_desc{}"
+          "cpp_mapping": "gneiss::engine::camera_settings{1.04719755F, 0.1F, 1000.0F}"
         },
         {
           "symbol": "GNEISS_CAMERA_INIT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::camera{}"
+          "cpp_mapping": "C 边界默认值；原生 camera_settings 与主相机选择分离"
         },
         {
           "symbol": "GNEISS_DEBUG_DRAW_LIST_DESC_INIT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::debug_draw_list_desc{}"
+          "cpp_mapping": "std::span<const gneiss::engine::debug_line>{}"
         },
         {
           "symbol": "GNEISS_DEBUG_DRAW_LIST_DESC_VERSION_1_SIZE",
@@ -1535,7 +1535,7 @@
         {
           "symbol": "GNEISS_MESH_RENDERER_INIT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::mesh_renderer{}"
+          "cpp_mapping": "gneiss::engine::mesh_renderer{}"
         },
         {
           "symbol": "GNEISS_NULL_MATERIAL",
@@ -1620,7 +1620,7 @@
         {
           "symbol": "GNEISS_UI_DRAW_LIST_DESC_INIT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::ui_draw_list_desc{}"
+          "cpp_mapping": "gneiss::engine::ui_draw_view{}"
         },
         {
           "symbol": "GNEISS_UI_DRAW_LIST_DESC_VERSION_1_SIZE",

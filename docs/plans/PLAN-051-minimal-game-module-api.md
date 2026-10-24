@@ -33,6 +33,9 @@ World 变换服务与组件反射、Runtime 场景检查、IPC 检查值和 Edit
 统一使用原生 `engine::transform` 与 Core 共享值 `camera_settings`；C 变换复制仅留在
 尚未撤销的 API 边界，IPC 按字段编码，相机默认投影参数保持不变。
 
+重复的 Camera、Camera 描述和 MeshRenderer 包装已删除；相机描述复用原生共享值。
+绘制提交用例改用原生 Application/资源服务，旧 UI/Debug 描述、转换及临时数组适配已删除。
+
 ## 目标与非目标
 
 同源码构建的 Engine、Runtime、Editor 和工具统一消费 src 原生接口与共享值。

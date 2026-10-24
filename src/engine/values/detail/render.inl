@@ -65,38 +65,8 @@ namespace gneiss {
   return native;
 }
 
-[[nodiscard]] constexpr gneiss_ui_vertex to_native(const ui_vertex& value) noexcept {
-  return {
-      .position = {value.position[0], value.position[1]},
-      .uv = {value.uv[0], value.uv[1]},
-      .color_rgba8 = value.color_rgba8,
-  };
-}
-
-[[nodiscard]] constexpr gneiss_ui_draw_command to_native(const ui_draw_command& value) noexcept {
-  return {
-      .texture = value.texture.get(),
-      .clip_min = {value.clip_min[0], value.clip_min[1]},
-      .clip_max = {value.clip_max[0], value.clip_max[1]},
-      .first_index = value.first_index,
-      .index_count = value.index_count,
-      .vertex_offset = value.vertex_offset,
-      .reserved = 0,
-  };
-}
-
-[[nodiscard]] constexpr gneiss_debug_line to_native(const debug_line& value) noexcept {
-  return {
-      .start = {value.start[0], value.start[1], value.start[2]},
-      .end = {value.end[0], value.end[1], value.end[2]},
-      .color_rgba8 = value.color_rgba8,
-      .width = value.width,
-      .depth_test = static_cast<std::uint8_t>(value.depth_test),
-      .reserved = {},
-  };
-}
-
-[[nodiscard]] constexpr gneiss_camera_desc to_native(const camera_desc& value) noexcept {
+[[nodiscard]] constexpr gneiss_camera_desc
+to_native(const engine::camera_settings& value) noexcept {
   return {
       .struct_size = sizeof(gneiss_camera_desc),
       .reserved = 0,
@@ -106,30 +76,12 @@ namespace gneiss {
   };
 }
 
-[[nodiscard]] constexpr camera_desc from_native(const gneiss_camera_desc& value) noexcept {
+[[nodiscard]] constexpr engine::camera_settings
+from_native(const gneiss_camera_desc& value) noexcept {
   return {
       .vertical_field_of_view_radians = value.vertical_field_of_view_radians,
       .near_plane = value.near_plane,
       .far_plane = value.far_plane,
-  };
-}
-
-[[nodiscard]] constexpr gneiss_camera to_native(const camera& value) noexcept {
-  return {
-      .vertical_field_of_view_radians = value.vertical_field_of_view_radians,
-      .near_plane = value.near_plane,
-      .far_plane = value.far_plane,
-      .is_primary = static_cast<std::uint8_t>(value.is_primary),
-      .reserved = {},
-  };
-}
-
-[[nodiscard]] constexpr camera from_native(const gneiss_camera& value) noexcept {
-  return {
-      .vertical_field_of_view_radians = value.vertical_field_of_view_radians,
-      .near_plane = value.near_plane,
-      .far_plane = value.far_plane,
-      .is_primary = value.is_primary != 0,
   };
 }
 
@@ -173,54 +125,6 @@ template <typename Call> result with_render_desc(const mesh_desc& desc, Call&& c
     native.color_count = static_cast<std::uint32_t>(colors.size());
     native.indices = desc.indices.data();
     native.index_count = static_cast<std::uint32_t>(desc.indices.size());
-    return from_native(call(native));
-  } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
-  } catch (const std::length_error&) {
-    return result::invalid_argument;
-  }
-}
-template <typename Call>
-result with_render_desc(const ui_draw_list_desc& desc, Call&& call) noexcept {
-  constexpr auto limit = std::numeric_limits<std::uint32_t>::max();
-  if (desc.vertices.size() > limit || desc.indices.size() > limit || desc.commands.size() > limit) {
-    return result::invalid_argument;
-  }
-  try {
-    const auto vertices = render_values(desc.vertices);
-    const auto commands = render_values(desc.commands);
-    gneiss_ui_draw_list_desc native = GNEISS_UI_DRAW_LIST_DESC_INIT;
-    native.display_width = desc.display_width;
-    native.display_height = desc.display_height;
-    native.framebuffer_scale_x = desc.framebuffer_scale_x;
-    native.framebuffer_scale_y = desc.framebuffer_scale_y;
-    native.vertices = vertices.data();
-    native.vertex_count = static_cast<std::uint32_t>(vertices.size());
-    native.indices = desc.indices.data();
-    native.index_count = static_cast<std::uint32_t>(desc.indices.size());
-    native.commands = commands.data();
-    native.command_count = static_cast<std::uint32_t>(commands.size());
-    return from_native(call(native));
-  } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
-  } catch (const std::length_error&) {
-    return result::invalid_argument;
-  }
-}
-template <typename Call>
-result with_render_desc(const debug_draw_list_desc& desc, Call&& call) noexcept {
-  if (desc.lines.size() > std::numeric_limits<std::uint32_t>::max()) {
-    return result::invalid_argument;
-  }
-  try {
-    const auto lines = render_values(desc.lines);
-    const gneiss_debug_draw_list_desc native{
-        .struct_size = sizeof(gneiss_debug_draw_list_desc),
-        .reserved = 0,
-        .line_count = static_cast<std::uint32_t>(lines.size()),
-        .reserved_2 = 0,
-        .lines = lines.data(),
-    };
     return from_native(call(native));
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;

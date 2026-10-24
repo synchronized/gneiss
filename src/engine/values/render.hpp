@@ -4,6 +4,7 @@
 #ifndef GNEISS_RENDER_HPP_
 #define GNEISS_RENDER_HPP_
 
+#include "engine/core/math/camera_settings.hpp"
 #include "engine/values/core/result.hpp"
 #include <gneiss/engine/render.h>
 
@@ -172,74 +173,11 @@ struct mesh_desc {
   std::span<const mesh_color> colors = {};
 };
 /** 即时 UI 顶点，颜色按每字节 RGBA 打包。 */
-struct ui_vertex {
-  std::array<float, 2> position{};
-  std::array<float, 2> uv{};
-  std::uint32_t color_rgba8 = 0;
-};
-/** 索引和顶点偏移相对当次提交；纹理只借用。 */
-struct ui_draw_command {
-  texture_id texture{};
-  std::array<float, 2> clip_min{};
-  std::array<float, 2> clip_max{};
-  std::uint32_t first_index = 0;
-  std::uint32_t index_count = 0;
-  std::uint32_t vertex_offset = 0;
-};
-/** 数组借用至提交返回；成功提交的数据只在当前帧有效。 */
-struct ui_draw_list_desc {
-  float display_width = 0.0F;
-  float display_height = 0.0F;
-  float framebuffer_scale_x = 1.0F;
-  float framebuffer_scale_y = 1.0F;
-  std::span<const ui_vertex> vertices = {};
-  std::span<const std::uint32_t> indices = {};
-  std::span<const ui_draw_command> commands = {};
-};
-/** 世界调试线段，宽度为像素；数组借用至提交返回。 */
-struct debug_line {
-  std::array<float, 3> start{};
-  std::array<float, 3> end{};
-  std::uint32_t color_rgba8 = 0;
-  float width = 1.0F;
-  bool depth_test = true;
-};
-struct debug_draw_list_desc {
-  std::span<const debug_line> lines = {};
-};
-[[nodiscard]] constexpr gneiss_ui_vertex to_native(const ui_vertex& value) noexcept;
-[[nodiscard]] constexpr gneiss_ui_draw_command to_native(const ui_draw_command& value) noexcept;
-[[nodiscard]] constexpr gneiss_debug_line to_native(const debug_line& value) noexcept;
-/** 透视相机配置；默认视角约 60 度，裁剪面为 0.1 与 1000。 */
-struct camera_desc {
-  float vertical_field_of_view_radians = 1.04719755F;
-  float near_plane = 0.1F;
-  float far_plane = 1000.0F;
-};
-/** 兼容既有 set_camera 的主相机选择语义；新代码可用 configure_camera + set_active_camera。 */
-struct camera {
-  float vertical_field_of_view_radians = 1.04719755F;
-  float near_plane = 0.1F;
-  float far_plane = 1000.0F;
-  bool is_primary = true;
-};
-/** 只借用资源标识，不延长 Mesh、Material 或其所属 Application 的寿命。 */
-struct mesh_renderer {
-  mesh_id mesh{};
-  material_id material{};
-};
 // NOLINTEND(readability-redundant-member-init)
-/** 显式 C 互操作；逐字段转换，不依赖内存布局。 */
-[[nodiscard]] constexpr gneiss_camera_desc to_native(const camera_desc& value) noexcept;
-[[nodiscard]] constexpr camera_desc from_native(const gneiss_camera_desc& value) noexcept;
-[[nodiscard]] constexpr gneiss_camera to_native(const camera& value) noexcept;
-[[nodiscard]] constexpr camera from_native(const gneiss_camera& value) noexcept;
-[[nodiscard]] constexpr gneiss_mesh_renderer to_native(const mesh_renderer& value) noexcept {
-  return {.mesh = value.mesh.get(), .material = value.material.get()};
-}
-[[nodiscard]] constexpr mesh_renderer from_native(const gneiss_mesh_renderer& value) noexcept {
-  return {.mesh = mesh_id{value.mesh}, .material = material_id{value.material}};
-}
+/** 迁移期 C 边界转换；原生相机配置不依赖 ABI 布局。 */
+[[nodiscard]] constexpr gneiss_camera_desc to_native(const engine::camera_settings& value) noexcept;
+[[nodiscard]] constexpr engine::camera_settings
+from_native(const gneiss_camera_desc& value) noexcept;
 
 } // namespace gneiss
 

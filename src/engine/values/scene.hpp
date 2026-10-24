@@ -40,7 +40,7 @@ struct scene_instance_node_info {
   std::string_view material_uri{};
   engine::transform local_transform{};
   scene_node_components component_flags = scene_node_components::none;
-  camera_desc camera{};
+  engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
 };
 /** 所有输入文本只在同步创建期间借用。 */
 struct scene_node_desc {
@@ -78,7 +78,7 @@ struct scene_mesh_renderer_desc {
   std::string_view material_uri{};
 };
 struct scene_camera_desc {
-  camera_desc camera{};
+  engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   bool is_primary = false;
 };
 struct scene_mesh_renderer_node_desc {

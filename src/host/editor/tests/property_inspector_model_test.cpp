@@ -53,7 +53,7 @@ int main() {
       inspector.initialize() != gneiss::engine::result::success) {
     return 1;
   }
-  gneiss::camera_desc camera{};
+  gneiss::engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   if (([&](scene_node_id parent, entity_id entity, scene_node_id& out_node) {
         gneiss_scene_node_id native_node = GNEISS_NULL_SCENE_NODE_ID;
         const auto native_result = gneiss::engine::result{
@@ -72,7 +72,7 @@ int main() {
         }
         return native_result;
       })({}, transform_only, transform_only_node) != gneiss::engine::result::success ||
-      ([&](entity_id entity, const camera_desc& value) {
+      ([&](entity_id entity, const gneiss::engine::camera_settings& value) {
         const auto native = to_native(value);
         return gneiss::engine::result{
             gneiss_world_entity_configure_camera(world.get(), entity.get(), &native)};
