@@ -37,16 +37,4 @@ typedef struct gneiss_log_event {
 #define GNEISS_LOG_EVENT_VERSION_1_SIZE                                                            \
   ((uint32_t)(offsetof(gneiss_log_event, reserved) + sizeof(uint64_t) * 2U))
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/** 校验日志消息布局、级别、UTF-8 字段边界和保留字段；不取得消息所有权。线程安全。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result
-gneiss_log_message_validate(const gneiss_log_message* message);
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif

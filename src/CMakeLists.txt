@@ -100,7 +100,6 @@ target_sources(
     engine/core/reflection/component_identity.hpp
     engine/values/core/result.hpp
     engine/core/scene_types.hpp
-    engine/values/detail/scene.inl
     engine/core/type_id.cpp
     engine/core/type_id.hpp
     engine/core/detail/canonical_type_name.hpp
@@ -117,7 +116,6 @@ target_sources(
     engine/resource/types/action_map.cpp
     engine/resource/loaders/action_map_parser.cpp
     engine/resource/types/action_map.hpp
-    engine/api/log_api.cpp
     engine/api/log_validation.hpp
     engine/core/log/log.hpp
     engine/core/log/log.cpp

@@ -1636,7 +1636,7 @@
         {
           "symbol": "gneiss_scene_camera_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::scene_camera_desc",
+          "cpp_mapping": "gneiss::engine::camera_description",
           "native_review": "implemented"
         },
         {
@@ -1648,25 +1648,25 @@
         {
           "symbol": "gneiss_scene_instance_node_info",
           "kind": "struct",
-          "cpp_mapping": "gneiss::scene_instance_node_info",
+          "cpp_mapping": "gneiss::engine::scene_node_view",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_mesh_renderer_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::scene_mesh_renderer_desc",
+          "cpp_mapping": "gneiss::engine::mesh_renderer_description",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_mesh_renderer_node_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::scene_mesh_renderer_node_desc",
+          "cpp_mapping": "gneiss::engine::mesh_renderer_node_creation",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_node_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::scene_node_desc",
+          "cpp_mapping": "gneiss::engine::node_creation",
           "native_review": "implemented"
         },
         {
@@ -1678,13 +1678,13 @@
         {
           "symbol": "gneiss_scene_prefab_instance_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::scene_prefab_instance_desc",
+          "cpp_mapping": "gneiss::engine::prefab_creation",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_prefab_node_info",
           "kind": "struct",
-          "cpp_mapping": "gneiss::scene_prefab_node_info",
+          "cpp_mapping": "gneiss::engine::prefab_node_view",
           "native_review": "implemented"
         },
         {
@@ -1696,7 +1696,7 @@
         {
           "symbol": "gneiss_scene_uuid_mapping",
           "kind": "struct",
-          "cpp_mapping": "gneiss::scene_uuid_mapping",
+          "cpp_mapping": "gneiss::engine::uuid_mapping",
           "native_review": "implemented"
         }
       ],
@@ -1719,12 +1719,12 @@
         {
           "symbol": "GNEISS_SCENE_CAMERA_DESC_INIT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::scene_camera_desc{}"
+          "cpp_mapping": "gneiss::engine::camera_description{}"
         },
         {
           "symbol": "GNEISS_SCENE_INSTANCE_NODE_INFO_INIT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::scene_instance_node_info{}"
+          "cpp_mapping": "gneiss::engine::scene_node_view{}"
         },
         {
           "symbol": "GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_1_SIZE",
@@ -1744,12 +1744,12 @@
         {
           "symbol": "GNEISS_SCENE_MESH_RENDERER_DESC_INIT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::scene_mesh_renderer_desc{}"
+          "cpp_mapping": "gneiss::engine::mesh_renderer_description{}"
         },
         {
           "symbol": "GNEISS_SCENE_MESH_RENDERER_NODE_DESC_INIT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::scene_mesh_renderer_node_desc{}"
+          "cpp_mapping": "gneiss::engine::mesh_renderer_node_creation{}"
         },
         {
           "symbol": "GNEISS_SCENE_NODE_COMPONENT_CAMERA",
@@ -1769,17 +1769,17 @@
         {
           "symbol": "GNEISS_SCENE_NODE_DESC_INIT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::scene_node_desc{}"
+          "cpp_mapping": "gneiss::engine::node_creation{}"
         },
         {
           "symbol": "GNEISS_SCENE_PREFAB_INSTANCE_DESC_INIT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::scene_prefab_instance_desc{}"
+          "cpp_mapping": "gneiss::engine::prefab_creation{}"
         },
         {
           "symbol": "GNEISS_SCENE_PREFAB_NODE_INFO_INIT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::scene_prefab_node_info{}"
+          "cpp_mapping": "gneiss::engine::prefab_node_view{}"
         },
         {
           "symbol": "GNEISS_SCENE_PREFAB_NODE_INSTANCE_ROOT",
@@ -1809,7 +1809,7 @@
         {
           "symbol": "GNEISS_SCENE_SUBTREE_MAX_NODES",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::scene_subtree_max_nodes"
+          "cpp_mapping": "C 边界子树节点上限"
         }
       ]
     },

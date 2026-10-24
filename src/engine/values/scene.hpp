@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-
-#ifndef GNEISS_SCENE_HPP_
-#define GNEISS_SCENE_HPP_
+#pragma once
 
 #include "engine/core/entity_id.hpp"
 #include "engine/core/math/camera_settings.hpp"
@@ -11,112 +9,42 @@
 #include "engine/values/core/result.hpp"
 #include <gneiss/engine/scene.h>
 
-#include <array>
-#include <concepts>
-#include <cstdint>
-#include <exception>
-#include <span>
-#include <string>
-#include <string_view>
-#include <utility>
-
+// 仅保留尚未撤销的 C 边界值转换；场景描述与查询使用原生接口。
 namespace gneiss {
-/** 迁移期相机 C 值转换；不延长借用资源寿命。 */
-[[nodiscard]] constexpr gneiss_camera_desc to_native(const engine::camera_settings& value) noexcept;
+[[nodiscard]] constexpr gneiss_camera_desc
+to_native(const engine::camera_settings& value) noexcept {
+  return {
+      .struct_size = sizeof(gneiss_camera_desc),
+      .reserved = 0,
+      .vertical_field_of_view_radians = value.vertical_field_of_view_radians,
+      .near_plane = value.near_plane,
+      .far_plane = value.far_plane,
+  };
+}
+
 [[nodiscard]] constexpr engine::camera_settings
-from_native(const gneiss_camera_desc& value) noexcept;
+from_native(const gneiss_camera_desc& value) noexcept {
+  return {
+      .vertical_field_of_view_radians = value.vertical_field_of_view_radians,
+      .near_plane = value.near_plane,
+      .far_plane = value.far_plane,
+  };
+}
 
-/** 显式复制到 C ABI 值，不依赖两种类型的内存布局。 */
-[[nodiscard]] constexpr gneiss_transform to_native(const engine::transform& value) noexcept;
-/** 从 C ABI 值逐字段复制；几何有效性在设置到场景时校验。 */
-[[nodiscard]] constexpr engine::transform from_native(const gneiss_transform& value) noexcept;
-inline constexpr std::uint64_t scene_subtree_max_nodes = 4096;
-// 描述默认值允许 designated 初始化省略字段，避免消费者的缺省字段告警。
-// NOLINTBEGIN(readability-redundant-member-init)
-/** 值描述；文本借用到下次场景修改或实例/父对象失效，跨修改须自行复制。 */
-struct scene_instance_node_info {
-  scene_node_id node{};
-  scene_node_id parent{};
-  entity_id entity{};
-  std::string_view uuid{};
-  std::string_view name{};
-  std::string_view mesh_uri{};
-  std::string_view material_uri{};
-  engine::transform local_transform{};
-  scene_node_components component_flags = scene_node_components::none;
-  engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-};
-/** 所有输入文本只在同步创建期间借用。 */
-struct scene_node_desc {
-  scene_node_id parent{};
-  std::string_view uuid{};
-  std::string_view name{};
-  engine::transform local_transform{};
-};
-/** 文本借用期同普通节点描述；刷新后节点 ID 也须重新查询。 */
-struct scene_prefab_node_info {
-  scene_prefab_flags flags = scene_prefab_flags::none;
-  scene_node_id node{};
-  scene_node_id parent{};
-  entity_id entity{};
-  std::string_view instance_uuid{};
-  std::string_view source_node_uuid{};
-  std::string_view name{};
-  std::string_view prefab_uri{};
-  engine::transform local_transform{};
-  engine::transform source_local_transform{};
-};
-struct scene_prefab_instance_desc {
-  scene_node_id parent{};
-  std::string_view instance_uuid{};
-  std::string_view name{};
-  std::string_view prefab_uri{};
-  engine::transform local_transform{};
-};
-struct scene_uuid_mapping {
-  std::string_view source_uuid{};
-  std::string_view target_uuid{};
-};
-struct scene_mesh_renderer_desc {
-  std::string_view mesh_uri{};
-  std::string_view material_uri{};
-};
-struct scene_camera_desc {
-  engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  bool is_primary = false;
-};
-struct scene_mesh_renderer_node_desc {
-  scene_node_id parent{};
-  std::string_view uuid{};
-  std::string_view name{};
-  scene_mesh_renderer_desc renderer{};
-};
-// NOLINTEND(readability-redundant-member-init)
-/** 显式 C 互操作；文本仍借用原存储，不延长寿命。 */
-[[nodiscard]] inline gneiss_scene_node_desc to_native(const scene_node_desc& value) noexcept;
-/** 显式 C 互操作；文本仍借用原存储，不延长寿命。 */
-[[nodiscard]] inline gneiss_scene_prefab_instance_desc
-to_native(const scene_prefab_instance_desc& value) noexcept;
-/** 显式 C 互操作；文本仍借用原存储，不延长寿命。 */
-[[nodiscard]] inline gneiss_scene_uuid_mapping to_native(const scene_uuid_mapping& value) noexcept;
-/** 显式 C 互操作；文本仍借用原存储，不延长寿命。 */
-[[nodiscard]] inline gneiss_scene_mesh_renderer_desc
-to_native(const scene_mesh_renderer_desc& value) noexcept;
-/** 显式 C 互操作；文本仍借用原存储，不延长寿命。 */
-[[nodiscard]] inline gneiss_scene_camera_desc to_native(const scene_camera_desc& value) noexcept;
-/** 显式 C 互操作；文本仍借用原存储，不延长寿命。 */
-[[nodiscard]] inline gneiss_scene_mesh_renderer_node_desc
-to_native(const scene_mesh_renderer_node_desc& value) noexcept;
+[[nodiscard]] constexpr gneiss_transform to_native(const engine::transform& value) noexcept {
+  return {
+      .translation = {value.translation[0], value.translation[1], value.translation[2]},
+      .rotation = {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
+      .scale = {value.scale[0], value.scale[1], value.scale[2]},
+  };
+}
 
-/** 从有效 C 查询值借用文本；不复制文本内容。 */
-[[nodiscard]] inline scene_instance_node_info
-from_native(const gneiss_scene_instance_node_info& value) noexcept;
-/** 从有效 C 查询值借用文本；不复制文本内容。 */
-[[nodiscard]] inline scene_prefab_node_info
-from_native(const gneiss_scene_prefab_node_info& value) noexcept;
+[[nodiscard]] constexpr engine::transform from_native(const gneiss_transform& value) noexcept {
+  return {
+      .translation = {value.translation[0], value.translation[1], value.translation[2]},
+      .rotation = {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
+      .scale = {value.scale[0], value.scale[1], value.scale[2]},
+  };
+}
 
 } // namespace gneiss
-
-#include "engine/values/detail/scene.inl"
-
-#endif

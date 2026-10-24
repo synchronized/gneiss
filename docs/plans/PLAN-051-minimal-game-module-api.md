@@ -38,7 +38,12 @@ World 变换服务与组件反射、Runtime 场景检查、IPC 检查值和 Edit
 
 Granit 窗口冒烟用例已迁到原生 Application、World、输入和渲染资源服务；旧资源 RID 包装、
 网格/材质/纹理描述复制层及 `values/render.hpp`、`render.inl` 已删除。仍被场景转换使用的相机
-C 值转换暂留 scene.inl，待 Scene C API 撤销时一并移除。
+C 值转换暂留 values/scene.hpp，待 Scene C API 撤销时一并移除。
+旧 Scene 创建描述、查询包装、UUID 映射及闲置转换已删除，scene.inl 已撤销；
+当前实际调用使用原生 node_creation、prefab_creation、scene_node_view 等接口。
+
+独立日志校验 C 导出已删除；游戏模块日志消息协议及入口校验保留，布局与 UTF-8 用例
+改为直接验证内部边界校验器。
 
 ## 目标与非目标
 

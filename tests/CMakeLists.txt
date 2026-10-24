@@ -138,15 +138,14 @@ gneiss_target_compile_warnings(gneiss_c_game_module_test)
 gneiss_target_output_directories(gneiss_c_game_module_test)
 add_test(NAME gneiss.c_game_module COMMAND gneiss_c_game_module_test)
 
-add_executable(gneiss_c_log_test c_log_test.c)
-target_link_libraries(gneiss_c_log_test PRIVATE gneiss::engine)
-set_target_properties(
-  gneiss_c_log_test
-  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
-)
-gneiss_target_compile_warnings(gneiss_c_log_test)
-gneiss_target_output_directories(gneiss_c_log_test)
-add_test(NAME gneiss.c_log COMMAND gneiss_c_log_test)
+add_executable(gneiss_game_module_log_validation_test game_module_log_validation_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/engine/core/log/log.cpp")
+target_include_directories(gneiss_game_module_log_validation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_game_module_log_validation_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_game_module_log_validation_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_game_module_log_validation_test)
+gneiss_target_output_directories(gneiss_game_module_log_validation_test)
+add_test(NAME gneiss.game-module-log-validation COMMAND gneiss_game_module_log_validation_test)
 
 add_executable(gneiss_cpp_log_test cpp_log_test.cpp "${PROJECT_SOURCE_DIR}/src/engine/core/log/log.cpp")
 target_include_directories(gneiss_cpp_log_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
