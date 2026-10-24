@@ -91,7 +91,6 @@ public:
     render_asset_lease target;
     std::uint64_t sequence{};
     render_upload_item data;
-    std::shared_ptr<const engine::resource::material_document> document;
     std::array<std::shared_ptr<const engine::resource::resource_cache::entry>, 5> dependencies;
   };
   /** 所属线程分配请求顺序；仅用于拒绝迟到结果，不是内容版本或缓存失效序号。 */

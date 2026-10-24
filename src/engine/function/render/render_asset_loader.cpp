@@ -100,7 +100,6 @@ struct material_asset final {
   gneiss::engine::core::rid rid;
   std::uint64_t update_sequence{};
   std::array<std::shared_ptr<const gneiss::engine::resource::resource_cache::entry>, 5> textures;
-  std::shared_ptr<const gneiss::engine::resource::material_document> document;
   ~material_asset() {
     if (resources != nullptr && rid != gneiss::engine::core::null_rid) {
       (void)resources->destroy_material(rid);
@@ -433,7 +432,6 @@ render_asset_loader::prepare_material_upload(prepared_render_asset& prepared,
     upload.dependencies[slot] = dependency.entry_;
     upload.data.dependency_textures[slot] = resources_.share_texture(dependency.get());
   }
-  upload.document = std::move(prepared.material_document);
   return resources_.prepare_material_data(material, upload.data.material);
 }
 
@@ -472,9 +470,7 @@ gneiss::engine::core::result render_asset_loader::prepare_upload(prepared_render
   switch (prepared.source.type) {
   case render_asset_type::mesh:
     result = resources_.prepare_mesh_data(
-        prepared.shared_mesh ? std::move(prepared.shared_mesh)
-                             : std::make_shared<const mesh_resource>(std::move(prepared.mesh)),
-        upload.data.mesh);
+        std::make_shared<const mesh_resource>(std::move(prepared.mesh)), upload.data.mesh);
     break;
   case render_asset_type::texture: {
     auto texture = texture_data(std::move(prepared.texture));
@@ -529,7 +525,6 @@ gneiss::engine::core::result render_asset_loader::complete_upload(asset_upload& 
   }
   auto material = std::static_pointer_cast<material_asset>(upload.target.entry_->resource);
   material->textures = upload.dependencies;
-  material->document = upload.document;
   return gneiss::engine::core::result::success;
 }
 

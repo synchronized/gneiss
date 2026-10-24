@@ -56,7 +56,6 @@ add_executable(gneiss_asset_material_test material_document_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/native_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/asset_preparation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/cache/cpu_document_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_ktx2.cpp"

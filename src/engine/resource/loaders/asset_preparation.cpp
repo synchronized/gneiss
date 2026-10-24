@@ -600,7 +600,7 @@ gneiss::engine::core::result
 decode_non_texture(const asset_preparation_source& source, const std::vector<std::byte>& bytes,
                    prepared_asset& asset, asset_diagnostic& diagnostic, std::size_t material_bytes,
                    std::size_t maximum_bytes, std::vector<asset_preparation_source>& pending,
-                   const material_document_decoder& decode_material, bool include_dependencies) {
+                   bool include_dependencies) {
   auto result = gneiss::engine::core::result::success;
   if (source.type == asset_type::mesh) {
     result =
@@ -616,9 +616,7 @@ decode_non_texture(const asset_preparation_source& source, const std::vector<std
     asset.bytes = mesh.data_bytes();
   } else if (source.type == asset_type::material) {
     material_source material;
-    result = decode_material
-                 ? decode_material(bytes, material.parameters, material.texture_uris, diagnostic)
-                 : parse_material(bytes, material, diagnostic);
+    result = parse_material(bytes, material, diagnostic);
     if (result != gneiss::engine::core::result::success) {
       return result;
     }
@@ -743,7 +741,6 @@ struct asset_preparation::state {
   std::size_t maximum_assets{};
   std::size_t maximum_bytes{};
   texture_prepare_profile profile;
-  material_document_decoder decode_material;
   prepared_batch batch;
   prepared_asset current;
   std::shared_ptr<prepared_input_files> input;
@@ -1039,8 +1036,7 @@ struct asset_preparation::state {
       }
     } else {
       decoded = decode_non_texture(current.source, input->description, current, diagnostic,
-                                   material_bytes, maximum_bytes, pending, decode_material,
-                                   include_dependencies);
+                                   material_bytes, maximum_bytes, pending, include_dependencies);
     }
     if (decoded != gneiss::engine::core::result::success) {
       return decoded;
@@ -1095,8 +1091,7 @@ struct asset_preparation::state {
 };
 asset_preparation::asset_preparation(const virtual_file_system& files,
                                      std::span<const asset_preparation_source> requested,
-                                     limits budget, texture_prepare_profile profile,
-                                     material_document_decoder decode_material)
+                                     limits budget, texture_prepare_profile profile)
     : state_(std::make_unique<state>()) {
   auto& value = *state_;
   value.files = files;
@@ -1107,7 +1102,6 @@ asset_preparation::asset_preparation(const virtual_file_system& files,
   value.deferred_reads = budget.deferred_reads;
   value.include_dependencies = budget.include_dependencies;
   value.profile = profile;
-  value.decode_material = std::move(decode_material);
   if (requested.empty() || requested.size() > budget.maximum_assets) {
     value.result = gneiss::engine::core::result::invalid_argument;
   }

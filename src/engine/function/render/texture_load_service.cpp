@@ -5,7 +5,6 @@
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/diagnostics/task_submission.hpp"
 #include "engine/core/result.hpp"
-#include "engine/resource/cache/cpu_document_cache.hpp"
 #include "engine/resource/vfs/asset_uri.hpp"
 #include <algorithm>
 #include <set>
@@ -15,7 +14,6 @@ namespace gneiss::engine::render {
 struct texture_load_service::pending {
   struct cpu_result {
     prepared_render_batch batch;
-    std::shared_ptr<engine::resource::cpu_document_batch> documents;
     std::unique_ptr<engine::resource::asset_preparation> preparation;
     bool complete{};
     gneiss::engine::core::result result{gneiss::engine::core::result::success};
@@ -49,11 +47,9 @@ struct texture_load_service::pending {
 texture_load_service::texture_load_service(
     engine::core::tasks::task_executor& executor, engine::resource::virtual_file_system file_system,
     render_asset_loader& loader, texture_upload_backend backend,
-    std::shared_ptr<engine::core::progress_notification> notification,
-    std::shared_ptr<engine::resource::cpu_document_cache> documents)
+    std::shared_ptr<engine::core::progress_notification> notification)
     : executor_(executor), scope_(executor.make_scope()), file_system_(std::move(file_system)),
-      loader_(loader), backend_(std::move(backend)), notification_(std::move(notification)),
-      documents_(std::move(documents)) {
+      loader_(loader), backend_(std::move(backend)), notification_(std::move(notification)) {
   if (scope_.id == 0U || !backend_.begin || !backend_.poll || !backend_.discard ||
       !backend_.flush) {
     if (scope_.id != 0U) {
@@ -358,14 +354,6 @@ bool texture_load_service::start_item(pending& value) {
     return false;
   }
   value.cpu = std::make_shared<pending::cpu_result>();
-  engine::resource::material_document_decoder decode;
-  if (documents_) {
-    value.cpu->documents = documents_->begin();
-    decode = [documents = value.cpu->documents](const auto& bytes, auto& parameters, auto& uris,
-                                                auto& diagnostic) {
-      return documents->decode(bytes, parameters, uris, diagnostic);
-    };
-  }
   value.cpu->preparation = std::make_unique<engine::resource::asset_preparation>(
       file_system_, std::span(&source, 1U),
       engine::resource::asset_preparation::limits{
@@ -374,18 +362,10 @@ bool texture_load_service::start_item(pending& value) {
           .maximum_bytes = value.limit - value.completion.prepared_bytes,
           .include_dependencies = false,
       },
-      backend_.profile, std::move(decode));
+      backend_.profile);
   return true;
 }
 bool texture_load_service::prepare_item_upload(pending& value) {
-  if (value.cpu->documents) {
-    const auto retained = value.cpu->documents->retain_prepared(value.cpu->batch);
-    if (retained != gneiss::engine::core::result::success) {
-      finish_item(retained, false);
-      return false;
-    }
-    value.cpu->documents.reset();
-  }
   if (value.cpu->batch.assets.size() != 1U) {
     finish_item(gneiss::engine::core::result::internal, false);
     return false;

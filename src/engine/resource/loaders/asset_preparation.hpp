@@ -55,21 +55,15 @@ struct prepared_source final {
   engine::core::sha256_digest digest{};
 };
 
-struct material_document;
-
 /** 后台解析后的自有 CPU 数据；不持有缓存或后端对象，材质依赖仅使用 URI。 */
 struct prepared_asset {
   asset_preparation_source source;
   /** 描述在首位，纹理负载在其后；材质的资产依赖仍由 texture_uris 表示。 */
   std::vector<prepared_source> sources;
   engine::resource::mesh_data mesh;
-  /** 准备后可由 CPU 资源缓存接管数组；只读共享，不复制顶点或泄漏第三方句柄。 */
-  std::shared_ptr<const mesh_data> shared_mesh;
   engine::resource::prepared_texture_data texture{};
   engine::resource::material_parameters material{};
   std::array<std::string, 5> texture_uris;
-  /** 仅保活已解析 CPU 文档，不参与渲染版本选择；内部类型不泄漏第三方句柄。 */
-  std::shared_ptr<const material_document> material_document;
   std::size_t bytes{};
 };
 struct prepared_batch {
@@ -78,12 +72,6 @@ struct prepared_batch {
   /** 整文件快照持有的输入字节；区间读取没有源副本，不计入此值。 */
   std::size_t input_bytes{};
 };
-/** 可选 CPU 材质解码器；只消费本批次已读取的字节，不重新读取文件或发布资源。
- * 在 advance 的执行线程调用；其捕获状态须存活至准备销毁。空函数使用既有解析器。
- * 成功仅产生候选；必须等整批 advance 成功完成后才能登记共享版本。 */
-using material_document_decoder =
-    std::function<gneiss::engine::core::result(const std::vector<std::byte>&, material_parameters&,
-                                               std::array<std::string, 5>&, asset_diagnostic&)>;
 /** 资产层的分步 CPU 准备；同一实例须串行推进。全部请求完成解析后输出，不重新读取来源。
  * 每步限制区间读取/摘要字节，解析仍是单项同步调用；旧整文件后端保留同步兼容行为。 */
 class asset_preparation final {
@@ -98,8 +86,7 @@ public:
   };
   asset_preparation(const virtual_file_system& files,
                     std::span<const asset_preparation_source> requested, limits budget,
-                    texture_prepare_profile profile,
-                    material_document_decoder decode_material = {});
+                    texture_prepare_profile profile);
   ~asset_preparation();
   [[nodiscard]] gneiss::engine::core::result
   advance(std::size_t byte_budget, const std::function<bool()>& cancelled, prepared_batch& output,

@@ -9,6 +9,8 @@
 2026-10-22：继续接入 CAORS 的方向已由 [ADR-071](ADR-071-example-asset-manager.md) 取代。
 以下保留阶段决策及验证背景，不描述当前依赖。
 
+独立 CPU 文档缓存的决定已由 [ADR-076](ADR-076-remove-cpu-document-cache.md) 取代。
+
 ## 状态与背景
 
 2026-10-20，采用；已从独立验证扩展至默认关闭的 Application 输入接入。用户要求先接通一个真实 CPU 资源，

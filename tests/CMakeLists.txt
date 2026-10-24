@@ -836,7 +836,6 @@ add_test(NAME gneiss.render_asset_loader COMMAND gneiss_render_asset_loader_test
 add_executable(
   gneiss_texture_load_service_test
   render/texture_load_service_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/cache/cpu_document_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/texture_load_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/mesh_binary.cpp"
@@ -1000,7 +999,6 @@ target_sources(gneiss_scene_instantiation_test PRIVATE
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/action_map.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/action_map_parser.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/action_map_validation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/cache/cpu_document_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_source.cpp")
 target_include_directories(gneiss_scene_instantiation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_scene_instantiation_test PRIVATE GNEISS_BUILDING_LIBRARY)

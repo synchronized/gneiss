@@ -259,6 +259,7 @@
 - [ADR-065：分帧结构事务使用 World 发布组](decisions/ADR-065-world-publication-groups.md)
 - [ADR-066：候选属性写入与发布后通知分离](decisions/ADR-066-candidate-properties-and-notifications.md)
 - [ADR-067：编辑器视口相机与运行时主相机分离](decisions/ADR-067-editor-viewport-camera.md)
+- [ADR-076：删除独立 CPU 文档缓存](decisions/ADR-076-remove-cpu-document-cache.md)
 
 ## 实施与验收记录
 

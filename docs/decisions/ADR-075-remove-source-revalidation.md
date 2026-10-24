@@ -6,6 +6,8 @@
 - 状态：已接受。
 - 日期：2026-10-24。
 
+独立 CPU 文档缓存的决定已由 [ADR-076](ADR-076-remove-cpu-document-cache.md) 取代。
+
 ## 决策
 
 按用户确认，删除 source_revision_file_system、验证专用打开入口及 complete_validation 回执。

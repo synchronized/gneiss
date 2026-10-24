@@ -12,10 +12,6 @@
 #include <optional>
 #include <thread>
 
-namespace gneiss::engine::resource {
-class cpu_document_cache;
-}
-
 namespace gneiss::engine::render {
 
 enum class texture_load_state : std::uint8_t { preparing, uploading, applied, failed, cancelled };
@@ -83,8 +79,7 @@ public:
   texture_load_service(engine::core::tasks::task_executor& executor,
                        engine::resource::virtual_file_system file_system,
                        engine::render::render_asset_loader& loader, texture_upload_backend backend,
-                       std::shared_ptr<engine::core::progress_notification> notification = {},
-                       std::shared_ptr<engine::resource::cpu_document_cache> documents = {});
+                       std::shared_ptr<engine::core::progress_notification> notification = {});
   ~texture_load_service();
   [[nodiscard]] gneiss::engine::core::result submit(std::span<const std::string> uris,
                                                     std::uint64_t session, std::uint64_t revision,
@@ -128,7 +123,6 @@ private:
   engine::render::render_asset_loader& loader_;
   texture_upload_backend backend_;
   std::shared_ptr<engine::core::progress_notification> notification_;
-  std::shared_ptr<engine::resource::cpu_document_cache> documents_;
   std::unique_ptr<pending> pending_;
   std::optional<texture_load_completion> completed_;
   std::uint64_t sequence_{};

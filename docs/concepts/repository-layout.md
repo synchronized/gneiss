@@ -16,7 +16,7 @@
 
 ## 当前资源模块
 
-资产管理器、资源描述、解析、VFS、CPU 文档缓存及 Prefab Loader 已统一位于
+资产管理器、资源描述、解析、VFS 及 Prefab Loader 已统一位于
 `src/engine/resource/`；旧 `src/engine/asset/`、`src/engine/function/asset/` 已删除，
 没有兼容转发头。渲染 Loader 与上传保留在 `function/render`，Prefab 实例化和编辑保留在
 `function/scene`。资源代码已按 `types/`、`loaders/`、`vfs/` 和 `cache/` 分类。
@@ -307,10 +307,8 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 - `resource/loaders/material_document_decoder.hpp`：消费现有字节的解析函数。
 - `resource/loaders/asset_loader.hpp`：显式类型注册与纯 CPU 解码契约，不要求字段反射。
 - `resource/vfs/asset_source.*`：有界分步读取、异步打开/关闭与明确的同步回退。
-- `resource/cache/cpu_document_cache.*`：按来源与内容共享材质、网格解析数据的弱引用索引。
 
-准备结果和渲染对象直接以只读共享引用保持 CPU 文档存活，不拥有 GPU RID。
-`cpu_document_cache` 的批次独占解码输出；摘要和字节数用于匹配已验证输入，不放入材质描述。
-缓存外壳可以先释放，仍存活的批次保活内容索引，资源引用保活文档。
-`decode` 与 `retain_verified` 不可并发，索引登记和回收在所属线程串行执行。
-该缓存不提供历史版本查询、默认版本选择或整批采用；每个资源独立保留成功内容。
+准备结果直接拥有材质参数、纹理 URI 和网格数组。上传准备把网格数组移动到只读共享对象，
+由渲染资源和仍在使用它的帧保活；最后一个引用释放时销毁。
+不再提供按来源、URI 和内容摘要去重的独立 CPU 文档缓存，见
+[ADR-076](../decisions/ADR-076-remove-cpu-document-cache.md)。

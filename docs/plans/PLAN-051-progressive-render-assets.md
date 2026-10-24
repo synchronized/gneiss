@@ -78,7 +78,7 @@ RID 被销毁或任务序号过期时，结果只清理，不恢复资源。无�
 | previous_assets 与重载引用替换事务 | scene_session::request_assets/poll_assets | 更新资源内容，已有使用者无须整体重绑；真正的作者引用编辑仍保留 |
 | prepare_edit_assets/accept_edit_assets 的固定版本职责 | application、内部宿主适配、editor_asset_edit、editor_prefab_edit | 请求资源与提交作者命令分开；命令成功不再提交缓存选择 |
 | 回执 versions、prepared_asset.version/texture_versions 与传递版本编码 | texture_load_completion、asset_preparation、asset_identity | 逐项结果、稳定身份和任务序号；删除运行期版本链 |
-| 批次全部复验后才保留的 CPU 文档批次流程 | cpu_document_batch/retain_verified、材质描述租约 | 评估保留按内容共享解析结果的最小缓存，移除整批采用前提；不新建第二份共享数据 |
+| 批次全部复验后才保留的 CPU 文档批次流程 | cpu_document_batch/retain_verified、材质描述租约 | 已删除独立 CPU 文档缓存及批次接口；准备结果直接拥有数据，见 [ADR-076](../decisions/ADR-076-remove-cpu-document-cache.md) |
 | 全场景来源快照与整批复验 | 已移除 | 见[移除来源复验计划](PLAN-051-remove-source-revalidation.md)；保留格式与负载完整性校验 |
 | 普通批次回滚、全局缓存 revision 冲突拒绝 | texture_load_service | 每资源最新请求胜出，未采用上传数据安全清理，已成功资源不撤回 |
 

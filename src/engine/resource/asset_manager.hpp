@@ -5,7 +5,6 @@
 
 #include "asset_request.hpp"
 #include "engine/core/result.hpp"
-#include "engine/resource/cache/cpu_document_cache.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
 #include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/resource/types/action_map.hpp"
@@ -20,7 +19,7 @@ class task_executor;
 }
 
 namespace gneiss::engine::resource {
-/** 应用级资产管理器。拥有 CPU 文档缓存与 Prefab 加载器，不拥有 World 或编辑状态。
+/** 应用级资产管理器。拥有资源请求缓存与 Prefab 加载器，不拥有 World 或编辑状态。
  * 所属线程使用；请求通道、场景及外部租约须按各自契约释放。
  * 功能层装配类型加载器；底层 asset 模块不依赖 Scene/Render。 */
 class GNEISS_API asset_manager final {
@@ -66,20 +65,11 @@ public:
   [[nodiscard]] const engine::resource::virtual_file_system& files() const noexcept {
     return files_;
   }
-  void collect_unused() noexcept {
-    prefab_cache_.release_unused();
-    if (documents_) {
-      documents_->collect();
-    }
-  }
+  void collect_unused() noexcept { prefab_cache_.release_unused(); }
   [[nodiscard]] gneiss::engine::core::result
   acquire(std::string_view uri, engine::resource::prefab_asset_lease& output,
           engine::resource::scene_diagnostic& diagnostic) noexcept {
     return prefabs_.acquire(uri, output, diagnostic);
-  }
-  /** 共享 CPU 文档缓存的所有权以装配请求服务；不提供上传或设备配置。 */
-  [[nodiscard]] std::shared_ptr<engine::resource::cpu_document_cache> documents() const noexcept {
-    return documents_;
   }
   [[nodiscard]] engine::resource::prefab_asset_loader& prefab_loader() noexcept { return prefabs_; }
 
@@ -94,8 +84,6 @@ private:
   std::unique_ptr<resource_state> resource_state_;
   engine::resource::virtual_file_system files_;
   engine::resource::resource_cache prefab_cache_;
-  std::shared_ptr<engine::resource::cpu_document_cache> documents_{
-      std::make_shared<engine::resource::cpu_document_cache>()};
   engine::resource::prefab_asset_loader prefabs_;
 };
 }
