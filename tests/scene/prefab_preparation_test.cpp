@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/result.hpp"
-#include "runtime/application_registry.hpp"
+#include "runtime/application.hpp"
 #include "runtime/loading/prefab_preparation.hpp"
 #include <chrono>
 #include <thread>
@@ -9,11 +9,10 @@
 bool run(gneiss::engine::execution_mode mode) {
   gneiss::engine::task_scheduler executor({.mode = mode});
   const std::string root = GNEISS_TEST_ASSET_ROOT;
-  auto description = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
-  description.asset_root = root.data();
-  description.asset_root_length = static_cast<std::uint32_t>(root.size());
-  gneiss_application application{};
-  if (gneiss::engine::result{gneiss_application_create(&description, &application)} !=
+  gneiss::runtime::application_configuration description;
+  description.asset_root = root;
+  std::shared_ptr<gneiss::runtime::application> application;
+  if (gneiss::runtime::application::create(description, application) !=
       gneiss::engine::result::success) {
     return false;
   }
@@ -21,9 +20,8 @@ bool run(gneiss::engine::execution_mode mode) {
     std::unique_ptr<gneiss::runtime::prefab_preparation> request;
     const auto uri =
         attempt == 2 ? "asset://prefabs/missing.prefab.json" : "asset://prefabs/test.prefab.json";
-    if (gneiss::runtime::prefab_preparation::create(*gneiss::runtime::find_application(application),
-                                                    executor, uri,
-                                                    request) != gneiss::engine::result::success) {
+    if (gneiss::runtime::prefab_preparation::create(*application, executor, uri, request) !=
+        gneiss::engine::result::success) {
       return false;
     }
     if (attempt == 1) {
@@ -47,8 +45,7 @@ bool run(gneiss::engine::execution_mode mode) {
       return false;
     }
   }
-  return gneiss::engine::result{gneiss_application_destroy(application)} ==
-         gneiss::engine::result::success;
+  return application->shutdown(0) == gneiss::engine::result::success;
 }
 int main() {
   return run(gneiss::engine::execution_mode::cooperative) &&
