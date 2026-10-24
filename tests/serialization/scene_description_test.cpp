@@ -6,8 +6,6 @@
 #include "engine/resource/vfs/file_system.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
 
-#include <gneiss/engine/core/result.h>
-
 #include <array>
 #include <cstddef>
 #include <memory>

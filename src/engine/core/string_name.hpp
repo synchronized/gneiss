@@ -5,7 +5,7 @@
 #ifndef GNEISS_ENGINE_STRING_NAME_HPP_
 #define GNEISS_ENGINE_STRING_NAME_HPP_
 
-#include <gneiss/engine/core/export.h>
+#include "engine/core/export.hpp"
 
 #include <cstddef>
 #include <functional>

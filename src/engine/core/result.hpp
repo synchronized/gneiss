@@ -3,8 +3,8 @@
 
 #pragma once
 
+#include "engine/core/export.hpp"
 #include <cstdint>
-#include <gneiss/engine/core/export.h>
 #include <string_view>
 
 namespace gneiss::engine {

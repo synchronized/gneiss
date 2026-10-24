@@ -39,7 +39,6 @@ add_library(
 )
 target_include_directories(
   gneiss_asset_import_sdk PRIVATE "${PROJECT_SOURCE_DIR}/src"
-  PUBLIC "${PROJECT_SOURCE_DIR}/include"
 )
 target_link_libraries(
   gneiss_asset_import_sdk

@@ -3,8 +3,7 @@
 
 # 接口边界检查
 
-完整 C SDK 与动态 Game Module 均已撤销，当前没有公共 C 操作函数。
-原模块符号基线与稳定级别清单已删除，`check_public_api.cmake` 拒绝恢复 C 导出。
-
-`cpp-type-inventory.json` 只登记暂留的符号可见性宏与结果码常量；它不代表公共对象 SDK。
-历史 ABI 证据保留在 docs/records，不作为当前兼容承诺。
+完整 C SDK、动态 Game Module 与公共 include 目录均已撤销，当前没有公共 C 操作函数或 SDK 头。
+旧符号基线、稳定级别及类型映射清单均已删除。
+cmake/check_public_api.cmake 检查公共接口残留；以后新增接口时应按实际需求更新设计与检查。
+历史 ABI 证据保留在 docs/records，不代表当前兼容承诺。

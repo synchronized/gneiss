@@ -161,13 +161,7 @@ target_sources(
     engine/function/world/world_reflection.hpp
     engine/function/world/component_reflection.cpp
     engine/function/world/world_state.hpp
-  PUBLIC
-    FILE_SET HEADERS
-    BASE_DIRS
-      "${PROJECT_SOURCE_DIR}/include"
-    FILES
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/export.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/result.h"
+
 )
 
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
@@ -295,8 +289,6 @@ target_link_libraries(
 target_include_directories(
   gneiss_engine
   PRIVATE "${PROJECT_SOURCE_DIR}/src" "${GNEISS_GENERATED_INCLUDE_DIR}"
-  PUBLIC
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
 )
 target_compile_definitions(
   gneiss_engine

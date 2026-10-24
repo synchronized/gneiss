@@ -62,7 +62,7 @@ add_executable(gneiss_asset_material_test material_document_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/png_decoder.cpp")
 target_compile_definitions(gneiss_asset_material_test PRIVATE GNEISS_ASSET_LIBUV GNEISS_BUILDING_LIBRARY)
-target_include_directories(gneiss_asset_material_test PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include")
+target_include_directories(gneiss_asset_material_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_asset_material_test PRIVATE
   gneiss_tasks gneiss_io_uv gneiss_core_values gneiss_yyjson gneiss_png granit::granit)
 gneiss_target_compile_warnings(gneiss_asset_material_test)

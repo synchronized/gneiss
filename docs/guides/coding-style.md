@@ -9,7 +9,7 @@
 
 项目采用以下语言分层：
 
-- `.h` 提供稳定的 C ABI，必须能被 C11 编译器独立包含。
+- 当前不提供公共 C ABI；以后如新增公共 `.h`，必须能被 C11 编译器独立包含。
 - 不安装公共 `.hpp`；共享值与迁移期转换辅助位于 `src/`，不提供对象 SDK。
 - `src/` 下 `.hpp` 声明内部原生 C++ 接口与类型，由 `.cpp` 实现；不要求经过 C ABI。
 - `.c` 使用 C11；`.cpp`、`.cc` 和 `.cxx` 使用 C++20。
@@ -190,7 +190,7 @@ GNEISS_API gneiss_result_t gneiss_world_create(gneiss_world_t* out_world);
 ## 目录与边界
 
 ```text
-include/gneiss/         C11 API 与 C++20 公共包装
+src/engine/core/       内部共享值与符号可见性定义，不安装公共头
 src/                    内部 C++20 实现和平台后端
 tests/                  C11、C++20 与行为测试
 examples/               可独立运行的最小示例

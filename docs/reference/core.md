@@ -12,23 +12,6 @@
 
 ## 结果码
 
-`gneiss_result` 是 32 位有符号整数。零表示成功，负值表示失败；调用方不得自行解释尚未定义的
-数值。
-
-| 结果码 | 含义 |
-| --- | --- |
-| `GNEISS_SUCCESS` | 操作成功 |
-| `GNEISS_ERROR_UNKNOWN` | 未分类错误 |
-| `GNEISS_ERROR_INVALID_ARGUMENT` | 参数不满足接口契约 |
-| `GNEISS_ERROR_INVALID_HANDLE` | 句柄无效、类型错误或已经失效 |
-| `GNEISS_ERROR_OUT_OF_MEMORY` | 无法完成必要内存分配 |
-| `GNEISS_ERROR_UNSUPPORTED` | 当前实现或平台不支持该操作 |
-| `GNEISS_ERROR_INITIALIZATION_FAILED` | Gneiss 对象或服务初始化失败 |
-| `GNEISS_ERROR_DEPENDENCY_FAILED` | Granit 等依赖调用失败 |
-| `GNEISS_ERROR_INVALID_STATE` | 当前生命周期状态不允许该操作 |
-| `GNEISS_ERROR_NOT_READY` | 操作暂时无法完成，可以稍后重试 |
-| `GNEISS_ERROR_INTERNAL` | 内部不变量被破坏或发生未分类内部错误 |
-
 仓内操作统一使用 `gneiss::engine::result`（`engine/core/result.hpp`）。它只保存一个
 32 位结果码，提供 `ok()`、`failed()`、`code()`、`message()` 和显式布尔判断。
 默认构造产生 unknown；非负值成功，负值失败，不提供隐式整数转换。
@@ -36,6 +19,11 @@
 
 普通内部调用直接传递该值；游戏模块撤销后，C 结果转换辅助也已删除。
 整数结果可通过显式构造与 code() 无损读写。旧 gneiss::result 别名不再保留。
+
+## 内部符号可见性
+
+共享库的导入/导出宏定义在 `src/engine/core/export.hpp`，由受限内部头清单提供给仓内目标。
+公共 include 目录和 C 结果码副本已删除，不再安装头文件；需要新的对外接口时另行设计。
 
 ## 内部基础身份类型
 

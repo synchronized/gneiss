@@ -18,3 +18,6 @@ ABI 校验、模块编译、Context 句柄与动态库生命周期管理，超�
 撤销后的清理：Runtime 不再接收仅用于选择模块产物的 --profile；工程发布配置仍用于
 资产构建和包清单，命名为 project_build_profile。Editor/Runtime 同版本 IPC 删除
 不再有数据来源的 fixed_update_count 字段，双方同时重建，不提供旧统计布局兼容桥。
+
+用户进一步确认删除公共 include：内部符号可见性宏迁入 Core，C 结果码副本及公共头安装声明删除。
+不为未确定的未来 SDK 保留目录或兼容层；如有新需求再建立明确边界。

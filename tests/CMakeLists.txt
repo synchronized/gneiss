@@ -214,15 +214,6 @@ gneiss_target_output_directories(gneiss_asset_uri_test)
 add_test(NAME gneiss.asset_uri COMMAND gneiss_asset_uri_test)
 
 add_library(
-  gneiss_c_header_test OBJECT
-
-                              headers/result_h.c
-)
-target_link_libraries(gneiss_c_header_test PRIVATE gneiss::engine)
-target_compile_features(gneiss_c_header_test PRIVATE c_std_11)
-gneiss_target_compile_warnings(gneiss_c_header_test)
-
-add_library(
   gneiss_cpp_header_test OBJECT  headers/asset_hpp.cpp headers/entity_hpp.cpp
                                   headers/input_hpp.cpp headers/log_hpp.cpp
                                  headers/result_hpp.cpp headers/rid_hpp.cpp
@@ -231,25 +222,6 @@ add_library(
 target_link_libraries(gneiss_cpp_header_test PRIVATE gneiss::engine gneiss_native_interface)
 target_compile_features(gneiss_cpp_header_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_cpp_header_test)
-
-# 规范路径逐头独立编译；headers 用例额外验证总入口和常用功能头。
-file(GLOB_RECURSE engine_sdk_headers CONFIGURE_DEPENDS RELATIVE "${PROJECT_SOURCE_DIR}/include"
-  "${PROJECT_SOURCE_DIR}/include/gneiss/engine/*.h"
-  "${PROJECT_SOURCE_DIR}/include/gneiss/engine/*.hpp")
-foreach(header IN LISTS engine_sdk_headers)
-  string(MAKE_C_IDENTIFIER "${header}" unit)
-  if(header MATCHES "\\.hpp$")
-    set(extension cpp)
-    set(header_target gneiss_cpp_header_test)
-  else()
-    set(extension c)
-    set(header_target gneiss_c_header_test)
-  endif()
-  set(header_source "${CMAKE_CURRENT_BINARY_DIR}/headers/${unit}.${extension}")
-  # 仅宏头也必须构成非空 C 编译单元，兼容 MSVC /WX；不引入其他头依赖。
-  file(WRITE "${header_source}" "#include <${header}>\ntypedef int gneiss_header_compile_probe;\n")
-  target_sources(${header_target} PRIVATE "${header_source}")
-endforeach()
 
 add_executable(gneiss_rid_table_test core/rid_table_test.cpp)
 target_include_directories(gneiss_rid_table_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -609,7 +581,7 @@ add_executable(gneiss_read_source_test
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/native_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp")
 target_include_directories(gneiss_read_source_test PRIVATE
-  "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include")
+  "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_read_source_test PRIVATE Threads::Threads)
 target_compile_definitions(gneiss_read_source_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_compile_features(gneiss_read_source_test PRIVATE cxx_std_20)
@@ -656,7 +628,7 @@ add_executable(gneiss_texture_container_test
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp")
 target_include_directories(gneiss_texture_container_test PRIVATE
-  "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include")
+  "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(gneiss_texture_container_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_texture_container_test)
 gneiss_target_output_directories(gneiss_texture_container_test)
@@ -668,7 +640,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/scene_projection_math.cpp"
 )
 target_include_directories(
-  gneiss_scene_projection_math_test PRIVATE "${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/src"
+  gneiss_scene_projection_math_test PRIVATE "${PROJECT_SOURCE_DIR}/src"
 )
 target_compile_features(gneiss_scene_projection_math_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_scene_projection_math_test)
@@ -838,7 +810,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/structural_diff.cpp"
 )
 target_include_directories(
-  gneiss_structural_diff_test PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include"
+  gneiss_structural_diff_test PRIVATE "${PROJECT_SOURCE_DIR}/src"
 )
 target_compile_features(gneiss_structural_diff_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_structural_diff_test)

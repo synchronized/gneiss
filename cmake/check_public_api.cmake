@@ -19,29 +19,8 @@ if(definitions)
   message(FATAL_ERROR "已撤销公共 C API，不得新增导出：${definitions}")
 endif()
 
-set(GNEISS_REQUIRE_REVIEWED_CPP_TYPES ON)
-include("${CMAKE_CURRENT_LIST_DIR}/check_cpp_types.cmake")
-
-# 已删除的对象包装不能从普通公共头重新引入。
-foreach(header IN ITEMS gneiss/gneiss.hpp gneiss/engine/application.hpp gneiss/engine/game_module.hpp)
-  if(EXISTS "${GNEISS_SOURCE_DIR}/include/${header}")
-    message(FATAL_ERROR "已删除的 SDK 入口重新出现：${header}")
-  endif()
-endforeach()
-file(GLOB_RECURSE value_headers "${GNEISS_SOURCE_DIR}/include/gneiss/*.hpp" "${GNEISS_SOURCE_DIR}/include/gneiss/*.inl")
-if(value_headers)
-  message(FATAL_ERROR "不得恢复公共 C++ SDK 或值头：${value_headers}")
-endif()
-
-# 安装头仅保留结果码常量与符号可见性宏，避免重新积累完整 SDK。
-set(allowed_headers
-  gneiss/engine/core/export.h
-  gneiss/engine/core/result.h
-)
-file(GLOB_RECURSE installed_headers RELATIVE "${GNEISS_SOURCE_DIR}/include"
-  "${GNEISS_SOURCE_DIR}/include/*")
-list(SORT allowed_headers)
-list(SORT installed_headers)
-if(NOT "${installed_headers}" STREQUAL "${allowed_headers}")
-  message(FATAL_ERROR "公共头超出内部构建所需的基础宏定义：${installed_headers}")
+# 当前无公共头；以后依据实际需求重新设计对外接口。
+file(GLOB_RECURSE public_files "${GNEISS_SOURCE_DIR}/include/*")
+if(public_files)
+  message(FATAL_ERROR "当前不提供公共 SDK，出现未规划的公共头：${public_files}")
 endif()

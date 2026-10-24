@@ -3,10 +3,10 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/detail/canonical_type_name.hpp"
+#include "engine/core/export.hpp"
 #include <compare>
 #include <cstddef>
 #include <cstdint>
-#include <gneiss/engine/core/export.h>
 #include <string_view>
 #include <type_traits>
 namespace gneiss::engine {
