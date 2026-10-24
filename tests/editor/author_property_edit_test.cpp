@@ -9,7 +9,7 @@
 
 #include "engine/core/reflection/reflection_types.hpp"
 #include "engine/core/result.hpp"
-#include <gneiss/engine/game_module_types.h>
+#include "engine/core/rid.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -18,7 +18,7 @@ int main() try {
   using namespace gneiss;
   using namespace gneiss::editor;
   std::shared_ptr<gneiss::runtime::application> app;
-  gneiss_world world_handle = GNEISS_NULL_WORLD;
+  gneiss::engine::rid world_handle = gneiss::engine::null_rid;
   scene_document session;
   property_inspector_model inspector;
   editor_command_history history;
@@ -26,7 +26,7 @@ int main() try {
   scene_node_id second;
   gneiss::runtime::application_configuration desc;
   if (gneiss::engine::result{gneiss::runtime::application::create(desc, app)}.failed() ||
-      (world_handle = app->world()) == GNEISS_NULL_WORLD ||
+      (world_handle = app->world()) == gneiss::engine::null_rid ||
       session.create_empty(*app, world_handle).failed() ||
       session.create_node("first", {}, first).failed() ||
       session.create_node("second", {}, second).failed() || session.select(first).failed() ||

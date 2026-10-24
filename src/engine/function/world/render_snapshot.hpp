@@ -5,8 +5,8 @@
 #define GNEISS_WORLD_RENDER_SNAPSHOT_HPP_
 
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/render/render_snapshot.hpp"
-#include <gneiss/engine/game_module_types.h>
 
 #include <cstdint>
 
@@ -19,8 +19,8 @@ build_render_snapshot(world_state& world, std::uint32_t viewport_width,
                       std::uint32_t viewport_height, gneiss::engine::render_snapshot& out_snapshot,
                       const gneiss::engine::view_camera* camera = nullptr) noexcept;
 [[nodiscard]] gneiss::engine::result
-get_render_snapshot(gneiss_world world, std::uint32_t viewport_width, std::uint32_t viewport_height,
-                    gneiss::engine::render_snapshot& out_snapshot,
+get_render_snapshot(gneiss::engine::rid world, std::uint32_t viewport_width,
+                    std::uint32_t viewport_height, gneiss::engine::render_snapshot& out_snapshot,
                     const gneiss::engine::view_camera* camera = nullptr) noexcept;
 
 } // namespace gneiss::engine

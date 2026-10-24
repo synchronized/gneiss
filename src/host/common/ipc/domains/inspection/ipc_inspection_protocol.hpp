@@ -9,7 +9,6 @@
 #include "engine/core/math/camera_settings.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/core/result.hpp"
-#include <gneiss/engine/game_module_types.h>
 
 #include <cstdint>
 #include <span>

@@ -3,9 +3,9 @@
 
 #include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
 #include "panels/property_inspector_model.hpp"
-#include <gneiss/engine/game_module_types.h>
 
 #include <cmath>
 #include <thread>
@@ -22,7 +22,7 @@ namespace {
 
 int main() {
   gneiss::engine::world_owner owner;
-  gneiss_world world{};
+  gneiss::engine::rid world{};
   gneiss::entity_id entity;
   gneiss::entity_id transform_only;
   gneiss::scene_node_id entity_node;

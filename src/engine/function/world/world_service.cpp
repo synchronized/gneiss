@@ -10,7 +10,7 @@
 #include "engine/function/world/render_snapshot.hpp"
 #include "engine/function/world/world.hpp"
 
-#include <gneiss/engine/game_module_types.h>
+#include "engine/core/rid.hpp"
 
 #include <cmath>
 #include <limits>
@@ -48,7 +48,7 @@ world_registry& get_world_registry() {
   return registry;
 }
 
-gneiss::engine::world* find_world(world_registry& registry, gneiss_world world) noexcept {
+gneiss::engine::world* find_world(world_registry& registry, gneiss::engine::rid world) noexcept {
   auto* resource = registry.worlds.get(world, gneiss::engine::resource_type::world);
   return resource == nullptr ? nullptr : resource->get();
 }
@@ -62,7 +62,7 @@ gneiss::engine::result validate_world_thread(gneiss::engine::world* world) noexc
 }
 
 template <typename Function>
-gneiss::engine::result with_world(gneiss_world handle, Function&& function) noexcept {
+gneiss::engine::result with_world(gneiss::engine::rid handle, Function&& function) noexcept {
   try {
     auto& registry = get_world_registry();
     const std::scoped_lock lock{registry.mutex};
@@ -88,7 +88,7 @@ bool is_valid_camera(float vertical_field_of_view_radians, float near_plane,
 
 namespace gneiss::engine {
 
-gneiss::engine::result begin_publication(gneiss_world world,
+gneiss::engine::result begin_publication(gneiss::engine::rid world,
                                          gneiss::engine::publication& output) noexcept {
   output.reset();
   return with_world(world, [&](gneiss::engine::world& native_world) {
@@ -96,13 +96,13 @@ gneiss::engine::result begin_publication(gneiss_world world,
   });
 }
 
-gneiss::engine::result publish(gneiss_world world,
+gneiss::engine::result publish(gneiss::engine::rid world,
                                const gneiss::engine::publication& group) noexcept {
   return with_world(
       world, [&](gneiss::engine::world& native_world) { return native_world.publish(group); });
 }
 
-gneiss::engine::result retire_publication(gneiss_world world,
+gneiss::engine::result retire_publication(gneiss::engine::rid world,
                                           const gneiss::engine::publication& group) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return native_world.retire_publication(group);
@@ -110,14 +110,15 @@ gneiss::engine::result retire_publication(gneiss_world world,
 }
 
 gneiss::engine::result
-replace_publications(gneiss_world world, std::span<const gneiss::engine::publication> previous,
+replace_publications(gneiss::engine::rid world,
+                     std::span<const gneiss::engine::publication> previous,
                      std::span<const gneiss::engine::publication> candidates) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return native_world.replace_publications(previous, candidates);
   });
 }
 
-gneiss::engine::result bind_publication(gneiss_world world,
+gneiss::engine::result bind_publication(gneiss::engine::rid world,
                                         const gneiss::engine::publication& group,
                                         staged_object object) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
@@ -125,7 +126,7 @@ gneiss::engine::result bind_publication(gneiss_world world,
   });
 }
 
-gneiss::engine::result create_staged_object(gneiss_world world,
+gneiss::engine::result create_staged_object(gneiss::engine::rid world,
                                             const gneiss::engine::publication& group,
                                             const staged_object_description& description,
                                             staged_object& output) noexcept {
@@ -145,7 +146,7 @@ gneiss::engine::result create_staged_object(gneiss_world world,
   });
 }
 
-gneiss::engine::result destroy_staged_object(gneiss_world world,
+gneiss::engine::result destroy_staged_object(gneiss::engine::rid world,
                                              const gneiss::engine::publication& group,
                                              staged_object object) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
@@ -153,8 +154,8 @@ gneiss::engine::result destroy_staged_object(gneiss_world world,
   });
 }
 
-gneiss::engine::result create_world(gneiss_world& out_world) noexcept {
-  out_world = GNEISS_NULL_WORLD;
+gneiss::engine::result create_world(gneiss::engine::rid& out_world) noexcept {
+  out_world = gneiss::engine::null_rid;
   try {
     auto& registry = get_world_registry();
     const std::scoped_lock lock{registry.mutex};
@@ -186,8 +187,8 @@ void world_deleter::operator()(gneiss::engine::world* state) const noexcept {
   delete state;
 }
 
-gneiss::engine::result create_native(world_owner& owner, gneiss_world& borrowed) noexcept {
-  borrowed = GNEISS_NULL_WORLD;
+gneiss::engine::result create_native(world_owner& owner, gneiss::engine::rid& borrowed) noexcept {
+  borrowed = gneiss::engine::null_rid;
   if (owner)
     return gneiss::engine::result::invalid_state;
   try {
@@ -209,7 +210,7 @@ gneiss::engine::result create_native(world_owner& owner, gneiss_world& borrowed)
   }
 }
 
-gneiss::engine::result destroy_world(gneiss_world world) noexcept {
+gneiss::engine::result destroy_world(gneiss::engine::rid world) noexcept {
   try {
     auto& registry = get_world_registry();
     const std::scoped_lock lock{registry.mutex};
@@ -227,21 +228,22 @@ gneiss::engine::result destroy_world(gneiss_world world) noexcept {
   }
 }
 
-gneiss::engine::result entity_create(gneiss_world world, gneiss_entity_id& out_entity) noexcept {
-  out_entity = GNEISS_NULL_ENTITY_ID;
+gneiss::engine::result entity_create(gneiss::engine::rid world,
+                                     std::uint64_t& out_entity) noexcept {
+  out_entity = UINT64_C(0);
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return gneiss::engine::write_identifier<entity_id>(
         out_entity, [&](auto& native_output) { return native_world.entity_create(native_output); });
   });
 }
 
-gneiss::engine::result entity_destroy(gneiss_world world, gneiss_entity_id entity) noexcept {
+gneiss::engine::result entity_destroy(gneiss::engine::rid world, std::uint64_t entity) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return native_world.entity_destroy(gneiss::entity_id{entity});
   });
 }
 
-gneiss::engine::result entity_is_alive(gneiss_world world, gneiss_entity_id entity,
+gneiss::engine::result entity_is_alive(gneiss::engine::rid world, std::uint64_t entity,
                                        uint8_t& out_is_alive) noexcept {
   out_is_alive = 0;
   return with_world(world, [&](gneiss::engine::world& native_world) {
@@ -253,14 +255,14 @@ gneiss::engine::result entity_is_alive(gneiss_world world, gneiss_entity_id enti
   });
 }
 
-gneiss::engine::result entity_count(gneiss_world world, uint64_t& out_count) noexcept {
+gneiss::engine::result entity_count(gneiss::engine::rid world, uint64_t& out_count) noexcept {
   out_count = 0;
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return native_world.entity_count(out_count);
   });
 }
 
-gneiss::engine::result entity_set_camera(gneiss_world world, gneiss_entity_id entity,
+gneiss::engine::result entity_set_camera(gneiss::engine::rid world, std::uint64_t entity,
                                          const camera_settings& camera, bool primary) noexcept {
   if (!is_valid_camera(camera.vertical_field_of_view_radians, camera.near_plane,
                        camera.far_plane)) {
@@ -271,7 +273,7 @@ gneiss::engine::result entity_set_camera(gneiss_world world, gneiss_entity_id en
   });
 }
 
-gneiss::engine::result entity_configure_camera(gneiss_world world, gneiss_entity_id entity,
+gneiss::engine::result entity_configure_camera(gneiss::engine::rid world, std::uint64_t entity,
                                                const camera_settings& desc) noexcept {
   if (!is_valid_camera(desc.vertical_field_of_view_radians, desc.near_plane, desc.far_plane)) {
     return gneiss::engine::result::invalid_argument;
@@ -281,28 +283,29 @@ gneiss::engine::result entity_configure_camera(gneiss_world world, gneiss_entity
   });
 }
 
-gneiss::engine::result entity_get_camera(gneiss_world world, gneiss_entity_id entity,
+gneiss::engine::result entity_get_camera(gneiss::engine::rid world, std::uint64_t entity,
                                          camera_settings& out_camera) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return native_world.entity_get_camera(gneiss::entity_id{entity}, out_camera);
   });
 }
 
-gneiss::engine::result entity_remove_camera(gneiss_world world, gneiss_entity_id entity) noexcept {
+gneiss::engine::result entity_remove_camera(gneiss::engine::rid world,
+                                            std::uint64_t entity) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return native_world.entity_remove_camera(gneiss::entity_id{entity});
   });
 }
 
-gneiss::engine::result set_active_camera(gneiss_world world, gneiss_entity_id entity) noexcept {
+gneiss::engine::result set_active_camera(gneiss::engine::rid world, std::uint64_t entity) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return native_world.set_active_camera(gneiss::entity_id{entity});
   });
 }
 
-gneiss::engine::result get_active_camera(gneiss_world world,
-                                         gneiss_entity_id& out_entity) noexcept {
-  out_entity = GNEISS_NULL_ENTITY_ID;
+gneiss::engine::result get_active_camera(gneiss::engine::rid world,
+                                         std::uint64_t& out_entity) noexcept {
+  out_entity = UINT64_C(0);
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return gneiss::engine::write_identifier<entity_id>(out_entity, [&](auto& native_output) {
       return native_world.get_active_camera(native_output);
@@ -311,14 +314,14 @@ gneiss::engine::result get_active_camera(gneiss_world world,
 }
 
 gneiss::engine::result
-replace_mesh_renderers(gneiss_world world,
+replace_mesh_renderers(gneiss::engine::rid world,
                        std::span<const mesh_renderer_replacement> replacements) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return native_world.replace_mesh_renderers(replacements);
   });
 }
 
-gneiss::engine::result entity_set_mesh_renderer(gneiss_world world, gneiss_entity_id entity,
+gneiss::engine::result entity_set_mesh_renderer(gneiss::engine::rid world, std::uint64_t entity,
                                                 const mesh_renderer& renderer) noexcept {
   if (renderer.mesh == gneiss::engine::null_rid || renderer.material == gneiss::engine::null_rid) {
     return gneiss::engine::result::invalid_argument;
@@ -329,16 +332,15 @@ gneiss::engine::result entity_set_mesh_renderer(gneiss_world world, gneiss_entit
   });
 }
 
-gneiss::engine::result entity_remove_mesh_renderer(gneiss_world world,
-                                                   gneiss_entity_id entity) noexcept {
+gneiss::engine::result entity_remove_mesh_renderer(gneiss::engine::rid world,
+                                                   std::uint64_t entity) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return native_world.entity_remove_mesh_renderer(gneiss::entity_id{entity});
   });
 }
 
-gneiss::engine::result node_create(gneiss_world world, gneiss::engine::rid parent,
-                                   gneiss_entity_id entity,
-                                   gneiss::engine::rid& out_node) noexcept {
+gneiss::engine::result node_create(gneiss::engine::rid world, gneiss::engine::rid parent,
+                                   std::uint64_t entity, gneiss::engine::rid& out_node) noexcept {
   out_node = gneiss::engine::null_rid;
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return gneiss::engine::write_identifier<scene_node_id>(out_node, [&](auto& native_output) {
@@ -348,13 +350,13 @@ gneiss::engine::result node_create(gneiss_world world, gneiss::engine::rid paren
   });
 }
 
-gneiss::engine::result node_destroy(gneiss_world world, gneiss::engine::rid node) noexcept {
+gneiss::engine::result node_destroy(gneiss::engine::rid world, gneiss::engine::rid node) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return native_world.node_destroy(gneiss::scene_node_id{node});
   });
 }
 
-gneiss::engine::result node_reparent(gneiss_world world, gneiss::engine::rid node,
+gneiss::engine::result node_reparent(gneiss::engine::rid world, gneiss::engine::rid node,
                                      gneiss::engine::rid parent) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return native_world.node_reparent(gneiss::scene_node_id{node}, gneiss::scene_node_id{parent});
@@ -362,14 +364,14 @@ gneiss::engine::result node_reparent(gneiss_world world, gneiss::engine::rid nod
 }
 
 gneiss::engine::result
-node_set_local_transform(gneiss_world world, gneiss::engine::rid node,
+node_set_local_transform(gneiss::engine::rid world, gneiss::engine::rid node,
                          const gneiss::engine::transform& transform) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return native_world.node_set_local_transform(gneiss::scene_node_id{node}, transform);
   });
 }
 
-gneiss::engine::result node_get_local_transform(gneiss_world world, gneiss::engine::rid node,
+gneiss::engine::result node_get_local_transform(gneiss::engine::rid world, gneiss::engine::rid node,
                                                 gneiss::engine::transform& out_transform) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     gneiss::engine::transform value;
@@ -380,7 +382,7 @@ gneiss::engine::result node_get_local_transform(gneiss_world world, gneiss::engi
   });
 }
 
-gneiss::engine::result node_get_world_transform(gneiss_world world, gneiss::engine::rid node,
+gneiss::engine::result node_get_world_transform(gneiss::engine::rid world, gneiss::engine::rid node,
                                                 gneiss::engine::transform& out_transform) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     gneiss::engine::transform value;
@@ -391,9 +393,9 @@ gneiss::engine::result node_get_world_transform(gneiss_world world, gneiss::engi
   });
 }
 
-gneiss::engine::result node_get_entity(gneiss_world world, gneiss::engine::rid node,
-                                       gneiss_entity_id& out_entity) noexcept {
-  out_entity = GNEISS_NULL_ENTITY_ID;
+gneiss::engine::result node_get_entity(gneiss::engine::rid world, gneiss::engine::rid node,
+                                       std::uint64_t& out_entity) noexcept {
+  out_entity = UINT64_C(0);
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return gneiss::engine::write_identifier<entity_id>(out_entity, [&](auto& native_output) {
       return native_world.node_get_entity(gneiss::scene_node_id{node}, native_output);
@@ -401,7 +403,7 @@ gneiss::engine::result node_get_entity(gneiss_world world, gneiss::engine::rid n
   });
 }
 
-gneiss::engine::result node_get_parent(gneiss_world world, gneiss::engine::rid node,
+gneiss::engine::result node_get_parent(gneiss::engine::rid world, gneiss::engine::rid node,
                                        gneiss::engine::rid& out_parent) noexcept {
   out_parent = gneiss::engine::null_rid;
   return with_world(world, [&](gneiss::engine::world& native_world) {
@@ -412,7 +414,7 @@ gneiss::engine::result node_get_parent(gneiss_world world, gneiss::engine::rid n
 }
 
 gneiss::engine::result
-entity_get_local_transform(gneiss_world world, gneiss_entity_id entity,
+entity_get_local_transform(gneiss::engine::rid world, std::uint64_t entity,
                            gneiss::engine::transform& out_transform) noexcept {
   out_transform = {};
   return with_world(world, [&](gneiss::engine::world& native_world) {
@@ -425,14 +427,14 @@ entity_get_local_transform(gneiss_world world, gneiss_entity_id entity,
 }
 
 gneiss::engine::result
-entity_set_local_transform(gneiss_world world, gneiss_entity_id entity,
+entity_set_local_transform(gneiss::engine::rid world, std::uint64_t entity,
                            const gneiss::engine::transform& transform) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return native_world.entity_set_local_transform(gneiss::entity_id{entity}, transform);
   });
 }
 
-gneiss::engine::result get_render_snapshot(gneiss_world world, std::uint32_t viewport_width,
+gneiss::engine::result get_render_snapshot(gneiss::engine::rid world, std::uint32_t viewport_width,
                                            std::uint32_t viewport_height,
                                            gneiss::engine::render_snapshot& out_snapshot,
                                            const gneiss::engine::view_camera* camera) noexcept {

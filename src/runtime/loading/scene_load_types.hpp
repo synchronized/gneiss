@@ -5,7 +5,6 @@
 #include "engine/core/rid.hpp"
 #include <cstddef>
 #include <cstdint>
-#include <gneiss/engine/game_module_types.h>
 #include <string>
 namespace gneiss::runtime {
 enum class scene_load_phase : std::uint8_t {

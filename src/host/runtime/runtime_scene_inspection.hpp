@@ -10,7 +10,7 @@
 #include "engine/core/rid.hpp"
 #include "ipc_inspection_protocol.hpp"
 
-#include <gneiss/engine/game_module_types.h>
+#include "engine/core/rid.hpp"
 
 #include <cstdint>
 #include <map>
@@ -30,7 +30,7 @@ inline constexpr std::size_t runtime_inspection_max_string_size = 16U * 1024U;
 struct runtime_scene_source_node final {
   std::uint64_t native_node = 0U;
   std::uint64_t native_parent = 0U;
-  gneiss_entity_id native_entity = GNEISS_NULL_ENTITY_ID;
+  std::uint64_t native_entity = UINT64_C(0);
   std::string uuid;
   std::string prefab_instance_uuid;
   std::string prefab_source_node_uuid;
@@ -59,7 +59,7 @@ public:
                                                      gneiss::engine::rid scene, bool force_full,
                                                      runtime_scene_snapshot& output) noexcept;
   [[nodiscard]] gneiss::engine::result resolve_entity(ipc_runtime_object_id object,
-                                                      gneiss_entity_id& output) const noexcept;
+                                                      std::uint64_t& output) const noexcept;
   void reset(std::uint64_t session_id) noexcept;
 
 private:
@@ -70,7 +70,7 @@ private:
   std::map<std::uint64_t, std::uint32_t> generations_;
   std::vector<std::uint64_t> free_values_;
   std::map<std::uint64_t, runtime_scene_snapshot_node> previous_;
-  std::map<std::uint64_t, std::pair<ipc_runtime_object_id, gneiss_entity_id>> entities_;
+  std::map<std::uint64_t, std::pair<ipc_runtime_object_id, std::uint64_t>> entities_;
   bool is_initialized_ = false;
 };
 

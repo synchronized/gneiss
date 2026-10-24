@@ -8,9 +8,9 @@
 #include "engine/function/world/world_reflection.hpp"
 #include "engine/function/world/world_service.hpp"
 
-#include <gneiss/engine/game_module_types.h>
+#include "engine/core/rid.hpp"
 
-#include <gneiss/engine/game_module_types.h>
+#include "engine/core/rid.hpp"
 
 #include <array>
 #include <cmath>
@@ -37,12 +37,12 @@ constexpr gneiss::engine::type_guid bool_id{
 enum class transform_field : std::uint8_t { translation = 1, rotation = 2, scale = 3 };
 enum class camera_field : std::uint8_t { field_of_view = 1, near_plane = 2, far_plane = 3 };
 
-[[nodiscard]] gneiss_world target_world(gneiss::property_target target) noexcept {
-  return static_cast<gneiss_world>(target.context);
+[[nodiscard]] gneiss::engine::rid target_world(gneiss::property_target target) noexcept {
+  return static_cast<gneiss::engine::rid>(target.context);
 }
 
-[[nodiscard]] gneiss_entity_id target_entity(gneiss::property_target target) noexcept {
-  return static_cast<gneiss_entity_id>(target.object);
+[[nodiscard]] std::uint64_t target_entity(gneiss::property_target target) noexcept {
+  return static_cast<std::uint64_t>(target.object);
 }
 
 gneiss::engine::result get_transform(void* user_data, gneiss::property_target target,
@@ -194,7 +194,7 @@ gneiss::engine::result get_is_primary(void* /*user_data*/, gneiss::property_targ
   if (result != gneiss::engine::result::success) {
     return result;
   }
-  gneiss_entity_id active = GNEISS_NULL_ENTITY_ID;
+  std::uint64_t active = UINT64_C(0);
   result = gneiss::engine::get_active_camera(target_world(target), active);
   if (result != gneiss::engine::result::success && result != gneiss::engine::result::not_ready) {
     return result;

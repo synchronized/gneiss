@@ -100,7 +100,7 @@ int main() try {
   }
 
   const bool destroyed = application->scenes()->unload(scene) == gneiss::engine::result::success &&
-                         application->shutdown(0) == gneiss::engine::result::success;
+                         application->shutdown() == gneiss::engine::result::success;
   std::filesystem::remove_all(root);
   return destroyed ? 0 : 5;
 } catch (...) {

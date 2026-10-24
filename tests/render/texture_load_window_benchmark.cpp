@@ -197,7 +197,7 @@ int main(int argc, char** argv) try {
   desc.asset_root = root;
   desc.window.title = title;
   desc.window.high_dpi = false;
-  desc.callbacks.update = [&](auto, const auto&) { return native_update(*app, state); };
+  desc.callbacks.update = [&](const auto&) { return native_update(*app, state); };
   if (runtime::application::create(desc, app) != gneiss::engine::result::success ||
       app->attach_task_executor(scheduler) != gneiss::engine::result::success) {
     return 1;
@@ -219,7 +219,7 @@ int main(int argc, char** argv) try {
   }
   state.mesh = info.node;
   state.start = state.previous = std::chrono::steady_clock::now();
-  const auto result = gneiss::engine::result{app->run(0, 0U)};
+  const auto result = gneiss::engine::result{app->run(0U)};
   app.reset();
   const auto lifetime =
       std::chrono::duration<double>(std::chrono::steady_clock::now() - state.start).count();

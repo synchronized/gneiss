@@ -199,7 +199,6 @@ void granit_render_service::log_texture(gneiss::engine::rid rid, const char* sta
   }
   constexpr std::string_view category = "render.texture";
   static_cast<void>(log_->submit({
-      .context = log_context_.load(std::memory_order_relaxed),
       .severity = result.ok() ? gneiss::engine::level::info : gneiss::engine::level::error,
       .source = "granit.render.texture",
       .category = category,

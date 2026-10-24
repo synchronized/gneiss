@@ -3,6 +3,7 @@
 
 #include "documents/editor_scene_loader.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "runtime/application.hpp"
 
 namespace gneiss::editor {
@@ -45,7 +46,8 @@ gneiss::engine::result editor_scene_loader::cancel(runtime::application& applica
 }
 
 gneiss::engine::result editor_scene_loader::advance(runtime::application& application,
-                                                    document_editing& editing, gneiss_world& world,
+                                                    document_editing& editing,
+                                                    gneiss::engine::rid& world,
                                                     editor_camera& camera, bool& changed) {
   using namespace runtime;
   changed = false;

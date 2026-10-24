@@ -26,7 +26,7 @@ int run_host_tests() {
   foreign.join();
   if (foreign_result != gneiss::engine::result::invalid_state ||
       application->set_view_camera(nullptr) != gneiss::engine::result::success ||
-      application->shutdown(0) != gneiss::engine::result::success ||
+      application->shutdown() != gneiss::engine::result::success ||
       application->set_view_camera(nullptr) != gneiss::engine::result::invalid_state) {
     return 23;
   }
@@ -96,7 +96,7 @@ int run_tests() {
           gneiss::engine::result::success ||
       world.scene().get_local(pending_node) != nullptr ||
       world.scene().get_local_for_entity(pending_mesh) != nullptr ||
-      world.scene().get_entity(pending_node) != GNEISS_NULL_ENTITY_ID ||
+      world.scene().get_entity(pending_node) != UINT64_C(0) ||
       world.set_active_camera(pending_camera) != gneiss::engine::result::invalid_handle ||
       world.active_camera() != camera_entity ||
       gneiss::engine::build_render_snapshot(world, 1280U, 720U, snapshot) !=
@@ -111,13 +111,13 @@ int run_tests() {
   if (!world.destroy_entity(camera_entity) ||
       gneiss::engine::build_render_snapshot(world, 1280U, 720U, snapshot) !=
           gneiss::engine::result::success ||
-      snapshot.has_camera || world.active_camera() != GNEISS_NULL_ENTITY_ID) {
+      snapshot.has_camera || world.active_camera() != UINT64_C(0)) {
     return 4;
   }
   if (gneiss::engine::build_render_snapshot(world, 640U, 480U, snapshot, &editor_view) !=
           gneiss::engine::result::success ||
       !snapshot.has_camera || snapshot.camera.transform.translation[0] != 17.0F ||
-      snapshot.camera.viewport_width != 640U || world.active_camera() != GNEISS_NULL_ENTITY_ID) {
+      snapshot.camera.viewport_width != 640U || world.active_camera() != UINT64_C(0)) {
     return 8;
   }
   return 0;

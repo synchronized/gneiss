@@ -301,8 +301,8 @@ int main(int argc, char** argv) try {
   desc.window.title = title;
   desc.window.width = 320U;
   desc.window.height = 240U;
-  desc.callbacks.update = [&](auto, const auto&) { return native_update(*app, state); };
-  desc.callbacks.close_requested = [&](auto) { return close_requested(state); };
+  desc.callbacks.update = [&](const auto&) { return native_update(*app, state); };
+  desc.callbacks.close_requested = [&]() { return close_requested(state); };
   if (gneiss::runtime::application::create(desc, app).failed() ||
       app->attach_task_executor(state.scheduler) != gneiss::engine::result::success) {
     return 1;
@@ -317,7 +317,7 @@ int main(int argc, char** argv) try {
     return 2;
   }
   std::jthread sender([&] { send_probes(state, window); });
-  const auto result = gneiss::engine::result{app->run(0, 0U)};
+  const auto result = gneiss::engine::result{app->run(0U)};
   {
     std::scoped_lock lock(state.mutex);
     state.stopped = true;

@@ -3,6 +3,7 @@
 
 #include "commands/asset_scene_commands.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
@@ -18,11 +19,11 @@ int main() try {
   gneiss::runtime::application_configuration desc;
   desc.asset_root = assets;
   std::shared_ptr<gneiss::runtime::application> app;
-  gneiss_world world = GNEISS_NULL_WORLD;
+  gneiss::engine::rid world = gneiss::engine::null_rid;
   scene_document session;
   editor_command_history history;
   if (gneiss::engine::result{gneiss::runtime::application::create(desc, app)}.failed() ||
-      (world = app->world()) == GNEISS_NULL_WORLD ||
+      (world = app->world()) == gneiss::engine::null_rid ||
       session.open(*app, world, "asset://scenes/triangle.scene.json").failed()) {
     return 1;
   }

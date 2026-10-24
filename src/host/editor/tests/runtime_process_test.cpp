@@ -8,7 +8,7 @@
 #include "runtime_property_adapter.hpp"
 #include "runtime_scene_adapter.hpp"
 
-#include <gneiss/engine/game_module_types.h>
+#include "engine/core/rid.hpp"
 
 #include <algorithm>
 #include <array>

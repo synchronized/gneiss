@@ -5,6 +5,7 @@
 
 #include "documents/document_editing.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "runtime/loading/scene_load_types.hpp"
 #include "viewport/editor_camera.hpp"
 
@@ -16,7 +17,7 @@ public:
   gneiss::engine::result request(runtime::application& application, const document_editing& editing,
                                  std::string_view uri);
   gneiss::engine::result advance(runtime::application& application, document_editing& editing,
-                                 gneiss_world& world, editor_camera& camera, bool& changed);
+                                 gneiss::engine::rid& world, editor_camera& camera, bool& changed);
   gneiss::engine::result cancel(runtime::application& application);
   void dismiss() noexcept {
     if (!active_) {

@@ -68,10 +68,10 @@ int main() try {
   }
 
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss_world world = GNEISS_NULL_WORLD;
+  gneiss::engine::rid world = gneiss::engine::null_rid;
   gneiss::editor::scene_document session;
   if (create_application(root, application) != gneiss::engine::result::success ||
-      (world = application->world()) == GNEISS_NULL_WORLD ||
+      (world = application->world()) == gneiss::engine::null_rid ||
       session.open(*application, world, scene_uri) != gneiss::engine::result::success ||
       session.select(session.nodes()[0].node) != gneiss::engine::result::success) {
     return 3;

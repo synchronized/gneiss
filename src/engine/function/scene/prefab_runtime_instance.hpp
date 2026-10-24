@@ -14,7 +14,7 @@
 
 #include "engine/function/world/world.hpp"
 
-#include <gneiss/engine/game_module_types.h>
+#include "engine/core/rid.hpp"
 
 #include <memory>
 #include <string>
@@ -36,12 +36,12 @@ public:
   struct node_info final {
     const gneiss::engine::prefab_author_address* address = nullptr;
     std::string_view name;
-    gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
+    std::uint64_t entity = UINT64_C(0);
     gneiss::engine::rid node = gneiss::engine::null_rid;
     gneiss::engine::rid parent = gneiss::engine::null_rid;
   };
 
-  prefab_runtime_instance(gneiss::engine::world& native_world, gneiss_world world,
+  prefab_runtime_instance(gneiss::engine::world& native_world, gneiss::engine::rid world,
                           gneiss::engine::render_asset_loader& loader,
                           gneiss::engine::prefab_asset_ref prefab,
                           std::string instance_uuid) noexcept;
@@ -51,7 +51,7 @@ public:
   prefab_runtime_instance& operator=(const prefab_runtime_instance&) = delete;
 
   [[nodiscard]] static gneiss::engine::result
-  create(gneiss::engine::world& native_world, gneiss_world world,
+  create(gneiss::engine::world& native_world, gneiss::engine::rid world,
          gneiss::engine::render_asset_loader& loader, gneiss::engine::prefab_asset_ref prefab,
          const gneiss::engine::registry_ref& registry, std::string_view instance_uuid,
          gneiss::engine::rid parent, const gneiss::engine::transform& root_transform,
@@ -59,14 +59,14 @@ public:
          std::unique_ptr<prefab_runtime_instance>& out_instance) noexcept;
 
   [[nodiscard]] gneiss::engine::rid root() const noexcept { return root_node_; }
-  [[nodiscard]] gneiss_entity_id root_entity() const noexcept { return root_entity_; }
+  [[nodiscard]] std::uint64_t root_entity() const noexcept { return root_entity_; }
   [[nodiscard]] gneiss::engine::prefab_asset_ref prefab_lease() const noexcept { return prefab_; }
   /** 仅供未发布候选的镜像准备；返回值有效期不超过实例或下一次重载。 */
   [[nodiscard]] const gneiss::engine::prefab_description& candidate_description() const noexcept {
     return prepared_ ? *prepared_ : *prefab_.get();
   }
   [[nodiscard]] gneiss::engine::rid find_node(std::string_view source_node_uuid) const noexcept;
-  [[nodiscard]] gneiss_entity_id find_entity(std::string_view source_node_uuid) const noexcept;
+  [[nodiscard]] std::uint64_t find_entity(std::string_view source_node_uuid) const noexcept;
   [[nodiscard]] const gneiss::engine::object_description*
   find_source_object(std::string_view source_node_uuid) const noexcept;
   [[nodiscard]] std::size_t node_count() const noexcept { return nodes_.size(); }
@@ -112,7 +112,7 @@ private:
   struct runtime_node final {
     gneiss::engine::prefab_author_address address;
     std::string name;
-    gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
+    std::uint64_t entity = UINT64_C(0);
     gneiss::engine::rid node = gneiss::engine::null_rid;
     gneiss::engine::rid parent = gneiss::engine::null_rid;
     gneiss::engine::render_asset_ref mesh;
@@ -132,11 +132,11 @@ private:
 
   gneiss::engine::world& native_world_;
   // 仅供原生反射访问器定位；不拥有 World，不用于普通场景操作。
-  gneiss_world reflection_context_;
+  gneiss::engine::rid reflection_context_;
   gneiss::engine::render_asset_loader& loader_;
   gneiss::engine::prefab_asset_ref prefab_;
   std::string instance_uuid_;
-  gneiss_entity_id root_entity_ = GNEISS_NULL_ENTITY_ID;
+  std::uint64_t root_entity_ = UINT64_C(0);
   gneiss::engine::rid root_node_ = gneiss::engine::null_rid;
   std::vector<runtime_node> nodes_;
   std::vector<std::size_t> staged_order_;

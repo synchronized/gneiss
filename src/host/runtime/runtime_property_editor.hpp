@@ -9,7 +9,7 @@
 #include "ipc_property_protocol.hpp"
 #include "runtime_scene_inspection.hpp"
 
-#include <gneiss/engine/game_module_types.h>
+#include "engine/core/rid.hpp"
 
 #include <array>
 #include <cstdint>
@@ -27,7 +27,7 @@ public:
   runtime_property_editor(const runtime_property_editor&) = delete;
   runtime_property_editor& operator=(const runtime_property_editor&) = delete;
 
-  [[nodiscard]] gneiss::engine::result initialize(gneiss_world world,
+  [[nodiscard]] gneiss::engine::result initialize(gneiss::engine::rid world,
                                                   runtime_scene_inspection& inspection,
                                                   std::uint64_t session_id) noexcept;
   [[nodiscard]] gneiss::engine::result execute(const ipc_property_write& command,
@@ -46,7 +46,7 @@ private:
     }
   };
 
-  gneiss_world world_ = GNEISS_NULL_WORLD;
+  gneiss::engine::rid world_ = gneiss::engine::null_rid;
   runtime_scene_inspection* inspection_ = nullptr;
   std::uint64_t session_id_ = 0U;
   gneiss::engine::registry_ref registry_;

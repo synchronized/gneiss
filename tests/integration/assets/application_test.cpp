@@ -31,7 +31,7 @@ void close_pending_window(const char* assets) {
   config.window.visible = false;
   config.window.title = "Gneiss Asset pending close test";
   unsigned updates = 0;
-  config.callbacks.update = [&](auto, const auto&) {
+  config.callbacks.update = [&](const auto&) {
     ++updates;
     return gneiss::engine::result::success;
   };
@@ -67,12 +67,12 @@ void close_pending_window(const char* assets) {
     check(app->action_map_status() == gneiss::engine::result::not_ready, "input remains pending");
     const auto window = FindWindowW(nullptr, L"Gneiss Asset pending close test");
     check(window != nullptr && PostMessageW(window, WM_CLOSE, 0, 0), "post native close");
-    check(app->run(0, 1) == gneiss::engine::result::success && updates == 0,
+    check(app->run(1) == gneiss::engine::result::success && updates == 0,
           "close handled before game update");
     check(app->action_map_status() == gneiss::engine::result::not_ready,
           "close did not wait for input");
   }
-  check(app->shutdown(0) == gneiss::engine::result::success, "close drains input");
+  check(app->shutdown() == gneiss::engine::result::success, "close drains input");
   check(scheduler.close_scope(scope), "close test scope");
   const auto stats = scheduler.stats();
   check(stats.waiting == 0 && stats.running == 0 && stats.retained == 0, "no remaining tasks");
@@ -104,7 +104,7 @@ void run(const char* assets, bool cooperative) {
   std::shared_ptr<runtime::application> app;
   unsigned frames = 0;
   bool seen_ready = false;
-  config.callbacks.update = [&](auto, const auto&) {
+  config.callbacks.update = [&](const auto&) {
     ++frames;
     if (app->action_map_status() == gneiss::engine::result::success) {
       gneiss::engine::action_id id;
@@ -127,7 +127,7 @@ void run(const char* assets, bool cooperative) {
     do {
       if (cooperative)
         check(scheduler.run_ready().status == gneiss::engine::drive_status::success, "drive");
-      check(app->run(0, 1) == gneiss::engine::result::success, "run");
+      check(app->run(1) == gneiss::engine::result::success, "run");
       check(std::chrono::steady_clock::now() < deadline, "timeout");
 #if GNEISS_TEST_TASK_THREADS
       std::this_thread::sleep_for(1ms);
@@ -183,7 +183,7 @@ void run(const char* assets, bool cooperative) {
   check(app->load_action_map("asset://input/default.input-map.json") ==
             gneiss::engine::result::success,
         "sync unchanged");
-  check(app->run(0, 2) == gneiss::engine::result::success &&
+  check(app->run(2) == gneiss::engine::result::success &&
             app->action_map_status() == gneiss::engine::result::invalid_state,
         "sync cancels older async apply");
 #if GNEISS_TEST_TASK_THREADS
@@ -196,7 +196,7 @@ void run(const char* assets, bool cooperative) {
   check(app->begin_action_map("asset://input/default.input-map.json") ==
             gneiss::engine::result::success,
         "shutdown begin");
-  check(app->shutdown(0) == gneiss::engine::result::success, "shutdown in flight");
+  check(app->shutdown() == gneiss::engine::result::success, "shutdown in flight");
   check(app->begin_action_map("asset://input/default.input-map.json") ==
             gneiss::engine::result::invalid_state,
         "shutdown rejects requests");
@@ -211,7 +211,7 @@ void run(const char* assets, bool cooperative) {
   wait();
   check(app->action_map_status() == gneiss::engine::result::success,
         "new owner independently applies input");
-  check(app->shutdown(0) == gneiss::engine::result::success, "new owner shutdown");
+  check(app->shutdown() == gneiss::engine::result::success, "new owner shutdown");
 }
 }
 int main(int argc, char** argv) {

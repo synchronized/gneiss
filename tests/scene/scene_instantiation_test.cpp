@@ -152,7 +152,7 @@ void run() {
     check(!active_render.owns(foreign_mesh));
   }
   auto active = std::make_unique<runtime::scene_domain>();
-  check(active->native_world() == nullptr && active->world() == GNEISS_NULL_WORLD &&
+  check(active->native_world() == nullptr && active->world() == gneiss::engine::null_rid &&
         active->scenes() == nullptr);
   check(active->initialize(active_assets, active_render) == gneiss::engine::result::success);
   const auto initialized_world = active->world();

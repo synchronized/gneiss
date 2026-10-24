@@ -53,9 +53,6 @@ public:
       std::shared_ptr<gneiss::engine::progress_notification> notification) noexcept {
     executor_.set_completion_notification(std::move(notification));
   }
-  void set_log_context(gneiss::engine::rid application) noexcept {
-    log_context_.store(application, std::memory_order_relaxed);
-  }
   [[nodiscard]] gneiss::engine::result
   prepare_frame_packet_storage(gneiss::engine::render_frame_packet& packet,
                                bool& out_should_prepare) noexcept;
@@ -196,7 +193,6 @@ private:
   float environment_rotation_radians_{};
   // 借用 Application 的线程安全日志队列；其生命周期覆盖执行器停机。
   gneiss::engine::log_dispatcher* log_{};
-  std::atomic<gneiss::engine::rid> log_context_{gneiss::engine::null_rid};
   gneiss::engine::threaded_render_executor executor_;
   std::vector<gneiss::engine::render_frame_packet> recycled_frame_packets_;
   std::deque<gneiss::engine::render_frame_completion> required_frame_completions_;

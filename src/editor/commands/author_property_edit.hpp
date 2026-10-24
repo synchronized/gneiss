@@ -6,6 +6,7 @@
 #include "commands/editor_command_history.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "panels/property_inspector_model.hpp"
 
 namespace gneiss::editor {
@@ -15,9 +16,11 @@ namespace gneiss::editor {
  * 输入只在调用期间借用，命令复制 UUID 和属性值。
  * session、inspector 和 world 必须活到历史清空；文档关闭前由宿主清空历史。
  * 写入或历史记录失败时不标脏；记录失败会恢复旧值。 */
-[[nodiscard]] gneiss::engine::result edit_author_property(
-    scene_document& session, editor_command_history& history, property_inspector_model& inspector,
-    gneiss_world world, const inspector_component& component, const inspector_property& property,
-    const gneiss::engine::property_value& value, std::uint64_t edit_serial) noexcept;
+[[nodiscard]] gneiss::engine::result
+edit_author_property(scene_document& session, editor_command_history& history,
+                     property_inspector_model& inspector, gneiss::engine::rid world,
+                     const inspector_component& component, const inspector_property& property,
+                     const gneiss::engine::property_value& value,
+                     std::uint64_t edit_serial) noexcept;
 
 } // namespace gneiss::editor

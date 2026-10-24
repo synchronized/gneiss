@@ -45,7 +45,7 @@ bool run(gneiss::engine::execution_mode mode) {
       return false;
     }
   }
-  return application->shutdown(0) == gneiss::engine::result::success;
+  return application->shutdown() == gneiss::engine::result::success;
 }
 int main() {
   return run(gneiss::engine::execution_mode::cooperative) &&

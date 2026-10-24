@@ -221,10 +221,9 @@ int main() try {
   instance_transform.scale[0] = 2.0F;
   gneiss::engine::transform source_transform = gneiss::engine::transform{};
   source_transform.translation[0] = 3.0F;
-  if (tree.create(gneiss::engine::null_rid, GNEISS_NULL_ENTITY_ID, &instance_root) !=
+  if (tree.create(gneiss::engine::null_rid, UINT64_C(0), &instance_root) !=
           gneiss::engine::result::success ||
-      tree.create(instance_root, GNEISS_NULL_ENTITY_ID, &source_root) !=
-          gneiss::engine::result::success ||
+      tree.create(instance_root, UINT64_C(0), &source_root) != gneiss::engine::result::success ||
       tree.set_local(instance_root, instance_transform) != gneiss::engine::result::success ||
       tree.set_local(source_root, source_transform) != gneiss::engine::result::success) {
     return 5;

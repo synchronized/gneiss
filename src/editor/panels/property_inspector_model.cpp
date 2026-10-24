@@ -3,6 +3,7 @@
 
 #include "panels/property_inspector_model.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/world/world_reflection.hpp"
 
 #include <algorithm>
@@ -21,9 +22,9 @@ void property_inspector_model::clear() noexcept {
   target_ = {};
 }
 
-gneiss::engine::result property_inspector_model::refresh(gneiss_world world_handle,
+gneiss::engine::result property_inspector_model::refresh(gneiss::engine::rid world_handle,
                                                          entity_id entity) noexcept {
-  if (!registry_ || world_handle == GNEISS_NULL_WORLD || !entity.is_valid()) {
+  if (!registry_ || world_handle == gneiss::engine::null_rid || !entity.is_valid()) {
     clear();
     return gneiss::engine::result::invalid_argument;
   }
@@ -85,8 +86,7 @@ gneiss::engine::result property_inspector_model::refresh(gneiss_world world_hand
 gneiss::engine::result
 property_inspector_model::set_value(gneiss::engine::type_guid type_id, field_id field_id,
                                     const gneiss::engine::property_value& value) noexcept {
-  if (!registry_ || target_.context == GNEISS_NULL_WORLD ||
-      target_.object == GNEISS_NULL_ENTITY_ID) {
+  if (!registry_ || target_.context == gneiss::engine::null_rid || target_.object == UINT64_C(0)) {
     return gneiss::engine::result::invalid_state;
   }
   auto component = std::ranges::find_if(
@@ -116,10 +116,10 @@ property_inspector_model::set_value(gneiss::engine::type_guid type_id, field_id 
 }
 
 gneiss::engine::result
-property_inspector_model::set_value(gneiss_world world_handle, entity_id entity,
+property_inspector_model::set_value(gneiss::engine::rid world_handle, entity_id entity,
                                     gneiss::engine::type_guid type_id, field_id field_id,
                                     const gneiss::engine::property_value& value) noexcept {
-  if (!registry_ || world_handle == GNEISS_NULL_WORLD || !entity.is_valid()) {
+  if (!registry_ || world_handle == gneiss::engine::null_rid || !entity.is_valid()) {
     return gneiss::engine::result::invalid_argument;
   }
   const property_target target{.context = world_handle, .object = entity.get()};

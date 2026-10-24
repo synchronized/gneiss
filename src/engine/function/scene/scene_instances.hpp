@@ -18,7 +18,7 @@
 
 #include "engine/function/world/world.hpp"
 
-#include <gneiss/engine/game_module_types.h>
+#include "engine/core/rid.hpp"
 
 #include <map>
 #include <memory>
@@ -87,7 +87,7 @@ public:
   /** 验证普通作者节点归属，不接受 Prefab 的只读来源节点。 */
   [[nodiscard]] gneiss::engine::result validate_editable_node(gneiss::engine::rid instance,
                                                               scene_node_id node) const noexcept;
-  scene_instances(gneiss::engine::world& native_world, gneiss_world world,
+  scene_instances(gneiss::engine::world& native_world, gneiss::engine::rid world,
                   const gneiss::engine::virtual_file_system& file_system,
                   gneiss::engine::render_asset_loader& loader,
                   gneiss::engine::prefab_asset_loader& prefab_loader) noexcept;
@@ -185,7 +185,7 @@ private:
   using instance_ptr = std::unique_ptr<scene_instance>;
   gneiss::engine::world& native_world_;
   // 仅供原生反射访问器定位；不拥有 World，不用于普通场景操作。
-  gneiss_world reflection_context_;
+  gneiss::engine::rid reflection_context_;
   const gneiss::engine::virtual_file_system& file_system_;
   gneiss::engine::render_asset_loader& loader_;
   gneiss::engine::prefab_asset_loader& prefab_loader_;

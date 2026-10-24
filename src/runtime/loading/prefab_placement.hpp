@@ -5,7 +5,6 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
-#include <gneiss/engine/game_module_types.h>
 #include <map>
 
 namespace gneiss::runtime {

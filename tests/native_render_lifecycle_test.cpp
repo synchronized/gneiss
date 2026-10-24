@@ -64,7 +64,7 @@ int main() try {
   mesh_desc.indices = std::span{indices}.first(1);
   if (resources.create_mesh(mesh_desc, &mesh) != native::result::invalid_argument || mesh != 0)
     return 6;
-  return first->shutdown(0).ok() && second->shutdown(0).ok() ? 0 : 7;
+  return first->shutdown().ok() && second->shutdown().ok() ? 0 : 7;
 } catch (...) {
   return 99;
 }

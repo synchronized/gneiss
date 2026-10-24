@@ -3,6 +3,7 @@
 
 #include "runtime_property_editor.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/world/world_reflection.hpp"
 
 #include <algorithm>
@@ -71,10 +72,10 @@ namespace gneiss::host {
 
 runtime_property_editor::~runtime_property_editor() { reset(); }
 
-gneiss::engine::result runtime_property_editor::initialize(gneiss_world world,
+gneiss::engine::result runtime_property_editor::initialize(gneiss::engine::rid world,
                                                            runtime_scene_inspection& inspection,
                                                            std::uint64_t session_id) noexcept {
-  if (world == GNEISS_NULL_WORLD || session_id == 0U || registry_ != nullptr) {
+  if (world == gneiss::engine::null_rid || session_id == 0U || registry_ != nullptr) {
     return gneiss::engine::result::invalid_argument;
   }
   gneiss::engine::registry_ref registry;
@@ -91,7 +92,7 @@ gneiss::engine::result runtime_property_editor::initialize(gneiss_world world,
 
 void runtime_property_editor::reset() noexcept {
   registry_.reset();
-  world_ = GNEISS_NULL_WORLD;
+  world_ = gneiss::engine::null_rid;
   inspection_ = nullptr;
   session_id_ = 0U;
   revisions_.clear();
@@ -115,7 +116,7 @@ runtime_property_editor::execute(const ipc_property_write& command,
     output = std::move(response);
     return gneiss::engine::result::success;
   }
-  gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
+  std::uint64_t entity = UINT64_C(0);
   auto operation = inspection_->resolve_entity(command.object, entity);
   if (operation != gneiss::engine::result::success) {
     response.code = operation.code();

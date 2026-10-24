@@ -16,20 +16,19 @@
 namespace gneiss::runtime {
 
 /** 原生平台和日志回调由配置复制；捕获的借用对象须存活至关闭结束。
- * context 是兼容宿主的借用关联标识；不拥有 Application，不授予销毁权。 */
+ * 宿主通过捕获绑定需要的状态，不传递 Application 句柄。 */
 struct application_callbacks final {
   std::function<gneiss::engine::result()> initialize;
   std::function<gneiss::engine::result(bool&)> poll_events;
   std::function<std::uint64_t()> now_ns;
-  std::function<gneiss::engine::result(gneiss::engine::rid, const gneiss::engine::frame_time&)>
-      update;
+  std::function<gneiss::engine::result(const gneiss::engine::frame_time&)> update;
   std::function<void()> shutdown;
-  std::function<void(gneiss::engine::rid, const gneiss::engine::diagnostic_view&)> diagnostic;
-  std::function<bool(gneiss::engine::rid)> close_requested;
+  std::function<void(const gneiss::engine::diagnostic_view&)> diagnostic;
+  std::function<bool()> close_requested;
   gneiss::engine::event_sink log;
 };
 
-/** 原生创建配置；字符串仅在 initialize 期间借用，ABI 版本补齐由接口层负责。 */
+/** 原生创建配置；字符串仅在 initialize 期间借用。 */
 struct application_configuration final {
   application_callbacks callbacks;
   bool use_granit_window = false;

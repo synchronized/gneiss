@@ -42,7 +42,7 @@ int main() {
     close = false;
     return gneiss::engine::result::success;
   };
-  config.callbacks.update = [](auto, const auto&) { return gneiss::engine::result::success; };
+  config.callbacks.update = [](const auto&) { return gneiss::engine::result::success; };
   std::shared_ptr<gneiss::runtime::application> native_application;
   if (gneiss::runtime::application::create(config, native_application).failed())
     return 1;
@@ -145,7 +145,7 @@ int main() {
       gneiss::engine::result{gneiss_game_context_log(context, &native_message)} !=
           gneiss::engine::result::invalid_handle ||
       gneiss::runtime::destroy_game_context(context) != gneiss::engine::result::invalid_handle ||
-      native_application->shutdown(0) != gneiss::engine::result::success) {
+      native_application->shutdown() != gneiss::engine::result::success) {
     return 4;
   }
   native_application.reset();
@@ -163,7 +163,7 @@ int main() {
     return 10;
   }
   std::weak_ptr<gneiss::runtime::application> weak_parent = parent;
-  if (parent->shutdown(0).failed() ||
+  if (parent->shutdown().failed() ||
       gneiss_game_context_get_world(context, &actual_world) != GNEISS_ERROR_INVALID_HANDLE ||
       actual_world != 0 ||
       gneiss_game_context_log(context, &native_message) != GNEISS_ERROR_INVALID_HANDLE) {

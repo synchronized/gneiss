@@ -4,6 +4,7 @@
 #include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/reflection/type_registry.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include "engine/function/world/world_service.hpp"
@@ -16,7 +17,7 @@ namespace {
 bool native_operations() {
   using namespace gneiss;
   gneiss::engine::world_owner owner;
-  gneiss_world borrowed{};
+  gneiss::engine::rid borrowed{};
   if (gneiss::engine::create_native(owner, borrowed) != gneiss::engine::result::success)
     return false;
   entity_id entity{};
@@ -71,13 +72,13 @@ bool native_operations() {
   return gneiss::engine::entity_count(borrowed, count) == gneiss::engine::result::invalid_handle;
 }
 
-bool original_groups_visible(gneiss_world world,
+bool original_groups_visible(gneiss::engine::rid world,
                              const std::array<gneiss::engine::staged_object, 2>& old_objects,
                              const std::array<gneiss::engine::staged_object, 2>& new_objects) {
   namespace service = gneiss::engine;
 
   std::uint64_t count{};
-  gneiss_entity_id active{};
+  std::uint64_t active{};
   if (service::entity_count(world, count) != gneiss::engine::result::success || count != 2U ||
       service::get_active_camera(world, active) != gneiss::engine::result::success ||
       active != old_objects[0].entity.get()) {
@@ -98,8 +99,8 @@ bool original_groups_visible(gneiss_world world,
 }
 bool batch_publication_test() {
   namespace service = gneiss::engine;
-  gneiss_world world{};
-  gneiss_world other{};
+  gneiss::engine::rid world{};
+  gneiss::engine::rid other{};
   if (service::create_world(world) != gneiss::engine::result::success ||
       service::create_world(other) != gneiss::engine::result::success) {
     return false;
@@ -175,7 +176,7 @@ bool batch_publication_test() {
     return false;
   }
   std::uint64_t count{};
-  gneiss_entity_id active{};
+  std::uint64_t active{};
   if (service::entity_count(world, count) != gneiss::engine::result::success || count != 2U ||
       service::get_active_camera(world, active) != gneiss::engine::result::not_ready ||
       active != 0U ||
@@ -212,11 +213,11 @@ int main() {
     return 19;
   }
   namespace service = gneiss::engine;
-  gneiss_world world{};
+  gneiss::engine::rid world{};
   if (gneiss::engine::create_world(world) != gneiss::engine::result::success) {
     return 1;
   }
-  gneiss_entity_id entity{};
+  std::uint64_t entity{};
   if (service::entity_create(world, entity) != gneiss::engine::result::success) {
     return 2;
   }
@@ -335,12 +336,12 @@ int main() {
   }
   // 原生拥有者析构自动撤销借用；移动不会使 RID 提前失效，也不授予借用方销毁权。
   service::world_owner native;
-  gneiss_world borrowed{};
+  gneiss::engine::rid borrowed{};
   if (service::create_native(native, borrowed) != gneiss::engine::result::success || !native ||
       gneiss::engine::destroy_world(borrowed) != gneiss::engine::result::invalid_state)
     return 14;
   const auto* original = native.get();
-  gneiss_world rejected = borrowed;
+  gneiss::engine::rid rejected = borrowed;
   if (service::create_native(native, rejected) != gneiss::engine::result::invalid_state ||
       rejected != 0 || native.get() != original)
     return 15;

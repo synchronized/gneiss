@@ -12,7 +12,7 @@
 namespace gneiss::engine {
 class scene_instance final {
 public:
-  scene_instance(gneiss::engine::world& native_world, gneiss_world world,
+  scene_instance(gneiss::engine::world& native_world, gneiss::engine::rid world,
                  gneiss::engine::render_asset_loader& loader,
                  gneiss::engine::prefab_asset_loader& prefab_loader,
                  const gneiss::engine::registry_ref& registry) noexcept;
@@ -23,7 +23,7 @@ public:
 
   struct object final {
     std::string uuid;
-    gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
+    std::uint64_t entity = UINT64_C(0);
     gneiss::engine::rid node = gneiss::engine::null_rid;
     gneiss::engine::render_asset_ref mesh;
     gneiss::engine::render_asset_ref material;
@@ -154,7 +154,7 @@ private:
 
   gneiss::engine::world& native_world_;
   // 仅供原生反射访问器定位；不拥有 World，不用于普通场景操作。
-  gneiss_world reflection_context_;
+  gneiss::engine::rid reflection_context_;
   gneiss::engine::render_asset_loader& loader_;
   gneiss::engine::prefab_asset_loader& prefab_loader_;
   gneiss::engine::registry_ref registry_;

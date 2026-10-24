@@ -72,7 +72,7 @@ int main() {
   gneiss::runtime::application_configuration config;
   config.use_granit_window = true;
   config.window = {.title = title, .width = 320, .height = 240};
-  config.callbacks.update = [&](native::rid, const native::frame_time&) {
+  config.callbacks.update = [&](const native::frame_time&) {
     return submit_ui(*application, context);
   };
   const auto create_result = gneiss::runtime::application::create(config, application);
@@ -113,7 +113,7 @@ int main() {
   }
 #endif
   // 先验证没有相机和场景物体的 UI 帧，再验证常规场景及资源更新。
-  if (application->run(0, 2) != native::result::success) {
+  if (application->run(2) != native::result::success) {
     std::fprintf(stderr, "纯 UI 帧运行失败\n");
     return 10;
   }
@@ -161,7 +161,7 @@ int main() {
     std::fprintf(stderr, "测试场景构造失败\n");
     return 3;
   }
-  auto run_result = application->run(0, 2);
+  auto run_result = application->run(2);
   if (run_result != native::result::success) {
     std::fprintf(stderr, "Application 运行失败：%d\n", run_result.code());
     return 4;
@@ -177,7 +177,7 @@ int main() {
       world.entity_set_mesh_renderer(plain_mesh_entity, plain_mesh_renderer).failed()) {
     return 6;
   }
-  run_result = application->run(0, 1);
+  run_result = application->run(1);
   if (run_result.failed()) {
     std::fprintf(stderr, "Mesh generation 更新后运行失败：%d\n", run_result.code());
     return 7;
@@ -188,5 +188,5 @@ int main() {
       resources.destroy_texture(texture).failed()) {
     return 8;
   }
-  return application->shutdown(0).failed() ? 12 : 0;
+  return application->shutdown().failed() ? 12 : 0;
 }

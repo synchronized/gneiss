@@ -3,6 +3,7 @@
 
 #include "runtime/loading/scene_domain.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/resource/asset_manager.hpp"
 
 namespace gneiss::runtime {
@@ -16,7 +17,7 @@ scene_domain::initialize(gneiss::engine::asset_manager& owner,
     return gneiss::engine::result::invalid_state;
   }
   gneiss::engine::world_owner next_world;
-  gneiss_world borrowed{};
+  gneiss::engine::rid borrowed{};
   const auto result = gneiss::engine::create_native(next_world, borrowed);
   if (result != gneiss::engine::result::success) {
     return result;

@@ -4,6 +4,7 @@
 #include "asset_reimport_queue.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
 #include "package_archive.hpp"
 #include "project_workspace.hpp"
@@ -93,12 +94,12 @@ int main() try {
   gneiss::runtime::application_configuration desc;
   const auto asset_root = project.asset_root.generic_string();
   desc.asset_root = asset_root;
-  gneiss_world world{};
+  gneiss::engine::rid world{};
   scene_document session;
   scene_node_id node;
   if (gneiss::engine::result{gneiss::runtime::application::create(desc, app)} !=
           gneiss::engine::result::success ||
-      (world = app->world()) == GNEISS_NULL_WORLD ||
+      (world = app->world()) == gneiss::engine::null_rid ||
       session.open(*app, world, project.startup_scene) != gneiss::engine::result::success ||
       session.create_mesh_renderer_node("Imported", *mesh, *material, node) !=
           gneiss::engine::result::success ||

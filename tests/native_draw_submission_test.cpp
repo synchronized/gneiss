@@ -86,7 +86,7 @@ int main() {
   draw_context context;
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::runtime::application_configuration config;
-  config.callbacks.update = [&](gneiss::engine::rid, const gneiss::engine::frame_time&) {
+  config.callbacks.update = [&](const gneiss::engine::frame_time&) {
     return update(*app, context);
   };
   if (gneiss::runtime::application::create(config, app).failed()) {
@@ -102,7 +102,7 @@ int main() {
       app->submit_ui_draw_list({}) != gneiss::engine::result::invalid_state) {
     return 3;
   }
-  const auto status = app->run(0, 2);
+  const auto status = app->run(2);
   if (status.failed() || context.failure != 0) {
     return 10 + static_cast<int>(context.failure);
   }
@@ -112,5 +112,5 @@ int main() {
   if (app->resources().destroy_texture(context.texture).failed()) {
     return 5;
   }
-  return app->shutdown(0).failed() ? 6 : 0;
+  return app->shutdown().failed() ? 6 : 0;
 }

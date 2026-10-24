@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "runtime/game/game_context_internal.hpp"
 
 #include "runtime/application.hpp"
@@ -17,8 +18,8 @@ namespace {
 
 struct context_state final {
   std::weak_ptr<gneiss::runtime::application> application;
-  gneiss_world world;
-  gneiss_entity_id startup_root_entity;
+  gneiss::engine::rid world;
+  std::uint64_t startup_root_entity;
   std::thread::id owner_thread;
   std::string log_source;
 };
@@ -40,7 +41,7 @@ gneiss::engine::rid_table<context_state> contexts(context_domain);
 namespace gneiss::runtime {
 
 gneiss::engine::result create_game_context(const std::shared_ptr<application>& parent,
-                                           gneiss_entity_id startup_root_entity,
+                                           std::uint64_t startup_root_entity,
                                            gneiss_game_context* out_context) noexcept try {
   if (!parent || out_context == nullptr) {
     return gneiss::engine::result::invalid_argument;

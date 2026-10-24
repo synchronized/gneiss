@@ -91,12 +91,12 @@ int run_example(int argc, char** argv) {
   config.use_granit_window = true;
   config.window.title = title;
   config.asset_root = asset_root;
-  config.callbacks.update = [&](auto, const auto& time) {
+  config.callbacks.update = [&](const auto& time) {
     return update_gallery(*native_application, time, &state);
   };
   example::scope_exit close{[&] {
     if (native_application && native_application->accepts_requests())
-      (void)native_application->shutdown(0);
+      (void)native_application->shutdown();
   }};
   auto create_result = gneiss::runtime::application::create(config, native_application);
   if (create_result.failed()) {
@@ -117,7 +117,7 @@ int run_example(int argc, char** argv) {
     return 2;
   }
   const auto input_ready = clock::now();
-  if (native_application->run(0, smoke ? 3U : 0U) != gneiss::engine::result::success) {
+  if (native_application->run(smoke ? 3U : 0U) != gneiss::engine::result::success) {
     return 3;
   }
   const auto run_finished = clock::now();

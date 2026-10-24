@@ -95,7 +95,7 @@ int main() {
     if (state.count != expected || state.previous_sequence != expected || state.was_concurrent)
       return 6;
   }
-  if (application->shutdown(0).failed())
+  if (application->shutdown().failed())
     return 7;
   application.reset();
 
@@ -108,7 +108,7 @@ int main() {
           result::invalid_argument ||
       application->submit_log({.category = "test", .message = "\xC0\x80"}) !=
           result::invalid_argument ||
-      application->shutdown(0).failed())
+      application->shutdown().failed())
     return 8;
   application.reset();
 
@@ -120,7 +120,7 @@ int main() {
   if (gneiss::runtime::application::create(config, application).failed() ||
       application->submit_log({.category = "test", .message = "throw"}).failed() ||
       application->submit_log({.category = "test", .message = "throw"}).failed() ||
-      application->shutdown(0).failed())
+      application->shutdown().failed())
     return 9;
   application.reset();
   if (throwing_calls != 2)
@@ -139,7 +139,7 @@ int main() {
                                          .result = result::not_ready});
   });
   worker.join();
-  if (submitted.failed() || application->shutdown(0).failed())
+  if (submitted.failed() || application->shutdown().failed())
     return 11;
   application.reset();
   if (owned_capture.count != 1 || owned_capture.message != "owned worker" ||
@@ -151,7 +151,7 @@ int main() {
   config.callbacks.log = [&](const event_view& event) { capture(event, empty_capture); };
   if (gneiss::runtime::application::create(config, application).failed() ||
       application->submit_log({.source = "application", .category = "empty"}).failed() ||
-      application->shutdown(0).failed())
+      application->shutdown().failed())
     return 13;
   application.reset();
   if (empty_capture.count != 1 || !empty_capture.message.empty() ||

@@ -134,10 +134,10 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   }
 
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss_world world = GNEISS_NULL_WORLD;
+  gneiss::engine::rid world = gneiss::engine::null_rid;
   gneiss::editor::scene_document session;
   if (create_application(project.asset_root, application) != gneiss::engine::result::success ||
-      (world = application->world()) == GNEISS_NULL_WORLD ||
+      (world = application->world()) == gneiss::engine::null_rid ||
       session.open(*application, world, project.startup_scene) != gneiss::engine::result::success) {
     return 8;
   }

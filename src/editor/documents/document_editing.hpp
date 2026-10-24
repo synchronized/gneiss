@@ -6,6 +6,7 @@
 #include "commands/editor_prefab_edit.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 
 namespace gneiss::editor {
 /** 单个文档的编辑所有者；全部调用限宿主线程。
@@ -29,7 +30,7 @@ public:
   [[nodiscard]] gneiss::engine::result close() noexcept;
   /** 先准备空场景；失败保留文档与历史，成功先释放旧历史再替换文档。 */
   [[nodiscard]] gneiss::engine::result create_empty(runtime::application& application,
-                                                    gneiss_world world);
+                                                    gneiss::engine::rid world);
 
 private:
   scene_document document_;

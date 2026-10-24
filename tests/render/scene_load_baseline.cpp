@@ -77,7 +77,7 @@ gneiss::engine::result preload_scene(const std::shared_ptr<gneiss::runtime::appl
     if (cooperative) {
       (void)scheduler.run_ready();
     }
-    result = static_cast<gneiss::engine::result>(gneiss::engine::result{app->run(0, 1U)});
+    result = static_cast<gneiss::engine::result>(gneiss::engine::result{app->run(1U)});
     if (result != gneiss::engine::result::success) {
       break;
     }
@@ -152,7 +152,7 @@ int main(int argc, char** argv) try {
   std::function<gneiss::engine::result(gneiss::runtime::application*)> update;
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::runtime::application_configuration desc;
-  desc.callbacks.update = [&](auto, const auto&) {
+  desc.callbacks.update = [&](const auto&) {
     return update ? update(app.get()) : gneiss::engine::result::success;
   };
   desc.use_granit_window = true;
@@ -167,7 +167,7 @@ int main(int argc, char** argv) try {
   }
   if (gneiss::engine::result{gneiss::runtime::application::create(desc, app)} !=
           gneiss::engine::result::success ||
-      gneiss::engine::result{app->run(0, 3U)} != gneiss::engine::result::success) {
+      gneiss::engine::result{app->run(3U)} != gneiss::engine::result::success) {
     return 3;
   }
   if (mode != "sync" && app->attach_task_executor(scheduler) != gneiss::engine::result::success) {
@@ -176,7 +176,7 @@ int main(int argc, char** argv) try {
   gneiss::engine::rid scene{};
   constexpr std::string_view uri = "asset://scenes/scene.scene.json";
   gneiss::engine::rid previous_scene{};
-  gneiss_world previous_world{};
+  gneiss::engine::rid previous_world{};
   gneiss::engine::scene_node_view camera;
   std::uint64_t previous_resources{};
   gneiss::engine::frame_image previous_image;
@@ -188,8 +188,8 @@ int main(int argc, char** argv) try {
       return 11;
     }
     if (previous_scene == gneiss::engine::null_rid ||
-        (previous_world = app->world()) == GNEISS_NULL_WORLD ||
-        gneiss::engine::result{app->run(0, 10U)} != gneiss::engine::result::success) {
+        (previous_world = app->world()) == gneiss::engine::null_rid ||
+        gneiss::engine::result{app->run(10U)} != gneiss::engine::result::success) {
       return 11;
     }
     std::uint64_t count{};
@@ -479,7 +479,7 @@ int main(int argc, char** argv) try {
     };
     if (result == gneiss::engine::result::success) {
       const auto run_result =
-          static_cast<gneiss::engine::result>(gneiss::engine::result{app->run(0, 0U)});
+          static_cast<gneiss::engine::result>(gneiss::engine::result{app->run(0U)});
       if (run_result != gneiss::engine::result::success) {
         result = run_result;
       }
@@ -549,7 +549,7 @@ int main(int argc, char** argv) try {
     return 5;
   }
   const auto rendering_start = clock_type::now();
-  if (gneiss::engine::result{app->run(0, 60U)} != gneiss::engine::result::success) {
+  if (gneiss::engine::result{app->run(60U)} != gneiss::engine::result::success) {
     return 6;
   }
   const auto render_ms = milliseconds(rendering_start);
@@ -576,7 +576,7 @@ int main(int argc, char** argv) try {
     const auto retry_start = clock_type::now();
     if (preload_scene(app, scheduler, mode == "cooperative", uri, scene) !=
             gneiss::engine::result::success ||
-        gneiss::engine::result{app->run(0, 60U)} != gneiss::engine::result::success) {
+        gneiss::engine::result{app->run(60U)} != gneiss::engine::result::success) {
       return 16;
     }
     retry_ms = milliseconds(retry_start);

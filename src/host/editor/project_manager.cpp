@@ -200,7 +200,7 @@ gneiss::engine::result run_project_manager(bool smoke, editor_project& output) n
     std::shared_ptr<gneiss::runtime::application> application;
     constexpr std::string_view title = "Gneiss Project Manager";
     gneiss::runtime::application_configuration desc;
-    desc.callbacks.update = [&state](gneiss::engine::rid, const gneiss::engine::frame_time& time) {
+    desc.callbacks.update = [&state](const gneiss::engine::frame_time& time) {
       return update_project_manager(state, time);
     };
     desc.use_granit_window = true;
@@ -228,7 +228,7 @@ gneiss::engine::result run_project_manager(bool smoke, editor_project& output) n
                    operation.code(), static_cast<int>(message.size()), message.data());
     }
     if (operation == gneiss::engine::result::success) {
-      operation = application->run(gneiss::engine::null_rid, smoke ? 3U : 0U);
+      operation = application->run(smoke ? 3U : 0U);
       if (operation != gneiss::engine::result::success) {
         const auto message = operation.message();
         std::fprintf(stderr,

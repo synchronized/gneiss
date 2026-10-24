@@ -14,7 +14,7 @@
 #include "engine/resource/vfs/file_system.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
 
-#include <gneiss/engine/game_module_types.h>
+#include "engine/core/rid.hpp"
 
 #include <array>
 #include <cstddef>
@@ -81,7 +81,7 @@ public:
 };
 
 bool check_failed_camera_prefab(
-    gneiss::engine::world& native_world, gneiss_world world,
+    gneiss::engine::world& native_world, gneiss::engine::rid world,
     const gneiss::engine::registry_ref& registry,
     gneiss::engine::render_asset_loader& render_loader,
     gneiss::engine::prefab_asset_loader& prefab_loader,
@@ -97,7 +97,7 @@ bool check_failed_camera_prefab(
                                      lease) != gneiss::engine::result::success) {
     return false;
   }
-  gneiss_entity_id previous{};
+  std::uint64_t previous{};
   const gneiss::engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   if (gneiss::engine::result{gneiss::engine::entity_create(world, previous)} !=
           gneiss::engine::result::success ||
@@ -112,7 +112,7 @@ bool check_failed_camera_prefab(
   const auto operation = gneiss::engine::prefab_runtime_instance::create(
       native_world, world, render_loader, lease, registry, "20000000-0000-4000-8000-000000000005",
       gneiss::engine::null_rid, transform, invalid_overrides, candidate);
-  gneiss_entity_id active{};
+  std::uint64_t active{};
   std::uint64_t count{};
   const bool preserved = operation == gneiss::engine::result::not_found && !candidate &&
                          gneiss::engine::result{gneiss::engine::get_active_camera(world, active)} ==
@@ -139,7 +139,7 @@ bool check_failed_camera_prefab(
          count == 6U;
 }
 
-bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss_world world,
+bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss::engine::rid world,
                          const gneiss::engine::registry_ref& registry,
                          gneiss::engine::render_asset_loader& loader,
                          gneiss::engine::prefab_asset_loader& prefabs,
@@ -225,7 +225,7 @@ bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss_world world
 } // namespace
 
 int main() try {
-  gneiss_world world = GNEISS_NULL_WORLD;
+  gneiss::engine::rid world = gneiss::engine::null_rid;
   gneiss::engine::world_owner world_owner;
   if (gneiss::engine::create_native(world_owner, world) != gneiss::engine::result::success) {
     return 1;

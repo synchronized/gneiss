@@ -35,11 +35,11 @@ int main() try {
   gneiss::runtime::application_configuration desc;
   desc.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss_world world = GNEISS_NULL_WORLD;
+  gneiss::engine::rid world = gneiss::engine::null_rid;
   gneiss::editor::scene_document session;
   if (gneiss::engine::result{gneiss::runtime::application::create(desc, application)} !=
           gneiss::engine::result::success ||
-      (world = application->world()) == GNEISS_NULL_WORLD ||
+      (world = application->world()) == gneiss::engine::null_rid ||
       session.open(*application, world, scene_uri) != gneiss::engine::result::success ||
       !session.is_open() || session.is_dirty() || session.uri() != scene_uri ||
       session.nodes().size() != 2U || session.nodes()[0].display_name != "Camera" ||

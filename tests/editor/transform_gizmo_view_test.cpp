@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 #include "viewport/transform_gizmo_view.hpp"
@@ -17,7 +18,7 @@ int main() try {
   using namespace gneiss;
   using namespace gneiss::editor;
   std::shared_ptr<gneiss::runtime::application> app;
-  gneiss_world world_handle = GNEISS_NULL_WORLD;
+  gneiss::engine::rid world_handle = gneiss::engine::null_rid;
   scene_document session;
   editor_command_history history;
   transform_gizmo_drag drag;
@@ -25,7 +26,7 @@ int main() try {
   scene_node_id second;
   gneiss::runtime::application_configuration desc;
   if (gneiss::engine::result{gneiss::runtime::application::create(desc, app)}.failed() ||
-      (world_handle = app->world()) == GNEISS_NULL_WORLD ||
+      (world_handle = app->world()) == gneiss::engine::null_rid ||
       session.create_empty(*app, world_handle).failed() ||
       session.create_node("First", {}, first).failed() ||
       session.create_node("Second", {}, second).failed() || session.select(first).failed()) {
@@ -33,7 +34,7 @@ int main() try {
   }
   bool wait_release = false;
   gneiss::engine::result error = gneiss::engine::result::success;
-  gneiss::engine::transform camera = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform camera = {};
   camera.translation[2] = 5.0F;
   const transform_gizmo_context context{
       .session = session,
@@ -68,7 +69,7 @@ int main() try {
     ImGui::DestroyContext();
     return 2;
   }
-  gneiss::engine::transform moved = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform moved = {};
   moved.translation[0] = 2.0F;
   gizmo_matrix matrix{};
   if (transform_to_gizmo_matrix(moved, matrix).failed() || drag.begin(session).failed() ||
@@ -82,7 +83,7 @@ int main() try {
     ImGui::DestroyContext();
     return 4;
   }
-  gneiss::engine::transform actual = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform actual = {};
   if (session.get_world_transform(first, actual).failed() ||
       std::abs(actual.translation[0]) > 0.0001F || session.select(first).failed() ||
       drag.begin(session).failed() || drag.preview(session, matrix).failed()) {

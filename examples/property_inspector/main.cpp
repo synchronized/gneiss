@@ -58,7 +58,7 @@ int main() try {
     if (app) {
       if (scene)
         (void)app->scenes()->unload(scene);
-      (void)app->shutdown(0);
+      (void)app->shutdown();
     }
   }};
   if (!open_scene(GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT, app, scene))
@@ -80,7 +80,7 @@ int main() try {
   if (app->scenes()->serialize(scene, json).failed() || app->scenes()->unload(scene).failed())
     return 4;
   scene = 0;
-  if (app->shutdown(0).failed())
+  if (app->shutdown().failed())
     return 4;
   app.reset();
   const auto output_root =
@@ -112,7 +112,7 @@ int main() try {
   if (app->scenes()->unload(scene).failed())
     return 6;
   scene = 0;
-  if (app->shutdown(0).failed())
+  if (app->shutdown().failed())
     return 6;
   app.reset();
   std::filesystem::remove_all(output_root);

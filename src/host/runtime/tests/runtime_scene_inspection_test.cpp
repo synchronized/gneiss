@@ -168,7 +168,7 @@ bool test_capture_prefab_scene() {
   const bool unloaded = gneiss::engine::result{application->scenes()->unload(scene)} ==
                         gneiss::engine::result::success;
   const bool destroyed =
-      gneiss::engine::result{application->shutdown(0)} == gneiss::engine::result::success;
+      gneiss::engine::result{application->shutdown()} == gneiss::engine::result::success;
   return valid && unloaded && destroyed;
 }
 

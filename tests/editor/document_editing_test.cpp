@@ -4,6 +4,7 @@
 #include "documents/document_editing.hpp"
 #include "documents/editor_scene_loader.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "runtime/application.hpp"
 
 namespace {
@@ -95,7 +96,7 @@ int main() try {
           .record(
               std::make_unique<pending_command>(editing.document(), cancelled, released_while_open))
           .failed() ||
-      editing.create_empty(*application, GNEISS_NULL_WORLD) !=
+      editing.create_empty(*application, gneiss::engine::null_rid) !=
           gneiss::engine::result::invalid_argument ||
       editing.document().scene_handle() != original || !editing.history().can_undo() ||
       released_while_open)

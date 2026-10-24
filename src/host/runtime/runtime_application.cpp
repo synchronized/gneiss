@@ -5,11 +5,11 @@
 #include "engine/core/rid.hpp"
 
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 #include <gneiss/app/project_description.hpp>
-#include <gneiss/engine/game_module_types.h>
 
 #include "game_module_session.hpp"
 #include "game_update_scheduler.hpp"
@@ -210,8 +210,7 @@ gneiss::engine::result update_game(void* user_data, const gneiss_game_update_tim
   return true;
 }
 
-gneiss::engine::result update_runtime(gneiss::engine::rid application,
-                                      const gneiss::engine::frame_time* time, void* user_data) try {
+gneiss::engine::result update_runtime(const gneiss::engine::frame_time* time, void* user_data) try {
   if (time == nullptr || user_data == nullptr) {
     return gneiss::engine::result::invalid_argument;
   }
@@ -429,8 +428,7 @@ gneiss::engine::result update_runtime(gneiss::engine::rid application,
     constexpr std::string_view category = "lifecycle";
     constexpr std::string_view message = "Runtime 已进入首帧";
     const auto log_result =
-        context.application->submit_log({.context = application,
-                                         .severity = gneiss::engine::level::info,
+        context.application->submit_log({.severity = gneiss::engine::level::info,
                                          .source = "application",
                                          .category = category,
                                          .message = message});
@@ -561,9 +559,8 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
     std::filesystem::remove(context.stop_file, error);
   }
   gneiss::runtime::application_configuration desc;
-  desc.callbacks.update = [&context](gneiss::engine::rid handle,
-                                     const gneiss::engine::frame_time& time) {
-    return update_runtime(handle, &time, &context);
+  desc.callbacks.update = [&context](const gneiss::engine::frame_time& time) {
+    return update_runtime(&time, &context);
   };
   desc.use_granit_window = true;
   desc.window.title = project.name;
@@ -672,7 +669,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
       });
   context.asset_reloader = &asset_reloader;
 
-  gneiss_world world = GNEISS_NULL_WORLD;
+  gneiss::engine::rid world = gneiss::engine::null_rid;
   world = application->world();
   native_result = gneiss::engine::result::success;
   gneiss::host::runtime_property_editor property_editor;
@@ -739,7 +736,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
       if (applied != gneiss::engine::result::success)
         return applied;
     }
-    gneiss_entity_id root_entity = GNEISS_NULL_ENTITY_ID;
+    std::uint64_t root_entity = UINT64_C(0);
     std::uint64_t count{};
     applied = application->scenes()->get_node_count(scene, &count);
     for (std::uint64_t index = 0U; applied == gneiss::engine::result::success && index < count;
@@ -816,7 +813,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
       scene_loader.request({context.inspection_session_id, 1U, project.startup_scene}, 0U);
   if (native_result != gneiss::engine::result::success)
     return 4;
-  operation = application->run(0, 0U);
+  operation = application->run(0U);
   const auto task_stats = task_scheduler.stats();
   log.write("INFO", "task_statistics", gneiss::engine::result::success,
             "submitted=" + std::to_string(task_stats.submitted) +

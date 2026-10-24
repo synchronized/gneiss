@@ -20,8 +20,8 @@ Application 拥有 World、平台状态、资源服务及可选窗口。`native_
 
 ## 主循环
 
-`run(context, max_frame_count)` 每帧轮询事件、计算时间、调用 update 并提交渲染。
-context 是迁移期回调关联值，原生宿主传零，不代表 Application 句柄。
+`run(max_frame_count)` 每帧轮询事件、计算时间、调用 update 并提交渲染。
+update 只接收帧时间，诊断回调只接收诊断事件，关闭请求回调不带参数；宿主状态由回调捕获。
 `max_frame_count` 为零表示持续运行至退出，非零限制本次执行帧数。
 多次调用 run 延续帧序号与累计时间；重入、跨线程或关闭后运行返回 `invalid_state`。
 

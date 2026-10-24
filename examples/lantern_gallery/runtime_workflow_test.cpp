@@ -4,7 +4,7 @@
 #include "engine/core/reflection/component_identity.hpp"
 #include "runtime_process.hpp"
 
-#include <gneiss/engine/game_module_types.h>
+#include "engine/core/rid.hpp"
 
 #include <algorithm>
 #include <array>

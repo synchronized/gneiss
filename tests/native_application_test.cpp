@@ -37,41 +37,39 @@ void test_loop_callback_exceptions() {
       throw std::bad_alloc{};
     return 12U;
   };
-  config.callbacks.update = [&](gneiss::engine::rid, const gneiss::engine::frame_time& time) {
+  config.callbacks.update = [&](const gneiss::engine::frame_time& time) {
     check(time.delta_ns == 0U);
     ++updates;
     return gneiss::engine::result::success;
   };
   check(runtime::application::create(config, app) == gneiss::engine::result::success);
-  check(app->run(0, 1) == gneiss::engine::result::out_of_memory);
+  check(app->run(1) == gneiss::engine::result::out_of_memory);
   fail = false;
-  check(app->run(0, 1) == gneiss::engine::result::success && updates == 1U);
+  check(app->run(1) == gneiss::engine::result::success && updates == 1U);
   app.reset();
   config.callbacks.now_ns = {};
-  config.callbacks.update = [](gneiss::engine::rid,
-                               const gneiss::engine::frame_time&) -> gneiss::engine::result {
+  config.callbacks.update = [](const gneiss::engine::frame_time&) -> gneiss::engine::result {
     throw std::runtime_error("更新失败");
   };
   check(runtime::application::create(config, app) == gneiss::engine::result::success);
-  check(app->run(0, 1) == gneiss::engine::result::internal);
-  check(app->shutdown(0) == gneiss::engine::result::success);
+  check(app->run(1) == gneiss::engine::result::internal);
+  check(app->shutdown() == gneiss::engine::result::success);
   app.reset();
   config.callbacks.update = {};
   config.callbacks.poll_events = [](bool& close) {
     close = true;
     return gneiss::engine::result::success;
   };
-  config.callbacks.close_requested = [](gneiss::engine::rid) -> bool { throw std::bad_alloc{}; };
+  config.callbacks.close_requested = []() -> bool { throw std::bad_alloc{}; };
   check(runtime::application::create(config, app) == gneiss::engine::result::success);
-  check(app->run(0, 1) == gneiss::engine::result::out_of_memory);
-  check(app->shutdown(0) == gneiss::engine::result::success);
+  check(app->run(1) == gneiss::engine::result::out_of_memory);
+  check(app->shutdown() == gneiss::engine::result::success);
   app.reset();
   unsigned delivered_diagnostics{};
   bool valid_diagnostic{};
   config = {};
   config.callbacks.initialize = [] { return gneiss::engine::result::initialization_failed; };
-  config.callbacks.diagnostic = [&](gneiss::engine::rid,
-                                    const gneiss::engine::diagnostic_view& event) {
+  config.callbacks.diagnostic = [&](const gneiss::engine::diagnostic_view& event) {
     ++delivered_diagnostics;
     valid_diagnostic =
         event.result == gneiss::engine::result::initialization_failed && !event.message.empty();
@@ -128,7 +126,7 @@ void test_asset_request_boundaries() {
   std::thread worker([&] { rejected_on_worker = rejected(); });
   worker.join();
   check(rejected_on_worker);
-  check(app->shutdown(0) == gneiss::engine::result::success);
+  check(app->shutdown() == gneiss::engine::result::success);
   check(rejected());
 }
 
@@ -153,7 +151,7 @@ void test_platform_callbacks() {
   };
   check(gneiss::runtime::application::create(platform_config, app) ==
         gneiss::engine::result::success);
-  check(app->run(0, 3U) == gneiss::engine::result::success && polls == 1U);
+  check(app->run(3U) == gneiss::engine::result::success && polls == 1U);
   app.reset();
   check(shutdowns == 2U);
   platform_config.callbacks.poll_events = [](bool&) -> gneiss::engine::result {
@@ -165,8 +163,8 @@ void test_platform_callbacks() {
   };
   check(gneiss::runtime::application::create(platform_config, app) ==
         gneiss::engine::result::success);
-  check(app->run(0, 1U) == gneiss::engine::result::out_of_memory);
-  check(app->shutdown(0) == gneiss::engine::result::internal);
+  check(app->run(1U) == gneiss::engine::result::out_of_memory);
+  check(app->shutdown() == gneiss::engine::result::internal);
   check(!app->accepts_requests());
   app.reset();
   check(shutdowns == 3U);
@@ -182,11 +180,7 @@ int main() try {
                       : gneiss::engine::result::success;
   };
   config.callbacks.shutdown = [&state] { ++state.shutdowns; };
-  config.callbacks.update = [&state](gneiss::engine::rid handle,
-                                     const gneiss::engine::frame_time&) -> gneiss::engine::result {
-    if (handle != 0) {
-      return gneiss::engine::result::invalid_handle;
-    }
+  config.callbacks.update = [&state](const gneiss::engine::frame_time&) -> gneiss::engine::result {
     ++state.frames;
     return gneiss::engine::result::success;
   };
@@ -222,9 +216,9 @@ int main() try {
         gneiss::engine::result::invalid_argument);
   check(app == retained && state.initializations == 1U);
   retained.reset();
-  check(app->run(0, 3U) == gneiss::engine::result::success && state.frames == 3U);
+  check(app->run(3U) == gneiss::engine::result::success && state.frames == 3U);
   gneiss::engine::result other_thread{};
-  std::thread worker([&] { other_thread = app->run(0, 1U); });
+  std::thread worker([&] { other_thread = app->run(1U); });
   worker.join();
   check(other_thread == gneiss::engine::result::invalid_state && state.frames == 3U);
   // Application 持有的 World 不授予调用方销毁权。
@@ -240,13 +234,13 @@ int main() try {
         gneiss::engine::result::initialization_failed);
   check(app == previous && state.initializations == 2U && state.shutdowns == 1U);
   previous.reset();
-  check(app->run(0, 1U) == gneiss::engine::result::success && state.frames == 4U);
-  check(app->shutdown(0) == gneiss::engine::result::success);
+  check(app->run(1U) == gneiss::engine::result::success && state.frames == 4U);
+  check(app->shutdown() == gneiss::engine::result::success);
   std::uint64_t count{};
   check(gneiss::engine::entity_count(borrowed_world, count) ==
         gneiss::engine::result::invalid_handle);
   check(gneiss::engine::destroy_world(borrowed_world) == gneiss::engine::result::invalid_handle);
-  check(app->run(0, 1U) == gneiss::engine::result::invalid_state);
+  check(app->run(1U) == gneiss::engine::result::invalid_state);
   app.reset();
   check(state.shutdowns == 2U);
   check(delivered.load() == 2U && valid_log.load());

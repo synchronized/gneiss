@@ -48,8 +48,7 @@ BOOL CALLBACK find_window(HWND window, LPARAM data) {
   return TRUE;
 }
 
-gneiss::engine::result update(gneiss::engine::rid, const gneiss::engine::frame_time* time,
-                              void* data) {
+gneiss::engine::result update(const gneiss::engine::frame_time* time, void* data) {
   auto& value = *static_cast<state*>(data);
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
   if (!value.assets->status().active ||
@@ -139,9 +138,8 @@ int main() {
   config.window.width = 640U;
   config.window.height = 480U;
   config.window.title = "Gneiss 0.37 interaction probe";
-  config.callbacks.update = [&value](gneiss::engine::rid handle,
-                                     const gneiss::engine::frame_time& time) {
-    return update(handle, &time, &value);
+  config.callbacks.update = [&value](const gneiss::engine::frame_time& time) {
+    return update(&time, &value);
   };
   std::shared_ptr<gneiss::runtime::application> application;
   if (gneiss::runtime::application::create(config, application) !=
@@ -166,9 +164,7 @@ int main() {
     return 6;
   // 使用窗口自己的 DPI 上下文查询物理客户区，避免测试进程受到 DPI 虚拟化影响。
   const auto previous = SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(value.window));
-  const auto run = [&] {
-    return application->run(gneiss::engine::null_rid, 3U) == gneiss::engine::result::success;
-  };
+  const auto run = [&] { return application->run(3U) == gneiss::engine::result::success; };
   bool success = run();
   for (int index = 0; index < 18 && success; ++index) {
     success = SetWindowPos(value.window, nullptr, -3000, -3000, 640 + (index * 19),

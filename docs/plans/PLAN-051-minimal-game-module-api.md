@@ -113,7 +113,7 @@ World/Scene 空壳公共头、旧日志事件/RID 头和 Core C 导出已撤销�
 - 核对原生标识与游戏模块 C 类型之间的依赖，仅在协议边界转换。
 - 逐项清理 RID、反射属性与渲染描述对 C 结构布局的依赖，转换留在 API/模块边界；
   整理仍位于根命名空间的旧共享值，避免与原生拥有型属性值混淆。
-- 清理 Application 原生回调中已无 C 宿主用途的 context 参数；核对内部 World/Entity 标识对模块类型的引用。
+Application 原生回调与 run/shutdown 已删除旧 context 参数；内部 World 使用 engine::rid、实体存储使用 uint64_t，C World/Entity 类型仅留在游戏模块协议边界。
 - 将包配置、生成版本头、ABI 清单与校验收敛为最小游戏模块边界；保留模块 consumer 编译验证。
 
 ## 验收与风险

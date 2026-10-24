@@ -78,12 +78,12 @@ gneiss::engine::result world::create_staged_object(const gneiss::engine::publica
     return gneiss::engine::result::invalid_argument;
   }
   return with_state(*state_, [&](world_state& state) {
-    gneiss_entity_id candidate_entity{};
+    std::uint64_t candidate_entity{};
     gneiss::engine::rid candidate_node{};
     auto operation = gneiss::engine::result::success;
     try {
       candidate_entity = state.create_staged_entity(group);
-      if (candidate_entity == GNEISS_NULL_ENTITY_ID) {
+      if (candidate_entity == UINT64_C(0)) {
         return gneiss::engine::result::invalid_state;
       }
       if (description.camera != nullptr) {
@@ -111,7 +111,7 @@ gneiss::engine::result world::create_staged_object(const gneiss::engine::publica
     if (candidate_node != gneiss::engine::null_rid) {
       (void)state.scene().destroy_staged_leaf(group, candidate_node);
     }
-    if (candidate_entity != GNEISS_NULL_ENTITY_ID) {
+    if (candidate_entity != UINT64_C(0)) {
       (void)state.destroy_staged_entity(group, candidate_entity);
     }
     return operation;
@@ -120,7 +120,7 @@ gneiss::engine::result world::create_staged_object(const gneiss::engine::publica
 gneiss::engine::result world::destroy_staged_object(const gneiss::engine::publication& group,
                                                     staged_object object) noexcept {
   return with_state(*state_, [&](world_state& state) {
-    if (object.entity.get() == GNEISS_NULL_ENTITY_ID ||
+    if (object.entity.get() == UINT64_C(0) ||
         state.scene().get_staged_entity(group, object.node.get()) != object.entity.get()) {
       return gneiss::engine::result::invalid_handle;
     }
@@ -134,9 +134,9 @@ gneiss::engine::result world::destroy_staged_object(const gneiss::engine::public
   });
 }
 gneiss::engine::result world::entity_create(entity_id& out_entity_value) noexcept {
-  gneiss_entity_id out_entity = out_entity_value.get();
+  std::uint64_t out_entity = out_entity_value.get();
   const auto operation_result = [&]() -> gneiss::engine::result {
-    out_entity = GNEISS_NULL_ENTITY_ID;
+    out_entity = UINT64_C(0);
     try {
       auto* state = state_.get();
       const auto thread_result = (is_owner_thread() ? gneiss::engine::result::success
@@ -156,7 +156,7 @@ gneiss::engine::result world::entity_create(entity_id& out_entity_value) noexcep
   return operation_result;
 }
 gneiss::engine::result world::entity_destroy(entity_id entity_value) noexcept {
-  gneiss_entity_id entity = entity_value.get();
+  std::uint64_t entity = entity_value.get();
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? gneiss::engine::result::success
@@ -171,7 +171,7 @@ gneiss::engine::result world::entity_destroy(entity_id entity_value) noexcept {
   }
 }
 gneiss::engine::result world::entity_is_alive(entity_id entity_value, bool& out_is_alive) noexcept {
-  gneiss_entity_id entity = entity_value.get();
+  std::uint64_t entity = entity_value.get();
   out_is_alive = false;
   try {
     auto* state = state_.get();
@@ -204,7 +204,7 @@ gneiss::engine::result world::entity_count(uint64_t& out_count) noexcept {
 gneiss::engine::result world::entity_set_camera(entity_id entity_value,
                                                 const camera_settings& camera,
                                                 bool primary) noexcept {
-  gneiss_entity_id entity = entity_value.get();
+  std::uint64_t entity = entity_value.get();
   if (!is_valid_camera(camera.vertical_field_of_view_radians, camera.near_plane,
                        camera.far_plane)) {
     return gneiss::engine::result::invalid_argument;
@@ -235,7 +235,7 @@ gneiss::engine::result world::entity_set_camera(entity_id entity_value,
 }
 gneiss::engine::result world::entity_configure_camera(entity_id entity_value,
                                                       const camera_settings& desc) noexcept {
-  gneiss_entity_id entity = entity_value.get();
+  std::uint64_t entity = entity_value.get();
   if (!is_valid_camera(desc.vertical_field_of_view_radians, desc.near_plane, desc.far_plane)) {
     return gneiss::engine::result::invalid_argument;
   }
@@ -259,7 +259,7 @@ gneiss::engine::result world::entity_configure_camera(entity_id entity_value,
 }
 gneiss::engine::result world::entity_get_camera(entity_id entity_value,
                                                 camera_settings& out_camera) noexcept {
-  gneiss_entity_id entity = entity_value.get();
+  std::uint64_t entity = entity_value.get();
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? gneiss::engine::result::success
@@ -283,7 +283,7 @@ gneiss::engine::result world::entity_get_camera(entity_id entity_value,
   }
 }
 gneiss::engine::result world::entity_remove_camera(entity_id entity_value) noexcept {
-  gneiss_entity_id entity = entity_value.get();
+  std::uint64_t entity = entity_value.get();
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? gneiss::engine::result::success
@@ -295,7 +295,7 @@ gneiss::engine::result world::entity_remove_camera(entity_id entity_value) noexc
   }
 }
 gneiss::engine::result world::set_active_camera(entity_id entity_value) noexcept {
-  gneiss_entity_id entity = entity_value.get();
+  std::uint64_t entity = entity_value.get();
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? gneiss::engine::result::success
@@ -307,9 +307,9 @@ gneiss::engine::result world::set_active_camera(entity_id entity_value) noexcept
   }
 }
 gneiss::engine::result world::get_active_camera(entity_id& out_entity_value) noexcept {
-  gneiss_entity_id out_entity = out_entity_value.get();
+  std::uint64_t out_entity = out_entity_value.get();
   const auto operation_result = [&]() -> gneiss::engine::result {
-    out_entity = GNEISS_NULL_ENTITY_ID;
+    out_entity = UINT64_C(0);
     try {
       auto* state = state_.get();
       const auto thread_result = (is_owner_thread() ? gneiss::engine::result::success
@@ -318,8 +318,8 @@ gneiss::engine::result world::get_active_camera(entity_id& out_entity_value) noe
         return thread_result;
       }
       out_entity = state->active_camera();
-      return out_entity == GNEISS_NULL_ENTITY_ID ? gneiss::engine::result::not_ready
-                                                 : gneiss::engine::result::success;
+      return out_entity == UINT64_C(0) ? gneiss::engine::result::not_ready
+                                       : gneiss::engine::result::success;
     } catch (...) {
       return gneiss::engine::result::internal;
     }
@@ -336,7 +336,7 @@ world::replace_mesh_renderers(std::span<const mesh_renderer_replacement> replace
     if (validated != gneiss::engine::result::success) {
       return validated;
     }
-    std::unordered_set<gneiss_entity_id> entities;
+    std::unordered_set<std::uint64_t> entities;
     for (const auto& change : replacements) {
       if (!entities.insert(change.entity.get()).second ||
           change.replacement.mesh == gneiss::engine::null_rid ||
@@ -367,7 +367,7 @@ world::replace_mesh_renderers(std::span<const mesh_renderer_replacement> replace
 }
 gneiss::engine::result world::entity_set_mesh_renderer(entity_id entity_value,
                                                        const mesh_renderer& renderer) noexcept {
-  gneiss_entity_id entity = entity_value.get();
+  std::uint64_t entity = entity_value.get();
   if (renderer.mesh == gneiss::engine::null_rid || renderer.material == gneiss::engine::null_rid) {
     return gneiss::engine::result::invalid_argument;
   }
@@ -392,7 +392,7 @@ gneiss::engine::result world::entity_set_mesh_renderer(entity_id entity_value,
   }
 }
 gneiss::engine::result world::entity_remove_mesh_renderer(entity_id entity_value) noexcept {
-  gneiss_entity_id entity = entity_value.get();
+  std::uint64_t entity = entity_value.get();
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? gneiss::engine::result::success
@@ -406,7 +406,7 @@ gneiss::engine::result world::entity_remove_mesh_renderer(entity_id entity_value
 gneiss::engine::result world::node_create(scene_node_id parent_value, entity_id entity_value,
                                           scene_node_id& out_node_value) noexcept {
   gneiss::engine::rid parent = parent_value.get();
-  gneiss_entity_id entity = entity_value.get();
+  std::uint64_t entity = entity_value.get();
   gneiss::engine::rid out_node = out_node_value.get();
   const auto operation_result = [&]() -> gneiss::engine::result {
     out_node = gneiss::engine::null_rid;
@@ -417,7 +417,7 @@ gneiss::engine::result world::node_create(scene_node_id parent_value, entity_id 
       if (thread_result != gneiss::engine::result::success) {
         return thread_result;
       }
-      if (entity != GNEISS_NULL_ENTITY_ID && !state->is_alive(entity)) {
+      if (entity != UINT64_C(0) && !state->is_alive(entity)) {
         return gneiss::engine::result::invalid_handle;
       }
       return state->scene().create(parent, entity, &out_node);
@@ -512,9 +512,9 @@ world::node_get_world_transform(scene_node_id node_value,
 gneiss::engine::result world::node_get_entity(scene_node_id node_value,
                                               entity_id& out_entity_value) noexcept {
   gneiss::engine::rid node = node_value.get();
-  gneiss_entity_id out_entity = out_entity_value.get();
+  std::uint64_t out_entity = out_entity_value.get();
   const auto operation_result = [&]() -> gneiss::engine::result {
-    out_entity = GNEISS_NULL_ENTITY_ID;
+    out_entity = UINT64_C(0);
     try {
       auto* state = state_.get();
       const auto thread_result = (is_owner_thread() ? gneiss::engine::result::success
@@ -563,7 +563,7 @@ gneiss::engine::result world::node_get_parent(scene_node_id node_value,
 gneiss::engine::result
 world::entity_get_local_transform(entity_id entity_value,
                                   gneiss::engine::transform& out_transform) noexcept {
-  gneiss_entity_id entity = entity_value.get();
+  std::uint64_t entity = entity_value.get();
   out_transform = {};
   try {
     auto* state = state_.get();
@@ -588,7 +588,7 @@ world::entity_get_local_transform(entity_id entity_value,
 gneiss::engine::result
 world::entity_set_local_transform(entity_id entity_value,
                                   const gneiss::engine::transform& transform) noexcept {
-  gneiss_entity_id entity = entity_value.get();
+  std::uint64_t entity = entity_value.get();
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? gneiss::engine::result::success

@@ -56,10 +56,10 @@ int main(int argc, char** argv) try {
   }
   context state;
   gneiss::runtime::application_configuration description;
-  description.callbacks.update = [&](auto, const auto& time) { return update(time, state); };
+  description.callbacks.update = [&](const auto& time) { return update(time, state); };
   std::shared_ptr<gneiss::runtime::application> application;
   if (gneiss::runtime::application::create(description, application).failed() ||
-      application->run(0, 128).failed()) {
+      application->run(128).failed()) {
     return 3;
   }
   const auto deadline = std::chrono::steady_clock::now() + 5s;

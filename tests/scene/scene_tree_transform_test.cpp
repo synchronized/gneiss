@@ -68,7 +68,7 @@ int run_tests() {
   gneiss::engine::rid child{};
   gneiss::engine::rid grandchild{};
   gneiss::engine::rid other_root{};
-  constexpr gneiss_entity_id entity = 42;
+  constexpr std::uint64_t entity = 42;
   if (tree.create({}, {}, &root) != gneiss::engine::result::success ||
       tree.create(root, {}, &child) != gneiss::engine::result::success ||
       tree.create(child, entity, &grandchild) != gneiss::engine::result::success ||

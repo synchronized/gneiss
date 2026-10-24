@@ -143,7 +143,7 @@ runtime_scene_inspection::capture(std::span<const runtime_scene_source_node> nod
     }
 
     std::map<std::uint64_t, runtime_scene_snapshot_node> current;
-    std::map<std::uint64_t, std::pair<ipc_runtime_object_id, gneiss_entity_id>> entities;
+    std::map<std::uint64_t, std::pair<ipc_runtime_object_id, std::uint64_t>> entities;
     std::vector<runtime_scene_snapshot_node> ordered;
     ordered.reserve(nodes.size());
     for (const auto& source : nodes) {
@@ -167,7 +167,7 @@ runtime_scene_inspection::capture(std::span<const runtime_scene_source_node> nod
                                        .mesh_uri = source.mesh_uri,
                                        .material_uri = source.material_uri};
       current.emplace(node.id.value, node);
-      if (source.native_entity != GNEISS_NULL_ENTITY_ID) {
+      if (source.native_entity != UINT64_C(0)) {
         entities.emplace(node.id.value, std::pair{node.id, source.native_entity});
       }
       ordered.push_back(std::move(node));
@@ -318,7 +318,7 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
 
 gneiss::engine::result
 runtime_scene_inspection::resolve_entity(ipc_runtime_object_id object,
-                                         gneiss_entity_id& output) const noexcept {
+                                         std::uint64_t& output) const noexcept {
   if (!object.is_valid()) {
     return gneiss::engine::result::invalid_argument;
   }

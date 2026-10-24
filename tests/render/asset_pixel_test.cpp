@@ -307,7 +307,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
         while (native->visual_assets_loading()) {
           check(std::chrono::steady_clock::now() < deadline);
           native->advance_scene_load();
-          check(gneiss::engine::result{app->run(0, 1U)} == gneiss::engine::result::success);
+          check(gneiss::engine::result{app->run(1U)} == gneiss::engine::result::success);
           std::this_thread::yield();
         }
         gneiss::engine::frame_image loaded;
@@ -321,7 +321,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     check(gneiss::engine::result{app->scenes()->load(uri, &scene)} ==
           gneiss::engine::result::success);
   }
-  check(gneiss::engine::result{app->run(0, 3U)} == gneiss::engine::result::success);
+  check(gneiss::engine::result{app->run(3U)} == gneiss::engine::result::success);
   gneiss::engine::frame_image image;
   check(app->capture_frame(128U, 128U, image) == gneiss::engine::result::success);
   const auto offset = (64U * 128U + 64U) * 4U;
@@ -386,7 +386,7 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
   gneiss::engine::rid scene{};
   check(gneiss::engine::result{app->scenes()->load(uri, &scene)} ==
         gneiss::engine::result::success);
-  check(gneiss::engine::result{app->run(0, 3U)} == gneiss::engine::result::success);
+  check(gneiss::engine::result{app->run(3U)} == gneiss::engine::result::success);
   gneiss::engine::frame_image image;
   check(app->capture_frame(128U, 128U, image) == gneiss::engine::result::success);
   const auto offset = (64U * 128U + 64U) * 4U;
@@ -501,7 +501,7 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   gneiss::engine::rid scene{};
   check(gneiss::engine::result{app->scenes()->load(uri, &scene)} ==
         gneiss::engine::result::success);
-  check(gneiss::engine::result{app->run(0, 3U)} == gneiss::engine::result::success);
+  check(gneiss::engine::result{app->run(3U)} == gneiss::engine::result::success);
   gneiss::engine::frame_image image;
   check(app->capture_frame(128U, 128U, image) == gneiss::engine::result::success);
   if (frame != nullptr)
@@ -579,7 +579,7 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
   constexpr std::string_view uri = "asset://s.scene.json";
   check(gneiss::engine::result{app->scenes()->load(uri, &scene)} ==
         gneiss::engine::result::success);
-  check(gneiss::engine::result{app->run(0, 3U)} == gneiss::engine::result::success);
+  check(gneiss::engine::result{app->run(3U)} == gneiss::engine::result::success);
   const auto capture = [&](unsigned width = 128U) {
     gneiss::engine::frame_image image;
     const auto result = app->capture_frame(width, 128U, image);
@@ -683,7 +683,7 @@ void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
   gneiss::engine::rid scene{};
   check(gneiss::engine::result{app->scenes()->load(uri, &scene)} ==
         gneiss::engine::result::success);
-  check(gneiss::engine::result{app->run(0, 3U)} == gneiss::engine::result::success);
+  check(gneiss::engine::result{app->run(3U)} == gneiss::engine::result::success);
   const auto capture = [&] {
     gneiss::engine::frame_image image;
     check(app->capture_frame(128U, 128U, image) == gneiss::engine::result::success);
@@ -730,7 +730,7 @@ void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
             native->advance_scene_load();
           }
           check(app->poll_scene(completion, terminal) == gneiss::engine::result::success);
-          check(gneiss::engine::result{app->run(0, 3U)} == gneiss::engine::result::success);
+          check(gneiss::engine::result{app->run(3U)} == gneiss::engine::result::success);
           const auto changed = capture();
           check(changed == active_pixels);
           active_pixels = changed;

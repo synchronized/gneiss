@@ -24,10 +24,10 @@ namespace {
 // 必须先于候选实例构造，保证候选释放后再恢复原相机；异常路径同样适用。
 struct camera_restore_guard {
   gneiss::engine::world& native_world;
-  gneiss_entity_id previous;
+  std::uint64_t previous;
   bool committed{};
   ~camera_restore_guard() {
-    if (!committed && previous != GNEISS_NULL_ENTITY_ID) {
+    if (!committed && previous != UINT64_C(0)) {
       (void)native_world.set_active_camera(gneiss::entity_id{previous});
     }
   }
@@ -67,7 +67,7 @@ to_native_value(const gneiss::engine::prefab_property_value& source,
 }
 
 gneiss::engine::result
-apply_camera(gneiss::engine::world& native_world, gneiss_entity_id entity,
+apply_camera(gneiss::engine::world& native_world, std::uint64_t entity,
              const std::optional<gneiss::engine::camera_description>& camera) noexcept {
   if (!camera) {
     const auto result = native_world.entity_remove_camera(gneiss::entity_id{entity});
@@ -83,7 +83,7 @@ apply_camera(gneiss::engine::world& native_world, gneiss_entity_id entity,
 namespace gneiss::engine {
 
 prefab_runtime_instance::prefab_runtime_instance(gneiss::engine::world& native_world,
-                                                 gneiss_world world,
+                                                 gneiss::engine::rid world,
                                                  gneiss::engine::render_asset_loader& loader,
                                                  gneiss::engine::prefab_asset_ref prefab,
                                                  std::string instance_uuid) noexcept
@@ -208,21 +208,21 @@ gneiss::engine::result prefab_runtime_instance::reload(
   }
   std::vector<std::size_t> additions;
   additions.reserve(diff.added.size());
-  gneiss_entity_id active_camera_before = GNEISS_NULL_ENTITY_ID;
+  std::uint64_t active_camera_before = UINT64_C(0);
   (void)gneiss::engine::write_identifier<entity_id>(active_camera_before, [&](auto& native_output) {
     return native_world_.get_active_camera(native_output);
   });
   const auto rollback_additions = [&]() noexcept {
     for (auto iterator = additions.rbegin(); iterator != additions.rend(); ++iterator) {
       auto& target = staged[*iterator];
-      if (target.entity != GNEISS_NULL_ENTITY_ID) {
+      if (target.entity != UINT64_C(0)) {
         (void)native_world_.entity_destroy(gneiss::entity_id{target.entity});
       }
       if (target.node != gneiss::engine::null_rid) {
         (void)native_world_.node_destroy(gneiss::scene_node_id{target.node});
       }
     }
-    if (active_camera_before != GNEISS_NULL_ENTITY_ID) {
+    if (active_camera_before != UINT64_C(0)) {
       (void)native_world_.set_active_camera(gneiss::entity_id{active_camera_before});
     }
   };
@@ -259,7 +259,7 @@ gneiss::engine::result prefab_runtime_instance::reload(
           publication_, {.entity = entity_id{target.entity}, .node = scene_node_id{target.node}});
     }
     if (result != gneiss::engine::result::success) {
-      if (target.entity != GNEISS_NULL_ENTITY_ID) {
+      if (target.entity != UINT64_C(0)) {
         (void)native_world_.entity_destroy(gneiss::entity_id{target.entity});
       }
       if (target.node != gneiss::engine::null_rid) {
@@ -331,7 +331,7 @@ gneiss::engine::result prefab_runtime_instance::reload(
       const auto camera_result =
           native_world_.entity_get_camera(gneiss::entity_id{target.entity}, camera);
       if (camera_result == gneiss::engine::result::success) {
-        gneiss_entity_id active = GNEISS_NULL_ENTITY_ID;
+        std::uint64_t active = UINT64_C(0);
         snapshot.camera = gneiss::engine::camera_description{
             .vertical_field_of_view_radians = camera.vertical_field_of_view_radians,
             .near_plane = camera.near_plane,
@@ -412,14 +412,14 @@ gneiss::engine::result prefab_runtime_instance::reload(
 }
 
 gneiss::engine::result prefab_runtime_instance::create(
-    gneiss::engine::world& native_world, gneiss_world world,
+    gneiss::engine::world& native_world, gneiss::engine::rid world,
     gneiss::engine::render_asset_loader& loader, gneiss::engine::prefab_asset_ref prefab,
     const gneiss::engine::registry_ref& registry, std::string_view instance_uuid,
     gneiss::engine::rid parent, const gneiss::engine::transform& root_transform,
     const std::vector<gneiss::engine::prefab_property_override>& overrides,
     std::unique_ptr<prefab_runtime_instance>& out_instance) noexcept {
   out_instance.reset();
-  if (world == GNEISS_NULL_WORLD || !registry || !prefab || prefab.get()->objects.empty()) {
+  if (world == gneiss::engine::null_rid || !registry || !prefab || prefab.get()->objects.empty()) {
     return gneiss::engine::result::invalid_argument;
   }
   try {
@@ -427,7 +427,7 @@ gneiss::engine::result prefab_runtime_instance::create(
             {std::string(instance_uuid), prefab.get()->objects[0].uuid})) {
       return gneiss::engine::result::invalid_argument;
     }
-    gneiss_entity_id previous_camera = GNEISS_NULL_ENTITY_ID;
+    std::uint64_t previous_camera = UINT64_C(0);
     const auto camera_query =
         gneiss::engine::write_identifier<entity_id>(previous_camera, [&](auto& native_output) {
           return native_world.get_active_camera(native_output);
@@ -857,7 +857,7 @@ prefab_runtime_instance::create_staged_node(std::size_t index, gneiss::engine::r
                                             gneiss::engine::render_asset_ref mesh,
                                             gneiss::engine::render_asset_ref material) {
   if (!staged_ || published_ || cancelling_ || !root_node_ || !prefab_ || index >= nodes_.size() ||
-      nodes_[index].entity != GNEISS_NULL_ENTITY_ID || nodes_[index].staged_attempted) {
+      nodes_[index].entity != UINT64_C(0) || nodes_[index].staged_attempted) {
     return gneiss::engine::result::invalid_state;
   }
   const auto& source = prefab_.get()->objects[index];
@@ -904,11 +904,11 @@ bool prefab_runtime_instance::cancel_staged_step(std::size_t budget) noexcept {
           gneiss::engine::result::success) {
         return false;
       }
-      target.entity = GNEISS_NULL_ENTITY_ID;
+      target.entity = UINT64_C(0);
       target.node = gneiss::engine::null_rid;
-    } else if (target.entity != GNEISS_NULL_ENTITY_ID) {
+    } else if (target.entity != UINT64_C(0)) {
       (void)native_world_.entity_destroy(gneiss::entity_id{target.entity});
-      target.entity = GNEISS_NULL_ENTITY_ID;
+      target.entity = UINT64_C(0);
     }
     if (target.node != gneiss::engine::null_rid) {
       (void)native_world_.node_destroy(gneiss::scene_node_id{target.node});
@@ -932,12 +932,12 @@ bool prefab_runtime_instance::cancel_staged_step(std::size_t budget) noexcept {
         gneiss::engine::result::success) {
       return false;
     }
-    root_entity_ = GNEISS_NULL_ENTITY_ID;
+    root_entity_ = UINT64_C(0);
     root_node_ = gneiss::engine::null_rid;
   }
-  if (root_entity_ != GNEISS_NULL_ENTITY_ID) {
+  if (root_entity_ != UINT64_C(0)) {
     (void)native_world_.entity_destroy(gneiss::entity_id{root_entity_});
-    root_entity_ = GNEISS_NULL_ENTITY_ID;
+    root_entity_ = UINT64_C(0);
   }
   if (root_node_ != gneiss::engine::null_rid) {
     (void)native_world_.node_destroy(gneiss::scene_node_id{root_node_});
@@ -954,7 +954,7 @@ void prefab_runtime_instance::rollback() noexcept {
     return;
   }
   for (auto iterator = nodes_.rbegin(); iterator != nodes_.rend(); ++iterator) {
-    if (iterator->entity != GNEISS_NULL_ENTITY_ID) {
+    if (iterator->entity != UINT64_C(0)) {
       (void)native_world_.entity_destroy(gneiss::entity_id{iterator->entity});
     }
     if (iterator->node != gneiss::engine::null_rid) {
@@ -964,9 +964,9 @@ void prefab_runtime_instance::rollback() noexcept {
     iterator->material = {};
   }
   nodes_.clear();
-  if (root_entity_ != GNEISS_NULL_ENTITY_ID) {
+  if (root_entity_ != UINT64_C(0)) {
     (void)native_world_.entity_destroy(gneiss::entity_id{root_entity_});
-    root_entity_ = GNEISS_NULL_ENTITY_ID;
+    root_entity_ = UINT64_C(0);
   }
   if (root_node_ != gneiss::engine::null_rid) {
     (void)native_world_.node_destroy(gneiss::scene_node_id{root_node_});
@@ -984,12 +984,12 @@ prefab_runtime_instance::find_node(std::string_view source_node_uuid) const noex
   return found == nodes_.end() ? gneiss::engine::null_rid : found->node;
 }
 
-gneiss_entity_id
+std::uint64_t
 prefab_runtime_instance::find_entity(std::string_view source_node_uuid) const noexcept {
   const auto found = std::ranges::find(nodes_, source_node_uuid, [](const runtime_node& node) {
     return std::string_view(node.address.source_node_uuid);
   });
-  return found == nodes_.end() ? GNEISS_NULL_ENTITY_ID : found->entity;
+  return found == nodes_.end() ? UINT64_C(0) : found->entity;
 }
 
 const gneiss::engine::object_description*

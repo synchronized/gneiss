@@ -92,10 +92,10 @@ int run_tests() {
   if (other_thread_result != gneiss::engine::result::invalid_state) {
     return 10;
   }
-  if (candidate == GNEISS_NULL_ENTITY_ID || !first.emplace_staged<position>(group, candidate, 40) ||
+  if (candidate == UINT64_C(0) || !first.emplace_staged<position>(group, candidate, 40) ||
       first.is_alive(candidate) || first.get<position>(candidate) != nullptr ||
       first.entity_count() != 1U || first.destroy_entity(candidate) ||
-      second.create_staged_entity(group) != GNEISS_NULL_ENTITY_ID ||
+      second.create_staged_entity(group) != UINT64_C(0) ||
       second.publish(group) != gneiss::engine::result::invalid_state) {
     return 6;
   }
@@ -107,7 +107,7 @@ int run_tests() {
       !first.is_alive(candidate) || first.get<position>(candidate)->value != 40 ||
       first.publish(group) != gneiss::engine::result::invalid_state ||
       first.emplace_staged<position>(group, candidate, 41) ||
-      first.create_staged_entity(group) != GNEISS_NULL_ENTITY_ID) {
+      first.create_staged_entity(group) != UINT64_C(0)) {
     return 7;
   }
   first.each<position>([&](entt::entity, const position&) { ++visited; });

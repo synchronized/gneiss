@@ -130,12 +130,12 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   config.use_granit_window = true;
   config.window.title = title;
   config.asset_root = asset_root;
-  config.callbacks.update = [&](auto, const auto& time) {
+  config.callbacks.update = [&](const auto& time) {
     return update_sample(*native_application, time, &state);
   };
   example::scope_exit close{[&] {
     if (native_application && native_application->accepts_requests())
-      (void)native_application->shutdown(0);
+      (void)native_application->shutdown();
   }};
   auto create_result = gneiss::runtime::application::create(config, native_application);
   if (create_result.failed()) {
@@ -179,7 +179,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   if (measure) {
     frame_count = measure_warmup_frames + measure_sample_frames;
   }
-  result = native_application->run(0, frame_count);
+  result = native_application->run(frame_count);
   if (result != gneiss::engine::result::success) {
     report_failure("运行主循环", result);
     return 7;
@@ -196,7 +196,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
     return 8;
   }
   const auto scene_unloaded = clock::now();
-  result = native_application->shutdown(0);
+  result = native_application->shutdown();
   if (result.failed()) {
     report_failure("关闭 Application", result);
     return 10;

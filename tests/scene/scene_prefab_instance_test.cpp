@@ -178,7 +178,7 @@ int main() try {
       entity_count != 0U) {
     return 8;
   }
-  return application->shutdown(0) == gneiss::engine::result::success ? 0 : 9;
+  return application->shutdown() == gneiss::engine::result::success ? 0 : 9;
 } catch (...) {
   return 99;
 }

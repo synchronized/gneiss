@@ -45,7 +45,7 @@ void run(gneiss::engine::execution_mode mode) {
   auto tick = [&] {
     if (mode == gneiss::engine::execution_mode::cooperative)
       (void)scheduler.run_ready();
-    check(gneiss::engine::result{app->run(0, 1U)} == gneiss::engine::result::success);
+    check(gneiss::engine::result{app->run(1U)} == gneiss::engine::result::success);
     bool changed{};
     check(loader.advance(*app, editing, world, camera, changed) == gneiss::engine::result::success);
     std::this_thread::yield();

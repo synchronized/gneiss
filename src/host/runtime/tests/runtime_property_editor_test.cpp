@@ -6,7 +6,7 @@
 #include "engine/function/world/world.hpp"
 #include "runtime_property_editor.hpp"
 
-#include <gneiss/engine/game_module_types.h>
+#include "engine/core/rid.hpp"
 
 #include <array>
 #include <cstdint>
@@ -29,7 +29,7 @@ namespace {
 
 bool test_write_and_revision() {
   gneiss::engine::world_owner owner;
-  gneiss_world world{};
+  gneiss::engine::rid world{};
   GNEISS_TEST_CHECK(gneiss::engine::create_native(owner, world) == gneiss::engine::result::success);
   gneiss::entity_id entity;
   GNEISS_TEST_CHECK(owner->entity_create(entity) == gneiss::engine::result::success);
@@ -96,7 +96,7 @@ bool test_write_and_revision() {
 
 bool test_rejections() {
   gneiss::engine::world_owner owner;
-  gneiss_world world{};
+  gneiss::engine::rid world{};
   GNEISS_TEST_CHECK(gneiss::engine::create_native(owner, world) == gneiss::engine::result::success);
   gneiss::host::runtime_scene_inspection inspection(9U);
   gneiss::host::runtime_property_editor editor;

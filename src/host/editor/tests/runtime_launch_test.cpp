@@ -3,6 +3,7 @@
 
 #include "commands/runtime_author_apply.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
 #include "project_workspace.hpp"
 #include "runtime/application.hpp"
@@ -42,11 +43,11 @@ int main() try {
   }
 
   std::shared_ptr<gneiss::runtime::application> author_application;
-  gneiss_world author_world = GNEISS_NULL_WORLD;
+  gneiss::engine::rid author_world = gneiss::engine::null_rid;
   gneiss::editor::scene_document author_session;
   if (create_application(project.asset_root, author_application) !=
           gneiss::engine::result::success ||
-      (author_world = author_application->world()) == GNEISS_NULL_WORLD ||
+      (author_world = author_application->world()) == gneiss::engine::null_rid ||
       author_session.open(*author_application, author_world, project.startup_scene) !=
           gneiss::engine::result::success) {
     return 2;
@@ -110,11 +111,11 @@ int main() try {
   }
 
   std::shared_ptr<gneiss::runtime::application> runtime_application;
-  gneiss_world runtime_world = GNEISS_NULL_WORLD;
+  gneiss::engine::rid runtime_world = gneiss::engine::null_rid;
   gneiss::editor::scene_document runtime_session;
   if (create_application(project.asset_root, runtime_application) !=
           gneiss::engine::result::success ||
-      (runtime_world = runtime_application->world()) == GNEISS_NULL_WORLD ||
+      (runtime_world = runtime_application->world()) == gneiss::engine::null_rid ||
       runtime_session.open(*runtime_application, runtime_world, project.startup_scene) !=
           gneiss::engine::result::success) {
     return 6;

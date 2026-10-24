@@ -4,6 +4,7 @@
 #include "runtime/loading/scene_service.hpp"
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/resource/asset_manager.hpp"
 
 #include <algorithm>
@@ -147,8 +148,8 @@ gneiss::engine::world* scene_service::native_world() const noexcept {
   return active_ ? active_->native_world() : nullptr;
 }
 
-gneiss_world scene_service::world() const noexcept {
-  return active_ ? active_->world() : GNEISS_NULL_WORLD;
+gneiss::engine::rid scene_service::world() const noexcept {
+  return active_ ? active_->world() : gneiss::engine::null_rid;
 }
 gneiss::engine::scene_instances* scene_service::scenes() noexcept {
   return active_ ? active_->scenes() : nullptr;

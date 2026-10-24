@@ -5,6 +5,7 @@
 #include "author_asset_service.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
@@ -83,11 +84,11 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
   gneiss::runtime::application_configuration desc;
   desc.asset_root = asset_text;
   std::shared_ptr<gneiss::runtime::application> app;
-  gneiss_world world{};
+  gneiss::engine::rid world{};
   scene_document session;
   require(gneiss::engine::result{gneiss::runtime::application::create(desc, app)} ==
                   gneiss::engine::result::success &&
-              (world = app->world()) != GNEISS_NULL_WORLD,
+              (world = app->world()) != gneiss::engine::null_rid,
           "基准应用创建失败");
   const auto open_ms = measure([&] {
     require(session.open(*app, world, "asset://main.scene.json") == gneiss::engine::result::success,

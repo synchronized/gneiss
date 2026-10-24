@@ -19,12 +19,12 @@ void loop() {
     output = close;
     return engine::result::success;
   };
-  config.callbacks.close_requested = [&](auto) {
+  config.callbacks.close_requested = [&]() {
     ++closes;
     return allow;
   };
   config.callbacks.shutdown = [&] { ++shutdowns; };
-  config.callbacks.update = [&](auto, const engine::frame_time& time) {
+  config.callbacks.update = [&](const engine::frame_time& time) {
     check(time.frame_index == updates && (updates == 0 || time.delta_ns == 10));
     engine::ui_draw_view ui;
     ui.display_width = 640;
@@ -43,18 +43,18 @@ void loop() {
         event.type == engine::event_type::none);
   check(app->keyboard_state().modifiers == 0 && app->keyboard_state().pressed_keys[0] == 0);
   check(app->pointer_state().buttons == 0 && !app->pointer_state().is_inside);
-  check(app->run(0, 8).ok() && updates == 3);
+  check(app->run(8).ok() && updates == 3);
   app.reset();
   check(shutdowns == 1);
   close = allow = true;
   updates = closes = 0;
   check(runtime::application::create(config, app).ok());
-  check(app->run(0, 8).ok() && updates == 0 && closes == 1);
+  check(app->run(8).ok() && updates == 0 && closes == 1);
   app.reset();
   allow = false;
   closes = 0;
   check(runtime::application::create(config, app).ok());
-  check(app->run(0, 8).ok() && updates == 3 && closes == 3);
+  check(app->run(8).ok() && updates == 3 && closes == 3);
   app.reset();
   check(shutdowns == 3);
 }
@@ -84,7 +84,7 @@ void creation_failures() {
   std::shared_ptr<runtime::application> app;
   unsigned diagnostics{};
   engine::result reported;
-  config.callbacks.diagnostic = [&](auto, const engine::diagnostic_view& event) {
+  config.callbacks.diagnostic = [&](const engine::diagnostic_view& event) {
     check(!event.message.empty());
     ++diagnostics;
     reported = event.result;

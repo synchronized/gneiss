@@ -8,7 +8,6 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/resource/types/action_map.hpp"
-#include <gneiss/engine/game_module_types.h>
 
 #include "engine/core/log/log_dispatcher.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
@@ -112,12 +111,11 @@ public:
   application(application&&) = delete;
   application& operator=(application&&) = delete;
 
-  [[nodiscard]] gneiss::engine::result shutdown(gneiss::engine::rid handle) noexcept;
-  [[nodiscard]] gneiss::engine::result run(gneiss::engine::rid handle,
-                                           std::uint64_t max_frame_count) noexcept;
+  [[nodiscard]] gneiss::engine::result shutdown() noexcept;
+  [[nodiscard]] gneiss::engine::result run(std::uint64_t max_frame_count) noexcept;
   [[nodiscard]] bool is_owner_thread() const noexcept;
   [[nodiscard]] bool accepts_requests() const noexcept;
-  [[nodiscard]] gneiss_world world() const noexcept;
+  [[nodiscard]] gneiss::engine::rid world() const noexcept;
   [[nodiscard]] gneiss::engine::world* native_world() const noexcept;
   [[nodiscard]] gneiss::engine::render_resource_service& resources() noexcept;
   [[nodiscard]] gneiss::engine::prefab_asset_loader& prefab_loader() noexcept;
@@ -149,9 +147,9 @@ public:
   submit_ui_draw_list(const gneiss::engine::ui_draw_view& desc) noexcept;
   [[nodiscard]] gneiss::engine::result
   submit_debug_draw_list(std::span<const gneiss::engine::debug_line> lines) noexcept;
-  void report(gneiss::engine::rid handle, gneiss::engine::severity severity,
-              gneiss::engine::category category, gneiss::engine::result result,
-              std::string_view module, std::string_view message) noexcept;
+  void report(gneiss::engine::severity severity, gneiss::engine::category category,
+              gneiss::engine::result result, std::string_view module,
+              std::string_view message) noexcept;
   [[nodiscard]] gneiss::engine::result
   submit_log(const gneiss::engine::message_view& message) noexcept;
   void request_exit() noexcept;

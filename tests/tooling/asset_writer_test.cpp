@@ -80,7 +80,7 @@ int main() { // NOLINT(bugprone-exception-escape)
       application->native_world()->entity_count(entity_count) != gneiss::engine::result::success ||
       entity_count != 1U ||
       application->scenes()->unload(scene) != gneiss::engine::result::success ||
-      application->shutdown(0) != gneiss::engine::result::success) {
+      application->shutdown() != gneiss::engine::result::success) {
     return 6;
   }
 
@@ -104,7 +104,7 @@ int main() { // NOLINT(bugprone-exception-escape)
       application->native_world()->entity_count(entity_count) != gneiss::engine::result::success ||
       entity_count != 3U ||
       application->scenes()->unload(scene) != gneiss::engine::result::success ||
-      application->shutdown(0) != gneiss::engine::result::success) {
+      application->shutdown() != gneiss::engine::result::success) {
     return 8;
   }
   const auto pbr = gneiss::tooling::inspect_gltf(std::filesystem::path{GNEISS_TEST_GLTF_ROOT} /

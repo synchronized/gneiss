@@ -3,6 +3,7 @@
 
 #include "editor_application.hpp"
 #include "engine/core/reflection/component_identity.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 
 #include "child_process.hpp"
@@ -115,7 +116,7 @@ struct editor_state {
   std::chrono::steady_clock::time_point smoke_started{std::chrono::steady_clock::now()};
   gneiss::editor::document_editing editing;
   gneiss::editor::property_inspector_model inspector;
-  gneiss_world world = GNEISS_NULL_WORLD;
+  gneiss::engine::rid world = gneiss::engine::null_rid;
   gneiss::entity_id inspected_entity;
   gneiss::editor::runtime_scene_selection runtime_selection;
   gneiss::engine::result inspector_error = gneiss::engine::result::success;
@@ -2916,12 +2917,10 @@ int run_editor(int argc, char** argv) {
 #endif
   const auto title = project.name + " - Gneiss Editor";
   gneiss::runtime::application_configuration desc;
-  desc.callbacks.update = [&state](gneiss::engine::rid, const gneiss::engine::frame_time& time) {
+  desc.callbacks.update = [&state](const gneiss::engine::frame_time& time) {
     return update_editor(&time, &state);
   };
-  desc.callbacks.close_requested = [&state](gneiss::engine::rid) {
-    return handle_close_requested(&state) != 0U;
-  };
+  desc.callbacks.close_requested = [&state]() { return handle_close_requested(&state) != 0U; };
   desc.use_granit_window = true;
   desc.window.title = title;
 
@@ -2985,7 +2984,7 @@ int run_editor(int argc, char** argv) {
   }
   state.editing.history().clear();
   (void)state.scene_loader.request(*application, state.editing, project.startup_scene);
-  const auto run_result = application->run(0, 0U);
+  const auto run_result = application->run(0U);
   state.editing.cancel(*application);
   while (state.editing.active()) {
     if (state.task_scheduler.mode() == gneiss::engine::execution_mode::cooperative) {

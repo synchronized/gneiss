@@ -298,8 +298,8 @@ int main() try {
       entity_count != 0U) {
     return 10;
   }
-  if (second_application->shutdown(0) != gneiss::engine::result::success ||
-      application->shutdown(0) != gneiss::engine::result::success) {
+  if (second_application->shutdown() != gneiss::engine::result::success ||
+      application->shutdown() != gneiss::engine::result::success) {
     return 11;
   }
 
@@ -317,7 +317,7 @@ int main() try {
       failing_application->scenes()->unload(scene) != gneiss::engine::result::success ||
       failing_application->native_world()->entity_count(entity_count) !=
           gneiss::engine::result::success ||
-      entity_count != 0U || failing_application->shutdown(0) != gneiss::engine::result::success) {
+      entity_count != 0U || failing_application->shutdown() != gneiss::engine::result::success) {
     return 12;
   }
   return 0;

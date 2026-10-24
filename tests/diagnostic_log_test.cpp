@@ -27,8 +27,8 @@ struct capture_state final {
 int main() {
   capture_state state;
   gneiss::runtime::application_configuration config;
-  config.callbacks.update = [](auto, const auto&) { return gneiss::engine::result::internal; };
-  config.callbacks.diagnostic = [&](auto, const gneiss::engine::diagnostic_view& diagnostic) {
+  config.callbacks.update = [](const auto&) { return gneiss::engine::result::internal; };
+  config.callbacks.diagnostic = [&](const gneiss::engine::diagnostic_view& diagnostic) {
     if (diagnostic.result == gneiss::engine::result::internal) {
       ++state.diagnostic_count;
     }
@@ -45,7 +45,7 @@ int main() {
   };
   std::shared_ptr<gneiss::runtime::application> application;
   if (gneiss::runtime::application::create(config, application).failed() ||
-      application->run(0, 1U) != gneiss::engine::result::internal || state.diagnostic_count != 1U) {
+      application->run(1U) != gneiss::engine::result::internal || state.diagnostic_count != 1U) {
     return 1;
   }
   {
@@ -57,7 +57,7 @@ int main() {
       return 2;
     }
   }
-  if (application->shutdown(0).failed()) {
+  if (application->shutdown().failed()) {
     return 3;
   }
   return 0;

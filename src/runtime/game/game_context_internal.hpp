@@ -4,6 +4,7 @@
 #ifndef GNEISS_SRC_GAME_GAME_CONTEXT_INTERNAL_HPP_
 #define GNEISS_SRC_GAME_GAME_CONTEXT_INTERNAL_HPP_
 
+#include "engine/core/rid.hpp"
 #include <gneiss/engine/game_module.h>
 
 #include "engine/core/result.hpp"
@@ -18,8 +19,7 @@ namespace gneiss::runtime {
 class application;
 
 [[nodiscard]] GNEISS_API gneiss::engine::result
-create_game_context(const std::shared_ptr<application>& parent,
-                    gneiss_entity_id startup_root_entity,
+create_game_context(const std::shared_ptr<application>& parent, std::uint64_t startup_root_entity,
                     gneiss_game_context* out_context) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
 destroy_game_context(gneiss_game_context context) noexcept;
@@ -29,8 +29,8 @@ set_game_context_log_source(gneiss_game_context context, std::string_view source
 /** 仅在单次调用期间持有父对象；关闭状态仍需校验，不恢复已关闭服务。 */
 struct context_view {
   std::shared_ptr<runtime::application> application;
-  gneiss_world world{};
-  gneiss_entity_id startup_root_entity{};
+  gneiss::engine::rid world{};
+  std::uint64_t startup_root_entity{};
 };
 [[nodiscard]] gneiss::engine::result query_context(gneiss_game_context context,
                                                    context_view& output) noexcept;

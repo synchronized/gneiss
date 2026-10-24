@@ -6,7 +6,7 @@
 #include "viewport/editor_camera.hpp"
 
 #include "engine/core/reflection/reflection_types.hpp"
-#include <gneiss/engine/game_module_types.h>
+#include "engine/core/rid.hpp"
 
 #include <cmath>
 
@@ -20,7 +20,7 @@ bool near(float lhs, float rhs) { return std::abs(lhs - rhs) < 1.0e-4F; }
 
 int main() {
   gneiss::engine::world_owner owner;
-  gneiss_world world{};
+  gneiss::engine::rid world{};
   gneiss::editor::editor_camera camera;
   gneiss::entity_id active_camera = gneiss::entity_id{};
   if (gneiss::engine::create_native(owner, world) != gneiss::engine::result::success ||

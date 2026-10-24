@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "commands/editor_prefab_edit.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -64,8 +65,8 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   check(gneiss::engine::result{gneiss::runtime::application::create(desc, app)} ==
         gneiss::engine::result::success);
   check(app->attach_task_executor(scheduler) == gneiss::engine::result::success);
-  gneiss_world world{};
-  check((world = app->world()) != GNEISS_NULL_WORLD);
+  gneiss::engine::rid world{};
+  check((world = app->world()) != gneiss::engine::null_rid);
   editor::scene_document session;
   editor::editor_command_history history;
   editor::editor_prefab_edit edit;
@@ -234,8 +235,8 @@ void run(gneiss::engine::execution_mode mode) {
   check(gneiss::engine::result{gneiss::runtime::application::create(desc, app)} ==
         gneiss::engine::result::success);
   check(app->attach_task_executor(scheduler) == gneiss::engine::result::success);
-  gneiss_world world{};
-  check((world = app->world()) != GNEISS_NULL_WORLD);
+  gneiss::engine::rid world{};
+  check((world = app->world()) != gneiss::engine::null_rid);
   editor::scene_document session;
   editor::editor_command_history history;
   editor::editor_prefab_edit edit;
