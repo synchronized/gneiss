@@ -56,7 +56,6 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/sha256.hpp
   engine/core/tasks/task_scheduler.hpp
   runtime/application.hpp
-  runtime/application_bridge.hpp
   runtime/configuration/application_configuration.hpp
   runtime/loading/prefab_placement.hpp
   runtime/loading/prefab_preparation.hpp
@@ -102,6 +101,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
 gneiss_internal_headers(gneiss_tooling_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/result.hpp
   engine/resource/loaders/mesh_binary.hpp
+  engine/resource/types/material_types.hpp
   tooling/asset_build/asset_build.hpp
   tooling/asset_build/ktx2_probe.hpp
   tooling/asset_build/runtime_texture_probe.hpp

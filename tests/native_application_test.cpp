@@ -4,8 +4,9 @@
 #include "engine/core/result.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/world/world.hpp"
+#include "engine/function/world/world_service.hpp"
 #include "runtime/application.hpp"
-#include "runtime/application_registry.hpp"
 
 #include <atomic>
 #include <cstdio>
@@ -227,36 +228,12 @@ int main() try {
   std::thread worker([&] { other_thread = app->run(GNEISS_NULL_APPLICATION, 1U); });
   worker.join();
   check(other_thread == gneiss::engine::result::invalid_state && state.frames == 3U);
-  // 桥接只借用：撤销、误销毁和错误线程均不能关闭原生对象。
-  gneiss::runtime::application_bridge bridge;
-  const auto references = app.use_count();
-  check(bridge.bind(app) == gneiss::engine::result::success && app.use_count() == references);
-  const auto old_handle = bridge.get();
-  gneiss_world world{};
-  check(gneiss::engine::result{gneiss_application_get_world(old_handle, &world)} ==
-        gneiss::engine::result::success);
-  check(gneiss::engine::result{gneiss_application_destroy(old_handle)} ==
-        gneiss::engine::result::invalid_state);
-  const auto borrowed_world = world;
-  check(gneiss::engine::result{gneiss_world_destroy(borrowed_world)} ==
-        gneiss::engine::result::invalid_state);
-  gneiss_entity_id owned_entity{};
-  check(gneiss::engine::result{gneiss_world_entity_create(borrowed_world, &owned_entity)} ==
-        gneiss::engine::result::success);
+  // Application 持有的 World 不授予调用方销毁权。
+  const auto borrowed_world = app->world();
+  check(gneiss::engine::destroy_world(borrowed_world) == gneiss::engine::result::invalid_state);
+  gneiss::entity_id owned_entity;
+  check(app->native_world()->entity_create(owned_entity) == gneiss::engine::result::success);
   check(state.shutdowns == 0U);
-  std::thread reset_worker([&] { other_thread = bridge.reset(); });
-  reset_worker.join();
-  check(other_thread == gneiss::engine::result::invalid_state && bridge.get() == old_handle);
-  check(bridge.reset() == gneiss::engine::result::success &&
-        bridge.reset() == gneiss::engine::result::success);
-  check(gneiss::engine::result{gneiss_application_get_world(old_handle, &world)} ==
-        gneiss::engine::result::invalid_handle);
-  check(bridge.bind(app) == gneiss::engine::result::success && bridge.get() != old_handle);
-  gneiss::runtime::application_bridge moved(std::move(bridge));
-  // NOLINTNEXTLINE(bugprone-use-after-move): 验证自定义移动构造保证源桥接为空。
-  check(bridge.get() == GNEISS_NULL_APPLICATION);
-  check(gneiss::engine::result{gneiss_application_get_world(moved.get(), &world)} ==
-        gneiss::engine::result::success);
   // 失败创建不替换原对象；失败初始化的部分资源必须恰好清理一次。
   auto previous = app;
   state.fail = true;
@@ -267,29 +244,19 @@ int main() try {
   check(app->run(GNEISS_NULL_APPLICATION, 1U) == gneiss::engine::result::success &&
         state.frames == 4U);
   check(app->shutdown(GNEISS_NULL_APPLICATION) == gneiss::engine::result::success);
-  check(gneiss::engine::result{gneiss_application_get_world(moved.get(), &world)} ==
-        gneiss::engine::result::invalid_handle);
-  check(bridge.bind(app) == gneiss::engine::result::invalid_state);
   std::uint64_t count{};
-  check(gneiss::engine::result{gneiss_world_entity_count(borrowed_world, &count)} ==
+  check(gneiss::engine::entity_count(borrowed_world, count) ==
         gneiss::engine::result::invalid_handle);
-  check(gneiss::engine::result{gneiss_world_destroy(borrowed_world)} ==
-        gneiss::engine::result::invalid_handle);
+  check(gneiss::engine::destroy_world(borrowed_world) == gneiss::engine::result::invalid_handle);
   check(app->run(GNEISS_NULL_APPLICATION, 1U) == gneiss::engine::result::invalid_state);
   app.reset();
   check(state.shutdowns == 2U);
   check(delivered.load() == 2U && valid_log.load());
-  check(moved.reset() == gneiss::engine::result::success);
-  // 桥接不延长宿主寿命；宿主先析构，晚到的兼容访问仍必须失效。
+  // 释放最后一个拥有者触发关闭，关闭回调恰好一次。
   state.fail = false;
   check(gneiss::runtime::application::create(config, app) == gneiss::engine::result::success);
-  check(bridge.bind(app) == gneiss::engine::result::success);
-  const auto expired = bridge.get();
   app.reset();
   check(state.shutdowns == 3U);
-  check(gneiss::engine::result{gneiss_application_get_world(expired, &world)} ==
-        gneiss::engine::result::invalid_handle);
-  check(bridge.reset() == gneiss::engine::result::success);
   test_asset_request_boundaries();
   test_platform_callbacks();
   test_loop_callback_exceptions();

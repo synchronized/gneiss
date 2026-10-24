@@ -260,7 +260,7 @@ if(status EQUAL 0)
 endif()
 file(WRITE "${fixture}/src/runtime/probe.cpp" "")
 
-foreach(content IN ITEMS "#include <engine/api/material_description.hpp>"
+foreach(content IN ITEMS "#include <engine/api/draw_description.hpp>"
     "void create(const gneiss_material_desc&);"
     "void create(const gneiss_mesh_desc&);"
     "void create(const gneiss_texture_desc&);"

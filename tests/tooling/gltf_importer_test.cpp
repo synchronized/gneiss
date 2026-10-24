@@ -49,13 +49,14 @@ bool checks_material_states(const std::filesystem::path& root) {
       const auto& material = report.data.materials[0];
       if (case_index == 6U && (material.emissive[0] != 1.0F || report.diagnostic.empty()))
         return false;
-      if ((case_index == 0U && material.alpha_mode != GNEISS_MATERIAL_ALPHA_BLEND) ||
-          (case_index == 1U && material.alpha_mode != GNEISS_MATERIAL_ALPHA_MASK) ||
+      if ((case_index == 0U && material.alpha_mode != gneiss::engine::material_alpha_mode::blend) ||
+          (case_index == 1U && material.alpha_mode != gneiss::engine::material_alpha_mode::mask) ||
           (case_index == 2U && material.double_sided != 1U) ||
           (case_index == 4U && (!report.data.meshes[0].primitives[0].has_color ||
                                 report.data.meshes[0].primitives[0].vertices[0].color !=
                                     std::array<float, 4>{0, 0, 1, 1})) ||
-          (case_index == 5U && material.sampling[0].address_u != GNEISS_TEXTURE_ADDRESS_CLAMP))
+          (case_index == 5U &&
+           material.sampling[0].address_u != gneiss::engine::texture_address::clamp))
         return false;
     }
     ++case_index;

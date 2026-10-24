@@ -14,8 +14,6 @@ namespace gneiss::runtime {
 namespace {
 struct application_entry {
   application_resource owner;
-  std::weak_ptr<runtime::application> borrowed;
-  std::thread::id thread;
 };
 using application_table = gneiss::engine::rid_table<application_entry>;
 
@@ -39,11 +37,7 @@ application_resource find_application(gneiss_application application) noexcept {
   if (resource == nullptr) {
     return nullptr;
   }
-  if (resource->owner) {
-    return resource->owner;
-  }
-  auto borrowed = resource->borrowed.lock();
-  return borrowed && borrowed->accepts_requests() ? borrowed : nullptr;
+  return resource->owner;
 }
 
 gneiss::engine::result validate_application(const application_resource& application) noexcept {
@@ -66,10 +60,7 @@ gneiss::engine::result create_application(const application_configuration& confi
     auto& registry = get_application_registry();
     const std::scoped_lock lock{registry.mutex};
     return registry.applications.create(gneiss::engine::resource_type::application,
-                                        application_entry{.owner = std::move(state),
-                                                          .borrowed = {},
-                                                          .thread = std::this_thread::get_id()},
-                                        &output);
+                                        application_entry{.owner = std::move(state)}, &output);
   } catch (const std::bad_alloc&) {
     return gneiss::engine::result::out_of_memory;
   } catch (...) {
@@ -88,9 +79,6 @@ gneiss::engine::result destroy_application(gneiss_application application) noexc
       if (entry == nullptr) {
         return gneiss::engine::result::invalid_handle;
       }
-      if (!entry->owner) {
-        return gneiss::engine::result::invalid_state;
-      }
       state = entry->owner;
     }
     const auto validation_result = validate_application(state);
@@ -108,47 +96,6 @@ gneiss::engine::result destroy_application(gneiss_application application) noexc
   } catch (...) {
     return gneiss::engine::result::internal;
   }
-}
-
-gneiss::engine::result application_bridge::bind(const application_resource& application) noexcept {
-  if (handle_ != GNEISS_NULL_APPLICATION) {
-    return gneiss::engine::result::invalid_state;
-  }
-  const auto validation = validate_application(application);
-  if (validation != gneiss::engine::result::success) {
-    return validation;
-  }
-  if (!application->accepts_requests()) {
-    return gneiss::engine::result::invalid_state;
-  }
-  auto& registry = get_application_registry();
-  const std::scoped_lock lock{registry.mutex};
-  return registry.applications.create(
-      gneiss::engine::resource_type::application,
-      application_entry{.owner = {}, .borrowed = application, .thread = std::this_thread::get_id()},
-      &handle_);
-}
-
-gneiss::engine::result application_bridge::reset() noexcept {
-  if (handle_ == GNEISS_NULL_APPLICATION) {
-    return gneiss::engine::result::success;
-  }
-  auto& registry = get_application_registry();
-  const std::scoped_lock lock{registry.mutex};
-  const auto* entry =
-      registry.applications.get(handle_, gneiss::engine::resource_type::application);
-  if (entry == nullptr || entry->owner) {
-    return gneiss::engine::result::invalid_handle;
-  }
-  if (entry->thread != std::this_thread::get_id()) {
-    return gneiss::engine::result::invalid_state;
-  }
-  const auto result =
-      registry.applications.destroy(handle_, gneiss::engine::resource_type::application);
-  if (result == gneiss::engine::result::success) {
-    handle_ = GNEISS_NULL_APPLICATION;
-  }
-  return result;
 }
 
 } // namespace gneiss::runtime

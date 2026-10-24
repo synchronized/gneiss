@@ -106,18 +106,22 @@ void configure(std::ostream& stream) {
          << ",\n  \"occlusion_strength\": " << material.occlusion_strength << ",\n  \"emissive\": ["
          << material.emissive[0] << ',' << material.emissive[1] << ',' << material.emissive[2]
          << "],\n  \"alpha_mode\": \""
-         << (material.alpha_mode == GNEISS_MATERIAL_ALPHA_BLEND
+         << (material.alpha_mode == gneiss::engine::material_alpha_mode::blend
                  ? "BLEND"
-                 : (material.alpha_mode == GNEISS_MATERIAL_ALPHA_MASK ? "MASK" : "OPAQUE"))
+                 : (material.alpha_mode == gneiss::engine::material_alpha_mode::mask ? "MASK"
+                                                                                     : "OPAQUE"))
          << "\",\n  \"double_sided\": " << (material.double_sided != 0U ? "true" : "false")
          << ",\n  \"alpha_cutoff\": " << material.alpha_cutoff << ",\n  \"sampling\": [";
   for (std::size_t slot = 0; slot < material.sampling.size(); ++slot) {
     const auto& s = material.sampling[slot];
     if (slot != 0U)
       stream << ',';
-    stream << "{\"uv_set\":" << s.uv_set << ",\"mag_filter\":" << s.mag_filter
-           << ",\"min_filter\":" << s.min_filter << ",\"mip_filter\":" << s.mip_filter
-           << ",\"address_u\":" << s.address_u << ",\"address_v\":" << s.address_v << '}';
+    stream << "{\"uv_set\":" << s.uv_set
+           << ",\"mag_filter\":" << static_cast<std::uint32_t>(s.mag_filter)
+           << ",\"min_filter\":" << static_cast<std::uint32_t>(s.min_filter)
+           << ",\"mip_filter\":" << static_cast<std::uint32_t>(s.mip_filter)
+           << ",\"address_u\":" << static_cast<std::uint32_t>(s.address_u)
+           << ",\"address_v\":" << static_cast<std::uint32_t>(s.address_v) << '}';
   }
   stream << "]\n}\n";
   return stream.good();

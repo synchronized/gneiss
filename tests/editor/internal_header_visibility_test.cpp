@@ -10,7 +10,6 @@
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include "panels/property_inspector_model.hpp"
-#include "runtime/application_bridge.hpp"
 
 // 与真实宿主使用相同传递依赖；私有头重新泄漏时编译必须失败。
 #if __has_include("runtime/application_registry.hpp")

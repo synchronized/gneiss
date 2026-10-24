@@ -4,7 +4,6 @@
 #ifndef GNEISS_APPLICATION_APPLICATION_REGISTRY_HPP_
 #define GNEISS_APPLICATION_APPLICATION_REGISTRY_HPP_
 #include "engine/core/result.hpp"
-#include "runtime/application_bridge.hpp"
 #include <exception>
 #include <gneiss/engine/application.h>
 #include <memory>

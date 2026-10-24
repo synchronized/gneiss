@@ -10,7 +10,7 @@ add_test(NAME gneiss.profiling-disabled COMMAND gneiss_profiling_disabled_test)
 
 if(GNEISS_ENABLE_PROFILING AND GNEISS_TASK_THREADS)
   add_executable(gneiss_profiling_capture profiling_capture.cpp)
-  target_link_libraries(gneiss_profiling_capture PRIVATE gneiss::engine gneiss_tasks)
+  target_link_libraries(gneiss_profiling_capture PRIVATE gneiss::engine gneiss_tasks gneiss_native_interface)
   gneiss_target_profiling(gneiss_profiling_capture)
   gneiss_target_compile_warnings(gneiss_profiling_capture)
   gneiss_target_output_directories(gneiss_profiling_capture)
@@ -77,28 +77,6 @@ add_test(
     "-DGNEISS_BINARY_DIR=${PROJECT_BINARY_DIR}"
     -P "${PROJECT_SOURCE_DIR}/cmake/check_granit_version_cache.cmake"
 )
-
-add_executable(gneiss_1_0_abi_consumer compat/1_0/consumer.c)
-target_include_directories(gneiss_1_0_abi_consumer PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/compat/1_0")
-target_link_libraries(gneiss_1_0_abi_consumer PRIVATE gneiss::engine)
-set_target_properties(
-  gneiss_1_0_abi_consumer
-  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
-)
-gneiss_target_compile_warnings(gneiss_1_0_abi_consumer)
-gneiss_target_output_directories(gneiss_1_0_abi_consumer)
-add_test(NAME gneiss.1_0_abi_consumer COMMAND gneiss_1_0_abi_consumer)
-
-add_executable(gneiss_0_9_abi_consumer compat/0_9/consumer.c)
-target_include_directories(gneiss_0_9_abi_consumer PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/compat/0_9")
-target_link_libraries(gneiss_0_9_abi_consumer PRIVATE gneiss::engine)
-set_target_properties(
-  gneiss_0_9_abi_consumer
-  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
-)
-gneiss_target_compile_warnings(gneiss_0_9_abi_consumer)
-gneiss_target_output_directories(gneiss_0_9_abi_consumer)
-add_test(NAME gneiss.0_9_abi_consumer COMMAND gneiss_0_9_abi_consumer)
 
 add_executable(gneiss_cpp_version_test cpp_version_test.cpp)
 target_link_libraries(gneiss_cpp_version_test PRIVATE gneiss::engine)
@@ -202,15 +180,12 @@ gneiss_target_output_directories(gneiss_property_access_test)
 add_test(NAME gneiss.property_access COMMAND gneiss_property_access_test)
 
 
-add_executable(gneiss_c_render_test c_render_test.c)
-target_link_libraries(gneiss_c_render_test PRIVATE gneiss::engine)
-set_target_properties(
-  gneiss_c_render_test
-  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
-)
-gneiss_target_compile_warnings(gneiss_c_render_test)
-gneiss_target_output_directories(gneiss_c_render_test)
-add_test(NAME gneiss.c_render COMMAND gneiss_c_render_test)
+add_executable(gneiss_native_render_lifecycle_test native_render_lifecycle_test.cpp)
+target_link_libraries(gneiss_native_render_lifecycle_test PRIVATE gneiss::engine gneiss_native_interface)
+target_compile_features(gneiss_native_render_lifecycle_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_native_render_lifecycle_test)
+gneiss_target_output_directories(gneiss_native_render_lifecycle_test)
+add_test(NAME gneiss.native-render-lifecycle COMMAND gneiss_native_render_lifecycle_test)
 
 add_executable(
   gneiss_render_resource_service_test

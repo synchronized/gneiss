@@ -1340,39 +1340,9 @@
           "native_review": "implemented"
         },
         {
-          "symbol": "gneiss_material_alpha_mode",
-          "kind": "scalar",
-          "cpp_mapping": "gneiss::engine::material_alpha_mode",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_material_desc",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::engine::material_resource",
-          "native_review": "implemented"
-        },
-        {
           "symbol": "gneiss_mesh",
           "kind": "owner",
           "cpp_mapping": "gneiss::engine::rid",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_mesh_color",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::engine::mesh_color",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_mesh_desc",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::engine::mesh_view",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_mesh_normal",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::engine::mesh_normal",
           "native_review": "implemented"
         },
         {
@@ -1382,69 +1352,9 @@
           "native_review": "implemented"
         },
         {
-          "symbol": "gneiss_mesh_tangent",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::engine::mesh_tangent",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_mesh_uv",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::engine::mesh_uv",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_mesh_vertex",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::engine::mesh_vertex",
-          "native_review": "implemented"
-        },
-        {
           "symbol": "gneiss_texture",
           "kind": "owner",
           "cpp_mapping": "gneiss::engine::rid",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_texture_address",
-          "kind": "scalar",
-          "cpp_mapping": "gneiss::engine::texture_address",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_texture_color_space",
-          "kind": "scalar",
-          "cpp_mapping": "gneiss::engine::texture_color_space",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_texture_desc",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::engine::texture_view",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_texture_filter",
-          "kind": "scalar",
-          "cpp_mapping": "gneiss::engine::texture_filter",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_texture_format",
-          "kind": "scalar",
-          "cpp_mapping": "gneiss::engine::texture_format",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_texture_mip_filter",
-          "kind": "scalar",
-          "cpp_mapping": "gneiss::engine::texture_mip_filter",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_texture_sampling",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::engine::texture_sampling",
           "native_review": "implemented"
         },
         {
@@ -1488,51 +1398,6 @@
           "cpp_mapping": "仅 C ABI 旧结构布局版本；C++ 描述始终由包装填写当前布局"
         },
         {
-          "symbol": "GNEISS_MATERIAL_ALPHA_BLEND",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::material_alpha_mode::blend"
-        },
-        {
-          "symbol": "GNEISS_MATERIAL_ALPHA_MASK",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::material_alpha_mode::mask"
-        },
-        {
-          "symbol": "GNEISS_MATERIAL_ALPHA_OPAQUE",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::material_alpha_mode::opaque"
-        },
-        {
-          "symbol": "GNEISS_MATERIAL_DESC_INIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::material_resource{}"
-        },
-        {
-          "symbol": "GNEISS_MATERIAL_DESC_VERSION_1_SIZE",
-          "native_review": "abi_only",
-          "cpp_mapping": "仅 C ABI 旧结构布局版本；C++ 描述始终由包装填写当前布局"
-        },
-        {
-          "symbol": "GNEISS_MATERIAL_DESC_VERSION_2_SIZE",
-          "native_review": "abi_only",
-          "cpp_mapping": "仅 C ABI 旧结构布局版本；C++ 描述始终由包装填写当前布局"
-        },
-        {
-          "symbol": "GNEISS_MESH_DESC_INIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::mesh_view{}"
-        },
-        {
-          "symbol": "GNEISS_MESH_DESC_VERSION_1_SIZE",
-          "native_review": "abi_only",
-          "cpp_mapping": "仅 C ABI 旧结构布局版本；C++ 描述始终由包装填写当前布局"
-        },
-        {
-          "symbol": "GNEISS_MESH_DESC_VERSION_2_SIZE",
-          "native_review": "abi_only",
-          "cpp_mapping": "仅 C ABI 旧结构布局版本；C++ 描述始终由包装填写当前布局"
-        },
-        {
           "symbol": "GNEISS_MESH_RENDERER_INIT",
           "native_review": "implemented",
           "cpp_mapping": "gneiss::engine::mesh_renderer{}"
@@ -1551,71 +1416,6 @@
           "symbol": "GNEISS_NULL_TEXTURE",
           "native_review": "implemented",
           "cpp_mapping": "gneiss::texture_id{}"
-        },
-        {
-          "symbol": "GNEISS_TEXTURE_ADDRESS_CLAMP",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::texture_address::clamp"
-        },
-        {
-          "symbol": "GNEISS_TEXTURE_ADDRESS_MIRROR",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::texture_address::mirror"
-        },
-        {
-          "symbol": "GNEISS_TEXTURE_ADDRESS_REPEAT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::texture_address::repeat"
-        },
-        {
-          "symbol": "GNEISS_TEXTURE_COLOR_SPACE_LINEAR",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::texture_color_space::linear"
-        },
-        {
-          "symbol": "GNEISS_TEXTURE_COLOR_SPACE_SRGB",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::texture_color_space::srgb"
-        },
-        {
-          "symbol": "GNEISS_TEXTURE_DESC_INIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::texture_view{}"
-        },
-        {
-          "symbol": "GNEISS_TEXTURE_FILTER_LINEAR",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::texture_filter::linear"
-        },
-        {
-          "symbol": "GNEISS_TEXTURE_FILTER_NEAREST",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::texture_filter::nearest"
-        },
-        {
-          "symbol": "GNEISS_TEXTURE_FORMAT_RGBA8_UNORM",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::texture_format::rgba8_unorm"
-        },
-        {
-          "symbol": "GNEISS_TEXTURE_MIP_LINEAR",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::texture_mip_filter::linear"
-        },
-        {
-          "symbol": "GNEISS_TEXTURE_MIP_NEAREST",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::texture_mip_filter::nearest"
-        },
-        {
-          "symbol": "GNEISS_TEXTURE_MIP_NONE",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::texture_mip_filter::none"
-        },
-        {
-          "symbol": "GNEISS_TEXTURE_SAMPLING_INIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::texture_sampling{}"
         },
         {
           "symbol": "GNEISS_UI_DRAW_LIST_DESC_INIT",

@@ -20,10 +20,6 @@ gneiss_game_context_get_world
 gneiss_game_context_log
 gneiss_game_context_request_exit
 gneiss_game_module_validate
-gneiss_material_create
-gneiss_material_destroy
-gneiss_mesh_create
-gneiss_mesh_destroy
 gneiss_result_message
 gneiss_scene_node_create
 gneiss_scene_node_destroy
@@ -33,8 +29,6 @@ gneiss_scene_node_get_parent
 gneiss_scene_node_get_world_transform
 gneiss_scene_node_reparent
 gneiss_scene_node_set_local_transform
-gneiss_texture_create
-gneiss_texture_destroy
 gneiss_version_major
 gneiss_version_minor
 gneiss_version_patch

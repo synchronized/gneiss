@@ -5,31 +5,32 @@
 
 ## 资源生命周期
 
-Mesh、Material 和 Texture 由 Application 的 Resource Service 独占。`gneiss_mesh_create` 会在调用
+Mesh、Material 和 Texture 的 RID 由 Application 的 Resource Service 管理。
+原生 `render_resource_service::create_mesh(mesh_view, ...)` 会在调用
 期间复制顶点、可选法线、切线、UV1、顶点色及可选 UInt32 索引；调用返回后，调用方可以立即释放源数据。Mesh 至少需要
 三个有限值顶点。索引非空时数量必须至少为三个且为三的倍数，所有索引必须小于顶点数；索引为空时
 顶点按 Triangle List 顺序解释。法线必须与顶点一一对应、保持有限且归一化；不提供法线的旧 Mesh
 使用无光照兼容路径。
 
-切线 XYZ 必须归一化并与对应法线正交，W 为 `+1/-1`，数量必须与顶点一致。旧描述大小由
-`GNEISS_MESH_DESC_VERSION_1_SIZE` 标识，按缺省切线处理；Version 2 保留切线、缺省 UV1/顶点色。
-新增属性的数量、有限值及缺省规则见[资产格式](render-asset-formats.md)，不读取旧描述尾部。
+切线 XYZ 必须归一化并与对应法线正交，W 为 `+1/-1`，数量必须与顶点一致。
+属性以原生 span 表达，空 span 表示未提供；数量、有限值及缺省规则见[资产格式](render-asset-formats.md)。
+拥有型 `mesh_data` 重载校验后转移数组所有权，避免再次复制。
 
 Material 保存线性 RGBA、金属度、粗糙度、五类 PBR Texture RID 及法线/AO/自发光因子，
 字段范围与纹理用途见 [Render 资产格式](render-asset-formats.md#material)。创建不转移 Texture 所有权；
-直接使用 C API 时调用方必须维持依赖有效，资产 Loader 的 Material 租约则持有全部 Texture 租约。
-`GNEISS_MATERIAL_DESC_VERSION_1_SIZE` 与 Version 2 兼容旧描述，新增字段使用中性默认值。
+直接创建资源时调用方必须维持依赖有效，资产 Loader 的 Material 租约则持有全部 Texture 租约。
+`create_material` 接收原生 `material_resource`，默认构造提供中性值。
 当前描述支持逐槽 UV0/UV1 与采样器、OPAQUE/MASK/BLEND、Alpha Cutoff 和双面。
 
-`gneiss_texture_create` 当前只接受二维 RGBA8 像素，并显式区分线性与 sRGB 颜色空间。宽高必须位于
+`create_texture(texture_view, ...)` 接受二维 RGBA8 像素，并显式区分线性与 sRGB 颜色空间。宽高必须位于
 `1..16384`，解码后的紧凑像素总量不得超过 256 MiB；行跨度至少为 `width * 4`，输入缓冲区必须覆盖
 最后一行。Resource Service 会逐行复制并移除源数据的行尾填充，调用返回后调用方可以释放像素。
 Material 可选引用 Texture RID；Granit 后端按 RID 建立 GPU 镜像并通过内置 Shader 采样。
 
 所有 Render RID 只能交还给创建它们的 Application；RID 校验资源类型、generation 和 Service
 domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
-`GNEISS_ERROR_INVALID_HANDLE`。
-
+`result::invalid_handle`。销毁 RID 后，帧包或调用方已有的强引用仍可维持 CPU 数据，
+直到最后一个引用释放；该保留数据继续占用服务内存额度。
 
 ## 当前帧即时 UI 数据
 

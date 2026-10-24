@@ -34,13 +34,9 @@ target_sources(
     runtime/api/application_api.cpp
     runtime/api/render_api.cpp
     engine/api/draw_description.hpp
-    engine/api/material_description.hpp
-    engine/api/mesh_description.hpp
-    engine/api/texture_description.hpp
     runtime/api/input_api.cpp
     runtime/application_registry.cpp
     runtime/application_registry.hpp
-    runtime/application_bridge.hpp
     runtime/loading/prefab_preparation.cpp
     runtime/loading/prefab_placement.cpp
     runtime/api/application_log_sink.hpp

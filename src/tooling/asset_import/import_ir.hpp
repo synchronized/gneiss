@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/render.h>
+#include "engine/resource/types/material_types.hpp"
 
 #include <array>
 #include <cstddef>
@@ -72,12 +72,10 @@ struct import_ir_material {
   float normal_scale{1.0F};
   float occlusion_strength{1.0F};
   std::array<float, 3> emissive{};
-  gneiss_material_alpha_mode alpha_mode{GNEISS_MATERIAL_ALPHA_OPAQUE};
+  gneiss::engine::material_alpha_mode alpha_mode{gneiss::engine::material_alpha_mode::opaque};
   std::uint32_t double_sided{};
   float alpha_cutoff{0.5F};
-  std::array<gneiss_texture_sampling, 5> sampling{
-      {GNEISS_TEXTURE_SAMPLING_INIT, GNEISS_TEXTURE_SAMPLING_INIT, GNEISS_TEXTURE_SAMPLING_INIT,
-       GNEISS_TEXTURE_SAMPLING_INIT, GNEISS_TEXTURE_SAMPLING_INIT}};
+  std::array<gneiss::engine::texture_sampling, 5> sampling{};
 
   [[nodiscard]] std::array<std::optional<std::size_t>, 5> texture_indices() const {
     return {base_color_image_index, metallic_roughness_image_index, normal_image_index,

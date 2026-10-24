@@ -3,8 +3,7 @@
 
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "support/c_owner.hpp"
-#include <gneiss/engine/application.h>
+#include "runtime/application.hpp"
 #include <tracy/Tracy.hpp>
 
 #include <chrono>
@@ -21,13 +20,11 @@ struct context {
   gneiss::engine::task_scope scope = scheduler.make_scope();
   std::size_t received{};
 };
-gneiss::engine::result update(gneiss_application, const gneiss_frame_time* time,
-                              void* opaque) noexcept {
-  auto& state = *static_cast<context*>(opaque);
+gneiss::engine::result update(const gneiss::engine::frame_time& time, context& state) noexcept {
   try {
     gneiss::engine::task_handle task;
     const auto accepted = state.scheduler.submit(
-        {.name = time->frame_index == 0U ? std::string(65536U, 'x') : "capture.work",
+        {.name = time.frame_index == 0U ? std::string(65536U, 'x') : "capture.work",
          .scope = state.scope},
         [](const gneiss::engine::task_context&) {
           std::this_thread::sleep_for(1ms);
@@ -58,14 +55,11 @@ int main(int argc, char** argv) try {
     }
   }
   context state;
-  gneiss_application_desc description = GNEISS_APPLICATION_DESC_INIT;
-  description.user_data = &state;
-  description.update = update;
-  gneiss::test_support::application_owner application;
-  if (gneiss::engine::result{gneiss_application_create(&description, application.put())} !=
-          gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_application_run(application.get(), 128)} !=
-          gneiss::engine::result::success) {
+  gneiss::runtime::application_configuration description;
+  description.callbacks.update = [&](auto, const auto& time) { return update(time, state); };
+  std::shared_ptr<gneiss::runtime::application> application;
+  if (gneiss::runtime::application::create(description, application).failed() ||
+      application->run(0, 128).failed()) {
     return 3;
   }
   const auto deadline = std::chrono::steady_clock::now() + 5s;
