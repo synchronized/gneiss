@@ -5,15 +5,10 @@
 
 ## 版本
 
-构建生成的 `<gneiss/engine/core/version.h>` 提供编译期版本宏：
-
-- `GNEISS_VERSION_MAJOR`
-- `GNEISS_VERSION_MINOR`
-- `GNEISS_VERSION_PATCH`
-- `GNEISS_VERSION_STRING`
-
-仓内使用 `gneiss::engine::library_version()` 返回运行时库版本。版本结构与函数声明位于
-`src/engine/core/version.hpp`。旧版本查询 C 函数已删除，不提供公共 C++ SDK。
+仓内使用 `gneiss::engine::library_version()` 返回运行时库版本，
+`library_version_string()` 返回静态存储的版本字符串。声明位于
+`src/engine/core/version.hpp`。构建版本头仅供内部实现与版本用例使用，不安装。
+游戏模块协议版本独立定义在 `game_module.h`，不依赖引擎构建版本。
 
 ## 结果码
 

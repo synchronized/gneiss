@@ -3,14 +3,14 @@
 
 # RID 与 Service 生命周期
 
-## 公共 RID
+## 内部 RID
 
 内部使用 `gneiss::engine::rid`，是独立定义的 64 位整数资源标识，零表示无效资源。
-它不拥有资源，也不提供编译期资源类型隔离。旧 C++ RID 包装已删除；尚未撤销的 C API
-仍使用 `gneiss_rid` 与 `GNEISS_NULL_RID`。
+它不拥有资源，也不提供编译期资源类型隔离。旧公共 RID 头与 C++ 包装均已删除；
+游戏模块的 World 等借用标识由模块协议单独定义。
 
 调用方不得解析、持久化或自行构造 RID。当前内部编码包含槽位、generation、资源类型和 Service
-domain，但位布局不是公共 ABI，后续版本可以在不修改 `gneiss_rid` 类型的情况下调整。
+domain，但位布局不是公共 ABI，后续版本可以调整内部编码。
 
 ## 有效性
 

@@ -17,28 +17,10 @@ file(MAKE_DIRECTORY "${consumer_source_dir}/templates")
 file(COPY "${GNEISS_SOURCE_DIR}/templates/game" DESTINATION "${consumer_source_dir}/templates")
 
 set(install_command "${CMAKE_COMMAND}" --install "${GNEISS_BUILD_DIR}" --prefix "${install_dir}")
-if(GNEISS_GRANIT_BUILD_DIR)
-  set(granit_build_dir "${GNEISS_GRANIT_BUILD_DIR}")
-else()
-  set(granit_build_dir "${GNEISS_BUILD_DIR}/_deps/granit")
-endif()
 set(build_command "${CMAKE_COMMAND}" --build "${consumer_build_dir}")
 if(GNEISS_CONFIG)
   list(APPEND install_command --config "${GNEISS_CONFIG}")
   list(APPEND build_command --config "${GNEISS_CONFIG}")
-endif()
-
-if(EXISTS "${granit_build_dir}/cmake_install.cmake")
-  set(granit_install_command
-      "${CMAKE_COMMAND}" --install "${granit_build_dir}" --prefix "${install_dir}"
-  )
-  if(GNEISS_CONFIG)
-    list(APPEND granit_install_command --config "${GNEISS_CONFIG}")
-  endif()
-  execute_process(COMMAND ${granit_install_command} RESULT_VARIABLE granit_install_result)
-  if(NOT granit_install_result EQUAL 0)
-    message(FATAL_ERROR "测试前缀中的 Granit 安装失败：${granit_install_result}")
-  endif()
 endif()
 
 execute_process(COMMAND ${install_command} RESULT_VARIABLE install_result)
@@ -76,13 +58,12 @@ foreach(
   endif()
 endforeach()
 
-string(REPLACE ";" "\\;" dependency_prefix_path "${GNEISS_DEPENDENCY_PREFIX_PATH}")
 set(configure_command
     "${CMAKE_COMMAND}"
     -S "${consumer_source_dir}/templates/game"
     -B "${consumer_build_dir}"
     -G "${GNEISS_GENERATOR}"
-    "-DCMAKE_PREFIX_PATH=${install_dir}\;${dependency_prefix_path}"
+    "-DCMAKE_PREFIX_PATH=${install_dir}"
     "-DGNEISS_GAME_OUTPUT_DIRECTORY=${consumer_build_dir}/module"
 )
 if(GNEISS_GENERATOR_PLATFORM)

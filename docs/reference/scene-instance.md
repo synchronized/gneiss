@@ -83,7 +83,7 @@ C++ `scene_prefab_refresh` 独占令牌并记录所属 Application 与场景句�
 `scene_instance::refresh_prefab_instance(root, out_root, out_refresh)` 的输出拥有者必须为空；
 非空时返回 `invalid_state`，不修改场景或两个输出。空输出下的加载失败也保持输出与原投影。
 成功后可以用 `out_refresh.toggle(out_root)` 撤销或重做；失败时保留输出根 ID。
-空令牌调用 toggle 与 C API 一样返回 `invalid_argument`。
+空令牌调用 toggle 返回 `invalid_argument`。
 
 拥有者不可复制，可移动；`reset()` 和析构释放历史租约，不回滚当前投影。外部释放、场景卸载或
 Application 销毁后，`reset()` 可安全清空失效令牌；其他错误保留令牌供所属线程重试。

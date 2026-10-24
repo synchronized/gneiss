@@ -81,10 +81,10 @@ const auto status = application.submit_log({
 });
 ```
 
-其中 application 是有效的原生 Application 对象。内部调用方填写来源，C API/游戏模块边界仍负责
+其中 application 是有效的原生 Application 对象。内部调用方填写来源，游戏模块边界负责
 绑定可信来源。接收回调使用 `event_view`，其文本只在回调期间有效。
 
-消息级别和 UTF-8 规则集中在 `engine::validate_message`。C API 先检查结构尺寸、指针与长度、
+消息级别和 UTF-8 规则集中在 `engine::validate_message`。游戏模块入口先检查结构尺寸、指针与长度、
 保留字段，再转为原生视图复用校验；内部调用不绕行 C API。
 旧 `log_message`、`log_event`、`log_severity` 包装和构造/转换辅助已删除，不安装公共 C++ 日志头。
 

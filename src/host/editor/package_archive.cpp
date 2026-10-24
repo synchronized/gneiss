@@ -4,7 +4,7 @@
 #include "package_archive.hpp"
 #include "engine/core/result.hpp"
 
-#include <gneiss/engine/core/version.h>
+#include "engine/core/version.hpp"
 
 #include <yyjson.h>
 
@@ -282,7 +282,8 @@ gneiss::engine::result write_package_manifest(const std::filesystem::path& packa
     if (root == nullptr || entries == nullptr ||
         !yyjson_mut_obj_add_str(document.get(), root, "format", "gneiss.package") ||
         !yyjson_mut_obj_add_uint(document.get(), root, "version", 1U) ||
-        !yyjson_mut_obj_add_str(document.get(), root, "gneiss_version", GNEISS_VERSION_STRING) ||
+        !yyjson_mut_obj_add_str(document.get(), root, "gneiss_version",
+                                gneiss::engine::library_version_string()) ||
         !yyjson_mut_obj_add_strncpy(document.get(), root, "project", project.name.data(),
                                     project.name.size()) ||
         !yyjson_mut_obj_add_strncpy(document.get(), root, "profile", profile_name.data(),

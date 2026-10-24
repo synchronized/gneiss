@@ -9,7 +9,7 @@ foreach(line IN LISTS declarations)
   endif()
 endforeach()
 list(SORT expected)
-# 已迁移的全部公共 C 定义必须集中于 engine/api 与 runtime/api，并与声明清单逐项一致。
+# 游戏模块 C 定义必须集中于 API 边界，并与模块声明清单逐项一致。
 file(GLOB adapters "${GNEISS_SOURCE_DIR}/src/engine/api/*.cpp" "${GNEISS_SOURCE_DIR}/src/runtime/api/*.cpp")
 set(definitions)
 foreach(adapter IN LISTS adapters)
@@ -41,4 +41,21 @@ endforeach()
 file(GLOB_RECURSE value_headers "${GNEISS_SOURCE_DIR}/include/gneiss/*.hpp" "${GNEISS_SOURCE_DIR}/include/gneiss/*.inl")
 if(value_headers)
   message(FATAL_ERROR "不得恢复公共 C++ SDK 或值头：${value_headers}")
+endif()
+
+# 安装头只允许模块协议的最小闭包，避免重新积累完整 SDK。
+set(module_headers
+  gneiss/gneiss.h
+  gneiss/engine/game_module.h
+  gneiss/engine/game_module_types.h
+  gneiss/engine/core/entity.h
+  gneiss/engine/core/export.h
+  gneiss/engine/core/result.h
+)
+file(GLOB_RECURSE installed_headers RELATIVE "${GNEISS_SOURCE_DIR}/include"
+  "${GNEISS_SOURCE_DIR}/include/*")
+list(SORT module_headers)
+list(SORT installed_headers)
+if(NOT "${installed_headers}" STREQUAL "${module_headers}")
+  message(FATAL_ERROR "公共头超出最小游戏模块协议闭包：${installed_headers}")
 endif()

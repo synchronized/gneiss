@@ -14,5 +14,5 @@
 C 布局转换只保留在游戏模块协议边界。
 
 Application、Input、Render、World 与 Scene C 操作入口已经撤销；导出清单只保留
-游戏模块相关函数。包配置、安装清单与原生类型边界仍在收敛，进度见
+游戏模块相关函数。安装头限制为模块协议闭包，生成版本头只供内部使用。验证状态见
 [PLAN-051](../plans/PLAN-051-minimal-game-module-api.md)。

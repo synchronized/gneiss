@@ -7,7 +7,6 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world_components.hpp"
-#include <gneiss/engine/core/entity.h>
 
 #include "engine/function/scene/scene_tree.hpp"
 

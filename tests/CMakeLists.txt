@@ -50,7 +50,7 @@ add_test(
   NAME gneiss.api_stability_manifest
   COMMAND
     "${CMAKE_COMMAND}"
-    "-DGNEISS_ABI_BASELINE=${PROJECT_SOURCE_DIR}/abi/baseline/gneiss-1.0.0-c.txt"
+    "-DGNEISS_ABI_BASELINE=${PROJECT_SOURCE_DIR}/abi/baseline/game-module-c.txt"
     "-DGNEISS_API_STABILITY_MANIFEST=${PROJECT_SOURCE_DIR}/abi/api-stability.txt"
     "-DGNEISS_PUBLIC_INCLUDE_DIR=${PROJECT_SOURCE_DIR}/include"
     -P "${PROJECT_SOURCE_DIR}/cmake/check_api_stability.cmake"
@@ -67,6 +67,7 @@ add_test(
 
 add_executable(gneiss_cpp_version_test cpp_version_test.cpp)
 target_link_libraries(gneiss_cpp_version_test PRIVATE gneiss::engine gneiss_value_interface)
+target_include_directories(gneiss_cpp_version_test PRIVATE "${PROJECT_BINARY_DIR}/src/generated/include")
 target_compile_features(gneiss_cpp_version_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_cpp_version_test)
 gneiss_target_output_directories(gneiss_cpp_version_test)
@@ -250,7 +251,6 @@ gneiss_target_compile_warnings(gneiss_cpp_header_test)
 file(GLOB_RECURSE engine_sdk_headers CONFIGURE_DEPENDS RELATIVE "${PROJECT_SOURCE_DIR}/include"
   "${PROJECT_SOURCE_DIR}/include/gneiss/engine/*.h"
   "${PROJECT_SOURCE_DIR}/include/gneiss/engine/*.hpp")
-list(APPEND engine_sdk_headers "gneiss/engine/core/version.h")
 foreach(header IN LISTS engine_sdk_headers)
   string(MAKE_C_IDENTIFIER "${header}" unit)
   if(header MATCHES "\\.hpp$")
@@ -964,8 +964,6 @@ if(PROJECT_IS_TOP_LEVEL AND GNEISS_ENABLE_GRANIT_PLATFORM AND BUILD_SHARED_LIBS)
       "-DGNEISS_CONFIG=$<CONFIG>"
       "-DGNEISS_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
       "-DGNEISS_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
-      "-DGNEISS_DEPENDENCY_PREFIX_PATH=${CMAKE_PREFIX_PATH}"
-      "-DGNEISS_GRANIT_BUILD_DIR=${GNEISS_GRANIT_FETCHED_BUILD_DIR}"
       -P "${PROJECT_SOURCE_DIR}/cmake/check_installed_game_module.cmake"
   )
   set_tests_properties(gneiss.installed_game_module_consumer PROPERTIES TIMEOUT 120)

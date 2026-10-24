@@ -3,7 +3,8 @@
 
 @PACKAGE_INIT@
 
-if(@GNEISS_ENABLE_GRANIT_PLATFORM@)
+# 共享模块消费者只链接 Engine 导入库；静态链接仍需后端依赖。
+if(@GNEISS_ENABLE_GRANIT_PLATFORM@ AND NOT @BUILD_SHARED_LIBS@)
   include(CMakeFindDependencyMacro)
   find_dependency(granit 0.67.0 CONFIG COMPONENTS Window RenderPipeline)
 endif()

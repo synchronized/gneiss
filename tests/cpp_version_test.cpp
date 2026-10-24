@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "engine/core/build_version.h"
 #include "engine/core/version.hpp"
-#include <gneiss/engine/core/version.h>
 int main() {
   const auto version = gneiss::engine::library_version();
   return version.major == GNEISS_VERSION_MAJOR && version.minor == GNEISS_VERSION_MINOR &&

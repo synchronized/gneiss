@@ -122,33 +122,6 @@
       ]
     },
     {
-      "header": "include/gneiss/engine/core/version.h.in",
-      "contract": "docs/reference/core.md",
-      "types": [],
-      "constants": [
-        {
-          "symbol": "GNEISS_VERSION_MAJOR",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::header_version.major"
-        },
-        {
-          "symbol": "GNEISS_VERSION_MINOR",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::header_version.minor"
-        },
-        {
-          "symbol": "GNEISS_VERSION_PATCH",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::header_version.patch"
-        },
-        {
-          "symbol": "GNEISS_VERSION_STRING",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::header_version_string"
-        }
-      ]
-    },
-    {
       "header": "include/gneiss/engine/game_module.h",
       "contract": "docs/reference/game-module.md",
       "types": [

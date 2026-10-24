@@ -14,11 +14,11 @@ gneiss_target_output_directories(gneiss_engine)
 
 set(GNEISS_GENERATED_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/include")
 set(GNEISS_GENERATED_VERSION_HEADER
-    "${GNEISS_GENERATED_INCLUDE_DIR}/gneiss/engine/core/version.h")
+    "${GNEISS_GENERATED_INCLUDE_DIR}/engine/core/build_version.h")
 
-file(MAKE_DIRECTORY "${GNEISS_GENERATED_INCLUDE_DIR}/gneiss/engine/core")
+file(MAKE_DIRECTORY "${GNEISS_GENERATED_INCLUDE_DIR}/engine/core")
 configure_file(
-  "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/version.h.in"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/build_version.h.in"
   "${GNEISS_GENERATED_VERSION_HEADER}"
   @ONLY
 )
@@ -170,7 +170,6 @@ target_sources(
     FILE_SET HEADERS
     BASE_DIRS
       "${PROJECT_SOURCE_DIR}/include"
-      "${GNEISS_GENERATED_INCLUDE_DIR}"
     FILES
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module.h"
@@ -178,7 +177,6 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/entity.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/export.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/result.h"
-      "${GNEISS_GENERATED_VERSION_HEADER}"
 )
 
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
@@ -293,7 +291,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   endif()
 endif()
 
-target_compile_features(gneiss_engine PUBLIC cxx_std_20)
+target_compile_features(gneiss_engine PRIVATE cxx_std_20)
 target_link_libraries(gneiss_engine PUBLIC $<BUILD_INTERFACE:gneiss_value_interface>)
 gneiss_target_compile_warnings(gneiss_engine)
 target_link_libraries(
@@ -305,10 +303,9 @@ target_link_libraries(
 )
 target_include_directories(
   gneiss_engine
-  PRIVATE "${PROJECT_SOURCE_DIR}/src"
+  PRIVATE "${PROJECT_SOURCE_DIR}/src" "${GNEISS_GENERATED_INCLUDE_DIR}"
   PUBLIC
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-    $<BUILD_INTERFACE:${GNEISS_GENERATED_INCLUDE_DIR}>
 )
 target_compile_definitions(
   gneiss_engine

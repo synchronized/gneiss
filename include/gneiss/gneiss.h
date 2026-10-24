@@ -9,7 +9,6 @@
 #include <gneiss/engine/core/entity.h>
 #include <gneiss/engine/core/export.h>
 #include <gneiss/engine/core/result.h>
-#include <gneiss/engine/core/version.h>
 #include <gneiss/engine/game_module.h>
 
 #endif
