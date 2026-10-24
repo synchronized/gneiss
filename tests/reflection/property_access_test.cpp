@@ -1,314 +1,156 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../support/c_owner.hpp"
-#include "engine/values/detail/reflection_values.hpp"
-
+#include "engine/core/reflection/type_registry.hpp"
 #include <array>
 #include <cmath>
-#include <cstdint>
 #include <limits>
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <utility>
-
-using namespace gneiss;
 
 namespace {
-
-constexpr gneiss_type_id camera_type{{0x21, 0x6a, 0x90, 0x31, 0x45, 0xe4, 0x47, 0x41, 0xa5, 0xd2,
-                                      0xb8, 0x11, 0x6d, 0x1e, 0x61, 0x42}};
-constexpr gneiss_type_id float_type{{0x11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}};
-constexpr gneiss_type_id string_type{{0x11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2}};
-
+using gneiss::property_kind;
+using gneiss::property_target;
+using gneiss::property_value;
+using gneiss::engine::result;
+constexpr gneiss::engine::type_guid camera_type{gneiss::engine::guid::from_bytes(
+    {0x21, 0x6a, 0x90, 0x31, 0x45, 0xe4, 0x47, 0x41, 0xa5, 0xd2, 0xb8, 0x11, 0x6d, 0x61, 0x42, 1})};
+constexpr gneiss::engine::type_guid float_type{gneiss::engine::guid::from_bytes({1})};
+constexpr gneiss::engine::type_guid string_type{gneiss::engine::guid::from_bytes({2})};
 struct camera_fixture {
   float field_of_view = 60.0F;
-  const char* label = "主相机";
-  std::uint32_t label_length = 9U;
+  std::string_view label = "主相机";
   bool fail_get = false;
   bool fail_set = false;
 };
-
-gneiss_result get_field_of_view(void* user_data, gneiss_property_target target,
-                                gneiss_property_value* output) {
-  if (target.context != 7U || target.object != 11U) {
-    return GNEISS_ERROR_NOT_FOUND;
-  }
-  const auto* fixture = static_cast<const camera_fixture*>(user_data);
-  if (fixture->fail_get) {
+result get_field_of_view(void* data, property_target target, property_value* output) {
+  if (target.context != 7 || target.object != 11)
+    return result::not_found;
+  const auto& camera = *static_cast<camera_fixture*>(data);
+  if (camera.fail_get)
     throw std::runtime_error("getter probe");
-  }
-  output->kind = GNEISS_PROPERTY_KIND_FLOAT32;
-  output->payload.float32_value = fixture->field_of_view;
-  return GNEISS_SUCCESS;
+  output->payload = camera.field_of_view;
+  return result::success;
 }
-
-gneiss_result set_field_of_view(void* user_data, gneiss_property_target target,
-                                const gneiss_property_value* value) {
-  if (target.context != 7U || target.object != 11U) {
-    return GNEISS_ERROR_NOT_FOUND;
-  }
-  if (value->payload.float32_value < 1.0F || value->payload.float32_value > 179.0F) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
-  }
-  auto* fixture = static_cast<camera_fixture*>(user_data);
-  if (fixture->fail_set) {
+result set_field_of_view(void* data, property_target target, const property_value* input) {
+  if (target.context != 7 || target.object != 11)
+    return result::not_found;
+  const auto value = std::get<float>(input->payload);
+  if (value < 1 || value > 179)
+    return result::invalid_argument;
+  auto& camera = *static_cast<camera_fixture*>(data);
+  if (camera.fail_set)
     throw std::runtime_error("setter probe");
-  }
-  fixture->field_of_view = value->payload.float32_value;
-  return GNEISS_SUCCESS;
+  camera.field_of_view = value;
+  return result::success;
 }
-
-gneiss_result get_label(void* user_data, gneiss_property_target /*target*/,
-                        gneiss_property_value* output) {
-  const auto* fixture = static_cast<const camera_fixture*>(user_data);
-  output->kind = GNEISS_PROPERTY_KIND_STRING;
-  output->payload.string_value = {.data = fixture->label, .length = fixture->label_length};
-  return GNEISS_SUCCESS;
+result get_label(void* data, property_target, property_value* output) {
+  output->payload = static_cast<camera_fixture*>(data)->label;
+  return result::success;
 }
-
-gneiss_result get_malformed(void* /*user_data*/, gneiss_property_target /*target*/,
-                            gneiss_property_value* output) {
-  output->kind = GNEISS_PROPERTY_KIND_FLOAT32;
-  output->payload.float32_value = std::numeric_limits<float>::infinity();
-  return GNEISS_SUCCESS;
+result get_malformed(void*, property_target, property_value* output) {
+  output->payload = std::numeric_limits<float>::infinity();
+  return result::success;
 }
-
-int verify_callback_contract(gneiss::test_support::registry_owner& registry,
-                             camera_fixture& fixture, gneiss_property_target target) {
-  gneiss_property_value value = GNEISS_PROPERTY_VALUE_INIT;
-  // 不合约的 C++ 回调异常必须在适配器处转换；getter 失败清空输出。
+}
+int main() try {
+  namespace reflection = gneiss::engine;
+  camera_fixture fixture;
+  const std::array fields{
+      reflection::field_definition{1, float_type, 0, "field_of_view"},
+      reflection::field_definition{
+          2, string_type, static_cast<std::uint32_t>(gneiss::field_flags::read_only), "label"},
+      reflection::field_definition{3, float_type, 0, "unbound"},
+      reflection::field_definition{4, float_type, 0, "malformed"}};
+  reflection::registry_ref registry;
+  if (reflection::create_native(registry).failed() ||
+      reflection::register_type(registry, {camera_type, 1, "camera", fields}).failed())
+    return 1;
+  const reflection::property_binding field_of_view{.kind = property_kind::float32,
+                                                   .getter = get_field_of_view,
+                                                   .setter = set_field_of_view,
+                                                   .user_data = &fixture};
+  const reflection::property_binding label{
+      .kind = property_kind::string, .getter = get_label, .setter = {}, .user_data = &fixture};
+  auto invalid_read_only = label;
+  invalid_read_only.setter = set_field_of_view;
+  if (reflection::bind_property(registry, camera_type, 1, field_of_view).failed() ||
+      reflection::bind_property(registry, camera_type, 1, field_of_view).failed() ||
+      reflection::bind_property(registry, camera_type, 2, invalid_read_only) !=
+          result::invalid_argument ||
+      reflection::bind_property(registry, camera_type, 2, label).failed() ||
+      reflection::bind_property(
+          registry, camera_type, 4,
+          {.kind = property_kind::float32, .getter = get_malformed, .setter = {}})
+          .failed() ||
+      reflection::freeze(registry).failed() ||
+      reflection::bind_property(registry, camera_type, 3, field_of_view) != result::invalid_state)
+    return 2;
+  gneiss::field_info info;
+  if (reflection::describe_field(registry, camera_type, gneiss::field_id{1}, info).failed() ||
+      info.kind != property_kind::float32 ||
+      info.capabilities !=
+          (gneiss::property_capabilities::readable | gneiss::property_capabilities::writable))
+    return 3;
+  constexpr property_target target{7, 11};
+  property_value value;
+  if (reflection::get_property(registry, camera_type, 1, target, value).failed() ||
+      value.kind() != property_kind::float32 ||
+      std::abs(std::get<float>(value.payload) - 60) > 0.001F)
+    return 4;
+  value.payload = 90.0F;
+  if (reflection::set_property(registry, camera_type, 1, target, value).failed() ||
+      std::abs(fixture.field_of_view - 90) > 0.001F)
+    return 5;
+  value.payload = -1.0F;
+  if (reflection::set_property(registry, camera_type, 1, target, value) !=
+          result::invalid_argument ||
+      std::abs(fixture.field_of_view - 90) > 0.001F)
+    return 6;
+  value.payload = 90.0F;
+  if (reflection::set_property(registry, camera_type, 1, {8, 11}, value) != result::not_found)
+    return 7;
+  value.payload = std::uint64_t{90};
+  if (reflection::set_property(registry, camera_type, 1, target, value) != result::invalid_argument)
+    return 8;
+  if (reflection::get_property(registry, camera_type, 2, target, value).failed() ||
+      value.kind() != property_kind::string ||
+      std::get<std::string_view>(value.payload).size() != 9 ||
+      reflection::set_property(registry, camera_type, 2, target, value) != result::unsupported ||
+      reflection::get_property(registry, camera_type, 3, target, value) != result::unsupported ||
+      reflection::get_property(registry, camera_type, 4, target, value) != result::internal ||
+      value.kind() != property_kind::invalid)
+    return 9;
+  // 回调抛异常转换为内部错误；getter 清空输出，setter 不修改目标。
   fixture.fail_get = true;
-  if (([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
-           gneiss_property_value& output) {
-        return from_native(
-            gneiss_type_registry_get_property(registry.get(), type_id, field_id, target, &output));
-      })(camera_type, 1U, target, value) != gneiss::result::internal ||
-      value.kind != GNEISS_PROPERTY_KIND_INVALID) {
+  if (reflection::get_property(registry, camera_type, 1, target, value) != result::internal ||
+      value.kind() != property_kind::invalid)
     return 10;
-  }
   fixture.fail_get = false;
   fixture.fail_set = true;
-  value.kind = GNEISS_PROPERTY_KIND_FLOAT32;
-  value.payload.float32_value = 100.0F;
-  if (([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
-           const gneiss_property_value& value) {
-        return from_native(
-            gneiss_type_registry_set_property(registry.get(), type_id, field_id, target, &value));
-      })(camera_type, 1U, target, value) != gneiss::result::internal ||
-      std::abs(fixture.field_of_view - 90.0F) > 0.001F) {
+  value.payload = 100.0F;
+  if (reflection::set_property(registry, camera_type, 1, target, value) != result::internal ||
+      std::abs(fixture.field_of_view - 90) > 0.001F)
     return 11;
-  }
-  // 字符串需由调用方复制以便长期保存。
-  if (gneiss::result{
-          gneiss_type_registry_get_property(registry.get(), camera_type, 2U, target, &value)}
-          .failed()) {
+  // 原生快照拥有文本，不依赖 getter 后续返回值及 Registry 生命周期。
+  reflection::property_value snapshot;
+  if (reflection::read_property(registry, camera_type, gneiss::field_id{2}, target, snapshot)
+          .failed())
     return 12;
-  }
-  const std::string copied(value.payload.string_value.data, value.payload.string_value.length);
   fixture.label = "changed";
-  fixture.label_length = 7U;
-  if (gneiss::result{
-          gneiss_type_registry_get_property(registry.get(), camera_type, 2U, target, &value)}
-          .failed() ||
-      copied != "主相机" ||
-      std::string_view(value.payload.string_value.data, value.payload.string_value.length) !=
-          "changed" ||
-      registry.reset().failed() ||
-      gneiss::result{gneiss_type_registry_get_property(registry.get(), camera_type, 1U, target,
-                                                       &value)} != gneiss::result::invalid_handle) {
+  if (reflection::get_property(registry, camera_type, 2, target, value).failed() ||
+      std::get<std::string>(snapshot.payload) != "主相机" ||
+      std::get<std::string_view>(value.payload) != "changed")
     return 13;
-  }
-  return 0;
-}
-
-} // namespace
-
-int main() try {
-  camera_fixture fixture;
-  const std::array fields{gneiss_field_desc{.struct_size = sizeof(gneiss_field_desc),
-                                            .id = 1U,
-                                            .value_type_id = float_type,
-                                            .flags = 0U,
-                                            .name = "field_of_view",
-                                            .name_length = 13U},
-                          gneiss_field_desc{.struct_size = sizeof(gneiss_field_desc),
-                                            .id = 2U,
-                                            .value_type_id = string_type,
-                                            .flags = GNEISS_FIELD_FLAG_READ_ONLY,
-                                            .name = "label",
-                                            .name_length = 5U},
-                          gneiss_field_desc{.struct_size = sizeof(gneiss_field_desc),
-                                            .id = 3U,
-                                            .value_type_id = float_type,
-                                            .flags = 0U,
-                                            .name = "unbound",
-                                            .name_length = 7U},
-                          gneiss_field_desc{.struct_size = sizeof(gneiss_field_desc),
-                                            .id = 4U,
-                                            .value_type_id = float_type,
-                                            .flags = 0U,
-                                            .name = "malformed",
-                                            .name_length = 9U}};
-  const gneiss_type_desc type{.struct_size = sizeof(gneiss_type_desc),
-                              .id = camera_type,
-                              .schema_version = 1U,
-                              .name = "camera",
-                              .name_length = 6U,
-                              .fields = fields.data(),
-                              .field_count = static_cast<std::uint32_t>(fields.size())};
-  gneiss::test_support::registry_owner registry;
-  if (gneiss::result{gneiss_type_registry_create(registry.put())} != gneiss::result::success ||
-      ([&](const gneiss_type_desc& desc) {
-        return from_native(gneiss_type_registry_register(registry.get(), &desc));
-      })(type) != gneiss::result::success) {
-    return 1;
-  }
-
-  const gneiss_property_accessor_desc field_of_view{.struct_size =
-                                                        sizeof(gneiss_property_accessor_desc),
-                                                    .kind = GNEISS_PROPERTY_KIND_FLOAT32,
-                                                    .getter = get_field_of_view,
-                                                    .setter = set_field_of_view,
-                                                    .user_data = &fixture};
-  const gneiss_property_accessor_desc label{.struct_size = sizeof(gneiss_property_accessor_desc),
-                                            .kind = GNEISS_PROPERTY_KIND_STRING,
-                                            .getter = get_label,
-                                            .setter = nullptr,
-                                            .user_data = &fixture};
-  const gneiss_property_accessor_desc invalid_read_only{.struct_size =
-                                                            sizeof(gneiss_property_accessor_desc),
-                                                        .kind = GNEISS_PROPERTY_KIND_STRING,
-                                                        .getter = get_label,
-                                                        .setter = set_field_of_view,
-                                                        .user_data = &fixture};
-  const gneiss_property_accessor_desc malformed{.struct_size =
-                                                    sizeof(gneiss_property_accessor_desc),
-                                                .kind = GNEISS_PROPERTY_KIND_FLOAT32,
-                                                .getter = get_malformed,
-                                                .setter = nullptr,
-                                                .user_data = nullptr};
-  if (([&](gneiss_type_id type_id, gneiss_field_id field_id,
-           const gneiss_property_accessor_desc& desc) {
-        return from_native(
-            gneiss_type_registry_bind_property(registry.get(), type_id, field_id, &desc));
-      })(camera_type, 1U, field_of_view) != gneiss::result::success ||
-      ([&](gneiss_type_id type_id, gneiss_field_id field_id,
-           const gneiss_property_accessor_desc& desc) {
-        return from_native(
-            gneiss_type_registry_bind_property(registry.get(), type_id, field_id, &desc));
-      })(camera_type, 1U, field_of_view) != gneiss::result::success ||
-      ([&](gneiss_type_id type_id, gneiss_field_id field_id,
-           const gneiss_property_accessor_desc& desc) {
-        return from_native(
-            gneiss_type_registry_bind_property(registry.get(), type_id, field_id, &desc));
-      })(camera_type, 2U, invalid_read_only) != gneiss::result::invalid_argument ||
-      ([&](gneiss_type_id type_id, gneiss_field_id field_id,
-           const gneiss_property_accessor_desc& desc) {
-        return from_native(
-            gneiss_type_registry_bind_property(registry.get(), type_id, field_id, &desc));
-      })(camera_type, 2U, label) != gneiss::result::success ||
-      ([&](gneiss_type_id type_id, gneiss_field_id field_id,
-           const gneiss_property_accessor_desc& desc) {
-        return from_native(
-            gneiss_type_registry_bind_property(registry.get(), type_id, field_id, &desc));
-      })(camera_type, 4U, malformed) != gneiss::result::success ||
-      ([&]() { return from_native(gneiss_type_registry_freeze(registry.get())); })() !=
-          gneiss::result::success ||
-      ([&](gneiss_type_id type_id, gneiss_field_id field_id,
-           const gneiss_property_accessor_desc& desc) {
-        return from_native(
-            gneiss_type_registry_bind_property(registry.get(), type_id, field_id, &desc));
-      })(camera_type, 3U, field_of_view) != gneiss::result::invalid_state) {
-    return 2;
-  }
-
-  gneiss_field_info info{};
-  if (([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_field_info& output) {
-        output = GNEISS_FIELD_INFO_INIT;
-        return from_native(
-            gneiss_type_registry_find_field(registry.get(), type_id, field_id, &output));
-      })(camera_type, 1U, info) != gneiss::result::success ||
-      info.property_kind != GNEISS_PROPERTY_KIND_FLOAT32 ||
-      info.property_capabilities !=
-          (GNEISS_PROPERTY_CAPABILITY_READABLE | GNEISS_PROPERTY_CAPABILITY_WRITABLE)) {
-    return 3;
-  }
-
-  constexpr gneiss_property_target target{.context = 7U, .object = 11U};
-  gneiss_property_value value = GNEISS_PROPERTY_VALUE_INIT;
-  if (([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
-           gneiss_property_value& output) {
-        return from_native(
-            gneiss_type_registry_get_property(registry.get(), type_id, field_id, target, &output));
-      })(camera_type, 1U, target, value) != gneiss::result::success ||
-      value.kind != GNEISS_PROPERTY_KIND_FLOAT32 ||
-      std::abs(value.payload.float32_value - 60.0F) > 0.001F) {
-    return 4;
-  }
-  value.kind = GNEISS_PROPERTY_KIND_FLOAT32;
-  value.payload.float32_value = 90.0F;
-  if (([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
-           const gneiss_property_value& value) {
-        return from_native(
-            gneiss_type_registry_set_property(registry.get(), type_id, field_id, target, &value));
-      })(camera_type, 1U, target, value) != gneiss::result::success ||
-      std::abs(fixture.field_of_view - 90.0F) > 0.001F) {
-    return 5;
-  }
-  value.payload.float32_value = 200.0F;
-  if (([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
-           const gneiss_property_value& value) {
-        return from_native(
-            gneiss_type_registry_set_property(registry.get(), type_id, field_id, target, &value));
-      })(camera_type, 1U, target, value) != gneiss::result::invalid_argument ||
-      std::abs(fixture.field_of_view - 90.0F) > 0.001F) {
-    return 6;
-  }
-  value.payload.float32_value = std::numeric_limits<float>::quiet_NaN();
-  if (([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
-           const gneiss_property_value& value) {
-        return from_native(
-            gneiss_type_registry_set_property(registry.get(), type_id, field_id, target, &value));
-      })(camera_type, 1U, target, value) != gneiss::result::invalid_argument ||
-      std::abs(fixture.field_of_view - 90.0F) > 0.001F) {
-    return 7;
-  }
-  value.kind = GNEISS_PROPERTY_KIND_UINT64;
-  value.payload.uint64_value = 90U;
-  if (([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
-           const gneiss_property_value& value) {
-        return from_native(
-            gneiss_type_registry_set_property(registry.get(), type_id, field_id, target, &value));
-      })(camera_type, 1U, target, value) != gneiss::result::invalid_argument) {
-    return 8;
-  }
-  if (([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
-           gneiss_property_value& output) {
-        return from_native(
-            gneiss_type_registry_get_property(registry.get(), type_id, field_id, target, &output));
-      })(camera_type, 2U, target, value) != gneiss::result::success ||
-      value.kind != GNEISS_PROPERTY_KIND_STRING || value.payload.string_value.length != 9U ||
-      ([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
-           const gneiss_property_value& value) {
-        return from_native(
-            gneiss_type_registry_set_property(registry.get(), type_id, field_id, target, &value));
-      })(camera_type, 2U, target, value) != gneiss::result::unsupported ||
-      ([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
-           gneiss_property_value& output) {
-        return from_native(
-            gneiss_type_registry_get_property(registry.get(), type_id, field_id, target, &output));
-      })(camera_type, 3U, target, value) != gneiss::result::unsupported ||
-      ([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
-           gneiss_property_value& output) {
-        return from_native(
-            gneiss_type_registry_get_property(registry.get(), type_id, field_id, target, &output));
-      })(camera_type, 4U, target, value) != gneiss::result::internal ||
-      value.kind != GNEISS_PROPERTY_KIND_INVALID) {
-    return 9;
-  }
-  return verify_callback_contract(registry, fixture, target);
+  const std::weak_ptr lifetime = registry;
+  registry.reset();
+  return lifetime.expired() &&
+                 reflection::get_property(registry, camera_type, 1, target, value) ==
+                     result::invalid_handle &&
+                 std::get<std::string>(snapshot.payload) == "主相机"
+             ? 0
+             : 14;
 } catch (...) {
   return 99;
 }

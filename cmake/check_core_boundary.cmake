@@ -106,6 +106,11 @@ foreach(source IN LISTS sources)
        content MATCHES "engine/api/"))
     message(FATAL_ERROR "原生输入模块不得反向依赖输入 ABI：${source}")
   endif()
+  if(source MATCHES "/src/engine/core/reflection/" AND
+      (content MATCHES "gneiss_(type_registry|property_|field_|type_info|type_desc|type_id)" OR
+       content MATCHES "gneiss/engine/reflection[.]h|engine/values/"))
+    message(FATAL_ERROR "原生反射注册表不得依赖旧 C 属性布局、句柄表或转换层：${source}")
+  endif()
   if(source MATCHES "/src/engine/core/log/" AND
       (content MATCHES "gneiss_log_|GNEISS_LOG_" OR
        content MATCHES "gneiss/(engine/)?log[.]h" OR

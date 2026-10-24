@@ -9,7 +9,7 @@
 
 namespace gneiss::engine {
 class type_registry_state;
-/** 原生所有者或当前操作租约；销毁句柄后不得将租约用作新的公共句柄。 */
+/** 原生注册表共享所有者；最后一个引用释放时销毁，借用元数据不得超过该生命周期。 */
 using registry_ref = std::shared_ptr<type_registry_state>;
 /** 内部属性快照拥有文本，复制后可独立用于异步消息或撤销历史。 */
 struct property_value {

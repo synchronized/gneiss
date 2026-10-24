@@ -239,8 +239,7 @@ make_field(gneiss_field_id id, gneiss::engine::type_guid value_type_id, std::uin
       .kind = kind,
       .getter = getter,
       .setter = setter,
-      .getter_identity = {},
-      .setter_identity = {},
+
       .user_data = const_cast<void*>(field),
       .candidate_setter = setter == set_transform ? set_candidate_transform
                           : setter == set_camera  ? set_candidate_camera

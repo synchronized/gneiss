@@ -73,5 +73,4 @@ private:
 };
 using application_owner = c_owner<gneiss_application_destroy>;
 using world_owner = c_owner<gneiss_world_destroy>;
-using registry_owner = c_owner<gneiss_type_registry_destroy>;
 }

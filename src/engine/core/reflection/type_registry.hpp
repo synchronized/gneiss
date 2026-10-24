@@ -7,8 +7,6 @@
 #include "property_registry.hpp"
 #include <algorithm>
 #include <cstdint>
-#include <functional>
-#include <gneiss/engine/reflection.h>
 #include <memory>
 #include <span>
 #include <string_view>
@@ -18,7 +16,7 @@ namespace gneiss::engine {
 using candidate_property_setter = gneiss::engine::result (*)(void* user_data, void* candidate,
                                                              const gneiss::property_value& value);
 struct field_definition {
-  gneiss_field_id id{};
+  std::uint32_t id{};
   type_guid value_type_id{};
   std::uint32_t flags{};
   std::string_view name;
@@ -33,50 +31,33 @@ struct type_definition {
  * getter 返回的文本须至少存活到调用方完成复制，setter 的文本仅在调用期间有效。 */
 struct property_binding {
   property_kind kind = property_kind::invalid;
-  std::function<gneiss::engine::result(void*, property_target, gneiss::property_value*)> getter;
-  std::function<gneiss::engine::result(void*, property_target, const gneiss::property_value*)>
-      setter;
-  // C 边界只记录原回调身份，调用仍通过上述原生结果适配器；用于重复绑定判等。
-  gneiss_property_getter getter_identity{};
-  gneiss_property_setter setter_identity{};
+  result (*getter)(void*, property_target, gneiss::property_value*) = nullptr;
+  result (*setter)(void*, property_target, const gneiss::property_value*) = nullptr;
   void* user_data{};
   candidate_property_setter candidate_setter{};
 };
 [[nodiscard]] inline bool valid_type_id(type_guid id) noexcept { return static_cast<bool>(id); }
 /** 创建同一实现的原生对象，不注册公共 RID；失败保持原输出。 */
 [[nodiscard]] GNEISS_API gneiss::engine::result create_native(registry_ref& output) noexcept;
-[[nodiscard]] GNEISS_API registry_ref resolve(gneiss_type_registry registry);
-[[nodiscard]] GNEISS_API gneiss::engine::result
-create_type_registry(gneiss_type_registry& output) noexcept;
-[[nodiscard]] GNEISS_API gneiss::engine::result
-destroy_type_registry(gneiss_type_registry registry) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result register_type(const registry_ref& state,
                                                               const type_definition& desc) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
-bind_property(const registry_ref& state, type_guid type_id, gneiss_field_id field_id,
+bind_property(const registry_ref& state, type_guid type_id, std::uint32_t field_id,
               const property_binding& desc) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result freeze(const registry_ref& state) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result is_frozen(const registry_ref& state,
-                                                          std::uint8_t& output) noexcept;
+                                                          bool& output) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
-type_at(const registry_ref& state, std::uint32_t index, gneiss_type_info& output) noexcept;
-[[nodiscard]] GNEISS_API gneiss::engine::result find_type(const registry_ref& state, type_guid id,
-                                                          gneiss_type_info& output) noexcept;
-[[nodiscard]] GNEISS_API gneiss::engine::result find_field(const registry_ref& state,
-                                                           type_guid type_id,
-                                                           gneiss_field_id field_id,
-                                                           gneiss_field_info& output) noexcept;
-[[nodiscard]] GNEISS_API gneiss::engine::result
-get_property(const registry_ref& state, type_guid type_id, gneiss_field_id field_id,
+get_property(const registry_ref& state, type_guid type_id, std::uint32_t field_id,
              property_target target, gneiss::property_value& output) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
-set_property(const registry_ref& state, type_guid type_id, gneiss_field_id field_id,
+set_property(const registry_ref& state, type_guid type_id, std::uint32_t field_id,
              property_target target, const gneiss::property_value& value) noexcept;
 /** 不回退到运行时 setter。candidate 为字段所属类型的可写候选数据，调用期间借用。
  * 调用方独占候选，失败后丢弃整份候选；异常转换为 INTERNAL，不发送通知。
  */
 [[nodiscard]] GNEISS_API gneiss::engine::result
-set_candidate_property(const registry_ref& state, type_guid type_id, gneiss_field_id field_id,
+set_candidate_property(const registry_ref& state, type_guid type_id, std::uint32_t field_id,
                        void* candidate, const gneiss::property_value& value) noexcept;
 } // namespace gneiss::engine
 #endif

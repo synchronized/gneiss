@@ -193,32 +193,15 @@ gneiss_target_compile_warnings(gneiss_game_context_test)
 gneiss_target_output_directories(gneiss_game_context_test)
 add_test(NAME gneiss.game_context COMMAND gneiss_game_context_test)
 
-add_executable(gneiss_c_reflection_test c_reflection_test.c)
-target_link_libraries(gneiss_c_reflection_test PRIVATE gneiss::engine)
-set_target_properties(
-  gneiss_c_reflection_test
-  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
-)
-gneiss_target_compile_warnings(gneiss_c_reflection_test)
-gneiss_target_output_directories(gneiss_c_reflection_test)
-add_test(NAME gneiss.c_reflection COMMAND gneiss_c_reflection_test)
 
 add_executable(gneiss_property_access_test reflection/property_access_test.cpp)
+target_include_directories(gneiss_property_access_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_property_access_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_property_access_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_property_access_test)
 gneiss_target_output_directories(gneiss_property_access_test)
 add_test(NAME gneiss.property_access COMMAND gneiss_property_access_test)
 
-add_executable(gneiss_c_property_access_test c_property_access_test.c)
-target_link_libraries(gneiss_c_property_access_test PRIVATE gneiss::engine)
-set_target_properties(
-  gneiss_c_property_access_test
-  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
-)
-gneiss_target_compile_warnings(gneiss_c_property_access_test)
-gneiss_target_output_directories(gneiss_c_property_access_test)
-add_test(NAME gneiss.c_property_access COMMAND gneiss_c_property_access_test)
 
 add_executable(gneiss_c_render_test c_render_test.c)
 target_link_libraries(gneiss_c_render_test PRIVATE gneiss::engine)
@@ -542,6 +525,7 @@ gneiss_target_output_directories(gneiss_world_state_test)
 add_test(NAME gneiss.world_state COMMAND gneiss_world_state_test)
 
 add_executable(gneiss_component_reflection_test world/component_reflection_test.cpp)
+target_include_directories(gneiss_component_reflection_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_component_reflection_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_component_reflection_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_component_reflection_test)
@@ -1193,3 +1177,11 @@ target_link_libraries(gneiss_type_id_test PRIVATE gneiss::engine gneiss_native_i
 gneiss_target_compile_warnings(gneiss_type_id_test)
 gneiss_target_output_directories(gneiss_type_id_test)
 add_test(NAME gneiss.type_id COMMAND gneiss_type_id_test)
+
+add_executable(gneiss_type_registry_test reflection/type_registry_test.cpp)
+target_include_directories(gneiss_type_registry_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_type_registry_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_type_registry_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_type_registry_test)
+gneiss_target_output_directories(gneiss_type_registry_test)
+add_test(NAME gneiss.type_registry COMMAND gneiss_type_registry_test)

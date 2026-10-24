@@ -150,7 +150,6 @@ target_sources(
     engine/core/reflection/type_registry.cpp
     engine/core/reflection/type_registry.hpp
     engine/core/reflection/property_registry.hpp
-    engine/api/reflection_api.cpp
     engine/function/scene/scene_tree.cpp
     engine/function/scene/scene_tree.hpp
     engine/resource/loaders/prefab_asset_loader.cpp

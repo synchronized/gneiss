@@ -265,14 +265,3 @@ extern "C" gneiss_type_id gneiss_transform_type_id(void) {
   return gneiss::engine::transform_type_id();
 }
 extern "C" gneiss_type_id gneiss_camera_type_id(void) { return gneiss::engine::camera_type_id(); }
-extern "C" gneiss_result gneiss_world_register_reflection(gneiss_type_registry registry) {
-  return gneiss::engine::detail::to_c_result([&]() -> gneiss::engine::result {
-    try {
-      return gneiss::engine::register_reflection(gneiss::engine::resolve(registry));
-    } catch (const std::bad_alloc&) {
-      return gneiss::engine::result::out_of_memory;
-    } catch (...) {
-      return gneiss::engine::result::internal;
-    }
-  }());
-}
