@@ -1,204 +1,161 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/values/core/result.hpp"
-#include "engine/values/log.hpp"
-#include "engine/values/render.hpp"
-#include "engine/values/scene.hpp"
-#include "support/c_owner.hpp"
-#include <gneiss/engine/application.h>
-
+#include "runtime/application.hpp"
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
-#include <cstdint>
 #include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
 
-using namespace gneiss;
-
+using namespace gneiss::engine;
 namespace {
-
-struct capture_state final {
+struct capture_state {
   std::mutex mutex;
   std::condition_variable changed;
-  std::uint64_t count = 0U;
-  std::uint64_t previous_sequence = 0U;
-  std::string source;
-  std::string category;
-  std::string message;
-  gneiss::result operation = gneiss::result::success;
-  gneiss_result reentrant_result = GNEISS_SUCCESS;
+  std::uint64_t count{}, previous_sequence{};
+  std::string source, category, message;
+  result operation = result::success;
+  result reentrant_result = result::success;
+  gneiss::runtime::application* application{};
   bool check_reentrancy = true;
   std::atomic<bool> callback_active = false;
   std::atomic<bool> was_concurrent = false;
 };
-
-void capture(gneiss_application application, const gneiss_log_event* event, void* user_data) {
-  auto& state = *static_cast<capture_state*>(user_data);
-  if (state.callback_active.exchange(true)) {
+void capture(const event_view& event, capture_state& state) {
+  if (state.callback_active.exchange(true))
     state.was_concurrent = true;
-  }
   {
     const std::scoped_lock lock(state.mutex);
-    if (event != nullptr && event->struct_size >= GNEISS_LOG_EVENT_VERSION_1_SIZE &&
-        event->sequence > state.previous_sequence && event->timestamp_ns != 0U &&
-        event->thread_id != 0U && event->flags == 0U) {
-      state.previous_sequence = event->sequence;
-      state.source.assign(event->source, event->source_length);
-      state.category.assign(event->category, event->category_length);
-      state.message.assign(event->message, event->message_length);
-      state.operation = gneiss::from_native(event->result);
+    if (event.sequence > state.previous_sequence && event.timestamp_ns != 0 &&
+        event.thread_id != 0) {
+      state.previous_sequence = event.sequence;
+      state.source = event.message.source;
+      state.category = event.message.category;
+      state.message = event.message.message;
+      state.operation = event.message.result;
       ++state.count;
     }
-    if (state.check_reentrancy && state.count == 1U) {
-      const auto nested = gneiss::to_native(
-          gneiss::make_log_message(gneiss::log_severity::debug, "test", "nested"));
-      state.reentrant_result = gneiss_application_log(application, &nested);
+    if (state.check_reentrancy && state.count == 1 && state.application) {
+      state.reentrant_result = state.application->submit_log(
+          {.severity = level::debug, .category = "test", .message = "nested"});
     }
   }
   state.callback_active = false;
   state.changed.notify_all();
 }
-
-void throwing_capture(gneiss_application, const gneiss_log_event*, void* user_data) {
-  ++*static_cast<std::uint32_t*>(user_data);
-  throw 1;
 }
 
-} // namespace
-
 int main() {
-  capture_state state;
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.user_data = &state;
-  desc.log = capture;
-  gneiss_application application = GNEISS_NULL_APPLICATION;
-  if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS) {
+  // 接收状态先于 Application 构造，失败提前返回时也能安全排空日志。
+  capture_state state, owned_capture, empty_capture;
+  std::uint32_t throwing_calls{};
+  gneiss::runtime::application_configuration config;
+  config.callbacks.log = [&](const event_view& event) { capture(event, state); };
+  std::shared_ptr<gneiss::runtime::application> application;
+  if (gneiss::runtime::application::create(config, application).failed())
     return 1;
-  }
-
-  std::string category = "game";
-  std::string text = "ready";
-  auto first =
-      gneiss::to_native(gneiss::make_log_message(gneiss::log_severity::info, category, text));
-  if (gneiss_application_log(application, &first) != GNEISS_SUCCESS) {
+  state.application = application.get();
+  std::string category = "game", text = "ready";
+  if (application->submit_log({.source = "application", .category = category, .message = text})
+          .failed())
     return 2;
-  }
   category.assign("changed");
   text.assign("changed");
   {
     std::unique_lock lock(state.mutex);
-    if (!state.changed.wait_for(lock, std::chrono::seconds(2),
-                                [&state] { return state.count >= 1U; })) {
+    if (!state.changed.wait_for(lock, std::chrono::seconds(2), [&] { return state.count >= 1; }))
       return 3;
-    }
     if (state.source != "application" || state.category != "game" || state.message != "ready" ||
-        state.reentrant_result != GNEISS_ERROR_INVALID_STATE) {
+        state.reentrant_result != result::invalid_state)
       return 4;
-    }
   }
-
-  constexpr std::uint32_t thread_count = 4U;
-  constexpr std::uint32_t messages_per_thread = 16U;
+  constexpr std::uint32_t thread_count = 4, messages_per_thread = 16;
   std::vector<std::thread> threads;
-  for (std::uint32_t thread_index = 0U; thread_index < thread_count; ++thread_index) {
+  for (std::uint32_t i = 0; i < thread_count; ++i) {
     threads.emplace_back([application] {
-      const auto message = gneiss::to_native(
-          gneiss::make_log_message(gneiss::log_severity::debug, "worker", "tick"));
-      for (std::uint32_t index = 0U; index < messages_per_thread; ++index) {
-        if (gneiss_application_log(application, &message) != GNEISS_SUCCESS) {
+      for (std::uint32_t j = 0; j < messages_per_thread; ++j) {
+        if (application
+                ->submit_log({.severity = level::debug, .category = "worker", .message = "tick"})
+                .failed())
           return;
-        }
       }
     });
   }
-  for (auto& thread : threads) {
+  for (auto& thread : threads)
     thread.join();
-  }
   const auto expected = UINT64_C(1) + thread_count * messages_per_thread;
   {
     std::unique_lock lock(state.mutex);
     if (!state.changed.wait_for(lock, std::chrono::seconds(2),
-                                [&state] { return state.count >= expected; })) {
+                                [&] { return state.count >= expected; }))
       return 5;
-    }
-    if (state.count != expected || state.previous_sequence != expected || state.was_concurrent) {
+    if (state.count != expected || state.previous_sequence != expected || state.was_concurrent)
       return 6;
-    }
   }
-  if (gneiss_application_destroy(application) != GNEISS_SUCCESS ||
-      gneiss_application_log(application, &first) != GNEISS_ERROR_INVALID_HANDLE) {
+  if (application->shutdown(0).failed())
     return 7;
-  }
+  application.reset();
 
-  desc = GNEISS_APPLICATION_DESC_INIT;
-  if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS ||
-      gneiss_application_log(application, &first) != GNEISS_SUCCESS ||
-      gneiss_application_destroy(application) != GNEISS_SUCCESS) {
+  // 无回调时仍执行消息校验；有效日志允许无接收方。
+  config = {};
+  if (gneiss::runtime::application::create(config, application).failed() ||
+      application->submit_log({.category = "test", .message = "ready"}).failed() ||
+      application->submit_log({}) != result::invalid_argument ||
+      application->submit_log({.severity = static_cast<level>(0xffffffffU), .category = "test"}) !=
+          result::invalid_argument ||
+      application->submit_log({.category = "test", .message = "\xC0\x80"}) !=
+          result::invalid_argument ||
+      application->shutdown(0).failed())
     return 8;
-  }
-  // Application 适配器不得提前 noexcept 终止，关闭时必须等待两个事件处理完。
-  std::uint32_t throwing_calls{};
-  desc.log = throwing_capture;
-  desc.user_data = &throwing_calls;
-  const auto throwing_message =
-      gneiss::to_native(gneiss::make_log_message(gneiss::log_severity::info, "test", "throw"));
-  if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS ||
-      gneiss_application_log(application, &throwing_message) != GNEISS_SUCCESS ||
-      gneiss_application_log(application, &throwing_message) != GNEISS_SUCCESS ||
-      gneiss_application_destroy(application) != GNEISS_SUCCESS || throwing_calls != 2U) {
+  application.reset();
+
+  // 接收方异常不穿出消费线程；销毁投递器时排空已接受消息。
+  config.callbacks.log = [&](const event_view&) {
+    ++throwing_calls;
+    throw 1;
+  };
+  if (gneiss::runtime::application::create(config, application).failed() ||
+      application->submit_log({.category = "test", .message = "throw"}).failed() ||
+      application->submit_log({.category = "test", .message = "throw"}).failed() ||
+      application->shutdown(0).failed())
     return 9;
-  }
-  // C++ 拥有者允许工作线程提交日志，关闭等待回调结束；不并发修改拥有者本身。
-  capture_state owned_capture;
-  // 关闭排空期间句柄可先失效；重入拒绝已在上面的存活期用例验证。
+  application.reset();
+  if (throwing_calls != 2)
+    return 9;
+
   owned_capture.check_reentrancy = false;
-  desc.log = capture;
-  desc.user_data = &owned_capture;
-  gneiss::test_support::application_owner owned;
-  if (gneiss::result{gneiss_application_create(&desc, owned.put())}.failed()) {
+  config.callbacks.log = [&](const event_view& event) { capture(event, owned_capture); };
+  if (gneiss::runtime::application::create(config, application).failed())
     return 10;
-  }
-  gneiss::result submitted;
+  result submitted;
   std::thread worker([&] {
     const std::string transient = "owned worker";
-    submitted = ([&](const log_message& message) {
-      const auto native = to_native(message);
-      return from_native(gneiss_application_log(owned.get(), &native));
-    })({.severity = gneiss::log_severity::warning,
-        .category = "cpp",
-        .message = transient,
-        .operation = gneiss::result::not_ready});
+    submitted = application->submit_log({.severity = level::warning,
+                                         .category = "cpp",
+                                         .message = transient,
+                                         .result = result::not_ready});
   });
   worker.join();
-  if (submitted.failed() || owned.reset().failed()) {
+  if (submitted.failed() || application->shutdown(0).failed())
     return 11;
-  }
-  const std::scoped_lock lock(owned_capture.mutex);
-  if (owned_capture.count != 1U || owned_capture.message != "owned worker" ||
-      owned_capture.category != "cpp" || owned_capture.operation != gneiss::result::not_ready ||
-      owned_capture.callback_active || owned_capture.was_concurrent) {
+  application.reset();
+  if (owned_capture.count != 1 || owned_capture.message != "owned worker" ||
+      owned_capture.category != "cpp" || owned_capture.operation != result::not_ready ||
+      owned_capture.callback_active || owned_capture.was_concurrent)
     return 12;
-  }
-  capture_state empty_capture;
+
   empty_capture.check_reentrancy = false;
-  desc.user_data = &empty_capture;
-  if (gneiss::result{gneiss_application_create(&desc, owned.put())}.failed() ||
-      ([&](const log_message& message) {
-        const auto native = to_native(message);
-        return from_native(gneiss_application_log(owned.get(), &native));
-      })(gneiss::make_log_message(gneiss::log_severity::info, "empty", {}))
-          .failed() ||
-      owned.reset().failed()) {
+  config.callbacks.log = [&](const event_view& event) { capture(event, empty_capture); };
+  if (gneiss::runtime::application::create(config, application).failed() ||
+      application->submit_log({.source = "application", .category = "empty"}).failed() ||
+      application->shutdown(0).failed())
     return 13;
-  }
-  const std::scoped_lock empty_lock(empty_capture.mutex);
-  if (empty_capture.count != 1U || !empty_capture.message.empty() ||
-      empty_capture.category != "empty" || empty_capture.source != "application") {
+  application.reset();
+  if (empty_capture.count != 1 || !empty_capture.message.empty() ||
+      empty_capture.category != "empty" || empty_capture.source != "application")
     return 14;
-  }
   return 0;
 }

@@ -4,6 +4,7 @@
 #include "runtime/application.hpp"
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
+#include "engine/core/log/log.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/input/input_service.hpp"
 #include "engine/function/render/render_executor.hpp"
@@ -608,7 +609,7 @@ void application::report(gneiss_application handle, gneiss::engine::severity sev
 
 gneiss::engine::result
 application::submit_log(const gneiss::engine::message_view& message) noexcept {
-  return storage_->log_dispatcher_ == nullptr ? gneiss::engine::result::success
+  return storage_->log_dispatcher_ == nullptr ? gneiss::engine::validate_message(message)
                                               : storage_->log_dispatcher_->submit(message);
 }
 

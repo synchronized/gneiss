@@ -1,49 +1,44 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/values/log.hpp"
+#include "engine/core/log/log.hpp"
+#include "engine/core/log/log_dispatcher.hpp"
 
 #include <type_traits>
 
 int main() {
-  using gneiss::result;
-  constexpr auto message = gneiss::make_log_message(gneiss::log_severity::warning, "game",
-                                                    "状态变化", result::not_ready);
-  static_assert(!std::is_same_v<decltype(message), const gneiss_log_message>);
-  static_assert(message.severity == gneiss::log_severity::warning);
-  static_assert(message.operation == result::not_ready);
+  using gneiss::engine::result;
+  constexpr gneiss::engine::message_view message{.severity = gneiss::engine::level::warning,
+                                                 .category = "game",
+                                                 .message = "状态变化",
+                                                 .result = result::not_ready};
+  static_assert(message.severity == gneiss::engine::level::warning);
+  static_assert(message.result == result::not_ready);
   static_assert(message.category == "game");
-  if (gneiss::validate_log_message(message).failed()) {
+  if (gneiss::engine::validate_message(message).failed()) {
     return 1;
   }
-  gneiss::log_message value{};
-  if (value.severity != gneiss::log_severity::info || value.operation != result::success ||
-      gneiss::validate_log_message(value) != result::invalid_argument) {
+  gneiss::engine::message_view value{};
+  if (value.severity != gneiss::engine::level::info || value.result != result::success ||
+      gneiss::engine::validate_message(value) != result::invalid_argument) {
     return 2;
   }
   value.category = "test";
-  if (gneiss::validate_log_message(value).failed()) {
+  if (gneiss::engine::validate_message(value).failed()) {
     return 3;
   }
-  value.severity = static_cast<gneiss::log_severity>(0xffffffffU);
-  if (gneiss::validate_log_message(value) != result::invalid_argument) {
+  value.severity = static_cast<gneiss::engine::level>(0xffffffffU);
+  if (gneiss::engine::validate_message(value) != result::invalid_argument) {
     return 4;
   }
-  value.severity = gneiss::log_severity::info;
+  value.severity = gneiss::engine::level::info;
   value.message = "\xC0\x80";
-  if (gneiss::validate_log_message(value) != result::invalid_argument) {
+  if (gneiss::engine::validate_message(value) != result::invalid_argument) {
     return 5;
   }
   value.message = "有效文本";
-  if (gneiss::validate_log_message(value).failed()) {
+  if (gneiss::engine::validate_message(value).failed()) {
     return 6;
-  }
-  // 显式转换只借用，不补建字符串缓存或改变结果码。
-  const auto native = gneiss::to_native(message);
-  if (native.category != message.category.data() || native.message != message.message.data() ||
-      native.result != message.operation.code() || native.flags != 0U || native.reserved[0] != 0U ||
-      native.reserved[1] != 0U) {
-    return 7;
   }
   return 0;
 }

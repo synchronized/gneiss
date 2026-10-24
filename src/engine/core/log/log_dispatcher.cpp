@@ -55,8 +55,7 @@ gneiss::engine::result log_dispatcher::submit(const message_view& message) noexc
   if (is_in_log_callback) {
     return gneiss::engine::result::invalid_state;
   }
-  if (message.severity < level::trace || message.severity > level::fatal ||
-      !valid_text(message.category, message.message)) {
+  if (validate_message(message).failed()) {
     return gneiss::engine::result::invalid_argument;
   }
   try {

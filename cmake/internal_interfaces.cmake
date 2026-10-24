@@ -5,7 +5,6 @@ include(internal_headers)
 # SDK 撤销期间的仓内共享值及转换辅助，不安装、不暴露实现目录。
 gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/result.hpp
-  engine/values/log.hpp
   engine/values/reflection.hpp
   engine/values/render.hpp
   engine/values/scene.hpp

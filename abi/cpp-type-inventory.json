@@ -480,13 +480,13 @@
         {
           "symbol": "gneiss_log_message",
           "kind": "struct",
-          "cpp_mapping": "gneiss::log_message",
+          "cpp_mapping": "gneiss::engine::message_view",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_log_severity",
           "kind": "scalar",
-          "cpp_mapping": "gneiss::log_severity",
+          "cpp_mapping": "gneiss::engine::level",
           "native_review": "implemented"
         },
         {
@@ -521,27 +521,27 @@
         {
           "symbol": "GNEISS_LOG_DEBUG",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::log_severity::debug"
+          "cpp_mapping": "gneiss::engine::level::debug"
         },
         {
           "symbol": "GNEISS_LOG_ERROR",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::log_severity::error"
+          "cpp_mapping": "gneiss::engine::level::error"
         },
         {
           "symbol": "GNEISS_LOG_FATAL",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::log_severity::fatal"
+          "cpp_mapping": "gneiss::engine::level::fatal"
         },
         {
           "symbol": "GNEISS_LOG_INFO",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::log_severity::info"
+          "cpp_mapping": "gneiss::engine::level::info"
         },
         {
           "symbol": "GNEISS_LOG_MESSAGE_INIT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::log_message{}（默认 category 为空，提交前必须设置）"
+          "cpp_mapping": "gneiss::engine::message_view{}（默认 category 为空，提交前必须设置）"
         },
         {
           "symbol": "GNEISS_LOG_MESSAGE_VERSION_1_SIZE",
@@ -551,12 +551,12 @@
         {
           "symbol": "GNEISS_LOG_TRACE",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::log_severity::trace"
+          "cpp_mapping": "gneiss::engine::level::trace"
         },
         {
           "symbol": "GNEISS_LOG_WARNING",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::log_severity::warning"
+          "cpp_mapping": "gneiss::engine::level::warning"
         },
         {
           "symbol": "GNEISS_TRANSFORM_IDENTITY",
@@ -1293,7 +1293,7 @@
         {
           "symbol": "gneiss_log_event",
           "kind": "struct",
-          "cpp_mapping": "gneiss::log_event（回调期借用字符串）",
+          "cpp_mapping": "gneiss::engine::event_view（回调期借用字符串）",
           "native_review": "implemented"
         }
       ],

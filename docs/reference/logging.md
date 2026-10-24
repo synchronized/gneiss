@@ -31,7 +31,7 @@
   关闭排空期间传入的 Application 句柄可能已失效，接收方只应消费事件。
 - 没有设置回调时，有效消息返回成功但不会写入文件或标准流。
 - Application 销毁不能与日志提交并发；宿主应先停止生产者，再销毁 Application。
-- C++ `application::log` 遵循同一契约；工作线程提交期间不能移动或重置同一个拥有者。
+- 原生 `application::submit_log` 允许工作线程提交；调用方必须先停止并等待提交线程，再关闭或释放 Application。
   `reset()` 关闭前排空已接收事件，回调及 `user_data` 必须存活至关闭返回。
 
 Application 入口的可信来源固定为 `application`。Game Module 使用
@@ -62,30 +62,28 @@ Application 已识别的运行时诊断会在调用原有诊断回调后转换�
 `gneiss_log_message_validate` 检查结构版本、严重级别、字符串边界、UTF-8 编码和保留字段。该函数
 线程安全，不保存传入结构或字符串。它只验证消息描述，不提交、排队或写出日志。
 
-## C++ 日志提交
+## 原生 C++ 日志提交
 
-`gneiss::log_message` 是独立 C++ 描述，包含 severity、category、message 和 operation；默认级别
-为 info、结果为 success。分类必须非空，消息允许为空。字符串通过 string_view 借用到同步提交
-返回，不因复制描述而延长寿命。提交成功后 Engine 已复制文本，调用方可释放原字符串。
+内部只使用 `gneiss::engine::message_view` 和 `event_view`。消息默认级别为 info、结果为 success；
+分类必须非空，消息允许为空。字符串通过 string_view 借用到同步提交返回；投递器复制文本后入队。
+原生 Application 无日志回调时仍校验消息，合法消息直接返回成功，不创建投递队列。
 
 ```cpp
-gneiss::log_message message{
-    .severity = gneiss::log_severity::warning,
-    .category = "assets",
+const auto status = application.submit_log({
+    .severity = gneiss::engine::level::warning,
+    .source = "assets",
+    .category = "loading",
     .message = "资源尚未就绪",
-    .operation = gneiss::result::not_ready,
-};
-const auto native = gneiss::to_native(message);
-const auto status = gneiss::from_native(gneiss_application_log(application, &native));
+    .result = gneiss::engine::result::not_ready,
+});
 ```
 
-其中 application 是有效的 C Application 句柄；Game Context 的 C 日志入口使用同一 C 描述。
-`make_log_message` 也返回该 C++ 类型；`validate_log_message` 复用 C 校验，非法枚举、空分类或非法
-UTF-8 返回 invalid_argument。包装隐藏 struct_size、flags 和保留字段，不增加运行时日志状态。
+其中 application 是有效的原生 Application 对象。内部调用方填写来源，C API/游戏模块边界仍负责
+绑定可信来源。接收回调使用 `event_view`，其文本只在回调期间有效。
 
-`to_native(message)` 得到的 C 描述仍借用相同字符串，不可在文本失效后使用。
-公共 C++ 头只提供值类型和无状态辅助函数，不提供 Application 对象 SDK。
+消息级别和 UTF-8 规则集中在 `engine::validate_message`。C API 先检查结构尺寸、指针与长度、
+保留字段，再转为原生视图复用校验；内部调用不绕行 C API。
+旧 `log_message`、`log_event`、`log_severity` 包装和构造/转换辅助已删除，不安装公共 C++ 日志头。
 
-src 内部通过 `application::submit_log` 提交 `engine::message_view`，其中 `result`
-使用 `engine::result`。内部接收回调使用 `event_view`，C API 在边界转换消息和事件；
-详细结果类型约束见 [Core 结果接口](core.md)。
+原生 `shutdown` 关闭运行服务；日志投递器在 Application 释放时排空并等待消费线程结束。
+关闭期间的内部诊断仍可入队，因此须在释放 Application 前保持接收回调捕获的对象有效。

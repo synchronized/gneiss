@@ -94,7 +94,6 @@ target_sources(
     engine/core/result.hpp
     engine/api/result_conversion.hpp
     engine/core/version.hpp
-    engine/values/log.hpp
     engine/values/reflection.hpp
     engine/values/render.hpp
     engine/values/scene.hpp

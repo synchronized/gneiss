@@ -7,7 +7,6 @@
 #include "runtime/application_registry.hpp"
 
 #include "engine/values/core/result.hpp"
-#include "engine/values/log.hpp"
 #include "engine/values/render.hpp"
 #include "engine/values/scene.hpp"
 #include "engine/values/world.hpp"

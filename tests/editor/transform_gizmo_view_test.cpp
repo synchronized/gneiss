@@ -7,7 +7,6 @@
 #include "viewport/transform_gizmo_view.hpp"
 
 #include "engine/values/core/result.hpp"
-#include "engine/values/log.hpp"
 #include "engine/values/render.hpp"
 #include "engine/values/scene.hpp"
 #include <gneiss/engine/application.h>

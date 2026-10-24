@@ -41,7 +41,6 @@ log_message_view(const gneiss_log_message& message) noexcept {
 [[nodiscard]] inline gneiss::engine::result
 validate_log_message(const gneiss_log_message* message) noexcept {
   if (message == nullptr || message->struct_size < GNEISS_LOG_MESSAGE_VERSION_1_SIZE ||
-      message->severity < GNEISS_LOG_TRACE || message->severity > GNEISS_LOG_FATAL ||
       message->category == nullptr || message->category_length == 0U || message->flags != 0U ||
       (message->message == nullptr && message->message_length != 0U) ||
       message->category_length > std::numeric_limits<std::size_t>::max() ||
@@ -49,14 +48,7 @@ validate_log_message(const gneiss_log_message* message) noexcept {
       std::ranges::any_of(message->reserved, [](std::uint64_t value) { return value != 0U; })) {
     return gneiss::engine::result::invalid_argument;
   }
-  const std::string_view category(message->category,
-                                  static_cast<std::size_t>(message->category_length));
-  const auto text =
-      message->message_length == 0U
-          ? std::string_view{}
-          : std::string_view(message->message, static_cast<std::size_t>(message->message_length));
-  return gneiss::engine::valid_text(category, text) ? gneiss::engine::result::success
-                                                    : gneiss::engine::result::invalid_argument;
+  return gneiss::engine::validate_message(log_message_view(*message));
 }
 } // namespace gneiss::engine::detail
 
