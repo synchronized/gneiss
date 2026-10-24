@@ -491,7 +491,7 @@ gneiss::engine::result apply_candidate_object(const gneiss::engine::registry_ref
   };
   if (is_type(gneiss::engine::transform_type_id())) {
     auto transform = to_transform(object);
-    result = gneiss::engine::set_candidate_property(state, gneiss::to_native(value.key.type_id),
+    result = gneiss::engine::set_candidate_property(state, value.key.type_id,
                                                     value.key.field_id.get(), &transform, native);
     if (result != gneiss::engine::result::success) {
       return result;
@@ -509,7 +509,7 @@ gneiss::engine::result apply_candidate_object(const gneiss::engine::registry_ref
         .near_plane = camera.near_plane,
         .far_plane = camera.far_plane,
     };
-    result = gneiss::engine::set_candidate_property(state, gneiss::to_native(value.key.type_id),
+    result = gneiss::engine::set_candidate_property(state, value.key.type_id,
                                                     value.key.field_id.get(), &settings, native);
     if (result != gneiss::engine::result::success) {
       return result;
@@ -595,7 +595,7 @@ gneiss::engine::result prefab_runtime_instance::apply_overrides(
     if (result == gneiss::engine::result::success) {
       const gneiss_property_target target{.context = reflection_context_, .object = found->entity};
       result = gneiss::engine::set_property(
-          gneiss::engine::resolve(registry), gneiss::to_native(override_value.key.type_id),
+          gneiss::engine::resolve(registry), override_value.key.type_id,
           override_value.key.field_id.get(), target, native_value);
     }
     if (result != gneiss::engine::result::success) {

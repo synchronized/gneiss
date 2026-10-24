@@ -43,8 +43,8 @@ bool native_values() {
   gneiss::engine::registry_ref registry;
   const gneiss_type_id id{{7}};
   const gneiss::engine::type_guid native_id{gneiss::engine::guid::from_bytes({7})};
-  const std::array fields{
-      gneiss::engine::field_definition{.id = 1, .value_type_id = id, .flags = 0, .name = "text"}};
+  const std::array fields{gneiss::engine::field_definition{
+      .id = 1, .value_type_id = gneiss::from_native(id), .flags = 0, .name = "text"}};
   std::string text = "初始文本";
   const gneiss::engine::property_binding binding{
       .kind = GNEISS_PROPERTY_KIND_STRING,
@@ -64,10 +64,13 @@ bool native_values() {
           },
       .user_data = &text};
   if (gneiss::engine::create_native(registry) != gneiss::engine::result::success ||
-      gneiss::engine::register_type(
-          registry, {.id = id, .schema_version = 1, .name = "sample", .fields = fields}) !=
+      gneiss::engine::register_type(registry, {.id = gneiss::from_native(id),
+                                               .schema_version = 1,
+                                               .name = "sample",
+                                               .fields = fields}) !=
           gneiss::engine::result::success ||
-      gneiss::engine::bind_property(registry, id, 1, binding) != gneiss::engine::result::success) {
+      gneiss::engine::bind_property(registry, gneiss::from_native(id), 1, binding) !=
+          gneiss::engine::result::success) {
     return false;
   }
   gneiss::field_info field{.id = gneiss::field_id{99}, .name = "旧字段"};
@@ -167,21 +170,23 @@ int main() try {
   const std::array fields{
       gneiss::engine::field_definition{
           .id = 1U,
-          .value_type_id = type_id,
+          .value_type_id = gneiss::from_native(type_id),
           .flags = 0U,
           .name = "value",
       },
-      gneiss::engine::field_definition{
-          .id = 2U, .value_type_id = type_id, .flags = 0U, .name = "candidate"},
+      gneiss::engine::field_definition{.id = 2U,
+                                       .value_type_id = gneiss::from_native(type_id),
+                                       .flags = 0U,
+                                       .name = "candidate"},
   };
   const gneiss::engine::type_definition definition{
-      .id = type_id,
+      .id = gneiss::from_native(type_id),
       .schema_version = 1U,
       .name = name,
       .fields = fields,
   };
   if (gneiss::engine::register_type(state, definition) != gneiss::engine::result::success ||
-      gneiss::engine::bind_property(state, type_id, 1U,
+      gneiss::engine::bind_property(state, gneiss::from_native(type_id), 1U,
                                     {.kind = GNEISS_PROPERTY_KIND_FLOAT32,
                                      .getter = throwing_getter,
                                      .setter = set_runtime}) != gneiss::engine::result::success) {
@@ -198,12 +203,12 @@ int main() try {
   gneiss_property_value proposed = GNEISS_PROPERTY_VALUE_INIT;
   proposed.kind = GNEISS_PROPERTY_KIND_FLOAT32;
   proposed.payload.float32_value = 2;
-  if (gneiss::engine::bind_property(state, type_id, 2U, candidate_binding) !=
+  if (gneiss::engine::bind_property(state, gneiss::from_native(type_id), 2U, candidate_binding) !=
           gneiss::engine::result::success ||
-      gneiss::engine::bind_property(state, type_id, 2U, candidate_binding) !=
+      gneiss::engine::bind_property(state, gneiss::from_native(type_id), 2U, candidate_binding) !=
           gneiss::engine::result::success ||
-      gneiss::engine::set_candidate_property(state, type_id, 2U, &candidate, proposed) !=
-          gneiss::engine::result::not_ready) {
+      gneiss::engine::set_candidate_property(state, gneiss::from_native(type_id), 2U, &candidate,
+                                             proposed) != gneiss::engine::result::not_ready) {
     return 11;
   }
   name.assign("changed");
@@ -217,34 +222,37 @@ int main() try {
       std::string_view(info.name, info.name_length) != "sample" || info.field_count != 2U) {
     return 4;
   }
-  if (gneiss::engine::set_candidate_property(state, type_id, 1U, &candidate, proposed) !=
-          gneiss::engine::result::unsupported ||
-      gneiss::engine::set_candidate_property(state, type_id, 2U, nullptr, proposed) !=
+  if (gneiss::engine::set_candidate_property(state, gneiss::from_native(type_id), 1U, &candidate,
+                                             proposed) != gneiss::engine::result::unsupported ||
+      gneiss::engine::set_candidate_property(state, gneiss::from_native(type_id), 2U, nullptr,
+                                             proposed) !=
           gneiss::engine::result::invalid_argument ||
-      gneiss::engine::set_candidate_property(state, type_id, 2U, &candidate, proposed) !=
-          gneiss::engine::result::success ||
+      gneiss::engine::set_candidate_property(state, gneiss::from_native(type_id), 2U, &candidate,
+                                             proposed) != gneiss::engine::result::success ||
       candidate != 2 ||
-      gneiss::engine::set_property(state, type_id, 2U, {}, proposed) !=
+      gneiss::engine::set_property(state, gneiss::from_native(type_id), 2U, {}, proposed) !=
           gneiss::engine::result::unsupported ||
-      gneiss::engine::bind_property(state, type_id, 2U, candidate_binding) !=
+      gneiss::engine::bind_property(state, gneiss::from_native(type_id), 2U, candidate_binding) !=
           gneiss::engine::result::invalid_state) {
     return 12;
   }
   proposed.payload.float32_value = -1;
-  if (gneiss::engine::set_candidate_property(state, type_id, 2U, &candidate, proposed) !=
+  if (gneiss::engine::set_candidate_property(state, gneiss::from_native(type_id), 2U, &candidate,
+                                             proposed) !=
           gneiss::engine::result::invalid_argument ||
       candidate != 2) {
     return 13;
   }
   proposed.payload.float32_value = 99;
-  if (gneiss::engine::set_candidate_property(state, type_id, 2U, &candidate, proposed) !=
-          gneiss::engine::result::internal ||
+  if (gneiss::engine::set_candidate_property(state, gneiss::from_native(type_id), 2U, &candidate,
+                                             proposed) != gneiss::engine::result::internal ||
       candidate != 2) {
     return 14;
   }
   proposed.kind = GNEISS_PROPERTY_KIND_BOOL;
   proposed.payload.bool_value = 1;
-  if (gneiss::engine::set_candidate_property(state, type_id, 2U, &candidate, proposed) !=
+  if (gneiss::engine::set_candidate_property(state, gneiss::from_native(type_id), 2U, &candidate,
+                                             proposed) !=
           gneiss::engine::result::invalid_argument ||
       runtime_writes != 0 || candidate != 2) {
     return 15;

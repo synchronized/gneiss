@@ -4,6 +4,7 @@
 #include "engine/core/reflection/type_registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/function/world/world_reflection.hpp"
 #include "engine/function/world/world_service.hpp"
 
 #include <array>
@@ -262,14 +263,14 @@ int main() {
   proposed.kind = GNEISS_PROPERTY_KIND_VEC3;
   proposed.payload.vec3_value = {2, 3, 4};
   if (gneiss::engine::set_candidate_property(
-          reflection, service::transform_type_id(), GNEISS_TRANSFORM_FIELD_TRANSLATION,
+          reflection, service::transform_property_type(), GNEISS_TRANSFORM_FIELD_TRANSLATION,
           &candidate_transform, proposed) != gneiss::engine::result::success ||
       candidate_transform.translation[0] != 2) {
     return 15;
   }
   proposed.payload.vec3_value = {0, 1, 1};
   if (gneiss::engine::set_candidate_property(
-          reflection, service::transform_type_id(), GNEISS_TRANSFORM_FIELD_SCALE,
+          reflection, service::transform_property_type(), GNEISS_TRANSFORM_FIELD_SCALE,
           &candidate_transform, proposed) != gneiss::engine::result::invalid_argument ||
       candidate_transform.scale[0] != 1) {
     return 16;
@@ -277,13 +278,13 @@ int main() {
   service::camera_settings candidate_camera{1, 10, 20};
   proposed.kind = GNEISS_PROPERTY_KIND_FLOAT32;
   proposed.payload.float32_value = 30;
-  if (gneiss::engine::set_candidate_property(reflection, service::camera_type_id(),
+  if (gneiss::engine::set_candidate_property(reflection, service::camera_property_type(),
                                              GNEISS_CAMERA_FIELD_NEAR_PLANE, &candidate_camera,
                                              proposed) != gneiss::engine::result::success) {
     return 17;
   }
   proposed.payload.float32_value = 40;
-  if (gneiss::engine::set_candidate_property(reflection, service::camera_type_id(),
+  if (gneiss::engine::set_candidate_property(reflection, service::camera_property_type(),
                                              GNEISS_CAMERA_FIELD_FAR_PLANE, &candidate_camera,
                                              proposed) != gneiss::engine::result::success ||
       candidate_camera.near_plane != 30 || candidate_camera.far_plane != 40 ||

@@ -4,6 +4,7 @@
 #include "engine/api/result_conversion.hpp"
 #include "engine/core/reflection/type_registry.hpp"
 #include "engine/core/result.hpp"
+#include "engine/values/detail/reflection_values.hpp"
 #include <gneiss/engine/reflection.h>
 #include <new>
 #include <vector>
@@ -63,13 +64,13 @@ extern "C" gneiss_result gneiss_type_registry_register(gneiss_type_registry regi
         const auto& field = desc->fields[index];
         fields.push_back({
             .id = field.id,
-            .value_type_id = field.value_type_id,
+            .value_type_id = gneiss::from_native(field.value_type_id),
             .flags = field.flags,
             .name = {field.name, field.name_length},
         });
       }
       return gneiss::engine::register_type(state, {
-                                                      .id = desc->id,
+                                                      .id = gneiss::from_native(desc->id),
                                                       .schema_version = desc->schema_version,
                                                       .name = {desc->name, desc->name_length},
                                                       .fields = fields,
@@ -88,8 +89,8 @@ gneiss_type_registry_bind_property(gneiss_type_registry registry, gneiss_type_id
                                    const gneiss_property_accessor_desc* desc) {
   return gneiss::engine::detail::to_c_result([&]() -> gneiss::engine::result {
     try {
-      if (!gneiss::engine::valid_type_id(type_id) || field_id == GNEISS_NULL_FIELD_ID ||
-          desc == nullptr) {
+      if (!gneiss::engine::valid_type_id(gneiss::from_native(type_id)) ||
+          field_id == GNEISS_NULL_FIELD_ID || desc == nullptr) {
         return gneiss::engine::result::invalid_argument;
       }
       const auto state = gneiss::engine::resolve(registry);
@@ -115,7 +116,7 @@ gneiss_type_registry_bind_property(gneiss_type_registry registry, gneiss_type_id
           return gneiss::engine::detail::from_c_result(fn(data, target, value));
         };
       }
-      return gneiss::engine::bind_property(state, type_id, field_id, binding);
+      return gneiss::engine::bind_property(state, gneiss::from_native(type_id), field_id, binding);
     } catch (const std::bad_alloc&) {
       return gneiss::engine::result::out_of_memory;
     } catch (...) {
@@ -202,13 +203,14 @@ extern "C" gneiss_result gneiss_type_registry_find_type(gneiss_type_registry reg
   return gneiss::engine::detail::to_c_result([&]() -> gneiss::engine::result {
     try {
       if (out_type == nullptr || out_type->struct_size < GNEISS_TYPE_INFO_VERSION_1_SIZE ||
-          !gneiss::engine::valid_type_id(id)) {
+          !gneiss::engine::valid_type_id(gneiss::from_native(id))) {
         return gneiss::engine::result::invalid_argument;
       }
       *out_type = GNEISS_TYPE_INFO_INIT;
       const auto state = gneiss::engine::resolve(registry);
-      return state == nullptr ? gneiss::engine::result::invalid_handle
-                              : gneiss::engine::find_type(state, id, *out_type);
+      return state == nullptr
+                 ? gneiss::engine::result::invalid_handle
+                 : gneiss::engine::find_type(state, gneiss::from_native(id), *out_type);
     } catch (const std::bad_alloc&) {
       return gneiss::engine::result::out_of_memory;
     } catch (...) {
@@ -224,13 +226,15 @@ extern "C" gneiss_result gneiss_type_registry_find_field(gneiss_type_registry re
   return gneiss::engine::detail::to_c_result([&]() -> gneiss::engine::result {
     try {
       if (out_field == nullptr || out_field->struct_size < GNEISS_FIELD_INFO_VERSION_1_SIZE ||
-          !gneiss::engine::valid_type_id(type_id) || field_id == GNEISS_NULL_FIELD_ID) {
+          !gneiss::engine::valid_type_id(gneiss::from_native(type_id)) ||
+          field_id == GNEISS_NULL_FIELD_ID) {
         return gneiss::engine::result::invalid_argument;
       }
       *out_field = GNEISS_FIELD_INFO_INIT;
       const auto state = gneiss::engine::resolve(registry);
       return state == nullptr ? gneiss::engine::result::invalid_handle
-                              : gneiss::engine::find_field(state, type_id, field_id, *out_field);
+                              : gneiss::engine::find_field(state, gneiss::from_native(type_id),
+                                                           field_id, *out_field);
     } catch (const std::bad_alloc&) {
       return gneiss::engine::result::out_of_memory;
     } catch (...) {
@@ -246,15 +250,15 @@ extern "C" gneiss_result gneiss_type_registry_get_property(gneiss_type_registry 
                                                            gneiss_property_value* out_value) {
   return gneiss::engine::detail::to_c_result([&]() -> gneiss::engine::result {
     try {
-      if (out_value == nullptr || !gneiss::engine::valid_type_id(type_id) ||
+      if (out_value == nullptr || !gneiss::engine::valid_type_id(gneiss::from_native(type_id)) ||
           field_id == GNEISS_NULL_FIELD_ID) {
         return gneiss::engine::result::invalid_argument;
       }
       *out_value = GNEISS_PROPERTY_VALUE_INIT;
       const auto state = gneiss::engine::resolve(registry);
-      return state == nullptr
-                 ? gneiss::engine::result::invalid_handle
-                 : gneiss::engine::get_property(state, type_id, field_id, target, *out_value);
+      return state == nullptr ? gneiss::engine::result::invalid_handle
+                              : gneiss::engine::get_property(state, gneiss::from_native(type_id),
+                                                             field_id, target, *out_value);
     } catch (const std::bad_alloc&) {
       return gneiss::engine::result::out_of_memory;
     } catch (...) {
@@ -270,14 +274,14 @@ extern "C" gneiss_result gneiss_type_registry_set_property(gneiss_type_registry 
                                                            const gneiss_property_value* value) {
   return gneiss::engine::detail::to_c_result([&]() -> gneiss::engine::result {
     try {
-      if (value == nullptr || !gneiss::engine::valid_type_id(type_id) ||
+      if (value == nullptr || !gneiss::engine::valid_type_id(gneiss::from_native(type_id)) ||
           field_id == GNEISS_NULL_FIELD_ID) {
         return gneiss::engine::result::invalid_argument;
       }
       const auto state = gneiss::engine::resolve(registry);
-      return state == nullptr
-                 ? gneiss::engine::result::invalid_handle
-                 : gneiss::engine::set_property(state, type_id, field_id, target, *value);
+      return state == nullptr ? gneiss::engine::result::invalid_handle
+                              : gneiss::engine::set_property(state, gneiss::from_native(type_id),
+                                                             field_id, target, *value);
     } catch (const std::bad_alloc&) {
       return gneiss::engine::result::out_of_memory;
     } catch (...) {

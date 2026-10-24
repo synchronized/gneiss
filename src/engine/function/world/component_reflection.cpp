@@ -21,16 +21,20 @@
 
 namespace {
 
-constexpr auto transform_id = gneiss::to_native(gneiss::engine::transform_component_type);
-constexpr auto camera_id = gneiss::to_native(gneiss::engine::camera_component_type);
-constexpr gneiss_type_id vec3_id{{0x90, 0xbc, 0xc8, 0x13, 0xa5, 0x3c, 0x41, 0x96, 0xaa, 0x35, 0x93,
-                                  0xf8, 0x94, 0x6e, 0x82, 0xcb}};
-constexpr gneiss_type_id quaternion_id{{0x21, 0xc1, 0x11, 0xbd, 0xd7, 0x54, 0x44, 0xf0, 0x89, 0xc1,
-                                        0xf7, 0xcc, 0x27, 0x75, 0xd9, 0x1e}};
-constexpr gneiss_type_id float32_id{{0xa2, 0x7e, 0x99, 0x02, 0xf3, 0xcb, 0x48, 0x45, 0xa7, 0xe8,
-                                     0x32, 0x17, 0xf9, 0x75, 0x9f, 0xc5}};
-constexpr gneiss_type_id bool_id{{0xc2, 0xaf, 0x2a, 0xd1, 0xa6, 0x25, 0x48, 0x42, 0xb4, 0xdd, 0x74,
-                                  0xe9, 0x77, 0x06, 0x7e, 0x35}};
+constexpr auto transform_id = gneiss::engine::transform_component_type;
+constexpr auto camera_id = gneiss::engine::camera_component_type;
+constexpr gneiss::engine::type_guid vec3_id{
+    gneiss::engine::guid::from_bytes({0x90, 0xbc, 0xc8, 0x13, 0xa5, 0x3c, 0x41, 0x96, 0xaa, 0x35,
+                                      0x93, 0xf8, 0x94, 0x6e, 0x82, 0xcb})};
+constexpr gneiss::engine::type_guid quaternion_id{
+    gneiss::engine::guid::from_bytes({0x21, 0xc1, 0x11, 0xbd, 0xd7, 0x54, 0x44, 0xf0, 0x89, 0xc1,
+                                      0xf7, 0xcc, 0x27, 0x75, 0xd9, 0x1e})};
+constexpr gneiss::engine::type_guid float32_id{
+    gneiss::engine::guid::from_bytes({0xa2, 0x7e, 0x99, 0x02, 0xf3, 0xcb, 0x48, 0x45, 0xa7, 0xe8,
+                                      0x32, 0x17, 0xf9, 0x75, 0x9f, 0xc5})};
+constexpr gneiss::engine::type_guid bool_id{
+    gneiss::engine::guid::from_bytes({0xc2, 0xaf, 0x2a, 0xd1, 0xa6, 0x25, 0x48, 0x42, 0xb4, 0xdd,
+                                      0x74, 0xe9, 0x77, 0x06, 0x7e, 0x35})};
 
 enum class transform_field : std::uint8_t { translation = 1, rotation = 2, scale = 3 };
 enum class camera_field : std::uint8_t { field_of_view = 1, near_plane = 2, far_plane = 3 };
@@ -223,16 +227,16 @@ constexpr camera_field near_plane_field = camera_field::near_plane;
 constexpr camera_field far_plane_field = camera_field::far_plane;
 
 [[nodiscard]] constexpr gneiss::engine::field_definition
-make_field(gneiss_field_id id, gneiss_type_id value_type_id, std::uint32_t flags, const char* name,
-           std::uint32_t name_length) noexcept {
+make_field(gneiss_field_id id, gneiss::engine::type_guid value_type_id, std::uint32_t flags,
+           const char* name, std::uint32_t name_length) noexcept {
   return {.id = id, .value_type_id = value_type_id, .flags = flags, .name = {name, name_length}};
 }
 
 // Field ID 与属性类别均为定宽整数，调用点使用命名常量明确区分。
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
 [[nodiscard]] gneiss::engine::result bind_component_field(
-    const gneiss::engine::registry_ref& registry, gneiss_type_id type_id, gneiss_field_id field_id,
-    std::uint32_t kind,
+    const gneiss::engine::registry_ref& registry, gneiss::engine::type_guid type_id,
+    gneiss_field_id field_id, std::uint32_t kind,
     gneiss::engine::result (*getter)(void*, gneiss_property_target, gneiss_property_value*),
     gneiss::engine::result (*setter)(void*, gneiss_property_target, const gneiss_property_value*),
     const void* field) {
@@ -253,9 +257,11 @@ make_field(gneiss_field_id id, gneiss_type_id value_type_id, std::uint32_t flags
 
 } // namespace
 
-gneiss_type_id gneiss::engine::transform_type_id() noexcept { return transform_id; }
+gneiss_type_id gneiss::engine::transform_type_id() noexcept {
+  return gneiss::to_native(transform_id);
+}
 
-gneiss_type_id gneiss::engine::camera_type_id() noexcept { return camera_id; }
+gneiss_type_id gneiss::engine::camera_type_id() noexcept { return gneiss::to_native(camera_id); }
 
 gneiss::engine::result gneiss::engine::register_reflection(gneiss_type_registry registry) {
   return register_reflection(gneiss::engine::resolve(registry));
