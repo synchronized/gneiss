@@ -119,7 +119,6 @@ entity_set_local_transform(gneiss_world world, gneiss_entity_id entity,
                            const gneiss_transform& transform) noexcept;
 [[nodiscard]] GNEISS_API gneiss_type_id transform_type_id() noexcept;
 [[nodiscard]] GNEISS_API gneiss_type_id camera_type_id() noexcept;
-[[nodiscard]] GNEISS_API gneiss::engine::result register_reflection(gneiss_type_registry registry);
 [[nodiscard]] GNEISS_API gneiss::engine::result
 register_reflection(const gneiss::engine::registry_ref& registry);
 } // namespace gneiss::engine

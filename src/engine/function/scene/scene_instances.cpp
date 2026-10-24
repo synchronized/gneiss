@@ -9,6 +9,7 @@
 #include "engine/core/reflection/type_registry.hpp"
 #include "engine/values/detail/reflection_values.hpp"
 
+#include "engine/function/world/world_reflection.hpp"
 #include "engine/function/world/world_service.hpp"
 
 #include "engine/function/scene/scene_instance.hpp"
@@ -245,7 +246,7 @@ scene_instance::commit_prefabs(const gneiss::engine::scene_description& descript
 scene_instance::scene_instance(gneiss::engine::world& native_world, gneiss_world world,
                                gneiss::engine::render_asset_loader& loader,
                                gneiss::engine::prefab_asset_loader& prefab_loader,
-                               gneiss_type_registry registry) noexcept
+                               const gneiss::engine::registry_ref& registry) noexcept
     : native_world_(native_world), reflection_context_(world), loader_(loader),
       prefab_loader_(prefab_loader), registry_(registry) {}
 
@@ -944,9 +945,8 @@ scene_instance::set_prefab_source_transform(gneiss_scene_node_id node,
           gneiss::engine::prefab_property_value{.payload = source->rotation},
           gneiss::engine::prefab_property_value{.payload = source->scale}};
       for (std::size_t field_index = 0U; field_index < candidates.size(); ++field_index) {
-        const auto result =
-            set_prefab_property_override(gneiss::engine::resolve(registry_), pending,
-                                         candidates[field_index], source_values[field_index]);
+        const auto result = set_prefab_property_override(
+            registry_, pending, candidates[field_index], source_values[field_index]);
         if (result != gneiss::engine::result::success) {
           return result;
         }
@@ -1793,29 +1793,10 @@ scene_instances::scene_instances(gneiss::engine::world& native_world, gneiss_wor
     : native_world_(native_world), reflection_context_(world), file_system_(file_system),
       loader_(loader), prefab_loader_(prefab_loader), domain_(allocate_domain()),
       instances_(domain_) {
-  gneiss::engine::result result = gneiss::engine::result::internal;
-  try {
-    result = gneiss::engine::create_type_registry(registry_);
-    if (result == gneiss::engine::result::success) {
-      result = gneiss::engine::register_reflection(registry_);
-    }
-    if (result == gneiss::engine::result::success) {
-      result = gneiss::engine::freeze(gneiss::engine::resolve(registry_));
-    }
-  } catch (...) {
-    result = gneiss::engine::result::internal;
-  }
-  if (result != gneiss::engine::result::success && registry_ != GNEISS_NULL_TYPE_REGISTRY) {
-    (void)gneiss::engine::destroy_type_registry(registry_);
-    registry_ = GNEISS_NULL_TYPE_REGISTRY;
-  }
+  (void)gneiss::engine::create_property_registry(registry_);
 }
 
-scene_instances::~scene_instances() noexcept {
-  if (registry_ != GNEISS_NULL_TYPE_REGISTRY) {
-    (void)gneiss::engine::destroy_type_registry(registry_);
-  }
-}
+scene_instances::~scene_instances() noexcept = default;
 
 gneiss::engine::result scene_instances::load(std::string_view uri,
                                              gneiss_scene_instance* out_instance) noexcept {

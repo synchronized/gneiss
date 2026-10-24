@@ -249,15 +249,9 @@ int main() {
     return 6;
   }
   gneiss::engine::result wrong_thread{};
-  gneiss_type_registry registry{};
-  if (gneiss::engine::result{gneiss_type_registry_create(&registry)} !=
-          gneiss::engine::result::success ||
-      service::register_reflection(registry) != gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_type_registry_freeze(registry)} !=
-          gneiss::engine::result::success) {
+  gneiss::engine::registry_ref reflection;
+  if (gneiss::engine::create_property_registry(reflection).failed())
     return 14;
-  }
-  auto reflection = gneiss::engine::resolve(registry);
   gneiss::engine::transform candidate_transform;
   gneiss::property_value proposed;
   proposed.payload = gneiss::property_vec3{2, 3, 4};
@@ -285,9 +279,7 @@ int main() {
   if (gneiss::engine::set_candidate_property(reflection, service::camera_property_type(),
                                              GNEISS_CAMERA_FIELD_FAR_PLANE, &candidate_camera,
                                              proposed) != gneiss::engine::result::success ||
-      candidate_camera.near_plane != 30 || candidate_camera.far_plane != 40 ||
-      gneiss::engine::result{gneiss_type_registry_destroy(registry)} !=
-          gneiss::engine::result::success) {
+      candidate_camera.near_plane != 30 || candidate_camera.far_plane != 40) {
     return 18;
   }
   gneiss::engine::publication group;

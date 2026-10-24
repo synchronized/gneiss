@@ -4,6 +4,7 @@
 #ifndef GNEISS_SCENE_SCENE_INSTANCES_HPP_
 #define GNEISS_SCENE_SCENE_INSTANCES_HPP_
 
+#include "engine/core/reflection/property_registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid_table.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
@@ -92,7 +93,7 @@ public:
   ~scene_instances() noexcept;
 
   [[nodiscard]] bool is_valid() const noexcept {
-    return domain_ != 0U && registry_ != GNEISS_NULL_TYPE_REGISTRY;
+    return domain_ != 0U && static_cast<bool>(registry_);
   }
   [[nodiscard]] gneiss::engine::result load(std::string_view uri,
                                             gneiss_scene_instance* out_instance) noexcept;
@@ -184,12 +185,12 @@ public:
 private:
   using instance_ptr = std::unique_ptr<scene_instance>;
   gneiss::engine::world& native_world_;
-  // 仅供 ABI 反射回调定位；不拥有 World，不用于普通场景操作。
+  // 仅供原生反射访问器定位；不拥有 World，不用于普通场景操作。
   gneiss_world reflection_context_;
   const gneiss::engine::virtual_file_system& file_system_;
   gneiss::engine::render_asset_loader& loader_;
   gneiss::engine::prefab_asset_loader& prefab_loader_;
-  gneiss_type_registry registry_ = GNEISS_NULL_TYPE_REGISTRY;
+  gneiss::engine::registry_ref registry_;
   std::uint16_t domain_;
   gneiss::engine::rid_table<instance_ptr> instances_;
 };

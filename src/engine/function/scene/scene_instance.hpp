@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/reflection/property_registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/scene/prefab_runtime_instance.hpp"
 #include "engine/function/scene/scene_instances.hpp"
@@ -13,7 +14,7 @@ public:
   scene_instance(gneiss::engine::world& native_world, gneiss_world world,
                  gneiss::engine::render_asset_loader& loader,
                  gneiss::engine::prefab_asset_loader& prefab_loader,
-                 gneiss_type_registry registry) noexcept;
+                 const gneiss::engine::registry_ref& registry) noexcept;
   ~scene_instance() noexcept;
 
   scene_instance(const scene_instance&) = delete;
@@ -154,11 +155,11 @@ private:
   };
 
   gneiss::engine::world& native_world_;
-  // 仅供 ABI 反射回调定位；不拥有 World，不用于普通场景操作。
+  // 仅供原生反射访问器定位；不拥有 World，不用于普通场景操作。
   gneiss_world reflection_context_;
   gneiss::engine::render_asset_loader& loader_;
   gneiss::engine::prefab_asset_loader& prefab_loader_;
-  gneiss_type_registry registry_;
+  gneiss::engine::registry_ref registry_;
   std::vector<prefab_refresh_transaction> prefab_refresh_transactions_;
   gneiss_scene_prefab_refresh_token next_prefab_refresh_token_ = 1U;
 };

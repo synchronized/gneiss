@@ -258,10 +258,6 @@ gneiss_type_id gneiss::engine::transform_type_id() noexcept {
 
 gneiss_type_id gneiss::engine::camera_type_id() noexcept { return gneiss::to_native(camera_id); }
 
-gneiss::engine::result gneiss::engine::register_reflection(gneiss_type_registry registry) {
-  return register_reflection(gneiss::engine::resolve(registry));
-}
-
 gneiss::engine::result
 gneiss::engine::register_reflection(const gneiss::engine::registry_ref& registry) {
   constexpr std::array transform_fields{

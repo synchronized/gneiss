@@ -5,6 +5,7 @@
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/scene/prefab_runtime_instance.hpp"
+#include "engine/function/world/world_reflection.hpp"
 #include "engine/function/world/world_service.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
 #include "engine/resource/loaders/prefab_asset_loader.hpp"
@@ -79,7 +80,8 @@ public:
 };
 
 bool check_failed_camera_prefab(
-    gneiss::engine::world& native_world, gneiss_world world, gneiss_type_registry registry,
+    gneiss::engine::world& native_world, gneiss_world world,
+    const gneiss::engine::registry_ref& registry,
     gneiss::engine::render_asset_loader& render_loader,
     gneiss::engine::prefab_asset_loader& prefab_loader,
     const gneiss::engine::prefab_description& source,
@@ -137,7 +139,8 @@ bool check_failed_camera_prefab(
 }
 
 bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss_world world,
-                         gneiss_type_registry registry, gneiss::engine::render_asset_loader& loader,
+                         const gneiss::engine::registry_ref& registry,
+                         gneiss::engine::render_asset_loader& loader,
                          gneiss::engine::prefab_asset_loader& prefabs,
                          gneiss::engine::prefab_asset_ref lease, gneiss_scene_node_id parent) {
   using gneiss::engine::prefab_runtime_instance;
@@ -227,15 +230,9 @@ int main() try {
     return 1;
   }
   auto& native_world = *world_owner;
-  gneiss_type_registry registry = GNEISS_NULL_TYPE_REGISTRY;
-  if (gneiss::engine::result{gneiss_type_registry_create(&registry)} !=
-          gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_world_register_reflection(registry)} !=
-          gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_type_registry_freeze(registry)} !=
-          gneiss::engine::result::success) {
+  gneiss::engine::registry_ref registry;
+  if (gneiss::engine::create_property_registry(registry).failed())
     return 2;
-  }
 
   gneiss::engine::virtual_file_system file_system;
   gneiss::engine::render_resource_service resources;
@@ -424,8 +421,6 @@ int main() try {
   if (gneiss::engine::result{gneiss_world_entity_count(world, &entity_count)} !=
           gneiss::engine::result::success ||
       entity_count != 0U ||
-      gneiss::engine::result{gneiss_type_registry_destroy(registry)} !=
-          gneiss::engine::result::success ||
       gneiss::engine::result{gneiss_world_destroy(world)} !=
           gneiss::engine::result::invalid_state) {
     return 12;
