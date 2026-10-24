@@ -5,6 +5,7 @@
 #define GNEISS_RENDER_RENDER_EXECUTOR_HPP_
 
 #include "engine/core/progress_notification.hpp"
+#include "engine/core/result.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_statistics.hpp"
 
@@ -44,7 +45,7 @@ struct render_execution_result final {
 
 struct render_frame_completion final {
   std::uint64_t sequence{};
-  gneiss_result status{GNEISS_ERROR_UNKNOWN};
+  gneiss::engine::core::result status{gneiss::engine::core::result::unknown};
   render_execution_result execution;
   bool dropped{};
   render_frame_policy policy{render_frame_policy::replaceable};
@@ -61,7 +62,7 @@ struct render_command_progress final {
 
 struct render_command_completion final {
   std::uint64_t sequence{};
-  gneiss_result status{GNEISS_ERROR_UNKNOWN};
+  gneiss::engine::core::result status{gneiss::engine::core::result::unknown};
   render_command_progress progress;
   double execution_ms{};
 };
@@ -85,16 +86,20 @@ private:
 };
 
 using render_frame_callback =
-    std::function<gneiss_result(render_frame_packet&, render_execution_result&)>;
-using render_command_callback = std::function<gneiss_result(const render_command_reporter&)>;
+    std::function<gneiss::engine::core::result(render_frame_packet&, render_execution_result&)>;
+using render_command_callback =
+    std::function<gneiss::engine::core::result(const render_command_reporter&)>;
 
 enum class render_command_policy : std::uint8_t { once, resumable };
 
 class inline_render_executor final {
 public:
   explicit inline_render_executor(render_frame_callback callback);
-  [[nodiscard]] gneiss_result submit(render_frame_packet packet, render_execution_result& output);
-  [[nodiscard]] gneiss_result flush() const noexcept { return GNEISS_SUCCESS; }
+  [[nodiscard]] gneiss::engine::core::result submit(render_frame_packet packet,
+                                                    render_execution_result& output);
+  [[nodiscard]] gneiss::engine::core::result flush() const noexcept {
+    return gneiss::engine::core::result::success;
+  }
 
 private:
   render_frame_callback callback_;
@@ -108,15 +113,15 @@ public:
   threaded_render_executor(const threaded_render_executor&) = delete;
   threaded_render_executor& operator=(const threaded_render_executor&) = delete;
 
-  [[nodiscard]] gneiss_result initialize(render_frame_callback callback,
-                                         std::size_t maximum_pending_frames = 3U) noexcept;
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
+  initialize(render_frame_callback callback, std::size_t maximum_pending_frames = 3U) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
   submit_frame(render_frame_packet packet, std::uint64_t& out_sequence,
                render_frame_policy policy = render_frame_policy::replaceable) noexcept;
   /** resumable 命令返回 NOT_READY 时保留同一序号排到队尾，后续帧和命令可先执行。
    * 回调须自行保存进度并最终返回终态；flush/stop 会等它结束，不强制销毁在途资源。
    * once 的 NOT_READY 仍是一次完成结果。 */
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   submit_command(render_command_callback command, std::uint64_t& out_sequence,
                  render_command_policy policy = render_command_policy::once) noexcept;
   [[nodiscard]] bool try_take_frame_completion(render_frame_completion& output) noexcept;
@@ -126,7 +131,7 @@ public:
   void record_skipped_frame_build() noexcept;
   void set_completion_notification(
       std::shared_ptr<engine::core::progress_notification> notification) noexcept;
-  [[nodiscard]] gneiss_result flush() noexcept;
+  [[nodiscard]] gneiss::engine::core::result flush() noexcept;
   void stop() noexcept;
   [[nodiscard]] bool is_running() const noexcept;
 

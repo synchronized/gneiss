@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/result.hpp"
 #include "engine/core/sha256.hpp"
 #include "engine/resource/loaders/texture_binary.hpp"
 #include "engine/resource/vfs/read_source.hpp"
@@ -16,14 +17,15 @@ namespace gneiss::engine::resource {
 class texture_container final {
 public:
   /** 无论成功失败均接管 source；失败清空旧状态。limit 约束 Manifest 分配，不含固定头和填充。 */
-  [[nodiscard]] gneiss_result open(std::unique_ptr<read_source> source, std::size_t manifest_limit,
-                                   std::string& diagnostic) noexcept;
+  [[nodiscard]] gneiss::engine::core::result open(std::unique_ptr<read_source> source,
+                                                  std::size_t manifest_limit,
+                                                  std::string& diagnostic) noexcept;
   /** 返回借用视图，在容器析构或下次 open 时失效。 */
   [[nodiscard]] std::span<const std::byte> manifest() const noexcept { return manifest_; }
   [[nodiscard]] std::uint64_t payload_size() const noexcept { return layout_.payload_size; }
   /** offset 相对于 Payload 起点；只读取调用者提供的缓冲范围，不分配负载。 */
-  [[nodiscard]] gneiss_result read_payload(std::uint64_t offset,
-                                           std::span<std::byte> output) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  read_payload(std::uint64_t offset, std::span<std::byte> output) const noexcept;
 
 private:
   std::unique_ptr<read_source> source_;
@@ -43,8 +45,8 @@ public:
     return container_ ? container_->manifest().size() : 0U;
   }
   /** 预算不足不分配；短读或内容变化时清空输出，不以新内容替代旧资源。 */
-  [[nodiscard]] gneiss_result read(std::vector<std::byte>& output,
-                                   std::size_t limit) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result read(std::vector<std::byte>& output,
+                                                  std::size_t limit) const noexcept;
 
 private:
   std::shared_ptr<const texture_container> container_;

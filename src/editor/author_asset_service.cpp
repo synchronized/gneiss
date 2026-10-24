@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "author_asset_service.hpp"
+#include "engine/core/result.hpp"
 
 #include <algorithm>
 #include <deque>
@@ -33,7 +34,7 @@ struct author_asset_service::implementation {
   };
   struct batch {
     std::vector<author_asset_change> changes;
-    result operation{result::success};
+    gneiss::engine::core::result operation{gneiss::engine::core::result::success};
     bool scanning{};
     std::uint64_t revision{};
   };
@@ -56,7 +57,7 @@ struct author_asset_service::implementation {
   bool rescan{};
   bool scanning{};
   bool stopping{};
-  result operation{result::success};
+  gneiss::engine::core::result operation{gneiss::engine::core::result::success};
 
   explicit implementation(engine::core::tasks::task_scheduler& value)
       : scheduler(value), scope(value.make_scope()) {}
@@ -85,7 +86,7 @@ struct author_asset_service::implementation {
     if (!completions.empty() && active) {
       operation = completions.front().outcome.state == engine::core::tasks::task_state::succeeded
                       ? active->operation
-                      : result::internal;
+                      : gneiss::engine::core::result::internal;
       scanning = active->scanning;
       if (active->revision == revision) {
         for (auto& change : active->changes) {
@@ -117,7 +118,7 @@ struct author_asset_service::implementation {
          asset_root = root](const engine::core::tasks::task_context& context) {
           if (!state->initialized) {
             output->operation = state->monitor.initialize(asset_root, false);
-            if (output->operation != result::success) {
+            if (output->operation != gneiss::engine::core::result::success) {
               return engine::core::tasks::task_outcome{};
             }
             state->initialized = true;
@@ -170,7 +171,7 @@ struct author_asset_service::implementation {
       }
       rescan = false;
     } else if (accepted != engine::core::tasks::submit_result::full) {
-      operation = result::invalid_state;
+      operation = gneiss::engine::core::result::invalid_state;
     }
   }
 };
@@ -181,14 +182,14 @@ author_asset_service::~author_asset_service() {
   request_stop();
   (void)impl_->scheduler.close_scope(impl_->scope);
 }
-result author_asset_service::initialize(const std::filesystem::path& root) {
+gneiss::engine::core::result author_asset_service::initialize(const std::filesystem::path& root) {
   if (root.empty() || !impl_->root.empty() || impl_->stopping) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   impl_->root = root;
   impl_->rescan = true;
   impl_->pump();
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 author_asset_change author_asset_service::observe(const std::filesystem::path& path, bool dirty) {
   const auto uri = uri_for(path);
@@ -205,14 +206,15 @@ author_asset_change author_asset_service::observe(const std::filesystem::path& p
   impl_->prepared.erase(found);
   if (dirty) {
     impl_->current.state = author_asset_change_state::conflict;
-    impl_->current.operation = result::invalid_state;
+    impl_->current.operation = gneiss::engine::core::result::invalid_state;
     impl_->current.message = "外部结构资产已变化；当前场景含未保存修改，未自动覆盖";
   }
   return impl_->current;
 }
-result author_asset_service::acknowledge(std::string_view uri, std::string content) {
+gneiss::engine::core::result author_asset_service::acknowledge(std::string_view uri,
+                                                               std::string content) {
   if (!uri.starts_with("asset://")) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   std::erase_if(impl_->commands, [uri](const auto& item) { return item.uri == uri; });
   if (impl_->commands.size() >= 256U) {
@@ -230,14 +232,14 @@ result author_asset_service::acknowledge(std::string_view uri, std::string conte
   if (!impl_->enqueue({.kind = implementation::command_kind::saved,
                        .uri = std::string(uri),
                        .content = std::make_shared<const std::string>(std::move(content))})) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
   impl_->rescan = true;
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 void author_asset_service::request_rescan() { impl_->rescan = true; }
-result author_asset_service::poll_rescan(std::vector<std::filesystem::path>& output,
-                                         std::size_t budget) {
+gneiss::engine::core::result
+author_asset_service::poll_rescan(std::vector<std::filesystem::path>& output, std::size_t budget) {
   impl_->pump();
   while (budget-- != 0U && !impl_->ready.empty()) {
     auto change = std::move(impl_->ready.front());
@@ -254,21 +256,25 @@ bool author_asset_service::is_rescanning() const {
   return impl_->rescan || impl_->scanning || static_cast<bool>(impl_->active) ||
          !impl_->commands.empty() || !impl_->ready.empty() || !impl_->prepared.empty();
 }
-result author_asset_service::rescan_result() const { return impl_->operation; }
+gneiss::engine::core::result author_asset_service::rescan_result() const {
+  return impl_->operation;
+}
 void author_asset_service::mark_applied(std::string_view uri) {
-  if (impl_->current.uri != uri || impl_->current.operation != result::success) {
+  if (impl_->current.uri != uri ||
+      impl_->current.operation != gneiss::engine::core::result::success) {
     return;
   }
   if (!impl_->enqueue({.kind = implementation::command_kind::applied,
                        .uri = std::string(uri),
                        .hash = impl_->current.fingerprint})) {
-    mark_failed(uri, result::invalid_state);
+    mark_failed(uri, gneiss::engine::core::result::invalid_state);
     return;
   }
   impl_->current.state = author_asset_change_state::applied;
   impl_->current.message = "外部结构资产已应用";
 }
-void author_asset_service::mark_failed(std::string_view uri, result operation) {
+void author_asset_service::mark_failed(std::string_view uri,
+                                       gneiss::engine::core::result operation) {
   impl_->current = {.state = author_asset_change_state::failed,
                     .uri = std::string(uri),
                     .operation = operation,

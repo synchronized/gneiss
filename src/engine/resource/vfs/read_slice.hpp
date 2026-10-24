@@ -4,6 +4,7 @@
 #ifndef GNEISS_ENGINE_ASSET_READ_SLICE_HPP
 #define GNEISS_ENGINE_ASSET_READ_SLICE_HPP
 
+#include "engine/core/result.hpp"
 #include "engine/resource/vfs/read_source.hpp"
 
 #include <algorithm>
@@ -26,9 +27,10 @@ public:
     size_ = request.size;
     consumed_ = 0U;
   }
-  [[nodiscard]] gneiss_result take(const read_source& source, range request,
-                                   std::span<const std::byte>& output, bool deferred = true,
-                                   std::chrono::milliseconds wait_budget = {}) {
+  [[nodiscard]] gneiss::engine::core::result take(const read_source& source, range request,
+                                                  std::span<const std::byte>& output,
+                                                  bool deferred = true,
+                                                  std::chrono::milliseconds wait_budget = {}) {
     const auto offset = request.offset;
     const auto limit = request.size;
     output = {};
@@ -39,40 +41,41 @@ public:
       offset_ = offset;
       size_ = std::min(limit, std::size_t{16U} * 1024U * 1024U);
       consumed_ = 0U;
-      const auto started =
-          deferred ? source.begin_read(offset, size_, operation_) : GNEISS_ERROR_UNSUPPORTED;
-      if (started == GNEISS_ERROR_UNSUPPORTED) {
+      const auto started = deferred ? source.begin_read(offset, size_, operation_)
+                                    : gneiss::engine::core::result::unsupported;
+      if (started == gneiss::engine::core::result::unsupported) {
         const auto target = std::span{fallback_}.first(std::min(limit, fallback_.size()));
         const auto read = source.read_at(offset, target);
-        if (read == GNEISS_SUCCESS) {
+        if (read == gneiss::engine::core::result::success) {
           output = target;
         }
         return read;
       }
-      if (started != GNEISS_SUCCESS) {
+      if (started != gneiss::engine::core::result::success) {
         return started;
       }
       if (!operation_) {
-        return GNEISS_ERROR_INTERNAL;
+        return gneiss::engine::core::result::internal;
       }
     }
     if (offset != offset_ + consumed_) {
-      return GNEISS_ERROR_INVALID_STATE;
+      return gneiss::engine::core::result::invalid_state;
     }
     std::span<const std::byte> ready;
     auto polled = operation_->poll(ready);
-    if (polled == GNEISS_ERROR_NOT_READY && wait_budget > std::chrono::milliseconds::zero()) {
+    if (polled == gneiss::engine::core::result::not_ready &&
+        wait_budget > std::chrono::milliseconds::zero()) {
       polled = operation_->wait_for(wait_budget, ready);
     }
-    if (polled != GNEISS_SUCCESS) {
+    if (polled != gneiss::engine::core::result::success) {
       return polled;
     }
     if (ready.size() != size_) {
-      return GNEISS_ERROR_IO;
+      return gneiss::engine::core::result::io;
     }
     output = ready.subspan(consumed_, std::min(limit, size_ - consumed_));
     consumed_ += output.size();
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
 
 private:

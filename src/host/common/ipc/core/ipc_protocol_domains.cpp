@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "ipc_protocol_domains.hpp"
+#include "engine/core/result.hpp"
 
 #include "ipc_asset_protocol.hpp"
 #include "ipc_control_protocol.hpp"
@@ -48,11 +49,11 @@ ipc_v2_domain_capabilities() noexcept {
   return capabilities;
 }
 
-result register_ipc_v2_domains(gneiss::engine::platform::ipc_domain_handler handler,
-                               void* handler_context,
-                               gneiss::engine::platform::ipc_domain_registry& output) noexcept {
+gneiss::engine::core::result
+register_ipc_v2_domains(gneiss::engine::platform::ipc_domain_handler handler, void* handler_context,
+                        gneiss::engine::platform::ipc_domain_registry& output) noexcept {
   if (handler == nullptr) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   gneiss::engine::platform::ipc_domain_registry registry;
   const std::array descriptors{
@@ -122,12 +123,12 @@ result register_ipc_v2_domains(gneiss::engine::platform::ipc_domain_handler hand
           .handler_context = handler_context}};
   for (const auto& descriptor : descriptors) {
     const auto operation = registry.register_domain(descriptor);
-    if (operation != result::success) {
+    if (operation != gneiss::engine::core::result::success) {
       return operation;
     }
   }
   output = std::move(registry);
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
 } // namespace gneiss

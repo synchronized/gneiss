@@ -4,6 +4,7 @@
 #ifndef GNEISS_RUNTIME_SCENE_SERVICE_HPP_
 #define GNEISS_RUNTIME_SCENE_SERVICE_HPP_
 
+#include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include "runtime/loading/scene_domain.hpp"
@@ -24,9 +25,9 @@ public:
   scene_service(const scene_service&) = delete;
   scene_service& operator=(const scene_service&) = delete;
 
-  [[nodiscard]] gneiss_result initialize(engine::resource::asset_manager& assets,
-                                         engine::render::render_asset_loader& render);
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
+  initialize(engine::resource::asset_manager& assets, engine::render::render_asset_loader& render);
+  [[nodiscard]] gneiss::engine::core::result
   attach_executor(engine::core::tasks::task_executor& executor,
                   const engine::resource::virtual_file_system& files,
                   engine::render::render_resource_service& resources,
@@ -38,7 +39,8 @@ public:
   [[nodiscard]] bool visual_loading() const noexcept {
     return visual_pending_ || !visual_queue_.empty();
   }
-  [[nodiscard]] gneiss_result activate(std::uint64_t request, scene_load_completion& completion);
+  [[nodiscard]] gneiss::engine::core::result activate(std::uint64_t request,
+                                                      scene_load_completion& completion);
   void shutdown() noexcept;
 
   [[nodiscard]] bool can_start_load() const noexcept;
@@ -53,19 +55,22 @@ public:
   /** 内部适配借用；视觉服务在 attach_executor 后存活至 shutdown，不随场景切换重建。 */
   [[nodiscard]] engine::render::texture_load_service* textures() noexcept;
   /** 请求、进度和完成值不暴露候选域；激活仍由宿主在安全点显式调用。 */
-  [[nodiscard]] gneiss_result request_scene(std::string_view uri, std::uint64_t session,
-                                            std::uint64_t revision, std::uint64_t& request);
+  [[nodiscard]] gneiss::engine::core::result request_scene(std::string_view uri,
+                                                           std::uint64_t session,
+                                                           std::uint64_t revision,
+                                                           std::uint64_t& request);
   [[nodiscard]] bool scene_progress(scene_load_progress& progress) const;
-  [[nodiscard]] gneiss_result poll_scene(scene_load_completion& completion, bool& ready);
-  [[nodiscard]] gneiss_result cancel_scene(std::uint64_t request);
+  [[nodiscard]] gneiss::engine::core::result poll_scene(scene_load_completion& completion,
+                                                        bool& ready);
+  [[nodiscard]] gneiss::engine::core::result cancel_scene(std::uint64_t request);
   /** 更新稳定资源的内容，活动 World 的引用不变；失败项保留旧内容。 */
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   request_assets(std::span<const engine::render::render_asset_reload> sources,
                  std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
                  bool reload);
   /** 所属线程、渲染快照捕获之前调用；回执报告内容更新结果，不改变场景引用。 */
-  [[nodiscard]] gneiss_result poll_assets(engine::render::texture_load_completion& completion,
-                                          bool& ready);
+  [[nodiscard]] gneiss::engine::core::result
+  poll_assets(engine::render::texture_load_completion& completion, bool& ready);
 
 private:
   void advance_visuals();
@@ -87,7 +92,8 @@ private:
   void stop_load() noexcept;
   engine::core::tasks::submit_result submit_verification();
   void advance_verification(load_task& value);
-  void finish(gneiss_result result, scene_load_phase phase, std::string message = {});
+  void finish(gneiss::engine::core::result result, scene_load_phase phase,
+              std::string message = {});
   void sample_budget(scene_load_progress& value) const;
   void check_owner() const;
   engine::core::tasks::task_executor* executor_{};

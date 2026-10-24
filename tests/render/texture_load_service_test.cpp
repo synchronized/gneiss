@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/resource/cache/cpu_document_cache.hpp"
@@ -28,13 +29,13 @@ struct memory_files final : file_system {
   std::map<std::string, std::vector<std::byte>> files;
   mutable std::thread::id reader;
   std::shared_ptr<std::atomic_size_t> bytes_read = std::make_shared<std::atomic_size_t>();
-  gneiss_result open_read(std::string_view path,
-                          std::unique_ptr<read_source>& output) const noexcept override {
+  gneiss::engine::core::result
+  open_read(std::string_view path, std::unique_ptr<read_source>& output) const noexcept override {
     reader = std::this_thread::get_id();
     output.reset();
     const auto found = files.find(std::string(path));
     if (found == files.end()) {
-      return GNEISS_ERROR_NOT_FOUND;
+      return gneiss::engine::core::result::not_found;
     }
     class memory_source final : public read_source {
     public:
@@ -42,16 +43,16 @@ struct memory_files final : file_system {
                              std::shared_ptr<std::atomic_size_t> bytes_read)
           : bytes_(std::move(bytes)), bytes_read_(std::move(bytes_read)) {}
       std::uint64_t size() const noexcept override { return bytes_.size(); }
-      gneiss_result read_at(std::uint64_t offset,
-                            std::span<std::byte> output) const noexcept override {
+      gneiss::engine::core::result read_at(std::uint64_t offset,
+                                           std::span<std::byte> output) const noexcept override {
         if (offset > bytes_.size() || output.size() > bytes_.size() - offset) {
-          return GNEISS_ERROR_IO;
+          return gneiss::engine::core::result::io;
         }
         std::ranges::copy(
             std::span{bytes_}.subspan(static_cast<std::size_t>(offset), output.size()),
             output.begin());
         bytes_read_->fetch_add(output.size(), std::memory_order_relaxed);
-        return GNEISS_SUCCESS;
+        return gneiss::engine::core::result::success;
       }
 
     private:
@@ -61,25 +62,26 @@ struct memory_files final : file_system {
     try {
       output = std::make_unique<memory_source>(found->second, bytes_read);
     } catch (...) {
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      return gneiss::engine::core::result::out_of_memory;
     }
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
-  gneiss_result read(std::string_view path, std::vector<std::byte>& bytes) const noexcept override {
+  gneiss::engine::core::result read(std::string_view path,
+                                    std::vector<std::byte>& bytes) const noexcept override {
     return read_bounded(path, SIZE_MAX, bytes);
   }
-  gneiss_result read_bounded(std::string_view path, std::size_t limit,
-                             std::vector<std::byte>& bytes) const noexcept override {
+  gneiss::engine::core::result read_bounded(std::string_view path, std::size_t limit,
+                                            std::vector<std::byte>& bytes) const noexcept override {
     reader = std::this_thread::get_id();
     const auto found = files.find(std::string(path));
     if (found == files.end()) {
-      return GNEISS_ERROR_NOT_FOUND;
+      return gneiss::engine::core::result::not_found;
     }
     if (found->second.size() > limit) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     bytes = found->second;
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
   void text(std::string path, std::string_view text) {
     auto& bytes = files[std::move(path)];
@@ -109,17 +111,20 @@ void prepared_source_revisions() {
       "material",
       R"({"format":"gneiss.material","version":2,"color":[1,1,1,1],"base_color_texture":"asset://texture"})");
   virtual_file_system files;
-  check(files.mount("asset://", source) == GNEISS_SUCCESS);
+  check(files.mount("asset://", source) == gneiss::engine::core::result::success);
   const std::array requests{asset_preparation_source{"asset://material", asset_type::material}};
   prepared_batch before;
   prepared_batch after;
   asset_diagnostic diagnostic;
-  check(prepare_assets(files, requests, before, diagnostic, {}, 128U) == GNEISS_SUCCESS);
+  check(prepare_assets(files, requests, before, diagnostic, {}, 128U) ==
+        gneiss::engine::core::result::success);
   prepared_batch repeated;
-  check(prepare_assets(files, requests, repeated, diagnostic, {}, 128U) == GNEISS_SUCCESS);
+  check(prepare_assets(files, requests, repeated, diagnostic, {}, 128U) ==
+        gneiss::engine::core::result::success);
   source->pixel(std::byte{20});
   source->files["payload/image.ktx2"] = source->files.at("image.ktx2");
-  check(prepare_assets(files, requests, after, diagnostic, {}, 128U) == GNEISS_SUCCESS);
+  check(prepare_assets(files, requests, after, diagnostic, {}, 128U) ==
+        gneiss::engine::core::result::success);
   check(before.assets.size() == 2U && after.assets.size() == 2U);
   for (std::size_t index = 0; index < before.assets.size(); ++index) {
     const auto& old_asset = before.assets[index];
@@ -133,7 +138,7 @@ void prepared_source_revisions() {
       asset_identity expected;
       check(files.identify("asset://payload/image.ktx2",
                            static_cast<std::uint32_t>(asset_type::texture),
-                           expected) == GNEISS_SUCCESS);
+                           expected) == gneiss::engine::core::result::success);
       check(payload.identity == expected && payload.identity == old_asset.sources.back().identity);
       check(payload.bytes == source->files.at("image.ktx2").size());
       check(payload.digest == engine::core::sha256(source->files.at("image.ktx2")));
@@ -150,44 +155,47 @@ void shared_mesh_documents() {
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[1,0],[0,1]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
   source->text("mesh", text);
   virtual_file_system files;
-  check(files.mount("asset://", source) == GNEISS_SUCCESS);
+  check(files.mount("asset://", source) == gneiss::engine::core::result::success);
   auto documents = std::make_shared<cpu_document_cache>();
   const std::array requests{asset_preparation_source{"asset://mesh", asset_type::mesh}};
   auto prepare = [&](const virtual_file_system& vfs) {
     prepared_batch batch;
     asset_diagnostic diagnostic;
-    check(prepare_assets(vfs, requests, batch, diagnostic, {}, 128U) == GNEISS_SUCCESS);
+    check(prepare_assets(vfs, requests, batch, diagnostic, {}, 128U) ==
+          gneiss::engine::core::result::success);
     return batch;
   };
   auto first = prepare(files);
   const auto* vertices = first.assets.front().mesh.vertices.data();
-  check(documents->begin()->retain_verified(first) == GNEISS_SUCCESS);
+  check(documents->begin()->retain_verified(first) == gneiss::engine::core::result::success);
   auto mesh = first.assets.front().shared_mesh;
   check(mesh && mesh->vertices.data() == vertices && first.assets.front().mesh.vertices.empty());
   auto second = prepare(files);
-  check(documents->begin()->retain_verified(second) == GNEISS_SUCCESS);
+  check(documents->begin()->retain_verified(second) == gneiss::engine::core::result::success);
   check(mesh == second.assets.front().shared_mesh);
   virtual_file_system independent;
-  check(independent.mount("asset://", source) == GNEISS_SUCCESS);
+  check(independent.mount("asset://", source) == gneiss::engine::core::result::success);
   auto isolated = prepare(independent);
-  check(documents->begin()->retain_verified(isolated) == GNEISS_SUCCESS);
+  check(documents->begin()->retain_verified(isolated) == gneiss::engine::core::result::success);
   check(mesh != isolated.assets.front().shared_mesh);
   auto changed_text = text;
   changed_text.replace(changed_text.find("[1,0,0]"), 7, "[2,0,0]");
   source->text("mesh", changed_text);
   auto changed = prepare(files);
-  check(documents->begin()->retain_verified(changed) == GNEISS_SUCCESS);
+  check(documents->begin()->retain_verified(changed) == gneiss::engine::core::result::success);
   check(changed.assets.front().shared_mesh != mesh && mesh->vertices[1].x == 1.0F);
   check(changed.assets.front().shared_mesh->vertices[1].x == 2.0F);
   auto invalid = prepare(files);
   invalid.assets.front().sources.front().identity.source.reset();
-  check(documents->begin()->retain_verified(invalid) == GNEISS_ERROR_INVALID_STATE);
+  check(documents->begin()->retain_verified(invalid) ==
+        gneiss::engine::core::result::invalid_state);
   render_resource_service resources;
   engine::core::rid rid{};
-  check(resources.create_prepared_mesh(mesh, &rid) == GNEISS_SUCCESS);
+  check(resources.create_prepared_mesh(mesh, &rid) == gneiss::engine::core::result::success);
   check(resources.share_mesh(rid) == mesh);
   auto frame = resources.share_mesh(rid);
-  check(resources.destroy_mesh(rid) == GNEISS_SUCCESS && !resources.share_mesh(rid));
+  check(resources.destroy_mesh(rid) == gneiss::engine::core::result::success &&
+        !resources.share_mesh(rid));
   std::weak_ptr<const mesh_data> lifetime = mesh;
   first = {};
   second = {};
@@ -200,24 +208,29 @@ void shared_mesh_documents() {
 }
 void independent_update_sequences() {
   virtual_file_system files;
-  check(files.mount("asset://", std::make_shared<memory_files>()) == GNEISS_SUCCESS);
+  check(files.mount("asset://", std::make_shared<memory_files>()) ==
+        gneiss::engine::core::result::success);
   render_resource_service resources;
   resource_cache cache;
   render_asset_loader loader(files, cache, resources);
   const render_asset_reload source_a{"asset://a", render_asset_type::material};
   const render_asset_reload source_b{"asset://b", render_asset_type::material};
   render_asset_lease a, b;
-  check(loader.reserve_asset(source_a, a) == GNEISS_SUCCESS);
-  check(loader.reserve_asset(source_b, b) == GNEISS_SUCCESS);
+  check(loader.reserve_asset(source_a, a) == gneiss::engine::core::result::success);
+  check(loader.reserve_asset(source_b, b) == gneiss::engine::core::result::success);
   virtual_file_system different;
-  check(different.mount("asset://", std::make_shared<memory_files>()) == GNEISS_SUCCESS);
+  check(different.mount("asset://", std::make_shared<memory_files>()) ==
+        gneiss::engine::core::result::success);
   render_asset_loader isolated(different, cache, resources);
   render_asset_lease conflict;
-  check(isolated.reserve_asset(source_a, conflict) == GNEISS_ERROR_INVALID_HANDLE && !conflict);
+  check(isolated.reserve_asset(source_a, conflict) ==
+            gneiss::engine::core::result::invalid_handle &&
+        !conflict);
   check(!isolated.owns(a));
   const auto copied = files;
   render_asset_loader shared(copied, cache, resources);
-  check(shared.reserve_asset(source_a, conflict) == GNEISS_SUCCESS && conflict.get() == a.get());
+  check(shared.reserve_asset(source_a, conflict) == gneiss::engine::core::result::success &&
+        conflict.get() == a.get());
 
   const auto stage = [&](const auto& source, const auto& target, auto sequence, auto& output) {
     prepared_render_asset prepared;
@@ -226,32 +239,34 @@ void independent_update_sequences() {
   };
   std::array<render_asset_loader::asset_upload, 1> first, unrelated, late, latest;
   const auto first_sequence = loader.next_update_sequence();
-  check(stage(source_a, a, first_sequence, first.front()) == GNEISS_SUCCESS);
-  check(stage(source_b, b, loader.next_update_sequence(), unrelated.front()) == GNEISS_SUCCESS);
-  check(loader.complete_upload(unrelated.front()) == GNEISS_SUCCESS);
-  check(loader.complete_upload(first.front()) == GNEISS_SUCCESS);
+  check(stage(source_a, a, first_sequence, first.front()) == gneiss::engine::core::result::success);
+  check(stage(source_b, b, loader.next_update_sequence(), unrelated.front()) ==
+        gneiss::engine::core::result::success);
+  check(loader.complete_upload(unrelated.front()) == gneiss::engine::core::result::success);
+  check(loader.complete_upload(first.front()) == gneiss::engine::core::result::success);
   const auto previous = resources.share_material(a.get());
   const auto old_sequence = loader.next_update_sequence();
-  check(stage(source_a, a, old_sequence, late.front()) == GNEISS_SUCCESS);
+  check(stage(source_a, a, old_sequence, late.front()) == gneiss::engine::core::result::success);
   const auto new_sequence = loader.next_update_sequence();
   check(loader.claim_update(a, new_sequence));
   // 新请求尚未完成也阻止旧任务覆盖；最新请求失败时仍保留当前成功内容。
-  check(loader.complete_upload(late.front()) == GNEISS_ERROR_INVALID_STATE);
+  check(loader.complete_upload(late.front()) == gneiss::engine::core::result::invalid_state);
   check(resources.share_material(a.get()) == previous);
-  check(stage(source_a, a, old_sequence, late.front()) == GNEISS_ERROR_INVALID_STATE);
-  check(stage(source_a, a, new_sequence, latest.front()) == GNEISS_SUCCESS);
-  check(loader.complete_upload(latest.front()) == GNEISS_SUCCESS);
+  check(stage(source_a, a, old_sequence, late.front()) ==
+        gneiss::engine::core::result::invalid_state);
+  check(stage(source_a, a, new_sequence, latest.front()) == gneiss::engine::core::result::success);
+  check(loader.complete_upload(latest.front()) == gneiss::engine::core::result::success);
 }
 void reserved_material_lifetime() {
   auto source = std::make_shared<memory_files>();
   virtual_file_system files;
-  check(files.mount("asset://", source) == GNEISS_SUCCESS);
+  check(files.mount("asset://", source) == gneiss::engine::core::result::success);
   render_resource_service resources;
   resource_cache cache;
   render_asset_loader loader(files, cache, resources);
   const render_asset_reload request{"asset://material", render_asset_type::material};
   render_asset_lease target;
-  check(loader.reserve_asset(request, target) == GNEISS_SUCCESS);
+  check(loader.reserve_asset(request, target) == gneiss::engine::core::result::success);
   const auto rid = target.get();
   auto document = std::make_shared<material_document>();
   std::weak_ptr<const material_document> lifetime = document;
@@ -259,15 +274,19 @@ void reserved_material_lifetime() {
   prepared.source = request;
   prepared.material_document = document;
   std::array<render_asset_loader::asset_upload, 1> candidates;
-  check(loader.prepare_upload(std::move(prepared), candidates.front(), target) == GNEISS_SUCCESS);
+  check(loader.prepare_upload(std::move(prepared), candidates.front(), target) ==
+        gneiss::engine::core::result::success);
   document.reset();
-  check(!lifetime.expired() && resources.material_status(rid) == GNEISS_ERROR_NOT_READY);
-  check(loader.complete_upload(candidates.front()) == GNEISS_SUCCESS);
+  check(!lifetime.expired() &&
+        resources.material_status(rid) == gneiss::engine::core::result::not_ready);
+  check(loader.complete_upload(candidates.front()) == gneiss::engine::core::result::success);
   candidates = {};
-  check(!lifetime.expired() && resources.material_status(rid) == GNEISS_SUCCESS);
+  check(!lifetime.expired() &&
+        resources.material_status(rid) == gneiss::engine::core::result::success);
   target = {};
   cache.release_unused();
-  check(lifetime.expired() && resources.material_status(rid) == GNEISS_ERROR_INVALID_HANDLE);
+  check(lifetime.expired() &&
+        resources.material_status(rid) == gneiss::engine::core::result::invalid_handle);
 }
 void cooperative_read_slices() {
   engine::core::tasks::task_scheduler scheduler(
@@ -288,7 +307,7 @@ void cooperative_read_slices() {
   check(encode_texture_ktx2(input, files->files["image.ktx2"], diagnostic) ==
         texture_ktx2_result::success);
   virtual_file_system vfs;
-  check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
+  check(vfs.mount("asset://", files) == gneiss::engine::core::result::success);
   render_resource_service resources;
   resource_cache cache;
   render_asset_loader loader(vfs, cache, resources);
@@ -296,17 +315,17 @@ void cooperative_read_slices() {
       .begin =
           [](const auto&, auto& sequence) {
             sequence = 1U;
-            return GNEISS_SUCCESS;
+            return gneiss::engine::core::result::success;
           },
       .poll =
           [](auto, auto& result) {
-            result = GNEISS_SUCCESS;
+            result = gneiss::engine::core::result::success;
             return true;
           },
       .discard =
           [](const auto&, auto& sequence) {
             sequence = 2U;
-            return GNEISS_SUCCESS;
+            return gneiss::engine::core::result::success;
           },
       .flush = [] {},
   };
@@ -314,7 +333,7 @@ void cooperative_read_slices() {
                                std::make_shared<cpu_document_cache>());
   const std::vector<std::string> uris{"asset://large.texture.json"};
   std::uint64_t request{};
-  check(service.submit(uris, 1U, 1U, request) == GNEISS_SUCCESS);
+  check(service.submit(uris, 1U, 1U, request) == gneiss::engine::core::result::success);
   texture_load_completion completion;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   std::size_t reading_tasks{};
@@ -331,7 +350,7 @@ void cooperative_read_slices() {
   // 两遍约 5.3 MiB 的载荷至少需要三块；相邻阶段允许共用剩余预算。
   if (reading_tasks < 3U || completion.state != texture_load_state::applied) {
     throw std::runtime_error("大纹理分片失败：读取任务=" + std::to_string(reading_tasks) +
-                             "，结果=" + std::to_string(completion.result) +
+                             "，结果=" + std::to_string(completion.result.code()) +
                              "，消息=" + completion.message);
   }
   check(files->bytes_read->load() >= 2U * files->files["image.ktx2"].size());
@@ -353,7 +372,7 @@ void delayed_single_texture_update() {
       R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})");
   files->pixel(std::byte{10});
   virtual_file_system vfs;
-  check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
+  check(vfs.mount("asset://", files) == gneiss::engine::core::result::success);
   render_resource_service resources;
   resource_cache cache;
   render_asset_loader loader(vfs, cache, resources);
@@ -361,19 +380,19 @@ void delayed_single_texture_update() {
   bool acknowledged{};
   unsigned attempts{};
   unsigned accepted{};
-  gneiss_result outcome = GNEISS_SUCCESS;
+  gneiss::engine::core::result outcome = gneiss::engine::core::result::success;
   texture_upload_backend::data retained;
   texture_upload_backend backend{
       .begin =
           [&](auto data, auto& sequence) {
             ++attempts;
             if (!budget_available) {
-              return GNEISS_ERROR_NOT_READY;
+              return gneiss::engine::core::result::not_ready;
             }
             check(retained.empty() && data.size() == 1U);
             retained = std::move(data);
             sequence = ++accepted;
-            return GNEISS_SUCCESS;
+            return gneiss::engine::core::result::success;
           },
       .poll =
           [&](auto, auto& result) {
@@ -384,7 +403,7 @@ void delayed_single_texture_update() {
             result = outcome;
             return true;
           },
-      .discard = [](auto, auto&) { return GNEISS_ERROR_INTERNAL; },
+      .discard = [](auto, auto&) { return gneiss::engine::core::result::internal; },
       .flush = [&] { acknowledged = true; },
   };
   texture_load_service service(scheduler, vfs, loader, std::move(backend), {},
@@ -405,22 +424,23 @@ void delayed_single_texture_update() {
   // 首次解析失败仍保留使用者持有的逻辑 RID，显式重试填充同一槽位。
   auto payload = std::move(files->files.at("image.ktx2"));
   files->files.erase("image.ktx2");
-  check(service.submit(uris, 1U, 1U, request) == GNEISS_SUCCESS);
+  check(service.submit(uris, 1U, 1U, request) == gneiss::engine::core::result::success);
   auto first_target = service.requested_assets().front();
   bool failed{};
   until([&] { return failed || (failed = service.take(completion)); });
   check(completion.state == texture_load_state::failed && accepted == 0U &&
-        resources.texture_status(first_target.get()) == GNEISS_ERROR_NOT_READY);
+        resources.texture_status(first_target.get()) == gneiss::engine::core::result::not_ready);
   render_asset_lease cached;
   check(loader.acquire_cached({uris.front(), render_asset_type::texture}, cached) ==
-        GNEISS_ERROR_NOT_READY);
+        gneiss::engine::core::result::not_ready);
   files->files["image.ktx2"] = std::move(payload);
-  check(service.submit(uris, 1U, 1U, request) == GNEISS_SUCCESS);
+  check(service.submit(uris, 1U, 1U, request) == gneiss::engine::core::result::success);
   check(service.requested_assets().size() == 1U);
   const auto reserved_rid = service.requested_assets().front().get();
   check(reserved_rid == first_target.get());
   first_target = {};
-  check(resources.texture_status(reserved_rid) == GNEISS_ERROR_NOT_READY && cache.size() == 1U);
+  check(resources.texture_status(reserved_rid) == gneiss::engine::core::result::not_ready &&
+        cache.size() == 1U);
   until([&] { return attempts != 0U; });
   for (unsigned frame = 0U; frame < 8U; ++frame) {
     advance();
@@ -432,7 +452,7 @@ void delayed_single_texture_update() {
   for (unsigned frame = 0U; frame < 8U; ++frame) {
     advance();
     check(attempts == submitted_attempts && cache.size() == 1U && !retained.empty() &&
-          resources.texture_status(reserved_rid) == GNEISS_ERROR_NOT_READY);
+          resources.texture_status(reserved_rid) == gneiss::engine::core::result::not_ready);
   }
   acknowledged = true;
   bool initial_complete{};
@@ -441,17 +461,19 @@ void delayed_single_texture_update() {
         completion.assets.front().type() == gneiss::engine::render::render_asset_type::texture);
   auto lease = completion.assets.front();
   const auto rid = lease.get();
-  check(rid == reserved_rid && resources.texture_status(rid) == GNEISS_SUCCESS);
+  check(rid == reserved_rid &&
+        resources.texture_status(rid) == gneiss::engine::core::result::success);
   auto old_frame = resources.share_texture(rid);
   check(old_frame && old_frame->levels.front().pixels.front() == std::byte{10});
 
   // 相同 RID 的失败更新和成功更新，都不提前改变旧帧持有的数据。
-  for (const auto expected : {GNEISS_ERROR_INITIALIZATION_FAILED, GNEISS_SUCCESS}) {
+  for (const auto expected : {gneiss::engine::core::result::initialization_failed,
+                              gneiss::engine::core::result::success}) {
     files->pixel(std::byte{20});
     acknowledged = false;
     outcome = expected;
     const auto before = accepted;
-    check(service.submit(uris, 1U, before + 1U, request) == GNEISS_SUCCESS);
+    check(service.submit(uris, 1U, before + 1U, request) == gneiss::engine::core::result::success);
     until([&] { return accepted == before + 1U; });
     const auto update_attempts = attempts;
     for (unsigned frame = 0U; frame < 8U; ++frame) {
@@ -464,7 +486,7 @@ void delayed_single_texture_update() {
     until([&] { return complete || (complete = service.take(completion)); });
     check(completion.result == expected && retained.empty());
     check(old_frame->levels.front().pixels.front() == std::byte{10});
-    if (expected == GNEISS_SUCCESS) {
+    if (expected == gneiss::engine::core::result::success) {
       check(completion.assets.front().get() == rid &&
             resources.share_texture(rid)->levels.front().pixels.front() == std::byte{20});
     } else {
@@ -494,19 +516,19 @@ void run(engine::core::tasks::execution_mode mode) {
       R"({"format":"gneiss.texture","version":1,"source":"asset://missing.ktx2","color_space":"srgb"})");
   files->pixel(std::byte{10});
   virtual_file_system vfs;
-  check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
+  check(vfs.mount("asset://", files) == gneiss::engine::core::result::success);
   render_resource_service resources;
   resource_cache cache;
   render_asset_loader loader(vfs, cache, resources);
   bool uploaded{};
   bool ready{};
-  gneiss_result upload_result = GNEISS_SUCCESS;
+  gneiss::engine::core::result upload_result = gneiss::engine::core::result::success;
   unsigned discarded{};
   texture_upload_backend backend{.begin =
                                      [&](auto, auto& sequence) {
                                        uploaded = true;
                                        sequence = 1U;
-                                       return GNEISS_SUCCESS;
+                                       return gneiss::engine::core::result::success;
                                      },
                                  .poll =
                                      [&](auto, auto& result) {
@@ -517,7 +539,7 @@ void run(engine::core::tasks::execution_mode mode) {
                                      [&](auto, auto& sequence) {
                                        ++discarded;
                                        sequence = 2U;
-                                       return GNEISS_SUCCESS;
+                                       return gneiss::engine::core::result::success;
                                      },
                                  .flush = [&] { ready = true; }};
   texture_load_service service(scheduler, vfs, loader, std::move(backend), {},
@@ -538,23 +560,24 @@ void run(engine::core::tasks::execution_mode mode) {
   };
   const std::vector<std::string> uris{"asset://a.texture.json"};
   std::uint64_t request{};
-  check(service.submit(uris, 1U, 1U, request) == GNEISS_SUCCESS && request != 0U);
+  check(service.submit(uris, 1U, 1U, request) == gneiss::engine::core::result::success &&
+        request != 0U);
   std::uint64_t rejected{};
-  check(service.submit(uris, 1U, 2U, rejected) == GNEISS_ERROR_NOT_READY);
+  check(service.submit(uris, 1U, 2U, rejected) == gneiss::engine::core::result::not_ready);
   until([&] { return uploaded; });
   check(cache.size() == 1U && resources.texture_status(service.requested_assets().front().get()) ==
-                                  GNEISS_ERROR_NOT_READY);
+                                  gneiss::engine::core::result::not_ready);
   check((files->reader == std::this_thread::get_id()) ==
         (mode == engine::core::tasks::execution_mode::cooperative));
   texture_load_completion completion;
   check(!service.take(completion));
-  upload_result = GNEISS_ERROR_INITIALIZATION_FAILED;
+  upload_result = gneiss::engine::core::result::initialization_failed;
   ready = true;
   until([&] { return service.take(completion); });
   check(completion.state == texture_load_state::failed && cache.size() == 0U &&
         resources.live_resource_count() == 0U);
-  upload_result = GNEISS_SUCCESS;
-  check(service.submit(uris, 1U, 2U, request) == GNEISS_SUCCESS);
+  upload_result = gneiss::engine::core::result::success;
+  check(service.submit(uris, 1U, 2U, request) == gneiss::engine::core::result::success);
   until([&] { return service.take(completion); });
   check(completion.state == texture_load_state::applied && completion.assets.size() == 1U &&
         completion.assets.front().type() == gneiss::engine::render::render_asset_type::texture);
@@ -563,13 +586,13 @@ void run(engine::core::tasks::execution_mode mode) {
   auto previous = resources.share_texture(rid);
   check(previous && previous->levels.front().pixels.front() == std::byte{10});
   files->reader = {};
-  check(service.submit(uris, 1U, 2U, request, false) == GNEISS_SUCCESS);
+  check(service.submit(uris, 1U, 2U, request, false) == gneiss::engine::core::result::success);
   check(service.take(completion) && completion.assets.front().get() == rid &&
         files->reader == std::thread::id{});
   files->pixel(std::byte{20});
   uploaded = false;
   ready = false;
-  check(service.submit(uris, 1U, 3U, request) == GNEISS_SUCCESS);
+  check(service.submit(uris, 1U, 3U, request) == gneiss::engine::core::result::success);
   until([&] { return uploaded; });
   check(resources.share_texture(rid) == previous);
   service.cancel(); // 上传已获许可，迟到取消不撤销提交。
@@ -580,7 +603,7 @@ void run(engine::core::tasks::execution_mode mode) {
         previous->levels.front().pixels.front() == std::byte{10});
   previous = resources.share_texture(rid);
   const std::vector<std::string> broken{uris.front(), "asset://b.texture.json"};
-  check(service.submit(broken, 1U, 4U, request) == GNEISS_SUCCESS);
+  check(service.submit(broken, 1U, 4U, request) == gneiss::engine::core::result::success);
   until([&] { return service.take(completion); });
   check(completion.state == texture_load_state::failed &&
         resources.share_texture(rid) != previous && cache.size() == 1U &&
@@ -590,14 +613,14 @@ void run(engine::core::tasks::execution_mode mode) {
   // 同步重载保持 RID，但更新内容与修订号；迟到的 GPU 候选不能覆盖它。
   uploaded = false;
   ready = false;
-  check(service.submit(uris, 1U, 5U, request) == GNEISS_SUCCESS);
+  check(service.submit(uris, 1U, 5U, request) == gneiss::engine::core::result::success);
   until([&] { return uploaded; });
   asset_diagnostic diagnostic;
   const std::vector<render_asset_reload> synchronous{{uris.front(), render_asset_type::texture}};
   files->pixel(std::byte{30});
-  check(loader.reload_assets(synchronous, diagnostic) == GNEISS_SUCCESS);
+  check(loader.reload_assets(synchronous, diagnostic) == gneiss::engine::core::result::success);
   render_asset_lease newer;
-  check(loader.acquire_cached(synchronous.front(), newer) == GNEISS_SUCCESS);
+  check(loader.acquire_cached(synchronous.front(), newer) == gneiss::engine::core::result::success);
   const auto newer_rid = newer.get();
   const auto newer_data = resources.share_texture(newer_rid);
   check(newer_rid == rid && newer_data != previous &&
@@ -609,8 +632,8 @@ void run(engine::core::tasks::execution_mode mode) {
         previous->levels.front().pixels.front() == std::byte{20});
   lease = std::move(newer);
   // 请求持有目标租约；显式销毁后仍不能被迟到候选复活。
-  check(service.submit(uris, 1U, 5U, request) == GNEISS_SUCCESS);
-  check(resources.destroy_texture(newer_rid) == GNEISS_SUCCESS);
+  check(service.submit(uris, 1U, 5U, request) == gneiss::engine::core::result::success);
+  check(resources.destroy_texture(newer_rid) == gneiss::engine::core::result::success);
   lease = {};
   completion = {};
   cache.release_unused();
@@ -618,7 +641,7 @@ void run(engine::core::tasks::execution_mode mode) {
   until([&] { return service.take(completion); });
   cache.release_unused();
   check(completion.state == texture_load_state::failed && cache.size() == 0U);
-  check(service.submit(uris, 2U, 1U, request) == GNEISS_SUCCESS);
+  check(service.submit(uris, 2U, 1U, request) == gneiss::engine::core::result::success);
   service.cancel();
   until([&] { return service.take(completion); });
   check(completion.state == texture_load_state::cancelled && resources.live_resource_count() == 0U);
@@ -656,7 +679,7 @@ void mixed(engine::core::tasks::execution_mode mode, bool pbr = false) {
     requested.push_back({"asset://" + name, render_asset_type::mesh});
   }
   virtual_file_system vfs;
-  check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
+  check(vfs.mount("asset://", files) == gneiss::engine::core::result::success);
   render_resource_service resources;
   resource_cache cache;
   render_asset_loader loader(vfs, cache, resources);
@@ -681,11 +704,12 @@ void mixed(engine::core::tasks::execution_mode mode, bool pbr = false) {
             }
             uploaded = true;
             sequence = ++serial;
-            return GNEISS_SUCCESS;
+            return gneiss::engine::core::result::success;
           },
       .poll =
           [&](auto, auto& result) {
-            result = fail && chunks == 2U && discards == 0U ? GNEISS_ERROR_IO : GNEISS_SUCCESS;
+            result = fail && chunks == 2U && discards == 0U ? gneiss::engine::core::result::io
+                                                            : gneiss::engine::core::result::success;
             return ack;
           },
       .discard =
@@ -693,7 +717,7 @@ void mixed(engine::core::tasks::execution_mode mode, bool pbr = false) {
             check(data.size() == expected_assets - first_chunk);
             ++discards;
             sequence = ++serial;
-            return GNEISS_SUCCESS;
+            return gneiss::engine::core::result::success;
           },
       .flush = [&] { ack = true; },
       .estimate_bytes = [](const auto& item) -> std::size_t {
@@ -718,39 +742,42 @@ void mixed(engine::core::tasks::execution_mode mode, bool pbr = false) {
   std::uint64_t request{};
   texture_load_completion completion;
   check(service.submit_assets(requested, 1U, 1U, request, false, 0U) ==
-        GNEISS_ERROR_INVALID_ARGUMENT);
-  check(service.submit_assets(requested, 1U, 1U, request, false, 8U) == GNEISS_SUCCESS);
+        gneiss::engine::core::result::invalid_argument);
+  check(service.submit_assets(requested, 1U, 1U, request, false, 8U) ==
+        gneiss::engine::core::result::success);
   until([&] { return service.take(completion); });
   check(completion.state == texture_load_state::failed && chunks == 0U && cache.size() == 0U &&
         resources.live_resource_count() == 0U);
-  check(service.submit_assets(requested, 1U, 1U, request) == GNEISS_SUCCESS);
+  check(service.submit_assets(requested, 1U, 1U, request) == gneiss::engine::core::result::success);
   until([&] { return service.take(completion); });
   check(completion.state == texture_load_state::failed && discards == 0U &&
         chunks == expected_assets && completion.assets.size() == expected_assets - 1U);
   check(std::ranges::count_if(completion.results, [](const auto& item) { return item.applied; }) ==
         expected_assets - 1U);
   check(std::ranges::count_if(completion.results, [](const auto& item) {
-          return !item.applied && item.result == GNEISS_ERROR_IO;
+          return !item.applied && item.result == gneiss::engine::core::result::io;
         }) == 1U);
   completion = {};
   cache.release_unused();
   fail = false;
-  check(service.submit_assets(requested, 1U, 2U, request) == GNEISS_SUCCESS);
+  check(service.submit_assets(requested, 1U, 2U, request) == gneiss::engine::core::result::success);
   check(service.cancel());
   until([&] { return service.take(completion); });
   check(completion.state == texture_load_state::cancelled && cache.size() == 0U);
 
-  check(service.submit_assets(requested, 1U, 2U, request) == GNEISS_SUCCESS);
+  check(service.submit_assets(requested, 1U, 2U, request) == gneiss::engine::core::result::success);
   until([&] { return service.take(completion); });
   check(completion.state == texture_load_state::applied &&
         completion.assets.size() == expected_assets);
   auto leases = completion.assets;
   render_asset_lease mesh_lease, material_lease;
-  check(loader.acquire_cached(requested[1], mesh_lease) == GNEISS_SUCCESS);
-  check(loader.acquire_cached(requested[0], material_lease) == GNEISS_SUCCESS);
+  check(loader.acquire_cached(requested[1], mesh_lease) == gneiss::engine::core::result::success);
+  check(loader.acquire_cached(requested[0], material_lease) ==
+        gneiss::engine::core::result::success);
   const auto old_mesh = resources.share_mesh(mesh_lease.get());
   render_asset_lease unchanged_lease;
-  check(loader.acquire_cached(requested[2], unchanged_lease) == GNEISS_SUCCESS);
+  check(loader.acquire_cached(requested[2], unchanged_lease) ==
+        gneiss::engine::core::result::success);
   const auto unchanged_mesh = resources.share_mesh(unchanged_lease.get());
   const auto old_material = resources.share_material(material_lease.get());
   auto changed = mesh;
@@ -759,7 +786,7 @@ void mixed(engine::core::tasks::execution_mode mode, bool pbr = false) {
   files->pixel(std::byte{200});
   uploaded = false;
   ack = false;
-  check(service.submit_assets(requested, 1U, 3U, request) == GNEISS_SUCCESS);
+  check(service.submit_assets(requested, 1U, 3U, request) == gneiss::engine::core::result::success);
   until([&] { return uploaded; });
   asset_load_progress progress;
   check(service.progress(progress) && !progress.can_cancel &&
@@ -787,7 +814,8 @@ void mixed(engine::core::tasks::execution_mode mode, bool pbr = false) {
     // 材质重载复用已成功的纹理；文件丢失不会隐式触发纹理重载。
     const auto retained = resources.share_material(material_lease.get());
     files->files.erase("3.texture.json");
-    check(service.submit_assets(requested, 1U, 4U, request) == GNEISS_SUCCESS);
+    check(service.submit_assets(requested, 1U, 4U, request) ==
+          gneiss::engine::core::result::success);
     until([&] { return service.take(completion); });
     check(completion.state == texture_load_state::applied &&
           resources.share_material(material_lease.get()) != retained);
@@ -800,7 +828,8 @@ void mixed(engine::core::tasks::execution_mode mode, bool pbr = false) {
     explicit_texture.push_back({"asset://3.texture.json", render_asset_type::texture});
     const auto texture_rid = resources.get_material(material_lease.get())->occlusion_texture;
     const auto old_texture = resources.share_texture(texture_rid);
-    check(service.submit_assets(explicit_texture, 1U, 5U, request) == GNEISS_SUCCESS);
+    check(service.submit_assets(explicit_texture, 1U, 5U, request) ==
+          gneiss::engine::core::result::success);
     until([&] { return service.take(completion); });
     check(completion.state == texture_load_state::failed &&
           completion.assets.size() == expected_assets - 1U &&
@@ -809,7 +838,8 @@ void mixed(engine::core::tasks::execution_mode mode, bool pbr = false) {
       return item.source.uri == "asset://3.texture.json";
     });
     check(failure != completion.results.end() && !failure->applied &&
-          failure->result == GNEISS_ERROR_NOT_FOUND && completion.results.front().applied);
+          failure->result == gneiss::engine::core::result::not_found &&
+          completion.results.front().applied);
   }
   // 同 URI 类型冲突、依赖缺失、闭包容量限制都必须在发布前拒绝。
   prepared_render_batch prepared;
@@ -817,17 +847,18 @@ void mixed(engine::core::tasks::execution_mode mode, bool pbr = false) {
   auto conflicting = requested;
   conflicting.push_back({"asset://a.texture.json", render_asset_type::mesh});
   check(prepare_render_assets(vfs, conflicting, prepared, diagnostic, [] { return false; }) !=
-        GNEISS_SUCCESS);
+        gneiss::engine::core::result::success);
   check(prepare_render_assets(
-            vfs, requested, prepared, diagnostic, [] { return false; }, 2U) != GNEISS_SUCCESS);
+            vfs, requested, prepared, diagnostic, [] { return false; }, 2U) !=
+        gneiss::engine::core::result::success);
   check(prepare_render_assets(vfs, requested, prepared, diagnostic, [] { return true; }) !=
-        GNEISS_SUCCESS);
+        gneiss::engine::core::result::success);
   check(prepare_render_assets(
             vfs, requested, prepared, diagnostic, [] { return false; }, 256U, 8U) !=
-        GNEISS_SUCCESS);
+        gneiss::engine::core::result::success);
   files->files.erase("image.ktx2");
   check(prepare_render_assets(vfs, requested, prepared, diagnostic, [] { return false; }) !=
-        GNEISS_SUCCESS);
+        gneiss::engine::core::result::success);
 }
 void packaged_lifetime(engine::core::tasks::execution_mode mode) {
 #if defined(GNEISS_HAS_GRANIT_PLATFORM)
@@ -851,7 +882,7 @@ void packaged_lifetime(engine::core::tasks::execution_mode mode) {
       "a.texture.json",
       R"({"format":"gneiss.texture","version":1,"source":"asset://image.gneiss-texture","color_space":"srgb"})");
   virtual_file_system vfs;
-  check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
+  check(vfs.mount("asset://", files) == gneiss::engine::core::result::success);
   render_resource_service resources;
   resource_cache cache;
   render_asset_loader loader(vfs, cache, resources);
@@ -859,7 +890,7 @@ void packaged_lifetime(engine::core::tasks::execution_mode mode) {
   std::weak_ptr<const std::vector<std::byte>> observed;
   bool ack{};
   bool oversized{true};
-  auto upload_result = GNEISS_ERROR_INITIALIZATION_FAILED;
+  auto upload_result = gneiss::engine::core::result::initialization_failed;
   texture_upload_backend backend{
       .begin =
           [&](auto data, auto& sequence) {
@@ -868,7 +899,7 @@ void packaged_lifetime(engine::core::tasks::execution_mode mode) {
             observed = data.front().texture_payload;
             in_flight = std::move(data);
             sequence = 1U;
-            return GNEISS_SUCCESS;
+            return gneiss::engine::core::result::success;
           },
       .poll =
           [&](auto, auto& result) {
@@ -883,7 +914,7 @@ void packaged_lifetime(engine::core::tasks::execution_mode mode) {
       .discard =
           [](auto, auto& sequence) {
             sequence = 2U;
-            return GNEISS_SUCCESS;
+            return gneiss::engine::core::result::success;
           },
       .flush = [&] { ack = true; },
       .estimate_bytes =
@@ -910,13 +941,13 @@ void packaged_lifetime(engine::core::tasks::execution_mode mode) {
   std::uint64_t request{};
   texture_load_completion completion;
   // 超出硬上限不得调用上传后端，也不得发布候选。
-  check(service->submit(uris, 1U, 1U, request) == GNEISS_SUCCESS);
+  check(service->submit(uris, 1U, 1U, request) == gneiss::engine::core::result::success);
   until([&] { return service->take(completion); });
-  check(completion.result == GNEISS_ERROR_OUT_OF_MEMORY && in_flight.empty() &&
+  check(completion.result == gneiss::engine::core::result::out_of_memory && in_flight.empty() &&
         observed.expired() && cache.size() == 0U && !completion.message.empty());
   oversized = false;
   // 失败回执前后分别验证强租约存活与销毁，并确认可重试。
-  check(service->submit(uris, 1U, 1U, request) == GNEISS_SUCCESS);
+  check(service->submit(uris, 1U, 1U, request) == gneiss::engine::core::result::success);
   until([&] { return !in_flight.empty(); });
   check(!observed.expired() && !service->cancel());
   asset_load_progress progress;
@@ -924,9 +955,9 @@ void packaged_lifetime(engine::core::tasks::execution_mode mode) {
   ack = true;
   until([&] { return service->take(completion); });
   check(completion.state == texture_load_state::failed && observed.expired() && cache.size() == 0U);
-  upload_result = GNEISS_SUCCESS;
+  upload_result = gneiss::engine::core::result::success;
   ack = false;
-  check(service->submit(uris, 1U, 2U, request) == GNEISS_SUCCESS);
+  check(service->submit(uris, 1U, 2U, request) == gneiss::engine::core::result::success);
   until([&] { return !in_flight.empty(); });
   const auto old_frame = in_flight.front().texture;
   ack = true;
@@ -936,11 +967,12 @@ void packaged_lifetime(engine::core::tasks::execution_mode mode) {
   check(!service->progress(progress) && progress.upload_reserved_bytes == 0U);
   check(old_frame->payload.empty() && old_frame->upload_payload.expired());
   std::vector<std::byte> restored;
-  check(old_frame->payload_source->read(restored, payload.size()) == GNEISS_SUCCESS &&
+  check(old_frame->payload_source->read(restored, payload.size()) ==
+            gneiss::engine::core::result::success &&
         std::ranges::equal(restored, payload));
   // 上传中关闭必须先等待回执；旧帧只保留元数据，不阻止负载租约销毁。
   ack = false;
-  check(service->submit(uris, 1U, 3U, request) == GNEISS_SUCCESS);
+  check(service->submit(uris, 1U, 3U, request) == gneiss::engine::core::result::success);
   until([&] { return !in_flight.empty(); });
   service.reset();
   check(in_flight.empty() && observed.expired());
@@ -960,7 +992,7 @@ void cancel_unpublished_upload(engine::core::tasks::execution_mode mode, bool af
         R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})");
   }
   virtual_file_system vfs;
-  check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
+  check(vfs.mount("asset://", files) == gneiss::engine::core::result::success);
   render_resource_service resources;
   resource_cache cache;
   render_asset_loader loader(vfs, cache, resources);
@@ -976,14 +1008,14 @@ void cancel_unpublished_upload(engine::core::tasks::execution_mode mode, bool af
             retained = std::move(data);
             sequence = 1U;
             ++uploads;
-            return GNEISS_SUCCESS;
+            return gneiss::engine::core::result::success;
           },
       .poll =
           [&](auto sequence, auto& result) {
             const bool ready = sequence == 1U ? upload_ack : discard_ack;
             if (ready) {
               retained.clear();
-              result = GNEISS_SUCCESS;
+              result = gneiss::engine::core::result::success;
             }
             return ready;
           },
@@ -993,7 +1025,7 @@ void cancel_unpublished_upload(engine::core::tasks::execution_mode mode, bool af
             retained = std::move(data);
             sequence = 2U;
             ++discards;
-            return GNEISS_SUCCESS;
+            return gneiss::engine::core::result::success;
           },
       .flush = [&] { upload_ack = discard_ack = true; },
       .estimate_bytes = [](const auto&) { return texture_load_service::upload_budget_bytes; },
@@ -1017,14 +1049,14 @@ void cancel_unpublished_upload(engine::core::tasks::execution_mode mode, bool af
   const std::array<std::string, 2> uris{"asset://a.texture.json", "asset://b.texture.json"};
   std::uint64_t request{};
   texture_load_completion completion;
-  check(service.submit(uris, 1U, 1U, request, false) == GNEISS_SUCCESS);
+  check(service.submit(uris, 1U, 1U, request, false) == gneiss::engine::core::result::success);
   auto first = after_first ? service.requested_assets().front() : render_asset_lease{};
   until([&] { return uploads == 1U; });
   if (after_first) {
     upload_ack = true;
     until([&] { return uploads == 2U; });
     upload_ack = false;
-    check(resources.texture_status(first.get()) == GNEISS_SUCCESS);
+    check(resources.texture_status(first.get()) == gneiss::engine::core::result::success);
     check(!service.take(completion));
   }
   const auto submitted = uploads;
@@ -1042,13 +1074,14 @@ void cancel_unpublished_upload(engine::core::tasks::execution_mode mode, bool af
         resources.live_resource_count() == (after_first ? 1U : 0U) &&
         !service.cancel_unpublished());
   if (after_first) {
-    check(resources.texture_status(first.get()) == GNEISS_SUCCESS && cache.size() == 1U);
+    check(resources.texture_status(first.get()) == gneiss::engine::core::result::success &&
+          cache.size() == 1U);
     check(completion.results.size() == 2U && completion.results.front().applied &&
-          completion.results.front().result == GNEISS_SUCCESS &&
+          completion.results.front().result == gneiss::engine::core::result::success &&
           !completion.results.back().applied &&
-          completion.results.back().result == GNEISS_ERROR_INVALID_STATE);
+          completion.results.back().result == gneiss::engine::core::result::invalid_state);
   }
-  check(service.submit(uris, 1U, 2U, request, false) == GNEISS_SUCCESS);
+  check(service.submit(uris, 1U, 2U, request, false) == gneiss::engine::core::result::success);
   until([&] { return service.take(completion); });
   check(completion.state == texture_load_state::applied &&
         uploads == submitted + (after_first ? 1U : 2U) && discards == 1U && cache.size() == 2U);

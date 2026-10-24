@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/result.hpp"
 #include <gneiss/engine/core/reflection_types.hpp>
 #include <memory>
 #include <string>
@@ -21,17 +22,18 @@ struct property_value {
   }
 };
 /** 元数据名称借用已冻结 Registry；失败保持输出。 */
-[[nodiscard]] GNEISS_API result describe_type(const registry_ref& registry, type_id type,
-                                              type_info& output) noexcept;
+[[nodiscard]] GNEISS_API gneiss::engine::core::result
+describe_type(const registry_ref& registry, type_id type, type_info& output) noexcept;
 /** 字段名称借用已冻结 Registry；失败保持输出。 */
-[[nodiscard]] GNEISS_API result describe_field(const registry_ref& registry, type_id type,
-                                               field_id field, field_info& output) noexcept;
+[[nodiscard]] GNEISS_API gneiss::engine::core::result describe_field(const registry_ref& registry,
+                                                                     type_id type, field_id field,
+                                                                     field_info& output) noexcept;
 /** 读取自有快照；失败保持输出。冻结后的 Registry 可共享，目标线程规则由访问器校验。 */
-[[nodiscard]] GNEISS_API result read_property(const registry_ref& registry, type_id type,
-                                              field_id field, property_target target,
-                                              property_value& output) noexcept;
+[[nodiscard]] GNEISS_API gneiss::engine::core::result
+read_property(const registry_ref& registry, type_id type, field_id field, property_target target,
+              property_value& output) noexcept;
 /** 输入在调用期间借用；沿用访问器的校验、线程与错误语义，不跨线程投递。 */
-[[nodiscard]] GNEISS_API result write_property(const registry_ref& registry, type_id type,
-                                               field_id field, property_target target,
-                                               const property_value& value) noexcept;
+[[nodiscard]] GNEISS_API gneiss::engine::core::result
+write_property(const registry_ref& registry, type_id type, field_id field, property_target target,
+               const property_value& value) noexcept;
 } // namespace gneiss::engine::core::reflection

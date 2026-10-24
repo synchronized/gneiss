@@ -8,9 +8,9 @@
 
 #include "engine/core/diagnostics/diagnostic.hpp"
 #include "engine/core/frame_time.hpp"
+#include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include <functional>
-#include <gneiss/engine/core/result.hpp>
 #include <string_view>
 
 namespace gneiss::runtime {
@@ -18,10 +18,11 @@ namespace gneiss::runtime {
 /** 原生平台和日志回调由配置复制；捕获的借用对象须存活至关闭结束。
  * context 是兼容宿主的借用关联标识；不拥有 Application，不授予销毁权。 */
 struct application_callbacks final {
-  std::function<result()> initialize;
-  std::function<result(bool&)> poll_events;
+  std::function<gneiss::engine::core::result()> initialize;
+  std::function<gneiss::engine::core::result(bool&)> poll_events;
   std::function<std::uint64_t()> now_ns;
-  std::function<result(engine::core::rid, const engine::core::frame_time&)> update;
+  std::function<gneiss::engine::core::result(engine::core::rid, const engine::core::frame_time&)>
+      update;
   std::function<void()> shutdown;
   std::function<void(engine::core::rid, const engine::core::diagnostics::diagnostic_view&)>
       diagnostic;

@@ -9,9 +9,9 @@
 #include "engine/resource/types/mesh_data.hpp"
 #include "engine/resource/types/texture_preparation_data.hpp"
 
+#include "engine/core/result.hpp"
 #include <chrono>
 #include <functional>
-#include <gneiss/engine/core/result.h>
 #include <limits>
 #include <memory>
 #include <span>
@@ -25,7 +25,7 @@ class virtual_file_system;
 namespace gneiss::engine::resource {
 
 struct asset_diagnostic final {
-  gneiss_result result = GNEISS_SUCCESS;
+  gneiss::engine::core::result result = gneiss::engine::core::result::success;
   std::size_t byte_offset = 0;
   std::string path;
   std::string message;
@@ -33,7 +33,7 @@ struct asset_diagnostic final {
 
 /** 纯 CPU 准备：不访问缓存、RID 表或 GPU；调用方拥有只读 VFS 快照及输出。
  * 有界读取需要后端支持；verify_source 拒绝准备期间变化的描述或负载，不提供跨进程事务隔离。 */
-[[nodiscard]] gneiss_result
+[[nodiscard]] gneiss::engine::core::result
 prepare_texture(const engine::resource::virtual_file_system& file_system, std::string_view uri,
                 engine::resource::prepared_texture_data& output, asset_diagnostic& diagnostic,
                 std::size_t input_limit = std::numeric_limits<std::size_t>::max(),
@@ -82,8 +82,8 @@ struct prepared_batch {
  * 在 advance 的执行线程调用；其捕获状态须存活至准备销毁。空函数使用既有解析器。
  * 成功仅产生候选；必须等整批 advance 成功完成后才能登记共享版本。 */
 using material_document_decoder =
-    std::function<gneiss_result(const std::vector<std::byte>&, material_parameters&,
-                                std::array<std::string, 5>&, asset_diagnostic&)>;
+    std::function<gneiss::engine::core::result(const std::vector<std::byte>&, material_parameters&,
+                                               std::array<std::string, 5>&, asset_diagnostic&)>;
 /** 资产层的分步 CPU 准备；同一实例须串行推进。候选仅在全部来源复验后输出。
  * 每步限制区间读取/摘要字节，解析仍是单项同步调用；旧整文件后端保留同步兼容行为。 */
 class asset_preparation final {
@@ -101,11 +101,10 @@ public:
                     texture_prepare_profile profile,
                     material_document_decoder decode_material = {});
   ~asset_preparation();
-  [[nodiscard]] gneiss_result advance(std::size_t byte_budget,
-                                      const std::function<bool()>& cancelled,
-                                      prepared_batch& output, asset_diagnostic& diagnostic,
-                                      bool& complete,
-                                      std::chrono::milliseconds wait_budget = {}) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  advance(std::size_t byte_budget, const std::function<bool()>& cancelled, prepared_batch& output,
+          asset_diagnostic& diagnostic, bool& complete,
+          std::chrono::milliseconds wait_budget = {}) noexcept;
 
 private:
   struct state;
@@ -113,13 +112,12 @@ private:
 };
 /** material_bytes 由调用方指定单个材质发布所需的字节估算；含材质时不得为零。
  * 该值与依赖 URI 共同计入 maximum_bytes，溢出或预算不足拒绝整批。 */
-[[nodiscard]] gneiss_result prepare_assets(const engine::resource::virtual_file_system& files,
-                                           std::span<const asset_preparation_source> requested,
-                                           prepared_batch& output, asset_diagnostic& diagnostic,
-                                           const std::function<bool()>& cancelled,
-                                           std::size_t material_bytes,
-                                           std::size_t maximum_assets = 256U,
-                                           std::size_t maximum_bytes = 256U * 1024U * 1024U,
-                                           texture_prepare_profile profile = {}) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+prepare_assets(const engine::resource::virtual_file_system& files,
+               std::span<const asset_preparation_source> requested, prepared_batch& output,
+               asset_diagnostic& diagnostic, const std::function<bool()>& cancelled,
+               std::size_t material_bytes, std::size_t maximum_assets = 256U,
+               std::size_t maximum_bytes = 256U * 1024U * 1024U,
+               texture_prepare_profile profile = {}) noexcept;
 
 } // namespace gneiss::engine::resource

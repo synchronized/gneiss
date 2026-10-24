@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/resource/cache/resource_cache.hpp"
+#include "engine/core/result.hpp"
 
 #include "engine/resource/vfs/asset_uri.hpp"
 
@@ -11,25 +12,26 @@
 
 namespace gneiss::engine::resource {
 
-gneiss_result resource_cache::acquire(std::string_view uri, std::uint32_t type, const loader& load,
-                                      std::shared_ptr<const entry>& out_entry,
-                                      std::shared_ptr<const asset_source_domain> source) noexcept {
+gneiss::engine::core::result
+resource_cache::acquire(std::string_view uri, std::uint32_t type, const loader& load,
+                        std::shared_ptr<const entry>& out_entry,
+                        std::shared_ptr<const asset_source_domain> source) noexcept {
   out_entry.reset();
-  if (type == 0U || !load || validate_uri(uri) != GNEISS_SUCCESS) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+  if (type == 0U || !load || validate_uri(uri) != gneiss::engine::core::result::success) {
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     const auto found = entries_.find(std::string(uri));
     if (found != entries_.end()) {
       if ((found->second->type != type || found->second->source != source)) {
-        return GNEISS_ERROR_INVALID_ARGUMENT;
+        return gneiss::engine::core::result::invalid_argument;
       }
       if (found->second->state == resource_state::ready) {
         out_entry = found->second;
-        return GNEISS_SUCCESS;
+        return gneiss::engine::core::result::success;
       }
       if (found->second->state == resource_state::loading) {
-        return GNEISS_ERROR_INVALID_STATE;
+        return gneiss::engine::core::result::invalid_state;
       }
       entries_.erase(found); // 失败不永久缓存；下一次获取重新尝试。
     }
@@ -43,35 +45,38 @@ gneiss_result resource_cache::acquire(std::string_view uri, std::uint32_t type, 
 
     std::shared_ptr<void> resource;
     const auto result = load(resource);
-    if (result != GNEISS_SUCCESS || resource == nullptr) {
+    if (result != gneiss::engine::core::result::success || resource == nullptr) {
       value->state = resource_state::failed;
-      value->failure = result == GNEISS_SUCCESS ? GNEISS_ERROR_INTERNAL : result;
+      value->failure = result == gneiss::engine::core::result::success
+                           ? gneiss::engine::core::result::internal
+                           : result;
       entries_.erase(value->uri);
       return value->failure;
     }
     value->resource = std::move(resource);
     value->state = resource_state::ready;
     out_entry = std::move(value);
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-gneiss_result resource_cache::reload(std::string_view uri, std::uint32_t type, const loader& load,
-                                     std::shared_ptr<const entry>& out_entry,
-                                     std::shared_ptr<const asset_source_domain> source) noexcept {
+gneiss::engine::core::result
+resource_cache::reload(std::string_view uri, std::uint32_t type, const loader& load,
+                       std::shared_ptr<const entry>& out_entry,
+                       std::shared_ptr<const asset_source_domain> source) noexcept {
   out_entry.reset();
-  if (type == 0U || !load || validate_uri(uri) != GNEISS_SUCCESS) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+  if (type == 0U || !load || validate_uri(uri) != gneiss::engine::core::result::success) {
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     const auto found = entries_.find(std::string(uri));
     if (found != entries_.end() &&
         (found->second->type != type || found->second->source != source)) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     auto value = std::make_shared<entry>();
     value->uri = uri;
@@ -80,18 +85,20 @@ gneiss_result resource_cache::reload(std::string_view uri, std::uint32_t type, c
     value->state = resource_state::loading;
     std::shared_ptr<void> resource;
     const auto result = load(resource);
-    if (result != GNEISS_SUCCESS || resource == nullptr) {
-      return result == GNEISS_SUCCESS ? GNEISS_ERROR_INTERNAL : result;
+    if (result != gneiss::engine::core::result::success || resource == nullptr) {
+      return result == gneiss::engine::core::result::success
+                 ? gneiss::engine::core::result::internal
+                 : result;
     }
     value->resource = std::move(resource);
     value->state = resource_state::ready;
     entries_.insert_or_assign(value->uri, value);
     out_entry = std::move(value);
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 

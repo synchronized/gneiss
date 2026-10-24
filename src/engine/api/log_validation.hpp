@@ -7,6 +7,7 @@
 #include "engine/api/result_conversion.hpp"
 #include "engine/core/log/log.hpp"
 #include "engine/core/log/log_dispatcher.hpp"
+#include "engine/core/result.hpp"
 #include <gneiss/engine/log.h>
 
 #include <algorithm>
@@ -37,7 +38,7 @@ log_message_view(const gneiss_log_message& message) noexcept {
 }
 
 /** 多个 ABI 入口共用布局校验；不经导出函数复用核心规则。 */
-[[nodiscard]] inline gneiss_result
+[[nodiscard]] inline gneiss::engine::core::result
 validate_log_message(const gneiss_log_message* message) noexcept {
   if (message == nullptr || message->struct_size < GNEISS_LOG_MESSAGE_VERSION_1_SIZE ||
       message->severity < GNEISS_LOG_TRACE || message->severity > GNEISS_LOG_FATAL ||
@@ -46,7 +47,7 @@ validate_log_message(const gneiss_log_message* message) noexcept {
       message->category_length > std::numeric_limits<std::size_t>::max() ||
       message->message_length > std::numeric_limits<std::size_t>::max() ||
       std::ranges::any_of(message->reserved, [](std::uint64_t value) { return value != 0U; })) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   const std::string_view category(message->category,
                                   static_cast<std::size_t>(message->category_length));
@@ -54,8 +55,9 @@ validate_log_message(const gneiss_log_message* message) noexcept {
       message->message_length == 0U
           ? std::string_view{}
           : std::string_view(message->message, static_cast<std::size_t>(message->message_length));
-  return engine::core::log::valid_text(category, text) ? GNEISS_SUCCESS
-                                                       : GNEISS_ERROR_INVALID_ARGUMENT;
+  return engine::core::log::valid_text(category, text)
+             ? gneiss::engine::core::result::success
+             : gneiss::engine::core::result::invalid_argument;
 }
 } // namespace gneiss::engine::api
 

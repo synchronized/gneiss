@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "runtime_log.hpp"
 
 #include <filesystem>
@@ -29,7 +30,7 @@ int main() {
         .category_length = category.size(),
         .message = message.data(),
         .message_length = message.size(),
-        .result = GNEISS_ERROR_NOT_READY,
+        .result = gneiss::engine::core::result::not_ready.code(),
         .flags = 0U,
         .reserved = {},
     };

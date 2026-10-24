@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "log_dispatcher.hpp"
+#include "engine/core/result.hpp"
 #include "log.hpp"
 
 #include <chrono>
@@ -52,11 +53,11 @@ log_dispatcher::~log_dispatcher() noexcept {
 
 gneiss::engine::core::result log_dispatcher::submit(const message_view& message) noexcept {
   if (is_in_log_callback) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
   if (message.severity < level::trace || message.severity > level::fatal ||
       !valid_text(message.category, message.message)) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     owned_event event;
@@ -71,21 +72,21 @@ gneiss::engine::core::result log_dispatcher::submit(const message_view& message)
     {
       const std::scoped_lock lock(mutex_);
       if (is_stopping_) {
-        return result::invalid_state;
+        return gneiss::engine::core::result::invalid_state;
       }
       if (queue_.size() >= capacity_) {
         ++dropped_count_;
-        return result::success;
+        return gneiss::engine::core::result::success;
       }
       event.sequence = next_sequence_++;
       queue_.push_back(std::move(event));
     }
     ready_.notify_one();
-    return result::success;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 
@@ -158,7 +159,7 @@ log_dispatcher::owned_event log_dispatcher::make_drop_event(std::uint64_t count)
     event.source = "engine.log";
     event.category = "backpressure";
     event.message = "日志队列已满，丢弃 " + std::to_string(count) + " 个事件";
-    event.result = result::not_ready;
+    event.result = gneiss::engine::core::result::not_ready;
   } catch (...) {
     event.source.clear();
     event.category.clear();

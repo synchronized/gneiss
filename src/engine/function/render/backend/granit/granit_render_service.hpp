@@ -15,7 +15,7 @@
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/platform/native_window_info.hpp"
 
-#include <gneiss/engine/core/result.h>
+#include "engine/core/result.hpp"
 
 #include <granit/granit.hpp>
 #include <granit/pipeline/canvas_draw_list.hpp>
@@ -42,13 +42,14 @@ namespace gneiss::engine::render {
 
 class granit_render_service final {
 public:
-  [[nodiscard]] gneiss_result initialize(const engine::platform::native_window_info& window,
-                                         std::span<const std::byte> environment_asset = {},
-                                         float environment_intensity = 1.0F,
-                                         float environment_rotation_radians = 0.0F,
-                                         engine::core::log::log_dispatcher* log = nullptr) noexcept;
-  [[nodiscard]] gneiss_result shutdown(granit::renderer_resource_stats& stats) noexcept;
-  [[nodiscard]] gneiss_result finish_frames() noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  initialize(const engine::platform::native_window_info& window,
+             std::span<const std::byte> environment_asset = {}, float environment_intensity = 1.0F,
+             float environment_rotation_radians = 0.0F,
+             engine::core::log::log_dispatcher* log = nullptr) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  shutdown(granit::renderer_resource_stats& stats) noexcept;
+  [[nodiscard]] gneiss::engine::core::result finish_frames() noexcept;
   void set_completion_notification(
       std::shared_ptr<engine::core::progress_notification> notification) noexcept {
     executor_.set_completion_notification(std::move(notification));
@@ -56,10 +57,10 @@ public:
   void set_log_context(engine::core::rid application) noexcept {
     log_context_.store(application, std::memory_order_relaxed);
   }
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   prepare_frame_packet_storage(engine::render::render_frame_packet& packet,
                                bool& out_should_prepare) noexcept;
-  [[nodiscard]] gneiss_result submit(
+  [[nodiscard]] gneiss::engine::core::result submit(
       engine::render::render_frame_packet packet,
       engine::render::render_frame_policy policy = engine::render::render_frame_policy::replaceable,
       std::uint64_t* out_sequence = nullptr) noexcept;
@@ -76,25 +77,27 @@ public:
   using texture_data = std::shared_ptr<const engine::render::texture_resource>;
   [[nodiscard]] static std::size_t
   estimate_upload_bytes(const engine::render::render_upload_item& item) noexcept;
-  [[nodiscard]] gneiss_result prepare_textures(std::vector<engine::render::render_upload_item> data,
-                                               std::uint64_t& sequence) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  prepare_textures(std::vector<engine::render::render_upload_item> data,
+                   std::uint64_t& sequence) noexcept;
   [[nodiscard]] bool poll_texture_preparation(std::uint64_t sequence,
-                                              gneiss_result& result) noexcept;
-  [[nodiscard]] gneiss_result
+                                              gneiss::engine::core::result& result) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
   discard_prepared_textures(std::vector<engine::render::render_upload_item> data,
                             std::uint64_t& sequence) noexcept;
 
 private:
   double latest_texture_upload_ms_{};
-  [[nodiscard]] gneiss_result initialize_gpu(const engine::platform::native_window_info& window,
-                                             std::span<const std::byte> environment_asset,
-                                             float environment_intensity,
-                                             float environment_rotation_radians) noexcept;
-  [[nodiscard]] gneiss_result shutdown_gpu(granit::renderer_resource_stats& stats) noexcept;
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
+  initialize_gpu(const engine::platform::native_window_info& window,
+                 std::span<const std::byte> environment_asset, float environment_intensity,
+                 float environment_rotation_radians) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  shutdown_gpu(granit::renderer_resource_stats& stats) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
   execute_frame(engine::render::render_frame_packet& packet,
                 engine::render::render_execution_result& output) noexcept;
-  [[nodiscard]] gneiss_result collect_completions() noexcept;
+  [[nodiscard]] gneiss::engine::core::result collect_completions() noexcept;
 
   struct texture_mirror final {
     const engine::render::texture_resource* source{};

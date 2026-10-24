@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/result.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world_service.hpp"
 
@@ -22,8 +23,9 @@ public:
   scene_domain(const scene_domain&) = delete;
   scene_domain& operator=(const scene_domain&) = delete;
   /** 全部初始化成功后发布；失败保持空域，可重试。重复初始化拒绝且保持原状态。 */
-  [[nodiscard]] gneiss_result initialize(engine::resource::asset_manager& owner,
-                                         engine::render::render_asset_loader& render) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  initialize(engine::resource::asset_manager& owner,
+             engine::render::render_asset_loader& render) noexcept;
   [[nodiscard]] engine::world::world* native_world() const noexcept { return world_owner_.get(); }
   [[nodiscard]] gneiss_world world() const noexcept {
     return world_owner_ ? world_owner_.get_deleter().borrowed : GNEISS_NULL_WORLD;

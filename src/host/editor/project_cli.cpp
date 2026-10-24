@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "project_cli.hpp"
+#include "engine/core/result.hpp"
 
 #include "package_archive.hpp"
 #include "project_workspace.hpp"
@@ -20,8 +21,8 @@
 
 namespace {
 
-int fail(std::string_view stage, gneiss::result operation) {
-  std::cerr << "Gneiss 工程操作失败：阶段=" << stage << "，结果=" << operation.native()
+int fail(std::string_view stage, gneiss::engine::core::result operation) {
+  std::cerr << "Gneiss 工程操作失败：阶段=" << stage << "，结果=" << operation.code()
             << "，消息=" << operation.message() << '\n';
   return 1;
 }
@@ -49,9 +50,9 @@ bool parse_profile(std::string_view text, gneiss::app::game_build_profile& outpu
   return true;
 }
 
-gneiss::result run_process(const std::filesystem::path& executable,
-                           const std::filesystem::path& working_directory,
-                           std::vector<std::filesystem::path> arguments) {
+gneiss::engine::core::result run_process(const std::filesystem::path& executable,
+                                         const std::filesystem::path& working_directory,
+                                         std::vector<std::filesystem::path> arguments) {
   gneiss::engine::platform::child_process process;
   auto operation = process.start({executable, std::move(arguments), working_directory});
   while (operation && process.is_running()) {
@@ -60,8 +61,8 @@ gneiss::result run_process(const std::filesystem::path& executable,
   }
   process.update();
   std::cout << process.output();
-  return operation && process.exit_code() == 0 ? gneiss::result::success
-                                               : gneiss::result::dependency_failed;
+  return operation && process.exit_code() == 0 ? gneiss::engine::core::result::success
+                                               : gneiss::engine::core::result::dependency_failed;
 }
 
 } // namespace
@@ -112,7 +113,7 @@ int gneiss::host::editor::run_project_cli(int argc, char** argv) {
       const auto& build =
           gneiss::app::game_build_profile_description_for(project.game_module, profile);
       if (build.configure_preset.empty() || build.build_preset.empty()) {
-        return fail("选择构建配置", gneiss::result::unsupported);
+        return fail("选择构建配置", gneiss::engine::core::result::unsupported);
       }
       const auto sdk_root = std::filesystem::path(argv[3]).parent_path().parent_path();
       operation = run_process(

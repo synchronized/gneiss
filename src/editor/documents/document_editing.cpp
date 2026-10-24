@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "documents/document_editing.hpp"
+#include "engine/core/result.hpp"
 namespace gneiss::editor {
 bool document_editing::active() const noexcept {
   return assets_.active() || prefabs_.active() || history_.is_pending();
@@ -18,9 +19,10 @@ void document_editing::advance_cleanup(runtime::application& application) {
   }
   assets_.advance(application, document_, history_);
 }
-result document_editing::create_empty(runtime::application& application, gneiss_world world) {
+gneiss::engine::core::result document_editing::create_empty(runtime::application& application,
+                                                            gneiss_world world) {
   if (active())
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   scene_document candidate;
   const auto prepared = candidate.create_empty(application, world);
   if (prepared.failed())
@@ -29,17 +31,17 @@ result document_editing::create_empty(runtime::application& application, gneiss_
   if (closed.failed())
     return closed;
   document_ = std::move(candidate);
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
-result document_editing::close() noexcept {
+gneiss::engine::core::result document_editing::close() noexcept {
   if (active())
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   const auto cleared = history_.clear();
   if (cleared.failed())
     return cleared;
   prefabs_.dismiss();
   assets_.dismiss();
   document_.close();
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 } // namespace gneiss::editor

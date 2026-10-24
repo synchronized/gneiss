@@ -4,13 +4,13 @@
 #ifndef GNEISS_ASSET_ASSET_URI_HPP_
 #define GNEISS_ASSET_ASSET_URI_HPP_
 
-#include <gneiss/engine/core/result.h>
+#include "engine/core/result.hpp"
 
 #include <string_view>
 
 namespace gneiss::engine::resource {
 
-[[nodiscard]] gneiss_result validate_uri(std::string_view uri) noexcept;
+[[nodiscard]] GNEISS_API gneiss::engine::core::result validate_uri(std::string_view uri) noexcept;
 [[nodiscard]] std::string_view uri_path(std::string_view uri) noexcept;
 
 } // namespace gneiss::engine::resource

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "viewport/editor_rotation_math.hpp"
 
 #include <array>
@@ -24,12 +25,13 @@ bool equivalent(const gneiss::property_quaternion& left,
 int main() {
   constexpr std::array<float, 3> source{35.0F, -20.0F, 125.0F};
   gneiss::property_quaternion quaternion{};
-  if (gneiss::editor::euler_degrees_to_quaternion(source, quaternion) != gneiss::result::success) {
+  if (gneiss::editor::euler_degrees_to_quaternion(source, quaternion) !=
+      gneiss::engine::core::result::success) {
     return 1;
   }
   std::array<float, 3> recovered{};
   if (gneiss::editor::quaternion_to_euler_degrees(quaternion, recovered) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       !near(recovered[0], source[0]) || !near(recovered[1], source[1]) ||
       !near(recovered[2], source[2])) {
     return 2;
@@ -40,18 +42,18 @@ int main() {
   std::array<float, 3> gimbal_recovered{};
   gneiss::property_quaternion gimbal_roundtrip{};
   if (gneiss::editor::euler_degrees_to_quaternion(near_gimbal, gimbal_quaternion) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       gneiss::editor::quaternion_to_euler_degrees(gimbal_quaternion, gimbal_recovered) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       gneiss::editor::euler_degrees_to_quaternion(gimbal_recovered, gimbal_roundtrip) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       !equivalent(gimbal_quaternion, gimbal_roundtrip)) {
     return 3;
   }
 
   constexpr gneiss::property_quaternion invalid{.w = 0.0F};
   if (gneiss::editor::quaternion_to_euler_degrees(invalid, recovered) !=
-      gneiss::result::invalid_argument) {
+      gneiss::engine::core::result::invalid_argument) {
     return 4;
   }
   return 0;

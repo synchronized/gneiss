@@ -5,6 +5,7 @@
 #include "asset_background_worker.hpp"
 #include "author_asset_service.hpp"
 #include "documents/scene_document.hpp"
+#include "engine/core/result.hpp"
 #include "runtime/application_registry.hpp"
 
 #include <gneiss/engine/application.h>
@@ -71,11 +72,12 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
   author_asset_service authors(scheduler);
   asset_background_worker worker({}, &scheduler);
   const auto assets = root / "assets";
-  require(authors.initialize(assets) == result::success, "作者服务启动失败");
+  require(authors.initialize(assets) == gneiss::engine::core::result::success, "作者服务启动失败");
   const auto baseline_start = clock_type::now();
   while (authors.is_rescanning()) {
     std::vector<std::filesystem::path> paths;
-    require(authors.poll_rescan(paths) == result::success, "作者基线扫描失败");
+    require(authors.poll_rescan(paths) == gneiss::engine::core::result::success,
+            "作者基线扫描失败");
     require(clock_type::now() - baseline_start < std::chrono::seconds(60), "基线超时");
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
@@ -88,12 +90,14 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
   gneiss::test_support::application_owner app;
   gneiss_world world{};
   scene_document session;
-  require(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success &&
-              gneiss::result{gneiss_application_get_world(app.get(), &world)} == result::success,
+  require(gneiss::engine::core::result{gneiss_application_create(&desc, app.put())} ==
+                  gneiss::engine::core::result::success &&
+              gneiss::engine::core::result{gneiss_application_get_world(app.get(), &world)} ==
+                  gneiss::engine::core::result::success,
           "基准应用创建失败");
   const auto open_ms = measure([&] {
     require(session.open(*gneiss::runtime::find_application(app.get()), world,
-                         "asset://main.scene.json") == result::success,
+                         "asset://main.scene.json") == gneiss::engine::core::result::success,
             "多 Prefab 场景加载失败");
   });
   worker.start(root, assets);
@@ -119,29 +123,31 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
     previous = now;
     require(now - start < std::chrono::seconds(120), "真实资产基准超时");
     std::vector<std::filesystem::path> paths;
-    max_poll = std::max(max_poll, measure([&] {
-                          require(authors.poll_rescan(paths) == result::success, "作者扫描失败");
-                          std::vector<asset_reimport_event> events;
-                          (void)worker.poll_events(events);
-                          require(worker.status().error.empty(), "后台服务错误");
-                          for (const auto& event : events) {
-                            imported_again =
-                                imported_again || event.state == asset_reimport_state::succeeded;
-                            require(event.state != asset_reimport_state::failed, "后台导入失败");
-                          }
-                          peak = std::max(peak, scheduler.stats().retained);
-                        }));
+    max_poll =
+        std::max(max_poll, measure([&] {
+                   require(authors.poll_rescan(paths) == gneiss::engine::core::result::success,
+                           "作者扫描失败");
+                   std::vector<asset_reimport_event> events;
+                   (void)worker.poll_events(events);
+                   require(worker.status().error.empty(), "后台服务错误");
+                   for (const auto& event : events) {
+                     imported_again =
+                         imported_again || event.state == asset_reimport_state::succeeded;
+                     require(event.state != asset_reimport_state::failed, "后台导入失败");
+                   }
+                   peak = std::max(peak, scheduler.stats().retained);
+                 }));
     for (const auto& path : paths) {
       const auto change = authors.observe(path, false);
       if (change.state == author_asset_change_state::changed &&
           change.uri.ends_with(".prefab.json")) {
-        require(change.operation == result::success, "Prefab 读取失败");
-        max_apply =
-            std::max(max_apply, measure([&] {
-                       require(session.open(*gneiss::runtime::find_application(app.get()), world,
-                                            "asset://main.scene.json") == result::success,
-                               "主线程应用失败");
-                     }));
+        require(change.operation == gneiss::engine::core::result::success, "Prefab 读取失败");
+        max_apply = std::max(max_apply, measure([&] {
+                               require(session.open(*gneiss::runtime::find_application(app.get()),
+                                                    world, "asset://main.scene.json") ==
+                                           gneiss::engine::core::result::success,
+                                       "主线程应用失败");
+                             }));
         authors.mark_applied(change.uri);
         ++applied;
       }

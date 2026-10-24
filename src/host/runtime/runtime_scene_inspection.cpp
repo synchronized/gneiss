@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_scene_inspection.hpp"
+#include "engine/core/result.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -79,10 +80,11 @@ void runtime_scene_inspection::reset(std::uint64_t session_id) noexcept {
   is_initialized_ = false;
 }
 
-result runtime_scene_inspection::capture(std::span<const runtime_scene_source_node> nodes,
-                                         bool force_full, runtime_scene_snapshot& output) noexcept {
+gneiss::engine::core::result
+runtime_scene_inspection::capture(std::span<const runtime_scene_source_node> nodes, bool force_full,
+                                  runtime_scene_snapshot& output) noexcept {
   if (session_id_ == 0U || nodes.size() > runtime_inspection_max_nodes) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     std::set<std::string, std::less<>> author_keys;
@@ -98,7 +100,7 @@ result runtime_scene_inspection::capture(std::span<const runtime_scene_source_no
           node.material_uri.size() > runtime_inspection_max_string_size ||
           !author_keys.insert(author_key(node)).second ||
           !native_nodes.insert(node.native_node).second) {
-        return result::invalid_argument;
+        return gneiss::engine::core::result::invalid_argument;
       }
     }
 
@@ -131,7 +133,7 @@ result runtime_scene_inspection::capture(std::span<const runtime_scene_source_no
         free_values.pop_back();
       } else {
         if (next_object_value == 0U) {
-          return result::out_of_memory;
+          return gneiss::engine::core::result::out_of_memory;
         }
         value = next_object_value++;
         generations.emplace(value, 1U);
@@ -153,7 +155,7 @@ result runtime_scene_inspection::capture(std::span<const runtime_scene_source_no
       if (source.native_parent != 0U) {
         const auto found = native_identities.find(source.native_parent);
         if (found == native_identities.end()) {
-          return result::invalid_argument;
+          return gneiss::engine::core::result::invalid_argument;
         }
         parent = found->second;
       }
@@ -193,14 +195,14 @@ result runtime_scene_inspection::capture(std::span<const runtime_scene_source_no
       }
     }
     if (pending.changes.size() > runtime_inspection_max_changes) {
-      return result::out_of_memory;
+      return gneiss::engine::core::result::out_of_memory;
     }
     if (pending.changes.empty() && !pending.is_full) {
       output = {};
-      return result::not_ready;
+      return gneiss::engine::core::result::not_ready;
     }
     if (next_sequence_ == 0U) {
-      return result::out_of_memory;
+      return gneiss::engine::core::result::out_of_memory;
     }
     pending.stamp = {.session_id = session_id_, .sequence = next_sequence_++};
     identities_ = std::move(identities);
@@ -211,37 +213,38 @@ result runtime_scene_inspection::capture(std::span<const runtime_scene_source_no
     entities_ = std::move(entities);
     is_initialized_ = true;
     output = std::move(pending);
-    return result::success;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-result runtime_scene_inspection::capture_scene(::gneiss::runtime::application& application,
-                                               gneiss_scene_instance scene, bool force_full,
-                                               runtime_scene_snapshot& output) noexcept {
+gneiss::engine::core::result
+runtime_scene_inspection::capture_scene(::gneiss::runtime::application& application,
+                                        gneiss_scene_instance scene, bool force_full,
+                                        runtime_scene_snapshot& output) noexcept {
   if (!application.is_owner_thread() || !application.accepts_requests())
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   if (scene == GNEISS_NULL_SCENE_INSTANCE) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   std::uint64_t count = 0U;
   auto operation = application.scenes()->get_node_count(scene, &count);
-  if (operation != GNEISS_SUCCESS) {
-    return from_native(operation);
+  if (operation != gneiss::engine::core::result::success) {
+    return operation;
   }
   if (count > runtime_inspection_max_nodes) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   }
   std::uint64_t prefab_count = 0U;
   operation = application.scenes()->get_prefab_node_count(scene, &prefab_count);
-  if (operation != GNEISS_SUCCESS) {
-    return from_native(operation);
+  if (operation != gneiss::engine::core::result::success) {
+    return operation;
   }
   if (prefab_count > runtime_inspection_max_nodes - count) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   }
   auto& world = *application.native_world();
   try {
@@ -250,19 +253,19 @@ result runtime_scene_inspection::capture_scene(::gneiss::runtime::application& a
     for (std::uint64_t index = 0U; index < count; ++index) {
       engine::scene::scene_node_view info;
       operation = application.scenes()->get_node_info(scene, index, info);
-      if (operation != GNEISS_SUCCESS) {
-        return from_native(operation);
+      if (operation != gneiss::engine::core::result::success) {
+        return operation;
       }
       if (info.uuid.size() > runtime_inspection_max_string_size ||
           info.name.size() > runtime_inspection_max_string_size ||
           info.mesh_uri.size() > runtime_inspection_max_string_size ||
           info.material_uri.size() > runtime_inspection_max_string_size)
-        return result::invalid_argument;
+        return gneiss::engine::core::result::invalid_argument;
       auto runtime_transform = info.local_transform;
       operation =
           world.entity_get_local_transform(gneiss::entity_id{info.entity.get()}, runtime_transform);
-      if (operation != GNEISS_SUCCESS) {
-        return from_native(operation);
+      if (operation != gneiss::engine::core::result::success) {
+        return operation;
       }
       nodes.push_back({.native_node = info.node.get(),
                        .native_parent = info.parent.get(),
@@ -280,21 +283,21 @@ result runtime_scene_inspection::capture_scene(::gneiss::runtime::application& a
     for (std::uint64_t index = 0U; index < prefab_count; ++index) {
       engine::scene::prefab_node_view info;
       operation = application.scenes()->get_prefab_node_info(scene, index, info);
-      if (operation != GNEISS_SUCCESS) {
-        return from_native(operation);
+      if (operation != gneiss::engine::core::result::success) {
+        return operation;
       }
       if (info.instance_uuid.empty() ||
           info.instance_uuid.size() > runtime_inspection_max_string_size ||
           info.source_node_uuid.size() > runtime_inspection_max_string_size ||
           info.name.size() > runtime_inspection_max_string_size)
-        return result::invalid_argument;
+        return gneiss::engine::core::result::invalid_argument;
       const auto instance_uuid = std::string{info.instance_uuid};
       const auto source_uuid = std::string{info.source_node_uuid};
       auto runtime_transform = info.local_transform;
       operation =
           world.entity_get_local_transform(gneiss::entity_id{info.entity.get()}, runtime_transform);
-      if (operation != GNEISS_SUCCESS) {
-        return from_native(operation);
+      if (operation != gneiss::engine::core::result::success) {
+        return operation;
       }
       nodes.push_back({.native_node = info.node.get(),
                        .native_parent = info.parent.get(),
@@ -311,23 +314,24 @@ result runtime_scene_inspection::capture_scene(::gneiss::runtime::application& a
     }
     return capture(nodes, force_full, output);
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-result runtime_scene_inspection::resolve_entity(ipc_runtime_object_id object,
-                                                gneiss_entity_id& output) const noexcept {
+gneiss::engine::core::result
+runtime_scene_inspection::resolve_entity(ipc_runtime_object_id object,
+                                         gneiss_entity_id& output) const noexcept {
   if (!object.is_valid()) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   const auto found = entities_.find(object.value);
   if (found == entities_.end() || found->second.first != object) {
-    return result::not_found;
+    return gneiss::engine::core::result::not_found;
   }
   output = found->second.second;
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
 } // namespace gneiss::host::runtime

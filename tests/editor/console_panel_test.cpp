@@ -93,7 +93,7 @@ int main() try {
                      {
                          .running = true,
                          .attempted = true,
-                         .operation = gneiss::result::io,
+                         .operation = gneiss::engine::core::result::io,
                          .log_path = "borrowed/runtime.log",
                      },
                      actions);

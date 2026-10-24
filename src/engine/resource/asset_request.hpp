@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include <gneiss/engine/core/result.hpp>
+#include "engine/core/result.hpp"
 #include <memory>
 #include <mutex>
 #include <utility>
@@ -13,7 +13,7 @@ namespace detail {
 // 移植 Granit 示例 asset_state：请求共享结果，观察者各自拥有取消权。
 struct asset_state {
   std::mutex mutex;
-  result status{result::not_ready};
+  gneiss::engine::core::result status{gneiss::engine::core::result::not_ready};
   std::shared_ptr<const void> value;
 };
 }
@@ -31,18 +31,18 @@ public:
   asset_request& operator=(asset_request&&) noexcept = default;
   [[nodiscard]] explicit operator bool() const noexcept { return state_ != nullptr; }
   void cancel() noexcept { state_.reset(); }
-  [[nodiscard]] result take(reference& output) noexcept {
+  [[nodiscard]] gneiss::engine::core::result take(reference& output) noexcept {
     if (!state_)
-      return result::invalid_state;
+      return gneiss::engine::core::result::invalid_state;
     auto state = state_;
     const std::scoped_lock lock(state->mutex);
-    if (state->status != result::success)
+    if (state->status != gneiss::engine::core::result::success)
       return state->status;
     if (!state->value)
-      return result::internal;
+      return gneiss::engine::core::result::internal;
     output = std::static_pointer_cast<const T>(state->value);
     state_.reset();
-    return result::success;
+    return gneiss::engine::core::result::success;
   }
 
 private:

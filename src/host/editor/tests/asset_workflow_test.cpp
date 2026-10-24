@@ -4,6 +4,7 @@
 #include "../../../../tests/support/c_owner.hpp"
 #include "asset_reimport_queue.hpp"
 #include "documents/scene_document.hpp"
+#include "engine/core/result.hpp"
 #include "package_archive.hpp"
 #include "project_workspace.hpp"
 #include "runtime/application_registry.hpp"
@@ -60,7 +61,7 @@ int main() try {
   };
   editor_project project;
   if (create_editor_project(temporary.root / "project", GNEISS_TEST_TEMPLATE, "Asset Workflow",
-                            project) != result::success) {
+                            project) != gneiss::engine::core::result::success) {
     return 1;
   }
 #if defined(_WIN32)
@@ -97,12 +98,15 @@ int main() try {
   gneiss_world world{};
   scene_document session;
   scene_node_id node;
-  if (gneiss::result{gneiss_application_create(&desc, app.put())} != result::success ||
-      gneiss::result{gneiss_application_get_world(app.get(), &world)} != result::success ||
+  if (gneiss::engine::core::result{gneiss_application_create(&desc, app.put())} !=
+          gneiss::engine::core::result::success ||
+      gneiss::engine::core::result{gneiss_application_get_world(app.get(), &world)} !=
+          gneiss::engine::core::result::success ||
       session.open(*gneiss::runtime::find_application(app.get()), world, project.startup_scene) !=
-          result::success ||
-      session.create_mesh_renderer_node("Imported", *mesh, *material, node) != result::success ||
-      session.save(project.asset_root) != result::success) {
+          gneiss::engine::core::result::success ||
+      session.create_mesh_renderer_node("Imported", *mesh, *material, node) !=
+          gneiss::engine::core::result::success ||
+      session.save(project.asset_root) != gneiss::engine::core::result::success) {
     return 5;
   }
   session.close();
@@ -122,7 +126,8 @@ int main() try {
     }
     return code;
   };
-  if (runtime.start(GNEISS_TEST_RUNTIME, {project.project_root}) != result::success ||
+  if (runtime.start(GNEISS_TEST_RUNTIME, {project.project_root}) !=
+          gneiss::engine::core::result::success ||
       !wait_for(runtime, [&] {
         return runtime.control_state() == runtime_control_state::running &&
                runtime.scene_load_status().phase == ipc_scene_phase::applied;
@@ -155,12 +160,13 @@ int main() try {
   const auto succeeded = std::ranges::find_if(
       events, [](const auto& event) { return event.state == asset_reimport_state::succeeded; });
   if (succeeded == events.end() ||
-      runtime.publish_asset_revision(succeeded->import.import.output_uris) != result::success ||
+      runtime.publish_asset_revision(succeeded->import.import.output_uris) !=
+          gneiss::engine::core::result::success ||
       !wait_for(runtime,
                 [&] {
                   return runtime.asset_reload_status().state == runtime_asset_reload_state::applied;
                 }) ||
-      runtime.request_stop() != result::success ||
+      runtime.request_stop() != gneiss::engine::core::result::success ||
       !wait_for(runtime, [&] { return !runtime.is_running(); })) {
     return fail(9);
   }
@@ -172,18 +178,18 @@ int main() try {
                                 .profile = app::game_build_profile::debug,
                                 .create_zip = false,
                                 .asset_progress = {},
-                            }) != result::success ||
-      verify_package_manifest(package) != result::success) {
+                            }) != gneiss::engine::core::result::success ||
+      verify_package_manifest(package) != gneiss::engine::core::result::success) {
     return fail(10);
   }
   if (runtime.start(package / "bin" / std::filesystem::path(GNEISS_TEST_RUNTIME).filename(),
-                    {package}) != result::success ||
+                    {package}) != gneiss::engine::core::result::success ||
       !wait_for(runtime,
                 [&] {
                   return runtime.control_state() == runtime_control_state::running &&
                          runtime.scene_load_status().phase == ipc_scene_phase::applied;
                 }) ||
-      runtime.request_stop() != result::success ||
+      runtime.request_stop() != gneiss::engine::core::result::success ||
       !wait_for(runtime, [&] { return !runtime.is_running(); }) || runtime.exit_code() != 0) {
     return fail(11);
   }

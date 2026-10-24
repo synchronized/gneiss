@@ -6,6 +6,7 @@ include(internal_headers)
 gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/types/asset_identity.hpp
   engine/resource/loaders/asset_preparation.hpp
+  engine/resource/vfs/asset_uri.hpp
   engine/resource/vfs/file_system.hpp
   engine/resource/types/material_parameters.hpp
   engine/resource/types/material_types.hpp
@@ -75,6 +76,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
 
 # 离线资产服务供 Editor 和命令行消费的契约。
 gneiss_internal_headers(gneiss_tooling_interface "${PROJECT_SOURCE_DIR}/src"
+  engine/core/result.hpp
   engine/resource/loaders/mesh_binary.hpp
   tooling/asset_build/asset_build.hpp
   tooling/asset_build/ktx2_probe.hpp

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "panels/asset_browser_panel.hpp"
+#include "engine/core/result.hpp"
 
 #include "editor_theme.hpp"
 
@@ -26,7 +27,7 @@ ImVec4 status_color(asset_status_tone tone) {
     return ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
   }
 }
-void error_text(const char* prefix, result operation) {
+void error_text(const char* prefix, gneiss::engine::core::result operation) {
   const auto message = operation.message();
   ImGui::TextColored(theme_error_color(), "%s: %.*s", prefix, static_cast<int>(message.size()),
                      text_data(message));
@@ -80,7 +81,7 @@ void draw_watch_status(const asset_browser_view& view, const panel_buttons& butt
     if (watch.waiting) {
       ImGui::TextDisabled("Source watch: waiting for sources directory");
     } else {
-      if (watch.operation != result::success) {
+      if (watch.operation != gneiss::engine::core::result::success) {
         const auto message = watch.operation.message();
         ImGui::TextColored(theme_error_color(), "%s (%.*s): %.*s", label,
                            static_cast<int>(watch.root.size()), text_data(watch.root),
@@ -100,12 +101,12 @@ void draw_watch_status(const asset_browser_view& view, const panel_buttons& butt
   }
   if (view.source_rescanning) {
     ImGui::TextDisabled("Checking indexed sources...");
-  } else if (view.source_scan_result != result::success) {
+  } else if (view.source_scan_result != gneiss::engine::core::result::success) {
     error_text("Source check failed", view.source_scan_result);
   }
   if (view.author_rescanning) {
     ImGui::TextDisabled("Checking author assets...");
-  } else if (view.author_scan_result != result::success) {
+  } else if (view.author_scan_result != gneiss::engine::core::result::success) {
     error_text("Author asset check failed", view.author_scan_result);
   }
 }
@@ -198,7 +199,7 @@ void draw_scene_status(const asset_browser_view& view, const panel_buttons& butt
 
 void draw_runtime_asset_status(const asset_browser_view& view, const panel_buttons& button) {
   const auto& reload = view.reload;
-  if (reload.publish_result != result::success) {
+  if (reload.publish_result != gneiss::engine::core::result::success) {
     error_text("Runtime asset publish failed", reload.publish_result);
     wrapped("Retry importing or saving the affected asset.");
   }
@@ -256,7 +257,8 @@ asset_browser_request draw_asset_browser_panel(asset_browser_model& model, ImGui
   button("Add Prefab", asset_browser_action::add_prefab, view.can_add_prefab);
   ImGui::SameLine();
   button("Apply to Node", asset_browser_action::apply_to_node, view.can_apply);
-  if (view.scene_edit_attempted && view.scene_edit_result != result::success) {
+  if (view.scene_edit_attempted &&
+      view.scene_edit_result != gneiss::engine::core::result::success) {
     error_text("Scene edit failed", view.scene_edit_result);
   }
   ImGui::Separator();

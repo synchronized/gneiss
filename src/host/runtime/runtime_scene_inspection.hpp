@@ -4,6 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_RUNTIME_SCENE_INSPECTION_H_
 #define GNEISS_APPS_RUNTIME_RUNTIME_SCENE_INSPECTION_H_
 
+#include "engine/core/result.hpp"
 #include "ipc_inspection_protocol.hpp"
 
 #include <gneiss/engine/application.h>
@@ -49,13 +50,14 @@ class runtime_scene_inspection final {
 public:
   explicit runtime_scene_inspection(std::uint64_t session_id) noexcept;
 
-  [[nodiscard]] result capture(std::span<const runtime_scene_source_node> nodes, bool force_full,
-                               runtime_scene_snapshot& output) noexcept;
-  [[nodiscard]] result capture_scene(::gneiss::runtime::application& application,
-                                     gneiss_scene_instance scene, bool force_full,
-                                     runtime_scene_snapshot& output) noexcept;
-  [[nodiscard]] result resolve_entity(ipc_runtime_object_id object,
-                                      gneiss_entity_id& output) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  capture(std::span<const runtime_scene_source_node> nodes, bool force_full,
+          runtime_scene_snapshot& output) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  capture_scene(::gneiss::runtime::application& application, gneiss_scene_instance scene,
+                bool force_full, runtime_scene_snapshot& output) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  resolve_entity(ipc_runtime_object_id object, gneiss_entity_id& output) const noexcept;
   void reset(std::uint64_t session_id) noexcept;
 
 private:

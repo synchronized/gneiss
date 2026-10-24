@@ -3,6 +3,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset_manager.hpp"
+#include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/resource/vfs/asset_source.hpp"
 #include "engine/resource/vfs/asset_uri.hpp"
@@ -20,12 +21,12 @@ public:
   [[nodiscard]] std::size_t maximum_bytes() const noexcept override {
     return maximum_action_map_bytes;
   }
-  result decode(const std::vector<std::byte>& bytes,
-                std::shared_ptr<const void>& output) const override {
+  gneiss::engine::core::result decode(const std::vector<std::byte>& bytes,
+                                      std::shared_ptr<const void>& output) const override {
     auto value = std::make_shared<action_map_asset>();
     const auto status =
         parse_action_map({reinterpret_cast<const char*>(bytes.data()), bytes.size()}, value->map);
-    if (status == result::success) {
+    if (status == gneiss::engine::core::result::success) {
       output = std::move(value);
     }
     return status;
@@ -50,7 +51,7 @@ struct asset_manager::resource_state {
     std::shared_ptr<const void> value;
     bool decoded{};
     std::atomic_bool settled{false};
-    result status{result::not_ready};
+    gneiss::engine::core::result status{gneiss::engine::core::result::not_ready};
     operation(key id, std::uint64_t version, std::shared_ptr<const asset_loader> parser,
               const virtual_file_system& files)
         : identity(std::move(id)), generation(version), loader(std::move(parser)),
@@ -59,22 +60,23 @@ struct asset_manager::resource_state {
     void advance() {
       if (!decoded) {
         status = source.advance();
-        if (status != result::success) {
+        if (status != gneiss::engine::core::result::success) {
           return;
         }
         status = loader->decode(source.bytes(), value);
-        if (status != result::success) {
+        if (status != gneiss::engine::core::result::success) {
           return;
         }
         if (!value) {
-          status = result::internal;
+          status = gneiss::engine::core::result::internal;
           return;
         }
         decoded = true;
       }
       status = verification.advance();
-      if (status == result::success && source.bytes() != verification.bytes()) {
-        status = result::io;
+      if (status == gneiss::engine::core::result::success &&
+          source.bytes() != verification.bytes()) {
+        status = gneiss::engine::core::result::io;
       }
     }
   };
@@ -84,7 +86,7 @@ struct asset_manager::resource_state {
     bool ran{};
     ~settlement() {
       if (!ran) {
-        work->status = result::invalid_state;
+        work->status = gneiss::engine::core::result::invalid_state;
       }
       work->settled.store(true, std::memory_order_release);
     }
@@ -107,21 +109,21 @@ struct asset_manager::resource_state {
           auto& task = *completion->work;
           try {
             if (context.stop_requested()) {
-              task.status = result::invalid_state;
+              task.status = gneiss::engine::core::result::invalid_state;
             } else {
               task.advance();
             }
           } catch (const std::bad_alloc&) {
-            task.status = result::out_of_memory;
+            task.status = gneiss::engine::core::result::out_of_memory;
           } catch (...) {
-            task.status = result::internal;
+            task.status = gneiss::engine::core::result::internal;
           }
           completion->ran = true;
           return engine::core::tasks::task_outcome{};
         },
         handle);
     if (submitted != engine::core::tasks::submit_result::success) {
-      work->status = result::invalid_state;
+      work->status = gneiss::engine::core::result::invalid_state;
     }
   }
   ~resource_state() { stop(); }
@@ -133,7 +135,7 @@ struct asset_manager::resource_state {
     }
     for (const auto& work : active) {
       const std::scoped_lock lock(work->observer->mutex);
-      work->observer->status = result::invalid_state;
+      work->observer->status = gneiss::engine::core::result::invalid_state;
     }
     active.clear();
     requests.clear();
@@ -152,51 +154,54 @@ void asset_manager::attach_task_executor(engine::core::tasks::task_executor& exe
     state.executor = &executor;
   }
 }
-result asset_manager::register_loader(const std::shared_ptr<const asset_loader>& loader) noexcept
-    try {
+gneiss::engine::core::result
+asset_manager::register_loader(const std::shared_ptr<const asset_loader>& loader) noexcept try {
   auto& state = *resource_state_;
   if (state.stopped || state.frozen) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
   if (!loader || loader->maximum_bytes() == 0) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   const auto type = loader->target_type();
-  return state.loaders.emplace(type, loader).second ? result::success : result::invalid_argument;
+  return state.loaders.emplace(type, loader).second
+             ? gneiss::engine::core::result::success
+             : gneiss::engine::core::result::invalid_argument;
 } catch (const std::bad_alloc&) {
-  return result::out_of_memory;
+  return gneiss::engine::core::result::out_of_memory;
 } catch (...) {
-  return result::internal;
+  return gneiss::engine::core::result::internal;
 }
-result asset_manager::request(std::type_index type, std::string_view uri, bool reload,
-                              std::shared_ptr<detail::asset_state>& output) noexcept try {
+gneiss::engine::core::result
+asset_manager::request(std::type_index type, std::string_view uri, bool reload,
+                       std::shared_ptr<detail::asset_state>& output) noexcept try {
   auto& state = *resource_state_;
   if (state.stopped) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
   if (state.executor == nullptr) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
-  if (validate_uri(uri) != GNEISS_SUCCESS) {
-    return result::invalid_argument;
+  if (validate_uri(uri) != gneiss::engine::core::result::success) {
+    return gneiss::engine::core::result::invalid_argument;
   }
   const auto found = state.loaders.find(type);
   if (found == state.loaders.end()) {
-    return result::unsupported;
+    return gneiss::engine::core::result::unsupported;
   }
   state.frozen = true;
   resource_state::key key{type, std::string(uri)};
   auto& entry = state.requests[key];
   if (auto pending = entry.pending.lock()) {
     output = std::move(pending);
-    return result::success;
+    return gneiss::engine::core::result::success;
   }
   if (!reload && entry.current) {
     auto ready = std::make_shared<detail::asset_state>();
-    ready->status = result::success;
+    ready->status = gneiss::engine::core::result::success;
     ready->value = entry.current;
     output = std::move(ready);
-    return result::success;
+    return gneiss::engine::core::result::success;
   }
   auto work =
       std::make_shared<resource_state::operation>(key, entry.generation + 1, found->second, files_);
@@ -210,74 +215,77 @@ result asset_manager::request(std::type_index type, std::string_view uri, bool r
   entry.generation = work->generation;
   entry.pending = work->observer;
   output = work->observer;
-  return result::success;
+  return gneiss::engine::core::result::success;
 } catch (const std::bad_alloc&) {
-  return result::out_of_memory;
+  return gneiss::engine::core::result::out_of_memory;
 } catch (...) {
-  return result::internal;
+  return gneiss::engine::core::result::internal;
 }
-result asset_manager::load_sync_erased(std::type_index type, std::string_view uri,
-                                       std::shared_ptr<const void>& output) noexcept try {
+gneiss::engine::core::result
+asset_manager::load_sync_erased(std::type_index type, std::string_view uri,
+                                std::shared_ptr<const void>& output) noexcept try {
   auto& state = *resource_state_;
   if (state.stopped) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
-  if (validate_uri(uri) != GNEISS_SUCCESS) {
-    return result::invalid_argument;
+  if (validate_uri(uri) != gneiss::engine::core::result::success) {
+    return gneiss::engine::core::result::invalid_argument;
   }
   const auto found = state.loaders.find(type);
   if (found == state.loaders.end()) {
-    return result::unsupported;
+    return gneiss::engine::core::result::unsupported;
   }
   state.frozen = true;
   const auto& loader = *found->second;
   std::vector<std::byte> bytes;
   std::vector<std::byte> verified;
-  auto status = from_native(files_.read_bounded(uri, loader.maximum_bytes(), bytes));
-  if (status != result::success) {
+  auto status = files_.read_bounded(uri, loader.maximum_bytes(), bytes);
+  if (status != gneiss::engine::core::result::success) {
     return status;
   }
   std::shared_ptr<const void> value;
   status = loader.decode(bytes, value);
-  if (status != result::success) {
+  if (status != gneiss::engine::core::result::success) {
     return status;
   }
   if (!value) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
-  status = from_native(files_.read_bounded(uri, loader.maximum_bytes(), verified));
-  if (status != result::success) {
+  status = files_.read_bounded(uri, loader.maximum_bytes(), verified);
+  if (status != gneiss::engine::core::result::success) {
     return status;
   }
   if (bytes != verified) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
   auto& entry = state.requests[{type, std::string(uri)}];
   ++entry.generation;
   entry.pending.reset();
   entry.current = value;
   output = std::move(value);
-  return result::success;
+  return gneiss::engine::core::result::success;
 } catch (const std::bad_alloc&) {
-  return result::out_of_memory;
+  return gneiss::engine::core::result::out_of_memory;
 } catch (...) {
-  return result::internal;
+  return gneiss::engine::core::result::internal;
 }
-result asset_manager::load_input(std::string_view uri, action_map& output) noexcept try {
+gneiss::engine::core::result asset_manager::load_input(std::string_view uri,
+                                                       action_map& output) noexcept try {
   std::shared_ptr<const action_map_asset> value;
   const auto status = load_sync(uri, value);
-  if (status == result::success) {
+  if (status == gneiss::engine::core::result::success) {
     auto copy = value->map;
     output = std::move(copy);
   }
   return status;
 } catch (const std::bad_alloc&) {
-  return result::out_of_memory;
+  return gneiss::engine::core::result::out_of_memory;
 } catch (...) {
-  return result::internal;
+  return gneiss::engine::core::result::internal;
 }
-result asset_manager::request_input(std::string_view uri,
-                                    asset_request<action_map_asset>& output) noexcept {
+gneiss::engine::core::result
+asset_manager::request_input(std::string_view uri,
+                             asset_request<action_map_asset>& output) noexcept {
   return load(uri, output, true);
 }
 void asset_manager::advance_resources() {
@@ -295,30 +303,30 @@ void asset_manager::advance_resources() {
     }
     // 没有观察者时不再推进或发布；不影响同键的独立观察者。
     if (work->observer.use_count() == 1) {
-      work->status = result::invalid_state;
+      work->status = gneiss::engine::core::result::invalid_state;
     }
-    if (work->status == result::not_ready) {
+    if (work->status == gneiss::engine::core::result::not_ready) {
       try {
         state.schedule(work);
         ++it;
         continue;
       } catch (const std::bad_alloc&) {
-        work->status = result::out_of_memory;
+        work->status = gneiss::engine::core::result::out_of_memory;
       } catch (...) {
-        work->status = result::internal;
+        work->status = gneiss::engine::core::result::internal;
       }
     }
     auto& entry = state.requests.at(work->identity);
     if (entry.generation == work->generation) {
       entry.pending.reset();
-      if (work->status == result::success) {
+      if (work->status == gneiss::engine::core::result::success) {
         entry.current = work->value;
       }
     }
     {
       const std::scoped_lock lock(work->observer->mutex);
       work->observer->status = work->status;
-      if (work->status == result::success) {
+      if (work->status == gneiss::engine::core::result::success) {
         work->observer->value = std::move(work->value);
       }
     }

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/api/material_description.hpp"
+#include "engine/core/result.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 
 #include <array>
@@ -11,11 +12,14 @@
 
 namespace {
 // 旧布局验证属于 ABI 适配器；资源数值、RID 与生命周期仍由服务验证。
-gneiss_result create_material(gneiss::engine::render::render_resource_service& resources,
-                              const gneiss_material_desc& desc, gneiss_material* output) {
+gneiss::engine::core::result
+create_material(gneiss::engine::render::render_resource_service& resources,
+                const gneiss_material_desc& desc, gneiss_material* output) {
   gneiss::engine::render::material_resource value;
   const auto converted = gneiss::engine::api::read_material_description(desc, value);
-  return converted == GNEISS_SUCCESS ? resources.create_material(value, output) : converted;
+  return converted == gneiss::engine::core::result::success
+             ? resources.create_material(value, output)
+             : converted;
 }
 } // namespace
 
@@ -27,15 +31,17 @@ int main() {
   gneiss::engine::render::material_resource native;
   gneiss_material native_handle{};
   native.alpha_mode = static_cast<gneiss::engine::resource::material_alpha_mode>(UINT32_MAX);
-  if (resources.create_material(native, &native_handle) != GNEISS_ERROR_INVALID_ARGUMENT)
+  if (resources.create_material(native, &native_handle) !=
+      gneiss::engine::core::result::invalid_argument)
     return 30;
   native.alpha_mode = gneiss::engine::resource::material_alpha_mode::opaque;
   native.sampling[2].address_v = static_cast<gneiss::engine::resource::texture_address>(UINT32_MAX);
-  if (resources.create_material(native, &native_handle) != GNEISS_ERROR_INVALID_ARGUMENT)
+  if (resources.create_material(native, &native_handle) !=
+      gneiss::engine::core::result::invalid_argument)
     return 31;
   native.sampling[2] = {};
-  if (resources.create_material(native, &native_handle) != GNEISS_SUCCESS ||
-      resources.destroy_material(native_handle) != GNEISS_SUCCESS)
+  if (resources.create_material(native, &native_handle) != gneiss::engine::core::result::success ||
+      resources.destroy_material(native_handle) != gneiss::engine::core::result::success)
     return 32;
   constexpr std::array<std::uint8_t, 4> pixel{128U, 128U, 255U, 255U};
   gneiss::engine::render::texture_view texture_desc;
@@ -45,8 +51,8 @@ int main() {
   texture_desc.pixels = pixel;
   gneiss_texture texture{};
   gneiss_texture foreign{};
-  if (resources.create_texture(texture_desc, &texture) != GNEISS_SUCCESS ||
-      other.create_texture(texture_desc, &foreign) != GNEISS_SUCCESS) {
+  if (resources.create_texture(texture_desc, &texture) != gneiss::engine::core::result::success ||
+      other.create_texture(texture_desc, &foreign) != gneiss::engine::core::result::success) {
     return 1;
   }
   gneiss_material_desc desc = GNEISS_MATERIAL_DESC_INIT;
@@ -59,7 +65,7 @@ int main() {
   desc.occlusion_strength = 0.25F;
   desc.emissive[1] = 0.75F;
   gneiss_material material{};
-  if (create_material(resources, desc, &material) != GNEISS_SUCCESS) {
+  if (create_material(resources, desc, &material) != gneiss::engine::core::result::success) {
     return 2;
   }
   const auto* value = resources.get_material(material);
@@ -72,8 +78,8 @@ int main() {
       return 4;
     }
   }
-  if (resources.destroy_material(material) != GNEISS_SUCCESS ||
-      resources.destroy_material(material) != GNEISS_ERROR_INVALID_HANDLE ||
+  if (resources.destroy_material(material) != gneiss::engine::core::result::success ||
+      resources.destroy_material(material) != gneiss::engine::core::result::invalid_handle ||
       resources.get_texture(texture) == nullptr) {
     return 5;
   }
@@ -83,29 +89,33 @@ int main() {
       &gneiss_material_desc::emissive_texture};
   for (const auto slot : slots) {
     desc.*slot = foreign;
-    if (create_material(resources, desc, &material) != GNEISS_ERROR_INVALID_ARGUMENT) {
+    if (create_material(resources, desc, &material) !=
+        gneiss::engine::core::result::invalid_argument) {
       return 6;
     }
     desc.*slot = texture;
   }
   desc.normal_scale = std::numeric_limits<float>::quiet_NaN();
-  if (create_material(resources, desc, &material) != GNEISS_ERROR_INVALID_ARGUMENT) {
+  if (create_material(resources, desc, &material) !=
+      gneiss::engine::core::result::invalid_argument) {
     return 7;
   }
   desc.normal_scale = -0.5F;
-  if (create_material(resources, desc, &material) != GNEISS_SUCCESS ||
+  if (create_material(resources, desc, &material) != gneiss::engine::core::result::success ||
       resources.get_material(material)->normal_scale != -0.5F ||
-      resources.destroy_material(material) != GNEISS_SUCCESS) {
+      resources.destroy_material(material) != gneiss::engine::core::result::success) {
     return 13;
   }
   desc.normal_scale = 1.0F;
   desc.occlusion_strength = 1.1F;
-  if (create_material(resources, desc, &material) != GNEISS_ERROR_INVALID_ARGUMENT) {
+  if (create_material(resources, desc, &material) !=
+      gneiss::engine::core::result::invalid_argument) {
     return 8;
   }
   desc.occlusion_strength = 1.0F;
   desc.emissive[2] = std::numeric_limits<float>::infinity();
-  if (create_material(resources, desc, &material) != GNEISS_ERROR_INVALID_ARGUMENT) {
+  if (create_material(resources, desc, &material) !=
+      gneiss::engine::core::result::invalid_argument) {
     return 9;
   }
   // 使用真实描述对象模拟旧调用方；尾部放入非法值，验证旧大小不会使用新增字段。
@@ -115,7 +125,7 @@ int main() {
   legacy.normal_scale = std::numeric_limits<float>::quiet_NaN();
   legacy.normal_texture = foreign;
   legacy.alpha_mode = UINT32_MAX;
-  if (create_material(resources, legacy, &material) != GNEISS_SUCCESS) {
+  if (create_material(resources, legacy, &material) != gneiss::engine::core::result::success) {
     return 10;
   }
   value = resources.get_material(material);
@@ -123,18 +133,19 @@ int main() {
       value->normal_texture != GNEISS_NULL_TEXTURE || value->emissive[0] != 0.0F) {
     return 11;
   }
-  if (resources.destroy_material(material) != GNEISS_SUCCESS) {
+  if (resources.destroy_material(material) != gneiss::engine::core::result::success) {
     return 12;
   }
   desc = GNEISS_MATERIAL_DESC_INIT;
   desc.struct_size = GNEISS_MATERIAL_DESC_VERSION_1_SIZE + 1U;
   gneiss::engine::render::material_resource unchanged{.red = 0.125F};
   if (gneiss::engine::api::read_material_description(desc, unchanged) !=
-          GNEISS_ERROR_INVALID_ARGUMENT ||
+          gneiss::engine::core::result::invalid_argument ||
       unchanged.red != 0.125F || unchanged.normal_texture != GNEISS_NULL_TEXTURE) {
     return 22;
   }
-  if (create_material(resources, desc, &material) != GNEISS_ERROR_INVALID_ARGUMENT) {
+  if (create_material(resources, desc, &material) !=
+      gneiss::engine::core::result::invalid_argument) {
     return 13;
   }
   desc = GNEISS_MATERIAL_DESC_INIT;
@@ -144,14 +155,14 @@ int main() {
   desc.base_color_texture = texture;
   desc.sampling[0].uv_set = 1;
   desc.sampling[0].address_u = GNEISS_TEXTURE_ADDRESS_MIRROR;
-  if (create_material(resources, desc, &material) != GNEISS_SUCCESS)
+  if (create_material(resources, desc, &material) != gneiss::engine::core::result::success)
     return 16;
   value = resources.get_material(material);
   if (value->alpha_mode != gneiss::engine::resource::material_alpha_mode::blend ||
       value->double_sided != 1U || value->alpha_cutoff != 1.5F || value->uv1_mask() != 1U ||
       value->sampling[0].address_u != gneiss::engine::resource::texture_address::mirror)
     return 17;
-  if (resources.destroy_material(material) != GNEISS_SUCCESS)
+  if (resources.destroy_material(material) != gneiss::engine::core::result::success)
     return 18;
   for (auto* field :
        {&desc.alpha_mode, &desc.double_sided, &desc.sampling[0].uv_set,
@@ -159,26 +170,28 @@ int main() {
         &desc.sampling[0].address_u, &desc.sampling[0].address_v}) {
     const auto saved = *field;
     *field = UINT32_MAX;
-    if (create_material(resources, desc, &material) != GNEISS_ERROR_INVALID_ARGUMENT)
+    if (create_material(resources, desc, &material) !=
+        gneiss::engine::core::result::invalid_argument)
       return 19;
     *field = saved;
   }
   desc.alpha_cutoff = std::numeric_limits<float>::quiet_NaN();
-  if (create_material(resources, desc, &material) != GNEISS_ERROR_INVALID_ARGUMENT)
+  if (create_material(resources, desc, &material) != gneiss::engine::core::result::invalid_argument)
     return 20;
   desc.struct_size = GNEISS_MATERIAL_DESC_VERSION_2_SIZE;
-  if (create_material(resources, desc, &material) != GNEISS_SUCCESS ||
+  if (create_material(resources, desc, &material) != gneiss::engine::core::result::success ||
       resources.get_material(material)->alpha_mode !=
           gneiss::engine::resource::material_alpha_mode::opaque ||
       resources.get_material(material)->uv1_mask() != 0U ||
-      resources.destroy_material(material) != GNEISS_SUCCESS)
+      resources.destroy_material(material) != gneiss::engine::core::result::success)
     return 21;
   desc = GNEISS_MATERIAL_DESC_INIT;
   desc.normal_texture = texture;
-  if (resources.destroy_texture(texture) != GNEISS_SUCCESS ||
-      create_material(resources, desc, &material) != GNEISS_ERROR_INVALID_ARGUMENT ||
+  if (resources.destroy_texture(texture) != gneiss::engine::core::result::success ||
+      create_material(resources, desc, &material) !=
+          gneiss::engine::core::result::invalid_argument ||
       resources.live_resource_count() != 0U) {
     return 14;
   }
-  return other.destroy_texture(foreign) == GNEISS_SUCCESS ? 0 : 15;
+  return other.destroy_texture(foreign) == gneiss::engine::core::result::success ? 0 : 15;
 }

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/render/camera_math.hpp"
+#include "engine/core/result.hpp"
 
 #include <cmath>
 #include <numbers>
@@ -15,8 +16,8 @@ constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept
 
 } // namespace
 
-gneiss_result build_view_matrix(const engine::core::math::transform& transform,
-                                matrix4& out_matrix) noexcept {
+gneiss::engine::core::result build_view_matrix(const engine::core::math::transform& transform,
+                                               matrix4& out_matrix) noexcept {
   const auto x = transform.rotation[0];
   const auto y = transform.rotation[1];
   const auto z = transform.rotation[2];
@@ -25,7 +26,7 @@ gneiss_result build_view_matrix(const engine::core::math::transform& transform,
   if (!std::isfinite(length_squared) || length_squared <= 0.0F ||
       !std::isfinite(transform.translation[0]) || !std::isfinite(transform.translation[1]) ||
       !std::isfinite(transform.translation[2])) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
 
   const auto inverse_length = 1.0F / std::sqrt(length_squared);
@@ -62,17 +63,17 @@ gneiss_result build_view_matrix(const engine::core::math::transform& transform,
           (result.values[matrix_index(row, 2U)] * transform.translation[2]));
   }
   out_matrix = result;
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
-gneiss_result build_perspective_matrix(const camera_settings& camera, float aspect,
-                                       matrix4& out_matrix) noexcept {
+gneiss::engine::core::result build_perspective_matrix(const camera_settings& camera, float aspect,
+                                                      matrix4& out_matrix) noexcept {
   if (!std::isfinite(aspect) || aspect <= 0.0F ||
       !std::isfinite(camera.vertical_field_of_view_radians) || !std::isfinite(camera.near_plane) ||
       !std::isfinite(camera.far_plane) || camera.vertical_field_of_view_radians <= 0.0F ||
       camera.vertical_field_of_view_radians >= std::numbers::pi_v<float> ||
       camera.near_plane <= 0.0F || camera.far_plane <= camera.near_plane) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
 
   const auto focal = 1.0F / std::tan(camera.vertical_field_of_view_radians * 0.5F);
@@ -84,7 +85,7 @@ gneiss_result build_perspective_matrix(const camera_settings& camera, float aspe
       (camera.far_plane * camera.near_plane) / (camera.near_plane - camera.far_plane);
   result.values[matrix_index(3U, 2U)] = -1.0F;
   out_matrix = result;
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
 std::array<float, 4> transform_vector(const matrix4& matrix,

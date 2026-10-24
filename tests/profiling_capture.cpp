@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "support/c_owner.hpp"
 #include <gneiss/engine/application.h>
@@ -20,7 +21,8 @@ struct context {
   gneiss::engine::core::tasks::task_scope scope = scheduler.make_scope();
   std::size_t received{};
 };
-gneiss_result update(gneiss_application, const gneiss_frame_time* time, void* opaque) noexcept {
+gneiss::engine::core::result update(gneiss_application, const gneiss_frame_time* time,
+                                    void* opaque) noexcept {
   auto& state = *static_cast<context*>(opaque);
   try {
     gneiss::engine::core::tasks::task_handle task;
@@ -34,14 +36,14 @@ gneiss_result update(gneiss_application, const gneiss_frame_time* time, void* op
         },
         task);
     if (accepted != gneiss::engine::core::tasks::submit_result::success) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
     std::vector<gneiss::engine::core::tasks::task_completion> completed;
     state.received += state.scheduler.poll(state.scope, completed);
     std::this_thread::sleep_for(2ms);
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 }
@@ -61,8 +63,10 @@ int main(int argc, char** argv) try {
   description.user_data = &state;
   description.update = update;
   gneiss::test_support::application_owner application;
-  if (gneiss_application_create(&description, application.put()) != GNEISS_SUCCESS ||
-      gneiss_application_run(application.get(), 128) != GNEISS_SUCCESS) {
+  if (gneiss::engine::core::result{gneiss_application_create(&description, application.put())} !=
+          gneiss::engine::core::result::success ||
+      gneiss::engine::core::result{gneiss_application_run(application.get(), 128)} !=
+          gneiss::engine::core::result::success) {
     return 3;
   }
   const auto deadline = std::chrono::steady_clock::now() + 5s;

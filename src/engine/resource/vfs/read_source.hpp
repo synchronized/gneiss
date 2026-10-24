@@ -3,8 +3,8 @@
 
 #pragma once
 
+#include "engine/core/result.hpp"
 #include "engine/core/sha256.hpp"
-#include <gneiss/engine/core/result.h>
 
 #include <chrono>
 #include <cstddef>
@@ -21,14 +21,15 @@ public:
   virtual ~read_operation() = default;
   read_operation(const read_operation&) = delete;
   read_operation& operator=(const read_operation&) = delete;
-  [[nodiscard]] virtual gneiss_result poll(std::span<const std::byte>& output) noexcept = 0;
+  [[nodiscard]] virtual gneiss::engine::core::result
+  poll(std::span<const std::byte>& output) noexcept = 0;
   /** 仅允许可阻塞的工作线程请求有限等待；零预算保持轮询。
    * 默认后端不等待，返回 poll 结果；成功视图与 poll 相同，超时返回 NOT_READY。 */
-  [[nodiscard]] virtual gneiss_result wait_for(std::chrono::milliseconds timeout,
-                                               std::span<const std::byte>& output) noexcept {
+  [[nodiscard]] virtual gneiss::engine::core::result
+  wait_for(std::chrono::milliseconds timeout, std::span<const std::byte>& output) noexcept {
     if (timeout < std::chrono::milliseconds::zero()) {
       output = {};
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     return poll(output);
   }
@@ -49,30 +50,30 @@ public:
   [[nodiscard]] virtual std::uint64_t size() const noexcept = 0;
   /** 可选的显式关闭；成功表示已接受关闭，拒绝新读，在途读仍完成。
    * 不支持的后端必须返回 UNSUPPORTED，不能把释放引用当作实际关闭。 */
-  [[nodiscard]] virtual gneiss_result begin_close() const noexcept {
-    return GNEISS_ERROR_UNSUPPORTED;
+  [[nodiscard]] virtual gneiss::engine::core::result begin_close() const noexcept {
+    return gneiss::engine::core::result::unsupported;
   }
   /** NOT_READY 表示未完成；成功表示底层关闭完成，重复查询保持同一终态。 */
-  [[nodiscard]] virtual gneiss_result poll_close() const noexcept {
-    return GNEISS_ERROR_UNSUPPORTED;
+  [[nodiscard]] virtual gneiss::engine::core::result poll_close() const noexcept {
+    return gneiss::engine::core::result::unsupported;
   }
   /** 精确读取指定范围，不分配负载缓冲。空范围允许位于 EOF。
    * 越界返回 INVALID_ARGUMENT；短读返回 IO。失败后目标缓冲内容未定义。 */
-  [[nodiscard]] virtual gneiss_result read_at(std::uint64_t offset,
-                                              std::span<std::byte> output) const noexcept = 0;
+  [[nodiscard]] virtual gneiss::engine::core::result
+  read_at(std::uint64_t offset, std::span<std::byte> output) const noexcept = 0;
   /** 可选的可轮询区间读取；不支持时返回 UNSUPPORTED，调用方决定同步回退。
    * 成功请求独立持有底层对象，不借用调用方输出缓冲。 */
-  [[nodiscard]] virtual gneiss_result
+  [[nodiscard]] virtual gneiss::engine::core::result
   begin_read(std::uint64_t /*offset*/, std::size_t /*size*/,
              std::unique_ptr<read_operation>& output) const noexcept {
     output.reset();
-    return GNEISS_ERROR_UNSUPPORTED;
+    return gneiss::engine::core::result::unsupported;
   }
   /** 分步读取入口的验证回执；调用方须已完整扫描本来源并计算摘要。
    * 版本包装登记内容身份，普通文件默认无需登记；不提供外部文件不可变保证。 */
-  [[nodiscard]] virtual gneiss_result
+  [[nodiscard]] virtual gneiss::engine::core::result
   complete_validation(const engine::core::sha256_digest& /*digest*/) const noexcept {
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
 
 protected:
@@ -87,7 +88,8 @@ public:
   virtual ~open_read_operation() = default;
   open_read_operation(const open_read_operation&) = delete;
   open_read_operation& operator=(const open_read_operation&) = delete;
-  [[nodiscard]] virtual gneiss_result poll(std::unique_ptr<read_source>& output) noexcept = 0;
+  [[nodiscard]] virtual gneiss::engine::core::result
+  poll(std::unique_ptr<read_source>& output) noexcept = 0;
 
 protected:
   open_read_operation() = default;

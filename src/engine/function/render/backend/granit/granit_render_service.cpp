@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/render/backend/granit/granit_render_service.hpp"
+#include "engine/core/result.hpp"
 
 #include "engine/core/log/log_dispatcher.hpp"
 #include "engine/resource/loaders/texture_container.hpp"
@@ -33,27 +34,27 @@ namespace {
 static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR >= 44,
               "Gneiss requires Granit 0.44.0 or newer");
 
-gneiss_result map_result(granit::result result) noexcept {
+gneiss::engine::core::result map_result(granit::result result) noexcept {
   switch (result.native()) {
   case granit::result::success.native():
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   case granit::result::invalid_argument.native():
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   case granit::result::invalid_handle.native():
-    return GNEISS_ERROR_INVALID_HANDLE;
+    return gneiss::engine::core::result::invalid_handle;
   case granit::result::out_of_memory.native():
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   case granit::result::unsupported.native():
   case granit::result::backend_unavailable.native():
-    return GNEISS_ERROR_UNSUPPORTED;
+    return gneiss::engine::core::result::unsupported;
   case granit::result::not_ready.native():
   case granit::result::out_of_date.native():
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   case granit::result::initialization_failed.native():
   case granit::result::incompatible_driver.native():
-    return GNEISS_ERROR_INITIALIZATION_FAILED;
+    return gneiss::engine::core::result::initialization_failed;
   default:
-    return GNEISS_ERROR_DEPENDENCY_FAILED;
+    return gneiss::engine::core::result::dependency_failed;
   }
 }
 
@@ -258,9 +259,9 @@ granit_render_service::create_texture_mirror(const engine::render::texture_resou
         // 常规异步首次上传持有租约；仅 GPU 投影缺失时按原摘要恢复，禁止用新版源替代。
         const auto restored = source.payload_source->read(
             restored_payload, static_cast<std::size_t>(variant.payload_size));
-        if (restored != GNEISS_SUCCESS) {
+        if (restored != gneiss::engine::core::result::success) {
           output.source = nullptr;
-          const auto failure = restored == GNEISS_ERROR_OUT_OF_MEMORY
+          const auto failure = restored == gneiss::engine::core::result::out_of_memory
                                    ? granit::result::out_of_memory
                                    : granit::result::invalid_argument;
           log_texture(rid, "restore", failure, selection.variant_index, selection.format,
@@ -775,12 +776,12 @@ std::size_t granit_render_service::estimate_upload_bytes(
   return sizeof(engine::render::material_resource);
 }
 
-gneiss_result
+gneiss::engine::core::result
 granit_render_service::prepare_textures(std::vector<engine::render::render_upload_item> data,
                                         std::uint64_t& sequence) noexcept {
   try {
     if (data.empty()) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     struct preparation {
       std::size_t completed{};
@@ -801,7 +802,7 @@ granit_render_service::prepare_textures(std::vector<engine::render::render_uploa
                   result = create_texture_mirror(*item.texture, value.mirror,
                                                  engine::core::null_rid, &progress->operation);
                   if (result == granit::result::not_ready) {
-                    return GNEISS_ERROR_NOT_READY;
+                    return gneiss::engine::core::result::not_ready;
                   }
                   if (result.ok()) {
                     value.data = item.texture;
@@ -813,7 +814,7 @@ granit_render_service::prepare_textures(std::vector<engine::render::render_uploa
                   granit::async_operation_status status;
                   result = progress->operation.get_status(status);
                   if (result.ok() && !status.complete()) {
-                    return GNEISS_ERROR_NOT_READY;
+                    return gneiss::engine::core::result::not_ready;
                   }
                   if (result.ok()) {
                     result = status.operation_result;
@@ -871,56 +872,57 @@ granit_render_service::prepare_textures(std::vector<engine::render::render_uploa
               reporter.report(engine::render::render_command_stage::uploading,
                               ++progress->completed, data.size());
             }
-            return GNEISS_SUCCESS;
+            return gneiss::engine::core::result::success;
           } catch (const std::bad_alloc&) {
             discard_upload_data(data);
-            return GNEISS_ERROR_OUT_OF_MEMORY;
+            return gneiss::engine::core::result::out_of_memory;
           } catch (...) {
             discard_upload_data(data);
-            return GNEISS_ERROR_INTERNAL;
+            return gneiss::engine::core::result::internal;
           }
         },
         sequence, engine::render::render_command_policy::resumable);
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-bool granit_render_service::poll_texture_preparation(std::uint64_t sequence,
-                                                     gneiss_result& result) noexcept {
+bool granit_render_service::poll_texture_preparation(
+    std::uint64_t sequence, gneiss::engine::core::result& result) noexcept {
   engine::render::render_command_completion completion;
   if (!executor_.try_take_command_completion(completion)) {
     return false;
   }
   latest_texture_upload_ms_ = completion.execution_ms;
-  result = completion.sequence == sequence ? completion.status : GNEISS_ERROR_INTERNAL;
+  result =
+      completion.sequence == sequence ? completion.status : gneiss::engine::core::result::internal;
   return true;
 }
 
-gneiss_result granit_render_service::discard_prepared_textures(
+gneiss::engine::core::result granit_render_service::discard_prepared_textures(
     std::vector<engine::render::render_upload_item> data, std::uint64_t& sequence) noexcept {
   try {
     return executor_.submit_command(
         [this, data = std::move(data)](const engine::render::render_command_reporter&) {
           discard_upload_data(data);
-          return GNEISS_SUCCESS;
+          return gneiss::engine::core::result::success;
         },
         sequence);
 
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-gneiss_result granit_render_service::initialize(const engine::platform::native_window_info& window,
-                                                std::span<const std::byte> environment_asset,
-                                                float environment_intensity,
-                                                float environment_rotation_radians,
-                                                engine::core::log::log_dispatcher* log) noexcept {
+gneiss::engine::core::result
+granit_render_service::initialize(const engine::platform::native_window_info& window,
+                                  std::span<const std::byte> environment_asset,
+                                  float environment_intensity, float environment_rotation_radians,
+                                  engine::core::log::log_dispatcher* log) noexcept {
   log_ = log;
   const auto executor_result =
       executor_.initialize([this](engine::render::render_frame_packet& packet,
@@ -929,11 +931,11 @@ gneiss_result granit_render_service::initialize(const engine::platform::native_w
         output.needs_recreate = packet.window.needs_recreate;
         return result;
       });
-  if (executor_result != GNEISS_SUCCESS) {
+  if (executor_result != gneiss::engine::core::result::success) {
     return executor_result;
   }
 
-  gneiss_result initialize_result = GNEISS_ERROR_UNKNOWN;
+  gneiss::engine::core::result initialize_result = gneiss::engine::core::result::unknown;
   std::uint64_t sequence{};
   const auto submit_result = executor_.submit_command(
       [this, window, environment_asset, environment_intensity, environment_rotation_radians,
@@ -945,32 +947,33 @@ gneiss_result granit_render_service::initialize(const engine::platform::native_w
         return initialize_result;
       },
       sequence);
-  if (submit_result == GNEISS_SUCCESS) {
+  if (submit_result == gneiss::engine::core::result::success) {
     static_cast<void>(executor_.flush());
   }
 
   engine::render::render_command_completion completion;
   const auto has_completion = executor_.try_take_command_completion(completion);
-  if (submit_result != GNEISS_SUCCESS || !has_completion || completion.sequence != sequence ||
-      completion.status != GNEISS_SUCCESS) {
+  if (submit_result != gneiss::engine::core::result::success || !has_completion ||
+      completion.sequence != sequence ||
+      completion.status != gneiss::engine::core::result::success) {
     granit::renderer_resource_stats ignored{};
     std::uint64_t cleanup_sequence{};
     if (executor_.submit_command(
             [this, &ignored](const engine::render::render_command_reporter&) {
               return shutdown_gpu(ignored);
             },
-            cleanup_sequence) == GNEISS_SUCCESS) {
+            cleanup_sequence) == gneiss::engine::core::result::success) {
       static_cast<void>(executor_.flush());
     }
     executor_.stop();
-    return submit_result != GNEISS_SUCCESS
+    return submit_result != gneiss::engine::core::result::success
                ? submit_result
-               : (has_completion ? completion.status : GNEISS_ERROR_INTERNAL);
+               : (has_completion ? completion.status : gneiss::engine::core::result::internal);
   }
   return initialize_result;
 }
 
-gneiss_result granit_render_service::collect_completions() noexcept {
+gneiss::engine::core::result granit_render_service::collect_completions() noexcept {
   engine::render::render_frame_completion completion;
   while (executor_.try_take_frame_completion(completion)) {
     if (recycled_frame_packets_.size() < 3U) {
@@ -988,18 +991,18 @@ gneiss_result granit_render_service::collect_completions() noexcept {
       continue;
     }
     pending_recreate_ = pending_recreate_ || completion.execution.needs_recreate;
-    if (completion.status != GNEISS_SUCCESS) {
+    if (completion.status != gneiss::engine::core::result::success) {
       return completion.status;
     }
   }
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
-gneiss_result
+gneiss::engine::core::result
 granit_render_service::prepare_frame_packet_storage(engine::render::render_frame_packet& packet,
                                                     bool& out_should_prepare) noexcept {
   const auto completion_result = collect_completions();
-  if (completion_result != GNEISS_SUCCESS) {
+  if (completion_result != gneiss::engine::core::result::success) {
     return completion_result;
   }
   // 交互帧只预备一帧：低帧率时积压三份旧相机快照会把输入延迟放大到数百毫秒。
@@ -1007,27 +1010,28 @@ granit_render_service::prepare_frame_packet_storage(engine::render::render_frame
   out_should_prepare = executor_.query_stats().pending_frames < 1U;
   if (!out_should_prepare) {
     executor_.record_skipped_frame_build();
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
   if (!recycled_frame_packets_.empty()) {
     packet = std::move(recycled_frame_packets_.back());
     recycled_frame_packets_.pop_back();
   }
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
-gneiss_result granit_render_service::submit(engine::render::render_frame_packet packet,
-                                            engine::render::render_frame_policy policy,
-                                            std::uint64_t* out_sequence) noexcept {
+gneiss::engine::core::result
+granit_render_service::submit(engine::render::render_frame_packet packet,
+                              engine::render::render_frame_policy policy,
+                              std::uint64_t* out_sequence) noexcept {
   const auto completion_result = collect_completions();
-  if (completion_result != GNEISS_SUCCESS) {
+  if (completion_result != gneiss::engine::core::result::success) {
     return completion_result;
   }
   packet.window.needs_recreate = packet.window.needs_recreate || pending_recreate_;
   pending_recreate_ = false;
   std::uint64_t sequence{};
   const auto result = executor_.submit_frame(std::move(packet), sequence, policy);
-  if (result == GNEISS_SUCCESS && out_sequence != nullptr) {
+  if (result == gneiss::engine::core::result::success && out_sequence != nullptr) {
     *out_sequence = sequence;
   }
   return result;
@@ -1035,7 +1039,8 @@ gneiss_result granit_render_service::submit(engine::render::render_frame_packet 
 
 bool granit_render_service::try_take_required_completion(
     engine::render::render_frame_completion& completion) noexcept {
-  if (collect_completions() != GNEISS_SUCCESS || required_frame_completions_.empty()) {
+  if (collect_completions() != gneiss::engine::core::result::success ||
+      required_frame_completions_.empty()) {
     return false;
   }
   completion = std::move(required_frame_completions_.front());
@@ -1047,24 +1052,26 @@ engine::render::render_queue_stats granit_render_service::query_performance_stat
   return executor_.query_stats();
 }
 
-gneiss_result granit_render_service::finish_frames() noexcept {
+gneiss::engine::core::result granit_render_service::finish_frames() noexcept {
   const auto flushed = executor_.flush();
-  if (flushed != GNEISS_SUCCESS) {
+  if (flushed != gneiss::engine::core::result::success) {
     return flushed;
   }
-  auto result = GNEISS_SUCCESS;
-  for (auto completed = collect_completions(); completed != GNEISS_SUCCESS;
+  auto result = gneiss::engine::core::result::success;
+  for (auto completed = collect_completions(); completed != gneiss::engine::core::result::success;
        completed = collect_completions()) {
-    if (result == GNEISS_SUCCESS && completed != GNEISS_ERROR_NOT_READY) {
+    if (result == gneiss::engine::core::result::success &&
+        completed != gneiss::engine::core::result::not_ready) {
       result = completed;
     }
   }
   return result;
 }
 
-gneiss_result granit_render_service::shutdown(granit::renderer_resource_stats& stats) noexcept {
+gneiss::engine::core::result
+granit_render_service::shutdown(granit::renderer_resource_stats& stats) noexcept {
   if (!executor_.is_running()) {
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   }
   static_cast<void>(executor_.flush());
   const auto frame_result = collect_completions();
@@ -1078,7 +1085,7 @@ gneiss_result granit_render_service::shutdown(granit::renderer_resource_stats& s
         return result;
       },
       sequence);
-  if (submit_result == GNEISS_SUCCESS) {
+  if (submit_result == gneiss::engine::core::result::success) {
     static_cast<void>(executor_.flush());
   }
   engine::render::render_command_completion completion;
@@ -1086,19 +1093,19 @@ gneiss_result granit_render_service::shutdown(granit::renderer_resource_stats& s
   executor_.stop();
   recycled_frame_packets_.clear();
   required_frame_completions_.clear();
-  if (frame_result != GNEISS_SUCCESS) {
+  if (frame_result != gneiss::engine::core::result::success) {
     return frame_result;
   }
-  if (submit_result != GNEISS_SUCCESS) {
+  if (submit_result != gneiss::engine::core::result::success) {
     return submit_result;
   }
   if (!has_completion || completion.sequence != sequence) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
   return completion.status;
 }
 
-gneiss_result
+gneiss::engine::core::result
 granit_render_service::initialize_gpu(const engine::platform::native_window_info& window,
                                       std::span<const std::byte> environment_asset,
                                       float environment_intensity,
@@ -1140,7 +1147,7 @@ granit_render_service::initialize_gpu(const engine::platform::native_window_info
                                  granit::surface_desc::wayland(window.display, window.window));
     break;
   default:
-    return GNEISS_ERROR_UNSUPPORTED;
+    return gneiss::engine::core::result::unsupported;
   }
   if (result.ok()) {
     result = swapchain_.initialize(renderer_, surface_,
@@ -1198,7 +1205,8 @@ granit_render_service::initialize_gpu(const engine::platform::native_window_info
   return map_result(result);
 }
 
-gneiss_result granit_render_service::shutdown_gpu(granit::renderer_resource_stats& stats) noexcept {
+gneiss::engine::core::result
+granit_render_service::shutdown_gpu(granit::renderer_resource_stats& stats) noexcept {
   static_cast<void>(pipeline_.reset());
   static_cast<void>(environment_.reset());
   environment_info_ = {};
@@ -1231,16 +1239,16 @@ gneiss_result granit_render_service::shutdown_gpu(granit::renderer_resource_stat
   static_cast<void>(surface_.reset());
 
   const auto query_result = renderer_.get_resource_stats(stats);
-  const auto result =
-      query_result.failed()
-          ? map_result(query_result)
-          : (stats.total_live_count == 0U ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
+  const auto result = query_result.failed() ? map_result(query_result)
+                                            : (stats.total_live_count == 0U
+                                                   ? gneiss::engine::core::result::success
+                                                   : gneiss::engine::core::result::invalid_state);
   static_cast<void>(renderer_.reset());
   return result;
 }
 
 // 单帧资源准备与提交必须保持 Granit 调用和失败回滚的线性顺序。
-gneiss_result
+gneiss::engine::core::result
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 granit_render_service::execute_frame(engine::render::render_frame_packet& packet,
                                      engine::render::render_execution_result& output) noexcept {
@@ -1253,13 +1261,13 @@ granit_render_service::execute_frame(engine::render::render_frame_packet& packet
   const auto& snapshot = packet.scene;
   const auto& resources = packet.resources;
   if (window.width == 0U || window.height == 0U)
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
 
   const auto resource_prepare_started = std::chrono::steady_clock::now();
   if (window.needs_recreate) {
     const auto recreate = swapchain_.recreate({.width = window.width, .height = window.height});
     if (recreate == granit::result::not_ready)
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     if (recreate.failed())
       return map_result(recreate);
     granit::swapchain_info info;
@@ -1281,7 +1289,7 @@ granit_render_service::execute_frame(engine::render::render_frame_packet& packet
       if (!mesh_mirrors_.contains(instance.mesh)) {
         const auto* source = resources.get_mesh(instance.mesh);
         if (source == nullptr)
-          return GNEISS_ERROR_INVALID_HANDLE;
+          return gneiss::engine::core::result::invalid_handle;
         mesh_mirror mirror;
         const auto created = create_mesh_mirror(*source, mirror);
         if (created.failed()) {
@@ -1297,7 +1305,7 @@ granit_render_service::execute_frame(engine::render::render_frame_packet& packet
       }
       const auto* material = resources.get_material(instance.material);
       if (material == nullptr)
-        return GNEISS_ERROR_INVALID_HANDLE;
+        return gneiss::engine::core::result::invalid_handle;
       std::array textures{
           default_white_srgb_.view.native_handle(), default_white_linear_.view.native_handle(),
           default_normal_linear_.view.native_handle(), default_white_linear_.view.native_handle(),
@@ -1312,7 +1320,7 @@ granit_render_service::execute_frame(engine::render::render_frame_packet& packet
           continue;
         }
         if (texture == nullptr)
-          return GNEISS_ERROR_INVALID_HANDLE;
+          return gneiss::engine::core::result::invalid_handle;
         auto found = texture_mirrors_.find(handle);
         if (found == texture_mirrors_.end()) {
           texture_mirror mirror;
@@ -1338,9 +1346,9 @@ granit_render_service::execute_frame(engine::render::render_frame_packet& packet
       }
     }
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 
   const auto ui_result = prepare_ui_draw_list(packet.ui, resources, window.width, window.height);
@@ -1370,7 +1378,7 @@ granit_render_service::execute_frame(engine::render::render_frame_packet& packet
         return map_result(result);
     }
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   }
 
   granit::scene_snapshot scene;
@@ -1409,12 +1417,12 @@ granit_render_service::execute_frame(engine::render::render_frame_packet& packet
         engine::render::matrix4 model;
         engine::render::matrix4 normal;
         if (!build_model_matrices(instance.transform, model, normal))
-          return GNEISS_ERROR_INVALID_ARGUMENT;
+          return gneiss::engine::core::result::invalid_argument;
         const auto payload = static_cast<std::uint64_t>(index) + 1U;
         const auto* mesh = resources.get_mesh(instance.mesh);
         const auto* material = resources.get_material(instance.material);
         if (material->uv1_mask() != 0U && mesh->uv1.empty())
-          return GNEISS_ERROR_INVALID_ARGUMENT;
+          return gneiss::engine::core::result::invalid_argument;
         // GPU 布局统一包含 UV1 与颜色；缺失属性填零 UV / 白色，变体必须匹配 72 字节步长。
         const auto variant = granit_pbr_material_variant_key(
             GRANIT_PBR_TEXTURE_ALL, static_cast<std::uint32_t>(material->alpha_mode),
@@ -1436,7 +1444,7 @@ granit_render_service::execute_frame(engine::render::render_frame_packet& packet
                             .variant = variant});
       }
     } catch (const std::bad_alloc&) {
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      return gneiss::engine::core::result::out_of_memory;
     }
   }
   granit::scene_snapshot_desc scene_desc{};
@@ -1503,7 +1511,7 @@ granit_render_service::execute_frame(engine::render::render_frame_packet& packet
           break;
         }
         if (std::chrono::steady_clock::now() >= deadline) {
-          return GNEISS_ERROR_NOT_READY;
+          return gneiss::engine::core::result::not_ready;
         }
         captured = renderer_.process_events();
         std::this_thread::yield();
@@ -1520,7 +1528,7 @@ granit_render_service::execute_frame(engine::render::render_frame_packet& packet
       }
       if (info.required_size != byte_count || info.bytes_per_row != window.width * 4U ||
           info.format != granit::texture_format::rgba8_unorm) {
-        return GNEISS_ERROR_INTERNAL;
+        return gneiss::engine::core::result::internal;
       }
       packet.readback->pixels.resize(static_cast<std::size_t>(byte_count));
       std::uint64_t required{};
@@ -1530,11 +1538,11 @@ granit_render_service::execute_frame(engine::render::render_frame_packet& packet
       }
       packet.readback->width = window.width;
       packet.readback->height = window.height;
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     } catch (const std::bad_alloc&) {
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      return gneiss::engine::core::result::out_of_memory;
     } catch (...) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
   }
 
@@ -1546,7 +1554,7 @@ granit_render_service::execute_frame(engine::render::render_frame_packet& packet
           .count();
   if (result == granit::result::out_of_date) {
     window.needs_recreate = true;
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
   if (result.failed())
     return map_result(result);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "ipc_dispatcher.hpp"
 
 #include <array>
@@ -10,11 +11,11 @@ namespace {
 
 struct handler_state final {
   std::size_t call_count = 0U;
-  gneiss::result result = gneiss::result::success;
+  gneiss::engine::core::result result = gneiss::engine::core::result::success;
 };
 
-gneiss::result handle(void* context,
-                      const gneiss::engine::platform::ipc_envelope& envelope) noexcept {
+gneiss::engine::core::result
+handle(void* context, const gneiss::engine::platform::ipc_envelope& envelope) noexcept {
   (void)envelope;
   auto& state = *static_cast<handler_state*>(context);
   ++state.call_count;
@@ -46,8 +47,9 @@ gneiss::result handle(void* context,
       .handler_context = &state,
   };
   gneiss::engine::platform::ipc_domain_registry registry;
-  if (registry.register_domain(descriptor) != gneiss::result::success || registry.size() != 1U ||
-      registry.register_domain(descriptor) != gneiss::result::invalid_state) {
+  if (registry.register_domain(descriptor) != gneiss::engine::core::result::success ||
+      registry.size() != 1U ||
+      registry.register_domain(descriptor) != gneiss::engine::core::result::invalid_state) {
     return false;
   }
   auto invalid_operations = operations;
@@ -55,7 +57,7 @@ gneiss::result handle(void* context,
   auto invalid = descriptor;
   invalid.domain = gneiss::engine::platform::ipc_domain::property;
   invalid.operations = invalid_operations;
-  if (registry.register_domain(invalid) != gneiss::result::invalid_argument) {
+  if (registry.register_domain(invalid) != gneiss::engine::core::result::invalid_argument) {
     return false;
   }
   constexpr std::array duplicate_operations{gneiss::engine::platform::ipc_operation_descriptor{
@@ -63,7 +65,7 @@ gneiss::result handle(void* context,
                                             gneiss::engine::platform::ipc_operation_descriptor{
                                                 .operation = 1U, .editor_to_runtime_kinds = 1U}};
   invalid.operations = duplicate_operations;
-  if (registry.register_domain(invalid) != gneiss::result::invalid_argument) {
+  if (registry.register_domain(invalid) != gneiss::engine::core::result::invalid_argument) {
     return false;
   }
   registry.clear();
@@ -84,7 +86,8 @@ gneiss::result handle(void* context,
                                 .max_payload_size = 2U,
                                 .operations = operations,
                                 .handler = handle,
-                                .handler_context = &state}) != gneiss::result::success) {
+                                .handler_context = &state}) !=
+      gneiss::engine::core::result::success) {
     return false;
   }
   const gneiss::engine::platform::ipc_dispatcher dispatcher(registry);
@@ -145,10 +148,10 @@ gneiss::result handle(void* context,
   if (!dispatcher.dispatch(envelope, context).accepted() || state.call_count != 1U) {
     return false;
   }
-  state.result = gneiss::result::not_ready;
+  state.result = gneiss::engine::core::result::not_ready;
   const auto failed = dispatcher.dispatch(envelope, context);
   return failed.rejection == gneiss::engine::platform::ipc_dispatch_rejection::handler_failed &&
-         failed.handler_result == gneiss::result::not_ready && state.call_count == 2U;
+         failed.handler_result == gneiss::engine::core::result::not_ready && state.call_count == 2U;
 }
 
 [[nodiscard]] bool test_session_and_unknown_domain() {
@@ -166,7 +169,8 @@ gneiss::result handle(void* context,
                                 .max_payload_size = 16U,
                                 .operations = operations,
                                 .handler = handle,
-                                .handler_context = &state}) != gneiss::result::success) {
+                                .handler_context = &state}) !=
+      gneiss::engine::core::result::success) {
     return false;
   }
   const gneiss::engine::platform::ipc_dispatcher dispatcher(registry);

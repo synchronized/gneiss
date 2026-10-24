@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_EDITOR_COMMAND_HISTORY_H_
 #define GNEISS_APPS_EDITOR_EDITOR_COMMAND_HISTORY_H_
 
-#include <gneiss/engine/core/result.hpp>
+#include "engine/core/result.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -23,7 +23,7 @@ namespace gneiss::editor {
 class editor_history_operation {
 public:
   virtual ~editor_history_operation() noexcept = default;
-  [[nodiscard]] virtual result advance(bool& complete) noexcept = 0;
+  [[nodiscard]] virtual gneiss::engine::core::result advance(bool& complete) noexcept = 0;
   virtual void cancel() noexcept = 0;
   [[nodiscard]] virtual bool can_cancel() const noexcept { return true; }
 };
@@ -33,14 +33,14 @@ class editor_command {
 public:
   virtual ~editor_command() noexcept = default;
   [[nodiscard]] virtual std::string_view label() const noexcept = 0;
-  [[nodiscard]] virtual result undo() noexcept = 0;
-  [[nodiscard]] virtual result redo() noexcept = 0;
+  [[nodiscard]] virtual gneiss::engine::core::result undo() noexcept = 0;
+  [[nodiscard]] virtual gneiss::engine::core::result redo() noexcept = 0;
   /** 创建分帧撤销/重做事务；空输出沿用同步入口。准备失败不得修改文档。 */
-  [[nodiscard]] virtual result
+  [[nodiscard]] virtual gneiss::engine::core::result
   begin_history_operation(bool undo, std::unique_ptr<editor_history_operation>& output) noexcept {
     (void)undo;
     output.reset();
-    return result::success;
+    return gneiss::engine::core::result::success;
   }
   /** 合并已执行的后继命令；成功时保留本命令的初始 Undo 状态。 */
   [[nodiscard]] virtual bool merge_with(const editor_command& next) noexcept {
@@ -52,7 +52,7 @@ public:
 /** 函数命令适配器；merge_key 相同且非空时合并连续编辑。 */
 class functional_editor_command final : public editor_command {
 public:
-  using operation = std::function<result()>;
+  using operation = std::function<gneiss::engine::core::result()>;
   struct desc final {
     std::string label;
     operation undo;
@@ -63,8 +63,8 @@ public:
   explicit functional_editor_command(desc value) noexcept;
   [[nodiscard]] bool is_valid() const noexcept { return undo_ && redo_; }
   [[nodiscard]] std::string_view label() const noexcept override { return label_; }
-  [[nodiscard]] result undo() noexcept override;
-  [[nodiscard]] result redo() noexcept override;
+  [[nodiscard]] gneiss::engine::core::result undo() noexcept override;
+  [[nodiscard]] gneiss::engine::core::result redo() noexcept override;
   [[nodiscard]] bool merge_with(const editor_command& next) noexcept override;
 
 private:
@@ -84,26 +84,27 @@ public:
 
   explicit editor_command_history(std::size_t capacity = default_capacity) noexcept;
   /** 记录已经成功执行的命令；新命令清空 redo。 */
-  [[nodiscard]] result record(std::unique_ptr<editor_command> value) noexcept;
+  [[nodiscard]] gneiss::engine::core::result record(std::unique_ptr<editor_command> value) noexcept;
   /** 异步初次执行前预留记录空间；调用方期间禁止其他历史修改。 */
-  [[nodiscard]] result prepare_record() noexcept;
-  [[nodiscard]] result record(command value) noexcept;
+  [[nodiscard]] gneiss::engine::core::result prepare_record() noexcept;
+  [[nodiscard]] gneiss::engine::core::result record(command value) noexcept;
   /** 执行 redo 后记录；记录失败时自动调用 undo 回滚。 */
-  [[nodiscard]] result execute(std::unique_ptr<editor_command> value) noexcept;
-  [[nodiscard]] result execute(command value) noexcept;
-  [[nodiscard]] result undo() noexcept;
-  [[nodiscard]] result redo() noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  execute(std::unique_ptr<editor_command> value) noexcept;
+  [[nodiscard]] gneiss::engine::core::result execute(command value) noexcept;
+  [[nodiscard]] gneiss::engine::core::result undo() noexcept;
+  [[nodiscard]] gneiss::engine::core::result redo() noexcept;
   /** 在途操作完成清理前拒绝清空或改变保存点。 */
-  result clear() noexcept;
-  result mark_saved() noexcept {
+  gneiss::engine::core::result clear() noexcept;
+  gneiss::engine::core::result mark_saved() noexcept {
     if (is_pending()) {
-      return result::not_ready;
+      return gneiss::engine::core::result::not_ready;
     }
     saved_state_ = current_state_;
-    return result::success;
+    return gneiss::engine::core::result::success;
   }
   [[nodiscard]] bool is_pending() const noexcept { return pending_ != nullptr; }
-  [[nodiscard]] result advance_pending() noexcept;
+  [[nodiscard]] gneiss::engine::core::result advance_pending() noexcept;
   void cancel_pending() noexcept;
   [[nodiscard]] bool can_cancel_pending() const noexcept {
     return pending_ && pending_->can_cancel();
@@ -126,7 +127,8 @@ private:
     std::uint64_t after_state = 0U;
   };
 
-  [[nodiscard]] result record_impl(std::unique_ptr<editor_command>& value) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  record_impl(std::unique_ptr<editor_command>& value) noexcept;
   [[nodiscard]] std::uint64_t allocate_state() noexcept;
 
   std::vector<entry> entries_;

@@ -4,7 +4,7 @@
 #ifndef GNEISS_SRC_IO_UV_UV_LOOP_EXECUTOR_HPP_
 #define GNEISS_SRC_IO_UV_UV_LOOP_EXECUTOR_HPP_
 
-#include <gneiss/engine/core/result.hpp>
+#include "engine/core/result.hpp"
 
 #include <cstddef>
 #include <functional>
@@ -29,9 +29,9 @@ public:
   uv_loop_executor(const uv_loop_executor&) = delete;
   uv_loop_executor& operator=(const uv_loop_executor&) = delete;
 
-  [[nodiscard]] result start() noexcept;
-  [[nodiscard]] result post(task operation) noexcept;
-  [[nodiscard]] result stop() noexcept;
+  [[nodiscard]] gneiss::engine::core::result start() noexcept;
+  [[nodiscard]] gneiss::engine::core::result post(task operation) noexcept;
+  [[nodiscard]] gneiss::engine::core::result stop() noexcept;
 
   [[nodiscard]] bool is_running() const noexcept;
   [[nodiscard]] std::size_t failed_task_count() const noexcept;

@@ -17,6 +17,11 @@ foreach(source IN LISTS sources)
   if(content MATCHES "#[ \t]*include[ \t]*[<\"]caors/|::caors::")
     message(FATAL_ERROR "CAORS 已移除；资源使用普通 CPU 类型和宿主执行器：${source}")
   endif()
+  # 普通内部操作只使用原生结果；C ABI 与测试夹具保留显式边界。
+  if(NOT source MATCHES "/(api|tests)/" AND
+      content MATCHES "gneiss::result([^a-zA-Z0-9_]|$)|(^|[^a-zA-Z0-9_])gneiss_result([^a-zA-Z0-9_]|$)|GNEISS_(SUCCESS|ERROR_[A-Z_]+)")
+    message(FATAL_ERROR "内部操作须使用 engine::core::result，整数转换只放在 ABI/协议边界：${source}")
+  endif()
   # 宿主可以消费公共 ABI 与模块接口，但业务层不得依赖宿主实现。
   if(source MATCHES "/src/host/")
     file(READ "${source}" host_content)

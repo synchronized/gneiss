@@ -4,6 +4,7 @@
 #ifndef GNEISS_RENDER_RENDER_RESOURCE_SERVICE_HPP_
 #define GNEISS_RENDER_RENDER_RESOURCE_SERVICE_HPP_
 
+#include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/rid_table.hpp"
 #include "engine/function/render/render_resource_data.hpp"
@@ -38,51 +39,57 @@ public:
   [[nodiscard]] bool is_valid() const noexcept { return domain_ != 0U; }
   /** 所属线程预留合法 RID；尚无 CPU 内容，不可直接绘制。由 replace_* 填充，destroy_* 取消。
    * 不创建后端对象；所有权属于调用方，销毁和跨服务校验与普通 RID 一致。 */
-  [[nodiscard]] GNEISS_API gneiss_result reserve_mesh(engine::core::rid* output) noexcept;
-  [[nodiscard]] GNEISS_API gneiss_result reserve_texture(engine::core::rid* output) noexcept;
-  [[nodiscard]] gneiss_result reserve_material(engine::core::rid* output) noexcept;
+  [[nodiscard]] GNEISS_API gneiss::engine::core::result
+  reserve_mesh(engine::core::rid* output) noexcept;
+  [[nodiscard]] GNEISS_API gneiss::engine::core::result
+  reserve_texture(engine::core::rid* output) noexcept;
+  [[nodiscard]] gneiss::engine::core::result reserve_material(engine::core::rid* output) noexcept;
   /** 只查询 CPU 内容：SUCCESS 已填充，NOT_READY 仅预留，INVALID_HANDLE 已失效或不属于本服务。 */
-  [[nodiscard]] gneiss_result mesh_status(engine::core::rid mesh) const noexcept;
-  [[nodiscard]] gneiss_result texture_status(engine::core::rid texture) const noexcept;
-  [[nodiscard]] gneiss_result material_status(engine::core::rid material) const noexcept;
-  [[nodiscard]] gneiss_result create_mesh(const engine::resource::mesh_view& desc,
-                                          engine::core::rid* out_mesh) noexcept;
+  [[nodiscard]] gneiss::engine::core::result mesh_status(engine::core::rid mesh) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  texture_status(engine::core::rid texture) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  material_status(engine::core::rid material) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result create_mesh(const engine::resource::mesh_view& desc,
+                                                         engine::core::rid* out_mesh) noexcept;
   /** 校验并接收拥有型网格，成功路径不再复制数组。 */
-  [[nodiscard]] gneiss_result create_mesh(mesh_resource resource,
-                                          engine::core::rid* output) noexcept;
+  [[nodiscard]] gneiss::engine::core::result create_mesh(mesh_resource resource,
+                                                         engine::core::rid* output) noexcept;
   /** 内部 CPU 候选已经校验，移动所有权避免主线程复制大数组。 */
-  [[nodiscard]] gneiss_result create_prepared_mesh(mesh_resource resource,
-                                                   engine::core::rid* output) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  create_prepared_mesh(mesh_resource resource, engine::core::rid* output) noexcept;
   /** 已校验不可变 CPU 网格；RID 与旧帧共享同一对象，销毁 RID 不使外部引用失效。 */
-  [[nodiscard]] gneiss_result create_prepared_mesh(std::shared_ptr<const mesh_resource> resource,
-                                                   engine::core::rid* output) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  create_prepared_mesh(std::shared_ptr<const mesh_resource> resource,
+                       engine::core::rid* output) noexcept;
   [[nodiscard]] GNEISS_API bool replace_mesh(engine::core::rid rid,
                                              std::shared_ptr<const mesh_resource> data) noexcept;
   [[nodiscard]] bool replace_material(engine::core::rid rid,
                                       std::shared_ptr<const material_resource> data) noexcept;
   /** 校验并登记临时 CPU 数据，不分配 RID；任务和帧引用共同决定数据寿命。 */
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   prepare_mesh_data(std::shared_ptr<const mesh_resource> resource,
                     std::shared_ptr<const mesh_resource>& output) noexcept;
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   prepare_material_data(const material_resource& resource,
                         std::shared_ptr<const material_resource>& output) noexcept;
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   prepare_texture_data(texture_resource resource,
                        std::shared_ptr<const texture_resource>& output) noexcept;
-  [[nodiscard]] gneiss_result destroy_mesh(engine::core::rid mesh) noexcept;
-  [[nodiscard]] gneiss_result create_material(const material_resource& value,
-                                              engine::core::rid* out_material) noexcept;
-  [[nodiscard]] gneiss_result destroy_material(engine::core::rid material) noexcept;
-  [[nodiscard]] GNEISS_API gneiss_result create_texture(const texture_view& desc,
-                                                        engine::core::rid* out_texture) noexcept;
+  [[nodiscard]] gneiss::engine::core::result destroy_mesh(engine::core::rid mesh) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  create_material(const material_resource& value, engine::core::rid* out_material) noexcept;
+  [[nodiscard]] gneiss::engine::core::result destroy_material(engine::core::rid material) noexcept;
+  [[nodiscard]] GNEISS_API gneiss::engine::core::result
+  create_texture(const texture_view& desc, engine::core::rid* out_texture) noexcept;
   /** 创建已经过容器校验的内部多 Mip Texture。 */
-  [[nodiscard]] gneiss_result create_texture(texture_resource resource,
-                                             engine::core::rid* out_texture) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  create_texture(texture_resource resource, engine::core::rid* out_texture) noexcept;
   /** 保存已经过外层容器与 Granit Manifest 检查的运行纹理。 */
-  [[nodiscard]] gneiss_result create_packaged_texture(texture_resource resource,
-                                                      engine::core::rid* out_texture) noexcept;
-  [[nodiscard]] GNEISS_API gneiss_result destroy_texture(engine::core::rid texture) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  create_packaged_texture(texture_resource resource, engine::core::rid* out_texture) noexcept;
+  [[nodiscard]] GNEISS_API gneiss::engine::core::result
+  destroy_texture(engine::core::rid texture) noexcept;
   /** 主线程提交已验证候选；保持 RID generation，既有帧仍拥有旧数据快照。 */
   [[nodiscard]] GNEISS_API bool
   replace_texture(engine::core::rid texture,

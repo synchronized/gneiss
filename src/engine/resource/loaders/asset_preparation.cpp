@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/resource/loaders/asset_preparation.hpp"
+#include "engine/core/result.hpp"
 
 #include "engine/resource/loaders/asset_parsing.hpp"
 
@@ -40,7 +41,7 @@ struct texture_source final {
   engine::resource::texture_color_space color_space{};
 };
 
-void fail(asset_diagnostic& diagnostic, gneiss_result result, std::string_view path,
+void fail(asset_diagnostic& diagnostic, gneiss::engine::core::result result, std::string_view path,
           std::string_view message, std::size_t offset) noexcept {
   diagnostic.result = result;
   diagnostic.byte_offset = offset;
@@ -48,7 +49,7 @@ void fail(asset_diagnostic& diagnostic, gneiss_result result, std::string_view p
     diagnostic.path = path;
     diagnostic.message = message;
   } catch (...) {
-    diagnostic.result = GNEISS_ERROR_OUT_OF_MEMORY;
+    diagnostic.result = gneiss::engine::core::result::out_of_memory;
     diagnostic.path.clear();
     diagnostic.message.clear();
   }
@@ -68,7 +69,8 @@ void fail(asset_diagnostic& diagnostic, gneiss_result result, std::string_view p
     (void)value;
     const auto name = json_string(key);
     if (std::ranges::find(fields, name) == fields.end()) {
-      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/" + std::string(name), "未知字段");
+      fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/" + std::string(name),
+           "未知字段");
       return false;
     }
   }
@@ -80,22 +82,23 @@ void fail(asset_diagnostic& diagnostic, gneiss_result result, std::string_view p
                                    std::uint64_t maximum_version, std::uint64_t& out_version,
                                    asset_diagnostic& diagnostic) {
   if (!yyjson_is_obj(root) || !has_only_fields(root, fields, diagnostic)) {
-    if (diagnostic.result == GNEISS_SUCCESS) {
-      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "", "资产根必须是对象");
+    if (diagnostic.result == gneiss::engine::core::result::success) {
+      fail(diagnostic, gneiss::engine::core::result::invalid_argument, "", "资产根必须是对象");
     }
     return false;
   }
   yyjson_val* format = yyjson_obj_get(root, "format");
   if (!yyjson_is_str(format) || json_string(format) != expected_format) {
-    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/format", "资产格式标识错误");
+    fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/format", "资产格式标识错误");
     return false;
   }
   yyjson_val* version = yyjson_obj_get(root, "version");
   if (!yyjson_is_uint(version) || yyjson_get_uint(version) == 0U ||
       yyjson_get_uint(version) > maximum_version) {
     fail(diagnostic,
-         yyjson_is_uint(version) && yyjson_get_uint(version) > 1U ? GNEISS_ERROR_UNSUPPORTED
-                                                                  : GNEISS_ERROR_INVALID_ARGUMENT,
+         yyjson_is_uint(version) && yyjson_get_uint(version) > 1U
+             ? gneiss::engine::core::result::unsupported
+             : gneiss::engine::core::result::invalid_argument,
          "/version", "不支持的资产版本");
     return false;
   }
@@ -108,7 +111,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
 [[nodiscard]] document_ptr parse_document(const std::vector<std::byte>& bytes,
                                           asset_diagnostic& diagnostic) {
   if (bytes.empty()) {
-    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "", "资产文档为空");
+    fail(diagnostic, gneiss::engine::core::result::invalid_argument, "", "资产文档为空");
     return {nullptr, &yyjson_doc_free};
   }
   yyjson_read_err error{};
@@ -117,7 +120,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
                        YYJSON_READ_NOFLAG, nullptr, &error),
       &yyjson_doc_free);
   if (!document) {
-    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "",
+    fail(diagnostic, gneiss::engine::core::result::invalid_argument, "",
          error.msg != nullptr ? error.msg : "JSON 语法错误", error.pos);
   }
   return {document.release(), &yyjson_doc_free};
@@ -134,7 +137,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): 保持 Mesh Schema 诊断顺序。
-[[nodiscard]] gneiss_result
+[[nodiscard]] gneiss::engine::core::result
 parse_mesh(const std::vector<std::byte>& bytes,
            std::vector<gneiss::engine::resource::mesh_vertex>& out_vertices,
            std::vector<gneiss::engine::resource::mesh_normal>& out_normals,
@@ -167,24 +170,28 @@ parse_mesh(const std::vector<std::byte>& bytes,
   }
   yyjson_val* topology = yyjson_obj_get(root, "topology");
   if (!yyjson_is_str(topology) || json_string(topology) != "triangle_list") {
-    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/topology", "只支持 triangle_list");
+    fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/topology",
+         "只支持 triangle_list");
     return diagnostic.result;
   }
   yyjson_val* vertices = yyjson_obj_get(root, "vertices");
   const auto count = yyjson_arr_size(vertices);
   if (!yyjson_is_arr(vertices) || count < 3U || count % 3U != 0U ||
       count > std::numeric_limits<std::uint32_t>::max()) {
-    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/vertices", "顶点数必须是大于零的三角形列表");
+    fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/vertices",
+         "顶点数必须是大于零的三角形列表");
     return diagnostic.result;
   }
   yyjson_val* uvs = yyjson_obj_get(root, "uvs");
   if (version >= 2U && (!yyjson_is_arr(uvs) || yyjson_arr_size(uvs) != count)) {
-    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/uvs", "UV 数量必须与顶点数量一致");
+    fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/uvs",
+         "UV 数量必须与顶点数量一致");
     return diagnostic.result;
   }
   yyjson_val* normals = yyjson_obj_get(root, "normals");
   if (version == 3U && (!yyjson_is_arr(normals) || yyjson_arr_size(normals) != count)) {
-    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/normals", "法线数量必须与顶点数量一致");
+    fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/normals",
+         "法线数量必须与顶点数量一致");
     return diagnostic.result;
   }
   out_vertices.reserve(count);
@@ -194,16 +201,16 @@ parse_mesh(const std::vector<std::byte>& bytes,
   yyjson_val* vertex = nullptr;
   yyjson_arr_foreach(vertices, index, maximum, vertex) {
     if (!yyjson_is_arr(vertex) || yyjson_arr_size(vertex) != 3U) {
-      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/vertices/" + std::to_string(index),
-           "顶点必须包含三个数值");
+      fail(diagnostic, gneiss::engine::core::result::invalid_argument,
+           "/vertices/" + std::to_string(index), "顶点必须包含三个数值");
       return diagnostic.result;
     }
     gneiss::engine::resource::mesh_vertex parsed{};
     if (!read_float(yyjson_arr_get(vertex, 0), parsed.x) ||
         !read_float(yyjson_arr_get(vertex, 1), parsed.y) ||
         !read_float(yyjson_arr_get(vertex, 2), parsed.z)) {
-      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/vertices/" + std::to_string(index),
-           "顶点数值必须是有限 float");
+      fail(diagnostic, gneiss::engine::core::result::invalid_argument,
+           "/vertices/" + std::to_string(index), "顶点数值必须是有限 float");
       return diagnostic.result;
     }
     if (version >= 2U) {
@@ -211,8 +218,8 @@ parse_mesh(const std::vector<std::byte>& bytes,
       if (!yyjson_is_arr(uv) || yyjson_arr_size(uv) != 2U ||
           !read_float(yyjson_arr_get(uv, 0), parsed.u) ||
           !read_float(yyjson_arr_get(uv, 1), parsed.v)) {
-        fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/uvs/" + std::to_string(index),
-             "UV 必须包含两个有限 float 数值");
+        fail(diagnostic, gneiss::engine::core::result::invalid_argument,
+             "/uvs/" + std::to_string(index), "UV 必须包含两个有限 float 数值");
         return diagnostic.result;
       }
     }
@@ -224,25 +231,25 @@ parse_mesh(const std::vector<std::byte>& bytes,
           !read_float(yyjson_arr_get(normal, 0), parsed_normal.x) ||
           !read_float(yyjson_arr_get(normal, 1), parsed_normal.y) ||
           !read_float(yyjson_arr_get(normal, 2), parsed_normal.z)) {
-        fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/normals/" + std::to_string(index),
-             "法线必须包含三个有限数值");
+        fail(diagnostic, gneiss::engine::core::result::invalid_argument,
+             "/normals/" + std::to_string(index), "法线必须包含三个有限数值");
         return diagnostic.result;
       }
       const auto length =
           std::sqrt((parsed_normal.x * parsed_normal.x) + (parsed_normal.y * parsed_normal.y) +
                     (parsed_normal.z * parsed_normal.z));
       if (std::abs(length - 1.0F) > 1.0e-4F) {
-        fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/normals/" + std::to_string(index),
-             "法线必须归一化");
+        fail(diagnostic, gneiss::engine::core::result::invalid_argument,
+             "/normals/" + std::to_string(index), "法线必须归一化");
         return diagnostic.result;
       }
       out_normals.push_back(parsed_normal);
     }
   }
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
-[[nodiscard]] gneiss_result
+[[nodiscard]] gneiss::engine::core::result
 parse_binary_mesh(const std::vector<std::byte>& bytes,
                   std::vector<gneiss::engine::resource::mesh_vertex>& out_vertices,
                   std::vector<gneiss::engine::resource::mesh_normal>& out_normals,
@@ -257,8 +264,8 @@ parse_binary_mesh(const std::vector<std::byte>& bytes,
   if (result != gneiss::engine::resource::mesh_binary_result::success) {
     fail(diagnostic,
          result == gneiss::engine::resource::mesh_binary_result::unsupported_version
-             ? GNEISS_ERROR_UNSUPPORTED
-             : GNEISS_ERROR_INVALID_ARGUMENT,
+             ? gneiss::engine::core::result::unsupported
+             : gneiss::engine::core::result::invalid_argument,
          "", binary_diagnostic.message, binary_diagnostic.byte_offset);
     return diagnostic.result;
   }
@@ -283,11 +290,11 @@ parse_binary_mesh(const std::vector<std::byte>& bytes,
     out_colors.push_back({.r = c[0], .g = c[1], .b = c[2], .a = c[3]});
   }
   out_indices = std::move(data.indices);
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
-[[nodiscard]] gneiss_result parse_pbr_extensions(yyjson_val* root, material_source& out_source,
-                                                 asset_diagnostic& diagnostic) {
+[[nodiscard]] gneiss::engine::core::result
+parse_pbr_extensions(yyjson_val* root, material_source& out_source, asset_diagnostic& diagnostic) {
   constexpr std::array names{
       "base_color_texture", "metallic_roughness_texture", "normal_texture",
       "occlusion_texture",  "emissive_texture",
@@ -298,8 +305,8 @@ parse_binary_mesh(const std::vector<std::byte>& bytes,
       continue;
     }
     if (!yyjson_is_str(texture) || yyjson_get_len(texture) == 0U) {
-      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, std::string{"/"} + names[slot],
-           "Texture 必须是非空 URI 或 null");
+      fail(diagnostic, gneiss::engine::core::result::invalid_argument,
+           std::string{"/"} + names[slot], "Texture 必须是非空 URI 或 null");
       return diagnostic.result;
     }
     out_source.texture_uris[slot].assign(json_string(texture));
@@ -310,24 +317,26 @@ parse_binary_mesh(const std::vector<std::byte>& bytes,
       (strength != nullptr && (!read_float(strength, out_source.parameters.occlusion_strength) ||
                                out_source.parameters.occlusion_strength < 0.0F ||
                                out_source.parameters.occlusion_strength > 1.0F))) {
-    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/normal_scale",
+    fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/normal_scale",
          "法线缩放必须有限，AO 强度必须位于 0..1");
     return diagnostic.result;
   }
   if (auto* emissive = yyjson_obj_get(root, "emissive")) {
     if (!yyjson_is_arr(emissive) || yyjson_arr_size(emissive) != 3U) {
-      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/emissive", "自发光必须包含三个分量");
+      fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/emissive",
+           "自发光必须包含三个分量");
       return diagnostic.result;
     }
     for (std::size_t i = 0; i < 3U; ++i) {
       if (!read_float(yyjson_arr_get(emissive, i), out_source.parameters.emissive[i]) ||
           out_source.parameters.emissive[i] < 0.0F || out_source.parameters.emissive[i] > 1.0F) {
-        fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/emissive", "自发光分量必须位于 0..1");
+        fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/emissive",
+             "自发光分量必须位于 0..1");
         return diagnostic.result;
       }
     }
   }
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
 [[nodiscard]] bool parse_material_sampling(yyjson_val* root,
@@ -396,9 +405,9 @@ parse_binary_mesh(const std::vector<std::byte>& bytes,
   return parse_material_sampling(root, state);
 }
 
-[[nodiscard]] gneiss_result parse_material(const std::vector<std::byte>& bytes,
-                                           material_source& out_source,
-                                           asset_diagnostic& diagnostic) {
+[[nodiscard]] gneiss::engine::core::result parse_material(const std::vector<std::byte>& bytes,
+                                                          material_source& out_source,
+                                                          asset_diagnostic& diagnostic) {
   auto document = parse_document(bytes, diagnostic);
   if (!document) {
     return diagnostic.result;
@@ -457,14 +466,15 @@ parse_binary_mesh(const std::vector<std::byte>& bytes,
   }
   yyjson_val* color = yyjson_obj_get(root, "color");
   if (!yyjson_is_arr(color) || yyjson_arr_size(color) != out_source.parameters.color.size()) {
-    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color", "颜色必须包含四个分量");
+    fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/color",
+         "颜色必须包含四个分量");
     return diagnostic.result;
   }
   for (std::size_t index = 0; index < out_source.parameters.color.size(); ++index) {
     if (!read_float(yyjson_arr_get(color, index), out_source.parameters.color[index]) ||
         out_source.parameters.color[index] < 0.0F || out_source.parameters.color[index] > 1.0F) {
-      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color/" + std::to_string(index),
-           "颜色分量必须位于 0..1");
+      fail(diagnostic, gneiss::engine::core::result::invalid_argument,
+           "/color/" + std::to_string(index), "颜色分量必须位于 0..1");
       return diagnostic.result;
     }
   }
@@ -473,7 +483,7 @@ parse_binary_mesh(const std::vector<std::byte>& bytes,
     if (version >= 3U && yyjson_is_null(texture)) {
       out_source.texture_uris[0].clear();
     } else if (!yyjson_is_str(texture) || yyjson_get_len(texture) == 0U) {
-      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/base_color_texture",
+      fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/base_color_texture",
            "base-color Texture 必须是非空 URI");
       return diagnostic.result;
     } else {
@@ -485,24 +495,26 @@ parse_binary_mesh(const std::vector<std::byte>& bytes,
        out_source.parameters.metallic < 0.0F || out_source.parameters.metallic > 1.0F ||
        !read_float(yyjson_obj_get(root, "roughness"), out_source.parameters.roughness) ||
        out_source.parameters.roughness < 0.0F || out_source.parameters.roughness > 1.0F)) {
-    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/metallic",
+    fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/metallic",
          "metallic 与 roughness 必须位于 0..1");
     return diagnostic.result;
   }
 
-  if (version >= 4U && parse_pbr_extensions(root, out_source, diagnostic) != GNEISS_SUCCESS) {
+  if (version >= 4U &&
+      parse_pbr_extensions(root, out_source, diagnostic) != gneiss::engine::core::result::success) {
     return diagnostic.result;
   }
   if (version == 5U && !parse_material_state(root, out_source.parameters)) {
-    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/sampling", "材质状态或逐槽采样设置无效");
+    fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/sampling",
+         "材质状态或逐槽采样设置无效");
     return diagnostic.result;
   }
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
-[[nodiscard]] gneiss_result parse_texture(const std::vector<std::byte>& bytes,
-                                          texture_source& out_source,
-                                          asset_diagnostic& diagnostic) {
+[[nodiscard]] gneiss::engine::core::result parse_texture(const std::vector<std::byte>& bytes,
+                                                         texture_source& out_source,
+                                                         asset_diagnostic& diagnostic) {
   auto document = parse_document(bytes, diagnostic);
   if (!document) {
     return diagnostic.result;
@@ -528,12 +540,14 @@ parse_binary_mesh(const std::vector<std::byte>& bytes,
   }
   yyjson_val* source = yyjson_obj_get(root, "source");
   if (!yyjson_is_str(source) || yyjson_get_len(source) == 0U) {
-    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source", "Texture source 必须是非空 URI");
+    fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/source",
+         "Texture source 必须是非空 URI");
     return diagnostic.result;
   }
   yyjson_val* color_space = yyjson_obj_get(root, "color_space");
   if (!yyjson_is_str(color_space)) {
-    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color_space", "Texture 颜色空间必须是字符串");
+    fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/color_space",
+         "Texture 颜色空间必须是字符串");
     return diagnostic.result;
   }
   const auto color_space_name = json_string(color_space);
@@ -542,20 +556,21 @@ parse_binary_mesh(const std::vector<std::byte>& bytes,
   } else if (color_space_name == "linear") {
     out_source.color_space = gneiss::engine::resource::texture_color_space::linear;
   } else {
-    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color_space", "只支持 srgb 或 linear");
+    fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/color_space",
+         "只支持 srgb 或 linear");
     return diagnostic.result;
   }
   if (version == 2U) {
     auto* const usage = yyjson_obj_get(root, "usage");
     if (!yyjson_is_str(usage) || json_string(usage) != "normal" ||
         out_source.color_space != gneiss::engine::resource::texture_color_space::linear) {
-      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/usage",
+      fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/usage",
            "Texture v2 当前只支持 linear 法线用途");
       return diagnostic.result;
     }
   }
   out_source.uri.assign(json_string(source));
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
 } // namespace gneiss::engine::resource::asset_parsing
@@ -582,12 +597,12 @@ bool invalid_prepared_mesh(const mesh_data& mesh) {
                                }) ||
           !std::ranges::all_of(mesh.indices, [&](auto i) { return i < mesh.vertices.size(); }));
 }
-gneiss_result
+gneiss::engine::core::result
 decode_non_texture(const asset_preparation_source& source, const std::vector<std::byte>& bytes,
                    prepared_asset& asset, asset_diagnostic& diagnostic, std::size_t material_bytes,
                    std::size_t maximum_bytes, std::vector<asset_preparation_source>& pending,
                    const material_document_decoder& decode_material, bool include_dependencies) {
-  auto result = GNEISS_SUCCESS;
+  auto result = gneiss::engine::core::result::success;
   if (source.type == asset_type::mesh) {
     result =
         engine::resource::is_mesh_binary(bytes)
@@ -596,8 +611,8 @@ decode_non_texture(const asset_preparation_source& source, const std::vector<std
             : parse_mesh(bytes, asset.mesh.vertices, asset.mesh.normals, diagnostic);
     // 此校验与 RID 创建的顶点/法线/索引契约一致，在后台完成。
     const auto& mesh = asset.mesh;
-    if (result == GNEISS_SUCCESS && invalid_prepared_mesh(mesh)) {
-      result = GNEISS_ERROR_INVALID_ARGUMENT;
+    if (result == gneiss::engine::core::result::success && invalid_prepared_mesh(mesh)) {
+      result = gneiss::engine::core::result::invalid_argument;
     }
     asset.bytes = mesh.data_bytes();
   } else if (source.type == asset_type::material) {
@@ -605,7 +620,7 @@ decode_non_texture(const asset_preparation_source& source, const std::vector<std
     result = decode_material
                  ? decode_material(bytes, material.parameters, material.texture_uris, diagnostic)
                  : parse_material(bytes, material, diagnostic);
-    if (result != GNEISS_SUCCESS) {
+    if (result != gneiss::engine::core::result::success) {
       return result;
     }
     asset.material = material.parameters;
@@ -613,40 +628,43 @@ decode_non_texture(const asset_preparation_source& source, const std::vector<std
     asset.texture_uris = std::move(material.texture_uris);
     // 由调用方传入发布预算，Asset 不依赖资源对象布局。
     if (material_bytes == 0U) {
-      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, source.uri, "材质发布预算不得为零");
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      fail(diagnostic, gneiss::engine::core::result::invalid_argument, source.uri,
+           "材质发布预算不得为零");
+      return gneiss::engine::core::result::invalid_argument;
     }
     if (material_bytes > maximum_bytes) {
-      fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, source.uri, "材质发布预算超过批次上限");
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      fail(diagnostic, gneiss::engine::core::result::out_of_memory, source.uri,
+           "材质发布预算超过批次上限");
+      return gneiss::engine::core::result::out_of_memory;
     }
     asset.bytes = material_bytes;
     for (const auto& uri : asset.texture_uris) {
-      if (include_dependencies && result == GNEISS_SUCCESS && !uri.empty()) {
+      if (include_dependencies && result == gneiss::engine::core::result::success && !uri.empty()) {
         pending.push_back({.uri = uri, .type = asset_type::texture});
       }
       if (uri.size() > maximum_bytes - asset.bytes) {
-        fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, source.uri, "材质依赖超出批次字节上限");
-        return GNEISS_ERROR_OUT_OF_MEMORY;
+        fail(diagnostic, gneiss::engine::core::result::out_of_memory, source.uri,
+             "材质依赖超出批次字节上限");
+        return gneiss::engine::core::result::out_of_memory;
       }
       asset.bytes += uri.size();
     }
   } else {
-    result = GNEISS_ERROR_INVALID_ARGUMENT;
+    result = gneiss::engine::core::result::invalid_argument;
   }
   return result;
 }
 class shared_read_source final : public read_source {
 public:
   explicit shared_read_source(std::shared_ptr<read_source> source) : source_(std::move(source)) {}
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   begin_read(std::uint64_t offset, std::size_t size,
              std::unique_ptr<read_operation>& output) const noexcept override {
     return source_->begin_read(offset, size, output);
   }
   [[nodiscard]] std::uint64_t size() const noexcept override { return source_->size(); }
-  [[nodiscard]] gneiss_result read_at(std::uint64_t offset,
-                                      std::span<std::byte> output) const noexcept override {
+  [[nodiscard]] gneiss::engine::core::result
+  read_at(std::uint64_t offset, std::span<std::byte> output) const noexcept override {
     return source_->read_at(offset, output);
   }
 
@@ -661,12 +679,13 @@ public:
   std::vector<std::byte> description;
   std::vector<std::byte> image;
   std::shared_ptr<read_source> source;
-  gneiss_result read(std::string_view path,
-                     std::vector<std::byte>& output) const noexcept override {
+  gneiss::engine::core::result read(std::string_view path,
+                                    std::vector<std::byte>& output) const noexcept override {
     return read_bounded(path, std::numeric_limits<std::size_t>::max(), output);
   }
-  gneiss_result read_bounded(std::string_view path, std::size_t limit,
-                             std::vector<std::byte>& output) const noexcept override {
+  gneiss::engine::core::result
+  read_bounded(std::string_view path, std::size_t limit,
+               std::vector<std::byte>& output) const noexcept override {
     output.clear();
     try {
       const auto uri = "asset://" + std::string(path);
@@ -677,28 +696,28 @@ public:
         bytes = &image;
       }
       if (bytes == nullptr) {
-        return GNEISS_ERROR_NOT_FOUND;
+        return gneiss::engine::core::result::not_found;
       }
       if (bytes->size() > limit) {
-        return GNEISS_ERROR_INVALID_ARGUMENT;
+        return gneiss::engine::core::result::invalid_argument;
       }
       output = *bytes;
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     } catch (...) {
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      return gneiss::engine::core::result::out_of_memory;
     }
   }
-  gneiss_result open_read(std::string_view path,
-                          std::unique_ptr<read_source>& output) const noexcept override {
+  gneiss::engine::core::result
+  open_read(std::string_view path, std::unique_ptr<read_source>& output) const noexcept override {
     output.reset();
     try {
       if ("asset://" + std::string(path) != image_uri || !source) {
-        return GNEISS_ERROR_UNSUPPORTED;
+        return gneiss::engine::core::result::unsupported;
       }
       output = std::make_unique<shared_read_source>(source);
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     } catch (...) {
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      return gneiss::engine::core::result::out_of_memory;
     }
   }
 };
@@ -752,7 +771,7 @@ struct asset_preparation::state {
   bool include_dependencies{true};
   std::chrono::milliseconds io_wait{};
   phase step{phase::select};
-  gneiss_result result{GNEISS_SUCCESS};
+  gneiss::engine::core::result result{gneiss::engine::core::result::success};
   asset_diagnostic diagnostic;
 
   void prefetch_descriptions() {
@@ -771,31 +790,33 @@ struct asset_preparation::state {
       }
       prefetched_input ahead;
       const auto submitted = files.begin_open_read_for_validation(requested.uri, ahead.opening);
-      if (submitted == GNEISS_SUCCESS && ahead.opening) {
+      if (submitted == gneiss::engine::core::result::success && ahead.opening) {
         prefetched.emplace(requested.uri, std::move(ahead));
         continue;
       }
-      if (submitted != GNEISS_ERROR_UNSUPPORTED) {
+      if (submitted != gneiss::engine::core::result::unsupported) {
         // 预取失败留给正式读取报告；已接受的请求不回退同步打开。
         continue;
       }
-      if (files.open_read_for_validation(requested.uri, ahead.source) != GNEISS_SUCCESS ||
+      if (files.open_read_for_validation(requested.uri, ahead.source) !=
+              gneiss::engine::core::result::success ||
           ahead.source->size() > std::size_t{1024U} * 1024U ||
           ahead.source->size() > maximum_bytes) {
         continue;
       }
       const auto started = ahead.source->begin_read(
           0U, static_cast<std::size_t>(ahead.source->size()), ahead.operation);
-      if (started == GNEISS_ERROR_UNSUPPORTED) {
+      if (started == gneiss::engine::core::result::unsupported) {
         return;
       }
-      if (started == GNEISS_SUCCESS) {
+      if (started == gneiss::engine::core::result::success) {
         prefetched.emplace(requested.uri, std::move(ahead));
       }
     }
   }
 
-  gneiss_result begin_read(std::string_view uri, std::size_t limit, bool keep_bytes) {
+  gneiss::engine::core::result begin_read(std::string_view uri, std::size_t limit,
+                                          bool keep_bytes) {
     GNEISS_PROFILE_SCOPE("asset.prepare.open");
     slice = {};
     reader.reset();
@@ -806,15 +827,16 @@ struct asset_preparation::state {
     offset = 0U;
     retain = keep_bytes;
     read_complete = false;
-    auto opened = GNEISS_SUCCESS;
+    auto opened = gneiss::engine::core::result::success;
     const auto found = prefetched.find(std::string(uri));
     if (found == prefetched.end()) {
       if (deferred_reads) {
         opened = files.begin_open_read_for_validation(uri, opening);
-        if (opened == GNEISS_SUCCESS) {
-          return opening ? GNEISS_SUCCESS : GNEISS_ERROR_INTERNAL;
+        if (opened == gneiss::engine::core::result::success) {
+          return opening ? gneiss::engine::core::result::success
+                         : gneiss::engine::core::result::internal;
         }
-        if (opened != GNEISS_ERROR_UNSUPPORTED) {
+        if (opened != gneiss::engine::core::result::unsupported) {
           return opened;
         }
       }
@@ -823,74 +845,75 @@ struct asset_preparation::state {
       opening = std::move(found->second.opening);
       if (opening) {
         prefetched.erase(found);
-        return GNEISS_SUCCESS;
+        return gneiss::engine::core::result::success;
       }
       reader = std::move(found->second.source);
       slice.prime(std::move(found->second.operation),
                   {.offset = 0U, .size = static_cast<std::size_t>(reader->size())});
       prefetched.erase(found);
     }
-    if (opened == GNEISS_ERROR_UNSUPPORTED && retain) {
+    if (opened == gneiss::engine::core::result::unsupported && retain) {
       // 兼容仅提供整文件读取的自定义后端；不宣称这一回退具有分块时间上界。
       const auto loaded = files.read_bounded(uri, limit, bytes);
-      read_complete = loaded == GNEISS_SUCCESS;
+      read_complete = loaded == gneiss::engine::core::result::success;
       return loaded;
     }
-    if (opened != GNEISS_SUCCESS) {
+    if (opened != gneiss::engine::core::result::success) {
       return opened;
     }
     return allocate_read_buffer();
   }
-  gneiss_result allocate_read_buffer() {
+  gneiss::engine::core::result allocate_read_buffer() {
     if (!reader) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
     if (retain) {
       if (reader->size() > read_limit) {
-        return GNEISS_ERROR_INVALID_ARGUMENT;
+        return gneiss::engine::core::result::invalid_argument;
       }
       bytes.resize(static_cast<std::size_t>(reader->size()));
     }
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
-  gneiss_result read_step(std::size_t& budget, const std::function<bool()>& cancelled) {
+  gneiss::engine::core::result read_step(std::size_t& budget,
+                                         const std::function<bool()>& cancelled) {
     GNEISS_PROFILE_SCOPE("asset.prepare.read");
     if (read_complete) {
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     }
     if (opening) {
       const auto opened = opening->poll(reader);
-      if (opened == GNEISS_ERROR_NOT_READY) {
+      if (opened == gneiss::engine::core::result::not_ready) {
         budget = 0U;
-        return GNEISS_SUCCESS;
+        return gneiss::engine::core::result::success;
       }
       opening.reset();
-      if (opened != GNEISS_SUCCESS) {
+      if (opened != gneiss::engine::core::result::success) {
         return opened;
       }
       const auto allocated = allocate_read_buffer();
-      if (allocated != GNEISS_SUCCESS) {
+      if (allocated != gneiss::engine::core::result::success) {
         return allocated;
       }
     }
     while (offset < reader->size() && budget != 0U) {
       if (cancelled && cancelled()) {
-        return GNEISS_ERROR_INVALID_STATE;
+        return gneiss::engine::core::result::invalid_state;
       }
       const auto count =
           static_cast<std::size_t>(std::min<std::uint64_t>(budget, reader->size() - offset));
       std::span<const std::byte> chunk;
-      gneiss_result loaded;
+      gneiss::engine::core::result loaded;
       {
         GNEISS_PROFILE_SCOPE("asset.prepare.read_slice");
         loaded = slice.take(*reader, {.offset = offset, .size = count}, chunk, deferred_reads,
                             std::exchange(io_wait, std::chrono::milliseconds{}));
       }
-      if (loaded == GNEISS_ERROR_NOT_READY) {
+      if (loaded == gneiss::engine::core::result::not_ready) {
         budget = 0U;
-        return GNEISS_SUCCESS;
+        return gneiss::engine::core::result::success;
       }
-      if (loaded != GNEISS_SUCCESS) {
+      if (loaded != gneiss::engine::core::result::success) {
         return loaded;
       }
       if (retain) {
@@ -906,29 +929,29 @@ struct asset_preparation::state {
     }
     if (offset == reader->size()) {
       if (cancelled && cancelled()) {
-        return GNEISS_ERROR_INVALID_STATE;
+        return gneiss::engine::core::result::invalid_state;
       }
       const auto checked = reader->complete_validation(digest.digest());
-      if (checked != GNEISS_SUCCESS) {
+      if (checked != gneiss::engine::core::result::success) {
         return checked;
       }
       read_complete = true;
     }
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
-  gneiss_result select() {
+  gneiss::engine::core::result select() {
     GNEISS_PROFILE_SCOPE("asset.prepare.select");
     prefetch_descriptions();
     for (unsigned count = 0U; index < pending.size() && count < 16U; ++count) {
       const auto source = pending[index++];
       if (const auto previous = seen.find(source.uri); previous != seen.end()) {
         if (previous->second != source.type) {
-          return GNEISS_ERROR_INVALID_ARGUMENT;
+          return gneiss::engine::core::result::invalid_argument;
         }
         continue;
       }
       if (seen.size() == maximum_assets) {
-        return GNEISS_ERROR_INVALID_ARGUMENT;
+        return gneiss::engine::core::result::invalid_argument;
       }
       seen.emplace(source.uri, source.type);
       current = {};
@@ -942,22 +965,23 @@ struct asset_preparation::state {
       step = phase::verify;
       return versions->begin_verification(verification, deferred_reads);
     }
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
-  gneiss_result read_description(std::size_t& budget, const std::function<bool()>& cancelled) {
+  gneiss::engine::core::result read_description(std::size_t& budget,
+                                                const std::function<bool()>& cancelled) {
     const auto loaded = read_step(budget, cancelled);
-    if (loaded != GNEISS_SUCCESS || !read_complete) {
+    if (loaded != gneiss::engine::core::result::success || !read_complete) {
       return loaded;
     }
     input->description = std::move(bytes);
     reader.reset();
     if (current.source.type != asset_type::texture) {
       step = phase::decode;
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     }
     texture_source source;
     const auto parsed = parse_texture(input->description, source, diagnostic);
-    if (parsed != GNEISS_SUCCESS) {
+    if (parsed != gneiss::engine::core::result::success) {
       return parsed;
     }
     input->image_uri = source.uri;
@@ -967,9 +991,10 @@ struct asset_preparation::state {
     const auto limit = std::min(maximum_bytes - batch.bytes, std::size_t{64U} * 1024U * 1024U);
     return begin_read(source.uri, limit, !selected);
   }
-  gneiss_result read_payload(std::size_t& budget, const std::function<bool()>& cancelled) {
+  gneiss::engine::core::result read_payload(std::size_t& budget,
+                                            const std::function<bool()>& cancelled) {
     const auto loaded = read_step(budget, cancelled);
-    if (loaded != GNEISS_SUCCESS || !read_complete) {
+    if (loaded != gneiss::engine::core::result::success || !read_complete) {
       return loaded;
     }
     if (selected) {
@@ -979,33 +1004,33 @@ struct asset_preparation::state {
     }
     reader.reset();
     step = phase::decode;
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
-  gneiss_result record_source(std::string_view uri) {
+  gneiss::engine::core::result record_source(std::string_view uri) {
     prepared_source source;
     const auto identified =
         files.identify(uri, static_cast<std::uint32_t>(current.source.type), source.identity);
-    if (identified != GNEISS_SUCCESS) {
+    if (identified != gneiss::engine::core::result::success) {
       return identified;
     }
     source_revision_file_system::source_revision revision;
     const auto observed =
         versions->observed_revision(uri.substr(std::string_view("asset://").size()), revision);
-    if (observed != GNEISS_SUCCESS) {
+    if (observed != gneiss::engine::core::result::success) {
       return observed;
     }
     source.bytes = revision.bytes;
     source.digest = revision.digest;
     current.sources.push_back(std::move(source));
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
-  gneiss_result decode() {
+  gneiss::engine::core::result decode() {
     GNEISS_PROFILE_SCOPE("asset.prepare.decode");
-    auto decoded = GNEISS_SUCCESS;
+    auto decoded = gneiss::engine::core::result::success;
     if (current.source.type == asset_type::texture) {
       virtual_file_system prepared;
       decoded = prepared.mount("asset://", input);
-      if (decoded == GNEISS_SUCCESS) {
+      if (decoded == gneiss::engine::core::result::success) {
         decoded = prepare_texture(
             prepared, current.source.uri, current.texture, diagnostic,
             std::min(maximum_bytes, std::size_t{64U} * 1024U * 1024U), false,
@@ -1020,34 +1045,34 @@ struct asset_preparation::state {
                                    material_bytes, maximum_bytes, pending, decode_material,
                                    include_dependencies);
     }
-    if (decoded != GNEISS_SUCCESS) {
+    if (decoded != gneiss::engine::core::result::success) {
       return decoded;
     }
     const auto description_recorded = record_source(current.source.uri);
-    if (description_recorded != GNEISS_SUCCESS) {
+    if (description_recorded != gneiss::engine::core::result::success) {
       return description_recorded;
     }
     if (current.source.type == asset_type::texture) {
       const auto payload_recorded = record_source(input->image_uri);
-      if (payload_recorded != GNEISS_SUCCESS) {
+      if (payload_recorded != gneiss::engine::core::result::success) {
         return payload_recorded;
       }
     }
     if (current.bytes > maximum_bytes - batch.bytes) {
-      fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, current.source.uri,
+      fail(diagnostic, gneiss::engine::core::result::out_of_memory, current.source.uri,
            "资产准备预算不足：需要 " + std::to_string(current.bytes) + " 字节，可用 " +
                std::to_string(maximum_bytes - batch.bytes) + " 字节，批次上限 " +
                std::to_string(maximum_bytes) + " 字节");
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      return gneiss::engine::core::result::out_of_memory;
     }
     batch.bytes += current.bytes;
     batch.assets.push_back(std::move(current));
     input.reset();
     step = phase::select;
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
-  gneiss_result advance_once(std::size_t& budget, const std::function<bool()>& cancelled,
-                             bool& complete) {
+  gneiss::engine::core::result
+  advance_once(std::size_t& budget, const std::function<bool()>& cancelled, bool& complete) {
     switch (step) {
     case phase::select:
       return select();
@@ -1062,7 +1087,7 @@ struct asset_preparation::state {
       const auto checked = verification->advance(
           budget, cancelled, complete, std::exchange(io_wait, std::chrono::milliseconds{}));
       budget = 0U;
-      if (checked != GNEISS_SUCCESS) {
+      if (checked != gneiss::engine::core::result::success) {
         fail(diagnostic, checked, "", "准备期间源变化或请求取消");
       }
       return checked;
@@ -1071,24 +1096,24 @@ struct asset_preparation::state {
       complete = true;
       return result;
     }
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
-  gneiss_result advance(std::size_t budget, const std::function<bool()>& cancelled,
-                        bool& complete) {
+  gneiss::engine::core::result advance(std::size_t budget, const std::function<bool()>& cancelled,
+                                       bool& complete) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(8);
     // 小描述和状态转换共用一份预算，避免每个转换都等待下一宿主帧。
     // 时间边界仅在操作之间检查，单次解析/解码仍需单独测量。
     for (unsigned transitions = 0U; transitions < 64U; ++transitions) {
       if (cancelled && cancelled()) {
-        return GNEISS_ERROR_INVALID_STATE;
+        return gneiss::engine::core::result::invalid_state;
       }
       const auto advanced = advance_once(budget, cancelled, complete);
-      if (advanced != GNEISS_SUCCESS || complete || budget == 0U ||
+      if (advanced != gneiss::engine::core::result::success || complete || budget == 0U ||
           std::chrono::steady_clock::now() >= deadline) {
         return advanced;
       }
     }
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
 };
 asset_preparation::asset_preparation(const virtual_file_system& files,
@@ -1108,15 +1133,14 @@ asset_preparation::asset_preparation(const virtual_file_system& files,
   value.profile = profile;
   value.decode_material = std::move(decode_material);
   if (requested.empty() || requested.size() > budget.maximum_assets) {
-    value.result = GNEISS_ERROR_INVALID_ARGUMENT;
+    value.result = gneiss::engine::core::result::invalid_argument;
   }
 }
 asset_preparation::~asset_preparation() = default;
-gneiss_result asset_preparation::advance(std::size_t byte_budget,
-                                         const std::function<bool()>& cancelled,
-                                         prepared_batch& output, asset_diagnostic& diagnostic,
-                                         bool& complete,
-                                         std::chrono::milliseconds wait_budget) noexcept {
+gneiss::engine::core::result
+asset_preparation::advance(std::size_t byte_budget, const std::function<bool()>& cancelled,
+                           prepared_batch& output, asset_diagnostic& diagnostic, bool& complete,
+                           std::chrono::milliseconds wait_budget) noexcept {
   complete = false;
   auto& value = *state_;
   if (value.step == state::phase::finished) {
@@ -1124,30 +1148,30 @@ gneiss_result asset_preparation::advance(std::size_t byte_budget,
     return value.result;
   }
   if (byte_budget == 0U || wait_budget < std::chrono::milliseconds::zero()) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
-    if (value.result == GNEISS_SUCCESS) {
+    if (value.result == gneiss::engine::core::result::success) {
       value.io_wait = wait_budget;
       value.result = value.advance(byte_budget, cancelled, complete);
     }
-    if (value.result == GNEISS_SUCCESS && complete) {
+    if (value.result == gneiss::engine::core::result::success && complete) {
       GNEISS_PROFILE_SCOPE("asset.prepare.publish");
       std::ranges::stable_sort(value.batch.assets, {},
                                [](const auto& asset) { return asset_order(asset.source.type); });
       output = std::move(value.batch);
     }
-    if (value.result != GNEISS_SUCCESS && value.diagnostic.message.empty()) {
+    if (value.result != gneiss::engine::core::result::success && value.diagnostic.message.empty()) {
       fail(value.diagnostic, value.result, value.current.source.uri, "资产读取、校验或解析失败");
     }
   } catch (const std::bad_alloc&) {
-    value.result = GNEISS_ERROR_OUT_OF_MEMORY;
+    value.result = gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    value.result = GNEISS_ERROR_INTERNAL;
+    value.result = gneiss::engine::core::result::internal;
   }
-  if (value.result != GNEISS_SUCCESS || complete) {
+  if (value.result != gneiss::engine::core::result::success || complete) {
     GNEISS_PROFILE_SCOPE("asset.prepare.cleanup");
-    if (value.result != GNEISS_SUCCESS) {
+    if (value.result != gneiss::engine::core::result::success) {
       output = {};
     }
     value.diagnostic.result = value.result;
@@ -1166,12 +1190,13 @@ gneiss_result asset_preparation::advance(std::size_t byte_budget,
   }
   return value.result;
 }
-gneiss_result prepare_assets(const virtual_file_system& files,
-                             std::span<const asset_preparation_source> requested,
-                             prepared_batch& output, asset_diagnostic& diagnostic,
-                             const std::function<bool()>& cancelled, std::size_t material_bytes,
-                             std::size_t maximum_assets, std::size_t maximum_bytes,
-                             texture_prepare_profile profile) noexcept {
+gneiss::engine::core::result prepare_assets(const virtual_file_system& files,
+                                            std::span<const asset_preparation_source> requested,
+                                            prepared_batch& output, asset_diagnostic& diagnostic,
+                                            const std::function<bool()>& cancelled,
+                                            std::size_t material_bytes, std::size_t maximum_assets,
+                                            std::size_t maximum_bytes,
+                                            texture_prepare_profile profile) noexcept {
   output = {};
   diagnostic = {};
   try {
@@ -1184,36 +1209,36 @@ gneiss_result prepare_assets(const virtual_file_system& files,
                                   },
                                   profile);
     bool complete{};
-    auto result = GNEISS_SUCCESS;
-    while (result == GNEISS_SUCCESS && !complete) {
+    auto result = gneiss::engine::core::result::success;
+    while (result == gneiss::engine::core::result::success && !complete) {
       result = preparation.advance(std::size_t{4U} * 1024U * 1024U, cancelled, output, diagnostic,
                                    complete);
     }
     return result;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-gneiss_result prepare_texture(const engine::resource::virtual_file_system& file_system,
-                              std::string_view uri, engine::resource::prepared_texture_data& output,
-                              asset_diagnostic& out_diagnostic, std::size_t input_limit,
-                              bool verify_source, std::size_t output_limit,
-                              texture_prepare_profile profile) noexcept {
+gneiss::engine::core::result
+prepare_texture(const engine::resource::virtual_file_system& file_system, std::string_view uri,
+                engine::resource::prepared_texture_data& output, asset_diagnostic& out_diagnostic,
+                std::size_t input_limit, bool verify_source, std::size_t output_limit,
+                texture_prepare_profile profile) noexcept {
   output = {};
   out_diagnostic = {};
   try {
     std::vector<std::byte> description_bytes;
     auto result = file_system.read_bounded(uri, input_limit, description_bytes);
-    if (result != GNEISS_SUCCESS) {
+    if (result != gneiss::engine::core::result::success) {
       fail(out_diagnostic, result, "", "无法通过 VFS 读取 Texture 描述");
       return result;
     }
     texture_source source;
     result = parse_texture(description_bytes, source, out_diagnostic);
-    if (result != GNEISS_SUCCESS) {
+    if (result != gneiss::engine::core::result::success) {
       return result;
     }
     std::vector<std::byte> image_bytes;
@@ -1228,17 +1253,17 @@ gneiss_result prepare_texture(const engine::resource::virtual_file_system& file_
         revisions = std::make_shared<engine::resource::source_revision_file_system>(file_system);
         engine::resource::virtual_file_system checked;
         result = checked.mount("asset://", revisions);
-        if (result == GNEISS_SUCCESS) {
+        if (result == gneiss::engine::core::result::success) {
           result = checked.open_read(source.uri, reader);
         }
       } else {
         result = file_system.open_read(source.uri, reader);
       }
       std::string message;
-      if (result == GNEISS_SUCCESS) {
+      if (result == gneiss::engine::core::result::success) {
         result = container->open(std::move(reader), std::min(input_limit, output_limit), message);
       }
-      if (result != GNEISS_SUCCESS) {
+      if (result != gneiss::engine::core::result::success) {
         fail(out_diagnostic, result, "/source",
              message.empty() ? "无法按范围读取运行纹理" : message);
         return result;
@@ -1249,7 +1274,7 @@ gneiss_result prepare_texture(const engine::resource::virtual_file_system& file_
                                             ? input_limit
                                             : std::min(input_limit, output_limit),
                                         image_bytes);
-      if (result != GNEISS_SUCCESS) {
+      if (result != gneiss::engine::core::result::success) {
         fail(out_diagnostic, result, "/source", "无法通过 VFS 读取纹理数据");
         return result;
       }
@@ -1262,17 +1287,17 @@ gneiss_result prepare_texture(const engine::resource::virtual_file_system& file_
         binary.manifest = container->manifest();
       } else if (engine::resource::decode_texture_binary(image_bytes, binary, decode_message) !=
                  engine::resource::texture_binary_result::success) {
-        fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
+        fail(out_diagnostic, gneiss::engine::core::result::invalid_argument, "/source",
              decode_message.empty() ? "运行纹理封装检查失败" : decode_message);
-        return GNEISS_ERROR_INVALID_ARGUMENT;
+        return gneiss::engine::core::result::invalid_argument;
       }
       granit::texture_asset_info info;
       if (granit::inspect_texture_asset(binary.manifest, info) != granit::result::success ||
           info.dimension != granit::texture_dimension::two_dimensional || info.depth != 1U ||
           info.array_layers != 1U) {
-        fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
+        fail(out_diagnostic, gneiss::engine::core::result::invalid_argument, "/source",
              "Granit Texture Asset Manifest 无效或不是二维单层纹理");
-        return GNEISS_ERROR_INVALID_ARGUMENT;
+        return gneiss::engine::core::result::invalid_argument;
       }
       const auto srgb = source.color_space == gneiss::engine::resource::texture_color_space::srgb;
       const auto matches_color_space = [srgb](const auto& variant) {
@@ -1294,9 +1319,9 @@ gneiss_result prepare_texture(const engine::resource::virtual_file_system& file_
           });
       if (!std::ranges::all_of(info.variants, matches_color_space) ||
           !std::ranges::all_of(info.variants, payload_in_bounds) || !has_fallback) {
-        fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
+        fail(out_diagnostic, gneiss::engine::core::result::invalid_argument, "/source",
              "运行纹理变体颜色空间、负载边界或 RGBA8 回退无效");
-        return GNEISS_ERROR_INVALID_ARGUMENT;
+        return gneiss::engine::core::result::invalid_argument;
       }
       output = {
           .width = info.width,
@@ -1327,20 +1352,20 @@ gneiss_result prepare_texture(const engine::resource::virtual_file_system& file_
               variant.payload_size > input_limit) {
             const auto manifest_bytes = output.manifest.size();
             output = {};
-            fail(out_diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, "/source",
+            fail(out_diagnostic, gneiss::engine::core::result::out_of_memory, "/source",
                  "纹理准备预算不足：所选负载需要 " + std::to_string(variant.payload_size) +
                      " 字节，Manifest 需要 " + std::to_string(manifest_bytes) +
                      " 字节，负载读取上限 " + std::to_string(input_limit) + " 字节，合计可用 " +
                      std::to_string(output_limit) + " 字节");
-            return GNEISS_ERROR_OUT_OF_MEMORY;
+            return gneiss::engine::core::result::out_of_memory;
           }
           output.payload.resize(static_cast<std::size_t>(variant.payload_size));
           result = container->read_payload(variant.payload_offset, output.payload);
-          if (result == GNEISS_SUCCESS &&
+          if (result == gneiss::engine::core::result::success &&
               engine::core::sha256(output.payload) != variant.payload_digest) {
-            result = GNEISS_ERROR_INVALID_ARGUMENT;
+            result = gneiss::engine::core::result::invalid_argument;
           }
-          if (result != GNEISS_SUCCESS) {
+          if (result != gneiss::engine::core::result::success) {
             output = {};
             fail(out_diagnostic, result, "/source", "选中纹理变体读取或摘要校验失败");
             return result;
@@ -1353,14 +1378,15 @@ gneiss_result prepare_texture(const engine::resource::virtual_file_system& file_
         }
         if (output.profile.generation == 0U) {
           output = {};
-          fail(out_diagnostic, GNEISS_ERROR_UNSUPPORTED, "/source", "设备不支持运行纹理的任何变体");
-          return GNEISS_ERROR_UNSUPPORTED;
+          fail(out_diagnostic, gneiss::engine::core::result::unsupported, "/source",
+               "设备不支持运行纹理的任何变体");
+          return gneiss::engine::core::result::unsupported;
         }
       }
 #else
-      fail(out_diagnostic, GNEISS_ERROR_UNSUPPORTED, "/source",
+      fail(out_diagnostic, gneiss::engine::core::result::unsupported, "/source",
            "当前构建未启用 Granit，无法加载运行纹理封装");
-      return GNEISS_ERROR_UNSUPPORTED;
+      return gneiss::engine::core::result::unsupported;
 #endif
     } else if (std::string_view(source.uri).ends_with(".ktx2")) {
       engine::resource::texture_ktx2 texture;
@@ -1368,18 +1394,18 @@ gneiss_result prepare_texture(const engine::resource::virtual_file_system& file_
       const auto decoded =
           engine::resource::decode_texture_ktx2(image_bytes, texture, decode_message);
       if (decoded != engine::resource::texture_ktx2_result::success) {
-        fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
+        fail(out_diagnostic, gneiss::engine::core::result::invalid_argument, "/source",
              decode_message.empty() ? "KTX2 解码失败" : decode_message);
-        return GNEISS_ERROR_INVALID_ARGUMENT;
+        return gneiss::engine::core::result::invalid_argument;
       }
       const auto expected_transfer =
           source.color_space == gneiss::engine::resource::texture_color_space::srgb
               ? engine::resource::texture_transfer::srgb
               : engine::resource::texture_transfer::linear;
       if (texture.transfer != expected_transfer) {
-        fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color_space",
+        fail(out_diagnostic, gneiss::engine::core::result::invalid_argument, "/color_space",
              "Texture 描述与 KTX2 传递函数不一致");
-        return GNEISS_ERROR_INVALID_ARGUMENT;
+        return gneiss::engine::core::result::invalid_argument;
       }
       auto levels = std::move(texture.levels);
       const auto width = levels.front().width;
@@ -1395,7 +1421,7 @@ gneiss_result prepare_texture(const engine::resource::virtual_file_system& file_
       engine::resource::decoded_png image;
       std::string decode_message;
       result = engine::resource::decode_png(image_bytes, image, decode_message, output_limit);
-      if (result != GNEISS_SUCCESS) {
+      if (result != gneiss::engine::core::result::success) {
         fail(out_diagnostic, result, "/source",
              decode_message.empty() ? "PNG 解码失败" : decode_message);
         return result;
@@ -1412,24 +1438,26 @@ gneiss_result prepare_texture(const engine::resource::virtual_file_system& file_
     }
     if (verify_source) {
       std::vector<std::byte> checked;
-      if (file_system.read_bounded(uri, input_limit, checked) != GNEISS_SUCCESS ||
+      if (file_system.read_bounded(uri, input_limit, checked) !=
+              gneiss::engine::core::result::success ||
           checked != description_bytes ||
-          (selected
-               ? revisions->verify({}) != GNEISS_SUCCESS
-               : file_system.read_bounded(source.uri, input_limit, checked) != GNEISS_SUCCESS ||
-                     checked != image_bytes)) {
+          (selected ? revisions->verify({}) != gneiss::engine::core::result::success
+                    : file_system.read_bounded(source.uri, input_limit, checked) !=
+                              gneiss::engine::core::result::success ||
+                          checked != image_bytes)) {
         output = {};
-        fail(out_diagnostic, GNEISS_ERROR_INVALID_STATE, "/source", "准备期间纹理源已变化");
-        return GNEISS_ERROR_INVALID_STATE;
+        fail(out_diagnostic, gneiss::engine::core::result::invalid_state, "/source",
+             "准备期间纹理源已变化");
+        return gneiss::engine::core::result::invalid_state;
       }
     }
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
     output = {};
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
     output = {};
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 

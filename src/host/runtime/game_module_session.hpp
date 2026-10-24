@@ -5,6 +5,7 @@
 #define GNEISS_APPS_RUNTIME_GAME_MODULE_SESSION_H_
 
 #include "dynamic_library.hpp"
+#include "engine/core/result.hpp"
 
 #include <gneiss/engine/game_module.h>
 
@@ -22,11 +23,12 @@ public:
   game_module_session(const game_module_session&) = delete;
   game_module_session& operator=(const game_module_session&) = delete;
 
-  [[nodiscard]] result load(const std::filesystem::path& path) noexcept;
-  [[nodiscard]] result initialize(gneiss_game_context context) noexcept;
-  [[nodiscard]] result fixed_update(const gneiss_game_update_time& time) noexcept;
-  [[nodiscard]] result update(const gneiss_game_update_time& time) noexcept;
-  [[nodiscard]] result shutdown() noexcept;
+  [[nodiscard]] gneiss::engine::core::result load(const std::filesystem::path& path) noexcept;
+  [[nodiscard]] gneiss::engine::core::result initialize(gneiss_game_context context) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  fixed_update(const gneiss_game_update_time& time) noexcept;
+  [[nodiscard]] gneiss::engine::core::result update(const gneiss_game_update_time& time) noexcept;
+  [[nodiscard]] gneiss::engine::core::result shutdown() noexcept;
 
   [[nodiscard]] bool is_loaded() const noexcept;
   [[nodiscard]] bool is_initialized() const noexcept;

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/service_registry.hpp"
+#include "engine/core/result.hpp"
 
 #include <algorithm>
 #include <new>
@@ -11,23 +12,23 @@ namespace gneiss::engine::core {
 
 service_registry::~service_registry() noexcept { (void)shutdown(); }
 
-gneiss_result service_registry::add(std::unique_ptr<service> value) noexcept {
+gneiss::engine::core::result service_registry::add(std::unique_ptr<service> value) noexcept {
   if (value == nullptr || is_initializing_or_initialized_ || find(value->kind()) != nullptr) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     entries_.push_back({.value = std::move(value), .is_initialized = false});
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-gneiss_result service_registry::initialize() noexcept {
+gneiss::engine::core::result service_registry::initialize() noexcept {
   if (is_initializing_or_initialized_) {
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   }
   is_initializing_or_initialized_ = true;
   last_shutdown_leak_count_ = 0;
@@ -36,10 +37,10 @@ gneiss_result service_registry::initialize() noexcept {
     initialization_order_.reserve(entries_.size());
   } catch (const std::bad_alloc&) {
     is_initializing_or_initialized_ = false;
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
     is_initializing_or_initialized_ = false;
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 
   try {
@@ -52,7 +53,7 @@ gneiss_result service_registry::initialize() noexcept {
         }
 
         const auto result = candidate.value->initialize();
-        if (result != GNEISS_SUCCESS) {
+        if (result != gneiss::engine::core::result::success) {
           // 即使初始化只完成了一部分，也由 Registry 统一调用 shutdown 回收。
           candidate.is_initialized = true;
           initialization_order_.push_back(index);
@@ -66,17 +67,17 @@ gneiss_result service_registry::initialize() noexcept {
 
       if (!made_progress) {
         rollback();
-        return GNEISS_ERROR_DEPENDENCY_FAILED;
+        return gneiss::engine::core::result::dependency_failed;
       }
     }
   } catch (const std::bad_alloc&) {
     rollback();
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
     rollback();
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
 std::size_t service_registry::shutdown() noexcept {

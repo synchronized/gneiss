@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "uv_file_reader.hpp"
+#include "engine/core/result.hpp"
 #include "uv_result.hpp"
 
 #ifndef NOMINMAX
@@ -38,11 +39,11 @@ uv_file_reader::uv_file_reader(int descriptor) noexcept : descriptor_(descriptor
 
 uv_file_reader::~uv_file_reader() { close_file(descriptor_); }
 
-result uv_file_reader::open(std::string_view path,
-                            std::unique_ptr<uv_file_reader>& output) noexcept {
+gneiss::engine::core::result
+uv_file_reader::open(std::string_view path, std::unique_ptr<uv_file_reader>& output) noexcept {
   output.reset();
   if (path.empty() || path.find('\0') != std::string_view::npos) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     const std::string terminated(path);
@@ -56,7 +57,7 @@ result uv_file_reader::open(std::string_view path,
     std::unique_ptr<uv_file_reader> reader(new (std::nothrow) uv_file_reader(descriptor));
     if (!reader) {
       close_file(descriptor);
-      return result::out_of_memory;
+      return gneiss::engine::core::result::out_of_memory;
     }
     reader->implementation_ = std::make_unique<implementation>();
     request info;
@@ -65,19 +66,19 @@ result uv_file_reader::open(std::string_view path,
       return from_uv_status(status);
     }
     if ((info.value.statbuf.st_mode & S_IFMT) != S_IFREG) {
-      return result::invalid_argument;
+      return gneiss::engine::core::result::invalid_argument;
     }
     reader->size_ = info.value.statbuf.st_size;
     output = std::move(reader);
-    return result::success;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-result uv_file_reader::current_size(std::uint64_t& output) const noexcept {
+gneiss::engine::core::result uv_file_reader::current_size(std::uint64_t& output) const noexcept {
   output = 0U;
   request info;
   const int status = uv_fs_fstat(nullptr, &info.value, descriptor_, nullptr);
@@ -85,15 +86,16 @@ result uv_file_reader::current_size(std::uint64_t& output) const noexcept {
     return from_uv_status(status);
   }
   output = info.value.statbuf.st_size;
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
-result uv_file_reader::read_at(std::uint64_t offset, std::span<std::byte> output) const noexcept {
+gneiss::engine::core::result uv_file_reader::read_at(std::uint64_t offset,
+                                                     std::span<std::byte> output) const noexcept {
   if (offset > size_ || output.size() > size_ - offset ||
       offset > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
       output.size() >
           static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) - offset) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     const std::scoped_lock lock(implementation_->mutex);
@@ -108,15 +110,15 @@ result uv_file_reader::read_at(std::uint64_t offset, std::span<std::byte> output
         return from_uv_status(status);
       }
       if (read.value.result <= 0 || std::cmp_greater(read.value.result, count)) {
-        return result::io;
+        return gneiss::engine::core::result::io;
       }
       const auto consumed = static_cast<std::size_t>(read.value.result);
       offset += consumed;
       output = output.subspan(consumed);
     }
-    return result::success;
+    return gneiss::engine::core::result::success;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 

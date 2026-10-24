@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "game_module_session.hpp"
+#include "engine/core/result.hpp"
 
 #include <cstring>
 
@@ -13,18 +14,18 @@ game_module_session::~game_module_session() {
   }
 }
 
-result game_module_session::load(const std::filesystem::path& path) noexcept {
+gneiss::engine::core::result game_module_session::load(const std::filesystem::path& path) noexcept {
   if (library_.is_open()) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
   auto load_result = library_.open(path);
-  if (load_result != result::success) {
+  if (load_result != gneiss::engine::core::result::success) {
     return load_result;
   }
 
   void* symbol{};
   load_result = library_.find_symbol(GNEISS_GAME_MODULE_QUERY_SYMBOL, &symbol);
-  if (load_result != result::success) {
+  if (load_result != gneiss::engine::core::result::success) {
     library_.close();
     return load_result;
   }
@@ -33,61 +34,64 @@ result game_module_session::load(const std::filesystem::path& path) noexcept {
   std::memcpy(&query, &symbol, sizeof(query));
   desc_ = {};
   desc_.struct_size = sizeof(desc_);
-  load_result = from_native(query(GNEISS_GAME_MODULE_ABI_VERSION_CURRENT, &desc_));
-  if (load_result == result::success) {
-    load_result = from_native(gneiss_game_module_validate(&desc_));
+  load_result = gneiss::engine::core::result(query(GNEISS_GAME_MODULE_ABI_VERSION_CURRENT, &desc_));
+  if (load_result == gneiss::engine::core::result::success) {
+    load_result = gneiss::engine::core::result(gneiss_game_module_validate(&desc_));
   }
-  if (load_result != result::success) {
+  if (load_result != gneiss::engine::core::result::success) {
     desc_ = {};
     library_.close();
   }
   return load_result;
 }
 
-result game_module_session::initialize(gneiss_game_context context) noexcept {
+gneiss::engine::core::result game_module_session::initialize(gneiss_game_context context) noexcept {
   if (!library_.is_open() || initialized_ || shutdown_called_ ||
       context == GNEISS_NULL_GAME_CONTEXT) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
   void* state{};
-  const auto initialize_result = from_native(desc_.initialize(context, &state));
-  if (initialize_result != result::success) {
+  const auto initialize_result = gneiss::engine::core::result(desc_.initialize(context, &state));
+  if (initialize_result != gneiss::engine::core::result::success) {
     return initialize_result;
   }
   if (state == nullptr) {
-    return result::initialization_failed;
+    return gneiss::engine::core::result::initialization_failed;
   }
   context_ = context;
   module_state_ = state;
   initialized_ = true;
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
-result game_module_session::fixed_update(const gneiss_game_update_time& time) noexcept {
+gneiss::engine::core::result
+game_module_session::fixed_update(const gneiss_game_update_time& time) noexcept {
   if (!initialized_ || shutdown_called_) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
-  return from_native(desc_.fixed_update(context_, module_state_, &time));
+  return gneiss::engine::core::result(desc_.fixed_update(context_, module_state_, &time));
 }
 
-result game_module_session::update(const gneiss_game_update_time& time) noexcept {
+gneiss::engine::core::result
+game_module_session::update(const gneiss_game_update_time& time) noexcept {
   if (!initialized_ || shutdown_called_) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
-  return from_native(desc_.update(context_, module_state_, &time));
+  return gneiss::engine::core::result(desc_.update(context_, module_state_, &time));
 }
 
-result game_module_session::shutdown() noexcept {
+gneiss::engine::core::result game_module_session::shutdown() noexcept {
   if (!initialized_ || shutdown_called_) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
   shutdown_called_ = true;
-  const auto shutdown_result = from_native(desc_.shutdown(context_, module_state_));
+  const auto shutdown_result =
+      gneiss::engine::core::result(desc_.shutdown(context_, module_state_));
   module_state_ = nullptr;
   initialized_ = false;
   context_ = GNEISS_NULL_GAME_CONTEXT;
   // 一轮成功关闭后允许为新场景创建新的模块状态；关闭失败则禁止复用该会话。
-  if (shutdown_result == result::success) {
+  if (shutdown_result == gneiss::engine::core::result::success) {
     shutdown_called_ = false;
   }
   return shutdown_result;

@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include <gneiss/engine/core/result.hpp>
+#include "engine/core/result.hpp"
 #include <memory>
 #include <typeindex>
 #include <vector>
@@ -16,7 +16,7 @@ public:
   virtual ~asset_loader() = default;
   [[nodiscard]] virtual std::type_index target_type() const noexcept = 0;
   [[nodiscard]] virtual std::size_t maximum_bytes() const noexcept = 0;
-  [[nodiscard]] virtual result decode(const std::vector<std::byte>& bytes,
-                                      std::shared_ptr<const void>& output) const = 0;
+  [[nodiscard]] virtual gneiss::engine::core::result
+  decode(const std::vector<std::byte>& bytes, std::shared_ptr<const void>& output) const = 0;
 };
 }

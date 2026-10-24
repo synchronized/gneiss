@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/resource/loaders/prefab_asset_loader.hpp"
+#include "engine/core/result.hpp"
 
 #include "engine/resource/vfs/asset_uri.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
@@ -13,14 +14,15 @@ namespace {
 
 constexpr std::uint32_t prefab_resource_type = 4U;
 
-void fail(gneiss::engine::resource::scene_diagnostic& diagnostic, gneiss_result result,
-          std::string_view path, std::string_view message) noexcept {
+void fail(gneiss::engine::resource::scene_diagnostic& diagnostic,
+          gneiss::engine::core::result result, std::string_view path,
+          std::string_view message) noexcept {
   diagnostic.result = result;
   try {
     diagnostic.path = path;
     diagnostic.message = message;
   } catch (...) {
-    diagnostic.result = GNEISS_ERROR_OUT_OF_MEMORY;
+    diagnostic.result = gneiss::engine::core::result::out_of_memory;
     diagnostic.path.clear();
     diagnostic.message.clear();
   }
@@ -34,16 +36,17 @@ const prefab_description* prefab_asset_lease::get() const noexcept {
   return entry_ ? static_cast<const prefab_description*>(entry_->resource.get()) : nullptr;
 }
 
-gneiss_result prefab_asset_loader::install_prepared(std::string_view uri,
-                                                    prefab_description description,
-                                                    prefab_asset_lease& out_lease) noexcept {
+gneiss::engine::core::result
+prefab_asset_loader::install_prepared(std::string_view uri, prefab_description description,
+                                      prefab_asset_lease& out_lease) noexcept {
   out_lease.entry_.reset();
-  if (engine::resource::validate_uri(uri) != GNEISS_SUCCESS || description.objects.empty()) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+  if (engine::resource::validate_uri(uri) != gneiss::engine::core::result::success ||
+      description.objects.empty()) {
+    return gneiss::engine::core::result::invalid_argument;
   }
   asset_identity identity;
   const auto identified = file_system_.identify(uri, prefab_resource_type, identity);
-  if (identified != GNEISS_SUCCESS) {
+  if (identified != gneiss::engine::core::result::success) {
     return identified;
   }
   try {
@@ -52,32 +55,33 @@ gneiss_result prefab_asset_loader::install_prepared(std::string_view uri,
         uri, prefab_resource_type,
         [&description](std::shared_ptr<void>& resource) {
           resource = std::make_shared<prefab_description>(std::move(description));
-          return GNEISS_SUCCESS;
+          return gneiss::engine::core::result::success;
         },
         entry, identity.source);
-    if (result == GNEISS_SUCCESS) {
+    if (result == gneiss::engine::core::result::success) {
       out_lease.entry_ = std::move(entry);
     }
     return result;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-gneiss_result prefab_asset_loader::acquire(std::string_view uri, prefab_asset_lease& out_lease,
-                                           scene_diagnostic& out_diagnostic) noexcept {
+gneiss::engine::core::result
+prefab_asset_loader::acquire(std::string_view uri, prefab_asset_lease& out_lease,
+                             scene_diagnostic& out_diagnostic) noexcept {
   out_lease.entry_.reset();
   out_diagnostic = {};
-  if (engine::resource::validate_uri(uri) != GNEISS_SUCCESS) {
-    fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "", "Prefab URI 无效");
+  if (engine::resource::validate_uri(uri) != gneiss::engine::core::result::success) {
+    fail(out_diagnostic, gneiss::engine::core::result::invalid_argument, "", "Prefab URI 无效");
     return out_diagnostic.result;
   }
 
   asset_identity identity;
   const auto identified = file_system_.identify(uri, prefab_resource_type, identity);
-  if (identified != GNEISS_SUCCESS)
+  if (identified != gneiss::engine::core::result::success)
     return identified;
   std::shared_ptr<const engine::resource::resource_cache::entry> entry;
   auto result = cache_.acquire(
@@ -87,40 +91,42 @@ gneiss_result prefab_asset_loader::acquire(std::string_view uri, prefab_asset_le
           auto description = std::make_shared<prefab_description>();
           const auto load_result =
               load_prefab_description(file_system_, uri, *description, out_diagnostic);
-          if (load_result == GNEISS_SUCCESS) {
+          if (load_result == gneiss::engine::core::result::success) {
             out_resource = std::move(description);
           }
           return load_result;
         } catch (const std::bad_alloc&) {
-          fail(out_diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, "", "内存不足");
-          return GNEISS_ERROR_OUT_OF_MEMORY;
+          fail(out_diagnostic, gneiss::engine::core::result::out_of_memory, "", "内存不足");
+          return gneiss::engine::core::result::out_of_memory;
         } catch (...) {
-          fail(out_diagnostic, GNEISS_ERROR_INTERNAL, "", "Prefab Loader 内部错误");
-          return GNEISS_ERROR_INTERNAL;
+          fail(out_diagnostic, gneiss::engine::core::result::internal, "",
+               "Prefab Loader 内部错误");
+          return gneiss::engine::core::result::internal;
         }
       },
       entry, identity.source);
-  if (result != GNEISS_SUCCESS) {
-    if (out_diagnostic.result == GNEISS_SUCCESS) {
+  if (result != gneiss::engine::core::result::success) {
+    if (out_diagnostic.result == gneiss::engine::core::result::success) {
       fail(out_diagnostic, result, "", "无法获取 Prefab 资产");
     }
     return result;
   }
   out_lease.entry_ = std::move(entry);
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
-gneiss_result prefab_asset_loader::reload(std::string_view uri, prefab_asset_lease& out_lease,
-                                          scene_diagnostic& out_diagnostic) noexcept {
+gneiss::engine::core::result
+prefab_asset_loader::reload(std::string_view uri, prefab_asset_lease& out_lease,
+                            scene_diagnostic& out_diagnostic) noexcept {
   out_lease.entry_.reset();
   out_diagnostic = {};
-  if (engine::resource::validate_uri(uri) != GNEISS_SUCCESS) {
-    fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "", "Prefab URI 无效");
+  if (engine::resource::validate_uri(uri) != gneiss::engine::core::result::success) {
+    fail(out_diagnostic, gneiss::engine::core::result::invalid_argument, "", "Prefab URI 无效");
     return out_diagnostic.result;
   }
   asset_identity identity;
   const auto identified = file_system_.identify(uri, prefab_resource_type, identity);
-  if (identified != GNEISS_SUCCESS)
+  if (identified != gneiss::engine::core::result::success)
     return identified;
   std::shared_ptr<const engine::resource::resource_cache::entry> entry;
   const auto result = cache_.reload(
@@ -130,27 +136,28 @@ gneiss_result prefab_asset_loader::reload(std::string_view uri, prefab_asset_lea
           auto description = std::make_shared<prefab_description>();
           const auto load_result =
               load_prefab_description(file_system_, uri, *description, out_diagnostic);
-          if (load_result == GNEISS_SUCCESS) {
+          if (load_result == gneiss::engine::core::result::success) {
             out_resource = std::move(description);
           }
           return load_result;
         } catch (const std::bad_alloc&) {
-          fail(out_diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, "", "内存不足");
-          return GNEISS_ERROR_OUT_OF_MEMORY;
+          fail(out_diagnostic, gneiss::engine::core::result::out_of_memory, "", "内存不足");
+          return gneiss::engine::core::result::out_of_memory;
         } catch (...) {
-          fail(out_diagnostic, GNEISS_ERROR_INTERNAL, "", "Prefab Loader 内部错误");
-          return GNEISS_ERROR_INTERNAL;
+          fail(out_diagnostic, gneiss::engine::core::result::internal, "",
+               "Prefab Loader 内部错误");
+          return gneiss::engine::core::result::internal;
         }
       },
       entry, identity.source);
-  if (result != GNEISS_SUCCESS) {
-    if (out_diagnostic.result == GNEISS_SUCCESS) {
+  if (result != gneiss::engine::core::result::success) {
+    if (out_diagnostic.result == gneiss::engine::core::result::success) {
       fail(out_diagnostic, result, "", "无法重新加载 Prefab 资产");
     }
     return result;
   }
   out_lease.entry_ = std::move(entry);
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
 } // namespace gneiss::engine::resource

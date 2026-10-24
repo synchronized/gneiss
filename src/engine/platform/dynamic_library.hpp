@@ -4,7 +4,7 @@
 #ifndef GNEISS_SRC_PLATFORM_DYNAMIC_LIBRARY_HPP_
 #define GNEISS_SRC_PLATFORM_DYNAMIC_LIBRARY_HPP_
 
-#include <gneiss/engine/core/result.hpp>
+#include "engine/core/result.hpp"
 
 #include <filesystem>
 
@@ -19,8 +19,9 @@ public:
   dynamic_library(const dynamic_library&) = delete;
   dynamic_library& operator=(const dynamic_library&) = delete;
 
-  [[nodiscard]] result open(const std::filesystem::path& path) noexcept;
-  [[nodiscard]] result find_symbol(const char* name, void** out_symbol) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result open(const std::filesystem::path& path) noexcept;
+  [[nodiscard]] gneiss::engine::core::result find_symbol(const char* name,
+                                                         void** out_symbol) const noexcept;
   void close() noexcept;
   [[nodiscard]] bool is_open() const noexcept;
 

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "panels/runtime_panels.hpp"
+#include "engine/core/result.hpp"
 
 #include "viewport/editor_rotation_math.hpp"
 
@@ -180,7 +181,7 @@ void draw_runtime_inspector(const runtime_scene_node& node,
     if (rotation_committed) {
       gneiss::property_quaternion edited{};
       const auto converted = euler_degrees_to_quaternion(rotation, edited);
-      if (converted == gneiss::result::success) {
+      if (converted == gneiss::engine::core::result::success) {
         const auto revision = rotation_edit != nullptr && rotation_edit->revision != 0U
                                   ? rotation_edit->revision
                                   : 1U;

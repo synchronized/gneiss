@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "runtime/game/game_context_internal.hpp"
 
 #include "runtime/application.hpp"
@@ -40,17 +41,17 @@ gneiss::engine::core::rid_table<context_state> contexts(context_domain);
 
 namespace gneiss::runtime::game {
 
-gneiss_result create_game_context(gneiss_application application,
-                                  gneiss_entity_id startup_root_entity,
-                                  gneiss_game_context* out_context) noexcept try {
+gneiss::engine::core::result create_game_context(gneiss_application application,
+                                                 gneiss_entity_id startup_root_entity,
+                                                 gneiss_game_context* out_context) noexcept try {
   if (application == GNEISS_NULL_APPLICATION || out_context == nullptr) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   *out_context = GNEISS_NULL_GAME_CONTEXT;
   gneiss_world world = GNEISS_NULL_WORLD;
   const auto parent = runtime::find_application(application);
   const auto world_result = runtime::validate_application(parent);
-  if (world_result != GNEISS_SUCCESS) {
+  if (world_result != gneiss::engine::core::result::success) {
     return world_result;
   }
   world = parent->world();
@@ -65,61 +66,62 @@ gneiss_result create_game_context(gneiss_application application,
                          },
                          out_context);
 } catch (const std::bad_alloc&) {
-  return GNEISS_ERROR_OUT_OF_MEMORY;
+  return gneiss::engine::core::result::out_of_memory;
 } catch (...) {
-  return GNEISS_ERROR_INTERNAL;
+  return gneiss::engine::core::result::internal;
 }
 
-gneiss_result destroy_game_context(gneiss_game_context context) noexcept try {
+gneiss::engine::core::result destroy_game_context(gneiss_game_context context) noexcept try {
   std::scoped_lock lock(context_mutex);
   auto* state = get_context(context);
   if (state == nullptr) {
-    return GNEISS_ERROR_INVALID_HANDLE;
+    return gneiss::engine::core::result::invalid_handle;
   }
   return contexts.destroy(context, engine::core::resource_type::game_context);
 } catch (const std::bad_alloc&) {
-  return GNEISS_ERROR_OUT_OF_MEMORY;
+  return gneiss::engine::core::result::out_of_memory;
 } catch (...) {
-  return GNEISS_ERROR_INTERNAL;
+  return gneiss::engine::core::result::internal;
 }
 
-gneiss_result set_game_context_log_source(gneiss_game_context context,
-                                          std::string_view source) noexcept {
+gneiss::engine::core::result set_game_context_log_source(gneiss_game_context context,
+                                                         std::string_view source) noexcept {
   if (source.empty()) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     const std::scoped_lock lock(context_mutex);
     auto* state = get_context(context);
     if (state == nullptr) {
-      return GNEISS_ERROR_INVALID_HANDLE;
+      return gneiss::engine::core::result::invalid_handle;
     }
     state->log_source.assign(source);
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
 } // namespace gneiss::runtime::game
 
 namespace gneiss::runtime::game {
-gneiss_result query_context(gneiss_game_context context, context_view& output) noexcept {
+gneiss::engine::core::result query_context(gneiss_game_context context,
+                                           context_view& output) noexcept {
   output = {};
   try {
     const std::scoped_lock lock(context_mutex);
     const auto* state = get_context(context);
     if (state == nullptr) {
-      return GNEISS_ERROR_INVALID_HANDLE;
+      return gneiss::engine::core::result::invalid_handle;
     }
     output = {.application = state->application,
               .world = state->world,
               .startup_root_entity = state->startup_root_entity};
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 engine::core::result submit_context_log(gneiss_game_context context,

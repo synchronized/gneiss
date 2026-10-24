@@ -4,6 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_EDITOR_CAMERA_H_
 #define GNEISS_APPS_EDITOR_EDITOR_CAMERA_H_
 
+#include "engine/core/result.hpp"
 #include <gneiss/engine/render.hpp>
 #include <gneiss/engine/scene.hpp>
 
@@ -27,12 +28,13 @@ public:
   editor_camera(const editor_camera&) = delete;
   editor_camera& operator=(const editor_camera&) = delete;
 
-  [[nodiscard]] result initialize() noexcept;
+  [[nodiscard]] gneiss::engine::core::result initialize() noexcept;
   void shutdown() noexcept;
 
   [[nodiscard]] bool is_valid() const noexcept { return initialized_; }
-  [[nodiscard]] result update(const editor_camera_input& input) noexcept;
-  [[nodiscard]] result focus(const transform& target, float distance = 5.0F) noexcept;
+  [[nodiscard]] gneiss::engine::core::result update(const editor_camera_input& input) noexcept;
+  [[nodiscard]] gneiss::engine::core::result focus(const transform& target,
+                                                   float distance = 5.0F) noexcept;
   [[nodiscard]] const transform& current_transform() const noexcept { return transform_; }
 
   [[nodiscard]] gneiss::camera settings() const noexcept;

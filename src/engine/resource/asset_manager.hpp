@@ -4,6 +4,7 @@
 #define GNEISS_ENGINE_ASSET_MANAGER_HPP_
 
 #include "asset_request.hpp"
+#include "engine/core/result.hpp"
 #include "engine/resource/cache/cpu_document_cache.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
 #include "engine/resource/loaders/prefab_asset_loader.hpp"
@@ -29,32 +30,34 @@ public:
   /** 借用 VFS 与宿主执行器；不创建独立线程池。 */
   void attach_task_executor(engine::core::tasks::task_executor& executor);
   /** 同步准备失败不改输出，不驱动宿主任务队列；采用与取消由调用者负责。 */
-  [[nodiscard]] result load_input(std::string_view uri,
-                                  engine::resource::action_map& output) noexcept;
-  [[nodiscard]] result request_input(std::string_view uri,
-                                     asset_request<action_map_asset>& output) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  load_input(std::string_view uri, engine::resource::action_map& output) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  request_input(std::string_view uri, asset_request<action_map_asset>& output) noexcept;
   void advance_resources();
   /** 调用者先取消并释放请求，再停止资源工作。 */
   void stop_resources() noexcept;
   /** 显式注册 CPU 类型；首次请求后冻结注册。VFS 来源由本管理器固定持有。 */
-  [[nodiscard]] result register_loader(const std::shared_ptr<const asset_loader>& loader) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  register_loader(const std::shared_ptr<const asset_loader>& loader) noexcept;
   /** 默认复用已完成缓存；reload 重新读取并复验，在途同键请求合并。
    * 所属线程调用；执行器须存活至 stop_resources 返回。 */
   template <typename T>
-  [[nodiscard]] result load(std::string_view uri, asset_request<T>& output,
-                            bool reload = false) noexcept {
+  [[nodiscard]] gneiss::engine::core::result load(std::string_view uri, asset_request<T>& output,
+                                                  bool reload = false) noexcept {
     std::shared_ptr<detail::asset_state> state;
     const auto status = request(typeid(T), uri, reload, state);
-    if (status == result::success)
+    if (status == gneiss::engine::core::result::success)
       output = asset_request<T>{std::move(state)};
     return status;
   }
   /** 同步读取不驱动任务队列；成功发布使同键较早异步请求失去当前缓存写入权。 */
   template <typename T>
-  [[nodiscard]] result load_sync(std::string_view uri, std::shared_ptr<const T>& output) noexcept {
+  [[nodiscard]] gneiss::engine::core::result load_sync(std::string_view uri,
+                                                       std::shared_ptr<const T>& output) noexcept {
     std::shared_ptr<const void> value;
     const auto status = load_sync_erased(typeid(T), uri, value);
-    if (status == result::success)
+    if (status == gneiss::engine::core::result::success)
       output = std::static_pointer_cast<const T>(value);
     return status;
   }
@@ -69,9 +72,9 @@ public:
       documents_->collect();
     }
   }
-  [[nodiscard]] gneiss_result acquire(std::string_view uri,
-                                      engine::resource::prefab_asset_lease& output,
-                                      engine::resource::scene_diagnostic& diagnostic) noexcept {
+  [[nodiscard]] gneiss::engine::core::result
+  acquire(std::string_view uri, engine::resource::prefab_asset_lease& output,
+          engine::resource::scene_diagnostic& diagnostic) noexcept {
     return prefabs_.acquire(uri, output, diagnostic);
   }
   /** 共享 CPU 文档缓存的所有权以装配请求服务；不提供上传或设备配置。 */
@@ -81,10 +84,12 @@ public:
   [[nodiscard]] engine::resource::prefab_asset_loader& prefab_loader() noexcept { return prefabs_; }
 
 private:
-  [[nodiscard]] result request(std::type_index type, std::string_view uri, bool reload,
-                               std::shared_ptr<detail::asset_state>& output) noexcept;
-  [[nodiscard]] result load_sync_erased(std::type_index type, std::string_view uri,
-                                        std::shared_ptr<const void>& output) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  request(std::type_index type, std::string_view uri, bool reload,
+          std::shared_ptr<detail::asset_state>& output) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  load_sync_erased(std::type_index type, std::string_view uri,
+                   std::shared_ptr<const void>& output) noexcept;
   struct resource_state;
   std::unique_ptr<resource_state> resource_state_;
   engine::resource::virtual_file_system files_;

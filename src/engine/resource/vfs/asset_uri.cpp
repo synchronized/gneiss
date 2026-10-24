@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/resource/vfs/asset_uri.hpp"
+#include "engine/core/result.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -55,9 +56,9 @@ constexpr std::string_view scheme = "asset://";
 
 namespace gneiss::engine::resource {
 
-gneiss_result validate_uri(std::string_view uri) noexcept {
+gneiss::engine::core::result validate_uri(std::string_view uri) noexcept {
   if (!uri.starts_with(scheme) || uri.size() == scheme.size() || !is_valid_utf8(uri)) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   const auto path = uri.substr(scheme.size());
   std::size_t segment_start = 0;
@@ -66,17 +67,17 @@ gneiss_result validate_uri(std::string_view uri) noexcept {
       const auto value = static_cast<unsigned char>(path[index]);
       if (value < 0x20U || value == 0x7FU || path[index] == '\\' || path[index] == ':' ||
           path[index] == '?' || path[index] == '#' || path[index] == '%') {
-        return GNEISS_ERROR_INVALID_ARGUMENT;
+        return gneiss::engine::core::result::invalid_argument;
       }
       continue;
     }
     const auto segment = path.substr(segment_start, index - segment_start);
     if (segment.empty() || segment == "." || segment == "..") {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     segment_start = index + 1;
   }
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
 std::string_view uri_path(std::string_view uri) noexcept { return uri.substr(scheme.size()); }

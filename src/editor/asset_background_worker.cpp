@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset_background_worker.hpp"
+#include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 
 #include <deque>
@@ -293,29 +294,30 @@ void asset_background_worker::start(std::filesystem::path project, std::filesyst
   impl_->advance();
 }
 
-result asset_background_worker::notify(const std::filesystem::path& relative) {
+gneiss::engine::core::result
+asset_background_worker::notify(const std::filesystem::path& relative) {
   if (relative.empty() || relative.is_absolute() || *relative.begin() == ".." ||
       relative != relative.lexically_normal()) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   std::scoped_lock lock(impl_->mutex);
   if (impl_->state.stopping || impl_->state.stopped) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   ++impl_->revision;
   for (const auto& command : impl_->commands) {
     if (command.kind == implementation::command_kind::notify && command.path == relative) {
-      return result::success;
+      return gneiss::engine::core::result::success;
     }
   }
   if (impl_->commands.size() >= implementation::capacity) {
     ++impl_->state.dropped;
     impl_->rescan = true;
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   impl_->commands.push_back({implementation::command_kind::notify, relative});
   impl_->advance();
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
 bool asset_background_worker::import_asset(const std::filesystem::path& source, bool external) {
@@ -372,7 +374,9 @@ asset_worker_status asset_background_worker::status() const {
   return state;
 }
 bool asset_background_worker::is_rescanning() const { return status().rescanning; }
-result asset_background_worker::rescan_result() const { return status().rescan_result; }
+gneiss::engine::core::result asset_background_worker::rescan_result() const {
+  return status().rescan_result;
+}
 std::size_t asset_background_worker::dropped_candidate_count() const { return status().dropped; }
 std::size_t asset_background_worker::poll_events(std::vector<asset_reimport_event>& events) {
   std::scoped_lock lock(impl_->mutex);

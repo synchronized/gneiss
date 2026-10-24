@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "author_asset_service.hpp"
+#include "engine/core/result.hpp"
 
 #include <chrono>
 #include <cstdio>
@@ -49,17 +50,17 @@ void run(std::size_t workers, engine::core::tasks::execution_mode mode =
   write(path, "initial");
   engine::core::tasks::task_scheduler scheduler({.workers = workers, .mode = mode});
   author_asset_service service(scheduler);
-  require(service.initialize(files.root) == result::success, "启动失败");
+  require(service.initialize(files.root) == gneiss::engine::core::result::success, "启动失败");
   auto drain = [&] {
     until([&] {
       if (mode == engine::core::tasks::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
       std::vector<std::filesystem::path> paths;
-      require(service.poll_rescan(paths, 1U) == result::success, "补扫失败");
+      require(service.poll_rescan(paths, 1U) == gneiss::engine::core::result::success, "补扫失败");
       for (const auto& item : paths) {
         const auto change = service.observe(item, false);
-        if (change.operation == result::success) {
+        if (change.operation == gneiss::engine::core::result::success) {
           service.mark_applied(change.uri);
         }
       }
@@ -94,7 +95,8 @@ void run(std::size_t workers, engine::core::tasks::execution_mode mode =
     return !old_paths.empty();
   });
   write(path, "own-save");
-  require(service.acknowledge(uri, "own-save") == result::success, "保存确认失败");
+  require(service.acknowledge(uri, "own-save") == gneiss::engine::core::result::success,
+          "保存确认失败");
   // 外部写入发生在保存之后、后台确认之前，不能被确认为自身保存。
   write(path, "external-after-save");
   found = {};
@@ -109,7 +111,8 @@ void run(std::size_t workers, engine::core::tasks::execution_mode mode =
     }
     return found.state == author_asset_change_state::changed;
   });
-  require(found.uri == uri && found.operation == result::success, "自身保存吞掉外部修改");
+  require(found.uri == uri && found.operation == gneiss::engine::core::result::success,
+          "自身保存吞掉外部修改");
   service.mark_applied(uri);
   drain();
   std::filesystem::remove(path);
@@ -126,7 +129,7 @@ void run(std::size_t workers, engine::core::tasks::execution_mode mode =
     }
     return found.state == author_asset_change_state::changed;
   });
-  require(found.operation == result::not_found, "删除未被发现");
+  require(found.operation == gneiss::engine::core::result::not_found, "删除未被发现");
   write(path, "rebuilt");
   write(files.root / "child.prefab.json", "prefab");
   service.request_rescan();

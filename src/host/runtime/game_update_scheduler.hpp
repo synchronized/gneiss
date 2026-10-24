@@ -5,8 +5,8 @@
 #define GNEISS_APPS_RUNTIME_GAME_UPDATE_SCHEDULER_H_
 
 #include "engine/core/frame_time.hpp"
+#include "engine/core/result.hpp"
 #include <gneiss/engine/application.h>
-#include <gneiss/engine/core/result.hpp>
 #include <gneiss/engine/game_module.h>
 
 #include <cstdint>
@@ -21,8 +21,10 @@ struct game_update_scheduler_config final {
 
 struct game_update_callbacks final {
   void* user_data{};
-  result (*fixed_update)(void* user_data, const gneiss_game_update_time& time) noexcept {};
-  result (*update)(void* user_data, const gneiss_game_update_time& time) noexcept {};
+  gneiss::engine::core::result (*fixed_update)(void* user_data,
+                                               const gneiss_game_update_time& time) noexcept {};
+  gneiss::engine::core::result (*update)(void* user_data,
+                                         const gneiss_game_update_time& time) noexcept {};
 };
 
 struct game_update_report final {
@@ -37,9 +39,9 @@ class game_update_scheduler final {
 public:
   explicit game_update_scheduler(game_update_scheduler_config config = {}) noexcept;
 
-  [[nodiscard]] result advance(const gneiss::engine::core::frame_time& frame,
-                               const game_update_callbacks& callbacks,
-                               game_update_report& out_report) noexcept;
+  [[nodiscard]] gneiss::engine::core::result advance(const gneiss::engine::core::frame_time& frame,
+                                                     const game_update_callbacks& callbacks,
+                                                     game_update_report& out_report) noexcept;
   void reset() noexcept;
 
 private:

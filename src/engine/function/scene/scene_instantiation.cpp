@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
@@ -9,12 +10,13 @@
 #include <unordered_map>
 
 namespace gneiss::engine::scene {
-gneiss_result scene_instances::instantiate_prepared(prepared_scene_description prepared,
-                                                    const asset_bindings& assets,
-                                                    gneiss_scene_instance& output) noexcept {
+gneiss::engine::core::result
+scene_instances::instantiate_prepared(prepared_scene_description prepared,
+                                      const asset_bindings& assets,
+                                      gneiss_scene_instance& output) noexcept {
   output = GNEISS_NULL_SCENE_INSTANCE;
   if (!is_valid()) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     const auto find_asset = [&](std::string_view uri) {
@@ -26,7 +28,7 @@ gneiss_result scene_instances::instantiate_prepared(prepared_scene_description p
       engine::resource::prefab_asset_lease lease;
       const auto result =
           prefab_loader_.install_prepared(uri, std::move(source.description), lease);
-      if (result != GNEISS_SUCCESS) {
+      if (result != gneiss::engine::core::result::success) {
         return result;
       }
       prefabs.emplace(uri, std::move(lease));
@@ -46,7 +48,7 @@ gneiss_result scene_instances::instantiate_prepared(prepared_scene_description p
           engine::render::render_asset_loader::material_lease(
               source.mesh_renderer ? find_asset(source.mesh_renderer->material_uri)
                                    : engine::render::render_asset_lease{}));
-      if (result != GNEISS_SUCCESS) {
+      if (result != gneiss::engine::core::result::success) {
         return result;
       }
       nodes.emplace(source.uuid, instance->staged_node(index));
@@ -62,7 +64,7 @@ gneiss_result scene_instances::instantiate_prepared(prepared_scene_description p
       auto result = prefab->begin_staged(source.parent_uuid ? nodes.at(*source.parent_uuid)
                                                             : GNEISS_NULL_SCENE_NODE_ID,
                                          transform);
-      if (result != GNEISS_SUCCESS) {
+      if (result != gneiss::engine::core::result::success) {
         return result;
       }
       std::unordered_map<std::string, gneiss_scene_node_id> prefab_nodes;
@@ -77,19 +79,19 @@ gneiss_result scene_instances::instantiate_prepared(prepared_scene_description p
             engine::render::render_asset_loader::material_lease(
                 node.mesh_renderer ? find_asset(node.mesh_renderer->material_uri)
                                    : engine::render::render_asset_lease{}));
-        if (result != GNEISS_SUCCESS) {
+        if (result != gneiss::engine::core::result::success) {
           return result;
         }
         prefab_runtime_instance::node_info info;
         result = prefab->get_node_info(index, info);
-        if (result != GNEISS_SUCCESS) {
+        if (result != gneiss::engine::core::result::success) {
           return result;
         }
         prefab_nodes.emplace(node.uuid, info.node);
       }
       for (const auto& override_value : source.overrides) {
         result = prefab->apply_staged_override(registry_, override_value);
-        if (result != GNEISS_SUCCESS) {
+        if (result != gneiss::engine::core::result::success) {
           return result;
         }
       }
@@ -98,9 +100,9 @@ gneiss_result scene_instances::instantiate_prepared(prepared_scene_description p
     return instances_.create(engine::core::resource_type::scene_instance, std::move(instance),
                              &output);
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 } // namespace gneiss::engine::scene

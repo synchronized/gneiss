@@ -5,7 +5,7 @@
 
 #include "runtime_object_id.hpp"
 
-#include <gneiss/engine/core/result.hpp>
+#include "engine/core/result.hpp"
 #include <gneiss/engine/scene.h>
 
 #include <string>
@@ -30,7 +30,8 @@ enum class runtime_scene_sequence_result : std::uint8_t {
 /** Editor 侧检查消息顺序跟踪器；发现缺口后由上层请求完整快照。 */
 class runtime_scene_sequence_tracker final {
 public:
-  [[nodiscard]] result begin(std::uint64_t session_id, std::uint64_t first_sequence = 1U) noexcept;
+  [[nodiscard]] gneiss::engine::core::result begin(std::uint64_t session_id,
+                                                   std::uint64_t first_sequence = 1U) noexcept;
   void reset() noexcept;
   [[nodiscard]] runtime_scene_sequence_result observe(runtime_scene_stamp stamp) noexcept;
   [[nodiscard]] std::uint64_t session_id() const noexcept { return session_id_; }

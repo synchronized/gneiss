@@ -4,6 +4,7 @@
 #include "../../../../tests/support/c_owner.hpp"
 #include "commands/native_author_transaction.hpp"
 #include "commands/prefab_authoring.hpp"
+#include "engine/core/result.hpp"
 
 #include <gneiss/engine/application.h>
 #include <gneiss/engine/input.hpp>
@@ -149,22 +150,22 @@ verify_documents(const std::vector<gneiss::editor::author_document_change>& chan
   gneiss::test_support::scene_owner scene;
   std::uint64_t object_count = 0U;
   std::uint64_t prefab_node_count = 0U;
-  return gneiss::result{gneiss_application_create(&desc, application.put())} ==
-             gneiss::result::success &&
+  return gneiss::engine::core::result{gneiss_application_create(&desc, application.put())} ==
+             gneiss::engine::core::result::success &&
          ([&] {
            const std::string_view uri = "asset://scenes/main.scene.json";
-           return gneiss::result{gneiss_scene_instance_load(
+           return gneiss::engine::core::result{gneiss_scene_instance_load(
                application.get(), uri.data(), uri.size(), scene.put(application.get()))};
-         })() == gneiss::result::success &&
+         })() == gneiss::engine::core::result::success &&
          ([&](std::uint64_t& out_count) {
-           return from_native(
-               gneiss_scene_instance_get_node_count(scene.owner(), scene.get(), &out_count));
-         })(object_count) == gneiss::result::success &&
+           return gneiss::engine::core::result{
+               gneiss_scene_instance_get_node_count(scene.owner(), scene.get(), &out_count)};
+         })(object_count) == gneiss::engine::core::result::success &&
          object_count == expected_objects &&
          ([&](std::uint64_t& out_count) {
-           return from_native(
-               gneiss_scene_instance_get_prefab_node_count(scene.owner(), scene.get(), &out_count));
-         })(prefab_node_count) == gneiss::result::success &&
+           return gneiss::engine::core::result{
+               gneiss_scene_instance_get_prefab_node_count(scene.owner(), scene.get(), &out_count)};
+         })(prefab_node_count) == gneiss::engine::core::result::success &&
          prefab_node_count == expected_prefab_nodes;
 }
 
@@ -232,7 +233,7 @@ create_rejections_are_valid(const gneiss::editor::create_prefab_author_request& 
       nested_scene.rfind("[]"), 2U,
       R"([{"instance_uuid":"40000000-0000-4000-8000-000000000001","name":"Nested","parent":"10000000-0000-4000-8000-000000000002","prefab":"asset://prefabs/other.prefab.json","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"overrides":[]}])");
   if (gneiss::editor::prepare_create_prefab(nested_scene, request, changes) !=
-          gneiss::result::unsupported ||
+          gneiss::engine::core::result::unsupported ||
       !changes.empty()) {
     return false;
   }
@@ -240,21 +241,21 @@ create_rejections_are_valid(const gneiss::editor::create_prefab_author_request& 
   auto missing = request;
   missing.root_uuid = "50000000-0000-4000-8000-000000000001";
   if (gneiss::editor::prepare_create_prefab(scene_json, missing, changes) !=
-          gneiss::result::not_found ||
+          gneiss::engine::core::result::not_found ||
       !changes.empty()) {
     return false;
   }
   auto mismatched = request;
   mismatched.prefab_uri = "asset://prefabs/other.prefab.json";
   if (gneiss::editor::prepare_create_prefab(scene_json, mismatched, changes) !=
-          gneiss::result::invalid_argument ||
+          gneiss::engine::core::result::invalid_argument ||
       !changes.empty()) {
     return false;
   }
   auto duplicate = request;
   duplicate.instance_uuid = sibling_uuid;
   return gneiss::editor::prepare_create_prefab(scene_json, duplicate, changes) ==
-             gneiss::result::invalid_argument &&
+             gneiss::engine::core::result::invalid_argument &&
          changes.empty();
 }
 
@@ -270,7 +271,7 @@ int main() try {
       .instance_uuid = instance_uuid};
   std::vector<gneiss::editor::author_document_change> changes;
   if (gneiss::editor::prepare_create_prefab(scene_json, request, changes) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       changes.size() != 2U || !verify_documents(changes)) {
     return 1;
   }
@@ -281,7 +282,8 @@ int main() try {
   std::filesystem::create_directories(root / "scenes");
   std::filesystem::create_directories(root / "prefabs");
   if (!write_text(root / "scenes" / "main.scene.json", scene_json) ||
-      gneiss::editor::commit_native_author_transaction(root, changes) != gneiss::result::success ||
+      gneiss::editor::commit_native_author_transaction(root, changes) !=
+          gneiss::engine::core::result::success ||
       read_text(root / "scenes" / "main.scene.json") != *changes[1].replacement ||
       read_text(root / "prefabs" / "lamp.prefab.json") != *changes[0].replacement ||
       !load_scene(root, 1U, 3U)) {
@@ -289,8 +291,10 @@ int main() try {
   }
 
   std::vector<gneiss::editor::author_document_change> undo;
-  if (gneiss::editor::invert_author_document_changes(changes, undo) != gneiss::result::success ||
-      gneiss::editor::commit_native_author_transaction(root, undo) != gneiss::result::success ||
+  if (gneiss::editor::invert_author_document_changes(changes, undo) !=
+          gneiss::engine::core::result::success ||
+      gneiss::editor::commit_native_author_transaction(root, undo) !=
+          gneiss::engine::core::result::success ||
       read_text(root / "scenes" / "main.scene.json") != scene_json ||
       std::filesystem::exists(root / "prefabs" / "lamp.prefab.json")) {
     return 3;
@@ -307,12 +311,12 @@ int main() try {
       .instance_uuid = instance_uuid};
   gneiss::editor::apply_prefab_author_plan apply_plan;
   if (gneiss::editor::prepare_apply_prefab(apply_scene_json, apply_prefab_json, apply_request,
-                                           apply_plan) != gneiss::result::success ||
+                                           apply_plan) != gneiss::engine::core::result::success ||
       !verify_apply_plan(apply_plan) ||
       !write_text(root / "scenes" / "main.scene.json", apply_scene_json) ||
       !write_text(root / "prefabs" / "lamp.prefab.json", apply_prefab_json) ||
       gneiss::editor::commit_native_author_transaction(root, apply_plan.changes) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       !load_scene(root, 0U, 6U)) {
     return 8;
   }
@@ -324,7 +328,7 @@ int main() try {
   }
   empty_overrides.replace(override_start, override_end + 2U - override_start, R"("overrides":[])");
   if (gneiss::editor::prepare_apply_prefab(empty_overrides, apply_prefab_json, apply_request,
-                                           apply_plan) != gneiss::result::not_ready ||
+                                           apply_plan) != gneiss::engine::core::result::not_ready ||
       !apply_plan.changes.empty()) {
     return 10;
   }
@@ -343,20 +347,21 @@ int main() try {
       .node_mappings = mappings};
   std::vector<gneiss::editor::author_document_change> unpack_changes;
   if (gneiss::editor::prepare_unpack_prefab(apply_scene_json, apply_prefab_json, unpack_request,
-                                            unpack_changes) != gneiss::result::success ||
+                                            unpack_changes) !=
+          gneiss::engine::core::result::success ||
       !verify_unpack_change(unpack_changes) ||
       !write_text(root / "scenes" / "main.scene.json", apply_scene_json) ||
       !write_text(root / "prefabs" / "lamp.prefab.json", apply_prefab_json) ||
       gneiss::editor::commit_native_author_transaction(root, unpack_changes) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       !load_scene(root, 3U, 3U)) {
     return 11;
   }
   std::vector<gneiss::editor::author_document_change> unpack_undo;
   if (gneiss::editor::invert_author_document_changes(unpack_changes, unpack_undo) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       gneiss::editor::commit_native_author_transaction(root, unpack_undo) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       read_text(root / "scenes" / "main.scene.json") != apply_scene_json ||
       !load_scene(root, 0U, 6U)) {
     return 12;
@@ -364,7 +369,8 @@ int main() try {
   auto invalid_unpack = unpack_request;
   invalid_unpack.instance_root_uuid = mappings[0].target_node_uuid;
   if (gneiss::editor::prepare_unpack_prefab(apply_scene_json, apply_prefab_json, invalid_unpack,
-                                            unpack_changes) != gneiss::result::invalid_argument ||
+                                            unpack_changes) !=
+          gneiss::engine::core::result::invalid_argument ||
       !unpack_changes.empty()) {
     return 13;
   }

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "viewport/transform_gizmo_drag.hpp"
+#include "engine/core/result.hpp"
 
 #include <algorithm>
 #include <iterator>
@@ -17,14 +18,14 @@ bool equal(const transform& left, const transform& right) noexcept {
 
 } // namespace
 
-result transform_gizmo_drag::begin(scene_document& session) noexcept {
+gneiss::engine::core::result transform_gizmo_drag::begin(scene_document& session) noexcept {
   if (is_active()) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
   const auto* node = session.selected_node();
   const auto* prefab = session.selected_prefab_node();
   if (node == nullptr && (prefab == nullptr || prefab->is_instance_root)) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   try {
     uuid_ = node != nullptr ? node->uuid : std::string{};
@@ -34,33 +35,36 @@ result transform_gizmo_drag::begin(scene_document& session) noexcept {
     before_ = node != nullptr ? node->local_transform : prefab->local_transform;
     was_dirty_ = session.is_dirty();
     node_ = session.selection();
-    return result::success;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   }
 }
 
-result transform_gizmo_drag::preview(scene_document& session, const gizmo_matrix& matrix) noexcept {
+gneiss::engine::core::result transform_gizmo_drag::preview(scene_document& session,
+                                                           const gizmo_matrix& matrix) noexcept {
   if (!matches_selection(session)) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
   transform target = GNEISS_TRANSFORM_IDENTITY;
   auto operation = gizmo_matrix_to_transform(matrix, target);
   transform parent = GNEISS_TRANSFORM_IDENTITY;
-  if (operation == result::success && parent_.is_valid()) {
+  if (operation == gneiss::engine::core::result::success && parent_.is_valid()) {
     operation = session.get_world_transform(parent_, parent);
   }
   transform local = GNEISS_TRANSFORM_IDENTITY;
-  if (operation == result::success) {
+  if (operation == gneiss::engine::core::result::success) {
     operation = world_to_local_transform(parent_.is_valid() ? &parent : nullptr, target, local);
   }
-  return operation == result::success ? session.set_local_transform(node_, local) : operation;
+  return operation == gneiss::engine::core::result::success
+             ? session.set_local_transform(node_, local)
+             : operation;
 }
 
-result transform_gizmo_drag::finish(scene_document& session,
-                                    editor_command_history& history) noexcept {
+gneiss::engine::core::result
+transform_gizmo_drag::finish(scene_document& session, editor_command_history& history) noexcept {
   if (!is_active()) {
-    return result::success;
+    return gneiss::engine::core::result::success;
   }
   const auto original_node = node_;
   node_ = {};
@@ -70,13 +74,13 @@ result transform_gizmo_drag::finish(scene_document& session,
   // 场景已被替换或节点已删除时，不能向复用 UUID 的新对象提交旧拖动。
   if ((node == nullptr || node->node != original_node) &&
       (prefab == nullptr || prefab->node != original_node)) {
-    return result::not_found;
+    return gneiss::engine::core::result::not_found;
   }
   const auto after = node != nullptr ? node->local_transform : prefab->local_transform;
   if (equal(before_, after)) {
-    return result::success;
+    return gneiss::engine::core::result::success;
   }
-  auto operation = result::success;
+  auto operation = gneiss::engine::core::result::success;
   try {
     const auto resolve = [&session, uuid = uuid_, instance = instance_uuid_,
                           source = source_uuid_](const transform& value) {
@@ -87,7 +91,8 @@ result transform_gizmo_drag::finish(scene_document& session,
         return session.set_local_transform(target->node, value);
       }
       const auto id = prefab_target != nullptr ? prefab_target->node : scene_node_id{};
-      return id.is_valid() ? session.set_local_transform(id, value) : result::not_found;
+      return id.is_valid() ? session.set_local_transform(id, value)
+                           : gneiss::engine::core::result::not_found;
     };
     operation = history.record({
         .label = "变换节点",
@@ -96,11 +101,11 @@ result transform_gizmo_drag::finish(scene_document& session,
         .merge_key = {},
     });
   } catch (const std::bad_alloc&) {
-    operation = result::out_of_memory;
+    operation = gneiss::engine::core::result::out_of_memory;
   }
-  if (operation != result::success) {
+  if (operation != gneiss::engine::core::result::success) {
     const auto rollback = session.set_local_transform(original_node, before_);
-    if (rollback != result::success) {
+    if (rollback != gneiss::engine::core::result::success) {
       return rollback;
     }
     if (!was_dirty_) {

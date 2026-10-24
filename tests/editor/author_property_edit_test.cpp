@@ -3,6 +3,7 @@
 
 #include "../support/c_owner.hpp"
 #include "commands/author_property_edit.hpp"
+#include "engine/core/result.hpp"
 #include "runtime/application_registry.hpp"
 
 #include <gneiss/engine/application.h>
@@ -26,8 +27,9 @@ int main() try {
   scene_node_id first;
   scene_node_id second;
   const gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  if (gneiss::result{gneiss_application_create(&desc, app.put())}.failed() ||
-      gneiss::result{gneiss_application_get_world(app.get(), &world_handle)}.failed() ||
+  if (gneiss::engine::core::result{gneiss_application_create(&desc, app.put())}.failed() ||
+      gneiss::engine::core::result{gneiss_application_get_world(app.get(), &world_handle)}
+          .failed() ||
       session.create_empty(*gneiss::runtime::find_application(app.get()), world_handle).failed() ||
       session.create_node("first", {}, first).failed() ||
       session.create_node("second", {}, second).failed() || session.select(first).failed() ||
@@ -42,13 +44,13 @@ int main() try {
     transform local{};
     return ([&](entity_id node, gneiss::transform& output) {
              gneiss_transform native{};
-             const auto status = from_native(
-                 gneiss_world_entity_get_local_transform(world_handle, node.get(), &native));
+             const auto status = gneiss::engine::core::result{
+                 gneiss_world_entity_get_local_transform(world_handle, node.get(), &native)};
              if (status.ok()) {
                output = from_native(native);
              }
              return status;
-           })(entity, local) == result::success &&
+           })(entity, local) == gneiss::engine::core::result::success &&
            std::abs(local.translation[0] - expected) < 0.0001F;
   };
   const auto edit_x = [&](float next, editor_command_history& target, std::uint64_t serial) {
@@ -57,7 +59,7 @@ int main() try {
         std::ranges::find(component.properties, field_id{GNEISS_TRANSFORM_FIELD_TRANSLATION},
                           &inspector_property::id);
     if (found == component.properties.end()) {
-      return result{result::not_found};
+      return gneiss::engine::core::result{gneiss::engine::core::result::not_found};
     }
     auto value = found->value;
     std::get<property_vec3>(value.payload).x = next;
@@ -81,8 +83,8 @@ int main() try {
     return 5;
   }
   editor_command_history no_capacity{0U};
-  if (edit_x(8.0F, no_capacity, 3U) != result::invalid_argument || !is_x(6.0F) ||
-      no_capacity.can_undo()) {
+  if (edit_x(8.0F, no_capacity, 3U) != gneiss::engine::core::result::invalid_argument ||
+      !is_x(6.0F) || no_capacity.can_undo()) {
     return 6;
   }
   const auto& component = inspector.components().front();
@@ -94,13 +96,13 @@ int main() try {
   auto invalid = scale->value;
   std::get<property_vec3>(invalid.payload).x = 0.0F;
   if (edit_author_property(session, history, inspector, world_handle, component, *scale, invalid,
-                           4U) != result::invalid_argument ||
+                           4U) != gneiss::engine::core::result::invalid_argument ||
       history.size() != 2U) {
     return 8;
   }
   scene_subtree_snapshot removed;
-  if (session.destroy_subtree(first, removed).failed() || history.undo() != result::not_found ||
-      !history.can_undo()) {
+  if (session.destroy_subtree(first, removed).failed() ||
+      history.undo() != gneiss::engine::core::result::not_found || !history.can_undo()) {
     return 9;
   }
   history.clear();

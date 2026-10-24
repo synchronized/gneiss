@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/result.hpp"
 #include "tooling/asset_import/import_ir.hpp"
 
 #include <filesystem>

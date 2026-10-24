@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/result.hpp"
 #include "engine/function/scene/prefab_runtime_instance.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include <map>
@@ -29,83 +30,89 @@ public:
   void rollback() noexcept;
   /** 仅用于不可见候选 World，分阶段入口不执行文件读取。 */
   void initialize_staged(gneiss::engine::resource::scene_description candidate);
-  [[nodiscard]] gneiss_result create_staged_node(std::size_t index, gneiss_scene_node_id parent,
-                                                 engine::render::mesh_asset_lease mesh,
-                                                 engine::render::material_asset_lease material);
+  [[nodiscard]] gneiss::engine::core::result
+  create_staged_node(std::size_t index, gneiss_scene_node_id parent,
+                     engine::render::mesh_asset_lease mesh,
+                     engine::render::material_asset_lease material);
 
   [[nodiscard]] gneiss_scene_node_id find_node(std::string_view uuid) const noexcept;
-  [[nodiscard]] gneiss_result serialize(std::string& out_json) const;
-  [[nodiscard]] gneiss_result get_node_info(std::uint64_t index, scene_node_view& out_info,
-                                            node_query_detail detail) const;
+  [[nodiscard]] gneiss::engine::core::result serialize(std::string& out_json) const;
+  [[nodiscard]] gneiss::engine::core::result
+  get_node_info(std::uint64_t index, scene_node_view& out_info, node_query_detail detail) const;
   [[nodiscard]] std::uint64_t get_prefab_node_count() const noexcept;
-  [[nodiscard]] gneiss_result get_prefab_node_info(std::uint64_t index,
-                                                   prefab_node_view& out_info) const;
-  [[nodiscard]] gneiss_result create_prefab_instance(const prefab_creation& desc,
-                                                     gneiss_scene_node_id* out_root);
-  [[nodiscard]] gneiss_result set_prefab_instance_name(gneiss_scene_node_id root,
-                                                       std::string_view name);
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result get_prefab_node_info(std::uint64_t index,
+                                                                  prefab_node_view& out_info) const;
+  [[nodiscard]] gneiss::engine::core::result create_prefab_instance(const prefab_creation& desc,
+                                                                    gneiss_scene_node_id* out_root);
+  [[nodiscard]] gneiss::engine::core::result set_prefab_instance_name(gneiss_scene_node_id root,
+                                                                      std::string_view name);
+  [[nodiscard]] gneiss::engine::core::result
   set_prefab_source_transform(gneiss_scene_node_id node,
                               const gneiss::engine::core::math::transform& transform);
-  [[nodiscard]] gneiss_result destroy_prefab_instance(gneiss_scene_node_id root) noexcept;
-  [[nodiscard]] gneiss_result refresh_prefab_instance(gneiss_scene_node_id root,
-                                                      gneiss_scene_node_id* out_new_root,
-                                                      gneiss_scene_prefab_refresh_token* out_token);
-  [[nodiscard]] gneiss_result toggle_prefab_refresh(gneiss_scene_prefab_refresh_token token,
-                                                    gneiss_scene_node_id* out_new_root);
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
+  destroy_prefab_instance(gneiss_scene_node_id root) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  refresh_prefab_instance(gneiss_scene_node_id root, gneiss_scene_node_id* out_new_root,
+                          gneiss_scene_prefab_refresh_token* out_token);
+  [[nodiscard]] gneiss::engine::core::result
+  toggle_prefab_refresh(gneiss_scene_prefab_refresh_token token,
+                        gneiss_scene_node_id* out_new_root);
+  [[nodiscard]] gneiss::engine::core::result
   release_prefab_refresh(gneiss_scene_prefab_refresh_token token) noexcept;
-  [[nodiscard]] gneiss_result create_node(const node_creation& desc,
-                                          gneiss_scene_node_id* out_node);
-  [[nodiscard]] gneiss_result set_node_name(gneiss_scene_node_id node, std::string_view name);
-  [[nodiscard]] gneiss_result reparent_node(gneiss_scene_node_id node, gneiss_scene_node_id parent);
-  [[nodiscard]] gneiss_result capture_subtree(gneiss_scene_node_id root,
-                                              std::string& out_snapshot) const;
-  [[nodiscard]] gneiss_result restore_subtree(std::string_view snapshot,
-                                              gneiss_scene_node_id parent,
-                                              std::span<const uuid_mapping> mappings,
-                                              gneiss_scene_node_id* out_root);
-  [[nodiscard]] gneiss_result destroy_subtree(gneiss_scene_node_id root);
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result create_node(const node_creation& desc,
+                                                         gneiss_scene_node_id* out_node);
+  [[nodiscard]] gneiss::engine::core::result set_node_name(gneiss_scene_node_id node,
+                                                           std::string_view name);
+  [[nodiscard]] gneiss::engine::core::result reparent_node(gneiss_scene_node_id node,
+                                                           gneiss_scene_node_id parent);
+  [[nodiscard]] gneiss::engine::core::result capture_subtree(gneiss_scene_node_id root,
+                                                             std::string& out_snapshot) const;
+  [[nodiscard]] gneiss::engine::core::result restore_subtree(std::string_view snapshot,
+                                                             gneiss_scene_node_id parent,
+                                                             std::span<const uuid_mapping> mappings,
+                                                             gneiss_scene_node_id* out_root);
+  [[nodiscard]] gneiss::engine::core::result destroy_subtree(gneiss_scene_node_id root);
+  [[nodiscard]] gneiss::engine::core::result
   create_mesh_renderer_node(const mesh_renderer_node_creation& desc, gneiss_scene_node_id* out_node,
                             const scene_mesh_binding* prepared = nullptr);
-  [[nodiscard]] gneiss_result set_mesh_renderer(gneiss_scene_node_id node,
-                                                std::string_view mesh_uri,
-                                                std::string_view material_uri);
-  [[nodiscard]] gneiss_result set_camera(gneiss_scene_node_id node,
-                                         const gneiss::engine::resource::camera_description& desc);
-  [[nodiscard]] gneiss_result remove_camera(gneiss_scene_node_id node);
-  [[nodiscard]] gneiss_result remove_mesh_renderer(gneiss_scene_node_id node);
-  [[nodiscard]] gneiss_result destroy_node(gneiss_scene_node_id node);
+  [[nodiscard]] gneiss::engine::core::result set_mesh_renderer(gneiss_scene_node_id node,
+                                                               std::string_view mesh_uri,
+                                                               std::string_view material_uri);
+  [[nodiscard]] gneiss::engine::core::result
+  set_camera(gneiss_scene_node_id node, const gneiss::engine::resource::camera_description& desc);
+  [[nodiscard]] gneiss::engine::core::result remove_camera(gneiss_scene_node_id node);
+  [[nodiscard]] gneiss::engine::core::result remove_mesh_renderer(gneiss_scene_node_id node);
+  [[nodiscard]] gneiss::engine::core::result destroy_node(gneiss_scene_node_id node);
   /** 事务式替换普通场景节点；当前不接受 Prefab 实例容器变化。 */
-  [[nodiscard]] gneiss_result reload(gneiss::engine::resource::scene_description candidate);
+  [[nodiscard]] gneiss::engine::core::result
+  reload(gneiss::engine::resource::scene_description candidate);
   /** 将指定 Prefab URI 的新修订应用到当前 Scene 内全部同源实例。 */
-  [[nodiscard]] gneiss_result reload_prefab(std::string_view uri);
+  [[nodiscard]] gneiss::engine::core::result reload_prefab(std::string_view uri);
 
   /** 单场景 Prefab 实例事务；服务已校验线程与句柄，不修改 Prefab 源资源。
    * instance 参数仅用于候选所属场景校验，不拥有或重新解析公共句柄。 */
-  [[nodiscard]] gneiss_result capture_prefab_instance_header(
+  [[nodiscard]] gneiss::engine::core::result capture_prefab_instance_header(
       std::string_view uuid, gneiss::engine::resource::prefab_instance_description& author,
       gneiss::engine::resource::prefab_asset_lease& source) const noexcept;
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   capture_prefab_instance_binding(std::string_view uuid, std::size_t index,
                                   scene_mesh_binding& output) const noexcept;
-  [[nodiscard]] gneiss_result prepare_prefab_instance_candidate(
+  [[nodiscard]] gneiss::engine::core::result prepare_prefab_instance_candidate(
       gneiss_scene_instance instance,
       const gneiss::engine::resource::prefab_instance_description& author,
       gneiss::engine::resource::prefab_asset_lease prefab,
       const gneiss::engine::resource::prefab_description& prepared, prefab_candidate& output,
       bool replacing) noexcept;
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   publish_prefab_instance_candidate(gneiss_scene_instance instance,
                                     prefab_candidate& candidate) noexcept;
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   replace_prefab_instance_versions(gneiss_scene_instance instance,
                                    std::span<prefab_candidate* const> replacements) noexcept;
-  [[nodiscard]] gneiss_result prepare_prefab_instance_removal(std::string_view uuid,
-                                                              bool& complete) noexcept;
-  [[nodiscard]] gneiss_result remove_prefab_instance(std::string_view uuid,
-                                                     prefab_candidate& candidate) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  prepare_prefab_instance_removal(std::string_view uuid, bool& complete) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  remove_prefab_instance(std::string_view uuid, prefab_candidate& candidate) noexcept;
 
   /** 私有批量替换事务，只能在所属线程同一次无重入调用内准备和提交。
    * Scene 和节点存储必须存活且保持稳定；放弃事务不修改绑定。 */
@@ -114,11 +121,11 @@ public:
   void append_render_assets(std::vector<engine::render::render_asset_lease>& output) const;
 
   /** 调用方服务已验证所属线程和租约归属；实例负责作者数据与 ECS 同步提交。 */
-  [[nodiscard]] gneiss_result capture_mesh_binding(scene_node_id node,
-                                                   scene_mesh_binding& output) const noexcept;
-  [[nodiscard]] gneiss_result replace_mesh_binding(scene_node_id node,
-                                                   const scene_mesh_binding& expected,
-                                                   const scene_mesh_binding& replacement) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  capture_mesh_binding(scene_node_id node, scene_mesh_binding& output) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  replace_mesh_binding(scene_node_id node, const scene_mesh_binding& expected,
+                       const scene_mesh_binding& replacement) noexcept;
   [[nodiscard]] bool contains_editable_node(scene_node_id node) const noexcept;
   [[nodiscard]] std::uint64_t node_count() const noexcept { return objects_.size(); }
 
@@ -129,15 +136,16 @@ public:
     return objects_.at(index).node;
   }
   void append_staged_prefab(std::unique_ptr<prefab_runtime_instance> candidate);
-  [[nodiscard]] gneiss_result initialize(gneiss::engine::resource::scene_description candidate);
+  [[nodiscard]] gneiss::engine::core::result
+  initialize(gneiss::engine::resource::scene_description candidate);
 
 private:
   friend class scene_instances;
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   stage_assets(const gneiss::engine::resource::scene_description& source);
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   commit_scene(const gneiss::engine::resource::scene_description& source);
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   commit_prefabs(const gneiss::engine::resource::scene_description& source);
   std::vector<object> objects_;
   std::vector<std::unique_ptr<prefab_runtime_instance>> prefab_instances_;

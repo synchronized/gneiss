@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/api/result_conversion.hpp"
+#include "engine/core/result.hpp"
 #include "engine/core/version.hpp"
 
 #include <gneiss/gneiss.h>

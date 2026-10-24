@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "engine/core/rid_table.hpp"
 
 #include <cstdint>
@@ -20,7 +21,8 @@ int main() {
   table first{1};
   table second{2};
   gneiss::engine::core::rid original = gneiss::engine::core::null_rid;
-  if (first.create(resource_type::test_resource, test_resource{42}, &original) != GNEISS_SUCCESS ||
+  if (first.create(resource_type::test_resource, test_resource{42}, &original) !=
+          gneiss::engine::core::result::success ||
       original == gneiss::engine::core::null_rid) {
     return 1;
   }
@@ -33,22 +35,24 @@ int main() {
   if (resource == nullptr || resource->value != 42 || first.live_count() != 1U) {
     return 3;
   }
-  if (first.destroy(original, resource_type::test_resource) != GNEISS_SUCCESS ||
-      first.destroy(original, resource_type::test_resource) != GNEISS_ERROR_INVALID_HANDLE ||
+  if (first.destroy(original, resource_type::test_resource) !=
+          gneiss::engine::core::result::success ||
+      first.destroy(original, resource_type::test_resource) !=
+          gneiss::engine::core::result::invalid_handle ||
       first.get(original, resource_type::test_resource) != nullptr || first.live_count() != 0U) {
     return 4;
   }
 
   gneiss::engine::core::rid replacement = gneiss::engine::core::null_rid;
   if (first.create(resource_type::test_resource, test_resource{7}, &replacement) !=
-          GNEISS_SUCCESS ||
+          gneiss::engine::core::result::success ||
       replacement == original || first.get(original, resource_type::test_resource) != nullptr) {
     return 5;
   }
   if (first.create(resource_type::invalid, test_resource{}, &original) !=
-          GNEISS_ERROR_INVALID_ARGUMENT ||
+          gneiss::engine::core::result::invalid_argument ||
       first.create(resource_type::test_resource, test_resource{}, nullptr) !=
-          GNEISS_ERROR_INVALID_ARGUMENT) {
+          gneiss::engine::core::result::invalid_argument) {
     return 6;
   }
   return 0;

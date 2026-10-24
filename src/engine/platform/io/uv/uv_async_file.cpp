@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "uv_async_file.hpp"
+#include "engine/core/result.hpp"
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -63,14 +64,15 @@ struct reservation {
 };
 struct receipt {
   std::atomic_bool ready = false;
-  result status = result::not_ready;
+  gneiss::engine::core::result status = gneiss::engine::core::result::not_ready;
   std::mutex mutex;
   std::condition_variable changed;
-  void publish(result value) noexcept {
+  void publish(gneiss::engine::core::result value) noexcept {
     {
       const std::scoped_lock lock(mutex);
       // 已完成的底层失败不能继续伪装为尚未就绪。
-      status = value == result::not_ready ? result::io : value;
+      status = value == gneiss::engine::core::result::not_ready ? gneiss::engine::core::result::io
+                                                                : value;
       ready.store(true, std::memory_order_release);
     }
     changed.notify_all();
@@ -90,7 +92,7 @@ struct file {
   bool close_started{};
   std::size_t active_reads{};
   receipt close_receipt;
-  result close_status = result::success;
+  gneiss::engine::core::result close_status = gneiss::engine::core::result::success;
   void read_finished() noexcept {
     const std::scoped_lock lock(mutex);
     --active_reads;
@@ -118,7 +120,7 @@ struct reading : receipt {
   std::vector<std::byte> bytes;
   std::uint64_t offset{};
   std::size_t consumed{};
-  void finish(result value) noexcept {
+  void finish(gneiss::engine::core::result value) noexcept {
     source->state_->read_finished();
     source.reset();
     publish(value);
@@ -144,12 +146,13 @@ struct reading : receipt {
     const auto count = request->result;
     uv_fs_req_cleanup(request);
     if (count <= 0 || std::cmp_greater(count, self->bytes.size() - self->consumed)) {
-      self->finish(count < 0 ? from_uv_status(static_cast<int>(count)) : result::io);
+      self->finish(count < 0 ? from_uv_status(static_cast<int>(count))
+                             : gneiss::engine::core::result::io);
       return;
     }
     self->consumed += static_cast<std::size_t>(count);
     if (self->consumed == self->bytes.size()) {
-      self->finish(result::success);
+      self->finish(gneiss::engine::core::result::success);
     } else {
       self->submit();
     }
@@ -169,7 +172,7 @@ void file::dispatch(uv_async_t* handle) noexcept {
   for (auto& read : pending) {
     read->lifetime = read;
     if (read->bytes.empty()) {
-      read->finish(result::success);
+      read->finish(gneiss::engine::core::result::success);
     } else {
       read->submit();
     }
@@ -192,8 +195,8 @@ struct opening : receipt {
   reservation reserved;
   std::shared_ptr<uv_async_file> output;
   int descriptor = -1;
-  result failure = result::internal;
-  void fail(result value) noexcept {
+  gneiss::engine::core::result failure = gneiss::engine::core::result::internal;
+  void fail(gneiss::engine::core::result value) noexcept {
     failure = value;
     if (descriptor < 0) {
       publish(value);
@@ -221,7 +224,8 @@ struct opening : receipt {
     const auto info = request->statbuf;
     uv_fs_req_cleanup(request);
     if (code < 0 || (info.st_mode & S_IFMT) != S_IFREG) {
-      self->fail(code < 0 ? from_uv_status(static_cast<int>(code)) : result::invalid_argument);
+      self->fail(code < 0 ? from_uv_status(static_cast<int>(code))
+                          : gneiss::engine::core::result::invalid_argument);
       return;
     }
     self->deliver(info.st_size);
@@ -244,12 +248,12 @@ struct opening : receipt {
       auto* opened_file = state.get();
       opened_file->lifetime = std::move(state);
       output = std::move(source);
-      publish(result::success);
+      publish(gneiss::engine::core::result::success);
       lifetime.reset();
     } catch (const std::bad_alloc&) {
-      fail(result::out_of_memory);
+      fail(gneiss::engine::core::result::out_of_memory);
     } catch (...) {
-      fail(result::internal);
+      fail(gneiss::engine::core::result::internal);
     }
   }
   static void opened(uv_fs_t* request) noexcept {
@@ -275,15 +279,16 @@ struct opening : receipt {
 uv_file_open_operation::uv_file_open_operation(std::shared_ptr<file_detail::opening> state) noexcept
     : state_(std::move(state)) {}
 uv_file_open_operation::~uv_file_open_operation() = default;
-result uv_file_open_operation::poll(std::shared_ptr<uv_async_file>& output) noexcept {
+gneiss::engine::core::result
+uv_file_open_operation::poll(std::shared_ptr<uv_async_file>& output) noexcept {
   output.reset();
   if (delivered_) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
   if (!state_->ready.load(std::memory_order_acquire)) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
-  if (state_->status == result::success) {
+  if (state_->status == gneiss::engine::core::result::success) {
     output = std::move(state_->output);
     delivered_ = true;
   }
@@ -292,21 +297,23 @@ result uv_file_open_operation::poll(std::shared_ptr<uv_async_file>& output) noex
 uv_file_read_operation::uv_file_read_operation(std::shared_ptr<file_detail::reading> state) noexcept
     : state_(std::move(state)) {}
 uv_file_read_operation::~uv_file_read_operation() = default;
-result uv_file_read_operation::poll(std::span<const std::byte>& output) noexcept {
+gneiss::engine::core::result
+uv_file_read_operation::poll(std::span<const std::byte>& output) noexcept {
   output = {};
   if (!state_->ready.load(std::memory_order_acquire)) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
-  if (state_->status == result::success) {
+  if (state_->status == gneiss::engine::core::result::success) {
     output = state_->bytes;
   }
   return state_->status;
 }
-result uv_file_read_operation::wait_for(std::chrono::milliseconds timeout,
-                                        std::span<const std::byte>& output) noexcept {
+gneiss::engine::core::result
+uv_file_read_operation::wait_for(std::chrono::milliseconds timeout,
+                                 std::span<const std::byte>& output) noexcept {
   output = {};
   if (timeout < std::chrono::milliseconds::zero()) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     std::unique_lock lock(state_->mutex);
@@ -314,7 +321,7 @@ result uv_file_read_operation::wait_for(std::chrono::milliseconds timeout,
                              [this] { return state_->ready.load(std::memory_order_acquire); });
     return poll(output);
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 uv_async_file::uv_async_file(std::shared_ptr<file_detail::file> state) noexcept
@@ -327,16 +334,18 @@ void uv_async_file::begin_close() const noexcept {
     (void)uv_async_send(&state_->wakeup);
   }
 }
-result uv_async_file::poll_close() const noexcept {
-  return state_->close_receipt.ready.load(std::memory_order_acquire) ? state_->close_receipt.status
-                                                                     : result::not_ready;
+gneiss::engine::core::result uv_async_file::poll_close() const noexcept {
+  return state_->close_receipt.ready.load(std::memory_order_acquire)
+             ? state_->close_receipt.status
+             : gneiss::engine::core::result::not_ready;
 }
 std::uint64_t uv_async_file::size() const noexcept { return state_->size; }
-result uv_async_file::read_at(std::uint64_t offset, std::span<std::byte> output) const noexcept {
+gneiss::engine::core::result uv_async_file::read_at(std::uint64_t offset,
+                                                    std::span<std::byte> output) const noexcept {
   {
     const std::scoped_lock lock(state_->mutex);
     if (state_->released)
-      return result::invalid_state;
+      return gneiss::engine::core::result::invalid_state;
     ++state_->active_reads;
   }
   // 关闭等待计数归零，不持锁等待同步系统调用，避免阻塞发起关闭的线程。
@@ -348,7 +357,7 @@ result uv_async_file::read_at(std::uint64_t offset, std::span<std::byte> output)
       offset > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
       output.size() >
           static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) - offset) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   while (!output.empty()) {
     const auto count = static_cast<unsigned int>(
@@ -363,25 +372,26 @@ result uv_async_file::read_at(std::uint64_t offset, std::span<std::byte> output)
       return from_uv_status(code);
     }
     if (consumed <= 0 || std::cmp_greater(consumed, count)) {
-      return result::io;
+      return gneiss::engine::core::result::io;
     }
     offset += static_cast<std::uint64_t>(consumed);
     output = output.subspan(static_cast<std::size_t>(consumed));
   }
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
-result uv_async_file::begin_read(std::uint64_t offset, std::size_t count,
-                                 std::unique_ptr<uv_file_read_operation>& output) const noexcept {
+gneiss::engine::core::result
+uv_async_file::begin_read(std::uint64_t offset, std::size_t count,
+                          std::unique_ptr<uv_file_read_operation>& output) const noexcept {
   output.reset();
   if (count > state_->capacity->maximum_bytes || offset > size() || count > size() - offset ||
       offset > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
       count > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) - offset) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     auto read = std::make_shared<file_detail::reading>();
     if (!read->reserved.acquire(state_->capacity, count)) {
-      return result::not_ready;
+      return gneiss::engine::core::result::not_ready;
     }
     read->bytes.resize(count);
     read->offset = offset;
@@ -389,7 +399,7 @@ result uv_async_file::begin_read(std::uint64_t offset, std::size_t count,
     auto operation = std::make_unique<uv_file_read_operation>(read);
     const std::scoped_lock lock(state_->mutex);
     if (state_->released)
-      return result::invalid_state;
+      return gneiss::engine::core::result::invalid_state;
     state_->queued.push_back(read);
     const auto code = uv_async_send(&state_->wakeup);
     if (code < 0) {
@@ -398,26 +408,27 @@ result uv_async_file::begin_read(std::uint64_t offset, std::size_t count,
     }
     ++state_->active_reads;
     output = std::move(operation);
-    return result::success;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 uv_file_io::uv_file_io(uv_loop_executor& executor, uv_file_limits limits)
     : executor_(executor), budget_(std::make_shared<file_detail::budget>(limits)) {}
 
-result uv_file_io::begin_open(std::string_view path,
-                              std::unique_ptr<uv_file_open_operation>& output) const noexcept {
+gneiss::engine::core::result
+uv_file_io::begin_open(std::string_view path,
+                       std::unique_ptr<uv_file_open_operation>& output) const noexcept {
   output.reset();
   if (path.empty() || path.find('\0') != std::string_view::npos) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     auto pending = std::make_shared<file_detail::opening>();
     if (!pending->reserved.acquire(budget_, 0U)) {
-      return result::not_ready;
+      return gneiss::engine::core::result::not_ready;
     }
     pending->path = path;
     auto operation = std::make_unique<uv_file_open_operation>(pending);
@@ -432,14 +443,14 @@ result uv_file_io::begin_open(std::string_view path,
         pending->fail(from_uv_status(code));
       }
     });
-    if (started == result::success) {
+    if (started == gneiss::engine::core::result::success) {
       output = std::move(operation);
     }
     return started;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 } // namespace gneiss::engine::platform::io

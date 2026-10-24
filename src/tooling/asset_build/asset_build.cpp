@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "tooling/asset_build/asset_build.hpp"
+#include "engine/core/result.hpp"
 #include "tooling/asset_build/texture_mip_generator.hpp"
 
 #include "tooling/asset_build/ktx2_probe.hpp"
@@ -231,7 +232,8 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
                             std::string& diagnostic) {
   const auto bytes = read_bytes(node.absolute_path);
   engine::resource::decoded_png decoded;
-  if (engine::resource::decode_png(bytes, decoded, diagnostic) != GNEISS_SUCCESS) {
+  if (engine::resource::decode_png(bytes, decoded, diagnostic) !=
+      gneiss::engine::core::result::success) {
     return false;
   }
   engine::resource::texture_ktx2 texture{

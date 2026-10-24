@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/reflection/type_registry.hpp"
+#include "engine/core/result.hpp"
 #include <gneiss/engine/detail/reflection_values.hpp>
 
 #include "engine/core/rid_table.hpp"
@@ -123,10 +124,25 @@ using type_id_bytes = std::array<std::uint8_t, 16>;
   }
 }
 
+template <class R, class... Args, class Identity>
+bool same_callback(const std::function<R(Args...)>& left, const std::function<R(Args...)>& right,
+                   Identity left_id, Identity right_id) {
+  if (!left || !right)
+    return !left && !right;
+  if (left_id || right_id)
+    return left_id == right_id;
+  using pointer = R (*)(Args...);
+  const auto* a = left.template target<pointer>();
+  const auto* b = right.template target<pointer>();
+  return a && b && *a == *b;
+}
+
 struct property_accessor {
   std::uint32_t kind = GNEISS_PROPERTY_KIND_INVALID;
-  gneiss_property_getter getter = nullptr;
-  gneiss_property_setter setter = nullptr;
+  decltype(property_binding::getter) getter;
+  decltype(property_binding::setter) setter;
+  gneiss_property_getter getter_identity{};
+  gneiss_property_setter setter_identity{};
   void* user_data = nullptr;
   candidate_property_setter candidate_setter = nullptr;
 };
@@ -194,18 +210,19 @@ struct type_record {
 
 class type_registry_state final {
 public:
-  [[nodiscard]] gneiss_result register_type(const type_definition& desc) noexcept {
+  [[nodiscard]] gneiss::engine::core::result register_type(const type_definition& desc) noexcept {
     if (!validate_type(desc)) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     try {
       std::unique_lock lock(mutex_);
       if (is_frozen_) {
-        return GNEISS_ERROR_INVALID_STATE;
+        return gneiss::engine::core::result::invalid_state;
       }
       auto* const found = find_type_unlocked(desc.id);
       if (found != nullptr) {
-        return types_equal(*found, desc) ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_ARGUMENT;
+        return types_equal(*found, desc) ? gneiss::engine::core::result::success
+                                         : gneiss::engine::core::result::invalid_argument;
       }
 
       auto record = std::make_unique<type_record>();
@@ -222,66 +239,72 @@ public:
                                   .info = {}});
       }
       types_.push_back(std::move(record));
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     } catch (const std::bad_alloc&) {
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      return gneiss::engine::core::result::out_of_memory;
     } catch (...) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
   }
 
-  [[nodiscard]] gneiss_result bind_property(gneiss_type_id type_id, gneiss_field_id field_id,
-                                            const property_binding& desc) noexcept {
+  [[nodiscard]] gneiss::engine::core::result bind_property(gneiss_type_id type_id,
+                                                           gneiss_field_id field_id,
+                                                           const property_binding& desc) noexcept {
     if (!is_valid_property_kind(desc.kind) ||
         (desc.getter == nullptr && desc.setter == nullptr && desc.candidate_setter == nullptr)) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     try {
       std::unique_lock lock(mutex_);
       if (is_frozen_) {
-        return GNEISS_ERROR_INVALID_STATE;
+        return gneiss::engine::core::result::invalid_state;
       }
       auto* type = find_type_unlocked(type_id);
       if (type == nullptr) {
-        return GNEISS_ERROR_NOT_FOUND;
+        return gneiss::engine::core::result::not_found;
       }
       auto found = std::ranges::find_if(
           type->fields, [field_id](const field_record& field) { return field.id == field_id; });
       if (found == type->fields.end()) {
-        return GNEISS_ERROR_NOT_FOUND;
+        return gneiss::engine::core::result::not_found;
       }
       if ((found->flags & GNEISS_FIELD_FLAG_READ_ONLY) != 0U &&
           (desc.setter != nullptr || desc.candidate_setter != nullptr)) {
-        return GNEISS_ERROR_INVALID_ARGUMENT;
+        return gneiss::engine::core::result::invalid_argument;
       }
       const property_accessor requested{
           .kind = desc.kind,
           .getter = desc.getter,
           .setter = desc.setter,
+          .getter_identity = desc.getter_identity,
+          .setter_identity = desc.setter_identity,
           .user_data = desc.user_data,
           .candidate_setter = desc.candidate_setter,
       };
       if (found->accessor.kind != GNEISS_PROPERTY_KIND_INVALID) {
         const auto& current = found->accessor;
-        return current.kind == requested.kind && current.getter == requested.getter &&
-                       current.setter == requested.setter &&
+        return current.kind == requested.kind &&
+                       same_callback(current.getter, requested.getter, current.getter_identity,
+                                     requested.getter_identity) &&
+                       same_callback(current.setter, requested.setter, current.setter_identity,
+                                     requested.setter_identity) &&
                        current.user_data == requested.user_data &&
                        current.candidate_setter == requested.candidate_setter
-                   ? GNEISS_SUCCESS
-                   : GNEISS_ERROR_INVALID_ARGUMENT;
+                   ? gneiss::engine::core::result::success
+                   : gneiss::engine::core::result::invalid_argument;
       }
       found->accessor = requested;
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     } catch (...) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
   }
 
-  [[nodiscard]] gneiss_result freeze() noexcept {
+  [[nodiscard]] gneiss::engine::core::result freeze() noexcept {
     try {
       std::unique_lock lock(mutex_);
       if (is_frozen_) {
-        return GNEISS_SUCCESS;
+        return gneiss::engine::core::result::success;
       }
       std::ranges::sort(types_, [](const auto& left, const auto& right) {
         return to_bytes(left->id) < to_bytes(right->id);
@@ -315,195 +338,197 @@ public:
                       .field_count = static_cast<std::uint32_t>(type->fields.size())};
       }
       is_frozen_ = true;
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     } catch (...) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
   }
 
-  [[nodiscard]] gneiss_result get_property(gneiss_type_id type_id, gneiss_field_id field_id,
-                                           gneiss_property_target target,
-                                           gneiss_property_value& output) const noexcept {
+  [[nodiscard]] gneiss::engine::core::result
+  get_property(gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
+               gneiss_property_value& output) const noexcept {
     property_accessor accessor;
     const auto lookup = find_accessor(type_id, field_id, accessor);
-    if (lookup != GNEISS_SUCCESS) {
+    if (lookup != gneiss::engine::core::result::success) {
       return lookup;
     }
     if (accessor.getter == nullptr) {
-      return GNEISS_ERROR_UNSUPPORTED;
+      return gneiss::engine::core::result::unsupported;
     }
     output = GNEISS_PROPERTY_VALUE_INIT;
-    gneiss_result result = GNEISS_ERROR_INTERNAL;
+    gneiss::engine::core::result result = gneiss::engine::core::result::internal;
     try {
       result = accessor.getter(accessor.user_data, target, &output);
     } catch (...) {
       output = GNEISS_PROPERTY_VALUE_INIT;
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
-    if (result != GNEISS_SUCCESS) {
+    if (result != gneiss::engine::core::result::success) {
       output = GNEISS_PROPERTY_VALUE_INIT;
       return result;
     }
     if (output.kind != accessor.kind || !is_valid_property_value(output)) {
       output = GNEISS_PROPERTY_VALUE_INIT;
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
 
-  [[nodiscard]] gneiss_result set_property(gneiss_type_id type_id, gneiss_field_id field_id,
-                                           gneiss_property_target target,
-                                           const gneiss_property_value& value) const noexcept {
+  [[nodiscard]] gneiss::engine::core::result
+  set_property(gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
+               const gneiss_property_value& value) const noexcept {
     if (!is_valid_property_value(value)) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     property_accessor accessor;
     const auto lookup = find_accessor(type_id, field_id, accessor);
-    if (lookup != GNEISS_SUCCESS) {
+    if (lookup != gneiss::engine::core::result::success) {
       return lookup;
     }
     if (accessor.setter == nullptr) {
-      return GNEISS_ERROR_UNSUPPORTED;
+      return gneiss::engine::core::result::unsupported;
     }
     if (value.kind != accessor.kind) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     try {
       return accessor.setter(accessor.user_data, target, &value);
     } catch (...) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
   }
 
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   set_candidate_property(gneiss_type_id type_id, gneiss_field_id field_id, void* candidate,
                          const gneiss_property_value& value) const noexcept {
     if (candidate == nullptr || !is_valid_property_value(value)) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     property_accessor accessor;
     const auto lookup = find_accessor(type_id, field_id, accessor);
-    if (lookup != GNEISS_SUCCESS) {
+    if (lookup != gneiss::engine::core::result::success) {
       return lookup;
     }
     if (accessor.candidate_setter == nullptr) {
-      return GNEISS_ERROR_UNSUPPORTED;
+      return gneiss::engine::core::result::unsupported;
     }
     if (value.kind != accessor.kind) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     try {
       return accessor.candidate_setter(accessor.user_data, candidate, value);
     } catch (...) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
   }
 
-  [[nodiscard]] gneiss_result is_frozen(std::uint8_t& output) const noexcept {
+  [[nodiscard]] gneiss::engine::core::result is_frozen(std::uint8_t& output) const noexcept {
     try {
       std::shared_lock lock(mutex_);
       output = is_frozen_ ? UINT8_C(1) : UINT8_C(0);
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     } catch (...) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
   }
 
-  [[nodiscard]] gneiss_result type_count(std::uint32_t& output) const noexcept {
+  [[nodiscard]] gneiss::engine::core::result type_count(std::uint32_t& output) const noexcept {
     try {
       std::shared_lock lock(mutex_);
       if (!is_frozen_) {
-        return GNEISS_ERROR_NOT_READY;
+        return gneiss::engine::core::result::not_ready;
       }
       output = static_cast<std::uint32_t>(types_.size());
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     } catch (...) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
   }
 
-  [[nodiscard]] gneiss_result type_at(std::uint32_t index,
-                                      gneiss_type_info& output) const noexcept {
+  [[nodiscard]] gneiss::engine::core::result type_at(std::uint32_t index,
+                                                     gneiss_type_info& output) const noexcept {
     try {
       std::shared_lock lock(mutex_);
       if (!is_frozen_) {
-        return GNEISS_ERROR_NOT_READY;
+        return gneiss::engine::core::result::not_ready;
       }
       if (index >= types_.size()) {
-        return GNEISS_ERROR_NOT_FOUND;
+        return gneiss::engine::core::result::not_found;
       }
       output = types_[index]->info;
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     } catch (...) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
   }
 
-  [[nodiscard]] gneiss_result find_type(gneiss_type_id id,
-                                        gneiss_type_info& output) const noexcept {
+  [[nodiscard]] gneiss::engine::core::result find_type(gneiss_type_id id,
+                                                       gneiss_type_info& output) const noexcept {
     try {
       std::shared_lock lock(mutex_);
       if (!is_frozen_) {
-        return GNEISS_ERROR_NOT_READY;
+        return gneiss::engine::core::result::not_ready;
       }
       const auto* found = find_type_unlocked(id);
       if (found == nullptr) {
-        return GNEISS_ERROR_NOT_FOUND;
+        return gneiss::engine::core::result::not_found;
       }
       output = found->info;
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     } catch (...) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
   }
 
-  [[nodiscard]] gneiss_result find_field(gneiss_type_id type_id, gneiss_field_id field_id,
-                                         gneiss_field_info& output) const noexcept {
+  [[nodiscard]] gneiss::engine::core::result find_field(gneiss_type_id type_id,
+                                                        gneiss_field_id field_id,
+                                                        gneiss_field_info& output) const noexcept {
     try {
       std::shared_lock lock(mutex_);
       if (!is_frozen_) {
-        return GNEISS_ERROR_NOT_READY;
+        return gneiss::engine::core::result::not_ready;
       }
       const auto* type = find_type_unlocked(type_id);
       if (type == nullptr) {
-        return GNEISS_ERROR_NOT_FOUND;
+        return gneiss::engine::core::result::not_found;
       }
       const auto found = std::ranges::find_if(
           type->fields, [field_id](const field_record& field) { return field.id == field_id; });
       if (found == type->fields.end()) {
-        return GNEISS_ERROR_NOT_FOUND;
+        return gneiss::engine::core::result::not_found;
       }
       output = found->info;
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     } catch (...) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
   }
 
 private:
-  [[nodiscard]] gneiss_result find_accessor(gneiss_type_id type_id, gneiss_field_id field_id,
-                                            property_accessor& output) const noexcept {
+  [[nodiscard]] gneiss::engine::core::result
+  find_accessor(gneiss_type_id type_id, gneiss_field_id field_id,
+                property_accessor& output) const noexcept {
     try {
       std::shared_lock lock(mutex_);
       if (!is_frozen_) {
-        return GNEISS_ERROR_NOT_READY;
+        return gneiss::engine::core::result::not_ready;
       }
       const auto* type = find_type_unlocked(type_id);
       if (type == nullptr) {
-        return GNEISS_ERROR_NOT_FOUND;
+        return gneiss::engine::core::result::not_found;
       }
       const auto found = std::ranges::find_if(
           type->fields, [field_id](const field_record& field) { return field.id == field_id; });
       if (found == type->fields.end()) {
-        return GNEISS_ERROR_NOT_FOUND;
+        return gneiss::engine::core::result::not_found;
       }
       if (found->accessor.kind == GNEISS_PROPERTY_KIND_INVALID) {
-        return GNEISS_ERROR_UNSUPPORTED;
+        return gneiss::engine::core::result::unsupported;
       }
       output = found->accessor;
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     } catch (...) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
   }
 
@@ -541,94 +566,101 @@ gneiss::engine::core::rid_table<registry_pointer> registry_table(UINT16_C(0x5459
 } // namespace
 
 registry_ref resolve(gneiss_type_registry registry) { return get_registry(registry); }
-gneiss_result create_native(registry_ref& output) noexcept {
+gneiss::engine::core::result create_native(registry_ref& output) noexcept {
   try {
     output = std::make_shared<type_registry_state>();
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
-gneiss_result create(gneiss_type_registry& output) noexcept {
+gneiss::engine::core::result create(gneiss_type_registry& output) noexcept {
   output = GNEISS_NULL_TYPE_REGISTRY;
   try {
     registry_ref registry;
     const auto status = create_native(registry);
-    if (status != GNEISS_SUCCESS) {
+    if (status != gneiss::engine::core::result::success) {
       return status;
     }
     std::scoped_lock lock(registry_table_mutex);
     return registry_table.create(gneiss::engine::core::resource_type::type_registry,
                                  std::move(registry), &output);
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
-gneiss_result destroy(gneiss_type_registry registry) noexcept {
+gneiss::engine::core::result destroy(gneiss_type_registry registry) noexcept {
   try {
     std::scoped_lock lock(registry_table_mutex);
     return registry_table.destroy(registry, gneiss::engine::core::resource_type::type_registry);
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
-gneiss_result register_type(const registry_ref& state, const type_definition& desc) noexcept {
-  return state ? state->register_type(desc) : GNEISS_ERROR_INVALID_HANDLE;
+gneiss::engine::core::result register_type(const registry_ref& state,
+                                           const type_definition& desc) noexcept {
+  return state ? state->register_type(desc) : gneiss::engine::core::result::invalid_handle;
 }
-gneiss_result bind_property(const registry_ref& state, gneiss_type_id type_id,
-                            gneiss_field_id field_id, const property_binding& desc) noexcept {
-  return state ? state->bind_property(type_id, field_id, desc) : GNEISS_ERROR_INVALID_HANDLE;
+gneiss::engine::core::result bind_property(const registry_ref& state, gneiss_type_id type_id,
+                                           gneiss_field_id field_id,
+                                           const property_binding& desc) noexcept {
+  return state ? state->bind_property(type_id, field_id, desc)
+               : gneiss::engine::core::result::invalid_handle;
 }
-gneiss_result freeze(const registry_ref& state) noexcept {
-  return state ? state->freeze() : GNEISS_ERROR_INVALID_HANDLE;
+gneiss::engine::core::result freeze(const registry_ref& state) noexcept {
+  return state ? state->freeze() : gneiss::engine::core::result::invalid_handle;
 }
-gneiss_result is_frozen(const registry_ref& state, std::uint8_t& output) noexcept {
-  return state ? state->is_frozen(output) : GNEISS_ERROR_INVALID_HANDLE;
+gneiss::engine::core::result is_frozen(const registry_ref& state, std::uint8_t& output) noexcept {
+  return state ? state->is_frozen(output) : gneiss::engine::core::result::invalid_handle;
 }
-gneiss_result type_count(const registry_ref& state, std::uint32_t& output) noexcept {
-  return state ? state->type_count(output) : GNEISS_ERROR_INVALID_HANDLE;
+gneiss::engine::core::result type_count(const registry_ref& state, std::uint32_t& output) noexcept {
+  return state ? state->type_count(output) : gneiss::engine::core::result::invalid_handle;
 }
-gneiss_result type_at(const registry_ref& state, std::uint32_t index,
-                      gneiss_type_info& output) noexcept {
-  return state ? state->type_at(index, output) : GNEISS_ERROR_INVALID_HANDLE;
+gneiss::engine::core::result type_at(const registry_ref& state, std::uint32_t index,
+                                     gneiss_type_info& output) noexcept {
+  return state ? state->type_at(index, output) : gneiss::engine::core::result::invalid_handle;
 }
-gneiss_result find_type(const registry_ref& state, gneiss_type_id id,
-                        gneiss_type_info& output) noexcept {
-  return state ? state->find_type(id, output) : GNEISS_ERROR_INVALID_HANDLE;
+gneiss::engine::core::result find_type(const registry_ref& state, gneiss_type_id id,
+                                       gneiss_type_info& output) noexcept {
+  return state ? state->find_type(id, output) : gneiss::engine::core::result::invalid_handle;
 }
-gneiss_result find_field(const registry_ref& state, gneiss_type_id type_id,
-                         gneiss_field_id field_id, gneiss_field_info& output) noexcept {
-  return state ? state->find_field(type_id, field_id, output) : GNEISS_ERROR_INVALID_HANDLE;
+gneiss::engine::core::result find_field(const registry_ref& state, gneiss_type_id type_id,
+                                        gneiss_field_id field_id,
+                                        gneiss_field_info& output) noexcept {
+  return state ? state->find_field(type_id, field_id, output)
+               : gneiss::engine::core::result::invalid_handle;
 }
-gneiss_result get_property(const registry_ref& state, gneiss_type_id type_id,
-                           gneiss_field_id field_id, gneiss_property_target target,
-                           gneiss_property_value& output) noexcept {
+gneiss::engine::core::result get_property(const registry_ref& state, gneiss_type_id type_id,
+                                          gneiss_field_id field_id, gneiss_property_target target,
+                                          gneiss_property_value& output) noexcept {
   return state ? state->get_property(type_id, field_id, target, output)
-               : GNEISS_ERROR_INVALID_HANDLE;
+               : gneiss::engine::core::result::invalid_handle;
 }
-gneiss_result set_property(const registry_ref& state, gneiss_type_id type_id,
-                           gneiss_field_id field_id, gneiss_property_target target,
-                           const gneiss_property_value& value) noexcept {
+gneiss::engine::core::result set_property(const registry_ref& state, gneiss_type_id type_id,
+                                          gneiss_field_id field_id, gneiss_property_target target,
+                                          const gneiss_property_value& value) noexcept {
   return state ? state->set_property(type_id, field_id, target, value)
-               : GNEISS_ERROR_INVALID_HANDLE;
+               : gneiss::engine::core::result::invalid_handle;
 }
 
-gneiss_result set_candidate_property(const registry_ref& state, gneiss_type_id type_id,
-                                     gneiss_field_id field_id, void* candidate,
-                                     const gneiss_property_value& value) noexcept {
+gneiss::engine::core::result set_candidate_property(const registry_ref& state,
+                                                    gneiss_type_id type_id,
+                                                    gneiss_field_id field_id, void* candidate,
+                                                    const gneiss_property_value& value) noexcept {
   return state ? state->set_candidate_property(type_id, field_id, candidate, value)
-               : GNEISS_ERROR_INVALID_HANDLE;
+               : gneiss::engine::core::result::invalid_handle;
 }
 } // namespace gneiss::engine::core::reflection
 
 namespace gneiss::engine::core::reflection {
-result describe_type(const registry_ref& registry, type_id id, type_info& output) noexcept try {
+gneiss::engine::core::result describe_type(const registry_ref& registry, type_id id,
+                                           type_info& output) noexcept try {
   gneiss_type_info source{};
-  const auto operation = from_native(find_type(registry, to_native(id), source));
+  const auto operation = find_type(registry, to_native(id), source);
   if (operation.failed()) {
     return operation;
   }
@@ -651,16 +683,16 @@ result describe_type(const registry_ref& registry, type_id id, type_info& output
     });
   }
   output = std::move(pending);
-  return result::success;
+  return gneiss::engine::core::result::success;
 } catch (const std::bad_alloc&) {
-  return result::out_of_memory;
+  return gneiss::engine::core::result::out_of_memory;
 } catch (...) {
-  return result::internal;
+  return gneiss::engine::core::result::internal;
 }
-result describe_field(const registry_ref& registry, type_id type, field_id field,
-                      field_info& output) noexcept {
+gneiss::engine::core::result describe_field(const registry_ref& registry, type_id type,
+                                            field_id field, field_info& output) noexcept {
   gneiss_field_info source{};
-  const auto operation = from_native(find_field(registry, to_native(type), field.get(), source));
+  const auto operation = find_field(registry, to_native(type), field.get(), source);
   if (operation.failed()) {
     return operation;
   }
@@ -672,18 +704,18 @@ result describe_field(const registry_ref& registry, type_id type, field_id field
       .kind = static_cast<property_kind>(source.property_kind),
       .capabilities = static_cast<property_capabilities>(source.property_capabilities),
   };
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
-result read_property(const registry_ref& registry, type_id type, field_id field,
-                     property_target target, property_value& output) noexcept try {
+gneiss::engine::core::result read_property(const registry_ref& registry, type_id type,
+                                           field_id field, property_target target,
+                                           property_value& output) noexcept try {
   gneiss_property_value raw = GNEISS_PROPERTY_VALUE_INIT;
-  auto operation =
-      from_native(get_property(registry, to_native(type), field.get(), to_native(target), raw));
+  auto operation = get_property(registry, to_native(type), field.get(), to_native(target), raw);
   if (operation.failed()) {
     return operation;
   }
   gneiss::property_value borrowed;
-  operation = from_native(raw, borrowed);
+  operation = core::result{from_native(raw, borrowed).native()};
   if (operation.failed()) {
     return operation;
   }
@@ -698,16 +730,17 @@ result read_property(const registry_ref& registry, type_id type, field_id field,
       },
       borrowed.payload);
   output = std::move(pending);
-  return result::success;
+  return gneiss::engine::core::result::success;
 } catch (const std::bad_alloc&) {
-  return result::out_of_memory;
+  return gneiss::engine::core::result::out_of_memory;
 } catch (...) {
-  return result::internal;
+  return gneiss::engine::core::result::internal;
 }
-result write_property(const registry_ref& registry, type_id type, field_id field,
-                      property_target target, const property_value& value) noexcept try {
+gneiss::engine::core::result write_property(const registry_ref& registry, type_id type,
+                                            field_id field, property_target target,
+                                            const property_value& value) noexcept try {
   if (value.payload.valueless_by_exception()) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   gneiss::property_value borrowed;
   std::visit(
@@ -720,14 +753,14 @@ result write_property(const registry_ref& registry, type_id type, field_id field
       },
       value.payload);
   gneiss_property_value raw = GNEISS_PROPERTY_VALUE_INIT;
-  const auto operation = to_native(borrowed, raw);
+  const core::result operation{to_native(borrowed, raw).native()};
   if (operation.failed()) {
     return operation;
   }
-  return from_native(set_property(registry, to_native(type), field.get(), to_native(target), raw));
+  return set_property(registry, to_native(type), field.get(), to_native(target), raw);
 } catch (const std::bad_alloc&) {
-  return result::out_of_memory;
+  return gneiss::engine::core::result::out_of_memory;
 } catch (...) {
-  return result::internal;
+  return gneiss::engine::core::result::internal;
 }
 } // namespace gneiss::engine::core::reflection

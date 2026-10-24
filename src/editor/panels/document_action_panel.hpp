@@ -3,11 +3,12 @@
 
 #pragma once
 #include "documents/document_actions.hpp"
+#include "engine/core/result.hpp"
 namespace gneiss::editor {
 /** 回调仅在本次绘制内同步调用，面板不保存 context；两项回调均必需。 */
 struct document_action_callbacks final {
   void* context = nullptr;
-  result (*save)(void*) = nullptr;
+  gneiss::engine::core::result (*save)(void*) = nullptr;
   void (*perform)(void*, document_action) = nullptr;
 };
 /** 未保存确认弹窗；保存失败保持打开，成功或放弃后只派发一次动作。 */

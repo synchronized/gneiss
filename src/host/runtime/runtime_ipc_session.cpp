@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_ipc_session.hpp"
+#include "engine/core/result.hpp"
 
 #include "ipc/outbound/runtime_ipc_outbound.hpp"
 #include "ipc/runtime_commands.hpp"
@@ -18,7 +19,7 @@ struct runtime_ipc_session::implementation final {
   explicit implementation(runtime_ipc_config value)
       : config(std::move(value)), handshake_deadline(config.handshake_timeout),
         heartbeat_deadline(config.heartbeat_timeout) {
-    router_ready = register_runtime_commands(router) == result::success;
+    router_ready = register_runtime_commands(router) == gneiss::engine::core::result::success;
   }
 
   runtime_ipc_config config;
@@ -34,10 +35,10 @@ struct runtime_ipc_session::implementation final {
   bool wants_running = false;
   std::deque<gneiss::engine::platform::ipc_envelope> pending_inspection_frames;
 
-  result dispatch(const gneiss::engine::platform::ipc_envelope& envelope,
-                  runtime_ipc_actions& actions) noexcept {
+  gneiss::engine::core::result dispatch(const gneiss::engine::platform::ipc_envelope& envelope,
+                                        runtime_ipc_actions& actions) noexcept {
     if (!router_ready) {
-      return result::invalid_state;
+      return gneiss::engine::core::result::invalid_state;
     }
     const gneiss::engine::platform::ipc_dispatch_context dispatch_context{
         .remote_role = gneiss::engine::platform::ipc_peer_role::editor,
@@ -48,31 +49,31 @@ struct runtime_ipc_session::implementation final {
     if (!outcome.accepted()) {
       return outcome.rejection == gneiss::engine::platform::ipc_dispatch_rejection::handler_failed
                  ? outcome.handler_result
-                 : result::invalid_argument;
+                 : gneiss::engine::core::result::invalid_argument;
     }
-    return result::success;
+    return gneiss::engine::core::result::success;
   }
 
-  static result send_from_command(void* context,
-                                  gneiss::engine::platform::ipc_envelope envelope) noexcept {
+  static gneiss::engine::core::result
+  send_from_command(void* context, gneiss::engine::platform::ipc_envelope envelope) noexcept {
     return static_cast<implementation*>(context)->send(std::move(envelope));
   }
 
-  result flush_inspection() noexcept {
+  gneiss::engine::core::result flush_inspection() noexcept {
     while (!pending_inspection_frames.empty() && transport.pending_write_count() < 48U) {
       const auto operation = transport.send(pending_inspection_frames.front());
-      if (operation == result::not_ready) {
-        return result::success;
+      if (operation == gneiss::engine::core::result::not_ready) {
+        return gneiss::engine::core::result::success;
       }
-      if (operation != result::success) {
+      if (operation != gneiss::engine::core::result::success) {
         return operation;
       }
       pending_inspection_frames.pop_front();
     }
-    return result::success;
+    return gneiss::engine::core::result::success;
   }
 
-  result send(gneiss::engine::platform::ipc_envelope envelope) noexcept {
+  gneiss::engine::core::result send(gneiss::engine::platform::ipc_envelope envelope) noexcept {
     return transport.send(envelope);
   }
 
@@ -82,28 +83,30 @@ struct runtime_ipc_session::implementation final {
            negotiated_domains.end();
   }
 
-  result send_state(ipc_control_state state) noexcept {
+  gneiss::engine::core::result send_state(ipc_control_state state) noexcept {
     gneiss::engine::platform::ipc_envelope envelope;
     const auto operation = make_state_event(state, envelope);
-    return operation == result::success ? send(std::move(envelope)) : operation;
+    return operation == gneiss::engine::core::result::success ? send(std::move(envelope))
+                                                              : operation;
   }
 
-  result enter_running() noexcept {
+  gneiss::engine::core::result enter_running() noexcept {
     gneiss::engine::platform::ipc_envelope ready;
     auto operation = make_ready_event(ready);
-    if (operation == result::success) {
+    if (operation == gneiss::engine::core::result::success) {
       operation = send(std::move(ready));
     }
-    if (operation == result::success) {
+    if (operation == gneiss::engine::core::result::success) {
       operation = send_state(ipc_control_state::running);
     }
-    if (operation == result::success) {
+    if (operation == gneiss::engine::core::result::success) {
       current_state = runtime_ipc_state::running;
     }
     return operation;
   }
 
-  result fail(result operation, runtime_ipc_actions& actions) noexcept {
+  gneiss::engine::core::result fail(gneiss::engine::core::result operation,
+                                    runtime_ipc_actions& actions) noexcept {
     current_state = runtime_ipc_state::failed;
     actions.request_exit = true;
     actions.failure = operation;
@@ -120,26 +123,27 @@ runtime_ipc_session::~runtime_ipc_session() {
   }
 }
 
-result runtime_ipc_session::start(clock::time_point now) noexcept {
+gneiss::engine::core::result runtime_ipc_session::start(clock::time_point now) noexcept {
   if (!implementation_ || implementation_->current_state != runtime_ipc_state::stopped ||
       implementation_->config.session_token.empty()) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
   const auto operation = implementation_->transport.start_client(implementation_->config.endpoint);
-  if (operation != result::success) {
+  if (operation != gneiss::engine::core::result::success) {
     implementation_->current_state = runtime_ipc_state::failed;
     return operation;
   }
   implementation_->handshake_deadline.reset(now);
   implementation_->current_state = runtime_ipc_state::connecting;
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
-result runtime_ipc_session::pump(clock::time_point now, runtime_ipc_actions& actions) noexcept {
+gneiss::engine::core::result runtime_ipc_session::pump(clock::time_point now,
+                                                       runtime_ipc_actions& actions) noexcept {
   actions = {};
   if (!implementation_ || implementation_->current_state == runtime_ipc_state::stopped ||
       implementation_->current_state == runtime_ipc_state::failed) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
   std::vector<gneiss::engine::platform::ipc_transport_event> events;
   (void)implementation_->transport.poll_events(events);
@@ -148,10 +152,10 @@ result runtime_ipc_session::pump(clock::time_point now, runtime_ipc_actions& act
       gneiss::engine::platform::ipc_envelope hello;
       auto operation = make_session_hello_event(implementation_->config.session_token,
                                                 implementation_->requested_domains, 1U, hello);
-      if (operation == result::success) {
+      if (operation == gneiss::engine::core::result::success) {
         operation = implementation_->transport.send(hello);
       }
-      if (operation != result::success) {
+      if (operation != gneiss::engine::core::result::success) {
         return implementation_->fail(operation, actions);
       }
       implementation_->current_state = runtime_ipc_state::authenticating;
@@ -159,7 +163,9 @@ result runtime_ipc_session::pump(clock::time_point now, runtime_ipc_actions& act
     }
     if (event.type == gneiss::engine::platform::ipc_transport_event_type::disconnected ||
         event.type == gneiss::engine::platform::ipc_transport_event_type::error) {
-      const auto operation = event.operation == result::success ? result::io : event.operation;
+      const auto operation = event.operation == gneiss::engine::core::result::success
+                                 ? gneiss::engine::core::result::io
+                                 : event.operation;
       return implementation_->fail(operation, actions);
     }
     if (event.type != gneiss::engine::platform::ipc_transport_event_type::envelope_received) {
@@ -169,13 +175,15 @@ result runtime_ipc_session::pump(clock::time_point now, runtime_ipc_actions& act
     if (implementation_->current_state == runtime_ipc_state::authenticating) {
       ipc_session_hello hello;
       const auto operation = decode_ipc_session_hello(event.envelope, hello);
-      if (operation != result::success ||
+      if (operation != gneiss::engine::core::result::success ||
           event.envelope.domain != gneiss::engine::platform::ipc_domain::session ||
           event.envelope.operation != static_cast<std::uint16_t>(ipc_session_operation::hello) ||
           event.envelope.kind != gneiss::engine::platform::ipc_message_kind::response ||
           event.envelope.request_id != 1U) {
-        return implementation_->fail(
-            operation == result::success ? result::invalid_argument : operation, actions);
+        return implementation_->fail(operation == gneiss::engine::core::result::success
+                                         ? gneiss::engine::core::result::invalid_argument
+                                         : operation,
+                                     actions);
       }
       implementation_->negotiated_domains = std::move(hello.domains);
       if (std::ranges::any_of(implementation_->negotiated_domains, [&](const auto negotiated) {
@@ -185,15 +193,15 @@ result runtime_ipc_session::pump(clock::time_point now, runtime_ipc_actions& act
             return requested == implementation_->requested_domains.end() ||
                    negotiated.version == 0U || negotiated.version > requested->version;
           })) {
-        return implementation_->fail(result::invalid_argument, actions);
+        return implementation_->fail(gneiss::engine::core::result::invalid_argument, actions);
       }
       if (!implementation_->negotiated(gneiss::engine::platform::ipc_domain::control)) {
-        return implementation_->fail(result::unsupported, actions);
+        return implementation_->fail(gneiss::engine::core::result::unsupported, actions);
       }
       implementation_->heartbeat_deadline.reset(now);
       if (implementation_->wants_running) {
         const auto running = implementation_->enter_running();
-        if (running != result::success) {
+        if (running != gneiss::engine::core::result::success) {
           return implementation_->fail(running, actions);
         }
       }
@@ -201,7 +209,7 @@ result runtime_ipc_session::pump(clock::time_point now, runtime_ipc_actions& act
     }
 
     const auto handled = implementation_->dispatch(event.envelope, actions);
-    if (handled != result::success) {
+    if (handled != gneiss::engine::core::result::success) {
       return implementation_->fail(handled, actions);
     }
     implementation_->heartbeat_deadline.reset(now);
@@ -210,76 +218,80 @@ result runtime_ipc_session::pump(clock::time_point now, runtime_ipc_actions& act
   if ((implementation_->current_state == runtime_ipc_state::connecting ||
        implementation_->current_state == runtime_ipc_state::authenticating) &&
       implementation_->handshake_deadline.expired(now)) {
-    return implementation_->fail(result::not_ready, actions);
+    return implementation_->fail(gneiss::engine::core::result::not_ready, actions);
   }
   if ((implementation_->current_state == runtime_ipc_state::running ||
        implementation_->current_state == runtime_ipc_state::paused) &&
       implementation_->heartbeat_deadline.expired(now)) {
-    return implementation_->fail(result::not_ready, actions);
+    return implementation_->fail(gneiss::engine::core::result::not_ready, actions);
   }
   if (implementation_->current_state == runtime_ipc_state::running ||
       implementation_->current_state == runtime_ipc_state::paused) {
     const auto flushed = implementation_->flush_inspection();
-    if (flushed != result::success) {
+    if (flushed != gneiss::engine::core::result::success) {
       return implementation_->fail(flushed, actions);
     }
   }
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
-result runtime_ipc_session::notify_running() noexcept {
+gneiss::engine::core::result runtime_ipc_session::notify_running() noexcept {
   if (!implementation_ || implementation_->current_state == runtime_ipc_state::failed ||
       implementation_->current_state == runtime_ipc_state::stopped) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
   implementation_->wants_running = true;
   if (implementation_->current_state == runtime_ipc_state::authenticating ||
       implementation_->current_state == runtime_ipc_state::connecting) {
-    return result::success;
+    return gneiss::engine::core::result::success;
   }
   return implementation_->enter_running();
 }
 
-result runtime_ipc_session::notify_shutdown(std::int32_t exit_code) noexcept {
+gneiss::engine::core::result runtime_ipc_session::notify_shutdown(std::int32_t exit_code) noexcept {
   if (!implementation_ || implementation_->current_state == runtime_ipc_state::stopped ||
       implementation_->current_state == runtime_ipc_state::failed) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
   implementation_->current_state = runtime_ipc_state::stopping;
   auto operation = implementation_->send_state(ipc_control_state::stopping);
-  if (operation == result::success) {
+  if (operation == gneiss::engine::core::result::success) {
     gneiss::engine::platform::ipc_envelope envelope;
     operation = make_shutdown_event(exit_code, envelope);
-    if (operation == result::success) {
+    if (operation == gneiss::engine::core::result::success) {
       operation = implementation_->send(std::move(envelope));
     }
   }
   return operation;
 }
 
-result runtime_ipc_session::notify_log_event(const gneiss_log_event& event) noexcept {
+gneiss::engine::core::result
+runtime_ipc_session::notify_log_event(const gneiss_log_event& event) noexcept {
   if (!implementation_ || (implementation_->current_state != runtime_ipc_state::running &&
                            implementation_->current_state != runtime_ipc_state::paused)) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   gneiss::engine::platform::ipc_envelope envelope;
   const auto operation = make_log_event(event, envelope);
-  return operation == result::success ? implementation_->send(std::move(envelope)) : operation;
+  return operation == gneiss::engine::core::result::success
+             ? implementation_->send(std::move(envelope))
+             : operation;
 }
 
-result runtime_ipc_session::notify_scene_snapshot(const ipc_inspection_batch& batch) noexcept {
+gneiss::engine::core::result
+runtime_ipc_session::notify_scene_snapshot(const ipc_inspection_batch& batch) noexcept {
   if (!implementation_ ||
       !implementation_->negotiated(gneiss::engine::platform::ipc_domain::inspection) ||
       (implementation_->current_state != runtime_ipc_state::running &&
        implementation_->current_state != runtime_ipc_state::paused)) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   if (!implementation_->pending_inspection_frames.empty()) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   std::vector<gneiss::engine::platform::ipc_envelope> frames;
   const auto operation = make_scene_snapshot_events(batch, frames);
-  if (operation != result::success) {
+  if (operation != gneiss::engine::core::result::success) {
     return operation;
   }
   implementation_->pending_inspection_frames.insert(
@@ -288,44 +300,52 @@ result runtime_ipc_session::notify_scene_snapshot(const ipc_inspection_batch& ba
   return implementation_->flush_inspection();
 }
 
-result runtime_ipc_session::notify_property_write_result(
+gneiss::engine::core::result runtime_ipc_session::notify_property_write_result(
     const ipc_property_write_result& response) noexcept {
   if (!implementation_ ||
       !implementation_->negotiated(gneiss::engine::platform::ipc_domain::property) ||
       (implementation_->current_state != runtime_ipc_state::running &&
        implementation_->current_state != runtime_ipc_state::paused)) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   gneiss::engine::platform::ipc_envelope envelope;
   const auto operation = make_property_write_result_event(
       response, static_cast<std::uint32_t>(response.command_id), envelope);
-  return operation == result::success ? implementation_->transport.send(envelope) : operation;
+  return operation == gneiss::engine::core::result::success
+             ? implementation_->transport.send(envelope)
+             : operation;
 }
 
-result runtime_ipc_session::notify_asset_reload_result(const ipc_asset_reload_result& response,
-                                                       ipc_asset_operation operation,
-                                                       std::uint32_t request_id) noexcept {
+gneiss::engine::core::result
+runtime_ipc_session::notify_asset_reload_result(const ipc_asset_reload_result& response,
+                                                ipc_asset_operation operation,
+                                                std::uint32_t request_id) noexcept {
   if (!implementation_ ||
       !implementation_->negotiated(gneiss::engine::platform::ipc_domain::asset) ||
       (implementation_->current_state != runtime_ipc_state::running &&
        implementation_->current_state != runtime_ipc_state::paused)) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   gneiss::engine::platform::ipc_envelope envelope;
   const auto encoded = make_asset_reload_result(response, operation, request_id, envelope);
-  return encoded == result::success ? implementation_->transport.send(envelope) : encoded;
+  return encoded == gneiss::engine::core::result::success
+             ? implementation_->transport.send(envelope)
+             : encoded;
 }
 
-result runtime_ipc_session::notify_scene_progress(const ipc_scene_progress& value,
-                                                  std::uint32_t request_id) noexcept {
+gneiss::engine::core::result
+runtime_ipc_session::notify_scene_progress(const ipc_scene_progress& value,
+                                           std::uint32_t request_id) noexcept {
   if (!implementation_ ||
       !implementation_->negotiated(gneiss::engine::platform::ipc_domain::scene) ||
       (implementation_->current_state != runtime_ipc_state::running &&
        implementation_->current_state != runtime_ipc_state::paused))
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   gneiss::engine::platform::ipc_envelope envelope;
   const auto encoded = encode_ipc_scene_progress(value, request_id, envelope);
-  return encoded == result::success ? implementation_->transport.send(envelope) : encoded;
+  return encoded == gneiss::engine::core::result::success
+             ? implementation_->transport.send(envelope)
+             : encoded;
 }
 
 void runtime_ipc_session::discard_pending_inspection() noexcept {
@@ -333,14 +353,17 @@ void runtime_ipc_session::discard_pending_inspection() noexcept {
     implementation_->pending_inspection_frames.clear();
 }
 
-result runtime_ipc_session::notify_statistics(const ipc_runtime_statistics& statistics) noexcept {
+gneiss::engine::core::result
+runtime_ipc_session::notify_statistics(const ipc_runtime_statistics& statistics) noexcept {
   if (!implementation_ || (implementation_->current_state != runtime_ipc_state::running &&
                            implementation_->current_state != runtime_ipc_state::paused)) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   gneiss::engine::platform::ipc_envelope envelope;
   const auto operation = make_statistics_event(statistics, envelope);
-  return operation == result::success ? implementation_->transport.send(envelope) : operation;
+  return operation == gneiss::engine::core::result::success
+             ? implementation_->transport.send(envelope)
+             : operation;
 }
 
 std::size_t runtime_ipc_session::pending_write_count() const noexcept {
@@ -351,17 +374,19 @@ std::size_t runtime_ipc_session::dropped_event_count() const noexcept {
   return implementation_ ? implementation_->transport.dropped_event_count() : 0U;
 }
 
-result runtime_ipc_session::stop() noexcept {
+gneiss::engine::core::result runtime_ipc_session::stop() noexcept {
   if (!implementation_) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
   if (implementation_->current_state == runtime_ipc_state::stopped) {
-    return result::success;
+    return gneiss::engine::core::result::success;
   }
   const auto operation = implementation_->transport.stop();
   implementation_->pending_inspection_frames.clear();
   implementation_->current_state = runtime_ipc_state::stopped;
-  return operation == result::not_ready ? result::success : operation;
+  return operation == gneiss::engine::core::result::not_ready
+             ? gneiss::engine::core::result::success
+             : operation;
 }
 
 runtime_ipc_state runtime_ipc_session::state() const noexcept {

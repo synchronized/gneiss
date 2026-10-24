@@ -5,6 +5,7 @@
 
 #include "commands/editor_command_history.hpp"
 #include "documents/scene_document.hpp"
+#include "engine/core/result.hpp"
 
 namespace gneiss::editor {
 
@@ -16,13 +17,15 @@ struct mesh_asset_reference final {
 
 /** 主线程作者编辑；命令拥有身份和 URI，session 必须活到历史清空。
  * 失败不记录命令；历史记录失败时回滚并恢复原脏状态。 */
-[[nodiscard]] result add_mesh_asset(scene_document& session, editor_command_history& history,
-                                    std::string_view name, mesh_asset_reference assets) noexcept;
-[[nodiscard]] result add_prefab_asset(scene_document& session, editor_command_history& history,
-                                      std::string_view name, std::string_view prefab_uri,
-                                      scene_node_id parent) noexcept;
-[[nodiscard]] result replace_mesh_assets(scene_document& session, editor_command_history& history,
-                                         std::string_view node_uuid,
-                                         mesh_asset_reference assets) noexcept;
+[[nodiscard]] gneiss::engine::core::result add_mesh_asset(scene_document& session,
+                                                          editor_command_history& history,
+                                                          std::string_view name,
+                                                          mesh_asset_reference assets) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+add_prefab_asset(scene_document& session, editor_command_history& history, std::string_view name,
+                 std::string_view prefab_uri, scene_node_id parent) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+replace_mesh_assets(scene_document& session, editor_command_history& history,
+                    std::string_view node_uuid, mesh_asset_reference assets) noexcept;
 
 } // namespace gneiss::editor

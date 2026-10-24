@@ -4,6 +4,7 @@
 #ifndef GNEISS_ASSET_VIRTUAL_FILE_SYSTEM_HPP_
 #define GNEISS_ASSET_VIRTUAL_FILE_SYSTEM_HPP_
 
+#include "engine/core/result.hpp"
 #include "engine/resource/types/asset_identity.hpp"
 #include "engine/resource/vfs/file_system.hpp"
 
@@ -20,27 +21,28 @@ public:
    * 无并发挂载时允许并发查询。类型零无效，URI 保留大小写。
    * 透明后端可转交原始来源身份；其查询失败不会回退到包装挂载身份。
    */
-  [[nodiscard]] gneiss_result identify(std::string_view uri, std::uint32_t type,
-                                       asset_identity& output) const noexcept;
-  [[nodiscard]] gneiss_result open_read(std::string_view uri,
-                                        std::unique_ptr<read_source>& output) const noexcept;
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result identify(std::string_view uri, std::uint32_t type,
+                                                      asset_identity& output) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  open_read(std::string_view uri, std::unique_ptr<read_source>& output) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result
   open_read_for_validation(std::string_view uri,
                            std::unique_ptr<read_source>& output) const noexcept;
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   begin_open_read_for_validation(std::string_view uri,
                                  std::unique_ptr<open_read_operation>& output) const noexcept;
-  [[nodiscard]] gneiss_result mount(std::string_view mount_point,
-                                    std::shared_ptr<file_system> backend) noexcept;
-  [[nodiscard]] gneiss_result read(std::string_view uri,
-                                   std::vector<std::byte>& out_bytes) const noexcept;
-  [[nodiscard]] gneiss_result read_bounded(std::string_view uri, std::size_t limit,
-                                           std::vector<std::byte>& out_bytes) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result mount(std::string_view mount_point,
+                                                   std::shared_ptr<file_system> backend) noexcept;
+  [[nodiscard]] gneiss::engine::core::result read(std::string_view uri,
+                                                  std::vector<std::byte>& out_bytes) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  read_bounded(std::string_view uri, std::size_t limit,
+               std::vector<std::byte>& out_bytes) const noexcept;
   [[nodiscard]] std::size_t mount_count() const noexcept { return mounts_.size(); }
 
 private:
-  gneiss_result open_impl(std::string_view uri, std::unique_ptr<read_source>& output,
-                          bool deferred_validation) const noexcept;
+  gneiss::engine::core::result open_impl(std::string_view uri, std::unique_ptr<read_source>& output,
+                                         bool deferred_validation) const noexcept;
   struct mount_entry final {
     std::string point;
     std::shared_ptr<file_system> backend;

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "console_model.hpp"
+#include "engine/core/result.hpp"
 
 #include <utility>
 #include <vector>
@@ -14,13 +15,15 @@ int main() {
   event.category = "runtime";
   event.message = "first";
   if (first_session == 0U ||
-      model.append_event(first_session, std::move(event)) != gneiss::result::success ||
-      model.append_raw(first_session, "raw") != gneiss::result::success) {
+      model.append_event(first_session, std::move(event)) !=
+          gneiss::engine::core::result::success ||
+      model.append_raw(first_session, "raw") != gneiss::engine::core::result::success) {
     return 1;
   }
   const auto second_session = model.begin_session();
   if (second_session == first_session ||
-      model.append_raw(second_session, "truncated", true) != gneiss::result::success ||
+      model.append_raw(second_session, "truncated", true) !=
+          gneiss::engine::core::result::success ||
       model.entries().size() != 2U || model.dropped_count() != 1U ||
       model.entries().front().session_id != first_session ||
       model.entries().front().kind != gneiss::editor::console_entry_kind::raw ||
@@ -33,18 +36,20 @@ int main() {
   filter.current_session_only = true;
   filter.search = "truncated";
   std::vector<std::size_t> visible;
-  if (model.visible_indices(filter, visible) != gneiss::result::success || visible.size() != 1U ||
-      visible.front() != 1U) {
+  if (model.visible_indices(filter, visible) != gneiss::engine::core::result::success ||
+      visible.size() != 1U || visible.front() != 1U) {
     return 4;
   }
   filter.source = "application";
-  if (model.visible_indices(filter, visible) != gneiss::result::success || !visible.empty()) {
+  if (model.visible_indices(filter, visible) != gneiss::engine::core::result::success ||
+      !visible.empty()) {
     return 5;
   }
   filter = {};
   filter.include_raw = false;
   filter.severity_mask = UINT32_C(1) << GNEISS_LOG_INFO;
-  if (model.visible_indices(filter, visible) != gneiss::result::success || !visible.empty()) {
+  if (model.visible_indices(filter, visible) != gneiss::engine::core::result::success ||
+      !visible.empty()) {
     return 6;
   }
 
@@ -56,7 +61,7 @@ int main() {
   warning.category = "asset";
   warning.message = "missing texture";
   if (structured_model.append_event(structured_session, std::move(warning)) !=
-      gneiss::result::success) {
+      gneiss::engine::core::result::success) {
     return 7;
   }
   filter = {};
@@ -65,14 +70,15 @@ int main() {
   filter.source = "game";
   filter.category = "asset";
   filter.search = "texture";
-  if (structured_model.visible_indices(filter, visible) != gneiss::result::success ||
+  if (structured_model.visible_indices(filter, visible) != gneiss::engine::core::result::success ||
       visible.size() != 1U) {
     return 8;
   }
 
   gneiss::editor::console_model disabled(0U);
-  if (disabled.append_event(disabled.begin_session(), {}) != gneiss::result::invalid_argument ||
-      model.append_event(0U, {}) != gneiss::result::invalid_argument ||
+  if (disabled.append_event(disabled.begin_session(), {}) !=
+          gneiss::engine::core::result::invalid_argument ||
+      model.append_event(0U, {}) != gneiss::engine::core::result::invalid_argument ||
       !disabled.entries().empty()) {
     return 9;
   }

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/result.hpp"
 #include <cstdint>
 #include <filesystem>
 #include <functional>

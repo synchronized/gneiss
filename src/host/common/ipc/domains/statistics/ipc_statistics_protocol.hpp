@@ -6,7 +6,7 @@
 
 #include "ipc_dispatcher.hpp"
 
-#include <gneiss/engine/core/result.hpp>
+#include "engine/core/result.hpp"
 
 #include <cstdint>
 #include <span>
@@ -29,15 +29,17 @@ struct ipc_runtime_statistics final {
   std::uint64_t ipc_dropped_events = 0U;
 };
 
-[[nodiscard]] result encode_ipc_runtime_statistics(const ipc_runtime_statistics& statistics,
-                                                   std::vector<std::uint8_t>& output) noexcept;
-[[nodiscard]] result decode_ipc_runtime_statistics(std::span<const std::uint8_t> payload,
-                                                   ipc_runtime_statistics& output) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+encode_ipc_runtime_statistics(const ipc_runtime_statistics& statistics,
+                              std::vector<std::uint8_t>& output) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+decode_ipc_runtime_statistics(std::span<const std::uint8_t> payload,
+                              ipc_runtime_statistics& output) noexcept;
 
-[[nodiscard]] result
+[[nodiscard]] gneiss::engine::core::result
 encode_ipc_statistics_v2(const ipc_runtime_statistics& statistics,
                          gneiss::engine::platform::ipc_envelope& output) noexcept;
-[[nodiscard]] result
+[[nodiscard]] gneiss::engine::core::result
 decode_ipc_statistics_v2(const gneiss::engine::platform::ipc_envelope& envelope,
                          ipc_runtime_statistics& output) noexcept;
 [[nodiscard]] std::span<const gneiss::engine::platform::ipc_operation_descriptor>

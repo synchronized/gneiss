@@ -4,6 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_IPC_RUNTIME_COMMAND_CONTEXT_H_
 #define GNEISS_APPS_RUNTIME_IPC_RUNTIME_COMMAND_CONTEXT_H_
 
+#include "engine/core/result.hpp"
 #include "ipc_asset_protocol.hpp"
 #include "ipc_control_protocol.hpp"
 #include "ipc_property_protocol.hpp"
@@ -46,13 +47,14 @@ struct runtime_ipc_actions final {
     bool cancel{};
   };
   std::vector<scene_command> scene_commands;
-  result failure = result::success;
+  gneiss::engine::core::result failure = gneiss::engine::core::result::success;
 };
 
 /** 单条 Runtime IPC 命令可访问的最小会话能力，仅在主线程 dispatch 期间有效。 */
 class runtime_command_context final {
 public:
-  using send_callback = result (*)(void*, gneiss::engine::platform::ipc_envelope) noexcept;
+  using send_callback =
+      gneiss::engine::core::result (*)(void*, gneiss::engine::platform::ipc_envelope) noexcept;
 
   runtime_command_context(runtime_ipc_state& state, runtime_ipc_actions& actions,
                           void* send_context, send_callback send) noexcept
@@ -61,12 +63,15 @@ public:
   [[nodiscard]] runtime_ipc_state state() const noexcept { return state_; }
   void set_state(runtime_ipc_state state) noexcept { state_ = state; }
   [[nodiscard]] runtime_ipc_actions& actions() noexcept { return actions_; }
-  [[nodiscard]] result send(gneiss::engine::platform::ipc_envelope envelope) noexcept {
-    return send_ == nullptr ? result::invalid_state : send_(send_context_, std::move(envelope));
+  [[nodiscard]] gneiss::engine::core::result
+  send(gneiss::engine::platform::ipc_envelope envelope) noexcept {
+    return send_ == nullptr ? gneiss::engine::core::result::invalid_state
+                            : send_(send_context_, std::move(envelope));
   }
-  [[nodiscard]] result send_state(ipc_control_state state) noexcept;
-  [[nodiscard]] result send_protocol_error(result operation, std::string message,
-                                           std::uint32_t request_id) noexcept;
+  [[nodiscard]] gneiss::engine::core::result send_state(ipc_control_state state) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  send_protocol_error(gneiss::engine::core::result operation, std::string message,
+                      std::uint32_t request_id) noexcept;
 
 private:
   runtime_ipc_state& state_;

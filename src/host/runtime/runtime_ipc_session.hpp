@@ -4,6 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_RUNTIME_IPC_SESSION_H_
 #define GNEISS_APPS_RUNTIME_RUNTIME_IPC_SESSION_H_
 
+#include "engine/core/result.hpp"
 #include "ipc/runtime_command_context.hpp"
 
 #include "ipc_inspection_protocol.hpp"
@@ -40,24 +41,28 @@ public:
   runtime_ipc_session(const runtime_ipc_session&) = delete;
   runtime_ipc_session& operator=(const runtime_ipc_session&) = delete;
 
-  [[nodiscard]] result start(clock::time_point now) noexcept;
-  [[nodiscard]] result pump(clock::time_point now, runtime_ipc_actions& actions) noexcept;
-  [[nodiscard]] result notify_running() noexcept;
-  [[nodiscard]] result notify_scene_progress(const ipc_scene_progress& value,
-                                             std::uint32_t request_id) noexcept;
+  [[nodiscard]] gneiss::engine::core::result start(clock::time_point now) noexcept;
+  [[nodiscard]] gneiss::engine::core::result pump(clock::time_point now,
+                                                  runtime_ipc_actions& actions) noexcept;
+  [[nodiscard]] gneiss::engine::core::result notify_running() noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  notify_scene_progress(const ipc_scene_progress& value, std::uint32_t request_id) noexcept;
   void discard_pending_inspection() noexcept;
-  [[nodiscard]] result notify_shutdown(std::int32_t exit_code) noexcept;
-  [[nodiscard]] result notify_log_event(const gneiss_log_event& event) noexcept;
-  [[nodiscard]] result notify_scene_snapshot(const ipc_inspection_batch& batch) noexcept;
-  [[nodiscard]] result
+  [[nodiscard]] gneiss::engine::core::result notify_shutdown(std::int32_t exit_code) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  notify_log_event(const gneiss_log_event& event) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  notify_scene_snapshot(const ipc_inspection_batch& batch) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
   notify_property_write_result(const ipc_property_write_result& response) noexcept;
-  [[nodiscard]] result notify_asset_reload_result(const ipc_asset_reload_result& response,
-                                                  ipc_asset_operation operation,
-                                                  std::uint32_t request_id) noexcept;
-  [[nodiscard]] result notify_statistics(const ipc_runtime_statistics& statistics) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  notify_asset_reload_result(const ipc_asset_reload_result& response, ipc_asset_operation operation,
+                             std::uint32_t request_id) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  notify_statistics(const ipc_runtime_statistics& statistics) noexcept;
   [[nodiscard]] std::size_t pending_write_count() const noexcept;
   [[nodiscard]] std::size_t dropped_event_count() const noexcept;
-  [[nodiscard]] result stop() noexcept;
+  [[nodiscard]] gneiss::engine::core::result stop() noexcept;
 
   [[nodiscard]] runtime_ipc_state state() const noexcept;
   [[nodiscard]] bool game_updates_enabled() const noexcept;

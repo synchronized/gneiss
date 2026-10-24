@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "runtime/application_asset_reload_internal.hpp"
 
 #include <gneiss/engine/application.h>
@@ -51,38 +52,49 @@ int main() try {
   gneiss_scene_node_id old_child = GNEISS_NULL_SCENE_NODE_ID;
   gneiss_entity_id camera_entity_before = GNEISS_NULL_ENTITY_ID;
   constexpr std::string_view uri = "asset://scenes/triangle.scene.json";
-  if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS ||
-      gneiss_application_get_world(application, &world) != GNEISS_SUCCESS ||
-      gneiss_scene_instance_load(application, uri.data(), uri.size(), &scene) != GNEISS_SUCCESS ||
-      gneiss_scene_instance_find_node(application, scene, camera_uuid.data(), camera_uuid.size(),
-                                      &camera_before) != GNEISS_SUCCESS ||
-      gneiss_scene_instance_find_node(application, scene, old_child_uuid.data(),
-                                      old_child_uuid.size(), &old_child) != GNEISS_SUCCESS ||
-      gneiss_scene_node_get_entity(world, camera_before, &camera_entity_before) != GNEISS_SUCCESS) {
+  if (gneiss::engine::core::result{gneiss_application_create(&desc, &application)} !=
+          gneiss::engine::core::result::success ||
+      gneiss::engine::core::result{gneiss_application_get_world(application, &world)} !=
+          gneiss::engine::core::result::success ||
+      gneiss::engine::core::result{gneiss_scene_instance_load(
+          application, uri.data(), uri.size(), &scene)} != gneiss::engine::core::result::success ||
+      gneiss::engine::core::result{gneiss_scene_instance_find_node(
+          application, scene, camera_uuid.data(), camera_uuid.size(), &camera_before)} !=
+          gneiss::engine::core::result::success ||
+      gneiss::engine::core::result{gneiss_scene_instance_find_node(
+          application, scene, old_child_uuid.data(), old_child_uuid.size(), &old_child)} !=
+          gneiss::engine::core::result::success ||
+      gneiss::engine::core::result{gneiss_scene_node_get_entity(
+          world, camera_before, &camera_entity_before)} != gneiss::engine::core::result::success) {
     return 1;
   }
 
   write_scene(scene_path, "{}");
-  if (gneiss::runtime::reload_scene(application, scene, uri) != GNEISS_SUCCESS) {
+  if (gneiss::runtime::reload_scene(application, scene, uri) !=
+      gneiss::engine::core::result::success) {
     return 2;
   }
   gneiss_scene_node_id camera_after = GNEISS_NULL_SCENE_NODE_ID;
   gneiss_scene_node_id new_child = GNEISS_NULL_SCENE_NODE_ID;
   gneiss_entity_id camera_entity_after = GNEISS_NULL_ENTITY_ID;
   std::uint64_t count = 0U;
-  if (gneiss_scene_instance_find_node(application, scene, camera_uuid.data(), camera_uuid.size(),
-                                      &camera_after) != GNEISS_SUCCESS ||
+  if (gneiss::engine::core::result{gneiss_scene_instance_find_node(
+          application, scene, camera_uuid.data(), camera_uuid.size(), &camera_after)} !=
+          gneiss::engine::core::result::success ||
       camera_after != camera_before ||
-      gneiss_scene_node_get_entity(world, camera_after, &camera_entity_after) != GNEISS_SUCCESS ||
+      gneiss::engine::core::result{gneiss_scene_node_get_entity(
+          world, camera_after, &camera_entity_after)} != gneiss::engine::core::result::success ||
       camera_entity_after != camera_entity_before ||
-      gneiss_scene_instance_find_node(application, scene, new_child_uuid.data(),
-                                      new_child_uuid.size(), &new_child) != GNEISS_SUCCESS ||
-      gneiss_scene_instance_find_node(application, scene, old_child_uuid.data(),
-                                      old_child_uuid.size(),
-                                      &old_child) != GNEISS_ERROR_NOT_FOUND ||
-      gneiss_scene_node_get_parent(world, old_child, &camera_after) !=
-          GNEISS_ERROR_INVALID_HANDLE ||
-      gneiss_scene_instance_get_node_count(application, scene, &count) != GNEISS_SUCCESS ||
+      gneiss::engine::core::result{gneiss_scene_instance_find_node(
+          application, scene, new_child_uuid.data(), new_child_uuid.size(), &new_child)} !=
+          gneiss::engine::core::result::success ||
+      gneiss::engine::core::result{gneiss_scene_instance_find_node(
+          application, scene, old_child_uuid.data(), old_child_uuid.size(), &old_child)} !=
+          gneiss::engine::core::result::not_found ||
+      gneiss::engine::core::result{gneiss_scene_node_get_parent(world, old_child, &camera_after)} !=
+          gneiss::engine::core::result::invalid_handle ||
+      gneiss::engine::core::result{gneiss_scene_instance_get_node_count(
+          application, scene, &count)} != gneiss::engine::core::result::success ||
       count != 2U) {
     return 3;
   }
@@ -90,17 +102,23 @@ int main() try {
   write_scene(
       scene_path,
       R"({"mesh_renderer":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/triangle.material.json"}})");
-  if (gneiss::runtime::reload_scene(application, scene, uri) != GNEISS_ERROR_NOT_FOUND ||
-      gneiss_scene_instance_find_node(application, scene, camera_uuid.data(), camera_uuid.size(),
-                                      &camera_after) != GNEISS_SUCCESS ||
+  if (gneiss::runtime::reload_scene(application, scene, uri) !=
+          gneiss::engine::core::result::not_found ||
+      gneiss::engine::core::result{gneiss_scene_instance_find_node(
+          application, scene, camera_uuid.data(), camera_uuid.size(), &camera_after)} !=
+          gneiss::engine::core::result::success ||
       camera_after != camera_before ||
-      gneiss_scene_instance_find_node(application, scene, new_child_uuid.data(),
-                                      new_child_uuid.size(), &new_child) != GNEISS_SUCCESS) {
+      gneiss::engine::core::result{gneiss_scene_instance_find_node(
+          application, scene, new_child_uuid.data(), new_child_uuid.size(), &new_child)} !=
+          gneiss::engine::core::result::success) {
     return 4;
   }
 
-  const bool destroyed = gneiss_scene_instance_unload(application, scene) == GNEISS_SUCCESS &&
-                         gneiss_application_destroy(application) == GNEISS_SUCCESS;
+  const bool destroyed =
+      gneiss::engine::core::result{gneiss_scene_instance_unload(application, scene)} ==
+          gneiss::engine::core::result::success &&
+      gneiss::engine::core::result{gneiss_application_destroy(application)} ==
+          gneiss::engine::core::result::success;
   std::filesystem::remove_all(root);
   return destroyed ? 0 : 5;
 } catch (...) {

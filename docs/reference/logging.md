@@ -75,13 +75,17 @@ gneiss::log_message message{
     .message = "资源尚未就绪",
     .operation = gneiss::result::not_ready,
 };
-auto status = app.log(message);
+const auto native = gneiss::to_native(message);
+const auto status = gneiss::from_native(gneiss_application_log(application, &native));
 ```
 
-其中 app 是已创建的 Application；Game Context 的 log 方法使用同一描述。
+其中 application 是有效的 C Application 句柄；Game Context 的 C 日志入口使用同一 C 描述。
 `make_log_message` 也返回该 C++ 类型；`validate_log_message` 复用 C 校验，非法枚举、空分类或非法
 UTF-8 返回 invalid_argument。包装隐藏 struct_size、flags 和保留字段，不增加运行时日志状态。
 
-仅在需要显式 C ABI 互操作时调用 `to_native(message)`；得到的 C 描述仍借用相同字符串，不可在
-文本失效后使用。C++ 校验和提交不再接受 C 描述兼容重载；原 C 函数继续接受 C 描述。
-日志接收回调和事件仍使用 C ABI，本次仅迁移生产者描述，不代表原生 Application 回调已经完成。
+`to_native(message)` 得到的 C 描述仍借用相同字符串，不可在文本失效后使用。
+公共 C++ 头只提供值类型和无状态辅助函数，不提供 Application 对象 SDK。
+
+src 内部通过 `application::submit_log` 提交 `engine::core::log::message_view`，其中 `result`
+使用 `engine::core::result`。内部接收回调使用 `event_view`，C API 在边界转换消息和事件；
+详细结果类型约束见 [Core 结果接口](core.md)。

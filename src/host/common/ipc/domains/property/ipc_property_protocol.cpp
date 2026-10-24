@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "ipc_property_protocol.hpp"
+#include "engine/core/result.hpp"
 
 #include <yyjson.h>
 
@@ -227,30 +228,31 @@ bool parse_uint(yyjson_val* root, const char* name, std::uint64_t& output) noexc
   return true;
 }
 
-gneiss::result write_payload(yyjson_mut_doc* document, yyjson_mut_val* root,
-                             std::vector<std::uint8_t>& output) {
+gneiss::engine::core::result write_payload(yyjson_mut_doc* document, yyjson_mut_val* root,
+                                           std::vector<std::uint8_t>& output) {
   yyjson_mut_doc_set_root(document, root);
   std::size_t length = 0U;
   std::unique_ptr<char, decltype(&std::free)> json(
       yyjson_mut_write(document, YYJSON_WRITE_NOFLAG, &length), &std::free);
   if (!json || length > max_json_size) {
-    return json ? gneiss::result::invalid_argument : gneiss::result::out_of_memory;
+    return json ? gneiss::engine::core::result::invalid_argument
+                : gneiss::engine::core::result::out_of_memory;
   }
   std::vector<std::uint8_t> encoded(reinterpret_cast<const std::uint8_t*>(json.get()),
                                     reinterpret_cast<const std::uint8_t*>(json.get()) + length);
   output = std::move(encoded);
-  return gneiss::result::success;
+  return gneiss::engine::core::result::success;
 }
 
 } // namespace
 
 namespace gneiss {
 
-result encode_ipc_property_write(const ipc_property_write& command,
-                                 std::vector<std::uint8_t>& output) noexcept {
+gneiss::engine::core::result encode_ipc_property_write(const ipc_property_write& command,
+                                                       std::vector<std::uint8_t>& output) noexcept {
   if (!command.object.is_valid() || !valid_type_id(command.type_id) ||
       command.field_id == GNEISS_NULL_FIELD_ID || command.expected_revision == 0U) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
@@ -268,27 +270,27 @@ result encode_ipc_property_write(const ipc_property_write& command,
                                  command.expected_revision) ||
         !add_property_value(document.get(), value, command.value) ||
         !yyjson_mut_obj_add_val(document.get(), root, "value", value)) {
-      return result::invalid_argument;
+      return gneiss::engine::core::result::invalid_argument;
     }
     return write_payload(document.get(), root, output);
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-result decode_ipc_property_write(std::span<const std::uint8_t> payload,
-                                 ipc_property_write& output) noexcept {
+gneiss::engine::core::result decode_ipc_property_write(std::span<const std::uint8_t> payload,
+                                                       ipc_property_write& output) noexcept {
   if (payload.size() > max_json_size) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     document_ptr document(yyjson_read(reinterpret_cast<const char*>(payload.data()), payload.size(),
                                       YYJSON_READ_NOFLAG),
                           &yyjson_doc_free);
     if (!document) {
-      return result::invalid_argument;
+      return gneiss::engine::core::result::invalid_argument;
     }
     auto* root = yyjson_doc_get_root(document.get());
     ipc_property_write parsed;
@@ -303,29 +305,30 @@ result decode_ipc_property_write(std::span<const std::uint8_t> payload,
         field_id > std::numeric_limits<std::uint32_t>::max() ||
         !parse_uint(root, "expected_revision", parsed.expected_revision) ||
         !parse_property_value(yyjson_obj_get(root, "value"), parsed.value)) {
-      return result::invalid_argument;
+      return gneiss::engine::core::result::invalid_argument;
     }
     parsed.object.generation = static_cast<std::uint32_t>(generation);
     parsed.field_id = static_cast<gneiss_field_id>(field_id);
     if (parsed.session_id == 0U || !parsed.object.is_valid() ||
         parsed.field_id == GNEISS_NULL_FIELD_ID || parsed.expected_revision == 0U) {
-      return result::invalid_argument;
+      return gneiss::engine::core::result::invalid_argument;
     }
     output = std::move(parsed);
-    return result::success;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-result encode_ipc_property_write_result(const ipc_property_write_result& response,
-                                        std::vector<std::uint8_t>& output) noexcept {
+gneiss::engine::core::result
+encode_ipc_property_write_result(const ipc_property_write_result& response,
+                                 std::vector<std::uint8_t>& output) noexcept {
   if (response.message.size() > max_message_size ||
       (response.code == 0 && (response.revision == 0U || std::holds_alternative<std::monostate>(
                                                              response.canonical_value.payload)))) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
@@ -335,35 +338,36 @@ result encode_ipc_property_write_result(const ipc_property_write_result& respons
         !yyjson_mut_obj_add_uint(document.get(), root, "revision", response.revision) ||
         !yyjson_mut_obj_add_strncpy(document.get(), root, "message", response.message.data(),
                                     response.message.size())) {
-      return result::invalid_argument;
+      return gneiss::engine::core::result::invalid_argument;
     }
     if (response.code == 0) {
       auto* value = yyjson_mut_obj(document.get());
       if (value == nullptr ||
           !add_property_value(document.get(), value, response.canonical_value) ||
           !yyjson_mut_obj_add_val(document.get(), root, "value", value)) {
-        return result::invalid_argument;
+        return gneiss::engine::core::result::invalid_argument;
       }
     }
     return write_payload(document.get(), root, output);
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-result decode_ipc_property_write_result(std::span<const std::uint8_t> payload,
-                                        ipc_property_write_result& output) noexcept {
+gneiss::engine::core::result
+decode_ipc_property_write_result(std::span<const std::uint8_t> payload,
+                                 ipc_property_write_result& output) noexcept {
   if (payload.size() > max_json_size) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     document_ptr document(yyjson_read(reinterpret_cast<const char*>(payload.data()), payload.size(),
                                       YYJSON_READ_NOFLAG),
                           &yyjson_doc_free);
     if (!document) {
-      return result::invalid_argument;
+      return gneiss::engine::core::result::invalid_argument;
     }
     auto* root = yyjson_doc_get_root(document.get());
     ipc_property_write_result parsed;
@@ -374,7 +378,7 @@ result decode_ipc_property_write_result(std::span<const std::uint8_t> payload,
         yyjson_get_sint(code) > std::numeric_limits<std::int32_t>::max() ||
         !parse_uint(root, "revision", parsed.revision) || !yyjson_is_str(message) ||
         yyjson_get_len(message) > max_message_size) {
-      return result::invalid_argument;
+      return gneiss::engine::core::result::invalid_argument;
     }
     parsed.code = static_cast<std::int32_t>(yyjson_get_sint(code));
     parsed.message.assign(yyjson_get_str(message), yyjson_get_len(message));
@@ -382,14 +386,14 @@ result decode_ipc_property_write_result(std::span<const std::uint8_t> payload,
         (parsed.code == 0 &&
          (parsed.revision == 0U ||
           !parse_property_value(yyjson_obj_get(root, "value"), parsed.canonical_value)))) {
-      return result::invalid_argument;
+      return gneiss::engine::core::result::invalid_argument;
     }
     output = std::move(parsed);
-    return result::success;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 
@@ -413,14 +417,15 @@ constexpr std::array property_operations{gneiss::engine::platform::ipc_operation
 
 } // namespace
 
-result encode_ipc_property_write_v2(const ipc_property_write& command, std::uint32_t request_id,
-                                    gneiss::engine::platform::ipc_envelope& output) noexcept {
+gneiss::engine::core::result
+encode_ipc_property_write_v2(const ipc_property_write& command, std::uint32_t request_id,
+                             gneiss::engine::platform::ipc_envelope& output) noexcept {
   if (request_id == 0U || command.command_id != request_id) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   std::vector<std::uint8_t> payload;
   const auto operation = encode_ipc_property_write(command, payload);
-  if (operation != result::success) {
+  if (operation != gneiss::engine::core::result::success) {
     return operation;
   }
   output = {.domain = gneiss::engine::platform::ipc_domain::property,
@@ -428,34 +433,35 @@ result encode_ipc_property_write_v2(const ipc_property_write& command, std::uint
             .kind = gneiss::engine::platform::ipc_message_kind::request,
             .request_id = request_id,
             .payload = std::move(payload)};
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
-result decode_ipc_property_write_v2(const gneiss::engine::platform::ipc_envelope& envelope,
-                                    ipc_property_write& output) noexcept {
+gneiss::engine::core::result
+decode_ipc_property_write_v2(const gneiss::engine::platform::ipc_envelope& envelope,
+                             ipc_property_write& output) noexcept {
   if (!matches_property(envelope, gneiss::engine::platform::ipc_message_kind::request) ||
       envelope.request_id == 0U) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   ipc_property_write decoded;
   const auto operation = decode_ipc_property_write(envelope.payload, decoded);
-  if (operation != result::success) {
+  if (operation != gneiss::engine::core::result::success) {
     return operation;
   }
   decoded.command_id = envelope.request_id;
   output = std::move(decoded);
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
-result encode_ipc_property_result_v2(const ipc_property_write_result& response,
-                                     std::uint32_t request_id,
-                                     gneiss::engine::platform::ipc_envelope& output) noexcept {
+gneiss::engine::core::result
+encode_ipc_property_result_v2(const ipc_property_write_result& response, std::uint32_t request_id,
+                              gneiss::engine::platform::ipc_envelope& output) noexcept {
   if (request_id == 0U || response.command_id != request_id) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   std::vector<std::uint8_t> payload;
   const auto operation = encode_ipc_property_write_result(response, payload);
-  if (operation != result::success) {
+  if (operation != gneiss::engine::core::result::success) {
     return operation;
   }
   output = {.domain = gneiss::engine::platform::ipc_domain::property,
@@ -463,23 +469,24 @@ result encode_ipc_property_result_v2(const ipc_property_write_result& response,
             .kind = gneiss::engine::platform::ipc_message_kind::response,
             .request_id = request_id,
             .payload = std::move(payload)};
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
-result decode_ipc_property_result_v2(const gneiss::engine::platform::ipc_envelope& envelope,
-                                     ipc_property_write_result& output) noexcept {
+gneiss::engine::core::result
+decode_ipc_property_result_v2(const gneiss::engine::platform::ipc_envelope& envelope,
+                              ipc_property_write_result& output) noexcept {
   if (!matches_property(envelope, gneiss::engine::platform::ipc_message_kind::response) ||
       envelope.request_id == 0U) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   ipc_property_write_result decoded;
   const auto operation = decode_ipc_property_write_result(envelope.payload, decoded);
-  if (operation != result::success) {
+  if (operation != gneiss::engine::core::result::success) {
     return operation;
   }
   decoded.command_id = envelope.request_id;
   output = std::move(decoded);
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
 std::span<const gneiss::engine::platform::ipc_operation_descriptor>

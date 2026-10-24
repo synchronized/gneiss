@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "game_module_session.hpp"
 
 #include <cstdlib>
@@ -39,31 +40,33 @@ int main(int argc, char** argv) {
   set_trace_path(trace_path);
 
   gneiss::game_module_session session;
-  if (session.load(valid_path) != gneiss::result::success || !session.is_loaded() ||
+  if (session.load(valid_path) != gneiss::engine::core::result::success || !session.is_loaded() ||
       session.module_id() != "gneiss.test.fixture" ||
-      session.initialize(GNEISS_NULL_GAME_CONTEXT) != gneiss::result::invalid_state ||
-      session.initialize(UINT64_C(1)) != gneiss::result::success) {
+      session.initialize(GNEISS_NULL_GAME_CONTEXT) != gneiss::engine::core::result::invalid_state ||
+      session.initialize(UINT64_C(1)) != gneiss::engine::core::result::success) {
     return 2;
   }
   gneiss_game_update_time time{sizeof(time), 0, 1, 16'000'000, 16'000'000};
-  if (session.fixed_update(time) != gneiss::result::success ||
-      session.update(time) != gneiss::result::success) {
+  if (session.fixed_update(time) != gneiss::engine::core::result::success ||
+      session.update(time) != gneiss::engine::core::result::success) {
     return 3;
   }
   time.update_index = 99;
-  if (session.update(time) != gneiss::result::internal ||
-      session.shutdown() != gneiss::result::success ||
-      session.shutdown() != gneiss::result::invalid_state || read_trace(trace_path) != "IFUUS") {
+  if (session.update(time) != gneiss::engine::core::result::internal ||
+      session.shutdown() != gneiss::engine::core::result::success ||
+      session.shutdown() != gneiss::engine::core::result::invalid_state ||
+      read_trace(trace_path) != "IFUUS") {
     return 4;
   }
 
   gneiss::game_module_session missing_symbol;
   gneiss::game_module_session invalid_abi;
   gneiss::game_module_session initialize_failure;
-  if (missing_symbol.load(missing_symbol_path) != gneiss::result::not_found ||
-      invalid_abi.load(invalid_abi_path) != gneiss::result::invalid_argument ||
-      initialize_failure.load(initialize_failure_path) != gneiss::result::success ||
-      initialize_failure.initialize(UINT64_C(1)) != gneiss::result::initialization_failed) {
+  if (missing_symbol.load(missing_symbol_path) != gneiss::engine::core::result::not_found ||
+      invalid_abi.load(invalid_abi_path) != gneiss::engine::core::result::invalid_argument ||
+      initialize_failure.load(initialize_failure_path) != gneiss::engine::core::result::success ||
+      initialize_failure.initialize(UINT64_C(1)) !=
+          gneiss::engine::core::result::initialization_failed) {
     return 5;
   }
   if (read_trace(trace_path) != "IFUUSI") {
@@ -71,21 +74,21 @@ int main(int argc, char** argv) {
   }
   {
     gneiss::game_module_session early_exit;
-    if (early_exit.load(valid_path) != gneiss::result::success ||
-        early_exit.initialize(UINT64_C(2)) != gneiss::result::success) {
+    if (early_exit.load(valid_path) != gneiss::engine::core::result::success ||
+        early_exit.initialize(UINT64_C(2)) != gneiss::engine::core::result::success) {
       return 7;
     }
   }
   gneiss::game_module_session missing_file;
   if (missing_file.load(valid_path.parent_path() / "missing-game-module.dll") !=
-          gneiss::result::not_found ||
+          gneiss::engine::core::result::not_found ||
       read_trace(trace_path) != "IFUUSIIS") {
     return 8;
   }
-  if (session.initialize(UINT64_C(3)) != gneiss::result::success ||
-      session.initialize(UINT64_C(4)) != gneiss::result::invalid_state ||
-      session.shutdown() != gneiss::result::success ||
-      session.shutdown() != gneiss::result::invalid_state ||
+  if (session.initialize(UINT64_C(3)) != gneiss::engine::core::result::success ||
+      session.initialize(UINT64_C(4)) != gneiss::engine::core::result::invalid_state ||
+      session.shutdown() != gneiss::engine::core::result::success ||
+      session.shutdown() != gneiss::engine::core::result::invalid_state ||
       read_trace(trace_path) != "IFUUSIISIS") {
     return 9;
   }

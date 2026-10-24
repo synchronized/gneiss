@@ -4,6 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_IPC_OUTBOUND_RUNTIME_IPC_OUTBOUND_H_
 #define GNEISS_APPS_RUNTIME_IPC_OUTBOUND_RUNTIME_IPC_OUTBOUND_H_
 
+#include "engine/core/result.hpp"
 #include "ipc_asset_protocol.hpp"
 
 #include "ipc_control_protocol.hpp"
@@ -20,36 +21,41 @@
 
 namespace gneiss::host::runtime {
 
-[[nodiscard]] result make_session_hello_event(
+[[nodiscard]] gneiss::engine::core::result make_session_hello_event(
     const std::string& token,
     const std::vector<gneiss::engine::platform::ipc_domain_capability>& domains,
     std::uint32_t request_id, gneiss::engine::platform::ipc_envelope& output) noexcept;
-[[nodiscard]] result
+[[nodiscard]] gneiss::engine::core::result
 make_heartbeat_response(const ipc_session_heartbeat& heartbeat, std::uint32_t request_id,
                         gneiss::engine::platform::ipc_envelope& output) noexcept;
-[[nodiscard]] result make_shutdown_event(std::int32_t exit_code,
-                                         gneiss::engine::platform::ipc_envelope& output) noexcept;
-[[nodiscard]] result
-make_protocol_error_response(result operation, std::string message, std::uint32_t request_id,
+[[nodiscard]] gneiss::engine::core::result
+make_shutdown_event(std::int32_t exit_code,
+                    gneiss::engine::platform::ipc_envelope& output) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+make_protocol_error_response(gneiss::engine::core::result operation, std::string message,
+                             std::uint32_t request_id,
                              gneiss::engine::platform::ipc_envelope& output) noexcept;
-[[nodiscard]] result make_ready_event(gneiss::engine::platform::ipc_envelope& output) noexcept;
-[[nodiscard]] result make_state_event(ipc_control_state state,
-                                      gneiss::engine::platform::ipc_envelope& output) noexcept;
-[[nodiscard]] result make_log_event(const gneiss_log_event& event,
-                                    gneiss::engine::platform::ipc_envelope& output) noexcept;
-[[nodiscard]] result
+[[nodiscard]] gneiss::engine::core::result
+make_ready_event(gneiss::engine::platform::ipc_envelope& output) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+make_state_event(ipc_control_state state, gneiss::engine::platform::ipc_envelope& output) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+make_log_event(const gneiss_log_event& event,
+               gneiss::engine::platform::ipc_envelope& output) noexcept;
+[[nodiscard]] gneiss::engine::core::result
 make_scene_snapshot_events(const ipc_inspection_batch& batch,
                            std::vector<gneiss::engine::platform::ipc_envelope>& output) noexcept;
-[[nodiscard]] result
+[[nodiscard]] gneiss::engine::core::result
 make_property_write_result_event(const ipc_property_write_result& response,
                                  std::uint32_t request_id,
                                  gneiss::engine::platform::ipc_envelope& output) noexcept;
-[[nodiscard]] result
+[[nodiscard]] gneiss::engine::core::result
 make_asset_reload_result(const ipc_asset_reload_result& response, ipc_asset_operation operation,
                          std::uint32_t request_id,
                          gneiss::engine::platform::ipc_envelope& output) noexcept;
-[[nodiscard]] result make_statistics_event(const ipc_runtime_statistics& statistics,
-                                           gneiss::engine::platform::ipc_envelope& output) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+make_statistics_event(const ipc_runtime_statistics& statistics,
+                      gneiss::engine::platform::ipc_envelope& output) noexcept;
 
 } // namespace gneiss::host::runtime
 

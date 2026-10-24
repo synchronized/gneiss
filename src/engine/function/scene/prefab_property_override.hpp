@@ -5,6 +5,7 @@
 #define GNEISS_SCENE_PREFAB_PROPERTY_OVERRIDE_HPP_
 
 #include "engine/core/reflection/property_registry.hpp"
+#include "engine/core/result.hpp"
 #include "engine/resource/types/prefab_property_data.hpp"
 
 #include <array>
@@ -16,7 +17,7 @@
 namespace gneiss::engine::scene {
 
 /** 验证作者键、值、字段存在性、类型和可写能力。Registry 必须已经冻结。 */
-[[nodiscard]] gneiss_result validate_prefab_property_override(
+[[nodiscard]] gneiss::engine::core::result validate_prefab_property_override(
     const engine::core::reflection::registry_ref& registry,
     const gneiss::engine::resource::prefab_property_override& value) noexcept;
 
@@ -25,7 +26,7 @@ namespace gneiss::engine::scene {
  *
  * candidate 与 source_value 规范化后相等时删除对应记录，否则按稳定键更新并确定性排序。
  */
-[[nodiscard]] gneiss_result set_prefab_property_override(
+[[nodiscard]] gneiss::engine::core::result set_prefab_property_override(
     const engine::core::reflection::registry_ref& registry,
     std::vector<gneiss::engine::resource::prefab_property_override>& overrides,
     gneiss::engine::resource::prefab_property_override candidate,

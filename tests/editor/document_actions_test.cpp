@@ -16,12 +16,14 @@ int main() {
       !actions.pending())
     return 2;
   // 保存出错、用户取消文件对话框或异步工作尚未完成，都不能丢掉待执行动作。
-  for (auto status : {result::io, result::not_ready, result::invalid_state}) {
+  for (auto status : {gneiss::engine::core::result::io, gneiss::engine::core::result::not_ready,
+                      gneiss::engine::core::result::invalid_state}) {
     if (actions.saved(status) != document_action::none || !actions.pending())
       return 3;
   }
-  if (actions.saved(result::success) != document_action::open_scene || actions.pending() ||
-      actions.saved(result::success) != document_action::none)
+  if (actions.saved(gneiss::engine::core::result::success) != document_action::open_scene ||
+      actions.pending() ||
+      actions.saved(gneiss::engine::core::result::success) != document_action::none)
     return 4;
   actions.defer(document_action::exit_editor);
   actions.cancel();
@@ -35,7 +37,7 @@ int main() {
   (void)actions.request(document_action::new_scene, true);
   (void)actions.request(document_action::open_scene, true);
   if (actions.request(document_action::none, true) != document_action::none ||
-      actions.saved(result::success) != document_action::open_scene)
+      actions.saved(gneiss::engine::core::result::success) != document_action::open_scene)
     return 7;
   return 0;
 }

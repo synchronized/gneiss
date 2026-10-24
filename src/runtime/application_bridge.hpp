@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/core/result.hpp"
 #include <exception>
 #include <gneiss/engine/application.h>
 #include <memory>
@@ -15,7 +16,7 @@ class application_bridge final {
 public:
   application_bridge() noexcept = default;
   ~application_bridge() noexcept {
-    if (reset() != GNEISS_SUCCESS) {
+    if (reset() != gneiss::engine::core::result::success) {
       std::terminate();
     }
   }
@@ -24,9 +25,9 @@ public:
   application_bridge(application_bridge&& other) noexcept
       : handle_(std::exchange(other.handle_, GNEISS_NULL_APPLICATION)) {}
   application_bridge& operator=(application_bridge&&) = delete;
-  [[nodiscard]] GNEISS_API gneiss_result
+  [[nodiscard]] GNEISS_API gneiss::engine::core::result
   bind(const std::shared_ptr<runtime::application>& application) noexcept;
-  [[nodiscard]] GNEISS_API gneiss_result reset() noexcept;
+  [[nodiscard]] GNEISS_API gneiss::engine::core::result reset() noexcept;
   [[nodiscard]] gneiss_application get() const noexcept { return handle_; }
 
 private:

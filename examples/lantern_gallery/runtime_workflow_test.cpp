@@ -84,7 +84,7 @@ bool pump_until(gneiss::editor::runtime_process& process, std::chrono::milliseco
 }
 
 bool stop_session(gneiss::editor::runtime_process& process) {
-  if (process.request_stop() != gneiss::result::success) {
+  if (process.request_stop() != gneiss::engine::core::result::success) {
     return false;
   }
   return pump_until(process, 5s, [&] { return !process.is_running(); }) &&
@@ -209,11 +209,11 @@ int main() try {
   const std::filesystem::path runtime{GNEISS_LANTERN_RUNTIME};
 
   const auto start_result = process.start(runtime, request);
-  if (start_result != gneiss::result::success || !pump_until(process, 5s, [&] {
+  if (start_result != gneiss::engine::core::result::success || !pump_until(process, 5s, [&] {
         return process.control_state() == gneiss::editor::runtime_control_state::running;
       })) {
     std::fprintf(stderr, "Runtime 启动失败：result=%d state=%d running=%d exit_code=%d\n",
-                 static_cast<int>(start_result), static_cast<int>(process.control_state()),
+                 start_result.code(), static_cast<int>(process.control_state()),
                  process.is_running() ? 1 : 0, process.exit_code());
     for (const auto& entry : process.console().entries()) {
       if (entry.kind == gneiss::editor::console_entry_kind::raw) {
@@ -275,7 +275,7 @@ int main() try {
     return report_failure(process, 2);
   }
   const std::array<std::string, 1U> scene_revision{"asset://scenes/gallery.scene.json"};
-  if (process.publish_asset_revision(scene_revision) != gneiss::result::success ||
+  if (process.publish_asset_revision(scene_revision) != gneiss::engine::core::result::success ||
       !wait_for_asset_state(process, gneiss::editor::runtime_asset_reload_state::applied) ||
       !pump_until(process, 3s, [&] {
         const auto* root = root_node(process);
@@ -293,7 +293,7 @@ int main() try {
     return report_failure(process, 2);
   }
   const std::array<std::string, 1U> prefab_revision{"asset://prefabs/lantern.prefab.json"};
-  if (process.publish_asset_revision(prefab_revision) != gneiss::result::success ||
+  if (process.publish_asset_revision(prefab_revision) != gneiss::engine::core::result::success ||
       !wait_for_asset_state(process, gneiss::editor::runtime_asset_reload_state::applied) ||
       !pump_until(process, 3s, [&] {
         const auto* glass = prefab_source(process, "20000000-0000-4000-8000-000000000030",
@@ -304,7 +304,7 @@ int main() try {
     return report_failure(process, 2);
   }
   if (!write_text(prefab_path, "{invalid") ||
-      process.publish_asset_revision(prefab_revision) != gneiss::result::success ||
+      process.publish_asset_revision(prefab_revision) != gneiss::engine::core::result::success ||
       !wait_for_asset_state(process, gneiss::editor::runtime_asset_reload_state::failed)) {
     return report_failure(process, 2);
   }
@@ -312,7 +312,7 @@ int main() try {
                                               "21000000-0000-4000-8000-000000000004");
   if (preserved_glass == nullptr || preserved_glass->name != "Lantern Glass Reloaded" ||
       preserved_glass->id != glass_identity || !write_text(prefab_path, valid_prefab) ||
-      process.publish_asset_revision(prefab_revision) != gneiss::result::success ||
+      process.publish_asset_revision(prefab_revision) != gneiss::engine::core::result::success ||
       !wait_for_asset_state(process, gneiss::editor::runtime_asset_reload_state::applied)) {
     return report_failure(process, 2);
   }
@@ -330,11 +330,11 @@ int main() try {
   const auto rotation_edit_key = transform_key(*running_root, GNEISS_TRANSFORM_FIELD_ROTATION);
   if (process.request_property_write(running_edit_key, 1U,
                                      {std::array<float, 3>{0.5F, 0.25F, -0.5F}}) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       !wait_for_applied(process, running_edit_key) ||
       process.request_property_write(rotation_edit_key, 1U,
                                      {std::array<float, 4>{0.0F, 0.0F, 0.0F, 1.0F}}) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       !wait_for_applied(process, rotation_edit_key) ||
       !pump_until(process, 3s,
                   [&] {
@@ -342,7 +342,8 @@ int main() try {
                     return current.has_value() &&
                            rotation_changed(std::array<float, 4>{0.0F, 0.0F, 0.0F, 1.0F}, *current);
                   }) ||
-      process.request_pause() != gneiss::result::success || !pump_until(process, 3s, [&] {
+      process.request_pause() != gneiss::engine::core::result::success ||
+      !pump_until(process, 3s, [&] {
         return process.control_state() == gneiss::editor::runtime_control_state::paused;
       })) {
     return report_failure(process, 2);
@@ -363,7 +364,7 @@ int main() try {
   const auto paused_edit_key = transform_key(*paused_root, GNEISS_TRANSFORM_FIELD_SCALE);
   if (process.request_property_write(paused_edit_key, 1U,
                                      {std::array<float, 3>{1.1F, 1.1F, 1.1F}}) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       !wait_for_applied(process, paused_edit_key) || !pump_until(process, 3s, [&] {
         const auto* root = root_node(process);
         return root != nullptr && root->local_transform.scale[0] == 1.1F;
@@ -392,7 +393,7 @@ int main() try {
     return report_failure(process, 3);
   }
   const auto paused_progress = latest_progress(process, first_session);
-  if (process.request_resume() != gneiss::result::success ||
+  if (process.request_resume() != gneiss::engine::core::result::success ||
       !pump_until(process, 3s,
                   [&] {
                     return process.control_state() ==
@@ -410,7 +411,8 @@ int main() try {
   }
 
   // running 只代表主循环已启动；场景提交后游戏模块才开始产生进度日志。
-  if (process.start(runtime, request) != gneiss::result::success || !pump_until(process, 5s, [&] {
+  if (process.start(runtime, request) != gneiss::engine::core::result::success ||
+      !pump_until(process, 5s, [&] {
         return process.control_state() == gneiss::editor::runtime_control_state::running &&
                process.scene_load_status().phase == gneiss::ipc_scene_phase::applied;
       })) {

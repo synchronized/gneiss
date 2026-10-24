@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/result.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/resource/types/prefab_description.hpp"
 
@@ -39,13 +40,13 @@ struct prepared_scene_description {
 /** 只读、有界 CPU 准备。支持在文件与节点边界取消，单次 JSON 解析不可抢占。
  * 完成前复读 Scene/Prefab 原始字节以检测变化；不承诺外部文件系统事务隔离。
  * 失败清空输出；取消返回 INVALID_STATE，由协调者区分取消与失败终态。 */
-[[nodiscard]] gneiss_result prepare_scene_description(
+[[nodiscard]] gneiss::engine::core::result prepare_scene_description(
     const engine::resource::virtual_file_system& files, std::string_view uri,
     prepared_scene_description& output, gneiss::engine::resource::scene_diagnostic& diagnostic,
     const std::function<bool()>& cancelled, scene_prepare_limits limits = {}) noexcept;
 
 /** 单个 Prefab 的异步 CPU 准备入口；输出只包含一个 Prefab 及其渲染依赖。 */
-[[nodiscard]] gneiss_result prepare_prefab_description(
+[[nodiscard]] gneiss::engine::core::result prepare_prefab_description(
     const engine::resource::virtual_file_system& files, std::string_view uri,
     prepared_scene_description& output, gneiss::engine::resource::scene_diagnostic& diagnostic,
     const std::function<bool()>& cancelled, scene_prepare_limits limits = {}) noexcept;

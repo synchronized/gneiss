@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
 #include "engine/resource/vfs/native_file_system.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
@@ -22,41 +23,48 @@ bool source_identity_contract() {
   auto backend = std::make_shared<native_file_system>();
   virtual_file_system first;
   asset_identity original;
-  if (first.identify("asset://model.mesh", 1U, original) != GNEISS_ERROR_NOT_FOUND ||
-      first.mount("asset://", backend) != GNEISS_SUCCESS ||
-      first.identify("asset://model.mesh", 1U, original) != GNEISS_SUCCESS) {
+  if (first.identify("asset://model.mesh", 1U, original) !=
+          gneiss::engine::core::result::not_found ||
+      first.mount("asset://", backend) != gneiss::engine::core::result::success ||
+      first.identify("asset://model.mesh", 1U, original) != gneiss::engine::core::result::success) {
     return false;
   }
   // 未初始化文件后端仍能解析身份：本接口不应引入同步 I/O。
   auto copied = first;
   asset_identity observed;
-  if (copied.identify(original.uri, original.type, observed) != GNEISS_SUCCESS ||
+  if (copied.identify(original.uri, original.type, observed) !=
+          gneiss::engine::core::result::success ||
       observed != original) {
     return false;
   }
   virtual_file_system independent;
-  if (independent.mount("asset://", backend) != GNEISS_SUCCESS ||
-      independent.identify(original.uri, original.type, observed) != GNEISS_SUCCESS ||
+  if (independent.mount("asset://", backend) != gneiss::engine::core::result::success ||
+      independent.identify(original.uri, original.type, observed) !=
+          gneiss::engine::core::result::success ||
       observed == original || observed.source == original.source) {
     return false;
   }
-  if (first.identify(original.uri, 2U, observed) != GNEISS_SUCCESS || observed == original ||
-      first.identify("asset://Model.mesh", 1U, observed) != GNEISS_SUCCESS ||
+  if (first.identify(original.uri, 2U, observed) != gneiss::engine::core::result::success ||
+      observed == original ||
+      first.identify("asset://Model.mesh", 1U, observed) != gneiss::engine::core::result::success ||
       observed == original) {
     return false;
   }
   asset_identity before_overlay;
-  if (copied.identify("asset://nested/model.mesh", 1U, before_overlay) != GNEISS_SUCCESS ||
-      copied.mount("asset://nested/", backend) != GNEISS_SUCCESS ||
-      copied.identify(before_overlay.uri, 1U, observed) != GNEISS_SUCCESS ||
+  if (copied.identify("asset://nested/model.mesh", 1U, before_overlay) !=
+          gneiss::engine::core::result::success ||
+      copied.mount("asset://nested/", backend) != gneiss::engine::core::result::success ||
+      copied.identify(before_overlay.uri, 1U, observed) != gneiss::engine::core::result::success ||
       observed.source == before_overlay.source ||
-      first.identify(before_overlay.uri, 1U, observed) != GNEISS_SUCCESS ||
+      first.identify(before_overlay.uri, 1U, observed) != gneiss::engine::core::result::success ||
       observed != before_overlay) {
     return false;
   }
-  if (first.identify("asset://../bad", 1U, observed) != GNEISS_ERROR_INVALID_ARGUMENT ||
+  if (first.identify("asset://../bad", 1U, observed) !=
+          gneiss::engine::core::result::invalid_argument ||
       observed.source || !observed.uri.empty() || observed.type != 0U ||
-      first.identify(original.uri, 0U, observed) != GNEISS_ERROR_INVALID_ARGUMENT) {
+      first.identify(original.uri, 0U, observed) !=
+          gneiss::engine::core::result::invalid_argument) {
     return false;
   }
   const std::weak_ptr<const asset_source_domain> source = original.source;
@@ -103,24 +111,31 @@ int main() try {
   auto provider = std::make_shared<gneiss::engine::resource::native_file_system>();
   gneiss::engine::resource::virtual_file_system file_system;
   std::vector<std::byte> bytes;
-  if (provider->read("models/triangle.mesh", bytes) != GNEISS_ERROR_INVALID_STATE ||
-      provider->initialize(directory.path.string()) != GNEISS_SUCCESS ||
-      !provider->is_initialized() || file_system.mount("asset://", provider) != GNEISS_SUCCESS ||
-      file_system.mount("asset://", provider) != GNEISS_ERROR_INVALID_STATE ||
-      file_system.read("asset://models/triangle.mesh", bytes) != GNEISS_SUCCESS ||
+  if (provider->read("models/triangle.mesh", bytes) !=
+          gneiss::engine::core::result::invalid_state ||
+      provider->initialize(directory.path.string()) != gneiss::engine::core::result::success ||
+      !provider->is_initialized() ||
+      file_system.mount("asset://", provider) != gneiss::engine::core::result::success ||
+      file_system.mount("asset://", provider) != gneiss::engine::core::result::invalid_state ||
+      file_system.read("asset://models/triangle.mesh", bytes) !=
+          gneiss::engine::core::result::success ||
       bytes.size() != 4U ||
-      file_system.read("asset://models/missing.mesh", bytes) != GNEISS_ERROR_NOT_FOUND ||
-      file_system.read("asset://../outside", bytes) != GNEISS_ERROR_INVALID_ARGUMENT) {
+      file_system.read("asset://models/missing.mesh", bytes) !=
+          gneiss::engine::core::result::not_found ||
+      file_system.read("asset://../outside", bytes) !=
+          gneiss::engine::core::result::invalid_argument) {
     return 1;
   }
 
   const auto previous = bytes;
   if (file_system.read_bounded("asset://models/triangle.mesh", 3U, bytes) !=
-          GNEISS_ERROR_INVALID_ARGUMENT ||
+          gneiss::engine::core::result::invalid_argument ||
       bytes != previous ||
-      file_system.read_bounded("asset://models/triangle.mesh", 4U, bytes) != GNEISS_SUCCESS ||
+      file_system.read_bounded("asset://models/triangle.mesh", 4U, bytes) !=
+          gneiss::engine::core::result::success ||
       bytes.size() != 4U ||
-      file_system.read_bounded("asset://../outside", 4U, bytes) != GNEISS_ERROR_INVALID_ARGUMENT) {
+      file_system.read_bounded("asset://../outside", 4U, bytes) !=
+          gneiss::engine::core::result::invalid_argument) {
     return 20;
   }
 
@@ -131,10 +146,14 @@ int main() try {
     stream << "override";
   }
   auto override_provider = std::make_shared<gneiss::engine::resource::native_file_system>();
-  if (override_provider->initialize(override_root.string()) != GNEISS_SUCCESS ||
-      file_system.mount("asset://models/", override_provider) != GNEISS_SUCCESS ||
-      file_system.mount("asset://invalid", override_provider) != GNEISS_ERROR_INVALID_ARGUMENT ||
-      file_system.read("asset://models/special.mesh", bytes) != GNEISS_SUCCESS ||
+  if (override_provider->initialize(override_root.string()) !=
+          gneiss::engine::core::result::success ||
+      file_system.mount("asset://models/", override_provider) !=
+          gneiss::engine::core::result::success ||
+      file_system.mount("asset://invalid", override_provider) !=
+          gneiss::engine::core::result::invalid_argument ||
+      file_system.read("asset://models/special.mesh", bytes) !=
+          gneiss::engine::core::result::success ||
       bytes.size() != 8U || file_system.mount_count() != 2U) {
     return 2;
   }
@@ -144,34 +163,40 @@ int main() try {
   auto loader = [&load_count](std::shared_ptr<void>& resource) {
     ++load_count;
     resource = std::make_shared<int>(42);
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   };
   std::shared_ptr<const gneiss::engine::resource::resource_cache::entry> first;
   std::shared_ptr<const gneiss::engine::resource::resource_cache::entry> second;
-  if (cache.acquire("asset://models/triangle.mesh", 1U, loader, first) != GNEISS_SUCCESS ||
-      cache.acquire("asset://models/triangle.mesh", 1U, loader, second) != GNEISS_SUCCESS ||
+  if (cache.acquire("asset://models/triangle.mesh", 1U, loader, first) !=
+          gneiss::engine::core::result::success ||
+      cache.acquire("asset://models/triangle.mesh", 1U, loader, second) !=
+          gneiss::engine::core::result::success ||
       load_count != 1U || first != second || cache.size() != 1U ||
       cache.acquire("asset://models/triangle.mesh", 2U, loader, second) !=
-          GNEISS_ERROR_INVALID_ARGUMENT) {
+          gneiss::engine::core::result::invalid_argument) {
     return 3;
   }
   auto reloader = [&load_count](std::shared_ptr<void>& resource) {
     ++load_count;
     resource = std::make_shared<int>(84);
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   };
-  if (cache.reload("asset://models/triangle.mesh", 1U, reloader, second) != GNEISS_SUCCESS ||
+  if (cache.reload("asset://models/triangle.mesh", 1U, reloader, second) !=
+          gneiss::engine::core::result::success ||
       load_count != 2U || first == second ||
       *static_cast<const int*>(first->resource.get()) != 42 ||
       *static_cast<const int*>(second->resource.get()) != 84 || cache.size() != 1U) {
     return 3;
   }
   std::shared_ptr<const gneiss::engine::resource::resource_cache::entry> failed_reload;
-  const auto failed_reloader = [](std::shared_ptr<void>&) { return GNEISS_ERROR_IO; };
+  const auto failed_reloader = [](std::shared_ptr<void>&) {
+    return gneiss::engine::core::result::io;
+  };
   if (cache.reload("asset://models/triangle.mesh", 1U, failed_reloader, failed_reload) !=
-          GNEISS_ERROR_IO ||
+          gneiss::engine::core::result::io ||
       failed_reload ||
-      cache.acquire("asset://models/triangle.mesh", 1U, loader, failed_reload) != GNEISS_SUCCESS ||
+      cache.acquire("asset://models/triangle.mesh", 1U, loader, failed_reload) !=
+          gneiss::engine::core::result::success ||
       failed_reload != second || load_count != 2U) {
     return 3;
   }
@@ -186,16 +211,19 @@ int main() try {
   std::size_t failure_count = 0;
   auto failing_loader = [&failure_count](std::shared_ptr<void>&) {
     ++failure_count;
-    return GNEISS_ERROR_IO;
+    return gneiss::engine::core::result::io;
   };
-  if (cache.acquire("asset://models/broken.mesh", 1U, failing_loader, first) != GNEISS_ERROR_IO ||
-      cache.acquire("asset://models/broken.mesh", 1U, failing_loader, first) != GNEISS_ERROR_IO ||
+  if (cache.acquire("asset://models/broken.mesh", 1U, failing_loader, first) !=
+          gneiss::engine::core::result::io ||
+      cache.acquire("asset://models/broken.mesh", 1U, failing_loader, first) !=
+          gneiss::engine::core::result::io ||
       failure_count != 2U || cache.size() != 0U) {
     return 5;
   }
 
   gneiss::engine::resource::resource_cache other_cache;
-  if (other_cache.acquire("asset://models/triangle.mesh", 1U, loader, first) != GNEISS_SUCCESS ||
+  if (other_cache.acquire("asset://models/triangle.mesh", 1U, loader, first) !=
+          gneiss::engine::core::result::success ||
       load_count != 3U) {
     return 6;
   }

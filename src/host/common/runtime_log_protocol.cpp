@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include <gneiss/app/runtime_log_protocol.hpp>
 
 #include <yyjson.h>
@@ -92,10 +93,11 @@ void append_json_string(std::string& output, std::string_view value) {
 runtime_log_line_decoder::runtime_log_line_decoder(std::size_t maximum_line_size) noexcept
     : maximum_line_size_(maximum_line_size) {}
 
-result runtime_log_line_decoder::append(std::string_view bytes,
-                                        std::vector<runtime_log_line>& output) noexcept {
+gneiss::engine::core::result
+runtime_log_line_decoder::append(std::string_view bytes,
+                                 std::vector<runtime_log_line>& output) noexcept {
   if (maximum_line_size_ == 0U) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
   try {
     while (!bytes.empty()) {
@@ -106,20 +108,21 @@ result runtime_log_line_decoder::append(std::string_view bytes,
       }
       append_segment(bytes.substr(0U, newline));
       const auto operation = emit(output);
-      if (operation != result::success) {
+      if (operation != gneiss::engine::core::result::success) {
         return operation;
       }
       bytes.remove_prefix(newline + 1U);
     }
-    return result::success;
+    return gneiss::engine::core::result::success;
   } catch (...) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   }
 }
 
-result runtime_log_line_decoder::finish(std::vector<runtime_log_line>& output) noexcept {
+gneiss::engine::core::result
+runtime_log_line_decoder::finish(std::vector<runtime_log_line>& output) noexcept {
   if (pending_.empty() && !pending_was_truncated_) {
-    return result::success;
+    return gneiss::engine::core::result::success;
   }
   return emit(output);
 }
@@ -129,13 +132,14 @@ void runtime_log_line_decoder::reset() noexcept {
   pending_was_truncated_ = false;
 }
 
-result runtime_log_line_decoder::emit(std::vector<runtime_log_line>& output) noexcept {
+gneiss::engine::core::result
+runtime_log_line_decoder::emit(std::vector<runtime_log_line>& output) noexcept {
   try {
     output.push_back({pending_, pending_was_truncated_});
     reset();
-    return result::success;
+    return gneiss::engine::core::result::success;
   } catch (...) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   }
 }
 
@@ -146,11 +150,12 @@ void runtime_log_line_decoder::append_segment(std::string_view segment) {
   pending_was_truncated_ = pending_was_truncated_ || accepted != segment.size();
 }
 
-result encode_runtime_log_event(const gneiss_log_event& event, std::string& output) noexcept {
+gneiss::engine::core::result encode_runtime_log_event(const gneiss_log_event& event,
+                                                      std::string& output) noexcept {
   output.clear();
   if (event.struct_size < GNEISS_LOG_EVENT_VERSION_1_SIZE || event.source == nullptr ||
       event.category == nullptr || event.message == nullptr) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     output.append(runtime_log_prefix);
@@ -171,10 +176,10 @@ result encode_runtime_log_event(const gneiss_log_event& event, std::string& outp
     output.append(",\"message\":");
     append_json_string(output, {event.message, event.message_length});
     output.append("}\n");
-    return result::success;
+    return gneiss::engine::core::result::success;
   } catch (...) {
     output.clear();
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 
@@ -214,13 +219,13 @@ runtime_log_parse_result parse_runtime_log_line(std::string_view line,
       return runtime_log_parse_result::invalid;
     }
     const auto operation = yyjson_get_sint(operation_value);
-    if (operation < std::numeric_limits<gneiss_result>::min() ||
-        operation > std::numeric_limits<gneiss_result>::max()) {
+    if (operation < std::numeric_limits<std::int32_t>::min() ||
+        operation > std::numeric_limits<std::int32_t>::max()) {
       return runtime_log_parse_result::invalid;
     }
     parsed.version = 1U;
     parsed.severity = static_cast<std::uint32_t>(severity);
-    parsed.operation = static_cast<gneiss_result>(operation);
+    parsed.operation = gneiss::engine::core::result{static_cast<std::int32_t>(operation)};
     output = std::move(parsed);
     return runtime_log_parse_result::success;
   } catch (...) {

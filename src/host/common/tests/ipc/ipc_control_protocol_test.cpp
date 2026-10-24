@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "ipc_control_protocol.hpp"
 
 namespace {
 
 [[nodiscard]] bool test_runtime_events() {
   gneiss::engine::platform::ipc_envelope envelope;
-  if (gneiss::encode_ipc_control_ready(envelope) != gneiss::result::success ||
+  if (gneiss::encode_ipc_control_ready(envelope) != gneiss::engine::core::result::success ||
       envelope.domain != gneiss::engine::platform::ipc_domain::control ||
       envelope.operation != static_cast<std::uint16_t>(gneiss::ipc_control_operation::ready) ||
       envelope.kind != gneiss::engine::platform::ipc_message_kind::event ||
@@ -15,11 +16,12 @@ namespace {
     return false;
   }
   if (gneiss::encode_ipc_control_state(gneiss::ipc_control_state::paused, envelope) !=
-      gneiss::result::success) {
+      gneiss::engine::core::result::success) {
     return false;
   }
   gneiss::ipc_control_state state{};
-  return gneiss::decode_ipc_control_state(envelope, state) == gneiss::result::success &&
+  return gneiss::decode_ipc_control_state(envelope, state) ==
+             gneiss::engine::core::result::success &&
          state == gneiss::ipc_control_state::paused;
 }
 
@@ -28,11 +30,13 @@ namespace {
        {gneiss::ipc_control_operation::pause, gneiss::ipc_control_operation::resume,
         gneiss::ipc_control_operation::stop}) {
     gneiss::engine::platform::ipc_envelope envelope;
-    if (gneiss::encode_ipc_control_request(expected, 7U, envelope) != gneiss::result::success) {
+    if (gneiss::encode_ipc_control_request(expected, 7U, envelope) !=
+        gneiss::engine::core::result::success) {
       return false;
     }
     gneiss::ipc_control_operation decoded{};
-    if (gneiss::decode_ipc_control_request(envelope, decoded) != gneiss::result::success ||
+    if (gneiss::decode_ipc_control_request(envelope, decoded) !=
+            gneiss::engine::core::result::success ||
         decoded != expected) {
       return false;
     }
@@ -43,20 +47,21 @@ namespace {
 [[nodiscard]] bool test_rejections() {
   gneiss::engine::platform::ipc_envelope envelope;
   if (gneiss::encode_ipc_control_request(gneiss::ipc_control_operation::ready, 1U, envelope) !=
-          gneiss::result::invalid_argument ||
+          gneiss::engine::core::result::invalid_argument ||
       gneiss::encode_ipc_control_request(gneiss::ipc_control_operation::pause, 0U, envelope) !=
-          gneiss::result::invalid_argument ||
+          gneiss::engine::core::result::invalid_argument ||
       gneiss::encode_ipc_control_state(static_cast<gneiss::ipc_control_state>(99U), envelope) !=
-          gneiss::result::invalid_argument) {
+          gneiss::engine::core::result::invalid_argument) {
     return false;
   }
   if (gneiss::encode_ipc_control_state(gneiss::ipc_control_state::running, envelope) !=
-      gneiss::result::success) {
+      gneiss::engine::core::result::success) {
     return false;
   }
   envelope.payload.front() = 99U;
   gneiss::ipc_control_state state{};
-  return gneiss::decode_ipc_control_state(envelope, state) == gneiss::result::invalid_argument;
+  return gneiss::decode_ipc_control_state(envelope, state) ==
+         gneiss::engine::core::result::invalid_argument;
 }
 
 [[nodiscard]] bool test_direction_rules() {

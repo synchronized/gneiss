@@ -3,6 +3,7 @@
 
 #include "../../../../tests/support/c_owner.hpp"
 #include "documents/editor_scene_loader.hpp"
+#include "engine/core/result.hpp"
 #include "runtime/application_asset_reload_internal.hpp"
 #include "runtime/application_registry.hpp"
 
@@ -35,27 +36,31 @@ void run(engine::core::tasks::execution_mode mode) {
   const std::string root = GNEISS_EDITOR_TEST_ASSET_ROOT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
-  check(runtime::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
+  check(gneiss::engine::core::result{gneiss_application_create(&desc, app.put())} ==
+        gneiss::engine::core::result::success);
+  check(runtime::attach_task_executor(app.get(), scheduler) ==
+        gneiss::engine::core::result::success);
   editor::document_editing editing;
   auto& session = editing.document();
   editor::editor_camera camera;
   auto& history = editing.history();
   editor::editor_scene_loader loader;
   gneiss_world world{};
-  check(gneiss::result{gneiss_application_get_world(app.get(), &world)} == result::success);
+  check(gneiss::engine::core::result{gneiss_application_get_world(app.get(), &world)} ==
+        gneiss::engine::core::result::success);
   check(session.create_empty(*gneiss::runtime::find_application(app.get()), world) ==
-        result::success);
-  check(camera.initialize() == result::success);
+        gneiss::engine::core::result::success);
+  check(camera.initialize() == gneiss::engine::core::result::success);
   const auto original = world;
   constexpr std::string_view uri = "asset://scenes/triangle.scene.json";
   auto tick = [&] {
     if (mode == engine::core::tasks::execution_mode::cooperative)
       (void)scheduler.run_ready();
-    check(gneiss::result{gneiss_application_run(app.get(), 1U)} == result::success);
+    check(gneiss::engine::core::result{gneiss_application_run(app.get(), 1U)} ==
+          gneiss::engine::core::result::success);
     bool changed{};
     check(loader.advance(*gneiss::runtime::find_application(app.get()), editing, world, camera,
-                         changed) == result::success);
+                         changed) == gneiss::engine::core::result::success);
     std::this_thread::yield();
   };
   auto drain = [&] {
@@ -66,62 +71,68 @@ void run(engine::core::tasks::execution_mode mode) {
     }
   };
   check(loader.request(*gneiss::runtime::find_application(app.get()), editing, uri) ==
-        result::success);
+        gneiss::engine::core::result::success);
   check(loader.active() && loader.visible() && world == original);
   check(loader.request(*gneiss::runtime::find_application(app.get()), editing, uri) ==
-        result::not_ready);
+        gneiss::engine::core::result::not_ready);
   drain();
-  check(!loader.visible() && loader.operation() == result::success && world != original);
+  check(!loader.visible() && loader.operation() == gneiss::engine::core::result::success &&
+        world != original);
   check(session.is_open() && !session.is_dirty() && session.uri() == uri);
   check(session.nodes().size() == 2U && camera.is_valid());
   const auto current = world;
   const auto node = session.nodes()[1].node;
-  check(session.select(node) == result::success);
-  check(session.rename_node(node, "Edited") == result::success);
+  check(session.select(node) == gneiss::engine::core::result::success);
+  check(session.rename_node(node, "Edited") == gneiss::engine::core::result::success);
   auto command =
       std::make_unique<editor::functional_editor_command>(editor::functional_editor_command::desc{
           .label = "Rename",
           .undo = [&] { return session.rename_node(node, "Original"); },
           .redo = [&] { return session.rename_node(node, "Edited"); },
           .merge_key = {}});
-  check(history.record(std::move(command)) == result::success);
-  check(history.undo() == result::success && history.redo() == result::success);
+  check(history.record(std::move(command)) == gneiss::engine::core::result::success);
+  check(history.undo() == gneiss::engine::core::result::success &&
+        history.redo() == gneiss::engine::core::result::success);
   check(loader.request(*gneiss::runtime::find_application(app.get()), editing,
-                       "asset://missing.scene.json") == result::success);
+                       "asset://missing.scene.json") == gneiss::engine::core::result::success);
   drain();
-  check(loader.visible() && loader.operation() != result::success);
+  check(loader.visible() && loader.operation() != gneiss::engine::core::result::success);
   check(world == current && session.selection() == node && session.is_dirty());
   check(session.selected_node()->display_name == "Edited" && history.can_undo());
   loader.dismiss();
   check(!loader.visible());
   check(loader.request(*gneiss::runtime::find_application(app.get()), editing, uri) ==
-        result::success);
+        gneiss::engine::core::result::success);
   tick();
-  check(loader.cancel(*gneiss::runtime::find_application(app.get())) == result::success);
+  check(loader.cancel(*gneiss::runtime::find_application(app.get())) ==
+        gneiss::engine::core::result::success);
   drain();
   check(world == current && session.selection() == node && history.can_undo());
   check(loader.progress().phase == runtime::scene_load_phase::cancelled);
   check(loader.request(*gneiss::runtime::find_application(app.get()), editing, uri) ==
-        result::success);
+        gneiss::engine::core::result::success);
   drain();
   check(world != current && !session.selection().is_valid() && !history.can_undo());
   check(camera.is_valid() && session.nodes().size() == 2U);
   tick();
   std::uint64_t count{};
-  check(gneiss_world_entity_count(current, &count) == GNEISS_ERROR_INVALID_HANDLE);
+  check(gneiss::engine::core::result{gneiss_world_entity_count(current, &count)} ==
+        gneiss::engine::core::result::invalid_handle);
   check(loader.request(*gneiss::runtime::find_application(app.get()), editing,
-                       "asset://scenes/prefab.scene.json") == result::success);
+                       "asset://scenes/prefab.scene.json") ==
+        gneiss::engine::core::result::success);
   drain();
-  check(loader.operation() == result::success && session.nodes().size() == 1U &&
-        session.prefab_nodes().size() == 2U && camera.is_valid());
+  check(loader.operation() == gneiss::engine::core::result::success &&
+        session.nodes().size() == 1U && session.prefab_nodes().size() == 2U && camera.is_valid());
   // 无效场景的 C 查询拒绝，不影响活动场景。
-  check(gneiss_scene_instance_get_node_count(app.get(), GNEISS_NULL_SCENE_INSTANCE, &count) ==
-        GNEISS_ERROR_INVALID_HANDLE);
+  check(gneiss::engine::core::result{
+            gneiss_scene_instance_get_node_count(app.get(), GNEISS_NULL_SCENE_INSTANCE, &count)} ==
+        gneiss::engine::core::result::invalid_handle);
   camera.shutdown();
   session.close();
   // 在途任务随 Application 关闭；执行器必须最后销毁。
   check(loader.request(*gneiss::runtime::find_application(app.get()), editing, uri) ==
-        result::success);
+        gneiss::engine::core::result::success);
   tick();
 }
 } // namespace

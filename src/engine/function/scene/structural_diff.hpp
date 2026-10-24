@@ -4,6 +4,7 @@
 #ifndef GNEISS_SCENE_STRUCTURAL_DIFF_HPP_
 #define GNEISS_SCENE_STRUCTURAL_DIFF_HPP_
 
+#include "engine/core/result.hpp"
 #include "engine/resource/types/scene_description.hpp"
 
 #include <cstddef>
@@ -66,7 +67,7 @@ struct structural_diff final {
   }
 };
 
-[[nodiscard]] gneiss_result
+[[nodiscard]] gneiss::engine::core::result
 build_structural_diff(const std::vector<gneiss::engine::resource::object_description>& old_objects,
                       const std::vector<gneiss::engine::resource::object_description>& new_objects,
                       structural_diff& output) noexcept;

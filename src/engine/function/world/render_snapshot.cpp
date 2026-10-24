@@ -2,18 +2,19 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/world/render_snapshot.hpp"
+#include "engine/core/result.hpp"
 
 #include "engine/function/world/world_state.hpp"
 
 #include <new>
 
 namespace gneiss::engine::world {
-gneiss_result build_render_snapshot(world_state& world, std::uint32_t viewport_width,
-                                    std::uint32_t viewport_height,
-                                    engine::render::render_snapshot& out_snapshot,
-                                    const engine::render::view_camera* camera) noexcept {
+gneiss::engine::core::result
+build_render_snapshot(world_state& world, std::uint32_t viewport_width,
+                      std::uint32_t viewport_height, engine::render::render_snapshot& out_snapshot,
+                      const engine::render::view_camera* camera) noexcept {
   if (viewport_width == 0U || viewport_height == 0U) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     engine::render::render_snapshot snapshot;
@@ -28,8 +29,8 @@ gneiss_result build_render_snapshot(world_state& world, std::uint32_t viewport_w
         selected.camera = {component->value.vertical_field_of_view_radians,
                            component->value.near_plane, component->value.far_plane};
         engine::core::math::transform transform;
-        has_camera =
-            world.scene().get_world_for_entity(active_camera, &transform) == GNEISS_SUCCESS;
+        has_camera = world.scene().get_world_for_entity(active_camera, &transform) ==
+                     gneiss::engine::core::result::success;
         selected.transform = transform;
       }
     }
@@ -40,10 +41,10 @@ gneiss_result build_render_snapshot(world_state& world, std::uint32_t viewport_w
       const auto aspect = static_cast<float>(viewport_width) / static_cast<float>(viewport_height);
       const auto projection_result =
           engine::render::build_perspective_matrix(selected.camera, aspect, projection);
-      if (view_result != GNEISS_SUCCESS) {
+      if (view_result != gneiss::engine::core::result::success) {
         return view_result;
       }
-      if (projection_result != GNEISS_SUCCESS) {
+      if (projection_result != gneiss::engine::core::result::success) {
         return projection_result;
       }
       snapshot.camera = {.camera = selected.camera,
@@ -58,18 +59,19 @@ gneiss_result build_render_snapshot(world_state& world, std::uint32_t viewport_w
         [&](entt::entity native_entity, const mesh_renderer_component& component) {
           const auto entity = world.encode_entity(native_entity);
           engine::core::math::transform transform;
-          if (world.scene().get_world_for_entity(entity, &transform) == GNEISS_SUCCESS) {
+          if (world.scene().get_world_for_entity(entity, &transform) ==
+              gneiss::engine::core::result::success) {
             snapshot.instances.push_back({.mesh = component.value.mesh,
                                           .material = component.value.material,
                                           .transform = transform});
           }
         });
     out_snapshot = std::move(snapshot);
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 

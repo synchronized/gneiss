@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/scene/prefab_property_override.hpp"
+#include "engine/core/result.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -109,42 +110,42 @@ void normalize_zero(gneiss::engine::resource::prefab_property_value& value) noex
 
 namespace gneiss::engine::scene {
 
-gneiss_result validate_prefab_property_override(
+gneiss::engine::core::result validate_prefab_property_override(
     const engine::core::reflection::registry_ref& registry,
     const gneiss::engine::resource::prefab_property_override& value) noexcept try {
   if (!gneiss::engine::resource::is_valid_prefab_author_address(value.key.node) ||
       !value.key.type_id.is_valid() || !value.key.field_id.is_valid() ||
       !valid_value(value.value)) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   field_info field;
   const auto found = engine::core::reflection::describe_field(registry, value.key.type_id,
                                                               value.key.field_id, field);
   if (found.failed()) {
-    return static_cast<gneiss_result>(found);
+    return static_cast<gneiss::engine::core::result>(found);
   }
   if (field.kind != gneiss::engine::resource::prefab_property_value_kind(value.value) ||
       !has_flags(field.capabilities, property_capabilities::writable)) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 } catch (...) {
-  return GNEISS_ERROR_INTERNAL;
+  return gneiss::engine::core::result::internal;
 }
 
-gneiss_result set_prefab_property_override(
+gneiss::engine::core::result set_prefab_property_override(
     const engine::core::reflection::registry_ref& registry,
     std::vector<gneiss::engine::resource::prefab_property_override>& overrides,
     gneiss::engine::resource::prefab_property_override candidate,
     gneiss::engine::resource::prefab_property_value source_value) noexcept {
   auto operation = validate_prefab_property_override(registry, candidate);
-  if (operation != GNEISS_SUCCESS) {
+  if (operation != gneiss::engine::core::result::success) {
     return operation;
   }
   if (!valid_value(source_value) ||
       gneiss::engine::resource::prefab_property_value_kind(source_value) !=
           gneiss::engine::resource::prefab_property_value_kind(candidate.value)) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   normalize_zero(candidate.value);
   normalize_zero(source_value);
@@ -155,7 +156,7 @@ gneiss_result set_prefab_property_override(
       if (found != overrides.end()) {
         overrides.erase(found);
       }
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     }
     if (found != overrides.end()) {
       found->value = std::move(candidate.value);
@@ -165,11 +166,11 @@ gneiss_result set_prefab_property_override(
         return gneiss::engine::resource::prefab_property_override_key_less(left.key, right.key);
       });
     }
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 

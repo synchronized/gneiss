@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/result.hpp"
 #include "engine/function/render/texture_view.hpp"
 
 #include <gneiss/engine/render.h>
@@ -11,13 +12,13 @@
 namespace gneiss::engine::api {
 
 /** 先验证字节数可表示为本机范围，再构造借用视图；失败保留输出。 */
-[[nodiscard]] inline gneiss_result
+[[nodiscard]] inline gneiss::engine::core::result
 read_texture_description(const gneiss_texture_desc& desc,
                          engine::render::texture_view& output) noexcept {
   if (desc.struct_size < sizeof(gneiss_texture_desc) || desc.reserved[0] != 0U ||
       desc.reserved[1] != 0U || desc.pixels == nullptr ||
       desc.pixel_data_size > std::numeric_limits<std::size_t>::max()) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   output = {.width = desc.width,
             .height = desc.height,
@@ -25,7 +26,7 @@ read_texture_description(const gneiss_texture_desc& desc,
             .color_space = static_cast<engine::resource::texture_color_space>(desc.color_space),
             .row_stride_bytes = desc.row_stride_bytes,
             .pixels = {desc.pixels, static_cast<std::size_t>(desc.pixel_data_size)}};
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
 } // namespace gneiss::engine::api

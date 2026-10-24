@@ -4,6 +4,7 @@
 #include "runtime/application.hpp"
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
+#include "engine/core/result.hpp"
 #include "engine/function/input/input_service.hpp"
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/render_resource_service.hpp"
@@ -143,8 +144,8 @@ private:
 };
 } // namespace
 
-gneiss_result application::create(const runtime::application_configuration& config,
-                                  std::shared_ptr<application>& output) noexcept {
+gneiss::engine::core::result application::create(const runtime::application_configuration& config,
+                                                 std::shared_ptr<application>& output) noexcept {
   if ((config.use_granit_window &&
        (config.window.width == 0U || config.window.height == 0U ||
         config.callbacks.initialize != nullptr || config.callbacks.poll_events != nullptr ||
@@ -152,22 +153,23 @@ gneiss_result application::create(const runtime::application_configuration& conf
       !std::isfinite(config.environment_intensity) || config.environment_intensity < 0.0F ||
       !std::isfinite(config.environment_rotation_radians) ||
       (!config.environment_asset.empty() &&
-       engine::resource::validate_uri(config.environment_asset) != GNEISS_SUCCESS)) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+       engine::resource::validate_uri(config.environment_asset) !=
+           gneiss::engine::core::result::success)) {
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     auto instance = std::shared_ptr<application>(new application(config));
     const auto result = instance->initialize();
-    if (result != GNEISS_SUCCESS) {
+    if (result != gneiss::engine::core::result::success) {
       return result;
     }
     instance->storage_->accepts_requests_.store(true, std::memory_order_release);
     output = std::move(instance);
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
@@ -185,12 +187,12 @@ engine::render::render_queue_stats application::render_statistics() const noexce
   return {};
 }
 
-gneiss_result
+gneiss::engine::core::result
 application::attach_task_executor(engine::core::tasks::task_executor& executor) noexcept {
   if (!is_owner_thread() || !accepts_requests())
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   if (storage_->scene_service_.textures()) {
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   }
   try {
 #ifdef GNEISS_ASSET_LIBUV
@@ -200,8 +202,8 @@ application::attach_task_executor(engine::core::tasks::task_executor& executor) 
       auto files = std::make_shared<engine::platform::io::uv_file_io>(*loop);
       auto paths = std::make_shared<engine::platform::io::uv_path_resolver>(*loop);
       const auto started = loop->start();
-      if (started != result::success) {
-        return started.native();
+      if (started != gneiss::engine::core::result::success) {
+        return started;
       }
       storage_->native_assets_->set_async_io(std::move(files), std::move(paths));
       storage_->asset_io_executor_ = std::move(loop);
@@ -234,10 +236,10 @@ application::attach_task_executor(engine::core::tasks::task_executor& executor) 
       // 无渲染平台的 application 只验证 CPU 与资源事务，不宣称 GPU 上传成功。
       backend.begin = [](auto, auto& sequence) {
         sequence = 1U;
-        return GNEISS_SUCCESS;
+        return gneiss::engine::core::result::success;
       };
       backend.poll = [](auto, auto& result) {
-        result = GNEISS_SUCCESS;
+        result = gneiss::engine::core::result::success;
         return true;
       };
       backend.discard = backend.begin;
@@ -247,81 +249,83 @@ application::attach_task_executor(engine::core::tasks::task_executor& executor) 
                                                     storage_->resources_, std::move(backend),
                                                     storage_->loop_notification_);
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-gneiss_result application::activate_scene(std::uint64_t request,
-                                          runtime::scene_load_completion& completion) {
+gneiss::engine::core::result
+application::activate_scene(std::uint64_t request, runtime::scene_load_completion& completion) {
   if (!is_owner_thread() || !accepts_requests())
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   try {
     return storage_->scene_service_.activate(request, completion);
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-gneiss_result application::reload_render_assets(
+gneiss::engine::core::result application::reload_render_assets(
     std::span<const engine::render::render_asset_reload> assets) noexcept {
   if (scene_loading()) {
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   }
   engine::render::asset_diagnostic diagnostic;
   return storage_->render_assets_->reload_assets(assets, diagnostic);
 }
 
-gneiss_result application::reload_scene(gneiss_scene_instance instance,
-                                        std::string_view uri) noexcept {
+gneiss::engine::core::result application::reload_scene(gneiss_scene_instance instance,
+                                                       std::string_view uri) noexcept {
   if (scene_loading()) {
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   }
-  return scenes() == nullptr ? GNEISS_ERROR_INVALID_STATE : scenes()->reload(instance, uri);
+  return scenes() == nullptr ? gneiss::engine::core::result::invalid_state
+                             : scenes()->reload(instance, uri);
 }
 
-gneiss_result application::reload_prefab(gneiss_scene_instance instance,
-                                         std::string_view uri) noexcept {
+gneiss::engine::core::result application::reload_prefab(gneiss_scene_instance instance,
+                                                        std::string_view uri) noexcept {
   if (scene_loading()) {
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   }
-  return scenes() == nullptr ? GNEISS_ERROR_INVALID_STATE : scenes()->reload_prefab(instance, uri);
+  return scenes() == nullptr ? gneiss::engine::core::result::invalid_state
+                             : scenes()->reload_prefab(instance, uri);
 }
 
-gneiss_result application::initialize() noexcept {
+gneiss::engine::core::result application::initialize() noexcept {
   if (storage_->config_.callbacks.log != nullptr) {
     try {
       storage_->log_dispatcher_ =
           std::make_unique<engine::core::log::log_dispatcher>(storage_->config_.callbacks.log);
     } catch (const std::bad_alloc&) {
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      return gneiss::engine::core::result::out_of_memory;
     } catch (...) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
   }
   if (!storage_->resources_.is_valid()) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   }
   if (!storage_->config_.asset_root.empty()) {
     std::shared_ptr<engine::resource::native_file_system> native_file_system;
     try {
       native_file_system = std::make_shared<engine::resource::native_file_system>();
     } catch (const std::bad_alloc&) {
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      return gneiss::engine::core::result::out_of_memory;
     } catch (...) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
     auto mount_result = native_file_system->initialize(storage_->config_.asset_root);
-    if (mount_result == GNEISS_SUCCESS) {
+    if (mount_result == gneiss::engine::core::result::success) {
 #ifdef GNEISS_ASSET_LIBUV
       storage_->native_assets_ = native_file_system;
 #endif
       mount_result = storage_->asset_file_system_.mount("asset://", std::move(native_file_system));
     }
-    if (mount_result != GNEISS_SUCCESS) {
+    if (mount_result != gneiss::engine::core::result::success) {
       report(GNEISS_NULL_APPLICATION, engine::core::diagnostics::severity::error,
              engine::core::diagnostics::category::asset, mount_result, "asset",
              "资产根目录挂载失败");
@@ -333,12 +337,12 @@ gneiss_result application::initialize() noexcept {
     try {
       storage_->granit_platform_ = std::make_unique<engine::platform::granit_platform>();
     } catch (const std::bad_alloc&) {
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      return gneiss::engine::core::result::out_of_memory;
     } catch (...) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
     const auto platform_result = storage_->granit_platform_->initialize(storage_->config_.window);
-    if (platform_result != GNEISS_SUCCESS) {
+    if (platform_result != gneiss::engine::core::result::success) {
       report(GNEISS_NULL_APPLICATION, engine::core::diagnostics::severity::error,
              engine::core::diagnostics::category::backend, platform_result, "granit.platform",
              "Granit 平台初始化失败");
@@ -352,16 +356,16 @@ gneiss_result application::initialize() noexcept {
 #endif
     } catch (const std::bad_alloc&) {
       storage_->granit_platform_.reset();
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      return gneiss::engine::core::result::out_of_memory;
     } catch (...) {
       storage_->granit_platform_.reset();
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
     std::vector<std::byte> environment_asset;
     if (!storage_->config_.environment_asset.empty()) {
       const auto environment_result =
           storage_->asset_file_system_.read(storage_->config_.environment_asset, environment_asset);
-      if (environment_result != GNEISS_SUCCESS) {
+      if (environment_result != gneiss::engine::core::result::success) {
         report(GNEISS_NULL_APPLICATION, engine::core::diagnostics::severity::error,
                engine::core::diagnostics::category::asset, environment_result, "environment",
                "环境资产读取失败");
@@ -373,7 +377,7 @@ gneiss_result application::initialize() noexcept {
         storage_->granit_platform_->native_window(), environment_asset,
         storage_->config_.environment_intensity, storage_->config_.environment_rotation_radians,
         storage_->log_dispatcher_.get());
-    if (render_result != GNEISS_SUCCESS) {
+    if (render_result != gneiss::engine::core::result::success) {
       report(GNEISS_NULL_APPLICATION, engine::core::diagnostics::severity::error,
              engine::core::diagnostics::category::backend, render_result, "granit.render",
              "Granit 渲染服务初始化失败");
@@ -384,21 +388,21 @@ gneiss_result application::initialize() noexcept {
     storage_->granit_render_service_->set_completion_notification(storage_->loop_notification_);
 #else
     report(GNEISS_NULL_APPLICATION, engine::core::diagnostics::severity::error,
-           engine::core::diagnostics::category::backend, GNEISS_ERROR_UNSUPPORTED,
+           engine::core::diagnostics::category::backend, gneiss::engine::core::result::unsupported,
            "granit.platform", "当前构建未启用 Granit 平台适配");
-    return GNEISS_ERROR_UNSUPPORTED;
+    return gneiss::engine::core::result::unsupported;
 #endif
   }
   if (storage_->config_.callbacks.initialize != nullptr) {
-    auto result = GNEISS_SUCCESS;
+    auto result = gneiss::engine::core::result::success;
     try {
-      result = to_native(storage_->config_.callbacks.initialize());
+      result = storage_->config_.callbacks.initialize();
     } catch (const std::bad_alloc&) {
-      result = GNEISS_ERROR_OUT_OF_MEMORY;
+      result = gneiss::engine::core::result::out_of_memory;
     } catch (...) {
-      result = GNEISS_ERROR_INTERNAL;
+      result = gneiss::engine::core::result::internal;
     }
-    if (result != GNEISS_SUCCESS) {
+    if (result != gneiss::engine::core::result::success) {
       report(GNEISS_NULL_APPLICATION, engine::core::diagnostics::severity::error,
              engine::core::diagnostics::category::application, result, "application.initialize",
              "application 初始化回调失败");
@@ -418,7 +422,7 @@ gneiss_result application::initialize() noexcept {
         storage_->asset_file_system_, *storage_->render_asset_cache_, storage_->resources_);
     const auto result =
         storage_->scene_service_.initialize(*storage_->asset_manager_, *storage_->render_assets_);
-    if (result != GNEISS_SUCCESS) {
+    if (result != gneiss::engine::core::result::success) {
       report(GNEISS_NULL_APPLICATION, engine::core::diagnostics::severity::error,
              engine::core::diagnostics::category::application, result, "scene", "场景域创建失败");
       static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
@@ -426,12 +430,12 @@ gneiss_result application::initialize() noexcept {
     }
   } catch (const std::bad_alloc&) {
     static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
     static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
 std::uint64_t application::now_ns() const {
@@ -443,7 +447,7 @@ std::uint64_t application::now_ns() const {
       std::chrono::duration_cast<std::chrono::nanoseconds>(now).count());
 }
 
-gneiss_result application::poll_events(bool& out_should_close) noexcept {
+gneiss::engine::core::result application::poll_events(bool& out_should_close) noexcept {
   GNEISS_PROFILE_SCOPE("application.events");
   out_should_close = false;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
@@ -451,21 +455,21 @@ gneiss_result application::poll_events(bool& out_should_close) noexcept {
     storage_->input_.begin_frame();
     bool focus_lost = false;
     const auto platform_result = storage_->granit_platform_->poll(out_should_close, focus_lost);
-    if (platform_result != GNEISS_SUCCESS) {
+    if (platform_result != gneiss::engine::core::result::success) {
       return platform_result;
     }
     engine::core::input::keyboard_state keyboard = {};
     auto input_result = engine::core::diagnostics::measure(
         engine::core::diagnostics::loop_stage::input_state,
         [&]() noexcept { return storage_->granit_platform_->keyboard(keyboard); });
-    if (input_result != GNEISS_SUCCESS) {
+    if (input_result != gneiss::engine::core::result::success) {
       return input_result;
     }
     engine::core::input::pointer_state pointer = {};
     input_result = engine::core::diagnostics::measure(
         engine::core::diagnostics::loop_stage::input_state,
         [&]() noexcept { return storage_->granit_platform_->pointer(pointer); });
-    if (input_result != GNEISS_SUCCESS) {
+    if (input_result != gneiss::engine::core::result::success) {
       return input_result;
     }
     storage_->input_.set_keyboard(keyboard);
@@ -474,10 +478,10 @@ gneiss_result application::poll_events(bool& out_should_close) noexcept {
     input_result = engine::core::diagnostics::measure(
         engine::core::diagnostics::loop_stage::input_events,
         [&]() noexcept { return storage_->granit_platform_->poll_input(event); });
-    while (input_result == GNEISS_SUCCESS) {
+    while (input_result == gneiss::engine::core::result::success) {
       if (!storage_->input_.push(event)) {
         storage_->input_.clear_focus();
-        return GNEISS_ERROR_INVALID_STATE;
+        return gneiss::engine::core::result::invalid_state;
       }
       event = {};
       input_result = engine::core::diagnostics::measure(
@@ -487,87 +491,93 @@ gneiss_result application::poll_events(bool& out_should_close) noexcept {
     if (focus_lost) {
       storage_->input_.clear_focus();
     }
-    return input_result == GNEISS_ERROR_NOT_READY ? GNEISS_SUCCESS : input_result;
+    return input_result == gneiss::engine::core::result::not_ready
+               ? gneiss::engine::core::result::success
+               : input_result;
   }
 #endif
   if (storage_->config_.callbacks.poll_events == nullptr) {
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
   try {
-    return to_native(storage_->config_.callbacks.poll_events(out_should_close));
+    return storage_->config_.callbacks.poll_events(out_should_close);
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-gneiss_result application::poll_input(engine::core::input::input_event& out_event) noexcept {
-  return to_native(storage_->input_.poll(out_event));
+gneiss::engine::core::result
+application::poll_input(engine::core::input::input_event& out_event) noexcept {
+  return storage_->input_.poll(out_event);
 }
 
-gneiss_result application::begin_action_map(std::string_view uri) noexcept {
+gneiss::engine::core::result application::begin_action_map(std::string_view uri) noexcept {
   if (!is_owner_thread() || !accepts_requests())
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   if (!storage_->asset_executor_attached_)
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   storage_->input_application_.cancel();
   engine::resource::asset_request<engine::resource::action_map_asset> request;
   const auto started = storage_->asset_manager_->request_input(uri, request);
-  return started == result::success
-             ? storage_->input_application_.begin(std::move(request)).native()
-             : started.native();
+  return started == gneiss::engine::core::result::success
+             ? storage_->input_application_.begin(std::move(request))
+             : started;
 }
-gneiss_result application::action_map_status() const noexcept {
+gneiss::engine::core::result application::action_map_status() const noexcept {
   if (!is_owner_thread() || !accepts_requests())
-    return GNEISS_ERROR_INVALID_STATE;
-  return storage_->asset_executor_attached_ ? storage_->input_application_.status().native()
-                                            : GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::invalid_state;
+  return storage_->asset_executor_attached_ ? storage_->input_application_.status()
+                                            : gneiss::engine::core::result::not_ready;
 }
-gneiss_result application::cancel_action_map() noexcept {
+gneiss::engine::core::result application::cancel_action_map() noexcept {
   if (!is_owner_thread() || !accepts_requests())
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   if (!storage_->asset_executor_attached_)
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   storage_->input_application_.cancel();
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
-gneiss_result application::load_action_map(std::string_view uri) noexcept {
+gneiss::engine::core::result application::load_action_map(std::string_view uri) noexcept {
   if (!is_owner_thread() || !accepts_requests())
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   storage_->input_application_.cancel();
   engine::resource::action_map map;
   const auto result = storage_->asset_manager_->load_input(uri, map);
-  return to_native(result == gneiss::result::success
-                       ? storage_->input_.replace_action_map(std::move(map))
-                       : result);
+  return result == gneiss::engine::core::result::success
+             ? storage_->input_.replace_action_map(std::move(map))
+             : result;
 }
 
-gneiss_result application::find_action(std::string_view name,
-                                       engine::core::input::action_id& out_action) const noexcept {
-  return to_native(storage_->input_.find_action(name, out_action));
+gneiss::engine::core::result
+application::find_action(std::string_view name,
+                         engine::core::input::action_id& out_action) const noexcept {
+  return storage_->input_.find_action(name, out_action);
 }
 
-gneiss_result
+gneiss::engine::core::result
 application::get_action_state(engine::core::input::action_id action,
                               engine::core::input::action_state& out_state) const noexcept {
-  return to_native(storage_->input_.get_action_state(action, out_state));
+  return storage_->input_.get_action_state(action, out_state);
 }
 
-gneiss_result application::submit_ui_draw_list(const engine::render::ui_draw_view& desc) noexcept {
+gneiss::engine::core::result
+application::submit_ui_draw_list(const engine::render::ui_draw_view& desc) noexcept {
   return storage_->is_updating_ ? storage_->ui_draw_list_.replace(desc, storage_->resources_)
-                                : GNEISS_ERROR_INVALID_STATE;
+                                : gneiss::engine::core::result::invalid_state;
 }
 
-gneiss_result
+gneiss::engine::core::result
 application::submit_debug_draw_list(std::span<const engine::render::debug_line> lines) noexcept {
   return storage_->is_updating_ ? storage_->debug_draw_list_.replace(lines)
-                                : GNEISS_ERROR_INVALID_STATE;
+                                : gneiss::engine::core::result::invalid_state;
 }
 
 void application::report(gneiss_application handle, engine::core::diagnostics::severity severity,
-                         engine::core::diagnostics::category category, gneiss_result result,
-                         std::string_view module, std::string_view message) noexcept {
+                         engine::core::diagnostics::category category,
+                         gneiss::engine::core::result result, std::string_view module,
+                         std::string_view message) noexcept {
   if (storage_->config_.callbacks.diagnostic != nullptr) {
     const engine::core::diagnostics::diagnostic_view diagnostic{.level = severity,
                                                                 .source = category,
@@ -606,35 +616,37 @@ application::submit_log(const engine::core::log::message_view& message) noexcept
                                               : storage_->log_dispatcher_->submit(message);
 }
 
-gneiss_result application::set_view_camera(const engine::render::view_camera* camera) noexcept {
+gneiss::engine::core::result
+application::set_view_camera(const engine::render::view_camera* camera) noexcept {
   if (!is_owner_thread() || !accepts_requests())
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   if (camera == nullptr) {
     storage_->view_camera_.reset();
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
   engine::render::matrix4 matrix;
   auto result = engine::render::build_view_matrix(camera->transform, matrix);
-  if (result == GNEISS_SUCCESS) {
+  if (result == gneiss::engine::core::result::success) {
     result = engine::render::build_perspective_matrix(camera->camera, 1.0F, matrix);
   }
-  if (result == GNEISS_SUCCESS) {
+  if (result == gneiss::engine::core::result::success) {
     storage_->view_camera_ = *camera;
   }
   return result;
 }
 
-gneiss_result application::capture_frame(std::uint32_t width, std::uint32_t height,
-                                         engine::render::frame_image& output) noexcept {
+gneiss::engine::core::result
+application::capture_frame(std::uint32_t width, std::uint32_t height,
+                           engine::render::frame_image& output) noexcept {
   output = {};
   if (!is_owner_thread() || !accepts_requests())
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   if (width == 0U || height == 0U || width > 1024U || height > 1024U) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   if (!storage_->granit_render_service_) {
-    return GNEISS_ERROR_UNSUPPORTED;
+    return gneiss::engine::core::result::unsupported;
   }
   try {
     auto window = storage_->granit_platform_->native_window();
@@ -644,14 +656,14 @@ gneiss_result application::capture_frame(std::uint32_t width, std::uint32_t heig
     engine::render::render_snapshot snapshot;
     auto result = storage_->scene_service_.native_world()->get_render_snapshot(
         width, height, snapshot, storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
-    if (result != GNEISS_SUCCESS) {
+    if (result != gneiss::engine::core::result::success) {
       return result;
     }
     engine::render::render_frame_packet packet;
     result = engine::render::capture_render_frame_packet(
         window, std::move(snapshot), storage_->resources_, storage_->ui_draw_list_,
         storage_->debug_draw_list_, packet);
-    if (result != GNEISS_SUCCESS) {
+    if (result != gneiss::engine::core::result::success) {
       return result;
     }
     auto image = std::make_shared<engine::render::frame_image>();
@@ -659,39 +671,40 @@ gneiss_result application::capture_frame(std::uint32_t width, std::uint32_t heig
     std::uint64_t sequence{};
     result = storage_->granit_render_service_->submit(
         std::move(packet), engine::render::render_frame_policy::required, &sequence);
-    if (result != GNEISS_SUCCESS) {
+    if (result != gneiss::engine::core::result::success) {
       return result;
     }
     result = storage_->granit_render_service_->finish_frames();
-    if (result != GNEISS_SUCCESS) {
+    if (result != gneiss::engine::core::result::success) {
       return result;
     }
     engine::render::render_frame_completion completed;
     if (!storage_->granit_render_service_->try_take_required_completion(completed) ||
-        completed.sequence != sequence || completed.status != GNEISS_SUCCESS) {
-      return GNEISS_ERROR_INTERNAL;
+        completed.sequence != sequence ||
+        completed.status != gneiss::engine::core::result::success) {
+      return gneiss::engine::core::result::internal;
     }
     output = std::move(*image);
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 #else
-  return GNEISS_ERROR_UNSUPPORTED;
+  return gneiss::engine::core::result::unsupported;
 #endif
 }
 
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
-gneiss_result application::render_frame() noexcept {
+gneiss::engine::core::result application::render_frame() noexcept {
   GNEISS_PROFILE_SCOPE("application.render.submit");
   if (storage_->granit_render_service_ == nullptr) {
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
   auto& window = storage_->granit_platform_->native_window();
   if (window.width == 0U || window.height == 0U) {
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
   engine::render::render_frame_packet packet;
   bool should_prepare = false;
@@ -700,7 +713,7 @@ gneiss_result application::render_frame() noexcept {
         return storage_->granit_render_service_->prepare_frame_packet_storage(packet,
                                                                               should_prepare);
       });
-  if (storage_result != GNEISS_SUCCESS || !should_prepare) {
+  if (storage_result != gneiss::engine::core::result::success || !should_prepare) {
     return storage_result;
   }
   engine::render::render_snapshot snapshot;
@@ -710,7 +723,7 @@ gneiss_result application::render_frame() noexcept {
             window.width, window.height, snapshot,
             storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
       });
-  if (snapshot_result != GNEISS_SUCCESS) {
+  if (snapshot_result != gneiss::engine::core::result::success) {
     return snapshot_result;
   }
   const auto capture_result = engine::core::diagnostics::measure(
@@ -719,7 +732,7 @@ gneiss_result application::render_frame() noexcept {
             window, std::move(snapshot), storage_->resources_, storage_->ui_draw_list_,
             storage_->debug_draw_list_, packet);
       });
-  if (capture_result != GNEISS_SUCCESS) {
+  if (capture_result != gneiss::engine::core::result::success) {
     return capture_result;
   }
   const auto requested_recreate = window.needs_recreate;
@@ -727,39 +740,41 @@ gneiss_result application::render_frame() noexcept {
   const auto submit_result = engine::core::diagnostics::measure(
       engine::core::diagnostics::loop_stage::frame_submit,
       [&]() noexcept { return storage_->granit_render_service_->submit(std::move(packet)); });
-  if (submit_result != GNEISS_SUCCESS && requested_recreate) {
+  if (submit_result != gneiss::engine::core::result::success && requested_recreate) {
     window.needs_recreate = true;
   }
   // 成功推进队列后先继续排空本地可做工作，队列繁忙且无进展时才等待。
-  if (submit_result == GNEISS_SUCCESS && storage_->loop_notification_) {
+  if (submit_result == gneiss::engine::core::result::success && storage_->loop_notification_) {
     storage_->loop_notification_->notify();
   }
   return submit_result;
 }
 #else
-gneiss_result application::render_frame() noexcept { return GNEISS_ERROR_UNSUPPORTED; }
+gneiss::engine::core::result application::render_frame() noexcept {
+  return gneiss::engine::core::result::unsupported;
+}
 #endif
 
-gneiss_result application::get_window_size(std::uint32_t& out_width,
-                                           std::uint32_t& out_height) const noexcept {
+gneiss::engine::core::result
+application::get_window_size(std::uint32_t& out_width, std::uint32_t& out_height) const noexcept {
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   if (storage_->granit_platform_ != nullptr) {
     const auto& window = storage_->granit_platform_->native_window();
     out_width = window.width;
     out_height = window.height;
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
 #endif
   out_width = storage_->config_.window.width;
   out_height = storage_->config_.window.height;
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): 句柄与帧数虽同宽但语义明确。
-gneiss_result application::run(gneiss_application handle, std::uint64_t max_frame_count) noexcept
-    try {
+gneiss::engine::core::result application::run(gneiss_application handle,
+                                              std::uint64_t max_frame_count) noexcept try {
   if (!is_owner_thread() || !storage_->platform_initialized_ || storage_->is_running_) {
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   }
   storage_->is_running_ = true;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
@@ -789,7 +804,7 @@ gneiss_result application::run(gneiss_application handle, std::uint64_t max_fram
     bool should_close = false;
     const auto poll_result = engine::core::diagnostics::measure(
         engine::core::diagnostics::loop_stage::events, [&] { return poll_events(should_close); });
-    if (poll_result != GNEISS_SUCCESS) {
+    if (poll_result != gneiss::engine::core::result::success) {
       storage_->is_running_ = false;
       return poll_result;
     }
@@ -824,10 +839,10 @@ gneiss_result application::run(gneiss_application handle, std::uint64_t max_fram
       const auto update_result =
           engine::core::diagnostics::measure(engine::core::diagnostics::loop_stage::update, [&] {
             GNEISS_PROFILE_SCOPE("application.update");
-            return to_native(storage_->config_.callbacks.update(handle, time));
+            return storage_->config_.callbacks.update(handle, time);
           });
       storage_->is_updating_ = false;
-      if (update_result != GNEISS_SUCCESS) {
+      if (update_result != gneiss::engine::core::result::success) {
         storage_->ui_draw_list_.clear();
         storage_->debug_draw_list_.clear();
         storage_->is_running_ = false;
@@ -838,7 +853,8 @@ gneiss_result application::run(gneiss_application handle, std::uint64_t max_fram
     const auto render_result = engine::core::diagnostics::measure(
         engine::core::diagnostics::loop_stage::render, [&] { return render_frame(); });
     // 渲染队列、交换链或后端资源可能暂时未就绪；跳过本帧并在下一帧重试。
-    if (render_result != GNEISS_SUCCESS && render_result != GNEISS_ERROR_NOT_READY) {
+    if (render_result != gneiss::engine::core::result::success &&
+        render_result != gneiss::engine::core::result::not_ready) {
       storage_->ui_draw_list_.clear();
       storage_->debug_draw_list_.clear();
       storage_->is_running_ = false;
@@ -869,32 +885,32 @@ gneiss_result application::run(gneiss_application handle, std::uint64_t max_fram
     return storage_->granit_render_service_->finish_frames();
   }
 #endif
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 } catch (const std::bad_alloc&) {
   storage_->is_running_ = false;
   storage_->is_updating_ = false;
   storage_->ui_draw_list_.clear();
   storage_->debug_draw_list_.clear();
-  return GNEISS_ERROR_OUT_OF_MEMORY;
+  return gneiss::engine::core::result::out_of_memory;
 } catch (...) {
   storage_->is_running_ = false;
   storage_->is_updating_ = false;
   storage_->ui_draw_list_.clear();
   storage_->debug_draw_list_.clear();
-  return GNEISS_ERROR_INTERNAL;
+  return gneiss::engine::core::result::internal;
 }
 
 bool application::is_owner_thread() const noexcept {
   return storage_->owner_thread_ == std::this_thread::get_id();
 }
 
-gneiss_result application::shutdown(gneiss_application handle) noexcept {
+gneiss::engine::core::result application::shutdown(gneiss_application handle) noexcept {
   if (!is_owner_thread() || storage_->is_running_ || storage_->shutting_down_) {
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   }
   storage_->shutting_down_ = true;
   storage_->accepts_requests_.store(false, std::memory_order_release);
-  auto shutdown_result = GNEISS_SUCCESS;
+  auto shutdown_result = gneiss::engine::core::result::success;
   storage_->input_application_.cancel();
   if (storage_->asset_manager_) {
     storage_->asset_manager_->stop_resources();
@@ -916,9 +932,9 @@ gneiss_result application::shutdown(gneiss_application handle) noexcept {
       try {
         storage_->config_.callbacks.shutdown();
       } catch (const std::bad_alloc&) {
-        shutdown_result = GNEISS_ERROR_OUT_OF_MEMORY;
+        shutdown_result = gneiss::engine::core::result::out_of_memory;
       } catch (...) {
-        shutdown_result = GNEISS_ERROR_INTERNAL;
+        shutdown_result = gneiss::engine::core::result::internal;
       }
     }
     storage_->platform_initialized_ = false;
@@ -928,7 +944,7 @@ gneiss_result application::shutdown(gneiss_application handle) noexcept {
     const auto render_stats = storage_->granit_render_service_->query_performance_stats();
     granit::renderer_resource_stats stats;
     const auto render_shutdown_result = storage_->granit_render_service_->shutdown(stats);
-    if (shutdown_result == GNEISS_SUCCESS) {
+    if (shutdown_result == gneiss::engine::core::result::success) {
       shutdown_result = render_shutdown_result;
     }
     std::array<char, 768> performance_message{};
@@ -966,10 +982,10 @@ gneiss_result application::shutdown(gneiss_application handle) noexcept {
                                     performance_message.size() - 1U)
             : 0U;
     report(handle, engine::core::diagnostics::severity::info,
-           engine::core::diagnostics::category::backend, GNEISS_SUCCESS,
+           engine::core::diagnostics::category::backend, gneiss::engine::core::result::success,
            "granit.render.performance",
            std::string_view(performance_message.data(), performance_length));
-    if (shutdown_result != GNEISS_SUCCESS) {
+    if (shutdown_result != gneiss::engine::core::result::success) {
       std::array<char, 768> message{};
       const auto written =
           stats.total_live_count == 0U
@@ -1036,94 +1052,105 @@ engine::render::texture_load_service* application::texture_service() noexcept {
   return storage_->scene_service_.textures();
 }
 
-gneiss_result application::create_mesh_node_ready(
+gneiss::engine::core::result application::create_mesh_node_ready(
     gneiss_scene_instance scene, const engine::scene::mesh_renderer_node_creation& desc,
     const engine::scene::scene_instances::mesh_binding& prepared, scene_node_id& output) noexcept {
   output = {};
-  const auto valid =
-      is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
-  return valid == GNEISS_SUCCESS
+  const auto valid = is_owner_thread() && accepts_requests()
+                         ? gneiss::engine::core::result::success
+                         : gneiss::engine::core::result::invalid_state;
+  return valid == gneiss::engine::core::result::success
              ? scenes()->create_mesh_renderer_node_ready(scene, desc, prepared, output)
              : valid;
 }
 
-gneiss_result application::collect_unused_edit_assets() noexcept {
-  const auto valid =
-      is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
-  if (valid == GNEISS_SUCCESS) {
+gneiss::engine::core::result application::collect_unused_edit_assets() noexcept {
+  const auto valid = is_owner_thread() && accepts_requests()
+                         ? gneiss::engine::core::result::success
+                         : gneiss::engine::core::result::invalid_state;
+  if (valid == gneiss::engine::core::result::success) {
     storage_->render_assets_->release_unused();
     storage_->asset_manager_->collect_unused();
   }
   return valid;
 }
 
-gneiss_result application::query_ready_asset(const engine::render::render_asset_reload& source,
-                                             engine::render::render_asset_lease& output) noexcept {
+gneiss::engine::core::result
+application::query_ready_asset(const engine::render::render_asset_reload& source,
+                               engine::render::render_asset_lease& output) noexcept {
   output = {};
-  const auto valid =
-      is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
-  if (valid != GNEISS_SUCCESS) {
+  const auto valid = is_owner_thread() && accepts_requests()
+                         ? gneiss::engine::core::result::success
+                         : gneiss::engine::core::result::invalid_state;
+  if (valid != gneiss::engine::core::result::success) {
     return valid;
   }
   auto* service = texture_service();
   const auto result =
       service ? storage_->render_assets_->acquire_cached(source, output, service->profile())
-              : GNEISS_ERROR_NOT_READY;
-  return result == GNEISS_ERROR_NOT_FOUND ? GNEISS_ERROR_NOT_READY : result;
+              : gneiss::engine::core::result::not_ready;
+  return result == gneiss::engine::core::result::not_found ? gneiss::engine::core::result::not_ready
+                                                           : result;
 }
 
-gneiss_result
+gneiss::engine::core::result
 application::capture_mesh_binding(gneiss_scene_instance scene, scene_node_id node,
                                   engine::scene::scene_instances::mesh_binding& output) noexcept {
   output = {};
-  const auto valid =
-      is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
-  return valid == GNEISS_SUCCESS ? scenes()->capture_mesh_binding(scene, node, output) : valid;
+  const auto valid = is_owner_thread() && accepts_requests()
+                         ? gneiss::engine::core::result::success
+                         : gneiss::engine::core::result::invalid_state;
+  return valid == gneiss::engine::core::result::success
+             ? scenes()->capture_mesh_binding(scene, node, output)
+             : valid;
 }
 
-gneiss_result application::replace_mesh_binding(
+gneiss::engine::core::result application::replace_mesh_binding(
     gneiss_scene_instance scene, scene_node_id node,
     const engine::scene::scene_instances::mesh_binding& expected,
     const engine::scene::scene_instances::mesh_binding& replacement) noexcept {
-  const auto valid =
-      is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
-  return valid == GNEISS_SUCCESS
+  const auto valid = is_owner_thread() && accepts_requests()
+                         ? gneiss::engine::core::result::success
+                         : gneiss::engine::core::result::invalid_state;
+  return valid == gneiss::engine::core::result::success
              ? scenes()->replace_mesh_binding(scene, node, expected, replacement)
              : valid;
 }
 
-gneiss_result
+gneiss::engine::core::result
 application::prepare_edit_assets(std::span<const engine::render::render_asset_reload> sources,
                                  std::uint64_t revision, std::uint64_t& request) noexcept try {
   request = 0U;
-  const auto valid =
-      is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
-  if (valid != GNEISS_SUCCESS) {
+  const auto valid = is_owner_thread() && accepts_requests()
+                         ? gneiss::engine::core::result::success
+                         : gneiss::engine::core::result::invalid_state;
+  if (valid != gneiss::engine::core::result::success) {
     return valid;
   }
   auto* service = texture_service();
   if (!service || scene_loading() || visual_assets_loading() || service->busy()) {
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   }
   return service->submit_assets(sources, 1U, revision, request, true,
                                 engine::render::texture_load_service::maximum_prepared_bytes);
 } catch (const std::bad_alloc&) {
-  return GNEISS_ERROR_OUT_OF_MEMORY;
+  return gneiss::engine::core::result::out_of_memory;
 } catch (...) {
-  return GNEISS_ERROR_INTERNAL;
+  return gneiss::engine::core::result::internal;
 }
 
-gneiss_result application::request_scene(std::string_view uri, std::uint64_t session,
-                                         std::uint64_t revision, std::uint64_t& request) {
+gneiss::engine::core::result application::request_scene(std::string_view uri, std::uint64_t session,
+                                                        std::uint64_t revision,
+                                                        std::uint64_t& request) {
   request = 0;
   if (!is_owner_thread() || !accepts_requests())
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   try {
     return storage_->scene_service_.request_scene(uri, session, revision, request);
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
@@ -1134,64 +1161,65 @@ bool application::scene_progress(runtime::scene_load_progress& progress) const {
   return storage_->scene_service_.scene_progress(progress);
 }
 
-gneiss_result application::poll_scene(runtime::scene_load_completion& completion, bool& ready) {
+gneiss::engine::core::result application::poll_scene(runtime::scene_load_completion& completion,
+                                                     bool& ready) {
   ready = false;
   if (!is_owner_thread() || !accepts_requests())
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   try {
     const auto result = storage_->scene_service_.poll_scene(completion, ready);
     report_visual_completion();
     return result;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-gneiss_result application::cancel_scene(std::uint64_t request) {
+gneiss::engine::core::result application::cancel_scene(std::uint64_t request) {
   if (!is_owner_thread() || !accepts_requests())
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   try {
     return storage_->scene_service_.cancel_scene(request);
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
 bool application::scene_loading() const noexcept { return storage_->scene_service_.loading(); }
 
-gneiss_result
+gneiss::engine::core::result
 application::request_assets(std::span<const engine::render::render_asset_reload> sources,
                             std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
                             bool reload) {
   request = 0;
   if (!is_owner_thread() || !accepts_requests())
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   if (!texture_service() || scene_loading())
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   try {
     return storage_->scene_service_.request_assets(sources, session, revision, request, reload);
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-gneiss_result application::poll_assets(engine::render::texture_load_completion& completion,
-                                       bool& ready) {
+gneiss::engine::core::result
+application::poll_assets(engine::render::texture_load_completion& completion, bool& ready) {
   ready = false;
   if (!is_owner_thread() || !accepts_requests())
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   try {
     return storage_->scene_service_.poll_assets(completion, ready);
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
@@ -1203,11 +1231,12 @@ bool application::asset_progress(engine::render::asset_load_progress& progress) 
   return service && service->progress(progress);
 }
 
-gneiss_result application::cancel_assets() noexcept {
+gneiss::engine::core::result application::cancel_assets() noexcept {
   if (!is_owner_thread() || !accepts_requests())
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   auto* service = texture_service();
-  return service && service->cancel() ? GNEISS_SUCCESS : GNEISS_ERROR_NOT_READY;
+  return service && service->cancel() ? gneiss::engine::core::result::success
+                                      : gneiss::engine::core::result::not_ready;
 }
 
 void application::advance_scene_load() {

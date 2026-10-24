@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/result.hpp"
 #include "engine/core/sha256.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
 
@@ -18,8 +19,9 @@ namespace gneiss::engine::resource {
  * 最终复读是变化检测，不提供跨进程文件系统的原子快照。 */
 class source_revision_file_system final : public file_system {
 public:
-  [[nodiscard]] gneiss_result identify_source(std::string_view path, std::uint32_t type,
-                                              asset_identity& output) const noexcept override;
+  [[nodiscard]] gneiss::engine::core::result
+  identify_source(std::string_view path, std::uint32_t type,
+                  asset_identity& output) const noexcept override;
   struct source_revision {
     std::uint64_t bytes{};
     engine::core::sha256_digest digest{};
@@ -27,8 +29,8 @@ public:
   /** 读取已观察的摘要，不触发 I/O；未建账返回 NOT_READY。
    * 仅是内容版本输入，发布前仍须完成 verify；不包含依赖版本或设备配置。
    */
-  [[nodiscard]] gneiss_result observed_revision(std::string_view path,
-                                                source_revision& output) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  observed_revision(std::string_view path, source_revision& output) const noexcept;
   /** 固定本次待复验的身份清单；由同一任务串行推进，游标独立持有 VFS 和读取来源。 */
   class verification final {
   public:
@@ -40,9 +42,9 @@ public:
     ~verification();
     /** 区间来源每步最多处理 byte_budget 字节；只支持整文件的旧后端每步最多一个文件。
      * complete 仅表示全部摘要匹配；错误为粘滞终态，取消不发布部分结果。 */
-    [[nodiscard]] gneiss_result advance(std::size_t byte_budget,
-                                        const std::function<bool()>& cancelled, bool& complete,
-                                        std::chrono::milliseconds wait_budget = {}) noexcept;
+    [[nodiscard]] gneiss::engine::core::result
+    advance(std::size_t byte_budget, const std::function<bool()>& cancelled, bool& complete,
+            std::chrono::milliseconds wait_budget = {}) noexcept;
     [[nodiscard]] std::size_t completed_sources() const noexcept;
     [[nodiscard]] statistics timings() const noexcept;
 
@@ -52,23 +54,26 @@ public:
     explicit verification(std::unique_ptr<state> value);
     std::unique_ptr<state> state_;
   };
-  [[nodiscard]] gneiss_result begin_open_read_for_validation(
+  [[nodiscard]] gneiss::engine::core::result begin_open_read_for_validation(
       std::string_view path, std::unique_ptr<open_read_operation>& output) const noexcept override;
   explicit source_revision_file_system(virtual_file_system source,
                                        std::function<bool()> cancelled = {})
       : source_(std::move(source)), cancelled_(std::move(cancelled)) {}
   /** 分块计算完整来源摘要后建账；不建立不可变快照，使用后仍须 verify。 */
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   open_read(std::string_view path, std::unique_ptr<read_source>& output) const noexcept override;
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   open_read_for_validation(std::string_view path,
                            std::unique_ptr<read_source>& output) const noexcept override;
-  gneiss_result read(std::string_view path, std::vector<std::byte>& bytes) const noexcept override;
-  gneiss_result read_bounded(std::string_view path, std::size_t limit,
-                             std::vector<std::byte>& bytes) const noexcept override;
-  [[nodiscard]] gneiss_result verify(const std::function<bool()>& cancelled) const noexcept;
-  [[nodiscard]] gneiss_result begin_verification(std::unique_ptr<verification>& output,
-                                                 bool deferred_reads = true) const noexcept;
+  gneiss::engine::core::result read(std::string_view path,
+                                    std::vector<std::byte>& bytes) const noexcept override;
+  gneiss::engine::core::result read_bounded(std::string_view path, std::size_t limit,
+                                            std::vector<std::byte>& bytes) const noexcept override;
+  [[nodiscard]] gneiss::engine::core::result
+  verify(const std::function<bool()>& cancelled) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  begin_verification(std::unique_ptr<verification>& output,
+                     bool deferred_reads = true) const noexcept;
   [[nodiscard]] std::size_t source_count() const;
 
 private:
@@ -77,8 +82,8 @@ private:
     std::mutex mutex;
     std::map<std::string, identity> identities;
   };
-  [[nodiscard]] static gneiss_result remember(const std::shared_ptr<ledger>& versions,
-                                              std::string_view path, const identity& current);
+  [[nodiscard]] static gneiss::engine::core::result
+  remember(const std::shared_ptr<ledger>& versions, std::string_view path, const identity& current);
   virtual_file_system source_;
   std::function<bool()> cancelled_;
   std::shared_ptr<ledger> versions_{std::make_shared<ledger>()};

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "uv_async_file.hpp"
 #include "uv_loop_executor.hpp"
 
@@ -14,7 +15,7 @@
 #include <thread>
 
 namespace {
-using gneiss::result;
+using gneiss::engine::core::result;
 using namespace gneiss::engine::platform::io;
 void check(bool condition, std::source_location location = std::source_location::current()) {
   if (!condition) {
@@ -40,22 +41,22 @@ struct fixture {
     }
   }
 };
-result open(uv_file_io& io, const std::filesystem::path& path,
-            std::shared_ptr<uv_async_file>& output) {
+gneiss::engine::core::result open(uv_file_io& io, const std::filesystem::path& path,
+                                  std::shared_ptr<uv_async_file>& output) {
   std::unique_ptr<uv_file_open_operation> pending;
   auto value = io.begin_open(utf8(path), pending);
-  if (value != result::success) {
+  if (value != gneiss::engine::core::result::success) {
     return value;
   }
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   do {
     value = pending->poll(output);
-    if (value != result::not_ready) {
+    if (value != gneiss::engine::core::result::not_ready) {
       return value;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   } while (std::chrono::steady_clock::now() < deadline);
-  return result::not_ready;
+  return gneiss::engine::core::result::not_ready;
 }
 struct gate {
   std::shared_ptr<std::binary_semaphore> signal = std::make_shared<std::binary_semaphore>(0);
@@ -69,24 +70,26 @@ void run() {
     stream << "abcdefgh";
   }
   uv_loop_executor executor;
-  check(executor.start() == result::success);
+  check(executor.start() == gneiss::engine::core::result::success);
   uv_file_io io(executor, {.requests = 4U, .bytes = 8U});
   std::shared_ptr<uv_async_file> source;
-  check(open(io, files.root / "missing", source) == result::not_found && !source);
-  check(open(io, files.root, source) != result::success && !source);
-  check(open(io, path, source) == result::success && source->size() == 8U);
+  check(open(io, files.root / "missing", source) == gneiss::engine::core::result::not_found &&
+        !source);
+  check(open(io, files.root, source) != gneiss::engine::core::result::success && !source);
+  check(open(io, path, source) == gneiss::engine::core::result::success && source->size() == 8U);
   std::unique_ptr<uv_file_read_operation> first;
   std::unique_ptr<uv_file_read_operation> second;
   std::span<const std::byte> bytes;
-  check(source->begin_read(9U, 0U, first) == result::invalid_argument);
-  check(source->begin_read(7U, 2U, first) == result::invalid_argument);
-  check(source->begin_read(1U, 5U, first) == result::success);
-  check(first->wait_for(std::chrono::seconds(5), bytes) == result::success && bytes.size() == 5U &&
-        bytes.front() == std::byte{'b'} && bytes.back() == std::byte{'f'});
-  check(source->begin_read(0U, 4U, second) == result::not_ready && !second);
+  check(source->begin_read(9U, 0U, first) == gneiss::engine::core::result::invalid_argument);
+  check(source->begin_read(7U, 2U, first) == gneiss::engine::core::result::invalid_argument);
+  check(source->begin_read(1U, 5U, first) == gneiss::engine::core::result::success);
+  check(first->wait_for(std::chrono::seconds(5), bytes) == gneiss::engine::core::result::success &&
+        bytes.size() == 5U && bytes.front() == std::byte{'b'} && bytes.back() == std::byte{'f'});
+  check(source->begin_read(0U, 4U, second) == gneiss::engine::core::result::not_ready && !second);
   first.reset();
-  check(source->begin_read(8U, 0U, first) == result::success);
-  check(first->wait_for(std::chrono::seconds(5), bytes) == result::success && bytes.empty());
+  check(source->begin_read(8U, 0U, first) == gneiss::engine::core::result::success);
+  check(first->wait_for(std::chrono::seconds(5), bytes) == gneiss::engine::core::result::success &&
+        bytes.empty());
   first.reset();
   const auto moved = files.root / "moved.bin";
   std::filesystem::rename(path, moved);
@@ -94,47 +97,48 @@ void run() {
     std::ofstream stream(path);
     stream << "xxxxxxxx";
   }
-  check(source->begin_read(0U, 4U, first) == result::success);
-  check(source->begin_read(4U, 4U, second) == result::success);
+  check(source->begin_read(0U, 4U, first) == gneiss::engine::core::result::success);
+  check(source->begin_read(4U, 4U, second) == gneiss::engine::core::result::success);
   source.reset();
-  check(first->wait_for(std::chrono::seconds(5), bytes) == result::success &&
+  check(first->wait_for(std::chrono::seconds(5), bytes) == gneiss::engine::core::result::success &&
         bytes.front() == std::byte{'a'});
-  check(second->wait_for(std::chrono::seconds(5), bytes) == result::success &&
+  check(second->wait_for(std::chrono::seconds(5), bytes) == gneiss::engine::core::result::success &&
         bytes.front() == std::byte{'e'});
   first.reset();
   second.reset();
-  check(open(io, moved, source) == result::success);
+  check(open(io, moved, source) == gneiss::engine::core::result::success);
   {
     gate blocked;
     std::binary_semaphore entered(0);
     check(executor.post([signal = blocked.signal, &entered] {
       entered.release();
       signal->acquire();
-    }) == result::success);
+    }) == gneiss::engine::core::result::success);
     entered.acquire();
-    check(source->begin_read(0U, 4U, first) == result::success);
+    check(source->begin_read(0U, 4U, first) == gneiss::engine::core::result::success);
     source->begin_close();
     source->begin_close();
-    check(source->poll_close() == result::not_ready);
-    check(source->begin_read(0U, 1U, second) == result::invalid_state);
+    check(source->poll_close() == gneiss::engine::core::result::not_ready);
+    check(source->begin_read(0U, 1U, second) == gneiss::engine::core::result::invalid_state);
     std::byte buffer{};
-    check(source->read_at(0U, {&buffer, 1U}) == result::invalid_state);
+    check(source->read_at(0U, {&buffer, 1U}) == gneiss::engine::core::result::invalid_state);
   }
-  check(first->wait_for(std::chrono::seconds(5), bytes) == result::success &&
+  check(first->wait_for(std::chrono::seconds(5), bytes) == gneiss::engine::core::result::success &&
         bytes.front() == std::byte{'a'});
   const auto close_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  while (source->poll_close() == result::not_ready &&
+  while (source->poll_close() == gneiss::engine::core::result::not_ready &&
          std::chrono::steady_clock::now() < close_deadline)
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  check(source->poll_close() == result::success);
+  check(source->poll_close() == gneiss::engine::core::result::success);
   source->begin_close();
-  check(source->poll_close() == result::success);
+  check(source->poll_close() == gneiss::engine::core::result::success);
   first.reset();
   source.reset();
-  check(open(io, moved, source) == result::success);
+  check(open(io, moved, source) == gneiss::engine::core::result::success);
   std::filesystem::resize_file(moved, 2U);
-  check(source->begin_read(0U, 8U, first) == result::success);
-  check(first->wait_for(std::chrono::seconds(5), bytes) == result::io && bytes.empty());
+  check(source->begin_read(0U, 8U, first) == gneiss::engine::core::result::success);
+  check(first->wait_for(std::chrono::seconds(5), bytes) == gneiss::engine::core::result::io &&
+        bytes.empty());
   first.reset();
   {
     gate blocked;
@@ -142,17 +146,17 @@ void run() {
     check(executor.post([signal = blocked.signal, &entered] {
       entered.release();
       signal->acquire();
-    }) == result::success);
+    }) == gneiss::engine::core::result::success);
     entered.acquire();
-    check(source->begin_read(0U, 2U, first) == result::success);
-    check(first->poll(bytes) == result::not_ready);
+    check(source->begin_read(0U, 2U, first) == gneiss::engine::core::result::success);
+    check(first->poll(bytes) == gneiss::engine::core::result::not_ready);
     first.reset();
     source.reset();
     std::unique_ptr<uv_file_open_operation> abandoned;
-    check(io.begin_open(utf8(path), abandoned) == result::success);
+    check(io.begin_open(utf8(path), abandoned) == gneiss::engine::core::result::success);
     abandoned.reset();
   }
-  check(executor.stop() == result::success);
+  check(executor.stop() == gneiss::engine::core::result::success);
   check(executor.failed_task_count() == 0U);
 }
 } // namespace

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "uv_loop_executor.hpp"
 #include "uv_path_resolver.hpp"
 
@@ -13,7 +14,7 @@
 #include <stdexcept>
 
 namespace {
-using gneiss::result;
+using gneiss::engine::core::result;
 using gneiss::engine::platform::io::uv_loop_executor;
 using gneiss::engine::platform::io::uv_path_operation;
 using gneiss::engine::platform::io::uv_path_resolver;
@@ -58,42 +59,46 @@ void run() {
   {
     uv_loop_executor executor;
     uv_path_resolver resolver(executor, 1U);
-    check(resolver.begin(utf8(path), successful) == result::not_ready && !successful);
-    check(executor.start() == result::success);
-    check(resolver.begin("", successful) == result::invalid_argument);
-    check(resolver.begin(std::string("bad\0path", 8U), successful) == result::invalid_argument);
+    check(resolver.begin(utf8(path), successful) == gneiss::engine::core::result::not_ready &&
+          !successful);
+    check(executor.start() == gneiss::engine::core::result::success);
+    check(resolver.begin("", successful) == gneiss::engine::core::result::invalid_argument);
+    check(resolver.begin(std::string("bad\0path", 8U), successful) ==
+          gneiss::engine::core::result::invalid_argument);
     {
       gate blocked;
       auto ready = blocked.release;
-      check(executor.post([ready] { ready->acquire(); }) == result::success);
-      check(resolver.begin(utf8(path), successful) == result::success);
+      check(executor.post([ready] { ready->acquire(); }) == gneiss::engine::core::result::success);
+      check(resolver.begin(utf8(path), successful) == gneiss::engine::core::result::success);
       std::string output = "old";
-      check(successful->poll(output) == result::not_ready && output.empty());
-      check(resolver.begin(utf8(path), missing) == result::not_ready && !missing);
+      check(successful->poll(output) == gneiss::engine::core::result::not_ready && output.empty());
+      check(resolver.begin(utf8(path), missing) == gneiss::engine::core::result::not_ready &&
+            !missing);
       successful.reset();
       // 放弃不会等待 loop，也不会提前归还仍在排队的容量。
-      check(resolver.begin(utf8(path), missing) == result::not_ready);
+      check(resolver.begin(utf8(path), missing) == gneiss::engine::core::result::not_ready);
     }
-    check(executor.stop() == result::success);
-    check(executor.start() == result::success);
-    check(resolver.begin(utf8(path), successful) == result::success);
-    check(executor.stop() == result::success);
-    check(executor.start() == result::success);
+    check(executor.stop() == gneiss::engine::core::result::success);
+    check(executor.start() == gneiss::engine::core::result::success);
+    check(resolver.begin(utf8(path), successful) == gneiss::engine::core::result::success);
+    check(executor.stop() == gneiss::engine::core::result::success);
+    check(executor.start() == gneiss::engine::core::result::success);
     {
       uv_path_resolver temporary(executor);
-      check(temporary.begin(utf8(files.root / "missing"), missing) == result::success);
+      check(temporary.begin(utf8(files.root / "missing"), missing) ==
+            gneiss::engine::core::result::success);
     }
-    check(executor.stop() == result::success);
+    check(executor.stop() == gneiss::engine::core::result::success);
     check(executor.failed_task_count() == 0U);
   }
   // 回执不借用解析器或执行器；停机排空后仍可接收，成功只交付一次。
   std::string output;
-  check(successful->poll(output) == result::success);
+  check(successful->poll(output) == gneiss::engine::core::result::success);
   check(std::filesystem::equivalent(
       std::filesystem::path(std::u8string(output.begin(), output.end())), path));
-  check(successful->poll(output) == result::invalid_state && output.empty());
-  check(missing->poll(output) == result::not_found && output.empty());
-  check(missing->poll(output) == result::not_found);
+  check(successful->poll(output) == gneiss::engine::core::result::invalid_state && output.empty());
+  check(missing->poll(output) == gneiss::engine::core::result::not_found && output.empty());
+  check(missing->poll(output) == gneiss::engine::core::result::not_found);
 }
 } // namespace
 

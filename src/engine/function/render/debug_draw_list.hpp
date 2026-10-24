@@ -4,8 +4,8 @@
 #ifndef GNEISS_RENDER_DEBUG_DRAW_LIST_HPP_
 #define GNEISS_RENDER_DEBUG_DRAW_LIST_HPP_
 
+#include "engine/core/result.hpp"
 #include "engine/function/render/draw_types.hpp"
-#include <gneiss/engine/core/result.h>
 
 #include <span>
 #include <vector>
@@ -15,7 +15,7 @@ namespace gneiss::engine::render {
 class debug_draw_list final {
 public:
   /** 同步复制线段；失败保留上一份列表。 */
-  [[nodiscard]] gneiss_result replace(std::span<const debug_line> lines) noexcept;
+  [[nodiscard]] gneiss::engine::core::result replace(std::span<const debug_line> lines) noexcept;
   void clear() noexcept { lines_.clear(); }
   [[nodiscard]] const std::vector<debug_line>& lines() const noexcept { return lines_; }
 

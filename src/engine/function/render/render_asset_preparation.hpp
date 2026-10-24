@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/result.hpp"
 #include "engine/function/render/render_resource_data.hpp"
 #include "engine/resource/loaders/asset_preparation.hpp"
 
@@ -16,7 +17,7 @@ using prepared_render_batch = engine::resource::prepared_batch;
 using engine::resource::prepare_texture;
 
 /** Render 指定发布资源预算；CPU 准备唯一实现位于 Asset。 */
-[[nodiscard]] inline gneiss_result
+[[nodiscard]] inline gneiss::engine::core::result
 prepare_render_assets(const engine::resource::virtual_file_system& file_system,
                       std::span<const render_asset_reload> requested, prepared_render_batch& output,
                       asset_diagnostic& diagnostic, const std::function<bool()>& cancelled,

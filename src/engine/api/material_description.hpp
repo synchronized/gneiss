@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/result.hpp"
 #include "engine/function/render/render_resource_data.hpp"
 
 #include <algorithm>
@@ -11,14 +12,14 @@
 namespace gneiss::engine::api {
 
 /** 只读取调用方声明的版本字段；失败保留输出，数值与资源归属由 Render 校验。 */
-[[nodiscard]] inline gneiss_result
+[[nodiscard]] inline gneiss::engine::core::result
 read_material_description(const gneiss_material_desc& desc,
                           engine::render::material_resource& output) noexcept {
   if ((desc.struct_size != GNEISS_MATERIAL_DESC_VERSION_1_SIZE &&
        desc.struct_size != GNEISS_MATERIAL_DESC_VERSION_2_SIZE &&
        desc.struct_size < sizeof(gneiss_material_desc)) ||
       desc.reserved != 0U) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   engine::render::material_resource value{
       .red = desc.red,
@@ -31,7 +32,7 @@ read_material_description(const gneiss_material_desc& desc,
   };
   if (desc.struct_size >= GNEISS_MATERIAL_DESC_VERSION_2_SIZE) {
     if (desc.reserved_2 != 0U) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     value.metallic_roughness_texture = desc.metallic_roughness_texture;
     value.normal_texture = desc.normal_texture;
@@ -43,7 +44,7 @@ read_material_description(const gneiss_material_desc& desc,
   }
   if (desc.struct_size >= sizeof(gneiss_material_desc)) {
     if (desc.reserved_3 != 0U || desc.double_sided > 1U) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     value.alpha_mode = static_cast<engine::resource::material_alpha_mode>(desc.alpha_mode);
     value.double_sided = desc.double_sided != 0U;
@@ -59,7 +60,7 @@ read_material_description(const gneiss_material_desc& desc,
     }
   }
   output = value;
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
 } // namespace gneiss::engine::api

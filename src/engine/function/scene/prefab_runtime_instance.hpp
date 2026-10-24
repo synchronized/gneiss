@@ -5,6 +5,7 @@
 #define GNEISS_SCENE_PREFAB_RUNTIME_INSTANCE_HPP_
 
 #include "engine/core/publication_group.hpp"
+#include "engine/core/result.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/resource/types/prefab_description.hpp"
@@ -24,7 +25,7 @@ namespace gneiss::engine::scene {
 class prefab_runtime_instance final {
 public:
   /** 只修改私有描述，失败保持 output 不变；不读文件、不创建实体、不发送通知。 */
-  [[nodiscard]] static gneiss_result prepare_candidate_description(
+  [[nodiscard]] static gneiss::engine::core::result prepare_candidate_description(
       const gneiss::engine::resource::prefab_description& source, gneiss_type_registry registry,
       std::string_view instance_uuid,
       std::span<const gneiss::engine::resource::prefab_property_override> overrides,
@@ -46,7 +47,7 @@ public:
   prefab_runtime_instance(const prefab_runtime_instance&) = delete;
   prefab_runtime_instance& operator=(const prefab_runtime_instance&) = delete;
 
-  [[nodiscard]] static gneiss_result
+  [[nodiscard]] static gneiss::engine::core::result
   create(engine::world::world& native_world, gneiss_world world,
          engine::render::render_asset_loader& loader,
          gneiss::engine::resource::prefab_asset_lease prefab, gneiss_type_registry registry,
@@ -70,32 +71,34 @@ public:
   [[nodiscard]] const gneiss::engine::resource::object_description*
   find_source_object(std::string_view source_node_uuid) const noexcept;
   [[nodiscard]] std::size_t node_count() const noexcept { return nodes_.size(); }
-  [[nodiscard]] gneiss_result get_node_info(std::size_t index, node_info& out_info) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result get_node_info(std::size_t index,
+                                                           node_info& out_info) const noexcept;
   /** 验证候选来源、覆盖与资源是否可提交，不修改 World。 */
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   validate_reload(const gneiss::engine::resource::prefab_asset_lease& candidate,
                   gneiss_type_registry registry,
                   const std::vector<gneiss::engine::resource::prefab_property_override>& overrides);
   /** 保持实例根与匹配来源节点身份，提交已经验证的来源修订。 */
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   reload(gneiss::engine::resource::prefab_asset_lease candidate, gneiss_type_registry registry,
          const std::vector<gneiss::engine::resource::prefab_property_override>& overrides);
 
   /** 候选 World 专用的分阶段构造；每次只创建一个节点，渲染资源由调用方传入租约。 */
-  [[nodiscard]] gneiss_result begin_staged(gneiss_scene_node_id parent,
-                                           const gneiss::engine::core::math::transform& transform);
+  [[nodiscard]] gneiss::engine::core::result
+  begin_staged(gneiss_scene_node_id parent, const gneiss::engine::core::math::transform& transform);
   /** 活动 World 内隐藏构造；描述已完成覆盖验证，发布前不激活相机。 */
-  [[nodiscard]] gneiss_result begin_hidden(gneiss_scene_node_id parent,
-                                           const gneiss::engine::core::math::transform& transform,
-                                           gneiss::engine::resource::prefab_description prepared);
-  [[nodiscard]] gneiss_result publish_hidden() noexcept;
-  [[nodiscard]] gneiss_result retire_hidden() noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  begin_hidden(gneiss_scene_node_id parent, const gneiss::engine::core::math::transform& transform,
+               gneiss::engine::resource::prefab_description prepared);
+  [[nodiscard]] gneiss::engine::core::result publish_hidden() noexcept;
+  [[nodiscard]] gneiss::engine::core::result retire_hidden() noexcept;
   /** 旧同步实例也可加入退休组；逐项准备不改变可见性，取消可保留这些内部关联。 */
-  [[nodiscard]] gneiss_result prepare_retirement_step(bool& complete);
-  [[nodiscard]] gneiss_result create_staged_node(std::size_t index, gneiss_scene_node_id parent,
-                                                 engine::render::mesh_asset_lease mesh,
-                                                 engine::render::material_asset_lease material);
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result prepare_retirement_step(bool& complete);
+  [[nodiscard]] gneiss::engine::core::result
+  create_staged_node(std::size_t index, gneiss_scene_node_id parent,
+                     engine::render::mesh_asset_lease mesh,
+                     engine::render::material_asset_lease material);
+  [[nodiscard]] gneiss::engine::core::result
   apply_staged_override(gneiss_type_registry registry,
                         const gneiss::engine::resource::prefab_property_override& value) noexcept;
   /** 候选构造取消：每次最多处理 budget 个节点/记录；完成前须继续推进，禁止继续构造。
@@ -106,7 +109,8 @@ public:
 private:
   friend class scene_instance;
   friend class prefab_candidate;
-  [[nodiscard]] gneiss_result commit_node(std::size_t index, gneiss_scene_node_id parent);
+  [[nodiscard]] gneiss::engine::core::result commit_node(std::size_t index,
+                                                         gneiss_scene_node_id parent);
   struct runtime_node final {
     gneiss::engine::resource::prefab_author_address address;
     std::string name;
@@ -119,12 +123,12 @@ private:
   };
 
   void rollback() noexcept;
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   stage_assets(const gneiss::engine::resource::prefab_description& description);
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   commit(const gneiss::engine::resource::prefab_description& description,
          gneiss_scene_node_id parent, const gneiss::engine::core::math::transform& root_transform);
-  [[nodiscard]] gneiss_result apply_overrides(
+  [[nodiscard]] gneiss::engine::core::result apply_overrides(
       gneiss_type_registry registry,
       std::span<const gneiss::engine::resource::prefab_property_override> overrides) noexcept;
 

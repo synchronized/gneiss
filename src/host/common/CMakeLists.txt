@@ -8,7 +8,7 @@ add_library(
   include/gneiss/app/project_description.hpp
   include/gneiss/app/runtime_log_protocol.hpp
 )
-target_link_libraries(gneiss_app_project PRIVATE gneiss_yyjson PUBLIC gneiss::engine)
+target_link_libraries(gneiss_app_project PRIVATE gneiss_yyjson gneiss_native_interface PUBLIC gneiss::engine gneiss_core_values)
 target_include_directories(
   gneiss_app_project
   PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"

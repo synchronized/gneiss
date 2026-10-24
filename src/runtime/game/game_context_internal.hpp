@@ -16,11 +16,12 @@ struct message_view;
 
 namespace gneiss::runtime::game {
 
-[[nodiscard]] GNEISS_API gneiss_result
+[[nodiscard]] GNEISS_API gneiss::engine::core::result
 create_game_context(gneiss_application application, gneiss_entity_id startup_root_entity,
                     gneiss_game_context* out_context) noexcept;
-[[nodiscard]] GNEISS_API gneiss_result destroy_game_context(gneiss_game_context context) noexcept;
-[[nodiscard]] GNEISS_API gneiss_result
+[[nodiscard]] GNEISS_API gneiss::engine::core::result
+destroy_game_context(gneiss_game_context context) noexcept;
+[[nodiscard]] GNEISS_API gneiss::engine::core::result
 set_game_context_log_source(gneiss_game_context context, std::string_view source) noexcept;
 
 /** 非拥有型快照；只复制身份，不延长 Application 或 World 的生命周期。 */
@@ -29,8 +30,8 @@ struct context_view {
   gneiss_world world{};
   gneiss_entity_id startup_root_entity{};
 };
-[[nodiscard]] gneiss_result query_context(gneiss_game_context context,
-                                          context_view& output) noexcept;
+[[nodiscard]] gneiss::engine::core::result query_context(gneiss_game_context context,
+                                                         context_view& output) noexcept;
 /** message 已经过 ABI 校验；此入口允许跨线程，日志来源在锁内借用。 */
 [[nodiscard]] engine::core::result
 submit_context_log(gneiss_game_context context,

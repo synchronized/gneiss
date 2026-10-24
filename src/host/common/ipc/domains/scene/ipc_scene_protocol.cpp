@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "ipc_scene_protocol.hpp"
+#include "engine/core/result.hpp"
 #include "ipc_asset_protocol.hpp"
 
 #include <array>
@@ -122,13 +123,14 @@ std::span<const gneiss::engine::platform::ipc_operation_descriptor>
 ipc_scene_operations() noexcept {
   return operations;
 }
-result encode_ipc_scene_request(const ipc_scene_request& value, ipc_scene_operation operation,
-                                std::uint32_t request_id,
-                                gneiss::engine::platform::ipc_envelope& output) noexcept try {
+gneiss::engine::core::result
+encode_ipc_scene_request(const ipc_scene_request& value, ipc_scene_operation operation,
+                         std::uint32_t request_id,
+                         gneiss::engine::platform::ipc_envelope& output) noexcept try {
   if (!valid_source(value) ||
       (operation != ipc_scene_operation::load && operation != ipc_scene_operation::cancel) ||
       (operation == ipc_scene_operation::load ? request_id == 0U : request_id != 0U)) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   gneiss::engine::platform::ipc_envelope envelope{
       .domain = gneiss::engine::platform::ipc_domain::scene,
@@ -146,32 +148,34 @@ result encode_ipc_scene_request(const ipc_scene_request& value, ipc_scene_operat
           .assets = {{.uri = value.uri, .type = ipc_asset_type::scene}},
       },
       envelope.payload);
-  if (encoded == result::success) {
+  if (encoded == gneiss::engine::core::result::success) {
     output = std::move(envelope);
   }
   return encoded;
 } catch (...) {
-  return result::out_of_memory;
+  return gneiss::engine::core::result::out_of_memory;
 }
-result decode_ipc_scene_request(const gneiss::engine::platform::ipc_envelope& envelope,
-                                ipc_scene_request& output) noexcept try {
+gneiss::engine::core::result
+decode_ipc_scene_request(const gneiss::engine::platform::ipc_envelope& envelope,
+                         ipc_scene_request& output) noexcept try {
   const auto operation = static_cast<ipc_scene_operation>(envelope.operation);
   if (envelope.domain != gneiss::engine::platform::ipc_domain::scene ||
       envelope.payload.size() > ipc_scene_max_payload_size ||
-      gneiss::engine::platform::validate_ipc_envelope(envelope) != result::success ||
+      gneiss::engine::platform::validate_ipc_envelope(envelope) !=
+          gneiss::engine::core::result::success ||
       (operation == ipc_scene_operation::load
            ? envelope.kind != gneiss::engine::platform::ipc_message_kind::request
            : operation != ipc_scene_operation::cancel ||
                  envelope.kind != gneiss::engine::platform::ipc_message_kind::event)) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   ipc_asset_reload_request value;
   const auto decoded = decode_ipc_asset_request(envelope.payload, value);
-  if (decoded != result::success) {
+  if (decoded != gneiss::engine::core::result::success) {
     return decoded;
   }
   if (value.assets.size() != 1U || value.assets.front().type != ipc_asset_type::scene) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   ipc_scene_request parsed{
       .session = value.session_id,
@@ -179,17 +183,18 @@ result decode_ipc_scene_request(const gneiss::engine::platform::ipc_envelope& en
       .uri = std::move(value.assets.front().uri),
   };
   if (!valid_source(parsed)) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   output = std::move(parsed);
-  return result::success;
+  return gneiss::engine::core::result::success;
 } catch (...) {
-  return result::out_of_memory;
+  return gneiss::engine::core::result::out_of_memory;
 }
-result encode_ipc_scene_progress(const ipc_scene_progress& value, std::uint32_t request_id,
-                                 gneiss::engine::platform::ipc_envelope& output) noexcept try {
+gneiss::engine::core::result
+encode_ipc_scene_progress(const ipc_scene_progress& value, std::uint32_t request_id,
+                          gneiss::engine::platform::ipc_envelope& output) noexcept try {
   if (!valid_progress(value)) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> doc(yyjson_mut_doc_new(nullptr),
                                                                       yyjson_mut_doc_free);
@@ -206,7 +211,7 @@ result encode_ipc_scene_progress(const ipc_scene_progress& value, std::uint32_t 
       !yyjson_mut_obj_add_bool(doc.get(), root, "can_cancel", value.can_cancel) ||
       !yyjson_mut_obj_add_strncpy(doc.get(), root, "message", value.message.data(),
                                   value.message.size())) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   }
   if (value.budget) {
     auto* budget = yyjson_mut_obj(doc.get());
@@ -229,7 +234,7 @@ result encode_ipc_scene_progress(const ipc_scene_progress& value, std::uint32_t 
                                  value.budget->cleanup_complete) ||
         !yyjson_mut_obj_add_bool(doc.get(), budget, "cleanup_pending",
                                  value.budget->cleanup_pending)) {
-      return result::out_of_memory;
+      return gneiss::engine::core::result::out_of_memory;
     }
   }
   yyjson_mut_doc_set_root(doc.get(), root);
@@ -237,10 +242,10 @@ result encode_ipc_scene_progress(const ipc_scene_progress& value, std::uint32_t 
   std::unique_ptr<char, decltype(&std::free)> text(
       yyjson_mut_write(doc.get(), YYJSON_WRITE_NOFLAG, &length), std::free);
   if (!text) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   }
   if (length > ipc_scene_max_payload_size) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   const bool response = request_id != 0U && scene_phase_terminal(value.phase);
   gneiss::engine::platform::ipc_envelope envelope{
@@ -255,20 +260,22 @@ result encode_ipc_scene_progress(const ipc_scene_progress& value, std::uint32_t 
   envelope.payload.assign(reinterpret_cast<const std::uint8_t*>(text.get()),
                           reinterpret_cast<const std::uint8_t*>(text.get()) + length);
   output = std::move(envelope);
-  return result::success;
+  return gneiss::engine::core::result::success;
 } catch (...) {
-  return result::out_of_memory;
+  return gneiss::engine::core::result::out_of_memory;
 }
-result decode_ipc_scene_progress(const gneiss::engine::platform::ipc_envelope& envelope,
-                                 ipc_scene_progress& output) noexcept try {
+gneiss::engine::core::result
+decode_ipc_scene_progress(const gneiss::engine::platform::ipc_envelope& envelope,
+                          ipc_scene_progress& output) noexcept try {
   const bool response = envelope.operation == 1U &&
                         envelope.kind == gneiss::engine::platform::ipc_message_kind::response;
   if (envelope.domain != gneiss::engine::platform::ipc_domain::scene ||
       envelope.payload.size() > ipc_scene_max_payload_size ||
-      gneiss::engine::platform::validate_ipc_envelope(envelope) != result::success ||
+      gneiss::engine::platform::validate_ipc_envelope(envelope) !=
+          gneiss::engine::core::result::success ||
       (!response && (envelope.operation != 3U ||
                      envelope.kind != gneiss::engine::platform::ipc_message_kind::event))) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> doc(
       yyjson_read(reinterpret_cast<const char*>(envelope.payload.data()), envelope.payload.size(),
@@ -276,7 +283,7 @@ result decode_ipc_scene_progress(const gneiss::engine::platform::ipc_envelope& e
       yyjson_doc_free);
   auto* root = doc ? yyjson_doc_get_root(doc.get()) : nullptr;
   if (!yyjson_is_obj(root)) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   auto* session = yyjson_obj_get(root, "session");
   auto* revision = yyjson_obj_get(root, "revision");
@@ -290,7 +297,7 @@ result decode_ipc_scene_progress(const gneiss::engine::platform::ipc_envelope& e
       !yyjson_is_str(phase) || !yyjson_is_uint(completed) || !yyjson_is_uint(total) ||
       yyjson_get_uint(total) > 65536U || yyjson_get_uint(completed) > yyjson_get_uint(total) ||
       !yyjson_is_bool(cancel) || !yyjson_is_str(message)) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   ipc_scene_progress value;
   value.source = {
@@ -313,16 +320,16 @@ result decode_ipc_scene_progress(const gneiss::engine::platform::ipc_envelope& e
   if (auto* budget = yyjson_obj_get(root, "budget")) {
     ipc_scene_budget parsed;
     if (!read_budget(budget, parsed)) {
-      return result::invalid_argument;
+      return gneiss::engine::core::result::invalid_argument;
     }
     value.budget = parsed;
   }
   if (!found || !valid_progress(value) || (response && !scene_phase_terminal(value.phase))) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   output = std::move(value);
-  return result::success;
+  return gneiss::engine::core::result::success;
 } catch (...) {
-  return result::out_of_memory;
+  return gneiss::engine::core::result::out_of_memory;
 }
 } // namespace gneiss

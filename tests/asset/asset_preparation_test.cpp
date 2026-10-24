@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "engine/resource/loaders/asset_preparation.hpp"
 
 #include "engine/resource/vfs/virtual_file_system.hpp"
@@ -28,12 +29,13 @@ class mesh_source final : public gneiss::engine::resource::file_system {
 public:
   mutable unsigned reads{};
   bool change_on_verify{};
-  gneiss_result read(std::string_view path,
-                     std::vector<std::byte>& output) const noexcept override {
+  gneiss::engine::core::result read(std::string_view path,
+                                    std::vector<std::byte>& output) const noexcept override {
     return read_bounded(path, std::numeric_limits<std::size_t>::max(), output);
   }
-  gneiss_result read_bounded(std::string_view path, std::size_t limit,
-                             std::vector<std::byte>& output) const noexcept override {
+  gneiss::engine::core::result
+  read_bounded(std::string_view path, std::size_t limit,
+               std::vector<std::byte>& output) const noexcept override {
     constexpr std::string_view mesh =
         R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]]})";
     constexpr std::string_view material =
@@ -48,10 +50,10 @@ public:
     }
     output.clear();
     if (path != "mesh" && path != "material" && path != "linked") {
-      return GNEISS_ERROR_NOT_FOUND;
+      return gneiss::engine::core::result::not_found;
     }
     if (bytes.size() > limit) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     try {
       output.resize(bytes.size());
@@ -59,9 +61,9 @@ public:
       if (++reads > 1U && change_on_verify) {
         output.back() = std::byte{' '};
       }
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     } catch (...) {
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      return gneiss::engine::core::result::out_of_memory;
     }
   }
 };
@@ -81,12 +83,12 @@ class range_reader final : public gneiss::engine::resource::read_source {
 public:
   explicit range_reader(std::shared_ptr<range_data> data) : data_(std::move(data)) {}
   [[nodiscard]] std::uint64_t size() const noexcept override { return data_->bytes.size(); }
-  [[nodiscard]] gneiss_result begin_read(
+  [[nodiscard]] gneiss::engine::core::result begin_read(
       std::uint64_t offset, std::size_t count,
       std::unique_ptr<gneiss::engine::resource::read_operation>& output) const noexcept override {
     output.reset();
     if (!data_->deferred) {
-      return GNEISS_ERROR_UNSUPPORTED;
+      return gneiss::engine::core::result::unsupported;
     }
     class operation final : public gneiss::engine::resource::read_operation {
     public:
@@ -96,20 +98,21 @@ public:
         data_->maximum_live_reads = std::max(data_->maximum_live_reads, data_->live_reads);
       }
       ~operation() override { --data_->live_reads; }
-      [[nodiscard]] gneiss_result poll(std::span<const std::byte>& output) noexcept override {
+      [[nodiscard]] gneiss::engine::core::result
+      poll(std::span<const std::byte>& output) noexcept override {
         output = {};
         if (!data_->ready) {
-          return GNEISS_ERROR_NOT_READY;
+          return gneiss::engine::core::result::not_ready;
         }
         if (data_->fail) {
-          return GNEISS_ERROR_IO;
+          return gneiss::engine::core::result::io;
         }
         output = bytes_;
         if (!counted_) {
           data_->read_bytes += bytes_.size();
           counted_ = true;
         }
-        return GNEISS_SUCCESS;
+        return gneiss::engine::core::result::success;
       }
 
     private:
@@ -118,29 +121,29 @@ public:
       bool counted_{};
     };
     if (offset > size() || count > size() - offset) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     try {
       output = std::make_unique<operation>(
           data_, std::span{data_->bytes}.subspan(static_cast<std::size_t>(offset), count));
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     } catch (...) {
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      return gneiss::engine::core::result::out_of_memory;
     }
   }
-  [[nodiscard]] gneiss_result read_at(std::uint64_t offset,
-                                      std::span<std::byte> output) const noexcept override {
+  [[nodiscard]] gneiss::engine::core::result
+  read_at(std::uint64_t offset, std::span<std::byte> output) const noexcept override {
     if (data_->fail) {
-      return GNEISS_ERROR_IO;
+      return gneiss::engine::core::result::io;
     }
     if (offset > data_->bytes.size() || output.size() > data_->bytes.size() - offset) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     std::ranges::copy(
         std::span{data_->bytes}.subspan(static_cast<std::size_t>(offset), output.size()),
         output.begin());
     data_->read_bytes += output.size();
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
 
 private:
@@ -149,17 +152,17 @@ private:
 class range_files final : public gneiss::engine::resource::file_system {
 public:
   std::shared_ptr<range_data> data = std::make_shared<range_data>();
-  gneiss_result read(std::string_view /*path*/,
-                     std::vector<std::byte>& /*output*/) const noexcept override {
-    return GNEISS_ERROR_UNSUPPORTED;
+  gneiss::engine::core::result read(std::string_view /*path*/,
+                                    std::vector<std::byte>& /*output*/) const noexcept override {
+    return gneiss::engine::core::result::unsupported;
   }
-  gneiss_result
+  gneiss::engine::core::result
   begin_open_read_for_validation(std::string_view /*path*/,
                                  std::unique_ptr<gneiss::engine::resource::open_read_operation>&
                                      output) const noexcept override {
     output.reset();
     if (!data->deferred_open) {
-      return GNEISS_ERROR_UNSUPPORTED;
+      return gneiss::engine::core::result::unsupported;
     }
     class operation final : public gneiss::engine::resource::open_read_operation {
     public:
@@ -167,20 +170,20 @@ public:
         ++data_->live_opens;
       }
       ~operation() override { --data_->live_opens; }
-      gneiss_result
+      gneiss::engine::core::result
       poll(std::unique_ptr<gneiss::engine::resource::read_source>& output) noexcept override {
         output.reset();
         if (!data_->ready) {
-          return GNEISS_ERROR_NOT_READY;
+          return gneiss::engine::core::result::not_ready;
         }
         if (data_->fail) {
-          return GNEISS_ERROR_IO;
+          return gneiss::engine::core::result::io;
         }
         try {
           output = std::make_unique<range_reader>(data_);
-          return GNEISS_SUCCESS;
+          return gneiss::engine::core::result::success;
         } catch (...) {
-          return GNEISS_ERROR_OUT_OF_MEMORY;
+          return gneiss::engine::core::result::out_of_memory;
         }
       }
 
@@ -189,20 +192,20 @@ public:
     };
     try {
       output = std::make_unique<operation>(data);
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     } catch (...) {
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      return gneiss::engine::core::result::out_of_memory;
     }
   }
-  gneiss_result
+  gneiss::engine::core::result
   open_read(std::string_view /*path*/,
             std::unique_ptr<gneiss::engine::resource::read_source>& output) const noexcept override
       try {
     ++data->synchronous_opens;
     output = std::make_unique<range_reader>(data);
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (...) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   }
 };
 struct preparation_faults {
@@ -238,16 +241,17 @@ bool run_preparation_case(
     }
     if (complete) {
       if (cancel || change || fail) {
-        return result == (fail ? GNEISS_ERROR_IO : GNEISS_ERROR_INVALID_STATE) &&
+        return result == (fail ? gneiss::engine::core::result::io
+                               : gneiss::engine::core::result::invalid_state) &&
                output.assets.empty();
       }
-      return result == GNEISS_SUCCESS && output.assets.size() == 1U &&
+      return result == gneiss::engine::core::result::success && output.assets.size() == 1U &&
              output.assets.front().mesh.vertices.size() == 3U &&
              output.assets.front().sources.size() == 1U &&
              output.assets.front().sources.front().digest ==
                  gneiss::engine::core::sha256(backend->data->bytes);
     }
-    if (result != GNEISS_SUCCESS || !output.assets.empty()) {
+    if (result != gneiss::engine::core::result::success || !output.assets.empty()) {
       return false;
     }
   }
@@ -257,12 +261,12 @@ bool incremental_preparation() {
   using namespace gneiss::engine::resource;
   auto backend = std::make_shared<range_files>();
   mesh_source fixture;
-  if (fixture.read("mesh", backend->data->bytes) != GNEISS_SUCCESS) {
+  if (fixture.read("mesh", backend->data->bytes) != gneiss::engine::core::result::success) {
     return false;
   }
   backend->data->bytes.resize(4096U, std::byte{' '});
   virtual_file_system files;
-  if (files.mount("asset://", backend) != GNEISS_SUCCESS) {
+  if (files.mount("asset://", backend) != gneiss::engine::core::result::success) {
     return false;
   }
   const std::array requests{
@@ -278,13 +282,13 @@ bool prefetched_preparation(bool deferred_open = false) {
   using namespace gneiss::engine::resource;
   auto backend = std::make_shared<range_files>();
   mesh_source fixture;
-  if (fixture.read("mesh", backend->data->bytes) != GNEISS_SUCCESS) {
+  if (fixture.read("mesh", backend->data->bytes) != gneiss::engine::core::result::success) {
     return false;
   }
   backend->data->deferred = true;
   backend->data->deferred_open = deferred_open;
   virtual_file_system files;
-  if (files.mount("asset://", backend) != GNEISS_SUCCESS) {
+  if (files.mount("asset://", backend) != gneiss::engine::core::result::success) {
     return false;
   }
   std::vector<asset_preparation_source> requested;
@@ -298,14 +302,15 @@ bool prefetched_preparation(bool deferred_open = false) {
   {
     asset_preparation preparation(files, requested,
                                   {.maximum_assets = 16U, .maximum_bytes = 65536U}, {});
-    if (preparation.advance(65536U, {}, output, diagnostic, complete) != GNEISS_SUCCESS ||
+    if (preparation.advance(65536U, {}, output, diagnostic, complete) !=
+            gneiss::engine::core::result::success ||
         complete || (deferred_open ? backend->data->live_opens : backend->data->live_reads) != 8U ||
         !output.assets.empty()) {
       return false;
     }
     if (preparation.advance(
             65536U, [] { return true; }, output, diagnostic, complete) !=
-            GNEISS_ERROR_INVALID_STATE ||
+            gneiss::engine::core::result::invalid_state ||
         !complete || backend->data->live_reads != 0U || backend->data->live_opens != 0U) {
       return false;
     }
@@ -316,7 +321,8 @@ bool prefetched_preparation(bool deferred_open = false) {
                                 {});
   complete = false;
   for (unsigned step = 0U; step < 64U && !complete; ++step) {
-    if (preparation.advance(65536U, {}, output, diagnostic, complete) != GNEISS_SUCCESS) {
+    if (preparation.advance(65536U, {}, output, diagnostic, complete) !=
+        gneiss::engine::core::result::success) {
       return false;
     }
   }
@@ -330,7 +336,7 @@ bool deferred_open_failure(bool oversized) {
   backend->data->deferred_open = true;
   backend->data->bytes.resize(128U);
   virtual_file_system files;
-  if (files.mount("asset://", backend) != GNEISS_SUCCESS) {
+  if (files.mount("asset://", backend) != gneiss::engine::core::result::success) {
     return false;
   }
   const std::array requests{
@@ -339,13 +345,15 @@ bool deferred_open_failure(bool oversized) {
   prepared_batch output;
   asset_diagnostic diagnostic;
   bool complete{};
-  if (preparation.advance(64U, {}, output, diagnostic, complete) != GNEISS_SUCCESS || complete ||
-      backend->data->read_bytes != 0U || backend->data->live_opens != 1U) {
+  if (preparation.advance(64U, {}, output, diagnostic, complete) !=
+          gneiss::engine::core::result::success ||
+      complete || backend->data->read_bytes != 0U || backend->data->live_opens != 1U) {
     return false;
   }
   backend->data->ready = true;
   backend->data->fail = !oversized;
-  const auto expected = oversized ? GNEISS_ERROR_INVALID_ARGUMENT : GNEISS_ERROR_IO;
+  const auto expected =
+      oversized ? gneiss::engine::core::result::invalid_argument : gneiss::engine::core::result::io;
   return preparation.advance(64U, {}, output, diagnostic, complete) == expected && complete &&
          output.assets.empty() && backend->data->live_opens == 0U &&
          backend->data->synchronous_opens == 0U && backend->data->read_bytes == 0U;
@@ -369,13 +377,13 @@ int main() try {
   using namespace gneiss::engine::resource;
   prepared_batch output;
   asset_diagnostic diagnostic;
-  gneiss_result result = GNEISS_ERROR_INTERNAL;
+  gneiss::engine::core::result result = gneiss::engine::core::result::internal;
   // 不创建 Application、缓存或资源服务；后台输出在 VFS 销毁后仍拥有完整数组。
   std::thread worker([&] {
     try {
       gneiss::engine::resource::virtual_file_system files;
       auto source = std::make_shared<mesh_source>();
-      if (files.mount("asset://", source) != GNEISS_SUCCESS) {
+      if (files.mount("asset://", source) != gneiss::engine::core::result::success) {
         return;
       }
       const std::array requests{
@@ -383,11 +391,11 @@ int main() try {
       };
       result = prepare_assets(files, requests, output, diagnostic, {}, 0U);
     } catch (...) {
-      result = GNEISS_ERROR_OUT_OF_MEMORY;
+      result = gneiss::engine::core::result::out_of_memory;
     }
   });
   worker.join();
-  if (result != GNEISS_SUCCESS || output.assets.size() != 1U ||
+  if (result != gneiss::engine::core::result::success || output.assets.size() != 1U ||
       output.assets[0].mesh.vertices.size() != 3U || output.bytes == 0U ||
       output.assets[0].sources.size() != 1U || !output.assets[0].sources[0].identity.source ||
       output.assets[0].sources[0].identity.uri != "asset://mesh") {
@@ -396,7 +404,7 @@ int main() try {
 
   gneiss::engine::resource::virtual_file_system files;
   auto source = std::make_shared<mesh_source>();
-  if (files.mount("asset://", source) != GNEISS_SUCCESS) {
+  if (files.mount("asset://", source) != gneiss::engine::core::result::success) {
     return 2;
   }
   const std::array requests{
@@ -404,23 +412,26 @@ int main() try {
   };
   if (prepare_assets(
           files, requests, output, diagnostic, [] { return true; }, 0U) !=
-          GNEISS_ERROR_INVALID_STATE ||
+          gneiss::engine::core::result::invalid_state ||
       !output.assets.empty() || output.bytes != 0U) {
     return 3;
   }
-  if (prepare_assets(files, requests, output, diagnostic, {}, 0U, 1U, 1U) == GNEISS_SUCCESS ||
+  if (prepare_assets(files, requests, output, diagnostic, {}, 0U, 1U, 1U) ==
+          gneiss::engine::core::result::success ||
       !output.assets.empty()) {
     return 4;
   }
   source->change_on_verify = true;
-  if (prepare_assets(files, requests, output, diagnostic, {}, 0U) != GNEISS_ERROR_INVALID_STATE ||
-      !output.assets.empty() || diagnostic.result != GNEISS_ERROR_INVALID_STATE) {
+  if (prepare_assets(files, requests, output, diagnostic, {}, 0U) !=
+          gneiss::engine::core::result::invalid_state ||
+      !output.assets.empty() || diagnostic.result != gneiss::engine::core::result::invalid_state) {
     return 5;
   }
   const std::array missing{
       asset_preparation_source{.uri = "asset://missing", .type = asset_type::mesh},
   };
-  if (prepare_assets(files, missing, output, diagnostic, {}, 0U) != GNEISS_ERROR_NOT_FOUND ||
+  if (prepare_assets(files, missing, output, diagnostic, {}, 0U) !=
+          gneiss::engine::core::result::not_found ||
       !output.assets.empty()) {
     return 6;
   }
@@ -429,17 +440,17 @@ int main() try {
       asset_preparation_source{.uri = "asset://material", .type = asset_type::material},
   };
   if (prepare_assets(files, material_request, output, diagnostic, {}, 1000U, 1U, 1000U) !=
-          GNEISS_SUCCESS ||
+          gneiss::engine::core::result::success ||
       output.bytes != 1000U || output.assets.size() != 1U) {
     return 8;
   }
   if (prepare_assets(files, material_request, output, diagnostic, {}, 0U) !=
-          GNEISS_ERROR_INVALID_ARGUMENT ||
+          gneiss::engine::core::result::invalid_argument ||
       !output.assets.empty()) {
     return 9;
   }
   if (prepare_assets(files, material_request, output, diagnostic, {}, 1001U, 1U, 1000U) !=
-          GNEISS_ERROR_OUT_OF_MEMORY ||
+          gneiss::engine::core::result::out_of_memory ||
       !output.assets.empty()) {
     return 10;
   }
@@ -448,7 +459,7 @@ int main() try {
   };
   constexpr auto maximum = std::numeric_limits<std::size_t>::max();
   if (prepare_assets(files, linked_request, output, diagnostic, {}, maximum, 2U, maximum) !=
-          GNEISS_ERROR_OUT_OF_MEMORY ||
+          gneiss::engine::core::result::out_of_memory ||
       !output.assets.empty()) {
     return 11;
   }

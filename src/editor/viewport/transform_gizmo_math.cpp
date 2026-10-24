@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "viewport/transform_gizmo_math.hpp"
+#include "engine/core/result.hpp"
 
 #include <algorithm>
 #include <array>
@@ -79,10 +80,11 @@ gizmo_matrix build_gizmo_projection_matrix(float aspect) noexcept {
   return result;
 }
 
-result transform_to_gizmo_matrix(const transform& value, gizmo_matrix& output) noexcept {
+gneiss::engine::core::result transform_to_gizmo_matrix(const transform& value,
+                                                       gizmo_matrix& output) noexcept {
   if (!valid(value) ||
       std::ranges::any_of(value.scale, [](float component) { return component < 0.0F; })) {
-    return result::unsupported;
+    return gneiss::engine::core::result::unsupported;
   }
   const auto x = value.rotation[0];
   const auto y = value.rotation[1];
@@ -101,14 +103,15 @@ result transform_to_gizmo_matrix(const transform& value, gizmo_matrix& output) n
     output[matrix_index(column, 3U)] = value.translation[column];
   }
   output[matrix_index(3U, 3U)] = 1.0F;
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
-result gizmo_matrix_to_transform(const gizmo_matrix& value, transform& output) noexcept {
+gneiss::engine::core::result gizmo_matrix_to_transform(const gizmo_matrix& value,
+                                                       transform& output) noexcept {
   if (!std::ranges::all_of(value, [](float component) { return std::isfinite(component); }) ||
       std::abs(value[matrix_index(3U, 3U)] - 1.0F) > 1.0e-4F || value[3] != 0.0F ||
       value[7] != 0.0F || value[11] != 0.0F) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   transform result = GNEISS_TRANSFORM_IDENTITY;
   for (std::size_t column = 0; column < 3U; ++column) {
@@ -118,7 +121,7 @@ result gizmo_matrix_to_transform(const gizmo_matrix& value, transform& output) n
     result.scale[column] = std::sqrt((x * x) + (y * y) + (z * z));
     result.translation[column] = value[matrix_index(column, 3U)];
     if (result.scale[column] < 1.0e-6F) {
-      return result::unsupported;
+      return gneiss::engine::core::result::unsupported;
     }
   }
   std::array<float, 9> rotation{};
@@ -132,7 +135,7 @@ result gizmo_matrix_to_transform(const gizmo_matrix& value, transform& output) n
       (rotation[3] * ((rotation[1] * rotation[8]) - (rotation[7] * rotation[2]))) +
       (rotation[6] * ((rotation[1] * rotation[5]) - (rotation[4] * rotation[2])));
   if (determinant <= 0.0F) {
-    return result::unsupported;
+    return gneiss::engine::core::result::unsupported;
   }
   const auto dot01 =
       (rotation[0] * rotation[3]) + (rotation[1] * rotation[4]) + (rotation[2] * rotation[5]);
@@ -141,7 +144,7 @@ result gizmo_matrix_to_transform(const gizmo_matrix& value, transform& output) n
   const auto dot12 =
       (rotation[3] * rotation[6]) + (rotation[4] * rotation[7]) + (rotation[5] * rotation[8]);
   if (std::max({std::abs(dot01), std::abs(dot02), std::abs(dot12)}) > 1.0e-3F) {
-    return result::unsupported;
+    return gneiss::engine::core::result::unsupported;
   }
   const auto trace = rotation[0] + rotation[4] + rotation[8];
   if (trace > 0.0F) {
@@ -169,22 +172,23 @@ result gizmo_matrix_to_transform(const gizmo_matrix& value, transform& output) n
     component /= length;
   }
   output = result;
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
-result world_to_local_transform(const transform* parent_world, const transform& target_world,
-                                transform& output) noexcept {
+gneiss::engine::core::result world_to_local_transform(const transform* parent_world,
+                                                      const transform& target_world,
+                                                      transform& output) noexcept {
   if (!valid(target_world) || (parent_world != nullptr && !valid(*parent_world))) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   if (std::ranges::any_of(target_world.scale, [](float value) { return value < 0.0F; }) ||
       (parent_world != nullptr &&
        std::ranges::any_of(parent_world->scale, [](float value) { return value < 0.0F; }))) {
-    return result::unsupported;
+    return gneiss::engine::core::result::unsupported;
   }
   if (parent_world == nullptr) {
     output = target_world;
-    return result::success;
+    return gneiss::engine::core::result::success;
   }
 
   transform local = GNEISS_TRANSFORM_IDENTITY;
@@ -212,7 +216,7 @@ result world_to_local_transform(const transform* parent_world, const transform& 
     component /= length;
   }
   output = local;
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
 } // namespace gneiss::editor

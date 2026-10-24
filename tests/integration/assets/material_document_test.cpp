@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/resource/cache/cpu_document_cache.hpp"
 #include "engine/resource/loaders/material_document_decoder.hpp"
@@ -28,7 +29,7 @@ void check(bool ok, const char* message) {
 void run(std::size_t document_limit) {
   using namespace gneiss::engine::resource;
   using namespace std::chrono_literals;
-  using gneiss::result;
+
   const auto root = std::filesystem::temp_directory_path() /
                     ("gneiss-material-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
@@ -51,24 +52,31 @@ void run(std::size_t document_limit) {
   initial.resize(document_limit, ' ');
   write(initial);
   gneiss::engine::platform::io::uv_loop_executor loop;
-  check(loop.start() == result::success, "loop");
+  check(loop.start() == gneiss::engine::core::result::success, "loop");
   auto native = std::make_shared<native_file_system>();
-  check(native->initialize(root.generic_string()) == GNEISS_SUCCESS, "native root");
+  check(native->initialize(root.generic_string()) == gneiss::engine::core::result::success,
+        "native root");
   native->set_async_io(std::make_shared<gneiss::engine::platform::io::uv_file_io>(loop),
                        std::make_shared<gneiss::engine::platform::io::uv_path_resolver>(loop));
   virtual_file_system files;
-  check(files.mount("asset://", native) == GNEISS_SUCCESS, "mount");
+  check(files.mount("asset://", native) == gneiss::engine::core::result::success, "mount");
   const auto host_thread = std::this_thread::get_id();
   auto old = std::make_shared<material_document>();
   auto current = std::make_shared<material_document>();
   std::vector<std::byte> document_bytes;
   asset_diagnostic decode_diagnostic;
-  check(files.read("asset://material.json", document_bytes) == GNEISS_SUCCESS, "read old");
-  check(decode_material_document(document_bytes, *old, decode_diagnostic) == GNEISS_SUCCESS,
+  check(files.read("asset://material.json", document_bytes) ==
+            gneiss::engine::core::result::success,
+        "read old");
+  check(decode_material_document(document_bytes, *old, decode_diagnostic) ==
+            gneiss::engine::core::result::success,
         "decode old");
   write(R"({"format":"gneiss.material","version":1,"color":[0,1,0,1]})");
-  check(files.read("asset://material.json", document_bytes) == GNEISS_SUCCESS, "read new");
-  check(decode_material_document(document_bytes, *current, decode_diagnostic) == GNEISS_SUCCESS,
+  check(files.read("asset://material.json", document_bytes) ==
+            gneiss::engine::core::result::success,
+        "read new");
+  check(decode_material_document(document_bytes, *current, decode_diagnostic) ==
+            gneiss::engine::core::result::success,
         "decode new");
   // 直接走生产使用的分步准备：复用已读取字节，不再从 Loader 启动第二次读取。
   auto shared_documents = std::make_shared<cpu_document_cache>();
@@ -91,10 +99,10 @@ void run(std::size_t document_limit) {
           ++decodes;
           candidate = std::make_shared<material_document>();
           if (!candidate)
-            return GNEISS_ERROR_OUT_OF_MEMORY;
+            return gneiss::engine::core::result::out_of_memory;
           const auto decoded = documents->decode(bytes, parameters, uris, diagnostic);
           check(decode_material_document(bytes, *candidate, diagnostic) == decoded, "same decoder");
-          if (decoded == GNEISS_SUCCESS) {
+          if (decoded == gneiss::engine::core::result::success) {
             parameters = candidate->source.parameters;
             uris = candidate->source.texture_uris;
             if (change_source)
@@ -105,7 +113,7 @@ void run(std::size_t document_limit) {
     prepared_batch batch;
     asset_diagnostic diagnostic;
     bool complete = false;
-    gneiss_result status = GNEISS_SUCCESS;
+    gneiss::engine::core::result status = gneiss::engine::core::result::success;
     const auto deadline = std::chrono::steady_clock::now() + 10s;
     while (!complete) {
       std::thread background([&] {
@@ -119,22 +127,29 @@ void run(std::size_t document_limit) {
     }
     check(decodes == 1, "batch decodes once");
     if (change_source || dependency_missing) {
-      check(status != GNEISS_SUCCESS && batch.assets.empty(), "unverified batch not published");
+      check(status != gneiss::engine::core::result::success && batch.assets.empty(),
+            "unverified batch not published");
       check(current->source.parameters.color[1] == 1, "failed batch keeps old document");
     } else {
-      check(status == GNEISS_SUCCESS && batch.assets.size() == 1, "verified material batch");
-      check(documents->retain_verified(batch) == GNEISS_SUCCESS, "retain verified documents");
+      check(status == gneiss::engine::core::result::success && batch.assets.size() == 1,
+            "verified material batch");
+      check(documents->retain_verified(batch) == gneiss::engine::core::result::success,
+            "retain verified documents");
       const auto* retained = batch.assets.front().material_document.get();
       check(retained != nullptr, "typed retained document");
       auto second = shared_documents->begin();
       std::vector<std::byte> bytes;
-      check(files.read("asset://material.json", bytes) == GNEISS_SUCCESS, "read second document");
+      check(files.read("asset://material.json", bytes) == gneiss::engine::core::result::success,
+            "read second document");
       material_parameters parameters;
       std::array<std::string, 5> uris;
-      check(second->decode(bytes, parameters, uris, diagnostic) == GNEISS_SUCCESS, "decode second");
+      check(second->decode(bytes, parameters, uris, diagnostic) ==
+                gneiss::engine::core::result::success,
+            "decode second");
       auto second_batch = batch;
       second_batch.assets.front().material_document.reset();
-      check(second->retain_verified(second_batch) == GNEISS_SUCCESS, "retain second");
+      check(second->retain_verified(second_batch) == gneiss::engine::core::result::success,
+            "retain second");
       const auto* reused = second_batch.assets.front().material_document.get();
       check(reused && reused == retained, "cross batch document shared");
       second_batch = {};
@@ -147,16 +162,20 @@ void run(std::size_t document_limit) {
       temporary_cache.reset();
       auto detached_batch = batch;
       detached_batch.assets.front().material_document.reset();
-      check(detached_first->decode(bytes, parameters, uris, diagnostic) == GNEISS_SUCCESS,
+      check(detached_first->decode(bytes, parameters, uris, diagnostic) ==
+                gneiss::engine::core::result::success,
             "decode after cache shell destruction");
-      check(detached_first->retain_verified(detached_batch) == GNEISS_SUCCESS,
+      check(detached_first->retain_verified(detached_batch) ==
+                gneiss::engine::core::result::success,
             "retain after cache shell destruction");
       auto kept = detached_batch.assets.front().material_document;
       detached_batch.assets.front().material_document.reset();
       detached_first.reset();
-      check(detached_second->decode(bytes, parameters, uris, diagnostic) == GNEISS_SUCCESS,
+      check(detached_second->decode(bytes, parameters, uris, diagnostic) ==
+                gneiss::engine::core::result::success,
             "second detached batch decode");
-      check(detached_second->retain_verified(detached_batch) == GNEISS_SUCCESS &&
+      check(detached_second->retain_verified(detached_batch) ==
+                    gneiss::engine::core::result::success &&
                 detached_batch.assets.front().material_document.get() == kept.get(),
             "detached batches share content index");
       detached_second.reset();

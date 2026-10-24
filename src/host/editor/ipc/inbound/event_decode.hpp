@@ -5,18 +5,19 @@
 #define GNEISS_APPS_EDITOR_IPC_INBOUND_EVENT_DECODE_H_
 
 #include "editor_ipc_event.hpp"
+#include "engine/core/result.hpp"
 
 #include <utility>
 
 namespace gneiss::editor::ipc_internal {
 
 template <typename Event, typename Decode>
-result decode_value(const gneiss::engine::platform::ipc_envelope& envelope,
-                    runtime_ipc_event& output, Decode&& decode) noexcept {
+gneiss::engine::core::result decode_value(const gneiss::engine::platform::ipc_envelope& envelope,
+                                          runtime_ipc_event& output, Decode&& decode) noexcept {
   Event event;
   event.request_id = envelope.request_id;
   const auto operation = decode(event.value);
-  if (operation == result::success) {
+  if (operation == gneiss::engine::core::result::success) {
     output = std::move(event);
   }
   return operation;

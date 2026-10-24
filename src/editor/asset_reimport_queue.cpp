@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset_reimport_queue.hpp"
+#include "engine/core/result.hpp"
 
 #include "tooling/asset_import/asset_index.hpp"
 
@@ -70,7 +71,7 @@ struct asset_reimport_queue::implementation final {
   std::size_t dropped{};
   bool rescan_requested = false;
   bool rescan_active = false;
-  result rescan_operation = result::success;
+  gneiss::engine::core::result rescan_operation = gneiss::engine::core::result::success;
   std::vector<std::filesystem::path> rescan_sources;
   std::size_t rescan_cursor = 0U;
 
@@ -80,10 +81,10 @@ struct asset_reimport_queue::implementation final {
       rescan_requested = false;
       rescan_sources.clear();
       rescan_cursor = 0U;
-      rescan_operation = result::success;
+      rescan_operation = gneiss::engine::core::result::success;
       if (index_report.result != asset_import::asset_index_result::success &&
           index_report.result != asset_import::asset_index_result::not_found) {
-        rescan_operation = result::io;
+        rescan_operation = gneiss::engine::core::result::io;
         emit(asset_reimport_state::failed, ".",
              diagnostic_report(editor_import_result::io_error,
                                "源资产补扫无法读取索引：" + index_report.diagnostic));
@@ -93,13 +94,13 @@ struct asset_reimport_queue::implementation final {
               std::u8string(reinterpret_cast<const char8_t*>(entry.source_path.data()),
                             entry.source_path.size()));
           if (!is_safe_relative_path(source)) {
-            rescan_operation = result::invalid_argument;
+            rescan_operation = gneiss::engine::core::result::invalid_argument;
             rescan_sources.clear();
             break;
           }
           rescan_sources.push_back(source);
         }
-        rescan_active = rescan_operation == result::success;
+        rescan_active = rescan_operation == gneiss::engine::core::result::success;
       }
     }
   }
@@ -114,7 +115,7 @@ struct asset_reimport_queue::implementation final {
       const auto& source = rescan_sources[rescan_cursor];
       if (!candidates.contains(portable_path(source))) {
         const auto operation = queue.notify(source, now);
-        if (operation != result::success) {
+        if (operation != gneiss::engine::core::result::success) {
           rescan_operation = operation;
           rescan_active = false;
           break;
@@ -150,11 +151,12 @@ asset_reimport_queue::asset_reimport_queue(asset_reimport_queue_options options,
 
 asset_reimport_queue::~asset_reimport_queue() = default;
 
-result asset_reimport_queue::notify(const std::filesystem::path& relative_path,
-                                    clock::time_point now) noexcept {
+gneiss::engine::core::result
+asset_reimport_queue::notify(const std::filesystem::path& relative_path,
+                             clock::time_point now) noexcept {
   try {
     if (!is_safe_relative_path(relative_path)) {
-      return result::invalid_argument;
+      return gneiss::engine::core::result::invalid_argument;
     }
     const auto normalized = relative_path.lexically_normal();
     const auto key = portable_path(normalized);
@@ -162,7 +164,7 @@ result asset_reimport_queue::notify(const std::filesystem::path& relative_path,
     if (existing == implementation_->candidates.end()) {
       if (implementation_->candidates.size() == implementation_->options.capacity) {
         ++implementation_->dropped;
-        return result::not_ready;
+        return gneiss::engine::core::result::not_ready;
       }
       implementation::candidate value;
       value.relative_path = normalized;
@@ -171,9 +173,9 @@ result asset_reimport_queue::notify(const std::filesystem::path& relative_path,
     existing->second.due = now + implementation_->options.debounce;
     existing->second.observed_hash.clear();
     implementation_->emit(asset_reimport_state::waiting, normalized);
-    return result::success;
+    return gneiss::engine::core::result::success;
   } catch (...) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   }
 }
 
@@ -183,7 +185,7 @@ bool asset_reimport_queue::is_rescanning() const noexcept {
   return implementation_->rescan_requested || implementation_->rescan_active;
 }
 
-result asset_reimport_queue::rescan_result() const noexcept {
+gneiss::engine::core::result asset_reimport_queue::rescan_result() const noexcept {
   return implementation_->rescan_operation;
 }
 
@@ -273,7 +275,7 @@ std::size_t asset_reimport_queue::tick(const std::filesystem::path& project_root
     implementation_->finish_rescan();
   } catch (...) {
     if (is_rescanning()) {
-      implementation_->rescan_operation = result::io;
+      implementation_->rescan_operation = gneiss::engine::core::result::io;
       implementation_->rescan_active = false;
       implementation_->rescan_requested = false;
       implementation_->rescan_sources.clear();

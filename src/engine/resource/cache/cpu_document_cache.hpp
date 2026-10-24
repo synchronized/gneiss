@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/core/result.hpp"
 #include "engine/resource/loaders/asset_preparation.hpp"
 #include "engine/resource/types/material_document.hpp"
 #include <memory>
@@ -30,10 +31,12 @@ public:
   ~cpu_document_batch();
   cpu_document_batch(const cpu_document_batch&) = delete;
   cpu_document_batch& operator=(const cpu_document_batch&) = delete;
-  gneiss_result decode(const std::vector<std::byte>& bytes, material_parameters& parameters,
-                       std::array<std::string, 5>& uris, asset_diagnostic& diagnostic);
+  gneiss::engine::core::result decode(const std::vector<std::byte>& bytes,
+                                      material_parameters& parameters,
+                                      std::array<std::string, 5>& uris,
+                                      asset_diagnostic& diagnostic);
   /** 只接管各自来源校验成功的输出；失败项不妨碍其他项共享，不改变场景。 */
-  gneiss_result retain_verified(prepared_batch& batch);
+  gneiss::engine::core::result retain_verified(prepared_batch& batch);
 
 private:
   friend class cpu_document_cache;

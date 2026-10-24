@@ -3,6 +3,7 @@
 
 #include "engine/platform/granit/granit_platform.hpp"
 #include "engine/core/diagnostics/loop_timing.hpp"
+#include "engine/core/result.hpp"
 
 #include <granit/window/native.hpp>
 
@@ -12,32 +13,33 @@
 namespace gneiss::engine::platform {
 namespace {
 
-gneiss_result map_result(granit::result result) noexcept {
+gneiss::engine::core::result map_result(granit::result result) noexcept {
   switch (result.native()) {
   case granit::result::success.native():
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   case granit::result::invalid_argument.native():
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   case granit::result::invalid_handle.native():
-    return GNEISS_ERROR_INVALID_HANDLE;
+    return gneiss::engine::core::result::invalid_handle;
   case granit::result::out_of_memory.native():
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   case granit::result::unsupported.native():
   case granit::result::backend_unavailable.native():
-    return GNEISS_ERROR_UNSUPPORTED;
+    return gneiss::engine::core::result::unsupported;
   case granit::result::not_ready.native():
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   case granit::result::initialization_failed.native():
   case granit::result::incompatible_driver.native():
-    return GNEISS_ERROR_INITIALIZATION_FAILED;
+    return gneiss::engine::core::result::initialization_failed;
   default:
-    return GNEISS_ERROR_DEPENDENCY_FAILED;
+    return gneiss::engine::core::result::dependency_failed;
   }
 }
 
 } // namespace
 
-gneiss_result granit_platform::initialize(const window_configuration& config) noexcept {
+gneiss::engine::core::result
+granit_platform::initialize(const window_configuration& config) noexcept {
   auto result = window_system_.initialize();
   if (result.failed()) {
     return map_result(result);
@@ -63,7 +65,7 @@ gneiss_result granit_platform::initialize(const window_configuration& config) no
     native_window_.display = win32.instance;
     native_window_.window = win32.window;
     native_window_.backend = native_window_backend::win32;
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
   granit::window_native_xcb xcb{};
   result = granit::get_native(window_system_, window_.ref(), xcb);
@@ -71,7 +73,7 @@ gneiss_result granit_platform::initialize(const window_configuration& config) no
     native_window_.display = xcb.connection;
     native_window_.xcb_window = xcb.window;
     native_window_.backend = native_window_backend::xcb;
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
   granit::window_native_wayland wayland{};
   result = granit::get_native(window_system_, window_.ref(), wayland);
@@ -79,12 +81,13 @@ gneiss_result granit_platform::initialize(const window_configuration& config) no
     native_window_.display = wayland.display;
     native_window_.window = wayland.surface;
     native_window_.backend = native_window_backend::wayland;
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
   return map_result(result);
 }
 
-gneiss_result granit_platform::poll_input(engine::core::input::input_event& out_event) noexcept {
+gneiss::engine::core::result
+granit_platform::poll_input(engine::core::input::input_event& out_event) noexcept {
   granit::input_event source{};
   const auto result = window_system_.poll(source);
   if (result.failed()) {
@@ -105,7 +108,7 @@ gneiss_result granit_platform::poll_input(engine::core::input::input_event& out_
   case granit::input_event_type::text:
     static_assert(sizeof(out_event.data.text.utf8) == sizeof(source.data.text.utf8));
     if (source.data.text.length > sizeof(out_event.data.text.utf8)) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     out_event.data.text.length = source.data.text.length;
     std::memcpy(out_event.data.text.utf8, source.data.text.utf8, sizeof(out_event.data.text.utf8));
@@ -138,16 +141,16 @@ gneiss_result granit_platform::poll_input(engine::core::input::input_event& out_
     out_event.type = engine::core::input::event_type::none;
     break;
   }
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
-gneiss_result
+gneiss::engine::core::result
 granit_platform::keyboard(engine::core::input::keyboard_state& out_state) const noexcept {
   granit::keyboard_state source{};
   const auto result = window_system_.keyboard(window_.ref(), source);
   if (result == granit::result::invalid_handle) {
     out_state = {};
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
   if (result.failed()) {
     return map_result(result);
@@ -157,16 +160,16 @@ granit_platform::keyboard(engine::core::input::keyboard_state& out_state) const 
   out_state.modifiers = source.modifiers;
   std::memcpy(out_state.pressed_keys.data(), source.pressed_keys.data(),
               sizeof(out_state.pressed_keys));
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
-gneiss_result
+gneiss::engine::core::result
 granit_platform::pointer(engine::core::input::pointer_state& out_state) const noexcept {
   granit::pointer_state source{};
   const auto result = window_system_.pointer(window_.ref(), source);
   if (result == granit::result::invalid_handle) {
     out_state = {};
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
   if (result.failed()) {
     return map_result(result);
@@ -176,10 +179,11 @@ granit_platform::pointer(engine::core::input::pointer_state& out_state) const no
   out_state.x = source.x;
   out_state.y = source.y;
   out_state.is_inside = source.inside;
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
-gneiss_result granit_platform::poll(bool& out_should_close, bool& out_focus_lost) noexcept {
+gneiss::engine::core::result granit_platform::poll(bool& out_should_close,
+                                                   bool& out_focus_lost) noexcept {
   out_should_close = false;
   out_focus_lost = false;
   // 每轮只泵送一次，再依次消费窗口和输入队列。
@@ -212,7 +216,8 @@ gneiss_result granit_platform::poll(bool& out_should_close, bool& out_focus_lost
     event = {};
     result = window_system_.poll(event);
   }
-  return result == granit::result::not_ready ? GNEISS_SUCCESS : map_result(result);
+  return result == granit::result::not_ready ? gneiss::engine::core::result::success
+                                             : map_result(result);
 }
 
 } // namespace gneiss::engine::platform

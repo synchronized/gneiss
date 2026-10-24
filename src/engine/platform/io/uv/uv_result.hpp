@@ -4,12 +4,12 @@
 #ifndef GNEISS_SRC_IO_UV_UV_RESULT_HPP_
 #define GNEISS_SRC_IO_UV_UV_RESULT_HPP_
 
-#include <gneiss/engine/core/result.hpp>
+#include "engine/core/result.hpp"
 
 namespace gneiss::engine::platform::io {
 
 /** 将 libuv 返回值转换为稳定的 Gneiss 结果码，不暴露 libuv 类型。 */
-[[nodiscard]] result from_uv_status(int value) noexcept;
+[[nodiscard]] gneiss::engine::core::result from_uv_status(int value) noexcept;
 
 } // namespace gneiss::engine::platform::io
 

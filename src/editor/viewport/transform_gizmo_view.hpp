@@ -19,7 +19,7 @@ struct transform_gizmo_context final {
   transform camera = GNEISS_TRANSFORM_IDENTITY;
   transform_gizmo_operation operation = transform_gizmo_operation::translate;
   bool& wait_release;
-  result& error;
+  gneiss::engine::core::result& error;
 };
 
 /** 要求当前 ImGui Context 已开始一帧。 */

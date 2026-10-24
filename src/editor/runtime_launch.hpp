@@ -5,6 +5,7 @@
 #define GNEISS_APPS_EDITOR_RUNTIME_LAUNCH_H_
 
 #include "documents/scene_document.hpp"
+#include "engine/core/result.hpp"
 
 #include <filesystem>
 
@@ -23,10 +24,10 @@ struct runtime_launch_request final {
                                                           runtime_launch_request& output) noexcept;
 
 /** 保存脏场景并生成仅包含工程根的 Runtime 启动请求。 */
-[[nodiscard]] result save_and_prepare_runtime_launch(scene_document& session,
-                                                     const std::filesystem::path& asset_root,
-                                                     const std::filesystem::path& project_root,
-                                                     runtime_launch_request& output) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+save_and_prepare_runtime_launch(scene_document& session, const std::filesystem::path& asset_root,
+                                const std::filesystem::path& project_root,
+                                runtime_launch_request& output) noexcept;
 
 } // namespace gneiss::editor
 

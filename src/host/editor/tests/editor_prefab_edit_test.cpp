@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../../../../tests/support/c_owner.hpp"
 #include "commands/editor_prefab_edit.hpp"
+#include "engine/core/result.hpp"
 #include "runtime/application_asset_reload_internal.hpp"
 #include "runtime/application_registry.hpp"
 #include <chrono>
@@ -66,28 +67,32 @@ void run_refresh(engine::core::tasks::execution_mode mode) {
   const auto path = files.root.string();
   desc.asset_root = path.data();
   desc.asset_root_length = static_cast<std::uint32_t>(path.size());
-  check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
-  check(runtime::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
+  check(gneiss::engine::core::result{gneiss_application_create(&desc, app.put())} ==
+        gneiss::engine::core::result::success);
+  check(runtime::attach_task_executor(app.get(), scheduler) ==
+        gneiss::engine::core::result::success);
   gneiss_world world{};
-  check(gneiss_application_get_world(app.get(), &world) == GNEISS_SUCCESS);
+  check(gneiss::engine::core::result{gneiss_application_get_world(app.get(), &world)} ==
+        gneiss::engine::core::result::success);
   editor::scene_document session;
   editor::editor_command_history history;
   editor::editor_prefab_edit edit;
   check(session.open(*gneiss::runtime::find_application(app.get()), world, "asset://scene.json") ==
-        result::success);
+        gneiss::engine::core::result::success);
   scene_node_id first, second;
   check(session.create_prefab_instance("First", "asset://prefab.json", {}, first) ==
-        result::success);
+        gneiss::engine::core::result::success);
   check(session.create_prefab_instance("Second", "asset://prefab.json", {}, second) ==
-        result::success);
+        gneiss::engine::core::result::success);
   const auto first_uuid = session.prefab_nodes()[0].instance_uuid;
   const auto second_uuid = session.prefab_nodes()[151].instance_uuid;
   const auto source_uuid = session.prefab_nodes()[1].source_node_uuid;
   const auto old_selected = session.find_prefab_source(first_uuid, source_uuid)->node;
   auto transform = session.find_prefab_source(first_uuid, source_uuid)->local_transform;
   transform.translation[0] = 17.0F;
-  check(session.set_local_transform(old_selected, transform) == result::success);
-  check(session.select(old_selected) == result::success);
+  check(session.set_local_transform(old_selected, transform) ==
+        gneiss::engine::core::result::success);
+  check(session.select(old_selected) == gneiss::engine::core::result::success);
   const auto step = [&] {
     if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
@@ -102,8 +107,9 @@ void run_refresh(engine::core::tasks::execution_mode mode) {
       check(std::chrono::steady_clock::now() < deadline);
     }
   };
-  const auto drive_history = [&](result expected = result::success) {
-    result outcome = result::not_ready;
+  const auto drive_history = [&](gneiss::engine::core::result expected =
+                                     gneiss::engine::core::result::success) {
+    gneiss::engine::core::result outcome = gneiss::engine::core::result::not_ready;
     unsigned turns{};
     while (history.is_pending()) {
       outcome = history.advance_pending();
@@ -121,7 +127,7 @@ void run_refresh(engine::core::tasks::execution_mode mode) {
   }
   std::ofstream(files.root / "prefab.json") << updated;
   check(edit.request_refresh(*gneiss::runtime::find_application(app.get()), scheduler, session,
-                             history, first) == result::success);
+                             history, first) == gneiss::engine::core::result::success);
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
   while (edit.active() && edit.phase() != editor::prefab_edit_phase::constructing) {
     step();
@@ -138,9 +144,9 @@ void run_refresh(engine::core::tasks::execution_mode mode) {
   check(session.find_prefab_root(first_uuid)->node == first &&
         session.find_prefab_root(second_uuid)->node == second);
   check(edit.request_refresh(*gneiss::runtime::find_application(app.get()), scheduler, session,
-                             history, first) == result::success);
+                             history, first) == gneiss::engine::core::result::success);
   drive();
-  check(edit.operation() == result::success && history.size() == 1U &&
+  check(edit.operation() == gneiss::engine::core::result::success && history.size() == 1U &&
         session.prefab_nodes().size() == 302U);
   check(session.find_prefab_root(first_uuid)->node != first &&
         session.find_prefab_root(second_uuid)->node != second);
@@ -155,25 +161,25 @@ void run_refresh(engine::core::tasks::execution_mode mode) {
   std::ofstream(files.root / "prefab.json") << "broken";
   std::ofstream(files.root / "mesh.json") << "broken";
   std::ofstream(files.root / "material.json") << "broken";
-  check(history.undo() == result::not_ready);
+  check(history.undo() == gneiss::engine::core::result::not_ready);
   drive_history();
   check(session.find_prefab_source(first_uuid, source_uuid)->display_name == "Source");
   check(session.find_prefab_source(second_uuid, source_uuid)->display_name == "Source");
   check(session.selection() == session.find_prefab_source(first_uuid, source_uuid)->node);
-  check(history.redo() == result::not_ready);
+  check(history.redo() == gneiss::engine::core::result::not_ready);
   drive_history();
   check(session.find_prefab_source(first_uuid, source_uuid)->display_name == "Updated");
   check(session.find_prefab_source(first_uuid, source_uuid)->local_transform.translation[0] ==
         17.0F);
   const auto preserved = session.selection();
-  check(history.undo() == result::not_ready);
+  check(history.undo() == gneiss::engine::core::result::not_ready);
   (void)history.advance_pending();
   history.cancel_pending();
-  drive_history(result::invalid_state);
+  drive_history(gneiss::engine::core::result::invalid_state);
   check(session.selection() == preserved && !history.can_redo());
   check(edit.request_refresh(*gneiss::runtime::find_application(app.get()), scheduler, session,
-                             history,
-                             session.find_prefab_root(first_uuid)->node) == result::success);
+                             history, session.find_prefab_root(first_uuid)->node) ==
+        gneiss::engine::core::result::success);
   drive();
   check(edit.operation().failed() && history.size() == 1U && session.selection() == preserved);
   history.clear();
@@ -187,7 +193,7 @@ void run_refresh(engine::core::tasks::execution_mode mode) {
   const auto original = session.find_prefab_source(second_uuid, removed_uuid)->local_transform;
   auto changed = original;
   changed.translation[1] = 29.0F;
-  check(session.set_local_transform(second_node, changed) == result::success);
+  check(session.set_local_transform(second_node, changed) == gneiss::engine::core::result::success);
   const auto first_root = session.find_prefab_root(first_uuid)->node;
   const auto second_root = session.find_prefab_root(second_uuid)->node;
   const auto removed_start = updated.find(R"(,{"uuid":")");
@@ -196,31 +202,35 @@ void run_refresh(engine::core::tasks::execution_mode mode) {
   updated.erase(removed_start, removed_end - removed_start);
   std::ofstream(files.root / "prefab.json") << updated;
   check(edit.request_refresh(*gneiss::runtime::find_application(app.get()), scheduler, session,
-                             history, first_root) == result::success);
+                             history, first_root) == gneiss::engine::core::result::success);
   drive();
-  check(edit.operation() == result::not_found && history.size() == 0U);
+  check(edit.operation() == gneiss::engine::core::result::not_found && history.size() == 0U);
   check(session.find_prefab_root(first_uuid)->node == first_root);
   check(session.find_prefab_root(second_uuid)->node == second_root);
   std::uint64_t count{};
-  check(gneiss_world_entity_count(world, &count) == GNEISS_SUCCESS && count == 302U);
-  check(session.set_local_transform(second_node, original) == result::success);
+  check(gneiss::engine::core::result{gneiss_world_entity_count(world, &count)} ==
+            gneiss::engine::core::result::success &&
+        count == 302U);
+  check(session.set_local_transform(second_node, original) ==
+        gneiss::engine::core::result::success);
   check(session.select(session.find_prefab_source(first_uuid, removed_uuid)->node) ==
-        result::success);
+        gneiss::engine::core::result::success);
   check(edit.request_refresh(*gneiss::runtime::find_application(app.get()), scheduler, session,
-                             history, first_root) == result::success);
+                             history, first_root) == gneiss::engine::core::result::success);
   drive();
-  check(edit.operation() == result::success && session.prefab_nodes().size() == 300U);
+  check(edit.operation() == gneiss::engine::core::result::success &&
+        session.prefab_nodes().size() == 300U);
   check(session.selection() == session.find_prefab_root(first_uuid)->node);
-  check(history.undo() == result::not_ready);
+  check(history.undo() == gneiss::engine::core::result::not_ready);
   drive_history();
   check(session.prefab_nodes().size() == 302U);
   history.clear();
   check(edit.request_refresh(*gneiss::runtime::find_application(app.get()), scheduler, session,
-                             history,
-                             session.find_prefab_root(first_uuid)->node) == result::success);
+                             history, session.find_prefab_root(first_uuid)->node) ==
+        gneiss::engine::core::result::success);
   session.close();
   drive();
-  check(edit.operation() == result::invalid_state && history.size() == 0U);
+  check(edit.operation() == gneiss::engine::core::result::invalid_state && history.size() == 0U);
 }
 void run(engine::core::tasks::execution_mode mode) {
   fixture files;
@@ -233,15 +243,18 @@ void run(engine::core::tasks::execution_mode mode) {
   const auto root = files.root.string();
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
-  check(runtime::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
+  check(gneiss::engine::core::result{gneiss_application_create(&desc, app.put())} ==
+        gneiss::engine::core::result::success);
+  check(runtime::attach_task_executor(app.get(), scheduler) ==
+        gneiss::engine::core::result::success);
   gneiss_world world{};
-  check(gneiss_application_get_world(app.get(), &world) == GNEISS_SUCCESS);
+  check(gneiss::engine::core::result{gneiss_application_get_world(app.get(), &world)} ==
+        gneiss::engine::core::result::success);
   editor::scene_document session;
   editor::editor_command_history history;
   editor::editor_prefab_edit edit;
   check(session.open(*gneiss::runtime::find_application(app.get()), world, "asset://scene.json") ==
-        result::success);
+        gneiss::engine::core::result::success);
   const auto request = [&](std::string_view uri = "asset://prefab.json") {
     return edit.request(*gneiss::runtime::find_application(app.get()), scheduler, session, history,
                         "Placed", uri, {});
@@ -260,8 +273,9 @@ void run(engine::core::tasks::execution_mode mode) {
       check(std::chrono::steady_clock::now() < deadline);
     }
   };
-  const auto drive_history = [&](result expected = result::success) {
-    result outcome = result::not_ready;
+  const auto drive_history = [&](gneiss::engine::core::result expected =
+                                     gneiss::engine::core::result::success) {
+    gneiss::engine::core::result outcome = gneiss::engine::core::result::not_ready;
     unsigned steps{};
     while (history.is_pending()) {
       outcome = history.advance_pending();
@@ -272,19 +286,20 @@ void run(engine::core::tasks::execution_mode mode) {
   // 旧场景加载/同步实例没有发布组，也必须支持分步退出与历史恢复。
   scene_node_id legacy;
   check(session.create_prefab_instance("Legacy", "asset://prefab.json", {}, legacy) ==
-        result::success);
+        gneiss::engine::core::result::success);
   check(edit.request_remove(*gneiss::runtime::find_application(app.get()), session, history,
-                            legacy) == result::success);
+                            legacy) == gneiss::engine::core::result::success);
   drive();
-  check(edit.operation() == result::success && session.prefab_nodes().empty());
-  check(history.undo() == result::not_ready);
+  check(edit.operation() == gneiss::engine::core::result::success &&
+        session.prefab_nodes().empty());
+  check(history.undo() == gneiss::engine::core::result::not_ready);
   drive_history();
   check(session.prefab_nodes().size() == 151U);
-  check(history.redo() == result::not_ready);
+  check(history.redo() == gneiss::engine::core::result::not_ready);
   drive_history();
   check(session.prefab_nodes().empty());
   history.clear();
-  check(request() == result::success);
+  check(request() == gneiss::engine::core::result::success);
   const auto preparation_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
   while (edit.active() && edit.phase() != editor::prefab_edit_phase::constructing) {
     step();
@@ -293,41 +308,45 @@ void run(engine::core::tasks::execution_mode mode) {
   check(edit.active());
   step();
   std::uint64_t entity_count{};
-  check(gneiss_world_entity_count(world, &entity_count) == GNEISS_SUCCESS && entity_count == 0U);
+  check(gneiss::engine::core::result{gneiss_world_entity_count(world, &entity_count)} ==
+            gneiss::engine::core::result::success &&
+        entity_count == 0U);
   edit.cancel();
   drive();
   check(!edit.visible() && session.prefab_nodes().empty() && history.size() == 0U);
-  check(gneiss_world_entity_count(world, &entity_count) == GNEISS_SUCCESS && entity_count == 0U);
+  check(gneiss::engine::core::result{gneiss_world_entity_count(world, &entity_count)} ==
+            gneiss::engine::core::result::success &&
+        entity_count == 0U);
   edit.dismiss();
-  check(request() == result::success && edit.active());
-  check(request() == result::not_ready);
+  check(request() == gneiss::engine::core::result::success && edit.active());
+  check(request() == gneiss::engine::core::result::not_ready);
   check(session.prefab_nodes().empty() && history.size() == 0U);
   drive();
   if (edit.operation().failed()) {
-    std::fprintf(stderr, "placement result=%d\n", to_native(edit.operation()));
+    std::fprintf(stderr, "placement result=%d\n", (edit.operation()).code());
   }
-  check(edit.operation() == result::success && !edit.visible());
+  check(edit.operation() == gneiss::engine::core::result::success && !edit.visible());
   check(session.prefab_nodes().size() == 151U && history.size() == 1U);
   const auto uuid = session.prefab_nodes().front().instance_uuid;
   // 删除全部来源文件后，历史仍持有来源描述及实际 Mesh/Material 版本。
   std::ofstream(files.root / "prefab.json") << "broken";
   std::ofstream(files.root / "mesh.json") << "broken";
   std::ofstream(files.root / "material.json") << "broken";
-  check(history.undo() == result::not_ready && history.is_pending());
+  check(history.undo() == gneiss::engine::core::result::not_ready && history.is_pending());
   check(session.prefab_nodes().size() == 151U);
   history.cancel_pending();
-  drive_history(result::invalid_state);
+  drive_history(gneiss::engine::core::result::invalid_state);
   check(session.prefab_nodes().size() == 151U && history.can_undo());
-  check(history.undo() == result::not_ready);
+  check(history.undo() == gneiss::engine::core::result::not_ready);
   drive_history();
   check(session.prefab_nodes().empty() && history.can_redo());
-  check(history.redo() == result::not_ready);
+  check(history.redo() == gneiss::engine::core::result::not_ready);
   (void)history.advance_pending();
   check(session.prefab_nodes().empty());
   history.cancel_pending();
-  drive_history(result::invalid_state);
+  drive_history(gneiss::engine::core::result::invalid_state);
   check(session.prefab_nodes().empty() && history.can_redo());
-  check(history.redo() == result::not_ready);
+  check(history.redo() == gneiss::engine::core::result::not_ready);
   drive_history();
   check(session.prefab_nodes().size() == 151U &&
         session.prefab_nodes().front().instance_uuid == uuid);
@@ -338,31 +357,33 @@ void run(engine::core::tasks::execution_mode mode) {
   auto local = session.find_prefab_source(uuid, source_uuid)->local_transform;
   local.translation[0] = 17.0F;
   check(session.set_local_transform(session.find_prefab_source(uuid, source_uuid)->node, local) ==
-        result::success);
+        gneiss::engine::core::result::success);
   auto root_local = session.find_prefab_root(uuid)->local_transform;
   root_local.translation[1] = 7.0F;
-  check(session.set_local_transform(root_node, root_local) == result::success);
-  check(session.rename_prefab_instance(root_node, "Renamed") == result::success);
+  check(session.set_local_transform(root_node, root_local) ==
+        gneiss::engine::core::result::success);
+  check(session.rename_prefab_instance(root_node, "Renamed") ==
+        gneiss::engine::core::result::success);
   check(edit.request_remove(*gneiss::runtime::find_application(app.get()), session,
-                            deletion_history, root_node) == result::success);
+                            deletion_history, root_node) == gneiss::engine::core::result::success);
   step();
   edit.cancel();
   drive();
   check(deletion_history.size() == 0U && session.prefab_nodes().size() == 151U);
   check(edit.request_remove(*gneiss::runtime::find_application(app.get()), session,
-                            deletion_history, root_node) == result::success);
+                            deletion_history, root_node) == gneiss::engine::core::result::success);
   drive();
-  check(edit.operation() == result::success && session.prefab_nodes().empty() &&
-        deletion_history.size() == 1U);
+  check(edit.operation() == gneiss::engine::core::result::success &&
+        session.prefab_nodes().empty() && deletion_history.size() == 1U);
   const auto restore_deleted = [&] {
-    check(deletion_history.undo() == result::not_ready);
-    result restored = result::not_ready;
+    check(deletion_history.undo() == gneiss::engine::core::result::not_ready);
+    gneiss::engine::core::result restored = gneiss::engine::core::result::not_ready;
     unsigned turns{};
     while (deletion_history.is_pending()) {
       restored = deletion_history.advance_pending();
       check(++turns < 1000U);
     }
-    check(restored == result::success);
+    check(restored == gneiss::engine::core::result::success);
     check(session.find_prefab_root(uuid)->display_name == "Renamed");
     check(session.find_prefab_root(uuid)->local_transform.translation[1] == 7.0F);
     check(session.find_prefab_source(uuid, source_uuid)->local_transform.translation[0] == 17.0F);
@@ -370,18 +391,18 @@ void run(engine::core::tasks::execution_mode mode) {
   };
   restore_deleted();
   check(session.find_prefab_root(uuid)->node != root_node);
-  check(deletion_history.redo() == result::not_ready);
+  check(deletion_history.redo() == gneiss::engine::core::result::not_ready);
   while (deletion_history.is_pending()) {
     (void)deletion_history.advance_pending();
   }
   check(session.prefab_nodes().empty());
   restore_deleted();
   deletion_history.clear();
-  check(request() == result::success);
+  check(request() == gneiss::engine::core::result::success);
   drive();
   check(edit.operation().failed() && history.size() == 1U && session.prefab_nodes().size() == 151U);
   edit.dismiss();
-  check(request("asset://missing.json") == result::success);
+  check(request("asset://missing.json") == gneiss::engine::core::result::success);
   edit.cancel();
   drive();
   check(!edit.visible() && session.prefab_nodes().size() == 151U);
@@ -394,11 +415,11 @@ void run(engine::core::tasks::execution_mode mode) {
     ++position;
   }
   std::ofstream(files.root / "prefab.json") << missing_source;
-  check(request() == result::success);
+  check(request() == gneiss::engine::core::result::success);
   drive();
   check(edit.operation().failed() && session.prefab_nodes().size() == 151U && history.size() == 1U);
   edit.dismiss();
-  check(history.undo() == result::not_ready);
+  check(history.undo() == gneiss::engine::core::result::not_ready);
   while (history.can_cancel_pending()) {
     (void)history.advance_pending();
   }
@@ -408,10 +429,10 @@ void run(engine::core::tasks::execution_mode mode) {
   check(session.prefab_nodes().empty());
   history.clear();
   std::ofstream(files.root / "prefab.json") << source;
-  check(request() == result::success);
+  check(request() == gneiss::engine::core::result::success);
   session.close();
   drive();
-  check(edit.operation() == result::invalid_state && history.size() == 0U);
+  check(edit.operation() == gneiss::engine::core::result::invalid_state && history.size() == 0U);
   edit.dismiss();
 }
 }

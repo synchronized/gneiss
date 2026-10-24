@@ -4,6 +4,7 @@
 #ifndef GNEISS_SCENE_PREFAB_DESCRIPTION_HPP_
 #define GNEISS_SCENE_PREFAB_DESCRIPTION_HPP_
 
+#include "engine/core/result.hpp"
 #include "engine/resource/types/prefab_property_data.hpp"
 #include "engine/resource/types/scene_description.hpp"
 
@@ -23,18 +24,18 @@ struct prefab_description final {
 };
 
 /** 解析版本化 Prefab 作者文件；Prefab 必须且只能包含一个根节点。 */
-[[nodiscard]] gneiss_result parse_prefab_description(std::string_view json,
-                                                     prefab_description& out_prefab,
-                                                     scene_diagnostic& out_diagnostic) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+parse_prefab_description(std::string_view json, prefab_description& out_prefab,
+                         scene_diagnostic& out_diagnostic) noexcept;
 
-[[nodiscard]] gneiss_result
+[[nodiscard]] gneiss::engine::core::result
 load_prefab_description(const engine::resource::virtual_file_system& file_system,
                         std::string_view uri, prefab_description& out_prefab,
                         scene_diagnostic& out_diagnostic) noexcept;
 
 /** 输出 Prefab v1 作者 JSON；保留受支持文档中的未知字段。 */
-[[nodiscard]] gneiss_result serialize_prefab_description(const prefab_description& prefab,
-                                                         std::string& out_json) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+serialize_prefab_description(const prefab_description& prefab, std::string& out_json) noexcept;
 
 } // namespace gneiss::engine::resource
 

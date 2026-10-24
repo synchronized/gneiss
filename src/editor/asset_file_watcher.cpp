@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset_file_watcher.hpp"
+#include "engine/core/result.hpp"
 
 #include "uv_loop_access.hpp"
 #include "uv_loop_executor.hpp"
@@ -72,12 +73,12 @@ struct asset_file_watcher::implementation final {
     }
   }
 
-  [[nodiscard]] result watch_directory(uv_loop_t* loop,
-                                       const std::filesystem::path& directory) noexcept {
+  [[nodiscard]] gneiss::engine::core::result
+  watch_directory(uv_loop_t* loop, const std::filesystem::path& directory) noexcept {
     try {
       const auto key = path_utf8(directory.lexically_normal());
       if (watched_directories.contains(key)) {
-        return result::success;
+        return gneiss::engine::core::result::success;
       }
       auto watch = std::make_unique<directory_watch>();
       watch->owner = this;
@@ -88,7 +89,7 @@ struct asset_file_watcher::implementation final {
       }
       watched_directories.insert(key);
       auto operation = engine::platform::io::from_uv_status(uv_fs_event_init(loop, &watch->handle));
-      if (operation != result::success) {
+      if (operation != gneiss::engine::core::result::success) {
         watched_directories.erase(key);
         return operation;
       }
@@ -103,24 +104,24 @@ struct asset_file_watcher::implementation final {
 #endif
       operation = engine::platform::io::from_uv_status(
           uv_fs_event_start(&active_watch->handle, on_file_event, key.c_str(), flags));
-      if (operation != result::success) {
+      if (operation != gneiss::engine::core::result::success) {
         watched_directories.erase(key);
         // 关闭是异步的，句柄内存保留到事件循环结束。
         uv_close(reinterpret_cast<uv_handle_t*>(&active_watch->handle), nullptr);
         return operation;
       }
-      return result::success;
+      return gneiss::engine::core::result::success;
     } catch (const std::bad_alloc&) {
-      return result::out_of_memory;
+      return gneiss::engine::core::result::out_of_memory;
     } catch (...) {
-      return result::io;
+      return gneiss::engine::core::result::io;
     }
   }
 
-  [[nodiscard]] result refresh_directories(uv_loop_t* loop) noexcept {
+  [[nodiscard]] gneiss::engine::core::result refresh_directories(uv_loop_t* loop) noexcept {
     try {
       auto operation = watch_directory(loop, source_root);
-      if (operation != result::success) {
+      if (operation != gneiss::engine::core::result::success) {
         return operation;
       }
       for (const auto& item : std::filesystem::recursive_directory_iterator(source_root)) {
@@ -128,13 +129,13 @@ struct asset_file_watcher::implementation final {
           continue;
         }
         operation = watch_directory(loop, std::filesystem::weakly_canonical(item.path()));
-        if (operation != result::success) {
+        if (operation != gneiss::engine::core::result::success) {
           return operation;
         }
       }
-      return result::success;
+      return gneiss::engine::core::result::success;
     } catch (...) {
-      return result::io;
+      return gneiss::engine::core::result::io;
     }
   }
 
@@ -143,7 +144,7 @@ struct asset_file_watcher::implementation final {
     auto* watch = static_cast<directory_watch*>(handle->data);
     auto* self = watch->owner;
     const auto operation = engine::platform::io::from_uv_status(status);
-    if (operation != result::success) {
+    if (operation != gneiss::engine::core::result::success) {
       self->emit({.kind = asset_file_event_kind::error,
                   .relative_path = watch->directory.lexically_relative(self->source_root),
                   .operation = operation});
@@ -161,10 +162,10 @@ struct asset_file_watcher::implementation final {
     self->emit({.kind = (flags & UV_RENAME) != 0 ? asset_file_event_kind::renamed
                                                  : asset_file_event_kind::changed,
                 .relative_path = std::move(relative),
-                .operation = result::success});
+                .operation = gneiss::engine::core::result::success});
     if ((flags & UV_RENAME) != 0) {
       const auto refresh = self->refresh_directories(handle->loop);
-      if (refresh != result::success) {
+      if (refresh != gneiss::engine::core::result::success) {
         self->emit(
             {.kind = asset_file_event_kind::error, .relative_path = ".", .operation = refresh});
       }
@@ -190,41 +191,41 @@ asset_file_watcher::~asset_file_watcher() {
   }
 }
 
-result asset_file_watcher::start(const std::filesystem::path& source_root,
-                                 bool allow_missing) noexcept {
+gneiss::engine::core::result asset_file_watcher::start(const std::filesystem::path& source_root,
+                                                       bool allow_missing) noexcept {
   if (!implementation_ || source_root.empty() || implementation_->running.load()) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     implementation_->source_root = std::filesystem::weakly_canonical(source_root);
     const auto status = std::filesystem::status(implementation_->source_root);
     if (allow_missing && !std::filesystem::exists(status)) {
-      return result::not_ready;
+      return gneiss::engine::core::result::not_ready;
     }
     if (!std::filesystem::is_directory(status)) {
       if (allow_missing) {
-        return result::invalid_argument;
+        return gneiss::engine::core::result::invalid_argument;
       }
-      return result::not_found;
+      return gneiss::engine::core::result::not_found;
     }
     {
       const std::scoped_lock lock(implementation_->event_mutex);
       implementation_->events.clear();
     }
     auto operation = implementation_->executor.start();
-    if (operation != result::success) {
+    if (operation != gneiss::engine::core::result::success) {
       return operation;
     }
-    auto completion = std::make_shared<std::promise<result>>();
+    auto completion = std::make_shared<std::promise<gneiss::engine::core::result>>();
     auto completed = completion->get_future();
     operation = engine::platform::io::uv_loop_access::post(
         implementation_->executor, [state = implementation_.get(), completion](uv_loop_t* loop) {
           completion->set_value(state->refresh_directories(loop));
         });
-    if (operation == result::success) {
+    if (operation == gneiss::engine::core::result::success) {
       operation = completed.get();
     }
-    if (operation != result::success) {
+    if (operation != gneiss::engine::core::result::success) {
       (void)engine::platform::io::uv_loop_access::post(
           implementation_->executor,
           [state = implementation_.get()](uv_loop_t*) { state->close_watches(); });
@@ -234,17 +235,17 @@ result asset_file_watcher::start(const std::filesystem::path& source_root,
       return operation;
     }
     implementation_->running.store(true, std::memory_order_release);
-    return result::success;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return result::io;
+    return gneiss::engine::core::result::io;
   }
 }
 
-result asset_file_watcher::stop() noexcept {
+gneiss::engine::core::result asset_file_watcher::stop() noexcept {
   if (!implementation_ || !implementation_->running.exchange(false, std::memory_order_acq_rel)) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   const auto posted = engine::platform::io::uv_loop_access::post(
       implementation_->executor,
@@ -252,7 +253,7 @@ result asset_file_watcher::stop() noexcept {
   const auto stopped = implementation_->executor.stop();
   implementation_->watches.clear();
   implementation_->watched_directories.clear();
-  return posted != result::success ? posted : stopped;
+  return posted != gneiss::engine::core::result::success ? posted : stopped;
 }
 
 std::size_t asset_file_watcher::poll_events(std::vector<asset_file_event>& output,

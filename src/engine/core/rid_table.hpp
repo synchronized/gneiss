@@ -4,8 +4,8 @@
 #ifndef GNEISS_CORE_RID_TABLE_HPP_
 #define GNEISS_CORE_RID_TABLE_HPP_
 
+#include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
-#include <gneiss/engine/core/result.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -76,9 +76,10 @@ public:
   rid_table& operator=(rid_table&&) = delete;
 
   template <typename Value>
-  [[nodiscard]] gneiss_result create(resource_type type, Value&& value, rid* out_rid) noexcept {
+  [[nodiscard]] gneiss::engine::core::result create(resource_type type, Value&& value,
+                                                    rid* out_rid) noexcept {
     if (out_rid == nullptr || domain_ == 0U || type == resource_type::invalid) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     *out_rid = null_rid;
 
@@ -91,7 +92,7 @@ public:
       }
       if (index == slots_.size()) {
         if (slots_.size() >= detail::slot_mask) {
-          return GNEISS_ERROR_OUT_OF_MEMORY;
+          return gneiss::engine::core::result::out_of_memory;
         }
         slots_.emplace_back();
       }
@@ -101,11 +102,11 @@ public:
       slot.type = type;
       *out_rid =
           detail::encode_rid({static_cast<std::uint32_t>(index), slot.generation, type, domain_});
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     } catch (const std::bad_alloc&) {
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      return gneiss::engine::core::result::out_of_memory;
     } catch (...) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
   }
 
@@ -125,10 +126,11 @@ public:
     return &*slots_[parts.slot].value;
   }
 
-  [[nodiscard]] gneiss_result destroy(rid value, resource_type expected_type) noexcept {
+  [[nodiscard]] gneiss::engine::core::result destroy(rid value,
+                                                     resource_type expected_type) noexcept {
     const auto parts = detail::decode_rid(value);
     if (!is_valid(parts, expected_type)) {
-      return GNEISS_ERROR_INVALID_HANDLE;
+      return gneiss::engine::core::result::invalid_handle;
     }
 
     auto& slot = slots_[parts.slot];
@@ -140,7 +142,7 @@ public:
     } else {
       ++slot.generation;
     }
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
 
   /** 仅遍历存活且类型匹配的值；回调不得创建或销毁本表槽位。 */

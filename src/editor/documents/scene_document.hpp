@@ -4,6 +4,7 @@
 #ifndef GNEISS_EDITOR_DOCUMENTS_SCENE_DOCUMENT_HPP_
 #define GNEISS_EDITOR_DOCUMENTS_SCENE_DOCUMENT_HPP_
 
+#include "engine/core/result.hpp"
 #include <gneiss/engine/scene.hpp>
 namespace gneiss::runtime {
 class application;
@@ -19,12 +20,12 @@ class application;
 namespace gneiss::editor {
 
 /** 将资产根内的本地路径转换为规范 asset URI；路径越界时拒绝。 */
-[[nodiscard]] result make_asset_uri(const std::filesystem::path& asset_root,
-                                    const std::filesystem::path& path,
-                                    std::string& output) noexcept;
+[[nodiscard]] gneiss::engine::core::result make_asset_uri(const std::filesystem::path& asset_root,
+                                                          const std::filesystem::path& path,
+                                                          std::string& output) noexcept;
 
 /** 生成符合场景 Schema 的随机 UUID。 */
-[[nodiscard]] result make_editor_uuid(std::string& output) noexcept;
+[[nodiscard]] gneiss::engine::core::result make_editor_uuid(std::string& output) noexcept;
 
 struct scene_node_record final {
   scene_node_id node;
@@ -91,26 +92,29 @@ public:
   scene_document(scene_document&& other) noexcept;
   scene_document& operator=(scene_document&& other) noexcept;
   /** 接收已经激活的场景；成功后拥有句柄，所属线程调用。 */
-  [[nodiscard]] result adopt(runtime::application& application, gneiss_world world,
-                             gneiss_scene_instance scene, std::string_view uri) noexcept;
-  [[nodiscard]] result open(runtime::application& application, gneiss_world world,
-                            std::string_view uri) noexcept;
-  [[nodiscard]] result create_empty(runtime::application& application, gneiss_world world,
-                                    std::string_view scene_uuid) noexcept;
-  [[nodiscard]] result create_empty(runtime::application& application, gneiss_world world) noexcept;
+  [[nodiscard]] gneiss::engine::core::result adopt(runtime::application& application,
+                                                   gneiss_world world, gneiss_scene_instance scene,
+                                                   std::string_view uri) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  open(runtime::application& application, gneiss_world world, std::string_view uri) noexcept;
+  [[nodiscard]] gneiss::engine::core::result create_empty(runtime::application& application,
+                                                          gneiss_world world,
+                                                          std::string_view scene_uuid) noexcept;
+  [[nodiscard]] gneiss::engine::core::result create_empty(runtime::application& application,
+                                                          gneiss_world world) noexcept;
   void close() noexcept;
 
   [[nodiscard]] bool is_open() const noexcept;
   /** 预分配镜像后调用就绪创建；成功后发布节点记录，不加载资产。 */
-  [[nodiscard]] result
-  commit_mesh_node(const scene_node_snapshot& snapshot,
-                   const std::function<result(scene_node_id, scene_node_id&)>& create,
-                   scene_node_id& output) noexcept;
+  [[nodiscard]] gneiss::engine::core::result commit_mesh_node(
+      const scene_node_snapshot& snapshot,
+      const std::function<gneiss::engine::core::result(scene_node_id, scene_node_id&)>& create,
+      scene_node_id& output) noexcept;
   [[nodiscard]] gneiss_scene_instance scene_handle() const noexcept { return scene_; }
   /** 预分配作者值后调用提交；回调失败不改编辑器镜像，不执行资产加载。 */
-  [[nodiscard]] result commit_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
-                                            std::string_view material_uri,
-                                            const std::function<result()>& commit) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  commit_mesh_renderer(scene_node_id node, std::string_view mesh_uri, std::string_view material_uri,
+                       const std::function<gneiss::engine::core::result()>& commit) noexcept;
   [[nodiscard]] bool is_dirty() const noexcept { return is_dirty_; }
   [[nodiscard]] std::string_view uri() const noexcept { return uri_; }
   [[nodiscard]] const std::vector<scene_node_record>& nodes() const noexcept { return nodes_; }
@@ -133,69 +137,83 @@ public:
   find_prefab_source(std::string_view instance_uuid, std::string_view source_uuid) const noexcept;
   [[nodiscard]] const scene_node_record* find_node(std::string_view uuid) const noexcept;
 
-  [[nodiscard]] result select(scene_node_id node) noexcept;
-  [[nodiscard]] result validate_selection() noexcept;
-  [[nodiscard]] result create_node(std::string_view name, scene_node_id parent,
-                                   scene_node_id& out_node) noexcept;
-  [[nodiscard]] result create_prefab_instance(std::string_view name, std::string_view prefab_uri,
-                                              scene_node_id parent,
-                                              scene_node_id& out_root) noexcept;
-  [[nodiscard]] result rename_prefab_instance(scene_node_id root, std::string_view name) noexcept;
-  [[nodiscard]] result destroy_prefab_instance(scene_node_id root,
-                                               prefab_instance_snapshot& out_snapshot) noexcept;
-  [[nodiscard]] result restore_prefab_instance(const prefab_instance_snapshot& snapshot,
-                                               scene_node_id& out_root) noexcept;
-  [[nodiscard]] result
+  [[nodiscard]] gneiss::engine::core::result select(scene_node_id node) noexcept;
+  [[nodiscard]] gneiss::engine::core::result validate_selection() noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  create_node(std::string_view name, scene_node_id parent, scene_node_id& out_node) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  create_prefab_instance(std::string_view name, std::string_view prefab_uri, scene_node_id parent,
+                         scene_node_id& out_root) noexcept;
+  [[nodiscard]] gneiss::engine::core::result rename_prefab_instance(scene_node_id root,
+                                                                    std::string_view name) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  destroy_prefab_instance(scene_node_id root, prefab_instance_snapshot& out_snapshot) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  restore_prefab_instance(const prefab_instance_snapshot& snapshot,
+                          scene_node_id& out_root) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
   refresh_prefab_instance(scene_node_id root, scene_node_id& out_new_root,
                           gneiss_scene_prefab_refresh_token& out_token) noexcept;
-  [[nodiscard]] result toggle_prefab_refresh(gneiss_scene_prefab_refresh_token token,
-                                             scene_node_id& out_new_root) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  toggle_prefab_refresh(gneiss_scene_prefab_refresh_token token,
+                        scene_node_id& out_new_root) noexcept;
   void release_prefab_refresh(gneiss_scene_prefab_refresh_token token) noexcept;
-  [[nodiscard]] result rename_node(scene_node_id node, std::string_view name) noexcept;
-  [[nodiscard]] result reparent_node(scene_node_id node, scene_node_id parent) noexcept;
-  [[nodiscard]] result get_world_transform(scene_node_id node, transform& output) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result rename_node(scene_node_id node,
+                                                         std::string_view name) noexcept;
+  [[nodiscard]] gneiss::engine::core::result reparent_node(scene_node_id node,
+                                                           scene_node_id parent) noexcept;
+  [[nodiscard]] gneiss::engine::core::result get_world_transform(scene_node_id node,
+                                                                 transform& output) const noexcept;
   /** 设置节点局部 TRS；成功后刷新缓存并标记场景已修改。 */
-  [[nodiscard]] result set_local_transform(scene_node_id node, const transform& value) noexcept;
+  [[nodiscard]] gneiss::engine::core::result set_local_transform(scene_node_id node,
+                                                                 const transform& value) noexcept;
   /** 恢复 Prefab 来源节点的单个 Transform 字段；返回操作前的有效值。 */
-  [[nodiscard]] result restore_prefab_transform_field(scene_node_id node, gneiss_field_id field_id,
-                                                      transform& out_previous) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  restore_prefab_transform_field(scene_node_id node, gneiss_field_id field_id,
+                                 transform& out_previous) noexcept;
   /** 恢复 Prefab 来源节点的全部 Transform 字段；返回操作前的有效值。 */
-  [[nodiscard]] result restore_prefab_transform(scene_node_id node,
-                                                transform& out_previous) noexcept;
-  [[nodiscard]] result destroy_subtree(scene_node_id node,
-                                       scene_subtree_snapshot& out_snapshot) noexcept;
-  [[nodiscard]] result restore_subtree(const scene_subtree_snapshot& snapshot,
-                                       scene_node_id& out_node) noexcept;
-  [[nodiscard]] result duplicate_subtree(scene_node_id node, scene_node_id parent,
-                                         scene_node_id& out_node) noexcept;
-  [[nodiscard]] result set_camera(scene_node_id node, const scene_camera_desc& desc) noexcept;
-  [[nodiscard]] result remove_camera(scene_node_id node) noexcept;
-  [[nodiscard]] result remove_mesh_renderer(scene_node_id node) noexcept;
-  [[nodiscard]] result create_mesh_renderer_node(std::string_view name, std::string_view mesh_uri,
-                                                 std::string_view material_uri,
-                                                 scene_node_id& out_node) noexcept;
-  [[nodiscard]] result set_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
-                                         std::string_view material_uri) noexcept;
-  [[nodiscard]] result restore_mesh_renderer_node(const scene_node_snapshot& snapshot,
-                                                  scene_node_id& out_node) noexcept;
-  [[nodiscard]] result destroy_node(scene_node_id node, scene_node_snapshot& out_snapshot) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  restore_prefab_transform(scene_node_id node, transform& out_previous) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  destroy_subtree(scene_node_id node, scene_subtree_snapshot& out_snapshot) noexcept;
+  [[nodiscard]] gneiss::engine::core::result restore_subtree(const scene_subtree_snapshot& snapshot,
+                                                             scene_node_id& out_node) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  duplicate_subtree(scene_node_id node, scene_node_id parent, scene_node_id& out_node) noexcept;
+  [[nodiscard]] gneiss::engine::core::result set_camera(scene_node_id node,
+                                                        const scene_camera_desc& desc) noexcept;
+  [[nodiscard]] gneiss::engine::core::result remove_camera(scene_node_id node) noexcept;
+  [[nodiscard]] gneiss::engine::core::result remove_mesh_renderer(scene_node_id node) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  create_mesh_renderer_node(std::string_view name, std::string_view mesh_uri,
+                            std::string_view material_uri, scene_node_id& out_node) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  set_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
+                    std::string_view material_uri) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  restore_mesh_renderer_node(const scene_node_snapshot& snapshot, scene_node_id& out_node) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  destroy_node(scene_node_id node, scene_node_snapshot& out_snapshot) noexcept;
   /** 将当前场景原子替换到原 asset URI；成功后清除脏状态。 */
-  [[nodiscard]] result save(const std::filesystem::path& asset_root,
-                            std::string* saved_content = nullptr) noexcept;
+  [[nodiscard]] gneiss::engine::core::result save(const std::filesystem::path& asset_root,
+                                                  std::string* saved_content = nullptr) noexcept;
   /** 将当前场景写入尚不存在的 asset URI，并将其设为后续保存目标。 */
-  [[nodiscard]] result save_as(const std::filesystem::path& asset_root, std::string_view uri,
-                               std::string* saved_content = nullptr) noexcept;
+  [[nodiscard]] gneiss::engine::core::result save_as(const std::filesystem::path& asset_root,
+                                                     std::string_view uri,
+                                                     std::string* saved_content = nullptr) noexcept;
   void mark_dirty() noexcept { is_dirty_ = true; }
   void clear_dirty() noexcept { is_dirty_ = false; }
 
 private:
-  template <class F> result with_scene(F&& action) const noexcept;
-  template <class F> result with_node(scene_node_id& output, F&& action) const noexcept;
-  [[nodiscard]] result refresh_nodes() noexcept;
-  [[nodiscard]] result save_to(const std::filesystem::path& asset_root, std::string_view uri,
-                               bool require_existing, std::string* saved_content) noexcept;
-  [[nodiscard]] result create_mesh_renderer_node(const scene_node_snapshot& snapshot,
-                                                 scene_node_id& out_node) noexcept;
+  template <class F> gneiss::engine::core::result with_scene(F&& action) const noexcept;
+  template <class F>
+  gneiss::engine::core::result with_node(scene_node_id& output, F&& action) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result refresh_nodes() noexcept;
+  [[nodiscard]] gneiss::engine::core::result save_to(const std::filesystem::path& asset_root,
+                                                     std::string_view uri, bool require_existing,
+                                                     std::string* saved_content) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  create_mesh_renderer_node(const scene_node_snapshot& snapshot, scene_node_id& out_node) noexcept;
   gneiss_world world_ = GNEISS_NULL_WORLD;
   // 借用宿主；宿主必须在关闭/销毁 Application 前关闭编辑文档。
   runtime::application* application_{};

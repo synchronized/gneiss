@@ -7,6 +7,7 @@
 #include "commands/editor_command_history.hpp"
 #include "documents/scene_document.hpp"
 #include "editor_project.hpp"
+#include "engine/core/result.hpp"
 #include "runtime/application_registry.hpp"
 
 #include <gneiss/engine/application.h>
@@ -46,13 +47,14 @@ struct temporary_project final {
          entry.asset_uri.ends_with(".material.json");
 }
 
-[[nodiscard]] gneiss::result create_application(const std::filesystem::path& asset_root,
-                                                gneiss::test_support::application_owner& output) {
+[[nodiscard]] gneiss::engine::core::result
+create_application(const std::filesystem::path& asset_root,
+                   gneiss::test_support::application_owner& output) {
   const auto root = asset_root.generic_string();
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  return gneiss::result{gneiss_application_create(&desc, output.put())};
+  return gneiss::engine::core::result{gneiss_application_create(&desc, output.put())};
 }
 
 [[nodiscard]] std::string read_text(const std::filesystem::path& path) {
@@ -82,7 +84,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
                         std::filesystem::copy_options::recursive);
 
   gneiss::editor::editor_project project;
-  if (gneiss::editor::load_editor_project(root, project) != gneiss::result::success) {
+  if (gneiss::editor::load_editor_project(root, project) != gneiss::engine::core::result::success) {
     return 1;
   }
   const auto imported = gneiss::editor::import_external_asset(
@@ -135,11 +137,12 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   gneiss::test_support::application_owner application;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::editor::scene_document session;
-  if (create_application(project.asset_root, application) != gneiss::result::success ||
-      gneiss::result{gneiss_application_get_world(application.get(), &world)} !=
-          gneiss::result::success ||
+  if (create_application(project.asset_root, application) !=
+          gneiss::engine::core::result::success ||
+      gneiss::engine::core::result{gneiss_application_get_world(application.get(), &world)} !=
+          gneiss::engine::core::result::success ||
       session.open(*gneiss::runtime::find_application(application.get()), world,
-                   project.startup_scene) != gneiss::result::success) {
+                   project.startup_scene) != gneiss::engine::core::result::success) {
     return 8;
   }
   constexpr std::string_view prefab_uri = "asset://prefabs/lantern.prefab.json";
@@ -182,8 +185,9 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
     const auto* root_node = session.find_prefab_root(instance_uuid);
     gneiss::scene_node_id refreshed_root;
     gneiss_scene_prefab_refresh_token token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
-    if (root_node == nullptr || session.refresh_prefab_instance(root_node->node, refreshed_root,
-                                                                token) != gneiss::result::success) {
+    if (root_node == nullptr ||
+        session.refresh_prefab_instance(root_node->node, refreshed_root, token) !=
+            gneiss::engine::core::result::success) {
       return 9;
     }
     refresh_tokens.push_back(token);
@@ -193,7 +197,8 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   }
   for (const auto token : refresh_tokens) {
     gneiss::scene_node_id restored_root;
-    if (session.toggle_prefab_refresh(token, restored_root) != gneiss::result::success) {
+    if (session.toggle_prefab_refresh(token, restored_root) !=
+        gneiss::engine::core::result::success) {
       return 9;
     }
   }
@@ -202,14 +207,15 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   }
   for (const auto token : refresh_tokens) {
     gneiss::scene_node_id refreshed_root;
-    if (session.toggle_prefab_refresh(token, refreshed_root) != gneiss::result::success) {
+    if (session.toggle_prefab_refresh(token, refreshed_root) !=
+        gneiss::engine::core::result::success) {
       return 9;
     }
     session.release_prefab_refresh(token);
   }
   gneiss::scene_node_id node;
   if (session.create_mesh_renderer_node("Imported Lantern", mesh->asset_uri, material->asset_uri,
-                                        node) != gneiss::result::success) {
+                                        node) != gneiss::engine::core::result::success) {
     return 10;
   }
   const auto* created = session.selected_node();
@@ -224,7 +230,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
                           [&session, uuid = snapshot.uuid] {
                             const auto* current = session.find_node(uuid);
                             if (current == nullptr) {
-                              return gneiss::result::not_found;
+                              return gneiss::engine::core::result::not_found;
                             }
                             gneiss::editor::scene_node_snapshot discarded;
                             return session.destroy_node(current->node, discarded);
@@ -234,17 +240,19 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
                             gneiss::scene_node_id restored;
                             return session.restore_mesh_renderer_node(snapshot, restored);
                           },
-                      .merge_key = {}}) != gneiss::result::success ||
-      history.undo() != gneiss::result::success || session.find_node(snapshot.uuid) != nullptr ||
-      history.redo() != gneiss::result::success || session.find_node(snapshot.uuid) == nullptr ||
-      session.save(project.asset_root) != gneiss::result::success) {
+                      .merge_key = {}}) != gneiss::engine::core::result::success ||
+      history.undo() != gneiss::engine::core::result::success ||
+      session.find_node(snapshot.uuid) != nullptr ||
+      history.redo() != gneiss::engine::core::result::success ||
+      session.find_node(snapshot.uuid) == nullptr ||
+      session.save(project.asset_root) != gneiss::engine::core::result::success) {
     return 11;
   }
   session.close();
 
   gneiss::editor::scene_document reloaded;
   if (reloaded.open(*gneiss::runtime::find_application(application.get()), world,
-                    project.startup_scene) != gneiss::result::success ||
+                    project.startup_scene) != gneiss::engine::core::result::success ||
       reloaded.find_node(snapshot.uuid) == nullptr || reloaded.prefab_nodes().size() != 15U ||
       count_prefab_name(reloaded, "Lantern Glass Updated") != 3U) {
     return 12;

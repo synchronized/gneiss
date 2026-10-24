@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "ipc_inspection_protocol.hpp"
 #include "ipc_log_protocol.hpp"
 #include "ipc_property_protocol.hpp"
@@ -23,8 +24,9 @@ namespace {
   gneiss::engine::platform::ipc_envelope envelope;
   const std::string event = R"({"level":"INFO","message":"运行中"})";
   std::string decoded_event;
-  if (gneiss::encode_ipc_log_event(event, envelope) != gneiss::result::success ||
-      gneiss::decode_ipc_log_event(envelope, decoded_event) != gneiss::result::success ||
+  if (gneiss::encode_ipc_log_event(event, envelope) != gneiss::engine::core::result::success ||
+      gneiss::decode_ipc_log_event(envelope, decoded_event) !=
+          gneiss::engine::core::result::success ||
       decoded_event != event) {
     return false;
   }
@@ -38,8 +40,10 @@ namespace {
                                                   .ipc_pending_writes = 9U,
                                                   .ipc_dropped_events = 10U};
   gneiss::ipc_runtime_statistics decoded;
-  return gneiss::encode_ipc_statistics_v2(statistics, envelope) == gneiss::result::success &&
-         gneiss::decode_ipc_statistics_v2(envelope, decoded) == gneiss::result::success &&
+  return gneiss::encode_ipc_statistics_v2(statistics, envelope) ==
+             gneiss::engine::core::result::success &&
+         gneiss::decode_ipc_statistics_v2(envelope, decoded) ==
+             gneiss::engine::core::result::success &&
          decoded.sequence == statistics.sequence && decoded.entity_count == statistics.entity_count;
 }
 
@@ -53,19 +57,21 @@ namespace {
                    .id = {.value = 7U, .generation = 1U},
                    .node = {}}}};
   std::vector<gneiss::engine::platform::ipc_envelope> envelopes;
-  if (gneiss::encode_ipc_inspection_batch_v2(batch, envelopes) != gneiss::result::success ||
+  if (gneiss::encode_ipc_inspection_batch_v2(batch, envelopes) !=
+          gneiss::engine::core::result::success ||
       envelopes.size() != 1U) {
     return false;
   }
   gneiss::ipc_inspection_batch decoded;
   if (gneiss::decode_ipc_inspection_batch_v2(envelopes.front(), decoded) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       decoded.stamp.sequence != batch.stamp.sequence || decoded.changes.size() != 1U) {
     return false;
   }
   gneiss::engine::platform::ipc_envelope resync;
-  return gneiss::encode_ipc_inspection_resync(9U, resync) == gneiss::result::success &&
-         gneiss::decode_ipc_inspection_resync(resync) == gneiss::result::success &&
+  return gneiss::encode_ipc_inspection_resync(9U, resync) ==
+             gneiss::engine::core::result::success &&
+         gneiss::decode_ipc_inspection_resync(resync) == gneiss::engine::core::result::success &&
          resync.request_id == 9U &&
          resync.kind == gneiss::engine::platform::ipc_message_kind::request;
 }
@@ -80,15 +86,17 @@ namespace {
                                            .value = {std::array<float, 3>{1.0F, 2.0F, 3.0F}}};
   gneiss::engine::platform::ipc_envelope envelope;
   gneiss::ipc_property_write decoded_command;
-  if (gneiss::encode_ipc_property_write_v2(command, 21U, envelope) != gneiss::result::success ||
-      gneiss::decode_ipc_property_write_v2(envelope, decoded_command) != gneiss::result::success ||
+  if (gneiss::encode_ipc_property_write_v2(command, 21U, envelope) !=
+          gneiss::engine::core::result::success ||
+      gneiss::decode_ipc_property_write_v2(envelope, decoded_command) !=
+          gneiss::engine::core::result::success ||
       decoded_command.command_id != envelope.request_id) {
     return false;
   }
   auto mismatched = envelope;
   ++mismatched.request_id;
   if (gneiss::decode_ipc_property_write_v2(mismatched, decoded_command) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       decoded_command.command_id != mismatched.request_id) {
     return false;
   }
@@ -101,9 +109,9 @@ namespace {
       .canonical_value = {std::array<float, 3>{1.0F, 2.0F, 3.0F}}};
   gneiss::ipc_property_write_result decoded_response;
   return gneiss::encode_ipc_property_result_v2(response, 21U, envelope) ==
-             gneiss::result::success &&
+             gneiss::engine::core::result::success &&
          gneiss::decode_ipc_property_result_v2(envelope, decoded_response) ==
-             gneiss::result::success &&
+             gneiss::engine::core::result::success &&
          decoded_response.command_id == envelope.request_id &&
          decoded_response.revision == response.revision;
 }
@@ -114,8 +122,9 @@ namespace {
   command.session_id = 1U;
   command.command_id = 2U;
   return gneiss::encode_ipc_property_write_v2(command, 3U, envelope) ==
-             gneiss::result::invalid_argument &&
-         gneiss::encode_ipc_inspection_resync(0U, envelope) == gneiss::result::invalid_argument &&
+             gneiss::engine::core::result::invalid_argument &&
+         gneiss::encode_ipc_inspection_resync(0U, envelope) ==
+             gneiss::engine::core::result::invalid_argument &&
          gneiss::ipc_log_operations().size() == 1U &&
          gneiss::ipc_inspection_operations().size() == 2U &&
          gneiss::ipc_statistics_operations().size() == 1U &&

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "editor_ui.hpp"
+#include "engine/core/result.hpp"
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -61,7 +62,7 @@ int main() {
 
   create_test_context();
   if (gneiss::editor::initialize_editor_layout(state_file, root / "project-a", visibility) !=
-      gneiss::result::success) {
+      gneiss::engine::core::result::success) {
     return 2;
   }
   if (!draw_workspace_frame()) {
@@ -69,7 +70,7 @@ int main() {
   }
   visibility.asset_browser = false;
   visibility.console = false;
-  if (gneiss::editor::save_editor_layout(visibility) != gneiss::result::success) {
+  if (gneiss::editor::save_editor_layout(visibility) != gneiss::engine::core::result::success) {
     return 4;
   }
   ImGui::DestroyContext();
@@ -94,7 +95,7 @@ int main() {
   create_test_context();
   visibility = {};
   if (gneiss::editor::initialize_editor_layout(state_file, root / "project-a", visibility) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       visibility.asset_browser || visibility.console) {
     return 8;
   }
@@ -111,20 +112,20 @@ int main() {
                 .inspector = false,
                 .console = false};
   if (gneiss::editor::initialize_editor_layout(state_file, root / "project-a", visibility) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       !visibility.scene_hierarchy || !visibility.asset_browser || !visibility.scene_view ||
       !visibility.inspector || !visibility.console) {
     return 10;
   }
   if (gneiss::editor::initialize_editor_layout(state_file, root / "project-b", visibility) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       !visibility.asset_browser || !visibility.console) {
     return 11;
   }
   if (!draw_workspace_frame()) {
     return 12;
   }
-  if (gneiss::editor::save_editor_layout(visibility) != gneiss::result::success) {
+  if (gneiss::editor::save_editor_layout(visibility) != gneiss::engine::core::result::success) {
     return 13;
   }
   ImGui::DestroyContext();
@@ -144,7 +145,7 @@ int main() {
   const auto incompatible_result =
       gneiss::editor::initialize_editor_layout(state_file, root / "project-a", visibility);
   ImGui::DestroyContext();
-  if (incompatible_result != gneiss::result::invalid_argument) {
+  if (incompatible_result != gneiss::engine::core::result::invalid_argument) {
     return 15;
   }
 
@@ -154,7 +155,8 @@ int main() {
   blocked.close();
   create_test_context();
   if (gneiss::editor::initialize_editor_layout(blocked_root / "editor.json", root / "project-a",
-                                               visibility) != gneiss::result::success) {
+                                               visibility) !=
+      gneiss::engine::core::result::success) {
     return 16;
   }
   if (!draw_workspace_frame()) {
@@ -163,5 +165,5 @@ int main() {
   const auto blocked_result = gneiss::editor::save_editor_layout(visibility);
   ImGui::DestroyContext();
   std::filesystem::remove_all(root, error);
-  return blocked_result == gneiss::result::io ? 0 : 18;
+  return blocked_result == gneiss::engine::core::result::io ? 0 : 18;
 }

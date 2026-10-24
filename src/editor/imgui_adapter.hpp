@@ -6,9 +6,9 @@
 
 #include "engine/core/frame_time.hpp"
 #include "engine/core/input/input_types.hpp"
+#include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/draw_types.hpp"
-#include <gneiss/engine/core/result.h>
 #include <gneiss/engine/input.h>
 
 #include <imgui.h>
@@ -30,11 +30,11 @@ public:
   imgui_adapter(const imgui_adapter&) = delete;
   imgui_adapter& operator=(const imgui_adapter&) = delete;
 
-  [[nodiscard]] gneiss_result initialize(runtime::application& application);
+  [[nodiscard]] gneiss::engine::core::result initialize(runtime::application& application);
   void shutdown(runtime::application& application) noexcept;
-  [[nodiscard]] gneiss_result begin_frame(runtime::application& application,
-                                          const gneiss::engine::core::frame_time& time);
-  [[nodiscard]] gneiss_result submit(runtime::application& application);
+  [[nodiscard]] gneiss::engine::core::result
+  begin_frame(runtime::application& application, const gneiss::engine::core::frame_time& time);
+  [[nodiscard]] gneiss::engine::core::result submit(runtime::application& application);
 
 private:
   void process_input(const engine::core::input::input_event& event);

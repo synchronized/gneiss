@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "viewport/editor_rotation_math.hpp"
+#include "engine/core/result.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -19,15 +20,16 @@ bool is_finite(const gneiss::property_quaternion& value) noexcept {
 
 } // namespace
 
-result quaternion_to_euler_degrees(const gneiss::property_quaternion& quaternion,
-                                   std::array<float, 3>& output) noexcept {
+gneiss::engine::core::result
+quaternion_to_euler_degrees(const gneiss::property_quaternion& quaternion,
+                            std::array<float, 3>& output) noexcept {
   if (!is_finite(quaternion)) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   const auto length = std::sqrt((quaternion.x * quaternion.x) + (quaternion.y * quaternion.y) +
                                 (quaternion.z * quaternion.z) + (quaternion.w * quaternion.w));
   if (length <= normalization_tolerance) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   const auto x = quaternion.x / length;
   const auto y = quaternion.y / length;
@@ -42,13 +44,14 @@ result quaternion_to_euler_degrees(const gneiss::property_quaternion& quaternion
   constexpr auto radians_to_degrees = 180.0F / std::numbers::pi_v<float>;
   output = {std::atan2(sin_x, cos_x) * radians_to_degrees, std::asin(sin_y) * radians_to_degrees,
             std::atan2(sin_z, cos_z) * radians_to_degrees};
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
-result euler_degrees_to_quaternion(const std::array<float, 3>& euler,
-                                   gneiss::property_quaternion& output) noexcept {
+gneiss::engine::core::result
+euler_degrees_to_quaternion(const std::array<float, 3>& euler,
+                            gneiss::property_quaternion& output) noexcept {
   if (!std::ranges::all_of(euler, [](float value) { return std::isfinite(value); })) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   constexpr auto half_degrees_to_radians = std::numbers::pi_v<float> / 360.0F;
   const auto x = euler[0] * half_degrees_to_radians;
@@ -64,7 +67,7 @@ result euler_degrees_to_quaternion(const std::array<float, 3>& euler,
             .y = (cx * sy * cz) + (sx * cy * sz),
             .z = (cx * cy * sz) - (sx * sy * cz),
             .w = (cx * cy * cz) + (sx * sy * sz)};
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
 } // namespace gneiss::editor

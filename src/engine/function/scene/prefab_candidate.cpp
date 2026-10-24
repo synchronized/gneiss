@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/scene/prefab_candidate.hpp"
+#include "engine/core/result.hpp"
 #include "engine/function/scene/prefab_runtime_instance.hpp"
 #include "engine/function/world/world_service.hpp"
 #include <algorithm>
@@ -19,20 +20,19 @@ bool prefab_candidate::is_valid() const noexcept { return runtime_ != nullptr; }
 scene_node_id prefab_candidate::root() const noexcept {
   return runtime_ ? scene_node_id{runtime_->root()} : scene_node_id{};
 }
-gneiss_result prefab_candidate::create_node(std::size_t index, scene_node_id parent,
-                                            engine::render::mesh_asset_lease mesh,
-                                            engine::render::material_asset_lease material,
-                                            scene_node_id& output) {
+gneiss::engine::core::result prefab_candidate::create_node(
+    std::size_t index, scene_node_id parent, engine::render::mesh_asset_lease mesh,
+    engine::render::material_asset_lease material, scene_node_id& output) {
   if (!runtime_ || !runtime_->native_world_.is_owner_thread() || runtime_->published_ ||
       runtime_->cancelling_)
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   const auto result =
       runtime_->create_staged_node(index, parent.get(), std::move(mesh), std::move(material));
-  if (result != GNEISS_SUCCESS)
+  if (result != gneiss::engine::core::result::success)
     return result;
   prefab_runtime_instance::node_info info;
   const auto queried = runtime_->get_node_info(index, info);
-  if (queried == GNEISS_SUCCESS)
+  if (queried == gneiss::engine::core::result::success)
     output = scene_node_id{info.node};
   return queried;
 }
@@ -46,12 +46,12 @@ bool prefab_candidate::cleanup_step(std::size_t budget) noexcept {
   runtime_.reset();
   return true;
 }
-gneiss_result prefab_candidate::preview(std::size_t index,
-                                        prefab_node_view& output) const noexcept {
+gneiss::engine::core::result prefab_candidate::preview(std::size_t index,
+                                                       prefab_node_view& output) const noexcept {
   output = {};
   if (!runtime_ || !runtime_->native_world_.is_owner_thread() || runtime_->published_ ||
       runtime_->cancelling_ || index > runtime_->node_count())
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   output.instance_uuid = author_.instance_uuid;
   output.prefab_uri = author_.prefab_uri;
   if (index == 0U) {
@@ -62,11 +62,11 @@ gneiss_result prefab_candidate::preview(std::size_t index,
     std::ranges::copy(author_.translation, output.local_transform.translation.begin());
     std::ranges::copy(author_.rotation, output.local_transform.rotation.begin());
     std::ranges::copy(author_.scale, output.local_transform.scale.begin());
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
   engine::scene::prefab_runtime_instance::node_info info;
   const auto result = runtime_->get_node_info(index - 1U, info);
-  if (result != GNEISS_SUCCESS) {
+  if (result != gneiss::engine::core::result::success) {
     return result;
   }
   output.flags = scene_prefab_flags::source_read_only;
@@ -98,6 +98,6 @@ gneiss_result prefab_candidate::preview(std::size_t index,
       break;
     }
   }
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 }

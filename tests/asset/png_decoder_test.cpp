@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "engine/resource/loaders/png_decoder.hpp"
 
 #include <array>
@@ -48,16 +49,18 @@ int main() {
   }
   gneiss::engine::resource::decoded_png image;
   std::string message;
-  if (gneiss::engine::resource::decode_png(bytes, image, message) != GNEISS_SUCCESS ||
+  if (gneiss::engine::resource::decode_png(bytes, image, message) !=
+          gneiss::engine::core::result::success ||
       image.width != 1U || image.height != 1U || image.pixels.size() != 4U || !message.empty()) {
     return 1;
   }
   if (gneiss::engine::resource::decode_png(bytes, image, message, 3U) !=
-          GNEISS_ERROR_OUT_OF_MEMORY ||
+          gneiss::engine::core::result::out_of_memory ||
       image.width != 0U || !image.pixels.empty() || message.empty()) {
     return 3;
   }
-  if (gneiss::engine::resource::decode_png(bytes, image, message, 4U) != GNEISS_SUCCESS ||
+  if (gneiss::engine::resource::decode_png(bytes, image, message, 4U) !=
+          gneiss::engine::core::result::success ||
       image.pixels.size() != 4U) {
     return 4;
   }
@@ -69,7 +72,7 @@ int main() {
       gneiss::engine::resource::decode_png(bytes, allocation_image, allocation_message);
   fail_allocations = false;
   const bool pixel_failure_injected = allocation_failures != 0U;
-  if (!pixel_failure_injected || allocation_result != GNEISS_ERROR_OUT_OF_MEMORY ||
+  if (!pixel_failure_injected || allocation_result != gneiss::engine::core::result::out_of_memory ||
       allocation_image.width != 0U || allocation_image.height != 0U ||
       !allocation_image.pixels.empty()) {
     return 5;
@@ -83,20 +86,20 @@ int main() {
   // 部分标准库的短字符串存储可容纳整条诊断，此时没有分配可失败。
   fail_allocations = false;
   const bool message_failure_injected = allocation_failures != 0U;
-  const auto expected =
-      message_failure_injected ? GNEISS_ERROR_OUT_OF_MEMORY : GNEISS_ERROR_INVALID_ARGUMENT;
+  const auto expected = message_failure_injected ? gneiss::engine::core::result::out_of_memory
+                                                 : gneiss::engine::core::result::invalid_argument;
   if (empty_result != expected || allocation_image.width != 0U || allocation_image.height != 0U ||
       !allocation_image.pixels.empty()) {
     return 6;
   }
   if (gneiss::engine::resource::decode_png(empty_bytes, allocation_image, allocation_message) !=
-          GNEISS_ERROR_INVALID_ARGUMENT ||
+          gneiss::engine::core::result::invalid_argument ||
       allocation_message.empty()) {
     return 7;
   }
   bytes.resize(16);
   if (gneiss::engine::resource::decode_png(bytes, image, message) !=
-          GNEISS_ERROR_INVALID_ARGUMENT ||
+          gneiss::engine::core::result::invalid_argument ||
       image.width != 0U || image.height != 0U || !image.pixels.empty() || message.empty()) {
     return 2;
   }

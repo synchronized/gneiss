@@ -4,6 +4,7 @@
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/diagnostics/task_submission.hpp"
+#include "engine/core/result.hpp"
 #include "engine/resource/cache/cpu_document_cache.hpp"
 #include "engine/resource/vfs/asset_uri.hpp"
 #include <algorithm>
@@ -17,7 +18,7 @@ struct texture_load_service::pending {
     std::shared_ptr<engine::resource::cpu_document_batch> documents;
     std::unique_ptr<engine::resource::asset_preparation> preparation;
     bool complete{};
-    gneiss_result result{GNEISS_SUCCESS};
+    gneiss::engine::core::result result{gneiss::engine::core::result::success};
     std::string message;
     double milliseconds{};
   };
@@ -39,9 +40,9 @@ struct texture_load_service::pending {
   bool needs_discard{};
   bool discarding{};
   bool cancelled{};
-  gneiss_result operation{GNEISS_SUCCESS};
-  gneiss_result summary{GNEISS_SUCCESS};
-  gneiss_result fatal{GNEISS_SUCCESS};
+  gneiss::engine::core::result operation{gneiss::engine::core::result::success};
+  gneiss::engine::core::result summary{gneiss::engine::core::result::success};
+  gneiss::engine::core::result fatal{gneiss::engine::core::result::success};
   std::chrono::steady_clock::time_point started{std::chrono::steady_clock::now()};
 };
 
@@ -83,12 +84,13 @@ void texture_load_service::check_owner() const {
   }
 }
 
-gneiss_result texture_load_service::submit(std::span<const std::string> uris, std::uint64_t session,
-                                           std::uint64_t revision, std::uint64_t& request,
-                                           bool reload) {
+gneiss::engine::core::result texture_load_service::submit(std::span<const std::string> uris,
+                                                          std::uint64_t session,
+                                                          std::uint64_t revision,
+                                                          std::uint64_t& request, bool reload) {
   request = 0U;
   if (uris.size() > maximum_batch) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   std::vector<render_asset_reload> sources;
   for (const auto& uri : uris) {
@@ -96,28 +98,27 @@ gneiss_result texture_load_service::submit(std::span<const std::string> uris, st
   }
   return submit_assets(sources, session, revision, request, reload);
 }
-gneiss_result texture_load_service::submit_assets(std::span<const render_asset_reload> sources,
-                                                  std::uint64_t session, std::uint64_t revision,
-                                                  std::uint64_t& request, bool reload,
-                                                  std::size_t prepare_limit) {
+gneiss::engine::core::result texture_load_service::submit_assets(
+    std::span<const render_asset_reload> sources, std::uint64_t session, std::uint64_t revision,
+    std::uint64_t& request, bool reload, std::size_t prepare_limit) {
   request = 0U;
   if (std::this_thread::get_id() != owner_ || stopping_) {
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   }
   if (busy()) {
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   }
   if (sources.empty() || sources.size() > maximum_assets || session == 0U || revision == 0U ||
       prepare_limit == 0U || prepare_limit > maximum_prepared_bytes) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   std::set<std::string> unique;
   for (const auto& source : sources) {
-    if (engine::resource::validate_uri(source.uri) != GNEISS_SUCCESS ||
+    if (engine::resource::validate_uri(source.uri) != gneiss::engine::core::result::success ||
         !unique.insert(source.uri).second ||
         (source.type != render_asset_type::mesh && source.type != render_asset_type::material &&
          source.type != render_asset_type::texture)) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
   }
   auto value = std::make_unique<pending>();
@@ -136,9 +137,9 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
   for (const auto& source : sources) {
     render_asset_lease target;
     const auto ready = loader_.acquire_cached(source, target, backend_.profile);
-    cached = cached && ready == GNEISS_SUCCESS;
+    cached = cached && ready == gneiss::engine::core::result::success;
     const auto reserved = loader_.reserve_asset(source, target);
-    if (reserved != GNEISS_SUCCESS) {
+    if (reserved != gneiss::engine::core::result::success) {
       value.reset();
       loader_.release_unused();
       return reserved;
@@ -149,26 +150,26 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
   if (cached) {
     value->completion.assets = value->targets;
     for (auto& item : value->completion.results) {
-      item.result = GNEISS_SUCCESS;
+      item.result = gneiss::engine::core::result::success;
       item.applied = true;
     }
-    value->completion.result = GNEISS_SUCCESS;
+    value->completion.result = gneiss::engine::core::result::success;
     value->completion.state = texture_load_state::applied;
     request = value->completion.request;
     completed_ = std::move(value->completion);
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
   // 服务槽位接受整个请求；执行器暂满时由后续推进重试调度。
   for (std::size_t index = 0; index < value->targets.size(); ++index) {
     render_asset_lease ready;
-    if (reload ||
-        loader_.acquire_cached(sources[index], ready, backend_.profile) != GNEISS_SUCCESS) {
+    if (reload || loader_.acquire_cached(sources[index], ready, backend_.profile) !=
+                      gneiss::engine::core::result::success) {
       (void)loader_.claim_update(value->targets[index], value->sequence);
     }
   }
   request = value->completion.request;
   pending_ = std::move(value);
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
 engine::core::tasks::submit_result texture_load_service::submit_preparation(pending& value) {
@@ -190,9 +191,10 @@ engine::core::tasks::submit_result texture_load_service::submit_preparation(pend
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started)
                 .count();
         return engine::core::tasks::task_outcome{
-            .state = context.stop_requested()        ? engine::core::tasks::task_state::cancelled
-                     : cpu->result == GNEISS_SUCCESS ? engine::core::tasks::task_state::succeeded
-                                                     : engine::core::tasks::task_state::failed,
+            .state = context.stop_requested() ? engine::core::tasks::task_state::cancelled
+                     : cpu->result == gneiss::engine::core::result::success
+                         ? engine::core::tasks::task_state::succeeded
+                         : engine::core::tasks::task_state::failed,
         };
       },
       value.task);
@@ -207,15 +209,15 @@ bool texture_load_service::advance_preparation(pending& value) {
     value.completion.queue_ms += completions.front().queue_ms;
     if (value.cpu &&
         completions.front().outcome.state != engine::core::tasks::task_state::succeeded &&
-        value.cpu->result == GNEISS_SUCCESS) {
-      value.cpu->result = GNEISS_ERROR_INTERNAL;
+        value.cpu->result == gneiss::engine::core::result::success) {
+      value.cpu->result = gneiss::engine::core::result::internal;
       value.cpu->complete = true;
     }
   }
   return true;
 }
-gneiss_result texture_load_service::enqueue_dependencies(pending& value,
-                                                         const prepared_render_asset& asset) {
+gneiss::engine::core::result
+texture_load_service::enqueue_dependencies(pending& value, const prepared_render_asset& asset) {
   for (const auto& uri : asset.texture_uris) {
     if (uri.empty()) {
       continue;
@@ -224,25 +226,25 @@ gneiss_result texture_load_service::enqueue_dependencies(pending& value,
         value.completion.results, [&](const auto& item) { return item.source.uri == uri; });
     if (found != value.completion.results.end()) {
       if (found->source.type != render_asset_type::texture) {
-        return GNEISS_ERROR_INVALID_ARGUMENT;
+        return gneiss::engine::core::result::invalid_argument;
       }
       continue;
     }
     if (value.completion.results.size() == maximum_assets) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+      return gneiss::engine::core::result::invalid_argument;
     }
     render_asset_reload source{.uri = uri, .type = render_asset_type::texture};
     render_asset_lease target;
     const auto reserved = loader_.reserve_asset(source, target);
-    if (reserved != GNEISS_SUCCESS) {
+    if (reserved != gneiss::engine::core::result::success) {
       return reserved;
     }
     value.targets.push_back(std::move(target));
     value.completion.results.push_back({.source = std::move(source)});
   }
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
-void texture_load_service::finish_item(gneiss_result result, bool applied) {
+void texture_load_service::finish_item(gneiss::engine::core::result result, bool applied) {
   auto& value = *pending_;
   auto& item = value.completion.results[value.cursor];
   item.result = result;
@@ -264,13 +266,13 @@ void texture_load_service::finish_item(gneiss_result result, bool applied) {
   value.item = {};
   value.cpu.reset();
   value.prepared = false;
-  value.operation = GNEISS_SUCCESS;
+  value.operation = gneiss::engine::core::result::success;
   ++value.cursor;
   if (notification_) {
     notification_->notify();
   }
 }
-void texture_load_service::finish(gneiss_result result, texture_load_state state) {
+void texture_load_service::finish(gneiss::engine::core::result result, texture_load_state state) {
   auto& value = *pending_;
   value.completion.result = result;
   value.completion.state = state;
@@ -281,7 +283,7 @@ void texture_load_service::finish(gneiss_result result, texture_load_state state
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - value.started)
           .count();
   for (auto& item : value.completion.results) {
-    if (!item.applied && item.result == GNEISS_ERROR_NOT_READY) {
+    if (!item.applied && item.result == gneiss::engine::core::result::not_ready) {
       item.result = result;
     }
   }
@@ -299,18 +301,18 @@ void texture_load_service::advance() {
     advance_impl();
   } catch (const std::bad_alloc&) {
     if (pending_) {
-      pending_->fatal = GNEISS_ERROR_OUT_OF_MEMORY;
+      pending_->fatal = gneiss::engine::core::result::out_of_memory;
       (void)executor_.cancel(pending_->task);
     }
   } catch (...) {
     if (pending_) {
-      pending_->fatal = GNEISS_ERROR_INTERNAL;
+      pending_->fatal = gneiss::engine::core::result::internal;
       (void)executor_.cancel(pending_->task);
     }
   }
 }
 void texture_load_service::poll_upload(pending& value) {
-  gneiss_result result{};
+  auto result = gneiss::engine::core::result::success;
   if (!backend_.poll(value.upload, result)) {
     return;
   }
@@ -324,16 +326,16 @@ void texture_load_service::poll_upload(pending& value) {
   if (backend_.elapsed_ms) {
     value.completion.upload_ms += backend_.elapsed_ms();
   }
-  if (result != GNEISS_SUCCESS) {
+  if (result != gneiss::engine::core::result::success) {
     finish_item(result, false);
     return;
   }
-  value.operation = value.cancelled ? GNEISS_ERROR_INVALID_STATE : value.fatal;
-  if (value.operation == GNEISS_SUCCESS) {
+  value.operation = value.cancelled ? gneiss::engine::core::result::invalid_state : value.fatal;
+  if (value.operation == gneiss::engine::core::result::success) {
     value.operation = loader_.complete_upload(value.item);
   }
-  if (value.operation == GNEISS_SUCCESS) {
-    finish_item(GNEISS_SUCCESS, true);
+  if (value.operation == gneiss::engine::core::result::success) {
+    finish_item(gneiss::engine::core::result::success, true);
     return;
   }
   value.needs_discard = true;
@@ -342,16 +344,17 @@ bool texture_load_service::start_item(pending& value) {
   const auto& source = value.completion.results[value.cursor].source;
   render_asset_lease cached;
   if ((!value.reload || value.cursor >= value.explicit_count) &&
-      loader_.acquire_cached(source, cached, backend_.profile) == GNEISS_SUCCESS) {
-    finish_item(GNEISS_SUCCESS, true);
+      loader_.acquire_cached(source, cached, backend_.profile) ==
+          gneiss::engine::core::result::success) {
+    finish_item(gneiss::engine::core::result::success, true);
     return false;
   }
   if (!loader_.claim_update(value.targets[value.cursor], value.sequence)) {
-    finish_item(GNEISS_ERROR_INVALID_STATE, false);
+    finish_item(gneiss::engine::core::result::invalid_state, false);
     return false;
   }
   if (value.completion.prepared_bytes >= value.limit) {
-    finish_item(GNEISS_ERROR_OUT_OF_MEMORY, false);
+    finish_item(gneiss::engine::core::result::out_of_memory, false);
     return false;
   }
   value.cpu = std::make_shared<pending::cpu_result>();
@@ -377,26 +380,26 @@ bool texture_load_service::start_item(pending& value) {
 bool texture_load_service::prepare_item_upload(pending& value) {
   if (value.cpu->documents) {
     const auto retained = value.cpu->documents->retain_verified(value.cpu->batch);
-    if (retained != GNEISS_SUCCESS) {
+    if (retained != gneiss::engine::core::result::success) {
       finish_item(retained, false);
       return false;
     }
     value.cpu->documents.reset();
   }
   if (value.cpu->batch.assets.size() != 1U) {
-    finish_item(GNEISS_ERROR_INTERNAL, false);
+    finish_item(gneiss::engine::core::result::internal, false);
     return false;
   }
   auto& prepared = value.cpu->batch.assets.front();
   const auto dependencies = enqueue_dependencies(value, prepared);
-  if (dependencies != GNEISS_SUCCESS) {
+  if (dependencies != gneiss::engine::core::result::success) {
     finish_item(dependencies, false);
     return false;
   }
   value.completion.prepared_bytes += prepared.bytes;
   const auto staged = loader_.prepare_upload(std::move(prepared), value.item,
                                              value.targets[value.cursor], value.sequence);
-  if (staged != GNEISS_SUCCESS) {
+  if (staged != gneiss::engine::core::result::success) {
     finish_item(staged, false);
     return false;
   }
@@ -404,7 +407,7 @@ bool texture_load_service::prepare_item_upload(pending& value) {
     value.item.data.bytes = backend_.estimate_bytes(value.item.data);
   }
   if (value.item.data.bytes > maximum_upload_bytes) {
-    finish_item(GNEISS_ERROR_OUT_OF_MEMORY, false);
+    finish_item(gneiss::engine::core::result::out_of_memory, false);
     return false;
   }
   value.prepared = true;
@@ -421,10 +424,10 @@ void texture_load_service::advance_impl() {
   }
   if (value.needs_discard) {
     const auto result = backend_.discard({value.item.data}, value.upload);
-    if (result == GNEISS_ERROR_NOT_READY) {
+    if (result == gneiss::engine::core::result::not_ready) {
       return;
     }
-    if (result != GNEISS_SUCCESS) {
+    if (result != gneiss::engine::core::result::success) {
       finish(result, texture_load_state::failed);
       return;
     }
@@ -434,14 +437,15 @@ void texture_load_service::advance_impl() {
   if (!advance_preparation(value)) {
     return;
   }
-  if (value.cancelled || value.fatal != GNEISS_SUCCESS) {
-    finish(value.cancelled ? GNEISS_ERROR_INVALID_STATE : value.fatal,
+  if (value.cancelled || value.fatal != gneiss::engine::core::result::success) {
+    finish(value.cancelled ? gneiss::engine::core::result::invalid_state : value.fatal,
            value.cancelled ? texture_load_state::cancelled : texture_load_state::failed);
     return;
   }
   if (value.cursor == value.completion.results.size()) {
-    finish(value.summary, value.summary == GNEISS_SUCCESS ? texture_load_state::applied
-                                                          : texture_load_state::failed);
+    finish(value.summary, value.summary == gneiss::engine::core::result::success
+                              ? texture_load_state::applied
+                              : texture_load_state::failed);
     return;
   }
   if (!value.cpu && !start_item(value)) {
@@ -451,11 +455,11 @@ void texture_load_service::advance_impl() {
     const auto accepted = submit_preparation(value);
     if (accepted != engine::core::tasks::submit_result::success &&
         accepted != engine::core::tasks::submit_result::full) {
-      finish_item(GNEISS_ERROR_INVALID_STATE, false);
+      finish_item(gneiss::engine::core::result::invalid_state, false);
     }
     return;
   }
-  if (value.cpu->result != GNEISS_SUCCESS) {
+  if (value.cpu->result != gneiss::engine::core::result::success) {
     finish_item(value.cpu->result, false);
     return;
   }
@@ -463,10 +467,10 @@ void texture_load_service::advance_impl() {
     return;
   }
   const auto uploaded = backend_.begin({value.item.data}, value.upload);
-  if (uploaded == GNEISS_ERROR_NOT_READY) {
+  if (uploaded == gneiss::engine::core::result::not_ready) {
     return;
   }
-  if (uploaded != GNEISS_SUCCESS) {
+  if (uploaded != gneiss::engine::core::result::success) {
     finish_item(uploaded, false);
     return;
   }

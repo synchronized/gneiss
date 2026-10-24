@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "author_asset_monitor.hpp"
+#include "engine/core/result.hpp"
 
 #include <chrono>
 #include <filesystem>
@@ -30,7 +31,7 @@ int main() {
   }
 
   gneiss::editor::author_asset_monitor monitor;
-  if (monitor.initialize(root) != gneiss::result::success ||
+  if (monitor.initialize(root) != gneiss::engine::core::result::success ||
       monitor.observe("scenes/main.scene.json", false).state !=
           gneiss::editor::author_asset_change_state::idle) {
     return 2;
@@ -56,7 +57,7 @@ int main() {
   std::filesystem::remove(scene);
   const auto removed = monitor.observe("scenes/main.scene.json", false);
   if (removed.state != gneiss::editor::author_asset_change_state::changed ||
-      removed.operation != gneiss::result::not_found) {
+      removed.operation != gneiss::engine::core::result::not_found) {
     return 7;
   }
   monitor.mark_failed(removed.uri, removed.operation);
@@ -73,13 +74,14 @@ int main() {
   bool found_new = false;
   for (int frame = 0; frame < 32 && monitor.is_rescanning(); ++frame) {
     std::vector<std::filesystem::path> paths;
-    if (monitor.poll_rescan(paths, 1U) != gneiss::result::success || paths.size() > 1U) {
+    if (monitor.poll_rescan(paths, 1U) != gneiss::engine::core::result::success ||
+        paths.size() > 1U) {
       return 10;
     }
     for (const auto& path : paths) {
       const auto change = monitor.observe(path, false);
       found_removed |= change.uri == "asset://scenes/main.scene.json" &&
-                       change.operation == gneiss::result::not_found;
+                       change.operation == gneiss::engine::core::result::not_found;
       found_new |= change.uri == "asset://new.prefab.json" &&
                    change.state == gneiss::editor::author_asset_change_state::changed;
     }
@@ -104,12 +106,12 @@ int main() {
   std::filesystem::remove_all(root);
   monitor.request_rescan();
   std::vector<std::filesystem::path> paths;
-  if (monitor.poll_rescan(paths) != gneiss::result::io || monitor.is_rescanning()) {
+  if (monitor.poll_rescan(paths) != gneiss::engine::core::result::io || monitor.is_rescanning()) {
     return 13;
   }
   std::filesystem::create_directories(root);
   monitor.request_rescan();
-  if (monitor.poll_rescan(paths) != gneiss::result::success) {
+  if (monitor.poll_rescan(paths) != gneiss::engine::core::result::success) {
     return 14;
   }
   std::filesystem::remove_all(root);

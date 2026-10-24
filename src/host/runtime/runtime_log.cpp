@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_log.hpp"
+#include "engine/core/result.hpp"
 
 #include <gneiss/app/runtime_log_protocol.hpp>
 
@@ -18,8 +19,8 @@ namespace {
 constexpr std::uintmax_t maximum_log_size = 1024U * 1024U;
 
 [[nodiscard]] std::string format_event(std::string_view level, std::string_view stage,
-                                       gneiss_result operation, std::string_view message,
-                                       std::string_view context) {
+                                       gneiss::engine::core::result operation,
+                                       std::string_view message, std::string_view context) {
   const auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
                              std::chrono::system_clock::now().time_since_epoch())
                              .count();
@@ -30,7 +31,7 @@ constexpr std::uintmax_t maximum_log_size = 1024U * 1024U;
   event.append(" process=runtime stage=");
   event.append(stage);
   event.append(" result=");
-  event.append(std::to_string(operation));
+  event.append(std::to_string(operation.code()));
   event.push_back(' ');
   event.append("message=\"");
   event.append(message);
@@ -150,8 +151,9 @@ runtime_log::runtime_log(const std::filesystem::path& path) : path_(path) {
   file_.open(path_, std::ios::out | std::ios::app);
 }
 
-void runtime_log::write(std::string_view level, std::string_view stage, gneiss_result operation,
-                        std::string_view message, std::string_view context) noexcept {
+void runtime_log::write(std::string_view level, std::string_view stage,
+                        gneiss::engine::core::result operation, std::string_view message,
+                        std::string_view context) noexcept {
   try {
     const std::scoped_lock lock(mutex_);
     const auto event = format_event(level, stage, operation, message, context);
@@ -185,7 +187,7 @@ void runtime_log::write(const gneiss_log_event& source) noexcept {
     const std::scoped_lock lock(mutex_);
     const auto event = format_structured_event(source);
     std::string protocol;
-    if (app::encode_runtime_log_event(source, protocol) == result::success) {
+    if (app::encode_runtime_log_event(source, protocol) == gneiss::engine::core::result::success) {
       std::fwrite(protocol.data(), sizeof(char), protocol.size(), stdout);
       std::fflush(stdout);
     } else {

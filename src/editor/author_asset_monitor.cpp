@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "author_asset_monitor.hpp"
+#include "engine/core/result.hpp"
 
 #include <array>
 #include <fstream>
@@ -26,19 +27,20 @@ namespace {
 
 } // namespace
 
-result author_asset_monitor::initialize(const std::filesystem::path& asset_root,
-                                        bool build_baseline) noexcept {
+gneiss::engine::core::result
+author_asset_monitor::initialize(const std::filesystem::path& asset_root,
+                                 bool build_baseline) noexcept {
   if (asset_root.empty()) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     asset_root_ = std::filesystem::weakly_canonical(asset_root);
     if (!std::filesystem::is_directory(asset_root_)) {
-      return result::not_found;
+      return gneiss::engine::core::result::not_found;
     }
     rescan_requested_ = false;
     rescan_active_ = false;
-    rescan_result_ = result::success;
+    rescan_result_ = gneiss::engine::core::result::success;
     rescan_iterator_ = {};
     rescan_known_.clear();
     rescan_seen_.clear();
@@ -54,24 +56,25 @@ result author_asset_monitor::initialize(const std::filesystem::path& asset_root,
         }
         const auto uri = "asset://" + relative;
         std::uint64_t value = 0U;
-        if (fingerprint(uri, value) == result::success) {
+        if (fingerprint(uri, value) == gneiss::engine::core::result::success) {
           fingerprints_.insert_or_assign(uri, value);
         }
       }
     }
     status_ = {};
-    return result::success;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return result::io;
+    return gneiss::engine::core::result::io;
   }
 }
 
-result author_asset_monitor::poll_rescan(std::vector<std::filesystem::path>& output,
-                                         std::size_t budget) noexcept {
+gneiss::engine::core::result
+author_asset_monitor::poll_rescan(std::vector<std::filesystem::path>& output,
+                                  std::size_t budget) noexcept {
   if (budget == 0U) {
-    return result::success;
+    return gneiss::engine::core::result::success;
   }
   try {
     if (rescan_requested_ && !rescan_active_) {
@@ -83,7 +86,7 @@ result author_asset_monitor::poll_rescan(std::vector<std::filesystem::path>& out
         rescan_known_.push_back(utf8_path(std::string_view(uri).substr(8U)));
       }
       rescan_active_ = true;
-      rescan_result_ = result::success;
+      rescan_result_ = gneiss::engine::core::result::success;
     }
     while (rescan_active_ && budget-- != 0U) {
       std::filesystem::path relative;
@@ -108,7 +111,7 @@ result author_asset_monitor::poll_rescan(std::vector<std::filesystem::path>& out
       }
     }
   } catch (...) {
-    rescan_result_ = result::io;
+    rescan_result_ = gneiss::engine::core::result::io;
     rescan_active_ = false;
     rescan_requested_ = false;
     rescan_iterator_ = {};
@@ -118,27 +121,27 @@ result author_asset_monitor::poll_rescan(std::vector<std::filesystem::path>& out
   return rescan_result_;
 }
 
-result author_asset_monitor::fingerprint(std::string_view uri,
-                                         std::uint64_t& output) const noexcept {
+gneiss::engine::core::result
+author_asset_monitor::fingerprint(std::string_view uri, std::uint64_t& output) const noexcept {
   constexpr std::string_view scheme = "asset://";
   if (asset_root_.empty() || !uri.starts_with(scheme)) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     const auto destination =
         std::filesystem::weakly_canonical(asset_root_ / utf8_path(uri.substr(scheme.size())));
     const auto relative = destination.lexically_relative(asset_root_);
     if (relative.empty() || relative.is_absolute()) {
-      return result::invalid_argument;
+      return gneiss::engine::core::result::invalid_argument;
     }
     for (const auto& component : relative) {
       if (component == "..") {
-        return result::invalid_argument;
+        return gneiss::engine::core::result::invalid_argument;
       }
     }
     std::ifstream stream(destination, std::ios::binary);
     if (!stream) {
-      return result::not_found;
+      return gneiss::engine::core::result::not_found;
     }
     std::uint64_t hash = 14695981039346656037ULL;
     std::array<char, 4096U> buffer{};
@@ -150,12 +153,12 @@ result author_asset_monitor::fingerprint(std::string_view uri,
       }
     }
     if (!stream.eof()) {
-      return result::io;
+      return gneiss::engine::core::result::io;
     }
     output = hash;
-    return result::success;
+    return gneiss::engine::core::result::success;
   } catch (...) {
-    return result::io;
+    return gneiss::engine::core::result::io;
   }
 }
 
@@ -170,48 +173,50 @@ author_asset_change author_asset_monitor::observe(const std::filesystem::path& r
     std::uint64_t value = 0U;
     const auto operation = fingerprint(uri, value);
     const auto known = fingerprints_.find(uri);
-    if (operation == result::success && known != fingerprints_.end() && known->second == value) {
+    if (operation == gneiss::engine::core::result::success && known != fingerprints_.end() &&
+        known->second == value) {
       return {};
     }
     if (document_dirty) {
       status_ = {.state = author_asset_change_state::conflict,
                  .uri = uri,
-                 .operation = result::invalid_state,
+                 .operation = gneiss::engine::core::result::invalid_state,
                  .message = "外部结构资产已变化；当前场景含未保存修改，未自动覆盖"};
       return status_;
     }
     status_ = {.state = author_asset_change_state::changed,
                .uri = uri,
                .operation = operation,
-               .message = operation == result::success ? "检测到外部结构资产变化"
-                                                       : "结构资产已删除或不可读取",
+               .message = operation == gneiss::engine::core::result::success
+                              ? "检测到外部结构资产变化"
+                              : "结构资产已删除或不可读取",
                .fingerprint = value};
     return status_;
   } catch (...) {
     status_ = {.state = author_asset_change_state::failed,
                .uri = {},
-               .operation = result::io,
+               .operation = gneiss::engine::core::result::io,
                .message = "结构资产变化检查失败"};
     return status_;
   }
 }
 
-result author_asset_monitor::acknowledge(std::string_view uri) noexcept {
+gneiss::engine::core::result author_asset_monitor::acknowledge(std::string_view uri) noexcept {
   std::uint64_t value = 0U;
   const auto operation = fingerprint(uri, value);
-  if (operation == result::success) {
+  if (operation == gneiss::engine::core::result::success) {
     try {
       fingerprints_.insert_or_assign(std::string(uri), value);
       status_ = {};
     } catch (...) {
-      return result::out_of_memory;
+      return gneiss::engine::core::result::out_of_memory;
     }
   }
   return operation;
 }
 
-result author_asset_monitor::acknowledge_content(std::string_view uri,
-                                                 std::string_view content) noexcept {
+gneiss::engine::core::result
+author_asset_monitor::acknowledge_content(std::string_view uri, std::string_view content) noexcept {
   try {
     std::uint64_t value = 14695981039346656037ULL;
     for (const unsigned char byte : content) {
@@ -219,9 +224,9 @@ result author_asset_monitor::acknowledge_content(std::string_view uri,
       value *= 1099511628211ULL;
     }
     accept_fingerprint(uri, value);
-    return result::success;
+    return gneiss::engine::core::result::success;
   } catch (...) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   }
 }
 
@@ -237,15 +242,18 @@ void author_asset_monitor::accept_fingerprint(std::string_view uri, std::uint64_
 
 void author_asset_monitor::mark_applied(std::string_view uri) noexcept {
   const auto operation = acknowledge(uri);
-  status_ = {.state = operation == result::success ? author_asset_change_state::applied
-                                                   : author_asset_change_state::failed,
+  status_ = {.state = operation == gneiss::engine::core::result::success
+                          ? author_asset_change_state::applied
+                          : author_asset_change_state::failed,
              .uri = std::string(uri),
              .operation = operation,
-             .message = operation == result::success ? "外部结构资产已应用"
-                                                     : "外部结构资产应用后无法建立基线"};
+             .message = operation == gneiss::engine::core::result::success
+                            ? "外部结构资产已应用"
+                            : "外部结构资产应用后无法建立基线"};
 }
 
-void author_asset_monitor::mark_failed(std::string_view uri, result operation) noexcept {
+void author_asset_monitor::mark_failed(std::string_view uri,
+                                       gneiss::engine::core::result operation) noexcept {
   status_ = {.state = author_asset_change_state::failed,
              .uri = std::string(uri),
              .operation = operation,

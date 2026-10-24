@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "imgui_adapter.hpp"
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
 #include "asset_background_worker.hpp"
@@ -47,28 +48,30 @@ BOOL CALLBACK find_window(HWND window, LPARAM data) {
   return TRUE;
 }
 
-gneiss_result update(gneiss::engine::core::rid, const gneiss::engine::core::frame_time* time,
-                     void* data) {
+gneiss::engine::core::result update(gneiss::engine::core::rid,
+                                    const gneiss::engine::core::frame_time* time, void* data) {
   auto& value = *static_cast<state*>(data);
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
   if (!value.assets->status().active ||
-      value.camera.update({.delta_seconds = 0.016F, .dolly = 0.01F}) != gneiss::result::success) {
-    return GNEISS_ERROR_INVALID_STATE;
+      value.camera.update({.delta_seconds = 0.016F, .dolly = 0.01F}) !=
+          gneiss::engine::core::result::success) {
+    return gneiss::engine::core::result::invalid_state;
   }
 #endif
   RECT client{};
   if (GetClientRect(value.window, &client) == 0) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
   std::uint32_t width = 0U;
   std::uint32_t height = 0U;
   auto operation = value.application->get_window_size(width, height);
-  if (operation != GNEISS_SUCCESS || width != static_cast<std::uint32_t>(client.right) ||
+  if (operation != gneiss::engine::core::result::success ||
+      width != static_cast<std::uint32_t>(client.right) ||
       height != static_cast<std::uint32_t>(client.bottom)) {
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   }
   operation = value.ui.begin_frame(*value.application, *time);
-  if (operation != GNEISS_SUCCESS) {
+  if (operation != gneiss::engine::core::result::success) {
     return operation;
   }
   const auto& io = ImGui::GetIO();
@@ -92,7 +95,7 @@ gneiss_result update(gneiss::engine::core::rid, const gneiss::engine::core::fram
   ImGui::End();
   operation = value.ui.submit(*value.application);
   ++value.frames;
-  return aligned ? operation : GNEISS_ERROR_INVALID_STATE;
+  return aligned ? operation : gneiss::engine::core::result::invalid_state;
 }
 
 } // namespace
@@ -138,31 +141,34 @@ int main() {
   config.window.title = "Gneiss 0.37 interaction probe";
   config.callbacks.update = [&value](gneiss::engine::core::rid handle,
                                      const gneiss::engine::core::frame_time& time) {
-    return gneiss::from_native(update(handle, &time, &value));
+    return update(handle, &time, &value);
   };
   std::shared_ptr<gneiss::runtime::application> application;
-  if (gneiss::runtime::application::create(config, application) != GNEISS_SUCCESS) {
+  if (gneiss::runtime::application::create(config, application) !=
+      gneiss::engine::core::result::success) {
     return 1;
   }
   value.application = application.get();
   (void)EnumWindows(find_window, reinterpret_cast<LPARAM>(&value.window));
-  if (value.window == nullptr || value.ui.initialize(*application) != GNEISS_SUCCESS) {
+  if (value.window == nullptr ||
+      value.ui.initialize(*application) != gneiss::engine::core::result::success) {
     return 2;
   }
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
-  if (value.camera.initialize() != gneiss::result::success) {
+  if (value.camera.initialize() != gneiss::engine::core::result::success) {
     return 5;
   }
 #endif
-  gneiss_result foreign_result{};
+  gneiss::engine::core::result foreign_result{};
   std::thread foreign([&] { foreign_result = value.ui.begin_frame(*application, {}); });
   foreign.join();
-  if (foreign_result != GNEISS_ERROR_INVALID_STATE)
+  if (foreign_result != gneiss::engine::core::result::invalid_state)
     return 6;
   // 使用窗口自己的 DPI 上下文查询物理客户区，避免测试进程受到 DPI 虚拟化影响。
   const auto previous = SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(value.window));
   const auto run = [&] {
-    return application->run(gneiss::engine::core::null_rid, 3U) == GNEISS_SUCCESS;
+    return application->run(gneiss::engine::core::null_rid, 3U) ==
+           gneiss::engine::core::result::success;
   };
   bool success = run();
   for (int index = 0; index < 18 && success; ++index) {

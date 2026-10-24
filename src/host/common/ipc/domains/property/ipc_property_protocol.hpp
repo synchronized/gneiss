@@ -4,6 +4,7 @@
 #ifndef GNEISS_APPS_COMMON_IPC_DOMAINS_PROPERTY_IPC_PROPERTY_PROTOCOL_H_
 #define GNEISS_APPS_COMMON_IPC_DOMAINS_PROPERTY_IPC_PROPERTY_PROTOCOL_H_
 
+#include "engine/core/result.hpp"
 #include "ipc_inspection_protocol.hpp"
 
 #include "ipc_dispatcher.hpp"
@@ -52,25 +53,29 @@ struct ipc_property_write_result final {
   ipc_property_value canonical_value;
 };
 
-[[nodiscard]] result encode_ipc_property_write(const ipc_property_write& command,
-                                               std::vector<std::uint8_t>& output) noexcept;
-[[nodiscard]] result decode_ipc_property_write(std::span<const std::uint8_t> payload,
-                                               ipc_property_write& output) noexcept;
-[[nodiscard]] result encode_ipc_property_write_result(const ipc_property_write_result& response,
-                                                      std::vector<std::uint8_t>& output) noexcept;
-[[nodiscard]] result decode_ipc_property_write_result(std::span<const std::uint8_t> payload,
-                                                      ipc_property_write_result& output) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+encode_ipc_property_write(const ipc_property_write& command,
+                          std::vector<std::uint8_t>& output) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+decode_ipc_property_write(std::span<const std::uint8_t> payload,
+                          ipc_property_write& output) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+encode_ipc_property_write_result(const ipc_property_write_result& response,
+                                 std::vector<std::uint8_t>& output) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+decode_ipc_property_write_result(std::span<const std::uint8_t> payload,
+                                 ipc_property_write_result& output) noexcept;
 
-[[nodiscard]] result
+[[nodiscard]] gneiss::engine::core::result
 encode_ipc_property_write_v2(const ipc_property_write& command, std::uint32_t request_id,
                              gneiss::engine::platform::ipc_envelope& output) noexcept;
-[[nodiscard]] result
+[[nodiscard]] gneiss::engine::core::result
 decode_ipc_property_write_v2(const gneiss::engine::platform::ipc_envelope& envelope,
                              ipc_property_write& output) noexcept;
-[[nodiscard]] result
+[[nodiscard]] gneiss::engine::core::result
 encode_ipc_property_result_v2(const ipc_property_write_result& response, std::uint32_t request_id,
                               gneiss::engine::platform::ipc_envelope& output) noexcept;
-[[nodiscard]] result
+[[nodiscard]] gneiss::engine::core::result
 decode_ipc_property_result_v2(const gneiss::engine::platform::ipc_envelope& envelope,
                               ipc_property_write_result& output) noexcept;
 [[nodiscard]] std::span<const gneiss::engine::platform::ipc_operation_descriptor>

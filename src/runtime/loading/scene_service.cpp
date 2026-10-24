@@ -3,6 +3,7 @@
 
 #include "runtime/loading/scene_service.hpp"
 #include "engine/core/diagnostics/loop_timing.hpp"
+#include "engine/core/result.hpp"
 #include "engine/resource/asset_manager.hpp"
 
 #include <algorithm>
@@ -13,30 +14,31 @@
 
 namespace gneiss::runtime {
 
-gneiss_result scene_service::initialize(engine::resource::asset_manager& assets,
-                                        engine::render::render_asset_loader& render) {
+gneiss::engine::core::result
+scene_service::initialize(engine::resource::asset_manager& assets,
+                          engine::render::render_asset_loader& render) {
   if (active_) {
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   }
   auto next = std::make_unique<scene_domain>();
   const auto result = next->initialize(assets, render);
-  if (result != GNEISS_SUCCESS) {
+  if (result != gneiss::engine::core::result::success) {
     return result;
   }
   asset_owner_ = &assets;
   render_assets_ = &render;
   active_ = std::move(next);
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
-gneiss_result
+gneiss::engine::core::result
 scene_service::attach_executor(engine::core::tasks::task_executor& executor,
                                const engine::resource::virtual_file_system& files,
                                engine::render::render_resource_service& resources,
                                engine::render::texture_upload_backend backend,
                                std::shared_ptr<engine::core::progress_notification> notification) {
   if (textures_ || !active_) {
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   }
   // 先构造可失败依赖，再发布装配状态，失败时不留下半装配服务。
   auto mounted_files = files;
@@ -46,7 +48,7 @@ scene_service::attach_executor(engine::core::tasks::task_executor& executor,
       asset_owner_->documents());
   const auto scope = executor.make_scope();
   if (scope.id == 0U) {
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   }
   files_ = std::move(mounted_files);
   executor_ = &executor;
@@ -55,7 +57,7 @@ scene_service::attach_executor(engine::core::tasks::task_executor& executor,
   notification_ = std::move(notification);
   render_assets_->set_default_profile(profile);
   textures_ = std::move(textures);
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
 void scene_service::advance() {
@@ -97,10 +99,10 @@ void scene_service::advance_visuals() {
   const auto submitted =
       textures_->submit_assets(std::span(visual_queue_).subspan(visual_cursor_, 1U),
                                visual_session_, visual_revision_, request, false);
-  if (submitted == GNEISS_ERROR_NOT_READY) {
+  if (submitted == gneiss::engine::core::result::not_ready) {
     return;
   }
-  if (submitted == GNEISS_SUCCESS) {
+  if (submitted == gneiss::engine::core::result::success) {
     visual_pending_ = true;
   } else {
     engine::render::texture_load_completion completion;
@@ -158,26 +160,26 @@ engine::scene::scene_instances* scene_service::scenes() noexcept {
   return active_ ? active_->scenes() : nullptr;
 }
 engine::render::texture_load_service* scene_service::textures() noexcept { return textures_.get(); }
-gneiss_result
+gneiss::engine::core::result
 scene_service::request_assets(std::span<const engine::render::render_asset_reload> sources,
                               std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
                               bool reload) {
   request = 0U;
   if (!textures_ || loading() || visual_loading() || textures_->busy()) {
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   }
   return textures_->submit_assets(sources, session, revision, request, reload);
 }
 
-gneiss_result scene_service::poll_assets(engine::render::texture_load_completion& completion,
-                                         bool& ready) {
+gneiss::engine::core::result
+scene_service::poll_assets(engine::render::texture_load_completion& completion, bool& ready) {
   ready = false;
   if (!textures_ || visual_loading()) {
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   }
   textures_->advance();
   ready = textures_->take(completion);
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
 } // namespace gneiss::runtime

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/render/render_frame_packet.hpp"
+#include "engine/core/result.hpp"
 
 #include <chrono>
 #include <new>
@@ -11,18 +12,18 @@ namespace gneiss::engine::render {
 namespace {
 
 template <typename Handle, typename Resource, typename Getter>
-gneiss_result capture_resource(Handle handle,
-                               std::unordered_map<Handle, std::shared_ptr<const Resource>>& output,
-                               Getter&& getter, bool pending = false) {
+gneiss::engine::core::result
+capture_resource(Handle handle, std::unordered_map<Handle, std::shared_ptr<const Resource>>& output,
+                 Getter&& getter, bool pending = false) {
   if (output.contains(handle)) {
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
   auto source = getter(handle);
   if (!source && !pending) {
-    return GNEISS_ERROR_INVALID_HANDLE;
+    return gneiss::engine::core::result::invalid_handle;
   }
   output.emplace(handle, std::move(source));
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
 } // namespace
@@ -57,11 +58,10 @@ render_resource_snapshot::get_texture(engine::core::rid texture) const noexcept 
   return found == textures_.end() ? nullptr : found->second.get();
 }
 
-gneiss_result capture_render_frame_packet(const engine::platform::native_window_info& window,
-                                          engine::render::render_snapshot scene,
-                                          const render_resource_service& resources,
-                                          const ui_draw_list& ui, const debug_draw_list& debug,
-                                          render_frame_packet& out_packet) noexcept {
+gneiss::engine::core::result capture_render_frame_packet(
+    const engine::platform::native_window_info& window, engine::render::render_snapshot scene,
+    const render_resource_service& resources, const ui_draw_list& ui, const debug_draw_list& debug,
+    render_frame_packet& out_packet) noexcept {
   const auto capture_started = std::chrono::steady_clock::now();
   try {
     render_frame_packet candidate = std::move(out_packet);
@@ -77,15 +77,15 @@ gneiss_result capture_render_frame_packet(const engine::platform::native_window_
       auto result = capture_resource(
           instance.mesh, candidate.resources.meshes_,
           [&](const auto handle) { return resources.share_mesh(handle); },
-          resources.mesh_status(instance.mesh) == GNEISS_ERROR_NOT_READY);
-      if (result != GNEISS_SUCCESS) {
+          resources.mesh_status(instance.mesh) == gneiss::engine::core::result::not_ready);
+      if (result != gneiss::engine::core::result::success) {
         return result;
       }
       result = capture_resource(
           instance.material, candidate.resources.materials_,
           [&](const auto handle) { return resources.share_material(handle); },
-          resources.material_status(instance.material) == GNEISS_ERROR_NOT_READY);
-      if (result != GNEISS_SUCCESS) {
+          resources.material_status(instance.material) == gneiss::engine::core::result::not_ready);
+      if (result != gneiss::engine::core::result::success) {
         return result;
       }
       const auto& material = *candidate.resources.get_material(instance.material);
@@ -95,21 +95,21 @@ gneiss_result capture_render_frame_packet(const engine::platform::native_window_
         result = capture_resource(
             texture, candidate.resources.textures_,
             [&](const auto handle) { return resources.share_texture(handle); },
-            resources.texture_status(texture) == GNEISS_ERROR_NOT_READY);
-        if (result != GNEISS_SUCCESS) {
+            resources.texture_status(texture) == gneiss::engine::core::result::not_ready);
+        if (result != gneiss::engine::core::result::success) {
           return result;
         }
       }
     }
     for (const auto& command : candidate.ui.commands()) {
       // UI 尚未接入占位策略，不能让场景中捕获的空纹理条目绕过 UI 就绪检查。
-      if (resources.texture_status(command.texture) == GNEISS_ERROR_NOT_READY) {
-        return GNEISS_ERROR_NOT_READY;
+      if (resources.texture_status(command.texture) == gneiss::engine::core::result::not_ready) {
+        return gneiss::engine::core::result::not_ready;
       }
       const auto result =
           capture_resource(command.texture, candidate.resources.textures_,
                            [&](const auto handle) { return resources.share_texture(handle); });
-      if (result != GNEISS_SUCCESS) {
+      if (result != gneiss::engine::core::result::success) {
         return result;
       }
     }
@@ -128,11 +128,11 @@ gneiss_result capture_render_frame_packet(const engine::platform::native_window_
             .count();
     candidate.capture.copied_payload_bytes = copied_payload_bytes;
     out_packet = std::move(candidate);
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 

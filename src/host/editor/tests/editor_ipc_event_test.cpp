@@ -2,22 +2,25 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "editor_ipc_event.hpp"
+#include "engine/core/result.hpp"
 
 int main() {
   gneiss::engine::platform::ipc_envelope envelope;
   if (gneiss::encode_ipc_control_state(gneiss::ipc_control_state::paused, envelope) !=
-      gneiss::result::success) {
+      gneiss::engine::core::result::success) {
     return 1;
   }
   gneiss::editor::runtime_ipc_event event;
-  if (gneiss::editor::decode_runtime_control_event(envelope, event) != gneiss::result::success ||
+  if (gneiss::editor::decode_runtime_control_event(envelope, event) !=
+          gneiss::engine::core::result::success ||
       !std::holds_alternative<gneiss::editor::runtime_state_event>(event) ||
       std::get<gneiss::editor::runtime_state_event>(event).value !=
           gneiss::ipc_control_state::paused) {
     return 2;
   }
-  if (gneiss::encode_ipc_log_event("测试日志", envelope) != gneiss::result::success ||
-      gneiss::editor::decode_runtime_log_event(envelope, event) != gneiss::result::success ||
+  if (gneiss::encode_ipc_log_event("测试日志", envelope) != gneiss::engine::core::result::success ||
+      gneiss::editor::decode_runtime_log_event(envelope, event) !=
+          gneiss::engine::core::result::success ||
       !std::holds_alternative<gneiss::editor::runtime_log_event>(event) ||
       std::get<gneiss::editor::runtime_log_event>(event).value != "测试日志") {
     return 3;
@@ -28,14 +31,16 @@ int main() {
                                                          gneiss::ipc_asset_apply_status::applied,
                                                      .message = "已应用"};
   if (gneiss::encode_ipc_asset_result_v2(asset_result, gneiss::ipc_asset_operation::reload, 8U,
-                                         envelope) != gneiss::result::success ||
-      gneiss::editor::decode_runtime_asset_event(envelope, event) != gneiss::result::success ||
+                                         envelope) != gneiss::engine::core::result::success ||
+      gneiss::editor::decode_runtime_asset_event(envelope, event) !=
+          gneiss::engine::core::result::success ||
       !std::holds_alternative<gneiss::editor::runtime_asset_result_event>(event) ||
       std::get<gneiss::editor::runtime_asset_result_event>(event).value.revision != 4U) {
     return 4;
   }
   envelope.domain = gneiss::engine::platform::ipc_domain::property;
-  return gneiss::editor::decode_runtime_property_event(envelope, event) != gneiss::result::success
+  return gneiss::editor::decode_runtime_property_event(envelope, event) !=
+                 gneiss::engine::core::result::success
              ? 0
              : 5;
 }

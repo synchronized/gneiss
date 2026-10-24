@@ -3,6 +3,7 @@
 
 #include "engine/resource/vfs/source_revision_file_system.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
+#include "engine/core/result.hpp"
 #include "engine/resource/vfs/asset_uri.hpp"
 #include "engine/resource/vfs/read_slice.hpp"
 
@@ -18,140 +19,146 @@ void record_duration(clock_type::time_point start, double& maximum) {
   maximum = std::max(maximum,
                      std::chrono::duration<double, std::milli>(clock_type::now() - start).count());
 }
-gneiss_result hash_source(const read_source& source, engine::core::sha256_digest& digest,
-                          const std::function<bool()>& cancelled) {
+gneiss::engine::core::result hash_source(const read_source& source,
+                                         engine::core::sha256_digest& digest,
+                                         const std::function<bool()>& cancelled) {
   std::array<std::byte, std::size_t{64U} * 1024U> buffer{};
   engine::core::sha256_builder builder;
   for (std::uint64_t offset = 0U; offset < source.size();) {
     if (cancelled && cancelled()) {
-      return GNEISS_ERROR_INVALID_STATE;
+      return gneiss::engine::core::result::invalid_state;
     }
     const auto count =
         static_cast<std::size_t>(std::min<std::uint64_t>(buffer.size(), source.size() - offset));
     const auto chunk = std::span{buffer}.first(count);
     const auto result = source.read_at(offset, chunk);
-    if (result != GNEISS_SUCCESS) {
+    if (result != gneiss::engine::core::result::success) {
       return result;
     }
     builder.update(chunk);
     offset += count;
   }
   if (cancelled && cancelled()) {
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   }
   digest = builder.digest();
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 } // namespace
 
-gneiss_result source_revision_file_system::identify_source(std::string_view path,
-                                                           std::uint32_t type,
-                                                           asset_identity& output) const noexcept {
+gneiss::engine::core::result
+source_revision_file_system::identify_source(std::string_view path, std::uint32_t type,
+                                             asset_identity& output) const noexcept {
   output = {};
   try {
     return source_.identify("asset://" + std::string(path), type, output);
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-gneiss_result
+gneiss::engine::core::result
 source_revision_file_system::observed_revision(std::string_view path,
                                                source_revision& output) const noexcept {
   output = {};
   try {
-    if (validate_uri("asset://" + std::string(path)) != GNEISS_SUCCESS) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+    if (validate_uri("asset://" + std::string(path)) != gneiss::engine::core::result::success) {
+      return gneiss::engine::core::result::invalid_argument;
     }
     const std::scoped_lock lock(versions_->mutex);
     const auto found = versions_->identities.find(std::string(path));
     if (found == versions_->identities.end()) {
-      return GNEISS_ERROR_NOT_READY;
+      return gneiss::engine::core::result::not_ready;
     }
     output = found->second;
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-gneiss_result source_revision_file_system::remember(const std::shared_ptr<ledger>& versions,
-                                                    std::string_view path,
-                                                    const identity& current) {
+gneiss::engine::core::result
+source_revision_file_system::remember(const std::shared_ptr<ledger>& versions,
+                                      std::string_view path, const identity& current) {
   const std::scoped_lock lock(versions->mutex);
   const auto found = versions->identities.find(std::string(path));
   if (found != versions->identities.end()) {
     return found->second.bytes == current.bytes && found->second.digest == current.digest
-               ? GNEISS_SUCCESS
-               : GNEISS_ERROR_INVALID_STATE;
+               ? gneiss::engine::core::result::success
+               : gneiss::engine::core::result::invalid_state;
   }
   if (versions->identities.size() >= 65536U) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   versions->identities.emplace(path, current);
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
-gneiss_result
+gneiss::engine::core::result
 source_revision_file_system::open_read(std::string_view path,
                                        std::unique_ptr<read_source>& output) const noexcept {
   output.reset();
   try {
     std::unique_ptr<read_source> source;
     auto result = source_.open_read("asset://" + std::string(path), source);
-    if (result != GNEISS_SUCCESS) {
+    if (result != gneiss::engine::core::result::success) {
       return result;
     }
     identity current{.bytes = source->size(), .digest = {}};
     result = hash_source(*source, current.digest, cancelled_);
-    if (result == GNEISS_SUCCESS) {
+    if (result == gneiss::engine::core::result::success) {
       result = source->complete_validation(current.digest);
-      if (result == GNEISS_SUCCESS) {
+      if (result == gneiss::engine::core::result::success) {
         result = remember(versions_, path, current);
       }
     }
-    if (result == GNEISS_SUCCESS) {
+    if (result == gneiss::engine::core::result::success) {
       output = std::move(source);
     }
     return result;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
 namespace {
 class tracked_read_source final : public read_source {
 public:
-  using commit_function = std::function<gneiss_result(const engine::core::sha256_digest&)>;
+  using commit_function =
+      std::function<gneiss::engine::core::result(const engine::core::sha256_digest&)>;
   tracked_read_source(std::unique_ptr<read_source> source, commit_function commit)
       : source_(std::move(source)), commit_(std::move(commit)) {}
-  gneiss_result begin_close() const noexcept override { return source_->begin_close(); }
-  gneiss_result poll_close() const noexcept override { return source_->poll_close(); }
-  [[nodiscard]] gneiss_result
+  gneiss::engine::core::result begin_close() const noexcept override {
+    return source_->begin_close();
+  }
+  gneiss::engine::core::result poll_close() const noexcept override {
+    return source_->poll_close();
+  }
+  [[nodiscard]] gneiss::engine::core::result
   begin_read(std::uint64_t offset, std::size_t size,
              std::unique_ptr<read_operation>& output) const noexcept override {
     return source_->begin_read(offset, size, output);
   }
   [[nodiscard]] std::uint64_t size() const noexcept override { return source_->size(); }
-  [[nodiscard]] gneiss_result read_at(std::uint64_t offset,
-                                      std::span<std::byte> output) const noexcept override {
+  [[nodiscard]] gneiss::engine::core::result
+  read_at(std::uint64_t offset, std::span<std::byte> output) const noexcept override {
     return source_->read_at(offset, output);
   }
-  [[nodiscard]] gneiss_result
+  [[nodiscard]] gneiss::engine::core::result
   complete_validation(const engine::core::sha256_digest& digest) const noexcept override {
     try {
       const auto result = source_->complete_validation(digest);
-      return result == GNEISS_SUCCESS ? commit_(digest) : result;
+      return result == gneiss::engine::core::result::success ? commit_(digest) : result;
     } catch (const std::bad_alloc&) {
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      return gneiss::engine::core::result::out_of_memory;
     } catch (...) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
   }
 
@@ -161,13 +168,13 @@ private:
 };
 } // namespace
 
-gneiss_result source_revision_file_system::open_read_for_validation(
+gneiss::engine::core::result source_revision_file_system::open_read_for_validation(
     std::string_view path, std::unique_ptr<read_source>& output) const noexcept {
   output.reset();
   try {
     std::unique_ptr<read_source> source;
     const auto result = source_.open_read_for_validation("asset://" + std::string(path), source);
-    if (result != GNEISS_SUCCESS) {
+    if (result != gneiss::engine::core::result::success) {
       return result;
     }
     const auto bytes = source->size();
@@ -176,40 +183,43 @@ gneiss_result source_revision_file_system::open_read_for_validation(
         [versions = versions_, path = std::string(path), bytes](const auto& digest) {
           return remember(versions, path, {.bytes = bytes, .digest = digest});
         });
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-gneiss_result source_revision_file_system::begin_open_read_for_validation(
+gneiss::engine::core::result source_revision_file_system::begin_open_read_for_validation(
     std::string_view path, std::unique_ptr<open_read_operation>& output) const noexcept {
   output.reset();
   try {
     class tracked_open final : public open_read_operation {
     public:
-      using commit =
-          std::function<gneiss_result(std::uint64_t, const engine::core::sha256_digest&)>;
+      using commit = std::function<gneiss::engine::core::result(
+          std::uint64_t, const engine::core::sha256_digest&)>;
       tracked_open(std::unique_ptr<open_read_operation> pending, commit record)
           : pending_(std::move(pending)), record_(std::move(record)) {}
-      gneiss_result poll(std::unique_ptr<read_source>& destination) noexcept override {
+      gneiss::engine::core::result
+      poll(std::unique_ptr<read_source>& destination) noexcept override {
         destination.reset();
         if (!pending_) {
-          return GNEISS_ERROR_INVALID_STATE;
+          return gneiss::engine::core::result::invalid_state;
         }
-        if (result_ != GNEISS_SUCCESS) {
+        if (result_ != gneiss::engine::core::result::success) {
           return result_;
         }
         try {
           std::unique_ptr<read_source> source;
           const auto received = pending_->poll(source);
-          if (received == GNEISS_ERROR_NOT_READY) {
+          if (received == gneiss::engine::core::result::not_ready) {
             return received;
           }
-          if (received != GNEISS_SUCCESS || !source) {
-            result_ = received == GNEISS_SUCCESS ? GNEISS_ERROR_INTERNAL : received;
+          if (received != gneiss::engine::core::result::success || !source) {
+            result_ = received == gneiss::engine::core::result::success
+                          ? gneiss::engine::core::result::internal
+                          : received;
             return result_;
           }
           const auto bytes = source->size();
@@ -217,11 +227,11 @@ gneiss_result source_revision_file_system::begin_open_read_for_validation(
               std::move(source),
               [record = record_, bytes](const auto& digest) { return record(bytes, digest); });
           pending_.reset();
-          return GNEISS_SUCCESS;
+          return gneiss::engine::core::result::success;
         } catch (const std::bad_alloc&) {
-          result_ = GNEISS_ERROR_OUT_OF_MEMORY;
+          result_ = gneiss::engine::core::result::out_of_memory;
         } catch (...) {
-          result_ = GNEISS_ERROR_INTERNAL;
+          result_ = gneiss::engine::core::result::internal;
         }
         return result_;
       }
@@ -229,52 +239,53 @@ gneiss_result source_revision_file_system::begin_open_read_for_validation(
     private:
       std::unique_ptr<open_read_operation> pending_;
       commit record_;
-      gneiss_result result_{GNEISS_SUCCESS};
+      gneiss::engine::core::result result_{gneiss::engine::core::result::success};
     };
     std::unique_ptr<open_read_operation> pending;
     const auto started =
         source_.begin_open_read_for_validation("asset://" + std::string(path), pending);
-    if (started != GNEISS_SUCCESS) {
+    if (started != gneiss::engine::core::result::success) {
       return started;
     }
     if (!pending) {
-      return GNEISS_ERROR_INTERNAL;
+      return gneiss::engine::core::result::internal;
     }
     output = std::make_unique<tracked_open>(
         std::move(pending),
         [versions = versions_, path = std::string(path)](std::uint64_t bytes, const auto& digest) {
           return remember(versions, path, {.bytes = bytes, .digest = digest});
         });
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-gneiss_result source_revision_file_system::read(std::string_view path,
-                                                std::vector<std::byte>& bytes) const noexcept {
+gneiss::engine::core::result
+source_revision_file_system::read(std::string_view path,
+                                  std::vector<std::byte>& bytes) const noexcept {
   return read_bounded(path, std::size_t{256U} * 1024U * 1024U, bytes);
 }
-gneiss_result
+gneiss::engine::core::result
 source_revision_file_system::read_bounded(std::string_view path, std::size_t limit,
                                           std::vector<std::byte>& bytes) const noexcept {
   try {
     const auto result = source_.read_bounded("asset://" + std::string(path), limit, bytes);
-    if (result != GNEISS_SUCCESS) {
+    if (result != gneiss::engine::core::result::success) {
       return result;
     }
     const identity current{.bytes = bytes.size(), .digest = engine::core::sha256(bytes)};
     const auto recorded = remember(versions_, path, current);
-    if (recorded != GNEISS_SUCCESS) {
+    if (recorded != gneiss::engine::core::result::success) {
       bytes.clear();
     }
     return recorded;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 struct source_revision_file_system::verification::state {
@@ -285,12 +296,12 @@ struct source_revision_file_system::verification::state {
   std::unique_ptr<open_read_operation> opening;
   engine::core::sha256_builder digest;
   std::uint64_t offset{};
-  gneiss_result result{GNEISS_SUCCESS};
+  gneiss::engine::core::result result{gneiss::engine::core::result::success};
   statistics timings;
   read_slice slice;
   bool deferred_reads{true};
   std::chrono::milliseconds io_wait{};
-  gneiss_result read_next(std::size_t& byte_budget, std::uint64_t expected_bytes) {
+  gneiss::engine::core::result read_next(std::size_t& byte_budget, std::uint64_t expected_bytes) {
     GNEISS_PROFILE_SCOPE("asset.verify.read_next");
     const auto count =
         static_cast<std::size_t>(std::min<std::uint64_t>(byte_budget, expected_bytes - offset));
@@ -301,11 +312,11 @@ struct source_revision_file_system::verification::state {
           slice.take(*source, {.offset = offset, .size = count}, chunk, deferred_reads,
                      std::exchange(io_wait, std::chrono::milliseconds{}));
       record_duration(read_at, timings.maximum_read_ms);
-      if (read_result == GNEISS_ERROR_NOT_READY) {
-        return GNEISS_ERROR_NOT_READY;
+      if (read_result == gneiss::engine::core::result::not_ready) {
+        return gneiss::engine::core::result::not_ready;
       }
-      if (read_result != GNEISS_SUCCESS) {
-        return GNEISS_ERROR_INVALID_STATE;
+      if (read_result != gneiss::engine::core::result::success) {
+        return gneiss::engine::core::result::invalid_state;
       }
       const auto hash_at = clock_type::now();
       {
@@ -316,25 +327,26 @@ struct source_revision_file_system::verification::state {
       offset += chunk.size();
       byte_budget -= chunk.size();
     }
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
-  gneiss_result open_source(const std::string& path, const identity& expected,
-                            const std::function<bool()>& cancelled, bool& whole_file) {
+  gneiss::engine::core::result open_source(const std::string& path, const identity& expected,
+                                           const std::function<bool()>& cancelled,
+                                           bool& whole_file) {
     GNEISS_PROFILE_SCOPE("asset.verify.open");
     const auto opened_at = clock_type::now();
-    auto opened = GNEISS_ERROR_UNSUPPORTED;
+    auto opened = gneiss::engine::core::result::unsupported;
     bool synchronous_fallback = !deferred_reads;
     if (deferred_reads) {
       if (!opening) {
         opened = files.begin_open_read_for_validation("asset://" + path, opening);
-        synchronous_fallback = opened == GNEISS_ERROR_UNSUPPORTED;
-        if (opened == GNEISS_SUCCESS && !opening) {
-          return GNEISS_ERROR_INTERNAL;
+        synchronous_fallback = opened == gneiss::engine::core::result::unsupported;
+        if (opened == gneiss::engine::core::result::success && !opening) {
+          return gneiss::engine::core::result::internal;
         }
       }
       if (opening) {
         opened = opening->poll(source);
-        if (opened != GNEISS_ERROR_NOT_READY) {
+        if (opened != gneiss::engine::core::result::not_ready) {
           opening.reset();
         }
       }
@@ -342,70 +354,71 @@ struct source_revision_file_system::verification::state {
     if (synchronous_fallback) {
       opened = files.open_read_for_validation("asset://" + path, source);
     }
-    if (opened == GNEISS_ERROR_NOT_READY) {
+    if (opened == gneiss::engine::core::result::not_ready) {
       record_duration(opened_at, timings.maximum_open_ms);
       return opened;
     }
     record_duration(opened_at, timings.maximum_open_ms);
-    whole_file = synchronous_fallback && opened == GNEISS_ERROR_UNSUPPORTED;
+    whole_file = synchronous_fallback && opened == gneiss::engine::core::result::unsupported;
     if (whole_file) {
       std::vector<std::byte> bytes;
       if (expected.bytes > std::numeric_limits<std::size_t>::max() ||
           files.read_bounded("asset://" + path, static_cast<std::size_t>(expected.bytes), bytes) !=
-              GNEISS_SUCCESS ||
+              gneiss::engine::core::result::success ||
           bytes.size() != expected.bytes || engine::core::sha256(bytes) != expected.digest ||
           (cancelled && cancelled())) {
-        return GNEISS_ERROR_INVALID_STATE;
+        return gneiss::engine::core::result::invalid_state;
       }
-      return GNEISS_SUCCESS;
+      return gneiss::engine::core::result::success;
     }
-    if (opened != GNEISS_SUCCESS || !source || source->size() != expected.bytes) {
-      return GNEISS_ERROR_INVALID_STATE;
+    if (opened != gneiss::engine::core::result::success || !source ||
+        source->size() != expected.bytes) {
+      return gneiss::engine::core::result::invalid_state;
     }
     offset = 0U;
     digest = {};
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
-  gneiss_result open_next(const std::string& path, const identity& expected,
-                          const std::function<bool()>& cancelled) {
+  gneiss::engine::core::result open_next(const std::string& path, const identity& expected,
+                                         const std::function<bool()>& cancelled) {
     bool whole_file{};
     const auto opened = open_source(path, expected, cancelled, whole_file);
-    if (opened == GNEISS_SUCCESS && whole_file) {
+    if (opened == gneiss::engine::core::result::success && whole_file) {
       ++index;
       // 旧整文件后端每步最多一个文件，完成后也让出本步。
-      return GNEISS_ERROR_NOT_READY;
+      return gneiss::engine::core::result::not_ready;
     }
     return opened;
   }
-  gneiss_result advance(std::size_t byte_budget, const std::function<bool()>& cancelled,
-                        bool& complete) {
+  gneiss::engine::core::result advance(std::size_t byte_budget,
+                                       const std::function<bool()>& cancelled, bool& complete) {
     // 也限制零长度文件数，字节预算不能使空文件清单变为无界工作。
     std::size_t files_left = 16U;
     while (index < identities.size() && byte_budget != 0U && files_left != 0U) {
       const auto& [path, expected] = identities[index];
       if (!source) {
         const auto opened = open_next(path, expected, cancelled);
-        if (opened == GNEISS_ERROR_NOT_READY) {
+        if (opened == gneiss::engine::core::result::not_ready) {
           break;
         }
-        if (opened != GNEISS_SUCCESS) {
+        if (opened != gneiss::engine::core::result::success) {
           return opened;
         }
       }
       if (cancelled && cancelled()) {
-        return GNEISS_ERROR_INVALID_STATE;
+        return gneiss::engine::core::result::invalid_state;
       }
       const auto read_result = read_next(byte_budget, expected.bytes);
-      if (read_result == GNEISS_ERROR_NOT_READY) {
+      if (read_result == gneiss::engine::core::result::not_ready) {
         break;
       }
-      if (read_result != GNEISS_SUCCESS) {
+      if (read_result != gneiss::engine::core::result::success) {
         return read_result;
       }
       if (offset == expected.bytes) {
         if (digest.digest() != expected.digest || (cancelled && cancelled()) ||
-            source->complete_validation(expected.digest) != GNEISS_SUCCESS) {
-          return GNEISS_ERROR_INVALID_STATE;
+            source->complete_validation(expected.digest) != gneiss::engine::core::result::success) {
+          return gneiss::engine::core::result::invalid_state;
         }
         source.reset();
         slice = {};
@@ -414,7 +427,7 @@ struct source_revision_file_system::verification::state {
       }
     }
     complete = index == identities.size();
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   }
 };
 source_revision_file_system::verification::verification(std::unique_ptr<state> value)
@@ -427,8 +440,9 @@ source_revision_file_system::verification::statistics
 source_revision_file_system::verification::timings() const noexcept {
   return state_->timings;
 }
-gneiss_result source_revision_file_system::begin_verification(std::unique_ptr<verification>& output,
-                                                              bool deferred_reads) const noexcept {
+gneiss::engine::core::result
+source_revision_file_system::begin_verification(std::unique_ptr<verification>& output,
+                                                bool deferred_reads) const noexcept {
   output.reset();
   try {
     auto value = std::make_unique<verification::state>();
@@ -439,34 +453,34 @@ gneiss_result source_revision_file_system::begin_verification(std::unique_ptr<ve
       value->identities.assign(versions_->identities.begin(), versions_->identities.end());
     }
     output.reset(new verification(std::move(value)));
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
-gneiss_result source_revision_file_system::verification::advance(
+gneiss::engine::core::result source_revision_file_system::verification::advance(
     std::size_t byte_budget, const std::function<bool()>& cancelled, bool& complete,
     std::chrono::milliseconds wait_budget) noexcept {
   complete = false;
   auto& value = *state_;
   if (byte_budget == 0U || wait_budget < std::chrono::milliseconds::zero()) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
-  if (value.result != GNEISS_SUCCESS) {
+  if (value.result != gneiss::engine::core::result::success) {
     return value.result;
   }
   try {
     value.io_wait = wait_budget;
-    value.result = cancelled && cancelled() ? GNEISS_ERROR_INVALID_STATE
+    value.result = cancelled && cancelled() ? gneiss::engine::core::result::invalid_state
                                             : value.advance(byte_budget, cancelled, complete);
   } catch (const std::bad_alloc&) {
-    value.result = GNEISS_ERROR_OUT_OF_MEMORY;
+    value.result = gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    value.result = GNEISS_ERROR_INTERNAL;
+    value.result = gneiss::engine::core::result::internal;
   }
-  if (value.result != GNEISS_SUCCESS) {
+  if (value.result != gneiss::engine::core::result::success) {
     value.slice = {};
     value.opening.reset();
     value.source.reset();
@@ -474,12 +488,12 @@ gneiss_result source_revision_file_system::verification::advance(
   return value.result;
 }
 
-gneiss_result
+gneiss::engine::core::result
 source_revision_file_system::verify(const std::function<bool()>& cancelled) const noexcept {
   std::unique_ptr<verification> cursor;
   auto result = begin_verification(cursor, false);
   bool complete{};
-  while (result == GNEISS_SUCCESS && !complete) {
+  while (result == gneiss::engine::core::result::success && !complete) {
     result = cursor->advance(std::size_t{4U} * 1024U * 1024U, cancelled, complete);
   }
   return result;

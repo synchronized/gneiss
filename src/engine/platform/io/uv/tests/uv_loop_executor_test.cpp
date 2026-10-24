@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/result.hpp"
 #include "uv_loop_executor.hpp"
 
 #include <atomic>
@@ -50,8 +51,9 @@ bool broken_pipe_on_worker() {
     const bool completed = future.wait_for(std::chrono::seconds(2)) == std::future_status::ready;
     const auto stopped = executor.stop();
     close(descriptors[1]);
-    if (started != gneiss::result::success || posted != gneiss::result::success || !completed ||
-        stopped != gneiss::result::success || !future.get()) {
+    if (started != gneiss::engine::core::result::success ||
+        posted != gneiss::engine::core::result::success || !completed ||
+        stopped != gneiss::engine::core::result::success || !future.get()) {
       return false;
     }
     sigset_t host_mask{};
@@ -86,14 +88,14 @@ int main() {
   }
 #endif
   gneiss::engine::platform::io::uv_loop_executor invalid(0U);
-  if (invalid.start() != gneiss::result::invalid_argument) {
+  if (invalid.start() != gneiss::engine::core::result::invalid_argument) {
     return 1;
   }
 
   gneiss::engine::platform::io::uv_loop_executor runtime(2U);
-  if (runtime.post([] {}) != gneiss::result::not_ready ||
-      runtime.start() != gneiss::result::success || !runtime.is_running() ||
-      runtime.start() != gneiss::result::invalid_state) {
+  if (runtime.post([] {}) != gneiss::engine::core::result::not_ready ||
+      runtime.start() != gneiss::engine::core::result::success || !runtime.is_running() ||
+      runtime.start() != gneiss::engine::core::result::invalid_state) {
     return 2;
   }
 
@@ -101,7 +103,7 @@ int main() {
   auto executed_future = executed.get_future();
   const auto owner_thread = std::this_thread::get_id();
   if (runtime.post([&executed] { executed.set_value(std::this_thread::get_id()); }) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       executed_future.wait_for(std::chrono::seconds(2)) != std::future_status::ready ||
       executed_future.get() == owner_thread) {
     return 3;
@@ -116,39 +118,41 @@ int main() {
         entered.set_value();
         gate.wait();
         count.fetch_add(1, std::memory_order_relaxed);
-      }) != gneiss::result::success ||
+      }) != gneiss::engine::core::result::success ||
       entered_future.wait_for(std::chrono::seconds(2)) != std::future_status::ready ||
       runtime.post([&count] { count.fetch_add(1, std::memory_order_relaxed); }) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       runtime.post([&count] { count.fetch_add(1, std::memory_order_relaxed); }) !=
-          gneiss::result::success ||
-      runtime.post([] {}) != gneiss::result::not_ready) {
+          gneiss::engine::core::result::success ||
+      runtime.post([] {}) != gneiss::engine::core::result::not_ready) {
     return 4;
   }
   release.set_value();
-  if (runtime.stop() != gneiss::result::success || runtime.is_running() ||
+  if (runtime.stop() != gneiss::engine::core::result::success || runtime.is_running() ||
       count.load(std::memory_order_relaxed) != 3 ||
-      runtime.post([] {}) != gneiss::result::not_ready ||
-      runtime.stop() != gneiss::result::not_ready) {
+      runtime.post([] {}) != gneiss::engine::core::result::not_ready ||
+      runtime.stop() != gneiss::engine::core::result::not_ready) {
     return 5;
   }
 
-  if (runtime.start() != gneiss::result::success ||
-      runtime.post([] { throw 1; }) != gneiss::result::success ||
-      runtime.stop() != gneiss::result::success || runtime.failed_task_count() != 1U) {
+  if (runtime.start() != gneiss::engine::core::result::success ||
+      runtime.post([] { throw 1; }) != gneiss::engine::core::result::success ||
+      runtime.stop() != gneiss::engine::core::result::success ||
+      runtime.failed_task_count() != 1U) {
     return 6;
   }
 
-  if (runtime.start() != gneiss::result::success || runtime.failed_task_count() != 0U) {
+  if (runtime.start() != gneiss::engine::core::result::success ||
+      runtime.failed_task_count() != 0U) {
     return 7;
   }
-  std::promise<gneiss::result> self_stop;
+  std::promise<gneiss::engine::core::result> self_stop;
   auto self_stop_future = self_stop.get_future();
   if (runtime.post([&runtime, &self_stop] { self_stop.set_value(runtime.stop()); }) !=
-          gneiss::result::success ||
+          gneiss::engine::core::result::success ||
       self_stop_future.wait_for(std::chrono::seconds(2)) != std::future_status::ready ||
-      self_stop_future.get() != gneiss::result::invalid_state ||
-      runtime.stop() != gneiss::result::success) {
+      self_stop_future.get() != gneiss::engine::core::result::invalid_state ||
+      runtime.stop() != gneiss::engine::core::result::success) {
     return 8;
   }
   return 0;

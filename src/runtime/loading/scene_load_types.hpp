@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/core/result.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <gneiss/engine/scene.h>
@@ -43,7 +44,7 @@ struct scene_load_progress {
 };
 struct scene_load_completion {
   scene_load_progress progress;
-  gneiss_result result{GNEISS_ERROR_INTERNAL};
+  gneiss::engine::core::result result{gneiss::engine::core::result::internal};
   std::string message;
   gneiss_scene_instance scene{};
   double prepare_ms{};

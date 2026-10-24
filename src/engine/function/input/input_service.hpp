@@ -5,6 +5,7 @@
 #define GNEISS_INPUT_INPUT_SERVICE_HPP_
 
 #include "engine/core/input/input_types.hpp"
+#include "engine/core/result.hpp"
 
 #include "engine/resource/types/action_map.hpp"
 
@@ -19,16 +20,18 @@ public:
 
   void begin_frame() noexcept;
   [[nodiscard]] bool push(const engine::core::input::input_event& event) noexcept;
-  [[nodiscard]] result poll(engine::core::input::input_event& out_event) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  poll(engine::core::input::input_event& out_event) noexcept;
   void set_keyboard(const engine::core::input::keyboard_state& state) noexcept {
     keyboard_ = state;
   }
   void set_pointer(const engine::core::input::pointer_state& state) noexcept { pointer_ = state; }
   void clear_focus() noexcept;
-  [[nodiscard]] result replace_action_map(engine::resource::action_map map) noexcept;
-  [[nodiscard]] result find_action(std::string_view name,
-                                   engine::core::input::action_id& out_action) const noexcept;
-  [[nodiscard]] result
+  [[nodiscard]] gneiss::engine::core::result
+  replace_action_map(engine::resource::action_map map) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  find_action(std::string_view name, engine::core::input::action_id& out_action) const noexcept;
+  [[nodiscard]] gneiss::engine::core::result
   get_action_state(engine::core::input::action_id action,
                    engine::core::input::action_state& out_state) const noexcept;
   [[nodiscard]] const engine::core::input::keyboard_state& keyboard() const noexcept {

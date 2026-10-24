@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "viewport/transform_gizmo_view.hpp"
+#include "engine/core/result.hpp"
 
 #include <imgui.h>
 
@@ -60,10 +61,10 @@ bool draw_transform_gizmo(const transform_gizmo_context& context, const ImVec2& 
   gneiss::transform world{};
   auto operation = context.session.get_world_transform(node, world);
   gneiss::editor::gizmo_matrix model{};
-  if (operation == gneiss::result::success) {
+  if (operation == gneiss::engine::core::result::success) {
     operation = gneiss::editor::transform_to_gizmo_matrix(world, model);
   }
-  if (operation != gneiss::result::success) {
+  if (operation != gneiss::engine::core::result::success) {
     context.error = operation;
     return false;
   }

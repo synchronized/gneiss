@@ -3,6 +3,7 @@
 
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/diagnostics/task_submission.hpp"
+#include "engine/core/result.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/resource/asset_manager.hpp"
@@ -28,7 +29,7 @@ struct scene_service::load_task {
   struct cpu_result {
     engine::scene::prepared_scene_description description;
     engine::resource::scene_diagnostic diagnostic;
-    gneiss_result result{GNEISS_ERROR_INTERNAL};
+    gneiss::engine::core::result result{gneiss::engine::core::result::internal};
     std::unique_ptr<engine::resource::source_revision_file_system::verification> verification;
     bool verification_complete{};
   };
@@ -71,21 +72,24 @@ void scene_service::check_owner() const {
     throw std::logic_error("场景加载服务须在所属线程操作");
   }
 }
-gneiss_result scene_service::request_scene(std::string_view uri, std::uint64_t session,
-                                           std::uint64_t revision, std::uint64_t& request) {
+gneiss::engine::core::result scene_service::request_scene(std::string_view uri,
+                                                          std::uint64_t session,
+                                                          std::uint64_t revision,
+                                                          std::uint64_t& request) {
   check_owner();
   request = 0U;
   if (!executor_ || !can_start_load() || loading()) {
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   }
-  if (engine::resource::validate_uri(uri) != GNEISS_SUCCESS || session == 0U || revision == 0U) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+  if (engine::resource::validate_uri(uri) != gneiss::engine::core::result::success ||
+      session == 0U || revision == 0U) {
+    return gneiss::engine::core::result::invalid_argument;
   }
   auto next = std::make_unique<load_task>();
   next->sources = std::make_shared<engine::resource::source_revision_file_system>(
       files_, [token = next->source_stop.get_token()] { return token.stop_requested(); });
   const auto mounted = next->snapshot.mount("asset://", next->sources);
-  if (mounted != GNEISS_SUCCESS) {
+  if (mounted != gneiss::engine::core::result::success) {
     return mounted;
   }
   next->result.progress = {
@@ -102,14 +106,16 @@ gneiss_result scene_service::request_scene(std::string_view uri, std::uint64_t s
                                                        engine::core::tasks::task_state::cancelled};
         }
         return engine::core::tasks::task_outcome{
-            .state = cpu->result == GNEISS_SUCCESS ? engine::core::tasks::task_state::succeeded
-                                                   : engine::core::tasks::task_state::failed,
+            .state = cpu->result == gneiss::engine::core::result::success
+                         ? engine::core::tasks::task_state::succeeded
+                         : engine::core::tasks::task_state::failed,
         };
       },
       next->task);
   if (accepted != engine::core::tasks::submit_result::success) {
-    return accepted == engine::core::tasks::submit_result::full ? GNEISS_ERROR_NOT_READY
-                                                                : GNEISS_ERROR_INVALID_STATE;
+    return accepted == engine::core::tasks::submit_result::full
+               ? gneiss::engine::core::result::not_ready
+               : gneiss::engine::core::result::invalid_state;
   }
   request = next->result.progress.request;
   pending_ = std::move(next);
@@ -118,7 +124,7 @@ gneiss_result scene_service::request_scene(std::string_view uri, std::uint64_t s
   if (visual_pending_) {
     (void)textures_->cancel_unpublished();
   }
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 void scene_service::sample_budget(scene_load_progress& value) const {
   const auto usage = resources_->memory_usage();
@@ -140,18 +146,19 @@ bool scene_service::scene_progress(scene_load_progress& value) const {
   }
   return false;
 }
-gneiss_result scene_service::cancel_scene(std::uint64_t request) {
+gneiss::engine::core::result scene_service::cancel_scene(std::uint64_t request) {
   check_owner();
   if (!pending_ || pending_->result.progress.request != request) {
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   }
   pending_->cancelled = true;
   pending_->source_stop.request_stop();
   pending_->result.progress.can_cancel = false;
   (void)executor_->cancel(pending_->task);
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
-void scene_service::finish(gneiss_result result, scene_load_phase phase, std::string message) {
+void scene_service::finish(gneiss::engine::core::result result, scene_load_phase phase,
+                           std::string message) {
   pending_->result.result = result;
   pending_->result.progress.phase = phase;
   pending_->result.progress.can_cancel = false;
@@ -170,11 +177,11 @@ void scene_service::finish(gneiss_result result, scene_load_phase phase, std::st
   completion.cleanup_ms = elapsed(cleanup_started);
   completed_ = std::move(completion);
 }
-gneiss_result scene_service::poll_scene(scene_load_completion& result, bool& ready) {
+gneiss::engine::core::result scene_service::poll_scene(scene_load_completion& result, bool& ready) {
   check_owner();
   ready = false;
   if (!executor_) {
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   }
   advance();
   if (completed_) {
@@ -182,20 +189,21 @@ gneiss_result scene_service::poll_scene(scene_load_completion& result, bool& rea
     completed_.reset();
     ready = true;
   }
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
-gneiss_result scene_service::activate(std::uint64_t request, scene_load_completion& result) {
+gneiss::engine::core::result scene_service::activate(std::uint64_t request,
+                                                     scene_load_completion& result) {
   check_owner();
   if (!executor_ || !can_activate() || !pending_ || pending_->cancelled ||
       pending_->result.progress.request != request ||
       pending_->result.progress.phase != scene_load_phase::ready) {
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   }
   const auto start = clock_type::now();
   sample_budget(pending_->result.progress);
   result = std::move(pending_->result);
-  result.result = GNEISS_SUCCESS;
+  result.result = gneiss::engine::core::result::success;
   result.progress.phase = scene_load_phase::applied;
   result.progress.can_cancel = false;
   retired_ = std::move(active_);
@@ -206,7 +214,7 @@ gneiss_result scene_service::activate(std::uint64_t request, scene_load_completi
   visual_revision_ = result.progress.revision;
   pending_.reset();
   result.activation_ms = elapsed(start);
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 void scene_service::advance_load() {
   GNEISS_PROFILE_SCOPE("scene.advance");
@@ -222,9 +230,9 @@ void scene_service::advance_load() {
   try {
     advance_load_impl();
   } catch (const std::bad_alloc&) {
-    finish(GNEISS_ERROR_OUT_OF_MEMORY, scene_load_phase::failed);
+    finish(gneiss::engine::core::result::out_of_memory, scene_load_phase::failed);
   } catch (...) {
-    finish(GNEISS_ERROR_INTERNAL, scene_load_phase::failed);
+    finish(gneiss::engine::core::result::internal, scene_load_phase::failed);
   }
   if (notification_ && (!pending_ || pending_->result.progress.phase != previous_phase ||
                         pending_->result.progress.completed != previous_completed)) {
@@ -248,7 +256,7 @@ engine::core::tasks::submit_result scene_service::submit_verification() {
               if (!cpu->verification) {
                 cpu->result = sources->begin_verification(cpu->verification);
               }
-              if (cpu->result == GNEISS_SUCCESS) {
+              if (cpu->result == gneiss::engine::core::result::success) {
                 // 每个任务只复验一段；由宿主消费回执后继续提交，不嵌套驱动或增加线程。
                 // 协作任务不可被驱动预算抢占，缩小单块校验；后台保留吞吐批次。
                 const auto byte_budget =
@@ -263,7 +271,7 @@ engine::core::tasks::submit_result scene_service::submit_verification() {
                     .state = engine::core::tasks::task_state::cancelled};
               }
               return engine::core::tasks::task_outcome{
-                  .state = cpu->result == GNEISS_SUCCESS
+                  .state = cpu->result == gneiss::engine::core::result::success
                                ? engine::core::tasks::task_state::succeeded
                                : engine::core::tasks::task_state::failed,
               };
@@ -290,10 +298,10 @@ void scene_service::advance_verification(load_task& value) {
         std::max(value.result.verify_maximum_step_ms, completions.front().execution_ms);
   }
   if (value.cancelled) {
-    finish(GNEISS_ERROR_INVALID_STATE, scene_load_phase::cancelled);
+    finish(gneiss::engine::core::result::invalid_state, scene_load_phase::cancelled);
     return;
   }
-  if (value.cpu->result != GNEISS_SUCCESS) {
+  if (value.cpu->result != gneiss::engine::core::result::success) {
     finish(value.cpu->result, scene_load_phase::failed, "Scene/Prefab 结构来源在准备期间变化");
     return;
   }
@@ -309,7 +317,7 @@ void scene_service::advance_verification(load_task& value) {
         engine::core::diagnostics::loop_stage::task_submit, [&] { return submit_verification(); });
     if (accepted != engine::core::tasks::submit_result::success &&
         accepted != engine::core::tasks::submit_result::full) {
-      finish(GNEISS_ERROR_INVALID_STATE, scene_load_phase::failed);
+      finish(gneiss::engine::core::result::invalid_state, scene_load_phase::failed);
     }
     return;
   }
@@ -323,7 +331,7 @@ void scene_service::advance_verification(load_task& value) {
         return value.candidate->scenes()->instantiate_prepared(std::move(value.cpu->description),
                                                                value.bindings, instance);
       });
-  if (built != GNEISS_SUCCESS) {
+  if (built != gneiss::engine::core::result::success) {
     finish(built, scene_load_phase::failed);
     return;
   }
@@ -344,16 +352,16 @@ void scene_service::advance_load_impl() {
     value.preparing = false;
     value.result.prepare_ms = completions.front().execution_ms;
     if (value.cancelled) {
-      finish(GNEISS_ERROR_INVALID_STATE, scene_load_phase::cancelled);
+      finish(gneiss::engine::core::result::invalid_state, scene_load_phase::cancelled);
       return;
     }
-    if (value.cpu->result != GNEISS_SUCCESS) {
+    if (value.cpu->result != gneiss::engine::core::result::success) {
       finish(value.cpu->result, scene_load_phase::failed, value.cpu->diagnostic.message);
       return;
     }
     value.candidate = std::make_unique<scene_domain>();
     const auto initialized = value.candidate->initialize(*asset_owner_, *render_assets_);
-    if (initialized != GNEISS_SUCCESS) {
+    if (initialized != gneiss::engine::core::result::success) {
       finish(initialized, scene_load_phase::failed);
       return;
     }
@@ -367,7 +375,7 @@ void scene_service::advance_load_impl() {
     return;
   }
   if (value.cancelled) {
-    finish(GNEISS_ERROR_INVALID_STATE, scene_load_phase::cancelled);
+    finish(gneiss::engine::core::result::invalid_state, scene_load_phase::cancelled);
     return;
   }
   if (progress.phase == scene_load_phase::assets) {
@@ -379,7 +387,7 @@ void scene_service::advance_load_impl() {
         return;
       }
       if (accepted != engine::core::tasks::submit_result::success) {
-        finish(GNEISS_ERROR_INVALID_STATE, scene_load_phase::failed);
+        finish(gneiss::engine::core::result::invalid_state, scene_load_phase::failed);
         return;
       }
       value.verifying = true;
@@ -394,7 +402,7 @@ void scene_service::advance_load_impl() {
       const auto& source = value.requested[value.cursor];
       engine::render::render_asset_lease lease;
       const auto reserved = render_assets_->reserve_asset(source, lease);
-      if (reserved != GNEISS_SUCCESS) {
+      if (reserved != gneiss::engine::core::result::success) {
         finish(reserved, scene_load_phase::failed, "场景资源引用无效");
         return;
       }

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/input/input_service.hpp"
+#include "engine/core/result.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -37,13 +38,14 @@ bool input_service::push(const engine::core::input::input_event& event) noexcept
   return true;
 }
 
-result input_service::poll(engine::core::input::input_event& out_event) noexcept {
+gneiss::engine::core::result
+input_service::poll(engine::core::input::input_event& out_event) noexcept {
   out_event = {};
   if (read_index_ == event_count_) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   out_event = events_[read_index_++];
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
 void input_service::clear_focus() noexcept {
@@ -53,7 +55,8 @@ void input_service::clear_focus() noexcept {
   update_actions();
 }
 
-result input_service::replace_action_map(engine::resource::action_map map) noexcept {
+gneiss::engine::core::result
+input_service::replace_action_map(engine::resource::action_map map) noexcept {
   if (const auto valid = validate_action_map(map); valid.failed()) {
     return valid;
   }
@@ -61,9 +64,9 @@ result input_service::replace_action_map(engine::resource::action_map map) noexc
   try {
     states.assign(map.actions.size(), engine::core::input::action_state{});
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
   action_map_ = std::move(map);
   action_states_ = std::move(states);
@@ -72,22 +75,23 @@ result input_service::replace_action_map(engine::resource::action_map map) noexc
     action_generation_ = next_action_generation.fetch_add(1, std::memory_order_relaxed);
   }
   update_actions();
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
-result input_service::find_action(std::string_view name,
-                                  engine::core::input::action_id& out_action) const noexcept {
+gneiss::engine::core::result
+input_service::find_action(std::string_view name,
+                           engine::core::input::action_id& out_action) const noexcept {
   out_action = engine::core::input::action_id{};
   for (std::size_t index = 0; index < action_map_.actions.size(); ++index) {
     if (action_map_.actions[index].name == name) {
       out_action = {(static_cast<std::uint64_t>(action_generation_) << 32U) | (index + 1U)};
-      return result::success;
+      return gneiss::engine::core::result::success;
     }
   }
-  return result::not_found;
+  return gneiss::engine::core::result::not_found;
 }
 
-result
+gneiss::engine::core::result
 input_service::get_action_state(engine::core::input::action_id action,
                                 engine::core::input::action_state& out_state) const noexcept {
   out_state = engine::core::input::action_state{};
@@ -95,10 +99,10 @@ input_service::get_action_state(engine::core::input::action_id action,
   const auto slot = static_cast<std::uint32_t>(action.value);
   if (generation == 0U || generation != action_generation_ || slot == 0U ||
       slot > action_states_.size()) {
-    return result::invalid_handle;
+    return gneiss::engine::core::result::invalid_handle;
   }
   out_state = action_states_[slot - 1U];
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
 void input_service::update_actions() noexcept {

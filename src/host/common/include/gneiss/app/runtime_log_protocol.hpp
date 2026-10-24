@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/core/result.hpp>
+#include "engine/core/result.hpp"
 #include <gneiss/engine/log.h>
 
 #include <cstdint>
@@ -31,7 +31,7 @@ struct runtime_log_record final {
   std::string source;
   std::string category;
   std::string message;
-  gneiss_result operation = GNEISS_SUCCESS;
+  gneiss::engine::core::result operation = gneiss::engine::core::result::success;
 };
 
 inline constexpr std::size_t maximum_runtime_log_line_size = 64U * 1024U;
@@ -52,13 +52,13 @@ public:
   explicit runtime_log_line_decoder(
       std::size_t maximum_line_size = maximum_runtime_log_line_size) noexcept;
 
-  [[nodiscard]] result append(std::string_view bytes,
-                              std::vector<runtime_log_line>& output) noexcept;
-  [[nodiscard]] result finish(std::vector<runtime_log_line>& output) noexcept;
+  [[nodiscard]] gneiss::engine::core::result append(std::string_view bytes,
+                                                    std::vector<runtime_log_line>& output) noexcept;
+  [[nodiscard]] gneiss::engine::core::result finish(std::vector<runtime_log_line>& output) noexcept;
   void reset() noexcept;
 
 private:
-  [[nodiscard]] result emit(std::vector<runtime_log_line>& output) noexcept;
+  [[nodiscard]] gneiss::engine::core::result emit(std::vector<runtime_log_line>& output) noexcept;
   void append_segment(std::string_view segment);
 
   std::size_t maximum_line_size_;
@@ -67,8 +67,8 @@ private:
 };
 
 /** 将日志事件编码为带版本前缀的单行 UTF-8 JSON，结果包含末尾换行。 */
-[[nodiscard]] result encode_runtime_log_event(const gneiss_log_event& event,
-                                              std::string& output) noexcept;
+[[nodiscard]] gneiss::engine::core::result encode_runtime_log_event(const gneiss_log_event& event,
+                                                                    std::string& output) noexcept;
 
 /** 解析一行 Runtime 日志协议；不属于协议的普通输出不会被视为错误。 */
 [[nodiscard]] runtime_log_parse_result parse_runtime_log_line(std::string_view line,

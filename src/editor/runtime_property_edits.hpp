@@ -6,7 +6,7 @@
 
 #include "runtime_object_id.hpp"
 
-#include <gneiss/engine/core/result.hpp>
+#include "engine/core/result.hpp"
 #include <gneiss/engine/reflection.h>
 
 #include <array>
@@ -69,7 +69,7 @@ struct runtime_property_edit final {
   runtime_property_edit_state state = runtime_property_edit_state::pending;
   std::uint64_t command_id = 0U;
   std::uint64_t revision = 0U;
-  std::int32_t code = GNEISS_SUCCESS;
+  std::int32_t code = gneiss::engine::core::result::success.code();
   std::string message;
   runtime_property_value canonical_value;
 };
@@ -81,10 +81,11 @@ public:
 
   void begin_session(std::uint64_t session_id) noexcept;
   void disconnect() noexcept;
-  [[nodiscard]] result prepare(runtime_property_key key, std::uint64_t expected_revision,
-                               runtime_property_value value, clock::time_point now,
-                               runtime_property_write& output) noexcept;
-  [[nodiscard]] result accept(runtime_property_write_result response) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  prepare(runtime_property_key key, std::uint64_t expected_revision, runtime_property_value value,
+          clock::time_point now, runtime_property_write& output) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  accept(runtime_property_write_result response) noexcept;
   void expire(clock::time_point now, std::chrono::milliseconds timeout) noexcept;
   [[nodiscard]] const runtime_property_edit* find(const runtime_property_key& key) const noexcept;
   [[nodiscard]] std::uint64_t session_id() const noexcept { return session_id_; }

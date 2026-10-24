@@ -4,6 +4,7 @@
 #ifndef GNEISS_RENDER_RENDER_FRAME_PACKET_HPP_
 #define GNEISS_RENDER_RENDER_FRAME_PACKET_HPP_
 
+#include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
 #include "engine/function/render/render_resource_service.hpp"
@@ -27,11 +28,11 @@ public:
   [[nodiscard]] bool texture_pending(engine::core::rid texture) const noexcept;
 
 private:
-  friend gneiss_result capture_render_frame_packet(const engine::platform::native_window_info&,
-                                                   engine::render::render_snapshot,
-                                                   const render_resource_service&,
-                                                   const ui_draw_list&, const debug_draw_list&,
-                                                   struct render_frame_packet&) noexcept;
+  friend gneiss::engine::core::result
+  capture_render_frame_packet(const engine::platform::native_window_info&,
+                              engine::render::render_snapshot, const render_resource_service&,
+                              const ui_draw_list&, const debug_draw_list&,
+                              struct render_frame_packet&) noexcept;
 
   std::unordered_map<engine::core::rid, std::shared_ptr<const mesh_resource>> meshes_;
   std::unordered_map<engine::core::rid, std::shared_ptr<const material_resource>> materials_;
@@ -63,7 +64,7 @@ struct render_frame_packet final {
   std::shared_ptr<frame_image> readback;
 };
 
-[[nodiscard]] gneiss_result
+[[nodiscard]] gneiss::engine::core::result
 capture_render_frame_packet(const engine::platform::native_window_info& window,
                             engine::render::render_snapshot scene,
                             const render_resource_service& resources, const ui_draw_list& ui,

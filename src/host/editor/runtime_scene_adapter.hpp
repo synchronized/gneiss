@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/result.hpp"
 #include "ipc_inspection_protocol.hpp"
 #include "runtime_scene_data.hpp"
 
@@ -12,8 +13,8 @@
 namespace gneiss::editor {
 
 /** 消费已解码批次；成功移动节点文本，失败保持 output 不变，输入可被消费。 */
-[[nodiscard]] inline result to_runtime_scene_batch(ipc_inspection_batch&& input,
-                                                   runtime_scene_batch& output) noexcept {
+[[nodiscard]] inline gneiss::engine::core::result
+to_runtime_scene_batch(ipc_inspection_batch&& input, runtime_scene_batch& output) noexcept {
   try {
     runtime_scene_batch converted{.stamp = {input.stamp.session_id, input.stamp.sequence},
                                   .is_full = input.is_full,
@@ -31,7 +32,7 @@ namespace gneiss::editor {
         type = runtime_scene_change_type::remove;
         break;
       default:
-        return result::invalid_argument;
+        return gneiss::engine::core::result::invalid_argument;
       }
       auto& node = change.node;
       converted.changes.push_back(
@@ -50,11 +51,11 @@ namespace gneiss::editor {
                     .material_uri = std::move(node.material_uri)}});
     }
     output = std::move(converted);
-    return result::success;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 

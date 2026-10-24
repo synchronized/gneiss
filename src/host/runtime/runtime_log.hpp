@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/core/result.h>
+#include "engine/core/result.hpp"
 #include <gneiss/engine/log.h>
 
 #include <filesystem>
@@ -20,7 +20,7 @@ public:
   runtime_log(const runtime_log&) = delete;
   runtime_log& operator=(const runtime_log&) = delete;
 
-  void write(std::string_view level, std::string_view stage, gneiss_result operation,
+  void write(std::string_view level, std::string_view stage, gneiss::engine::core::result operation,
              std::string_view message, std::string_view context = {}) noexcept;
   void write(const gneiss_log_event& event) noexcept;
 

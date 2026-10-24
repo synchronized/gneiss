@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "commands/editor_command_history.hpp"
+#include "engine/core/result.hpp"
 
 #include <limits>
 #include <new>
@@ -13,19 +14,19 @@ functional_editor_command::functional_editor_command(desc value) noexcept
     : label_(std::move(value.label)), undo_(std::move(value.undo)), redo_(std::move(value.redo)),
       merge_key_(std::move(value.merge_key)) {}
 
-result functional_editor_command::undo() noexcept {
+gneiss::engine::core::result functional_editor_command::undo() noexcept {
   try {
-    return undo_ ? undo_() : result::invalid_state;
+    return undo_ ? undo_() : gneiss::engine::core::result::invalid_state;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-result functional_editor_command::redo() noexcept {
+gneiss::engine::core::result functional_editor_command::redo() noexcept {
   try {
-    return redo_ ? redo_() : result::invalid_state;
+    return redo_ ? redo_() : gneiss::engine::core::result::invalid_state;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 
@@ -54,12 +55,13 @@ std::uint64_t editor_command_history::allocate_state() noexcept {
   return value;
 }
 
-result editor_command_history::record_impl(std::unique_ptr<editor_command>& value) noexcept {
+gneiss::engine::core::result
+editor_command_history::record_impl(std::unique_ptr<editor_command>& value) noexcept {
   if (is_pending()) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   if (value == nullptr || capacity_ == 0U) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     entries_.reserve(entries_.size() + 1U);
@@ -70,7 +72,7 @@ result editor_command_history::record_impl(std::unique_ptr<editor_command>& valu
         entries_[cursor_ - 1U].value->merge_with(*value)) {
       entries_[cursor_ - 1U].after_state = allocate_state();
       current_state_ = entries_[cursor_ - 1U].after_state;
-      return result::success;
+      return gneiss::engine::core::result::success;
     }
     const auto after_state = allocate_state();
     entries_.push_back(
@@ -81,87 +83,89 @@ result editor_command_history::record_impl(std::unique_ptr<editor_command>& valu
       entries_.erase(entries_.begin());
       --cursor_;
     }
-    return result::success;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-result editor_command_history::record(std::unique_ptr<editor_command> value) noexcept {
+gneiss::engine::core::result
+editor_command_history::record(std::unique_ptr<editor_command> value) noexcept {
   return record_impl(value);
 }
 
-result editor_command_history::prepare_record() noexcept try {
+gneiss::engine::core::result editor_command_history::prepare_record() noexcept try {
   if (is_pending() || capacity_ == 0U) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   entries_.reserve(entries_.size() + 1U);
-  return result::success;
+  return gneiss::engine::core::result::success;
 } catch (const std::bad_alloc&) {
-  return result::out_of_memory;
+  return gneiss::engine::core::result::out_of_memory;
 } catch (...) {
-  return result::internal;
+  return gneiss::engine::core::result::internal;
 }
 
-result editor_command_history::record(command value) noexcept {
+gneiss::engine::core::result editor_command_history::record(command value) noexcept {
   if (!value.undo || !value.redo) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     std::unique_ptr<editor_command> command_value =
         std::make_unique<functional_editor_command>(std::move(value));
     return record_impl(command_value);
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-result editor_command_history::execute(std::unique_ptr<editor_command> value) noexcept {
+gneiss::engine::core::result
+editor_command_history::execute(std::unique_ptr<editor_command> value) noexcept {
   if (is_pending()) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   if (value == nullptr || capacity_ == 0U) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     // 在修改文档前准备历史空间，避免成功提交后才因分配失败请求回滚。
     entries_.reserve(entries_.size() + 1U);
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
   const auto operation_result = value->redo();
-  if (operation_result != result::success) {
+  if (operation_result != gneiss::engine::core::result::success) {
     return operation_result;
   }
   const auto record_result = record_impl(value);
-  if (record_result != result::success && value != nullptr) {
+  if (record_result != gneiss::engine::core::result::success && value != nullptr) {
     (void)value->undo();
   }
   return record_result;
 }
 
-result editor_command_history::execute(command value) noexcept {
+gneiss::engine::core::result editor_command_history::execute(command value) noexcept {
   if (!value.undo || !value.redo) {
-    return result::invalid_argument;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     return execute(std::make_unique<functional_editor_command>(std::move(value)));
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-result editor_command_history::undo() noexcept {
+gneiss::engine::core::result editor_command_history::undo() noexcept {
   if (!can_undo()) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   auto& target = entries_[cursor_ - 1U];
   const auto prepared = target.value->begin_history_operation(true, pending_);
@@ -171,19 +175,19 @@ result editor_command_history::undo() noexcept {
   }
   if (pending_) {
     pending_undo_ = true;
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   const auto operation_result = target.value->undo();
-  if (operation_result == result::success) {
+  if (operation_result == gneiss::engine::core::result::success) {
     --cursor_;
     current_state_ = target.before_state;
   }
   return operation_result;
 }
 
-result editor_command_history::redo() noexcept {
+gneiss::engine::core::result editor_command_history::redo() noexcept {
   if (!can_redo()) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   auto& target = entries_[cursor_];
   const auto prepared = target.value->begin_history_operation(false, pending_);
@@ -193,19 +197,19 @@ result editor_command_history::redo() noexcept {
   }
   if (pending_) {
     pending_undo_ = false;
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   const auto operation_result = target.value->redo();
-  if (operation_result == result::success) {
+  if (operation_result == gneiss::engine::core::result::success) {
     ++cursor_;
     current_state_ = target.after_state;
   }
   return operation_result;
 }
 
-result editor_command_history::advance_pending() noexcept {
+gneiss::engine::core::result editor_command_history::advance_pending() noexcept {
   if (!pending_) {
-    return result::invalid_state;
+    return gneiss::engine::core::result::invalid_state;
   }
   bool complete = false;
   const auto operation = pending_->advance(complete);
@@ -222,7 +226,7 @@ result editor_command_history::advance_pending() noexcept {
     pending_.reset();
     return operation;
   }
-  return result::not_ready;
+  return gneiss::engine::core::result::not_ready;
 }
 
 void editor_command_history::cancel_pending() noexcept {
@@ -231,15 +235,15 @@ void editor_command_history::cancel_pending() noexcept {
   }
 }
 
-result editor_command_history::clear() noexcept {
+gneiss::engine::core::result editor_command_history::clear() noexcept {
   if (is_pending()) {
-    return result::not_ready;
+    return gneiss::engine::core::result::not_ready;
   }
   entries_.clear();
   cursor_ = 0U;
   current_state_ = allocate_state();
   saved_state_ = current_state_;
-  return result::success;
+  return gneiss::engine::core::result::success;
 }
 
 std::string_view editor_command_history::undo_label() const noexcept {

@@ -4,6 +4,7 @@
 #pragma once
 
 #include "console_model.hpp"
+#include "engine/core/result.hpp"
 
 #include <array>
 
@@ -21,8 +22,8 @@ struct console_panel_state final {
 
   /** 暂停只固定可见记录截止位置，模型仍可继续接收和淘汰日志。 */
   void set_paused(const console_model& model, bool value) noexcept;
-  [[nodiscard]] result visible_indices(const console_model& model,
-                                       std::vector<std::size_t>& output);
+  [[nodiscard]] gneiss::engine::core::result visible_indices(const console_model& model,
+                                                             std::vector<std::size_t>& output);
 };
 
 /** 单次绘制借用的进程展示值；log_path 只需在绘制期间有效。 */
@@ -32,7 +33,7 @@ struct console_runtime_view final {
   bool started = false;
   int exit_code = 0;
   bool attempted = false;
-  result operation = result::success;
+  gneiss::engine::core::result operation = gneiss::engine::core::result::success;
   std::string_view log_path;
 };
 

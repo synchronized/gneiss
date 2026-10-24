@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "engine/core/result.hpp"
 #include "runtime/application_registry.hpp"
 #include "runtime/loading/prefab_preparation.hpp"
 #include <chrono>
@@ -12,7 +13,8 @@ bool run(gneiss::engine::core::tasks::execution_mode mode) {
   description.asset_root = root.data();
   description.asset_root_length = static_cast<std::uint32_t>(root.size());
   gneiss_application application{};
-  if (gneiss_application_create(&description, &application) != GNEISS_SUCCESS) {
+  if (gneiss::engine::core::result{gneiss_application_create(&description, &application)} !=
+      gneiss::engine::core::result::success) {
     return false;
   }
   for (int attempt = 0; attempt < 3; ++attempt) {
@@ -20,14 +22,15 @@ bool run(gneiss::engine::core::tasks::execution_mode mode) {
     const auto uri =
         attempt == 2 ? "asset://prefabs/missing.prefab.json" : "asset://prefabs/test.prefab.json";
     if (gneiss::runtime::prefab_preparation::create(*gneiss::runtime::find_application(application),
-                                                    executor, uri, request) != GNEISS_SUCCESS) {
+                                                    executor, uri, request) !=
+        gneiss::engine::core::result::success) {
       return false;
     }
     if (attempt == 1) {
       request->cancel();
     }
     bool complete{};
-    gneiss_result result = GNEISS_SUCCESS;
+    gneiss::engine::core::result result = gneiss::engine::core::result::success;
     gneiss::engine::scene::prepared_scene_description output;
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     while (!complete && std::chrono::steady_clock::now() < deadline) {
@@ -37,14 +40,15 @@ bool run(gneiss::engine::core::tasks::execution_mode mode) {
       result = request->poll(output, complete);
       std::this_thread::yield();
     }
-    const auto expected = attempt == 0   ? GNEISS_SUCCESS
-                          : attempt == 1 ? GNEISS_ERROR_INVALID_STATE
-                                         : GNEISS_ERROR_NOT_FOUND;
+    const auto expected = attempt == 0   ? gneiss::engine::core::result::success
+                          : attempt == 1 ? gneiss::engine::core::result::invalid_state
+                                         : gneiss::engine::core::result::not_found;
     if (!complete || result != expected || (attempt == 0 && output.prefabs.size() != 1U)) {
       return false;
     }
   }
-  return gneiss_application_destroy(application) == GNEISS_SUCCESS;
+  return gneiss::engine::core::result{gneiss_application_destroy(application)} ==
+         gneiss::engine::core::result::success;
 }
 int main() {
   return run(gneiss::engine::core::tasks::execution_mode::cooperative) &&

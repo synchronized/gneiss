@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/result.hpp"
 #include "panels/property_inspector_model.hpp"
 
 #include <span>
@@ -13,12 +14,14 @@ namespace gneiss::editor {
  * write 必须提供，编辑成功与失败均由返回值报告。 */
 struct author_property_actions final {
   void* context = nullptr;
-  result (*write)(void*, const inspector_component&, const inspector_property&,
-                  const engine::core::reflection::property_value&, std::uint64_t) = nullptr;
+  gneiss::engine::core::result (*write)(void*, const inspector_component&,
+                                        const inspector_property&,
+                                        const engine::core::reflection::property_value&,
+                                        std::uint64_t) = nullptr;
 };
 
 void draw_author_properties(std::span<const inspector_component> components,
-                            std::uint64_t& edit_serial, result& error,
+                            std::uint64_t& edit_serial, gneiss::engine::core::result& error,
                             const author_property_actions& actions);
 
 } // namespace gneiss::editor

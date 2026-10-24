@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/scene/scene_tree.hpp"
+#include "engine/core/result.hpp"
 
 #include <algorithm>
 #include <array>
@@ -71,15 +72,16 @@ scene_tree::slot* scene_tree::find(gneiss_scene_node_id id) noexcept {
   return const_cast<slot*>(std::as_const(*this).find(id));
 }
 
-gneiss_result scene_tree::bind_publication(gneiss_scene_node_id id,
-                                           const engine::core::publication& group) noexcept {
+gneiss::engine::core::result
+scene_tree::bind_publication(gneiss_scene_node_id id,
+                             const engine::core::publication& group) noexcept {
   auto* node = find(id);
   if (!node || node->value->publication || !group || group->domain_ != domain_ ||
       !group->published_ || group->retired_) {
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   }
   node->value->publication = group;
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
 bool scene_tree::publication_closed(const engine::core::publication& group) const noexcept {
@@ -125,42 +127,45 @@ const scene_tree::slot* scene_tree::find_raw(gneiss_scene_node_id id) const noex
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): 两种标识在 C ABI 中均为定宽整数。
-gneiss_result scene_tree::create(gneiss_scene_node_id parent, gneiss_entity_id entity,
-                                 gneiss_scene_node_id* out_node) noexcept {
+gneiss::engine::core::result scene_tree::create(gneiss_scene_node_id parent,
+                                                gneiss_entity_id entity,
+                                                gneiss_scene_node_id* out_node) noexcept {
   return create_impl({}, parent, entity, out_node);
 }
 
-gneiss_result scene_tree::create_staged(const engine::core::publication& group,
-                                        gneiss_scene_node_id parent, gneiss_entity_id entity,
-                                        gneiss_scene_node_id* output) noexcept {
+gneiss::engine::core::result scene_tree::create_staged(const engine::core::publication& group,
+                                                       gneiss_scene_node_id parent,
+                                                       gneiss_entity_id entity,
+                                                       gneiss_scene_node_id* output) noexcept {
   if (output != nullptr) {
     *output = GNEISS_NULL_SCENE_NODE_ID;
   }
   if (!group || group->domain_ != domain_ || group->published_ || group->retired_) {
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   }
   return create_impl(group, parent, entity, output);
 }
 
-gneiss_result scene_tree::create_impl(const engine::core::publication& group,
-                                      gneiss_scene_node_id parent, gneiss_entity_id entity,
-                                      gneiss_scene_node_id* out_node) noexcept {
+gneiss::engine::core::result scene_tree::create_impl(const engine::core::publication& group,
+                                                     gneiss_scene_node_id parent,
+                                                     gneiss_entity_id entity,
+                                                     gneiss_scene_node_id* out_node) noexcept {
   if (out_node == nullptr) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   *out_node = GNEISS_NULL_SCENE_NODE_ID;
   if (parent != GNEISS_NULL_SCENE_NODE_ID) {
     const auto* value = find_raw(parent);
     if (value == nullptr || (value->value->publication && !value->value->publication->published_ &&
                              value->value->publication != group)) {
-      return GNEISS_ERROR_INVALID_HANDLE;
+      return gneiss::engine::core::result::invalid_handle;
     }
   }
   if (entity != GNEISS_NULL_ENTITY_ID &&
       std::ranges::any_of(slots_, [entity](const slot& candidate) {
         return candidate.value && candidate.value->entity == entity;
       })) {
-    return GNEISS_ERROR_INVALID_STATE;
+    return gneiss::engine::core::result::invalid_state;
   }
   *out_node = GNEISS_NULL_SCENE_NODE_ID;
   try {
@@ -173,7 +178,7 @@ gneiss_result scene_tree::create_impl(const engine::core::publication& group,
       ++index;
     }
     if (index >= std::numeric_limits<std::uint16_t>::max()) {
-      return GNEISS_ERROR_OUT_OF_MEMORY;
+      return gneiss::engine::core::result::out_of_memory;
     }
     if (index == slots_.size()) {
       slots_.emplace_back();
@@ -188,11 +193,11 @@ gneiss_result scene_tree::create_impl(const engine::core::publication& group,
       find_raw(parent)->value->children.push_back(id);
     }
     *out_node = id;
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
@@ -219,17 +224,17 @@ void scene_tree::destroy_subtree(gneiss_scene_node_id id) noexcept {
   }
 }
 
-gneiss_result scene_tree::destroy(gneiss_scene_node_id node_id) noexcept {
+gneiss::engine::core::result scene_tree::destroy(gneiss_scene_node_id node_id) noexcept {
   auto* target = find(node_id);
   if (target == nullptr) {
-    return GNEISS_ERROR_INVALID_HANDLE;
+    return gneiss::engine::core::result::invalid_handle;
   }
   if (has_unpublished_descendant(node_id)) {
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   }
   remove_child(target->value->parent, node_id);
   destroy_subtree(node_id);
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
 bool scene_tree::has_unpublished_descendant(gneiss_scene_node_id id) const noexcept {
@@ -250,34 +255,34 @@ gneiss_entity_id scene_tree::get_staged_entity(const engine::core::publication& 
              : GNEISS_NULL_ENTITY_ID;
 }
 
-gneiss_result
+gneiss::engine::core::result
 scene_tree::set_staged_local(const engine::core::publication& group, gneiss_scene_node_id id,
                              const engine::core::math::transform& transform) noexcept {
   auto* value = find_raw(id);
   if (!group || group->domain_ != domain_ || group->published_ || group->retired_ ||
       value == nullptr || value->value->publication != group) {
-    return GNEISS_ERROR_INVALID_HANDLE;
+    return gneiss::engine::core::result::invalid_handle;
   }
   if (!is_valid(transform)) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   value->value->local = transform;
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
-gneiss_result scene_tree::destroy_staged_leaf(const engine::core::publication& group,
-                                              gneiss_scene_node_id id) noexcept {
+gneiss::engine::core::result scene_tree::destroy_staged_leaf(const engine::core::publication& group,
+                                                             gneiss_scene_node_id id) noexcept {
   auto* value = find_raw(id);
   if (!group || group->domain_ != domain_ || group->published_ || value == nullptr ||
       value->value->publication != group) {
-    return GNEISS_ERROR_INVALID_HANDLE;
+    return gneiss::engine::core::result::invalid_handle;
   }
   if (!value->value->children.empty()) {
-    return GNEISS_ERROR_NOT_READY;
+    return gneiss::engine::core::result::not_ready;
   }
   remove_child(value->value->parent, id);
   destroy_subtree(id);
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): 参数名称明确表达祖先与候选节点。
@@ -297,14 +302,14 @@ bool scene_tree::is_descendant(gneiss_scene_node_id ancestor,
   return false;
 }
 
-gneiss_result scene_tree::reparent(gneiss_scene_node_id node_id,
-                                   gneiss_scene_node_id parent) noexcept {
+gneiss::engine::core::result scene_tree::reparent(gneiss_scene_node_id node_id,
+                                                  gneiss_scene_node_id parent) noexcept {
   auto* target = find(node_id);
   if (target == nullptr || (parent != GNEISS_NULL_SCENE_NODE_ID && find(parent) == nullptr)) {
-    return GNEISS_ERROR_INVALID_HANDLE;
+    return gneiss::engine::core::result::invalid_handle;
   }
   if (node_id == parent || is_descendant(node_id, parent)) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   try {
     if (parent != GNEISS_NULL_SCENE_NODE_ID) {
@@ -312,25 +317,26 @@ gneiss_result scene_tree::reparent(gneiss_scene_node_id node_id,
     }
     remove_child(target->value->parent, node_id);
     target->value->parent = parent;
-    return GNEISS_SUCCESS;
+    return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return gneiss::engine::core::result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return gneiss::engine::core::result::internal;
   }
 }
 
-gneiss_result scene_tree::set_local(gneiss_scene_node_id node_id,
-                                    const engine::core::math::transform& transform) noexcept {
+gneiss::engine::core::result
+scene_tree::set_local(gneiss_scene_node_id node_id,
+                      const engine::core::math::transform& transform) noexcept {
   auto* target = find(node_id);
   if (target == nullptr) {
-    return GNEISS_ERROR_INVALID_HANDLE;
+    return gneiss::engine::core::result::invalid_handle;
   }
   if (!is_valid(transform)) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   target->value->local = transform;
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
 const engine::core::math::transform*
@@ -339,11 +345,12 @@ scene_tree::get_local(gneiss_scene_node_id node_id) const noexcept {
   return target == nullptr ? nullptr : &target->value->local;
 }
 
-gneiss_result scene_tree::get_world(gneiss_scene_node_id node_id,
-                                    engine::core::math::transform* out_transform) const noexcept {
+gneiss::engine::core::result
+scene_tree::get_world(gneiss_scene_node_id node_id,
+                      engine::core::math::transform* out_transform) const noexcept {
   const auto* target = find(node_id);
   if (target == nullptr || out_transform == nullptr) {
-    return GNEISS_ERROR_INVALID_HANDLE;
+    return gneiss::engine::core::result::invalid_handle;
   }
   auto result = target->value->local;
   auto parent = target->value->parent;
@@ -353,14 +360,14 @@ gneiss_result scene_tree::get_world(gneiss_scene_node_id node_id,
     parent = parent_slot->value->parent;
   }
   *out_transform = result;
-  return GNEISS_SUCCESS;
+  return gneiss::engine::core::result::success;
 }
 
-gneiss_result
+gneiss::engine::core::result
 scene_tree::get_world_for_entity(gneiss_entity_id entity,
                                  engine::core::math::transform* out_transform) const noexcept {
   if (entity == GNEISS_NULL_ENTITY_ID || out_transform == nullptr) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   for (std::size_t index = 0; index < slots_.size(); ++index) {
     const auto& candidate = slots_[index];
@@ -369,7 +376,7 @@ scene_tree::get_world_for_entity(gneiss_entity_id entity,
                        out_transform);
     }
   }
-  return GNEISS_ERROR_NOT_READY;
+  return gneiss::engine::core::result::not_ready;
 }
 
 const engine::core::math::transform*
@@ -386,11 +393,11 @@ scene_tree::get_local_for_entity(gneiss_entity_id entity) const noexcept {
              : &found->value->local;
 }
 
-gneiss_result
+gneiss::engine::core::result
 scene_tree::set_local_for_entity(gneiss_entity_id entity,
                                  const engine::core::math::transform& transform) noexcept {
   if (entity == GNEISS_NULL_ENTITY_ID) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+    return gneiss::engine::core::result::invalid_argument;
   }
   for (std::size_t index = 0; index < slots_.size(); ++index) {
     const auto& candidate = slots_[index];
@@ -398,7 +405,7 @@ scene_tree::set_local_for_entity(gneiss_entity_id entity,
       return set_local(encode(static_cast<std::uint16_t>(index), candidate.generation), transform);
     }
   }
-  return GNEISS_ERROR_NOT_FOUND;
+  return gneiss::engine::core::result::not_found;
 }
 
 gneiss_entity_id scene_tree::get_entity(gneiss_scene_node_id node_id) const noexcept {

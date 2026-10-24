@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/api/draw_description.hpp"
+#include "engine/core/result.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 
 #include <array>
@@ -16,7 +17,7 @@ int main() {
   texture_desc.row_stride_bytes = 4U;
   texture_desc.pixels = pixels;
   gneiss_texture texture = GNEISS_NULL_TEXTURE;
-  if (resources.create_texture(texture_desc, &texture) != GNEISS_SUCCESS) {
+  if (resources.create_texture(texture_desc, &texture) != gneiss::engine::core::result::success) {
     return 1;
   }
 
@@ -39,8 +40,9 @@ int main() {
   desc.commands = commands;
 
   gneiss::engine::render::ui_draw_list draw_list;
-  if (draw_list.replace(desc, resources) != GNEISS_SUCCESS || draw_list.vertices().size() != 3U ||
-      draw_list.indices().size() != 3U || draw_list.commands().size() != 1U) {
+  if (draw_list.replace(desc, resources) != gneiss::engine::core::result::success ||
+      draw_list.vertices().size() != 3U || draw_list.indices().size() != 3U ||
+      draw_list.commands().size() != 1U) {
     return 2;
   }
   vertices[0].position[0] = 9.0F;
@@ -53,21 +55,21 @@ int main() {
 
   indices[0] = 3U;
   commands[0].index_count = 3U;
-  if (draw_list.replace(desc, resources) != GNEISS_ERROR_INVALID_ARGUMENT ||
+  if (draw_list.replace(desc, resources) != gneiss::engine::core::result::invalid_argument ||
       draw_list.indices()[0] != 0U) {
     return 4;
   }
   indices[0] = 0U;
 
   commands[0].index_count = 2U;
-  if (draw_list.replace(desc, resources) != GNEISS_ERROR_INVALID_ARGUMENT ||
+  if (draw_list.replace(desc, resources) != gneiss::engine::core::result::invalid_argument ||
       draw_list.commands()[0].index_count != 3U) {
     return 5;
   }
   commands[0].index_count = 3U;
 
   gneiss::engine::render::render_resource_service other_resources;
-  if (draw_list.replace(desc, other_resources) != GNEISS_ERROR_INVALID_HANDLE ||
+  if (draw_list.replace(desc, other_resources) != gneiss::engine::core::result::invalid_handle ||
       draw_list.commands().size() != 1U) {
     return 6;
   }
@@ -85,14 +87,15 @@ int main() {
   abi_desc.commands = &abi_command;
   abi_desc.command_count = 1;
   gneiss::engine::api::converted_ui_draw converted;
-  if (gneiss::engine::api::read_ui_draw_description(abi_desc, converted) != GNEISS_SUCCESS ||
+  if (gneiss::engine::api::read_ui_draw_description(abi_desc, converted) !=
+          gneiss::engine::core::result::success ||
       converted.view.vertices.data() != converted.vertices.data() ||
       converted.view.vertices[0].color_rgba8 != 42U)
     return 8;
   abi_vertex.color_rgba8 = 0;
   abi_command.reserved = 1;
   if (gneiss::engine::api::read_ui_draw_description(abi_desc, converted) !=
-          GNEISS_ERROR_INVALID_ARGUMENT ||
+          gneiss::engine::core::result::invalid_argument ||
       converted.view.vertices[0].color_rgba8 != 42U)
     return 9;
   return 0;

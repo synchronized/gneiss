@@ -4,6 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_IPC_RUNTIME_COMMANDS_H_
 #define GNEISS_APPS_RUNTIME_IPC_RUNTIME_COMMANDS_H_
 
+#include "engine/core/result.hpp"
 #include "ipc_router.hpp"
 #include "runtime_command_context.hpp"
 
@@ -11,13 +12,20 @@ namespace gneiss::host::runtime {
 
 using runtime_command_router = ipc_operation_router<runtime_command_context>;
 
-[[nodiscard]] result register_runtime_asset_commands(runtime_command_router& router) noexcept;
-[[nodiscard]] result register_runtime_scene_commands(runtime_command_router& router) noexcept;
-[[nodiscard]] result register_runtime_session_commands(runtime_command_router& router) noexcept;
-[[nodiscard]] result register_runtime_control_commands(runtime_command_router& router) noexcept;
-[[nodiscard]] result register_runtime_inspection_commands(runtime_command_router& router) noexcept;
-[[nodiscard]] result register_runtime_property_commands(runtime_command_router& router) noexcept;
-[[nodiscard]] result register_runtime_commands(runtime_command_router& router) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+register_runtime_asset_commands(runtime_command_router& router) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+register_runtime_scene_commands(runtime_command_router& router) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+register_runtime_session_commands(runtime_command_router& router) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+register_runtime_control_commands(runtime_command_router& router) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+register_runtime_inspection_commands(runtime_command_router& router) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+register_runtime_property_commands(runtime_command_router& router) noexcept;
+[[nodiscard]] gneiss::engine::core::result
+register_runtime_commands(runtime_command_router& router) noexcept;
 
 } // namespace gneiss::host::runtime
 

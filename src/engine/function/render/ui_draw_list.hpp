@@ -6,8 +6,8 @@
 
 #include "engine/function/render/render_resource_service.hpp"
 
+#include "engine/core/result.hpp"
 #include "engine/function/render/draw_types.hpp"
-#include <gneiss/engine/core/result.h>
 
 #include <span>
 #include <vector>
@@ -27,8 +27,8 @@ struct ui_draw_view {
 
 class ui_draw_list final {
 public:
-  [[nodiscard]] gneiss_result replace(const ui_draw_view& desc,
-                                      const render_resource_service& resources) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  replace(const ui_draw_view& desc, const render_resource_service& resources) noexcept;
   void clear() noexcept;
 
   [[nodiscard]] float display_width() const noexcept { return display_width_; }

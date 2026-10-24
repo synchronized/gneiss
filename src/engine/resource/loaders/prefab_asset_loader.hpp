@@ -4,6 +4,7 @@
 #ifndef GNEISS_SCENE_PREFAB_ASSET_LOADER_HPP_
 #define GNEISS_SCENE_PREFAB_ASSET_LOADER_HPP_
 
+#include "engine/core/result.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
 #include "engine/resource/types/prefab_description.hpp"
 
@@ -32,14 +33,17 @@ public:
                       engine::resource::resource_cache& cache) noexcept
       : file_system_(file_system), cache_(cache) {}
 
-  [[nodiscard]] gneiss_result acquire(std::string_view uri, prefab_asset_lease& out_lease,
-                                      scene_diagnostic& out_diagnostic) noexcept;
-  [[nodiscard]] gneiss_result reload(std::string_view uri, prefab_asset_lease& out_lease,
-                                     scene_diagnostic& out_diagnostic) noexcept;
+  [[nodiscard]] gneiss::engine::core::result acquire(std::string_view uri,
+                                                     prefab_asset_lease& out_lease,
+                                                     scene_diagnostic& out_diagnostic) noexcept;
+  [[nodiscard]] gneiss::engine::core::result reload(std::string_view uri,
+                                                    prefab_asset_lease& out_lease,
+                                                    scene_diagnostic& out_diagnostic) noexcept;
   /** 所属线程将已解析描述放入 URI 缓存，不读文件；旧实例引用仍保持有效。
    * 租约可独立于加载器存活，失败不替换已有缓存。 */
-  [[nodiscard]] gneiss_result install_prepared(std::string_view uri, prefab_description description,
-                                               prefab_asset_lease& out_lease) noexcept;
+  [[nodiscard]] gneiss::engine::core::result
+  install_prepared(std::string_view uri, prefab_description description,
+                   prefab_asset_lease& out_lease) noexcept;
 
 private:
   const engine::resource::virtual_file_system& file_system_;

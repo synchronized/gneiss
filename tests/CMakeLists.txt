@@ -793,6 +793,7 @@ add_executable(gneiss_render_asset_preparation_test
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/png_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
 )
+target_compile_definitions(gneiss_render_asset_preparation_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_include_directories(gneiss_render_asset_preparation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_render_asset_preparation_test PRIVATE
   gneiss_core_values gneiss_yyjson gneiss_png granit::granit Threads::Threads)

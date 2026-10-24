@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/result.hpp"
 #include "tooling/asset_import/asset_import_sdk.hpp"
 
 #include <filesystem>

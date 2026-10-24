@@ -38,19 +38,25 @@ C++ API 使用 `gneiss::library_version()` 返回强类型版本结构。使用�
 `gneiss_result_message` 返回由运行库持有的静态英文文本，线程安全且不返回空指针。未知数值返回
 `unrecognized result`。
 
-C++ API 使用只保存一个 32 位结果码的 `gneiss::result` 轻量值类型。它提供 `ok()`、`failed()`、
+公共 C++ 共享值类型使用只保存一个 32 位结果码的 `gneiss::result` 轻量值类型。它提供 `ok()`、`failed()`、
 `native()`、`message()` 和显式 `operator bool()`；布尔上下文中成功为 `true`，失败为 `false`。
 默认构造产生 `unknown` 失败结果，避免尚未赋值的结果静默表示成功；任意 C 结果码可通过显式构造
 或 `from_native` 无损保留。
 
 ```cpp
-const auto operation = application.run();
+const auto operation = gneiss::from_native(gneiss_application_run(application, 1));
 if (!operation) {
   std::cerr << operation.message();
 }
 ```
 
 - `gneiss::to_native` 与 `gneiss::from_native` 转换 C/C++ 表达。
+
+src 内部操作统一使用 `gneiss::engine::core::result`（`engine/core/result.hpp`）。它提供
+`ok()`、`failed()`、`code()`、`message()` 和显式布尔判断，默认 `unknown`；不提供隐式整数转换。
+普通内部调用直接传递该值，C API 在适配层使用 `to_c_result` / `from_c_result`；协议整数码在
+编解码处显式转换。公共结果值不作为内部接口类型，公共头也不依赖 src。
+设计依据见 [ADR-074](../decisions/ADR-074-native-result.md)。
 
 结果码只表达稳定分类。更详细的后端错误、对象和调用上下文应由后续诊断接口提供，不能通过持续
 增加高度具体的公共结果码替代诊断系统。
