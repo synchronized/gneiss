@@ -37,8 +37,10 @@ bool native_values() {
   gneiss::engine::registry_ref registry;
   const gneiss::engine::type_guid id{gneiss::engine::guid::from_bytes({7})};
   const gneiss::engine::type_guid native_id{gneiss::engine::guid::from_bytes({7})};
-  const std::array fields{
-      gneiss::engine::field_definition{.id = 1, .value_type_id = id, .flags = 0, .name = "text"}};
+  const std::array fields{gneiss::engine::field_definition{.id = gneiss::field_id{1},
+                                                           .type_guid = id,
+                                                           .flags = gneiss::field_flags::none,
+                                                           .name = "text"}};
   std::string text = "初始文本";
   const gneiss::engine::property_binding binding{
       .kind = gneiss::property_kind::string,
@@ -57,9 +59,10 @@ bool native_values() {
       .user_data = &text};
   if (gneiss::engine::create_native(registry) != gneiss::engine::result::success ||
       gneiss::engine::register_type(
-          registry, {.id = id, .schema_version = 1, .name = "sample", .fields = fields}) !=
+          registry, {.guid = id, .schema_version = 1, .name = "sample", .fields = fields}) !=
           gneiss::engine::result::success ||
-      gneiss::engine::bind_property(registry, id, 1, binding) != gneiss::engine::result::success) {
+      gneiss::engine::bind_property(registry, id, gneiss::field_id{1}, binding) !=
+          gneiss::engine::result::success) {
     return false;
   }
   gneiss::field_info field{.id = gneiss::field_id{99}, .name = "旧字段"};
@@ -116,21 +119,22 @@ bool native_values() {
   gneiss::type_info metadata;
   if (gneiss::engine::describe_type(registry, native_id, metadata).failed() ||
       metadata.fields.size() != 1 || metadata.fields[0].kind != gneiss::property_kind::string ||
-      metadata.id != native_id || metadata.fields[0].value_type_id != native_id ||
-      gneiss::engine::describe_type(registry, {}, metadata) != gneiss::engine::result::not_found ||
-      metadata.id != native_id || metadata.fields.size() != 1 ||
+      metadata.guid != native_id || metadata.fields[0].type_guid != native_id ||
+      gneiss::engine::describe_type(registry, gneiss::engine::type_guid{}, metadata) !=
+          gneiss::engine::result::not_found ||
+      metadata.guid != native_id || metadata.fields.size() != 1 ||
       gneiss::engine::describe_type({}, native_id, metadata) !=
           gneiss::engine::result::invalid_handle ||
-      metadata.id != native_id || metadata.fields.size() != 1) {
+      metadata.guid != native_id || metadata.fields.size() != 1) {
     return false;
   }
   if (gneiss::engine::describe_type_at(registry, 0, metadata).failed() ||
-      metadata.id != native_id || metadata.fields.size() != 1 ||
+      metadata.guid != native_id || metadata.fields.size() != 1 ||
       gneiss::engine::describe_type_at(registry, 1, metadata) !=
           gneiss::engine::result::not_found ||
-      metadata.id != native_id ||
+      metadata.guid != native_id ||
       gneiss::engine::describe_type_at({}, 0, metadata) != gneiss::engine::result::invalid_handle ||
-      metadata.id != native_id)
+      metadata.guid != native_id)
     return false;
   registry.reset();
   return gneiss::engine::read_property(registry, native_id, gneiss::field_id{1}, {}, snapshot) ==
@@ -169,22 +173,24 @@ int main() try {
   std::string name = "sample";
   const std::array fields{
       gneiss::engine::field_definition{
-          .id = 1U,
-          .value_type_id = type_id,
-          .flags = 0U,
+          .id = gneiss::field_id{1U},
+          .type_guid = type_id,
+          .flags = gneiss::field_flags::none,
           .name = "value",
       },
-      gneiss::engine::field_definition{
-          .id = 2U, .value_type_id = type_id, .flags = 0U, .name = "candidate"},
+      gneiss::engine::field_definition{.id = gneiss::field_id{2U},
+                                       .type_guid = type_id,
+                                       .flags = gneiss::field_flags::none,
+                                       .name = "candidate"},
   };
   const gneiss::engine::type_definition definition{
-      .id = type_id,
+      .guid = type_id,
       .schema_version = 1U,
       .name = name,
       .fields = fields,
   };
   if (gneiss::engine::register_type(state, definition) != gneiss::engine::result::success ||
-      gneiss::engine::bind_property(state, type_id, 1U,
+      gneiss::engine::bind_property(state, type_id, gneiss::field_id{1U},
                                     {.kind = gneiss::property_kind::float32,
                                      .getter = throwing_getter,
                                      .setter = set_runtime}) != gneiss::engine::result::success) {
@@ -199,9 +205,9 @@ int main() try {
   float candidate = 1;
   gneiss::property_value proposed = gneiss::property_value{};
   proposed.payload = 2.0F;
-  if (gneiss::engine::bind_property(state, type_id, 2U, candidate_binding) !=
+  if (gneiss::engine::bind_property(state, type_id, gneiss::field_id{2U}, candidate_binding) !=
           gneiss::engine::result::success ||
-      gneiss::engine::bind_property(state, type_id, 2U, candidate_binding) !=
+      gneiss::engine::bind_property(state, type_id, gneiss::field_id{2U}, candidate_binding) !=
           gneiss::engine::result::success ||
       gneiss::engine::set_candidate_property(state, type_id, 2U, &candidate, proposed) !=
           gneiss::engine::result::not_ready) {
@@ -225,7 +231,7 @@ int main() try {
       candidate != 2 ||
       gneiss::engine::set_property(state, type_id, 2U, {}, proposed) !=
           gneiss::engine::result::unsupported ||
-      gneiss::engine::bind_property(state, type_id, 2U, candidate_binding) !=
+      gneiss::engine::bind_property(state, type_id, gneiss::field_id{2U}, candidate_binding) !=
           gneiss::engine::result::invalid_state) {
     return 12;
   }

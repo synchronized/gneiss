@@ -4,16 +4,86 @@
 #include <array>
 #include <cstdint>
 #include <string>
+#include <thread>
+
+struct reflected_object {};
+struct other_object {};
+
+bool typed_registration() {
+  namespace e = gneiss::engine;
+  using e::result;
+  e::registry_ref registry;
+  if (e::create_native(registry).failed())
+    return false;
+  const e::type_guid object_guid{e::guid::from_bytes({0x30})};
+  const e::type_guid other_guid{e::guid::from_bytes({0x10})};
+  const e::type_guid data_guid{e::guid::from_bytes({0x20})};
+  const e::type_definition definition{
+      .guid = object_guid, .schema_version = 1, .name = "Object", .fields = {}};
+  gneiss::type_info info{.guid = data_guid};
+  if (e::describe_type<reflected_object>(registry, info) != result::not_ready ||
+      info.guid != data_guid || e::register_type<reflected_object>(registry, definition).failed())
+    return false;
+  auto alternate = definition;
+  alternate.guid = other_guid;
+  if (e::register_type<const reflected_object&>(registry, alternate) != result::invalid_argument ||
+      e::register_type<other_object>(registry, definition) != result::invalid_argument ||
+      e::register_type<reflected_object>(registry, definition) != result::invalid_argument ||
+      e::register_type<void>(registry, alternate) != result::invalid_argument)
+    return false;
+  alternate.type_id = e::runtime_type_of<reflected_object>();
+  if (e::register_type<other_object>(registry, alternate) != result::invalid_argument)
+    return false;
+  alternate.type_id = {};
+  if (e::register_type<other_object>(registry, alternate).failed())
+    return false;
+  alternate.guid = data_guid;
+  if (e::register_type(registry, alternate).failed() || e::freeze(registry).failed())
+    return false;
+  std::uint32_t count = 0;
+  if (e::type_count(registry, count).failed() || count != 3 ||
+      e::describe_type<const reflected_object&>(registry, info).failed() ||
+      info.guid != object_guid || e::describe_type(registry, object_guid, info).failed() ||
+      info.name != "Object" || e::describe_type<other_object>(registry, info).failed() ||
+      info.guid != other_guid || e::describe_type_at(registry, 1, info).failed() ||
+      info.guid != data_guid)
+    return false;
+  if (e::describe_type(registry, e::type_id{}, info) != result::not_found ||
+      info.guid != data_guid || e::describe_type<double>(registry, info) != result::not_found ||
+      info.guid != data_guid ||
+      e::register_type<int>(registry, definition) != result::invalid_state)
+    return false;
+  std::array<bool, 4> queried{};
+  std::array<std::thread, 4> readers;
+  for (std::size_t i = 0; i < readers.size(); ++i) {
+    readers[i] = std::thread([&, i] {
+      gneiss::type_info metadata;
+      queried[i] = e::describe_type<reflected_object>(registry, metadata) == result::success &&
+                   metadata.guid == object_guid;
+    });
+  }
+  for (auto& reader : readers)
+    reader.join();
+  for (bool success : queried)
+    if (!success)
+      return false;
+  registry.reset();
+  return e::describe_type<reflected_object>(registry, info) == result::invalid_handle &&
+         info.guid == data_guid;
+}
 
 int main() {
+  if (!typed_registration())
+    return 20;
   namespace engine = gneiss::engine;
   using engine::result;
   constexpr engine::type_guid object_type{engine::guid::from_bytes({0x20})};
   constexpr engine::type_guid scalar_type{engine::guid::from_bytes({0x10})};
-  const engine::field_definition field{1, scalar_type, 0, "value"};
+  const engine::field_definition field{gneiss::field_id{1}, scalar_type, gneiss::field_flags::none,
+                                       "value"};
   const std::array duplicate_fields{field, field};
-  engine::type_definition object{object_type, 1, "Object", {&field, 1}};
-  engine::type_definition scalar{scalar_type, 1, "Scalar", {}};
+  engine::type_definition object{object_type, {}, 1, "Object", {&field, 1}};
+  engine::type_definition scalar{scalar_type, {}, 1, "Scalar", {}};
   engine::registry_ref registry;
   bool frozen = true;
   std::uint32_t count = 99;
@@ -21,7 +91,7 @@ int main() {
       frozen || engine::type_count(registry, count) != result::not_ready || count != 99 ||
       engine::register_type(registry, object).failed() ||
       engine::register_type(registry, scalar).failed() ||
-      engine::register_type(registry, object).failed())
+      engine::register_type(registry, object) != result::invalid_argument)
     return 1;
   auto invalid = object;
   invalid.fields = duplicate_fields;
@@ -35,7 +105,7 @@ int main() {
   invalid.name = "\xC0\xAF";
   if (engine::register_type(registry, invalid) != result::invalid_argument)
     return 4;
-  invalid.id = {};
+  invalid.guid = {};
   invalid.name = "nil";
   if (engine::register_type(registry, invalid) != result::invalid_argument)
     return 5;
@@ -60,7 +130,7 @@ int main() {
         return result::success;
       },
       .user_data = &stored};
-  if (engine::bind_property(registry, object_type, 1, binding).failed() ||
+  if (engine::bind_property(registry, object_type, gneiss::field_id{1}, binding).failed() ||
       engine::freeze(registry).failed() || engine::freeze(registry).failed() ||
       engine::is_frozen(registry, frozen).failed() || !frozen ||
       engine::register_type(registry, object) != result::invalid_state ||
@@ -68,7 +138,7 @@ int main() {
     return 6;
   gneiss::type_info info;
   gneiss::field_info metadata;
-  if (engine::describe_type_at(registry, 0, info).failed() || info.id != scalar_type ||
+  if (engine::describe_type_at(registry, 0, info).failed() || info.guid != scalar_type ||
       engine::describe_type(registry, object_type, info).failed() || info.name != "Object" ||
       info.schema_version != 1 || info.fields.size() != 1 ||
       engine::describe_field(registry, object_type, gneiss::field_id{1}, metadata).failed() ||

@@ -16,8 +16,8 @@ int main() {
   gneiss::entity_id entity, missing;
   gneiss::scene_node_id node;
   if (engine::create_native(registry).failed() || engine::register_reflection(registry).failed() ||
-      engine::register_reflection(registry).failed() || engine::freeze(registry).failed() ||
-      engine::create_native(first, first_context).failed() ||
+      engine::register_reflection(registry) != engine::result::invalid_argument ||
+      engine::freeze(registry).failed() || engine::create_native(first, first_context).failed() ||
       engine::create_native(second, second_context).failed() ||
       first->entity_create(entity).failed() || first->entity_create(missing).failed() ||
       first->node_create({}, entity, node).failed())
@@ -26,7 +26,11 @@ int main() {
   const auto camera_type = engine::camera_property_type();
   gneiss::type_info info;
   if (engine::describe_type(registry, transform_type, info).failed() || info.fields.size() != 3 ||
-      engine::describe_type(registry, camera_type, info).failed() || info.fields.size() != 4)
+      engine::describe_type(registry, camera_type, info).failed() || info.fields.size() != 4 ||
+      engine::describe_type<engine::transform>(registry, info).failed() ||
+      info.guid != transform_type ||
+      engine::describe_type<engine::camera_settings>(registry, info).failed() ||
+      info.guid != camera_type)
     return 2;
   const gneiss::property_target target{first_context, entity.get()};
   const gneiss::property_target missing_target{first_context, missing.get()};

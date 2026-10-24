@@ -43,7 +43,7 @@ gneiss::engine::result property_inspector_model::refresh(gneiss::engine::rid wor
         return operation;
       }
       inspector_component component{
-          .type_id = type.id,
+          .type_id = type.guid,
           .name = std::string(type.name),
           .properties = {},
       };
@@ -52,7 +52,7 @@ gneiss::engine::result property_inspector_model::refresh(gneiss::engine::rid wor
       for (std::uint32_t index = 0; index < type.fields.size(); ++index) {
         const auto& field = type.fields[index];
         gneiss::engine::property_value value;
-        operation = gneiss::engine::read_property(registry_, type.id, field.id, target, value);
+        operation = gneiss::engine::read_property(registry_, type.guid, field.id, target, value);
         if (operation == gneiss::engine::result::not_found) {
           component_missing = true;
           break;

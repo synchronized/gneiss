@@ -4,6 +4,7 @@
 #pragma once
 #include "engine/core/reflection/reflection_types.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/type_id.hpp"
 #include <memory>
 #include <string>
 
@@ -31,6 +32,13 @@ struct property_value {
 [[nodiscard]] GNEISS_API gneiss::engine::result describe_type(const registry_ref& registry,
                                                               gneiss::engine::type_guid type,
                                                               type_info& output) noexcept;
+/** 按当前程序的 C++ 类型身份查询同一份冻结元数据；零或未知 ID 返回 not_found。 */
+[[nodiscard]] GNEISS_API result describe_type(const registry_ref& registry, engine::type_id type,
+                                              type_info& output) noexcept;
+template <class T>
+[[nodiscard]] result describe_type(const registry_ref& registry, type_info& output) noexcept {
+  return describe_type(registry, runtime_type_of<T>(), output);
+}
 /** 字段名称借用已冻结 Registry；失败保持输出。 */
 [[nodiscard]] GNEISS_API gneiss::engine::result describe_field(const registry_ref& registry,
                                                                gneiss::engine::type_guid type,

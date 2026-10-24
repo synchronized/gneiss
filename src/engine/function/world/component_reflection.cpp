@@ -206,9 +206,12 @@ constexpr camera_field near_plane_field = camera_field::near_plane;
 constexpr camera_field far_plane_field = camera_field::far_plane;
 
 [[nodiscard]] constexpr gneiss::engine::field_definition
-make_field(std::uint32_t id, gneiss::engine::type_guid value_type_id, std::uint32_t flags,
+make_field(std::uint32_t id, gneiss::engine::type_guid type_guid, std::uint32_t flags,
            const char* name, std::uint32_t name_length) noexcept {
-  return {.id = id, .value_type_id = value_type_id, .flags = flags, .name = {name, name_length}};
+  return {.id = gneiss::field_id{id},
+          .type_guid = type_guid,
+          .flags = static_cast<gneiss::field_flags>(flags),
+          .name = {name, name_length}};
 }
 
 // Field ID 与属性类别均为定宽整数，调用点使用命名常量明确区分。
@@ -229,7 +232,7 @@ make_field(std::uint32_t id, gneiss::engine::type_guid value_type_id, std::uint3
                           : setter == set_camera  ? set_candidate_camera
                                                   : nullptr,
   };
-  return gneiss::engine::bind_property(registry, type_id, field_id, accessor);
+  return gneiss::engine::bind_property(registry, type_id, gneiss::field_id{field_id}, accessor);
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
@@ -250,12 +253,12 @@ gneiss::engine::register_reflection(const gneiss::engine::registry_ref& registry
       make_field(gneiss::engine::camera_is_primary_field.get(), bool_id,
                  static_cast<std::uint32_t>(gneiss::field_flags::read_only), "is_primary", 10U)};
   const gneiss::engine::type_definition transform{
-      .id = transform_id, .schema_version = 1U, .name = "transform", .fields = transform_fields};
+      .guid = transform_id, .schema_version = 1U, .name = "transform", .fields = transform_fields};
   const gneiss::engine::type_definition camera{
-      .id = camera_id, .schema_version = 1U, .name = "camera", .fields = camera_fields};
-  auto result = gneiss::engine::register_type(registry, transform);
+      .guid = camera_id, .schema_version = 1U, .name = "camera", .fields = camera_fields};
+  auto result = gneiss::engine::register_type<gneiss::engine::transform>(registry, transform);
   if (result == gneiss::engine::result::success) {
-    result = gneiss::engine::register_type(registry, camera);
+    result = gneiss::engine::register_type<gneiss::engine::camera_settings>(registry, camera);
   }
   if (result == gneiss::engine::result::success) {
     result = bind_component_field(

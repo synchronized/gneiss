@@ -19,11 +19,12 @@ IPC 仍使用既有 32 位十六进制字符串编码 GUID，不传输原生对�
 不用于反射存档。字段完整身份由稳定 GUID 与非零字段编号组成。名称用于 UTF-8 显示和诊断。
 GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按主机端序解释。
 
-`field_definition.value_type_id` 表示字段值的语义类型，无需事先注册该类型。
+`field_definition.type_guid` 表示字段值的语义类型，无需事先注册该类型。
 `field_flags::read_only` 禁止为字段绑定普通或候选 setter。
 
 `create_native` 创建 `registry_ref` 所有者；`register_type` 深拷贝名称和字段描述。
-相同 GUID 与完整描述的重复注册幂等成功；版本、名称或字段集合冲突返回 `result::invalid_argument`。
+类型自身的稳定身份为 `type_definition.guid`、`type_info.guid`；注册输入另有可选的运行期 `type_id`。
+重复 GUID 或重复非空运行期 ID 的注册返回 `result::invalid_argument`，不覆盖已有记录。
 注册名称不得为空或包含内嵌空字符，必须是合法 UTF-8；重复字段编号或名称也会被拒绝。
 
 `bind_property` 绑定原生函数指针、类别和借用上下文；相同完整绑定可重复调用。
@@ -32,6 +33,11 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 ## 查询与属性值
 
 `type_count`、`describe_type_at` 枚举冻结元数据；`describe_type`、`describe_field` 直接查询记录。
+`describe_type` 支持稳定 GUID 和运行期 `type_id` 两种入口，指向同一份记录。
+`register_type<T>` 填充并校验 C++ 类型身份；`describe_type<T>` 使用 `runtime_type_of<T>()` 查询。
+模板去除顶层 cv/ref；注册 `void` 或传入不匹配的非空 `type_id` 返回 `invalid_argument`。
+不对应 C++ 类型的描述保留空 `type_id`，仍可按 GUID 查询。运行期 ID 不进入文件或 IPC。
+`field_definition` 的编号和标志分别使用 `field_id` 与 `field_flags`；`bind_property` 接收强类型字段编号。
 查询失败保持输出；未冻结返回 `not_ready`，未知身份或越界索引返回 `not_found`，空引用返回
 `invalid_handle`。类型查询输出拥有字段数组，名称借用 Registry，不能超过 Registry 生命周期。
 
@@ -50,7 +56,7 @@ getter 返回的文本至少存活到调用方完成复制，setter 输入仅在
 
 ## 内建组件与生命周期
 
-`register_reflection` 为未冻结 Registry 幂等注册 Transform 和 Camera；
+`register_reflection` 为未冻结 Registry 注册 Transform 和 Camera；重复调用返回 `invalid_argument`。
 `create_property_registry` 直接创建已注册且冻结的内建 Registry。
 稳定身份使用 `transform_component_type`、`camera_component_type` 或对应原生查询函数。
 

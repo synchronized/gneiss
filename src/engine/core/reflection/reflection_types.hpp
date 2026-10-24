@@ -87,7 +87,7 @@ struct property_target {
 /** 名称由冻结 Registry 借出，有效期不超过 Registry。 */
 struct field_info {
   field_id id{};
-  gneiss::engine::type_guid value_type_id{};
+  gneiss::engine::type_guid type_guid{};
   field_flags flags = field_flags::none;
   std::string_view name{};
   property_kind kind = property_kind::invalid;
@@ -95,7 +95,7 @@ struct field_info {
 };
 /** 自有字段数组；名称借用冻结 Registry 的文本，复制/移动不产生临时数组悬空。 */
 struct type_info {
-  gneiss::engine::type_guid id{};
+  gneiss::engine::type_guid guid{};
   std::uint32_t schema_version = 0;
   std::string_view name{};
   std::vector<field_info> fields{};

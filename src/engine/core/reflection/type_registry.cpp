@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <new>
@@ -112,27 +113,29 @@ struct property_accessor {
 
 struct field_record {
   std::uint32_t id = 0U;
-  type_guid value_type_id{};
+  engine::type_guid type_guid{};
   std::uint32_t flags = 0;
   std::string name;
   property_accessor accessor{};
 };
 
 struct type_record {
-  type_guid id{};
+  engine::type_guid guid{};
+  engine::type_id type_id{};
   std::uint32_t schema_version = 0;
   std::string name;
   std::vector<field_record> fields;
 };
 
 [[nodiscard]] bool validate_field(const field_definition& field) noexcept {
-  return field.id != 0U && valid_type_id(field.value_type_id) &&
-         (field.flags & ~static_cast<std::uint32_t>(field_flags::read_only)) == 0U &&
+  return field.id.is_valid() && valid_type_id(field.type_guid) &&
+         (static_cast<std::uint32_t>(field.flags) &
+          ~static_cast<std::uint32_t>(field_flags::read_only)) == 0U &&
          !field.name.empty() && field.name.size() <= std::numeric_limits<std::uint32_t>::max() &&
          is_valid_name(field.name);
 }
 [[nodiscard]] bool validate_type(const type_definition& desc) noexcept {
-  if (!valid_type_id(desc.id) || desc.schema_version == 0U || desc.name.empty() ||
+  if (!valid_type_id(desc.guid) || desc.schema_version == 0U || desc.name.empty() ||
       desc.name.size() > std::numeric_limits<std::uint32_t>::max() ||
       desc.fields.size() > std::numeric_limits<std::uint32_t>::max() || !is_valid_name(desc.name)) {
     return false;
@@ -151,25 +154,10 @@ struct type_record {
   }
   return true;
 }
-[[nodiscard]] bool fields_equal(const field_record& stored,
-                                const field_definition& input) noexcept {
-  return stored.id == input.id && stored.value_type_id == input.value_type_id &&
-         stored.flags == input.flags && stored.name == input.name;
-}
-[[nodiscard]] bool types_equal(const type_record& stored, const type_definition& input) noexcept {
-  if (stored.schema_version != input.schema_version || stored.name != input.name ||
-      stored.fields.size() != input.fields.size()) {
-    return false;
-  }
-  return std::ranges::all_of(stored.fields, [&input](const field_record& field) {
-    const auto found = std::ranges::find(input.fields, field.id, &field_definition::id);
-    return found != input.fields.end() && fields_equal(field, *found);
-  });
-}
 [[nodiscard]] field_info describe_record(const field_record& field) noexcept {
   return {
       .id = field_id{field.id},
-      .value_type_id = field.value_type_id,
+      .type_guid = field.type_guid,
       .flags = static_cast<field_flags>(field.flags),
       .name = field.name,
       .kind = field.accessor.kind,
@@ -179,8 +167,10 @@ struct type_record {
 }
 
 [[nodiscard]] type_info describe_record(const type_record& record) {
-  type_info pending{
-      .id = record.id, .schema_version = record.schema_version, .name = record.name, .fields = {}};
+  type_info pending{.guid = record.guid,
+                    .schema_version = record.schema_version,
+                    .name = record.name,
+                    .fields = {}};
   pending.fields.reserve(record.fields.size());
   for (const auto& field : record.fields)
     pending.fields.push_back(describe_record(field));
@@ -200,24 +190,27 @@ public:
       if (is_frozen_) {
         return gneiss::engine::result::invalid_state;
       }
-      auto* const found = find_type_unlocked(desc.id);
-      if (found != nullptr) {
-        return types_equal(*found, desc) ? gneiss::engine::result::success
-                                         : gneiss::engine::result::invalid_argument;
+      if (find_type_unlocked(desc.guid) || (desc.type_id && by_cpp_type_.contains(desc.type_id))) {
+        return result::invalid_argument;
       }
 
       auto record = std::make_unique<type_record>();
-      record->id = desc.id;
+      record->guid = desc.guid;
+      record->type_id = desc.type_id;
       record->schema_version = desc.schema_version;
       record->name.assign(desc.name);
       record->fields.reserve(desc.fields.size());
       for (const auto& field : desc.fields) {
-        record->fields.push_back({.id = field.id,
-                                  .value_type_id = field.value_type_id,
-                                  .flags = field.flags,
+        record->fields.push_back({.id = field.id.get(),
+                                  .type_guid = field.type_guid,
+                                  .flags = static_cast<std::uint32_t>(field.flags),
                                   .name = std::string(field.name),
                                   .accessor = {}});
       }
+      // 先预留所有者数组容量，索引插入成功后移动所有权不再分配；失败不会留下半条记录。
+      types_.reserve(types_.size() + 1);
+      if (desc.type_id)
+        by_cpp_type_.emplace(desc.type_id, record.get());
       types_.push_back(std::move(record));
       return gneiss::engine::result::success;
     } catch (const std::bad_alloc&) {
@@ -282,7 +275,7 @@ public:
         return gneiss::engine::result::success;
       }
       std::ranges::sort(types_, [](const auto& left, const auto& right) {
-        return left->id.value.bytes() < right->id.value.bytes();
+        return left->guid.value.bytes() < right->guid.value.bytes();
       });
       for (auto& type : types_) {
         std::ranges::sort(type->fields, [](const field_record& left, const field_record& right) {
@@ -412,6 +405,21 @@ public:
     return result::internal;
   }
 
+  [[nodiscard]] result describe_type(engine::type_id id, type_info& output) const noexcept try {
+    std::shared_lock lock(mutex_);
+    if (!is_frozen_)
+      return result::not_ready;
+    const auto found = by_cpp_type_.find(id);
+    if (found == by_cpp_type_.end())
+      return result::not_found;
+    output = describe_record(*found->second);
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+
   [[nodiscard]] result describe_type_at(std::uint32_t index, type_info& output) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
@@ -472,18 +480,19 @@ private:
 
   [[nodiscard]] type_record* find_type_unlocked(type_guid id) noexcept {
     const auto found =
-        std::ranges::find_if(types_, [id](const auto& type) { return type->id == id; });
+        std::ranges::find_if(types_, [id](const auto& type) { return type->guid == id; });
     return found == types_.end() ? nullptr : found->get();
   }
 
   [[nodiscard]] const type_record* find_type_unlocked(type_guid id) const noexcept {
     const auto found =
-        std::ranges::find_if(types_, [id](const auto& type) { return type->id == id; });
+        std::ranges::find_if(types_, [id](const auto& type) { return type->guid == id; });
     return found == types_.end() ? nullptr : found->get();
   }
 
   mutable std::shared_mutex mutex_;
   std::vector<std::unique_ptr<type_record>> types_;
+  std::map<engine::type_id, type_record*> by_cpp_type_;
   bool is_frozen_ = false;
 };
 
@@ -501,10 +510,9 @@ gneiss::engine::result register_type(const registry_ref& state,
                                      const type_definition& desc) noexcept {
   return state ? state->register_type(desc) : gneiss::engine::result::invalid_handle;
 }
-gneiss::engine::result bind_property(const registry_ref& state, type_guid type_id,
-                                     std::uint32_t field_id,
+gneiss::engine::result bind_property(const registry_ref& state, type_guid type_id, field_id field,
                                      const property_binding& desc) noexcept {
-  return state ? state->bind_property(type_id, field_id, desc)
+  return state ? state->bind_property(type_id, field.get(), desc)
                : gneiss::engine::result::invalid_handle;
 }
 gneiss::engine::result freeze(const registry_ref& state) noexcept {
@@ -539,6 +547,9 @@ gneiss::engine::result set_candidate_property(const registry_ref& state, type_gu
 
 namespace gneiss::engine {
 result describe_type(const registry_ref& registry, type_guid id, type_info& output) noexcept {
+  return registry ? registry->describe_type(id, output) : result::invalid_handle;
+}
+result describe_type(const registry_ref& registry, engine::type_id id, type_info& output) noexcept {
   return registry ? registry->describe_type(id, output) : result::invalid_handle;
 }
 result describe_type_at(const registry_ref& registry, std::uint32_t index,

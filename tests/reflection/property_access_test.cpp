@@ -57,15 +57,17 @@ result get_malformed(void*, property_target, property_value* output) {
 int main() try {
   namespace reflection = gneiss::engine;
   camera_fixture fixture;
-  const std::array fields{
-      reflection::field_definition{1, float_type, 0, "field_of_view"},
-      reflection::field_definition{
-          2, string_type, static_cast<std::uint32_t>(gneiss::field_flags::read_only), "label"},
-      reflection::field_definition{3, float_type, 0, "unbound"},
-      reflection::field_definition{4, float_type, 0, "malformed"}};
+  const std::array fields{reflection::field_definition{gneiss::field_id{1}, float_type,
+                                                       gneiss::field_flags::none, "field_of_view"},
+                          reflection::field_definition{gneiss::field_id{2}, string_type,
+                                                       gneiss::field_flags::read_only, "label"},
+                          reflection::field_definition{gneiss::field_id{3}, float_type,
+                                                       gneiss::field_flags::none, "unbound"},
+                          reflection::field_definition{gneiss::field_id{4}, float_type,
+                                                       gneiss::field_flags::none, "malformed"}};
   reflection::registry_ref registry;
   if (reflection::create_native(registry).failed() ||
-      reflection::register_type(registry, {camera_type, 1, "camera", fields}).failed())
+      reflection::register_type(registry, {camera_type, {}, 1, "camera", fields}).failed())
     return 1;
   const reflection::property_binding field_of_view{.kind = property_kind::float32,
                                                    .getter = get_field_of_view,
@@ -75,17 +77,20 @@ int main() try {
       .kind = property_kind::string, .getter = get_label, .setter = {}, .user_data = &fixture};
   auto invalid_read_only = label;
   invalid_read_only.setter = set_field_of_view;
-  if (reflection::bind_property(registry, camera_type, 1, field_of_view).failed() ||
-      reflection::bind_property(registry, camera_type, 1, field_of_view).failed() ||
-      reflection::bind_property(registry, camera_type, 2, invalid_read_only) !=
+  if (reflection::bind_property(registry, camera_type, gneiss::field_id{1}, field_of_view)
+          .failed() ||
+      reflection::bind_property(registry, camera_type, gneiss::field_id{1}, field_of_view)
+          .failed() ||
+      reflection::bind_property(registry, camera_type, gneiss::field_id{2}, invalid_read_only) !=
           result::invalid_argument ||
-      reflection::bind_property(registry, camera_type, 2, label).failed() ||
+      reflection::bind_property(registry, camera_type, gneiss::field_id{2}, label).failed() ||
       reflection::bind_property(
-          registry, camera_type, 4,
+          registry, camera_type, gneiss::field_id{4},
           {.kind = property_kind::float32, .getter = get_malformed, .setter = {}})
           .failed() ||
       reflection::freeze(registry).failed() ||
-      reflection::bind_property(registry, camera_type, 3, field_of_view) != result::invalid_state)
+      reflection::bind_property(registry, camera_type, gneiss::field_id{3}, field_of_view) !=
+          result::invalid_state)
     return 2;
   gneiss::field_info info;
   if (reflection::describe_field(registry, camera_type, gneiss::field_id{1}, info).failed() ||
