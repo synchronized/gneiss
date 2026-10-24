@@ -893,7 +893,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
 endif()
 
 add_executable(gneiss_scene_instance_test scene/scene_instance_test.cpp)
-target_link_libraries(gneiss_scene_instance_test PRIVATE gneiss::engine)
+target_link_libraries(gneiss_scene_instance_test PRIVATE gneiss::engine gneiss_native_interface)
 target_compile_definitions(
   gneiss_scene_instance_test
   PRIVATE

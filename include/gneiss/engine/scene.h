@@ -85,28 +85,6 @@ typedef struct gneiss_scene_instance_node_info {
    UINT32_C(0),                                                                                    \
    GNEISS_CAMERA_DESC_INIT}
 
-/** 创建通用作者节点所需信息；UUID 必须为小写规范形式。 */
-typedef struct gneiss_scene_node_desc {
-  uint32_t struct_size;
-  uint32_t reserved;
-  gneiss_scene_node_id parent;
-  const char* uuid;
-  uint64_t uuid_length;
-  const char* name;
-  uint64_t name_length;
-  gneiss_transform local_transform;
-} gneiss_scene_node_desc;
-
-#define GNEISS_SCENE_NODE_DESC_INIT                                                                \
-  {(uint32_t)sizeof(gneiss_scene_node_desc),                                                       \
-   UINT32_C(0),                                                                                    \
-   GNEISS_NULL_SCENE_NODE_ID,                                                                      \
-   NULL,                                                                                           \
-   UINT64_C(0),                                                                                    \
-   NULL,                                                                                           \
-   UINT64_C(0),                                                                                    \
-   GNEISS_TRANSFORM_IDENTITY}
-
 /** Prefab 实例根或来源节点的只读 Runtime 视图；字符串由场景实例借出。 */
 typedef struct gneiss_scene_prefab_node_info {
   uint32_t struct_size;
@@ -143,14 +121,6 @@ typedef struct gneiss_scene_prefab_node_info {
    GNEISS_TRANSFORM_IDENTITY,                                                                      \
    GNEISS_TRANSFORM_IDENTITY}
 
-/** 子树恢复时的稳定 UUID 替换项；字符串仅在调用期间借用。 */
-typedef struct gneiss_scene_uuid_mapping {
-  const char* source_uuid;
-  uint64_t source_uuid_length;
-  const char* target_uuid;
-  uint64_t target_uuid_length;
-} gneiss_scene_uuid_mapping;
-
 /** 场景实例中 Mesh Renderer 作者引用；字符串仅在调用期间借用。 */
 typedef struct gneiss_scene_mesh_renderer_desc {
   uint32_t struct_size;
@@ -161,22 +131,6 @@ typedef struct gneiss_scene_mesh_renderer_desc {
   uint64_t material_uri_length;
 } gneiss_scene_mesh_renderer_desc;
 
-/** 场景作者 Camera 值；is_primary 非零时同时选择为活动 Camera。 */
-typedef struct gneiss_scene_camera_desc {
-  uint32_t struct_size;
-  uint32_t reserved;
-  gneiss_camera_desc camera;
-  uint8_t is_primary;
-  uint8_t reserved_2[7];
-} gneiss_scene_camera_desc;
-
-#define GNEISS_SCENE_CAMERA_DESC_INIT                                                              \
-  {(uint32_t)sizeof(gneiss_scene_camera_desc),                                                     \
-   UINT32_C(0),                                                                                    \
-   GNEISS_CAMERA_DESC_INIT,                                                                        \
-   UINT8_C(0),                                                                                     \
-   {0, 0, 0, 0, 0, 0, 0}}
-
 #define GNEISS_SCENE_MESH_RENDERER_DESC_INIT                                                       \
   {(uint32_t)sizeof(gneiss_scene_mesh_renderer_desc),                                              \
    UINT32_C(0),                                                                                    \
@@ -184,28 +138,6 @@ typedef struct gneiss_scene_camera_desc {
    UINT64_C(0),                                                                                    \
    NULL,                                                                                           \
    UINT64_C(0)}
-
-/** 创建场景作者节点所需信息；UUID 必须为小写规范形式。 */
-typedef struct gneiss_scene_mesh_renderer_node_desc {
-  uint32_t struct_size;
-  uint32_t reserved;
-  gneiss_scene_node_id parent;
-  const char* uuid;
-  uint64_t uuid_length;
-  const char* name;
-  uint64_t name_length;
-  gneiss_scene_mesh_renderer_desc renderer;
-} gneiss_scene_mesh_renderer_node_desc;
-
-#define GNEISS_SCENE_MESH_RENDERER_NODE_DESC_INIT                                                  \
-  {(uint32_t)sizeof(gneiss_scene_mesh_renderer_node_desc),                                         \
-   UINT32_C(0),                                                                                    \
-   GNEISS_NULL_SCENE_NODE_ID,                                                                      \
-   NULL,                                                                                           \
-   UINT64_C(0),                                                                                    \
-   NULL,                                                                                           \
-   UINT64_C(0),                                                                                    \
-   GNEISS_SCENE_MESH_RENDERER_DESC_INIT}
 
 #ifdef __cplusplus
 extern "C" {
@@ -318,74 +250,10 @@ GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_release_prefa
     gneiss_application application, gneiss_scene_instance instance,
     gneiss_scene_prefab_refresh_token token);
 
-/** 原子创建不含可选组件的作者节点。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_create_node(
-    gneiss_application application, gneiss_scene_instance instance,
-    const gneiss_scene_node_desc* desc, gneiss_scene_node_id* out_node);
-
-/** 原子修改作者节点名称；名称为空时清除显示名称。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_set_node_name(
-    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id node,
-    const char* name, uint64_t name_length);
-
-/** 原子修改作者节点父级；拒绝跨实例父节点及循环关系。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result
-gneiss_scene_instance_reparent_node(gneiss_application application, gneiss_scene_instance instance,
-                                    gneiss_scene_node_id node, gneiss_scene_node_id parent);
-
-/**
- * 将以 root 为根的当前作者子树写入 UTF-8 JSON 快照。
- *
- * buffer 为空且 capacity 为零时只查询所需字节数；快照不包含 Runtime ID 或 RID。
- * 子树挂有 Prefab 时返回 GNEISS_ERROR_UNSUPPORTED；其他位置的 Prefab 不进入快照。
- */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_capture_subtree(
-    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id root,
-    char* buffer, uint64_t capacity, uint64_t* out_length);
-
-/**
- * 原子恢复或复制作者子树。parent 为零时恢复为根；映射为空时保留快照 UUID。
- *
- * 非空映射必须完整覆盖快照中的每个 UUID，source 与 target 均不得重复。
- * 当前不恢复 Prefab 引用；快照包含 Prefab 时返回 GNEISS_ERROR_UNSUPPORTED，实例保持不变。
- */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_restore_subtree(
-    gneiss_application application, gneiss_scene_instance instance, const char* snapshot,
-    uint64_t snapshot_length, gneiss_scene_node_id parent,
-    const gneiss_scene_uuid_mapping* mappings, uint64_t mapping_count,
-    gneiss_scene_node_id* out_root);
-
-/** 原子删除普通作者子树；成功后其中全部 Runtime ID 失效。
- * 子树挂有 Prefab 时返回 GNEISS_ERROR_UNSUPPORTED，不修改实例。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_destroy_subtree(
-    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id root);
-
-/** 原子创建带 Mesh Renderer 的作者节点；失败时实例、World 和资产引用保持不变。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_create_mesh_renderer_node(
-    gneiss_application application, gneiss_scene_instance instance,
-    const gneiss_scene_mesh_renderer_node_desc* desc, gneiss_scene_node_id* out_node);
-
 /** 原子替换节点的 Mesh 与 Material 作者引用及运行时资源。 */
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_set_mesh_renderer(
     gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id node,
     const gneiss_scene_mesh_renderer_desc* desc);
-
-/** 添加或替换节点 Camera 作者值；主 Camera 身份在实例内唯一。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result
-gneiss_scene_instance_set_camera(gneiss_application application, gneiss_scene_instance instance,
-                                 gneiss_scene_node_id node, const gneiss_scene_camera_desc* desc);
-
-/** 移除节点 Camera 作者值和 Runtime 组件。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_remove_camera(
-    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id node);
-
-/** 移除节点 Mesh Renderer 作者引用、Runtime 组件和资产租约。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_remove_mesh_renderer(
-    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id node);
-
-/** 删除没有子节点的作者节点；成功后对应节点、实体和资产引用立即失效。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_destroy_node(
-    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id node);
 
 /**
  * 将实例当前 Transform 与 Camera 写入当前版本的 UTF-8 场景 JSON。

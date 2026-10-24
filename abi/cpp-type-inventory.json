@@ -1634,12 +1634,6 @@
       "contract": "docs/reference/scene-instance.md",
       "types": [
         {
-          "symbol": "gneiss_scene_camera_desc",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::engine::camera_description",
-          "native_review": "implemented"
-        },
-        {
           "symbol": "gneiss_scene_instance",
           "kind": "owner",
           "cpp_mapping": "gneiss::scene_instance",
@@ -1655,18 +1649,6 @@
           "symbol": "gneiss_scene_mesh_renderer_desc",
           "kind": "struct",
           "cpp_mapping": "gneiss::engine::mesh_renderer_description",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_scene_mesh_renderer_node_desc",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::engine::mesh_renderer_node_creation",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_scene_node_desc",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::engine::node_creation",
           "native_review": "implemented"
         },
         {
@@ -1686,12 +1668,6 @@
           "kind": "owner",
           "cpp_mapping": "gneiss::scene_prefab_refresh",
           "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_scene_uuid_mapping",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::engine::uuid_mapping",
-          "native_review": "implemented"
         }
       ],
       "constants": [
@@ -1709,11 +1685,6 @@
           "symbol": "GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN",
           "native_review": "implemented",
           "cpp_mapping": "gneiss::scene_prefab_refresh{}"
-        },
-        {
-          "symbol": "GNEISS_SCENE_CAMERA_DESC_INIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::camera_description{}"
         },
         {
           "symbol": "GNEISS_SCENE_INSTANCE_NODE_INFO_INIT",
@@ -1741,11 +1712,6 @@
           "cpp_mapping": "gneiss::engine::mesh_renderer_description{}"
         },
         {
-          "symbol": "GNEISS_SCENE_MESH_RENDERER_NODE_DESC_INIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::mesh_renderer_node_creation{}"
-        },
-        {
           "symbol": "GNEISS_SCENE_NODE_COMPONENT_CAMERA",
           "native_review": "implemented",
           "cpp_mapping": "gneiss::scene_node_components::camera"
@@ -1759,11 +1725,6 @@
           "symbol": "GNEISS_SCENE_NODE_COMPONENT_PRIMARY_CAMERA",
           "native_review": "implemented",
           "cpp_mapping": "gneiss::scene_node_components::primary_camera"
-        },
-        {
-          "symbol": "GNEISS_SCENE_NODE_DESC_INIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::node_creation{}"
         },
         {
           "symbol": "GNEISS_SCENE_PREFAB_NODE_INFO_INIT",

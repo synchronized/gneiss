@@ -95,14 +95,14 @@ Application 销毁后，`reset()` 可安全清空失效令牌；其他错误保�
 
 ## 作者节点编辑
 
-`gneiss_scene_instance_create_node` 原子创建不含可选组件的通用作者节点。调用方提供稳定 UUID、可选
+`engine::scene_instances::create_node` 原子创建不含可选组件的通用作者节点。调用方提供稳定 UUID、可选
 名称、实例内父节点和局部 Transform；创建失败不会留下 Entity、Scene Node 或作者对象。
 
-`gneiss_scene_instance_set_node_name` 同步修改运行时显示名称和作者名称；空名称表示清除。
-`gneiss_scene_instance_reparent_node` 同步修改 Scene Tree 和作者父 UUID，支持挂到根，拒绝自身、循环
+`engine::scene_instances::set_node_name` 同步修改运行时显示名称和作者名称；空名称表示清除。
+`engine::scene_instances::reparent_node` 同步修改 Scene Tree 和作者父 UUID，支持挂到根，拒绝自身、循环
 关系和实例外父节点。两项操作均先准备可能分配的作者数据，再修改运行时状态，失败时保持原状态。
 
-`gneiss_scene_instance_create_mesh_renderer_node` 原子创建带 Mesh Renderer 的作者节点。调用方提供
+`engine::scene_instances::create_mesh_renderer_node` 原子创建带 Mesh Renderer 的作者节点。调用方提供
 稳定 UUID、可选名称、实例内父节点及 Mesh/Material URI；实现会先获取两个资产租约，再创建 Entity、
 Scene Node 和 ECS 组件。任何阶段失败都不增加作者对象或泄漏资源。
 
@@ -110,7 +110,7 @@ Scene Node 和 ECS 组件。任何阶段失败都不增加作者对象或泄漏�
 ECS 组件更新成功后，才替换作者 URI 和旧租约；失败保留原引用。父节点必须属于同一场景实例，节点
 ID 和实例不能跨 Application 使用。这两项操作仅限 Application 创建线程。
 
-`gneiss_scene_instance_destroy_node` 删除没有子节点的作者节点，并使对应 Entity、Scene Node ID 与
+`engine::scene_instances::destroy_node` 删除没有子节点的作者节点，并使对应 Entity、Scene Node ID 与
 资产租约失效。有子节点时返回 `GNEISS_ERROR_INVALID_STATE`，未知节点返回句柄错误。
 
 ## 子树快照、复制与恢复
@@ -120,9 +120,9 @@ ID 和实例不能跨 Application 使用。这两项操作仅限 Application 创
 返回该错误，避免只恢复普通节点而遗漏 Prefab。单节点删除同样把挂接的 Prefab 视为子节点，
 返回 `GNEISS_ERROR_INVALID_STATE`；可先通过专用 Prefab 接口处理实例，再操作普通作者子树。
 
-`gneiss_scene_instance_capture_subtree` 输出当前版本场景 Schema 的 UTF-8 JSON 值快照，包含目标根、
+`engine::scene_instances::capture_subtree` 输出当前版本场景 Schema 的 UTF-8 JSON 值快照，包含目标根、
 全部后代、层级、Transform、Camera 和 Mesh Renderer 作者值，不包含 Entity ID、Scene Node ID、RID
-或组件地址。接口使用与场景序列化相同的两次调用方式；快照用于当前版本 Editor 命令，不作为独立
+或组件地址。原生接口一次写入调用方提供的 std::string；快照用于当前版本 Editor 命令，不作为独立
 资产格式或长期存档格式。
 
 快照根节点的 `parent` 为 null，不保留快照外的父引用；恢复时使用显式 `parent` 参数重新挂接，
@@ -131,14 +131,14 @@ ID 和实例不能跨 Application 使用。这两项操作仅限 Application 创
 单个快照最多包含 `GNEISS_SCENE_SUBTREE_MAX_NODES`（4096）个节点，超过限制返回
 `GNEISS_ERROR_UNSUPPORTED`，防止命令历史无界持有场景副本。
 
-`gneiss_scene_instance_restore_subtree` 在指定实例父节点下恢复快照。UUID 映射为空时保留原 UUID，
+`engine::scene_instances::restore_subtree` 在指定实例父节点下恢复快照。UUID 映射为空时保留原 UUID，
 适合删除撤销；非空映射必须完整覆盖全部快照节点，源 UUID 和目标 UUID 均唯一，适合确定性复制。
 复制 Camera 时不会复制活动 Camera 身份，避免一个实例出现多个主 Camera。恢复会先完成 JSON、UUID、
 父级和资产校验并预取全部资源，再创建 Runtime 投影；失败不会增加作者对象、Runtime 对象或租约。
 
-`gneiss_scene_instance_destroy_subtree` 显式删除根及全部后代，不依赖调用方逐叶删除。成功后旧 Entity
-ID 和 Scene Node ID 全部失效；调用方应在删除前保存快照和根节点原父 UUID，供 Undo 使用。C++
-包装分别使用 `std::string` 和 `std::span<scene_uuid_mapping>` 承载值快照与 UUID 映射。
+`engine::scene_instances::destroy_subtree` 显式删除根及全部后代，不依赖调用方逐叶删除。成功后旧 Entity
+ID 和 Scene Node ID 全部失效；调用方应在删除前保存快照和根节点原父 UUID，供 Undo 使用。原生接口
+分别使用 `std::string` 和 `std::span<const engine::uuid_mapping>` 承载值快照与 UUID 映射。
 
 创建、重命名、重挂接、替换与删除会进入后续
 序列化结果，但不会自行写入来源文件；Editor 仍负责脏状态和原子保存。
