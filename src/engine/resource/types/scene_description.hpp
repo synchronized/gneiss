@@ -8,6 +8,7 @@
 
 #include "engine/resource/types/prefab_property_data.hpp"
 
+#include "engine/core/math/types.hpp"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -45,9 +46,9 @@ struct object_description final {
   std::string uuid;
   std::string name;
   std::optional<std::string> parent_uuid;
-  std::array<float, 3> translation{};
-  std::array<float, 4> rotation{};
-  std::array<float, 3> scale{};
+  gneiss::engine::vector3 translation{};
+  gneiss::engine::quaternion rotation{0.0F, 0.0F, 0.0F, 0.0F};
+  gneiss::engine::vector3 scale{};
   std::optional<camera_description> camera;
   std::optional<mesh_renderer_description> mesh_renderer;
 };
@@ -57,9 +58,9 @@ struct prefab_instance_description final {
   std::string name;
   std::optional<std::string> parent_uuid;
   std::string prefab_uri;
-  std::array<float, 3> translation{};
-  std::array<float, 4> rotation{};
-  std::array<float, 3> scale{};
+  gneiss::engine::vector3 translation{};
+  gneiss::engine::quaternion rotation{0.0F, 0.0F, 0.0F, 0.0F};
+  gneiss::engine::vector3 scale{};
   std::vector<prefab_property_override> overrides;
 };
 

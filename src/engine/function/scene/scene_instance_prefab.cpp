@@ -46,9 +46,9 @@ gneiss::engine::result scene_instance::capture_prefab_instance_header(
   if (queried != gneiss::engine::result::success) {
     return queried;
   }
-  std::ranges::copy(transform.translation, copy.translation.begin());
-  std::ranges::copy(transform.rotation, copy.rotation.begin());
-  std::ranges::copy(transform.scale, copy.scale.begin());
+  copy.translation = transform.translation;
+  copy.rotation = transform.rotation;
+  copy.scale = transform.scale;
   source = prefab_instances_[index]->prefab_lease();
   author = std::move(copy);
   return gneiss::engine::result::success;
@@ -110,9 +110,9 @@ gneiss::engine::result scene_instance::prepare_prefab_instance_candidate(
   auto candidate = std::make_unique<prefab_runtime_instance>(
       native_world_, reflection_context_, loader_, std::move(prefab), author.instance_uuid);
   gneiss::engine::transform transform = {};
-  std::ranges::copy(author.translation, transform.translation.begin());
-  std::ranges::copy(author.rotation, transform.rotation.begin());
-  std::ranges::copy(author.scale, transform.scale.begin());
+  transform.translation = author.translation;
+  transform.rotation = author.rotation;
+  transform.scale = author.scale;
   const auto result = candidate->begin_hidden(parent, transform, std::move(effective));
   candidate->candidate_scene_ = instance;
   candidate->candidate_previous_root_ = previous_root;

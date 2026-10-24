@@ -255,7 +255,7 @@ void run() {
           !removal_complete);
     author.instance_uuid = "00000000-0000-4000-8000-000000000077";
     author.prefab_uri = "asset://p.prefab";
-    author.rotation = {0, 0, 0, 1};
+    author.rotation = gneiss::engine::quaternion_xyzw(0, 0, 0, 1);
     author.scale = {1, 1, 1};
     gneiss::engine::prefab_candidate pending;
     const auto transaction_reads = files->reads;

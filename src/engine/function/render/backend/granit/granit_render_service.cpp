@@ -75,21 +75,12 @@ struct geometry_range final {
 
 gneiss::engine::matrix4 multiply(const gneiss::engine::matrix4& left,
                                  const gneiss::engine::matrix4& right) noexcept {
-  gneiss::engine::matrix4 result;
-  for (std::size_t row = 0; row < 4U; ++row) {
-    for (std::size_t column = 0; column < 4U; ++column) {
-      for (std::size_t inner = 0; inner < 4U; ++inner) {
-        result.values[(column * 4U) + row] +=
-            left.values[(inner * 4U) + row] * right.values[(column * 4U) + inner];
-      }
-    }
-  }
-  return result;
+  return left * right;
 }
 
 granit_matrix4 to_granit_matrix(const gneiss::engine::matrix4& source) noexcept {
   granit_matrix4 result{};
-  std::ranges::copy(source.values, result.elements);
+  std::ranges::copy(gneiss::engine::matrix_elements(source), result.elements);
   return result;
 }
 

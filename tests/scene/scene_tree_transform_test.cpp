@@ -34,7 +34,8 @@ gneiss::engine::transform reference_combine(const gneiss::engine::transform& par
   std::array scaled_translation{local.translation[0] * parent.scale[0],
                                 local.translation[1] * parent.scale[1],
                                 local.translation[2] * parent.scale[2]};
-  scaled_translation = rotate(parent.rotation.data(), scaled_translation);
+  scaled_translation =
+      rotate(gneiss::engine::components(parent.rotation).data(), scaled_translation);
   for (std::size_t index = 0; index < scaled_translation.size(); ++index) {
     result.translation[index] = parent.translation[index] + scaled_translation[index];
     result.scale[index] = parent.scale[index] * local.scale[index];
@@ -55,11 +56,15 @@ gneiss::engine::transform reference_combine(const gneiss::engine::transform& par
 bool approximately_equal(const gneiss::engine::transform& left,
                          const gneiss::engine::transform& right) noexcept {
   const auto close = [](float first, float second) { return std::abs(first - second) < 1.0e-5F; };
-  return std::equal(std::begin(left.translation), std::end(left.translation),
-                    std::begin(right.translation), close) &&
-         std::equal(std::begin(left.rotation), std::end(left.rotation), std::begin(right.rotation),
-                    close) &&
-         std::equal(std::begin(left.scale), std::end(left.scale), std::begin(right.scale), close);
+  return std::equal(gneiss::engine::components(left.translation).begin(),
+                    gneiss::engine::components(left.translation).end(),
+                    gneiss::engine::components(right.translation).begin(), close) &&
+         std::equal(gneiss::engine::components(left.rotation).begin(),
+                    gneiss::engine::components(left.rotation).end(),
+                    gneiss::engine::components(right.rotation).begin(), close) &&
+         std::equal(gneiss::engine::components(left.scale).begin(),
+                    gneiss::engine::components(left.scale).end(),
+                    gneiss::engine::components(right.scale).begin(), close);
 }
 
 int run_tests() {

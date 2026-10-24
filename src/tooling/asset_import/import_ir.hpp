@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/math/types.hpp"
 #include "engine/resource/types/material_types.hpp"
 
 #include <array>
@@ -27,9 +28,9 @@ struct import_ir_node {
   std::string name;
   std::optional<std::size_t> mesh_index;
   std::vector<std::size_t> children;
-  std::array<float, 3> translation{};
-  std::array<float, 4> rotation{0.0F, 0.0F, 0.0F, 1.0F};
-  std::array<float, 3> scale{1.0F, 1.0F, 1.0F};
+  gneiss::engine::vector3 translation{};
+  gneiss::engine::quaternion rotation{1.0F, 0.0F, 0.0F, 0.0F};
+  gneiss::engine::vector3 scale{1.0F};
 };
 
 struct import_ir_primitive {

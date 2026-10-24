@@ -60,9 +60,9 @@ gneiss::engine::result prefab_candidate::preview(std::size_t index,
     output.node = scene_node_id{runtime_->root()};
     output.entity = entity_id{runtime_->root_entity()};
     output.name = author_.name;
-    std::ranges::copy(author_.translation, output.local_transform.translation.begin());
-    std::ranges::copy(author_.rotation, output.local_transform.rotation.begin());
-    std::ranges::copy(author_.scale, output.local_transform.scale.begin());
+    output.local_transform.translation = author_.translation;
+    output.local_transform.rotation = author_.rotation;
+    output.local_transform.scale = author_.scale;
     return gneiss::engine::result::success;
   }
   gneiss::engine::prefab_runtime_instance::node_info info;

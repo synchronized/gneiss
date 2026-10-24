@@ -8,6 +8,7 @@ Gneiss Runtime 的源码或二进制包含下列第三方软件。安装树在 `
 
 | 软件 | 版本 | 用途 | 许可证 |
 | --- | --- | --- | --- |
+| GLM | 1.0.1 | 内部向量、四元数和矩阵运算 | MIT（双许可中选择 MIT） |
 | EnTT | 3.15.0 | ECS 内部实现 | MIT |
 | yyjson | 0.12.0 | JSON 解析与写出 | MIT |
 | libspng | 0.7.4 | PNG 解码 | BSD-2-Clause |
@@ -42,3 +43,8 @@ Gneiss 改用现有 VFS/任务执行器，增加有界分步读取、来源复�
 不引入 CAORS 字段反射、能力注册表或资源管理系统。
 替代方案是自行实现这些小型值类型；移植保留既有语义与测试边界。仅 Engine 编译实现，
 内部消费者重编译后使用；不新增外部库依赖，也不改变公共 C ABI。
+
+GLM 锁定提交 `0af55ccecd98d4e5a8d1fad7de25ba429d60e863`，源码归档由 SHA-256 校验，
+通过 `gneiss_math_dependency` 传播给仓内消费者；不构建或安装 GLM SDK。它不增加运行时动态库依赖，
+但包含数学值类型的内部 C++ 消费者需要重新编译。替代方案为复制 Granit 数学代码或自建数学库；
+选择 GLM 以减少重复算法维护，具体约束见 [ADR-083](docs/decisions/ADR-083-unified-math.md)。

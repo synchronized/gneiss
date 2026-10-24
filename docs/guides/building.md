@@ -15,6 +15,7 @@ Editor。
 - CMake 3.23 或更高版本。
 - 支持 C++20 的 C/C++ 编译器。
 - 使用 Ninja preset 时需要安装 Ninja。
+- GLM 1.0.1 为内部头文件依赖，由 CMake 获取锁定归档并校验 SHA-256；已有依赖缓存时可离线复用，无需单独安装 GLM。
 - 启用 Granit 运行时适配时需要已安装的 Granit `0.67.x`（本次验证为 `0.67.0`） 核心、Window 与 RenderPipeline
   组件，或由父工程提供 `granit::granit`、`granit::window` 和
   `granit::render_pipeline` 目标。

@@ -4,6 +4,9 @@ include(internal_headers)
 
 # SDK 撤销期间的仓内共享值及转换辅助，不安装、不暴露实现目录。
 gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
+  engine/core/math/functions.hpp
+  engine/core/math/transform.hpp
+  engine/core/math/types.hpp
   engine/core/export.hpp
   engine/core/result.hpp
   engine/core/version.hpp
@@ -11,7 +14,6 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/guid.hpp
   engine/core/type_guid.hpp
 
-  engine/core/math/transform.hpp
   engine/core/math/camera_settings.hpp
   engine/core/entity_id.hpp
   engine/core/reflection/reflection_types.hpp
@@ -44,11 +46,13 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/type_guid.hpp
   engine/core/traits/type_name.hpp
   engine/core/traits/type_identity.hpp
+  engine/core/math/functions.hpp
+  engine/core/math/transform.hpp
+  engine/core/math/types.hpp
   engine/core/export.hpp
   engine/core/result.hpp
   engine/core/input/input_types.hpp
   engine/core/log/log_dispatcher.hpp
-  engine/core/math/transform.hpp
   engine/core/progress_notification.hpp
   engine/core/publication_group.hpp
   engine/core/reflection/property_registry.hpp
@@ -101,6 +105,9 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
 
 # 离线资产服务供 Editor 和命令行消费的契约。
 gneiss_internal_headers(gneiss_tooling_interface "${PROJECT_SOURCE_DIR}/src"
+  engine/core/math/functions.hpp
+  engine/core/math/transform.hpp
+  engine/core/math/types.hpp
   engine/core/export.hpp
   engine/core/result.hpp
   engine/resource/loaders/mesh_binary.hpp

@@ -54,7 +54,7 @@ int main() {
   }
 
   gneiss::engine::property_value value;
-  value.payload = gneiss::property_vec3{.x = 2.0F, .y = 3.0F, .z = 4.0F};
+  value.payload = gneiss::property_vec3{2.0F, 3.0F, 4.0F};
   if (inspector.set_value(gneiss::engine::transform_component_type,
                           gneiss::engine::transform_translation_field,
                           value) != gneiss::engine::result::success) {
@@ -66,7 +66,7 @@ int main() {
     return 4;
   }
 
-  value.payload = gneiss::property_vec3{.x = 0.0F, .y = 1.0F, .z = 1.0F};
+  value.payload = gneiss::property_vec3{0.0F, 1.0F, 1.0F};
   if (inspector.set_value(gneiss::engine::transform_component_type,
                           gneiss::engine::transform_scale_field,
                           value) != gneiss::engine::result::invalid_argument ||

@@ -11,6 +11,7 @@
 
 namespace gneiss::editor {
 
+/** ImGuizmo 的列主序数组边界；内部运算使用 engine::matrix4。 */
 using gizmo_matrix = std::array<float, 16>;
 
 /** 与 Editor Camera 相同的全窗口投影；输入纵横比必须为有限正数。 */

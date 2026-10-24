@@ -28,7 +28,7 @@ gneiss::engine::result to_native_value(const gneiss::host::ipc_property_value& s
           output.payload = gneiss::property_vec3{payload[0], payload[1], payload[2]};
         } else if constexpr (std::is_same_v<T, std::array<float, 4>>) {
           output.payload =
-              gneiss::property_quaternion{payload[0], payload[1], payload[2], payload[3]};
+              gneiss::engine::quaternion_xyzw(payload[0], payload[1], payload[2], payload[3]);
         } else {
           output.payload = payload;
         }

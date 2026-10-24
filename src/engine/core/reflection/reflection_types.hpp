@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/math/types.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/type_guid.hpp"
 #include <algorithm>
@@ -62,20 +63,8 @@ template <reflection_flags T> constexpr T& operator&=(T& left, T right) noexcept
 template <reflection_flags T> [[nodiscard]] constexpr bool has_flags(T value, T flags) noexcept {
   return (value & flags) == flags;
 }
-struct property_vec3 {
-  friend constexpr bool operator==(const property_vec3&, const property_vec3&) noexcept = default;
-  float x = 0;
-  float y = 0;
-  float z = 0;
-};
-struct property_quaternion {
-  friend constexpr bool operator==(const property_quaternion&,
-                                   const property_quaternion&) noexcept = default;
-  float x = 0;
-  float y = 0;
-  float z = 0;
-  float w = 1;
-};
+using property_vec3 = engine::vector3;
+using property_quaternion = engine::quaternion;
 /** 属性文本的寿命由 getter 的适配器约定，包装不延长寿命。 */
 using property_string = std::string_view;
 using property_payload =

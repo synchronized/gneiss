@@ -58,9 +58,9 @@ gneiss::engine::result scene_instances::instantiate_prepared(prepared_scene_desc
       auto prefab = std::make_unique<prefab_runtime_instance>(native_world_, reflection_context_,
                                                               loader_, lease, source.instance_uuid);
       gneiss::engine::transform transform{};
-      std::ranges::copy(source.translation, transform.translation.begin());
-      std::ranges::copy(source.rotation, transform.rotation.begin());
-      std::ranges::copy(source.scale, transform.scale.begin());
+      transform.translation = source.translation;
+      transform.rotation = source.rotation;
+      transform.scale = source.scale;
       auto result = prefab->begin_staged(
           source.parent_uuid ? nodes.at(*source.parent_uuid) : gneiss::engine::null_rid, transform);
       if (result != gneiss::engine::result::success) {

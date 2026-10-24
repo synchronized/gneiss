@@ -642,6 +642,7 @@ add_executable(
 target_include_directories(
   gneiss_scene_projection_math_test PRIVATE "${PROJECT_SOURCE_DIR}/src"
 )
+target_link_libraries(gneiss_scene_projection_math_test PRIVATE gneiss_math_dependency)
 target_compile_features(gneiss_scene_projection_math_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_scene_projection_math_test)
 gneiss_target_output_directories(gneiss_scene_projection_math_test)
@@ -812,6 +813,7 @@ add_executable(
 target_include_directories(
   gneiss_structural_diff_test PRIVATE "${PROJECT_SOURCE_DIR}/src"
 )
+target_link_libraries(gneiss_structural_diff_test PRIVATE gneiss_math_dependency)
 target_compile_features(gneiss_structural_diff_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_structural_diff_test)
 gneiss_target_output_directories(gneiss_structural_diff_test)
@@ -1032,3 +1034,11 @@ target_compile_features(gneiss_type_registry_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_type_registry_test)
 gneiss_target_output_directories(gneiss_type_registry_test)
 add_test(NAME gneiss.type_registry COMMAND gneiss_type_registry_test)
+
+# 数学类型、四元数分量顺序及 TRS 边界契约。
+add_executable(gneiss_math_test core/math_test.cpp)
+target_link_libraries(gneiss_math_test PRIVATE gneiss_value_interface)
+target_compile_features(gneiss_math_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_math_test)
+gneiss_target_output_directories(gneiss_math_test)
+add_test(NAME gneiss.math COMMAND gneiss_math_test)

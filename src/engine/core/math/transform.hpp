@@ -3,13 +3,13 @@
 
 #pragma once
 
-#include <array>
+#include "engine/core/math/types.hpp"
 
 namespace gneiss::engine {
-/** 纯值 TRS；四元数顺序为 xyzw，不持有场景或后端状态。 */
+/** 纯值 TRS；四元数分量访问及序列化顺序为 xyzw，构造顺序为 wxyz，不持有场景或后端状态。 */
 struct transform {
-  std::array<float, 3> translation{};
-  std::array<float, 4> rotation{0.0F, 0.0F, 0.0F, 1.0F};
-  std::array<float, 3> scale{1.0F, 1.0F, 1.0F};
+  vector3 translation{0.0F};
+  quaternion rotation{1.0F, 0.0F, 0.0F, 0.0F};
+  vector3 scale{1.0F};
 };
 } // namespace gneiss::engine

@@ -45,6 +45,7 @@ if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME OR (GNEISS_TASK_THREADS AND NOT E
   include(libuv)
   gneiss_resolve_libuv()
 endif()
+include(glm)
 include(internal_interfaces)
 add_subdirectory(src)
 target_sources(gneiss_engine PRIVATE
@@ -188,3 +189,5 @@ endif()
 if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   add_subdirectory(tests)
 endif()
+
+install(FILES "${GNEISS_GLM_SOURCE_DIR}/copying.txt" DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses" RENAME GLM-LICENSE)

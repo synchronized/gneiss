@@ -55,19 +55,13 @@ gneiss::engine::result get_transform(void* user_data, gneiss::property_target ta
   }
   switch (*static_cast<const transform_field*>(user_data)) {
   case transform_field::translation:
-    output->payload = gneiss::property_vec3{.x = transform.translation[0],
-                                            .y = transform.translation[1],
-                                            .z = transform.translation[2]};
+    output->payload = transform.translation;
     break;
   case transform_field::rotation:
-    output->payload = gneiss::property_quaternion{.x = transform.rotation[0],
-                                                  .y = transform.rotation[1],
-                                                  .z = transform.rotation[2],
-                                                  .w = transform.rotation[3]};
+    output->payload = transform.rotation;
     break;
   case transform_field::scale:
-    output->payload = gneiss::property_vec3{
-        .x = transform.scale[0], .y = transform.scale[1], .z = transform.scale[2]};
+    output->payload = transform.scale;
     break;
   }
   return gneiss::engine::result::success;
@@ -96,12 +90,13 @@ gneiss::engine::result set_candidate_transform(void* user_data, void* candidate,
     break;
   }
   float norm = 0;
-  for (const auto item : transform.rotation) {
+  for (const auto item : gneiss::engine::components(transform.rotation)) {
     norm += item * item;
   }
   if (!std::isfinite(norm) || std::abs(std::sqrt(norm) - 1.0F) > 1.0e-4F ||
-      !std::ranges::all_of(transform.translation, [](float item) { return std::isfinite(item); }) ||
-      !std::ranges::all_of(transform.scale, [](float item) {
+      !std::ranges::all_of(gneiss::engine::components(transform.translation),
+                           [](float item) { return std::isfinite(item); }) ||
+      !std::ranges::all_of(gneiss::engine::components(transform.scale), [](float item) {
         return std::isfinite(item) && std::abs(item) >= 1.0e-6F;
       })) {
     return gneiss::engine::result::invalid_argument;

@@ -354,14 +354,14 @@ scene_document::set_local_transform(scene_node_id node,
   if (prefab != prefab_nodes_.end() && !prefab->is_instance_root) {
     prefab->local_transform = value;
     prefab->override_flags = 0U;
-    if (!std::ranges::equal(value.translation, prefab->source_local_transform.translation)) {
+    if (!(value.translation == prefab->source_local_transform.translation)) {
       prefab->override_flags |=
           static_cast<std::uint32_t>(scene_prefab_flags::translation_overridden);
     }
-    if (!std::ranges::equal(value.rotation, prefab->source_local_transform.rotation)) {
+    if (!(value.rotation == prefab->source_local_transform.rotation)) {
       prefab->override_flags |= static_cast<std::uint32_t>(scene_prefab_flags::rotation_overridden);
     }
-    if (!std::ranges::equal(value.scale, prefab->source_local_transform.scale)) {
+    if (!(value.scale == prefab->source_local_transform.scale)) {
       prefab->override_flags |= static_cast<std::uint32_t>(scene_prefab_flags::scale_overridden);
     }
     is_dirty_ = true;
@@ -386,13 +386,13 @@ scene_document::restore_prefab_transform_field(scene_node_id node, std::uint32_t
   auto restored = found->local_transform;
   switch (field_id) {
   case gneiss::engine::transform_translation_field.get():
-    std::ranges::copy(found->source_local_transform.translation, restored.translation.begin());
+    restored.translation = found->source_local_transform.translation;
     break;
   case gneiss::engine::transform_rotation_field.get():
-    std::ranges::copy(found->source_local_transform.rotation, restored.rotation.begin());
+    restored.rotation = found->source_local_transform.rotation;
     break;
   case gneiss::engine::transform_scale_field.get():
-    std::ranges::copy(found->source_local_transform.scale, restored.scale.begin());
+    restored.scale = found->source_local_transform.scale;
     break;
   default:
     return gneiss::engine::result::invalid_argument;

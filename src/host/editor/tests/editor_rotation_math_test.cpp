@@ -51,7 +51,8 @@ int main() {
     return 3;
   }
 
-  constexpr gneiss::property_quaternion invalid{.w = 0.0F};
+  constexpr gneiss::property_quaternion invalid =
+      gneiss::engine::quaternion_xyzw(0.0F, 0.0F, 0.0F, 0.0F);
   if (gneiss::editor::quaternion_to_euler_degrees(invalid, recovered) !=
       gneiss::engine::result::invalid_argument) {
     return 4;

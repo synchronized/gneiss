@@ -5,6 +5,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 
+#include "engine/core/math/functions.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -18,48 +19,9 @@ namespace {
 
 gneiss::engine::transform combine(const gneiss::engine::transform& parent,
                                   const gneiss::engine::transform& local) noexcept {
-  const auto px = parent.rotation[0];
-  const auto py = parent.rotation[1];
-  const auto pz = parent.rotation[2];
-  const auto pw = parent.rotation[3];
-  const std::array scaled = {local.translation[0] * parent.scale[0],
-                             local.translation[1] * parent.scale[1],
-                             local.translation[2] * parent.scale[2]};
-  const std::array uv = {(py * scaled[2]) - (pz * scaled[1]), (pz * scaled[0]) - (px * scaled[2]),
-                         (px * scaled[1]) - (py * scaled[0])};
-  const std::array uuv = {(py * uv[2]) - (pz * uv[1]), (pz * uv[0]) - (px * uv[2]),
-                          (px * uv[1]) - (py * uv[0])};
-
-  gneiss::engine::transform result = gneiss::engine::transform{};
-  for (std::size_t index = 0; index < 3; ++index) {
-    result.translation[index] =
-        parent.translation[index] + scaled[index] + (2.0F * ((pw * uv[index]) + uuv[index]));
-    result.scale[index] = parent.scale[index] * local.scale[index];
-  }
-  result.rotation[0] = (pw * local.rotation[0]) + (px * local.rotation[3]) +
-                       (py * local.rotation[2]) - (pz * local.rotation[1]);
-  result.rotation[1] = (pw * local.rotation[1]) - (px * local.rotation[2]) +
-                       (py * local.rotation[3]) + (pz * local.rotation[0]);
-  result.rotation[2] = (pw * local.rotation[2]) + (px * local.rotation[1]) -
-                       (py * local.rotation[0]) + (pz * local.rotation[3]);
-  result.rotation[3] = (pw * local.rotation[3]) - (px * local.rotation[0]) -
-                       (py * local.rotation[1]) - (pz * local.rotation[2]);
-  return result;
+  return compose_transform(parent, local);
 }
-
-bool is_valid(const gneiss::engine::transform& value) noexcept {
-  const auto finite = [](float component) { return std::isfinite(component); };
-  if (!std::ranges::all_of(value.translation, finite) ||
-      !std::ranges::all_of(value.rotation, finite) || !std::ranges::all_of(value.scale, finite)) {
-    return false;
-  }
-  const auto rotation_length = std::sqrt(std::inner_product(
-      std::begin(value.rotation), std::end(value.rotation), std::begin(value.rotation), 0.0F));
-  constexpr auto tolerance = 1.0e-4F;
-  return std::abs(rotation_length - 1.0F) <= tolerance &&
-         std::ranges::all_of(value.scale,
-                             [](float component) { return std::abs(component) >= 1.0e-6F; });
-}
+bool is_valid(const gneiss::engine::transform& value) noexcept { return valid_transform(value); }
 
 } // namespace
 

@@ -29,7 +29,8 @@ std::vector<gneiss::engine::debug_line> build_editor_grid(const gneiss::engine::
                                                           float viewport_height) {
   std::vector<gneiss::engine::debug_line> lines;
   if (!std::isfinite(viewport_height) || viewport_height <= 0.0F ||
-      !std::ranges::all_of(camera.translation, [](float value) { return std::isfinite(value); }) ||
+      !std::ranges::all_of(gneiss::engine::components(camera.translation),
+                           [](float value) { return std::isfinite(value); }) ||
       !std::ranges::all_of(view, [](float value) { return std::isfinite(value); })) {
     return lines;
   }

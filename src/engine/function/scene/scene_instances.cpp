@@ -41,18 +41,18 @@ std::uint16_t allocate_domain() noexcept {
 
 gneiss::engine::transform to_transform(const gneiss::engine::object_description& object) noexcept {
   gneiss::engine::transform value{};
-  std::ranges::copy(object.translation, value.translation.begin());
-  std::ranges::copy(object.rotation, value.rotation.begin());
-  std::ranges::copy(object.scale, value.scale.begin());
+  value.translation = object.translation;
+  value.rotation = object.rotation;
+  value.scale = object.scale;
   return value;
 }
 
 gneiss::engine::transform
 to_transform(const gneiss::engine::prefab_instance_description& instance) noexcept {
   gneiss::engine::transform value{};
-  std::ranges::copy(instance.translation, value.translation.begin());
-  std::ranges::copy(instance.rotation, value.rotation.begin());
-  std::ranges::copy(instance.scale, value.scale.begin());
+  value.translation = instance.translation;
+  value.rotation = instance.rotation;
+  value.scale = instance.scale;
   return value;
 }
 
@@ -868,9 +868,9 @@ gneiss::engine::result scene_instance::create_prefab_instance(const prefab_creat
                                                        .parent_uuid = std::move(parent_uuid),
                                                        .prefab_uri = std::string(prefab_uri),
                                                        .overrides = {}};
-    std::ranges::copy(desc.local_transform.translation, author.translation.begin());
-    std::ranges::copy(desc.local_transform.rotation, author.rotation.begin());
-    std::ranges::copy(desc.local_transform.scale, author.scale.begin());
+    author.translation = desc.local_transform.translation;
+    author.rotation = desc.local_transform.rotation;
+    author.scale = desc.local_transform.scale;
     description_.prefab_instances.reserve(description_.prefab_instances.size() + 1U);
     prefab_instances_.reserve(prefab_instances_.size() + 1U);
     std::unique_ptr<prefab_runtime_instance> runtime;
@@ -932,21 +932,24 @@ scene_instance::set_prefab_source_transform(gneiss::engine::rid node,
               .key = {.node = *info.address,
                       .type_id = type_id,
                       .field_id = gneiss::engine::transform_translation_field},
-              .value = {.payload = transform.translation}},
+              .value = {.payload = gneiss::engine::component_array(transform.translation)}},
           gneiss::engine::prefab_property_override{
               .key = {.node = *info.address,
                       .type_id = type_id,
                       .field_id = gneiss::engine::transform_rotation_field},
-              .value = {.payload = transform.rotation}},
+              .value = {.payload = gneiss::engine::component_array(transform.rotation)}},
           gneiss::engine::prefab_property_override{
               .key = {.node = *info.address,
                       .type_id = type_id,
                       .field_id = gneiss::engine::transform_scale_field},
-              .value = {.payload = transform.scale}}};
+              .value = {.payload = gneiss::engine::component_array(transform.scale)}}};
       const std::array source_values{
-          gneiss::engine::prefab_property_value{.payload = source->translation},
-          gneiss::engine::prefab_property_value{.payload = source->rotation},
-          gneiss::engine::prefab_property_value{.payload = source->scale}};
+          gneiss::engine::prefab_property_value{
+              .payload = gneiss::engine::component_array(source->translation)},
+          gneiss::engine::prefab_property_value{
+              .payload = gneiss::engine::component_array(source->rotation)},
+          gneiss::engine::prefab_property_value{
+              .payload = gneiss::engine::component_array(source->scale)}};
       for (std::size_t field_index = 0U; field_index < candidates.size(); ++field_index) {
         const auto result = set_prefab_property_override(
             registry_, pending, candidates[field_index], source_values[field_index]);
@@ -1108,9 +1111,9 @@ gneiss::engine::result scene_instance::create_node(const node_creation& desc,
                                               .scale = {},
                                               .camera = std::nullopt,
                                               .mesh_renderer = std::nullopt};
-    std::ranges::copy(desc.local_transform.translation, author.translation.begin());
-    std::ranges::copy(desc.local_transform.rotation, author.rotation.begin());
-    std::ranges::copy(desc.local_transform.scale, author.scale.begin());
+    author.translation = desc.local_transform.translation;
+    author.rotation = desc.local_transform.rotation;
+    author.scale = desc.local_transform.scale;
     objects_.reserve(objects_.size() + 1U);
     description_.objects.reserve(description_.objects.size() + 1U);
     object target{.uuid = author.uuid,
@@ -1520,7 +1523,7 @@ scene_instance::create_mesh_renderer_node(const mesh_renderer_node_creation& des
         .name = std::string(name),
         .parent_uuid = std::move(parent_uuid),
         .translation = {},
-        .rotation = {0.0F, 0.0F, 0.0F, 1.0F},
+        .rotation = gneiss::engine::quaternion_xyzw(0.0F, 0.0F, 0.0F, 1.0F),
         .scale = {1.0F, 1.0F, 1.0F},
         .camera = std::nullopt,
         .mesh_renderer = gneiss::engine::mesh_renderer_description{
@@ -1730,9 +1733,9 @@ gneiss::engine::result scene_instance::serialize(std::string& out_json) const {
     if (result != gneiss::engine::result::success) {
       return result;
     }
-    std::ranges::copy(transform.translation, author.translation.begin());
-    std::ranges::copy(transform.rotation, author.rotation.begin());
-    std::ranges::copy(transform.scale, author.scale.begin());
+    author.translation = transform.translation;
+    author.rotation = transform.rotation;
+    author.scale = transform.scale;
     if (author.camera) {
       gneiss::engine::camera_settings camera;
       result = native_world_.entity_get_camera(gneiss::entity_id{runtime.entity}, camera);
@@ -1756,9 +1759,9 @@ gneiss::engine::result scene_instance::serialize(std::string& out_json) const {
     if (result != gneiss::engine::result::success) {
       return result;
     }
-    std::ranges::copy(transform.translation, author.translation.begin());
-    std::ranges::copy(transform.rotation, author.rotation.begin());
-    std::ranges::copy(transform.scale, author.scale.begin());
+    author.translation = transform.translation;
+    author.rotation = transform.rotation;
+    author.scale = transform.scale;
   }
   return gneiss::engine::serialize_scene_description(current, out_json);
 }

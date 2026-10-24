@@ -20,9 +20,8 @@ namespace {
 
 bool equal_transform(const gneiss::engine::transform& left,
                      const gneiss::engine::transform& right) noexcept {
-  return std::ranges::equal(left.translation, right.translation) &&
-         std::ranges::equal(left.rotation, right.rotation) &&
-         std::ranges::equal(left.scale, right.scale);
+  return (left.translation == right.translation) && (left.rotation == right.rotation) &&
+         (left.scale == right.scale);
 }
 
 bool equal_node(const gneiss::host::runtime_scene_snapshot_node& left,

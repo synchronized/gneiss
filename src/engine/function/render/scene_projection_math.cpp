@@ -2,73 +2,22 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/render/scene_projection_math.hpp"
-
-#include <array>
 #include <cmath>
-
+#include <glm/ext/matrix_transform.hpp>
 namespace gneiss::engine {
-namespace {
-
-constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept {
-  return (column * 4U) + row;
-}
-
-} // namespace
-
-bool build_model_matrices(const gneiss::engine::transform& transform,
-                          gneiss::engine::matrix4& model,
-                          gneiss::engine::matrix4& normal) noexcept {
-  const auto x = transform.rotation[0];
-  const auto y = transform.rotation[1];
-  const auto z = transform.rotation[2];
-  const auto w = transform.rotation[3];
-  const auto length_squared = (x * x) + (y * y) + (z * z) + (w * w);
-  if (!std::isfinite(length_squared) || length_squared <= 0.0F) {
+bool build_model_matrices(const transform& value, matrix4& model, matrix4& normal) noexcept {
+  const auto squared = glm::dot(value.rotation, value.rotation);
+  if (!std::isfinite(squared) || squared <= 0)
     return false;
-  }
-  for (const auto value : transform.translation) {
-    if (!std::isfinite(value)) {
+  for (const auto v : components(value.translation))
+    if (!std::isfinite(v))
       return false;
-    }
-  }
-  for (const auto value : transform.scale) {
-    if (!std::isfinite(value) || value == 0.0F) {
+  for (const auto v : components(value.scale))
+    if (!std::isfinite(v) || v == 0)
       return false;
-    }
-  }
-
-  model = {};
-  normal = {};
-  const auto inverse_length = 1.0F / std::sqrt(length_squared);
-  const auto qx = x * inverse_length;
-  const auto qy = y * inverse_length;
-  const auto qz = z * inverse_length;
-  const auto qw = w * inverse_length;
-  const auto xx = qx * qx;
-  const auto yy = qy * qy;
-  const auto zz = qz * qz;
-  const auto xy = qx * qy;
-  const auto xz = qx * qz;
-  const auto yz = qy * qz;
-  const auto wx = qw * qx;
-  const auto wy = qw * qy;
-  const auto wz = qw * qz;
-  const std::array rotation{
-      1.0F - (2.0F * (yy + zz)), 2.0F * (xy + wz),          2.0F * (xz - wy),
-      2.0F * (xy - wz),          1.0F - (2.0F * (xx + zz)), 2.0F * (yz + wx),
-      2.0F * (xz + wy),          2.0F * (yz - wx),          1.0F - (2.0F * (xx + yy)),
-  };
-  for (std::size_t column = 0; column < 3U; ++column) {
-    for (std::size_t row = 0; row < 3U; ++row) {
-      const auto rotation_value = rotation[(column * 3U) + row];
-      model.values[matrix_index(row, column)] = rotation_value * transform.scale[column];
-      normal.values[matrix_index(row, column)] = rotation_value / transform.scale[column];
-    }
-    model.values[matrix_index(column, 3U)] = transform.translation[column];
-  }
-  model.values[matrix_index(3U, 3U)] = 1.0F;
-  normal.values[matrix_index(3U, 3U)] = 1.0F;
+  const auto rotation = glm::mat4_cast(glm::normalize(value.rotation));
+  model = glm::translate(matrix4{1.0F}, value.translation) * glm::scale(rotation, value.scale);
+  normal = glm::scale(rotation, vector3{1.0F} / value.scale);
   return true;
 }
-
-} // namespace gneiss::engine
+}

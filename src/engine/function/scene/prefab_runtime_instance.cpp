@@ -35,9 +35,9 @@ struct camera_restore_guard {
 
 gneiss::engine::transform to_transform(const gneiss::engine::object_description& object) noexcept {
   gneiss::engine::transform value{};
-  std::ranges::copy(object.translation, value.translation.begin());
-  std::ranges::copy(object.rotation, value.rotation.begin());
-  std::ranges::copy(object.scale, value.scale.begin());
+  value.translation = object.translation;
+  value.rotation = object.rotation;
+  value.scale = object.scale;
   return value;
 }
 
@@ -58,7 +58,7 @@ to_native_value(const gneiss::engine::prefab_property_value& source,
           output.payload = gneiss::property_vec3{payload[0], payload[1], payload[2]};
         else if constexpr (std::is_same_v<type, std::array<float, 4>>)
           output.payload =
-              gneiss::property_quaternion{payload[0], payload[1], payload[2], payload[3]};
+              gneiss::engine::quaternion_xyzw(payload[0], payload[1], payload[2], payload[3]);
         else
           output.payload = payload;
         return gneiss::engine::result::success;
@@ -473,9 +473,9 @@ gneiss::engine::result apply_candidate_object(const gneiss::engine::registry_ref
     if (result != gneiss::engine::result::success) {
       return result;
     }
-    std::ranges::copy(transform.translation, object.translation.begin());
-    std::ranges::copy(transform.rotation, object.rotation.begin());
-    std::ranges::copy(transform.scale, object.scale.begin());
+    object.translation = transform.translation;
+    object.rotation = transform.rotation;
+    object.scale = transform.scale;
   } else if (is_type(gneiss::engine::camera_component_type)) {
     if (!object.camera) {
       return gneiss::engine::result::not_found;

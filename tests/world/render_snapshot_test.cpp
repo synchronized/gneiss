@@ -63,7 +63,8 @@ int run_tests() {
           gneiss::engine::result::success ||
       !snapshot.has_camera || snapshot.instances.size() != 1U ||
       snapshot.camera.viewport_width != 1280U || snapshot.camera.viewport_height != 720U ||
-      snapshot.camera.view.values[15] != 1.0F || snapshot.camera.projection.values[0] == 0.0F ||
+      gneiss::engine::matrix_elements(snapshot.camera.view)[15] != 1.0F ||
+      gneiss::engine::matrix_elements(snapshot.camera.projection)[0] == 0.0F ||
       snapshot.instances.front().mesh != renderer.mesh ||
       snapshot.instances.front().material != renderer.material ||
       snapshot.instances.front().transform.translation[0] != 2.0F) {

@@ -16,7 +16,7 @@ int main() try {
   property.name = "Rotation";
   property.kind = gneiss::property_kind::quaternion;
   property.capabilities = gneiss::property_capabilities::writable;
-  property.value.payload = gneiss::property_quaternion{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+  property.value.payload = gneiss::engine::quaternion_xyzw(0.0F, 0.0F, 0.0F, 1.0F);
   component.properties.push_back(property);
   std::array components{component};
   unsigned writes = 0U;

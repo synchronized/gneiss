@@ -7,7 +7,7 @@
 
 int main() {
   constexpr auto half_sqrt_two = 0.7071067811865475F;
-  const std::array normal{half_sqrt_two, half_sqrt_two, 0.0F};
+  const gneiss::engine::vector3 normal{half_sqrt_two, half_sqrt_two, 0.0F};
   gneiss::engine::transform transform;
   transform.scale[0] = 2.0F;
   transform.rotation[2] = half_sqrt_two;
