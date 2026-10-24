@@ -12,7 +12,7 @@
 #include <span>
 #include <vector>
 
-namespace gneiss::engine::render {
+namespace gneiss::engine {
 
 /** 同步提交借用；成功后绘制列表拥有数组副本，失败保留上一份列表。 */
 struct ui_draw_view {
@@ -27,8 +27,8 @@ struct ui_draw_view {
 
 class ui_draw_list final {
 public:
-  [[nodiscard]] gneiss::engine::core::result
-  replace(const ui_draw_view& desc, const render_resource_service& resources) noexcept;
+  [[nodiscard]] gneiss::engine::result replace(const ui_draw_view& desc,
+                                               const render_resource_service& resources) noexcept;
   void clear() noexcept;
 
   [[nodiscard]] float display_width() const noexcept { return display_width_; }
@@ -49,6 +49,6 @@ private:
   std::vector<ui_draw_command> commands_;
 };
 
-} // namespace gneiss::engine::render
+} // namespace gneiss::engine
 
 #endif

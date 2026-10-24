@@ -12,7 +12,7 @@ namespace {
 std::atomic_uint32_t next_action_generation{1};
 }
 
-namespace gneiss::engine::input {
+namespace gneiss::engine {
 
 void input_service::begin_frame() noexcept {
   read_index_ = 0;
@@ -23,12 +23,12 @@ void input_service::begin_frame() noexcept {
   }
 }
 
-bool input_service::push(const engine::core::input::input_event& event) noexcept {
-  if (event.type > engine::core::input::event_type::pointer_left ||
-      (event.type == engine::core::input::event_type::text &&
+bool input_service::push(const gneiss::engine::input_event& event) noexcept {
+  if (event.type > gneiss::engine::event_type::pointer_left ||
+      (event.type == gneiss::engine::event_type::text &&
        event.data.text.length > sizeof(event.data.text.utf8)) ||
-      (event.type == engine::core::input::event_type::key &&
-       event.data.key.action > engine::core::input::key_action::repeated) ||
+      (event.type == gneiss::engine::event_type::key &&
+       event.data.key.action > gneiss::engine::key_action::repeated) ||
       event_count_ == event_capacity) {
     return false;
   }
@@ -38,14 +38,13 @@ bool input_service::push(const engine::core::input::input_event& event) noexcept
   return true;
 }
 
-gneiss::engine::core::result
-input_service::poll(engine::core::input::input_event& out_event) noexcept {
+gneiss::engine::result input_service::poll(gneiss::engine::input_event& out_event) noexcept {
   out_event = {};
   if (read_index_ == event_count_) {
-    return gneiss::engine::core::result::not_ready;
+    return gneiss::engine::result::not_ready;
   }
   out_event = events_[read_index_++];
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
 void input_service::clear_focus() noexcept {
@@ -55,18 +54,17 @@ void input_service::clear_focus() noexcept {
   update_actions();
 }
 
-gneiss::engine::core::result
-input_service::replace_action_map(engine::resource::action_map map) noexcept {
+gneiss::engine::result input_service::replace_action_map(gneiss::engine::action_map map) noexcept {
   if (const auto valid = validate_action_map(map); valid.failed()) {
     return valid;
   }
-  std::vector<engine::core::input::action_state> states;
+  std::vector<gneiss::engine::action_state> states;
   try {
-    states.assign(map.actions.size(), engine::core::input::action_state{});
+    states.assign(map.actions.size(), gneiss::engine::action_state{});
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
   action_map_ = std::move(map);
   action_states_ = std::move(states);
@@ -75,34 +73,34 @@ input_service::replace_action_map(engine::resource::action_map map) noexcept {
     action_generation_ = next_action_generation.fetch_add(1, std::memory_order_relaxed);
   }
   update_actions();
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 input_service::find_action(std::string_view name,
-                           engine::core::input::action_id& out_action) const noexcept {
-  out_action = engine::core::input::action_id{};
+                           gneiss::engine::action_id& out_action) const noexcept {
+  out_action = gneiss::engine::action_id{};
   for (std::size_t index = 0; index < action_map_.actions.size(); ++index) {
     if (action_map_.actions[index].name == name) {
       out_action = {(static_cast<std::uint64_t>(action_generation_) << 32U) | (index + 1U)};
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     }
   }
-  return gneiss::engine::core::result::not_found;
+  return gneiss::engine::result::not_found;
 }
 
-gneiss::engine::core::result
-input_service::get_action_state(engine::core::input::action_id action,
-                                engine::core::input::action_state& out_state) const noexcept {
-  out_state = engine::core::input::action_state{};
+gneiss::engine::result
+input_service::get_action_state(gneiss::engine::action_id action,
+                                gneiss::engine::action_state& out_state) const noexcept {
+  out_state = gneiss::engine::action_state{};
   const auto generation = static_cast<std::uint32_t>(action.value >> 32U);
   const auto slot = static_cast<std::uint32_t>(action.value);
   if (generation == 0U || generation != action_generation_ || slot == 0U ||
       slot > action_states_.size()) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   out_state = action_states_[slot - 1U];
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
 void input_service::update_actions() noexcept {
@@ -126,30 +124,30 @@ void input_service::update_actions() noexcept {
   }
 }
 
-void input_service::apply(const engine::core::input::input_event& event) noexcept {
-  if (event.type == engine::core::input::event_type::key && event.data.key.physical_key < 256U) {
+void input_service::apply(const gneiss::engine::input_event& event) noexcept {
+  if (event.type == gneiss::engine::event_type::key && event.data.key.physical_key < 256U) {
     const auto key = event.data.key.physical_key;
     const auto mask = UINT64_C(1) << (key % 64U);
     auto& word = keyboard_.pressed_keys[key / 64U];
-    if (event.data.key.action == engine::core::input::key_action::released) {
+    if (event.data.key.action == gneiss::engine::key_action::released) {
       word &= ~mask;
     } else {
       word |= mask;
     }
     keyboard_.modifiers = event.data.key.modifiers;
-  } else if (event.type == engine::core::input::event_type::pointer_moved) {
+  } else if (event.type == gneiss::engine::event_type::pointer_moved) {
     pointer_.x = event.data.pointer_moved.x;
     pointer_.y = event.data.pointer_moved.y;
     pointer_.buttons = event.data.pointer_moved.buttons;
-  } else if (event.type == engine::core::input::event_type::pointer_button) {
+  } else if (event.type == gneiss::engine::event_type::pointer_button) {
     pointer_.x = event.data.pointer_button.x;
     pointer_.y = event.data.pointer_button.y;
     pointer_.buttons = event.data.pointer_button.buttons;
-  } else if (event.type == engine::core::input::event_type::pointer_entered) {
+  } else if (event.type == gneiss::engine::event_type::pointer_entered) {
     pointer_.is_inside = true;
-  } else if (event.type == engine::core::input::event_type::pointer_left) {
+  } else if (event.type == gneiss::engine::event_type::pointer_left) {
     pointer_.is_inside = false;
   }
 }
 
-} // namespace gneiss::engine::input
+} // namespace gneiss::engine

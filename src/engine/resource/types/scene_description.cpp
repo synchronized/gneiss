@@ -23,13 +23,13 @@
 
 namespace {
 
-using gneiss::engine::resource::scene_diagnostic;
+using gneiss::engine::scene_diagnostic;
 
 constexpr std::uint64_t schema_version = 4;
 constexpr std::string_view scene_format = "gneiss.scene";
 constexpr char hex_digits[] = "0123456789abcdef";
 
-void fail(scene_diagnostic& diagnostic, gneiss::engine::core::result result, std::string_view path,
+void fail(scene_diagnostic& diagnostic, gneiss::engine::result result, std::string_view path,
           std::string_view message, std::size_t byte_offset = 0) noexcept {
   diagnostic.result = result;
   diagnostic.byte_offset = byte_offset;
@@ -37,7 +37,7 @@ void fail(scene_diagnostic& diagnostic, gneiss::engine::core::result result, std
     diagnostic.path = path;
     diagnostic.message = message;
   } catch (...) {
-    diagnostic.result = gneiss::engine::core::result::out_of_memory;
+    diagnostic.result = gneiss::engine::result::out_of_memory;
     diagnostic.path.clear();
     diagnostic.message.clear();
   }
@@ -52,8 +52,7 @@ void fail(scene_diagnostic& diagnostic, gneiss::engine::core::result result, std
   yyjson_val* value = yyjson_obj_get(object, name);
   const std::string field_path = std::string(path) + "/" + name;
   if (!yyjson_is_str(value) || yyjson_get_len(value) == 0U) {
-    fail(diagnostic, gneiss::engine::core::result::invalid_argument, field_path,
-         "字段必须是非空字符串");
+    fail(diagnostic, gneiss::engine::result::invalid_argument, field_path, "字段必须是非空字符串");
     return false;
   }
   output = json_string(value);
@@ -83,8 +82,7 @@ template <std::size_t Size>
   yyjson_val* array = yyjson_obj_get(object, name);
   const std::string field_path = std::string(path) + "/" + name;
   if (!yyjson_is_arr(array) || yyjson_arr_size(array) != Size) {
-    fail(diagnostic, gneiss::engine::core::result::invalid_argument, field_path,
-         "数组长度或类型错误");
+    fail(diagnostic, gneiss::engine::result::invalid_argument, field_path, "数组长度或类型错误");
     return false;
   }
   for (std::size_t index = 0; index < Size; ++index) {
@@ -92,7 +90,7 @@ template <std::size_t Size>
     const double number = yyjson_get_num(value);
     if (!yyjson_is_num(value) || !std::isfinite(number) ||
         std::abs(number) > std::numeric_limits<float>::max()) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument,
+      fail(diagnostic, gneiss::engine::result::invalid_argument,
            field_path + "/" + std::to_string(index), "数值必须是有限 float");
       return false;
     }
@@ -107,7 +105,7 @@ template <std::size_t Size>
   const double number = yyjson_get_num(value);
   if (!yyjson_is_num(value) || !std::isfinite(number) ||
       std::abs(number) > std::numeric_limits<float>::max()) {
-    fail(diagnostic, gneiss::engine::core::result::invalid_argument, std::string(path) + "/" + name,
+    fail(diagnostic, gneiss::engine::result::invalid_argument, std::string(path) + "/" + name,
          "数值必须是有限 float");
     return false;
   }
@@ -116,15 +114,14 @@ template <std::size_t Size>
 }
 
 [[nodiscard]] bool parse_transform(yyjson_val* value, std::string_view path,
-                                   gneiss::engine::resource::object_description& output,
+                                   gneiss::engine::object_description& output,
                                    scene_diagnostic& diagnostic) {
   if (!yyjson_is_obj(value) ||
       !read_float_array(value, "translation", path, output.translation, diagnostic) ||
       !read_float_array(value, "rotation", path, output.rotation, diagnostic) ||
       !read_float_array(value, "scale", path, output.scale, diagnostic)) {
-    if (diagnostic.result == gneiss::engine::core::result::success) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument, path,
-           "transform 必须是对象");
+    if (diagnostic.result == gneiss::engine::result::success) {
+      fail(diagnostic, gneiss::engine::result::invalid_argument, path, "transform 必须是对象");
     }
     return false;
   }
@@ -132,7 +129,7 @@ template <std::size_t Size>
       output.rotation.begin(), output.rotation.end(), output.rotation.begin(), 0.0));
   if (std::abs(rotation_length - 1.0) > 1.0e-4 ||
       std::ranges::any_of(output.scale, [](float value) { return std::abs(value) < 1.0e-6F; })) {
-    fail(diagnostic, gneiss::engine::core::result::invalid_argument, path,
+    fail(diagnostic, gneiss::engine::result::invalid_argument, path,
          "旋转必须归一化且缩放分量不能为零");
     return false;
   }
@@ -140,51 +137,48 @@ template <std::size_t Size>
 }
 
 [[nodiscard]] bool parse_camera(yyjson_val* value, std::string_view path,
-                                gneiss::engine::resource::camera_description& output,
+                                gneiss::engine::camera_description& output,
                                 scene_diagnostic& diagnostic) {
   if (!yyjson_is_obj(value) ||
       !read_float(value, "vertical_field_of_view_radians", path,
                   output.vertical_field_of_view_radians, diagnostic) ||
       !read_float(value, "near_plane", path, output.near_plane, diagnostic) ||
       !read_float(value, "far_plane", path, output.far_plane, diagnostic)) {
-    if (diagnostic.result == gneiss::engine::core::result::success) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument, path, "camera 必须是对象");
+    if (diagnostic.result == gneiss::engine::result::success) {
+      fail(diagnostic, gneiss::engine::result::invalid_argument, path, "camera 必须是对象");
     }
     return false;
   }
   yyjson_val* primary = yyjson_obj_get(value, "is_primary");
   if (!yyjson_is_bool(primary)) {
-    fail(diagnostic, gneiss::engine::core::result::invalid_argument,
-         std::string(path) + "/is_primary", "is_primary 必须是布尔值");
+    fail(diagnostic, gneiss::engine::result::invalid_argument, std::string(path) + "/is_primary",
+         "is_primary 必须是布尔值");
     return false;
   }
   output.is_primary = yyjson_get_bool(primary);
   if (output.vertical_field_of_view_radians <= 0.0F ||
       output.vertical_field_of_view_radians >= std::numbers::pi_v<float> ||
       output.near_plane <= 0.0F || output.far_plane <= output.near_plane) {
-    fail(diagnostic, gneiss::engine::core::result::invalid_argument, path, "相机透视参数范围错误");
+    fail(diagnostic, gneiss::engine::result::invalid_argument, path, "相机透视参数范围错误");
     return false;
   }
   return true;
 }
 
 [[nodiscard]] bool parse_mesh_renderer(yyjson_val* value, std::string_view path,
-                                       gneiss::engine::resource::mesh_renderer_description& output,
+                                       gneiss::engine::mesh_renderer_description& output,
                                        scene_diagnostic& diagnostic) {
   if (!yyjson_is_obj(value) ||
       !read_required_string(value, "mesh", path, output.mesh_uri, diagnostic) ||
       !read_required_string(value, "material", path, output.material_uri, diagnostic)) {
-    if (diagnostic.result == gneiss::engine::core::result::success) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument, path,
-           "mesh_renderer 必须是对象");
+    if (diagnostic.result == gneiss::engine::result::success) {
+      fail(diagnostic, gneiss::engine::result::invalid_argument, path, "mesh_renderer 必须是对象");
     }
     return false;
   }
-  if (gneiss::engine::resource::validate_uri(output.mesh_uri) !=
-          gneiss::engine::core::result::success ||
-      gneiss::engine::resource::validate_uri(output.material_uri) !=
-          gneiss::engine::core::result::success) {
-    fail(diagnostic, gneiss::engine::core::result::invalid_argument, path,
+  if (gneiss::engine::validate_uri(output.mesh_uri) != gneiss::engine::result::success ||
+      gneiss::engine::validate_uri(output.material_uri) != gneiss::engine::result::success) {
+    fail(diagnostic, gneiss::engine::result::invalid_argument, path,
          "资源引用必须是规范 asset URI");
     return false;
   }
@@ -192,12 +186,11 @@ template <std::size_t Size>
 }
 
 [[nodiscard]] bool parse_components(yyjson_val* value, std::string_view path,
-                                    gneiss::engine::resource::object_description& output,
+                                    gneiss::engine::object_description& output,
                                     scene_diagnostic& diagnostic) {
   if (!yyjson_is_obj(value)) {
-    if (diagnostic.result == gneiss::engine::core::result::success) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument, path,
-           "components 必须是对象");
+    if (diagnostic.result == gneiss::engine::result::success) {
+      fail(diagnostic, gneiss::engine::result::invalid_argument, path, "components 必须是对象");
     }
     return false;
   }
@@ -218,24 +211,24 @@ template <std::size_t Size>
 }
 
 [[nodiscard]] bool parse_object(yyjson_val* value, std::size_t index,
-                                gneiss::engine::resource::object_description& output,
+                                gneiss::engine::object_description& output,
                                 scene_diagnostic& diagnostic) {
   const std::string path = "/objects/" + std::to_string(index);
   if (!yyjson_is_obj(value) ||
       !read_required_string(value, "uuid", path, output.uuid, diagnostic)) {
-    if (diagnostic.result == gneiss::engine::core::result::success) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument, path, "对象描述类型错误");
+    if (diagnostic.result == gneiss::engine::result::success) {
+      fail(diagnostic, gneiss::engine::result::invalid_argument, path, "对象描述类型错误");
     }
     return false;
   }
   if (!is_canonical_uuid(output.uuid)) {
-    fail(diagnostic, gneiss::engine::core::result::invalid_argument, path + "/uuid",
+    fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/uuid",
          "UUID 必须是小写规范形式");
     return false;
   }
   if (yyjson_val* name = yyjson_obj_get(value, "name"); name != nullptr) {
     if (!yyjson_is_str(name)) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument, path + "/name",
+      fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/name",
            "name 必须是字符串");
       return false;
     }
@@ -243,20 +236,20 @@ template <std::size_t Size>
   }
   yyjson_val* parent = yyjson_obj_get(value, "parent");
   if (parent == nullptr) {
-    fail(diagnostic, gneiss::engine::core::result::invalid_argument, path + "/parent",
+    fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/parent",
          "缺少 parent 字段");
     return false;
   }
   if (yyjson_is_str(parent)) {
     const auto parent_uuid = json_string(parent);
     if (!is_canonical_uuid(parent_uuid)) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument, path + "/parent",
+      fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/parent",
            "父 UUID 格式错误");
       return false;
     }
     output.parent_uuid = std::string(parent_uuid);
   } else if (!yyjson_is_null(parent)) {
-    fail(diagnostic, gneiss::engine::core::result::invalid_argument, path + "/parent",
+    fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/parent",
          "parent 必须是 UUID 或 null");
     return false;
   }
@@ -316,7 +309,7 @@ template <std::size_t Size>
 }
 
 [[nodiscard]] bool parse_override_value(yyjson_val* object,
-                                        gneiss::engine::resource::prefab_property_value& output) {
+                                        gneiss::engine::prefab_property_value& output) {
   if (!yyjson_is_obj(object)) {
     return false;
   }
@@ -326,7 +319,7 @@ template <std::size_t Size>
     return false;
   }
   const auto kind = json_string(kind_value);
-  gneiss::engine::resource::prefab_property_value parsed;
+  gneiss::engine::prefab_property_value parsed;
   if (kind == "bool" && yyjson_is_bool(value)) {
     parsed.payload = yyjson_get_bool(value);
   } else if (kind == "int64" && yyjson_is_sint(value)) {
@@ -369,40 +362,39 @@ template <std::size_t Size>
 
 [[nodiscard]] bool parse_prefab_override(yyjson_val* value, std::size_t instance_index,
                                          std::size_t override_index, std::string_view instance_uuid,
-                                         gneiss::engine::resource::prefab_property_override& output,
+                                         gneiss::engine::prefab_property_override& output,
                                          scene_diagnostic& diagnostic) {
   const auto path = "/prefab_instances/" + std::to_string(instance_index) + "/overrides/" +
                     std::to_string(override_index);
   if (!yyjson_is_obj(value)) {
-    fail(diagnostic, gneiss::engine::core::result::invalid_argument, path, "覆盖必须是对象");
+    fail(diagnostic, gneiss::engine::result::invalid_argument, path, "覆盖必须是对象");
     return false;
   }
   std::string source_node_uuid;
   if (!read_required_string(value, "source_node_uuid", path, source_node_uuid, diagnostic) ||
       !is_canonical_uuid(source_node_uuid)) {
-    if (diagnostic.result == gneiss::engine::core::result::success) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument, path + "/source_node_uuid",
+    if (diagnostic.result == gneiss::engine::result::success) {
+      fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/source_node_uuid",
            "源节点 UUID 必须是小写规范形式");
     }
     return false;
   }
   gneiss::type_id type_id{};
   if (!parse_type_id(yyjson_obj_get(value, "type_id"), type_id)) {
-    fail(diagnostic, gneiss::engine::core::result::invalid_argument, path + "/type_id",
+    fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/type_id",
          "Type ID 必须是非零的 32 位小写十六进制");
     return false;
   }
   auto* field = yyjson_obj_get(value, "field_id");
   if (!yyjson_is_uint(field) || yyjson_get_uint(field) == 0U ||
       yyjson_get_uint(field) > std::numeric_limits<std::uint32_t>::max()) {
-    fail(diagnostic, gneiss::engine::core::result::invalid_argument, path + "/field_id",
+    fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/field_id",
          "Field ID 必须是非零 uint32");
     return false;
   }
-  gneiss::engine::resource::prefab_property_value property_value;
+  gneiss::engine::prefab_property_value property_value;
   if (!parse_override_value(yyjson_obj_get(value, "value"), property_value)) {
-    fail(diagnostic, gneiss::engine::core::result::invalid_argument, path + "/value",
-         "覆盖属性值无效");
+    fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/value", "覆盖属性值无效");
     return false;
   }
   output = {
@@ -421,32 +413,30 @@ template <std::size_t Size>
   return true;
 }
 
-[[nodiscard]] bool
-parse_prefab_instance(yyjson_val* value, std::size_t index,
-                      gneiss::engine::resource::prefab_instance_description& output,
-                      scene_diagnostic& diagnostic) {
+[[nodiscard]] bool parse_prefab_instance(yyjson_val* value, std::size_t index,
+                                         gneiss::engine::prefab_instance_description& output,
+                                         scene_diagnostic& diagnostic) {
   const std::string path = "/prefab_instances/" + std::to_string(index);
   if (!yyjson_is_obj(value) ||
       !read_required_string(value, "instance_uuid", path, output.instance_uuid, diagnostic) ||
       !is_canonical_uuid(output.instance_uuid)) {
-    if (diagnostic.result == gneiss::engine::core::result::success) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument, path + "/instance_uuid",
+    if (diagnostic.result == gneiss::engine::result::success) {
+      fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/instance_uuid",
            "实例 UUID 必须是小写规范形式");
     }
     return false;
   }
   if (!read_required_string(value, "prefab", path, output.prefab_uri, diagnostic) ||
-      gneiss::engine::resource::validate_uri(output.prefab_uri) !=
-          gneiss::engine::core::result::success) {
-    if (diagnostic.result == gneiss::engine::core::result::success) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument, path + "/prefab",
+      gneiss::engine::validate_uri(output.prefab_uri) != gneiss::engine::result::success) {
+    if (diagnostic.result == gneiss::engine::result::success) {
+      fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/prefab",
            "Prefab URI 无效");
     }
     return false;
   }
   if (yyjson_val* name = yyjson_obj_get(value, "name"); name != nullptr) {
     if (!yyjson_is_str(name)) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument, path + "/name",
+      fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/name",
            "name 必须是字符串");
       return false;
     }
@@ -456,17 +446,17 @@ parse_prefab_instance(yyjson_val* value, std::size_t index,
   if (yyjson_is_str(parent)) {
     const auto parent_uuid = json_string(parent);
     if (!is_canonical_uuid(parent_uuid)) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument, path + "/parent",
+      fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/parent",
            "父 UUID 格式错误");
       return false;
     }
     output.parent_uuid = std::string(parent_uuid);
   } else if (!yyjson_is_null(parent)) {
-    fail(diagnostic, gneiss::engine::core::result::invalid_argument, path + "/parent",
+    fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/parent",
          "parent 必须是普通对象 UUID 或 null");
     return false;
   }
-  gneiss::engine::resource::object_description transform;
+  gneiss::engine::object_description transform;
   if (!parse_transform(yyjson_obj_get(value, "transform"), path + "/transform", transform,
                        diagnostic)) {
     return false;
@@ -476,7 +466,7 @@ parse_prefab_instance(yyjson_val* value, std::size_t index,
   output.scale = transform.scale;
   auto* overrides = yyjson_obj_get(value, "overrides");
   if (!yyjson_is_arr(overrides)) {
-    fail(diagnostic, gneiss::engine::core::result::invalid_argument, path + "/overrides",
+    fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/overrides",
          "overrides 必须是数组");
     return false;
   }
@@ -492,25 +482,25 @@ parse_prefab_instance(yyjson_val* value, std::size_t index,
     }
   }
   std::ranges::sort(output.overrides, [](const auto& left, const auto& right) {
-    return gneiss::engine::resource::prefab_property_override_key_less(left.key, right.key);
+    return gneiss::engine::prefab_property_override_key_less(left.key, right.key);
   });
   if (std::ranges::adjacent_find(output.overrides, [](const auto& left, const auto& right) {
         return left.key == right.key;
       }) != output.overrides.end()) {
-    fail(diagnostic, gneiss::engine::core::result::invalid_argument, path + "/overrides",
+    fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/overrides",
          "覆盖作者键重复");
     return false;
   }
   return true;
 }
 
-[[nodiscard]] bool validate_hierarchy(const gneiss::engine::resource::scene_description& scene,
+[[nodiscard]] bool validate_hierarchy(const gneiss::engine::scene_description& scene,
                                       scene_diagnostic& diagnostic) {
   std::unordered_map<std::string_view, std::size_t> indexes;
   indexes.reserve(scene.objects.size());
   for (std::size_t index = 0; index < scene.objects.size(); ++index) {
     if (!indexes.emplace(scene.objects[index].uuid, index).second) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument,
+      fail(diagnostic, gneiss::engine::result::invalid_argument,
            "/objects/" + std::to_string(index) + "/uuid", "对象 UUID 重复");
       return false;
     }
@@ -518,7 +508,7 @@ parse_prefab_instance(yyjson_val* value, std::size_t index,
   for (std::size_t index = 0; index < scene.prefab_instances.size(); ++index) {
     const auto& instance = scene.prefab_instances[index];
     if (!indexes.emplace(instance.instance_uuid, scene.objects.size() + index).second) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument,
+      fail(diagnostic, gneiss::engine::result::invalid_argument,
            "/prefab_instances/" + std::to_string(index) + "/instance_uuid",
            "Prefab 实例 UUID 与场景作者身份重复");
       return false;
@@ -529,7 +519,7 @@ parse_prefab_instance(yyjson_val* value, std::size_t index,
     if (parent) {
       const auto found = indexes.find(*parent);
       if (found == indexes.end() || found->second >= scene.objects.size()) {
-        fail(diagnostic, gneiss::engine::core::result::invalid_argument,
+        fail(diagnostic, gneiss::engine::result::invalid_argument,
              "/objects/" + std::to_string(index) + "/parent", "父级必须是普通场景对象");
         return false;
       }
@@ -540,7 +530,7 @@ parse_prefab_instance(yyjson_val* value, std::size_t index,
     if (parent) {
       const auto found = indexes.find(*parent);
       if (found == indexes.end() || found->second >= scene.objects.size()) {
-        fail(diagnostic, gneiss::engine::core::result::invalid_argument,
+        fail(diagnostic, gneiss::engine::result::invalid_argument,
              "/prefab_instances/" + std::to_string(index) + "/parent",
              "Prefab 实例父级必须是普通场景对象");
         return false;
@@ -550,7 +540,7 @@ parse_prefab_instance(yyjson_val* value, std::size_t index,
   const auto primary_camera_count = std::ranges::count_if(
       scene.objects, [](const auto& object) { return object.camera && object.camera->is_primary; });
   if (primary_camera_count > 1) {
-    fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/objects",
+    fail(diagnostic, gneiss::engine::result::invalid_argument, "/objects",
          "场景最多只能包含一个主相机");
     return false;
   }
@@ -566,7 +556,7 @@ parse_prefab_instance(yyjson_val* value, std::size_t index,
       current = indexes.at(*parent);
     }
     if (colors[current] == 1U && scene.objects[current].parent_uuid) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument,
+      fail(diagnostic, gneiss::engine::result::invalid_argument,
            "/objects/" + std::to_string(current) + "/parent", "对象层级形成循环");
       return false;
     }
@@ -604,9 +594,8 @@ template <std::size_t Size>
          yyjson_mut_obj_put(object, yyjson_mut_strcpy(document, name), value);
 }
 
-[[nodiscard]] yyjson_mut_val*
-make_author_object(yyjson_mut_doc* document,
-                   const gneiss::engine::resource::object_description& source) {
+[[nodiscard]] yyjson_mut_val* make_author_object(yyjson_mut_doc* document,
+                                                 const gneiss::engine::object_description& source) {
   auto* object = yyjson_mut_obj(document);
   auto* transform = yyjson_mut_obj(document);
   auto* components = yyjson_mut_obj(document);
@@ -665,8 +654,7 @@ make_author_object(yyjson_mut_doc* document,
 }
 
 [[nodiscard]] yyjson_mut_val*
-make_override_value(yyjson_mut_doc* document,
-                    const gneiss::engine::resource::prefab_property_value& source) {
+make_override_value(yyjson_mut_doc* document, const gneiss::engine::prefab_property_value& source) {
   auto* object = yyjson_mut_obj(document);
   if (object == nullptr) {
     return nullptr;
@@ -713,9 +701,9 @@ make_override_value(yyjson_mut_doc* document,
   return added ? object : nullptr;
 }
 
-[[nodiscard]] yyjson_mut_val* make_prefab_overrides(
-    yyjson_mut_doc* document,
-    const std::vector<gneiss::engine::resource::prefab_property_override>& overrides) {
+[[nodiscard]] yyjson_mut_val*
+make_prefab_overrides(yyjson_mut_doc* document,
+                      const std::vector<gneiss::engine::prefab_property_override>& overrides) {
   auto* array = yyjson_mut_arr(document);
   if (array == nullptr) {
     return nullptr;
@@ -741,7 +729,7 @@ make_override_value(yyjson_mut_doc* document,
 
 [[nodiscard]] yyjson_mut_val*
 make_author_prefab_instance(yyjson_mut_doc* document,
-                            const gneiss::engine::resource::prefab_instance_description& source) {
+                            const gneiss::engine::prefab_instance_description& source) {
   auto* instance = yyjson_mut_obj(document);
   auto* transform = yyjson_mut_obj(document);
   if (instance == nullptr || transform == nullptr ||
@@ -770,17 +758,17 @@ make_author_prefab_instance(yyjson_mut_doc* document,
 
 } // namespace
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): 顺序校验保持 Schema 错误优先级明确。
-gneiss::engine::core::result
-parse_current_scene_description(std::string_view json, scene_description& out_scene,
-                                scene_diagnostic& out_diagnostic) noexcept {
+gneiss::engine::result parse_current_scene_description(std::string_view json,
+                                                       scene_description& out_scene,
+                                                       scene_diagnostic& out_diagnostic) noexcept {
   out_scene = {};
   out_diagnostic = {};
   try {
     if (json.empty()) {
-      fail(out_diagnostic, gneiss::engine::core::result::invalid_argument, "", "场景文档为空");
+      fail(out_diagnostic, gneiss::engine::result::invalid_argument, "", "场景文档为空");
       return out_diagnostic.result;
     }
     yyjson_read_err error{};
@@ -789,45 +777,43 @@ parse_current_scene_description(std::string_view json, scene_description& out_sc
                                            YYJSON_READ_NOFLAG, nullptr, &error),
                           &yyjson_doc_free);
     if (!document) {
-      fail(out_diagnostic, gneiss::engine::core::result::invalid_argument, "",
+      fail(out_diagnostic, gneiss::engine::result::invalid_argument, "",
            error.msg != nullptr ? error.msg : "JSON 语法错误", error.pos);
       return out_diagnostic.result;
     }
     yyjson_val* root = yyjson_doc_get_root(document.get());
     if (!yyjson_is_obj(root)) {
-      if (out_diagnostic.result == gneiss::engine::core::result::success) {
-        fail(out_diagnostic, gneiss::engine::core::result::invalid_argument, "",
-             "场景根必须是对象");
+      if (out_diagnostic.result == gneiss::engine::result::success) {
+        fail(out_diagnostic, gneiss::engine::result::invalid_argument, "", "场景根必须是对象");
       }
       return out_diagnostic.result;
     }
     yyjson_val* format = yyjson_obj_get(root, "format");
     if (!yyjson_is_str(format) || json_string(format) != scene_format) {
-      fail(out_diagnostic, gneiss::engine::core::result::invalid_argument, "/format",
-           "场景格式标识错误");
+      fail(out_diagnostic, gneiss::engine::result::invalid_argument, "/format", "场景格式标识错误");
       return out_diagnostic.result;
     }
     yyjson_val* version = yyjson_obj_get(root, "version");
     if (!yyjson_is_uint(version) || yyjson_get_uint(version) != schema_version) {
       fail(out_diagnostic,
            yyjson_is_uint(version) && yyjson_get_uint(version) > schema_version
-               ? gneiss::engine::core::result::unsupported
-               : gneiss::engine::core::result::invalid_argument,
+               ? gneiss::engine::result::unsupported
+               : gneiss::engine::result::invalid_argument,
            "/version", "不支持的场景 Schema 版本");
       return out_diagnostic.result;
     }
     scene_description parsed;
     if (!read_required_string(root, "scene_uuid", "", parsed.uuid, out_diagnostic) ||
         !is_canonical_uuid(parsed.uuid)) {
-      if (out_diagnostic.result == gneiss::engine::core::result::success) {
-        fail(out_diagnostic, gneiss::engine::core::result::invalid_argument, "/scene_uuid",
+      if (out_diagnostic.result == gneiss::engine::result::success) {
+        fail(out_diagnostic, gneiss::engine::result::invalid_argument, "/scene_uuid",
              "场景 UUID 格式错误");
       }
       return out_diagnostic.result;
     }
     yyjson_val* objects = yyjson_obj_get(root, "objects");
     if (!yyjson_is_arr(objects)) {
-      fail(out_diagnostic, gneiss::engine::core::result::invalid_argument, "/objects",
+      fail(out_diagnostic, gneiss::engine::result::invalid_argument, "/objects",
            "objects 必须是数组");
       return out_diagnostic.result;
     }
@@ -843,7 +829,7 @@ parse_current_scene_description(std::string_view json, scene_description& out_sc
     }
     yyjson_val* prefab_instances = yyjson_obj_get(root, "prefab_instances");
     if (!yyjson_is_arr(prefab_instances)) {
-      fail(out_diagnostic, gneiss::engine::core::result::invalid_argument, "/prefab_instances",
+      fail(out_diagnostic, gneiss::engine::result::invalid_argument, "/prefab_instances",
            "prefab_instances 必须是数组");
       return out_diagnostic.result;
     }
@@ -862,19 +848,19 @@ parse_current_scene_description(std::string_view json, scene_description& out_sc
       return out_diagnostic.result;
     }
     out_scene = std::move(parsed);
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    fail(out_diagnostic, gneiss::engine::core::result::out_of_memory, "", "内存不足");
+    fail(out_diagnostic, gneiss::engine::result::out_of_memory, "", "内存不足");
     return out_diagnostic.result;
   } catch (...) {
-    fail(out_diagnostic, gneiss::engine::core::result::internal, "", "场景解析内部错误");
+    fail(out_diagnostic, gneiss::engine::result::internal, "", "场景解析内部错误");
     return out_diagnostic.result;
   }
 }
 
-[[nodiscard]] gneiss::engine::core::result
-prepare_scene_json(std::string_view json, std::string& out_json,
-                   scene_diagnostic& diagnostic) noexcept {
+[[nodiscard]] gneiss::engine::result prepare_scene_json(std::string_view json,
+                                                        std::string& out_json,
+                                                        scene_diagnostic& diagnostic) noexcept {
   out_json.clear();
   try {
     yyjson_read_err error{};
@@ -883,35 +869,33 @@ prepare_scene_json(std::string_view json, std::string& out_json,
                                            YYJSON_READ_NOFLAG, nullptr, &error),
                           &yyjson_doc_free);
     if (!document) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument, "",
+      fail(diagnostic, gneiss::engine::result::invalid_argument, "",
            error.msg != nullptr ? error.msg : "JSON 语法错误", error.pos);
       return diagnostic.result;
     }
     yyjson_val* root = yyjson_doc_get_root(document.get());
     if (!yyjson_is_obj(root)) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument, "", "场景根必须是对象");
+      fail(diagnostic, gneiss::engine::result::invalid_argument, "", "场景根必须是对象");
       return diagnostic.result;
     }
     yyjson_val* format = yyjson_obj_get(root, "format");
     if (!yyjson_is_str(format) || json_string(format) != scene_format) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/format",
-           "场景格式标识错误");
+      fail(diagnostic, gneiss::engine::result::invalid_argument, "/format", "场景格式标识错误");
       return diagnostic.result;
     }
     yyjson_val* version = yyjson_obj_get(root, "version");
     if (!yyjson_is_uint(version)) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/version",
+      fail(diagnostic, gneiss::engine::result::invalid_argument, "/version",
            "场景 Schema 版本必须是整数");
       return diagnostic.result;
     }
     const auto source_version = yyjson_get_uint(version);
     if (source_version > schema_version) {
-      fail(diagnostic, gneiss::engine::core::result::unsupported, "/version",
-           "场景 Schema 来自未来版本");
+      fail(diagnostic, gneiss::engine::result::unsupported, "/version", "场景 Schema 来自未来版本");
       return diagnostic.result;
     }
     if (source_version != schema_version) {
-      fail(diagnostic, gneiss::engine::core::result::invalid_argument, "/version",
+      fail(diagnostic, gneiss::engine::result::invalid_argument, "/version",
            "不支持旧版场景 Schema");
       return diagnostic.result;
     }
@@ -920,7 +904,7 @@ prepare_scene_json(std::string_view json, std::string& out_json,
     mutable_document_ptr mutable_document(yyjson_doc_mut_copy(document.get(), nullptr),
                                           &yyjson_mut_doc_free);
     if (!mutable_document) {
-      fail(diagnostic, gneiss::engine::core::result::out_of_memory, "", "无法复制场景作者文档");
+      fail(diagnostic, gneiss::engine::result::out_of_memory, "", "无法复制场景作者文档");
       return diagnostic.result;
     }
     std::size_t output_length = 0;
@@ -928,58 +912,56 @@ prepare_scene_json(std::string_view json, std::string& out_json,
     text_ptr output(yyjson_mut_write(mutable_document.get(), YYJSON_WRITE_NOFLAG, &output_length),
                     &std::free);
     if (!output) {
-      fail(diagnostic, gneiss::engine::core::result::out_of_memory, "", "无法复制场景作者文档");
+      fail(diagnostic, gneiss::engine::result::out_of_memory, "", "无法复制场景作者文档");
       return diagnostic.result;
     }
     out_json.assign(output.get(), output_length);
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    fail(diagnostic, gneiss::engine::core::result::out_of_memory, "", "内存不足");
+    fail(diagnostic, gneiss::engine::result::out_of_memory, "", "内存不足");
     return diagnostic.result;
   } catch (...) {
-    fail(diagnostic, gneiss::engine::core::result::internal, "", "场景作者文档复制失败");
+    fail(diagnostic, gneiss::engine::result::internal, "", "场景作者文档复制失败");
     return diagnostic.result;
   }
 }
 
-gneiss::engine::core::result parse_scene_description(std::string_view json,
-                                                     scene_description& out_scene,
-                                                     scene_diagnostic& out_diagnostic) noexcept {
+gneiss::engine::result parse_scene_description(std::string_view json, scene_description& out_scene,
+                                               scene_diagnostic& out_diagnostic) noexcept {
   out_scene = {};
   out_diagnostic = {};
   std::string current_json;
   auto result = prepare_scene_json(json, current_json, out_diagnostic);
-  if (result != gneiss::engine::core::result::success) {
+  if (result != gneiss::engine::result::success) {
     return result;
   }
   scene_description parsed;
   result = parse_current_scene_description(current_json, parsed, out_diagnostic);
-  if (result != gneiss::engine::core::result::success) {
+  if (result != gneiss::engine::result::success) {
     return result;
   }
   try {
     parsed.source_schema_version = static_cast<std::uint32_t>(schema_version);
     parsed.author_json = std::move(current_json);
     out_scene = std::move(parsed);
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
     out_scene = {};
-    fail(out_diagnostic, gneiss::engine::core::result::out_of_memory, "", "内存不足");
+    fail(out_diagnostic, gneiss::engine::result::out_of_memory, "", "内存不足");
     return out_diagnostic.result;
   } catch (...) {
     out_scene = {};
-    fail(out_diagnostic, gneiss::engine::core::result::internal, "", "场景作者文档复制失败");
+    fail(out_diagnostic, gneiss::engine::result::internal, "", "场景作者文档复制失败");
     return out_diagnostic.result;
   }
 }
 
-gneiss::engine::core::result
-load_scene_description(const engine::resource::virtual_file_system& file_system,
-                       std::string_view uri, scene_description& out_scene,
-                       scene_diagnostic& out_diagnostic) noexcept {
+gneiss::engine::result
+load_scene_description(const gneiss::engine::virtual_file_system& file_system, std::string_view uri,
+                       scene_description& out_scene, scene_diagnostic& out_diagnostic) noexcept {
   std::vector<std::byte> bytes;
   const auto result = file_system.read(uri, bytes);
-  if (result != gneiss::engine::core::result::success) {
+  if (result != gneiss::engine::result::success) {
     out_scene = {};
     out_diagnostic = {};
     fail(out_diagnostic, result, "", "无法通过 VFS 读取场景");
@@ -990,10 +972,10 @@ load_scene_description(const engine::resource::virtual_file_system& file_system,
       out_diagnostic);
 }
 
-gneiss::engine::core::result serialize_scene_description(const scene_description& scene,
-                                                         std::string& out_json) noexcept {
+gneiss::engine::result serialize_scene_description(const scene_description& scene,
+                                                   std::string& out_json) noexcept {
   if (scene.author_json.empty()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   try {
     yyjson_read_err error{};
@@ -1006,18 +988,18 @@ gneiss::engine::core::result serialize_scene_description(const scene_description
     mutable_document_ptr mutable_document(
         document ? yyjson_doc_mut_copy(document.get(), nullptr) : nullptr, &yyjson_mut_doc_free);
     if (!mutable_document) {
-      return document ? gneiss::engine::core::result::out_of_memory
-                      : gneiss::engine::core::result::invalid_state;
+      return document ? gneiss::engine::result::out_of_memory
+                      : gneiss::engine::result::invalid_state;
     }
     yyjson_mut_val* root = yyjson_mut_doc_get_root(mutable_document.get());
     yyjson_mut_val* objects = yyjson_mut_obj_get(root, "objects");
     if (!yyjson_mut_is_arr(objects) || yyjson_mut_arr_size(objects) > scene.objects.size()) {
-      return gneiss::engine::core::result::invalid_state;
+      return gneiss::engine::result::invalid_state;
     }
     for (std::size_t index = yyjson_mut_arr_size(objects); index < scene.objects.size(); ++index) {
       auto* object = make_author_object(mutable_document.get(), scene.objects[index]);
       if (object == nullptr || !yyjson_mut_arr_add_val(objects, object)) {
-        return gneiss::engine::core::result::out_of_memory;
+        return gneiss::engine::result::out_of_memory;
       }
     }
     for (std::size_t index = 0; index < scene.objects.size(); ++index) {
@@ -1038,14 +1020,14 @@ gneiss::engine::core::result serialize_scene_description(const scene_description
                      make_float_array(mutable_document.get(), source.rotation)) ||
           !put_value(mutable_document.get(), transform, "scale",
                      make_float_array(mutable_document.get(), source.scale))) {
-        return gneiss::engine::core::result::out_of_memory;
+        return gneiss::engine::result::out_of_memory;
       }
       if (source.name.empty()) {
         (void)yyjson_mut_obj_remove_key(object, "name");
       } else if (!put_value(mutable_document.get(), object, "name",
                             yyjson_mut_strncpy(mutable_document.get(), source.name.data(),
                                                source.name.size()))) {
-        return gneiss::engine::core::result::out_of_memory;
+        return gneiss::engine::result::out_of_memory;
       }
       if (source.camera) {
         yyjson_mut_val* camera =
@@ -1059,7 +1041,7 @@ gneiss::engine::core::result serialize_scene_description(const scene_description
                        yyjson_mut_real(mutable_document.get(), source.camera->far_plane)) ||
             !put_value(mutable_document.get(), camera, "is_primary",
                        yyjson_mut_bool(mutable_document.get(), source.camera->is_primary))) {
-          return gneiss::engine::core::result::out_of_memory;
+          return gneiss::engine::result::out_of_memory;
         }
       } else {
         yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
@@ -1071,7 +1053,7 @@ gneiss::engine::core::result serialize_scene_description(const scene_description
         if (renderer == nullptr) {
           renderer = yyjson_mut_obj(mutable_document.get());
           if (!put_value(mutable_document.get(), components, "mesh_renderer", renderer)) {
-            return gneiss::engine::core::result::out_of_memory;
+            return gneiss::engine::result::out_of_memory;
           }
         }
         if (!put_value(mutable_document.get(), renderer, "mesh",
@@ -1082,7 +1064,7 @@ gneiss::engine::core::result serialize_scene_description(const scene_description
                        yyjson_mut_strncpy(mutable_document.get(),
                                           source.mesh_renderer->material_uri.data(),
                                           source.mesh_renderer->material_uri.size()))) {
-          return gneiss::engine::core::result::out_of_memory;
+          return gneiss::engine::result::out_of_memory;
         }
       } else {
         yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
@@ -1092,14 +1074,14 @@ gneiss::engine::core::result serialize_scene_description(const scene_description
     yyjson_mut_val* prefab_instances = yyjson_mut_obj_get(root, "prefab_instances");
     if (!yyjson_mut_is_arr(prefab_instances) ||
         yyjson_mut_arr_size(prefab_instances) > scene.prefab_instances.size()) {
-      return gneiss::engine::core::result::invalid_state;
+      return gneiss::engine::result::invalid_state;
     }
     for (std::size_t index = yyjson_mut_arr_size(prefab_instances);
          index < scene.prefab_instances.size(); ++index) {
       auto* instance =
           make_author_prefab_instance(mutable_document.get(), scene.prefab_instances[index]);
       if (instance == nullptr || !yyjson_mut_arr_add_val(prefab_instances, instance)) {
-        return gneiss::engine::core::result::out_of_memory;
+        return gneiss::engine::result::out_of_memory;
       }
     }
     for (std::size_t index = 0; index < scene.prefab_instances.size(); ++index) {
@@ -1123,18 +1105,18 @@ gneiss::engine::core::result serialize_scene_description(const scene_description
                      make_float_array(mutable_document.get(), source.rotation)) ||
           !put_value(mutable_document.get(), transform, "scale",
                      make_float_array(mutable_document.get(), source.scale))) {
-        return gneiss::engine::core::result::out_of_memory;
+        return gneiss::engine::result::out_of_memory;
       }
       if (source.name.empty()) {
         (void)yyjson_mut_obj_remove_key(instance, "name");
       } else if (!put_value(mutable_document.get(), instance, "name",
                             yyjson_mut_strncpy(mutable_document.get(), source.name.data(),
                                                source.name.size()))) {
-        return gneiss::engine::core::result::out_of_memory;
+        return gneiss::engine::result::out_of_memory;
       }
       if (!put_value(mutable_document.get(), instance, "overrides",
                      make_prefab_overrides(mutable_document.get(), source.overrides))) {
-        return gneiss::engine::core::result::out_of_memory;
+        return gneiss::engine::result::out_of_memory;
       }
     }
     std::size_t output_length = 0;
@@ -1142,15 +1124,15 @@ gneiss::engine::core::result serialize_scene_description(const scene_description
     text_ptr output(yyjson_mut_write(mutable_document.get(), YYJSON_WRITE_NOFLAG, &output_length),
                     &std::free);
     if (!output) {
-      return gneiss::engine::core::result::out_of_memory;
+      return gneiss::engine::result::out_of_memory;
     }
     out_json.assign(output.get(), output_length);
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-} // namespace gneiss::engine::resource
+} // namespace gneiss::engine

@@ -22,7 +22,7 @@
 #include <span>
 #include <string>
 
-namespace gneiss::editor {
+namespace gneiss::host {
 
 enum class runtime_control_state : std::uint8_t {
   stopped,
@@ -47,7 +47,7 @@ struct runtime_asset_reload_status final {
   runtime_asset_reload_state state{runtime_asset_reload_state::idle};
   std::uint64_t revision = 0U;
   std::string message;
-  gneiss::engine::core::result publish_result = gneiss::engine::core::result::success;
+  gneiss::engine::result publish_result = gneiss::engine::result::success;
   bool can_cancel = false;
   std::uint32_t completed_assets = 0U;
   std::uint32_t total_assets = 0U;
@@ -62,28 +62,29 @@ public:
   runtime_process(const runtime_process&) = delete;
   runtime_process& operator=(const runtime_process&) = delete;
 
-  [[nodiscard]] gneiss::engine::core::result start(const std::filesystem::path& executable,
-                                                   const runtime_launch_request& request) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
+  [[nodiscard]] gneiss::engine::result
+  start(const std::filesystem::path& executable,
+        const gneiss::editor::runtime_launch_request& request) noexcept;
+  [[nodiscard]] gneiss::engine::result
   build_and_start(const std::filesystem::path& cmake_executable,
                   const std::filesystem::path& runtime_executable,
-                  const runtime_launch_request& request,
-                  const app::project_description& project) noexcept;
-  [[nodiscard]] gneiss::engine::core::result request_stop() noexcept;
-  [[nodiscard]] gneiss::engine::core::result request_pause() noexcept;
-  [[nodiscard]] gneiss::engine::core::result request_resume() noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  request_property_write(runtime_property_key key, std::uint64_t expected_revision,
+                  const gneiss::editor::runtime_launch_request& request,
+                  const gneiss::host::project_description& project) noexcept;
+  [[nodiscard]] gneiss::engine::result request_stop() noexcept;
+  [[nodiscard]] gneiss::engine::result request_pause() noexcept;
+  [[nodiscard]] gneiss::engine::result request_resume() noexcept;
+  [[nodiscard]] gneiss::engine::result
+  request_property_write(gneiss::editor::runtime_property_key key, std::uint64_t expected_revision,
                          ipc_property_value value) noexcept;
   /** 发布已提交的派生资产；Runtime 未连接时保留到下次全量重同步。 */
-  [[nodiscard]] gneiss::engine::core::result
+  [[nodiscard]] gneiss::engine::result
   publish_asset_revision(std::span<const std::string> output_uris) noexcept;
   /** 失败后全量同步已知资产；执行中或未连接时返回 not_ready。 */
-  [[nodiscard]] gneiss::engine::core::result cancel_asset_reload() noexcept;
-  [[nodiscard]] gneiss::engine::core::result retry_asset_reload() noexcept;
-  [[nodiscard]] gneiss::engine::core::result load_scene(std::string_view uri) noexcept;
-  [[nodiscard]] gneiss::engine::core::result cancel_scene_load() noexcept;
-  [[nodiscard]] gneiss::engine::core::result retry_scene_load() noexcept;
+  [[nodiscard]] gneiss::engine::result cancel_asset_reload() noexcept;
+  [[nodiscard]] gneiss::engine::result retry_asset_reload() noexcept;
+  [[nodiscard]] gneiss::engine::result load_scene(std::string_view uri) noexcept;
+  [[nodiscard]] gneiss::engine::result cancel_scene_load() noexcept;
+  [[nodiscard]] gneiss::engine::result retry_scene_load() noexcept;
   [[nodiscard]] bool supports_scene_loading() const noexcept;
   [[nodiscard]] const ipc_scene_progress& scene_load_status() const noexcept;
   void update() noexcept;
@@ -96,15 +97,15 @@ public:
   [[nodiscard]] bool has_started() const noexcept;
   [[nodiscard]] int exit_code() const noexcept;
   [[nodiscard]] const std::string& output() const noexcept;
-  [[nodiscard]] const console_model& console() const noexcept;
-  [[nodiscard]] const runtime_scene_mirror& scene_mirror() const noexcept;
+  [[nodiscard]] const gneiss::editor::console_model& console() const noexcept;
+  [[nodiscard]] const gneiss::editor::runtime_scene_mirror& scene_mirror() const noexcept;
   [[nodiscard]] const ipc_runtime_statistics& statistics() const noexcept;
-  [[nodiscard]] const runtime_property_edit*
-  property_edit(const runtime_property_key& key) const noexcept;
+  [[nodiscard]] const gneiss::editor::runtime_property_edit*
+  property_edit(const gneiss::editor::runtime_property_key& key) const noexcept;
   [[nodiscard]] bool supports_property_editing() const noexcept;
   [[nodiscard]] const runtime_asset_reload_status& asset_reload_status() const noexcept;
   [[nodiscard]] const std::filesystem::path& log_file() const noexcept;
-  [[nodiscard]] gneiss::engine::core::result last_result() const noexcept;
+  [[nodiscard]] gneiss::engine::result last_result() const noexcept;
   void clear_output() noexcept;
 
 private:
@@ -112,6 +113,6 @@ private:
   std::unique_ptr<implementation> implementation_;
 };
 
-} // namespace gneiss::editor
+} // namespace gneiss::host
 
 #endif

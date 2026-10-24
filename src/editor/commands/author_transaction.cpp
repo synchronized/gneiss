@@ -41,55 +41,54 @@ author_revision make_author_revision(std::string_view contents) noexcept {
   return {.digest = digest, .byte_size = contents.size()};
 }
 
-gneiss::engine::core::result author_transaction::add(author_document_change change) noexcept {
+gneiss::engine::result author_transaction::add(author_document_change change) noexcept {
   if (state_ != state::draft || change.path.empty() || change.baseline == change.replacement ||
       std::ranges::find(changes_, change.path, &author_document_change::path) != changes_.end()) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   try {
     changes_.push_back(std::move(change));
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result
-author_transaction::validate(std::span<const author_document> documents,
-                             bool expect_replacement) const noexcept {
+gneiss::engine::result author_transaction::validate(std::span<const author_document> documents,
+                                                    bool expect_replacement) const noexcept {
   for (const auto& change : changes_) {
     const auto* contents = find_contents(documents, change.path);
     const std::optional<std::string> missing;
     const auto& expected = expect_replacement ? change.replacement : change.baseline;
     if ((contents == nullptr ? missing : *contents) != expected) {
-      return gneiss::engine::core::result::invalid_state;
+      return gneiss::engine::result::invalid_state;
     }
   }
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 author_transaction::prepare(std::span<const author_document> documents) noexcept {
   if (state_ != state::draft || changes_.empty()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   const auto checked = validate(documents, false);
-  if (checked == gneiss::engine::core::result::success) {
+  if (checked == gneiss::engine::result::success) {
     state_ = state::prepared;
   }
   return checked;
 }
 
-gneiss::engine::core::result author_transaction::apply(std::vector<author_document>& documents,
-                                                       bool use_replacement,
-                                                       std::size_t failure_before) noexcept {
+gneiss::engine::result author_transaction::apply(std::vector<author_document>& documents,
+                                                 bool use_replacement,
+                                                 std::size_t failure_before) noexcept {
   try {
     auto staged = documents;
     for (std::size_t index = 0U; index < changes_.size(); ++index) {
       if (index == failure_before) {
-        return gneiss::engine::core::result::io;
+        return gneiss::engine::result::io;
       }
       const auto& change = changes_[index];
       const auto& value = use_replacement ? change.replacement : change.baseline;
@@ -105,48 +104,43 @@ gneiss::engine::core::result author_transaction::apply(std::vector<author_docume
       }
     }
     documents.swap(staged);
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result author_transaction::commit(std::vector<author_document>& documents,
-                                                        std::size_t failure_before) noexcept {
-  if (state_ != state::prepared ||
-      validate(documents, false) != gneiss::engine::core::result::success) {
-    return gneiss::engine::core::result::invalid_state;
+gneiss::engine::result author_transaction::commit(std::vector<author_document>& documents,
+                                                  std::size_t failure_before) noexcept {
+  if (state_ != state::prepared || validate(documents, false) != gneiss::engine::result::success) {
+    return gneiss::engine::result::invalid_state;
   }
   const auto operation = apply(documents, true, failure_before);
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     state_ = state::committed;
   }
   return operation;
 }
 
-gneiss::engine::core::result
-author_transaction::undo(std::vector<author_document>& documents) noexcept {
-  if (state_ != state::committed ||
-      validate(documents, true) != gneiss::engine::core::result::success) {
-    return gneiss::engine::core::result::invalid_state;
+gneiss::engine::result author_transaction::undo(std::vector<author_document>& documents) noexcept {
+  if (state_ != state::committed || validate(documents, true) != gneiss::engine::result::success) {
+    return gneiss::engine::result::invalid_state;
   }
   const auto operation = apply(documents, false, std::numeric_limits<std::size_t>::max());
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     state_ = state::undone;
   }
   return operation;
 }
 
-gneiss::engine::core::result
-author_transaction::redo(std::vector<author_document>& documents) noexcept {
-  if (state_ != state::undone ||
-      validate(documents, false) != gneiss::engine::core::result::success) {
-    return gneiss::engine::core::result::invalid_state;
+gneiss::engine::result author_transaction::redo(std::vector<author_document>& documents) noexcept {
+  if (state_ != state::undone || validate(documents, false) != gneiss::engine::result::success) {
+    return gneiss::engine::result::invalid_state;
   }
   const auto operation = apply(documents, true, std::numeric_limits<std::size_t>::max());
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     state_ = state::committed;
   }
   return operation;

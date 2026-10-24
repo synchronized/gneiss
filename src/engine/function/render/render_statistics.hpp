@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace gneiss::engine::render {
+namespace gneiss::engine {
 /** 渲染队列统计值快照，不暴露执行器或在途任务。 */
 struct render_queue_stats final {
   std::size_t pending_tasks{};
@@ -44,4 +44,4 @@ struct render_queue_stats final {
   float environment_rotation_radians{};
 };
 
-} // namespace gneiss::engine::render
+} // namespace gneiss::engine

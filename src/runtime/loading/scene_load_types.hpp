@@ -43,7 +43,7 @@ struct scene_load_progress {
 };
 struct scene_load_completion {
   scene_load_progress progress;
-  gneiss::engine::core::result result{gneiss::engine::core::result::internal};
+  gneiss::engine::result result{gneiss::engine::result::internal};
   std::string message;
   gneiss_scene_instance scene{};
   double prepare_ms{};

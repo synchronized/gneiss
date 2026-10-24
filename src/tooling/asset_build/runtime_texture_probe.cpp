@@ -14,7 +14,7 @@
 #include <string_view>
 #include <utility>
 
-namespace gneiss::tooling::asset_build {
+namespace gneiss::tooling {
 namespace {
 
 std::string_view format_name(granit::texture_format format) noexcept {
@@ -39,9 +39,9 @@ bool inspect_runtime_texture(std::span<const std::byte> bytes, std::string& summ
   summary.clear();
   diagnostic.clear();
   try {
-    engine::resource::texture_binary_view binary;
-    if (engine::resource::decode_texture_binary(bytes, binary, diagnostic) !=
-        engine::resource::texture_binary_result::success) {
+    gneiss::engine::texture_binary_view binary;
+    if (gneiss::engine::decode_texture_binary(bytes, binary, diagnostic) !=
+        gneiss::engine::texture_binary_result::success) {
       return false;
     }
     granit::texture_asset_info info;
@@ -100,4 +100,4 @@ bool inspect_runtime_texture(std::span<const std::byte> bytes, std::string& summ
   }
 }
 
-} // namespace gneiss::tooling::asset_build
+} // namespace gneiss::tooling

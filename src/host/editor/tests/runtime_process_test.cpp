@@ -19,6 +19,8 @@
 #include <thread>
 #include <utility>
 
+using namespace gneiss::host;
+
 namespace {
 
 struct temporary_project final {
@@ -33,9 +35,9 @@ struct temporary_project final {
 bool test_scene_adapter() {
   gneiss::editor::runtime_scene_batch output;
   {
-    gneiss::ipc_inspection_batch input{
+    gneiss::host::ipc_inspection_batch input{
         .stamp = {31U, 32U}, .is_full = true, .chunk_index = 2U, .chunk_count = 3U, .changes = {}};
-    gneiss::ipc_inspection_change change;
+    gneiss::host::ipc_inspection_change change;
     change.id = {41U, 42U};
     change.node.id = change.id;
     change.node.parent = {43U, 44U};
@@ -50,9 +52,9 @@ bool test_scene_adapter() {
     change.node.material_uri = "asset://material";
     input.changes.push_back(std::move(change));
     input.changes.push_back(
-        {.type = gneiss::ipc_inspection_change_type::remove, .id = {51U, 52U}, .node = {}});
-    if (gneiss::editor::to_runtime_scene_batch(std::move(input), output) !=
-        gneiss::engine::core::result::success) {
+        {.type = gneiss::host::ipc_inspection_change_type::remove, .id = {51U, 52U}, .node = {}});
+    if (gneiss::host::to_runtime_scene_batch(std::move(input), output) !=
+        gneiss::engine::result::success) {
       return false;
     }
   }
@@ -74,17 +76,17 @@ bool test_scene_adapter() {
       output.changes[1].id.value != 51U || output.changes[1].id.generation != 52U) {
     return false;
   }
-  gneiss::ipc_inspection_batch invalid;
+  gneiss::host::ipc_inspection_batch invalid;
   invalid.changes.push_back(
-      {.type = static_cast<gneiss::ipc_inspection_change_type>(255U), .id = {}, .node = {}});
-  return gneiss::editor::to_runtime_scene_batch(std::move(invalid), output) ==
-             gneiss::engine::core::result::invalid_argument &&
+      {.type = static_cast<gneiss::host::ipc_inspection_change_type>(255U), .id = {}, .node = {}});
+  return gneiss::host::to_runtime_scene_batch(std::move(invalid), output) ==
+             gneiss::engine::result::invalid_argument &&
          output.stamp.session_id == 31U && output.changes.size() == 2U &&
          output.changes[0].node.name == std::string(512U, 's');
 }
 
 bool test_property_adapter() {
-  const std::array<gneiss::ipc_property_payload, 10> values{
+  const std::array<gneiss::host::ipc_property_payload, 10> values{
       std::monostate{},
       true,
       std::int64_t{-17},
@@ -103,25 +105,24 @@ bool test_property_adapter() {
         .type_id = {{15U}},
         .field_id = 16U,
         .expected_revision = 17U,
-        .value = gneiss::editor::to_runtime_property_value({payload})};
-    const auto wire = gneiss::editor::to_ipc_property_write(std::move(request));
+        .value = gneiss::host::to_runtime_property_value({payload})};
+    const auto wire = gneiss::host::to_ipc_property_write(std::move(request));
     if (wire.session_id != 11U || wire.command_id != 12U || wire.object.value != 13U ||
         wire.object.generation != 14U || wire.type_id.bytes[0] != 15U || wire.field_id != 16U ||
         wire.expected_revision != 17U || wire.value.payload != payload) {
       return false;
     }
     // 临时协议响应在表达式结束时销毁，模型结果必须持有消息与规范值。
-    const auto result = gneiss::editor::to_runtime_property_result(
+    const auto result = gneiss::host::to_runtime_property_result(
         {.session_id = 11U,
          .command_id = 12U,
-         .code = gneiss::engine::core::result::invalid_argument.code(),
+         .code = gneiss::engine::result::invalid_argument.code(),
          .revision = 18U,
          .message = std::string(256U, 'r'),
          .canonical_value = {payload}});
     if (result.session_id != 11U || result.command_id != 12U ||
-        result.code != gneiss::engine::core::result::invalid_argument.code() ||
-        result.revision != 18U || result.message != std::string(256U, 'r') ||
-        result.canonical_value.payload != payload) {
+        result.code != gneiss::engine::result::invalid_argument.code() || result.revision != 18U ||
+        result.message != std::string(256U, 'r') || result.canonical_value.payload != payload) {
       return false;
     }
   }
@@ -136,7 +137,7 @@ int main() try {
   }
   // 协议对象销毁后，控制台值仍拥有全部字段和长字符串。
   auto converted = [] {
-    gneiss::app::runtime_log_record record;
+    gneiss::host::runtime_log_record record;
     record.severity = GNEISS_LOG_ERROR;
     record.sequence = 42U;
     record.timestamp_ns = 123456U;
@@ -144,14 +145,14 @@ int main() try {
     record.source = "runtime-module";
     record.category = "resource-import";
     record.message = std::string(512U, 'x');
-    record.operation = gneiss::engine::core::result::not_found;
-    return gneiss::editor::to_console_event(std::move(record));
+    record.operation = gneiss::engine::result::not_found;
+    return gneiss::host::to_console_event(std::move(record));
   }();
   if (converted.severity != GNEISS_LOG_ERROR || converted.sequence != 42U ||
       converted.timestamp_ns != 123456U || converted.thread_id != 17U ||
       converted.source != "runtime-module" || converted.category != "resource-import" ||
       converted.message != std::string(512U, 'x') ||
-      converted.operation != gneiss::engine::core::result::not_found) {
+      converted.operation != gneiss::engine::result::not_found) {
     return 90;
   }
 
@@ -163,23 +164,23 @@ int main() try {
   std::filesystem::create_directories(reload_project.root);
   std::filesystem::copy(GNEISS_TEST_PROJECT_ROOT, reload_project.root,
                         std::filesystem::copy_options::recursive);
-  gneiss::editor::runtime_process process;
-  if (process.retry_asset_reload() != gneiss::engine::core::result::not_ready) {
+  gneiss::host::runtime_process process;
+  if (process.retry_asset_reload() != gneiss::engine::result::not_ready) {
     return 16;
   }
   const std::vector<std::string> over_capacity(1025U, "asset://test.texture.json");
-  if (process.publish_asset_revision(over_capacity) != gneiss::engine::core::result::not_ready) {
+  if (process.publish_asset_revision(over_capacity) != gneiss::engine::result::not_ready) {
     return 26;
   }
   const std::vector<std::string> over_texture_batch(17U, "asset://test.texture.json");
   if (process.publish_asset_revision(over_texture_batch) !=
-      gneiss::engine::core::result::invalid_argument) {
+      gneiss::engine::result::invalid_argument) {
     return 27;
   }
   gneiss::editor::runtime_launch_request request{reload_project.root};
   const std::filesystem::path executable{GNEISS_TEST_RUNTIME};
   const auto missing_executable = executable.parent_path() / "missing-runtime";
-  if (process.start(missing_executable, request) != gneiss::engine::core::result::not_found) {
+  if (process.start(missing_executable, request) != gneiss::engine::result::not_found) {
     return 1;
   }
 
@@ -202,7 +203,7 @@ int main() try {
     return 2;
   }
   gneiss::editor::runtime_launch_request invalid_request{invalid_project.root};
-  if (process.start(executable, invalid_request) != gneiss::engine::core::result::success) {
+  if (process.start(executable, invalid_request) != gneiss::engine::result::success) {
     return 3;
   }
   const auto failure_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -219,9 +220,9 @@ int main() try {
     return 4;
   }
 
-  if (process.start(executable, request) != gneiss::engine::core::result::success ||
+  if (process.start(executable, request) != gneiss::engine::result::success ||
       !process.is_running() ||
-      process.start(executable, request) != gneiss::engine::core::result::invalid_state) {
+      process.start(executable, request) != gneiss::engine::result::invalid_state) {
     return 5;
   }
   if (!std::filesystem::is_regular_file(failure_log)) {
@@ -232,7 +233,7 @@ int main() try {
   const auto startup_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (std::chrono::steady_clock::now() < startup_deadline &&
          (process.output().find("Runtime 已进入首帧") == std::string::npos ||
-          process.control_state() != gneiss::editor::runtime_control_state::running)) {
+          process.control_state() != gneiss::host::runtime_control_state::running)) {
     process.update();
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
@@ -262,35 +263,32 @@ int main() try {
       process.scene_mirror().nodes().empty() ||
       process.statistics().session_id != process.scene_mirror().session_id() ||
       process.statistics().scene_node_count == 0U || process.statistics().entity_count == 0U ||
-      process.control_state() != gneiss::editor::runtime_control_state::running) {
+      process.control_state() != gneiss::host::runtime_control_state::running) {
     return 7;
   }
   const std::array<std::string, 1> unsupported_reload{"asset://unknown.bin"};
-  if (process.publish_asset_revision({}) != gneiss::engine::core::result::invalid_argument ||
-      process.asset_reload_status().publish_result !=
-          gneiss::engine::core::result::invalid_argument ||
-      process.publish_asset_revision(unsupported_reload) !=
-          gneiss::engine::core::result::unsupported ||
-      process.asset_reload_status().publish_result != gneiss::engine::core::result::unsupported) {
+  if (process.publish_asset_revision({}) != gneiss::engine::result::invalid_argument ||
+      process.asset_reload_status().publish_result != gneiss::engine::result::invalid_argument ||
+      process.publish_asset_revision(unsupported_reload) != gneiss::engine::result::unsupported ||
+      process.asset_reload_status().publish_result != gneiss::engine::result::unsupported) {
     return 21;
   }
   const std::array<std::string, 3> mixed_reload{"asset://materials/triangle.material.json",
                                                 "asset://models/triangle.mesh.json",
                                                 "asset://scenes/main.scene.json"};
-  if (process.publish_asset_revision(mixed_reload) != gneiss::engine::core::result::success ||
-      process.asset_reload_status().publish_result != gneiss::engine::core::result::success) {
+  if (process.publish_asset_revision(mixed_reload) != gneiss::engine::result::success ||
+      process.asset_reload_status().publish_result != gneiss::engine::result::success) {
     return 7;
   }
   const auto reload_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
-  while (process.asset_reload_status().state !=
-             gneiss::editor::runtime_asset_reload_state::applied &&
+  while (process.asset_reload_status().state != gneiss::host::runtime_asset_reload_state::applied &&
          std::chrono::steady_clock::now() < reload_deadline) {
     process.update();
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
-  if (process.asset_reload_status().state != gneiss::editor::runtime_asset_reload_state::applied ||
+  if (process.asset_reload_status().state != gneiss::host::runtime_asset_reload_state::applied ||
       process.asset_reload_status().revision != 2U ||
-      process.request_pause() != gneiss::engine::core::result::success) {
+      process.request_pause() != gneiss::engine::result::success) {
     return 7;
   }
   // 非法材质报告失败；修复磁盘文件后显式重同步，无需重启进程。
@@ -300,10 +298,10 @@ int main() try {
     broken_material << "invalid material";
   }
   const std::array<std::string, 1> material_reload{mixed_reload.front()};
-  if (process.publish_asset_revision(material_reload) != gneiss::engine::core::result::success) {
+  if (process.publish_asset_revision(material_reload) != gneiss::engine::result::success) {
     return 17;
   }
-  const auto wait_for_reload = [&](gneiss::editor::runtime_asset_reload_state expected) {
+  const auto wait_for_reload = [&](gneiss::host::runtime_asset_reload_state expected) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
     while (process.asset_reload_status().state != expected &&
            std::chrono::steady_clock::now() < deadline) {
@@ -312,25 +310,24 @@ int main() try {
     }
     return process.asset_reload_status().state == expected;
   };
-  if (!wait_for_reload(gneiss::editor::runtime_asset_reload_state::failed) ||
+  if (!wait_for_reload(gneiss::host::runtime_asset_reload_state::failed) ||
       process.asset_reload_status().message.empty()) {
     return 18;
   }
   const auto failed_revision = process.asset_reload_status().revision;
   // 未修复时重试仍失败，重复点击不得重复排队。
-  if (process.retry_asset_reload() != gneiss::engine::core::result::success ||
-      process.retry_asset_reload() != gneiss::engine::core::result::not_ready ||
-      !wait_for_reload(gneiss::editor::runtime_asset_reload_state::failed)) {
+  if (process.retry_asset_reload() != gneiss::engine::result::success ||
+      process.retry_asset_reload() != gneiss::engine::result::not_ready ||
+      !wait_for_reload(gneiss::host::runtime_asset_reload_state::failed)) {
     return 19;
   }
   std::filesystem::copy_file(std::filesystem::path{GNEISS_TEST_PROJECT_ROOT} /
                                  "assets/materials/triangle.material.json",
                              material_path, std::filesystem::copy_options::overwrite_existing);
-  if (process.retry_asset_reload() != gneiss::engine::core::result::success ||
-      !wait_for_reload(gneiss::editor::runtime_asset_reload_state::applied) ||
+  if (process.retry_asset_reload() != gneiss::engine::result::success ||
+      !wait_for_reload(gneiss::host::runtime_asset_reload_state::applied) ||
       process.asset_reload_status().revision <= failed_revision ||
-      process.retry_asset_reload() != gneiss::engine::core::result::not_ready ||
-      !process.is_running()) {
+      process.retry_asset_reload() != gneiss::engine::result::not_ready || !process.is_running()) {
     return 20;
   }
   // 实际 Runtime 的纯纹理异步回执：准备失败后恢复，窗口与 IPC 持续运行。
@@ -358,26 +355,26 @@ int main() try {
     stream
         << R"({"format":"gneiss.material","version":3,"color":[1,1,1,1],"base_color_texture":"asset://textures/test.texture.json","metallic":0,"roughness":1})";
   }
-  if (process.publish_asset_revision(material_reload) != gneiss::engine::core::result::success ||
-      !wait_for_reload(gneiss::editor::runtime_asset_reload_state::applied)) {
+  if (process.publish_asset_revision(material_reload) != gneiss::engine::result::success ||
+      !wait_for_reload(gneiss::host::runtime_asset_reload_state::applied)) {
     return 22;
   }
   const std::array<std::string, 1> texture_reload{"asset://textures/test.texture.json"};
-  if (process.publish_asset_revision(texture_reload) != gneiss::engine::core::result::success ||
-      !wait_for_reload(gneiss::editor::runtime_asset_reload_state::applied)) {
+  if (process.publish_asset_revision(texture_reload) != gneiss::engine::result::success ||
+      !wait_for_reload(gneiss::host::runtime_asset_reload_state::applied)) {
     return 23;
   }
   {
     std::ofstream broken(texture_root / "test.png", std::ios::trunc);
     broken << "invalid";
   }
-  if (process.publish_asset_revision(texture_reload) != gneiss::engine::core::result::success ||
-      !wait_for_reload(gneiss::editor::runtime_asset_reload_state::failed)) {
+  if (process.publish_asset_revision(texture_reload) != gneiss::engine::result::success ||
+      !wait_for_reload(gneiss::host::runtime_asset_reload_state::failed)) {
     return 24;
   }
   write_png();
-  if (process.retry_asset_reload() != gneiss::engine::core::result::success ||
-      !wait_for_reload(gneiss::editor::runtime_asset_reload_state::applied) ||
+  if (process.retry_asset_reload() != gneiss::engine::result::success ||
+      !wait_for_reload(gneiss::host::runtime_asset_reload_state::applied) ||
       !process.is_running()) {
     return 25;
   }
@@ -391,9 +388,9 @@ int main() try {
   if (!process.supports_property_editing() ||
       process.request_property_write(property_key, 1U,
                                      {std::array<float, 3>{0.25F, 0.5F, 0.75F}}) !=
-          gneiss::engine::core::result::success ||
+          gneiss::engine::result::success ||
       process.request_property_write(property_key, 1U, {true}) !=
-          gneiss::engine::core::result::not_ready) {
+          gneiss::engine::result::not_ready) {
     return 7;
   }
   const auto property_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
@@ -422,19 +419,19 @@ int main() try {
     return 7;
   }
   const auto pause_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
-  while (process.control_state() != gneiss::editor::runtime_control_state::paused &&
+  while (process.control_state() != gneiss::host::runtime_control_state::paused &&
          std::chrono::steady_clock::now() < pause_deadline) {
     process.update();
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
-  if (process.control_state() != gneiss::editor::runtime_control_state::paused ||
+  if (process.control_state() != gneiss::host::runtime_control_state::paused ||
       !process.supports_property_editing()) {
     return 7;
   }
   auto paused_key = property_key;
   paused_key.field_id = GNEISS_TRANSFORM_FIELD_SCALE;
   if (process.request_property_write(paused_key, 1U, {std::array<float, 3>{1.1F, 1.2F, 1.3F}}) !=
-      gneiss::engine::core::result::success) {
+      gneiss::engine::result::success) {
     return 7;
   }
   const auto paused_edit_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
@@ -450,17 +447,17 @@ int main() try {
   }
   if (paused_edit == nullptr ||
       paused_edit->state != gneiss::editor::runtime_property_edit_state::applied ||
-      process.request_resume() != gneiss::engine::core::result::success) {
+      process.request_resume() != gneiss::engine::result::success) {
     return 7;
   }
   const auto resume_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
-  while (process.control_state() != gneiss::editor::runtime_control_state::running &&
+  while (process.control_state() != gneiss::host::runtime_control_state::running &&
          std::chrono::steady_clock::now() < resume_deadline) {
     process.update();
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
-  if (process.control_state() != gneiss::editor::runtime_control_state::running ||
-      process.request_stop() != gneiss::engine::core::result::success) {
+  if (process.control_state() != gneiss::host::runtime_control_state::running ||
+      process.request_stop() != gneiss::engine::result::success) {
     return 7;
   }
   const auto startup_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -478,27 +475,27 @@ int main() try {
   if (process.is_running() || process.exit_code() != 0 || !process.received_shutdown_complete() ||
       process.output().find("收到 Editor IPC 停止请求") == std::string::npos ||
       process.output().find("stage=shutdown") == std::string::npos ||
-      process.request_stop() != gneiss::engine::core::result::not_ready) {
+      process.request_stop() != gneiss::engine::result::not_ready) {
     return 8;
   }
 
-  if (process.start(executable, request) != gneiss::engine::core::result::success) {
+  if (process.start(executable, request) != gneiss::engine::result::success) {
     return 9;
   }
   const auto replay_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  while (std::chrono::steady_clock::now() < replay_deadline &&
-         (process.control_state() != gneiss::editor::runtime_control_state::running ||
-          process.scene_mirror().nodes().empty() ||
-          process.scene_mirror().session_id() == first_inspection_session ||
-          process.asset_reload_status().state !=
-              gneiss::editor::runtime_asset_reload_state::applied)) {
+  while (
+      std::chrono::steady_clock::now() < replay_deadline &&
+      (process.control_state() != gneiss::host::runtime_control_state::running ||
+       process.scene_mirror().nodes().empty() ||
+       process.scene_mirror().session_id() == first_inspection_session ||
+       process.asset_reload_status().state != gneiss::host::runtime_asset_reload_state::applied)) {
     process.update();
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
   if (!process.is_running() || process.scene_mirror().nodes().empty() ||
       process.scene_mirror().session_id() == first_inspection_session ||
-      process.asset_reload_status().state != gneiss::editor::runtime_asset_reload_state::applied ||
-      process.request_stop() != gneiss::engine::core::result::success) {
+      process.asset_reload_status().state != gneiss::host::runtime_asset_reload_state::applied ||
+      process.request_stop() != gneiss::engine::result::success) {
     return 9;
   }
   while (process.is_running() && std::chrono::steady_clock::now() < replay_deadline) {
@@ -510,8 +507,8 @@ int main() try {
     return 9;
   }
 
-  if (process.start(GNEISS_TEST_CHILD_PROCESS, request) != gneiss::engine::core::result::success ||
-      process.request_stop() != gneiss::engine::core::result::success) {
+  if (process.start(GNEISS_TEST_CHILD_PROCESS, request) != gneiss::engine::result::success ||
+      process.request_stop() != gneiss::engine::result::success) {
     return 10;
   }
   const auto forced_stop_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(4);
@@ -525,7 +522,7 @@ int main() try {
     return 11;
   }
 
-  gneiss::app::project_description module_project;
+  gneiss::host::project_description module_project;
   module_project.project_root = request.project_root;
   module_project.game_module.name = "test_game";
   module_project.game_module.profiles[0].directory = "modules";
@@ -533,7 +530,7 @@ int main() try {
   module_project.game_module.profiles[0].build_preset = "game-debug";
   module_project.game_module.build_target = "build-fail";
   if (process.build_and_start(GNEISS_TEST_CHILD_PROCESS, executable, request, module_project) !=
-          gneiss::engine::core::result::success ||
+          gneiss::engine::result::success ||
       !process.is_building()) {
     return 12;
   }
@@ -543,8 +540,7 @@ int main() try {
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
   process.update();
-  if (process.is_busy() ||
-      process.last_result() != gneiss::engine::core::result::dependency_failed ||
+  if (process.is_busy() || process.last_result() != gneiss::engine::result::dependency_failed ||
       process.output().find("fixture build failed") == std::string::npos ||
       process.output().find("未启动 Runtime") == std::string::npos) {
     return 13;
@@ -569,7 +565,7 @@ int main() try {
   invalid_request.project_root = invalid_project.root;
   if (error || !project_file ||
       process.build_and_start(GNEISS_TEST_CHILD_PROCESS, executable, invalid_request,
-                              module_project) != gneiss::engine::core::result::success) {
+                              module_project) != gneiss::engine::result::success) {
     return 14;
   }
   const auto build_success_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -580,7 +576,7 @@ int main() try {
   }
   if (!process.is_running() || process.output().find("游戏模块构建完成") == std::string::npos ||
       process.output().find("Runtime 已进入首帧") == std::string::npos ||
-      process.request_stop() != gneiss::engine::core::result::success) {
+      process.request_stop() != gneiss::engine::result::success) {
     return 15;
   }
   return 0;

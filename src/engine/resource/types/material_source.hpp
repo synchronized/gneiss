@@ -6,7 +6,7 @@
 #include <array>
 #include <string>
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 /** 纯 CPU 材质描述；纹理依赖使用 URI，不包含资源句柄。 */
 struct material_source final {
   material_parameters parameters;

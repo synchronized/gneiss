@@ -9,7 +9,7 @@
 
 // 桌面与浏览器复用同一组无阻塞契约；不使用 sleep 或工作线程屏障。
 inline void cooperative_scheduler_contract() {
-  using namespace gneiss::engine::core::tasks;
+  using namespace gneiss::engine;
   using namespace std::chrono_literals;
   const auto check = [](bool value) {
     if (!value) {

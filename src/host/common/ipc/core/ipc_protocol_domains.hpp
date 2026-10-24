@@ -9,17 +9,17 @@
 
 #include <array>
 
-namespace gneiss {
+namespace gneiss::host {
 
 /** 当前 v2 标准域能力；顺序同时作为握手请求的稳定优先级。 */
-[[nodiscard]] std::span<const gneiss::engine::platform::ipc_domain_capability>
+[[nodiscard]] std::span<const gneiss::engine::ipc_domain_capability>
 ipc_v2_domain_capabilities() noexcept;
 
 /** 使用统一入口原子建立当前 v2 标准域注册表。 */
-[[nodiscard]] gneiss::engine::core::result
-register_ipc_v2_domains(gneiss::engine::platform::ipc_domain_handler handler, void* handler_context,
-                        gneiss::engine::platform::ipc_domain_registry& output) noexcept;
+[[nodiscard]] gneiss::engine::result
+register_ipc_v2_domains(gneiss::engine::ipc_domain_handler handler, void* handler_context,
+                        gneiss::engine::ipc_domain_registry& output) noexcept;
 
-} // namespace gneiss
+} // namespace gneiss::host
 
 #endif

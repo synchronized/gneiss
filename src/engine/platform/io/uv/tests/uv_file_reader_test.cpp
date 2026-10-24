@@ -16,8 +16,8 @@
 #include <string>
 
 namespace {
-using gneiss::engine::core::result;
-using gneiss::engine::platform::io::uv_file_reader;
+using gneiss::engine::result;
+using gneiss::engine::uv_file_reader;
 void check(bool value, std::source_location where = std::source_location::current()) {
   if (!value) {
     throw std::runtime_error("libuv 文件来源测试失败，行=" + std::to_string(where.line()));
@@ -46,29 +46,27 @@ void run() {
     file << "abcdefgh";
   }
   std::unique_ptr<uv_file_reader> reader;
-  check(uv_file_reader::open("", reader) == gneiss::engine::core::result::invalid_argument &&
-        !reader);
+  check(uv_file_reader::open("", reader) == gneiss::engine::result::invalid_argument && !reader);
   check(uv_file_reader::open(std::string("bad\0path", 8U), reader) ==
-        gneiss::engine::core::result::invalid_argument);
+        gneiss::engine::result::invalid_argument);
   check(uv_file_reader::open(utf8(temporary.path / "missing"), reader) ==
-        gneiss::engine::core::result::not_found);
-  check(uv_file_reader::open(utf8(temporary.path), reader) !=
-            gneiss::engine::core::result::success &&
+        gneiss::engine::result::not_found);
+  check(uv_file_reader::open(utf8(temporary.path), reader) != gneiss::engine::result::success &&
         !reader);
-  check(uv_file_reader::open(utf8(path), reader) == gneiss::engine::core::result::success &&
+  check(uv_file_reader::open(utf8(path), reader) == gneiss::engine::result::success &&
         reader->size() == 8U);
-  check(reader->read_at(8U, {}) == gneiss::engine::core::result::success);
-  check(reader->read_at(9U, {}) == gneiss::engine::core::result::invalid_argument);
+  check(reader->read_at(8U, {}) == gneiss::engine::result::success);
+  check(reader->read_at(9U, {}) == gneiss::engine::result::invalid_argument);
   std::array<std::byte, 3> bytes{};
-  check(reader->read_at(2U, bytes) == gneiss::engine::core::result::success &&
+  check(reader->read_at(2U, bytes) == gneiss::engine::result::success &&
         bytes[0] == std::byte{'c'} && bytes[2] == std::byte{'e'});
   check(reader->read_at(std::numeric_limits<std::uint64_t>::max(), bytes) ==
-        gneiss::engine::core::result::invalid_argument);
-  check(reader->read_at(7U, bytes) == gneiss::engine::core::result::invalid_argument);
+        gneiss::engine::result::invalid_argument);
+  check(reader->read_at(7U, bytes) == gneiss::engine::result::invalid_argument);
   const auto read = [&reader](std::uint64_t offset, std::byte expected) {
     for (unsigned i = 0; i < 100U; ++i) {
       std::array<std::byte, 1> value{};
-      if (reader->read_at(offset, value) != gneiss::engine::core::result::success ||
+      if (reader->read_at(offset, value) != gneiss::engine::result::success ||
           value[0] != expected) {
         return false;
       }
@@ -84,25 +82,25 @@ void run() {
     std::ofstream replacement(path, std::ios::binary);
     replacement << "replacement";
   }
-  check(reader->read_at(0U, bytes) == gneiss::engine::core::result::success &&
+  check(reader->read_at(0U, bytes) == gneiss::engine::result::success &&
         bytes[0] == std::byte{'a'});
   std::filesystem::resize_file(previous, 2U);
   std::uint64_t current{};
-  check(reader->current_size(current) == gneiss::engine::core::result::success && current == 2U &&
+  check(reader->current_size(current) == gneiss::engine::result::success && current == 2U &&
         reader->size() == 8U);
-  check(reader->read_at(1U, bytes) == gneiss::engine::core::result::io);
+  check(reader->read_at(1U, bytes) == gneiss::engine::result::io);
   std::filesystem::remove(previous);
-  check(reader->read_at(0U, std::span{bytes}.first(1U)) == gneiss::engine::core::result::success);
+  check(reader->read_at(0U, std::span{bytes}.first(1U)) == gneiss::engine::result::success);
   check(uv_file_reader::open(utf8(temporary.path / "missing"), reader) ==
-            gneiss::engine::core::result::not_found &&
+            gneiss::engine::result::not_found &&
         !reader);
   const auto empty = temporary.path / "empty";
   {
     std::ofstream file(empty, std::ios::binary);
   }
-  check(uv_file_reader::open(utf8(empty), reader) == gneiss::engine::core::result::success &&
+  check(uv_file_reader::open(utf8(empty), reader) == gneiss::engine::result::success &&
         reader->size() == 0U);
-  check(reader->read_at(0U, {}) == gneiss::engine::core::result::success);
+  check(reader->read_at(0U, {}) == gneiss::engine::result::success);
 }
 } // namespace
 

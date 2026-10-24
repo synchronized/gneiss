@@ -12,30 +12,30 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 
 class virtual_file_system final {
 public:
   /** 解析最长匹配挂载的来源域，不读文件；失败清空输出。无并发挂载时可并发查询。 */
-  [[nodiscard]] gneiss::engine::core::result
+  [[nodiscard]] gneiss::engine::result
   resolve_source(std::string_view uri,
                  std::shared_ptr<const asset_source_domain>& output) const noexcept;
   /** 仅解析挂载身份，不读取文件或验证存在性；失败清空 output。
    * VFS 副本共享已有挂载身份，新挂载使用新身份；挂载后的后端不得重新指向其他来源。
    * 无并发挂载时允许并发查询。类型零无效，URI 保留大小写。
    */
-  [[nodiscard]] gneiss::engine::core::result identify(std::string_view uri, std::uint32_t type,
-                                                      asset_identity& output) const noexcept;
-  [[nodiscard]] gneiss::engine::core::result
+  [[nodiscard]] gneiss::engine::result identify(std::string_view uri, std::uint32_t type,
+                                                asset_identity& output) const noexcept;
+  [[nodiscard]] gneiss::engine::result
   open_read(std::string_view uri, std::unique_ptr<read_source>& output) const noexcept;
-  [[nodiscard]] gneiss::engine::core::result
+  [[nodiscard]] gneiss::engine::result
   begin_open_read(std::string_view uri,
                   std::unique_ptr<open_read_operation>& output) const noexcept;
-  [[nodiscard]] gneiss::engine::core::result mount(std::string_view mount_point,
-                                                   std::shared_ptr<file_system> backend) noexcept;
-  [[nodiscard]] gneiss::engine::core::result read(std::string_view uri,
-                                                  std::vector<std::byte>& out_bytes) const noexcept;
-  [[nodiscard]] gneiss::engine::core::result
+  [[nodiscard]] gneiss::engine::result mount(std::string_view mount_point,
+                                             std::shared_ptr<file_system> backend) noexcept;
+  [[nodiscard]] gneiss::engine::result read(std::string_view uri,
+                                            std::vector<std::byte>& out_bytes) const noexcept;
+  [[nodiscard]] gneiss::engine::result
   read_bounded(std::string_view uri, std::size_t limit,
                std::vector<std::byte>& out_bytes) const noexcept;
   [[nodiscard]] std::size_t mount_count() const noexcept { return mounts_.size(); }
@@ -50,6 +50,6 @@ private:
   std::vector<mount_entry> mounts_;
 };
 
-} // namespace gneiss::engine::resource
+} // namespace gneiss::engine
 
 #endif

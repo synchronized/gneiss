@@ -7,8 +7,7 @@
 #include <gneiss/engine/core/entity.hpp>
 #include <gneiss/engine/core/scene_types.hpp>
 
-namespace gneiss::engine::world {
-using camera_settings = engine::render::camera_settings;
+namespace gneiss::engine {
 struct mesh_renderer_replacement {
   entity_id entity{};
   mesh_renderer expected{};
@@ -17,7 +16,7 @@ struct mesh_renderer_replacement {
 /** 不持有资源；调用方保留 renderer 对应租约，候选相机不自动成为活动相机。 */
 struct staged_object_description {
   scene_node_id parent{};
-  engine::core::math::transform transform;
+  gneiss::engine::transform transform;
   const camera_settings* camera{};
   const mesh_renderer* renderer{};
 };

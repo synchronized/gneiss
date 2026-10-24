@@ -23,7 +23,7 @@
 #include <system_error>
 #include <vector>
 
-namespace gneiss::editor {
+namespace gneiss::host {
 namespace {
 
 struct package_file final {
@@ -42,16 +42,16 @@ struct package_file final {
       std::u8string(reinterpret_cast<const char8_t*>(text.data()), text.size()));
 }
 
-[[nodiscard]] gneiss::engine::core::result collect_files(const std::filesystem::path& root,
-                                                         std::vector<package_file>& output) {
+[[nodiscard]] gneiss::engine::result collect_files(const std::filesystem::path& root,
+                                                   std::vector<package_file>& output) {
   std::error_code error;
   for (const auto& entry : std::filesystem::recursive_directory_iterator(root, error)) {
     if (error) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     if (!entry.is_regular_file(error) || error) {
       if (error) {
-        return gneiss::engine::core::result::io;
+        return gneiss::engine::result::io;
       }
       continue;
     }
@@ -59,16 +59,16 @@ struct package_file final {
     const auto text = path_utf8(relative);
     if (relative.empty() || relative.is_absolute() || text.starts_with("../") ||
         text.find("/../") != std::string::npos) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     const auto size = entry.file_size(error);
     if (error) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     output.push_back({entry.path(), text, size});
   }
   std::ranges::sort(output, {}, &package_file::relative);
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
 constexpr std::array<std::uint32_t, 64U> sha256_constants = {
@@ -183,11 +183,11 @@ private:
   std::size_t total_size_{};
 };
 
-[[nodiscard]] gneiss::engine::core::result file_sha256(const std::filesystem::path& path,
-                                                       std::string& output) {
+[[nodiscard]] gneiss::engine::result file_sha256(const std::filesystem::path& path,
+                                                 std::string& output) {
   std::ifstream stream(path, std::ios::binary);
   if (!stream) {
-    return gneiss::engine::core::result::io;
+    return gneiss::engine::result::io;
   }
   sha256 hash;
   std::array<std::uint8_t, 64U * 1024U> buffer{};
@@ -197,7 +197,7 @@ private:
     hash.update(buffer.data(), static_cast<std::size_t>(stream.gcount()));
   }
   if (!stream.eof()) {
-    return gneiss::engine::core::result::io;
+    return gneiss::engine::result::io;
   }
   std::ostringstream text;
   text << std::hex << std::setfill('0');
@@ -205,7 +205,7 @@ private:
     text << std::setw(2) << static_cast<unsigned int>(byte);
   }
   output = text.str();
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
 [[nodiscard]] constexpr std::string_view platform_name() noexcept {
@@ -260,10 +260,10 @@ struct zip_entry final {
 
 } // namespace
 
-gneiss::engine::core::result write_package_manifest(const std::filesystem::path& package_root,
-                                                    const app::project_description& project,
-                                                    app::game_build_profile profile,
-                                                    std::string_view entrypoint) noexcept {
+gneiss::engine::result write_package_manifest(const std::filesystem::path& package_root,
+                                              const gneiss::host::project_description& project,
+                                              gneiss::host::game_build_profile profile,
+                                              std::string_view entrypoint) noexcept {
   try {
     std::vector<package_file> files;
     auto operation = collect_files(package_root, files);
@@ -274,11 +274,11 @@ gneiss::engine::core::result write_package_manifest(const std::filesystem::path&
     using document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
     document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
     if (!document) {
-      return gneiss::engine::core::result::out_of_memory;
+      return gneiss::engine::result::out_of_memory;
     }
     auto* root = yyjson_mut_obj(document.get());
     auto* entries = yyjson_mut_arr(document.get());
-    const auto profile_name = app::game_build_profile_name(profile);
+    const auto profile_name = gneiss::host::game_build_profile_name(profile);
     if (root == nullptr || entries == nullptr ||
         !yyjson_mut_obj_add_str(document.get(), root, "format", "gneiss.package") ||
         !yyjson_mut_obj_add_uint(document.get(), root, "version", 1U) ||
@@ -291,7 +291,7 @@ gneiss::engine::core::result write_package_manifest(const std::filesystem::path&
         !yyjson_mut_obj_add_str(document.get(), root, "architecture", architecture_name().data()) ||
         !yyjson_mut_obj_add_strncpy(document.get(), root, "entrypoint", entrypoint.data(),
                                     entrypoint.size())) {
-      return gneiss::engine::core::result::out_of_memory;
+      return gneiss::engine::result::out_of_memory;
     }
     for (const auto& file : files) {
       std::string hash;
@@ -303,11 +303,11 @@ gneiss::engine::core::result write_package_manifest(const std::filesystem::path&
           !yyjson_mut_obj_add_uint(document.get(), entry, "size", file.size) ||
           !yyjson_mut_obj_add_strncpy(document.get(), entry, "sha256", hash.data(), hash.size()) ||
           !yyjson_mut_arr_add_val(entries, entry)) {
-        return operation ? gneiss::engine::core::result::out_of_memory : operation;
+        return operation ? gneiss::engine::result::out_of_memory : operation;
       }
     }
     if (!yyjson_mut_obj_add_val(document.get(), root, "files", entries)) {
-      return gneiss::engine::core::result::out_of_memory;
+      return gneiss::engine::result::out_of_memory;
     }
     yyjson_mut_doc_set_root(document.get(), root);
     std::size_t size = 0U;
@@ -316,24 +316,23 @@ gneiss::engine::core::result write_package_manifest(const std::filesystem::path&
         &std::free);
     std::ofstream stream(package_root / "gneiss.package.json", std::ios::binary | std::ios::trunc);
     if (!json || !stream.write(json.get(), static_cast<std::streamsize>(size))) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::io;
+    return gneiss::engine::result::io;
   }
 }
 
-gneiss::engine::core::result
-write_deterministic_zip(const std::filesystem::path& package_root,
-                        const std::filesystem::path& archive) noexcept {
+gneiss::engine::result write_deterministic_zip(const std::filesystem::path& package_root,
+                                               const std::filesystem::path& archive) noexcept {
   try {
     std::vector<package_file> files;
     auto operation = collect_files(package_root, files);
     if (!operation || files.size() > std::numeric_limits<std::uint16_t>::max()) {
-      return operation ? gneiss::engine::core::result::unsupported : operation;
+      return operation ? gneiss::engine::result::unsupported : operation;
     }
     std::vector<zip_entry> entries;
     entries.reserve(files.size());
@@ -342,7 +341,7 @@ write_deterministic_zip(const std::filesystem::path& package_root,
     for (auto& file : files) {
       if (file.size > std::numeric_limits<std::uint32_t>::max() ||
           file.relative.size() > std::numeric_limits<std::uint16_t>::max()) {
-        return gneiss::engine::core::result::unsupported;
+        return gneiss::engine::result::unsupported;
       }
       std::ifstream input(file.absolute, std::ios::binary);
       std::uint32_t crc = 0xffffffffU;
@@ -352,13 +351,13 @@ write_deterministic_zip(const std::filesystem::path& package_root,
         crc = crc32_update(crc, buffer.data(), static_cast<std::size_t>(input.gcount()));
       }
       if (!input.eof()) {
-        return gneiss::engine::core::result::io;
+        return gneiss::engine::result::io;
       }
       crc ^= 0xffffffffU;
       const auto position = output.tellp();
       if (position < 0 ||
           static_cast<std::uint64_t>(position) > std::numeric_limits<std::uint32_t>::max()) {
-        return gneiss::engine::core::result::unsupported;
+        return gneiss::engine::result::unsupported;
       }
       write_u32(output, 0x04034b50U);
       write_u16(output, 20U);
@@ -406,7 +405,7 @@ write_deterministic_zip(const std::filesystem::path& package_root,
     const auto central_end = output.tellp();
     if (central_offset < 0 || central_end < central_offset ||
         static_cast<std::uint64_t>(central_end) > std::numeric_limits<std::uint32_t>::max()) {
-      return gneiss::engine::core::result::unsupported;
+      return gneiss::engine::result::unsupported;
     }
     write_u32(output, 0x06054b50U);
     write_u16(output, 0U);
@@ -416,22 +415,21 @@ write_deterministic_zip(const std::filesystem::path& package_root,
     write_u32(output, static_cast<std::uint32_t>(central_end - central_offset));
     write_u32(output, static_cast<std::uint32_t>(central_offset));
     write_u16(output, 0U);
-    return output ? gneiss::engine::core::result::success : gneiss::engine::core::result::io;
+    return output ? gneiss::engine::result::success : gneiss::engine::result::io;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::io;
+    return gneiss::engine::result::io;
   }
 }
 
-gneiss::engine::core::result
-verify_package_manifest(const std::filesystem::path& package_root) noexcept {
+gneiss::engine::result verify_package_manifest(const std::filesystem::path& package_root) noexcept {
   try {
     std::ifstream stream(package_root / "gneiss.package.json", std::ios::binary);
     const std::string json{std::istreambuf_iterator<char>(stream),
                            std::istreambuf_iterator<char>()};
     if (!stream.is_open() || json.empty()) {
-      return gneiss::engine::core::result::not_found;
+      return gneiss::engine::result::not_found;
     }
     using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
     document_ptr document(yyjson_read(json.data(), json.size(), YYJSON_READ_NOFLAG),
@@ -443,7 +441,7 @@ verify_package_manifest(const std::filesystem::path& package_root) noexcept {
     if (!yyjson_is_str(format) ||
         std::string_view(yyjson_get_str(format), yyjson_get_len(format)) != "gneiss.package" ||
         !yyjson_is_uint(version) || yyjson_get_uint(version) != 1U || !yyjson_is_arr(entries)) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     std::vector<package_file> files;
     auto operation = collect_files(package_root, files);
@@ -452,7 +450,7 @@ verify_package_manifest(const std::filesystem::path& package_root) noexcept {
     }
     std::erase_if(files, [](const auto& file) { return file.relative == "gneiss.package.json"; });
     if (yyjson_arr_size(entries) != files.size()) {
-      return gneiss::engine::core::result::dependency_failed;
+      return gneiss::engine::result::dependency_failed;
     }
     std::size_t index = 0U;
     std::size_t maximum = 0U;
@@ -462,27 +460,27 @@ verify_package_manifest(const std::filesystem::path& package_root) noexcept {
       auto* size = yyjson_is_obj(entry) ? yyjson_obj_get(entry, "size") : nullptr;
       auto* expected_hash = yyjson_is_obj(entry) ? yyjson_obj_get(entry, "sha256") : nullptr;
       if (!yyjson_is_str(path) || !yyjson_is_uint(size) || !yyjson_is_str(expected_hash)) {
-        return gneiss::engine::core::result::invalid_argument;
+        return gneiss::engine::result::invalid_argument;
       }
       const std::string_view relative(yyjson_get_str(path), yyjson_get_len(path));
       const std::string_view expected(yyjson_get_str(expected_hash), yyjson_get_len(expected_hash));
       if (relative != files[index].relative || yyjson_get_uint(size) != files[index].size ||
           utf8_path(relative).is_absolute() || relative.starts_with("../") ||
           relative.find("/../") != std::string_view::npos) {
-        return gneiss::engine::core::result::dependency_failed;
+        return gneiss::engine::result::dependency_failed;
       }
       std::string actual;
       operation = file_sha256(files[index].absolute, actual);
       if (!operation || actual != expected) {
-        return operation ? gneiss::engine::core::result::dependency_failed : operation;
+        return operation ? gneiss::engine::result::dependency_failed : operation;
       }
     }
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::io;
+    return gneiss::engine::result::io;
   }
 }
 
-} // namespace gneiss::editor
+} // namespace gneiss::host

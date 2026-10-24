@@ -528,7 +528,7 @@ endif()
 
 file(MAKE_DIRECTORY "${fixture}/src/engine/resource")
 foreach(symbol IN ITEMS texture_load_service texture_upload_backend texture_load_completion
-    "engine::render::render_asset_loader" "engine::render::render_asset_ref")
+    "engine::render_asset_loader" "engine::render_asset_ref")
   file(WRITE "${fixture}/src/engine/resource/asset_manager.hpp" "struct ${symbol};\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
@@ -583,101 +583,21 @@ if(NOT status EQUAL 0)
   message(FATAL_ERROR "错误拒绝 Runtime 正向组装或 C ABI 适配")
 endif()
 
-# Runtime 目录及对象须保持同一命名，不允许恢复旧别名或引用。
-foreach(content IN ITEMS "namespace gneiss::application_internal {}" "namespace gneiss::game_internal {}" "gneiss::engine::application* app;")
+# 业务命名空间按层统一；实现细节可用 detail。
+foreach(content IN ITEMS "namespace gneiss::asset_internal {}" "namespace gneiss::engine::resource {}" "namespace gneiss::engine::core::tasks {}" "namespace gneiss::runtime::game {}")
   file(WRITE "${fixture}/src/runtime/namespace_probe.cpp" "${content}\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
   if(status EQUAL 0)
-    message(FATAL_ERROR "Runtime 边界未拒绝旧命名空间：${content}")
+    message(FATAL_ERROR "命名空间检查未拒绝旧层级：${content}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/runtime/namespace_probe.cpp" "namespace gneiss::runtime {}\n")
+file(WRITE "${fixture}/src/runtime/namespace_probe.cpp" "namespace gneiss::engine { class world; }\nnamespace gneiss::runtime {}\nnamespace gneiss::engine::detail {}\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
 if(NOT status EQUAL 0)
-  message(FATAL_ERROR "Runtime 边界错误拒绝新命名空间")
-endif()
-
-foreach(content IN ITEMS "namespace gneiss::asset_internal {}" "gneiss::asset_internal::virtual_file_system* files;" "gneiss::engine::asset_manager* assets;")
-  file(WRITE "${fixture}/src/engine/resource/namespace_probe.cpp" "${content}\n")
-  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
-    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
-    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
-  if(status EQUAL 0)
-    message(FATAL_ERROR "资源边界未拒绝旧命名空间：${content}")
-  endif()
-endforeach()
-file(WRITE "${fixture}/src/engine/resource/namespace_probe.cpp" "namespace gneiss::engine::resource {}\n")
-execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
-  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
-if(NOT status EQUAL 0)
-  message(FATAL_ERROR "资源边界错误拒绝新命名空间")
-endif()
-
-foreach(content IN ITEMS "namespace gneiss::engine::scene {}" "gneiss::engine::scene::prefab_description* prefab;")
-  file(WRITE "${fixture}/src/engine/resource/scene_namespace_probe.cpp" "${content}\n")
-  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
-    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
-    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
-  if(status EQUAL 0)
-    message(FATAL_ERROR "资源层未拒绝 Scene 命名空间：${content}")
-  endif()
-endforeach()
-file(WRITE "${fixture}/src/engine/resource/scene_namespace_probe.cpp" "namespace gneiss::engine::resource {}\n")
-execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
-  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
-if(NOT status EQUAL 0)
-  message(FATAL_ERROR "资源层错误拒绝资源描述命名空间")
-endif()
-
-foreach(domain IN ITEMS world scene render input)
-  file(WRITE "${fixture}/src/runtime/function_namespace_probe.cpp" "namespace gneiss::${domain}_internal {}\n")
-  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
-    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
-    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
-  if(status EQUAL 0)
-    message(FATAL_ERROR "功能层边界未拒绝旧命名空间：${domain}")
-  endif()
-endforeach()
-file(WRITE "${fixture}/src/runtime/function_namespace_probe.cpp" "namespace gneiss::engine::world { class world; }\n")
-execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
-  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
-if(NOT status EQUAL 0)
-  message(FATAL_ERROR "功能层边界错误拒绝领域命名空间")
-endif()
-
-foreach(domain IN ITEMS core tasks diagnostics platform log_internal reflection_internal io_internal caors_internal abi_internal api_internal)
-  file(WRITE "${fixture}/src/runtime/base_namespace_probe.cpp" "namespace gneiss::${domain} {}\n")
-  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
-    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
-    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
-  if(status EQUAL 0)
-    message(FATAL_ERROR "基础模块边界未拒绝旧命名空间：${domain}")
-  endif()
-endforeach()
-file(WRITE "${fixture}/src/runtime/base_namespace_probe.cpp" "namespace gneiss::engine::core {}\nnamespace gneiss::engine::platform::io {}\n")
-execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
-  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
-if(NOT status EQUAL 0)
-  message(FATAL_ERROR "基础模块边界错误拒绝新命名空间")
-endif()
-
-foreach(type IN ITEMS child_process dynamic_library ipc_transport ipc_envelope ipc_dispatcher ipc_domain_registry)
-  file(WRITE "${fixture}/src/runtime/platform_object_probe.cpp" "gneiss::${type}* value;\n")
-  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
-    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
-    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
-  if(status EQUAL 0)
-    message(FATAL_ERROR "平台对象边界未拒绝旧名称：${type}")
-  endif()
-endforeach()
-file(WRITE "${fixture}/src/runtime/platform_object_probe.cpp" "gneiss::engine::platform::ipc_transport* value;\n")
-execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
-  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
-if(NOT status EQUAL 0)
-  message(FATAL_ERROR "平台对象边界错误拒绝新名称")
+  message(FATAL_ERROR "命名空间检查错误拒绝两层命名或 detail")
 endif()
 
 # 宿主是装配层；不能让业务层反向依赖它，也不能反向包含薄入口。

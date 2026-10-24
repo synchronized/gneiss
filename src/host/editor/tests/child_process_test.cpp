@@ -10,19 +10,19 @@
 #include <thread>
 
 int main() try {
-  gneiss::engine::platform::child_process process;
-  gneiss::engine::platform::child_process_start_info missing;
+  gneiss::engine::child_process process;
+  gneiss::engine::child_process_start_info missing;
   missing.executable =
       std::filesystem::path{GNEISS_TEST_CHILD_PROCESS}.parent_path() / "missing-process";
-  if (process.start(missing) != gneiss::engine::core::result::not_found || process.is_running()) {
+  if (process.start(missing) != gneiss::engine::result::not_found || process.is_running()) {
     return 1;
   }
 
-  gneiss::engine::platform::child_process_start_info info;
+  gneiss::engine::child_process_start_info info;
   info.executable = GNEISS_TEST_CHILD_PROCESS;
   info.arguments = {"exit"};
-  if (process.start(info) != gneiss::engine::core::result::success || !process.has_started() ||
-      process.start(info) != gneiss::engine::core::result::invalid_state) {
+  if (process.start(info) != gneiss::engine::result::success || !process.has_started() ||
+      process.start(info) != gneiss::engine::result::invalid_state) {
     return 2;
   }
 
@@ -39,12 +39,12 @@ int main() try {
       process.output().find("fixture stderr") == std::string::npos ||
       incremental_output.find("fixture stdout") == std::string::npos ||
       incremental_output.find("fixture stderr") == std::string::npos ||
-      process.terminate() != gneiss::engine::core::result::not_ready) {
+      process.terminate() != gneiss::engine::result::not_ready) {
     return 3;
   }
 
   info.arguments = {"wait"};
-  if (process.start(info) != gneiss::engine::core::result::success) {
+  if (process.start(info) != gneiss::engine::result::success) {
     return 4;
   }
   const auto output_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
@@ -53,7 +53,7 @@ int main() try {
     process.update();
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
-  if (!process.is_running() || process.terminate() != gneiss::engine::core::result::success) {
+  if (!process.is_running() || process.terminate() != gneiss::engine::result::success) {
     return 5;
   }
   const auto terminate_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
@@ -66,7 +66,7 @@ int main() try {
   }
 
   info.arguments = {"exit"};
-  if (process.start(info) != gneiss::engine::core::result::success) {
+  if (process.start(info) != gneiss::engine::result::success) {
     return 7;
   }
   const auto relaunch_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
@@ -81,9 +81,9 @@ int main() try {
 
   const auto cleanup_started = std::chrono::steady_clock::now();
   {
-    gneiss::engine::platform::child_process abandoned;
+    gneiss::engine::child_process abandoned;
     info.arguments = {"wait"};
-    if (abandoned.start(info) != gneiss::engine::core::result::success) {
+    if (abandoned.start(info) != gneiss::engine::result::success) {
       return 9;
     }
   }

@@ -13,7 +13,7 @@
 
 namespace {
 using namespace gneiss;
-using namespace engine::scene;
+using namespace gneiss::engine;
 
 void check(bool value, std::source_location where = std::source_location::current()) {
   if (!value) {
@@ -21,23 +21,21 @@ void check(bool value, std::source_location where = std::source_location::curren
   }
 }
 
-struct memory_files final : engine::resource::file_system {
+struct memory_files final : gneiss::engine::file_system {
   std::map<std::string, std::string> files;
   mutable std::map<std::string, unsigned> reads;
   bool change_on_verify{};
-  gneiss::engine::core::result read(std::string_view,
-                                    std::vector<std::byte>&) const noexcept override {
-    return gneiss::engine::core::result::unsupported;
+  gneiss::engine::result read(std::string_view, std::vector<std::byte>&) const noexcept override {
+    return gneiss::engine::result::unsupported;
   }
-  gneiss::engine::core::result read_bounded(std::string_view path, std::size_t limit,
-                                            std::vector<std::byte>& bytes) const noexcept override
-      try {
+  gneiss::engine::result read_bounded(std::string_view path, std::size_t limit,
+                                      std::vector<std::byte>& bytes) const noexcept override try {
     const auto found = files.find(std::string(path));
     if (found == files.end()) {
-      return gneiss::engine::core::result::not_found;
+      return gneiss::engine::result::not_found;
     }
     if (found->second.size() > limit) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     bytes.resize(found->second.size());
     for (std::size_t i = 0; i < bytes.size(); ++i) {
@@ -46,9 +44,9 @@ struct memory_files final : engine::resource::file_system {
     if (++reads[std::string(path)] == 2U && change_on_verify && !bytes.empty()) {
       bytes.back() = std::byte{' '};
     }
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (...) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   }
 };
 
@@ -72,41 +70,40 @@ void run() {
   memory->files["p.prefab"] =
       R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"00000000-0000-4000-8000-000000000005","objects":[)" +
       std::string(object) + "]}";
-  engine::resource::virtual_file_system files;
-  check(files.mount("asset://", memory) == gneiss::engine::core::result::success);
+  gneiss::engine::virtual_file_system files;
+  check(files.mount("asset://", memory) == gneiss::engine::result::success);
   prepared_scene_description output;
-  gneiss::engine::resource::scene_diagnostic diagnostic;
+  gneiss::engine::scene_diagnostic diagnostic;
   auto prepare = [&](scene_prepare_limits limits = {}, const std::function<bool()>& cancel = {}) {
     return prepare_scene_description(files, "asset://main.scene", output, diagnostic, cancel,
                                      limits);
   };
-  check(prepare() == gneiss::engine::core::result::success);
+  check(prepare() == gneiss::engine::result::success);
   check(output.prefabs.size() == 1U && output.assets.size() == 2U && output.instance_nodes == 5U);
   check(memory->reads["p.prefab"] == 1U && output.parent_first == std::vector<std::size_t>{0U});
   const auto bytes = memory->files["main.scene"].size() + memory->files["p.prefab"].size();
   check(output.source_bytes == bytes);
   check(prepare_prefab_description(files, "asset://p.prefab", output, diagnostic, {}) ==
-        gneiss::engine::core::result::success);
+        gneiss::engine::result::success);
   check(output.prefabs.size() == 1U && output.instance_nodes == 2U && output.assets.size() == 2U);
   check(output.description.objects.empty());
-  check(prepare_prefab_description(files, "asset://p.prefab", output, diagnostic, [] {
-          return true;
-        }) == gneiss::engine::core::result::invalid_state);
+  check(prepare_prefab_description(files, "asset://p.prefab", output, diagnostic,
+                                   [] { return true; }) == gneiss::engine::result::invalid_state);
   check(output.prefabs.empty() && output.assets.empty());
-  check(prepare({.source_bytes = bytes, .nodes = 5U}) == gneiss::engine::core::result::success);
-  check(prepare({.source_bytes = bytes - 1U}) == gneiss::engine::core::result::invalid_argument);
+  check(prepare({.source_bytes = bytes, .nodes = 5U}) == gneiss::engine::result::success);
+  check(prepare({.source_bytes = bytes - 1U}) == gneiss::engine::result::invalid_argument);
   check(output.description.objects.empty() && output.prefabs.empty() && output.assets.empty());
-  check(prepare({.nodes = 4U}) == gneiss::engine::core::result::invalid_argument);
-  check(prepare({.dependencies = 1U}) == gneiss::engine::core::result::invalid_argument);
-  check(prepare({.hierarchy_depth = 1U}) == gneiss::engine::core::result::invalid_argument);
-  check(prepare({.hierarchy_depth = 0U}) == gneiss::engine::core::result::invalid_argument);
-  check(prepare({}, [] { return true; }) == gneiss::engine::core::result::invalid_state);
+  check(prepare({.nodes = 4U}) == gneiss::engine::result::invalid_argument);
+  check(prepare({.dependencies = 1U}) == gneiss::engine::result::invalid_argument);
+  check(prepare({.hierarchy_depth = 1U}) == gneiss::engine::result::invalid_argument);
+  check(prepare({.hierarchy_depth = 0U}) == gneiss::engine::result::invalid_argument);
+  check(prepare({}, [] { return true; }) == gneiss::engine::result::invalid_state);
   memory->reads.clear();
   memory->change_on_verify = true;
-  check(prepare() == gneiss::engine::core::result::success && memory->reads["p.prefab"] == 1U);
+  check(prepare() == gneiss::engine::result::success && memory->reads["p.prefab"] == 1U);
   memory->change_on_verify = false;
   memory->files.erase("p.prefab");
-  check(prepare() == gneiss::engine::core::result::not_found && output.prefabs.empty());
+  check(prepare() == gneiss::engine::result::not_found && output.prefabs.empty());
 
   // 输入顺序不是父节点优先；输出索引保留作者对象顺序并提供独立拓扑顺序。
   auto child = std::string(object);
@@ -114,14 +111,14 @@ void run() {
   child.replace(child.find("null"), 4U, "\"00000000-0000-4000-8000-000000000002\"");
   memory->files["main.scene"] =
       std::string(scene_prefix) + child + "," + std::string(object) + R"(],"prefab_instances":[]})";
-  check(prepare() == gneiss::engine::core::result::success &&
+  check(prepare() == gneiss::engine::result::success &&
         output.parent_first == std::vector<std::size_t>({1U, 0U}));
-  check(prepare({.hierarchy_depth = 1U}) == gneiss::engine::core::result::invalid_argument);
+  check(prepare({.hierarchy_depth = 1U}) == gneiss::engine::result::invalid_argument);
   auto parent = std::string(object);
   parent.replace(parent.find("null"), 4U, "\"00000000-0000-4000-8000-000000000003\"");
   memory->files["main.scene"] =
       std::string(scene_prefix) + child + "," + parent + R"(],"prefab_instances":[]})";
-  check(prepare() == gneiss::engine::core::result::invalid_argument && output.parent_first.empty());
+  check(prepare() == gneiss::engine::result::invalid_argument && output.parent_first.empty());
 }
 } // namespace
 

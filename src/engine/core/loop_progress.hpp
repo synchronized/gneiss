@@ -13,7 +13,7 @@
 #include <cstdint>
 #include <mutex>
 
-namespace gneiss::engine::core {
+namespace gneiss::engine {
 
 /** 原生宿主的有限等待；代次在处理队列前读取，避免检查与入睡之间丢通知。
  * 不在 Web/无线程宿主实例化；超时是请求期限，不是系统调度的实时保证。 */
@@ -31,15 +31,14 @@ public:
   }
   bool wait(std::uint64_t observed, std::chrono::milliseconds timeout) {
     std::unique_lock lock(mutex_, std::defer_lock);
-    engine::core::diagnostics::measure(engine::core::diagnostics::loop_stage::idle_lock, [&] {
+    gneiss::engine::measure(gneiss::engine::loop_stage::idle_lock, [&] {
       GNEISS_PROFILE_SCOPE("application.idle_lock");
       lock.lock();
     });
-    return engine::core::diagnostics::measure(
-        engine::core::diagnostics::loop_stage::idle_condition, [&] {
-          GNEISS_PROFILE_SCOPE("application.idle_condition");
-          return ready_.wait_for(lock, timeout, [&] { return snapshot() != observed; });
-        });
+    return gneiss::engine::measure(gneiss::engine::loop_stage::idle_condition, [&] {
+      GNEISS_PROFILE_SCOPE("application.idle_condition");
+      return ready_.wait_for(lock, timeout, [&] { return snapshot() != observed; });
+    });
   }
 
 private:
@@ -48,4 +47,4 @@ private:
   std::condition_variable ready_;
 };
 
-} // namespace gneiss::engine::core
+} // namespace gneiss::engine

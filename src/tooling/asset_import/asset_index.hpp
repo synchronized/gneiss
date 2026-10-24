@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::tooling::asset_import {
+namespace gneiss::tooling {
 
 inline constexpr std::uint32_t asset_index_version = 1U;
 inline constexpr std::uint32_t gltf_importer_version = 3U;
@@ -56,4 +56,4 @@ struct asset_index_report {
                                                      const std::filesystem::path& imported_root,
                                                      const std::filesystem::path& index_path);
 
-} // namespace gneiss::tooling::asset_import
+} // namespace gneiss::tooling

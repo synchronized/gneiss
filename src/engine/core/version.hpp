@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-namespace gneiss::engine::core {
+namespace gneiss::engine {
 struct version {
   std::uint32_t major;
   std::uint32_t minor;
@@ -13,4 +13,4 @@ struct version {
 };
 /** 返回本库构建版本，无状态且线程安全。 */
 [[nodiscard]] version library_version() noexcept;
-} // namespace gneiss::engine::core
+} // namespace gneiss::engine

@@ -4,9 +4,9 @@
 #include "engine/api/input_conversion.hpp"
 #include <algorithm>
 
-using namespace gneiss::engine::core::input;
-using gneiss::engine::api::input_event_to_abi;
-using gneiss::engine::api::input_state_to_abi;
+using namespace gneiss::engine;
+using gneiss::engine::detail::input_event_to_abi;
+using gneiss::engine::detail::input_state_to_abi;
 
 int main() {
   input_event event{};

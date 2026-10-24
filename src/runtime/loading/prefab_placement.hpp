@@ -13,49 +13,50 @@ class application;
 namespace gneiss::runtime {
 /** 历史持有的不可变来源与实际资产租约，不保存隐藏实例。 */
 struct prefab_placement_snapshot {
-  engine::resource::prefab_instance_description author;
-  engine::resource::prefab_asset_ref prefab;
+  gneiss::engine::prefab_instance_description author;
+  gneiss::engine::prefab_asset_ref prefab;
   std::vector<std::size_t> order;
-  std::vector<engine::scene::scene_mesh_binding> bindings;
-  std::map<std::string, engine::render::render_asset_ref, std::less<>> assets;
+  std::vector<gneiss::engine::scene_mesh_binding> bindings;
+  std::map<std::string, gneiss::engine::render_asset_ref, std::less<>> assets;
 };
 class GNEISS_API prefab_placement final {
 public:
   /** 每次捕获最多 64 个节点；完整之前不得用于构造或删除提交。 */
-  static gneiss::engine::core::result
-  capture_step(runtime::application& application, std::string_view uuid,
-               gneiss_scene_instance scene, std::shared_ptr<prefab_placement_snapshot>& snapshot,
-               bool& complete) noexcept;
-  static gneiss::engine::core::result
-  freeze(runtime::application& application, engine::scene::prepared_prefab_description prepared,
-         engine::resource::prefab_instance_description author,
-         std::vector<engine::render::render_asset_ref> assets,
+  static gneiss::engine::result capture_step(runtime::application& application,
+                                             std::string_view uuid, gneiss_scene_instance scene,
+                                             std::shared_ptr<prefab_placement_snapshot>& snapshot,
+                                             bool& complete) noexcept;
+  static gneiss::engine::result
+  freeze(runtime::application& application, gneiss::engine::prepared_prefab_description prepared,
+         gneiss::engine::prefab_instance_description author,
+         std::vector<gneiss::engine::render_asset_ref> assets,
          std::shared_ptr<const prefab_placement_snapshot>& output) noexcept;
-  static gneiss::engine::core::result
-  begin(runtime::application& application, gneiss_scene_instance scene,
-        std::shared_ptr<const prefab_placement_snapshot> snapshot, bool removing,
-        std::unique_ptr<prefab_placement>& output, bool replacing = false) noexcept;
+  static gneiss::engine::result begin(runtime::application& application,
+                                      gneiss_scene_instance scene,
+                                      std::shared_ptr<const prefab_placement_snapshot> snapshot,
+                                      bool removing, std::unique_ptr<prefab_placement>& output,
+                                      bool replacing = false) noexcept;
   ~prefab_placement();
-  gneiss::engine::core::result advance(bool& ready) noexcept;
-  gneiss::engine::core::result preview(std::size_t index,
-                                       engine::scene::prefab_node_view& output) const noexcept;
-  gneiss::engine::core::result commit() noexcept;
+  gneiss::engine::result advance(bool& ready) noexcept;
+  gneiss::engine::result preview(std::size_t index,
+                                 gneiss::engine::prefab_node_view& output) const noexcept;
+  gneiss::engine::result commit() noexcept;
   /** 仅接受同一场景的就绪替换事务；全部成功或全部保持原状。 */
-  static gneiss::engine::core::result
+  static gneiss::engine::result
   commit_replacements(std::span<prefab_placement* const> entries) noexcept;
   bool cleanup_step(std::size_t budget = 64U) noexcept;
   std::size_t node_count() const noexcept;
   scene_node_id root() const noexcept;
 
 private:
-  gneiss::engine::core::result create_next_node();
+  gneiss::engine::result create_next_node();
   prefab_placement(runtime::application& application,
                    std::shared_ptr<const prefab_placement_snapshot> snapshot,
                    gneiss_scene_instance scene, bool removing);
   runtime::application& application_;
   gneiss_scene_instance scene_{};
   std::shared_ptr<const prefab_placement_snapshot> snapshot_;
-  engine::scene::prefab_candidate candidate_;
+  gneiss::engine::prefab_candidate candidate_;
   std::map<std::string_view, scene_node_id, std::less<>> nodes_;
   std::size_t cursor_{};
   bool removing_{}, replacing_{}, retirement_ready_{}, ready_{}, committed_{};

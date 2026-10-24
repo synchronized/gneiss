@@ -3,4 +3,4 @@
 
 #include "assetc_application.hpp"
 
-int main(int argc, char** argv) { return gneiss::host::assetc::run(argc, argv); }
+int main(int argc, char** argv) { return gneiss::host::run(argc, argv); }

@@ -4,9 +4,9 @@
 #include "engine/api/result_conversion.hpp"
 #include <limits>
 #include <type_traits>
-using gneiss::engine::api::from_c_result;
-using gneiss::engine::api::to_c_result;
-using gneiss::engine::core::result;
+using gneiss::engine::result;
+using gneiss::engine::detail::from_c_result;
+using gneiss::engine::detail::to_c_result;
 static_assert(sizeof(result) == sizeof(std::int32_t));
 static_assert(std::is_trivially_copyable_v<result>);
 static_assert(std::is_standard_layout_v<result>);

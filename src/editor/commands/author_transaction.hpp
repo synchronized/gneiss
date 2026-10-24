@@ -42,20 +42,19 @@ struct author_document_change final {
 class author_transaction final {
 public:
   /** 添加一项文档变更；路径必须非空且不能重复。 */
-  [[nodiscard]] gneiss::engine::core::result add(author_document_change change) noexcept;
+  [[nodiscard]] gneiss::engine::result add(author_document_change change) noexcept;
   /** 校验全部基线；失败时不修改文档。 */
-  [[nodiscard]] gneiss::engine::core::result
-  prepare(std::span<const author_document> documents) noexcept;
+  [[nodiscard]] gneiss::engine::result prepare(std::span<const author_document> documents) noexcept;
   /**
    * 提交全部变更。failure_before 用于 Spike 故障注入；命中时恢复已应用项并返回 I/O 错误。
    */
-  [[nodiscard]] gneiss::engine::core::result
+  [[nodiscard]] gneiss::engine::result
   commit(std::vector<author_document>& documents,
          std::size_t failure_before = static_cast<std::size_t>(-1)) noexcept;
   /** 当前内容仍等于提交结果时恢复全部基线。 */
-  [[nodiscard]] gneiss::engine::core::result undo(std::vector<author_document>& documents) noexcept;
+  [[nodiscard]] gneiss::engine::result undo(std::vector<author_document>& documents) noexcept;
   /** 当前内容仍等于基线时再次应用全部变更。 */
-  [[nodiscard]] gneiss::engine::core::result redo(std::vector<author_document>& documents) noexcept;
+  [[nodiscard]] gneiss::engine::result redo(std::vector<author_document>& documents) noexcept;
 
   [[nodiscard]] std::size_t size() const noexcept { return changes_.size(); }
   [[nodiscard]] author_revision baseline_revision(std::size_t index) const noexcept;
@@ -63,11 +62,11 @@ public:
 private:
   enum class state { draft, prepared, committed, undone };
 
-  [[nodiscard]] gneiss::engine::core::result validate(std::span<const author_document> documents,
-                                                      bool expect_replacement) const noexcept;
-  [[nodiscard]] gneiss::engine::core::result apply(std::vector<author_document>& documents,
-                                                   bool use_replacement,
-                                                   std::size_t failure_before) noexcept;
+  [[nodiscard]] gneiss::engine::result validate(std::span<const author_document> documents,
+                                                bool expect_replacement) const noexcept;
+  [[nodiscard]] gneiss::engine::result apply(std::vector<author_document>& documents,
+                                             bool use_replacement,
+                                             std::size_t failure_before) noexcept;
 
   std::vector<author_document_change> changes_;
   state state_ = state::draft;

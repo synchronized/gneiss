@@ -18,16 +18,16 @@ constexpr float maximum_delta_seconds = 0.1F;
 
 } // namespace
 
-gneiss::engine::core::result editor_camera::initialize() noexcept {
+gneiss::engine::result editor_camera::initialize() noexcept {
   if (initialized_) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   initialized_ = true;
   transform_ = GNEISS_TRANSFORM_IDENTITY;
   transform_.translation[1] = 2.0F;
   transform_.translation[2] = 6.0F;
   update_rotation();
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
 void editor_camera::shutdown() noexcept {
@@ -53,9 +53,9 @@ void editor_camera::update_rotation() noexcept {
   transform_.rotation[3] = std::cos(yaw_half) * std::cos(pitch_half);
 }
 
-gneiss::engine::core::result editor_camera::update(const editor_camera_input& input) noexcept {
+gneiss::engine::result editor_camera::update(const editor_camera_input& input) noexcept {
   if (!is_valid()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   yaw_ += input.yaw_delta;
   pitch_ = std::clamp(pitch_ + input.pitch_delta, -pitch_limit, pitch_limit);
@@ -75,13 +75,12 @@ gneiss::engine::core::result editor_camera::update(const editor_camera_input& in
         (forward[index] * forward_distance) + (right[index] * right_distance);
   }
   transform_.translation[1] += up_distance;
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-gneiss::engine::core::result editor_camera::focus(const transform& target,
-                                                  float distance) noexcept {
+gneiss::engine::result editor_camera::focus(const transform& target, float distance) noexcept {
   if (!is_valid() || !std::isfinite(distance) || distance <= 0.0F) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   const auto cosine_pitch = std::cos(pitch_);
   const float forward[3] = {-std::sin(yaw_) * cosine_pitch, std::sin(pitch_),
@@ -89,7 +88,7 @@ gneiss::engine::core::result editor_camera::focus(const transform& target,
   for (std::size_t index = 0; index < 3U; ++index) {
     transform_.translation[index] = target.translation[index] - (forward[index] * distance);
   }
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
 } // namespace gneiss::editor

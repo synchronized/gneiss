@@ -9,6 +9,8 @@
 #include <source_location>
 #include <stdexcept>
 
+using namespace gneiss::host;
+
 namespace {
 using namespace gneiss;
 void check(bool value, std::source_location location = std::source_location::current()) {
@@ -22,14 +24,13 @@ void cleanup_updates() {
       .revision = 7U,
       .uri = "asset://scenes/main.scene.json",
   };
-  gneiss::engine::platform::ipc_envelope envelope;
+  gneiss::engine::ipc_envelope envelope;
   ipc_scene_progress invalid_progress;
   ipc_scene_progress draining{.source = source, .phase = ipc_scene_phase::cancelled, .message = {}};
   draining.budget.emplace();
   draining.budget->cleanup_pending = true;
-  check(encode_ipc_scene_progress(draining, 9U, envelope) == gneiss::engine::core::result::success);
-  check(decode_ipc_scene_progress(envelope, invalid_progress) ==
-            gneiss::engine::core::result::success &&
+  check(encode_ipc_scene_progress(draining, 9U, envelope) == gneiss::engine::result::success);
+  check(decode_ipc_scene_progress(envelope, invalid_progress) == gneiss::engine::result::success &&
         invalid_progress.budget && invalid_progress.budget->cleanup_pending);
   auto cleaned = draining;
   cleaned.budget->cleanup_pending = false;
@@ -52,8 +53,8 @@ void cleanup_updates() {
     check(!apply_scene_cleanup_update(draining, stale));
     check(draining.budget->cleanup_pending);
   }
-  check(encode_ipc_scene_progress(cleaned, 0U, envelope) == gneiss::engine::core::result::success &&
-        envelope.kind == gneiss::engine::platform::ipc_message_kind::event);
+  check(encode_ipc_scene_progress(cleaned, 0U, envelope) == gneiss::engine::result::success &&
+        envelope.kind == gneiss::engine::ipc_message_kind::event);
   auto terminal = draining;
   check(apply_scene_cleanup_update(terminal, cleaned));
   check(terminal.phase == ipc_scene_phase::cancelled && terminal.message == draining.message &&
@@ -61,30 +62,29 @@ void cleanup_updates() {
   check(!apply_scene_cleanup_update(terminal, cleaned));
   draining.budget->cleanup_complete = true;
   check(encode_ipc_scene_progress(draining, 9U, envelope) ==
-        gneiss::engine::core::result::invalid_argument);
+        gneiss::engine::result::invalid_argument);
 }
 void run() {
   cleanup_updates();
   const ipc_scene_request source{5U, 7U, "asset://scenes/main.scene.json"};
-  gneiss::engine::platform::ipc_envelope envelope;
+  gneiss::engine::ipc_envelope envelope;
   ipc_scene_request request;
   check(encode_ipc_scene_request(source, ipc_scene_operation::load, 9U, envelope) ==
-        gneiss::engine::core::result::success);
-  check(decode_ipc_scene_request(envelope, request) == gneiss::engine::core::result::success);
+        gneiss::engine::result::success);
+  check(decode_ipc_scene_request(envelope, request) == gneiss::engine::result::success);
   check(request.session == source.session && request.revision == source.revision &&
         request.uri == source.uri);
   check(encode_ipc_scene_request(source, ipc_scene_operation::load, 0U, envelope) ==
-        gneiss::engine::core::result::invalid_argument);
+        gneiss::engine::result::invalid_argument);
   check(encode_ipc_scene_request(source, ipc_scene_operation::cancel, 0U, envelope) ==
-        gneiss::engine::core::result::success);
-  check(decode_ipc_scene_request(envelope, request) == gneiss::engine::core::result::success);
-  envelope.kind = gneiss::engine::platform::ipc_message_kind::request;
-  check(decode_ipc_scene_request(envelope, request) ==
-        gneiss::engine::core::result::invalid_argument);
+        gneiss::engine::result::success);
+  check(decode_ipc_scene_request(envelope, request) == gneiss::engine::result::success);
+  envelope.kind = gneiss::engine::ipc_message_kind::request;
+  check(decode_ipc_scene_request(envelope, request) == gneiss::engine::result::invalid_argument);
   auto invalid = source;
   invalid.uri = "asset://../escape";
   check(encode_ipc_scene_request(invalid, ipc_scene_operation::load, 9U, envelope) ==
-        gneiss::engine::core::result::invalid_argument);
+        gneiss::engine::result::invalid_argument);
   for (unsigned index = 0U; index < 8U; ++index) {
     const auto phase = static_cast<ipc_scene_phase>(index);
     ipc_scene_progress progress{.source = source,
@@ -93,19 +93,16 @@ void run() {
                                 .total = 65536U,
                                 .can_cancel = !scene_phase_terminal(phase),
                                 .message = "阶段信息"};
-    check(encode_ipc_scene_progress(progress, 9U, envelope) ==
-          gneiss::engine::core::result::success);
-    check(envelope.kind == (scene_phase_terminal(phase)
-                                ? gneiss::engine::platform::ipc_message_kind::response
-                                : gneiss::engine::platform::ipc_message_kind::event));
+    check(encode_ipc_scene_progress(progress, 9U, envelope) == gneiss::engine::result::success);
+    check(envelope.kind == (scene_phase_terminal(phase) ? gneiss::engine::ipc_message_kind::response
+                                                        : gneiss::engine::ipc_message_kind::event));
     ipc_scene_progress decoded;
-    check(decode_ipc_scene_progress(envelope, decoded) == gneiss::engine::core::result::success);
+    check(decode_ipc_scene_progress(envelope, decoded) == gneiss::engine::result::success);
     check(decoded.phase == phase && decoded.total == progress.total &&
           decoded.source.uri == source.uri);
-    check(encode_ipc_scene_progress(progress, 0U, envelope) ==
-              gneiss::engine::core::result::success &&
-          envelope.kind == gneiss::engine::platform::ipc_message_kind::event);
-    check(decode_ipc_scene_progress(envelope, decoded) == gneiss::engine::core::result::success);
+    check(encode_ipc_scene_progress(progress, 0U, envelope) == gneiss::engine::result::success &&
+          envelope.kind == gneiss::engine::ipc_message_kind::event);
+    check(decode_ipc_scene_progress(envelope, decoded) == gneiss::engine::result::success);
     check(!decoded.budget.has_value());
     progress.budget = ipc_scene_budget{
         .candidate_logical_bytes = UINT64_MAX,
@@ -117,9 +114,8 @@ void run() {
         .peak_upload_bytes = 7U,
         .cleanup_complete = true,
     };
-    check(encode_ipc_scene_progress(progress, 0U, envelope) ==
-          gneiss::engine::core::result::success);
-    check(decode_ipc_scene_progress(envelope, decoded) == gneiss::engine::core::result::success);
+    check(encode_ipc_scene_progress(progress, 0U, envelope) == gneiss::engine::result::success);
+    check(decode_ipc_scene_progress(envelope, decoded) == gneiss::engine::result::success);
     check(decoded.budget && decoded.budget->candidate_logical_bytes == UINT64_MAX &&
           decoded.budget->candidate_cpu_data_bytes == 2U &&
           decoded.budget->application_logical_bytes == 3U &&
@@ -132,13 +128,13 @@ void run() {
     check(cleanup_offset != std::string::npos);
     legacy.erase(cleanup_offset, std::string_view{",\"cleanup_complete\":true"}.size());
     envelope.payload.assign(legacy.begin(), legacy.end());
-    check(decode_ipc_scene_progress(envelope, decoded) == gneiss::engine::core::result::success &&
+    check(decode_ipc_scene_progress(envelope, decoded) == gneiss::engine::result::success &&
           decoded.budget && !decoded.budget->cleanup_complete);
     const auto pending_offset = legacy.find(",\"cleanup_pending\":false");
     check(pending_offset != std::string::npos);
     legacy.erase(pending_offset, std::string_view{",\"cleanup_pending\":false"}.size());
     envelope.payload.assign(legacy.begin(), legacy.end());
-    check(decode_ipc_scene_progress(envelope, decoded) == gneiss::engine::core::result::success &&
+    check(decode_ipc_scene_progress(envelope, decoded) == gneiss::engine::result::success &&
           decoded.budget && !decoded.budget->cleanup_complete && !decoded.budget->cleanup_pending);
     for (const auto* replacement : {"true", "0", "null"}) {
       auto malformed = encoded;
@@ -147,7 +143,7 @@ void run() {
       malformed.replace(offset + std::string_view{"\"cleanup_pending\":"}.size(), 5U, replacement);
       envelope.payload.assign(malformed.begin(), malformed.end());
       check(decode_ipc_scene_progress(envelope, decoded) ==
-            gneiss::engine::core::result::invalid_argument);
+            gneiss::engine::result::invalid_argument);
     }
     for (const auto* replacement : {"0", "null", "\"true\""}) {
       auto malformed = encoded;
@@ -155,7 +151,7 @@ void run() {
                         replacement);
       envelope.payload.assign(malformed.begin(), malformed.end());
       check(decode_ipc_scene_progress(envelope, decoded) ==
-            gneiss::engine::core::result::invalid_argument);
+            gneiss::engine::result::invalid_argument);
       check(decoded.budget && !decoded.budget->cleanup_complete);
     }
     for (const auto* replacement : {"-1", "1.5", "null", "18446744073709551616"}) {
@@ -165,20 +161,20 @@ void run() {
       malformed.replace(begin, 20U, replacement);
       envelope.payload.assign(malformed.begin(), malformed.end());
       check(decode_ipc_scene_progress(envelope, decoded) ==
-            gneiss::engine::core::result::invalid_argument);
+            gneiss::engine::result::invalid_argument);
       check(decoded.budget && decoded.budget->candidate_logical_bytes == UINT64_MAX);
     }
     progress.total = 65537U;
     check(encode_ipc_scene_progress(progress, 9U, envelope) ==
-          gneiss::engine::core::result::invalid_argument);
+          gneiss::engine::result::invalid_argument);
   }
   ipc_scene_progress invalid_progress{
       .source = source, .phase = ipc_scene_phase::applied, .can_cancel = true, .message = {}};
   check(encode_ipc_scene_progress(invalid_progress, 9U, envelope) ==
-        gneiss::engine::core::result::invalid_argument);
+        gneiss::engine::result::invalid_argument);
   envelope.payload.assign(ipc_scene_max_payload_size + 1U, 0U);
   check(decode_ipc_scene_progress(envelope, invalid_progress) ==
-        gneiss::engine::core::result::invalid_argument);
+        gneiss::engine::result::invalid_argument);
 }
 }
 int main() try {

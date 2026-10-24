@@ -10,6 +10,8 @@
 #include <string>
 #include <string_view>
 
+using namespace gneiss::host;
+
 namespace {
 
 [[nodiscard]] bool write_text(const std::filesystem::path& path, std::string_view text) {
@@ -31,15 +33,14 @@ namespace {
 } // namespace
 
 int main() try {
-  gneiss::app::project_description project;
-  gneiss::app::project_load_report report;
+  gneiss::host::project_description project;
+  gneiss::host::project_load_report report;
   const std::filesystem::path demo = GNEISS_APP_TEST_PROJECT;
-  if (gneiss::app::load_project_description(demo, project) !=
-          gneiss::engine::core::result::success ||
+  if (gneiss::host::load_project_description(demo, project) != gneiss::engine::result::success ||
       project.name != "Gneiss Editor Demo" ||
       project.startup_scene != "asset://scenes/main.scene.json" ||
-      gneiss::app::load_project_description(demo / "gneiss.project.json", project) !=
-          gneiss::engine::core::result::invalid_argument) {
+      gneiss::host::load_project_description(demo / "gneiss.project.json", project) !=
+          gneiss::engine::result::invalid_argument) {
     return 1;
   }
 
@@ -51,8 +52,7 @@ int main() try {
   if (!write_text(root / "assets" / "scenes" / "main.scene.json", "{}") ||
       !write_text(root / "gneiss.project.json",
                   project_json("assets", "asset://scenes/main.scene.json")) ||
-      gneiss::app::load_project_description(root, project) !=
-          gneiss::engine::core::result::success) {
+      gneiss::host::load_project_description(root, project) != gneiss::engine::result::success) {
     return 2;
   }
 
@@ -73,8 +73,8 @@ int main() try {
                                "\"directory\": \"modules\", \"configure_preset\": "
                                "\"game-debug-configure\", \"build_preset\": \"game-debug\", "
                                "\"build_target\": \"test_game\"}")) ||
-      gneiss::app::load_project_description(root, project, report) !=
-          gneiss::engine::core::result::success ||
+      gneiss::host::load_project_description(root, project, report) !=
+          gneiss::engine::result::success ||
       project.input_map != "asset://input/default.input-map.json" ||
       project.game_module.name != "test_game" ||
       project.game_module.profiles[0].configure_preset != "game-debug-configure" ||
@@ -82,8 +82,8 @@ int main() try {
     return 3;
   }
   std::filesystem::path module_path;
-  if (gneiss::app::resolve_game_module_path(project, module_path) !=
-          gneiss::engine::core::result::success ||
+  if (gneiss::host::resolve_game_module_path(project, module_path) !=
+          gneiss::engine::result::success ||
       module_path.filename() != module_filename) {
     return 3;
   }
@@ -92,8 +92,8 @@ int main() try {
       !write_text(
           root / "gneiss.project.json",
           R"({"format":"gneiss.project","version":3,"name":"Test Project","asset_root":"assets","startup_scene":"asset://scenes/main.scene.json","environment":{"asset":"asset://studio.gneiss-environment","intensity":0.75,"rotation_degrees":30}})") ||
-      gneiss::app::load_project_description(root, project, report) !=
-          gneiss::engine::core::result::success ||
+      gneiss::host::load_project_description(root, project, report) !=
+          gneiss::engine::result::success ||
       project.environment.asset != "asset://studio.gneiss-environment" ||
       project.environment.intensity != 0.75F || project.environment.rotation_degrees != 30.0F) {
     return 4;
@@ -102,57 +102,55 @@ int main() try {
   if (!write_text(
           root / "gneiss.project.json",
           R"({"format":"gneiss.project","version":5,"name":"Test Project","asset_root":"assets","startup_scene":"asset://scenes/main.scene.json","asset_build":{"retain":["asset://studio.gneiss-environment"]}})") ||
-      gneiss::app::load_project_description(root, project, report) !=
-          gneiss::engine::core::result::success ||
+      gneiss::host::load_project_description(root, project, report) !=
+          gneiss::engine::result::success ||
       project.retained_assets != std::vector<std::string>{"asset://studio.gneiss-environment"}) {
     return 4;
   }
   if (!write_text(
           root / "gneiss.project.json",
           R"({"format":"gneiss.project","version":5,"name":"Test Project","asset_root":"assets","startup_scene":"asset://scenes/main.scene.json","asset_build":{"retain":["asset://studio.gneiss-environment","asset://studio.gneiss-environment"]}})") ||
-      gneiss::app::load_project_description(root, project, report) !=
-          gneiss::engine::core::result::invalid_argument ||
-      report.stage != gneiss::app::project_load_stage::asset_build) {
+      gneiss::host::load_project_description(root, project, report) !=
+          gneiss::engine::result::invalid_argument ||
+      report.stage != gneiss::host::project_load_stage::asset_build) {
     return 4;
   }
 
   const auto previous_name = project.name;
-  if (gneiss::app::load_project_description(root / "missing", project, report) !=
-          gneiss::engine::core::result::not_found ||
-      report.stage != gneiss::app::project_load_stage::project_root ||
-      gneiss::app::project_load_stage_name(report.stage) != "project_root" ||
+  if (gneiss::host::load_project_description(root / "missing", project, report) !=
+          gneiss::engine::result::not_found ||
+      report.stage != gneiss::host::project_load_stage::project_root ||
+      gneiss::host::project_load_stage_name(report.stage) != "project_root" ||
       project.name != previous_name) {
     return 5;
   }
   if (!write_text(root / "gneiss.project.json",
                   project_json("../outside", "asset://scenes/main.scene.json")) ||
-      gneiss::app::load_project_description(root, project) !=
-          gneiss::engine::core::result::invalid_argument) {
+      gneiss::host::load_project_description(root, project) !=
+          gneiss::engine::result::invalid_argument) {
     return 5;
   }
   if (!write_text(root / "gneiss.project.json",
                   project_json("missing-assets", "asset://scenes/main.scene.json")) ||
-      gneiss::app::load_project_description(root, project) !=
-          gneiss::engine::core::result::not_found) {
+      gneiss::host::load_project_description(root, project) != gneiss::engine::result::not_found) {
     return 6;
   }
   if (!write_text(root / "gneiss.project.json",
                   project_json("assets", "asset://scenes/missing.scene.json")) ||
-      gneiss::app::load_project_description(root, project) !=
-          gneiss::engine::core::result::not_found) {
+      gneiss::host::load_project_description(root, project) != gneiss::engine::result::not_found) {
     return 7;
   }
   if (!write_text(root / "gneiss.project.json",
                   project_json("assets", "asset://../outside.scene.json")) ||
-      gneiss::app::load_project_description(root, project) !=
-          gneiss::engine::core::result::invalid_argument) {
+      gneiss::host::load_project_description(root, project) !=
+          gneiss::engine::result::invalid_argument) {
     return 8;
   }
   if (!write_text(root / "gneiss.project.json", "{invalid") ||
-      gneiss::app::load_project_description(root, project, report) !=
-          gneiss::engine::core::result::invalid_argument ||
-      report.operation != gneiss::engine::core::result::invalid_argument ||
-      report.stage != gneiss::app::project_load_stage::document ||
+      gneiss::host::load_project_description(root, project, report) !=
+          gneiss::engine::result::invalid_argument ||
+      report.operation != gneiss::engine::result::invalid_argument ||
+      report.stage != gneiss::host::project_load_stage::document ||
       report.context.filename() != "gneiss.project.json") {
     return 9;
   }

@@ -26,10 +26,10 @@ namespace {
 } // namespace
 
 int main() { // NOLINT(bugprone-exception-escape)
-  namespace asset_import = gneiss::tooling::asset_import;
+  namespace asset_import = gneiss::tooling;
   const auto source = std::filesystem::path{GNEISS_TEST_GLTF_ROOT} / "static_triangle.gltf";
-  const auto imported = asset_import::inspect_gltf(source);
-  if (imported.result != asset_import::inspect_result::success) {
+  const auto imported = gneiss::tooling::inspect_gltf(source);
+  if (imported.result != gneiss::tooling::inspect_result::success) {
     return 1;
   }
   const auto root = std::filesystem::temp_directory_path() / "gneiss-asset-writer-test";
@@ -37,8 +37,8 @@ int main() { // NOLINT(bugprone-exception-escape)
   const auto second = root / "second";
   const auto multi = root / "multi";
   std::filesystem::remove_all(root);
-  if (!asset_import::write_assets(imported.data, first).success ||
-      !asset_import::write_assets(imported.data, second).success) {
+  if (!gneiss::tooling::write_assets(imported.data, first).success ||
+      !gneiss::tooling::write_assets(imported.data, second).success) {
     return 2;
   }
   constexpr std::array files = {
@@ -53,14 +53,14 @@ int main() { // NOLINT(bugprone-exception-escape)
     std::ofstream stale(first / "stale.asset", std::ios::binary);
     stale << "旧导入残留";
   }
-  if (!asset_import::write_assets(imported.data, first).success ||
+  if (!gneiss::tooling::write_assets(imported.data, first).success ||
       std::filesystem::exists(first / "stale.asset")) {
     return 4;
   }
   const auto preserved_scene = read_file(first / "scenes/scene.scene.json");
   auto invalid_data = imported.data;
   invalid_data.nodes[0].mesh_index = invalid_data.meshes.size();
-  if (asset_import::write_assets(invalid_data, first).success ||
+  if (gneiss::tooling::write_assets(invalid_data, first).success ||
       read_file(first / "scenes/scene.scene.json") != preserved_scene ||
       std::filesystem::exists(root / "first.gneiss-staging") ||
       std::filesystem::exists(root / "first.gneiss-backup")) {
@@ -89,7 +89,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   auto second_primitive = multi_data.meshes[0].primitives[0];
   second_primitive.material_index.reset();
   multi_data.meshes[0].primitives.push_back(std::move(second_primitive));
-  if (!asset_import::write_assets(multi_data, multi).success ||
+  if (!gneiss::tooling::write_assets(multi_data, multi).success ||
       !std::filesystem::exists(multi / "models/mesh-0-primitive-1.gneiss-mesh") ||
       !std::filesystem::exists(multi / "materials/default.material.json")) {
     return 7;
@@ -110,16 +110,16 @@ int main() { // NOLINT(bugprone-exception-escape)
       gneiss_application_destroy(application) != GNEISS_SUCCESS) {
     return 8;
   }
-  const auto pbr = asset_import::inspect_gltf(std::filesystem::path{GNEISS_TEST_GLTF_ROOT} /
-                                              "pbr_triangle.gltf");
+  const auto pbr = gneiss::tooling::inspect_gltf(std::filesystem::path{GNEISS_TEST_GLTF_ROOT} /
+                                                 "pbr_triangle.gltf");
   const auto pbr_output = root / "pbr";
-  if (pbr.result != asset_import::inspect_result::success ||
+  if (pbr.result != gneiss::tooling::inspect_result::success ||
       pbr.data.materials[0].texture_indices() !=
           std::array<std::optional<std::size_t>, 5>{0U, 0U, 0U, 0U, 0U} ||
       pbr.data.materials[0].normal_scale != -0.5F ||
       pbr.data.materials[0].occlusion_strength != 0.25F ||
       pbr.data.materials[0].emissive != std::array<float, 3>{0.1F, 0.2F, 0.3F} ||
-      !asset_import::write_assets(pbr.data, pbr_output).success) {
+      !gneiss::tooling::write_assets(pbr.data, pbr_output).success) {
     return 9;
   }
   const auto color_image = read_file(pbr_output / "textures/image-0.png");

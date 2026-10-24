@@ -21,32 +21,31 @@ bool test_out_of_order_and_stale_results() {
   const auto second_key = make_key(5U);
   gneiss::editor::runtime_property_write first;
   gneiss::editor::runtime_property_write second;
-  if (edits.prepare(first_key, 1U, {true}, now, first) != gneiss::engine::core::result::success ||
-      edits.prepare(second_key, 1U, {false}, now, second) !=
-          gneiss::engine::core::result::success) {
+  if (edits.prepare(first_key, 1U, {true}, now, first) != gneiss::engine::result::success ||
+      edits.prepare(second_key, 1U, {false}, now, second) != gneiss::engine::result::success) {
     return false;
   }
   const gneiss::editor::runtime_property_write_result second_response{
       .session_id = 10U,
       .command_id = second.command_id,
-      .code = gneiss::engine::core::result::success.code(),
+      .code = gneiss::engine::result::success.code(),
       .revision = 2U,
       .message = "second",
       .canonical_value = {false}};
   const gneiss::editor::runtime_property_write_result first_response{
       .session_id = 10U,
       .command_id = first.command_id,
-      .code = gneiss::engine::core::result::success.code(),
+      .code = gneiss::engine::result::success.code(),
       .revision = 2U,
       .message = "first",
       .canonical_value = {true}};
-  if (edits.accept(second_response) != gneiss::engine::core::result::success ||
-      edits.accept(first_response) != gneiss::engine::core::result::success ||
-      edits.accept(first_response) != gneiss::engine::core::result::not_found) {
+  if (edits.accept(second_response) != gneiss::engine::result::success ||
+      edits.accept(first_response) != gneiss::engine::result::success ||
+      edits.accept(first_response) != gneiss::engine::result::not_found) {
     return false;
   }
   edits.begin_session(11U);
-  return edits.accept(second_response) == gneiss::engine::core::result::invalid_state &&
+  return edits.accept(second_response) == gneiss::engine::result::invalid_state &&
          edits.find(first_key) == nullptr && edits.find(second_key) == nullptr;
 }
 
@@ -57,35 +56,35 @@ bool test_result_and_single_pending() {
   gneiss::editor::runtime_property_write command;
   const auto key = make_key();
   if (edits.prepare(key, 1U, {std::array<float, 3>{1.0F, 2.0F, 3.0F}}, now, command) !=
-          gneiss::engine::core::result::success ||
+          gneiss::engine::result::success ||
       command.session_id != 7U || command.command_id != 1U ||
-      edits.prepare(key, 1U, {true}, now, command) != gneiss::engine::core::result::not_ready) {
+      edits.prepare(key, 1U, {true}, now, command) != gneiss::engine::result::not_ready) {
     return false;
   }
   const gneiss::editor::runtime_property_write_result response{
       .session_id = 7U,
       .command_id = 1U,
-      .code = gneiss::engine::core::result::success.code(),
+      .code = gneiss::engine::result::success.code(),
       .revision = 2U,
       .message = "属性已应用",
       .canonical_value = {std::array<float, 3>{1.0F, 2.0F, 3.0F}}};
-  if (edits.accept(response) != gneiss::engine::core::result::success) {
+  if (edits.accept(response) != gneiss::engine::result::success) {
     return false;
   }
   const auto* state = edits.find(key);
   if (state == nullptr || state->state != gneiss::editor::runtime_property_edit_state::applied ||
       state->revision != 2U ||
-      edits.prepare(key, 2U, {true}, now, command) != gneiss::engine::core::result::success) {
+      edits.prepare(key, 2U, {true}, now, command) != gneiss::engine::result::success) {
     return false;
   }
   const gneiss::editor::runtime_property_write_result rejected{
       .session_id = 7U,
       .command_id = 2U,
-      .code = gneiss::engine::core::result::invalid_argument.code(),
+      .code = gneiss::engine::result::invalid_argument.code(),
       .revision = 2U,
       .message = "属性写入被拒绝",
       .canonical_value = {}};
-  if (edits.accept(rejected) != gneiss::engine::core::result::success) {
+  if (edits.accept(rejected) != gneiss::engine::result::success) {
     return false;
   }
   state = edits.find(key);
@@ -100,7 +99,7 @@ bool test_timeout_disconnect_and_session() {
   const auto now = gneiss::editor::runtime_property_edits::clock::now();
   const auto key = make_key();
   gneiss::editor::runtime_property_write command;
-  if (edits.prepare(key, 1U, {true}, now, command) != gneiss::engine::core::result::success) {
+  if (edits.prepare(key, 1U, {true}, now, command) != gneiss::engine::result::success) {
     return false;
   }
   edits.expire(now + std::chrono::seconds(3), std::chrono::seconds(2));
@@ -108,11 +107,11 @@ bool test_timeout_disconnect_and_session() {
   if (state == nullptr || state->state != gneiss::editor::runtime_property_edit_state::timed_out ||
       edits.accept({.session_id = 8U,
                     .command_id = 1U,
-                    .code = gneiss::engine::core::result::success.code(),
+                    .code = gneiss::engine::result::success.code(),
                     .revision = 1U,
                     .message = {},
-                    .canonical_value = {}}) != gneiss::engine::core::result::not_found ||
-      edits.prepare(key, 1U, {false}, now, command) != gneiss::engine::core::result::success) {
+                    .canonical_value = {}}) != gneiss::engine::result::not_found ||
+      edits.prepare(key, 1U, {false}, now, command) != gneiss::engine::result::success) {
     return false;
   }
   edits.disconnect();

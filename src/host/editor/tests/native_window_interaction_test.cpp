@@ -48,30 +48,30 @@ BOOL CALLBACK find_window(HWND window, LPARAM data) {
   return TRUE;
 }
 
-gneiss::engine::core::result update(gneiss::engine::core::rid,
-                                    const gneiss::engine::core::frame_time* time, void* data) {
+gneiss::engine::result update(gneiss::engine::rid, const gneiss::engine::frame_time* time,
+                              void* data) {
   auto& value = *static_cast<state*>(data);
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
   if (!value.assets->status().active ||
       value.camera.update({.delta_seconds = 0.016F, .dolly = 0.01F}) !=
-          gneiss::engine::core::result::success) {
-    return gneiss::engine::core::result::invalid_state;
+          gneiss::engine::result::success) {
+    return gneiss::engine::result::invalid_state;
   }
 #endif
   RECT client{};
   if (GetClientRect(value.window, &client) == 0) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
   std::uint32_t width = 0U;
   std::uint32_t height = 0U;
   auto operation = value.application->get_window_size(width, height);
-  if (operation != gneiss::engine::core::result::success ||
+  if (operation != gneiss::engine::result::success ||
       width != static_cast<std::uint32_t>(client.right) ||
       height != static_cast<std::uint32_t>(client.bottom)) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   operation = value.ui.begin_frame(*value.application, *time);
-  if (operation != gneiss::engine::core::result::success) {
+  if (operation != gneiss::engine::result::success) {
     return operation;
   }
   const auto& io = ImGui::GetIO();
@@ -95,7 +95,7 @@ gneiss::engine::core::result update(gneiss::engine::core::rid,
   ImGui::End();
   operation = value.ui.submit(*value.application);
   ++value.frames;
-  return aligned ? operation : gneiss::engine::core::result::invalid_state;
+  return aligned ? operation : gneiss::engine::result::invalid_state;
 }
 
 } // namespace
@@ -105,16 +105,16 @@ int main() {
   std::promise<void> release;
   auto gate = release.get_future().share();
   std::atomic_bool entered{};
-  gneiss::editor::asset_background_worker worker([&](const auto&, const auto&, const auto&, bool,
-                                                     const auto& control) {
-    entered = true;
-    gate.wait();
-    gneiss::editor::editor_import_report report;
-    report.import.result =
-        control.cancelled() ? gneiss::tooling::asset_import::import_asset_result::cancelled
-                            : gneiss::tooling::asset_import::import_asset_result::invalid_argument;
-    return report;
-  });
+  gneiss::editor::asset_background_worker worker(
+      [&](const auto&, const auto&, const auto&, bool, const auto& control) {
+        entered = true;
+        gate.wait();
+        gneiss::editor::editor_import_report report;
+        report.import.result = control.cancelled()
+                                   ? gneiss::tooling::import_asset_result::cancelled
+                                   : gneiss::tooling::import_asset_result::invalid_argument;
+        return report;
+      });
   struct release_guard {
     std::promise<void>& value;
     ~release_guard() { value.set_value(); }
@@ -139,36 +139,35 @@ int main() {
   config.window.width = 640U;
   config.window.height = 480U;
   config.window.title = "Gneiss 0.37 interaction probe";
-  config.callbacks.update = [&value](gneiss::engine::core::rid handle,
-                                     const gneiss::engine::core::frame_time& time) {
+  config.callbacks.update = [&value](gneiss::engine::rid handle,
+                                     const gneiss::engine::frame_time& time) {
     return update(handle, &time, &value);
   };
   std::shared_ptr<gneiss::runtime::application> application;
   if (gneiss::runtime::application::create(config, application) !=
-      gneiss::engine::core::result::success) {
+      gneiss::engine::result::success) {
     return 1;
   }
   value.application = application.get();
   (void)EnumWindows(find_window, reinterpret_cast<LPARAM>(&value.window));
   if (value.window == nullptr ||
-      value.ui.initialize(*application) != gneiss::engine::core::result::success) {
+      value.ui.initialize(*application) != gneiss::engine::result::success) {
     return 2;
   }
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
-  if (value.camera.initialize() != gneiss::engine::core::result::success) {
+  if (value.camera.initialize() != gneiss::engine::result::success) {
     return 5;
   }
 #endif
-  gneiss::engine::core::result foreign_result{};
+  gneiss::engine::result foreign_result{};
   std::thread foreign([&] { foreign_result = value.ui.begin_frame(*application, {}); });
   foreign.join();
-  if (foreign_result != gneiss::engine::core::result::invalid_state)
+  if (foreign_result != gneiss::engine::result::invalid_state)
     return 6;
   // 使用窗口自己的 DPI 上下文查询物理客户区，避免测试进程受到 DPI 虚拟化影响。
   const auto previous = SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(value.window));
   const auto run = [&] {
-    return application->run(gneiss::engine::core::null_rid, 3U) ==
-           gneiss::engine::core::result::success;
+    return application->run(gneiss::engine::null_rid, 3U) == gneiss::engine::result::success;
   };
   bool success = run();
   for (int index = 0; index < 18 && success; ++index) {

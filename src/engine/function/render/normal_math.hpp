@@ -8,13 +8,13 @@
 
 #include <array>
 
-namespace gneiss::engine::render {
+namespace gneiss::engine {
 
 /** 使用 Transform 的逆转置缩放与旋转变换单位法线，并重新归一化。 */
 [[nodiscard]] std::array<float, 3>
 transform_normal(const std::array<float, 3>& normal,
-                 const engine::core::math::transform& transform) noexcept;
+                 const gneiss::engine::transform& transform) noexcept;
 
-} // namespace gneiss::engine::render
+} // namespace gneiss::engine
 
 #endif

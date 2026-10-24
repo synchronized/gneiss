@@ -13,10 +13,10 @@
 #include <span>
 #include <string_view>
 
-namespace gneiss::engine::core::reflection {
+namespace gneiss::engine {
 /** 借用候选数据，仅修改该数据并校验；禁止场景副作用和普通业务通知。 */
-using candidate_property_setter = gneiss::engine::core::result (*)(
-    void* user_data, void* candidate, const gneiss_property_value& value);
+using candidate_property_setter = gneiss::engine::result (*)(void* user_data, void* candidate,
+                                                             const gneiss_property_value& value);
 struct field_definition {
   gneiss_field_id id{};
   gneiss_type_id value_type_id{};
@@ -32,8 +32,10 @@ struct type_definition {
 /** 回调及上下文均借用；沿用公开回调协议，不隐式持有用户对象。 */
 struct property_binding {
   std::uint32_t kind{};
-  std::function<core::result(void*, gneiss_property_target, gneiss_property_value*)> getter;
-  std::function<core::result(void*, gneiss_property_target, const gneiss_property_value*)> setter;
+  std::function<gneiss::engine::result(void*, gneiss_property_target, gneiss_property_value*)>
+      getter;
+  std::function<gneiss::engine::result(void*, gneiss_property_target, const gneiss_property_value*)>
+      setter;
   // C 边界只记录原回调身份，调用仍通过上述原生结果适配器；用于重复绑定判等。
   gneiss_property_getter getter_identity{};
   gneiss_property_setter setter_identity{};
@@ -44,39 +46,41 @@ struct property_binding {
   return std::ranges::any_of(id.bytes, [](std::uint8_t byte) { return byte != 0U; });
 }
 /** 创建同一实现的原生对象，不注册公共 RID；失败保持原输出。 */
-[[nodiscard]] GNEISS_API gneiss::engine::core::result create_native(registry_ref& output) noexcept;
+[[nodiscard]] GNEISS_API gneiss::engine::result create_native(registry_ref& output) noexcept;
 [[nodiscard]] GNEISS_API registry_ref resolve(gneiss_type_registry registry);
-[[nodiscard]] GNEISS_API gneiss::engine::core::result create(gneiss_type_registry& output) noexcept;
-[[nodiscard]] GNEISS_API gneiss::engine::core::result
-destroy(gneiss_type_registry registry) noexcept;
-[[nodiscard]] GNEISS_API gneiss::engine::core::result
-register_type(const registry_ref& state, const type_definition& desc) noexcept;
-[[nodiscard]] GNEISS_API gneiss::engine::core::result
+[[nodiscard]] GNEISS_API gneiss::engine::result
+create_type_registry(gneiss_type_registry& output) noexcept;
+[[nodiscard]] GNEISS_API gneiss::engine::result
+destroy_type_registry(gneiss_type_registry registry) noexcept;
+[[nodiscard]] GNEISS_API gneiss::engine::result register_type(const registry_ref& state,
+                                                              const type_definition& desc) noexcept;
+[[nodiscard]] GNEISS_API gneiss::engine::result
 bind_property(const registry_ref& state, gneiss_type_id type_id, gneiss_field_id field_id,
               const property_binding& desc) noexcept;
-[[nodiscard]] GNEISS_API gneiss::engine::core::result freeze(const registry_ref& state) noexcept;
-[[nodiscard]] GNEISS_API gneiss::engine::core::result is_frozen(const registry_ref& state,
-                                                                std::uint8_t& output) noexcept;
-[[nodiscard]] GNEISS_API gneiss::engine::core::result type_count(const registry_ref& state,
-                                                                 std::uint32_t& output) noexcept;
-[[nodiscard]] GNEISS_API gneiss::engine::core::result
+[[nodiscard]] GNEISS_API gneiss::engine::result freeze(const registry_ref& state) noexcept;
+[[nodiscard]] GNEISS_API gneiss::engine::result is_frozen(const registry_ref& state,
+                                                          std::uint8_t& output) noexcept;
+[[nodiscard]] GNEISS_API gneiss::engine::result type_count(const registry_ref& state,
+                                                           std::uint32_t& output) noexcept;
+[[nodiscard]] GNEISS_API gneiss::engine::result
 type_at(const registry_ref& state, std::uint32_t index, gneiss_type_info& output) noexcept;
-[[nodiscard]] GNEISS_API gneiss::engine::core::result
+[[nodiscard]] GNEISS_API gneiss::engine::result
 find_type(const registry_ref& state, gneiss_type_id id, gneiss_type_info& output) noexcept;
-[[nodiscard]] GNEISS_API gneiss::engine::core::result
-find_field(const registry_ref& state, gneiss_type_id type_id, gneiss_field_id field_id,
-           gneiss_field_info& output) noexcept;
-[[nodiscard]] GNEISS_API gneiss::engine::core::result
+[[nodiscard]] GNEISS_API gneiss::engine::result find_field(const registry_ref& state,
+                                                           gneiss_type_id type_id,
+                                                           gneiss_field_id field_id,
+                                                           gneiss_field_info& output) noexcept;
+[[nodiscard]] GNEISS_API gneiss::engine::result
 get_property(const registry_ref& state, gneiss_type_id type_id, gneiss_field_id field_id,
              gneiss_property_target target, gneiss_property_value& output) noexcept;
-[[nodiscard]] GNEISS_API gneiss::engine::core::result
+[[nodiscard]] GNEISS_API gneiss::engine::result
 set_property(const registry_ref& state, gneiss_type_id type_id, gneiss_field_id field_id,
              gneiss_property_target target, const gneiss_property_value& value) noexcept;
 /** 不回退到运行时 setter。candidate 为字段所属类型的可写候选数据，调用期间借用。
  * 调用方独占候选，失败后丢弃整份候选；异常转换为 INTERNAL，不发送通知。
  */
-[[nodiscard]] GNEISS_API gneiss::engine::core::result
+[[nodiscard]] GNEISS_API gneiss::engine::result
 set_candidate_property(const registry_ref& state, gneiss_type_id type_id, gneiss_field_id field_id,
                        void* candidate, const gneiss_property_value& value) noexcept;
-} // namespace gneiss::engine::core::reflection
+} // namespace gneiss::engine
 #endif

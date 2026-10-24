@@ -10,7 +10,7 @@
 #include <functional>
 #include <memory>
 
-namespace gneiss::engine::platform::io {
+namespace gneiss::engine {
 
 class uv_loop_access;
 
@@ -29,9 +29,9 @@ public:
   uv_loop_executor(const uv_loop_executor&) = delete;
   uv_loop_executor& operator=(const uv_loop_executor&) = delete;
 
-  [[nodiscard]] gneiss::engine::core::result start() noexcept;
-  [[nodiscard]] gneiss::engine::core::result post(task operation) noexcept;
-  [[nodiscard]] gneiss::engine::core::result stop() noexcept;
+  [[nodiscard]] gneiss::engine::result start() noexcept;
+  [[nodiscard]] gneiss::engine::result post(task operation) noexcept;
+  [[nodiscard]] gneiss::engine::result stop() noexcept;
 
   [[nodiscard]] bool is_running() const noexcept;
   [[nodiscard]] std::size_t failed_task_count() const noexcept;
@@ -42,6 +42,6 @@ private:
   std::unique_ptr<implementation> implementation_;
 };
 
-} // namespace gneiss::engine::platform::io
+} // namespace gneiss::engine
 
 #endif

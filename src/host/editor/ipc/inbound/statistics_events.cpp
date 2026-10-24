@@ -6,13 +6,12 @@
 
 #include "event_decode.hpp"
 
-namespace gneiss::editor {
+namespace gneiss::host {
 
-gneiss::engine::core::result
-decode_runtime_statistics_event(const gneiss::engine::platform::ipc_envelope& envelope,
-                                runtime_ipc_event& output) noexcept {
-  return ipc_internal::decode_value<runtime_statistics_event>(
+gneiss::engine::result decode_runtime_statistics_event(const gneiss::engine::ipc_envelope& envelope,
+                                                       runtime_ipc_event& output) noexcept {
+  return gneiss::host::detail::decode_value<runtime_statistics_event>(
       envelope, output, [&](auto& value) { return decode_ipc_statistics_v2(envelope, value); });
 }
 
-} // namespace gneiss::editor
+} // namespace gneiss::host

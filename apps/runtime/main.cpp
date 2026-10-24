@@ -3,6 +3,4 @@
 
 #include "runtime_application.hpp"
 
-int main(int argc, char** argv) {
-  return gneiss::host::runtime::run_runtime_application(argc, argv);
-}
+int main(int argc, char** argv) { return gneiss::host::run_runtime_application(argc, argv); }

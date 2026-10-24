@@ -9,12 +9,14 @@
 #include <iterator>
 #include <string>
 
+using namespace gneiss::host;
+
 int main() {
   const auto path = std::filesystem::temp_directory_path() / "gneiss-runtime-log-sink-test.log";
   std::error_code error;
   std::filesystem::remove(path, error);
   {
-    gneiss::host::runtime::runtime_log log(path);
+    gneiss::host::runtime_log log(path);
     constexpr std::string_view source = "application";
     constexpr std::string_view category = "test";
     constexpr std::string_view message = "line 1\n\"line 2\"";
@@ -30,7 +32,7 @@ int main() {
         .category_length = category.size(),
         .message = message.data(),
         .message_length = message.size(),
-        .result = gneiss::engine::core::result::not_ready.code(),
+        .result = gneiss::engine::result::not_ready.code(),
         .flags = 0U,
         .reserved = {},
     };

@@ -30,7 +30,7 @@ struct console_event final {
   std::string source;
   std::string category;
   std::string message;
-  gneiss::engine::core::result operation = gneiss::engine::core::result::success;
+  gneiss::engine::result operation = gneiss::engine::result::success;
 };
 
 struct console_entry final {
@@ -58,10 +58,10 @@ public:
 
   /** 开始新 Runtime 会话；已有记录保留原会话标识。 */
   [[nodiscard]] std::uint64_t begin_session() noexcept;
-  [[nodiscard]] gneiss::engine::core::result append_event(std::uint64_t session_id,
-                                                          console_event event) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  append_raw(std::uint64_t session_id, std::string_view text, bool was_truncated = false) noexcept;
+  [[nodiscard]] gneiss::engine::result append_event(std::uint64_t session_id,
+                                                    console_event event) noexcept;
+  [[nodiscard]] gneiss::engine::result append_raw(std::uint64_t session_id, std::string_view text,
+                                                  bool was_truncated = false) noexcept;
   void clear() noexcept;
 
   [[nodiscard]] std::uint64_t current_session_id() const noexcept;
@@ -69,7 +69,7 @@ public:
   [[nodiscard]] const std::deque<console_entry>& entries() const noexcept;
   [[nodiscard]] bool matches(const console_entry& entry,
                              const console_filter& filter) const noexcept;
-  [[nodiscard]] gneiss::engine::core::result
+  [[nodiscard]] gneiss::engine::result
   visible_indices(const console_filter& filter, std::vector<std::size_t>& output) const noexcept;
 
 private:

@@ -58,13 +58,13 @@ using gneiss::editor::author_transaction;
   auto transaction = make_transaction();
   const auto revision = transaction.baseline_revision(0U);
   return revision.byte_size == 9U && revision.digest != 0U &&
-         transaction.prepare(documents) == gneiss::engine::core::result::success &&
-         transaction.commit(documents) == gneiss::engine::core::result::success &&
+         transaction.prepare(documents) == gneiss::engine::result::success &&
+         transaction.commit(documents) == gneiss::engine::result::success &&
          is(documents, "prefabs/lamp.prefab.json", "prefab-v2") &&
          is(documents, "scenes/main.scene.json", "scene-without-overrides") &&
-         transaction.undo(documents) == gneiss::engine::core::result::success &&
+         transaction.undo(documents) == gneiss::engine::result::success &&
          is(documents, "prefabs/lamp.prefab.json", "prefab-v1") &&
-         transaction.redo(documents) == gneiss::engine::core::result::success &&
+         transaction.redo(documents) == gneiss::engine::result::success &&
          is(documents, "scenes/main.scene.json", "scene-without-overrides");
 }
 
@@ -73,7 +73,7 @@ using gneiss::editor::author_transaction;
       author_document{.path = "prefabs/lamp.prefab.json", .contents = "external-edit"},
       author_document{.path = "scenes/main.scene.json", .contents = "scene-with-overrides"}};
   auto transaction = make_transaction();
-  return transaction.prepare(documents) == gneiss::engine::core::result::invalid_state &&
+  return transaction.prepare(documents) == gneiss::engine::result::invalid_state &&
          is(documents, "prefabs/lamp.prefab.json", "external-edit") &&
          is(documents, "scenes/main.scene.json", "scene-with-overrides");
 }
@@ -83,11 +83,11 @@ using gneiss::editor::author_transaction;
       author_document{.path = "prefabs/lamp.prefab.json", .contents = "prefab-v1"},
       author_document{.path = "scenes/main.scene.json", .contents = "scene-with-overrides"}};
   auto transaction = make_transaction();
-  return transaction.prepare(documents) == gneiss::engine::core::result::success &&
-         transaction.commit(documents, 1U) == gneiss::engine::core::result::io &&
+  return transaction.prepare(documents) == gneiss::engine::result::success &&
+         transaction.commit(documents, 1U) == gneiss::engine::result::io &&
          is(documents, "prefabs/lamp.prefab.json", "prefab-v1") &&
          is(documents, "scenes/main.scene.json", "scene-with-overrides") &&
-         transaction.commit(documents) == gneiss::engine::core::result::success;
+         transaction.commit(documents) == gneiss::engine::result::success;
 }
 
 [[nodiscard]] bool test_create_and_external_edit_guard() {
@@ -96,18 +96,18 @@ using gneiss::editor::author_transaction;
   if (transaction.add({.path = "prefabs/new.prefab.json",
                        .baseline = std::nullopt,
                        .replacement = std::string{"new-prefab"}}) !=
-          gneiss::engine::core::result::success ||
+          gneiss::engine::result::success ||
       transaction.add({.path = "scenes/main.scene.json",
                        .baseline = std::string{"scene-v1"},
                        .replacement = std::string{"scene-v2"}}) !=
-          gneiss::engine::core::result::success ||
-      transaction.prepare(documents) != gneiss::engine::core::result::success ||
-      transaction.commit(documents) != gneiss::engine::core::result::success ||
+          gneiss::engine::result::success ||
+      transaction.prepare(documents) != gneiss::engine::result::success ||
+      transaction.commit(documents) != gneiss::engine::result::success ||
       !is(documents, "prefabs/new.prefab.json", "new-prefab")) {
     return false;
   }
   documents[0].contents = "external-scene-edit";
-  return transaction.undo(documents) == gneiss::engine::core::result::invalid_state &&
+  return transaction.undo(documents) == gneiss::engine::result::invalid_state &&
          is(documents, "prefabs/new.prefab.json", "new-prefab");
 }
 
@@ -115,16 +115,16 @@ using gneiss::editor::author_transaction;
   author_transaction transaction;
   return transaction.add(
              {.path = "", .baseline = std::string{"a"}, .replacement = std::string{"b"}}) ==
-             gneiss::engine::core::result::invalid_argument &&
+             gneiss::engine::result::invalid_argument &&
          transaction.add(
              {.path = "same", .baseline = std::string{"a"}, .replacement = std::string{"a"}}) ==
-             gneiss::engine::core::result::invalid_argument &&
+             gneiss::engine::result::invalid_argument &&
          transaction.add(
              {.path = "one", .baseline = std::string{"a"}, .replacement = std::string{"b"}}) ==
-             gneiss::engine::core::result::success &&
+             gneiss::engine::result::success &&
          transaction.add(
              {.path = "one", .baseline = std::string{"a"}, .replacement = std::string{"c"}}) ==
-             gneiss::engine::core::result::invalid_argument;
+             gneiss::engine::result::invalid_argument;
 }
 
 [[nodiscard]] bool test_native_commit_and_conflict(const std::filesystem::path& root) {
@@ -140,7 +140,7 @@ using gneiss::editor::author_transaction;
                                                    .baseline = std::string{"scene-v1"},
                                                    .replacement = std::string{"scene-v2"}}};
   if (gneiss::editor::commit_native_author_transaction(root, changes) !=
-          gneiss::engine::core::result::success ||
+          gneiss::engine::result::success ||
       read_file(prefab) != "prefab-v2" || read_file(scene) != "scene-v2") {
     return false;
   }
@@ -148,7 +148,7 @@ using gneiss::editor::author_transaction;
                                                     .baseline = std::string{"prefab-v1"},
                                                     .replacement = std::string{"prefab-v3"}}};
   return gneiss::editor::commit_native_author_transaction(root, conflict) ==
-             gneiss::engine::core::result::invalid_state &&
+             gneiss::engine::result::invalid_state &&
          read_file(prefab) == "prefab-v2";
 }
 
@@ -164,19 +164,18 @@ using gneiss::editor::author_transaction;
   gneiss::editor::native_author_transaction_options interruption;
   interruption.interrupt_after_replacements = 1U;
   if (gneiss::editor::commit_native_author_transaction(root, changes, interruption) !=
-          gneiss::engine::core::result::not_ready ||
+          gneiss::engine::result::not_ready ||
       read_file(prefab) != "prefab-v3" || read_file(scene) != "scene-v2" ||
-      gneiss::editor::recover_native_author_transactions(root) !=
-          gneiss::engine::core::result::success ||
+      gneiss::editor::recover_native_author_transactions(root) != gneiss::engine::result::success ||
       read_file(prefab) != "prefab-v2" || read_file(scene) != "scene-v2") {
     return false;
   }
   interruption.interrupt_after_replacements = std::numeric_limits<std::size_t>::max();
   interruption.interrupt_after_commit_marker = true;
   return gneiss::editor::commit_native_author_transaction(root, changes, interruption) ==
-             gneiss::engine::core::result::not_ready &&
+             gneiss::engine::result::not_ready &&
          gneiss::editor::recover_native_author_transactions(root) ==
-             gneiss::engine::core::result::success &&
+             gneiss::engine::result::success &&
          read_file(prefab) == "prefab-v3" && read_file(scene) == "scene-v3";
 }
 
@@ -185,14 +184,14 @@ using gneiss::editor::author_transaction;
                                                   .baseline = std::nullopt,
                                                   .replacement = std::string{"created"}}};
   if (gneiss::editor::commit_native_author_transaction(root, create) !=
-          gneiss::engine::core::result::success ||
+          gneiss::engine::result::success ||
       read_file(root / "prefabs" / "new.prefab.json") != "created") {
     return false;
   }
   const std::vector escaped{author_document_change{
       .path = "../escaped.json", .baseline = std::nullopt, .replacement = std::string{"escaped"}}};
   return gneiss::editor::commit_native_author_transaction(root, escaped) ==
-             gneiss::engine::core::result::invalid_argument &&
+             gneiss::engine::result::invalid_argument &&
          !std::filesystem::exists(root.parent_path() / "escaped.json");
 }
 

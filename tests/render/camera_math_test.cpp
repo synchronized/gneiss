@@ -17,15 +17,15 @@ bool nearly_equal(float left, float right) noexcept { return std::abs(left - rig
 } // namespace
 
 int main() {
-  using gneiss::engine::render::build_perspective_matrix;
-  using gneiss::engine::render::build_view_matrix;
-  using gneiss::engine::render::matrix4;
-  using gneiss::engine::render::transform_vector;
+  using gneiss::engine::build_perspective_matrix;
+  using gneiss::engine::build_view_matrix;
+  using gneiss::engine::matrix4;
+  using gneiss::engine::transform_vector;
 
   matrix4 view;
-  gneiss::engine::core::math::transform transform = {};
+  gneiss::engine::transform transform = {};
   transform.translation[2] = 2.0F;
-  if (build_view_matrix(transform, view) != gneiss::engine::core::result::success) {
+  if (build_view_matrix(transform, view) != gneiss::engine::result::success) {
     return 1;
   }
   const auto translated_origin = transform_vector(view, {0.0F, 0.0F, 0.0F, 1.0F});
@@ -40,7 +40,7 @@ int main() {
   transform.scale[0] = 8.0F;
   transform.scale[1] = 9.0F;
   transform.scale[2] = 10.0F;
-  if (build_view_matrix(transform, view) != gneiss::engine::core::result::success) {
+  if (build_view_matrix(transform, view) != gneiss::engine::result::success) {
     return 3;
   }
   const auto camera_forward_point = transform_vector(view, {-2.0F, 0.0F, 0.0F, 1.0F});
@@ -49,12 +49,12 @@ int main() {
     return 4;
   }
 
-  gneiss::engine::render::camera_settings camera;
+  gneiss::engine::camera_settings camera;
   camera.vertical_field_of_view_radians = 1.57079633F;
   camera.near_plane = 0.1F;
   camera.far_plane = 100.0F;
   matrix4 projection;
-  if (build_perspective_matrix(camera, 2.0F, projection) != gneiss::engine::core::result::success) {
+  if (build_perspective_matrix(camera, 2.0F, projection) != gneiss::engine::result::success) {
     return 5;
   }
   const auto near_point = transform_vector(projection, {0.0F, 0.0F, -camera.near_plane, 1.0F});
@@ -72,14 +72,14 @@ int main() {
   transform.rotation[1] = 0.0F;
   transform.rotation[2] = 0.0F;
   transform.rotation[3] = 0.0F;
-  if (build_view_matrix(transform, view) != gneiss::engine::core::result::invalid_argument ||
+  if (build_view_matrix(transform, view) != gneiss::engine::result::invalid_argument ||
       build_perspective_matrix(camera, 0.0F, projection) !=
-          gneiss::engine::core::result::invalid_argument) {
+          gneiss::engine::result::invalid_argument) {
     return 7;
   }
   camera.far_plane = std::numeric_limits<float>::infinity();
   return build_perspective_matrix(camera, 1.0F, projection) ==
-                 gneiss::engine::core::result::invalid_argument
+                 gneiss::engine::result::invalid_argument
              ? 0
              : 8;
 }

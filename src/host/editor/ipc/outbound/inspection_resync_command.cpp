@@ -6,12 +6,12 @@
 
 #include "ipc_inspection_protocol.hpp"
 
-namespace gneiss::editor {
+namespace gneiss::host {
 
-gneiss::engine::core::result
+gneiss::engine::result
 make_inspection_resync_command(std::uint32_t request_id,
-                               gneiss::engine::platform::ipc_envelope& output) noexcept {
+                               gneiss::engine::ipc_envelope& output) noexcept {
   return encode_ipc_inspection_resync(request_id, output);
 }
 
-} // namespace gneiss::editor
+} // namespace gneiss::host

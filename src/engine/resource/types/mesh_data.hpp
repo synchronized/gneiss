@@ -8,7 +8,7 @@
 #include <span>
 #include <vector>
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 struct mesh_vertex {
   float x{}, y{}, z{}, u{}, v{};
 };
@@ -50,4 +50,4 @@ struct mesh_data {
   }
 };
 
-} // namespace gneiss::engine::resource
+} // namespace gneiss::engine

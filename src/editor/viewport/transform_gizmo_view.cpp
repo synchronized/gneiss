@@ -61,10 +61,10 @@ bool draw_transform_gizmo(const transform_gizmo_context& context, const ImVec2& 
   gneiss::transform world{};
   auto operation = context.session.get_world_transform(node, world);
   gneiss::editor::gizmo_matrix model{};
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     operation = gneiss::editor::transform_to_gizmo_matrix(world, model);
   }
-  if (operation != gneiss::engine::core::result::success) {
+  if (operation != gneiss::engine::result::success) {
     context.error = operation;
     return false;
   }

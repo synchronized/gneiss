@@ -8,7 +8,7 @@
 
 #include <filesystem>
 
-namespace gneiss::engine::platform {
+namespace gneiss::engine {
 
 // 内部原生动态库句柄；调用方负责保证卸载前不再使用已查询的符号。
 class dynamic_library final {
@@ -19,9 +19,9 @@ public:
   dynamic_library(const dynamic_library&) = delete;
   dynamic_library& operator=(const dynamic_library&) = delete;
 
-  [[nodiscard]] gneiss::engine::core::result open(const std::filesystem::path& path) noexcept;
-  [[nodiscard]] gneiss::engine::core::result find_symbol(const char* name,
-                                                         void** out_symbol) const noexcept;
+  [[nodiscard]] gneiss::engine::result open(const std::filesystem::path& path) noexcept;
+  [[nodiscard]] gneiss::engine::result find_symbol(const char* name,
+                                                   void** out_symbol) const noexcept;
   void close() noexcept;
   [[nodiscard]] bool is_open() const noexcept;
 
@@ -29,6 +29,6 @@ private:
   void* handle_{};
 };
 
-} // namespace gneiss::engine::platform
+} // namespace gneiss::engine
 
 #endif

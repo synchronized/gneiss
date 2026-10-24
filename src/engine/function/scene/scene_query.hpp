@@ -12,7 +12,7 @@
 #include <optional>
 #include <string_view>
 
-namespace gneiss::engine::scene {
+namespace gneiss::engine {
 
 enum class node_query_detail { identity, assets, components };
 
@@ -25,9 +25,9 @@ struct scene_node_view {
   std::string_view name;
   std::string_view mesh_uri;
   std::string_view material_uri;
-  gneiss::engine::core::math::transform local_transform = {};
+  gneiss::engine::transform local_transform = {};
   scene_node_components component_flags{};
-  std::optional<gneiss::engine::resource::camera_description> camera;
+  std::optional<gneiss::engine::camera_description> camera;
 };
 
 struct prefab_node_view {
@@ -39,8 +39,8 @@ struct prefab_node_view {
   std::string_view source_node_uuid;
   std::string_view name;
   std::string_view prefab_uri;
-  gneiss::engine::core::math::transform local_transform = {};
-  gneiss::engine::core::math::transform source_local_transform = {};
+  gneiss::engine::transform local_transform = {};
+  gneiss::engine::transform source_local_transform = {};
 };
 
-} // namespace gneiss::engine::scene
+} // namespace gneiss::engine

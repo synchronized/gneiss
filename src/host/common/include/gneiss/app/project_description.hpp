@@ -13,7 +13,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss::app {
+namespace gneiss::host {
 
 enum class game_build_profile : std::uint8_t { debug, development, shipping };
 
@@ -75,7 +75,7 @@ enum class project_load_stage {
 
 /** 工程加载报告；失败时保留结果、阶段和相关路径。 */
 struct project_load_report final {
-  gneiss::engine::core::result operation = gneiss::engine::core::result::success;
+  gneiss::engine::result operation = gneiss::engine::result::success;
   project_load_stage stage = project_load_stage::none;
   std::filesystem::path context;
 };
@@ -84,28 +84,28 @@ struct project_load_report final {
 [[nodiscard]] std::string_view project_load_stage_name(project_load_stage stage) noexcept;
 
 /** 将平台无关模块基名映射为工程根内的本机动态库路径，并验证已有产物。 */
-[[nodiscard]] gneiss::engine::core::result
+[[nodiscard]] gneiss::engine::result
 resolve_game_module_path(const project_description& project,
                          std::filesystem::path& output) noexcept;
 
 /** 按指定构建配置解析并验证游戏模块产物。 */
-[[nodiscard]] gneiss::engine::core::result
+[[nodiscard]] gneiss::engine::result
 resolve_game_module_path(const project_description& project, game_build_profile profile,
                          std::filesystem::path& output) noexcept;
 
 /** 从工程根目录加载并校验固定名称的 gneiss.project.json。 */
-[[nodiscard]] gneiss::engine::core::result
+[[nodiscard]] gneiss::engine::result
 load_project_description(const std::filesystem::path& project_root, project_description& output,
                          project_load_report& report) noexcept;
 
 /** 忽略分阶段报告并加载工程描述。 */
-[[nodiscard]] inline gneiss::engine::core::result
+[[nodiscard]] inline gneiss::engine::result
 load_project_description(const std::filesystem::path& project_root,
                          project_description& output) noexcept {
   project_load_report report;
   return load_project_description(project_root, output, report);
 }
 
-} // namespace gneiss::app
+} // namespace gneiss::host
 
 #endif

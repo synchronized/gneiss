@@ -181,7 +181,7 @@ void draw_runtime_inspector(const runtime_scene_node& node,
     if (rotation_committed) {
       gneiss::property_quaternion edited{};
       const auto converted = euler_degrees_to_quaternion(rotation, edited);
-      if (converted == gneiss::engine::core::result::success) {
+      if (converted == gneiss::engine::result::success) {
         const auto revision = rotation_edit != nullptr && rotation_edit->revision != 0U
                                   ? rotation_edit->revision
                                   : 1U;

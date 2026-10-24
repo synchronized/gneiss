@@ -6,13 +6,13 @@
 
 #include "ipc_inspection_protocol.hpp"
 
-namespace gneiss::host::runtime {
+namespace gneiss::host {
 namespace {
 
-gneiss::engine::core::result handle_resync(const gneiss::engine::platform::ipc_envelope& envelope,
-                                           runtime_command_context& context) noexcept {
+gneiss::engine::result handle_resync(const gneiss::engine::ipc_envelope& envelope,
+                                     runtime_command_context& context) noexcept {
   const auto operation = decode_ipc_inspection_resync(envelope);
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     context.actions().request_inspection_resync = true;
   }
   return operation;
@@ -20,10 +20,10 @@ gneiss::engine::core::result handle_resync(const gneiss::engine::platform::ipc_e
 
 } // namespace
 
-gneiss::engine::core::result
+gneiss::engine::result
 register_runtime_inspection_commands(runtime_command_router& router) noexcept {
-  return router.bind(gneiss::engine::platform::ipc_domain::inspection,
+  return router.bind(gneiss::engine::ipc_domain::inspection,
                      static_cast<std::uint16_t>(ipc_inspection_operation::resync), handle_resync);
 }
 
-} // namespace gneiss::host::runtime
+} // namespace gneiss::host

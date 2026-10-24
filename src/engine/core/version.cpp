@@ -5,6 +5,6 @@
 
 #include <gneiss/engine/core/version.h>
 
-gneiss::engine::core::version gneiss::engine::core::library_version() noexcept {
+gneiss::engine::version gneiss::engine::library_version() noexcept {
   return {GNEISS_VERSION_MAJOR, GNEISS_VERSION_MINOR, GNEISS_VERSION_PATCH};
 }

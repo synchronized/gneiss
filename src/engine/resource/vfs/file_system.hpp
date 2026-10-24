@@ -13,7 +13,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 
 /** VFS 后端的最小只读接口。路径相对于挂载点，且不包含 scheme。 */
 class file_system {
@@ -21,16 +21,16 @@ public:
   virtual ~file_system() = default;
 
   /** 打开区间读取来源；失败清空输出。默认不支持，禁止整文件模拟按需读取。 */
-  [[nodiscard]] virtual gneiss::engine::core::result
+  [[nodiscard]] virtual gneiss::engine::result
   open_read(std::string_view, std::unique_ptr<read_source>& output) const noexcept {
     output.reset();
-    return gneiss::engine::core::result::unsupported;
+    return gneiss::engine::result::unsupported;
   }
   /** 可选异步打开；不支持时由调用方显式选择同步回退，禁止在本入口伪装异步。 */
-  [[nodiscard]] virtual gneiss::engine::core::result
+  [[nodiscard]] virtual gneiss::engine::result
   begin_open_read(std::string_view, std::unique_ptr<open_read_operation>& output) const noexcept {
     output.reset();
-    return gneiss::engine::core::result::unsupported;
+    return gneiss::engine::result::unsupported;
   }
 
   file_system(const file_system&) = delete;
@@ -38,19 +38,19 @@ public:
   file_system(file_system&&) = delete;
   file_system& operator=(file_system&&) = delete;
 
-  [[nodiscard]] virtual gneiss::engine::core::result
+  [[nodiscard]] virtual gneiss::engine::result
   read(std::string_view path, std::vector<std::byte>& out_bytes) const noexcept = 0;
 
   /** 有界读取必须在分配前检查；未实现此能力的后端不可用于异步准备。 */
-  [[nodiscard]] virtual gneiss::engine::core::result
+  [[nodiscard]] virtual gneiss::engine::result
   read_bounded(std::string_view, std::size_t, std::vector<std::byte>&) const noexcept {
-    return gneiss::engine::core::result::unsupported;
+    return gneiss::engine::result::unsupported;
   }
 
 protected:
   file_system() = default;
 };
 
-} // namespace gneiss::engine::resource
+} // namespace gneiss::engine
 
 #endif

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include <cstdint>
-namespace gneiss::engine::render {
+namespace gneiss::engine {
 struct debug_line {
   float start[3]{};
   float end[3]{};
@@ -21,4 +21,4 @@ struct ui_draw_command {
   float clip_max[2]{};
   std::uint32_t first_index{}, index_count{}, vertex_offset{};
 };
-} // namespace gneiss::engine::render
+} // namespace gneiss::engine

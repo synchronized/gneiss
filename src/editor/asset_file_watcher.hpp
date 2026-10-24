@@ -22,7 +22,7 @@ enum class asset_file_event_kind : std::uint8_t {
 struct asset_file_event final {
   asset_file_event_kind kind = asset_file_event_kind::changed;
   std::filesystem::path relative_path;
-  gneiss::engine::core::result operation = gneiss::engine::core::result::success;
+  gneiss::engine::result operation = gneiss::engine::result::success;
 };
 
 /**
@@ -43,9 +43,9 @@ public:
    * allow_missing 时缺失目录返回 not_ready 且不启动线程；调用方可在目录创建后重试。
    * 启动新的监听会清除上一轮未消费事件；丢失计数在对象生命周期内累计。
    */
-  [[nodiscard]] gneiss::engine::core::result start(const std::filesystem::path& source_root,
-                                                   bool allow_missing = false) noexcept;
-  [[nodiscard]] gneiss::engine::core::result stop() noexcept;
+  [[nodiscard]] gneiss::engine::result start(const std::filesystem::path& source_root,
+                                             bool allow_missing = false) noexcept;
+  [[nodiscard]] gneiss::engine::result stop() noexcept;
   [[nodiscard]] std::size_t poll_events(std::vector<asset_file_event>& output,
                                         std::size_t max_count = 64U) noexcept;
   [[nodiscard]] bool is_running() const noexcept;

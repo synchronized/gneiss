@@ -5,11 +5,10 @@
 #include "engine/core/result.hpp"
 #include "event_decode.hpp"
 
-namespace gneiss::editor {
-gneiss::engine::core::result
-decode_runtime_scene_event(const gneiss::engine::platform::ipc_envelope& envelope,
-                           runtime_ipc_event& output) noexcept {
-  return ipc_internal::decode_value<runtime_scene_progress_event>(
+namespace gneiss::host {
+gneiss::engine::result decode_runtime_scene_event(const gneiss::engine::ipc_envelope& envelope,
+                                                  runtime_ipc_event& output) noexcept {
+  return gneiss::host::detail::decode_value<runtime_scene_progress_event>(
       envelope, output, [&](auto& value) { return decode_ipc_scene_progress(envelope, value); });
 }
-} // namespace gneiss::editor
+} // namespace gneiss::host

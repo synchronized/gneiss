@@ -46,35 +46,31 @@
 #endif
 #include "engine/function/scene/prefab_candidate.hpp"
 #include <type_traits>
-static_assert(!std::is_copy_constructible_v<gneiss::engine::scene::prefab_candidate>);
-static_assert(std::is_nothrow_move_constructible_v<gneiss::engine::scene::prefab_candidate>);
+static_assert(!std::is_copy_constructible_v<gneiss::engine::prefab_candidate>);
+static_assert(std::is_nothrow_move_constructible_v<gneiss::engine::prefab_candidate>);
 static_assert(!std::is_convertible_v<gneiss::entity_id, gneiss::scene_node_id>);
 static_assert(!std::is_convertible_v<std::uint64_t, gneiss::scene_node_id>);
-static_assert(std::is_invocable_v<decltype(&gneiss::engine::world::world::entity_destroy),
-                                  gneiss::engine::world::world&, gneiss::entity_id>);
-static_assert(!std::is_invocable_v<decltype(&gneiss::engine::world::world::entity_destroy),
-                                   gneiss::engine::world::world&, gneiss::scene_node_id>);
+static_assert(std::is_invocable_v<decltype(&gneiss::engine::world::entity_destroy),
+                                  gneiss::engine::world&, gneiss::entity_id>);
+static_assert(!std::is_invocable_v<decltype(&gneiss::engine::world::entity_destroy),
+                                   gneiss::engine::world&, gneiss::scene_node_id>);
 // 原生描述结构不能退回裸 ID，否则方法签名的类型约束会被绕过。
 static_assert(
-    std::is_same_v<decltype(gneiss::engine::scene::node_creation::parent), gneiss::scene_node_id>);
-static_assert(std::is_same_v<decltype(gneiss::engine::scene::prefab_creation::parent),
+    std::is_same_v<decltype(gneiss::engine::node_creation::parent), gneiss::scene_node_id>);
+static_assert(
+    std::is_same_v<decltype(gneiss::engine::prefab_creation::parent), gneiss::scene_node_id>);
+static_assert(std::is_same_v<decltype(gneiss::engine::mesh_renderer_node_creation::parent),
                              gneiss::scene_node_id>);
-static_assert(std::is_same_v<decltype(gneiss::engine::scene::mesh_renderer_node_creation::parent),
+static_assert(std::is_same_v<decltype(gneiss::engine::staged_object::entity), gneiss::entity_id>);
+static_assert(std::is_same_v<decltype(gneiss::engine::staged_object::node), gneiss::scene_node_id>);
+static_assert(std::is_same_v<decltype(gneiss::engine::staged_object_description::parent),
                              gneiss::scene_node_id>);
 static_assert(
-    std::is_same_v<decltype(gneiss::engine::world::staged_object::entity), gneiss::entity_id>);
-static_assert(
-    std::is_same_v<decltype(gneiss::engine::world::staged_object::node), gneiss::scene_node_id>);
-static_assert(std::is_same_v<decltype(gneiss::engine::world::staged_object_description::parent),
-                             gneiss::scene_node_id>);
-static_assert(std::is_same_v<decltype(gneiss::engine::world::mesh_renderer_replacement::entity),
-                             gneiss::entity_id>);
-static_assert(
-    std::is_same_v<decltype(gneiss::engine::resource::prefab_property_override_key::type_id),
-                   gneiss::type_id>);
-static_assert(
-    std::is_same_v<decltype(gneiss::engine::resource::prefab_property_override_key::field_id),
-                   gneiss::field_id>);
+    std::is_same_v<decltype(gneiss::engine::mesh_renderer_replacement::entity), gneiss::entity_id>);
+static_assert(std::is_same_v<decltype(gneiss::engine::prefab_property_override_key::type_id),
+                             gneiss::type_id>);
+static_assert(std::is_same_v<decltype(gneiss::engine::prefab_property_override_key::field_id),
+                             gneiss::field_id>);
 template <typename T>
 concept exposes_texture_service = requires(T& value) { value.texture_service(); };
 template <typename T>

@@ -6,12 +6,12 @@
 
 #include "ipc_inspection_protocol.hpp"
 
-namespace gneiss::host::runtime {
+namespace gneiss::host {
 
-gneiss::engine::core::result
+gneiss::engine::result
 make_scene_snapshot_events(const ipc_inspection_batch& batch,
-                           std::vector<gneiss::engine::platform::ipc_envelope>& output) noexcept {
+                           std::vector<gneiss::engine::ipc_envelope>& output) noexcept {
   return encode_ipc_inspection_batch_v2(batch, output);
 }
 
-} // namespace gneiss::host::runtime
+} // namespace gneiss::host

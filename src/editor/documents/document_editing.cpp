@@ -19,10 +19,10 @@ void document_editing::advance_cleanup(runtime::application& application) {
   }
   assets_.advance(application, document_, history_);
 }
-gneiss::engine::core::result document_editing::create_empty(runtime::application& application,
-                                                            gneiss_world world) {
+gneiss::engine::result document_editing::create_empty(runtime::application& application,
+                                                      gneiss_world world) {
   if (active())
-    return gneiss::engine::core::result::not_ready;
+    return gneiss::engine::result::not_ready;
   scene_document candidate;
   const auto prepared = candidate.create_empty(application, world);
   if (prepared.failed())
@@ -31,17 +31,17 @@ gneiss::engine::core::result document_editing::create_empty(runtime::application
   if (closed.failed())
     return closed;
   document_ = std::move(candidate);
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
-gneiss::engine::core::result document_editing::close() noexcept {
+gneiss::engine::result document_editing::close() noexcept {
   if (active())
-    return gneiss::engine::core::result::not_ready;
+    return gneiss::engine::result::not_ready;
   const auto cleared = history_.clear();
   if (cleared.failed())
     return cleared;
   prefabs_.dismiss();
   assets_.dismiss();
   document_.close();
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 } // namespace gneiss::editor

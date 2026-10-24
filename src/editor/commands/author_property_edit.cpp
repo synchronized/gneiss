@@ -12,13 +12,14 @@
 namespace gneiss::editor {
 
 namespace {
-gneiss::engine::core::result
-write_author_property(scene_document& session, property_inspector_model& inspector,
-                      gneiss_world world, std::string_view uuid, type_id type_id, field_id field_id,
-                      const engine::core::reflection::property_value& value) noexcept {
+gneiss::engine::result write_author_property(scene_document& session,
+                                             property_inspector_model& inspector,
+                                             gneiss_world world, std::string_view uuid,
+                                             type_id type_id, field_id field_id,
+                                             const gneiss::engine::property_value& value) noexcept {
   const auto* current = session.find_node(uuid);
   if (current == nullptr) {
-    return gneiss::engine::core::result::not_found;
+    return gneiss::engine::result::not_found;
   }
   const auto operation = inspector.set_value(world, current->entity, type_id, field_id, value);
   if (operation.ok()) {
@@ -28,13 +29,13 @@ write_author_property(scene_document& session, property_inspector_model& inspect
 }
 } // namespace
 
-gneiss::engine::core::result edit_author_property(
+gneiss::engine::result edit_author_property(
     scene_document& session, editor_command_history& history, property_inspector_model& inspector,
     gneiss_world world, const inspector_component& component, const inspector_property& property,
-    const engine::core::reflection::property_value& value, std::uint64_t edit_serial) noexcept try {
+    const gneiss::engine::property_value& value, std::uint64_t edit_serial) noexcept try {
   const auto* selected = session.selected_node();
   if (selected == nullptr) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   const auto uuid = selected->uuid;
   const auto type_id = component.type_id;
@@ -69,11 +70,11 @@ gneiss::engine::core::result edit_author_property(
     return recorded;
   }
   session.mark_dirty();
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 } catch (const std::bad_alloc&) {
-  return gneiss::engine::core::result::out_of_memory;
+  return gneiss::engine::result::out_of_memory;
 } catch (...) {
-  return gneiss::engine::core::result::internal;
+  return gneiss::engine::result::internal;
 }
 
 } // namespace gneiss::editor

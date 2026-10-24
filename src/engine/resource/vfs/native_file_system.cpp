@@ -80,7 +80,7 @@ struct native_async_file {
   HANDLE handle;
 };
 
-class native_read_operation final : public gneiss::engine::resource::read_operation {
+class native_read_operation final : public gneiss::engine::read_operation {
 public:
   native_read_operation(std::shared_ptr<native_async_file> file, std::size_t size)
       : file_(std::move(file)), bytes_(size) {}
@@ -96,62 +96,60 @@ public:
       (void)CloseHandle(overlapped_.hEvent);
     }
   }
-  gneiss::engine::core::result start(std::uint64_t offset) noexcept {
+  gneiss::engine::result start(std::uint64_t offset) noexcept {
     GNEISS_PROFILE_SCOPE("asset.io.request.start");
     if (bytes_.empty()) {
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     }
     overlapped_.Offset = static_cast<DWORD>(offset);
     overlapped_.OffsetHigh = static_cast<DWORD>(offset >> 32U);
     overlapped_.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     if (overlapped_.hEvent == nullptr) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     DWORD count{};
     if (ReadFile(file_->handle, bytes_.data(), static_cast<DWORD>(bytes_.size()), &count,
                  &overlapped_) != FALSE) {
-      return count == bytes_.size() ? gneiss::engine::core::result::success
-                                    : gneiss::engine::core::result::io;
+      return count == bytes_.size() ? gneiss::engine::result::success : gneiss::engine::result::io;
     }
     if (GetLastError() != ERROR_IO_PENDING) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     pending_ = true;
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   }
-  [[nodiscard]] gneiss::engine::core::result
-  poll(std::span<const std::byte>& output) noexcept override {
+  [[nodiscard]] gneiss::engine::result poll(std::span<const std::byte>& output) noexcept override {
     output = {};
     if (pending_) {
       DWORD count{};
       const auto completed = GetOverlappedResult(file_->handle, &overlapped_, &count, FALSE);
       if (completed == FALSE && GetLastError() == ERROR_IO_INCOMPLETE) {
-        return gneiss::engine::core::result::not_ready;
+        return gneiss::engine::result::not_ready;
       }
       pending_ = false;
-      result_ = completed != FALSE && count == bytes_.size() ? gneiss::engine::core::result::success
-                                                             : gneiss::engine::core::result::io;
+      result_ = completed != FALSE && count == bytes_.size() ? gneiss::engine::result::success
+                                                             : gneiss::engine::result::io;
     }
-    if (result_ == gneiss::engine::core::result::success) {
+    if (result_ == gneiss::engine::result::success) {
       output = bytes_;
     }
     return result_;
   }
-  [[nodiscard]] gneiss::engine::core::result
+  [[nodiscard]] gneiss::engine::result
   wait_for(std::chrono::milliseconds timeout,
            std::span<const std::byte>& output) noexcept override {
     output = {};
     if (timeout.count() < 0 || static_cast<std::uint64_t>(timeout.count()) >= INFINITE) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     if (pending_ && timeout.count() != 0) {
       const auto waited =
           WaitForSingleObject(overlapped_.hEvent, static_cast<DWORD>(timeout.count()));
       if (waited == WAIT_TIMEOUT) {
-        return gneiss::engine::core::result::not_ready;
+        return gneiss::engine::result::not_ready;
       }
       if (waited != WAIT_OBJECT_0) {
-        return gneiss::engine::core::result::io;
+        return gneiss::engine::result::io;
       }
     }
     return poll(output);
@@ -162,17 +160,17 @@ private:
   std::vector<std::byte> bytes_;
   OVERLAPPED overlapped_{};
   bool pending_{};
-  gneiss::engine::core::result result_{gneiss::engine::core::result::success};
+  gneiss::engine::result result_{gneiss::engine::result::success};
 };
 
-class native_read_source final : public gneiss::engine::resource::read_source {
+class native_read_source final : public gneiss::engine::read_source {
 public:
   ~native_read_source() override {
     if (handle_ != INVALID_HANDLE_VALUE) {
       (void)CloseHandle(handle_);
     }
   }
-  gneiss::engine::core::result open(const std::filesystem::path& path) noexcept {
+  gneiss::engine::result open(const std::filesystem::path& path) noexcept {
     GNEISS_PROFILE_SCOPE("asset.io.open");
     {
       GNEISS_PROFILE_SCOPE("asset.io.create_file");
@@ -193,26 +191,26 @@ public:
 #endif
     }
     if (handle_ == INVALID_HANDLE_VALUE) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     LARGE_INTEGER length{};
     {
       GNEISS_PROFILE_SCOPE("asset.io.file_size");
       if (GetFileSizeEx(handle_, &length) == FALSE || length.QuadPart < 0) {
-        return gneiss::engine::core::result::io;
+        return gneiss::engine::result::io;
       }
     }
     length_ = static_cast<std::uint64_t>(length.QuadPart);
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   }
   std::uint64_t size() const noexcept override { return length_; }
-  [[nodiscard]] gneiss::engine::core::result begin_read(
-      std::uint64_t offset, std::size_t size,
-      std::unique_ptr<gneiss::engine::resource::read_operation>& output) const noexcept override {
+  [[nodiscard]] gneiss::engine::result
+  begin_read(std::uint64_t offset, std::size_t size,
+             std::unique_ptr<gneiss::engine::read_operation>& output) const noexcept override {
     GNEISS_PROFILE_SCOPE("asset.io.begin_read");
     output.reset();
     if (offset > length_ || size > length_ - offset || size > std::numeric_limits<DWORD>::max()) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     try {
       std::shared_ptr<native_async_file> file;
@@ -224,7 +222,7 @@ public:
                                             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                                             FILE_FLAG_OVERLAPPED);
           if (reopened == INVALID_HANDLE_VALUE) {
-            return gneiss::engine::core::result::io;
+            return gneiss::engine::result::io;
           }
           try {
             async_file_ = std::make_shared<native_async_file>(reopened);
@@ -241,44 +239,44 @@ public:
         request = std::make_unique<native_read_operation>(std::move(file), size);
       }
       const auto started = request->start(offset);
-      if (started == gneiss::engine::core::result::success) {
+      if (started == gneiss::engine::result::success) {
         output = std::move(request);
       }
       return started;
     } catch (const std::bad_alloc&) {
-      return gneiss::engine::core::result::out_of_memory;
+      return gneiss::engine::result::out_of_memory;
     } catch (...) {
-      return gneiss::engine::core::result::internal;
+      return gneiss::engine::result::internal;
     }
   }
-  gneiss::engine::core::result read_at(std::uint64_t offset,
-                                       std::span<std::byte> output) const noexcept override {
+  gneiss::engine::result read_at(std::uint64_t offset,
+                                 std::span<std::byte> output) const noexcept override {
     if (offset > length_ || output.size() > length_ - offset ||
         offset > static_cast<std::uint64_t>(std::numeric_limits<LONGLONG>::max())) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     if (output.empty()) {
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     }
     try {
       const std::scoped_lock lock(mutex_);
       LARGE_INTEGER position{};
       position.QuadPart = static_cast<LONGLONG>(offset);
       if (SetFilePointerEx(handle_, position, nullptr, FILE_BEGIN) == FALSE) {
-        return gneiss::engine::core::result::io;
+        return gneiss::engine::result::io;
       }
       while (!output.empty()) {
         const auto chunk = static_cast<DWORD>(
             std::min<std::size_t>(output.size(), std::numeric_limits<DWORD>::max()));
         DWORD count{};
         if (ReadFile(handle_, output.data(), chunk, &count, nullptr) == FALSE || count != chunk) {
-          return gneiss::engine::core::result::io;
+          return gneiss::engine::result::io;
         }
         output = output.subspan(count);
       }
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     } catch (...) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
   }
 
@@ -290,22 +288,22 @@ private:
   mutable std::mutex async_mutex_;
 };
 #else
-class native_read_source final : public gneiss::engine::resource::read_source {
+class native_read_source final : public gneiss::engine::read_source {
 public:
   native_read_source(std::ifstream stream, std::uint64_t length)
       : stream_(std::move(stream)), length_(length) {}
 
   std::uint64_t size() const noexcept override { return length_; }
 
-  gneiss::engine::core::result read_at(std::uint64_t offset,
-                                       std::span<std::byte> output) const noexcept override {
+  gneiss::engine::result read_at(std::uint64_t offset,
+                                 std::span<std::byte> output) const noexcept override {
     if (offset > length_ || output.size() > length_ - offset ||
         offset > static_cast<std::uint64_t>(std::numeric_limits<std::streamoff>::max()) ||
         output.size() > static_cast<std::size_t>(std::numeric_limits<std::streamsize>::max())) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     if (output.empty()) {
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     }
     try {
       const std::scoped_lock lock(mutex_);
@@ -313,11 +311,11 @@ public:
       stream_.seekg(static_cast<std::streamoff>(offset));
       if (!stream_.read(reinterpret_cast<char*>(output.data()),
                         static_cast<std::streamsize>(output.size()))) {
-        return gneiss::engine::core::result::io;
+        return gneiss::engine::result::io;
       }
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     } catch (...) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
   }
 
@@ -340,125 +338,125 @@ private:
 
 } // namespace
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 
 #ifdef GNEISS_ASSET_LIBUV
 namespace {
 class uv_asset_read final : public read_operation {
 public:
-  std::unique_ptr<engine::platform::io::uv_file_read_operation> operation;
-  gneiss::engine::core::result poll(std::span<const std::byte>& output) noexcept override {
+  std::unique_ptr<gneiss::engine::uv_file_read_operation> operation;
+  gneiss::engine::result poll(std::span<const std::byte>& output) noexcept override {
     return operation->poll(output);
   }
-  gneiss::engine::core::result wait_for(std::chrono::milliseconds timeout,
-                                        std::span<const std::byte>& output) noexcept override {
+  gneiss::engine::result wait_for(std::chrono::milliseconds timeout,
+                                  std::span<const std::byte>& output) noexcept override {
     return operation->wait_for(timeout, output);
   }
 };
 class uv_asset_source final : public read_source {
 public:
-  std::shared_ptr<engine::platform::io::uv_async_file> source;
-  gneiss::engine::core::result begin_close() const noexcept override {
+  std::shared_ptr<gneiss::engine::uv_async_file> source;
+  gneiss::engine::result begin_close() const noexcept override {
     source->begin_close();
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   }
-  gneiss::engine::core::result poll_close() const noexcept override { return source->poll_close(); }
+  gneiss::engine::result poll_close() const noexcept override { return source->poll_close(); }
   [[nodiscard]] std::uint64_t size() const noexcept override { return source->size(); }
-  [[nodiscard]] gneiss::engine::core::result
+  [[nodiscard]] gneiss::engine::result
   read_at(std::uint64_t offset, std::span<std::byte> output) const noexcept override {
     return source->read_at(offset, output);
   }
-  gneiss::engine::core::result
+  gneiss::engine::result
   begin_read(std::uint64_t offset, std::size_t count,
              std::unique_ptr<read_operation>& output) const noexcept override {
     output.reset();
     try {
       auto next = std::make_unique<uv_asset_read>();
       const auto started = source->begin_read(offset, count, next->operation);
-      if (started == gneiss::engine::core::result::success) {
+      if (started == gneiss::engine::result::success) {
         output = std::move(next);
       }
       return started;
     } catch (...) {
-      return gneiss::engine::core::result::out_of_memory;
+      return gneiss::engine::result::out_of_memory;
     }
   }
 };
 class uv_asset_open final : public open_read_operation {
 public:
-  std::unique_ptr<engine::platform::io::uv_path_operation> resolving;
-  std::shared_ptr<engine::platform::io::uv_file_io> files;
+  std::unique_ptr<gneiss::engine::uv_path_operation> resolving;
+  std::shared_ptr<gneiss::engine::uv_file_io> files;
   std::filesystem::path root;
   std::string candidate;
-  std::unique_ptr<engine::platform::io::uv_file_open_operation> opening;
-  gneiss::engine::core::result status = gneiss::engine::core::result::not_ready;
+  std::unique_ptr<gneiss::engine::uv_file_open_operation> opening;
+  gneiss::engine::result status = gneiss::engine::result::not_ready;
   bool delivered{};
-  gneiss::engine::core::result poll(std::unique_ptr<read_source>& output) noexcept override {
+  gneiss::engine::result poll(std::unique_ptr<read_source>& output) noexcept override {
     output.reset();
     if (delivered) {
-      return gneiss::engine::core::result::invalid_state;
+      return gneiss::engine::result::invalid_state;
     }
-    if (status != gneiss::engine::core::result::not_ready) {
+    if (status != gneiss::engine::result::not_ready) {
       return status;
     }
     try {
       if (resolving) {
         const auto resolved = resolving->poll(candidate);
-        if (resolved == gneiss::engine::core::result::not_ready) {
-          return gneiss::engine::core::result::not_ready;
+        if (resolved == gneiss::engine::result::not_ready) {
+          return gneiss::engine::result::not_ready;
         }
         resolving.reset();
-        if (resolved != gneiss::engine::core::result::success) {
+        if (resolved != gneiss::engine::result::success) {
           return status = resolved;
         }
         // 两端已规范化，此处仅做词法隔离检查，不再次触发文件系统查询。
         const auto relative = path_from_utf8(candidate).lexically_relative(root);
         if (relative.empty() || relative.is_absolute() || *relative.begin() == "..") {
-          return status = gneiss::engine::core::result::invalid_argument;
+          return status = gneiss::engine::result::invalid_argument;
         }
       }
       if (!opening) {
         const auto submitted = files->begin_open(candidate, opening);
-        if (submitted != gneiss::engine::core::result::success) {
+        if (submitted != gneiss::engine::result::success) {
           return status = submitted;
         }
       }
       auto source = std::make_unique<uv_asset_source>();
       const auto received = opening->poll(source->source);
-      if (received != gneiss::engine::core::result::success) {
+      if (received != gneiss::engine::result::success) {
         return status = received;
       }
       opening.reset();
       delivered = true;
       output = std::move(source);
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     } catch (const std::bad_alloc&) {
-      return status = gneiss::engine::core::result::out_of_memory;
+      return status = gneiss::engine::result::out_of_memory;
     } catch (...) {
-      return status = gneiss::engine::core::result::internal;
+      return status = gneiss::engine::result::internal;
     }
   }
 };
 } // namespace
 void native_file_system::set_async_io(
-    std::shared_ptr<engine::platform::io::uv_file_io> files,
-    std::shared_ptr<engine::platform::io::uv_path_resolver> paths) noexcept {
+    std::shared_ptr<gneiss::engine::uv_file_io> files,
+    std::shared_ptr<gneiss::engine::uv_path_resolver> paths) noexcept {
   async_files_ = std::move(files);
   async_paths_ = std::move(paths);
 }
-gneiss::engine::core::result
+gneiss::engine::result
 native_file_system::begin_open_read(std::string_view path,
                                     std::unique_ptr<open_read_operation>& output) const noexcept {
   output.reset();
   if (!async_files_ || !async_paths_) {
-    return gneiss::engine::core::result::unsupported;
+    return gneiss::engine::result::unsupported;
   }
   if (root_.empty()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   try {
-    if (validate_uri("asset://" + std::string(path)) != gneiss::engine::core::result::success) {
-      return gneiss::engine::core::result::invalid_argument;
+    if (validate_uri("asset://" + std::string(path)) != gneiss::engine::result::success) {
+      return gneiss::engine::result::invalid_argument;
     }
     auto operation = std::make_unique<uv_asset_open>();
     operation->files = async_files_;
@@ -466,30 +464,30 @@ native_file_system::begin_open_read(std::string_view path,
     const auto absolute = (root_ / path_from_utf8(path)).u8string();
     const auto submitted =
         async_paths_->begin(std::string(absolute.begin(), absolute.end()), operation->resolving);
-    if (submitted == gneiss::engine::core::result::success) {
+    if (submitted == gneiss::engine::result::success) {
       output = std::move(operation);
     }
     return submitted;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 #endif
 
-gneiss::engine::core::result
+gneiss::engine::result
 native_file_system::open_read(std::string_view path,
                               std::unique_ptr<read_source>& output) const noexcept {
   GNEISS_PROFILE_SCOPE("asset.fs.open_read");
   GNEISS_PROFILE_TEXT(path);
   output.reset();
   if (root_.empty()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   try {
-    if (validate_uri("asset://" + std::string(path)) != gneiss::engine::core::result::success) {
-      return gneiss::engine::core::result::invalid_argument;
+    if (validate_uri("asset://" + std::string(path)) != gneiss::engine::result::success) {
+      return gneiss::engine::result::invalid_argument;
     }
     std::error_code error;
     const auto candidate = [&] {
@@ -526,143 +524,142 @@ native_file_system::open_read(std::string_view path,
       }
     }();
     if (error) {
-      return gneiss::engine::core::result::not_found;
+      return gneiss::engine::result::not_found;
     }
     const auto regular = [&] {
       GNEISS_PROFILE_SCOPE("asset.fs.file_type");
       return std::filesystem::is_regular_file(candidate, error);
     }();
     if (!regular || error) {
-      return gneiss::engine::core::result::not_found;
+      return gneiss::engine::result::not_found;
     }
     const auto relative = [&] {
       GNEISS_PROFILE_SCOPE("asset.fs.relative");
       return std::filesystem::relative(candidate, root_, error);
     }();
     if (error || relative.empty() || relative.is_absolute() || *relative.begin() == "..") {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
 #ifdef _WIN32
     auto source = std::make_unique<native_read_source>();
     const auto opened = source->open(candidate);
-    if (opened != gneiss::engine::core::result::success) {
+    if (opened != gneiss::engine::result::success) {
       return opened;
     }
     output = std::move(source);
 #else
     std::ifstream stream(candidate, std::ios::binary);
     if (!stream) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     // 从已打开对象获取长度，避免另一次路径查询指向替换后的文件。
     stream.seekg(0, std::ios::end);
     const auto end = stream.tellg();
     if (end < std::streampos(0)) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     output =
         std::make_unique<native_read_source>(std::move(stream), static_cast<std::uint64_t>(end));
 #endif
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result native_file_system::initialize(std::string_view root) noexcept {
+gneiss::engine::result native_file_system::initialize(std::string_view root) noexcept {
   try {
     const auto path = path_from_utf8(root);
     std::error_code error;
     const auto canonical = std::filesystem::canonical(path, error);
     if (error || !std::filesystem::is_directory(canonical, error) || error) {
-      return gneiss::engine::core::result::not_found;
+      return gneiss::engine::result::not_found;
     }
     root_ = canonical;
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result
-native_file_system::read(std::string_view path, std::vector<std::byte>& out_bytes) const noexcept {
+gneiss::engine::result native_file_system::read(std::string_view path,
+                                                std::vector<std::byte>& out_bytes) const noexcept {
   return read_bounded(path, std::numeric_limits<std::size_t>::max(), out_bytes);
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 native_file_system::read_bounded(std::string_view path, std::size_t limit,
                                  std::vector<std::byte>& out_bytes) const noexcept {
   if (root_.empty()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   try {
     std::string uri = "asset://";
     uri.append(path);
-    if (validate_uri(uri) != gneiss::engine::core::result::success) {
-      return gneiss::engine::core::result::invalid_argument;
+    if (validate_uri(uri) != gneiss::engine::result::success) {
+      return gneiss::engine::result::invalid_argument;
     }
 
     std::error_code error;
     const auto candidate = std::filesystem::canonical(root_ / path_from_utf8(path), error);
     if (error || !std::filesystem::is_regular_file(candidate, error) || error) {
-      return gneiss::engine::core::result::not_found;
+      return gneiss::engine::result::not_found;
     }
     const auto relative = std::filesystem::relative(candidate, root_, error);
     if (error || relative.empty() || relative.is_absolute() || *relative.begin() == "..") {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
 #ifdef GNEISS_ASSET_LIBUV
     const auto utf8_path = candidate.u8string();
-    std::unique_ptr<engine::platform::io::uv_file_reader> reader;
-    const auto opened = engine::platform::io::uv_file_reader::open(
+    std::unique_ptr<gneiss::engine::uv_file_reader> reader;
+    const auto opened = gneiss::engine::uv_file_reader::open(
         std::string(utf8_path.begin(), utf8_path.end()), reader);
-    if (opened != gneiss::engine::core::result::success) {
+    if (opened != gneiss::engine::result::success) {
       return opened;
     }
     const auto size = reader->size();
     if (size > limit || size > std::numeric_limits<std::size_t>::max()) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     std::vector<std::byte> bytes(static_cast<std::size_t>(size));
     const auto read = reader->read_at(0U, bytes);
-    if (read != gneiss::engine::core::result::success) {
+    if (read != gneiss::engine::result::success) {
       return read;
     }
     std::uint64_t final_size{};
-    if (reader->current_size(final_size) != gneiss::engine::core::result::success ||
-        final_size != size) {
-      return gneiss::engine::core::result::io;
+    if (reader->current_size(final_size) != gneiss::engine::result::success || final_size != size) {
+      return gneiss::engine::result::io;
     }
 #else
     std::ifstream stream(candidate, std::ios::binary);
     if (!stream) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     const auto size = std::filesystem::file_size(candidate, error);
     if (error) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     if (size > limit ||
         size > static_cast<std::uintmax_t>(std::numeric_limits<std::streamsize>::max())) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     std::vector<std::byte> bytes(static_cast<std::size_t>(size));
     if (!stream.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(size)) ||
         stream.peek() != std::char_traits<char>::eof()) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
 #endif
     out_bytes = std::move(bytes);
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-} // namespace gneiss::engine::resource
+} // namespace gneiss::engine

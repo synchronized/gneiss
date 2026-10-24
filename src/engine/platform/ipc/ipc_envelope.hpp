@@ -11,7 +11,7 @@
 #include <span>
 #include <vector>
 
-namespace gneiss::engine::platform {
+namespace gneiss::engine {
 
 inline constexpr std::uint16_t ipc_v2_protocol_major = 2U;
 inline constexpr std::uint16_t ipc_v2_protocol_minor = 0U;
@@ -48,18 +48,17 @@ struct ipc_envelope final {
 };
 
 /** 校验信封结构与请求关联约束，不解析域内负载。 */
-[[nodiscard]] gneiss::engine::core::result
-validate_ipc_envelope(const ipc_envelope& envelope) noexcept;
+[[nodiscard]] gneiss::engine::result validate_ipc_envelope(const ipc_envelope& envelope) noexcept;
 
 /** 将信封编码为固定网络字节序；成功时完整替换 output。 */
-[[nodiscard]] gneiss::engine::core::result
+[[nodiscard]] gneiss::engine::result
 encode_ipc_envelope(const ipc_envelope& envelope, std::vector<std::uint8_t>& output) noexcept;
 
 /** 有界增量 IPC v2 信封解码器；结构失败后必须 reset() 才能继续使用。 */
 class ipc_envelope_decoder final {
 public:
-  [[nodiscard]] gneiss::engine::core::result append(std::span<const std::uint8_t> bytes,
-                                                    std::vector<ipc_envelope>& output) noexcept;
+  [[nodiscard]] gneiss::engine::result append(std::span<const std::uint8_t> bytes,
+                                              std::vector<ipc_envelope>& output) noexcept;
   void reset() noexcept;
   [[nodiscard]] bool has_failed() const noexcept;
   [[nodiscard]] std::size_t buffered_size() const noexcept;
@@ -69,6 +68,6 @@ private:
   bool has_failed_ = false;
 };
 
-} // namespace gneiss::engine::platform
+} // namespace gneiss::engine
 
 #endif

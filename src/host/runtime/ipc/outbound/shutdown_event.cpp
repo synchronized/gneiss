@@ -6,12 +6,11 @@
 
 #include "ipc_session_protocol.hpp"
 
-namespace gneiss::host::runtime {
+namespace gneiss::host {
 
-gneiss::engine::core::result
-make_shutdown_event(std::int32_t exit_code,
-                    gneiss::engine::platform::ipc_envelope& output) noexcept {
+gneiss::engine::result make_shutdown_event(std::int32_t exit_code,
+                                           gneiss::engine::ipc_envelope& output) noexcept {
   return encode_ipc_session_shutdown({.exit_code = exit_code}, output);
 }
 
-} // namespace gneiss::host::runtime
+} // namespace gneiss::host

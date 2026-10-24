@@ -13,7 +13,7 @@
 #include <memory>
 #include <utility>
 
-namespace gneiss::app {
+namespace gneiss::host {
 namespace {
 
 struct document_deleter final {
@@ -93,11 +93,11 @@ void append_json_string(std::string& output, std::string_view value) {
 runtime_log_line_decoder::runtime_log_line_decoder(std::size_t maximum_line_size) noexcept
     : maximum_line_size_(maximum_line_size) {}
 
-gneiss::engine::core::result
+gneiss::engine::result
 runtime_log_line_decoder::append(std::string_view bytes,
                                  std::vector<runtime_log_line>& output) noexcept {
   if (maximum_line_size_ == 0U) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   try {
     while (!bytes.empty()) {
@@ -108,21 +108,21 @@ runtime_log_line_decoder::append(std::string_view bytes,
       }
       append_segment(bytes.substr(0U, newline));
       const auto operation = emit(output);
-      if (operation != gneiss::engine::core::result::success) {
+      if (operation != gneiss::engine::result::success) {
         return operation;
       }
       bytes.remove_prefix(newline + 1U);
     }
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (...) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   }
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 runtime_log_line_decoder::finish(std::vector<runtime_log_line>& output) noexcept {
   if (pending_.empty() && !pending_was_truncated_) {
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   }
   return emit(output);
 }
@@ -132,14 +132,14 @@ void runtime_log_line_decoder::reset() noexcept {
   pending_was_truncated_ = false;
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 runtime_log_line_decoder::emit(std::vector<runtime_log_line>& output) noexcept {
   try {
     output.push_back({pending_, pending_was_truncated_});
     reset();
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (...) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   }
 }
 
@@ -150,12 +150,12 @@ void runtime_log_line_decoder::append_segment(std::string_view segment) {
   pending_was_truncated_ = pending_was_truncated_ || accepted != segment.size();
 }
 
-gneiss::engine::core::result encode_runtime_log_event(const gneiss_log_event& event,
-                                                      std::string& output) noexcept {
+gneiss::engine::result encode_runtime_log_event(const gneiss_log_event& event,
+                                                std::string& output) noexcept {
   output.clear();
   if (event.struct_size < GNEISS_LOG_EVENT_VERSION_1_SIZE || event.source == nullptr ||
       event.category == nullptr || event.message == nullptr) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   try {
     output.append(runtime_log_prefix);
@@ -176,10 +176,10 @@ gneiss::engine::core::result encode_runtime_log_event(const gneiss_log_event& ev
     output.append(",\"message\":");
     append_json_string(output, {event.message, event.message_length});
     output.append("}\n");
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (...) {
     output.clear();
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
@@ -225,7 +225,7 @@ runtime_log_parse_result parse_runtime_log_line(std::string_view line,
     }
     parsed.version = 1U;
     parsed.severity = static_cast<std::uint32_t>(severity);
-    parsed.operation = gneiss::engine::core::result{static_cast<std::int32_t>(operation)};
+    parsed.operation = gneiss::engine::result{static_cast<std::int32_t>(operation)};
     output = std::move(parsed);
     return runtime_log_parse_result::success;
   } catch (...) {
@@ -233,4 +233,4 @@ runtime_log_parse_result parse_runtime_log_line(std::string_view line,
   }
 }
 
-} // namespace gneiss::app
+} // namespace gneiss::host

@@ -15,18 +15,18 @@
 #include <limits>
 #include <string_view>
 
-namespace gneiss::engine::api {
-static_assert(static_cast<std::uint32_t>(engine::core::log::level::trace) == GNEISS_LOG_TRACE);
-static_assert(static_cast<std::uint32_t>(engine::core::log::level::debug) == GNEISS_LOG_DEBUG);
-static_assert(static_cast<std::uint32_t>(engine::core::log::level::info) == GNEISS_LOG_INFO);
-static_assert(static_cast<std::uint32_t>(engine::core::log::level::warning) == GNEISS_LOG_WARNING);
-static_assert(static_cast<std::uint32_t>(engine::core::log::level::error) == GNEISS_LOG_ERROR);
-static_assert(static_cast<std::uint32_t>(engine::core::log::level::fatal) == GNEISS_LOG_FATAL);
+namespace gneiss::engine::detail {
+static_assert(static_cast<std::uint32_t>(gneiss::engine::level::trace) == GNEISS_LOG_TRACE);
+static_assert(static_cast<std::uint32_t>(gneiss::engine::level::debug) == GNEISS_LOG_DEBUG);
+static_assert(static_cast<std::uint32_t>(gneiss::engine::level::info) == GNEISS_LOG_INFO);
+static_assert(static_cast<std::uint32_t>(gneiss::engine::level::warning) == GNEISS_LOG_WARNING);
+static_assert(static_cast<std::uint32_t>(gneiss::engine::level::error) == GNEISS_LOG_ERROR);
+static_assert(static_cast<std::uint32_t>(gneiss::engine::level::fatal) == GNEISS_LOG_FATAL);
 /** 仅用于通过布局校验后的描述；文本借用到同步提交返回。 */
-[[nodiscard]] inline engine::core::log::message_view
+[[nodiscard]] inline gneiss::engine::message_view
 log_message_view(const gneiss_log_message& message) noexcept {
   return {
-      .severity = static_cast<engine::core::log::level>(message.severity),
+      .severity = static_cast<gneiss::engine::level>(message.severity),
       .category =
           std::string_view(message.category, static_cast<std::size_t>(message.category_length)),
       .message =
@@ -38,7 +38,7 @@ log_message_view(const gneiss_log_message& message) noexcept {
 }
 
 /** 多个 ABI 入口共用布局校验；不经导出函数复用核心规则。 */
-[[nodiscard]] inline gneiss::engine::core::result
+[[nodiscard]] inline gneiss::engine::result
 validate_log_message(const gneiss_log_message* message) noexcept {
   if (message == nullptr || message->struct_size < GNEISS_LOG_MESSAGE_VERSION_1_SIZE ||
       message->severity < GNEISS_LOG_TRACE || message->severity > GNEISS_LOG_FATAL ||
@@ -47,7 +47,7 @@ validate_log_message(const gneiss_log_message* message) noexcept {
       message->category_length > std::numeric_limits<std::size_t>::max() ||
       message->message_length > std::numeric_limits<std::size_t>::max() ||
       std::ranges::any_of(message->reserved, [](std::uint64_t value) { return value != 0U; })) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   const std::string_view category(message->category,
                                   static_cast<std::size_t>(message->category_length));
@@ -55,10 +55,9 @@ validate_log_message(const gneiss_log_message* message) noexcept {
       message->message_length == 0U
           ? std::string_view{}
           : std::string_view(message->message, static_cast<std::size_t>(message->message_length));
-  return engine::core::log::valid_text(category, text)
-             ? gneiss::engine::core::result::success
-             : gneiss::engine::core::result::invalid_argument;
+  return gneiss::engine::valid_text(category, text) ? gneiss::engine::result::success
+                                                    : gneiss::engine::result::invalid_argument;
 }
-} // namespace gneiss::engine::api
+} // namespace gneiss::engine::detail
 
 #endif

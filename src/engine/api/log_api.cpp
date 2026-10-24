@@ -6,7 +6,7 @@
 #include "engine/core/result.hpp"
 
 extern "C" gneiss_result gneiss_log_message_validate(const gneiss_log_message* message) {
-  return gneiss::engine::api::to_c_result([&]() -> gneiss::engine::core::result {
-    return gneiss::engine::api::validate_log_message(message);
+  return gneiss::engine::detail::to_c_result([&]() -> gneiss::engine::result {
+    return gneiss::engine::detail::validate_log_message(message);
   }());
 }

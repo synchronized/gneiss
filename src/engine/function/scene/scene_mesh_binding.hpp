@@ -4,11 +4,11 @@
 #pragma once
 #include "engine/function/render/render_asset_loader.hpp"
 
-namespace gneiss::engine::scene {
+namespace gneiss::engine {
 /** 持有已就绪 Mesh/Material 版本；不拥有 Scene，须在渲染服务释放前销毁。 */
 struct scene_mesh_binding {
-  engine::render::render_asset_ref mesh;
-  engine::render::render_asset_ref material;
+  gneiss::engine::render_asset_ref mesh;
+  gneiss::engine::render_asset_ref material;
 };
 
-} // namespace gneiss::engine::scene
+} // namespace gneiss::engine

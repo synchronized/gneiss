@@ -11,7 +11,7 @@
 #include <mutex>
 #include <string_view>
 
-namespace gneiss::host::runtime {
+namespace gneiss::host {
 
 class runtime_log final {
 public:
@@ -20,7 +20,7 @@ public:
   runtime_log(const runtime_log&) = delete;
   runtime_log& operator=(const runtime_log&) = delete;
 
-  void write(std::string_view level, std::string_view stage, gneiss::engine::core::result operation,
+  void write(std::string_view level, std::string_view stage, gneiss::engine::result operation,
              std::string_view message, std::string_view context = {}) noexcept;
   void write(const gneiss_log_event& event) noexcept;
 
@@ -36,4 +36,4 @@ private:
 
 [[nodiscard]] std::filesystem::path default_runtime_log_path();
 
-} // namespace gneiss::host::runtime
+} // namespace gneiss::host

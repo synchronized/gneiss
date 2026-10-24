@@ -35,7 +35,7 @@ bool replay(float scale, ImGuizmo::OPERATION operation) {
   gneiss::editor::gizmo_matrix model{};
   const gneiss::transform identity{};
   if (gneiss::editor::transform_to_gizmo_matrix(identity, model) !=
-      gneiss::engine::core::result::success) {
+      gneiss::engine::result::success) {
     return false;
   }
   const auto initial = model;
@@ -80,8 +80,8 @@ bool replay(float scale, ImGuizmo::OPERATION operation) {
   (void)frame(hit_x + (32.0F * scale), hit_y + (16.0F * scale), false);
   const auto released = !ImGuizmo::IsUsing();
   gneiss::transform result{};
-  const auto valid = gneiss::editor::gizmo_matrix_to_transform(model, result) ==
-                     gneiss::engine::core::result::success;
+  const auto valid =
+      gneiss::editor::gizmo_matrix_to_transform(model, result) == gneiss::engine::result::success;
   const auto success = found && captured && changed && released && valid && initial != model;
   if (!valid) {
     for (const auto value : model) {

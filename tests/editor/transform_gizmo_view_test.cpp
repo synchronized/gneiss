@@ -27,16 +27,15 @@ int main() try {
   scene_node_id first;
   scene_node_id second;
   const gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  if (gneiss::engine::core::result{gneiss_application_create(&desc, app.put())}.failed() ||
-      gneiss::engine::core::result{gneiss_application_get_world(app.get(), &world_handle)}
-          .failed() ||
+  if (gneiss::engine::result{gneiss_application_create(&desc, app.put())}.failed() ||
+      gneiss::engine::result{gneiss_application_get_world(app.get(), &world_handle)}.failed() ||
       session.create_empty(*gneiss::runtime::find_application(app.get()), world_handle).failed() ||
       session.create_node("First", {}, first).failed() ||
       session.create_node("Second", {}, second).failed() || session.select(first).failed()) {
     return 1;
   }
   bool wait_release = false;
-  gneiss::engine::core::result error = gneiss::engine::core::result::success;
+  gneiss::engine::result error = gneiss::engine::result::success;
   transform camera = GNEISS_TRANSFORM_IDENTITY;
   camera.translation[2] = 5.0F;
   const transform_gizmo_context context{

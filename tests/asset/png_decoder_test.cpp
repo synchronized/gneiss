@@ -47,32 +47,30 @@ int main() {
   for (const auto value : png) {
     bytes.push_back(static_cast<std::byte>(value));
   }
-  gneiss::engine::resource::decoded_png image;
+  gneiss::engine::decoded_png image;
   std::string message;
-  if (gneiss::engine::resource::decode_png(bytes, image, message) !=
-          gneiss::engine::core::result::success ||
+  if (gneiss::engine::decode_png(bytes, image, message) != gneiss::engine::result::success ||
       image.width != 1U || image.height != 1U || image.pixels.size() != 4U || !message.empty()) {
     return 1;
   }
-  if (gneiss::engine::resource::decode_png(bytes, image, message, 3U) !=
-          gneiss::engine::core::result::out_of_memory ||
+  if (gneiss::engine::decode_png(bytes, image, message, 3U) !=
+          gneiss::engine::result::out_of_memory ||
       image.width != 0U || !image.pixels.empty() || message.empty()) {
     return 3;
   }
-  if (gneiss::engine::resource::decode_png(bytes, image, message, 4U) !=
-          gneiss::engine::core::result::success ||
+  if (gneiss::engine::decode_png(bytes, image, message, 4U) != gneiss::engine::result::success ||
       image.pixels.size() != 4U) {
     return 4;
   }
-  gneiss::engine::resource::decoded_png allocation_image;
+  gneiss::engine::decoded_png allocation_image;
   std::string allocation_message;
   allocation_failures = 0U;
   fail_allocations = true;
   const auto allocation_result =
-      gneiss::engine::resource::decode_png(bytes, allocation_image, allocation_message);
+      gneiss::engine::decode_png(bytes, allocation_image, allocation_message);
   fail_allocations = false;
   const bool pixel_failure_injected = allocation_failures != 0U;
-  if (!pixel_failure_injected || allocation_result != gneiss::engine::core::result::out_of_memory ||
+  if (!pixel_failure_injected || allocation_result != gneiss::engine::result::out_of_memory ||
       allocation_image.width != 0U || allocation_image.height != 0U ||
       !allocation_image.pixels.empty()) {
     return 5;
@@ -82,24 +80,24 @@ int main() {
   allocation_failures = 0U;
   fail_allocations = true;
   const auto empty_result =
-      gneiss::engine::resource::decode_png(empty_bytes, allocation_image, allocation_message);
+      gneiss::engine::decode_png(empty_bytes, allocation_image, allocation_message);
   // 部分标准库的短字符串存储可容纳整条诊断，此时没有分配可失败。
   fail_allocations = false;
   const bool message_failure_injected = allocation_failures != 0U;
-  const auto expected = message_failure_injected ? gneiss::engine::core::result::out_of_memory
-                                                 : gneiss::engine::core::result::invalid_argument;
+  const auto expected = message_failure_injected ? gneiss::engine::result::out_of_memory
+                                                 : gneiss::engine::result::invalid_argument;
   if (empty_result != expected || allocation_image.width != 0U || allocation_image.height != 0U ||
       !allocation_image.pixels.empty()) {
     return 6;
   }
-  if (gneiss::engine::resource::decode_png(empty_bytes, allocation_image, allocation_message) !=
-          gneiss::engine::core::result::invalid_argument ||
+  if (gneiss::engine::decode_png(empty_bytes, allocation_image, allocation_message) !=
+          gneiss::engine::result::invalid_argument ||
       allocation_message.empty()) {
     return 7;
   }
   bytes.resize(16);
-  if (gneiss::engine::resource::decode_png(bytes, image, message) !=
-          gneiss::engine::core::result::invalid_argument ||
+  if (gneiss::engine::decode_png(bytes, image, message) !=
+          gneiss::engine::result::invalid_argument ||
       image.width != 0U || image.height != 0U || !image.pixels.empty() || message.empty()) {
     return 2;
   }

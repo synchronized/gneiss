@@ -109,10 +109,9 @@ void build_default_workspace(ImGuiID dockspace_id, const ImGuiViewport& viewport
 
 } // namespace
 
-gneiss::engine::core::result
-initialize_editor_layout(const std::filesystem::path& user_state_file,
-                         const std::filesystem::path& project_root,
-                         editor_panel_visibility& visibility) noexcept {
+gneiss::engine::result initialize_editor_layout(const std::filesystem::path& user_state_file,
+                                                const std::filesystem::path& project_root,
+                                                editor_panel_visibility& visibility) noexcept {
   try {
     visibility = {};
     active_layout_path = user_state_file.parent_path() / "layouts" /
@@ -120,12 +119,12 @@ initialize_editor_layout(const std::filesystem::path& user_state_file,
     reset_layout_requested = false;
     std::ifstream stream(active_layout_path, std::ios::binary);
     if (!stream) {
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     }
     const std::string contents{std::istreambuf_iterator<char>(stream),
                                std::istreambuf_iterator<char>()};
     if (contents.size() > maximum_layout_size) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     std::string_view ini;
     if (contents.starts_with(layout_header_v1)) {
@@ -135,15 +134,15 @@ initialize_editor_layout(const std::filesystem::path& user_state_file,
       auto remaining = std::string_view(contents).substr(layout_header_v2.size());
       const auto newline = remaining.find('\n');
       if (newline == std::string_view::npos) {
-        return gneiss::engine::core::result::invalid_argument;
+        return gneiss::engine::result::invalid_argument;
       }
       const auto panels = remaining.substr(0U, newline);
       if (!panels.starts_with(panel_prefix) || panels.size() != panel_prefix.size() + 5U) {
-        return gneiss::engine::core::result::invalid_argument;
+        return gneiss::engine::result::invalid_argument;
       }
       const auto flags = panels.substr(panel_prefix.size());
       if (!std::ranges::all_of(flags, [](char value) { return value == '0' || value == '1'; })) {
-        return gneiss::engine::core::result::invalid_argument;
+        return gneiss::engine::result::invalid_argument;
       }
       visibility = {.scene_hierarchy = flags[0] == '1',
                     .asset_browser = flags[1] == '1',
@@ -152,36 +151,35 @@ initialize_editor_layout(const std::filesystem::path& user_state_file,
                     .console = flags[4] == '1'};
       ini = remaining.substr(newline + 1U);
     } else {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     if (ini.empty()) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     ImGui::LoadIniSettingsFromMemory(ini.data(), ini.size());
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::io;
+    return gneiss::engine::result::io;
   }
 }
 
-gneiss::engine::core::result
-save_editor_layout(const editor_panel_visibility& visibility) noexcept {
+gneiss::engine::result save_editor_layout(const editor_panel_visibility& visibility) noexcept {
   if (active_layout_path.empty()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   try {
     std::size_t size = 0U;
     const auto* data = ImGui::SaveIniSettingsToMemory(&size);
     if (data == nullptr || size == 0U ||
         size + layout_header_v2.size() + panel_prefix.size() + 6U > maximum_layout_size) {
-      return gneiss::engine::core::result::invalid_state;
+      return gneiss::engine::result::invalid_state;
     }
     std::error_code error;
     std::filesystem::create_directories(active_layout_path.parent_path(), error);
     if (error) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     auto temporary = active_layout_path;
     temporary += ".tmp";
@@ -195,17 +193,17 @@ save_editor_layout(const editor_panel_visibility& visibility) noexcept {
     contents.push_back('\n');
     contents.append(data, size);
     if (!write_text(temporary, contents)) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     if (!replace_file(temporary, active_layout_path)) {
       std::filesystem::remove(temporary, error);
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::io;
+    return gneiss::engine::result::io;
   }
 }
 

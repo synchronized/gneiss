@@ -6,12 +6,11 @@
 
 #include "ipc_statistics_protocol.hpp"
 
-namespace gneiss::host::runtime {
+namespace gneiss::host {
 
-gneiss::engine::core::result
-make_statistics_event(const ipc_runtime_statistics& statistics,
-                      gneiss::engine::platform::ipc_envelope& output) noexcept {
+gneiss::engine::result make_statistics_event(const ipc_runtime_statistics& statistics,
+                                             gneiss::engine::ipc_envelope& output) noexcept {
   return encode_ipc_statistics_v2(statistics, output);
 }
 
-} // namespace gneiss::host::runtime
+} // namespace gneiss::host

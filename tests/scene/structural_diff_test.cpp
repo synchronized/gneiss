@@ -11,10 +11,10 @@
 
 namespace {
 
-using gneiss::engine::resource::object_description;
+using gneiss::engine::object_description;
 
-gneiss::engine::resource::object_description
-object(std::string uuid, std::optional<std::string> parent = std::nullopt) {
+gneiss::engine::object_description object(std::string uuid,
+                                          std::optional<std::string> parent = std::nullopt) {
   return {.uuid = std::move(uuid),
           .name = "节点",
           .parent_uuid = std::move(parent),
@@ -26,39 +26,38 @@ object(std::string uuid, std::optional<std::string> parent = std::nullopt) {
 }
 
 bool test_ordering() {
-  using gneiss::engine::scene::build_structural_diff;
-  using gneiss::engine::scene::structural_diff;
+  using gneiss::engine::build_structural_diff;
+  using gneiss::engine::structural_diff;
   const std::vector old_objects{object("old-root"), object("old-child", "old-root")};
   const std::vector new_objects{object("new-child", "new-root"), object("new-root")};
   structural_diff difference;
   return build_structural_diff(old_objects, new_objects, difference) ==
-             gneiss::engine::core::result::success &&
+             gneiss::engine::result::success &&
          difference.added.size() == 2U && difference.added[0].uuid == "new-root" &&
          difference.added[1].uuid == "new-child" && difference.removed.size() == 2U &&
          difference.removed[0].uuid == "old-child" && difference.removed[1].uuid == "old-root";
 }
 
 bool test_updates() {
-  using namespace gneiss::engine::scene;
+  using namespace gneiss::engine;
   auto previous = object("node", "old-parent");
   previous.name = "旧名称";
-  previous.camera =
-      gneiss::engine::resource::camera_description{.vertical_field_of_view_radians = 1.0F,
-                                                   .near_plane = 0.1F,
-                                                   .far_plane = 10.0F,
-                                                   .is_primary = false};
+  previous.camera = gneiss::engine::camera_description{.vertical_field_of_view_radians = 1.0F,
+                                                       .near_plane = 0.1F,
+                                                       .far_plane = 10.0F,
+                                                       .is_primary = false};
   auto current = previous;
   current.name = "新名称";
   current.parent_uuid = "new-parent";
   current.translation[0] = 2.0F;
   current.camera.reset();
-  current.mesh_renderer = gneiss::engine::resource::mesh_renderer_description{
+  current.mesh_renderer = gneiss::engine::mesh_renderer_description{
       .mesh_uri = "asset://mesh", .material_uri = "asset://material"};
   const std::vector old_objects{object("old-parent"), object("new-parent"), previous};
   const std::vector new_objects{object("new-parent"), object("old-parent"), current};
   structural_diff difference;
   if (build_structural_diff(old_objects, new_objects, difference) !=
-          gneiss::engine::core::result::success ||
+          gneiss::engine::result::success ||
       difference.updated.size() != 1U) {
     return false;
   }
@@ -71,32 +70,30 @@ bool test_updates() {
 }
 
 bool test_invalid_inputs() {
-  using gneiss::engine::scene::build_structural_diff;
-  using gneiss::engine::scene::structural_diff;
+  using gneiss::engine::build_structural_diff;
+  using gneiss::engine::structural_diff;
   structural_diff difference;
   const std::vector duplicate{object("same"), object("same")};
   const std::vector missing_parent{object("node", "missing")};
   const std::vector cycle{object("first", "second"), object("second", "first")};
   return build_structural_diff({}, duplicate, difference) ==
-             gneiss::engine::core::result::invalid_argument &&
+             gneiss::engine::result::invalid_argument &&
          difference.empty() &&
          build_structural_diff({}, missing_parent, difference) ==
-             gneiss::engine::core::result::invalid_argument &&
+             gneiss::engine::result::invalid_argument &&
          difference.empty() &&
-         build_structural_diff({}, cycle, difference) ==
-             gneiss::engine::core::result::invalid_argument &&
+         build_structural_diff({}, cycle, difference) == gneiss::engine::result::invalid_argument &&
          difference.empty();
 }
 
 } // namespace
 
 int main() {
-  using gneiss::engine::scene::build_structural_diff;
-  using gneiss::engine::scene::structural_diff;
+  using gneiss::engine::build_structural_diff;
+  using gneiss::engine::structural_diff;
   const std::vector unchanged{object("root"), object("child", "root")};
   structural_diff difference;
-  if (build_structural_diff(unchanged, unchanged, difference) !=
-          gneiss::engine::core::result::success ||
+  if (build_structural_diff(unchanged, unchanged, difference) != gneiss::engine::result::success ||
       !difference.empty()) {
     return 1;
   }

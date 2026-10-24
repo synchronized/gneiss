@@ -6,7 +6,7 @@
 #include "engine/function/scene/scene_query.hpp"
 #include "engine/resource/types/prefab_description.hpp"
 #include <memory>
-namespace gneiss::engine::scene {
+namespace gneiss::engine {
 class prefab_runtime_instance;
 /** 未提交候选或已退休实例的独占事务；限 World 所属线程，须早于 World 释放。
  * 移动转移全部清理责任；析构兜底清理，交互路径应使用 cleanup_step 分步释放。 */
@@ -20,18 +20,18 @@ public:
   prefab_candidate& operator=(const prefab_candidate&) = delete;
   [[nodiscard]] bool is_valid() const noexcept;
   [[nodiscard]] scene_node_id root() const noexcept;
-  [[nodiscard]] gneiss::engine::core::result create_node(std::size_t index, scene_node_id parent,
-                                                         engine::render::render_asset_ref mesh,
-                                                         engine::render::render_asset_ref material,
-                                                         scene_node_id& output);
+  [[nodiscard]] gneiss::engine::result create_node(std::size_t index, scene_node_id parent,
+                                                   gneiss::engine::render_asset_ref mesh,
+                                                   gneiss::engine::render_asset_ref material,
+                                                   scene_node_id& output);
   /** 返回的文本借用到候选修改、移动、提交或清理；失败清空 output。 */
-  [[nodiscard]] gneiss::engine::core::result preview(std::size_t index,
-                                                     prefab_node_view& output) const noexcept;
+  [[nodiscard]] gneiss::engine::result preview(std::size_t index,
+                                               prefab_node_view& output) const noexcept;
   [[nodiscard]] bool cleanup_step(std::size_t budget) noexcept;
 
 private:
   friend class scene_instance;
-  gneiss::engine::resource::prefab_instance_description author_;
+  gneiss::engine::prefab_instance_description author_;
   std::unique_ptr<prefab_runtime_instance> runtime_;
 };
 }

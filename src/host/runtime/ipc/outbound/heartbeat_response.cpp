@@ -6,12 +6,12 @@
 
 #include "ipc_session_protocol.hpp"
 
-namespace gneiss::host::runtime {
+namespace gneiss::host {
 
-gneiss::engine::core::result
-make_heartbeat_response(const ipc_session_heartbeat& heartbeat, std::uint32_t request_id,
-                        gneiss::engine::platform::ipc_envelope& output) noexcept {
+gneiss::engine::result make_heartbeat_response(const ipc_session_heartbeat& heartbeat,
+                                               std::uint32_t request_id,
+                                               gneiss::engine::ipc_envelope& output) noexcept {
   return encode_ipc_session_heartbeat(heartbeat, true, request_id, output);
 }
 
-} // namespace gneiss::host::runtime
+} // namespace gneiss::host

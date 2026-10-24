@@ -6,12 +6,11 @@
 
 #include "ipc_session_protocol.hpp"
 
-namespace gneiss::editor {
+namespace gneiss::host {
 
-gneiss::engine::core::result
-make_heartbeat_command(std::uint64_t nonce, std::uint32_t request_id,
-                       gneiss::engine::platform::ipc_envelope& output) noexcept {
+gneiss::engine::result make_heartbeat_command(std::uint64_t nonce, std::uint32_t request_id,
+                                              gneiss::engine::ipc_envelope& output) noexcept {
   return encode_ipc_session_heartbeat({.nonce = nonce}, false, request_id, output);
 }
 
-} // namespace gneiss::editor
+} // namespace gneiss::host

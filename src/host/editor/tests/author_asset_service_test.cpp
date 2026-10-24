@@ -42,25 +42,25 @@ struct fixture {
     std::filesystem::remove_all(root, error);
   }
 };
-void run(std::size_t workers, engine::core::tasks::execution_mode mode =
-                                  engine::core::tasks::execution_mode::thread_pool) {
+void run(std::size_t workers,
+         gneiss::engine::execution_mode mode = gneiss::engine::execution_mode::thread_pool) {
   fixture files;
   const auto path = files.root / "main.scene.json";
   constexpr auto uri = "asset://main.scene.json";
   write(path, "initial");
-  engine::core::tasks::task_scheduler scheduler({.workers = workers, .mode = mode});
+  gneiss::engine::task_scheduler scheduler({.workers = workers, .mode = mode});
   author_asset_service service(scheduler);
-  require(service.initialize(files.root) == gneiss::engine::core::result::success, "启动失败");
+  require(service.initialize(files.root) == gneiss::engine::result::success, "启动失败");
   auto drain = [&] {
     until([&] {
-      if (mode == engine::core::tasks::execution_mode::cooperative) {
+      if (mode == gneiss::engine::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
       std::vector<std::filesystem::path> paths;
-      require(service.poll_rescan(paths, 1U) == gneiss::engine::core::result::success, "补扫失败");
+      require(service.poll_rescan(paths, 1U) == gneiss::engine::result::success, "补扫失败");
       for (const auto& item : paths) {
         const auto change = service.observe(item, false);
-        if (change.operation == gneiss::engine::core::result::success) {
+        if (change.operation == gneiss::engine::result::success) {
           service.mark_applied(change.uri);
         }
       }
@@ -73,7 +73,7 @@ void run(std::size_t workers, engine::core::tasks::execution_mode mode =
   (void)service.observe("main.scene.json", false);
   author_asset_change found;
   until([&] {
-    if (mode == engine::core::tasks::execution_mode::cooperative) {
+    if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     std::vector<std::filesystem::path> paths;
@@ -88,20 +88,19 @@ void run(std::size_t workers, engine::core::tasks::execution_mode mode =
   service.request_rescan();
   std::vector<std::filesystem::path> old_paths;
   until([&] {
-    if (mode == engine::core::tasks::execution_mode::cooperative) {
+    if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     (void)service.poll_rescan(old_paths);
     return !old_paths.empty();
   });
   write(path, "own-save");
-  require(service.acknowledge(uri, "own-save") == gneiss::engine::core::result::success,
-          "保存确认失败");
+  require(service.acknowledge(uri, "own-save") == gneiss::engine::result::success, "保存确认失败");
   // 外部写入发生在保存之后、后台确认之前，不能被确认为自身保存。
   write(path, "external-after-save");
   found = {};
   until([&] {
-    if (mode == engine::core::tasks::execution_mode::cooperative) {
+    if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     std::vector<std::filesystem::path> paths;
@@ -111,7 +110,7 @@ void run(std::size_t workers, engine::core::tasks::execution_mode mode =
     }
     return found.state == author_asset_change_state::changed;
   });
-  require(found.uri == uri && found.operation == gneiss::engine::core::result::success,
+  require(found.uri == uri && found.operation == gneiss::engine::result::success,
           "自身保存吞掉外部修改");
   service.mark_applied(uri);
   drain();
@@ -119,7 +118,7 @@ void run(std::size_t workers, engine::core::tasks::execution_mode mode =
   service.request_rescan();
   found = {};
   until([&] {
-    if (mode == engine::core::tasks::execution_mode::cooperative) {
+    if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     std::vector<std::filesystem::path> paths;
@@ -129,7 +128,7 @@ void run(std::size_t workers, engine::core::tasks::execution_mode mode =
     }
     return found.state == author_asset_change_state::changed;
   });
-  require(found.operation == gneiss::engine::core::result::not_found, "删除未被发现");
+  require(found.operation == gneiss::engine::result::not_found, "删除未被发现");
   write(path, "rebuilt");
   write(files.root / "child.prefab.json", "prefab");
   service.request_rescan();
@@ -138,16 +137,16 @@ void run(std::size_t workers, engine::core::tasks::execution_mode mode =
           "接受越界路径");
   service.request_stop();
   until([&] {
-    if (mode == engine::core::tasks::execution_mode::cooperative) {
+    if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     return service.stopped();
   });
   const auto other = scheduler.make_scope();
-  engine::core::tasks::task_handle handle;
+  gneiss::engine::task_handle handle;
   require(scheduler.submit(
-              {.scope = other}, [](const auto&) { return engine::core::tasks::task_outcome{}; },
-              handle) == engine::core::tasks::submit_result::success,
+              {.scope = other}, [](const auto&) { return gneiss::engine::task_outcome{}; },
+              handle) == gneiss::engine::submit_result::success,
           "停止作者服务关闭了共享调度器");
   require(scheduler.close_scope(other), "独立作用域无法关闭");
 }
@@ -155,7 +154,7 @@ void run(std::size_t workers, engine::core::tasks::execution_mode mode =
 int main() try {
   run(1U);
   run(3U);
-  run(0U, engine::core::tasks::execution_mode::cooperative);
+  run(0U, gneiss::engine::execution_mode::cooperative);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

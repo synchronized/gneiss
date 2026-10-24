@@ -14,25 +14,23 @@ class editor_prefab_edit final {
 public:
   editor_prefab_edit();
   ~editor_prefab_edit();
-  gneiss::engine::core::result request(runtime::application& application,
-                                       engine::core::tasks::task_executor& executor,
-                                       scene_document& session, editor_command_history& history,
-                                       std::string_view name, std::string_view uri,
-                                       scene_node_id parent);
-  gneiss::engine::core::result request_remove(runtime::application& application,
-                                              scene_document& session,
-                                              editor_command_history& history, scene_node_id root);
-  gneiss::engine::core::result request_refresh(runtime::application& application,
-                                               engine::core::tasks::task_executor& executor,
-                                               scene_document& session,
-                                               editor_command_history& history, scene_node_id root);
+  gneiss::engine::result request(runtime::application& application,
+                                 gneiss::engine::task_executor& executor, scene_document& session,
+                                 editor_command_history& history, std::string_view name,
+                                 std::string_view uri, scene_node_id parent);
+  gneiss::engine::result request_remove(runtime::application& application, scene_document& session,
+                                        editor_command_history& history, scene_node_id root);
+  gneiss::engine::result request_refresh(runtime::application& application,
+                                         gneiss::engine::task_executor& executor,
+                                         scene_document& session, editor_command_history& history,
+                                         scene_node_id root);
   void advance();
   void cancel();
   bool active() const noexcept;
   bool visible() const noexcept;
   bool can_cancel() const noexcept;
   prefab_edit_phase phase() const noexcept;
-  gneiss::engine::core::result operation() const noexcept;
+  gneiss::engine::result operation() const noexcept;
   void dismiss() noexcept;
 
 private:

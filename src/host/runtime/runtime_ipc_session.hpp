@@ -21,10 +21,10 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::host::runtime {
+namespace gneiss::host {
 
 struct runtime_ipc_config final {
-  gneiss::engine::platform::ipc_endpoint endpoint;
+  gneiss::engine::ipc_endpoint endpoint;
   std::string session_token;
   std::chrono::milliseconds handshake_timeout{5000};
   std::chrono::milliseconds heartbeat_timeout{10000};
@@ -41,38 +41,37 @@ public:
   runtime_ipc_session(const runtime_ipc_session&) = delete;
   runtime_ipc_session& operator=(const runtime_ipc_session&) = delete;
 
-  [[nodiscard]] gneiss::engine::core::result start(clock::time_point now) noexcept;
-  [[nodiscard]] gneiss::engine::core::result pump(clock::time_point now,
-                                                  runtime_ipc_actions& actions) noexcept;
-  [[nodiscard]] gneiss::engine::core::result notify_running() noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  notify_scene_progress(const ipc_scene_progress& value, std::uint32_t request_id) noexcept;
+  [[nodiscard]] gneiss::engine::result start(clock::time_point now) noexcept;
+  [[nodiscard]] gneiss::engine::result pump(clock::time_point now,
+                                            runtime_ipc_actions& actions) noexcept;
+  [[nodiscard]] gneiss::engine::result notify_running() noexcept;
+  [[nodiscard]] gneiss::engine::result notify_scene_progress(const ipc_scene_progress& value,
+                                                             std::uint32_t request_id) noexcept;
   void discard_pending_inspection() noexcept;
-  [[nodiscard]] gneiss::engine::core::result notify_shutdown(std::int32_t exit_code) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  notify_log_event(const gneiss_log_event& event) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
+  [[nodiscard]] gneiss::engine::result notify_shutdown(std::int32_t exit_code) noexcept;
+  [[nodiscard]] gneiss::engine::result notify_log_event(const gneiss_log_event& event) noexcept;
+  [[nodiscard]] gneiss::engine::result
   notify_scene_snapshot(const ipc_inspection_batch& batch) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
+  [[nodiscard]] gneiss::engine::result
   notify_property_write_result(const ipc_property_write_result& response) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
+  [[nodiscard]] gneiss::engine::result
   notify_asset_reload_result(const ipc_asset_reload_result& response, ipc_asset_operation operation,
                              std::uint32_t request_id) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
+  [[nodiscard]] gneiss::engine::result
   notify_statistics(const ipc_runtime_statistics& statistics) noexcept;
   [[nodiscard]] std::size_t pending_write_count() const noexcept;
   [[nodiscard]] std::size_t dropped_event_count() const noexcept;
-  [[nodiscard]] gneiss::engine::core::result stop() noexcept;
+  [[nodiscard]] gneiss::engine::result stop() noexcept;
 
   [[nodiscard]] runtime_ipc_state state() const noexcept;
   [[nodiscard]] bool game_updates_enabled() const noexcept;
-  [[nodiscard]] bool supports_domain(gneiss::engine::platform::ipc_domain domain) const noexcept;
+  [[nodiscard]] bool supports_domain(gneiss::engine::ipc_domain domain) const noexcept;
 
 private:
   struct implementation;
   std::unique_ptr<implementation> implementation_;
 };
 
-} // namespace gneiss::host::runtime
+} // namespace gneiss::host
 
 #endif

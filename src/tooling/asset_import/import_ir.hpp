@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::tooling::asset_import {
+namespace gneiss::tooling {
 
 struct import_ir_summary {
   std::size_t scene_count{};
@@ -117,4 +117,4 @@ struct import_ir {
 
 inline constexpr std::array image_variant_suffixes{"", "-linear", "-normal"};
 
-} // namespace gneiss::tooling::asset_import
+} // namespace gneiss::tooling

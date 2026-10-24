@@ -12,7 +12,7 @@
 #include <stdexcept>
 
 namespace {
-using namespace gneiss::engine::resource;
+using namespace gneiss::engine;
 void check(bool value, std::source_location where = std::source_location::current()) {
   if (!value) {
     throw std::runtime_error("容器读取契约失败，行=" + std::to_string(where.line()));
@@ -33,21 +33,21 @@ public:
       : bytes_(std::move(bytes)), counts_(std::move(counts)) {}
   ~counted_source() override { counts_->destroyed = true; }
   [[nodiscard]] std::uint64_t size() const noexcept override { return bytes_.size(); }
-  [[nodiscard]] gneiss::engine::core::result
+  [[nodiscard]] gneiss::engine::result
   read_at(std::uint64_t offset, std::span<std::byte> output) const noexcept override {
     ++counts_->calls;
     if (counts_->fail_call == counts_->calls) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     if (offset > bytes_.size() || output.size() > bytes_.size() - offset) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     counts_->bytes += output.size();
     std::ranges::copy(std::span{bytes_}.subspan(static_cast<std::size_t>(offset), output.size()),
                       output.begin());
     if (counts_->changed && !output.empty())
       output.back() ^= std::byte{1};
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   }
 
 private:
@@ -63,39 +63,39 @@ void run() {
   check(encode_texture_binary(manifest, payload, encoded, diagnostic) ==
         texture_binary_result::success);
   texture_container container;
-  check(container.read_payload(0U, {}) == gneiss::engine::core::result::invalid_state);
+  check(container.read_payload(0U, {}) == gneiss::engine::result::invalid_state);
   auto counts = std::make_shared<observation>();
   check(container.open(std::make_unique<counted_source>(encoded, counts), 3U, diagnostic) ==
-        gneiss::engine::core::result::success);
+        gneiss::engine::result::success);
   check(counts->bytes == 80U && !counts->destroyed);
   check(std::ranges::equal(container.manifest(), manifest));
   check(container.payload_size() == payload.size());
   std::array<std::byte, 4> chunk{};
-  check(container.read_payload(4096U, chunk) == gneiss::engine::core::result::success);
+  check(container.read_payload(4096U, chunk) == gneiss::engine::result::success);
   check(counts->bytes == 84U && chunk[0] == std::byte{7} && chunk[3] == std::byte{7});
   const auto calls = counts->calls;
   check(container.read_payload(payload.size() - 1U, chunk) ==
-        gneiss::engine::core::result::invalid_argument);
+        gneiss::engine::result::invalid_argument);
   check(container.read_payload(std::numeric_limits<std::uint64_t>::max(), chunk) ==
-        gneiss::engine::core::result::invalid_argument);
+        gneiss::engine::result::invalid_argument);
   check(counts->calls == calls);
-  check(container.read_payload(payload.size(), {}) == gneiss::engine::core::result::success);
+  check(container.read_payload(payload.size(), {}) == gneiss::engine::result::success);
   counts->fail_call = counts->calls + 1U;
-  check(container.read_payload(0U, chunk) == gneiss::engine::core::result::io);
-  check(container.read_payload(0U, chunk) == gneiss::engine::core::result::success);
+  check(container.read_payload(0U, chunk) == gneiss::engine::result::io);
+  check(container.read_payload(0U, chunk) == gneiss::engine::result::success);
 
   auto limited = std::make_shared<observation>();
   check(container.open(std::make_unique<counted_source>(encoded, limited), 2U, diagnostic) ==
-        gneiss::engine::core::result::out_of_memory);
+        gneiss::engine::result::out_of_memory);
   check(counts->destroyed && limited->destroyed && limited->bytes == 64U);
   check(container.manifest().empty() && container.payload_size() == 0U);
-  check(container.read_payload(0U, chunk) == gneiss::engine::core::result::invalid_state);
+  check(container.read_payload(0U, chunk) == gneiss::engine::result::invalid_state);
   // 头、Manifest、填充分别注入读取失败，均不保留部分状态。
   for (std::size_t call = 1U; call <= 3U; ++call) {
     auto failed = std::make_shared<observation>();
     failed->fail_call = call;
     check(container.open(std::make_unique<counted_source>(encoded, failed), 3U, diagnostic) ==
-          gneiss::engine::core::result::io);
+          gneiss::engine::result::io);
     check(failed->destroyed && container.manifest().empty());
   }
   for (const auto offset : {8U, 16U, 24U, 32U, 48U, 56U, 67U}) {
@@ -104,19 +104,19 @@ void run() {
     auto failed = std::make_shared<observation>();
     const auto status =
         container.open(std::make_unique<counted_source>(bad, failed), 3U, diagnostic);
-    check(status == (offset == 8U ? gneiss::engine::core::result::unsupported
-                                  : gneiss::engine::core::result::invalid_argument));
+    check(status == (offset == 8U ? gneiss::engine::result::unsupported
+                                  : gneiss::engine::result::invalid_argument));
     check(container.manifest().empty() && failed->destroyed);
   }
   auto truncated = encoded;
   truncated.resize(63U);
   check(container.open(std::make_unique<counted_source>(truncated, std::make_shared<observation>()),
-                       3U, diagnostic) == gneiss::engine::core::result::invalid_argument);
-  check(container.open(nullptr, 3U, diagnostic) == gneiss::engine::core::result::invalid_argument);
+                       3U, diagnostic) == gneiss::engine::result::invalid_argument);
+  check(container.open(nullptr, 3U, diagnostic) == gneiss::engine::result::invalid_argument);
   truncated = encoded;
   truncated.pop_back();
   check(container.open(std::make_unique<counted_source>(truncated, std::make_shared<observation>()),
-                       3U, diagnostic) == gneiss::engine::core::result::invalid_argument);
+                       3U, diagnostic) == gneiss::engine::result::invalid_argument);
   // 极大偏移或尺寸不能在头解析时回绕；新旧路径使用同一个校验器。
   for (const auto offset : {16U, 24U, 32U, 40U}) {
     auto overflow = encoded;
@@ -135,7 +135,7 @@ void run() {
   {
     texture_container aligned_container;
     check(aligned_container.open(std::make_unique<counted_source>(encoded, aligned), 16U,
-                                 diagnostic) == gneiss::engine::core::result::success);
+                                 diagnostic) == gneiss::engine::result::success);
     check(aligned->calls == 2U && aligned->bytes == 80U);
   }
   check(aligned->destroyed);
@@ -150,29 +150,29 @@ void recovery() {
   auto counts = std::make_shared<observation>();
   auto container = std::make_shared<texture_container>();
   check(container->open(std::make_unique<counted_source>(encoded, counts), manifest.size(),
-                        diagnostic) == gneiss::engine::core::result::success);
+                        diagnostic) == gneiss::engine::result::success);
   const auto selected = std::span{payload}.subspan(1U, 2U);
   auto source = std::make_unique<texture_payload_source>(container, 1U, selected.size(),
-                                                         gneiss::engine::core::sha256(selected));
+                                                         gneiss::engine::sha256(selected));
   container.reset();
   check(!counts->destroyed);
   std::vector<std::byte> output{std::byte{99}};
   const auto calls = counts->calls;
-  check(source->read(output, 1U) == gneiss::engine::core::result::out_of_memory && output.empty());
+  check(source->read(output, 1U) == gneiss::engine::result::out_of_memory && output.empty());
   check(counts->calls == calls);
-  check(source->read(output, 2U) == gneiss::engine::core::result::success &&
+  check(source->read(output, 2U) == gneiss::engine::result::success &&
         std::ranges::equal(output, selected));
   counts->changed = true;
-  check(source->read(output, 2U) == gneiss::engine::core::result::invalid_state && output.empty());
+  check(source->read(output, 2U) == gneiss::engine::result::invalid_state && output.empty());
   counts->changed = false;
   counts->fail_call = counts->calls + 1U;
-  check(source->read(output, 2U) == gneiss::engine::core::result::io && output.empty());
-  check(source->read(output, 2U) == gneiss::engine::core::result::success &&
+  check(source->read(output, 2U) == gneiss::engine::result::io && output.empty());
+  check(source->read(output, 2U) == gneiss::engine::result::success &&
         std::ranges::equal(output, selected));
   source.reset();
   check(counts->destroyed);
   texture_payload_source invalid(nullptr, UINT64_MAX, UINT64_MAX, {});
-  check(invalid.read(output, SIZE_MAX) == gneiss::engine::core::result::invalid_argument &&
+  check(invalid.read(output, SIZE_MAX) == gneiss::engine::result::invalid_argument &&
         output.empty());
 }
 } // namespace

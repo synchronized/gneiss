@@ -11,28 +11,29 @@
 namespace gneiss::runtime {
 
 /** 旧域回收独立计时；live_resources 为 CPU Service RID 数量，不等于 GPU 驱动驻留量。 */
-GNEISS_API gneiss::engine::core::result
+GNEISS_API gneiss::engine::result
 query_scene_retirement(gneiss_application application,
                        scene_retirement_statistics& output) noexcept;
 
 /** 内部完整场景切换；所属线程，要求已绑定宿主执行器。与结构/资产热重载互斥。 */
-GNEISS_API gneiss::engine::core::result
-request_scene_load(gneiss_application application, std::string_view uri, std::uint64_t session,
-                   std::uint64_t revision, std::uint64_t& request) noexcept;
-GNEISS_API gneiss::engine::core::result query_scene_load_progress(gneiss_application application,
-                                                                  scene_load_progress& progress,
-                                                                  bool& active) noexcept;
+GNEISS_API gneiss::engine::result request_scene_load(gneiss_application application,
+                                                     std::string_view uri, std::uint64_t session,
+                                                     std::uint64_t revision,
+                                                     std::uint64_t& request) noexcept;
+GNEISS_API gneiss::engine::result query_scene_load_progress(gneiss_application application,
+                                                            scene_load_progress& progress,
+                                                            bool& active) noexcept;
 /** 推进一次加载流程；结构就绪后同步实例化，取失败/取消终态；ready 由 activate_scene_load 显式接收。
  */
-GNEISS_API gneiss::engine::core::result poll_scene_load(gneiss_application application,
-                                                        scene_load_completion& completion,
-                                                        bool& ready) noexcept;
-GNEISS_API gneiss::engine::core::result cancel_scene_load(gneiss_application application,
-                                                          std::uint64_t request) noexcept;
+GNEISS_API gneiss::engine::result poll_scene_load(gneiss_application application,
+                                                  scene_load_completion& completion,
+                                                  bool& ready) noexcept;
+GNEISS_API gneiss::engine::result cancel_scene_load(gneiss_application application,
+                                                    std::uint64_t request) noexcept;
 /** ready 后在宿主停止旧模块更新的安全点调用。成功后旧 Scene/World 不再是活动域。
  * 只交换场景域；模块回调不属于引擎事务，宿主须重建 Context 与检查镜像。 */
-GNEISS_API gneiss::engine::core::result
-activate_scene_load(gneiss_application application, std::uint64_t request,
-                    scene_load_completion& completion) noexcept;
+GNEISS_API gneiss::engine::result activate_scene_load(gneiss_application application,
+                                                      std::uint64_t request,
+                                                      scene_load_completion& completion) noexcept;
 
 } // namespace gneiss::runtime

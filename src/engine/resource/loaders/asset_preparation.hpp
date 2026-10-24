@@ -18,14 +18,14 @@
 #include <string>
 #include <string_view>
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 class virtual_file_system;
 }
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 
 struct asset_diagnostic final {
-  gneiss::engine::core::result result = gneiss::engine::core::result::success;
+  gneiss::engine::result result = gneiss::engine::result::success;
   std::size_t byte_offset = 0;
   std::string path;
   std::string message;
@@ -33,9 +33,9 @@ struct asset_diagnostic final {
 
 /** 纯 CPU 准备：不访问缓存、RID 表或 GPU；调用方拥有只读 VFS 快照及输出。
  * 有界读取需要后端支持；读取结果按格式校验，不提供来源版本一致性保证。 */
-[[nodiscard]] gneiss::engine::core::result
-prepare_texture(const engine::resource::virtual_file_system& file_system, std::string_view uri,
-                engine::resource::prepared_texture_data& output, asset_diagnostic& diagnostic,
+[[nodiscard]] gneiss::engine::result
+prepare_texture(const gneiss::engine::virtual_file_system& file_system, std::string_view uri,
+                gneiss::engine::prepared_texture_data& output, asset_diagnostic& diagnostic,
                 std::size_t input_limit = std::numeric_limits<std::size_t>::max(),
                 std::size_t output_limit = 256U * 1024U * 1024U,
                 texture_prepare_profile profile = {}) noexcept;
@@ -52,7 +52,7 @@ struct asset_preparation_source final {
 struct prepared_source final {
   asset_identity identity;
   std::uint64_t bytes{};
-  engine::core::sha256_digest digest{};
+  gneiss::engine::sha256_digest digest{};
 };
 
 /** 后台解析后的自有 CPU 数据；不持有缓存或后端对象，材质依赖仅使用 URI。 */
@@ -60,9 +60,9 @@ struct prepared_asset {
   asset_preparation_source source;
   /** 描述在首位，纹理负载在其后；材质的资产依赖仍由 texture_uris 表示。 */
   std::vector<prepared_source> sources;
-  engine::resource::mesh_data mesh;
-  engine::resource::prepared_texture_data texture{};
-  engine::resource::material_parameters material{};
+  gneiss::engine::mesh_data mesh;
+  gneiss::engine::prepared_texture_data texture{};
+  gneiss::engine::material_parameters material{};
   std::array<std::string, 5> texture_uris;
   std::size_t bytes{};
 };
@@ -88,10 +88,11 @@ public:
                     std::span<const asset_preparation_source> requested, limits budget,
                     texture_prepare_profile profile);
   ~asset_preparation();
-  [[nodiscard]] gneiss::engine::core::result
-  advance(std::size_t byte_budget, const std::function<bool()>& cancelled, prepared_batch& output,
-          asset_diagnostic& diagnostic, bool& complete,
-          std::chrono::milliseconds wait_budget = {}) noexcept;
+  [[nodiscard]] gneiss::engine::result advance(std::size_t byte_budget,
+                                               const std::function<bool()>& cancelled,
+                                               prepared_batch& output, asset_diagnostic& diagnostic,
+                                               bool& complete,
+                                               std::chrono::milliseconds wait_budget = {}) noexcept;
 
 private:
   struct state;
@@ -99,12 +100,12 @@ private:
 };
 /** material_bytes 由调用方指定单个材质发布所需的字节估算；含材质时不得为零。
  * 该值与依赖 URI 共同计入 maximum_bytes，溢出或预算不足拒绝整批。 */
-[[nodiscard]] gneiss::engine::core::result
-prepare_assets(const engine::resource::virtual_file_system& files,
+[[nodiscard]] gneiss::engine::result
+prepare_assets(const gneiss::engine::virtual_file_system& files,
                std::span<const asset_preparation_source> requested, prepared_batch& output,
                asset_diagnostic& diagnostic, const std::function<bool()>& cancelled,
                std::size_t material_bytes, std::size_t maximum_assets = 256U,
                std::size_t maximum_bytes = 256U * 1024U * 1024U,
                texture_prepare_profile profile = {}) noexcept;
 
-} // namespace gneiss::engine::resource
+} // namespace gneiss::engine

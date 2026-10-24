@@ -86,6 +86,6 @@ UTF-8 返回 invalid_argument。包装隐藏 struct_size、flags 和保留字段
 `to_native(message)` 得到的 C 描述仍借用相同字符串，不可在文本失效后使用。
 公共 C++ 头只提供值类型和无状态辅助函数，不提供 Application 对象 SDK。
 
-src 内部通过 `application::submit_log` 提交 `engine::core::log::message_view`，其中 `result`
-使用 `engine::core::result`。内部接收回调使用 `event_view`，C API 在边界转换消息和事件；
+src 内部通过 `application::submit_log` 提交 `engine::message_view`，其中 `result`
+使用 `engine::result`。内部接收回调使用 `event_view`，C API 在边界转换消息和事件；
 详细结果类型约束见 [Core 结果接口](core.md)。

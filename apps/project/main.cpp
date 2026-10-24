@@ -3,4 +3,4 @@
 
 #include "project_cli.hpp"
 
-int main(int argc, char** argv) { return gneiss::host::editor::run_project_cli(argc, argv); }
+int main(int argc, char** argv) { return gneiss::host::run_project_cli(argc, argv); }

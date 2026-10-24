@@ -7,7 +7,7 @@
 #include <gneiss/engine/core/export.h>
 #include <string_view>
 
-namespace gneiss::engine::core {
+namespace gneiss::engine {
 /** 内部操作结果。默认 unknown；非负值成功，负值失败。不拥有动态错误文本。
  * 整数仅在边界显式导入/导出，不隐式转换为整数或公共 C++ 结果类型。 */
 class result final {
@@ -54,4 +54,4 @@ inline constexpr result result::io{-12};
 /** 返回静态英文文本；未知码保持原值，文本为 unrecognized result。 */
 [[nodiscard]] GNEISS_API const char* result_message(result value) noexcept;
 inline std::string_view result::message() const noexcept { return result_message(*this); }
-} // namespace gneiss::engine::core
+} // namespace gneiss::engine

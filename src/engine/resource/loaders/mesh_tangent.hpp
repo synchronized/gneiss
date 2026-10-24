@@ -6,7 +6,7 @@
 #include <array>
 #include <cmath>
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 
 [[nodiscard]] inline bool valid_mesh_tangent(const std::array<float, 4>& tangent,
                                              const std::array<float, 3>& normal) noexcept {
@@ -20,4 +20,4 @@ namespace gneiss::engine::resource {
          std::abs(dot) <= 1.0e-4F && (tangent[3] == 1.0F || tangent[3] == -1.0F);
 }
 
-} // namespace gneiss::engine::resource
+} // namespace gneiss::engine

@@ -18,7 +18,7 @@
 #include <thread>
 #include <type_traits>
 
-static_assert(!std::is_polymorphic_v<gneiss::engine::resource::material_document>);
+static_assert(!std::is_polymorphic_v<gneiss::engine::material_document>);
 
 namespace {
 void check(bool ok, const char* message) {
@@ -26,7 +26,7 @@ void check(bool ok, const char* message) {
     throw std::runtime_error(message);
 }
 void run(std::size_t document_limit) {
-  using namespace gneiss::engine::resource;
+  using namespace gneiss::engine;
   using namespace std::chrono_literals;
 
   const auto root = std::filesystem::temp_directory_path() /
@@ -50,31 +50,29 @@ void run(std::size_t document_limit) {
   std::string initial = R"({"format":"gneiss.material","version":1,"color":[1,0,0,1]})";
   initial.resize(document_limit, ' ');
   write(initial);
-  gneiss::engine::platform::io::uv_loop_executor loop;
-  check(loop.start() == gneiss::engine::core::result::success, "loop");
+  gneiss::engine::uv_loop_executor loop;
+  check(loop.start() == gneiss::engine::result::success, "loop");
   auto native = std::make_shared<native_file_system>();
-  check(native->initialize(root.generic_string()) == gneiss::engine::core::result::success,
+  check(native->initialize(root.generic_string()) == gneiss::engine::result::success,
         "native root");
-  native->set_async_io(std::make_shared<gneiss::engine::platform::io::uv_file_io>(loop),
-                       std::make_shared<gneiss::engine::platform::io::uv_path_resolver>(loop));
+  native->set_async_io(std::make_shared<gneiss::engine::uv_file_io>(loop),
+                       std::make_shared<gneiss::engine::uv_path_resolver>(loop));
   virtual_file_system files;
-  check(files.mount("asset://", native) == gneiss::engine::core::result::success, "mount");
+  check(files.mount("asset://", native) == gneiss::engine::result::success, "mount");
   auto old = std::make_shared<material_document>();
   auto current = std::make_shared<material_document>();
   std::vector<std::byte> document_bytes;
   asset_diagnostic decode_diagnostic;
-  check(files.read("asset://material.json", document_bytes) ==
-            gneiss::engine::core::result::success,
+  check(files.read("asset://material.json", document_bytes) == gneiss::engine::result::success,
         "read old");
   check(decode_material_document(document_bytes, *old, decode_diagnostic) ==
-            gneiss::engine::core::result::success,
+            gneiss::engine::result::success,
         "decode old");
   write(R"({"format":"gneiss.material","version":1,"color":[0,1,0,1]})");
-  check(files.read("asset://material.json", document_bytes) ==
-            gneiss::engine::core::result::success,
+  check(files.read("asset://material.json", document_bytes) == gneiss::engine::result::success,
         "read new");
   check(decode_material_document(document_bytes, *current, decode_diagnostic) ==
-            gneiss::engine::core::result::success,
+            gneiss::engine::result::success,
         "decode new");
   // 直接走生产使用的分步准备：复用已读取字节，不再从 Loader 启动第二次读取。
   auto prepare = [&](bool change_source, bool dependency_missing) {
@@ -90,7 +88,7 @@ void run(std::size_t document_limit) {
     prepared_batch batch;
     asset_diagnostic diagnostic;
     bool complete = false;
-    gneiss::engine::core::result status = gneiss::engine::core::result::success;
+    gneiss::engine::result status = gneiss::engine::result::success;
     const auto deadline = std::chrono::steady_clock::now() + 10s;
     while (!complete) {
       std::thread background([&] {
@@ -103,11 +101,11 @@ void run(std::size_t document_limit) {
         std::this_thread::sleep_for(1ms);
     }
     if (dependency_missing) {
-      check(status != gneiss::engine::core::result::success && batch.assets.empty(),
+      check(status != gneiss::engine::result::success && batch.assets.empty(),
             "failed batch not returned");
       check(current->source.parameters.color[1] == 1, "failed batch keeps old document");
     } else {
-      check(status == gneiss::engine::core::result::success && batch.assets.size() == 1,
+      check(status == gneiss::engine::result::success && batch.assets.size() == 1,
             "prepared material batch");
       if (change_source)
         write("{}");

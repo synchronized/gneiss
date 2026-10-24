@@ -5,10 +5,10 @@
 
 #include <cmath>
 
-namespace gneiss::engine::render {
+namespace gneiss::engine {
 
 std::array<float, 3> transform_normal(const std::array<float, 3>& normal,
-                                      const engine::core::math::transform& transform) noexcept {
+                                      const gneiss::engine::transform& transform) noexcept {
   std::array value{normal[0] / transform.scale[0], normal[1] / transform.scale[1],
                    normal[2] / transform.scale[2]};
   const std::array vector{transform.rotation[0], transform.rotation[1], transform.rotation[2]};
@@ -29,4 +29,4 @@ std::array<float, 3> transform_normal(const std::array<float, 3>& normal,
   return value;
 }
 
-} // namespace gneiss::engine::render
+} // namespace gneiss::engine

@@ -11,18 +11,17 @@
 #include <cstdint>
 #include <vector>
 
-namespace gneiss::engine::world {
+namespace gneiss::engine {
 
 using system_id = std::uint32_t;
-using system_callback = gneiss::engine::core::result (*)(world_state& world,
-                                                         void* user_data) noexcept;
+using system_callback = gneiss::engine::result (*)(world_state& world, void* user_data) noexcept;
 
 /** 按注册顺序串行执行 System；调用方负责外部同步。 */
 class system_scheduler final {
 public:
-  [[nodiscard]] gneiss::engine::core::result add(system_id id, system_callback callback,
-                                                 void* user_data) noexcept;
-  [[nodiscard]] gneiss::engine::core::result run(world_state& world) noexcept;
+  [[nodiscard]] gneiss::engine::result add(system_id id, system_callback callback,
+                                           void* user_data) noexcept;
+  [[nodiscard]] gneiss::engine::result run(world_state& world) noexcept;
   [[nodiscard]] std::size_t size() const noexcept { return systems_.size(); }
 
 private:
@@ -35,6 +34,6 @@ private:
   std::vector<entry> systems_;
 };
 
-} // namespace gneiss::engine::world
+} // namespace gneiss::engine
 
 #endif

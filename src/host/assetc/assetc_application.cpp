@@ -48,10 +48,10 @@ void print_usage() {
 
 int process_binary_mesh(std::string_view command, const std::filesystem::path& path) {
   const auto bytes = read_file(path);
-  gneiss::engine::resource::mesh_binary_data data;
-  gneiss::engine::resource::mesh_binary_diagnostic diagnostic;
-  if (gneiss::engine::resource::decode_mesh_binary(bytes, data, diagnostic) !=
-      gneiss::engine::resource::mesh_binary_result::success) {
+  gneiss::engine::mesh_binary_data data;
+  gneiss::engine::mesh_binary_diagnostic diagnostic;
+  if (gneiss::engine::decode_mesh_binary(bytes, data, diagnostic) !=
+      gneiss::engine::mesh_binary_result::success) {
     std::cerr << diagnostic.message << "（字节 " << diagnostic.byte_offset << "）\n";
     return 1;
   }
@@ -59,7 +59,7 @@ int process_binary_mesh(std::string_view command, const std::filesystem::path& p
     std::cout << "Mesh Binary v1 顶点=" << data.vertices.size() << " 索引=" << data.indices.size()
               << " 三角形=" << data.indices.size() / 3U << " 字节=" << bytes.size() << '\n';
   } else if (command == "dump") {
-    std::cout << gneiss::engine::resource::dump_mesh_binary_json(data);
+    std::cout << gneiss::engine::dump_mesh_binary_json(data);
   } else {
     std::cout << "Mesh Binary 有效\n";
   }
@@ -67,8 +67,8 @@ int process_binary_mesh(std::string_view command, const std::filesystem::path& p
 }
 
 int inspect_ktx2(const std::filesystem::path& path) {
-  const auto report = gneiss::tooling::asset_build::inspect_ktx2(path);
-  if (report.result != gneiss::tooling::asset_build::ktx2_probe_result::success) {
+  const auto report = gneiss::tooling::inspect_ktx2(path);
+  if (report.result != gneiss::tooling::ktx2_probe_result::success) {
     std::cerr << report.diagnostic << '\n';
     return 1;
   }
@@ -81,7 +81,7 @@ int inspect_ktx2(const std::filesystem::path& path) {
 
 } // namespace
 
-int gneiss::host::assetc::run(int argc, char** argv) { // NOLINT(bugprone-exception-escape)
+int gneiss::host::run(int argc, char** argv) { // NOLINT(bugprone-exception-escape)
   const bool inspect = argc == 3 && std::string_view{argv[1]} == "inspect";
   const bool import =
       argc == 5 && std::string_view{argv[1]} == "import" && std::string_view{argv[3]} == "--output";
@@ -98,30 +98,30 @@ int gneiss::host::assetc::run(int argc, char** argv) { // NOLINT(bugprone-except
 
   const auto source = std::filesystem::path{argv[2]};
   if (cook) {
-    const auto registry = gneiss::tooling::asset_build::make_default_registry();
-    const auto report = gneiss::tooling::asset_build::build_assets(
-        {.source_root = source,
-         .output_root = std::filesystem::path{argv[4]},
-         .cache_root = std::filesystem::path{argv[6]},
-         .root_uris = {},
+    const auto registry = gneiss::tooling::make_default_registry();
+    const auto report =
+        gneiss::tooling::build_assets({.source_root = source,
+                                       .output_root = std::filesystem::path{argv[4]},
+                                       .cache_root = std::filesystem::path{argv[6]},
+                                       .root_uris = {},
 #if defined(_WIN32)
-         .target_platform = "windows",
+                                       .target_platform = "windows",
 #elif defined(__APPLE__)
-         .target_platform = "macos",
+                                       .target_platform = "macos",
 #else
-         .target_platform = "linux",
+                                       .target_platform = "linux",
 #endif
 #if defined(_M_X64) || defined(__x86_64__)
-         .target_architecture = "x86_64",
+                                       .target_architecture = "x86_64",
 #elif defined(_M_ARM64) || defined(__aarch64__)
-         .target_architecture = "arm64",
+                                       .target_architecture = "arm64",
 #else
-         .target_architecture = "unknown",
+                                       .target_architecture = "unknown",
 #endif
-         .profile = gneiss::tooling::asset_build::build_profile::development,
-         .progress = {}},
-        registry);
-    if (report.result != gneiss::tooling::asset_build::build_result::success) {
+                                       .profile = gneiss::tooling::build_profile::development,
+                                       .progress = {}},
+                                      registry);
+    if (report.result != gneiss::tooling::build_result::success) {
       std::cerr << report.diagnostic << '\n';
       return 1;
     }
@@ -132,8 +132,7 @@ int gneiss::host::assetc::run(int argc, char** argv) { // NOLINT(bugprone-except
   if ((inspect || validate) && source.extension() == ".gneiss-texture") {
     std::string summary;
     std::string diagnostic;
-    if (!gneiss::tooling::asset_build::inspect_runtime_texture(read_file(source), summary,
-                                                               diagnostic)) {
+    if (!gneiss::tooling::inspect_runtime_texture(read_file(source), summary, diagnostic)) {
       std::cerr << (diagnostic.empty() ? "运行纹理检查失败" : diagnostic) << '\n';
       return 1;
     }
@@ -147,8 +146,8 @@ int gneiss::host::assetc::run(int argc, char** argv) { // NOLINT(bugprone-except
     return inspect_ktx2(source);
   }
 
-  const auto report = gneiss::tooling::asset_import::inspect_gltf(source);
-  if (report.result != gneiss::tooling::asset_import::inspect_result::success) {
+  const auto report = gneiss::tooling::inspect_gltf(source);
+  if (report.result != gneiss::tooling::inspect_result::success) {
     std::cerr << report.diagnostic << '\n';
     return 1;
   }
@@ -156,8 +155,7 @@ int gneiss::host::assetc::run(int argc, char** argv) { // NOLINT(bugprone-except
   if (!report.diagnostic.empty())
     std::cerr << report.diagnostic << '\n';
   if (import) {
-    const auto written =
-        gneiss::tooling::asset_import::write_assets(report.data, std::filesystem::path{argv[4]});
+    const auto written = gneiss::tooling::write_assets(report.data, std::filesystem::path{argv[4]});
     if (!written.success) {
       std::cerr << written.diagnostic << '\n';
       return 1;

@@ -7,12 +7,12 @@
 #include "editor_project.hpp"
 #include "engine/core/result.hpp"
 
-namespace gneiss::editor {
+namespace gneiss::host {
 
 /** 运行独立工程选择窗口；关闭窗口但未选择工程时返回 not_ready。 */
-[[nodiscard]] gneiss::engine::core::result run_project_manager(bool smoke,
-                                                               editor_project& output) noexcept;
+[[nodiscard]] gneiss::engine::result run_project_manager(bool smoke,
+                                                         editor_project& output) noexcept;
 
-} // namespace gneiss::editor
+} // namespace gneiss::host
 
 #endif

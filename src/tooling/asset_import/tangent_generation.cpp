@@ -12,7 +12,7 @@
 #include <map>
 #include <utility>
 
-namespace gneiss::tooling::asset_import {
+namespace gneiss::tooling {
 namespace {
 
 struct tangent_context {
@@ -80,7 +80,7 @@ std::optional<std::string> generate_tangents(import_ir_primitive& primitive) {
     const auto original = primitive.indices[index];
     const auto& normal = primitive.vertices[original].normal;
     const auto& tangent = data.corners[index];
-    if (!engine::resource::valid_mesh_tangent(tangent, {normal[0], normal[1], normal[2]})) {
+    if (!gneiss::engine::valid_mesh_tangent(tangent, {normal[0], normal[1], normal[2]})) {
       return "退化几何或 UV 无法生成有效的正交切线";
     }
     const auto key = std::pair{original, tangent};
@@ -98,4 +98,4 @@ std::optional<std::string> generate_tangents(import_ir_primitive& primitive) {
   return std::nullopt;
 }
 
-} // namespace gneiss::tooling::asset_import
+} // namespace gneiss::tooling

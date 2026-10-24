@@ -5,10 +5,9 @@
 #include "engine/function/scene/prefab_runtime_instance.hpp"
 #include "engine/function/world/world_service.hpp"
 #include <algorithm>
-namespace gneiss::engine::scene {
+namespace gneiss::engine {
 namespace {
-engine::core::math::transform
-transform_of(const gneiss::engine::resource::object_description& source) noexcept {
+gneiss::engine::transform transform_of(const gneiss::engine::object_description& source) noexcept {
   return {source.translation, source.rotation, source.scale};
 }
 }
@@ -20,20 +19,20 @@ bool prefab_candidate::is_valid() const noexcept { return runtime_ != nullptr; }
 scene_node_id prefab_candidate::root() const noexcept {
   return runtime_ ? scene_node_id{runtime_->root()} : scene_node_id{};
 }
-gneiss::engine::core::result
-prefab_candidate::create_node(std::size_t index, scene_node_id parent,
-                              engine::render::render_asset_ref mesh,
-                              engine::render::render_asset_ref material, scene_node_id& output) {
+gneiss::engine::result prefab_candidate::create_node(std::size_t index, scene_node_id parent,
+                                                     gneiss::engine::render_asset_ref mesh,
+                                                     gneiss::engine::render_asset_ref material,
+                                                     scene_node_id& output) {
   if (!runtime_ || !runtime_->native_world_.is_owner_thread() || runtime_->published_ ||
       runtime_->cancelling_)
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   const auto result =
       runtime_->create_staged_node(index, parent.get(), std::move(mesh), std::move(material));
-  if (result != gneiss::engine::core::result::success)
+  if (result != gneiss::engine::result::success)
     return result;
   prefab_runtime_instance::node_info info;
   const auto queried = runtime_->get_node_info(index, info);
-  if (queried == gneiss::engine::core::result::success)
+  if (queried == gneiss::engine::result::success)
     output = scene_node_id{info.node};
   return queried;
 }
@@ -47,12 +46,12 @@ bool prefab_candidate::cleanup_step(std::size_t budget) noexcept {
   runtime_.reset();
   return true;
 }
-gneiss::engine::core::result prefab_candidate::preview(std::size_t index,
-                                                       prefab_node_view& output) const noexcept {
+gneiss::engine::result prefab_candidate::preview(std::size_t index,
+                                                 prefab_node_view& output) const noexcept {
   output = {};
   if (!runtime_ || !runtime_->native_world_.is_owner_thread() || runtime_->published_ ||
       runtime_->cancelling_ || index > runtime_->node_count())
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   output.instance_uuid = author_.instance_uuid;
   output.prefab_uri = author_.prefab_uri;
   if (index == 0U) {
@@ -63,11 +62,11 @@ gneiss::engine::core::result prefab_candidate::preview(std::size_t index,
     std::ranges::copy(author_.translation, output.local_transform.translation.begin());
     std::ranges::copy(author_.rotation, output.local_transform.rotation.begin());
     std::ranges::copy(author_.scale, output.local_transform.scale.begin());
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   }
-  engine::scene::prefab_runtime_instance::node_info info;
+  gneiss::engine::prefab_runtime_instance::node_info info;
   const auto result = runtime_->get_node_info(index - 1U, info);
-  if (result != gneiss::engine::core::result::success) {
+  if (result != gneiss::engine::result::success) {
     return result;
   }
   output.flags = scene_prefab_flags::source_read_only;
@@ -79,7 +78,7 @@ gneiss::engine::core::result prefab_candidate::preview(std::size_t index,
   output.local_transform = transform_of(runtime_->prefab_lease().get()->objects[index - 1U]);
   output.source_local_transform = output.local_transform;
   output.local_transform = transform_of(runtime_->candidate_description().objects[index - 1U]);
-  const auto transform_type = engine::world::transform_type_id();
+  const auto transform_type = gneiss::engine::transform_type_id();
   for (const auto& value : author_.overrides) {
     if (value.key.node.source_node_uuid != output.source_node_uuid ||
         !std::ranges::equal(value.key.type_id.bytes, transform_type.bytes)) {
@@ -99,6 +98,6 @@ gneiss::engine::core::result prefab_candidate::preview(std::size_t index,
       break;
     }
   }
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 }

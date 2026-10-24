@@ -7,7 +7,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 /** 内部资源强引用。复制共享所有权，最后一个拥有者释放才执行原控制块的删除器。
  * 不保证资源数据线程安全；最后释放发生在当前线程，必须遵循资源所属服务的线程约束。
  * 不允许从裸指针建立所有权；借用 get() 的结果不得超过强引用有效期。 */

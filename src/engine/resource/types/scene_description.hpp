@@ -16,14 +16,14 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 class virtual_file_system;
 }
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 
 struct scene_diagnostic final {
-  gneiss::engine::core::result result = gneiss::engine::core::result::success;
+  gneiss::engine::result result = gneiss::engine::result::success;
   std::size_t byte_offset = 0;
   std::string path;
   std::string message;
@@ -71,19 +71,18 @@ struct scene_description final {
   std::string author_json;
 };
 
-[[nodiscard]] gneiss::engine::core::result
+[[nodiscard]] gneiss::engine::result
 parse_scene_description(std::string_view json, scene_description& out_scene,
                         scene_diagnostic& out_diagnostic) noexcept;
 
-[[nodiscard]] gneiss::engine::core::result
-load_scene_description(const engine::resource::virtual_file_system& file_system,
-                       std::string_view uri, scene_description& out_scene,
-                       scene_diagnostic& out_diagnostic) noexcept;
+[[nodiscard]] gneiss::engine::result
+load_scene_description(const gneiss::engine::virtual_file_system& file_system, std::string_view uri,
+                       scene_description& out_scene, scene_diagnostic& out_diagnostic) noexcept;
 
 /** 输出当前 Schema 作者 JSON；保留受支持文档中的未知字段。 */
-[[nodiscard]] gneiss::engine::core::result
-serialize_scene_description(const scene_description& scene, std::string& out_json) noexcept;
+[[nodiscard]] gneiss::engine::result serialize_scene_description(const scene_description& scene,
+                                                                 std::string& out_json) noexcept;
 
-} // namespace gneiss::engine::resource
+} // namespace gneiss::engine
 
 #endif

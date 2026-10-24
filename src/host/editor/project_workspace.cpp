@@ -22,7 +22,7 @@
 #include <string>
 #include <system_error>
 
-namespace gneiss::editor {
+namespace gneiss::host {
 namespace {
 
 constexpr std::size_t maximum_recent_projects = 10U;
@@ -49,27 +49,27 @@ constexpr std::size_t maximum_recent_projects = 10U;
 #endif
 }
 
-[[nodiscard]] gneiss::engine::core::result
-map_asset_build_result(tooling::asset_build::build_result operation) {
-  using tooling::asset_build::build_result;
+[[nodiscard]] gneiss::engine::result
+map_asset_build_result(gneiss::tooling::build_result operation) {
+  using gneiss::tooling::build_result;
   switch (operation) {
   case build_result::success:
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   case build_result::invalid_argument:
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   case build_result::source_unavailable:
   case build_result::dependency_missing:
-    return gneiss::engine::core::result::not_found;
+    return gneiss::engine::result::not_found;
   case build_result::processor_missing:
-    return gneiss::engine::core::result::unsupported;
+    return gneiss::engine::result::unsupported;
   case build_result::processor_failed:
-    return gneiss::engine::core::result::dependency_failed;
+    return gneiss::engine::result::dependency_failed;
   case build_result::output_exists:
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   case build_result::io_error:
-    return gneiss::engine::core::result::io;
+    return gneiss::engine::result::io;
   }
-  return gneiss::engine::core::result::unknown;
+  return gneiss::engine::result::unknown;
 }
 
 struct document_deleter final {
@@ -116,7 +116,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
 }
 
 [[nodiscard]] bool write_asset_build_metadata(const std::filesystem::path& path,
-                                              const tooling::asset_build::build_report& report) {
+                                              const gneiss::tooling::build_report& report) {
   yyjson_mut_doc* raw_document = yyjson_mut_doc_new(nullptr);
   if (raw_document == nullptr) {
     return false;
@@ -227,17 +227,17 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
   return replaced && write_text(path, text);
 }
 
-[[nodiscard]] gneiss::engine::core::result
+[[nodiscard]] gneiss::engine::result
 write_recent_projects(const std::filesystem::path& state_file,
                       const std::vector<editor_project>& projects) {
   std::error_code error;
   std::filesystem::create_directories(state_file.parent_path(), error);
   if (error) {
-    return gneiss::engine::core::result::io;
+    return gneiss::engine::result::io;
   }
   yyjson_mut_doc* raw_document = yyjson_mut_doc_new(nullptr);
   if (raw_document == nullptr) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   }
   using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
   mutable_document_ptr document(raw_document, &yyjson_mut_doc_free);
@@ -246,27 +246,27 @@ write_recent_projects(const std::filesystem::path& state_file,
   if (root == nullptr || recent == nullptr ||
       !yyjson_mut_obj_add_str(document.get(), root, "format", "gneiss.editor-state") ||
       !yyjson_mut_obj_add_uint(document.get(), root, "version", 1U)) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   }
   for (const auto& project : projects) {
     const auto path = path_utf8(project.project_root);
     if (!yyjson_mut_arr_add_strncpy(document.get(), recent, path.data(), path.size())) {
-      return gneiss::engine::core::result::out_of_memory;
+      return gneiss::engine::result::out_of_memory;
     }
   }
   if (!yyjson_mut_obj_add_val(document.get(), root, "recent_projects", recent)) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   }
   yyjson_mut_doc_set_root(document.get(), root);
   std::size_t length = 0;
   std::unique_ptr<char, decltype(&std::free)> json(
       yyjson_mut_write(document.get(), YYJSON_WRITE_PRETTY, &length), &std::free);
   if (!json) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   }
   const auto temporary = state_file.string() + ".tmp";
   if (!write_text(temporary, std::string_view(json.get(), length))) {
-    return gneiss::engine::core::result::io;
+    return gneiss::engine::result::io;
   }
   std::filesystem::rename(temporary, state_file, error);
   if (error) {
@@ -274,7 +274,7 @@ write_recent_projects(const std::filesystem::path& state_file,
     error.clear();
     std::filesystem::rename(temporary, state_file, error);
   }
-  return error ? gneiss::engine::core::result::io : gneiss::engine::core::result::success;
+  return error ? gneiss::engine::result::io : gneiss::engine::result::success;
 }
 
 } // namespace
@@ -300,13 +300,13 @@ std::filesystem::path default_editor_state_path() {
   return std::filesystem::temp_directory_path() / "gneiss" / "editor.json";
 }
 
-gneiss::engine::core::result load_recent_projects(const std::filesystem::path& state_file,
-                                                  std::vector<editor_project>& output) noexcept {
+gneiss::engine::result load_recent_projects(const std::filesystem::path& state_file,
+                                            std::vector<editor_project>& output) noexcept {
   try {
     output.clear();
     std::ifstream stream(state_file, std::ios::binary);
     if (!stream) {
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     }
     const std::string json{std::istreambuf_iterator<char>(stream),
                            std::istreambuf_iterator<char>()};
@@ -314,7 +314,7 @@ gneiss::engine::core::result load_recent_projects(const std::filesystem::path& s
     auto* root = document ? yyjson_doc_get_root(document.get()) : nullptr;
     auto* recent = yyjson_is_obj(root) ? yyjson_obj_get(root, "recent_projects") : nullptr;
     if (!yyjson_is_arr(recent)) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     std::size_t index = 0;
     std::size_t maximum = 0;
@@ -325,25 +325,25 @@ gneiss::engine::core::result load_recent_projects(const std::filesystem::path& s
       }
       editor_project project;
       const std::string_view path(yyjson_get_str(value), yyjson_get_len(value));
-      if (load_editor_project(utf8_path(path), project) == gneiss::engine::core::result::success) {
+      if (load_editor_project(utf8_path(path), project) == gneiss::engine::result::success) {
         output.push_back(std::move(project));
       }
     }
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::io;
+    return gneiss::engine::result::io;
   }
 }
 
-gneiss::engine::core::result remember_recent_project(const std::filesystem::path& state_file,
-                                                     const editor_project& project) noexcept {
+gneiss::engine::result remember_recent_project(const std::filesystem::path& state_file,
+                                               const editor_project& project) noexcept {
   try {
     std::vector<editor_project> projects;
     const auto load_result = load_recent_projects(state_file, projects);
-    if (load_result != gneiss::engine::core::result::success &&
-        load_result != gneiss::engine::core::result::invalid_argument) {
+    if (load_result != gneiss::engine::result::success &&
+        load_result != gneiss::engine::result::invalid_argument) {
       return load_result;
     }
     std::erase_if(projects, [&](const auto& candidate) {
@@ -355,15 +355,15 @@ gneiss::engine::core::result remember_recent_project(const std::filesystem::path
     }
     return write_recent_projects(state_file, projects);
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::io;
+    return gneiss::engine::result::io;
   }
 }
 
-gneiss::engine::core::result create_editor_project(const std::filesystem::path& project_root,
-                                                   std::string_view name,
-                                                   editor_project& output) noexcept {
+gneiss::engine::result create_editor_project(const std::filesystem::path& project_root,
+                                             std::string_view name,
+                                             editor_project& output) noexcept {
 #if defined(GNEISS_EDITOR_GAME_TEMPLATE_DIR)
   const auto installed_template = sdk_template_root();
   std::error_code error;
@@ -376,45 +376,45 @@ gneiss::engine::core::result create_editor_project(const std::filesystem::path& 
   (void)project_root;
   (void)name;
   (void)output;
-  return gneiss::engine::core::result::not_found;
+  return gneiss::engine::result::not_found;
 #endif
 }
 
-gneiss::engine::core::result create_editor_project(const std::filesystem::path& project_root,
-                                                   const std::filesystem::path& template_root,
-                                                   std::string_view name,
-                                                   editor_project& output) noexcept {
+gneiss::engine::result create_editor_project(const std::filesystem::path& project_root,
+                                             const std::filesystem::path& template_root,
+                                             std::string_view name,
+                                             editor_project& output) noexcept {
   if (project_root.empty() || name.empty()) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   try {
     std::error_code error;
     if (std::filesystem::exists(project_root, error) || error ||
         !std::filesystem::is_directory(template_root, error) || error ||
         !std::filesystem::is_regular_file(template_root / "gneiss.project.json", error) || error) {
-      return gneiss::engine::core::result::invalid_state;
+      return gneiss::engine::result::invalid_state;
     }
     auto temporary = project_root;
     temporary += ".gneiss-creating";
     if (std::filesystem::exists(temporary, error) || error) {
-      return gneiss::engine::core::result::invalid_state;
+      return gneiss::engine::result::invalid_state;
     }
     std::filesystem::create_directories(temporary.parent_path(), error);
     if (error) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     if (!copy_directory(template_root, temporary, error)) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     std::filesystem::create_directories(temporary / "sources", error);
     if (error) {
       std::filesystem::remove_all(temporary, error);
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     yyjson_mut_doc* raw_document = yyjson_mut_doc_new(nullptr);
     if (raw_document == nullptr) {
       std::filesystem::remove_all(temporary, error);
-      return gneiss::engine::core::result::out_of_memory;
+      return gneiss::engine::result::out_of_memory;
     }
     using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
     mutable_document_ptr document(raw_document, &yyjson_mut_doc_free);
@@ -427,7 +427,7 @@ gneiss::engine::core::result create_editor_project(const std::filesystem::path& 
         !yyjson_mut_obj_add_str(document.get(), root, "startup_scene",
                                 "asset://scenes/main.scene.json")) {
       std::filesystem::remove_all(temporary, error);
-      return gneiss::engine::core::result::out_of_memory;
+      return gneiss::engine::result::out_of_memory;
     }
     auto* asset_build = yyjson_mut_obj(document.get());
     auto* retained_assets = yyjson_mut_arr(document.get());
@@ -461,7 +461,7 @@ gneiss::engine::core::result create_editor_project(const std::filesystem::path& 
         !yyjson_mut_obj_add_val(document.get(), game_module, "profiles", profiles) ||
         !yyjson_mut_obj_add_val(document.get(), root, "game_module", game_module)) {
       std::filesystem::remove_all(temporary, error);
-      return gneiss::engine::core::result::out_of_memory;
+      return gneiss::engine::result::out_of_memory;
     }
     yyjson_mut_doc_set_root(document.get(), root);
     std::size_t length = 0;
@@ -471,52 +471,51 @@ gneiss::engine::core::result create_editor_project(const std::filesystem::path& 
         !write_text(temporary / "gneiss.project.json", std::string_view(json.get(), length)) ||
         !replace_text(temporary / "game_module.cpp", "gneiss.template.game", module_id(name))) {
       std::filesystem::remove_all(temporary, error);
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     std::filesystem::rename(temporary, project_root, error);
     if (error) {
       std::filesystem::remove_all(temporary, error);
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     return load_editor_project(project_root, output);
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::io;
+    return gneiss::engine::result::io;
   }
 }
 
-gneiss::engine::core::result
-export_editor_project(const editor_project& project,
-                      const std::filesystem::path& runtime_executable,
-                      const std::filesystem::path& output_root) noexcept {
+gneiss::engine::result export_editor_project(const editor_project& project,
+                                             const std::filesystem::path& runtime_executable,
+                                             const std::filesystem::path& output_root) noexcept {
   return export_editor_project(project, {.runtime_executable = runtime_executable,
                                          .output_root = output_root,
-                                         .profile = app::game_build_profile::debug,
+                                         .profile = gneiss::host::game_build_profile::debug,
                                          .create_zip = false,
                                          .asset_progress = {}});
 }
 
-gneiss::engine::core::result export_editor_project(const editor_project& project,
-                                                   const project_export_options& options) noexcept {
+gneiss::engine::result export_editor_project(const editor_project& project,
+                                             const project_export_options& options) noexcept {
   project_export_report report;
   return export_editor_project(project, options, report);
 }
 
-gneiss::engine::core::result export_editor_project(const editor_project& project,
-                                                   const project_export_options& options,
-                                                   project_export_report& report) noexcept {
+gneiss::engine::result export_editor_project(const editor_project& project,
+                                             const project_export_options& options,
+                                             project_export_report& report) noexcept {
   report = {};
   if (project.project_root.empty() || options.runtime_executable.empty() ||
       options.output_root.empty()) {
-    report.operation = gneiss::engine::core::result::invalid_argument;
-    return gneiss::engine::core::result::invalid_argument;
+    report.operation = gneiss::engine::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   try {
     const auto& build =
-        app::game_build_profile_description_for(project.game_module, options.profile);
+        gneiss::host::game_build_profile_description_for(project.game_module, options.profile);
     if (build.directory.empty() || build.configure_preset.empty() || build.build_preset.empty()) {
-      return gneiss::engine::core::result::unsupported;
+      return gneiss::engine::result::unsupported;
     }
     std::error_code error;
     auto archive = options.output_root;
@@ -524,7 +523,7 @@ gneiss::engine::core::result export_editor_project(const editor_project& project
     if (std::filesystem::exists(options.output_root, error) || error ||
         (options.create_zip && std::filesystem::exists(archive, error)) || error ||
         !std::filesystem::is_regular_file(options.runtime_executable, error) || error) {
-      return gneiss::engine::core::result::invalid_state;
+      return gneiss::engine::result::invalid_state;
     }
     auto temporary = options.output_root;
     temporary += ".gneiss-exporting";
@@ -532,19 +531,20 @@ gneiss::engine::core::result export_editor_project(const editor_project& project
     temporary_archive += ".gneiss-exporting";
     if (std::filesystem::exists(temporary, error) || error ||
         (options.create_zip && std::filesystem::exists(temporary_archive, error)) || error) {
-      return gneiss::engine::core::result::invalid_state;
+      return gneiss::engine::result::invalid_state;
     }
     std::filesystem::create_directories(temporary.parent_path(), error);
     if (error) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     std::filesystem::create_directories(temporary / "bin", error);
     std::filesystem::create_directories(temporary / build.directory, error);
     std::filesystem::path module_path;
-    const auto module_result = app::resolve_game_module_path(project, options.profile, module_path);
+    const auto module_result =
+        gneiss::host::resolve_game_module_path(project, options.profile, module_path);
     if (error || !module_result) {
       std::filesystem::remove_all(temporary, error);
-      return module_result ? gneiss::engine::core::result::io : module_result;
+      return module_result ? gneiss::engine::result::io : module_result;
     }
     auto root_uris = project.retained_assets;
     root_uris.push_back(project.startup_scene);
@@ -554,43 +554,43 @@ gneiss::engine::core::result export_editor_project(const editor_project& project
     if (!project.environment.asset.empty()) {
       root_uris.push_back(project.environment.asset);
     }
-    auto asset_request = tooling::asset_build::build_request{
+    auto asset_request = gneiss::tooling::build_request{
         .source_root = project.asset_root,
         .output_root = temporary / "assets",
         .cache_root = project.project_root / "build" / ".gneiss-cache",
         .root_uris = std::move(root_uris),
         .target_platform = std::string(platform_name()),
         .target_architecture = std::string(architecture_name()),
-        .profile = options.profile == app::game_build_profile::shipping
-                       ? tooling::asset_build::build_profile::shipping
-                       : tooling::asset_build::build_profile::development,
+        .profile = options.profile == gneiss::host::game_build_profile::shipping
+                       ? gneiss::tooling::build_profile::shipping
+                       : gneiss::tooling::build_profile::development,
         .progress = {}};
     if (options.asset_progress) {
-      asset_request.progress = [&options](const tooling::asset_build::build_progress& progress) {
+      asset_request.progress = [&options](const gneiss::tooling::build_progress& progress) {
         options.asset_progress(progress.current, progress.total, progress.relative_path,
                                progress.cache_hit);
       };
     }
-    const auto asset_report = tooling::asset_build::build_assets(
-        asset_request, tooling::asset_build::make_default_registry());
+    const auto asset_report =
+        gneiss::tooling::build_assets(asset_request, gneiss::tooling::make_default_registry());
     report.asset_source_count = asset_report.source_count;
     report.asset_built_count = asset_report.built_count;
     report.asset_cache_hit_count = asset_report.cache_hit_count;
     report.asset_pruned_count = asset_report.pruned_count;
-    if (asset_report.result != tooling::asset_build::build_result::success) {
+    if (asset_report.result != gneiss::tooling::build_result::success) {
       report.operation = map_asset_build_result(asset_report.result);
       std::filesystem::remove_all(temporary, error);
       return report.operation;
     }
-    if (options.profile != app::game_build_profile::shipping &&
+    if (options.profile != gneiss::host::game_build_profile::shipping &&
         !write_asset_build_metadata(temporary / "assets" / ".gneiss-build.json", asset_report)) {
       std::filesystem::remove_all(temporary, error);
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     std::filesystem::copy_file(module_path, temporary / build.directory / module_path.filename(),
                                std::filesystem::copy_options::none, error);
 #if defined(_WIN32)
-    if (!error && options.profile != app::game_build_profile::shipping) {
+    if (!error && options.profile != gneiss::host::game_build_profile::shipping) {
       auto symbols = module_path;
       symbols.replace_extension(".pdb");
       if (std::filesystem::is_regular_file(symbols, error) && !error) {
@@ -603,7 +603,7 @@ gneiss::engine::core::result export_editor_project(const editor_project& project
 #endif
     if (error) {
       std::filesystem::remove_all(temporary, error);
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     std::filesystem::copy_file(project.project_file, temporary / "gneiss.project.json",
                                std::filesystem::copy_options::none, error);
@@ -614,7 +614,7 @@ gneiss::engine::core::result export_editor_project(const editor_project& project
     }
     if (error) {
       std::filesystem::remove_all(temporary, error);
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     const std::array dependency_directories = {
         options.runtime_executable.parent_path(),
@@ -633,7 +633,7 @@ gneiss::engine::core::result export_editor_project(const editor_project& project
                                      std::filesystem::copy_options::none, error);
           if (error) {
             std::filesystem::remove_all(temporary, error);
-            return gneiss::engine::core::result::io;
+            return gneiss::engine::result::io;
           }
         }
       }
@@ -642,10 +642,10 @@ gneiss::engine::core::result export_editor_project(const editor_project& project
     if (std::filesystem::is_directory(runtime_assets, error) && !error &&
         !copy_directory(runtime_assets, temporary / "bin" / "assets", error)) {
       std::filesystem::remove_all(temporary, error);
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     const auto runtime_name = options.runtime_executable.filename().string();
-    const auto profile_name = std::string(app::game_build_profile_name(options.profile));
+    const auto profile_name = std::string(gneiss::host::game_build_profile_name(options.profile));
     if (!write_text(temporary / "run.cmd", "@echo off\r\npushd \"%~dp0\"\r\n\"bin\\" +
                                                runtime_name + "\" --project . --profile " +
                                                profile_name +
@@ -658,7 +658,7 @@ gneiss::engine::core::result export_editor_project(const editor_project& project
                         runtime_name + "\" --project \"$DIR\" --profile " + profile_name +
                         " \"$@\"\n")) {
       std::filesystem::remove_all(temporary, error);
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     std::filesystem::permissions(temporary / "run.sh",
                                  std::filesystem::perms::owner_exec |
@@ -694,23 +694,23 @@ gneiss::engine::core::result export_editor_project(const editor_project& project
     if (error) {
       std::filesystem::remove_all(temporary, error);
       std::filesystem::remove(temporary_archive, error);
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     if (options.create_zip) {
       std::filesystem::rename(temporary_archive, archive, error);
       if (error) {
         std::filesystem::remove_all(options.output_root, error);
         std::filesystem::remove(temporary_archive, error);
-        return gneiss::engine::core::result::io;
+        return gneiss::engine::result::io;
       }
     }
-    report.operation = gneiss::engine::core::result::success;
-    return gneiss::engine::core::result::success;
+    report.operation = gneiss::engine::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::io;
+    return gneiss::engine::result::io;
   }
 }
 
-} // namespace gneiss::editor
+} // namespace gneiss::host

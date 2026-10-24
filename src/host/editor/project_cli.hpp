@@ -3,6 +3,6 @@
 
 #pragma once
 
-namespace gneiss::host::editor {
+namespace gneiss::host {
 int run_project_cli(int argc, char** argv);
 }

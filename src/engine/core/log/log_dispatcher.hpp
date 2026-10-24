@@ -16,7 +16,7 @@
 #include <string_view>
 #include <thread>
 
-namespace gneiss::engine::core::log {
+namespace gneiss::engine {
 
 /** 原生日志级别；ABI 数值映射由接口层校验。 */
 enum class level : std::uint32_t { trace = 1, debug, info, warning, error, fatal };
@@ -28,7 +28,7 @@ struct message_view final {
   std::string_view source{};
   std::string_view category{};
   std::string_view message{};
-  gneiss::engine::core::result result{gneiss::engine::core::result::success};
+  gneiss::engine::result result{gneiss::engine::result::success};
 };
 
 /** 所有文本只在回调期间有效，接收方不得保留视图。 */
@@ -49,7 +49,7 @@ public:
   log_dispatcher(const log_dispatcher&) = delete;
   log_dispatcher& operator=(const log_dispatcher&) = delete;
 
-  [[nodiscard]] gneiss::engine::core::result submit(const message_view& message) noexcept;
+  [[nodiscard]] gneiss::engine::result submit(const message_view& message) noexcept;
   void flush() noexcept;
 
 private:
@@ -62,7 +62,7 @@ private:
     std::string source;
     std::string category;
     std::string message;
-    gneiss::engine::core::result result = gneiss::engine::core::result::success;
+    gneiss::engine::result result = gneiss::engine::result::success;
   };
 
   void run() noexcept;
@@ -82,6 +82,6 @@ private:
   bool is_stopping_ = false;
 };
 
-} // namespace gneiss::engine::core::log
+} // namespace gneiss::engine
 
 #endif

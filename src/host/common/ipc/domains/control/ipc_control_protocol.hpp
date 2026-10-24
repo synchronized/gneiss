@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace gneiss {
+namespace gneiss::host {
 
 inline constexpr std::uint16_t ipc_control_domain_version = 1U;
 inline constexpr std::size_t ipc_control_max_payload_size = 1U;
@@ -33,26 +33,25 @@ enum class ipc_control_state : std::uint8_t {
   stopping = 5U,
 };
 
-[[nodiscard]] gneiss::engine::core::result
-encode_ipc_control_ready(gneiss::engine::platform::ipc_envelope& output) noexcept;
-[[nodiscard]] gneiss::engine::core::result
-encode_ipc_control_state(ipc_control_state state,
-                         gneiss::engine::platform::ipc_envelope& output) noexcept;
-[[nodiscard]] gneiss::engine::core::result
-decode_ipc_control_state(const gneiss::engine::platform::ipc_envelope& envelope,
+[[nodiscard]] gneiss::engine::result
+encode_ipc_control_ready(gneiss::engine::ipc_envelope& output) noexcept;
+[[nodiscard]] gneiss::engine::result
+encode_ipc_control_state(ipc_control_state state, gneiss::engine::ipc_envelope& output) noexcept;
+[[nodiscard]] gneiss::engine::result
+decode_ipc_control_state(const gneiss::engine::ipc_envelope& envelope,
                          ipc_control_state& output) noexcept;
 
-[[nodiscard]] gneiss::engine::core::result
+[[nodiscard]] gneiss::engine::result
 encode_ipc_control_request(ipc_control_operation operation, std::uint32_t request_id,
-                           gneiss::engine::platform::ipc_envelope& output) noexcept;
-[[nodiscard]] gneiss::engine::core::result
-decode_ipc_control_request(const gneiss::engine::platform::ipc_envelope& envelope,
+                           gneiss::engine::ipc_envelope& output) noexcept;
+[[nodiscard]] gneiss::engine::result
+decode_ipc_control_request(const gneiss::engine::ipc_envelope& envelope,
                            ipc_control_operation& output) noexcept;
 
 /** 返回 Control 域的固定方向与消息语义规则。 */
-[[nodiscard]] std::span<const gneiss::engine::platform::ipc_operation_descriptor>
+[[nodiscard]] std::span<const gneiss::engine::ipc_operation_descriptor>
 ipc_control_operations() noexcept;
 
-} // namespace gneiss
+} // namespace gneiss::host
 
 #endif

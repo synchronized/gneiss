@@ -26,10 +26,10 @@ public:
   /** 只用于退出清理；调用者驱动协作执行器，不能与正常 UI 推进重复调用。 */
   void advance_cleanup(runtime::application& application);
   /** 有在途操作时不修改任何状态；成功后历史先于文档释放，可重复调用。 */
-  [[nodiscard]] gneiss::engine::core::result close() noexcept;
+  [[nodiscard]] gneiss::engine::result close() noexcept;
   /** 先准备空场景；失败保留文档与历史，成功先释放旧历史再替换文档。 */
-  [[nodiscard]] gneiss::engine::core::result create_empty(runtime::application& application,
-                                                          gneiss_world world);
+  [[nodiscard]] gneiss::engine::result create_empty(runtime::application& application,
+                                                    gneiss_world world);
 
 private:
   scene_document document_;

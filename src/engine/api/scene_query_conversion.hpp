@@ -5,20 +5,20 @@
 
 #include "engine/function/scene/scene_query.hpp"
 
-namespace gneiss::engine::api {
-inline engine::core::math::transform read_transform(const gneiss_transform& value) noexcept {
+namespace gneiss::engine::detail {
+inline gneiss::engine::transform read_transform(const gneiss_transform& value) noexcept {
   return {{value.translation[0], value.translation[1], value.translation[2]},
           {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
           {value.scale[0], value.scale[1], value.scale[2]}};
 }
-inline gneiss_transform write_transform(const engine::core::math::transform& value) noexcept {
+inline gneiss_transform write_transform(const gneiss::engine::transform& value) noexcept {
   return {{value.translation[0], value.translation[1], value.translation[2]},
           {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
           {value.scale[0], value.scale[1], value.scale[2]}};
 }
 
 /** 调用方已验证最小尺寸；仅写入其声明版本内的字段。 */
-inline void write_scene_node(const engine::scene::scene_node_view& value,
+inline void write_scene_node(const gneiss::engine::scene_node_view& value,
                              gneiss_scene_instance_node_info& output) noexcept {
   output.reserved = 0U;
   output.node = value.node.get();
@@ -49,7 +49,7 @@ inline void write_scene_node(const engine::scene::scene_node_view& value,
   }
 }
 
-inline void write_prefab_node(const engine::scene::prefab_node_view& value,
+inline void write_prefab_node(const gneiss::engine::prefab_node_view& value,
                               gneiss_scene_prefab_node_info& output) noexcept {
   const auto size = output.struct_size;
   output = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
@@ -71,4 +71,4 @@ inline void write_prefab_node(const engine::scene::prefab_node_view& value,
   output.source_local_transform = write_transform(value.source_local_transform);
 }
 
-} // namespace gneiss::engine::api
+} // namespace gneiss::engine::detail

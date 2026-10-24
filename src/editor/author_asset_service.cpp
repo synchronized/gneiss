@@ -34,7 +34,7 @@ struct author_asset_service::implementation {
   };
   struct batch {
     std::vector<author_asset_change> changes;
-    gneiss::engine::core::result operation{gneiss::engine::core::result::success};
+    gneiss::engine::result operation{gneiss::engine::result::success};
     bool scanning{};
     std::uint64_t revision{};
   };
@@ -44,8 +44,8 @@ struct author_asset_service::implementation {
     bool baseline{true};
   };
 
-  engine::core::tasks::task_scheduler& scheduler;
-  engine::core::tasks::task_scope scope;
+  gneiss::engine::task_scheduler& scheduler;
+  gneiss::engine::task_scope scope;
   std::shared_ptr<backend> worker{std::make_shared<backend>()};
   std::shared_ptr<batch> active;
   std::filesystem::path root;
@@ -57,9 +57,9 @@ struct author_asset_service::implementation {
   bool rescan{};
   bool scanning{};
   bool stopping{};
-  gneiss::engine::core::result operation{gneiss::engine::core::result::success};
+  gneiss::engine::result operation{gneiss::engine::result::success};
 
-  explicit implementation(engine::core::tasks::task_scheduler& value)
+  explicit implementation(gneiss::engine::task_scheduler& value)
       : scheduler(value), scope(value.make_scope()) {}
 
   bool enqueue(command value) {
@@ -81,12 +81,12 @@ struct author_asset_service::implementation {
   }
 
   void pump() {
-    std::vector<engine::core::tasks::task_completion> completions;
+    std::vector<gneiss::engine::task_completion> completions;
     scheduler.poll(scope, completions, 1U);
     if (!completions.empty() && active) {
-      operation = completions.front().outcome.state == engine::core::tasks::task_state::succeeded
+      operation = completions.front().outcome.state == gneiss::engine::task_state::succeeded
                       ? active->operation
-                      : gneiss::engine::core::result::internal;
+                      : gneiss::engine::result::internal;
       scanning = active->scanning;
       if (active->revision == revision) {
         for (auto& change : active->changes) {
@@ -111,21 +111,21 @@ struct author_asset_service::implementation {
       work.push_back(commands[index]);
     }
     const auto scan = rescan;
-    engine::core::tasks::task_handle handle;
+    gneiss::engine::task_handle handle;
     const auto accepted = scheduler.submit(
         {.name = "author-assets.check", .scope = scope},
         [state = worker, output, work = std::move(work), scan,
-         asset_root = root](const engine::core::tasks::task_context& context) {
+         asset_root = root](const gneiss::engine::task_context& context) {
           if (!state->initialized) {
             output->operation = state->monitor.initialize(asset_root, false);
-            if (output->operation != gneiss::engine::core::result::success) {
-              return engine::core::tasks::task_outcome{};
+            if (output->operation != gneiss::engine::result::success) {
+              return gneiss::engine::task_outcome{};
             }
             state->initialized = true;
           }
           for (const auto& item : work) {
             if (context.stop_requested()) {
-              return engine::core::tasks::task_outcome{engine::core::tasks::task_state::cancelled};
+              return gneiss::engine::task_outcome{gneiss::engine::task_state::cancelled};
             }
             if (item.kind == command_kind::saved) {
               output->changes.clear();
@@ -146,7 +146,7 @@ struct author_asset_service::implementation {
           output->operation = state->monitor.poll_rescan(paths, 8U);
           for (const auto& path : paths) {
             if (context.stop_requested()) {
-              return engine::core::tasks::task_outcome{engine::core::tasks::task_state::cancelled};
+              return gneiss::engine::task_outcome{gneiss::engine::task_state::cancelled};
             }
             if (state->baseline) {
               state->monitor.establish_baseline(uri_for(path));
@@ -161,35 +161,35 @@ struct author_asset_service::implementation {
           if (!output->scanning) {
             state->baseline = false;
           }
-          return engine::core::tasks::task_outcome{};
+          return gneiss::engine::task_outcome{};
         },
         handle);
-    if (accepted == engine::core::tasks::submit_result::success) {
+    if (accepted == gneiss::engine::submit_result::success) {
       active = std::move(output);
       for (std::size_t index = 0U; index < count; ++index) {
         commands.pop_front();
       }
       rescan = false;
-    } else if (accepted != engine::core::tasks::submit_result::full) {
-      operation = gneiss::engine::core::result::invalid_state;
+    } else if (accepted != gneiss::engine::submit_result::full) {
+      operation = gneiss::engine::result::invalid_state;
     }
   }
 };
 
-author_asset_service::author_asset_service(engine::core::tasks::task_scheduler& scheduler)
+author_asset_service::author_asset_service(gneiss::engine::task_scheduler& scheduler)
     : impl_(std::make_unique<implementation>(scheduler)) {}
 author_asset_service::~author_asset_service() {
   request_stop();
   (void)impl_->scheduler.close_scope(impl_->scope);
 }
-gneiss::engine::core::result author_asset_service::initialize(const std::filesystem::path& root) {
+gneiss::engine::result author_asset_service::initialize(const std::filesystem::path& root) {
   if (root.empty() || !impl_->root.empty() || impl_->stopping) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   impl_->root = root;
   impl_->rescan = true;
   impl_->pump();
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 author_asset_change author_asset_service::observe(const std::filesystem::path& path, bool dirty) {
   const auto uri = uri_for(path);
@@ -206,15 +206,15 @@ author_asset_change author_asset_service::observe(const std::filesystem::path& p
   impl_->prepared.erase(found);
   if (dirty) {
     impl_->current.state = author_asset_change_state::conflict;
-    impl_->current.operation = gneiss::engine::core::result::invalid_state;
+    impl_->current.operation = gneiss::engine::result::invalid_state;
     impl_->current.message = "外部结构资产已变化；当前场景含未保存修改，未自动覆盖";
   }
   return impl_->current;
 }
-gneiss::engine::core::result author_asset_service::acknowledge(std::string_view uri,
-                                                               std::string content) {
+gneiss::engine::result author_asset_service::acknowledge(std::string_view uri,
+                                                         std::string content) {
   if (!uri.starts_with("asset://")) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   std::erase_if(impl_->commands, [uri](const auto& item) { return item.uri == uri; });
   if (impl_->commands.size() >= 256U) {
@@ -232,14 +232,14 @@ gneiss::engine::core::result author_asset_service::acknowledge(std::string_view 
   if (!impl_->enqueue({.kind = implementation::command_kind::saved,
                        .uri = std::string(uri),
                        .content = std::make_shared<const std::string>(std::move(content))})) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   impl_->rescan = true;
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 void author_asset_service::request_rescan() { impl_->rescan = true; }
-gneiss::engine::core::result
-author_asset_service::poll_rescan(std::vector<std::filesystem::path>& output, std::size_t budget) {
+gneiss::engine::result author_asset_service::poll_rescan(std::vector<std::filesystem::path>& output,
+                                                         std::size_t budget) {
   impl_->pump();
   while (budget-- != 0U && !impl_->ready.empty()) {
     auto change = std::move(impl_->ready.front());
@@ -256,25 +256,21 @@ bool author_asset_service::is_rescanning() const {
   return impl_->rescan || impl_->scanning || static_cast<bool>(impl_->active) ||
          !impl_->commands.empty() || !impl_->ready.empty() || !impl_->prepared.empty();
 }
-gneiss::engine::core::result author_asset_service::rescan_result() const {
-  return impl_->operation;
-}
+gneiss::engine::result author_asset_service::rescan_result() const { return impl_->operation; }
 void author_asset_service::mark_applied(std::string_view uri) {
-  if (impl_->current.uri != uri ||
-      impl_->current.operation != gneiss::engine::core::result::success) {
+  if (impl_->current.uri != uri || impl_->current.operation != gneiss::engine::result::success) {
     return;
   }
   if (!impl_->enqueue({.kind = implementation::command_kind::applied,
                        .uri = std::string(uri),
                        .hash = impl_->current.fingerprint})) {
-    mark_failed(uri, gneiss::engine::core::result::invalid_state);
+    mark_failed(uri, gneiss::engine::result::invalid_state);
     return;
   }
   impl_->current.state = author_asset_change_state::applied;
   impl_->current.message = "外部结构资产已应用";
 }
-void author_asset_service::mark_failed(std::string_view uri,
-                                       gneiss::engine::core::result operation) {
+void author_asset_service::mark_failed(std::string_view uri, gneiss::engine::result operation) {
   impl_->current = {.state = author_asset_change_state::failed,
                     .uri = std::string(uri),
                     .operation = operation,

@@ -25,6 +25,8 @@
 #include <string>
 #include <thread>
 
+using namespace gneiss::host;
+
 namespace {
 struct temporary_project {
   std::filesystem::path root;
@@ -38,7 +40,7 @@ std::string read_text(const std::filesystem::path& path) {
   return {std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
 }
 template <typename Predicate>
-bool wait_for(gneiss::editor::runtime_process& process, Predicate predicate) {
+bool wait_for(gneiss::host::runtime_process& process, Predicate predicate) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (std::chrono::steady_clock::now() < deadline) {
     process.update();
@@ -61,7 +63,7 @@ int main() try {
   };
   editor_project project;
   if (create_editor_project(temporary.root / "project", GNEISS_TEST_TEMPLATE, "Asset Workflow",
-                            project) != gneiss::engine::core::result::success) {
+                            project) != gneiss::engine::result::success) {
     return 1;
   }
 #if defined(_WIN32)
@@ -98,15 +100,15 @@ int main() try {
   gneiss_world world{};
   scene_document session;
   scene_node_id node;
-  if (gneiss::engine::core::result{gneiss_application_create(&desc, app.put())} !=
-          gneiss::engine::core::result::success ||
-      gneiss::engine::core::result{gneiss_application_get_world(app.get(), &world)} !=
-          gneiss::engine::core::result::success ||
+  if (gneiss::engine::result{gneiss_application_create(&desc, app.put())} !=
+          gneiss::engine::result::success ||
+      gneiss::engine::result{gneiss_application_get_world(app.get(), &world)} !=
+          gneiss::engine::result::success ||
       session.open(*gneiss::runtime::find_application(app.get()), world, project.startup_scene) !=
-          gneiss::engine::core::result::success ||
+          gneiss::engine::result::success ||
       session.create_mesh_renderer_node("Imported", *mesh, *material, node) !=
-          gneiss::engine::core::result::success ||
-      session.save(project.asset_root) != gneiss::engine::core::result::success) {
+          gneiss::engine::result::success ||
+      session.save(project.asset_root) != gneiss::engine::result::success) {
     return 5;
   }
   session.close();
@@ -127,7 +129,7 @@ int main() try {
     return code;
   };
   if (runtime.start(GNEISS_TEST_RUNTIME, {project.project_root}) !=
-          gneiss::engine::core::result::success ||
+          gneiss::engine::result::success ||
       !wait_for(runtime, [&] {
         return runtime.control_state() == runtime_control_state::running &&
                runtime.scene_load_status().phase == ipc_scene_phase::applied;
@@ -161,12 +163,12 @@ int main() try {
       events, [](const auto& event) { return event.state == asset_reimport_state::succeeded; });
   if (succeeded == events.end() ||
       runtime.publish_asset_revision(succeeded->import.import.output_uris) !=
-          gneiss::engine::core::result::success ||
+          gneiss::engine::result::success ||
       !wait_for(runtime,
                 [&] {
                   return runtime.asset_reload_status().state == runtime_asset_reload_state::applied;
                 }) ||
-      runtime.request_stop() != gneiss::engine::core::result::success ||
+      runtime.request_stop() != gneiss::engine::result::success ||
       !wait_for(runtime, [&] { return !runtime.is_running(); })) {
     return fail(9);
   }
@@ -175,21 +177,21 @@ int main() try {
                             {
                                 .runtime_executable = GNEISS_TEST_RUNTIME,
                                 .output_root = package,
-                                .profile = app::game_build_profile::debug,
+                                .profile = gneiss::host::game_build_profile::debug,
                                 .create_zip = false,
                                 .asset_progress = {},
-                            }) != gneiss::engine::core::result::success ||
-      verify_package_manifest(package) != gneiss::engine::core::result::success) {
+                            }) != gneiss::engine::result::success ||
+      verify_package_manifest(package) != gneiss::engine::result::success) {
     return fail(10);
   }
   if (runtime.start(package / "bin" / std::filesystem::path(GNEISS_TEST_RUNTIME).filename(),
-                    {package}) != gneiss::engine::core::result::success ||
+                    {package}) != gneiss::engine::result::success ||
       !wait_for(runtime,
                 [&] {
                   return runtime.control_state() == runtime_control_state::running &&
                          runtime.scene_load_status().phase == ipc_scene_phase::applied;
                 }) ||
-      runtime.request_stop() != gneiss::engine::core::result::success ||
+      runtime.request_stop() != gneiss::engine::result::success ||
       !wait_for(runtime, [&] { return !runtime.is_running(); }) || runtime.exit_code() != 0) {
     return fail(11);
   }

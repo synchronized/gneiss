@@ -16,7 +16,7 @@
 namespace gneiss::editor {
 namespace {
 
-namespace asset_import = gneiss::tooling::asset_import;
+namespace asset_import = gneiss::tooling;
 
 [[nodiscard]] bool is_safe_relative_path(const std::filesystem::path& path) {
   return !path.empty() && !path.is_absolute() && path == path.lexically_normal() &&
@@ -71,20 +71,20 @@ struct asset_reimport_queue::implementation final {
   std::size_t dropped{};
   bool rescan_requested = false;
   bool rescan_active = false;
-  gneiss::engine::core::result rescan_operation = gneiss::engine::core::result::success;
+  gneiss::engine::result rescan_operation = gneiss::engine::result::success;
   std::vector<std::filesystem::path> rescan_sources;
   std::size_t rescan_cursor = 0U;
 
-  void begin_rescan(const asset_import::asset_index& index,
-                    const asset_import::asset_index_report& index_report) {
+  void begin_rescan(const gneiss::tooling::asset_index& index,
+                    const gneiss::tooling::asset_index_report& index_report) {
     if (rescan_requested && !rescan_active) {
       rescan_requested = false;
       rescan_sources.clear();
       rescan_cursor = 0U;
-      rescan_operation = gneiss::engine::core::result::success;
-      if (index_report.result != asset_import::asset_index_result::success &&
-          index_report.result != asset_import::asset_index_result::not_found) {
-        rescan_operation = gneiss::engine::core::result::io;
+      rescan_operation = gneiss::engine::result::success;
+      if (index_report.result != gneiss::tooling::asset_index_result::success &&
+          index_report.result != gneiss::tooling::asset_index_result::not_found) {
+        rescan_operation = gneiss::engine::result::io;
         emit(asset_reimport_state::failed, ".",
              diagnostic_report(editor_import_result::io_error,
                                "源资产补扫无法读取索引：" + index_report.diagnostic));
@@ -94,13 +94,13 @@ struct asset_reimport_queue::implementation final {
               std::u8string(reinterpret_cast<const char8_t*>(entry.source_path.data()),
                             entry.source_path.size()));
           if (!is_safe_relative_path(source)) {
-            rescan_operation = gneiss::engine::core::result::invalid_argument;
+            rescan_operation = gneiss::engine::result::invalid_argument;
             rescan_sources.clear();
             break;
           }
           rescan_sources.push_back(source);
         }
-        rescan_active = rescan_operation == gneiss::engine::core::result::success;
+        rescan_active = rescan_operation == gneiss::engine::result::success;
       }
     }
   }
@@ -115,7 +115,7 @@ struct asset_reimport_queue::implementation final {
       const auto& source = rescan_sources[rescan_cursor];
       if (!candidates.contains(portable_path(source))) {
         const auto operation = queue.notify(source, now);
-        if (operation != gneiss::engine::core::result::success) {
+        if (operation != gneiss::engine::result::success) {
           rescan_operation = operation;
           rescan_active = false;
           break;
@@ -151,12 +151,11 @@ asset_reimport_queue::asset_reimport_queue(asset_reimport_queue_options options,
 
 asset_reimport_queue::~asset_reimport_queue() = default;
 
-gneiss::engine::core::result
-asset_reimport_queue::notify(const std::filesystem::path& relative_path,
-                             clock::time_point now) noexcept {
+gneiss::engine::result asset_reimport_queue::notify(const std::filesystem::path& relative_path,
+                                                    clock::time_point now) noexcept {
   try {
     if (!is_safe_relative_path(relative_path)) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     const auto normalized = relative_path.lexically_normal();
     const auto key = portable_path(normalized);
@@ -164,7 +163,7 @@ asset_reimport_queue::notify(const std::filesystem::path& relative_path,
     if (existing == implementation_->candidates.end()) {
       if (implementation_->candidates.size() == implementation_->options.capacity) {
         ++implementation_->dropped;
-        return gneiss::engine::core::result::not_ready;
+        return gneiss::engine::result::not_ready;
       }
       implementation::candidate value;
       value.relative_path = normalized;
@@ -173,9 +172,9 @@ asset_reimport_queue::notify(const std::filesystem::path& relative_path,
     existing->second.due = now + implementation_->options.debounce;
     existing->second.observed_hash.clear();
     implementation_->emit(asset_reimport_state::waiting, normalized);
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (...) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   }
 }
 
@@ -185,7 +184,7 @@ bool asset_reimport_queue::is_rescanning() const noexcept {
   return implementation_->rescan_requested || implementation_->rescan_active;
 }
 
-gneiss::engine::core::result asset_reimport_queue::rescan_result() const noexcept {
+gneiss::engine::result asset_reimport_queue::rescan_result() const noexcept {
   return implementation_->rescan_operation;
 }
 
@@ -201,9 +200,9 @@ std::size_t asset_reimport_queue::tick(const std::filesystem::path& project_root
   }
   std::size_t imported{};
   try {
-    asset_import::asset_index index;
+    gneiss::tooling::asset_index index;
     const auto index_report =
-        asset_import::load_asset_index(project_root / ".gneiss" / "asset-index.json", index);
+        gneiss::tooling::load_asset_index(project_root / ".gneiss" / "asset-index.json", index);
     implementation_->begin_rescan(index, index_report);
     implementation_->admit_rescan(*this, max_candidates, now);
     std::size_t examined = 0U;
@@ -224,7 +223,7 @@ std::size_t asset_reimport_queue::tick(const std::filesystem::path& project_root
         iterator = implementation_->candidates.erase(iterator);
         continue;
       }
-      if (index_report.result != asset_import::asset_index_result::success) {
+      if (index_report.result != gneiss::tooling::asset_index_result::success) {
         implementation_->emit(asset_reimport_state::failed, candidate.relative_path,
                               diagnostic_report(editor_import_result::io_error,
                                                 "无法读取资产索引：" + index_report.diagnostic));
@@ -232,8 +231,8 @@ std::size_t asset_reimport_queue::tick(const std::filesystem::path& project_root
         continue;
       }
       const auto source = portable_path(candidate.relative_path);
-      const auto indexed =
-          std::ranges::find(index.entries, source, &asset_import::asset_index_entry::source_path);
+      const auto indexed = std::ranges::find(index.entries, source,
+                                             &gneiss::tooling::asset_index_entry::source_path);
       if (indexed == index.entries.end()) {
         implementation_->emit(asset_reimport_state::untracked, candidate.relative_path,
                               diagnostic_report(editor_import_result::invalid_argument,
@@ -242,8 +241,8 @@ std::size_t asset_reimport_queue::tick(const std::filesystem::path& project_root
         continue;
       }
       std::string content_hash;
-      const auto hash_report = asset_import::hash_source_file(source_path, content_hash);
-      if (hash_report.result != asset_import::asset_index_result::success) {
+      const auto hash_report = gneiss::tooling::hash_source_file(source_path, content_hash);
+      if (hash_report.result != gneiss::tooling::asset_index_result::success) {
         implementation_->emit(
             asset_reimport_state::failed, candidate.relative_path,
             diagnostic_report(editor_import_result::io_error, hash_report.diagnostic));
@@ -257,7 +256,7 @@ std::size_t asset_reimport_queue::tick(const std::filesystem::path& project_root
         continue;
       }
       if (indexed->content_hash == content_hash && indexed->importer_id == "gneiss.gltf" &&
-          indexed->importer_version == asset_import::gltf_importer_version) {
+          indexed->importer_version == gneiss::tooling::gltf_importer_version) {
         implementation_->emit(asset_reimport_state::unchanged, candidate.relative_path);
         iterator = implementation_->candidates.erase(iterator);
         continue;
@@ -275,7 +274,7 @@ std::size_t asset_reimport_queue::tick(const std::filesystem::path& project_root
     implementation_->finish_rescan();
   } catch (...) {
     if (is_rescanning()) {
-      implementation_->rescan_operation = gneiss::engine::core::result::io;
+      implementation_->rescan_operation = gneiss::engine::result::io;
       implementation_->rescan_active = false;
       implementation_->rescan_requested = false;
       implementation_->rescan_sources.clear();

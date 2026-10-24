@@ -11,39 +11,37 @@
 #include <memory>
 #include <string_view>
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 class virtual_file_system;
 }
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 
 using prefab_asset_ref = asset_ref<const prefab_description>;
 
 class prefab_asset_loader final {
 public:
-  prefab_asset_loader(const engine::resource::virtual_file_system& file_system,
-                      engine::resource::resource_cache& cache) noexcept
+  prefab_asset_loader(const gneiss::engine::virtual_file_system& file_system,
+                      gneiss::engine::resource_cache& cache) noexcept
       : file_system_(file_system), cache_(cache) {}
 
-  [[nodiscard]] gneiss::engine::core::result acquire(std::string_view uri,
-                                                     prefab_asset_ref& out_lease,
-                                                     scene_diagnostic& out_diagnostic) noexcept;
-  [[nodiscard]] gneiss::engine::core::result reload(std::string_view uri,
-                                                    prefab_asset_ref& out_lease,
-                                                    scene_diagnostic& out_diagnostic) noexcept;
+  [[nodiscard]] gneiss::engine::result acquire(std::string_view uri, prefab_asset_ref& out_lease,
+                                               scene_diagnostic& out_diagnostic) noexcept;
+  [[nodiscard]] gneiss::engine::result reload(std::string_view uri, prefab_asset_ref& out_lease,
+                                              scene_diagnostic& out_diagnostic) noexcept;
   /** 所属线程将已解析描述放入 URI 缓存，不读文件；旧实例引用仍保持有效。
    * 租约可独立于加载器存活，失败不替换已有缓存。 */
-  [[nodiscard]] gneiss::engine::core::result install_prepared(std::string_view uri,
-                                                              prefab_description description,
-                                                              prefab_asset_ref& out_lease) noexcept;
+  [[nodiscard]] gneiss::engine::result install_prepared(std::string_view uri,
+                                                        prefab_description description,
+                                                        prefab_asset_ref& out_lease) noexcept;
 
 private:
-  [[nodiscard]] core::result load(std::string_view uri, prefab_asset_ref& output,
-                                  scene_diagnostic& diagnostic, bool reload) noexcept;
-  const engine::resource::virtual_file_system& file_system_;
-  engine::resource::resource_cache& cache_;
+  [[nodiscard]] gneiss::engine::result load(std::string_view uri, prefab_asset_ref& output,
+                                            scene_diagnostic& diagnostic, bool reload) noexcept;
+  const gneiss::engine::virtual_file_system& file_system_;
+  gneiss::engine::resource_cache& cache_;
 };
 
-} // namespace gneiss::engine::resource
+} // namespace gneiss::engine
 
 #endif

@@ -6,18 +6,18 @@
 #include "engine/core/result.hpp"
 #include "virtual_file_system.hpp"
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 /** 示例 Source 的 VFS 接入；一次操作串行推进，每步最多读取 64 KiB。
  * 优先异步打开/区间读取；无此能力时在执行器中有界同步回退，不承诺单步耗时。
  * 销毁取消接收，后端保活并回收实际在途操作。 */
 class asset_source final {
 public:
   asset_source(virtual_file_system files, std::string uri, std::size_t limit);
-  [[nodiscard]] gneiss::engine::core::result advance();
+  [[nodiscard]] gneiss::engine::result advance();
   [[nodiscard]] const std::vector<std::byte>& bytes() const noexcept { return bytes_; }
 
 private:
-  [[nodiscard]] gneiss::engine::core::result read_contents();
+  [[nodiscard]] gneiss::engine::result read_contents();
   virtual_file_system files_;
   std::string uri_;
   std::size_t limit_;

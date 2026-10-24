@@ -20,7 +20,7 @@ namespace {
 } // namespace
 
 int main() { // NOLINT(bugprone-exception-escape)
-  namespace asset_import = gneiss::tooling::asset_import;
+  namespace asset_import = gneiss::tooling;
   const auto fixtures = std::filesystem::path{GNEISS_EDITOR_TEST_GLTF_ROOT};
   const auto root = std::filesystem::temp_directory_path() / "gneiss-editor-asset-import-test";
   const auto assets = root / "assets";
@@ -35,10 +35,10 @@ int main() { // NOLINT(bugprone-exception-escape)
     std::filesystem::remove_all(root);
     return 1;
   }
-  asset_import::asset_index index;
+  gneiss::tooling::asset_index index;
   const auto index_path = root / ".gneiss" / "asset-index.json";
-  if (asset_import::load_asset_index(index_path, index).result !=
-          asset_import::asset_index_result::success ||
+  if (gneiss::tooling::load_asset_index(index_path, index).result !=
+          gneiss::tooling::asset_index_result::success ||
       index.entries.size() != 1U) {
     std::filesystem::remove_all(root);
     return 2;

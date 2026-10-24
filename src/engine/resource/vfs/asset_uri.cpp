@@ -54,11 +54,11 @@ constexpr std::string_view scheme = "asset://";
 
 } // namespace
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 
-gneiss::engine::core::result validate_uri(std::string_view uri) noexcept {
+gneiss::engine::result validate_uri(std::string_view uri) noexcept {
   if (!uri.starts_with(scheme) || uri.size() == scheme.size() || !is_valid_utf8(uri)) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   const auto path = uri.substr(scheme.size());
   std::size_t segment_start = 0;
@@ -67,19 +67,19 @@ gneiss::engine::core::result validate_uri(std::string_view uri) noexcept {
       const auto value = static_cast<unsigned char>(path[index]);
       if (value < 0x20U || value == 0x7FU || path[index] == '\\' || path[index] == ':' ||
           path[index] == '?' || path[index] == '#' || path[index] == '%') {
-        return gneiss::engine::core::result::invalid_argument;
+        return gneiss::engine::result::invalid_argument;
       }
       continue;
     }
     const auto segment = path.substr(segment_start, index - segment_start);
     if (segment.empty() || segment == "." || segment == "..") {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     segment_start = index + 1;
   }
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
 std::string_view uri_path(std::string_view uri) noexcept { return uri.substr(scheme.size()); }
 
-} // namespace gneiss::engine::resource
+} // namespace gneiss::engine

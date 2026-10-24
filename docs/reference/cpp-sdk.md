@@ -19,11 +19,11 @@ Prefab 刷新令牌和 Game Module 包装已删除。application.hpp、game_modu
 ```cpp
 #include <gneiss/engine/application.h>
 
-gneiss_application app = GNEISS_NULL_APPLICATION;
+gneiss_application host = GNEISS_NULL_APPLICATION;
 gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-if (gneiss_application_create(&desc, &app) == GNEISS_SUCCESS) {
-  const auto run_result = gneiss_application_run(app, 3);
-  const auto close_result = gneiss_application_destroy(app);
+if (gneiss_application_create(&desc, &host) == GNEISS_SUCCESS) {
+  const auto run_result = gneiss_application_run(host, 3);
+  const auto close_result = gneiss_application_destroy(host);
   // 调用方处理运行与关闭结果。
   (void)run_result;
   (void)close_result;

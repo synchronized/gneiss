@@ -63,10 +63,10 @@ int main() try {
     return 4;
   }
   view.watches[0].waiting = true;
-  view.watches[1].operation = gneiss::engine::core::result::not_found;
+  view.watches[1].operation = gneiss::engine::result::not_found;
   view.watches[1].root = "missing/assets";
   view.watches[1].dropped = 2U;
-  view.source_scan_result = gneiss::engine::core::result::io;
+  view.source_scan_result = gneiss::engine::result::io;
   view.import_attempted = true;
   view.import_diagnostic = "Import failed";
   view.scene.visible = true;
@@ -76,7 +76,7 @@ int main() try {
   view.scene.budget = asset_budget_view{};
   view.reload.visible = true;
   view.reload.tone = asset_status_tone::error;
-  view.reload.publish_result = gneiss::engine::core::result::io;
+  view.reload.publish_result = gneiss::engine::result::io;
   view.reload.restart_required = true;
   view.author_change_visible = true;
   view.author_change_tone = asset_status_tone::error;

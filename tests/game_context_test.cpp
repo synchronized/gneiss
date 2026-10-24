@@ -58,22 +58,22 @@ int main() {
   desc.poll_events = poll_events;
   desc.update = update;
   gneiss_application application = GNEISS_NULL_APPLICATION;
-  if (gneiss::engine::core::result{gneiss_application_create(&desc, &application)} !=
-      gneiss::engine::core::result::success) {
+  if (gneiss::engine::result{gneiss_application_create(&desc, &application)} !=
+      gneiss::engine::result::success) {
     return 1;
   }
 
   gneiss_world expected_world = GNEISS_NULL_WORLD;
   gneiss_entity_id expected_root = GNEISS_NULL_ENTITY_ID;
   gneiss_game_context context = GNEISS_NULL_GAME_CONTEXT;
-  if (gneiss::engine::core::result{gneiss_application_get_world(application, &expected_world)} !=
-          gneiss::engine::core::result::success ||
-      gneiss::engine::core::result{gneiss_world_entity_create(expected_world, &expected_root)} !=
-          gneiss::engine::core::result::success ||
-      gneiss::runtime::game::create_game_context(application, expected_root, &context) !=
-          gneiss::engine::core::result::success ||
-      gneiss::runtime::game::set_game_context_log_source(context, "gneiss.test.module") !=
-          gneiss::engine::core::result::success ||
+  if (gneiss::engine::result{gneiss_application_get_world(application, &expected_world)} !=
+          gneiss::engine::result::success ||
+      gneiss::engine::result{gneiss_world_entity_create(expected_world, &expected_root)} !=
+          gneiss::engine::result::success ||
+      gneiss::runtime::create_game_context(application, expected_root, &context) !=
+          gneiss::engine::result::success ||
+      gneiss::runtime::set_game_context_log_source(context, "gneiss.test.module") !=
+          gneiss::engine::result::success ||
       context == GNEISS_NULL_GAME_CONTEXT) {
     return 2;
   }
@@ -84,25 +84,25 @@ int main() {
   }
   gneiss_entity_id actual_root = GNEISS_NULL_ENTITY_ID;
   gneiss_action action = GNEISS_NULL_ACTION;
-  if (gneiss::engine::core::result{gneiss_game_context_get_world(context, &actual_world)} !=
-          gneiss::engine::core::result::success ||
+  if (gneiss::engine::result{gneiss_game_context_get_world(context, &actual_world)} !=
+          gneiss::engine::result::success ||
       actual_world != expected_world ||
-      gneiss::engine::core::result{gneiss_game_context_get_startup_root_entity(
-          context, &actual_root)} != gneiss::engine::core::result::success ||
+      gneiss::engine::result{gneiss_game_context_get_startup_root_entity(context, &actual_root)} !=
+          gneiss::engine::result::success ||
       actual_root != expected_root ||
-      gneiss::engine::core::result{gneiss_game_context_find_action(
-          context, "missing", UINT64_C(7), &action)} != gneiss::engine::core::result::not_found ||
-      gneiss::engine::core::result{gneiss_game_context_request_exit(context)} !=
-          gneiss::engine::core::result::success) {
+      gneiss::engine::result{gneiss_game_context_find_action(
+          context, "missing", UINT64_C(7), &action)} != gneiss::engine::result::not_found ||
+      gneiss::engine::result{gneiss_game_context_request_exit(context)} !=
+          gneiss::engine::result::success) {
     return 3;
   }
 
   gneiss_action_state action_state = GNEISS_ACTION_STATE_INIT;
-  if (gneiss::engine::core::result{gneiss_game_context_find_action(
-          context, "move_horizontal", 15U, &action)} != gneiss::engine::core::result::success ||
+  if (gneiss::engine::result{gneiss_game_context_find_action(
+          context, "move_horizontal", 15U, &action)} != gneiss::engine::result::success ||
       action == GNEISS_NULL_ACTION ||
-      gneiss::engine::core::result{gneiss_game_context_get_action_state(
-          context, action, &action_state)} != gneiss::engine::core::result::success ||
+      gneiss::engine::result{gneiss_game_context_get_action_state(
+          context, action, &action_state)} != gneiss::engine::result::success ||
       action_state.held != 0U) {
     return 8;
   }
@@ -111,42 +111,40 @@ int main() {
   action = 7U;
   gneiss_action_state invalid_action_state = GNEISS_ACTION_STATE_INIT;
   invalid_action_state.struct_size = 0U;
-  if (gneiss::engine::core::result{gneiss_game_context_find_action(
-          context, nullptr, 0U, &action)} != gneiss::engine::core::result::invalid_argument ||
+  if (gneiss::engine::result{gneiss_game_context_find_action(context, nullptr, 0U, &action)} !=
+          gneiss::engine::result::invalid_argument ||
       action != 7U ||
-      gneiss::engine::core::result{
+      gneiss::engine::result{
           gneiss_game_context_find_action(GNEISS_NULL_GAME_CONTEXT, nullptr, 0U, nullptr)} !=
-          gneiss::engine::core::result::invalid_handle ||
-      gneiss::engine::core::result{gneiss_game_context_get_action_state(
-          context, 0U, &invalid_action_state)} != gneiss::engine::core::result::invalid_argument ||
-      gneiss::engine::core::result{gneiss_game_context_get_world(
-          GNEISS_NULL_GAME_CONTEXT, nullptr)} != gneiss::engine::core::result::invalid_argument) {
+          gneiss::engine::result::invalid_handle ||
+      gneiss::engine::result{gneiss_game_context_get_action_state(
+          context, 0U, &invalid_action_state)} != gneiss::engine::result::invalid_argument ||
+      gneiss::engine::result{gneiss_game_context_get_world(GNEISS_NULL_GAME_CONTEXT, nullptr)} !=
+          gneiss::engine::result::invalid_argument) {
     return 6;
   }
 
-  gneiss::engine::core::result cross_thread_result = gneiss::engine::core::result::success;
-  gneiss::engine::core::result cross_thread_log_result = gneiss::engine::core::result::internal;
+  gneiss::engine::result cross_thread_result = gneiss::engine::result::success;
+  gneiss::engine::result cross_thread_log_result = gneiss::engine::result::internal;
   const auto message = gneiss::make_log_message(gneiss::log_severity::info, "test", "worker ready");
   const auto native_message = gneiss::to_native(message);
   std::thread other([&] {
     cross_thread_result =
-        gneiss::engine::core::result{gneiss_game_context_get_world(context, &actual_world)};
+        gneiss::engine::result{gneiss_game_context_get_world(context, &actual_world)};
     cross_thread_log_result =
-        gneiss::engine::core::result{gneiss_game_context_log(context, &native_message)};
+        gneiss::engine::result{gneiss_game_context_log(context, &native_message)};
   });
   other.join();
-  if (cross_thread_result != gneiss::engine::core::result::invalid_handle ||
-      cross_thread_log_result != gneiss::engine::core::result::success ||
-      gneiss::runtime::game::destroy_game_context(context) !=
-          gneiss::engine::core::result::success ||
-      gneiss::engine::core::result{gneiss_game_context_get_world(context, &actual_world)} !=
-          gneiss::engine::core::result::invalid_handle ||
-      gneiss::engine::core::result{gneiss_game_context_log(context, &native_message)} !=
-          gneiss::engine::core::result::invalid_handle ||
-      gneiss::runtime::game::destroy_game_context(context) !=
-          gneiss::engine::core::result::invalid_handle ||
-      gneiss::engine::core::result{gneiss_application_destroy(application)} !=
-          gneiss::engine::core::result::success) {
+  if (cross_thread_result != gneiss::engine::result::invalid_handle ||
+      cross_thread_log_result != gneiss::engine::result::success ||
+      gneiss::runtime::destroy_game_context(context) != gneiss::engine::result::success ||
+      gneiss::engine::result{gneiss_game_context_get_world(context, &actual_world)} !=
+          gneiss::engine::result::invalid_handle ||
+      gneiss::engine::result{gneiss_game_context_log(context, &native_message)} !=
+          gneiss::engine::result::invalid_handle ||
+      gneiss::runtime::destroy_game_context(context) != gneiss::engine::result::invalid_handle ||
+      gneiss::engine::result{gneiss_application_destroy(application)} !=
+          gneiss::engine::result::success) {
     return 4;
   }
   {

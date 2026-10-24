@@ -12,7 +12,7 @@
 
 #include <vector>
 
-namespace gneiss::editor {
+namespace gneiss::host {
 
 /** 组合 Runtime 到 Editor 的协议域，并输出强类型事件。 */
 class editor_ipc_router final {
@@ -22,9 +22,9 @@ public:
   editor_ipc_router(const editor_ipc_router&) = delete;
   editor_ipc_router& operator=(const editor_ipc_router&) = delete;
 
-  [[nodiscard]] gneiss::engine::core::result
-  dispatch(const gneiss::engine::platform::ipc_envelope& envelope, bool is_authenticated,
-           const std::vector<gneiss::engine::platform::ipc_domain_capability>& negotiated_domains,
+  [[nodiscard]] gneiss::engine::result
+  dispatch(const gneiss::engine::ipc_envelope& envelope, bool is_authenticated,
+           const std::vector<gneiss::engine::ipc_domain_capability>& negotiated_domains,
            runtime_ipc_event& output) noexcept;
   [[nodiscard]] bool is_ready() const noexcept;
 
@@ -33,6 +33,6 @@ private:
   bool is_ready_ = false;
 };
 
-} // namespace gneiss::editor
+} // namespace gneiss::host
 
 #endif

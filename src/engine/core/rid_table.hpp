@@ -15,7 +15,7 @@
 #include <utility>
 #include <vector>
 
-namespace gneiss::engine::core {
+namespace gneiss::engine {
 
 enum class resource_type : std::uint8_t {
   invalid = 0,
@@ -76,10 +76,10 @@ public:
   rid_table& operator=(rid_table&&) = delete;
 
   template <typename Value>
-  [[nodiscard]] gneiss::engine::core::result create(resource_type type, Value&& value,
-                                                    rid* out_rid) noexcept {
+  [[nodiscard]] gneiss::engine::result create(resource_type type, Value&& value,
+                                              rid* out_rid) noexcept {
     if (out_rid == nullptr || domain_ == 0U || type == resource_type::invalid) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     *out_rid = null_rid;
 
@@ -92,7 +92,7 @@ public:
       }
       if (index == slots_.size()) {
         if (slots_.size() >= detail::slot_mask) {
-          return gneiss::engine::core::result::out_of_memory;
+          return gneiss::engine::result::out_of_memory;
         }
         slots_.emplace_back();
       }
@@ -102,11 +102,11 @@ public:
       slot.type = type;
       *out_rid =
           detail::encode_rid({static_cast<std::uint32_t>(index), slot.generation, type, domain_});
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     } catch (const std::bad_alloc&) {
-      return gneiss::engine::core::result::out_of_memory;
+      return gneiss::engine::result::out_of_memory;
     } catch (...) {
-      return gneiss::engine::core::result::internal;
+      return gneiss::engine::result::internal;
     }
   }
 
@@ -126,11 +126,10 @@ public:
     return &*slots_[parts.slot].value;
   }
 
-  [[nodiscard]] gneiss::engine::core::result destroy(rid value,
-                                                     resource_type expected_type) noexcept {
+  [[nodiscard]] gneiss::engine::result destroy(rid value, resource_type expected_type) noexcept {
     const auto parts = detail::decode_rid(value);
     if (!is_valid(parts, expected_type)) {
-      return gneiss::engine::core::result::invalid_handle;
+      return gneiss::engine::result::invalid_handle;
     }
 
     auto& slot = slots_[parts.slot];
@@ -142,7 +141,7 @@ public:
     } else {
       ++slot.generation;
     }
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   }
 
   /** 仅遍历存活且类型匹配的值；回调不得创建或销毁本表槽位。 */
@@ -183,6 +182,6 @@ private:
   std::vector<slot> slots_;
 };
 
-} // namespace gneiss::engine::core
+} // namespace gneiss::engine
 
 #endif

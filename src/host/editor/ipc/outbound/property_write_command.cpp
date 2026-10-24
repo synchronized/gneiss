@@ -6,13 +6,12 @@
 
 #include "ipc_property_protocol.hpp"
 
-namespace gneiss::editor {
+namespace gneiss::host {
 
-gneiss::engine::core::result
-make_property_write_command(const ipc_property_write& command,
-                            gneiss::engine::platform::ipc_envelope& output) noexcept {
+gneiss::engine::result make_property_write_command(const ipc_property_write& command,
+                                                   gneiss::engine::ipc_envelope& output) noexcept {
   return encode_ipc_property_write_v2(command, static_cast<std::uint32_t>(command.command_id),
                                       output);
 }
 
-} // namespace gneiss::editor
+} // namespace gneiss::host

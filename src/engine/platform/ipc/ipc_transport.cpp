@@ -23,7 +23,7 @@
 #include <span>
 #include <utility>
 
-namespace gneiss::engine::platform {
+namespace gneiss::engine {
 
 struct ipc_transport::implementation final {
   enum class mode : std::uint8_t { none, server, client };
@@ -41,7 +41,7 @@ struct ipc_transport::implementation final {
   implementation(std::size_t events, std::size_t writes)
       : event_capacity(events), write_capacity(writes) {}
 
-  engine::platform::io::uv_loop_executor executor;
+  gneiss::engine::uv_loop_executor executor;
   uv_tcp_t listener{};
   uv_tcp_t stream{};
   uv_connect_t connect_request{};
@@ -99,9 +99,8 @@ struct ipc_transport::implementation final {
     }
   }
 
-  void emit_status(
-      ipc_transport_event_type type,
-      gneiss::engine::core::result operation = gneiss::engine::core::result::success) noexcept {
+  void emit_status(ipc_transport_event_type type,
+                   gneiss::engine::result operation = gneiss::engine::result::success) noexcept {
     ipc_transport_event event;
     event.type = type;
     event.operation = operation;
@@ -137,7 +136,7 @@ struct ipc_transport::implementation final {
                                    static_cast<std::size_t>(count));
       std::vector<ipc_envelope> envelopes;
       const auto operation = self->envelope_decoder.append(bytes, envelopes);
-      if (operation == gneiss::engine::core::result::success) {
+      if (operation == gneiss::engine::result::success) {
         for (auto& envelope : envelopes) {
           ipc_transport_event event;
           event.type = ipc_transport_event_type::envelope_received;
@@ -145,7 +144,7 @@ struct ipc_transport::implementation final {
           self->emit(std::move(event));
         }
       }
-      if (operation != gneiss::engine::core::result::success) {
+      if (operation != gneiss::engine::result::success) {
         self->emit_status(ipc_transport_event_type::error, operation);
         self->current_state.store(ipc_transport_state::failed, std::memory_order_release);
         self->close_stream();
@@ -155,8 +154,8 @@ struct ipc_transport::implementation final {
     }
     if (count < 0) {
       const auto operation = count == UV_EOF
-                                 ? gneiss::engine::core::result::success
-                                 : engine::platform::io::from_uv_status(static_cast<int>(count));
+                                 ? gneiss::engine::result::success
+                                 : gneiss::engine::from_uv_status(static_cast<int>(count));
       if (!self->is_stopping) {
         self->emit_status(ipc_transport_event_type::disconnected, operation);
       }
@@ -164,10 +163,10 @@ struct ipc_transport::implementation final {
     }
   }
 
-  gneiss::engine::core::result begin_read() noexcept {
-    const auto operation = engine::platform::io::from_uv_status(
+  gneiss::engine::result begin_read() noexcept {
+    const auto operation = gneiss::engine::from_uv_status(
         uv_read_start(reinterpret_cast<uv_stream_t*>(&stream), allocate_read_buffer, on_read));
-    if (operation == gneiss::engine::core::result::success) {
+    if (operation == gneiss::engine::result::success) {
       current_state.store(ipc_transport_state::connected, std::memory_order_release);
       emit_status(ipc_transport_event_type::connected);
     }
@@ -182,8 +181,7 @@ struct ipc_transport::implementation final {
     auto* self = static_cast<implementation*>(server->data);
     if (status < 0 || self->is_stopping) {
       if (status < 0 && !self->is_stopping) {
-        self->emit_status(ipc_transport_event_type::error,
-                          engine::platform::io::from_uv_status(status));
+        self->emit_status(ipc_transport_event_type::error, gneiss::engine::from_uv_status(status));
       }
       return;
     }
@@ -191,8 +189,7 @@ struct ipc_transport::implementation final {
       auto* rejected = new (std::nothrow) rejected_connection;
       if (rejected == nullptr || uv_tcp_init(server->loop, &rejected->stream) != 0) {
         delete rejected;
-        self->emit_status(ipc_transport_event_type::error,
-                          gneiss::engine::core::result::out_of_memory);
+        self->emit_status(ipc_transport_event_type::error, gneiss::engine::result::out_of_memory);
         return;
       }
       if (uv_accept(server, reinterpret_cast<uv_stream_t*>(&rejected->stream)) != 0) {
@@ -204,22 +201,22 @@ struct ipc_transport::implementation final {
     }
 
     const auto initialized =
-        engine::platform::io::from_uv_status(uv_tcp_init(server->loop, &self->stream));
-    if (initialized != gneiss::engine::core::result::success) {
+        gneiss::engine::from_uv_status(uv_tcp_init(server->loop, &self->stream));
+    if (initialized != gneiss::engine::result::success) {
       self->emit_status(ipc_transport_event_type::error, initialized);
       return;
     }
     self->stream_initialized = true;
     self->stream.data = self;
-    const auto accepted = engine::platform::io::from_uv_status(
+    const auto accepted = gneiss::engine::from_uv_status(
         uv_accept(server, reinterpret_cast<uv_stream_t*>(&self->stream)));
-    if (accepted != gneiss::engine::core::result::success) {
+    if (accepted != gneiss::engine::result::success) {
       self->emit_status(ipc_transport_event_type::error, accepted);
       self->close_stream();
       return;
     }
     const auto reading = self->begin_read();
-    if (reading != gneiss::engine::core::result::success) {
+    if (reading != gneiss::engine::result::success) {
       self->emit_status(ipc_transport_event_type::error, reading);
       self->close_stream();
     }
@@ -232,13 +229,12 @@ struct ipc_transport::implementation final {
     }
     if (status < 0) {
       self->current_state.store(ipc_transport_state::failed, std::memory_order_release);
-      self->emit_status(ipc_transport_event_type::error,
-                        engine::platform::io::from_uv_status(status));
+      self->emit_status(ipc_transport_event_type::error, gneiss::engine::from_uv_status(status));
       self->close_stream();
       return;
     }
     const auto reading = self->begin_read();
-    if (reading != gneiss::engine::core::result::success) {
+    if (reading != gneiss::engine::result::success) {
       self->current_state.store(ipc_transport_state::failed, std::memory_order_release);
       self->emit_status(ipc_transport_event_type::error, reading);
       self->close_stream();
@@ -250,7 +246,7 @@ struct ipc_transport::implementation final {
     write->owner->pending_writes.fetch_sub(1U, std::memory_order_release);
     if (status < 0 && !write->owner->is_stopping) {
       write->owner->emit_status(ipc_transport_event_type::error,
-                                engine::platform::io::from_uv_status(status));
+                                gneiss::engine::from_uv_status(status));
     }
     delete write;
   }
@@ -258,13 +254,13 @@ struct ipc_transport::implementation final {
   void write(std::vector<std::uint8_t> bytes) noexcept {
     if (!stream_initialized || uv_is_closing(reinterpret_cast<uv_handle_t*>(&stream)) != 0) {
       pending_writes.fetch_sub(1U, std::memory_order_release);
-      emit_status(ipc_transport_event_type::error, gneiss::engine::core::result::not_ready);
+      emit_status(ipc_transport_event_type::error, gneiss::engine::result::not_ready);
       return;
     }
     auto* write = new (std::nothrow) write_request;
     if (write == nullptr) {
       pending_writes.fetch_sub(1U, std::memory_order_release);
-      emit_status(ipc_transport_event_type::error, gneiss::engine::core::result::out_of_memory);
+      emit_status(ipc_transport_event_type::error, gneiss::engine::result::out_of_memory);
       return;
     }
     write->owner = this;
@@ -276,28 +272,28 @@ struct ipc_transport::implementation final {
         uv_write(&write->request, reinterpret_cast<uv_stream_t*>(&stream), &buffer, 1U, on_write);
     if (operation != 0) {
       pending_writes.fetch_sub(1U, std::memory_order_release);
-      emit_status(ipc_transport_event_type::error, engine::platform::io::from_uv_status(operation));
+      emit_status(ipc_transport_event_type::error, gneiss::engine::from_uv_status(operation));
       delete write;
     }
   }
 
-  gneiss::engine::core::result enqueue(std::vector<std::uint8_t> bytes, bool log) noexcept {
+  gneiss::engine::result enqueue(std::vector<std::uint8_t> bytes, bool log) noexcept {
     // 在同一个 CAS 中为非日志消息保留容量，避免并发日志发送占满控制通道。
     const auto limit =
         write_capacity - (log ? (std::min)(write_capacity / 4U, std::size_t{16U}) : 0U);
     auto pending = pending_writes.load(std::memory_order_relaxed);
     do {
       if (pending >= limit) {
-        return gneiss::engine::core::result::not_ready;
+        return gneiss::engine::result::not_ready;
       }
     } while (!pending_writes.compare_exchange_weak(pending, pending + 1U, std::memory_order_acq_rel,
                                                    std::memory_order_relaxed));
 
-    const auto operation = engine::platform::io::uv_loop_access::post(
+    const auto operation = gneiss::engine::uv_loop_access::post(
         executor, [state = this, data = std::move(bytes)](uv_loop_t*) mutable {
           state->write(std::move(data));
         });
-    if (operation != gneiss::engine::core::result::success) {
+    if (operation != gneiss::engine::result::success) {
       pending_writes.fetch_sub(1U, std::memory_order_release);
     }
     return operation;
@@ -326,47 +322,47 @@ ipc_transport::~ipc_transport() {
   }
 }
 
-gneiss::engine::core::result ipc_transport::start_server() noexcept {
+gneiss::engine::result ipc_transport::start_server() noexcept {
   if (!implementation_ || implementation_->event_capacity == 0U ||
       implementation_->write_capacity == 0U) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   if (implementation_->current_state.load(std::memory_order_acquire) !=
       ipc_transport_state::stopped) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   implementation_->reset_for_start(implementation::mode::server);
   auto operation = implementation_->executor.start();
-  if (operation != gneiss::engine::core::result::success) {
+  if (operation != gneiss::engine::result::success) {
     return operation;
   }
 
   try {
-    auto completion = std::make_shared<std::promise<gneiss::engine::core::result>>();
+    auto completion = std::make_shared<std::promise<gneiss::engine::result>>();
     auto completed = completion->get_future();
-    operation = engine::platform::io::uv_loop_access::post(
+    operation = gneiss::engine::uv_loop_access::post(
         implementation_->executor, [state = implementation_.get(), completion](uv_loop_t* loop) {
-          auto current = engine::platform::io::from_uv_status(uv_tcp_init(loop, &state->listener));
-          if (current == gneiss::engine::core::result::success) {
+          auto current = gneiss::engine::from_uv_status(uv_tcp_init(loop, &state->listener));
+          if (current == gneiss::engine::result::success) {
             state->listener_initialized = true;
             state->listener.data = state;
             sockaddr_in address{};
-            current = engine::platform::io::from_uv_status(uv_ip4_addr("127.0.0.1", 0, &address));
-            if (current == gneiss::engine::core::result::success) {
-              current = engine::platform::io::from_uv_status(
+            current = gneiss::engine::from_uv_status(uv_ip4_addr("127.0.0.1", 0, &address));
+            if (current == gneiss::engine::result::success) {
+              current = gneiss::engine::from_uv_status(
                   uv_tcp_bind(&state->listener, reinterpret_cast<const sockaddr*>(&address), 0U));
             }
-            if (current == gneiss::engine::core::result::success) {
-              current = engine::platform::io::from_uv_status(
+            if (current == gneiss::engine::result::success) {
+              current = gneiss::engine::from_uv_status(
                   uv_listen(reinterpret_cast<uv_stream_t*>(&state->listener), 1,
                             implementation::on_connection));
             }
-            if (current == gneiss::engine::core::result::success) {
+            if (current == gneiss::engine::result::success) {
               sockaddr_in local{};
               int length = sizeof(local);
-              current = engine::platform::io::from_uv_status(uv_tcp_getsockname(
+              current = gneiss::engine::from_uv_status(uv_tcp_getsockname(
                   &state->listener, reinterpret_cast<sockaddr*>(&local), &length));
-              if (current == gneiss::engine::core::result::success) {
+              if (current == gneiss::engine::result::success) {
                 state->local_endpoint = {"127.0.0.1", ntohs(local.sin_port)};
                 state->current_state.store(ipc_transport_state::listening,
                                            std::memory_order_release);
@@ -374,7 +370,7 @@ gneiss::engine::core::result ipc_transport::start_server() noexcept {
               }
             }
           }
-          if (current != gneiss::engine::core::result::success) {
+          if (current != gneiss::engine::result::success) {
             state->current_state.store(ipc_transport_state::failed, std::memory_order_release);
             state->emit_status(ipc_transport_event_type::error, current);
             if (state->listener_initialized) {
@@ -383,58 +379,58 @@ gneiss::engine::core::result ipc_transport::start_server() noexcept {
           }
           completion->set_value(current);
         });
-    if (operation == gneiss::engine::core::result::success) {
+    if (operation == gneiss::engine::result::success) {
       operation = completed.get();
     }
   } catch (const std::bad_alloc&) {
-    operation = gneiss::engine::core::result::out_of_memory;
+    operation = gneiss::engine::result::out_of_memory;
   } catch (...) {
-    operation = gneiss::engine::core::result::internal;
+    operation = gneiss::engine::result::internal;
   }
-  if (operation != gneiss::engine::core::result::success) {
+  if (operation != gneiss::engine::result::success) {
     (void)implementation_->executor.stop();
     implementation_->current_state.store(ipc_transport_state::stopped, std::memory_order_release);
   }
   return operation;
 }
 
-gneiss::engine::core::result ipc_transport::start_client(const ipc_endpoint& endpoint) noexcept {
+gneiss::engine::result ipc_transport::start_client(const ipc_endpoint& endpoint) noexcept {
   if (!implementation_ || implementation_->event_capacity == 0U ||
       implementation_->write_capacity == 0U || endpoint.address != "127.0.0.1" ||
       endpoint.port == 0U) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   if (implementation_->current_state.load(std::memory_order_acquire) !=
       ipc_transport_state::stopped) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   implementation_->reset_for_start(implementation::mode::client);
   auto operation = implementation_->executor.start();
-  if (operation != gneiss::engine::core::result::success) {
+  if (operation != gneiss::engine::result::success) {
     return operation;
   }
 
   try {
-    auto completion = std::make_shared<std::promise<gneiss::engine::core::result>>();
+    auto completion = std::make_shared<std::promise<gneiss::engine::result>>();
     auto completed = completion->get_future();
-    operation = engine::platform::io::uv_loop_access::post(
+    operation = gneiss::engine::uv_loop_access::post(
         implementation_->executor,
         [state = implementation_.get(), endpoint, completion](uv_loop_t* loop) {
-          auto current = engine::platform::io::from_uv_status(uv_tcp_init(loop, &state->stream));
-          if (current == gneiss::engine::core::result::success) {
+          auto current = gneiss::engine::from_uv_status(uv_tcp_init(loop, &state->stream));
+          if (current == gneiss::engine::result::success) {
             state->stream_initialized = true;
             state->stream.data = state;
             state->connect_request.data = state;
             sockaddr_in address{};
-            current = engine::platform::io::from_uv_status(
+            current = gneiss::engine::from_uv_status(
                 uv_ip4_addr(endpoint.address.c_str(), endpoint.port, &address));
-            if (current == gneiss::engine::core::result::success) {
-              current = engine::platform::io::from_uv_status(uv_tcp_connect(
+            if (current == gneiss::engine::result::success) {
+              current = gneiss::engine::from_uv_status(uv_tcp_connect(
                   &state->connect_request, &state->stream,
                   reinterpret_cast<const sockaddr*>(&address), implementation::on_connect));
             }
           }
-          if (current == gneiss::engine::core::result::success) {
+          if (current == gneiss::engine::result::success) {
             state->current_state.store(ipc_transport_state::connecting, std::memory_order_release);
           } else {
             state->current_state.store(ipc_transport_state::failed, std::memory_order_release);
@@ -443,29 +439,29 @@ gneiss::engine::core::result ipc_transport::start_client(const ipc_endpoint& end
           }
           completion->set_value(current);
         });
-    if (operation == gneiss::engine::core::result::success) {
+    if (operation == gneiss::engine::result::success) {
       operation = completed.get();
     }
   } catch (const std::bad_alloc&) {
-    operation = gneiss::engine::core::result::out_of_memory;
+    operation = gneiss::engine::result::out_of_memory;
   } catch (...) {
-    operation = gneiss::engine::core::result::internal;
+    operation = gneiss::engine::result::internal;
   }
-  if (operation != gneiss::engine::core::result::success) {
+  if (operation != gneiss::engine::result::success) {
     (void)implementation_->executor.stop();
     implementation_->current_state.store(ipc_transport_state::stopped, std::memory_order_release);
   }
   return operation;
 }
 
-gneiss::engine::core::result ipc_transport::send(const ipc_envelope& envelope) noexcept {
+gneiss::engine::result ipc_transport::send(const ipc_envelope& envelope) noexcept {
   if (!implementation_ || implementation_->current_state.load(std::memory_order_acquire) !=
                               ipc_transport_state::connected) {
-    return gneiss::engine::core::result::not_ready;
+    return gneiss::engine::result::not_ready;
   }
   std::vector<std::uint8_t> encoded;
   const auto operation = encode_ipc_envelope(envelope, encoded);
-  return operation == gneiss::engine::core::result::success
+  return operation == gneiss::engine::result::success
              ? implementation_->enqueue(std::move(encoded),
                                         envelope.domain == ipc_domain::log &&
                                             envelope.kind == ipc_message_kind::event)
@@ -476,12 +472,12 @@ std::size_t ipc_transport::pending_write_count() const noexcept {
   return implementation_ ? implementation_->pending_writes.load(std::memory_order_acquire) : 0U;
 }
 
-gneiss::engine::core::result ipc_transport::stop() noexcept {
+gneiss::engine::result ipc_transport::stop() noexcept {
   if (!implementation_ || !implementation_->executor.is_running()) {
-    return gneiss::engine::core::result::not_ready;
+    return gneiss::engine::result::not_ready;
   }
   implementation_->current_state.store(ipc_transport_state::stopping, std::memory_order_release);
-  auto operation = engine::platform::io::uv_loop_access::post(
+  auto operation = gneiss::engine::uv_loop_access::post(
       implementation_->executor, [state = implementation_.get()](uv_loop_t*) {
         state->is_stopping = true;
         state->close_stream();
@@ -490,7 +486,7 @@ gneiss::engine::core::result ipc_transport::stop() noexcept {
           uv_close(reinterpret_cast<uv_handle_t*>(&state->listener), nullptr);
         }
       });
-  if (operation != gneiss::engine::core::result::success) {
+  if (operation != gneiss::engine::result::success) {
     return operation;
   }
   operation = implementation_->executor.stop();
@@ -540,4 +536,4 @@ std::size_t ipc_transport::dropped_event_count() const noexcept {
   return implementation_ ? implementation_->dropped_events.load(std::memory_order_relaxed) : 0U;
 }
 
-} // namespace gneiss::engine::platform
+} // namespace gneiss::engine

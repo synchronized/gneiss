@@ -12,9 +12,7 @@ namespace {
 
 constexpr std::uint32_t envelope_magic = UINT32_C(0x474E4932);
 constexpr std::size_t max_decoder_buffer_size =
-    (gneiss::engine::platform::ipc_envelope_header_size +
-     gneiss::engine::platform::ipc_envelope_max_payload_size) *
-    2U;
+    (gneiss::engine::ipc_envelope_header_size + gneiss::engine::ipc_envelope_max_payload_size) * 2U;
 
 void write_u16(std::uint8_t* destination, std::uint16_t value) noexcept {
   destination[0] = static_cast<std::uint8_t>(value >> 8U);
@@ -39,12 +37,12 @@ void write_u32(std::uint8_t* destination, std::uint32_t value) noexcept {
          (static_cast<std::uint32_t>(source[2]) << 8U) | static_cast<std::uint32_t>(source[3]);
 }
 
-[[nodiscard]] bool is_known_kind(gneiss::engine::platform::ipc_message_kind kind) noexcept {
+[[nodiscard]] bool is_known_kind(gneiss::engine::ipc_message_kind kind) noexcept {
   switch (kind) {
-  case gneiss::engine::platform::ipc_message_kind::event:
-  case gneiss::engine::platform::ipc_message_kind::request:
-  case gneiss::engine::platform::ipc_message_kind::response:
-  case gneiss::engine::platform::ipc_message_kind::error:
+  case gneiss::engine::ipc_message_kind::event:
+  case gneiss::engine::ipc_message_kind::request:
+  case gneiss::engine::ipc_message_kind::response:
+  case gneiss::engine::ipc_message_kind::error:
     return true;
   }
   return false;
@@ -52,27 +50,27 @@ void write_u32(std::uint8_t* destination, std::uint32_t value) noexcept {
 
 } // namespace
 
-namespace gneiss::engine::platform {
+namespace gneiss::engine {
 
-gneiss::engine::core::result validate_ipc_envelope(const ipc_envelope& envelope) noexcept {
+gneiss::engine::result validate_ipc_envelope(const ipc_envelope& envelope) noexcept {
   if (envelope.protocol_major != ipc_v2_protocol_major ||
       envelope.protocol_minor > ipc_v2_protocol_minor ||
       static_cast<std::uint16_t>(envelope.domain) == 0U || envelope.operation == 0U ||
       !is_known_kind(envelope.kind) || envelope.payload.size() > ipc_envelope_max_payload_size ||
       envelope.payload.size() > std::numeric_limits<std::uint32_t>::max()) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   if ((envelope.kind == ipc_message_kind::event && envelope.request_id != 0U) ||
       (envelope.kind != ipc_message_kind::event && envelope.request_id == 0U)) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-gneiss::engine::core::result encode_ipc_envelope(const ipc_envelope& envelope,
-                                                 std::vector<std::uint8_t>& output) noexcept {
-  if (validate_ipc_envelope(envelope) != gneiss::engine::core::result::success) {
-    return gneiss::engine::core::result::invalid_argument;
+gneiss::engine::result encode_ipc_envelope(const ipc_envelope& envelope,
+                                           std::vector<std::uint8_t>& output) noexcept {
+  if (validate_ipc_envelope(envelope) != gneiss::engine::result::success) {
+    return gneiss::engine::result::invalid_argument;
   }
   try {
     std::vector<std::uint8_t> encoded(ipc_envelope_header_size + envelope.payload.size());
@@ -87,28 +85,27 @@ gneiss::engine::core::result encode_ipc_envelope(const ipc_envelope& envelope,
     write_u32(encoded.data() + 20U, static_cast<std::uint32_t>(envelope.payload.size()));
     std::ranges::copy(envelope.payload, encoded.begin() + ipc_envelope_header_size);
     output = std::move(encoded);
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result
-ipc_envelope_decoder::append(std::span<const std::uint8_t> bytes,
-                             std::vector<ipc_envelope>& output) noexcept {
+gneiss::engine::result ipc_envelope_decoder::append(std::span<const std::uint8_t> bytes,
+                                                    std::vector<ipc_envelope>& output) noexcept {
   if (has_failed_) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   if (bytes.empty()) {
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   }
   if (bytes.size() > max_decoder_buffer_size ||
       buffer_.size() > max_decoder_buffer_size - bytes.size()) {
     has_failed_ = true;
     buffer_.clear();
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   try {
     buffer_.insert(buffer_.end(), bytes.begin(), bytes.end());
@@ -118,13 +115,13 @@ ipc_envelope_decoder::append(std::span<const std::uint8_t> bytes,
       if (read_u32(header) != envelope_magic || read_u16(header + 14U) != 0U) {
         has_failed_ = true;
         buffer_.clear();
-        return gneiss::engine::core::result::invalid_argument;
+        return gneiss::engine::result::invalid_argument;
       }
       const auto payload_size = static_cast<std::size_t>(read_u32(header + 20U));
       if (payload_size > ipc_envelope_max_payload_size) {
         has_failed_ = true;
         buffer_.clear();
-        return gneiss::engine::core::result::invalid_argument;
+        return gneiss::engine::result::invalid_argument;
       }
       const auto envelope_size = ipc_envelope_header_size + payload_size;
       if (buffer_.size() - offset < envelope_size) {
@@ -139,10 +136,10 @@ ipc_envelope_decoder::append(std::span<const std::uint8_t> bytes,
       decoded.kind = static_cast<ipc_message_kind>(read_u16(header + 12U));
       decoded.request_id = read_u32(header + 16U);
       decoded.payload.assign(header + ipc_envelope_header_size, header + envelope_size);
-      if (validate_ipc_envelope(decoded) != gneiss::engine::core::result::success) {
+      if (validate_ipc_envelope(decoded) != gneiss::engine::result::success) {
         has_failed_ = true;
         buffer_.clear();
-        return gneiss::engine::core::result::invalid_argument;
+        return gneiss::engine::result::invalid_argument;
       }
       output.push_back(std::move(decoded));
       offset += envelope_size;
@@ -150,15 +147,15 @@ ipc_envelope_decoder::append(std::span<const std::uint8_t> bytes,
     if (offset != 0U) {
       buffer_.erase(buffer_.begin(), buffer_.begin() + static_cast<std::ptrdiff_t>(offset));
     }
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
     has_failed_ = true;
     buffer_.clear();
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
     has_failed_ = true;
     buffer_.clear();
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
@@ -171,4 +168,4 @@ bool ipc_envelope_decoder::has_failed() const noexcept { return has_failed_; }
 
 std::size_t ipc_envelope_decoder::buffered_size() const noexcept { return buffer_.size(); }
 
-} // namespace gneiss::engine::platform
+} // namespace gneiss::engine

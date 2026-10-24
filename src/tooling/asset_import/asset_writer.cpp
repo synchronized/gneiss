@@ -12,7 +12,7 @@
 #include <sstream>
 #include <system_error>
 
-namespace gneiss::tooling::asset_import {
+namespace gneiss::tooling {
 namespace {
 
 void configure(std::ostream& stream) {
@@ -40,7 +40,7 @@ void configure(std::ostream& stream) {
 
 [[nodiscard]] bool write_mesh(const import_ir_primitive& primitive,
                               const std::filesystem::path& path) {
-  engine::resource::mesh_binary_data data;
+  gneiss::engine::mesh_binary_data data;
   data.vertices.reserve(primitive.vertices.size());
   data.tangents.reserve(primitive.vertices.size());
   data.indices = primitive.indices;
@@ -56,9 +56,9 @@ void configure(std::ostream& stream) {
          .normal = {source.normal[0], source.normal[1], source.normal[2]}});
   }
   std::vector<std::byte> bytes;
-  engine::resource::mesh_binary_diagnostic diagnostic;
-  if (engine::resource::encode_mesh_binary(data, bytes, diagnostic) !=
-      engine::resource::mesh_binary_result::success) {
+  gneiss::engine::mesh_binary_diagnostic diagnostic;
+  if (gneiss::engine::encode_mesh_binary(data, bytes, diagnostic) !=
+      gneiss::engine::mesh_binary_result::success) {
     return false;
   }
   std::ofstream stream(path, std::ios::binary | std::ios::trunc);
@@ -390,4 +390,4 @@ write_report write_assets(const import_ir& data, const std::filesystem::path& ou
   }
 }
 
-} // namespace gneiss::tooling::asset_import
+} // namespace gneiss::tooling

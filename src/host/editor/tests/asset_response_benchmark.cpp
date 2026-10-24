@@ -25,7 +25,7 @@ template <typename Function> double measure(Function operation) {
 }
 
 void run_case(const std::filesystem::path& root, std::size_t bytes, std::size_t files) {
-  namespace assets = gneiss::tooling::asset_import;
+  namespace assets = gneiss::tooling;
   std::filesystem::create_directories(root / "input");
   std::filesystem::create_directories(root / "assets");
   std::ifstream fixture(GNEISS_TEST_SOURCE, std::ios::binary);
@@ -87,7 +87,7 @@ void run_case(const std::filesystem::path& root, std::size_t bytes, std::size_t 
         ++ticks;
       }
     });
-    if (queue.is_rescanning() || queue.rescan_result() != gneiss::engine::core::result::success ||
+    if (queue.is_rescanning() || queue.rescan_result() != gneiss::engine::result::success ||
         imports != (changed ? 1U : 0U)) {
       throw std::runtime_error("rescan failed");
     }

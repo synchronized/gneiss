@@ -5,7 +5,7 @@
 #include "engine/core/result.hpp"
 #include "runtime/application.hpp"
 
-namespace gneiss::host::runtime {
+namespace gneiss::host {
 namespace {
 ipc_scene_phase convert(::gneiss::runtime::scene_load_phase phase) {
   using source = ::gneiss::runtime::scene_load_phase;
@@ -48,53 +48,53 @@ const char* phase_message(ipc_scene_phase phase) {
 }
 
 }
-gneiss::engine::core::result runtime_scene_loader::request(ipc_scene_request source,
-                                                           std::uint32_t request_id) {
+gneiss::engine::result runtime_scene_loader::request(ipc_scene_request source,
+                                                     std::uint32_t request_id) {
   if (active_) {
-    return gneiss::engine::core::result::not_ready;
+    return gneiss::engine::result::not_ready;
   }
   if (source.session == progress_.source.session && source.revision <= progress_.source.revision) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   std::uint64_t accepted{};
   const auto result =
       application_.request_scene(source.uri, source.session, source.revision, accepted);
-  if (result != gneiss::engine::core::result::success) {
+  if (result != gneiss::engine::result::success) {
     return result;
   }
   request_ = accepted;
   request_id_ = request_id;
-  result_ = gneiss::engine::core::result::success;
+  result_ = gneiss::engine::result::success;
   progress_ = {.source = std::move(source), .can_cancel = true, .message = "正在准备场景描述"};
   active_ = true;
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
-gneiss::engine::core::result runtime_scene_loader::cancel(const ipc_scene_request& source) {
+gneiss::engine::result runtime_scene_loader::cancel(const ipc_scene_request& source) {
   if (!active_ || source.session != progress_.source.session ||
       source.revision != progress_.source.revision || source.uri != progress_.source.uri) {
-    return gneiss::engine::core::result::not_ready;
+    return gneiss::engine::result::not_ready;
   }
   const auto result = application_.cancel_scene(request_);
-  if (result == gneiss::engine::core::result::success) {
+  if (result == gneiss::engine::result::success) {
     progress_.can_cancel = false;
     progress_.message = "正在安全回收加载候选";
   }
   return result;
 }
-gneiss::engine::core::result
+gneiss::engine::result
 runtime_scene_loader::activate(::gneiss::runtime::scene_load_completion& completion) {
   if (before_activate) {
     const auto stopped = before_activate();
-    if (stopped != gneiss::engine::core::result::success) {
+    if (stopped != gneiss::engine::result::success) {
       return stopped;
     }
   }
   const auto result = application_.activate_scene(request_, completion);
-  if (result != gneiss::engine::core::result::success) {
+  if (result != gneiss::engine::result::success) {
     return result;
   }
   // 激活后的任意模块副作用不在场景事务的自动回滚承诺内。
-  return after_activate ? after_activate(completion) : gneiss::engine::core::result::success;
+  return after_activate ? after_activate(completion) : gneiss::engine::result::success;
 }
 namespace {
 ipc_scene_budget budget_snapshot(const ::gneiss::runtime::scene_load_progress& value) {
@@ -111,18 +111,18 @@ ipc_scene_budget budget_snapshot(const ::gneiss::runtime::scene_load_progress& v
   };
 }
 } // namespace
-gneiss::engine::core::result runtime_scene_loader::advance() {
+gneiss::engine::result runtime_scene_loader::advance() {
   using namespace ::gneiss::runtime;
   scene_load_completion completion;
   bool finished{};
   auto result = application_.poll_scene(completion, finished);
-  if (result != gneiss::engine::core::result::success || !active_) {
+  if (result != gneiss::engine::result::success || !active_) {
     return result;
   }
   if (!finished) {
     scene_load_progress current;
     if (!application_.scene_progress(current)) {
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     }
     const auto phase = convert(current.phase);
     if (progress_.phase != phase) {
@@ -137,10 +137,10 @@ gneiss::engine::core::result runtime_scene_loader::advance() {
       active_ = false;
     }
     if (current.phase != scene_load_phase::ready || !application_.can_activate_scene()) {
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     }
     result = activate(completion);
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
   }
@@ -153,6 +153,6 @@ gneiss::engine::core::result runtime_scene_loader::advance() {
   if (progress_.message.empty()) {
     progress_.message = phase_message(progress_.phase);
   }
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
-} // namespace gneiss::host::runtime
+} // namespace gneiss::host

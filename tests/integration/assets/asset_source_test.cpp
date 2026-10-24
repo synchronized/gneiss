@@ -9,7 +9,7 @@
 
 namespace {
 using namespace gneiss;
-using namespace gneiss::engine::resource;
+using namespace gneiss::engine;
 void check(bool ok, const char* message) {
   if (!ok)
     throw std::runtime_error(message);
@@ -22,13 +22,13 @@ struct counters {
 class read final : public read_operation {
 public:
   explicit read(std::size_t size) : bytes_(size, std::byte{42}) {}
-  gneiss::engine::core::result poll(std::span<const std::byte>& output) noexcept override {
+  gneiss::engine::result poll(std::span<const std::byte>& output) noexcept override {
     if (!polled_) {
       polled_ = true;
-      return gneiss::engine::core::result::not_ready;
+      return gneiss::engine::result::not_ready;
     }
     output = bytes_;
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   }
 
 private:
@@ -39,32 +39,31 @@ class source final : public read_source {
 public:
   explicit source(std::shared_ptr<counters> stats) : stats_(std::move(stats)) {}
   std::uint64_t size() const noexcept override { return stats_->size; }
-  gneiss::engine::core::result read_at(std::uint64_t,
-                                       std::span<std::byte>) const noexcept override {
-    return gneiss::engine::core::result::internal;
+  gneiss::engine::result read_at(std::uint64_t, std::span<std::byte>) const noexcept override {
+    return gneiss::engine::result::internal;
   }
-  gneiss::engine::core::result
+  gneiss::engine::result
   begin_read(std::uint64_t, std::size_t size,
              std::unique_ptr<read_operation>& output) const noexcept override {
     ++stats_->reads;
     stats_->maximum = std::max(stats_->maximum, size);
     try {
       output = std::make_unique<read>(size - (stats_->short_read ? 1U : 0U));
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     } catch (...) {
-      return gneiss::engine::core::result::out_of_memory;
+      return gneiss::engine::result::out_of_memory;
     }
   }
-  gneiss::engine::core::result begin_close() const noexcept override {
+  gneiss::engine::result begin_close() const noexcept override {
     ++stats_->closes;
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   }
-  gneiss::engine::core::result poll_close() const noexcept override {
+  gneiss::engine::result poll_close() const noexcept override {
     if (!closed_) {
       closed_ = true;
-      return gneiss::engine::core::result::not_ready;
+      return gneiss::engine::result::not_ready;
     }
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   }
 
 private:
@@ -74,16 +73,16 @@ private:
 class opening final : public open_read_operation {
 public:
   explicit opening(std::shared_ptr<counters> stats) : stats_(std::move(stats)) {}
-  gneiss::engine::core::result poll(std::unique_ptr<read_source>& output) noexcept override {
+  gneiss::engine::result poll(std::unique_ptr<read_source>& output) noexcept override {
     if (!polled_) {
       polled_ = true;
-      return gneiss::engine::core::result::not_ready;
+      return gneiss::engine::result::not_ready;
     }
     try {
       output = std::make_unique<source>(stats_);
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     } catch (...) {
-      return gneiss::engine::core::result::out_of_memory;
+      return gneiss::engine::result::out_of_memory;
     }
   }
 
@@ -94,48 +93,46 @@ private:
 class files final : public file_system {
 public:
   std::shared_ptr<counters> stats = std::make_shared<counters>();
-  gneiss::engine::core::result
+  gneiss::engine::result
   begin_open_read(std::string_view,
                   std::unique_ptr<open_read_operation>& output) const noexcept override {
     ++stats->opens;
     try {
       output = std::make_unique<opening>(stats);
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     } catch (...) {
-      return gneiss::engine::core::result::out_of_memory;
+      return gneiss::engine::result::out_of_memory;
     }
   }
-  gneiss::engine::core::result read(std::string_view,
-                                    std::vector<std::byte>&) const noexcept override {
-    return gneiss::engine::core::result::internal;
+  gneiss::engine::result read(std::string_view, std::vector<std::byte>&) const noexcept override {
+    return gneiss::engine::result::internal;
   }
 };
 void run() {
   auto backend = std::make_shared<files>();
   virtual_file_system vfs;
-  check(vfs.mount("asset://", backend) == gneiss::engine::core::result::success, "mount");
+  check(vfs.mount("asset://", backend) == gneiss::engine::result::success, "mount");
   auto finish = [](asset_source& operation) {
     for (unsigned i = 0; i != 64; ++i) {
       auto result = operation.advance();
-      if (result != gneiss::engine::core::result::not_ready)
+      if (result != gneiss::engine::result::not_ready)
         return result;
     }
     throw std::runtime_error("source never completed");
   };
   asset_source operation(vfs, "asset://test", 150000);
-  check(finish(operation) == gneiss::engine::core::result::success, "async source");
+  check(finish(operation) == gneiss::engine::result::success, "async source");
   check(operation.bytes().size() == 150000 && backend->stats->reads == 3 &&
             backend->stats->maximum == 65536 && backend->stats->closes == 1,
         "bounded chunks and close");
   asset_source oversized(vfs, "asset://test", 149999);
-  check(finish(oversized) == gneiss::engine::core::result::invalid_argument &&
-            backend->stats->reads == 3,
+  check(finish(oversized) == gneiss::engine::result::invalid_argument && backend->stats->reads == 3,
         "size limit before allocation and reads");
   backend->stats->short_read = true;
   asset_source short_read(vfs, "asset://test", 150000);
-  check(finish(short_read) == gneiss::engine::core::result::io, "short read rejected");
+  check(finish(short_read) == gneiss::engine::result::io, "short read rejected");
   asset_source zero(vfs, "asset://test", 0);
-  check(finish(zero) == gneiss::engine::core::result::invalid_argument, "zero limit rejected");
+  check(finish(zero) == gneiss::engine::result::invalid_argument, "zero limit rejected");
 }
 }
 int main() {

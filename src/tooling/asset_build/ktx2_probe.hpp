@@ -8,7 +8,7 @@
 #include <filesystem>
 #include <string>
 
-namespace gneiss::tooling::asset_build {
+namespace gneiss::tooling {
 
 enum class ktx2_probe_result : std::uint8_t {
   success,
@@ -44,4 +44,4 @@ struct ktx2_probe_report final {
 /** 只检查 KTX2 容器、级别范围及上传相关元数据，不解码或转码图像。 */
 [[nodiscard]] ktx2_probe_report inspect_ktx2(const std::filesystem::path& path);
 
-} // namespace gneiss::tooling::asset_build
+} // namespace gneiss::tooling

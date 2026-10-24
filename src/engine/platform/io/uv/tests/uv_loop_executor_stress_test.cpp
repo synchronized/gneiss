@@ -16,8 +16,8 @@ constexpr std::size_t producer_count = 8U;
 constexpr std::size_t tasks_per_producer = 1000U;
 
 bool run_multi_producer_test() {
-  gneiss::engine::platform::io::uv_loop_executor runtime(64U);
-  if (runtime.start() != gneiss::engine::core::result::success) {
+  gneiss::engine::uv_loop_executor runtime(64U);
+  if (runtime.start() != gneiss::engine::result::success) {
     return false;
   }
 
@@ -30,10 +30,10 @@ bool run_multi_producer_test() {
         while (true) {
           const auto operation =
               runtime.post([&executed] { executed.fetch_add(1U, std::memory_order_relaxed); });
-          if (operation == gneiss::engine::core::result::success) {
+          if (operation == gneiss::engine::result::success) {
             break;
           }
-          if (operation != gneiss::engine::core::result::not_ready || !runtime.is_running()) {
+          if (operation != gneiss::engine::result::not_ready || !runtime.is_running()) {
             failed.store(true, std::memory_order_relaxed);
             return;
           }
@@ -45,14 +45,14 @@ bool run_multi_producer_test() {
   for (auto& producer : producers) {
     producer.join();
   }
-  return runtime.stop() == gneiss::engine::core::result::success &&
+  return runtime.stop() == gneiss::engine::result::success &&
          !failed.load(std::memory_order_relaxed) &&
          executed.load(std::memory_order_relaxed) == producer_count * tasks_per_producer;
 }
 
 bool run_concurrent_stop_test() {
-  gneiss::engine::platform::io::uv_loop_executor runtime(32U);
-  if (runtime.start() != gneiss::engine::core::result::success) {
+  gneiss::engine::uv_loop_executor runtime(32U);
+  if (runtime.start() != gneiss::engine::result::success) {
     return false;
   }
 
@@ -66,9 +66,9 @@ bool run_concurrent_stop_test() {
       while (!stop_requested.load(std::memory_order_acquire)) {
         const auto operation =
             runtime.post([&executed] { executed.fetch_add(1U, std::memory_order_relaxed); });
-        if (operation == gneiss::engine::core::result::success) {
+        if (operation == gneiss::engine::result::success) {
           accepted.fetch_add(1U, std::memory_order_relaxed);
-        } else if (operation == gneiss::engine::core::result::not_ready) {
+        } else if (operation == gneiss::engine::result::not_ready) {
           std::this_thread::yield();
         } else {
           failed.store(true, std::memory_order_relaxed);
@@ -84,21 +84,20 @@ bool run_concurrent_stop_test() {
   for (auto& producer : producers) {
     producer.join();
   }
-  return stopped == gneiss::engine::core::result::success &&
-         !failed.load(std::memory_order_relaxed) &&
+  return stopped == gneiss::engine::result::success && !failed.load(std::memory_order_relaxed) &&
          accepted.load(std::memory_order_relaxed) == executed.load(std::memory_order_relaxed);
 }
 
 bool run_destructor_drain_test() {
   std::atomic_size_t executed = 0U;
   {
-    gneiss::engine::platform::io::uv_loop_executor runtime(32U);
-    if (runtime.start() != gneiss::engine::core::result::success) {
+    gneiss::engine::uv_loop_executor runtime(32U);
+    if (runtime.start() != gneiss::engine::result::success) {
       return false;
     }
     for (std::size_t index = 0U; index < 32U; ++index) {
       if (runtime.post([&executed] { executed.fetch_add(1U, std::memory_order_relaxed); }) !=
-          gneiss::engine::core::result::success) {
+          gneiss::engine::result::success) {
         return false;
       }
     }

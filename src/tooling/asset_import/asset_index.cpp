@@ -19,7 +19,7 @@
 #include <system_error>
 #include <utility>
 
-namespace gneiss::tooling::asset_import {
+namespace gneiss::tooling {
 namespace {
 
 struct document_deleter final {
@@ -349,4 +349,4 @@ asset_index_report upsert_asset_index_entry(asset_index& index, asset_index_entr
   return {.result = asset_index_result::success, .diagnostic = {}};
 }
 
-} // namespace gneiss::tooling::asset_import
+} // namespace gneiss::tooling

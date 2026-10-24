@@ -18,11 +18,11 @@ struct asset_background_worker::implementation {
     std::filesystem::path path;
   };
   static constexpr std::size_t capacity = 256U;
-  std::unique_ptr<engine::core::tasks::task_scheduler> owned_scheduler;
-  engine::core::tasks::task_scheduler* scheduler{};
-  engine::core::tasks::task_scope scope;
-  engine::core::tasks::serial_queue lane;
-  engine::core::tasks::task_handle scheduled;
+  std::unique_ptr<gneiss::engine::task_scheduler> owned_scheduler;
+  gneiss::engine::task_scheduler* scheduler{};
+  gneiss::engine::task_scope scope;
+  gneiss::engine::serial_queue lane;
+  gneiss::engine::task_handle scheduled;
   mutable std::mutex mutex;
   std::deque<command> commands;
   std::deque<command> manual;
@@ -53,21 +53,21 @@ struct asset_background_worker::implementation {
       state.stage = "Importing";
       state.source = source;
     }
-    tooling::asset_import::import_control control{
-        .cancelled =
-            [&] {
-              std::scoped_lock lock(mutex);
-              return state.stopping || revision != task_revision;
-            },
-        .begin_commit =
-            [&] {
-              std::scoped_lock lock(mutex);
-              if (state.stopping || revision != task_revision) {
-                return false;
-              }
-              state.stage = "Committing";
-              return true;
-            }};
+    gneiss::tooling::import_control control{.cancelled =
+                                                [&] {
+                                                  std::scoped_lock lock(mutex);
+                                                  return state.stopping ||
+                                                         revision != task_revision;
+                                                },
+                                            .begin_commit =
+                                                [&] {
+                                                  std::scoped_lock lock(mutex);
+                                                  if (state.stopping || revision != task_revision) {
+                                                    return false;
+                                                  }
+                                                  state.stage = "Committing";
+                                                  return true;
+                                                }};
     editor_import_report report;
     try {
       report = execute(project_path, asset_path, source, external, control);
@@ -82,7 +82,7 @@ struct asset_background_worker::implementation {
     }
     {
       std::scoped_lock lock(mutex);
-      using tooling::asset_import::import_asset_result;
+      using gneiss::tooling::import_asset_result;
       if (!state.stopping && cancellation == task_cancellation &&
           (report.import.result == import_asset_result::cancelled ||
            report.import.result == import_asset_result::source_changed)) {
@@ -110,12 +110,12 @@ struct asset_background_worker::implementation {
     if (!started) {
       return;
     }
-    std::vector<engine::core::tasks::task_completion> completed;
+    std::vector<gneiss::engine::task_completion> completed;
     (void)scheduler->poll(scope, completed);
     for (const auto& item : completed) {
       scheduled = {};
       state.active = false;
-      if (item.outcome.state == engine::core::tasks::task_state::failed) {
+      if (item.outcome.state == gneiss::engine::task_state::failed) {
         state.error = item.outcome.error;
         state.stopping = true;
       }
@@ -131,7 +131,7 @@ struct asset_background_worker::implementation {
         (commands.empty() && !rescan && !refresh && !pending_work)) {
       return;
     }
-    engine::core::tasks::task_description description{
+    gneiss::engine::task_description description{
         .name = "asset import/check",
         .scope = scope,
         .serial = lane,
@@ -142,11 +142,11 @@ struct asset_background_worker::implementation {
         std::move(description),
         [this](const auto&) {
           step();
-          return engine::core::tasks::task_outcome{};
+          return gneiss::engine::task_outcome{};
         },
         scheduled);
-    if (submitted != engine::core::tasks::submit_result::success &&
-        submitted != engine::core::tasks::submit_result::full) {
+    if (submitted != gneiss::engine::submit_result::success &&
+        submitted != gneiss::engine::submit_result::full) {
       state.error = "资产任务调度不可用";
       state.stopping = true;
     }
@@ -258,10 +258,10 @@ struct asset_background_worker::implementation {
 };
 
 asset_background_worker::asset_background_worker(import_function importer,
-                                                 engine::core::tasks::task_scheduler* scheduler)
+                                                 gneiss::engine::task_scheduler* scheduler)
     : impl_(std::make_unique<implementation>()) {
   if (scheduler == nullptr) {
-    impl_->owned_scheduler = std::make_unique<engine::core::tasks::task_scheduler>();
+    impl_->owned_scheduler = std::make_unique<gneiss::engine::task_scheduler>();
     scheduler = impl_->owned_scheduler.get();
   }
   impl_->scheduler = scheduler;
@@ -294,30 +294,29 @@ void asset_background_worker::start(std::filesystem::path project, std::filesyst
   impl_->advance();
 }
 
-gneiss::engine::core::result
-asset_background_worker::notify(const std::filesystem::path& relative) {
+gneiss::engine::result asset_background_worker::notify(const std::filesystem::path& relative) {
   if (relative.empty() || relative.is_absolute() || *relative.begin() == ".." ||
       relative != relative.lexically_normal()) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   std::scoped_lock lock(impl_->mutex);
   if (impl_->state.stopping || impl_->state.stopped) {
-    return gneiss::engine::core::result::not_ready;
+    return gneiss::engine::result::not_ready;
   }
   ++impl_->revision;
   for (const auto& command : impl_->commands) {
     if (command.kind == implementation::command_kind::notify && command.path == relative) {
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     }
   }
   if (impl_->commands.size() >= implementation::capacity) {
     ++impl_->state.dropped;
     impl_->rescan = true;
-    return gneiss::engine::core::result::not_ready;
+    return gneiss::engine::result::not_ready;
   }
   impl_->commands.push_back({implementation::command_kind::notify, relative});
   impl_->advance();
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
 bool asset_background_worker::import_asset(const std::filesystem::path& source, bool external) {
@@ -374,7 +373,7 @@ asset_worker_status asset_background_worker::status() const {
   return state;
 }
 bool asset_background_worker::is_rescanning() const { return status().rescanning; }
-gneiss::engine::core::result asset_background_worker::rescan_result() const {
+gneiss::engine::result asset_background_worker::rescan_result() const {
   return status().rescan_result;
 }
 std::size_t asset_background_worker::dropped_candidate_count() const { return status().dropped; }

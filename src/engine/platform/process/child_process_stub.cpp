@@ -4,7 +4,7 @@
 #include "child_process.hpp"
 #include "engine/core/result.hpp"
 
-namespace gneiss::engine::platform {
+namespace gneiss::engine {
 
 struct child_process::implementation final {
   std::string output;
@@ -14,11 +14,11 @@ struct child_process::implementation final {
 child_process::child_process() : implementation_(std::make_unique<implementation>()) {}
 child_process::~child_process() = default;
 
-gneiss::engine::core::result child_process::start(const child_process_start_info&) noexcept {
-  return gneiss::engine::core::result::unsupported;
+gneiss::engine::result child_process::start(const child_process_start_info&) noexcept {
+  return gneiss::engine::result::unsupported;
 }
-gneiss::engine::core::result child_process::terminate() noexcept {
-  return gneiss::engine::core::result::not_ready;
+gneiss::engine::result child_process::terminate() noexcept {
+  return gneiss::engine::result::not_ready;
 }
 void child_process::update() noexcept {}
 bool child_process::is_running() const noexcept { return false; }
@@ -41,4 +41,4 @@ void child_process::append_output(std::string_view text) noexcept {
   }
 }
 
-} // namespace gneiss::engine::platform
+} // namespace gneiss::engine

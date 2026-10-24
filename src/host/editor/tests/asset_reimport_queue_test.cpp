@@ -48,10 +48,10 @@ int main() { // NOLINT(bugprone-exception-escape)
   queue reimports({.debounce = std::chrono::milliseconds{20},
                    .stable_read_delay = std::chrono::milliseconds{10},
                    .capacity = 2U});
-  if (reimports.notify({}, start) != gneiss::engine::core::result::invalid_argument ||
-      reimports.notify(relative, start) != gneiss::engine::core::result::success ||
+  if (reimports.notify({}, start) != gneiss::engine::result::invalid_argument ||
+      reimports.notify(relative, start) != gneiss::engine::result::success ||
       reimports.notify(relative, start + std::chrono::milliseconds{5}) !=
-          gneiss::engine::core::result::success ||
+          gneiss::engine::result::success ||
       reimports.pending_count() != 1U ||
       reimports.tick(root, assets, start + std::chrono::milliseconds{24}) != 0U ||
       reimports.tick(root, assets, start + std::chrono::milliseconds{25}) != 0U ||
@@ -69,7 +69,7 @@ int main() { // NOLINT(bugprone-exception-escape)
 
   std::ofstream(initial.source_path, std::ios::binary | std::ios::app) << ' ';
   const auto changed = start + std::chrono::seconds{1};
-  if (reimports.notify(relative, changed) != gneiss::engine::core::result::success ||
+  if (reimports.notify(relative, changed) != gneiss::engine::result::success ||
       reimports.tick(root, assets, changed + std::chrono::milliseconds{20}) != 0U ||
       reimports.tick(root, assets, changed + std::chrono::milliseconds{30}) != 1U) {
     std::filesystem::remove_all(root);
@@ -87,7 +87,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   const auto untracked = std::filesystem::path{"untracked.gltf"};
   std::filesystem::copy_file(fixture_root / "static_triangle.gltf", root / "sources" / untracked);
   const auto later = changed + std::chrono::seconds{1};
-  if (reimports.notify(untracked, later) != gneiss::engine::core::result::success ||
+  if (reimports.notify(untracked, later) != gneiss::engine::result::success ||
       reimports.tick(root, assets, later + std::chrono::milliseconds{20}) != 0U) {
     std::filesystem::remove_all(root);
     return failed(6);
@@ -101,8 +101,8 @@ int main() { // NOLINT(bugprone-exception-escape)
   }
 
   queue bounded({.capacity = 1U});
-  if (bounded.notify("first.gltf", start) != gneiss::engine::core::result::success ||
-      bounded.notify("second.gltf", start) != gneiss::engine::core::result::not_ready ||
+  if (bounded.notify("first.gltf", start) != gneiss::engine::result::success ||
+      bounded.notify("second.gltf", start) != gneiss::engine::result::not_ready ||
       bounded.dropped_candidate_count() != 1U) {
     std::filesystem::remove_all(root);
     return failed(8);
@@ -133,8 +133,8 @@ int main() { // NOLINT(bugprone-exception-escape)
                  });
   // 带后缀的第二个源按名称先处理，用来确认失败不会挡住随后健康的候选。
   if (failing_relative >= relative ||
-      isolated.notify(failing_relative, start) != gneiss::engine::core::result::success ||
-      isolated.notify(relative, start) != gneiss::engine::core::result::success ||
+      isolated.notify(failing_relative, start) != gneiss::engine::result::success ||
+      isolated.notify(relative, start) != gneiss::engine::result::success ||
       isolated.tick(root, assets, start) != 0U ||
       isolated.tick(root, assets, start + std::chrono::milliseconds{1}) != 1U || attempts != 1U ||
       isolated.pending_count() != 1U) {
@@ -156,7 +156,7 @@ int main() { // NOLINT(bugprone-exception-escape)
     return failed(13);
   }
   failure_mode = 0;
-  if (isolated.notify(failing_relative, later) != gneiss::engine::core::result::success ||
+  if (isolated.notify(failing_relative, later) != gneiss::engine::result::success ||
       isolated.tick(root, assets, later) != 0U ||
       isolated.tick(root, assets, later + std::chrono::milliseconds{1}) != 1U || attempts != 3U ||
       isolated.pending_count() != 0U) {
@@ -172,7 +172,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   }
   failure_mode = 2;
   std::ofstream(second.source_path, std::ios::app) << ' ';
-  if (isolated.notify(failing_relative, later) != gneiss::engine::core::result::success ||
+  if (isolated.notify(failing_relative, later) != gneiss::engine::result::success ||
       isolated.tick(root, assets, later) != 0U ||
       isolated.tick(root, assets, later + std::chrono::milliseconds{1}) != 1U ||
       isolated.pending_count() != 0U) {
@@ -207,9 +207,8 @@ int main() { // NOLINT(bugprone-exception-escape)
       recovery.request_rescan();
     }
   }
-  if (recovery.is_rescanning() ||
-      recovery.rescan_result() != gneiss::engine::core::result::success || recovered != 2U ||
-      recovery.dropped_candidate_count() != 0U) {
+  if (recovery.is_rescanning() || recovery.rescan_result() != gneiss::engine::result::success ||
+      recovered != 2U || recovery.dropped_candidate_count() != 0U) {
     return failed(20);
   }
 
@@ -236,17 +235,17 @@ int main() { // NOLINT(bugprone-exception-escape)
   std::ofstream(broken_project / ".gneiss/asset-index.json") << "invalid index";
   recovery.request_rescan();
   (void)recovery.tick(broken_project, assets, later);
-  if (recovery.is_rescanning() || recovery.rescan_result() != gneiss::engine::core::result::io) {
+  if (recovery.is_rescanning() || recovery.rescan_result() != gneiss::engine::result::io) {
     return failed(23);
   }
   recovery.request_rescan();
   (void)recovery.tick(root, assets, later);
-  if (recovery.rescan_result() != gneiss::engine::core::result::success) {
+  if (recovery.rescan_result() != gneiss::engine::result::success) {
     return failed(24);
   }
 
   const auto removed = later + std::chrono::seconds{1};
-  if (reimports.notify(relative, removed) != gneiss::engine::core::result::success ||
+  if (reimports.notify(relative, removed) != gneiss::engine::result::success ||
       reimports.tick(root, assets, removed + std::chrono::milliseconds{20}) != 0U) {
     std::filesystem::remove_all(root);
     return failed(9);

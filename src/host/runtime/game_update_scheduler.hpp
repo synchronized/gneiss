@@ -11,7 +11,7 @@
 
 #include <cstdint>
 
-namespace gneiss::host::runtime {
+namespace gneiss::host {
 
 struct game_update_scheduler_config final {
   std::uint64_t fixed_delta_ns = UINT64_C(16666667);
@@ -21,10 +21,10 @@ struct game_update_scheduler_config final {
 
 struct game_update_callbacks final {
   void* user_data{};
-  gneiss::engine::core::result (*fixed_update)(void* user_data,
-                                               const gneiss_game_update_time& time) noexcept {};
-  gneiss::engine::core::result (*update)(void* user_data,
+  gneiss::engine::result (*fixed_update)(void* user_data,
                                          const gneiss_game_update_time& time) noexcept {};
+  gneiss::engine::result (*update)(void* user_data,
+                                   const gneiss_game_update_time& time) noexcept {};
 };
 
 struct game_update_report final {
@@ -39,9 +39,9 @@ class game_update_scheduler final {
 public:
   explicit game_update_scheduler(game_update_scheduler_config config = {}) noexcept;
 
-  [[nodiscard]] gneiss::engine::core::result advance(const gneiss::engine::core::frame_time& frame,
-                                                     const game_update_callbacks& callbacks,
-                                                     game_update_report& out_report) noexcept;
+  [[nodiscard]] gneiss::engine::result advance(const gneiss::engine::frame_time& frame,
+                                               const game_update_callbacks& callbacks,
+                                               game_update_report& out_report) noexcept;
   void reset() noexcept;
 
 private:
@@ -53,6 +53,6 @@ private:
   std::uint64_t update_index_{};
 };
 
-} // namespace gneiss::host::runtime
+} // namespace gneiss::host
 
 #endif

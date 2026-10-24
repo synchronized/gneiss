@@ -37,9 +37,9 @@ bool checks_material_states(const std::filesystem::path& root) {
       std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
       output << input;
     }
-    const auto report = gneiss::tooling::asset_import::inspect_gltf(temporary);
+    const auto report = gneiss::tooling::inspect_gltf(temporary);
     std::filesystem::remove(temporary);
-    using namespace gneiss::tooling::asset_import;
+    using namespace gneiss::tooling;
     if (case_index == 3U) {
       if (report.result == inspect_result::success || report.diagnostic.empty())
         return false;
@@ -69,9 +69,9 @@ bool checks_material_states(const std::filesystem::path& root) {
     std::ofstream output(temporary, std::ios::binary);
     output << input;
   }
-  const auto uv_report = gneiss::tooling::asset_import::inspect_gltf(temporary);
+  const auto uv_report = gneiss::tooling::inspect_gltf(temporary);
   std::filesystem::remove(temporary);
-  if (uv_report.result != gneiss::tooling::asset_import::inspect_result::success ||
+  if (uv_report.result != gneiss::tooling::inspect_result::success ||
       !uv_report.data.meshes[0].primitives[0].has_uv1 ||
       uv_report.data.materials[0].sampling[0].uv_set != 1U ||
       uv_report.data.meshes[0].primitives[0].vertices[1].uv1 != std::array<float, 2>{1, 0})
@@ -82,11 +82,11 @@ bool checks_material_states(const std::filesystem::path& root) {
 } // namespace
 
 int main() { // NOLINT(bugprone-exception-escape)
-  namespace asset_import = gneiss::tooling::asset_import;
+  namespace asset_import = gneiss::tooling;
   const std::filesystem::path root{GNEISS_TEST_GLTF_ROOT};
 
-  const auto valid = asset_import::inspect_gltf(root / "static_triangle.gltf");
-  if (valid.result != asset_import::inspect_result::success || valid.summary.scene_count != 1U ||
+  const auto valid = gneiss::tooling::inspect_gltf(root / "static_triangle.gltf");
+  if (valid.result != gneiss::tooling::inspect_result::success || valid.summary.scene_count != 1U ||
       valid.summary.node_count != 1U || valid.summary.mesh_count != 1U ||
       valid.summary.primitive_count != 1U || valid.data.nodes.size() != 1U ||
       valid.data.nodes[0].name != "Triangle" || valid.data.nodes[0].mesh_index != 0U ||
@@ -104,67 +104,67 @@ int main() { // NOLINT(bugprone-exception-escape)
     return 1;
   }
 
-  const auto unsupported = asset_import::inspect_gltf(root / "missing_normal.gltf");
-  if (unsupported.result != asset_import::inspect_result::unsupported_feature ||
+  const auto unsupported = gneiss::tooling::inspect_gltf(root / "missing_normal.gltf");
+  if (unsupported.result != gneiss::tooling::inspect_result::unsupported_feature ||
       unsupported.diagnostic.empty()) {
     return 2;
   }
 
-  const auto missing = asset_import::inspect_gltf(root / "missing.gltf");
-  if (missing.result != asset_import::inspect_result::source_unavailable ||
+  const auto missing = gneiss::tooling::inspect_gltf(root / "missing.gltf");
+  if (missing.result != gneiss::tooling::inspect_result::source_unavailable ||
       missing.diagnostic.empty()) {
     return 3;
   }
 
-  const auto invalid_accessor = asset_import::inspect_gltf(root / "invalid_accessor.gltf");
-  if (invalid_accessor.result != asset_import::inspect_result::invalid_source ||
+  const auto invalid_accessor = gneiss::tooling::inspect_gltf(root / "invalid_accessor.gltf");
+  if (invalid_accessor.result != gneiss::tooling::inspect_result::invalid_source ||
       invalid_accessor.diagnostic.empty()) {
     return 4;
   }
 
-  const auto line_primitive = asset_import::inspect_gltf(root / "line_primitive.gltf");
-  if (line_primitive.result != asset_import::inspect_result::unsupported_feature ||
+  const auto line_primitive = gneiss::tooling::inspect_gltf(root / "line_primitive.gltf");
+  if (line_primitive.result != gneiss::tooling::inspect_result::unsupported_feature ||
       line_primitive.diagnostic.empty()) {
     return 5;
   }
 
-  const auto invalid_index = asset_import::inspect_gltf(root / "invalid_index.gltf");
-  if (invalid_index.result != asset_import::inspect_result::invalid_source ||
+  const auto invalid_index = gneiss::tooling::inspect_gltf(root / "invalid_index.gltf");
+  if (invalid_index.result != gneiss::tooling::inspect_result::invalid_source ||
       invalid_index.diagnostic.empty()) {
     return 6;
   }
 
-  const auto non_finite = asset_import::inspect_gltf(root / "non_finite_vertex.gltf");
-  if (non_finite.result != asset_import::inspect_result::invalid_source ||
+  const auto non_finite = gneiss::tooling::inspect_gltf(root / "non_finite_vertex.gltf");
+  if (non_finite.result != gneiss::tooling::inspect_result::invalid_source ||
       non_finite.diagnostic.empty()) {
     return 7;
   }
 
-  const auto invalid_transform = asset_import::inspect_gltf(root / "invalid_transform.gltf");
-  if (invalid_transform.result != asset_import::inspect_result::unsupported_feature ||
+  const auto invalid_transform = gneiss::tooling::inspect_gltf(root / "invalid_transform.gltf");
+  if (invalid_transform.result != gneiss::tooling::inspect_result::unsupported_feature ||
       invalid_transform.diagnostic.empty()) {
     return 8;
   }
 
-  const auto non_png = asset_import::inspect_gltf(root / "non_png_texture.gltf");
-  if (non_png.result != asset_import::inspect_result::unsupported_feature ||
+  const auto non_png = gneiss::tooling::inspect_gltf(root / "non_png_texture.gltf");
+  if (non_png.result != gneiss::tooling::inspect_result::unsupported_feature ||
       non_png.diagnostic.empty()) {
     return 9;
   }
 
-  const auto path_escape = asset_import::inspect_gltf(root / "path_escape.gltf");
-  if (path_escape.result != asset_import::inspect_result::invalid_source ||
+  const auto path_escape = gneiss::tooling::inspect_gltf(root / "path_escape.gltf");
+  if (path_escape.result != gneiss::tooling::inspect_result::invalid_source ||
       path_escape.diagnostic.empty()) {
     return 10;
   }
 
-  const auto empty = asset_import::inspect_gltf({});
-  if (empty.result != asset_import::inspect_result::invalid_argument) {
+  const auto empty = gneiss::tooling::inspect_gltf({});
+  if (empty.result != gneiss::tooling::inspect_result::invalid_argument) {
     return 11;
   }
 
-  const auto repaired = asset_import::inspect_gltf(root / "degenerate_tangent.gltf");
-  if (repaired.result != asset_import::inspect_result::success || repaired.diagnostic.empty() ||
+  const auto repaired = gneiss::tooling::inspect_gltf(root / "degenerate_tangent.gltf");
+  if (repaired.result != gneiss::tooling::inspect_result::success || repaired.diagnostic.empty() ||
       !repaired.data.meshes[0].primitives[0].repaired_tangents ||
       repaired.data.meshes[0].primitives[0].vertices[0].tangent != std::array<float, 4>{1, 0, 0, 1})
     return 13;

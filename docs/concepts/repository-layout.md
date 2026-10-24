@@ -243,39 +243,21 @@ Scene 服务完成入口校验后转交实例，不直接修改这些事务的�
 退出清理由 document_editing 汇总，宿主驱动执行器直至清理结束。场景加载切换独立维护，
 流程测试直接链接编辑器模块。窗口、进程及 IPC 仍归 Host。
 
-## Runtime 命名空间
+## 内部命名空间
 
-Application、配置、加载和场景切换对象统一位于 `gneiss::runtime`，游戏上下文位于
-`gneiss::runtime::game`。内部应用对象为 `gneiss::runtime::application`，没有旧别名。
-平台进程、IPC 基础设施与动态库对象统一位于 gneiss::engine::platform。
-目录与头文件可见性仍决定依赖范围，命名变化不改变对象寿命或增加运行时状态。
-
-资源管理器为 `gneiss::engine::resource::asset_manager`，其输入请求、CPU 缓存、VFS、
-纹理/Mesh/材质描述与解码器使用 `gneiss::engine::resource`。原 asset_internal 已删除，
-不保留兼容别名。Scene/Prefab 作者描述、属性覆盖值、解析/序列化和 Prefab Loader 也归属资源命名空间。
-功能层 Scene 负责实例化及活动节点，不再提供这些资源类型的旧别名。
-
-## 功能层命名空间
-
-World、Scene、Render、Input 统一使用 `gneiss::engine::world/scene/render/input`，
-World 对象为 `gneiss::engine::world::world`。旧 xxx_internal 领域名不保留别名。
-资源描述使用 `gneiss::engine::resource`，Runtime 组装仍归 `gneiss::runtime`；
-该命名调整不改变所有权，公共值类型保持原接口。
-
-## Core 与平台适配命名
-
-基础工具使用 gneiss::engine::core；任务、日志、反射、诊断、数学、输入共享值分别位于
-core 的 tasks/log/reflection/diagnostics/math/input。输入服务仍属于 engine::input。
-窗口适配使用 engine::platform，libuv I/O 使用 engine::platform::io。
-C 转换辅助属于 engine::api，应用日志回调桥属于 runtime::api。
-进程、IPC 传输/信封/分发与动态库对象使用 engine::platform；旧顶层名称已删除。
-Host 的域协议与负载仍属于宿主，未随平台类型迁入 Engine。
+业务类型按架构层统一使用 `gneiss::engine`、`gneiss::runtime`、`gneiss::editor`、
+`gneiss::tooling`、`gneiss::host`。例如资源管理器为 `gneiss::engine::asset_manager`，
+World 为 `gneiss::engine`，应用对象为 `gneiss::runtime::application`。
+Core、Resource、Render 等目录仍隔离职责和依赖，不再对应额外的命名空间。
+单文件辅助代码使用匿名命名空间，头文件实现细节允许 `detail`，不保留旧名兼容别名。
+公共值类型仍属于 `gneiss`，公共 C 接口不变。
+决策见 [ADR-079](../decisions/ADR-079-flat-namespaces.md)。
 
 ## 宿主独立模块
 
 `src/host/common` 保存项目描述和宿主域协议；`src/host/editor` 装配编辑器、项目工具、
 子进程和 IPC；`src/host/runtime` 装配运行进程、游戏模块和 IPC；`src/host/assetc` 保存
-资产命令行适配。Apps 只转发至宿主入口。Runtime 宿主使用 gneiss::host::runtime，
+资产命令行适配。Apps 只转发至宿主入口。Runtime 宿主使用 gneiss::host，
 与 gneiss::runtime 的运行时业务对象区分。
 
 Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。宿主测试暂保留在

@@ -11,14 +11,13 @@
 #include <new>
 #include <unordered_set>
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 
-gneiss::engine::core::result resource_cache::load(std::string_view uri, std::type_index type,
-                                                  const loader& decode,
-                                                  asset_ref<const entry>& out_entry,
-                                                  std::shared_ptr<const asset_source_domain> source,
-                                                  bool reload) noexcept {
-  using core::result;
+gneiss::engine::result resource_cache::load(std::string_view uri, std::type_index type,
+                                            const loader& decode, asset_ref<const entry>& out_entry,
+                                            std::shared_ptr<const asset_source_domain> source,
+                                            bool reload) noexcept {
+  using gneiss::engine::result;
   out_entry.reset();
   if (type == typeid(void) || !decode || validate_uri(uri) != result::success)
     return result::invalid_argument;
@@ -94,4 +93,4 @@ resource_cache::observe(std::string_view uri, std::type_index type,
                                  : std::weak_ptr<const entry>{found->second.shared()};
 }
 
-} // namespace gneiss::engine::resource
+} // namespace gneiss::engine

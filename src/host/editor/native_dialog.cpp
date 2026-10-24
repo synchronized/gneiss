@@ -12,17 +12,17 @@
 #include <shobjidl.h>
 #endif
 
-namespace gneiss::editor {
+namespace gneiss::host {
 
-gneiss::engine::core::result select_project_directory(std::filesystem::path& output) noexcept {
+gneiss::engine::result select_project_directory(std::filesystem::path& output) noexcept {
 #if defined(_WIN32)
   const auto initialize_result = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
   const auto should_uninitialize = initialize_result == S_OK || initialize_result == S_FALSE;
   if (FAILED(initialize_result) && initialize_result != RPC_E_CHANGED_MODE) {
-    return gneiss::engine::core::result::initialization_failed;
+    return gneiss::engine::result::initialization_failed;
   }
   if (initialize_result == RPC_E_CHANGED_MODE) {
-    return gneiss::engine::core::result::unsupported;
+    return gneiss::engine::result::unsupported;
   }
 
   IFileOpenDialog* dialog = nullptr;
@@ -61,25 +61,24 @@ gneiss::engine::core::result select_project_directory(std::filesystem::path& out
     CoUninitialize();
   }
   if (operation == HRESULT_FROM_WIN32(ERROR_CANCELLED)) {
-    return gneiss::engine::core::result::not_ready;
+    return gneiss::engine::result::not_ready;
   }
-  return SUCCEEDED(operation) ? gneiss::engine::core::result::success
-                              : gneiss::engine::core::result::io;
+  return SUCCEEDED(operation) ? gneiss::engine::result::success : gneiss::engine::result::io;
 #else
   (void)output;
-  return gneiss::engine::core::result::unsupported;
+  return gneiss::engine::result::unsupported;
 #endif
 }
 
-gneiss::engine::core::result select_source_asset(std::filesystem::path& output) noexcept {
+gneiss::engine::result select_source_asset(std::filesystem::path& output) noexcept {
 #if defined(_WIN32)
   const auto initialize_result = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
   const auto should_uninitialize = initialize_result == S_OK || initialize_result == S_FALSE;
   if (FAILED(initialize_result) && initialize_result != RPC_E_CHANGED_MODE) {
-    return gneiss::engine::core::result::initialization_failed;
+    return gneiss::engine::result::initialization_failed;
   }
   if (initialize_result == RPC_E_CHANGED_MODE) {
-    return gneiss::engine::core::result::unsupported;
+    return gneiss::engine::result::unsupported;
   }
 
   IFileOpenDialog* dialog = nullptr;
@@ -122,25 +121,24 @@ gneiss::engine::core::result select_source_asset(std::filesystem::path& output) 
     CoUninitialize();
   }
   if (operation == HRESULT_FROM_WIN32(ERROR_CANCELLED)) {
-    return gneiss::engine::core::result::not_ready;
+    return gneiss::engine::result::not_ready;
   }
-  return SUCCEEDED(operation) ? gneiss::engine::core::result::success
-                              : gneiss::engine::core::result::io;
+  return SUCCEEDED(operation) ? gneiss::engine::result::success : gneiss::engine::result::io;
 #else
   (void)output;
-  return gneiss::engine::core::result::unsupported;
+  return gneiss::engine::result::unsupported;
 #endif
 }
 
-gneiss::engine::core::result select_scene_file(std::filesystem::path& output) noexcept {
+gneiss::engine::result select_scene_file(std::filesystem::path& output) noexcept {
 #if defined(_WIN32)
   const auto initialize_result = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
   const auto should_uninitialize = initialize_result == S_OK || initialize_result == S_FALSE;
   if (FAILED(initialize_result) && initialize_result != RPC_E_CHANGED_MODE) {
-    return gneiss::engine::core::result::initialization_failed;
+    return gneiss::engine::result::initialization_failed;
   }
   if (initialize_result == RPC_E_CHANGED_MODE) {
-    return gneiss::engine::core::result::unsupported;
+    return gneiss::engine::result::unsupported;
   }
   IFileOpenDialog* dialog = nullptr;
   auto operation =
@@ -174,25 +172,24 @@ gneiss::engine::core::result select_scene_file(std::filesystem::path& output) no
     CoUninitialize();
   }
   if (operation == HRESULT_FROM_WIN32(ERROR_CANCELLED)) {
-    return gneiss::engine::core::result::not_ready;
+    return gneiss::engine::result::not_ready;
   }
-  return SUCCEEDED(operation) ? gneiss::engine::core::result::success
-                              : gneiss::engine::core::result::io;
+  return SUCCEEDED(operation) ? gneiss::engine::result::success : gneiss::engine::result::io;
 #else
   (void)output;
-  return gneiss::engine::core::result::unsupported;
+  return gneiss::engine::result::unsupported;
 #endif
 }
 
-gneiss::engine::core::result select_scene_save_path(std::filesystem::path& output) noexcept {
+gneiss::engine::result select_scene_save_path(std::filesystem::path& output) noexcept {
 #if defined(_WIN32)
   const auto initialize_result = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
   const auto should_uninitialize = initialize_result == S_OK || initialize_result == S_FALSE;
   if (FAILED(initialize_result) && initialize_result != RPC_E_CHANGED_MODE) {
-    return gneiss::engine::core::result::initialization_failed;
+    return gneiss::engine::result::initialization_failed;
   }
   if (initialize_result == RPC_E_CHANGED_MODE) {
-    return gneiss::engine::core::result::unsupported;
+    return gneiss::engine::result::unsupported;
   }
   IFileSaveDialog* dialog = nullptr;
   auto operation =
@@ -229,14 +226,13 @@ gneiss::engine::core::result select_scene_save_path(std::filesystem::path& outpu
     CoUninitialize();
   }
   if (operation == HRESULT_FROM_WIN32(ERROR_CANCELLED)) {
-    return gneiss::engine::core::result::not_ready;
+    return gneiss::engine::result::not_ready;
   }
-  return SUCCEEDED(operation) ? gneiss::engine::core::result::success
-                              : gneiss::engine::core::result::io;
+  return SUCCEEDED(operation) ? gneiss::engine::result::success : gneiss::engine::result::io;
 #else
   (void)output;
-  return gneiss::engine::core::result::unsupported;
+  return gneiss::engine::result::unsupported;
 #endif
 }
 
-} // namespace gneiss::editor
+} // namespace gneiss::host

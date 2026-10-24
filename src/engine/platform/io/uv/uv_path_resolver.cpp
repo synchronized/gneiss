@@ -10,7 +10,7 @@
 #include <new>
 #include <utility>
 
-namespace gneiss::engine::platform::io {
+namespace gneiss::engine {
 struct uv_path_operation::state {
   uv_fs_t request{};
   std::string path;
@@ -18,7 +18,7 @@ struct uv_path_operation::state {
   std::shared_ptr<std::atomic_size_t> active;
   std::shared_ptr<state> in_flight;
   std::atomic_bool ready = false;
-  gneiss::engine::core::result status = gneiss::engine::core::result::not_ready;
+  gneiss::engine::result status = gneiss::engine::result::not_ready;
   bool reserved{};
 
   ~state() { release(); }
@@ -32,14 +32,14 @@ struct uv_path_operation::state {
     if (code == 0) {
       try {
         if (request.ptr == nullptr) {
-          status = gneiss::engine::core::result::internal;
+          status = gneiss::engine::result::internal;
         } else {
           resolved = static_cast<const char*>(request.ptr);
         }
       } catch (const std::bad_alloc&) {
-        status = gneiss::engine::core::result::out_of_memory;
+        status = gneiss::engine::result::out_of_memory;
       } catch (...) {
-        status = gneiss::engine::core::result::internal;
+        status = gneiss::engine::result::internal;
       }
     }
     uv_fs_req_cleanup(&request);
@@ -58,15 +58,15 @@ uv_path_operation::uv_path_operation(std::shared_ptr<state> pending) noexcept
     : pending_(std::move(pending)) {}
 uv_path_operation::~uv_path_operation() = default;
 
-gneiss::engine::core::result uv_path_operation::poll(std::string& output) noexcept {
+gneiss::engine::result uv_path_operation::poll(std::string& output) noexcept {
   output.clear();
   if (delivered_) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   if (!pending_->ready.load(std::memory_order_acquire)) {
-    return gneiss::engine::core::result::not_ready;
+    return gneiss::engine::result::not_ready;
   }
-  if (pending_->status == gneiss::engine::core::result::success) {
+  if (pending_->status == gneiss::engine::result::success) {
     output = std::move(pending_->resolved);
     delivered_ = true;
   }
@@ -76,12 +76,12 @@ gneiss::engine::core::result uv_path_operation::poll(std::string& output) noexce
 uv_path_resolver::uv_path_resolver(uv_loop_executor& executor, std::size_t capacity)
     : executor_(executor), active_(std::make_shared<std::atomic_size_t>(0U)), capacity_(capacity) {}
 
-gneiss::engine::core::result
+gneiss::engine::result
 uv_path_resolver::begin(std::string_view path,
                         std::unique_ptr<uv_path_operation>& output) const noexcept {
   output.reset();
   if (path.empty() || path.find('\0') != std::string_view::npos || capacity_ == 0U) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   try {
     auto pending = std::make_shared<uv_path_operation::state>();
@@ -89,7 +89,7 @@ uv_path_resolver::begin(std::string_view path,
     auto active = active_->load(std::memory_order_relaxed);
     do {
       if (active >= capacity_) {
-        return gneiss::engine::core::result::not_ready;
+        return gneiss::engine::result::not_ready;
       }
     } while (!active_->compare_exchange_weak(active, active + 1U, std::memory_order_relaxed));
     pending->reserved = true;
@@ -105,14 +105,14 @@ uv_path_resolver::begin(std::string_view path,
         pending->in_flight.reset();
       }
     });
-    if (submitted == gneiss::engine::core::result::success) {
+    if (submitted == gneiss::engine::result::success) {
       output = std::move(operation);
     }
     return submitted;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
-} // namespace gneiss::engine::platform::io
+} // namespace gneiss::engine

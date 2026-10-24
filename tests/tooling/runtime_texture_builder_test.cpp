@@ -13,8 +13,8 @@
 #include <vector>
 
 int main() { // NOLINT(bugprone-exception-escape)
-  gneiss::engine::resource::texture_ktx2 source{
-      .transfer = gneiss::engine::resource::texture_transfer::srgb,
+  gneiss::engine::texture_ktx2 source{
+      .transfer = gneiss::engine::texture_transfer::srgb,
       .levels = {{.width = 2U,
                   .height = 2U,
                   .pixels = {std::byte{255U}, std::byte{}, std::byte{}, std::byte{255U},
@@ -26,13 +26,13 @@ int main() { // NOLINT(bugprone-exception-escape)
                   .pixels = {std::byte{128U}, std::byte{128U}, std::byte{128U}, std::byte{255U}}}}};
   std::vector<std::byte> encoded;
   std::string diagnostic;
-  if (gneiss::tooling::asset_build::build_runtime_texture(source, encoded, diagnostic) !=
-      gneiss::tooling::asset_build::runtime_texture_build_result::success) {
+  if (gneiss::tooling::build_runtime_texture(source, encoded, diagnostic) !=
+      gneiss::tooling::runtime_texture_build_result::success) {
     return 1;
   }
-  gneiss::engine::resource::texture_binary_view binary;
-  if (gneiss::engine::resource::decode_texture_binary(encoded, binary, diagnostic) !=
-      gneiss::engine::resource::texture_binary_result::success) {
+  gneiss::engine::texture_binary_view binary;
+  if (gneiss::engine::decode_texture_binary(encoded, binary, diagnostic) !=
+      gneiss::engine::texture_binary_result::success) {
     return 2;
   }
   granit::texture_asset_info info;
@@ -46,7 +46,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   }
   auto repeated = encoded;
   std::string summary;
-  if (!gneiss::tooling::asset_build::inspect_runtime_texture(encoded, summary, diagnostic) ||
+  if (!gneiss::tooling::inspect_runtime_texture(encoded, summary, diagnostic) ||
       summary.find("Format=BC7_SRGB") == std::string::npos ||
       summary.find("Format=RGBA8_SRGB") == std::string::npos ||
       summary.find("Mip=1") == std::string::npos) {
@@ -57,24 +57,24 @@ int main() { // NOLINT(bugprone-exception-escape)
     auto damaged = encoded;
     const auto payload_offset = static_cast<std::size_t>(binary.payload.data() - encoded.data());
     damaged[payload_offset + static_cast<std::size_t>(variant.payload_offset)] ^= std::byte{1U};
-    if (gneiss::tooling::asset_build::inspect_runtime_texture(damaged, summary, diagnostic) ||
+    if (gneiss::tooling::inspect_runtime_texture(damaged, summary, diagnostic) ||
         !summary.empty() || diagnostic.find("SHA-256") == std::string::npos) {
       return 7;
     }
   }
-  if (gneiss::tooling::asset_build::inspect_runtime_texture(std::span{encoded}.first(32U), summary,
-                                                            diagnostic) ||
+  if (gneiss::tooling::inspect_runtime_texture(std::span{encoded}.first(32U), summary,
+                                               diagnostic) ||
       diagnostic.empty()) {
     return 8;
   }
-  if (gneiss::tooling::asset_build::build_runtime_texture(source, repeated, diagnostic) !=
-          gneiss::tooling::asset_build::runtime_texture_build_result::success ||
+  if (gneiss::tooling::build_runtime_texture(source, repeated, diagnostic) !=
+          gneiss::tooling::runtime_texture_build_result::success ||
       repeated != encoded) {
     return 4;
   }
   source.levels[1].width = 2U;
-  return gneiss::tooling::asset_build::build_runtime_texture(source, repeated, diagnostic) ==
-                 gneiss::tooling::asset_build::runtime_texture_build_result::invalid_argument
+  return gneiss::tooling::build_runtime_texture(source, repeated, diagnostic) ==
+                 gneiss::tooling::runtime_texture_build_result::invalid_argument
              ? 0
              : 5;
 }

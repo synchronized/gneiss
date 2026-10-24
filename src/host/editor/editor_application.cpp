@@ -70,7 +70,6 @@
 namespace {
 
 enum class hierarchy_action { none, rename, duplicate, remove };
-using document_action = gneiss::editor::document_action;
 using gizmo_operation = gneiss::editor::transform_gizmo_operation;
 enum class author_selection_kind : std::uint8_t { none, scene_node, prefab_root, prefab_source };
 enum class prefab_author_action : std::uint8_t { none, create, apply, unpack };
@@ -100,12 +99,11 @@ struct editor_state {
   // 宿主拥有对象；只在其 run 回调期间借用。
   gneiss::runtime::application* application{};
   explicit editor_state(bool cooperative = false)
-      : task_scheduler({.mode = cooperative
-                                    ? gneiss::engine::core::tasks::execution_mode::cooperative
-                                    : gneiss::engine::core::tasks::execution_mode::thread_pool}) {}
+      : task_scheduler({.mode = cooperative ? gneiss::engine::execution_mode::cooperative
+                                            : gneiss::engine::execution_mode::thread_pool}) {}
   gneiss::editor::imgui_adapter ui;
   gneiss::editor::editor_camera camera;
-  gneiss::engine::core::tasks::task_scheduler task_scheduler;
+  gneiss::engine::task_scheduler task_scheduler;
   gneiss::editor::editor_scene_loader scene_loader;
   bool smoke{};
   std::uint32_t smoke_frames{};
@@ -118,9 +116,9 @@ struct editor_state {
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::entity_id inspected_entity;
   gneiss::editor::runtime_scene_selection runtime_selection;
-  gneiss::engine::core::result inspector_error = gneiss::engine::core::result::success;
-  gneiss::engine::core::result history_error = gneiss::engine::core::result::success;
-  gneiss::engine::core::result prefab_author_result = gneiss::engine::core::result::success;
+  gneiss::engine::result inspector_error = gneiss::engine::result::success;
+  gneiss::engine::result history_error = gneiss::engine::result::success;
+  gneiss::engine::result prefab_author_result = gneiss::engine::result::success;
   bool prefab_author_attempted = false;
   bool prefab_author_busy = false;
   std::array<char, 192> prefab_path_buffer{};
@@ -130,13 +128,13 @@ struct editor_state {
   std::string pending_prefab_root_uuid;
   std::filesystem::path asset_root;
   std::filesystem::path project_root;
-  gneiss::engine::core::result save_result = gneiss::engine::core::result::success;
+  gneiss::engine::result save_result = gneiss::engine::result::success;
   bool save_attempted = false;
-  gneiss::editor::runtime_process runtime;
-  gneiss::engine::core::result runtime_result = gneiss::engine::core::result::success;
+  gneiss::host::runtime_process runtime;
+  gneiss::engine::result runtime_result = gneiss::engine::result::success;
   bool runtime_attempted = false;
-  gneiss::engine::platform::child_process package_process;
-  gneiss::engine::core::result package_result = gneiss::engine::core::result::success;
+  gneiss::engine::child_process package_process;
+  gneiss::engine::result package_result = gneiss::engine::result::success;
   bool package_attempted = false;
   bool show_package_dialog = false;
   bool package_zip = true;
@@ -161,8 +159,8 @@ struct editor_state {
   gneiss::editor::asset_file_watcher asset_watcher;
   std::chrono::steady_clock::time_point next_asset_watch_attempt{};
   bool asset_watch_failed = false;
-  gneiss::engine::core::result asset_watch_result = gneiss::engine::core::result::success;
-  gneiss::engine::core::result author_watch_result = gneiss::engine::core::result::success;
+  gneiss::engine::result asset_watch_result = gneiss::engine::result::success;
+  gneiss::engine::result author_watch_result = gneiss::engine::result::success;
   gneiss::editor::asset_file_watcher author_asset_watcher;
   gneiss::editor::author_asset_service author_assets{task_scheduler};
   gneiss::editor::asset_background_worker asset_reimports{{}, &task_scheduler};
@@ -174,7 +172,7 @@ struct editor_state {
   ImGuiTextFilter asset_filter;
   gneiss::editor::editor_import_report last_import;
   bool import_attempted = false;
-  gneiss::engine::core::result asset_scene_result = gneiss::engine::core::result::success;
+  gneiss::engine::result asset_scene_result = gneiss::engine::result::success;
   bool asset_scene_attempted = false;
 #endif
 };
@@ -189,10 +187,10 @@ void start_source_asset_watch(editor_state& state) {
   state.next_asset_watch_attempt = now + std::chrono::seconds{1};
   const auto operation = state.asset_watcher.start(state.project_root / "sources", true);
   state.asset_watch_result = operation;
-  if (operation == gneiss::engine::core::result::not_ready) {
+  if (operation == gneiss::engine::result::not_ready) {
     return;
   }
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     state.asset_reimports.request_rescan();
     state.asset_reimports.request_refresh();
     return;
@@ -208,18 +206,18 @@ constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept
   return (column * 4U) + row;
 }
 
-gneiss::engine::core::result submit_editor_ui(editor_state& state) {
+gneiss::engine::result submit_editor_ui(editor_state& state) {
   const auto& settings = state.camera.settings();
   const auto& transform = state.camera.current_transform();
-  const gneiss::engine::render::view_camera view{
+  const gneiss::engine::view_camera view{
       .camera = {settings.vertical_field_of_view_radians, settings.near_plane, settings.far_plane},
       .transform = {transform.translation, transform.rotation, transform.scale}};
   const auto operation = state.application->set_view_camera(&view);
-  return operation == gneiss::engine::core::result::success ? state.ui.submit(*state.application)
-                                                            : operation;
+  return operation == gneiss::engine::result::success ? state.ui.submit(*state.application)
+                                                      : operation;
 }
 
-gneiss::engine::core::result submit_editor_grid(const editor_state& state) {
+gneiss::engine::result submit_editor_grid(const editor_state& state) {
   const auto* viewport = ImGui::GetMainViewport();
   const auto& camera = state.camera.current_transform();
   auto lines =
@@ -300,7 +298,7 @@ bool parse_options(int argc, char** argv, launch_options& options) {
   return true;
 }
 
-void report_startup_failure(std::string_view stage, gneiss::engine::core::result operation,
+void report_startup_failure(std::string_view stage, gneiss::engine::result operation,
                             std::string_view path = {}) noexcept {
   const auto message = operation.message();
   std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=%.*s，结果=%d，消息=%.*s",
@@ -320,9 +318,9 @@ void synchronize_history_dirty(editor_state& state) noexcept {
   }
 }
 
-gneiss::engine::core::result undo_editor_command(editor_state& state) noexcept {
+gneiss::engine::result undo_editor_command(editor_state& state) noexcept {
   const auto result = state.editing.history().undo();
-  if (result == gneiss::engine::core::result::success) {
+  if (result == gneiss::engine::result::success) {
     if (!state.editing.document().is_dirty()) {
       state.editing.history().mark_saved();
     }
@@ -331,9 +329,9 @@ gneiss::engine::core::result undo_editor_command(editor_state& state) noexcept {
   return result;
 }
 
-gneiss::engine::core::result redo_editor_command(editor_state& state) noexcept {
+gneiss::engine::result redo_editor_command(editor_state& state) noexcept {
   const auto result = state.editing.history().redo();
-  if (result == gneiss::engine::core::result::success) {
+  if (result == gneiss::engine::result::success) {
     if (!state.editing.document().is_dirty()) {
       state.editing.history().mark_saved();
     }
@@ -352,44 +350,44 @@ gneiss::engine::core::result redo_editor_command(editor_state& state) noexcept {
   return {reinterpret_cast<const char*>(text.data()), text.size()};
 }
 
-[[nodiscard]] gneiss::engine::core::result author_uri_path(const editor_state& state,
-                                                           std::string_view uri,
-                                                           std::filesystem::path& path,
-                                                           std::string& relative_path) noexcept {
+[[nodiscard]] gneiss::engine::result author_uri_path(const editor_state& state,
+                                                     std::string_view uri,
+                                                     std::filesystem::path& path,
+                                                     std::string& relative_path) noexcept {
   constexpr std::string_view prefix = "asset://";
   if (!uri.starts_with(prefix) || uri.size() == prefix.size()) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   try {
     relative_path.assign(uri.substr(prefix.size()));
     path = state.asset_root / utf8_path(relative_path);
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::io;
+    return gneiss::engine::result::io;
   }
 }
 
-[[nodiscard]] gneiss::engine::core::result
-read_author_asset(const editor_state& state, std::string_view uri,
-                  author_asset_document& output) noexcept {
+[[nodiscard]] gneiss::engine::result read_author_asset(const editor_state& state,
+                                                       std::string_view uri,
+                                                       author_asset_document& output) noexcept {
   std::filesystem::path path;
   auto operation = author_uri_path(state, uri, path, output.relative_path);
-  if (operation != gneiss::engine::core::result::success) {
+  if (operation != gneiss::engine::result::success) {
     return operation;
   }
   try {
     std::ifstream stream(path, std::ios::binary);
     if (!stream) {
-      return gneiss::engine::core::result::not_found;
+      return gneiss::engine::result::not_found;
     }
     output.content.assign(std::istreambuf_iterator<char>{stream}, std::istreambuf_iterator<char>{});
-    return stream.bad() ? gneiss::engine::core::result::io : gneiss::engine::core::result::success;
+    return stream.bad() ? gneiss::engine::result::io : gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::io;
+    return gneiss::engine::result::io;
   }
 }
 
@@ -417,43 +415,43 @@ void restore_author_selection(editor_state& state, const author_selection& selec
   }
 }
 
-[[nodiscard]] gneiss::engine::core::result
+[[nodiscard]] gneiss::engine::result
 apply_author_documents(editor_state& state, author_document_operation documents,
                        const author_selection& selection) noexcept {
   if (documents.changes == nullptr || documents.rollback == nullptr) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   try {
     auto operation =
         gneiss::editor::commit_native_author_transaction(state.asset_root, *documents.changes);
-    if (operation == gneiss::engine::core::result::success) {
+    if (operation == gneiss::engine::result::success) {
       const auto uri = std::string{state.editing.document().uri()};
       operation = state.editing.document().open(*state.application, state.world, uri);
-      if (operation != gneiss::engine::core::result::success) {
+      if (operation != gneiss::engine::result::success) {
         (void)gneiss::editor::commit_native_author_transaction(state.asset_root,
                                                                *documents.rollback);
         (void)state.editing.document().open(*state.application, state.world, uri);
       }
     }
-    if (operation == gneiss::engine::core::result::success) {
+    if (operation == gneiss::engine::result::success) {
       restore_author_selection(state, selection);
     }
     return operation;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-[[nodiscard]] gneiss::engine::core::result
+[[nodiscard]] gneiss::engine::result
 record_author_documents(editor_state& state, std::string label,
                         std::vector<gneiss::editor::author_document_change> changes,
                         const author_selection& undo_selection,
                         const author_selection& redo_selection) {
   std::vector<gneiss::editor::author_document_change> inverse;
   auto operation = gneiss::editor::invert_author_document_changes(changes, inverse);
-  if (operation != gneiss::engine::core::result::success) {
+  if (operation != gneiss::engine::result::success) {
     return operation;
   }
   try {
@@ -465,7 +463,7 @@ record_author_documents(editor_state& state, std::string label,
     auto redo_target = std::make_shared<author_selection>(redo_selection);
     operation = apply_author_documents(
         state, {.changes = forward.get(), .rollback = backward.get()}, redo_selection);
-    if (operation != gneiss::engine::core::result::success) {
+    if (operation != gneiss::engine::result::success) {
       return operation;
     }
     operation = state.editing.history().record(
@@ -481,22 +479,22 @@ record_author_documents(editor_state& state, std::string label,
                    state, {.changes = forward.get(), .rollback = backward.get()}, *redo_target);
              },
          .merge_key = {}});
-    if (operation != gneiss::engine::core::result::success) {
+    if (operation != gneiss::engine::result::success) {
       (void)apply_author_documents(state, {.changes = backward.get(), .rollback = forward.get()},
                                    undo_selection);
       return operation;
     }
     state.editing.history().mark_saved();
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-[[nodiscard]] gneiss::engine::core::result
-current_author_scene(editor_state& state, author_scene_document& output) noexcept {
+[[nodiscard]] gneiss::engine::result current_author_scene(editor_state& state,
+                                                          author_scene_document& output) noexcept {
   author_asset_document document;
   const auto operation = read_author_asset(state, state.editing.document().uri(), document);
   output.relative_path = std::move(document.relative_path);
@@ -504,22 +502,22 @@ current_author_scene(editor_state& state, author_scene_document& output) noexcep
   return operation;
 }
 
-[[nodiscard]] gneiss::engine::core::result apply_selected_prefab(editor_state& state,
-                                                                 std::string_view instance_uuid,
-                                                                 std::string_view source_uuid) {
+[[nodiscard]] gneiss::engine::result apply_selected_prefab(editor_state& state,
+                                                           std::string_view instance_uuid,
+                                                           std::string_view source_uuid) {
   const auto* selected = state.editing.document().find_prefab_source(instance_uuid, source_uuid);
   if (selected == nullptr || selected->override_flags == 0U ||
       state.editing.document().is_dirty() || state.runtime.is_busy()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   author_scene_document scene;
   auto operation = current_author_scene(state, scene);
   author_asset_document prefab;
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     operation = read_author_asset(state, selected->prefab_uri, prefab);
   }
   gneiss::editor::apply_prefab_author_plan plan;
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     operation = gneiss::editor::prepare_apply_prefab(scene.content, prefab.content,
                                                      {.scene_path = scene.relative_path,
                                                       .prefab_path = prefab.relative_path,
@@ -527,7 +525,7 @@ current_author_scene(editor_state& state, author_scene_document& output) noexcep
                                                       .instance_uuid = instance_uuid},
                                                      plan);
   }
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     const author_selection selection{.kind = author_selection_kind::prefab_source,
                                      .primary_uuid = std::string{instance_uuid},
                                      .source_uuid = std::string{source_uuid}};
@@ -537,26 +535,26 @@ current_author_scene(editor_state& state, author_scene_document& output) noexcep
   return operation;
 }
 
-[[nodiscard]] gneiss::engine::core::result unpack_selected_prefab(editor_state& state,
-                                                                  std::string_view instance_uuid) {
+[[nodiscard]] gneiss::engine::result unpack_selected_prefab(editor_state& state,
+                                                            std::string_view instance_uuid) {
   const auto* root = state.editing.document().find_prefab_root(instance_uuid);
   if (root == nullptr || state.editing.document().is_dirty() || state.runtime.is_busy()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   const auto prefab_uri = root->prefab_uri;
   author_scene_document scene;
   auto operation = current_author_scene(state, scene);
   author_asset_document prefab;
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     operation = read_author_asset(state, prefab_uri, prefab);
   }
   std::string unpacked_root_uuid;
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     operation = gneiss::editor::make_editor_uuid(unpacked_root_uuid);
   }
   std::vector<std::string> target_uuids;
   std::vector<gneiss::editor::unpack_prefab_uuid_mapping> mappings;
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     const auto count =
         std::ranges::count_if(state.editing.document().prefab_nodes(), [&](const auto& node) {
           return !node.is_instance_root && node.instance_uuid == instance_uuid;
@@ -567,7 +565,7 @@ current_author_scene(editor_state& state, author_scene_document& output) noexcep
       if (!node.is_instance_root && node.instance_uuid == instance_uuid) {
         target_uuids.emplace_back();
         operation = gneiss::editor::make_editor_uuid(target_uuids.back());
-        if (operation != gneiss::engine::core::result::success) {
+        if (operation != gneiss::engine::result::success) {
           break;
         }
         mappings.push_back(
@@ -576,7 +574,7 @@ current_author_scene(editor_state& state, author_scene_document& output) noexcep
     }
   }
   std::vector<gneiss::editor::author_document_change> changes;
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     operation = gneiss::editor::prepare_unpack_prefab(scene.content, prefab.content,
                                                       {.scene_path = scene.relative_path,
                                                        .prefab_uri = prefab_uri,
@@ -585,7 +583,7 @@ current_author_scene(editor_state& state, author_scene_document& output) noexcep
                                                        .node_mappings = mappings},
                                                       changes);
   }
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     operation = record_author_documents(state, "解包 Prefab 实例", std::move(changes),
                                         {.kind = author_selection_kind::prefab_root,
                                          .primary_uuid = std::string{instance_uuid},
@@ -597,12 +595,12 @@ current_author_scene(editor_state& state, author_scene_document& output) noexcep
   return operation;
 }
 
-[[nodiscard]] gneiss::engine::core::result
-create_prefab_from_selected(editor_state& state, std::string_view root_uuid,
-                            std::string_view prefab_path) {
+[[nodiscard]] gneiss::engine::result create_prefab_from_selected(editor_state& state,
+                                                                 std::string_view root_uuid,
+                                                                 std::string_view prefab_path) {
   if (state.editing.document().find_node(root_uuid) == nullptr ||
       state.editing.document().is_dirty() || state.runtime.is_busy() || prefab_path.empty()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   author_scene_document scene;
   auto operation = current_author_scene(state, scene);
@@ -610,14 +608,14 @@ create_prefab_from_selected(editor_state& state, std::string_view root_uuid,
   prefab_uri.append(prefab_path);
   std::string prefab_uuid;
   std::string instance_uuid;
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     operation = gneiss::editor::make_editor_uuid(prefab_uuid);
   }
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     operation = gneiss::editor::make_editor_uuid(instance_uuid);
   }
   std::vector<gneiss::editor::author_document_change> changes;
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     operation = gneiss::editor::prepare_create_prefab(scene.content,
                                                       {.scene_path = scene.relative_path,
                                                        .prefab_path = prefab_path,
@@ -627,7 +625,7 @@ create_prefab_from_selected(editor_state& state, std::string_view root_uuid,
                                                        .instance_uuid = instance_uuid},
                                                       changes);
   }
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     operation = record_author_documents(state, "从场景子树创建 Prefab", std::move(changes),
                                         {.kind = author_selection_kind::scene_node,
                                          .primary_uuid = std::string{root_uuid},
@@ -639,24 +637,24 @@ create_prefab_from_selected(editor_state& state, std::string_view root_uuid,
   return operation;
 }
 
-gneiss::engine::core::result save_document_as(editor_state& state) {
+gneiss::engine::result save_document_as(editor_state& state) {
   std::filesystem::path path;
-  auto operation = gneiss::editor::select_scene_save_path(path);
-  if (operation != gneiss::engine::core::result::success) {
+  auto operation = gneiss::host::select_scene_save_path(path);
+  if (operation != gneiss::engine::result::success) {
     return operation;
   }
   std::string uri;
   std::string saved_content;
   operation = gneiss::editor::make_asset_uri(state.asset_root, path, uri);
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     operation = state.editing.document().save_as(state.asset_root, uri, &saved_content);
   }
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     state.editing.history().mark_saved();
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
     const auto saved_uri = std::string{state.editing.document().uri()};
     const auto acknowledged = state.author_assets.acknowledge(saved_uri, std::move(saved_content));
-    if (acknowledged != gneiss::engine::core::result::success) {
+    if (acknowledged != gneiss::engine::result::success) {
       state.author_assets.mark_failed(saved_uri, acknowledged);
     }
     (void)state.runtime.publish_asset_revision(std::span<const std::string>(&saved_uri, 1U));
@@ -665,18 +663,18 @@ gneiss::engine::core::result save_document_as(editor_state& state) {
   return operation;
 }
 
-gneiss::engine::core::result save_document(editor_state& state) {
+gneiss::engine::result save_document(editor_state& state) {
   if (state.editing.document().uri().empty()) {
     return save_document_as(state);
   }
   std::string saved_content;
   const auto operation = state.editing.document().save(state.asset_root, &saved_content);
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     state.editing.history().mark_saved();
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
     const auto uri = std::string{state.editing.document().uri()};
     const auto acknowledged = state.author_assets.acknowledge(uri, std::move(saved_content));
-    if (acknowledged != gneiss::engine::core::result::success) {
+    if (acknowledged != gneiss::engine::result::success) {
       state.author_assets.mark_failed(uri, acknowledged);
     }
     (void)state.runtime.publish_asset_revision(std::span<const std::string>(&uri, 1U));
@@ -685,25 +683,25 @@ gneiss::engine::core::result save_document(editor_state& state) {
   return operation;
 }
 
-gneiss::engine::core::result launch_runtime(editor_state& state, bool save_changes) noexcept {
+gneiss::engine::result launch_runtime(editor_state& state, bool save_changes) noexcept {
 #if defined(GNEISS_EDITOR_HAS_RUNTIME)
   gneiss::editor::runtime_launch_request request;
-  auto operation = save_changes ? save_document(state) : gneiss::engine::core::result::success;
-  if (operation == gneiss::engine::core::result::success &&
+  auto operation = save_changes ? save_document(state) : gneiss::engine::result::success;
+  if (operation == gneiss::engine::result::success &&
       gneiss::editor::inspect_runtime_launch(state.editing.document(), state.project_root,
                                              request) !=
           gneiss::editor::runtime_launch_state::ready) {
-    operation = gneiss::engine::core::result::invalid_state;
+    operation = gneiss::engine::result::invalid_state;
   }
-  if (operation == gneiss::engine::core::result::success && save_changes) {
+  if (operation == gneiss::engine::result::success && save_changes) {
     state.editing.history().mark_saved();
   }
-  if (operation == gneiss::engine::core::result::success) {
-    gneiss::app::project_description project;
-    operation = gneiss::app::load_project_description(state.project_root, project);
-    if (operation == gneiss::engine::core::result::success && project.game_module.name.empty()) {
+  if (operation == gneiss::engine::result::success) {
+    gneiss::host::project_description project;
+    operation = gneiss::host::load_project_description(state.project_root, project);
+    if (operation == gneiss::engine::result::success && project.game_module.name.empty()) {
       operation = state.runtime.start(std::filesystem::path{GNEISS_EDITOR_RUNTIME_PATH}, request);
-    } else if (operation == gneiss::engine::core::result::success) {
+    } else if (operation == gneiss::engine::result::success) {
       operation = state.runtime.build_and_start(std::filesystem::path{GNEISS_EDITOR_CMAKE_PATH},
                                                 std::filesystem::path{GNEISS_EDITOR_RUNTIME_PATH},
                                                 request, project);
@@ -713,7 +711,7 @@ gneiss::engine::core::result launch_runtime(editor_state& state, bool save_chang
 #else
   (void)state;
   (void)save_changes;
-  return gneiss::engine::core::result::unsupported;
+  return gneiss::engine::result::unsupported;
 #endif
 }
 
@@ -730,38 +728,40 @@ void request_runtime_launch(editor_state& state) noexcept {
   state.runtime_attempted = true;
 }
 
-gneiss::engine::core::result perform_document_action(editor_state& state, document_action action) {
-  gneiss::engine::core::result operation = gneiss::engine::core::result::success;
+gneiss::engine::result perform_document_action(editor_state& state,
+                                               gneiss::editor::document_action action) {
+  gneiss::engine::result operation = gneiss::engine::result::success;
   switch (action) {
-  case document_action::new_scene:
+  case gneiss::editor::document_action::new_scene:
     operation = state.editing.create_empty(*state.application, state.world);
     break;
-  case document_action::open_scene: {
+  case gneiss::editor::document_action::open_scene: {
     std::filesystem::path path;
-    operation = gneiss::editor::select_scene_file(path);
+    operation = gneiss::host::select_scene_file(path);
     std::string uri;
-    if (operation == gneiss::engine::core::result::success) {
+    if (operation == gneiss::engine::result::success) {
       operation = gneiss::editor::make_asset_uri(state.asset_root, path, uri);
     }
-    if (operation == gneiss::engine::core::result::success) {
+    if (operation == gneiss::engine::result::success) {
       operation = state.scene_loader.request(*state.application, state.editing, uri);
     }
     break;
   }
-  case document_action::exit_editor:
+  case gneiss::editor::document_action::exit_editor:
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
     state.asset_shutdown_pending = true;
     state.asset_reimports.request_stop();
     state.author_assets.request_stop();
 #else
     state.application->request_exit();
-    operation = gneiss::engine::core::result::success;
+    operation = gneiss::engine::result::success;
 #endif
     break;
-  case document_action::none:
-    return gneiss::engine::core::result::success;
+  case gneiss::editor::document_action::none:
+    return gneiss::engine::result::success;
   }
-  if (operation == gneiss::engine::core::result::success && action == document_action::new_scene) {
+  if (operation == gneiss::engine::result::success &&
+      action == gneiss::editor::document_action::new_scene) {
     state.editing.history().clear();
     state.inspector.clear();
     state.inspected_entity = {};
@@ -769,9 +769,9 @@ gneiss::engine::core::result perform_document_action(editor_state& state, docume
   return operation;
 }
 
-void request_document_action(editor_state& state, document_action action) {
+void request_document_action(editor_state& state, gneiss::editor::document_action action) {
   const auto ready = state.document_actions.request(action, state.editing.document().is_dirty());
-  if (ready != document_action::none) {
+  if (ready != gneiss::editor::document_action::none) {
     state.history_error = perform_document_action(state, ready);
   }
 }
@@ -800,7 +800,7 @@ bool reparent_with_history(editor_state& state, std::string_view source_uuid,
   const std::string target_key{target_uuid};
   state.history_error = state.editing.document().reparent_node(
       source->node, target == nullptr ? gneiss::scene_node_id{} : target->node);
-  if (state.history_error != gneiss::engine::core::result::success) {
+  if (state.history_error != gneiss::engine::result::success) {
     return false;
   }
   state.history_error = state.editing.history().record(
@@ -812,7 +812,7 @@ bool reparent_with_history(editor_state& state, std::string_view source_uuid,
                                       ? nullptr
                                       : state.editing.document().find_node(previous_parent_uuid);
              return current == nullptr
-                        ? gneiss::engine::core::result::not_found
+                        ? gneiss::engine::result::not_found
                         : state.editing.document().reparent_node(
                               current->node,
                               parent == nullptr ? gneiss::scene_node_id{} : parent->node);
@@ -823,13 +823,13 @@ bool reparent_with_history(editor_state& state, std::string_view source_uuid,
              const auto* parent =
                  target_key.empty() ? nullptr : state.editing.document().find_node(target_key);
              return current == nullptr || (!target_key.empty() && parent == nullptr)
-                        ? gneiss::engine::core::result::not_found
+                        ? gneiss::engine::result::not_found
                         : state.editing.document().reparent_node(
                               current->node,
                               parent == nullptr ? gneiss::scene_node_id{} : parent->node);
            },
        .merge_key = {}});
-  if (state.history_error != gneiss::engine::core::result::success) {
+  if (state.history_error != gneiss::engine::result::success) {
     const auto* current = state.editing.document().find_node(source_key);
     const auto* parent = previous_parent_uuid.empty()
                              ? nullptr
@@ -843,7 +843,8 @@ bool reparent_with_history(editor_state& state, std::string_view source_uuid,
 }
 
 gneiss::editor::runtime_inspector_actions
-runtime_inspector_actions(editor_state& state, const gneiss::editor::runtime_scene_node& node) {
+make_runtime_inspector_actions(editor_state& state,
+                               const gneiss::editor::runtime_scene_node& node) {
   return {.context = &state,
           .editable = state.runtime.supports_property_editing(),
           .can_apply_to_author =
@@ -865,12 +866,12 @@ runtime_inspector_actions(editor_state& state, const gneiss::editor::runtime_sce
                     editor.editing.document(), editor.editing.history(),
                     {selected.uuid, selected.prefab_instance_uuid, selected.prefab_source_node_uuid,
                      gneiss::from_native(selected.local_transform)});
-                if (editor.history_error == gneiss::engine::core::result::success) {
+                if (editor.history_error == gneiss::engine::result::success) {
                   synchronize_history_dirty(editor);
                 }
               },
           .report_result =
-              [](void* context, gneiss::engine::core::result status) {
+              [](void* context, gneiss::engine::result status) {
                 auto& editor = *static_cast<editor_state*>(context);
                 editor.runtime_result = status;
                 editor.runtime_attempted = true;
@@ -885,8 +886,7 @@ void draw_reflected_properties(editor_state& state) {
           .write =
               [](void* context, const gneiss::editor::inspector_component& component,
                  const gneiss::editor::inspector_property& property,
-                 const gneiss::engine::core::reflection::property_value& value,
-                 std::uint64_t serial) {
+                 const gneiss::engine::property_value& value, std::uint64_t serial) {
                 auto& editor = *static_cast<editor_state*>(context);
                 return gneiss::editor::edit_author_property(
                     editor.editing.document(), editor.editing.history(), editor.inspector,
@@ -898,10 +898,10 @@ void draw_reflected_properties(editor_state& state) {
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
 void execute_asset_browser_request(editor_state& state,
                                    const gneiss::editor::asset_browser_request& request) {
-  using namespace gneiss::editor;
-  using action = asset_browser_action;
-  const auto entry =
-      std::ranges::find(state.assets.entries(), request.asset_id, &asset_browser_entry::id);
+  using namespace gneiss::host;
+  using action = gneiss::editor::asset_browser_action;
+  const auto entry = std::ranges::find(state.assets.entries(), request.asset_id,
+                                       &gneiss::editor::asset_browser_entry::id);
   const auto queued = [&state](bool accepted) {
     if (!accepted) {
       state.last_import = {};
@@ -914,20 +914,19 @@ void execute_asset_browser_request(editor_state& state,
     break;
   case action::restart_source_watch: {
     const auto stopped = state.asset_watcher.is_running() ? state.asset_watcher.stop()
-                                                          : gneiss::engine::core::result::success;
+                                                          : gneiss::engine::result::success;
     state.asset_watch_result =
         stopped.ok() ? state.asset_watcher.start(state.project_root / "sources", true) : stopped;
     if (state.asset_watch_result.ok()) {
       state.asset_reimports.request_rescan();
     }
-    state.asset_watch_failed = state.asset_watch_result != gneiss::engine::core::result::success &&
-                               state.asset_watch_result != gneiss::engine::core::result::not_ready;
+    state.asset_watch_failed = state.asset_watch_result != gneiss::engine::result::success &&
+                               state.asset_watch_result != gneiss::engine::result::not_ready;
     break;
   }
   case action::restart_author_watch: {
-    const auto stopped = state.author_asset_watcher.is_running()
-                             ? state.author_asset_watcher.stop()
-                             : gneiss::engine::core::result::success;
+    const auto stopped = state.author_asset_watcher.is_running() ? state.author_asset_watcher.stop()
+                                                                 : gneiss::engine::result::success;
     state.author_watch_result =
         stopped.ok() ? state.author_asset_watcher.start(state.asset_root, false) : stopped;
     if (state.author_watch_result.ok()) {
@@ -949,16 +948,17 @@ void execute_asset_browser_request(editor_state& state,
     const auto selected_result = select_source_asset(selected);
     if (selected_result.ok()) {
       queued(state.asset_reimports.import_asset(selected, true));
-    } else if (selected_result != gneiss::engine::core::result::not_ready) {
+    } else if (selected_result != gneiss::engine::result::not_ready) {
       state.last_import = {};
-      state.last_import.result = editor_import_result::io_error;
+      state.last_import.result = gneiss::editor::editor_import_result::io_error;
       state.last_import.diagnostic = std::string{selected_result.message()};
       state.import_attempted = true;
     }
     break;
   }
   case action::reimport_selected:
-    if (entry != state.assets.entries().end() && entry->kind == asset_browser_kind::source) {
+    if (entry != state.assets.entries().end() &&
+        entry->kind == gneiss::editor::asset_browser_kind::source) {
       queued(state.asset_reimports.import_asset(state.project_root / "sources" /
                                                 utf8_path(entry->relative_path)));
     }
@@ -1027,18 +1027,17 @@ void execute_asset_browser_request(editor_state& state,
 }
 
 void draw_asset_browser(editor_state& state) {
-  using namespace gneiss::editor;
+  using namespace gneiss::host;
   const auto background = state.asset_reimports.status();
   const auto source_root = path_utf8(state.project_root / "sources");
   const auto author_root = path_utf8(state.asset_root);
   const auto worker_source = path_utf8(background.source);
-  asset_browser_view view;
+  gneiss::editor::asset_browser_view view;
   view.watches[0] = {.root = source_root,
                      .operation = state.asset_watch_result,
                      .dropped = state.asset_watcher.dropped_event_count(),
-                     .waiting =
-                         state.asset_watch_result == gneiss::engine::core::result::not_ready &&
-                         !state.asset_watch_failed};
+                     .waiting = state.asset_watch_result == gneiss::engine::result::not_ready &&
+                                !state.asset_watch_failed};
   view.watches[1] = {.root = author_root,
                      .operation = state.author_watch_result,
                      .dropped = state.author_asset_watcher.dropped_event_count(),
@@ -1052,14 +1051,14 @@ void draw_asset_browser(editor_state& state) {
   view.worker_error = background.error;
   view.queued = background.pending;
   view.can_cancel_tasks = background.active || background.pending != 0U || background.rescanning;
-  view.refresh_failed = state.asset_result != asset_browser_result::success;
+  view.refresh_failed = state.asset_result != gneiss::editor::asset_browser_result::success;
   view.import_attempted = state.import_attempted;
-  view.import_succeeded = state.last_import.result == editor_import_result::success;
+  view.import_succeeded = state.last_import.result == gneiss::editor::editor_import_result::success;
   view.can_retry_import =
       state.import_attempted && !view.import_succeeded && !state.last_import.source_path.empty();
   view.import_diagnostic = state.last_import.diagnostic;
-  const auto selected =
-      std::ranges::find(state.assets.entries(), state.assets.selection(), &asset_browser_entry::id);
+  const auto selected = std::ranges::find(state.assets.entries(), state.assets.selection(),
+                                          &gneiss::editor::asset_browser_entry::id);
   const auto& load = state.runtime.scene_load_status();
   constexpr const char* phases[] = {
       "Preparing description", "Preparing assets", "Verifying sources", "Creating scene",
@@ -1073,18 +1072,18 @@ void draw_asset_browser(editor_state& state) {
   view.scene.completed = load.completed;
   view.scene.total = load.total;
   view.scene.can_cancel = load.can_cancel;
-  view.scene.can_retry = load.phase == gneiss::ipc_scene_phase::failed ||
-                         load.phase == gneiss::ipc_scene_phase::cancelled;
+  view.scene.can_retry = load.phase == gneiss::host::ipc_scene_phase::failed ||
+                         load.phase == gneiss::host::ipc_scene_phase::cancelled;
   view.scene.can_load = view.scene.enabled && selected != state.assets.entries().end() &&
                         selected->asset_uri.ends_with(".scene.json") &&
-                        (!view.scene.visible || gneiss::scene_phase_terminal(load.phase));
+                        (!view.scene.visible || gneiss::host::scene_phase_terminal(load.phase));
   if (load.budget && load.budget->cleanup_pending) {
     view.scene.can_retry = false;
     view.scene.can_load = false;
   }
   if (load.budget) {
     const auto& budget = *load.budget;
-    view.scene.budget = asset_budget_view{
+    view.scene.budget = gneiss::editor::asset_budget_view{
         .candidate_logical = budget.candidate_logical_bytes,
         .candidate_cpu = budget.candidate_cpu_data_bytes,
         .application_logical = budget.application_logical_bytes,
@@ -1100,10 +1099,10 @@ void draw_asset_browser(editor_state& state) {
   view.reload.publish_result = reload.publish_result;
   view.reload.visible = reload.state != runtime_asset_reload_state::idle;
   if (reload.state == runtime_asset_reload_state::applied) {
-    view.reload.tone = asset_status_tone::success;
+    view.reload.tone = gneiss::editor::asset_status_tone::success;
   } else if (reload.state == runtime_asset_reload_state::failed ||
              reload.state == runtime_asset_reload_state::restart_required) {
-    view.reload.tone = asset_status_tone::error;
+    view.reload.tone = gneiss::editor::asset_status_tone::error;
   }
   view.reload.revision = reload.revision;
   view.reload.message = reload.message;
@@ -1116,12 +1115,12 @@ void draw_asset_browser(editor_state& state) {
   view.reload.can_retry = reload.state == runtime_asset_reload_state::failed;
   view.reload.restart_required = reload.state == runtime_asset_reload_state::restart_required;
   const auto& change = state.author_assets.status();
-  view.author_change_visible = change.state != author_asset_change_state::idle;
-  if (change.state == author_asset_change_state::applied) {
-    view.author_change_tone = asset_status_tone::success;
-  } else if (change.state == author_asset_change_state::conflict ||
-             change.state == author_asset_change_state::failed) {
-    view.author_change_tone = asset_status_tone::error;
+  view.author_change_visible = change.state != gneiss::editor::author_asset_change_state::idle;
+  if (change.state == gneiss::editor::author_asset_change_state::applied) {
+    view.author_change_tone = gneiss::editor::asset_status_tone::success;
+  } else if (change.state == gneiss::editor::author_asset_change_state::conflict ||
+             change.state == gneiss::editor::author_asset_change_state::failed) {
+    view.author_change_tone = gneiss::editor::asset_status_tone::error;
   }
   view.author_uri = change.uri;
   view.author_message = change.message;
@@ -1129,8 +1128,8 @@ void draw_asset_browser(editor_state& state) {
   if (selected != state.assets.entries().end()) {
     view.can_add_mesh = is_mesh_asset(*selected) &&
                         find_material_for_mesh(state.assets.entries(), *selected) != nullptr;
-    view.can_add_prefab =
-        selected->kind == asset_browser_kind::authored_asset && is_prefab_asset(*selected);
+    view.can_add_prefab = selected->kind == gneiss::editor::asset_browser_kind::authored_asset &&
+                          is_prefab_asset(*selected);
     view.can_apply =
         node != nullptr && ((!node->material_uri.empty() && is_mesh_asset(*selected)) ||
                             (!node->mesh_uri.empty() && is_material_asset(*selected)));
@@ -1158,8 +1157,8 @@ bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVe
       minimum, size);
 }
 
-gneiss::engine::core::result update_editor_camera(editor_state& state,
-                                                  const gneiss::engine::core::frame_time& time) {
+gneiss::engine::result update_editor_camera(editor_state& state,
+                                            const gneiss::engine::frame_time& time) {
   auto& io = ImGui::GetIO();
   gneiss::editor::editor_camera_input input;
   constexpr double nanoseconds_per_second = 1'000'000'000.0;
@@ -1186,10 +1185,10 @@ gneiss::engine::core::result update_editor_camera(editor_state& state,
       selected_node = prefab->node;
     }
     if (selected_node.is_valid()) {
-      gneiss::engine::core::math::transform target;
+      gneiss::engine::transform target;
       const auto result =
           state.application->native_world()->node_get_world_transform(selected_node, target);
-      if (result != gneiss::engine::core::result::success) {
+      if (result != gneiss::engine::result::success) {
         return result;
       }
       return state.camera.focus({target.translation, target.rotation, target.scale});
@@ -1199,12 +1198,12 @@ gneiss::engine::core::result update_editor_camera(editor_state& state,
 }
 
 // 仅冒烟模式采样；显示计数和 GPU 回执来自异步渲染器，不能当作主循环 FPS。
-gneiss::engine::core::result advance_editor_smoke(editor_state& state) {
+gneiss::engine::result advance_editor_smoke(editor_state& state) {
   if (!state.smoke) {
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   }
   if (std::chrono::steady_clock::now() - state.smoke_started > std::chrono::minutes{5}) {
-    return gneiss::engine::core::result::not_ready;
+    return gneiss::engine::result::not_ready;
   }
   if (state.scene_loader.visible() && !state.scene_loader.active()) {
     return state.scene_loader.operation();
@@ -1240,7 +1239,7 @@ gneiss::engine::core::result advance_editor_smoke(editor_state& state) {
       state.application->request_exit();
     }
   }
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
 void draw_scene_loading(editor_state& state) {
@@ -1314,21 +1313,20 @@ void draw_scene_loading(editor_state& state) {
   ImGui::End();
 }
 
-gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_time* time,
-                                           void* user_data) {
+gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, void* user_data) {
   try {
     if (time == nullptr || user_data == nullptr) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     auto& state = *static_cast<editor_state*>(user_data);
     state.runtime.update();
-    if (state.task_scheduler.mode() == gneiss::engine::core::tasks::execution_mode::cooperative) {
+    if (state.task_scheduler.mode() == gneiss::engine::execution_mode::cooperative) {
       (void)state.task_scheduler.run_ready();
     }
     bool scene_changed{};
     const auto loading = state.scene_loader.advance(*state.application, state.editing, state.world,
                                                     state.camera, scene_changed);
-    if (loading != gneiss::engine::core::result::success) {
+    if (loading != gneiss::engine::result::success) {
       return loading;
     }
     if (scene_changed) {
@@ -1353,7 +1351,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
       }
     }
     const auto smoke_result = advance_editor_smoke(state);
-    if (smoke_result != gneiss::engine::core::result::success) {
+    if (smoke_result != gneiss::engine::result::success) {
       return smoke_result;
     }
     state.editing.prefabs().advance();
@@ -1366,7 +1364,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
     }
     if (state.editing.prefabs().visible() || state.editing.history().is_pending()) {
       const auto begun = state.ui.begin_frame(*state.application, *time);
-      if (begun != gneiss::engine::core::result::success) {
+      if (begun != gneiss::engine::result::success) {
         return begun;
       }
       const auto* viewport = ImGui::GetMainViewport();
@@ -1421,7 +1419,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                                    state.editing.history());
     if (state.editing.assets().visible()) {
       const auto begun = state.ui.begin_frame(*state.application, *time);
-      if (begun != gneiss::engine::core::result::success)
+      if (begun != gneiss::engine::result::success)
         return begun;
       const auto* viewport = ImGui::GetMainViewport();
       ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Always, {0.5F, 0.5F});
@@ -1431,8 +1429,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
       const auto& progress = state.editing.assets().progress();
       if (state.editing.assets().active()) {
-        ImGui::TextUnformatted(progress.state ==
-                                       gneiss::engine::render::texture_load_state::uploading
+        ImGui::TextUnformatted(progress.state == gneiss::engine::texture_load_state::uploading
                                    ? "Uploading assets"
                                    : "Preparing assets");
         if (progress.total_assets != 0U) {
@@ -1455,7 +1452,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
     }
     if (state.scene_loader.visible()) {
       const auto begun = state.ui.begin_frame(*state.application, *time);
-      if (begun != gneiss::engine::core::result::success) {
+      if (begun != gneiss::engine::result::success) {
         return begun;
       }
       draw_scene_loading(state);
@@ -1490,7 +1487,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
     }
     for (const auto& event : author_events) {
       if (event.kind == gneiss::editor::asset_file_event_kind::error) {
-        if (state.author_watch_result == gneiss::engine::core::result::success) {
+        if (state.author_watch_result == gneiss::engine::result::success) {
           state.author_assets.request_rescan();
         }
         state.author_watch_result = event.operation;
@@ -1507,7 +1504,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
       if (change.state != gneiss::editor::author_asset_change_state::changed) {
         continue;
       }
-      if (change.operation != gneiss::engine::core::result::success) {
+      if (change.operation != gneiss::engine::result::success) {
         state.author_assets.mark_failed(change.uri, change.operation);
         continue;
       }
@@ -1516,19 +1513,19 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
           std::ranges::any_of(state.editing.document().prefab_nodes(), [&change](const auto& node) {
             return node.prefab_uri == change.uri;
           });
-      auto operation = gneiss::engine::core::result::success;
+      auto operation = gneiss::engine::result::success;
       if (is_current_scene || is_used_prefab) {
         const auto current_uri = std::string{state.editing.document().uri()};
         operation = state.editing.document().open(*state.application, state.world, current_uri);
-        if (operation == gneiss::engine::core::result::success) {
+        if (operation == gneiss::engine::result::success) {
           state.editing.history().clear();
         }
       }
-      if (operation == gneiss::engine::core::result::success) {
+      if (operation == gneiss::engine::result::success) {
         operation =
             state.runtime.publish_asset_revision(std::span<const std::string>(&change.uri, 1U));
       }
-      if (operation == gneiss::engine::core::result::success) {
+      if (operation == gneiss::engine::result::success) {
         state.author_assets.mark_applied(change.uri);
         state.asset_reimports.request_refresh();
       } else {
@@ -1570,12 +1567,12 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
       state.package_process.update();
       if (!state.package_process.is_running()) {
         state.package_result = state.package_process.exit_code() == 0
-                                   ? gneiss::engine::core::result::success
-                                   : gneiss::engine::core::result::dependency_failed;
+                                   ? gneiss::engine::result::success
+                                   : gneiss::engine::result::dependency_failed;
       }
     }
     auto result = state.ui.begin_frame(*state.application, *time);
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
@@ -1597,8 +1594,8 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
       gneiss::editor::reset_transform_gizmo();
     }
     const auto selection_result = state.editing.document().validate_selection();
-    if (selection_result != gneiss::engine::core::result::success &&
-        selection_result != gneiss::engine::core::result::invalid_handle) {
+    if (selection_result != gneiss::engine::result::success &&
+        selection_result != gneiss::engine::result::invalid_handle) {
       return selection_result;
     }
 
@@ -1620,11 +1617,11 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
         const auto exit_requested = ImGui::MenuItem("Exit");
         if (save_requested) {
           state.save_result = save_document(state);
-          state.save_attempted = state.save_result != gneiss::engine::core::result::not_ready;
+          state.save_attempted = state.save_result != gneiss::engine::result::not_ready;
         }
         if (save_as_requested) {
           state.save_result = save_document_as(state);
-          state.save_attempted = state.save_result != gneiss::engine::core::result::not_ready;
+          state.save_attempted = state.save_result != gneiss::engine::result::not_ready;
         }
 #if defined(GNEISS_EDITOR_HAS_RUNTIME)
         if (package_requested) {
@@ -1637,15 +1634,15 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
           ImGui::OpenPopup("Export Package");
         }
 #endif
-        document_action requested = document_action::none;
+        gneiss::editor::document_action requested = gneiss::editor::document_action::none;
         if (new_requested) {
-          requested = document_action::new_scene;
+          requested = gneiss::editor::document_action::new_scene;
         } else if (open_requested) {
-          requested = document_action::open_scene;
+          requested = gneiss::editor::document_action::open_scene;
         } else if (exit_requested) {
-          requested = document_action::exit_editor;
+          requested = gneiss::editor::document_action::exit_editor;
         }
-        if (requested != document_action::none) {
+        if (requested != gneiss::editor::document_action::none) {
           request_document_action(state, requested);
         }
         ImGui::EndMenu();
@@ -1671,11 +1668,11 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
         ImGui::EndDisabled();
         const auto control_state = state.runtime.control_state();
         const auto can_toggle_pause =
-            control_state == gneiss::editor::runtime_control_state::running ||
-            control_state == gneiss::editor::runtime_control_state::paused;
+            control_state == gneiss::host::runtime_control_state::running ||
+            control_state == gneiss::host::runtime_control_state::paused;
         ImGui::BeginDisabled(!can_toggle_pause);
         const auto pause_requested = ImGui::MenuItem(
-            control_state == gneiss::editor::runtime_control_state::paused ? "Resume" : "Pause",
+            control_state == gneiss::host::runtime_control_state::paused ? "Resume" : "Pause",
             "F7");
         ImGui::EndDisabled();
         ImGui::BeginDisabled(!state.runtime.is_busy());
@@ -1685,7 +1682,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
           request_runtime_launch(state);
         }
         if (pause_requested) {
-          state.runtime_result = control_state == gneiss::editor::runtime_control_state::paused
+          state.runtime_result = control_state == gneiss::host::runtime_control_state::paused
                                      ? state.runtime.request_resume()
                                      : state.runtime.request_pause();
           state.runtime_attempted = true;
@@ -1728,14 +1725,14 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
       }
       ImGui::SameLine(0.0F, 4.0F);
       const auto can_toggle_pause =
-          runtime_control == gneiss::editor::runtime_control_state::running ||
-          runtime_control == gneiss::editor::runtime_control_state::paused;
+          runtime_control == gneiss::host::runtime_control_state::running ||
+          runtime_control == gneiss::host::runtime_control_state::paused;
       if (gneiss::editor::toolbar_icon_button(
               "##PauseRuntime", gneiss::editor::toolbar_icon::pause,
-              runtime_control == gneiss::editor::runtime_control_state::paused ? "恢复 (F7)"
-                                                                               : "暂停 (F7)",
-              can_toggle_pause, runtime_control == gneiss::editor::runtime_control_state::paused)) {
-        state.runtime_result = runtime_control == gneiss::editor::runtime_control_state::paused
+              runtime_control == gneiss::host::runtime_control_state::paused ? "恢复 (F7)"
+                                                                             : "暂停 (F7)",
+              can_toggle_pause, runtime_control == gneiss::host::runtime_control_state::paused)) {
+        state.runtime_result = runtime_control == gneiss::host::runtime_control_state::paused
                                    ? state.runtime.request_resume()
                                    : state.runtime.request_pause();
         state.runtime_attempted = true;
@@ -1754,14 +1751,14 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
     gneiss::editor::begin_editor_workspace();
     const auto& io = ImGui::GetIO();
     if (io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_N, false)) {
-      request_document_action(state, document_action::new_scene);
+      request_document_action(state, gneiss::editor::document_action::new_scene);
     }
     if (io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_O, false)) {
-      request_document_action(state, document_action::open_scene);
+      request_document_action(state, gneiss::editor::document_action::open_scene);
     }
     if (io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
       state.save_result = save_document_as(state);
-      state.save_attempted = state.save_result != gneiss::engine::core::result::not_ready;
+      state.save_attempted = state.save_result != gneiss::engine::result::not_ready;
     }
     if (ImGui::IsKeyPressed(ImGuiKey_F6, false) && !state.runtime.is_busy()) {
       request_runtime_launch(state);
@@ -1772,9 +1769,9 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
     }
     if (ImGui::IsKeyPressed(ImGuiKey_F7, false)) {
       const auto control = state.runtime.control_state();
-      if (control == gneiss::editor::runtime_control_state::running ||
-          control == gneiss::editor::runtime_control_state::paused) {
-        state.runtime_result = control == gneiss::editor::runtime_control_state::paused
+      if (control == gneiss::host::runtime_control_state::running ||
+          control == gneiss::host::runtime_control_state::paused) {
+        state.runtime_result = control == gneiss::host::runtime_control_state::paused
                                    ? state.runtime.request_resume()
                                    : state.runtime.request_pause();
         state.runtime_attempted = true;
@@ -1809,7 +1806,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
         if (ImGui::Button("Export")) {
           static constexpr std::array<std::string_view, 3U> profile_names = {"debug", "development",
                                                                              "shipping"};
-          gneiss::engine::platform::child_process_start_info info;
+          gneiss::engine::child_process_start_info info;
           info.executable = GNEISS_EDITOR_PROJECT_PATH;
           info.working_directory = state.project_root;
           info.arguments = {"package", state.project_root, GNEISS_EDITOR_RUNTIME_PATH,
@@ -1849,7 +1846,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
       if (ImGui::Button("Save and Run")) {
         state.runtime_result = launch_runtime(state, true);
         state.runtime_attempted = true;
-        if (state.runtime_result == gneiss::engine::core::result::success) {
+        if (state.runtime_result == gneiss::engine::result::success) {
           state.pending_save_and_run = false;
           ImGui::CloseCurrentPopup();
         }
@@ -1869,12 +1866,11 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                 [](void* context) {
                   auto& editor = *static_cast<editor_state*>(context);
                   editor.save_result = save_document(editor);
-                  editor.save_attempted =
-                      editor.save_result != gneiss::engine::core::result::not_ready;
+                  editor.save_attempted = editor.save_result != gneiss::engine::result::not_ready;
                   return editor.save_result;
                 },
             .perform =
-                [](void* context, document_action action) {
+                [](void* context, gneiss::editor::document_action action) {
                   auto& editor = *static_cast<editor_state*>(context);
                   editor.history_error = perform_document_action(editor, action);
                 },
@@ -1898,7 +1894,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
     gneiss::editor::draw_console_panel(
         state.runtime.console(), state.console_panel, state.panel_visibility.console,
         console_runtime, {.context = &state.runtime, .clear = [](void* context) {
-                            static_cast<gneiss::editor::runtime_process*>(context)->clear_output();
+                            static_cast<gneiss::host::runtime_process*>(context)->clear_output();
                           }});
 
     ImGui::SetNextWindowSizeConstraints(ImVec2(220.0F, 180.0F), ImVec2(FLT_MAX, FLT_MAX));
@@ -1980,9 +1976,9 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
           const auto next = std::string{state.rename_buffer.data()};
           const auto* current = state.editing.document().find_node(state.rename_uuid);
           state.history_error = current == nullptr
-                                    ? gneiss::engine::core::result::not_found
+                                    ? gneiss::engine::result::not_found
                                     : state.editing.document().rename_node(current->node, next);
-          if (state.history_error == gneiss::engine::core::result::success) {
+          if (state.history_error == gneiss::engine::result::success) {
             const auto uuid = state.rename_uuid;
             const auto previous = state.rename_previous;
             state.history_error = state.editing.history().record(
@@ -1991,18 +1987,18 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                      [&state, uuid, previous] {
                        const auto* node = state.editing.document().find_node(uuid);
                        return node == nullptr
-                                  ? gneiss::engine::core::result::not_found
+                                  ? gneiss::engine::result::not_found
                                   : state.editing.document().rename_node(node->node, previous);
                      },
                  .redo =
                      [&state, uuid, next] {
                        const auto* node = state.editing.document().find_node(uuid);
                        return node == nullptr
-                                  ? gneiss::engine::core::result::not_found
+                                  ? gneiss::engine::result::not_found
                                   : state.editing.document().rename_node(node->node, next);
                      },
                  .merge_key = {}});
-            if (state.history_error != gneiss::engine::core::result::success) {
+            if (state.history_error != gneiss::engine::result::success) {
               if (const auto* node = state.editing.document().find_node(uuid); node != nullptr) {
                 (void)state.editing.document().rename_node(node->node, previous);
               }
@@ -2016,7 +2012,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
         const auto parent = selected == nullptr ? gneiss::scene_node_id{} : selected->node;
         gneiss::scene_node_id created;
         state.history_error = state.editing.document().create_node("Node", parent, created);
-        if (state.history_error == gneiss::engine::core::result::success) {
+        if (state.history_error == gneiss::engine::result::success) {
           const auto uuid = state.editing.document().selected_node()->uuid;
           auto snapshot = std::make_shared<gneiss::editor::scene_subtree_snapshot>();
           state.history_error = state.editing.history().record(
@@ -2024,7 +2020,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                .undo =
                    [&state, uuid, snapshot] {
                      const auto* current = state.editing.document().find_node(uuid);
-                     return current == nullptr ? gneiss::engine::core::result::not_found
+                     return current == nullptr ? gneiss::engine::result::not_found
                                                : state.editing.document().destroy_subtree(
                                                      current->node, *snapshot);
                    },
@@ -2034,7 +2030,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                      return state.editing.document().restore_subtree(*snapshot, restored);
                    },
                .merge_key = {}});
-          if (state.history_error != gneiss::engine::core::result::success) {
+          if (state.history_error != gneiss::engine::result::success) {
             if (const auto* current = state.editing.document().find_node(uuid);
                 current != nullptr) {
               (void)state.editing.document().destroy_subtree(current->node, *snapshot);
@@ -2047,7 +2043,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
         gneiss::scene_node_id duplicate;
         state.history_error =
             state.editing.document().duplicate_subtree(selected->node, parent, duplicate);
-        if (state.history_error == gneiss::engine::core::result::success) {
+        if (state.history_error == gneiss::engine::result::success) {
           const auto uuid = state.editing.document().selected_node()->uuid;
           auto snapshot = std::make_shared<gneiss::editor::scene_subtree_snapshot>();
           state.history_error = state.editing.history().record(
@@ -2055,7 +2051,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                .undo =
                    [&state, uuid, snapshot] {
                      const auto* current = state.editing.document().find_node(uuid);
-                     return current == nullptr ? gneiss::engine::core::result::not_found
+                     return current == nullptr ? gneiss::engine::result::not_found
                                                : state.editing.document().destroy_subtree(
                                                      current->node, *snapshot);
                    },
@@ -2065,7 +2061,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                      return state.editing.document().restore_subtree(*snapshot, restored);
                    },
                .merge_key = {}});
-          if (state.history_error != gneiss::engine::core::result::success) {
+          if (state.history_error != gneiss::engine::result::success) {
             if (const auto* current = state.editing.document().find_node(uuid);
                 current != nullptr) {
               (void)state.editing.document().destroy_subtree(current->node, *snapshot);
@@ -2078,7 +2074,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
         const auto node = selected->node;
         gneiss::editor::scene_subtree_snapshot snapshot;
         state.history_error = state.editing.document().destroy_subtree(node, snapshot);
-        if (state.history_error == gneiss::engine::core::result::success) {
+        if (state.history_error == gneiss::engine::result::success) {
           state.history_error = state.editing.history().record(
               {.label = "删除节点",
                .undo =
@@ -2090,13 +2086,13 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                    [&state, uuid = snapshot.root_uuid] {
                      const auto* current = state.editing.document().find_node(uuid);
                      if (current == nullptr) {
-                       return gneiss::engine::core::result::not_found;
+                       return gneiss::engine::result::not_found;
                      }
                      gneiss::editor::scene_subtree_snapshot discarded;
                      return state.editing.document().destroy_subtree(current->node, discarded);
                    },
                .merge_key = {}});
-          if (state.history_error != gneiss::engine::core::result::success) {
+          if (state.history_error != gneiss::engine::result::success) {
             gneiss::scene_node_id restored;
             (void)state.editing.document().restore_subtree(snapshot, restored);
             if (!was_dirty) {
@@ -2121,7 +2117,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
           gneiss::scene_node_id duplicate;
           state.history_error = state.editing.document().create_prefab_instance(
               prefab_selected->display_name, prefab_selected->prefab_uri, parent, duplicate);
-          if (state.history_error == gneiss::engine::core::result::success) {
+          if (state.history_error == gneiss::engine::result::success) {
             const auto duplicate_uuid =
                 state.editing.document().selected_prefab_node()->instance_uuid;
             auto snapshot = std::make_shared<gneiss::editor::prefab_instance_snapshot>();
@@ -2131,7 +2127,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                      [&state, duplicate_uuid, snapshot] {
                        const auto* current =
                            state.editing.document().find_prefab_root(duplicate_uuid);
-                       return current == nullptr ? gneiss::engine::core::result::not_found
+                       return current == nullptr ? gneiss::engine::result::not_found
                                                  : state.editing.document().destroy_prefab_instance(
                                                        current->node, *snapshot);
                      },
@@ -2141,7 +2137,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                        return state.editing.document().restore_prefab_instance(*snapshot, restored);
                      },
                  .merge_key = {}});
-            if (state.history_error != gneiss::engine::core::result::success) {
+            if (state.history_error != gneiss::engine::result::success) {
               const auto* current = state.editing.document().find_prefab_root(duplicate_uuid);
               if (current != nullptr) {
                 gneiss::editor::prefab_instance_snapshot discarded;
@@ -2250,7 +2246,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                 unpack_selected_prefab(state, state.pending_prefab_instance_uuid);
             break;
           case prefab_author_action::none:
-            state.prefab_author_result = gneiss::engine::core::result::invalid_state;
+            state.prefab_author_result = gneiss::engine::result::invalid_state;
             break;
           }
           state.prefab_author_busy = false;
@@ -2272,8 +2268,8 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
       return submit_editor_ui(state);
     }
 
-    if (state.history_error != gneiss::engine::core::result::success &&
-        state.history_error != gneiss::engine::core::result::not_ready) {
+    if (state.history_error != gneiss::engine::result::success &&
+        state.history_error != gneiss::engine::result::not_ready) {
       const auto message = state.history_error.message();
       ImGui::SetNextWindowPos(ImVec2(500.0F, 24.0F));
       ImGui::Begin("Command Error", nullptr,
@@ -2283,7 +2279,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
       ImGui::End();
     }
     if (state.prefab_author_attempted &&
-        state.prefab_author_result != gneiss::engine::core::result::success) {
+        state.prefab_author_result != gneiss::engine::result::success) {
       const auto message = state.prefab_author_result.message();
       ImGui::SetNextWindowPos(ImVec2(500.0F, 52.0F));
       ImGui::Begin("Prefab Author Error", nullptr,
@@ -2341,7 +2337,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
       draw_view_axis(state, gizmo_minimum, gizmo_size);
       if (scene_view_hovered && !gizmo_owns_pointer) {
         const auto camera_result = update_editor_camera(state, *time);
-        if (camera_result != gneiss::engine::core::result::success) {
+        if (camera_result != gneiss::engine::result::success) {
           ImGui::End();
           return camera_result;
         }
@@ -2370,9 +2366,9 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
     }
     if (save_requested) {
       state.save_result = save_document(state);
-      state.save_attempted = state.save_result != gneiss::engine::core::result::not_ready;
+      state.save_attempted = state.save_result != gneiss::engine::result::not_ready;
     }
-    if (state.save_attempted && state.save_result != gneiss::engine::core::result::success) {
+    if (state.save_attempted && state.save_result != gneiss::engine::result::success) {
       const auto message = state.save_result.message();
       ImGui::TextColored(gneiss::editor::theme_error_color(), "Save failed: %.*s",
                          static_cast<int>(message.size()), message.data());
@@ -2383,14 +2379,14 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
         runtime_selected != nullptr) {
       state.inspector.clear();
       state.inspected_entity = {};
-      state.inspector_error = gneiss::engine::core::result::success;
-      gneiss::editor::draw_runtime_inspector(*runtime_selected,
-                                             runtime_inspector_actions(state, *runtime_selected));
+      state.inspector_error = gneiss::engine::result::success;
+      gneiss::editor::draw_runtime_inspector(
+          *runtime_selected, make_runtime_inspector_actions(state, *runtime_selected));
     } else if (const auto* prefab = state.editing.document().selected_prefab_node();
                prefab != nullptr) {
       state.inspector.clear();
       state.inspected_entity = {};
-      state.inspector_error = gneiss::engine::core::result::success;
+      state.inspector_error = gneiss::engine::result::success;
       ImGui::TextUnformatted(prefab->is_instance_root ? "Prefab Instance" : "Prefab Source Node");
       ImGui::Text("Name: %s", prefab->display_name.c_str());
       ImGui::Text("Instance UUID: %s", prefab->instance_uuid.c_str());
@@ -2442,7 +2438,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
         if (ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°")) {
           gneiss::property_quaternion converted{};
           if (gneiss::editor::euler_degrees_to_quaternion(rotation, converted) ==
-              gneiss::engine::core::result::success) {
+              gneiss::engine::result::success) {
             edited.rotation[0] = converted.x;
             edited.rotation[1] = converted.y;
             edited.rotation[2] = converted.z;
@@ -2456,16 +2452,16 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
               state.editing.document().find_prefab_source(instance_uuid, source_uuid);
           state.history_error =
               current == nullptr
-                  ? gneiss::engine::core::result::not_found
+                  ? gneiss::engine::result::not_found
                   : state.editing.document().set_local_transform(current->node, edited);
-          if (state.history_error == gneiss::engine::core::result::success) {
+          if (state.history_error == gneiss::engine::result::success) {
             state.history_error = state.editing.history().record(
                 {.label = "变换 Prefab 来源节点",
                  .undo =
                      [&state, instance_uuid, source_uuid, previous] {
                        const auto* node =
                            state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-                       return node == nullptr ? gneiss::engine::core::result::not_found
+                       return node == nullptr ? gneiss::engine::result::not_found
                                               : state.editing.document().set_local_transform(
                                                     node->node, previous);
                      },
@@ -2473,7 +2469,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                      [&state, instance_uuid, source_uuid, edited] {
                        const auto* node =
                            state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-                       return node == nullptr ? gneiss::engine::core::result::not_found
+                       return node == nullptr ? gneiss::engine::result::not_found
                                               : state.editing.document().set_local_transform(
                                                     node->node, edited);
                      },
@@ -2492,11 +2488,11 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
               state.editing.document().find_prefab_source(instance_uuid, source_uuid);
           gneiss::transform restored_previous{};
           state.history_error = current == nullptr
-                                    ? gneiss::engine::core::result::not_found
+                                    ? gneiss::engine::result::not_found
                                     : state.editing.document().restore_prefab_transform_field(
                                           current->node, field_id, restored_previous);
           current = state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-          if (state.history_error != gneiss::engine::core::result::success || current == nullptr) {
+          if (state.history_error != gneiss::engine::result::success || current == nullptr) {
             return;
           }
           const auto restored = current->local_transform;
@@ -2506,7 +2502,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                    [&state, instance_uuid, source_uuid, restored_previous] {
                      const auto* node =
                          state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-                     return node == nullptr ? gneiss::engine::core::result::not_found
+                     return node == nullptr ? gneiss::engine::result::not_found
                                             : state.editing.document().set_local_transform(
                                                   node->node, restored_previous);
                    },
@@ -2514,12 +2510,12 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                    [&state, instance_uuid, source_uuid, restored] {
                      const auto* node =
                          state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-                     return node == nullptr ? gneiss::engine::core::result::not_found
+                     return node == nullptr ? gneiss::engine::result::not_found
                                             : state.editing.document().set_local_transform(
                                                   node->node, restored);
                    },
                .merge_key = {}});
-          if (state.history_error != gneiss::engine::core::result::success) {
+          if (state.history_error != gneiss::engine::result::success) {
             if (const auto* node =
                     state.editing.document().find_prefab_source(instance_uuid, source_uuid);
                 node != nullptr) {
@@ -2546,7 +2542,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
           state.history_error =
               state.editing.document().restore_prefab_transform(current->node, all_previous);
           current = state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-          if (state.history_error == gneiss::engine::core::result::success && current != nullptr) {
+          if (state.history_error == gneiss::engine::result::success && current != nullptr) {
             const auto restored = current->local_transform;
             state.history_error = state.editing.history().record(
                 {.label = "恢复 Prefab 来源变换",
@@ -2554,7 +2550,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                      [&state, instance_uuid, source_uuid, all_previous] {
                        const auto* node =
                            state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-                       return node == nullptr ? gneiss::engine::core::result::not_found
+                       return node == nullptr ? gneiss::engine::result::not_found
                                               : state.editing.document().set_local_transform(
                                                     node->node, all_previous);
                      },
@@ -2562,12 +2558,12 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                      [&state, instance_uuid, source_uuid, restored] {
                        const auto* node =
                            state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-                       return node == nullptr ? gneiss::engine::core::result::not_found
+                       return node == nullptr ? gneiss::engine::result::not_found
                                               : state.editing.document().set_local_transform(
                                                     node->node, restored);
                      },
                  .merge_key = {}});
-            if (state.history_error != gneiss::engine::core::result::success) {
+            if (state.history_error != gneiss::engine::result::success) {
               if (const auto* node =
                       state.editing.document().find_prefab_source(instance_uuid, source_uuid);
                   node != nullptr) {
@@ -2594,9 +2590,9 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
             const auto* current = state.editing.document().find_prefab_root(state.rename_uuid);
             state.history_error =
                 current == nullptr
-                    ? gneiss::engine::core::result::not_found
+                    ? gneiss::engine::result::not_found
                     : state.editing.document().rename_prefab_instance(current->node, next);
-            if (state.history_error == gneiss::engine::core::result::success) {
+            if (state.history_error == gneiss::engine::result::success) {
               const auto uuid = state.rename_uuid;
               const auto previous = state.rename_previous;
               state.history_error = state.editing.history().record(
@@ -2604,14 +2600,14 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                    .undo =
                        [&state, uuid, previous] {
                          const auto* node = state.editing.document().find_prefab_root(uuid);
-                         return node == nullptr ? gneiss::engine::core::result::not_found
+                         return node == nullptr ? gneiss::engine::result::not_found
                                                 : state.editing.document().rename_prefab_instance(
                                                       node->node, previous);
                        },
                    .redo =
                        [&state, uuid, next] {
                          const auto* node = state.editing.document().find_prefab_root(uuid);
-                         return node == nullptr ? gneiss::engine::core::result::not_found
+                         return node == nullptr ? gneiss::engine::result::not_found
                                                 : state.editing.document().rename_prefab_instance(
                                                       node->node, next);
                        },
@@ -2631,7 +2627,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
         if (ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°")) {
           gneiss::property_quaternion converted{};
           if (gneiss::editor::euler_degrees_to_quaternion(rotation, converted) ==
-              gneiss::engine::core::result::success) {
+              gneiss::engine::result::success) {
             edited.rotation[0] = converted.x;
             edited.rotation[1] = converted.y;
             edited.rotation[2] = converted.z;
@@ -2644,22 +2640,22 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
           const auto* current = state.editing.document().find_prefab_root(instance_uuid);
           state.history_error =
               current == nullptr
-                  ? gneiss::engine::core::result::not_found
+                  ? gneiss::engine::result::not_found
                   : state.editing.document().set_local_transform(current->node, edited);
-          if (state.history_error == gneiss::engine::core::result::success) {
+          if (state.history_error == gneiss::engine::result::success) {
             state.history_error = state.editing.history().record(
                 {.label = "变换 Prefab 实例",
                  .undo =
                      [&state, instance_uuid, previous] {
                        const auto* node = state.editing.document().find_prefab_root(instance_uuid);
-                       return node == nullptr ? gneiss::engine::core::result::not_found
+                       return node == nullptr ? gneiss::engine::result::not_found
                                               : state.editing.document().set_local_transform(
                                                     node->node, previous);
                      },
                  .redo =
                      [&state, instance_uuid, edited] {
                        const auto* node = state.editing.document().find_prefab_root(instance_uuid);
-                       return node == nullptr ? gneiss::engine::core::result::not_found
+                       return node == nullptr ? gneiss::engine::result::not_found
                                               : state.editing.document().set_local_transform(
                                                     node->node, edited);
                      },
@@ -2691,24 +2687,24 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
           previous.camera = gneiss::from_native(selected->camera);
           previous.is_primary = selected->is_primary_camera ? 1U : 0U;
           state.history_error = state.editing.document().remove_camera(selected->node);
-          if (state.history_error == gneiss::engine::core::result::success) {
+          if (state.history_error == gneiss::engine::result::success) {
             state.history_error = state.editing.history().record(
                 {.label = "移除 Camera",
                  .undo =
                      [&state, uuid, previous] {
                        const auto* node = state.editing.document().find_node(uuid);
                        return node == nullptr
-                                  ? gneiss::engine::core::result::not_found
+                                  ? gneiss::engine::result::not_found
                                   : state.editing.document().set_camera(node->node, previous);
                      },
                  .redo =
                      [&state, uuid] {
                        const auto* node = state.editing.document().find_node(uuid);
-                       return node == nullptr ? gneiss::engine::core::result::not_found
+                       return node == nullptr ? gneiss::engine::result::not_found
                                               : state.editing.document().remove_camera(node->node);
                      },
                  .merge_key = {}});
-            if (state.history_error != gneiss::engine::core::result::success) {
+            if (state.history_error != gneiss::engine::result::success) {
               if (const auto* node = state.editing.document().find_node(uuid); node != nullptr) {
                 (void)state.editing.document().set_camera(node->node, previous);
               }
@@ -2717,24 +2713,24 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
         } else {
           gneiss::scene_camera_desc camera{};
           state.history_error = state.editing.document().set_camera(selected->node, camera);
-          if (state.history_error == gneiss::engine::core::result::success) {
+          if (state.history_error == gneiss::engine::result::success) {
             state.history_error = state.editing.history().record(
                 {.label = "添加 Camera",
                  .undo =
                      [&state, uuid] {
                        const auto* node = state.editing.document().find_node(uuid);
-                       return node == nullptr ? gneiss::engine::core::result::not_found
+                       return node == nullptr ? gneiss::engine::result::not_found
                                               : state.editing.document().remove_camera(node->node);
                      },
                  .redo =
                      [&state, uuid, camera] {
                        const auto* node = state.editing.document().find_node(uuid);
                        return node == nullptr
-                                  ? gneiss::engine::core::result::not_found
+                                  ? gneiss::engine::result::not_found
                                   : state.editing.document().set_camera(node->node, camera);
                      },
                  .merge_key = {}});
-            if (state.history_error != gneiss::engine::core::result::success) {
+            if (state.history_error != gneiss::engine::result::success) {
               if (const auto* node = state.editing.document().find_node(uuid); node != nullptr) {
                 (void)state.editing.document().remove_camera(node->node);
               }
@@ -2742,7 +2738,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
           }
         }
         state.inspected_entity = {};
-        components_changed = state.history_error == gneiss::engine::core::result::success;
+        components_changed = state.history_error == gneiss::engine::result::success;
       }
       ImGui::SameLine();
       ImGui::BeginDisabled(!has_mesh);
@@ -2750,14 +2746,14 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
       ImGui::EndDisabled();
       if (remove_mesh_requested) {
         state.history_error = state.editing.document().remove_mesh_renderer(selected->node);
-        if (state.history_error == gneiss::engine::core::result::success) {
+        if (state.history_error == gneiss::engine::result::success) {
           state.history_error = state.editing.history().record(
               {.label = "移除 Mesh Renderer",
                .undo =
                    [&state, uuid, selected_mesh_uri, selected_material_uri] {
                      const auto* node = state.editing.document().find_node(uuid);
                      return node == nullptr
-                                ? gneiss::engine::core::result::not_found
+                                ? gneiss::engine::result::not_found
                                 : state.editing.document().set_mesh_renderer(
                                       node->node, selected_mesh_uri, selected_material_uri);
                    },
@@ -2765,11 +2761,11 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
                    [&state, uuid] {
                      const auto* node = state.editing.document().find_node(uuid);
                      return node == nullptr
-                                ? gneiss::engine::core::result::not_found
+                                ? gneiss::engine::result::not_found
                                 : state.editing.document().remove_mesh_renderer(node->node);
                    },
                .merge_key = {}});
-          if (state.history_error != gneiss::engine::core::result::success) {
+          if (state.history_error != gneiss::engine::result::success) {
             if (const auto* node = state.editing.document().find_node(uuid); node != nullptr) {
               (void)state.editing.document().set_mesh_renderer(node->node, selected_mesh_uri,
                                                                selected_material_uri);
@@ -2777,7 +2773,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
           }
         }
         state.inspected_entity = {};
-        components_changed = state.history_error == gneiss::engine::core::result::success;
+        components_changed = state.history_error == gneiss::engine::result::success;
       }
       if (!has_mesh) {
         ImGui::TextDisabled("Select a mesh in Asset Browser to add Mesh Renderer");
@@ -2789,7 +2785,7 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
     } else {
       state.inspector.clear();
       state.inspected_entity = {};
-      state.inspector_error = gneiss::engine::core::result::success;
+      state.inspector_error = gneiss::engine::result::success;
       ImGui::TextUnformatted("No node is selected");
     }
     ImGui::End();
@@ -2801,15 +2797,15 @@ gneiss::engine::core::result update_editor(const gneiss::engine::core::frame_tim
     }
     // 相机可能被本帧滚轮、聚焦或场景操作更新；网格必须使用最终相机状态。
     const auto grid_result = submit_editor_grid(state);
-    if (grid_result != gneiss::engine::core::result::success) {
+    if (grid_result != gneiss::engine::result::success) {
       return grid_result;
     }
     return submit_editor_ui(state);
   } catch (const std::bad_alloc&) {
     // C++ 异常不得越过 C ABI 回调边界。
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
@@ -2825,7 +2821,7 @@ uint8_t handle_close_requested(void* user_data) noexcept {
   }
   if (state.editing.active()) {
     state.editing.cancel(*state.application);
-    state.document_actions.defer(document_action::exit_editor);
+    state.document_actions.defer(gneiss::editor::document_action::exit_editor);
     return 0U;
   }
   state.editing.prefabs().dismiss();
@@ -2841,7 +2837,7 @@ uint8_t handle_close_requested(void* user_data) noexcept {
     return 1U;
 #endif
   }
-  state.document_actions.defer(document_action::exit_editor);
+  state.document_actions.defer(gneiss::editor::document_action::exit_editor);
   return 0U;
 }
 
@@ -2849,24 +2845,24 @@ int run_editor(int argc, char** argv) {
   launch_options options;
   if (!parse_options(argc, argv, options)) {
     std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=命令行解析，结果=%d，消息=参数无效\n",
-                 gneiss::engine::core::result::invalid_argument.code());
+                 gneiss::engine::result::invalid_argument.code());
     return 64;
   }
-  gneiss::editor::editor_project project;
+  gneiss::host::editor_project project;
   if (options.project.empty()) {
-    const auto operation = gneiss::editor::run_project_manager(options.smoke, project);
-    if (operation == gneiss::engine::core::result::not_ready) {
+    const auto operation = gneiss::host::run_project_manager(options.smoke, project);
+    if (operation == gneiss::engine::result::not_ready) {
       return 0;
     }
-    if (operation != gneiss::engine::core::result::success) {
+    if (operation != gneiss::engine::result::success) {
       const auto message = operation.message();
       std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=Project Manager，结果=%d，消息=%.*s\n",
                    operation.code(), static_cast<int>(message.size()), message.data());
       return 65;
     }
   } else {
-    const auto operation = gneiss::editor::load_editor_project(utf8_path(options.project), project);
-    if (operation != gneiss::engine::core::result::success) {
+    const auto operation = gneiss::host::load_editor_project(utf8_path(options.project), project);
+    if (operation != gneiss::engine::result::success) {
       const auto message = operation.message();
       std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=工程加载，结果=%d，消息=%.*s，路径=%s\n",
                    operation.code(), static_cast<int>(message.size()), message.data(),
@@ -2875,14 +2871,13 @@ int run_editor(int argc, char** argv) {
     }
   }
   const auto recovery = gneiss::editor::recover_native_author_transactions(project.asset_root);
-  if (recovery != gneiss::engine::core::result::success) {
+  if (recovery != gneiss::engine::result::success) {
     report_startup_failure("作者事务恢复", recovery, path_utf8(project.asset_root));
     return 66;
   }
   const auto asset_root_text = path_utf8(project.asset_root);
   if (asset_root_text.size() > std::numeric_limits<std::uint32_t>::max()) {
-    report_startup_failure("资产根校验", gneiss::engine::core::result::invalid_argument,
-                           asset_root_text);
+    report_startup_failure("资产根校验", gneiss::engine::result::invalid_argument, asset_root_text);
     return 64;
   }
   editor_state state(options.cooperative_tasks);
@@ -2896,14 +2891,14 @@ int run_editor(int argc, char** argv) {
   state.asset_reimports.request_refresh();
   start_source_asset_watch(state);
   const auto author_monitor_result = state.author_assets.initialize(state.asset_root);
-  if (author_monitor_result != gneiss::engine::core::result::success) {
+  if (author_monitor_result != gneiss::engine::result::success) {
     const auto message = author_monitor_result.message();
     std::fprintf(stderr, "Gneiss Editor 作者资产监视初始化失败：结果=%d，消息=%.*s\n",
                  author_monitor_result.code(), static_cast<int>(message.size()), message.data());
   } else {
     const auto author_watcher_result = state.author_asset_watcher.start(state.asset_root);
     state.author_watch_result = author_watcher_result;
-    if (author_watcher_result != gneiss::engine::core::result::success) {
+    if (author_watcher_result != gneiss::engine::result::success) {
       const auto message = author_watcher_result.message();
       std::fprintf(stderr, "Gneiss Editor 作者资产监听启动失败：结果=%d，消息=%.*s\n",
                    author_watcher_result.code(), static_cast<int>(message.size()), message.data());
@@ -2912,11 +2907,10 @@ int run_editor(int argc, char** argv) {
 #endif
   const auto title = project.name + " - Gneiss Editor";
   gneiss::runtime::application_configuration desc;
-  desc.callbacks.update = [&state](gneiss::engine::core::rid,
-                                   const gneiss::engine::core::frame_time& time) {
+  desc.callbacks.update = [&state](gneiss::engine::rid, const gneiss::engine::frame_time& time) {
     return update_editor(&time, &state);
   };
-  desc.callbacks.close_requested = [&state](gneiss::engine::core::rid) {
+  desc.callbacks.close_requested = [&state](gneiss::engine::rid) {
     return handle_close_requested(&state) != 0U;
   };
   desc.use_granit_window = true;
@@ -2933,49 +2927,49 @@ int run_editor(int argc, char** argv) {
       project.environment.rotation_degrees * 0.01745329251994329577F;
 
   auto operation = gneiss::runtime::application::create(desc, application);
-  if (operation != gneiss::engine::core::result::success) {
+  if (operation != gneiss::engine::result::success) {
     report_startup_failure("Editor Application 创建", operation, path_utf8(project.project_root));
     return 1;
   }
   operation = application->attach_task_executor(state.task_scheduler);
-  if (operation != gneiss::engine::core::result::success) {
+  if (operation != gneiss::engine::result::success) {
     return 2;
   }
   state.application = application.get();
   operation = state.ui.initialize(*application);
-  if (operation != gneiss::engine::core::result::success) {
+  if (operation != gneiss::engine::result::success) {
     report_startup_failure("Editor UI 初始化", operation);
     return 2;
   }
   if (!options.smoke) {
     const auto layout_result = gneiss::editor::initialize_editor_layout(
-        gneiss::editor::default_editor_state_path(), project.project_root, state.panel_visibility);
-    if (layout_result != gneiss::engine::core::result::success &&
-        layout_result != gneiss::engine::core::result::invalid_argument) {
+        gneiss::host::default_editor_state_path(), project.project_root, state.panel_visibility);
+    if (layout_result != gneiss::engine::result::success &&
+        layout_result != gneiss::engine::result::invalid_argument) {
       const auto message = layout_result.message();
       std::fprintf(stderr, "Gneiss Editor 布局加载失败：结果=%d，消息=%.*s\n", layout_result.code(),
                    static_cast<int>(message.size()), message.data());
     }
   }
   operation = state.inspector.initialize();
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     state.world = application->world();
   }
-  if (operation != gneiss::engine::core::result::success) {
+  if (operation != gneiss::engine::result::success) {
     report_startup_failure("Editor World/Inspector 初始化", operation);
   } else {
     operation = state.editing.create_empty(*application, state.world);
-    if (operation != gneiss::engine::core::result::success) {
+    if (operation != gneiss::engine::result::success) {
       report_startup_failure("启动场景打开", operation, project.startup_scene);
     }
   }
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     operation = state.camera.initialize();
-    if (operation != gneiss::engine::core::result::success) {
+    if (operation != gneiss::engine::result::success) {
       report_startup_failure("Editor Camera 初始化", operation);
     }
   }
-  if (operation != gneiss::engine::core::result::success) {
+  if (operation != gneiss::engine::result::success) {
     state.ui.shutdown(*application);
     (void)state.editing.close();
     return 3;
@@ -2985,7 +2979,7 @@ int run_editor(int argc, char** argv) {
   const auto run_result = application->run(0, 0U);
   state.editing.cancel(*application);
   while (state.editing.active()) {
-    if (state.task_scheduler.mode() == gneiss::engine::core::tasks::execution_mode::cooperative) {
+    if (state.task_scheduler.mode() == gneiss::engine::execution_mode::cooperative) {
       (void)state.task_scheduler.run_ready();
     }
     state.editing.advance_cleanup(*application);
@@ -2993,7 +2987,7 @@ int run_editor(int argc, char** argv) {
   }
   if (!options.smoke) {
     const auto save_layout_result = gneiss::editor::save_editor_layout(state.panel_visibility);
-    if (save_layout_result != gneiss::engine::core::result::success) {
+    if (save_layout_result != gneiss::engine::result::success) {
       const auto message = save_layout_result.message();
       std::fprintf(stderr, "Gneiss Editor 布局保存失败：结果=%d，消息=%.*s\n",
                    save_layout_result.code(), static_cast<int>(message.size()), message.data());
@@ -3015,15 +3009,15 @@ int run_editor(int argc, char** argv) {
     report_startup_failure("Editor 文档关闭", closed);
     return 4;
   }
-  if (run_result != gneiss::engine::core::result::success) {
+  if (run_result != gneiss::engine::result::success) {
     report_startup_failure("Editor 运行时事件循环", run_result, path_utf8(project.project_root));
   }
-  return run_result == gneiss::engine::core::result::success ? 0 : 4;
+  return run_result == gneiss::engine::result::success ? 0 : 4;
 }
 
 } // namespace
 
-namespace gneiss::host::editor {
+namespace gneiss::host {
 
 int run_editor_application(int argc, char** argv) noexcept {
   try {
@@ -3033,4 +3027,4 @@ int run_editor_application(int argc, char** argv) noexcept {
   }
 }
 
-} // namespace gneiss::host::editor
+} // namespace gneiss::host

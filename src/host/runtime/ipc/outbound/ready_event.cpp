@@ -6,11 +6,10 @@
 
 #include "ipc_control_protocol.hpp"
 
-namespace gneiss::host::runtime {
+namespace gneiss::host {
 
-gneiss::engine::core::result
-make_ready_event(gneiss::engine::platform::ipc_envelope& output) noexcept {
+gneiss::engine::result make_ready_event(gneiss::engine::ipc_envelope& output) noexcept {
   return encode_ipc_control_ready(output);
 }
 
-} // namespace gneiss::host::runtime
+} // namespace gneiss::host

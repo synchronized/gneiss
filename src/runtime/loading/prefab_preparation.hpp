@@ -17,20 +17,19 @@ namespace gneiss::runtime {
  */
 class GNEISS_API prefab_preparation final {
 public:
-  static gneiss::engine::core::result create(runtime::application& application,
-                                             engine::core::tasks::task_executor& executor,
-                                             std::string_view uri,
-                                             std::unique_ptr<prefab_preparation>& output) noexcept;
+  static gneiss::engine::result create(runtime::application& application,
+                                       gneiss::engine::task_executor& executor,
+                                       std::string_view uri,
+                                       std::unique_ptr<prefab_preparation>& output) noexcept;
   ~prefab_preparation();
   void cancel();
-  gneiss::engine::core::result poll(engine::scene::prepared_scene_description& output,
-                                    bool& complete);
+  gneiss::engine::result poll(gneiss::engine::prepared_scene_description& output, bool& complete);
 
 private:
   struct state;
-  prefab_preparation(engine::core::tasks::task_executor& executor);
-  engine::core::tasks::task_executor& executor_;
-  engine::core::tasks::task_scope scope_;
+  prefab_preparation(gneiss::engine::task_executor& executor);
+  gneiss::engine::task_executor& executor_;
+  gneiss::engine::task_scope scope_;
   std::shared_ptr<state> state_;
   bool cancelled_{};
 };

@@ -20,7 +20,7 @@ Editor 和 Runtime 各自在宿主中创建一个 `task_scheduler`。默认使�
 gneiss::tasks::task_scheduler scheduler({
     .mode = gneiss::tasks::execution_mode::cooperative});
 // 创建 Application 后注入；Application 必须先于 scheduler 销毁。
-auto result = gneiss::application_internal::attach_task_executor(app, scheduler);
+auto result = gneiss::application_internal::attach_task_executor(host, scheduler);
 // 在帧循环不持有业务锁的位置显式驱动，再消费各服务完成结果。
 auto driven = scheduler.run_ready({.max_tasks = 8U,
                                   .max_time = std::chrono::milliseconds(2)});

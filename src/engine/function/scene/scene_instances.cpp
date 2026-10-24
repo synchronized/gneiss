@@ -26,7 +26,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace gneiss::engine::scene {
+namespace gneiss::engine {
 namespace {
 
 std::uint16_t allocate_domain() noexcept {
@@ -36,18 +36,17 @@ std::uint16_t allocate_domain() noexcept {
                                                             : UINT16_C(0);
 }
 
-gneiss::engine::core::math::transform
-to_transform(const gneiss::engine::resource::object_description& object) noexcept {
-  gneiss::engine::core::math::transform value{};
+gneiss::engine::transform to_transform(const gneiss::engine::object_description& object) noexcept {
+  gneiss::engine::transform value{};
   std::ranges::copy(object.translation, value.translation.begin());
   std::ranges::copy(object.rotation, value.rotation.begin());
   std::ranges::copy(object.scale, value.scale.begin());
   return value;
 }
 
-gneiss::engine::core::math::transform
-to_transform(const gneiss::engine::resource::prefab_instance_description& instance) noexcept {
-  gneiss::engine::core::math::transform value{};
+gneiss::engine::transform
+to_transform(const gneiss::engine::prefab_instance_description& instance) noexcept {
+  gneiss::engine::transform value{};
   std::ranges::copy(instance.translation, value.translation.begin());
   std::ranges::copy(instance.rotation, value.rotation.begin());
   std::ranges::copy(instance.scale, value.scale.begin());
@@ -71,45 +70,45 @@ to_transform(const gneiss::engine::resource::prefab_instance_description& instan
   return true;
 }
 
-gneiss::engine::core::result
-commit_object(engine::world::world& native_world,
-              const gneiss::engine::resource::object_description& source,
-              scene_instance::object& target, gneiss_scene_node_id parent) {
-  auto result = engine::core::write_identifier<entity_id>(target.entity, [&](auto& native_output) {
-    return native_world.entity_create(native_output);
-  });
-  if (result == gneiss::engine::core::result::success) {
-    result = engine::core::write_identifier<scene_node_id>(target.node, [&](auto& native_output) {
+gneiss::engine::result commit_object(gneiss::engine::world& native_world,
+                                     const gneiss::engine::object_description& source,
+                                     scene_instance::object& target, gneiss_scene_node_id parent) {
+  auto result =
+      gneiss::engine::write_identifier<entity_id>(target.entity, [&](auto& native_output) {
+        return native_world.entity_create(native_output);
+      });
+  if (result == gneiss::engine::result::success) {
+    result = gneiss::engine::write_identifier<scene_node_id>(target.node, [&](auto& native_output) {
       return native_world.node_create(gneiss::scene_node_id{parent},
                                       gneiss::entity_id{target.entity}, native_output);
     });
   }
   const auto transform = to_transform(source);
-  if (result == gneiss::engine::core::result::success) {
+  if (result == gneiss::engine::result::success) {
     result = native_world.node_set_local_transform(gneiss::scene_node_id{target.node}, transform);
   }
-  if (result == gneiss::engine::core::result::success && source.camera) {
-    const gneiss::engine::world::camera_settings camera{
-        .vertical_field_of_view_radians = source.camera->vertical_field_of_view_radians,
-        .near_plane = source.camera->near_plane,
-        .far_plane = source.camera->far_plane};
+  if (result == gneiss::engine::result::success && source.camera) {
+    const gneiss::engine::camera_settings camera{.vertical_field_of_view_radians =
+                                                     source.camera->vertical_field_of_view_radians,
+                                                 .near_plane = source.camera->near_plane,
+                                                 .far_plane = source.camera->far_plane};
     result = native_world.entity_configure_camera(gneiss::entity_id{target.entity}, camera);
-    if (result == gneiss::engine::core::result::success && source.camera->is_primary) {
+    if (result == gneiss::engine::result::success && source.camera->is_primary) {
       result = native_world.set_active_camera(gneiss::entity_id{target.entity});
     }
   }
-  if (result == gneiss::engine::core::result::success && source.mesh_renderer) {
-    const gneiss::engine::world::mesh_renderer renderer{
-        .mesh = engine::render::asset_rid(target.mesh),
-        .material = engine::render::asset_rid(target.material)};
+  if (result == gneiss::engine::result::success && source.mesh_renderer) {
+    const gneiss::engine::mesh_renderer renderer{.mesh = gneiss::engine::asset_rid(target.mesh),
+                                                 .material =
+                                                     gneiss::engine::asset_rid(target.material)};
     result = native_world.entity_set_mesh_renderer(gneiss::entity_id{target.entity}, renderer);
   }
   return result;
 }
 
-[[nodiscard]] bool equal_prefab_instances(
-    const gneiss::engine::resource::prefab_instance_description& left,
-    const gneiss::engine::resource::prefab_instance_description& right) noexcept {
+[[nodiscard]] bool
+equal_prefab_instances(const gneiss::engine::prefab_instance_description& left,
+                       const gneiss::engine::prefab_instance_description& right) noexcept {
   if (left.instance_uuid != right.instance_uuid || left.name != right.name ||
       left.parent_uuid != right.parent_uuid || left.prefab_uri != right.prefab_uri ||
       left.translation != right.translation || left.rotation != right.rotation ||
@@ -125,65 +124,61 @@ commit_object(engine::world::world& native_world,
   return true;
 }
 
-[[nodiscard]] bool
-equal_prefab_container(const gneiss::engine::resource::scene_description& left,
-                       const gneiss::engine::resource::scene_description& right) noexcept {
+[[nodiscard]] bool equal_prefab_container(const gneiss::engine::scene_description& left,
+                                          const gneiss::engine::scene_description& right) noexcept {
   return left.prefab_instances.size() == right.prefab_instances.size() &&
          std::ranges::equal(left.prefab_instances, right.prefab_instances, equal_prefab_instances);
 }
 
-gneiss::engine::core::result
-apply_camera(engine::world::world& native_world, gneiss_entity_id entity,
-             const std::optional<gneiss::engine::resource::camera_description>& camera) noexcept {
+gneiss::engine::result
+apply_camera(gneiss::engine::world& native_world, gneiss_entity_id entity,
+             const std::optional<gneiss::engine::camera_description>& camera) noexcept {
   if (!camera) {
     const auto result = native_world.entity_remove_camera(gneiss::entity_id{entity});
-    return result == gneiss::engine::core::result::not_found ? gneiss::engine::core::result::success
-                                                             : result;
+    return result == gneiss::engine::result::not_found ? gneiss::engine::result::success : result;
   }
-  const gneiss::engine::world::camera_settings value{camera->vertical_field_of_view_radians,
-                                                     camera->near_plane, camera->far_plane};
+  const gneiss::engine::camera_settings value{camera->vertical_field_of_view_radians,
+                                              camera->near_plane, camera->far_plane};
   return native_world.entity_set_camera(gneiss::entity_id{entity}, value, camera->is_primary);
 }
 
-gneiss::engine::core::result apply_mesh_renderer(engine::world::world& native_world,
-                                                 scene_instance::object& object,
-                                                 bool present) noexcept {
+gneiss::engine::result apply_mesh_renderer(gneiss::engine::world& native_world,
+                                           scene_instance::object& object, bool present) noexcept {
   if (!present) {
     const auto result = native_world.entity_remove_mesh_renderer(gneiss::entity_id{object.entity});
-    return result == gneiss::engine::core::result::not_found ? gneiss::engine::core::result::success
-                                                             : result;
+    return result == gneiss::engine::result::not_found ? gneiss::engine::result::success : result;
   }
-  const gneiss::engine::world::mesh_renderer renderer{
-      .mesh = engine::render::asset_rid(object.mesh),
-      .material = engine::render::asset_rid(object.material)};
+  const gneiss::engine::mesh_renderer renderer{.mesh = gneiss::engine::asset_rid(object.mesh),
+                                               .material =
+                                                   gneiss::engine::asset_rid(object.material)};
   return native_world.entity_set_mesh_renderer(gneiss::entity_id{object.entity}, renderer);
 }
 
 } // namespace
 
-gneiss::engine::core::result
-scene_instance::stage_assets(const gneiss::engine::resource::scene_description& description) {
+gneiss::engine::result
+scene_instance::stage_assets(const gneiss::engine::scene_description& description) {
   objects_.reserve(description.objects.size());
   for (const auto& source : description.objects) {
     scene_instance::object target{};
     target.uuid = source.uuid;
     if (source.mesh_renderer) {
-      engine::render::asset_diagnostic diagnostic;
+      gneiss::engine::asset_diagnostic diagnostic;
       auto result = loader_.acquire_mesh(source.mesh_renderer->mesh_uri, target.mesh, diagnostic);
-      if (result == gneiss::engine::core::result::success) {
+      if (result == gneiss::engine::result::success) {
         result = loader_.acquire_material(source.mesh_renderer->material_uri, target.material,
                                           diagnostic);
       }
-      if (result != gneiss::engine::core::result::success) {
+      if (result != gneiss::engine::result::success) {
         return result;
       }
     }
     objects_.push_back(std::move(target));
   }
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
-gneiss::engine::core::result
-scene_instance::commit_scene(const gneiss::engine::resource::scene_description& description) {
+gneiss::engine::result
+scene_instance::commit_scene(const gneiss::engine::scene_description& description) {
   std::unordered_map<std::string_view, gneiss_scene_node_id> nodes;
   nodes.reserve(description.objects.size());
   std::vector<bool> committed(description.objects.size());
@@ -205,7 +200,7 @@ scene_instance::commit_scene(const gneiss::engine::resource::scene_description& 
       }
       auto& target = objects_[index];
       const auto result = commit_object(native_world_, source, target, parent);
-      if (result != gneiss::engine::core::result::success) {
+      if (result != gneiss::engine::result::success) {
         return result;
       }
       nodes.emplace(target.uuid, target.node);
@@ -214,58 +209,57 @@ scene_instance::commit_scene(const gneiss::engine::resource::scene_description& 
       made_progress = true;
     }
     if (!made_progress) {
-      return gneiss::engine::core::result::internal;
+      return gneiss::engine::result::internal;
     }
   }
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-gneiss::engine::core::result
-scene_instance::commit_prefabs(const gneiss::engine::resource::scene_description& description) {
+gneiss::engine::result
+scene_instance::commit_prefabs(const gneiss::engine::scene_description& description) {
   prefab_instances_.reserve(description.prefab_instances.size());
   for (const auto& source : description.prefab_instances) {
-    gneiss::engine::resource::prefab_asset_ref lease;
-    gneiss::engine::resource::scene_diagnostic diagnostic;
+    gneiss::engine::prefab_asset_ref lease;
+    gneiss::engine::scene_diagnostic diagnostic;
     auto result = prefab_loader_.acquire(source.prefab_uri, lease, diagnostic);
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
     const auto parent =
         source.parent_uuid ? find_node(*source.parent_uuid) : GNEISS_NULL_SCENE_NODE_ID;
     if (source.parent_uuid && parent == GNEISS_NULL_SCENE_NODE_ID) {
-      return gneiss::engine::core::result::internal;
+      return gneiss::engine::result::internal;
     }
     std::unique_ptr<prefab_runtime_instance> runtime;
     result = prefab_runtime_instance::create(
         native_world_, reflection_context_, loader_, std::move(lease), registry_,
         source.instance_uuid, parent, to_transform(source), source.overrides, runtime);
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
     prefab_instances_.push_back(std::move(runtime));
   }
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-scene_instance::scene_instance(engine::world::world& native_world, gneiss_world world,
-                               engine::render::render_asset_loader& loader,
-                               gneiss::engine::resource::prefab_asset_loader& prefab_loader,
+scene_instance::scene_instance(gneiss::engine::world& native_world, gneiss_world world,
+                               gneiss::engine::render_asset_loader& loader,
+                               gneiss::engine::prefab_asset_loader& prefab_loader,
                                gneiss_type_registry registry) noexcept
     : native_world_(native_world), reflection_context_(world), loader_(loader),
       prefab_loader_(prefab_loader), registry_(registry) {}
 
 scene_instance::~scene_instance() noexcept { rollback(); }
 
-gneiss::engine::core::result
-scene_instance::initialize(gneiss::engine::resource::scene_description candidate) {
+gneiss::engine::result scene_instance::initialize(gneiss::engine::scene_description candidate) {
   auto result = stage_assets(candidate);
-  if (result == gneiss::engine::core::result::success) {
+  if (result == gneiss::engine::result::success) {
     result = commit_scene(candidate);
   }
-  if (result == gneiss::engine::core::result::success) {
+  if (result == gneiss::engine::result::success) {
     result = commit_prefabs(candidate);
   }
-  if (result == gneiss::engine::core::result::success) {
+  if (result == gneiss::engine::result::success) {
     description_ = std::move(candidate);
   }
   return result;
@@ -274,30 +268,30 @@ void scene_instance::append_staged_prefab(std::unique_ptr<prefab_runtime_instanc
   prefab_instances_.push_back(std::move(candidate));
 }
 
-void scene_instance::initialize_staged(gneiss::engine::resource::scene_description candidate) {
+void scene_instance::initialize_staged(gneiss::engine::scene_description candidate) {
   description_ = std::move(candidate);
   objects_.resize(description_.objects.size());
   prefab_instances_.reserve(description_.prefab_instances.size());
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 scene_instance::create_staged_node(std::size_t index, gneiss_scene_node_id parent,
-                                   engine::render::render_asset_ref mesh,
-                                   engine::render::render_asset_ref material) {
+                                   gneiss::engine::render_asset_ref mesh,
+                                   gneiss::engine::render_asset_ref material) {
   if (index >= objects_.size() || objects_[index].entity != GNEISS_NULL_ENTITY_ID) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   const auto& source = description_.objects[index];
   auto& target = objects_[index];
   target.uuid = source.uuid;
   if (source.mesh_renderer) {
     if (!mesh || !material) {
-      return gneiss::engine::core::result::not_ready;
+      return gneiss::engine::result::not_ready;
     }
-    if (engine::render::asset_kind(mesh) != engine::render::render_asset_type::mesh ||
-        engine::render::asset_kind(material) != engine::render::render_asset_type::material ||
+    if (gneiss::engine::asset_kind(mesh) != gneiss::engine::render_asset_type::mesh ||
+        gneiss::engine::asset_kind(material) != gneiss::engine::render_asset_type::material ||
         !loader_.owns(mesh) || !loader_.owns(material)) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     target.mesh = std::move(mesh);
     target.material = std::move(material);
@@ -328,15 +322,14 @@ gneiss_scene_node_id scene_instance::find_node(std::string_view uuid) const noex
   return found == objects_.end() ? GNEISS_NULL_SCENE_NODE_ID : found->node;
 }
 
-gneiss::engine::core::result
-scene_instance::reload(gneiss::engine::resource::scene_description candidate) {
+gneiss::engine::result scene_instance::reload(gneiss::engine::scene_description candidate) {
   if (candidate.uuid != description_.uuid || !equal_prefab_container(description_, candidate)) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
 
   structural_diff diff;
   auto result = build_structural_diff(description_.objects, candidate.objects, diff);
-  if (result != gneiss::engine::core::result::success) {
+  if (result != gneiss::engine::result::success) {
     return result;
   }
 
@@ -355,13 +348,13 @@ scene_instance::reload(gneiss::engine::resource::scene_description candidate) {
       target.node = objects_[previous->second].node;
     }
     if (source.mesh_renderer) {
-      engine::render::asset_diagnostic diagnostic;
+      gneiss::engine::asset_diagnostic diagnostic;
       result = loader_.acquire_mesh(source.mesh_renderer->mesh_uri, target.mesh, diagnostic);
-      if (result == gneiss::engine::core::result::success) {
+      if (result == gneiss::engine::result::success) {
         result = loader_.acquire_material(source.mesh_renderer->material_uri, target.material,
                                           diagnostic);
       }
-      if (result != gneiss::engine::core::result::success) {
+      if (result != gneiss::engine::result::success) {
         return result;
       }
     }
@@ -379,7 +372,7 @@ scene_instance::reload(gneiss::engine::resource::scene_description candidate) {
   std::vector<std::size_t> committed_additions;
   committed_additions.reserve(diff.added.size());
   gneiss_entity_id active_camera_before = GNEISS_NULL_ENTITY_ID;
-  (void)engine::core::write_identifier<entity_id>(active_camera_before, [&](auto& native_output) {
+  (void)gneiss::engine::write_identifier<entity_id>(active_camera_before, [&](auto& native_output) {
     return native_world_.get_active_camera(native_output);
   });
   const auto rollback_additions = [&]() noexcept {
@@ -404,7 +397,7 @@ scene_instance::reload(gneiss::engine::resource::scene_description candidate) {
     const auto parent =
         source.parent_uuid ? nodes.at(*source.parent_uuid) : GNEISS_NULL_SCENE_NODE_ID;
     result = commit_object(native_world_, source, staged[addition.new_index], parent);
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       auto& failed = staged[addition.new_index];
       if (failed.entity != GNEISS_NULL_ENTITY_ID) {
         (void)native_world_.entity_destroy(gneiss::entity_id{failed.entity});
@@ -424,8 +417,8 @@ scene_instance::reload(gneiss::engine::resource::scene_description candidate) {
     std::size_t new_index;
     structural_change changes;
     gneiss_scene_node_id parent;
-    gneiss::engine::core::math::transform transform;
-    std::optional<gneiss::engine::resource::camera_description> camera;
+    gneiss::engine::transform transform;
+    std::optional<gneiss::engine::camera_description> camera;
   };
   std::vector<update_snapshot> applied;
   applied.reserve(diff.updated.size());
@@ -460,36 +453,36 @@ scene_instance::reload(gneiss::engine::resource::scene_description candidate) {
     snapshot.new_index = update.new_index;
     snapshot.changes = update.changes;
     result =
-        engine::core::write_identifier<scene_node_id>(snapshot.parent, [&](auto& native_output) {
+        gneiss::engine::write_identifier<scene_node_id>(snapshot.parent, [&](auto& native_output) {
           return native_world_.node_get_parent(gneiss::scene_node_id{target.node}, native_output);
         });
-    if (result == gneiss::engine::core::result::success) {
+    if (result == gneiss::engine::result::success) {
       result = native_world_.node_get_local_transform(gneiss::scene_node_id{target.node},
                                                       snapshot.transform);
     }
-    if (result == gneiss::engine::core::result::success &&
+    if (result == gneiss::engine::result::success &&
         has_change(update.changes, structural_change::camera)) {
-      gneiss::engine::world::camera_settings camera;
+      gneiss::engine::camera_settings camera;
       const auto camera_result =
           native_world_.entity_get_camera(gneiss::entity_id{target.entity}, camera);
-      if (camera_result == gneiss::engine::core::result::success) {
+      if (camera_result == gneiss::engine::result::success) {
         gneiss_entity_id active = GNEISS_NULL_ENTITY_ID;
-        const bool primary = engine::core::write_identifier<entity_id>(
+        const bool primary = gneiss::engine::write_identifier<entity_id>(
                                  active,
                                  [&](auto& native_output) {
                                    return native_world_.get_active_camera(native_output);
-                                 }) == gneiss::engine::core::result::success &&
+                                 }) == gneiss::engine::result::success &&
                              active == target.entity;
-        snapshot.camera = gneiss::engine::resource::camera_description{
+        snapshot.camera = gneiss::engine::camera_description{
             .vertical_field_of_view_radians = camera.vertical_field_of_view_radians,
             .near_plane = camera.near_plane,
             .far_plane = camera.far_plane,
             .is_primary = primary};
-      } else if (camera_result != gneiss::engine::core::result::not_found) {
+      } else if (camera_result != gneiss::engine::result::not_found) {
         result = camera_result;
       }
     }
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       rollback_updates();
       rollback_additions();
       return result;
@@ -503,21 +496,21 @@ scene_instance::reload(gneiss::engine::resource::scene_description candidate) {
       result = native_world_.node_reparent(gneiss::scene_node_id{target.node},
                                            gneiss::scene_node_id{parent});
     }
-    if (result == gneiss::engine::core::result::success &&
+    if (result == gneiss::engine::result::success &&
         has_change(update.changes, structural_change::transform)) {
       const auto transform = to_transform(source);
       result =
           native_world_.node_set_local_transform(gneiss::scene_node_id{target.node}, transform);
     }
-    if (result == gneiss::engine::core::result::success &&
+    if (result == gneiss::engine::result::success &&
         has_change(update.changes, structural_change::camera)) {
       result = apply_camera(native_world_, target.entity, source.camera);
     }
-    if (result == gneiss::engine::core::result::success &&
+    if (result == gneiss::engine::result::success &&
         has_change(update.changes, structural_change::mesh_renderer)) {
       result = apply_mesh_renderer(native_world_, target, source.mesh_renderer.has_value());
     }
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       rollback_updates();
       rollback_additions();
       return result;
@@ -527,10 +520,10 @@ scene_instance::reload(gneiss::engine::resource::scene_description candidate) {
   for (const auto& removal : diff.removed) {
     auto& target = objects_[removal.old_index];
     result = native_world_.entity_destroy(gneiss::entity_id{target.entity});
-    if (result == gneiss::engine::core::result::success) {
+    if (result == gneiss::engine::result::success) {
       result = native_world_.node_destroy(gneiss::scene_node_id{target.node});
     }
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
     target.entity = GNEISS_NULL_ENTITY_ID;
@@ -540,10 +533,10 @@ scene_instance::reload(gneiss::engine::resource::scene_description candidate) {
   objects_ = std::move(staged);
   description_ = std::move(candidate);
   loader_.release_unused();
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-gneiss::engine::core::result scene_instance::reload_prefab(std::string_view uri) {
+gneiss::engine::result scene_instance::reload_prefab(std::string_view uri) {
   std::vector<std::size_t> affected;
   affected.reserve(description_.prefab_instances.size());
   for (std::size_t index = 0U; index < description_.prefab_instances.size(); ++index) {
@@ -552,26 +545,26 @@ gneiss::engine::core::result scene_instance::reload_prefab(std::string_view uri)
     }
   }
   if (affected.empty()) {
-    return gneiss::engine::core::result::not_found;
+    return gneiss::engine::result::not_found;
   }
 
-  gneiss::engine::resource::prefab_asset_ref candidate;
-  gneiss::engine::resource::scene_diagnostic diagnostic;
+  gneiss::engine::prefab_asset_ref candidate;
+  gneiss::engine::scene_diagnostic diagnostic;
   auto result = prefab_loader_.reload(uri, candidate, diagnostic);
-  if (result != gneiss::engine::core::result::success) {
+  if (result != gneiss::engine::result::success) {
     return result;
   }
   for (const auto index : affected) {
     result = prefab_instances_[index]->validate_reload(
         candidate, registry_, description_.prefab_instances[index].overrides);
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
   }
   for (const auto index : affected) {
     result = prefab_instances_[index]->reload(candidate, registry_,
                                               description_.prefab_instances[index].overrides);
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
   }
@@ -580,30 +573,28 @@ gneiss::engine::core::result scene_instance::reload_prefab(std::string_view uri)
       return description_.prefab_instances[index].instance_uuid == transaction.instance_uuid;
     });
   });
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-gneiss::engine::core::result scene_instance::get_node_info(std::uint64_t index,
-                                                           scene_node_view& out_info,
-                                                           node_query_detail detail) const {
+gneiss::engine::result scene_instance::get_node_info(std::uint64_t index, scene_node_view& out_info,
+                                                     node_query_detail detail) const {
   if (index >= objects_.size()) {
-    return gneiss::engine::core::result::not_found;
+    return gneiss::engine::result::not_found;
   }
   const auto& object = objects_[static_cast<std::size_t>(index)];
   gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
-  auto result = engine::core::write_identifier<entity_id>(entity, [&](auto& native_output) {
+  auto result = gneiss::engine::write_identifier<entity_id>(entity, [&](auto& native_output) {
     return native_world_.node_get_entity(gneiss::scene_node_id{object.node}, native_output);
   });
-  if (result != gneiss::engine::core::result::success || entity == GNEISS_NULL_ENTITY_ID) {
-    return result == gneiss::engine::core::result::success
-               ? gneiss::engine::core::result::invalid_handle
-               : result;
+  if (result != gneiss::engine::result::success || entity == GNEISS_NULL_ENTITY_ID) {
+    return result == gneiss::engine::result::success ? gneiss::engine::result::invalid_handle
+                                                     : result;
   }
   gneiss_scene_node_id parent = GNEISS_NULL_SCENE_NODE_ID;
-  result = engine::core::write_identifier<scene_node_id>(parent, [&](auto& native_output) {
+  result = gneiss::engine::write_identifier<scene_node_id>(parent, [&](auto& native_output) {
     return native_world_.node_get_parent(gneiss::scene_node_id{object.node}, native_output);
   });
-  if (result != gneiss::engine::core::result::success) {
+  if (result != gneiss::engine::result::success) {
     return result;
   }
   out_info.node = scene_node_id{object.node};
@@ -622,19 +613,19 @@ gneiss::engine::core::result scene_instance::get_node_info(std::uint64_t index,
     const auto& author = description_.objects[static_cast<std::size_t>(index)];
     result = native_world_.entity_get_local_transform(gneiss::entity_id{entity},
                                                       out_info.local_transform);
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
     out_info.component_flags = author.mesh_renderer != std::nullopt
                                    ? scene_node_components::mesh_renderer
                                    : scene_node_components::none;
     if (author.camera) {
-      gneiss::engine::world::camera_settings camera;
+      gneiss::engine::camera_settings camera;
       result = native_world_.entity_get_camera(gneiss::entity_id{entity}, camera);
-      if (result != gneiss::engine::core::result::success) {
+      if (result != gneiss::engine::result::success) {
         return result;
       }
-      out_info.camera = gneiss::engine::resource::camera_description{
+      out_info.camera = gneiss::engine::camera_description{
           .vertical_field_of_view_radians = camera.vertical_field_of_view_radians,
           .near_plane = camera.near_plane,
           .far_plane = camera.far_plane,
@@ -646,7 +637,7 @@ gneiss::engine::core::result scene_instance::get_node_info(std::uint64_t index,
       }
     }
   }
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
 std::uint64_t scene_instance::get_prefab_node_count() const noexcept {
@@ -657,8 +648,8 @@ std::uint64_t scene_instance::get_prefab_node_count() const noexcept {
   return count;
 }
 
-gneiss::engine::core::result
-scene_instance::get_prefab_node_info(std::uint64_t index, prefab_node_view& out_info) const {
+gneiss::engine::result scene_instance::get_prefab_node_info(std::uint64_t index,
+                                                            prefab_node_view& out_info) const {
   std::uint64_t offset = 0;
   for (std::size_t instance_index = 0; instance_index < prefab_instances_.size();
        ++instance_index) {
@@ -666,16 +657,18 @@ scene_instance::get_prefab_node_info(std::uint64_t index, prefab_node_view& out_
     const auto& author = description_.prefab_instances[instance_index];
     if (index == offset) {
       gneiss_scene_node_id parent = GNEISS_NULL_SCENE_NODE_ID;
-      auto result = engine::core::write_identifier<scene_node_id>(parent, [&](auto& native_output) {
-        return native_world_.node_get_parent(gneiss::scene_node_id{runtime.root()}, native_output);
-      });
-      if (result != gneiss::engine::core::result::success) {
+      auto result =
+          gneiss::engine::write_identifier<scene_node_id>(parent, [&](auto& native_output) {
+            return native_world_.node_get_parent(gneiss::scene_node_id{runtime.root()},
+                                                 native_output);
+          });
+      if (result != gneiss::engine::result::success) {
         return result;
       }
-      gneiss::engine::core::math::transform transform = {};
+      gneiss::engine::transform transform = {};
       result =
           native_world_.node_get_local_transform(gneiss::scene_node_id{runtime.root()}, transform);
-      if (result != gneiss::engine::core::result::success) {
+      if (result != gneiss::engine::result::success) {
         return result;
       }
       out_info.flags = scene_prefab_flags::instance_root;
@@ -686,13 +679,13 @@ scene_instance::get_prefab_node_info(std::uint64_t index, prefab_node_view& out_
       out_info.name = author.name;
       out_info.prefab_uri = author.prefab_uri;
       out_info.local_transform = transform;
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     }
     ++offset;
     if (index < offset + runtime.node_count()) {
       prefab_runtime_instance::node_info source;
       const auto result = runtime.get_node_info(static_cast<std::size_t>(index - offset), source);
-      if (result != gneiss::engine::core::result::success) {
+      if (result != gneiss::engine::result::success) {
         return result;
       }
       out_info.flags = scene_prefab_flags::source_read_only;
@@ -705,10 +698,10 @@ scene_instance::get_prefab_node_info(std::uint64_t index, prefab_node_view& out_
       out_info.prefab_uri = author.prefab_uri;
       const auto* source_object = runtime.find_source_object(source.address->source_node_uuid);
       if (source_object == nullptr) {
-        return gneiss::engine::core::result::invalid_state;
+        return gneiss::engine::result::invalid_state;
       }
       out_info.source_local_transform = to_transform(*source_object);
-      const auto transform_type = gneiss::engine::world::transform_type_id();
+      const auto transform_type = gneiss::engine::transform_type_id();
       for (const auto& override_value : author.overrides) {
         if (override_value.key.node.source_node_uuid != source.address->source_node_uuid ||
             !std::ranges::equal(override_value.key.type_id.bytes, transform_type.bytes)) {
@@ -734,114 +727,111 @@ scene_instance::get_prefab_node_info(std::uint64_t index, prefab_node_view& out_
     }
     offset += runtime.node_count();
   }
-  return gneiss::engine::core::result::not_found;
+  return gneiss::engine::result::not_found;
 }
 
-gneiss::engine::core::result scene_instances::capture_prefab_header(
-    gneiss_scene_instance instance, std::string_view uuid,
-    gneiss::engine::resource::prefab_instance_description& author,
-    gneiss::engine::resource::prefab_asset_ref& source) const noexcept {
+gneiss::engine::result
+scene_instances::capture_prefab_header(gneiss_scene_instance instance, std::string_view uuid,
+                                       gneiss::engine::prefab_instance_description& author,
+                                       gneiss::engine::prefab_asset_ref& source) const noexcept {
   if (!native_world_.is_owner_thread()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
-  auto* slot = instances_.get(instance, engine::core::resource_type::scene_instance);
+  auto* slot = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
   if (!slot || !*slot) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   return (*slot)->capture_prefab_instance_header(uuid, author, source);
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 scene_instances::capture_prefab_binding(gneiss_scene_instance instance, std::string_view uuid,
                                         std::size_t index, mesh_binding& output) const noexcept {
   if (!native_world_.is_owner_thread()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
-  auto* slot = instances_.get(instance, engine::core::resource_type::scene_instance);
+  auto* slot = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
   if (!slot || !*slot) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   return (*slot)->capture_prefab_instance_binding(uuid, index, output);
 }
 
-gneiss::engine::core::result scene_instances::begin_prefab_candidate(
-    gneiss_scene_instance instance,
-    const gneiss::engine::resource::prefab_instance_description& author,
-    gneiss::engine::resource::prefab_asset_ref prefab,
-    gneiss::engine::resource::prefab_description prepared, prefab_candidate& output,
-    bool replacing) noexcept {
+gneiss::engine::result scene_instances::begin_prefab_candidate(
+    gneiss_scene_instance instance, const gneiss::engine::prefab_instance_description& author,
+    gneiss::engine::prefab_asset_ref prefab, gneiss::engine::prefab_description prepared,
+    prefab_candidate& output, bool replacing) noexcept {
   if (output.is_valid()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   if (!native_world_.is_owner_thread()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
-  auto* slot = instances_.get(instance, engine::core::resource_type::scene_instance);
+  auto* slot = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
   if (!slot || !*slot) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   return (*slot)->prepare_prefab_instance_candidate(instance, author, std::move(prefab), prepared,
                                                     output, replacing);
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 scene_instances::commit_prefab_candidate(gneiss_scene_instance instance,
                                          prefab_candidate& candidate) noexcept {
   if (!native_world_.is_owner_thread()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
-  auto* slot = instances_.get(instance, engine::core::resource_type::scene_instance);
+  auto* slot = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
   if (!slot || !*slot) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   return (*slot)->publish_prefab_instance_candidate(instance, candidate);
 }
 
-gneiss::engine::core::result scene_instances::commit_prefab_replacements(
+gneiss::engine::result scene_instances::commit_prefab_replacements(
     gneiss_scene_instance instance, std::span<prefab_candidate* const> replacements) noexcept {
   if (!native_world_.is_owner_thread()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
-  auto* slot = instances_.get(instance, engine::core::resource_type::scene_instance);
+  auto* slot = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
   if (!slot || !*slot) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   return (*slot)->replace_prefab_instance_versions(instance, replacements);
 }
 
-gneiss::engine::core::result scene_instances::prepare_prefab_removal(gneiss_scene_instance instance,
-                                                                     std::string_view uuid,
-                                                                     bool& complete) noexcept {
+gneiss::engine::result scene_instances::prepare_prefab_removal(gneiss_scene_instance instance,
+                                                               std::string_view uuid,
+                                                               bool& complete) noexcept {
   complete = false;
   if (!native_world_.is_owner_thread()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
-  auto* slot = instances_.get(instance, engine::core::resource_type::scene_instance);
+  auto* slot = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
   if (!slot || !*slot) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   return (*slot)->prepare_prefab_instance_removal(uuid, complete);
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 scene_instances::commit_prefab_removal(gneiss_scene_instance instance, std::string_view uuid,
                                        prefab_candidate& candidate) noexcept {
   if (candidate.is_valid()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   if (!native_world_.is_owner_thread()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
-  auto* slot = instances_.get(instance, engine::core::resource_type::scene_instance);
+  auto* slot = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
   if (!slot || !*slot) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   return (*slot)->remove_prefab_instance(uuid, candidate);
 }
 
-gneiss::engine::core::result
-scene_instance::create_prefab_instance(const prefab_creation& desc,
-                                       gneiss_scene_node_id* out_root) {
+gneiss::engine::result scene_instance::create_prefab_instance(const prefab_creation& desc,
+                                                              gneiss_scene_node_id* out_root) {
   *out_root = GNEISS_NULL_SCENE_NODE_ID;
   const auto instance_uuid = desc.instance_uuid;
   const auto name = desc.name;
@@ -852,29 +842,28 @@ scene_instance::create_prefab_instance(const prefab_creation& desc,
       std::ranges::any_of(description_.prefab_instances, [instance_uuid](const auto& instance) {
         return instance.instance_uuid == instance_uuid;
       })) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   try {
     std::optional<std::string> parent_uuid;
     if (desc.parent.get() != GNEISS_NULL_SCENE_NODE_ID) {
       const auto found = std::ranges::find(objects_, desc.parent.get(), &object::node);
       if (found == objects_.end()) {
-        return gneiss::engine::core::result::invalid_handle;
+        return gneiss::engine::result::invalid_handle;
       }
       parent_uuid = found->uuid;
     }
-    gneiss::engine::resource::prefab_asset_ref lease;
-    gneiss::engine::resource::scene_diagnostic diagnostic;
+    gneiss::engine::prefab_asset_ref lease;
+    gneiss::engine::scene_diagnostic diagnostic;
     auto result = prefab_loader_.acquire(prefab_uri, lease, diagnostic);
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
-    gneiss::engine::resource::prefab_instance_description author{
-        .instance_uuid = std::string(instance_uuid),
-        .name = std::string(name),
-        .parent_uuid = std::move(parent_uuid),
-        .prefab_uri = std::string(prefab_uri),
-        .overrides = {}};
+    gneiss::engine::prefab_instance_description author{.instance_uuid = std::string(instance_uuid),
+                                                       .name = std::string(name),
+                                                       .parent_uuid = std::move(parent_uuid),
+                                                       .prefab_uri = std::string(prefab_uri),
+                                                       .overrides = {}};
     std::ranges::copy(desc.local_transform.translation, author.translation.begin());
     std::ranges::copy(desc.local_transform.rotation, author.rotation.begin());
     std::ranges::copy(desc.local_transform.scale, author.scale.begin());
@@ -884,110 +873,110 @@ scene_instance::create_prefab_instance(const prefab_creation& desc,
     result = prefab_runtime_instance::create(
         native_world_, reflection_context_, loader_, std::move(lease), registry_, instance_uuid,
         desc.parent.get(), desc.local_transform, author.overrides, runtime);
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
     *out_root = runtime->root();
     description_.prefab_instances.push_back(std::move(author));
     prefab_instances_.push_back(std::move(runtime));
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result scene_instance::set_prefab_instance_name(gneiss_scene_node_id root,
-                                                                      std::string_view name) {
+gneiss::engine::result scene_instance::set_prefab_instance_name(gneiss_scene_node_id root,
+                                                                std::string_view name) {
   const auto found = std::ranges::find_if(
       prefab_instances_, [root](const auto& instance) { return instance->root() == root; });
   if (found == prefab_instances_.end()) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   try {
     std::string prepared(name);
     description_.prefab_instances[static_cast<std::size_t>(found - prefab_instances_.begin())]
         .name.swap(prepared);
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result scene_instance::set_prefab_source_transform(
-    gneiss_scene_node_id node, const gneiss::engine::core::math::transform& transform) {
+gneiss::engine::result
+scene_instance::set_prefab_source_transform(gneiss_scene_node_id node,
+                                            const gneiss::engine::transform& transform) {
   for (std::size_t index = 0U; index < prefab_instances_.size(); ++index) {
     auto& runtime = *prefab_instances_[index];
     prefab_runtime_instance::node_info info;
     for (std::size_t node_index = 0U; node_index < runtime.node_count(); ++node_index) {
-      if (runtime.get_node_info(node_index, info) != gneiss::engine::core::result::success ||
+      if (runtime.get_node_info(node_index, info) != gneiss::engine::result::success ||
           info.node != node) {
         continue;
       }
       const auto* source = runtime.find_source_object(info.address->source_node_uuid);
       if (source == nullptr) {
-        return gneiss::engine::core::result::invalid_state;
+        return gneiss::engine::result::invalid_state;
       }
       auto pending = description_.prefab_instances[index].overrides;
-      const auto type_id = gneiss::from_native(gneiss::engine::world::transform_type_id());
+      const auto type_id = gneiss::from_native(gneiss::engine::transform_type_id());
       const std::array candidates{
-          gneiss::engine::resource::prefab_property_override{
+          gneiss::engine::prefab_property_override{
               .key = {.node = *info.address,
                       .type_id = type_id,
                       .field_id = gneiss::field_id{GNEISS_TRANSFORM_FIELD_TRANSLATION}},
               .value = {.payload = transform.translation}},
-          gneiss::engine::resource::prefab_property_override{
+          gneiss::engine::prefab_property_override{
               .key = {.node = *info.address,
                       .type_id = type_id,
                       .field_id = gneiss::field_id{GNEISS_TRANSFORM_FIELD_ROTATION}},
               .value = {.payload = transform.rotation}},
-          gneiss::engine::resource::prefab_property_override{
+          gneiss::engine::prefab_property_override{
               .key = {.node = *info.address,
                       .type_id = type_id,
                       .field_id = gneiss::field_id{GNEISS_TRANSFORM_FIELD_SCALE}},
               .value = {.payload = transform.scale}}};
       const std::array source_values{
-          gneiss::engine::resource::prefab_property_value{.payload = source->translation},
-          gneiss::engine::resource::prefab_property_value{.payload = source->rotation},
-          gneiss::engine::resource::prefab_property_value{.payload = source->scale}};
+          gneiss::engine::prefab_property_value{.payload = source->translation},
+          gneiss::engine::prefab_property_value{.payload = source->rotation},
+          gneiss::engine::prefab_property_value{.payload = source->scale}};
       for (std::size_t field_index = 0U; field_index < candidates.size(); ++field_index) {
         const auto result =
-            set_prefab_property_override(engine::core::reflection::resolve(registry_), pending,
+            set_prefab_property_override(gneiss::engine::resolve(registry_), pending,
                                          candidates[field_index], source_values[field_index]);
-        if (result != gneiss::engine::core::result::success) {
+        if (result != gneiss::engine::result::success) {
           return result;
         }
       }
       const auto result =
           native_world_.node_set_local_transform(gneiss::scene_node_id{node}, transform);
-      if (result != gneiss::engine::core::result::success) {
+      if (result != gneiss::engine::result::success) {
         return result;
       }
       description_.prefab_instances[index].overrides.swap(pending);
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     }
   }
-  return gneiss::engine::core::result::invalid_handle;
+  return gneiss::engine::result::invalid_handle;
 }
 
-gneiss::engine::core::result
-scene_instance::destroy_prefab_instance(gneiss_scene_node_id root) noexcept {
+gneiss::engine::result scene_instance::destroy_prefab_instance(gneiss_scene_node_id root) noexcept {
   const auto found = std::ranges::find_if(
       prefab_instances_, [root](const auto& instance) { return instance->root() == root; });
   if (found == prefab_instances_.end()) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   const auto index = static_cast<std::size_t>(found - prefab_instances_.begin());
   prefab_instances_.erase(found);
   description_.prefab_instances.erase(description_.prefab_instances.begin() +
                                       static_cast<std::ptrdiff_t>(index));
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 scene_instance::refresh_prefab_instance(gneiss_scene_node_id root,
                                         gneiss_scene_node_id* out_new_root,
                                         gneiss_scene_prefab_refresh_token* out_token) {
@@ -996,37 +985,37 @@ scene_instance::refresh_prefab_instance(gneiss_scene_node_id root,
   const auto found = std::ranges::find_if(
       prefab_instances_, [root](const auto& instance) { return instance->root() == root; });
   if (found == prefab_instances_.end()) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   const auto index = static_cast<std::size_t>(found - prefab_instances_.begin());
   const auto& author = description_.prefab_instances[index];
   gneiss_scene_node_id parent = GNEISS_NULL_SCENE_NODE_ID;
-  auto result = engine::core::write_identifier<scene_node_id>(parent, [&](auto& native_output) {
+  auto result = gneiss::engine::write_identifier<scene_node_id>(parent, [&](auto& native_output) {
     return native_world_.node_get_parent(gneiss::scene_node_id{root}, native_output);
   });
-  gneiss::engine::core::math::transform transform = {};
-  if (result == gneiss::engine::core::result::success) {
+  gneiss::engine::transform transform = {};
+  if (result == gneiss::engine::result::success) {
     result = native_world_.node_get_local_transform(gneiss::scene_node_id{root}, transform);
   }
-  if (result != gneiss::engine::core::result::success) {
+  if (result != gneiss::engine::result::success) {
     return result;
   }
   if (next_prefab_refresh_token_ == GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   }
   prefab_refresh_transactions_.reserve(prefab_refresh_transactions_.size() + 1U);
   auto old_lease = (*found)->prefab_lease();
-  gneiss::engine::resource::prefab_asset_ref lease;
-  gneiss::engine::resource::scene_diagnostic diagnostic;
+  gneiss::engine::prefab_asset_ref lease;
+  gneiss::engine::scene_diagnostic diagnostic;
   result = prefab_loader_.reload(author.prefab_uri, lease, diagnostic);
-  if (result != gneiss::engine::core::result::success) {
+  if (result != gneiss::engine::result::success) {
     return result;
   }
   std::unique_ptr<prefab_runtime_instance> replacement;
   result = prefab_runtime_instance::create(native_world_, reflection_context_, loader_,
                                            std::move(lease), registry_, author.instance_uuid,
                                            parent, transform, author.overrides, replacement);
-  if (result != gneiss::engine::core::result::success) {
+  if (result != gneiss::engine::result::success) {
     return result;
   }
   const auto token = next_prefab_refresh_token_++;
@@ -1035,39 +1024,39 @@ scene_instance::refresh_prefab_instance(gneiss_scene_node_id root,
   *out_new_root = replacement->root();
   *out_token = token;
   *found = std::move(replacement);
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 scene_instance::toggle_prefab_refresh(gneiss_scene_prefab_refresh_token token,
                                       gneiss_scene_node_id* out_new_root) {
   *out_new_root = GNEISS_NULL_SCENE_NODE_ID;
   const auto transaction =
       std::ranges::find(prefab_refresh_transactions_, token, &prefab_refresh_transaction::token);
   if (transaction == prefab_refresh_transactions_.end()) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   const auto author =
       std::ranges::find(description_.prefab_instances, transaction->instance_uuid,
-                        &gneiss::engine::resource::prefab_instance_description::instance_uuid);
+                        &gneiss::engine::prefab_instance_description::instance_uuid);
   if (author == description_.prefab_instances.end()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   const auto index = static_cast<std::size_t>(author - description_.prefab_instances.begin());
   if (index >= prefab_instances_.size()) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
   auto& current = prefab_instances_[index];
   gneiss_scene_node_id parent = GNEISS_NULL_SCENE_NODE_ID;
-  auto result = engine::core::write_identifier<scene_node_id>(parent, [&](auto& native_output) {
+  auto result = gneiss::engine::write_identifier<scene_node_id>(parent, [&](auto& native_output) {
     return native_world_.node_get_parent(gneiss::scene_node_id{current->root()}, native_output);
   });
-  gneiss::engine::core::math::transform transform = {};
-  if (result == gneiss::engine::core::result::success) {
+  gneiss::engine::transform transform = {};
+  if (result == gneiss::engine::result::success) {
     result =
         native_world_.node_get_local_transform(gneiss::scene_node_id{current->root()}, transform);
   }
-  if (result != gneiss::engine::core::result::success) {
+  if (result != gneiss::engine::result::success) {
     return result;
   }
   auto current_lease = current->prefab_lease();
@@ -1075,50 +1064,50 @@ scene_instance::toggle_prefab_refresh(gneiss_scene_prefab_refresh_token token,
   result = prefab_runtime_instance::create(native_world_, reflection_context_, loader_,
                                            transaction->alternate, registry_, author->instance_uuid,
                                            parent, transform, author->overrides, replacement);
-  if (result != gneiss::engine::core::result::success) {
+  if (result != gneiss::engine::result::success) {
     return result;
   }
   transaction->alternate = std::move(current_lease);
   *out_new_root = replacement->root();
   current = std::move(replacement);
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 scene_instance::release_prefab_refresh(gneiss_scene_prefab_refresh_token token) noexcept {
   const auto found =
       std::ranges::find(prefab_refresh_transactions_, token, &prefab_refresh_transaction::token);
   if (found == prefab_refresh_transactions_.end()) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   prefab_refresh_transactions_.erase(found);
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-gneiss::engine::core::result scene_instance::create_node(const node_creation& desc,
-                                                         gneiss_scene_node_id* out_node) {
+gneiss::engine::result scene_instance::create_node(const node_creation& desc,
+                                                   gneiss_scene_node_id* out_node) {
   const auto uuid = desc.uuid;
   const auto name = desc.name;
   if (!is_canonical_uuid(uuid) || find_node(uuid) != GNEISS_NULL_SCENE_NODE_ID) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   std::optional<std::string> parent_uuid;
   if (desc.parent.get() != GNEISS_NULL_SCENE_NODE_ID) {
     const auto parent = std::ranges::find(objects_, desc.parent.get(), &object::node);
     if (parent == objects_.end()) {
-      return gneiss::engine::core::result::invalid_handle;
+      return gneiss::engine::result::invalid_handle;
     }
     parent_uuid = parent->uuid;
   }
   try {
-    gneiss::engine::resource::object_description author{.uuid = std::string(uuid),
-                                                        .name = std::string(name),
-                                                        .parent_uuid = std::move(parent_uuid),
-                                                        .translation = {},
-                                                        .rotation = {},
-                                                        .scale = {},
-                                                        .camera = std::nullopt,
-                                                        .mesh_renderer = std::nullopt};
+    gneiss::engine::object_description author{.uuid = std::string(uuid),
+                                              .name = std::string(name),
+                                              .parent_uuid = std::move(parent_uuid),
+                                              .translation = {},
+                                              .rotation = {},
+                                              .scale = {},
+                                              .camera = std::nullopt,
+                                              .mesh_renderer = std::nullopt};
     std::ranges::copy(desc.local_transform.translation, author.translation.begin());
     std::ranges::copy(desc.local_transform.rotation, author.rotation.begin());
     std::ranges::copy(desc.local_transform.scale, author.scale.begin());
@@ -1130,7 +1119,7 @@ gneiss::engine::core::result scene_instance::create_node(const node_creation& de
                   .mesh = {},
                   .material = {}};
     const auto result = commit_object(native_world_, author, target, desc.parent.get());
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       if (target.entity != GNEISS_NULL_ENTITY_ID) {
         (void)native_world_.entity_destroy(gneiss::entity_id{target.entity});
       }
@@ -1142,74 +1131,74 @@ gneiss::engine::core::result scene_instance::create_node(const node_creation& de
     *out_node = target.node;
     objects_.push_back(std::move(target));
     description_.objects.push_back(std::move(author));
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result scene_instance::set_node_name(gneiss_scene_node_id node,
-                                                           std::string_view name) {
+gneiss::engine::result scene_instance::set_node_name(gneiss_scene_node_id node,
+                                                     std::string_view name) {
   const auto found = std::ranges::find(objects_, node, &object::node);
   if (found == objects_.end()) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   try {
     std::string author_name(name);
     const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
     description_.objects[index].name.swap(author_name);
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   }
 }
 
-gneiss::engine::core::result scene_instance::reparent_node(gneiss_scene_node_id node,
-                                                           gneiss_scene_node_id parent) {
+gneiss::engine::result scene_instance::reparent_node(gneiss_scene_node_id node,
+                                                     gneiss_scene_node_id parent) {
   const auto found = std::ranges::find(objects_, node, &object::node);
   if (found == objects_.end()) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   std::optional<std::string> parent_uuid;
   try {
     if (parent != GNEISS_NULL_SCENE_NODE_ID) {
       const auto parent_object = std::ranges::find(objects_, parent, &object::node);
       if (parent_object == objects_.end()) {
-        return gneiss::engine::core::result::invalid_handle;
+        return gneiss::engine::result::invalid_handle;
       }
       parent_uuid = parent_object->uuid;
     }
     const auto result =
         native_world_.node_reparent(gneiss::scene_node_id{node}, gneiss::scene_node_id{parent});
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
     const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
     description_.objects[index].parent_uuid.swap(parent_uuid);
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   }
 }
 
-gneiss::engine::core::result scene_instance::capture_subtree(gneiss_scene_node_id root,
-                                                             std::string& out_snapshot) const {
+gneiss::engine::result scene_instance::capture_subtree(gneiss_scene_node_id root,
+                                                       std::string& out_snapshot) const {
   const auto found = std::ranges::find(objects_, root, &object::node);
   if (found == objects_.end()) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   try {
     std::string current_json;
     auto result = serialize(current_json);
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
-    gneiss::engine::resource::scene_description current;
-    gneiss::engine::resource::scene_diagnostic diagnostic;
-    result = gneiss::engine::resource::parse_scene_description(current_json, current, diagnostic);
-    if (result != gneiss::engine::core::result::success) {
+    gneiss::engine::scene_description current;
+    gneiss::engine::scene_diagnostic diagnostic;
+    result = gneiss::engine::parse_scene_description(current_json, current, diagnostic);
+    if (result != gneiss::engine::result::success) {
       return result;
     }
     std::unordered_set<std::string> included{found->uuid};
@@ -1224,13 +1213,13 @@ gneiss::engine::core::result scene_instance::capture_subtree(gneiss_scene_node_i
       }
     }
     if (included.size() > GNEISS_SCENE_SUBTREE_MAX_NODES) {
-      return gneiss::engine::core::result::unsupported;
+      return gneiss::engine::result::unsupported;
     }
     // 当前子树恢复只处理普通作者节点；不能生成会遗漏 Prefab 的撤销快照。
     if (std::ranges::any_of(current.prefab_instances, [&included](const auto& instance) {
           return instance.parent_uuid && included.contains(*instance.parent_uuid);
         })) {
-      return gneiss::engine::core::result::unsupported;
+      return gneiss::engine::result::unsupported;
     }
     // 场景其他位置的 Prefab 不属于本次快照，保留它们会产生快照外父引用。
     current.prefab_instances.clear();
@@ -1248,37 +1237,36 @@ gneiss::engine::core::result scene_instance::capture_subtree(gneiss_scene_node_i
     current.author_json =
         std::string{"{\"format\":\"gneiss.scene\",\"version\":4,\"scene_uuid\":\""} + current.uuid +
         "\",\"objects\":[],\"prefab_instances\":[]}";
-    return gneiss::engine::resource::serialize_scene_description(current, out_snapshot);
+    return gneiss::engine::serialize_scene_description(current, out_snapshot);
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result scene_instance::restore_subtree(std::string_view snapshot,
-                                                             gneiss_scene_node_id parent,
-                                                             std::span<const uuid_mapping> mappings,
-                                                             gneiss_scene_node_id* out_root) {
-  gneiss::engine::resource::scene_description subtree;
-  gneiss::engine::resource::scene_diagnostic diagnostic;
-  auto result = gneiss::engine::resource::parse_scene_description(snapshot, subtree, diagnostic);
-  if (result != gneiss::engine::core::result::success || subtree.objects.empty()) {
-    return result == gneiss::engine::core::result::success
-               ? gneiss::engine::core::result::invalid_argument
-               : result;
+gneiss::engine::result scene_instance::restore_subtree(std::string_view snapshot,
+                                                       gneiss_scene_node_id parent,
+                                                       std::span<const uuid_mapping> mappings,
+                                                       gneiss_scene_node_id* out_root) {
+  gneiss::engine::scene_description subtree;
+  gneiss::engine::scene_diagnostic diagnostic;
+  auto result = gneiss::engine::parse_scene_description(snapshot, subtree, diagnostic);
+  if (result != gneiss::engine::result::success || subtree.objects.empty()) {
+    return result == gneiss::engine::result::success ? gneiss::engine::result::invalid_argument
+                                                     : result;
   }
   if (!subtree.prefab_instances.empty()) {
-    return gneiss::engine::core::result::unsupported;
+    return gneiss::engine::result::unsupported;
   }
   if (subtree.objects.size() > GNEISS_SCENE_SUBTREE_MAX_NODES) {
-    return gneiss::engine::core::result::unsupported;
+    return gneiss::engine::result::unsupported;
   }
   std::optional<std::string> external_parent_uuid;
   if (parent != GNEISS_NULL_SCENE_NODE_ID) {
     const auto found = std::ranges::find(objects_, parent, &object::node);
     if (found == objects_.end()) {
-      return gneiss::engine::core::result::invalid_handle;
+      return gneiss::engine::result::invalid_handle;
     }
     external_parent_uuid = found->uuid;
   }
@@ -1292,19 +1280,19 @@ gneiss::engine::core::result scene_instance::restore_subtree(std::string_view sn
     for (auto iterator = subtree.objects.begin(); iterator != subtree.objects.end(); ++iterator) {
       if (!iterator->parent_uuid || !source_uuids.contains(*iterator->parent_uuid)) {
         if (root != subtree.objects.end()) {
-          return gneiss::engine::core::result::invalid_argument;
+          return gneiss::engine::result::invalid_argument;
         }
         root = iterator;
       }
     }
     if (root == subtree.objects.end()) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     const auto source_root_uuid = root->uuid;
     std::unordered_map<std::string, std::string> uuid_map;
     if (!mappings.empty()) {
       if (mappings.size() != subtree.objects.size()) {
-        return gneiss::engine::core::result::invalid_argument;
+        return gneiss::engine::result::invalid_argument;
       }
       uuid_map.reserve(mappings.size());
       std::unordered_set<std::string> targets;
@@ -1315,13 +1303,13 @@ gneiss::engine::core::result scene_instance::restore_subtree(std::string_view sn
         if (!source_uuids.contains(source) || !is_canonical_uuid(target) ||
             find_node(target) != GNEISS_NULL_SCENE_NODE_ID ||
             !uuid_map.emplace(source, target).second || !targets.emplace(target).second) {
-          return gneiss::engine::core::result::invalid_argument;
+          return gneiss::engine::result::invalid_argument;
         }
       }
     } else {
       for (const auto& author : subtree.objects) {
         if (find_node(author.uuid) != GNEISS_NULL_SCENE_NODE_ID) {
-          return gneiss::engine::core::result::invalid_argument;
+          return gneiss::engine::result::invalid_argument;
         }
       }
     }
@@ -1349,14 +1337,14 @@ gneiss::engine::core::result scene_instance::restore_subtree(std::string_view sn
                     .mesh = {},
                     .material = {}};
       if (author.mesh_renderer) {
-        engine::render::asset_diagnostic asset_diagnostic;
+        gneiss::engine::asset_diagnostic asset_diagnostic;
         result =
             loader_.acquire_mesh(author.mesh_renderer->mesh_uri, target.mesh, asset_diagnostic);
-        if (result == gneiss::engine::core::result::success) {
+        if (result == gneiss::engine::result::success) {
           result = loader_.acquire_material(author.mesh_renderer->material_uri, target.material,
                                             asset_diagnostic);
         }
-        if (result != gneiss::engine::core::result::success) {
+        if (result != gneiss::engine::result::success) {
           return result;
         }
       }
@@ -1388,7 +1376,7 @@ gneiss::engine::core::result scene_instance::restore_subtree(std::string_view sn
           }
         }
         result = commit_object(native_world_, author, staged[index], runtime_parent);
-        if (result != gneiss::engine::core::result::success) {
+        if (result != gneiss::engine::result::success) {
           for (auto& value : staged) {
             if (value.entity != GNEISS_NULL_ENTITY_ID) {
               (void)native_world_.entity_destroy(gneiss::entity_id{value.entity});
@@ -1406,7 +1394,7 @@ gneiss::engine::core::result scene_instance::restore_subtree(std::string_view sn
         made_progress = true;
       }
       if (!made_progress) {
-        return gneiss::engine::core::result::invalid_argument;
+        return gneiss::engine::result::invalid_argument;
       }
     }
     const auto restored_root_uuid =
@@ -1418,18 +1406,18 @@ gneiss::engine::core::result scene_instance::restore_subtree(std::string_view sn
     for (auto& author : subtree.objects) {
       description_.objects.push_back(std::move(author));
     }
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result scene_instance::destroy_subtree(gneiss_scene_node_id root) {
+gneiss::engine::result scene_instance::destroy_subtree(gneiss_scene_node_id root) {
   const auto found = std::ranges::find(objects_, root, &object::node);
   if (found == objects_.end()) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   try {
     std::unordered_set<std::string> removed{found->uuid};
@@ -1446,7 +1434,7 @@ gneiss::engine::core::result scene_instance::destroy_subtree(gneiss_scene_node_i
     if (std::ranges::any_of(description_.prefab_instances, [&removed](const auto& instance) {
           return instance.parent_uuid && removed.contains(*instance.parent_uuid);
         })) {
-      return gneiss::engine::core::result::unsupported;
+      return gneiss::engine::result::unsupported;
     }
     std::vector<std::pair<object*, std::size_t>> ordered;
     ordered.reserve(removed.size());
@@ -1454,16 +1442,16 @@ gneiss::engine::core::result scene_instance::destroy_subtree(gneiss_scene_node_i
       if (!removed.contains(value.uuid)) {
         continue;
       }
-      if (engine::core::write_identifier<entity_id>(value.entity, [&](auto& native_output) {
+      if (gneiss::engine::write_identifier<entity_id>(value.entity, [&](auto& native_output) {
             return native_world_.node_get_entity(gneiss::scene_node_id{value.node}, native_output);
-          }) != gneiss::engine::core::result::success) {
-        return gneiss::engine::core::result::invalid_handle;
+          }) != gneiss::engine::result::success) {
+        return gneiss::engine::result::invalid_handle;
       }
       std::size_t depth = 0U;
       auto current_uuid = std::string_view{value.uuid};
       while (true) {
         const auto author = std::ranges::find(description_.objects, current_uuid,
-                                              &gneiss::engine::resource::object_description::uuid);
+                                              &gneiss::engine::object_description::uuid);
         if (author == description_.objects.end() || !author->parent_uuid ||
             !removed.contains(*author->parent_uuid)) {
           break;
@@ -1478,11 +1466,11 @@ gneiss::engine::core::result scene_instance::destroy_subtree(gneiss_scene_node_i
     for (const auto& [value, depth] : ordered) {
       (void)depth;
       auto destroy_result = native_world_.entity_destroy(gneiss::entity_id{value->entity});
-      if (destroy_result != gneiss::engine::core::result::success) {
+      if (destroy_result != gneiss::engine::result::success) {
         return destroy_result;
       }
       destroy_result = native_world_.node_destroy(gneiss::scene_node_id{value->node});
-      if (destroy_result != gneiss::engine::core::result::success) {
+      if (destroy_result != gneiss::engine::result::success) {
         return destroy_result;
       }
     }
@@ -1490,44 +1478,44 @@ gneiss::engine::core::result scene_instance::destroy_subtree(gneiss_scene_node_i
     std::erase_if(description_.objects,
                   [&removed](const auto& value) { return removed.contains(value.uuid); });
     loader_.release_unused();
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   }
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 scene_instance::create_mesh_renderer_node(const mesh_renderer_node_creation& desc,
                                           gneiss_scene_node_id* out_node,
                                           const scene_mesh_binding* prepared) {
-  using asset_loader = engine::render::render_asset_loader;
+  using asset_loader = gneiss::engine::render_asset_loader;
   if (prepared &&
-      (engine::render::asset_kind(prepared->mesh) != engine::render::render_asset_type::mesh ||
-       engine::render::asset_kind(prepared->material) !=
-           engine::render::render_asset_type::material ||
+      (gneiss::engine::asset_kind(prepared->mesh) != gneiss::engine::render_asset_type::mesh ||
+       gneiss::engine::asset_kind(prepared->material) !=
+           gneiss::engine::render_asset_type::material ||
        !loader_.owns(prepared->mesh) || !loader_.owns(prepared->material) ||
-       engine::render::asset_uri(prepared->mesh) != desc.mesh_uri ||
-       engine::render::asset_uri(prepared->material) != desc.material_uri)) {
-    return gneiss::engine::core::result::invalid_argument;
+       gneiss::engine::asset_uri(prepared->mesh) != desc.mesh_uri ||
+       gneiss::engine::asset_uri(prepared->material) != desc.material_uri)) {
+    return gneiss::engine::result::invalid_argument;
   }
   const auto uuid = desc.uuid;
   const auto name = desc.name;
   const auto mesh_uri = desc.mesh_uri;
   const auto material_uri = desc.material_uri;
   if (!is_canonical_uuid(uuid) || find_node(uuid) != GNEISS_NULL_SCENE_NODE_ID) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   std::optional<std::string> parent_uuid;
   if (desc.parent.get() != GNEISS_NULL_SCENE_NODE_ID) {
     const auto parent = std::ranges::find(objects_, desc.parent.get(), &object::node);
     if (parent == objects_.end()) {
-      return gneiss::engine::core::result::invalid_handle;
+      return gneiss::engine::result::invalid_handle;
     }
     parent_uuid = parent->uuid;
   }
 
   try {
-    gneiss::engine::resource::object_description author{
+    gneiss::engine::object_description author{
         .uuid = std::string(uuid),
         .name = std::string(name),
         .parent_uuid = std::move(parent_uuid),
@@ -1535,28 +1523,28 @@ scene_instance::create_mesh_renderer_node(const mesh_renderer_node_creation& des
         .rotation = {0.0F, 0.0F, 0.0F, 1.0F},
         .scale = {1.0F, 1.0F, 1.0F},
         .camera = std::nullopt,
-        .mesh_renderer = gneiss::engine::resource::mesh_renderer_description{
+        .mesh_renderer = gneiss::engine::mesh_renderer_description{
             .mesh_uri = std::string(mesh_uri), .material_uri = std::string(material_uri)}};
     objects_.reserve(objects_.size() + 1U);
     description_.objects.reserve(description_.objects.size() + 1U);
     object target{};
     target.uuid = author.uuid;
-    engine::render::asset_diagnostic diagnostic;
-    auto result = gneiss::engine::core::result::success;
+    gneiss::engine::asset_diagnostic diagnostic;
+    auto result = gneiss::engine::result::success;
     if (prepared) {
       target.mesh = asset_loader::mesh_ref(prepared->mesh);
       target.material = asset_loader::material_ref(prepared->material);
     } else {
       result = loader_.acquire_mesh(mesh_uri, target.mesh, diagnostic);
-      if (result == gneiss::engine::core::result::success) {
+      if (result == gneiss::engine::result::success) {
         result = loader_.acquire_material(material_uri, target.material, diagnostic);
       }
     }
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
     result = commit_object(native_world_, author, target, desc.parent.get());
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       if (target.entity != GNEISS_NULL_ENTITY_ID) {
         (void)native_world_.entity_destroy(gneiss::entity_id{target.entity});
       }
@@ -1568,46 +1556,46 @@ scene_instance::create_mesh_renderer_node(const mesh_renderer_node_creation& des
     *out_node = target.node;
     objects_.push_back(std::move(target));
     description_.objects.push_back(std::move(author));
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result scene_instance::set_mesh_renderer(gneiss_scene_node_id node,
-                                                               std::string_view mesh_uri,
-                                                               std::string_view material_uri) {
+gneiss::engine::result scene_instance::set_mesh_renderer(gneiss_scene_node_id node,
+                                                         std::string_view mesh_uri,
+                                                         std::string_view material_uri) {
   const auto found = std::ranges::find(objects_, node, &object::node);
   if (found == objects_.end()) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   try {
-    gneiss::engine::resource::mesh_renderer_description author{
-        .mesh_uri = std::string(mesh_uri), .material_uri = std::string(material_uri)};
+    gneiss::engine::mesh_renderer_description author{.mesh_uri = std::string(mesh_uri),
+                                                     .material_uri = std::string(material_uri)};
     // 编辑资产选择不等于重载；未改变的 URI 继续使用节点选定的版本。
-    auto mesh = engine::render::asset_uri(found->mesh) == mesh_uri
+    auto mesh = gneiss::engine::asset_uri(found->mesh) == mesh_uri
                     ? found->mesh
-                    : engine::render::render_asset_ref{};
-    auto material = engine::render::asset_uri(found->material) == material_uri
+                    : gneiss::engine::render_asset_ref{};
+    auto material = gneiss::engine::asset_uri(found->material) == material_uri
                         ? found->material
-                        : engine::render::render_asset_ref{};
-    engine::render::asset_diagnostic diagnostic;
-    auto result = gneiss::engine::core::result::success;
+                        : gneiss::engine::render_asset_ref{};
+    gneiss::engine::asset_diagnostic diagnostic;
+    auto result = gneiss::engine::result::success;
     if (!mesh) {
       result = loader_.acquire_mesh(mesh_uri, mesh, diagnostic);
     }
-    if (result == gneiss::engine::core::result::success && !material) {
+    if (result == gneiss::engine::result::success && !material) {
       result = loader_.acquire_material(material_uri, material, diagnostic);
     }
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
-    const gneiss::engine::world::mesh_renderer renderer{
-        .mesh = engine::render::asset_rid(mesh), .material = engine::render::asset_rid(material)};
+    const gneiss::engine::mesh_renderer renderer{.mesh = gneiss::engine::asset_rid(mesh),
+                                                 .material = gneiss::engine::asset_rid(material)};
     result = native_world_.entity_set_mesh_renderer(gneiss::entity_id{found->entity}, renderer);
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
     const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
@@ -1615,32 +1603,31 @@ gneiss::engine::core::result scene_instance::set_mesh_renderer(gneiss_scene_node
     found->mesh = std::move(mesh);
     found->material = std::move(material);
     loader_.release_unused();
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result
-scene_instance::set_camera(gneiss_scene_node_id node,
-                           const gneiss::engine::resource::camera_description& desc) {
+gneiss::engine::result scene_instance::set_camera(gneiss_scene_node_id node,
+                                                  const gneiss::engine::camera_description& desc) {
   const auto found = std::ranges::find(objects_, node, &object::node);
   if (found == objects_.end()) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   const auto result = native_world_.entity_configure_camera(
       gneiss::entity_id{found->entity},
       {.vertical_field_of_view_radians = desc.vertical_field_of_view_radians,
        .near_plane = desc.near_plane,
        .far_plane = desc.far_plane});
-  if (result != gneiss::engine::core::result::success) {
+  if (result != gneiss::engine::result::success) {
     return result;
   }
   if (desc.is_primary) {
     const auto active_result = native_world_.set_active_camera(gneiss::entity_id{found->entity});
-    if (active_result != gneiss::engine::core::result::success) {
+    if (active_result != gneiss::engine::result::success) {
       return active_result;
     }
   }
@@ -1653,49 +1640,49 @@ scene_instance::set_camera(gneiss_scene_node_id node,
     }
   }
   description_.objects[index].camera = desc;
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-gneiss::engine::core::result scene_instance::remove_camera(gneiss_scene_node_id node) {
+gneiss::engine::result scene_instance::remove_camera(gneiss_scene_node_id node) {
   const auto found = std::ranges::find(objects_, node, &object::node);
   if (found == objects_.end()) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
   if (!description_.objects[index].camera) {
-    return gneiss::engine::core::result::not_found;
+    return gneiss::engine::result::not_found;
   }
   const auto result = native_world_.entity_remove_camera(gneiss::entity_id{found->entity});
-  if (result == gneiss::engine::core::result::success) {
+  if (result == gneiss::engine::result::success) {
     description_.objects[index].camera.reset();
   }
   return result;
 }
 
-gneiss::engine::core::result scene_instance::remove_mesh_renderer(gneiss_scene_node_id node) {
+gneiss::engine::result scene_instance::remove_mesh_renderer(gneiss_scene_node_id node) {
   const auto found = std::ranges::find(objects_, node, &object::node);
   if (found == objects_.end()) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
   if (!description_.objects[index].mesh_renderer) {
-    return gneiss::engine::core::result::not_found;
+    return gneiss::engine::result::not_found;
   }
   const auto result = native_world_.entity_remove_mesh_renderer(gneiss::entity_id{found->entity});
-  if (result != gneiss::engine::core::result::success) {
+  if (result != gneiss::engine::result::success) {
     return result;
   }
   description_.objects[index].mesh_renderer.reset();
   found->mesh = {};
   found->material = {};
   loader_.release_unused();
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-gneiss::engine::core::result scene_instance::destroy_node(gneiss_scene_node_id node) {
+gneiss::engine::result scene_instance::destroy_node(gneiss_scene_node_id node) {
   const auto found = std::ranges::find(objects_, node, &object::node);
   if (found == objects_.end()) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
   const auto& uuid = description_.objects[index].uuid;
@@ -1706,50 +1693,50 @@ gneiss::engine::core::result scene_instance::destroy_node(gneiss_scene_node_id n
       std::ranges::any_of(description_.prefab_instances, [&uuid](const auto& instance) {
         return instance.parent_uuid && *instance.parent_uuid == uuid;
       })) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   auto result = native_world_.entity_destroy(gneiss::entity_id{found->entity});
-  if (result != gneiss::engine::core::result::success) {
+  if (result != gneiss::engine::result::success) {
     return result;
   }
   result = native_world_.node_destroy(gneiss::scene_node_id{found->node});
-  if (result != gneiss::engine::core::result::success &&
-      result != gneiss::engine::core::result::invalid_handle) {
+  if (result != gneiss::engine::result::success &&
+      result != gneiss::engine::result::invalid_handle) {
     return result;
   }
   objects_.erase(found);
   description_.objects.erase(description_.objects.begin() + static_cast<std::ptrdiff_t>(index));
   loader_.release_unused();
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-gneiss::engine::core::result scene_instance::serialize(std::string& out_json) const {
+gneiss::engine::result scene_instance::serialize(std::string& out_json) const {
   auto current = description_;
   gneiss_entity_id active_camera = GNEISS_NULL_ENTITY_ID;
   const auto active_result =
-      engine::core::write_identifier<entity_id>(active_camera, [&](auto& native_output) {
+      gneiss::engine::write_identifier<entity_id>(active_camera, [&](auto& native_output) {
         return native_world_.get_active_camera(native_output);
       });
-  if (active_result != gneiss::engine::core::result::success &&
-      active_result != gneiss::engine::core::result::not_ready) {
+  if (active_result != gneiss::engine::result::success &&
+      active_result != gneiss::engine::result::not_ready) {
     return active_result;
   }
   for (std::size_t index = 0; index < objects_.size(); ++index) {
     const auto& runtime = objects_[index];
     auto& author = current.objects[index];
-    gneiss::engine::core::math::transform transform = {};
+    gneiss::engine::transform transform = {};
     auto result =
         native_world_.entity_get_local_transform(gneiss::entity_id{runtime.entity}, transform);
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
     std::ranges::copy(transform.translation, author.translation.begin());
     std::ranges::copy(transform.rotation, author.rotation.begin());
     std::ranges::copy(transform.scale, author.scale.begin());
     if (author.camera) {
-      gneiss::engine::world::camera_settings camera;
+      gneiss::engine::camera_settings camera;
       result = native_world_.entity_get_camera(gneiss::entity_id{runtime.entity}, camera);
-      if (result != gneiss::engine::core::result::success) {
+      if (result != gneiss::engine::result::success) {
         return result;
       }
       author.camera->vertical_field_of_view_radians = camera.vertical_field_of_view_radians;
@@ -1759,635 +1746,631 @@ gneiss::engine::core::result scene_instance::serialize(std::string& out_json) co
     }
   }
   if (prefab_instances_.size() != current.prefab_instances.size()) {
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   }
   for (std::size_t index = 0; index < prefab_instances_.size(); ++index) {
     auto& author = current.prefab_instances[index];
-    gneiss::engine::core::math::transform transform = {};
+    gneiss::engine::transform transform = {};
     const auto result = native_world_.node_get_local_transform(
         gneiss::scene_node_id{prefab_instances_[index]->root()}, transform);
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
     std::ranges::copy(transform.translation, author.translation.begin());
     std::ranges::copy(transform.rotation, author.rotation.begin());
     std::ranges::copy(transform.scale, author.scale.begin());
   }
-  return gneiss::engine::resource::serialize_scene_description(current, out_json);
+  return gneiss::engine::serialize_scene_description(current, out_json);
 }
 
-gneiss::engine::core::result scene_instances::capture_render_assets(
-    std::vector<engine::render::render_asset_ref>& output) noexcept {
+gneiss::engine::result scene_instances::capture_render_assets(
+    std::vector<gneiss::engine::render_asset_ref>& output) noexcept {
   try {
     const auto owner = native_world_.replace_mesh_renderers({});
-    if (owner != gneiss::engine::core::result::success) {
+    if (owner != gneiss::engine::result::success) {
       return owner;
     }
-    std::vector<engine::render::render_asset_ref> captured;
+    std::vector<gneiss::engine::render_asset_ref> captured;
     std::unordered_set<std::uint64_t> seen;
-    instances_.for_each(engine::core::resource_type::scene_instance,
+    instances_.for_each(gneiss::engine::resource_type::scene_instance,
                         [&](const auto& instance) { instance->append_render_assets(captured); });
     std::erase_if(captured, [&](const auto& lease) {
-      return !seen.insert(engine::render::asset_rid(lease)).second;
+      return !seen.insert(gneiss::engine::asset_rid(lease)).second;
     });
     output = std::move(captured);
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-scene_instances::scene_instances(
-    engine::world::world& native_world, gneiss_world world,
-    const engine::resource::virtual_file_system& file_system,
-    engine::render::render_asset_loader& loader,
-    gneiss::engine::resource::prefab_asset_loader& prefab_loader) noexcept
+scene_instances::scene_instances(gneiss::engine::world& native_world, gneiss_world world,
+                                 const gneiss::engine::virtual_file_system& file_system,
+                                 gneiss::engine::render_asset_loader& loader,
+                                 gneiss::engine::prefab_asset_loader& prefab_loader) noexcept
     : native_world_(native_world), reflection_context_(world), file_system_(file_system),
       loader_(loader), prefab_loader_(prefab_loader), domain_(allocate_domain()),
       instances_(domain_) {
-  gneiss::engine::core::result result = gneiss::engine::core::result::internal;
+  gneiss::engine::result result = gneiss::engine::result::internal;
   try {
-    result = gneiss::engine::core::reflection::create(registry_);
-    if (result == gneiss::engine::core::result::success) {
-      result = gneiss::engine::world::register_reflection(registry_);
+    result = gneiss::engine::create_type_registry(registry_);
+    if (result == gneiss::engine::result::success) {
+      result = gneiss::engine::register_reflection(registry_);
     }
-    if (result == gneiss::engine::core::result::success) {
-      result = gneiss::engine::core::reflection::freeze(
-          gneiss::engine::core::reflection::resolve(registry_));
+    if (result == gneiss::engine::result::success) {
+      result = gneiss::engine::freeze(gneiss::engine::resolve(registry_));
     }
   } catch (...) {
-    result = gneiss::engine::core::result::internal;
+    result = gneiss::engine::result::internal;
   }
-  if (result != gneiss::engine::core::result::success && registry_ != GNEISS_NULL_TYPE_REGISTRY) {
-    (void)gneiss::engine::core::reflection::destroy(registry_);
+  if (result != gneiss::engine::result::success && registry_ != GNEISS_NULL_TYPE_REGISTRY) {
+    (void)gneiss::engine::destroy_type_registry(registry_);
     registry_ = GNEISS_NULL_TYPE_REGISTRY;
   }
 }
 
 scene_instances::~scene_instances() noexcept {
   if (registry_ != GNEISS_NULL_TYPE_REGISTRY) {
-    (void)gneiss::engine::core::reflection::destroy(registry_);
+    (void)gneiss::engine::destroy_type_registry(registry_);
   }
 }
 
-gneiss::engine::core::result scene_instances::load(std::string_view uri,
-                                                   gneiss_scene_instance* out_instance) noexcept {
+gneiss::engine::result scene_instances::load(std::string_view uri,
+                                             gneiss_scene_instance* out_instance) noexcept {
   if (out_instance == nullptr || !is_valid()) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   *out_instance = GNEISS_NULL_SCENE_INSTANCE;
   try {
-    gneiss::engine::resource::scene_description description;
-    gneiss::engine::resource::scene_diagnostic diagnostic;
-    auto result = gneiss::engine::resource::load_scene_description(file_system_, uri, description,
-                                                                   diagnostic);
-    if (result != gneiss::engine::core::result::success) {
+    gneiss::engine::scene_description description;
+    gneiss::engine::scene_diagnostic diagnostic;
+    auto result =
+        gneiss::engine::load_scene_description(file_system_, uri, description, diagnostic);
+    if (result != gneiss::engine::result::success) {
       return result;
     }
     auto instance = std::make_unique<scene_instance>(native_world_, reflection_context_, loader_,
                                                      prefab_loader_, registry_);
     result = instance->initialize(std::move(description));
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
-    return instances_.create(engine::core::resource_type::scene_instance, std::move(instance),
+    return instances_.create(gneiss::engine::resource_type::scene_instance, std::move(instance),
                              out_instance);
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result scene_instances::reload(gneiss_scene_instance instance,
-                                                     std::string_view uri) noexcept {
+gneiss::engine::result scene_instances::reload(gneiss_scene_instance instance,
+                                               std::string_view uri) noexcept {
   try {
-    auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
+    auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
     if (value == nullptr || *value == nullptr) {
-      return gneiss::engine::core::result::invalid_handle;
+      return gneiss::engine::result::invalid_handle;
     }
-    gneiss::engine::resource::scene_description candidate;
-    gneiss::engine::resource::scene_diagnostic diagnostic;
+    gneiss::engine::scene_description candidate;
+    gneiss::engine::scene_diagnostic diagnostic;
     const auto result =
-        gneiss::engine::resource::load_scene_description(file_system_, uri, candidate, diagnostic);
-    return result == gneiss::engine::core::result::success ? (*value)->reload(std::move(candidate))
-                                                           : result;
+        gneiss::engine::load_scene_description(file_system_, uri, candidate, diagnostic);
+    return result == gneiss::engine::result::success ? (*value)->reload(std::move(candidate))
+                                                     : result;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result scene_instances::reload_prefab(gneiss_scene_instance instance,
-                                                            std::string_view uri) noexcept {
+gneiss::engine::result scene_instances::reload_prefab(gneiss_scene_instance instance,
+                                                      std::string_view uri) noexcept {
   try {
-    auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
+    auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
     if (value == nullptr || *value == nullptr) {
-      return gneiss::engine::core::result::invalid_handle;
+      return gneiss::engine::result::invalid_handle;
     }
     return (*value)->reload_prefab(uri);
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result
-scene_instances::create_empty(std::string_view scene_uuid,
-                              gneiss_scene_instance* out_instance) noexcept {
+gneiss::engine::result scene_instances::create_empty(std::string_view scene_uuid,
+                                                     gneiss_scene_instance* out_instance) noexcept {
   if (out_instance == nullptr || !is_valid()) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   *out_instance = GNEISS_NULL_SCENE_INSTANCE;
   try {
     const std::string json = std::string{"{\"format\":\"gneiss.scene\",\"version\":4,"} +
                              "\"scene_uuid\":\"" + std::string{scene_uuid} +
                              "\",\"objects\":[],\"prefab_instances\":[]}";
-    gneiss::engine::resource::scene_description description;
-    gneiss::engine::resource::scene_diagnostic diagnostic;
-    const auto result =
-        gneiss::engine::resource::parse_scene_description(json, description, diagnostic);
-    if (result != gneiss::engine::core::result::success) {
+    gneiss::engine::scene_description description;
+    gneiss::engine::scene_diagnostic diagnostic;
+    const auto result = gneiss::engine::parse_scene_description(json, description, diagnostic);
+    if (result != gneiss::engine::result::success) {
       return result;
     }
     auto instance = std::make_unique<scene_instance>(native_world_, reflection_context_, loader_,
                                                      prefab_loader_, registry_);
     instance->initialize_staged(std::move(description));
-    return instances_.create(engine::core::resource_type::scene_instance, std::move(instance),
+    return instances_.create(gneiss::engine::resource_type::scene_instance, std::move(instance),
                              out_instance);
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result scene_instances::serialize(gneiss_scene_instance instance,
-                                                        std::string& out_json) const noexcept {
+gneiss::engine::result scene_instances::serialize(gneiss_scene_instance instance,
+                                                  std::string& out_json) const noexcept {
   try {
-    const auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
+    const auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
     if (value == nullptr || *value == nullptr) {
-      return gneiss::engine::core::result::invalid_handle;
+      return gneiss::engine::result::invalid_handle;
     }
     return (*value)->serialize(out_json);
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result scene_instances::unload(gneiss_scene_instance instance) noexcept {
-  return instances_.destroy(instance, engine::core::resource_type::scene_instance);
+gneiss::engine::result scene_instances::unload(gneiss_scene_instance instance) noexcept {
+  return instances_.destroy(instance, gneiss::engine::resource_type::scene_instance);
 }
 
-gneiss::engine::core::result
-scene_instances::find_node(gneiss_scene_instance instance, std::string_view uuid,
-                           scene_node_id& out_node_value) const noexcept {
+gneiss::engine::result scene_instances::find_node(gneiss_scene_instance instance,
+                                                  std::string_view uuid,
+                                                  scene_node_id& out_node_value) const noexcept {
   auto out_node_storage = out_node_value.get();
   auto* out_node = &out_node_storage;
-  const auto operation_result = [&]() -> gneiss::engine::core::result {
+  const auto operation_result = [&]() -> gneiss::engine::result {
     if (out_node == nullptr) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     *out_node = GNEISS_NULL_SCENE_NODE_ID;
-    const auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
+    const auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
     if (value == nullptr || *value == nullptr) {
-      return gneiss::engine::core::result::invalid_handle;
+      return gneiss::engine::result::invalid_handle;
     }
     *out_node = (*value)->find_node(uuid);
-    return *out_node == GNEISS_NULL_SCENE_NODE_ID ? gneiss::engine::core::result::not_found
-                                                  : gneiss::engine::core::result::success;
+    return *out_node == GNEISS_NULL_SCENE_NODE_ID ? gneiss::engine::result::not_found
+                                                  : gneiss::engine::result::success;
   }();
   out_node_value = scene_node_id{out_node_storage};
   return operation_result;
 }
 
-gneiss::engine::core::result
-scene_instances::get_node_count(gneiss_scene_instance instance,
-                                std::uint64_t* out_count) const noexcept {
+gneiss::engine::result scene_instances::get_node_count(gneiss_scene_instance instance,
+                                                       std::uint64_t* out_count) const noexcept {
   if (out_count == nullptr) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   *out_count = 0U;
-  const auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
+  const auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
   if (value == nullptr || *value == nullptr) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   *out_count = (*value)->node_count();
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 scene_instances::get_prefab_node_count(gneiss_scene_instance instance,
                                        std::uint64_t* out_count) const noexcept {
   if (out_count == nullptr) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   *out_count = 0U;
-  const auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
+  const auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
   if (value == nullptr || *value == nullptr) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   *out_count = (*value)->get_prefab_node_count();
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 scene_instances::get_prefab_node_info(gneiss_scene_instance instance, std::uint64_t index,
                                       prefab_node_view& out_info) const noexcept {
   out_info = {};
-  const auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
-  return value == nullptr || *value == nullptr ? gneiss::engine::core::result::invalid_handle
+  const auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
+  return value == nullptr || *value == nullptr ? gneiss::engine::result::invalid_handle
                                                : (*value)->get_prefab_node_info(index, out_info);
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 scene_instances::create_prefab_instance(gneiss_scene_instance instance, const prefab_creation& desc,
                                         scene_node_id& out_root_value) noexcept {
   auto out_root_storage = out_root_value.get();
   auto* out_root = &out_root_storage;
-  const auto operation_result = [&]() -> gneiss::engine::core::result {
+  const auto operation_result = [&]() -> gneiss::engine::result {
     if (out_root == nullptr) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     *out_root = GNEISS_NULL_SCENE_NODE_ID;
     try {
-      auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
+      auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
       return value == nullptr || *value == nullptr
-                 ? gneiss::engine::core::result::invalid_handle
+                 ? gneiss::engine::result::invalid_handle
                  : (*value)->create_prefab_instance(desc, out_root);
     } catch (const std::bad_alloc&) {
-      return gneiss::engine::core::result::out_of_memory;
+      return gneiss::engine::result::out_of_memory;
     } catch (...) {
-      return gneiss::engine::core::result::internal;
+      return gneiss::engine::result::internal;
     }
   }();
   out_root_value = scene_node_id{out_root_storage};
   return operation_result;
 }
 
-gneiss::engine::core::result
-scene_instances::set_prefab_instance_name(gneiss_scene_instance instance, scene_node_id root_value,
-                                          std::string_view name) noexcept {
+gneiss::engine::result scene_instances::set_prefab_instance_name(gneiss_scene_instance instance,
+                                                                 scene_node_id root_value,
+                                                                 std::string_view name) noexcept {
   auto root = root_value.get();
   try {
-    auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
-    return value == nullptr || *value == nullptr ? gneiss::engine::core::result::invalid_handle
+    auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
+    return value == nullptr || *value == nullptr ? gneiss::engine::result::invalid_handle
                                                  : (*value)->set_prefab_instance_name(root, name);
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result scene_instances::set_prefab_source_transform(
-    gneiss_scene_instance instance, scene_node_id node_value,
-    const gneiss::engine::core::math::transform& transform) noexcept {
+gneiss::engine::result
+scene_instances::set_prefab_source_transform(gneiss_scene_instance instance,
+                                             scene_node_id node_value,
+                                             const gneiss::engine::transform& transform) noexcept {
   auto node = node_value.get();
   try {
-    auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
+    auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
     return value == nullptr || *value == nullptr
-               ? gneiss::engine::core::result::invalid_handle
+               ? gneiss::engine::result::invalid_handle
                : (*value)->set_prefab_source_transform(node, transform);
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result
-scene_instances::destroy_prefab_instance(gneiss_scene_instance instance,
-                                         scene_node_id root_value) noexcept {
+gneiss::engine::result scene_instances::destroy_prefab_instance(gneiss_scene_instance instance,
+                                                                scene_node_id root_value) noexcept {
   auto root = root_value.get();
-  auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
-  return value == nullptr || *value == nullptr ? gneiss::engine::core::result::invalid_handle
+  auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
+  return value == nullptr || *value == nullptr ? gneiss::engine::result::invalid_handle
                                                : (*value)->destroy_prefab_instance(root);
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 scene_instances::refresh_prefab_instance(gneiss_scene_instance instance, scene_node_id root_value,
                                          scene_node_id& out_new_root_value,
                                          gneiss_scene_prefab_refresh_token* out_token) noexcept {
   auto root = root_value.get();
   auto out_new_root_storage = out_new_root_value.get();
   auto* out_new_root = &out_new_root_storage;
-  const auto operation_result = [&]() -> gneiss::engine::core::result {
+  const auto operation_result = [&]() -> gneiss::engine::result {
     if (out_new_root == nullptr || out_token == nullptr) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     *out_new_root = GNEISS_NULL_SCENE_NODE_ID;
     *out_token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
     try {
-      auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
+      auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
       return value == nullptr || *value == nullptr
-                 ? gneiss::engine::core::result::invalid_handle
+                 ? gneiss::engine::result::invalid_handle
                  : (*value)->refresh_prefab_instance(root, out_new_root, out_token);
     } catch (const std::bad_alloc&) {
-      return gneiss::engine::core::result::out_of_memory;
+      return gneiss::engine::result::out_of_memory;
     } catch (...) {
-      return gneiss::engine::core::result::internal;
+      return gneiss::engine::result::internal;
     }
   }();
   out_new_root_value = scene_node_id{out_new_root_storage};
   return operation_result;
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 scene_instances::toggle_prefab_refresh(gneiss_scene_instance instance,
                                        gneiss_scene_prefab_refresh_token token,
                                        scene_node_id& out_new_root_value) noexcept {
   auto out_new_root_storage = out_new_root_value.get();
   auto* out_new_root = &out_new_root_storage;
-  const auto operation_result = [&]() -> gneiss::engine::core::result {
+  const auto operation_result = [&]() -> gneiss::engine::result {
     if (out_new_root == nullptr || token == GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     *out_new_root = GNEISS_NULL_SCENE_NODE_ID;
     try {
-      auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
+      auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
       return value == nullptr || *value == nullptr
-                 ? gneiss::engine::core::result::invalid_handle
+                 ? gneiss::engine::result::invalid_handle
                  : (*value)->toggle_prefab_refresh(token, out_new_root);
     } catch (const std::bad_alloc&) {
-      return gneiss::engine::core::result::out_of_memory;
+      return gneiss::engine::result::out_of_memory;
     } catch (...) {
-      return gneiss::engine::core::result::internal;
+      return gneiss::engine::result::internal;
     }
   }();
   out_new_root_value = scene_node_id{out_new_root_storage};
   return operation_result;
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 scene_instances::release_prefab_refresh(gneiss_scene_instance instance,
                                         gneiss_scene_prefab_refresh_token token) noexcept {
   if (token == GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
-  auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
-  return value == nullptr || *value == nullptr ? gneiss::engine::core::result::invalid_handle
+  auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
+  return value == nullptr || *value == nullptr ? gneiss::engine::result::invalid_handle
                                                : (*value)->release_prefab_refresh(token);
 }
 
-gneiss::engine::core::result
-scene_instances::get_node_info(gneiss_scene_instance instance, std::uint64_t index,
-                               scene_node_view& out_info, node_query_detail detail) const noexcept {
+gneiss::engine::result scene_instances::get_node_info(gneiss_scene_instance instance,
+                                                      std::uint64_t index,
+                                                      scene_node_view& out_info,
+                                                      node_query_detail detail) const noexcept {
   out_info = {};
-  const auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
+  const auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
   if (value == nullptr || *value == nullptr) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   return (*value)->get_node_info(index, out_info, detail);
 }
 
-gneiss::engine::core::result scene_instances::create_node(gneiss_scene_instance instance,
-                                                          const node_creation& desc,
-                                                          scene_node_id& out_node_value) noexcept {
+gneiss::engine::result scene_instances::create_node(gneiss_scene_instance instance,
+                                                    const node_creation& desc,
+                                                    scene_node_id& out_node_value) noexcept {
   auto out_node_storage = out_node_value.get();
   auto* out_node = &out_node_storage;
-  const auto operation_result = [&]() -> gneiss::engine::core::result {
+  const auto operation_result = [&]() -> gneiss::engine::result {
     if (out_node == nullptr) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     *out_node = GNEISS_NULL_SCENE_NODE_ID;
     try {
-      auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
-      return value == nullptr || *value == nullptr ? gneiss::engine::core::result::invalid_handle
+      auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
+      return value == nullptr || *value == nullptr ? gneiss::engine::result::invalid_handle
                                                    : (*value)->create_node(desc, out_node);
     } catch (...) {
-      return gneiss::engine::core::result::internal;
+      return gneiss::engine::result::internal;
     }
   }();
   out_node_value = scene_node_id{out_node_storage};
   return operation_result;
 }
 
-gneiss::engine::core::result scene_instances::set_node_name(gneiss_scene_instance instance,
-                                                            scene_node_id node_value,
-                                                            std::string_view name) noexcept {
+gneiss::engine::result scene_instances::set_node_name(gneiss_scene_instance instance,
+                                                      scene_node_id node_value,
+                                                      std::string_view name) noexcept {
   auto node = node_value.get();
   try {
-    auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
-    return value == nullptr || *value == nullptr ? gneiss::engine::core::result::invalid_handle
+    auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
+    return value == nullptr || *value == nullptr ? gneiss::engine::result::invalid_handle
                                                  : (*value)->set_node_name(node, name);
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result scene_instances::reparent_node(gneiss_scene_instance instance,
-                                                            scene_node_id node_value,
-                                                            scene_node_id parent_value) noexcept {
+gneiss::engine::result scene_instances::reparent_node(gneiss_scene_instance instance,
+                                                      scene_node_id node_value,
+                                                      scene_node_id parent_value) noexcept {
   auto node = node_value.get();
   auto parent = parent_value.get();
   try {
-    auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
-    return value == nullptr || *value == nullptr ? gneiss::engine::core::result::invalid_handle
+    auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
+    return value == nullptr || *value == nullptr ? gneiss::engine::result::invalid_handle
                                                  : (*value)->reparent_node(node, parent);
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result
-scene_instances::capture_subtree(gneiss_scene_instance instance, scene_node_id root_value,
-                                 std::string& out_snapshot) const noexcept {
+gneiss::engine::result scene_instances::capture_subtree(gneiss_scene_instance instance,
+                                                        scene_node_id root_value,
+                                                        std::string& out_snapshot) const noexcept {
   auto root = root_value.get();
   try {
-    const auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
-    return value == nullptr || *value == nullptr ? gneiss::engine::core::result::invalid_handle
+    const auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
+    return value == nullptr || *value == nullptr ? gneiss::engine::result::invalid_handle
                                                  : (*value)->capture_subtree(root, out_snapshot);
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result
-scene_instances::restore_subtree(gneiss_scene_instance instance, std::string_view snapshot,
-                                 scene_node_id parent_value, std::span<const uuid_mapping> mappings,
-                                 scene_node_id& out_root_value) noexcept {
+gneiss::engine::result scene_instances::restore_subtree(gneiss_scene_instance instance,
+                                                        std::string_view snapshot,
+                                                        scene_node_id parent_value,
+                                                        std::span<const uuid_mapping> mappings,
+                                                        scene_node_id& out_root_value) noexcept {
   auto parent = parent_value.get();
   auto out_root_storage = out_root_value.get();
   auto* out_root = &out_root_storage;
-  const auto operation_result = [&]() -> gneiss::engine::core::result {
+  const auto operation_result = [&]() -> gneiss::engine::result {
     if (out_root == nullptr) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     *out_root = GNEISS_NULL_SCENE_NODE_ID;
     try {
-      auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
+      auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
       return value == nullptr || *value == nullptr
-                 ? gneiss::engine::core::result::invalid_handle
+                 ? gneiss::engine::result::invalid_handle
                  : (*value)->restore_subtree(snapshot, parent, mappings, out_root);
     } catch (...) {
-      return gneiss::engine::core::result::internal;
+      return gneiss::engine::result::internal;
     }
   }();
   out_root_value = scene_node_id{out_root_storage};
   return operation_result;
 }
 
-gneiss::engine::core::result scene_instances::destroy_subtree(gneiss_scene_instance instance,
-                                                              scene_node_id root_value) noexcept {
+gneiss::engine::result scene_instances::destroy_subtree(gneiss_scene_instance instance,
+                                                        scene_node_id root_value) noexcept {
   auto root = root_value.get();
   try {
-    auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
-    return value == nullptr || *value == nullptr ? gneiss::engine::core::result::invalid_handle
+    auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
+    return value == nullptr || *value == nullptr ? gneiss::engine::result::invalid_handle
                                                  : (*value)->destroy_subtree(root);
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 scene_instances::create_mesh_renderer_node(gneiss_scene_instance instance,
                                            const mesh_renderer_node_creation& desc,
                                            scene_node_id& out_node_value) noexcept {
   auto out_node_storage = out_node_value.get();
   auto* out_node = &out_node_storage;
-  const auto operation_result = [&]() -> gneiss::engine::core::result {
+  const auto operation_result = [&]() -> gneiss::engine::result {
     if (out_node == nullptr) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     *out_node = GNEISS_NULL_SCENE_NODE_ID;
     try {
-      auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
+      auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
       return value == nullptr || *value == nullptr
-                 ? gneiss::engine::core::result::invalid_handle
+                 ? gneiss::engine::result::invalid_handle
                  : (*value)->create_mesh_renderer_node(desc, out_node);
     } catch (...) {
-      return gneiss::engine::core::result::internal;
+      return gneiss::engine::result::internal;
     }
   }();
   out_node_value = scene_node_id{out_node_storage};
   return operation_result;
 }
 
-gneiss::engine::core::result scene_instances::create_mesh_renderer_node_ready(
+gneiss::engine::result scene_instances::create_mesh_renderer_node_ready(
     gneiss_scene_instance instance, const mesh_renderer_node_creation& desc,
     const mesh_binding& prepared, scene_node_id& output_value) noexcept try {
   auto output = output_value.get();
-  const auto operation_result = [&]() -> gneiss::engine::core::result {
+  const auto operation_result = [&]() -> gneiss::engine::result {
     output = GNEISS_NULL_SCENE_NODE_ID;
     const auto owner = native_world_.replace_mesh_renderers({});
-    if (owner != gneiss::engine::core::result::success) {
+    if (owner != gneiss::engine::result::success) {
       return owner;
     }
-    auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
+    auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
     return value == nullptr || *value == nullptr
-               ? gneiss::engine::core::result::invalid_handle
+               ? gneiss::engine::result::invalid_handle
                : (*value)->create_mesh_renderer_node(desc, &output, &prepared);
   }();
   output_value = scene_node_id{output};
   return operation_result;
 } catch (const std::bad_alloc&) {
-  return gneiss::engine::core::result::out_of_memory;
+  return gneiss::engine::result::out_of_memory;
 } catch (...) {
-  return gneiss::engine::core::result::internal;
+  return gneiss::engine::result::internal;
 }
 
-gneiss::engine::core::result
-scene_instances::capture_mesh_binding(gneiss_scene_instance instance, scene_node_id node,
-                                      mesh_binding& output) const noexcept {
+gneiss::engine::result scene_instances::capture_mesh_binding(gneiss_scene_instance instance,
+                                                             scene_node_id node,
+                                                             mesh_binding& output) const noexcept {
   output = {};
   const auto owner = native_world_.replace_mesh_renderers({});
-  if (owner != gneiss::engine::core::result::success) {
+  if (owner != gneiss::engine::result::success) {
     return owner;
   }
-  const auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
-  return value == nullptr || *value == nullptr ? gneiss::engine::core::result::invalid_handle
+  const auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
+  return value == nullptr || *value == nullptr ? gneiss::engine::result::invalid_handle
                                                : (*value)->capture_mesh_binding(node, output);
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 scene_instances::replace_mesh_binding(gneiss_scene_instance instance, scene_node_id node,
                                       const mesh_binding& expected,
                                       const mesh_binding& replacement) noexcept {
   const auto owner = native_world_.replace_mesh_renderers({});
-  if (owner != gneiss::engine::core::result::success) {
+  if (owner != gneiss::engine::result::success) {
     return owner;
   }
-  using type = engine::render::render_asset_type;
-  if (gneiss::engine::render::asset_kind(replacement.mesh) != type::mesh ||
-      gneiss::engine::render::asset_kind(replacement.material) != type::material ||
+  using type = gneiss::engine::render_asset_type;
+  if (gneiss::engine::asset_kind(replacement.mesh) != type::mesh ||
+      gneiss::engine::asset_kind(replacement.material) != type::material ||
       !loader_.owns(replacement.mesh) || !loader_.owns(replacement.material)) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
-  auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
+  auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
   return value == nullptr || *value == nullptr
-             ? gneiss::engine::core::result::invalid_handle
+             ? gneiss::engine::result::invalid_handle
              : (*value)->replace_mesh_binding(node, expected, replacement);
 }
 
-gneiss::engine::core::result
-scene_instances::set_mesh_renderer(gneiss_scene_instance instance, scene_node_id node_value,
-                                   std::string_view mesh_uri,
-                                   std::string_view material_uri) noexcept {
+gneiss::engine::result scene_instances::set_mesh_renderer(gneiss_scene_instance instance,
+                                                          scene_node_id node_value,
+                                                          std::string_view mesh_uri,
+                                                          std::string_view material_uri) noexcept {
   auto node = node_value.get();
   try {
-    auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
+    auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
     return value == nullptr || *value == nullptr
-               ? gneiss::engine::core::result::invalid_handle
+               ? gneiss::engine::result::invalid_handle
                : (*value)->set_mesh_renderer(node, mesh_uri, material_uri);
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 scene_instances::validate_editable_node(gneiss_scene_instance instance,
                                         scene_node_id node_value) const noexcept {
   auto node = node_value.get();
-  const auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
+  const auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
   if (value == nullptr || *value == nullptr) {
-    return gneiss::engine::core::result::invalid_handle;
+    return gneiss::engine::result::invalid_handle;
   }
   return (*value)->contains_editable_node(scene_node_id{node})
-             ? gneiss::engine::core::result::success
-             : gneiss::engine::core::result::invalid_handle;
+             ? gneiss::engine::result::success
+             : gneiss::engine::result::invalid_handle;
 }
 
-gneiss::engine::core::result
+gneiss::engine::result
 scene_instances::set_camera(gneiss_scene_instance instance, scene_node_id node_value,
-                            const gneiss::engine::resource::camera_description& desc) noexcept {
+                            const gneiss::engine::camera_description& desc) noexcept {
   auto node = node_value.get();
-  auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
-  return value == nullptr || *value == nullptr ? gneiss::engine::core::result::invalid_handle
+  auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
+  return value == nullptr || *value == nullptr ? gneiss::engine::result::invalid_handle
                                                : (*value)->set_camera(node, desc);
 }
 
-gneiss::engine::core::result scene_instances::remove_camera(gneiss_scene_instance instance,
-                                                            scene_node_id node_value) noexcept {
+gneiss::engine::result scene_instances::remove_camera(gneiss_scene_instance instance,
+                                                      scene_node_id node_value) noexcept {
   auto node = node_value.get();
-  auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
-  return value == nullptr || *value == nullptr ? gneiss::engine::core::result::invalid_handle
+  auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
+  return value == nullptr || *value == nullptr ? gneiss::engine::result::invalid_handle
                                                : (*value)->remove_camera(node);
 }
 
-gneiss::engine::core::result
-scene_instances::remove_mesh_renderer(gneiss_scene_instance instance,
-                                      scene_node_id node_value) noexcept {
+gneiss::engine::result scene_instances::remove_mesh_renderer(gneiss_scene_instance instance,
+                                                             scene_node_id node_value) noexcept {
   auto node = node_value.get();
-  auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
-  return value == nullptr || *value == nullptr ? gneiss::engine::core::result::invalid_handle
+  auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
+  return value == nullptr || *value == nullptr ? gneiss::engine::result::invalid_handle
                                                : (*value)->remove_mesh_renderer(node);
 }
 
-gneiss::engine::core::result scene_instances::destroy_node(gneiss_scene_instance instance,
-                                                           scene_node_id node_value) noexcept {
+gneiss::engine::result scene_instances::destroy_node(gneiss_scene_instance instance,
+                                                     scene_node_id node_value) noexcept {
   auto node = node_value.get();
   try {
-    auto* value = instances_.get(instance, engine::core::resource_type::scene_instance);
-    return value == nullptr || *value == nullptr ? gneiss::engine::core::result::invalid_handle
+    auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
+    return value == nullptr || *value == nullptr ? gneiss::engine::result::invalid_handle
                                                  : (*value)->destroy_node(node);
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-} // namespace gneiss::engine::scene
+} // namespace gneiss::engine

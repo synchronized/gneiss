@@ -31,7 +31,7 @@ void write_u64(std::vector<std::byte>& bytes, std::size_t offset, std::uint64_t 
 } // namespace
 
 int main() { // NOLINT(bugprone-exception-escape)
-  namespace asset = gneiss::engine::resource;
+  namespace asset = gneiss::engine;
   asset::mesh_binary_data source;
   source.vertices = {
       {.position = {-0.5F, -0.5F, 0.0F}, .texcoord = {0.0F, 0.0F}, .normal = {0, 0, 1}},

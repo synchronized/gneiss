@@ -30,20 +30,20 @@ public:
   imgui_adapter(const imgui_adapter&) = delete;
   imgui_adapter& operator=(const imgui_adapter&) = delete;
 
-  [[nodiscard]] gneiss::engine::core::result initialize(runtime::application& application);
+  [[nodiscard]] gneiss::engine::result initialize(runtime::application& application);
   void shutdown(runtime::application& application) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  begin_frame(runtime::application& application, const gneiss::engine::core::frame_time& time);
-  [[nodiscard]] gneiss::engine::core::result submit(runtime::application& application);
+  [[nodiscard]] gneiss::engine::result begin_frame(runtime::application& application,
+                                                   const gneiss::engine::frame_time& time);
+  [[nodiscard]] gneiss::engine::result submit(runtime::application& application);
 
 private:
-  void process_input(const engine::core::input::input_event& event);
+  void process_input(const gneiss::engine::input_event& event);
 
   ImGuiContext* context_ = nullptr;
-  engine::core::rid font_texture_{};
-  std::vector<engine::render::ui_vertex> vertices_;
+  gneiss::engine::rid font_texture_{};
+  std::vector<gneiss::engine::ui_vertex> vertices_;
   std::vector<std::uint32_t> indices_;
-  std::vector<engine::render::ui_draw_command> commands_;
+  std::vector<gneiss::engine::ui_draw_command> commands_;
 };
 
 } // namespace gneiss::editor

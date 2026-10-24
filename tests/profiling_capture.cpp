@@ -17,33 +17,32 @@
 namespace {
 using namespace std::chrono_literals;
 struct context {
-  gneiss::engine::core::tasks::task_scheduler scheduler{{.workers = 1U}};
-  gneiss::engine::core::tasks::task_scope scope = scheduler.make_scope();
+  gneiss::engine::task_scheduler scheduler{{.workers = 1U}};
+  gneiss::engine::task_scope scope = scheduler.make_scope();
   std::size_t received{};
 };
-gneiss::engine::core::result update(gneiss_application, const gneiss_frame_time* time,
-                                    void* opaque) noexcept {
+gneiss::engine::result update(gneiss_application, const gneiss_frame_time* time,
+                              void* opaque) noexcept {
   auto& state = *static_cast<context*>(opaque);
   try {
-    gneiss::engine::core::tasks::task_handle task;
+    gneiss::engine::task_handle task;
     const auto accepted = state.scheduler.submit(
         {.name = time->frame_index == 0U ? std::string(65536U, 'x') : "capture.work",
          .scope = state.scope},
-        [](const gneiss::engine::core::tasks::task_context&) {
+        [](const gneiss::engine::task_context&) {
           std::this_thread::sleep_for(1ms);
-          return gneiss::engine::core::tasks::task_outcome{
-              .state = gneiss::engine::core::tasks::task_state::succeeded};
+          return gneiss::engine::task_outcome{.state = gneiss::engine::task_state::succeeded};
         },
         task);
-    if (accepted != gneiss::engine::core::tasks::submit_result::success) {
-      return gneiss::engine::core::result::internal;
+    if (accepted != gneiss::engine::submit_result::success) {
+      return gneiss::engine::result::internal;
     }
-    std::vector<gneiss::engine::core::tasks::task_completion> completed;
+    std::vector<gneiss::engine::task_completion> completed;
     state.received += state.scheduler.poll(state.scope, completed);
     std::this_thread::sleep_for(2ms);
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 }
@@ -63,15 +62,15 @@ int main(int argc, char** argv) try {
   description.user_data = &state;
   description.update = update;
   gneiss::test_support::application_owner application;
-  if (gneiss::engine::core::result{gneiss_application_create(&description, application.put())} !=
-          gneiss::engine::core::result::success ||
-      gneiss::engine::core::result{gneiss_application_run(application.get(), 128)} !=
-          gneiss::engine::core::result::success) {
+  if (gneiss::engine::result{gneiss_application_create(&description, application.put())} !=
+          gneiss::engine::result::success ||
+      gneiss::engine::result{gneiss_application_run(application.get(), 128)} !=
+          gneiss::engine::result::success) {
     return 3;
   }
   const auto deadline = std::chrono::steady_clock::now() + 5s;
   while (state.received < 128U && std::chrono::steady_clock::now() < deadline) {
-    std::vector<gneiss::engine::core::tasks::task_completion> completed;
+    std::vector<gneiss::engine::task_completion> completed;
     state.received += state.scheduler.poll(state.scope, completed);
     std::this_thread::sleep_for(1ms);
   }

@@ -56,7 +56,7 @@ bool wait_for_candidate(gneiss::editor::asset_file_watcher& watcher, std::string
     (void)watcher.poll_events(events);
     if (std::ranges::any_of(events, [&](const auto& event) {
           return event.relative_path.generic_string() == path &&
-                 event.operation == gneiss::engine::core::result::success;
+                 event.operation == gneiss::engine::result::success;
         })) {
       return true;
     }
@@ -82,32 +82,30 @@ int main() {
   // 无源资产的工程无需创建空目录；目录后来出现后，同一监听器可以正常启动。
   gneiss::editor::asset_file_watcher optional;
   const auto sources = root / "sources";
-  if (optional.start(sources, true) != gneiss::engine::core::result::not_ready ||
-      optional.is_running() || std::filesystem::exists(sources) ||
-      optional.stop() != gneiss::engine::core::result::not_ready ||
-      optional.start(sources, true) != gneiss::engine::core::result::not_ready) {
+  if (optional.start(sources, true) != gneiss::engine::result::not_ready || optional.is_running() ||
+      std::filesystem::exists(sources) || optional.stop() != gneiss::engine::result::not_ready ||
+      optional.start(sources, true) != gneiss::engine::result::not_ready) {
     return 8;
   }
   write_text(sources, "not a directory");
-  if (optional.start(sources, true) != gneiss::engine::core::result::invalid_argument ||
+  if (optional.start(sources, true) != gneiss::engine::result::invalid_argument ||
       optional.is_running()) {
     return 9;
   }
   std::filesystem::remove(sources);
   std::filesystem::create_directory(sources);
-  if (optional.start(sources, true) != gneiss::engine::core::result::success ||
-      !optional.is_running()) {
+  if (optional.start(sources, true) != gneiss::engine::result::success || !optional.is_running()) {
     return 10;
   }
   write_text(sources / "late.txt", "created after startup");
   if (!wait_for_candidate(optional, "late.txt") ||
-      optional.stop() != gneiss::engine::core::result::success) {
+      optional.stop() != gneiss::engine::result::success) {
     return 11;
   }
 
   gneiss::editor::asset_file_watcher watcher{2U};
-  if (watcher.start(root / "missing") != gneiss::engine::core::result::not_found ||
-      watcher.start(root) != gneiss::engine::core::result::success || !watcher.is_running()) {
+  if (watcher.start(root / "missing") != gneiss::engine::result::not_found ||
+      watcher.start(root) != gneiss::engine::result::success || !watcher.is_running()) {
     return 1;
   }
 
@@ -140,13 +138,13 @@ int main() {
     return 6;
   }
 
-  if (watcher.stop() != gneiss::engine::core::result::success || watcher.is_running() ||
-      watcher.stop() != gneiss::engine::core::result::not_ready) {
+  if (watcher.stop() != gneiss::engine::result::success || watcher.is_running() ||
+      watcher.stop() != gneiss::engine::result::not_ready) {
     return 7;
   }
   // 重启到另一目录不得带入旧事件，但历史丢失计数不能被重启掩盖。
   const auto dropped_before_restart = watcher.dropped_event_count();
-  if (watcher.start(sources) != gneiss::engine::core::result::success) {
+  if (watcher.start(sources) != gneiss::engine::result::success) {
     return 12;
   }
   std::vector<gneiss::editor::asset_file_event> restarted_events;
@@ -156,7 +154,7 @@ int main() {
   }
   write_text(sources / "restarted.txt", "new watch session");
   if (!wait_for_candidate(watcher, "restarted.txt") ||
-      watcher.stop() != gneiss::engine::core::result::success) {
+      watcher.stop() != gneiss::engine::result::success) {
     return 14;
   }
   std::filesystem::remove_all(root, error);

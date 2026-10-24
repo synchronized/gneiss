@@ -12,20 +12,17 @@
 
 #include <granit/window.hpp>
 
-namespace gneiss::engine::platform {
+namespace gneiss::engine {
 
 class granit_platform final {
 public:
-  [[nodiscard]] gneiss::engine::core::result
-  initialize(const window_configuration& config) noexcept;
-  [[nodiscard]] gneiss::engine::core::result poll(bool& out_should_close,
-                                                  bool& out_focus_lost) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  poll_input(engine::core::input::input_event& out_event) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  keyboard(engine::core::input::keyboard_state& out_state) const noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  pointer(engine::core::input::pointer_state& out_state) const noexcept;
+  [[nodiscard]] gneiss::engine::result initialize(const window_configuration& config) noexcept;
+  [[nodiscard]] gneiss::engine::result poll(bool& out_should_close, bool& out_focus_lost) noexcept;
+  [[nodiscard]] gneiss::engine::result poll_input(gneiss::engine::input_event& out_event) noexcept;
+  [[nodiscard]] gneiss::engine::result
+  keyboard(gneiss::engine::keyboard_state& out_state) const noexcept;
+  [[nodiscard]] gneiss::engine::result
+  pointer(gneiss::engine::pointer_state& out_state) const noexcept;
   [[nodiscard]] const native_window_info& native_window() const noexcept { return native_window_; }
   [[nodiscard]] native_window_info& native_window() noexcept { return native_window_; }
 
@@ -35,6 +32,6 @@ private:
   native_window_info native_window_;
 };
 
-} // namespace gneiss::engine::platform
+} // namespace gneiss::engine
 
 #endif

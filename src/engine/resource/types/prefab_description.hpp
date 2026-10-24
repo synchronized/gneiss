@@ -13,7 +13,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 
 struct prefab_description final {
   std::uint32_t source_schema_version = 0;
@@ -24,19 +24,19 @@ struct prefab_description final {
 };
 
 /** 解析版本化 Prefab 作者文件；Prefab 必须且只能包含一个根节点。 */
-[[nodiscard]] gneiss::engine::core::result
+[[nodiscard]] gneiss::engine::result
 parse_prefab_description(std::string_view json, prefab_description& out_prefab,
                          scene_diagnostic& out_diagnostic) noexcept;
 
-[[nodiscard]] gneiss::engine::core::result
-load_prefab_description(const engine::resource::virtual_file_system& file_system,
+[[nodiscard]] gneiss::engine::result
+load_prefab_description(const gneiss::engine::virtual_file_system& file_system,
                         std::string_view uri, prefab_description& out_prefab,
                         scene_diagnostic& out_diagnostic) noexcept;
 
 /** 输出 Prefab v1 作者 JSON；保留受支持文档中的未知字段。 */
-[[nodiscard]] gneiss::engine::core::result
-serialize_prefab_description(const prefab_description& prefab, std::string& out_json) noexcept;
+[[nodiscard]] gneiss::engine::result serialize_prefab_description(const prefab_description& prefab,
+                                                                  std::string& out_json) noexcept;
 
-} // namespace gneiss::engine::resource
+} // namespace gneiss::engine
 
 #endif

@@ -9,7 +9,7 @@
 #include <optional>
 #include <string>
 
-namespace gneiss {
+namespace gneiss::host {
 inline constexpr std::uint16_t ipc_scene_domain_version = 1U;
 inline constexpr std::size_t ipc_scene_max_payload_size = 16384U;
 enum class ipc_scene_operation : std::uint16_t { load = 1U, cancel = 2U, progress = 3U };
@@ -54,21 +54,20 @@ struct ipc_scene_progress {
 [[nodiscard]] bool apply_scene_cleanup_update(ipc_scene_progress& current,
                                               const ipc_scene_progress& incoming) noexcept;
 [[nodiscard]] bool scene_phase_terminal(ipc_scene_phase phase) noexcept;
-[[nodiscard]] gneiss::engine::core::result
+[[nodiscard]] gneiss::engine::result
 encode_ipc_scene_request(const ipc_scene_request& value, ipc_scene_operation operation,
-                         std::uint32_t request_id,
-                         gneiss::engine::platform::ipc_envelope& output) noexcept;
-[[nodiscard]] gneiss::engine::core::result
-decode_ipc_scene_request(const gneiss::engine::platform::ipc_envelope& envelope,
+                         std::uint32_t request_id, gneiss::engine::ipc_envelope& output) noexcept;
+[[nodiscard]] gneiss::engine::result
+decode_ipc_scene_request(const gneiss::engine::ipc_envelope& envelope,
                          ipc_scene_request& output) noexcept;
 /** 启动场景及进度使用事件；外部切换的唯一终态使用原 request_id 的响应；后续清理账本使用
  * request_id=0 的事件。 */
-[[nodiscard]] gneiss::engine::core::result
+[[nodiscard]] gneiss::engine::result
 encode_ipc_scene_progress(const ipc_scene_progress& value, std::uint32_t request_id,
-                          gneiss::engine::platform::ipc_envelope& output) noexcept;
-[[nodiscard]] gneiss::engine::core::result
-decode_ipc_scene_progress(const gneiss::engine::platform::ipc_envelope& envelope,
+                          gneiss::engine::ipc_envelope& output) noexcept;
+[[nodiscard]] gneiss::engine::result
+decode_ipc_scene_progress(const gneiss::engine::ipc_envelope& envelope,
                           ipc_scene_progress& output) noexcept;
-[[nodiscard]] std::span<const gneiss::engine::platform::ipc_operation_descriptor>
+[[nodiscard]] std::span<const gneiss::engine::ipc_operation_descriptor>
 ipc_scene_operations() noexcept;
-} // namespace gneiss
+} // namespace gneiss::host

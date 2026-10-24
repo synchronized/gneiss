@@ -19,7 +19,7 @@
 #include <typeindex>
 #include <vector>
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 
 enum class resource_state : std::uint8_t { unloaded, loading, ready, failed };
 
@@ -34,18 +34,18 @@ public:
     std::shared_ptr<const asset_source_domain> source;
     std::type_index type{typeid(void)};
     resource_state state = resource_state::unloaded;
-    gneiss::engine::core::result failure = gneiss::engine::core::result::success;
+    gneiss::engine::result failure = gneiss::engine::result::success;
     std::shared_ptr<const void> resource;
   };
 
-  using loader = std::function<gneiss::engine::core::result(std::shared_ptr<const void>&)>;
+  using loader = std::function<gneiss::engine::result(std::shared_ptr<const void>&)>;
 
   /** 所属线程统一加载入口；默认复用，reload 成功后替换，失败保留旧条目。
    * 回调仅在需要加载时执行；同键递归加载返回 invalid_state。 */
-  [[nodiscard]] gneiss::engine::core::result
-  load(std::string_view uri, std::type_index type, const loader& decode,
-       asset_ref<const entry>& out_entry, std::shared_ptr<const asset_source_domain> source = {},
-       bool reload = false) noexcept;
+  [[nodiscard]] gneiss::engine::result load(std::string_view uri, std::type_index type,
+                                            const loader& decode, asset_ref<const entry>& out_entry,
+                                            std::shared_ptr<const asset_source_domain> source = {},
+                                            bool reload = false) noexcept;
   void release_unused() noexcept;
   /** 只观察当前身份，不触发加载；返回的弱引用不会阻止卸载。 */
   [[nodiscard]] std::weak_ptr<const entry>
@@ -57,6 +57,6 @@ private:
   std::map<key, asset_ref<const entry>> entries_;
 };
 
-} // namespace gneiss::engine::resource
+} // namespace gneiss::engine
 
 #endif

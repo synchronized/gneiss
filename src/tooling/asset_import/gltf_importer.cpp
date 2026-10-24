@@ -20,7 +20,7 @@
 #include <string>
 #include <string_view>
 
-namespace gneiss::tooling::asset_import {
+namespace gneiss::tooling {
 namespace {
 
 [[nodiscard]] inspect_report failure(inspect_result result, std::string diagnostic) {
@@ -555,7 +555,7 @@ populate_optional_attributes(const fastgltf::Asset& asset, const fastgltf::Primi
     for (std::size_t axis = 0; axis < 3U; ++axis) {
       tangent[axis] = static_cast<float>(t[axis] / length);
     }
-    if (!engine::resource::valid_mesh_tangent(tangent, {normal[0], normal[1], normal[2]})) {
+    if (!gneiss::engine::valid_mesh_tangent(tangent, {normal[0], normal[1], normal[2]})) {
       return "TANGENT 必须是正交单位切线且手性为正负一";
     }
   }
@@ -739,4 +739,4 @@ inspect_report inspect_gltf(const std::filesystem::path& source_path) {
   }
 }
 
-} // namespace gneiss::tooling::asset_import
+} // namespace gneiss::tooling

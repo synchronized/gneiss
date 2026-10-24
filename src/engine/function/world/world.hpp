@@ -11,11 +11,11 @@
 #include <memory>
 #include <span>
 
-namespace gneiss::engine::world {
+namespace gneiss::engine {
 class world_state;
 struct world_factory;
 }
-namespace gneiss::engine::world {
+namespace gneiss::engine {
 /** 原生 World 操作入口；拥有唯一 ECS/场景树状态，全部访问限所属线程。
  * domain 由 World 创建工厂分配；私有实现不向宿主暴露 EnTT。 */
 class GNEISS_API world final {
@@ -24,77 +24,72 @@ public:
   world(const world&) = delete;
   world& operator=(const world&) = delete;
   [[nodiscard]] bool is_owner_thread() const noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  begin_publication(engine::core::publication& output) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  publish(const engine::core::publication& group) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  retire_publication(const engine::core::publication& group) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  replace_publications(std::span<const engine::core::publication> previous,
-                       std::span<const engine::core::publication> candidates) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  bind_publication(const engine::core::publication& group,
-                   engine::world::staged_object object) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  create_staged_object(const engine::core::publication& group,
-                       const engine::world::staged_object_description& description,
-                       engine::world::staged_object& output) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  destroy_staged_object(const engine::core::publication& group,
-                        engine::world::staged_object object) noexcept;
-  [[nodiscard]] gneiss::engine::core::result entity_create(entity_id& out_entity) noexcept;
-  [[nodiscard]] gneiss::engine::core::result entity_destroy(entity_id entity) noexcept;
-  [[nodiscard]] gneiss::engine::core::result entity_is_alive(entity_id entity,
-                                                             bool& out_is_alive) noexcept;
-  [[nodiscard]] gneiss::engine::core::result entity_count(uint64_t& out_count) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  entity_set_camera(entity_id entity, const engine::world::camera_settings& camera,
+  [[nodiscard]] gneiss::engine::result
+  begin_publication(gneiss::engine::publication& output) noexcept;
+  [[nodiscard]] gneiss::engine::result publish(const gneiss::engine::publication& group) noexcept;
+  [[nodiscard]] gneiss::engine::result
+  retire_publication(const gneiss::engine::publication& group) noexcept;
+  [[nodiscard]] gneiss::engine::result
+  replace_publications(std::span<const gneiss::engine::publication> previous,
+                       std::span<const gneiss::engine::publication> candidates) noexcept;
+  [[nodiscard]] gneiss::engine::result
+  bind_publication(const gneiss::engine::publication& group,
+                   gneiss::engine::staged_object object) noexcept;
+  [[nodiscard]] gneiss::engine::result
+  create_staged_object(const gneiss::engine::publication& group,
+                       const gneiss::engine::staged_object_description& description,
+                       gneiss::engine::staged_object& output) noexcept;
+  [[nodiscard]] gneiss::engine::result
+  destroy_staged_object(const gneiss::engine::publication& group,
+                        gneiss::engine::staged_object object) noexcept;
+  [[nodiscard]] gneiss::engine::result entity_create(entity_id& out_entity) noexcept;
+  [[nodiscard]] gneiss::engine::result entity_destroy(entity_id entity) noexcept;
+  [[nodiscard]] gneiss::engine::result entity_is_alive(entity_id entity,
+                                                       bool& out_is_alive) noexcept;
+  [[nodiscard]] gneiss::engine::result entity_count(uint64_t& out_count) noexcept;
+  [[nodiscard]] gneiss::engine::result
+  entity_set_camera(entity_id entity, const gneiss::engine::camera_settings& camera,
                     bool primary) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  entity_configure_camera(entity_id entity, const engine::world::camera_settings& desc) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  entity_get_camera(entity_id entity, engine::world::camera_settings& out_camera) noexcept;
-  [[nodiscard]] gneiss::engine::core::result entity_remove_camera(entity_id entity) noexcept;
-  [[nodiscard]] gneiss::engine::core::result set_active_camera(entity_id entity) noexcept;
-  [[nodiscard]] gneiss::engine::core::result get_active_camera(entity_id& out_entity) noexcept;
-  [[nodiscard]] gneiss::engine::core::result replace_mesh_renderers(
-      std::span<const engine::world::mesh_renderer_replacement> replacements) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  entity_set_mesh_renderer(entity_id entity, const engine::world::mesh_renderer& renderer) noexcept;
-  [[nodiscard]] gneiss::engine::core::result entity_remove_mesh_renderer(entity_id entity) noexcept;
-  [[nodiscard]] gneiss::engine::core::result node_create(scene_node_id parent, entity_id entity,
-                                                         scene_node_id& out_node) noexcept;
-  [[nodiscard]] gneiss::engine::core::result node_destroy(scene_node_id node) noexcept;
-  [[nodiscard]] gneiss::engine::core::result node_reparent(scene_node_id node,
-                                                           scene_node_id parent) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  node_set_local_transform(scene_node_id node,
-                           const engine::core::math::transform& transform) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  node_get_local_transform(scene_node_id node,
-                           engine::core::math::transform& out_transform) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  node_get_world_transform(scene_node_id node,
-                           engine::core::math::transform& out_transform) noexcept;
-  [[nodiscard]] gneiss::engine::core::result node_get_entity(scene_node_id node,
-                                                             entity_id& out_entity) noexcept;
-  [[nodiscard]] gneiss::engine::core::result node_get_parent(scene_node_id node,
-                                                             scene_node_id& out_parent) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  entity_get_local_transform(entity_id entity,
-                             engine::core::math::transform& out_transform) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  entity_set_local_transform(entity_id entity,
-                             const engine::core::math::transform& transform) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
+  [[nodiscard]] gneiss::engine::result
+  entity_configure_camera(entity_id entity, const gneiss::engine::camera_settings& desc) noexcept;
+  [[nodiscard]] gneiss::engine::result
+  entity_get_camera(entity_id entity, gneiss::engine::camera_settings& out_camera) noexcept;
+  [[nodiscard]] gneiss::engine::result entity_remove_camera(entity_id entity) noexcept;
+  [[nodiscard]] gneiss::engine::result set_active_camera(entity_id entity) noexcept;
+  [[nodiscard]] gneiss::engine::result get_active_camera(entity_id& out_entity) noexcept;
+  [[nodiscard]] gneiss::engine::result replace_mesh_renderers(
+      std::span<const gneiss::engine::mesh_renderer_replacement> replacements) noexcept;
+  [[nodiscard]] gneiss::engine::result
+  entity_set_mesh_renderer(entity_id entity,
+                           const gneiss::engine::mesh_renderer& renderer) noexcept;
+  [[nodiscard]] gneiss::engine::result entity_remove_mesh_renderer(entity_id entity) noexcept;
+  [[nodiscard]] gneiss::engine::result node_create(scene_node_id parent, entity_id entity,
+                                                   scene_node_id& out_node) noexcept;
+  [[nodiscard]] gneiss::engine::result node_destroy(scene_node_id node) noexcept;
+  [[nodiscard]] gneiss::engine::result node_reparent(scene_node_id node,
+                                                     scene_node_id parent) noexcept;
+  [[nodiscard]] gneiss::engine::result
+  node_set_local_transform(scene_node_id node, const gneiss::engine::transform& transform) noexcept;
+  [[nodiscard]] gneiss::engine::result
+  node_get_local_transform(scene_node_id node, gneiss::engine::transform& out_transform) noexcept;
+  [[nodiscard]] gneiss::engine::result
+  node_get_world_transform(scene_node_id node, gneiss::engine::transform& out_transform) noexcept;
+  [[nodiscard]] gneiss::engine::result node_get_entity(scene_node_id node,
+                                                       entity_id& out_entity) noexcept;
+  [[nodiscard]] gneiss::engine::result node_get_parent(scene_node_id node,
+                                                       scene_node_id& out_parent) noexcept;
+  [[nodiscard]] gneiss::engine::result
+  entity_get_local_transform(entity_id entity, gneiss::engine::transform& out_transform) noexcept;
+  [[nodiscard]] gneiss::engine::result
+  entity_set_local_transform(entity_id entity, const gneiss::engine::transform& transform) noexcept;
+  [[nodiscard]] gneiss::engine::result
   get_render_snapshot(std::uint32_t viewport_width, std::uint32_t viewport_height,
-                      engine::render::render_snapshot& out_snapshot,
-                      const engine::render::view_camera* camera) noexcept;
+                      gneiss::engine::render_snapshot& out_snapshot,
+                      const gneiss::engine::view_camera* camera) noexcept;
 
 private:
-  friend struct engine::world::world_factory;
+  friend struct gneiss::engine::world_factory;
   explicit world(std::uint32_t domain);
-  std::unique_ptr<engine::world::world_state> state_;
+  std::unique_ptr<gneiss::engine::world_state> state_;
 };
 }

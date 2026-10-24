@@ -10,7 +10,7 @@
 
 #include <array>
 
-namespace gneiss::engine::render {
+namespace gneiss::engine {
 
 /** 列主序 4x4 矩阵，使用列向量和右乘组合。 */
 struct matrix4 {
@@ -18,17 +18,17 @@ struct matrix4 {
 };
 
 /** 使用 Camera 世界平移与旋转构造右手视图矩阵；Camera 缩放不参与观察变换。 */
-[[nodiscard]] gneiss::engine::core::result
-build_view_matrix(const engine::core::math::transform& transform, matrix4& out_matrix) noexcept;
+[[nodiscard]] gneiss::engine::result build_view_matrix(const gneiss::engine::transform& transform,
+                                                       matrix4& out_matrix) noexcept;
 
 /** 构造右手透视投影矩阵，逻辑裁剪空间 Y 向上、深度范围为 0..1。 */
-[[nodiscard]] gneiss::engine::core::result
+[[nodiscard]] gneiss::engine::result
 build_perspective_matrix(const camera_settings& camera, float aspect, matrix4& out_matrix) noexcept;
 
 /** 按 column 向量约定计算 matrix * vector。 */
 [[nodiscard]] std::array<float, 4> transform_vector(const matrix4& matrix,
                                                     const std::array<float, 4>& vector) noexcept;
 
-} // namespace gneiss::engine::render
+} // namespace gneiss::engine
 
 #endif

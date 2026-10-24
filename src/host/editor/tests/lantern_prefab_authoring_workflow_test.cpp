@@ -60,22 +60,22 @@ struct temporary_project final {
   gneiss::test_support::scene_owner scene;
   std::uint64_t objects = 0U;
   std::uint64_t prefab_nodes = 0U;
-  return gneiss::engine::core::result{gneiss_application_create(&desc, application.put())} ==
-             gneiss::engine::core::result::success &&
+  return gneiss::engine::result{gneiss_application_create(&desc, application.put())} ==
+             gneiss::engine::result::success &&
          ([&] {
            const std::string_view uri = scene_uri;
-           return gneiss::engine::core::result{gneiss_scene_instance_load(
+           return gneiss::engine::result{gneiss_scene_instance_load(
                application.get(), uri.data(), uri.size(), scene.put(application.get()))};
-         })() == gneiss::engine::core::result::success &&
+         })() == gneiss::engine::result::success &&
          ([&](std::uint64_t& out_count) {
-           return gneiss::engine::core::result{
+           return gneiss::engine::result{
                gneiss_scene_instance_get_node_count(scene.owner(), scene.get(), &out_count)};
-         })(objects) == gneiss::engine::core::result::success &&
+         })(objects) == gneiss::engine::result::success &&
          objects == expected_objects &&
          ([&](std::uint64_t& out_count) {
-           return gneiss::engine::core::result{
+           return gneiss::engine::result{
                gneiss_scene_instance_get_prefab_node_count(scene.owner(), scene.get(), &out_count)};
-         })(prefab_nodes) == gneiss::engine::core::result::success &&
+         })(prefab_nodes) == gneiss::engine::result::success &&
          prefab_nodes == expected_prefab_nodes;
 }
 
@@ -84,9 +84,9 @@ commit_inverse(const std::filesystem::path& asset_root,
                const std::vector<gneiss::editor::author_document_change>& changes) {
   std::vector<gneiss::editor::author_document_change> inverse;
   return gneiss::editor::invert_author_document_changes(changes, inverse) ==
-             gneiss::engine::core::result::success &&
+             gneiss::engine::result::success &&
          gneiss::editor::commit_native_author_transaction(asset_root, inverse) ==
-             gneiss::engine::core::result::success;
+             gneiss::engine::result::success;
 }
 
 } // namespace
@@ -115,10 +115,9 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
       .instance_uuid = pillar_instance_uuid};
   std::vector<gneiss::editor::author_document_change> create_changes;
   if (gneiss::editor::prepare_create_prefab(read_text(scene_file), create_request,
-                                            create_changes) !=
-          gneiss::engine::core::result::success ||
+                                            create_changes) != gneiss::engine::result::success ||
       gneiss::editor::commit_native_author_transaction(asset_root, create_changes) !=
-          gneiss::engine::core::result::success ||
+          gneiss::engine::result::success ||
       !load_scene(asset_root, 6U, 17U)) {
     return 2;
   }
@@ -131,10 +130,10 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   gneiss::editor::apply_prefab_author_plan apply_plan;
   if (gneiss::editor::prepare_apply_prefab(read_text(scene_file), read_text(lantern_prefab_file),
                                            apply_request,
-                                           apply_plan) != gneiss::engine::core::result::success ||
+                                           apply_plan) != gneiss::engine::result::success ||
       apply_plan.affected_instance_uuids.size() != 3U ||
       gneiss::editor::commit_native_author_transaction(asset_root, apply_plan.changes) !=
-          gneiss::engine::core::result::success ||
+          gneiss::engine::result::success ||
       !load_scene(asset_root, 6U, 17U)) {
     return 3;
   }
@@ -159,10 +158,10 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
       .node_mappings = mappings};
   std::vector<gneiss::editor::author_document_change> unpack_changes;
   if (gneiss::editor::prepare_unpack_prefab(read_text(scene_file), read_text(lantern_prefab_file),
-                                            unpack_request, unpack_changes) !=
-          gneiss::engine::core::result::success ||
+                                            unpack_request,
+                                            unpack_changes) != gneiss::engine::result::success ||
       gneiss::editor::commit_native_author_transaction(asset_root, unpack_changes) !=
-          gneiss::engine::core::result::success ||
+          gneiss::engine::result::success ||
       !load_scene(asset_root, 11U, 12U)) {
     return 4;
   }
@@ -172,7 +171,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   }
   std::vector<gneiss::editor::author_document_change> unpack_redo;
   if (gneiss::editor::invert_author_document_changes(unpack_changes, unpack_redo) !=
-          gneiss::engine::core::result::success ||
+          gneiss::engine::result::success ||
       !commit_inverse(asset_root, unpack_redo) || !load_scene(asset_root, 11U, 12U)) {
     return 6;
   }

@@ -27,10 +27,10 @@ int main(int argc, char** argv) { // NOLINT(bugprone-exception-escape)
     return 1;
   }
   input.close();
-  gneiss::engine::resource::texture_binary_view binary;
+  gneiss::engine::texture_binary_view binary;
   std::string diagnostic;
-  if (gneiss::engine::resource::decode_texture_binary(bytes, binary, diagnostic) !=
-          gneiss::engine::resource::texture_binary_result::success ||
+  if (gneiss::engine::decode_texture_binary(bytes, binary, diagnostic) !=
+          gneiss::engine::texture_binary_result::success ||
       binary.payload.empty()) {
     return 1;
   }

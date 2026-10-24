@@ -20,7 +20,7 @@ void write_file(const std::filesystem::path& path, std::string_view text) {
 } // namespace
 
 int main() { // NOLINT(bugprone-exception-escape)
-  namespace asset_import = gneiss::tooling::asset_import;
+  namespace asset_import = gneiss::tooling;
   const auto root = std::filesystem::temp_directory_path() / "gneiss-asset-browser-model-test";
   const auto sources = root / "sources";
   const auto assets = root / "assets";
@@ -33,27 +33,27 @@ int main() { // NOLINT(bugprone-exception-escape)
   write_file(assets / "imported" / "sample" / "scenes" / "scene.scene.json", "{}");
 
   std::string hash;
-  if (asset_import::hash_source_file(source, hash).result !=
-      asset_import::asset_index_result::success) {
+  if (gneiss::tooling::hash_source_file(source, hash).result !=
+      gneiss::tooling::asset_index_result::success) {
     return 1;
   }
-  asset_import::asset_index index{
+  gneiss::tooling::asset_index index{
       .entries = {{.source_path = "models/sample.gltf",
                    .source_key = "sample",
                    .importer_id = "gneiss.gltf",
-                   .importer_version = asset_import::gltf_importer_version,
+                   .importer_version = gneiss::tooling::gltf_importer_version,
                    .content_hash = hash,
-                   .state = asset_import::asset_import_state::ready,
+                   .state = gneiss::tooling::asset_import_state::ready,
                    .output_uris = {"asset://imported/sample/scenes/scene.scene.json"}},
                   {.source_path = missing_source,
                    .source_key = "missing",
                    .importer_id = "gneiss.gltf",
-                   .importer_version = asset_import::gltf_importer_version,
+                   .importer_version = gneiss::tooling::gltf_importer_version,
                    .content_hash = "fnv1a64:0",
-                   .state = asset_import::asset_import_state::ready,
+                   .state = gneiss::tooling::asset_import_state::ready,
                    .output_uris = {"asset://imported/missing/scenes/scene.scene.json"}}}};
-  if (asset_import::save_asset_index(root / ".gneiss" / "asset-index.json", index).result !=
-      asset_import::asset_index_result::success) {
+  if (gneiss::tooling::save_asset_index(root / ".gneiss" / "asset-index.json", index).result !=
+      gneiss::tooling::asset_index_result::success) {
     return 2;
   }
 
@@ -87,8 +87,8 @@ int main() { // NOLINT(bugprone-exception-escape)
   }
 
   index.entries[0].importer_version = 1U;
-  if (asset_import::save_asset_index(root / ".gneiss" / "asset-index.json", index).result !=
-          asset_import::asset_index_result::success ||
+  if (gneiss::tooling::save_asset_index(root / ".gneiss" / "asset-index.json", index).result !=
+          gneiss::tooling::asset_index_result::success ||
       model.refresh(root, assets) != gneiss::editor::asset_browser_result::success) {
     return 20;
   }
@@ -98,9 +98,9 @@ int main() { // NOLINT(bugprone-exception-escape)
       old_importer->status != gneiss::editor::asset_browser_status::stale) {
     return 21;
   }
-  index.entries[0].importer_version = asset_import::gltf_importer_version;
-  if (asset_import::save_asset_index(root / ".gneiss" / "asset-index.json", index).result !=
-      asset_import::asset_index_result::success) {
+  index.entries[0].importer_version = gneiss::tooling::gltf_importer_version;
+  if (gneiss::tooling::save_asset_index(root / ".gneiss" / "asset-index.json", index).result !=
+      gneiss::tooling::asset_index_result::success) {
     return 22;
   }
   write_file(source, "source-v2");

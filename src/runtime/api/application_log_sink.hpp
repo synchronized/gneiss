@@ -7,11 +7,11 @@
 #include "engine/core/log/log_dispatcher.hpp"
 #include <gneiss/engine/application.h>
 
-namespace gneiss::runtime::api {
+namespace gneiss::runtime::detail {
 /** callback 须非空；复制回调配置，user_data 须由调用方保持至投递器关闭完成。 */
-inline engine::core::log::event_sink make_application_log_sink(gneiss_application_log_fn callback,
-                                                               void* user_data) {
-  return [callback, user_data](const engine::core::log::event_view& event) {
+inline gneiss::engine::event_sink make_application_log_sink(gneiss_application_log_fn callback,
+                                                            void* user_data) {
+  return [callback, user_data](const gneiss::engine::event_view& event) {
     const auto& message = event.message;
     const gneiss_log_event borrowed{
         .struct_size = sizeof(gneiss_log_event),
@@ -25,7 +25,7 @@ inline engine::core::log::event_sink make_application_log_sink(gneiss_applicatio
         .category_length = message.category.size(),
         .message = message.message.data(),
         .message_length = message.message.size(),
-        .result = engine::api::to_c_result(message.result),
+        .result = gneiss::engine::detail::to_c_result(message.result),
         .flags = 0U,
         .reserved = {},
     };
@@ -33,4 +33,4 @@ inline engine::core::log::event_sink make_application_log_sink(gneiss_applicatio
     callback(message.context, &borrowed, user_data);
   };
 }
-} // namespace gneiss::runtime::api
+} // namespace gneiss::runtime::detail

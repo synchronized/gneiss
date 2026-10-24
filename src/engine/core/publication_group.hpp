@@ -6,17 +6,17 @@
 #include <cstdint>
 #include <memory>
 
-namespace gneiss::engine::world {
+namespace gneiss::engine {
 class world_state;
 }
-namespace gneiss::engine::scene {
+namespace gneiss::engine {
 class scene_tree;
 }
-namespace gneiss::engine::core {
+namespace gneiss::engine {
 /** 所属 World 的内部发布门；不持有服务、节点或资产。 */
 class publication_group final {
-  friend class engine::world::world_state;
-  friend class engine::scene::scene_tree;
+  friend class gneiss::engine::world_state;
+  friend class gneiss::engine::scene_tree;
   explicit publication_group(std::uint32_t domain) : domain_(domain) {}
   std::uint32_t domain_;
   std::size_t count_{};

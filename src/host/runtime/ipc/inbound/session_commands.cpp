@@ -8,46 +8,41 @@
 
 #include "ipc_session_protocol.hpp"
 
-namespace gneiss::host::runtime {
+namespace gneiss::host {
 namespace {
 
-gneiss::engine::core::result
-handle_heartbeat(const gneiss::engine::platform::ipc_envelope& envelope,
-                 runtime_command_context& context) noexcept {
+gneiss::engine::result handle_heartbeat(const gneiss::engine::ipc_envelope& envelope,
+                                        runtime_command_context& context) noexcept {
   ipc_session_heartbeat heartbeat;
   const auto operation = decode_ipc_session_heartbeat(envelope, heartbeat);
-  if (operation != gneiss::engine::core::result::success) {
+  if (operation != gneiss::engine::result::success) {
     return operation;
   }
-  gneiss::engine::platform::ipc_envelope response;
+  gneiss::engine::ipc_envelope response;
   const auto encoded = make_heartbeat_response(heartbeat, envelope.request_id, response);
-  return encoded == gneiss::engine::core::result::success ? context.send(std::move(response))
-                                                          : encoded;
+  return encoded == gneiss::engine::result::success ? context.send(std::move(response)) : encoded;
 }
 
-gneiss::engine::core::result
-handle_protocol_error(const gneiss::engine::platform::ipc_envelope& envelope,
-                      runtime_command_context&) noexcept {
+gneiss::engine::result handle_protocol_error(const gneiss::engine::ipc_envelope& envelope,
+                                             runtime_command_context&) noexcept {
   ipc_session_error error;
   const auto operation = decode_ipc_session_error(envelope, error);
-  return operation == gneiss::engine::core::result::success
-             ? gneiss::engine::core::result(error.code)
-             : operation;
+  return operation == gneiss::engine::result::success ? gneiss::engine::result(error.code)
+                                                      : operation;
 }
 
 } // namespace
 
-gneiss::engine::core::result
-register_runtime_session_commands(runtime_command_router& router) noexcept {
+gneiss::engine::result register_runtime_session_commands(runtime_command_router& router) noexcept {
   auto operation =
-      router.bind(gneiss::engine::platform::ipc_domain::session,
+      router.bind(gneiss::engine::ipc_domain::session,
                   static_cast<std::uint16_t>(ipc_session_operation::heartbeat), handle_heartbeat);
-  if (operation == gneiss::engine::core::result::success) {
-    operation = router.bind(gneiss::engine::platform::ipc_domain::session,
+  if (operation == gneiss::engine::result::success) {
+    operation = router.bind(gneiss::engine::ipc_domain::session,
                             static_cast<std::uint16_t>(ipc_session_operation::protocol_error),
                             handle_protocol_error);
   }
   return operation;
 }
 
-} // namespace gneiss::host::runtime
+} // namespace gneiss::host

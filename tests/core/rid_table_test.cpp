@@ -15,18 +15,18 @@ struct test_resource {
 } // namespace
 
 int main() {
-  using gneiss::engine::core::resource_type;
-  using table = gneiss::engine::core::rid_table<test_resource>;
+  using gneiss::engine::resource_type;
+  using table = gneiss::engine::rid_table<test_resource>;
 
   table first{1};
   table second{2};
-  gneiss::engine::core::rid original = gneiss::engine::core::null_rid;
+  gneiss::engine::rid original = gneiss::engine::null_rid;
   if (first.create(resource_type::test_resource, test_resource{42}, &original) !=
-          gneiss::engine::core::result::success ||
-      original == gneiss::engine::core::null_rid) {
+          gneiss::engine::result::success ||
+      original == gneiss::engine::null_rid) {
     return 1;
   }
-  if (first.get(gneiss::engine::core::null_rid, resource_type::test_resource) != nullptr ||
+  if (first.get(gneiss::engine::null_rid, resource_type::test_resource) != nullptr ||
       first.get(original, resource_type::mesh) != nullptr ||
       second.get(original, resource_type::test_resource) != nullptr) {
     return 2;
@@ -35,24 +35,23 @@ int main() {
   if (resource == nullptr || resource->value != 42 || first.live_count() != 1U) {
     return 3;
   }
-  if (first.destroy(original, resource_type::test_resource) !=
-          gneiss::engine::core::result::success ||
+  if (first.destroy(original, resource_type::test_resource) != gneiss::engine::result::success ||
       first.destroy(original, resource_type::test_resource) !=
-          gneiss::engine::core::result::invalid_handle ||
+          gneiss::engine::result::invalid_handle ||
       first.get(original, resource_type::test_resource) != nullptr || first.live_count() != 0U) {
     return 4;
   }
 
-  gneiss::engine::core::rid replacement = gneiss::engine::core::null_rid;
+  gneiss::engine::rid replacement = gneiss::engine::null_rid;
   if (first.create(resource_type::test_resource, test_resource{7}, &replacement) !=
-          gneiss::engine::core::result::success ||
+          gneiss::engine::result::success ||
       replacement == original || first.get(original, resource_type::test_resource) != nullptr) {
     return 5;
   }
   if (first.create(resource_type::invalid, test_resource{}, &original) !=
-          gneiss::engine::core::result::invalid_argument ||
+          gneiss::engine::result::invalid_argument ||
       first.create(resource_type::test_resource, test_resource{}, nullptr) !=
-          gneiss::engine::core::result::invalid_argument) {
+          gneiss::engine::result::invalid_argument) {
     return 6;
   }
   return 0;

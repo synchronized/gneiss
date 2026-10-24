@@ -16,7 +16,7 @@
 #include <map>
 #include <tuple>
 
-namespace gneiss::host::runtime {
+namespace gneiss::host {
 
 /** Runtime 主线程属性命令执行器。 */
 class runtime_property_editor final {
@@ -27,11 +27,11 @@ public:
   runtime_property_editor(const runtime_property_editor&) = delete;
   runtime_property_editor& operator=(const runtime_property_editor&) = delete;
 
-  [[nodiscard]] gneiss::engine::core::result initialize(gneiss_world world,
-                                                        runtime_scene_inspection& inspection,
-                                                        std::uint64_t session_id) noexcept;
-  [[nodiscard]] gneiss::engine::core::result execute(const ipc_property_write& command,
-                                                     ipc_property_write_result& output) noexcept;
+  [[nodiscard]] gneiss::engine::result initialize(gneiss_world world,
+                                                  runtime_scene_inspection& inspection,
+                                                  std::uint64_t session_id) noexcept;
+  [[nodiscard]] gneiss::engine::result execute(const ipc_property_write& command,
+                                               ipc_property_write_result& output) noexcept;
   void reset() noexcept;
 
 private:
@@ -49,10 +49,10 @@ private:
   gneiss_world world_ = GNEISS_NULL_WORLD;
   runtime_scene_inspection* inspection_ = nullptr;
   std::uint64_t session_id_ = 0U;
-  engine::core::reflection::registry_ref registry_;
+  gneiss::engine::registry_ref registry_;
   std::map<property_key, std::uint64_t> revisions_;
 };
 
-} // namespace gneiss::host::runtime
+} // namespace gneiss::host
 
 #endif

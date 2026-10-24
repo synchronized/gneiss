@@ -83,6 +83,7 @@
 - [移除 CAORS、采用 Granit 示例资产管理模型：迁移与八项问题分析](plans/PLAN-051-asset-manager-replacement.md)
 - [统一资源强引用与生命周期规则](plans/PLAN-051-asset-references.md)
 - [统一资产资源索引](plans/PLAN-051-unified-asset-index.md)
+- [PLAN-051：内部命名空间按层收敛](plans/PLAN-051-flat-namespaces.md)
 - [渲染资产逐步就绪与加载结构简化（计划）](plans/PLAN-051-progressive-render-assets.md)
 - [Application 接入 CAORS 输入资源：边界与实施方案](plans/PLAN-051-caors-application-integration.md)
 - [第三方源码获取与共享缓存实施计划](plans/PLAN-051-dependency-source-cache.md)
@@ -264,6 +265,7 @@
 - [ADR-076：删除独立 CPU 文档缓存](decisions/ADR-076-remove-cpu-document-cache.md)
 - [ADR-077：统一资源强引用入口](decisions/ADR-077-asset-references.md)
 - [ADR-078：资源管理器唯一持有资产索引](decisions/ADR-078-unified-asset-index.md)
+- [ADR-079：内部命名空间按架构层组织](decisions/ADR-079-flat-namespaces.md)
 
 ## 实施与验收记录
 

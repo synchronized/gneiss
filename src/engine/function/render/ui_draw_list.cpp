@@ -9,7 +9,7 @@
 #include <limits>
 #include <new>
 
-namespace gneiss::engine::render {
+namespace gneiss::engine {
 namespace {
 
 constexpr std::uint32_t maximum_vertices = UINT32_C(16) * 1024U * 1024U;
@@ -20,40 +20,40 @@ bool is_finite(float value) noexcept { return std::isfinite(value); }
 
 } // namespace
 
-gneiss::engine::core::result
-ui_draw_list::replace(const ui_draw_view& desc, const render_resource_service& resources) noexcept {
+gneiss::engine::result ui_draw_list::replace(const ui_draw_view& desc,
+                                             const render_resource_service& resources) noexcept {
   if (!is_finite(desc.display_width) || desc.display_width <= 0.0F ||
       !is_finite(desc.display_height) || desc.display_height <= 0.0F ||
       !is_finite(desc.framebuffer_scale_x) || desc.framebuffer_scale_x <= 0.0F ||
       !is_finite(desc.framebuffer_scale_y) || desc.framebuffer_scale_y <= 0.0F ||
       desc.vertices.size() > maximum_vertices || desc.indices.size() > maximum_indices ||
       desc.commands.size() > maximum_commands) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   for (const auto& vertex : desc.vertices) {
     if (!is_finite(vertex.position[0]) || !is_finite(vertex.position[1]) ||
         !is_finite(vertex.uv[0]) || !is_finite(vertex.uv[1])) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
   }
   for (const auto& command : desc.commands) {
-    if (command.texture == engine::core::null_rid ||
+    if (command.texture == gneiss::engine::null_rid ||
         resources.get_texture(command.texture) == nullptr || !is_finite(command.clip_min[0]) ||
         !is_finite(command.clip_min[1]) || !is_finite(command.clip_max[0]) ||
         !is_finite(command.clip_max[1]) || command.clip_min[0] >= command.clip_max[0] ||
         command.clip_min[1] >= command.clip_max[1] || command.first_index > desc.indices.size() ||
         command.index_count > desc.indices.size() - command.first_index ||
         command.index_count % 3U != 0U) {
-      return command.texture != engine::core::null_rid &&
+      return command.texture != gneiss::engine::null_rid &&
                      resources.get_texture(command.texture) == nullptr
-                 ? gneiss::engine::core::result::invalid_handle
-                 : gneiss::engine::core::result::invalid_argument;
+                 ? gneiss::engine::result::invalid_handle
+                 : gneiss::engine::result::invalid_argument;
     }
     for (std::uint32_t item = 0; item < command.index_count; ++item) {
       const auto source_index = desc.indices[command.first_index + item];
       if (source_index > std::numeric_limits<std::uint32_t>::max() - command.vertex_offset ||
           source_index + command.vertex_offset >= desc.vertices.size()) {
-        return gneiss::engine::core::result::invalid_argument;
+        return gneiss::engine::result::invalid_argument;
       }
     }
   }
@@ -77,11 +77,11 @@ ui_draw_list::replace(const ui_draw_view& desc, const render_resource_service& r
     vertices_ = std::move(vertices);
     indices_ = std::move(indices);
     commands_ = std::move(commands);
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
@@ -95,4 +95,4 @@ void ui_draw_list::clear() noexcept {
   commands_.clear();
 }
 
-} // namespace gneiss::engine::render
+} // namespace gneiss::engine

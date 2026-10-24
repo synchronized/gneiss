@@ -11,7 +11,7 @@
 #include <array>
 #include <utility>
 
-namespace gneiss::engine::resource {
+namespace gneiss::engine {
 
 /** 顺序消费区间请求；返回视图只在下次 take 或销毁前有效。
  * 异步缓冲跨步骤拥有，调用方减小预算时只消费对应部分；同步回退每次最多 64 KiB。 */
@@ -27,10 +27,10 @@ public:
     size_ = request.size;
     consumed_ = 0U;
   }
-  [[nodiscard]] gneiss::engine::core::result take(const read_source& source, range request,
-                                                  std::span<const std::byte>& output,
-                                                  bool deferred = true,
-                                                  std::chrono::milliseconds wait_budget = {}) {
+  [[nodiscard]] gneiss::engine::result take(const read_source& source, range request,
+                                            std::span<const std::byte>& output,
+                                            bool deferred = true,
+                                            std::chrono::milliseconds wait_budget = {}) {
     const auto offset = request.offset;
     const auto limit = request.size;
     output = {};
@@ -42,40 +42,40 @@ public:
       size_ = std::min(limit, std::size_t{16U} * 1024U * 1024U);
       consumed_ = 0U;
       const auto started = deferred ? source.begin_read(offset, size_, operation_)
-                                    : gneiss::engine::core::result::unsupported;
-      if (started == gneiss::engine::core::result::unsupported) {
+                                    : gneiss::engine::result::unsupported;
+      if (started == gneiss::engine::result::unsupported) {
         const auto target = std::span{fallback_}.first(std::min(limit, fallback_.size()));
         const auto read = source.read_at(offset, target);
-        if (read == gneiss::engine::core::result::success) {
+        if (read == gneiss::engine::result::success) {
           output = target;
         }
         return read;
       }
-      if (started != gneiss::engine::core::result::success) {
+      if (started != gneiss::engine::result::success) {
         return started;
       }
       if (!operation_) {
-        return gneiss::engine::core::result::internal;
+        return gneiss::engine::result::internal;
       }
     }
     if (offset != offset_ + consumed_) {
-      return gneiss::engine::core::result::invalid_state;
+      return gneiss::engine::result::invalid_state;
     }
     std::span<const std::byte> ready;
     auto polled = operation_->poll(ready);
-    if (polled == gneiss::engine::core::result::not_ready &&
+    if (polled == gneiss::engine::result::not_ready &&
         wait_budget > std::chrono::milliseconds::zero()) {
       polled = operation_->wait_for(wait_budget, ready);
     }
-    if (polled != gneiss::engine::core::result::success) {
+    if (polled != gneiss::engine::result::success) {
       return polled;
     }
     if (ready.size() != size_) {
-      return gneiss::engine::core::result::io;
+      return gneiss::engine::result::io;
     }
     output = ready.subspan(consumed_, std::min(limit, size_ - consumed_));
     consumed_ += output.size();
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   }
 
 private:
@@ -86,6 +86,6 @@ private:
   std::size_t consumed_{};
 };
 
-} // namespace gneiss::engine::resource
+} // namespace gneiss::engine
 
 #endif

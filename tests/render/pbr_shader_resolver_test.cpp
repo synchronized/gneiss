@@ -30,7 +30,7 @@ std::vector<std::byte> read_file(const std::filesystem::path& path) {
 } // namespace
 
 int main() {
-  using gneiss::engine::render::pbr_shader_resolver;
+  using gneiss::engine::pbr_shader_resolver;
   const auto root = std::filesystem::path{GNEISS_TEST_GRANIT_PBR_ASSET_DIR};
   pbr_shader_resolver resolver;
   if (resolver.valid() || resolver.initialize(root) != GRANIT_SUCCESS || !resolver.valid())

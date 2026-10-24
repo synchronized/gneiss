@@ -12,13 +12,13 @@
 #include <optional>
 #include <thread>
 
-namespace gneiss::engine::render {
+namespace gneiss::engine {
 
 enum class texture_load_state : std::uint8_t { preparing, uploading, applied, failed, cancelled };
 /** 请求中每项资源的结果；未生效项的 result 表示停止处理的原因，不表示旧内容失效。 */
 struct asset_load_result {
   render_asset_reload source;
-  gneiss::engine::core::result result{gneiss::engine::core::result::not_ready};
+  gneiss::engine::result result{gneiss::engine::result::not_ready};
   bool applied{};
 };
 struct texture_load_completion {
@@ -26,9 +26,9 @@ struct texture_load_completion {
   std::uint64_t session{};
   std::uint64_t revision{};
   texture_load_state state{texture_load_state::failed};
-  gneiss::engine::core::result result{gneiss::engine::core::result::internal};
+  gneiss::engine::result result{gneiss::engine::result::internal};
   std::string message{};
-  std::vector<engine::render::render_asset_ref> assets;
+  std::vector<gneiss::engine::render_asset_ref> assets;
   /** 包含显式请求及已发现依赖；取消/失败也保留已成功项，元数据不延长资源寿命。 */
   std::vector<asset_load_result> results;
   /** 本次准备使用的设备能力。 */
@@ -43,14 +43,14 @@ struct texture_load_completion {
   std::size_t peak_upload_bytes{};
 };
 struct texture_upload_backend {
-  using data = std::vector<engine::render::render_upload_item>;
-  std::function<gneiss::engine::core::result(data, std::uint64_t&)> begin;
-  std::function<bool(std::uint64_t, gneiss::engine::core::result&)> poll;
-  std::function<gneiss::engine::core::result(data, std::uint64_t&)> discard;
+  using data = std::vector<gneiss::engine::render_upload_item>;
+  std::function<gneiss::engine::result(data, std::uint64_t&)> begin;
+  std::function<bool(std::uint64_t, gneiss::engine::result&)> poll;
+  std::function<gneiss::engine::result(data, std::uint64_t&)> discard;
   std::function<void()> flush;
   std::function<double()> elapsed_ms{};
-  std::function<std::size_t(const engine::render::render_upload_item&)> estimate_bytes{};
-  engine::render::texture_prepare_profile profile{};
+  std::function<std::size_t(const gneiss::engine::render_upload_item&)> estimate_bytes{};
+  gneiss::engine::texture_prepare_profile profile{};
 };
 
 struct asset_load_progress {
@@ -76,16 +76,16 @@ public:
   static constexpr std::size_t upload_budget_bytes = 8U * 1024U * 1024U;
   static constexpr std::size_t maximum_upload_bytes = maximum_prepared_bytes;
   static constexpr std::size_t maximum_bytes = 64U * 1024U * 1024U;
-  texture_load_service(engine::core::tasks::task_executor& executor,
-                       engine::resource::virtual_file_system file_system,
-                       engine::render::render_asset_loader& loader, texture_upload_backend backend,
-                       std::shared_ptr<engine::core::progress_notification> notification = {});
+  texture_load_service(gneiss::engine::task_executor& executor,
+                       gneiss::engine::virtual_file_system file_system,
+                       gneiss::engine::render_asset_loader& loader, texture_upload_backend backend,
+                       std::shared_ptr<gneiss::engine::progress_notification> notification = {});
   ~texture_load_service();
-  [[nodiscard]] gneiss::engine::core::result submit(std::span<const std::string> uris,
-                                                    std::uint64_t session, std::uint64_t revision,
-                                                    std::uint64_t& request, bool reload = true);
-  [[nodiscard]] gneiss::engine::core::result
-  submit_assets(std::span<const engine::render::render_asset_reload> sources, std::uint64_t session,
+  [[nodiscard]] gneiss::engine::result submit(std::span<const std::string> uris,
+                                              std::uint64_t session, std::uint64_t revision,
+                                              std::uint64_t& request, bool reload = true);
+  [[nodiscard]] gneiss::engine::result
+  submit_assets(std::span<const gneiss::engine::render_asset_reload> sources, std::uint64_t session,
                 std::uint64_t revision, std::uint64_t& request, bool reload = true,
                 std::size_t prepare_limit = maximum_prepared_bytes);
   [[nodiscard]] bool progress(asset_load_progress& output) const;
@@ -106,23 +106,22 @@ public:
 
 private:
   struct pending;
-  engine::core::tasks::submit_result submit_preparation(pending& value);
+  gneiss::engine::submit_result submit_preparation(pending& value);
   bool advance_preparation(pending& value);
-  gneiss::engine::core::result enqueue_dependencies(pending& value,
-                                                    const prepared_render_asset& asset);
-  void finish_item(gneiss::engine::core::result result, bool applied);
+  gneiss::engine::result enqueue_dependencies(pending& value, const prepared_render_asset& asset);
+  void finish_item(gneiss::engine::result result, bool applied);
   void poll_upload(pending& value);
   bool start_item(pending& value);
   bool prepare_item_upload(pending& value);
   void advance_impl();
   void check_owner() const;
-  void finish(gneiss::engine::core::result result, texture_load_state state);
-  engine::core::tasks::task_executor& executor_;
-  engine::core::tasks::task_scope scope_;
-  engine::resource::virtual_file_system file_system_;
-  engine::render::render_asset_loader& loader_;
+  void finish(gneiss::engine::result result, texture_load_state state);
+  gneiss::engine::task_executor& executor_;
+  gneiss::engine::task_scope scope_;
+  gneiss::engine::virtual_file_system file_system_;
+  gneiss::engine::render_asset_loader& loader_;
   texture_upload_backend backend_;
-  std::shared_ptr<engine::core::progress_notification> notification_;
+  std::shared_ptr<gneiss::engine::progress_notification> notification_;
   std::unique_ptr<pending> pending_;
   std::optional<texture_load_completion> completed_;
   std::uint64_t sequence_{};
@@ -130,4 +129,4 @@ private:
   const std::thread::id owner_{std::this_thread::get_id()};
 };
 
-} // namespace gneiss::engine::render
+} // namespace gneiss::engine

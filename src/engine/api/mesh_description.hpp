@@ -7,32 +7,32 @@
 #include "engine/resource/types/mesh_data.hpp"
 #include <gneiss/engine/render.h>
 
-namespace gneiss::engine::api {
+namespace gneiss::engine::detail {
 
 /** 解析 ABI 布局并逐字段复制；拓扑和数值校验留在资源服务。失败保留输出。 */
-[[nodiscard]] inline gneiss::engine::core::result
-read_mesh_description(const gneiss_mesh_desc& desc, engine::resource::mesh_data& output) {
+[[nodiscard]] inline gneiss::engine::result
+read_mesh_description(const gneiss_mesh_desc& desc, gneiss::engine::mesh_data& output) {
   if ((desc.struct_size != GNEISS_MESH_DESC_VERSION_1_SIZE &&
        desc.struct_size != GNEISS_MESH_DESC_VERSION_2_SIZE &&
        desc.struct_size < sizeof(gneiss_mesh_desc)) ||
       desc.reserved != 0U || desc.reserved_2 != 0U || desc.reserved_3 != 0U ||
       desc.vertices == nullptr || ((desc.normal_count == 0U) != (desc.normals == nullptr)) ||
       ((desc.index_count == 0U) != (desc.indices == nullptr))) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   if (desc.struct_size >= GNEISS_MESH_DESC_VERSION_2_SIZE) {
     if (desc.reserved_4 != 0U || ((desc.tangent_count == 0U) != (desc.tangents == nullptr))) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
   }
   if (desc.struct_size >= sizeof(gneiss_mesh_desc)) {
     if (desc.reserved_5 != 0U || desc.reserved_6 != 0U ||
         ((desc.uv1_count == 0U) != (desc.uv1 == nullptr)) ||
         ((desc.color_count == 0U) != (desc.colors == nullptr))) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
   }
-  engine::resource::mesh_data value;
+  gneiss::engine::mesh_data value;
   value.vertices.reserve(desc.vertex_count);
   for (std::uint32_t index = 0; index < desc.vertex_count; ++index) {
     const auto& item = desc.vertices[index];
@@ -65,7 +65,7 @@ read_mesh_description(const gneiss_mesh_desc& desc, engine::resource::mesh_data&
     }
   }
   output = std::move(value);
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-} // namespace gneiss::engine::api
+} // namespace gneiss::engine::detail

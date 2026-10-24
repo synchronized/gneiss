@@ -45,7 +45,7 @@ std::string format_console_entry(const gneiss::editor::console_entry& entry) {
   output.append(entry.event.category);
   output.append("] ");
   output.append(entry.event.message);
-  if (entry.event.operation != gneiss::engine::core::result::success) {
+  if (entry.event.operation != gneiss::engine::result::success) {
     output.append(" (result=");
     output.append(std::to_string(entry.event.operation.code()));
     output.push_back(')');
@@ -61,8 +61,8 @@ void console_panel_state::set_paused(const console_model& model, bool value) noe
   pause_entry_id = paused && !entries.empty() ? entries.back().id : 0U;
 }
 
-gneiss::engine::core::result
-console_panel_state::visible_indices(const console_model& model, std::vector<std::size_t>& output) {
+gneiss::engine::result console_panel_state::visible_indices(const console_model& model,
+                                                            std::vector<std::size_t>& output) {
   filter.search = search.data();
   filter.source = source.data();
   filter.category = category.data();
@@ -97,7 +97,7 @@ void draw_console_toolbar(const console_model& model, console_panel_state& state
   }
   ImGui::SameLine();
   ImGui::Checkbox("Auto-scroll", &state.auto_scroll);
-  if (runtime.attempted && runtime.operation != gneiss::engine::core::result::success) {
+  if (runtime.attempted && runtime.operation != gneiss::engine::result::success) {
     const auto message = runtime.operation.message();
     ImGui::TextColored(gneiss::editor::theme_error_color(), "Runtime error: %.*s",
                        static_cast<int>(message.size()), message.data());
@@ -184,7 +184,7 @@ void draw_console_panel(const console_model& model, console_panel_state& state, 
 
     std::vector<std::size_t> visible;
     const auto filter_result = state.visible_indices(model, visible);
-    if (filter_result != gneiss::engine::core::result::success) {
+    if (filter_result != gneiss::engine::result::success) {
       ImGui::TextColored(gneiss::editor::theme_error_color(), "Console filter failed");
     }
     ImGui::TextDisabled("Visible: %zu / %zu | Dropped: %llu", visible.size(),

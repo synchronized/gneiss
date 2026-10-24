@@ -19,7 +19,7 @@
 namespace gneiss::runtime {
 class application;
 }
-namespace gneiss::host::runtime {
+namespace gneiss::host {
 
 inline constexpr std::size_t runtime_inspection_max_nodes = 4096U;
 inline constexpr std::size_t runtime_inspection_max_changes = runtime_inspection_max_nodes * 2U;
@@ -50,14 +50,14 @@ class runtime_scene_inspection final {
 public:
   explicit runtime_scene_inspection(std::uint64_t session_id) noexcept;
 
-  [[nodiscard]] gneiss::engine::core::result
-  capture(std::span<const runtime_scene_source_node> nodes, bool force_full,
-          runtime_scene_snapshot& output) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  capture_scene(::gneiss::runtime::application& application, gneiss_scene_instance scene,
-                bool force_full, runtime_scene_snapshot& output) noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  resolve_entity(ipc_runtime_object_id object, gneiss_entity_id& output) const noexcept;
+  [[nodiscard]] gneiss::engine::result capture(std::span<const runtime_scene_source_node> nodes,
+                                               bool force_full,
+                                               runtime_scene_snapshot& output) noexcept;
+  [[nodiscard]] gneiss::engine::result capture_scene(::gneiss::runtime::application& application,
+                                                     gneiss_scene_instance scene, bool force_full,
+                                                     runtime_scene_snapshot& output) noexcept;
+  [[nodiscard]] gneiss::engine::result resolve_entity(ipc_runtime_object_id object,
+                                                      gneiss_entity_id& output) const noexcept;
   void reset(std::uint64_t session_id) noexcept;
 
 private:
@@ -72,6 +72,6 @@ private:
   bool is_initialized_ = false;
 };
 
-} // namespace gneiss::host::runtime
+} // namespace gneiss::host
 
 #endif

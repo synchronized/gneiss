@@ -13,6 +13,8 @@
 #include <stdexcept>
 #include <thread>
 
+using namespace gneiss::host;
+
 namespace {
 using namespace gneiss;
 void check(bool value, std::source_location where = std::source_location::current()) {
@@ -64,11 +66,9 @@ void run() {
     }
     return value;
   };
-  editor::runtime_process process;
-  check(process.load_scene("asset://scenes/main.scene.json") ==
-        gneiss::engine::core::result::not_ready);
-  check(process.start(GNEISS_TEST_RUNTIME, {project.root}) ==
-        gneiss::engine::core::result::success);
+  host::runtime_process process;
+  check(process.load_scene("asset://scenes/main.scene.json") == gneiss::engine::result::not_ready);
+  check(process.start(GNEISS_TEST_RUNTIME, {project.root}) == gneiss::engine::result::success);
   const auto await = [&](auto predicate) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     while (!predicate()) {
@@ -91,15 +91,14 @@ void run() {
   check(lifecycle() == "I");
   const auto old_session = process.scene_mirror().session_id();
   const auto old_node = process.scene_mirror().nodes().front().id;
-  check(process.load_scene("asset://scenes/retry.scene.json") ==
-        gneiss::engine::core::result::success);
+  check(process.load_scene("asset://scenes/retry.scene.json") == gneiss::engine::result::success);
   await([&] { return process.scene_load_status().phase == ipc_scene_phase::failed; });
   check(process.is_running() && process.scene_mirror().session_id() == old_session &&
         process.scene_mirror().nodes().front().id == old_node);
   check(lifecycle() == "I");
   std::filesystem::copy_file(project.root / "assets/scenes/main.scene.json",
                              project.root / "assets/scenes/retry.scene.json");
-  check(process.retry_scene_load() == gneiss::engine::core::result::success);
+  check(process.retry_scene_load() == gneiss::engine::result::success);
   await([&] {
     return process.scene_load_status().phase == ipc_scene_phase::applied &&
            !process.scene_mirror().nodes().empty() &&
@@ -107,42 +106,40 @@ void run() {
   });
   const auto new_session = process.scene_mirror().session_id();
   check(lifecycle() == "ISI");
-  check(process.load_scene("asset://scenes/main.scene.json") ==
-        gneiss::engine::core::result::success);
-  check(process.cancel_scene_load() == gneiss::engine::core::result::success);
+  check(process.load_scene("asset://scenes/main.scene.json") == gneiss::engine::result::success);
+  check(process.cancel_scene_load() == gneiss::engine::result::success);
   await([&] { return process.scene_load_status().phase == ipc_scene_phase::cancelled; });
   check(process.scene_load_status().budget &&
         process.scene_load_status().budget->cleanup_complete &&
         process.scene_load_status().budget->upload_reserved_bytes == 0U);
   check(process.scene_mirror().session_id() == new_session);
   check(lifecycle() == "ISI");
-  check(process.retry_scene_load() == gneiss::engine::core::result::success);
+  check(process.retry_scene_load() == gneiss::engine::result::success);
   await([&] {
     return process.scene_load_status().phase == ipc_scene_phase::applied &&
            process.scene_mirror().session_id() != 0U &&
            process.scene_mirror().session_id() != new_session;
   });
-  check(process.request_stop() == gneiss::engine::core::result::success);
+  check(process.request_stop() == gneiss::engine::result::success);
   await([&] { return !process.is_running(); });
   check(process.exit_code() == 0 && process.received_shutdown_complete());
   check(lifecycle() == "ISISIS");
   // 首次加载失败保持空活动域，IPC 仍允许修复后的重试和正常退出。
   std::ofstream(project.root / "assets/scenes/main.scene.json") << "broken";
-  check(process.start(GNEISS_TEST_RUNTIME, {project.root}) ==
-        gneiss::engine::core::result::success);
+  check(process.start(GNEISS_TEST_RUNTIME, {project.root}) == gneiss::engine::result::success);
   await([&] { return process.scene_load_status().phase == ipc_scene_phase::failed; });
   check(process.is_running() && process.scene_mirror().nodes().empty());
   check(lifecycle() == "ISISIS");
   std::filesystem::copy_file(project.root / "assets/scenes/retry.scene.json",
                              project.root / "assets/scenes/main.scene.json",
                              std::filesystem::copy_options::overwrite_existing);
-  check(process.retry_scene_load() == gneiss::engine::core::result::success);
+  check(process.retry_scene_load() == gneiss::engine::result::success);
   await([&] {
     return process.scene_load_status().phase == ipc_scene_phase::applied &&
            !process.scene_mirror().nodes().empty();
   });
   check(lifecycle() == "ISISISI");
-  check(process.request_stop() == gneiss::engine::core::result::success);
+  check(process.request_stop() == gneiss::engine::result::success);
   await([&] { return !process.is_running(); });
   check(process.exit_code() == 0 && process.received_shutdown_complete());
   check(lifecycle() == "ISISISIS");

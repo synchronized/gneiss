@@ -9,20 +9,20 @@
 
 #include <utility>
 
-namespace gneiss::editor::ipc_internal {
+namespace gneiss::host::detail {
 
 template <typename Event, typename Decode>
-gneiss::engine::core::result decode_value(const gneiss::engine::platform::ipc_envelope& envelope,
-                                          runtime_ipc_event& output, Decode&& decode) noexcept {
+gneiss::engine::result decode_value(const gneiss::engine::ipc_envelope& envelope,
+                                    runtime_ipc_event& output, Decode&& decode) noexcept {
   Event event;
   event.request_id = envelope.request_id;
   const auto operation = decode(event.value);
-  if (operation == gneiss::engine::core::result::success) {
+  if (operation == gneiss::engine::result::success) {
     output = std::move(event);
   }
   return operation;
 }
 
-} // namespace gneiss::editor::ipc_internal
+} // namespace gneiss::host::detail
 
 #endif

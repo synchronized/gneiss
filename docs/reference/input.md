@@ -47,11 +47,11 @@ Granit 的类型、句柄和枚举只存在于 `src/engine/platform/granit/`，�
 
 ```cpp
 gneiss::keyboard_state keyboard{};
-if (app.get_keyboard_state(keyboard).ok() && keyboard.is_pressed(gneiss::physical_key::w)) {
+if (host.get_keyboard_state(keyboard).ok() && keyboard.is_pressed(gneiss::physical_key::w)) {
   // 在当前更新回调中处理移动。
 }
 gneiss::input_event event{};
-while (app.poll_input(event).ok()) {
+while (host.poll_input(event).ok()) {
   if (const auto* text = std::get_if<gneiss::text_event>(&event.data)) {
     // text->text() 只借用本次 event 的文本；需要长期保存时复制。
     consume_text(text->text());
@@ -59,7 +59,7 @@ while (app.poll_input(event).ok()) {
 }
 ```
 
-上例假设 `app` 是已创建的 Application，`consume_text` 是调用方同步消费文本的函数。
+上例假设 `host` 是已创建的 Application，`consume_text` 是调用方同步消费文本的函数。
 
 `action_id` 是非拥有的强类型标识，不能隐式当作实体或其他整数句柄。动作映射成功重载后旧 ID
 失效，加载失败保留原映射；ID 不能跨 Application 使用。`find_action` 的强类型重载失败时保留

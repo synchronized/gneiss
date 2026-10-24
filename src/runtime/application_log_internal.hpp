@@ -9,15 +9,14 @@
 
 #include <string_view>
 
-namespace gneiss::engine::core::log {
+namespace gneiss::engine {
 struct message_view;
 }
 
 namespace gneiss::runtime {
 
-[[nodiscard]] engine::core::result
-submit_application_log(gneiss_application application,
-                       const engine::core::log::message_view& message,
+[[nodiscard]] gneiss::engine::result
+submit_application_log(gneiss_application application, const gneiss::engine::message_view& message,
                        std::string_view source) noexcept;
 
 } // namespace gneiss::runtime

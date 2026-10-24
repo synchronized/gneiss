@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::editor {
+namespace gneiss::host {
 
 /** 管理 Editor 端 IPC Server、握手、心跳和命令发送。 */
 class editor_ipc_session final {
@@ -26,30 +26,29 @@ public:
   editor_ipc_session(const editor_ipc_session&) = delete;
   editor_ipc_session& operator=(const editor_ipc_session&) = delete;
 
-  [[nodiscard]] gneiss::engine::core::result start() noexcept;
-  [[nodiscard]] gneiss::engine::core::result stop() noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  update(bool is_peer_running, std::vector<runtime_ipc_event>& output) noexcept;
+  [[nodiscard]] gneiss::engine::result start() noexcept;
+  [[nodiscard]] gneiss::engine::result stop() noexcept;
+  [[nodiscard]] gneiss::engine::result update(bool is_peer_running,
+                                              std::vector<runtime_ipc_event>& output) noexcept;
 
-  [[nodiscard]] gneiss::engine::core::result request_stop() noexcept;
-  [[nodiscard]] gneiss::engine::core::result request_pause() noexcept;
-  [[nodiscard]] gneiss::engine::core::result request_resume() noexcept;
-  [[nodiscard]] gneiss::engine::core::result request_inspection_resync() noexcept;
-  [[nodiscard]] gneiss::engine::core::result
+  [[nodiscard]] gneiss::engine::result request_stop() noexcept;
+  [[nodiscard]] gneiss::engine::result request_pause() noexcept;
+  [[nodiscard]] gneiss::engine::result request_resume() noexcept;
+  [[nodiscard]] gneiss::engine::result request_inspection_resync() noexcept;
+  [[nodiscard]] gneiss::engine::result
   send_property_write(const ipc_property_write& command) noexcept;
-  [[nodiscard]] gneiss::engine::core::result send_asset_cancel(std::uint64_t session,
-                                                               std::uint64_t revision) noexcept;
-  [[nodiscard]] gneiss::engine::core::result send_scene_request(const ipc_scene_request& value,
-                                                                bool cancel) noexcept;
+  [[nodiscard]] gneiss::engine::result send_asset_cancel(std::uint64_t session,
+                                                         std::uint64_t revision) noexcept;
+  [[nodiscard]] gneiss::engine::result send_scene_request(const ipc_scene_request& value,
+                                                          bool cancel) noexcept;
   [[nodiscard]] bool supports_scene_loading() const noexcept;
-  [[nodiscard]] gneiss::engine::core::result
-  send_asset_reload(const ipc_asset_reload_request& command,
-                    ipc_asset_operation operation) noexcept;
+  [[nodiscard]] gneiss::engine::result send_asset_reload(const ipc_asset_reload_request& command,
+                                                         ipc_asset_operation operation) noexcept;
 
   [[nodiscard]] bool is_authenticated() const noexcept;
   [[nodiscard]] bool supports_property_editing() const noexcept;
   [[nodiscard]] bool supports_asset_reload() const noexcept;
-  [[nodiscard]] gneiss::engine::platform::ipc_endpoint endpoint() const noexcept;
+  [[nodiscard]] gneiss::engine::ipc_endpoint endpoint() const noexcept;
   [[nodiscard]] const std::string& token() const noexcept;
 
 private:
@@ -57,6 +56,6 @@ private:
   std::unique_ptr<implementation> implementation_;
 };
 
-} // namespace gneiss::editor
+} // namespace gneiss::host
 
 #endif

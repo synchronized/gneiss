@@ -25,8 +25,8 @@ int main() try {
   gneiss_world world = GNEISS_NULL_WORLD;
   scene_document session;
   editor_command_history history;
-  if (gneiss::engine::core::result{gneiss_application_create(&desc, app.put())}.failed() ||
-      gneiss::engine::core::result{gneiss_application_get_world(app.get(), &world)}.failed() ||
+  if (gneiss::engine::result{gneiss_application_create(&desc, app.put())}.failed() ||
+      gneiss::engine::result{gneiss_application_get_world(app.get(), &world)}.failed() ||
       session
           .open(*gneiss::runtime::find_application(app.get()), world,
                 "asset://scenes/triangle.scene.json")
@@ -62,7 +62,7 @@ int main() try {
       history.size() != 1U || session.find_node(uuid)->material_uri != material ||
       replace_mesh_assets(session, history, "missing",
                           {.mesh_uri = mesh, .material_uri = material}) !=
-          gneiss::engine::core::result::not_found) {
+          gneiss::engine::result::not_found) {
     return 4;
   }
   if (replace_mesh_assets(session, history, uuid, {.mesh_uri = mesh, .material_uri = material})
@@ -91,15 +91,15 @@ int main() try {
   const auto prefabs = session.prefab_nodes().size();
   if (add_mesh_asset(session, full, "Rollback Mesh",
                      {.mesh_uri = mesh, .material_uri = material}) !=
-          gneiss::engine::core::result::invalid_argument ||
+          gneiss::engine::result::invalid_argument ||
       session.nodes().size() != nodes || session.is_dirty() ||
       add_prefab_asset(session, full, "Rollback Prefab", prefab, parent) !=
-          gneiss::engine::core::result::invalid_argument ||
+          gneiss::engine::result::invalid_argument ||
       session.prefab_nodes().size() != prefabs || session.is_dirty() || full.can_undo()) {
     return 8;
   }
   if (replace_mesh_assets(session, full, uuid, {.mesh_uri = mesh, .material_uri = material}) !=
-          gneiss::engine::core::result::invalid_argument ||
+          gneiss::engine::result::invalid_argument ||
       session.is_dirty() || session.find_node(uuid)->material_uri != material) {
     return 9;
   }

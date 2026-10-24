@@ -6,29 +6,29 @@
 
 #include <uv.h>
 
-namespace gneiss::engine::platform::io {
+namespace gneiss::engine {
 
-gneiss::engine::core::result from_uv_status(int value) noexcept {
+gneiss::engine::result from_uv_status(int value) noexcept {
   switch (value) {
   case 0:
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   case UV_EINVAL:
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   case UV_ENOMEM:
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   case UV_ENOSYS:
-    return gneiss::engine::core::result::unsupported;
+    return gneiss::engine::result::unsupported;
   case UV_EBUSY:
   case UV_EALREADY:
-    return gneiss::engine::core::result::invalid_state;
+    return gneiss::engine::result::invalid_state;
   case UV_EAGAIN:
   case UV_ECANCELED:
-    return gneiss::engine::core::result::not_ready;
+    return gneiss::engine::result::not_ready;
   case UV_ENOENT:
-    return gneiss::engine::core::result::not_found;
+    return gneiss::engine::result::not_found;
   default:
-    return gneiss::engine::core::result::io;
+    return gneiss::engine::result::io;
   }
 }
 
-} // namespace gneiss::engine::platform::io
+} // namespace gneiss::engine

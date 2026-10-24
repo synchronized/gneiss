@@ -6,12 +6,11 @@
 
 #include "ipc_control_protocol.hpp"
 
-namespace gneiss::editor {
+namespace gneiss::host {
 
-gneiss::engine::core::result
-make_stop_command(std::uint32_t request_id,
-                  gneiss::engine::platform::ipc_envelope& output) noexcept {
+gneiss::engine::result make_stop_command(std::uint32_t request_id,
+                                         gneiss::engine::ipc_envelope& output) noexcept {
   return encode_ipc_control_request(ipc_control_operation::stop, request_id, output);
 }
 
-} // namespace gneiss::editor
+} // namespace gneiss::host

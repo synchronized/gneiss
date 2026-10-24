@@ -3,6 +3,6 @@
 
 #pragma once
 
-namespace gneiss::host::runtime {
+namespace gneiss::host {
 int run_runtime_application(int argc, char** argv);
 }

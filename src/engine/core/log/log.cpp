@@ -61,7 +61,6 @@ namespace {
 
 } // namespace
 
-bool gneiss::engine::core::log::valid_text(std::string_view category,
-                                           std::string_view message) noexcept {
+bool gneiss::engine::valid_text(std::string_view category, std::string_view message) noexcept {
   return !category.empty() && is_valid_utf8(category) && is_valid_utf8(message);
 }

@@ -12,7 +12,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss::engine::platform {
+namespace gneiss::engine {
 
 struct child_process_start_info final {
   std::filesystem::path executable;
@@ -29,8 +29,8 @@ public:
   child_process(const child_process&) = delete;
   child_process& operator=(const child_process&) = delete;
 
-  [[nodiscard]] gneiss::engine::core::result start(const child_process_start_info& info) noexcept;
-  [[nodiscard]] gneiss::engine::core::result terminate() noexcept;
+  [[nodiscard]] gneiss::engine::result start(const child_process_start_info& info) noexcept;
+  [[nodiscard]] gneiss::engine::result terminate() noexcept;
   void update() noexcept;
 
   [[nodiscard]] bool is_running() const noexcept;
@@ -47,6 +47,6 @@ private:
   std::unique_ptr<implementation> implementation_;
 };
 
-} // namespace gneiss::engine::platform
+} // namespace gneiss::engine
 
 #endif

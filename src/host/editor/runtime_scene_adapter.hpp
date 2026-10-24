@@ -10,29 +10,31 @@
 #include <new>
 #include <utility>
 
-namespace gneiss::editor {
+namespace gneiss::host {
 
 /** 消费已解码批次；成功移动节点文本，失败保持 output 不变，输入可被消费。 */
-[[nodiscard]] inline gneiss::engine::core::result
-to_runtime_scene_batch(ipc_inspection_batch&& input, runtime_scene_batch& output) noexcept {
+[[nodiscard]] inline gneiss::engine::result
+to_runtime_scene_batch(ipc_inspection_batch&& input,
+                       gneiss::editor::runtime_scene_batch& output) noexcept {
   try {
-    runtime_scene_batch converted{.stamp = {input.stamp.session_id, input.stamp.sequence},
-                                  .is_full = input.is_full,
-                                  .chunk_index = input.chunk_index,
-                                  .chunk_count = input.chunk_count,
-                                  .changes = {}};
+    gneiss::editor::runtime_scene_batch converted{
+        .stamp = {input.stamp.session_id, input.stamp.sequence},
+        .is_full = input.is_full,
+        .chunk_index = input.chunk_index,
+        .chunk_count = input.chunk_count,
+        .changes = {}};
     converted.changes.reserve(input.changes.size());
     for (auto& change : input.changes) {
-      runtime_scene_change_type type;
+      gneiss::editor::runtime_scene_change_type type;
       switch (change.type) {
       case ipc_inspection_change_type::upsert:
-        type = runtime_scene_change_type::upsert;
+        type = gneiss::editor::runtime_scene_change_type::upsert;
         break;
       case ipc_inspection_change_type::remove:
-        type = runtime_scene_change_type::remove;
+        type = gneiss::editor::runtime_scene_change_type::remove;
         break;
       default:
-        return gneiss::engine::core::result::invalid_argument;
+        return gneiss::engine::result::invalid_argument;
       }
       auto& node = change.node;
       converted.changes.push_back(
@@ -51,12 +53,12 @@ to_runtime_scene_batch(ipc_inspection_batch&& input, runtime_scene_batch& output
                     .material_uri = std::move(node.material_uri)}});
     }
     output = std::move(converted);
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-} // namespace gneiss::editor
+} // namespace gneiss::host

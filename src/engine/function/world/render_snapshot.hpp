@@ -10,19 +10,19 @@
 
 #include <cstdint>
 
-namespace gneiss::engine::world {
+namespace gneiss::engine {
 
 class world_state;
 
-[[nodiscard]] gneiss::engine::core::result
+[[nodiscard]] gneiss::engine::result
 build_render_snapshot(world_state& world, std::uint32_t viewport_width,
-                      std::uint32_t viewport_height, engine::render::render_snapshot& out_snapshot,
-                      const engine::render::view_camera* camera = nullptr) noexcept;
-[[nodiscard]] gneiss::engine::core::result
+                      std::uint32_t viewport_height, gneiss::engine::render_snapshot& out_snapshot,
+                      const gneiss::engine::view_camera* camera = nullptr) noexcept;
+[[nodiscard]] gneiss::engine::result
 get_render_snapshot(gneiss_world world, std::uint32_t viewport_width, std::uint32_t viewport_height,
-                    engine::render::render_snapshot& out_snapshot,
-                    const engine::render::view_camera* camera = nullptr) noexcept;
+                    gneiss::engine::render_snapshot& out_snapshot,
+                    const gneiss::engine::view_camera* camera = nullptr) noexcept;
 
-} // namespace gneiss::engine::world
+} // namespace gneiss::engine
 
 #endif

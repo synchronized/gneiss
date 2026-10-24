@@ -13,14 +13,14 @@
 #include <string>
 #include <system_error>
 
-namespace gneiss::host::runtime {
+namespace gneiss::host {
 namespace {
 
 constexpr std::uintmax_t maximum_log_size = 1024U * 1024U;
 
 [[nodiscard]] std::string format_event(std::string_view level, std::string_view stage,
-                                       gneiss::engine::core::result operation,
-                                       std::string_view message, std::string_view context) {
+                                       gneiss::engine::result operation, std::string_view message,
+                                       std::string_view context) {
   const auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
                              std::chrono::system_clock::now().time_since_epoch())
                              .count();
@@ -152,7 +152,7 @@ runtime_log::runtime_log(const std::filesystem::path& path) : path_(path) {
 }
 
 void runtime_log::write(std::string_view level, std::string_view stage,
-                        gneiss::engine::core::result operation, std::string_view message,
+                        gneiss::engine::result operation, std::string_view message,
                         std::string_view context) noexcept {
   try {
     const std::scoped_lock lock(mutex_);
@@ -187,7 +187,8 @@ void runtime_log::write(const gneiss_log_event& source) noexcept {
     const std::scoped_lock lock(mutex_);
     const auto event = format_structured_event(source);
     std::string protocol;
-    if (app::encode_runtime_log_event(source, protocol) == gneiss::engine::core::result::success) {
+    if (gneiss::host::encode_runtime_log_event(source, protocol) ==
+        gneiss::engine::result::success) {
       std::fwrite(protocol.data(), sizeof(char), protocol.size(), stdout);
       std::fflush(stdout);
     } else {
@@ -241,4 +242,4 @@ std::filesystem::path default_runtime_log_path() {
   return (error ? std::filesystem::path{"."} : temporary) / "Gneiss" / "logs" / "runtime.log";
 }
 
-} // namespace gneiss::host::runtime
+} // namespace gneiss::host

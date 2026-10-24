@@ -12,29 +12,27 @@
 #include <span>
 #include <thread>
 
-namespace gneiss::host::runtime {
+namespace gneiss::host {
 
 /** Runtime 主线程上的资产重载请求协调器。 */
 class runtime_asset_reloader final {
 public:
-  using apply_function =
-      std::function<gneiss::engine::core::result(std::span<const ipc_asset_revision>)>;
-  using begin_function =
-      std::function<gneiss::engine::core::result(const ipc_asset_reload_request&)>;
-  using poll_function = std::function<gneiss::engine::core::result(
-      gneiss::engine::core::result&, std::vector<ipc_asset_item_result>&, bool&)>;
+  using apply_function = std::function<gneiss::engine::result(std::span<const ipc_asset_revision>)>;
+  using begin_function = std::function<gneiss::engine::result(const ipc_asset_reload_request&)>;
+  using poll_function = std::function<gneiss::engine::result(
+      gneiss::engine::result&, std::vector<ipc_asset_item_result>&, bool&)>;
 
   explicit runtime_asset_reloader(apply_function apply, begin_function begin = {},
                                   poll_function poll = {});
   /** 渲染资产只经 begin/poll 处理，缺少任一回调时失败，不调用同步 apply。
    * apply 暂时只处理单个 Scene/Prefab 结构重载，仍待迁移。
    * 接受异步请求后 execute 返回 not_ready；只有 advance 才生成终态。 */
-  [[nodiscard]] gneiss::engine::core::result advance(ipc_asset_reload_result& response,
-                                                     bool& ready) noexcept;
+  [[nodiscard]] gneiss::engine::result advance(ipc_asset_reload_result& response,
+                                               bool& ready) noexcept;
 
   /** 应用新修订并生成权威结果；旧修订不会再次调用底层资源请求。 */
-  [[nodiscard]] gneiss::engine::core::result execute(const ipc_asset_reload_request& request,
-                                                     ipc_asset_reload_result& response) noexcept;
+  [[nodiscard]] gneiss::engine::result execute(const ipc_asset_reload_request& request,
+                                               ipc_asset_reload_result& response) noexcept;
 
   [[nodiscard]] std::uint64_t session_id() const noexcept { return session_id_; }
   [[nodiscard]] std::uint64_t applied_revision() const noexcept { return applied_revision_; }
@@ -49,6 +47,6 @@ private:
   std::uint64_t applied_revision_ = 0U;
 };
 
-} // namespace gneiss::host::runtime
+} // namespace gneiss::host
 
 #endif

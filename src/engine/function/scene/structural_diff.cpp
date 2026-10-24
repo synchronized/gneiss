@@ -13,14 +13,14 @@
 
 namespace {
 
-using gneiss::engine::resource::camera_description;
-using gneiss::engine::resource::mesh_renderer_description;
-using gneiss::engine::resource::object_description;
+using gneiss::engine::camera_description;
+using gneiss::engine::mesh_renderer_description;
+using gneiss::engine::object_description;
 using object_index = std::unordered_map<std::string_view, std::size_t>;
 
 [[nodiscard]] bool
-equal_camera(const std::optional<gneiss::engine::resource::camera_description>& left,
-             const std::optional<gneiss::engine::resource::camera_description>& right) noexcept {
+equal_camera(const std::optional<gneiss::engine::camera_description>& left,
+             const std::optional<gneiss::engine::camera_description>& right) noexcept {
   if (left.has_value() != right.has_value()) {
     return false;
   }
@@ -30,63 +30,63 @@ equal_camera(const std::optional<gneiss::engine::resource::camera_description>& 
 }
 
 [[nodiscard]] bool equal_mesh_renderer(
-    const std::optional<gneiss::engine::resource::mesh_renderer_description>& left,
-    const std::optional<gneiss::engine::resource::mesh_renderer_description>& right) noexcept {
+    const std::optional<gneiss::engine::mesh_renderer_description>& left,
+    const std::optional<gneiss::engine::mesh_renderer_description>& right) noexcept {
   if (left.has_value() != right.has_value()) {
     return false;
   }
   return !left || (left->mesh_uri == right->mesh_uri && left->material_uri == right->material_uri);
 }
 
-[[nodiscard]] gneiss::engine::core::result
-build_index(const std::vector<gneiss::engine::resource::object_description>& objects,
-            object_index& output, std::vector<std::size_t>& depths) {
+[[nodiscard]] gneiss::engine::result
+build_index(const std::vector<gneiss::engine::object_description>& objects, object_index& output,
+            std::vector<std::size_t>& depths) {
   output.reserve(objects.size());
   depths.assign(objects.size(), 0U);
   for (std::size_t index = 0U; index < objects.size(); ++index) {
     if (objects[index].uuid.empty() || !output.emplace(objects[index].uuid, index).second) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
   }
 
   enum class visit_state : std::uint8_t { unseen, visiting, complete };
   std::vector<visit_state> states(objects.size(), visit_state::unseen);
-  const std::function<gneiss::engine::core::result(std::size_t)> visit =
-      [&](std::size_t index) -> gneiss::engine::core::result {
+  const std::function<gneiss::engine::result(std::size_t)> visit =
+      [&](std::size_t index) -> gneiss::engine::result {
     if (states[index] == visit_state::complete) {
-      return gneiss::engine::core::result::success;
+      return gneiss::engine::result::success;
     }
     if (states[index] == visit_state::visiting) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
     states[index] = visit_state::visiting;
     if (objects[index].parent_uuid) {
       const auto parent = output.find(*objects[index].parent_uuid);
       if (parent == output.end() || parent->second == index) {
-        return gneiss::engine::core::result::invalid_argument;
+        return gneiss::engine::result::invalid_argument;
       }
       const auto result = visit(parent->second);
-      if (result != gneiss::engine::core::result::success) {
+      if (result != gneiss::engine::result::success) {
         return result;
       }
       depths[index] = depths[parent->second] + 1U;
     }
     states[index] = visit_state::complete;
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   };
   for (std::size_t index = 0U; index < objects.size(); ++index) {
     const auto result = visit(index);
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
   }
-  return gneiss::engine::core::result::success;
+  return gneiss::engine::result::success;
 }
 
-[[nodiscard]] gneiss::engine::scene::structural_change
-compare_objects(const gneiss::engine::resource::object_description& old_object,
-                const gneiss::engine::resource::object_description& new_object) {
-  using gneiss::engine::scene::structural_change;
+[[nodiscard]] gneiss::engine::structural_change
+compare_objects(const gneiss::engine::object_description& old_object,
+                const gneiss::engine::object_description& new_object) {
+  using gneiss::engine::structural_change;
   auto changes = structural_change::none;
   if (old_object.name != new_object.name) {
     changes = changes | structural_change::name;
@@ -109,11 +109,11 @@ compare_objects(const gneiss::engine::resource::object_description& old_object,
 
 } // namespace
 
-namespace gneiss::engine::scene {
+namespace gneiss::engine {
 
-gneiss::engine::core::result
-build_structural_diff(const std::vector<gneiss::engine::resource::object_description>& old_objects,
-                      const std::vector<gneiss::engine::resource::object_description>& new_objects,
+gneiss::engine::result
+build_structural_diff(const std::vector<gneiss::engine::object_description>& old_objects,
+                      const std::vector<gneiss::engine::object_description>& new_objects,
                       structural_diff& output) noexcept {
   output = {};
   try {
@@ -122,10 +122,10 @@ build_structural_diff(const std::vector<gneiss::engine::resource::object_descrip
     std::vector<std::size_t> old_depths;
     std::vector<std::size_t> new_depths;
     auto result = build_index(old_objects, old_index, old_depths);
-    if (result == gneiss::engine::core::result::success) {
+    if (result == gneiss::engine::result::success) {
       result = build_index(new_objects, new_index, new_depths);
     }
-    if (result != gneiss::engine::core::result::success) {
+    if (result != gneiss::engine::result::success) {
       return result;
     }
 
@@ -161,14 +161,14 @@ build_structural_diff(const std::vector<gneiss::engine::resource::object_descrip
     std::ranges::sort(output.removed, [](const auto& left, const auto& right) {
       return left.depth != right.depth ? left.depth > right.depth : left.uuid < right.uuid;
     });
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
     output = {};
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
     output = {};
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-} // namespace gneiss::engine::scene
+} // namespace gneiss::engine

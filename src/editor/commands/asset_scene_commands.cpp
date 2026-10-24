@@ -12,9 +12,8 @@
 
 namespace gneiss::editor {
 namespace {
-gneiss::engine::core::result execute_asset_edit(scene_document& session,
-                                                editor_command_history& history,
-                                                editor_command_history::command command) noexcept {
+gneiss::engine::result execute_asset_edit(scene_document& session, editor_command_history& history,
+                                          editor_command_history::command command) noexcept {
   const auto was_dirty = session.is_dirty();
   const auto operation = history.execute(std::move(command));
   if (operation.failed() && !was_dirty) {
@@ -24,9 +23,9 @@ gneiss::engine::core::result execute_asset_edit(scene_document& session,
 }
 } // namespace
 
-gneiss::engine::core::result add_mesh_asset(scene_document& session,
-                                            editor_command_history& history, std::string_view name,
-                                            mesh_asset_reference assets) noexcept try {
+gneiss::engine::result add_mesh_asset(scene_document& session, editor_command_history& history,
+                                      std::string_view name, mesh_asset_reference assets) noexcept
+    try {
   scene_node_snapshot snapshot;
   const auto identity = make_editor_uuid(snapshot.uuid);
   if (identity.failed()) {
@@ -42,8 +41,8 @@ gneiss::engine::core::result add_mesh_asset(scene_document& session,
                                     [&session, uuid = snapshot.uuid] {
                                       const auto* current = session.find_node(uuid);
                                       if (current == nullptr) {
-                                        return gneiss::engine::core::result{
-                                            gneiss::engine::core::result::not_found};
+                                        return gneiss::engine::result{
+                                            gneiss::engine::result::not_found};
                                       }
                                       scene_node_snapshot discarded;
                                       return session.destroy_node(current->node, discarded);
@@ -56,15 +55,14 @@ gneiss::engine::core::result add_mesh_asset(scene_document& session,
                                 .merge_key = {},
                             });
 } catch (const std::bad_alloc&) {
-  return gneiss::engine::core::result::out_of_memory;
+  return gneiss::engine::result::out_of_memory;
 } catch (...) {
-  return gneiss::engine::core::result::internal;
+  return gneiss::engine::result::internal;
 }
 
-gneiss::engine::core::result add_prefab_asset(scene_document& session,
-                                              editor_command_history& history,
-                                              std::string_view name, std::string_view prefab_uri,
-                                              scene_node_id parent) noexcept try {
+gneiss::engine::result add_prefab_asset(scene_document& session, editor_command_history& history,
+                                        std::string_view name, std::string_view prefab_uri,
+                                        scene_node_id parent) noexcept try {
   auto snapshot = std::make_shared<prefab_instance_snapshot>();
   const auto identity = make_editor_uuid(snapshot->instance_uuid);
   if (identity.failed()) {
@@ -73,7 +71,7 @@ gneiss::engine::core::result add_prefab_asset(scene_document& session,
   if (parent.is_valid()) {
     const auto found = std::ranges::find(session.nodes(), parent, &scene_node_record::node);
     if (found == session.nodes().end()) {
-      return gneiss::engine::core::result::not_found;
+      return gneiss::engine::result::not_found;
     }
     snapshot->parent_uuid = found->uuid;
   }
@@ -87,7 +85,7 @@ gneiss::engine::core::result add_prefab_asset(scene_document& session,
               [&session, uuid = snapshot->instance_uuid, snapshot] {
                 const auto* current = session.find_prefab_root(uuid);
                 return current == nullptr
-                           ? gneiss::engine::core::result{gneiss::engine::core::result::not_found}
+                           ? gneiss::engine::result{gneiss::engine::result::not_found}
                            : session.destroy_prefab_instance(current->node, *snapshot);
               },
           .redo =
@@ -98,18 +96,17 @@ gneiss::engine::core::result add_prefab_asset(scene_document& session,
           .merge_key = {},
       });
 } catch (const std::bad_alloc&) {
-  return gneiss::engine::core::result::out_of_memory;
+  return gneiss::engine::result::out_of_memory;
 } catch (...) {
-  return gneiss::engine::core::result::internal;
+  return gneiss::engine::result::internal;
 }
 
-gneiss::engine::core::result replace_mesh_assets(scene_document& session,
-                                                 editor_command_history& history,
-                                                 std::string_view node_uuid,
-                                                 mesh_asset_reference assets) noexcept try {
+gneiss::engine::result replace_mesh_assets(scene_document& session, editor_command_history& history,
+                                           std::string_view node_uuid,
+                                           mesh_asset_reference assets) noexcept try {
   const auto* node = session.find_node(node_uuid);
   if (node == nullptr) {
-    return gneiss::engine::core::result::not_found;
+    return gneiss::engine::result::not_found;
   }
   return execute_asset_edit(
       session, history,
@@ -119,7 +116,7 @@ gneiss::engine::core::result replace_mesh_assets(scene_document& session,
               [&session, uuid = node->uuid, mesh = node->mesh_uri, material = node->material_uri] {
                 const auto* current = session.find_node(uuid);
                 return current == nullptr
-                           ? gneiss::engine::core::result{gneiss::engine::core::result::not_found}
+                           ? gneiss::engine::result{gneiss::engine::result::not_found}
                            : session.set_mesh_renderer(current->node, mesh, material);
               },
           .redo =
@@ -127,15 +124,15 @@ gneiss::engine::core::result replace_mesh_assets(scene_document& session,
                material = std::string{assets.material_uri}] {
                 const auto* current = session.find_node(uuid);
                 return current == nullptr
-                           ? gneiss::engine::core::result{gneiss::engine::core::result::not_found}
+                           ? gneiss::engine::result{gneiss::engine::result::not_found}
                            : session.set_mesh_renderer(current->node, mesh, material);
               },
           .merge_key = {},
       });
 } catch (const std::bad_alloc&) {
-  return gneiss::engine::core::result::out_of_memory;
+  return gneiss::engine::result::out_of_memory;
 } catch (...) {
-  return gneiss::engine::core::result::internal;
+  return gneiss::engine::result::internal;
 }
 
 } // namespace gneiss::editor

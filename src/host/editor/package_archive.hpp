@@ -10,23 +10,22 @@
 #include <filesystem>
 #include <string_view>
 
-namespace gneiss::editor {
+namespace gneiss::host {
 
 /** 为目录包生成版本化内容清单；清单自身不进入文件哈希列表。 */
-[[nodiscard]] gneiss::engine::core::result
-write_package_manifest(const std::filesystem::path& package_root,
-                       const app::project_description& project, app::game_build_profile profile,
-                       std::string_view entrypoint) noexcept;
+[[nodiscard]] gneiss::engine::result write_package_manifest(
+    const std::filesystem::path& package_root, const gneiss::host::project_description& project,
+    gneiss::host::game_build_profile profile, std::string_view entrypoint) noexcept;
 
 /** 校验清单声明的文件集合、大小与 SHA-256。 */
-[[nodiscard]] gneiss::engine::core::result
+[[nodiscard]] gneiss::engine::result
 verify_package_manifest(const std::filesystem::path& package_root) noexcept;
 
 /** 使用固定元数据和稳定路径顺序生成无压缩 ZIP。 */
-[[nodiscard]] gneiss::engine::core::result
+[[nodiscard]] gneiss::engine::result
 write_deterministic_zip(const std::filesystem::path& package_root,
                         const std::filesystem::path& archive) noexcept;
 
-} // namespace gneiss::editor
+} // namespace gneiss::host
 
 #endif

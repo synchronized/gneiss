@@ -9,10 +9,11 @@
 
 #include <utility>
 
-namespace gneiss::editor {
+namespace gneiss::host {
 
 /** 宿主已完成协议校验；移动日志正文进入控制台，不保留协议对象。 */
-[[nodiscard]] inline console_event to_console_event(app::runtime_log_record&& record) noexcept {
+[[nodiscard]] inline gneiss::editor::console_event
+to_console_event(gneiss::host::runtime_log_record&& record) noexcept {
   return {.severity = record.severity,
           .sequence = record.sequence,
           .timestamp_ns = record.timestamp_ns,
@@ -23,4 +24,4 @@ namespace gneiss::editor {
           .operation = record.operation};
 }
 
-} // namespace gneiss::editor
+} // namespace gneiss::host

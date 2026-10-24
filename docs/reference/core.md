@@ -52,7 +52,7 @@ if (!operation) {
 
 - `gneiss::to_native` 与 `gneiss::from_native` 转换 C/C++ 表达。
 
-src 内部操作统一使用 `gneiss::engine::core::result`（`engine/core/result.hpp`）。它提供
+src 内部操作统一使用 `gneiss::engine::result`（`engine/core/result.hpp`）。它提供
 `ok()`、`failed()`、`code()`、`message()` 和显式布尔判断，默认 `unknown`；不提供隐式整数转换。
 普通内部调用直接传递该值，C API 在适配层使用 `to_c_result` / `from_c_result`；协议整数码在
 编解码处显式转换。公共结果值不作为内部接口类型，公共头也不依赖 src。

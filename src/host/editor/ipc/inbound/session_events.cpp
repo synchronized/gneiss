@@ -6,30 +6,29 @@
 
 #include "event_decode.hpp"
 
-namespace gneiss::editor {
+namespace gneiss::host {
 
-gneiss::engine::core::result
-decode_runtime_session_event(const gneiss::engine::platform::ipc_envelope& envelope,
-                             runtime_ipc_event& output) noexcept {
+gneiss::engine::result decode_runtime_session_event(const gneiss::engine::ipc_envelope& envelope,
+                                                    runtime_ipc_event& output) noexcept {
   if (envelope.operation == static_cast<std::uint16_t>(ipc_session_operation::hello)) {
-    return ipc_internal::decode_value<runtime_hello_event>(
+    return gneiss::host::detail::decode_value<runtime_hello_event>(
         envelope, output, [&](auto& value) { return decode_ipc_session_hello(envelope, value); });
   }
   if (envelope.operation == static_cast<std::uint16_t>(ipc_session_operation::heartbeat)) {
-    return ipc_internal::decode_value<runtime_heartbeat_event>(envelope, output, [&](auto& value) {
-      return decode_ipc_session_heartbeat(envelope, value);
-    });
+    return gneiss::host::detail::decode_value<runtime_heartbeat_event>(
+        envelope, output,
+        [&](auto& value) { return decode_ipc_session_heartbeat(envelope, value); });
   }
   if (envelope.operation == static_cast<std::uint16_t>(ipc_session_operation::protocol_error)) {
-    return ipc_internal::decode_value<runtime_protocol_error_event>(
+    return gneiss::host::detail::decode_value<runtime_protocol_error_event>(
         envelope, output, [&](auto& value) { return decode_ipc_session_error(envelope, value); });
   }
   if (envelope.operation == static_cast<std::uint16_t>(ipc_session_operation::shutdown_complete)) {
-    return ipc_internal::decode_value<runtime_shutdown_event>(envelope, output, [&](auto& value) {
-      return decode_ipc_session_shutdown(envelope, value);
-    });
+    return gneiss::host::detail::decode_value<runtime_shutdown_event>(
+        envelope, output,
+        [&](auto& value) { return decode_ipc_session_shutdown(envelope, value); });
   }
-  return gneiss::engine::core::result::unsupported;
+  return gneiss::engine::result::unsupported;
 }
 
-} // namespace gneiss::editor
+} // namespace gneiss::host

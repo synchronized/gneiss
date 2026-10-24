@@ -9,6 +9,8 @@
 #include <fstream>
 #include <string>
 
+using namespace gneiss::host;
+
 namespace {
 
 void set_trace_path(const std::filesystem::path& path) {
@@ -39,56 +41,55 @@ int main(int argc, char** argv) {
   std::filesystem::remove(trace_path, error);
   set_trace_path(trace_path);
 
-  gneiss::game_module_session session;
-  if (session.load(valid_path) != gneiss::engine::core::result::success || !session.is_loaded() ||
+  gneiss::host::game_module_session session;
+  if (session.load(valid_path) != gneiss::engine::result::success || !session.is_loaded() ||
       session.module_id() != "gneiss.test.fixture" ||
-      session.initialize(GNEISS_NULL_GAME_CONTEXT) != gneiss::engine::core::result::invalid_state ||
-      session.initialize(UINT64_C(1)) != gneiss::engine::core::result::success) {
+      session.initialize(GNEISS_NULL_GAME_CONTEXT) != gneiss::engine::result::invalid_state ||
+      session.initialize(UINT64_C(1)) != gneiss::engine::result::success) {
     return 2;
   }
   gneiss_game_update_time time{sizeof(time), 0, 1, 16'000'000, 16'000'000};
-  if (session.fixed_update(time) != gneiss::engine::core::result::success ||
-      session.update(time) != gneiss::engine::core::result::success) {
+  if (session.fixed_update(time) != gneiss::engine::result::success ||
+      session.update(time) != gneiss::engine::result::success) {
     return 3;
   }
   time.update_index = 99;
-  if (session.update(time) != gneiss::engine::core::result::internal ||
-      session.shutdown() != gneiss::engine::core::result::success ||
-      session.shutdown() != gneiss::engine::core::result::invalid_state ||
+  if (session.update(time) != gneiss::engine::result::internal ||
+      session.shutdown() != gneiss::engine::result::success ||
+      session.shutdown() != gneiss::engine::result::invalid_state ||
       read_trace(trace_path) != "IFUUS") {
     return 4;
   }
 
-  gneiss::game_module_session missing_symbol;
-  gneiss::game_module_session invalid_abi;
-  gneiss::game_module_session initialize_failure;
-  if (missing_symbol.load(missing_symbol_path) != gneiss::engine::core::result::not_found ||
-      invalid_abi.load(invalid_abi_path) != gneiss::engine::core::result::invalid_argument ||
-      initialize_failure.load(initialize_failure_path) != gneiss::engine::core::result::success ||
-      initialize_failure.initialize(UINT64_C(1)) !=
-          gneiss::engine::core::result::initialization_failed) {
+  gneiss::host::game_module_session missing_symbol;
+  gneiss::host::game_module_session invalid_abi;
+  gneiss::host::game_module_session initialize_failure;
+  if (missing_symbol.load(missing_symbol_path) != gneiss::engine::result::not_found ||
+      invalid_abi.load(invalid_abi_path) != gneiss::engine::result::invalid_argument ||
+      initialize_failure.load(initialize_failure_path) != gneiss::engine::result::success ||
+      initialize_failure.initialize(UINT64_C(1)) != gneiss::engine::result::initialization_failed) {
     return 5;
   }
   if (read_trace(trace_path) != "IFUUSI") {
     return 6;
   }
   {
-    gneiss::game_module_session early_exit;
-    if (early_exit.load(valid_path) != gneiss::engine::core::result::success ||
-        early_exit.initialize(UINT64_C(2)) != gneiss::engine::core::result::success) {
+    gneiss::host::game_module_session early_exit;
+    if (early_exit.load(valid_path) != gneiss::engine::result::success ||
+        early_exit.initialize(UINT64_C(2)) != gneiss::engine::result::success) {
       return 7;
     }
   }
-  gneiss::game_module_session missing_file;
+  gneiss::host::game_module_session missing_file;
   if (missing_file.load(valid_path.parent_path() / "missing-game-module.dll") !=
-          gneiss::engine::core::result::not_found ||
+          gneiss::engine::result::not_found ||
       read_trace(trace_path) != "IFUUSIIS") {
     return 8;
   }
-  if (session.initialize(UINT64_C(3)) != gneiss::engine::core::result::success ||
-      session.initialize(UINT64_C(4)) != gneiss::engine::core::result::invalid_state ||
-      session.shutdown() != gneiss::engine::core::result::success ||
-      session.shutdown() != gneiss::engine::core::result::invalid_state ||
+  if (session.initialize(UINT64_C(3)) != gneiss::engine::result::success ||
+      session.initialize(UINT64_C(4)) != gneiss::engine::result::invalid_state ||
+      session.shutdown() != gneiss::engine::result::success ||
+      session.shutdown() != gneiss::engine::result::invalid_state ||
       read_trace(trace_path) != "IFUUSIISIS") {
     return 9;
   }

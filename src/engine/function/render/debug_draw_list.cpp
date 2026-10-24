@@ -9,18 +9,18 @@
 #include <cstdint>
 #include <new>
 
-namespace gneiss::engine::render {
+namespace gneiss::engine {
 
-gneiss::engine::core::result debug_draw_list::replace(std::span<const debug_line> lines) noexcept {
+gneiss::engine::result debug_draw_list::replace(std::span<const debug_line> lines) noexcept {
   constexpr std::uint32_t maximum_lines = 1024U * 1024U;
   if (lines.size() > maximum_lines) {
-    return gneiss::engine::core::result::invalid_argument;
+    return gneiss::engine::result::invalid_argument;
   }
   for (const auto& line : lines) {
     if (!std::isfinite(line.width) || line.width <= 0.0F ||
         !std::ranges::all_of(line.start, [](float value) { return std::isfinite(value); }) ||
         !std::ranges::all_of(line.end, [](float value) { return std::isfinite(value); })) {
-      return gneiss::engine::core::result::invalid_argument;
+      return gneiss::engine::result::invalid_argument;
     }
   }
   try {
@@ -29,12 +29,12 @@ gneiss::engine::core::result debug_draw_list::replace(std::span<const debug_line
       pending.assign(lines.begin(), lines.end());
     }
     lines_ = std::move(pending);
-    return gneiss::engine::core::result::success;
+    return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return gneiss::engine::result::internal;
   }
 }
 
-} // namespace gneiss::engine::render
+} // namespace gneiss::engine

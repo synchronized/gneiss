@@ -12,6 +12,8 @@
 #include <cstdio>
 #include <vector>
 
+using namespace gneiss::host;
+
 using namespace gneiss;
 
 namespace {
@@ -28,38 +30,37 @@ bool test_write_and_revision() {
   gneiss::test_support::world_owner world;
   GNEISS_TEST_CHECK(([&] {
                       const gneiss_world_desc desc = GNEISS_WORLD_DESC_INIT;
-                      return gneiss::engine::core::result{gneiss_world_create(&desc, world.put())};
-                    })() == gneiss::engine::core::result::success);
+                      return gneiss::engine::result{gneiss_world_create(&desc, world.put())};
+                    })() == gneiss::engine::result::success);
   gneiss::entity_id entity;
   GNEISS_TEST_CHECK(([&](entity_id& out_entity) {
                       gneiss_entity_id native_entity = GNEISS_NULL_ENTITY_ID;
-                      const auto native_result = gneiss::engine::core::result{
+                      const auto native_result = gneiss::engine::result{
                           gneiss_world_entity_create(world.get(), &native_entity)};
-                      if (native_result == gneiss::engine::core::result::success) {
+                      if (native_result == gneiss::engine::result::success) {
                         out_entity = entity_id{native_entity};
                       }
                       return native_result;
-                    })(entity) == gneiss::engine::core::result::success);
+                    })(entity) == gneiss::engine::result::success);
   gneiss::scene_node_id scene_node;
   GNEISS_TEST_CHECK(([&](scene_node_id parent, entity_id entity, scene_node_id& out_node) {
                       gneiss_scene_node_id native_node = GNEISS_NULL_SCENE_NODE_ID;
-                      const auto native_result =
-                          gneiss::engine::core::result{gneiss_scene_node_create(
-                              world.get(), parent.get(), entity.get(), &native_node)};
-                      if (native_result == gneiss::engine::core::result::success) {
+                      const auto native_result = gneiss::engine::result{gneiss_scene_node_create(
+                          world.get(), parent.get(), entity.get(), &native_node)};
+                      if (native_result == gneiss::engine::result::success) {
                         out_node = scene_node_id{native_node};
                       }
                       return native_result;
-                    })({}, entity, scene_node) == gneiss::engine::core::result::success);
+                    })({}, entity, scene_node) == gneiss::engine::result::success);
   const gneiss::transform identity{};
   GNEISS_TEST_CHECK(([&](scene_node_id node, const gneiss::transform& value) {
                       const auto native = to_native(value);
-                      return gneiss::engine::core::result{
+                      return gneiss::engine::result{
                           gneiss_scene_node_set_local_transform(world.get(), node.get(), &native)};
-                    })(scene_node, identity) == gneiss::engine::core::result::success);
+                    })(scene_node, identity) == gneiss::engine::result::success);
 
-  gneiss::host::runtime::runtime_scene_inspection inspection(7U);
-  const std::vector<gneiss::host::runtime::runtime_scene_source_node> nodes{
+  gneiss::host::runtime_scene_inspection inspection(7U);
+  const std::vector<gneiss::host::runtime_scene_source_node> nodes{
       {.native_node = 1U,
        .native_parent = 0U,
        .native_entity = entity.get(),
@@ -72,59 +73,58 @@ bool test_write_and_revision() {
        .camera = GNEISS_CAMERA_DESC_INIT,
        .mesh_uri = {},
        .material_uri = {}}};
-  gneiss::host::runtime::runtime_scene_snapshot snapshot;
-  GNEISS_TEST_CHECK(inspection.capture(nodes, false, snapshot) ==
-                    gneiss::engine::core::result::success);
+  gneiss::host::runtime_scene_snapshot snapshot;
+  GNEISS_TEST_CHECK(inspection.capture(nodes, false, snapshot) == gneiss::engine::result::success);
 
-  gneiss::host::runtime::runtime_property_editor editor;
+  gneiss::host::runtime_property_editor editor;
   GNEISS_TEST_CHECK(editor.initialize(world.get(), inspection, 7U) ==
-                    gneiss::engine::core::result::success);
-  const gneiss::ipc_property_write command{.session_id = 7U,
-                                           .command_id = 1U,
-                                           .object = snapshot.changes.front().id,
-                                           .type_id = gneiss_transform_type_id(),
-                                           .field_id = GNEISS_TRANSFORM_FIELD_TRANSLATION,
-                                           .expected_revision = 1U,
-                                           .value = {std::array<float, 3>{2.0F, 3.0F, 4.0F}}};
-  gneiss::ipc_property_write_result response;
-  GNEISS_TEST_CHECK(editor.execute(command, response) == gneiss::engine::core::result::success);
-  if (response.code != gneiss::engine::core::result::success.code()) {
+                    gneiss::engine::result::success);
+  const gneiss::host::ipc_property_write command{.session_id = 7U,
+                                                 .command_id = 1U,
+                                                 .object = snapshot.changes.front().id,
+                                                 .type_id = gneiss_transform_type_id(),
+                                                 .field_id = GNEISS_TRANSFORM_FIELD_TRANSLATION,
+                                                 .expected_revision = 1U,
+                                                 .value = {std::array<float, 3>{2.0F, 3.0F, 4.0F}}};
+  gneiss::host::ipc_property_write_result response;
+  GNEISS_TEST_CHECK(editor.execute(command, response) == gneiss::engine::result::success);
+  if (response.code != gneiss::engine::result::success.code()) {
     std::fprintf(stderr, "写入失败：code=%d message=%s revision=%llu\n", response.code,
                  response.message.c_str(), static_cast<unsigned long long>(response.revision));
   }
-  GNEISS_TEST_CHECK(response.code == gneiss::engine::core::result::success.code());
+  GNEISS_TEST_CHECK(response.code == gneiss::engine::result::success.code());
   GNEISS_TEST_CHECK(response.revision == 2U);
   GNEISS_TEST_CHECK(response.canonical_value.payload == command.value.payload);
   gneiss::transform transform{};
   GNEISS_TEST_CHECK(([&](entity_id entity, gneiss::transform& output) {
                       gneiss_transform native{};
                       const auto status =
-                          gneiss::engine::core::result{gneiss_world_entity_get_local_transform(
+                          gneiss::engine::result{gneiss_world_entity_get_local_transform(
                               world.get(), entity.get(), &native)};
                       if (status.ok()) {
                         output = from_native(native);
                       }
                       return status;
-                    })(entity, transform) == gneiss::engine::core::result::success);
+                    })(entity, transform) == gneiss::engine::result::success);
   GNEISS_TEST_CHECK(transform.translation[0] == 2.0F && transform.translation[1] == 3.0F &&
                     transform.translation[2] == 4.0F);
 
   auto stale = command;
   stale.command_id = 2U;
   response = {};
-  GNEISS_TEST_CHECK(editor.execute(stale, response) == gneiss::engine::core::result::success);
-  GNEISS_TEST_CHECK(response.code == gneiss::engine::core::result::invalid_state.code() &&
+  GNEISS_TEST_CHECK(editor.execute(stale, response) == gneiss::engine::result::success);
+  GNEISS_TEST_CHECK(response.code == gneiss::engine::result::invalid_state.code() &&
                     response.revision == 2U);
   GNEISS_TEST_CHECK(([&](entity_id entity, gneiss::transform& output) {
                       gneiss_transform native{};
                       const auto status =
-                          gneiss::engine::core::result{gneiss_world_entity_get_local_transform(
+                          gneiss::engine::result{gneiss_world_entity_get_local_transform(
                               world.get(), entity.get(), &native)};
                       if (status.ok()) {
                         output = from_native(native);
                       }
                       return status;
-                    })(entity, transform) == gneiss::engine::core::result::success);
+                    })(entity, transform) == gneiss::engine::result::success);
   GNEISS_TEST_CHECK(transform.translation[0] == 2.0F && transform.translation[1] == 3.0F &&
                     transform.translation[2] == 4.0F);
   return true;
@@ -134,27 +134,26 @@ bool test_rejections() {
   gneiss::test_support::world_owner world;
   GNEISS_TEST_CHECK(([&] {
                       const gneiss_world_desc desc = GNEISS_WORLD_DESC_INIT;
-                      return gneiss::engine::core::result{gneiss_world_create(&desc, world.put())};
-                    })() == gneiss::engine::core::result::success);
-  gneiss::host::runtime::runtime_scene_inspection inspection(9U);
-  gneiss::host::runtime::runtime_property_editor editor;
+                      return gneiss::engine::result{gneiss_world_create(&desc, world.put())};
+                    })() == gneiss::engine::result::success);
+  gneiss::host::runtime_scene_inspection inspection(9U);
+  gneiss::host::runtime_property_editor editor;
   GNEISS_TEST_CHECK(editor.initialize(world.get(), inspection, 9U) ==
-                    gneiss::engine::core::result::success);
-  const gneiss::ipc_property_write missing{.session_id = 9U,
-                                           .command_id = 1U,
-                                           .object = {1U, 1U},
-                                           .type_id = gneiss_transform_type_id(),
-                                           .field_id = GNEISS_TRANSFORM_FIELD_SCALE,
-                                           .expected_revision = 1U,
-                                           .value = {std::array<float, 3>{1.0F, 1.0F, 1.0F}}};
-  gneiss::ipc_property_write_result response;
-  GNEISS_TEST_CHECK(editor.execute(missing, response) == gneiss::engine::core::result::success);
-  GNEISS_TEST_CHECK(response.code == gneiss::engine::core::result::not_found.code());
+                    gneiss::engine::result::success);
+  const gneiss::host::ipc_property_write missing{.session_id = 9U,
+                                                 .command_id = 1U,
+                                                 .object = {1U, 1U},
+                                                 .type_id = gneiss_transform_type_id(),
+                                                 .field_id = GNEISS_TRANSFORM_FIELD_SCALE,
+                                                 .expected_revision = 1U,
+                                                 .value = {std::array<float, 3>{1.0F, 1.0F, 1.0F}}};
+  gneiss::host::ipc_property_write_result response;
+  GNEISS_TEST_CHECK(editor.execute(missing, response) == gneiss::engine::result::success);
+  GNEISS_TEST_CHECK(response.code == gneiss::engine::result::not_found.code());
   auto wrong_session = missing;
   wrong_session.session_id = 8U;
-  return editor.execute(wrong_session, response) == gneiss::engine::core::result::success &&
-         response.code == gneiss::engine::core::result::invalid_state.code() &&
-         response.session_id == 9U;
+  return editor.execute(wrong_session, response) == gneiss::engine::result::success &&
+         response.code == gneiss::engine::result::invalid_state.code() && response.session_id == 9U;
 }
 
 #undef GNEISS_TEST_CHECK

@@ -10,7 +10,7 @@
 #include <functional>
 #include <map>
 
-namespace gneiss::engine::scene {
+namespace gneiss::engine {
 
 struct scene_prepare_limits {
   std::size_t source_bytes{16U * 1024U * 1024U};
@@ -20,7 +20,7 @@ struct scene_prepare_limits {
 };
 
 struct prepared_prefab_description {
-  gneiss::engine::resource::prefab_description description;
+  gneiss::engine::prefab_description description;
   std::size_t maximum_depth{};
   std::vector<std::size_t> parent_first;
 };
@@ -29,10 +29,10 @@ struct prepared_prefab_description {
  * Prefab v1 不支持嵌套实例；渲染依赖的材质/纹理闭包由资产准备阶段解析。
  * source_bytes 只计原始描述；解析后的字符串与索引另占内存。 */
 struct prepared_scene_description {
-  gneiss::engine::resource::scene_description description;
+  gneiss::engine::scene_description description;
   std::vector<std::size_t> parent_first;
   std::map<std::string, prepared_prefab_description> prefabs;
-  std::vector<engine::render::render_asset_reload> assets;
+  std::vector<gneiss::engine::render_asset_reload> assets;
   std::size_t instance_nodes{};
   std::size_t source_bytes{};
 };
@@ -40,15 +40,15 @@ struct prepared_scene_description {
 /** 只读、有界 CPU 准备。支持在文件与节点边界取消，单次 JSON 解析不可抢占。
  * 完成前复读 Scene/Prefab 原始字节以检测变化；不承诺外部文件系统事务隔离。
  * 失败清空输出；取消返回 INVALID_STATE，由协调者区分取消与失败终态。 */
-[[nodiscard]] gneiss::engine::core::result prepare_scene_description(
-    const engine::resource::virtual_file_system& files, std::string_view uri,
-    prepared_scene_description& output, gneiss::engine::resource::scene_diagnostic& diagnostic,
+[[nodiscard]] gneiss::engine::result prepare_scene_description(
+    const gneiss::engine::virtual_file_system& files, std::string_view uri,
+    prepared_scene_description& output, gneiss::engine::scene_diagnostic& diagnostic,
     const std::function<bool()>& cancelled, scene_prepare_limits limits = {}) noexcept;
 
 /** 单个 Prefab 的异步 CPU 准备入口；输出只包含一个 Prefab 及其渲染依赖。 */
-[[nodiscard]] gneiss::engine::core::result prepare_prefab_description(
-    const engine::resource::virtual_file_system& files, std::string_view uri,
-    prepared_scene_description& output, gneiss::engine::resource::scene_diagnostic& diagnostic,
+[[nodiscard]] gneiss::engine::result prepare_prefab_description(
+    const gneiss::engine::virtual_file_system& files, std::string_view uri,
+    prepared_scene_description& output, gneiss::engine::scene_diagnostic& diagnostic,
     const std::function<bool()>& cancelled, scene_prepare_limits limits = {}) noexcept;
 
-} // namespace gneiss::engine::scene
+} // namespace gneiss::engine

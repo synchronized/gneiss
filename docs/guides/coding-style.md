@@ -223,9 +223,10 @@ docs/                   项目文档
 
 具体构建、测试和示例运行命令由[构建与测试指南](building.md)统一维护。
 
-## 模块命名空间迁移
+## 模块命名空间
 
-新内部代码按所属模块使用 `gneiss::engine` 领域子空间、`gneiss::runtime` 或
-`gneiss::editor`，不新增业务模块的 `xxx_internal` 命名。辅助实现使用 `detail`
-或匿名命名空间。现有 Engine 遗留命名按模块逐批迁移，避免仅为风格做无关全局替换。
-Runtime 已使用 `gneiss::runtime`，游戏上下文使用其 `game` 子空间；不提供旧名兼容别名。
+内部业务类型按架构层使用 `gneiss::engine`、`gneiss::runtime`、`gneiss::editor`、
+`gneiss::tooling`、`gneiss::host`，目录不再逐级映射为命名空间。
+单文件辅助实现使用匿名命名空间，头文件实现细节允许 `detail`。
+不保留旧领域命名空间兼容别名。目录、头文件可见性与 CMake 依赖继续约束分层。
+公共 C ABI 与 `gneiss` 下共享值类型不变。决策见 [ADR-079](../decisions/ADR-079-flat-namespaces.md)。
