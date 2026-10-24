@@ -5,8 +5,9 @@
 
 ## 公共 RID
 
-`gneiss_rid` 是 64 位不透明资源标识，`GNEISS_NULL_RID` 表示无效资源。C++ 包装 `gneiss::rid`
-提供 `is_valid()` 和 `get()`，但不拥有资源，也不会在析构时自动销毁资源。
+内部使用 `gneiss::engine::rid`，是独立定义的 64 位整数资源标识，零表示无效资源。
+它不拥有资源，也不提供编译期资源类型隔离。旧 C++ RID 包装已删除；尚未撤销的 C API
+仍使用 `gneiss_rid` 与 `GNEISS_NULL_RID`。
 
 调用方不得解析、持久化或自行构造 RID。当前内部编码包含槽位、generation、资源类型和 Service
 domain，但位布局不是公共 ABI，后续版本可以在不修改 `gneiss_rid` 类型的情况下调整。

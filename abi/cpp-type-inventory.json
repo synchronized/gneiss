@@ -331,7 +331,7 @@
         {
           "symbol": "gneiss_rid",
           "kind": "borrowed_id",
-          "cpp_mapping": "gneiss::rid",
+          "cpp_mapping": "gneiss::engine::rid（原生整数标识；不拥有资源）",
           "native_review": "implemented"
         }
       ],

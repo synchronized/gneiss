@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/math/transform.hpp"
+#include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/reflection/type_registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/world/world_reflection.hpp"
@@ -20,10 +21,8 @@
 
 namespace {
 
-constexpr gneiss_type_id transform_id{{0x69, 0x64, 0x4f, 0x20, 0xb2, 0xd2, 0x4e, 0x48, 0x8c, 0x74,
-                                       0x91, 0xf4, 0xf9, 0x52, 0xec, 0x2d}};
-constexpr gneiss_type_id camera_id{{0xd1, 0x3a, 0x72, 0xf5, 0x71, 0xed, 0x43, 0xd6, 0x98, 0x98,
-                                    0x12, 0x06, 0x3f, 0xd3, 0x71, 0x83}};
+constexpr auto transform_id = gneiss::to_native(gneiss::engine::transform_component_type);
+constexpr auto camera_id = gneiss::to_native(gneiss::engine::camera_component_type);
 constexpr gneiss_type_id vec3_id{{0x90, 0xbc, 0xc8, 0x13, 0xa5, 0x3c, 0x41, 0x96, 0xaa, 0x35, 0x93,
                                   0xf8, 0x94, 0x6e, 0x82, 0xcb}};
 constexpr gneiss_type_id quaternion_id{{0x21, 0xc1, 0x11, 0xbd, 0xd7, 0x54, 0x44, 0xf0, 0x89, 0xc1,
@@ -335,6 +334,6 @@ gneiss::engine::result create_property_registry(gneiss::engine::registry_ref& ou
   }
   return operation;
 }
-type_id transform_property_type() noexcept { return from_native(transform_type_id()); }
-type_id camera_property_type() noexcept { return from_native(camera_type_id()); }
+type_id transform_property_type() noexcept { return transform_component_type; }
+type_id camera_property_type() noexcept { return camera_component_type; }
 } // namespace gneiss::engine

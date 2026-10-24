@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "panels/runtime_panels.hpp"
+#include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/result.hpp"
 
 #include "viewport/editor_rotation_math.hpp"
@@ -48,7 +49,7 @@ runtime_property_key runtime_transform_key(const runtime_scene_node& node,
                                            gneiss_field_id field_id) {
   runtime_property_key key{
       .object = {node.id.value, node.id.generation}, .type_id = {}, .field_id = field_id};
-  const auto type_id = gneiss_transform_type_id();
+  const auto type_id = gneiss::engine::transform_component_type;
   std::ranges::copy(type_id.bytes, key.type_id.begin());
   return key;
 }

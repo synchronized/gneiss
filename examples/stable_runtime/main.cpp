@@ -3,11 +3,9 @@
 
 #include "../support/scope_exit.hpp"
 #include "engine/core/result.hpp"
-#include "engine/values/scene.hpp"
+#include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
-#include "runtime/application_bridge.hpp"
-#include <gneiss/engine/application.h>
-#include <gneiss/engine/world.h>
 
 #include <algorithm>
 #include <array>
@@ -26,7 +24,6 @@ constexpr std::uint64_t measure_warmup_frames = 60U;
 constexpr std::uint64_t measure_sample_frames = 300U;
 
 struct sample_state {
-  gneiss_world world{};
   gneiss::scene_node_id camera_node;
   gneiss::engine::action_id orbit;
   gneiss::engine::action_id quit;
@@ -84,7 +81,7 @@ gneiss::engine::result update_sample(gneiss::runtime::application& application,
   const auto yaw_half = state->angle * 0.5;
   const auto pitch_half = std::atan2(-height, radius) * 0.5;
 
-  gneiss::transform transform;
+  gneiss::engine::transform transform;
   transform.translation[0] = static_cast<float>(std::sin(state->angle) * radius);
   transform.translation[1] = static_cast<float>(height);
   transform.translation[2] = static_cast<float>(std::cos(state->angle) * radius);
@@ -92,9 +89,7 @@ gneiss::engine::result update_sample(gneiss::runtime::application& application,
   transform.rotation[1] = static_cast<float>(std::sin(yaw_half) * std::cos(pitch_half));
   transform.rotation[2] = static_cast<float>(-std::sin(yaw_half) * std::sin(pitch_half));
   transform.rotation[3] = static_cast<float>(std::cos(yaw_half) * std::cos(pitch_half));
-  const auto native = gneiss::to_native(transform);
-  return gneiss::engine::result{
-      gneiss_scene_node_set_local_transform(state->world, state->camera_node.get(), &native)};
+  return application.native_world()->node_set_local_transform(state->camera_node, transform);
 }
 
 double milliseconds(std::chrono::steady_clock::time_point begin,
@@ -131,7 +126,6 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   sample_state state;
   state.measure = measure;
   std::shared_ptr<gneiss::runtime::application> native_application;
-  gneiss::runtime::application_bridge bridge;
   gneiss::runtime::application_configuration config;
   config.use_granit_window = true;
   config.window.title = title;
@@ -141,25 +135,20 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   };
   example::scope_exit close{[&] {
     if (native_application && native_application->accepts_requests())
-      (void)native_application->shutdown(bridge.get());
+      (void)native_application->shutdown(0);
   }};
   auto create_result = gneiss::runtime::application::create(config, native_application);
-  if (create_result.ok())
-    create_result = bridge.bind(native_application);
   if (create_result.failed()) {
-    report_failure("创建 Application 或绑定兼容句柄", create_result);
+    report_failure("创建 Application", create_result);
     return 1;
   }
-  const auto application = bridge.get();
-  state.world = native_application->world();
   const auto application_ready = clock::now();
-  gneiss_scene_instance scene{};
+  gneiss::engine::rid scene{};
   example::scope_exit unload{[&] {
     if (scene)
-      (void)gneiss_scene_instance_unload(application, scene);
+      (void)native_application->scenes()->unload(scene);
   }};
-  auto result = gneiss::engine::result{
-      gneiss_scene_instance_load(application, scene_uri.data(), scene_uri.size(), &scene)};
+  auto result = gneiss::engine::result{native_application->scenes()->load(scene_uri, &scene)};
   if (result != gneiss::engine::result::success) {
     report_failure("加载场景", result);
     return 3;
@@ -178,14 +167,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
     report_failure("查找输入动作", result);
     return 5;
   }
-  result = ([&] {
-    gneiss_scene_node_id node{};
-    auto status = gneiss_scene_instance_find_node(application, scene, camera_uuid.data(),
-                                                  camera_uuid.size(), &node);
-    if (status == GNEISS_SUCCESS)
-      state.camera_node = gneiss::scene_node_id{node};
-    return gneiss::engine::result{status};
-  })();
+  result = native_application->scenes()->find_node(scene, camera_uuid, state.camera_node);
   if (result != gneiss::engine::result::success) {
     report_failure("查找 Camera", result);
     return 6;
@@ -197,15 +179,15 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   if (measure) {
     frame_count = measure_warmup_frames + measure_sample_frames;
   }
-  result = native_application->run(application, frame_count);
+  result = native_application->run(0, frame_count);
   if (result != gneiss::engine::result::success) {
     report_failure("运行主循环", result);
     return 7;
   }
   const auto run_finished = clock::now();
   result = ([&] {
-    auto status = gneiss_scene_instance_unload(application, scene);
-    if (status == GNEISS_SUCCESS)
+    auto status = native_application->scenes()->unload(scene);
+    if (status == gneiss::engine::result::success)
       scene = 0;
     return gneiss::engine::result{status};
   })();
@@ -214,14 +196,9 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
     return 8;
   }
   const auto scene_unloaded = clock::now();
-  result = native_application->shutdown(application);
+  result = native_application->shutdown(0);
   if (result.failed()) {
     report_failure("关闭 Application", result);
-    return 10;
-  }
-  result = bridge.reset();
-  if (result.failed()) {
-    report_failure("撤销 Application 兼容句柄", result);
     return 10;
   }
   native_application.reset();

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/reflection/reflection_types.hpp"
+#include "engine/values/core/result.hpp"
 #include <gneiss/engine/reflection.h>
 #include <limits>
 

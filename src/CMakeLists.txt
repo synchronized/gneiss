@@ -100,8 +100,8 @@ target_sources(
     engine/values/world.hpp
     engine/core/entity_id.hpp
     engine/core/reflection/reflection_types.hpp
+    engine/core/reflection/component_identity.hpp
     engine/values/core/result.hpp
-    engine/values/core/rid.hpp
     engine/core/scene_types.hpp
     engine/values/detail/reflection.inl
     engine/values/detail/reflection_values.hpp

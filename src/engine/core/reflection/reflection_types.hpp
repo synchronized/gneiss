@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/values/core/result.hpp"
+#include "engine/core/result.hpp"
 #include <algorithm>
 #include <array>
 #include <concepts>
@@ -135,8 +135,8 @@ struct type_info {
 /** 回调不得抛异常；user_data 必须存活到 Registry 关闭，访问器自行约定属性字符串寿命。 */
 struct property_accessor_desc {
   property_kind kind = property_kind::invalid;
-  result (*getter)(void*, property_target, property_value&) noexcept = nullptr;
-  result (*setter)(void*, property_target, const property_value&) noexcept = nullptr;
+  engine::result (*getter)(void*, property_target, property_value&) noexcept = nullptr;
+  engine::result (*setter)(void*, property_target, const property_value&) noexcept = nullptr;
   void* user_data = nullptr;
   friend bool operator==(const property_accessor_desc&,
                          const property_accessor_desc&) noexcept = default;
