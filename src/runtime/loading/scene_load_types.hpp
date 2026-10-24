@@ -10,7 +10,6 @@ namespace gneiss::runtime {
 enum class scene_load_phase : std::uint8_t {
   preparing,
   assets,
-  verifying,
   instantiating,
   ready,
   applied,
@@ -49,11 +48,6 @@ struct scene_load_completion {
   gneiss_scene_instance scene{};
   double prepare_ms{};
   double asset_prepare_ms{};
-  double verify_ms{};
-  double verify_maximum_step_ms{};
-  double verify_maximum_open_ms{};
-  double verify_maximum_read_ms{};
-  double verify_maximum_hash_ms{};
   double upload_ms{};
   double maximum_advance_ms{};
   double activation_ms{};

@@ -68,20 +68,20 @@ int main() {
   backend->second = valid;
   if (gneiss::engine::resource::load_action_map(files, "asset://input/map", map) !=
           gneiss::engine::core::result::success ||
-      backend->reads != 2)
+      backend->reads != 1)
     return 4;
-  // 长度相同、内容变化，不能只校验文件大小；失败保留调用方原映射。
+  // 本次读取完成后来源变化或后续读取失败，不触发二次读取。
   backend->reads = 0;
   backend->second.replace(backend->second.find("move"), 4, "turn");
   if (gneiss::engine::resource::load_action_map(files, "asset://input/map", map) !=
-          gneiss::engine::core::result::invalid_state ||
-      map.actions[0].name != "move")
+          gneiss::engine::core::result::success ||
+      backend->reads != 1 || map.actions[0].name != "move")
     return 5;
   backend->reads = 0;
   backend->fail_verify = true;
   if (gneiss::engine::resource::load_action_map(files, "asset://input/map", map) !=
-          gneiss::engine::core::result::io ||
-      map.actions[0].name != "move")
+          gneiss::engine::core::result::success ||
+      backend->reads != 1 || map.actions[0].name != "move")
     return 6;
   backend->reads = 0;
   backend->first.assign(gneiss::engine::resource::maximum_action_map_bytes + 1, ' ');

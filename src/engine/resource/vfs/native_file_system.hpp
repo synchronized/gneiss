@@ -21,8 +21,9 @@ public:
   /** 宿主在线程模式显式注入；挂载开始服务后不再改变。 */
   void set_async_io(std::shared_ptr<engine::platform::io::uv_file_io> files,
                     std::shared_ptr<engine::platform::io::uv_path_resolver> paths) noexcept;
-  [[nodiscard]] gneiss::engine::core::result begin_open_read_for_validation(
-      std::string_view path, std::unique_ptr<open_read_operation>& output) const noexcept override;
+  [[nodiscard]] gneiss::engine::core::result
+  begin_open_read(std::string_view path,
+                  std::unique_ptr<open_read_operation>& output) const noexcept override;
 #endif
   [[nodiscard]] gneiss::engine::core::result initialize(std::string_view root) noexcept;
   [[nodiscard]] gneiss::engine::core::result

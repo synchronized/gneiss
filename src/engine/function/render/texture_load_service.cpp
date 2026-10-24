@@ -379,7 +379,7 @@ bool texture_load_service::start_item(pending& value) {
 }
 bool texture_load_service::prepare_item_upload(pending& value) {
   if (value.cpu->documents) {
-    const auto retained = value.cpu->documents->retain_verified(value.cpu->batch);
+    const auto retained = value.cpu->documents->retain_prepared(value.cpu->batch);
     if (retained != gneiss::engine::core::result::success) {
       finish_item(retained, false);
       return false;

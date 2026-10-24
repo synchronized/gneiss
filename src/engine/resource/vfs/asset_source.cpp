@@ -15,9 +15,9 @@ gneiss::engine::core::result asset_source::advance() {
   }
   if (!started_) {
     started_ = true;
-    auto status = files_.begin_open_read_for_validation(uri_, opening_);
+    auto status = files_.begin_open_read(uri_, opening_);
     if (status == gneiss::engine::core::result::unsupported) {
-      status = files_.open_read_for_validation(uri_, source_);
+      status = files_.open_read(uri_, source_);
       if (status == gneiss::engine::core::result::unsupported) {
         return files_.read_bounded(uri_, limit_, bytes_);
       }
@@ -62,12 +62,8 @@ gneiss::engine::core::result asset_source::read_contents() {
     reading_.reset();
   }
   if (bytes_.size() == source_->size()) {
-    auto status = source_->complete_validation(engine::core::sha256(bytes_));
-    if (status != gneiss::engine::core::result::success) {
-      return status;
-    }
     closing_ = true;
-    status = source_->begin_close();
+    auto status = source_->begin_close();
     if (status == gneiss::engine::core::result::unsupported) {
       return gneiss::engine::core::result::success;
     }

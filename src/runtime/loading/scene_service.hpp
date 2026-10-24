@@ -90,8 +90,7 @@ private:
   void advance_load();
   void advance_load_impl();
   void stop_load() noexcept;
-  engine::core::tasks::submit_result submit_verification();
-  void advance_verification(load_task& value);
+  void instantiate_loaded(load_task& value);
   void finish(gneiss::engine::core::result result, scene_load_phase phase,
               std::string message = {});
   void sample_budget(scene_load_progress& value) const;

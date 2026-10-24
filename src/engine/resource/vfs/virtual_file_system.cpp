@@ -47,20 +47,6 @@ gneiss::engine::core::result virtual_file_system::identify(std::string_view uri,
     return gneiss::engine::core::result::not_found;
   }
   try {
-    asset_identity delegated;
-    const auto result =
-        selected->backend->identify_source(uri.substr(selected->point.size()), type, delegated);
-    if (result != gneiss::engine::core::result::unsupported) {
-      if (result != gneiss::engine::core::result::success) {
-        return result;
-      }
-      if (!delegated.source || delegated.type != type ||
-          validate_uri(delegated.uri) != gneiss::engine::core::result::success) {
-        return gneiss::engine::core::result::invalid_state;
-      }
-      output = std::move(delegated);
-      return gneiss::engine::core::result::success;
-    }
     asset_identity identity{.source = selected->source, .uri = std::string(uri), .type = type};
     output = std::move(identity);
     return gneiss::engine::core::result::success;
@@ -74,16 +60,6 @@ gneiss::engine::core::result virtual_file_system::identify(std::string_view uri,
 gneiss::engine::core::result
 virtual_file_system::open_read(std::string_view uri,
                                std::unique_ptr<read_source>& output) const noexcept {
-  return open_impl(uri, output, false);
-}
-gneiss::engine::core::result
-virtual_file_system::open_read_for_validation(std::string_view uri,
-                                              std::unique_ptr<read_source>& output) const noexcept {
-  return open_impl(uri, output, true);
-}
-gneiss::engine::core::result
-virtual_file_system::open_impl(std::string_view uri, std::unique_ptr<read_source>& output,
-                               bool deferred_validation) const noexcept {
   output.reset();
   if (validate_uri(uri) != gneiss::engine::core::result::success) {
     return gneiss::engine::core::result::invalid_argument;
@@ -98,14 +74,12 @@ virtual_file_system::open_impl(std::string_view uri, std::unique_ptr<read_source
   if (selected == nullptr) {
     return gneiss::engine::core::result::not_found;
   }
-  return deferred_validation
-             ? selected->backend->open_read_for_validation(uri.substr(selected->point.size()),
-                                                           output)
-             : selected->backend->open_read(uri.substr(selected->point.size()), output);
+  return selected->backend->open_read(uri.substr(selected->point.size()), output);
 }
 
-gneiss::engine::core::result virtual_file_system::begin_open_read_for_validation(
-    std::string_view uri, std::unique_ptr<open_read_operation>& output) const noexcept {
+gneiss::engine::core::result
+virtual_file_system::begin_open_read(std::string_view uri,
+                                     std::unique_ptr<open_read_operation>& output) const noexcept {
   output.reset();
   if (validate_uri(uri) != gneiss::engine::core::result::success) {
     return gneiss::engine::core::result::invalid_argument;
@@ -120,8 +94,7 @@ gneiss::engine::core::result virtual_file_system::begin_open_read_for_validation
   if (selected == nullptr) {
     return gneiss::engine::core::result::not_found;
   }
-  return selected->backend->begin_open_read_for_validation(uri.substr(selected->point.size()),
-                                                           output);
+  return selected->backend->begin_open_read(uri.substr(selected->point.size()), output);
 }
 
 gneiss::engine::core::result

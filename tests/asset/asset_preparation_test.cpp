@@ -157,9 +157,9 @@ public:
     return gneiss::engine::core::result::unsupported;
   }
   gneiss::engine::core::result
-  begin_open_read_for_validation(std::string_view /*path*/,
-                                 std::unique_ptr<gneiss::engine::resource::open_read_operation>&
-                                     output) const noexcept override {
+  begin_open_read(std::string_view /*path*/,
+                  std::unique_ptr<gneiss::engine::resource::open_read_operation>& output)
+      const noexcept override {
     output.reset();
     if (!data->deferred_open) {
       return gneiss::engine::core::result::unsupported;
@@ -228,6 +228,7 @@ bool run_preparation_case(
   backend->data->read_bytes = 0U;
   backend->data->fail = false;
   backend->data->bytes.back() = std::byte{' '};
+  const auto expected_digest = gneiss::engine::core::sha256(backend->data->bytes);
   for (unsigned step = 0U; step < 128U; ++step) {
     const auto before = backend->data->read_bytes;
     backend->data->fail = fail && step == 2U;
@@ -240,7 +241,7 @@ bool run_preparation_case(
       backend->data->bytes.back() = std::byte{'\n'};
     }
     if (complete) {
-      if (cancel || change || fail) {
+      if (cancel || fail) {
         return result == (fail ? gneiss::engine::core::result::io
                                : gneiss::engine::core::result::invalid_state) &&
                output.assets.empty();
@@ -248,8 +249,8 @@ bool run_preparation_case(
       return result == gneiss::engine::core::result::success && output.assets.size() == 1U &&
              output.assets.front().mesh.vertices.size() == 3U &&
              output.assets.front().sources.size() == 1U &&
-             output.assets.front().sources.front().digest ==
-                 gneiss::engine::core::sha256(backend->data->bytes);
+             output.assets.front().sources.front().digest == expected_digest &&
+             backend->data->read_bytes == backend->data->bytes.size();
     }
     if (result != gneiss::engine::core::result::success || !output.assets.empty()) {
       return false;
@@ -315,7 +316,7 @@ bool prefetched_preparation(bool deferred_open = false) {
       return false;
     }
   }
-  // 取消后可用同一后端重试，所有候选仍须在复验成功后一次发布。
+  // 取消后可用同一后端重试，结果在全部请求解析成功后一次输出。
   backend->data->ready = true;
   asset_preparation preparation(files, requested, {.maximum_assets = 16U, .maximum_bytes = 65536U},
                                 {});

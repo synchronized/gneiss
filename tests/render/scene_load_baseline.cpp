@@ -128,7 +128,7 @@ int main(int argc, char** argv) try {
   if (argc < 3 || argc > 6) {
     std::fprintf(stderr, "用法：scene_load_baseline <资产目录> <输出前缀> [thread|cooperative] "
                          "[initial|switch|repeat|interact|cancel-prepare|cancel-assets|cancel-gpu|"
-                         "cancel-verify|cancel-ready|failure|close] [trace]\n");
+                         "cancel-ready|failure|close] [trace]\n");
     return 2;
   }
   const bool trace_loop = argc == 6 && std::string_view(argv[5]) == "trace";
@@ -143,9 +143,9 @@ int main(int argc, char** argv) try {
   }
   const std::string_view scenario = argc >= 5 ? argv[4] : "initial";
   if (scenario != "initial" && scenario != "switch" && scenario != "repeat" &&
-      scenario != "interact" && scenario != "cancel-prepare" && scenario != "cancel-verify" &&
-      scenario != "cancel-assets" && scenario != "cancel-gpu" && scenario != "cancel-ready" &&
-      scenario != "failure" && scenario != "close") {
+      scenario != "interact" && scenario != "cancel-prepare" && scenario != "cancel-assets" &&
+      scenario != "cancel-gpu" && scenario != "cancel-ready" && scenario != "failure" &&
+      scenario != "close") {
     return 2;
   }
   // 早激活后不存在场景提交前 GPU 上传阶段；该旧场景不能再作为有效测量。
@@ -295,7 +295,8 @@ int main(int argc, char** argv) try {
   }
   std::vector<double> event_intervals;
   std::vector<double> minimized_event_intervals;
-  std::array<double, 8> phase_maximum_intervals{};
+  std::array<double, static_cast<std::size_t>(gneiss::runtime::scene_load_phase::cancelled) + 1U>
+      phase_maximum_intervals{};
   auto previous_phase = gneiss::runtime::scene_load_phase::preparing;
   double activation_elapsed_ms{};
   if (mode == "sync") {
@@ -483,7 +484,6 @@ int main(int argc, char** argv) try {
         const bool cancel_phase =
             scenario == "cancel-assets"
                 ? progress.phase == scene_load_phase::assets && progress.completed > 0U
-            : scenario == "cancel-verify" ? progress.phase == scene_load_phase::verifying
             : scenario == "cancel-gpu"
                 ? progress.gpu_in_flight
                 : scenario == "cancel-ready" && progress.phase == scene_load_phase::ready;
@@ -687,11 +687,6 @@ int main(int argc, char** argv) try {
          << ",\n  \"minimized_at_ms\": " << minimized_at_ms
          << ",\n  \"prepare_ms\": " << completion.prepare_ms
          << ",\n  \"asset_prepare_ms\": " << completion.asset_prepare_ms
-         << ",\n  \"verify_ms\": " << completion.verify_ms
-         << ",\n  \"verify_maximum_step_ms\": " << completion.verify_maximum_step_ms
-         << ",\n  \"verify_maximum_open_ms\": " << completion.verify_maximum_open_ms
-         << ",\n  \"verify_maximum_read_ms\": " << completion.verify_maximum_read_ms
-         << ",\n  \"verify_maximum_hash_ms\": " << completion.verify_maximum_hash_ms
          << ",\n  \"upload_ms\": " << completion.upload_ms
          << ",\n  \"maximum_advance_ms\": " << completion.maximum_advance_ms
          << ",\n  \"activation_ms\": " << completion.activation_ms << ",\n  \"cleanup_ms\": "
@@ -715,8 +710,7 @@ int main(int argc, char** argv) try {
                  : *std::ranges::max_element(minimized_event_intervals))
          << ",\n  \"phase_maximum_event_interval_ms\": {";
   constexpr std::array phase_names{
-      "preparing", "assets",  "verifying", "instantiating",
-      "ready",     "applied", "failed",    "cancelled",
+      "preparing", "assets", "instantiating", "ready", "applied", "failed", "cancelled",
   };
   for (std::size_t index = 0U; index < phase_names.size(); ++index) {
     if (index != 0U) {

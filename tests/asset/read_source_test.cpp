@@ -334,10 +334,9 @@ void libuv_native_reads() {
     backend->set_async_io(io, paths);
     virtual_file_system files;
     check(files.mount("asset://", backend) == gneiss::engine::core::result::success);
-    check(files.begin_open_read_for_validation("asset://../data", pending) ==
+    check(files.begin_open_read("asset://../data", pending) ==
           gneiss::engine::core::result::invalid_argument);
-    check(files.begin_open_read_for_validation("asset://data", pending) ==
-          gneiss::engine::core::result::success);
+    check(files.begin_open_read("asset://data", pending) == gneiss::engine::core::result::success);
   }
   // VFS 及后端销毁后，打开请求与读取来源仍有效。
   std::unique_ptr<read_source> source;

@@ -76,3 +76,5 @@ Reference 和实现为准。
 - [ADR-072：普通渲染资产默认逐步就绪](ADR-072-progressive-render-assets.md)
 - [ADR-073：场景结构、视觉加载与作者数据的所有权](ADR-073-scene-responsibility-ownership.md)
 - [ADR-074：内部统一使用原生结果对象](ADR-074-native-result.md)
+
+- [ADR-075：普通资源加载不再强制来源复验](ADR-075-remove-source-revalidation.md)

@@ -37,7 +37,7 @@ public:
   mutable std::size_t read_count = 0;
   mutable std::size_t range_bytes{};
   mutable unsigned full_reads{};
-  mutable bool change_full_verify{};
+  mutable bool change_on_reread{};
   gneiss::engine::core::result open_read(
       std::string_view path,
       std::unique_ptr<gneiss::engine::resource::read_source>& output) const noexcept override {
@@ -59,7 +59,7 @@ public:
         owner_.range_bytes += output.size();
         if (offset == 0U && output.size() == bytes_.size()) {
           ++owner_.full_reads;
-          if (owner_.change_full_verify && owner_.full_reads == 2U && !output.empty())
+          if (owner_.change_on_reread && owner_.full_reads > 2U && !output.empty())
             output.back() ^= std::byte{1};
         }
         return gneiss::engine::core::result::success;
@@ -229,34 +229,33 @@ void selected_variants() {
   gneiss::engine::resource::prepared_texture_data texture;
   asset_diagnostic diagnostic;
   const auto limit = built.manifest().size() + bc.size();
-  require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, limit, false, limit,
+  require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, limit, limit,
                           compressed) == gneiss::engine::core::result::success);
   require(texture.selected_variant == 0U && texture.payload.size() == bc.size() &&
           texture.profile == compressed && memory->range_bytes < binary.size() &&
           memory->read_count == 1U);
-  require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, binary.size(), true,
+  require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, binary.size(),
                           binary.size(), fallback) == gneiss::engine::core::result::success);
   require(texture.selected_variant == 1U && texture.payload.size() == rgba.size() &&
           texture.profile == fallback);
-  require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, limit, false, limit,
+  require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, limit, limit,
                           fallback) == gneiss::engine::core::result::out_of_memory &&
           texture.payload.empty());
   require(diagnostic.result == gneiss::engine::core::result::out_of_memory &&
           diagnostic.message.find("纹理准备预算不足") != std::string::npos &&
           diagnostic.message.find(std::to_string(rgba.size())) != std::string::npos &&
           diagnostic.message.find(std::to_string(limit)) != std::string::npos);
-  require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, limit, false, limit,
+  require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, limit, limit,
                           {.generation = 3U}) == gneiss::engine::core::result::unsupported &&
           texture.manifest.empty());
   // 提高额度可重试；预算拒绝不能被缓存为永久失败。
   require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, binary.size(),
-                          false, binary.size(),
-                          fallback) == gneiss::engine::core::result::success &&
+                          binary.size(), fallback) == gneiss::engine::core::result::success &&
           texture.payload.size() == rgba.size());
   // 只改选中负载，不改 Manifest，必须被内容摘要拒绝。
   memory->files["t.gneiss-texture"].back() ^= 1;
   require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, binary.size(),
-                          false, binary.size(),
+                          binary.size(),
                           fallback) == gneiss::engine::core::result::invalid_argument &&
           texture.payload.empty());
   memory->files["t.gneiss-texture"].back() ^= 1;
@@ -310,13 +309,13 @@ void selected_variants() {
               files, requests, batch, diagnostic, [] { return true; }, 1U, limit, compressed) ==
               gneiss::engine::core::result::invalid_state &&
           batch.assets.empty());
-  // 第二次完整哈希读发生在结束校验；此时文件变化必须拒绝整批。
+  // 描述和负载各扫描一次；后续整文件读取会变化，但不会再发起来源复验。
   memory->full_reads = 0U;
-  memory->change_full_verify = true;
+  memory->change_on_reread = true;
   require(prepare_render_assets(files, requests, batch, diagnostic, {}, 1U, limit, compressed) ==
-              gneiss::engine::core::result::invalid_state &&
-          batch.assets.empty());
-  memory->change_full_verify = false;
+              gneiss::engine::core::result::success &&
+          batch.assets.size() == 1U && memory->full_reads == 2U);
+  memory->change_on_reread = false;
   unsigned cancellation_checks{};
   require(prepare_render_assets(
               files, requests, batch, diagnostic, [&] { return ++cancellation_checks == 2U; }, 1U,
@@ -324,8 +323,7 @@ void selected_variants() {
           batch.assets.empty());
   // 单纹理也走通用候选入口；移动后仍保留负载与设备身份。
   require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, binary.size(),
-                          false, binary.size(),
-                          compressed) == gneiss::engine::core::result::success);
+                          binary.size(), compressed) == gneiss::engine::core::result::success);
   const auto* single_payload = texture.payload.data();
   prepared_render_asset single_prepared;
   single_prepared.source = {"asset://single.texture.json", render_asset_type::texture};
@@ -573,7 +571,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     }
 #endif
     const auto result = gneiss::engine::render::prepare_texture(file_system, uri, prepared,
-                                                                diagnostic, 1024U * 1024U, true);
+                                                                diagnostic, 1024U * 1024U);
     if (expected == gneiss::engine::core::result::unsupported) {
       if (result != expected || prepared.width != 0U || diagnostic.path != "/source" ||
           resources.live_resource_count() != before_resources || cache.size() != before_cache) {
@@ -587,7 +585,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     }
   }
   if (gneiss::engine::render::prepare_texture(file_system, "asset://textures/white.texture.json",
-                                              prepared, diagnostic, 1U, true) !=
+                                              prepared, diagnostic, 1U) !=
       gneiss::engine::core::result::invalid_argument) {
     return 41;
   }
@@ -595,9 +593,9 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   memory->change_during_check = true;
   memory->bounded_reads = 0U;
   if (gneiss::engine::render::prepare_texture(file_system, "asset://textures/white.texture.json",
-                                              prepared, diagnostic, 1024U * 1024U, true) !=
-          gneiss::engine::core::result::invalid_state ||
-      !prepared.levels.empty()) {
+                                              prepared, diagnostic, 1024U * 1024U) !=
+          gneiss::engine::core::result::success ||
+      prepared.levels.empty() || memory->bounded_reads != 2U) {
     return 42;
   }
   memory->change_during_check = false;

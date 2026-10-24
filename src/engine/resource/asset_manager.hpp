@@ -40,7 +40,7 @@ public:
   /** 显式注册 CPU 类型；首次请求后冻结注册。VFS 来源由本管理器固定持有。 */
   [[nodiscard]] gneiss::engine::core::result
   register_loader(const std::shared_ptr<const asset_loader>& loader) noexcept;
-  /** 默认复用已完成缓存；reload 重新读取并复验，在途同键请求合并。
+  /** 默认复用已完成缓存；reload 重新读取并解析，在途同键请求合并。
    * 所属线程调用；执行器须存活至 stop_resources 返回。 */
   template <typename T>
   [[nodiscard]] gneiss::engine::core::result load(std::string_view uri, asset_request<T>& output,

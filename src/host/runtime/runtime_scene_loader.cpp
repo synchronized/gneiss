@@ -14,8 +14,6 @@ ipc_scene_phase convert(::gneiss::runtime::scene_load_phase phase) {
     return ipc_scene_phase::preparing;
   case source::assets:
     return ipc_scene_phase::assets;
-  case source::verifying:
-    return ipc_scene_phase::verifying;
   case source::instantiating:
     return ipc_scene_phase::instantiating;
   case source::ready:
@@ -35,8 +33,6 @@ const char* phase_message(ipc_scene_phase phase) {
     return "正在准备场景描述";
   case ipc_scene_phase::assets:
     return "正在建立场景资源引用";
-  case ipc_scene_phase::verifying:
-    return "正在校验场景结构来源";
   case ipc_scene_phase::instantiating:
     return "正在构造候选场景";
   case ipc_scene_phase::ready:

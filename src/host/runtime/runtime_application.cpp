@@ -815,7 +815,6 @@ void write_application_log(const gneiss::engine::core::log::event_view& source,
     log.write("INFO", "scene_load", gneiss::engine::core::result::success,
               "prepare_ms=" + std::to_string(loaded.prepare_ms) +
                   " asset_prepare_ms=" + std::to_string(loaded.asset_prepare_ms) +
-                  " verify_ms=" + std::to_string(loaded.verify_ms) +
                   " activation_ms=" + std::to_string(loaded.activation_ms) + " module_rebind_ms=" +
                   std::to_string(std::chrono::duration<double, std::milli>(
                                      std::chrono::steady_clock::now() - started)

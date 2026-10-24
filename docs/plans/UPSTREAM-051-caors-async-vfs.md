@@ -32,7 +32,7 @@ CAORS 路径相对于其仓库；Gneiss 路径链接到本仓库。
 | 资源来源转发 | CAORS `resources/source.h`、`file_source`、provider | 转发异步能力，资源 Loader 不另做 URI 路由 |
 | 范围与来源寿命 | Gneiss [read_source](../../src/engine/asset/read_source.hpp) | 保留真正范围读取、已打开文件独立存活语义 |
 | 挂载身份 | Gneiss [virtual_file_system](../../src/engine/asset/virtual_file_system.hpp) | 挂载快照与来源身份稳定，不因重新挂载串用资源 |
-| 来源修订 | Gneiss [source_revision_file_system](../../src/engine/asset/source_revision_file_system.hpp) | 摘要建账和发布前复验继续属于资产层 |
+| 来源修订 | 历史方案，已撤销 | 普通加载不再强制复验，见 [ADR-075](../decisions/ADR-075-remove-source-revalidation.md) |
 | libuv 访问 | Gneiss [uv_async_file](../../src/engine/platform/io/uv/uv_async_file.hpp) | 复用底层 I/O，适配 CAORS 协议，不建立第二套 VFS |
 
 ## 目标边界

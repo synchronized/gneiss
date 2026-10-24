@@ -459,8 +459,7 @@ task_submit_lock 与 task_submit_work 区分提交取锁和锁内工作；alloca
 嵌套于 work。idle_lock 是等待前初次取锁，idle_condition 包含条件等待及其内部重新取锁。
 这些子项仍包含线程失去调度的时间，不把它们直接解释成 CPU 执行，也不重复加总。
 `task_submit_dispatch` 覆盖观测包装内的 executor.submit 调用，包含其参数迁移与返回，
-不包含进入包装前的参数构造。场景来源复验另记录 `scene_verify_submit_body` 函数体
-和其中的 `task_callback_create` 回调构造；函数入口执行前的等待仍只落在外层 `task_submit`。
+不包含进入包装前的参数构造；`task_callback_create` 记录回调构造。
 这些阶段相互嵌套，外层减去内层的差额不能直接视为锁等待或缺页耗时。
 清理计时不等同于 GPU 驱动资源已经释放；run 返回前的 finish_frames 等待及关闭不在循环体内。
 最长样本不能用于推算全量 P95。详细计时默认关闭，关闭时不读取时钟或分配每帧诊断记录；
@@ -492,8 +491,7 @@ python -X utf8 -B scripts/performance/correlate_loop_response.py `
 输出区分循环前空档、循环内部重叠与未保留时间。`total_ms` 包含 `gap_ms`，
 循环内部的结束时刻为 `start_ms + total_ms - gap_ms`。阶段耗时是整轮累计且可能嵌套，
 不能直接相加或视作探针窗口内的耗时；关联报告不代替原始门槛验收。
-场景收尾记录 `scene_verify` 与 `scene_build`，分别覆盖复验推进与同步实例化。
-同步实例化包含在完成复验的推进调用内，阶段耗时不能重复累加。
+场景收尾记录 `scene_build`，覆盖引用就绪后的同步实例化，不再执行来源复验。
 构建器创建、构建子阶段和资产服务重建计时项已删除；历史采样保留原字段。
 
 Windows 响应夹具的 `--trace` 还保留最慢 16 次 `scene` 推进回调及 `cpu_ns`。
@@ -563,7 +561,7 @@ main_thread_core_equivalent 为主线程 CPU 时间 / 进程墙钟时间，1 表
 Engine 内部采用 Granit 示例模型的移植版资产管理器，复用 Gneiss VFS 和任务执行器。
 线程池模式可使用 libuv 异步读取；协作模式由宿主推进，无异步能力的后端在执行器内有界回退。
 两种模式均不在 begin 调用中执行文件读取；回退及单项解析不承诺硬耗时上限。
-同步入口在调用线程读取与复验，不要求执行器，不递归驱动宿主队列。
+同步入口在调用线程读取与解析，不要求执行器，不递归驱动宿主队列。
 同步与异步输入均限制为 1 MiB；同步成功发布后，较早异步完成不能覆盖当前缓存。
 请求成功只表示已接受；映射采用在主循环 update 前完成。
 
@@ -574,7 +572,7 @@ ctest --test-dir build/windows-clang-debug -R '^gneiss.assets.' --output-on-fail
 ```
 
 `gneiss.assets.application` 覆盖输入应用；`gneiss.assets.manager` 覆盖请求、缓存和发布顺序；
-`gneiss.assets.material` 在原生线程配置验证来源复验与 CPU 版本租约。
+`gneiss.assets.material` 在原生线程配置验证读取后源变化不撤销已解析数据，以及 CPU 文档租约。
 旧 `GNEISS_BUILD_CAORS_PROBE` 选项已删除；CAORS 不再是构建或安装依赖。
 核心及静态 consumer 不需要 caors.dll 或 CAORS package；旧构建目录可能残留历史文件，
 以干净安装前缀验证实际分发内容。Web 浏览器 fetch 与完整 Web Editor 不因换库而自动获得支持。
@@ -621,7 +619,7 @@ Shader 工具链仍使用 Granit 自身机制，不受 Gneiss 源码离线开关
 ## CPU 资源共享
 
 材质文档与 Mesh 使用标准库只读共享引用，不继承第三方资源基类。
-Mesh 仍先读取、解析和整批复验，再移动数组到共享对象；材质保留来源身份和内容摘要索引。
+Mesh 先读取和解析，再移动数组到共享对象；材质保留来源身份和内容摘要索引。
 这些共享对象用于减少解析数据复制；运行时资源引用跟随最新成功内容，不提供固定版本采用。
 Asset Manager 不拥有 GPU、World 或编辑历史。剩余简化事项见
 [资产管理替换计划](../plans/PLAN-051-asset-manager-replacement.md)。

@@ -43,7 +43,7 @@ set(log "${GNEISS_OUTPUT}/texture-upload.log")
 file(WRITE "${log}" "")
 execute_process(COMMAND "${GNEISS_RUNTIME}" --smoke --project "${GNEISS_OUTPUT}"
   --log-file "${log}" RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error
-  # 0.44 会在候选发布前复验源文件版本；Debug 构建可能在验证阶段超过 30 秒。
+  # Debug 场景加载包含资产解析与 GPU 初始化，保留完整运行时超时预算。
   TIMEOUT 90)
 if(NOT result EQUAL 0)
   message(FATAL_ERROR "Cooked Lantern 运行失败：${output}\n${error}")

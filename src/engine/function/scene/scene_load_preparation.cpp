@@ -66,7 +66,7 @@ public:
   scene_prepare_limits limits;
   prepared_scene_description candidate;
   gneiss::engine::resource::scene_diagnostic& diagnostic;
-  std::map<std::string, std::vector<std::byte>> sources;
+  std::vector<std::byte> read_buffer;
   std::map<std::string, engine::render::render_asset_type> dependencies;
   std::map<std::string, std::size_t> scene_depths;
 
@@ -75,7 +75,7 @@ public:
       return gneiss::engine::core::result::invalid_state;
     }
     diagnostic.path = uri;
-    auto& bytes = sources[std::string(uri)];
+    auto& bytes = read_buffer;
     auto result = files.read_bounded(uri, limits.source_bytes - candidate.source_bytes, bytes);
     if (result != gneiss::engine::core::result::success) {
       return result;
@@ -196,18 +196,8 @@ public:
   }
 
   gneiss::engine::core::result finish() {
-    for (const auto& [source_uri, expected] : sources) {
-      if (cancelled && cancelled()) {
-        return gneiss::engine::core::result::invalid_state;
-      }
-      std::vector<std::byte> current;
-      if (files.read_bounded(source_uri, expected.size(), current) !=
-              gneiss::engine::core::result::success ||
-          current != expected) {
-        diagnostic.path = source_uri;
-        diagnostic.message = "Scene/Prefab 源在准备期间变化";
-        return gneiss::engine::core::result::invalid_state;
-      }
+    if (cancelled && cancelled()) {
+      return gneiss::engine::core::result::invalid_state;
     }
     for (const auto& [asset_uri, type] : dependencies) {
       candidate.assets.push_back({.uri = asset_uri, .type = type});
@@ -230,7 +220,7 @@ gneiss::engine::core::result prepare_prefab_description(
                      .limits = limits,
                      .candidate = {},
                      .diagnostic = diagnostic,
-                     .sources = {},
+                     .read_buffer = {},
                      .dependencies = {},
                      .scene_depths = {}};
     gneiss::engine::resource::prefab_instance_description instance;
@@ -263,7 +253,7 @@ gneiss::engine::core::result prepare_scene_description(
                      .limits = limits,
                      .candidate = {},
                      .diagnostic = diagnostic,
-                     .sources = {},
+                     .read_buffer = {},
                      .dependencies = {},
                      .scene_depths = {}};
     const auto result = work.run(uri);

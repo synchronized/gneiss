@@ -1254,9 +1254,6 @@ void draw_scene_loading(editor_state& state) {
   case phase::assets:
     stage = "Loading assets";
     break;
-  case phase::verifying:
-    stage = "Verifying source files";
-    break;
   case phase::instantiating:
     stage = "Building scene";
     break;

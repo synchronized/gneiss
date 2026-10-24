@@ -82,7 +82,7 @@ void run() {
   };
   check(prepare() == gneiss::engine::core::result::success);
   check(output.prefabs.size() == 1U && output.assets.size() == 2U && output.instance_nodes == 5U);
-  check(memory->reads["p.prefab"] == 2U && output.parent_first == std::vector<std::size_t>{0U});
+  check(memory->reads["p.prefab"] == 1U && output.parent_first == std::vector<std::size_t>{0U});
   const auto bytes = memory->files["main.scene"].size() + memory->files["p.prefab"].size();
   check(output.source_bytes == bytes);
   check(prepare_prefab_description(files, "asset://p.prefab", output, diagnostic, {}) ==
@@ -103,7 +103,7 @@ void run() {
   check(prepare({}, [] { return true; }) == gneiss::engine::core::result::invalid_state);
   memory->reads.clear();
   memory->change_on_verify = true;
-  check(prepare() == gneiss::engine::core::result::invalid_state && !diagnostic.message.empty());
+  check(prepare() == gneiss::engine::core::result::success && memory->reads["p.prefab"] == 1U);
   memory->change_on_verify = false;
   memory->files.erase("p.prefab");
   check(prepare() == gneiss::engine::core::result::not_found && output.prefabs.empty());

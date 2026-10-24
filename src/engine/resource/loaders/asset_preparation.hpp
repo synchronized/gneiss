@@ -32,12 +32,12 @@ struct asset_diagnostic final {
 };
 
 /** 纯 CPU 准备：不访问缓存、RID 表或 GPU；调用方拥有只读 VFS 快照及输出。
- * 有界读取需要后端支持；verify_source 拒绝准备期间变化的描述或负载，不提供跨进程事务隔离。 */
+ * 有界读取需要后端支持；读取结果按格式校验，不提供来源版本一致性保证。 */
 [[nodiscard]] gneiss::engine::core::result
 prepare_texture(const engine::resource::virtual_file_system& file_system, std::string_view uri,
                 engine::resource::prepared_texture_data& output, asset_diagnostic& diagnostic,
                 std::size_t input_limit = std::numeric_limits<std::size_t>::max(),
-                bool verify_source = false, std::size_t output_limit = 256U * 1024U * 1024U,
+                std::size_t output_limit = 256U * 1024U * 1024U,
                 texture_prepare_profile profile = {}) noexcept;
 
 enum class asset_type : std::uint32_t { invalid = 0U, mesh = 1U, material = 2U, texture = 3U };
@@ -48,7 +48,7 @@ struct asset_preparation_source final {
 };
 
 /** 准备实际读取的输入；identity.type 使用所属资产类型，区分描述与负载的 URI。
- * 仅随整批复验成功的结果发布；不是包含依赖及准备配置的完整缓存版本。 */
+ * 记录本次实际读取内容的摘要与长度；不是包含依赖及准备配置的完整缓存版本。 */
 struct prepared_source final {
   asset_identity identity;
   std::uint64_t bytes{};
@@ -63,12 +63,12 @@ struct prepared_asset {
   /** 描述在首位，纹理负载在其后；材质的资产依赖仍由 texture_uris 表示。 */
   std::vector<prepared_source> sources;
   engine::resource::mesh_data mesh;
-  /** 复验后可由 CPU 资源缓存接管数组；只读共享，不复制顶点或泄漏第三方句柄。 */
+  /** 准备后可由 CPU 资源缓存接管数组；只读共享，不复制顶点或泄漏第三方句柄。 */
   std::shared_ptr<const mesh_data> shared_mesh;
   engine::resource::prepared_texture_data texture{};
   engine::resource::material_parameters material{};
   std::array<std::string, 5> texture_uris;
-  /** 仅保活已复验 CPU 文档，不参与渲染版本选择；内部类型不泄漏第三方句柄。 */
+  /** 仅保活已解析 CPU 文档，不参与渲染版本选择；内部类型不泄漏第三方句柄。 */
   std::shared_ptr<const material_document> material_document;
   std::size_t bytes{};
 };
@@ -84,7 +84,7 @@ struct prepared_batch {
 using material_document_decoder =
     std::function<gneiss::engine::core::result(const std::vector<std::byte>&, material_parameters&,
                                                std::array<std::string, 5>&, asset_diagnostic&)>;
-/** 资产层的分步 CPU 准备；同一实例须串行推进。候选仅在全部来源复验后输出。
+/** 资产层的分步 CPU 准备；同一实例须串行推进。全部请求完成解析后输出，不重新读取来源。
  * 每步限制区间读取/摘要字节，解析仍是单项同步调用；旧整文件后端保留同步兼容行为。 */
 class asset_preparation final {
 public:

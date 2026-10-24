@@ -13,7 +13,6 @@
 #include "engine/resource/loaders/texture_container.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
 #include "engine/resource/vfs/read_slice.hpp"
-#include "engine/resource/vfs/source_revision_file_system.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
 
 #include <yyjson.h>
@@ -735,10 +734,8 @@ unsigned asset_order(asset_type type) {
 } // namespace
 
 struct asset_preparation::state {
-  enum class phase : std::uint8_t { select, description, payload, decode, verify, finished };
+  enum class phase : std::uint8_t { select, description, payload, decode, finished };
   virtual_file_system files;
-  std::shared_ptr<source_revision_file_system> versions;
-  std::unique_ptr<source_revision_file_system::verification> verification;
   std::vector<asset_preparation_source> pending;
   std::map<std::string, asset_type> seen;
   std::size_t index{};
@@ -789,7 +786,7 @@ struct asset_preparation::state {
         continue;
       }
       prefetched_input ahead;
-      const auto submitted = files.begin_open_read_for_validation(requested.uri, ahead.opening);
+      const auto submitted = files.begin_open_read(requested.uri, ahead.opening);
       if (submitted == gneiss::engine::core::result::success && ahead.opening) {
         prefetched.emplace(requested.uri, std::move(ahead));
         continue;
@@ -798,8 +795,7 @@ struct asset_preparation::state {
         // 预取失败留给正式读取报告；已接受的请求不回退同步打开。
         continue;
       }
-      if (files.open_read_for_validation(requested.uri, ahead.source) !=
-              gneiss::engine::core::result::success ||
+      if (files.open_read(requested.uri, ahead.source) != gneiss::engine::core::result::success ||
           ahead.source->size() > std::size_t{1024U} * 1024U ||
           ahead.source->size() > maximum_bytes) {
         continue;
@@ -831,7 +827,7 @@ struct asset_preparation::state {
     const auto found = prefetched.find(std::string(uri));
     if (found == prefetched.end()) {
       if (deferred_reads) {
-        opened = files.begin_open_read_for_validation(uri, opening);
+        opened = files.begin_open_read(uri, opening);
         if (opened == gneiss::engine::core::result::success) {
           return opening ? gneiss::engine::core::result::success
                          : gneiss::engine::core::result::internal;
@@ -840,7 +836,7 @@ struct asset_preparation::state {
           return opened;
         }
       }
-      opened = files.open_read_for_validation(uri, reader);
+      opened = files.open_read(uri, reader);
     } else {
       opening = std::move(found->second.opening);
       if (opening) {
@@ -856,6 +852,10 @@ struct asset_preparation::state {
       // 兼容仅提供整文件读取的自定义后端；不宣称这一回退具有分块时间上界。
       const auto loaded = files.read_bounded(uri, limit, bytes);
       read_complete = loaded == gneiss::engine::core::result::success;
+      if (read_complete) {
+        digest.update(bytes);
+        offset = bytes.size();
+      }
       return loaded;
     }
     if (opened != gneiss::engine::core::result::success) {
@@ -931,15 +931,11 @@ struct asset_preparation::state {
       if (cancelled && cancelled()) {
         return gneiss::engine::core::result::invalid_state;
       }
-      const auto checked = reader->complete_validation(digest.digest());
-      if (checked != gneiss::engine::core::result::success) {
-        return checked;
-      }
       read_complete = true;
     }
     return gneiss::engine::core::result::success;
   }
-  gneiss::engine::core::result select() {
+  gneiss::engine::core::result select(bool& complete) {
     GNEISS_PROFILE_SCOPE("asset.prepare.select");
     prefetch_descriptions();
     for (unsigned count = 0U; index < pending.size() && count < 16U; ++count) {
@@ -962,8 +958,7 @@ struct asset_preparation::state {
       return begin_read(source.uri, maximum_bytes, true);
     }
     if (index == pending.size()) {
-      step = phase::verify;
-      return versions->begin_verification(verification, deferred_reads);
+      complete = true;
     }
     return gneiss::engine::core::result::success;
   }
@@ -972,6 +967,10 @@ struct asset_preparation::state {
     const auto loaded = read_step(budget, cancelled);
     if (loaded != gneiss::engine::core::result::success || !read_complete) {
       return loaded;
+    }
+    const auto recorded = record_source(current.source.uri);
+    if (recorded.failed()) {
+      return recorded;
     }
     input->description = std::move(bytes);
     reader.reset();
@@ -997,6 +996,10 @@ struct asset_preparation::state {
     if (loaded != gneiss::engine::core::result::success || !read_complete) {
       return loaded;
     }
+    const auto recorded = record_source(input->image_uri);
+    if (recorded.failed()) {
+      return recorded;
+    }
     if (selected) {
       input->source = std::move(reader);
     } else {
@@ -1013,14 +1016,8 @@ struct asset_preparation::state {
     if (identified != gneiss::engine::core::result::success) {
       return identified;
     }
-    source_revision_file_system::source_revision revision;
-    const auto observed =
-        versions->observed_revision(uri.substr(std::string_view("asset://").size()), revision);
-    if (observed != gneiss::engine::core::result::success) {
-      return observed;
-    }
-    source.bytes = revision.bytes;
-    source.digest = revision.digest;
+    source.bytes = offset;
+    source.digest = digest.digest();
     current.sources.push_back(std::move(source));
     return gneiss::engine::core::result::success;
   }
@@ -1033,7 +1030,7 @@ struct asset_preparation::state {
       if (decoded == gneiss::engine::core::result::success) {
         decoded = prepare_texture(
             prepared, current.source.uri, current.texture, diagnostic,
-            std::min(maximum_bytes, std::size_t{64U} * 1024U * 1024U), false,
+            std::min(maximum_bytes, std::size_t{64U} * 1024U * 1024U),
             std::min(maximum_bytes - batch.bytes, std::size_t{64U} * 1024U * 1024U), profile);
       }
       current.bytes = current.texture.manifest.size() + current.texture.payload.size();
@@ -1047,16 +1044,6 @@ struct asset_preparation::state {
     }
     if (decoded != gneiss::engine::core::result::success) {
       return decoded;
-    }
-    const auto description_recorded = record_source(current.source.uri);
-    if (description_recorded != gneiss::engine::core::result::success) {
-      return description_recorded;
-    }
-    if (current.source.type == asset_type::texture) {
-      const auto payload_recorded = record_source(input->image_uri);
-      if (payload_recorded != gneiss::engine::core::result::success) {
-        return payload_recorded;
-      }
     }
     if (current.bytes > maximum_bytes - batch.bytes) {
       fail(diagnostic, gneiss::engine::core::result::out_of_memory, current.source.uri,
@@ -1075,23 +1062,13 @@ struct asset_preparation::state {
   advance_once(std::size_t& budget, const std::function<bool()>& cancelled, bool& complete) {
     switch (step) {
     case phase::select:
-      return select();
+      return select(complete);
     case phase::description:
       return read_description(budget, cancelled);
     case phase::payload:
       return read_payload(budget, cancelled);
     case phase::decode:
       return decode();
-    case phase::verify: {
-      GNEISS_PROFILE_SCOPE("asset.prepare.verify");
-      const auto checked = verification->advance(
-          budget, cancelled, complete, std::exchange(io_wait, std::chrono::milliseconds{}));
-      budget = 0U;
-      if (checked != gneiss::engine::core::result::success) {
-        fail(diagnostic, checked, "", "准备期间源变化或请求取消");
-      }
-      return checked;
-    }
     case phase::finished:
       complete = true;
       return result;
@@ -1122,8 +1099,7 @@ asset_preparation::asset_preparation(const virtual_file_system& files,
                                      material_document_decoder decode_material)
     : state_(std::make_unique<state>()) {
   auto& value = *state_;
-  value.versions = std::make_shared<source_revision_file_system>(files);
-  value.result = value.files.mount("asset://", value.versions);
+  value.files = files;
   value.pending.assign(requested.begin(), requested.end());
   value.material_bytes = budget.material_bytes;
   value.maximum_assets = budget.maximum_assets;
@@ -1183,7 +1159,6 @@ asset_preparation::advance(std::size_t byte_budget, const std::function<bool()>&
     value.reader.reset();
     value.slice = {};
     value.prefetched.clear();
-    value.verification.reset();
     std::vector<std::byte>{}.swap(value.bytes);
     value.step = state::phase::finished;
     complete = true;
@@ -1225,7 +1200,7 @@ gneiss::engine::core::result prepare_assets(const virtual_file_system& files,
 gneiss::engine::core::result
 prepare_texture(const engine::resource::virtual_file_system& file_system, std::string_view uri,
                 engine::resource::prepared_texture_data& output, asset_diagnostic& out_diagnostic,
-                std::size_t input_limit, bool verify_source, std::size_t output_limit,
+                std::size_t input_limit, std::size_t output_limit,
                 texture_prepare_profile profile) noexcept {
   output = {};
   out_diagnostic = {};
@@ -1243,22 +1218,12 @@ prepare_texture(const engine::resource::virtual_file_system& file_system, std::s
     }
     std::vector<std::byte> image_bytes;
     std::shared_ptr<engine::resource::texture_container> container;
-    std::shared_ptr<engine::resource::source_revision_file_system> revisions;
     const bool selected =
         profile.generation != 0U && std::string_view(source.uri).ends_with(".gneiss-texture");
     if (selected) {
       container = std::make_shared<engine::resource::texture_container>();
       std::unique_ptr<engine::resource::read_source> reader;
-      if (verify_source) {
-        revisions = std::make_shared<engine::resource::source_revision_file_system>(file_system);
-        engine::resource::virtual_file_system checked;
-        result = checked.mount("asset://", revisions);
-        if (result == gneiss::engine::core::result::success) {
-          result = checked.open_read(source.uri, reader);
-        }
-      } else {
-        result = file_system.open_read(source.uri, reader);
-      }
+      result = file_system.open_read(source.uri, reader);
       std::string message;
       if (result == gneiss::engine::core::result::success) {
         result = container->open(std::move(reader), std::min(input_limit, output_limit), message);
@@ -1436,21 +1401,7 @@ prepare_texture(const engine::resource::virtual_file_system& file_system, std::s
       output.levels.push_back(
           {.width = image.width, .height = image.height, .pixels = std::move(image.pixels)});
     }
-    if (verify_source) {
-      std::vector<std::byte> checked;
-      if (file_system.read_bounded(uri, input_limit, checked) !=
-              gneiss::engine::core::result::success ||
-          checked != description_bytes ||
-          (selected ? revisions->verify({}) != gneiss::engine::core::result::success
-                    : file_system.read_bounded(source.uri, input_limit, checked) !=
-                              gneiss::engine::core::result::success ||
-                          checked != image_bytes)) {
-        output = {};
-        fail(out_diagnostic, gneiss::engine::core::result::invalid_state, "/source",
-             "准备期间纹理源已变化");
-        return gneiss::engine::core::result::invalid_state;
-      }
-    }
+
     return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
     output = {};

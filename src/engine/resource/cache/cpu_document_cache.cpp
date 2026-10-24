@@ -82,7 +82,7 @@ gneiss::engine::core::result cpu_document_batch::decode(const std::vector<std::b
                       .document = std::move(document)});
   return gneiss::engine::core::result::success;
 }
-gneiss::engine::core::result cpu_document_batch::retain_verified(prepared_batch& batch) {
+gneiss::engine::core::result cpu_document_batch::retain_prepared(prepared_batch& batch) {
   for (auto& asset : batch.assets) {
     if (asset.source.type == asset_type::mesh) {
       const auto result = contents_->meshes.retain(asset);

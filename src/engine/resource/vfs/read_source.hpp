@@ -4,7 +4,6 @@
 #pragma once
 
 #include "engine/core/result.hpp"
-#include "engine/core/sha256.hpp"
 
 #include <chrono>
 #include <cstddef>
@@ -39,7 +38,7 @@ protected:
 };
 
 /** 独立拥有底层读取对象，可在创建它的 VFS 销毁后使用。
- * 同一来源允许并发读取；不保证外部文件内容不可变，版本校验由资产层负责。 */
+ * 同一来源允许并发读取；不保证外部文件内容不可变，调用方使用实际读取的数据。 */
 class read_source {
 public:
   virtual ~read_source() = default;
@@ -68,12 +67,6 @@ public:
              std::unique_ptr<read_operation>& output) const noexcept {
     output.reset();
     return gneiss::engine::core::result::unsupported;
-  }
-  /** 分步读取入口的验证回执；调用方须已完整扫描本来源并计算摘要。
-   * 版本包装登记内容身份，普通文件默认无需登记；不提供外部文件不可变保证。 */
-  [[nodiscard]] virtual gneiss::engine::core::result
-  complete_validation(const engine::core::sha256_digest& /*digest*/) const noexcept {
-    return gneiss::engine::core::result::success;
   }
 
 protected:

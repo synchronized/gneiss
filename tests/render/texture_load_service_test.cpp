@@ -167,27 +167,27 @@ void shared_mesh_documents() {
   };
   auto first = prepare(files);
   const auto* vertices = first.assets.front().mesh.vertices.data();
-  check(documents->begin()->retain_verified(first) == gneiss::engine::core::result::success);
+  check(documents->begin()->retain_prepared(first) == gneiss::engine::core::result::success);
   auto mesh = first.assets.front().shared_mesh;
   check(mesh && mesh->vertices.data() == vertices && first.assets.front().mesh.vertices.empty());
   auto second = prepare(files);
-  check(documents->begin()->retain_verified(second) == gneiss::engine::core::result::success);
+  check(documents->begin()->retain_prepared(second) == gneiss::engine::core::result::success);
   check(mesh == second.assets.front().shared_mesh);
   virtual_file_system independent;
   check(independent.mount("asset://", source) == gneiss::engine::core::result::success);
   auto isolated = prepare(independent);
-  check(documents->begin()->retain_verified(isolated) == gneiss::engine::core::result::success);
+  check(documents->begin()->retain_prepared(isolated) == gneiss::engine::core::result::success);
   check(mesh != isolated.assets.front().shared_mesh);
   auto changed_text = text;
   changed_text.replace(changed_text.find("[1,0,0]"), 7, "[2,0,0]");
   source->text("mesh", changed_text);
   auto changed = prepare(files);
-  check(documents->begin()->retain_verified(changed) == gneiss::engine::core::result::success);
+  check(documents->begin()->retain_prepared(changed) == gneiss::engine::core::result::success);
   check(changed.assets.front().shared_mesh != mesh && mesh->vertices[1].x == 1.0F);
   check(changed.assets.front().shared_mesh->vertices[1].x == 2.0F);
   auto invalid = prepare(files);
   invalid.assets.front().sources.front().identity.source.reset();
-  check(documents->begin()->retain_verified(invalid) ==
+  check(documents->begin()->retain_prepared(invalid) ==
         gneiss::engine::core::result::invalid_state);
   render_resource_service resources;
   engine::core::rid rid{};
@@ -342,18 +342,19 @@ void cooperative_read_slices() {
     const auto before = files->bytes_read->load();
     (void)scheduler.run_ready({.max_tasks = 1U});
     const auto consumed = files->bytes_read->load() - before;
-    // 验证服务真实消费量，而不是只检查预算常量；大载荷仍须完整分段准备和复验。
+    // 验证服务真实消费量，而不是只检查预算常量；大载荷仍须完整分段读取。
     check(consumed <= std::size_t{4U} * 1024U * 1024U);
     reading_tasks += consumed != 0U ? 1U : 0U;
     service.advance();
   }
-  // 两遍约 5.3 MiB 的载荷至少需要三块；相邻阶段允许共用剩余预算。
-  if (reading_tasks < 3U || completion.state != texture_load_state::applied) {
+  // 一遍约 5.3 MiB 的载荷至少需要两块；相邻阶段允许共用剩余预算。
+  if (reading_tasks < 2U || completion.state != texture_load_state::applied) {
     throw std::runtime_error("大纹理分片失败：读取任务=" + std::to_string(reading_tasks) +
                              "，结果=" + std::to_string(completion.result.code()) +
                              "，消息=" + completion.message);
   }
-  check(files->bytes_read->load() >= 2U * files->files["image.ktx2"].size());
+  check(files->bytes_read->load() ==
+        files->files["image.ktx2"].size() + files->files["large.texture.json"].size());
   check(completion.assets.size() == 1U &&
         completion.assets.front().type() == gneiss::engine::render::render_asset_type::texture &&
         cache.size() == 1U);

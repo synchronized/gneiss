@@ -24,7 +24,7 @@ private:
   struct state;
   std::shared_ptr<state> contents_;
 };
-/** 一批独占的解析输出；decode 在准备线程执行，retain_verified 在完成后由所属线程调用。
+/** 一批独占的解析输出；decode 在准备线程执行，retain_prepared 在完成后由所属线程调用。
  * 两阶段不可并发；未接管输出随批次释放，不能复制批次所有者。 */
 class cpu_document_batch final {
 public:
@@ -35,8 +35,8 @@ public:
                                       material_parameters& parameters,
                                       std::array<std::string, 5>& uris,
                                       asset_diagnostic& diagnostic);
-  /** 只接管各自来源校验成功的输出；失败项不妨碍其他项共享，不改变场景。 */
-  gneiss::engine::core::result retain_verified(prepared_batch& batch);
+  /** 只接管各自解析成功的输出；失败项不妨碍其他项共享，不改变场景。 */
+  gneiss::engine::core::result retain_prepared(prepared_batch& batch);
 
 private:
   friend class cpu_document_cache;

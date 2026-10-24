@@ -126,17 +126,21 @@ void run(std::size_t document_limit) {
         std::this_thread::sleep_for(1ms);
     }
     check(decodes == 1, "batch decodes once");
-    if (change_source || dependency_missing) {
+    if (dependency_missing) {
       check(status != gneiss::engine::core::result::success && batch.assets.empty(),
-            "unverified batch not published");
+            "failed batch not returned");
       check(current->source.parameters.color[1] == 1, "failed batch keeps old document");
     } else {
       check(status == gneiss::engine::core::result::success && batch.assets.size() == 1,
-            "verified material batch");
-      check(documents->retain_verified(batch) == gneiss::engine::core::result::success,
-            "retain verified documents");
+            "prepared material batch");
+      check(documents->retain_prepared(batch) == gneiss::engine::core::result::success,
+            "retain prepared documents");
       const auto* retained = batch.assets.front().material_document.get();
       check(retained != nullptr, "typed retained document");
+      if (change_source) {
+        check(retained->source.parameters.color[0] == 1, "retain bytes read before file change");
+        return;
+      }
       auto second = shared_documents->begin();
       std::vector<std::byte> bytes;
       check(files.read("asset://material.json", bytes) == gneiss::engine::core::result::success,
@@ -148,7 +152,7 @@ void run(std::size_t document_limit) {
             "decode second");
       auto second_batch = batch;
       second_batch.assets.front().material_document.reset();
-      check(second->retain_verified(second_batch) == gneiss::engine::core::result::success,
+      check(second->retain_prepared(second_batch) == gneiss::engine::core::result::success,
             "retain second");
       const auto* reused = second_batch.assets.front().material_document.get();
       check(reused && reused == retained, "cross batch document shared");
@@ -165,7 +169,7 @@ void run(std::size_t document_limit) {
       check(detached_first->decode(bytes, parameters, uris, diagnostic) ==
                 gneiss::engine::core::result::success,
             "decode after cache shell destruction");
-      check(detached_first->retain_verified(detached_batch) ==
+      check(detached_first->retain_prepared(detached_batch) ==
                 gneiss::engine::core::result::success,
             "retain after cache shell destruction");
       auto kept = detached_batch.assets.front().material_document;
@@ -174,7 +178,7 @@ void run(std::size_t document_limit) {
       check(detached_second->decode(bytes, parameters, uris, diagnostic) ==
                 gneiss::engine::core::result::success,
             "second detached batch decode");
-      check(detached_second->retain_verified(detached_batch) ==
+      check(detached_second->retain_prepared(detached_batch) ==
                     gneiss::engine::core::result::success &&
                 detached_batch.assets.front().material_document.get() == kept.get(),
             "detached batches share content index");

@@ -15,7 +15,7 @@ void check(bool ok, const char* message) {
     throw std::runtime_error(message);
 }
 struct counters {
-  unsigned opens{}, reads{}, closes{}, verified{};
+  unsigned opens{}, reads{}, closes{};
   std::size_t maximum{}, size{150000};
   bool short_read{};
 };
@@ -54,11 +54,6 @@ public:
     } catch (...) {
       return gneiss::engine::core::result::out_of_memory;
     }
-  }
-  gneiss::engine::core::result
-  complete_validation(const engine::core::sha256_digest&) const noexcept override {
-    ++stats_->verified;
-    return gneiss::engine::core::result::success;
   }
   gneiss::engine::core::result begin_close() const noexcept override {
     ++stats_->closes;
@@ -99,8 +94,9 @@ private:
 class files final : public file_system {
 public:
   std::shared_ptr<counters> stats = std::make_shared<counters>();
-  gneiss::engine::core::result begin_open_read_for_validation(
-      std::string_view, std::unique_ptr<open_read_operation>& output) const noexcept override {
+  gneiss::engine::core::result
+  begin_open_read(std::string_view,
+                  std::unique_ptr<open_read_operation>& output) const noexcept override {
     ++stats->opens;
     try {
       output = std::make_unique<opening>(stats);
@@ -129,9 +125,8 @@ void run() {
   asset_source operation(vfs, "asset://test", 150000);
   check(finish(operation) == gneiss::engine::core::result::success, "async source");
   check(operation.bytes().size() == 150000 && backend->stats->reads == 3 &&
-            backend->stats->maximum == 65536 && backend->stats->verified == 1 &&
-            backend->stats->closes == 1,
-        "bounded chunks, verification and close");
+            backend->stats->maximum == 65536 && backend->stats->closes == 1,
+        "bounded chunks and close");
   asset_source oversized(vfs, "asset://test", 149999);
   check(finish(oversized) == gneiss::engine::core::result::invalid_argument &&
             backend->stats->reads == 3,

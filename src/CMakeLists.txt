@@ -59,8 +59,6 @@ target_sources(
     runtime/application.cpp
     runtime/application.hpp
     runtime/configuration/application_configuration.hpp
-    engine/resource/vfs/source_revision_file_system.cpp
-    engine/resource/vfs/source_revision_file_system.hpp
     engine/resource/vfs/asset_uri.cpp
     engine/resource/vfs/asset_uri.hpp
     engine/resource/types/asset_identity.hpp

@@ -12,8 +12,9 @@
 
 namespace gneiss {
 namespace {
-constexpr std::array<std::string_view, 8U> phases{
-    "preparing", "assets", "verifying", "instantiating", "ready", "applied", "failed", "cancelled",
+constexpr std::array<std::string_view, static_cast<std::size_t>(ipc_scene_phase::cancelled) + 1U>
+    phases{
+        "preparing", "assets", "instantiating", "ready", "applied", "failed", "cancelled",
 };
 bool read_budget(yyjson_val* budget, ipc_scene_budget& parsed) {
   if (!yyjson_is_obj(budget)) {

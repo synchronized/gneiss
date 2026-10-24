@@ -17,6 +17,9 @@ foreach(source IN LISTS sources)
   if(content MATCHES "#[ \t]*include[ \t]*[<\"]caors/|::caors::")
     message(FATAL_ERROR "CAORS 已移除；资源使用普通 CPU 类型和宿主执行器：${source}")
   endif()
+  if(content MATCHES "source_revision_file_system|open_read_for_validation|complete_validation")
+    message(FATAL_ERROR "普通资源读取不得恢复来源账本或验证回执，请使用 open_read/begin_open_read：${source}")
+  endif()
   # 普通内部操作只使用原生结果；C ABI 与测试夹具保留显式边界。
   if(NOT source MATCHES "/(api|tests)/" AND
       content MATCHES "gneiss::result([^a-zA-Z0-9_]|$)|(^|[^a-zA-Z0-9_])gneiss_result([^a-zA-Z0-9_]|$)|GNEISS_(SUCCESS|ERROR_[A-Z_]+)")

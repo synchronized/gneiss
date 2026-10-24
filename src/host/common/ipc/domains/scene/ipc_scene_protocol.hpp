@@ -16,7 +16,6 @@ enum class ipc_scene_operation : std::uint16_t { load = 1U, cancel = 2U, progres
 enum class ipc_scene_phase : std::uint8_t {
   preparing,
   assets,
-  verifying,
   instantiating,
   ready,
   applied,

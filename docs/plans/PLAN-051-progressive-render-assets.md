@@ -79,7 +79,7 @@ RID 被销毁或任务序号过期时，结果只清理，不恢复资源。无�
 | prepare_edit_assets/accept_edit_assets 的固定版本职责 | application、内部宿主适配、editor_asset_edit、editor_prefab_edit | 请求资源与提交作者命令分开；命令成功不再提交缓存选择 |
 | 回执 versions、prepared_asset.version/texture_versions 与传递版本编码 | texture_load_completion、asset_preparation、asset_identity | 逐项结果、稳定身份和任务序号；删除运行期版本链 |
 | 批次全部复验后才保留的 CPU 文档批次流程 | cpu_document_batch/retain_verified、材质描述租约 | 评估保留按内容共享解析结果的最小缓存，移除整批采用前提；不新建第二份共享数据 |
-| 全场景视觉来源快照与整批复验 | scene_load_service/source_revision_file_system 调用处 | 结构读取校验与各资源读取完整性分别处理；检查其他调用者后再删通用工具 |
+| 全场景来源快照与整批复验 | 已移除 | 见[移除来源复验计划](PLAN-051-remove-source-revalidation.md)；保留格式与负载完整性校验 |
 | 普通批次回滚、全局缓存 revision 冲突拒绝 | texture_load_service | 每资源最新请求胜出，未采用上传数据安全清理，已成功资源不撤回 |
 
 删除 asset_version_key 前搜索全部用途；离线产物复用若需要摘要，仅保留明确的内容缓存键，

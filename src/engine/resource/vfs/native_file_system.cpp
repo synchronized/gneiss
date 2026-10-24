@@ -446,8 +446,9 @@ void native_file_system::set_async_io(
   async_files_ = std::move(files);
   async_paths_ = std::move(paths);
 }
-gneiss::engine::core::result native_file_system::begin_open_read_for_validation(
-    std::string_view path, std::unique_ptr<open_read_operation>& output) const noexcept {
+gneiss::engine::core::result
+native_file_system::begin_open_read(std::string_view path,
+                                    std::unique_ptr<open_read_operation>& output) const noexcept {
   output.reset();
   if (!async_files_ || !async_paths_) {
     return gneiss::engine::core::result::unsupported;

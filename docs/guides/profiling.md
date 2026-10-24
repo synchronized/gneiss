@@ -59,17 +59,15 @@ tracy-csvexport.exe -u capture.tracy > zones.csv
 | `application.render.submit` | CPU 渲染准备与提交，不是 GPU 执行耗时 |
 | `application.idle_wait` | 主循环主动等待进展 |
 | `application.idle_lock` / `application.idle_condition` | 等待前首次取锁 / 条件变量等待（包含唤醒后重新取锁） |
-| `scene.advance` / `scene.verify.submit` / `scene.verify.step` | 场景推进 / 复验提交 / 复验任务体 |
+| `scene.advance` | 场景推进 |
 | `scene.build.step` / `asset.advance` | 节点构建步骤 / 资产与上传推进 |
-| `scene.builder.create` / `scene.assets.reset` | 复验完成后创建构建器 / 切换资产服务，包含辅助函数入口 |
 | `scene.description.move` / `scene.instance.allocate` / `scene.instance.initialize` | 构建器内部的描述移动 / 实例分配 / 实例初始化 |
 | `asset.prepare.step` / `asset.prepare.destroy` | 后台资产准备任务体 / 完成后销毁准备状态 |
 | `asset.prepare.select` / `asset.prepare.prefetch` / `asset.prepare.open` | 选取资产 / 描述预读 / 建立读取及分配缓冲 |
 | `asset.prepare.read` / `asset.prepare.read_slice` | 分块读取与验证 / 消费读取请求（含发起、等待或同步回退） |
 | `asset.prepare.copy` / `asset.prepare.hash` | 保留输入副本 / 分块摘要更新 |
-| `asset.prepare.decode` / `asset.prepare.verify` | 解析或解码并汇入批次 / 来源复验 |
+| `asset.prepare.decode` | 解析或解码并汇入批次 |
 | `asset.prepare.publish` / `asset.prepare.cleanup` | 排序并移交准备结果 / 清理准备状态 |
-| `asset.verify.open` / `asset.verify.read_next` / `asset.verify.hash` | 来源复验的打开 / 分块读取与验证 / 摘要更新 |
 | `asset.io.open` / `asset.io.begin_read` / `asset.io.reopen` | Windows 原生文件打开 / 创建异步读取 / 首次重开异步句柄 |
 | `asset.io.create_file` / `asset.io.file_size` | 原生打开中的 CreateFileW / GetFileSizeEx，父区域保留入口及分段外耗时 |
 | `asset.fs.open_read` / `asset.fs.canonical` / `asset.fs.file_type` / `asset.fs.relative` | 原生 VFS 打开完整入口 / 规范化路径 / 检查文件类型 / 计算相对路径 |

@@ -788,7 +788,6 @@ add_executable(gneiss_render_asset_preparation_test
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_container.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/source_revision_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/png_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
@@ -817,7 +816,6 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/asset_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_container.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/source_revision_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/png_decoder.cpp"
@@ -849,7 +847,6 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/asset_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_container.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/source_revision_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/png_decoder.cpp"
@@ -966,7 +963,6 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/asset_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_container.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/source_revision_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/prefab_asset_loader.cpp"
@@ -1080,20 +1076,6 @@ if(PROJECT_IS_TOP_LEVEL AND GNEISS_ENABLE_GRANIT_PLATFORM)
   )
   set_tests_properties(gneiss.installed_stable_runtime_consumer PROPERTIES TIMEOUT 120)
 endif()
-
-add_executable(gneiss_source_revision_test
-  asset/source_revision_file_system_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/source_revision_file_system.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
-)
-target_include_directories(gneiss_source_revision_test PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include")
-target_compile_features(gneiss_source_revision_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_source_revision_test)
-gneiss_target_output_directories(gneiss_source_revision_test)
-add_test(NAME gneiss.source-revision COMMAND gneiss_source_revision_test)
-target_compile_definitions(gneiss_source_revision_test PRIVATE GNEISS_BUILDING_LIBRARY)
 
 add_test(NAME gneiss.core-boundary
   COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
