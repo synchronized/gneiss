@@ -74,7 +74,6 @@ target_sources(
     engine/core/traits/type_name.hpp
     engine/core/traits/type_identity.hpp
     engine/core/result.hpp
-    engine/api/result_conversion.hpp
     engine/core/version.hpp
 
     engine/core/entity_id.hpp
@@ -87,9 +86,6 @@ target_sources(
     engine/core/detail/canonical_type_name.hpp
     engine/core/result.cpp
     engine/core/version.cpp
-    runtime/api/game_module_api.cpp
-    runtime/game/game_context.cpp
-    runtime/game/game_context_internal.hpp
     engine/function/input/input_service.cpp
     engine/core/input/input_types.hpp
     engine/function/input/input_service.hpp
@@ -97,7 +93,6 @@ target_sources(
     engine/resource/types/action_map.cpp
     engine/resource/loaders/action_map_parser.cpp
     engine/resource/types/action_map.hpp
-    engine/api/log_validation.hpp
     engine/core/log/log.hpp
     engine/core/log/log.cpp
     engine/core/log/log_dispatcher.cpp
@@ -171,10 +166,6 @@ target_sources(
     BASE_DIRS
       "${PROJECT_SOURCE_DIR}/include"
     FILES
-      "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module_types.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/entity.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/export.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/result.h"
 )

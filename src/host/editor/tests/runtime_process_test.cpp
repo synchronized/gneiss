@@ -523,63 +523,6 @@ int main() try {
     return 11;
   }
 
-  gneiss::host::project_description module_project;
-  module_project.project_root = request.project_root;
-  module_project.game_module.name = "test_game";
-  module_project.game_module.profiles[0].directory = "modules";
-  module_project.game_module.profiles[0].configure_preset = "game-debug-configure";
-  module_project.game_module.profiles[0].build_preset = "game-debug";
-  module_project.game_module.build_target = "build-fail";
-  if (process.build_and_start(GNEISS_TEST_CHILD_PROCESS, executable, request, module_project) !=
-          gneiss::engine::result::success ||
-      !process.is_building()) {
-    return 12;
-  }
-  const auto build_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  while (process.is_building() && std::chrono::steady_clock::now() < build_deadline) {
-    process.update();
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
-  }
-  process.update();
-  if (process.is_busy() || process.last_result() != gneiss::engine::result::dependency_failed ||
-      process.output().find("fixture build failed") == std::string::npos ||
-      process.output().find("未启动 Runtime") == std::string::npos) {
-    return 13;
-  }
-
-  std::filesystem::remove_all(invalid_project.root / "assets", error);
-  std::filesystem::copy(std::filesystem::path{GNEISS_TEST_PROJECT_ROOT} / "assets",
-                        invalid_project.root / "assets", std::filesystem::copy_options::recursive,
-                        error);
-  project_file.open(invalid_project.root / "gneiss.project.json",
-                    std::ios::binary | std::ios::trunc);
-  project_file << R"({
-  "format": "gneiss.project",
-  "version": 1,
-  "name": "Build Success Project",
-  "asset_root": "assets",
-  "startup_scene": "asset://scenes/main.scene.json"
-})";
-  project_file.close();
-  module_project.project_root = invalid_project.root;
-  module_project.game_module.build_target = "build-success";
-  invalid_request.project_root = invalid_project.root;
-  if (error || !project_file ||
-      process.build_and_start(GNEISS_TEST_CHILD_PROCESS, executable, invalid_request,
-                              module_project) != gneiss::engine::result::success) {
-    return 14;
-  }
-  const auto build_success_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  while (std::chrono::steady_clock::now() < build_success_deadline &&
-         process.output().find("Runtime 已进入首帧") == std::string::npos && process.is_busy()) {
-    process.update();
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
-  }
-  if (!process.is_running() || process.output().find("游戏模块构建完成") == std::string::npos ||
-      process.output().find("Runtime 已进入首帧") == std::string::npos ||
-      process.request_stop() != gneiss::engine::result::success) {
-    return 15;
-  }
   return 0;
 } catch (...) {
   return 99;

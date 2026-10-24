@@ -29,7 +29,6 @@ namespace gneiss::host {
 
 struct runtime_process::implementation final {
   gneiss::engine::child_process process;
-  gneiss::engine::child_process build_process;
   gneiss::editor::console_model console;
   gneiss::editor::runtime_scene_mirror scene_mirror;
   gneiss::editor::runtime_property_edits property_edits;
@@ -41,17 +40,11 @@ struct runtime_process::implementation final {
   std::uint64_t runtime_session_id = 0U;
   bool output_finished = true;
   std::string combined_output;
-  std::filesystem::path pending_runtime;
-  std::filesystem::path pending_cmake;
-  gneiss::editor::runtime_launch_request pending_request;
-  gneiss::host::project_description pending_project;
   std::filesystem::path session_root;
   std::filesystem::path stop_file;
   std::filesystem::path log_file;
   std::chrono::steady_clock::time_point stop_deadline;
   bool forced_termination_reported = false;
-  bool is_building = false;
-  bool is_configuring = false;
   bool ipc_shutdown_complete = false;
   bool inspection_resync_pending = false;
   std::map<std::string, ipc_asset_type> known_assets;
@@ -453,10 +446,7 @@ runtime_process::~runtime_process() {
   if (!implementation_) {
     return;
   }
-  implementation_->build_process.update();
-  if (implementation_->build_process.is_running()) {
-    (void)implementation_->build_process.terminate();
-  }
+
   update();
   if (is_running()) {
     (void)request_stop();
@@ -547,62 +537,11 @@ runtime_process::start(const std::filesystem::path& executable,
   }
 }
 
-gneiss::engine::result
-runtime_process::build_and_start(const std::filesystem::path& cmake_executable,
-                                 const std::filesystem::path& runtime_executable,
-                                 const gneiss::editor::runtime_launch_request& request,
-                                 const gneiss::host::project_description& project) noexcept {
-  if (!implementation_ || is_busy() || cmake_executable.empty() || runtime_executable.empty() ||
-      request.project_root.empty() || project.game_module.name.empty()) {
-    return gneiss::engine::result::invalid_state;
-  }
-  try {
-    gneiss::engine::child_process_start_info info;
-    info.executable = cmake_executable;
-    info.working_directory = project.project_root;
-    const auto& profile = gneiss::host::game_build_profile_description_for(
-        project.game_module, gneiss::host::game_build_profile::debug);
-    info.arguments = {"--preset", profile.configure_preset,
-                      "-DCMAKE_PREFIX_PATH=" +
-                          runtime_executable.parent_path().parent_path().string()};
-    implementation_->build_process.clear_output();
-    implementation_->combined_output.clear();
-    implementation_->pending_runtime = runtime_executable;
-    implementation_->pending_cmake = cmake_executable;
-    implementation_->pending_request = request;
-    implementation_->pending_project = project;
-    const auto operation = implementation_->build_process.start(info);
-    implementation_->last_result = operation;
-    implementation_->is_building = operation == gneiss::engine::result::success;
-    implementation_->is_configuring = operation == gneiss::engine::result::success;
-    implementation_->control_state = operation == gneiss::engine::result::success
-                                         ? runtime_control_state::building
-                                         : runtime_control_state::failed;
-    if (operation == gneiss::engine::result::success) {
-      implementation_->combined_output = "[Editor] 正在配置游戏工程。\n";
-    }
-    return operation;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::result::io;
-  }
-}
-
 gneiss::engine::result runtime_process::request_stop() noexcept {
   if (!implementation_) {
     return gneiss::engine::result::not_ready;
   }
-  if (is_building()) {
-    const auto operation = implementation_->build_process.terminate();
-    implementation_->is_building = false;
-    implementation_->last_result = operation;
-    implementation_->control_state = operation == gneiss::engine::result::success
-                                         ? runtime_control_state::stopped
-                                         : runtime_control_state::failed;
-    implementation_->combined_output += "\n[Editor] 游戏模块构建已停止。\n";
-    return operation;
-  }
+
   if (!is_running()) {
     return gneiss::engine::result::not_ready;
   }
@@ -823,64 +762,7 @@ void runtime_process::update() noexcept {
   if (!implementation_) {
     return;
   }
-  if (implementation_->is_building) {
-    implementation_->build_process.update();
-    implementation_->combined_output =
-        (implementation_->is_configuring ? "[Editor] 正在配置游戏工程。\n"
-                                         : "[Editor] 正在构建游戏模块。\n") +
-        implementation_->build_process.output();
-    if (implementation_->build_process.is_running()) {
-      return;
-    }
-    implementation_->is_building = false;
-    if (implementation_->build_process.exit_code() != 0) {
-      implementation_->last_result = gneiss::engine::result::dependency_failed;
-      implementation_->control_state = runtime_control_state::failed;
-      implementation_->combined_output += implementation_->is_configuring
-                                              ? "\n[Editor] 游戏工程配置失败，未启动 Runtime。\n"
-                                              : "\n[Editor] 游戏模块构建失败，未启动 Runtime。\n";
-      implementation_->is_configuring = false;
-      return;
-    }
-    if (implementation_->is_configuring) {
-      implementation_->is_configuring = false;
-      gneiss::engine::child_process_start_info info;
-      info.executable = implementation_->pending_cmake;
-      info.working_directory = implementation_->pending_project.project_root;
-      const auto& profile = gneiss::host::game_build_profile_description_for(
-          implementation_->pending_project.game_module, gneiss::host::game_build_profile::debug);
-      info.arguments = {"--build", "--preset", profile.build_preset, "--target",
-                        implementation_->pending_project.game_module.build_target};
-      implementation_->build_process.clear_output();
-      const auto operation = implementation_->build_process.start(info);
-      implementation_->last_result = operation;
-      implementation_->is_building = operation == gneiss::engine::result::success;
-      implementation_->control_state = operation == gneiss::engine::result::success
-                                           ? runtime_control_state::building
-                                           : runtime_control_state::failed;
-      implementation_->combined_output = operation == gneiss::engine::result::success
-                                             ? "[Editor] 工程配置完成，正在构建游戏模块。\n"
-                                             : "[Editor] 工程配置完成，但构建进程启动失败。\n";
-      return;
-    }
-    std::filesystem::path module_path;
-    implementation_->last_result =
-        gneiss::host::resolve_game_module_path(implementation_->pending_project, module_path);
-    if (implementation_->last_result != gneiss::engine::result::success) {
-      implementation_->combined_output += "\n[Editor] 构建完成但模块产物验证失败。\n";
-      return;
-    }
-    const auto build_output =
-        implementation_->combined_output + "\n[Editor] 游戏模块构建完成，正在启动 Runtime。\n";
-    const auto operation =
-        start(implementation_->pending_runtime, implementation_->pending_request);
-    implementation_->combined_output = build_output;
-    implementation_->last_result = operation;
-    if (operation != gneiss::engine::result::success) {
-      implementation_->combined_output += "[Editor] Runtime 启动失败。\n";
-      return;
-    }
-  }
+
   implementation_->process.update();
   implementation_->update_ipc();
   implementation_->consume_runtime_output();
@@ -917,10 +799,8 @@ void runtime_process::update() noexcept {
 bool runtime_process::is_running() const noexcept {
   return implementation_ && implementation_->process.is_running();
 }
-bool runtime_process::is_building() const noexcept {
-  return implementation_ && implementation_->is_building;
-}
-bool runtime_process::is_busy() const noexcept { return is_building() || is_running(); }
+
+bool runtime_process::is_busy() const noexcept { return is_running(); }
 runtime_control_state runtime_process::control_state() const noexcept {
   return implementation_ ? implementation_->control_state : runtime_control_state::failed;
 }
@@ -928,8 +808,7 @@ bool runtime_process::received_shutdown_complete() const noexcept {
   return implementation_ && implementation_->ipc_shutdown_complete;
 }
 bool runtime_process::has_started() const noexcept {
-  return implementation_ &&
-         (implementation_->build_process.has_started() || implementation_->process.has_started());
+  return implementation_ && implementation_->process.has_started();
 }
 int runtime_process::exit_code() const noexcept {
   return implementation_ ? implementation_->process.exit_code() : -1;
@@ -968,7 +847,6 @@ gneiss::engine::result runtime_process::last_result() const noexcept {
 void runtime_process::clear_output() noexcept {
   if (implementation_) {
     implementation_->process.clear_output();
-    implementation_->build_process.clear_output();
     implementation_->combined_output.clear();
     implementation_->console.clear();
   }

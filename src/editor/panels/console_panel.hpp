@@ -28,7 +28,6 @@ struct console_panel_state final {
 
 /** 单次绘制借用的进程展示值；log_path 只需在绘制期间有效。 */
 struct console_runtime_view final {
-  bool building = false;
   bool running = false;
   bool started = false;
   int exit_code = 0;

@@ -17,25 +17,8 @@ namespace gneiss::host {
 
 enum class game_build_profile : std::uint8_t { debug, development, shipping };
 
-struct game_build_profile_description final {
-  std::filesystem::path directory;
-  std::string configure_preset;
-  std::string build_preset;
-};
-
-struct game_module_description final {
-  std::string name;
-  std::string build_target;
-  std::array<game_build_profile_description, 3U> profiles;
-};
-
 /** 返回构建配置的稳定小写名称。 */
 [[nodiscard]] std::string_view game_build_profile_name(game_build_profile profile) noexcept;
-
-/** 返回指定构建配置；索引由 game_build_profile 的稳定顺序定义。 */
-[[nodiscard]] const game_build_profile_description&
-game_build_profile_description_for(const game_module_description& module,
-                                   game_build_profile profile) noexcept;
 
 /** 工程环境光配置；asset 为空时使用内建中性环境。 */
 struct environment_description final {
@@ -54,7 +37,6 @@ struct project_description final {
   std::string input_map;
   environment_description environment;
   std::vector<std::string> retained_assets;
-  game_module_description game_module;
 };
 
 /** 工程加载失败阶段；用于宿主日志，不属于公共 Runtime ABI。 */
@@ -70,7 +52,6 @@ enum class project_load_stage {
   input_map,
   environment,
   asset_build,
-  game_module,
 };
 
 /** 工程加载报告；失败时保留结果、阶段和相关路径。 */
@@ -82,16 +63,6 @@ struct project_load_report final {
 
 /** 返回适合结构化日志的稳定阶段名称。 */
 [[nodiscard]] std::string_view project_load_stage_name(project_load_stage stage) noexcept;
-
-/** 将平台无关模块基名映射为工程根内的本机动态库路径，并验证已有产物。 */
-[[nodiscard]] gneiss::engine::result
-resolve_game_module_path(const project_description& project,
-                         std::filesystem::path& output) noexcept;
-
-/** 按指定构建配置解析并验证游戏模块产物。 */
-[[nodiscard]] gneiss::engine::result
-resolve_game_module_path(const project_description& project, game_build_profile profile,
-                         std::filesystem::path& output) noexcept;
 
 /** 从工程根目录加载并校验固定名称的 gneiss.project.json。 */
 [[nodiscard]] gneiss::engine::result

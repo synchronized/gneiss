@@ -26,7 +26,6 @@ namespace gneiss::host {
 
 enum class runtime_control_state : std::uint8_t {
   stopped,
-  building,
   connecting,
   running,
   paused,
@@ -65,11 +64,6 @@ public:
   [[nodiscard]] gneiss::engine::result
   start(const std::filesystem::path& executable,
         const gneiss::editor::runtime_launch_request& request) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  build_and_start(const std::filesystem::path& cmake_executable,
-                  const std::filesystem::path& runtime_executable,
-                  const gneiss::editor::runtime_launch_request& request,
-                  const gneiss::host::project_description& project) noexcept;
   [[nodiscard]] gneiss::engine::result request_stop() noexcept;
   [[nodiscard]] gneiss::engine::result request_pause() noexcept;
   [[nodiscard]] gneiss::engine::result request_resume() noexcept;
@@ -90,7 +84,6 @@ public:
   void update() noexcept;
 
   [[nodiscard]] bool is_running() const noexcept;
-  [[nodiscard]] bool is_building() const noexcept;
   [[nodiscard]] bool is_busy() const noexcept;
   [[nodiscard]] runtime_control_state control_state() const noexcept;
   [[nodiscard]] bool received_shutdown_complete() const noexcept;

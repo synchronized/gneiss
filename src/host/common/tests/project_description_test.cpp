@@ -21,13 +21,13 @@ namespace {
 }
 
 [[nodiscard]] std::string project_json(std::string_view asset_root, std::string_view startup_scene,
-                                       std::string_view game_module = {}) {
+                                       std::string_view extra_fields = {}) {
   return "{\n  \"format\": \"gneiss.project\",\n  \"version\": " +
-         std::string(game_module.empty() ? "1" : "2") +
+         std::string(extra_fields.empty() ? "1" : "2") +
          ",\n  "
          "\"name\": \"Test Project\",\n  \"asset_root\": \"" +
          std::string(asset_root) + "\",\n  \"startup_scene\": \"" + std::string(startup_scene) +
-         "\"" + std::string(game_module) + "\n}\n";
+         "\"" + std::string(extra_fields) + "\n}\n";
 }
 
 } // namespace
@@ -56,37 +56,13 @@ int main() try {
     return 2;
   }
 
-#if defined(_WIN32)
-  constexpr std::string_view module_filename = "test_game.dll";
-#elif defined(__APPLE__)
-  constexpr std::string_view module_filename = "libtest_game.dylib";
-#else
-  constexpr std::string_view module_filename = "libtest_game.so";
-#endif
-  std::filesystem::create_directories(root / "modules");
-  if (!write_text(root / "modules" / module_filename, "fixture") ||
-      !write_text(root / "assets" / "input" / "default.input-map.json", "{}") ||
-      !write_text(root / "gneiss.project.json",
-                  project_json("assets", "asset://scenes/main.scene.json",
-                               ",\n  \"input_map\": \"asset://input/default.input-map.json\","
-                               "\n  \"game_module\": {\"name\": \"test_game\", "
-                               "\"directory\": \"modules\", \"configure_preset\": "
-                               "\"game-debug-configure\", \"build_preset\": \"game-debug\", "
-                               "\"build_target\": \"test_game\"}")) ||
-      gneiss::host::load_project_description(root, project, report) !=
-          gneiss::engine::result::success ||
-      project.input_map != "asset://input/default.input-map.json" ||
-      project.game_module.name != "test_game" ||
-      project.game_module.profiles[0].configure_preset != "game-debug-configure" ||
-      project.game_module.profiles[0].build_preset != "game-debug") {
+  if (!write_text(root / "assets" / "input" / "default.input-map.json", "{}") ||
+      !write_text(
+          root / "gneiss.project.json",
+          R"({"format":"gneiss.project","version":2,"name":"Test Project","asset_root":"assets","startup_scene":"asset://scenes/main.scene.json","input_map":"asset://input/default.input-map.json"})") ||
+      gneiss::host::load_project_description(root, project, report).failed() ||
+      project.input_map != "asset://input/default.input-map.json")
     return 3;
-  }
-  std::filesystem::path module_path;
-  if (gneiss::host::resolve_game_module_path(project, module_path) !=
-          gneiss::engine::result::success ||
-      module_path.filename() != module_filename) {
-    return 3;
-  }
 
   if (!write_text(root / "assets" / "studio.gneiss-environment", "fixture") ||
       !write_text(
@@ -154,6 +130,12 @@ int main() try {
       report.context.filename() != "gneiss.project.json") {
     return 9;
   }
+  if (!write_text(root / "gneiss.project.json",
+                  R"({"format":"gneiss.project","version":2,"game_module":{}})") ||
+      gneiss::host::load_project_description(root, project, report) !=
+          gneiss::engine::result::unsupported ||
+      report.stage != gneiss::host::project_load_stage::schema)
+    return 10;
   std::filesystem::remove_all(root);
   return 0;
 } catch (...) {

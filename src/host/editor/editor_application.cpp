@@ -702,12 +702,8 @@ gneiss::engine::result launch_runtime(editor_state& state, bool save_changes) no
   if (operation == gneiss::engine::result::success) {
     gneiss::host::project_description project;
     operation = gneiss::host::load_project_description(state.project_root, project);
-    if (operation == gneiss::engine::result::success && project.game_module.name.empty()) {
+    if (operation == gneiss::engine::result::success) {
       operation = state.runtime.start(std::filesystem::path{GNEISS_EDITOR_RUNTIME_PATH}, request);
-    } else if (operation == gneiss::engine::result::success) {
-      operation = state.runtime.build_and_start(std::filesystem::path{GNEISS_EDITOR_CMAKE_PATH},
-                                                std::filesystem::path{GNEISS_EDITOR_RUNTIME_PATH},
-                                                request, project);
     }
   }
   return operation;
@@ -1887,7 +1883,6 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
 
     const auto log_path = state.runtime.log_file().generic_string();
     const gneiss::editor::console_runtime_view console_runtime{
-        .building = state.runtime.is_building(),
         .running = state.runtime.is_running(),
         .started = state.runtime.has_started(),
         .exit_code = state.runtime.exit_code(),

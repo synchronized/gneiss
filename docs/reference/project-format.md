@@ -5,7 +5,7 @@
 
 Editor 与 Runtime 宿主均以工程为启动单位。Editor 无参数启动时先显示 Project Manager；工程根目录必须
 包含固定名称的 `gneiss.project.json`。两者的 `--project` 和 Project Manager 都只接收工程根目录，
-不接受工程文件路径。无游戏模块的 v1 工程描述如下：
+不接受工程文件路径。基础 v1 工程描述如下：
 
 ```json
 {
@@ -22,7 +22,7 @@ Editor 与 Runtime 宿主均以工程为启动单位。Editor 无参数启动时
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `format` | string | 固定为 `gneiss.project` |
-| `version` | unsigned integer | `1` 为基础工程，`2` 支持游戏模块，`3` 支持环境光，`4` 支持构建配置，`5` 支持资产构建配置 |
+| `version` | unsigned integer | 接受 `1`～`5`；`3` 起支持环境光，`5` 支持资产构建配置 |
 | `name` | string | 非空工程显示名称 |
 | `asset_root` | string | 相对工程根目录的资产目录，使用正斜杠 |
 | `startup_scene` | string | Editor 首次打开且 Runtime 宿主默认运行的规范 `asset://` 场景 URI |
@@ -30,62 +30,8 @@ Editor 与 Runtime 宿主均以工程为启动单位。Editor 无参数启动时
 | `environment` | object | v3 可选；内建或已导入的工程环境光配置 |
 | `asset_build` | object | v5 必需；声明 Shipping 构建除工程入口之外仍需保留的资产 |
 
-v2 可增加原生游戏模块：
-
-```json
-{
-  "format": "gneiss.project",
-  "version": 2,
-  "name": "My Game",
-  "asset_root": "assets",
-  "startup_scene": "asset://scenes/main.scene.json",
-  "input_map": "asset://input/default.input-map.json",
-  "game_module": {
-    "name": "my_game",
-    "directory": "modules",
-    "configure_preset": "game-debug-configure",
-    "build_preset": "game-debug",
-    "build_target": "my_game"
-  }
-}
-```
-
-`game_module.name` 是平台无关基名，Runtime 在 Windows 映射为 `<name>.dll`，在 Linux 映射为
-`lib<name>.so`，在 macOS 映射为 `lib<name>.dylib`。`directory` 是工程根内的相对产物目录；路径
-解析后仍必须位于工程根内。`configure_preset`、`build_preset` 与 `build_target` 仅允许字母、数字、
-下划线和连字符，供 Editor 通过受约束的 CMake 配置与构建流程使用，不作为任意命令执行。处理期间
-Run 被锁定，可用 Stop 中止；只有配置、构建成功且模块产物仍能在工程根内解析时才会启动 Runtime，
-各阶段输出显示在同一诊断窗口。
-
-v4 使用独立构建配置代替单一模块目录和预设：
-
-```json
-"game_module": {
-  "name": "my_game",
-  "build_target": "my_game",
-  "profiles": {
-    "debug": {
-      "directory": "modules/debug",
-      "configure_preset": "game-debug-configure",
-      "build_preset": "game-debug"
-    },
-    "development": {
-      "directory": "modules/development",
-      "configure_preset": "game-development-configure",
-      "build_preset": "game-development"
-    },
-    "shipping": {
-      "directory": "modules/shipping",
-      "configure_preset": "game-shipping-configure",
-      "build_preset": "game-shipping"
-    }
-  }
-}
-```
-
-三种配置必须全部声明，目录和预设使用与 v2 相同的校验规则。独立目录防止不同配置的模块被静默
-混装。Editor Play 固定使用 Debug；发布工作流默认使用 Development，Shipping 需要显式选择。v1～v3
-工程继续加载，包含旧式 `game_module` 时仅提供 Debug 配置。
+动态 Game Module 已撤销；旧 `game_module` 字段不再支持。
+工程版本 1～5 继续用于场景、输入、环境与资产配置，不再声明模块构建预设。
 
 v5 增加资产构建配置：
 
@@ -101,17 +47,9 @@ v5 增加资产构建配置：
 Shipping 构建以 `startup_scene`、`input_map`、工程环境和 `retain` 为根，只输出其传递依赖可达的
 资产。`source/` 与 `.gneiss/` 是作者源文件和工具状态目录，不进入运行时资产包。
 
-安装版 Lantern Gallery 展示了 SDK 工程入口。首次打开前设置 `GNEISS_SDK_ROOT` 为包含 Gneiss 与
-Granit CMake package 的 SDK 前缀，并执行一次 `cmake --preset game-debug-configure`；之后 Editor 的
-Run 使用工程声明的 configure 与 build preset 构建模块。安装包同时携带预构建模块，可直接由 Runtime smoke
-验证。
-
-安装 SDK 的 `${CMAKE_INSTALL_DATADIR}/gneiss/templates/game` 是不含示例专用逻辑的最小工程模板。
-复制后可直接修改工程名、模块名和资产；其 CMake 工程只消费 `gneiss::engine` 公共 target。当前原生
-Game Module 需要 Shared Engine SDK，Static SDK 不提供跨动态库共享 Engine 状态的模块模式。
-
-`input_map` 在启动场景与 Game Module 之前加载。模块可在初始化阶段按名称取得动作；未声明时保留
-空动作映射，以兼容既有工程。
+安装版 Lantern Gallery 保留场景与渲染展示，Editor 的 Run 直接启动 Runtime。安装模板位于 `${CMAKE_INSTALL_DATADIR}/gneiss/templates/game`，
+只包含场景与资产，无模块源码或构建预设。
+`input_map` 在启动场景前加载，未声明时使用空动作映射。
 
 v3 可配置一个工程环境：
 

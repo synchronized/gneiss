@@ -8,7 +8,7 @@
 仓内使用 `gneiss::engine::library_version()` 返回运行时库版本，
 `library_version_string()` 返回静态存储的版本字符串。声明位于
 `src/engine/core/version.hpp`。构建版本头仅供内部实现与版本用例使用，不安装。
-游戏模块协议版本独立定义在 `game_module.h`，不依赖引擎构建版本。
+游戏模块协议已撤销，不再发布模块 ABI 版本。
 
 ## 结果码
 
@@ -34,9 +34,8 @@
 默认构造产生 unknown；非负值成功，负值失败，不提供隐式整数转换。
 `message()` 返回静态英文文本的 string_view，未知数值返回 `unrecognized result`。
 
-普通内部调用直接传递该值；最小游戏模块边界通过 `to_c_result` / `from_c_result`
-显式转换 C 结果码，任意整数码均无损保留。旧 `gneiss::result` 别名和通用
-`to_native` / `from_native` 转换已删除。
+普通内部调用直接传递该值；游戏模块撤销后，C 结果转换辅助也已删除。
+整数结果可通过显式构造与 code() 无损读写。旧 gneiss::result 别名不再保留。
 
 ## 内部基础身份类型
 

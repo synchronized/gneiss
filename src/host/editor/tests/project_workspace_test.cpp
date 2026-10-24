@@ -32,8 +32,7 @@ int main() try {
   if (project.name != "Sample Project" ||
       project.startup_scene != "asset://scenes/main.scene.json" ||
       !std::filesystem::is_directory(project_root / "sources") ||
-      !std::filesystem::is_regular_file(project_root / "CMakePresets.json") ||
-      !std::filesystem::is_regular_file(project_root / "game_module.cpp")) {
+      !std::filesystem::is_regular_file(project_root / "assets/scenes/main.scene.json")) {
     return 8;
   }
   static constexpr unsigned char png[] = {
@@ -53,34 +52,16 @@ int main() try {
       gneiss::engine::result::invalid_state) {
     return 9;
   }
-  std::ifstream module(project_root / "game_module.cpp", std::ios::binary);
-  const std::string module_text{std::istreambuf_iterator<char>(module),
-                                std::istreambuf_iterator<char>()};
-  module.close();
-  if (project.game_module.name != "gneiss_game" ||
-      project.game_module.profiles[0].directory != "modules/debug" ||
-      project.game_module.profiles[1].directory != "modules/development" ||
-      project.game_module.profiles[2].directory != "modules/shipping" ||
-      module_text.find("gneiss.game.sample.project") == std::string::npos ||
-      module_text.find("gneiss.template.game") != std::string::npos) {
-    return 6;
-  }
-  const auto& debug_profile = project.game_module.profiles[0];
-  std::filesystem::create_directories(project_root / debug_profile.directory);
 #if defined(_WIN32)
-  const auto module_name = "gneiss_game.dll";
   const auto runtime_name = "gneiss_runtime.exe";
   const auto dependency_name = "gneiss_engine.dll";
 #elif defined(__APPLE__)
-  const auto module_name = "libgneiss_game.dylib";
   const auto runtime_name = "gneiss_runtime";
   const auto dependency_name = "libgneiss_engine.dylib";
 #else
-  const auto module_name = "libgneiss_game.so";
   const auto runtime_name = "gneiss_runtime";
   const auto dependency_name = "libgneiss_engine.so";
 #endif
-  std::ofstream(project_root / debug_profile.directory / module_name) << "module";
   const auto runtime_root = root / "sdk" / "bin";
   std::filesystem::create_directories(runtime_root);
   std::ofstream(runtime_root / runtime_name) << "runtime";
@@ -112,7 +93,6 @@ int main() try {
       !std::filesystem::is_regular_file(package_root / "assets" / "textures" /
                                         "test.gneiss-texture") ||
       std::filesystem::exists(package_root / "assets" / "textures" / "test.png") ||
-      !std::filesystem::is_regular_file(package_root / "modules" / "debug" / module_name) ||
       !std::filesystem::is_regular_file(package_root / "bin" / runtime_name) ||
       !std::filesystem::is_regular_file(package_root / "bin" / dependency_name) ||
       !std::filesystem::is_regular_file(package_root / "run.cmd") ||
@@ -165,7 +145,6 @@ int main() try {
   if (gneiss::host::verify_package_manifest(package_root) != gneiss::engine::result::success) {
     return 12;
   }
-  std::ofstream(package_root / "modules" / "debug" / module_name, std::ios::app) << "tampered";
   if (gneiss::host::verify_package_manifest(package_root) !=
       gneiss::engine::result::dependency_failed) {
     return 13;

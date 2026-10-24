@@ -8,7 +8,7 @@
 仓内宿主使用 `src/runtime/application.hpp` 的 `gneiss::runtime::application`，
 配置为 `application_configuration`。`application::create(config, output)` 创建已初始化对象，
 通过 `std::shared_ptr` 返回；失败保留原 output，不创建 Application RID 或注册表项。
-完整 Application C API 与公共创建描述已删除。游戏模块使用独立的最小协议。
+完整 Application C API 与公共创建描述已删除。动态游戏模块也已撤销。
 
 Application 拥有 World、平台状态、资源服务及可选窗口。`native_world()` 返回借用对象，
 调用方不得销毁 Application 拥有的 World。关闭后借用 World 句柄失效。

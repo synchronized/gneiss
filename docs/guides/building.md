@@ -172,9 +172,7 @@ Gneiss 当前使用 Granit 原生 Window 后端，未接入 0.30 的可选 SDL3 
 ./build/windows-clang-release/bin/gneiss_stable_runtime_example.exe --measure
 ```
 
-安装包的独立 C++ 消费入口改为 `templates/game`，需要 Shared Engine。
-`gneiss.installed_game_module_consumer` 会将模板复制到源码树外，验证安装后的模块编译；
-不执行模块。稳定运行时样例不再提供独立 SDK Consumer 工程。
+动态模块模板编译检查已撤销；场景模板与 Runtime 的安装检查保留。
 
 `--measure` 固定执行 60 帧预热和 300 帧采样，以单行 JSON 报告各启动阶段、退出阶段及稳定帧
 的最小值、中位数、P95 和最大值。性能基线必须使用 Release 构建并重复采样；单次输出不能作为
@@ -226,7 +224,7 @@ cmake --build --preset windows-clang-debug --target gneiss_runtime
 ./build/windows-clang-debug/bin/gneiss_runtime.exe --project ./examples/editor_demo --log-file ./build/runtime.log
 ```
 
-Runtime 宿主把 Application、诊断和 Game Module 事件以 `@gneiss-log-v1 ` 加单行 JSON 写入标准
+Runtime 宿主把 Application 与诊断事件以 `@gneiss-log-v1 ` 加单行 JSON 写入标准
 输出，并把人类可读格式写入文件；创建 Application 前的启动日志和协议降级信息保持原始文本。
 Windows 默认文件为
 `%LOCALAPPDATA%/Gneiss/logs/runtime.log`；Linux 默认遵循 `$XDG_STATE_HOME`，未设置时使用
@@ -299,32 +297,19 @@ Editor Demo 会安装到 `${CMAKE_INSTALL_DATADIR}/gneiss/projects/editor-demo`�
 
 ### 从游戏工程模板开始
 
-Shared SDK 会把可复制模板安装到 `${CMAKE_INSTALL_DATADIR}/gneiss/templates/game`。复制该目录，
-设置 `GNEISS_SDK_ROOT` 为安装前缀，然后在新工程根执行：
+安装包在 `${CMAKE_INSTALL_DATADIR}/gneiss/templates/game` 提供纯场景工程模板。
+复制目录后使用安装目录的 `bin/gneiss_runtime --project <工程目录>` 运行，无需配置或编译游戏代码。
+
+安装了 Editor 的包提供 `gneiss_project`：
 
 ```powershell
-cmake --preset game-debug-configure
-cmake --build --preset game-debug
-$env:GNEISS_SDK_ROOT/bin/gneiss_runtime --project .
-```
-
-模板仅通过 `find_package(gneiss CONFIG REQUIRED)` 和 `gneiss::engine` 消费安装 SDK，并包含最小场景、
-工程描述及 Game Module 生命周期。原生 Game Module 当前要求 Shared Engine SDK；使用 Static SDK
-配置模板会被明确拒绝。CMake package 通过 `GNEISS_GAME_TEMPLATE_DIR` 暴露模板的绝对安装位置；
-完整字段见[工程文件格式](../reference/project-format.md)。
-
-安装了 Editor 的 Shared SDK 也提供 `gneiss_project`，用于创建具有独立模块 ID 的工程，并按指定
-配置完成构建和发布包生成：
-
-```powershell
-$env:GNEISS_SDK_ROOT/bin/gneiss_project create ./MyGame "My Game"
-$env:GNEISS_SDK_ROOT/bin/gneiss_project package ./MyGame `
-  $env:GNEISS_SDK_ROOT/bin/gneiss_runtime ./MyGamePackage development --zip
-$env:GNEISS_SDK_ROOT/bin/gneiss_project verify ./MyGamePackage
+<安装目录>/bin/gneiss_project create ./MyGame "My Game"
+<安装目录>/bin/gneiss_project package ./MyGame <Runtime路径> ./MyGamePackage development --zip
+<安装目录>/bin/gneiss_project verify ./MyGamePackage
 ```
 
 Windows 从 `MyGamePackage/run.cmd` 启动，Linux 从 `MyGamePackage/run.sh` 启动。可选配置为 `debug`、
-`development` 和 `shipping`，默认使用 Development。目录包只包含工程描述、所选模块、Runtime、
+`development` 和 `shipping`，默认使用 Development。目录包只包含工程描述、Runtime、
 动态依赖及资产，不包含 `sources/`、CMake 文件、构建目录或 SDK；`--zip` 同时生成确定性归档。
 
 当前宿主已提供场景会话、可选择的层级树和独立 Editor Camera。鼠标位于 Scene View 时，可以使用

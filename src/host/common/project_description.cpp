@@ -103,19 +103,6 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
   return true;
 }
 
-[[nodiscard]] bool valid_identifier(std::string_view value) noexcept {
-  if (value.empty()) {
-    return false;
-  }
-  for (const auto character : value) {
-    if (!((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
-          (character >= '0' && character <= '9') || character == '_' || character == '-')) {
-      return false;
-    }
-  }
-  return true;
-}
-
 [[nodiscard]] gneiss::engine::result fail(project_load_report& report, project_load_stage stage,
                                           gneiss::engine::result operation,
                                           const std::filesystem::path& context) noexcept {
@@ -127,21 +114,6 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
     report.context.clear();
   }
   return operation;
-}
-
-[[nodiscard]] bool read_profile(yyjson_val* profiles, const char* key,
-                                game_build_profile_description& output) {
-  auto* profile = yyjson_obj_get(profiles, key);
-  std::string directory;
-  if (!yyjson_is_obj(profile) || !read_string(profile, "directory", directory) ||
-      !read_string(profile, "configure_preset", output.configure_preset) ||
-      !read_string(profile, "build_preset", output.build_preset) ||
-      !valid_relative_directory(directory) || !valid_identifier(output.configure_preset) ||
-      !valid_identifier(output.build_preset)) {
-    return false;
-  }
-  output.directory = utf8_path(directory);
-  return true;
 }
 
 [[nodiscard]] bool read_retained_assets(yyjson_val* asset_build, std::vector<std::string>& output) {
@@ -181,12 +153,6 @@ std::string_view game_build_profile_name(game_build_profile profile) noexcept {
   return "unknown";
 }
 
-const game_build_profile_description&
-game_build_profile_description_for(const game_module_description& module,
-                                   game_build_profile profile) noexcept {
-  return module.profiles[static_cast<std::size_t>(profile)];
-}
-
 std::string_view project_load_stage_name(project_load_stage stage) noexcept {
   switch (stage) {
   case project_load_stage::none:
@@ -211,51 +177,8 @@ std::string_view project_load_stage_name(project_load_stage stage) noexcept {
     return "environment";
   case project_load_stage::asset_build:
     return "asset_build";
-  case project_load_stage::game_module:
-    return "game_module";
   }
   return "unknown";
-}
-
-gneiss::engine::result resolve_game_module_path(const project_description& project,
-                                                std::filesystem::path& output) noexcept {
-  return resolve_game_module_path(project, game_build_profile::debug, output);
-}
-
-gneiss::engine::result resolve_game_module_path(const project_description& project,
-                                                game_build_profile profile,
-                                                std::filesystem::path& output) noexcept {
-  output.clear();
-  const auto& build = game_build_profile_description_for(project.game_module, profile);
-  if (project.project_root.empty() || project.game_module.name.empty() || build.directory.empty()) {
-    return gneiss::engine::result::invalid_argument;
-  }
-  try {
-#if defined(_WIN32)
-    const auto filename = project.game_module.name + ".dll";
-#elif defined(__APPLE__)
-    const auto filename = "lib" + project.game_module.name + ".dylib";
-#elif defined(__linux__) || defined(__unix__)
-    const auto filename = "lib" + project.game_module.name + ".so";
-#else
-    return gneiss::engine::result::unsupported;
-#endif
-    std::error_code error;
-    const auto candidate =
-        std::filesystem::weakly_canonical(project.project_root / build.directory / filename, error);
-    if (error || !is_within(project.project_root, candidate)) {
-      return gneiss::engine::result::invalid_argument;
-    }
-    if (!std::filesystem::is_regular_file(candidate, error) || error) {
-      return gneiss::engine::result::not_found;
-    }
-    output = candidate;
-    return gneiss::engine::result::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::result::io;
-  }
 }
 
 gneiss::engine::result load_project_description(const std::filesystem::path& project_root,
@@ -316,6 +239,11 @@ gneiss::engine::result load_project_description(const std::filesystem::path& pro
       return fail(report, project_load_stage::schema, gneiss::engine::result::unsupported,
                   project_file);
     }
+    // 不静默忽略旧游戏逻辑声明，避免工程看似启动成功但行为缺失。
+    if (yyjson_obj_get(root, "game_module") != nullptr) {
+      return fail(report, project_load_stage::schema, gneiss::engine::result::unsupported,
+                  project_file);
+    }
     project_description pending;
     std::string asset_root_text;
     if (!read_string(root, "name", pending.name) ||
@@ -325,40 +253,6 @@ gneiss::engine::result load_project_description(const std::filesystem::path& pro
         gneiss::engine::validate_uri(pending.startup_scene) != gneiss::engine::result::success) {
       return fail(report, project_load_stage::schema, gneiss::engine::result::invalid_argument,
                   project_file);
-    }
-
-    auto* game_module = yyjson_obj_get(root, "game_module");
-    if (game_module != nullptr) {
-      if (format_version < 2U || !yyjson_is_obj(game_module) ||
-          !read_string(game_module, "name", pending.game_module.name) ||
-          !read_string(game_module, "build_target", pending.game_module.build_target) ||
-          !valid_identifier(pending.game_module.name) ||
-          !valid_identifier(pending.game_module.build_target)) {
-        return fail(report, project_load_stage::game_module,
-                    gneiss::engine::result::invalid_argument, project_file);
-      }
-      auto* profiles = yyjson_obj_get(game_module, "profiles");
-      if (profiles != nullptr) {
-        if (format_version < 4U || !yyjson_is_obj(profiles) ||
-            !read_profile(profiles, "debug", pending.game_module.profiles[0]) ||
-            !read_profile(profiles, "development", pending.game_module.profiles[1]) ||
-            !read_profile(profiles, "shipping", pending.game_module.profiles[2])) {
-          return fail(report, project_load_stage::game_module,
-                      gneiss::engine::result::invalid_argument, project_file);
-        }
-      } else {
-        std::string directory;
-        auto& debug = pending.game_module.profiles[0];
-        if (format_version >= 4U || !read_string(game_module, "directory", directory) ||
-            !read_string(game_module, "configure_preset", debug.configure_preset) ||
-            !read_string(game_module, "build_preset", debug.build_preset) ||
-            !valid_relative_directory(directory) || !valid_identifier(debug.configure_preset) ||
-            !valid_identifier(debug.build_preset)) {
-          return fail(report, project_load_stage::game_module,
-                      gneiss::engine::result::invalid_argument, project_file);
-        }
-        debug.directory = utf8_path(directory);
-      }
     }
 
     if (!read_optional_string(root, "input_map", pending.input_map) ||

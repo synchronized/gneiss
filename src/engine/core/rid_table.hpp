@@ -26,7 +26,6 @@ enum class resource_type : std::uint8_t {
   application = 5,
   scene_instance = 6,
   texture = 7,
-  game_context = 9,
 };
 
 namespace detail {

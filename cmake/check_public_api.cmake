@@ -1,15 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 cmake_minimum_required(VERSION 3.23)
-file(STRINGS "${GNEISS_SOURCE_DIR}/abi/api-stability.txt" declarations)
-set(expected)
-foreach(line IN LISTS declarations)
-  if(line MATCHES "^(gneiss_[a-zA-Z0-9_]+) ")
-    list(APPEND expected "${CMAKE_MATCH_1}")
-  endif()
-endforeach()
-list(SORT expected)
-# 游戏模块 C 定义必须集中于 API 边界，并与模块声明清单逐项一致。
 file(GLOB adapters "${GNEISS_SOURCE_DIR}/src/engine/api/*.cpp" "${GNEISS_SOURCE_DIR}/src/runtime/api/*.cpp")
 set(definitions)
 foreach(adapter IN LISTS adapters)
@@ -24,9 +15,8 @@ foreach(adapter IN LISTS adapters)
     list(APPEND definitions "${symbol}")
   endforeach()
 endforeach()
-list(SORT definitions)
-if(NOT "${definitions}" STREQUAL "${expected}")
-  message(FATAL_ERROR "engine/api 与 runtime/api 的公共定义与稳定性清单不一致")
+if(definitions)
+  message(FATAL_ERROR "已撤销公共 C API，不得新增导出：${definitions}")
 endif()
 
 set(GNEISS_REQUIRE_REVIEWED_CPP_TYPES ON)
@@ -43,19 +33,15 @@ if(value_headers)
   message(FATAL_ERROR "不得恢复公共 C++ SDK 或值头：${value_headers}")
 endif()
 
-# 安装头只允许模块协议的最小闭包，避免重新积累完整 SDK。
-set(module_headers
-  gneiss/gneiss.h
-  gneiss/engine/game_module.h
-  gneiss/engine/game_module_types.h
-  gneiss/engine/core/entity.h
+# 安装头仅保留结果码常量与符号可见性宏，避免重新积累完整 SDK。
+set(allowed_headers
   gneiss/engine/core/export.h
   gneiss/engine/core/result.h
 )
 file(GLOB_RECURSE installed_headers RELATIVE "${GNEISS_SOURCE_DIR}/include"
   "${GNEISS_SOURCE_DIR}/include/*")
-list(SORT module_headers)
+list(SORT allowed_headers)
 list(SORT installed_headers)
-if(NOT "${installed_headers}" STREQUAL "${module_headers}")
-  message(FATAL_ERROR "公共头超出最小游戏模块协议闭包：${installed_headers}")
+if(NOT "${installed_headers}" STREQUAL "${allowed_headers}")
+  message(FATAL_ERROR "公共头超出内部构建所需的基础宏定义：${installed_headers}")
 endif()

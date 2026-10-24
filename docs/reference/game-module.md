@@ -1,88 +1,11 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 Gneiss contributors -->
 
-# Game Module ABI 与生命周期
+# 游戏逻辑接入状态
 
-## 稳定性
+动态 Game Module 已撤销：不再提供模块查询入口、生命周期 C 回调、Game Context 或动态库加载。
+Runtime 当前负责场景、输入、渲染与编辑 IPC；Editor 运行直接启动 Runtime，不配置或编译游戏 DLL。
+工程模板只包含工程描述与场景资产，模块专用示例全部删除。
 
-`<gneiss/engine/game_module.h>` 提供 0.12.0 开始使用的 Experimental 原生 Game Module C ABI。该接口尚未
-进入 Stable 兼容承诺；升级 Gneiss 后应重新编译模块，并在加载时校验 ABI 版本。
-
-当前版本已实现动态库加载会话、Game Context、Runtime 帧调度及 Editor 构建工作流。v2 工程声明
-模块后，Runtime 会自动加载并调用其生命周期。
-
-原生 Game Module 必须链接 Shared `gneiss_engine`。若链接 Static Engine，Runtime 与模块会各自持有
-一份 Engine 注册状态，Game Context 等句柄不能跨越该边界；静态链接游戏需另立宿主与链接模型。
-
-Game Context 内部弱引用原生 Application，不延长父对象生命周期；每次操作期间取得临时引用。
-父对象关闭或释放后，Context 查询和日志提交返回 `GNEISS_ERROR_INVALID_HANDLE`；
-Context 仍须由创建线程销毁。Runtime 不再为模块建立完整 SDK 的 Application 兼容句柄。
-
-## 查询入口
-
-每个原生模块必须导出 `gneiss_game_module_query`。Runtime 将使用
-`GNEISS_GAME_MODULE_QUERY_SYMBOL` 查找该符号，并以
-`GNEISS_GAME_MODULE_ABI_VERSION_CURRENT` 调用。模块应在调用方提供的结构大小内填写
-`gneiss_game_module_desc`，不得保存输出指针。
-
-构建模块时定义 `GNEISS_BUILDING_GAME_MODULE`，使查询入口在 Windows 使用 `dllexport`，在支持符号
-可见性的编译器上使用默认可见性。查询入口本身由模块实现，不由 `gneiss_engine` 导出。
-
-## 描述结构
-
-`gneiss_game_module_desc` 包含：
-
-- `struct_size`：调用方可写结构大小，首版最小值为 `GNEISS_GAME_MODULE_DESC_VERSION_1_SIZE`。
-- `abi_version`：必须等于当前 Game Module ABI 版本。
-- `module_id` 与 `module_id_length`：非空 UTF-8 稳定标识；字符串由模块持有。
-- `initialize`、`fixed_update`、`update`、`shutdown`：首版全部必需。
-- `reserved`：必须清零。
-
-`gneiss_game_module_validate` 校验上述约束，不取得描述、字符串或回调所有权。校验失败返回
-`GNEISS_ERROR_INVALID_ARGUMENT`。
-
-## 生命周期与所有权
-
-Runtime 按以下顺序调用模块：
-
-1. `initialize` 借用非零 Game Context，并返回模块持有的私有状态。
-2. `fixed_update` 在主线程执行零次或多次有界固定步长更新。
-3. `update` 在主线程每帧至多执行一次。
-4. `shutdown` 在每轮初始化成功后最多调用一次；返回前销毁该轮模块私有状态。
-   Runtime 完整场景切换先关闭旧状态，激活新场景后使用新的 Game Context 再次初始化；
-   关闭失败不复用该模块会话。场景准备失败或激活前取消不会关闭活动模块。
-
-回调通过 `gneiss_result` 报告失败，异常不得穿过 C ABI。Game Context 和
-`gneiss_game_update_time` 只在当前同步调用期间借用，模块不得持久化 Engine 内部对象或后端句柄。
-
-Runtime 更新调度默认使用约 60 Hz 固定步长，单帧最多接受 250 ms 并最多执行 8 次固定更新。超过
-追赶上限的完整固定步长积压会被丢弃并形成诊断数据，避免长帧造成无限追赶。固定更新失败时当帧
-不再执行逐帧更新；逐帧更新每个 Application 帧最多调用一次，暂停帧仍以零 `delta_ns` 调用。
-
-## 头文件边界
-
-`game_module.h` 只引入 `game_module_types.h`、实体标识、结果码与导出宏，
-不再传递引入 Application、World、Scene、Reflection 或完整 Input 头文件。
-游戏模板直接构造 C 日志消息；Lantern Gallery 通过 Context 读写实体变换。
-动作查询和退出请求直接调用原生 Application，不经过 Application C API。
-完整公共 SDK 的后续删除进度见 [迁移计划](../plans/PLAN-051-minimal-game-module-api.md)。
-
-## Game Context
-
-Game Context 是 Engine 持有的 generation 句柄，销毁后旧值立即失效。首版访问能力包括：
-
-- `gneiss_game_context_get_world`：借用所属 World 句柄。
-- `gneiss_game_context_get_startup_root_entity`：取得启动场景首个作者根节点关联实体；根节点可以没有
-  实体，此时成功返回零值。
-- `gneiss_game_context_find_action` 与 `gneiss_game_context_get_action_state`：复用所属 Application 的
-  动作映射和当前帧输入快照。
-- `gneiss_game_context_get_entity_transform` 与 `gneiss_game_context_set_entity_transform`：
-  读写所属 World 中实体的局部 TRS；无关联场景节点返回 `NOT_FOUND`，失效实体返回 `INVALID_HANDLE`。
-  读取失败保持输出不变。
-- `gneiss_game_context_request_exit`：请求 Application 正常结束主循环。
-- `gneiss_game_context_log`：复制结构化日志消息并进入所属 Application 的有界队列。
-
-除日志外，这些函数只允许在创建 Context 的 Runtime 主线程调用；跨线程访问、销毁后访问或伪造
-句柄均返回 `GNEISS_ERROR_INVALID_HANDLE`。日志可以从模块工作线程提交，但 Context 必须仍有效。
-Runtime 在模块查询成功后把经过校验的 `module_id` 绑定为日志可信来源，模块不能自行指定来源。
-World、实体和动作均为借用值，不得在 Context 销毁后继续使用。
+客户注册 system、脚本和其他游戏逻辑接入方式均待后续设计，当前没有对应公共注册接口。
+决策见 [ADR-082](../decisions/ADR-082-remove-dynamic-game-module.md)。

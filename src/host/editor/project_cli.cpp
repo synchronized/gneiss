@@ -50,21 +50,6 @@ bool parse_profile(std::string_view text, gneiss::host::game_build_profile& outp
   return true;
 }
 
-gneiss::engine::result run_process(const std::filesystem::path& executable,
-                                   const std::filesystem::path& working_directory,
-                                   std::vector<std::filesystem::path> arguments) {
-  gneiss::engine::child_process process;
-  auto operation = process.start({executable, std::move(arguments), working_directory});
-  while (operation && process.is_running()) {
-    process.update();
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  }
-  process.update();
-  std::cout << process.output();
-  return operation && process.exit_code() == 0 ? gneiss::engine::result::success
-                                               : gneiss::engine::result::dependency_failed;
-}
-
 } // namespace
 
 int gneiss::host::run_project_cli(int argc, char** argv) {
@@ -109,26 +94,7 @@ int gneiss::host::run_project_cli(int argc, char** argv) {
         return 2;
       }
     }
-    if (command == "package") {
-      const auto& build =
-          gneiss::host::game_build_profile_description_for(project.game_module, profile);
-      if (build.configure_preset.empty() || build.build_preset.empty()) {
-        return fail("选择构建配置", gneiss::engine::result::unsupported);
-      }
-      const auto sdk_root = std::filesystem::path(argv[3]).parent_path().parent_path();
-      operation = run_process(
-          GNEISS_EDITOR_CMAKE_PATH, project.project_root,
-          {"--preset", build.configure_preset, "-DCMAKE_PREFIX_PATH=" + sdk_root.string()});
-      if (!operation) {
-        return fail("配置工程", operation);
-      }
-      operation = run_process(GNEISS_EDITOR_CMAKE_PATH, project.project_root,
-                              {"--build", "--preset", build.build_preset, "--target",
-                               project.game_module.build_target});
-      if (!operation) {
-        return fail("构建游戏模块", operation);
-      }
-    }
+
     gneiss::host::project_export_report report;
     gneiss::host::project_export_options options{.runtime_executable = argv[3],
                                                  .output_root = argv[4],

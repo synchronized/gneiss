@@ -64,17 +64,6 @@ int main() try {
                             project) != gneiss::engine::result::success) {
     return 1;
   }
-#if defined(_WIN32)
-  const auto module_name = project.game_module.name + ".dll";
-#elif defined(__APPLE__)
-  const auto module_name = "lib" + project.game_module.name + ".dylib";
-#else
-  const auto module_name = "lib" + project.game_module.name + ".so";
-#endif
-  const auto module =
-      project.project_root / project.game_module.profiles[0].directory / module_name;
-  std::filesystem::create_directories(module.parent_path());
-  std::filesystem::copy_file(GNEISS_TEST_MODULE, module);
   const auto imported =
       import_external_asset(project.project_root, project.asset_root, GNEISS_TEST_SOURCE);
   if (imported.result != editor_import_result::success) {

@@ -78,9 +78,7 @@ namespace {
 void draw_console_toolbar(const console_model& model, console_panel_state& state,
                           const console_runtime_view& runtime,
                           const console_panel_actions& actions) {
-  if (runtime.building) {
-    ImGui::TextColored(gneiss::editor::theme_warning_color(), "Building game module");
-  } else if (runtime.running) {
+  if (runtime.running) {
     ImGui::TextColored(gneiss::editor::theme_success_color(), "Running");
   } else if (runtime.started) {
     ImGui::Text("Exited with code %d", runtime.exit_code);

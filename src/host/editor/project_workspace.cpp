@@ -173,60 +173,6 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
   return !error;
 }
 
-[[nodiscard]] std::string unique_suffix() {
-  std::array<std::uint8_t, 8> bytes{};
-  std::random_device random;
-  for (auto& byte : bytes) {
-    byte = static_cast<std::uint8_t>(random());
-  }
-  std::ostringstream output;
-  output << std::hex << std::setfill('0');
-  for (const auto byte : bytes) {
-    output << std::setw(2) << static_cast<unsigned int>(byte);
-  }
-  return output.str();
-}
-
-[[nodiscard]] std::string module_id(std::string_view name) {
-  std::string output{"gneiss.game."};
-  bool separator = false;
-  for (const auto character : name) {
-    const auto value = static_cast<unsigned char>(character);
-    if (std::isalnum(value) != 0) {
-      output.push_back(static_cast<char>(std::tolower(value)));
-      separator = false;
-    } else if (!separator && output.back() != '.') {
-      output.push_back('.');
-      separator = true;
-    }
-  }
-  while (output.back() == '.') {
-    output.pop_back();
-  }
-  if (output == "gneiss.game") {
-    output += ".project";
-  }
-  output += "." + unique_suffix();
-  return output;
-}
-
-[[nodiscard]] bool replace_text(const std::filesystem::path& path, std::string_view from,
-                                std::string_view to) {
-  std::ifstream input(path, std::ios::binary);
-  if (!input) {
-    return false;
-  }
-  std::string text{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
-  std::size_t offset = 0U;
-  bool replaced = false;
-  while ((offset = text.find(from, offset)) != std::string::npos) {
-    text.replace(offset, from.size(), to);
-    offset += to.size();
-    replaced = true;
-  }
-  return replaced && write_text(path, text);
-}
-
 [[nodiscard]] gneiss::engine::result
 write_recent_projects(const std::filesystem::path& state_file,
                       const std::vector<editor_project>& projects) {
@@ -431,35 +377,9 @@ gneiss::engine::result create_editor_project(const std::filesystem::path& projec
     }
     auto* asset_build = yyjson_mut_obj(document.get());
     auto* retained_assets = yyjson_mut_arr(document.get());
-    auto* game_module = yyjson_mut_obj(document.get());
-    auto* profiles = yyjson_mut_obj(document.get());
-    auto* debug = yyjson_mut_obj(document.get());
-    auto* development = yyjson_mut_obj(document.get());
-    auto* shipping = yyjson_mut_obj(document.get());
     if (asset_build == nullptr || retained_assets == nullptr ||
         !yyjson_mut_obj_add_val(document.get(), asset_build, "retain", retained_assets) ||
-        !yyjson_mut_obj_add_val(document.get(), root, "asset_build", asset_build) ||
-        game_module == nullptr ||
-        !yyjson_mut_obj_add_str(document.get(), game_module, "name", "gneiss_game") ||
-        !yyjson_mut_obj_add_str(document.get(), game_module, "build_target", "gneiss_game") ||
-        profiles == nullptr || debug == nullptr || development == nullptr || shipping == nullptr ||
-        !yyjson_mut_obj_add_str(document.get(), debug, "directory", "modules/debug") ||
-        !yyjson_mut_obj_add_str(document.get(), debug, "configure_preset",
-                                "game-debug-configure") ||
-        !yyjson_mut_obj_add_str(document.get(), debug, "build_preset", "game-debug") ||
-        !yyjson_mut_obj_add_str(document.get(), development, "directory", "modules/development") ||
-        !yyjson_mut_obj_add_str(document.get(), development, "configure_preset",
-                                "game-development-configure") ||
-        !yyjson_mut_obj_add_str(document.get(), development, "build_preset", "game-development") ||
-        !yyjson_mut_obj_add_str(document.get(), shipping, "directory", "modules/shipping") ||
-        !yyjson_mut_obj_add_str(document.get(), shipping, "configure_preset",
-                                "game-shipping-configure") ||
-        !yyjson_mut_obj_add_str(document.get(), shipping, "build_preset", "game-shipping") ||
-        !yyjson_mut_obj_add_val(document.get(), profiles, "debug", debug) ||
-        !yyjson_mut_obj_add_val(document.get(), profiles, "development", development) ||
-        !yyjson_mut_obj_add_val(document.get(), profiles, "shipping", shipping) ||
-        !yyjson_mut_obj_add_val(document.get(), game_module, "profiles", profiles) ||
-        !yyjson_mut_obj_add_val(document.get(), root, "game_module", game_module)) {
+        !yyjson_mut_obj_add_val(document.get(), root, "asset_build", asset_build)) {
       std::filesystem::remove_all(temporary, error);
       return gneiss::engine::result::out_of_memory;
     }
@@ -468,8 +388,7 @@ gneiss::engine::result create_editor_project(const std::filesystem::path& projec
     std::unique_ptr<char, decltype(&std::free)> json(
         yyjson_mut_write(document.get(), YYJSON_WRITE_PRETTY, &length), &std::free);
     if (!json ||
-        !write_text(temporary / "gneiss.project.json", std::string_view(json.get(), length)) ||
-        !replace_text(temporary / "game_module.cpp", "gneiss.template.game", module_id(name))) {
+        !write_text(temporary / "gneiss.project.json", std::string_view(json.get(), length))) {
       std::filesystem::remove_all(temporary, error);
       return gneiss::engine::result::io;
     }
@@ -512,11 +431,6 @@ gneiss::engine::result export_editor_project(const editor_project& project,
     return gneiss::engine::result::invalid_argument;
   }
   try {
-    const auto& build =
-        gneiss::host::game_build_profile_description_for(project.game_module, options.profile);
-    if (build.directory.empty() || build.configure_preset.empty() || build.build_preset.empty()) {
-      return gneiss::engine::result::unsupported;
-    }
     std::error_code error;
     auto archive = options.output_root;
     archive += ".zip";
@@ -538,14 +452,8 @@ gneiss::engine::result export_editor_project(const editor_project& project,
       return gneiss::engine::result::io;
     }
     std::filesystem::create_directories(temporary / "bin", error);
-    std::filesystem::create_directories(temporary / build.directory, error);
-    std::filesystem::path module_path;
-    const auto module_result =
-        gneiss::host::resolve_game_module_path(project, options.profile, module_path);
-    if (error || !module_result) {
-      std::filesystem::remove_all(temporary, error);
-      return module_result ? gneiss::engine::result::io : module_result;
-    }
+    if (error)
+      return gneiss::engine::result::io;
     auto root_uris = project.retained_assets;
     root_uris.push_back(project.startup_scene);
     if (!project.input_map.empty()) {
@@ -584,24 +492,6 @@ gneiss::engine::result export_editor_project(const editor_project& project,
     }
     if (options.profile != gneiss::host::game_build_profile::shipping &&
         !write_asset_build_metadata(temporary / "assets" / ".gneiss-build.json", asset_report)) {
-      std::filesystem::remove_all(temporary, error);
-      return gneiss::engine::result::io;
-    }
-    std::filesystem::copy_file(module_path, temporary / build.directory / module_path.filename(),
-                               std::filesystem::copy_options::none, error);
-#if defined(_WIN32)
-    if (!error && options.profile != gneiss::host::game_build_profile::shipping) {
-      auto symbols = module_path;
-      symbols.replace_extension(".pdb");
-      if (std::filesystem::is_regular_file(symbols, error) && !error) {
-        std::filesystem::copy_file(symbols, temporary / build.directory / symbols.filename(),
-                                   std::filesystem::copy_options::none, error);
-      } else {
-        error.clear();
-      }
-    }
-#endif
-    if (error) {
       std::filesystem::remove_all(temporary, error);
       return gneiss::engine::result::io;
     }

@@ -11,9 +11,6 @@
 #include "runtime/application.hpp"
 #include <gneiss/app/project_description.hpp>
 
-#include "game_module_session.hpp"
-#include "game_update_scheduler.hpp"
-#include "runtime/game/game_context_internal.hpp"
 #include "runtime_asset_reloader.hpp"
 #include "runtime_ipc_session.hpp"
 #include "runtime_log.hpp"
@@ -56,8 +53,6 @@ struct runtime_context final {
   bool has_logged_first_frame = false;
   bool input_pending = false;
   std::string input_uri{};
-  gneiss::host::game_module_session* game_module = nullptr;
-  gneiss::host::game_update_scheduler* game_scheduler = nullptr;
   gneiss::host::runtime_ipc_session* ipc_session = nullptr;
   gneiss::host::runtime_scene_inspection* scene_inspection = nullptr;
   gneiss::host::runtime_property_editor* property_editor = nullptr;
@@ -123,15 +118,6 @@ apply_asset_revision(gneiss::runtime::application& application, gneiss::engine::
   } catch (...) {
     return gneiss::engine::result::internal;
   }
-}
-
-gneiss::engine::result fixed_update_game(void* user_data,
-                                         const gneiss_game_update_time& time) noexcept {
-  return static_cast<gneiss::host::game_module_session*>(user_data)->fixed_update(time);
-}
-
-gneiss::engine::result update_game(void* user_data, const gneiss_game_update_time& time) noexcept {
-  return static_cast<gneiss::host::game_module_session*>(user_data)->update(time);
 }
 
 [[nodiscard]] bool parse_options(int argc, char** argv, runtime_options& output) {
@@ -500,24 +486,7 @@ gneiss::engine::result update_runtime(const gneiss::engine::frame_time* time, vo
       return request_exit();
     }
   }
-  if (context.game_module == nullptr || context.game_scheduler == nullptr) {
-    return gneiss::engine::result::success;
-  }
-  if (context.ipc_session != nullptr && !context.ipc_session->game_updates_enabled()) {
-    return gneiss::engine::result::success;
-  }
-  const gneiss::host::game_update_callbacks callbacks{context.game_module, fixed_update_game,
-                                                      update_game};
-  gneiss::host::game_update_report report;
-  const auto update_result = context.game_scheduler->advance(*time, callbacks, report);
-  context.fixed_update_count += report.fixed_step_count;
-  if ((report.was_frame_clamped || report.dropped_ns != 0U) && context.log != nullptr) {
-    context.log->write("WARNING", "game_update", gneiss::engine::result::success,
-                       "游戏模块更新积压已受限",
-                       "accepted_ns=" + std::to_string(report.accepted_delta_ns) +
-                           " dropped_ns=" + std::to_string(report.dropped_ns));
-  }
-  return static_cast<gneiss::engine::result>(update_result);
+  return gneiss::engine::result::success;
 } catch (const std::bad_alloc&) {
   return gneiss::engine::result::out_of_memory;
 } catch (...) {
@@ -685,28 +654,9 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
   }
   context.property_editor = &property_editor;
 
-  gneiss_game_context game_context = GNEISS_NULL_GAME_CONTEXT;
-  gneiss::host::game_module_session game_module;
-  gneiss::host::game_update_scheduler game_scheduler;
   gneiss::host::runtime_scene_loader scene_loader(*application);
   context.scene_loader = &scene_loader;
   context.smoke = options.smoke;
-  scene_loader.before_activate = [&]() -> gneiss::engine::result {
-    const auto started = std::chrono::steady_clock::now();
-    if (game_module.is_initialized()) {
-      const auto stopped = game_module.shutdown();
-      if (stopped != gneiss::engine::result::success)
-        return stopped;
-    }
-    context.game_module = nullptr;
-    context.game_scheduler = nullptr;
-    game_scheduler.reset();
-    log.write("INFO", "scene_deactivate", gneiss::engine::result::success,
-              "module_shutdown_ms=" + std::to_string(std::chrono::duration<double, std::milli>(
-                                                         std::chrono::steady_clock::now() - started)
-                                                         .count()));
-    return gneiss::engine::result::success;
-  };
   scene_loader.after_activate =
       [&](const gneiss::runtime::scene_load_completion& loaded) -> gneiss::engine::result {
     const auto started = std::chrono::steady_clock::now();
@@ -730,56 +680,13 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
         property_editor.initialize(world, scene_inspection, context.inspection_session_id);
     if (initialized != gneiss::engine::result::success)
       return initialized;
-    if (game_context != GNEISS_NULL_GAME_CONTEXT) {
-      applied = gneiss::runtime::destroy_game_context(game_context);
-      game_context = GNEISS_NULL_GAME_CONTEXT;
-      if (applied != gneiss::engine::result::success)
-        return applied;
-    }
-    std::uint64_t root_entity = UINT64_C(0);
-    std::uint64_t count{};
-    applied = application->scenes()->get_node_count(scene, &count);
-    for (std::uint64_t index = 0U; applied == gneiss::engine::result::success && index < count;
-         ++index) {
-      gneiss::engine::scene_node_view info;
-      applied = application->scenes()->get_node_info(scene, index, info);
-      if (applied == gneiss::engine::result::success && !info.parent.is_valid()) {
-        root_entity = info.entity.get();
-        break;
-      }
-    }
-    if (applied != gneiss::engine::result::success)
-      return applied;
-    applied = gneiss::runtime::create_game_context(application, root_entity, &game_context);
-    if (applied != gneiss::engine::result::success)
-      return applied;
-    if (!project.game_module.name.empty()) {
-      if (!game_module.is_loaded()) {
-        std::filesystem::path module_path;
-        auto module_result =
-            gneiss::host::resolve_game_module_path(project, options.profile, module_path);
-        if (module_result == gneiss::engine::result::success)
-          module_result = game_module.load(module_path);
-        if (module_result != gneiss::engine::result::success)
-          return module_result;
-      }
-      applied = gneiss::runtime::set_game_context_log_source(game_context, game_module.module_id());
-      if (applied != gneiss::engine::result::success)
-        return applied;
-      const auto initialized_game = game_module.initialize(game_context);
-      if (initialized_game != gneiss::engine::result::success)
-        return initialized_game;
-      context.game_module = &game_module;
-      context.game_scheduler = &game_scheduler;
-      log.write("INFO", "game_module", gneiss::engine::result::success, "游戏模块初始化完成",
-                std::string(game_module.module_id()));
-    }
     log.write("INFO", "startup_scene", gneiss::engine::result::success, "场景加载完成",
               active_scene_uri);
     log.write("INFO", "scene_load", gneiss::engine::result::success,
               "prepare_ms=" + std::to_string(loaded.prepare_ms) +
                   " asset_prepare_ms=" + std::to_string(loaded.asset_prepare_ms) +
-                  " activation_ms=" + std::to_string(loaded.activation_ms) + " module_rebind_ms=" +
+                  " activation_ms=" + std::to_string(loaded.activation_ms) +
+                  " inspection_rebind_ms=" +
                   std::to_string(std::chrono::duration<double, std::milli>(
                                      std::chrono::steady_clock::now() - started)
                                      .count()));
@@ -798,10 +705,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
     }
     if (operation != gneiss::engine::result::success) {
       log.write("ERROR", "ipc", operation, "Editor IPC 会话启动失败");
-      if (game_module.is_initialized()) {
-        (void)game_module.shutdown();
-      }
-      (void)gneiss::runtime::destroy_game_context(game_context);
+
       (void)application->scenes()->unload(scene);
       return 11;
     }
@@ -831,44 +735,19 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
   if (ipc_session) {
     (void)ipc_session->stop();
   }
-  context.game_module = nullptr;
-  context.game_scheduler = nullptr;
   if (operation != gneiss::engine::result::success) {
     log.write("ERROR", "run", static_cast<gneiss::engine::result>(operation), "Runtime 主循环失败");
-    if (game_module.is_initialized()) {
-      (void)game_module.shutdown();
-    }
-    (void)gneiss::runtime::destroy_game_context(game_context);
+
     (void)application->scenes()->unload(scene);
     return 7;
   }
   if (context.ipc_failure != gneiss::engine::result::success) {
     log.write("ERROR", "ipc", context.ipc_failure, "Runtime 因 Editor IPC 会话失败而退出");
-    if (game_module.is_initialized()) {
-      (void)game_module.shutdown();
-    }
-    (void)gneiss::runtime::destroy_game_context(game_context);
+
     (void)application->scenes()->unload(scene);
     return 11;
   }
-  if (game_module.is_initialized()) {
-    operation = game_module.shutdown();
-    if (operation != gneiss::engine::result::success) {
-      log.write("ERROR", "game_module", static_cast<gneiss::engine::result>(operation),
-                "游戏模块关闭失败");
-      (void)gneiss::runtime::destroy_game_context(game_context);
-      (void)application->scenes()->unload(scene);
-      return 8;
-    }
-  }
-  native_result = game_context == GNEISS_NULL_GAME_CONTEXT
-                      ? gneiss::engine::result::success
-                      : gneiss::runtime::destroy_game_context(game_context);
-  if (native_result != gneiss::engine::result::success) {
-    log.write("ERROR", "game_context", native_result, "Game Context 销毁失败");
-    (void)application->scenes()->unload(scene);
-    return 9;
-  }
+
   native_result = scene == gneiss::engine::null_rid ? gneiss::engine::result::success
                                                     : application->scenes()->unload(scene);
   if (native_result != gneiss::engine::result::success) {

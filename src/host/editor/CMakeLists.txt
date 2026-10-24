@@ -287,20 +287,16 @@ if(BUILD_TESTING)
     add_test(NAME gneiss.editor.runtime-process COMMAND gneiss_editor_runtime_process_test)
     set_tests_properties(gneiss.editor.runtime-process PROPERTIES TIMEOUT 15)
     add_executable(gneiss_editor_runtime_scene_loading_test tests/runtime_scene_loading_test.cpp)
-    add_library(gneiss_scene_module_fixture MODULE ../runtime/tests/game_module_fixture.cpp)
-    target_link_libraries(gneiss_scene_module_fixture PRIVATE gneiss::engine)
-    target_compile_definitions(gneiss_scene_module_fixture PRIVATE
-      GNEISS_BUILDING_GAME_MODULE GNEISS_TEST_CONTINUOUS_UPDATE GNEISS_TEST_LIFECYCLE_TRACE_ONLY)
-    gneiss_target_compile_warnings(gneiss_scene_module_fixture)
-    gneiss_target_output_directories(gneiss_scene_module_fixture)
+
+
+
+
+
     target_link_libraries(gneiss_editor_runtime_scene_loading_test PRIVATE gneiss_editor_host)
-    target_compile_definitions(gneiss_editor_runtime_scene_loading_test PRIVATE
-      GNEISS_TEST_RUNTIME="$<TARGET_FILE:gneiss_runtime>"
-      GNEISS_TEST_SCENE_MODULE="$<TARGET_FILE:gneiss_scene_module_fixture>"
-      GNEISS_TEST_PROJECT_ROOT="${PROJECT_SOURCE_DIR}/examples/editor_demo")
+
     gneiss_target_compile_warnings(gneiss_editor_runtime_scene_loading_test)
     gneiss_target_output_directories(gneiss_editor_runtime_scene_loading_test)
-    add_dependencies(gneiss_editor_runtime_scene_loading_test gneiss_runtime gneiss_scene_module_fixture)
+
     add_test(NAME gneiss.editor.runtime-scene-loading COMMAND gneiss_editor_runtime_scene_loading_test)
     set_tests_properties(gneiss.editor.runtime-scene-loading PROPERTIES TIMEOUT 60)
   endif()
@@ -360,21 +356,16 @@ if(BUILD_TESTING)
     gneiss_target_compile_warnings(gneiss_editor_asset_import_test)
     gneiss_target_output_directories(gneiss_editor_asset_import_test)
     add_test(NAME gneiss.editor.asset-import COMMAND gneiss_editor_asset_import_test)
-    if(TARGET gneiss_game_module_valid_fixture)
-      add_library(gneiss_game_module_workflow_fixture MODULE ../runtime/tests/game_module_fixture.cpp)
-      target_link_libraries(gneiss_game_module_workflow_fixture PRIVATE gneiss::engine)
-      target_compile_definitions(gneiss_game_module_workflow_fixture PRIVATE
-        GNEISS_BUILDING_GAME_MODULE GNEISS_TEST_CONTINUOUS_UPDATE)
-      gneiss_target_compile_warnings(gneiss_game_module_workflow_fixture)
-      gneiss_target_output_directories(gneiss_game_module_workflow_fixture)
+    if(TARGET gneiss_runtime)
+
+
+
+
+
       add_executable(gneiss_editor_asset_workflow_test tests/asset_workflow_test.cpp)
       target_link_libraries(gneiss_editor_asset_workflow_test PRIVATE gneiss_editor_assets gneiss_editor_host)
-      target_compile_definitions(gneiss_editor_asset_workflow_test PRIVATE
-        GNEISS_TEST_TEMPLATE="${PROJECT_SOURCE_DIR}/templates/game"
-        GNEISS_TEST_SOURCE="${PROJECT_SOURCE_DIR}/tests/data/gltf/static_triangle.gltf"
-        GNEISS_TEST_RUNTIME="$<TARGET_FILE:gneiss_runtime>"
-        GNEISS_TEST_MODULE="$<TARGET_FILE:gneiss_game_module_workflow_fixture>")
-      add_dependencies(gneiss_editor_asset_workflow_test gneiss_runtime gneiss_game_module_workflow_fixture)
+
+
       gneiss_target_compile_warnings(gneiss_editor_asset_workflow_test)
       gneiss_target_output_directories(gneiss_editor_asset_workflow_test)
       add_test(NAME gneiss.editor.asset-workflow COMMAND gneiss_editor_asset_workflow_test)
@@ -422,3 +413,17 @@ foreach(test IN ITEMS
     target_include_directories(${test} PRIVATE "${PROJECT_SOURCE_DIR}/src")
   endif()
 endforeach()
+
+if(TARGET gneiss_editor_runtime_scene_loading_test)
+  target_compile_definitions(gneiss_editor_runtime_scene_loading_test PRIVATE
+    GNEISS_TEST_RUNTIME="$<TARGET_FILE:gneiss_runtime>"
+    GNEISS_TEST_PROJECT_ROOT="${PROJECT_SOURCE_DIR}/examples/editor_demo")
+  add_dependencies(gneiss_editor_runtime_scene_loading_test gneiss_runtime)
+endif()
+if(TARGET gneiss_editor_asset_workflow_test)
+  target_compile_definitions(gneiss_editor_asset_workflow_test PRIVATE
+    GNEISS_TEST_TEMPLATE="${PROJECT_SOURCE_DIR}/templates/game"
+    GNEISS_TEST_SOURCE="${PROJECT_SOURCE_DIR}/tests/data/gltf/static_triangle.gltf"
+    GNEISS_TEST_RUNTIME="$<TARGET_FILE:gneiss_runtime>")
+  add_dependencies(gneiss_editor_asset_workflow_test gneiss_runtime)
+endif()

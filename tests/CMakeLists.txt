@@ -47,16 +47,6 @@ set_tests_properties(gneiss.task-scheduler PROPERTIES TIMEOUT 30)
 
 
 add_test(
-  NAME gneiss.api_stability_manifest
-  COMMAND
-    "${CMAKE_COMMAND}"
-    "-DGNEISS_ABI_BASELINE=${PROJECT_SOURCE_DIR}/abi/baseline/game-module-c.txt"
-    "-DGNEISS_API_STABILITY_MANIFEST=${PROJECT_SOURCE_DIR}/abi/api-stability.txt"
-    "-DGNEISS_PUBLIC_INCLUDE_DIR=${PROJECT_SOURCE_DIR}/include"
-    -P "${PROJECT_SOURCE_DIR}/cmake/check_api_stability.cmake"
-)
-
-add_test(
   NAME gneiss.granit_version_cache
   COMMAND
     "${CMAKE_COMMAND}"
@@ -75,24 +65,20 @@ add_test(NAME gneiss.cpp_version COMMAND gneiss_cpp_version_test)
 
 
 
-add_executable(gneiss_c_game_module_test c_game_module_test.c)
-target_link_libraries(gneiss_c_game_module_test PRIVATE gneiss::engine)
-set_target_properties(
-  gneiss_c_game_module_test
-  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
-)
-gneiss_target_compile_warnings(gneiss_c_game_module_test)
-gneiss_target_output_directories(gneiss_c_game_module_test)
-add_test(NAME gneiss.c_game_module COMMAND gneiss_c_game_module_test)
 
-add_executable(gneiss_game_module_log_validation_test game_module_log_validation_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/core/log/log.cpp")
-target_include_directories(gneiss_game_module_log_validation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-target_link_libraries(gneiss_game_module_log_validation_test PRIVATE gneiss::engine)
-target_compile_features(gneiss_game_module_log_validation_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_game_module_log_validation_test)
-gneiss_target_output_directories(gneiss_game_module_log_validation_test)
-add_test(NAME gneiss.game-module-log-validation COMMAND gneiss_game_module_log_validation_test)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 add_executable(gneiss_cpp_log_test cpp_log_test.cpp "${PROJECT_SOURCE_DIR}/src/engine/core/log/log.cpp")
 target_include_directories(gneiss_cpp_log_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -129,15 +115,14 @@ gneiss_target_compile_warnings(gneiss_log_dispatcher_test)
 gneiss_target_output_directories(gneiss_log_dispatcher_test)
 add_test(NAME gneiss.log_dispatcher COMMAND gneiss_log_dispatcher_test)
 
-add_executable(gneiss_game_context_test game_context_test.cpp)
-target_include_directories(gneiss_game_context_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-target_link_libraries(gneiss_game_context_test PRIVATE gneiss::engine)
-target_compile_definitions(gneiss_game_context_test
-  PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
-target_compile_features(gneiss_game_context_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_game_context_test)
-gneiss_target_output_directories(gneiss_game_context_test)
-add_test(NAME gneiss.game_context COMMAND gneiss_game_context_test)
+
+
+
+
+
+
+
+
 
 
 add_executable(gneiss_property_access_test reflection/property_access_test.cpp)
@@ -229,8 +214,8 @@ gneiss_target_output_directories(gneiss_asset_uri_test)
 add_test(NAME gneiss.asset_uri COMMAND gneiss_asset_uri_test)
 
 add_library(
-  gneiss_c_header_test OBJECT headers/entity_h.c headers/game_module_h.c
-                              headers/gneiss_h.c
+  gneiss_c_header_test OBJECT
+
                               headers/result_h.c
 )
 target_link_libraries(gneiss_c_header_test PRIVATE gneiss::engine)
@@ -953,20 +938,8 @@ endif()
 
 
 if(PROJECT_IS_TOP_LEVEL AND GNEISS_ENABLE_GRANIT_PLATFORM AND BUILD_SHARED_LIBS)
-  add_test(
-    NAME gneiss.installed_game_module_consumer
-    COMMAND
-      "${CMAKE_COMMAND}"
-      "-DGNEISS_BUILD_DIR=${PROJECT_BINARY_DIR}"
-      "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
-      "-DGNEISS_GENERATOR=${CMAKE_GENERATOR}"
-      "-DGNEISS_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}"
-      "-DGNEISS_CONFIG=$<CONFIG>"
-      "-DGNEISS_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
-      "-DGNEISS_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
-      -P "${PROJECT_SOURCE_DIR}/cmake/check_installed_game_module.cmake"
-  )
-  set_tests_properties(gneiss.installed_game_module_consumer PROPERTIES TIMEOUT 120)
+
+
 endif()
 
 add_test(NAME gneiss.core-boundary
@@ -1066,11 +1039,11 @@ add_test(NAME gneiss.core-identity COMMAND gneiss_core_identity_test)
 
 # 直接编译用户工程模板，保证它只依赖最小游戏模块协议。
 if(BUILD_SHARED_LIBS)
-  add_library(gneiss_game_template_compile MODULE "${PROJECT_SOURCE_DIR}/templates/game/game_module.cpp")
-  target_link_libraries(gneiss_game_template_compile PRIVATE gneiss::engine)
-  target_compile_definitions(gneiss_game_template_compile PRIVATE GNEISS_BUILDING_GAME_MODULE)
-  gneiss_target_compile_warnings(gneiss_game_template_compile)
-  gneiss_target_output_directories(gneiss_game_template_compile)
+
+
+
+
+
 endif()
 
 # 同一 Engine 中的类型名注册、并发首次注册及跨翻译单元身份。

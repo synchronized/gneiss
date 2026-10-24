@@ -5,9 +5,8 @@
 
 ## 当前范围
 
-游戏模块通过 `gneiss_game_context_log` 提交 `gneiss_log_message`；内部宿主使用原生
-`application::submit_log`。原生 `log` 回调在消费线程接收 `event_view`。Game Context、队列、
-基础 Sink、Runtime 传输协议与 Editor Console 已接入；独立 Application 日志 C 导出已删除。
+内部宿主使用原生 `application::submit_log`。消费线程通过 `log` 回调接收 `event_view`。
+日志队列、基础 Sink、Runtime 传输协议与 Editor Console 保留；日志 C API 已撤销。
 
 ## 字段与所有权
 
@@ -15,15 +14,13 @@
 - `category` 是非空 UTF-8 筛选键；建议使用短小稳定的 ASCII 名称，例如 `game` 或 `asset`。
 - `message` 是 UTF-8 正文，可以为空。
 - `result` 可携带相关 Gneiss 结果码；没有相关操作时使用 `GNEISS_SUCCESS`。
-- `flags` 和 `reserved` 当前必须为零。
-- 字符串使用指针与长度，不要求 NUL 结尾。校验和提交接口均不取得调用方内存所有权。
+- 字符串使用 string_view 借用，不要求 NUL 结尾。校验和提交接口均不取得调用方内存所有权。
 
-时间戳、线程标识、进程与可信来源不由生产者填写。Engine 接收消息后生成这些元数据，Game Module
-也不能借此伪造 Engine 或 Runtime 来源。
+时间戳、线程标识和事件序号由投递器生成，来源由内部调用方填写。
 
 ## 提交与接收
 
-- 原生 `application::submit_log` 和模块 `gneiss_game_context_log` 可从任意线程调用，并在返回前完成字符串复制和入队，不等待 Sink。
+- 原生 `application::submit_log` 可从任意线程调用，并在返回前完成字符串复制和入队，不等待 Sink。
 - 同一 Application 的回调在专用消费线程串行执行；事件序号按入队顺序从一开始递增。
 - 队列有固定上限；已满时丢弃新事件并在恢复后生成包含丢弃数量的 `backpressure` 告警。
 - 回调内的事件和字符串均为借用值，只在该次回调期间有效。
@@ -33,11 +30,6 @@
 - Application 销毁不能与日志提交并发；宿主应先停止生产者，再销毁 Application。
 - 原生 `application::submit_log` 允许工作线程提交；调用方必须先停止并等待提交线程，再关闭或释放 Application。
   最后一个原生引用释放前排空已接收事件，回调捕获的数据 必须存活至关闭返回。
-
-Application 入口的可信来源固定为 `application`。Game Module 使用
-`gneiss_game_context_log` 提交，Runtime 在模块查询成功后把经过校验的模块 ID 绑定为可信来源；模块
-不能直接指定该字段。日志入口可以从模块工作线程调用，但 Context 必须仍有效；其他 Game Context
-访问仍限定生命周期回调线程。
 
 独立 Runtime 已将 Application 日志回调接入标准流和单文件轮转 Sink。日志文件保持人类可读文本，
 标准输出则使用 `@gneiss-log-v1 ` 前缀加单行 JSON。协议字段包含版本、单调时间、序号、级别、来源、
@@ -61,7 +53,7 @@ Application 已识别的运行时诊断会在调用原有诊断回调后转换�
 
 原生 `engine::validate_message` 校验严重级别、字符串边界和 UTF-8 编码；模块日志入口
 另外校验结构版本、指针长度和保留字段。校验不保存消息或字符串，不提交、排队或写出日志。
-独立的日志校验 C 导出已删除，游戏模块继续通过日志提交入口获得校验结果。
+日志校验 C 导出已删除，原生提交入口负责消息语义校验。
 
 ## 原生 C++ 日志提交
 
@@ -81,11 +73,8 @@ const auto status = application.submit_log({
 });
 ```
 
-其中 application 是有效的原生 Application 对象。内部调用方填写来源，游戏模块边界负责
-绑定可信来源。接收回调使用 `event_view`，其文本只在回调期间有效。
-
-消息级别和 UTF-8 规则集中在 `engine::validate_message`。游戏模块入口先检查结构尺寸、指针与长度、
-保留字段，再转为原生视图复用校验；内部调用不绕行 C API。
+其中 application 是有效的原生 Application 对象，内部调用方填写来源。
+消息级别和 UTF-8 规则集中在 `engine::validate_message`，不经过 C API。
 旧 `log_message`、`log_event`、`log_severity` 包装和构造/转换辅助已删除，不安装公共 C++ 日志头。
 
 原生 `shutdown` 关闭运行服务；日志投递器在 Application 释放时排空并等待消费线程结束。

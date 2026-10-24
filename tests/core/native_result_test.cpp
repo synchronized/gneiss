@@ -1,25 +1,23 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/api/result_conversion.hpp"
+#include "engine/core/result.hpp"
 #include <limits>
 #include <type_traits>
 using gneiss::engine::result;
-using gneiss::engine::detail::from_c_result;
-using gneiss::engine::detail::to_c_result;
 static_assert(sizeof(result) == sizeof(std::int32_t));
 static_assert(std::is_trivially_copyable_v<result>);
 static_assert(std::is_standard_layout_v<result>);
-static_assert(!std::is_convertible_v<result, gneiss_result>);
-static_assert(!std::is_convertible_v<gneiss_result, result>);
+static_assert(!std::is_convertible_v<result, std::int32_t>);
+static_assert(!std::is_convertible_v<std::int32_t, result>);
 static_assert(!std::is_convertible_v<result, bool>);
 static_assert(result{} == result::unknown);
 static_assert(result::success.ok() && result::not_ready.failed());
-static_assert(from_c_result(1).ok());
-static_assert(to_c_result(from_c_result(-999)) == -999);
-static_assert(to_c_result(from_c_result(std::numeric_limits<std::int32_t>::min())) ==
+static_assert(result{1}.ok());
+static_assert(result{-999}.code() == -999);
+static_assert(result{std::numeric_limits<std::int32_t>::min()}.code() ==
               std::numeric_limits<std::int32_t>::min());
-static_assert(to_c_result(from_c_result(std::numeric_limits<std::int32_t>::max())) ==
+static_assert(result{std::numeric_limits<std::int32_t>::max()}.code() ==
               std::numeric_limits<std::int32_t>::max());
 int main() {
   return result::dependency_failed.message() == "dependency failed" &&

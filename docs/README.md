@@ -57,7 +57,7 @@
 - [场景加载、实例与卸载](reference/scene-instance.md)
 - [工程文件格式](reference/project-format.md)
 - [发布包清单格式 v1](reference/package-format.md)
-- [Game Module ABI 与生命周期](reference/game-module.md)
+- [游戏逻辑接入状态](reference/game-module.md)
 - [Mesh Binary、JSON Mesh 与 Material 资产格式](reference/render-asset-formats.md)
 - [Editor 资产索引格式 v1](reference/asset-index-format.md)
 
@@ -563,3 +563,6 @@
 其他教程、API 参考、ADR 和实施记录将在出现真实内容后加入本页。尚未实现的设计不是当前公共能力。
 
 - [公共 C++ 对象 SDK 删除验收](records/M-332-public-object-sdk-removal.md)
+
+- [撤销动态 Game Module 计划](plans/PLAN-051-remove-game-module.md)
+- [ADR-082：撤销动态游戏模块](decisions/ADR-082-remove-dynamic-game-module.md)
