@@ -143,32 +143,6 @@ typedef struct gneiss_scene_prefab_node_info {
    GNEISS_TRANSFORM_IDENTITY,                                                                      \
    GNEISS_TRANSFORM_IDENTITY}
 
-/** 向场景放置一份 Prefab 引用实例；字符串仅在调用期间借用。 */
-typedef struct gneiss_scene_prefab_instance_desc {
-  uint32_t struct_size;
-  uint32_t reserved;
-  gneiss_scene_node_id parent;
-  const char* instance_uuid;
-  uint64_t instance_uuid_length;
-  const char* name;
-  uint64_t name_length;
-  const char* prefab_uri;
-  uint64_t prefab_uri_length;
-  gneiss_transform local_transform;
-} gneiss_scene_prefab_instance_desc;
-
-#define GNEISS_SCENE_PREFAB_INSTANCE_DESC_INIT                                                     \
-  {(uint32_t)sizeof(gneiss_scene_prefab_instance_desc),                                            \
-   UINT32_C(0),                                                                                    \
-   GNEISS_NULL_SCENE_NODE_ID,                                                                      \
-   NULL,                                                                                           \
-   UINT64_C(0),                                                                                    \
-   NULL,                                                                                           \
-   UINT64_C(0),                                                                                    \
-   NULL,                                                                                           \
-   UINT64_C(0),                                                                                    \
-   GNEISS_TRANSFORM_IDENTITY}
-
 /** 子树恢复时的稳定 UUID 替换项；字符串仅在调用期间借用。 */
 typedef struct gneiss_scene_uuid_mapping {
   const char* source_uuid;
@@ -328,25 +302,6 @@ GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_get_prefab_no
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_get_prefab_node_info(
     gneiss_application application, gneiss_scene_instance instance, uint64_t index,
     gneiss_scene_prefab_node_info* out_info);
-
-/** 原子放置 Prefab 实例；成功返回借用的实例根节点 ID。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_create_prefab_instance(
-    gneiss_application application, gneiss_scene_instance instance,
-    const gneiss_scene_prefab_instance_desc* desc, gneiss_scene_node_id* out_root);
-
-/** 修改 Prefab 实例根显示名称。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_set_prefab_instance_name(
-    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id root,
-    const char* name, uint64_t name_length);
-
-/** 将 Prefab 来源节点的局部 Transform 写为实例覆盖；等于来源的字段不会持久化。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_set_prefab_source_transform(
-    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id node,
-    const gneiss_transform* transform);
-
-/** 销毁 Prefab 实例根及其全部来源节点。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_destroy_prefab_instance(
-    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id root);
 
 /** 从来源资产原子重建 Prefab 投影；成功返回新的实例根节点 ID。 */
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_refresh_prefab_instance(

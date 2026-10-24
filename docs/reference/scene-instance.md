@@ -60,11 +60,11 @@ Prefab 使用独立的实验性枚举接口 `gneiss_scene_instance_get_prefab_no
 局部 Transform 以及实例根或来源只读标志。字符串同样只借用到下一次场景修改或父对象失效；
 Prefab 刷新、撤销/重做和重命名之后应重新枚举，不能沿用旧字符串指针。
 
-`gneiss_scene_instance_create_prefab_instance` 在普通作者节点或场景根下原子放置 Prefab。调用方提供
+`engine::scene_instances::create_prefab_instance` 在普通作者节点或场景根下原子放置 Prefab。调用方提供
 唯一实例 UUID、显示名称、规范 Prefab URI 和实例根 Transform；资源获取或 Runtime 创建失败时不会
 增加作者声明或留下部分节点。当前接口不允许以 Prefab 节点作为父级。
 
-`gneiss_scene_instance_set_prefab_source_transform` 修改来源节点的实例局部 Transform，并把与来源值
+`engine::scene_instances::set_prefab_source_transform` 修改来源节点的实例局部 Transform，并把与来源值
 不同的字段保存为稀疏覆盖；恢复为来源值时自动删除对应字段覆盖。三个 TRS 字段先在临时作者集合中
 完成校验，Runtime 写入成功后才提交作者覆盖，因此失败不会发布部分作者状态。该接口不修改 Prefab
 来源资产，也不会影响同源的其他实例。
@@ -73,8 +73,8 @@ Prefab 来源节点枚举结果通过 translation、rotation 与 scale 三个覆
 `source_local_transform` 与当前 `local_transform`。调用方可据此呈现来源值和实例有效值；标志只描述
 作者覆盖，不表示 Runtime 是否正被临时调试命令修改。
 
-实例根可通过 `gneiss_scene_instance_set_prefab_instance_name` 修改作者名称，通过普通 Scene Node
-Transform 接口修改根变换，并通过 `gneiss_scene_instance_destroy_prefab_instance` 整体销毁。
+实例根可通过 `engine::scene_instances::set_prefab_instance_name` 修改作者名称，通过普通 Scene Node
+Transform 接口修改根变换，并通过 `engine::scene_instances::destroy_prefab_instance` 整体销毁。
 `gneiss_scene_instance_refresh_prefab_instance` 会绕过旧 Prefab 缓存重新读取来源，先创建完整替代投影，
 成功后才销毁旧投影并返回新的根 ID；失败时旧投影和选择目标仍有效。刷新成功后旧根及全部旧来源
 节点 ID 失效，调用方必须改用返回的新根并重新枚举层级。成功刷新同时返回场景实例独占的事务

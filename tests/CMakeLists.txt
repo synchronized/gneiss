@@ -990,7 +990,7 @@ gneiss_target_output_directories(gneiss_scene_instantiation_test)
 add_test(NAME gneiss.scene-instantiation COMMAND gneiss_scene_instantiation_test)
 
 add_executable(gneiss_scene_prefab_instance_test scene/scene_prefab_instance_test.cpp)
-target_link_libraries(gneiss_scene_prefab_instance_test PRIVATE gneiss::engine)
+target_link_libraries(gneiss_scene_prefab_instance_test PRIVATE gneiss::engine gneiss_native_interface)
 target_compile_definitions(
   gneiss_scene_prefab_instance_test
   PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
