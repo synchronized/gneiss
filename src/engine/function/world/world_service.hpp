@@ -6,8 +6,8 @@
 #include "engine/core/reflection/type_registry.hpp"
 #include "engine/core/result.hpp"
 
+#include "engine/core/math/camera_settings.hpp"
 #include "engine/core/publication_group.hpp"
-#include "engine/function/render/camera_settings.hpp"
 #include "engine/function/world/world_types.hpp"
 #include <gneiss/engine/scene.h>
 #include <gneiss/engine/world.h>
@@ -98,13 +98,13 @@ node_create(gneiss_world world, gneiss_scene_node_id parent, gneiss_entity_id en
 node_reparent(gneiss_world world, gneiss_scene_node_id node, gneiss_scene_node_id parent) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
 node_set_local_transform(gneiss_world world, gneiss_scene_node_id node,
-                         const gneiss_transform& transform) noexcept;
+                         const gneiss::engine::transform& transform) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
 node_get_local_transform(gneiss_world world, gneiss_scene_node_id node,
-                         gneiss_transform& out_transform) noexcept;
+                         gneiss::engine::transform& out_transform) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
 node_get_world_transform(gneiss_world world, gneiss_scene_node_id node,
-                         gneiss_transform& out_transform) noexcept;
+                         gneiss::engine::transform& out_transform) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
 node_get_entity(gneiss_world world, gneiss_scene_node_id node,
                 gneiss_entity_id& out_entity) noexcept;
@@ -113,10 +113,10 @@ node_get_parent(gneiss_world world, gneiss_scene_node_id node,
                 gneiss_scene_node_id& out_parent) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
 entity_get_local_transform(gneiss_world world, gneiss_entity_id entity,
-                           gneiss_transform& out_transform) noexcept;
+                           gneiss::engine::transform& out_transform) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
 entity_set_local_transform(gneiss_world world, gneiss_entity_id entity,
-                           const gneiss_transform& transform) noexcept;
+                           const gneiss::engine::transform& transform) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
 register_reflection(const gneiss::engine::registry_ref& registry);
 } // namespace gneiss::engine

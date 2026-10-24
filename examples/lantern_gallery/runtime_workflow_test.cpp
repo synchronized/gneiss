@@ -99,7 +99,7 @@ std::optional<std::array<float, 4>> root_rotation(const gneiss::host::runtime_pr
   if (root == nodes.end()) {
     return std::nullopt;
   }
-  return std::to_array(root->local_transform.rotation);
+  return root->local_transform.rotation;
 }
 
 const gneiss::editor::runtime_scene_node* root_node(const gneiss::host::runtime_process& process) {

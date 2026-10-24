@@ -3,8 +3,8 @@
 
 #pragma once
 
+#include "engine/core/math/camera_settings.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/render/camera_settings.hpp"
 
 namespace gneiss::engine {
 /** 相机参数为纯数据；活动相机只由 World 的实体 ID 决定。 */

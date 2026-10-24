@@ -4,9 +4,9 @@
 #ifndef GNEISS_RENDER_CAMERA_MATH_HPP_
 #define GNEISS_RENDER_CAMERA_MATH_HPP_
 
+#include "engine/core/math/camera_settings.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/core/result.hpp"
-#include "engine/function/render/camera_settings.hpp"
 
 #include <array>
 

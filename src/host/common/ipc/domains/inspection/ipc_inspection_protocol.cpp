@@ -83,7 +83,7 @@ bool parse_float_array(yyjson_val* object, const char* key, float* output,
   return true;
 }
 
-bool valid_camera(const gneiss_camera_desc& camera) noexcept {
+bool valid_camera(const gneiss::engine::camera_settings& camera) noexcept {
   return std::isfinite(camera.vertical_field_of_view_radians) && std::isfinite(camera.near_plane) &&
          std::isfinite(camera.far_plane);
 }
@@ -102,9 +102,10 @@ bool add_node(yyjson_mut_doc* document, yyjson_mut_val* change,
                                     node.prefab_source_node_uuid.data(),
                                     node.prefab_source_node_uuid.size()) &&
          yyjson_mut_obj_add_strncpy(document, value, "name", node.name.data(), node.name.size()) &&
-         add_float_array(document, value, "translation", node.local_transform.translation, 3U) &&
-         add_float_array(document, value, "rotation", node.local_transform.rotation, 4U) &&
-         add_float_array(document, value, "scale", node.local_transform.scale, 3U) &&
+         add_float_array(document, value, "translation", node.local_transform.translation.data(),
+                         3U) &&
+         add_float_array(document, value, "rotation", node.local_transform.rotation.data(), 4U) &&
+         add_float_array(document, value, "scale", node.local_transform.scale.data(), 3U) &&
          yyjson_mut_obj_add_uint(document, value, "component_flags", node.component_flags) &&
          camera != nullptr &&
          yyjson_mut_obj_add_real(document, camera, "vertical_field_of_view_radians",
@@ -147,9 +148,9 @@ bool parse_node(yyjson_val* change, gneiss::host::ipc_inspection_node& output) {
       !yyjson_is_str(mesh_uri) || yyjson_get_len(mesh_uri) > max_string_size ||
       !yyjson_is_str(material_uri) || yyjson_get_len(material_uri) > max_string_size ||
       !parse_id(node, "id", false, output.id) || !parse_id(node, "parent", true, output.parent) ||
-      !parse_float_array(node, "translation", output.local_transform.translation, 3U) ||
-      !parse_float_array(node, "rotation", output.local_transform.rotation, 4U) ||
-      !parse_float_array(node, "scale", output.local_transform.scale, 3U)) {
+      !parse_float_array(node, "translation", output.local_transform.translation.data(), 3U) ||
+      !parse_float_array(node, "rotation", output.local_transform.rotation.data(), 4U) ||
+      !parse_float_array(node, "scale", output.local_transform.scale.data(), 3U)) {
     return false;
   }
   output.uuid.assign(yyjson_get_str(uuid), yyjson_get_len(uuid));

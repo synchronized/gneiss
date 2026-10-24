@@ -48,7 +48,7 @@ enum class camera_field : std::uint8_t { field_of_view = 1, near_plane = 2, far_
 
 gneiss::engine::result get_transform(void* user_data, gneiss::property_target target,
                                      gneiss::property_value* output) {
-  gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform transform;
   const auto result = gneiss::engine::entity_get_local_transform(target_world(target),
                                                                  target_entity(target), transform);
   if (result != gneiss::engine::result::success) {
@@ -113,20 +113,11 @@ gneiss::engine::result set_candidate_transform(void* user_data, void* candidate,
 
 gneiss::engine::result set_transform(void* user_data, gneiss::property_target target,
                                      const gneiss::property_value* value) {
-  gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform transform;
   auto result = gneiss::engine::entity_get_local_transform(target_world(target),
                                                            target_entity(target), transform);
   if (result == gneiss::engine::result::success) {
-    gneiss::engine::transform candidate;
-    std::ranges::copy(transform.translation, candidate.translation.begin());
-    std::ranges::copy(transform.rotation, candidate.rotation.begin());
-    std::ranges::copy(transform.scale, candidate.scale.begin());
-    result = set_candidate_transform(user_data, &candidate, *value);
-    if (result == gneiss::engine::result::success) {
-      std::ranges::copy(candidate.translation, transform.translation);
-      std::ranges::copy(candidate.rotation, transform.rotation);
-      std::ranges::copy(candidate.scale, transform.scale);
-    }
+    result = set_candidate_transform(user_data, &transform, *value);
   }
   return result == gneiss::engine::result::success
              ? gneiss::engine::entity_set_local_transform(target_world(target),

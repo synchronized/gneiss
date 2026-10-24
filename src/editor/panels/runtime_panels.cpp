@@ -119,8 +119,8 @@ void draw_runtime_inspector(const runtime_scene_node& node,
   }
   ImGui::Separator();
   if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
-    auto translation = std::to_array(node.local_transform.translation);
-    auto scale = std::to_array(node.local_transform.scale);
+    auto translation = node.local_transform.translation;
+    auto scale = node.local_transform.scale;
     gneiss::property_quaternion quaternion{
         node.local_transform.rotation[0], node.local_transform.rotation[1],
         node.local_transform.rotation[2], node.local_transform.rotation[3]};
@@ -165,8 +165,7 @@ void draw_runtime_inspector(const runtime_scene_node& node,
           actions.context,
           actions.write_property(actions.context, translation_key, revision, {translation}));
     }
-    draw_runtime_property_status(translation_edit,
-                                 {std::to_array(node.local_transform.translation)});
+    draw_runtime_property_status(translation_edit, {node.local_transform.translation});
 
     const auto rotation_key = runtime_transform_key(node, GNEISS_TRANSFORM_FIELD_ROTATION);
     const auto* rotation_edit = actions.find_edit(actions.context, rotation_key);

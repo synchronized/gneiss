@@ -30,17 +30,6 @@ struct world_factory {
 
 namespace {
 
-gneiss::engine::transform native_transform(const gneiss_transform& value) noexcept {
-  return {{value.translation[0], value.translation[1], value.translation[2]},
-          {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
-          {value.scale[0], value.scale[1], value.scale[2]}};
-}
-gneiss_transform boundary_transform(const gneiss::engine::transform& value) noexcept {
-  return {{value.translation[0], value.translation[1], value.translation[2]},
-          {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
-          {value.scale[0], value.scale[1], value.scale[2]}};
-}
-
 struct world_resource {
   std::unique_ptr<gneiss::engine::world> owned;
   gneiss::engine::world* borrowed{};
@@ -371,32 +360,32 @@ gneiss::engine::result node_reparent(gneiss_world world, gneiss_scene_node_id no
   });
 }
 
-gneiss::engine::result node_set_local_transform(gneiss_world world, gneiss_scene_node_id node,
-                                                const gneiss_transform& transform) noexcept {
+gneiss::engine::result
+node_set_local_transform(gneiss_world world, gneiss_scene_node_id node,
+                         const gneiss::engine::transform& transform) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
-    return native_world.node_set_local_transform(gneiss::scene_node_id{node},
-                                                 native_transform(transform));
+    return native_world.node_set_local_transform(gneiss::scene_node_id{node}, transform);
   });
 }
 
 gneiss::engine::result node_get_local_transform(gneiss_world world, gneiss_scene_node_id node,
-                                                gneiss_transform& out_transform) noexcept {
+                                                gneiss::engine::transform& out_transform) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     gneiss::engine::transform value;
     const auto result = native_world.node_get_local_transform(gneiss::scene_node_id{node}, value);
     if (result == gneiss::engine::result::success)
-      out_transform = boundary_transform(value);
+      out_transform = value;
     return result;
   });
 }
 
 gneiss::engine::result node_get_world_transform(gneiss_world world, gneiss_scene_node_id node,
-                                                gneiss_transform& out_transform) noexcept {
+                                                gneiss::engine::transform& out_transform) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     gneiss::engine::transform value;
     const auto result = native_world.node_get_world_transform(gneiss::scene_node_id{node}, value);
     if (result == gneiss::engine::result::success)
-      out_transform = boundary_transform(value);
+      out_transform = value;
     return result;
   });
 }
@@ -421,23 +410,24 @@ gneiss::engine::result node_get_parent(gneiss_world world, gneiss_scene_node_id 
   });
 }
 
-gneiss::engine::result entity_get_local_transform(gneiss_world world, gneiss_entity_id entity,
-                                                  gneiss_transform& out_transform) noexcept {
-  out_transform = GNEISS_TRANSFORM_IDENTITY;
+gneiss::engine::result
+entity_get_local_transform(gneiss_world world, gneiss_entity_id entity,
+                           gneiss::engine::transform& out_transform) noexcept {
+  out_transform = {};
   return with_world(world, [&](gneiss::engine::world& native_world) {
     gneiss::engine::transform value;
     const auto result = native_world.entity_get_local_transform(gneiss::entity_id{entity}, value);
     if (result == gneiss::engine::result::success)
-      out_transform = boundary_transform(value);
+      out_transform = value;
     return result;
   });
 }
 
-gneiss::engine::result entity_set_local_transform(gneiss_world world, gneiss_entity_id entity,
-                                                  const gneiss_transform& transform) noexcept {
+gneiss::engine::result
+entity_set_local_transform(gneiss_world world, gneiss_entity_id entity,
+                           const gneiss::engine::transform& transform) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
-    return native_world.entity_set_local_transform(gneiss::entity_id{entity},
-                                                   native_transform(transform));
+    return native_world.entity_set_local_transform(gneiss::entity_id{entity}, transform);
   });
 }
 

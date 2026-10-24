@@ -6,6 +6,8 @@
 
 #include "ipc_dispatcher.hpp"
 
+#include "engine/core/math/camera_settings.hpp"
+#include "engine/core/math/transform.hpp"
 #include "engine/core/result.hpp"
 #include <gneiss/engine/scene.h>
 
@@ -43,9 +45,9 @@ struct ipc_inspection_node final {
   std::string prefab_instance_uuid;
   std::string prefab_source_node_uuid;
   std::string name;
-  gneiss_transform local_transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform local_transform;
   std::uint32_t component_flags = 0U;
-  gneiss_camera_desc camera = GNEISS_CAMERA_DESC_INIT;
+  gneiss::engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   std::string mesh_uri;
   std::string material_uri;
 };

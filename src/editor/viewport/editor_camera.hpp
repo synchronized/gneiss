@@ -4,9 +4,9 @@
 #ifndef GNEISS_APPS_EDITOR_EDITOR_CAMERA_H_
 #define GNEISS_APPS_EDITOR_EDITOR_CAMERA_H_
 
+#include "engine/core/math/camera_settings.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/core/result.hpp"
-#include "engine/function/render/camera_settings.hpp"
 
 namespace gneiss::editor {
 

@@ -17,7 +17,8 @@
 
 namespace {
 
-bool equal_transform(const gneiss_transform& left, const gneiss_transform& right) noexcept {
+bool equal_transform(const gneiss::engine::transform& left,
+                     const gneiss::engine::transform& right) noexcept {
   return std::ranges::equal(left.translation, right.translation) &&
          std::ranges::equal(left.rotation, right.rotation) &&
          std::ranges::equal(left.scale, right.scale);
@@ -37,15 +38,9 @@ bool equal_node(const gneiss::host::runtime_scene_snapshot_node& left,
          left.material_uri == right.material_uri;
 }
 
-// IPC 使用既有协议布局；转换只发生在快照输出边界。
-gneiss_transform wire_transform(const gneiss::engine::transform& value) noexcept {
-  return {{value.translation[0], value.translation[1], value.translation[2]},
-          {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
-          {value.scale[0], value.scale[1], value.scale[2]}};
-}
-gneiss_camera_desc
-wire_camera(const std::optional<gneiss::engine::camera_description>& camera) noexcept {
-  gneiss_camera_desc output = GNEISS_CAMERA_DESC_INIT;
+gneiss::engine::camera_settings
+inspection_camera(const std::optional<gneiss::engine::camera_description>& camera) noexcept {
+  gneiss::engine::camera_settings output{1.04719755F, 0.1F, 1000.0F};
   if (camera) {
     output.vertical_field_of_view_radians = camera->vertical_field_of_view_radians;
     output.near_plane = camera->near_plane;
@@ -274,9 +269,9 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
                        .prefab_instance_uuid = {},
                        .prefab_source_node_uuid = {},
                        .name = std::string{info.name},
-                       .local_transform = wire_transform(runtime_transform),
+                       .local_transform = runtime_transform,
                        .component_flags = static_cast<std::uint32_t>(info.component_flags),
-                       .camera = wire_camera(info.camera),
+                       .camera = inspection_camera(info.camera),
                        .mesh_uri = std::string{info.mesh_uri},
                        .material_uri = std::string{info.material_uri}});
     }
@@ -306,9 +301,9 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
                        .prefab_instance_uuid = instance_uuid,
                        .prefab_source_node_uuid = source_uuid,
                        .name = std::string{info.name},
-                       .local_transform = wire_transform(runtime_transform),
+                       .local_transform = runtime_transform,
                        .component_flags = 0U,
-                       .camera = GNEISS_CAMERA_DESC_INIT,
+                       .camera = {1.04719755F, 0.1F, 1000.0F},
                        .mesh_uri = {},
                        .material_uri = {}});
     }

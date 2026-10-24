@@ -70,9 +70,9 @@ bool test_write_and_revision() {
        .prefab_instance_uuid = {},
        .prefab_source_node_uuid = {},
        .name = "Root",
-       .local_transform = GNEISS_TRANSFORM_IDENTITY,
+       .local_transform = {},
        .component_flags = 0U,
-       .camera = GNEISS_CAMERA_DESC_INIT,
+       .camera = {1.04719755F, 0.1F, 1000.0F},
        .mesh_uri = {},
        .material_uri = {}}};
   gneiss::host::runtime_scene_snapshot snapshot;

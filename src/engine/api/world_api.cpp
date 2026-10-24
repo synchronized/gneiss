@@ -4,6 +4,7 @@
 #include "engine/api/result_conversion.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/world/world_service.hpp"
+#include "engine/values/scene.hpp"
 
 #include <gneiss/engine/scene.h>
 #include <gneiss/engine/world.h>
@@ -190,7 +191,7 @@ extern "C" gneiss_result gneiss_scene_node_set_local_transform(gneiss_world worl
     if (transform == nullptr) {
       return gneiss::engine::result::invalid_argument;
     }
-    return gneiss::engine::node_set_local_transform(world, node, *transform);
+    return gneiss::engine::node_set_local_transform(world, node, gneiss::from_native(*transform));
   }());
 }
 
@@ -201,7 +202,12 @@ extern "C" gneiss_result gneiss_scene_node_get_local_transform(gneiss_world worl
     if (out_transform == nullptr) {
       return gneiss::engine::result::invalid_argument;
     }
-    return gneiss::engine::node_get_local_transform(world, node, *out_transform);
+    gneiss::engine::transform value;
+    const auto result = gneiss::engine::node_get_local_transform(world, node, value);
+    if (result == gneiss::engine::result::success) {
+      *out_transform = gneiss::to_native(value);
+    }
+    return result;
   }());
 }
 
@@ -212,7 +218,12 @@ extern "C" gneiss_result gneiss_scene_node_get_world_transform(gneiss_world worl
     if (out_transform == nullptr) {
       return gneiss::engine::result::invalid_argument;
     }
-    return gneiss::engine::node_get_world_transform(world, node, *out_transform);
+    gneiss::engine::transform value;
+    const auto result = gneiss::engine::node_get_world_transform(world, node, value);
+    if (result == gneiss::engine::result::success) {
+      *out_transform = gneiss::to_native(value);
+    }
+    return result;
   }());
 }
 
@@ -246,7 +257,12 @@ extern "C" gneiss_result gneiss_world_entity_get_local_transform(gneiss_world wo
       return gneiss::engine::result::invalid_argument;
     }
     *out_transform = GNEISS_TRANSFORM_IDENTITY;
-    return gneiss::engine::entity_get_local_transform(world, entity, *out_transform);
+    gneiss::engine::transform value;
+    const auto result = gneiss::engine::entity_get_local_transform(world, entity, value);
+    if (result == gneiss::engine::result::success) {
+      *out_transform = gneiss::to_native(value);
+    }
+    return result;
   }());
 }
 
@@ -257,6 +273,7 @@ gneiss_world_entity_set_local_transform(gneiss_world world, gneiss_entity_id ent
     if (transform == nullptr) {
       return gneiss::engine::result::invalid_argument;
     }
-    return gneiss::engine::entity_set_local_transform(world, entity, *transform);
+    return gneiss::engine::entity_set_local_transform(world, entity,
+                                                      gneiss::from_native(*transform));
   }());
 }
