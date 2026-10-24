@@ -125,7 +125,7 @@ runtime_property_editor::execute(const ipc_property_write& command,
   }
 
   property_key key{.object = command.object, .field_id = command.field_id};
-  std::ranges::copy(command.type_id.bytes, key.type_id.begin());
+  std::ranges::copy(command.type_id.value.bytes(), key.type_id.begin());
   auto [revision, inserted] = revisions_.try_emplace(key, 1U);
   (void)inserted;
   response.revision = revision->second;

@@ -38,7 +38,7 @@ private:
   struct property_key final {
     ipc_runtime_object_id object;
     std::array<std::uint8_t, 16> type_id{};
-    gneiss_field_id field_id = GNEISS_NULL_FIELD_ID;
+    std::uint32_t field_id = 0U;
 
     [[nodiscard]] bool operator<(const property_key& other) const noexcept {
       return std::tie(object.value, object.generation, type_id, field_id) <

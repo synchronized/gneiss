@@ -9,7 +9,7 @@
 
 #include "ipc_dispatcher.hpp"
 
-#include <gneiss/engine/reflection.h>
+#include "engine/core/type_guid.hpp"
 
 #include <array>
 #include <cstdint>
@@ -37,8 +37,8 @@ struct ipc_property_write final {
   std::uint64_t session_id = 0U;
   std::uint64_t command_id = 0U;
   ipc_runtime_object_id object;
-  gneiss_type_id type_id{};
-  gneiss_field_id field_id = GNEISS_NULL_FIELD_ID;
+  gneiss::engine::type_guid type_id{};
+  std::uint32_t field_id = 0U;
   std::uint64_t expected_revision = 0U;
   ipc_property_value value;
 };

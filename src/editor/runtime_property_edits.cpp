@@ -39,7 +39,7 @@ gneiss::engine::result runtime_property_edits::prepare(runtime_property_key key,
                                                        runtime_property_value value,
                                                        clock::time_point now,
                                                        runtime_property_write& output) noexcept {
-  if (session_id_ == 0U || !key.object.is_valid() || key.field_id == GNEISS_NULL_FIELD_ID ||
+  if (session_id_ == 0U || !key.object.is_valid() || key.field_id == 0U ||
       expected_revision == 0U || next_command_id_ == 0U) {
     return gneiss::engine::result::invalid_state;
   }
@@ -56,7 +56,7 @@ gneiss::engine::result runtime_property_edits::prepare(runtime_property_key key,
                                    .field_id = key.field_id,
                                    .expected_revision = expected_revision,
                                    .value = std::move(value)};
-    std::ranges::copy(key.type_id, command.type_id.bytes);
+    command.type_id = engine::type_guid{engine::guid::from_bytes(key.type_id)};
     edits_[key] = {.state = runtime_property_edit_state::pending,
                    .command_id = command_id,
                    .revision = expected_revision,

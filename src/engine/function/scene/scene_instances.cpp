@@ -6,8 +6,8 @@
 #include "engine/function/scene/prefab_property_override.hpp"
 
 #include "engine/core/identifier_conversion.hpp"
+#include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/reflection/type_registry.hpp"
-#include "engine/values/detail/reflection_values.hpp"
 
 #include "engine/function/world/world_reflection.hpp"
 #include "engine/function/world/world_service.hpp"
@@ -702,10 +702,11 @@ gneiss::engine::result scene_instance::get_prefab_node_info(std::uint64_t index,
         return gneiss::engine::result::invalid_state;
       }
       out_info.source_local_transform = to_transform(*source_object);
-      const auto transform_type = gneiss::engine::transform_type_id();
+      const auto transform_type = gneiss::engine::transform_component_type;
       for (const auto& override_value : author.overrides) {
         if (override_value.key.node.source_node_uuid != source.address->source_node_uuid ||
-            !std::ranges::equal(override_value.key.type_id.value.bytes(), transform_type.bytes)) {
+            !std::ranges::equal(override_value.key.type_id.value.bytes(),
+                                transform_type.value.bytes())) {
           continue;
         }
         switch (override_value.key.field_id.get()) {
@@ -923,7 +924,7 @@ scene_instance::set_prefab_source_transform(gneiss_scene_node_id node,
         return gneiss::engine::result::invalid_state;
       }
       auto pending = description_.prefab_instances[index].overrides;
-      const auto type_id = gneiss::from_native(gneiss::engine::transform_type_id());
+      const auto type_id = gneiss::engine::transform_component_type;
       const std::array candidates{
           gneiss::engine::prefab_property_override{
               .key = {.node = *info.address,

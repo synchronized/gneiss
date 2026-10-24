@@ -6,8 +6,8 @@
 #include "engine/core/result.hpp"
 #include "runtime/application_registry.hpp"
 
+#include "engine/core/reflection/reflection_types.hpp"
 #include "engine/values/core/result.hpp"
-#include "engine/values/detail/reflection_values.hpp"
 #include "engine/values/render.hpp"
 #include "engine/values/scene.hpp"
 #include <gneiss/engine/application.h>

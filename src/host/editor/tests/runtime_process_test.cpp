@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/result.hpp"
 #include "runtime_log_adapter.hpp"
 #include "runtime_process.hpp"
@@ -102,14 +103,14 @@ bool test_property_adapter() {
         .session_id = 11U,
         .command_id = 12U,
         .object = {13U, 14U},
-        .type_id = {{15U}},
+        .type_id = gneiss::engine::type_guid{gneiss::engine::guid::from_bytes({15U})},
         .field_id = 16U,
         .expected_revision = 17U,
         .value = gneiss::host::to_runtime_property_value({payload})};
     const auto wire = gneiss::host::to_ipc_property_write(std::move(request));
     if (wire.session_id != 11U || wire.command_id != 12U || wire.object.value != 13U ||
-        wire.object.generation != 14U || wire.type_id.bytes[0] != 15U || wire.field_id != 16U ||
-        wire.expected_revision != 17U || wire.value.payload != payload) {
+        wire.object.generation != 14U || wire.type_id.value.bytes()[0] != 15U ||
+        wire.field_id != 16U || wire.expected_revision != 17U || wire.value.payload != payload) {
       return false;
     }
     // 临时协议响应在表达式结束时销毁，模型结果必须持有消息与规范值。
@@ -383,8 +384,8 @@ int main() try {
                  process.scene_mirror().nodes().front().id.generation},
       .type_id = {},
       .field_id = GNEISS_TRANSFORM_FIELD_TRANSLATION};
-  const auto transform_type = gneiss_transform_type_id();
-  std::ranges::copy(transform_type.bytes, property_key.type_id.begin());
+  const auto transform_type = gneiss::engine::transform_component_type;
+  std::ranges::copy(transform_type.value.bytes(), property_key.type_id.begin());
   if (!process.supports_property_editing() ||
       process.request_property_write(property_key, 1U,
                                      {std::array<float, 3>{0.25F, 0.5F, 0.75F}}) !=

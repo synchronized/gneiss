@@ -28,15 +28,13 @@ constexpr char hex_digits[] = "0123456789abcdef";
 using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
 using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
 
-bool valid_type_id(gneiss_type_id id) noexcept {
-  return std::ranges::any_of(id.bytes, [](std::uint8_t value) { return value != 0U; });
-}
+bool valid_type_id(gneiss::engine::type_guid id) noexcept { return !id.is_nil(); }
 
-std::string type_id_text(gneiss_type_id id) {
+std::string type_id_text(gneiss::engine::type_guid id) {
   std::string text(32U, '0');
   for (std::size_t index = 0U; index < 16U; ++index) {
-    text[index * 2U] = hex_digits[id.bytes[index] >> 4U];
-    text[index * 2U + 1U] = hex_digits[id.bytes[index] & 0x0FU];
+    text[index * 2U] = hex_digits[id.value.bytes()[index] >> 4U];
+    text[index * 2U + 1U] = hex_digits[id.value.bytes()[index] & 0x0FU];
   }
   return text;
 }
@@ -54,11 +52,11 @@ int hex_value(char value) noexcept {
   return -1;
 }
 
-bool parse_type_id(yyjson_val* value, gneiss_type_id& output) noexcept {
+bool parse_type_id(yyjson_val* value, gneiss::engine::type_guid& output) noexcept {
   if (!yyjson_is_str(value) || yyjson_get_len(value) != 32U) {
     return false;
   }
-  gneiss_type_id parsed{};
+  gneiss::engine::guid::byte_array bytes{};
   const auto* text = yyjson_get_str(value);
   for (std::size_t index = 0U; index < 16U; ++index) {
     const auto high = hex_value(text[index * 2U]);
@@ -66,8 +64,9 @@ bool parse_type_id(yyjson_val* value, gneiss_type_id& output) noexcept {
     if (high < 0 || low < 0) {
       return false;
     }
-    parsed.bytes[index] = static_cast<std::uint8_t>((high << 4) | low);
+    bytes[index] = static_cast<std::uint8_t>((high << 4) | low);
   }
+  const gneiss::engine::type_guid parsed{gneiss::engine::guid::from_bytes(bytes)};
   if (!valid_type_id(parsed)) {
     return false;
   }
@@ -117,8 +116,7 @@ bool add_property_value(yyjson_mut_doc* document, yyjson_mut_val* root,
                  yyjson_mut_obj_add_strncpy(document, root, "value", payload.data(),
                                             payload.size());
         } else if constexpr (std::is_same_v<Payload, std::array<std::uint8_t, 16>>) {
-          gneiss_type_id id{};
-          std::ranges::copy(payload, id.bytes);
+          const gneiss::engine::type_guid id{gneiss::engine::guid::from_bytes(payload)};
           if (!valid_type_id(id) || !add_kind("type_id")) {
             return false;
           }
@@ -188,12 +186,12 @@ bool parse_property_value(yyjson_val* root, gneiss::host::ipc_property_value& ou
              yyjson_get_len(value) <= max_property_string_size) {
     parsed.payload = std::string(yyjson_get_str(value), yyjson_get_len(value));
   } else if (kind == "type_id") {
-    gneiss_type_id id{};
+    gneiss::engine::type_guid id{};
     if (!parse_type_id(value, id)) {
       return false;
     }
     std::array<std::uint8_t, 16> bytes{};
-    std::ranges::copy(id.bytes, bytes.begin());
+    std::ranges::copy(id.value.bytes(), bytes.begin());
     parsed.payload = bytes;
   } else if (kind == "vec3") {
     std::array<float, 3> numbers{};
@@ -249,8 +247,8 @@ namespace gneiss::host {
 
 gneiss::engine::result encode_ipc_property_write(const ipc_property_write& command,
                                                  std::vector<std::uint8_t>& output) noexcept {
-  if (!command.object.is_valid() || !valid_type_id(command.type_id) ||
-      command.field_id == GNEISS_NULL_FIELD_ID || command.expected_revision == 0U) {
+  if (!command.object.is_valid() || !valid_type_id(command.type_id) || command.field_id == 0U ||
+      command.expected_revision == 0U) {
     return gneiss::engine::result::invalid_argument;
   }
   try {
@@ -307,9 +305,9 @@ gneiss::engine::result decode_ipc_property_write(std::span<const std::uint8_t> p
       return gneiss::engine::result::invalid_argument;
     }
     parsed.object.generation = static_cast<std::uint32_t>(generation);
-    parsed.field_id = static_cast<gneiss_field_id>(field_id);
-    if (parsed.session_id == 0U || !parsed.object.is_valid() ||
-        parsed.field_id == GNEISS_NULL_FIELD_ID || parsed.expected_revision == 0U) {
+    parsed.field_id = static_cast<std::uint32_t>(field_id);
+    if (parsed.session_id == 0U || !parsed.object.is_valid() || parsed.field_id == 0U ||
+        parsed.expected_revision == 0U) {
       return gneiss::engine::result::invalid_argument;
     }
     output = std::move(parsed);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_resource_service.hpp"
@@ -11,7 +12,6 @@
 #include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/resource/vfs/file_system.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
-#include "engine/values/detail/reflection_values.hpp"
 
 #include <gneiss/engine/world.h>
 
@@ -263,7 +263,7 @@ int main() try {
   const std::vector<gneiss::engine::prefab_property_override> first_overrides{{
       .key = {.node = {.instance_uuid = "20000000-0000-4000-8000-000000000001",
                        .source_node_uuid = "10000000-0000-4000-8000-000000000002"},
-              .type_id = gneiss::from_native(gneiss_transform_type_id()),
+              .type_id = gneiss::engine::transform_component_type,
               .field_id = gneiss::field_id{GNEISS_TRANSFORM_FIELD_TRANSLATION}},
       .value = {.payload = std::array{3.0F, 0.0F, 0.0F}},
   }};
@@ -319,7 +319,7 @@ int main() try {
   const std::vector<gneiss::engine::prefab_property_override> invalid_overrides{{
       .key = {.node = {.instance_uuid = "20000000-0000-4000-8000-000000000005",
                        .source_node_uuid = "10000000-0000-4000-8000-000000000099"},
-              .type_id = gneiss::from_native(gneiss_transform_type_id()),
+              .type_id = gneiss::engine::transform_component_type,
               .field_id = gneiss::field_id{GNEISS_TRANSFORM_FIELD_TRANSLATION}},
       .value = {.payload = std::array{3.0F, 0.0F, 0.0F}},
   }};

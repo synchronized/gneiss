@@ -16,7 +16,6 @@
 #include <gneiss/engine/game_module.h>
 #include <gneiss/engine/input.h>
 #include <gneiss/engine/log.h>
-#include <gneiss/engine/reflection.h>
 #include <gneiss/engine/render.h>
 #include <gneiss/engine/scene.h>
 #include <gneiss/engine/world.h>

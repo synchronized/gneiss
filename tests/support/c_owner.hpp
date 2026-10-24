@@ -4,7 +4,6 @@
 #include "engine/values/core/result.hpp"
 #include <exception>
 #include <gneiss/engine/application.h>
-#include <gneiss/engine/reflection.h>
 #include <gneiss/engine/scene.h>
 #include <gneiss/engine/world.h>
 #include <utility>

@@ -45,8 +45,7 @@ void draw_runtime_scene_node(const runtime_scene_mirror& mirror, runtime_scene_s
   ImGui::PopID();
 }
 
-runtime_property_key runtime_transform_key(const runtime_scene_node& node,
-                                           gneiss_field_id field_id) {
+runtime_property_key runtime_transform_key(const runtime_scene_node& node, std::uint32_t field_id) {
   runtime_property_key key{
       .object = {node.id.value, node.id.generation}, .type_id = {}, .field_id = field_id};
   const auto type_id = gneiss::engine::transform_component_type;
@@ -128,7 +127,7 @@ void draw_runtime_inspector(const runtime_scene_node& node,
     std::array<float, 3> rotation{};
     (void)quaternion_to_euler_degrees(quaternion, rotation);
 
-    const auto draw_vec3 = [&](const char* label, gneiss_field_id field_id,
+    const auto draw_vec3 = [&](const char* label, std::uint32_t field_id,
                                std::array<float, 3>& value, float speed) {
       const auto observed = value;
       const auto key = runtime_transform_key(node, field_id);

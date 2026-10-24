@@ -7,7 +7,8 @@
 
 反射注册与查询使用 `src/engine/core/reflection/type_registry.hpp` 和
 `property_registry.hpp` 中的原生接口。Registry 的 C 函数、公共句柄表及 C 元数据缓存已删除。
-`include/gneiss/engine/reflection.h` 暂留其他模块迁移所需的属性值布局，不再提供 Registry API。
+旧 `reflection.h`、C 属性值布局和转换头已删除；Editor/Runtime 属性命令直接持有原生 `type_guid`。
+IPC 仍使用既有 32 位十六进制字符串编码 GUID，不传输原生对象布局。
 
 当前支持类型、字段和显式属性访问器，内建 Transform 与 Camera 已接入；不提供对象构造、
 继承、注销、解冻、描述替换或动态模块卸载。

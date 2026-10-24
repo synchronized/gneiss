@@ -6,8 +6,8 @@
 #include "engine/function/scene/prefab_property_override.hpp"
 
 #include "engine/core/identifier_conversion.hpp"
+#include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/reflection/type_registry.hpp"
-#include "engine/values/detail/reflection_values.hpp"
 
 #include "engine/function/world/world_service.hpp"
 
@@ -122,7 +122,7 @@ gneiss::engine::result prefab_runtime_instance::validate_reload(
     }
   }
 
-  const auto camera_type = gneiss::engine::camera_type_id();
+  const auto camera_type = gneiss::engine::camera_component_type;
   for (const auto& override_value : overrides) {
     if (override_value.key.node.instance_uuid != instance_uuid_) {
       return gneiss::engine::result::invalid_argument;
@@ -134,8 +134,7 @@ gneiss::engine::result prefab_runtime_instance::validate_reload(
     if (result != gneiss::engine::result::success || source == candidate.get()->objects.end()) {
       return result == gneiss::engine::result::success ? gneiss::engine::result::not_found : result;
     }
-    if (std::ranges::equal(override_value.key.type_id.value.bytes(), camera_type.bytes) &&
-        !source->camera) {
+    if (override_value.key.type_id == camera_type && !source->camera) {
       return gneiss::engine::result::invalid_state;
     }
   }
@@ -465,10 +464,8 @@ gneiss::engine::result apply_candidate_object(const gneiss::engine::registry_ref
                                               const gneiss::property_value& native,
                                               gneiss::engine::object_description& object) {
   auto result = gneiss::engine::result::success;
-  const auto is_type = [&](gneiss_type_id type) {
-    return std::ranges::equal(value.key.type_id.value.bytes(), type.bytes);
-  };
-  if (is_type(gneiss::engine::transform_type_id())) {
+  const auto is_type = [&](gneiss::engine::type_guid type) { return value.key.type_id == type; };
+  if (is_type(gneiss::engine::transform_component_type)) {
     auto transform = to_transform(object);
     result = gneiss::engine::set_candidate_property(state, value.key.type_id,
                                                     value.key.field_id.get(), &transform, native);
@@ -478,7 +475,7 @@ gneiss::engine::result apply_candidate_object(const gneiss::engine::registry_ref
     std::ranges::copy(transform.translation, object.translation.begin());
     std::ranges::copy(transform.rotation, object.rotation.begin());
     std::ranges::copy(transform.scale, object.scale.begin());
-  } else if (is_type(gneiss::engine::camera_type_id())) {
+  } else if (is_type(gneiss::engine::camera_component_type)) {
     if (!object.camera) {
       return gneiss::engine::result::not_found;
     }

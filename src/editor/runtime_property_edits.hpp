@@ -7,7 +7,7 @@
 #include "runtime_object_id.hpp"
 
 #include "engine/core/result.hpp"
-#include <gneiss/engine/reflection.h>
+#include "engine/core/type_guid.hpp"
 
 #include <array>
 #include <chrono>
@@ -31,8 +31,8 @@ struct runtime_property_write final {
   std::uint64_t session_id = 0U;
   std::uint64_t command_id = 0U;
   runtime_object_id object;
-  gneiss_type_id type_id{};
-  gneiss_field_id field_id = GNEISS_NULL_FIELD_ID;
+  gneiss::engine::type_guid type_id{};
+  std::uint32_t field_id = 0U;
   std::uint64_t expected_revision = 0U;
   runtime_property_value value;
 };
@@ -49,7 +49,7 @@ struct runtime_property_write_result final {
 struct runtime_property_key final {
   runtime_object_id object;
   std::array<std::uint8_t, 16> type_id{};
-  gneiss_field_id field_id = GNEISS_NULL_FIELD_ID;
+  std::uint32_t field_id = 0U;
 
   [[nodiscard]] bool operator<(const runtime_property_key& other) const noexcept {
     return std::tie(object.value, object.generation, type_id, field_id) <

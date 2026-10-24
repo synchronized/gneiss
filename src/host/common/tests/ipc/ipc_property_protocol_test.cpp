@@ -14,12 +14,12 @@ using namespace gneiss::host;
 
 namespace {
 
-gneiss_type_id test_type_id() noexcept {
-  gneiss_type_id id{};
+gneiss::engine::type_guid test_type_id() noexcept {
+  gneiss::engine::guid::byte_array bytes{};
   for (std::uint8_t index = 0U; index < 16U; ++index) {
-    id.bytes[index] = static_cast<std::uint8_t>(index + 1U);
+    bytes[index] = static_cast<std::uint8_t>(index + 1U);
   }
-  return id;
+  return gneiss::engine::type_guid{gneiss::engine::guid::from_bytes(bytes)};
 }
 
 bool round_trip_value(const gneiss::host::ipc_property_value& value) {
@@ -38,7 +38,8 @@ bool round_trip_value(const gneiss::host::ipc_property_value& value) {
          gneiss::host::decode_ipc_property_write(payload, decoded) ==
              gneiss::engine::result::success &&
          decoded.session_id == source.session_id && decoded.command_id == 0U &&
-         decoded.object == source.object && decoded.field_id == source.field_id &&
+         decoded.object == source.object && decoded.type_id == source.type_id &&
+         decoded.field_id == source.field_id &&
          decoded.expected_revision == source.expected_revision &&
          decoded.value.payload == value.payload;
 }

@@ -14,12 +14,12 @@ using namespace gneiss::host;
 
 namespace {
 
-[[nodiscard]] gneiss_type_id test_type_id() noexcept {
-  gneiss_type_id id{};
+[[nodiscard]] gneiss::engine::type_guid test_type_id() noexcept {
+  gneiss::engine::guid::byte_array bytes{};
   for (std::uint8_t index = 0U; index < 16U; ++index) {
-    id.bytes[index] = static_cast<std::uint8_t>(index + 1U);
+    bytes[index] = static_cast<std::uint8_t>(index + 1U);
   }
-  return id;
+  return gneiss::engine::type_guid{gneiss::engine::guid::from_bytes(bytes)};
 }
 
 [[nodiscard]] bool test_log_and_statistics() {

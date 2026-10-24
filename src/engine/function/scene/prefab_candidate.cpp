@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/scene/prefab_candidate.hpp"
+#include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/scene/prefab_runtime_instance.hpp"
 #include "engine/function/world/world_service.hpp"
@@ -78,10 +79,10 @@ gneiss::engine::result prefab_candidate::preview(std::size_t index,
   output.local_transform = transform_of(runtime_->prefab_lease().get()->objects[index - 1U]);
   output.source_local_transform = output.local_transform;
   output.local_transform = transform_of(runtime_->candidate_description().objects[index - 1U]);
-  const auto transform_type = gneiss::engine::transform_type_id();
+  const auto transform_type = gneiss::engine::transform_component_type;
   for (const auto& value : author_.overrides) {
     if (value.key.node.source_node_uuid != output.source_node_uuid ||
-        !std::ranges::equal(value.key.type_id.value.bytes(), transform_type.bytes)) {
+        value.key.type_id != transform_type) {
       continue;
     }
     switch (value.key.field_id.get()) {

@@ -17,7 +17,6 @@ gneiss_application_set_paused stable
 gneiss_application_submit_debug_draw_list experimental
 gneiss_application_submit_ui_draw_list experimental
 gneiss_asset_uri_validate stable
-gneiss_camera_type_id experimental
 gneiss_game_context_find_action experimental
 gneiss_game_context_get_action_state experimental
 gneiss_game_context_get_entity_transform experimental
@@ -71,7 +70,6 @@ gneiss_scene_node_reparent stable
 gneiss_scene_node_set_local_transform stable
 gneiss_texture_create experimental
 gneiss_texture_destroy experimental
-gneiss_transform_type_id experimental
 gneiss_version_major stable
 gneiss_version_minor stable
 gneiss_version_patch stable

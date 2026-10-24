@@ -5,7 +5,7 @@
 #include "engine/core/result.hpp"
 #include "viewport/editor_camera.hpp"
 
-#include "engine/values/detail/reflection_values.hpp"
+#include "engine/core/reflection/reflection_types.hpp"
 #include "engine/values/scene.hpp"
 #include <gneiss/engine/world.h>
 

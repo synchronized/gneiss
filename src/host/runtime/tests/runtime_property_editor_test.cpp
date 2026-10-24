@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../../../tests/support/c_owner.hpp"
+#include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/result.hpp"
 #include "runtime_property_editor.hpp"
 
-#include "engine/values/detail/reflection_values.hpp"
 #include "engine/values/scene.hpp"
 #include <gneiss/engine/world.h>
 
@@ -84,7 +84,8 @@ bool test_write_and_revision() {
   const gneiss::host::ipc_property_write command{.session_id = 7U,
                                                  .command_id = 1U,
                                                  .object = snapshot.changes.front().id,
-                                                 .type_id = gneiss_transform_type_id(),
+                                                 .type_id =
+                                                     gneiss::engine::transform_component_type,
                                                  .field_id = GNEISS_TRANSFORM_FIELD_TRANSLATION,
                                                  .expected_revision = 1U,
                                                  .value = {std::array<float, 3>{2.0F, 3.0F, 4.0F}}};
@@ -145,7 +146,8 @@ bool test_rejections() {
   const gneiss::host::ipc_property_write missing{.session_id = 9U,
                                                  .command_id = 1U,
                                                  .object = {1U, 1U},
-                                                 .type_id = gneiss_transform_type_id(),
+                                                 .type_id =
+                                                     gneiss::engine::transform_component_type,
                                                  .field_id = GNEISS_TRANSFORM_FIELD_SCALE,
                                                  .expected_revision = 1U,
                                                  .value = {std::array<float, 3>{1.0F, 1.0F, 1.0F}}};

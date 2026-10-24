@@ -7,7 +7,6 @@
 #include "engine/core/result.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include "engine/function/world/world_service.hpp"
-#include "engine/values/detail/reflection_values.hpp"
 
 #include <gneiss/engine/world.h>
 
@@ -222,7 +221,7 @@ constexpr camera_field near_plane_field = camera_field::near_plane;
 constexpr camera_field far_plane_field = camera_field::far_plane;
 
 [[nodiscard]] constexpr gneiss::engine::field_definition
-make_field(gneiss_field_id id, gneiss::engine::type_guid value_type_id, std::uint32_t flags,
+make_field(std::uint32_t id, gneiss::engine::type_guid value_type_id, std::uint32_t flags,
            const char* name, std::uint32_t name_length) noexcept {
   return {.id = id, .value_type_id = value_type_id, .flags = flags, .name = {name, name_length}};
 }
@@ -231,7 +230,7 @@ make_field(gneiss_field_id id, gneiss::engine::type_guid value_type_id, std::uin
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
 [[nodiscard]] gneiss::engine::result bind_component_field(
     const gneiss::engine::registry_ref& registry, gneiss::engine::type_guid type_id,
-    gneiss_field_id field_id, gneiss::property_kind kind,
+    std::uint32_t field_id, gneiss::property_kind kind,
     gneiss::engine::result (*getter)(void*, gneiss::property_target, gneiss::property_value*),
     gneiss::engine::result (*setter)(void*, gneiss::property_target, const gneiss::property_value*),
     const void* field) {
@@ -251,12 +250,6 @@ make_field(gneiss_field_id id, gneiss::engine::type_guid value_type_id, std::uin
 
 } // namespace
 
-gneiss_type_id gneiss::engine::transform_type_id() noexcept {
-  return gneiss::to_native(transform_id);
-}
-
-gneiss_type_id gneiss::engine::camera_type_id() noexcept { return gneiss::to_native(camera_id); }
-
 gneiss::engine::result
 gneiss::engine::register_reflection(const gneiss::engine::registry_ref& registry) {
   constexpr std::array transform_fields{
@@ -268,8 +261,8 @@ gneiss::engine::register_reflection(const gneiss::engine::registry_ref& registry
                  "vertical_field_of_view_radians", 30U),
       make_field(GNEISS_CAMERA_FIELD_NEAR_PLANE, float32_id, 0U, "near_plane", 10U),
       make_field(GNEISS_CAMERA_FIELD_FAR_PLANE, float32_id, 0U, "far_plane", 9U),
-      make_field(GNEISS_CAMERA_FIELD_IS_PRIMARY, bool_id, GNEISS_FIELD_FLAG_READ_ONLY, "is_primary",
-                 10U)};
+      make_field(GNEISS_CAMERA_FIELD_IS_PRIMARY, bool_id,
+                 static_cast<std::uint32_t>(gneiss::field_flags::read_only), "is_primary", 10U)};
   const gneiss::engine::type_definition transform{
       .id = transform_id, .schema_version = 1U, .name = "transform", .fields = transform_fields};
   const gneiss::engine::type_definition camera{

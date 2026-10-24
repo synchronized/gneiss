@@ -260,8 +260,3 @@ gneiss_world_entity_set_local_transform(gneiss_world world, gneiss_entity_id ent
     return gneiss::engine::entity_set_local_transform(world, entity, *transform);
   }());
 }
-
-extern "C" gneiss_type_id gneiss_transform_type_id(void) {
-  return gneiss::engine::transform_type_id();
-}
-extern "C" gneiss_type_id gneiss_camera_type_id(void) { return gneiss::engine::camera_type_id(); }

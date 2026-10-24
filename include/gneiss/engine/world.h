@@ -10,7 +10,6 @@
 #include <gneiss/engine/core/export.h>
 #include <gneiss/engine/core/result.h>
 #include <gneiss/engine/game_module_types.h>
-#include <gneiss/engine/reflection.h>
 
 #define GNEISS_TRANSFORM_FIELD_TRANSLATION UINT32_C(1)
 #define GNEISS_TRANSFORM_FIELD_ROTATION UINT32_C(2)
@@ -51,12 +50,6 @@ GNEISS_API gneiss_result gneiss_world_entity_is_alive(gneiss_world world, gneiss
 
 /** 返回 World 中当前存活的实体数量。 */
 GNEISS_API gneiss_result gneiss_world_entity_count(gneiss_world world, uint64_t* out_count);
-
-/** 返回内建 Transform 的稳定 Type ID。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_type_id gneiss_transform_type_id(void);
-
-/** 返回内建 Camera 的稳定 Type ID。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_type_id gneiss_camera_type_id(void);
 
 #ifdef __cplusplus
 }

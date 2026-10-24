@@ -15,7 +15,6 @@ gneiss_application_set_paused
 gneiss_application_submit_debug_draw_list
 gneiss_application_submit_ui_draw_list
 gneiss_asset_uri_validate
-gneiss_camera_type_id
 gneiss_game_context_find_action
 gneiss_game_context_get_action_state
 gneiss_game_context_get_startup_root_entity
@@ -67,7 +66,6 @@ gneiss_scene_node_reparent
 gneiss_scene_node_set_local_transform
 gneiss_texture_create
 gneiss_texture_destroy
-gneiss_transform_type_id
 gneiss_version_major
 gneiss_version_minor
 gneiss_version_patch

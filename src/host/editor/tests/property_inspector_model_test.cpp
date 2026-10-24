@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../../../tests/support/c_owner.hpp"
+#include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/result.hpp"
-#include "engine/values/detail/reflection_values.hpp"
 #include "engine/values/scene.hpp"
 #include "panels/property_inspector_model.hpp"
 #include <gneiss/engine/world.h>
@@ -95,7 +95,7 @@ int main() {
 
   gneiss::engine::property_value value;
   value.payload = gneiss::property_vec3{.x = 2.0F, .y = 3.0F, .z = 4.0F};
-  if (inspector.set_value(gneiss::from_native(gneiss_transform_type_id()),
+  if (inspector.set_value(gneiss::engine::transform_component_type,
                           gneiss::field_id{GNEISS_TRANSFORM_FIELD_TRANSLATION},
                           value) != gneiss::engine::result::success) {
     return 3;
@@ -115,7 +115,7 @@ int main() {
   }
 
   value.payload = gneiss::property_vec3{.x = 0.0F, .y = 1.0F, .z = 1.0F};
-  if (inspector.set_value(gneiss::from_native(gneiss_transform_type_id()),
+  if (inspector.set_value(gneiss::engine::transform_component_type,
                           gneiss::field_id{GNEISS_TRANSFORM_FIELD_SCALE},
                           value) != gneiss::engine::result::invalid_argument ||
       ([&](entity_id entity, gneiss::engine::transform& output) {
@@ -135,7 +135,7 @@ int main() {
   }
 
   value.payload = true;
-  if (inspector.set_value(gneiss::from_native(gneiss_camera_type_id()),
+  if (inspector.set_value(gneiss::engine::camera_component_type,
                           gneiss::field_id{GNEISS_CAMERA_FIELD_IS_PRIMARY},
                           value) != gneiss::engine::result::unsupported) {
     return 6;

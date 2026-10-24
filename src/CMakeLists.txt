@@ -101,7 +101,6 @@ target_sources(
     engine/core/reflection/component_identity.hpp
     engine/values/core/result.hpp
     engine/core/scene_types.hpp
-    engine/values/detail/reflection_values.hpp
     engine/values/detail/render.inl
     engine/values/detail/scene.inl
     engine/core/type_id.cpp
@@ -203,7 +202,6 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module_types.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/input.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/log.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/reflection.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/render.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/scene.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/world.h"

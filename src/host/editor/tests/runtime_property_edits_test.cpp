@@ -9,7 +9,7 @@
 
 namespace {
 
-gneiss::editor::runtime_property_key make_key(gneiss_field_id field_id = 4U) {
+gneiss::editor::runtime_property_key make_key(std::uint32_t field_id = 4U) {
   return {.object = {2U, 3U}, .type_id = {1U}, .field_id = field_id};
 }
 

@@ -63,13 +63,14 @@ int main() {
       state != runtime_ipc_state::paused || sent.values.empty()) {
     return 2;
   }
-  const ipc_property_write property{.session_id = 3U,
-                                    .command_id = 9U,
-                                    .object = {4U, 2U},
-                                    .type_id = {{1U}},
-                                    .field_id = 5U,
-                                    .expected_revision = 6U,
-                                    .value = {true}};
+  const ipc_property_write property{
+      .session_id = 3U,
+      .command_id = 9U,
+      .object = {4U, 2U},
+      .type_id = gneiss::engine::type_guid{gneiss::engine::guid::from_bytes({1U})},
+      .field_id = 5U,
+      .expected_revision = 6U,
+      .value = {true}};
   if (encode_ipc_property_write_v2(property, 9U, envelope) != gneiss::engine::result::success ||
       !router.dispatch(envelope, dispatch_context, context).accepted() ||
       actions.property_writes.size() != 1U || actions.property_writes.front().command_id != 9U) {

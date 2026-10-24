@@ -2485,7 +2485,7 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
           }
         }
         const auto restore_field = [&](const char* label, std::uint32_t flag,
-                                       gneiss_field_id field_id) {
+                                       std::uint32_t field_id) {
           ImGui::BeginDisabled((prefab->override_flags & flag) == 0U);
           const bool requested = ImGui::Button(label);
           ImGui::EndDisabled();
