@@ -8,7 +8,6 @@
 #include "runtime/application_asset_reload_internal.hpp"
 
 #include "engine/values/core/result.hpp"
-#include "engine/values/render.hpp"
 #include "engine/values/scene.hpp"
 #include <gneiss/engine/application.h>
 

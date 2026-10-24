@@ -7,7 +7,6 @@
 #include "engine/resource/loaders/texture_binary.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
 #include "engine/values/core/result.hpp"
-#include "engine/values/render.hpp"
 #include "engine/values/scene.hpp"
 #include "runtime/application.hpp"
 #include "runtime/application_asset_reload_internal.hpp"

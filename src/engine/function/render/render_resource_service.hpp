@@ -48,8 +48,8 @@ public:
   [[nodiscard]] gneiss::engine::result mesh_status(gneiss::engine::rid mesh) const noexcept;
   [[nodiscard]] gneiss::engine::result texture_status(gneiss::engine::rid texture) const noexcept;
   [[nodiscard]] gneiss::engine::result material_status(gneiss::engine::rid material) const noexcept;
-  [[nodiscard]] gneiss::engine::result create_mesh(const gneiss::engine::mesh_view& desc,
-                                                   gneiss::engine::rid* out_mesh) noexcept;
+  [[nodiscard]] GNEISS_API gneiss::engine::result
+  create_mesh(const gneiss::engine::mesh_view& desc, gneiss::engine::rid* out_mesh) noexcept;
   /** 校验并接收拥有型网格，成功路径不再复制数组。 */
   [[nodiscard]] gneiss::engine::result create_mesh(mesh_resource resource,
                                                    gneiss::engine::rid* output) noexcept;
@@ -74,10 +74,11 @@ public:
   [[nodiscard]] gneiss::engine::result
   prepare_texture_data(texture_resource resource,
                        std::shared_ptr<const texture_resource>& output) noexcept;
-  [[nodiscard]] gneiss::engine::result destroy_mesh(gneiss::engine::rid mesh) noexcept;
-  [[nodiscard]] gneiss::engine::result create_material(const material_resource& value,
-                                                       gneiss::engine::rid* out_material) noexcept;
-  [[nodiscard]] gneiss::engine::result destroy_material(gneiss::engine::rid material) noexcept;
+  [[nodiscard]] GNEISS_API gneiss::engine::result destroy_mesh(gneiss::engine::rid mesh) noexcept;
+  [[nodiscard]] GNEISS_API gneiss::engine::result
+  create_material(const material_resource& value, gneiss::engine::rid* out_material) noexcept;
+  [[nodiscard]] GNEISS_API gneiss::engine::result
+  destroy_material(gneiss::engine::rid material) noexcept;
   [[nodiscard]] GNEISS_API gneiss::engine::result
   create_texture(const texture_view& desc, gneiss::engine::rid* out_texture) noexcept;
   /** 创建已经过容器校验的内部多 Mip Texture。 */

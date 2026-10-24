@@ -36,6 +36,10 @@ World 变换服务与组件反射、Runtime 场景检查、IPC 检查值和 Edit
 重复的 Camera、Camera 描述和 MeshRenderer 包装已删除；相机描述复用原生共享值。
 绘制提交用例改用原生 Application/资源服务，旧 UI/Debug 描述、转换及临时数组适配已删除。
 
+Granit 窗口冒烟用例已迁到原生 Application、World、输入和渲染资源服务；旧资源 RID 包装、
+网格/材质/纹理描述复制层及 `values/render.hpp`、`render.inl` 已删除。仍被场景转换使用的相机
+C 值转换暂留 scene.inl，待 Scene C API 撤销时一并移除。
+
 ## 目标与非目标
 
 同源码构建的 Engine、Runtime、Editor 和工具统一消费 src 原生接口与共享值。

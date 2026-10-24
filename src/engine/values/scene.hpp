@@ -5,10 +5,10 @@
 #define GNEISS_SCENE_HPP_
 
 #include "engine/core/entity_id.hpp"
+#include "engine/core/math/camera_settings.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/values/core/result.hpp"
-#include "engine/values/render.hpp"
 #include <gneiss/engine/scene.h>
 
 #include <array>
@@ -21,6 +21,10 @@
 #include <utility>
 
 namespace gneiss {
+/** 迁移期相机 C 值转换；不延长借用资源寿命。 */
+[[nodiscard]] constexpr gneiss_camera_desc to_native(const engine::camera_settings& value) noexcept;
+[[nodiscard]] constexpr engine::camera_settings
+from_native(const gneiss_camera_desc& value) noexcept;
 
 /** 显式复制到 C ABI 值，不依赖两种类型的内存布局。 */
 [[nodiscard]] constexpr gneiss_transform to_native(const engine::transform& value) noexcept;

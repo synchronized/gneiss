@@ -7,7 +7,6 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/result.hpp
   engine/core/guid.hpp
   engine/core/type_guid.hpp
-  engine/values/render.hpp
   engine/values/scene.hpp
   engine/core/math/transform.hpp
   engine/core/math/camera_settings.hpp
@@ -16,7 +15,6 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/reflection/component_identity.hpp
   engine/values/core/result.hpp
   engine/core/scene_types.hpp
-  engine/values/detail/render.inl
   engine/values/detail/scene.inl
 )
 

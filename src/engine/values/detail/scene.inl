@@ -13,6 +13,26 @@
 
 namespace gneiss {
 
+[[nodiscard]] constexpr gneiss_camera_desc
+to_native(const engine::camera_settings& value) noexcept {
+  return {
+      .struct_size = sizeof(gneiss_camera_desc),
+      .reserved = 0,
+      .vertical_field_of_view_radians = value.vertical_field_of_view_radians,
+      .near_plane = value.near_plane,
+      .far_plane = value.far_plane,
+  };
+}
+
+[[nodiscard]] constexpr engine::camera_settings
+from_native(const gneiss_camera_desc& value) noexcept {
+  return {
+      .vertical_field_of_view_radians = value.vertical_field_of_view_radians,
+      .near_plane = value.near_plane,
+      .far_plane = value.far_plane,
+  };
+}
+
 namespace detail {
 inline std::string_view scene_text(const char* text, std::uint64_t length) noexcept {
   return text == nullptr ? std::string_view{}

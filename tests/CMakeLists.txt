@@ -297,7 +297,7 @@ gneiss_target_compile_warnings(gneiss_c_header_test)
 add_library(
   gneiss_cpp_header_test OBJECT  headers/asset_hpp.cpp headers/entity_hpp.cpp
                                   headers/input_hpp.cpp headers/log_hpp.cpp
-                                headers/render_hpp.cpp headers/result_hpp.cpp headers/rid_hpp.cpp
+                                 headers/result_hpp.cpp headers/rid_hpp.cpp
                                 headers/scene_hpp.cpp
 )
 target_link_libraries(gneiss_cpp_header_test PRIVATE gneiss::engine gneiss_native_interface)
@@ -497,7 +497,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   add_test(NAME gneiss.pbr_shader_resolver COMMAND gneiss_pbr_shader_resolver_test)
 
   add_executable(gneiss_granit_platform_smoke_test granit_platform_smoke_test.cpp)
-  target_link_libraries(gneiss_granit_platform_smoke_test PRIVATE gneiss::engine)
+  target_link_libraries(gneiss_granit_platform_smoke_test PRIVATE gneiss::engine gneiss_native_interface)
   if(WIN32)
     target_link_libraries(gneiss_granit_platform_smoke_test PRIVATE user32)
   endif()
