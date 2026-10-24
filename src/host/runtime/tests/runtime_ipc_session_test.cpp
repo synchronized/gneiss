@@ -232,21 +232,15 @@ bool test_control_lifecycle() {
   constexpr std::string_view source = "test";
   constexpr std::string_view category = "ipc";
   constexpr std::string_view text = "结构化日志";
-  const gneiss_log_event log_event = {
-      .struct_size = sizeof(gneiss_log_event),
-      .severity = GNEISS_LOG_INFO,
+  const gneiss::engine::event_view log_event{
+      .message = {.severity = gneiss::engine::level::info,
+                  .source = source,
+                  .category = category,
+                  .message = text,
+                  .result = gneiss::engine::result::success},
       .sequence = 1U,
       .timestamp_ns = 2U,
       .thread_id = 3U,
-      .source = source.data(),
-      .source_length = source.size(),
-      .category = category.data(),
-      .category_length = category.size(),
-      .message = text.data(),
-      .message_length = text.size(),
-      .result = gneiss::engine::result::success.code(),
-      .flags = 0U,
-      .reserved = {},
   };
   if (session.notify_log_event(log_event) != gneiss::engine::result::success) {
     return false;

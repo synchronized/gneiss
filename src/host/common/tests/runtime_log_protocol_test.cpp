@@ -35,21 +35,15 @@ int main() {
   constexpr std::string_view source = "game_module";
   constexpr std::string_view category = "测试";
   constexpr std::string_view message = "第一行\n\"第二行\"\\尾部";
-  const gneiss_log_event event = {
-      .struct_size = sizeof(gneiss_log_event),
-      .severity = GNEISS_LOG_WARNING,
+  const gneiss::engine::event_view event{
+      .message = {.severity = gneiss::engine::level::warning,
+                  .source = source,
+                  .category = category,
+                  .message = message,
+                  .result = gneiss::engine::result::not_ready},
       .sequence = 7U,
       .timestamp_ns = 42U,
       .thread_id = 3U,
-      .source = source.data(),
-      .source_length = source.size(),
-      .category = category.data(),
-      .category_length = category.size(),
-      .message = message.data(),
-      .message_length = message.size(),
-      .result = gneiss::engine::result::not_ready.code(),
-      .flags = 0U,
-      .reserved = {},
   };
 
   std::string encoded;
@@ -62,10 +56,11 @@ int main() {
   gneiss::host::runtime_log_record parsed;
   if (gneiss::host::parse_runtime_log_line(encoded, parsed) !=
           gneiss::host::runtime_log_parse_result::success ||
-      parsed.severity != event.severity || parsed.sequence != event.sequence ||
-      parsed.timestamp_ns != event.timestamp_ns || parsed.thread_id != event.thread_id ||
-      parsed.source != source || parsed.category != category || parsed.message != message ||
-      parsed.operation.code() != event.result) {
+      parsed.severity != static_cast<std::uint32_t>(event.message.severity) ||
+      parsed.sequence != event.sequence || parsed.timestamp_ns != event.timestamp_ns ||
+      parsed.thread_id != event.thread_id || parsed.source != source ||
+      parsed.category != category || parsed.message != message ||
+      parsed.operation != event.message.result) {
     return 2;
   }
   auto success = encoded;

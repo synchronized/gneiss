@@ -65,7 +65,9 @@ Application 已识别的运行时诊断会在调用原有诊断回调后转换�
 
 ## 原生 C++ 日志提交
 
-内部只使用 `gneiss::engine::message_view` 和 `event_view`。消息默认级别为 info、结果为 success；
+内部只使用 `gneiss::engine::message_view` 和 `event_view`，值定义位于 `core/log/log_types.hpp`。
+Runtime 文件输出、IPC 编码与 Editor 控制台不依赖 C 日志事件布局；编码时复制借用文本，
+不保留事件视图。消息默认级别为 info、结果为 success；
 分类必须非空，消息允许为空。字符串通过 string_view 借用到同步提交返回；投递器复制文本后入队。
 原生 Application 无日志回调时仍校验消息，合法消息直接返回成功，不创建投递队列。
 

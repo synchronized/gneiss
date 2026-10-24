@@ -45,6 +45,9 @@ C 值转换暂留 values/scene.hpp，待 Scene C API 撤销时一并移除。
 独立日志校验 C 导出已删除；游戏模块日志消息协议及入口校验保留，布局与 UTF-8 用例
 改为直接验证内部边界校验器。
 
+Runtime 日志、文件输出、IPC 编码及 Editor 控制台使用原生日志值；运行时事件不再往返
+`gneiss_log_event`。Core 日志值与投递器实现分离，C 日志事件仅留在尚未撤销的 Application 回调边界。
+
 ## 目标与非目标
 
 同源码构建的 Engine、Runtime、Editor 和工具统一消费 src 原生接口与共享值。

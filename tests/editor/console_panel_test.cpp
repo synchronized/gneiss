@@ -41,7 +41,7 @@ bool verify_visible_state() {
       model
           .append_event(next_session,
                         {
-                            .severity = GNEISS_LOG_ERROR,
+                            .severity = static_cast<std::uint32_t>(gneiss::engine::level::error),
                             .source = "game",
                             .category = "asset",
                             .message = "failed",

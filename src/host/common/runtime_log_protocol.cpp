@@ -150,13 +150,9 @@ void runtime_log_line_decoder::append_segment(std::string_view segment) {
   pending_was_truncated_ = pending_was_truncated_ || accepted != segment.size();
 }
 
-gneiss::engine::result encode_runtime_log_event(const gneiss_log_event& event,
+gneiss::engine::result encode_runtime_log_event(const gneiss::engine::event_view& event,
                                                 std::string& output) noexcept {
   output.clear();
-  if (event.struct_size < GNEISS_LOG_EVENT_VERSION_1_SIZE || event.source == nullptr ||
-      event.category == nullptr || event.message == nullptr) {
-    return gneiss::engine::result::invalid_argument;
-  }
   try {
     output.append(runtime_log_prefix);
     output.append("{\"version\":1,\"sequence\":");
@@ -164,17 +160,17 @@ gneiss::engine::result encode_runtime_log_event(const gneiss_log_event& event,
     output.append(",\"timestamp_ns\":");
     append_integer(output, event.timestamp_ns);
     output.append(",\"severity\":");
-    append_integer(output, event.severity);
+    append_integer(output, static_cast<std::uint32_t>(event.message.severity));
     output.append(",\"source\":");
-    append_json_string(output, {event.source, event.source_length});
+    append_json_string(output, event.message.source);
     output.append(",\"category\":");
-    append_json_string(output, {event.category, event.category_length});
+    append_json_string(output, event.message.category);
     output.append(",\"thread_id\":");
     append_integer(output, event.thread_id);
     output.append(",\"result\":");
-    append_integer(output, event.result);
+    append_integer(output, event.message.result.code());
     output.append(",\"message\":");
-    append_json_string(output, {event.message, event.message_length});
+    append_json_string(output, event.message.message);
     output.append("}\n");
     return gneiss::engine::result::success;
   } catch (...) {

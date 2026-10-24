@@ -528,29 +528,11 @@ gneiss::engine::result update_runtime(gneiss_application application,
 }
 
 void write_application_log(const gneiss::engine::event_view& source, runtime_context& context) {
-  // Runtime 日志协议尚使用 C 值结构；只在此消费边界转换，不回流到 Application。
-  const auto& message = source.message;
-  const gneiss_log_event event{
-      .struct_size = sizeof(gneiss_log_event),
-      .severity = static_cast<std::uint32_t>(message.severity),
-      .sequence = source.sequence,
-      .timestamp_ns = source.timestamp_ns,
-      .thread_id = source.thread_id,
-      .source = message.source.data(),
-      .source_length = message.source.size(),
-      .category = message.category.data(),
-      .category_length = message.category.size(),
-      .message = message.message.data(),
-      .message_length = message.message.size(),
-      .result = message.result.code(),
-      .flags = 0U,
-      .reserved = {},
-  };
   if (context.log != nullptr) {
-    context.log->write(event);
+    context.log->write(source);
   }
   if (context.ipc_session != nullptr) {
-    (void)context.ipc_session->notify_log_event(event);
+    (void)context.ipc_session->notify_log_event(source);
   }
 }
 

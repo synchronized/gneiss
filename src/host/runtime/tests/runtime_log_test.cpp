@@ -20,21 +20,15 @@ int main() {
     constexpr std::string_view source = "application";
     constexpr std::string_view category = "test";
     constexpr std::string_view message = "line 1\n\"line 2\"";
-    const gneiss_log_event event = {
-        .struct_size = sizeof(gneiss_log_event),
-        .severity = GNEISS_LOG_WARNING,
+    const gneiss::engine::event_view event{
+        .message = {.severity = gneiss::engine::level::warning,
+                    .source = source,
+                    .category = category,
+                    .message = message,
+                    .result = gneiss::engine::result::not_ready},
         .sequence = 7U,
         .timestamp_ns = 42U,
         .thread_id = 3U,
-        .source = source.data(),
-        .source_length = source.size(),
-        .category = category.data(),
-        .category_length = category.size(),
-        .message = message.data(),
-        .message_length = message.size(),
-        .result = gneiss::engine::result::not_ready.code(),
-        .flags = 0U,
-        .reserved = {},
     };
     log.write(event);
   }

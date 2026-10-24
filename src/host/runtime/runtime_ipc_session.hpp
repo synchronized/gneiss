@@ -15,8 +15,8 @@
 #include "ipc_statistics_protocol.hpp"
 #include "ipc_transport.hpp"
 
+#include "engine/core/log/log_types.hpp"
 #include <chrono>
-#include <gneiss/engine/log.h>
 #include <memory>
 #include <string>
 #include <vector>
@@ -49,7 +49,8 @@ public:
                                                              std::uint32_t request_id) noexcept;
   void discard_pending_inspection() noexcept;
   [[nodiscard]] gneiss::engine::result notify_shutdown(std::int32_t exit_code) noexcept;
-  [[nodiscard]] gneiss::engine::result notify_log_event(const gneiss_log_event& event) noexcept;
+  [[nodiscard]] gneiss::engine::result
+  notify_log_event(const gneiss::engine::event_view& event) noexcept;
   [[nodiscard]] gneiss::engine::result
   notify_scene_snapshot(const ipc_inspection_batch& batch) noexcept;
   [[nodiscard]] gneiss::engine::result

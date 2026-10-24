@@ -4,7 +4,7 @@
 #ifndef GNEISS_SRC_LOG_LOG_DISPATCHER_HPP_
 #define GNEISS_SRC_LOG_LOG_DISPATCHER_HPP_
 
-#include "engine/core/result.hpp"
+#include "engine/core/log/log_types.hpp"
 
 #include <condition_variable>
 #include <cstddef>
@@ -18,26 +18,6 @@
 
 namespace gneiss::engine {
 
-/** 原生日志级别；ABI 数值映射由接口层校验。 */
-enum class level : std::uint32_t { trace = 1, debug, info, warning, error, fatal };
-
-/** 提交期间借用文本；context 由调用方解释，零表示无关联上下文。 */
-struct message_view final {
-  std::uint64_t context{};
-  level severity{level::info};
-  std::string_view source{};
-  std::string_view category{};
-  std::string_view message{};
-  gneiss::engine::result result{gneiss::engine::result::success};
-};
-
-/** 所有文本只在回调期间有效，接收方不得保留视图。 */
-struct event_view final {
-  message_view message;
-  std::uint64_t sequence{};
-  std::uint64_t timestamp_ns{};
-  std::uint64_t thread_id{};
-};
 using event_sink = std::function<void(const event_view&)>;
 
 /** 单消费线程串行回调；销毁前排空队列，禁止在回调内 flush 或销毁投递器。 */

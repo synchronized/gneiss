@@ -45,7 +45,7 @@ int main() {
   }
   filter = {};
   filter.include_raw = false;
-  filter.severity_mask = UINT32_C(1) << GNEISS_LOG_INFO;
+  filter.severity_mask = UINT32_C(1) << static_cast<std::uint32_t>(gneiss::engine::level::info);
   if (model.visible_indices(filter, visible) != gneiss::engine::result::success ||
       !visible.empty()) {
     return 6;
@@ -54,7 +54,7 @@ int main() {
   gneiss::editor::console_model structured_model;
   const auto structured_session = structured_model.begin_session();
   gneiss::editor::console_event warning;
-  warning.severity = GNEISS_LOG_WARNING;
+  warning.severity = static_cast<std::uint32_t>(gneiss::engine::level::warning);
   warning.source = "game";
   warning.category = "asset";
   warning.message = "missing texture";
@@ -64,7 +64,7 @@ int main() {
   }
   filter = {};
   filter.include_raw = false;
-  filter.severity_mask = UINT32_C(1) << GNEISS_LOG_WARNING;
+  filter.severity_mask = UINT32_C(1) << static_cast<std::uint32_t>(gneiss::engine::level::warning);
   filter.source = "game";
   filter.category = "asset";
   filter.search = "texture";

@@ -3,8 +3,8 @@
 
 #pragma once
 
+#include "engine/core/log/log_types.hpp"
 #include "engine/core/result.hpp"
-#include <gneiss/engine/log.h>
 
 #include <filesystem>
 #include <fstream>
@@ -22,7 +22,7 @@ public:
 
   void write(std::string_view level, std::string_view stage, gneiss::engine::result operation,
              std::string_view message, std::string_view context = {}) noexcept;
-  void write(const gneiss_log_event& event) noexcept;
+  void write(const gneiss::engine::event_view& event) noexcept;
 
   [[nodiscard]] bool is_file_available() const noexcept;
   [[nodiscard]] const std::filesystem::path& path() const noexcept;

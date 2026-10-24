@@ -4,8 +4,8 @@
 #ifndef GNEISS_APPS_EDITOR_CONSOLE_MODEL_H_
 #define GNEISS_APPS_EDITOR_CONSOLE_MODEL_H_
 
+#include "engine/core/log/log_types.hpp"
 #include "engine/core/result.hpp"
-#include <gneiss/engine/log.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -23,7 +23,7 @@ enum class console_entry_kind : std::uint8_t {
 
 /** 控制台持有的日志值；不含传输版本或协议对象，字符串由该值拥有。 */
 struct console_event final {
-  std::uint32_t severity = GNEISS_LOG_INFO;
+  std::uint32_t severity = static_cast<std::uint32_t>(gneiss::engine::level::info);
   std::uint64_t sequence = 0U;
   std::uint64_t timestamp_ns = 0U;
   std::uint64_t thread_id = 0U;
