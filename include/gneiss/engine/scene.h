@@ -11,7 +11,6 @@
 #include <gneiss/engine/core/entity.h>
 #include <gneiss/engine/core/export.h>
 #include <gneiss/engine/core/result.h>
-#include <gneiss/engine/render.h>
 #include <gneiss/engine/world.h>
 
 /** Scene Node 的运行时标识；零值表示无效节点。 */
@@ -35,58 +34,5 @@ typedef uint64_t gneiss_scene_prefab_refresh_token;
 #define GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN UINT32_C(4)
 #define GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN UINT32_C(8)
 #define GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN UINT32_C(16)
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/** 创建节点。parent 为零时创建根节点；entity 为零时不关联实体。 */
-GNEISS_API gneiss_result gneiss_scene_node_create(gneiss_world world, gneiss_scene_node_id parent,
-                                                  gneiss_entity_id entity,
-                                                  gneiss_scene_node_id* out_node);
-
-/** 递归销毁节点及其子节点；关联实体仍由 World 持有。 */
-GNEISS_API gneiss_result gneiss_scene_node_destroy(gneiss_world world, gneiss_scene_node_id node);
-
-/** 更换父节点。parent 为零时变为根节点；拒绝形成循环。 */
-GNEISS_API gneiss_result gneiss_scene_node_reparent(gneiss_world world, gneiss_scene_node_id node,
-                                                    gneiss_scene_node_id parent);
-
-/** 设置节点局部变换；拒绝非有限值、非归一化旋转和任一轴为零的缩放。 */
-GNEISS_API gneiss_result gneiss_scene_node_set_local_transform(gneiss_world world,
-                                                               gneiss_scene_node_id node,
-                                                               const gneiss_transform* transform);
-
-/** 获取节点局部变换。 */
-GNEISS_API gneiss_result gneiss_scene_node_get_local_transform(gneiss_world world,
-                                                               gneiss_scene_node_id node,
-                                                               gneiss_transform* out_transform);
-
-/** 获取沿父链组合后的世界变换。 */
-GNEISS_API gneiss_result gneiss_scene_node_get_world_transform(gneiss_world world,
-                                                               gneiss_scene_node_id node,
-                                                               gneiss_transform* out_transform);
-
-/** 获取节点当前关联的实体；实体被销毁后返回零值。 */
-GNEISS_API gneiss_result gneiss_scene_node_get_entity(gneiss_world world, gneiss_scene_node_id node,
-                                                      gneiss_entity_id* out_entity);
-
-/** 获取节点当前父节点；根节点成功返回零值。 */
-GNEISS_API gneiss_result gneiss_scene_node_get_parent(gneiss_world world, gneiss_scene_node_id node,
-                                                      gneiss_scene_node_id* out_parent);
-
-/** 通过实体关联读取 Scene Tree 节点的局部 Transform。 */
-GNEISS_API gneiss_result gneiss_world_entity_get_local_transform(gneiss_world world,
-                                                                 gneiss_entity_id entity,
-                                                                 gneiss_transform* out_transform);
-
-/** 通过实体关联写入 Scene Tree 节点的局部 Transform。 */
-GNEISS_API gneiss_result gneiss_world_entity_set_local_transform(gneiss_world world,
-                                                                 gneiss_entity_id entity,
-                                                                 const gneiss_transform* transform);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

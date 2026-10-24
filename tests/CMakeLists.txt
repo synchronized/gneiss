@@ -262,7 +262,7 @@ add_test(NAME gneiss.asset_uri COMMAND gneiss_asset_uri_test)
 add_library(
   gneiss_c_header_test OBJECT headers/entity_h.c headers/game_module_h.c
                               headers/gneiss_h.c headers/log_h.c
-                              headers/render_h.c headers/result_h.c headers/rid_h.c headers/scene_h.c headers/world_h.c
+                              headers/result_h.c headers/rid_h.c headers/scene_h.c headers/world_h.c
 )
 target_link_libraries(gneiss_c_header_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_c_header_test PRIVATE c_std_11)
@@ -348,29 +348,19 @@ gneiss_target_compile_warnings(gneiss_action_map_test)
 gneiss_target_output_directories(gneiss_action_map_test)
 add_test(NAME gneiss.action_map COMMAND gneiss_action_map_test)
 
-add_executable(gneiss_c_world_test c_world_test.c)
-target_link_libraries(gneiss_c_world_test PRIVATE gneiss::engine)
-set_target_properties(
-  gneiss_c_world_test
-  PROPERTIES
-    C_STANDARD 11
-    C_STANDARD_REQUIRED YES
-    C_EXTENSIONS NO
-    LINKER_LANGUAGE CXX
-)
-gneiss_target_compile_warnings(gneiss_c_world_test)
-gneiss_target_output_directories(gneiss_c_world_test)
-add_test(NAME gneiss.c_world COMMAND gneiss_c_world_test)
+add_executable(gneiss_native_world_lifecycle_test native_world_lifecycle_test.cpp)
+target_link_libraries(gneiss_native_world_lifecycle_test PRIVATE gneiss::engine gneiss_native_interface)
+target_compile_features(gneiss_native_world_lifecycle_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_native_world_lifecycle_test)
+gneiss_target_output_directories(gneiss_native_world_lifecycle_test)
+add_test(NAME gneiss.native-world-lifecycle COMMAND gneiss_native_world_lifecycle_test)
 
-add_executable(gneiss_c_scene_test c_scene_test.c)
-target_link_libraries(gneiss_c_scene_test PRIVATE gneiss::engine)
-set_target_properties(
-  gneiss_c_scene_test
-  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
-)
-gneiss_target_compile_warnings(gneiss_c_scene_test)
-gneiss_target_output_directories(gneiss_c_scene_test)
-add_test(NAME gneiss.c_scene COMMAND gneiss_c_scene_test)
+add_executable(gneiss_native_scene_lifecycle_test native_scene_lifecycle_test.cpp)
+target_link_libraries(gneiss_native_scene_lifecycle_test PRIVATE gneiss::engine gneiss_native_interface)
+target_compile_features(gneiss_native_scene_lifecycle_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_native_scene_lifecycle_test)
+gneiss_target_output_directories(gneiss_native_scene_lifecycle_test)
+add_test(NAME gneiss.native-scene-lifecycle COMMAND gneiss_native_scene_lifecycle_test)
 
 add_executable(
   gneiss_scene_tree_transform_test

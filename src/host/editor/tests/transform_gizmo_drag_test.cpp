@@ -7,7 +7,6 @@
 #include "viewport/transform_gizmo_drag.hpp"
 
 #include "engine/values/core/result.hpp"
-#include "engine/values/scene.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -72,15 +71,8 @@ int main() try {
         return 4;
       }
       gneiss::engine::transform desired{};
-      if (([&](scene_node_id node, gneiss::engine::transform& out_transform) {
-            gneiss_transform native{};
-            const auto status = gneiss::engine::result{
-                gneiss_scene_node_get_world_transform(world, node.get(), &native)};
-            if (status.ok()) {
-              out_transform = from_native(native);
-            }
-            return status;
-          })(gneiss::scene_node_id{target.get()}, desired) != gneiss::engine::result::success) {
+      if (application->native_world()->node_get_world_transform(
+              gneiss::scene_node_id{target.get()}, desired) != gneiss::engine::result::success) {
         return 5;
       }
       for (int frame = 0; frame < 4; ++frame) {
@@ -100,15 +92,8 @@ int main() try {
         if (gneiss::editor::transform_to_gizmo_matrix(desired, matrix) !=
                 gneiss::engine::result::success ||
             drag.preview(session, matrix) != gneiss::engine::result::success ||
-            ([&](scene_node_id node, gneiss::engine::transform& out_transform) {
-              gneiss_transform native{};
-              const auto status = gneiss::engine::result{
-                  gneiss_scene_node_get_world_transform(world, node.get(), &native)};
-              if (status.ok()) {
-                out_transform = from_native(native);
-              }
-              return status;
-            })(gneiss::scene_node_id{target.get()}, actual) != gneiss::engine::result::success ||
+            application->native_world()->node_get_world_transform(
+                gneiss::scene_node_id{target.get()}, actual) != gneiss::engine::result::success ||
             !near(actual, desired) || history.size() != 0U) {
           return 6;
         }
@@ -170,15 +155,8 @@ int main() try {
   }
   const auto prefab_id = session.selection();
   const auto prefab_before = session.selected_prefab_node()->local_transform;
-  if (([&](scene_node_id node, gneiss::engine::transform& out_transform) {
-        gneiss_transform native{};
-        const auto status = gneiss::engine::result{
-            gneiss_scene_node_get_world_transform(world, node.get(), &native)};
-        if (status.ok()) {
-          out_transform = from_native(native);
-        }
-        return status;
-      })(gneiss::scene_node_id{prefab_id.get()}, desired) != gneiss::engine::result::success) {
+  if (application->native_world()->node_get_world_transform(
+          gneiss::scene_node_id{prefab_id.get()}, desired) != gneiss::engine::result::success) {
     return 14;
   }
   desired.translation[0] += 3.0F;
@@ -203,15 +181,8 @@ int main() try {
   }
   const auto uuid = session.selected_node()->uuid;
   const auto deletion_before = session.selected_node()->local_transform;
-  if (([&](scene_node_id node, gneiss::engine::transform& out_transform) {
-        gneiss_transform native{};
-        const auto status = gneiss::engine::result{
-            gneiss_scene_node_get_world_transform(world, node.get(), &native)};
-        if (status.ok()) {
-          out_transform = from_native(native);
-        }
-        return status;
-      })(gneiss::scene_node_id{session.selection().get()}, desired) !=
+  if (application->native_world()->node_get_world_transform(
+          gneiss::scene_node_id{session.selection().get()}, desired) !=
       gneiss::engine::result::success) {
     return 17;
   }

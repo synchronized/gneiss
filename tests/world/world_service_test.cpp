@@ -26,9 +26,7 @@ bool native_operations() {
       owner->node_create(gneiss::scene_node_id{0}, gneiss::entity_id{entity}, node) !=
           gneiss::engine::result::success ||
       owner->entity_is_alive(gneiss::entity_id{entity}, alive) != gneiss::engine::result::success ||
-      !alive ||
-      gneiss::engine::result{gneiss_world_entity_count(borrowed, &count)} !=
-          gneiss::engine::result::success ||
+      !alive || gneiss::engine::entity_count(borrowed, count) != gneiss::engine::result::success ||
       count != 1)
     return false;
   gneiss::engine::transform local;
@@ -69,8 +67,7 @@ bool native_operations() {
       owner->entity_count(count) != gneiss::engine::result::success || count != 2)
     return false;
   owner.reset();
-  return gneiss::engine::result{gneiss_world_entity_count(borrowed, &count)} ==
-         gneiss::engine::result::invalid_handle;
+  return gneiss::engine::entity_count(borrowed, count) == gneiss::engine::result::invalid_handle;
 }
 
 bool original_groups_visible(gneiss_world world,
@@ -215,9 +212,7 @@ int main() {
   }
   namespace service = gneiss::engine;
   gneiss_world world{};
-  const gneiss_world_desc desc = GNEISS_WORLD_DESC_INIT;
-  if (gneiss::engine::result{gneiss_world_create(&desc, &world)} !=
-      gneiss::engine::result::success) {
+  if (gneiss::engine::create_world(world) != gneiss::engine::result::success) {
     return 1;
   }
   gneiss_entity_id entity{};
@@ -225,13 +220,12 @@ int main() {
     return 2;
   }
   std::uint64_t count{};
-  if (gneiss::engine::result{gneiss_world_entity_count(world, &count)} !=
-          gneiss::engine::result::success ||
+  if (gneiss::engine::entity_count(world, count) != gneiss::engine::result::success ||
       count != 1U) {
     return 3;
   }
-  gneiss_camera_desc camera = GNEISS_CAMERA_DESC_INIT;
-  if (gneiss::engine::result{gneiss_world_entity_configure_camera(world, entity, &camera)} !=
+  gneiss::engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
+  if (gneiss::engine::entity_configure_camera(world, entity, camera) !=
       gneiss::engine::result::success) {
     return 4;
   }
@@ -243,8 +237,7 @@ int main() {
   settings.far_plane = settings.near_plane;
   if (service::entity_configure_camera(world, entity, settings) !=
           gneiss::engine::result::invalid_argument ||
-      gneiss::engine::result{gneiss_world_entity_get_camera(world, entity, &camera)} !=
-          gneiss::engine::result::success ||
+      gneiss::engine::entity_get_camera(world, entity, camera) != gneiss::engine::result::success ||
       camera.near_plane == camera.far_plane) {
     return 6;
   }
@@ -326,23 +319,21 @@ int main() {
   worker.join();
   if (wrong_thread != gneiss::engine::result::invalid_state ||
       service::destroy_world(world) != gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_world_destroy(world)} !=
-          gneiss::engine::result::invalid_handle) {
+      gneiss::engine::destroy_world(world) != gneiss::engine::result::invalid_handle) {
     return 7;
   }
   // C 和私有 C++ 入口使用同一个 generation 注册表，不能各自拥有一份 World。
   const auto stale = world;
   if (service::create_world(world) != gneiss::engine::result::success || world == stale ||
       service::entity_count(stale, count) != gneiss::engine::result::invalid_handle ||
-      gneiss::engine::result{gneiss_world_destroy(world)} != gneiss::engine::result::success) {
+      gneiss::engine::destroy_world(world) != gneiss::engine::result::success) {
     return 8;
   }
-  // 原生拥有者析构自动撤销借用；移动不会使 RID 提前失效，也不授予 C 销毁权。
+  // 原生拥有者析构自动撤销借用；移动不会使 RID 提前失效，也不授予借用方销毁权。
   service::world_owner native;
   gneiss_world borrowed{};
   if (service::create_native(native, borrowed) != gneiss::engine::result::success || !native ||
-      gneiss::engine::result{gneiss_world_destroy(borrowed)} !=
-          gneiss::engine::result::invalid_state)
+      gneiss::engine::destroy_world(borrowed) != gneiss::engine::result::invalid_state)
     return 14;
   const auto* original = native.get();
   gneiss_world rejected = borrowed;
@@ -352,26 +343,24 @@ int main() {
   service::world_owner moved = std::move(native);
   if (service::entity_count(borrowed, count) != gneiss::engine::result::success || count != 0)
     return 16;
-  std::thread borrowed_worker(
-      [&] { wrong_thread = gneiss::engine::result{gneiss_world_destroy(borrowed)}; });
+  std::thread borrowed_worker([&] { wrong_thread = gneiss::engine::destroy_world(borrowed); });
   borrowed_worker.join();
   if (wrong_thread != gneiss::engine::result::invalid_state)
     return 17;
   moved.reset();
   if (service::entity_count(borrowed, count) != gneiss::engine::result::invalid_handle ||
-      gneiss::engine::result{gneiss_world_destroy(borrowed)} !=
-          gneiss::engine::result::invalid_handle)
+      gneiss::engine::destroy_world(borrowed) != gneiss::engine::result::invalid_handle)
     return 18;
   if (service::create_native(native, rejected) != gneiss::engine::result::success ||
       rejected == borrowed ||
       service::entity_count(borrowed, count) != gneiss::engine::result::invalid_handle)
     return 19;
   native.reset();
-  // 即使句柄无效，相机参数错误仍优先报告；失败查询不改写输出。
+  // 服务先校验相机参数；失败查询不改写输出。
   camera.far_plane = camera.near_plane;
-  if (gneiss::engine::result{gneiss_world_entity_configure_camera(stale, entity, &camera)} !=
+  if (gneiss::engine::entity_configure_camera(stale, entity, camera) !=
           gneiss::engine::result::invalid_argument ||
-      gneiss::engine::result{gneiss_world_entity_get_camera(stale, entity, &camera)} !=
+      gneiss::engine::entity_get_camera(stale, entity, camera) !=
           gneiss::engine::result::invalid_handle ||
       camera.far_plane != camera.near_plane) {
     return 9;

@@ -77,7 +77,7 @@ target_sources(
     engine/core/result.hpp
     engine/api/result_conversion.hpp
     engine/core/version.hpp
-    engine/values/scene.hpp
+
     engine/core/entity_id.hpp
     engine/core/reflection/reflection_types.hpp
     engine/core/reflection/component_identity.hpp
@@ -158,7 +158,7 @@ target_sources(
     engine/function/world/system_scheduler.hpp
     engine/function/world/render_snapshot.cpp
     engine/function/world/render_snapshot.hpp
-    engine/api/world_api.cpp
+
     engine/function/world/world.cpp
     engine/function/world/world.hpp
     engine/function/world/world_types.hpp
@@ -177,7 +177,6 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module_types.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/log.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/render.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/scene.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/world.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/entity.h"

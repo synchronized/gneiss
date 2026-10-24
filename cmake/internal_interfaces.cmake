@@ -8,7 +8,7 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/log/log_types.hpp
   engine/core/guid.hpp
   engine/core/type_guid.hpp
-  engine/values/scene.hpp
+
   engine/core/math/transform.hpp
   engine/core/math/camera_settings.hpp
   engine/core/entity_id.hpp

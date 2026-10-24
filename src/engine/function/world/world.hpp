@@ -5,6 +5,7 @@
 #include "engine/core/entity_id.hpp"
 #include "engine/core/publication_group.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/render/render_snapshot.hpp"
 #include "engine/function/world/world_types.hpp"
@@ -92,4 +93,18 @@ private:
   explicit world(std::uint32_t domain);
   std::unique_ptr<gneiss::engine::world_state> state_;
 };
+}
+
+namespace gneiss::engine {
+/** 将实现类型的析构留在 World 模块，不向场景域传播 ECS 后端头。 */
+struct GNEISS_API world_deleter {
+  gneiss::engine::rid borrowed{};
+  void operator()(gneiss::engine::world* state) const noexcept;
+};
+using world_owner = std::unique_ptr<gneiss::engine::world, world_deleter>;
+/** 场景域拥有真实 World；返回的 RID 仅借用，owner 所属线程析构时自动撤销。失败不替换 owner，输出
+ * RID 置零。 */
+[[nodiscard]] GNEISS_API gneiss::engine::result
+create_native(world_owner& owner, gneiss::engine::rid& borrowed) noexcept;
+
 }

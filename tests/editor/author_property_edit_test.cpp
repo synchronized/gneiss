@@ -8,7 +8,6 @@
 
 #include "engine/core/reflection/reflection_types.hpp"
 #include "engine/values/core/result.hpp"
-#include "engine/values/scene.hpp"
 #include <gneiss/engine/world.h>
 
 #include <algorithm>
@@ -39,15 +38,8 @@ int main() try {
   }
   const auto is_x = [&](float expected) {
     gneiss::engine::transform local{};
-    return ([&](entity_id node, gneiss::engine::transform& output) {
-             gneiss_transform native{};
-             const auto status = gneiss::engine::result{
-                 gneiss_world_entity_get_local_transform(world_handle, node.get(), &native)};
-             if (status.ok()) {
-               output = from_native(native);
-             }
-             return status;
-           })(entity, local) == gneiss::engine::result::success &&
+    return app->native_world()->entity_get_local_transform(entity, local) ==
+               gneiss::engine::result::success &&
            std::abs(local.translation[0] - expected) < 0.0001F;
   };
   const auto edit_x = [&](float next, editor_command_history& target, std::uint64_t serial) {

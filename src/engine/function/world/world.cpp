@@ -71,8 +71,9 @@ gneiss::engine::result world::create_staged_object(const gneiss::engine::publica
                        description.camera->near_plane, description.camera->far_plane)) {
     return gneiss::engine::result::invalid_argument;
   }
-  if (description.renderer != nullptr && (description.renderer->mesh == GNEISS_NULL_MESH ||
-                                          description.renderer->material == GNEISS_NULL_MATERIAL)) {
+  if (description.renderer != nullptr &&
+      (description.renderer->mesh == gneiss::engine::null_rid ||
+       description.renderer->material == gneiss::engine::null_rid)) {
     return gneiss::engine::result::invalid_argument;
   }
   return with_state(*state_, [&](world_state& state) {
@@ -337,8 +338,8 @@ world::replace_mesh_renderers(std::span<const mesh_renderer_replacement> replace
     std::unordered_set<gneiss_entity_id> entities;
     for (const auto& change : replacements) {
       if (!entities.insert(change.entity.get()).second ||
-          change.replacement.mesh == GNEISS_NULL_MESH ||
-          change.replacement.material == GNEISS_NULL_MATERIAL) {
+          change.replacement.mesh == gneiss::engine::null_rid ||
+          change.replacement.material == gneiss::engine::null_rid) {
         return gneiss::engine::result::invalid_argument;
       }
       if (!state->is_alive(change.entity.get())) {
@@ -366,7 +367,7 @@ world::replace_mesh_renderers(std::span<const mesh_renderer_replacement> replace
 gneiss::engine::result world::entity_set_mesh_renderer(entity_id entity_value,
                                                        const mesh_renderer& renderer) noexcept {
   gneiss_entity_id entity = entity_value.get();
-  if (renderer.mesh == GNEISS_NULL_MESH || renderer.material == GNEISS_NULL_MATERIAL) {
+  if (renderer.mesh == gneiss::engine::null_rid || renderer.material == gneiss::engine::null_rid) {
     return gneiss::engine::result::invalid_argument;
   }
 

@@ -135,8 +135,9 @@ gneiss::engine::result create_staged_object(gneiss_world world,
                        description.camera->near_plane, description.camera->far_plane)) {
     return gneiss::engine::result::invalid_argument;
   }
-  if (description.renderer != nullptr && (description.renderer->mesh == GNEISS_NULL_MESH ||
-                                          description.renderer->material == GNEISS_NULL_MATERIAL)) {
+  if (description.renderer != nullptr &&
+      (description.renderer->mesh == gneiss::engine::null_rid ||
+       description.renderer->material == gneiss::engine::null_rid)) {
     return gneiss::engine::result::invalid_argument;
   }
   return with_world(world, [&](gneiss::engine::world& native_world) {
@@ -319,7 +320,7 @@ replace_mesh_renderers(gneiss_world world,
 
 gneiss::engine::result entity_set_mesh_renderer(gneiss_world world, gneiss_entity_id entity,
                                                 const mesh_renderer& renderer) noexcept {
-  if (renderer.mesh == GNEISS_NULL_MESH || renderer.material == GNEISS_NULL_MATERIAL) {
+  if (renderer.mesh == gneiss::engine::null_rid || renderer.material == gneiss::engine::null_rid) {
     return gneiss::engine::result::invalid_argument;
   }
 

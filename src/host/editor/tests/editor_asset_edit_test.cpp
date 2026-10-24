@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "commands/editor_asset_edit.hpp"
+#include "engine/core/math/transform.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/values/core/result.hpp"
-#include "engine/values/scene.hpp"
 #include "runtime/application.hpp"
 #include <cstdio>
 #include <filesystem>

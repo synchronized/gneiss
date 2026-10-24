@@ -8,6 +8,7 @@
 
 #include "engine/core/math/camera_settings.hpp"
 #include "engine/core/publication_group.hpp"
+#include "engine/function/world/world.hpp"
 #include "engine/function/world/world_types.hpp"
 #include <gneiss/engine/scene.h>
 #include <gneiss/engine/world.h>
@@ -19,17 +20,6 @@ class world;
 }
 
 namespace gneiss::engine {
-/** 将实现类型的析构留在 World 模块，不向场景域传播 ECS 后端头。 */
-struct GNEISS_API world_deleter {
-  gneiss_world borrowed{};
-  void operator()(gneiss::engine::world* state) const noexcept;
-};
-using world_owner = std::unique_ptr<gneiss::engine::world, world_deleter>;
-/** 场景域拥有真实 World；返回的 RID 仅借用，owner 所属线程析构时自动撤销。失败不替换 owner，输出
- * RID 置零。 */
-[[nodiscard]] GNEISS_API gneiss::engine::result create_native(world_owner& owner,
-                                                              gneiss_world& borrowed) noexcept;
-
 /** 私有同版本宿主接口，不安装；唯一注册表负责线程和 generation 校验。 */
 /** 私有所属线程事务入口；失败输出为空；World 必须存活至候选全部清理。 */
 [[nodiscard]] GNEISS_API gneiss::engine::result

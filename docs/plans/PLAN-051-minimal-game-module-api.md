@@ -82,6 +82,9 @@ PBR 与网格属性用例直接使用原生服务，资产导入器共享原生�
 Application、Input 与绘制提交 C 实现、Application 注册表及输入/绘制转换器已删除。
 Application/Input 公共头已撤销，编辑器键码使用原生常量；原生流程用例保留主循环、
 关闭拦截、初始化失败和动作映射生命周期检查，应用示例直接使用原生 World。
+World/Scene Node C 入口、Render 公共头及版本化 Camera 描述已删除，Editor/Runtime 测试直接访问原生
+World；World 工厂与唯一拥有者声明归入原生头，私有注册表仍负责借用 RID 的失效校验。
+场景值转换头与 C 测试守卫已撤销，最小游戏模块的 Transform 协议转换保留。
 上述用例仅进行编译验证，尚未执行。
 
 ## 目标与非目标

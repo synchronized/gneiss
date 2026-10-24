@@ -5,7 +5,6 @@
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/values/core/result.hpp"
-#include "engine/values/scene.hpp"
 #include "runtime/application.hpp"
 #include <chrono>
 #include <cstdio>
@@ -200,7 +199,7 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   check(session.find_prefab_root(first_uuid)->node == first_root);
   check(session.find_prefab_root(second_uuid)->node == second_root);
   std::uint64_t count{};
-  check(gneiss::engine::result{gneiss_world_entity_count(world, &count)} ==
+  check(gneiss::engine::result{app->native_world()->entity_count(count)} ==
             gneiss::engine::result::success &&
         count == 302U);
   check(session.set_local_transform(second_node, original) == gneiss::engine::result::success);
@@ -292,13 +291,13 @@ void run(gneiss::engine::execution_mode mode) {
   check(edit.active());
   step();
   std::uint64_t entity_count{};
-  check(gneiss::engine::result{gneiss_world_entity_count(world, &entity_count)} ==
+  check(gneiss::engine::result{app->native_world()->entity_count(entity_count)} ==
             gneiss::engine::result::success &&
         entity_count == 0U);
   edit.cancel();
   drive();
   check(!edit.visible() && session.prefab_nodes().empty() && history.size() == 0U);
-  check(gneiss::engine::result{gneiss_world_entity_count(world, &entity_count)} ==
+  check(gneiss::engine::result{app->native_world()->entity_count(entity_count)} ==
             gneiss::engine::result::success &&
         entity_count == 0U);
   edit.dismiss();

@@ -10,7 +10,6 @@
 
 #include <gneiss/engine/world.h>
 
-#include <gneiss/engine/render.h>
 #include <gneiss/engine/scene.h>
 
 #include <array>

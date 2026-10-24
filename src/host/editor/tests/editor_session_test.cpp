@@ -8,7 +8,6 @@
 #include "runtime/application.hpp"
 
 #include "engine/values/core/result.hpp"
-#include "engine/values/scene.hpp"
 
 #include <string>
 #include <string_view>
@@ -76,7 +75,7 @@ int main() try {
     return 3;
   }
   const auto selected = session.selection();
-  if (gneiss::engine::result{gneiss_scene_node_destroy(world, selected.get())} !=
+  if (gneiss::engine::result{application->native_world()->node_destroy(selected)} !=
           gneiss::engine::result::success ||
       session.validate_selection() != gneiss::engine::result::invalid_handle ||
       session.selection().is_valid()) {

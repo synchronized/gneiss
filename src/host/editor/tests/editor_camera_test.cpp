@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../../../tests/support/c_owner.hpp"
 #include "engine/core/result.hpp"
+#include "engine/function/world/world.hpp"
 #include "viewport/editor_camera.hpp"
 
 #include "engine/core/reflection/reflection_types.hpp"
-#include "engine/values/scene.hpp"
 #include <gneiss/engine/world.h>
 
 #include <cmath>
@@ -20,32 +19,30 @@ bool near(float lhs, float rhs) { return std::abs(lhs - rhs) < 1.0e-4F; }
 } // namespace
 
 int main() {
-  gneiss::test_support::world_owner world;
+  gneiss::engine::world_owner owner;
+  gneiss_world world{};
   gneiss::editor::editor_camera camera;
-  gneiss_entity_id active_camera = GNEISS_NULL_ENTITY_ID;
-  if (([&] {
-        const gneiss_world_desc desc = GNEISS_WORLD_DESC_INIT;
-        return gneiss::engine::result{gneiss_world_create(&desc, world.put())};
-      })() != gneiss::engine::result::success ||
+  gneiss::entity_id active_camera = gneiss::entity_id{};
+  if (gneiss::engine::create_native(owner, world) != gneiss::engine::result::success ||
       camera.initialize() != gneiss::engine::result::success || !camera.is_valid() ||
-      gneiss::engine::result{gneiss_world_get_active_camera(world.get(), &active_camera)} !=
+      gneiss::engine::result{owner->get_active_camera(active_camera)} !=
           gneiss::engine::result::not_ready ||
-      active_camera != GNEISS_NULL_ENTITY_ID) {
+      active_camera != gneiss::entity_id{}) {
     return 1;
   }
   std::uint64_t entity_count{};
-  if (gneiss::engine::result{gneiss_world_entity_count(world.get(), &entity_count)} !=
+  if (gneiss::engine::result{owner->entity_count(entity_count)} !=
           gneiss::engine::result::success ||
       entity_count != 0U) {
     return 8;
   }
-  gneiss_entity_id scene_camera{};
-  const gneiss_camera_desc settings = GNEISS_CAMERA_DESC_INIT;
-  if (gneiss::engine::result{gneiss_world_entity_create(world.get(), &scene_camera)} !=
+  gneiss::entity_id scene_camera{};
+  const gneiss::engine::camera_settings settings{1.04719755F, 0.1F, 1000.0F};
+  if (gneiss::engine::result{owner->entity_create(scene_camera)} !=
           gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_world_entity_configure_camera(
-          world.get(), scene_camera, &settings)} != gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_world_set_active_camera(world.get(), scene_camera)} !=
+      gneiss::engine::result{owner->entity_configure_camera(scene_camera, settings)} !=
+          gneiss::engine::result::success ||
+      gneiss::engine::result{owner->set_active_camera(scene_camera)} !=
           gneiss::engine::result::success) {
     return 9;
   }
@@ -92,8 +89,8 @@ int main() {
   }
   camera.shutdown();
   return camera.is_valid() ||
-                 gneiss::engine::result{gneiss_world_get_active_camera(
-                     world.get(), &active_camera)} != gneiss::engine::result::success ||
+                 gneiss::engine::result{owner->get_active_camera(active_camera)} !=
+                     gneiss::engine::result::success ||
                  active_camera != scene_camera
              ? 5
              : 0;

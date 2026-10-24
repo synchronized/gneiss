@@ -387,80 +387,6 @@
       ]
     },
     {
-      "header": "include/gneiss/engine/render.h",
-      "contract": "docs/reference/render.md",
-      "types": [
-        {
-          "symbol": "gneiss_camera",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::engine::camera_settings + primary 参数",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_camera_desc",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::engine::camera_settings",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_material",
-          "kind": "owner",
-          "cpp_mapping": "gneiss::engine::rid",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_mesh",
-          "kind": "owner",
-          "cpp_mapping": "gneiss::engine::rid",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_mesh_renderer",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::engine::mesh_renderer",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_texture",
-          "kind": "owner",
-          "cpp_mapping": "gneiss::engine::rid",
-          "native_review": "implemented"
-        }
-      ],
-      "constants": [
-        {
-          "symbol": "GNEISS_CAMERA_DESC_INIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::camera_settings{1.04719755F, 0.1F, 1000.0F}"
-        },
-        {
-          "symbol": "GNEISS_CAMERA_INIT",
-          "native_review": "implemented",
-          "cpp_mapping": "C 边界默认值；原生 camera_settings 与主相机选择分离"
-        },
-        {
-          "symbol": "GNEISS_MESH_RENDERER_INIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::mesh_renderer{}"
-        },
-        {
-          "symbol": "GNEISS_NULL_MATERIAL",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::material_id{}"
-        },
-        {
-          "symbol": "GNEISS_NULL_MESH",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::mesh_id{}"
-        },
-        {
-          "symbol": "GNEISS_NULL_TEXTURE",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::texture_id{}"
-        }
-      ]
-    },
-    {
       "header": "include/gneiss/engine/scene.h",
       "contract": "docs/reference/scene-instance.md",
       "types": [
@@ -549,14 +475,7 @@
     {
       "header": "include/gneiss/engine/world.h",
       "contract": "docs/reference/world.md",
-      "types": [
-        {
-          "symbol": "gneiss_world_desc",
-          "kind": "struct",
-          "cpp_mapping": "只有 struct_size 与保留字段；gneiss::world::create 内部填入，无业务配置",
-          "native_review": "abi_only"
-        }
-      ],
+      "types": [],
       "constants": [
         {
           "symbol": "GNEISS_CAMERA_FIELD_FAR_PLANE",
@@ -592,11 +511,6 @@
           "symbol": "GNEISS_TRANSFORM_FIELD_TRANSLATION",
           "native_review": "implemented",
           "cpp_mapping": "gneiss::transform_fields::translation"
-        },
-        {
-          "symbol": "GNEISS_WORLD_DESC_INIT",
-          "native_review": "abi_only",
-          "cpp_mapping": "C 布局初始化；gneiss::world::create 内部填入，无业务配置"
         }
       ]
     }

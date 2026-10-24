@@ -231,7 +231,7 @@ void run() {
         gneiss::engine::result::success);
   check(new_scene != GNEISS_NULL_SCENE_INSTANCE);
   std::uint64_t unchanged_count{};
-  check(gneiss::engine::result{gneiss_world_entity_count(active->world(), &unchanged_count)} ==
+  check(gneiss::engine::result{gneiss::engine::entity_count(active->world(), unchanged_count)} ==
             gneiss::engine::result::success &&
         unchanged_count == 1U);
   check(resources.get_material(gneiss::engine::asset_rid(old_material))->red == 1.0F);
@@ -435,7 +435,7 @@ void run() {
   const auto old_world = active->world();
   active.swap(candidate);
   std::uint64_t count{};
-  check(gneiss::engine::result{gneiss_world_entity_count(active->world(), &count)} ==
+  check(gneiss::engine::result{gneiss::engine::entity_count(active->world(), count)} ==
             gneiss::engine::result::success &&
         count == 3U);
   check(active->scenes()->get_node_count(old_scene, &count) ==
@@ -444,7 +444,7 @@ void run() {
         count == 1U);
   old_material = {};
   candidate.reset();
-  check(gneiss::engine::result{gneiss_world_entity_count(old_world, &count)} ==
+  check(gneiss::engine::result{gneiss::engine::entity_count(old_world, count)} ==
         gneiss::engine::result::invalid_handle);
   check(old_pixels->red == 1.0F);
 
@@ -460,10 +460,10 @@ void run() {
         gneiss::engine::result::not_ready);
   check(failed_instance == GNEISS_NULL_SCENE_INSTANCE);
   check(files->reads == failure_reads);
-  check(gneiss::engine::result{gneiss_world_entity_count(candidate->world(), &count)} ==
+  check(gneiss::engine::result{gneiss::engine::entity_count(candidate->world(), count)} ==
             gneiss::engine::result::success &&
         count == 0U);
-  check(gneiss::engine::result{gneiss_world_entity_count(active->world(), &count)} ==
+  check(gneiss::engine::result{gneiss::engine::entity_count(active->world(), count)} ==
             gneiss::engine::result::success &&
         count == 3U);
 }
