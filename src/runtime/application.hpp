@@ -7,7 +7,7 @@
 #include "engine/core/input/input_types.hpp"
 #include "engine/core/result.hpp"
 #include "engine/resource/types/action_map.hpp"
-#include <gneiss/engine/application.h>
+#include <gneiss/engine/world.h>
 
 #include "engine/core/log/log_dispatcher.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
@@ -111,8 +111,8 @@ public:
   application(application&&) = delete;
   application& operator=(application&&) = delete;
 
-  [[nodiscard]] gneiss::engine::result shutdown(gneiss_application handle) noexcept;
-  [[nodiscard]] gneiss::engine::result run(gneiss_application handle,
+  [[nodiscard]] gneiss::engine::result shutdown(gneiss::engine::rid handle) noexcept;
+  [[nodiscard]] gneiss::engine::result run(gneiss::engine::rid handle,
                                            std::uint64_t max_frame_count) noexcept;
   [[nodiscard]] bool is_owner_thread() const noexcept;
   [[nodiscard]] bool accepts_requests() const noexcept;
@@ -148,7 +148,7 @@ public:
   submit_ui_draw_list(const gneiss::engine::ui_draw_view& desc) noexcept;
   [[nodiscard]] gneiss::engine::result
   submit_debug_draw_list(std::span<const gneiss::engine::debug_line> lines) noexcept;
-  void report(gneiss_application handle, gneiss::engine::severity severity,
+  void report(gneiss::engine::rid handle, gneiss::engine::severity severity,
               gneiss::engine::category category, gneiss::engine::result result,
               std::string_view module, std::string_view message) noexcept;
   [[nodiscard]] gneiss::engine::result

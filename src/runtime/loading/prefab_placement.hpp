@@ -4,7 +4,7 @@
 #include "engine/core/result.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
-#include <gneiss/engine/application.h>
+#include <gneiss/engine/world.h>
 #include <map>
 
 namespace gneiss::runtime {

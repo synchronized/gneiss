@@ -6,8 +6,8 @@
 
 #include "engine/core/frame_time.hpp"
 #include "engine/core/result.hpp"
-#include <gneiss/engine/application.h>
 #include <gneiss/engine/game_module.h>
+#include <gneiss/engine/world.h>
 
 #include <cstdint>
 

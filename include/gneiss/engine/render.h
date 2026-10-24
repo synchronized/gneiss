@@ -7,10 +7,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <gneiss/engine/application.h>
 #include <gneiss/engine/core/export.h>
 #include <gneiss/engine/core/result.h>
 #include <gneiss/engine/core/rid.h>
+#include <gneiss/engine/world.h>
 
 typedef gneiss_rid gneiss_mesh;
 typedef gneiss_rid gneiss_material;
@@ -51,96 +51,9 @@ typedef struct gneiss_mesh_renderer {
 
 #define GNEISS_MESH_RENDERER_INIT {GNEISS_NULL_MESH, GNEISS_NULL_MATERIAL}
 
-/** 即时 UI 顶点；颜色是每字节 RGBA 的打包值。 */
-typedef struct gneiss_ui_vertex {
-  float position[2];
-  float uv[2];
-  uint32_t color_rgba8;
-} gneiss_ui_vertex;
-
-/** 即时 UI 绘制命令；索引和顶点偏移均相对于本次提交。 */
-typedef struct gneiss_ui_draw_command {
-  gneiss_texture texture;
-  float clip_min[2];
-  float clip_max[2];
-  uint32_t first_index;
-  uint32_t index_count;
-  uint32_t vertex_offset;
-  uint32_t reserved;
-} gneiss_ui_draw_command;
-
-/** 当前帧即时 UI 数据；提交期间深拷贝全部数组，调用方保留所有权。 */
-typedef struct gneiss_ui_draw_list_desc {
-  uint32_t struct_size;
-  uint32_t reserved;
-  float display_width;
-  float display_height;
-  float framebuffer_scale_x;
-  float framebuffer_scale_y;
-  uint32_t vertex_count;
-  const gneiss_ui_vertex* vertices;
-  uint32_t index_count;
-  const uint32_t* indices;
-  uint32_t command_count;
-  uint32_t reserved_2;
-  const gneiss_ui_draw_command* commands;
-} gneiss_ui_draw_list_desc;
-
-#define GNEISS_UI_DRAW_LIST_DESC_VERSION_1_SIZE ((uint32_t)sizeof(gneiss_ui_draw_list_desc))
-#define GNEISS_UI_DRAW_LIST_DESC_INIT                                                              \
-  {(uint32_t)sizeof(gneiss_ui_draw_list_desc),                                                     \
-   UINT32_C(0),                                                                                    \
-   0.0F,                                                                                           \
-   0.0F,                                                                                           \
-   1.0F,                                                                                           \
-   1.0F,                                                                                           \
-   UINT32_C(0),                                                                                    \
-   NULL,                                                                                           \
-   UINT32_C(0),                                                                                    \
-   NULL,                                                                                           \
-   UINT32_C(0),                                                                                    \
-   UINT32_C(0),                                                                                    \
-   NULL}
-
-/** 世界空间调试线段；颜色为每字节 RGBA，width 为像素宽度。 */
-typedef struct gneiss_debug_line {
-  float start[3];
-  float end[3];
-  uint32_t color_rgba8;
-  float width;
-  uint8_t depth_test;
-  uint8_t reserved[3];
-} gneiss_debug_line;
-
-/** 当前帧世界调试线段；提交期间深拷贝，调用方保留所有权。 */
-typedef struct gneiss_debug_draw_list_desc {
-  uint32_t struct_size;
-  uint32_t reserved;
-  uint32_t line_count;
-  uint32_t reserved_2;
-  const gneiss_debug_line* lines;
-} gneiss_debug_draw_list_desc;
-
-#define GNEISS_DEBUG_DRAW_LIST_DESC_VERSION_1_SIZE ((uint32_t)sizeof(gneiss_debug_draw_list_desc))
-#define GNEISS_DEBUG_DRAW_LIST_DESC_INIT                                                           \
-  {(uint32_t)sizeof(gneiss_debug_draw_list_desc), UINT32_C(0), UINT32_C(0), UINT32_C(0), NULL}
-
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/**
- * 提交当前帧即时 UI 数据。
- *
- * 只能在 Application 创建线程的 update 回调内调用。成功后数据在本帧渲染结束时失效；同一帧再次
- * 成功提交会原子替换前一份数据。所有 Texture RID 必须属于该 Application。
- */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_application_submit_ui_draw_list(
-    gneiss_application application, const gneiss_ui_draw_list_desc* desc);
-
-/** 在 update 回调中提交当前帧世界调试线段；同一帧再次提交会原子替换。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_application_submit_debug_draw_list(
-    gneiss_application application, const gneiss_debug_draw_list_desc* desc);
 
 /** 设置或替换实体的 Camera 组件。World 和实体必须属于当前线程。 */
 GNEISS_API gneiss_result gneiss_world_entity_set_camera(gneiss_world world, gneiss_entity_id entity,

@@ -8,6 +8,51 @@
 
 namespace gneiss::engine {
 
+/** 物理键采用 USB HID 编号；修饰键与指针按钮采用位集合。 */
+inline constexpr std::uint32_t modifier_left_alt_bit = (1U << 4U);
+inline constexpr std::uint32_t modifier_left_control_bit = (1U << 2U);
+inline constexpr std::uint32_t modifier_left_shift_bit = (1U << 0U);
+inline constexpr std::uint32_t modifier_left_super_bit = (1U << 6U);
+inline constexpr std::uint32_t modifier_right_alt_bit = (1U << 5U);
+inline constexpr std::uint32_t modifier_right_control_bit = (1U << 3U);
+inline constexpr std::uint32_t modifier_right_shift_bit = (1U << 1U);
+inline constexpr std::uint32_t modifier_right_super_bit = (1U << 7U);
+inline constexpr std::uint32_t physical_key_0 = 39U;
+inline constexpr std::uint32_t physical_key_1 = 30U;
+inline constexpr std::uint32_t physical_key_9 = 38U;
+inline constexpr std::uint32_t physical_key_a = 4U;
+inline constexpr std::uint32_t physical_key_backspace = 42U;
+inline constexpr std::uint32_t physical_key_delete = 76U;
+inline constexpr std::uint32_t physical_key_down = 81U;
+inline constexpr std::uint32_t physical_key_end = 77U;
+inline constexpr std::uint32_t physical_key_enter = 40U;
+inline constexpr std::uint32_t physical_key_escape = 41U;
+inline constexpr std::uint32_t physical_key_f1 = 58U;
+inline constexpr std::uint32_t physical_key_f12 = 69U;
+inline constexpr std::uint32_t physical_key_home = 74U;
+inline constexpr std::uint32_t physical_key_insert = 73U;
+inline constexpr std::uint32_t physical_key_left = 80U;
+inline constexpr std::uint32_t physical_key_left_alt = 226U;
+inline constexpr std::uint32_t physical_key_left_control = 224U;
+inline constexpr std::uint32_t physical_key_left_shift = 225U;
+inline constexpr std::uint32_t physical_key_left_super = 227U;
+inline constexpr std::uint32_t physical_key_page_down = 78U;
+inline constexpr std::uint32_t physical_key_page_up = 75U;
+inline constexpr std::uint32_t physical_key_right = 79U;
+inline constexpr std::uint32_t physical_key_right_alt = 230U;
+inline constexpr std::uint32_t physical_key_right_control = 228U;
+inline constexpr std::uint32_t physical_key_right_shift = 229U;
+inline constexpr std::uint32_t physical_key_right_super = 231U;
+inline constexpr std::uint32_t physical_key_space = 44U;
+inline constexpr std::uint32_t physical_key_tab = 43U;
+inline constexpr std::uint32_t physical_key_up = 82U;
+inline constexpr std::uint32_t physical_key_z = 29U;
+inline constexpr std::uint32_t pointer_middle_bit = (1U << 2U);
+inline constexpr std::uint32_t pointer_primary_bit = (1U << 0U);
+inline constexpr std::uint32_t pointer_secondary_bit = (1U << 1U);
+inline constexpr std::uint32_t pointer_x1_bit = (1U << 3U);
+inline constexpr std::uint32_t pointer_x2_bit = (1U << 4U);
+
 /** 只在所属输入服务及映射代次内有效；零值无效。 */
 struct action_id final {
   std::uint64_t value{};

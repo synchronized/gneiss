@@ -5,7 +5,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
-#include <gneiss/engine/application.h>
+#include <gneiss/engine/world.h>
 #include <memory>
 
 namespace gneiss::runtime {

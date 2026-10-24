@@ -31,15 +31,8 @@ target_sources(
     engine/resource/asset_manager.cpp
     engine/core/sha256.cpp
     engine/core/sha256.hpp
-    runtime/api/application_api.cpp
-    runtime/api/render_api.cpp
-    engine/api/draw_description.hpp
-    runtime/api/input_api.cpp
-    runtime/application_registry.cpp
-    runtime/application_registry.hpp
     runtime/loading/prefab_preparation.cpp
     runtime/loading/prefab_placement.cpp
-    runtime/api/application_log_sink.hpp
     runtime/loading/scene_service_loading.cpp
     runtime/loading/scene_load_types.hpp
     runtime/loading/scene_service.cpp
@@ -100,7 +93,6 @@ target_sources(
     runtime/game/game_context_internal.hpp
     engine/function/input/input_service.cpp
     engine/core/input/input_types.hpp
-    engine/api/input_conversion.hpp
     engine/function/input/input_service.hpp
     engine/resource/types/action_map_validation.cpp
     engine/resource/types/action_map.cpp
@@ -182,10 +174,8 @@ target_sources(
       "${GNEISS_GENERATED_INCLUDE_DIR}"
     FILES
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/application.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module_types.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/input.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/log.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/render.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/scene.h"

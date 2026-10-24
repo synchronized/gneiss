@@ -260,7 +260,7 @@ if(status EQUAL 0)
 endif()
 file(WRITE "${fixture}/src/runtime/probe.cpp" "")
 
-foreach(content IN ITEMS "#include <engine/api/draw_description.hpp>"
+foreach(content IN ITEMS "#include <engine/api/result_conversion.hpp>"
     "void create(const gneiss_material_desc&);"
     "void create(const gneiss_mesh_desc&);"
     "void create(const gneiss_texture_desc&);"
@@ -367,7 +367,7 @@ endif()
 
 file(MAKE_DIRECTORY "${fixture}/src/engine/function/input")
 foreach(content IN ITEMS "#include <gneiss/engine/input.h>" "gneiss_input_event event;"
-    "gneiss_action_state state;" "#include <engine/api/input_conversion.hpp>")
+    "gneiss_action_state state;" "#include <engine/api/result_conversion.hpp>")
   file(WRITE "${fixture}/src/engine/function/input/probe.cpp" "${content}\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"

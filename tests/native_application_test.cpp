@@ -153,7 +153,7 @@ void test_platform_callbacks() {
   };
   check(gneiss::runtime::application::create(platform_config, app) ==
         gneiss::engine::result::success);
-  check(app->run(GNEISS_NULL_APPLICATION, 3U) == gneiss::engine::result::success && polls == 1U);
+  check(app->run(0, 3U) == gneiss::engine::result::success && polls == 1U);
   app.reset();
   check(shutdowns == 2U);
   platform_config.callbacks.poll_events = [](bool&) -> gneiss::engine::result {
@@ -165,8 +165,8 @@ void test_platform_callbacks() {
   };
   check(gneiss::runtime::application::create(platform_config, app) ==
         gneiss::engine::result::success);
-  check(app->run(GNEISS_NULL_APPLICATION, 1U) == gneiss::engine::result::out_of_memory);
-  check(app->shutdown(GNEISS_NULL_APPLICATION) == gneiss::engine::result::internal);
+  check(app->run(0, 1U) == gneiss::engine::result::out_of_memory);
+  check(app->shutdown(0) == gneiss::engine::result::internal);
   check(!app->accepts_requests());
   app.reset();
   check(shutdowns == 3U);
@@ -184,7 +184,7 @@ int main() try {
   config.callbacks.shutdown = [&state] { ++state.shutdowns; };
   config.callbacks.update = [&state](gneiss::engine::rid handle,
                                      const gneiss::engine::frame_time&) -> gneiss::engine::result {
-    if (handle != GNEISS_NULL_APPLICATION) {
+    if (handle != 0) {
       return gneiss::engine::result::invalid_handle;
     }
     ++state.frames;
@@ -222,10 +222,9 @@ int main() try {
         gneiss::engine::result::invalid_argument);
   check(app == retained && state.initializations == 1U);
   retained.reset();
-  check(app->run(GNEISS_NULL_APPLICATION, 3U) == gneiss::engine::result::success &&
-        state.frames == 3U);
+  check(app->run(0, 3U) == gneiss::engine::result::success && state.frames == 3U);
   gneiss::engine::result other_thread{};
-  std::thread worker([&] { other_thread = app->run(GNEISS_NULL_APPLICATION, 1U); });
+  std::thread worker([&] { other_thread = app->run(0, 1U); });
   worker.join();
   check(other_thread == gneiss::engine::result::invalid_state && state.frames == 3U);
   // Application 持有的 World 不授予调用方销毁权。
@@ -241,14 +240,13 @@ int main() try {
         gneiss::engine::result::initialization_failed);
   check(app == previous && state.initializations == 2U && state.shutdowns == 1U);
   previous.reset();
-  check(app->run(GNEISS_NULL_APPLICATION, 1U) == gneiss::engine::result::success &&
-        state.frames == 4U);
-  check(app->shutdown(GNEISS_NULL_APPLICATION) == gneiss::engine::result::success);
+  check(app->run(0, 1U) == gneiss::engine::result::success && state.frames == 4U);
+  check(app->shutdown(0) == gneiss::engine::result::success);
   std::uint64_t count{};
   check(gneiss::engine::entity_count(borrowed_world, count) ==
         gneiss::engine::result::invalid_handle);
   check(gneiss::engine::destroy_world(borrowed_world) == gneiss::engine::result::invalid_handle);
-  check(app->run(GNEISS_NULL_APPLICATION, 1U) == gneiss::engine::result::invalid_state);
+  check(app->run(0, 1U) == gneiss::engine::result::invalid_state);
   app.reset();
   check(state.shutdowns == 2U);
   check(delivered.load() == 2U && valid_log.load());

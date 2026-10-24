@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/api/draw_description.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 
@@ -16,7 +15,7 @@ int main() {
   texture_desc.height = 1U;
   texture_desc.row_stride_bytes = 4U;
   texture_desc.pixels = pixels;
-  gneiss_texture texture = GNEISS_NULL_TEXTURE;
+  gneiss::engine::rid texture{};
   if (resources.create_texture(texture_desc, &texture) != gneiss::engine::result::success) {
     return 1;
   }
@@ -78,24 +77,5 @@ int main() {
       !draw_list.commands().empty() || draw_list.display_width() != 0.0F) {
     return 7;
   }
-  gneiss_ui_vertex abi_vertex{{1.0F, 2.0F}, {0.0F, 1.0F}, 42U};
-  gneiss_ui_draw_command abi_command{};
-  gneiss_ui_draw_list_desc abi_desc = GNEISS_UI_DRAW_LIST_DESC_INIT;
-  abi_desc.vertices = &abi_vertex;
-  abi_desc.vertex_count = 1;
-  abi_desc.commands = &abi_command;
-  abi_desc.command_count = 1;
-  gneiss::engine::detail::converted_ui_draw converted;
-  if (gneiss::engine::detail::read_ui_draw_description(abi_desc, converted) !=
-          gneiss::engine::result::success ||
-      converted.view.vertices.data() != converted.vertices.data() ||
-      converted.view.vertices[0].color_rgba8 != 42U)
-    return 8;
-  abi_vertex.color_rgba8 = 0;
-  abi_command.reserved = 1;
-  if (gneiss::engine::detail::read_ui_draw_description(abi_desc, converted) !=
-          gneiss::engine::result::invalid_argument ||
-      converted.view.vertices[0].color_rgba8 != 42U)
-    return 9;
   return 0;
 }

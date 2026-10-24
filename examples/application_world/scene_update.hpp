@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include <gneiss/engine/application.h>
-#include <gneiss/engine/scene.h>
-#include <gneiss/engine/world.h>
+#include "engine/core/entity_id.hpp"
+#include "engine/core/result.hpp"
+namespace gneiss::runtime {
+class application;
+}
 namespace example {
 struct scene_state {
-  gneiss_entity_id entity{};
+  gneiss::entity_id entity;
   unsigned updates{};
 };
-gneiss_result update(gneiss_application application, const gneiss_frame_time* time,
-                     void* user_data) noexcept;
+gneiss::engine::result update(gneiss::runtime::application& app, scene_state& state) noexcept;
 }

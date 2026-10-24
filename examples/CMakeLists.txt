@@ -8,7 +8,7 @@ gneiss_target_output_directories(gneiss_version_example)
 
 add_executable(gneiss_application_world_example
   application_world/main.cpp application_world/scene_update.cpp)
-target_link_libraries(gneiss_application_world_example PRIVATE gneiss::engine)
+target_link_libraries(gneiss_application_world_example PRIVATE gneiss::engine gneiss_native_interface)
 gneiss_target_compile_warnings(gneiss_application_world_example)
 gneiss_target_output_directories(gneiss_application_world_example)
 if(BUILD_TESTING)

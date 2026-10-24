@@ -260,8 +260,8 @@ gneiss_target_output_directories(gneiss_asset_uri_test)
 add_test(NAME gneiss.asset_uri COMMAND gneiss_asset_uri_test)
 
 add_library(
-  gneiss_c_header_test OBJECT headers/application_h.c headers/entity_h.c headers/game_module_h.c
-                              headers/gneiss_h.c headers/input_h.c headers/log_h.c
+  gneiss_c_header_test OBJECT headers/entity_h.c headers/game_module_h.c
+                              headers/gneiss_h.c headers/log_h.c
                               headers/render_h.c headers/result_h.c headers/rid_h.c headers/scene_h.c headers/world_h.c
 )
 target_link_libraries(gneiss_c_header_test PRIVATE gneiss::engine)
@@ -384,21 +384,18 @@ gneiss_target_compile_warnings(gneiss_scene_tree_transform_test)
 gneiss_target_output_directories(gneiss_scene_tree_transform_test)
 add_test(NAME gneiss.scene_tree_transform COMMAND gneiss_scene_tree_transform_test)
 
-add_executable(gneiss_c_application_test c_application_test.c)
-target_link_libraries(gneiss_c_application_test PRIVATE gneiss::engine)
-set_target_properties(
-  gneiss_c_application_test
-  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
-)
-gneiss_target_compile_warnings(gneiss_c_application_test)
+add_executable(gneiss_native_application_flow_test native_application_flow_test.cpp)
+target_link_libraries(gneiss_native_application_flow_test PRIVATE gneiss::engine gneiss_native_interface)
+target_compile_features(gneiss_native_application_flow_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_native_application_flow_test)
 if(NOT GNEISS_ENABLE_GRANIT_PLATFORM)
-  target_compile_definitions(gneiss_c_application_test PRIVATE GNEISS_TEST_NO_GRANIT_PLATFORM)
+  target_compile_definitions(gneiss_native_application_flow_test PRIVATE GNEISS_TEST_NO_GRANIT_PLATFORM)
 endif()
 target_compile_definitions(
-  gneiss_c_application_test PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
+  gneiss_native_application_flow_test PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
 )
-gneiss_target_output_directories(gneiss_c_application_test)
-add_test(NAME gneiss.c_application COMMAND gneiss_c_application_test)
+gneiss_target_output_directories(gneiss_native_application_flow_test)
+add_test(NAME gneiss.native-application-flow COMMAND gneiss_native_application_flow_test)
 
 # 原生模块接口不依赖 Engine 的平台私有布局开关。
 if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
@@ -1079,13 +1076,6 @@ if(COMMAND gneiss_enable_asset_libuv)
   gneiss_enable_asset_libuv(gneiss_resource_service_test)
 endif()
 
-add_executable(gneiss_input_conversion_test input/input_conversion_test.cpp)
-target_include_directories(gneiss_input_conversion_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-target_link_libraries(gneiss_input_conversion_test PRIVATE gneiss_core_values)
-target_compile_features(gneiss_input_conversion_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_input_conversion_test)
-gneiss_target_output_directories(gneiss_input_conversion_test)
-add_test(NAME gneiss.input_conversion COMMAND gneiss_input_conversion_test)
 
 add_executable(gneiss_task_header_visibility_test core/task_header_visibility_test.cpp)
 target_link_libraries(gneiss_task_header_visibility_test PRIVATE gneiss_tasks)

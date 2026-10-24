@@ -6,14 +6,12 @@
 
 #include <stdint.h>
 
-#include <gneiss/engine/application.h>
 #include <gneiss/engine/core/entity.h>
 #include <gneiss/engine/core/export.h>
 #include <gneiss/engine/core/result.h>
 #include <gneiss/engine/core/rid.h>
 #include <gneiss/engine/core/version.h>
 #include <gneiss/engine/game_module.h>
-#include <gneiss/engine/input.h>
 #include <gneiss/engine/log.h>
 #include <gneiss/engine/render.h>
 #include <gneiss/engine/scene.h>

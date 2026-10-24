@@ -27,63 +27,63 @@ constexpr std::uint32_t premultiply_color(std::uint32_t color) noexcept {
 static_assert(premultiply_color(0x80ffffffU) == 0x80808080U);
 
 ImGuiKey map_key(std::uint32_t key) noexcept {
-  if (key >= GNEISS_PHYSICAL_KEY_A && key <= GNEISS_PHYSICAL_KEY_Z) {
-    return static_cast<ImGuiKey>(ImGuiKey_A + key - GNEISS_PHYSICAL_KEY_A);
+  if (key >= gneiss::engine::physical_key_a && key <= gneiss::engine::physical_key_z) {
+    return static_cast<ImGuiKey>(ImGuiKey_A + key - gneiss::engine::physical_key_a);
   }
-  if (key >= GNEISS_PHYSICAL_KEY_1 && key <= GNEISS_PHYSICAL_KEY_9) {
-    return static_cast<ImGuiKey>(ImGuiKey_1 + key - GNEISS_PHYSICAL_KEY_1);
+  if (key >= gneiss::engine::physical_key_1 && key <= gneiss::engine::physical_key_9) {
+    return static_cast<ImGuiKey>(ImGuiKey_1 + key - gneiss::engine::physical_key_1);
   }
-  if (key >= GNEISS_PHYSICAL_KEY_F1 && key <= GNEISS_PHYSICAL_KEY_F12) {
-    return static_cast<ImGuiKey>(ImGuiKey_F1 + key - GNEISS_PHYSICAL_KEY_F1);
+  if (key >= gneiss::engine::physical_key_f1 && key <= gneiss::engine::physical_key_f12) {
+    return static_cast<ImGuiKey>(ImGuiKey_F1 + key - gneiss::engine::physical_key_f1);
   }
   switch (key) {
-  case GNEISS_PHYSICAL_KEY_0:
+  case gneiss::engine::physical_key_0:
     return ImGuiKey_0;
-  case GNEISS_PHYSICAL_KEY_ENTER:
+  case gneiss::engine::physical_key_enter:
     return ImGuiKey_Enter;
-  case GNEISS_PHYSICAL_KEY_ESCAPE:
+  case gneiss::engine::physical_key_escape:
     return ImGuiKey_Escape;
-  case GNEISS_PHYSICAL_KEY_BACKSPACE:
+  case gneiss::engine::physical_key_backspace:
     return ImGuiKey_Backspace;
-  case GNEISS_PHYSICAL_KEY_TAB:
+  case gneiss::engine::physical_key_tab:
     return ImGuiKey_Tab;
-  case GNEISS_PHYSICAL_KEY_SPACE:
+  case gneiss::engine::physical_key_space:
     return ImGuiKey_Space;
-  case GNEISS_PHYSICAL_KEY_INSERT:
+  case gneiss::engine::physical_key_insert:
     return ImGuiKey_Insert;
-  case GNEISS_PHYSICAL_KEY_HOME:
+  case gneiss::engine::physical_key_home:
     return ImGuiKey_Home;
-  case GNEISS_PHYSICAL_KEY_PAGE_UP:
+  case gneiss::engine::physical_key_page_up:
     return ImGuiKey_PageUp;
-  case GNEISS_PHYSICAL_KEY_DELETE:
+  case gneiss::engine::physical_key_delete:
     return ImGuiKey_Delete;
-  case GNEISS_PHYSICAL_KEY_END:
+  case gneiss::engine::physical_key_end:
     return ImGuiKey_End;
-  case GNEISS_PHYSICAL_KEY_PAGE_DOWN:
+  case gneiss::engine::physical_key_page_down:
     return ImGuiKey_PageDown;
-  case GNEISS_PHYSICAL_KEY_RIGHT:
+  case gneiss::engine::physical_key_right:
     return ImGuiKey_RightArrow;
-  case GNEISS_PHYSICAL_KEY_LEFT:
+  case gneiss::engine::physical_key_left:
     return ImGuiKey_LeftArrow;
-  case GNEISS_PHYSICAL_KEY_DOWN:
+  case gneiss::engine::physical_key_down:
     return ImGuiKey_DownArrow;
-  case GNEISS_PHYSICAL_KEY_UP:
+  case gneiss::engine::physical_key_up:
     return ImGuiKey_UpArrow;
-  case GNEISS_PHYSICAL_KEY_LEFT_CONTROL:
+  case gneiss::engine::physical_key_left_control:
     return ImGuiKey_LeftCtrl;
-  case GNEISS_PHYSICAL_KEY_LEFT_SHIFT:
+  case gneiss::engine::physical_key_left_shift:
     return ImGuiKey_LeftShift;
-  case GNEISS_PHYSICAL_KEY_LEFT_ALT:
+  case gneiss::engine::physical_key_left_alt:
     return ImGuiKey_LeftAlt;
-  case GNEISS_PHYSICAL_KEY_LEFT_SUPER:
+  case gneiss::engine::physical_key_left_super:
     return ImGuiKey_LeftSuper;
-  case GNEISS_PHYSICAL_KEY_RIGHT_CONTROL:
+  case gneiss::engine::physical_key_right_control:
     return ImGuiKey_RightCtrl;
-  case GNEISS_PHYSICAL_KEY_RIGHT_SHIFT:
+  case gneiss::engine::physical_key_right_shift:
     return ImGuiKey_RightShift;
-  case GNEISS_PHYSICAL_KEY_RIGHT_ALT:
+  case gneiss::engine::physical_key_right_alt:
     return ImGuiKey_RightAlt;
-  case GNEISS_PHYSICAL_KEY_RIGHT_SUPER:
+  case gneiss::engine::physical_key_right_super:
     return ImGuiKey_RightSuper;
   default:
     return ImGuiKey_None;
@@ -91,27 +91,27 @@ ImGuiKey map_key(std::uint32_t key) noexcept {
 }
 
 void update_modifiers(ImGuiIO& io, std::uint32_t modifiers) noexcept {
-  io.AddKeyEvent(ImGuiMod_Ctrl, (modifiers & (GNEISS_MODIFIER_LEFT_CONTROL_BIT |
-                                              GNEISS_MODIFIER_RIGHT_CONTROL_BIT)) != 0U);
-  io.AddKeyEvent(ImGuiMod_Shift, (modifiers & (GNEISS_MODIFIER_LEFT_SHIFT_BIT |
-                                               GNEISS_MODIFIER_RIGHT_SHIFT_BIT)) != 0U);
-  io.AddKeyEvent(ImGuiMod_Alt, (modifiers & (GNEISS_MODIFIER_LEFT_ALT_BIT |
-                                             GNEISS_MODIFIER_RIGHT_ALT_BIT)) != 0U);
-  io.AddKeyEvent(ImGuiMod_Super, (modifiers & (GNEISS_MODIFIER_LEFT_SUPER_BIT |
-                                               GNEISS_MODIFIER_RIGHT_SUPER_BIT)) != 0U);
+  io.AddKeyEvent(ImGuiMod_Ctrl, (modifiers & (gneiss::engine::modifier_left_control_bit |
+                                              gneiss::engine::modifier_right_control_bit)) != 0U);
+  io.AddKeyEvent(ImGuiMod_Shift, (modifiers & (gneiss::engine::modifier_left_shift_bit |
+                                               gneiss::engine::modifier_right_shift_bit)) != 0U);
+  io.AddKeyEvent(ImGuiMod_Alt, (modifiers & (gneiss::engine::modifier_left_alt_bit |
+                                             gneiss::engine::modifier_right_alt_bit)) != 0U);
+  io.AddKeyEvent(ImGuiMod_Super, (modifiers & (gneiss::engine::modifier_left_super_bit |
+                                               gneiss::engine::modifier_right_super_bit)) != 0U);
 }
 
 int map_mouse_button(std::uint32_t button) noexcept {
   switch (button) {
-  case GNEISS_POINTER_PRIMARY_BIT:
+  case gneiss::engine::pointer_primary_bit:
     return ImGuiMouseButton_Left;
-  case GNEISS_POINTER_SECONDARY_BIT:
+  case gneiss::engine::pointer_secondary_bit:
     return ImGuiMouseButton_Right;
-  case GNEISS_POINTER_MIDDLE_BIT:
+  case gneiss::engine::pointer_middle_bit:
     return ImGuiMouseButton_Middle;
-  case GNEISS_POINTER_X1_BIT:
+  case gneiss::engine::pointer_x1_bit:
     return 3;
-  case GNEISS_POINTER_X2_BIT:
+  case gneiss::engine::pointer_x2_bit:
     return 4;
   default:
     return -1;
@@ -139,8 +139,9 @@ gneiss::engine::result synchronize_input_state(runtime::application& application
     io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
   }
   constexpr std::uint32_t pointer_buttons[] = {
-      GNEISS_POINTER_PRIMARY_BIT, GNEISS_POINTER_SECONDARY_BIT, GNEISS_POINTER_MIDDLE_BIT,
-      GNEISS_POINTER_X1_BIT,      GNEISS_POINTER_X2_BIT,
+      gneiss::engine::pointer_primary_bit, gneiss::engine::pointer_secondary_bit,
+      gneiss::engine::pointer_middle_bit,  gneiss::engine::pointer_x1_bit,
+      gneiss::engine::pointer_x2_bit,
   };
   for (const auto button : pointer_buttons) {
     io.AddMouseButtonEvent(map_mouse_button(button), (pointer.buttons & button) != 0U);

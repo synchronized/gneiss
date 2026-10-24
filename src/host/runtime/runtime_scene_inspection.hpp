@@ -9,8 +9,8 @@
 #include "engine/core/result.hpp"
 #include "ipc_inspection_protocol.hpp"
 
-#include <gneiss/engine/application.h>
 #include <gneiss/engine/scene.h>
+#include <gneiss/engine/world.h>
 
 #include <cstdint>
 #include <map>

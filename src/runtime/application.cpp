@@ -170,7 +170,7 @@ gneiss::engine::result application::create(const runtime::application_configurat
 application::application(const runtime::application_configuration& config)
     : storage_(std::make_unique<storage>(config)) {}
 
-application::~application() noexcept { static_cast<void>(shutdown(GNEISS_NULL_APPLICATION)); }
+application::~application() noexcept { static_cast<void>(shutdown(0)); }
 
 gneiss::engine::render_queue_stats application::render_statistics() const noexcept {
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
@@ -320,8 +320,8 @@ gneiss::engine::result application::initialize() noexcept {
       mount_result = storage_->asset_file_system_.mount("asset://", std::move(native_file_system));
     }
     if (mount_result != gneiss::engine::result::success) {
-      report(GNEISS_NULL_APPLICATION, gneiss::engine::severity::error,
-             gneiss::engine::category::asset, mount_result, "asset", "资产根目录挂载失败");
+      report(0, gneiss::engine::severity::error, gneiss::engine::category::asset, mount_result,
+             "asset", "资产根目录挂载失败");
       return mount_result;
     }
   }
@@ -336,9 +336,8 @@ gneiss::engine::result application::initialize() noexcept {
     }
     const auto platform_result = storage_->granit_platform_->initialize(storage_->config_.window);
     if (platform_result != gneiss::engine::result::success) {
-      report(GNEISS_NULL_APPLICATION, gneiss::engine::severity::error,
-             gneiss::engine::category::backend, platform_result, "granit.platform",
-             "Granit 平台初始化失败");
+      report(0, gneiss::engine::severity::error, gneiss::engine::category::backend, platform_result,
+             "granit.platform", "Granit 平台初始化失败");
       storage_->granit_platform_.reset();
       return platform_result;
     }
@@ -359,9 +358,8 @@ gneiss::engine::result application::initialize() noexcept {
       const auto environment_result =
           storage_->asset_file_system_.read(storage_->config_.environment_asset, environment_asset);
       if (environment_result != gneiss::engine::result::success) {
-        report(GNEISS_NULL_APPLICATION, gneiss::engine::severity::error,
-               gneiss::engine::category::asset, environment_result, "environment",
-               "环境资产读取失败");
+        report(0, gneiss::engine::severity::error, gneiss::engine::category::asset,
+               environment_result, "environment", "环境资产读取失败");
         storage_->granit_platform_.reset();
         return environment_result;
       }
@@ -371,18 +369,17 @@ gneiss::engine::result application::initialize() noexcept {
         storage_->config_.environment_intensity, storage_->config_.environment_rotation_radians,
         storage_->log_dispatcher_.get());
     if (render_result != gneiss::engine::result::success) {
-      report(GNEISS_NULL_APPLICATION, gneiss::engine::severity::error,
-             gneiss::engine::category::backend, render_result, "granit.render",
-             "Granit 渲染服务初始化失败");
+      report(0, gneiss::engine::severity::error, gneiss::engine::category::backend, render_result,
+             "granit.render", "Granit 渲染服务初始化失败");
       storage_->granit_render_service_.reset();
       storage_->granit_platform_.reset();
       return render_result;
     }
     storage_->granit_render_service_->set_completion_notification(storage_->loop_notification_);
 #else
-    report(GNEISS_NULL_APPLICATION, gneiss::engine::severity::error,
-           gneiss::engine::category::backend, gneiss::engine::result::unsupported,
-           "granit.platform", "当前构建未启用 Granit 平台适配");
+    report(0, gneiss::engine::severity::error, gneiss::engine::category::backend,
+           gneiss::engine::result::unsupported, "granit.platform",
+           "当前构建未启用 Granit 平台适配");
     return gneiss::engine::result::unsupported;
 #endif
   }
@@ -396,12 +393,11 @@ gneiss::engine::result application::initialize() noexcept {
       result = gneiss::engine::result::internal;
     }
     if (result != gneiss::engine::result::success) {
-      report(GNEISS_NULL_APPLICATION, gneiss::engine::severity::error,
-             gneiss::engine::category::application, result, "application.initialize",
-             "application 初始化回调失败");
+      report(0, gneiss::engine::severity::error, gneiss::engine::category::application, result,
+             "application.initialize", "application 初始化回调失败");
       // 初始化回调可能已获得部分资源，因此失败时也执行配对清理。
       storage_->platform_initialized_ = true;
-      static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
+      static_cast<void>(shutdown(0));
       return result;
     }
   }
@@ -415,16 +411,16 @@ gneiss::engine::result application::initialize() noexcept {
     const auto result =
         storage_->scene_service_.initialize(*storage_->asset_manager_, *storage_->render_assets_);
     if (result != gneiss::engine::result::success) {
-      report(GNEISS_NULL_APPLICATION, gneiss::engine::severity::error,
-             gneiss::engine::category::application, result, "scene", "场景域创建失败");
-      static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
+      report(0, gneiss::engine::severity::error, gneiss::engine::category::application, result,
+             "scene", "场景域创建失败");
+      static_cast<void>(shutdown(0));
       return result;
     }
   } catch (const std::bad_alloc&) {
-    static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
+    static_cast<void>(shutdown(0));
     return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
+    static_cast<void>(shutdown(0));
     return gneiss::engine::result::internal;
   }
   return gneiss::engine::result::success;
@@ -573,7 +569,7 @@ application::submit_debug_draw_list(std::span<const gneiss::engine::debug_line> 
                                 : gneiss::engine::result::invalid_state;
 }
 
-void application::report(gneiss_application handle, gneiss::engine::severity severity,
+void application::report(gneiss::engine::rid handle, gneiss::engine::severity severity,
                          gneiss::engine::category category, gneiss::engine::result result,
                          std::string_view module, std::string_view message) noexcept {
   if (storage_->config_.callbacks.diagnostic != nullptr) {
@@ -767,7 +763,7 @@ gneiss::engine::result application::get_window_size(std::uint32_t& out_width,
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): 句柄与帧数虽同宽但语义明确。
-gneiss::engine::result application::run(gneiss_application handle,
+gneiss::engine::result application::run(gneiss::engine::rid handle,
                                         std::uint64_t max_frame_count) noexcept try {
   if (!is_owner_thread() || !storage_->platform_initialized_ || storage_->is_running_) {
     return gneiss::engine::result::invalid_state;
@@ -898,7 +894,7 @@ bool application::is_owner_thread() const noexcept {
   return storage_->owner_thread_ == std::this_thread::get_id();
 }
 
-gneiss::engine::result application::shutdown(gneiss_application handle) noexcept {
+gneiss::engine::result application::shutdown(gneiss::engine::rid handle) noexcept {
   if (!is_owner_thread() || storage_->is_running_ || storage_->shutting_down_) {
     return gneiss::engine::result::invalid_state;
   }
@@ -1238,8 +1234,8 @@ void application::report_visual_completion() {
       completion.state != gneiss::engine::texture_load_state::cancelled) {
     for (const auto& item : completion.results) {
       if (!item.applied) {
-        report(GNEISS_NULL_APPLICATION, gneiss::engine::severity::error,
-               gneiss::engine::category::asset, item.result, "scene.assets", item.source.uri);
+        report(0, gneiss::engine::severity::error, gneiss::engine::category::asset, item.result,
+               "scene.assets", item.source.uri);
       }
     }
   }

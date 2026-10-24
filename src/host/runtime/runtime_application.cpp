@@ -209,7 +209,7 @@ gneiss::engine::result update_game(void* user_data, const gneiss_game_update_tim
   return true;
 }
 
-gneiss::engine::result update_runtime(gneiss_application application,
+gneiss::engine::result update_runtime(gneiss::engine::rid application,
                                       const gneiss::engine::frame_time* time, void* user_data) try {
   if (time == nullptr || user_data == nullptr) {
     return gneiss::engine::result::invalid_argument;

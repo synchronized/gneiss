@@ -34,19 +34,19 @@ domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
 
 ## 当前帧即时 UI 数据
 
-`gneiss_application_submit_ui_draw_list` 在 Application 的 `update` 回调内提交后端无关的即时 UI
+`application::submit_ui_draw_list` 在 Application 的 `update` 回调内提交后端无关的即时 UI
 数据。描述包含显示尺寸、Framebuffer 缩放、RGBA8 顶点、UInt32 索引以及引用 Texture RID 的绘制
 命令；每条命令同时给出裁剪矩形、索引范围和顶点偏移。Runtime 在返回前深拷贝全部数组，调用方可
 立即复用或释放源内存。
 
 提交只能发生在 Application 创建线程的 `update` 回调内；同一帧最后一次成功提交原子替换前一份
-数据，失败提交保留已有数据。Runtime 会校验有限浮点值、数组范围、索引引用、保留字段和 Texture
+数据，失败提交保留已有数据。Runtime 会校验有限浮点值、数组范围、索引引用和 Texture
 所属关系。数据在该帧渲染或跳过渲染后清空，不跨帧缓存。接口不包含 Dear ImGui 或 Granit 类型，
 长期边界见 [ADR-017](../decisions/ADR-017-editor-ui-render-composition.md)。
 
 ## 当前帧世界 Debug Draw
 
-`gneiss_application_submit_debug_draw_list` 在 `update` 回调内提交后端无关的世界线段。每条线包含
+`application::submit_debug_draw_list` 在 `update` 回调内提交后端无关的世界线段。每条线包含
 两个三维端点、RGBA8 颜色、像素宽度和深度测试开关；Runtime 深拷贝数组，同帧最后一次成功提交
 替换前一份数据，失败提交不改变已有内容，帧结束后自动清空。
 

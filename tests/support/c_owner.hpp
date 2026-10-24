@@ -3,7 +3,6 @@
 #pragma once
 #include "engine/values/core/result.hpp"
 #include <exception>
-#include <gneiss/engine/application.h>
 #include <gneiss/engine/scene.h>
 #include <gneiss/engine/world.h>
 #include <utility>
@@ -41,6 +40,5 @@ public:
 private:
   std::uint64_t handle_{};
 };
-using application_owner = c_owner<gneiss_application_destroy>;
 using world_owner = c_owner<gneiss_world_destroy>;
 }
