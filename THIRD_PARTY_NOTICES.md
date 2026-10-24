@@ -37,6 +37,8 @@ Gneiss 改用现有 VFS/任务执行器，增加有界分步读取、来源复�
 `traits/type_name.h`、`traits/type_identity.h`。按 MIT 许可保留 CAORS 版权，原许可证安装为
 `share/doc/gneiss/licenses/caors-core-values-LICENSE`。
 实现位于 `src/engine/core`；使用标准库容器和分配器，去除 CAORS 内存模块及容器特化，
-名称改为 `gneiss::engine`。没有引入 CAORS 反射、注册表或资源管理系统。
+名称改为 `gneiss::engine`。另移植同一提交的 `meta/detail/type_identity.cpp` 类型名集中注册机制及
+`meta/detail/canonical_type_name.h`，实现为内部 `runtime_type_id`；使用标准库容器，
+不引入 CAORS 字段反射、能力注册表或资源管理系统。
 替代方案是自行实现这些小型值类型；移植保留既有语义与测试边界。仅 Engine 编译实现，
 内部消费者重编译后使用；不新增外部库依赖，也不改变公共 C ABI。

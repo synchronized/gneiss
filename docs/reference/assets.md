@@ -50,7 +50,8 @@ Application 内部将资产根作为 `asset://` 根挂载到虚拟文件系统�
 
 `asset_manager` 唯一持有 `resource_cache::entries_`，统一按「来源域 + URI + C++ 类型」索引。
 通用 CPU 资产、Prefab 和渲染资产共用此表；同 URI 的不同类型或来源各自独立。
-类型键使用 `std::type_index`，只在进程内有效，不写入资产文件或公共 ABI。
+类型键使用 `engine::runtime_type_id`，由同一 Engine 按规范 C++ 类型名集中分配，
+只在当前运行期有效，不写入资产文件或公共 ABI；约束见 [Core 身份类型](core.md#内部基础身份类型)。
 通用请求表只保留请求顺序和在途观察状态，不保存另一份当前资源。
 通用异步加载默认复用成功缓存，显式 reload 重新读取；同步 load_sync 总是重新读取。
 资源表统一通过 `resource_cache::load` 查询、按需执行回调并登记成功结果；显式重载失败

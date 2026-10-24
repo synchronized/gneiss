@@ -3,6 +3,7 @@
 
 #include "engine/resource/cache/resource_cache.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/runtime_type_id.hpp"
 #include "engine/resource/asset_ref.hpp"
 
 #include "engine/resource/vfs/asset_uri.hpp"
@@ -13,13 +14,15 @@
 
 namespace gneiss::engine {
 
-gneiss::engine::result resource_cache::load(std::string_view uri, std::type_index type,
+gneiss::engine::result resource_cache::load(std::string_view uri,
+                                            gneiss::engine::runtime_type_id type,
                                             const loader& decode, asset_ref<const entry>& out_entry,
                                             std::shared_ptr<const asset_source_domain> source,
                                             bool reload) noexcept {
   using gneiss::engine::result;
   out_entry.reset();
-  if (type == typeid(void) || !decode || validate_uri(uri) != result::success)
+  if (type == gneiss::engine::runtime_type_of<void>() || !decode ||
+      validate_uri(uri) != result::success)
     return result::invalid_argument;
   try {
     const key identity{source, std::string(uri), type};
@@ -86,7 +89,7 @@ void resource_cache::release_unused() noexcept {
 }
 
 std::weak_ptr<const resource_cache::entry>
-resource_cache::observe(std::string_view uri, std::type_index type,
+resource_cache::observe(std::string_view uri, gneiss::engine::runtime_type_id type,
                         std::shared_ptr<const asset_source_domain> source) const {
   const auto found = entries_.find(key{std::move(source), std::string(uri), type});
   return found == entries_.end() ? std::weak_ptr<const entry>{}

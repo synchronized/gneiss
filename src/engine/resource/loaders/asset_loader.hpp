@@ -4,8 +4,8 @@
 
 #pragma once
 #include "engine/core/result.hpp"
+#include "engine/core/runtime_type_id.hpp"
 #include <memory>
-#include <typeindex>
 #include <vector>
 
 namespace gneiss::engine {
@@ -14,7 +14,7 @@ namespace gneiss::engine {
 class asset_loader {
 public:
   virtual ~asset_loader() = default;
-  [[nodiscard]] virtual std::type_index target_type() const noexcept = 0;
+  [[nodiscard]] virtual gneiss::engine::runtime_type_id target_type() const noexcept = 0;
   [[nodiscard]] virtual std::size_t maximum_bytes() const noexcept = 0;
   [[nodiscard]] virtual gneiss::engine::result
   decode(const std::vector<std::byte>& bytes, std::shared_ptr<const void>& output) const = 0;

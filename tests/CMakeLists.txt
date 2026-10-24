@@ -1186,3 +1186,10 @@ if(BUILD_SHARED_LIBS)
   gneiss_target_compile_warnings(gneiss_game_template_compile)
   gneiss_target_output_directories(gneiss_game_template_compile)
 endif()
+
+# 同一 Engine 中的类型名注册、并发首次注册及跨翻译单元身份。
+add_executable(gneiss_runtime_type_id_test core/runtime_type_id_test.cpp core/runtime_type_id_other.cpp)
+target_link_libraries(gneiss_runtime_type_id_test PRIVATE gneiss::engine gneiss_native_interface Threads::Threads)
+gneiss_target_compile_warnings(gneiss_runtime_type_id_test)
+gneiss_target_output_directories(gneiss_runtime_type_id_test)
+add_test(NAME gneiss.runtime_type_id COMMAND gneiss_runtime_type_id_test)

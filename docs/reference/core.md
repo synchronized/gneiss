@@ -77,6 +77,13 @@ src 内部操作统一使用 `gneiss::engine::result`（`engine/core/result.hpp`
   为 nil；未定制用户类型名称为空。可显式特化 `type_identity<T>`；泛型调用方应先用
   `std::remove_cvref_t<T>` 归一化，再访问用户特化。
 
-这些工具不会自动注册 C++ 类型，不提供类型擦除存储、析构回调或运行期 ID 注册表。
-资源表仍使用 `std::type_index`；反射现有 `type_id` 及其协议保持原状。
+- `runtime_type_id`：Engine 内集中分配的运行期类型键。`runtime_type_of<T>()` 去除顶层 cv/ref，
+  首次按工具链规范类型名注册，之后缓存编号；void 返回无效 ID，名称通过 `runtime_type_name` 查询。
+  资源缓存与 Loader 使用此键，不使用名称 hash 代替身份。首次初始化分配失败不可恢复。
+
+`runtime_type_id` 不持久化，不替代反射的 16 字节 `type_id`、稳定 GUID 或资产 UUID。
+跨模块使用要求相同工具链/ABI、满足 ODR 的具名类型，并链接同一个 Shared Engine。
+静态构建只保证同一链接映像内统一，匿名/局部类型不作为跨模块资源契约。
+不提供类型擦除对象的析构回调或字段注册；具体资源仍由已有 `asset_ref` 与 Loader 管理。
+见 [ADR-081](../decisions/ADR-081-runtime-type-identity.md)。
 编译消费者应链接 Engine，不能把 string_name.cpp 各自复制进插件生成独立的字符串表。

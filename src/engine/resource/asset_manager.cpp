@@ -4,6 +4,7 @@
 
 #include "asset_manager.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/runtime_type_id.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/resource/vfs/asset_source.hpp"
 #include "engine/resource/vfs/asset_uri.hpp"
@@ -15,8 +16,8 @@ namespace gneiss::engine {
 namespace {
 class input_loader final : public asset_loader {
 public:
-  [[nodiscard]] std::type_index target_type() const noexcept override {
-    return typeid(action_map_asset);
+  [[nodiscard]] gneiss::engine::runtime_type_id target_type() const noexcept override {
+    return gneiss::engine::runtime_type_of<action_map_asset>();
   }
   [[nodiscard]] std::size_t maximum_bytes() const noexcept override {
     return maximum_action_map_bytes;
@@ -80,7 +81,7 @@ struct asset_manager::resource_state {
   gneiss::engine::task_executor* executor{};
   gneiss::engine::task_scope scope{};
   bool frozen{}, stopped{};
-  std::map<std::type_index, std::shared_ptr<const asset_loader>> loaders;
+  std::map<gneiss::engine::runtime_type_id, std::shared_ptr<const asset_loader>> loaders;
   std::map<key, entry> requests;
   std::vector<std::shared_ptr<operation>> active;
 
@@ -130,7 +131,8 @@ struct asset_manager::resource_state {
 asset_manager::asset_manager(virtual_file_system files)
     : resource_state_(std::make_unique<resource_state>()), files_(std::move(files)),
       prefabs_(files_, cache_) {
-  resource_state_->loaders.emplace(typeid(action_map_asset), std::make_shared<input_loader>());
+  resource_state_->loaders.emplace(gneiss::engine::runtime_type_of<action_map_asset>(),
+                                   std::make_shared<input_loader>());
 }
 asset_manager::~asset_manager() { stop_resources(); }
 void asset_manager::attach_task_executor(gneiss::engine::task_executor& executor) {
@@ -157,8 +159,8 @@ asset_manager::register_loader(const std::shared_ptr<const asset_loader>& loader
 } catch (...) {
   return gneiss::engine::result::internal;
 }
-gneiss::engine::result asset_manager::request(std::type_index type, std::string_view uri,
-                                              bool reload,
+gneiss::engine::result asset_manager::request(gneiss::engine::runtime_type_id type,
+                                              std::string_view uri, bool reload,
                                               std::shared_ptr<detail::asset_state>& output) noexcept
     try {
   auto& state = *resource_state_;
@@ -213,7 +215,8 @@ gneiss::engine::result asset_manager::request(std::type_index type, std::string_
 } catch (...) {
   return gneiss::engine::result::internal;
 }
-gneiss::engine::result asset_manager::load_sync_erased(std::type_index type, std::string_view uri,
+gneiss::engine::result asset_manager::load_sync_erased(gneiss::engine::runtime_type_id type,
+                                                       std::string_view uri,
                                                        std::shared_ptr<const void>& output) noexcept
     try {
   auto& state = *resource_state_;

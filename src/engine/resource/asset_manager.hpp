@@ -5,6 +5,7 @@
 
 #include "asset_request.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/runtime_type_id.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
 #include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/resource/types/action_map.hpp"
@@ -45,7 +46,7 @@ public:
   [[nodiscard]] gneiss::engine::result load(std::string_view uri, asset_request<T>& output,
                                             bool reload = false) noexcept {
     std::shared_ptr<detail::asset_state> state;
-    const auto status = request(typeid(T), uri, reload, state);
+    const auto status = request(gneiss::engine::runtime_type_of<T>(), uri, reload, state);
     if (status == gneiss::engine::result::success)
       output = asset_request<T>{std::move(state)};
     return status;
@@ -55,7 +56,7 @@ public:
   [[nodiscard]] gneiss::engine::result load_sync(std::string_view uri,
                                                  asset_ref<const T>& output) noexcept {
     std::shared_ptr<const void> value;
-    const auto status = load_sync_erased(typeid(T), uri, value);
+    const auto status = load_sync_erased(gneiss::engine::runtime_type_of<T>(), uri, value);
     if (status == gneiss::engine::result::success)
       output = asset_ref<const T>{std::static_pointer_cast<const T>(value)};
     return status;
@@ -76,10 +77,10 @@ public:
 
 private:
   [[nodiscard]] gneiss::engine::result
-  request(std::type_index type, std::string_view uri, bool reload,
+  request(gneiss::engine::runtime_type_id type, std::string_view uri, bool reload,
           std::shared_ptr<detail::asset_state>& output) noexcept;
   [[nodiscard]] gneiss::engine::result
-  load_sync_erased(std::type_index type, std::string_view uri,
+  load_sync_erased(gneiss::engine::runtime_type_id type, std::string_view uri,
                    std::shared_ptr<const void>& output) noexcept;
   struct resource_state;
   std::unique_ptr<resource_state> resource_state_;

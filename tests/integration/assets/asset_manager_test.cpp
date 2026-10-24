@@ -2,12 +2,18 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/core/runtime_type_id.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
 
+namespace gneiss::test_support {
+struct asset_value {
+  char byte{};
+};
+}
 namespace {
 using namespace gneiss;
 using namespace gneiss::engine;
@@ -16,9 +22,7 @@ void check(bool ok, const char* message) {
   if (!ok)
     throw std::runtime_error(message);
 }
-struct value {
-  char byte{};
-};
+using value = gneiss::test_support::asset_value;
 class memory_files final : public file_system {
 public:
   mutable unsigned reads{};
@@ -49,7 +53,9 @@ public:
 class loader final : public asset_loader {
 public:
   mutable unsigned decodes{};
-  std::type_index target_type() const noexcept override { return typeid(value); }
+  gneiss::engine::runtime_type_id target_type() const noexcept override {
+    return gneiss::engine::runtime_type_of<value>();
+  }
   std::size_t maximum_bytes() const noexcept override { return 8; }
   gneiss::engine::result decode(const std::vector<std::byte>& bytes,
                                 std::shared_ptr<const void>& output) const override {

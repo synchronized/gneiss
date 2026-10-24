@@ -107,6 +107,9 @@ target_sources(
     engine/values/detail/reflection_values.hpp
     engine/values/detail/render.inl
     engine/values/detail/scene.inl
+    engine/core/runtime_type_id.cpp
+    engine/core/runtime_type_id.hpp
+    engine/core/detail/canonical_type_name.hpp
     engine/core/result.cpp
     engine/core/version.cpp
     runtime/api/game_module_api.cpp

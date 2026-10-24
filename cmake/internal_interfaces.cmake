@@ -51,6 +51,8 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/progress_notification.hpp
   engine/core/publication_group.hpp
   engine/core/reflection/property_registry.hpp
+  engine/core/runtime_type_id.hpp
+  engine/core/detail/canonical_type_name.hpp
   engine/core/rid.hpp
   engine/core/rid_table.hpp
   engine/core/sha256.hpp

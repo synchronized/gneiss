@@ -3,6 +3,7 @@
 
 #include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/runtime_type_id.hpp"
 
 #include "engine/resource/vfs/asset_uri.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
@@ -47,7 +48,7 @@ gneiss::engine::result prefab_asset_loader::install_prepared(std::string_view ur
   try {
     gneiss::engine::asset_ref<const gneiss::engine::resource_cache::entry> entry;
     const auto result = cache_.load(
-        uri, typeid(prefab_description),
+        uri, gneiss::engine::runtime_type_of<prefab_description>(),
         [&description](std::shared_ptr<const void>& resource) {
           resource = std::make_shared<prefab_description>(std::move(description));
           return gneiss::engine::result::success;
@@ -90,7 +91,7 @@ gneiss::engine::result prefab_asset_loader::load(std::string_view uri, prefab_as
     return identified;
   gneiss::engine::asset_ref<const gneiss::engine::resource_cache::entry> entry;
   auto result = cache_.load(
-      uri, typeid(prefab_description),
+      uri, gneiss::engine::runtime_type_of<prefab_description>(),
       [this, uri, &out_diagnostic](std::shared_ptr<const void>& out_resource) noexcept {
         try {
           auto description = std::make_shared<prefab_description>();

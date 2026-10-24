@@ -3,6 +3,7 @@
 
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/runtime_type_id.hpp"
 #include <atomic>
 
 #include "engine/function/render/render_resource_service.hpp"
@@ -23,55 +24,8 @@
 #include <span>
 #include <vector>
 
-namespace {
-
-using namespace gneiss::engine::detail;
-
-// 仅在所属线程的发布边界构造资源值，随后绑定经过验证的纹理租约。
-[[nodiscard]] gneiss::engine::material_resource
-material_data(const gneiss::engine::material_parameters& parameters) noexcept {
-  gneiss::engine::material_resource material{
-      .red = parameters.color[0],
-      .green = parameters.color[1],
-      .blue = parameters.color[2],
-      .alpha = parameters.color[3],
-      .base_color_texture = gneiss::engine::null_rid,
-      .metallic = parameters.metallic,
-      .roughness = parameters.roughness,
-  };
-  material.normal_scale = parameters.normal_scale;
-  material.occlusion_strength = parameters.occlusion_strength;
-  material.emissive = parameters.emissive;
-  material.alpha_mode = parameters.alpha_mode;
-  material.double_sided = parameters.double_sided;
-  material.alpha_cutoff = parameters.alpha_cutoff;
-  material.sampling = parameters.sampling;
-
-  return material;
-}
-
-// 数组所有权在发布边界移动，弱上传引用由 Render 随后建立。
-[[nodiscard]] gneiss::engine::texture_resource
-texture_data(gneiss::engine::prepared_texture_data prepared) noexcept {
-  return {
-      .width = prepared.width,
-      .height = prepared.height,
-      .format = prepared.format,
-      .color_space = prepared.color_space,
-      .levels = std::move(prepared.levels),
-      .manifest = std::move(prepared.manifest),
-      .payload = std::move(prepared.payload),
-      .profile = prepared.profile,
-      .selected_variant = prepared.selected_variant,
-      .payload_source = std::move(prepared.payload_source),
-      .upload_payload = {},
-  };
-}
-
-constexpr std::uint32_t mesh_type = 1;
-constexpr std::uint32_t material_type = 2;
-constexpr std::uint32_t texture_type = 3;
-
+// 类型身份参与统一缓存，使用具名命名空间保证跨模块 ODR 身份一致。
+namespace gneiss::engine::detail {
 struct mesh_asset final {
   mesh_asset(gneiss::engine::render_resource_service& owner, gneiss::engine::rid value) noexcept
       : resources(&owner), rid(value) {}
@@ -122,17 +76,68 @@ struct texture_asset final {
   }
 };
 
-std::type_index cache_type(gneiss::engine::render_asset_type type) noexcept {
+}
+
+namespace {
+
+using namespace gneiss::engine::detail;
+
+// 仅在所属线程的发布边界构造资源值，随后绑定经过验证的纹理租约。
+[[nodiscard]] gneiss::engine::material_resource
+material_data(const gneiss::engine::material_parameters& parameters) noexcept {
+  gneiss::engine::material_resource material{
+      .red = parameters.color[0],
+      .green = parameters.color[1],
+      .blue = parameters.color[2],
+      .alpha = parameters.color[3],
+      .base_color_texture = gneiss::engine::null_rid,
+      .metallic = parameters.metallic,
+      .roughness = parameters.roughness,
+  };
+  material.normal_scale = parameters.normal_scale;
+  material.occlusion_strength = parameters.occlusion_strength;
+  material.emissive = parameters.emissive;
+  material.alpha_mode = parameters.alpha_mode;
+  material.double_sided = parameters.double_sided;
+  material.alpha_cutoff = parameters.alpha_cutoff;
+  material.sampling = parameters.sampling;
+
+  return material;
+}
+
+// 数组所有权在发布边界移动，弱上传引用由 Render 随后建立。
+[[nodiscard]] gneiss::engine::texture_resource
+texture_data(gneiss::engine::prepared_texture_data prepared) noexcept {
+  return {
+      .width = prepared.width,
+      .height = prepared.height,
+      .format = prepared.format,
+      .color_space = prepared.color_space,
+      .levels = std::move(prepared.levels),
+      .manifest = std::move(prepared.manifest),
+      .payload = std::move(prepared.payload),
+      .profile = prepared.profile,
+      .selected_variant = prepared.selected_variant,
+      .payload_source = std::move(prepared.payload_source),
+      .upload_payload = {},
+  };
+}
+
+constexpr std::uint32_t mesh_type = 1;
+constexpr std::uint32_t material_type = 2;
+constexpr std::uint32_t texture_type = 3;
+
+gneiss::engine::runtime_type_id cache_type(gneiss::engine::render_asset_type type) noexcept {
   using gneiss::engine::render_asset_type;
   switch (type) {
   case render_asset_type::mesh:
-    return typeid(mesh_asset);
+    return gneiss::engine::runtime_type_of<mesh_asset>();
   case render_asset_type::material:
-    return typeid(material_asset);
+    return gneiss::engine::runtime_type_of<material_asset>();
   case render_asset_type::texture:
-    return typeid(texture_asset);
+    return gneiss::engine::runtime_type_of<texture_asset>();
   default:
-    return typeid(void);
+    return gneiss::engine::runtime_type_of<void>();
   }
 }
 
@@ -171,11 +176,11 @@ render_asset_loader::render_asset_loader(const gneiss::engine::virtual_file_syst
 
 render_asset_type asset_kind(const render_asset_ref& asset) noexcept {
   if (asset) {
-    if (asset->type == typeid(mesh_asset))
+    if (asset->type == gneiss::engine::runtime_type_of<mesh_asset>())
       return render_asset_type::mesh;
-    if (asset->type == typeid(material_asset))
+    if (asset->type == gneiss::engine::runtime_type_of<material_asset>())
       return render_asset_type::material;
-    if (asset->type == typeid(texture_asset))
+    if (asset->type == gneiss::engine::runtime_type_of<texture_asset>())
       return render_asset_type::texture;
   }
   return render_asset_type::invalid;
@@ -522,7 +527,7 @@ render_asset_loader::acquire_mesh(std::string_view uri, render_asset_ref& out_le
     return identified;
   }
   const auto result = cache_.load(
-      uri, typeid(mesh_asset),
+      uri, gneiss::engine::runtime_type_of<mesh_asset>(),
       [this, uri, &out_diagnostic](std::shared_ptr<const void>& output) -> gneiss::engine::result {
         std::vector<std::byte> bytes;
         auto result = file_system_.read(uri, bytes);
@@ -598,7 +603,7 @@ render_asset_loader::acquire_material(std::string_view uri, render_asset_ref& ou
     return identified;
   }
   const auto result = cache_.load(
-      uri, typeid(material_asset),
+      uri, gneiss::engine::runtime_type_of<material_asset>(),
       [this, uri, &out_diagnostic](std::shared_ptr<const void>& output) -> gneiss::engine::result {
         std::vector<std::byte> bytes;
         auto result = file_system_.read(uri, bytes);
@@ -681,7 +686,7 @@ render_asset_loader::acquire_texture(std::string_view uri, render_asset_ref& out
     return identified;
   }
   const auto result = cache_.load(
-      uri, typeid(texture_asset),
+      uri, gneiss::engine::runtime_type_of<texture_asset>(),
       [this, uri, &out_diagnostic](std::shared_ptr<const void>& output) -> gneiss::engine::result {
         gneiss::engine::prepared_texture_data prepared;
         auto result = prepare_texture(file_system_, uri, prepared, out_diagnostic);
