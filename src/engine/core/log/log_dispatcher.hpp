@@ -4,7 +4,7 @@
 #ifndef GNEISS_SRC_LOG_LOG_DISPATCHER_HPP_
 #define GNEISS_SRC_LOG_LOG_DISPATCHER_HPP_
 
-#include <gneiss/engine/core/result.hpp>
+#include "engine/core/result.hpp"
 
 #include <condition_variable>
 #include <cstddef>
@@ -28,7 +28,7 @@ struct message_view final {
   std::string_view source{};
   std::string_view category{};
   std::string_view message{};
-  gneiss::result result{gneiss::result::success};
+  gneiss::engine::core::result result{gneiss::engine::core::result::success};
 };
 
 /** 所有文本只在回调期间有效，接收方不得保留视图。 */
@@ -49,7 +49,7 @@ public:
   log_dispatcher(const log_dispatcher&) = delete;
   log_dispatcher& operator=(const log_dispatcher&) = delete;
 
-  [[nodiscard]] gneiss::result submit(const message_view& message) noexcept;
+  [[nodiscard]] gneiss::engine::core::result submit(const message_view& message) noexcept;
   void flush() noexcept;
 
 private:
@@ -62,7 +62,7 @@ private:
     std::string source;
     std::string category;
     std::string message;
-    gneiss::result result = gneiss::result::success;
+    gneiss::engine::core::result result = gneiss::engine::core::result::success;
   };
 
   void run() noexcept;

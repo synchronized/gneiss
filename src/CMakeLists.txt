@@ -87,6 +87,7 @@ target_sources(
     engine/core/identifier_conversion.hpp
     engine/api/core_api.cpp
     engine/core/result.hpp
+    engine/api/result_conversion.hpp
     engine/core/version.hpp
     engine/core/result.cpp
     engine/core/version.cpp

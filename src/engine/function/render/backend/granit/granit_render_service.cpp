@@ -205,7 +205,7 @@ void granit_render_service::log_texture(engine::core::rid rid, const char* stage
       .source = "granit.render.texture",
       .category = category,
       .message = {buffer.data(), std::min(static_cast<std::size_t>(length), buffer.size() - 1U)},
-      .result = from_native(map_result(result)),
+      .result = engine::core::result{map_result(result)},
   }));
 }
 

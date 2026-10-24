@@ -3,33 +3,33 @@
 
 #include "engine/core/result.hpp"
 
-const char* gneiss::engine::core::result_message(gneiss_result result) noexcept {
-  switch (result) {
-  case GNEISS_SUCCESS:
+const char* gneiss::engine::core::result_message(result value) noexcept {
+  switch (value.code()) {
+  case result::success.code():
     return "success";
-  case GNEISS_ERROR_UNKNOWN:
+  case result::unknown.code():
     return "unknown error";
-  case GNEISS_ERROR_INVALID_ARGUMENT:
+  case result::invalid_argument.code():
     return "invalid argument";
-  case GNEISS_ERROR_INVALID_HANDLE:
+  case result::invalid_handle.code():
     return "invalid handle";
-  case GNEISS_ERROR_OUT_OF_MEMORY:
+  case result::out_of_memory.code():
     return "out of memory";
-  case GNEISS_ERROR_UNSUPPORTED:
+  case result::unsupported.code():
     return "unsupported operation";
-  case GNEISS_ERROR_INITIALIZATION_FAILED:
+  case result::initialization_failed.code():
     return "initialization failed";
-  case GNEISS_ERROR_DEPENDENCY_FAILED:
+  case result::dependency_failed.code():
     return "dependency failed";
-  case GNEISS_ERROR_INVALID_STATE:
+  case result::invalid_state.code():
     return "invalid state";
-  case GNEISS_ERROR_NOT_READY:
+  case result::not_ready.code():
     return "operation temporarily not ready";
-  case GNEISS_ERROR_INTERNAL:
+  case result::internal.code():
     return "internal error";
-  case GNEISS_ERROR_NOT_FOUND:
+  case result::not_found.code():
     return "not found";
-  case GNEISS_ERROR_IO:
+  case result::io.code():
     return "I/O error";
   default:
     return "unrecognized result";

@@ -4,6 +4,7 @@
 #ifndef GNEISS_SRC_APPLICATION_APPLICATION_LOG_INTERNAL_HPP_
 #define GNEISS_SRC_APPLICATION_APPLICATION_LOG_INTERNAL_HPP_
 
+#include "engine/core/result.hpp"
 #include <gneiss/engine/application.h>
 
 #include <string_view>
@@ -14,9 +15,10 @@ struct message_view;
 
 namespace gneiss::runtime {
 
-[[nodiscard]] gneiss_result submit_application_log(gneiss_application application,
-                                                   const engine::core::log::message_view& message,
-                                                   std::string_view source) noexcept;
+[[nodiscard]] engine::core::result
+submit_application_log(gneiss_application application,
+                       const engine::core::log::message_view& message,
+                       std::string_view source) noexcept;
 
 } // namespace gneiss::runtime
 

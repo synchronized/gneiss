@@ -431,8 +431,8 @@ gneiss_result update_runtime(gneiss_application application,
                                          .source = "application",
                                          .category = category,
                                          .message = message});
-    if (log_result != GNEISS_SUCCESS) {
-      return log_result;
+    if (log_result.failed()) {
+      return log_result.code();
     }
   }
   if (context.ipc_session != nullptr && context.scene_inspection != nullptr &&
@@ -538,7 +538,7 @@ void write_application_log(const gneiss::engine::core::log::event_view& source,
       .category_length = message.category.size(),
       .message = message.message.data(),
       .message_length = message.message.size(),
-      .result = to_native(message.result),
+      .result = message.result.code(),
       .flags = 0U,
       .reserved = {},
   };

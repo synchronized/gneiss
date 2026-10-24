@@ -4,6 +4,7 @@
 #ifndef GNEISS_SRC_API_C_LOG_VALIDATION_HPP
 #define GNEISS_SRC_API_C_LOG_VALIDATION_HPP
 
+#include "engine/api/result_conversion.hpp"
 #include "engine/core/log/log.hpp"
 #include "engine/core/log/log_dispatcher.hpp"
 #include <gneiss/engine/log.h>
@@ -31,7 +32,7 @@ log_message_view(const gneiss_log_message& message) noexcept {
           message.message_length == 0U
               ? std::string_view{}
               : std::string_view(message.message, static_cast<std::size_t>(message.message_length)),
-      .result = from_native(message.result),
+      .result = from_c_result(message.result),
   };
 }
 

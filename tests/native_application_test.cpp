@@ -70,7 +70,8 @@ void test_loop_callback_exceptions() {
   config.callbacks.diagnostic = [&](engine::core::rid,
                                     const engine::core::diagnostics::diagnostic_view& event) {
     ++delivered_diagnostics;
-    valid_diagnostic = event.result == result::initialization_failed && !event.message.empty();
+    valid_diagnostic = event.result == gneiss::engine::core::result::initialization_failed &&
+                       !event.message.empty();
     throw std::runtime_error("诊断失败");
   };
   check(runtime::application::create(config, app) == GNEISS_ERROR_INITIALIZATION_FAILED);
@@ -191,7 +192,8 @@ int main() try {
   std::shared_ptr<gneiss::runtime::application> app;
   check(gneiss::runtime::application::create(config, app) == GNEISS_SUCCESS && app != nullptr);
   for (unsigned index = 0; index < 2U; ++index) {
-    check(app->submit_log({.category = "native-test", .message = "原生日志"}) == GNEISS_SUCCESS);
+    check(app->submit_log({.category = "native-test", .message = "原生日志"}) ==
+          gneiss::engine::core::result::success);
   }
   auto invalid = config;
   invalid.environment_intensity = -1.0F;

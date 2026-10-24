@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/result.hpp"
 #include <cstdint>
-#include <gneiss/engine/core/result.hpp>
 #include <string_view>
 namespace gneiss::engine::core::diagnostics {
 enum class severity : std::uint32_t { info = 1, warning, error };
@@ -12,7 +12,7 @@ enum class category : std::uint32_t { application = 1, asset, input, backend };
 struct diagnostic_view {
   severity level{severity::error};
   category source{category::application};
-  gneiss::result result{gneiss::result::success};
+  gneiss::engine::core::result result{gneiss::engine::core::result::success};
   std::string_view module;
   std::string_view message;
 };

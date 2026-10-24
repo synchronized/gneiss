@@ -146,7 +146,8 @@ public:
   void report(gneiss_application handle, engine::core::diagnostics::severity severity,
               engine::core::diagnostics::category category, gneiss_result result,
               std::string_view module, std::string_view message) noexcept;
-  [[nodiscard]] gneiss_result submit_log(const engine::core::log::message_view& message) noexcept;
+  [[nodiscard]] engine::core::result
+  submit_log(const engine::core::log::message_view& message) noexcept;
   void request_exit() noexcept;
   void set_paused(bool value) noexcept;
 

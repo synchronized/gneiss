@@ -1176,3 +1176,11 @@ add_test(NAME gneiss.cmake.dependency-source-cache
     "-DGNEISS_BINARY_DIR=${PROJECT_BINARY_DIR}"
     -P "${PROJECT_SOURCE_DIR}/cmake/check_dependency_source_cache.cmake")
 set_tests_properties(gneiss.cmake.dependency-source-cache PROPERTIES TIMEOUT 60)
+
+add_executable(gneiss_native_result_test core/native_result_test.cpp)
+target_include_directories(gneiss_native_result_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_native_result_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_native_result_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_native_result_test)
+gneiss_target_output_directories(gneiss_native_result_test)
+add_test(NAME gneiss.native_result COMMAND gneiss_native_result_test)

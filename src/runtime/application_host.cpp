@@ -337,20 +337,20 @@ gneiss_result gneiss::runtime::reload_prefab(gneiss_application application,
   return valid == GNEISS_SUCCESS ? state->reload_prefab(instance, uri) : valid;
 }
 
-gneiss_result
+gneiss::engine::core::result
 gneiss::runtime::submit_application_log(gneiss_application application,
                                         const engine::core::log::message_view& message,
                                         std::string_view source) noexcept {
   try {
     auto state = find_application(application);
     if (state == nullptr) {
-      return GNEISS_ERROR_INVALID_HANDLE;
+      return engine::core::result::invalid_handle;
     }
     auto value = message;
     value.context = application;
     value.source = source;
     return state->submit_log(value);
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return engine::core::result::internal;
   }
 }

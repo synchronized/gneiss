@@ -74,7 +74,8 @@ extern "C" gneiss_result gneiss_game_context_request_exit(gneiss_game_context co
 extern "C" gneiss_result gneiss_game_context_log(gneiss_game_context context,
                                                  const gneiss_log_message* message) {
   const auto result = gneiss::engine::api::validate_log_message(message);
-  return result == GNEISS_SUCCESS ? gneiss::runtime::game::submit_context_log(
-                                        context, gneiss::engine::api::log_message_view(*message))
-                                  : result;
+  return result == GNEISS_SUCCESS
+             ? gneiss::engine::api::to_c_result(gneiss::runtime::game::submit_context_log(
+                   context, gneiss::engine::api::log_message_view(*message)))
+             : result;
 }

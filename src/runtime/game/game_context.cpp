@@ -122,16 +122,16 @@ gneiss_result query_context(gneiss_game_context context, context_view& output) n
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result submit_context_log(gneiss_game_context context,
-                                 const engine::core::log::message_view& message) noexcept {
+engine::core::result submit_context_log(gneiss_game_context context,
+                                        const engine::core::log::message_view& message) noexcept {
   try {
     const std::scoped_lock lock(context_mutex);
     const auto* state = contexts.get(context, engine::core::resource_type::game_context);
     return state == nullptr
-               ? GNEISS_ERROR_INVALID_HANDLE
+               ? engine::core::result::invalid_handle
                : runtime::submit_application_log(state->application, message, state->log_source);
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return engine::core::result::internal;
   }
 }
 } // namespace gneiss::runtime::game

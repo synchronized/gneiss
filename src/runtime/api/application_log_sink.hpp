@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/api/result_conversion.hpp"
 #include "engine/core/log/log_dispatcher.hpp"
 #include <gneiss/engine/application.h>
 
@@ -24,7 +25,7 @@ inline engine::core::log::event_sink make_application_log_sink(gneiss_applicatio
         .category_length = message.category.size(),
         .message = message.message.data(),
         .message_length = message.message.size(),
-        .result = to_native(message.result),
+        .result = engine::api::to_c_result(message.result),
         .flags = 0U,
         .reserved = {},
     };

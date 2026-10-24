@@ -571,7 +571,8 @@ void application::report(gneiss_application handle, engine::core::diagnostics::s
   if (storage_->config_.callbacks.diagnostic != nullptr) {
     const engine::core::diagnostics::diagnostic_view diagnostic{.level = severity,
                                                                 .source = category,
-                                                                .result = from_native(result),
+                                                                .result =
+                                                                    engine::core::result{result},
                                                                 .module = module,
                                                                 .message = message};
     try {
@@ -595,14 +596,14 @@ void application::report(gneiss_application handle, engine::core::diagnostics::s
       .source = module,
       .category = log_category,
       .message = message,
-      .result = from_native(result),
+      .result = engine::core::result{result},
   }));
 }
 
-gneiss_result application::submit_log(const engine::core::log::message_view& message) noexcept {
-  return storage_->log_dispatcher_ == nullptr
-             ? GNEISS_SUCCESS
-             : to_native(storage_->log_dispatcher_->submit(message));
+engine::core::result
+application::submit_log(const engine::core::log::message_view& message) noexcept {
+  return storage_->log_dispatcher_ == nullptr ? engine::core::result::success
+                                              : storage_->log_dispatcher_->submit(message);
 }
 
 gneiss_result application::set_view_camera(const engine::render::view_camera* camera) noexcept {

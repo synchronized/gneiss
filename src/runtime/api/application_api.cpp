@@ -154,7 +154,7 @@ extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc
             const gneiss_diagnostic abi_event{sizeof(gneiss_diagnostic),
                                               static_cast<std::uint32_t>(event.level),
                                               static_cast<std::uint32_t>(event.source),
-                                              gneiss::to_native(event.result),
+                                              gneiss::engine::api::to_c_result(event.result),
                                               event.module.data(),
                                               event.module.size(),
                                               event.message.data(),
@@ -268,8 +268,8 @@ extern "C" gneiss_result gneiss_application_log(gneiss_application application,
   if (message_result != GNEISS_SUCCESS) {
     return message_result;
   }
-  return gneiss::runtime::submit_application_log(
-      application, gneiss::engine::api::log_message_view(*message), "application");
+  return gneiss::engine::api::to_c_result(gneiss::runtime::submit_application_log(
+      application, gneiss::engine::api::log_message_view(*message), "application"));
 }
 
 extern "C" gneiss_result gneiss_application_get_world(gneiss_application application,

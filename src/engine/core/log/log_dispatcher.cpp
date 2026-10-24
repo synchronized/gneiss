@@ -50,7 +50,7 @@ log_dispatcher::~log_dispatcher() noexcept {
   }
 }
 
-gneiss::result log_dispatcher::submit(const message_view& message) noexcept {
+gneiss::engine::core::result log_dispatcher::submit(const message_view& message) noexcept {
   if (is_in_log_callback) {
     return result::invalid_state;
   }

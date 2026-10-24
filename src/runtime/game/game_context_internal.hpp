@@ -7,6 +7,7 @@
 #include <gneiss/engine/application.h>
 #include <gneiss/engine/game_module.h>
 
+#include "engine/core/result.hpp"
 #include <string_view>
 
 namespace gneiss::engine::core::log {
@@ -31,7 +32,7 @@ struct context_view {
 [[nodiscard]] gneiss_result query_context(gneiss_game_context context,
                                           context_view& output) noexcept;
 /** message 已经过 ABI 校验；此入口允许跨线程，日志来源在锁内借用。 */
-[[nodiscard]] gneiss_result
+[[nodiscard]] engine::core::result
 submit_context_log(gneiss_game_context context,
                    const engine::core::log::message_view& message) noexcept;
 } // namespace gneiss::runtime::game
