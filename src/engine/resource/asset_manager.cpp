@@ -4,8 +4,8 @@
 
 #include "asset_manager.hpp"
 #include "engine/core/result.hpp"
-#include "engine/core/runtime_type_id.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/core/type_id.hpp"
 #include "engine/resource/vfs/asset_source.hpp"
 #include "engine/resource/vfs/asset_uri.hpp"
 #include <algorithm>
@@ -16,7 +16,7 @@ namespace gneiss::engine {
 namespace {
 class input_loader final : public asset_loader {
 public:
-  [[nodiscard]] gneiss::engine::runtime_type_id target_type() const noexcept override {
+  [[nodiscard]] gneiss::engine::type_id target_type() const noexcept override {
     return gneiss::engine::runtime_type_of<action_map_asset>();
   }
   [[nodiscard]] std::size_t maximum_bytes() const noexcept override {
@@ -81,7 +81,7 @@ struct asset_manager::resource_state {
   gneiss::engine::task_executor* executor{};
   gneiss::engine::task_scope scope{};
   bool frozen{}, stopped{};
-  std::map<gneiss::engine::runtime_type_id, std::shared_ptr<const asset_loader>> loaders;
+  std::map<gneiss::engine::type_id, std::shared_ptr<const asset_loader>> loaders;
   std::map<key, entry> requests;
   std::vector<std::shared_ptr<operation>> active;
 
@@ -159,8 +159,8 @@ asset_manager::register_loader(const std::shared_ptr<const asset_loader>& loader
 } catch (...) {
   return gneiss::engine::result::internal;
 }
-gneiss::engine::result asset_manager::request(gneiss::engine::runtime_type_id type,
-                                              std::string_view uri, bool reload,
+gneiss::engine::result asset_manager::request(gneiss::engine::type_id type, std::string_view uri,
+                                              bool reload,
                                               std::shared_ptr<detail::asset_state>& output) noexcept
     try {
   auto& state = *resource_state_;
@@ -215,7 +215,7 @@ gneiss::engine::result asset_manager::request(gneiss::engine::runtime_type_id ty
 } catch (...) {
   return gneiss::engine::result::internal;
 }
-gneiss::engine::result asset_manager::load_sync_erased(gneiss::engine::runtime_type_id type,
+gneiss::engine::result asset_manager::load_sync_erased(gneiss::engine::type_id type,
                                                        std::string_view uri,
                                                        std::shared_ptr<const void>& output) noexcept
     try {

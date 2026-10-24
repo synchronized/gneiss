@@ -89,8 +89,8 @@ target_sources(
     engine/core/string_name.cpp
     engine/core/string_name.hpp
     engine/core/type_guid.hpp
-    engine/core/type_name.hpp
-    engine/core/type_identity.hpp
+    engine/core/traits/type_name.hpp
+    engine/core/traits/type_identity.hpp
     engine/core/result.hpp
     engine/api/result_conversion.hpp
     engine/core/version.hpp
@@ -107,8 +107,8 @@ target_sources(
     engine/values/detail/reflection_values.hpp
     engine/values/detail/render.inl
     engine/values/detail/scene.inl
-    engine/core/runtime_type_id.cpp
-    engine/core/runtime_type_id.hpp
+    engine/core/type_id.cpp
+    engine/core/type_id.hpp
     engine/core/detail/canonical_type_name.hpp
     engine/core/result.cpp
     engine/core/version.cpp

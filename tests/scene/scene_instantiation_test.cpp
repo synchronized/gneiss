@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
-#include "engine/core/runtime_type_id.hpp"
+#include "engine/core/type_id.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/function/world/world_service.hpp"
@@ -59,7 +59,7 @@ void unified_resource_index() {
   using gneiss::engine::result;
   class text_loader final : public asset_loader {
   public:
-    gneiss::engine::runtime_type_id target_type() const noexcept override {
+    gneiss::engine::type_id target_type() const noexcept override {
       return gneiss::engine::runtime_type_of<std::string>();
     }
     std::size_t maximum_bytes() const noexcept override { return 64U; }

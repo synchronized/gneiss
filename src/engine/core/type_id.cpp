@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/runtime_type_id.hpp"
+#include "engine/core/type_id.hpp"
 #include <exception>
 #include <limits>
 #include <map>
@@ -13,7 +13,7 @@ namespace {
 // 标准容器替代 CAORS 内存/容器模块；映射节点保证名称地址不因后续注册改变。
 struct identity_table {
   std::mutex mutex;
-  std::map<std::string, runtime_type_id, std::less<>> by_name;
+  std::map<std::string, type_id, std::less<>> by_name;
   std::vector<const std::string*> by_id;
 };
 identity_table& identities() {
@@ -21,7 +21,7 @@ identity_table& identities() {
   return table;
 }
 }
-runtime_type_id detail::intern_runtime_type(const char* name, std::size_t length) noexcept {
+type_id detail::intern_runtime_type(const char* name, std::size_t length) noexcept {
   if (!name || length == 0)
     std::terminate();
   auto& table = identities();
@@ -31,12 +31,12 @@ runtime_type_id detail::intern_runtime_type(const char* name, std::size_t length
     return found->second;
   if (table.by_id.size() == std::numeric_limits<std::uint64_t>::max())
     std::terminate();
-  const runtime_type_id id{static_cast<std::uint64_t>(table.by_id.size()) + 1};
+  const type_id id{static_cast<std::uint64_t>(table.by_id.size()) + 1};
   const auto entry = table.by_name.emplace(std::string{key}, id).first;
   table.by_id.push_back(&entry->first);
   return id;
 }
-std::string_view runtime_type_name(runtime_type_id id) noexcept {
+std::string_view runtime_type_name(type_id id) noexcept {
   auto& table = identities();
   const std::scoped_lock lock(table.mutex);
   return !id || id.value() > table.by_id.size()

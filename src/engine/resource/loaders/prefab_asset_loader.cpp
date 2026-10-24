@@ -3,7 +3,7 @@
 
 #include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/core/result.hpp"
-#include "engine/core/runtime_type_id.hpp"
+#include "engine/core/type_id.hpp"
 
 #include "engine/resource/vfs/asset_uri.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"

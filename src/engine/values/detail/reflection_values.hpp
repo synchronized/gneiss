@@ -8,15 +8,15 @@
 
 // 仅作值布局适配，不包含 SDK 所有者或调用 C ABI。
 namespace gneiss {
-[[nodiscard]] constexpr gneiss_type_id to_native(const type_id& value) noexcept {
+[[nodiscard]] constexpr gneiss_type_id to_native(const engine::type_guid& value) noexcept {
   gneiss_type_id native{};
-  std::ranges::copy(value.bytes, native.bytes);
+  std::ranges::copy(value.value.bytes(), native.bytes);
   return native;
 }
-[[nodiscard]] constexpr type_id from_native(const gneiss_type_id& value) noexcept {
-  type_id native{};
-  std::ranges::copy(value.bytes, native.bytes.begin());
-  return native;
+[[nodiscard]] constexpr engine::type_guid from_native(const gneiss_type_id& value) noexcept {
+  engine::guid::byte_array bytes{};
+  std::ranges::copy(value.bytes, bytes.begin());
+  return engine::type_guid{engine::guid::from_bytes(bytes)};
 }
 [[nodiscard]] constexpr gneiss_property_target to_native(property_target value) noexcept {
   return {.context = value.context, .object = value.object};
@@ -64,7 +64,7 @@ namespace gneiss {
     break;
   }
   case property_kind::type_id:
-    native.payload.type_id_value = to_native((*std::get_if<type_id>(&value.payload)));
+    native.payload.type_id_value = to_native((*std::get_if<engine::type_guid>(&value.payload)));
     break;
   case property_kind::vec3: {
     const auto v = (*std::get_if<property_vec3>(&value.payload));

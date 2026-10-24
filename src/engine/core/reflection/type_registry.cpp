@@ -654,7 +654,7 @@ gneiss::engine::result set_candidate_property(const registry_ref& state, gneiss_
 } // namespace gneiss::engine
 
 namespace gneiss::engine {
-gneiss::engine::result describe_type(const registry_ref& registry, type_id id,
+gneiss::engine::result describe_type(const registry_ref& registry, gneiss::engine::type_guid id,
                                      type_info& output) noexcept try {
   gneiss_type_info source{};
   const auto operation = find_type(registry, to_native(id), source);
@@ -686,8 +686,8 @@ gneiss::engine::result describe_type(const registry_ref& registry, type_id id,
 } catch (...) {
   return gneiss::engine::result::internal;
 }
-gneiss::engine::result describe_field(const registry_ref& registry, type_id type, field_id field,
-                                      field_info& output) noexcept {
+gneiss::engine::result describe_field(const registry_ref& registry, gneiss::engine::type_guid type,
+                                      field_id field, field_info& output) noexcept {
   gneiss_field_info source{};
   const auto operation = find_field(registry, to_native(type), field.get(), source);
   if (operation.failed()) {
@@ -703,8 +703,9 @@ gneiss::engine::result describe_field(const registry_ref& registry, type_id type
   };
   return gneiss::engine::result::success;
 }
-gneiss::engine::result read_property(const registry_ref& registry, type_id type, field_id field,
-                                     property_target target, property_value& output) noexcept try {
+gneiss::engine::result read_property(const registry_ref& registry, gneiss::engine::type_guid type,
+                                     field_id field, property_target target,
+                                     property_value& output) noexcept try {
   gneiss_property_value raw = GNEISS_PROPERTY_VALUE_INIT;
   auto operation = get_property(registry, to_native(type), field.get(), to_native(target), raw);
   if (operation.failed()) {
@@ -732,9 +733,9 @@ gneiss::engine::result read_property(const registry_ref& registry, type_id type,
 } catch (...) {
   return gneiss::engine::result::internal;
 }
-gneiss::engine::result write_property(const registry_ref& registry, type_id type, field_id field,
-                                      property_target target, const property_value& value) noexcept
-    try {
+gneiss::engine::result write_property(const registry_ref& registry, gneiss::engine::type_guid type,
+                                      field_id field, property_target target,
+                                      const property_value& value) noexcept try {
   if (value.payload.valueless_by_exception()) {
     return gneiss::engine::result::invalid_argument;
   }

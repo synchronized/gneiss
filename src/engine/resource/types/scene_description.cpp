@@ -269,11 +269,11 @@ template <std::size_t Size>
   return -1;
 }
 
-[[nodiscard]] bool parse_type_id(yyjson_val* value, gneiss::type_id& output) noexcept {
+[[nodiscard]] bool parse_type_id(yyjson_val* value, gneiss::engine::type_guid& output) noexcept {
   if (!yyjson_is_str(value) || yyjson_get_len(value) != 32U) {
     return false;
   }
-  gneiss::type_id parsed{};
+  gneiss::engine::guid::byte_array parsed{};
   const auto* text = yyjson_get_str(value);
   for (std::size_t index = 0U; index < 16U; ++index) {
     const auto high = hex_value(text[index * 2U]);
@@ -281,12 +281,12 @@ template <std::size_t Size>
     if (high < 0 || low < 0) {
       return false;
     }
-    parsed.bytes[index] = static_cast<std::uint8_t>((high << 4) | low);
+    parsed[index] = static_cast<std::uint8_t>((high << 4) | low);
   }
-  if (std::ranges::all_of(parsed.bytes, [](std::uint8_t byte) { return byte == 0U; })) {
+  if (std::ranges::all_of(parsed, [](std::uint8_t byte) { return byte == 0U; })) {
     return false;
   }
-  output = parsed;
+  output = gneiss::engine::type_guid{gneiss::engine::guid::from_bytes(parsed)};
   return true;
 }
 
@@ -334,12 +334,12 @@ template <std::size_t Size>
   } else if (kind == "string" && yyjson_is_str(value)) {
     parsed.payload = std::string(json_string(value));
   } else if (kind == "type_id") {
-    gneiss::type_id id{};
+    gneiss::engine::type_guid id{};
     if (!parse_type_id(value, id)) {
       return false;
     }
     std::array<std::uint8_t, 16> bytes{};
-    std::ranges::copy(id.bytes, bytes.begin());
+    std::ranges::copy(id.value.bytes(), bytes.begin());
     parsed.payload = bytes;
   } else if (kind == "vec3") {
     std::array<float, 3> numbers{};
@@ -379,7 +379,7 @@ template <std::size_t Size>
     }
     return false;
   }
-  gneiss::type_id type_id{};
+  gneiss::engine::type_guid type_id{};
   if (!parse_type_id(yyjson_obj_get(value, "type_id"), type_id)) {
     fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/type_id",
          "Type ID 必须是非零的 32 位小写十六进制");
@@ -644,11 +644,11 @@ template <std::size_t Size>
   return put_value(document, object, "components", components) ? object : nullptr;
 }
 
-[[nodiscard]] std::string type_id_text(gneiss::type_id id) {
+[[nodiscard]] std::string type_id_text(gneiss::engine::type_guid id) {
   std::string text(32U, '0');
   for (std::size_t index = 0U; index < 16U; ++index) {
-    text[index * 2U] = hex_digits[id.bytes[index] >> 4U];
-    text[index * 2U + 1U] = hex_digits[id.bytes[index] & 0x0FU];
+    text[index * 2U] = hex_digits[id.value.bytes()[index] >> 4U];
+    text[index * 2U + 1U] = hex_digits[id.value.bytes()[index] & 0x0FU];
   }
   return text;
 }
@@ -684,8 +684,7 @@ make_override_value(yyjson_mut_doc* document, const gneiss::engine::prefab_prope
                  yyjson_mut_obj_add_strncpy(document, object, "value", payload.data(),
                                             payload.size());
         } else if constexpr (std::is_same_v<value_type, std::array<std::uint8_t, 16>>) {
-          gneiss::type_id id{};
-          std::ranges::copy(payload, id.bytes.begin());
+          const gneiss::engine::type_guid id{gneiss::engine::guid::from_bytes(payload)};
           const auto text = type_id_text(id);
           return yyjson_mut_obj_add_str(document, object, "kind", "type_id") &&
                  yyjson_mut_obj_add_strncpy(document, object, "value", text.data(), text.size());

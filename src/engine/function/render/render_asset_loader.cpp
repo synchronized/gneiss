@@ -3,7 +3,7 @@
 
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/core/result.hpp"
-#include "engine/core/runtime_type_id.hpp"
+#include "engine/core/type_id.hpp"
 #include <atomic>
 
 #include "engine/function/render/render_resource_service.hpp"
@@ -127,7 +127,7 @@ constexpr std::uint32_t mesh_type = 1;
 constexpr std::uint32_t material_type = 2;
 constexpr std::uint32_t texture_type = 3;
 
-gneiss::engine::runtime_type_id cache_type(gneiss::engine::render_asset_type type) noexcept {
+gneiss::engine::type_id cache_type(gneiss::engine::render_asset_type type) noexcept {
   using gneiss::engine::render_asset_type;
   switch (type) {
   case render_asset_type::mesh:

@@ -334,6 +334,6 @@ gneiss::engine::result create_property_registry(gneiss::engine::registry_ref& ou
   }
   return operation;
 }
-type_id transform_property_type() noexcept { return transform_component_type; }
-type_id camera_property_type() noexcept { return camera_component_type; }
+gneiss::engine::type_guid transform_property_type() noexcept { return transform_component_type; }
+gneiss::engine::type_guid camera_property_type() noexcept { return camera_component_type; }
 } // namespace gneiss::engine

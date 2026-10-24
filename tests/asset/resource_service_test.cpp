@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
-#include "engine/core/runtime_type_id.hpp"
+#include "engine/core/type_id.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
 #include "engine/resource/vfs/native_file_system.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"

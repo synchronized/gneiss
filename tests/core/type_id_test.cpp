@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/runtime_type_id.hpp"
+#include "engine/core/type_guid.hpp"
+#include "engine/core/type_id.hpp"
 #include <array>
 #include <string>
 #include <thread>
 #include <vector>
-gneiss::engine::runtime_type_id runtime_type_from_other_unit();
+gneiss::engine::type_id runtime_type_from_other_unit();
 int main() {
   using namespace gneiss::engine;
+  static_assert(!std::is_convertible_v<type_id, type_guid>);
+  static_assert(!std::is_convertible_v<type_guid, type_id>);
   static_assert(detail::canonical_cpp_type_name<int[2][3]>() !=
                 detail::canonical_cpp_type_name<int[2][4]>());
   const auto text = runtime_type_of<std::string>();
@@ -18,7 +21,7 @@ int main() {
   const auto name = runtime_type_name(text);
   if (name.empty())
     return 2;
-  std::array<runtime_type_id, 8> ids{};
+  std::array<type_id, 8> ids{};
   std::vector<std::thread> threads;
   for (std::size_t i = 0; i < ids.size(); ++i)
     threads.emplace_back([&, i] {

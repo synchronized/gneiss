@@ -40,7 +40,7 @@ struct prefab_property_value final {
 /** 单个 Prefab 实例字段覆盖的稳定作者键。 */
 struct prefab_property_override_key final {
   prefab_author_address node;
-  gneiss::type_id type_id{};
+  gneiss::engine::type_guid type_id{};
   gneiss::field_id field_id{};
 
   [[nodiscard]] bool operator==(const prefab_property_override_key& other) const noexcept;

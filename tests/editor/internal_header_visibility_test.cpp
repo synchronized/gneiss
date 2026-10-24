@@ -68,7 +68,7 @@ static_assert(std::is_same_v<decltype(gneiss::engine::staged_object_description:
 static_assert(
     std::is_same_v<decltype(gneiss::engine::mesh_renderer_replacement::entity), gneiss::entity_id>);
 static_assert(std::is_same_v<decltype(gneiss::engine::prefab_property_override_key::type_id),
-                             gneiss::type_id>);
+                             gneiss::engine::type_guid>);
 static_assert(std::is_same_v<decltype(gneiss::engine::prefab_property_override_key::field_id),
                              gneiss::field_id>);
 template <typename T>

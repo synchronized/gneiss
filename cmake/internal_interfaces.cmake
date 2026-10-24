@@ -5,6 +5,8 @@ include(internal_headers)
 # SDK 撤销期间的仓内共享值及转换辅助，不安装、不暴露实现目录。
 gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/result.hpp
+  engine/core/guid.hpp
+  engine/core/type_guid.hpp
   engine/values/reflection.hpp
   engine/values/render.hpp
   engine/values/scene.hpp
@@ -43,8 +45,8 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/guid.hpp
   engine/core/string_name.hpp
   engine/core/type_guid.hpp
-  engine/core/type_name.hpp
-  engine/core/type_identity.hpp
+  engine/core/traits/type_name.hpp
+  engine/core/traits/type_identity.hpp
   engine/core/result.hpp
   engine/core/input/input_types.hpp
   engine/core/log/log_dispatcher.hpp
@@ -52,7 +54,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/progress_notification.hpp
   engine/core/publication_group.hpp
   engine/core/reflection/property_registry.hpp
-  engine/core/runtime_type_id.hpp
+  engine/core/type_id.hpp
   engine/core/detail/canonical_type_name.hpp
   engine/core/rid.hpp
   engine/core/rid_table.hpp

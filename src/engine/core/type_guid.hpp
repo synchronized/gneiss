@@ -13,7 +13,7 @@ namespace gneiss::engine {
  * @brief 稳定类型标识。
  *
  * `type_guid` 用于序列化、存档、资源引用和插件边界等需要跨进程、跨版本稳定识别类型的场景。
- * 它和运行期 `runtime_type_id` 不同，不应由 `string_name` 的运行期 entry 或哈希值派生。
+ * 它和运行期 `type_id` 不同，不应由 `string_name` 的运行期 entry 或哈希值派生。
  */
 struct type_guid {
   guid value{};

@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engine/core/result.hpp"
+#include "engine/core/type_guid.hpp"
 #include <algorithm>
 #include <array>
 #include <concepts>
@@ -14,14 +15,6 @@
 #include <vector>
 
 namespace gneiss {
-/** 稳定类型标识；全零无效，不拥有 Registry。 */
-struct type_id {
-  std::array<std::uint8_t, 16> bytes{};
-  [[nodiscard]] constexpr bool is_valid() const noexcept {
-    return std::ranges::any_of(bytes, [](auto value) { return value != 0; });
-  }
-  friend constexpr bool operator==(const type_id&, const type_id&) noexcept = default;
-};
 /** 类型内部的字段身份，零无效。 */
 class field_id final {
 public:
@@ -87,7 +80,7 @@ struct property_quaternion {
 using property_string = std::string_view;
 using property_payload =
     std::variant<std::monostate, bool, std::int64_t, std::uint64_t, float, double, property_string,
-                 type_id, property_vec3, property_quaternion>;
+                 engine::type_guid, property_vec3, property_quaternion>;
 struct property_value {
   property_payload payload;
   [[nodiscard]] property_kind kind() const noexcept {
@@ -104,13 +97,13 @@ struct property_target {
 // NOLINTBEGIN(readability-redundant-member-init)
 struct field_desc {
   field_id id{};
-  type_id value_type_id{};
+  gneiss::engine::type_guid value_type_id{};
   field_flags flags = field_flags::none;
   std::string_view name{};
 };
 /** 输入文本/数组只需存活到注册返回；Registry 深拷贝。 */
 struct type_desc {
-  type_id id{};
+  gneiss::engine::type_guid id{};
   std::uint32_t schema_version = 0;
   std::string_view name{};
   std::span<const field_desc> fields{};
@@ -118,7 +111,7 @@ struct type_desc {
 /** 名称由冻结 Registry 借出，有效期不超过 Registry。 */
 struct field_info {
   field_id id{};
-  type_id value_type_id{};
+  gneiss::engine::type_guid value_type_id{};
   field_flags flags = field_flags::none;
   std::string_view name{};
   property_kind kind = property_kind::invalid;
@@ -126,7 +119,7 @@ struct field_info {
 };
 /** 自有字段数组；名称借用冻结 Registry 的文本，复制/移动不产生临时数组悬空。 */
 struct type_info {
-  type_id id{};
+  gneiss::engine::type_guid id{};
   std::uint32_t schema_version = 0;
   std::string_view name{};
   std::vector<field_info> fields{};

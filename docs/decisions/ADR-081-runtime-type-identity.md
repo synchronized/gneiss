@@ -7,13 +7,18 @@
 
 ## 决策
 
-移植 CAORS 的类型名集中注册机制，用 `engine::runtime_type_id` 标识当前进程内的 C++ 类型。
+移植 CAORS 的类型名集中注册机制，用 `engine::type_id` 标识当前进程内的 C++ 类型。
 资源缓存和 Loader 使用这一类型键，替代 `std::type_index`。注册表实现只编入 Engine；
 模板只提取规范名称并缓存返回值，不在每个模块独立分配编号。
 
 ID 为非零顺序编号，void 对应无效 ID。名称由注册表持有，首次注册受互斥锁保护。
 初始化内存不足或编号耗尽沿用 CAORS 的不可恢复策略，不返回可能造成类型混淆的替代编号。
 不引入能力注册表、字段反射、调试快照系统或 CAORS 分配器。
+
+反射稳定身份直接使用 `engine::type_guid`，删除原根命名空间的 `gneiss::type_id`。
+原 `runtime_type_id` 更名为 `engine::type_id`，不保留兼容别名；二者无隐式转换。
+既有组件 GUID 字节、场景文件中 32 位十六进制编码和 `type_id` 字段名保持不变。
+`type_name<T>`、`type_identity<T>` 作为静态定制点移到 `core/traits`，不参与运行期编号分配。
 
 ## 边界
 

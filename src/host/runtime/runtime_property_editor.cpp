@@ -22,7 +22,7 @@ gneiss::engine::result to_native_value(const gneiss::host::ipc_property_value& s
         if constexpr (std::is_same_v<T, std::monostate>) {
           return gneiss::engine::result::invalid_argument;
         } else if constexpr (std::is_same_v<T, std::array<std::uint8_t, 16>>) {
-          output.payload = gneiss::type_id{payload};
+          output.payload = gneiss::engine::type_guid{gneiss::engine::guid::from_bytes(payload)};
         } else if constexpr (std::is_same_v<T, std::array<float, 3>>) {
           output.payload = gneiss::property_vec3{payload[0], payload[1], payload[2]};
         } else if constexpr (std::is_same_v<T, std::array<float, 4>>) {
@@ -47,8 +47,8 @@ gneiss::engine::result from_native_value(const gneiss::engine::property_value& s
         using T = std::decay_t<decltype(payload)>;
         if constexpr (std::is_same_v<T, std::monostate>) {
           return gneiss::engine::result::unsupported;
-        } else if constexpr (std::is_same_v<T, gneiss::type_id>) {
-          output.payload = payload.bytes;
+        } else if constexpr (std::is_same_v<T, gneiss::engine::type_guid>) {
+          output.payload = payload.value.bytes();
         } else if constexpr (std::is_same_v<T, gneiss::property_vec3>) {
           output.payload = std::array{payload.x, payload.y, payload.z};
         } else if constexpr (std::is_same_v<T, gneiss::property_quaternion>) {
@@ -136,8 +136,7 @@ runtime_property_editor::execute(const ipc_property_write& command,
     return gneiss::engine::result::success;
   }
 
-  type_id property_type;
-  std::ranges::copy(command.type_id.bytes, property_type.bytes.begin());
+  const gneiss::engine::type_guid property_type{gneiss::engine::guid::from_bytes(key.type_id)};
   const field_id property_field{command.field_id};
   type_info description;
   operation = gneiss::engine::describe_type(registry_, property_type, description);

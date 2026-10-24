@@ -81,7 +81,7 @@ gneiss::engine::result prefab_candidate::preview(std::size_t index,
   const auto transform_type = gneiss::engine::transform_type_id();
   for (const auto& value : author_.overrides) {
     if (value.key.node.source_node_uuid != output.source_node_uuid ||
-        !std::ranges::equal(value.key.type_id.bytes, transform_type.bytes)) {
+        !std::ranges::equal(value.key.type_id.value.bytes(), transform_type.bytes)) {
       continue;
     }
     switch (value.key.field_id.get()) {

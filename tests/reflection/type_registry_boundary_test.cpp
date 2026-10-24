@@ -3,6 +3,7 @@
 
 #include "engine/core/reflection/type_registry.hpp"
 #include "engine/core/result.hpp"
+#include "engine/values/detail/reflection_values.hpp"
 
 #include <array>
 #include <stdexcept>
@@ -10,6 +11,11 @@
 #include <thread>
 
 namespace {
+constexpr auto guid_bytes = gneiss::engine::guid::byte_array{
+    0x69, 0x64, 0x4f, 0x20, 0xb2, 0xd2, 0x4e, 0x48, 0x8c, 0x74, 0x91, 0xf4, 0xf9, 0x52, 0xec, 0x2d};
+constexpr gneiss::engine::type_guid stable_type{gneiss::engine::guid::from_bytes(guid_bytes)};
+static_assert(gneiss::from_native(gneiss::to_native(stable_type)) == stable_type);
+static_assert(gneiss::to_native(stable_type).bytes[15] == guid_bytes[15]);
 int runtime_writes = 0;
 gneiss::engine::result set_runtime(void*, gneiss_property_target, const gneiss_property_value*) {
   ++runtime_writes;
@@ -36,7 +42,7 @@ bool native_values() {
   namespace reflection = gneiss::engine;
   gneiss::engine::registry_ref registry;
   const gneiss_type_id id{{7}};
-  const gneiss::type_id native_id{{7}};
+  const gneiss::engine::type_guid native_id{gneiss::engine::guid::from_bytes({7})};
   const std::array fields{
       gneiss::engine::field_definition{.id = 1, .value_type_id = id, .flags = 0, .name = "text"}};
   std::string text = "初始文本";

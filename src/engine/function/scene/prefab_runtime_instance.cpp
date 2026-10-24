@@ -154,7 +154,7 @@ gneiss::engine::result prefab_runtime_instance::validate_reload(
     if (result != gneiss::engine::result::success || source == candidate.get()->objects.end()) {
       return result == gneiss::engine::result::success ? gneiss::engine::result::not_found : result;
     }
-    if (std::ranges::equal(override_value.key.type_id.bytes, camera_type.bytes) &&
+    if (std::ranges::equal(override_value.key.type_id.value.bytes(), camera_type.bytes) &&
         !source->camera) {
       return gneiss::engine::result::invalid_state;
     }
@@ -487,7 +487,7 @@ gneiss::engine::result apply_candidate_object(const gneiss::engine::registry_ref
                                               gneiss::engine::object_description& object) {
   auto result = gneiss::engine::result::success;
   const auto is_type = [&](gneiss_type_id type) {
-    return std::ranges::equal(value.key.type_id.bytes, type.bytes);
+    return std::ranges::equal(value.key.type_id.value.bytes(), type.bytes);
   };
   if (is_type(gneiss::engine::transform_type_id())) {
     auto transform = to_transform(object);

@@ -3,7 +3,7 @@
 
 #include "engine/core/guid.hpp"
 #include "engine/core/string_name.hpp"
-#include "engine/core/type_identity.hpp"
+#include "engine/core/traits/type_identity.hpp"
 
 #include <array>
 #include <string>

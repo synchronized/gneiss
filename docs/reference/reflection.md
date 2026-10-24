@@ -15,6 +15,10 @@ Registry 没有 World 的创建线程亲和约束；销毁前调用方须停止�
 
 ## 稳定标识
 
+原生反射描述使用 `engine::type_guid`，它保存 16 字节稳定身份，可用于序列化。
+`engine::type_id` 是进程内注册表分配的数字编号，不用于反射存档。
+以下 C 接口尚处于撤销迁移阶段。
+
 `gneiss_type_id` 是 16 字节 Type ID，全零值无效。`gneiss_field_id` 是类型内部的非零 `uint32_t`。
 字段完整身份由 Type ID 与 Field ID 共同组成。名称只用于 UTF-8 显示和诊断，不参与身份判断。
 Type ID 字节顺序与规范 UUID 文本去掉连字符后的十六进制字节顺序一致，不按主机端序解释。

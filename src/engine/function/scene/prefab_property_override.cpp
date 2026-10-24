@@ -113,9 +113,8 @@ gneiss::engine::result
 validate_prefab_property_override(const gneiss::engine::registry_ref& registry,
                                   const gneiss::engine::prefab_property_override& value) noexcept
     try {
-  if (!gneiss::engine::is_valid_prefab_author_address(value.key.node) ||
-      !value.key.type_id.is_valid() || !value.key.field_id.is_valid() ||
-      !valid_value(value.value)) {
+  if (!gneiss::engine::is_valid_prefab_author_address(value.key.node) || !value.key.type_id ||
+      !value.key.field_id.is_valid() || !valid_value(value.value)) {
     return gneiss::engine::result::invalid_argument;
   }
   field_info field;

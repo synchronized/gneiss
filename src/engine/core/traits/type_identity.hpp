@@ -5,8 +5,8 @@
 #ifndef GNEISS_ENGINE_TYPE_IDENTITY_HPP_
 #define GNEISS_ENGINE_TYPE_IDENTITY_HPP_
 
+#include "engine/core/traits/type_name.hpp"
 #include "engine/core/type_guid.hpp"
-#include "engine/core/type_name.hpp"
 
 #include <string_view>
 #include <type_traits>
