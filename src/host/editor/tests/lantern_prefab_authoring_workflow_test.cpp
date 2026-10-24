@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../../../tests/support/c_owner.hpp"
 #include "commands/native_author_transaction.hpp"
 #include "commands/prefab_authoring.hpp"
 #include "engine/core/result.hpp"
+#include "engine/function/scene/scene_instances.hpp"
+#include "runtime/application.hpp"
 
 #include "engine/values/core/result.hpp"
 #include "engine/values/scene.hpp"
-#include <gneiss/engine/application.h>
 
 #include <array>
 #include <chrono>
@@ -50,31 +50,23 @@ struct temporary_project final {
 
 [[nodiscard]] bool load_scene(const std::filesystem::path& asset_root,
                               std::uint64_t expected_objects, std::uint64_t expected_prefab_nodes) {
-  const auto root = asset_root.generic_string();
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.asset_root = root.data();
-  desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  gneiss::test_support::application_owner application;
-  gneiss::test_support::scene_owner scene;
-  std::uint64_t objects = 0U;
-  std::uint64_t prefab_nodes = 0U;
-  return gneiss::engine::result{gneiss_application_create(&desc, application.put())} ==
+  const auto root_text = asset_root.generic_string();
+  gneiss::runtime::application_configuration desc;
+  desc.asset_root = root_text;
+  std::shared_ptr<gneiss::runtime::application> application;
+  gneiss_scene_instance scene{};
+  std::uint64_t objects{};
+  std::uint64_t prefab_nodes{};
+  return gneiss::runtime::application::create(desc, application) ==
              gneiss::engine::result::success &&
-         ([&] {
-           const std::string_view uri = scene_uri;
-           return gneiss::engine::result{gneiss_scene_instance_load(
-               application.get(), uri.data(), uri.size(), scene.put(application.get()))};
-         })() == gneiss::engine::result::success &&
-         ([&](std::uint64_t& out_count) {
-           return gneiss::engine::result{
-               gneiss_scene_instance_get_node_count(scene.owner(), scene.get(), &out_count)};
-         })(objects) == gneiss::engine::result::success &&
+         application->scenes()->load(scene_uri, &scene) == gneiss::engine::result::success &&
+         application->scenes()->get_node_count(scene, &objects) ==
+             gneiss::engine::result::success &&
          objects == expected_objects &&
-         ([&](std::uint64_t& out_count) {
-           return gneiss::engine::result{
-               gneiss_scene_instance_get_prefab_node_count(scene.owner(), scene.get(), &out_count)};
-         })(prefab_nodes) == gneiss::engine::result::success &&
-         prefab_nodes == expected_prefab_nodes;
+         application->scenes()->get_prefab_node_count(scene, &prefab_nodes) ==
+             gneiss::engine::result::success &&
+         prefab_nodes == expected_prefab_nodes &&
+         application->scenes()->unload(scene) == gneiss::engine::result::success;
 }
 
 [[nodiscard]] bool

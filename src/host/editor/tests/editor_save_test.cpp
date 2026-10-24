@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../../../tests/support/c_owner.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
-#include "runtime/application_registry.hpp"
 
-#include "engine/values/core/result.hpp"
-#include "engine/values/scene.hpp"
-#include <gneiss/engine/application.h>
+#include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -40,12 +38,11 @@ constexpr std::string_view material_uri = "asset://materials/triangle.material.j
 
 [[nodiscard]] gneiss::engine::result
 create_application(const std::filesystem::path& root,
-                   gneiss::test_support::application_owner& output) {
+                   std::shared_ptr<gneiss::runtime::application>& output) {
   const auto root_text = root.generic_string();
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.asset_root = root_text.data();
-  desc.asset_root_length = static_cast<std::uint32_t>(root_text.size());
-  return gneiss::engine::result{gneiss_application_create(&desc, output.put())};
+  gneiss::runtime::application_configuration desc;
+  desc.asset_root = root_text;
+  return gneiss::runtime::application::create(desc, output);
 }
 
 } // namespace
@@ -68,25 +65,19 @@ int main() try {
     return 2;
   }
 
-  gneiss::test_support::application_owner application;
+  std::shared_ptr<gneiss::runtime::application> application;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::editor::scene_document session;
   if (create_application(root, application) != gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_application_get_world(application.get(), &world)} !=
-          gneiss::engine::result::success ||
-      session.open(*gneiss::runtime::find_application(application.get()), world, scene_uri) !=
-          gneiss::engine::result::success ||
+      (world = application->world()) == GNEISS_NULL_WORLD ||
+      session.open(*application, world, scene_uri) != gneiss::engine::result::success ||
       session.select(session.nodes()[0].node) != gneiss::engine::result::success) {
     return 3;
   }
   gneiss::engine::transform transform{};
   transform.translation[0] = 7.0F;
-  if (([&](entity_id entity, const gneiss::engine::transform& value) {
-        const auto native = to_native(value);
-        return gneiss::engine::result{
-            gneiss_world_entity_set_local_transform(world, entity.get(), &native)};
-      })(gneiss::entity_id{session.selected_node()->entity.get()}, transform) !=
-      gneiss::engine::result::success) {
+  if (application->native_world()->entity_set_local_transform(
+          session.selected_node()->entity, transform) != gneiss::engine::result::success) {
     return 4;
   }
   session.mark_dirty();
@@ -156,12 +147,8 @@ int main() try {
   }
 
   transform.translation[0] = 9.0F;
-  if (([&](entity_id entity, const gneiss::engine::transform& value) {
-        const auto native = to_native(value);
-        return gneiss::engine::result{
-            gneiss_world_entity_set_local_transform(world, entity.get(), &native)};
-      })(gneiss::entity_id{session.selected_node()->entity.get()}, transform) !=
-      gneiss::engine::result::success) {
+  if (application->native_world()->entity_set_local_transform(
+          session.selected_node()->entity, transform) != gneiss::engine::result::success) {
     return 9;
   }
   session.mark_dirty();
@@ -181,8 +168,8 @@ int main() try {
     return 18;
   }
   gneiss::scene_node_id new_node;
-  if (session.create_empty(*gneiss::runtime::find_application(application.get()), world,
-                           new_scene_uuid) != gneiss::engine::result::success ||
+  if (session.create_empty(*application, world, new_scene_uuid) !=
+          gneiss::engine::result::success ||
       !session.is_open() || !session.is_dirty() || !session.uri().empty() ||
       session.create_node("Root", {}, new_node) != gneiss::engine::result::success ||
       session.save(root) != gneiss::engine::result::invalid_argument ||
@@ -195,57 +182,30 @@ int main() try {
   session.close();
   application.reset();
 
-  gneiss::test_support::application_owner reloaded_application;
-  gneiss::test_support::scene_owner reloaded_scene;
+  std::shared_ptr<gneiss::runtime::application> reloaded_application;
+  gneiss_scene_instance reloaded_scene{};
   if (create_application(root, reloaded_application) != gneiss::engine::result::success ||
-      ([&] {
-        const std::string_view uri = scene_uri;
-        return gneiss::engine::result{
-            gneiss_scene_instance_load(reloaded_application.get(), uri.data(), uri.size(),
-                                       reloaded_scene.put(reloaded_application.get()))};
-      })() != gneiss::engine::result::success) {
+      reloaded_application->scenes()->load(scene_uri, &reloaded_scene) !=
+          gneiss::engine::result::success) {
     return 11;
   }
-  gneiss_world reloaded_world = GNEISS_NULL_WORLD;
   gneiss::scene_node_id camera_node;
   gneiss::scene_node_id reloaded_created_node;
-  gneiss_entity_id camera_entity = GNEISS_NULL_ENTITY_ID;
+  gneiss::entity_id camera_entity;
   gneiss::engine::transform reloaded_transform{};
-  if (gneiss::engine::result{gneiss_application_get_world(
-          reloaded_application.get(), &reloaded_world)} != gneiss::engine::result::success ||
-      ([&](std::string_view uuid, scene_node_id& out_node) {
-        gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;
-        const auto native_result = gneiss::engine::result{gneiss_scene_instance_find_node(
-            reloaded_scene.owner(), reloaded_scene.get(), uuid.data(), uuid.size(), &node)};
-        if (native_result == gneiss::engine::result::success) {
-          out_node = scene_node_id{node};
-        }
-        return native_result;
-      })(camera_uuid, camera_node) != gneiss::engine::result::success ||
-      ([&](std::string_view uuid, scene_node_id& out_node) {
-        gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;
-        const auto native_result = gneiss::engine::result{gneiss_scene_instance_find_node(
-            reloaded_scene.owner(), reloaded_scene.get(), uuid.data(), uuid.size(), &node)};
-        if (native_result == gneiss::engine::result::success) {
-          out_node = scene_node_id{node};
-        }
-        return native_result;
-      })(created_uuid, reloaded_created_node) != gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_scene_node_get_entity(
-          reloaded_world, camera_node.get(), &camera_entity)} != gneiss::engine::result::success ||
-      ([&](entity_id entity, gneiss::engine::transform& output) {
-        gneiss_transform native{};
-        const auto status = gneiss::engine::result{
-            gneiss_world_entity_get_local_transform(reloaded_world, entity.get(), &native)};
-        if (status.ok()) {
-          output = from_native(native);
-        }
-        return status;
-      })(gneiss::entity_id{camera_entity}, reloaded_transform) != gneiss::engine::result::success ||
+  if (reloaded_application->scenes()->find_node(reloaded_scene, camera_uuid, camera_node) !=
+          gneiss::engine::result::success ||
+      reloaded_application->scenes()->find_node(
+          reloaded_scene, created_uuid, reloaded_created_node) != gneiss::engine::result::success ||
+      reloaded_application->native_world()->node_get_entity(camera_node, camera_entity) !=
+          gneiss::engine::result::success ||
+      reloaded_application->native_world()->entity_get_local_transform(
+          camera_entity, reloaded_transform) != gneiss::engine::result::success ||
       std::abs(reloaded_transform.translation[0] - 7.0F) > 0.0001F) {
     return 12;
   }
-  reloaded_scene.reset();
+  if (reloaded_application->scenes()->unload(reloaded_scene).failed())
+    return 12;
   reloaded_application.reset();
   std::filesystem::remove_all(root);
   return 0;

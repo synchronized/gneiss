@@ -2,8 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
-#include "runtime/application_registry.hpp"
 #include "runtime_scene_inspection.hpp"
+
+#include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
 
 #include <string_view>
 #include <thread>
@@ -133,39 +136,36 @@ bool test_prefab_composite_identity() {
 bool test_capture_prefab_scene() {
   constexpr std::string_view asset_root = GNEISS_RUNTIME_TEST_ASSET_ROOT;
   constexpr std::string_view scene_uri = "asset://scenes/prefab.scene.json";
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.asset_root = asset_root.data();
-  desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
-  gneiss_application application = GNEISS_NULL_APPLICATION;
+  gneiss::runtime::application_configuration desc;
+  desc.asset_root = asset_root;
+  std::shared_ptr<gneiss::runtime::application> application;
   gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
-  if (gneiss::engine::result{gneiss_application_create(&desc, &application)} !=
+  if (gneiss::engine::result{gneiss::runtime::application::create(desc, application)} !=
           gneiss::engine::result::success ||
-      gneiss::engine::result{
-          gneiss_scene_instance_load(application, scene_uri.data(), scene_uri.size(), &scene)} !=
+      gneiss::engine::result{application->scenes()->load(scene_uri, &scene)} !=
           gneiss::engine::result::success) {
     return false;
   }
   gneiss::host::runtime_scene_inspection inspection(5U);
   gneiss::host::runtime_scene_snapshot snapshot;
-  const auto capture = inspection.capture_scene(*gneiss::runtime::find_application(application),
-                                                scene, false, snapshot);
+  const auto capture = inspection.capture_scene(*application, scene, false, snapshot);
   const bool valid =
       capture == gneiss::engine::result::success && snapshot.changes.size() == 3U &&
       snapshot.changes[1].node.prefab_instance_uuid == "30000000-0000-4000-8000-000000000012" &&
       snapshot.changes[1].node.prefab_source_node_uuid.empty() &&
       snapshot.changes[2].node.prefab_source_node_uuid == "30000000-0000-4000-8000-000000000002" &&
       snapshot.changes[2].node.parent == snapshot.changes[1].node.id;
-  auto native = gneiss::runtime::find_application(application);
+  auto native = application;
   auto foreign = gneiss::engine::result::success;
   const auto changes = snapshot.changes.size();
   std::thread worker([&] { foreign = inspection.capture_scene(*native, scene, true, snapshot); });
   worker.join();
   if (foreign != gneiss::engine::result::invalid_state || snapshot.changes.size() != changes)
     return false;
-  const bool unloaded = gneiss::engine::result{gneiss_scene_instance_unload(application, scene)} ==
+  const bool unloaded = gneiss::engine::result{application->scenes()->unload(scene)} ==
                         gneiss::engine::result::success;
-  const bool destroyed = gneiss::engine::result{gneiss_application_destroy(application)} ==
-                         gneiss::engine::result::success;
+  const bool destroyed =
+      gneiss::engine::result{application->shutdown(0)} == gneiss::engine::result::success;
   return valid && unloaded && destroyed;
 }
 

@@ -21,7 +21,7 @@ Runtime 宿主的启动与完整场景切换、Editor 的启动与显式打开�
 异步候选加载期间，宿主的结构/资产替换返回 `GNEISS_ERROR_NOT_READY`，调用方应等待当前事务结束。
 完整切换后应重新查询活动 World 与 Scene，不继续使用旧场景借出的节点、Entity 或字符串视图。
 
-`gneiss_scene_instance_create_empty` 使用调用方提供的小写规范场景 UUID 创建不含节点的作者实例，
+`engine::scene_instances::create_empty` 使用调用方提供的小写规范场景 UUID 创建不含节点的作者实例，
 不读取 VFS，也不关联来源 URI。它用于 Editor 的未命名新场景；后续节点编辑和序列化行为与加载
 实例一致，实际写入路径仍由 Editor 的 Save As 生命周期负责。
 
@@ -54,8 +54,8 @@ JSON 可为对象增加可选字符串 `name`；旧场景无需迁移，名称�
 `GNEISS_SCENE_INSTANCE_NODE_INFO_INIT` 初始化。索引越界返回 `GNEISS_ERROR_NOT_FOUND`；节点或实体
 已被外部销毁时返回句柄错误。调用方使用相应 C 查询函数。
 
-Prefab 使用独立的实验性枚举接口 `gneiss_scene_instance_get_prefab_node_count` 与
-`gneiss_scene_instance_get_prefab_node_info`，不改变普通 `objects` 的数量和顺序。枚举顺序为每个实例
+Prefab 使用独立的实验性枚举接口 `engine::scene_instances::get_prefab_node_count` 与
+`engine::scene_instances::get_prefab_node_info`，不改变普通 `objects` 的数量和顺序。枚举顺序为每个实例
 的实例根，其后为 Prefab 来源节点；描述包含实例 UUID、来源节点 UUID、Prefab URI、Runtime ID、
 局部 Transform 以及实例根或来源只读标志。字符串同样只借用到下一次场景修改或父对象失效；
 Prefab 刷新、撤销/重做和重命名之后应重新枚举，不能沿用旧字符串指针。
@@ -75,11 +75,11 @@ Prefab 来源节点枚举结果通过 translation、rotation 与 scale 三个覆
 
 实例根可通过 `engine::scene_instances::set_prefab_instance_name` 修改作者名称，通过普通 Scene Node
 Transform 接口修改根变换，并通过 `engine::scene_instances::destroy_prefab_instance` 整体销毁。
-`gneiss_scene_instance_refresh_prefab_instance` 会绕过旧 Prefab 缓存重新读取来源，先创建完整替代投影，
+`engine::scene_instances::refresh_prefab_instance` 会绕过旧 Prefab 缓存重新读取来源，先创建完整替代投影，
 成功后才销毁旧投影并返回新的根 ID；失败时旧投影和选择目标仍有效。刷新成功后旧根及全部旧来源
 节点 ID 失效，调用方必须改用返回的新根并重新枚举层级。成功刷新同时返回场景实例独占的事务
-令牌；`gneiss_scene_instance_toggle_prefab_refresh` 使用令牌在新旧来源版本间切换并返回新的根 ID，
-供 Undo/Redo 使用。命令离开历史后必须调用 `gneiss_scene_instance_release_prefab_refresh`；场景卸载
+令牌；`engine::scene_instances::toggle_prefab_refresh` 使用令牌在新旧来源版本间切换并返回新的根 ID，
+供 Undo/Redo 使用。命令离开历史后必须调用 `engine::scene_instances::release_prefab_refresh`；场景卸载
 也会释放尚未显式释放的令牌及其资产租约。
 
 C++ `scene_prefab_refresh` 独占令牌并记录所属 Application 与场景句柄，不延长父对象寿命。
@@ -106,7 +106,7 @@ Application 销毁后，`reset()` 可安全清空失效令牌；其他错误保�
 稳定 UUID、可选名称、实例内父节点及 Mesh/Material URI；实现会先获取两个资产租约，再创建 Entity、
 Scene Node 和 ECS 组件。任何阶段失败都不增加作者对象或泄漏资源。
 
-`gneiss_scene_instance_set_mesh_renderer` 原子替换实例节点的 Mesh 与 Material。新资产全部获取成功且
+`engine::scene_instances::set_mesh_renderer` 原子替换实例节点的 Mesh 与 Material。新资产全部获取成功且
 ECS 组件更新成功后，才替换作者 URI 和旧租约；失败保留原引用。父节点必须属于同一场景实例，节点
 ID 和实例不能跨 Application 使用。这两项操作仅限 Application 创建线程。
 
@@ -145,15 +145,13 @@ ID 和 Scene Node ID 全部失效；调用方应在删除前保存快照和根�
 
 ## 运行时属性序列化
 
-`gneiss_scene_instance_serialize` 将实例当前的名称、父级、局部 Transform、Camera、已创建作者节点和
+`engine::scene_instances::serialize` 将实例当前的名称、父级、局部 Transform、Camera、已创建作者节点和
 Mesh Renderer 引用以及 Prefab 实例根 Transform 合并回加载时的作者文档，并输出当前版本的 UTF-8
 场景 JSON。Prefab 仍以 URI、实例 UUID、父级、名称和根 Transform 表示，不写入展开节点。保存会
 保留未被 Runtime 解释的未知字段，不会覆盖来源文件，也不会持久化 Entity ID、Scene Node ID 或
 资源 RID。
 
-C 接口使用两次调用：先以空 `buffer` 和零 `capacity` 查询不含字符串终止符的字节数，再提供足够
-容量的缓冲区。容量不足返回 `GNEISS_ERROR_INVALID_ARGUMENT`，同时通过 `out_length` 返回所需长度。
-C++ 调用者先查询序列化长度，再分配缓冲区并调用 C 序列化函数。
+原生接口一次写入调用方提供的 `std::string`，无需预先查询长度或管理 C 缓冲区。
 
 序列化只允许在所属 Application 创建线程执行。实例中的实体、节点或原有 Camera 已被调用方删除
 时返回对应错误且不产生部分输出。输出文本如何落盘由工具或宿主负责；只读 VFS 不会被保存操作
@@ -161,7 +159,7 @@ C++ 调用者先查询序列化长度，再分配缓冲区并调用 C 序列化�
 
 ## C++ 原生描述
 
-`scene_node_desc`、Prefab 和组件描述使用 `string_view`、强类型 ID 和原生变换/相机配置，
+`engine::node_creation`、Prefab 和组件描述使用 `string_view`、强类型 ID 和原生变换/相机配置，
 默认构造即可使用，不填写布局大小或字符串计数。输入文本借用至方法返回。
 节点查询输出使用 `scene_node_components`，Prefab 标志使用 `scene_prefab_flags`；
 二者支持位运算和 `has_flags`，不能混用。输出文本借用至下次场景修改或父对象失效，

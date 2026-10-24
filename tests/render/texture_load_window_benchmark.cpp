@@ -1,14 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../support/c_owner.hpp"
 #include "engine/core/result.hpp"
-#include "runtime/application_asset_reload_internal.hpp"
 
-#include "engine/values/core/result.hpp"
-#include "engine/values/scene.hpp"
-#include <gneiss/engine/application.h>
-#include <gneiss/engine/scene.h>
+#include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -39,9 +36,8 @@ struct context {
   std::vector<gneiss::engine::render_asset_reload> assets;
   bool close_during_load{};
   gneiss_scene_instance scene{};
-  gneiss_world world{};
-  gneiss_scene_node_id camera{};
-  gneiss_scene_node_id mesh{};
+  gneiss::scene_node_id camera{};
+  gneiss::scene_node_id mesh{};
   std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
   std::chrono::steady_clock::time_point previous = start;
   bool requested{};
@@ -57,9 +53,7 @@ struct context {
   gneiss::engine::render_queue_stats stats;
   std::vector<sample> samples;
 };
-gneiss::engine::result native_update(gneiss_application app, const gneiss_frame_time*,
-                                     void* opaque) {
-  auto& state = *static_cast<context*>(opaque);
+gneiss::engine::result native_update(runtime::application& app, context& state) {
   const auto now = std::chrono::steady_clock::now();
   const auto elapsed = std::chrono::duration<double>(now - state.start).count();
   const auto interval = std::chrono::duration<double, std::milli>(now - state.previous).count();
@@ -70,20 +64,17 @@ gneiss::engine::result native_update(gneiss_application app, const gneiss_frame_
   if (state.scheduler->mode() == gneiss::engine::execution_mode::cooperative) {
     (void)state.scheduler->run_ready();
   }
-  gneiss::engine::render_queue_stats stats;
-  if (runtime::query_render_statistics(app, stats) != gneiss::engine::result::success) {
-    return gneiss::engine::result::internal;
-  }
+  const auto stats = app.render_statistics();
   if (stats.presented_frames != state.stats.presented_frames) {
     state.samples.push_back(
         {elapsed, stats.presented_frames, stats.latest_frame_interval_ms, interval});
   }
   state.stats = stats;
-  gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform transform;
   transform.translation[0] = static_cast<float>(std::sin(elapsed) * 0.15);
   transform.translation[2] = 2.0F;
-  if (gneiss::engine::result{gneiss_scene_node_set_local_transform(
-          state.world, state.camera, &transform)} != gneiss::engine::result::success) {
+  if (gneiss::engine::result{app.native_world()->node_set_local_transform(
+          state.camera, transform)} != gneiss::engine::result::success) {
     return gneiss::engine::result::internal;
   }
 #ifdef _WIN32
@@ -115,21 +106,13 @@ gneiss::engine::result native_update(gneiss_application app, const gneiss_frame_
           {"asset://textures/test.texture.json", gneiss::engine::render_asset_type::texture},
           {"asset://materials/test.material.json", gneiss::engine::render_asset_type::material}};
       const auto start = std::chrono::steady_clock::now();
-      auto result = runtime::reload_render_assets(app, reloads);
+      auto result = app.reload_render_assets(reloads);
       if (result != gneiss::engine::result::success) {
         return result;
       }
       constexpr std::string_view mesh = "asset://models/test.mesh.json";
       constexpr std::string_view material = "asset://materials/test.material.json";
-      const gneiss_scene_mesh_renderer_desc desc{.struct_size =
-                                                     sizeof(gneiss_scene_mesh_renderer_desc),
-                                                 .reserved = 0U,
-                                                 .mesh_uri = mesh.data(),
-                                                 .mesh_uri_length = mesh.size(),
-                                                 .material_uri = material.data(),
-                                                 .material_uri_length = material.size()};
-      result = gneiss::engine::result{
-          gneiss_scene_instance_set_mesh_renderer(app, state.scene, state.mesh, &desc)};
+      result = app.scenes()->set_mesh_renderer(state.scene, state.mesh, mesh, material);
       state.prepare_ms =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
               .count();
@@ -138,11 +121,12 @@ gneiss::engine::result native_update(gneiss_application app, const gneiss_frame_
         return result;
       }
     } else {
-      const std::vector<std::string> uris{"asset://textures/test.texture.json"};
+      const std::array uris{
+          gneiss::engine::render_asset_reload{.uri = "asset://textures/test.texture.json",
+                                              .type = gneiss::engine::render_asset_type::texture}};
       std::uint64_t request{};
-      const auto result = state.model
-                              ? runtime::request_render_assets(app, state.assets, 1U, 1U, request)
-                              : runtime::request_textures(app, uris, 1U, 1U, request);
+      const auto result = state.model ? app.request_assets(state.assets, 1U, 1U, request, true)
+                                      : app.request_assets(uris, 1U, 1U, request, true);
       if (result != gneiss::engine::result::success) {
         return result;
       }
@@ -151,7 +135,7 @@ gneiss::engine::result native_update(gneiss_application app, const gneiss_frame_
   if (state.requested && !state.completed) {
     gneiss::engine::texture_load_completion completion;
     bool ready{};
-    const auto result = runtime::poll_textures(app, completion, ready);
+    const auto result = app.poll_assets(completion, ready);
     if (result != gneiss::engine::result::success) {
       return result;
     }
@@ -167,16 +151,16 @@ gneiss::engine::result native_update(gneiss_application app, const gneiss_frame_
     }
   }
   if (state.close_during_load && state.requested && elapsed > 1.01) {
-    return gneiss::engine::result{gneiss_application_request_exit(app)};
+    app.request_exit();
+    return gneiss::engine::result::success;
   }
   if (elapsed > 4.0 && state.completed) {
-    return gneiss::engine::result{gneiss_application_request_exit(app)};
+    app.request_exit();
+    return gneiss::engine::result::success;
   }
   return elapsed > 20.0 ? gneiss::engine::result::not_ready : gneiss::engine::result::success;
 }
-gneiss_result update(gneiss_application app, const gneiss_frame_time* time, void* data) {
-  return native_update(app, time, data).code();
-}
+
 }
 int main(int argc, char** argv) try {
   if (argc != 4 && argc != 5) {
@@ -205,45 +189,37 @@ int main(int argc, char** argv) try {
   }
   state.synchronous = mode == "sync";
   state.close_during_load = mode == "close";
-  gneiss::test_support::application_owner app;
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
+  std::shared_ptr<runtime::application> app;
+  runtime::application_configuration desc;
   const auto root = state.root.string();
-  desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
-  desc.asset_root = root.data();
-  desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  desc.window_title = title;
-  desc.window_title_length = static_cast<std::uint32_t>(std::char_traits<char>::length(title));
-  desc.window_flags =
-      GNEISS_APPLICATION_WINDOW_VISIBLE_BIT | GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT;
-  desc.update = update;
-  desc.user_data = &state;
-  if (gneiss::engine::result{gneiss_application_create(&desc, app.put())} !=
-          gneiss::engine::result::success ||
-      runtime::attach_task_executor(app.get(), scheduler) != gneiss::engine::result::success) {
+  desc.use_granit_window = true;
+  desc.asset_root = root;
+  desc.window.title = title;
+  desc.window.high_dpi = false;
+  desc.callbacks.update = [&](auto, const auto&) { return native_update(*app, state); };
+  if (runtime::application::create(desc, app) != gneiss::engine::result::success ||
+      app->attach_task_executor(scheduler) != gneiss::engine::result::success) {
     return 1;
   }
   constexpr std::string_view scene = "asset://scenes/test.scene.json";
-  if (gneiss::engine::result{
-          gneiss_scene_instance_load(app.get(), scene.data(), scene.size(), &state.scene)} !=
-          gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_application_get_world(app.get(), &state.world)} !=
-          gneiss::engine::result::success) {
+  if (gneiss::engine::result{app->scenes()->load(scene, &state.scene)} !=
+      gneiss::engine::result::success) {
     return 2;
   }
-  gneiss_scene_instance_node_info info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
-  if (gneiss::engine::result{gneiss_scene_instance_get_node_info(
-          app.get(), state.scene, 0U, &info)} != gneiss::engine::result::success) {
+  gneiss::engine::scene_node_view info;
+  if (gneiss::engine::result{app->scenes()->get_node_info(state.scene, 0U, info)} !=
+      gneiss::engine::result::success) {
     return 3;
   }
   state.camera = info.node;
-  if (gneiss::engine::result{gneiss_scene_instance_get_node_info(
-          app.get(), state.scene, 1U, &info)} != gneiss::engine::result::success) {
+  if (gneiss::engine::result{app->scenes()->get_node_info(state.scene, 1U, info)} !=
+      gneiss::engine::result::success) {
     return 3;
   }
   state.mesh = info.node;
   state.start = state.previous = std::chrono::steady_clock::now();
-  const auto result = gneiss::engine::result{gneiss_application_run(app.get(), 0U)};
-  app = gneiss::test_support::application_owner{};
+  const auto result = gneiss::engine::result{app->run(0, 0U)};
+  app.reset();
   const auto lifetime =
       std::chrono::duration<double>(std::chrono::steady_clock::now() - state.start).count();
   std::ofstream output(argv[3]);

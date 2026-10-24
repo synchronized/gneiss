@@ -134,8 +134,9 @@ Render 的准备适配只传入发布资源的预算。三类准备数据均使�
 独立准备测试不链接 Engine、缓存或资源服务。其余迁移见 [0.45 实施计划](../plans/DEV-045-cpp-boundaries.md)。
 
 当前测试分布在 tests 根目录及 `tests/core/`、`tests/world/`、`tests/scene/` 等模块目录。
-公共头独立编译位于 `tests/headers/`，安装消费者位于 `tests/consumer/`；跨模块工作流还通过
-CMake 脚本验证。尚未统一迁移到新的测试层级，不创建空的 integration 目录。
+公共头独立编译位于 `tests/headers/`，最小游戏模块安装消费者由
+`cmake/check_installed_game_module.cmake` 使用 `templates/game/` 验证；完整 SDK 安装消费者已撤销。
+跨模块工作流还通过 CMake 脚本验证。尚未统一迁移到新的测试层级，不创建空的 integration 目录。
 
 ## 演进规则
 

@@ -4,16 +4,16 @@
 #include "tooling/asset_import/asset_writer.hpp"
 #include "tooling/asset_import/gltf_importer.hpp"
 
-#include <gneiss/engine/application.h>
-#include <gneiss/engine/scene.h>
-#include <gneiss/engine/world.h>
-
+#include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
 #include <array>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <string>
+
 #include <string_view>
 
 namespace {
@@ -67,21 +67,19 @@ int main() { // NOLINT(bugprone-exception-escape)
     return 5;
   }
   const auto asset_root = first.generic_string();
-  gneiss_application_desc description = GNEISS_APPLICATION_DESC_INIT;
-  description.asset_root = asset_root.data();
-  description.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
-  gneiss_application application = GNEISS_NULL_APPLICATION;
+  gneiss::runtime::application_configuration description;
+  description.asset_root = asset_root;
+  std::shared_ptr<gneiss::runtime::application> application;
   gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
-  gneiss_world world = GNEISS_NULL_WORLD;
   std::uint64_t entity_count = 0;
   constexpr std::string_view scene_uri = "asset://scenes/scene.scene.json";
-  if (gneiss_application_create(&description, &application) != GNEISS_SUCCESS ||
-      gneiss_application_get_world(application, &world) != GNEISS_SUCCESS ||
-      gneiss_scene_instance_load(application, scene_uri.data(), scene_uri.size(), &scene) !=
-          GNEISS_SUCCESS ||
-      gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 1U ||
-      gneiss_scene_instance_unload(application, scene) != GNEISS_SUCCESS ||
-      gneiss_application_destroy(application) != GNEISS_SUCCESS) {
+  if (gneiss::runtime::application::create(description, application) !=
+          gneiss::engine::result::success ||
+      application->scenes()->load(scene_uri, &scene) != gneiss::engine::result::success ||
+      application->native_world()->entity_count(entity_count) != gneiss::engine::result::success ||
+      entity_count != 1U ||
+      application->scenes()->unload(scene) != gneiss::engine::result::success ||
+      application->shutdown(0) != gneiss::engine::result::success) {
     return 6;
   }
 
@@ -95,19 +93,17 @@ int main() { // NOLINT(bugprone-exception-escape)
     return 7;
   }
   const auto multi_asset_root = multi.generic_string();
-  description.asset_root = multi_asset_root.data();
-  description.asset_root_length = static_cast<std::uint32_t>(multi_asset_root.size());
-  application = GNEISS_NULL_APPLICATION;
+  description.asset_root = multi_asset_root;
+  application.reset();
   scene = GNEISS_NULL_SCENE_INSTANCE;
-  world = GNEISS_NULL_WORLD;
   entity_count = 0;
-  if (gneiss_application_create(&description, &application) != GNEISS_SUCCESS ||
-      gneiss_application_get_world(application, &world) != GNEISS_SUCCESS ||
-      gneiss_scene_instance_load(application, scene_uri.data(), scene_uri.size(), &scene) !=
-          GNEISS_SUCCESS ||
-      gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 3U ||
-      gneiss_scene_instance_unload(application, scene) != GNEISS_SUCCESS ||
-      gneiss_application_destroy(application) != GNEISS_SUCCESS) {
+  if (gneiss::runtime::application::create(description, application) !=
+          gneiss::engine::result::success ||
+      application->scenes()->load(scene_uri, &scene) != gneiss::engine::result::success ||
+      application->native_world()->entity_count(entity_count) != gneiss::engine::result::success ||
+      entity_count != 3U ||
+      application->scenes()->unload(scene) != gneiss::engine::result::success ||
+      application->shutdown(0) != gneiss::engine::result::success) {
     return 8;
   }
   const auto pbr = gneiss::tooling::inspect_gltf(std::filesystem::path{GNEISS_TEST_GLTF_ROOT} /

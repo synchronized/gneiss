@@ -19,7 +19,7 @@ env:
   SCCACHE_GHA_ENABLED: "true"
 
 jobs:
-  installed-consumer:
+  core-build:
     if: ${{ inputs.scope != 'editor' }}
     runs-on: windows-2022
     strategy:
@@ -36,16 +36,13 @@ jobs:
         run: |
           $suffix = if ('${{ matrix.linkage }}' -eq 'static') { '-static' } else { '' }
           "name=windows-vs2022${suffix}-release" >> $env:GITHUB_OUTPUT
-      - name: 验证安装后 C/C++ Consumer
+      - name: 验证共享与静态核心构建
         shell: pwsh
         run: |
           cmake --preset '${{ steps.preset.outputs.name }}' `
             -DGNEISS_BUILD_EXAMPLES=OFF
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build --preset '${{ steps.preset.outputs.name }}'
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ctest --preset '${{ steps.preset.outputs.name }}' `
-            -R '^gneiss\.installed_consumer$'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -B scripts/performance/test_prepare_sponza.py
           python -B scripts/performance/test_validate_runtime_loop.py

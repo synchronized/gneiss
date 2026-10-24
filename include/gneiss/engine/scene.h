@@ -85,60 +85,6 @@ typedef struct gneiss_scene_instance_node_info {
    UINT32_C(0),                                                                                    \
    GNEISS_CAMERA_DESC_INIT}
 
-/** Prefab 实例根或来源节点的只读 Runtime 视图；字符串由场景实例借出。 */
-typedef struct gneiss_scene_prefab_node_info {
-  uint32_t struct_size;
-  uint32_t flags;
-  gneiss_scene_node_id node;
-  gneiss_scene_node_id parent;
-  gneiss_entity_id entity;
-  const char* instance_uuid;
-  uint64_t instance_uuid_length;
-  const char* source_node_uuid;
-  uint64_t source_node_uuid_length;
-  const char* name;
-  uint64_t name_length;
-  const char* prefab_uri;
-  uint64_t prefab_uri_length;
-  gneiss_transform local_transform;
-  gneiss_transform source_local_transform;
-} gneiss_scene_prefab_node_info;
-
-#define GNEISS_SCENE_PREFAB_NODE_INFO_INIT                                                         \
-  {(uint32_t)sizeof(gneiss_scene_prefab_node_info),                                                \
-   UINT32_C(0),                                                                                    \
-   GNEISS_NULL_SCENE_NODE_ID,                                                                      \
-   GNEISS_NULL_SCENE_NODE_ID,                                                                      \
-   GNEISS_NULL_ENTITY_ID,                                                                          \
-   NULL,                                                                                           \
-   UINT64_C(0),                                                                                    \
-   NULL,                                                                                           \
-   UINT64_C(0),                                                                                    \
-   NULL,                                                                                           \
-   UINT64_C(0),                                                                                    \
-   NULL,                                                                                           \
-   UINT64_C(0),                                                                                    \
-   GNEISS_TRANSFORM_IDENTITY,                                                                      \
-   GNEISS_TRANSFORM_IDENTITY}
-
-/** 场景实例中 Mesh Renderer 作者引用；字符串仅在调用期间借用。 */
-typedef struct gneiss_scene_mesh_renderer_desc {
-  uint32_t struct_size;
-  uint32_t reserved;
-  const char* mesh_uri;
-  uint64_t mesh_uri_length;
-  const char* material_uri;
-  uint64_t material_uri_length;
-} gneiss_scene_mesh_renderer_desc;
-
-#define GNEISS_SCENE_MESH_RENDERER_DESC_INIT                                                       \
-  {(uint32_t)sizeof(gneiss_scene_mesh_renderer_desc),                                              \
-   UINT32_C(0),                                                                                    \
-   NULL,                                                                                           \
-   UINT64_C(0),                                                                                    \
-   NULL,                                                                                           \
-   UINT64_C(0)}
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -193,11 +139,6 @@ GNEISS_API gneiss_result gneiss_scene_instance_load(gneiss_application applicati
                                                     uint64_t uri_length,
                                                     gneiss_scene_instance* out_instance);
 
-/** 创建具有指定规范 UUID 的空作者场景；场景尚未关联资产 URI。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result
-gneiss_scene_instance_create_empty(gneiss_application application, const char* scene_uuid,
-                                   uint64_t scene_uuid_length, gneiss_scene_instance* out_instance);
-
 /** 卸载场景创建的实体、节点和资产引用；句柄随后失效。 */
 GNEISS_API gneiss_result gneiss_scene_instance_unload(gneiss_application application,
                                                       gneiss_scene_instance instance);
@@ -224,45 +165,6 @@ GNEISS_API gneiss_result gneiss_scene_instance_get_node_count(gneiss_application
 GNEISS_API gneiss_result
 gneiss_scene_instance_get_node_info(gneiss_application application, gneiss_scene_instance instance,
                                     uint64_t index, gneiss_scene_instance_node_info* out_info);
-
-/** 返回 Prefab 实例根与展开来源节点的总数。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_get_prefab_node_count(
-    gneiss_application application, gneiss_scene_instance instance, uint64_t* out_count);
-
-/** 按声明顺序读取 Prefab 实例根及其来源节点；来源节点带只读标记。
- * 字符串为借用视图，下次场景修改（包括刷新/切换 Prefab）、卸载或父对象销毁后须重新获取。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_get_prefab_node_info(
-    gneiss_application application, gneiss_scene_instance instance, uint64_t index,
-    gneiss_scene_prefab_node_info* out_info);
-
-/** 从来源资产原子重建 Prefab 投影；成功返回新的实例根节点 ID。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_refresh_prefab_instance(
-    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id root,
-    gneiss_scene_node_id* out_new_root, gneiss_scene_prefab_refresh_token* out_token);
-
-/** 在刷新事务的新旧来源版本间切换；用于 Undo/Redo。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_toggle_prefab_refresh(
-    gneiss_application application, gneiss_scene_instance instance,
-    gneiss_scene_prefab_refresh_token token, gneiss_scene_node_id* out_new_root);
-
-/** 释放刷新事务令牌；释放后不能再撤销或重做该次刷新。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_release_prefab_refresh(
-    gneiss_application application, gneiss_scene_instance instance,
-    gneiss_scene_prefab_refresh_token token);
-
-/** 原子替换节点的 Mesh 与 Material 作者引用及运行时资源。 */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_set_mesh_renderer(
-    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id node,
-    const gneiss_scene_mesh_renderer_desc* desc);
-
-/**
- * 将实例当前 Transform 与 Camera 写入当前版本的 UTF-8 场景 JSON。
- *
- * buffer 为空且 capacity 为零时只查询所需字节数；长度不包含字符串终止符。未知作者字段会被保留。
- */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result
-gneiss_scene_instance_serialize(gneiss_application application, gneiss_scene_instance instance,
-                                char* buffer, uint64_t capacity, uint64_t* out_length);
 
 #ifdef __cplusplus
 }

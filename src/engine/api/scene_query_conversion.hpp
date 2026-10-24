@@ -50,26 +50,4 @@ inline void write_scene_node(const gneiss::engine::scene_node_view& value,
   }
 }
 
-inline void write_prefab_node(const gneiss::engine::prefab_node_view& value,
-                              gneiss_scene_prefab_node_info& output) noexcept {
-  const auto size = output.struct_size;
-  output = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
-  output.struct_size = size;
-  output.flags = static_cast<std::uint32_t>(value.flags);
-  output.node = value.node.get();
-  output.parent = value.parent.get();
-  output.entity = value.entity.get();
-  output.instance_uuid = value.instance_uuid.empty() ? nullptr : value.instance_uuid.data();
-  output.instance_uuid_length = value.instance_uuid.size();
-  output.source_node_uuid =
-      value.source_node_uuid.empty() ? nullptr : value.source_node_uuid.data();
-  output.source_node_uuid_length = value.source_node_uuid.size();
-  output.name = value.name.empty() ? nullptr : value.name.data();
-  output.name_length = value.name.size();
-  output.prefab_uri = value.prefab_uri.empty() ? nullptr : value.prefab_uri.data();
-  output.prefab_uri_length = value.prefab_uri.size();
-  output.local_transform = write_transform(value.local_transform);
-  output.source_local_transform = write_transform(value.source_local_transform);
-}
-
 } // namespace gneiss::engine::detail
