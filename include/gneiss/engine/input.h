@@ -10,6 +10,7 @@
 #include <gneiss/engine/application.h>
 #include <gneiss/engine/core/export.h>
 #include <gneiss/engine/core/result.h>
+#include <gneiss/engine/game_module_types.h>
 
 typedef uint32_t gneiss_physical_key;
 #define GNEISS_PHYSICAL_KEY_UNKNOWN UINT32_C(0)
@@ -229,23 +230,6 @@ typedef struct gneiss_pointer_state {
 #define GNEISS_POINTER_STATE_VERSION_1_SIZE ((uint32_t)offsetof(gneiss_pointer_state, reserved))
 #define GNEISS_POINTER_STATE_INIT                                                                  \
   {(uint32_t)sizeof(gneiss_pointer_state), UINT32_C(0), 0.0F, 0.0F, UINT32_C(0), {0, 0, 0, 0, 0}}
-
-typedef uint64_t gneiss_action;
-#define GNEISS_NULL_ACTION UINT64_C(0)
-
-typedef struct gneiss_action_state {
-  uint32_t struct_size;
-  uint8_t pressed;
-  uint8_t held;
-  uint8_t released;
-  uint8_t reserved_byte;
-  float value;
-  uint32_t reserved[5];
-} gneiss_action_state;
-
-#define GNEISS_ACTION_STATE_VERSION_1_SIZE ((uint32_t)offsetof(gneiss_action_state, reserved))
-#define GNEISS_ACTION_STATE_INIT                                                                   \
-  {(uint32_t)sizeof(gneiss_action_state), 0, 0, 0, 0, 0.0F, {0, 0, 0, 0, 0}}
 
 #ifdef __cplusplus
 extern "C" {

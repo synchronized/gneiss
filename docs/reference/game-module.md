@@ -55,6 +55,14 @@ Runtime 更新调度默认使用约 60 Hz 固定步长，单帧最多接受 250 
 追赶上限的完整固定步长积压会被丢弃并形成诊断数据，避免长帧造成无限追赶。固定更新失败时当帧
 不再执行逐帧更新；逐帧更新每个 Application 帧最多调用一次，暂停帧仍以零 `delta_ns` 调用。
 
+## 头文件边界
+
+`game_module.h` 只引入 `game_module_types.h`、实体标识、结果码与导出宏，
+不再传递引入 Application、World、Scene、Reflection 或完整 Input 头文件。
+游戏模板直接构造 C 日志消息；Lantern Gallery 通过 Context 读写实体变换。
+动作查询和退出请求直接调用原生 Application，不经过 Application C API。
+完整公共 SDK 的后续删除进度见 [迁移计划](../plans/PLAN-051-minimal-game-module-api.md)。
+
 ## Game Context
 
 Game Context 是 Engine 持有的 generation 句柄，销毁后旧值立即失效。首版访问能力包括：
@@ -64,6 +72,9 @@ Game Context 是 Engine 持有的 generation 句柄，销毁后旧值立即失�
   实体，此时成功返回零值。
 - `gneiss_game_context_find_action` 与 `gneiss_game_context_get_action_state`：复用所属 Application 的
   动作映射和当前帧输入快照。
+- `gneiss_game_context_get_entity_transform` 与 `gneiss_game_context_set_entity_transform`：
+  读写所属 World 中实体的局部 TRS；无关联场景节点返回 `NOT_FOUND`，失效实体返回 `INVALID_HANDLE`。
+  读取失败保持输出不变。
 - `gneiss_game_context_request_exit`：请求 Application 正常结束主循环。
 - `gneiss_game_context_log`：复制结构化日志消息并进入所属 Application 的有界队列。
 

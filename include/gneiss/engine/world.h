@@ -9,12 +9,8 @@
 #include <gneiss/engine/core/entity.h>
 #include <gneiss/engine/core/export.h>
 #include <gneiss/engine/core/result.h>
+#include <gneiss/engine/game_module_types.h>
 #include <gneiss/engine/reflection.h>
-
-/** World 的不透明句柄。零值始终表示无效 World。 */
-typedef uint64_t gneiss_world;
-
-#define GNEISS_NULL_WORLD UINT64_C(0)
 
 #define GNEISS_TRANSFORM_FIELD_TRANSLATION UINT32_C(1)
 #define GNEISS_TRANSFORM_FIELD_ROTATION UINT32_C(2)

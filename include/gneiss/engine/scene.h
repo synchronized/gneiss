@@ -4,6 +4,7 @@
 #ifndef GNEISS_SCENE_H_
 #define GNEISS_SCENE_H_
 
+#include <gneiss/engine/game_module_types.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -35,17 +36,6 @@ typedef uint64_t gneiss_scene_prefab_refresh_token;
 #define GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN UINT32_C(4)
 #define GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN UINT32_C(8)
 #define GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN UINT32_C(16)
-
-/**
- * Scene Tree 中的局部或世界变换。旋转使用归一化的 (x, y, z, w) 四元数，缩放各轴不得为零。
- */
-typedef struct gneiss_transform {
-  float translation[3];
-  float rotation[4];
-  float scale[3];
-} gneiss_transform;
-
-#define GNEISS_TRANSFORM_IDENTITY {{0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 0.0F, 1.0F}, {1.0F, 1.0F, 1.0F}}
 
 /** 场景实例中的只读节点描述；字符串由实例借出，实例卸载后立即失效。 */
 typedef struct gneiss_scene_instance_node_info {

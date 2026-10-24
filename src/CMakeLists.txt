@@ -195,6 +195,7 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/asset.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/asset.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module_types.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/input.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/input.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/log.h"

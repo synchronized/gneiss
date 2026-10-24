@@ -2,12 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
+#include "runtime/application_bridge.hpp"
 #include "runtime/game/game_context_internal.hpp"
-
-#include <gneiss/engine/application.h>
 #include <gneiss/engine/game_module.h>
-#include <gneiss/engine/input.hpp>
-#include <gneiss/engine/log.hpp>
 
 #include <mutex>
 #include <string>
@@ -24,53 +23,42 @@ struct log_capture final {
   std::string message;
 };
 
-void capture_log(gneiss_application, const gneiss_log_event* event, void* user_data) {
-  auto& capture = *static_cast<log_capture*>(user_data);
-  const std::scoped_lock lock(capture.mutex);
-  ++capture.count;
-  capture.source.assign(event->source, event->source_length);
-  capture.message.assign(event->message, event->message_length);
-}
-
-std::uint64_t now_ns(void*) {
-  clock_value += 16'000'000;
-  return clock_value;
-}
-
-gneiss_result poll_events(void*, std::uint8_t* out_should_close) {
-  *out_should_close = 0;
-  return GNEISS_SUCCESS;
-}
-
-gneiss_result update(gneiss_application, const gneiss_frame_time*, void*) { return GNEISS_SUCCESS; }
-
 } // namespace
 
 int main() {
   log_capture capture;
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  constexpr std::string_view asset_root = GNEISS_TEST_ASSET_ROOT;
-  desc.asset_root = asset_root.data();
-  desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
-  desc.user_data = &capture;
-  desc.log = capture_log;
-  desc.now_ns = now_ns;
-  desc.poll_events = poll_events;
-  desc.update = update;
-  gneiss_application application = GNEISS_NULL_APPLICATION;
-  if (gneiss::engine::result{gneiss_application_create(&desc, &application)} !=
-      gneiss::engine::result::success) {
+  gneiss::runtime::application_configuration config;
+  config.asset_root = GNEISS_TEST_ASSET_ROOT;
+  config.callbacks.log = [&](const gneiss::engine::event_view& event) {
+    const std::scoped_lock lock(capture.mutex);
+    ++capture.count;
+    capture.source = event.message.source;
+    capture.message = event.message.message;
+  };
+  config.callbacks.now_ns = [] {
+    clock_value += 16'000'000;
+    return clock_value;
+  };
+  config.callbacks.poll_events = [](bool& close) {
+    close = false;
+    return gneiss::engine::result::success;
+  };
+  config.callbacks.update = [](auto, const auto&) { return gneiss::engine::result::success; };
+  std::shared_ptr<gneiss::runtime::application> native_application;
+  gneiss::runtime::application_bridge bridge;
+  if (gneiss::runtime::application::create(config, native_application).failed() ||
+      bridge.bind(native_application).failed())
     return 1;
-  }
-
-  gneiss_world expected_world = GNEISS_NULL_WORLD;
-  gneiss_entity_id expected_root = GNEISS_NULL_ENTITY_ID;
+  const auto application = bridge.get();
+  const auto expected_world = native_application->world();
+  gneiss::entity_id root;
+  gneiss::scene_node_id node;
+  if (native_application->native_world()->entity_create(root).failed() ||
+      native_application->native_world()->node_create({}, root, node).failed())
+    return 2;
+  const auto expected_root = root.get();
   gneiss_game_context context = GNEISS_NULL_GAME_CONTEXT;
-  if (gneiss::engine::result{gneiss_application_get_world(application, &expected_world)} !=
-          gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_world_entity_create(expected_world, &expected_root)} !=
-          gneiss::engine::result::success ||
-      gneiss::runtime::create_game_context(application, expected_root, &context) !=
+  if (gneiss::runtime::create_game_context(application, expected_root, &context) !=
           gneiss::engine::result::success ||
       gneiss::runtime::set_game_context_log_source(context, "gneiss.test.module") !=
           gneiss::engine::result::success ||
@@ -79,7 +67,7 @@ int main() {
   }
 
   gneiss_world actual_world = GNEISS_NULL_WORLD;
-  if (gneiss::load_action_map(application, "asset://input/default.input-map.json").failed()) {
+  if (native_application->load_action_map("asset://input/default.input-map.json").failed()) {
     return 7;
   }
   gneiss_entity_id actual_root = GNEISS_NULL_ENTITY_ID;
@@ -96,6 +84,21 @@ int main() {
           gneiss::engine::result::success) {
     return 3;
   }
+
+  gneiss_transform local = GNEISS_TRANSFORM_IDENTITY;
+  local.translation[0] = 3.0F;
+  gneiss_transform observed = GNEISS_TRANSFORM_IDENTITY;
+  if (gneiss_game_context_set_entity_transform(context, expected_root, &local) != GNEISS_SUCCESS ||
+      gneiss_game_context_get_entity_transform(context, expected_root, &observed) !=
+          GNEISS_SUCCESS ||
+      observed.translation[0] != 3.0F ||
+      gneiss_game_context_get_entity_transform(context, expected_root, nullptr) !=
+          GNEISS_ERROR_INVALID_ARGUMENT ||
+      gneiss_game_context_get_entity_transform(context, 0, &observed) !=
+          GNEISS_ERROR_INVALID_HANDLE ||
+      gneiss_game_context_get_entity_transform(0, expected_root, &observed) !=
+          GNEISS_ERROR_INVALID_HANDLE)
+    return 9;
 
   gneiss_action_state action_state = GNEISS_ACTION_STATE_INIT;
   if (gneiss::engine::result{gneiss_game_context_find_action(
@@ -126,8 +129,11 @@ int main() {
 
   gneiss::engine::result cross_thread_result = gneiss::engine::result::success;
   gneiss::engine::result cross_thread_log_result = gneiss::engine::result::internal;
-  const auto message = gneiss::make_log_message(gneiss::log_severity::info, "test", "worker ready");
-  const auto native_message = gneiss::to_native(message);
+  gneiss_log_message native_message = GNEISS_LOG_MESSAGE_INIT;
+  native_message.category = "test";
+  native_message.category_length = 4;
+  native_message.message = "worker ready";
+  native_message.message_length = 12;
   std::thread other([&] {
     cross_thread_result =
         gneiss::engine::result{gneiss_game_context_get_world(context, &actual_world)};
@@ -143,10 +149,12 @@ int main() {
       gneiss::engine::result{gneiss_game_context_log(context, &native_message)} !=
           gneiss::engine::result::invalid_handle ||
       gneiss::runtime::destroy_game_context(context) != gneiss::engine::result::invalid_handle ||
-      gneiss::engine::result{gneiss_application_destroy(application)} !=
-          gneiss::engine::result::success) {
+      native_application->shutdown(application) != gneiss::engine::result::success) {
     return 4;
   }
+  if (bridge.reset().failed())
+    return 10;
+  native_application.reset();
   {
     const std::scoped_lock lock(capture.mutex);
     if (capture.count != 1U || capture.source != "gneiss.test.module" ||

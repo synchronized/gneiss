@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/game_module.h>
-#include <gneiss/engine/log.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -15,10 +14,14 @@ struct game_state final {
   std::uint64_t update_count{};
 };
 
-gneiss::result write_log(gneiss_game_context context, std::string_view message) noexcept {
-  const auto value =
-      gneiss::to_native(gneiss::make_log_message(gneiss::log_severity::info, "lifecycle", message));
-  return gneiss::result{gneiss_game_context_log(context, &value)};
+gneiss_result write_log(gneiss_game_context context, std::string_view message) noexcept {
+  gneiss_log_message value = GNEISS_LOG_MESSAGE_INIT;
+  constexpr std::string_view category = "lifecycle";
+  value.category = category.data();
+  value.category_length = category.size();
+  value.message = message.data();
+  value.message_length = message.size();
+  return gneiss_game_context_log(context, &value);
 }
 
 gneiss_result initialize(gneiss_game_context context, void** output) noexcept {
@@ -29,10 +32,10 @@ gneiss_result initialize(gneiss_game_context context, void** output) noexcept {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   }
   const auto status = write_log(context, "游戏模块初始化完成");
-  if (status.ok()) {
+  if (status == GNEISS_SUCCESS) {
     *output = state.release();
   }
-  return status.native();
+  return status;
 }
 
 gneiss_result fixed_update(gneiss_game_context, void*,
@@ -56,7 +59,7 @@ gneiss_result update(gneiss_game_context context, void* module_state,
 gneiss_result shutdown(gneiss_game_context context, void* module_state) noexcept {
   const auto status = write_log(context, "游戏模块关闭");
   delete static_cast<game_state*>(module_state);
-  return status.native();
+  return status;
 }
 
 } // namespace

@@ -10,9 +10,7 @@
 #include <gneiss/engine/core/entity.h>
 #include <gneiss/engine/core/export.h>
 #include <gneiss/engine/core/result.h>
-#include <gneiss/engine/input.h>
-#include <gneiss/engine/log.h>
-#include <gneiss/engine/world.h>
+#include <gneiss/engine/game_module_types.h>
 
 /** Game Module ABI 的首个 Experimental 版本。 */
 #define GNEISS_GAME_MODULE_ABI_VERSION_1 UINT32_C(1)
@@ -120,6 +118,13 @@ GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_game_context_find_action(
 /** 读取当前帧动作快照；仅允许在模块生命周期回调线程调用。 */
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_game_context_get_action_state(
     gneiss_game_context context, gneiss_action action, gneiss_action_state* out_state);
+
+/** 读取所属 World 中实体的局部变换；仅模块生命周期回调线程可调用。 */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_game_context_get_entity_transform(
+    gneiss_game_context context, gneiss_entity_id entity, gneiss_transform* output);
+/** 更新所属 World 中实体的局部变换；不转移所有权，实体失效返回错误。 */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_game_context_set_entity_transform(
+    gneiss_game_context context, gneiss_entity_id entity, const gneiss_transform* value);
 
 /** 请求所属 Application 在当前帧完成后正常退出。 */
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result

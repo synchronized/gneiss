@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/game_module.h>
-#include <gneiss/engine/scene.h>
 
 #include <cmath>
 #include <cstdint>
@@ -57,7 +56,7 @@ gneiss_result initialize(gneiss_game_context context, void** out_state) {
                                              &state->rotate);
   }
   if (result == GNEISS_SUCCESS) {
-    result = gneiss_world_entity_get_local_transform(state->world, state->pivot, &state->transform);
+    result = gneiss_game_context_get_entity_transform(context, state->pivot, &state->transform);
   }
   if (result != GNEISS_SUCCESS) {
     delete state;
@@ -119,7 +118,7 @@ gneiss_result update(gneiss_game_context context, void* module_state,
   state.transform.rotation[1] = std::sin(half_angle);
   state.transform.rotation[2] = 0.0F;
   state.transform.rotation[3] = std::cos(half_angle);
-  return gneiss_world_entity_set_local_transform(state.world, state.pivot, &state.transform);
+  return gneiss_game_context_set_entity_transform(context, state.pivot, &state.transform);
 }
 
 gneiss_result shutdown(gneiss_game_context context, void* module_state) {

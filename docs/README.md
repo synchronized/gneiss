@@ -83,6 +83,7 @@
 - [移除 CAORS、采用 Granit 示例资产管理模型：迁移与八项问题分析](plans/PLAN-051-asset-manager-replacement.md)
 - [统一资源强引用与生命周期规则](plans/PLAN-051-asset-references.md)
 - [统一资产资源索引](plans/PLAN-051-unified-asset-index.md)
+- [收缩公共 SDK，保留游戏模块边界](plans/PLAN-051-minimal-game-module-api.md)
 - [PLAN-051：内部命名空间按层收敛](plans/PLAN-051-flat-namespaces.md)
 - [渲染资产逐步就绪与加载结构简化（计划）](plans/PLAN-051-progressive-render-assets.md)
 - [Application 接入 CAORS 输入资源：边界与实施方案](plans/PLAN-051-caors-application-integration.md)
@@ -266,6 +267,7 @@
 - [ADR-077：统一资源强引用入口](decisions/ADR-077-asset-references.md)
 - [ADR-078：资源管理器唯一持有资产索引](decisions/ADR-078-unified-asset-index.md)
 - [ADR-079：内部命名空间按架构层组织](decisions/ADR-079-flat-namespaces.md)
+- [ADR-080：撤销完整公共 SDK，保留游戏模块协议](decisions/ADR-080-minimal-game-module-api.md)
 
 ## 实施与验收记录
 

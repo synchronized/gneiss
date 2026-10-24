@@ -6,7 +6,34 @@
 #include <gneiss/engine/game_module.h>
 
 #include "engine/api/log_validation.hpp"
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
+#include "runtime/application_registry.hpp"
 #include "runtime/game/game_context_internal.hpp"
+#include <algorithm>
+#include <limits>
+
+namespace {
+template <typename Function>
+gneiss::engine::result with_application(gneiss_game_context context,
+                                        Function&& operation) noexcept {
+  gneiss::runtime::context_view view;
+  auto status = gneiss::runtime::query_context(context, view);
+  if (status != gneiss::engine::result::success)
+    return status;
+  auto application = gneiss::runtime::find_application(view.application);
+  status = gneiss::runtime::validate_application(application);
+  if (status != gneiss::engine::result::success)
+    return status;
+  try {
+    return operation(*application);
+  } catch (const std::bad_alloc&) {
+    return gneiss::engine::result::out_of_memory;
+  } catch (...) {
+    return gneiss::engine::result::internal;
+  }
+}
+}
 
 extern "C" gneiss_result gneiss_game_module_validate(const gneiss_game_module_desc* desc) {
   return gneiss::engine::detail::to_c_result([&]() -> gneiss::engine::result {
@@ -55,39 +82,86 @@ extern "C" gneiss_result gneiss_game_context_get_startup_root_entity(gneiss_game
 
 extern "C" gneiss_result gneiss_game_context_find_action(gneiss_game_context context,
                                                          const char* name, uint64_t name_length,
-                                                         gneiss_action* out_action) {
-  return gneiss::engine::detail::to_c_result([&]() -> gneiss::engine::result {
-    gneiss::runtime::context_view view;
-    const auto result = gneiss::runtime::query_context(context, view);
-    return result == gneiss::engine::result::success
-               ? gneiss::engine::detail::from_c_result(gneiss_application_find_action(
-                     view.application, name, name_length, out_action))
-               : result;
-  }());
+                                                         gneiss_action* output) {
+  return with_application(context,
+                          [&](auto& application) {
+                            if (!output || !name || name_length == 0 ||
+                                name_length > std::numeric_limits<std::size_t>::max())
+                              return gneiss::engine::result::invalid_argument;
+                            *output = GNEISS_NULL_ACTION;
+                            gneiss::engine::action_id action;
+                            const auto status = application.find_action(
+                                {name, static_cast<std::size_t>(name_length)}, action);
+                            *output = action.value;
+                            return status;
+                          })
+      .code();
 }
 
 extern "C" gneiss_result gneiss_game_context_get_action_state(gneiss_game_context context,
                                                               gneiss_action action,
-                                                              gneiss_action_state* out_state) {
-  return gneiss::engine::detail::to_c_result([&]() -> gneiss::engine::result {
-    gneiss::runtime::context_view view;
-    const auto result = gneiss::runtime::query_context(context, view);
-    return result == gneiss::engine::result::success
-               ? gneiss::engine::detail::from_c_result(
-                     gneiss_application_get_action_state(view.application, action, out_state))
-               : result;
-  }());
+                                                              gneiss_action_state* output) {
+  return with_application(context,
+                          [&](auto& application) {
+                            if (!output || output->struct_size < GNEISS_ACTION_STATE_VERSION_1_SIZE)
+                              return gneiss::engine::result::invalid_argument;
+                            gneiss::engine::action_state state;
+                            const auto status = application.get_action_state({action}, state);
+                            *output = GNEISS_ACTION_STATE_INIT;
+                            output->pressed = static_cast<uint8_t>(state.pressed);
+                            output->held = static_cast<uint8_t>(state.held);
+                            output->released = static_cast<uint8_t>(state.released);
+                            output->value = state.value;
+                            return status;
+                          })
+      .code();
 }
 
 extern "C" gneiss_result gneiss_game_context_request_exit(gneiss_game_context context) {
-  return gneiss::engine::detail::to_c_result([&]() -> gneiss::engine::result {
-    gneiss::runtime::context_view view;
-    const auto result = gneiss::runtime::query_context(context, view);
-    return result == gneiss::engine::result::success
-               ? gneiss::engine::detail::from_c_result(
-                     gneiss_application_request_exit(view.application))
-               : result;
-  }());
+  return with_application(context,
+                          [](auto& application) {
+                            application.request_exit();
+                            return gneiss::engine::result::success;
+                          })
+      .code();
+}
+
+extern "C" gneiss_result gneiss_game_context_get_entity_transform(gneiss_game_context context,
+                                                                  gneiss_entity_id entity,
+                                                                  gneiss_transform* output) {
+  if (!output)
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  return with_application(context,
+                          [&](auto& application) {
+                            gneiss::engine::transform value;
+                            const auto status =
+                                application.native_world()->entity_get_local_transform(
+                                    gneiss::entity_id{entity}, value);
+                            if (status == gneiss::engine::result::success) {
+                              std::ranges::copy(value.translation, output->translation);
+                              std::ranges::copy(value.rotation, output->rotation);
+                              std::ranges::copy(value.scale, output->scale);
+                            }
+                            return status;
+                          })
+      .code();
+}
+
+extern "C" gneiss_result gneiss_game_context_set_entity_transform(gneiss_game_context context,
+                                                                  gneiss_entity_id entity,
+                                                                  const gneiss_transform* input) {
+  if (!input)
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  return with_application(context,
+                          [&](auto& application) {
+                            gneiss::engine::transform value;
+                            std::ranges::copy(input->translation, value.translation.begin());
+                            std::ranges::copy(input->rotation, value.rotation.begin());
+                            std::ranges::copy(input->scale, value.scale.begin());
+                            return application.native_world()->entity_set_local_transform(
+                                gneiss::entity_id{entity}, value);
+                          })
+      .code();
 }
 
 extern "C" gneiss_result gneiss_game_context_log(gneiss_game_context context,

@@ -1176,3 +1176,12 @@ endif()
 gneiss_target_compile_warnings(gneiss_core_identity_test)
 gneiss_target_output_directories(gneiss_core_identity_test)
 add_test(NAME gneiss.core-identity COMMAND gneiss_core_identity_test)
+
+# 直接编译用户工程模板，保证它只依赖最小游戏模块协议。
+if(BUILD_SHARED_LIBS)
+  add_library(gneiss_game_template_compile MODULE "${PROJECT_SOURCE_DIR}/templates/game/game_module.cpp")
+  target_link_libraries(gneiss_game_template_compile PRIVATE gneiss::engine)
+  target_compile_definitions(gneiss_game_template_compile PRIVATE GNEISS_BUILDING_GAME_MODULE)
+  gneiss_target_compile_warnings(gneiss_game_template_compile)
+  gneiss_target_output_directories(gneiss_game_template_compile)
+endif()
