@@ -66,7 +66,7 @@ int main() try {
   gneiss::entity_id target{};
   if (!target_for(*app, scene, target))
     return 3;
-  gneiss::engine::property_value value{.payload = gneiss::property_vec3{2, 1, 4}};
+  gneiss::engine::value value{.payload = gneiss::property_vec3{2, 1, 4}};
   if (gneiss::engine::write_component_property(registry, app->world(), target.get(),
                                                gneiss::engine::transform_property_type(),
                                                gneiss::field_id{1}, value)
@@ -103,14 +103,14 @@ int main() try {
                                               gneiss::engine::transform_property_type(),
                                               gneiss::field_id{1}, value)
           .failed() ||
-      value.kind() != gneiss::property_kind::vec3 ||
+      value.kind() != gneiss::engine::value_kind::vec3 ||
       std::abs(std::get<gneiss::property_vec3>(value.payload).x - 2) > 0.0001F)
     return 6;
   if (gneiss::engine::read_component_property(registry, app->world(), target.get(),
                                               gneiss::engine::camera_property_type(),
                                               gneiss::field_id{2}, value)
           .failed() ||
-      value.kind() != gneiss::property_kind::float32 ||
+      value.kind() != gneiss::engine::value_kind::float32 ||
       std::abs(std::get<float>(value.payload) - 0.25F) > 0.0001F)
     return 6;
   if (app->scenes()->unload(scene).failed())

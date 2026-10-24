@@ -20,7 +20,6 @@ namespace gneiss::editor {
 edit_author_property(scene_document& session, editor_command_history& history,
                      property_inspector_model& inspector, gneiss::engine::rid world,
                      const inspector_component& component, const inspector_property& property,
-                     const gneiss::engine::property_value& value,
-                     std::uint64_t edit_serial) noexcept;
+                     const gneiss::engine::value& value, std::uint64_t edit_serial) noexcept;
 
 } // namespace gneiss::editor

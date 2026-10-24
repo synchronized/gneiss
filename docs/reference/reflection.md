@@ -45,13 +45,13 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 浮点与数学值必须有限，字符串必须为无内嵌空字符的合法 UTF-8，GUID 不得全零。
 字段专属范围和四元数归一化由 setter 校验，失败不得留下部分修改。
 
-回调及底层 `get_property`、`set_property` 使用 `gneiss::property_value`，其中字符串为借用视图。
-getter 返回的文本至少存活到调用方完成复制，setter 输入仅在调用期间有效。
-`read_property` 返回拥有文本的 `engine::property_value` 快照；`write_property` 在调用期间借用
-自有快照的文本。两个高层入口失败保持调用方输出和既有目标语义。
+回调、底层 get/set、高层 read/write 及组件接口统一使用 [engine::value](value.md)。
+getter 输出 `value&`，字符串复制进值；setter 接收 `const value&`，不保留输入引用。
+不再存在借用值和拥有值之间的转换。`read_property` 使用临时值，失败保持原输出，成功后移动结果；
+`write_property` 直接传递同一份 const 值。
 
 未绑定字段或缺少对应方向的访问器返回 `unsupported`。getter 抛异常或返回非法类别/值时返回
-`internal` 并清空底层输出；自有快照查询保持原输出。setter 异常也转换为 `internal`。
+`internal` 并清空底层输出；自有快照查询保持原输出。setter 异常也转换为 `internal`；getter/setter 的分配异常转换为 `out_of_memory`。
 基础 getter 接收 `const void* object`，setter 接收 `void* object`。对象仅在调用期间借用，Registry
 不复制、不持有对象，也不解释 World/Entity 标识。调用方必须保证对象实际类型、寿命及线程访问合法。
 空对象返回 `invalid_argument`；不支持运行期校验任意 void* 的实际类型。

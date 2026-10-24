@@ -17,7 +17,7 @@ gneiss::engine::result write_author_property(scene_document& session,
                                              property_inspector_model& inspector,
                                              gneiss::engine::rid world, std::string_view uuid,
                                              gneiss::engine::type_guid type_id, field_id field_id,
-                                             const gneiss::engine::property_value& value) noexcept {
+                                             const gneiss::engine::value& value) noexcept {
   const auto* current = session.find_node(uuid);
   if (current == nullptr) {
     return gneiss::engine::result::not_found;
@@ -34,8 +34,7 @@ gneiss::engine::result
 edit_author_property(scene_document& session, editor_command_history& history,
                      property_inspector_model& inspector, gneiss::engine::rid world,
                      const inspector_component& component, const inspector_property& property,
-                     const gneiss::engine::property_value& value,
-                     std::uint64_t edit_serial) noexcept try {
+                     const gneiss::engine::value& value, std::uint64_t edit_serial) noexcept try {
   const auto* selected = session.selected_node();
   if (selected == nullptr) {
     return gneiss::engine::result::invalid_state;

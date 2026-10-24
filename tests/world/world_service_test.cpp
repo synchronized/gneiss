@@ -248,7 +248,7 @@ int main() {
   if (gneiss::engine::create_property_registry(reflection).failed())
     return 14;
   gneiss::engine::transform candidate_transform;
-  gneiss::property_value proposed;
+  gneiss::engine::value proposed;
   proposed.payload = gneiss::property_vec3{2, 3, 4};
   if (gneiss::engine::set_property(reflection, service::transform_property_type(),
                                    gneiss::engine::transform_translation_field.get(),

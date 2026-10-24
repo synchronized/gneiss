@@ -16,7 +16,7 @@
 namespace {
 
 gneiss::engine::result to_native_value(const gneiss::host::ipc_property_value& source,
-                                       gneiss::engine::property_value& output) noexcept try {
+                                       gneiss::engine::value& output) noexcept try {
   return std::visit(
       [&](const auto& payload) -> gneiss::engine::result {
         using T = std::decay_t<decltype(payload)>;
@@ -41,7 +41,7 @@ gneiss::engine::result to_native_value(const gneiss::host::ipc_property_value& s
   return gneiss::engine::result::internal;
 }
 
-gneiss::engine::result from_native_value(const gneiss::engine::property_value& source,
+gneiss::engine::result from_native_value(const gneiss::engine::value& source,
                                          gneiss::host::ipc_property_value& output) noexcept try {
   return std::visit(
       [&](const auto& payload) -> gneiss::engine::result {
@@ -159,13 +159,13 @@ runtime_property_editor::execute(const ipc_property_write& command,
     output = std::move(response);
     return gneiss::engine::result::success;
   }
-  gneiss::engine::property_value value;
+  gneiss::engine::value value;
   operation = to_native_value(command.value, value);
   if (operation.ok()) {
     operation = gneiss::engine::write_component_property(registry_, world_, entity, property_type,
                                                          property_field, value);
     if (operation.ok()) {
-      gneiss::engine::property_value canonical;
+      gneiss::engine::value canonical;
       operation = gneiss::engine::read_component_property(registry_, world_, entity, property_type,
                                                           property_field, canonical);
       if (operation.ok()) {

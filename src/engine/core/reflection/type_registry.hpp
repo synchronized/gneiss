@@ -28,12 +28,11 @@ struct type_definition {
 };
 /** 回调借用实际类型的对象指针；调用方保证对象存活、类型正确和线程访问合法。
  * setter 必须先校验再修改，失败保持对象；注册表不复制对象或回滚任意回调副作用。
- * 上下文及属性文本借用，不隐式持有用户对象。
- * getter 返回的文本须至少存活到调用方完成复制，setter 的文本仅在调用期间有效。 */
+ * 上下文和对象借用；getter 输出拥有数据的 value，setter 只在调用期间借用输入 value。 */
 struct property_binding {
-  property_kind kind = property_kind::invalid;
-  result (*getter)(void*, const void*, gneiss::property_value*) = nullptr;
-  result (*setter)(void*, void*, const gneiss::property_value*) = nullptr;
+  gneiss::engine::value_kind kind = gneiss::engine::value_kind::invalid;
+  result (*getter)(void*, const void*, gneiss::engine::value&) = nullptr;
+  result (*setter)(void*, void*, const gneiss::engine::value&) = nullptr;
   void* user_data{};
 };
 [[nodiscard]] inline bool valid_type_id(type_guid id) noexcept { return static_cast<bool>(id); }
@@ -60,9 +59,9 @@ template <class T>
                                                           bool& output) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
 get_property(const registry_ref& state, type_guid type_id, std::uint32_t field_id,
-             const void* object, gneiss::property_value& output) noexcept;
+             const void* object, gneiss::engine::value& output) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
 set_property(const registry_ref& state, type_guid type_id, std::uint32_t field_id, void* object,
-             const gneiss::property_value& value) noexcept;
+             const gneiss::engine::value& value) noexcept;
 } // namespace gneiss::engine
 #endif

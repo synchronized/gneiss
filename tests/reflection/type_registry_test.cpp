@@ -111,13 +111,13 @@ int main() {
     return 5;
   std::int64_t stored = 2;
   const engine::property_binding binding{
-      .kind = gneiss::property_kind::int64,
-      .getter = [](void*, const void* object, gneiss::property_value* output) -> result {
-        output->payload = *static_cast<const std::int64_t*>(object);
+      .kind = gneiss::engine::value_kind::int64,
+      .getter = [](void*, const void* object, gneiss::engine::value& output) -> result {
+        output.payload = *static_cast<const std::int64_t*>(object);
         return result::success;
       },
-      .setter = [](void*, void* object, const gneiss::property_value* value) -> result {
-        const auto next = std::get<std::int64_t>(value->payload);
+      .setter = [](void*, void* object, const gneiss::engine::value& value) -> result {
+        const auto next = std::get<std::int64_t>(value.payload);
         if (next < -10 || next > 10)
           return result::invalid_argument;
         *static_cast<std::int64_t*>(object) = next;
@@ -140,7 +140,7 @@ int main() {
       engine::describe_field(registry, object_type, gneiss::field_id{2}, metadata) !=
           result::not_found)
     return 7;
-  gneiss::property_value value;
+  gneiss::engine::value value;
   if (engine::get_property(registry, object_type, 1, &stored, value).failed() ||
       std::get<std::int64_t>(value.payload) != 2)
     return 8;

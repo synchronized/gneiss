@@ -52,7 +52,8 @@ struct prefab_property_override final {
 };
 
 /** 返回作者属性值的类别；无值或异常失值返回 invalid。 */
-[[nodiscard]] property_kind prefab_property_value_kind(const prefab_property_value& value) noexcept;
+[[nodiscard]] gneiss::engine::value_kind
+prefab_property_value_kind(const prefab_property_value& value) noexcept;
 
 /** 按稳定作者键比较，用于确定性排序。 */
 [[nodiscard]] bool

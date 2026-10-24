@@ -51,7 +51,7 @@ gneiss::engine::result property_inspector_model::refresh(gneiss::engine::rid wor
       component.properties.reserve(type.fields.size());
       for (std::uint32_t index = 0; index < type.fields.size(); ++index) {
         const auto& field = type.fields[index];
-        gneiss::engine::property_value value;
+        gneiss::engine::value value;
         operation = gneiss::engine::read_component_property(registry_, world_handle, entity.get(),
                                                             type.guid, field.id, value);
         if (operation == gneiss::engine::result::not_found) {
@@ -87,7 +87,7 @@ gneiss::engine::result property_inspector_model::refresh(gneiss::engine::rid wor
 
 gneiss::engine::result
 property_inspector_model::set_value(gneiss::engine::type_guid type_id, field_id field_id,
-                                    const gneiss::engine::property_value& value) noexcept {
+                                    const gneiss::engine::value& value) noexcept {
   if (!registry_ || world_ == gneiss::engine::null_rid || entity_.get() == UINT64_C(0)) {
     return gneiss::engine::result::invalid_state;
   }
@@ -106,7 +106,7 @@ property_inspector_model::set_value(gneiss::engine::type_guid type_id, field_id 
   const auto operation = gneiss::engine::write_component_property(registry_, world_, entity_.get(),
                                                                   type_id, field_id, value);
   if (operation == gneiss::engine::result::success) {
-    gneiss::engine::property_value refreshed;
+    gneiss::engine::value refreshed;
     const auto read_operation = gneiss::engine::read_component_property(
         registry_, world_, entity_.get(), type_id, field_id, refreshed);
     if (read_operation != gneiss::engine::result::success) {
@@ -120,7 +120,7 @@ property_inspector_model::set_value(gneiss::engine::type_guid type_id, field_id 
 gneiss::engine::result
 property_inspector_model::set_value(gneiss::engine::rid world_handle, entity_id entity,
                                     gneiss::engine::type_guid type_id, field_id field_id,
-                                    const gneiss::engine::property_value& value) noexcept {
+                                    const gneiss::engine::value& value) noexcept {
   if (!registry_ || world_handle == gneiss::engine::null_rid || !entity.is_valid()) {
     return gneiss::engine::result::invalid_argument;
   }

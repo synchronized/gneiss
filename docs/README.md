@@ -42,6 +42,7 @@
 - [API 稳定级别与兼容策略](reference/compatibility.md)
 - [C++ 调用边界与共享值类型](reference/cpp-sdk.md)
 - [Core 版本与结果接口](reference/core.md)
+- [引擎通用值](reference/value.md)
 - [内部数学类型与边界转换](reference/math.md)
 - [RID 有效性与 Service 生命周期](reference/rid.md)
 - [World、Entity 与内部 ECS 边界](reference/world.md)

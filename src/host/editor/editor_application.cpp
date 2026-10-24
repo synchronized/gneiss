@@ -885,7 +885,7 @@ void draw_reflected_properties(editor_state& state) {
           .write =
               [](void* context, const gneiss::editor::inspector_component& component,
                  const gneiss::editor::inspector_property& property,
-                 const gneiss::engine::property_value& value, std::uint64_t serial) {
+                 const gneiss::engine::value& value, std::uint64_t serial) {
                 auto& editor = *static_cast<editor_state*>(context);
                 return gneiss::editor::edit_author_property(
                     editor.editing.document(), editor.editing.history(), editor.inspector,

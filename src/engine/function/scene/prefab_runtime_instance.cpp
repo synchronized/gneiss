@@ -44,15 +44,15 @@ gneiss::engine::transform to_transform(const gneiss::engine::object_description&
 
 [[nodiscard]] gneiss::engine::result
 to_native_value(const gneiss::engine::prefab_property_value& source,
-                gneiss::property_value& output) noexcept {
+                gneiss::engine::value& output) noexcept try {
   output = {};
   return std::visit(
-      [&](const auto& payload) noexcept -> gneiss::engine::result {
+      [&](const auto& payload) -> gneiss::engine::result {
         using type = std::decay_t<decltype(payload)>;
         if constexpr (std::is_same_v<type, std::monostate>)
           return gneiss::engine::result::invalid_argument;
         else if constexpr (std::is_same_v<type, std::string>)
-          output.payload = std::string_view{payload};
+          output.payload = payload;
         else if constexpr (std::is_same_v<type, std::array<std::uint8_t, 16>>)
           output.payload = gneiss::engine::type_guid{gneiss::engine::guid::from_bytes(payload)};
         else if constexpr (std::is_same_v<type, std::array<float, 3>>)
@@ -65,6 +65,10 @@ to_native_value(const gneiss::engine::prefab_property_value& source,
         return gneiss::engine::result::success;
       },
       source.payload);
+} catch (const std::bad_alloc&) {
+  return gneiss::engine::result::out_of_memory;
+} catch (...) {
+  return gneiss::engine::result::internal;
 }
 
 gneiss::engine::result
@@ -463,7 +467,7 @@ gneiss::engine::result prefab_runtime_instance::create(
 namespace {
 gneiss::engine::result apply_candidate_object(const gneiss::engine::registry_ref& state,
                                               const gneiss::engine::prefab_property_override& value,
-                                              const gneiss::property_value& native,
+                                              const gneiss::engine::value& native,
                                               gneiss::engine::object_description& object) {
   auto result = gneiss::engine::result::success;
   const auto is_type = [&](gneiss::engine::type_guid type) { return value.key.type_id == type; };
@@ -528,7 +532,7 @@ gneiss::engine::result prefab_runtime_instance::prepare_candidate_description(
     if (found == candidate.objects.end()) {
       return gneiss::engine::result::not_found;
     }
-    gneiss::property_value native = gneiss::property_value{};
+    gneiss::engine::value native = gneiss::engine::value{};
     auto result = to_native_value(value.value, native);
     if (result != gneiss::engine::result::success) {
       return result;
@@ -568,7 +572,7 @@ gneiss::engine::result prefab_runtime_instance::apply_overrides(
     if (found == nodes_.end()) {
       return gneiss::engine::result::not_found;
     }
-    gneiss::property_value native_value = gneiss::property_value{};
+    gneiss::engine::value native_value = gneiss::engine::value{};
     auto result = to_native_value(override_value.value, native_value);
     if (result == gneiss::engine::result::success) {
       result = gneiss::engine::write_component_property(registry, reflection_context_,

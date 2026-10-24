@@ -14,7 +14,7 @@ int main() try {
   inspector_property property;
   property.id = gneiss::field_id{1U};
   property.name = "Rotation";
-  property.kind = gneiss::property_kind::quaternion;
+  property.kind = gneiss::engine::value_kind::quaternion;
   property.capabilities = gneiss::property_capabilities::writable;
   property.value.payload = gneiss::engine::quaternion_xyzw(0.0F, 0.0F, 0.0F, 1.0F);
   component.properties.push_back(property);
@@ -26,7 +26,7 @@ int main() try {
       .context = &writes,
       .write =
           [](void* context, const inspector_component&, const inspector_property&,
-             const gneiss::engine::property_value&, std::uint64_t) {
+             const gneiss::engine::value&, std::uint64_t) {
             ++*static_cast<unsigned*>(context);
             return gneiss::engine::result{gneiss::engine::result::success};
           },

@@ -19,17 +19,11 @@ create_property_registry(gneiss::engine::registry_ref&) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::type_guid transform_property_type() noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::type_guid camera_property_type() noexcept;
 /** 在 World 所属线程定位内建组件；读出副本后访问，写入成功才提交。不会保留对象指针。
- * 失败保持既有组件；未知组件类型返回 unsupported。借用属性值入口仅服务内建无文本字段。 */
+ * 失败保持既有组件；未知组件类型返回 unsupported。值及字符串由调用方持有。 */
 [[nodiscard]] GNEISS_API result read_component_property(const registry_ref&, rid world,
                                                         std::uint64_t entity, type_guid, field_id,
-                                                        property_value&) noexcept;
+                                                        gneiss::engine::value&) noexcept;
 [[nodiscard]] GNEISS_API result write_component_property(const registry_ref&, rid world,
                                                          std::uint64_t entity, type_guid, field_id,
-                                                         const property_value&) noexcept;
-[[nodiscard]] GNEISS_API result read_component_property(const registry_ref&, rid world,
-                                                        std::uint64_t entity, type_guid, field_id,
-                                                        gneiss::property_value&) noexcept;
-[[nodiscard]] GNEISS_API result write_component_property(const registry_ref&, rid world,
-                                                         std::uint64_t entity, type_guid, field_id,
-                                                         const gneiss::property_value&) noexcept;
+                                                         const gneiss::engine::value&) noexcept;
 } // namespace gneiss::engine

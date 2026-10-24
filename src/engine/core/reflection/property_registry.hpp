@@ -12,16 +12,6 @@ namespace gneiss::engine {
 class type_registry_state;
 /** 原生注册表共享所有者；最后一个引用释放时销毁，借用元数据不得超过该生命周期。 */
 using registry_ref = std::shared_ptr<type_registry_state>;
-/** 内部属性快照拥有文本，复制后可独立用于异步消息或撤销历史。 */
-struct property_value {
-  std::variant<std::monostate, bool, std::int64_t, std::uint64_t, float, double, std::string,
-               engine::type_guid, property_vec3, property_quaternion>
-      payload;
-  [[nodiscard]] property_kind kind() const noexcept {
-    return payload.valueless_by_exception() ? property_kind::invalid
-                                            : static_cast<property_kind>(payload.index());
-  }
-};
 /** 冻结后返回类型数量；失败保持输出。 */
 [[nodiscard]] GNEISS_API result type_count(const registry_ref& registry,
                                            std::uint32_t& output) noexcept;
@@ -46,12 +36,11 @@ template <class T>
                                                                field_info& output) noexcept;
 /** 读取自有快照；失败保持输出。冻结后的 Registry 可共享，对象的类型、寿命和线程访问由调用方保证。
  */
-[[nodiscard]] GNEISS_API gneiss::engine::result read_property(const registry_ref& registry,
-                                                              gneiss::engine::type_guid type,
-                                                              field_id field, const void* object,
-                                                              property_value& output) noexcept;
+[[nodiscard]] GNEISS_API gneiss::engine::result
+read_property(const registry_ref& registry, gneiss::engine::type_guid type, field_id field,
+              const void* object, gneiss::engine::value& output) noexcept;
 /** 输入在调用期间借用；沿用访问器的校验、线程与错误语义，不跨线程投递。 */
 [[nodiscard]] GNEISS_API gneiss::engine::result
 write_property(const registry_ref& registry, gneiss::engine::type_guid type, field_id field,
-               void* object, const property_value& value) noexcept;
+               void* object, const gneiss::engine::value& value) noexcept;
 } // namespace gneiss::engine

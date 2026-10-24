@@ -71,6 +71,7 @@ target_sources(
     engine/core/string_name.cpp
     engine/core/string_name.hpp
     engine/core/type_guid.hpp
+    engine/core/value.hpp
     engine/core/traits/type_name.hpp
     engine/core/traits/type_identity.hpp
     engine/core/result.hpp

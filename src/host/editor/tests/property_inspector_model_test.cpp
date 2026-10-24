@@ -53,7 +53,7 @@ int main() {
     return 22;
   }
 
-  gneiss::engine::property_value value;
+  gneiss::engine::value value;
   value.payload = gneiss::property_vec3{2.0F, 3.0F, 4.0F};
   if (inspector.set_value(gneiss::engine::transform_component_type,
                           gneiss::engine::transform_translation_field,

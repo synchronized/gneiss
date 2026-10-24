@@ -33,11 +33,11 @@ int main() {
       engine::describe_type<engine::camera_properties>(registry, info).failed() ||
       info.guid != camera_type)
     return 2;
-  gneiss::property_value value;
+  gneiss::engine::value value;
   if (engine::read_component_property(registry, first_context, entity.get(), transform_type,
                                       gneiss::field_id{1}, value)
           .failed() ||
-      value.kind() != gneiss::property_kind::vec3 ||
+      value.kind() != gneiss::engine::value_kind::vec3 ||
       std::abs(std::get<gneiss::property_vec3>(value.payload).x) > 0.0001F)
     return 3;
   value.payload = gneiss::property_vec3{2, 3, 4};
@@ -64,7 +64,7 @@ int main() {
       engine::read_component_property(registry, first_context, entity.get(), camera_type,
                                       gneiss::field_id{4}, value)
           .failed() ||
-      value.kind() != gneiss::property_kind::boolean || !std::get<bool>(value.payload))
+      value.kind() != gneiss::engine::value_kind::boolean || !std::get<bool>(value.payload))
     return 7;
   value.payload = 0.5F;
   if (engine::write_component_property(registry, first_context, entity.get(), camera_type,
@@ -83,7 +83,7 @@ int main() {
     return 9;
   result foreign_read{}, foreign_write{};
   std::thread worker([&] {
-    gneiss::property_value isolated;
+    gneiss::engine::value isolated;
     foreign_read = engine::read_component_property(registry, first_context, entity.get(),
                                                    transform_type, gneiss::field_id{1}, isolated);
     isolated.payload = gneiss::engine::vector3{9, 9, 9};

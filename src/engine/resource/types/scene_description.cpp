@@ -398,8 +398,8 @@ template <std::size_t Size>
          "Field ID 必须是非零 uint32");
     return false;
   }
-  gneiss::engine::prefab_property_value property_value;
-  if (!parse_override_value(yyjson_obj_get(value, "value"), property_value)) {
+  gneiss::engine::prefab_property_value parsed_value;
+  if (!parse_override_value(yyjson_obj_get(value, "value"), parsed_value)) {
     fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/value", "覆盖属性值无效");
     return false;
   }
@@ -414,7 +414,7 @@ template <std::size_t Size>
               .type_id = type_id,
               .field_id = gneiss::field_id{static_cast<std::uint32_t>(yyjson_get_uint(field))},
           },
-      .value = std::move(property_value),
+      .value = std::move(parsed_value),
   };
   return true;
 }

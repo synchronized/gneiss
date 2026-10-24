@@ -17,9 +17,9 @@ namespace gneiss::editor {
 struct inspector_property final {
   field_id id{};
   std::string name;
-  property_kind kind = property_kind::invalid;
+  gneiss::engine::value_kind kind = gneiss::engine::value_kind::invalid;
   property_capabilities capabilities = property_capabilities::none;
-  gneiss::engine::property_value value{};
+  gneiss::engine::value value{};
 };
 
 struct inspector_component final {
@@ -45,14 +45,15 @@ public:
                                                entity_id entity) noexcept;
 
   /** 通过 World 组件属性入口写入属性；失败时保留运行时值和当前快照。 */
-  [[nodiscard]] gneiss::engine::result
-  set_value(gneiss::engine::type_guid type_id, field_id field_id,
-            const gneiss::engine::property_value& value) noexcept;
+  [[nodiscard]] gneiss::engine::result set_value(gneiss::engine::type_guid type_id,
+                                                 field_id field_id,
+                                                 const gneiss::engine::value& value) noexcept;
 
   /** 按稳定实体 ID 写入属性，供撤销/重做在选择变化后复用。 */
-  [[nodiscard]] gneiss::engine::result
-  set_value(gneiss::engine::rid world, entity_id entity, gneiss::engine::type_guid type_id,
-            field_id field_id, const gneiss::engine::property_value& value) noexcept;
+  [[nodiscard]] gneiss::engine::result set_value(gneiss::engine::rid world, entity_id entity,
+                                                 gneiss::engine::type_guid type_id,
+                                                 field_id field_id,
+                                                 const gneiss::engine::value& value) noexcept;
 
   [[nodiscard]] const std::vector<inspector_component>& components() const noexcept {
     return components_;

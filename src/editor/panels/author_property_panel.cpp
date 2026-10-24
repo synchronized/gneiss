@@ -27,20 +27,20 @@ bool draw_property(const inspector_component& component, const inspector_propert
   ImGui::PushID(static_cast<int>(property.id.get()));
   ImGui::BeginDisabled(!writable);
   switch (property.kind) {
-  case property_kind::boolean: {
+  case gneiss::engine::value_kind::boolean: {
     auto checked = std::get<bool>(value.payload);
     changed = ImGui::Checkbox(property.name.c_str(), &checked);
     value.payload = checked;
     break;
   }
-  case property_kind::float32:
+  case gneiss::engine::value_kind::float32:
     changed = ImGui::DragFloat(property.name.c_str(), &std::get<float>(value.payload), 0.01F);
     break;
-  case property_kind::vec3:
+  case gneiss::engine::value_kind::vec3:
     changed =
         ImGui::DragFloat3(property.name.c_str(), &std::get<property_vec3>(value.payload).x, 0.05F);
     break;
-  case property_kind::quaternion: {
+  case gneiss::engine::value_kind::quaternion: {
     std::array<float, 3> euler{};
     error = gneiss::editor::quaternion_to_euler_degrees(
         std::get<property_quaternion>(value.payload), euler);

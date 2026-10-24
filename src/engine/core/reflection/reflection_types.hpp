@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "engine/core/math/types.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/type_guid.hpp"
+#include "engine/core/value.hpp"
 #include <algorithm>
 #include <array>
 #include <concepts>
@@ -29,19 +29,6 @@ private:
   std::uint32_t value_ = 0;
 };
 inline constexpr field_id null_field_id{};
-// NOLINTNEXTLINE(performance-enum-size): 未知值需保留完整 ABI 数值后交给边界验证。
-enum class property_kind : std::uint32_t {
-  invalid = 0,
-  boolean = 1,
-  int64 = 2,
-  uint64 = 3,
-  float32 = 4,
-  float64 = 5,
-  string = 6,
-  type_id = 7,
-  vec3 = 8,
-  quaternion = 9,
-};
 // NOLINTNEXTLINE(performance-enum-size): 保留完整 ABI 标志位。
 enum class field_flags : std::uint32_t { none = 0, read_only = 1 };
 // NOLINTNEXTLINE(performance-enum-size): 保留完整 ABI 标志位。
@@ -65,18 +52,6 @@ template <reflection_flags T> [[nodiscard]] constexpr bool has_flags(T value, T 
 }
 using property_vec3 = engine::vector3;
 using property_quaternion = engine::quaternion;
-/** 属性文本的寿命由 getter 的适配器约定，包装不延长寿命。 */
-using property_string = std::string_view;
-using property_payload =
-    std::variant<std::monostate, bool, std::int64_t, std::uint64_t, float, double, property_string,
-                 engine::type_guid, property_vec3, property_quaternion>;
-struct property_value {
-  property_payload payload;
-  [[nodiscard]] property_kind kind() const noexcept {
-    return payload.valueless_by_exception() ? property_kind::invalid
-                                            : static_cast<property_kind>(payload.index());
-  }
-};
 // 缺省成员值允许 designated 初始化省略字段，避免消费者缺省字段告警。
 // NOLINTBEGIN(readability-redundant-member-init)
 /** 名称由冻结 Registry 借出，有效期不超过 Registry。 */
@@ -85,7 +60,7 @@ struct field_info {
   gneiss::engine::type_guid type_guid{};
   field_flags flags = field_flags::none;
   std::string_view name{};
-  property_kind kind = property_kind::invalid;
+  gneiss::engine::value_kind kind = gneiss::engine::value_kind::invalid;
   property_capabilities capabilities = property_capabilities::none;
 };
 /** 自有字段数组；名称借用冻结 Registry 的文本，复制/移动不产生临时数组悬空。 */
