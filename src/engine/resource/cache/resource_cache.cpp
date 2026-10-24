@@ -13,95 +13,59 @@
 
 namespace gneiss::engine::resource {
 
-gneiss::engine::core::result
-resource_cache::acquire(std::string_view uri, std::type_index type, const loader& load,
-                        asset_ref<const entry>& out_entry,
-                        std::shared_ptr<const asset_source_domain> source) noexcept {
+gneiss::engine::core::result resource_cache::load(std::string_view uri, std::type_index type,
+                                                  const loader& decode,
+                                                  asset_ref<const entry>& out_entry,
+                                                  std::shared_ptr<const asset_source_domain> source,
+                                                  bool reload) noexcept {
+  using core::result;
   out_entry.reset();
-  if (type == typeid(void) || !load || validate_uri(uri) != gneiss::engine::core::result::success) {
-    return gneiss::engine::core::result::invalid_argument;
-  }
+  if (type == typeid(void) || !decode || validate_uri(uri) != result::success)
+    return result::invalid_argument;
   try {
     const key identity{source, std::string(uri), type};
-    const auto found = entries_.find(identity);
+    auto found = entries_.find(identity);
     if (found != entries_.end()) {
-      if ((found->second->type != type || found->second->source != source)) {
-        return gneiss::engine::core::result::invalid_argument;
-      }
-      if (found->second->state == resource_state::ready) {
+      if (found->second->state == resource_state::loading)
+        return result::invalid_state;
+      if (!reload && found->second->state == resource_state::ready) {
         out_entry = found->second;
-        return gneiss::engine::core::result::success;
+        return result::success;
       }
-      if (found->second->state == resource_state::loading) {
-        return gneiss::engine::core::result::invalid_state;
-      }
-      entries_.erase(found); // 失败不永久缓存；下一次获取重新尝试。
-    }
-
-    auto value = std::make_shared<entry>();
-    value->uri = uri;
-    value->source = std::move(source);
-    value->type = type;
-    value->state = resource_state::loading;
-    entries_.emplace(identity, asset_ref<const entry>{value});
-
-    std::shared_ptr<const void> resource;
-    const auto result = load(resource);
-    if (result != gneiss::engine::core::result::success || resource == nullptr) {
-      value->state = resource_state::failed;
-      value->failure = result == gneiss::engine::core::result::success
-                           ? gneiss::engine::core::result::internal
-                           : result;
-      entries_.erase(identity);
-      return value->failure;
-    }
-    value->resource = std::move(resource);
-    value->state = resource_state::ready;
-    out_entry = asset_ref<const entry>{std::move(value)};
-    return gneiss::engine::core::result::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::core::result::internal;
-  }
-}
-
-gneiss::engine::core::result
-resource_cache::reload(std::string_view uri, std::type_index type, const loader& load,
-                       asset_ref<const entry>& out_entry,
-                       std::shared_ptr<const asset_source_domain> source) noexcept {
-  out_entry.reset();
-  if (type == typeid(void) || !load || validate_uri(uri) != gneiss::engine::core::result::success) {
-    return gneiss::engine::core::result::invalid_argument;
-  }
-  try {
-    const key identity{source, std::string(uri), type};
-    const auto found = entries_.find(identity);
-    if (found != entries_.end() &&
-        (found->second->type != type || found->second->source != source)) {
-      return gneiss::engine::core::result::invalid_argument;
     }
     auto value = std::make_shared<entry>();
     value->uri = uri;
     value->source = std::move(source);
     value->type = type;
     value->state = resource_state::loading;
-    std::shared_ptr<const void> resource;
-    const auto result = load(resource);
-    if (result != gneiss::engine::core::result::success || resource == nullptr) {
-      return result == gneiss::engine::core::result::success
-                 ? gneiss::engine::core::result::internal
-                 : result;
-    }
-    value->resource = std::move(resource);
-    value->state = resource_state::ready;
+    // 加载期间保活旧值并阻止同键递归；失败（包括异常）恢复原条目。
+    const auto previous = found == entries_.end() ? asset_ref<const entry>{} : found->second;
     entries_.insert_or_assign(identity, asset_ref<const entry>{value});
+    result status;
+    try {
+      status = decode(value->resource);
+      if (status == result::success && !value->resource)
+        status = result::internal;
+    } catch (const std::bad_alloc&) {
+      status = result::out_of_memory;
+    } catch (...) {
+      status = result::internal;
+    }
+    found = entries_.find(identity);
+    if (status != result::success) {
+      if (previous)
+        found->second = previous;
+      else
+        entries_.erase(found);
+      return status;
+    }
+    value->state = resource_state::ready;
     out_entry = asset_ref<const entry>{std::move(value)};
-    return gneiss::engine::core::result::success;
+    return result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::core::result::out_of_memory;
+    return result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::core::result::internal;
+    return result::internal;
   }
 }
 

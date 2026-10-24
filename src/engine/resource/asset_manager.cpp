@@ -233,28 +233,16 @@ asset_manager::load_sync_erased(std::type_index type, std::string_view uri,
   if (identified != engine::core::result::success)
     return identified;
   const auto& loader = *found->second;
-  std::vector<std::byte> bytes;
-  auto status = files_.read_bounded(uri, loader.maximum_bytes(), bytes);
-  if (status != gneiss::engine::core::result::success) {
-    return status;
-  }
-  std::shared_ptr<const void> value;
-  status = loader.decode(bytes, value);
-  if (status != gneiss::engine::core::result::success) {
-    return status;
-  }
-  if (!value) {
-    return gneiss::engine::core::result::internal;
-  }
   auto& entry = state.requests[{domain, std::string(uri), type}];
   asset_ref<const resource_cache::entry> cached;
-  status = cache_.reload(
+  const auto status = cache_.load(
       uri, type,
       [&](auto& stored) {
-        stored = value;
-        return engine::core::result::success;
+        std::vector<std::byte> bytes;
+        const auto read = files_.read_bounded(uri, loader.maximum_bytes(), bytes);
+        return read == engine::core::result::success ? loader.decode(bytes, stored) : read;
       },
-      cached, domain);
+      cached, domain, true);
   if (status != engine::core::result::success)
     return status;
   ++entry.generation;
@@ -319,13 +307,13 @@ void asset_manager::advance_resources() {
       if (work->status == gneiss::engine::core::result::success) {
         const auto& [domain, uri, type] = work->identity;
         asset_ref<const resource_cache::entry> cached;
-        work->status = cache_.reload(
+        work->status = cache_.load(
             uri, type,
             [&](auto& stored) {
               stored = work->value;
               return engine::core::result::success;
             },
-            cached, domain);
+            cached, domain, true);
         if (work->status == engine::core::result::success) {
           work->value = std::shared_ptr<const void>(cached.shared(), cached->resource.get());
         }

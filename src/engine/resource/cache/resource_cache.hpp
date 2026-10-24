@@ -40,15 +40,12 @@ public:
 
   using loader = std::function<gneiss::engine::core::result(std::shared_ptr<const void>&)>;
 
+  /** 所属线程统一加载入口；默认复用，reload 成功后替换，失败保留旧条目。
+   * 回调仅在需要加载时执行；同键递归加载返回 invalid_state。 */
   [[nodiscard]] gneiss::engine::core::result
-  acquire(std::string_view uri, std::type_index type, const loader& load,
-          asset_ref<const entry>& out_entry,
-          std::shared_ptr<const asset_source_domain> source = {}) noexcept;
-  /** 强制重新加载并在成功后替换缓存项；失败时保留原缓存。 */
-  [[nodiscard]] gneiss::engine::core::result
-  reload(std::string_view uri, std::type_index type, const loader& load,
-         asset_ref<const entry>& out_entry,
-         std::shared_ptr<const asset_source_domain> source = {}) noexcept;
+  load(std::string_view uri, std::type_index type, const loader& decode,
+       asset_ref<const entry>& out_entry, std::shared_ptr<const asset_source_domain> source = {},
+       bool reload = false) noexcept;
   void release_unused() noexcept;
   /** 只观察当前身份，不触发加载；返回的弱引用不会阻止卸载。 */
   [[nodiscard]] std::weak_ptr<const entry>

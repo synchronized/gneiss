@@ -365,48 +365,38 @@ gneiss::engine::core::result render_asset_loader::reserve_asset(const render_ass
     if (identified != gneiss::engine::core::result::success) {
       return identified;
     }
-    render_asset_ref lease;
-    lease = render_asset_ref{
-        cache_.observe(source.uri, cache_type(source.type), identity.source).lock()};
-    if (lease) {
-      if (asset_kind(lease) != source.type || !owns(lease)) {
-        return gneiss::engine::core::result::invalid_handle;
-      }
-      output = std::move(lease);
-      return gneiss::engine::core::result::success;
-    }
-    std::shared_ptr<const void> resource;
-    auto result = gneiss::engine::core::result::invalid_argument;
-    switch (source.type) {
-    case render_asset_type::mesh: {
-      auto asset = std::make_shared<mesh_asset>(resources_, 0U);
-      result = resources_.reserve_mesh(&asset->rid);
-      resource = std::move(asset);
-      break;
-    }
-    case render_asset_type::texture: {
-      auto asset = std::make_shared<texture_asset>(resources_, 0U);
-      result = resources_.reserve_texture(&asset->rid);
-      resource = std::move(asset);
-      break;
-    }
-    case render_asset_type::material: {
-      auto asset = std::make_shared<material_asset>(resources_, 0U);
-      result = resources_.reserve_material(&asset->rid);
-      resource = std::move(asset);
-      break;
-    }
-    case render_asset_type::invalid:
-      break;
-    }
-    if (result == gneiss::engine::core::result::success) {
-      return cache_.acquire(
-          source.uri, cache_type(source.type),
-          [resource = std::move(resource)](auto& value) {
-            value = resource;
-            return gneiss::engine::core::result::success;
-          },
-          output, identity.source);
+    const auto result = cache_.load(
+        source.uri, cache_type(source.type),
+        [&](std::shared_ptr<const void>& resource) {
+          auto result = gneiss::engine::core::result::invalid_argument;
+          switch (source.type) {
+          case render_asset_type::mesh: {
+            auto asset = std::make_shared<mesh_asset>(resources_, 0U);
+            result = resources_.reserve_mesh(&asset->rid);
+            resource = std::move(asset);
+            break;
+          }
+          case render_asset_type::texture: {
+            auto asset = std::make_shared<texture_asset>(resources_, 0U);
+            result = resources_.reserve_texture(&asset->rid);
+            resource = std::move(asset);
+            break;
+          }
+          case render_asset_type::material: {
+            auto asset = std::make_shared<material_asset>(resources_, 0U);
+            result = resources_.reserve_material(&asset->rid);
+            resource = std::move(asset);
+            break;
+          }
+          case render_asset_type::invalid:
+            break;
+          }
+          return result;
+        },
+        output, identity.source);
+    if (result == engine::core::result::success && !owns(output)) {
+      output.reset();
+      return engine::core::result::invalid_handle;
     }
     return result;
   } catch (const std::bad_alloc&) {
@@ -541,7 +531,7 @@ render_asset_loader::acquire_mesh(std::string_view uri, render_asset_ref& out_le
   if (identified != gneiss::engine::core::result::success) {
     return identified;
   }
-  const auto result = cache_.acquire(
+  const auto result = cache_.load(
       uri, typeid(mesh_asset),
       [this, uri,
        &out_diagnostic](std::shared_ptr<const void>& output) -> gneiss::engine::core::result {
@@ -618,7 +608,7 @@ render_asset_loader::acquire_material(std::string_view uri, render_asset_ref& ou
   if (identified != gneiss::engine::core::result::success) {
     return identified;
   }
-  const auto result = cache_.acquire(
+  const auto result = cache_.load(
       uri, typeid(material_asset),
       [this, uri,
        &out_diagnostic](std::shared_ptr<const void>& output) -> gneiss::engine::core::result {
@@ -703,7 +693,7 @@ render_asset_loader::acquire_texture(std::string_view uri, render_asset_ref& out
   if (identified != gneiss::engine::core::result::success) {
     return identified;
   }
-  const auto result = cache_.acquire(
+  const auto result = cache_.load(
       uri, typeid(texture_asset),
       [this, uri,
        &out_diagnostic](std::shared_ptr<const void>& output) -> gneiss::engine::core::result {

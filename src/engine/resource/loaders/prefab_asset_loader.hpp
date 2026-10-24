@@ -38,6 +38,8 @@ public:
                                                               prefab_asset_ref& out_lease) noexcept;
 
 private:
+  [[nodiscard]] core::result load(std::string_view uri, prefab_asset_ref& output,
+                                  scene_diagnostic& diagnostic, bool reload) noexcept;
   const engine::resource::virtual_file_system& file_system_;
   engine::resource::resource_cache& cache_;
 };
