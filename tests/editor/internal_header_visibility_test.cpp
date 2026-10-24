@@ -3,8 +3,8 @@
 
 #include "runtime/application.hpp"
 // 只包含 Application 不应引入具体 Scene 服务或输入服务。
-#if defined(GNEISS_SCENE_SCENE_INSTANCE_SERVICE_HPP_) ||                                           \
-    defined(GNEISS_INPUT_INPUT_SERVICE_HPP_) || defined(GNEISS_RENDER_RENDER_EXECUTOR_HPP_)
+#if defined(GNEISS_SCENE_SCENE_INSTANCES_HPP_) || defined(GNEISS_INPUT_INPUT_SERVICE_HPP_) ||      \
+    defined(GNEISS_RENDER_RENDER_EXECUTOR_HPP_)
 #error "Application 重新传递包含了具体服务"
 #endif
 #include "engine/function/world/world.hpp"
@@ -16,13 +16,13 @@
 #if __has_include("runtime/application_registry.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
-#if __has_include("runtime/loading/application_scene_state.hpp")
+#if __has_include("runtime/loading/scene_domain.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
 #if __has_include("engine/resource/asset_manager.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
-#if __has_include("runtime/loading/scene_load_service.hpp")
+#if __has_include("runtime/loading/scene_service.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
 #if __has_include("engine/core/reflection/type_registry.hpp")

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/render/texture_load_service.hpp"
-#include "engine/function/scene/scene_instance_service.hpp"
+#include "engine/function/scene/scene_instances.hpp"
 #include "runtime/application.hpp"
 #include "runtime/application_registry.hpp"
 
@@ -101,7 +101,7 @@ void test_asset_request_boundaries() {
     engine::render::texture_load_completion completion;
     completion.request = 23;
     engine::render::render_asset_lease lease;
-    engine::scene::scene_instance_service::mesh_binding binding;
+    engine::scene::scene_instances::mesh_binding binding;
     gneiss::scene_node_id created{19};
     check(app->create_mesh_node_ready(0, {}, {}, created) == GNEISS_ERROR_INVALID_STATE &&
           !created.is_valid());

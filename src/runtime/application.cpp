@@ -10,7 +10,7 @@
 #include "engine/function/world/world.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "runtime/loading/action_map_application.hpp"
-#include "runtime/loading/scene_session.hpp"
+#include "runtime/loading/scene_service.hpp"
 #include <atomic>
 #include <optional>
 #include <thread>
@@ -63,7 +63,7 @@ struct application::storage {
   std::unique_ptr<engine::render::render_asset_loader> render_assets_;
   runtime::action_map_application input_application_;
   bool asset_executor_attached_ = false;
-  runtime::scene_session scene_session_;
+  runtime::scene_service scene_service_;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;
   std::uint64_t elapsed_ns_ = 0;
@@ -189,7 +189,7 @@ gneiss_result
 application::attach_task_executor(engine::core::tasks::task_executor& executor) noexcept {
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
-  if (storage_->scene_session_.textures()) {
+  if (storage_->scene_service_.textures()) {
     return GNEISS_ERROR_INVALID_STATE;
   }
   try {
@@ -243,7 +243,7 @@ application::attach_task_executor(engine::core::tasks::task_executor& executor) 
       backend.discard = backend.begin;
       backend.flush = [] {};
     }
-    return storage_->scene_session_.attach_executor(executor, storage_->asset_file_system_,
+    return storage_->scene_service_.attach_executor(executor, storage_->asset_file_system_,
                                                     storage_->resources_, std::move(backend),
                                                     storage_->loop_notification_);
   } catch (const std::bad_alloc&) {
@@ -258,7 +258,7 @@ gneiss_result application::activate_scene(std::uint64_t request,
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
   try {
-    return storage_->scene_session_.activate(request, completion);
+    return storage_->scene_service_.activate(request, completion);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -417,7 +417,7 @@ gneiss_result application::initialize() noexcept {
     storage_->render_assets_ = std::make_unique<engine::render::render_asset_loader>(
         storage_->asset_file_system_, *storage_->render_asset_cache_, storage_->resources_);
     const auto result =
-        storage_->scene_session_.initialize(*storage_->asset_manager_, *storage_->render_assets_);
+        storage_->scene_service_.initialize(*storage_->asset_manager_, *storage_->render_assets_);
     if (result != GNEISS_SUCCESS) {
       report(GNEISS_NULL_APPLICATION, engine::core::diagnostics::severity::error,
              engine::core::diagnostics::category::application, result, "scene", "场景域创建失败");
@@ -641,7 +641,7 @@ gneiss_result application::capture_frame(std::uint32_t width, std::uint32_t heig
     window.height = height;
     window.needs_recreate = false;
     engine::render::render_snapshot snapshot;
-    auto result = storage_->scene_session_.native_world()->get_render_snapshot(
+    auto result = storage_->scene_service_.native_world()->get_render_snapshot(
         width, height, snapshot, storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
     if (result != GNEISS_SUCCESS) {
       return result;
@@ -705,7 +705,7 @@ gneiss_result application::render_frame() noexcept {
   engine::render::render_snapshot snapshot;
   const auto snapshot_result = engine::core::diagnostics::measure(
       engine::core::diagnostics::loop_stage::render_snapshot, [&]() noexcept {
-        return storage_->scene_session_.native_world()->get_render_snapshot(
+        return storage_->scene_service_.native_world()->get_render_snapshot(
             window.width, window.height, snapshot,
             storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
       });
@@ -898,7 +898,7 @@ gneiss_result application::shutdown(gneiss_application handle) noexcept {
   if (storage_->asset_manager_) {
     storage_->asset_manager_->stop_resources();
   }
-  storage_->scene_session_.shutdown();
+  storage_->scene_service_.shutdown();
   storage_->render_assets_.reset();
   storage_->render_asset_cache_.reset();
   storage_->asset_manager_.reset();
@@ -1028,17 +1028,16 @@ const engine::resource::virtual_file_system& application::asset_files() const no
 }
 
 bool application::has_asset_loading_service() const noexcept {
-  return storage_->scene_session_.textures() != nullptr;
+  return storage_->scene_service_.textures() != nullptr;
 }
 
 engine::render::texture_load_service* application::texture_service() noexcept {
-  return storage_->scene_session_.textures();
+  return storage_->scene_service_.textures();
 }
 
 gneiss_result application::create_mesh_node_ready(
     gneiss_scene_instance scene, const engine::scene::mesh_renderer_node_creation& desc,
-    const engine::scene::scene_instance_service::mesh_binding& prepared,
-    scene_node_id& output) noexcept {
+    const engine::scene::scene_instances::mesh_binding& prepared, scene_node_id& output) noexcept {
   output = {};
   const auto valid =
       is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
@@ -1072,9 +1071,9 @@ gneiss_result application::query_ready_asset(const engine::render::render_asset_
   return result == GNEISS_ERROR_NOT_FOUND ? GNEISS_ERROR_NOT_READY : result;
 }
 
-gneiss_result application::capture_mesh_binding(
-    gneiss_scene_instance scene, scene_node_id node,
-    engine::scene::scene_instance_service::mesh_binding& output) noexcept {
+gneiss_result
+application::capture_mesh_binding(gneiss_scene_instance scene, scene_node_id node,
+                                  engine::scene::scene_instances::mesh_binding& output) noexcept {
   output = {};
   const auto valid =
       is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
@@ -1083,8 +1082,8 @@ gneiss_result application::capture_mesh_binding(
 
 gneiss_result application::replace_mesh_binding(
     gneiss_scene_instance scene, scene_node_id node,
-    const engine::scene::scene_instance_service::mesh_binding& expected,
-    const engine::scene::scene_instance_service::mesh_binding& replacement) noexcept {
+    const engine::scene::scene_instances::mesh_binding& expected,
+    const engine::scene::scene_instances::mesh_binding& replacement) noexcept {
   const auto valid =
       is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
   return valid == GNEISS_SUCCESS
@@ -1119,7 +1118,7 @@ gneiss_result application::request_scene(std::string_view uri, std::uint64_t ses
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
   try {
-    return storage_->scene_session_.request_scene(uri, session, revision, request);
+    return storage_->scene_service_.request_scene(uri, session, revision, request);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -1131,7 +1130,7 @@ bool application::scene_progress(runtime::scene_load_progress& progress) const {
   progress = {};
   if (!is_owner_thread() || !accepts_requests())
     return false;
-  return storage_->scene_session_.scene_progress(progress);
+  return storage_->scene_service_.scene_progress(progress);
 }
 
 gneiss_result application::poll_scene(runtime::scene_load_completion& completion, bool& ready) {
@@ -1139,7 +1138,7 @@ gneiss_result application::poll_scene(runtime::scene_load_completion& completion
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
   try {
-    const auto result = storage_->scene_session_.poll_scene(completion, ready);
+    const auto result = storage_->scene_service_.poll_scene(completion, ready);
     report_visual_completion();
     return result;
   } catch (const std::bad_alloc&) {
@@ -1153,7 +1152,7 @@ gneiss_result application::cancel_scene(std::uint64_t request) {
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
   try {
-    return storage_->scene_session_.cancel_scene(request);
+    return storage_->scene_service_.cancel_scene(request);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -1161,7 +1160,7 @@ gneiss_result application::cancel_scene(std::uint64_t request) {
   }
 }
 
-bool application::scene_loading() const noexcept { return storage_->scene_session_.loading(); }
+bool application::scene_loading() const noexcept { return storage_->scene_service_.loading(); }
 
 gneiss_result
 application::request_assets(std::span<const engine::render::render_asset_reload> sources,
@@ -1173,7 +1172,7 @@ application::request_assets(std::span<const engine::render::render_asset_reload>
   if (!texture_service() || scene_loading())
     return GNEISS_ERROR_NOT_READY;
   try {
-    return storage_->scene_session_.request_assets(sources, session, revision, request, reload);
+    return storage_->scene_service_.request_assets(sources, session, revision, request, reload);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -1187,7 +1186,7 @@ gneiss_result application::poll_assets(engine::render::texture_load_completion& 
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
   try {
-    return storage_->scene_session_.poll_assets(completion, ready);
+    return storage_->scene_service_.poll_assets(completion, ready);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -1199,7 +1198,7 @@ bool application::asset_progress(engine::render::asset_load_progress& progress) 
   progress = {};
   if (!is_owner_thread() || !accepts_requests())
     return false;
-  auto* service = storage_->scene_session_.textures();
+  auto* service = storage_->scene_service_.textures();
   return service && service->progress(progress);
 }
 
@@ -1211,13 +1210,13 @@ gneiss_result application::cancel_assets() noexcept {
 }
 
 void application::advance_scene_load() {
-  storage_->scene_session_.advance();
+  storage_->scene_service_.advance();
   report_visual_completion();
 }
 
 void application::report_visual_completion() {
   engine::render::texture_load_completion completion;
-  if (storage_->scene_session_.take_visual_completion(completion) &&
+  if (storage_->scene_service_.take_visual_completion(completion) &&
       completion.state != engine::render::texture_load_state::cancelled) {
     for (const auto& item : completion.results) {
       if (!item.applied) {
@@ -1230,15 +1229,15 @@ void application::report_visual_completion() {
 }
 
 bool application::can_activate_scene() const noexcept {
-  return storage_->scene_session_.can_activate();
+  return storage_->scene_service_.can_activate();
 }
 
 bool application::visual_assets_loading() const noexcept {
-  return storage_->scene_session_.visual_loading();
+  return storage_->scene_service_.visual_loading();
 }
 
 runtime::scene_retirement_statistics application::scene_retirement() const noexcept {
-  auto value = storage_->scene_session_.retirement();
+  auto value = storage_->scene_service_.retirement();
   value.live_resources = storage_->resources_.live_resource_count();
   return value;
 }
@@ -1247,9 +1246,9 @@ bool application::accepts_requests() const noexcept {
   return storage_->accepts_requests_.load(std::memory_order_acquire);
 }
 
-gneiss_world application::world() const noexcept { return storage_->scene_session_.world(); }
+gneiss_world application::world() const noexcept { return storage_->scene_service_.world(); }
 engine::world::world* application::native_world() const noexcept {
-  return storage_->scene_session_.native_world();
+  return storage_->scene_service_.native_world();
 }
 
 engine::render::render_resource_service& application::resources() noexcept {
@@ -1260,8 +1259,8 @@ engine::resource::prefab_asset_loader& application::prefab_loader() noexcept {
   return storage_->asset_manager_->prefab_loader();
 }
 
-engine::scene::scene_instance_service* application::scenes() noexcept {
-  return storage_->scene_session_.scenes();
+engine::scene::scene_instances* application::scenes() noexcept {
+  return storage_->scene_service_.scenes();
 }
 
 const engine::core::input::keyboard_state& application::keyboard_state() const noexcept {

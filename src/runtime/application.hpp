@@ -32,7 +32,7 @@ struct frame_image;
 }
 
 namespace gneiss::engine::scene {
-class scene_instance_service;
+class scene_instances;
 }
 namespace gneiss::engine::world {
 class world;
@@ -121,7 +121,7 @@ public:
                                            std::string_view uri) noexcept;
   [[nodiscard]] gneiss_result reload_prefab(gneiss_scene_instance instance,
                                             std::string_view uri) noexcept;
-  [[nodiscard]] engine::scene::scene_instance_service* scenes() noexcept;
+  [[nodiscard]] engine::scene::scene_instances* scenes() noexcept;
   [[nodiscard]] const engine::core::input::keyboard_state& keyboard_state() const noexcept;
   [[nodiscard]] const engine::core::input::pointer_state& pointer_state() const noexcept;
   [[nodiscard]] gneiss_result poll_input(engine::core::input::input_event& out_event) noexcept;

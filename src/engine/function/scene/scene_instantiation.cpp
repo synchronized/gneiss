@@ -2,16 +2,16 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/scene/scene_instance.hpp"
-#include "engine/function/scene/scene_instance_service.hpp"
+#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
 
 #include <algorithm>
 #include <unordered_map>
 
 namespace gneiss::engine::scene {
-gneiss_result scene_instance_service::instantiate_prepared(prepared_scene_description prepared,
-                                                           const asset_bindings& assets,
-                                                           gneiss_scene_instance& output) noexcept {
+gneiss_result scene_instances::instantiate_prepared(prepared_scene_description prepared,
+                                                    const asset_bindings& assets,
+                                                    gneiss_scene_instance& output) noexcept {
   output = GNEISS_NULL_SCENE_INSTANCE;
   if (!is_valid()) {
     return GNEISS_ERROR_INVALID_ARGUMENT;

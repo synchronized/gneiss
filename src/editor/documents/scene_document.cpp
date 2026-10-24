@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "documents/scene_document.hpp"
-#include "engine/function/scene/scene_instance_service.hpp"
+#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 

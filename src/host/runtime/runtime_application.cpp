@@ -3,7 +3,7 @@
 
 #include "runtime_application.hpp"
 
-#include "engine/function/scene/scene_instance_service.hpp"
+#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 #include "runtime/application_bridge.hpp"

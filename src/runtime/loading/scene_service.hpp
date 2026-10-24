@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_APPLICATION_SCENE_SESSION_HPP_
-#define GNEISS_APPLICATION_SCENE_SESSION_HPP_
+#ifndef GNEISS_RUNTIME_SCENE_SERVICE_HPP_
+#define GNEISS_RUNTIME_SCENE_SERVICE_HPP_
 
+#include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/texture_load_service.hpp"
-#include "runtime/loading/application_scene_state.hpp"
-#include "runtime/loading/scene_load_service.hpp"
+#include "runtime/loading/scene_domain.hpp"
+#include "runtime/loading/scene_load_types.hpp"
+#include <optional>
+#include <thread>
 
 namespace gneiss::runtime {
 
@@ -14,12 +17,12 @@ namespace gneiss::runtime {
  * 借用的文件系统、渲染服务与执行器必须存活至 shutdown 返回。
  * shutdown 可等待在途任务；须在关闭渲染后端和 I/O 执行器之前调用。
  */
-class scene_session final {
+class scene_service final {
 public:
-  scene_session() = default;
-  ~scene_session() noexcept;
-  scene_session(const scene_session&) = delete;
-  scene_session& operator=(const scene_session&) = delete;
+  scene_service();
+  ~scene_service() noexcept;
+  scene_service(const scene_service&) = delete;
+  scene_service& operator=(const scene_service&) = delete;
 
   [[nodiscard]] gneiss_result initialize(engine::resource::asset_manager& assets,
                                          engine::render::render_asset_loader& render);
@@ -46,7 +49,7 @@ public:
   [[nodiscard]] scene_retirement_statistics retirement() const noexcept;
   [[nodiscard]] gneiss_world world() const noexcept;
   [[nodiscard]] engine::world::world* native_world() const noexcept;
-  [[nodiscard]] engine::scene::scene_instance_service* scenes() noexcept;
+  [[nodiscard]] engine::scene::scene_instances* scenes() noexcept;
   /** 内部适配借用；视觉服务在 attach_executor 后存活至 shutdown，不随场景切换重建。 */
   [[nodiscard]] engine::render::texture_load_service* textures() noexcept;
   /** 请求、进度和完成值不暴露候选域；激活仍由宿主在安全点显式调用。 */
@@ -74,10 +77,28 @@ private:
   std::optional<engine::render::texture_load_completion> visual_completion_;
   engine::resource::asset_manager* asset_owner_{};
   engine::render::render_asset_loader* render_assets_{};
-  std::unique_ptr<application_scene_state> active_;
-  std::unique_ptr<application_scene_state> retired_;
+  std::unique_ptr<scene_domain> active_;
+  std::unique_ptr<scene_domain> retired_;
   scene_retirement_statistics retirement_;
-  std::unique_ptr<scene_load_service> loader_;
+  // 只在加载期间持有；完成回执消费前仍占用请求槽位。
+  struct load_task;
+  void advance_load();
+  void advance_load_impl();
+  void stop_load() noexcept;
+  engine::core::tasks::submit_result submit_verification();
+  void advance_verification(load_task& value);
+  void finish(gneiss_result result, scene_load_phase phase, std::string message = {});
+  void sample_budget(scene_load_progress& value) const;
+  void check_owner() const;
+  engine::core::tasks::task_executor* executor_{};
+  engine::core::tasks::task_scope scope_{};
+  engine::resource::virtual_file_system files_;
+  engine::render::render_resource_service* resources_{};
+  std::shared_ptr<engine::core::progress_notification> notification_;
+  std::unique_ptr<load_task> pending_;
+  std::optional<scene_load_completion> completed_;
+  std::uint64_t sequence_{};
+  const std::thread::id owner_{std::this_thread::get_id()};
   std::unique_ptr<engine::render::texture_load_service> textures_;
 };
 

@@ -167,11 +167,11 @@ Engine 公共接口统一位于 `include/gneiss/engine/`，基础类型位于其
 | --- | --- | --- |
 | 程序启动与关闭 | `src/host/editor/editor_application.cpp`、`src/host/runtime/runtime_application.cpp` | 宿主拥有原生 Application，先清理依赖它的会话、命令与任务 |
 | Application 装配 | `src/runtime/application.hpp` | 拥有平台、服务与场景协调组件；普通内部操作不解析自身 C 句柄 |
-| 场景切换 | `src/runtime/loading/scene_session.hpp` | 拥有活动与退役域及加载服务，协调激活 |
-| 候选加载 | `src/runtime/loading/scene_load_service.hpp` | 在途请求独占候选域；完成验证后转交 session |
-| 场景域 | `src/runtime/loading/application_scene_state.hpp` | 仅拥有 World 与场景实例服务；不重复存储资源加载器引用或 World RID，初始化成功才发布 |
+| 场景切换 | `src/runtime/loading/scene_service.hpp` | 拥有活动与退役域、内部加载任务，协调激活 |
+| 加载实现 | `src/runtime/loading/scene_service_loading.cpp` | 统一服务的内部临时任务；后台准备、同步实例化与激活 |
+| 场景域 | `src/runtime/loading/scene_domain.hpp` | 仅拥有 World 与场景实例集合；不重复存储资源加载器引用或 World RID，初始化成功才发布 |
 | World 数据和操作 | `src/engine/function/world/world.hpp` | 原生对象拥有 ECS/树状态；`world_service.hpp` 管理 C 兼容句柄与反射接入 |
-| Scene 服务契约 | `src/engine/function/scene/scene_instance_service.hpp` | 通过强类型节点 ID 操作实例；借用所属 World |
+| Scene 实例集合 | `src/engine/function/scene/scene_instances.hpp` | 通过强类型节点 ID 操作实例；借用所属 World |
 | Scene 私有实例 | `src/engine/function/scene/scene_instance.hpp` | 维护节点、作者描述及所使用资源版本的租约，不向宿主提供头文件 |
 | Prefab 候选事务 | `src/engine/function/scene/prefab_candidate.hpp` | 独占未发布候选或退休实例；支持移动与分步清理，不暴露运行时实现 |
 | 作者文档 | `src/editor/documents/scene_document.hpp` | 借用 Application、拥有文档的场景实例 ID；关闭时卸载，不能晚于 Application 销毁 |
@@ -182,7 +182,7 @@ Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真�
 借用桥不授予关闭权，Application 返回的 World 句柄也不能由外部销毁。场景域退役后其旧句柄失效。
 内部会话和事务的借用有效期由宿主销毁顺序保证，不把普通引用宣传成可跨 Application 存活的句柄。
 
-加载链路按 Application → scene_session → 候选场景域 → Scene/World → 渲染快照阅读；
+加载链路按 Application → scene_service → 候选场景域 → Scene/World → 渲染快照阅读；
 共享资产状态与场景域生命周期不同，详见 [资产与场景域所有权](architecture.md#资产与场景域所有权)。
 原生渲染值、输入状态和日志事件均在各自模块定义，C 布局转换归边界。无状态解析、哈希与数学
 仍使用自由函数；有状态对象持有实际状态，不为消除自由函数增加转发 Manager。
@@ -199,7 +199,7 @@ Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真�
   新增跨模块头依赖时须更新清单并审查方向，不能恢复 PUBLIC `src` 或相对路径越过模块根。
 - Engine 与资产工具编译自身实现时保留 PRIVATE 源码路径。白盒测试显式申请私有路径；
   普通宿主的可见性测试不获得此权限。
-- `scene_load_types.hpp` 仅包含加载进度与完成信息；`scene_load_service.hpp`、场景域状态及
+- `scene_load_types.hpp` 仅包含加载进度与完成信息；`scene_service.hpp`、场景域状态及
   注册表实现不向宿主导出。动态游戏模块所需桥接通过 `application_bridge.hpp` 提供。
 
 属性面板和撤销历史使用 `reflection_internal::property_value`，其中字符串为自有文本；
@@ -226,7 +226,7 @@ Scene 服务完成入口校验后转交实例，不直接修改这些事务的�
 
 `src/editor/documents/scene_document.*` 是单个场景的编辑文档，绑定运行时场景，
 维护 URI、选择、脏状态和节点查询快照；close 卸载该实例，Application 必须比它长寿。
-它不拥有 World，也不负责运行时场景切换。Runtime 的 scene_session 继续管理活动与退役域。
+它不拥有 World，也不负责运行时场景切换。Runtime 的 scene_service 继续管理活动与退役域。
 
 已有编辑操作与历史实现位于 `commands/`，相机、网格与 Gizmo 位于 `viewport/`，
 层级、属性、资源、控制台与运行时面板位于 `panels/`。根目录暂保留 UI 装配、主题、

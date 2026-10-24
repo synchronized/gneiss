@@ -991,8 +991,8 @@ get_target_property(gneiss_scene_fixture_sources gneiss_prefab_runtime_instance_
 list(REMOVE_ITEM gneiss_scene_fixture_sources scene/prefab_runtime_instance_test.cpp)
 add_executable(gneiss_scene_instantiation_test scene/scene_instantiation_test.cpp
   ${gneiss_scene_fixture_sources}
-  "${PROJECT_SOURCE_DIR}/src/runtime/loading/application_scene_state.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance_service.cpp"
+  "${PROJECT_SOURCE_DIR}/src/runtime/loading/scene_domain.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instances.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance_edit.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance_prefab.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instantiation.cpp"

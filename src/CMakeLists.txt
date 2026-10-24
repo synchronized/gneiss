@@ -49,14 +49,13 @@ target_sources(
     runtime/application_asset_reload_internal.hpp
     runtime/application_log_internal.hpp
     runtime/api/application_log_sink.hpp
-    runtime/loading/scene_load_service.cpp
-    runtime/loading/scene_load_service.hpp
+    runtime/loading/scene_service_loading.cpp
     runtime/loading/scene_load_types.hpp
     runtime/application_scene_load_internal.hpp
-    runtime/loading/scene_session.cpp
-    runtime/loading/scene_session.hpp
-    runtime/loading/application_scene_state.cpp
-    runtime/loading/application_scene_state.hpp
+    runtime/loading/scene_service.cpp
+    runtime/loading/scene_service.hpp
+    runtime/loading/scene_domain.cpp
+    runtime/loading/scene_domain.hpp
     runtime/application.cpp
     runtime/application.hpp
     runtime/configuration/application_configuration.hpp
@@ -154,10 +153,10 @@ target_sources(
     engine/function/scene/prefab_candidate.cpp
     engine/function/scene/prefab_candidate.hpp
     engine/function/scene/scene_instance.hpp
-    engine/function/scene/scene_instance_service.cpp
+    engine/function/scene/scene_instances.cpp
     engine/function/scene/scene_instance_edit.cpp
     engine/function/scene/scene_instance_prefab.cpp
-    engine/function/scene/scene_instance_service.hpp
+    engine/function/scene/scene_instances.hpp
     engine/function/scene/structural_diff.cpp
     engine/function/scene/structural_diff.hpp
     engine/function/world/system_scheduler.cpp

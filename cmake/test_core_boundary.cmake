@@ -7,7 +7,7 @@ file(MAKE_DIRECTORY "${fixture}/src/engine/function/render")
 file(WRITE "${fixture}/src/engine/function/render/camera_math.hpp" "")
 file(WRITE "${fixture}/src/engine/function/render/render_resource_data.hpp" "")
 file(MAKE_DIRECTORY "${fixture}/src/runtime")
-file(WRITE "${fixture}/src/runtime/loading/scene_session.cpp" "")
+file(WRITE "${fixture}/src/runtime/loading/scene_service.cpp" "")
 file(MAKE_DIRECTORY "${fixture}/src/engine/platform")
 file(MAKE_DIRECTORY "${fixture}/src/editor")
 file(WRITE "${fixture}/src/editor/probe.cpp" "")
@@ -328,7 +328,7 @@ endforeach()
 foreach(header IN ITEMS engine/platform/granit/granit_platform.hpp
                         engine/function/render/backend/granit/granit_render_service.hpp
                         granit/granit.hpp)
-  file(WRITE "${fixture}/src/runtime/loading/scene_session.cpp"
+  file(WRITE "${fixture}/src/runtime/loading/scene_service.cpp"
     "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
@@ -337,7 +337,7 @@ foreach(header IN ITEMS engine/platform/granit/granit_platform.hpp
     message(FATAL_ERROR "边界检查未拒绝协调层直接依赖后端：${header}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/runtime/loading/scene_session.cpp"
+file(WRITE "${fixture}/src/runtime/loading/scene_service.cpp"
   "#include <engine/function/render/texture_load_service.hpp>\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
@@ -432,7 +432,7 @@ foreach(content IN ITEMS "gneiss_transform value;" "auto value = GNEISS_TRANSFOR
 endforeach()
 file(WRITE "${fixture}/src/engine/function/scene/scene_tree.hpp" "")
 
-foreach(name IN ITEMS scene_query.hpp scene_creation.hpp scene_instance_service.cpp prefab_runtime_instance.cpp)
+foreach(name IN ITEMS scene_query.hpp scene_creation.hpp scene_instances.cpp prefab_runtime_instance.cpp)
   file(WRITE "${fixture}/src/engine/function/scene/${name}" "gneiss_transform value;\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_SCENE_SCENE_INSTANCE_SERVICE_HPP_
-#define GNEISS_SCENE_SCENE_INSTANCE_SERVICE_HPP_
+#ifndef GNEISS_SCENE_SCENE_INSTANCES_HPP_
+#define GNEISS_SCENE_SCENE_INSTANCES_HPP_
 
 #include "engine/core/rid_table.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
@@ -33,7 +33,8 @@ namespace gneiss::engine::scene {
 class scene_instance;
 struct prepared_scene_description;
 
-class GNEISS_API scene_instance_service final {
+/** 单个 World 的实例集合，拥有实例与 RID 表；不负责后台加载或活动域切换。 */
+class GNEISS_API scene_instances final {
 public:
   using mesh_binding = scene_mesh_binding;
   using asset_bindings = std::map<std::string, engine::render::render_asset_lease, std::less<>>;
@@ -85,11 +86,11 @@ public:
   /** 验证普通作者节点归属，不接受 Prefab 的只读来源节点。 */
   [[nodiscard]] gneiss_result validate_editable_node(gneiss_scene_instance instance,
                                                      scene_node_id node) const noexcept;
-  scene_instance_service(engine::world::world& native_world, gneiss_world world,
-                         const engine::resource::virtual_file_system& file_system,
-                         engine::render::render_asset_loader& loader,
-                         gneiss::engine::resource::prefab_asset_loader& prefab_loader) noexcept;
-  ~scene_instance_service() noexcept;
+  scene_instances(engine::world::world& native_world, gneiss_world world,
+                  const engine::resource::virtual_file_system& file_system,
+                  engine::render::render_asset_loader& loader,
+                  gneiss::engine::resource::prefab_asset_loader& prefab_loader) noexcept;
+  ~scene_instances() noexcept;
 
   [[nodiscard]] bool is_valid() const noexcept {
     return domain_ != 0U && registry_ != GNEISS_NULL_TYPE_REGISTRY;

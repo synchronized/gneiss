@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime/loading/scene_session.hpp"
+#include "runtime/loading/scene_service.hpp"
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/resource/asset_manager.hpp"
 
@@ -13,14 +13,12 @@
 
 namespace gneiss::runtime {
 
-scene_session::~scene_session() noexcept { shutdown(); }
-
-gneiss_result scene_session::initialize(engine::resource::asset_manager& assets,
+gneiss_result scene_service::initialize(engine::resource::asset_manager& assets,
                                         engine::render::render_asset_loader& render) {
   if (active_) {
     return GNEISS_ERROR_INVALID_STATE;
   }
-  auto next = std::make_unique<application_scene_state>();
+  auto next = std::make_unique<scene_domain>();
   const auto result = next->initialize(assets, render);
   if (result != GNEISS_SUCCESS) {
     return result;
@@ -32,7 +30,7 @@ gneiss_result scene_session::initialize(engine::resource::asset_manager& assets,
 }
 
 gneiss_result
-scene_session::attach_executor(engine::core::tasks::task_executor& executor,
+scene_service::attach_executor(engine::core::tasks::task_executor& executor,
                                const engine::resource::virtual_file_system& files,
                                engine::render::render_resource_service& resources,
                                engine::render::texture_upload_backend backend,
@@ -40,20 +38,27 @@ scene_session::attach_executor(engine::core::tasks::task_executor& executor,
   if (textures_ || !active_) {
     return GNEISS_ERROR_INVALID_STATE;
   }
-  // 两个服务都成功构造后才发布，异常不留下半装配状态。
-  auto loader = std::make_unique<scene_load_service>(executor, files, resources, *asset_owner_,
-                                                     *render_assets_, notification);
+  // 先构造可失败依赖，再发布装配状态，失败时不留下半装配服务。
+  auto mounted_files = files;
   const auto profile = backend.profile;
   auto textures = std::make_unique<engine::render::texture_load_service>(
-      executor, files, *render_assets_, std::move(backend), std::move(notification),
+      executor, files, *render_assets_, std::move(backend), notification,
       asset_owner_->documents());
+  const auto scope = executor.make_scope();
+  if (scope.id == 0U) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  files_ = std::move(mounted_files);
+  executor_ = &executor;
+  scope_ = scope;
+  resources_ = &resources;
+  notification_ = std::move(notification);
   render_assets_->set_default_profile(profile);
-  loader_ = std::move(loader);
   textures_ = std::move(textures);
   return GNEISS_SUCCESS;
 }
 
-void scene_session::advance() {
+void scene_service::advance() {
   if (retired_) {
     const auto start = std::chrono::steady_clock::now();
     const engine::core::diagnostics::loop_span span(
@@ -66,12 +71,10 @@ void scene_session::advance() {
     ++retirement_.retired_domains;
   }
   advance_visuals();
-  if (loader_) {
-    loader_->advance();
-  }
+  advance_load();
 }
 
-void scene_session::advance_visuals() {
+void scene_service::advance_visuals() {
   if (!textures_ || visual_completion_) {
     return;
   }
@@ -108,7 +111,7 @@ void scene_session::advance_visuals() {
   ++visual_cursor_;
 }
 
-bool scene_session::take_visual_completion(engine::render::texture_load_completion& output) {
+bool scene_service::take_visual_completion(engine::render::texture_load_completion& output) {
   if (!visual_completion_) {
     return false;
   }
@@ -117,30 +120,11 @@ bool scene_session::take_visual_completion(engine::render::texture_load_completi
   return true;
 }
 
-gneiss_result scene_session::activate(std::uint64_t request, scene_load_completion& completion) {
-  if (!loader_ || retired_ || (textures_ && textures_->busy())) {
-    return GNEISS_ERROR_NOT_READY;
-  }
-  const auto start = std::chrono::steady_clock::now();
-  auto next = loader_->take_candidate(request, completion, visual_queue_);
-  if (!next) {
-    return GNEISS_ERROR_NOT_READY;
-  }
-  retired_ = std::move(active_);
-  active_ = std::move(next);
-  visual_cursor_ = 0U;
-  visual_session_ = completion.progress.session;
-  visual_revision_ = completion.progress.revision;
-  completion.activation_ms =
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
-  return GNEISS_SUCCESS;
-}
-
-void scene_session::shutdown() noexcept {
+void scene_service::shutdown() noexcept {
   visual_queue_.clear();
   visual_completion_.reset();
   visual_pending_ = false;
-  loader_.reset();
+  stop_load();
   textures_.reset();
   retired_.reset();
   active_.reset();
@@ -152,56 +136,30 @@ void scene_session::shutdown() noexcept {
   render_assets_ = nullptr;
 }
 
-bool scene_session::can_start_load() const noexcept {
+bool scene_service::can_start_load() const noexcept {
   return !retired_ && textures_ && (!textures_->busy() || visual_pending_);
 }
-bool scene_session::loading() const noexcept { return loader_ && loader_->busy(); }
-scene_retirement_statistics scene_session::retirement() const noexcept {
+bool scene_service::loading() const noexcept {
+  return pending_ != nullptr || completed_.has_value();
+}
+scene_retirement_statistics scene_service::retirement() const noexcept {
   auto value = retirement_;
   value.pending = retired_ != nullptr;
   return value;
 }
-engine::world::world* scene_session::native_world() const noexcept {
+engine::world::world* scene_service::native_world() const noexcept {
   return active_ ? active_->native_world() : nullptr;
 }
 
-gneiss_world scene_session::world() const noexcept {
+gneiss_world scene_service::world() const noexcept {
   return active_ ? active_->world() : GNEISS_NULL_WORLD;
 }
-engine::scene::scene_instance_service* scene_session::scenes() noexcept {
+engine::scene::scene_instances* scene_service::scenes() noexcept {
   return active_ ? active_->scenes() : nullptr;
 }
-engine::render::texture_load_service* scene_session::textures() noexcept { return textures_.get(); }
-gneiss_result scene_session::request_scene(std::string_view uri, std::uint64_t session,
-                                           std::uint64_t revision, std::uint64_t& request) {
-  request = 0U;
-  if (!loader_ || !can_start_load()) {
-    return GNEISS_ERROR_NOT_READY;
-  }
-  const auto submitted = loader_->submit(uri, session, revision, request);
-  if (submitted == GNEISS_SUCCESS) {
-    visual_queue_.clear();
-    visual_cursor_ = 0U;
-    if (visual_pending_) {
-      (void)textures_->cancel_unpublished();
-    }
-  }
-  return submitted;
-}
-bool scene_session::scene_progress(scene_load_progress& progress) const {
-  return loader_ && loader_->progress(progress);
-}
-gneiss_result scene_session::poll_scene(scene_load_completion& completion, bool& ready) {
-  ready = false;
-  if (!loader_) {
-    return GNEISS_ERROR_NOT_READY;
-  }
-  advance();
-  ready = loader_->take(completion);
-  return GNEISS_SUCCESS;
-}
+engine::render::texture_load_service* scene_service::textures() noexcept { return textures_.get(); }
 gneiss_result
-scene_session::request_assets(std::span<const engine::render::render_asset_reload> sources,
+scene_service::request_assets(std::span<const engine::render::render_asset_reload> sources,
                               std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
                               bool reload) {
   request = 0U;
@@ -211,7 +169,7 @@ scene_session::request_assets(std::span<const engine::render::render_asset_reloa
   return textures_->submit_assets(sources, session, revision, request, reload);
 }
 
-gneiss_result scene_session::poll_assets(engine::render::texture_load_completion& completion,
+gneiss_result scene_service::poll_assets(engine::render::texture_load_completion& completion,
                                          bool& ready) {
   ready = false;
   if (!textures_ || visual_loading()) {
@@ -220,10 +178,6 @@ gneiss_result scene_session::poll_assets(engine::render::texture_load_completion
   textures_->advance();
   ready = textures_->take(completion);
   return GNEISS_SUCCESS;
-}
-
-gneiss_result scene_session::cancel_scene(std::uint64_t request) {
-  return loader_ && loader_->cancel(request) ? GNEISS_SUCCESS : GNEISS_ERROR_NOT_READY;
 }
 
 } // namespace gneiss::runtime

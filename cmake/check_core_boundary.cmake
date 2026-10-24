@@ -77,7 +77,7 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "输入服务不得依赖资源管理器、文件后端或 CAORS：${source}")
   endif()
 
-  if(source MATCHES "/src/engine/function/(scene/(scene_tree|scene_query|scene_creation|scene_instance_service|prefab_runtime_instance|scene_instantiation)|world/(render_snapshot|world|world_types))[.](hpp|cpp)$" AND
+  if(source MATCHES "/src/engine/function/(scene/(scene_tree|scene_query|scene_creation|scene_instances|prefab_runtime_instance|scene_instantiation)|world/(render_snapshot|world|world_types))[.](hpp|cpp)$" AND
       content MATCHES "gneiss_transform|GNEISS_TRANSFORM_IDENTITY")
     message(FATAL_ERROR "原生场景树与快照不得使用 C TRS 布局：${source}")
   endif()
@@ -108,7 +108,7 @@ foreach(source IN LISTS sources)
        content MATCHES "engine/(api|function|platform)/"))
     message(FATAL_ERROR "原生日志模块不得依赖日志 ABI 或上层模块：${source}")
   endif()
-  if(source MATCHES "/src/runtime/loading/scene_session\\.(cpp|hpp)$" AND
+  if(source MATCHES "/src/runtime/loading/scene_service(_loading)?\\.(cpp|hpp)$" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"](engine/platform/|engine/function/render/backend/|granit/)")
     message(FATAL_ERROR "场景生命周期协调不得直接依赖平台或渲染后端：${source}")
   endif()

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/scene/scene_instance_service.hpp"
+#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include <gneiss/engine/application.h>
 #include <map>

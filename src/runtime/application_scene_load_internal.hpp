@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "runtime/loading/scene_load_service.hpp"
+#include "runtime/loading/scene_load_types.hpp"
 
 #include <gneiss/engine/application.h>
 
@@ -20,13 +20,14 @@ GNEISS_API gneiss_result request_scene_load(gneiss_application application, std:
 GNEISS_API gneiss_result query_scene_load_progress(gneiss_application application,
                                                    scene_load_progress& progress,
                                                    bool& active) noexcept;
-/** 推进一次主线程预算，取失败/取消终态；ready 由 activate_scene_load 显式接收。 */
+/** 推进一次加载流程；结构就绪后同步实例化，取失败/取消终态；ready 由 activate_scene_load 显式接收。
+ */
 GNEISS_API gneiss_result poll_scene_load(gneiss_application application,
                                          scene_load_completion& completion, bool& ready) noexcept;
 GNEISS_API gneiss_result cancel_scene_load(gneiss_application application,
                                            std::uint64_t request) noexcept;
 /** ready 后在宿主停止旧模块更新的安全点调用。成功后旧 Scene/World 不再是活动域。
- * 只交换域及对应资产服务；模块回调不属于引擎事务，宿主须重建 Context 与检查镜像。 */
+ * 只交换场景域；模块回调不属于引擎事务，宿主须重建 Context 与检查镜像。 */
 GNEISS_API gneiss_result activate_scene_load(gneiss_application application, std::uint64_t request,
                                              scene_load_completion& completion) noexcept;
 

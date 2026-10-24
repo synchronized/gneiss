@@ -3,7 +3,7 @@
 
 #include "engine/api/scene_query_conversion.hpp"
 #include "engine/core/identifier_conversion.hpp"
-#include "engine/function/scene/scene_instance_service.hpp"
+#include "engine/function/scene/scene_instances.hpp"
 #include "runtime/application.hpp"
 #include "runtime/application_registry.hpp"
 

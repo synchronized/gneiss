@@ -6,7 +6,7 @@
 #include "engine/function/world/world_service.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
-#include "runtime/loading/application_scene_state.hpp"
+#include "runtime/loading/scene_domain.hpp"
 #include <algorithm>
 #include <thread>
 
@@ -97,7 +97,7 @@ void run() {
           GNEISS_SUCCESS);
     check(!active_render.owns(engine::render::render_asset_loader::asset_lease(foreign_mesh)));
   }
-  auto active = std::make_unique<runtime::application_scene_state>();
+  auto active = std::make_unique<runtime::scene_domain>();
   check(active->native_world() == nullptr && active->world() == GNEISS_NULL_WORLD &&
         active->scenes() == nullptr);
   check(active->initialize(active_assets, active_render) == GNEISS_SUCCESS);
@@ -125,7 +125,7 @@ void run() {
   engine::resource::scene_diagnostic scene_error;
   check(engine::scene::prepare_scene_description(vfs, "asset://s.scene", prepared, scene_error,
                                                  {}) == GNEISS_SUCCESS);
-  auto candidate = std::make_unique<runtime::application_scene_state>();
+  auto candidate = std::make_unique<runtime::scene_domain>();
   check(candidate->initialize(candidate_assets, candidate_render) == GNEISS_SUCCESS);
   std::vector<engine::render::render_asset_lease> captured{engine::render::render_asset_lease{}};
   check(candidate->scenes()->capture_render_assets(captured) == GNEISS_SUCCESS && captured.empty());
@@ -147,7 +147,7 @@ void run() {
   for (auto& value : staged) {
     check(candidate_render.complete_upload(value) == GNEISS_SUCCESS);
   }
-  engine::scene::scene_instance_service::asset_bindings bindings;
+  engine::scene::scene_instances::asset_bindings bindings;
   for (const auto& value : staged) {
     bindings.emplace(std::string(value.target.uri()), value.target);
   }
@@ -305,7 +305,7 @@ void run() {
   candidate_render.release_unused();
   check(resources.get_material(selected_material) != nullptr);
   {
-    using binding = engine::scene::scene_instance_service::mesh_binding;
+    using binding = engine::scene::scene_instances::mesh_binding;
     binding before;
     const auto reads = files->reads;
     check(candidate->scenes()->capture_mesh_binding(new_scene, ordinary.node, before) ==
@@ -369,7 +369,7 @@ void run() {
   // 构造失败时仅回收候选节点；即使依赖缺失也不能退回主线程文件读取。
   check(engine::scene::prepare_scene_description(vfs, "asset://s.scene", prepared, scene_error,
                                                  {}) == GNEISS_SUCCESS);
-  candidate = std::make_unique<runtime::application_scene_state>();
+  candidate = std::make_unique<runtime::scene_domain>();
   check(candidate->initialize(candidate_assets, candidate_render) == GNEISS_SUCCESS);
   const auto failure_reads = files->reads;
   gneiss_scene_instance failed_instance{};

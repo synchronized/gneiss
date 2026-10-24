@@ -3,7 +3,7 @@
 
 #pragma once
 #include "engine/function/scene/prefab_runtime_instance.hpp"
-#include "engine/function/scene/scene_instance_service.hpp"
+#include "engine/function/scene/scene_instances.hpp"
 #include <map>
 
 namespace gneiss::engine::scene {
@@ -132,7 +132,7 @@ public:
   [[nodiscard]] gneiss_result initialize(gneiss::engine::resource::scene_description candidate);
 
 private:
-  friend class scene_instance_service;
+  friend class scene_instances;
   [[nodiscard]] gneiss_result
   stage_assets(const gneiss::engine::resource::scene_description& source);
   [[nodiscard]] gneiss_result

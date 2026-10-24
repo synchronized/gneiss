@@ -5,7 +5,7 @@
 #include "commands/editor_command_history.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/function/render/texture_load_service.hpp"
-#include "engine/function/scene/scene_instance_service.hpp"
+#include "engine/function/scene/scene_instances.hpp"
 
 namespace gneiss::editor {
 /** 所属线程的一次模态资产替换；命令租约须在 Application 销毁前释放。 */

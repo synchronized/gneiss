@@ -7,7 +7,7 @@
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/texture_load_service.hpp"
-#include "engine/function/scene/scene_instance_service.hpp"
+#include "engine/function/scene/scene_instances.hpp"
 
 #include <gneiss/engine/application.h>
 #include <gneiss/engine/scene.h>
@@ -16,7 +16,7 @@
 #include <string_view>
 
 namespace gneiss::runtime {
-using mesh_binding = engine::scene::scene_instance_service::mesh_binding;
+using mesh_binding = engine::scene::scene_instances::mesh_binding;
 /** 所属线程从就绪租约创建节点；失败输出无效句柄，不读取文件。 */
 GNEISS_API gneiss_result
 create_mesh_node_ready(gneiss_application application, gneiss_scene_instance scene,
