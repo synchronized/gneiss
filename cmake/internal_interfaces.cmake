@@ -21,6 +21,11 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/diagnostics/diagnostic.hpp
   engine/core/diagnostics/loop_timing.hpp
   engine/core/frame_time.hpp
+  engine/core/guid.hpp
+  engine/core/string_name.hpp
+  engine/core/type_guid.hpp
+  engine/core/type_name.hpp
+  engine/core/type_identity.hpp
   engine/core/result.hpp
   engine/core/input/input_types.hpp
   engine/core/log/log_dispatcher.hpp

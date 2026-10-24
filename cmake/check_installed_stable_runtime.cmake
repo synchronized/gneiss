@@ -58,6 +58,7 @@ foreach(
     LICENSE
     CHANGELOG.md
     THIRD_PARTY_NOTICES.md
+    licenses/caors-core-values-LICENSE
     licenses/EnTT-LICENSE
     licenses/yyjson-LICENSE
     licenses/libspng-LICENSE

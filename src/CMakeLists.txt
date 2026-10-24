@@ -84,6 +84,13 @@ target_sources(
     engine/core/rid_table.hpp
     engine/core/identifier_conversion.hpp
     engine/api/core_api.cpp
+    engine/core/guid.cpp
+    engine/core/guid.hpp
+    engine/core/string_name.cpp
+    engine/core/string_name.hpp
+    engine/core/type_guid.hpp
+    engine/core/type_name.hpp
+    engine/core/type_identity.hpp
     engine/core/result.hpp
     engine/api/result_conversion.hpp
     engine/core/version.hpp

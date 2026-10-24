@@ -54,6 +54,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   add_subdirectory(tests/integration/assets)
 endif()
 install(FILES "${PROJECT_SOURCE_DIR}/3rd/granit-example-assets-LICENSE"
+              "${PROJECT_SOURCE_DIR}/3rd/caors-core-values-LICENSE"
   DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses")
 if(GNEISS_BUILD_TOOLS)
   include(bc7enc)
