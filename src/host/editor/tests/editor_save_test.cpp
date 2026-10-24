@@ -80,9 +80,9 @@ int main() try {
       session.select(session.nodes()[0].node) != gneiss::engine::result::success) {
     return 3;
   }
-  gneiss::transform transform{};
+  gneiss::engine::transform transform{};
   transform.translation[0] = 7.0F;
-  if (([&](entity_id entity, const gneiss::transform& value) {
+  if (([&](entity_id entity, const gneiss::engine::transform& value) {
         const auto native = to_native(value);
         return gneiss::engine::result{
             gneiss_world_entity_set_local_transform(world, entity.get(), &native)};
@@ -110,7 +110,7 @@ int main() try {
     return 13;
   }
   const auto child_uuid = session.find_node(session.selected_node()->uuid)->uuid;
-  gneiss::scene_camera_desc author_camera{};
+  gneiss::engine::camera_description author_camera{1.04719755F, 0.1F, 1000.0F, false};
   if (session.set_camera(empty_child, author_camera) != gneiss::engine::result::success ||
       (session.find_node(child_uuid)->component_flags & GNEISS_SCENE_NODE_COMPONENT_CAMERA) == 0U ||
       session.remove_camera(session.find_node(child_uuid)->node) !=
@@ -157,7 +157,7 @@ int main() try {
   }
 
   transform.translation[0] = 9.0F;
-  if (([&](entity_id entity, const gneiss::transform& value) {
+  if (([&](entity_id entity, const gneiss::engine::transform& value) {
         const auto native = to_native(value);
         return gneiss::engine::result{
             gneiss_world_entity_set_local_transform(world, entity.get(), &native)};
@@ -211,7 +211,7 @@ int main() try {
   gneiss::scene_node_id camera_node;
   gneiss::scene_node_id reloaded_created_node;
   gneiss_entity_id camera_entity = GNEISS_NULL_ENTITY_ID;
-  gneiss::transform reloaded_transform{};
+  gneiss::engine::transform reloaded_transform{};
   if (gneiss::engine::result{gneiss_application_get_world(
           reloaded_application.get(), &reloaded_world)} != gneiss::engine::result::success ||
       ([&](std::string_view uuid, scene_node_id& out_node) {
@@ -234,7 +234,7 @@ int main() try {
       })(created_uuid, reloaded_created_node) != gneiss::engine::result::success ||
       gneiss::engine::result{gneiss_scene_node_get_entity(
           reloaded_world, camera_node.get(), &camera_entity)} != gneiss::engine::result::success ||
-      ([&](entity_id entity, gneiss::transform& output) {
+      ([&](entity_id entity, gneiss::engine::transform& output) {
         gneiss_transform native{};
         const auto status = gneiss::engine::result{
             gneiss_world_entity_get_local_transform(reloaded_world, entity.get(), &native)};

@@ -102,8 +102,8 @@ int main() {
       gneiss::result::success) {
     return 4;
   }
-  gneiss::transform transform{};
-  if (([&](entity_id entity, gneiss::transform& output) {
+  gneiss::engine::transform transform{};
+  if (([&](entity_id entity, gneiss::engine::transform& output) {
         gneiss_transform native{};
         const auto status = from_native(
             gneiss_world_entity_get_local_transform(first.get(), entity.get(), &native));
@@ -136,7 +136,7 @@ int main() {
             gneiss_type_registry_set_property(registry.get(), type_id, field_id, target, &value));
       })(gneiss_transform_type_id(), GNEISS_TRANSFORM_FIELD_SCALE, target, value) !=
           gneiss::result::invalid_argument ||
-      ([&](entity_id entity, gneiss::transform& output) {
+      ([&](entity_id entity, gneiss::engine::transform& output) {
         gneiss_transform native{};
         const auto status = from_native(
             gneiss_world_entity_get_local_transform(first.get(), entity.get(), &native));

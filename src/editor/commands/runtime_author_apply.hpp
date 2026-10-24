@@ -16,7 +16,7 @@ struct runtime_author_transform final {
   std::string_view uuid;
   std::string_view prefab_instance_uuid;
   std::string_view prefab_source_node_uuid;
-  transform local_transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform local_transform = {};
 };
 
 /** 将具有持久化 UUID 映射的 Runtime Transform 作为可撤销命令应用到作者场景。 */

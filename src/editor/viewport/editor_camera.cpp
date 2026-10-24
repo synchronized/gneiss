@@ -23,7 +23,7 @@ gneiss::engine::result editor_camera::initialize() noexcept {
     return gneiss::engine::result::invalid_state;
   }
   initialized_ = true;
-  transform_ = GNEISS_TRANSFORM_IDENTITY;
+  transform_ = {};
   transform_.translation[1] = 2.0F;
   transform_.translation[2] = 6.0F;
   update_rotation();
@@ -32,16 +32,13 @@ gneiss::engine::result editor_camera::initialize() noexcept {
 
 void editor_camera::shutdown() noexcept {
   initialized_ = false;
-  transform_ = GNEISS_TRANSFORM_IDENTITY;
+  transform_ = {};
   yaw_ = 0.0F;
   pitch_ = -0.3F;
 }
 
-gneiss::camera editor_camera::settings() const noexcept {
-  gneiss::camera output;
-  output.near_plane = 0.05F;
-  output.far_plane = 2000.0F;
-  return output;
+gneiss::engine::camera_settings editor_camera::settings() const noexcept {
+  return {.vertical_field_of_view_radians = 1.04719755F, .near_plane = 0.05F, .far_plane = 2000.0F};
 }
 
 void editor_camera::update_rotation() noexcept {
@@ -78,7 +75,8 @@ gneiss::engine::result editor_camera::update(const editor_camera_input& input) n
   return gneiss::engine::result::success;
 }
 
-gneiss::engine::result editor_camera::focus(const transform& target, float distance) noexcept {
+gneiss::engine::result editor_camera::focus(const gneiss::engine::transform& target,
+                                            float distance) noexcept {
   if (!is_valid() || !std::isfinite(distance) || distance <= 0.0F) {
     return gneiss::engine::result::invalid_argument;
   }

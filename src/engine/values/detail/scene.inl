@@ -20,7 +20,7 @@ inline std::string_view scene_text(const char* text, std::uint64_t length) noexc
 }
 } // namespace detail
 
-[[nodiscard]] constexpr gneiss_transform to_native(const transform& value) noexcept {
+[[nodiscard]] constexpr gneiss_transform to_native(const engine::transform& value) noexcept {
   return {
       .translation = {value.translation[0], value.translation[1], value.translation[2]},
       .rotation = {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
@@ -28,7 +28,7 @@ inline std::string_view scene_text(const char* text, std::uint64_t length) noexc
   };
 }
 
-[[nodiscard]] constexpr transform from_native(const gneiss_transform& value) noexcept {
+[[nodiscard]] constexpr engine::transform from_native(const gneiss_transform& value) noexcept {
   return {
       .translation = {value.translation[0], value.translation[1], value.translation[2]},
       .rotation = {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},

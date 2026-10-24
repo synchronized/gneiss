@@ -19,7 +19,7 @@ using namespace gneiss;
 
 namespace {
 
-bool near(const gneiss::transform& left, const gneiss::transform& right) {
+bool near(const gneiss::engine::transform& left, const gneiss::engine::transform& right) {
   for (std::size_t index = 0; index < 3U; ++index) {
     if (std::abs(left.translation[index] - right.translation[index]) > 1.0e-4F ||
         std::abs(left.scale[index] - right.scale[index]) > 1.0e-4F) {
@@ -75,8 +75,8 @@ int main() try {
       if (drag.begin(session) != gneiss::engine::result::success) {
         return 4;
       }
-      gneiss::transform desired{};
-      if (([&](scene_node_id node, gneiss::transform& out_transform) {
+      gneiss::engine::transform desired{};
+      if (([&](scene_node_id node, gneiss::engine::transform& out_transform) {
             gneiss_transform native{};
             const auto status = gneiss::engine::result{
                 gneiss_scene_node_get_world_transform(world, node.get(), &native)};
@@ -100,11 +100,11 @@ int main() try {
           desired.scale[1] += 0.5F;
         }
         gneiss::editor::gizmo_matrix matrix{};
-        gneiss::transform actual{};
+        gneiss::engine::transform actual{};
         if (gneiss::editor::transform_to_gizmo_matrix(desired, matrix) !=
                 gneiss::engine::result::success ||
             drag.preview(session, matrix) != gneiss::engine::result::success ||
-            ([&](scene_node_id node, gneiss::transform& out_transform) {
+            ([&](scene_node_id node, gneiss::engine::transform& out_transform) {
               gneiss_transform native{};
               const auto status = gneiss::engine::result{
                   gneiss_scene_node_get_world_transform(world, node.get(), &native)};
@@ -138,7 +138,7 @@ int main() try {
   gneiss::editor::editor_command_history unavailable_history(0U);
   session.clear_dirty();
   const auto before = session.selected_node()->local_transform;
-  gneiss::transform desired = before;
+  gneiss::engine::transform desired = before;
   desired.translation[2] += 2.0F;
   gneiss::editor::gizmo_matrix matrix{};
   if (drag.begin(session) != gneiss::engine::result::success ||
@@ -174,7 +174,7 @@ int main() try {
   }
   const auto prefab_id = session.selection();
   const auto prefab_before = session.selected_prefab_node()->local_transform;
-  if (([&](scene_node_id node, gneiss::transform& out_transform) {
+  if (([&](scene_node_id node, gneiss::engine::transform& out_transform) {
         gneiss_transform native{};
         const auto status = gneiss::engine::result{
             gneiss_scene_node_get_world_transform(world, node.get(), &native)};
@@ -207,7 +207,7 @@ int main() try {
   }
   const auto uuid = session.selected_node()->uuid;
   const auto deletion_before = session.selected_node()->local_transform;
-  if (([&](scene_node_id node, gneiss::transform& out_transform) {
+  if (([&](scene_node_id node, gneiss::engine::transform& out_transform) {
         gneiss_transform native{};
         const auto status = gneiss::engine::result{
             gneiss_scene_node_get_world_transform(world, node.get(), &native)};

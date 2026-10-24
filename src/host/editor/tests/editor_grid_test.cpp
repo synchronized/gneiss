@@ -7,7 +7,7 @@
 #include <limits>
 
 int main() {
-  gneiss::transform camera{};
+  gneiss::engine::transform camera{};
   camera.translation[1] = 3.0F;
   camera.translation[2] = 8.0F;
   gneiss::editor::gizmo_matrix view{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, -3, -8, 1};

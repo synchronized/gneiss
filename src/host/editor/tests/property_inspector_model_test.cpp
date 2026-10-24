@@ -98,8 +98,8 @@ int main() {
                           value) != gneiss::engine::result::success) {
     return 3;
   }
-  gneiss::transform transform{};
-  if (([&](entity_id entity, gneiss::transform& output) {
+  gneiss::engine::transform transform{};
+  if (([&](entity_id entity, gneiss::engine::transform& output) {
         gneiss_transform native{};
         const auto status = gneiss::engine::result{
             gneiss_world_entity_get_local_transform(world.get(), entity.get(), &native)};
@@ -116,7 +116,7 @@ int main() {
   if (inspector.set_value(gneiss::from_native(gneiss_transform_type_id()),
                           gneiss::field_id{GNEISS_TRANSFORM_FIELD_SCALE},
                           value) != gneiss::engine::result::invalid_argument ||
-      ([&](entity_id entity, gneiss::transform& output) {
+      ([&](entity_id entity, gneiss::engine::transform& output) {
         gneiss_transform native{};
         const auto status = gneiss::engine::result{
             gneiss_world_entity_get_local_transform(world.get(), entity.get(), &native)};

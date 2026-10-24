@@ -117,7 +117,7 @@ int main() try {
        GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN) == 0U) {
     return 7;
   }
-  gneiss::transform previous_source{};
+  gneiss::engine::transform previous_source{};
   if (session.restore_prefab_transform_field(session.selection(),
                                              GNEISS_TRANSFORM_FIELD_TRANSLATION,
                                              previous_source) != gneiss::engine::result::success ||

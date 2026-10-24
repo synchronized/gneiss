@@ -30,7 +30,7 @@ private:
   std::string uuid_;
   std::string instance_uuid_;
   std::string source_uuid_;
-  transform before_ = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform before_ = {};
   bool was_dirty_ = false;
 };
 

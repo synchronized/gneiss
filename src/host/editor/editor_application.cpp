@@ -845,37 +845,45 @@ bool reparent_with_history(editor_state& state, std::string_view source_uuid,
 gneiss::editor::runtime_inspector_actions
 make_runtime_inspector_actions(editor_state& state,
                                const gneiss::editor::runtime_scene_node& node) {
-  return {.context = &state,
-          .editable = state.runtime.supports_property_editing(),
-          .can_apply_to_author =
-              !node.uuid.empty() && state.editing.document().find_node(node.uuid) != nullptr,
-          .find_edit =
-              [](void* context, const gneiss::editor::runtime_property_key& key) {
-                return static_cast<editor_state*>(context)->runtime.property_edit(key);
-              },
-          .write_property =
-              [](void* context, const gneiss::editor::runtime_property_key& key,
-                 std::uint64_t revision, gneiss::editor::runtime_property_value value) {
-                return static_cast<editor_state*>(context)->runtime.request_property_write(
-                    key, revision, {std::move(value.payload)});
-              },
-          .apply_to_author =
-              [](void* context, const gneiss::editor::runtime_scene_node& selected) {
-                auto& editor = *static_cast<editor_state*>(context);
-                editor.history_error = gneiss::editor::apply_runtime_transform_to_author(
-                    editor.editing.document(), editor.editing.history(),
-                    {selected.uuid, selected.prefab_instance_uuid, selected.prefab_source_node_uuid,
-                     gneiss::from_native(selected.local_transform)});
-                if (editor.history_error == gneiss::engine::result::success) {
-                  synchronize_history_dirty(editor);
-                }
-              },
-          .report_result =
-              [](void* context, gneiss::engine::result status) {
-                auto& editor = *static_cast<editor_state*>(context);
-                editor.runtime_result = status;
-                editor.runtime_attempted = true;
-              }};
+  return {
+      .context = &state,
+      .editable = state.runtime.supports_property_editing(),
+      .can_apply_to_author =
+          !node.uuid.empty() && state.editing.document().find_node(node.uuid) != nullptr,
+      .find_edit =
+          [](void* context, const gneiss::editor::runtime_property_key& key) {
+            return static_cast<editor_state*>(context)->runtime.property_edit(key);
+          },
+      .write_property =
+          [](void* context, const gneiss::editor::runtime_property_key& key, std::uint64_t revision,
+             gneiss::editor::runtime_property_value value) {
+            return static_cast<editor_state*>(context)->runtime.request_property_write(
+                key, revision, {std::move(value.payload)});
+          },
+      .apply_to_author =
+          [](void* context, const gneiss::editor::runtime_scene_node& selected) {
+            auto& editor = *static_cast<editor_state*>(context);
+            editor.history_error = gneiss::editor::apply_runtime_transform_to_author(
+                editor.editing.document(), editor.editing.history(),
+                {selected.uuid,
+                 selected.prefab_instance_uuid,
+                 selected.prefab_source_node_uuid,
+                 {{selected.local_transform.translation[0], selected.local_transform.translation[1],
+                   selected.local_transform.translation[2]},
+                  {selected.local_transform.rotation[0], selected.local_transform.rotation[1],
+                   selected.local_transform.rotation[2], selected.local_transform.rotation[3]},
+                  {selected.local_transform.scale[0], selected.local_transform.scale[1],
+                   selected.local_transform.scale[2]}}});
+            if (editor.history_error == gneiss::engine::result::success) {
+              synchronize_history_dirty(editor);
+            }
+          },
+      .report_result =
+          [](void* context, gneiss::engine::result status) {
+            auto& editor = *static_cast<editor_state*>(context);
+            editor.runtime_result = status;
+            editor.runtime_attempted = true;
+          }};
 }
 
 void draw_reflected_properties(editor_state& state) {
@@ -2486,7 +2494,7 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
           }
           const auto* current =
               state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-          gneiss::transform restored_previous{};
+          gneiss::engine::transform restored_previous{};
           state.history_error = current == nullptr
                                     ? gneiss::engine::result::not_found
                                     : state.editing.document().restore_prefab_transform_field(
@@ -2538,7 +2546,7 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
         const bool restore_all = ImGui::Button("Restore All Transform");
         ImGui::EndDisabled();
         if (restore_all) {
-          gneiss::transform all_previous{};
+          gneiss::engine::transform all_previous{};
           state.history_error =
               state.editing.document().restore_prefab_transform(current->node, all_previous);
           current = state.editing.document().find_prefab_source(instance_uuid, source_uuid);
@@ -2683,9 +2691,8 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
       bool components_changed = false;
       if (ImGui::Button(has_camera ? "Remove Camera" : "Add Camera")) {
         if (has_camera) {
-          gneiss::scene_camera_desc previous{};
-          previous.camera = gneiss::from_native(selected->camera);
-          previous.is_primary = selected->is_primary_camera ? 1U : 0U;
+          auto previous = selected->camera;
+          previous.is_primary = selected->is_primary_camera;
           state.history_error = state.editing.document().remove_camera(selected->node);
           if (state.history_error == gneiss::engine::result::success) {
             state.history_error = state.editing.history().record(
@@ -2711,7 +2718,7 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
             }
           }
         } else {
-          gneiss::scene_camera_desc camera{};
+          gneiss::engine::camera_description camera{1.04719755F, 0.1F, 1000.0F, false};
           state.history_error = state.editing.document().set_camera(selected->node, camera);
           if (state.history_error == gneiss::engine::result::success) {
             state.history_error = state.editing.history().record(

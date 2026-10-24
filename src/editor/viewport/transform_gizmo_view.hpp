@@ -16,7 +16,7 @@ struct transform_gizmo_context final {
   scene_document& session;
   editor_command_history& history;
   transform_gizmo_drag& drag;
-  transform camera = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform camera = {};
   transform_gizmo_operation operation = transform_gizmo_operation::translate;
   bool& wait_release;
   gneiss::engine::result& error;

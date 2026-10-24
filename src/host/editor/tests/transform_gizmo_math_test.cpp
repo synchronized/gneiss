@@ -14,9 +14,9 @@ namespace {
   return std::abs(left - right) <= 1.0e-4F;
 }
 
-[[nodiscard]] gneiss::transform combine(const gneiss::transform& parent,
-                                        const gneiss::transform& local) noexcept {
-  gneiss::transform result{};
+[[nodiscard]] gneiss::engine::transform combine(const gneiss::engine::transform& parent,
+                                                const gneiss::engine::transform& local) noexcept {
+  gneiss::engine::transform result{};
   const std::array scaled{local.translation[0] * parent.scale[0],
                           local.translation[1] * parent.scale[1],
                           local.translation[2] * parent.scale[2]};
@@ -49,7 +49,7 @@ namespace {
 } // namespace
 
 int main() {
-  gneiss::transform parent{};
+  gneiss::engine::transform parent{};
   parent.translation[0] = 4.0F;
   parent.scale[0] = 2.0F;
   parent.scale[1] = 3.0F;
@@ -57,7 +57,7 @@ int main() {
   constexpr float half_sqrt = 0.70710678F;
   parent.rotation[2] = half_sqrt;
   parent.rotation[3] = half_sqrt;
-  gneiss::transform local{};
+  gneiss::engine::transform local{};
   local.translation[0] = 1.0F;
   local.translation[1] = 2.0F;
   local.scale[0] = 1.5F;
@@ -65,7 +65,7 @@ int main() {
   local.rotation[1] = half_sqrt;
   local.rotation[3] = half_sqrt;
   const auto world = combine(parent, local);
-  gneiss::transform recovered{};
+  gneiss::engine::transform recovered{};
   if (gneiss::editor::world_to_local_transform(&parent, world, recovered) !=
       gneiss::engine::result::success) {
     return 1;
@@ -90,7 +90,7 @@ int main() {
     return 4;
   }
   gneiss::editor::gizmo_matrix matrix{};
-  gneiss::transform matrix_roundtrip{};
+  gneiss::engine::transform matrix_roundtrip{};
   if (gneiss::editor::transform_to_gizmo_matrix(world, matrix) != gneiss::engine::result::success ||
       gneiss::editor::gizmo_matrix_to_transform(matrix, matrix_roundtrip) !=
           gneiss::engine::result::success) {

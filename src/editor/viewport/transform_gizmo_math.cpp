@@ -16,7 +16,7 @@ constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept
   return (column * 4U) + row;
 }
 
-[[nodiscard]] bool valid(const transform& value) noexcept {
+[[nodiscard]] bool valid(const gneiss::engine::transform& value) noexcept {
   const auto finite = [](float component) { return std::isfinite(component); };
   const auto length = std::sqrt(std::inner_product(
       std::begin(value.rotation), std::end(value.rotation), std::begin(value.rotation), 0.0F));
@@ -44,7 +44,7 @@ constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept
 
 } // namespace
 
-gizmo_matrix build_gizmo_view_matrix(const gneiss::transform& camera) noexcept {
+gizmo_matrix build_gizmo_view_matrix(const gneiss::engine::transform& camera) noexcept {
   auto inverse = camera;
   inverse.rotation[0] = -inverse.rotation[0];
   inverse.rotation[1] = -inverse.rotation[1];
@@ -80,7 +80,7 @@ gizmo_matrix build_gizmo_projection_matrix(float aspect) noexcept {
   return result;
 }
 
-gneiss::engine::result transform_to_gizmo_matrix(const transform& value,
+gneiss::engine::result transform_to_gizmo_matrix(const gneiss::engine::transform& value,
                                                  gizmo_matrix& output) noexcept {
   if (!valid(value) ||
       std::ranges::any_of(value.scale, [](float component) { return component < 0.0F; })) {
@@ -107,13 +107,13 @@ gneiss::engine::result transform_to_gizmo_matrix(const transform& value,
 }
 
 gneiss::engine::result gizmo_matrix_to_transform(const gizmo_matrix& value,
-                                                 transform& output) noexcept {
+                                                 gneiss::engine::transform& output) noexcept {
   if (!std::ranges::all_of(value, [](float component) { return std::isfinite(component); }) ||
       std::abs(value[matrix_index(3U, 3U)] - 1.0F) > 1.0e-4F || value[3] != 0.0F ||
       value[7] != 0.0F || value[11] != 0.0F) {
     return gneiss::engine::result::invalid_argument;
   }
-  transform result = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform result = {};
   for (std::size_t column = 0; column < 3U; ++column) {
     const auto x = value[matrix_index(0U, column)];
     const auto y = value[matrix_index(1U, column)];
@@ -175,9 +175,9 @@ gneiss::engine::result gizmo_matrix_to_transform(const gizmo_matrix& value,
   return gneiss::engine::result::success;
 }
 
-gneiss::engine::result world_to_local_transform(const transform* parent_world,
-                                                const transform& target_world,
-                                                transform& output) noexcept {
+gneiss::engine::result world_to_local_transform(const gneiss::engine::transform* parent_world,
+                                                const gneiss::engine::transform& target_world,
+                                                gneiss::engine::transform& output) noexcept {
   if (!valid(target_world) || (parent_world != nullptr && !valid(*parent_world))) {
     return gneiss::engine::result::invalid_argument;
   }
@@ -191,7 +191,7 @@ gneiss::engine::result world_to_local_transform(const transform* parent_world,
     return gneiss::engine::result::success;
   }
 
-  transform local = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform local = {};
   std::array delta{target_world.translation[0] - parent_world->translation[0],
                    target_world.translation[1] - parent_world->translation[1],
                    target_world.translation[2] - parent_world->translation[2]};

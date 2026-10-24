@@ -9,6 +9,7 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/values/render.hpp
   engine/values/scene.hpp
   engine/values/world.hpp
+  engine/core/math/transform.hpp
   engine/core/entity_id.hpp
   engine/core/reflection/reflection_types.hpp
   engine/core/reflection/component_identity.hpp

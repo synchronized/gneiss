@@ -52,8 +52,8 @@ bool test_write_and_revision() {
                       }
                       return native_result;
                     })({}, entity, scene_node) == gneiss::engine::result::success);
-  const gneiss::transform identity{};
-  GNEISS_TEST_CHECK(([&](scene_node_id node, const gneiss::transform& value) {
+  const gneiss::engine::transform identity{};
+  GNEISS_TEST_CHECK(([&](scene_node_id node, const gneiss::engine::transform& value) {
                       const auto native = to_native(value);
                       return gneiss::engine::result{
                           gneiss_scene_node_set_local_transform(world.get(), node.get(), &native)};
@@ -95,8 +95,8 @@ bool test_write_and_revision() {
   GNEISS_TEST_CHECK(response.code == gneiss::engine::result::success.code());
   GNEISS_TEST_CHECK(response.revision == 2U);
   GNEISS_TEST_CHECK(response.canonical_value.payload == command.value.payload);
-  gneiss::transform transform{};
-  GNEISS_TEST_CHECK(([&](entity_id entity, gneiss::transform& output) {
+  gneiss::engine::transform transform{};
+  GNEISS_TEST_CHECK(([&](entity_id entity, gneiss::engine::transform& output) {
                       gneiss_transform native{};
                       const auto status =
                           gneiss::engine::result{gneiss_world_entity_get_local_transform(
@@ -115,7 +115,7 @@ bool test_write_and_revision() {
   GNEISS_TEST_CHECK(editor.execute(stale, response) == gneiss::engine::result::success);
   GNEISS_TEST_CHECK(response.code == gneiss::engine::result::invalid_state.code() &&
                     response.revision == 2U);
-  GNEISS_TEST_CHECK(([&](entity_id entity, gneiss::transform& output) {
+  GNEISS_TEST_CHECK(([&](entity_id entity, gneiss::engine::transform& output) {
                       gneiss_transform native{};
                       const auto status =
                           gneiss::engine::result{gneiss_world_entity_get_local_transform(

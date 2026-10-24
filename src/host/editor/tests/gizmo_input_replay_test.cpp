@@ -24,7 +24,7 @@ bool replay(float scale, ImGuizmo::OPERATION operation) {
   int width = 0;
   int height = 0;
   io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-  gneiss::transform camera{};
+  gneiss::engine::transform camera{};
   camera.translation[1] = 2.0F;
   camera.translation[2] = 6.0F;
   const auto pitch = -0.5F * std::atan2(2.0F, 6.0F);
@@ -33,7 +33,7 @@ bool replay(float scale, ImGuizmo::OPERATION operation) {
   auto view = gneiss::editor::build_gizmo_view_matrix(camera);
   auto projection = gneiss::editor::build_gizmo_projection_matrix(800.0F / 600.0F);
   gneiss::editor::gizmo_matrix model{};
-  const gneiss::transform identity{};
+  const gneiss::engine::transform identity{};
   if (gneiss::editor::transform_to_gizmo_matrix(identity, model) !=
       gneiss::engine::result::success) {
     return false;
@@ -79,7 +79,7 @@ bool replay(float scale, ImGuizmo::OPERATION operation) {
   }
   (void)frame(hit_x + (32.0F * scale), hit_y + (16.0F * scale), false);
   const auto released = !ImGuizmo::IsUsing();
-  gneiss::transform result{};
+  gneiss::engine::transform result{};
   const auto valid =
       gneiss::editor::gizmo_matrix_to_transform(model, result) == gneiss::engine::result::success;
   const auto success = found && captured && changed && released && valid && initial != model;

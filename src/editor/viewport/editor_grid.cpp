@@ -24,8 +24,9 @@ float density_scale(bool major, bool next_major, float detail) noexcept {
 
 } // namespace
 
-std::vector<gneiss::engine::debug_line>
-build_editor_grid(const transform& camera, const gizmo_matrix& view, float viewport_height) {
+std::vector<gneiss::engine::debug_line> build_editor_grid(const gneiss::engine::transform& camera,
+                                                          const gizmo_matrix& view,
+                                                          float viewport_height) {
   std::vector<gneiss::engine::debug_line> lines;
   if (!std::isfinite(viewport_height) || viewport_height <= 0.0F ||
       !std::ranges::all_of(camera.translation, [](float value) { return std::isfinite(value); }) ||

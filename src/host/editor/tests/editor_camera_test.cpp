@@ -55,7 +55,7 @@ int main() {
       near(camera.current_transform().translation[2], initial.translation[2])) {
     return 2;
   }
-  gneiss::transform target{};
+  gneiss::engine::transform target{};
   target.translation[0] = 3.0F;
   target.translation[1] = 4.0F;
   target.translation[2] = 5.0F;

@@ -4,9 +4,9 @@
 #ifndef GNEISS_APPS_EDITOR_EDITOR_CAMERA_H_
 #define GNEISS_APPS_EDITOR_EDITOR_CAMERA_H_
 
+#include "engine/core/math/transform.hpp"
 #include "engine/core/result.hpp"
-#include "engine/values/render.hpp"
-#include "engine/values/scene.hpp"
+#include "engine/function/render/camera_settings.hpp"
 
 namespace gneiss::editor {
 
@@ -33,17 +33,19 @@ public:
 
   [[nodiscard]] bool is_valid() const noexcept { return initialized_; }
   [[nodiscard]] gneiss::engine::result update(const editor_camera_input& input) noexcept;
-  [[nodiscard]] gneiss::engine::result focus(const transform& target,
+  [[nodiscard]] gneiss::engine::result focus(const gneiss::engine::transform& target,
                                              float distance = 5.0F) noexcept;
-  [[nodiscard]] const transform& current_transform() const noexcept { return transform_; }
+  [[nodiscard]] const gneiss::engine::transform& current_transform() const noexcept {
+    return transform_;
+  }
 
-  [[nodiscard]] gneiss::camera settings() const noexcept;
+  [[nodiscard]] gneiss::engine::camera_settings settings() const noexcept;
 
 private:
   void update_rotation() noexcept;
 
   bool initialized_{};
-  transform transform_ = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform transform_ = {};
   float yaw_ = 0.0F;
   float pitch_ = -0.3F;
 };

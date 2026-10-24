@@ -39,8 +39,8 @@ int main() try {
     return 2;
   }
   const auto is_x = [&](float expected) {
-    transform local{};
-    return ([&](entity_id node, gneiss::transform& output) {
+    gneiss::engine::transform local{};
+    return ([&](entity_id node, gneiss::engine::transform& output) {
              gneiss_transform native{};
              const auto status = gneiss::engine::result{
                  gneiss_world_entity_get_local_transform(world_handle, node.get(), &native)};
