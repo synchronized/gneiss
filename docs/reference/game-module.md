@@ -14,6 +14,10 @@
 原生 Game Module 必须链接 Shared `gneiss_engine`。若链接 Static Engine，Runtime 与模块会各自持有
 一份 Engine 注册状态，Game Context 等句柄不能跨越该边界；静态链接游戏需另立宿主与链接模型。
 
+Game Context 内部弱引用原生 Application，不延长父对象生命周期；每次操作期间取得临时引用。
+父对象关闭或释放后，Context 查询和日志提交返回 `GNEISS_ERROR_INVALID_HANDLE`；
+Context 仍须由创建线程销毁。Runtime 不再为模块建立完整 SDK 的 Application 兼容句柄。
+
 ## 查询入口
 
 每个原生模块必须导出 `gneiss_game_module_query`。Runtime 将使用

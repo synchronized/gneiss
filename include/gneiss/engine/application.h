@@ -200,15 +200,6 @@ GNEISS_API gneiss_result gneiss_application_request_exit(gneiss_application appl
 GNEISS_API gneiss_result gneiss_application_set_paused(gneiss_application application,
                                                        uint8_t is_paused);
 
-/**
- * 提交日志消息并在返回前完成字符串复制。
- *
- * 可从任意线程调用；接收回调由专用消费线程串行执行。队列已满时丢弃新事件并通过后续告警报告数量。
- * 未设置接收回调时仍校验消息并返回成功；接收回调重入本函数返回 GNEISS_ERROR_INVALID_STATE。
- */
-GNEISS_EXPERIMENTAL GNEISS_API gneiss_result
-gneiss_application_log(gneiss_application application, const gneiss_log_message* message);
-
 /** 获取由 Application 独占拥有的借用 World 句柄。 */
 GNEISS_API gneiss_result gneiss_application_get_world(gneiss_application application,
                                                       gneiss_world* out_world);

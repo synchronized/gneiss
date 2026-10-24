@@ -7,7 +7,6 @@
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
-#include "runtime/application_bridge.hpp"
 #include <gneiss/app/project_description.hpp>
 #include <gneiss/engine/scene.h>
 
@@ -587,11 +586,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
                                          : gneiss::engine::execution_mode::thread_pool});
   context.tasks = &task_scheduler;
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss::runtime::application_bridge bridge;
   auto operation = gneiss::runtime::application::create(desc, application);
-  if (operation == gneiss::engine::result::success) {
-    operation = bridge.bind(application);
-  }
   if (operation != gneiss::engine::result::success) {
     log.write("ERROR", "application_create", static_cast<gneiss::engine::result>(operation),
               "Application 创建失败", asset_root);
@@ -758,7 +753,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
     }
     if (applied != gneiss::engine::result::success)
       return applied;
-    applied = gneiss::runtime::create_game_context(bridge.get(), root_entity, &game_context);
+    applied = gneiss::runtime::create_game_context(application, root_entity, &game_context);
     if (applied != gneiss::engine::result::success)
       return applied;
     if (!project.game_module.name.empty()) {
@@ -821,7 +816,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
       scene_loader.request({context.inspection_session_id, 1U, project.startup_scene}, 0U);
   if (native_result != gneiss::engine::result::success)
     return 4;
-  operation = application->run(bridge.get(), 0U);
+  operation = application->run(0, 0U);
   const auto task_stats = task_scheduler.stats();
   log.write("INFO", "task_statistics", gneiss::engine::result::success,
             "submitted=" + std::to_string(task_stats.submitted) +

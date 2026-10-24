@@ -7,7 +7,6 @@
 
 #include "runtime/application.hpp"
 #include "runtime/application_asset_reload_internal.hpp"
-#include "runtime/application_log_internal.hpp"
 #include "runtime/application_scene_load_internal.hpp"
 #include "runtime/application_view_internal.hpp"
 #include <new>
@@ -346,22 +345,4 @@ gneiss::engine::result gneiss::runtime::reload_prefab(gneiss_application applica
   auto state = find_application(application);
   const auto valid = validate_application(state);
   return valid == gneiss::engine::result::success ? state->reload_prefab(instance, uri) : valid;
-}
-
-gneiss::engine::result
-gneiss::runtime::submit_application_log(gneiss_application application,
-                                        const gneiss::engine::message_view& message,
-                                        std::string_view source) noexcept {
-  try {
-    auto state = find_application(application);
-    if (state == nullptr) {
-      return gneiss::engine::result::invalid_handle;
-    }
-    auto value = message;
-    value.context = application;
-    value.source = source;
-    return state->submit_log(value);
-  } catch (...) {
-    return gneiss::engine::result::internal;
-  }
 }

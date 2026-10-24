@@ -48,6 +48,10 @@ C 值转换暂留 values/scene.hpp，待 Scene C API 撤销时一并移除。
 Runtime 日志、文件输出、IPC 编码及 Editor 控制台使用原生日志值；运行时事件不再往返
 `gneiss_log_event`。Core 日志值与投递器实现分离，C 日志事件仅留在尚未撤销的 Application 回调边界。
 
+Game Context 已改为弱引用原生 Application，操作期间临时持有并检查父对象状态；Runtime
+不再创建 Application 兼容桥。独立 Application 日志 C 导出和句柄日志转发层已删除，
+生命周期用例补充父对象关闭、释放后的拒绝访问与 Context 不持有父对象的检查。
+
 ## 目标与非目标
 
 同源码构建的 Engine、Runtime、Editor 和工具统一消费 src 原生接口与共享值。

@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/api/log_validation.hpp"
 #include "engine/api/result_conversion.hpp"
 #include "engine/core/result.hpp"
 #include "runtime/api/application_log_sink.hpp"
 #include "runtime/application.hpp"
-#include "runtime/application_log_internal.hpp"
 #include "runtime/application_registry.hpp"
 
 #include "engine/resource/vfs/asset_uri.hpp"
@@ -274,18 +272,6 @@ extern "C" gneiss_result gneiss_application_set_paused(gneiss_application applic
     } catch (...) {
       return gneiss::engine::result::internal;
     }
-  }());
-}
-
-extern "C" gneiss_result gneiss_application_log(gneiss_application application,
-                                                const gneiss_log_message* message) {
-  return gneiss::engine::detail::to_c_result([&]() -> gneiss::engine::result {
-    const auto message_result = gneiss::engine::detail::validate_log_message(message);
-    if (message_result != gneiss::engine::result::success) {
-      return message_result;
-    }
-    return gneiss::runtime::submit_application_log(
-        application, gneiss::engine::detail::log_message_view(*message), "application");
   }());
 }
 

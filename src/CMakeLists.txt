@@ -47,7 +47,6 @@ target_sources(
     runtime/loading/prefab_preparation.cpp
     runtime/loading/prefab_placement.cpp
     runtime/application_asset_reload_internal.hpp
-    runtime/application_log_internal.hpp
     runtime/api/application_log_sink.hpp
     runtime/loading/scene_service_loading.cpp
     runtime/loading/scene_load_types.hpp

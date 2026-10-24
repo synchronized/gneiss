@@ -5,9 +5,9 @@
 
 ## 当前范围
 
-`gneiss_log_message` 是日志生产者提交给 Engine 的 Experimental 消息描述。Application 可通过
-`gneiss_application_log` 提交，并由创建描述中的可选 `log` 回调在消费线程接收 Engine 补全后的
-`gneiss_log_event`。Game Context、队列、基础 Sink、Runtime 传输协议与 Editor Console 已接入。
+游戏模块通过 `gneiss_game_context_log` 提交 `gneiss_log_message`；内部宿主使用原生
+`application::submit_log`。原生 `log` 回调在消费线程接收 `event_view`。Game Context、队列、
+基础 Sink、Runtime 传输协议与 Editor Console 已接入；独立 Application 日志 C 导出已删除。
 
 ## 字段与所有权
 
@@ -23,16 +23,16 @@
 
 ## 提交与接收
 
-- `gneiss_application_log` 可从任意线程调用，并在返回前完成字符串复制和入队，不等待 Sink。
+- 原生 `application::submit_log` 和模块 `gneiss_game_context_log` 可从任意线程调用，并在返回前完成字符串复制和入队，不等待 Sink。
 - 同一 Application 的回调在专用消费线程串行执行；事件序号按入队顺序从一开始递增。
 - 队列有固定上限；已满时丢弃新事件并在恢复后生成包含丢弃数量的 `backpressure` 告警。
 - 回调内的事件和字符串均为借用值，只在该次回调期间有效。
 - 回调不得重入日志提交；Application 仍有效时重入返回 `GNEISS_ERROR_INVALID_STATE`。
-  关闭排空期间传入的 Application 句柄可能已失效，接收方只应消费事件。
+  关闭排空期间接收方只应消费事件，不再向正在关闭的父对象提交。
 - 没有设置回调时，有效消息返回成功但不会写入文件或标准流。
 - Application 销毁不能与日志提交并发；宿主应先停止生产者，再销毁 Application。
 - 原生 `application::submit_log` 允许工作线程提交；调用方必须先停止并等待提交线程，再关闭或释放 Application。
-  `reset()` 关闭前排空已接收事件，回调及 `user_data` 必须存活至关闭返回。
+  最后一个原生引用释放前排空已接收事件，回调捕获的数据 必须存活至关闭返回。
 
 Application 入口的可信来源固定为 `application`。Game Module 使用
 `gneiss_game_context_log` 提交，Runtime 在模块查询成功后把经过校验的模块 ID 绑定为可信来源；模块

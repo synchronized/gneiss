@@ -8,7 +8,6 @@
 #include "engine/api/log_validation.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
-#include "runtime/application_registry.hpp"
 #include "runtime/game/game_context_internal.hpp"
 #include <algorithm>
 #include <limits>
@@ -21,12 +20,8 @@ gneiss::engine::result with_application(gneiss_game_context context,
   auto status = gneiss::runtime::query_context(context, view);
   if (status != gneiss::engine::result::success)
     return status;
-  auto application = gneiss::runtime::find_application(view.application);
-  status = gneiss::runtime::validate_application(application);
-  if (status != gneiss::engine::result::success)
-    return status;
   try {
-    return operation(*application);
+    return operation(*view.application);
   } catch (const std::bad_alloc&) {
     return gneiss::engine::result::out_of_memory;
   } catch (...) {

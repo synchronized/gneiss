@@ -4,10 +4,10 @@
 #ifndef GNEISS_SRC_GAME_GAME_CONTEXT_INTERNAL_HPP_
 #define GNEISS_SRC_GAME_GAME_CONTEXT_INTERNAL_HPP_
 
-#include <gneiss/engine/application.h>
 #include <gneiss/engine/game_module.h>
 
 #include "engine/core/result.hpp"
+#include <memory>
 #include <string_view>
 
 namespace gneiss::engine {
@@ -15,18 +15,20 @@ struct message_view;
 }
 
 namespace gneiss::runtime {
+class application;
 
 [[nodiscard]] GNEISS_API gneiss::engine::result
-create_game_context(gneiss_application application, gneiss_entity_id startup_root_entity,
+create_game_context(const std::shared_ptr<application>& parent,
+                    gneiss_entity_id startup_root_entity,
                     gneiss_game_context* out_context) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
 destroy_game_context(gneiss_game_context context) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
 set_game_context_log_source(gneiss_game_context context, std::string_view source) noexcept;
 
-/** 非拥有型快照；只复制身份，不延长 Application 或 World 的生命周期。 */
+/** 仅在单次调用期间持有父对象；关闭状态仍需校验，不恢复已关闭服务。 */
 struct context_view {
-  gneiss_application application{};
+  std::shared_ptr<runtime::application> application;
   gneiss_world world{};
   gneiss_entity_id startup_root_entity{};
 };

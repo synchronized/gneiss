@@ -5,10 +5,8 @@
 #include "runtime/game/game_context_internal.hpp"
 
 #include "runtime/application.hpp"
-#include "runtime/application_registry.hpp"
 
 #include "engine/core/rid_table.hpp"
-#include "runtime/application_log_internal.hpp"
 
 #include <mutex>
 #include <new>
@@ -18,7 +16,7 @@
 namespace {
 
 struct context_state final {
-  gneiss_application application;
+  std::weak_ptr<gneiss::runtime::application> application;
   gneiss_world world;
   gneiss_entity_id startup_root_entity;
   std::thread::id owner_thread;
@@ -41,24 +39,21 @@ gneiss::engine::rid_table<context_state> contexts(context_domain);
 
 namespace gneiss::runtime {
 
-gneiss::engine::result create_game_context(gneiss_application application,
+gneiss::engine::result create_game_context(const std::shared_ptr<application>& parent,
                                            gneiss_entity_id startup_root_entity,
                                            gneiss_game_context* out_context) noexcept try {
-  if (application == GNEISS_NULL_APPLICATION || out_context == nullptr) {
+  if (!parent || out_context == nullptr) {
     return gneiss::engine::result::invalid_argument;
   }
   *out_context = GNEISS_NULL_GAME_CONTEXT;
-  gneiss_world world = GNEISS_NULL_WORLD;
-  const auto parent = runtime::find_application(application);
-  const auto world_result = runtime::validate_application(parent);
-  if (world_result != gneiss::engine::result::success) {
-    return world_result;
+  if (!parent->is_owner_thread() || !parent->accepts_requests()) {
+    return gneiss::engine::result::invalid_state;
   }
-  world = parent->world();
+  const auto world = parent->world();
   std::scoped_lock lock(context_mutex);
   return contexts.create(gneiss::engine::resource_type::game_context,
                          context_state{
-                             .application = application,
+                             .application = parent,
                              .world = world,
                              .startup_root_entity = startup_root_entity,
                              .owner_thread = std::this_thread::get_id(),
@@ -115,7 +110,11 @@ gneiss::engine::result query_context(gneiss_game_context context, context_view& 
     if (state == nullptr) {
       return gneiss::engine::result::invalid_handle;
     }
-    output = {.application = state->application,
+    auto parent = state->application.lock();
+    if (!parent || !parent->accepts_requests()) {
+      return gneiss::engine::result::invalid_handle;
+    }
+    output = {.application = std::move(parent),
               .world = state->world,
               .startup_root_entity = state->startup_root_entity};
     return gneiss::engine::result::success;
@@ -128,9 +127,17 @@ gneiss::engine::result submit_context_log(gneiss_game_context context,
   try {
     const std::scoped_lock lock(context_mutex);
     const auto* state = contexts.get(context, gneiss::engine::resource_type::game_context);
-    return state == nullptr
-               ? gneiss::engine::result::invalid_handle
-               : runtime::submit_application_log(state->application, message, state->log_source);
+    if (state == nullptr) {
+      return gneiss::engine::result::invalid_handle;
+    }
+    auto parent = state->application.lock();
+    if (!parent || !parent->accepts_requests()) {
+      return gneiss::engine::result::invalid_handle;
+    }
+    auto value = message;
+    value.context = context;
+    value.source = state->log_source;
+    return parent->submit_log(value);
   } catch (...) {
     return gneiss::engine::result::internal;
   }

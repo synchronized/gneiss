@@ -9,7 +9,6 @@ gneiss_application_get_pointer_state stable
 gneiss_application_get_window_size experimental
 gneiss_application_get_world stable
 gneiss_application_load_action_map stable
-gneiss_application_log experimental
 gneiss_application_poll_input stable
 gneiss_application_request_exit stable
 gneiss_application_run stable

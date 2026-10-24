@@ -7,7 +7,6 @@ gneiss_application_get_pointer_state
 gneiss_application_get_window_size
 gneiss_application_get_world
 gneiss_application_load_action_map
-gneiss_application_log
 gneiss_application_poll_input
 gneiss_application_request_exit
 gneiss_application_run

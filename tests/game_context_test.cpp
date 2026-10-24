@@ -4,7 +4,6 @@
 #include "engine/core/result.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
-#include "runtime/application_bridge.hpp"
 #include "runtime/game/game_context_internal.hpp"
 #include <gneiss/engine/game_module.h>
 
@@ -45,11 +44,8 @@ int main() {
   };
   config.callbacks.update = [](auto, const auto&) { return gneiss::engine::result::success; };
   std::shared_ptr<gneiss::runtime::application> native_application;
-  gneiss::runtime::application_bridge bridge;
-  if (gneiss::runtime::application::create(config, native_application).failed() ||
-      bridge.bind(native_application).failed())
+  if (gneiss::runtime::application::create(config, native_application).failed())
     return 1;
-  const auto application = bridge.get();
   const auto expected_world = native_application->world();
   gneiss::entity_id root;
   gneiss::scene_node_id node;
@@ -58,7 +54,7 @@ int main() {
     return 2;
   const auto expected_root = root.get();
   gneiss_game_context context = GNEISS_NULL_GAME_CONTEXT;
-  if (gneiss::runtime::create_game_context(application, expected_root, &context) !=
+  if (gneiss::runtime::create_game_context(native_application, expected_root, &context) !=
           gneiss::engine::result::success ||
       gneiss::runtime::set_game_context_log_source(context, "gneiss.test.module") !=
           gneiss::engine::result::success ||
@@ -149,11 +145,9 @@ int main() {
       gneiss::engine::result{gneiss_game_context_log(context, &native_message)} !=
           gneiss::engine::result::invalid_handle ||
       gneiss::runtime::destroy_game_context(context) != gneiss::engine::result::invalid_handle ||
-      native_application->shutdown(application) != gneiss::engine::result::success) {
+      native_application->shutdown(0) != gneiss::engine::result::success) {
     return 4;
   }
-  if (bridge.reset().failed())
-    return 10;
   native_application.reset();
   {
     const std::scoped_lock lock(capture.mutex);
@@ -161,6 +155,26 @@ int main() {
         capture.message != "worker ready") {
       return 5;
     }
+  }
+  // Context 不拥有父对象；关闭后及最后一个父引用释放后均拒绝访问。
+  std::shared_ptr<gneiss::runtime::application> parent;
+  if (gneiss::runtime::application::create({}, parent).failed() ||
+      gneiss::runtime::create_game_context(parent, 0, &context).failed()) {
+    return 10;
+  }
+  std::weak_ptr<gneiss::runtime::application> weak_parent = parent;
+  if (parent->shutdown(0).failed() ||
+      gneiss_game_context_get_world(context, &actual_world) != GNEISS_ERROR_INVALID_HANDLE ||
+      actual_world != 0 ||
+      gneiss_game_context_log(context, &native_message) != GNEISS_ERROR_INVALID_HANDLE) {
+    return 11;
+  }
+  parent.reset();
+  if (!weak_parent.expired() ||
+      gneiss_game_context_get_world(context, &actual_world) != GNEISS_ERROR_INVALID_HANDLE ||
+      gneiss_game_context_log(context, &native_message) != GNEISS_ERROR_INVALID_HANDLE ||
+      gneiss::runtime::destroy_game_context(context).failed()) {
+    return 12;
   }
   return 0;
 }
