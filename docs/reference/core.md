@@ -42,7 +42,8 @@
   `std::remove_cvref_t<T>` 归一化，再访问用户特化。
 
 - `type_id`：Engine 内集中分配的运行期类型键。`runtime_type_of<T>()` 去除顶层 cv/ref，
-  首次按工具链规范类型名注册，之后缓存编号；void 返回无效 ID，名称通过 `runtime_type_name` 查询。
+  首次按工具链规范类型名注册，之后缓存编号；void 返回无效 ID。编译器类型名仅作为内部去重键，
+  不提供按 ID 查询名称的接口，也不作为展示名称或持久化契约。
   资源缓存与 Loader 使用此键，不使用名称 hash 代替身份。首次初始化分配失败不可恢复。
 
 `type_id` 不持久化，不替代反射的 16 字节 `type_guid`、稳定 GUID 或资产 UUID。

@@ -7,7 +7,6 @@
 #include <compare>
 #include <cstddef>
 #include <cstdint>
-#include <string_view>
 #include <type_traits>
 namespace gneiss::engine {
 /** Engine 存活期间的进程内类型键；零无效，不得序列化。 */
@@ -39,6 +38,4 @@ template <class T> [[nodiscard]] type_id runtime_type_of() noexcept {
     return id;
   }
 }
-/** 名称借用到 Engine 卸载；无效或未知 ID 返回空。线程安全。 */
-[[nodiscard]] GNEISS_API std::string_view runtime_type_name(type_id id) noexcept;
 }
