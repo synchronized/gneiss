@@ -16,15 +16,6 @@
 
 namespace gneiss {
 
-/** 内建 Transform 的稳定类型标识，值不依赖 World 生命周期。 */
-[[nodiscard]] inline type_id transform_type_id() noexcept {
-  return from_native(gneiss_transform_type_id());
-}
-/** 内建 Camera 的稳定类型标识，值不依赖 World 生命周期。 */
-[[nodiscard]] inline type_id camera_type_id() noexcept {
-  return from_native(gneiss_camera_type_id());
-}
-
 namespace transform_fields {
 inline constexpr field_id translation{1};
 inline constexpr field_id rotation{2};

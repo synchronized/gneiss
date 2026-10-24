@@ -502,6 +502,8 @@ gneiss::engine::result application::poll_events(bool& out_should_close) noexcept
 }
 
 gneiss::engine::result application::poll_input(gneiss::engine::input_event& out_event) noexcept {
+  if (!is_owner_thread() || !accepts_requests())
+    return gneiss::engine::result::invalid_state;
   return storage_->input_.poll(out_event);
 }
 
@@ -545,12 +547,16 @@ gneiss::engine::result application::load_action_map(std::string_view uri) noexce
 gneiss::engine::result
 application::find_action(std::string_view name,
                          gneiss::engine::action_id& out_action) const noexcept {
+  if (!is_owner_thread() || !accepts_requests())
+    return gneiss::engine::result::invalid_state;
   return storage_->input_.find_action(name, out_action);
 }
 
 gneiss::engine::result
 application::get_action_state(gneiss::engine::action_id action,
                               gneiss::engine::action_state& out_state) const noexcept {
+  if (!is_owner_thread() || !accepts_requests())
+    return gneiss::engine::result::invalid_state;
   return storage_->input_.get_action_state(action, out_state);
 }
 

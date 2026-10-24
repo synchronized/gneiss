@@ -94,8 +94,6 @@ target_sources(
     engine/core/result.hpp
     engine/api/result_conversion.hpp
     engine/core/version.hpp
-    engine/values/asset.hpp
-    engine/values/input.hpp
     engine/values/log.hpp
     engine/values/reflection.hpp
     engine/values/render.hpp
@@ -106,7 +104,6 @@ target_sources(
     engine/values/core/result.hpp
     engine/values/core/rid.hpp
     engine/core/scene_types.hpp
-    engine/values/detail/input.inl
     engine/values/detail/reflection.inl
     engine/values/detail/reflection_values.hpp
     engine/values/detail/render.inl

@@ -2,7 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/scope_exit.hpp"
-#include "engine/values/input.hpp"
+#include "engine/core/result.hpp"
+#include "runtime/application.hpp"
+#include "runtime/application_bridge.hpp"
 #include <gneiss/engine/application.h>
 #include <gneiss/engine/scene.h>
 #include <gneiss/engine/world.h>
@@ -19,28 +21,29 @@ namespace {
 struct example_state {
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss_scene_node_id camera_node = GNEISS_NULL_SCENE_NODE_ID;
-  gneiss::action_id orbit{};
-  gneiss::action_id quit{};
+  gneiss::engine::action_id orbit{};
+  gneiss::engine::action_id quit{};
   double angle = 0.0;
 };
 
-gneiss_result update_temple(gneiss_application application, const gneiss_frame_time* time,
-                            void* user_data) {
-  if (time == nullptr || user_data == nullptr) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
+gneiss::engine::result update_temple(gneiss::runtime::application& application,
+                                     const gneiss::engine::frame_time& time, void* user_data) {
+  if (user_data == nullptr) {
+    return gneiss::engine::result::invalid_argument;
   }
   auto* state = static_cast<example_state*>(user_data);
-  gneiss::action_state orbit{};
-  gneiss::action_state quit{};
-  if (gneiss::get_action_state(application, state->orbit, orbit).failed() ||
-      gneiss::get_action_state(application, state->quit, quit).failed()) {
-    return GNEISS_ERROR_INVALID_STATE;
+  gneiss::engine::action_state orbit{};
+  gneiss::engine::action_state quit{};
+  if (application.get_action_state(state->orbit, orbit).failed() ||
+      application.get_action_state(state->quit, quit).failed()) {
+    return gneiss::engine::result::invalid_state;
   }
   if (quit.pressed) {
-    return gneiss_application_request_exit(application);
+    application.request_exit();
+    return gneiss::engine::result::success;
   }
   constexpr double nanoseconds_per_second = 1'000'000'000.0;
-  state->angle += static_cast<double>(time->delta_ns) / nanoseconds_per_second * orbit.value;
+  state->angle += static_cast<double>(time.delta_ns) / nanoseconds_per_second * orbit.value;
   constexpr double radius = 6.0;
   constexpr double height = 2.3;
   const auto yaw_half = state->angle * 0.5;
@@ -53,7 +56,8 @@ gneiss_result update_temple(gneiss_application application, const gneiss_frame_t
   transform.rotation[1] = static_cast<float>(std::sin(yaw_half) * std::cos(pitch_half));
   transform.rotation[2] = static_cast<float>(-std::sin(yaw_half) * std::sin(pitch_half));
   transform.rotation[3] = static_cast<float>(std::cos(yaw_half) * std::cos(pitch_half));
-  return gneiss_scene_node_set_local_transform(state->world, state->camera_node, &transform);
+  return gneiss::engine::result{
+      gneiss_scene_node_set_local_transform(state->world, state->camera_node, &transform)};
 }
 
 } // namespace
@@ -74,37 +78,39 @@ int run_example(int argc, char** argv) {
   const auto asset_root = has_installed_assets && !path_error
                               ? installed_asset_root.string()
                               : std::string{GNEISS_TEMPLE_SOURCE_ASSET_ROOT};
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.user_data = &state;
-  desc.update = update_temple;
-  desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
-  desc.window_title = title.data();
-  desc.window_title_length = static_cast<std::uint32_t>(title.size());
-  desc.asset_root = asset_root.c_str();
-  desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
-
-  gneiss_application application{};
+  std::shared_ptr<gneiss::runtime::application> native_application;
+  gneiss::runtime::application_bridge bridge;
+  gneiss::runtime::application_configuration config;
+  config.use_granit_window = true;
+  config.window.title = title;
+  config.asset_root = asset_root;
+  config.callbacks.update = [&](auto, const auto& time) {
+    return update_temple(*native_application, time, &state);
+  };
   example::scope_exit close{[&] {
-    if (application)
-      (void)gneiss_application_destroy(application);
+    if (native_application && native_application->accepts_requests())
+      (void)native_application->shutdown(bridge.get());
   }};
-  if (gneiss::result{gneiss_application_create(&desc, &application)} != gneiss::result::success ||
-      gneiss::result{gneiss_application_get_world(application, &state.world)} !=
-          gneiss::result::success) {
+  auto create_result = gneiss::runtime::application::create(config, native_application);
+  if (create_result.ok())
+    create_result = bridge.bind(native_application);
+  if (create_result.failed()) {
     return 1;
   }
+  const auto application = bridge.get();
+  state.world = native_application->world();
   gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
   if (gneiss_scene_instance_load(application, scene_uri.data(), scene_uri.size(), &scene) !=
           GNEISS_SUCCESS ||
-      gneiss::load_action_map(application, input_map_uri) != gneiss::result::success ||
-      gneiss::find_action(application, "move_horizontal", state.orbit) != gneiss::result::success ||
-      gneiss::find_action(application, "quit", state.quit) != gneiss::result::success ||
+      native_application->load_action_map(input_map_uri) != gneiss::engine::result::success ||
+      native_application->find_action("move_horizontal", state.orbit) !=
+          gneiss::engine::result::success ||
+      native_application->find_action("quit", state.quit) != gneiss::engine::result::success ||
       gneiss_scene_instance_find_node(application, scene, camera_uuid.data(), camera_uuid.size(),
                                       &state.camera_node) != GNEISS_SUCCESS) {
     return 2;
   }
-  if (gneiss::result{gneiss_application_run(application, smoke ? 3U : 0U)} !=
-      gneiss::result::success) {
+  if (native_application->run(application, smoke ? 3U : 0U) != gneiss::engine::result::success) {
     return 3;
   }
   return gneiss_scene_instance_unload(application, scene) == GNEISS_SUCCESS ? 0 : 4;

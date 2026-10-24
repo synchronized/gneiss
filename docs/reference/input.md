@@ -6,7 +6,10 @@
 ## 当前能力
 
 `gneiss/engine/input.h` 提供不依赖平台后端的 C11 输入 ABI。
-内部输入接口位于 `src/engine/function/input`；不再安装 C++ 包装头。
+内部输入值位于 `src/engine/core/input/input_types.hpp`，服务位于 `src/engine/function/input`。
+内部 Application 直接查询原生事件及动作，不再维护 C++ 输入包装或第二份输入值类型。
+`poll_input`、`find_action`、`get_action_state` 拒绝非所属线程和已关闭对象，返回 `invalid_state`；
+键盘/指针快照引用只在所属线程、Application 有效期间使用。不再安装 C++ 包装头。
 Application 使用 Granit 平台时，会在每次业务更新回调前完成窗口事件采集，并形成当前帧键盘和
 指针快照。核心无窗口模式下快照保持为空，事件查询返回 `GNEISS_ERROR_NOT_READY`。
 
@@ -30,38 +33,27 @@ Granit 的类型、句柄和枚举只存在于 `src/engine/platform/granit/`，�
 
 ## C++ 入口
 
-`application` 提供 `poll_input`、`get_keyboard_state`、`get_pointer_state`、`load_action_map`、
+`gneiss::runtime::application` 提供 `poll_input`、`keyboard_state`、`pointer_state`、`load_action_map`、
 `find_action` 和 `get_action_state` 成员；不需要先取出裸 Application 句柄。
-事件和状态是独立的 C++ 值类型，使用默认构造，不包含 `struct_size` 和保留字段。
-键盘的 `physical_key`、`logical_key`、`key_action` 为强类型枚举；`input_modifier` 和
-`pointer_button` 支持同类标志的 `|`、`&`、复合赋值及 `has_flags`。
-`keyboard_state::is_pressed` 接收物理键，超出 256 位快照范围返回 false。
-
-`input_event::data` 为 `input_event_data` variant，可用 `std::get_if` 或 `std::visit` 访问
-`key_event`、`text_event`、三类指针数据与进入/离开标记；默认分支是 `std::monostate`。
-事件种类由活动分支表达，不再保存另一份可能不一致的整数标签。文本自有存储，复制事件不会借用
-原始 C 事件；`text_event::text()` 返回当前对象的借用视图，不保证零终止，移动/销毁后需重新获取。
-
-查询失败保留输出。未知事件或未知按键动作返回 `unsupported`，非法文本长度返回
-`invalid_argument`；此时原始事件已出队，不可重试同一事件。未命名物理/逻辑键和标志保留原始
-32 位值，避免静默映射为已知值。线程与动作失效规则沿用 C API。
+事件和状态使用 `gneiss::engine` 中的原生值类型，不包含 `struct_size` 和 ABI 保留字段。
+`input_event::type` 指定 `data` 联合体的活动成员；只按对应事件类型访问该成员。
+文本保存在事件自身的固定数组中，`length` 指定有效字节数，不保证零终止。
+物理/逻辑键码、修饰键和按钮保留整数值及位集合语义。
 
 ```cpp
-gneiss::keyboard_state keyboard{};
-if (host.get_keyboard_state(keyboard).ok() && keyboard.is_pressed(gneiss::physical_key::w)) {
-  // 在当前更新回调中处理移动。
-}
-gneiss::input_event event{};
+gneiss::engine::input_event event{};
 while (host.poll_input(event).ok()) {
-  if (const auto* text = std::get_if<gneiss::text_event>(&event.data)) {
-    // text->text() 只借用本次 event 的文本；需要长期保存时复制。
-    consume_text(text->text());
+  if (event.type == gneiss::engine::event_type::text) {
+    consume_text(std::string_view{event.data.text.utf8, event.data.text.length});
   }
 }
 ```
 
-上例假设 `host` 是已创建的 Application，`consume_text` 是调用方同步消费文本的函数。
+上例假设 `host` 是所属线程中的有效原生 Application，`consume_text` 同步消费文本。
+需要长期保存时复制文本。队列为空时 `poll_input` 清空输出并返回 `not_ready`。
+平台事件由输入服务入队时检查类型、按键动作和文本长度；没有 C 事件到另一套 C++ 事件的转换层。
 
-`action_id` 是非拥有的强类型标识，不能隐式当作实体或其他整数句柄。动作映射成功重载后旧 ID
-失效，加载失败保留原映射；ID 不能跨 Application 使用。`find_action` 的强类型重载失败时保留
-原输出，非零 ID 不保证映射仍存活。`action` 整数别名及裸动作重载已移除；需要显式 Application 句柄互操作时可使用自由函数，动作仍使用 `action_id`。
+`action_id` 是非拥有的强类型标识，其 `value` 为零时无效。动作映射成功重载后旧 ID
+失效，加载失败保留原映射；ID 不能跨 Application 使用。`find_action` 和 `get_action_state`
+失败时保留输出，非零 ID 不保证映射仍存活。原生入口直接调用 Application 成员函数，
+不再提供接收 C Application 句柄的自由函数包装。

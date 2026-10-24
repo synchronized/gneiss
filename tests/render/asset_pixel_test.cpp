@@ -6,7 +6,7 @@
 #include "engine/resource/loaders/mesh_binary.hpp"
 #include "engine/resource/loaders/texture_binary.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
-#include "engine/values/input.hpp"
+#include "engine/values/core/result.hpp"
 #include "engine/values/log.hpp"
 #include "engine/values/render.hpp"
 #include "engine/values/scene.hpp"

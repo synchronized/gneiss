@@ -319,7 +319,7 @@ add_library(
                                 headers/reflection_hpp.cpp headers/render_hpp.cpp headers/result_hpp.cpp headers/rid_hpp.cpp
                                 headers/scene_hpp.cpp headers/world_hpp.cpp
 )
-target_link_libraries(gneiss_cpp_header_test PRIVATE gneiss::engine)
+target_link_libraries(gneiss_cpp_header_test PRIVATE gneiss::engine gneiss_native_interface)
 target_compile_features(gneiss_cpp_header_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_cpp_header_test)
 
@@ -456,7 +456,7 @@ if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
 endif()
 
 add_executable(gneiss_cpp_input_test cpp_input_test.cpp)
-target_link_libraries(gneiss_cpp_input_test PRIVATE gneiss::engine)
+target_link_libraries(gneiss_cpp_input_test PRIVATE gneiss::engine gneiss_native_interface)
 target_compile_definitions(gneiss_cpp_input_test
   PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
 target_compile_features(gneiss_cpp_input_test PRIVATE cxx_std_20)

@@ -7,7 +7,7 @@
 #include "engine/resource/loaders/texture_ktx2.hpp"
 #include "runtime/application_asset_reload_internal.hpp"
 
-#include "engine/values/input.hpp"
+#include "engine/values/core/result.hpp"
 #include "engine/values/log.hpp"
 #include "engine/values/render.hpp"
 #include "engine/values/scene.hpp"

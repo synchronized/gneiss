@@ -468,13 +468,13 @@
         {
           "symbol": "gneiss_action",
           "kind": "borrowed_id",
-          "cpp_mapping": "gneiss::action_id",
+          "cpp_mapping": "gneiss::engine::action_id",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_action_state",
           "kind": "struct",
-          "cpp_mapping": "gneiss::action_state",
+          "cpp_mapping": "gneiss::engine::action_state",
           "native_review": "implemented"
         },
         {
@@ -506,7 +506,7 @@
         {
           "symbol": "GNEISS_ACTION_STATE_INIT",
           "native_review": "implemented",
-          "cpp_mapping": "对应 C++ 快照的默认构造"
+          "cpp_mapping": "原生 action_id/action_state 默认初始化；无公共 C++ 输入包装"
         },
         {
           "symbol": "GNEISS_ACTION_STATE_VERSION_1_SIZE",
@@ -516,7 +516,7 @@
         {
           "symbol": "GNEISS_NULL_ACTION",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::null_action_id"
+          "cpp_mapping": "原生 action_id/action_state 默认初始化；无公共 C++ 输入包装"
         },
         {
           "symbol": "GNEISS_LOG_DEBUG",
@@ -577,712 +577,712 @@
         {
           "symbol": "gneiss_input_event",
           "kind": "struct",
-          "cpp_mapping": "gneiss::input_event",
+          "cpp_mapping": "gneiss::engine::input_event",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_input_event_data",
           "kind": "union",
-          "cpp_mapping": "gneiss::input_event_data",
-          "native_review": "implemented"
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_input_event_type",
           "kind": "scalar",
-          "cpp_mapping": "std::holds_alternative / std::get_if / std::visit（事件种类由 input_event_data 的活动分支表达）",
+          "cpp_mapping": "gneiss::engine::event_type",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_key_action",
           "kind": "scalar",
-          "cpp_mapping": "gneiss::key_action",
+          "cpp_mapping": "gneiss::engine::key_action",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_keyboard_state",
           "kind": "struct",
-          "cpp_mapping": "gneiss::keyboard_state",
+          "cpp_mapping": "gneiss::engine::keyboard_state",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_logical_key",
           "kind": "scalar",
-          "cpp_mapping": "gneiss::logical_key",
-          "native_review": "implemented"
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_physical_key",
           "kind": "scalar",
-          "cpp_mapping": "gneiss::physical_key",
-          "native_review": "implemented"
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_pointer_state",
           "kind": "struct",
-          "cpp_mapping": "gneiss::pointer_state",
+          "cpp_mapping": "gneiss::engine::pointer_state",
           "native_review": "implemented"
         }
       ],
       "constants": [
         {
           "symbol": "GNEISS_INPUT_EVENT_INIT",
-          "native_review": "implemented",
-          "cpp_mapping": "对应 C++ 快照的默认构造"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_INPUT_EVENT_KEY",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::input_event_data 对应的 variant 活动分支"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_INPUT_EVENT_POINTER_BUTTON",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::input_event_data 对应的 variant 活动分支"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_INPUT_EVENT_POINTER_ENTERED",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::input_event_data 对应的 variant 活动分支"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_INPUT_EVENT_POINTER_LEFT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::input_event_data 对应的 variant 活动分支"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_INPUT_EVENT_POINTER_MOVED",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::input_event_data 对应的 variant 活动分支"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_INPUT_EVENT_POINTER_WHEEL",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::input_event_data 对应的 variant 活动分支"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_INPUT_EVENT_TEXT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::input_event_data 对应的 variant 活动分支"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_INPUT_EVENT_VERSION_1_SIZE",
           "native_review": "abi_only",
-          "cpp_mapping": "C ABI 结构尺寸版本；普通 C++ 查询由内部适配设置当前尺寸"
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_INPUT_TEXT_CAPACITY",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::input_text_capacity"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_KEYBOARD_STATE_INIT",
-          "native_review": "implemented",
-          "cpp_mapping": "对应 C++ 快照的默认构造"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_KEYBOARD_STATE_VERSION_1_SIZE",
           "native_review": "abi_only",
-          "cpp_mapping": "C ABI 结构尺寸版本；普通 C++ 查询由内部适配设置当前尺寸"
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_KEY_PRESSED",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::key_action::pressed"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_KEY_RELEASED",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::key_action::released"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_KEY_REPEATED",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::key_action::repeated"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_BACKSPACE",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::backspace"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_DELETE",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::delete_key"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_DOWN",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::down"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_END",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::end"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_ENTER",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::enter"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_ESCAPE",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::escape"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_F1",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::f1"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_F10",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::f10"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_F11",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::f11"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_F12",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::f12"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_F2",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::f2"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_F3",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::f3"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_F4",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::f4"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_F5",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::f5"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_F6",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::f6"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_F7",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::f7"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_F8",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::f8"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_F9",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::f9"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_HOME",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::home"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_INSERT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::insert"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_LEFT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::left"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_NONE",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::none"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_PAGE_DOWN",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::page_down"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_PAGE_UP",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::page_up"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_RIGHT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::right"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_SPACE",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::space"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_TAB",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::tab"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_LOGICAL_KEY_UP",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::logical_key::up"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_MODIFIER_CAPS_LOCK_BIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::input_modifier::caps_lock"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_MODIFIER_LEFT_ALT_BIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::input_modifier::left_alt"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_MODIFIER_LEFT_CONTROL_BIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::input_modifier::left_control"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_MODIFIER_LEFT_SHIFT_BIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::input_modifier::left_shift"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_MODIFIER_LEFT_SUPER_BIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::input_modifier::left_super"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_MODIFIER_NUM_LOCK_BIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::input_modifier::num_lock"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_MODIFIER_RIGHT_ALT_BIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::input_modifier::right_alt"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_MODIFIER_RIGHT_CONTROL_BIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::input_modifier::right_control"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_MODIFIER_RIGHT_SHIFT_BIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::input_modifier::right_shift"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_MODIFIER_RIGHT_SUPER_BIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::input_modifier::right_super"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_0",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::digit_0"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_1",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::digit_1"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_2",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::digit_2"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_3",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::digit_3"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_4",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::digit_4"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_5",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::digit_5"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_6",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::digit_6"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_7",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::digit_7"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_8",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::digit_8"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_9",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::digit_9"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_A",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::a"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_B",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::b"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_BACKSPACE",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::backspace"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_C",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::c"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_D",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::d"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_DELETE",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::delete_key"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_DOWN",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::down"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_E",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::e"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_END",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::end"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_ENTER",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::enter"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_ESCAPE",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::escape"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_F",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::f"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_F1",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::f1"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_F10",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::f10"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_F11",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::f11"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_F12",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::f12"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_F2",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::f2"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_F3",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::f3"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_F4",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::f4"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_F5",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::f5"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_F6",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::f6"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_F7",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::f7"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_F8",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::f8"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_F9",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::f9"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_G",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::g"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_H",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::h"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_HOME",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::home"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_I",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::i"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_INSERT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::insert"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_J",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::j"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_K",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::k"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_L",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::l"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_LEFT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::left"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_LEFT_ALT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::left_alt"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_LEFT_CONTROL",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::left_control"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_LEFT_SHIFT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::left_shift"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_LEFT_SUPER",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::left_super"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_M",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::m"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_N",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::n"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_O",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::o"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_P",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::p"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_PAGE_DOWN",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::page_down"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_PAGE_UP",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::page_up"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_Q",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::q"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_R",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::r"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_RIGHT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::right"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_RIGHT_ALT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::right_alt"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_RIGHT_CONTROL",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::right_control"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_RIGHT_SHIFT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::right_shift"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_RIGHT_SUPER",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::right_super"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_S",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::s"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_SPACE",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::space"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_T",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::t"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_TAB",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::tab"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_U",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::u"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_UNKNOWN",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::unknown"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_UP",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::up"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_V",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::v"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_W",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::w"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_X",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::x"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_Y",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::y"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_Z",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::physical_key::z"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_POINTER_MIDDLE_BIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::pointer_button::middle"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_POINTER_PRIMARY_BIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::pointer_button::primary"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_POINTER_SECONDARY_BIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::pointer_button::secondary"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_POINTER_STATE_INIT",
-          "native_review": "implemented",
-          "cpp_mapping": "对应 C++ 快照的默认构造"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_POINTER_STATE_VERSION_1_SIZE",
           "native_review": "abi_only",
-          "cpp_mapping": "C ABI 结构尺寸版本；普通 C++ 查询由内部适配设置当前尺寸"
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_POINTER_X1_BIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::pointer_button::x1"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         },
         {
           "symbol": "GNEISS_POINTER_X2_BIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::pointer_button::x2"
+          "native_review": "abi_only",
+          "cpp_mapping": "C 输入协议常量或标志；原生事件按字段保留数值，不再提供 SDK 枚举包装"
         }
       ]
     },
