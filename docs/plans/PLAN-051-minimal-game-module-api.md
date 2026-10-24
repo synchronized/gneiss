@@ -27,6 +27,8 @@ Transform；编辑文档相机数据和操作参数也改用原生描述。当�
 句柄表已删除；注册、属性访问、组件反射与生命周期用例改为原生入口。Editor/Runtime 属性命令使用原生 `type_guid`，场景覆盖和测试直接引用组件 GUID；
 旧 `reflection.h`、C 属性值/目标布局、转换头及组件类型 ID 的 C 入口已删除，IPC 编码保持不变。
 
+资产 URI 校验使用原生 `validate_uri`；重复 C 包装、头文件与导出已删除，URI 功能用例迁为原生调用。
+
 ## 目标与非目标
 
 同源码构建的 Engine、Runtime、Editor 和工具统一消费 src 原生接口与共享值。

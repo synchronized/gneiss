@@ -13,10 +13,12 @@ asset://纹理/石头.png
 ```
 
 URI 使用 UTF-8 和正斜杠，scheme 区分大小写。空路径、空路径段、`.`、`..`、控制字符、反斜杠、
-冒号、查询、片段和百分号编码均返回 `GNEISS_ERROR_INVALID_ARGUMENT`。校验函数不访问文件系统：
+冒号、查询、片段和百分号编码均返回 `engine::result::invalid_argument`。原生校验函数不访问文件系统：
 
-```c
-gneiss_result result = gneiss_asset_uri_validate(uri, uri_length);
+```cpp
+#include "engine/resource/vfs/asset_uri.hpp"
+
+auto result = gneiss::engine::validate_uri(uri);
 ```
 
 ## VFS 与资产根目录

@@ -9,8 +9,8 @@
 #include "runtime/application_log_internal.hpp"
 #include "runtime/application_registry.hpp"
 
+#include "engine/resource/vfs/asset_uri.hpp"
 #include <gneiss/engine/application.h>
-#include <gneiss/engine/asset.h>
 
 #include <algorithm>
 #include <cmath>
@@ -62,8 +62,9 @@ extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc
         ((normalized_desc.environment_asset == nullptr) !=
          (normalized_desc.environment_asset_length == 0U)) ||
         (normalized_desc.environment_asset != nullptr &&
-         gneiss_asset_uri_validate(normalized_desc.environment_asset,
-                                   normalized_desc.environment_asset_length) != GNEISS_SUCCESS) ||
+         gneiss::engine::validate_uri(
+             {normalized_desc.environment_asset, normalized_desc.environment_asset_length}) !=
+             gneiss::engine::result::success) ||
         !std::isfinite(normalized_desc.environment_intensity) ||
         normalized_desc.environment_intensity < 0.0F ||
         !std::isfinite(normalized_desc.environment_rotation_radians) ||

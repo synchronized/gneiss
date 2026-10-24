@@ -278,18 +278,15 @@ gneiss_target_compile_warnings(gneiss_png_decoder_test)
 gneiss_target_output_directories(gneiss_png_decoder_test)
 add_test(NAME gneiss.png_decoder COMMAND gneiss_png_decoder_test)
 
-add_executable(gneiss_c_asset_test c_asset_test.c)
-target_link_libraries(gneiss_c_asset_test PRIVATE gneiss::engine)
-set_target_properties(
-  gneiss_c_asset_test
-  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
-)
-gneiss_target_compile_warnings(gneiss_c_asset_test)
-gneiss_target_output_directories(gneiss_c_asset_test)
-add_test(NAME gneiss.c_asset COMMAND gneiss_c_asset_test)
+add_executable(gneiss_asset_uri_test asset_uri_test.cpp)
+target_link_libraries(gneiss_asset_uri_test PRIVATE gneiss::engine gneiss_native_interface)
+target_compile_features(gneiss_asset_uri_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_asset_uri_test)
+gneiss_target_output_directories(gneiss_asset_uri_test)
+add_test(NAME gneiss.asset_uri COMMAND gneiss_asset_uri_test)
 
 add_library(
-  gneiss_c_header_test OBJECT headers/application_h.c headers/asset_h.c headers/entity_h.c headers/game_module_h.c
+  gneiss_c_header_test OBJECT headers/application_h.c headers/entity_h.c headers/game_module_h.c
                               headers/gneiss_h.c headers/input_h.c headers/log_h.c
                               headers/render_h.c headers/result_h.c headers/rid_h.c headers/scene_h.c headers/world_h.c
 )

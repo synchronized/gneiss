@@ -109,7 +109,6 @@ target_sources(
     engine/core/result.cpp
     engine/core/version.cpp
     runtime/api/game_module_api.cpp
-    engine/api/asset_api.cpp
     runtime/game/game_context.cpp
     runtime/game/game_context_internal.hpp
     engine/function/input/input_service.cpp
@@ -197,7 +196,6 @@ target_sources(
     FILES
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/application.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/asset.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module_types.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/input.h"

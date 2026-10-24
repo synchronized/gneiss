@@ -7,8 +7,6 @@
 int main() {
   constexpr std::string_view root = GNEISS_CONSUMER_ASSET_ROOT;
   constexpr std::string_view uri = "asset://scenes/triangle.scene.json";
-  if (gneiss_asset_uri_validate(uri.data(), uri.size()) != GNEISS_SUCCESS)
-    return 8;
   gneiss_application app{};
   example::scope_exit close{[&] {
     if (app)
