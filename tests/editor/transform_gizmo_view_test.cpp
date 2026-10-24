@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../support/c_owner.hpp"
 #include "engine/core/result.hpp"
-#include "runtime/application_registry.hpp"
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
 #include "viewport/transform_gizmo_view.hpp"
 
 #include "engine/values/core/result.hpp"
 #include "engine/values/scene.hpp"
-#include <gneiss/engine/application.h>
 
 #include <imgui.h>
 
@@ -17,17 +16,17 @@
 int main() try {
   using namespace gneiss;
   using namespace gneiss::editor;
-  gneiss::test_support::application_owner app;
+  std::shared_ptr<gneiss::runtime::application> app;
   gneiss_world world_handle = GNEISS_NULL_WORLD;
   scene_document session;
   editor_command_history history;
   transform_gizmo_drag drag;
   scene_node_id first;
   scene_node_id second;
-  const gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  if (gneiss::engine::result{gneiss_application_create(&desc, app.put())}.failed() ||
-      gneiss::engine::result{gneiss_application_get_world(app.get(), &world_handle)}.failed() ||
-      session.create_empty(*gneiss::runtime::find_application(app.get()), world_handle).failed() ||
+  gneiss::runtime::application_configuration desc;
+  if (gneiss::engine::result{gneiss::runtime::application::create(desc, app)}.failed() ||
+      (world_handle = app->world()) == GNEISS_NULL_WORLD ||
+      session.create_empty(*app, world_handle).failed() ||
       session.create_node("First", {}, first).failed() ||
       session.create_node("Second", {}, second).failed() || session.select(first).failed()) {
     return 1;

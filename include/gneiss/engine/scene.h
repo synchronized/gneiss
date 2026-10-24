@@ -26,7 +26,7 @@ typedef uint64_t gneiss_scene_prefab_refresh_token;
 #define GNEISS_NULL_SCENE_INSTANCE UINT64_C(0)
 #define GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN UINT64_C(0)
 
-/** gneiss_scene_instance_node_info::component_flags 的组件与作者状态位。 */
+/** 迁移期组件与作者状态位；原生类型见 src/engine/core/scene_types.hpp。 */
 #define GNEISS_SCENE_NODE_COMPONENT_CAMERA UINT32_C(1)
 #define GNEISS_SCENE_NODE_COMPONENT_MESH_RENDERER UINT32_C(2)
 #define GNEISS_SCENE_NODE_COMPONENT_PRIMARY_CAMERA UINT32_C(4)
@@ -36,54 +36,6 @@ typedef uint64_t gneiss_scene_prefab_refresh_token;
 #define GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN UINT32_C(4)
 #define GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN UINT32_C(8)
 #define GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN UINT32_C(16)
-
-/** 场景实例中的只读节点描述；字符串由实例借出，实例卸载后立即失效。 */
-typedef struct gneiss_scene_instance_node_info {
-  uint32_t struct_size;
-  uint32_t reserved;
-  gneiss_scene_node_id node;
-  gneiss_scene_node_id parent;
-  gneiss_entity_id entity;
-  const char* uuid;
-  uint64_t uuid_length;
-  const char* name;
-  uint64_t name_length;
-  uint64_t reserved_2[2];
-  const char* mesh_uri;
-  uint64_t mesh_uri_length;
-  const char* material_uri;
-  uint64_t material_uri_length;
-  gneiss_transform local_transform;
-  uint32_t component_flags;
-  uint32_t reserved_3;
-  gneiss_camera_desc camera;
-} gneiss_scene_instance_node_info;
-
-#define GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_1_SIZE                                             \
-  ((uint32_t)offsetof(gneiss_scene_instance_node_info, mesh_uri))
-#define GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_2_SIZE                                             \
-  ((uint32_t)offsetof(gneiss_scene_instance_node_info, local_transform))
-#define GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_3_SIZE                                             \
-  ((uint32_t)sizeof(gneiss_scene_instance_node_info))
-#define GNEISS_SCENE_INSTANCE_NODE_INFO_INIT                                                       \
-  {(uint32_t)sizeof(gneiss_scene_instance_node_info),                                              \
-   UINT32_C(0),                                                                                    \
-   GNEISS_NULL_SCENE_NODE_ID,                                                                      \
-   GNEISS_NULL_SCENE_NODE_ID,                                                                      \
-   GNEISS_NULL_ENTITY_ID,                                                                          \
-   NULL,                                                                                           \
-   UINT64_C(0),                                                                                    \
-   NULL,                                                                                           \
-   UINT64_C(0),                                                                                    \
-   {UINT64_C(0), UINT64_C(0)},                                                                     \
-   NULL,                                                                                           \
-   UINT64_C(0),                                                                                    \
-   NULL,                                                                                           \
-   UINT64_C(0),                                                                                    \
-   GNEISS_TRANSFORM_IDENTITY,                                                                      \
-   UINT32_C(0),                                                                                    \
-   UINT32_C(0),                                                                                    \
-   GNEISS_CAMERA_DESC_INIT}
 
 #ifdef __cplusplus
 extern "C" {
@@ -133,38 +85,6 @@ GNEISS_API gneiss_result gneiss_world_entity_get_local_transform(gneiss_world wo
 GNEISS_API gneiss_result gneiss_world_entity_set_local_transform(gneiss_world world,
                                                                  gneiss_entity_id entity,
                                                                  const gneiss_transform* transform);
-
-/** 通过 VFS 同步加载、校验并原子实例化场景；失败时 World 保持不变。 */
-GNEISS_API gneiss_result gneiss_scene_instance_load(gneiss_application application, const char* uri,
-                                                    uint64_t uri_length,
-                                                    gneiss_scene_instance* out_instance);
-
-/** 卸载场景创建的实体、节点和资产引用；句柄随后失效。 */
-GNEISS_API gneiss_result gneiss_scene_instance_unload(gneiss_application application,
-                                                      gneiss_scene_instance instance);
-
-/** 按规范 UUID 查找场景实例中的借用节点 ID。 */
-GNEISS_API gneiss_result gneiss_scene_instance_find_node(gneiss_application application,
-                                                         gneiss_scene_instance instance,
-                                                         const char* uuid, uint64_t uuid_length,
-                                                         gneiss_scene_node_id* out_node);
-
-/** 返回实例包含的节点数量；顺序与作者场景 objects 数组一致。 */
-GNEISS_API gneiss_result gneiss_scene_instance_get_node_count(gneiss_application application,
-                                                              gneiss_scene_instance instance,
-                                                              uint64_t* out_count);
-
-/**
- * 按作者顺序读取节点描述。
- *
- * out_info 必须使用 GNEISS_SCENE_INSTANCE_NODE_INFO_INIT
- * 初始化。节点或实体被外部销毁时返回句柄错误。
- * 字符串为场景借用视图；下次场景修改、卸载或父 Application 销毁后须重新获取。
- * 需要跨修改保存时应在修改前复制字符串，不能只复制描述结构中的指针。
- */
-GNEISS_API gneiss_result
-gneiss_scene_instance_get_node_info(gneiss_application application, gneiss_scene_instance instance,
-                                    uint64_t index, gneiss_scene_instance_node_info* out_info);
 
 #ifdef __cplusplus
 }

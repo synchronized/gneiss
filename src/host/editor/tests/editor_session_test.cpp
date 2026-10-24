@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../../../tests/support/c_owner.hpp"
 #include "commands/runtime_author_apply.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
-#include "runtime/application_registry.hpp"
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
 
 #include "engine/values/core/result.hpp"
 #include "engine/values/scene.hpp"
-#include <gneiss/engine/application.h>
 
 #include <string>
 #include <string_view>
@@ -31,18 +30,15 @@ int main() try {
   constexpr std::string_view scene_uri = "asset://scenes/triangle.scene.json";
   constexpr std::string_view missing_uri = "asset://scenes/missing.scene.json";
   const std::string asset_root = GNEISS_EDITOR_TEST_ASSET_ROOT;
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.asset_root = asset_root.c_str();
-  desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
-  gneiss::test_support::application_owner application;
+  gneiss::runtime::application_configuration desc;
+  desc.asset_root = asset_root;
+  std::shared_ptr<gneiss::runtime::application> application;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::editor::scene_document session;
-  if (gneiss::engine::result{gneiss_application_create(&desc, application.put())} !=
+  if (gneiss::engine::result{gneiss::runtime::application::create(desc, application)} !=
           gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_application_get_world(application.get(), &world)} !=
-          gneiss::engine::result::success ||
-      session.open(*gneiss::runtime::find_application(application.get()), world, scene_uri) !=
-          gneiss::engine::result::success ||
+      (world = application->world()) == GNEISS_NULL_WORLD ||
+      session.open(*application, world, scene_uri) != gneiss::engine::result::success ||
       !session.is_open() || session.is_dirty() || session.uri() != scene_uri ||
       session.nodes().size() != 2U || session.nodes()[0].display_name != "Camera" ||
       session.nodes()[1].display_name != session.nodes()[1].uuid ||
@@ -63,7 +59,7 @@ int main() try {
   worker.join();
   if (foreign != gneiss::engine::result::invalid_state || session.is_dirty())
     return 22;
-  auto native = gneiss::runtime::find_application(application.get());
+  auto native = application;
   if (session.adopt(*native, world, GNEISS_NULL_SCENE_INSTANCE, scene_uri) !=
           gneiss::engine::result::invalid_argument ||
       session.scene_handle() != original_scene)
@@ -74,8 +70,7 @@ int main() try {
   }
   session.mark_dirty();
   if (!session.is_dirty() ||
-      session.open(*gneiss::runtime::find_application(application.get()), world, missing_uri) !=
-          gneiss::engine::result::not_found ||
+      session.open(*application, world, missing_uri) != gneiss::engine::result::not_found ||
       !session.is_open() || !session.is_dirty() || session.uri() != scene_uri ||
       session.selected_node() == nullptr) {
     return 3;
@@ -94,8 +89,7 @@ int main() try {
   }
   constexpr std::string_view prefab_scene_uri = "asset://scenes/prefab.scene.json";
   constexpr std::string_view prefab_uri = "asset://prefabs/test.prefab.json";
-  if (session.open(*gneiss::runtime::find_application(application.get()), world,
-                   prefab_scene_uri) != gneiss::engine::result::success ||
+  if (session.open(*application, world, prefab_scene_uri) != gneiss::engine::result::success ||
       session.nodes().size() != 1U || session.prefab_nodes().size() != 2U ||
       !session.prefab_nodes()[0].is_instance_root || session.prefab_nodes()[0].is_read_only ||
       session.prefab_nodes()[1].is_instance_root || !session.prefab_nodes()[1].is_read_only ||

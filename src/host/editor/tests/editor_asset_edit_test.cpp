@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "../../../../tests/support/c_owner.hpp"
 #include "commands/editor_asset_edit.hpp"
 #include "engine/core/result.hpp"
+#include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/world/world.hpp"
 #include "engine/values/core/result.hpp"
 #include "engine/values/scene.hpp"
-#include "runtime/application_asset_reload_internal.hpp"
-#include "runtime/application_registry.hpp"
+#include "runtime/application.hpp"
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
-#include <gneiss/engine/application.h>
 #include <source_location>
 #include <stdexcept>
 
@@ -45,22 +44,19 @@ struct fixture {
 void run(gneiss::engine::execution_mode mode) {
   fixture files;
   gneiss::engine::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  gneiss::test_support::application_owner app;
-  auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
+  std::shared_ptr<gneiss::runtime::application> app;
+  gneiss::runtime::application_configuration desc;
   const auto root = files.root.string();
-  desc.asset_root = root.data();
-  desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(gneiss::engine::result{gneiss_application_create(&desc, app.put())} ==
+  desc.asset_root = root;
+  check(gneiss::engine::result{gneiss::runtime::application::create(desc, app)} ==
         gneiss::engine::result::success);
-  check(runtime::attach_task_executor(app.get(), scheduler) == gneiss::engine::result::success);
+  check(app->attach_task_executor(scheduler) == gneiss::engine::result::success);
   gneiss_world world{};
-  check(gneiss::engine::result{gneiss_application_get_world(app.get(), &world)} ==
-        gneiss::engine::result::success);
+  check((world = app->world()) != GNEISS_NULL_WORLD);
   editor::scene_document session;
   editor::editor_command_history history;
   editor::editor_asset_edit edit;
-  check(session.open(*gneiss::runtime::find_application(app.get()), world, "asset://scene.json") ==
-        gneiss::engine::result::success);
+  check(session.open(*app, world, "asset://scene.json") == gneiss::engine::result::success);
   const auto uuid = session.nodes().front().uuid;
   const auto drive = [&] {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
@@ -68,20 +64,19 @@ void run(gneiss::engine::execution_mode mode) {
       if (mode == gneiss::engine::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
-      edit.advance(*gneiss::runtime::find_application(app.get()), session, history);
+      edit.advance(*app, session, history);
       check(std::chrono::steady_clock::now() < deadline);
       std::this_thread::yield();
     }
   };
   const auto request = [&](std::string_view material) {
-    return edit.request(*gneiss::runtime::find_application(app.get()), session, history, uuid,
+    return edit.request(*app, session, history, uuid,
                         {.mesh_uri = "asset://mesh.json", .material_uri = material});
   };
   const auto binding = [&] {
-    runtime::mesh_binding value;
-    check(runtime::capture_mesh_binding(app.get(), session.scene_handle(),
-                                        session.find_node(uuid)->node.get(),
-                                        value) == gneiss::engine::result::success);
+    gneiss::engine::scene_instances::mesh_binding value;
+    check(app->capture_mesh_binding(session.scene_handle(), session.find_node(uuid)->node, value) ==
+          gneiss::engine::result::success);
     return value;
   };
   const auto initial_binding = binding();
@@ -124,14 +119,14 @@ void run(gneiss::engine::execution_mode mode) {
         session.nodes().front().material_uri == "asset://b.json");
   edit.dismiss();
   check(request("asset://missing.json") == gneiss::engine::result::success);
-  edit.cancel(*gneiss::runtime::find_application(app.get()));
+  edit.cancel(*app);
   drive();
   check(!edit.visible() && history.size() == count);
   // 创建同样先准备，成功才产生节点；命令持有资源引用，坏文件不影响当前成功内容的复用。
   const editor::mesh_asset_reference new_assets{.mesh_uri = "asset://mesh.json",
                                                 .material_uri = "asset://b.json"};
-  check(edit.request_add(*gneiss::runtime::find_application(app.get()), session, history,
-                         "new node", new_assets) == gneiss::engine::result::success);
+  check(edit.request_add(*app, session, history, "new node", new_assets) ==
+        gneiss::engine::result::success);
   check(!edit.active() && session.nodes().size() == 2U && history.size() == count + 1U);
   drive();
   check(edit.operation() == gneiss::engine::result::success && session.nodes().size() == 2U);
@@ -142,15 +137,15 @@ void run(gneiss::engine::execution_mode mode) {
   check(history.redo() == gneiss::engine::result::success &&
         session.find_node(created_uuid) != nullptr);
   editor::editor_command_history disabled{0U};
-  check(edit.request_add(*gneiss::runtime::find_application(app.get()), session, disabled,
-                         "rejected", new_assets) == gneiss::engine::result::invalid_argument);
+  check(edit.request_add(*app, session, disabled, "rejected", new_assets) ==
+        gneiss::engine::result::invalid_argument);
   check(!edit.active() && session.nodes().size() == 2U);
-  check(edit.request_add(*gneiss::runtime::find_application(app.get()), session, history,
-                         "ready node", new_assets) == gneiss::engine::result::success);
+  check(edit.request_add(*app, session, history, "ready node", new_assets) ==
+        gneiss::engine::result::success);
   check(!edit.active() && !edit.visible() && session.nodes().size() == 3U);
   const auto creation_count = history.size();
   check(
-      edit.request_add(*gneiss::runtime::find_application(app.get()), session, history, "missing",
+      edit.request_add(*app, session, history, "missing",
                        {.mesh_uri = "asset://mesh.json", .material_uri = "asset://missing.json"}) ==
       gneiss::engine::result::success);
   drive();
@@ -166,31 +161,27 @@ void run(gneiss::engine::execution_mode mode) {
   check(edit.operation() == gneiss::engine::result::invalid_state &&
         history.size() == creation_count);
   gneiss::engine::render_asset_ref unused;
-  check(runtime::query_ready_asset(
-            app.get(),
+  check(app->query_ready_asset(
             {.uri = "asset://c.json", .type = gneiss::engine::render_asset_type::material},
             unused) == gneiss::engine::result::not_ready &&
         !unused);
   history.clear();
   // 旧请求还在准备时切换到另一个有效场景；不能污染新场景或采用旧候选。
-  check(session.create_empty(*runtime::find_application(app.get()), world) ==
-        gneiss::engine::result::success);
+  check(session.create_empty(*app, world) == gneiss::engine::result::success);
   std::ofstream(files.root / "d.json")
       << R"({"format":"gneiss.material","version":1,"color":[1,1,0,1]})";
-  check(edit.request_add(*runtime::find_application(app.get()), session, history, "stale",
+  check(edit.request_add(*app, session, history, "stale",
                          {.mesh_uri = "asset://mesh.json", .material_uri = "asset://d.json"}) ==
         gneiss::engine::result::success);
   check(edit.active());
   const auto previous_scene = session.scene_handle();
-  check(session.create_empty(*runtime::find_application(app.get()), world) ==
-        gneiss::engine::result::success);
+  check(session.create_empty(*app, world) == gneiss::engine::result::success);
   const auto new_scene = session.scene_handle();
   check(new_scene != previous_scene);
   drive();
   check(edit.operation() == gneiss::engine::result::invalid_state &&
         session.scene_handle() == new_scene && session.nodes().empty() && history.size() == 0U);
-  check(runtime::query_ready_asset(
-            app.get(),
+  check(app->query_ready_asset(
             {.uri = "asset://d.json", .type = gneiss::engine::render_asset_type::material},
             unused) == gneiss::engine::result::not_ready);
   session.close();

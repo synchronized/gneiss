@@ -29,11 +29,6 @@ gneiss_material_destroy experimental
 gneiss_mesh_create experimental
 gneiss_mesh_destroy experimental
 gneiss_result_message stable
-gneiss_scene_instance_find_node stable
-gneiss_scene_instance_get_node_count stable
-gneiss_scene_instance_get_node_info stable
-gneiss_scene_instance_load stable
-gneiss_scene_instance_unload stable
 gneiss_scene_node_create stable
 gneiss_scene_node_destroy stable
 gneiss_scene_node_get_entity stable

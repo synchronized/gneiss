@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../../../tests/support/c_owner.hpp"
 #include "asset_background_worker.hpp"
 #include "author_asset_service.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
-#include "runtime/application_registry.hpp"
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
 
 #include "engine/values/core/result.hpp"
 #include "engine/values/scene.hpp"
-#include <gneiss/engine/application.h>
 
 #include <algorithm>
 #include <chrono>
@@ -81,20 +80,17 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
   const auto baseline_ms =
       std::chrono::duration<double, std::milli>(clock_type::now() - baseline_start).count();
   const auto asset_text = assets.generic_string();
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.asset_root = asset_text.c_str();
-  desc.asset_root_length = static_cast<std::uint32_t>(asset_text.size());
-  gneiss::test_support::application_owner app;
+  gneiss::runtime::application_configuration desc;
+  desc.asset_root = asset_text;
+  std::shared_ptr<gneiss::runtime::application> app;
   gneiss_world world{};
   scene_document session;
-  require(gneiss::engine::result{gneiss_application_create(&desc, app.put())} ==
+  require(gneiss::engine::result{gneiss::runtime::application::create(desc, app)} ==
                   gneiss::engine::result::success &&
-              gneiss::engine::result{gneiss_application_get_world(app.get(), &world)} ==
-                  gneiss::engine::result::success,
+              (world = app->world()) != GNEISS_NULL_WORLD,
           "基准应用创建失败");
   const auto open_ms = measure([&] {
-    require(session.open(*gneiss::runtime::find_application(app.get()), world,
-                         "asset://main.scene.json") == gneiss::engine::result::success,
+    require(session.open(*app, world, "asset://main.scene.json") == gneiss::engine::result::success,
             "多 Prefab 场景加载失败");
   });
   worker.start(root, assets);
@@ -138,8 +134,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
           change.uri.ends_with(".prefab.json")) {
         require(change.operation == gneiss::engine::result::success, "Prefab 读取失败");
         max_apply = std::max(max_apply, measure([&] {
-                               require(session.open(*gneiss::runtime::find_application(app.get()),
-                                                    world, "asset://main.scene.json") ==
+                               require(session.open(*app, world, "asset://main.scene.json") ==
                                            gneiss::engine::result::success,
                                        "主线程应用失败");
                              }));

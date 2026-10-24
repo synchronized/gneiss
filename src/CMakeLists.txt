@@ -37,20 +37,15 @@ target_sources(
     engine/api/material_description.hpp
     engine/api/mesh_description.hpp
     engine/api/texture_description.hpp
-    runtime/api/scene_api.cpp
-    engine/api/scene_query_conversion.hpp
     runtime/api/input_api.cpp
     runtime/application_registry.cpp
     runtime/application_registry.hpp
     runtime/application_bridge.hpp
-    runtime/application_host.cpp
     runtime/loading/prefab_preparation.cpp
     runtime/loading/prefab_placement.cpp
-    runtime/application_asset_reload_internal.hpp
     runtime/api/application_log_sink.hpp
     runtime/loading/scene_service_loading.cpp
     runtime/loading/scene_load_types.hpp
-    runtime/application_scene_load_internal.hpp
     runtime/loading/scene_service.cpp
     runtime/loading/scene_service.hpp
     runtime/loading/scene_domain.cpp

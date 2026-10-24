@@ -1640,12 +1640,6 @@
           "native_review": "implemented"
         },
         {
-          "symbol": "gneiss_scene_instance_node_info",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::engine::scene_node_view",
-          "native_review": "implemented"
-        },
-        {
           "symbol": "gneiss_scene_node_id",
           "kind": "borrowed_id",
           "cpp_mapping": "gneiss::scene_node_id",
@@ -1673,26 +1667,6 @@
           "symbol": "GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN",
           "native_review": "implemented",
           "cpp_mapping": "gneiss::scene_prefab_refresh{}"
-        },
-        {
-          "symbol": "GNEISS_SCENE_INSTANCE_NODE_INFO_INIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::engine::scene_node_view{}"
-        },
-        {
-          "symbol": "GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_1_SIZE",
-          "native_review": "abi_only",
-          "cpp_mapping": "仅 C ABI 旧结构布局；原生 C++ 描述始终由包装填写当前布局"
-        },
-        {
-          "symbol": "GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_2_SIZE",
-          "native_review": "abi_only",
-          "cpp_mapping": "仅 C ABI 旧结构布局；原生 C++ 描述始终由包装填写当前布局"
-        },
-        {
-          "symbol": "GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_3_SIZE",
-          "native_review": "abi_only",
-          "cpp_mapping": "仅 C ABI 旧结构布局；原生 C++ 描述始终由包装填写当前布局"
         },
         {
           "symbol": "GNEISS_SCENE_NODE_COMPONENT_CAMERA",

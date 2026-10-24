@@ -41,35 +41,6 @@ public:
 private:
   std::uint64_t handle_{};
 };
-/** 场景测试清理守卫；应用由夹具保证存活。 */
-class scene_owner final {
-public:
-  scene_owner() = default;
-  ~scene_owner() {
-    if (reset().failed())
-      std::terminate();
-  }
-  scene_owner(const scene_owner&) = delete;
-  scene_owner& operator=(const scene_owner&) = delete;
-  std::uint64_t get() const noexcept { return handle_; }
-  std::uint64_t owner() const noexcept { return application_; }
-  std::uint64_t* put(std::uint64_t application) noexcept {
-    application_ = application;
-    return &handle_;
-  }
-  result reset() noexcept {
-    if (!handle_)
-      return result::success;
-    auto status = gneiss_scene_instance_unload(application_, handle_);
-    if (status == GNEISS_SUCCESS)
-      handle_ = 0;
-    return result{status};
-  }
-
-private:
-  std::uint64_t application_{};
-  std::uint64_t handle_{};
-};
 using application_owner = c_owner<gneiss_application_destroy>;
 using world_owner = c_owner<gneiss_world_destroy>;
 }

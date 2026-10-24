@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../support/c_owner.hpp"
 #include "commands/asset_scene_commands.hpp"
 #include "engine/core/result.hpp"
-#include "runtime/application_registry.hpp"
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
 
 #include "engine/values/core/result.hpp"
 #include "engine/values/scene.hpp"
-#include <gneiss/engine/application.h>
 
 #include <string>
 
@@ -16,19 +15,15 @@ int main() try {
   using namespace gneiss;
   using namespace gneiss::editor;
   const std::string assets = GNEISS_EDITOR_TEST_ASSET_ROOT;
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.asset_root = assets.data();
-  desc.asset_root_length = static_cast<std::uint32_t>(assets.size());
-  gneiss::test_support::application_owner app;
+  gneiss::runtime::application_configuration desc;
+  desc.asset_root = assets;
+  std::shared_ptr<gneiss::runtime::application> app;
   gneiss_world world = GNEISS_NULL_WORLD;
   scene_document session;
   editor_command_history history;
-  if (gneiss::engine::result{gneiss_application_create(&desc, app.put())}.failed() ||
-      gneiss::engine::result{gneiss_application_get_world(app.get(), &world)}.failed() ||
-      session
-          .open(*gneiss::runtime::find_application(app.get()), world,
-                "asset://scenes/triangle.scene.json")
-          .failed()) {
+  if (gneiss::engine::result{gneiss::runtime::application::create(desc, app)}.failed() ||
+      (world = app->world()) == GNEISS_NULL_WORLD ||
+      session.open(*app, world, "asset://scenes/triangle.scene.json").failed()) {
     return 1;
   }
   const auto initial_count = session.nodes().size();

@@ -1,18 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../../../tests/support/c_owner.hpp"
 #include "asset_reimport_queue.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
+#include "engine/function/world/world.hpp"
 #include "package_archive.hpp"
 #include "project_workspace.hpp"
-#include "runtime/application_registry.hpp"
+#include "runtime/application.hpp"
 #include "runtime_process.hpp"
 
 #include "engine/values/core/result.hpp"
 #include "engine/values/scene.hpp"
-#include <gneiss/engine/application.h>
 
 #include <algorithm>
 #include <chrono>
@@ -90,20 +89,17 @@ int main() try {
   }
   const auto material_path = project.asset_root / std::filesystem::path(material->substr(8U));
   const auto previous_material = read_text(material_path);
-  gneiss::test_support::application_owner app;
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
+  std::shared_ptr<gneiss::runtime::application> app;
+  gneiss::runtime::application_configuration desc;
   const auto asset_root = project.asset_root.generic_string();
-  desc.asset_root = asset_root.data();
-  desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
+  desc.asset_root = asset_root;
   gneiss_world world{};
   scene_document session;
   scene_node_id node;
-  if (gneiss::engine::result{gneiss_application_create(&desc, app.put())} !=
+  if (gneiss::engine::result{gneiss::runtime::application::create(desc, app)} !=
           gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_application_get_world(app.get(), &world)} !=
-          gneiss::engine::result::success ||
-      session.open(*gneiss::runtime::find_application(app.get()), world, project.startup_scene) !=
-          gneiss::engine::result::success ||
+      (world = app->world()) == GNEISS_NULL_WORLD ||
+      session.open(*app, world, project.startup_scene) != gneiss::engine::result::success ||
       session.create_mesh_renderer_node("Imported", *mesh, *material, node) !=
           gneiss::engine::result::success ||
       session.save(project.asset_root) != gneiss::engine::result::success) {

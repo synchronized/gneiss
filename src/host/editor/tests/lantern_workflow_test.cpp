@@ -1,18 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../../../tests/support/c_owner.hpp"
 #include "asset_browser_model.hpp"
 #include "asset_import_controller.hpp"
 #include "commands/editor_command_history.hpp"
 #include "documents/scene_document.hpp"
 #include "editor_project.hpp"
 #include "engine/core/result.hpp"
-#include "runtime/application_registry.hpp"
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
 
 #include "engine/values/core/result.hpp"
 #include "engine/values/scene.hpp"
-#include <gneiss/engine/application.h>
 
 #include <algorithm>
 #include <array>
@@ -49,12 +48,11 @@ struct temporary_project final {
 
 [[nodiscard]] gneiss::engine::result
 create_application(const std::filesystem::path& asset_root,
-                   gneiss::test_support::application_owner& output) {
+                   std::shared_ptr<gneiss::runtime::application>& output) {
   const auto root = asset_root.generic_string();
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.asset_root = root.data();
-  desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  return gneiss::engine::result{gneiss_application_create(&desc, output.put())};
+  gneiss::runtime::application_configuration desc;
+  desc.asset_root = root;
+  return gneiss::engine::result{gneiss::runtime::application::create(desc, output)};
 }
 
 [[nodiscard]] std::string read_text(const std::filesystem::path& path) {
@@ -134,14 +132,12 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
     return 7;
   }
 
-  gneiss::test_support::application_owner application;
+  std::shared_ptr<gneiss::runtime::application> application;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::editor::scene_document session;
   if (create_application(project.asset_root, application) != gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_application_get_world(application.get(), &world)} !=
-          gneiss::engine::result::success ||
-      session.open(*gneiss::runtime::find_application(application.get()), world,
-                   project.startup_scene) != gneiss::engine::result::success) {
+      (world = application->world()) == GNEISS_NULL_WORLD ||
+      session.open(*application, world, project.startup_scene) != gneiss::engine::result::success) {
     return 8;
   }
   constexpr std::string_view prefab_uri = "asset://prefabs/lantern.prefab.json";
@@ -248,8 +244,8 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   session.close();
 
   gneiss::editor::scene_document reloaded;
-  if (reloaded.open(*gneiss::runtime::find_application(application.get()), world,
-                    project.startup_scene) != gneiss::engine::result::success ||
+  if (reloaded.open(*application, world, project.startup_scene) !=
+          gneiss::engine::result::success ||
       reloaded.find_node(snapshot.uuid) == nullptr || reloaded.prefab_nodes().size() != 15U ||
       count_prefab_name(reloaded, "Lantern Glass Updated") != 3U) {
     return 12;

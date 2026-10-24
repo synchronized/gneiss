@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../../../tests/support/c_owner.hpp"
 #include "engine/core/result.hpp"
-#include "runtime/application_registry.hpp"
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
 #include "viewport/transform_gizmo_drag.hpp"
 
 #include "engine/values/core/result.hpp"
 #include "engine/values/scene.hpp"
-#include <gneiss/engine/application.h>
 
 #include <cmath>
 #include <cstdio>
@@ -36,19 +35,17 @@ bool near(const gneiss::engine::transform& left, const gneiss::engine::transform
 
 int main() try {
   using gneiss::engine::result;
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
+  gneiss::runtime::application_configuration desc;
   const std::string root = GNEISS_EDITOR_TEST_ASSET_ROOT;
-  desc.asset_root = root.c_str();
-  desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  gneiss::test_support::application_owner application;
+  desc.asset_root = root;
+  std::shared_ptr<gneiss::runtime::application> application;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::editor::scene_document session;
-  if (gneiss::engine::result{gneiss_application_create(&desc, application.put())} !=
+  if (gneiss::engine::result{gneiss::runtime::application::create(desc, application)} !=
           gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_application_get_world(application.get(), &world)} !=
-          gneiss::engine::result::success ||
-      session.open(*gneiss::runtime::find_application(application.get()), world,
-                   "asset://scenes/triangle.scene.json") != gneiss::engine::result::success) {
+      (world = application->world()) == GNEISS_NULL_WORLD ||
+      session.open(*application, world, "asset://scenes/triangle.scene.json") !=
+          gneiss::engine::result::success) {
     return 1;
   }
   const auto parent = session.nodes()[0].node;
@@ -166,8 +163,8 @@ int main() try {
       history.size() != 0U) {
     return 12;
   }
-  if (session.open(*gneiss::runtime::find_application(application.get()), world,
-                   "asset://scenes/prefab.scene.json") != gneiss::engine::result::success ||
+  if (session.open(*application, world, "asset://scenes/prefab.scene.json") !=
+          gneiss::engine::result::success ||
       session.select(session.prefab_nodes()[1].node) != gneiss::engine::result::success) {
     return 13;
   }
@@ -199,8 +196,8 @@ int main() try {
     return 15;
   }
   history.clear();
-  if (session.open(*gneiss::runtime::find_application(application.get()), world,
-                   "asset://scenes/triangle.scene.json") != gneiss::engine::result::success ||
+  if (session.open(*application, world, "asset://scenes/triangle.scene.json") !=
+          gneiss::engine::result::success ||
       session.select(session.nodes()[1].node) != gneiss::engine::result::success) {
     return 16;
   }

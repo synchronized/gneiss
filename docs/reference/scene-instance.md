@@ -5,7 +5,7 @@
 
 ## 加载阶段
 
-`gneiss_scene_instance_load` 接收所属 Application 和规范场景 URI，在 Application 创建线程同步执行：
+`engine::scene_instances::load` 由所属 Application 的原生场景服务接收规范场景 URI，在 Application 创建线程同步执行：
 
 1. 通过 VFS 读取并完整校验场景描述。
 2. 获取场景引用的全部 Mesh 与 Material 缓存租约。
@@ -17,7 +17,7 @@
 因此失败前后 World 实体数量与资源存活状态一致。当前加载只允许 Application 创建线程调用。
 
 Runtime 宿主的启动与完整场景切换、Editor 的启动与显式打开场景使用内部异步协调器，行为见
-[调度指南](../guides/task-scheduling.md#runtime-完整场景加载)。它不会改变上述公共同步接口；
+[调度指南](../guides/task-scheduling.md#runtime-完整场景加载)。它不会改变上述原生同步接口；
 异步候选加载期间，宿主的结构/资产替换返回 `GNEISS_ERROR_NOT_READY`，调用方应等待当前事务结束。
 完整切换后应重新查询活动 World 与 Scene，不继续使用旧场景借出的节点、Entity 或字符串视图。
 
@@ -27,7 +27,7 @@ Runtime 宿主的启动与完整场景切换、Editor 的启动与显式打开�
 
 ## 所有权与卸载
 
-场景实例由所属 Application 独占，不能跨 Application 使用。`gneiss_scene_instance_unload` 依次释放
+场景实例由所属 Application 独占，不能跨 Application 使用。`engine::scene_instances::unload` 依次释放
 实体、节点和资产租约，句柄立即失效；重复卸载返回句柄错误。Application 销毁时会先卸载仍存活的
 场景，再销毁 World 和 Render Resource Service。
 
@@ -35,26 +35,23 @@ Runtime 宿主的启动与完整场景切换、Editor 的启动与显式打开�
 
 ## UUID 查询
 
-`gneiss_scene_instance_find_node` 使用场景文件中的规范对象 UUID 查找借用 Scene Node ID。找不到返回
+`engine::scene_instances::find_node` 使用场景文件中的规范对象 UUID 查找借用 Scene Node ID。找不到返回
 `GNEISS_ERROR_NOT_FOUND`。节点 ID 只在场景实例未卸载且 World 存活期间有效，可用于运行时更新
 Transform；持久化文件仍不得保存节点 ID。
 
 ## 节点枚举
 
-`gneiss_scene_instance_get_node_count` 与 `gneiss_scene_instance_get_node_info` 按作者场景 `objects`
+`engine::scene_instances::get_node_count` 与 `engine::scene_instances::get_node_info` 按作者场景 `objects`
 数组的稳定顺序枚举实例节点。节点描述包含当前 Node ID、父 Node ID、Entity ID、规范 UUID、可选
 显示名称、当前局部 Transform、组件标志、Camera 作者值以及可选 Mesh/Material 作者 URI。作者
 JSON 可为对象增加可选字符串 `name`；旧场景无需迁移，名称为空时由调用方选择 UUID 等回退显示
-文本。V1/V2 调用方仍可使用旧结构尺寸读取原有字段；V3 字段只在调用方提供完整结构尺寸时写入。
+文本。查询输出使用原生 scene_node_view，不再提供版本化 C 布局。
 
-节点描述中的 UTF-8 UUID 和名称是实例借出的“指针 + 长度”视图，不以零结尾为契约，不能由调用方
-释放。场景的下一次修改可能重分配或替换这些字符串，修改后必须重新查询；实例卸载或 Application
-销毁后也立即失效。需要跨编辑保存名称、UUID 或 URI 时，必须在修改前复制字符串，不能只复制
-包含指针的描述结构。`out_info` 必须以
-`GNEISS_SCENE_INSTANCE_NODE_INFO_INIT` 初始化。索引越界返回 `GNEISS_ERROR_NOT_FOUND`；节点或实体
-已被外部销毁时返回句柄错误。调用方使用相应 C 查询函数。
+节点描述中的 UTF-8 文本通过 string_view 借用到下次场景修改或父对象失效；跨修改保存时
+必须复制字符串。索引越界返回 result::not_found，节点或实体失效返回句柄错误。
 
-Prefab 使用独立的实验性枚举接口 `engine::scene_instances::get_prefab_node_count` 与
+
+Prefab 使用独立的原生枚举接口 `engine::scene_instances::get_prefab_node_count` 与
 `engine::scene_instances::get_prefab_node_info`，不改变普通 `objects` 的数量和顺序。枚举顺序为每个实例
 的实例根，其后为 Prefab 来源节点；描述包含实例 UUID、来源节点 UUID、Prefab URI、Runtime ID、
 局部 Transform 以及实例根或来源只读标志。字符串同样只借用到下一次场景修改或父对象失效；
