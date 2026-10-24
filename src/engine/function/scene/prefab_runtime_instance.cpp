@@ -42,45 +42,25 @@ gneiss::engine::transform to_transform(const gneiss::engine::object_description&
 
 [[nodiscard]] gneiss::engine::result
 to_native_value(const gneiss::engine::prefab_property_value& source,
-                gneiss_property_value& output) noexcept {
-  output = GNEISS_PROPERTY_VALUE_INIT;
+                gneiss::property_value& output) noexcept {
+  output = {};
   return std::visit(
       [&](const auto& payload) noexcept -> gneiss::engine::result {
-        using value_type = std::decay_t<decltype(payload)>;
-        if constexpr (std::is_same_v<value_type, std::monostate>) {
+        using type = std::decay_t<decltype(payload)>;
+        if constexpr (std::is_same_v<type, std::monostate>)
           return gneiss::engine::result::invalid_argument;
-        } else {
-          if constexpr (std::is_same_v<value_type, bool>) {
-            output.kind = GNEISS_PROPERTY_KIND_BOOL;
-            output.payload.bool_value = payload ? UINT8_C(1) : UINT8_C(0);
-          } else if constexpr (std::is_same_v<value_type, std::int64_t>) {
-            output.kind = GNEISS_PROPERTY_KIND_INT64;
-            output.payload.int64_value = payload;
-          } else if constexpr (std::is_same_v<value_type, std::uint64_t>) {
-            output.kind = GNEISS_PROPERTY_KIND_UINT64;
-            output.payload.uint64_value = payload;
-          } else if constexpr (std::is_same_v<value_type, float>) {
-            output.kind = GNEISS_PROPERTY_KIND_FLOAT32;
-            output.payload.float32_value = payload;
-          } else if constexpr (std::is_same_v<value_type, double>) {
-            output.kind = GNEISS_PROPERTY_KIND_FLOAT64;
-            output.payload.float64_value = payload;
-          } else if constexpr (std::is_same_v<value_type, std::string>) {
-            output.kind = GNEISS_PROPERTY_KIND_STRING;
-            output.payload.string_value = {payload.data(),
-                                           static_cast<std::uint32_t>(payload.size())};
-          } else if constexpr (std::is_same_v<value_type, std::array<std::uint8_t, 16>>) {
-            output.kind = GNEISS_PROPERTY_KIND_TYPE_ID;
-            std::ranges::copy(payload, output.payload.type_id_value.bytes);
-          } else if constexpr (std::is_same_v<value_type, std::array<float, 3>>) {
-            output.kind = GNEISS_PROPERTY_KIND_VEC3;
-            output.payload.vec3_value = {payload[0], payload[1], payload[2]};
-          } else {
-            output.kind = GNEISS_PROPERTY_KIND_QUATERNION;
-            output.payload.quaternion_value = {payload[0], payload[1], payload[2], payload[3]};
-          }
-          return gneiss::engine::result::success;
-        }
+        else if constexpr (std::is_same_v<type, std::string>)
+          output.payload = std::string_view{payload};
+        else if constexpr (std::is_same_v<type, std::array<std::uint8_t, 16>>)
+          output.payload = gneiss::engine::type_guid{gneiss::engine::guid::from_bytes(payload)};
+        else if constexpr (std::is_same_v<type, std::array<float, 3>>)
+          output.payload = gneiss::property_vec3{payload[0], payload[1], payload[2]};
+        else if constexpr (std::is_same_v<type, std::array<float, 4>>)
+          output.payload =
+              gneiss::property_quaternion{payload[0], payload[1], payload[2], payload[3]};
+        else
+          output.payload = payload;
+        return gneiss::engine::result::success;
       },
       source.payload);
 }
@@ -483,7 +463,7 @@ gneiss::engine::result prefab_runtime_instance::create(
 namespace {
 gneiss::engine::result apply_candidate_object(const gneiss::engine::registry_ref& state,
                                               const gneiss::engine::prefab_property_override& value,
-                                              const gneiss_property_value& native,
+                                              const gneiss::property_value& native,
                                               gneiss::engine::object_description& object) {
   auto result = gneiss::engine::result::success;
   const auto is_type = [&](gneiss_type_id type) {
@@ -549,7 +529,7 @@ gneiss::engine::result prefab_runtime_instance::prepare_candidate_description(
     if (found == candidate.objects.end()) {
       return gneiss::engine::result::not_found;
     }
-    gneiss_property_value native = GNEISS_PROPERTY_VALUE_INIT;
+    gneiss::property_value native = gneiss::property_value{};
     auto result = to_native_value(value.value, native);
     if (result != gneiss::engine::result::success) {
       return result;
@@ -590,10 +570,10 @@ gneiss::engine::result prefab_runtime_instance::apply_overrides(
     if (found == nodes_.end()) {
       return gneiss::engine::result::not_found;
     }
-    gneiss_property_value native_value = GNEISS_PROPERTY_VALUE_INIT;
+    gneiss::property_value native_value = gneiss::property_value{};
     auto result = to_native_value(override_value.value, native_value);
     if (result == gneiss::engine::result::success) {
-      const gneiss_property_target target{.context = reflection_context_, .object = found->entity};
+      const gneiss::property_target target{.context = reflection_context_, .object = found->entity};
       result = gneiss::engine::set_property(
           gneiss::engine::resolve(registry), override_value.key.type_id,
           override_value.key.field_id.get(), target, native_value);

@@ -259,16 +259,15 @@ int main() {
   }
   auto reflection = gneiss::engine::resolve(registry);
   gneiss::engine::transform candidate_transform;
-  gneiss_property_value proposed = GNEISS_PROPERTY_VALUE_INIT;
-  proposed.kind = GNEISS_PROPERTY_KIND_VEC3;
-  proposed.payload.vec3_value = {2, 3, 4};
+  gneiss::property_value proposed;
+  proposed.payload = gneiss::property_vec3{2, 3, 4};
   if (gneiss::engine::set_candidate_property(
           reflection, service::transform_property_type(), GNEISS_TRANSFORM_FIELD_TRANSLATION,
           &candidate_transform, proposed) != gneiss::engine::result::success ||
       candidate_transform.translation[0] != 2) {
     return 15;
   }
-  proposed.payload.vec3_value = {0, 1, 1};
+  proposed.payload = gneiss::property_vec3{0, 1, 1};
   if (gneiss::engine::set_candidate_property(
           reflection, service::transform_property_type(), GNEISS_TRANSFORM_FIELD_SCALE,
           &candidate_transform, proposed) != gneiss::engine::result::invalid_argument ||
@@ -276,14 +275,13 @@ int main() {
     return 16;
   }
   service::camera_settings candidate_camera{1, 10, 20};
-  proposed.kind = GNEISS_PROPERTY_KIND_FLOAT32;
-  proposed.payload.float32_value = 30;
+  proposed.payload = 30.0F;
   if (gneiss::engine::set_candidate_property(reflection, service::camera_property_type(),
                                              GNEISS_CAMERA_FIELD_NEAR_PLANE, &candidate_camera,
                                              proposed) != gneiss::engine::result::success) {
     return 17;
   }
-  proposed.payload.float32_value = 40;
+  proposed.payload = 40.0F;
   if (gneiss::engine::set_candidate_property(reflection, service::camera_property_type(),
                                              GNEISS_CAMERA_FIELD_FAR_PLANE, &candidate_camera,
                                              proposed) != gneiss::engine::result::success ||

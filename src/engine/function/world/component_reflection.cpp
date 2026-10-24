@@ -39,16 +39,16 @@ constexpr gneiss::engine::type_guid bool_id{
 enum class transform_field : std::uint8_t { translation = 1, rotation = 2, scale = 3 };
 enum class camera_field : std::uint8_t { field_of_view = 1, near_plane = 2, far_plane = 3 };
 
-[[nodiscard]] gneiss_world target_world(gneiss_property_target target) noexcept {
+[[nodiscard]] gneiss_world target_world(gneiss::property_target target) noexcept {
   return static_cast<gneiss_world>(target.context);
 }
 
-[[nodiscard]] gneiss_entity_id target_entity(gneiss_property_target target) noexcept {
+[[nodiscard]] gneiss_entity_id target_entity(gneiss::property_target target) noexcept {
   return static_cast<gneiss_entity_id>(target.object);
 }
 
-gneiss::engine::result get_transform(void* user_data, gneiss_property_target target,
-                                     gneiss_property_value* output) {
+gneiss::engine::result get_transform(void* user_data, gneiss::property_target target,
+                                     gneiss::property_value* output) {
   gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
   const auto result = gneiss::engine::entity_get_local_transform(target_world(target),
                                                                  target_entity(target), transform);
@@ -57,21 +57,18 @@ gneiss::engine::result get_transform(void* user_data, gneiss_property_target tar
   }
   switch (*static_cast<const transform_field*>(user_data)) {
   case transform_field::translation:
-    output->kind = GNEISS_PROPERTY_KIND_VEC3;
-    output->payload.vec3_value = {.x = transform.translation[0],
-                                  .y = transform.translation[1],
-                                  .z = transform.translation[2]};
+    output->payload = gneiss::property_vec3{.x = transform.translation[0],
+                                            .y = transform.translation[1],
+                                            .z = transform.translation[2]};
     break;
   case transform_field::rotation:
-    output->kind = GNEISS_PROPERTY_KIND_QUATERNION;
-    output->payload.quaternion_value = {.x = transform.rotation[0],
-                                        .y = transform.rotation[1],
-                                        .z = transform.rotation[2],
-                                        .w = transform.rotation[3]};
+    output->payload = gneiss::property_quaternion{.x = transform.rotation[0],
+                                                  .y = transform.rotation[1],
+                                                  .z = transform.rotation[2],
+                                                  .w = transform.rotation[3]};
     break;
   case transform_field::scale:
-    output->kind = GNEISS_PROPERTY_KIND_VEC3;
-    output->payload.vec3_value = {
+    output->payload = gneiss::property_vec3{
         .x = transform.scale[0], .y = transform.scale[1], .z = transform.scale[2]};
     break;
   }
@@ -79,25 +76,25 @@ gneiss::engine::result get_transform(void* user_data, gneiss_property_target tar
 }
 
 gneiss::engine::result set_candidate_transform(void* user_data, void* candidate,
-                                               const gneiss_property_value& input) {
+                                               const gneiss::property_value& input) {
   auto transform = *static_cast<gneiss::engine::transform*>(candidate);
   const auto* value = &input;
   switch (*static_cast<const transform_field*>(user_data)) {
   case transform_field::translation:
-    transform.translation[0] = value->payload.vec3_value.x;
-    transform.translation[1] = value->payload.vec3_value.y;
-    transform.translation[2] = value->payload.vec3_value.z;
+    transform.translation[0] = std::get<gneiss::property_vec3>(value->payload).x;
+    transform.translation[1] = std::get<gneiss::property_vec3>(value->payload).y;
+    transform.translation[2] = std::get<gneiss::property_vec3>(value->payload).z;
     break;
   case transform_field::rotation:
-    transform.rotation[0] = value->payload.quaternion_value.x;
-    transform.rotation[1] = value->payload.quaternion_value.y;
-    transform.rotation[2] = value->payload.quaternion_value.z;
-    transform.rotation[3] = value->payload.quaternion_value.w;
+    transform.rotation[0] = std::get<gneiss::property_quaternion>(value->payload).x;
+    transform.rotation[1] = std::get<gneiss::property_quaternion>(value->payload).y;
+    transform.rotation[2] = std::get<gneiss::property_quaternion>(value->payload).z;
+    transform.rotation[3] = std::get<gneiss::property_quaternion>(value->payload).w;
     break;
   case transform_field::scale:
-    transform.scale[0] = value->payload.vec3_value.x;
-    transform.scale[1] = value->payload.vec3_value.y;
-    transform.scale[2] = value->payload.vec3_value.z;
+    transform.scale[0] = std::get<gneiss::property_vec3>(value->payload).x;
+    transform.scale[1] = std::get<gneiss::property_vec3>(value->payload).y;
+    transform.scale[2] = std::get<gneiss::property_vec3>(value->payload).z;
     break;
   }
   float norm = 0;
@@ -115,8 +112,8 @@ gneiss::engine::result set_candidate_transform(void* user_data, void* candidate,
   return gneiss::engine::result::success;
 }
 
-gneiss::engine::result set_transform(void* user_data, gneiss_property_target target,
-                                     const gneiss_property_value* value) {
+gneiss::engine::result set_transform(void* user_data, gneiss::property_target target,
+                                     const gneiss::property_value* value) {
   gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
   auto result = gneiss::engine::entity_get_local_transform(target_world(target),
                                                            target_entity(target), transform);
@@ -138,34 +135,33 @@ gneiss::engine::result set_transform(void* user_data, gneiss_property_target tar
              : result;
 }
 
-gneiss::engine::result get_camera(void* user_data, gneiss_property_target target,
-                                  gneiss_property_value* output) {
+gneiss::engine::result get_camera(void* user_data, gneiss::property_target target,
+                                  gneiss::property_value* output) {
   gneiss::engine::camera_settings camera;
   const auto result =
       gneiss::engine::entity_get_camera(target_world(target), target_entity(target), camera);
   if (result != gneiss::engine::result::success) {
     return result;
   }
-  output->kind = GNEISS_PROPERTY_KIND_FLOAT32;
   switch (*static_cast<const camera_field*>(user_data)) {
   case camera_field::field_of_view:
-    output->payload.float32_value = camera.vertical_field_of_view_radians;
+    output->payload = camera.vertical_field_of_view_radians;
     break;
   case camera_field::near_plane:
-    output->payload.float32_value = camera.near_plane;
+    output->payload = camera.near_plane;
     break;
   case camera_field::far_plane:
-    output->payload.float32_value = camera.far_plane;
+    output->payload = camera.far_plane;
     break;
   }
   return gneiss::engine::result::success;
 }
 
 gneiss::engine::result set_candidate_camera(void* user_data, void* candidate,
-                                            const gneiss_property_value& input) {
+                                            const gneiss::property_value& input) {
   auto camera = *static_cast<gneiss::engine::camera_settings*>(candidate);
   const auto* value = &input;
-  const auto scalar = value->payload.float32_value;
+  const auto scalar = std::get<float>(value->payload);
   if (!std::isfinite(scalar) || scalar <= 0 ||
       (*static_cast<const camera_field*>(user_data) == camera_field::field_of_view &&
        scalar >= std::numbers::pi_v<float>)) {
@@ -173,13 +169,13 @@ gneiss::engine::result set_candidate_camera(void* user_data, void* candidate,
   }
   switch (*static_cast<const camera_field*>(user_data)) {
   case camera_field::field_of_view:
-    camera.vertical_field_of_view_radians = value->payload.float32_value;
+    camera.vertical_field_of_view_radians = std::get<float>(value->payload);
     break;
   case camera_field::near_plane:
-    camera.near_plane = value->payload.float32_value;
+    camera.near_plane = std::get<float>(value->payload);
     break;
   case camera_field::far_plane:
-    camera.far_plane = value->payload.float32_value;
+    camera.far_plane = std::get<float>(value->payload);
     break;
   }
   // near/far 的联合约束在全部覆盖应用后由候选对象构造校验，避免依赖字段写入顺序。
@@ -187,8 +183,8 @@ gneiss::engine::result set_candidate_camera(void* user_data, void* candidate,
   return gneiss::engine::result::success;
 }
 
-gneiss::engine::result set_camera(void* user_data, gneiss_property_target target,
-                                  const gneiss_property_value* value) {
+gneiss::engine::result set_camera(void* user_data, gneiss::property_target target,
+                                  const gneiss::property_value* value) {
   gneiss::engine::camera_settings camera;
   auto result =
       gneiss::engine::entity_get_camera(target_world(target), target_entity(target), camera);
@@ -201,8 +197,8 @@ gneiss::engine::result set_camera(void* user_data, gneiss_property_target target
              : result;
 }
 
-gneiss::engine::result get_is_primary(void* /*user_data*/, gneiss_property_target target,
-                                      gneiss_property_value* output) {
+gneiss::engine::result get_is_primary(void* /*user_data*/, gneiss::property_target target,
+                                      gneiss::property_value* output) {
   gneiss::engine::camera_settings camera;
   auto result =
       gneiss::engine::entity_get_camera(target_world(target), target_entity(target), camera);
@@ -214,8 +210,7 @@ gneiss::engine::result get_is_primary(void* /*user_data*/, gneiss_property_targe
   if (result != gneiss::engine::result::success && result != gneiss::engine::result::not_ready) {
     return result;
   }
-  output->kind = GNEISS_PROPERTY_KIND_BOOL;
-  output->payload.bool_value = active == target_entity(target) ? UINT8_C(1) : UINT8_C(0);
+  output->payload = active == target_entity(target);
   return gneiss::engine::result::success;
 }
 
@@ -236,9 +231,9 @@ make_field(gneiss_field_id id, gneiss::engine::type_guid value_type_id, std::uin
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
 [[nodiscard]] gneiss::engine::result bind_component_field(
     const gneiss::engine::registry_ref& registry, gneiss::engine::type_guid type_id,
-    gneiss_field_id field_id, std::uint32_t kind,
-    gneiss::engine::result (*getter)(void*, gneiss_property_target, gneiss_property_value*),
-    gneiss::engine::result (*setter)(void*, gneiss_property_target, const gneiss_property_value*),
+    gneiss_field_id field_id, gneiss::property_kind kind,
+    gneiss::engine::result (*getter)(void*, gneiss::property_target, gneiss::property_value*),
+    gneiss::engine::result (*setter)(void*, gneiss::property_target, const gneiss::property_value*),
     const void* field) {
   const gneiss::engine::property_binding accessor{
       .kind = kind,
@@ -290,37 +285,37 @@ gneiss::engine::register_reflection(const gneiss::engine::registry_ref& registry
   }
   if (result == gneiss::engine::result::success) {
     result = bind_component_field(registry, transform_id, GNEISS_TRANSFORM_FIELD_TRANSLATION,
-                                  GNEISS_PROPERTY_KIND_VEC3, get_transform, set_transform,
+                                  gneiss::property_kind::vec3, get_transform, set_transform,
                                   &translation_field);
   }
   if (result == gneiss::engine::result::success) {
     result = bind_component_field(registry, transform_id, GNEISS_TRANSFORM_FIELD_ROTATION,
-                                  GNEISS_PROPERTY_KIND_QUATERNION, get_transform, set_transform,
+                                  gneiss::property_kind::quaternion, get_transform, set_transform,
                                   &rotation_field);
   }
   if (result == gneiss::engine::result::success) {
-    result =
-        bind_component_field(registry, transform_id, GNEISS_TRANSFORM_FIELD_SCALE,
-                             GNEISS_PROPERTY_KIND_VEC3, get_transform, set_transform, &scale_field);
+    result = bind_component_field(registry, transform_id, GNEISS_TRANSFORM_FIELD_SCALE,
+                                  gneiss::property_kind::vec3, get_transform, set_transform,
+                                  &scale_field);
   }
   if (result == gneiss::engine::result::success) {
     result = bind_component_field(
         registry, camera_id, GNEISS_CAMERA_FIELD_VERTICAL_FIELD_OF_VIEW_RADIANS,
-        GNEISS_PROPERTY_KIND_FLOAT32, get_camera, set_camera, &field_of_view_field);
+        gneiss::property_kind::float32, get_camera, set_camera, &field_of_view_field);
   }
   if (result == gneiss::engine::result::success) {
     result = bind_component_field(registry, camera_id, GNEISS_CAMERA_FIELD_NEAR_PLANE,
-                                  GNEISS_PROPERTY_KIND_FLOAT32, get_camera, set_camera,
+                                  gneiss::property_kind::float32, get_camera, set_camera,
                                   &near_plane_field);
   }
   if (result == gneiss::engine::result::success) {
     result = bind_component_field(registry, camera_id, GNEISS_CAMERA_FIELD_FAR_PLANE,
-                                  GNEISS_PROPERTY_KIND_FLOAT32, get_camera, set_camera,
+                                  gneiss::property_kind::float32, get_camera, set_camera,
                                   &far_plane_field);
   }
   if (result == gneiss::engine::result::success) {
     result = bind_component_field(registry, camera_id, GNEISS_CAMERA_FIELD_IS_PRIMARY,
-                                  GNEISS_PROPERTY_KIND_BOOL, get_is_primary, nullptr, nullptr);
+                                  gneiss::property_kind::boolean, get_is_primary, nullptr, nullptr);
   }
   return result;
 }

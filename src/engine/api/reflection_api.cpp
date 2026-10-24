@@ -100,20 +100,30 @@ gneiss_type_registry_bind_property(gneiss_type_registry registry, gneiss_type_id
       if (!state)
         return gneiss::engine::result::invalid_handle;
       gneiss::engine::property_binding binding{};
-      binding.kind = desc->kind;
+      binding.kind = static_cast<gneiss::property_kind>(desc->kind);
       binding.getter_identity = desc->getter;
       binding.setter_identity = desc->setter;
       binding.user_data = desc->user_data;
       if (desc->getter) {
-        binding.getter = [fn = desc->getter](void* data, gneiss_property_target target,
-                                             gneiss_property_value* output) {
-          return gneiss::engine::detail::from_c_result(fn(data, target, output));
+        binding.getter = [fn = desc->getter](void* data, gneiss::property_target target,
+                                             gneiss::property_value* output) {
+          gneiss_property_value raw = GNEISS_PROPERTY_VALUE_INIT;
+          auto status =
+              gneiss::engine::detail::from_c_result(fn(data, gneiss::to_native(target), &raw));
+          if (status.failed())
+            return status;
+          status = gneiss::from_native(raw, *output);
+          return status.failed() ? gneiss::engine::result::internal : status;
         };
       }
       if (desc->setter) {
-        binding.setter = [fn = desc->setter](void* data, gneiss_property_target target,
-                                             const gneiss_property_value* value) {
-          return gneiss::engine::detail::from_c_result(fn(data, target, value));
+        binding.setter = [fn = desc->setter](void* data, gneiss::property_target target,
+                                             const gneiss::property_value* value) {
+          gneiss_property_value raw = GNEISS_PROPERTY_VALUE_INIT;
+          const auto status = gneiss::to_native(*value, raw);
+          if (status.failed())
+            return status;
+          return gneiss::engine::detail::from_c_result(fn(data, gneiss::to_native(target), &raw));
         };
       }
       return gneiss::engine::bind_property(state, gneiss::from_native(type_id), field_id, binding);
@@ -256,9 +266,14 @@ extern "C" gneiss_result gneiss_type_registry_get_property(gneiss_type_registry 
       }
       *out_value = GNEISS_PROPERTY_VALUE_INIT;
       const auto state = gneiss::engine::resolve(registry);
-      return state == nullptr ? gneiss::engine::result::invalid_handle
-                              : gneiss::engine::get_property(state, gneiss::from_native(type_id),
-                                                             field_id, target, *out_value);
+      if (!state)
+        return gneiss::engine::result::invalid_handle;
+      gneiss::property_value borrowed;
+      const auto status = gneiss::engine::get_property(
+          state, gneiss::from_native(type_id), field_id, gneiss::from_native(target), borrowed);
+      if (status.failed())
+        return status;
+      return gneiss::to_native(borrowed, *out_value);
     } catch (const std::bad_alloc&) {
       return gneiss::engine::result::out_of_memory;
     } catch (...) {
@@ -279,9 +294,14 @@ extern "C" gneiss_result gneiss_type_registry_set_property(gneiss_type_registry 
         return gneiss::engine::result::invalid_argument;
       }
       const auto state = gneiss::engine::resolve(registry);
-      return state == nullptr ? gneiss::engine::result::invalid_handle
-                              : gneiss::engine::set_property(state, gneiss::from_native(type_id),
-                                                             field_id, target, *value);
+      if (!state)
+        return gneiss::engine::result::invalid_handle;
+      gneiss::property_value borrowed;
+      const auto status = gneiss::from_native(*value, borrowed);
+      if (status.failed())
+        return gneiss::engine::result::invalid_argument;
+      return gneiss::engine::set_property(state, gneiss::from_native(type_id), field_id,
+                                          gneiss::from_native(target), borrowed);
     } catch (const std::bad_alloc&) {
       return gneiss::engine::result::out_of_memory;
     } catch (...) {

@@ -17,22 +17,22 @@ constexpr gneiss::engine::type_guid stable_type{gneiss::engine::guid::from_bytes
 static_assert(gneiss::from_native(gneiss::to_native(stable_type)) == stable_type);
 static_assert(gneiss::to_native(stable_type).bytes[15] == guid_bytes[15]);
 int runtime_writes = 0;
-gneiss::engine::result set_runtime(void*, gneiss_property_target, const gneiss_property_value*) {
+gneiss::engine::result set_runtime(void*, gneiss::property_target, const gneiss::property_value*) {
   ++runtime_writes;
   return gneiss::engine::result::success;
 }
-gneiss::engine::result set_candidate(void*, void* target, const gneiss_property_value& value) {
-  if (value.payload.float32_value < 0) {
+gneiss::engine::result set_candidate(void*, void* target, const gneiss::property_value& value) {
+  if (std::get<float>(value.payload) < 0) {
     return gneiss::engine::result::invalid_argument;
   }
-  if (value.payload.float32_value == 99) {
+  if (std::get<float>(value.payload) == 99) {
     throw std::runtime_error("候选校验异常");
   }
-  *static_cast<float*>(target) = value.payload.float32_value;
+  *static_cast<float*>(target) = std::get<float>(value.payload);
   return gneiss::engine::result::success;
 }
-gneiss::engine::result throwing_getter(void* /*context*/, gneiss_property_target /*target*/,
-                                       gneiss_property_value* /*output*/) {
+gneiss::engine::result throwing_getter(void* /*context*/, gneiss::property_target /*target*/,
+                                       gneiss::property_value* /*output*/) {
   throw std::runtime_error("test callback failure");
 }
 } // namespace
@@ -47,19 +47,17 @@ bool native_values() {
       .id = 1, .value_type_id = gneiss::from_native(id), .flags = 0, .name = "text"}};
   std::string text = "初始文本";
   const gneiss::engine::property_binding binding{
-      .kind = GNEISS_PROPERTY_KIND_STRING,
+      .kind = gneiss::property_kind::string,
       .getter =
-          [](void* context, gneiss_property_target, gneiss_property_value* output) {
+          [](void* context, gneiss::property_target, gneiss::property_value* output) {
             const auto& value = *static_cast<std::string*>(context);
-            *output = GNEISS_PROPERTY_VALUE_INIT;
-            output->kind = GNEISS_PROPERTY_KIND_STRING;
-            output->payload.string_value = {value.data(), static_cast<std::uint32_t>(value.size())};
+            *output = gneiss::property_value{};
+            output->payload = std::string_view{value};
             return gneiss::engine::result::success;
           },
       .setter =
-          [](void* context, gneiss_property_target, const gneiss_property_value* value) {
-            static_cast<std::string*>(context)->assign(value->payload.string_value.data,
-                                                       value->payload.string_value.length);
+          [](void* context, gneiss::property_target, const gneiss::property_value* value) {
+            static_cast<std::string*>(context)->assign(std::get<std::string_view>(value->payload));
             return gneiss::engine::result::success;
           },
       .user_data = &text};
@@ -187,12 +185,12 @@ int main() try {
   };
   if (gneiss::engine::register_type(state, definition) != gneiss::engine::result::success ||
       gneiss::engine::bind_property(state, gneiss::from_native(type_id), 1U,
-                                    {.kind = GNEISS_PROPERTY_KIND_FLOAT32,
+                                    {.kind = gneiss::property_kind::float32,
                                      .getter = throwing_getter,
                                      .setter = set_runtime}) != gneiss::engine::result::success) {
     return 2;
   }
-  const gneiss::engine::property_binding candidate_binding{.kind = GNEISS_PROPERTY_KIND_FLOAT32,
+  const gneiss::engine::property_binding candidate_binding{.kind = gneiss::property_kind::float32,
                                                            .getter = {},
                                                            .setter = {},
                                                            .getter_identity = {},
@@ -200,9 +198,8 @@ int main() try {
                                                            .user_data = {},
                                                            .candidate_setter = set_candidate};
   float candidate = 1;
-  gneiss_property_value proposed = GNEISS_PROPERTY_VALUE_INIT;
-  proposed.kind = GNEISS_PROPERTY_KIND_FLOAT32;
-  proposed.payload.float32_value = 2;
+  gneiss::property_value proposed = gneiss::property_value{};
+  proposed.payload = 2.0F;
   if (gneiss::engine::bind_property(state, gneiss::from_native(type_id), 2U, candidate_binding) !=
           gneiss::engine::result::success ||
       gneiss::engine::bind_property(state, gneiss::from_native(type_id), 2U, candidate_binding) !=
@@ -236,21 +233,20 @@ int main() try {
           gneiss::engine::result::invalid_state) {
     return 12;
   }
-  proposed.payload.float32_value = -1;
+  proposed.payload = -1.0F;
   if (gneiss::engine::set_candidate_property(state, gneiss::from_native(type_id), 2U, &candidate,
                                              proposed) !=
           gneiss::engine::result::invalid_argument ||
       candidate != 2) {
     return 13;
   }
-  proposed.payload.float32_value = 99;
+  proposed.payload = 99.0F;
   if (gneiss::engine::set_candidate_property(state, gneiss::from_native(type_id), 2U, &candidate,
                                              proposed) != gneiss::engine::result::internal ||
       candidate != 2) {
     return 14;
   }
-  proposed.kind = GNEISS_PROPERTY_KIND_BOOL;
-  proposed.payload.bool_value = 1;
+  proposed.payload = true;
   if (gneiss::engine::set_candidate_property(state, gneiss::from_native(type_id), 2U, &candidate,
                                              proposed) !=
           gneiss::engine::result::invalid_argument ||

@@ -16,7 +16,7 @@
 namespace gneiss::engine {
 /** 借用候选数据，仅修改该数据并校验；禁止场景副作用和普通业务通知。 */
 using candidate_property_setter = gneiss::engine::result (*)(void* user_data, void* candidate,
-                                                             const gneiss_property_value& value);
+                                                             const gneiss::property_value& value);
 struct field_definition {
   gneiss_field_id id{};
   type_guid value_type_id{};
@@ -29,12 +29,12 @@ struct type_definition {
   std::string_view name;
   std::span<const field_definition> fields;
 };
-/** 回调及上下文均借用；沿用公开回调协议，不隐式持有用户对象。 */
+/** 回调使用原生属性值；上下文及属性文本借用，不隐式持有用户对象。
+ * getter 返回的文本须至少存活到调用方完成复制，setter 的文本仅在调用期间有效。 */
 struct property_binding {
-  std::uint32_t kind{};
-  std::function<gneiss::engine::result(void*, gneiss_property_target, gneiss_property_value*)>
-      getter;
-  std::function<gneiss::engine::result(void*, gneiss_property_target, const gneiss_property_value*)>
+  property_kind kind = property_kind::invalid;
+  std::function<gneiss::engine::result(void*, property_target, gneiss::property_value*)> getter;
+  std::function<gneiss::engine::result(void*, property_target, const gneiss::property_value*)>
       setter;
   // C 边界只记录原回调身份，调用仍通过上述原生结果适配器；用于重复绑定判等。
   gneiss_property_getter getter_identity{};
@@ -70,15 +70,15 @@ type_at(const registry_ref& state, std::uint32_t index, gneiss_type_info& output
                                                            gneiss_field_info& output) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
 get_property(const registry_ref& state, type_guid type_id, gneiss_field_id field_id,
-             gneiss_property_target target, gneiss_property_value& output) noexcept;
+             property_target target, gneiss::property_value& output) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
 set_property(const registry_ref& state, type_guid type_id, gneiss_field_id field_id,
-             gneiss_property_target target, const gneiss_property_value& value) noexcept;
+             property_target target, const gneiss::property_value& value) noexcept;
 /** 不回退到运行时 setter。candidate 为字段所属类型的可写候选数据，调用期间借用。
  * 调用方独占候选，失败后丢弃整份候选；异常转换为 INTERNAL，不发送通知。
  */
 [[nodiscard]] GNEISS_API gneiss::engine::result
 set_candidate_property(const registry_ref& state, type_guid type_id, gneiss_field_id field_id,
-                       void* candidate, const gneiss_property_value& value) noexcept;
+                       void* candidate, const gneiss::property_value& value) noexcept;
 } // namespace gneiss::engine
 #endif
