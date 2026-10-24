@@ -6,7 +6,7 @@
 #include "engine/core/result.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include "engine/function/world/world_service.hpp"
-#include <gneiss/engine/detail/reflection_values.hpp>
+#include "engine/values/detail/reflection_values.hpp"
 
 #include <gneiss/engine/world.h>
 

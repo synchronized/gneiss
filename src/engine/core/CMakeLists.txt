@@ -6,7 +6,7 @@
 include(internal_headers)
 gneiss_internal_headers(gneiss_result_interface "${PROJECT_SOURCE_DIR}/src" engine/core/result.hpp)
 add_library(gneiss_core_values INTERFACE)
-target_link_libraries(gneiss_core_values INTERFACE gneiss_result_interface)
+target_link_libraries(gneiss_core_values INTERFACE gneiss_result_interface gneiss_value_interface)
 target_include_directories(gneiss_core_values INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/../../../include")
 target_compile_features(gneiss_core_values INTERFACE cxx_std_20)
 target_compile_definitions(gneiss_core_values INTERFACE

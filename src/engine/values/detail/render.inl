@@ -4,7 +4,7 @@
 #ifndef GNEISS_DETAIL_RENDER_INL_
 #define GNEISS_DETAIL_RENDER_INL_
 
-#include <gneiss/engine/render.hpp>
+#include "engine/values/render.hpp"
 
 #include <limits>
 #include <new>

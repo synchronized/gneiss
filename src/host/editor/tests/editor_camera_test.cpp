@@ -5,7 +5,7 @@
 #include "engine/core/result.hpp"
 #include "viewport/editor_camera.hpp"
 
-#include <gneiss/engine/world.hpp>
+#include "engine/values/world.hpp"
 
 #include <cmath>
 

@@ -4,7 +4,7 @@
 #ifndef GNEISS_DETAIL_INPUT_INL_
 #define GNEISS_DETAIL_INPUT_INL_
 
-#include <gneiss/engine/input.hpp>
+#include "engine/values/input.hpp"
 
 namespace gneiss {
 

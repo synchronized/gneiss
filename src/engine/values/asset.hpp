@@ -4,8 +4,8 @@
 #ifndef GNEISS_ASSET_HPP_
 #define GNEISS_ASSET_HPP_
 
+#include "engine/values/core/result.hpp"
 #include <gneiss/engine/asset.h>
-#include <gneiss/engine/core/result.hpp>
 
 #include <string_view>
 

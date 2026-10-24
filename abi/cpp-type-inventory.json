@@ -1,5 +1,5 @@
 {
-  "method": "按公共 C 头枚举现有映射；native_review 单独记录 0.47 原生类型迁移，pending 不代表已完成；ABI 例外必须给出理由",
+  "method": "按当前公共 C 头枚举类型与宏；cpp_mapping 记录仓内原生值或 ABI 例外，不表示安装公共 C++ SDK；native_review 是类型迁移审查状态",
   "headers": [
     {
       "header": "include/gneiss/engine/application.h",
@@ -462,8 +462,8 @@
       ]
     },
     {
-      "header": "include/gneiss/engine/input.h",
-      "contract": "docs/reference/input.md",
+      "header": "include/gneiss/engine/game_module_types.h",
+      "contract": "docs/reference/game-module.md",
       "types": [
         {
           "symbol": "gneiss_action",
@@ -477,6 +477,103 @@
           "cpp_mapping": "gneiss::action_state",
           "native_review": "implemented"
         },
+        {
+          "symbol": "gneiss_log_message",
+          "kind": "struct",
+          "cpp_mapping": "gneiss::log_message",
+          "native_review": "implemented"
+        },
+        {
+          "symbol": "gneiss_log_severity",
+          "kind": "scalar",
+          "cpp_mapping": "gneiss::log_severity",
+          "native_review": "implemented"
+        },
+        {
+          "symbol": "gneiss_transform",
+          "kind": "struct",
+          "cpp_mapping": "gneiss::transform",
+          "native_review": "implemented"
+        },
+        {
+          "symbol": "gneiss_world",
+          "kind": "owner",
+          "cpp_mapping": "仅 C ABI 句柄；内部使用 gneiss::engine::world，不提供公共所有者包装",
+          "native_review": "abi_only"
+        }
+      ],
+      "constants": [
+        {
+          "symbol": "GNEISS_ACTION_STATE_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "对应 C++ 快照的默认构造"
+        },
+        {
+          "symbol": "GNEISS_ACTION_STATE_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 结构尺寸版本；普通 C++ 查询由内部适配设置当前尺寸"
+        },
+        {
+          "symbol": "GNEISS_NULL_ACTION",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::null_action_id"
+        },
+        {
+          "symbol": "GNEISS_LOG_DEBUG",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_severity::debug"
+        },
+        {
+          "symbol": "GNEISS_LOG_ERROR",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_severity::error"
+        },
+        {
+          "symbol": "GNEISS_LOG_FATAL",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_severity::fatal"
+        },
+        {
+          "symbol": "GNEISS_LOG_INFO",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_severity::info"
+        },
+        {
+          "symbol": "GNEISS_LOG_MESSAGE_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_message{}（默认 category 为空，提交前必须设置）"
+        },
+        {
+          "symbol": "GNEISS_LOG_MESSAGE_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 布局版本；C++ 消息由内部适配填写当前尺寸"
+        },
+        {
+          "symbol": "GNEISS_LOG_TRACE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_severity::trace"
+        },
+        {
+          "symbol": "GNEISS_LOG_WARNING",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_severity::warning"
+        },
+        {
+          "symbol": "GNEISS_TRANSFORM_IDENTITY",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::transform{}"
+        },
+        {
+          "symbol": "GNEISS_NULL_WORLD",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::world_ref{} / world{}"
+        }
+      ]
+    },
+    {
+      "header": "include/gneiss/engine/input.h",
+      "contract": "docs/reference/input.md",
+      "types": [
         {
           "symbol": "gneiss_input_event",
           "kind": "struct",
@@ -527,16 +624,6 @@
         }
       ],
       "constants": [
-        {
-          "symbol": "GNEISS_ACTION_STATE_INIT",
-          "native_review": "implemented",
-          "cpp_mapping": "对应 C++ 快照的默认构造"
-        },
-        {
-          "symbol": "GNEISS_ACTION_STATE_VERSION_1_SIZE",
-          "native_review": "abi_only",
-          "cpp_mapping": "C ABI 结构尺寸版本；普通 C++ 查询由内部适配设置当前尺寸"
-        },
         {
           "symbol": "GNEISS_INPUT_EVENT_INIT",
           "native_review": "implemented",
@@ -801,11 +888,6 @@
           "symbol": "GNEISS_MODIFIER_RIGHT_SUPER_BIT",
           "native_review": "implemented",
           "cpp_mapping": "gneiss::input_modifier::right_super"
-        },
-        {
-          "symbol": "GNEISS_NULL_ACTION",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::null_action_id"
         },
         {
           "symbol": "GNEISS_PHYSICAL_KEY_0",
@@ -1213,65 +1295,13 @@
           "kind": "struct",
           "cpp_mapping": "gneiss::log_event（回调期借用字符串）",
           "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_log_message",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::log_message",
-          "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_log_severity",
-          "kind": "scalar",
-          "cpp_mapping": "gneiss::log_severity",
-          "native_review": "implemented"
         }
       ],
       "constants": [
         {
-          "symbol": "GNEISS_LOG_DEBUG",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::log_severity::debug"
-        },
-        {
-          "symbol": "GNEISS_LOG_ERROR",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::log_severity::error"
-        },
-        {
           "symbol": "GNEISS_LOG_EVENT_VERSION_1_SIZE",
           "native_review": "abi_only",
           "cpp_mapping": "C ABI 接收事件版本；原生回调转换不暴露 struct_size"
-        },
-        {
-          "symbol": "GNEISS_LOG_FATAL",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::log_severity::fatal"
-        },
-        {
-          "symbol": "GNEISS_LOG_INFO",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::log_severity::info"
-        },
-        {
-          "symbol": "GNEISS_LOG_MESSAGE_INIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::log_message{}（默认 category 为空，提交前必须设置）"
-        },
-        {
-          "symbol": "GNEISS_LOG_MESSAGE_VERSION_1_SIZE",
-          "native_review": "abi_only",
-          "cpp_mapping": "C ABI 布局版本；C++ 消息由内部适配填写当前尺寸"
-        },
-        {
-          "symbol": "GNEISS_LOG_TRACE",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::log_severity::trace"
-        },
-        {
-          "symbol": "GNEISS_LOG_WARNING",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::log_severity::warning"
         }
       ]
     },
@@ -1893,12 +1923,6 @@
           "kind": "struct",
           "cpp_mapping": "gneiss::scene_uuid_mapping",
           "native_review": "implemented"
-        },
-        {
-          "symbol": "gneiss_transform",
-          "kind": "struct",
-          "cpp_mapping": "gneiss::transform",
-          "native_review": "implemented"
         }
       ],
       "constants": [
@@ -2011,11 +2035,6 @@
           "symbol": "GNEISS_SCENE_SUBTREE_MAX_NODES",
           "native_review": "implemented",
           "cpp_mapping": "gneiss::scene_subtree_max_nodes"
-        },
-        {
-          "symbol": "GNEISS_TRANSFORM_IDENTITY",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::transform{}"
         }
       ]
     },
@@ -2023,12 +2042,6 @@
       "header": "include/gneiss/engine/world.h",
       "contract": "docs/reference/world.md",
       "types": [
-        {
-          "symbol": "gneiss_world",
-          "kind": "owner",
-          "cpp_mapping": "gneiss::world / gneiss::world_ref",
-          "native_review": "implemented"
-        },
         {
           "symbol": "gneiss_world_desc",
           "kind": "struct",
@@ -2056,11 +2069,6 @@
           "symbol": "GNEISS_CAMERA_FIELD_VERTICAL_FIELD_OF_VIEW_RADIANS",
           "native_review": "implemented",
           "cpp_mapping": "gneiss::camera_fields::vertical_field_of_view_radians"
-        },
-        {
-          "symbol": "GNEISS_NULL_WORLD",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::world_ref{} / world{}"
         },
         {
           "symbol": "GNEISS_TRANSFORM_FIELD_ROTATION",

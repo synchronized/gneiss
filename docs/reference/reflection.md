@@ -5,13 +5,13 @@
 
 ## 当前范围
 
-`<gneiss/engine/reflection.h>` 提供 C11 Type Registry 和实验性元数据查询；`<gneiss/engine/reflection.hpp>` 提供
-独占 RAII 包装。当前接口描述类型和字段，并通过显式绑定的适配器提供类型安全属性读写；内建注册
+`<gneiss/engine/reflection.h>` 当前仍提供 C11 Type Registry 和实验性元数据查询。
+公共 C++ 包装已撤销；内部使用 `src/engine/core/reflection/type_registry.hpp`。
+当前接口描述类型和字段，并通过显式绑定的适配器提供类型安全属性读写；内建注册
 已接入 Transform 和 Camera，但尚不提供对象构造、继承或序列化迁移。
 
-拥有型包装的关闭与转移遵循 [Application C++ 契约](application.md#生命周期)。Registry 本身没有
-World 的创建线程亲和约束；关闭前调用方须停止其他访问和回调，包装对象的并发访问仍需外部同步。
-`release()` 不会销毁注册表，借用元数据继续有效直到接收所有权的一方销毁它。
+Registry 没有 World 的创建线程亲和约束；销毁前调用方须停止其他访问和回调，
+并发访问仍需外部同步。借用元数据仅在注册表及其对应存储有效期间可用。
 
 ## 稳定标识
 

@@ -4,9 +4,9 @@
 #ifndef GNEISS_APPS_EDITOR_PROPERTY_INSPECTOR_MODEL_H_
 #define GNEISS_APPS_EDITOR_PROPERTY_INSPECTOR_MODEL_H_
 
+#include "engine/core/entity_id.hpp"
 #include "engine/core/reflection/property_registry.hpp"
 #include "engine/core/result.hpp"
-#include <gneiss/engine/core/entity.hpp>
 #include <gneiss/engine/world.h>
 
 #include <string>

@@ -5,8 +5,8 @@
 #define GNEISS_APPS_EDITOR_EDITOR_CAMERA_H_
 
 #include "engine/core/result.hpp"
-#include <gneiss/engine/render.hpp>
-#include <gneiss/engine/scene.hpp>
+#include "engine/values/render.hpp"
+#include "engine/values/scene.hpp"
 
 namespace gneiss::editor {
 

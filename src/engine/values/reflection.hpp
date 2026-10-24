@@ -4,7 +4,7 @@
 #ifndef GNEISS_REFLECTION_HPP_
 #define GNEISS_REFLECTION_HPP_
 
-#include <gneiss/engine/detail/reflection_values.hpp>
+#include "engine/values/detail/reflection_values.hpp"
 #include <gneiss/engine/reflection.h>
 
 #include <algorithm>
@@ -19,6 +19,6 @@
 #include <variant>
 #include <vector>
 
-#include <gneiss/engine/detail/reflection.inl>
+#include "engine/values/detail/reflection.inl"
 
 #endif

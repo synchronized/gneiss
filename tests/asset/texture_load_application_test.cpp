@@ -7,11 +7,11 @@
 #include "engine/resource/loaders/texture_ktx2.hpp"
 #include "runtime/application_asset_reload_internal.hpp"
 
+#include "engine/values/input.hpp"
+#include "engine/values/log.hpp"
+#include "engine/values/render.hpp"
+#include "engine/values/scene.hpp"
 #include <gneiss/engine/application.h>
-#include <gneiss/engine/input.hpp>
-#include <gneiss/engine/log.hpp>
-#include <gneiss/engine/render.hpp>
-#include <gneiss/engine/scene.hpp>
 
 #include <cstdio>
 #include <filesystem>

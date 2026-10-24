@@ -6,8 +6,8 @@
 
 #include "engine/resource/types/scene_description.hpp"
 
-#include <gneiss/engine/core/entity.hpp>
-#include <gneiss/engine/core/scene_types.hpp>
+#include "engine/core/entity_id.hpp"
+#include "engine/core/scene_types.hpp"
 
 #include <optional>
 #include <string_view>

@@ -3,7 +3,7 @@
 
 #include "engine/core/reflection/type_registry.hpp"
 #include "engine/core/result.hpp"
-#include <gneiss/engine/detail/reflection_values.hpp>
+#include "engine/values/detail/reflection_values.hpp"
 
 #include "engine/core/rid_table.hpp"
 
@@ -711,7 +711,7 @@ gneiss::engine::result read_property(const registry_ref& registry, type_id type,
     return operation;
   }
   gneiss::property_value borrowed;
-  operation = gneiss::engine::result{from_native(raw, borrowed).native()};
+  operation = gneiss::engine::result{from_native(raw, borrowed).code()};
   if (operation.failed()) {
     return operation;
   }
@@ -749,7 +749,7 @@ gneiss::engine::result write_property(const registry_ref& registry, type_id type
       },
       value.payload);
   gneiss_property_value raw = GNEISS_PROPERTY_VALUE_INIT;
-  const gneiss::engine::result operation{to_native(borrowed, raw).native()};
+  const gneiss::engine::result operation{to_native(borrowed, raw).code()};
   if (operation.failed()) {
     return operation;
   }

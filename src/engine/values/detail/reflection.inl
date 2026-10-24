@@ -4,7 +4,7 @@
 #ifndef GNEISS_DETAIL_REFLECTION_INL_
 #define GNEISS_DETAIL_REFLECTION_INL_
 
-#include <gneiss/engine/reflection.hpp>
+#include "engine/values/reflection.hpp"
 
 #include <limits>
 #include <new>

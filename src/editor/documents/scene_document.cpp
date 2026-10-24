@@ -7,7 +7,7 @@
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
-#include <gneiss/engine/world.hpp>
+#include "engine/values/world.hpp"
 
 #include "engine/resource/vfs/asset_uri.hpp"
 

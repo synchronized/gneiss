@@ -8,11 +8,11 @@
 #include "runtime/application_registry.hpp"
 #include "runtime_launch.hpp"
 
+#include "engine/values/input.hpp"
+#include "engine/values/log.hpp"
+#include "engine/values/render.hpp"
+#include "engine/values/scene.hpp"
 #include <gneiss/engine/application.h>
-#include <gneiss/engine/input.hpp>
-#include <gneiss/engine/log.hpp>
-#include <gneiss/engine/render.hpp>
-#include <gneiss/engine/scene.hpp>
 
 #include <chrono>
 #include <filesystem>

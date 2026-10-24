@@ -4,8 +4,8 @@
 #ifndef GNEISS_APPS_EDITOR_EDITOR_ROTATION_MATH_H_
 #define GNEISS_APPS_EDITOR_EDITOR_ROTATION_MATH_H_
 
+#include "engine/core/reflection/reflection_types.hpp"
 #include "engine/core/result.hpp"
-#include <gneiss/engine/core/reflection_types.hpp>
 
 #include <array>
 

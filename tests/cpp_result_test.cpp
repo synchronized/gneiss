@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/core/result.hpp>
+#include "engine/values/core/result.hpp"
 
 #include <cstdint>
 #include <type_traits>
@@ -19,8 +19,8 @@ int main() {
   static_assert(static_cast<bool>(gneiss::result::success));
   static_assert(!static_cast<bool>(gneiss::result::invalid_argument));
   static_assert(gneiss::result::success != gneiss::result::not_ready);
-  static_assert(gneiss::result::invalid_handle.native() == GNEISS_ERROR_INVALID_HANDLE);
-  static_assert(static_cast<gneiss_result>(gneiss::result::not_found) == GNEISS_ERROR_NOT_FOUND);
+  static_assert(gneiss::result::invalid_handle.code() == GNEISS_ERROR_INVALID_HANDLE);
+  static_assert(gneiss::result::not_found.code() == GNEISS_ERROR_NOT_FOUND);
 
   static_assert(gneiss::to_native(gneiss::result::invalid_handle) == GNEISS_ERROR_INVALID_HANDLE);
   static_assert(gneiss::from_native(GNEISS_ERROR_NOT_READY) == gneiss::result::not_ready);

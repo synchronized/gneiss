@@ -2,12 +2,12 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/entity_id.hpp"
 #include "engine/core/publication_group.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/scene_types.hpp"
 #include "engine/function/render/render_snapshot.hpp"
 #include "engine/function/world/world_types.hpp"
-#include <gneiss/engine/core/entity.hpp>
-#include <gneiss/engine/core/scene_types.hpp>
 #include <memory>
 #include <span>
 

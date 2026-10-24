@@ -4,7 +4,7 @@
 #ifndef GNEISS_RENDER_HPP_
 #define GNEISS_RENDER_HPP_
 
-#include <gneiss/engine/core/result.hpp>
+#include "engine/values/core/result.hpp"
 #include <gneiss/engine/render.h>
 
 #include <array>
@@ -243,6 +243,6 @@ struct mesh_renderer {
 
 } // namespace gneiss
 
-#include <gneiss/engine/detail/render.inl>
+#include "engine/values/detail/render.inl"
 
 #endif

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include <gneiss/engine/core/reflection_types.hpp>
+#include "engine/core/reflection/reflection_types.hpp"
 #include <gneiss/engine/reflection.h>
 #include <limits>
 

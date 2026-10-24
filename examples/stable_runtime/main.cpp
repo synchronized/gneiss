@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/scope_exit.hpp"
+#include "engine/values/input.hpp"
+#include "engine/values/scene.hpp"
 #include <gneiss/engine/application.h>
-#include <gneiss/engine/input.hpp>
-#include <gneiss/engine/scene.hpp>
 #include <gneiss/engine/world.h>
 
 #include <algorithm>
@@ -37,7 +37,7 @@ struct sample_state {
 
 void report_failure(std::string_view stage, gneiss::result result) {
   std::fprintf(stderr, "稳定运行时样例失败：阶段=%.*s，结果=%d，消息=%.*s\n",
-               static_cast<int>(stage.size()), stage.data(), result.native(),
+               static_cast<int>(stage.size()), stage.data(), result.code(),
                static_cast<int>(result.message().size()), result.message().data());
 }
 
@@ -129,7 +129,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.user_data = &state;
   desc.update = [](gneiss_application app, const gneiss_frame_time* time, void* data) {
-    return update_sample(app, *time, data).native();
+    return update_sample(app, *time, data).code();
   };
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
   desc.window_title = title.data();

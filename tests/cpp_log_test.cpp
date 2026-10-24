@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/log.hpp>
+#include "engine/values/log.hpp"
 
 #include <type_traits>
 
@@ -41,8 +41,8 @@ int main() {
   // 显式转换只借用，不补建字符串缓存或改变结果码。
   const auto native = gneiss::to_native(message);
   if (native.category != message.category.data() || native.message != message.message.data() ||
-      native.result != message.operation.native() || native.flags != 0U ||
-      native.reserved[0] != 0U || native.reserved[1] != 0U) {
+      native.result != message.operation.code() || native.flags != 0U || native.reserved[0] != 0U ||
+      native.reserved[1] != 0U) {
     return 7;
   }
   return 0;

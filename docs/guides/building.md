@@ -165,21 +165,17 @@ Gneiss 当前使用 Granit 原生 Window 后端，未接入 0.30 的可选 SDL3 
 ./build/granit-platform/bin/gneiss_lantern_gallery_example.exe
 ```
 
-1.0.0 的稳定运行时代表性样例覆盖同一图形路径，并提供独立的安装 SDK Consumer：
+稳定运行时样例保留为仓内目标：
 
 ```powershell
 ./build/windows-clang-debug/bin/gneiss_stable_runtime_example.exe --smoke
 ./build/windows-clang-release/bin/gneiss_stable_runtime_example.exe --measure
-
-cmake -S examples/stable_runtime -B build/stable-runtime-consumer `
-  -DCMAKE_PREFIX_PATH=build/gneiss-install
-cmake --build build/stable-runtime-consumer
-ctest --test-dir build/stable-runtime-consumer --output-on-failure
 ```
 
-独立 Consumer 需要同一前缀或 `CMAKE_PREFIX_PATH` 中同时提供启用 Window、Input 与 RenderPipeline
-组件的 Granit package。配置时资产会复制到 Consumer 构建目录，运行不读取 Gneiss 源码树。
-仓库的安装验收也会先把 Consumer 源码和资产复制到隔离目录，防止测试因源码树仍存在而误通过。
+安装包的独立 C++ 消费入口改为 `templates/game`，需要 Shared Engine。
+`gneiss.installed_game_module_consumer` 会将模板复制到源码树外，验证安装后的模块编译；
+不执行模块。稳定运行时样例不再提供独立 SDK Consumer 工程。
+
 `--measure` 固定执行 60 帧预热和 300 帧采样，以单行 JSON 报告各启动阶段、退出阶段及稳定帧
 的最小值、中位数、P95 和最大值。性能基线必须使用 Release 构建并重复采样；单次输出不能作为
 回归阈值。`scripts/performance/measure_stable_runtime.py` 默认执行 1 次进程预热和 10 次有效采样，

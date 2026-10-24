@@ -3,7 +3,7 @@
 
 #include "engine/core/result.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
-#include <gneiss/engine/detail/reflection_values.hpp>
+#include "engine/values/detail/reflection_values.hpp"
 
 #include "engine/core/reflection/type_registry.hpp"
 #include <gneiss/engine/world.h>

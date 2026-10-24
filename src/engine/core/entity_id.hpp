@@ -4,7 +4,7 @@
 #ifndef GNEISS_CORE_ENTITY_HPP_
 #define GNEISS_CORE_ENTITY_HPP_
 
-#include <gneiss/engine/core/entity.h>
+#include <cstdint>
 
 namespace gneiss {
 
@@ -12,15 +12,15 @@ namespace gneiss {
 class entity_id final {
 public:
   constexpr entity_id() noexcept = default;
-  explicit constexpr entity_id(gneiss_entity_id value) noexcept : value_(value) {}
+  explicit constexpr entity_id(std::uint64_t value) noexcept : value_(value) {}
 
-  [[nodiscard]] constexpr bool is_valid() const noexcept { return value_ != GNEISS_NULL_ENTITY_ID; }
-  [[nodiscard]] constexpr gneiss_entity_id get() const noexcept { return value_; }
+  [[nodiscard]] constexpr bool is_valid() const noexcept { return value_ != 0; }
+  [[nodiscard]] constexpr std::uint64_t get() const noexcept { return value_; }
 
   friend constexpr bool operator==(entity_id, entity_id) noexcept = default;
 
 private:
-  gneiss_entity_id value_ = GNEISS_NULL_ENTITY_ID;
+  std::uint64_t value_ = 0;
 };
 
 inline constexpr entity_id null_entity_id{};

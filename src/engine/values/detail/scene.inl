@@ -4,7 +4,7 @@
 #ifndef GNEISS_DETAIL_SCENE_INL_
 #define GNEISS_DETAIL_SCENE_INL_
 
-#include <gneiss/engine/scene.hpp>
+#include "engine/values/scene.hpp"
 
 #include <limits>
 #include <new>

@@ -10,7 +10,7 @@
 #include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/resource/vfs/file_system.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
-#include <gneiss/engine/detail/reflection_values.hpp>
+#include "engine/values/detail/reflection_values.hpp"
 
 #include <gneiss/engine/world.h>
 

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/c_owner.hpp"
-#include <gneiss/engine/world.hpp>
+#include "engine/values/world.hpp"
 
 #include <cmath>
 

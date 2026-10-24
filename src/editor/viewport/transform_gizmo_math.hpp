@@ -5,7 +5,7 @@
 #define GNEISS_APPS_EDITOR_TRANSFORM_GIZMO_MATH_H_
 
 #include "engine/core/result.hpp"
-#include <gneiss/engine/scene.hpp>
+#include "engine/values/scene.hpp"
 
 #include <array>
 

@@ -4,10 +4,10 @@
 #ifndef GNEISS_SCENE_HPP_
 #define GNEISS_SCENE_HPP_
 
-#include <gneiss/engine/core/entity.hpp>
-#include <gneiss/engine/core/result.hpp>
-#include <gneiss/engine/core/scene_types.hpp>
-#include <gneiss/engine/render.hpp>
+#include "engine/core/entity_id.hpp"
+#include "engine/core/scene_types.hpp"
+#include "engine/values/core/result.hpp"
+#include "engine/values/render.hpp"
 #include <gneiss/engine/scene.h>
 
 #include <array>
@@ -118,6 +118,6 @@ from_native(const gneiss_scene_prefab_node_info& value) noexcept;
 
 } // namespace gneiss
 
-#include <gneiss/engine/detail/scene.inl>
+#include "engine/values/detail/scene.inl"
 
 #endif

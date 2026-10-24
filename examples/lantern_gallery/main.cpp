@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/scope_exit.hpp"
+#include "engine/values/input.hpp"
 #include <gneiss/engine/application.h>
-#include <gneiss/engine/input.hpp>
 #include <gneiss/engine/scene.h>
 #include <gneiss/engine/world.h>
 

@@ -4,11 +4,11 @@
 #ifndef GNEISS_WORLD_HPP_
 #define GNEISS_WORLD_HPP_
 
-#include <gneiss/engine/core/entity.hpp>
-#include <gneiss/engine/core/result.hpp>
-#include <gneiss/engine/reflection.hpp>
-#include <gneiss/engine/render.hpp>
-#include <gneiss/engine/scene.hpp>
+#include "engine/core/entity_id.hpp"
+#include "engine/values/core/result.hpp"
+#include "engine/values/reflection.hpp"
+#include "engine/values/render.hpp"
+#include "engine/values/scene.hpp"
 #include <gneiss/engine/world.h>
 
 #include <exception>
@@ -39,6 +39,6 @@ inline constexpr field_id is_primary{4};
 
 } // namespace gneiss
 
-// 实现随 SDK 安装；使用者只需包含本模块头。
+// 迁移期内部辅助，不随安装包发布。
 
 #endif

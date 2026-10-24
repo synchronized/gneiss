@@ -94,6 +94,23 @@ target_sources(
     engine/core/result.hpp
     engine/api/result_conversion.hpp
     engine/core/version.hpp
+    engine/values/asset.hpp
+    engine/values/input.hpp
+    engine/values/log.hpp
+    engine/values/reflection.hpp
+    engine/values/render.hpp
+    engine/values/scene.hpp
+    engine/values/world.hpp
+    engine/core/entity_id.hpp
+    engine/core/reflection/reflection_types.hpp
+    engine/values/core/result.hpp
+    engine/values/core/rid.hpp
+    engine/core/scene_types.hpp
+    engine/values/detail/input.inl
+    engine/values/detail/reflection.inl
+    engine/values/detail/reflection_values.hpp
+    engine/values/detail/render.inl
+    engine/values/detail/scene.inl
     engine/core/result.cpp
     engine/core/version.cpp
     runtime/api/game_module_api.cpp
@@ -186,36 +203,19 @@ target_sources(
     FILES
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/application.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/detail/input.inl"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/detail/scene.inl"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/detail/render.inl"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/detail/reflection.inl"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/detail/reflection_values.hpp"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/reflection_types.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/asset.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/asset.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module_types.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/input.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/input.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/log.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/log.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/reflection.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/reflection.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/render.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/render.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/scene.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/scene.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/world.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/world.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/entity.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/entity.hpp"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/scene_types.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/export.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/result.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/result.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/rid.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/rid.hpp"
       "${GNEISS_GENERATED_VERSION_HEADER}"
 )
 
@@ -332,6 +332,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
 endif()
 
 target_compile_features(gneiss_engine PUBLIC cxx_std_20)
+target_link_libraries(gneiss_engine PUBLIC $<BUILD_INTERFACE:gneiss_value_interface>)
 gneiss_target_compile_warnings(gneiss_engine)
 target_link_libraries(
   gneiss_engine

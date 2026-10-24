@@ -4,7 +4,7 @@
 #pragma once
 #include "engine/core/math/transform.hpp"
 
-#include <gneiss/engine/core/scene_types.hpp>
+#include "engine/core/scene_types.hpp"
 
 #include <string_view>
 

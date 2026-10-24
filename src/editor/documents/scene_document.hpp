@@ -5,7 +5,7 @@
 #define GNEISS_EDITOR_DOCUMENTS_SCENE_DOCUMENT_HPP_
 
 #include "engine/core/result.hpp"
-#include <gneiss/engine/scene.hpp>
+#include "engine/values/scene.hpp"
 namespace gneiss::runtime {
 class application;
 }

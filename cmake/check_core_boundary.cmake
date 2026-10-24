@@ -8,7 +8,8 @@ endif()
 # 所有内部模块适用；公共边界单独位于 engine/api 与 runtime/api。
 file(GLOB_RECURSE sources "${GNEISS_SOURCE_DIR}/src/*.cpp"
                           "${GNEISS_SOURCE_DIR}/src/*.h"
-                          "${GNEISS_SOURCE_DIR}/src/*.hpp")
+                          "${GNEISS_SOURCE_DIR}/src/*.hpp"
+                          "${GNEISS_SOURCE_DIR}/src/*.inl")
 if(NOT sources)
   message(FATAL_ERROR "内部模块 检查未找到源码，拒绝空检查")
 endif()
@@ -20,8 +21,14 @@ foreach(source IN LISTS sources)
   if(content MATCHES "source_revision_file_system|open_read_for_validation|complete_validation")
     message(FATAL_ERROR "普通资源读取不得恢复来源账本或验证回执，请使用 open_read/begin_open_read：${source}")
   endif()
+  # SDK 撤销期间的值转换层暂存旧边界适配；不安装，禁止建立运行时所有者。
+  if(source MATCHES "/src/engine/values/")
+    if(content MATCHES "class[ \t]+(application|world|scene_instance|type_registry)[ \t:{]")
+      message(FATAL_ERROR "值转换层不得恢复对象 SDK：${source}")
+    endif()
+  endif()
   # 普通内部操作只使用原生结果；C ABI 与测试夹具保留显式边界。
-  if(NOT source MATCHES "/(api|tests)/" AND
+  if(NOT source MATCHES "/(api|tests)/" AND NOT source MATCHES "/src/engine/values/" AND
       content MATCHES "gneiss::result([^a-zA-Z0-9_]|$)|(^|[^a-zA-Z0-9_])gneiss_result([^a-zA-Z0-9_]|$)|GNEISS_(SUCCESS|ERROR_[A-Z_]+)")
     message(FATAL_ERROR "内部操作须使用 engine::result，整数转换只放在 ABI/协议边界：${source}")
   endif()
@@ -184,10 +191,10 @@ foreach(source IN LISTS sources)
   if(content MATCHES "#[ \t]*include[ \t]*[<\"]gneiss/(engine/)?(application|world|scene|resource|render|reflection|game_module|gneiss)\\.hpp[>\"]")
     message(FATAL_ERROR "内部模块 不得依赖公共 SDK 包装：${source}")
   endif()
-  if(content MATCHES "gneiss_(world|scene_node|application|type_registry|game_context|asset_uri)_[a-z_]+[ \t\r\n]*\\(")
+  if(NOT source MATCHES "/src/engine/values/" AND content MATCHES "gneiss_(world|scene_node|application|type_registry|game_context|asset_uri)_[a-z_]+[ \t\r\n]*\\(")
     message(FATAL_ERROR "内部模块不得绕回 公共 C ABI：${source}")
   endif()
-  if(content MATCHES "gneiss_(transform|camera)_type_id[ \t\r\n]*\\(")
+  if(NOT source MATCHES "/src/engine/values/" AND content MATCHES "gneiss_(transform|camera)_type_id[ \t\r\n]*\\(")
     message(FATAL_ERROR "内部模块不得绕回公共类型 ID 入口：${source}")
   endif()
 endforeach()

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/values/core/result.hpp"
 #include <exception>
 #include <gneiss/engine/application.h>
-#include <gneiss/engine/core/result.hpp>
 #include <gneiss/engine/reflection.h>
 #include <gneiss/engine/scene.h>
 #include <gneiss/engine/world.h>

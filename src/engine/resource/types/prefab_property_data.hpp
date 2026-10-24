@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/reflection/reflection_types.hpp"
 #include <array>
 #include <cstdint>
-#include <gneiss/engine/core/reflection_types.hpp>
 #include <string>
 #include <string_view>
 #include <variant>

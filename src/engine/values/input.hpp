@@ -4,7 +4,7 @@
 #ifndef GNEISS_INPUT_HPP_
 #define GNEISS_INPUT_HPP_
 
-#include <gneiss/engine/core/result.hpp>
+#include "engine/values/core/result.hpp"
 #include <gneiss/engine/input.h>
 
 #include <algorithm>
@@ -280,6 +280,6 @@ inline constexpr action_id null_action_id{};
 
 } // namespace gneiss
 
-#include <gneiss/engine/detail/input.inl>
+#include "engine/values/detail/input.inl"
 
 #endif

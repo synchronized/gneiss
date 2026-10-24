@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/entity_id.hpp"
 #include "engine/core/math/transform.hpp"
+#include "engine/core/scene_types.hpp"
 #include "engine/function/world/world_components.hpp"
-#include <gneiss/engine/core/entity.hpp>
-#include <gneiss/engine/core/scene_types.hpp>
 
 namespace gneiss::engine {
 struct mesh_renderer_replacement {

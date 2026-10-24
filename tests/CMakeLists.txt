@@ -1056,9 +1056,9 @@ if(PROJECT_IS_TOP_LEVEL AND NOT GNEISS_ENABLE_GRANIT_PLATFORM)
   )
 endif()
 
-if(PROJECT_IS_TOP_LEVEL AND GNEISS_ENABLE_GRANIT_PLATFORM)
+if(PROJECT_IS_TOP_LEVEL AND GNEISS_ENABLE_GRANIT_PLATFORM AND BUILD_SHARED_LIBS)
   add_test(
-    NAME gneiss.installed_stable_runtime_consumer
+    NAME gneiss.installed_game_module_consumer
     COMMAND
       "${CMAKE_COMMAND}"
       "-DGNEISS_BUILD_DIR=${PROJECT_BINARY_DIR}"
@@ -1070,9 +1070,9 @@ if(PROJECT_IS_TOP_LEVEL AND GNEISS_ENABLE_GRANIT_PLATFORM)
       "-DGNEISS_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
       "-DGNEISS_DEPENDENCY_PREFIX_PATH=${CMAKE_PREFIX_PATH}"
       "-DGNEISS_GRANIT_BUILD_DIR=${GNEISS_GRANIT_FETCHED_BUILD_DIR}"
-      -P "${PROJECT_SOURCE_DIR}/cmake/check_installed_stable_runtime.cmake"
+      -P "${PROJECT_SOURCE_DIR}/cmake/check_installed_game_module.cmake"
   )
-  set_tests_properties(gneiss.installed_stable_runtime_consumer PROPERTIES TIMEOUT 120)
+  set_tests_properties(gneiss.installed_game_module_consumer PROPERTIES TIMEOUT 120)
 endif()
 
 add_test(NAME gneiss.core-boundary

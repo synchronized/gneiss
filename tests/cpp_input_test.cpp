@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/entity_id.hpp"
+#include "engine/values/input.hpp"
 #include "support/c_owner.hpp"
 #include <gneiss/engine/application.h>
-#include <gneiss/engine/core/entity.hpp>
-#include <gneiss/engine/input.hpp>
 
 #include <string_view>
 #include <thread>

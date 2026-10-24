@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include <gneiss/engine/core/entity.hpp>
-#include <gneiss/engine/core/scene_types.hpp>
+#include "engine/core/entity_id.hpp"
+#include "engine/core/scene_types.hpp"
 #include <utility>
 namespace gneiss::engine {
 /** 整数存储/ABI 输出边界：显式复制强类型标识，不重解释引用，不建立句柄表。

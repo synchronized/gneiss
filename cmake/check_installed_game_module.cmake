@@ -3,22 +3,18 @@
 
 foreach(required_var IN ITEMS GNEISS_BUILD_DIR GNEISS_SOURCE_DIR GNEISS_GENERATOR)
   if(NOT DEFINED ${required_var})
-    message(FATAL_ERROR "缺少稳定运行时安装验收参数：${required_var}")
+    message(FATAL_ERROR "缺少游戏模块安装验收参数：${required_var}")
   endif()
 endforeach()
 
-set(install_dir "${GNEISS_BUILD_DIR}/stable-runtime-prefix")
-set(consumer_source_dir "${GNEISS_BUILD_DIR}/stable-runtime-source")
-set(consumer_build_dir "${GNEISS_BUILD_DIR}/stable-runtime-build")
+set(install_dir "${GNEISS_BUILD_DIR}/game-module-prefix")
+set(consumer_source_dir "${GNEISS_BUILD_DIR}/game-module-source")
+set(consumer_build_dir "${GNEISS_BUILD_DIR}/game-module-build")
 file(REMOVE_RECURSE "${install_dir}" "${consumer_source_dir}" "${consumer_build_dir}")
 
-file(MAKE_DIRECTORY "${consumer_source_dir}/examples")
-file(COPY "${GNEISS_SOURCE_DIR}/examples/stable_runtime"
-     DESTINATION "${consumer_source_dir}/examples"
-)
-file(COPY "${GNEISS_SOURCE_DIR}/examples/temple" DESTINATION "${consumer_source_dir}/examples")
-
-file(COPY "${GNEISS_SOURCE_DIR}/examples/support" DESTINATION "${consumer_source_dir}/examples")
+# 模板使用最小游戏模块协议，复制到源码树外验证安装入口。
+file(MAKE_DIRECTORY "${consumer_source_dir}/templates")
+file(COPY "${GNEISS_SOURCE_DIR}/templates/game" DESTINATION "${consumer_source_dir}/templates")
 
 set(install_command "${CMAKE_COMMAND}" --install "${GNEISS_BUILD_DIR}" --prefix "${install_dir}")
 if(GNEISS_GRANIT_BUILD_DIR)
@@ -27,11 +23,9 @@ else()
   set(granit_build_dir "${GNEISS_BUILD_DIR}/_deps/granit")
 endif()
 set(build_command "${CMAKE_COMMAND}" --build "${consumer_build_dir}")
-set(test_command "${CMAKE_CTEST_COMMAND}" --test-dir "${consumer_build_dir}" --output-on-failure)
 if(GNEISS_CONFIG)
   list(APPEND install_command --config "${GNEISS_CONFIG}")
   list(APPEND build_command --config "${GNEISS_CONFIG}")
-  list(APPEND test_command -C "${GNEISS_CONFIG}")
 endif()
 
 if(EXISTS "${granit_build_dir}/cmake_install.cmake")
@@ -49,7 +43,7 @@ endif()
 
 execute_process(COMMAND ${install_command} RESULT_VARIABLE install_result)
 if(NOT install_result EQUAL 0)
-  message(FATAL_ERROR "Gneiss 稳定运行时安装失败：${install_result}")
+  message(FATAL_ERROR "Gneiss 游戏模块安装失败：${install_result}")
 endif()
 
 foreach(
@@ -65,7 +59,7 @@ foreach(
     licenses/miniz-LICENSE
 )
   if(NOT EXISTS "${install_dir}/share/doc/gneiss/${required_document}")
-    message(FATAL_ERROR "Gneiss 稳定运行时安装树缺少发布声明：${required_document}")
+    message(FATAL_ERROR "Gneiss 游戏模块安装树缺少发布声明：${required_document}")
   endif()
 endforeach()
 
@@ -83,28 +77,13 @@ foreach(
 endforeach()
 
 string(REPLACE ";" "\\;" dependency_prefix_path "${GNEISS_DEPENDENCY_PREFIX_PATH}")
-set(dependency_runtime_dirs "")
-set(dependency_library_dirs "")
-foreach(dependency_prefix IN LISTS GNEISS_DEPENDENCY_PREFIX_PATH)
-  if(IS_DIRECTORY "${dependency_prefix}/bin")
-    list(APPEND dependency_runtime_dirs "${dependency_prefix}/bin")
-  endif()
-  foreach(library_name IN ITEMS lib lib64)
-    if(IS_DIRECTORY "${dependency_prefix}/${library_name}")
-      list(APPEND dependency_library_dirs "${dependency_prefix}/${library_name}")
-    endif()
-  endforeach()
-endforeach()
-string(REPLACE ";" "\\;" dependency_runtime_dirs "${dependency_runtime_dirs}")
-string(REPLACE ";" "\\;" dependency_library_dirs "${dependency_library_dirs}")
 set(configure_command
     "${CMAKE_COMMAND}"
-    -S "${consumer_source_dir}/examples/stable_runtime"
+    -S "${consumer_source_dir}/templates/game"
     -B "${consumer_build_dir}"
     -G "${GNEISS_GENERATOR}"
     "-DCMAKE_PREFIX_PATH=${install_dir}\;${dependency_prefix_path}"
-    "-DGNEISS_CONSUMER_RUNTIME_DIRS=${dependency_runtime_dirs}"
-    "-DGNEISS_CONSUMER_LIBRARY_DIRS=${dependency_library_dirs}"
+    "-DGNEISS_GAME_OUTPUT_DIRECTORY=${consumer_build_dir}/module"
 )
 if(GNEISS_GENERATOR_PLATFORM)
   list(APPEND configure_command -A "${GNEISS_GENERATOR_PLATFORM}")
@@ -118,13 +97,9 @@ endif()
 
 execute_process(COMMAND ${configure_command} RESULT_VARIABLE configure_result)
 if(NOT configure_result EQUAL 0)
-  message(FATAL_ERROR "稳定运行时 Consumer 配置失败：${configure_result}")
+  message(FATAL_ERROR "安装游戏模块 Consumer 配置失败：${configure_result}")
 endif()
 execute_process(COMMAND ${build_command} RESULT_VARIABLE build_result)
 if(NOT build_result EQUAL 0)
-  message(FATAL_ERROR "稳定运行时 Consumer 构建失败：${build_result}")
-endif()
-execute_process(COMMAND ${test_command} RESULT_VARIABLE test_result)
-if(NOT test_result EQUAL 0)
-  message(FATAL_ERROR "稳定运行时 Consumer 测试失败：${test_result}")
+  message(FATAL_ERROR "安装游戏模块 Consumer 构建失败：${build_result}")
 endif()

@@ -2,6 +2,28 @@
 # Copyright (c) 2026 Gneiss contributors
 include(internal_headers)
 
+# SDK 撤销期间的仓内共享值及转换辅助，不安装、不暴露实现目录。
+gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
+  engine/core/result.hpp
+  engine/values/asset.hpp
+  engine/values/input.hpp
+  engine/values/log.hpp
+  engine/values/reflection.hpp
+  engine/values/render.hpp
+  engine/values/scene.hpp
+  engine/values/world.hpp
+  engine/core/entity_id.hpp
+  engine/core/reflection/reflection_types.hpp
+  engine/values/core/result.hpp
+  engine/values/core/rid.hpp
+  engine/core/scene_types.hpp
+  engine/values/detail/input.inl
+  engine/values/detail/reflection.inl
+  engine/values/detail/reflection_values.hpp
+  engine/values/detail/render.inl
+  engine/values/detail/scene.inl
+)
+
 # 同源码宿主允许使用的引擎契约及其值类型闭包；不得添加后端、注册表实现或场景域存储。
 gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/types/asset_identity.hpp
@@ -93,3 +115,6 @@ gneiss_internal_headers(gneiss_tooling_interface "${PROJECT_SOURCE_DIR}/src"
   tooling/asset_import/gltf_importer.hpp
   tooling/asset_import/import_ir.hpp
 )
+
+target_link_libraries(gneiss_native_interface INTERFACE gneiss_value_interface)
+target_link_libraries(gneiss_tooling_interface INTERFACE gneiss_value_interface)

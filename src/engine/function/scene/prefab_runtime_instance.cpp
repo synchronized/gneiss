@@ -7,7 +7,7 @@
 
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/reflection/type_registry.hpp"
-#include <gneiss/engine/detail/reflection_values.hpp>
+#include "engine/values/detail/reflection_values.hpp"
 
 #include "engine/function/world/world_service.hpp"
 

@@ -5,7 +5,8 @@
 
 ## 当前能力
 
-`gneiss/engine/input.h` 提供不依赖平台后端的 C11 输入 ABI，`gneiss/engine/input.hpp` 提供轻量 C++20 包装。
+`gneiss/engine/input.h` 提供不依赖平台后端的 C11 输入 ABI。
+内部输入接口位于 `src/engine/function/input`；不再安装 C++ 包装头。
 Application 使用 Granit 平台时，会在每次业务更新回调前完成窗口事件采集，并形成当前帧键盘和
 指针快照。核心无窗口模式下快照保持为空，事件查询返回 `GNEISS_ERROR_NOT_READY`。
 

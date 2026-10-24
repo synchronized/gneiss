@@ -4,7 +4,7 @@
 #ifndef GNEISS_LOG_HPP_
 #define GNEISS_LOG_HPP_
 
-#include <gneiss/engine/core/result.hpp>
+#include "engine/values/core/result.hpp"
 #include <gneiss/engine/log.h>
 
 #include <cstdint>

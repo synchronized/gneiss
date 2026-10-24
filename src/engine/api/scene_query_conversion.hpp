@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engine/function/scene/scene_query.hpp"
+#include <gneiss/engine/scene.h>
 
 namespace gneiss::engine::detail {
 inline gneiss::engine::transform read_transform(const gneiss_transform& value) noexcept {
