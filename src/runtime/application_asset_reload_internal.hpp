@@ -78,16 +78,6 @@ GNEISS_API gneiss::engine::result
 reload_render_assets(gneiss_application application,
                      std::span<const gneiss::engine::render_asset_reload> assets) noexcept;
 
-/** 在 Application 主线程事务式重载现有 Scene 实例；仅供 Gneiss 宿主使用。 */
-GNEISS_API gneiss::engine::result reload_scene(gneiss_application application,
-                                               gneiss_scene_instance instance,
-                                               std::string_view uri) noexcept;
-
-/** 刷新 Scene 内指定 URI 的全部 Prefab 实例；仅供 Gneiss 宿主使用。 */
-GNEISS_API gneiss::engine::result reload_prefab(gneiss_application application,
-                                                gneiss_scene_instance instance,
-                                                std::string_view uri) noexcept;
-
 } // namespace gneiss::runtime
 
 #endif

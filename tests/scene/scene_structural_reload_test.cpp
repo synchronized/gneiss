@@ -2,11 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
-#include "runtime/application_asset_reload_internal.hpp"
-
-#include <gneiss/engine/application.h>
-#include <gneiss/engine/scene.h>
-#include <gneiss/engine/world.h>
+#include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -42,58 +40,48 @@ int main() try {
   const auto scene_path = root / "scenes" / "triangle.scene.json";
   const auto root_text = root.generic_string();
 
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.asset_root = root_text.data();
-  desc.asset_root_length = static_cast<std::uint32_t>(root_text.size());
-  gneiss_application application = GNEISS_NULL_APPLICATION;
-  gneiss_world world = GNEISS_NULL_WORLD;
+  gneiss::runtime::application_configuration config;
+  config.asset_root = root_text;
+  std::shared_ptr<gneiss::runtime::application> application;
   gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
-  gneiss_scene_node_id camera_before = GNEISS_NULL_SCENE_NODE_ID;
-  gneiss_scene_node_id old_child = GNEISS_NULL_SCENE_NODE_ID;
-  gneiss_entity_id camera_entity_before = GNEISS_NULL_ENTITY_ID;
+  gneiss::scene_node_id camera_before;
+  gneiss::scene_node_id old_child;
+  gneiss::entity_id camera_entity_before;
   constexpr std::string_view uri = "asset://scenes/triangle.scene.json";
-  if (gneiss::engine::result{gneiss_application_create(&desc, &application)} !=
+  if (gneiss::runtime::application::create(config, application) !=
           gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_application_get_world(application, &world)} !=
+      application->scenes()->load(uri, &scene) != gneiss::engine::result::success ||
+      application->scenes()->find_node(scene, camera_uuid, camera_before) !=
           gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_scene_instance_load(
-          application, uri.data(), uri.size(), &scene)} != gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_scene_instance_find_node(application, scene, camera_uuid.data(),
-                                                             camera_uuid.size(), &camera_before)} !=
+      application->scenes()->find_node(scene, old_child_uuid, old_child) !=
           gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_scene_instance_find_node(
-          application, scene, old_child_uuid.data(), old_child_uuid.size(), &old_child)} !=
-          gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_scene_node_get_entity(
-          world, camera_before, &camera_entity_before)} != gneiss::engine::result::success) {
+      application->native_world()->node_get_entity(camera_before, camera_entity_before) !=
+          gneiss::engine::result::success) {
     return 1;
   }
 
+  const auto retired_child = old_child;
   write_scene(scene_path, "{}");
-  if (gneiss::runtime::reload_scene(application, scene, uri) != gneiss::engine::result::success) {
+  if (application->reload_scene(scene, uri) != gneiss::engine::result::success) {
     return 2;
   }
-  gneiss_scene_node_id camera_after = GNEISS_NULL_SCENE_NODE_ID;
-  gneiss_scene_node_id new_child = GNEISS_NULL_SCENE_NODE_ID;
-  gneiss_entity_id camera_entity_after = GNEISS_NULL_ENTITY_ID;
+  gneiss::scene_node_id camera_after;
+  gneiss::scene_node_id new_child;
+  gneiss::entity_id camera_entity_after;
   std::uint64_t count = 0U;
-  if (gneiss::engine::result{gneiss_scene_instance_find_node(application, scene, camera_uuid.data(),
-                                                             camera_uuid.size(), &camera_after)} !=
+  if (application->scenes()->find_node(scene, camera_uuid, camera_after) !=
           gneiss::engine::result::success ||
       camera_after != camera_before ||
-      gneiss::engine::result{gneiss_scene_node_get_entity(
-          world, camera_after, &camera_entity_after)} != gneiss::engine::result::success ||
+      application->native_world()->node_get_entity(camera_after, camera_entity_after) !=
+          gneiss::engine::result::success ||
       camera_entity_after != camera_entity_before ||
-      gneiss::engine::result{gneiss_scene_instance_find_node(
-          application, scene, new_child_uuid.data(), new_child_uuid.size(), &new_child)} !=
+      application->scenes()->find_node(scene, new_child_uuid, new_child) !=
           gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_scene_instance_find_node(
-          application, scene, old_child_uuid.data(), old_child_uuid.size(), &old_child)} !=
+      application->scenes()->find_node(scene, old_child_uuid, old_child) !=
           gneiss::engine::result::not_found ||
-      gneiss::engine::result{gneiss_scene_node_get_parent(world, old_child, &camera_after)} !=
+      application->native_world()->node_get_parent(retired_child, camera_after) !=
           gneiss::engine::result::invalid_handle ||
-      gneiss::engine::result{gneiss_scene_instance_get_node_count(application, scene, &count)} !=
-          gneiss::engine::result::success ||
+      application->scenes()->get_node_count(scene, &count) != gneiss::engine::result::success ||
       count != 2U) {
     return 3;
   }
@@ -101,21 +89,17 @@ int main() try {
   write_scene(
       scene_path,
       R"({"mesh_renderer":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/triangle.material.json"}})");
-  if (gneiss::runtime::reload_scene(application, scene, uri) != gneiss::engine::result::not_found ||
-      gneiss::engine::result{gneiss_scene_instance_find_node(application, scene, camera_uuid.data(),
-                                                             camera_uuid.size(), &camera_after)} !=
+  if (application->reload_scene(scene, uri) != gneiss::engine::result::not_found ||
+      application->scenes()->find_node(scene, camera_uuid, camera_after) !=
           gneiss::engine::result::success ||
       camera_after != camera_before ||
-      gneiss::engine::result{gneiss_scene_instance_find_node(
-          application, scene, new_child_uuid.data(), new_child_uuid.size(), &new_child)} !=
+      application->scenes()->find_node(scene, new_child_uuid, new_child) !=
           gneiss::engine::result::success) {
     return 4;
   }
 
-  const bool destroyed = gneiss::engine::result{gneiss_scene_instance_unload(application, scene)} ==
-                             gneiss::engine::result::success &&
-                         gneiss::engine::result{gneiss_application_destroy(application)} ==
-                             gneiss::engine::result::success;
+  const bool destroyed = application->scenes()->unload(scene) == gneiss::engine::result::success &&
+                         application->shutdown(0) == gneiss::engine::result::success;
   std::filesystem::remove_all(root);
   return destroyed ? 0 : 5;
 } catch (...) {

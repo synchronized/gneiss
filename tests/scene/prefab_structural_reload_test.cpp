@@ -2,11 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
-#include "runtime/application_asset_reload_internal.hpp"
-
-#include <gneiss/engine/application.h>
-#include <gneiss/engine/scene.h>
-#include <gneiss/engine/world.h>
+#include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -38,20 +36,19 @@ void write_prefab(const std::filesystem::path& path, std::string_view root_uuid,
   stream.write(json.data(), static_cast<std::streamsize>(json.size()));
 }
 
-gneiss::engine::result find_source(gneiss_application application, gneiss_scene_instance scene,
-                                   std::string_view instance_uuid, std::string_view source_uuid,
-                                   gneiss_scene_prefab_node_info& output) {
+gneiss::engine::result find_source(const std::shared_ptr<gneiss::runtime::application>& application,
+                                   gneiss_scene_instance scene, std::string_view instance_uuid,
+                                   std::string_view source_uuid,
+                                   gneiss::engine::prefab_node_view& output) {
   std::uint64_t count = 0U;
-  auto result = gneiss::engine::result{
-      gneiss_scene_instance_get_prefab_node_count(application, scene, &count)};
+  auto result = gneiss::engine::result{application->scenes()->get_prefab_node_count(scene, &count)};
   for (std::uint64_t index = 0U; result == gneiss::engine::result::success && index < count;
        ++index) {
-    output = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
-    result = gneiss::engine::result{
-        gneiss_scene_instance_get_prefab_node_info(application, scene, index, &output)};
-    if (result == gneiss::engine::result::success && output.source_node_uuid != nullptr &&
-        std::string_view(output.instance_uuid, output.instance_uuid_length) == instance_uuid &&
-        std::string_view(output.source_node_uuid, output.source_node_uuid_length) == source_uuid) {
+    output = {};
+    result =
+        gneiss::engine::result{application->scenes()->get_prefab_node_info(scene, index, output)};
+    if (result == gneiss::engine::result::success && !output.source_node_uuid.empty() &&
+        output.instance_uuid == instance_uuid && output.source_node_uuid == source_uuid) {
       return gneiss::engine::result::success;
     }
   }
@@ -65,33 +62,28 @@ int main() try {
   std::filesystem::remove_all(root);
   std::filesystem::copy(GNEISS_TEST_ASSET_ROOT, root, std::filesystem::copy_options::recursive);
   const auto root_text = root.generic_string();
-  gneiss_application_desc app_desc = GNEISS_APPLICATION_DESC_INIT;
-  app_desc.asset_root = root_text.data();
-  app_desc.asset_root_length = static_cast<std::uint32_t>(root_text.size());
-  gneiss_application application = GNEISS_NULL_APPLICATION;
+  gneiss::runtime::application_configuration config;
+  config.asset_root = root_text;
+  std::shared_ptr<gneiss::runtime::application> application;
   gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
   constexpr std::string_view scene_uri = "asset://scenes/prefab.scene.json";
-  if (gneiss::engine::result{gneiss_application_create(&app_desc, &application)} !=
+  if (gneiss::runtime::application::create(config, application) !=
           gneiss::engine::result::success ||
-      gneiss::engine::result{
-          gneiss_scene_instance_load(application, scene_uri.data(), scene_uri.size(), &scene)} !=
+      gneiss::engine::result{application->scenes()->load(scene_uri, &scene)} !=
           gneiss::engine::result::success) {
     return 1;
   }
 
-  gneiss_scene_prefab_instance_desc create = GNEISS_SCENE_PREFAB_INSTANCE_DESC_INIT;
-  create.instance_uuid = second_instance_uuid.data();
-  create.instance_uuid_length = second_instance_uuid.size();
-  create.prefab_uri = prefab_uri.data();
-  create.prefab_uri_length = prefab_uri.size();
-  gneiss_scene_node_id second_root = GNEISS_NULL_SCENE_NODE_ID;
-  if (gneiss::engine::result{gneiss_scene_instance_create_prefab_instance(
-          application, scene, &create, &second_root)} != gneiss::engine::result::success) {
+  gneiss::engine::prefab_creation create;
+  create.instance_uuid = second_instance_uuid;
+  create.prefab_uri = prefab_uri;
+  gneiss::scene_node_id second_root;
+  if (application->scenes()->create_prefab_instance(scene, create, second_root).failed()) {
     return 2;
   }
 
-  gneiss_scene_prefab_node_info first_before = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
-  gneiss_scene_prefab_node_info second_before = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
+  gneiss::engine::prefab_node_view first_before;
+  gneiss::engine::prefab_node_view second_before;
   if (find_source(application, scene, first_instance_uuid, source_root_uuid, first_before) !=
           gneiss::engine::result::success ||
       find_source(application, scene, second_instance_uuid, source_root_uuid, second_before) !=
@@ -101,13 +93,12 @@ int main() try {
 
   const auto prefab_path = root / "prefabs" / "test.prefab.json";
   write_prefab(prefab_path, source_root_uuid, true);
-  if (gneiss::runtime::reload_prefab(application, scene, prefab_uri) !=
-      gneiss::engine::result::success) {
+  if (application->reload_prefab(scene, prefab_uri) != gneiss::engine::result::success) {
     return 4;
   }
-  gneiss_scene_prefab_node_info first_after = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
-  gneiss_scene_prefab_node_info second_after = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
-  gneiss_scene_prefab_node_info child = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
+  gneiss::engine::prefab_node_view first_after;
+  gneiss::engine::prefab_node_view second_after;
+  gneiss::engine::prefab_node_view child;
   std::uint64_t count = 0U;
   if (find_source(application, scene, first_instance_uuid, source_root_uuid, first_after) !=
           gneiss::engine::result::success ||
@@ -115,24 +106,22 @@ int main() try {
           gneiss::engine::result::success ||
       first_after.node != first_before.node || first_after.entity != first_before.entity ||
       second_after.node != second_before.node || second_after.entity != second_before.entity ||
-      std::string_view(first_after.name, first_after.name_length) != "Reloaded Root" ||
-      std::string_view(second_after.name, second_after.name_length) != "Reloaded Root" ||
+      first_after.name != "Reloaded Root" || second_after.name != "Reloaded Root" ||
       first_after.local_transform.translation[0] != 3.0F ||
       second_after.local_transform.translation[0] != 2.0F ||
       find_source(application, scene, first_instance_uuid, source_child_uuid, child) !=
           gneiss::engine::result::success ||
       find_source(application, scene, second_instance_uuid, source_child_uuid, child) !=
           gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_scene_instance_get_prefab_node_count(
-          application, scene, &count)} != gneiss::engine::result::success ||
+      application->scenes()->get_prefab_node_count(scene, &count) !=
+          gneiss::engine::result::success ||
       count != 6U) {
     return 5;
   }
 
   constexpr std::string_view replacement_root_uuid = "30000000-0000-4000-8000-000000000099";
   write_prefab(prefab_path, replacement_root_uuid, false);
-  if (gneiss::runtime::reload_prefab(application, scene, prefab_uri) !=
-          gneiss::engine::result::not_found ||
+  if (application->reload_prefab(scene, prefab_uri) != gneiss::engine::result::not_found ||
       find_source(application, scene, first_instance_uuid, source_root_uuid, first_after) !=
           gneiss::engine::result::success ||
       first_after.node != first_before.node ||
@@ -142,10 +131,8 @@ int main() try {
     return 6;
   }
 
-  const bool destroyed = gneiss::engine::result{gneiss_scene_instance_unload(application, scene)} ==
-                             gneiss::engine::result::success &&
-                         gneiss::engine::result{gneiss_application_destroy(application)} ==
-                             gneiss::engine::result::success;
+  const bool destroyed = application->scenes()->unload(scene) == gneiss::engine::result::success &&
+                         application->shutdown(0) == gneiss::engine::result::success;
   std::filesystem::remove_all(root);
   return destroyed ? 0 : 7;
 } catch (...) {

@@ -272,19 +272,3 @@ gneiss::engine::result gneiss::runtime::reload_render_assets(
   const auto valid = validate_application(state);
   return valid == gneiss::engine::result::success ? state->reload_render_assets(assets) : valid;
 }
-
-gneiss::engine::result gneiss::runtime::reload_scene(gneiss_application application,
-                                                     gneiss_scene_instance instance,
-                                                     std::string_view uri) noexcept {
-  auto state = find_application(application);
-  const auto valid = validate_application(state);
-  return valid == gneiss::engine::result::success ? state->reload_scene(instance, uri) : valid;
-}
-
-gneiss::engine::result gneiss::runtime::reload_prefab(gneiss_application application,
-                                                      gneiss_scene_instance instance,
-                                                      std::string_view uri) noexcept {
-  auto state = find_application(application);
-  const auto valid = validate_application(state);
-  return valid == gneiss::engine::result::success ? state->reload_prefab(instance, uri) : valid;
-}
