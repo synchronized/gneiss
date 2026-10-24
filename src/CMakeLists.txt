@@ -94,16 +94,13 @@ target_sources(
     engine/core/result.hpp
     engine/api/result_conversion.hpp
     engine/core/version.hpp
-    engine/values/reflection.hpp
     engine/values/render.hpp
     engine/values/scene.hpp
-    engine/values/world.hpp
     engine/core/entity_id.hpp
     engine/core/reflection/reflection_types.hpp
     engine/core/reflection/component_identity.hpp
     engine/values/core/result.hpp
     engine/core/scene_types.hpp
-    engine/values/detail/reflection.inl
     engine/values/detail/reflection_values.hpp
     engine/values/detail/render.inl
     engine/values/detail/scene.inl

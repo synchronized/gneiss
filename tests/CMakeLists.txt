@@ -317,8 +317,8 @@ gneiss_target_compile_warnings(gneiss_c_header_test)
 add_library(
   gneiss_cpp_header_test OBJECT  headers/asset_hpp.cpp headers/entity_hpp.cpp
                                   headers/input_hpp.cpp headers/log_hpp.cpp
-                                headers/reflection_hpp.cpp headers/render_hpp.cpp headers/result_hpp.cpp headers/rid_hpp.cpp
-                                headers/scene_hpp.cpp headers/world_hpp.cpp
+                                headers/render_hpp.cpp headers/result_hpp.cpp headers/rid_hpp.cpp
+                                headers/scene_hpp.cpp
 )
 target_link_libraries(gneiss_cpp_header_test PRIVATE gneiss::engine gneiss_native_interface)
 target_compile_features(gneiss_cpp_header_test PRIVATE cxx_std_20)

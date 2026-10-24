@@ -21,6 +21,12 @@ struct property_value {
                                             : static_cast<property_kind>(payload.index());
   }
 };
+/** 冻结后返回类型数量；失败保持输出。 */
+[[nodiscard]] GNEISS_API result type_count(const registry_ref& registry,
+                                           std::uint32_t& output) noexcept;
+/** 按稳定 GUID 字节顺序枚举冻结元数据，名称借用 Registry；失败保持输出。 */
+[[nodiscard]] GNEISS_API result describe_type_at(const registry_ref& registry, std::uint32_t index,
+                                                 type_info& output) noexcept;
 /** 元数据名称借用已冻结 Registry；失败保持输出。 */
 [[nodiscard]] GNEISS_API gneiss::engine::result describe_type(const registry_ref& registry,
                                                               gneiss::engine::type_guid type,

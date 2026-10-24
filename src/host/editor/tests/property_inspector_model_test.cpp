@@ -3,8 +3,10 @@
 
 #include "../../../../tests/support/c_owner.hpp"
 #include "engine/core/result.hpp"
-#include "engine/values/world.hpp"
+#include "engine/values/detail/reflection_values.hpp"
+#include "engine/values/scene.hpp"
 #include "panels/property_inspector_model.hpp"
+#include <gneiss/engine/world.h>
 
 #include <cmath>
 #include <thread>

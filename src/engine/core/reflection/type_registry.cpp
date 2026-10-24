@@ -187,6 +187,27 @@ struct type_record {
     return found != input.fields.end() && fields_equal(field, *found);
   });
 }
+[[nodiscard]] field_info describe_record(const field_record& field) noexcept {
+  return {
+      .id = field_id{field.id},
+      .value_type_id = field.value_type_id,
+      .flags = static_cast<field_flags>(field.flags),
+      .name = field.name,
+      .kind = field.accessor.kind,
+      .capabilities =
+          (field.accessor.getter ? property_capabilities::readable : property_capabilities::none) |
+          (field.accessor.setter ? property_capabilities::writable : property_capabilities::none)};
+}
+
+[[nodiscard]] type_info describe_record(const type_record& record) {
+  type_info pending{
+      .id = record.id, .schema_version = record.schema_version, .name = record.name, .fields = {}};
+  pending.fields.reserve(record.fields.size());
+  for (const auto& field : record.fields)
+    pending.fields.push_back(describe_record(field));
+  return pending;
+}
+
 } // namespace
 
 class type_registry_state final {
@@ -483,6 +504,52 @@ public:
     }
   }
 
+  [[nodiscard]] result describe_type(type_guid id, type_info& output) const noexcept try {
+    std::shared_lock lock(mutex_);
+    if (!is_frozen_)
+      return result::not_ready;
+    const auto* record = find_type_unlocked(id);
+    if (!record)
+      return result::not_found;
+    output = describe_record(*record);
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+
+  [[nodiscard]] result describe_type_at(std::uint32_t index, type_info& output) const noexcept try {
+    std::shared_lock lock(mutex_);
+    if (!is_frozen_)
+      return result::not_ready;
+    if (index >= types_.size())
+      return result::not_found;
+    output = describe_record(*types_[index]);
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+
+  [[nodiscard]] result describe_field(type_guid id, field_id field,
+                                      field_info& output) const noexcept try {
+    std::shared_lock lock(mutex_);
+    if (!is_frozen_)
+      return result::not_ready;
+    const auto* record = find_type_unlocked(id);
+    if (!record)
+      return result::not_found;
+    const auto found = std::ranges::find(record->fields, field.get(), &field_record::id);
+    if (found == record->fields.end())
+      return result::not_found;
+    output = describe_record(*found);
+    return result::success;
+  } catch (...) {
+    return result::internal;
+  }
+
 private:
   [[nodiscard]] gneiss::engine::result find_accessor(type_guid type_id, gneiss_field_id field_id,
                                                      property_accessor& output) const noexcept {
@@ -632,55 +699,18 @@ gneiss::engine::result set_candidate_property(const registry_ref& state, type_gu
 } // namespace gneiss::engine
 
 namespace gneiss::engine {
-gneiss::engine::result describe_type(const registry_ref& registry, gneiss::engine::type_guid id,
-                                     type_info& output) noexcept try {
-  gneiss_type_info source{};
-  const auto operation = find_type(registry, id, source);
-  if (operation.failed()) {
-    return operation;
-  }
-  type_info pending{
-      .id = from_native(source.id),
-      .schema_version = source.schema_version,
-      .name = {source.name, source.name_length},
-      .fields = {},
-  };
-  pending.fields.reserve(source.field_count);
-  for (std::uint32_t index = 0; index < source.field_count; ++index) {
-    const auto& field = source.fields[index];
-    pending.fields.push_back({
-        .id = field_id{field.id},
-        .value_type_id = from_native(field.value_type_id),
-        .flags = static_cast<field_flags>(field.flags),
-        .name = {field.name, field.name_length},
-        .kind = static_cast<property_kind>(field.property_kind),
-        .capabilities = static_cast<property_capabilities>(field.property_capabilities),
-    });
-  }
-  output = std::move(pending);
-  return gneiss::engine::result::success;
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::result::out_of_memory;
-} catch (...) {
-  return gneiss::engine::result::internal;
+result describe_type(const registry_ref& registry, type_guid id, type_info& output) noexcept {
+  return registry ? registry->describe_type(id, output) : result::invalid_handle;
 }
-gneiss::engine::result describe_field(const registry_ref& registry, gneiss::engine::type_guid type,
-                                      field_id field, field_info& output) noexcept {
-  gneiss_field_info source{};
-  const auto operation = find_field(registry, type, field.get(), source);
-  if (operation.failed()) {
-    return operation;
-  }
-  output = {
-      .id = field_id{source.id},
-      .value_type_id = from_native(source.value_type_id),
-      .flags = static_cast<field_flags>(source.flags),
-      .name = {source.name, source.name_length},
-      .kind = static_cast<property_kind>(source.property_kind),
-      .capabilities = static_cast<property_capabilities>(source.property_capabilities),
-  };
-  return gneiss::engine::result::success;
+result describe_type_at(const registry_ref& registry, std::uint32_t index,
+                        type_info& output) noexcept {
+  return registry ? registry->describe_type_at(index, output) : result::invalid_handle;
 }
+result describe_field(const registry_ref& registry, type_guid type, field_id field,
+                      field_info& output) noexcept {
+  return registry ? registry->describe_field(type, field, output) : result::invalid_handle;
+}
+
 gneiss::engine::result read_property(const registry_ref& registry, gneiss::engine::type_guid type,
                                      field_id field, property_target target,
                                      property_value& output) noexcept try {

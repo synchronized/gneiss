@@ -58,8 +58,6 @@ bind_property(const registry_ref& state, type_guid type_id, gneiss_field_id fiel
 [[nodiscard]] GNEISS_API gneiss::engine::result freeze(const registry_ref& state) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result is_frozen(const registry_ref& state,
                                                           std::uint8_t& output) noexcept;
-[[nodiscard]] GNEISS_API gneiss::engine::result type_count(const registry_ref& state,
-                                                           std::uint32_t& output) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
 type_at(const registry_ref& state, std::uint32_t index, gneiss_type_info& output) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result find_type(const registry_ref& state, type_guid id,

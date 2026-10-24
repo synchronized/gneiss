@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/c_owner.hpp"
-#include "engine/values/reflection.hpp"
+#include "engine/values/detail/reflection_values.hpp"
 
 #include <array>
 #include <cmath>

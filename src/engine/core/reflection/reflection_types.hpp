@@ -95,19 +95,6 @@ struct property_target {
 };
 // 缺省成员值允许 designated 初始化省略字段，避免消费者缺省字段告警。
 // NOLINTBEGIN(readability-redundant-member-init)
-struct field_desc {
-  field_id id{};
-  gneiss::engine::type_guid value_type_id{};
-  field_flags flags = field_flags::none;
-  std::string_view name{};
-};
-/** 输入文本/数组只需存活到注册返回；Registry 深拷贝。 */
-struct type_desc {
-  gneiss::engine::type_guid id{};
-  std::uint32_t schema_version = 0;
-  std::string_view name{};
-  std::span<const field_desc> fields{};
-};
 /** 名称由冻结 Registry 借出，有效期不超过 Registry。 */
 struct field_info {
   field_id id{};
@@ -125,13 +112,4 @@ struct type_info {
   std::vector<field_info> fields{};
 };
 // NOLINTEND(readability-redundant-member-init)
-/** 回调不得抛异常；user_data 必须存活到 Registry 关闭，访问器自行约定属性字符串寿命。 */
-struct property_accessor_desc {
-  property_kind kind = property_kind::invalid;
-  engine::result (*getter)(void*, property_target, property_value&) noexcept = nullptr;
-  engine::result (*setter)(void*, property_target, const property_value&) noexcept = nullptr;
-  void* user_data = nullptr;
-  friend bool operator==(const property_accessor_desc&,
-                         const property_accessor_desc&) noexcept = default;
-};
 } // namespace gneiss

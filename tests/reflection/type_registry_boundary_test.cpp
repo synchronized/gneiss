@@ -124,9 +124,23 @@ bool native_values() {
   }
   gneiss::type_info metadata;
   if (gneiss::engine::describe_type(registry, native_id, metadata).failed() ||
-      metadata.fields.size() != 1 || metadata.fields[0].kind != gneiss::property_kind::string) {
+      metadata.fields.size() != 1 || metadata.fields[0].kind != gneiss::property_kind::string ||
+      metadata.id != native_id || metadata.fields[0].value_type_id != native_id ||
+      gneiss::engine::describe_type(registry, {}, metadata) != gneiss::engine::result::not_found ||
+      metadata.id != native_id || metadata.fields.size() != 1 ||
+      gneiss::engine::describe_type({}, native_id, metadata) !=
+          gneiss::engine::result::invalid_handle ||
+      metadata.id != native_id || metadata.fields.size() != 1) {
     return false;
   }
+  if (gneiss::engine::describe_type_at(registry, 0, metadata).failed() ||
+      metadata.id != native_id || metadata.fields.size() != 1 ||
+      gneiss::engine::describe_type_at(registry, 1, metadata) !=
+          gneiss::engine::result::not_found ||
+      metadata.id != native_id ||
+      gneiss::engine::describe_type_at({}, 0, metadata) != gneiss::engine::result::invalid_handle ||
+      metadata.id != native_id)
+    return false;
   registry.reset();
   return gneiss::engine::read_property(registry, native_id, gneiss::field_id{1}, {}, snapshot) ==
              gneiss::engine::result::invalid_handle &&

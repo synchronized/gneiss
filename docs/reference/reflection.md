@@ -17,6 +17,8 @@ Registry 没有 World 的创建线程亲和约束；销毁前调用方须停止�
 
 原生反射描述使用 `engine::type_guid`，它保存 16 字节稳定身份，可用于序列化。
 `engine::type_id` 是进程内注册表分配的数字编号，不用于反射存档。
+原生 `type_count` 与 `describe_type_at` 按稳定 GUID 字节顺序枚举冻结元数据；
+`describe_type`、`describe_field` 直接查询原生记录。名称借用 Registry，失败保持输出。
 以下 C 接口尚处于撤销迁移阶段。
 
 `gneiss_type_id` 是 16 字节 Type ID，全零值无效。`gneiss_field_id` 是类型内部的非零 `uint32_t`。

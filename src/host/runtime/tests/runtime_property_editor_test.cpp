@@ -5,7 +5,9 @@
 #include "engine/core/result.hpp"
 #include "runtime_property_editor.hpp"
 
-#include "engine/values/world.hpp"
+#include "engine/values/detail/reflection_values.hpp"
+#include "engine/values/scene.hpp"
+#include <gneiss/engine/world.h>
 
 #include <array>
 #include <cstdint>
