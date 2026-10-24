@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/resource/loaders/mesh_binary.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
 #include "runtime/application.hpp"
@@ -228,7 +229,7 @@ void run(gneiss::engine::execution_mode mode) {
   scene_load_completion completion;
   check(app->activate_scene(first + 100U, completion) == gneiss::engine::result::not_ready);
   check(app->activate_scene(first, completion) == gneiss::engine::result::success);
-  check(completion.scene != GNEISS_NULL_SCENE_INSTANCE &&
+  check(completion.scene != gneiss::engine::null_rid &&
         completion.progress.phase == scene_load_phase::applied);
   check((observed = app->world()) != GNEISS_NULL_WORLD && observed != old_world);
   check(app->cancel_scene(first) == gneiss::engine::result::not_ready);

@@ -86,13 +86,13 @@ gneiss::engine::result prefab_candidate::preview(std::size_t index,
       continue;
     }
     switch (value.key.field_id.get()) {
-    case GNEISS_TRANSFORM_FIELD_TRANSLATION:
+    case gneiss::engine::transform_translation_field.get():
       output.flags |= scene_prefab_flags::translation_overridden;
       break;
-    case GNEISS_TRANSFORM_FIELD_ROTATION:
+    case gneiss::engine::transform_rotation_field.get():
       output.flags |= scene_prefab_flags::rotation_overridden;
       break;
-    case GNEISS_TRANSFORM_FIELD_SCALE:
+    case gneiss::engine::transform_scale_field.get():
       output.flags |= scene_prefab_flags::scale_overridden;
       break;
     default:

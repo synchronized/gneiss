@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "runtime/application.hpp"
 
@@ -67,7 +68,7 @@ std::uint64_t peak_resident_bytes() {
 // 场景切换的预载也走设备变体选择和有界上传，不能用同步预载阻断被测异步路径。
 gneiss::engine::result preload_scene(const std::shared_ptr<gneiss::runtime::application>& app,
                                      gneiss::engine::task_scheduler& scheduler, bool cooperative,
-                                     std::string_view uri, gneiss_scene_instance& scene) {
+                                     std::string_view uri, gneiss::engine::rid& scene) {
   using namespace gneiss::runtime;
   std::uint64_t request{};
   auto result = app->request_scene(uri, 1U, 1U, request);
@@ -86,7 +87,7 @@ gneiss::engine::result preload_scene(const std::shared_ptr<gneiss::runtime::appl
     if (finished && completion.result != gneiss::engine::result::success) {
       return completion.result;
     }
-    if (scene != GNEISS_NULL_SCENE_INSTANCE && !app->visual_assets_loading())
+    if (scene != gneiss::engine::null_rid && !app->visual_assets_loading())
       return gneiss::engine::result::success;
     scene_load_progress progress;
     bool active{};
@@ -172,9 +173,9 @@ int main(int argc, char** argv) try {
   if (mode != "sync" && app->attach_task_executor(scheduler) != gneiss::engine::result::success) {
     return 3;
   }
-  gneiss_scene_instance scene{};
+  gneiss::engine::rid scene{};
   constexpr std::string_view uri = "asset://scenes/scene.scene.json";
-  gneiss_scene_instance previous_scene{};
+  gneiss::engine::rid previous_scene{};
   gneiss_world previous_world{};
   gneiss::engine::scene_node_view camera;
   std::uint64_t previous_resources{};
@@ -186,7 +187,7 @@ int main(int argc, char** argv) try {
       std::fprintf(stderr, "异步预载失败：结果=%d\n", preload.code());
       return 11;
     }
-    if (previous_scene == GNEISS_NULL_SCENE_INSTANCE ||
+    if (previous_scene == gneiss::engine::null_rid ||
         (previous_world = app->world()) == GNEISS_NULL_WORLD ||
         gneiss::engine::result{app->run(0, 10U)} != gneiss::engine::result::success) {
       return 11;
@@ -305,7 +306,7 @@ int main(int argc, char** argv) try {
       const measured_scope callback_time{.output =
                                              sample != nullptr ? &sample->callback_ms : nullptr};
       const bool currently_minimized = minimized && !restored;
-      if (scene == GNEISS_NULL_SCENE_INSTANCE) {
+      if (scene == gneiss::engine::null_rid) {
         const auto interval = milliseconds(previous);
         (currently_minimized ? minimized_event_intervals : event_intervals).push_back(interval);
         auto& phase_maximum = phase_maximum_intervals[static_cast<std::size_t>(previous_phase)];
@@ -328,7 +329,7 @@ int main(int argc, char** argv) try {
         sampled_frame = render_stats.presented_frames;
       }
       const auto elapsed = milliseconds(start);
-      if (scenario == "interact" && scene == GNEISS_NULL_SCENE_INSTANCE) {
+      if (scenario == "interact" && scene == gneiss::engine::null_rid) {
         if (camera.node.is_valid()) {
           auto transform = camera.local_transform;
           transform.translation[0] += static_cast<float>(std::sin(elapsed / 1000.0) * 0.1);
@@ -422,7 +423,7 @@ int main(int argc, char** argv) try {
               cancel_cleanup_ms = cancel_ms;
               if (completion.progress.cleanup_pending) {
                 awaiting_cleanup = observed_cleanup_pending = true;
-                scene = GNEISS_NULL_SCENE_INSTANCE;
+                scene = gneiss::engine::null_rid;
                 return gneiss::engine::result::success;
               }
             }
@@ -431,7 +432,7 @@ int main(int argc, char** argv) try {
         handle->request_exit();
         return gneiss::engine::result::success;
       }
-      if (scene != GNEISS_NULL_SCENE_INSTANCE) {
+      if (scene != gneiss::engine::null_rid) {
         if (handle->visual_assets_loading())
           return gneiss::engine::result::success;
         retirement = handle->scene_retirement();
@@ -441,7 +442,7 @@ int main(int argc, char** argv) try {
             return gneiss::engine::result::invalid_state;
           if (completed_switches < 3U) {
             result = handle->request_scene(source_uri, 1U, completed_switches + 1U, request);
-            scene = GNEISS_NULL_SCENE_INSTANCE;
+            scene = gneiss::engine::null_rid;
             // 超时属于单次请求，不能让后续切换消耗前两次加载已经占用的期限。
             deadline = clock_type::now() + std::chrono::minutes(15);
             return result;
@@ -482,7 +483,7 @@ int main(int argc, char** argv) try {
       if (run_result != gneiss::engine::result::success) {
         result = run_result;
       }
-      if (!closed && scene == GNEISS_NULL_SCENE_INSTANCE &&
+      if (!closed && scene == gneiss::engine::null_rid &&
           result == gneiss::engine::result::success) {
         result = gneiss::engine::result::invalid_state;
       }

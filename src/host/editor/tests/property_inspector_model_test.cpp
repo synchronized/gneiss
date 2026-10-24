@@ -5,7 +5,7 @@
 #include "engine/core/result.hpp"
 #include "engine/function/world/world.hpp"
 #include "panels/property_inspector_model.hpp"
-#include <gneiss/engine/world.h>
+#include <gneiss/engine/game_module_types.h>
 
 #include <cmath>
 #include <thread>
@@ -56,7 +56,7 @@ int main() {
   gneiss::engine::property_value value;
   value.payload = gneiss::property_vec3{.x = 2.0F, .y = 3.0F, .z = 4.0F};
   if (inspector.set_value(gneiss::engine::transform_component_type,
-                          gneiss::field_id{GNEISS_TRANSFORM_FIELD_TRANSLATION},
+                          gneiss::engine::transform_translation_field,
                           value) != gneiss::engine::result::success) {
     return 3;
   }
@@ -68,7 +68,7 @@ int main() {
 
   value.payload = gneiss::property_vec3{.x = 0.0F, .y = 1.0F, .z = 1.0F};
   if (inspector.set_value(gneiss::engine::transform_component_type,
-                          gneiss::field_id{GNEISS_TRANSFORM_FIELD_SCALE},
+                          gneiss::engine::transform_scale_field,
                           value) != gneiss::engine::result::invalid_argument ||
       owner->entity_get_local_transform(entity, transform) != gneiss::engine::result::success ||
       !nearly_equal(transform.scale[0], 1.0F) ||
@@ -80,7 +80,7 @@ int main() {
 
   value.payload = true;
   if (inspector.set_value(gneiss::engine::camera_component_type,
-                          gneiss::field_id{GNEISS_CAMERA_FIELD_IS_PRIMARY},
+                          gneiss::engine::camera_is_primary_field,
                           value) != gneiss::engine::result::unsupported) {
     return 6;
   }

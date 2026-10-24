@@ -3,6 +3,7 @@
 
 #include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/scene/prefab_runtime_instance.hpp"
@@ -13,7 +14,7 @@
 #include "engine/resource/vfs/file_system.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
 
-#include <gneiss/engine/world.h>
+#include <gneiss/engine/game_module_types.h>
 
 #include <array>
 #include <cstddef>
@@ -110,7 +111,7 @@ bool check_failed_camera_prefab(
   std::unique_ptr<gneiss::engine::prefab_runtime_instance> candidate;
   const auto operation = gneiss::engine::prefab_runtime_instance::create(
       native_world, world, render_loader, lease, registry, "20000000-0000-4000-8000-000000000005",
-      GNEISS_NULL_SCENE_NODE_ID, transform, invalid_overrides, candidate);
+      gneiss::engine::null_rid, transform, invalid_overrides, candidate);
   gneiss_entity_id active{};
   std::uint64_t count{};
   const bool preserved = operation == gneiss::engine::result::not_found && !candidate &&
@@ -128,7 +129,7 @@ bool check_failed_camera_prefab(
   // 原本没有相机时，失败候选也不能留下活动相机或实体。
   return gneiss::engine::prefab_runtime_instance::create(
              native_world, world, render_loader, lease, registry,
-             "20000000-0000-4000-8000-000000000005", GNEISS_NULL_SCENE_NODE_ID, transform,
+             "20000000-0000-4000-8000-000000000005", gneiss::engine::null_rid, transform,
              invalid_overrides, candidate) == gneiss::engine::result::not_found &&
          !candidate &&
          gneiss::engine::result{gneiss::engine::get_active_camera(world, active)} ==
@@ -142,7 +143,7 @@ bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss_world world
                          const gneiss::engine::registry_ref& registry,
                          gneiss::engine::render_asset_loader& loader,
                          gneiss::engine::prefab_asset_loader& prefabs,
-                         gneiss::engine::prefab_asset_ref lease, gneiss_scene_node_id parent) {
+                         gneiss::engine::prefab_asset_ref lease, gneiss::engine::rid parent) {
   using gneiss::engine::prefab_runtime_instance;
   prefab_runtime_instance candidate(native_world, world, loader, lease,
                                     "20000000-0000-4000-8000-000000000006");
@@ -264,16 +265,16 @@ int main() try {
       .key = {.node = {.instance_uuid = "20000000-0000-4000-8000-000000000001",
                        .source_node_uuid = "10000000-0000-4000-8000-000000000002"},
               .type_id = gneiss::engine::transform_component_type,
-              .field_id = gneiss::field_id{GNEISS_TRANSFORM_FIELD_TRANSLATION}},
+              .field_id = gneiss::engine::transform_translation_field},
       .value = {.payload = std::array{3.0F, 0.0F, 0.0F}},
   }};
   if (gneiss::engine::prefab_runtime_instance::create(
           native_world, world, render_loader, std::move(first_lease), registry,
-          "20000000-0000-4000-8000-000000000001", GNEISS_NULL_SCENE_NODE_ID, first_transform,
+          "20000000-0000-4000-8000-000000000001", gneiss::engine::null_rid, first_transform,
           first_overrides, first) != gneiss::engine::result::success ||
       gneiss::engine::prefab_runtime_instance::create(
           native_world, world, render_loader, std::move(second_lease), registry,
-          "20000000-0000-4000-8000-000000000002", GNEISS_NULL_SCENE_NODE_ID, second_transform,
+          "20000000-0000-4000-8000-000000000002", gneiss::engine::null_rid, second_transform,
           no_overrides, second) != gneiss::engine::result::success ||
       first->node_count() != 2U || second->node_count() != 2U) {
     return 5;
@@ -298,8 +299,8 @@ int main() try {
   gneiss::engine::transform first_world = {};
   gneiss::engine::transform second_world = {};
   std::uint64_t entity_count = 0;
-  if (first_source_root == GNEISS_NULL_SCENE_NODE_ID ||
-      second_source_root == GNEISS_NULL_SCENE_NODE_ID || first_source_root == second_source_root ||
+  if (first_source_root == gneiss::engine::null_rid ||
+      second_source_root == gneiss::engine::null_rid || first_source_root == second_source_root ||
       native_world.node_get_world_transform(gneiss::scene_node_id{first_source_root},
                                             first_world) != gneiss::engine::result::success ||
       native_world.node_get_world_transform(gneiss::scene_node_id{second_source_root},
@@ -320,7 +321,7 @@ int main() try {
       .key = {.node = {.instance_uuid = "20000000-0000-4000-8000-000000000005",
                        .source_node_uuid = "10000000-0000-4000-8000-000000000099"},
               .type_id = gneiss::engine::transform_component_type,
-              .field_id = gneiss::field_id{GNEISS_TRANSFORM_FIELD_TRANSLATION}},
+              .field_id = gneiss::engine::transform_translation_field},
       .value = {.payload = std::array{3.0F, 0.0F, 0.0F}},
   }};
   std::unique_ptr<gneiss::engine::prefab_runtime_instance> failed;
@@ -334,7 +335,7 @@ int main() try {
   }
   if (gneiss::engine::prefab_runtime_instance::create(
           native_world, world, render_loader, std::move(invalid_override_lease), registry,
-          "20000000-0000-4000-8000-000000000005", GNEISS_NULL_SCENE_NODE_ID, first_transform,
+          "20000000-0000-4000-8000-000000000005", gneiss::engine::null_rid, first_transform,
           invalid_overrides, failed) != gneiss::engine::result::not_found ||
       failed ||
       gneiss::engine::result{gneiss::engine::entity_count(world, entity_count)} !=
@@ -352,7 +353,7 @@ int main() try {
   invalid_transform.scale[1] = 0.0F;
   if (gneiss::engine::prefab_runtime_instance::create(
           native_world, world, render_loader, std::move(failure_lease), registry,
-          "20000000-0000-4000-8000-000000000003", GNEISS_NULL_SCENE_NODE_ID, invalid_transform,
+          "20000000-0000-4000-8000-000000000003", gneiss::engine::null_rid, invalid_transform,
           no_overrides, failed) != gneiss::engine::result::invalid_argument ||
       failed ||
       gneiss::engine::result{gneiss::engine::entity_count(world, entity_count)} !=
@@ -368,7 +369,7 @@ int main() try {
   }
   if (gneiss::engine::prefab_runtime_instance::create(
           native_world, world, render_loader, std::move(broken_lease), registry,
-          "20000000-0000-4000-8000-000000000004", GNEISS_NULL_SCENE_NODE_ID, first_transform,
+          "20000000-0000-4000-8000-000000000004", gneiss::engine::null_rid, first_transform,
           no_overrides, failed) != gneiss::engine::result::not_found ||
       failed ||
       gneiss::engine::result{gneiss::engine::entity_count(world, entity_count)} !=
@@ -381,7 +382,7 @@ int main() try {
     gneiss::engine::prefab_runtime_instance staged(native_world, world, render_loader,
                                                    second->prefab_lease(),
                                                    "20000000-0000-4000-8000-000000000005");
-    if (staged.begin_staged(GNEISS_NULL_SCENE_NODE_ID, first_transform) !=
+    if (staged.begin_staged(gneiss::engine::null_rid, first_transform) !=
             gneiss::engine::result::success ||
         staged.create_staged_node(0U, staged.root(), {}, {}) != gneiss::engine::result::success ||
         staged.create_staged_node(1U, staged.find_node("10000000-0000-4000-8000-000000000002"), {},

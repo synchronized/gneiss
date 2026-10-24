@@ -2,13 +2,14 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "commands/author_property_edit.hpp"
+#include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
 #include "engine/core/reflection/reflection_types.hpp"
-#include "engine/values/core/result.hpp"
-#include <gneiss/engine/world.h>
+#include "engine/core/result.hpp"
+#include <gneiss/engine/game_module_types.h>
 
 #include <algorithm>
 #include <cmath>
@@ -44,9 +45,8 @@ int main() try {
   };
   const auto edit_x = [&](float next, editor_command_history& target, std::uint64_t serial) {
     const auto& component = inspector.components().front();
-    const auto found =
-        std::ranges::find(component.properties, field_id{GNEISS_TRANSFORM_FIELD_TRANSLATION},
-                          &inspector_property::id);
+    const auto found = std::ranges::find(
+        component.properties, gneiss::engine::transform_translation_field, &inspector_property::id);
     if (found == component.properties.end()) {
       return gneiss::engine::result{gneiss::engine::result::not_found};
     }
@@ -77,7 +77,7 @@ int main() try {
     return 6;
   }
   const auto& component = inspector.components().front();
-  const auto scale = std::ranges::find(component.properties, field_id{GNEISS_TRANSFORM_FIELD_SCALE},
+  const auto scale = std::ranges::find(component.properties, gneiss::engine::transform_scale_field,
                                        &inspector_property::id);
   if (scale == component.properties.end()) {
     return 7;

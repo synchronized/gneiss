@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_tree.hpp"
 
 #include <algorithm>
@@ -63,10 +64,10 @@ bool approximately_equal(const gneiss::engine::transform& left,
 
 int run_tests() {
   gneiss::engine::scene_tree tree{17};
-  gneiss_scene_node_id root{};
-  gneiss_scene_node_id child{};
-  gneiss_scene_node_id grandchild{};
-  gneiss_scene_node_id other_root{};
+  gneiss::engine::rid root{};
+  gneiss::engine::rid child{};
+  gneiss::engine::rid grandchild{};
+  gneiss::engine::rid other_root{};
   constexpr gneiss_entity_id entity = 42;
   if (tree.create({}, {}, &root) != gneiss::engine::result::success ||
       tree.create(root, {}, &child) != gneiss::engine::result::success ||

@@ -6,6 +6,7 @@
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/log/log.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/input/input_service.hpp"
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/render_resource_service.hpp"
@@ -271,7 +272,7 @@ gneiss::engine::result application::reload_render_assets(
   return storage_->render_assets_->reload_assets(assets, diagnostic);
 }
 
-gneiss::engine::result application::reload_scene(gneiss_scene_instance instance,
+gneiss::engine::result application::reload_scene(gneiss::engine::rid instance,
                                                  std::string_view uri) noexcept {
   if (scene_loading()) {
     return gneiss::engine::result::not_ready;
@@ -280,7 +281,7 @@ gneiss::engine::result application::reload_scene(gneiss_scene_instance instance,
                              : scenes()->reload(instance, uri);
 }
 
-gneiss::engine::result application::reload_prefab(gneiss_scene_instance instance,
+gneiss::engine::result application::reload_prefab(gneiss::engine::rid instance,
                                                   std::string_view uri) noexcept {
   if (scene_loading()) {
     return gneiss::engine::result::not_ready;
@@ -1040,7 +1041,7 @@ gneiss::engine::texture_load_service* application::texture_service() noexcept {
 }
 
 gneiss::engine::result application::create_mesh_node_ready(
-    gneiss_scene_instance scene, const gneiss::engine::mesh_renderer_node_creation& desc,
+    gneiss::engine::rid scene, const gneiss::engine::mesh_renderer_node_creation& desc,
     const gneiss::engine::scene_instances::mesh_binding& prepared, scene_node_id& output) noexcept {
   output = {};
   const auto valid = is_owner_thread() && accepts_requests()
@@ -1079,7 +1080,7 @@ application::query_ready_asset(const gneiss::engine::render_asset_reload& source
 }
 
 gneiss::engine::result
-application::capture_mesh_binding(gneiss_scene_instance scene, scene_node_id node,
+application::capture_mesh_binding(gneiss::engine::rid scene, scene_node_id node,
                                   gneiss::engine::scene_instances::mesh_binding& output) noexcept {
   output = {};
   const auto valid = is_owner_thread() && accepts_requests()
@@ -1091,7 +1092,7 @@ application::capture_mesh_binding(gneiss_scene_instance scene, scene_node_id nod
 }
 
 gneiss::engine::result application::replace_mesh_binding(
-    gneiss_scene_instance scene, scene_node_id node,
+    gneiss::engine::rid scene, scene_node_id node,
     const gneiss::engine::scene_instances::mesh_binding& expected,
     const gneiss::engine::scene_instances::mesh_binding& replacement) noexcept {
   const auto valid = is_owner_thread() && accepts_requests()

@@ -9,7 +9,7 @@
 #include "ipc_property_protocol.hpp"
 #include "runtime_scene_inspection.hpp"
 
-#include <gneiss/engine/world.h>
+#include <gneiss/engine/game_module_types.h>
 
 #include <array>
 #include <cstdint>

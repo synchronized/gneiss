@@ -6,7 +6,7 @@
 #include "viewport/editor_camera.hpp"
 
 #include "engine/core/reflection/reflection_types.hpp"
-#include <gneiss/engine/world.h>
+#include <gneiss/engine/game_module_types.h>
 
 #include <cmath>
 

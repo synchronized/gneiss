@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <gneiss/engine/core/export.h>
 
 namespace gneiss::engine {
 struct version {
@@ -12,5 +13,5 @@ struct version {
   std::uint32_t patch;
 };
 /** 返回本库构建版本，无状态且线程安全。 */
-[[nodiscard]] version library_version() noexcept;
+[[nodiscard]] GNEISS_API version library_version() noexcept;
 } // namespace gneiss::engine

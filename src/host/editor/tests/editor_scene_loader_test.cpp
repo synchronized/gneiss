@@ -3,6 +3,7 @@
 
 #include "documents/editor_scene_loader.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world_service.hpp"
@@ -105,7 +106,7 @@ void run(gneiss::engine::execution_mode mode) {
   check(loader.operation() == gneiss::engine::result::success && session.nodes().size() == 1U &&
         session.prefab_nodes().size() == 2U && camera.is_valid());
   // 无效场景的原生查询拒绝，不影响活动场景。
-  check(gneiss::engine::result{app->scenes()->get_node_count(GNEISS_NULL_SCENE_INSTANCE, &count)} ==
+  check(gneiss::engine::result{app->scenes()->get_node_count(gneiss::engine::null_rid, &count)} ==
         gneiss::engine::result::invalid_handle);
   camera.shutdown();
   session.close();

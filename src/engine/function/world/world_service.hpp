@@ -5,13 +5,13 @@
 #define GNEISS_WORLD_WORLD_SERVICE_HPP_
 #include "engine/core/reflection/type_registry.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 
 #include "engine/core/math/camera_settings.hpp"
 #include "engine/core/publication_group.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_types.hpp"
-#include <gneiss/engine/scene.h>
-#include <gneiss/engine/world.h>
+#include <gneiss/engine/game_module_types.h>
 #include <memory>
 #include <span>
 
@@ -79,28 +79,29 @@ entity_set_mesh_renderer(gneiss_world world, gneiss_entity_id entity,
                          const mesh_renderer& renderer) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
 entity_remove_mesh_renderer(gneiss_world world, gneiss_entity_id entity) noexcept;
-[[nodiscard]] GNEISS_API gneiss::engine::result
-node_create(gneiss_world world, gneiss_scene_node_id parent, gneiss_entity_id entity,
-            gneiss_scene_node_id& out_node) noexcept;
+[[nodiscard]] GNEISS_API gneiss::engine::result node_create(gneiss_world world,
+                                                            gneiss::engine::rid parent,
+                                                            gneiss_entity_id entity,
+                                                            gneiss::engine::rid& out_node) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result node_destroy(gneiss_world world,
-                                                             gneiss_scene_node_id node) noexcept;
+                                                             gneiss::engine::rid node) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
-node_reparent(gneiss_world world, gneiss_scene_node_id node, gneiss_scene_node_id parent) noexcept;
+node_reparent(gneiss_world world, gneiss::engine::rid node, gneiss::engine::rid parent) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
-node_set_local_transform(gneiss_world world, gneiss_scene_node_id node,
+node_set_local_transform(gneiss_world world, gneiss::engine::rid node,
                          const gneiss::engine::transform& transform) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
-node_get_local_transform(gneiss_world world, gneiss_scene_node_id node,
+node_get_local_transform(gneiss_world world, gneiss::engine::rid node,
                          gneiss::engine::transform& out_transform) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
-node_get_world_transform(gneiss_world world, gneiss_scene_node_id node,
+node_get_world_transform(gneiss_world world, gneiss::engine::rid node,
                          gneiss::engine::transform& out_transform) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
-node_get_entity(gneiss_world world, gneiss_scene_node_id node,
+node_get_entity(gneiss_world world, gneiss::engine::rid node,
                 gneiss_entity_id& out_entity) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
-node_get_parent(gneiss_world world, gneiss_scene_node_id node,
-                gneiss_scene_node_id& out_parent) noexcept;
+node_get_parent(gneiss_world world, gneiss::engine::rid node,
+                gneiss::engine::rid& out_parent) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
 entity_get_local_transform(gneiss_world world, gneiss_entity_id entity,
                            gneiss::engine::transform& out_transform) noexcept;

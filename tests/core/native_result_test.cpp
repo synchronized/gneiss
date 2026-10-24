@@ -22,7 +22,8 @@ static_assert(to_c_result(from_c_result(std::numeric_limits<std::int32_t>::min()
 static_assert(to_c_result(from_c_result(std::numeric_limits<std::int32_t>::max())) ==
               std::numeric_limits<std::int32_t>::max());
 int main() {
-  return result::success.message() == "success" &&
+  return result::dependency_failed.message() == "dependency failed" &&
+                 result::success.message() == "success" &&
                  result::invalid_argument.message() == "invalid argument" &&
                  result{-999}.message() == "unrecognized result"
              ? 0

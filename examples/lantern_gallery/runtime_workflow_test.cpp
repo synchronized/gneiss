@@ -4,7 +4,7 @@
 #include "engine/core/reflection/component_identity.hpp"
 #include "runtime_process.hpp"
 
-#include <gneiss/engine/world.h>
+#include <gneiss/engine/game_module_types.h>
 
 #include <algorithm>
 #include <array>
@@ -326,8 +326,10 @@ int main() try {
   if (running_root == nullptr) {
     return report_failure(process, 2);
   }
-  const auto running_edit_key = transform_key(*running_root, GNEISS_TRANSFORM_FIELD_TRANSLATION);
-  const auto rotation_edit_key = transform_key(*running_root, GNEISS_TRANSFORM_FIELD_ROTATION);
+  const auto running_edit_key =
+      transform_key(*running_root, gneiss::engine::transform_translation_field.get());
+  const auto rotation_edit_key =
+      transform_key(*running_root, gneiss::engine::transform_rotation_field.get());
   if (process.request_property_write(running_edit_key, 1U,
                                      {std::array<float, 3>{0.5F, 0.25F, -0.5F}}) !=
           gneiss::engine::result::success ||
@@ -360,7 +362,8 @@ int main() try {
   if (paused_root == nullptr) {
     return report_failure(process, 3);
   }
-  const auto paused_edit_key = transform_key(*paused_root, GNEISS_TRANSFORM_FIELD_SCALE);
+  const auto paused_edit_key =
+      transform_key(*paused_root, gneiss::engine::transform_scale_field.get());
   if (process.request_property_write(paused_edit_key, 1U,
                                      {std::array<float, 3>{1.1F, 1.1F, 1.1F}}) !=
           gneiss::engine::result::success ||

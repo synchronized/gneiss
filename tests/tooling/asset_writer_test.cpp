@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/rid.hpp"
 #include "tooling/asset_import/asset_writer.hpp"
 #include "tooling/asset_import/gltf_importer.hpp"
 
@@ -70,7 +71,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   gneiss::runtime::application_configuration description;
   description.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
+  gneiss::engine::rid scene = gneiss::engine::null_rid;
   std::uint64_t entity_count = 0;
   constexpr std::string_view scene_uri = "asset://scenes/scene.scene.json";
   if (gneiss::runtime::application::create(description, application) !=
@@ -95,7 +96,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   const auto multi_asset_root = multi.generic_string();
   description.asset_root = multi_asset_root;
   application.reset();
-  scene = GNEISS_NULL_SCENE_INSTANCE;
+  scene = gneiss::engine::null_rid;
   entity_count = 0;
   if (gneiss::runtime::application::create(description, application) !=
           gneiss::engine::result::success ||

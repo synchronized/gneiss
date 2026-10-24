@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/world/system_scheduler.hpp"
 #include "engine/function/world/world_state.hpp"
 
@@ -116,7 +117,7 @@ int run_tests() {
   }
   const auto other = first.begin_publication();
   const auto hidden = first.create_staged_entity(other);
-  gneiss_scene_node_id parent{}, child{}, leaf{}, rejected{};
+  gneiss::engine::rid parent{}, child{}, leaf{}, rejected{};
   const auto nested = first.begin_publication();
   auto& tree = first.scene();
   const gneiss::engine::transform identity = gneiss::engine::transform{};

@@ -9,28 +9,7 @@
 #include <gneiss/engine/core/entity.h>
 #include <gneiss/engine/core/export.h>
 #include <gneiss/engine/core/result.h>
-#include <gneiss/engine/core/rid.h>
 #include <gneiss/engine/core/version.h>
 #include <gneiss/engine/game_module.h>
-#include <gneiss/engine/log.h>
-#include <gneiss/engine/scene.h>
-#include <gneiss/engine/world.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/** 返回运行时 Gneiss 主版本号。 */
-GNEISS_API uint32_t gneiss_version_major(void);
-
-/** 返回运行时 Gneiss 次版本号。 */
-GNEISS_API uint32_t gneiss_version_minor(void);
-
-/** 返回运行时 Gneiss 修订版本号。 */
-GNEISS_API uint32_t gneiss_version_patch(void);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

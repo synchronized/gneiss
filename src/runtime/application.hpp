@@ -6,8 +6,9 @@
 
 #include "engine/core/input/input_types.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/resource/types/action_map.hpp"
-#include <gneiss/engine/world.h>
+#include <gneiss/engine/game_module_types.h>
 
 #include "engine/core/log/log_dispatcher.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
@@ -59,17 +60,17 @@ public:
   attach_task_executor(gneiss::engine::task_executor& executor) noexcept;
   [[nodiscard]] bool has_asset_loading_service() const noexcept;
   [[nodiscard]] gneiss::engine::result create_mesh_node_ready(
-      gneiss_scene_instance scene, const gneiss::engine::mesh_renderer_node_creation& desc,
+      gneiss::engine::rid scene, const gneiss::engine::mesh_renderer_node_creation& desc,
       const gneiss::engine::scene_mesh_binding& prepared, scene_node_id& output) noexcept;
   [[nodiscard]] gneiss::engine::result collect_unused_edit_assets() noexcept;
   [[nodiscard]] gneiss::engine::result
   query_ready_asset(const gneiss::engine::render_asset_reload& source,
                     gneiss::engine::render_asset_ref& output) noexcept;
   [[nodiscard]] gneiss::engine::result
-  capture_mesh_binding(gneiss_scene_instance scene, scene_node_id node,
+  capture_mesh_binding(gneiss::engine::rid scene, scene_node_id node,
                        gneiss::engine::scene_mesh_binding& output) noexcept;
   [[nodiscard]] gneiss::engine::result
-  replace_mesh_binding(gneiss_scene_instance scene, scene_node_id node,
+  replace_mesh_binding(gneiss::engine::rid scene, scene_node_id node,
                        const gneiss::engine::scene_mesh_binding& expected,
                        const gneiss::engine::scene_mesh_binding& replacement) noexcept;
   [[nodiscard]] gneiss::engine::result
@@ -122,9 +123,9 @@ public:
   [[nodiscard]] gneiss::engine::prefab_asset_loader& prefab_loader() noexcept;
   [[nodiscard]] gneiss::engine::result
   reload_render_assets(std::span<const gneiss::engine::render_asset_reload> assets) noexcept;
-  [[nodiscard]] gneiss::engine::result reload_scene(gneiss_scene_instance instance,
+  [[nodiscard]] gneiss::engine::result reload_scene(gneiss::engine::rid instance,
                                                     std::string_view uri) noexcept;
-  [[nodiscard]] gneiss::engine::result reload_prefab(gneiss_scene_instance instance,
+  [[nodiscard]] gneiss::engine::result reload_prefab(gneiss::engine::rid instance,
                                                      std::string_view uri) noexcept;
   [[nodiscard]] gneiss::engine::scene_instances* scenes() noexcept;
   [[nodiscard]] const gneiss::engine::keyboard_state& keyboard_state() const noexcept;

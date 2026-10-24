@@ -7,10 +7,10 @@
 #include "engine/core/math/camera_settings.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "ipc_inspection_protocol.hpp"
 
-#include <gneiss/engine/scene.h>
-#include <gneiss/engine/world.h>
+#include <gneiss/engine/game_module_types.h>
 
 #include <cstdint>
 #include <map>
@@ -56,7 +56,7 @@ public:
                                                bool force_full,
                                                runtime_scene_snapshot& output) noexcept;
   [[nodiscard]] gneiss::engine::result capture_scene(::gneiss::runtime::application& application,
-                                                     gneiss_scene_instance scene, bool force_full,
+                                                     gneiss::engine::rid scene, bool force_full,
                                                      runtime_scene_snapshot& output) noexcept;
   [[nodiscard]] gneiss::engine::result resolve_entity(ipc_runtime_object_id object,
                                                       gneiss_entity_id& output) const noexcept;

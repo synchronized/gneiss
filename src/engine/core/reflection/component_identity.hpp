@@ -13,4 +13,8 @@ inline constexpr gneiss::engine::type_guid camera_component_type{
 inline constexpr field_id transform_translation_field{1};
 inline constexpr field_id transform_rotation_field{2};
 inline constexpr field_id transform_scale_field{3};
+inline constexpr field_id camera_vertical_field_of_view_field{1};
+inline constexpr field_id camera_near_plane_field{2};
+inline constexpr field_id camera_far_plane_field{3};
+inline constexpr field_id camera_is_primary_field{4};
 }

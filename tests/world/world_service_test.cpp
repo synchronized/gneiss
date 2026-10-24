@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/reflection/type_registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/world/world.hpp"
@@ -248,30 +249,33 @@ int main() {
   gneiss::engine::transform candidate_transform;
   gneiss::property_value proposed;
   proposed.payload = gneiss::property_vec3{2, 3, 4};
-  if (gneiss::engine::set_candidate_property(
-          reflection, service::transform_property_type(), GNEISS_TRANSFORM_FIELD_TRANSLATION,
-          &candidate_transform, proposed) != gneiss::engine::result::success ||
+  if (gneiss::engine::set_candidate_property(reflection, service::transform_property_type(),
+                                             gneiss::engine::transform_translation_field.get(),
+                                             &candidate_transform,
+                                             proposed) != gneiss::engine::result::success ||
       candidate_transform.translation[0] != 2) {
     return 15;
   }
   proposed.payload = gneiss::property_vec3{0, 1, 1};
-  if (gneiss::engine::set_candidate_property(
-          reflection, service::transform_property_type(), GNEISS_TRANSFORM_FIELD_SCALE,
-          &candidate_transform, proposed) != gneiss::engine::result::invalid_argument ||
+  if (gneiss::engine::set_candidate_property(reflection, service::transform_property_type(),
+                                             gneiss::engine::transform_scale_field.get(),
+                                             &candidate_transform, proposed) !=
+          gneiss::engine::result::invalid_argument ||
       candidate_transform.scale[0] != 1) {
     return 16;
   }
   service::camera_settings candidate_camera{1, 10, 20};
   proposed.payload = 30.0F;
   if (gneiss::engine::set_candidate_property(reflection, service::camera_property_type(),
-                                             GNEISS_CAMERA_FIELD_NEAR_PLANE, &candidate_camera,
+                                             gneiss::engine::camera_near_plane_field.get(),
+                                             &candidate_camera,
                                              proposed) != gneiss::engine::result::success) {
     return 17;
   }
   proposed.payload = 40.0F;
-  if (gneiss::engine::set_candidate_property(reflection, service::camera_property_type(),
-                                             GNEISS_CAMERA_FIELD_FAR_PLANE, &candidate_camera,
-                                             proposed) != gneiss::engine::result::success ||
+  if (gneiss::engine::set_candidate_property(
+          reflection, service::camera_property_type(), gneiss::engine::camera_far_plane_field.get(),
+          &candidate_camera, proposed) != gneiss::engine::result::success ||
       candidate_camera.near_plane != 30 || candidate_camera.far_plane != 40) {
     return 18;
   }

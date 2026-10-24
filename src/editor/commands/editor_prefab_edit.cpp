@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "commands/editor_prefab_edit.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
+#include "engine/core/scene_types.hpp"
 #include "runtime/application.hpp"
 #include "runtime/loading/prefab_placement.hpp"
 #include "runtime/loading/prefab_preparation.hpp"
@@ -31,8 +33,9 @@ gneiss::engine::result make_prefab_record(const gneiss::engine::prefab_node_view
   record.is_read_only = !record.is_instance_root;
   record.override_flags =
       static_cast<std::uint32_t>(info.flags) &
-      (GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN |
-       GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN | GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN);
+      (static_cast<std::uint32_t>(gneiss::scene_prefab_flags::translation_overridden) |
+       static_cast<std::uint32_t>(gneiss::scene_prefab_flags::rotation_overridden) |
+       static_cast<std::uint32_t>(gneiss::scene_prefab_flags::scale_overridden));
   if (record.is_instance_root && author.parent_uuid) {
     const auto* parent = session.find_node(*author.parent_uuid);
     if (parent == nullptr) {
@@ -45,7 +48,7 @@ gneiss::engine::result make_prefab_record(const gneiss::engine::prefab_node_view
 class prefab_history_operation final : public editor_history_operation {
 public:
   prefab_history_operation(runtime::application& application, scene_document& session,
-                           gneiss_scene_instance scene,
+                           gneiss::engine::rid scene,
                            std::shared_ptr<const prefab_placement_snapshot> snapshot, bool removing)
       : application_(application), scene_(scene), session_(session), snapshot_(std::move(snapshot)),
         removing_(removing) {}
@@ -142,7 +145,7 @@ private:
     return gneiss::engine::result::success;
   }
   runtime::application& application_;
-  gneiss_scene_instance scene_{};
+  gneiss::engine::rid scene_{};
   scene_document& session_;
   std::shared_ptr<const prefab_placement_snapshot> snapshot_;
   std::unique_ptr<prefab_placement> transaction_;
@@ -155,7 +158,7 @@ using prefab_snapshots = std::vector<std::shared_ptr<const prefab_placement_snap
 class prefab_refresh_operation final : public editor_history_operation {
 public:
   prefab_refresh_operation(runtime::application& application, scene_document& session,
-                           gneiss_scene_instance scene, prefab_snapshots snapshots)
+                           gneiss::engine::rid scene, prefab_snapshots snapshots)
       : application_(application), scene_(scene), session_(session),
         snapshots_(std::move(snapshots)), selection_(session.selection()) {
     transactions_.resize(snapshots_.size());
@@ -292,7 +295,7 @@ private:
     }
   }
   runtime::application& application_;
-  gneiss_scene_instance scene_{};
+  gneiss::engine::rid scene_{};
   scene_document& session_;
   prefab_snapshots snapshots_;
   scene_node_id selection_;
@@ -309,8 +312,7 @@ private:
 class prefab_refresh_command final : public editor_command {
 public:
   prefab_refresh_command(runtime::application& application, scene_document& session,
-                         gneiss_scene_instance scene, prefab_snapshots before,
-                         prefab_snapshots after)
+                         gneiss::engine::rid scene, prefab_snapshots before, prefab_snapshots after)
       : application_(application), scene_(scene), session_(session), before_(std::move(before)),
         after_(std::move(after)) {}
   [[nodiscard]] std::string_view label() const noexcept override { return "刷新同源 Prefab 实例"; }
@@ -333,14 +335,14 @@ public:
 
 private:
   runtime::application& application_;
-  gneiss_scene_instance scene_{};
+  gneiss::engine::rid scene_{};
   scene_document& session_;
   prefab_snapshots before_, after_;
 };
 class prefab_command final : public editor_command {
 public:
   prefab_command(runtime::application& application, scene_document& session,
-                 gneiss_scene_instance scene,
+                 gneiss::engine::rid scene,
                  std::shared_ptr<const prefab_placement_snapshot> snapshot, bool removal = false)
       : application_(application), scene_(scene), session_(session), snapshot_(std::move(snapshot)),
         removal_(removal) {}
@@ -366,7 +368,7 @@ public:
 
 private:
   runtime::application& application_;
-  gneiss_scene_instance scene_{};
+  gneiss::engine::rid scene_{};
   scene_document& session_;
   std::shared_ptr<const prefab_placement_snapshot> snapshot_;
   bool removal_{};
@@ -375,7 +377,7 @@ private:
 struct editor_prefab_edit::state {
   explicit state(runtime::application& host) : application(host) {}
   runtime::application& application;
-  gneiss_scene_instance scene{};
+  gneiss::engine::rid scene{};
   scene_document* session{};
   editor_command_history* history{};
   std::unique_ptr<runtime::prefab_preparation> preparation;

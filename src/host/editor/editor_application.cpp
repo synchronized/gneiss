@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "editor_application.hpp"
+#include "engine/core/reflection/component_identity.hpp"
+#include "engine/core/scene_types.hpp"
 
 #include "child_process.hpp"
 #include "commands/asset_scene_commands.hpp"
@@ -2413,9 +2415,11 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
           ImGui::Text("%s: %s", label,
                       (prefab->override_flags & flag) != 0U ? "Overridden" : "Inherited");
         };
-        status("Translation", GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN);
-        status("Rotation", GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN);
-        status("Scale", GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN);
+        status("Translation",
+               static_cast<std::uint32_t>(gneiss::scene_prefab_flags::translation_overridden));
+        status("Rotation",
+               static_cast<std::uint32_t>(gneiss::scene_prefab_flags::rotation_overridden));
+        status("Scale", static_cast<std::uint32_t>(gneiss::scene_prefab_flags::scale_overridden));
         ImGui::TextDisabled("Source T: %.3f, %.3f, %.3f",
                             prefab->source_local_transform.translation[0],
                             prefab->source_local_transform.translation[1],
@@ -2523,14 +2527,18 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
             }
           }
         };
-        restore_field("Restore Translation", GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN,
-                      GNEISS_TRANSFORM_FIELD_TRANSLATION);
+        restore_field(
+            "Restore Translation",
+            static_cast<std::uint32_t>(gneiss::scene_prefab_flags::translation_overridden),
+            gneiss::engine::transform_translation_field.get());
         ImGui::SameLine();
-        restore_field("Restore Rotation", GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN,
-                      GNEISS_TRANSFORM_FIELD_ROTATION);
+        restore_field("Restore Rotation",
+                      static_cast<std::uint32_t>(gneiss::scene_prefab_flags::rotation_overridden),
+                      gneiss::engine::transform_rotation_field.get());
         ImGui::SameLine();
-        restore_field("Restore Scale", GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN,
-                      GNEISS_TRANSFORM_FIELD_SCALE);
+        restore_field("Restore Scale",
+                      static_cast<std::uint32_t>(gneiss::scene_prefab_flags::scale_overridden),
+                      gneiss::engine::transform_scale_field.get());
         const auto* current =
             state.editing.document().find_prefab_source(instance_uuid, source_uuid);
         const bool has_override = current != nullptr && current->override_flags != 0U;
@@ -2675,9 +2683,11 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
       ImGui::Separator();
       const auto uuid = selected->uuid;
       const auto has_camera =
-          (selected->component_flags & GNEISS_SCENE_NODE_COMPONENT_CAMERA) != 0U;
+          (selected->component_flags &
+           static_cast<std::uint32_t>(gneiss::scene_node_components::camera)) != 0U;
       const auto has_mesh =
-          (selected->component_flags & GNEISS_SCENE_NODE_COMPONENT_MESH_RENDERER) != 0U;
+          (selected->component_flags &
+           static_cast<std::uint32_t>(gneiss::scene_node_components::mesh_renderer)) != 0U;
       const auto selected_mesh_uri = selected->mesh_uri;
       const auto selected_material_uri = selected->material_uri;
       bool components_changed = false;

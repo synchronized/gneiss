@@ -12,9 +12,8 @@
 - `GNEISS_VERSION_PATCH`
 - `GNEISS_VERSION_STRING`
 
-C API 的 `gneiss_version_major`、`gneiss_version_minor` 和 `gneiss_version_patch` 返回运行时库版本。
-C++ API 使用 `gneiss::library_version()` 返回强类型版本结构。使用共享库时可以比较编译期和运行时
-版本，诊断加载了错误运行库的问题。
+仓内使用 `gneiss::engine::library_version()` 返回运行时库版本。版本结构与函数声明位于
+`src/engine/core/version.hpp`。旧版本查询 C 函数已删除，不提供公共 C++ SDK。
 
 ## 结果码
 
@@ -35,31 +34,14 @@ C++ API 使用 `gneiss::library_version()` 返回强类型版本结构。使用�
 | `GNEISS_ERROR_NOT_READY` | 操作暂时无法完成，可以稍后重试 |
 | `GNEISS_ERROR_INTERNAL` | 内部不变量被破坏或发生未分类内部错误 |
 
-`gneiss_result_message` 返回由运行库持有的静态英文文本，线程安全且不返回空指针。未知数值返回
-`unrecognized result`。
+仓内操作统一使用 `gneiss::engine::result`（`engine/core/result.hpp`）。它只保存一个
+32 位结果码，提供 `ok()`、`failed()`、`code()`、`message()` 和显式布尔判断。
+默认构造产生 unknown；非负值成功，负值失败，不提供隐式整数转换。
+`message()` 返回静态英文文本的 string_view，未知数值返回 `unrecognized result`。
 
-公共 C++ 共享值类型使用只保存一个 32 位结果码的 `gneiss::result` 轻量值类型。它提供 `ok()`、`failed()`、
-`native()`、`message()` 和显式 `operator bool()`；布尔上下文中成功为 `true`，失败为 `false`。
-默认构造产生 `unknown` 失败结果，避免尚未赋值的结果静默表示成功；任意 C 结果码可通过显式构造
-或 `from_native` 无损保留。
-
-```cpp
-const auto operation = gneiss::from_native(gneiss_application_run(application, 1));
-if (!operation) {
-  std::cerr << operation.message();
-}
-```
-
-- `gneiss::to_native` 与 `gneiss::from_native` 转换 C/C++ 表达。
-
-src 内部操作统一使用 `gneiss::engine::result`（`engine/core/result.hpp`）。它提供
-`ok()`、`failed()`、`code()`、`message()` 和显式布尔判断，默认 `unknown`；不提供隐式整数转换。
-普通内部调用直接传递该值，C API 在适配层使用 `to_c_result` / `from_c_result`；协议整数码在
-编解码处显式转换。公共结果值不作为内部接口类型，公共头也不依赖 src。
-设计依据见 [ADR-074](../decisions/ADR-074-native-result.md)。
-
-结果码只表达稳定分类。更详细的后端错误、对象和调用上下文应由后续诊断接口提供，不能通过持续
-增加高度具体的公共结果码替代诊断系统。
+普通内部调用直接传递该值；最小游戏模块边界通过 `to_c_result` / `from_c_result`
+显式转换 C 结果码，任意整数码均无损保留。旧 `gneiss::result` 别名和通用
+`to_native` / `from_native` 转换已删除。
 
 ## 内部基础身份类型
 

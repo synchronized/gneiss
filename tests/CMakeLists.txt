@@ -45,19 +45,6 @@ gneiss_target_output_directories(gneiss_task_scheduler_test)
 add_test(NAME gneiss.task-scheduler COMMAND gneiss_task_scheduler_test)
 set_tests_properties(gneiss.task-scheduler PROPERTIES TIMEOUT 30)
 
-add_executable(gneiss_c_version_test c_version_test.c)
-target_link_libraries(gneiss_c_version_test PRIVATE gneiss::engine)
-set_target_properties(
-  gneiss_c_version_test
-  PROPERTIES
-    C_STANDARD 11
-    C_STANDARD_REQUIRED YES
-    C_EXTENSIONS NO
-    LINKER_LANGUAGE CXX
-)
-gneiss_target_compile_warnings(gneiss_c_version_test)
-gneiss_target_output_directories(gneiss_c_version_test)
-add_test(NAME gneiss.c_version COMMAND gneiss_c_version_test)
 
 add_test(
   NAME gneiss.api_stability_manifest
@@ -79,32 +66,13 @@ add_test(
 )
 
 add_executable(gneiss_cpp_version_test cpp_version_test.cpp)
-target_link_libraries(gneiss_cpp_version_test PRIVATE gneiss::engine)
+target_link_libraries(gneiss_cpp_version_test PRIVATE gneiss::engine gneiss_value_interface)
 target_compile_features(gneiss_cpp_version_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_cpp_version_test)
 gneiss_target_output_directories(gneiss_cpp_version_test)
 add_test(NAME gneiss.cpp_version COMMAND gneiss_cpp_version_test)
 
-add_executable(gneiss_c_result_test c_result_test.c)
-target_link_libraries(gneiss_c_result_test PRIVATE gneiss::engine)
-set_target_properties(
-  gneiss_c_result_test
-  PROPERTIES
-    C_STANDARD 11
-    C_STANDARD_REQUIRED YES
-    C_EXTENSIONS NO
-    LINKER_LANGUAGE CXX
-)
-gneiss_target_compile_warnings(gneiss_c_result_test)
-gneiss_target_output_directories(gneiss_c_result_test)
-add_test(NAME gneiss.c_result COMMAND gneiss_c_result_test)
 
-add_executable(gneiss_cpp_result_test cpp_result_test.cpp)
-target_link_libraries(gneiss_cpp_result_test PRIVATE gneiss::engine)
-target_compile_features(gneiss_cpp_result_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_cpp_result_test)
-gneiss_target_output_directories(gneiss_cpp_result_test)
-add_test(NAME gneiss.cpp_result COMMAND gneiss_cpp_result_test)
 
 add_executable(gneiss_c_game_module_test c_game_module_test.c)
 target_link_libraries(gneiss_c_game_module_test PRIVATE gneiss::engine)
@@ -261,8 +229,8 @@ add_test(NAME gneiss.asset_uri COMMAND gneiss_asset_uri_test)
 
 add_library(
   gneiss_c_header_test OBJECT headers/entity_h.c headers/game_module_h.c
-                              headers/gneiss_h.c headers/log_h.c
-                              headers/result_h.c headers/rid_h.c headers/scene_h.c headers/world_h.c
+                              headers/gneiss_h.c
+                              headers/result_h.c
 )
 target_link_libraries(gneiss_c_header_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_c_header_test PRIVATE c_std_11)

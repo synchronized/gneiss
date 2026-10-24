@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -37,7 +38,7 @@ void write_prefab(const std::filesystem::path& path, std::string_view root_uuid,
 }
 
 gneiss::engine::result find_source(const std::shared_ptr<gneiss::runtime::application>& application,
-                                   gneiss_scene_instance scene, std::string_view instance_uuid,
+                                   gneiss::engine::rid scene, std::string_view instance_uuid,
                                    std::string_view source_uuid,
                                    gneiss::engine::prefab_node_view& output) {
   std::uint64_t count = 0U;
@@ -65,7 +66,7 @@ int main() try {
   gneiss::runtime::application_configuration config;
   config.asset_root = root_text;
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
+  gneiss::engine::rid scene = gneiss::engine::null_rid;
   constexpr std::string_view scene_uri = "asset://scenes/prefab.scene.json";
   if (gneiss::runtime::application::create(config, application) !=
           gneiss::engine::result::success ||

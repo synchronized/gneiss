@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -43,7 +44,7 @@ int main() try {
   gneiss::runtime::application_configuration config;
   config.asset_root = root_text;
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
+  gneiss::engine::rid scene = gneiss::engine::null_rid;
   gneiss::scene_node_id camera_before;
   gneiss::scene_node_id old_child;
   gneiss::entity_id camera_entity_before;

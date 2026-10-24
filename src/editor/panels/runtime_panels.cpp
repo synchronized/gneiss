@@ -4,6 +4,7 @@
 #include "panels/runtime_panels.hpp"
 #include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/scene_types.hpp"
 
 #include "viewport/editor_rotation_math.hpp"
 
@@ -147,12 +148,13 @@ void draw_runtime_inspector(const runtime_scene_node& node,
       draw_runtime_property_status(edit, {observed});
     };
 
-    const auto translation_key = runtime_transform_key(node, GNEISS_TRANSFORM_FIELD_TRANSLATION);
+    const auto translation_key =
+        runtime_transform_key(node, gneiss::engine::transform_translation_field.get());
     const auto* translation_edit = actions.find_edit(actions.context, translation_key);
     ImGui::BeginDisabled(!editable ||
                          (translation_edit != nullptr &&
                           translation_edit->state == runtime_property_edit_state::pending));
-    ImGui::PushID(static_cast<int>(GNEISS_TRANSFORM_FIELD_TRANSLATION));
+    ImGui::PushID(static_cast<int>(gneiss::engine::transform_translation_field.get()));
     (void)ImGui::DragFloat3("Translation", translation.data(), 0.05F);
     const auto translation_committed = ImGui::IsItemDeactivatedAfterEdit();
     ImGui::PopID();
@@ -167,12 +169,13 @@ void draw_runtime_inspector(const runtime_scene_node& node,
     }
     draw_runtime_property_status(translation_edit, {node.local_transform.translation});
 
-    const auto rotation_key = runtime_transform_key(node, GNEISS_TRANSFORM_FIELD_ROTATION);
+    const auto rotation_key =
+        runtime_transform_key(node, gneiss::engine::transform_rotation_field.get());
     const auto* rotation_edit = actions.find_edit(actions.context, rotation_key);
     ImGui::BeginDisabled(
         !editable ||
         (rotation_edit != nullptr && rotation_edit->state == runtime_property_edit_state::pending));
-    ImGui::PushID(static_cast<int>(GNEISS_TRANSFORM_FIELD_ROTATION));
+    ImGui::PushID(static_cast<int>(gneiss::engine::transform_rotation_field.get()));
     (void)ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°");
     const auto rotation_committed = ImGui::IsItemDeactivatedAfterEdit();
     ImGui::PopID();
@@ -195,26 +198,28 @@ void draw_runtime_inspector(const runtime_scene_node& node,
     draw_runtime_property_status(rotation_edit, {std::array<float, 4>{quaternion.x, quaternion.y,
                                                                       quaternion.z, quaternion.w}});
 
-    draw_vec3("Scale", GNEISS_TRANSFORM_FIELD_SCALE, scale, 0.05F);
+    draw_vec3("Scale", gneiss::engine::transform_scale_field.get(), scale, 0.05F);
   }
   ImGui::BeginDisabled();
-  if ((node.component_flags & GNEISS_SCENE_NODE_COMPONENT_CAMERA) != 0U &&
+  if ((node.component_flags & static_cast<std::uint32_t>(gneiss::scene_node_components::camera)) !=
+          0U &&
       ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
     auto field_of_view = node.camera.vertical_field_of_view_radians;
     auto near_plane = node.camera.near_plane;
     auto far_plane = node.camera.far_plane;
-    ImGui::PushID(static_cast<int>(GNEISS_CAMERA_FIELD_VERTICAL_FIELD_OF_VIEW_RADIANS));
+    ImGui::PushID(static_cast<int>(gneiss::engine::camera_vertical_field_of_view_field.get()));
     ImGui::DragFloat("Vertical FOV (radians)", &field_of_view);
     ImGui::PopID();
-    ImGui::PushID(static_cast<int>(GNEISS_CAMERA_FIELD_NEAR_PLANE));
+    ImGui::PushID(static_cast<int>(gneiss::engine::camera_near_plane_field.get()));
     ImGui::DragFloat("Near plane", &near_plane);
     ImGui::PopID();
-    ImGui::PushID(static_cast<int>(GNEISS_CAMERA_FIELD_FAR_PLANE));
+    ImGui::PushID(static_cast<int>(gneiss::engine::camera_far_plane_field.get()));
     ImGui::DragFloat("Far plane", &far_plane);
     ImGui::PopID();
   }
   ImGui::EndDisabled();
-  if ((node.component_flags & GNEISS_SCENE_NODE_COMPONENT_MESH_RENDERER) != 0U &&
+  if ((node.component_flags &
+       static_cast<std::uint32_t>(gneiss::scene_node_components::mesh_renderer)) != 0U &&
       ImGui::CollapsingHeader("Mesh Renderer", ImGuiTreeNodeFlags_DefaultOpen)) {
     ImGui::TextWrapped("Mesh: %s", node.mesh_uri.empty() ? "(none)" : node.mesh_uri.c_str());
     ImGui::TextWrapped("Material: %s",

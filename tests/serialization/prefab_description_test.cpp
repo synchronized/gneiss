@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_tree.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
 #include "engine/resource/loaders/prefab_asset_loader.hpp"
@@ -213,14 +214,14 @@ int main() try {
 
   // 实例根作为源根的父节点，沿用 Scene Tree 的父子变换组合约定。
   gneiss::engine::scene_tree tree(1U);
-  gneiss_scene_node_id instance_root = GNEISS_NULL_SCENE_NODE_ID;
-  gneiss_scene_node_id source_root = GNEISS_NULL_SCENE_NODE_ID;
+  gneiss::engine::rid instance_root = gneiss::engine::null_rid;
+  gneiss::engine::rid source_root = gneiss::engine::null_rid;
   gneiss::engine::transform instance_transform = gneiss::engine::transform{};
   instance_transform.translation[0] = 10.0F;
   instance_transform.scale[0] = 2.0F;
   gneiss::engine::transform source_transform = gneiss::engine::transform{};
   source_transform.translation[0] = 3.0F;
-  if (tree.create(GNEISS_NULL_SCENE_NODE_ID, GNEISS_NULL_ENTITY_ID, &instance_root) !=
+  if (tree.create(gneiss::engine::null_rid, GNEISS_NULL_ENTITY_ID, &instance_root) !=
           gneiss::engine::result::success ||
       tree.create(instance_root, GNEISS_NULL_ENTITY_ID, &source_root) !=
           gneiss::engine::result::success ||

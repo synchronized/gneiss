@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -16,7 +17,7 @@ int main() try {
   gneiss::runtime::application_configuration application_desc;
   application_desc.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
+  gneiss::engine::rid scene = gneiss::engine::null_rid;
   std::uint64_t entity_count = 0;
   if (gneiss::runtime::application::create(application_desc, application) !=
           gneiss::engine::result::success ||
@@ -66,7 +67,7 @@ int main() try {
   }
 
   const auto stale_loaded_root = prefab_root.node;
-  gneiss_scene_prefab_refresh_token loaded_refresh = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
+  gneiss::engine::rid loaded_refresh = gneiss::engine::null_rid;
   if (application->scenes()->refresh_prefab_instance(scene, stale_loaded_root, prefab_root.node,
                                                      &loaded_refresh) !=
           gneiss::engine::result::success ||
@@ -132,11 +133,11 @@ int main() try {
   }
   const auto stale_root = created_root;
   gneiss::entity_id stale_entity;
-  gneiss_scene_prefab_refresh_token refresh_token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
+  gneiss::engine::rid refresh_token = gneiss::engine::null_rid;
   if (application->scenes()->refresh_prefab_instance(
           scene, stale_root, created_root, &refresh_token) != gneiss::engine::result::success ||
       created_root == gneiss::null_scene_node_id || created_root == stale_root ||
-      refresh_token == GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN ||
+      refresh_token == gneiss::engine::null_rid ||
       application->native_world()->node_get_entity(stale_root, stale_entity) !=
           gneiss::engine::result::invalid_handle) {
     return 4;
@@ -170,9 +171,9 @@ int main() try {
       entity_count != 0U) {
     return 7;
   }
-  scene = GNEISS_NULL_SCENE_INSTANCE;
+  scene = gneiss::engine::null_rid;
   if (application->scenes()->load(missing_scene_uri, &scene) != gneiss::engine::result::not_found ||
-      scene != GNEISS_NULL_SCENE_INSTANCE ||
+      scene != gneiss::engine::null_rid ||
       application->native_world()->entity_count(entity_count) != gneiss::engine::result::success ||
       entity_count != 0U) {
     return 8;

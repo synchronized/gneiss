@@ -8,7 +8,7 @@
 #include "runtime_property_adapter.hpp"
 #include "runtime_scene_adapter.hpp"
 
-#include <gneiss/engine/world.h>
+#include <gneiss/engine/game_module_types.h>
 
 #include <algorithm>
 #include <array>
@@ -383,7 +383,7 @@ int main() try {
       .object = {process.scene_mirror().nodes().front().id.value,
                  process.scene_mirror().nodes().front().id.generation},
       .type_id = {},
-      .field_id = GNEISS_TRANSFORM_FIELD_TRANSLATION};
+      .field_id = gneiss::engine::transform_translation_field.get()};
   const auto transform_type = gneiss::engine::transform_component_type;
   std::ranges::copy(transform_type.value.bytes(), property_key.type_id.begin());
   if (!process.supports_property_editing() ||
@@ -430,7 +430,7 @@ int main() try {
     return 7;
   }
   auto paused_key = property_key;
-  paused_key.field_id = GNEISS_TRANSFORM_FIELD_SCALE;
+  paused_key.field_id = gneiss::engine::transform_scale_field.get();
   if (process.request_property_write(paused_key, 1U, {std::array<float, 3>{1.1F, 1.2F, 1.3F}}) !=
       gneiss::engine::result::success) {
     return 7;

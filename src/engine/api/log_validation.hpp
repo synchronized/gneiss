@@ -8,7 +8,7 @@
 #include "engine/core/log/log.hpp"
 #include "engine/core/log/log_dispatcher.hpp"
 #include "engine/core/result.hpp"
-#include <gneiss/engine/log.h>
+#include <gneiss/engine/game_module_types.h>
 
 #include <algorithm>
 #include <cstdint>

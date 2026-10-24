@@ -54,3 +54,7 @@ template <scene_flags T> [[nodiscard]] constexpr bool has_flags(T value, T flags
 }
 
 }
+
+namespace gneiss::engine {
+inline constexpr std::uint64_t scene_subtree_max_nodes = 4096;
+}

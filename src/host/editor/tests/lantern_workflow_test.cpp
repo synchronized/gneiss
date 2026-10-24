@@ -7,11 +7,12 @@
 #include "documents/scene_document.hpp"
 #include "editor_project.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
 #include "engine/core/math/transform.hpp"
-#include "engine/values/core/result.hpp"
+#include "engine/core/result.hpp"
 
 #include <algorithm>
 #include <array>
@@ -175,11 +176,11 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   }
   prefab_text.replace(old_name, std::string_view{"Lantern Glass"}.size(), "Lantern Glass Updated");
   write_text(prefab_path, prefab_text);
-  std::vector<gneiss_scene_prefab_refresh_token> refresh_tokens;
+  std::vector<gneiss::engine::rid> refresh_tokens;
   for (const auto instance_uuid : instance_uuids) {
     const auto* root_node = session.find_prefab_root(instance_uuid);
     gneiss::scene_node_id refreshed_root;
-    gneiss_scene_prefab_refresh_token token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
+    gneiss::engine::rid token = gneiss::engine::null_rid;
     if (root_node == nullptr ||
         session.refresh_prefab_instance(root_node->node, refreshed_root, token) !=
             gneiss::engine::result::success) {

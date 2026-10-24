@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
+#include "engine/core/scene_types.hpp"
 #include "runtime_scene_inspection.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"
@@ -52,7 +54,8 @@ bool test_full_and_incremental_snapshot() {
   nodes[1].name = "Renamed";
   nodes[1].local_transform.translation[0] = 2.0F;
   nodes[1].component_flags =
-      GNEISS_SCENE_NODE_COMPONENT_CAMERA | GNEISS_SCENE_NODE_COMPONENT_MESH_RENDERER;
+      static_cast<std::uint32_t>(gneiss::scene_node_components::camera) |
+      static_cast<std::uint32_t>(gneiss::scene_node_components::mesh_renderer);
   nodes[1].camera.near_plane = 0.25F;
   nodes[1].mesh_uri = "asset:///meshes/child.gneiss-mesh";
   nodes[1].material_uri = "asset:///materials/child.material.json";
@@ -139,7 +142,7 @@ bool test_capture_prefab_scene() {
   gneiss::runtime::application_configuration desc;
   desc.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
+  gneiss::engine::rid scene = gneiss::engine::null_rid;
   if (gneiss::engine::result{gneiss::runtime::application::create(desc, application)} !=
           gneiss::engine::result::success ||
       gneiss::engine::result{application->scenes()->load(scene_uri, &scene)} !=

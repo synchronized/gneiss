@@ -8,9 +8,9 @@
 #include "engine/function/world/world_reflection.hpp"
 #include "engine/function/world/world_service.hpp"
 
-#include <gneiss/engine/world.h>
+#include <gneiss/engine/game_module_types.h>
 
-#include <gneiss/engine/scene.h>
+#include <gneiss/engine/game_module_types.h>
 
 #include <array>
 #include <cmath>
@@ -243,15 +243,16 @@ make_field(std::uint32_t id, gneiss::engine::type_guid value_type_id, std::uint3
 gneiss::engine::result
 gneiss::engine::register_reflection(const gneiss::engine::registry_ref& registry) {
   constexpr std::array transform_fields{
-      make_field(GNEISS_TRANSFORM_FIELD_TRANSLATION, vec3_id, 0U, "translation", 11U),
-      make_field(GNEISS_TRANSFORM_FIELD_ROTATION, quaternion_id, 0U, "rotation", 8U),
-      make_field(GNEISS_TRANSFORM_FIELD_SCALE, vec3_id, 0U, "scale", 5U)};
+      make_field(gneiss::engine::transform_translation_field.get(), vec3_id, 0U, "translation",
+                 11U),
+      make_field(gneiss::engine::transform_rotation_field.get(), quaternion_id, 0U, "rotation", 8U),
+      make_field(gneiss::engine::transform_scale_field.get(), vec3_id, 0U, "scale", 5U)};
   constexpr std::array camera_fields{
-      make_field(GNEISS_CAMERA_FIELD_VERTICAL_FIELD_OF_VIEW_RADIANS, float32_id, 0U,
+      make_field(gneiss::engine::camera_vertical_field_of_view_field.get(), float32_id, 0U,
                  "vertical_field_of_view_radians", 30U),
-      make_field(GNEISS_CAMERA_FIELD_NEAR_PLANE, float32_id, 0U, "near_plane", 10U),
-      make_field(GNEISS_CAMERA_FIELD_FAR_PLANE, float32_id, 0U, "far_plane", 9U),
-      make_field(GNEISS_CAMERA_FIELD_IS_PRIMARY, bool_id,
+      make_field(gneiss::engine::camera_near_plane_field.get(), float32_id, 0U, "near_plane", 10U),
+      make_field(gneiss::engine::camera_far_plane_field.get(), float32_id, 0U, "far_plane", 9U),
+      make_field(gneiss::engine::camera_is_primary_field.get(), bool_id,
                  static_cast<std::uint32_t>(gneiss::field_flags::read_only), "is_primary", 10U)};
   const gneiss::engine::type_definition transform{
       .id = transform_id, .schema_version = 1U, .name = "transform", .fields = transform_fields};
@@ -262,38 +263,39 @@ gneiss::engine::register_reflection(const gneiss::engine::registry_ref& registry
     result = gneiss::engine::register_type(registry, camera);
   }
   if (result == gneiss::engine::result::success) {
-    result = bind_component_field(registry, transform_id, GNEISS_TRANSFORM_FIELD_TRANSLATION,
-                                  gneiss::property_kind::vec3, get_transform, set_transform,
-                                  &translation_field);
-  }
-  if (result == gneiss::engine::result::success) {
-    result = bind_component_field(registry, transform_id, GNEISS_TRANSFORM_FIELD_ROTATION,
-                                  gneiss::property_kind::quaternion, get_transform, set_transform,
-                                  &rotation_field);
-  }
-  if (result == gneiss::engine::result::success) {
-    result = bind_component_field(registry, transform_id, GNEISS_TRANSFORM_FIELD_SCALE,
-                                  gneiss::property_kind::vec3, get_transform, set_transform,
-                                  &scale_field);
+    result = bind_component_field(
+        registry, transform_id, gneiss::engine::transform_translation_field.get(),
+        gneiss::property_kind::vec3, get_transform, set_transform, &translation_field);
   }
   if (result == gneiss::engine::result::success) {
     result = bind_component_field(
-        registry, camera_id, GNEISS_CAMERA_FIELD_VERTICAL_FIELD_OF_VIEW_RADIANS,
+        registry, transform_id, gneiss::engine::transform_rotation_field.get(),
+        gneiss::property_kind::quaternion, get_transform, set_transform, &rotation_field);
+  }
+  if (result == gneiss::engine::result::success) {
+    result = bind_component_field(
+        registry, transform_id, gneiss::engine::transform_scale_field.get(),
+        gneiss::property_kind::vec3, get_transform, set_transform, &scale_field);
+  }
+  if (result == gneiss::engine::result::success) {
+    result = bind_component_field(
+        registry, camera_id, gneiss::engine::camera_vertical_field_of_view_field.get(),
         gneiss::property_kind::float32, get_camera, set_camera, &field_of_view_field);
   }
   if (result == gneiss::engine::result::success) {
-    result = bind_component_field(registry, camera_id, GNEISS_CAMERA_FIELD_NEAR_PLANE,
-                                  gneiss::property_kind::float32, get_camera, set_camera,
-                                  &near_plane_field);
+    result = bind_component_field(
+        registry, camera_id, gneiss::engine::camera_near_plane_field.get(),
+        gneiss::property_kind::float32, get_camera, set_camera, &near_plane_field);
   }
   if (result == gneiss::engine::result::success) {
-    result = bind_component_field(registry, camera_id, GNEISS_CAMERA_FIELD_FAR_PLANE,
+    result = bind_component_field(registry, camera_id, gneiss::engine::camera_far_plane_field.get(),
                                   gneiss::property_kind::float32, get_camera, set_camera,
                                   &far_plane_field);
   }
   if (result == gneiss::engine::result::success) {
-    result = bind_component_field(registry, camera_id, GNEISS_CAMERA_FIELD_IS_PRIMARY,
-                                  gneiss::property_kind::boolean, get_is_primary, nullptr, nullptr);
+    result =
+        bind_component_field(registry, camera_id, gneiss::engine::camera_is_primary_field.get(),
+                             gneiss::property_kind::boolean, get_is_primary, nullptr, nullptr);
   }
   return result;
 }

@@ -7,7 +7,7 @@
 #include "engine/core/entity_id.hpp"
 #include "engine/core/reflection/property_registry.hpp"
 #include "engine/core/result.hpp"
-#include <gneiss/engine/world.h>
+#include <gneiss/engine/game_module_types.h>
 
 #include <string>
 #include <vector>

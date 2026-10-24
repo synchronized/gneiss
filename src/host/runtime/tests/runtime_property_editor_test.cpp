@@ -6,7 +6,7 @@
 #include "engine/function/world/world.hpp"
 #include "runtime_property_editor.hpp"
 
-#include <gneiss/engine/world.h>
+#include <gneiss/engine/game_module_types.h>
 
 #include <array>
 #include <cstdint>
@@ -58,14 +58,14 @@ bool test_write_and_revision() {
 
   gneiss::host::runtime_property_editor editor;
   GNEISS_TEST_CHECK(editor.initialize(world, inspection, 7U) == gneiss::engine::result::success);
-  const gneiss::host::ipc_property_write command{.session_id = 7U,
-                                                 .command_id = 1U,
-                                                 .object = snapshot.changes.front().id,
-                                                 .type_id =
-                                                     gneiss::engine::transform_component_type,
-                                                 .field_id = GNEISS_TRANSFORM_FIELD_TRANSLATION,
-                                                 .expected_revision = 1U,
-                                                 .value = {std::array<float, 3>{2.0F, 3.0F, 4.0F}}};
+  const gneiss::host::ipc_property_write command{
+      .session_id = 7U,
+      .command_id = 1U,
+      .object = snapshot.changes.front().id,
+      .type_id = gneiss::engine::transform_component_type,
+      .field_id = gneiss::engine::transform_translation_field.get(),
+      .expected_revision = 1U,
+      .value = {std::array<float, 3>{2.0F, 3.0F, 4.0F}}};
   gneiss::host::ipc_property_write_result response;
   GNEISS_TEST_CHECK(editor.execute(command, response) == gneiss::engine::result::success);
   if (response.code != gneiss::engine::result::success.code()) {
@@ -101,14 +101,14 @@ bool test_rejections() {
   gneiss::host::runtime_scene_inspection inspection(9U);
   gneiss::host::runtime_property_editor editor;
   GNEISS_TEST_CHECK(editor.initialize(world, inspection, 9U) == gneiss::engine::result::success);
-  const gneiss::host::ipc_property_write missing{.session_id = 9U,
-                                                 .command_id = 1U,
-                                                 .object = {1U, 1U},
-                                                 .type_id =
-                                                     gneiss::engine::transform_component_type,
-                                                 .field_id = GNEISS_TRANSFORM_FIELD_SCALE,
-                                                 .expected_revision = 1U,
-                                                 .value = {std::array<float, 3>{1.0F, 1.0F, 1.0F}}};
+  const gneiss::host::ipc_property_write missing{
+      .session_id = 9U,
+      .command_id = 1U,
+      .object = {1U, 1U},
+      .type_id = gneiss::engine::transform_component_type,
+      .field_id = gneiss::engine::transform_scale_field.get(),
+      .expected_revision = 1U,
+      .value = {std::array<float, 3>{1.0F, 1.0F, 1.0F}}};
   gneiss::host::ipc_property_write_result response;
   GNEISS_TEST_CHECK(editor.execute(missing, response) == gneiss::engine::result::success);
   GNEISS_TEST_CHECK(response.code == gneiss::engine::result::not_found.code());

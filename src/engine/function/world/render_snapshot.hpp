@@ -6,7 +6,7 @@
 
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_snapshot.hpp"
-#include <gneiss/engine/world.h>
+#include <gneiss/engine/game_module_types.h>
 
 #include <cstdint>
 

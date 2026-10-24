@@ -5,6 +5,7 @@
 #define GNEISS_WORLD_WORLD_STATE_HPP_
 
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/world/world_components.hpp"
 #include <gneiss/engine/core/entity.h>
 
@@ -115,7 +116,7 @@ public:
   }
   /** 结构重载中新创建的可见对象加入原发布组；保持可见，不改变实体总数。 */
   [[nodiscard]] gneiss::engine::result
-  bind_publication(const publication& group, gneiss_entity_id entity, gneiss_scene_node_id node) {
+  bind_publication(const publication& group, gneiss_entity_id entity, gneiss::engine::rid node) {
     if (!valid_group(group) || !group->published_ || group->retired_ || !is_alive(entity) ||
         scene_.get_entity(node) != entity) {
       return gneiss::engine::result::invalid_state;

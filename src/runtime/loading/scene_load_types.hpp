@@ -2,9 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include <cstddef>
 #include <cstdint>
-#include <gneiss/engine/scene.h>
+#include <gneiss/engine/game_module_types.h>
 #include <string>
 namespace gneiss::runtime {
 enum class scene_load_phase : std::uint8_t {
@@ -45,7 +46,7 @@ struct scene_load_completion {
   scene_load_progress progress;
   gneiss::engine::result result{gneiss::engine::result::internal};
   std::string message;
-  gneiss_scene_instance scene{};
+  gneiss::engine::rid scene{};
   double prepare_ms{};
   double asset_prepare_ms{};
   double upload_ms{};

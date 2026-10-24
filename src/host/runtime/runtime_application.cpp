@@ -2,13 +2,14 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_application.hpp"
+#include "engine/core/rid.hpp"
 
 #include "engine/core/result.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 #include <gneiss/app/project_description.hpp>
-#include <gneiss/engine/scene.h>
+#include <gneiss/engine/game_module_types.h>
 
 #include "game_module_session.hpp"
 #include "game_update_scheduler.hpp"
@@ -61,7 +62,7 @@ struct runtime_context final {
   gneiss::host::runtime_scene_inspection* scene_inspection = nullptr;
   gneiss::host::runtime_property_editor* property_editor = nullptr;
   gneiss::host::runtime_asset_reloader* asset_reloader = nullptr;
-  gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
+  gneiss::engine::rid scene = gneiss::engine::null_rid;
   std::uint64_t next_inspection_ns = 0U;
   std::uint64_t inspection_session_id = 0U;
   std::uint64_t next_statistics_ns = 0U;
@@ -91,7 +92,7 @@ struct runtime_context final {
 }
 
 gneiss::engine::result
-apply_asset_revision(gneiss::runtime::application& application, gneiss_scene_instance scene,
+apply_asset_revision(gneiss::runtime::application& application, gneiss::engine::rid scene,
                      std::string_view startup_scene,
                      std::span<const gneiss::host::ipc_asset_revision> assets) noexcept {
   try {
@@ -438,8 +439,7 @@ gneiss::engine::result update_runtime(gneiss::engine::rid application,
     }
   }
   if (context.ipc_session != nullptr && context.scene_inspection != nullptr &&
-      context.scene != GNEISS_NULL_SCENE_INSTANCE &&
-      time->elapsed_ns >= context.next_inspection_ns &&
+      context.scene != gneiss::engine::null_rid && time->elapsed_ns >= context.next_inspection_ns &&
       context.ipc_session->supports_domain(gneiss::engine::ipc_domain::inspection)) {
     context.next_inspection_ns = time->elapsed_ns + UINT64_C(100000000);
     gneiss::host::runtime_scene_snapshot snapshot;
@@ -460,7 +460,7 @@ gneiss::engine::result update_runtime(gneiss::engine::rid application,
       return request_exit();
     }
   }
-  if (context.ipc_session != nullptr && context.scene != GNEISS_NULL_SCENE_INSTANCE &&
+  if (context.ipc_session != nullptr && context.scene != gneiss::engine::null_rid &&
       context.inspection_session_id != 0U && time->elapsed_ns >= context.next_statistics_ns) {
     context.next_statistics_ns = time->elapsed_ns + UINT64_C(250000000);
     std::uint64_t scene_node_count = 0U;
@@ -612,7 +612,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
     }
   }
 
-  gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
+  gneiss::engine::rid scene = gneiss::engine::null_rid;
   auto native_result = gneiss::engine::result::success;
   std::string active_scene_uri = project.startup_scene;
   const auto inspection_serial =
@@ -830,7 +830,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
   context.asset_reloader = nullptr;
   context.property_editor = nullptr;
   context.scene_inspection = nullptr;
-  context.scene = GNEISS_NULL_SCENE_INSTANCE;
+  context.scene = gneiss::engine::null_rid;
   if (ipc_session) {
     (void)ipc_session->stop();
   }
@@ -872,8 +872,8 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
     (void)application->scenes()->unload(scene);
     return 9;
   }
-  native_result = scene == GNEISS_NULL_SCENE_INSTANCE ? gneiss::engine::result::success
-                                                      : application->scenes()->unload(scene);
+  native_result = scene == gneiss::engine::null_rid ? gneiss::engine::result::success
+                                                    : application->scenes()->unload(scene);
   if (native_result != gneiss::engine::result::success) {
     log.write("ERROR", "scene_unload", native_result, "启动场景卸载失败");
     return 10;

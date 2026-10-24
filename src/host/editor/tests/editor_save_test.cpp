@@ -3,6 +3,8 @@
 
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
+#include "engine/core/scene_types.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
@@ -102,10 +104,12 @@ int main() try {
   const auto child_uuid = session.find_node(session.selected_node()->uuid)->uuid;
   gneiss::engine::camera_description author_camera{1.04719755F, 0.1F, 1000.0F, false};
   if (session.set_camera(empty_child, author_camera) != gneiss::engine::result::success ||
-      (session.find_node(child_uuid)->component_flags & GNEISS_SCENE_NODE_COMPONENT_CAMERA) == 0U ||
+      (session.find_node(child_uuid)->component_flags &
+       static_cast<std::uint32_t>(gneiss::scene_node_components::camera)) == 0U ||
       session.remove_camera(session.find_node(child_uuid)->node) !=
           gneiss::engine::result::success ||
-      (session.find_node(child_uuid)->component_flags & GNEISS_SCENE_NODE_COMPONENT_CAMERA) != 0U ||
+      (session.find_node(child_uuid)->component_flags &
+       static_cast<std::uint32_t>(gneiss::scene_node_components::camera)) != 0U ||
       session.remove_mesh_renderer(session.find_node(created_uuid)->node) !=
           gneiss::engine::result::success ||
       session.set_mesh_renderer(session.find_node(created_uuid)->node, mesh_uri, material_uri) !=
@@ -183,7 +187,7 @@ int main() try {
   application.reset();
 
   std::shared_ptr<gneiss::runtime::application> reloaded_application;
-  gneiss_scene_instance reloaded_scene{};
+  gneiss::engine::rid reloaded_scene{};
   if (create_application(root, reloaded_application) != gneiss::engine::result::success ||
       reloaded_application->scenes()->load(scene_uri, &reloaded_scene) !=
           gneiss::engine::result::success) {

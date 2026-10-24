@@ -66,7 +66,6 @@ target_sources(
     engine/core/service_registry.hpp
     engine/core/rid_table.hpp
     engine/core/identifier_conversion.hpp
-    engine/api/core_api.cpp
     engine/core/guid.cpp
     engine/core/guid.hpp
     engine/core/string_name.cpp
@@ -81,7 +80,7 @@ target_sources(
     engine/core/entity_id.hpp
     engine/core/reflection/reflection_types.hpp
     engine/core/reflection/component_identity.hpp
-    engine/values/core/result.hpp
+
     engine/core/scene_types.hpp
     engine/core/type_id.cpp
     engine/core/type_id.hpp
@@ -176,13 +175,9 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module_types.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/log.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/scene.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/world.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/entity.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/export.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/result.h"
-      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/rid.h"
       "${GNEISS_GENERATED_VERSION_HEADER}"
 )
 

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
@@ -159,7 +160,7 @@ void run() {
   check(active->initialize(active_assets, active_render) == gneiss::engine::result::invalid_state);
   check(active->world() == initialized_world && active->scenes() == initialized_scenes);
 
-  gneiss_scene_instance old_scene{};
+  gneiss::engine::rid old_scene{};
   check(active->scenes()->load("asset://s.scene", &old_scene) == gneiss::engine::result::success);
   gneiss::engine::scene_node_view old_info;
   check(active->scenes()->get_node_info(old_scene, 0U, old_info) ==
@@ -226,10 +227,10 @@ void run() {
   check(gneiss::engine::asset_rid(unrelated) != gneiss::engine::asset_rid(material));
   staged.clear();
   const auto reads = files->reads;
-  gneiss_scene_instance new_scene{};
+  gneiss::engine::rid new_scene{};
   check(candidate->scenes()->instantiate_prepared(std::move(prepared), bindings, new_scene) ==
         gneiss::engine::result::success);
-  check(new_scene != GNEISS_NULL_SCENE_INSTANCE);
+  check(new_scene != gneiss::engine::null_rid);
   std::uint64_t unchanged_count{};
   check(gneiss::engine::result{gneiss::engine::entity_count(active->world(), unchanged_count)} ==
             gneiss::engine::result::success &&
@@ -310,13 +311,13 @@ void run() {
   check(has_rid(mesh_rid) && has_rid(selected_material) &&
         !has_rid(gneiss::engine::asset_rid(unrelated)));
   // 多个场景共享相同 URI 的资源，按 RID 去重。
-  gneiss_scene_instance additional{};
+  gneiss::engine::rid additional{};
   check(candidate->scenes()->load("asset://s.scene", &additional) ==
         gneiss::engine::result::success);
   check(candidate->scenes()->capture_render_assets(captured) == gneiss::engine::result::success);
   check(captured.size() == 2U && has_rid(selected_material) &&
         !has_rid(gneiss::engine::asset_rid(unrelated)));
-  gneiss_scene_instance duplicate_scene{};
+  gneiss::engine::rid duplicate_scene{};
   check(candidate->scenes()->load("asset://s.scene", &duplicate_scene) ==
         gneiss::engine::result::success);
   check(candidate->scenes()->capture_render_assets(captured) == gneiss::engine::result::success);
@@ -455,10 +456,10 @@ void run() {
   check(candidate->initialize(candidate_assets, candidate_render) ==
         gneiss::engine::result::success);
   const auto failure_reads = files->reads;
-  gneiss_scene_instance failed_instance{};
+  gneiss::engine::rid failed_instance{};
   check(candidate->scenes()->instantiate_prepared(std::move(prepared), {}, failed_instance) ==
         gneiss::engine::result::not_ready);
-  check(failed_instance == GNEISS_NULL_SCENE_INSTANCE);
+  check(failed_instance == gneiss::engine::null_rid);
   check(files->reads == failure_reads);
   check(gneiss::engine::result{gneiss::engine::entity_count(candidate->world(), count)} ==
             gneiss::engine::result::success &&

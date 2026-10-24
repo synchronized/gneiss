@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/world/render_snapshot.hpp"
 #include "engine/function/world/world_state.hpp"
 #include "runtime/application.hpp"
@@ -36,17 +37,17 @@ int run_tests() {
   gneiss::engine::world_state world{1};
   const auto camera_entity = world.create_entity();
   const auto mesh_entity = world.create_entity();
-  gneiss_scene_node_id camera_node = GNEISS_NULL_SCENE_NODE_ID;
-  gneiss_scene_node_id mesh_node = GNEISS_NULL_SCENE_NODE_ID;
+  gneiss::engine::rid camera_node = gneiss::engine::null_rid;
+  gneiss::engine::rid mesh_node = gneiss::engine::null_rid;
   const gneiss::engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   const gneiss::engine::mesh_renderer renderer{.mesh = UINT64_C(0x1001),
                                                .material = UINT64_C(0x2001)};
   gneiss::engine::transform mesh_transform = gneiss::engine::transform{};
   mesh_transform.translation[0] = 2.0F;
 
-  if (world.scene().create(GNEISS_NULL_SCENE_NODE_ID, camera_entity, &camera_node) !=
+  if (world.scene().create(gneiss::engine::null_rid, camera_entity, &camera_node) !=
           gneiss::engine::result::success ||
-      world.scene().create(GNEISS_NULL_SCENE_NODE_ID, mesh_entity, &mesh_node) !=
+      world.scene().create(gneiss::engine::null_rid, mesh_entity, &mesh_node) !=
           gneiss::engine::result::success ||
       world.scene().set_local(mesh_node, mesh_transform) != gneiss::engine::result::success) {
     return 1;
@@ -87,11 +88,11 @@ int run_tests() {
   }
   const auto pending_mesh = world.create_staged_entity(group);
   const auto pending_camera = world.create_staged_entity(group);
-  gneiss_scene_node_id pending_node = GNEISS_NULL_SCENE_NODE_ID;
+  gneiss::engine::rid pending_node = gneiss::engine::null_rid;
   if (!world.emplace_staged<gneiss::engine::mesh_renderer_component>(group, pending_mesh,
                                                                      renderer) ||
       !world.emplace_staged<gneiss::engine::camera_component>(group, pending_camera, camera) ||
-      world.scene().create_staged(group, GNEISS_NULL_SCENE_NODE_ID, pending_mesh, &pending_node) !=
+      world.scene().create_staged(group, gneiss::engine::null_rid, pending_mesh, &pending_node) !=
           gneiss::engine::result::success ||
       world.scene().get_local(pending_node) != nullptr ||
       world.scene().get_local_for_entity(pending_mesh) != nullptr ||

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
@@ -35,7 +36,7 @@ struct context {
   bool model{};
   std::vector<gneiss::engine::render_asset_reload> assets;
   bool close_during_load{};
-  gneiss_scene_instance scene{};
+  gneiss::engine::rid scene{};
   gneiss::scene_node_id camera{};
   gneiss::scene_node_id mesh{};
   std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();

@@ -4,11 +4,12 @@
 #include "commands/native_author_transaction.hpp"
 #include "commands/prefab_authoring.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "runtime/application.hpp"
 
 #include "engine/core/math/transform.hpp"
-#include "engine/values/core/result.hpp"
+#include "engine/core/result.hpp"
 
 #include <array>
 #include <chrono>
@@ -54,7 +55,7 @@ struct temporary_project final {
   gneiss::runtime::application_configuration desc;
   desc.asset_root = root_text;
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss_scene_instance scene{};
+  gneiss::engine::rid scene{};
   std::uint64_t objects{};
   std::uint64_t prefab_nodes{};
   return gneiss::runtime::application::create(desc, application) ==

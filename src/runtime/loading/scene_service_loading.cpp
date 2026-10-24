@@ -4,6 +4,7 @@
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/diagnostics/task_submission.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/resource/asset_manager.hpp"
@@ -226,7 +227,7 @@ void scene_service::instantiate_loaded(load_task& value) {
   progress.phase = scene_load_phase::instantiating;
   progress.completed = 0U;
   progress.total = value.cpu->description.instance_nodes;
-  gneiss_scene_instance instance{};
+  gneiss::engine::rid instance{};
   const auto built = gneiss::engine::measure(gneiss::engine::loop_stage::scene_build, [&] {
     return value.candidate->scenes()->instantiate_prepared(std::move(value.cpu->description),
                                                            value.bindings, instance);

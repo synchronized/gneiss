@@ -4,13 +4,13 @@
 #include "engine/function/world/world_service.hpp"
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
 
 #include "engine/core/rid_table.hpp"
 #include "engine/function/world/render_snapshot.hpp"
 #include "engine/function/world/world.hpp"
 
-#include <gneiss/engine/scene.h>
-#include <gneiss/engine/world.h>
+#include <gneiss/engine/game_module_types.h>
 
 #include <cmath>
 #include <limits>
@@ -336,10 +336,10 @@ gneiss::engine::result entity_remove_mesh_renderer(gneiss_world world,
   });
 }
 
-gneiss::engine::result node_create(gneiss_world world, gneiss_scene_node_id parent,
+gneiss::engine::result node_create(gneiss_world world, gneiss::engine::rid parent,
                                    gneiss_entity_id entity,
-                                   gneiss_scene_node_id& out_node) noexcept {
-  out_node = GNEISS_NULL_SCENE_NODE_ID;
+                                   gneiss::engine::rid& out_node) noexcept {
+  out_node = gneiss::engine::null_rid;
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return gneiss::engine::write_identifier<scene_node_id>(out_node, [&](auto& native_output) {
       return native_world.node_create(gneiss::scene_node_id{parent}, gneiss::entity_id{entity},
@@ -348,28 +348,28 @@ gneiss::engine::result node_create(gneiss_world world, gneiss_scene_node_id pare
   });
 }
 
-gneiss::engine::result node_destroy(gneiss_world world, gneiss_scene_node_id node) noexcept {
+gneiss::engine::result node_destroy(gneiss_world world, gneiss::engine::rid node) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return native_world.node_destroy(gneiss::scene_node_id{node});
   });
 }
 
-gneiss::engine::result node_reparent(gneiss_world world, gneiss_scene_node_id node,
-                                     gneiss_scene_node_id parent) noexcept {
+gneiss::engine::result node_reparent(gneiss_world world, gneiss::engine::rid node,
+                                     gneiss::engine::rid parent) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return native_world.node_reparent(gneiss::scene_node_id{node}, gneiss::scene_node_id{parent});
   });
 }
 
 gneiss::engine::result
-node_set_local_transform(gneiss_world world, gneiss_scene_node_id node,
+node_set_local_transform(gneiss_world world, gneiss::engine::rid node,
                          const gneiss::engine::transform& transform) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return native_world.node_set_local_transform(gneiss::scene_node_id{node}, transform);
   });
 }
 
-gneiss::engine::result node_get_local_transform(gneiss_world world, gneiss_scene_node_id node,
+gneiss::engine::result node_get_local_transform(gneiss_world world, gneiss::engine::rid node,
                                                 gneiss::engine::transform& out_transform) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     gneiss::engine::transform value;
@@ -380,7 +380,7 @@ gneiss::engine::result node_get_local_transform(gneiss_world world, gneiss_scene
   });
 }
 
-gneiss::engine::result node_get_world_transform(gneiss_world world, gneiss_scene_node_id node,
+gneiss::engine::result node_get_world_transform(gneiss_world world, gneiss::engine::rid node,
                                                 gneiss::engine::transform& out_transform) noexcept {
   return with_world(world, [&](gneiss::engine::world& native_world) {
     gneiss::engine::transform value;
@@ -391,7 +391,7 @@ gneiss::engine::result node_get_world_transform(gneiss_world world, gneiss_scene
   });
 }
 
-gneiss::engine::result node_get_entity(gneiss_world world, gneiss_scene_node_id node,
+gneiss::engine::result node_get_entity(gneiss_world world, gneiss::engine::rid node,
                                        gneiss_entity_id& out_entity) noexcept {
   out_entity = GNEISS_NULL_ENTITY_ID;
   return with_world(world, [&](gneiss::engine::world& native_world) {
@@ -401,9 +401,9 @@ gneiss::engine::result node_get_entity(gneiss_world world, gneiss_scene_node_id 
   });
 }
 
-gneiss::engine::result node_get_parent(gneiss_world world, gneiss_scene_node_id node,
-                                       gneiss_scene_node_id& out_parent) noexcept {
-  out_parent = GNEISS_NULL_SCENE_NODE_ID;
+gneiss::engine::result node_get_parent(gneiss_world world, gneiss::engine::rid node,
+                                       gneiss::engine::rid& out_parent) noexcept {
+  out_parent = gneiss::engine::null_rid;
   return with_world(world, [&](gneiss::engine::world& native_world) {
     return gneiss::engine::write_identifier<scene_node_id>(out_parent, [&](auto& native_output) {
       return native_world.node_get_parent(gneiss::scene_node_id{node}, native_output);

@@ -10,9 +10,9 @@
 `src/engine/core/scene_types.hpp` 和 `src/engine/core/reflection/reflection_types.hpp`。
 前两者以固定宽度整数存储，不依赖 C ABI 定义。操作结果使用 `gneiss::engine::result`。
 
-`src/engine/values` 暂存迁移中的共享描述及旧 C 值转换，通过内部构建接口提供，
-不属于安装包。此处的 `gneiss::result` 只是原生结果的内部别名，没有第二份实现。
-这些辅助代码仍依赖部分 C 布局，尚不能视为完整原生化。
+旧 `src/engine/values` 场景转换和结果别名已删除。内部函数直接传递原生值，
+C 布局转换只保留在游戏模块协议边界。
 
-完整 C API 及其部分示例当前仍保留，撤销进度见
+Application、Input、Render、World 与 Scene C 操作入口已经撤销；导出清单只保留
+游戏模块相关函数。包配置、安装清单与原生类型边界仍在收敛，进度见
 [PLAN-051](../plans/PLAN-051-minimal-game-module-api.md)。

@@ -3,11 +3,14 @@
 
 #include "commands/runtime_author_apply.hpp"
 #include "documents/scene_document.hpp"
+#include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/rid.hpp"
+#include "engine/core/scene_types.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
-#include "engine/values/core/result.hpp"
+#include "engine/core/result.hpp"
 
 #include <string>
 #include <string_view>
@@ -59,7 +62,7 @@ int main() try {
   if (foreign != gneiss::engine::result::invalid_state || session.is_dirty())
     return 22;
   auto native = application;
-  if (session.adopt(*native, world, GNEISS_NULL_SCENE_INSTANCE, scene_uri) !=
+  if (session.adopt(*native, world, gneiss::engine::null_rid, scene_uri) !=
           gneiss::engine::result::invalid_argument ||
       session.scene_handle() != original_scene)
     return 23;
@@ -106,22 +109,22 @@ int main() try {
       session.selected_prefab_node() == nullptr ||
       session.selected_prefab_node()->local_transform.translation[1] != 5.0F ||
       (session.selected_prefab_node()->override_flags &
-       GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN) == 0U) {
+       static_cast<std::uint32_t>(gneiss::scene_prefab_flags::translation_overridden)) == 0U) {
     return 7;
   }
   gneiss::engine::transform previous_source{};
   if (session.restore_prefab_transform_field(session.selection(),
-                                             GNEISS_TRANSFORM_FIELD_TRANSLATION,
+                                             gneiss::engine::transform_translation_field.get(),
                                              previous_source) != gneiss::engine::result::success ||
       previous_source.translation[1] != 5.0F || session.selected_prefab_node() == nullptr ||
       session.selected_prefab_node()->local_transform.translation[0] != 1.0F ||
       session.selected_prefab_node()->local_transform.translation[1] != 0.0F ||
       (session.selected_prefab_node()->override_flags &
-       GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN) != 0U ||
+       static_cast<std::uint32_t>(gneiss::scene_prefab_flags::translation_overridden)) != 0U ||
       session.set_local_transform(session.selection(), previous_source) !=
           gneiss::engine::result::success ||
       (session.selected_prefab_node()->override_flags &
-       GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN) == 0U ||
+       static_cast<std::uint32_t>(gneiss::scene_prefab_flags::translation_overridden)) == 0U ||
       session.restore_prefab_transform(session.selection(), previous_source) !=
           gneiss::engine::result::success ||
       session.selected_prefab_node()->override_flags != 0U) {
@@ -141,7 +144,7 @@ int main() try {
           gneiss::engine::result::success ||
       session.selected_prefab_node()->local_transform.scale[0] != 2.0F ||
       (session.selected_prefab_node()->override_flags &
-       GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN) == 0U ||
+       static_cast<std::uint32_t>(gneiss::scene_prefab_flags::scale_overridden)) == 0U ||
       history.undo() != gneiss::engine::result::success ||
       session.selected_prefab_node()->local_transform.scale[0] != 1.0F ||
       history.redo() != gneiss::engine::result::success ||
@@ -179,7 +182,7 @@ int main() try {
   auto moved = session.selected_prefab_node()->local_transform;
   moved.translation[1] = 3.0F;
   const auto stale_root = prefab_root;
-  gneiss_scene_prefab_refresh_token refresh_token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
+  gneiss::engine::rid refresh_token = gneiss::engine::null_rid;
   if (session.set_local_transform(prefab_root, moved) != gneiss::engine::result::success ||
       session.refresh_prefab_instance(prefab_root, prefab_root, refresh_token) !=
           gneiss::engine::result::success ||

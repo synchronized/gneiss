@@ -25,19 +25,4 @@ typedef int32_t gneiss_result;
 #define GNEISS_ERROR_NOT_FOUND INT32_C(-11)
 #define GNEISS_ERROR_IO INT32_C(-12)
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/**
- * 返回结果码对应的静态英文文本。
- *
- * 返回的字符串由 Gneiss 持有，调用者不得释放。该函数线程安全且不返回空指针。
- */
-GNEISS_API const char* gneiss_result_message(gneiss_result result);
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif
