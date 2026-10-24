@@ -20,7 +20,7 @@ IPC 仍使用既有 32 位十六进制字符串编码 GUID，不传输原生对�
 GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按主机端序解释。
 
 `field_definition.type_guid` 表示字段值的语义类型，无需事先注册该类型。
-`field_flags::read_only` 禁止为字段绑定普通或候选 setter。
+`field_flags::read_only` 禁止为字段绑定 setter。
 
 `create_native` 创建 `registry_ref` 所有者；`register_type` 深拷贝名称和字段描述。
 类型自身的稳定身份为 `type_definition.guid`、`type_info.guid`；注册输入另有可选的运行期 `type_id`。
@@ -52,7 +52,11 @@ getter 返回的文本至少存活到调用方完成复制，setter 输入仅在
 
 未绑定字段或缺少对应方向的访问器返回 `unsupported`。getter 抛异常或返回非法类别/值时返回
 `internal` 并清空底层输出；自有快照查询保持原输出。setter 异常也转换为 `internal`。
-候选 setter 仅修改调用方独占的候选数据，不回退到普通 setter，不发送业务通知。
+基础 getter 接收 `const void* object`，setter 接收 `void* object`。对象仅在调用期间借用，Registry
+不复制、不持有对象，也不解释 World/Entity 标识。调用方必须保证对象实际类型、寿命及线程访问合法。
+空对象返回 `invalid_argument`；不支持运行期校验任意 void* 的实际类型。
+setter 应先校验再修改，Core 不回滚第三方回调已经产生的副作用。Prefab 临时数据使用同一 setter，
+不再提供独立的候选访问接口；跨字段联合校验由提交数据的调用方负责。
 
 ## 内建组件与生命周期
 
@@ -60,8 +64,14 @@ getter 返回的文本至少存活到调用方完成复制，setter 输入仅在
 `create_property_registry` 直接创建已注册且冻结的内建 Registry。
 稳定身份使用 `transform_component_type`、`camera_component_type` 或对应原生查询函数。
 
-属性目标包含 context 与 object 两个整数值，Registry 不拥有目标；内建访问器将它们解释为
-World 标识与实体 ID。World 访问仍校验所属线程、实体所属 World 和失效状态。
+`world_reflection.hpp` 提供 `read_component_property`、`write_component_property`：显式接收 World RID、
+Entity、类型 GUID 和字段 ID。先通过 World 接口校验线程和实体并读出组件副本，基础反射操作副本，
+写成功后通过既有 World 接口提交，以保留联合校验、Transform 传播和既有更新行为。
+Editor、Runtime 和运行时 Prefab 覆盖使用这些组件入口；Core 不依赖 World。
+
+Transform 的反射对象为 `transform`；Camera 为 World 层的 `camera_properties`，包含
+`camera_settings settings` 和只读 `bool is_primary`。活动状态由 World 读出，不在基础 getter 中查询。
+Camera GUID 和字段编号不变，C++ 模板查询使用 `describe_type<camera_properties>`。
 Transform 字段为平移、旋转、缩放；Camera 字段为视场角、近裁剪面、远裁剪面与只读活动状态。
 
 Registry 使用原生共享引用管理，最后一个引用释放时销毁，不经全局句柄表。

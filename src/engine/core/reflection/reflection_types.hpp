@@ -77,11 +77,6 @@ struct property_value {
                                             : static_cast<property_kind>(payload.index());
   }
 };
-/** 不透明目标语义由访问器定义；不拥有 Context 或 Object。 */
-struct property_target {
-  std::uint64_t context = 0;
-  std::uint64_t object = 0;
-};
 // 缺省成员值允许 designated 初始化省略字段，避免消费者缺省字段告警。
 // NOLINTBEGIN(readability-redundant-member-init)
 /** 名称由冻结 Registry 借出，有效期不超过 Registry。 */

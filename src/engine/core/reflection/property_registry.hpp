@@ -44,12 +44,14 @@ template <class T>
                                                                gneiss::engine::type_guid type,
                                                                field_id field,
                                                                field_info& output) noexcept;
-/** 读取自有快照；失败保持输出。冻结后的 Registry 可共享，目标线程规则由访问器校验。 */
-[[nodiscard]] GNEISS_API gneiss::engine::result
-read_property(const registry_ref& registry, gneiss::engine::type_guid type, field_id field,
-              property_target target, property_value& output) noexcept;
+/** 读取自有快照；失败保持输出。冻结后的 Registry 可共享，对象的类型、寿命和线程访问由调用方保证。
+ */
+[[nodiscard]] GNEISS_API gneiss::engine::result read_property(const registry_ref& registry,
+                                                              gneiss::engine::type_guid type,
+                                                              field_id field, const void* object,
+                                                              property_value& output) noexcept;
 /** 输入在调用期间借用；沿用访问器的校验、线程与错误语义，不跨线程投递。 */
 [[nodiscard]] GNEISS_API gneiss::engine::result
 write_property(const registry_ref& registry, gneiss::engine::type_guid type, field_id field,
-               property_target target, const property_value& value) noexcept;
+               void* object, const property_value& value) noexcept;
 } // namespace gneiss::engine

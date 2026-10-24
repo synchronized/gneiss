@@ -10,22 +10,17 @@
 #include <thread>
 
 namespace {
-int runtime_writes = 0;
-gneiss::engine::result set_runtime(void*, gneiss::property_target, const gneiss::property_value*) {
-  ++runtime_writes;
-  return gneiss::engine::result::success;
-}
-gneiss::engine::result set_candidate(void*, void* target, const gneiss::property_value& value) {
-  if (std::get<float>(value.payload) < 0) {
+gneiss::engine::result set_object(void*, void* target, const gneiss::property_value* value) {
+  if (std::get<float>(value->payload) < 0) {
     return gneiss::engine::result::invalid_argument;
   }
-  if (std::get<float>(value.payload) == 99) {
-    throw std::runtime_error("候选校验异常");
+  if (std::get<float>(value->payload) == 99) {
+    throw std::runtime_error("对象校验异常");
   }
-  *static_cast<float*>(target) = std::get<float>(value.payload);
+  *static_cast<float*>(target) = std::get<float>(value->payload);
   return gneiss::engine::result::success;
 }
-gneiss::engine::result throwing_getter(void* /*context*/, gneiss::property_target /*target*/,
+gneiss::engine::result throwing_getter(void* /*context*/, const void* /*object*/,
                                        gneiss::property_value* /*output*/) {
   throw std::runtime_error("test callback failure");
 }
@@ -45,18 +40,18 @@ bool native_values() {
   const gneiss::engine::property_binding binding{
       .kind = gneiss::property_kind::string,
       .getter =
-          [](void* context, gneiss::property_target, gneiss::property_value* output) {
-            const auto& value = *static_cast<std::string*>(context);
+          [](void*, const void* object, gneiss::property_value* output) {
+            const auto& value = *static_cast<const std::string*>(object);
             *output = gneiss::property_value{};
             output->payload = std::string_view{value};
             return gneiss::engine::result::success;
           },
       .setter =
-          [](void* context, gneiss::property_target, const gneiss::property_value* value) {
-            static_cast<std::string*>(context)->assign(std::get<std::string_view>(value->payload));
+          [](void*, void* object, const gneiss::property_value* value) {
+            static_cast<std::string*>(object)->assign(std::get<std::string_view>(value->payload));
             return gneiss::engine::result::success;
           },
-      .user_data = &text};
+      .user_data = nullptr};
   if (gneiss::engine::create_native(registry) != gneiss::engine::result::success ||
       gneiss::engine::register_type(
           registry, {.guid = id, .schema_version = 1, .name = "sample", .fields = fields}) !=
@@ -72,13 +67,13 @@ bool native_values() {
     return false;
   }
   gneiss::engine::property_value snapshot{.payload = std::string{"旧输出"}};
-  if (gneiss::engine::read_property(registry, native_id, gneiss::field_id{1}, {}, snapshot) !=
+  if (gneiss::engine::read_property(registry, native_id, gneiss::field_id{1}, &text, snapshot) !=
           gneiss::engine::result::not_ready ||
       std::get<std::string>(snapshot.payload) != "旧输出" ||
       gneiss::engine::freeze(registry) != gneiss::engine::result::success) {
     return false;
   }
-  if (gneiss::engine::read_property(registry, native_id, gneiss::field_id{1}, {}, snapshot)
+  if (gneiss::engine::read_property(registry, native_id, gneiss::field_id{1}, &text, snapshot)
           .failed()) {
     return false;
   }
@@ -109,10 +104,11 @@ bool native_values() {
     return false;
   }
   const gneiss::engine::property_value invalid{.payload = 1.0F};
-  if (gneiss::engine::write_property(registry, native_id, gneiss::field_id{1}, {}, invalid) !=
+  if (gneiss::engine::write_property(registry, native_id, gneiss::field_id{1}, &text, invalid) !=
           gneiss::engine::result::invalid_argument ||
       text.size() != 2000 ||
-      gneiss::engine::write_property(registry, native_id, gneiss::field_id{1}, {}, copy).failed() ||
+      gneiss::engine::write_property(registry, native_id, gneiss::field_id{1}, &text, copy)
+          .failed() ||
       text != "初始文本") {
     return false;
   }
@@ -137,7 +133,7 @@ bool native_values() {
       metadata.guid != native_id)
     return false;
   registry.reset();
-  return gneiss::engine::read_property(registry, native_id, gneiss::field_id{1}, {}, snapshot) ==
+  return gneiss::engine::read_property(registry, native_id, gneiss::field_id{1}, &text, snapshot) ==
              gneiss::engine::result::invalid_handle &&
          std::get<std::string>(snapshot.payload) == "初始文本";
 }
@@ -190,18 +186,14 @@ int main() try {
       .fields = fields,
   };
   if (gneiss::engine::register_type(state, definition) != gneiss::engine::result::success ||
-      gneiss::engine::bind_property(state, type_id, gneiss::field_id{1U},
-                                    {.kind = gneiss::property_kind::float32,
-                                     .getter = throwing_getter,
-                                     .setter = set_runtime}) != gneiss::engine::result::success) {
+      gneiss::engine::bind_property(
+          state, type_id, gneiss::field_id{1U},
+          {.kind = gneiss::property_kind::float32, .getter = throwing_getter, .setter = nullptr}) !=
+          gneiss::engine::result::success) {
     return 2;
   }
-  const gneiss::engine::property_binding candidate_binding{.kind = gneiss::property_kind::float32,
-                                                           .getter = {},
-                                                           .setter = {},
-
-                                                           .user_data = {},
-                                                           .candidate_setter = set_candidate};
+  const gneiss::engine::property_binding candidate_binding{
+      .kind = gneiss::property_kind::float32, .getter = {}, .setter = set_object, .user_data = {}};
   float candidate = 1;
   gneiss::property_value proposed = gneiss::property_value{};
   proposed.payload = 2.0F;
@@ -209,7 +201,7 @@ int main() try {
           gneiss::engine::result::success ||
       gneiss::engine::bind_property(state, type_id, gneiss::field_id{2U}, candidate_binding) !=
           gneiss::engine::result::success ||
-      gneiss::engine::set_candidate_property(state, type_id, 2U, &candidate, proposed) !=
+      gneiss::engine::set_property(state, type_id, 2U, &candidate, proposed) !=
           gneiss::engine::result::not_ready) {
     return 11;
   }
@@ -222,39 +214,37 @@ int main() try {
       info.name != "sample" || info.fields.size() != 2U) {
     return 4;
   }
-  if (gneiss::engine::set_candidate_property(state, type_id, 1U, &candidate, proposed) !=
+  if (gneiss::engine::set_property(state, type_id, 1U, &candidate, proposed) !=
           gneiss::engine::result::unsupported ||
-      gneiss::engine::set_candidate_property(state, type_id, 2U, nullptr, proposed) !=
+      gneiss::engine::set_property(state, type_id, 2U, nullptr, proposed) !=
           gneiss::engine::result::invalid_argument ||
-      gneiss::engine::set_candidate_property(state, type_id, 2U, &candidate, proposed) !=
+      gneiss::engine::set_property(state, type_id, 2U, &candidate, proposed) !=
           gneiss::engine::result::success ||
       candidate != 2 ||
-      gneiss::engine::set_property(state, type_id, 2U, {}, proposed) !=
-          gneiss::engine::result::unsupported ||
       gneiss::engine::bind_property(state, type_id, gneiss::field_id{2U}, candidate_binding) !=
           gneiss::engine::result::invalid_state) {
     return 12;
   }
   proposed.payload = -1.0F;
-  if (gneiss::engine::set_candidate_property(state, type_id, 2U, &candidate, proposed) !=
+  if (gneiss::engine::set_property(state, type_id, 2U, &candidate, proposed) !=
           gneiss::engine::result::invalid_argument ||
       candidate != 2) {
     return 13;
   }
   proposed.payload = 99.0F;
-  if (gneiss::engine::set_candidate_property(state, type_id, 2U, &candidate, proposed) !=
+  if (gneiss::engine::set_property(state, type_id, 2U, &candidate, proposed) !=
           gneiss::engine::result::internal ||
       candidate != 2) {
     return 14;
   }
   proposed.payload = true;
-  if (gneiss::engine::set_candidate_property(state, type_id, 2U, &candidate, proposed) !=
+  if (gneiss::engine::set_property(state, type_id, 2U, &candidate, proposed) !=
           gneiss::engine::result::invalid_argument ||
-      runtime_writes != 0 || candidate != 2) {
+      candidate != 2) {
     return 15;
   }
   gneiss::property_value value;
-  if (gneiss::engine::get_property(state, type_id, 1U, {}, value) !=
+  if (gneiss::engine::get_property(state, type_id, 1U, &candidate, value) !=
           gneiss::engine::result::internal ||
       value.kind() != gneiss::property_kind::invalid) {
     return 5;

@@ -11,7 +11,6 @@
 
 namespace {
 using gneiss::property_kind;
-using gneiss::property_target;
 using gneiss::property_value;
 using gneiss::engine::result;
 constexpr gneiss::engine::type_guid camera_type{gneiss::engine::guid::from_bytes(
@@ -24,32 +23,28 @@ struct camera_fixture {
   bool fail_get = false;
   bool fail_set = false;
 };
-result get_field_of_view(void* data, property_target target, property_value* output) {
-  if (target.context != 7 || target.object != 11)
-    return result::not_found;
-  const auto& camera = *static_cast<camera_fixture*>(data);
+result get_field_of_view(void*, const void* object, property_value* output) {
+  const auto& camera = *static_cast<const camera_fixture*>(object);
   if (camera.fail_get)
     throw std::runtime_error("getter probe");
   output->payload = camera.field_of_view;
   return result::success;
 }
-result set_field_of_view(void* data, property_target target, const property_value* input) {
-  if (target.context != 7 || target.object != 11)
-    return result::not_found;
+result set_field_of_view(void*, void* object, const property_value* input) {
   const auto value = std::get<float>(input->payload);
   if (value < 1 || value > 179)
     return result::invalid_argument;
-  auto& camera = *static_cast<camera_fixture*>(data);
+  auto& camera = *static_cast<camera_fixture*>(object);
   if (camera.fail_set)
     throw std::runtime_error("setter probe");
   camera.field_of_view = value;
   return result::success;
 }
-result get_label(void* data, property_target, property_value* output) {
-  output->payload = static_cast<camera_fixture*>(data)->label;
+result get_label(void*, const void* object, property_value* output) {
+  output->payload = static_cast<const camera_fixture*>(object)->label;
   return result::success;
 }
-result get_malformed(void*, property_target, property_value* output) {
+result get_malformed(void*, const void*, property_value* output) {
   output->payload = std::numeric_limits<float>::infinity();
   return result::success;
 }
@@ -72,9 +67,9 @@ int main() try {
   const reflection::property_binding field_of_view{.kind = property_kind::float32,
                                                    .getter = get_field_of_view,
                                                    .setter = set_field_of_view,
-                                                   .user_data = &fixture};
+                                                   .user_data = nullptr};
   const reflection::property_binding label{
-      .kind = property_kind::string, .getter = get_label, .setter = {}, .user_data = &fixture};
+      .kind = property_kind::string, .getter = get_label, .setter = {}, .user_data = nullptr};
   auto invalid_read_only = label;
   invalid_read_only.setter = set_field_of_view;
   if (reflection::bind_property(registry, camera_type, gneiss::field_id{1}, field_of_view)
@@ -98,7 +93,20 @@ int main() try {
       info.capabilities !=
           (gneiss::property_capabilities::readable | gneiss::property_capabilities::writable))
     return 3;
-  constexpr property_target target{7, 11};
+  // 同一绑定访问两个独立对象，不把对象地址存入 user_data。
+  camera_fixture another;
+  another.field_of_view = 45.0F;
+  property_value independent;
+  if (reflection::get_property(registry, camera_type, 1, &another, independent).failed() ||
+      std::get<float>(independent.payload) != 45.0F)
+    return 14;
+  independent.payload = 75.0F;
+  if (reflection::set_property(registry, camera_type, 1, &another, independent).failed() ||
+      another.field_of_view != 75.0F || fixture.field_of_view != 60.0F ||
+      reflection::get_property(registry, camera_type, 1, nullptr, independent) !=
+          result::invalid_argument)
+    return 15;
+  auto* const target = &fixture;
   property_value value;
   if (reflection::get_property(registry, camera_type, 1, target, value).failed() ||
       value.kind() != property_kind::float32 ||
@@ -114,7 +122,8 @@ int main() try {
       std::abs(fixture.field_of_view - 90) > 0.001F)
     return 6;
   value.payload = 90.0F;
-  if (reflection::set_property(registry, camera_type, 1, {8, 11}, value) != result::not_found)
+  if (reflection::set_property(registry, camera_type, 1, nullptr, value) !=
+      result::invalid_argument)
     return 7;
   value.payload = std::uint64_t{90};
   if (reflection::set_property(registry, camera_type, 1, target, value) != result::invalid_argument)

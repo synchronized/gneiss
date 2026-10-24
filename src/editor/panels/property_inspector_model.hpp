@@ -44,7 +44,7 @@ public:
   [[nodiscard]] gneiss::engine::result refresh(gneiss::engine::rid world,
                                                entity_id entity) noexcept;
 
-  /** 通过 Registry 写入属性；失败时保留运行时值和当前快照。 */
+  /** 通过 World 组件属性入口写入属性；失败时保留运行时值和当前快照。 */
   [[nodiscard]] gneiss::engine::result
   set_value(gneiss::engine::type_guid type_id, field_id field_id,
             const gneiss::engine::property_value& value) noexcept;
@@ -60,7 +60,8 @@ public:
 
 private:
   gneiss::engine::registry_ref registry_;
-  property_target target_{};
+  gneiss::engine::rid world_{};
+  entity_id entity_{};
   std::vector<inspector_component> components_;
 };
 

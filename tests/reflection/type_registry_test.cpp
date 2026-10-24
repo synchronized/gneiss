@@ -112,24 +112,18 @@ int main() {
   std::int64_t stored = 2;
   const engine::property_binding binding{
       .kind = gneiss::property_kind::int64,
-      .getter = [](void* data, gneiss::property_target target,
-                   gneiss::property_value* output) -> result {
-        if (target.context != 3 || target.object != 5)
-          return result::not_found;
-        output->payload = *static_cast<std::int64_t*>(data);
+      .getter = [](void*, const void* object, gneiss::property_value* output) -> result {
+        output->payload = *static_cast<const std::int64_t*>(object);
         return result::success;
       },
-      .setter = [](void* data, gneiss::property_target target,
-                   const gneiss::property_value* value) -> result {
-        if (target.context != 3 || target.object != 5)
-          return result::not_found;
+      .setter = [](void*, void* object, const gneiss::property_value* value) -> result {
         const auto next = std::get<std::int64_t>(value->payload);
         if (next < -10 || next > 10)
           return result::invalid_argument;
-        *static_cast<std::int64_t*>(data) = next;
+        *static_cast<std::int64_t*>(object) = next;
         return result::success;
       },
-      .user_data = &stored};
+      .user_data = nullptr};
   if (engine::bind_property(registry, object_type, gneiss::field_id{1}, binding).failed() ||
       engine::freeze(registry).failed() || engine::freeze(registry).failed() ||
       engine::is_frozen(registry, frozen).failed() || !frozen ||
@@ -147,14 +141,14 @@ int main() {
           result::not_found)
     return 7;
   gneiss::property_value value;
-  if (engine::get_property(registry, object_type, 1, {3, 5}, value).failed() ||
+  if (engine::get_property(registry, object_type, 1, &stored, value).failed() ||
       std::get<std::int64_t>(value.payload) != 2)
     return 8;
   value.payload = std::int64_t{7};
-  if (engine::set_property(registry, object_type, 1, {3, 5}, value).failed() || stored != 7)
+  if (engine::set_property(registry, object_type, 1, &stored, value).failed() || stored != 7)
     return 9;
   value.payload = std::int64_t{11};
-  if (engine::set_property(registry, object_type, 1, {3, 5}, value) != result::invalid_argument ||
+  if (engine::set_property(registry, object_type, 1, &stored, value) != result::invalid_argument ||
       stored != 7)
     return 10;
   const std::weak_ptr lifetime = registry;

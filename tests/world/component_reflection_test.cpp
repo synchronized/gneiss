@@ -6,6 +6,7 @@
 #include "engine/function/world/world_reflection.hpp"
 #include "engine/function/world/world_service.hpp"
 #include <cmath>
+#include <thread>
 
 int main() {
   namespace engine = gneiss::engine;
@@ -29,52 +30,77 @@ int main() {
       engine::describe_type(registry, camera_type, info).failed() || info.fields.size() != 4 ||
       engine::describe_type<engine::transform>(registry, info).failed() ||
       info.guid != transform_type ||
-      engine::describe_type<engine::camera_settings>(registry, info).failed() ||
+      engine::describe_type<engine::camera_properties>(registry, info).failed() ||
       info.guid != camera_type)
     return 2;
-  const gneiss::property_target target{first_context, entity.get()};
-  const gneiss::property_target missing_target{first_context, missing.get()};
-  const gneiss::property_target cross_world_target{second_context, entity.get()};
   gneiss::property_value value;
-  if (engine::get_property(registry, transform_type, 1, target, value).failed() ||
+  if (engine::read_component_property(registry, first_context, entity.get(), transform_type,
+                                      gneiss::field_id{1}, value)
+          .failed() ||
       value.kind() != gneiss::property_kind::vec3 ||
       std::abs(std::get<gneiss::property_vec3>(value.payload).x) > 0.0001F)
     return 3;
   value.payload = gneiss::property_vec3{2, 3, 4};
-  if (engine::set_property(registry, transform_type, 1, target, value).failed())
+  if (engine::write_component_property(registry, first_context, entity.get(), transform_type,
+                                       gneiss::field_id{1}, value)
+          .failed())
     return 4;
   engine::transform transform;
   if (first->entity_get_local_transform(entity, transform).failed() ||
       std::abs(transform.translation[0] - 2) > 0.0001F ||
-      engine::get_property(registry, transform_type, 1, missing_target, value) !=
-          result::not_found ||
-      engine::get_property(registry, transform_type, 1, cross_world_target, value) !=
-          result::invalid_handle)
+      engine::read_component_property(registry, first_context, missing.get(), transform_type,
+                                      gneiss::field_id{1}, value) != result::not_found ||
+      engine::read_component_property(registry, second_context, entity.get(), transform_type,
+                                      gneiss::field_id{1}, value) != result::invalid_handle)
     return 5;
   value.payload = gneiss::property_vec3{0, 1, 1};
-  if (engine::set_property(registry, transform_type, 3, target, value) !=
-          result::invalid_argument ||
+  if (engine::write_component_property(registry, first_context, entity.get(), transform_type,
+                                       gneiss::field_id{3}, value) != result::invalid_argument ||
       first->entity_get_local_transform(entity, transform).failed() ||
       std::abs(transform.scale[0] - 1) > 0.0001F)
     return 6;
   engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   if (first->entity_set_camera(entity, camera, true).failed() ||
-      engine::get_property(registry, camera_type, 4, target, value).failed() ||
+      engine::read_component_property(registry, first_context, entity.get(), camera_type,
+                                      gneiss::field_id{4}, value)
+          .failed() ||
       value.kind() != gneiss::property_kind::boolean || !std::get<bool>(value.payload))
     return 7;
   value.payload = 0.5F;
-  if (engine::set_property(registry, camera_type, 2, target, value).failed() ||
+  if (engine::write_component_property(registry, first_context, entity.get(), camera_type,
+                                       gneiss::field_id{2}, value)
+          .failed() ||
       first->entity_get_camera(entity, camera).failed() ||
       std::abs(camera.near_plane - 0.5F) > 0.0001F)
     return 8;
   value.payload = camera.far_plane + 1;
-  if (engine::set_property(registry, camera_type, 2, target, value) != result::invalid_argument ||
+  if (engine::write_component_property(registry, first_context, entity.get(), camera_type,
+                                       gneiss::field_id{2}, value) != result::invalid_argument ||
       first->entity_get_camera(entity, camera).failed() ||
       std::abs(camera.near_plane - 0.5F) > 0.0001F ||
-      engine::get_property(registry, camera_type, 2, missing_target, value) != result::not_found)
+      engine::read_component_property(registry, first_context, missing.get(), camera_type,
+                                      gneiss::field_id{2}, value) != result::not_found)
     return 9;
+  result foreign_read{}, foreign_write{};
+  std::thread worker([&] {
+    gneiss::property_value isolated;
+    foreign_read = engine::read_component_property(registry, first_context, entity.get(),
+                                                   transform_type, gneiss::field_id{1}, isolated);
+    isolated.payload = gneiss::engine::vector3{9, 9, 9};
+    foreign_write = engine::write_component_property(registry, first_context, entity.get(),
+                                                     transform_type, gneiss::field_id{1}, isolated);
+  });
+  worker.join();
+  if (foreign_read != result::invalid_state || foreign_write != result::invalid_state ||
+      first->entity_get_local_transform(entity, transform).failed() || transform.translation.x != 2)
+    return 11;
+  value.payload = false;
+  if (engine::write_component_property(registry, first_context, entity.get(), camera_type,
+                                       gneiss::field_id{4}, value) != result::unsupported)
+    return 12;
   if (first->entity_destroy(entity).failed() ||
-      engine::get_property(registry, camera_type, 2, target, value) != result::invalid_handle)
+      engine::read_component_property(registry, first_context, entity.get(), camera_type,
+                                      gneiss::field_id{2}, value) != result::invalid_handle)
     return 10;
   return 0;
 }

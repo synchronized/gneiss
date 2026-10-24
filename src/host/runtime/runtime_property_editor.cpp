@@ -162,13 +162,12 @@ runtime_property_editor::execute(const ipc_property_write& command,
   gneiss::engine::property_value value;
   operation = to_native_value(command.value, value);
   if (operation.ok()) {
-    const property_target target{.context = world_, .object = entity};
-    operation =
-        gneiss::engine::write_property(registry_, property_type, property_field, target, value);
+    operation = gneiss::engine::write_component_property(registry_, world_, entity, property_type,
+                                                         property_field, value);
     if (operation.ok()) {
       gneiss::engine::property_value canonical;
-      operation = gneiss::engine::read_property(registry_, property_type, property_field, target,
-                                                canonical);
+      operation = gneiss::engine::read_component_property(registry_, world_, entity, property_type,
+                                                          property_field, canonical);
       if (operation.ok()) {
         operation = from_native_value(canonical, response.canonical_value);
       }

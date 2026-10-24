@@ -19,7 +19,8 @@ gneiss::engine::result property_inspector_model::initialize() noexcept {
 
 void property_inspector_model::clear() noexcept {
   components_.clear();
-  target_ = {};
+  world_ = {};
+  entity_ = {};
 }
 
 gneiss::engine::result property_inspector_model::refresh(gneiss::engine::rid world_handle,
@@ -29,7 +30,6 @@ gneiss::engine::result property_inspector_model::refresh(gneiss::engine::rid wor
     return gneiss::engine::result::invalid_argument;
   }
   try {
-    const property_target target{.context = world_handle, .object = entity.get()};
     std::vector<inspector_component> pending;
     const std::array reflected_component_types{
         gneiss::engine::transform_property_type(),
@@ -52,7 +52,8 @@ gneiss::engine::result property_inspector_model::refresh(gneiss::engine::rid wor
       for (std::uint32_t index = 0; index < type.fields.size(); ++index) {
         const auto& field = type.fields[index];
         gneiss::engine::property_value value;
-        operation = gneiss::engine::read_property(registry_, type.guid, field.id, target, value);
+        operation = gneiss::engine::read_component_property(registry_, world_handle, entity.get(),
+                                                            type.guid, field.id, value);
         if (operation == gneiss::engine::result::not_found) {
           component_missing = true;
           break;
@@ -74,7 +75,8 @@ gneiss::engine::result property_inspector_model::refresh(gneiss::engine::rid wor
       }
     }
     components_ = std::move(pending);
-    target_ = target;
+    world_ = world_handle;
+    entity_ = entity;
     return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
     return gneiss::engine::result::out_of_memory;
@@ -86,7 +88,7 @@ gneiss::engine::result property_inspector_model::refresh(gneiss::engine::rid wor
 gneiss::engine::result
 property_inspector_model::set_value(gneiss::engine::type_guid type_id, field_id field_id,
                                     const gneiss::engine::property_value& value) noexcept {
-  if (!registry_ || target_.context == gneiss::engine::null_rid || target_.object == UINT64_C(0)) {
+  if (!registry_ || world_ == gneiss::engine::null_rid || entity_.get() == UINT64_C(0)) {
     return gneiss::engine::result::invalid_state;
   }
   auto component = std::ranges::find_if(
@@ -101,12 +103,12 @@ property_inspector_model::set_value(gneiss::engine::type_guid type_id, field_id 
   if (!has_flags(property->capabilities, property_capabilities::writable)) {
     return gneiss::engine::result::unsupported;
   }
-  const auto operation =
-      gneiss::engine::write_property(registry_, type_id, field_id, target_, value);
+  const auto operation = gneiss::engine::write_component_property(registry_, world_, entity_.get(),
+                                                                  type_id, field_id, value);
   if (operation == gneiss::engine::result::success) {
     gneiss::engine::property_value refreshed;
-    const auto read_operation =
-        gneiss::engine::read_property(registry_, type_id, field_id, target_, refreshed);
+    const auto read_operation = gneiss::engine::read_component_property(
+        registry_, world_, entity_.get(), type_id, field_id, refreshed);
     if (read_operation != gneiss::engine::result::success) {
       return read_operation;
     }
@@ -122,11 +124,10 @@ property_inspector_model::set_value(gneiss::engine::rid world_handle, entity_id 
   if (!registry_ || world_handle == gneiss::engine::null_rid || !entity.is_valid()) {
     return gneiss::engine::result::invalid_argument;
   }
-  const property_target target{.context = world_handle, .object = entity.get()};
-  const auto operation =
-      gneiss::engine::write_property(registry_, type_id, field_id, target, value);
-  if (operation != gneiss::engine::result::success || target.context != target_.context ||
-      target.object != target_.object) {
+  const auto operation = gneiss::engine::write_component_property(
+      registry_, world_handle, entity.get(), type_id, field_id, value);
+  if (operation != gneiss::engine::result::success || world_handle != world_ ||
+      entity.get() != entity_.get()) {
     return operation;
   }
   return refresh(world_handle, entity);

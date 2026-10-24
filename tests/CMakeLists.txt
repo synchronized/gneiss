@@ -409,7 +409,7 @@ add_test(NAME gneiss.world_state COMMAND gneiss_world_state_test)
 
 add_executable(gneiss_component_reflection_test world/component_reflection_test.cpp)
 target_include_directories(gneiss_component_reflection_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-target_link_libraries(gneiss_component_reflection_test PRIVATE gneiss::engine)
+target_link_libraries(gneiss_component_reflection_test PRIVATE gneiss::engine Threads::Threads)
 target_compile_features(gneiss_component_reflection_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_component_reflection_test)
 gneiss_target_output_directories(gneiss_component_reflection_test)

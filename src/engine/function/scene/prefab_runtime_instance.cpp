@@ -10,6 +10,7 @@
 #include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/reflection/type_registry.hpp"
 
+#include "engine/function/world/world_reflection.hpp"
 #include "engine/function/world/world_service.hpp"
 
 #include "engine/function/scene/structural_diff.hpp"
@@ -468,8 +469,8 @@ gneiss::engine::result apply_candidate_object(const gneiss::engine::registry_ref
   const auto is_type = [&](gneiss::engine::type_guid type) { return value.key.type_id == type; };
   if (is_type(gneiss::engine::transform_component_type)) {
     auto transform = to_transform(object);
-    result = gneiss::engine::set_candidate_property(state, value.key.type_id,
-                                                    value.key.field_id.get(), &transform, native);
+    result = gneiss::engine::set_property(state, value.key.type_id, value.key.field_id.get(),
+                                          &transform, native);
     if (result != gneiss::engine::result::success) {
       return result;
     }
@@ -481,13 +482,15 @@ gneiss::engine::result apply_candidate_object(const gneiss::engine::registry_ref
       return gneiss::engine::result::not_found;
     }
     auto& camera = *object.camera;
-    gneiss::engine::camera_settings settings{
+    gneiss::engine::camera_properties properties;
+    auto& settings = properties.settings;
+    settings = {
         .vertical_field_of_view_radians = camera.vertical_field_of_view_radians,
         .near_plane = camera.near_plane,
         .far_plane = camera.far_plane,
     };
-    result = gneiss::engine::set_candidate_property(state, value.key.type_id,
-                                                    value.key.field_id.get(), &settings, native);
+    result = gneiss::engine::set_property(state, value.key.type_id, value.key.field_id.get(),
+                                          &properties, native);
     if (result != gneiss::engine::result::success) {
       return result;
     }
@@ -568,10 +571,9 @@ gneiss::engine::result prefab_runtime_instance::apply_overrides(
     gneiss::property_value native_value = gneiss::property_value{};
     auto result = to_native_value(override_value.value, native_value);
     if (result == gneiss::engine::result::success) {
-      const gneiss::property_target target{.context = reflection_context_, .object = found->entity};
-      result =
-          gneiss::engine::set_property(registry, override_value.key.type_id,
-                                       override_value.key.field_id.get(), target, native_value);
+      result = gneiss::engine::write_component_property(registry, reflection_context_,
+                                                        found->entity, override_value.key.type_id,
+                                                        override_value.key.field_id, native_value);
     }
     if (result != gneiss::engine::result::success) {
       return result;
