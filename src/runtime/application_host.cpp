@@ -8,41 +8,8 @@
 #include "runtime/application.hpp"
 #include "runtime/application_asset_reload_internal.hpp"
 #include "runtime/application_scene_load_internal.hpp"
-#include "runtime/application_view_internal.hpp"
 #include <new>
 #include <string_view>
-
-gneiss::engine::result
-gneiss::runtime::set_view_camera(gneiss_application application,
-                                 const gneiss::engine::view_camera* camera) noexcept {
-  auto state = find_application(application);
-  const auto valid = validate_application(state);
-  return valid == gneiss::engine::result::success ? state->set_view_camera(camera) : valid;
-}
-
-gneiss::engine::result
-gneiss::runtime::create_mesh_node_ready(gneiss_application application, gneiss_scene_instance scene,
-                                        const gneiss::engine::mesh_renderer_node_creation& desc,
-                                        const mesh_binding& prepared,
-                                        gneiss_scene_node_id& output) noexcept {
-  output = GNEISS_NULL_SCENE_NODE_ID;
-  auto state = find_application(application);
-  const auto valid = validate_application(state);
-  return valid == gneiss::engine::result::success
-             ? gneiss::engine::write_identifier<scene_node_id>(
-                   output,
-                   [&](auto& native_output) {
-                     return state->create_mesh_node_ready(scene, desc, prepared, native_output);
-                   })
-             : valid;
-}
-
-gneiss::engine::result
-gneiss::runtime::collect_unused_edit_assets(gneiss_application application) noexcept {
-  auto state = find_application(application);
-  const auto valid = validate_application(state);
-  return valid == gneiss::engine::result::success ? state->collect_unused_edit_assets() : valid;
-}
 
 gneiss::engine::result
 gneiss::runtime::query_ready_asset(gneiss_application application,
@@ -64,17 +31,6 @@ gneiss::engine::result gneiss::runtime::capture_mesh_binding(gneiss_application 
   const auto valid = validate_application(state);
   return valid == gneiss::engine::result::success
              ? state->capture_mesh_binding(scene, scene_node_id{node}, output)
-             : valid;
-}
-
-gneiss::engine::result
-gneiss::runtime::replace_mesh_binding(gneiss_application application, gneiss_scene_instance scene,
-                                      gneiss_scene_node_id node, const mesh_binding& expected,
-                                      const mesh_binding& replacement) noexcept {
-  auto state = find_application(application);
-  const auto valid = validate_application(state);
-  return valid == gneiss::engine::result::success
-             ? state->replace_mesh_binding(scene, scene_node_id{node}, expected, replacement)
              : valid;
 }
 
@@ -232,20 +188,6 @@ gneiss::engine::result gneiss::runtime::request_render_assets(
   } catch (...) {
     return gneiss::engine::result::internal;
   }
-}
-
-gneiss::engine::result
-gneiss::runtime::query_asset_load_progress(gneiss_application application,
-                                           gneiss::engine::asset_load_progress& progress,
-                                           bool& active) noexcept {
-  active = false;
-  progress = {};
-  auto state = find_application(application);
-  const auto valid = validate_application(state);
-  if (valid != gneiss::engine::result::success)
-    return valid;
-  active = state->asset_progress(progress);
-  return gneiss::engine::result::success;
 }
 
 gneiss::engine::result

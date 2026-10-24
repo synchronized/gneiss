@@ -4,33 +4,29 @@
 #include "engine/core/result.hpp"
 #include "engine/function/world/render_snapshot.hpp"
 #include "engine/function/world/world_state.hpp"
-#include "runtime/application_view_internal.hpp"
+#include "runtime/application.hpp"
 #include <thread>
 
 int run_host_tests() {
-  using gneiss::runtime::set_view_camera;
-  gneiss_application application{};
-  const gneiss_application_desc description = GNEISS_APPLICATION_DESC_INIT;
-  if (gneiss::engine::result{gneiss_application_create(&description, &application)} !=
-      gneiss::engine::result::success) {
+  std::shared_ptr<gneiss::runtime::application> application;
+  if (gneiss::runtime::application::create({}, application).failed()) {
     return 20;
   }
   gneiss::engine::view_camera view;
-  if (set_view_camera(application, &view) != gneiss::engine::result::success) {
+  if (application->set_view_camera(&view) != gneiss::engine::result::success) {
     return 21;
   }
   view.camera.near_plane = -1.0F;
-  if (set_view_camera(application, &view) != gneiss::engine::result::invalid_argument) {
+  if (application->set_view_camera(&view) != gneiss::engine::result::invalid_argument) {
     return 22;
   }
   gneiss::engine::result foreign_result = gneiss::engine::result::success;
-  std::thread foreign([&] { foreign_result = set_view_camera(application, nullptr); });
+  std::thread foreign([&] { foreign_result = application->set_view_camera(nullptr); });
   foreign.join();
   if (foreign_result != gneiss::engine::result::invalid_state ||
-      set_view_camera(application, nullptr) != gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss_application_destroy(application)} !=
-          gneiss::engine::result::success ||
-      set_view_camera(application, nullptr) != gneiss::engine::result::invalid_handle) {
+      application->set_view_camera(nullptr) != gneiss::engine::result::success ||
+      application->shutdown(0) != gneiss::engine::result::success ||
+      application->set_view_camera(nullptr) != gneiss::engine::result::invalid_state) {
     return 23;
   }
   return 0;

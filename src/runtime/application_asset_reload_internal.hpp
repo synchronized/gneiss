@@ -18,15 +18,8 @@
 
 namespace gneiss::runtime {
 using mesh_binding = gneiss::engine::scene_instances::mesh_binding;
-/** 所属线程从就绪租约创建节点；失败输出无效句柄，不读取文件。 */
-GNEISS_API gneiss::engine::result
-create_mesh_node_ready(gneiss_application application, gneiss_scene_instance scene,
-                       const gneiss::engine::mesh_renderer_node_creation& desc,
-                       const mesh_binding& prepared, gneiss_scene_node_id& output) noexcept;
-/** 所属线程释放无使用者候选；调用前先释放完成回执和临时租约。 */
-GNEISS_API gneiss::engine::result
-collect_unused_edit_assets(gneiss_application application) noexcept;
-/** 内部编辑接口：只读就绪选择、捕获及提交实际租约；不加载文件。 */
+
+/** 内部编辑接口：只读就绪选择和捕获实际租约；不加载文件。 */
 GNEISS_API gneiss::engine::result
 query_ready_asset(gneiss_application application, const gneiss::engine::render_asset_reload& source,
                   gneiss::engine::render_asset_ref& output) noexcept;
@@ -34,11 +27,7 @@ GNEISS_API gneiss::engine::result capture_mesh_binding(gneiss_application applic
                                                        gneiss_scene_instance scene,
                                                        gneiss_scene_node_id node,
                                                        mesh_binding& output) noexcept;
-GNEISS_API gneiss::engine::result replace_mesh_binding(gneiss_application application,
-                                                       gneiss_scene_instance scene,
-                                                       gneiss_scene_node_id node,
-                                                       const mesh_binding& expected,
-                                                       const mesh_binding& replacement) noexcept;
+
 /** 加载编辑所需资源，不提交作者修改；回执通过 poll_textures 取得。 */
 GNEISS_API gneiss::engine::result
 prepare_edit_assets(gneiss_application application,
@@ -68,9 +57,7 @@ request_render_assets(gneiss_application application,
                       std::span<const gneiss::engine::render_asset_reload> assets,
                       std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
                       bool reload = true) noexcept;
-GNEISS_API gneiss::engine::result
-query_asset_load_progress(gneiss_application application,
-                          gneiss::engine::asset_load_progress& progress, bool& active) noexcept;
+
 /** 提交许可前接受取消；已进入 GPU 阶段或没有在途批次时返回 NOT_READY。 */
 GNEISS_API gneiss::engine::result cancel_render_assets(gneiss_application application) noexcept;
 GNEISS_API gneiss::engine::result request_textures(gneiss_application application,
