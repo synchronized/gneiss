@@ -382,10 +382,6 @@ runtime_ipc_state runtime_ipc_session::state() const noexcept {
   return implementation_ ? implementation_->current_state : runtime_ipc_state::failed;
 }
 
-bool runtime_ipc_session::game_updates_enabled() const noexcept {
-  return implementation_ && implementation_->current_state == runtime_ipc_state::running;
-}
-
 bool runtime_ipc_session::supports_domain(gneiss::engine::ipc_domain domain) const noexcept {
   return implementation_ && implementation_->negotiated(domain);
 }

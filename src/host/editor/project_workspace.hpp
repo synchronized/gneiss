@@ -17,7 +17,7 @@ namespace gneiss::host {
 struct project_export_options final {
   std::filesystem::path runtime_executable;
   std::filesystem::path output_root;
-  gneiss::host::game_build_profile profile = gneiss::host::game_build_profile::development;
+  gneiss::host::project_build_profile profile = gneiss::host::project_build_profile::development;
   bool create_zip = false;
   std::function<void(std::uint64_t, std::uint64_t, std::string_view, bool)> asset_progress;
 };

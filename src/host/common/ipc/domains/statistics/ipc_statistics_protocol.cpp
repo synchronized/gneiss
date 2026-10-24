@@ -34,8 +34,6 @@ gneiss::engine::result encode_ipc_runtime_statistics(const ipc_runtime_statistic
         !yyjson_mut_obj_add_uint(document.get(), root, "sequence", value.sequence) ||
         !yyjson_mut_obj_add_uint(document.get(), root, "frame_index", value.frame_index) ||
         !yyjson_mut_obj_add_uint(document.get(), root, "frame_delta_ns", value.frame_delta_ns) ||
-        !yyjson_mut_obj_add_uint(document.get(), root, "fixed_update_count",
-                                 value.fixed_update_count) ||
         !yyjson_mut_obj_add_uint(document.get(), root, "scene_node_count",
                                  value.scene_node_count) ||
         !yyjson_mut_obj_add_uint(document.get(), root, "entity_count", value.entity_count) ||
@@ -75,10 +73,10 @@ gneiss::engine::result decode_ipc_runtime_statistics(std::span<const std::uint8_
                     YYJSON_READ_NOFLAG),
         &yyjson_doc_free);
     auto* root = document ? yyjson_doc_get_root(document.get()) : nullptr;
-    constexpr const char* names[] = {"session_id",     "sequence",           "frame_index",
-                                     "frame_delta_ns", "fixed_update_count", "scene_node_count",
-                                     "entity_count",   "ipc_pending_writes", "ipc_dropped_events"};
-    std::uint64_t values[9]{};
+    constexpr const char* names[] = {"session_id",         "sequence",          "frame_index",
+                                     "frame_delta_ns",     "scene_node_count",  "entity_count",
+                                     "ipc_pending_writes", "ipc_dropped_events"};
+    std::uint64_t values[8]{};
     for (std::size_t index = 0U; index < std::size(names); ++index) {
       auto* field = yyjson_is_obj(root) ? yyjson_obj_get(root, names[index]) : nullptr;
       if (!yyjson_is_uint(field)) {
@@ -89,8 +87,8 @@ gneiss::engine::result decode_ipc_runtime_statistics(std::span<const std::uint8_
     if (values[0] == 0U || values[1] == 0U) {
       return gneiss::engine::result::invalid_argument;
     }
-    output = {values[0], values[1], values[2], values[3], values[4],
-              values[5], values[6], values[7], values[8]};
+    output = {values[0], values[1], values[2], values[3],
+              values[4], values[5], values[6], values[7]};
     return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
     return gneiss::engine::result::out_of_memory;

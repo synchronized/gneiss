@@ -65,7 +65,6 @@ public:
   [[nodiscard]] gneiss::engine::result stop() noexcept;
 
   [[nodiscard]] runtime_ipc_state state() const noexcept;
-  [[nodiscard]] bool game_updates_enabled() const noexcept;
   [[nodiscard]] bool supports_domain(gneiss::engine::ipc_domain domain) const noexcept;
 
 private:

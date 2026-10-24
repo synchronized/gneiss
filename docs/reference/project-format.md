@@ -85,7 +85,7 @@ Project Manager 与正式 Editor 使用两个连续且互不共享运行时状�
 验证使用：
 
 ```powershell
-gneiss_runtime --project <工程根> [--profile debug|development|shipping] [--smoke]
+gneiss_runtime --project <工程根> [--smoke]
 ```
 
 Runtime 宿主不读取 Editor 的最近工程状态，也不会把运行时场景修改写回工程文件或作者场景。v2

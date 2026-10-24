@@ -225,7 +225,8 @@ bool test_control_lifecycle() {
   const auto now = std::chrono::steady_clock::now();
   if (session.start(now) != gneiss::engine::result::success ||
       session.notify_running() != gneiss::engine::result::success ||
-      !complete_handshake(server, session) || !session.game_updates_enabled()) {
+      !complete_handshake(server, session) ||
+      session.state() != gneiss::host::runtime_ipc_state::running) {
     return false;
   }
 
@@ -257,8 +258,7 @@ bool test_control_lifecycle() {
 
   if (!send_control(server, gneiss::host::ipc_control_operation::pause, 11U) ||
       !wait_for_action(session, actions, &gneiss::host::runtime_ipc_actions::pause_game) ||
-      session.state() != gneiss::host::runtime_ipc_state::paused ||
-      session.game_updates_enabled()) {
+      session.state() != gneiss::host::runtime_ipc_state::paused) {
     return false;
   }
 
@@ -302,7 +302,7 @@ bool test_control_lifecycle() {
 
   if (!send_control(server, gneiss::host::ipc_control_operation::resume, 13U) ||
       !wait_for_action(session, actions, &gneiss::host::runtime_ipc_actions::resume_game) ||
-      !session.game_updates_enabled()) {
+      session.state() != gneiss::host::runtime_ipc_state::running) {
     return false;
   }
   if (!send_control(server, gneiss::host::ipc_control_operation::stop, 14U) ||

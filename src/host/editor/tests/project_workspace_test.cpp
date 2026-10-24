@@ -71,7 +71,7 @@ int main() try {
   gneiss::host::project_export_options export_options{
       .runtime_executable = runtime_root / runtime_name,
       .output_root = package_root,
-      .profile = gneiss::host::game_build_profile::debug,
+      .profile = gneiss::host::project_build_profile::debug,
       .create_zip = true,
       .asset_progress = {}};
   export_options.asset_progress = [&progress_count](std::uint64_t current, std::uint64_t total,
@@ -119,7 +119,7 @@ int main() try {
   if (gneiss::host::export_editor_project(
           project, {.runtime_executable = runtime_root / runtime_name,
                     .output_root = second_package,
-                    .profile = gneiss::host::game_build_profile::debug,
+                    .profile = gneiss::host::project_build_profile::debug,
                     .create_zip = true,
                     .asset_progress = {}}) != gneiss::engine::result::success) {
     return 10;

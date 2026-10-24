@@ -161,7 +161,7 @@ int main() try {
                             {
                                 .runtime_executable = GNEISS_TEST_RUNTIME,
                                 .output_root = package,
-                                .profile = gneiss::host::game_build_profile::debug,
+                                .profile = gneiss::host::project_build_profile::debug,
                                 .create_zip = false,
                                 .asset_progress = {},
                             }) != gneiss::engine::result::success ||

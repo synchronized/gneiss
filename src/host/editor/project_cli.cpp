@@ -37,13 +37,13 @@ void usage() {
                "  gneiss_project verify <发布包目录>\n";
 }
 
-bool parse_profile(std::string_view text, gneiss::host::game_build_profile& output) {
+bool parse_profile(std::string_view text, gneiss::host::project_build_profile& output) {
   if (text == "debug") {
-    output = gneiss::host::game_build_profile::debug;
+    output = gneiss::host::project_build_profile::debug;
   } else if (text == "development") {
-    output = gneiss::host::game_build_profile::development;
+    output = gneiss::host::project_build_profile::development;
   } else if (text == "shipping") {
-    output = gneiss::host::game_build_profile::shipping;
+    output = gneiss::host::project_build_profile::shipping;
   } else {
     return false;
   }
@@ -83,7 +83,7 @@ int gneiss::host::run_project_cli(int argc, char** argv) {
     if (!operation) {
       return fail("加载工程", operation);
     }
-    gneiss::host::game_build_profile profile = gneiss::host::game_build_profile::development;
+    gneiss::host::project_build_profile profile = gneiss::host::project_build_profile::development;
     bool create_zip = false;
     for (int index = 5; index < argc; ++index) {
       const std::string_view argument(argv[index]);

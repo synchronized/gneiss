@@ -39,7 +39,6 @@ struct runtime_options final {
   std::string ipc_address;
   std::string ipc_token;
   std::uint16_t ipc_port = 0U;
-  gneiss::host::game_build_profile profile = gneiss::host::game_build_profile::debug;
   bool smoke = false;
   bool hidden = false;
   bool cooperative_tasks = false;
@@ -62,7 +61,6 @@ struct runtime_context final {
   std::uint64_t inspection_session_id = 0U;
   std::uint64_t next_statistics_ns = 0U;
   std::uint64_t next_statistics_sequence = 1U;
-  std::uint64_t fixed_update_count = 0U;
   bool force_full_inspection = false;
   gneiss::engine::result ipc_failure = gneiss::engine::result::success;
   gneiss::engine::task_scheduler* tasks{};
@@ -134,20 +132,6 @@ apply_asset_revision(gneiss::runtime::application& application, gneiss::engine::
     }
     if (argument == "--smoke") {
       pending.smoke = true;
-      continue;
-    }
-    if (argument == "--profile" && index + 1 < argc) {
-      const std::string_view profile = argv[++index];
-      if (profile == "debug") {
-        pending.profile = gneiss::host::game_build_profile::debug;
-      } else if (profile == "development") {
-        pending.profile = gneiss::host::game_build_profile::development;
-      } else if (profile == "shipping") {
-        pending.profile = gneiss::host::game_build_profile::shipping;
-      } else {
-        output = std::move(pending);
-        return false;
-      }
       continue;
     }
     if (argument == "--project" && index + 1 < argc && pending.project_root.empty()) {
@@ -463,7 +447,6 @@ gneiss::engine::result update_runtime(const gneiss::engine::frame_time* time, vo
         .sequence = context.next_statistics_sequence++,
         .frame_index = time->frame_index,
         .frame_delta_ns = time->delta_ns,
-        .fixed_update_count = context.fixed_update_count,
         .scene_node_count = scene_node_count,
         .entity_count = entity_count,
         .ipc_pending_writes = context.ipc_session->pending_write_count(),
@@ -671,7 +654,6 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
     context.force_full_inspection = true;
     context.next_inspection_ns = 0U;
     context.next_statistics_sequence = 1U;
-    context.fixed_update_count = 0U;
     world = application->world();
     auto applied = gneiss::engine::result::success;
     if (applied != gneiss::engine::result::success)

@@ -410,7 +410,7 @@ gneiss::engine::result export_editor_project(const editor_project& project,
                                              const std::filesystem::path& output_root) noexcept {
   return export_editor_project(project, {.runtime_executable = runtime_executable,
                                          .output_root = output_root,
-                                         .profile = gneiss::host::game_build_profile::debug,
+                                         .profile = gneiss::host::project_build_profile::debug,
                                          .create_zip = false,
                                          .asset_progress = {}});
 }
@@ -469,7 +469,7 @@ gneiss::engine::result export_editor_project(const editor_project& project,
         .root_uris = std::move(root_uris),
         .target_platform = std::string(platform_name()),
         .target_architecture = std::string(architecture_name()),
-        .profile = options.profile == gneiss::host::game_build_profile::shipping
+        .profile = options.profile == gneiss::host::project_build_profile::shipping
                        ? gneiss::tooling::build_profile::shipping
                        : gneiss::tooling::build_profile::development,
         .progress = {}};
@@ -490,7 +490,7 @@ gneiss::engine::result export_editor_project(const editor_project& project,
       std::filesystem::remove_all(temporary, error);
       return report.operation;
     }
-    if (options.profile != gneiss::host::game_build_profile::shipping &&
+    if (options.profile != gneiss::host::project_build_profile::shipping &&
         !write_asset_build_metadata(temporary / "assets" / ".gneiss-build.json", asset_report)) {
       std::filesystem::remove_all(temporary, error);
       return gneiss::engine::result::io;
@@ -535,18 +535,15 @@ gneiss::engine::result export_editor_project(const editor_project& project,
       return gneiss::engine::result::io;
     }
     const auto runtime_name = options.runtime_executable.filename().string();
-    const auto profile_name = std::string(gneiss::host::game_build_profile_name(options.profile));
     if (!write_text(temporary / "run.cmd", "@echo off\r\npushd \"%~dp0\"\r\n\"bin\\" +
-                                               runtime_name + "\" --project . --profile " +
-                                               profile_name +
+                                               runtime_name + "\" --project ." +
                                                " %*\r\nset GNEISS_EXIT=%ERRORLEVEL%\r\npopd\r\n"
                                                "exit /b %GNEISS_EXIT%\r\n") ||
         !write_text(temporary / "run.sh",
                     "#!/bin/sh\nDIR=$(CDPATH= cd -- \"$(dirname -- \"$0\")\" && pwd)\n"
                     "LD_LIBRARY_PATH=\"$DIR/bin${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\" "
                     "\"$DIR/bin/" +
-                        runtime_name + "\" --project \"$DIR\" --profile " + profile_name +
-                        " \"$@\"\n")) {
+                        runtime_name + "\" --project \"$DIR\"" + " \"$@\"\n")) {
       std::filesystem::remove_all(temporary, error);
       return gneiss::engine::result::io;
     }

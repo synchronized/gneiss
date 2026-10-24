@@ -15,10 +15,10 @@
 
 namespace gneiss::host {
 
-enum class game_build_profile : std::uint8_t { debug, development, shipping };
+enum class project_build_profile : std::uint8_t { debug, development, shipping };
 
 /** 返回构建配置的稳定小写名称。 */
-[[nodiscard]] std::string_view game_build_profile_name(game_build_profile profile) noexcept;
+[[nodiscard]] std::string_view project_build_profile_name(project_build_profile profile) noexcept;
 
 /** 工程环境光配置；asset 为空时使用内建中性环境。 */
 struct environment_description final {

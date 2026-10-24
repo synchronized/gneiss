@@ -262,7 +262,7 @@ struct zip_entry final {
 
 gneiss::engine::result write_package_manifest(const std::filesystem::path& package_root,
                                               const gneiss::host::project_description& project,
-                                              gneiss::host::game_build_profile profile,
+                                              gneiss::host::project_build_profile profile,
                                               std::string_view entrypoint) noexcept {
   try {
     std::vector<package_file> files;
@@ -278,7 +278,7 @@ gneiss::engine::result write_package_manifest(const std::filesystem::path& packa
     }
     auto* root = yyjson_mut_obj(document.get());
     auto* entries = yyjson_mut_arr(document.get());
-    const auto profile_name = gneiss::host::game_build_profile_name(profile);
+    const auto profile_name = gneiss::host::project_build_profile_name(profile);
     if (root == nullptr || entries == nullptr ||
         !yyjson_mut_obj_add_str(document.get(), root, "format", "gneiss.package") ||
         !yyjson_mut_obj_add_uint(document.get(), root, "version", 1U) ||

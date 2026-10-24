@@ -15,7 +15,7 @@ namespace gneiss::host {
 /** 为目录包生成版本化内容清单；清单自身不进入文件哈希列表。 */
 [[nodiscard]] gneiss::engine::result write_package_manifest(
     const std::filesystem::path& package_root, const gneiss::host::project_description& project,
-    gneiss::host::game_build_profile profile, std::string_view entrypoint) noexcept;
+    gneiss::host::project_build_profile profile, std::string_view entrypoint) noexcept;
 
 /** 校验清单声明的文件集合、大小与 SHA-256。 */
 [[nodiscard]] gneiss::engine::result

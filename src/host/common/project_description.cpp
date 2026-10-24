@@ -141,13 +141,13 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
 
 } // namespace
 
-std::string_view game_build_profile_name(game_build_profile profile) noexcept {
+std::string_view project_build_profile_name(project_build_profile profile) noexcept {
   switch (profile) {
-  case game_build_profile::debug:
+  case project_build_profile::debug:
     return "debug";
-  case game_build_profile::development:
+  case project_build_profile::development:
     return "development";
-  case game_build_profile::shipping:
+  case project_build_profile::shipping:
     return "shipping";
   }
   return "unknown";

@@ -26,3 +26,12 @@ Windows Clang Debug 全部保留目标编译通过；干净前缀安装通过，
 格式、git diff --check、核心依赖边界和禁止公共 C 导出的静态检查通过。
 本地编译日志：build/asset-migration/remove-module-complete.log；安装日志：scene-only-install.log。
 功能测试、大场景、静态库与其他平台/CI 均未运行，不据此宣称行为验收完成。
+
+## 残留清理
+
+已删除 Runtime 无效的 --profile 参数和发布启动脚本传参；保留资产打包的
+project_build_profile，包清单中的 debug/development/shipping 名称不变。
+CMake 模板位置变量更名为 GNEISS_PROJECT_TEMPLATE_DIR。
+固定更新计数从 Runtime、IPC 编解码和 Editor 展示中删除，统计往返用例核对全部保留字段。
+无生产调用方的 game_updates_enabled 查询已删除；IPC 会话用例直接核对状态。
+本批全部保留目标编译及静态边界检查通过，用例只编译不执行。

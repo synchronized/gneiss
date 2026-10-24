@@ -1909,8 +1909,7 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
                   ? 0.0
                   : 1'000'000'000.0 / static_cast<double>(statistics.frame_delta_ns);
           ImGui::Text("Frame: %.2f ms (%.1f FPS)", frame_ms, frames_per_second);
-          ImGui::Text("Fixed updates: %llu | Nodes: %llu | Entities: %llu",
-                      static_cast<unsigned long long>(statistics.fixed_update_count),
+          ImGui::Text("Nodes: %llu | Entities: %llu",
                       static_cast<unsigned long long>(statistics.scene_node_count),
                       static_cast<unsigned long long>(statistics.entity_count));
           ImGui::Text("IPC pending: %llu | dropped events: %llu",

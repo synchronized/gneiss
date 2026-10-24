@@ -36,7 +36,6 @@ namespace {
                                                         .sequence = 3U,
                                                         .frame_index = 4U,
                                                         .frame_delta_ns = 5U,
-                                                        .fixed_update_count = 6U,
                                                         .scene_node_count = 7U,
                                                         .entity_count = 8U,
                                                         .ipc_pending_writes = 9U,
@@ -46,7 +45,13 @@ namespace {
              gneiss::engine::result::success &&
          gneiss::host::decode_ipc_statistics_v2(envelope, decoded) ==
              gneiss::engine::result::success &&
-         decoded.sequence == statistics.sequence && decoded.entity_count == statistics.entity_count;
+         decoded.session_id == statistics.session_id && decoded.sequence == statistics.sequence &&
+         decoded.frame_index == statistics.frame_index &&
+         decoded.frame_delta_ns == statistics.frame_delta_ns &&
+         decoded.scene_node_count == statistics.scene_node_count &&
+         decoded.entity_count == statistics.entity_count &&
+         decoded.ipc_pending_writes == statistics.ipc_pending_writes &&
+         decoded.ipc_dropped_events == statistics.ipc_dropped_events;
 }
 
 [[nodiscard]] bool test_inspection() {
