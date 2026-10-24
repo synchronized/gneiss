@@ -54,6 +54,51 @@ constexpr std::string_view object =
 "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
 "components":{"mesh_renderer":{"mesh":"asset://m.mesh","material":"asset://m.material"}}})";
 
+void unified_resource_index() {
+  using namespace engine::resource;
+  using engine::core::result;
+  class text_loader final : public asset_loader {
+  public:
+    std::type_index target_type() const noexcept override { return typeid(std::string); }
+    std::size_t maximum_bytes() const noexcept override { return 64U; }
+    result decode(const std::vector<std::byte>& bytes,
+                  std::shared_ptr<const void>& output) const override {
+      output = std::make_shared<const std::string>(reinterpret_cast<const char*>(bytes.data()),
+                                                   bytes.size());
+      return result::success;
+    }
+  };
+  auto source = std::make_shared<memory_files>();
+  source->files["same"] = "cpu";
+  virtual_file_system files;
+  check(files.mount("asset://", source) == result::success);
+  engine::render::render_resource_service resources;
+  asset_manager assets(files);
+  engine::render::render_asset_loader render(files, assets.cache(), resources);
+  check(assets.register_loader(std::make_shared<text_loader>()) == result::success);
+  asset_ref<const std::string> cpu;
+  check(assets.load_sync("asset://same", cpu) == result::success);
+  prefab_description description;
+  description.objects.emplace_back();
+  prefab_asset_ref prefab;
+  check(assets.prefab_loader().install_prepared("asset://same", std::move(description), prefab) ==
+        result::success);
+  engine::render::render_asset_ref material;
+  check(render.reserve_asset({"asset://same", engine::render::render_asset_type::material},
+                             material) == result::success);
+  assets.collect_unused();
+  check(assets.cache().size() == 3U && *cpu == "cpu" && resources.live_resource_count() == 1U);
+  prefab.reset();
+  assets.collect_unused();
+  check(assets.cache().size() == 2U);
+  cpu.reset();
+  assets.collect_unused();
+  check(assets.cache().size() == 1U && render.owns(material));
+  material.reset();
+  assets.collect_unused();
+  check(assets.cache().size() == 0U && resources.live_resource_count() == 0U);
+}
+
 void run() {
   auto files = std::make_shared<memory_files>();
   files->files["s.scene"] =
@@ -439,6 +484,7 @@ void run() {
 } // namespace
 
 int main() try {
+  unified_resource_index();
   run();
   return 0;
 } catch (const std::exception& error) {

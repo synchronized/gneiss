@@ -95,6 +95,7 @@ void cache_collection() {
   assets.attach_task_executor(executor);
   asset_ref<const value> held;
   check(assets.load_sync("asset://value", held) == engine::core::result::success, "seed cache");
+  check(assets.cache().size() == 1U, "CPU result uses unified index");
   assets.collect_unused();
   asset_request<value> request;
   check(assets.load("asset://value", request) == engine::core::result::success, "cached load");
@@ -104,6 +105,7 @@ void cache_collection() {
   held.reset();
   copy.reset();
   assets.collect_unused();
+  check(assets.cache().size() == 0U, "CPU entry collected after last reference");
   source->byte = 'b';
   check(assets.load("asset://value", request) == engine::core::result::success,
         "load after collection");
@@ -124,6 +126,24 @@ void cache_collection() {
           "collection preserves active request");
   }
   check(copy && copy->byte == 'b', "new content after collection");
+  source->byte = '!';
+  check(assets.load("asset://value", request, true) == engine::core::result::success,
+        "reload before collection");
+  copy.reset();
+  assets.collect_unused();
+  check(assets.cache().size() == 1U, "in-flight reload retains previous cache entry");
+  auto reload_status = engine::core::result::not_ready;
+  for (unsigned i = 0; i < 10 && reload_status == engine::core::result::not_ready; ++i) {
+    check(executor.run_ready().status == drive_status::success, "failed reload drive");
+    assets.advance_resources();
+    reload_status = request.take(copy);
+  }
+  check(reload_status == engine::core::result::invalid_argument,
+        "reload fails without replacement");
+  request.cancel();
+  check(assets.load("asset://value", request) == engine::core::result::success &&
+            request.take(copy) == engine::core::result::success && copy->byte == 'b',
+        "failed reload retains cached content through collection");
   assets.stop_resources();
   check(copy->byte == 'b', "reference survives manager stop");
 }

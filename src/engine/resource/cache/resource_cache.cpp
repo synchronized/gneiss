@@ -14,15 +14,16 @@
 namespace gneiss::engine::resource {
 
 gneiss::engine::core::result
-resource_cache::acquire(std::string_view uri, std::uint32_t type, const loader& load,
+resource_cache::acquire(std::string_view uri, std::type_index type, const loader& load,
                         asset_ref<const entry>& out_entry,
                         std::shared_ptr<const asset_source_domain> source) noexcept {
   out_entry.reset();
-  if (type == 0U || !load || validate_uri(uri) != gneiss::engine::core::result::success) {
+  if (type == typeid(void) || !load || validate_uri(uri) != gneiss::engine::core::result::success) {
     return gneiss::engine::core::result::invalid_argument;
   }
   try {
-    const auto found = entries_.find(std::string(uri));
+    const key identity{source, std::string(uri), type};
+    const auto found = entries_.find(identity);
     if (found != entries_.end()) {
       if ((found->second->type != type || found->second->source != source)) {
         return gneiss::engine::core::result::invalid_argument;
@@ -42,16 +43,16 @@ resource_cache::acquire(std::string_view uri, std::uint32_t type, const loader& 
     value->source = std::move(source);
     value->type = type;
     value->state = resource_state::loading;
-    entries_.emplace(value->uri, asset_ref<const entry>{value});
+    entries_.emplace(identity, asset_ref<const entry>{value});
 
-    std::shared_ptr<void> resource;
+    std::shared_ptr<const void> resource;
     const auto result = load(resource);
     if (result != gneiss::engine::core::result::success || resource == nullptr) {
       value->state = resource_state::failed;
       value->failure = result == gneiss::engine::core::result::success
                            ? gneiss::engine::core::result::internal
                            : result;
-      entries_.erase(value->uri);
+      entries_.erase(identity);
       return value->failure;
     }
     value->resource = std::move(resource);
@@ -66,15 +67,16 @@ resource_cache::acquire(std::string_view uri, std::uint32_t type, const loader& 
 }
 
 gneiss::engine::core::result
-resource_cache::reload(std::string_view uri, std::uint32_t type, const loader& load,
+resource_cache::reload(std::string_view uri, std::type_index type, const loader& load,
                        asset_ref<const entry>& out_entry,
                        std::shared_ptr<const asset_source_domain> source) noexcept {
   out_entry.reset();
-  if (type == 0U || !load || validate_uri(uri) != gneiss::engine::core::result::success) {
+  if (type == typeid(void) || !load || validate_uri(uri) != gneiss::engine::core::result::success) {
     return gneiss::engine::core::result::invalid_argument;
   }
   try {
-    const auto found = entries_.find(std::string(uri));
+    const key identity{source, std::string(uri), type};
+    const auto found = entries_.find(identity);
     if (found != entries_.end() &&
         (found->second->type != type || found->second->source != source)) {
       return gneiss::engine::core::result::invalid_argument;
@@ -84,7 +86,7 @@ resource_cache::reload(std::string_view uri, std::uint32_t type, const loader& l
     value->source = std::move(source);
     value->type = type;
     value->state = resource_state::loading;
-    std::shared_ptr<void> resource;
+    std::shared_ptr<const void> resource;
     const auto result = load(resource);
     if (result != gneiss::engine::core::result::success || resource == nullptr) {
       return result == gneiss::engine::core::result::success
@@ -93,7 +95,7 @@ resource_cache::reload(std::string_view uri, std::uint32_t type, const loader& l
     }
     value->resource = std::move(resource);
     value->state = resource_state::ready;
-    entries_.insert_or_assign(value->uri, asset_ref<const entry>{value});
+    entries_.insert_or_assign(identity, asset_ref<const entry>{value});
     out_entry = asset_ref<const entry>{std::move(value)};
     return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {
@@ -120,8 +122,10 @@ void resource_cache::release_unused() noexcept {
   } while (removed);
 }
 
-std::weak_ptr<const resource_cache::entry> resource_cache::observe(std::string_view uri) const {
-  const auto found = entries_.find(std::string(uri));
+std::weak_ptr<const resource_cache::entry>
+resource_cache::observe(std::string_view uri, std::type_index type,
+                        std::shared_ptr<const asset_source_domain> source) const {
+  const auto found = entries_.find(key{std::move(source), std::string(uri), type});
   return found == entries_.end() ? std::weak_ptr<const entry>{}
                                  : std::weak_ptr<const entry>{found->second.shared()};
 }

@@ -59,8 +59,6 @@ struct application::storage {
 #endif
   engine::resource::virtual_file_system asset_file_system_;
   std::unique_ptr<engine::resource::asset_manager> asset_manager_;
-  // 渲染租约缓存独立于 CPU/Prefab 缓存，先释放场景和加载器再销毁缓存。
-  std::unique_ptr<engine::resource::resource_cache> render_asset_cache_;
   std::unique_ptr<engine::render::render_asset_loader> render_assets_;
   runtime::action_map_application input_application_;
   bool asset_executor_attached_ = false;
@@ -417,9 +415,8 @@ gneiss::engine::core::result application::initialize() noexcept {
   try {
     storage_->asset_manager_ =
         std::make_unique<engine::resource::asset_manager>(storage_->asset_file_system_);
-    storage_->render_asset_cache_ = std::make_unique<engine::resource::resource_cache>();
     storage_->render_assets_ = std::make_unique<engine::render::render_asset_loader>(
-        storage_->asset_file_system_, *storage_->render_asset_cache_, storage_->resources_);
+        storage_->asset_file_system_, storage_->asset_manager_->cache(), storage_->resources_);
     const auto result =
         storage_->scene_service_.initialize(*storage_->asset_manager_, *storage_->render_assets_);
     if (result != gneiss::engine::core::result::success) {
@@ -917,7 +914,6 @@ gneiss::engine::core::result application::shutdown(gneiss_application handle) no
   }
   storage_->scene_service_.shutdown();
   storage_->render_assets_.reset();
-  storage_->render_asset_cache_.reset();
   storage_->asset_manager_.reset();
   storage_->is_updating_ = false;
   storage_->ui_draw_list_.clear();
@@ -1069,7 +1065,6 @@ gneiss::engine::core::result application::collect_unused_edit_assets() noexcept 
                          ? gneiss::engine::core::result::success
                          : gneiss::engine::core::result::invalid_state;
   if (valid == gneiss::engine::core::result::success) {
-    storage_->render_assets_->release_unused();
     storage_->asset_manager_->collect_unused();
   }
   return valid;

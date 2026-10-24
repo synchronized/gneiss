@@ -10,11 +10,13 @@
 
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <memory>
 #include <span>
 #include <string>
 #include <string_view>
-#include <unordered_map>
+#include <tuple>
+#include <typeindex>
 #include <vector>
 
 namespace gneiss::engine::resource {
@@ -23,36 +25,39 @@ enum class resource_state : std::uint8_t { unloaded, loading, ready, failed };
 
 class resource_cache final {
 public:
+  using key = std::tuple<std::shared_ptr<const asset_source_domain>, std::string, std::type_index>;
   resource_cache() = default;
   resource_cache(const resource_cache&) = delete;
   resource_cache& operator=(const resource_cache&) = delete;
   struct entry final {
     std::string uri;
     std::shared_ptr<const asset_source_domain> source;
-    std::uint32_t type = 0;
+    std::type_index type{typeid(void)};
     resource_state state = resource_state::unloaded;
     gneiss::engine::core::result failure = gneiss::engine::core::result::success;
-    std::shared_ptr<void> resource;
+    std::shared_ptr<const void> resource;
   };
 
-  using loader = std::function<gneiss::engine::core::result(std::shared_ptr<void>&)>;
+  using loader = std::function<gneiss::engine::core::result(std::shared_ptr<const void>&)>;
 
   [[nodiscard]] gneiss::engine::core::result
-  acquire(std::string_view uri, std::uint32_t type, const loader& load,
+  acquire(std::string_view uri, std::type_index type, const loader& load,
           asset_ref<const entry>& out_entry,
           std::shared_ptr<const asset_source_domain> source = {}) noexcept;
   /** 强制重新加载并在成功后替换缓存项；失败时保留原缓存。 */
   [[nodiscard]] gneiss::engine::core::result
-  reload(std::string_view uri, std::uint32_t type, const loader& load,
+  reload(std::string_view uri, std::type_index type, const loader& load,
          asset_ref<const entry>& out_entry,
          std::shared_ptr<const asset_source_domain> source = {}) noexcept;
   void release_unused() noexcept;
   /** 只观察当前身份，不触发加载；返回的弱引用不会阻止卸载。 */
-  [[nodiscard]] std::weak_ptr<const entry> observe(std::string_view uri) const;
+  [[nodiscard]] std::weak_ptr<const entry>
+  observe(std::string_view uri, std::type_index type,
+          std::shared_ptr<const asset_source_domain> source = {}) const;
   [[nodiscard]] std::size_t size() const noexcept { return entries_.size(); }
 
 private:
-  std::unordered_map<std::string, asset_ref<const entry>> entries_;
+  std::map<key, asset_ref<const entry>> entries_;
 };
 
 } // namespace gneiss::engine::resource

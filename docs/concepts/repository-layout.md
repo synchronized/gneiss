@@ -218,7 +218,7 @@ Scene 服务完成入口校验后转交实例，不直接修改这些事务的�
 资产流程。跨场景资产替换继续由 Scene 服务协调，与单场景实例事务的职责不同。
 
 应用级资源管理器位于 `src/engine/resource/asset_manager.hpp`，由 Application 拥有，
-管理通用 CPU 资源请求与 Prefab 描述缓存。渲染租约缓存与 Loader 由 Application
+管理通用 CPU 请求并唯一持有资源索引；Prefab 与 Render Loader 共享该索引。Render Loader 由 Application
 独立拥有，上传通道由应用加载流程装配。资源描述解析同在 resource，不依赖运行时实例化。
 管理器不进入安装 SDK，也不拥有编辑状态；缓存实现尚未全部统一到泛型请求。
 

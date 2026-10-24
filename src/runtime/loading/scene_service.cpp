@@ -65,7 +65,6 @@ void scene_service::advance() {
     const engine::core::diagnostics::loop_span span(
         engine::core::diagnostics::loop_stage::retirement);
     retired_.reset();
-    render_assets_->release_unused();
     asset_owner_->collect_unused();
     retirement_.last_ms =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
@@ -130,7 +129,6 @@ void scene_service::shutdown() noexcept {
   retired_.reset();
   active_.reset();
   if (asset_owner_ != nullptr) {
-    render_assets_->release_unused();
     asset_owner_->collect_unused();
   }
   asset_owner_ = nullptr;

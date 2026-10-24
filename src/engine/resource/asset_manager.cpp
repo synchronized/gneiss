@@ -35,10 +35,9 @@ public:
 }
 // 移植示例的类型/位置请求表、合并与只读发布；接入已有执行器，不创建私有线程池。
 struct asset_manager::resource_state {
-  using key = std::pair<std::type_index, std::string>;
+  using key = resource_cache::key;
   struct entry {
     std::uint64_t generation{};
-    std::shared_ptr<const void> current;
     std::weak_ptr<detail::asset_state> pending;
   };
   struct operation {
@@ -48,12 +47,14 @@ struct asset_manager::resource_state {
     std::shared_ptr<detail::asset_state> observer{std::make_shared<detail::asset_state>()};
     asset_source source;
     std::shared_ptr<const void> value;
+    // 在途重载保活旧缓存条目；失败后旧内容仍可复用。
+    std::shared_ptr<const resource_cache::entry> previous;
     std::atomic_bool settled{false};
     gneiss::engine::core::result status{gneiss::engine::core::result::not_ready};
     operation(key id, std::uint64_t version, std::shared_ptr<const asset_loader> parser,
               const virtual_file_system& files)
         : identity(std::move(id)), generation(version), loader(std::move(parser)),
-          source(files, identity.second, loader->maximum_bytes()) {}
+          source(files, std::get<1>(identity), loader->maximum_bytes()) {}
     void advance() {
       status = source.advance();
       if (status != gneiss::engine::core::result::success) {
@@ -128,10 +129,10 @@ struct asset_manager::resource_state {
 };
 asset_manager::asset_manager(virtual_file_system files)
     : resource_state_(std::make_unique<resource_state>()), files_(std::move(files)),
-      prefabs_(files_, prefab_cache_) {
+      prefabs_(files_, cache_) {
   resource_state_->loaders.emplace(typeid(action_map_asset), std::make_shared<input_loader>());
 }
-asset_manager::~asset_manager() = default;
+asset_manager::~asset_manager() { stop_resources(); }
 void asset_manager::attach_task_executor(engine::core::tasks::task_executor& executor) {
   auto& state = *resource_state_;
   if ((state.executor == nullptr) && !state.stopped) {
@@ -175,21 +176,27 @@ asset_manager::request(std::type_index type, std::string_view uri, bool reload,
     return gneiss::engine::core::result::unsupported;
   }
   state.frozen = true;
-  resource_state::key key{type, std::string(uri)};
+  std::shared_ptr<const asset_source_domain> domain;
+  const auto identified = files_.resolve_source(uri, domain);
+  if (identified != engine::core::result::success)
+    return identified;
+  resource_state::key key{domain, std::string(uri), type};
   auto& entry = state.requests[key];
   if (auto pending = entry.pending.lock()) {
     output = std::move(pending);
     return gneiss::engine::core::result::success;
   }
-  if (!reload && entry.current) {
+  const auto cached = cache_.observe(uri, type, domain).lock();
+  if (!reload && cached && cached->state == engine::resource::resource_state::ready) {
     auto ready = std::make_shared<detail::asset_state>();
     ready->status = gneiss::engine::core::result::success;
-    ready->value = entry.current;
+    ready->value = std::shared_ptr<const void>(cached, cached->resource.get());
     output = std::move(ready);
     return gneiss::engine::core::result::success;
   }
   auto work =
       std::make_shared<resource_state::operation>(key, entry.generation + 1, found->second, files_);
+  work->previous = cached;
   state.active.push_back(work);
   try {
     state.schedule(work);
@@ -221,6 +228,10 @@ asset_manager::load_sync_erased(std::type_index type, std::string_view uri,
     return gneiss::engine::core::result::unsupported;
   }
   state.frozen = true;
+  std::shared_ptr<const asset_source_domain> domain;
+  const auto identified = files_.resolve_source(uri, domain);
+  if (identified != engine::core::result::success)
+    return identified;
   const auto& loader = *found->second;
   std::vector<std::byte> bytes;
   auto status = files_.read_bounded(uri, loader.maximum_bytes(), bytes);
@@ -235,11 +246,20 @@ asset_manager::load_sync_erased(std::type_index type, std::string_view uri,
   if (!value) {
     return gneiss::engine::core::result::internal;
   }
-  auto& entry = state.requests[{type, std::string(uri)}];
+  auto& entry = state.requests[{domain, std::string(uri), type}];
+  asset_ref<const resource_cache::entry> cached;
+  status = cache_.reload(
+      uri, type,
+      [&](auto& stored) {
+        stored = value;
+        return engine::core::result::success;
+      },
+      cached, domain);
+  if (status != engine::core::result::success)
+    return status;
   ++entry.generation;
   entry.pending.reset();
-  entry.current = value;
-  output = std::move(value);
+  output = std::shared_ptr<const void>(cached.shared(), cached->resource.get());
   return gneiss::engine::core::result::success;
 } catch (const std::bad_alloc&) {
   return gneiss::engine::core::result::out_of_memory;
@@ -297,7 +317,18 @@ void asset_manager::advance_resources() {
     if (entry.generation == work->generation) {
       entry.pending.reset();
       if (work->status == gneiss::engine::core::result::success) {
-        entry.current = work->value;
+        const auto& [domain, uri, type] = work->identity;
+        asset_ref<const resource_cache::entry> cached;
+        work->status = cache_.reload(
+            uri, type,
+            [&](auto& stored) {
+              stored = work->value;
+              return engine::core::result::success;
+            },
+            cached, domain);
+        if (work->status == engine::core::result::success) {
+          work->value = std::shared_ptr<const void>(cached.shared(), cached->resource.get());
+        }
       }
     }
     {
@@ -311,13 +342,13 @@ void asset_manager::advance_resources() {
   }
 }
 void asset_manager::collect_unused() noexcept {
-  prefab_cache_.release_unused();
+  cache_.release_unused();
   auto& state = *resource_state_;
   std::erase_if(state.requests, [&](const auto& item) {
     const auto& [identity, entry] = item;
     const bool active = std::ranges::any_of(
         state.active, [&](const auto& work) { return work->identity == identity; });
-    return !active && entry.pending.expired() && (!entry.current || entry.current.use_count() == 1);
+    return !active && entry.pending.expired();
   });
 }
 void asset_manager::stop_resources() noexcept { resource_state_->stop(); }

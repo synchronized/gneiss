@@ -30,12 +30,11 @@ constexpr std::string_view root_mount = "asset://";
 
 namespace gneiss::engine::resource {
 
-gneiss::engine::core::result virtual_file_system::identify(std::string_view uri, std::uint32_t type,
-                                                           asset_identity& output) const noexcept {
-  output = {};
-  if (type == 0U || validate_uri(uri) != gneiss::engine::core::result::success) {
+gneiss::engine::core::result virtual_file_system::resolve_source(
+    std::string_view uri, std::shared_ptr<const asset_source_domain>& output) const noexcept {
+  output.reset();
+  if (validate_uri(uri) != gneiss::engine::core::result::success)
     return gneiss::engine::core::result::invalid_argument;
-  }
   const mount_entry* selected = nullptr;
   for (const auto& entry : mounts_) {
     if (uri.starts_with(entry.point) &&
@@ -46,8 +45,22 @@ gneiss::engine::core::result virtual_file_system::identify(std::string_view uri,
   if (selected == nullptr) {
     return gneiss::engine::core::result::not_found;
   }
+  output = selected->source;
+  return gneiss::engine::core::result::success;
+}
+
+gneiss::engine::core::result virtual_file_system::identify(std::string_view uri, std::uint32_t type,
+                                                           asset_identity& output) const noexcept {
+  output = {};
+  if (type == 0U || validate_uri(uri) != gneiss::engine::core::result::success) {
+    return gneiss::engine::core::result::invalid_argument;
+  }
+  std::shared_ptr<const asset_source_domain> source;
+  const auto resolved = resolve_source(uri, source);
+  if (resolved != gneiss::engine::core::result::success)
+    return resolved;
   try {
-    asset_identity identity{.source = selected->source, .uri = std::string(uri), .type = type};
+    asset_identity identity{.source = std::move(source), .uri = std::string(uri), .type = type};
     output = std::move(identity);
     return gneiss::engine::core::result::success;
   } catch (const std::bad_alloc&) {

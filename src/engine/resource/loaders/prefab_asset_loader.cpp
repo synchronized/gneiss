@@ -48,8 +48,8 @@ prefab_asset_loader::install_prepared(std::string_view uri, prefab_description d
   try {
     gneiss::engine::resource::asset_ref<const engine::resource::resource_cache::entry> entry;
     const auto result = cache_.reload(
-        uri, prefab_resource_type,
-        [&description](std::shared_ptr<void>& resource) {
+        uri, typeid(prefab_description),
+        [&description](std::shared_ptr<const void>& resource) {
           resource = std::make_shared<prefab_description>(std::move(description));
           return gneiss::engine::core::result::success;
         },
@@ -81,8 +81,8 @@ prefab_asset_loader::acquire(std::string_view uri, prefab_asset_ref& out_lease,
     return identified;
   gneiss::engine::resource::asset_ref<const engine::resource::resource_cache::entry> entry;
   auto result = cache_.acquire(
-      uri, prefab_resource_type,
-      [this, uri, &out_diagnostic](std::shared_ptr<void>& out_resource) noexcept {
+      uri, typeid(prefab_description),
+      [this, uri, &out_diagnostic](std::shared_ptr<const void>& out_resource) noexcept {
         try {
           auto description = std::make_shared<prefab_description>();
           const auto load_result =
@@ -126,8 +126,8 @@ prefab_asset_loader::reload(std::string_view uri, prefab_asset_ref& out_lease,
     return identified;
   gneiss::engine::resource::asset_ref<const engine::resource::resource_cache::entry> entry;
   const auto result = cache_.reload(
-      uri, prefab_resource_type,
-      [this, uri, &out_diagnostic](std::shared_ptr<void>& out_resource) noexcept {
+      uri, typeid(prefab_description),
+      [this, uri, &out_diagnostic](std::shared_ptr<const void>& out_resource) noexcept {
         try {
           auto description = std::make_shared<prefab_description>();
           const auto load_result =

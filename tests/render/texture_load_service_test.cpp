@@ -197,9 +197,9 @@ void independent_update_sequences() {
         gneiss::engine::core::result::success);
   render_asset_loader isolated(different, cache, resources);
   render_asset_ref conflict;
-  check(isolated.reserve_asset(source_a, conflict) ==
-            gneiss::engine::core::result::invalid_handle &&
-        !conflict);
+  check(isolated.reserve_asset(source_a, conflict) == gneiss::engine::core::result::success &&
+        conflict != a &&
+        gneiss::engine::render::asset_rid(conflict) != gneiss::engine::render::asset_rid(a));
   check(!isolated.owns(a));
   const auto copied = files;
   render_asset_loader shared(copied, cache, resources);

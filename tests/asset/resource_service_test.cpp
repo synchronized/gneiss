@@ -158,30 +158,64 @@ int main() try {
     return 2;
   }
 
+  {
+    using namespace gneiss::engine::resource;
+    using gneiss::engine::core::result;
+    resource_cache index;
+    auto source_a = std::make_shared<asset_source_domain>();
+    auto source_b = std::make_shared<asset_source_domain>();
+    asset_ref<const resource_cache::entry> a, b, c, again;
+    const auto integer = [](auto& output) {
+      output = std::make_shared<const int>(42);
+      return result::success;
+    };
+    const auto real = [](auto& output) {
+      output = std::make_shared<const float>(3.0F);
+      return result::success;
+    };
+    if (index.acquire("asset://same", typeid(int), integer, a, source_a) != result::success ||
+        index.acquire("asset://same", typeid(float), real, b, source_a) != result::success ||
+        index.acquire("asset://same", typeid(int), integer, c, source_b) != result::success ||
+        index.acquire("asset://same", typeid(int), integer, again, source_a) != result::success ||
+        index.size() != 3U || a != again || a == b || a == c ||
+        index.observe("asset://same", typeid(int), source_a).lock().get() != a.get())
+      return 7;
+    auto held = a.alias(static_cast<const int*>(a->resource.get()));
+    a.reset();
+    b.reset();
+    c.reset();
+    again.reset();
+    index.release_unused();
+    if (index.size() != 1U || *held != 42)
+      return 7;
+    held.reset();
+    index.release_unused();
+    if (index.size() != 0U)
+      return 7;
+  }
+
   gneiss::engine::resource::resource_cache cache;
   std::size_t load_count = 0;
-  auto loader = [&load_count](std::shared_ptr<void>& resource) {
+  auto loader = [&load_count](std::shared_ptr<const void>& resource) {
     ++load_count;
     resource = std::make_shared<int>(42);
     return gneiss::engine::core::result::success;
   };
   gneiss::engine::resource::asset_ref<const gneiss::engine::resource::resource_cache::entry> first;
   gneiss::engine::resource::asset_ref<const gneiss::engine::resource::resource_cache::entry> second;
-  if (cache.acquire("asset://models/triangle.mesh", 1U, loader, first) !=
+  if (cache.acquire("asset://models/triangle.mesh", typeid(int), loader, first) !=
           gneiss::engine::core::result::success ||
-      cache.acquire("asset://models/triangle.mesh", 1U, loader, second) !=
+      cache.acquire("asset://models/triangle.mesh", typeid(int), loader, second) !=
           gneiss::engine::core::result::success ||
-      load_count != 1U || first != second || cache.size() != 1U ||
-      cache.acquire("asset://models/triangle.mesh", 2U, loader, second) !=
-          gneiss::engine::core::result::invalid_argument) {
+      load_count != 1U || first != second || cache.size() != 1U) {
     return 3;
   }
-  auto reloader = [&load_count](std::shared_ptr<void>& resource) {
+  auto reloader = [&load_count](std::shared_ptr<const void>& resource) {
     ++load_count;
     resource = std::make_shared<int>(84);
     return gneiss::engine::core::result::success;
   };
-  if (cache.reload("asset://models/triangle.mesh", 1U, reloader, second) !=
+  if (cache.reload("asset://models/triangle.mesh", typeid(int), reloader, second) !=
           gneiss::engine::core::result::success ||
       load_count != 2U || first == second ||
       *static_cast<const int*>(first->resource.get()) != 42 ||
@@ -190,13 +224,13 @@ int main() try {
   }
   gneiss::engine::resource::asset_ref<const gneiss::engine::resource::resource_cache::entry>
       failed_reload;
-  const auto failed_reloader = [](std::shared_ptr<void>&) {
+  const auto failed_reloader = [](std::shared_ptr<const void>&) {
     return gneiss::engine::core::result::io;
   };
-  if (cache.reload("asset://models/triangle.mesh", 1U, failed_reloader, failed_reload) !=
+  if (cache.reload("asset://models/triangle.mesh", typeid(int), failed_reloader, failed_reload) !=
           gneiss::engine::core::result::io ||
       failed_reload ||
-      cache.acquire("asset://models/triangle.mesh", 1U, loader, failed_reload) !=
+      cache.acquire("asset://models/triangle.mesh", typeid(int), loader, failed_reload) !=
           gneiss::engine::core::result::success ||
       failed_reload != second || load_count != 2U) {
     return 3;
@@ -210,20 +244,20 @@ int main() try {
   }
 
   std::size_t failure_count = 0;
-  auto failing_loader = [&failure_count](std::shared_ptr<void>&) {
+  auto failing_loader = [&failure_count](std::shared_ptr<const void>&) {
     ++failure_count;
     return gneiss::engine::core::result::io;
   };
-  if (cache.acquire("asset://models/broken.mesh", 1U, failing_loader, first) !=
+  if (cache.acquire("asset://models/broken.mesh", typeid(int), failing_loader, first) !=
           gneiss::engine::core::result::io ||
-      cache.acquire("asset://models/broken.mesh", 1U, failing_loader, first) !=
+      cache.acquire("asset://models/broken.mesh", typeid(int), failing_loader, first) !=
           gneiss::engine::core::result::io ||
       failure_count != 2U || cache.size() != 0U) {
     return 5;
   }
 
   gneiss::engine::resource::resource_cache other_cache;
-  if (other_cache.acquire("asset://models/triangle.mesh", 1U, loader, first) !=
+  if (other_cache.acquire("asset://models/triangle.mesh", typeid(int), loader, first) !=
           gneiss::engine::core::result::success ||
       load_count != 3U) {
     return 6;

@@ -80,7 +80,7 @@ struct mesh_asset final {
   mesh_asset& operator=(const mesh_asset&) = delete;
   gneiss::engine::render::render_resource_service* resources;
   gneiss::engine::core::rid rid;
-  std::uint64_t update_sequence{};
+  mutable std::uint64_t update_sequence{};
   ~mesh_asset() {
     if (resources != nullptr && rid != gneiss::engine::core::null_rid) {
       (void)resources->destroy_mesh(rid);
@@ -100,8 +100,8 @@ struct material_asset final {
   material_asset& operator=(const material_asset&) = delete;
   gneiss::engine::render::render_resource_service* resources;
   gneiss::engine::core::rid rid;
-  std::uint64_t update_sequence{};
-  std::array<
+  mutable std::uint64_t update_sequence{};
+  mutable std::array<
       gneiss::engine::resource::asset_ref<const gneiss::engine::resource::resource_cache::entry>, 5>
       textures;
   ~material_asset() {
@@ -119,13 +119,27 @@ struct texture_asset final {
   texture_asset& operator=(const texture_asset&) = delete;
   gneiss::engine::render::render_resource_service* resources;
   gneiss::engine::core::rid rid;
-  std::uint64_t update_sequence{};
+  mutable std::uint64_t update_sequence{};
   ~texture_asset() {
     if (resources != nullptr && rid != gneiss::engine::core::null_rid) {
       (void)resources->destroy_texture(rid);
     }
   }
 };
+
+std::type_index cache_type(gneiss::engine::render::render_asset_type type) noexcept {
+  using gneiss::engine::render::render_asset_type;
+  switch (type) {
+  case render_asset_type::mesh:
+    return typeid(mesh_asset);
+  case render_asset_type::material:
+    return typeid(material_asset);
+  case render_asset_type::texture:
+    return typeid(texture_asset);
+  default:
+    return typeid(void);
+  }
+}
 
 gneiss::engine::core::result
 append_texture_dependencies(std::vector<gneiss::engine::render::render_asset_reload>& queue,
@@ -160,6 +174,18 @@ render_asset_loader::render_asset_loader(const engine::resource::virtual_file_sy
                                          render_resource_service& resources) noexcept
     : file_system_(file_system), cache_(cache), resources_(resources) {}
 
+render_asset_type asset_kind(const render_asset_ref& asset) noexcept {
+  if (asset) {
+    if (asset->type == typeid(mesh_asset))
+      return render_asset_type::mesh;
+    if (asset->type == typeid(material_asset))
+      return render_asset_type::material;
+    if (asset->type == typeid(texture_asset))
+      return render_asset_type::texture;
+  }
+  return render_asset_type::invalid;
+}
+
 engine::core::rid asset_rid(const render_asset_ref& asset) noexcept {
   if (!asset || !asset->resource) {
     return 0U;
@@ -168,32 +194,34 @@ engine::core::rid asset_rid(const render_asset_ref& asset) noexcept {
   case render_asset_type::invalid:
     return 0U;
   case render_asset_type::mesh:
-    return std::static_pointer_cast<mesh_asset>(asset->resource)->rid;
+    return std::static_pointer_cast<const mesh_asset>(asset->resource)->rid;
   case render_asset_type::material:
-    return std::static_pointer_cast<material_asset>(asset->resource)->rid;
+    return std::static_pointer_cast<const material_asset>(asset->resource)->rid;
   case render_asset_type::texture:
-    return std::static_pointer_cast<texture_asset>(asset->resource)->rid;
+    return std::static_pointer_cast<const texture_asset>(asset->resource)->rid;
   }
   return 0U;
 }
 bool render_asset_loader::owns(const render_asset_ref& lease) const noexcept {
   engine::resource::asset_identity identity;
   if (!lease || !lease->resource ||
-      file_system_.identify(lease->uri, lease->type, identity) !=
+      file_system_.identify(lease->uri, static_cast<std::uint32_t>(asset_kind(lease)), identity) !=
           gneiss::engine::core::result::success ||
       identity.source != lease->source) {
     return false;
   }
   switch (asset_kind(lease)) {
   case render_asset_type::mesh:
-    return std::static_pointer_cast<mesh_asset>(lease->resource)->resources == &resources_ &&
+    return std::static_pointer_cast<const mesh_asset>(lease->resource)->resources == &resources_ &&
            resources_.mesh_status(asset_rid(lease)) != gneiss::engine::core::result::invalid_handle;
   case render_asset_type::material:
-    return std::static_pointer_cast<material_asset>(lease->resource)->resources == &resources_ &&
+    return std::static_pointer_cast<const material_asset>(lease->resource)->resources ==
+               &resources_ &&
            resources_.material_status(asset_rid(lease)) !=
                gneiss::engine::core::result::invalid_handle;
   case render_asset_type::texture:
-    return std::static_pointer_cast<texture_asset>(lease->resource)->resources == &resources_ &&
+    return std::static_pointer_cast<const texture_asset>(lease->resource)->resources ==
+               &resources_ &&
            resources_.texture_status(asset_rid(lease)) !=
                gneiss::engine::core::result::invalid_handle;
   default:
@@ -206,7 +234,7 @@ render_asset_loader::texture_dependencies(const render_asset_ref& material) noex
   std::array<render_asset_ref, 5> result;
   if (asset_kind(material) == render_asset_type::material && material->resource) {
     const auto& dependencies =
-        std::static_pointer_cast<material_asset>(material->resource)->textures;
+        std::static_pointer_cast<const material_asset>(material->resource)->textures;
     for (std::size_t slot = 0; slot < result.size(); ++slot) {
       result[slot] = dependencies[slot];
     }
@@ -234,11 +262,15 @@ render_asset_loader::acquire_cached(const render_asset_reload& source, render_as
                                     texture_prepare_profile profile) const noexcept {
   output = {};
   try {
-    const auto current = cache_.observe(source.uri).lock();
+    std::shared_ptr<const engine::resource::asset_source_domain> domain;
+    const auto identified = file_system_.resolve_source(source.uri, domain);
+    if (identified != engine::core::result::success)
+      return identified;
+    const auto current = cache_.observe(source.uri, cache_type(source.type), domain).lock();
     if (!current) {
       return gneiss::engine::core::result::not_found;
     }
-    if (current->type != static_cast<std::uint32_t>(source.type) ||
+    if (current->type != cache_type(source.type) ||
         current->state != engine::resource::resource_state::ready) {
       return gneiss::engine::core::result::invalid_argument;
     }
@@ -265,7 +297,7 @@ render_asset_loader::acquire_cached(const render_asset_reload& source, render_as
       return status;
     }
     const auto matches_profile = [&](const auto& entry) {
-      const auto rid = std::static_pointer_cast<texture_asset>(entry->resource)->rid;
+      const auto rid = std::static_pointer_cast<const texture_asset>(entry->resource)->rid;
       const auto* texture = resources_.get_texture(rid);
       return texture &&
              (profile.generation == 0U || texture->manifest.empty() || texture->profile == profile);
@@ -274,7 +306,7 @@ render_asset_loader::acquire_cached(const render_asset_reload& source, render_as
       return gneiss::engine::core::result::not_found;
     }
     if (source.type == render_asset_type::material) {
-      const auto material = std::static_pointer_cast<material_asset>(current->resource);
+      const auto material = std::static_pointer_cast<const material_asset>(current->resource);
       for (const auto& texture : material->textures) {
         if (texture && !matches_profile(texture)) {
           return gneiss::engine::core::result::not_found;
@@ -300,11 +332,11 @@ std::uint64_t* render_asset_loader::update_sequence(const render_asset_ref& leas
   }
   switch (asset_kind(lease)) {
   case render_asset_type::mesh:
-    return &std::static_pointer_cast<mesh_asset>(lease->resource)->update_sequence;
+    return &std::static_pointer_cast<const mesh_asset>(lease->resource)->update_sequence;
   case render_asset_type::texture:
-    return &std::static_pointer_cast<texture_asset>(lease->resource)->update_sequence;
+    return &std::static_pointer_cast<const texture_asset>(lease->resource)->update_sequence;
   case render_asset_type::material:
-    return &std::static_pointer_cast<material_asset>(lease->resource)->update_sequence;
+    return &std::static_pointer_cast<const material_asset>(lease->resource)->update_sequence;
   case render_asset_type::invalid:
     return nullptr;
   }
@@ -334,7 +366,8 @@ gneiss::engine::core::result render_asset_loader::reserve_asset(const render_ass
       return identified;
     }
     render_asset_ref lease;
-    lease = render_asset_ref{cache_.observe(source.uri).lock()};
+    lease = render_asset_ref{
+        cache_.observe(source.uri, cache_type(source.type), identity.source).lock()};
     if (lease) {
       if (asset_kind(lease) != source.type || !owns(lease)) {
         return gneiss::engine::core::result::invalid_handle;
@@ -342,7 +375,7 @@ gneiss::engine::core::result render_asset_loader::reserve_asset(const render_ass
       output = std::move(lease);
       return gneiss::engine::core::result::success;
     }
-    std::shared_ptr<void> resource;
+    std::shared_ptr<const void> resource;
     auto result = gneiss::engine::core::result::invalid_argument;
     switch (source.type) {
     case render_asset_type::mesh: {
@@ -368,7 +401,7 @@ gneiss::engine::core::result render_asset_loader::reserve_asset(const render_ass
     }
     if (result == gneiss::engine::core::result::success) {
       return cache_.acquire(
-          source.uri, static_cast<std::uint32_t>(source.type),
+          source.uri, cache_type(source.type),
           [resource = std::move(resource)](auto& value) {
             value = resource;
             return gneiss::engine::core::result::success;
@@ -493,7 +526,7 @@ gneiss::engine::core::result render_asset_loader::complete_upload(asset_upload& 
   if (!resources_.replace_material(rid, upload.data.material)) {
     return gneiss::engine::core::result::out_of_memory;
   }
-  auto material = std::static_pointer_cast<material_asset>(upload.target->resource);
+  auto material = std::static_pointer_cast<const material_asset>(upload.target->resource);
   material->textures = upload.dependencies;
   return gneiss::engine::core::result::success;
 }
@@ -509,8 +542,9 @@ render_asset_loader::acquire_mesh(std::string_view uri, render_asset_ref& out_le
     return identified;
   }
   const auto result = cache_.acquire(
-      uri, mesh_type,
-      [this, uri, &out_diagnostic](std::shared_ptr<void>& output) -> gneiss::engine::core::result {
+      uri, typeid(mesh_asset),
+      [this, uri,
+       &out_diagnostic](std::shared_ptr<const void>& output) -> gneiss::engine::core::result {
         std::vector<std::byte> bytes;
         auto result = file_system_.read(uri, bytes);
         if (result != gneiss::engine::core::result::success) {
@@ -585,8 +619,9 @@ render_asset_loader::acquire_material(std::string_view uri, render_asset_ref& ou
     return identified;
   }
   const auto result = cache_.acquire(
-      uri, material_type,
-      [this, uri, &out_diagnostic](std::shared_ptr<void>& output) -> gneiss::engine::core::result {
+      uri, typeid(material_asset),
+      [this, uri,
+       &out_diagnostic](std::shared_ptr<const void>& output) -> gneiss::engine::core::result {
         std::vector<std::byte> bytes;
         auto result = file_system_.read(uri, bytes);
         if (result != gneiss::engine::core::result::success) {
@@ -669,8 +704,9 @@ render_asset_loader::acquire_texture(std::string_view uri, render_asset_ref& out
     return identified;
   }
   const auto result = cache_.acquire(
-      uri, texture_type,
-      [this, uri, &out_diagnostic](std::shared_ptr<void>& output) -> gneiss::engine::core::result {
+      uri, typeid(texture_asset),
+      [this, uri,
+       &out_diagnostic](std::shared_ptr<const void>& output) -> gneiss::engine::core::result {
         engine::resource::prepared_texture_data prepared;
         auto result = prepare_texture(file_system_, uri, prepared, out_diagnostic);
         if (result != gneiss::engine::core::result::success) {

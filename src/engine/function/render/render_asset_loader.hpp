@@ -28,9 +28,7 @@ class render_resource_service;
 /** 统一持有资产缓存条目；非空仅表示身份存在，不代表 GPU 就绪。 */
 using render_asset_ref = engine::resource::asset_ref<const engine::resource::resource_cache::entry>;
 [[nodiscard]] engine::core::rid asset_rid(const render_asset_ref& asset) noexcept;
-[[nodiscard]] inline render_asset_type asset_kind(const render_asset_ref& asset) noexcept {
-  return asset ? static_cast<render_asset_type>(asset->type) : render_asset_type::invalid;
-}
+[[nodiscard]] GNEISS_API render_asset_type asset_kind(const render_asset_ref& asset) noexcept;
 [[nodiscard]] inline std::string_view asset_uri(const render_asset_ref& asset) noexcept {
   return asset ? std::string_view(asset->uri) : std::string_view{};
 }

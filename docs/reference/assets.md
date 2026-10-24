@@ -48,13 +48,17 @@ Application 内部将资产根作为 `asset://` 根挂载到虚拟文件系统�
 零 RID、invalid 类型和空 URI。场景绑定仍校验资源类型与所属服务，ECS 只保存 RID。
 上传任务和在途渲染帧对具体数据的共享所有权不等同于资产身份引用。
 
-资源身份包含固定管理器来源域、URI 和类型。通用管理器按类型及 URI 索引；Prefab/渲染缓存
-按规范 URI 索引并校验类型和挂载身份，拒绝把同一条目解释成不同类型或来源。
+`asset_manager` 唯一持有 `resource_cache::entries_`，统一按「来源域 + URI + C++ 类型」索引。
+通用 CPU 资产、Prefab 和渲染资产共用此表；同 URI 的不同类型或来源各自独立。
+类型键使用 `std::type_index`，只在进程内有效，不写入资产文件或公共 ABI。
+通用请求表只保留请求顺序和在途观察状态，不保存另一份当前资源。
 通用异步加载默认复用成功缓存，显式 reload 重新读取；同步 load_sync 总是重新读取。
 请求取消只放弃当前观察者，不使其他引用失效。
 
 缓存持有强引用，在所属线程调用 `collect_unused()` / `release_unused()` 回收无使用者的条目。
-通用管理器同时回收 CPU 缓存和 Prefab 缓存，保留在途任务索引；渲染缓存在自身所属服务流程回收。
+Application 和场景统一调用管理器回收；Render Loader 的回收入口也只转发到这张共享表。
+回收同时覆盖 CPU、Prefab 和渲染条目，保留在途请求索引；CPU 重载任务暂时持有旧条目，
+避免回收与失败重载叠加导致旧内容提前消失。
 已完成但尚未领取的请求也保活结果。关闭通用管理器不使已领取的 CPU 描述引用失效。
 失败不永久缓存，重载失败保留当前成功数据；输出参数的失败行为以具体接口契约为准。
 
@@ -63,7 +67,8 @@ Application 内部将资产根作为 `asset://` 根挂载到虚拟文件系统�
 `asset_ref` 不直接调用 GPU API，也不隐式切换销毁线程。
 公共同步 API 仍限 Application 创建线程；异步服务使用注入的任务执行器。
 
-设计依据见 [ADR-077](../decisions/ADR-077-asset-references.md)。
+引用规则见 [ADR-077](../decisions/ADR-077-asset-references.md)，统一索引见
+[ADR-078](../decisions/ADR-078-unified-asset-index.md)。
 
 ## 内部异步准备
 

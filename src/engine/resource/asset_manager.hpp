@@ -19,7 +19,7 @@ class task_executor;
 }
 
 namespace gneiss::engine::resource {
-/** 应用级资产管理器。拥有资源请求缓存与 Prefab 加载器，不拥有 World 或编辑状态。
+/** 应用级资产管理器。拥有统一资源索引与 Prefab 加载器，不拥有 World 或编辑状态。
  * 所属线程使用；请求通道、场景及外部租约须按各自契约释放。
  * 功能层装配类型加载器；底层 asset 模块不依赖 Scene/Render。 */
 class GNEISS_API asset_manager final {
@@ -72,6 +72,8 @@ public:
           engine::resource::scene_diagnostic& diagnostic) noexcept {
     return prefabs_.acquire(uri, output, diagnostic);
   }
+  /** 功能层 Loader 借用唯一资源索引；所属线程使用，不转移缓存所有权。 */
+  [[nodiscard]] resource_cache& cache() noexcept { return cache_; }
   [[nodiscard]] engine::resource::prefab_asset_loader& prefab_loader() noexcept { return prefabs_; }
 
 private:
@@ -84,7 +86,7 @@ private:
   struct resource_state;
   std::unique_ptr<resource_state> resource_state_;
   engine::resource::virtual_file_system files_;
-  engine::resource::resource_cache prefab_cache_;
+  engine::resource::resource_cache cache_;
   engine::resource::prefab_asset_loader prefabs_;
 };
 }
