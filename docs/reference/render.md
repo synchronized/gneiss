@@ -91,3 +91,12 @@ Canvas 负责动态几何上传、Alpha Pipeline、Scissor 和 UInt32 索引绘�
 跳过，UI 不使用场景深度附件。
 
 资源格式与兼容约束以 [Render 资产格式](render-asset-formats.md) 为准；本页不承诺尚未验收的后端能力。
+
+## 后端材质状态
+
+后端仅维护活动 material_mirror，不再提前缓存 prepared_material。首次绘制创建 Granit
+材质与采样器，失败由该帧返回；CPU 准备成功不代表后端材质已创建。
+默认纹理变为就绪或纹理重载时，通过 material_instance::update 更新五槽绑定；
+更新成功才记录新纹理句柄，失败终止该帧并在后续使用时重试。
+纹理失效不清空其他材质；材质 CPU 来源替换仍重建自身参数和采样器。
+Mesh/Texture 的实际上传状态继续保留。此行为不要求 Granit 增加接口。

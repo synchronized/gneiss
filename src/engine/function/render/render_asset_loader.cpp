@@ -420,7 +420,6 @@ gneiss::engine::result render_asset_loader::prepare_material_upload(prepared_ren
     }
     material.set_texture(slot, asset_rid(dependency));
     upload.dependencies[slot] = dependency;
-    upload.data.dependency_textures[slot] = resources_.share_texture(asset_rid(dependency));
   }
   return resources_.prepare_material_data(material, upload.data.material);
 }

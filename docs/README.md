@@ -572,3 +572,5 @@
 - [C++ 类型注册简化计划](plans/PLAN-051-reflection-builder.md)
 
 - [资源类型与反射序列化计划](plans/PLAN-051-resource-serialization.md)
+
+- [后端材质状态收敛](plans/PLAN-051-backend-material.md)

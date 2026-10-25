@@ -370,17 +370,6 @@ granit::result
 granit_render_service::create_material_mirror(const gneiss::engine::material_resource& source,
                                               const std::array<granit_texture_view, 5>& textures,
                                               material_mirror& output) noexcept {
-  if (auto found = prepared_materials_.find(&source); found != prepared_materials_.end()) {
-    const bool compatible = found->second.mirror.textures == textures;
-    if (compatible) {
-      output = std::move(found->second.mirror);
-    }
-    prepared_materials_.erase(found);
-    if (compatible) {
-      return granit::result::success;
-    }
-  }
-
   output.textures = textures;
   const std::array color{source.red, source.green, source.blue, source.alpha};
   constexpr std::array addresses{granit::address_mode::repeat, granit::address_mode::clamp_to_edge,
@@ -682,8 +671,6 @@ granit::result granit_render_service::prepare_ui_draw_list(
 
 void granit_render_service::release_invalid_textures(
     const gneiss::engine::render_resource_snapshot& resources) noexcept {
-  std::erase_if(prepared_materials_,
-                [](const auto& item) { return item.second.data.use_count() == 1; });
   std::erase_if(prepared_meshes_,
                 [](const auto& item) { return item.second.data.use_count() == 1; });
   for (auto iterator = prepared_textures_.begin(); iterator != prepared_textures_.end();) {
@@ -693,19 +680,14 @@ void granit_render_service::release_invalid_textures(
       ++iterator;
     }
   }
-  bool invalidated = false;
   for (auto iterator = texture_mirrors_.begin(); iterator != texture_mirrors_.end();) {
     if (resources.get_texture(iterator->first) != iterator->second.source) {
       iterator = texture_mirrors_.erase(iterator);
-      invalidated = true;
     } else {
       ++iterator;
     }
   }
-  // Material Instance 借用纹理视图；纹理投影变化时必须一并重建材质投影。
-  if (invalidated) {
-    material_mirrors_.clear();
-  }
+  // 旧纹理句柄不再用于绘制；下一次使用材质时重新解析全部槽位并更新绑定。
 }
 
 void granit_render_service::release_invalid_meshes(
@@ -733,9 +715,6 @@ void granit_render_service::release_invalid_materials(
 void granit_render_service::discard_upload_data(
     std::span<const gneiss::engine::render_upload_item> data) noexcept {
   for (const auto& item : data) {
-    if (item.material) {
-      prepared_materials_.erase(item.material.get());
-    }
     if (item.mesh) {
       prepared_meshes_.erase(item.mesh.get());
     }
@@ -823,35 +802,8 @@ granit_render_service::prepare_textures(std::vector<gneiss::engine::render_uploa
                   prepared_meshes_.insert_or_assign(item.mesh.get(), std::move(value));
                 }
               } else if (item.material) {
-                std::array textures{default_white_srgb_.view.native_handle(),
-                                    default_white_linear_.view.native_handle(),
-                                    default_normal_linear_.view.native_handle(),
-                                    default_white_linear_.view.native_handle(),
-                                    default_white_srgb_.view.native_handle()};
-                for (std::size_t slot = 0; slot < textures.size(); ++slot) {
-                  if (!item.dependency_textures[slot])
-                    continue;
-                  const auto found = prepared_textures_.find(item.dependency_textures[slot].get());
-                  if (found != prepared_textures_.end()) {
-                    textures[slot] = found->second.mirror.view.native_handle();
-                    continue;
-                  }
-                  // 已有内容复用不重复上传；首帧后镜像已从准备表移入活动表。
-                  // 同时核对 RID 和数据身份，不能把旧版本镜像绑定给新材质。
-                  const auto active = texture_mirrors_.find(item.material->texture_handles()[slot]);
-                  if (active == texture_mirrors_.end() ||
-                      active->second.source != item.dependency_textures[slot].get()) {
-                    // CPU 内容可早于 GPU 镜像就绪；本次使用缺省绑定，绘制时重查。
-                    continue;
-                  }
-                  textures[slot] = active->second.view.native_handle();
-                }
-                prepared_material value{
-                    .data = item.material, .mirror = {}, .dependencies = item.dependency_textures};
-                result = create_material_mirror(*item.material, textures, value.mirror);
-                if (result.ok()) {
-                  prepared_materials_.insert_or_assign(item.material.get(), std::move(value));
-                }
+                // 材质没有独立的纹理上传负载；首次绘制时直接建立活动材质。
+                result = granit::result::success;
               }
               if (result.failed()) {
                 discard_upload_data(data);
@@ -1196,7 +1148,6 @@ granit_render_service::shutdown_gpu(granit::renderer_resource_stats& stats) noex
   material_mirrors_.clear();
   mesh_mirrors_.clear();
   texture_mirrors_.clear();
-  prepared_materials_.clear();
   prepared_meshes_.clear();
   prepared_textures_.clear();
   static_cast<void>(default_normal_linear_.view.reset());
@@ -1315,10 +1266,23 @@ granit_render_service::execute_frame(gneiss::engine::render_frame_packet& packet
         textures[slot] = found->second.view.native_handle();
       }
       auto found = material_mirrors_.find(instance.material);
-      // 同一材质 RID 的纹理由默认值变为就绪时，也必须更新实际绑定。
+      // 默认纹理就绪或纹理重载只更新绑定，不销毁材质及采样器。
       if (found != material_mirrors_.end() && found->second.textures != textures) {
-        material_mirrors_.erase(found);
-        found = material_mirrors_.end();
+        constexpr std::array parameters{
+            GRANIT_PBR_PARAMETER_BASE_COLOR_TEXTURE,
+            GRANIT_PBR_PARAMETER_METALLIC_ROUGHNESS_TEXTURE, GRANIT_PBR_PARAMETER_NORMAL_TEXTURE,
+            GRANIT_PBR_PARAMETER_OCCLUSION_TEXTURE, GRANIT_PBR_PARAMETER_EMISSIVE_TEXTURE};
+        const auto binding = [&](std::size_t slot) {
+          return granit::material_parameter_update::texture_binding(
+              granit::material_parameter_id(parameters[slot]),
+              granit::texture_view_ref::from_native(textures[slot]));
+        };
+        const std::array updates{binding(0), binding(1), binding(2), binding(3), binding(4)};
+        const auto updated = found->second.material.update(updates);
+        if (updated.failed())
+          return map_result(updated);
+        // 更新失败保持旧记录并退出本帧，下一帧仍会重试，不绘制失效绑定。
+        found->second.textures = textures;
       }
       if (found == material_mirrors_.end()) {
         material_mirror mirror;

@@ -38,7 +38,6 @@ struct render_upload_item {
   std::shared_ptr<const mesh_resource> mesh;
   std::shared_ptr<const material_resource> material;
   std::shared_ptr<const texture_resource> texture;
-  std::array<std::shared_ptr<const texture_resource>, 5> dependency_textures;
   std::size_t bytes{};
   std::shared_ptr<const std::vector<std::byte>> texture_payload{};
 };

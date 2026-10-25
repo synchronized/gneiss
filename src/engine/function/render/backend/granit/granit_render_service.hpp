@@ -132,14 +132,7 @@ private:
     std::shared_ptr<const gneiss::engine::mesh_resource> data;
     mesh_mirror mirror;
   };
-  struct prepared_material {
-    std::shared_ptr<const gneiss::engine::material_resource> data;
-    material_mirror mirror;
-    std::array<texture_data, 5> dependencies;
-  };
   std::unordered_map<const gneiss::engine::mesh_resource*, prepared_mesh> prepared_meshes_;
-  std::unordered_map<const gneiss::engine::material_resource*, prepared_material>
-      prepared_materials_;
   void discard_upload_data(std::span<const gneiss::engine::render_upload_item> data) noexcept;
   [[nodiscard]] granit::result create_mesh_mirror(const gneiss::engine::mesh_resource& source,
                                                   mesh_mirror& output) noexcept;
