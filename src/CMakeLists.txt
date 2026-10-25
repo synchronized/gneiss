@@ -238,8 +238,8 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       engine/platform/granit/granit_platform.hpp
       engine/platform/native_window_info.hpp
       engine/platform/window_configuration.hpp
-      engine/function/render/backend/granit/granit_render_service.cpp
-      engine/function/render/backend/granit/granit_render_service.hpp
+      engine/function/render/render_service.cpp
+      engine/function/render/render_service.hpp
       engine/function/render/backend/granit/pbr_shader_resolver.cpp
       engine/function/render/backend/granit/pbr_shader_resolver.hpp
       ${gneiss_pbr_embedded_sources}

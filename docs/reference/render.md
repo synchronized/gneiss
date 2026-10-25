@@ -101,3 +101,13 @@ Canvas 负责动态几何上传、Alpha Pipeline、Scissor 和 UInt32 索引绘�
 更新成功才记录新纹理句柄，失败终止该帧并在后续使用时重试。
 纹理失效不清空其他材质；材质 CPU 来源替换仍重建自身参数和采样器。
 Mesh/Texture 的实际上传状态继续保留。此行为不要求 Granit 增加接口。
+
+## 渲染服务对象边界
+
+Application 拥有 `engine::render_service`，用于设备初始化、帧/上传提交、完成回收及关闭。
+它与管理 RID 和引擎资源数据的 `render_resource_service` 是不同对象。
+`render_service.hpp` 不包含 Granit 头文件，也不暴露 Granit 类型；后端状态放在 `.cpp` 的 PImpl 中。
+关闭统计使用引擎值类型 `render_device_stats`，不返回设备或后端句柄。
+
+服务不可复制或移动；GPU 工作仍由原有渲染执行器调度。宿主必须在关闭平台前调用 shutdown，
+借用的日志队列应覆盖服务关闭过程。当前仍只有 Granit 实现，PImpl 不代表已经支持运行时切换后端。

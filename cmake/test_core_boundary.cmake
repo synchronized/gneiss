@@ -326,7 +326,7 @@ endforeach()
 
 # 协调层只接收上传接口，不能自行装配平台和 GPU 后端。
 foreach(header IN ITEMS engine/platform/granit/granit_platform.hpp
-                        engine/function/render/backend/granit/granit_render_service.hpp
+                        engine/function/render/render_service.hpp
                         granit/granit.hpp)
   file(WRITE "${fixture}/src/runtime/loading/scene_service.cpp"
     "#include <${header}>\n")
