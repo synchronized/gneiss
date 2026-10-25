@@ -122,6 +122,16 @@ void run(const char* assets, bool cooperative) {
             gneiss::engine::result::success,
         "sync load does not require executor");
   check(app->attach_task_executor(scheduler) == gneiss::engine::result::success, "attach");
+#if !GNEISS_TEST_TASK_THREADS || defined(__EMSCRIPTEN__)
+  // 未配置真实异步后端的平台不能恢复旧同步回退；浏览器后端接入后替换此能力断言。
+  check(app->begin_action_map("asset://input/default.input-map.json").ok(),
+        "unsupported backend request");
+  for (unsigned i = 0; i < 8 && app->action_map_status() == engine::result::not_ready; ++i)
+    check(app->run(1).ok(), "unsupported backend completion");
+  check(app->action_map_status() == engine::result::unsupported, "no synchronous async fallback");
+  check(app->shutdown().ok(), "unsupported backend shutdown");
+  return;
+#endif
   const auto wait = [&] {
     const auto deadline = std::chrono::steady_clock::now() + 10s;
     do {

@@ -3,8 +3,10 @@
 
 #include "engine/resource/files/file_service.hpp"
 
+#include "engine/resource/files/async_read_file_backend.hpp"
 #include "engine/resource/files/file_backend.hpp"
 #include "engine/resource/files/file_path.hpp"
+#include "engine/resource/vfs/virtual_file_system.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -12,6 +14,7 @@
 #include <limits>
 #include <mutex>
 #include <new>
+#include <stdexcept>
 #include <thread>
 #include <type_traits>
 #include <utility>
@@ -122,15 +125,18 @@ template <class T> struct typed_request final : pending_request {
 struct file_service::implementation {
   file_service_options options;
   std::thread::id owner = std::this_thread::get_id();
-  std::vector<mount_description> mounts;
+  struct mounted_files : mount_description {
+    std::shared_ptr<const asset_source_domain> source;
+  };
+  std::vector<mounted_files> mounts;
   std::vector<std::shared_ptr<file_backend>> backends;
   std::vector<std::unique_ptr<pending_request>> pending;
   completion_callback on_shutdown;
   bool frozen{}, closing{}, dispatching{};
 
   bool on_owner() const noexcept { return owner == std::this_thread::get_id(); }
-  const mount_description* resolve(std::string_view uri) const noexcept {
-    const mount_description* selected = nullptr;
+  const mounted_files* resolve(std::string_view uri) const noexcept {
+    const mounted_files* selected = nullptr;
     for (const auto& mount : mounts) {
       if (uri.starts_with(mount.prefix) &&
           (!selected || mount.prefix.size() > selected->prefix.size()))
@@ -196,7 +202,33 @@ file_service::file_service(file_service_options options)
     : impl_(std::make_unique<implementation>()) {
   impl_->options = options;
 }
+file_service::file_service(const virtual_file_system& files, file_service_options options)
+    : file_service(options) {
+  for (const auto& entry : files.mounts_) {
+    const auto status =
+        mount({entry.point, {std::make_shared<async_read_file_backend>(entry.backend)}, {}});
+    if (status == result::out_of_memory)
+      throw std::bad_alloc{};
+    if (status.failed())
+      throw std::invalid_argument("无法导入文件挂载");
+    impl_->mounts.back().source = entry.source;
+  }
+}
 file_service::~file_service() = default;
+result
+file_service::resolve_source(std::string_view uri,
+                             std::shared_ptr<const asset_source_domain>& output) const noexcept {
+  output.reset();
+  if (!impl_->on_owner() || impl_->closing)
+    return result::invalid_state;
+  if (!detail::valid_file_uri(uri))
+    return result::invalid_argument;
+  const auto* entry = impl_->resolve(uri);
+  if (!entry)
+    return result::not_found;
+  output = entry->source;
+  return result::success;
+}
 
 result file_service::mount(mount_description description) noexcept {
   if (!impl_->on_owner() || impl_->frozen || impl_->closing)
@@ -218,7 +250,8 @@ result file_service::mount(mount_description description) noexcept {
     for (const auto& backend : description.readers)
       append(backend);
     append(description.writer);
-    impl_->mounts.push_back(std::move(description));
+    impl_->mounts.push_back(
+        {std::move(description), std::make_shared<const asset_source_domain>()});
     impl_->backends = std::move(backends);
     return result::success;
   } catch (const std::bad_alloc&) {

@@ -3,7 +3,7 @@
 
 # 资产 URI、目录挂载与缓存
 
-独立文件服务核心见[异步文件服务](file-service.md)；当前资产加载尚未迁移到该入口。
+普通资源异步读取已经接入[文件服务](file-service.md)；同步加载及网格/纹理专用读取仍使用 VFS。
 
 ## URI 规则
 
@@ -62,7 +62,7 @@ Application 内部将资产根作为 `asset://` 根挂载到虚拟文件系统�
 （包括回调抛异常或返回空资源）保留旧条目，首次失败不残留占位。相同键递归加载返回
 `invalid_state`，不同键的依赖仍可递归加载。Prefab 普通加载和重载共用解析流程；
 渲染预留在缓存未命中时才创建 RID，服务归属和 GPU 就绪仍由 Render Loader 检查。
-CPU 异步解码在工作线程执行，完成结果在所属线程通过同一入口登记。
+CPU 解码由注入的执行器运行，完成结果在所属线程通过同一入口登记；协作模式在所属线程执行解码。
 
 请求取消只放弃当前观察者，不使其他引用失效。
 
@@ -76,17 +76,18 @@ Application 和场景统一调用管理器回收；Render Loader 的回收入口
 引用计数并不提供资源数据的线程安全。CPU 数据可按只读契约共享；渲染资产的最后释放仍限
 所属线程，渲染服务必须晚于资产引用销毁。GPU 在途使用的安全回收由渲染服务及后端负责，
 `asset_ref` 不直接调用 GPU API，也不隐式切换销毁线程。
-公共同步 API 仍限 Application 创建线程；异步服务使用注入的任务执行器。
+同步 API 仍限 Application 创建线程；异步文件服务与 CPU 解码执行器分别负责 I/O 和解码。
 
 引用规则见 [ADR-077](../decisions/ADR-077-asset-references.md)，统一索引见
 [ADR-078](../decisions/ADR-078-unified-asset-index.md)。
 
 ## 内部异步准备
 
-Asset 层拥有准备状态、输入缓冲、候选和来源身份。每个执行步骤共用读取字节预算，
+以下分步准备规则仅描述尚未迁移的网格、纹理等渲染专用读取。Asset 层拥有准备状态、输入缓冲、候选和来源身份。每个执行步骤共用读取字节预算，
 并限制状态转换次数；短操作可在同一步连续完成，避免每个转换都等待下一宿主帧。
 时间边界在操作之间检查，不能抢占单次 JSON/PNG 解析或同步文件系统调用。
-thread 与 cooperative 使用同一实现；cooperative 在步骤之间返回宿主，没有隐式后台线程。
+thread 与 cooperative 使用同一准备实现；cooperative 在步骤之间返回宿主。
+普通 CPU 资源读取另由文件服务处理，桌面 libuv loop 不依赖 CPU 执行器的运行模式。
 
 VFS 使用 `open_read` / `begin_open_read`，只负责打开和读取，没有验证回执。
 准备流程保留本次实际读取内容的来源摘要；完成后不重新打开来源或做整批复验。
@@ -94,7 +95,8 @@ VFS 使用 `open_read` / `begin_open_read`，只负责打开和读取，没有�
 网格上传准备使用移动构造建立共享所有权，渲染资源及在途帧释放最后一个引用后销毁数据。
 文件更新由后续加载或重载处理，不保证多个文件属于同一时刻。短读、取消和格式错误仍返回失败。
 纹理容器的 Manifest/负载摘要校验与旧 GPU 数据恢复的摘要匹配仍保留。
-只提供整文件读取的内部自定义后端保留同步回退，不承诺同样的单步时间上界。
+渲染专用准备对只提供整文件读取的内部后端仍保留同步回退，不承诺同样的单步时间上界。
+普通 CPU 资源异步加载已删除该回退，后端缺少异步能力时返回 unsupported。
 Windows 原生后端提供 OVERLAPPED 范围请求，跨步骤保留自有缓冲；NOT_READY 时返回宿主，
 请求销毁前完成取消回收。同步 API 不采用轮询忙等。Linux 原生范围读取及未实现这一可选契约的
 后端仍同步执行，不保证文件系统等待上界；不保证外部文件内容不可变。
@@ -142,7 +144,13 @@ metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 
 ## 普通资源读取与解码
 
-asset_manager 通过 VFS 读取有界字节，再调用 asset_decoder；解码器不接收 URI 或 VFS。
+asset_manager 的 load 请求通过 file_service 读取有界字节；完成回调交付字节后只提交一次
+asset-decode 任务。等待文件期间不轮询 CPU 任务，不再使用 asset_source。
+解码器不接收 URI 或 VFS。advance_resources 在所属线程驱动文件回调和解码结果登记。
+
+迁移期旧 VFS 构造仍支持显式 load_sync 读文件；注入 shared_ptr<file_service> 的构造
+只能同步复用已完成缓存，未命中返回 unsupported，不能阻塞等待服务回调。
+两种构造均保持已有的缓存、reload、失败保护和来源身份规则。
 `register_decoder<T>(function, maximum_bytes)` 可直接登记
 `result(span<const byte>, T&, serialization_diagnostic&)` 函数，无需类型继承或反射身份。
 仍可继承 asset_decoder 提供有状态解码器；回调必须支持不同输入的并发调用。

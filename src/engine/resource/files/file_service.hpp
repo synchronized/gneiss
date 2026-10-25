@@ -10,6 +10,8 @@
 
 namespace gneiss::engine {
 class file_backend;
+class virtual_file_system;
+struct asset_source_domain;
 struct mount_description {
   std::string prefix;
   std::vector<std::shared_ptr<file_backend>> readers;
@@ -24,10 +26,16 @@ struct file_service_options {
  * 提交失败清空 ID 且不回调；接受后只在 dispatch_completions 分发一次终态。
  * 用户回调可提交/取消，不得递归分发或销毁服务。析构放弃通知，不等待后台。
  * 正常生命周期必须 shutdown 并持续分发至关闭回调，再停止平台执行器。 */
-class file_service final {
+class GNEISS_API file_service final {
 public:
   explicit file_service(file_service_options options = {});
+  /** 迁移期导入旧挂载及来源身份，只接入异步读取，不启用同步回退。 */
+  explicit file_service(const virtual_file_system& files, file_service_options options = {});
   ~file_service();
+  /** 查询挂载来源身份，不执行 I/O；失败清空输出，限所属线程。 */
+  [[nodiscard]] result
+  resolve_source(std::string_view uri,
+                 std::shared_ptr<const asset_source_domain>& output) const noexcept;
   file_service(const file_service&) = delete;
   file_service& operator=(const file_service&) = delete;
   file_service(file_service&&) = delete;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/memory_read_file_system.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
@@ -24,7 +25,7 @@ void check(bool value, std::source_location where = std::source_location::curren
   }
 }
 
-struct memory_files final : gneiss::engine::file_system {
+struct memory_files final : gneiss::test_support::memory_read_file_system {
   std::map<std::string, std::string> files;
   mutable std::map<std::string, unsigned> reads;
   bool change_on_verify{};

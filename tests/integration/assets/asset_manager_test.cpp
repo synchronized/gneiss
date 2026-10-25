@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../support/memory_read_file_system.hpp"
 #include "engine/core/reflection/type_registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/resource/asset_manager.hpp"
+#include "engine/resource/files/file_backend.hpp"
+#include "engine/resource/files/file_service.hpp"
 #include "engine/resource/loaders/material_serialization.hpp"
 #include "engine/resource/types/material_description.hpp"
 #include <cstdio>
@@ -26,7 +29,7 @@ void check(bool ok, const char* message) {
     throw std::runtime_error(message);
 }
 using value = gneiss::test_support::asset_value;
-class memory_files final : public file_system {
+class memory_files final : public gneiss::test_support::memory_read_file_system {
 public:
   mutable unsigned reads{};
   mutable char byte{'a'};
@@ -74,6 +77,84 @@ public:
 result explicit_decode(std::span<const std::byte> bytes, value& output, serialization_diagnostic&) {
   output.byte = 'x';
   return bytes.front() == std::byte{'!'} ? result::invalid_argument : result::success;
+}
+class delayed_files final : public file_backend {
+public:
+  file_callback<file_bytes> pending;
+  result read(std::string_view, read_options, file_callback<file_bytes> callback) override {
+    pending = std::move(callback);
+    return result::success;
+  }
+  void finish(char value) {
+    auto callback = std::move(pending);
+    callback({result::success, {static_cast<std::byte>(value)}});
+  }
+};
+void injected_file_service() {
+  auto backend = std::make_shared<delayed_files>();
+  auto files = std::make_shared<file_service>(file_service_options{1, 64});
+  check(files->mount({"asset://", {backend}, {}}).ok(), "service mount");
+  task_scheduler executor({.workers = 0, .mode = execution_mode::cooperative});
+  auto assets = std::make_unique<asset_manager>(files);
+  auto decoder = std::make_shared<loader>();
+  check(assets->register_decoder(decoder).ok(), "service decoder");
+  assets->attach_task_executor(executor);
+  asset_request<value> first, second;
+  asset_ref<const value> loaded, other;
+  check(assets->load_sync("asset://missing", loaded) == result::unsupported,
+        "no synchronous service fallback");
+  check(assets->load("asset://value", first).ok(), "service request");
+  check(assets->load("asset://value", second).ok(), "service coalescing");
+  asset_request<value> full;
+  check(assets->load("asset://other", full) == result::not_ready && !full,
+        "file capacity propagates");
+  for (unsigned i = 0; i < 8; ++i)
+    assets->advance_resources();
+  check(executor.stats().submitted == 0 && decoder->decodes == 0,
+        "IO waiting submits no CPU polling task");
+  backend->finish('q');
+  assets->advance_resources();
+  check(executor.stats().submitted == 1 && decoder->decodes == 0,
+        "one decode after file completion");
+  check(executor.run_ready().status == drive_status::success, "decode task");
+  assets->advance_resources();
+  check(first.take(loaded).ok() && second.take(other).ok() && loaded == other &&
+            loaded->byte == 'q',
+        "shared decoded result");
+  check(assets->load_sync("asset://value", other).ok() && other == loaded,
+        "service cache readable synchronously");
+  std::shared_ptr<const asset_source_domain> source;
+  check(files->resolve_source("asset://value", source).ok() && source &&
+            assets->cache().size() == 1,
+        "service cache source identity");
+  check(assets->load("asset://value", first, true).ok(), "cancel service load");
+  first.cancel();
+  assets->advance_resources();
+  backend->finish('r');
+  assets->advance_resources();
+  check(executor.stats().submitted == 1, "cancelled IO never decodes");
+  check(assets->load_sync("asset://value", other).ok() && other == loaded,
+        "cancel preserves cache");
+  check(assets->load("asset://late", first).ok(), "late request");
+  assets->stop_resources();
+  assets.reset();
+  check(first.take(other) == result::invalid_state && other == loaded, "stop terminates observer");
+  backend->finish('s');
+  check(files->dispatch_completions(64).ok() && executor.stats().submitted == 1,
+        "late IO cannot access destroyed manager");
+  bool closed = false;
+  check(files->shutdown([&](result status) { closed = status.ok(); }).ok(),
+        "shared service shutdown");
+  check(files->dispatch_completions(64).ok() && closed, "shared service drained");
+
+  auto legacy_backend = std::make_shared<memory_files>();
+  virtual_file_system legacy;
+  check(legacy.mount("asset://", legacy_backend).ok(), "legacy identity mount");
+  file_service imported(legacy);
+  std::shared_ptr<const asset_source_domain> original, migrated;
+  check(legacy.resolve_source("asset://value", original).ok() &&
+            imported.resolve_source("asset://value", migrated).ok() && original == migrated,
+        "migration preserves source identity");
 }
 void decoder_selection() {
   auto source = std::make_shared<memory_files>();
@@ -339,6 +420,7 @@ void run() {
   // 旧请求先执行完但延迟发布；同步新版本发布后，旧结果不能回写缓存。
   source->byte = 'c';
   check(assets.load("asset://value", first, true) == gneiss::engine::result::success, "old async");
+  assets.advance_resources(); // 文件快照先交给异步来源，解码尚未发布。
   check(executor.run_ready().status == drive_status::success, "old work ready");
   source->byte = 'd';
   check(assets.load_sync("asset://value", b, true) == gneiss::engine::result::success &&
@@ -353,6 +435,7 @@ void run() {
 
   source->byte = 'x';
   check(assets.load("asset://new", first) == gneiss::engine::result::success, "first-load overlap");
+  assets.advance_resources(); // 文件快照先交给异步来源，解码尚未发布。
   check(executor.run_ready().status == drive_status::success, "first-load work ready");
   source->byte = 'y';
   asset_ref<const value> independent;
@@ -367,6 +450,7 @@ void run() {
   source->byte = 'z';
   check(assets.load("asset://new", first, true) == gneiss::engine::result::success,
         "async before failed sync");
+  assets.advance_resources(); // 文件快照先交给异步来源，解码尚未发布。
   check(executor.run_ready().status == drive_status::success, "reload work ready");
   source->byte = '!';
   check(assets.load_sync("asset://new", independent, true) ==
@@ -439,7 +523,8 @@ void run() {
   stopped.request_stop();
   check(rejected.load("asset://value", first) == gneiss::engine::result::success,
         "rejection is terminal request");
-  rejected.advance_resources();
+  for (unsigned i = 0; i < 16 && first.take(a) == result::not_ready; ++i)
+    rejected.advance_resources();
   check(first.take(a) == gneiss::engine::result::invalid_state, "queue rejection does not hang");
 }
 void stored_value_supersedes_pending() {
@@ -475,6 +560,7 @@ void stored_value_supersedes_pending() {
 }
 int main() {
   try {
+    injected_file_service();
     stored_value_supersedes_pending();
     decoder_selection();
     reference_lifetime();

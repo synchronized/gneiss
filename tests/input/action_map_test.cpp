@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/memory_read_file_system.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/resource/asset_manager.hpp"
@@ -10,7 +11,7 @@
 #include <cstring>
 
 namespace {
-class changing_files final : public gneiss::engine::file_system {
+class changing_files final : public gneiss::test_support::memory_read_file_system {
 public:
   std::string first, second;
   mutable unsigned reads = 0;
@@ -130,8 +131,7 @@ int main() {
     asynchronous.advance_resources();
     status = request.take(shared, &diagnostic);
   }
-  if (status.failed() || shared->actions.front().name != "move" ||
-      backend->last_limit != maximum_action_map_bytes)
+  if (status.failed() || shared->actions.front().name != "move")
     return 16;
   previous = shared;
   backend->first = backend->second = invalid_scale;
@@ -146,6 +146,19 @@ int main() {
   if (status != result::invalid_argument || shared != previous ||
       diagnostic.path != "/actions/0/bindings/0")
     return 18;
+  // 异步读取在打开来源后检查字节上限，不再依赖旧 read_bounded 的参数传递。
+  backend->first = backend->second = std::string(maximum_action_map_bytes + 1, ' ');
+  if (asynchronous.request_input("asset://input/oversized", request).failed())
+    return 24;
+  status = result::not_ready;
+  for (unsigned i = 0; i < 32 && status == result::not_ready; ++i) {
+    (void)executor.run_ready();
+    asynchronous.advance_resources();
+    status = request.take(shared);
+  }
+  if (status != result::invalid_argument || shared != previous)
+    return 25;
+  backend->first = backend->second = invalid_scale;
   asset_manager custom(files);
   const auto override_decode =
       +[](std::span<const std::byte>, action_map& output, serialization_diagnostic&) -> result {

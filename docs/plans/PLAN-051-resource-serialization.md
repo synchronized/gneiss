@@ -7,7 +7,8 @@
 
 本轮普通资源描述加载、反射 codec 接入及 Scene 保存入口整理已完成，进入运行验收待办阶段。
 收尾盘点覆盖 Scene、Prefab、Material、ActionMap 的同步/后台加载、引用与缓存回收、关闭顺序。
-普通文件加载均经 manager；SceneService 已删除不再使用的 VFS 副本。
+普通描述文件加载均经 manager；异步字节读取现已接入 file_service，见[文件服务计划](PLAN-051-async-file-service.md)。
+SceneService 已删除不再使用的 VFS 副本。
 同步/异步默认缓存复用和各类持有关系以[资产参考](../reference/assets.md)为准。
 当前验收限 Windows Clang Debug 编译、格式和边界检查；未运行测试、大场景或 CI。
 
@@ -34,7 +35,8 @@
 
 ## 现状与问题
 
-asset_manager 已按运行期 type_id 选择显式 asset_decoder 或冻结 Registry codec；VFS 负责读取字节。
+asset_manager 已按运行期 type_id 选择显式 asset_decoder 或冻结 Registry codec；
+异步字节读取使用 file_service，迁移期显式同步加载仍使用 VFS。
 反射已有属性访问及可选 codec，value 类别固定；没有数组、枚举、可选字段及嵌套对象 schema。
 Scene/Prefab 的现有序列化还保留受支持文档中的未知 JSON 字段，不能直接替换成字段遍历。
 运行期注册身份和文件中的格式版本职责不同，不能因新增反射类型就擅自修改文件布局。

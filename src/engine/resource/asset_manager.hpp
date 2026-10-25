@@ -15,6 +15,7 @@
 
 namespace gneiss::engine {
 class task_executor;
+class file_service;
 }
 
 namespace gneiss::engine {
@@ -27,8 +28,12 @@ public:
    * 管理器持有 Registry；fallback_limit 限制反射资源输入，显式 decoder 可指定自己的上限。 */
   explicit asset_manager(gneiss::engine::virtual_file_system files, registry_ref registry = {},
                          std::size_t fallback_limit = 64U * 1024U * 1024U);
+  /** 注入同线程文件服务；advance_resources 驱动完成分发，只提交 CPU 解码任务。
+   * 此入口不提供同步文件读取，load_sync 仅能复用已有缓存；服务可由宿主共享持有。 */
+  explicit asset_manager(std::shared_ptr<file_service> files, registry_ref registry = {},
+                         std::size_t fallback_limit = 64U * 1024U * 1024U);
   ~asset_manager();
-  /** 借用 VFS 与宿主执行器；不创建独立线程池。 */
+  /** 借用宿主解码执行器；文件 I/O 由服务后端执行，不创建独立线程池。 */
   void attach_task_executor(gneiss::engine::task_executor& executor);
   /** 同步准备失败不改输出，不驱动宿主任务队列；采用与取消由调用者负责。 */
   [[nodiscard]] gneiss::engine::result load_input(std::string_view uri,
@@ -36,7 +41,8 @@ public:
   [[nodiscard]] gneiss::engine::result request_input(std::string_view uri,
                                                      asset_request<action_map>& output) noexcept;
   void advance_resources();
-  /** 调用者先取消并释放请求，再停止资源工作。 */
+  /** 终止资产观察者并取消文件请求，等待已有 CPU 解码任务收尾。
+   * 共享文件服务继续由宿主分发/关闭；独占服务随管理器销毁放弃通知，后端保活实际 I/O。 */
   void stop_resources() noexcept;
   /** 显式注册 CPU 类型；首次请求后冻结注册。VFS 来源由本管理器固定持有。 */
   [[nodiscard]] gneiss::engine::result
@@ -68,7 +74,8 @@ public:
       output = asset_request<T>{std::move(state)};
     return status;
   }
-  /** 同步加载默认复用缓存；reload 才重新读取。成功读取使较早异步请求失去缓存写入权。 */
+  /** 同步加载默认复用缓存；仅旧 VFS 构造入口支持缓存未命中时同步读文件。
+   * 注入文件服务时未命中返回 unsupported；成功读取使较早异步请求失去缓存写入权。 */
   template <typename T>
   [[nodiscard]] gneiss::engine::result
   load_sync(std::string_view uri, asset_ref<const T>& output, bool reload = false,

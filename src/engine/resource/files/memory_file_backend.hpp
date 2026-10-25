@@ -10,7 +10,7 @@
 namespace gneiss::engine {
 /** 所属线程使用的易失文件后端；写入隐式建立父目录，不支持持久化 flush。
  * 不使用 std::filesystem，适用于桌面/浏览器和一致性测试。 */
-class memory_file_backend final : public file_backend {
+class GNEISS_API memory_file_backend final : public file_backend {
 public:
   result read(std::string_view path, read_options options,
               file_callback<file_bytes> callback) override;

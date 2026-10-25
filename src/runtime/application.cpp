@@ -191,8 +191,7 @@ application::attach_task_executor(gneiss::engine::task_executor& executor) noexc
   }
   try {
 #ifdef GNEISS_ASSET_LIBUV
-    if (storage_->native_assets_ && !storage_->asset_io_executor_ &&
-        executor.mode() == gneiss::engine::execution_mode::thread_pool) {
+    if (storage_->native_assets_ && !storage_->asset_io_executor_) {
       auto loop = std::make_unique<gneiss::engine::uv_loop_executor>();
       auto files = std::make_shared<gneiss::engine::uv_file_io>(*loop);
       auto paths = std::make_shared<gneiss::engine::uv_path_resolver>(*loop);

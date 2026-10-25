@@ -6,7 +6,9 @@
 ## 当前范围
 
 内部原生入口位于 `src/engine/resource/files/file_service.hpp`，命名空间为 `gneiss::engine`。
-当前实现服务核心、内存后端和旧异步读取回执适配。**尚未替换 asset_manager/VFS 的实际加载入口**。
+当前实现服务核心、内存后端和旧异步读取回执适配。asset_manager 的普通 CPU 资源异步读取
+已接入服务，文件完成后才提交一次解码任务；旧 asset_source 已删除。
+旧 VFS 同步加载、网格/纹理的专用范围读取与宿主同步关闭仍待后续迁移。
 浏览器 Fetch/FS/IDBFS、桌面写入/元数据/列举/持久化、流式读取、字节缓存、JS Promise 尚未实现。
 后续迁移见[开发计划](../plans/PLAN-051-async-file-service.md)。
 
@@ -75,6 +77,28 @@ shutdown 取消尚未完成请求，已有终态照常交付。关闭回调遵�
 不支持异步读取的后端返回 unsupported，绝不调用同步 open_read/read/read_at 回退。
 适配器本身不依赖 std::filesystem；迁移期 native_file_system 仍使用该类型处理根路径，
 尚未完成桌面后端去除 std::filesystem 的目标。
+
+## 资产管理器接入
+
+`asset_manager(shared_ptr<file_service>, registry, limit)` 持有宿主注入的同线程服务。
+`advance_resources` 驱动服务完成分发及解码结果登记；等待文件期间不提交 CPU 轮询任务。
+读取回调只捕获操作弱引用，不捕获 manager 或执行器，停止后的迟到完成不能触发解码。
+同键请求合并、失败保留旧资源、取消独立观察者以及已存储内容不被旧请求覆盖的规则不变。
+
+文件服务每个挂载具有稳定来源域，`resolve_source` 仅查询身份。
+迁移期 `file_service(const virtual_file_system&, options)` 导入挂载时复用旧来源域，
+避免旧渲染入口与新异步入口对同一 URI 建立不同缓存身份。
+旧 `asset_manager(virtual_file_system, ...)` 构造内部导入服务，保留显式同步加载能力。
+新注入构造不提供同步磁盘回退，load_sync 仅复用成功缓存，未命中返回 unsupported。
+
+桌面启用 libuv 的构建中，Application 即使使用协作式 CPU 调度也配置异步 I/O loop。
+尚无实际异步后端的无线程/浏览器构建返回 unsupported，不再恢复同步文件回退。
+文件操作和 CPU 调度线程数是不同配置，不应把 cooperative 等同于所有文件操作都在主线程执行。
+
+当前 stop_resources 仍等待已有 CPU scope 收尾，终止观察者、取消读取并释放服务引用。
+宿主持有的共享服务继续由宿主分发并正常 shutdown；独占服务析构放弃通知，在途后端自行清理。
+Application 的既有同步 teardown 释放读来源和渲染快照后再停止 libuv loop，
+尚未改成逐次轮询的异步宿主关闭流程，不宣称整个引擎关闭已经非阻塞。
 
 ## 验证状态
 

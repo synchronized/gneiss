@@ -41,6 +41,7 @@ public:
   [[nodiscard]] std::size_t mount_count() const noexcept { return mounts_.size(); }
 
 private:
+  friend class file_service;
   struct mount_entry final {
     std::string point;
     std::shared_ptr<file_system> backend;

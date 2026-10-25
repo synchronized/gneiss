@@ -7,11 +7,12 @@
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
+#include "engine/resource/files/file_service.hpp"
 #include "engine/resource/resource_registry.hpp"
-#include "engine/resource/vfs/asset_source.hpp"
 #include "engine/resource/vfs/asset_uri.hpp"
 #include <algorithm>
 #include <atomic>
+#include <limits>
 #include <map>
 #include <stdexcept>
 
@@ -28,26 +29,23 @@ struct asset_manager::resource_state {
     std::uint64_t generation;
     std::shared_ptr<const asset_decoder> loader;
     std::shared_ptr<detail::asset_state> observer{std::make_shared<detail::asset_state>()};
-    asset_source source;
+    file_request_id read_request;
+    file_bytes bytes;
+    bool reading{true}, read_complete{};
     std::shared_ptr<const void> value;
     serialization_diagnostic diagnostic;
     // 在途重载保活旧缓存条目；失败后旧内容仍可复用。
     std::shared_ptr<const resource_cache::entry> previous;
     std::atomic_bool settled{false};
     gneiss::engine::result status{gneiss::engine::result::not_ready};
-    operation(key id, std::uint64_t version, std::shared_ptr<const asset_decoder> parser,
-              const virtual_file_system& files)
-        : identity(std::move(id)), generation(version), loader(std::move(parser)),
-          source(files, std::get<1>(identity), loader->maximum_bytes()) {}
-    void advance() {
-      status = source.advance();
-      if (status != gneiss::engine::result::success) {
-        return;
-      }
-      status = loader->decode(source.bytes(), value, diagnostic);
-      if (status == gneiss::engine::result::success && !value) {
-        status = gneiss::engine::result::internal;
-      }
+    operation(key id, std::uint64_t version, std::shared_ptr<const asset_decoder> parser)
+        : identity(std::move(id)), generation(version), loader(std::move(parser)) {}
+    void decode() {
+      status = loader->decode(bytes, value, diagnostic);
+      // 解码任务只有一次终态；not_ready 不能变成永久挂起的资产请求。
+      if (status == result::not_ready || (status == result::success && !value))
+        status = result::internal;
+      file_bytes{}.swap(bytes);
     }
   };
   // 执行器丢弃排队任务时也产生终态；所有数据先写入，再 release 发布。
@@ -61,6 +59,8 @@ struct asset_manager::resource_state {
       work->settled.store(true, std::memory_order_release);
     }
   };
+  std::shared_ptr<file_service> files;
+  bool legacy_sync{};
   gneiss::engine::task_executor* executor{};
   gneiss::engine::task_scope scope{};
   bool frozen{}, stopped{};
@@ -76,14 +76,14 @@ struct asset_manager::resource_state {
     completion->work = work;
     gneiss::engine::task_handle handle;
     const auto submitted = executor->submit(
-        {.name = "asset-load", .scope = scope},
+        {.name = "asset-decode", .scope = scope},
         [completion](const auto& context) {
           auto& task = *completion->work;
           try {
             if (context.stop_requested()) {
               task.status = gneiss::engine::result::invalid_state;
             } else {
-              task.advance();
+              task.decode();
             }
           } catch (const std::bad_alloc&) {
             task.status = gneiss::engine::result::out_of_memory;
@@ -106,16 +106,32 @@ struct asset_manager::resource_state {
       executor = nullptr;
     }
     for (const auto& work : active) {
+      if (work->reading && work->read_request.value != 0)
+        (void)files->cancel(work->read_request);
       const std::scoped_lock lock(work->observer->mutex);
       work->observer->status = gneiss::engine::result::invalid_state;
     }
     active.clear();
     requests.clear();
+    files.reset();
   }
 };
 asset_manager::asset_manager(virtual_file_system files, registry_ref registry,
                              std::size_t fallback_limit)
-    : resource_state_(std::make_unique<resource_state>()), files_(std::move(files)) {
+    : asset_manager(std::make_shared<file_service>(
+                        files, file_service_options{.max_requests = 64,
+                                                    .max_file_bytes =
+                                                        std::numeric_limits<std::size_t>::max()}),
+                    std::move(registry), fallback_limit) {
+  files_ = std::move(files);
+  resource_state_->legacy_sync = true;
+}
+asset_manager::asset_manager(std::shared_ptr<file_service> files, registry_ref registry,
+                             std::size_t fallback_limit)
+    : resource_state_(std::make_unique<resource_state>()) {
+  if (!files)
+    throw std::invalid_argument("文件服务不能为空");
+  resource_state_->files = std::move(files);
   if (!registry) {
     const auto status = builtin_resource_registry(registry);
     if (status == result::out_of_memory)
@@ -138,7 +154,7 @@ result asset_manager::store_erased(type_id type, std::string_view uri,
   if (!value || validate_uri(uri).failed())
     return result::invalid_argument;
   std::shared_ptr<const asset_source_domain> domain;
-  auto status = files_.resolve_source(uri, domain);
+  auto status = state.files->resolve_source(uri, domain);
   if (status.failed())
     return status;
   auto& request = state.requests[{domain, std::string(uri), type}];
@@ -223,7 +239,7 @@ gneiss::engine::result asset_manager::request(gneiss::engine::type_id type, std:
   if (resolved.failed())
     return resolved;
   std::shared_ptr<const asset_source_domain> domain;
-  const auto identified = files_.resolve_source(uri, domain);
+  const auto identified = state.files->resolve_source(uri, domain);
   if (identified != gneiss::engine::result::success)
     return identified;
   resource_state::key key{domain, std::string(uri), type};
@@ -240,12 +256,25 @@ gneiss::engine::result asset_manager::request(gneiss::engine::type_id type, std:
     output = std::move(ready);
     return gneiss::engine::result::success;
   }
-  auto work =
-      std::make_shared<resource_state::operation>(key, entry.generation + 1, decoder, files_);
+  auto work = std::make_shared<resource_state::operation>(key, entry.generation + 1, decoder);
   work->previous = cached;
   state.active.push_back(work);
   try {
-    state.schedule(work);
+    const auto submitted = state.files->read(
+        uri, {decoder->maximum_bytes()},
+        [weak = std::weak_ptr(work)](file_completion<file_bytes> completed) {
+          // 回调只向仍存活的操作交付字节；停止/销毁后不捕获 manager 或执行器。
+          if (auto operation = weak.lock()) {
+            operation->status = completed.status;
+            operation->bytes = std::move(completed.data);
+            operation->read_complete = true;
+          }
+        },
+        work->read_request);
+    if (submitted != result::success) {
+      state.active.pop_back();
+      return submitted;
+    }
   } catch (...) {
     state.active.pop_back();
     throw;
@@ -278,7 +307,7 @@ asset_manager::load_sync_erased(gneiss::engine::type_id type, std::string_view u
   if (resolved.failed())
     return resolved;
   std::shared_ptr<const asset_source_domain> domain;
-  const auto identified = files_.resolve_source(uri, domain);
+  const auto identified = state.files->resolve_source(uri, domain);
   if (identified != gneiss::engine::result::success)
     return identified;
   const auto& loader = *decoder;
@@ -288,6 +317,8 @@ asset_manager::load_sync_erased(gneiss::engine::type_id type, std::string_view u
   const auto status = cache_.load(
       uri, type,
       [&](auto& stored) {
+        if (!state.legacy_sync)
+          return result::unsupported;
         decoded = true;
         std::vector<std::byte> bytes;
         const auto read = files_.read_bounded(uri, loader.maximum_bytes(), bytes);
@@ -332,28 +363,48 @@ void asset_manager::advance_resources() {
   if (state.executor == nullptr) {
     return;
   }
+  // 文件完成只在所属线程交付，解码执行器不再承担 I/O 轮询。
+  // 分发可能运行同服务上的其他回调；保活服务并检查回调是否停止了管理器。
+  auto files = state.files;
+  if (files->dispatch_completions(64) != result::success || state.stopped)
+    return;
   std::vector<gneiss::engine::task_completion> completions;
   (void)state.executor->poll(state.scope, completions);
   for (auto it = state.active.begin(); it != state.active.end();) {
     const auto& work = *it;
+    // 丢弃全部观察者后不再提交解码或发布；已经运行的任务自行保活并收尾。
+    if (work->observer.use_count() == 1) {
+      if (work->reading)
+        (void)state.files->cancel(work->read_request);
+      auto& entry = state.requests.at(work->identity);
+      if (entry.generation == work->generation)
+        entry.pending.reset();
+      it = state.active.erase(it);
+      continue;
+    }
+    if (work->reading) {
+      if (!work->read_complete) {
+        ++it;
+        continue;
+      }
+      work->reading = false;
+      if (work->status == result::success) {
+        try {
+          state.schedule(work);
+        } catch (const std::bad_alloc&) {
+          work->status = result::out_of_memory;
+          work->settled.store(true, std::memory_order_release);
+        } catch (...) {
+          work->status = result::internal;
+          work->settled.store(true, std::memory_order_release);
+        }
+      } else {
+        work->settled.store(true, std::memory_order_release);
+      }
+    }
     if (!work->settled.load(std::memory_order_acquire)) {
       ++it;
       continue;
-    }
-    // 没有观察者时不再推进或发布；不影响同键的独立观察者。
-    if (work->observer.use_count() == 1) {
-      work->status = gneiss::engine::result::invalid_state;
-    }
-    if (work->status == gneiss::engine::result::not_ready) {
-      try {
-        state.schedule(work);
-        ++it;
-        continue;
-      } catch (const std::bad_alloc&) {
-        work->status = gneiss::engine::result::out_of_memory;
-      } catch (...) {
-        work->status = gneiss::engine::result::internal;
-      }
     }
     auto& entry = state.requests.at(work->identity);
     if (entry.generation == work->generation) {

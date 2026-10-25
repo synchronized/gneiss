@@ -865,8 +865,7 @@ add_executable(gneiss_scene_instantiation_test scene/scene_instantiation_test.cp
 target_sources(gneiss_scene_instantiation_test PRIVATE
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_manager.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/action_map_parser.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/types/action_map_validation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_source.cpp")
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/types/action_map_validation.cpp")
 target_include_directories(gneiss_scene_instantiation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_scene_instantiation_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_scene_instantiation_test PRIVATE gneiss::engine gneiss_yyjson gneiss_png granit::granit)
