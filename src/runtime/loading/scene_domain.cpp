@@ -4,15 +4,13 @@
 #include "runtime/loading/scene_domain.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/resource/asset_manager.hpp"
 
 namespace gneiss::runtime {
 
 scene_domain::~scene_domain() noexcept = default;
 
 gneiss::engine::result
-scene_domain::initialize(gneiss::engine::asset_manager& owner,
-                         gneiss::engine::render_asset_loader& render) noexcept {
+scene_domain::initialize(gneiss::engine::render_asset_loader& render) noexcept {
   if (world_owner_) {
     return gneiss::engine::result::invalid_state;
   }
@@ -23,8 +21,8 @@ scene_domain::initialize(gneiss::engine::asset_manager& owner,
     return result;
   }
   try {
-    auto next_scenes = std::make_unique<gneiss::engine::scene_instances>(
-        *next_world, borrowed, render, owner.prefab_loader());
+    auto next_scenes =
+        std::make_unique<gneiss::engine::scene_instances>(*next_world, borrowed, render);
     if (!next_scenes->is_valid()) {
       return gneiss::engine::result::out_of_memory;
     }

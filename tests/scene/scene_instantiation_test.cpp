@@ -84,8 +84,10 @@ void unified_resource_index() {
   prefab_description description;
   description.objects.emplace_back();
   prefab_asset_ref prefab;
-  check(assets.prefab_loader().install_prepared("asset://same", std::move(description), prefab) ==
-        result::success);
+  check(assets.store<gneiss::engine::prefab_description>(
+            "asset://same",
+            std::make_shared<const gneiss::engine::prefab_description>(std::move(description)),
+            prefab) == result::success);
   gneiss::engine::render_asset_ref material;
   check(render.reserve_asset({"asset://same", gneiss::engine::render_asset_type::material},
                              material) == result::success);
@@ -135,8 +137,7 @@ void run() {
     const auto render_count = resources.live_resource_count();
     gneiss::engine::prefab_asset_ref prefab;
     gneiss::engine::scene_diagnostic prefab_diagnostic;
-    check(active_assets.acquire("asset://p.prefab", prefab, prefab_diagnostic) ==
-          gneiss::engine::result::success);
+    check(active_assets.load_sync("asset://p.prefab", prefab) == gneiss::engine::result::success);
     check(prefab.get() != nullptr);
     check(resources.live_resource_count() == render_count);
     active_assets.collect_unused();
@@ -154,10 +155,10 @@ void run() {
   auto active = std::make_unique<runtime::scene_domain>();
   check(active->native_world() == nullptr && active->world() == gneiss::engine::null_rid &&
         active->scenes() == nullptr);
-  check(active->initialize(active_assets, active_render) == gneiss::engine::result::success);
+  check(active->initialize(active_render) == gneiss::engine::result::success);
   const auto initialized_world = active->world();
   auto* initialized_scenes = active->scenes();
-  check(active->initialize(active_assets, active_render) == gneiss::engine::result::invalid_state);
+  check(active->initialize(active_render) == gneiss::engine::result::invalid_state);
   check(active->world() == initialized_world && active->scenes() == initialized_scenes);
 
   gneiss::engine::rid old_scene{};
@@ -183,8 +184,7 @@ void run() {
                                                   scene_error,
                                                   {}) == gneiss::engine::result::success);
   auto candidate = std::make_unique<runtime::scene_domain>();
-  check(candidate->initialize(candidate_assets, candidate_render) ==
-        gneiss::engine::result::success);
+  check(candidate->initialize(candidate_render) == gneiss::engine::result::success);
   std::vector<gneiss::engine::render_asset_ref> captured{gneiss::engine::render_asset_ref{}};
   check(candidate->scenes()->capture_render_assets(captured) == gneiss::engine::result::success &&
         captured.empty());
@@ -231,6 +231,14 @@ void run() {
   staged.clear();
   const auto reads = files->reads;
   gneiss::engine::rid new_scene{};
+  // 缺少来源引用必须拒绝，不能通过临时描述回写缓存。
+  auto missing_source = prepared;
+  missing_source.prefabs.begin()->second.resource.reset();
+  gneiss::engine::rid rejected_scene{};
+  check(candidate->scenes()->instantiate_prepared(std::move(missing_source), bindings,
+                                                  rejected_scene) ==
+            gneiss::engine::result::invalid_argument &&
+        rejected_scene == gneiss::engine::null_rid);
   check(candidate->scenes()->instantiate_prepared(std::move(prepared), bindings, new_scene) ==
         gneiss::engine::result::success);
   check(new_scene != gneiss::engine::null_rid);
@@ -459,8 +467,7 @@ void run() {
                                                   scene_error,
                                                   {}) == gneiss::engine::result::success);
   candidate = std::make_unique<runtime::scene_domain>();
-  check(candidate->initialize(candidate_assets, candidate_render) ==
-        gneiss::engine::result::success);
+  check(candidate->initialize(candidate_render) == gneiss::engine::result::success);
   const auto failure_reads = files->reads;
   gneiss::engine::rid failed_instance{};
   check(candidate->scenes()->instantiate_prepared(std::move(prepared), {}, failed_instance) ==

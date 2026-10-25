@@ -135,8 +135,6 @@ target_sources(
     engine/core/reflection/property_registry.hpp
     engine/function/scene/scene_tree.cpp
     engine/function/scene/scene_tree.hpp
-    engine/resource/loaders/prefab_asset_loader.cpp
-    engine/resource/loaders/prefab_asset_loader.hpp
     engine/function/scene/scene_instantiation.cpp
     engine/function/scene/scene_load_preparation.cpp
     engine/function/scene/scene_load_preparation.hpp

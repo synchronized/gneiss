@@ -1260,9 +1260,7 @@ gneiss::engine::render_resource_service& application::resources() noexcept {
   return storage_->resources_;
 }
 
-gneiss::engine::prefab_asset_loader& application::prefab_loader() noexcept {
-  return storage_->asset_manager_->prefab_loader();
-}
+gneiss::engine::asset_manager& application::assets() noexcept { return *storage_->asset_manager_; }
 
 gneiss::engine::scene_instances* application::scenes() noexcept {
   return storage_->scene_service_.scenes();

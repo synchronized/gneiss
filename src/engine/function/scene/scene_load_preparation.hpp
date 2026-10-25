@@ -22,7 +22,6 @@ struct scene_prepare_limits {
 
 struct prepared_prefab_description {
   asset_ref<const prefab_description> resource;
-  gneiss::engine::prefab_description description;
   std::size_t maximum_depth{};
   std::vector<std::size_t> parent_first;
 };

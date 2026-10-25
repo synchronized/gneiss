@@ -86,7 +86,6 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/render/texture_load_service.hpp
   engine/function/render/texture_view.hpp
   engine/function/render/ui_draw_list.hpp
-  engine/resource/loaders/prefab_asset_loader.hpp
   engine/resource/types/prefab_property_data.hpp
   engine/resource/types/prefab_description.hpp
   engine/function/scene/prefab_property_override.hpp

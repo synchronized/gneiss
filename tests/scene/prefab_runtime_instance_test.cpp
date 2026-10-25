@@ -11,7 +11,7 @@
 #include "engine/function/world/world_service.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
-#include "engine/resource/loaders/prefab_asset_loader.hpp"
+#include "engine/resource/types/prefab_description.hpp"
 #include "engine/resource/vfs/file_system.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
 
@@ -85,8 +85,7 @@ bool check_failed_camera_prefab(
     gneiss::engine::world& native_world, gneiss::engine::rid world,
     const gneiss::engine::registry_ref& registry,
     gneiss::engine::render_asset_loader& render_loader,
-    gneiss::engine::prefab_asset_loader& prefab_loader,
-    const gneiss::engine::prefab_description& source,
+    gneiss::engine::asset_manager& prefab_loader, const gneiss::engine::prefab_description& source,
     const std::vector<gneiss::engine::prefab_property_override>& invalid_overrides) {
   auto description = source;
   description.objects[0].camera = {.vertical_field_of_view_radians = 1.0F,
@@ -94,8 +93,10 @@ bool check_failed_camera_prefab(
                                    .far_plane = 100.0F,
                                    .is_primary = true};
   gneiss::engine::prefab_asset_ref lease;
-  if (prefab_loader.install_prepared("asset://prefabs/camera.prefab.json", std::move(description),
-                                     lease) != gneiss::engine::result::success) {
+  if (prefab_loader.store<gneiss::engine::prefab_description>(
+          "asset://prefabs/camera.prefab.json",
+          std::make_shared<const gneiss::engine::prefab_description>(std::move(description)),
+          lease) != gneiss::engine::result::success) {
     return false;
   }
   std::uint64_t previous{};
@@ -143,7 +144,7 @@ bool check_failed_camera_prefab(
 bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss::engine::rid world,
                          const gneiss::engine::registry_ref& registry,
                          gneiss::engine::render_asset_loader& loader,
-                         gneiss::engine::prefab_asset_loader& prefabs,
+                         gneiss::engine::asset_manager& prefabs,
                          gneiss::engine::prefab_asset_ref lease, gneiss::engine::rid parent) {
   using gneiss::engine::prefab_runtime_instance;
   prefab_runtime_instance candidate(native_world, world, loader, lease,
@@ -186,8 +187,10 @@ bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss::engine::ri
   child.parent_uuid = expanded.objects[1].uuid;
   expanded.objects.push_back(std::move(child));
   gneiss::engine::prefab_asset_ref expanded_lease;
-  if (prefabs.install_prepared("asset://prefabs/expanded.prefab.json", std::move(expanded),
-                               expanded_lease) != gneiss::engine::result::success ||
+  if (prefabs.store<gneiss::engine::prefab_description>(
+          "asset://prefabs/expanded.prefab.json",
+          std::make_shared<const gneiss::engine::prefab_description>(std::move(expanded)),
+          expanded_lease) != gneiss::engine::result::success ||
       candidate.reload(expanded_lease, registry, {}) != gneiss::engine::result::success ||
       gneiss::engine::result{gneiss::engine::entity_count(world, count)} !=
           gneiss::engine::result::success ||
@@ -241,17 +244,16 @@ int main() try {
   gneiss::engine::asset_manager asset_owner(file_system);
   [[maybe_unused]] auto& cache = asset_owner.cache();
   gneiss::engine::render_asset_loader render_loader(asset_owner, resources);
-  gneiss::engine::prefab_asset_loader prefab_loader(asset_owner);
+  auto& prefab_loader = asset_owner;
   if (file_system.mount("asset://prefabs/", std::make_shared<memory_file_system>()) !=
       gneiss::engine::result::success) {
     return 3;
   }
-  gneiss::engine::scene_diagnostic diagnostic;
   gneiss::engine::prefab_asset_ref first_lease;
   gneiss::engine::prefab_asset_ref second_lease;
-  if (prefab_loader.acquire("asset://prefabs/lamp.prefab.json", first_lease, diagnostic) !=
+  if (prefab_loader.load_sync("asset://prefabs/lamp.prefab.json", first_lease) !=
           gneiss::engine::result::success ||
-      prefab_loader.acquire("asset://prefabs/lamp.prefab.json", second_lease, diagnostic) !=
+      prefab_loader.load_sync("asset://prefabs/lamp.prefab.json", second_lease) !=
           gneiss::engine::result::success) {
     return 4;
   }
@@ -315,8 +317,8 @@ int main() try {
   }
 
   gneiss::engine::prefab_asset_ref invalid_override_lease;
-  if (prefab_loader.acquire("asset://prefabs/lamp.prefab.json", invalid_override_lease,
-                            diagnostic) != gneiss::engine::result::success) {
+  if (prefab_loader.load_sync("asset://prefabs/lamp.prefab.json", invalid_override_lease) !=
+      gneiss::engine::result::success) {
     return 7;
   }
   const std::vector<gneiss::engine::prefab_property_override> invalid_overrides{{
@@ -347,7 +349,7 @@ int main() try {
   }
 
   gneiss::engine::prefab_asset_ref failure_lease;
-  if (prefab_loader.acquire("asset://prefabs/lamp.prefab.json", failure_lease, diagnostic) !=
+  if (prefab_loader.load_sync("asset://prefabs/lamp.prefab.json", failure_lease) !=
       gneiss::engine::result::success) {
     return 7;
   }
@@ -365,7 +367,7 @@ int main() try {
   }
 
   gneiss::engine::prefab_asset_ref broken_lease;
-  if (prefab_loader.acquire("asset://prefabs/broken.prefab.json", broken_lease, diagnostic) !=
+  if (prefab_loader.load_sync("asset://prefabs/broken.prefab.json", broken_lease) !=
       gneiss::engine::result::success) {
     return 9;
   }

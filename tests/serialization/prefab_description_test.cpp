@@ -6,7 +6,6 @@
 #include "engine/function/scene/scene_tree.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
-#include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/resource/resource_registry.hpp"
 #include "engine/resource/types/prefab_description.hpp"
 #include "engine/resource/vfs/file_system.hpp"
@@ -96,10 +95,7 @@ bool prepared_description_contract() {
   }
   asset_manager assets(files);
   auto& cache = assets.cache();
-  gneiss::engine::prefab_asset_loader loader(assets);
-  gneiss::engine::prefab_asset_loader copied(assets);
   asset_manager other_assets(different_source);
-  gneiss::engine::prefab_asset_loader other(other_assets);
   constexpr std::string_view uri = "asset://prefabs/lamp.prefab.json";
   gneiss::engine::prefab_description description;
   gneiss::engine::scene_diagnostic diagnostic;
@@ -108,37 +104,46 @@ bool prepared_description_contract() {
     return false;
   }
   gneiss::engine::prefab_asset_ref legacy;
-  if (loader.acquire(uri, legacy, diagnostic) != gneiss::engine::result::success) {
+  if (assets.load_sync(uri, legacy) != gneiss::engine::result::success) {
     return false;
   }
   gneiss::engine::prefab_asset_ref first, reused, changed, foreign;
-  if (loader.install_prepared(uri, description, first) != gneiss::engine::result::success ||
-      copied.install_prepared(uri, description, reused) != gneiss::engine::result::success ||
+  if (assets.store<gneiss::engine::prefab_description>(
+          uri, std::make_shared<const gneiss::engine::prefab_description>(description), first) !=
+          gneiss::engine::result::success ||
+      assets.store<gneiss::engine::prefab_description>(
+          uri, std::make_shared<const gneiss::engine::prefab_description>(description), reused) !=
+          gneiss::engine::result::success ||
       first.get() == reused.get() || first.get() == legacy.get() || backend->read_count != 1U) {
     return false;
   }
   // 替换当前描述，不改写已实例化场景持有的旧描述。
   description.objects[0].translation[0] = 37.0F;
-  if (loader.install_prepared(uri, description, changed) != gneiss::engine::result::success ||
+  if (assets.store<gneiss::engine::prefab_description>(
+          uri, std::make_shared<const gneiss::engine::prefab_description>(description), changed) !=
+          gneiss::engine::result::success ||
       changed.get() == first.get() || changed.get()->objects[0].translation[0] != 37.0F ||
       first.get()->objects[0].translation[0] != 1.0F ||
-      other.install_prepared(uri, description, foreign) != gneiss::engine::result::success ||
+      other_assets.store<gneiss::engine::prefab_description>(
+          uri, std::make_shared<const gneiss::engine::prefab_description>(description), foreign) !=
+          gneiss::engine::result::success ||
       foreign.get() == changed.get() || backend->read_count != 1U) {
     return false;
   }
   gneiss::engine::prefab_asset_ref ordinary;
-  if (loader.acquire(uri, ordinary, diagnostic) != gneiss::engine::result::success ||
+  if (assets.load_sync(uri, ordinary) != gneiss::engine::result::success ||
       ordinary.get() != changed.get()) {
     return false;
   }
   gneiss::engine::prefab_asset_ref failed = first;
-  if (loader.install_prepared("asset://unmounted/lamp.prefab.json", description, failed) !=
-          gneiss::engine::result::not_found ||
+  if (assets.store<gneiss::engine::prefab_description>(
+          "asset://unmounted/lamp.prefab.json",
+          std::make_shared<const gneiss::engine::prefab_description>(description),
+          failed) != gneiss::engine::result::not_found ||
       failed.get() != first.get()) {
     return false;
   }
-  description.objects.clear();
-  if (loader.install_prepared(uri, description, failed) !=
+  if (assets.store<gneiss::engine::prefab_description>(uri, {}, failed) !=
           gneiss::engine::result::invalid_argument ||
       failed.get() != first.get()) {
     return false;
@@ -275,28 +280,27 @@ int main() try {
     return 7;
   gneiss::engine::asset_manager assets(file_system);
   auto& cache = assets.cache();
-  gneiss::engine::prefab_asset_loader loader(assets);
   gneiss::engine::prefab_asset_ref first;
   gneiss::engine::prefab_asset_ref second;
-  if (loader.acquire("asset://prefabs/lamp.prefab.json", first, diagnostic) !=
+  if (assets.load_sync("asset://prefabs/lamp.prefab.json", first) !=
           gneiss::engine::result::success ||
-      loader.acquire("asset://prefabs/lamp.prefab.json", second, diagnostic) !=
+      assets.load_sync("asset://prefabs/lamp.prefab.json", second) !=
           gneiss::engine::result::success ||
       first.get() == nullptr || first.get() != second.get() || mounted->read_count != 1U ||
       cache.size() != 1U) {
     return 7;
   }
   gneiss::engine::prefab_asset_ref reloaded;
-  if (loader.reload("asset://prefabs/lamp.prefab.json", reloaded, diagnostic) !=
+  if (assets.load_sync("asset://prefabs/lamp.prefab.json", reloaded, true) !=
           gneiss::engine::result::success ||
       !reloaded || reloaded.get() == first.get() || mounted->read_count != 2U ||
       cache.size() != 1U) {
     return 7;
   }
   gneiss::engine::prefab_asset_ref invalid;
-  if (loader.acquire("asset://prefabs/../lamp.prefab.json", invalid, diagnostic) !=
+  if (assets.load_sync("asset://prefabs/../lamp.prefab.json", invalid) !=
           gneiss::engine::result::invalid_argument ||
-      invalid || diagnostic.message.empty()) {
+      invalid) {
     return 8;
   }
   return 0;

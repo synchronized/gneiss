@@ -115,8 +115,7 @@ struct asset_manager::resource_state {
 };
 asset_manager::asset_manager(virtual_file_system files, registry_ref registry,
                              std::size_t fallback_limit)
-    : resource_state_(std::make_unique<resource_state>()), files_(std::move(files)),
-      prefabs_(*this) {
+    : resource_state_(std::make_unique<resource_state>()), files_(std::move(files)) {
   if (!registry) {
     const auto status = builtin_resource_registry(registry);
     if (status == result::out_of_memory)
@@ -162,10 +161,6 @@ result asset_manager::store_erased(type_id type, std::string_view uri,
   return result::out_of_memory;
 } catch (...) {
   return result::internal;
-}
-result asset_manager::acquire(std::string_view uri, prefab_asset_ref& output,
-                              scene_diagnostic& diagnostic) noexcept {
-  return prefabs_.acquire(uri, output, diagnostic);
 }
 asset_manager::~asset_manager() { stop_resources(); }
 void asset_manager::attach_task_executor(gneiss::engine::task_executor& executor) {

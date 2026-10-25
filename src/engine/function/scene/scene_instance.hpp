@@ -14,7 +14,6 @@ class scene_instance final {
 public:
   scene_instance(gneiss::engine::world& native_world, gneiss::engine::rid world,
                  gneiss::engine::render_asset_loader& loader,
-                 gneiss::engine::prefab_asset_loader& prefab_loader,
                  const gneiss::engine::registry_ref& registry) noexcept;
   ~scene_instance() noexcept;
 
@@ -156,7 +155,6 @@ private:
   // 仅供原生反射访问器定位；不拥有 World，不用于普通场景操作。
   gneiss::engine::rid reflection_context_;
   gneiss::engine::render_asset_loader& loader_;
-  gneiss::engine::prefab_asset_loader& prefab_loader_;
   gneiss::engine::registry_ref registry_;
   std::vector<prefab_refresh_transaction> prefab_refresh_transactions_;
   gneiss::engine::rid next_prefab_refresh_token_ = 1U;

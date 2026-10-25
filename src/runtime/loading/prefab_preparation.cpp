@@ -37,7 +37,7 @@ prefab_preparation::create(runtime::application& application,
   if (candidate->scope_.id == 0U) {
     return gneiss::engine::result::not_ready;
   }
-  auto& assets = host->prefab_loader().assets();
+  auto& assets = host->assets();
   assets.attach_task_executor(executor);
   candidate->state_->uri = uri;
   candidate->state_->request =

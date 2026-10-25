@@ -7,7 +7,6 @@
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
-#include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/resource/types/action_map.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
 #include "loaders/asset_decoder.hpp"
@@ -19,7 +18,7 @@ class task_executor;
 }
 
 namespace gneiss::engine {
-/** 应用级资产管理器。拥有统一资源索引与 Prefab 加载器，不拥有 World 或编辑状态。
+/** 应用级资产管理器。拥有统一资源索引，不拥有 World 或编辑状态。
  * 所属线程使用；请求通道、场景及外部租约须按各自契约释放。
  * 功能层装配类型加载器；底层 asset 模块不依赖 Scene/Render。 */
 class GNEISS_API asset_manager final {
@@ -96,12 +95,8 @@ public:
   [[nodiscard]] const gneiss::engine::virtual_file_system& files() const noexcept { return files_; }
   /** 所属线程回收无外部引用且无在途任务的缓存；不强制卸载活跃资源。 */
   void collect_unused() noexcept;
-  [[nodiscard]] gneiss::engine::result
-  acquire(std::string_view uri, gneiss::engine::prefab_asset_ref& output,
-          gneiss::engine::scene_diagnostic& diagnostic) noexcept;
   /** 功能层 Loader 借用唯一资源索引；所属线程使用，不转移缓存所有权。 */
   [[nodiscard]] resource_cache& cache() noexcept { return cache_; }
-  [[nodiscard]] gneiss::engine::prefab_asset_loader& prefab_loader() noexcept { return prefabs_; }
 
 private:
   using decoder_factory = result (*)(const registry_ref&, std::size_t,
@@ -122,7 +117,6 @@ private:
   std::unique_ptr<resource_state> resource_state_;
   gneiss::engine::virtual_file_system files_;
   gneiss::engine::resource_cache cache_;
-  gneiss::engine::prefab_asset_loader prefabs_;
 };
 }
 

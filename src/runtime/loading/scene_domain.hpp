@@ -8,10 +8,6 @@
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world_service.hpp"
 
-namespace gneiss::engine {
-class asset_manager;
-}
-
 namespace gneiss::runtime {
 
 /** 一个完整场景域，拥有 World 和场景实例集合；可容纳多个 Scene。
@@ -25,8 +21,7 @@ public:
   scene_domain& operator=(const scene_domain&) = delete;
   /** 全部初始化成功后发布；失败保持空域，可重试。重复初始化拒绝且保持原状态。 */
   [[nodiscard]] gneiss::engine::result
-  initialize(gneiss::engine::asset_manager& owner,
-             gneiss::engine::render_asset_loader& render) noexcept;
+  initialize(gneiss::engine::render_asset_loader& render) noexcept;
   [[nodiscard]] gneiss::engine::world* native_world() const noexcept { return world_owner_.get(); }
   [[nodiscard]] gneiss::engine::rid world() const noexcept {
     return world_owner_ ? world_owner_.get_deleter().borrowed : gneiss::engine::null_rid;

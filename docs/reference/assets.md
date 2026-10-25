@@ -43,7 +43,7 @@ Application 内部将资产根作为 `asset://` 根挂载到虚拟文件系统�
 | 入口 | 强引用与访问 | 更新规则 |
 | --- | --- | --- |
 | `asset_manager::load_sync<T>`、`asset_request<T>::take` | `asset_ref<const T>`，直接访问 CPU 描述 | 新加载替换当前缓存，旧引用继续保活旧数据 |
-| Prefab Loader | `prefab_asset_ref`，即 `asset_ref<const prefab_description>` | 别名引用保活缓存条目；重载不会修改旧描述 |
+| Prefab 描述 | `prefab_asset_ref`，即 `asset_ref<const prefab_description>` | 别名引用保活缓存条目；重载不会修改旧描述 |
 | Render Loader、场景绑定、编辑器历史 | `render_asset_ref`，即缓存条目的 `asset_ref` | 普通重载保持 RID 稳定，上传完成后更新内容 |
 
 渲染引用通过 `asset_rid`、`asset_kind`、`asset_uri` 访问 RID、类型和 URI；空引用分别返回
@@ -170,7 +170,8 @@ asset_preparation 不读取或解码材质文件，材质输入缺失返回 unsu
 `scene_description` 和 `prefab_description` 通过同一 manager 同步或后台加载，默认 Registry
 注册现有格式的双向 codec；保留未知字段、层级及 Prefab 单根校验。每文件默认限制为 16 MiB，
 显式 decoder 可以指定自己的上限。直接 parse/serialize 函数仍用于编辑器的内存文本操作。
-Prefab Loader 只是 manager 的有类型适配，不再自行读取文件或登记第二份缓存。
+Prefab 直接使用 `load_sync<prefab_description>` / `load<prefab_description>`；
+显式重载使用 `reload=true`，不再保留专用 Prefab Loader 或转发接口。
 
 场景所属线程用 `scene_description_request` 取得场景及去重后的 Prefab 引用；工作线程只做
 层级排序、依赖收集与准备预算检查。`scene_prepare_limits::source_bytes` 统计累计保留的
@@ -178,6 +179,9 @@ Prefab Loader 只是 manager 的有类型适配，不再自行读取文件或登
 默认 codec 保留原文；单文件输入限制仍由 manager 的有界读取保证。
 
 普通同步加载复用描述缓存；显式重载与后台打开场景/准备 Prefab 会重新加载。
-准备结果持有取得的 Prefab 引用，创建实例时直接采用，不把旧准备结果重新登记为当前缓存。
+准备结果只持有取得的 Prefab 引用、父节点优先索引和最大深度，不复制完整描述。
+创建实例时直接采用该引用；缺失引用返回 invalid_argument，不回退到缓存登记。
+场景实例应用覆写所需的可变数据仍由实例单独持有，不修改共享来源。
 `store<T>` 用于显式采用已构造的数据，成功后较早请求只能返回各自结果，不能覆盖当前缓存；
-失败保留原输出。World、场景实例及编辑会话仍由场景服务管理，不进入资源缓存。
+失败保留原输出。`store<T>` 不执行 codec 校验，调用者负责提供已验证的内存对象。
+World、场景实例及编辑会话仍由场景服务管理，不进入资源缓存。

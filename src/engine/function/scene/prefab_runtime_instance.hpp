@@ -9,7 +9,6 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
-#include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/resource/types/prefab_description.hpp"
 
 #include "engine/function/world/world.hpp"

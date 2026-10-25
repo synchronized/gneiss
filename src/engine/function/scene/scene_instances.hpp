@@ -13,7 +13,7 @@
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
 #include "engine/function/scene/scene_query.hpp"
-#include "engine/resource/loaders/prefab_asset_loader.hpp"
+#include "engine/resource/types/prefab_description.hpp"
 #include "engine/resource/types/scene_description.hpp"
 
 #include "engine/function/world/world.hpp"
@@ -84,8 +84,7 @@ public:
   [[nodiscard]] gneiss::engine::result validate_editable_node(gneiss::engine::rid instance,
                                                               scene_node_id node) const noexcept;
   scene_instances(gneiss::engine::world& native_world, gneiss::engine::rid world,
-                  gneiss::engine::render_asset_loader& loader,
-                  gneiss::engine::prefab_asset_loader& prefab_loader) noexcept;
+                  gneiss::engine::render_asset_loader& loader) noexcept;
   ~scene_instances() noexcept;
 
   [[nodiscard]] bool is_valid() const noexcept {
@@ -182,7 +181,6 @@ private:
   // 仅供原生反射访问器定位；不拥有 World，不用于普通场景操作。
   gneiss::engine::rid reflection_context_;
   gneiss::engine::render_asset_loader& loader_;
-  gneiss::engine::prefab_asset_loader& prefab_loader_;
   gneiss::engine::registry_ref registry_;
   std::uint16_t domain_;
   gneiss::engine::rid_table<instance_ptr> instances_;

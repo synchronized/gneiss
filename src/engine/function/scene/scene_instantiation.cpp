@@ -23,19 +23,12 @@ gneiss::engine::result scene_instances::instantiate_prepared(prepared_scene_desc
       const auto found = assets.find(uri);
       return found == assets.end() ? gneiss::engine::render_asset_ref{} : found->second;
     };
-    std::map<std::string, gneiss::engine::prefab_asset_ref> prefabs;
-    for (auto& [uri, source] : prepared.prefabs) {
-      gneiss::engine::prefab_asset_ref lease = source.resource;
-      const auto result =
-          lease ? gneiss::engine::result::success
-                : prefab_loader_.install_prepared(uri, std::move(source.description), lease);
-      if (result != gneiss::engine::result::success) {
-        return result;
-      }
-      prefabs.emplace(uri, std::move(lease));
+    for (const auto& [uri, source] : prepared.prefabs) {
+      if (!source.resource)
+        return result::invalid_argument;
     }
-    auto instance = std::make_unique<scene_instance>(native_world_, reflection_context_, loader_,
-                                                     prefab_loader_, registry_);
+    auto instance =
+        std::make_unique<scene_instance>(native_world_, reflection_context_, loader_, registry_);
     instance->initialize_staged(std::move(prepared.description));
     std::unordered_map<std::string, gneiss::engine::rid> nodes;
     nodes.reserve(instance->source().objects.size());
@@ -55,7 +48,7 @@ gneiss::engine::result scene_instances::instantiate_prepared(prepared_scene_desc
       nodes.emplace(source.uuid, instance->staged_node(index));
     }
     for (const auto& source : instance->source().prefab_instances) {
-      const auto lease = prefabs.at(source.prefab_uri);
+      const auto lease = prepared.prefabs.at(source.prefab_uri).resource;
       auto prefab = std::make_unique<prefab_runtime_instance>(native_world_, reflection_context_,
                                                               loader_, lease, source.instance_uuid);
       gneiss::engine::transform transform{};

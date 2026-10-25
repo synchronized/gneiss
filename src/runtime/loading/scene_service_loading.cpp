@@ -276,7 +276,7 @@ void scene_service::advance_load_impl() {
       return;
     }
     value.candidate = std::make_unique<scene_domain>();
-    const auto initialized = value.candidate->initialize(*asset_owner_, *render_assets_);
+    const auto initialized = value.candidate->initialize(*render_assets_);
     if (initialized != gneiss::engine::result::success) {
       finish(initialized, scene_load_phase::failed);
       return;

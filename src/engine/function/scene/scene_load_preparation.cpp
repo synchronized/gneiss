@@ -107,21 +107,20 @@ public:
         return result::not_found;
       prepared_prefab_description prefab;
       prefab.resource = input->second;
-      prefab.description = *input->second;
-      const auto bytes = prefab.description.author_json.size();
+      const auto bytes = prefab.resource->author_json.size();
       if (bytes > limits.source_bytes - candidate.source_bytes)
         return result::invalid_argument;
       candidate.source_bytes += bytes;
       if (result == gneiss::engine::result::success &&
-          prefab.description.objects.size() > limits.nodes) {
+          prefab.resource->objects.size() > limits.nodes) {
         return gneiss::engine::result::invalid_argument;
       }
       if (result == gneiss::engine::result::success) {
-        result = order_nodes(prefab.description.objects, prefab.parent_first,
-                             limits.hierarchy_depth, cancelled, &prefab.maximum_depth);
+        result = order_nodes(prefab.resource->objects, prefab.parent_first, limits.hierarchy_depth,
+                             cancelled, &prefab.maximum_depth);
       }
       if (result == gneiss::engine::result::success) {
-        result = collect(prefab.description.objects);
+        result = collect(prefab.resource->objects);
       }
       if (result != gneiss::engine::result::success) {
         return result;
@@ -134,7 +133,7 @@ public:
       return gneiss::engine::result::invalid_argument;
     }
     // 每个 Prefab 实例还有一个容器节点，共享描述不等于共享实例。
-    const auto count = found->second.description.objects.size();
+    const auto count = found->second.resource->objects.size();
     if (count >= limits.nodes - candidate.instance_nodes) {
       return gneiss::engine::result::invalid_argument;
     }

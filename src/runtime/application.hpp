@@ -18,7 +18,6 @@
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
-#include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
 #include "runtime/configuration/application_configuration.hpp"
 #include "runtime/loading/scene_load_types.hpp"
@@ -28,6 +27,7 @@
 #include <span>
 
 namespace gneiss::engine {
+class asset_manager;
 class render_resource_service;
 struct frame_image;
 }
@@ -118,7 +118,8 @@ public:
   [[nodiscard]] gneiss::engine::rid world() const noexcept;
   [[nodiscard]] gneiss::engine::world* native_world() const noexcept;
   [[nodiscard]] gneiss::engine::render_resource_service& resources() noexcept;
-  [[nodiscard]] gneiss::engine::prefab_asset_loader& prefab_loader() noexcept;
+  /** 借用应用级资产管理器；仅所属线程使用，有效期不超过 Application。 */
+  [[nodiscard]] gneiss::engine::asset_manager& assets() noexcept;
   [[nodiscard]] gneiss::engine::result
   reload_render_assets(std::span<const gneiss::engine::render_asset_reload> assets) noexcept;
   [[nodiscard]] gneiss::engine::result reload_scene(gneiss::engine::rid instance,

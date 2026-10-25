@@ -6,6 +6,7 @@
 
 #include "engine/core/result.hpp"
 #include "engine/core/type_guid.hpp"
+#include "engine/resource/asset_ref.hpp"
 #include "engine/resource/types/prefab_property_data.hpp"
 #include "engine/resource/types/scene_description.hpp"
 
@@ -28,6 +29,9 @@ struct prefab_description final {
   std::vector<std::string> dependencies;
   std::string author_json;
 };
+
+/** 共享只读来源描述；实例的覆写数据另行持有。 */
+using prefab_asset_ref = asset_ref<const prefab_description>;
 
 /** 解析版本化 Prefab 作者文件；Prefab 必须且只能包含一个根节点。 */
 [[nodiscard]] gneiss::engine::result
