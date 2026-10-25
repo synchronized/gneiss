@@ -5,9 +5,77 @@
 #include "documents/editor_scene_loader.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/scene/scene_instances.hpp"
+#include "engine/resource/resource_registry.hpp"
 #include "runtime/application.hpp"
+#include <fstream>
+#include <iterator>
 
 namespace {
+
+// 独立临时目录，仅删除本用例创建的文件。
+struct save_directory {
+  std::filesystem::path path;
+  ~save_directory() {
+    std::error_code error;
+    std::filesystem::remove(path / "saved.scene.json", error);
+    std::filesystem::remove(path / "failed.scene.json", error);
+    std::filesystem::remove(path, error);
+  }
+};
+bool save_codec_contract(gneiss::runtime::application& application) {
+  namespace e = gneiss::engine;
+  std::string uuid;
+  if (gneiss::editor::make_editor_uuid(uuid).failed())
+    return false;
+  save_directory directory{std::filesystem::temp_directory_path() / ("gneiss-save-" + uuid)};
+  if (!std::filesystem::create_directory(directory.path))
+    return false;
+  gneiss::editor::scene_document document;
+  if (document.create_empty(application, application.world()).failed())
+    return false;
+  gneiss::scene_node_id node;
+  if (document.create_node("保存节点", {}, node).failed())
+    return false;
+  e::transform local{};
+  local.translation = {2, 3, 4};
+  if (document.set_local_transform(node, local).failed())
+    return false;
+  e::scene_description snapshot;
+  snapshot.uuid = "保留输出";
+  if (application.scenes()->capture_description(e::null_rid, snapshot) !=
+          e::result::invalid_handle ||
+      snapshot.uuid != "保留输出")
+    return false;
+  std::string saved;
+  if (document.save_as(directory.path, "asset://saved.scene.json", &saved).failed() ||
+      document.is_dirty())
+    return false;
+  e::registry_ref registry;
+  e::serialization_diagnostic diagnostic;
+  if (e::builtin_resource_registry(registry).failed() ||
+      e::deserialize(registry, std::as_bytes(std::span{saved.data(), saved.size()}), snapshot,
+                     diagnostic)
+          .failed() ||
+      snapshot.objects.size() != 1 || snapshot.objects.front().name != "保存节点" ||
+      snapshot.objects.front().translation != local.translation)
+    return false;
+  // codec 拒绝超限内容时不写文件，不改变 URI、脏状态或调用者的保存结果。
+  if (document.rename_node(node, std::string(e::scene_description::maximum_source_bytes, 'x'))
+          .failed())
+    return false;
+  std::string unchanged = "保留输出";
+  if (document.save(directory.path, &unchanged) != e::result::invalid_argument ||
+      document.save_as(directory.path, "asset://failed.scene.json", &unchanged) !=
+          e::result::invalid_argument ||
+      unchanged != "保留输出" || !document.is_dirty() ||
+      document.uri() != "asset://saved.scene.json" ||
+      std::filesystem::exists(directory.path / "failed.scene.json"))
+    return false;
+  std::ifstream file(directory.path / "saved.scene.json", std::ios::binary);
+  const std::string disk{std::istreambuf_iterator<char>{file}, std::istreambuf_iterator<char>{}};
+  return file.good() && disk == saved;
+}
 
 class pending_operation final : public gneiss::editor::editor_history_operation {
 public:
@@ -51,6 +119,8 @@ int main() try {
   std::shared_ptr<gneiss::runtime::application> application;
   if (gneiss::runtime::application::create({}, application) != gneiss::engine::result::success)
     return 1;
+  if (!save_codec_contract(*application))
+    return 12;
   bool cancelled = false;
   bool released_while_open = false;
   gneiss::editor::document_editing editing;

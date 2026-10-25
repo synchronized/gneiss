@@ -1709,7 +1709,7 @@ gneiss::engine::result scene_instance::destroy_node(gneiss::engine::rid node) {
   return gneiss::engine::result::success;
 }
 
-gneiss::engine::result scene_instance::serialize(std::string& out_json) const {
+gneiss::engine::result scene_instance::capture_description(scene_description& output) const {
   auto current = description_;
   std::uint64_t active_camera = UINT64_C(0);
   const auto active_result =
@@ -1759,7 +1759,14 @@ gneiss::engine::result scene_instance::serialize(std::string& out_json) const {
     author.rotation = transform.rotation;
     author.scale = transform.scale;
   }
-  return gneiss::engine::serialize_scene_description(current, out_json);
+  output = std::move(current);
+  return result::success;
+}
+
+gneiss::engine::result scene_instance::serialize(std::string& out_json) const {
+  scene_description current;
+  const auto status = capture_description(current);
+  return status.ok() ? serialize_scene_description(current, out_json) : status;
 }
 
 gneiss::engine::result scene_instances::capture_render_assets(
@@ -1874,6 +1881,22 @@ gneiss::engine::result scene_instances::create_empty(std::string_view scene_uuid
     instance->initialize_staged(std::move(description));
     return instances_.create(gneiss::engine::resource_type::scene_instance, std::move(instance),
                              out_instance);
+  } catch (const std::bad_alloc&) {
+    return gneiss::engine::result::out_of_memory;
+  } catch (...) {
+    return gneiss::engine::result::internal;
+  }
+}
+
+gneiss::engine::result
+scene_instances::capture_description(gneiss::engine::rid instance,
+                                     scene_description& output) const noexcept {
+  try {
+    const auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
+    if (value == nullptr || *value == nullptr) {
+      return gneiss::engine::result::invalid_handle;
+    }
+    return (*value)->capture_description(output);
   } catch (const std::bad_alloc&) {
     return gneiss::engine::result::out_of_memory;
   } catch (...) {

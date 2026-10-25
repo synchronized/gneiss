@@ -5,6 +5,7 @@
 #include "engine/core/result.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/resource/resource_registry.hpp"
 #include "runtime/application.hpp"
 
 #include "engine/core/reflection/component_identity.hpp"
@@ -1156,11 +1157,21 @@ gneiss::engine::result scene_document::save_to(const std::filesystem::path& asse
                                          : gneiss::engine::result::io;
     }
 
-    std::string json;
-    auto operation = with_scene([&](auto& service) { return service.serialize(scene_, json); });
-    if (operation != gneiss::engine::result::success) {
+    gneiss::engine::scene_description description;
+    auto operation =
+        with_scene([&](auto& service) { return service.capture_description(scene_, description); });
+    if (operation.failed())
       return operation;
-    }
+    gneiss::engine::registry_ref registry;
+    operation = gneiss::engine::builtin_resource_registry(registry);
+    if (operation.failed())
+      return operation;
+    std::vector<std::byte> encoded;
+    gneiss::engine::serialization_diagnostic diagnostic;
+    operation = gneiss::engine::serialize(registry, description, encoded, diagnostic);
+    if (operation.failed())
+      return operation;
+    std::string json(reinterpret_cast<const char*>(encoded.data()), encoded.size());
     const auto suffix = std::chrono::steady_clock::now().time_since_epoch().count();
     auto temporary = destination;
     temporary += ".gneiss-" + std::to_string(suffix) + ".tmp";

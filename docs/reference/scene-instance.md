@@ -140,6 +140,19 @@ ID 和 Scene Node ID 全部失效；调用方应在删除前保存快照和根�
 创建、重命名、重挂接、替换与删除会进入后续
 序列化结果，但不会自行写入来源文件；Editor 仍负责脏状态和原子保存。
 
+## 描述采集与编辑器保存
+
+`scene_instances::capture_description` 采集当前作者描述，更新普通节点和 Prefab 根的变换、
+相机参数及主相机标记；仅所属线程调用，失败保持输出，不编码、不读取文件，也不修改资源缓存。
+
+编辑器 Save/Save As 将该描述交给内置资源 Registry 的 Scene codec 编码，再执行既有的临时文件
+替换。保存使用引擎的 Scene 格式，不从自定义加载 decoder 推导写入格式；codec 校验失败时不会
+创建临时文件，不清除脏状态、不改变 URI 或调用者的 saved_content。输出保留受支持的未知字段，
+并遵守 Scene codec 的单文件大小限制。文件提交、历史保存点及通知仍由编辑器和宿主负责。
+
+内存快照仍使用下述序列化入口；Prefab 作者操作中的 JSON 补丁与多文件撤销事务也保留原路径，
+不为统一保存而反复解析、规范化这些文本。
+
 ## 运行时属性序列化
 
 `engine::scene_instances::serialize` 将实例当前的名称、父级、局部 Transform、Camera、已创建作者节点和

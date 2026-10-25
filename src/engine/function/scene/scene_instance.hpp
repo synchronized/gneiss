@@ -37,6 +37,7 @@ public:
                      gneiss::engine::render_asset_ref material);
 
   [[nodiscard]] gneiss::engine::rid find_node(std::string_view uuid) const noexcept;
+  [[nodiscard]] gneiss::engine::result capture_description(scene_description& output) const;
   [[nodiscard]] gneiss::engine::result serialize(std::string& out_json) const;
   [[nodiscard]] gneiss::engine::result get_node_info(std::uint64_t index, scene_node_view& out_info,
                                                      node_query_detail detail) const;

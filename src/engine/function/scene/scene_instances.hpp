@@ -102,6 +102,9 @@ public:
   [[nodiscard]] gneiss::engine::result find_node(gneiss::engine::rid instance,
                                                  std::string_view uuid,
                                                  scene_node_id& out_node) const noexcept;
+  /** 采集当前作者描述及运行期变换；成功才替换输出，不编码或读取文件。 */
+  [[nodiscard]] gneiss::engine::result
+  capture_description(gneiss::engine::rid instance, scene_description& output) const noexcept;
   [[nodiscard]] gneiss::engine::result serialize(gneiss::engine::rid instance,
                                                  std::string& out_json) const noexcept;
   [[nodiscard]] gneiss::engine::result get_node_count(gneiss::engine::rid instance,

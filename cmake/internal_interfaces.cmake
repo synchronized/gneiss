@@ -57,6 +57,8 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/log/log_dispatcher.hpp
   engine/core/progress_notification.hpp
   engine/core/publication_group.hpp
+  engine/core/reflection/serialization.hpp
+  engine/resource/resource_registry.hpp
   engine/core/reflection/property_registry.hpp
   engine/core/type_id.hpp
   engine/core/detail/canonical_type_name.hpp
