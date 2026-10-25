@@ -150,7 +150,7 @@ asset_manager 通过 VFS 读取有界字节，再调用 asset_decoder；解码�
 成功才进入缓存，失败保留既有资源和调用者输出。`load_sync` 和 `asset_request::take` 的可选 diagnostic 参数返回 codec 的路径、消息和字节位置。
 
 首次有效加载进入解码器选择后冻结显式注册，后续反射适配不改变 codec 选择。
-管理器持有 Registry；默认使用共享的内置资源 Registry，目前包含材质 codec 和 ActionMap 解码器。
+管理器持有 Registry；默认使用共享的内置资源 Registry，目前包含材质、Scene、Prefab codec 和 ActionMap 解码器。
 构造时也可传入已冻结的自定义 Registry，未冻结或零输入上限抛出 invalid_argument。
 反射读取默认上限为 64 MiB，可通过构造参数指定；类型声明 `maximum_source_bytes` 时取两者较小值。
 ActionMap 限制为 1 MiB，解析器也检查此上限；显式 decoder 使用自己的上限。
@@ -164,3 +164,20 @@ asset_preparation 不读取或解码材质文件，材质输入缺失返回 unsu
 更新成功后切换引用；失败保留旧 RID 内容与描述。CPU 描述和渲染资源以不同类型键保存在同一索引中。
 纹理和网格仍使用专用范围读取及准备流程。
 反射 fallback 调用登记的函数，不代表自动遍历属性反序列化。
+
+### Scene 与 Prefab 描述
+
+`scene_description` 和 `prefab_description` 通过同一 manager 同步或后台加载，默认 Registry
+注册现有格式的双向 codec；保留未知字段、层级及 Prefab 单根校验。每文件默认限制为 16 MiB，
+显式 decoder 可以指定自己的上限。直接 parse/serialize 函数仍用于编辑器的内存文本操作。
+Prefab Loader 只是 manager 的有类型适配，不再自行读取文件或登记第二份缓存。
+
+场景所属线程用 `scene_description_request` 取得场景及去重后的 Prefab 引用；工作线程只做
+层级排序、依赖收集与准备预算检查。`scene_prepare_limits::source_bytes` 统计累计保留的
+`author_json` 字节，不是所有解析对象的内存，也不是自定义 decoder 的原始输入字节总量。
+默认 codec 保留原文；单文件输入限制仍由 manager 的有界读取保证。
+
+普通同步加载复用描述缓存；显式重载与后台打开场景/准备 Prefab 会重新加载。
+准备结果持有取得的 Prefab 引用，创建实例时直接采用，不把旧准备结果重新登记为当前缓存。
+`store<T>` 用于显式采用已构造的数据，成功后较早请求只能返回各自结果，不能覆盖当前缓存；
+失败保留原输出。World、场景实例及编辑会话仍由场景服务管理，不进入资源缓存。

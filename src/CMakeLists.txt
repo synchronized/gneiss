@@ -91,6 +91,8 @@ target_sources(
     engine/core/input/input_types.hpp
     engine/function/input/input_service.hpp
     engine/resource/types/action_map_validation.cpp
+    engine/resource/loaders/scene_serialization.cpp
+    engine/resource/loaders/scene_serialization.hpp
     engine/resource/loaders/action_map_serialization.cpp
     engine/resource/loaders/action_map_serialization.hpp
     engine/resource/loaders/action_map_parser.cpp

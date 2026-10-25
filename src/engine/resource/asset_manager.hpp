@@ -81,6 +81,16 @@ public:
       output = asset_ref<const T>{std::static_pointer_cast<const T>(value)};
     return status;
   }
+  /** 所属线程采用已经构造的数据；成功后较早异步请求不能覆盖缓存。 */
+  template <class T>
+  [[nodiscard]] result store(std::string_view uri, std::shared_ptr<const T> value,
+                             asset_ref<const T>& output) noexcept {
+    std::shared_ptr<const void> stored;
+    const auto status = store_erased(runtime_type_of<T>(), uri, std::move(value), stored);
+    if (status == result::success)
+      output = asset_ref<const T>{std::static_pointer_cast<const T>(stored)};
+    return status;
+  }
   asset_manager(const asset_manager&) = delete;
   asset_manager& operator=(const asset_manager&) = delete;
   [[nodiscard]] const gneiss::engine::virtual_file_system& files() const noexcept { return files_; }
@@ -106,6 +116,8 @@ private:
   load_sync_erased(gneiss::engine::type_id type, std::string_view uri,
                    std::shared_ptr<const void>& output, decoder_factory fallback, bool reload,
                    serialization_diagnostic* diagnostic) noexcept;
+  result store_erased(type_id, std::string_view, std::shared_ptr<const void>,
+                      std::shared_ptr<const void>&) noexcept;
   struct resource_state;
   std::unique_ptr<resource_state> resource_state_;
   gneiss::engine::virtual_file_system files_;

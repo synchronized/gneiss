@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/resource/asset_manager.hpp"
+#include "engine/resource/resource_registry.hpp"
 #include "engine/resource/types/scene_description.hpp"
 #include "engine/resource/vfs/file_system.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
@@ -88,6 +90,39 @@ private:
 } // namespace
 
 int main() try {
+  // 反射 codec 保留未知字段；解码失败不覆盖旧对象。
+  {
+    namespace e = gneiss::engine;
+    e::registry_ref registry;
+    if (e::builtin_resource_registry(registry).failed())
+      return 90;
+    auto text = std::string(valid_scene);
+    text.insert(1, R"("codec_unknown":{"keep":7},)");
+    const auto source = std::as_bytes(std::span{text.data(), text.size()});
+    e::scene_description value;
+    e::serialization_diagnostic detail;
+    std::vector<std::byte> encoded;
+    if (e::deserialize(registry, source, value, detail).failed() ||
+        e::serialize(registry, value, encoded, detail).failed())
+      return 91;
+    e::scene_description restored;
+    if (e::deserialize(registry, encoded, restored, detail).failed() ||
+        restored.objects.size() != value.objects.size() ||
+        restored.author_json.find("codec_unknown") == std::string::npos)
+      return 92;
+    const auto saved = restored.author_json;
+    const std::string broken = "{";
+    if (e::deserialize(registry, std::as_bytes(std::span{broken.data(), broken.size()}), restored,
+                       detail)
+            .ok() ||
+        restored.author_json != saved)
+      return 93;
+    std::vector<std::byte> oversized(e::scene_description::maximum_source_bytes + 1U);
+    if (e::deserialize(registry, oversized, restored, detail) != e::result::invalid_argument ||
+        restored.author_json != saved)
+      return 94;
+  }
+
   gneiss::engine::scene_description scene;
   gneiss::engine::scene_diagnostic diagnostic;
   std::string serialized;
@@ -184,11 +219,12 @@ int main() try {
 
   gneiss::engine::virtual_file_system file_system;
   if (file_system.mount("asset://scenes/", std::make_shared<memory_file_system>(std::string(
-                                               valid_scene))) != gneiss::engine::result::success ||
-      gneiss::engine::load_scene_description(file_system, "asset://scenes/main.scene.json", scene,
-                                             diagnostic) != gneiss::engine::result::success) {
+                                               valid_scene))) != gneiss::engine::result::success)
     return 6;
-  }
+  gneiss::engine::asset_manager assets(file_system);
+  gneiss::engine::asset_ref<const gneiss::engine::scene_description> loaded;
+  if (assets.load_sync("asset://scenes/main.scene.json", loaded).failed() || !loaded)
+    return 6;
   return fails_with("{\"format\":", gneiss::engine::result::invalid_argument, "") ? 0 : 7;
 } catch (...) {
   return 99;

@@ -116,7 +116,7 @@ struct asset_manager::resource_state {
 asset_manager::asset_manager(virtual_file_system files, registry_ref registry,
                              std::size_t fallback_limit)
     : resource_state_(std::make_unique<resource_state>()), files_(std::move(files)),
-      prefabs_(files_, cache_) {
+      prefabs_(*this) {
   if (!registry) {
     const auto status = builtin_resource_registry(registry);
     if (status == result::out_of_memory)
@@ -129,6 +129,39 @@ asset_manager::asset_manager(virtual_file_system files, registry_ref registry,
     throw std::invalid_argument("资源 Registry 必须冻结，输入上限必须非零");
   resource_state_->registry = std::move(registry);
   resource_state_->fallback_limit = fallback_limit;
+}
+result asset_manager::store_erased(type_id type, std::string_view uri,
+                                   std::shared_ptr<const void> value,
+                                   std::shared_ptr<const void>& output) noexcept try {
+  auto& state = *resource_state_;
+  if (state.stopped)
+    return result::invalid_state;
+  if (!value || validate_uri(uri).failed())
+    return result::invalid_argument;
+  std::shared_ptr<const asset_source_domain> domain;
+  auto status = files_.resolve_source(uri, domain);
+  if (status.failed())
+    return status;
+  auto& request = state.requests[{domain, std::string(uri), type}];
+  asset_ref<const resource_cache::entry> entry;
+  status = cache_.load(
+      uri, type,
+      [&](auto& stored) {
+        stored = value;
+        return result::success;
+      },
+      entry, domain, true);
+  if (status == result::success) {
+    state.frozen = true;
+    ++request.generation;
+    request.pending.reset();
+    output = std::shared_ptr<const void>(entry.shared(), entry->resource.get());
+  }
+  return status;
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
 }
 result asset_manager::acquire(std::string_view uri, prefab_asset_ref& output,
                               scene_diagnostic& diagnostic) noexcept {

@@ -241,7 +241,7 @@ int main() try {
   gneiss::engine::asset_manager asset_owner(file_system);
   [[maybe_unused]] auto& cache = asset_owner.cache();
   gneiss::engine::render_asset_loader render_loader(asset_owner, resources);
-  gneiss::engine::prefab_asset_loader prefab_loader(file_system, cache);
+  gneiss::engine::prefab_asset_loader prefab_loader(asset_owner);
   if (file_system.mount("asset://prefabs/", std::make_shared<memory_file_system>()) !=
       gneiss::engine::result::success) {
     return 3;

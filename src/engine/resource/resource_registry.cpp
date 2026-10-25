@@ -4,6 +4,7 @@
 #include "engine/core/reflection/type_registry.hpp"
 #include "engine/resource/loaders/action_map_serialization.hpp"
 #include "engine/resource/loaders/material_serialization.hpp"
+#include "engine/resource/loaders/scene_serialization.hpp"
 #include <mutex>
 namespace gneiss::engine {
 result builtin_resource_registry(registry_ref& output) noexcept try {
@@ -17,6 +18,10 @@ result builtin_resource_registry(registry_ref& output) noexcept try {
       status = register_material_reflection(pending);
     if (status == result::success)
       status = register_action_map_reflection(pending);
+    if (status == result::success)
+      status = register_scene_reflection(pending);
+    if (status == result::success)
+      status = register_prefab_reflection(pending);
     if (status == result::success)
       status = freeze(pending);
     if (status.failed())

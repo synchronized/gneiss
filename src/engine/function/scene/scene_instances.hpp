@@ -28,10 +28,6 @@
 #include <vector>
 
 namespace gneiss::engine {
-class virtual_file_system;
-}
-
-namespace gneiss::engine {
 
 class scene_instance;
 struct prepared_scene_description;
@@ -88,7 +84,6 @@ public:
   [[nodiscard]] gneiss::engine::result validate_editable_node(gneiss::engine::rid instance,
                                                               scene_node_id node) const noexcept;
   scene_instances(gneiss::engine::world& native_world, gneiss::engine::rid world,
-                  const gneiss::engine::virtual_file_system& file_system,
                   gneiss::engine::render_asset_loader& loader,
                   gneiss::engine::prefab_asset_loader& prefab_loader) noexcept;
   ~scene_instances() noexcept;
@@ -186,7 +181,6 @@ private:
   gneiss::engine::world& native_world_;
   // 仅供原生反射访问器定位；不拥有 World，不用于普通场景操作。
   gneiss::engine::rid reflection_context_;
-  const gneiss::engine::virtual_file_system& file_system_;
   gneiss::engine::render_asset_loader& loader_;
   gneiss::engine::prefab_asset_loader& prefab_loader_;
   gneiss::engine::registry_ref registry_;

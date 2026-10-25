@@ -12,8 +12,8 @@ namespace gneiss::runtime {
 class application;
 }
 namespace gneiss::runtime {
-/** 单个 Prefab 纯描述准备；任务只持有 VFS 副本与结果，不访问活动 World。
- * 所属线程操作。取消后仍须 poll 至完成；Application 的文件后端与执行器须晚于该对象销毁。
+/** 单个 Prefab 纯描述准备；所属线程取得描述引用，工作任务只排序并收集依赖，不访问活动 World。
+ * 所属线程操作。取消后仍须 poll 至完成；Application、资产管理器与执行器须晚于该对象销毁。
  */
 class GNEISS_API prefab_preparation final {
 public:

@@ -4,8 +4,10 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_tree.hpp"
+#include "engine/resource/asset_manager.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
 #include "engine/resource/loaders/prefab_asset_loader.hpp"
+#include "engine/resource/resource_registry.hpp"
 #include "engine/resource/types/prefab_description.hpp"
 #include "engine/resource/vfs/file_system.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
@@ -81,21 +83,23 @@ private:
 bool prepared_description_contract() {
   using namespace gneiss::engine;
   using namespace gneiss::engine;
-  resource_cache cache;
+
   virtual_file_system files;
   auto backend = std::make_shared<memory_file_system>(std::string(valid_prefab));
   if (files.mount("asset://prefabs/", backend) != gneiss::engine::result::success) {
     return false;
   }
-  const auto same_source = files;
+
   virtual_file_system different_source;
   if (different_source.mount("asset://prefabs/", backend) != gneiss::engine::result::success) {
     return false;
   }
-  gneiss::engine::prefab_asset_loader loader(files, cache);
-  gneiss::engine::prefab_asset_loader copied(same_source, cache);
-  resource_cache other_cache;
-  gneiss::engine::prefab_asset_loader other(different_source, other_cache);
+  asset_manager assets(files);
+  auto& cache = assets.cache();
+  gneiss::engine::prefab_asset_loader loader(assets);
+  gneiss::engine::prefab_asset_loader copied(assets);
+  asset_manager other_assets(different_source);
+  gneiss::engine::prefab_asset_loader other(other_assets);
   constexpr std::string_view uri = "asset://prefabs/lamp.prefab.json";
   gneiss::engine::prefab_description description;
   gneiss::engine::scene_diagnostic diagnostic;
@@ -130,13 +134,13 @@ bool prepared_description_contract() {
   gneiss::engine::prefab_asset_ref failed = first;
   if (loader.install_prepared("asset://unmounted/lamp.prefab.json", description, failed) !=
           gneiss::engine::result::not_found ||
-      failed) {
+      failed.get() != first.get()) {
     return false;
   }
   description.objects.clear();
   if (loader.install_prepared(uri, description, failed) !=
           gneiss::engine::result::invalid_argument ||
-      failed) {
+      failed.get() != first.get()) {
     return false;
   }
   // 当前缓存无人使用即可回收，旧实例仍持有自身的不可变结构描述。
@@ -150,6 +154,39 @@ bool prepared_description_contract() {
 }
 
 int main() try {
+  // 反射 codec 保留未知字段；解码失败不覆盖旧对象。
+  {
+    namespace e = gneiss::engine;
+    e::registry_ref registry;
+    if (e::builtin_resource_registry(registry).failed())
+      return 90;
+    auto text = std::string(valid_prefab);
+    text.insert(1, R"("codec_unknown":{"keep":7},)");
+    const auto source = std::as_bytes(std::span{text.data(), text.size()});
+    e::prefab_description value;
+    e::serialization_diagnostic detail;
+    std::vector<std::byte> encoded;
+    if (e::deserialize(registry, source, value, detail).failed() ||
+        e::serialize(registry, value, encoded, detail).failed())
+      return 91;
+    e::prefab_description restored;
+    if (e::deserialize(registry, encoded, restored, detail).failed() ||
+        restored.objects.size() != value.objects.size() ||
+        restored.author_json.find("codec_unknown") == std::string::npos)
+      return 92;
+    const auto saved = restored.author_json;
+    const std::string broken = "{";
+    if (e::deserialize(registry, std::as_bytes(std::span{broken.data(), broken.size()}), restored,
+                       detail)
+            .ok() ||
+        restored.author_json != saved)
+      return 93;
+    std::vector<std::byte> oversized(e::prefab_description::maximum_source_bytes + 1U);
+    if (e::deserialize(registry, oversized, restored, detail) != e::result::invalid_argument ||
+        restored.author_json != saved)
+      return 94;
+  }
+
   if (!prepared_description_contract()) {
     return 9;
   }
@@ -234,12 +271,14 @@ int main() try {
 
   auto mounted = std::make_shared<memory_file_system>(std::string(valid_prefab));
   gneiss::engine::virtual_file_system file_system;
-  gneiss::engine::resource_cache cache;
-  gneiss::engine::prefab_asset_loader loader(file_system, cache);
+  if (file_system.mount("asset://prefabs/", mounted).failed())
+    return 7;
+  gneiss::engine::asset_manager assets(file_system);
+  auto& cache = assets.cache();
+  gneiss::engine::prefab_asset_loader loader(assets);
   gneiss::engine::prefab_asset_ref first;
   gneiss::engine::prefab_asset_ref second;
-  if (file_system.mount("asset://prefabs/", mounted) != gneiss::engine::result::success ||
-      loader.acquire("asset://prefabs/lamp.prefab.json", first, diagnostic) !=
+  if (loader.acquire("asset://prefabs/lamp.prefab.json", first, diagnostic) !=
           gneiss::engine::result::success ||
       loader.acquire("asset://prefabs/lamp.prefab.json", second, diagnostic) !=
           gneiss::engine::result::success ||

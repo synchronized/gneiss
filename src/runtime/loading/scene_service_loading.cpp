@@ -27,11 +27,13 @@ double elapsed(clock_type::time_point start) {
 struct scene_service::load_task {
   struct cpu_result {
     gneiss::engine::prepared_scene_description description;
+    gneiss::engine::scene_description_inputs inputs;
     gneiss::engine::scene_diagnostic diagnostic;
     gneiss::engine::result result{gneiss::engine::result::internal};
   };
   std::shared_ptr<cpu_result> cpu{std::make_shared<cpu_result>()};
   gneiss::engine::task_handle task;
+  std::unique_ptr<gneiss::engine::scene_description_request> description_request;
   scene_load_completion result;
   std::unique_ptr<scene_domain> candidate;
   gneiss::engine::scene_instances::asset_bindings bindings;
@@ -77,27 +79,8 @@ gneiss::engine::result scene_service::request_scene(std::string_view uri, std::u
   auto next = std::make_unique<load_task>();
   next->result.progress = {
       .request = ++sequence_, .session = session, .revision = revision, .can_cancel = true};
-  const auto accepted = executor_->submit(
-      {.name = "scene.prepare", .scope = scope_, .notification = notification_},
-      [cpu = next->cpu, files = files_,
-       source = std::string(uri)](const gneiss::engine::task_context& context) {
-        cpu->result = gneiss::engine::prepare_scene_description(
-            files, source, cpu->description, cpu->diagnostic,
-            [&] { return context.stop_requested(); });
-        if (context.stop_requested()) {
-          return gneiss::engine::task_outcome{.state = gneiss::engine::task_state::cancelled};
-        }
-        return gneiss::engine::task_outcome{
-            .state = cpu->result == gneiss::engine::result::success
-                         ? gneiss::engine::task_state::succeeded
-                         : gneiss::engine::task_state::failed,
-        };
-      },
-      next->task);
-  if (accepted != gneiss::engine::submit_result::success) {
-    return accepted == gneiss::engine::submit_result::full ? gneiss::engine::result::not_ready
-                                                           : gneiss::engine::result::invalid_state;
-  }
+  next->description_request = std::make_unique<gneiss::engine::scene_description_request>(
+      *asset_owner_, std::string(uri), false);
   request = next->result.progress.request;
   pending_ = std::move(next);
   visual_queue_.clear();
@@ -244,6 +227,38 @@ void scene_service::advance_load_impl() {
   auto& value = *pending_;
   auto& progress = value.result.progress;
   if (value.preparing) {
+    if (value.task.id == 0U) {
+      if (value.cancelled) {
+        finish(gneiss::engine::result::invalid_state, scene_load_phase::cancelled);
+        return;
+      }
+      if (value.description_request) {
+        const auto loaded =
+            value.description_request->advance(value.cpu->inputs, value.cpu->diagnostic);
+        if (loaded == gneiss::engine::result::not_ready)
+          return;
+        if (loaded.failed()) {
+          finish(loaded, scene_load_phase::failed, value.cpu->diagnostic.message);
+          return;
+        }
+        value.description_request.reset();
+      }
+      const auto accepted = executor_->submit(
+          {.name = "scene.prepare", .scope = scope_, .notification = notification_},
+          [cpu = value.cpu](const gneiss::engine::task_context& context) {
+            cpu->result = gneiss::engine::prepare_loaded_scene(
+                cpu->inputs, {}, cpu->description, cpu->diagnostic,
+                [&] { return context.stop_requested(); });
+            return gneiss::engine::task_outcome{.state = cpu->result.ok()
+                                                             ? gneiss::engine::task_state::succeeded
+                                                             : gneiss::engine::task_state::failed};
+          },
+          value.task);
+      if (accepted != gneiss::engine::submit_result::success &&
+          accepted != gneiss::engine::submit_result::full)
+        finish(gneiss::engine::result::invalid_state, scene_load_phase::failed);
+      return;
+    }
     std::vector<gneiss::engine::task_completion> completions;
     gneiss::engine::measure(gneiss::engine::loop_stage::task_collect,
                             [&] { return executor_->poll(scope_, completions); });

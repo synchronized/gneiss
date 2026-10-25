@@ -72,8 +72,11 @@ prefab_placement::freeze(runtime::application& application,
   }
   auto value = std::make_shared<prefab_placement_snapshot>();
   auto& loader = host->prefab_loader();
-  const auto result =
-      loader.install_prepared(author.prefab_uri, std::move(prepared.description), value->prefab);
+  value->prefab = prepared.resource;
+  const auto result = value->prefab
+                          ? gneiss::engine::result::success
+                          : loader.install_prepared(author.prefab_uri,
+                                                    std::move(prepared.description), value->prefab);
   if (result != gneiss::engine::result::success) {
     return result;
   }

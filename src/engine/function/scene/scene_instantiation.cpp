@@ -25,9 +25,10 @@ gneiss::engine::result scene_instances::instantiate_prepared(prepared_scene_desc
     };
     std::map<std::string, gneiss::engine::prefab_asset_ref> prefabs;
     for (auto& [uri, source] : prepared.prefabs) {
-      gneiss::engine::prefab_asset_ref lease;
+      gneiss::engine::prefab_asset_ref lease = source.resource;
       const auto result =
-          prefab_loader_.install_prepared(uri, std::move(source.description), lease);
+          lease ? gneiss::engine::result::success
+                : prefab_loader_.install_prepared(uri, std::move(source.description), lease);
       if (result != gneiss::engine::result::success) {
         return result;
       }

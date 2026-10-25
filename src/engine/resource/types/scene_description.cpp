@@ -5,7 +5,6 @@
 #include "engine/core/result.hpp"
 
 #include "engine/resource/vfs/asset_uri.hpp"
-#include "engine/resource/vfs/virtual_file_system.hpp"
 
 #include <yyjson.h>
 
@@ -960,22 +959,6 @@ gneiss::engine::result parse_scene_description(std::string_view json, scene_desc
     fail(out_diagnostic, gneiss::engine::result::internal, "", "场景作者文档复制失败");
     return out_diagnostic.result;
   }
-}
-
-gneiss::engine::result
-load_scene_description(const gneiss::engine::virtual_file_system& file_system, std::string_view uri,
-                       scene_description& out_scene, scene_diagnostic& out_diagnostic) noexcept {
-  std::vector<std::byte> bytes;
-  const auto result = file_system.read(uri, bytes);
-  if (result != gneiss::engine::result::success) {
-    out_scene = {};
-    out_diagnostic = {};
-    fail(out_diagnostic, result, "", "无法通过 VFS 读取场景");
-    return result;
-  }
-  return parse_scene_description(
-      std::string_view(reinterpret_cast<const char*>(bytes.data()), bytes.size()), out_scene,
-      out_diagnostic);
 }
 
 gneiss::engine::result serialize_scene_description(const scene_description& scene,

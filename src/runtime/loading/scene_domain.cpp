@@ -24,7 +24,7 @@ scene_domain::initialize(gneiss::engine::asset_manager& owner,
   }
   try {
     auto next_scenes = std::make_unique<gneiss::engine::scene_instances>(
-        *next_world, borrowed, owner.files(), render, owner.prefab_loader());
+        *next_world, borrowed, render, owner.prefab_loader());
     if (!next_scenes->is_valid()) {
       return gneiss::engine::result::out_of_memory;
     }

@@ -13,6 +13,7 @@
 namespace gneiss::engine {
 
 struct scene_prepare_limits {
+  // 累计保留的作者 JSON 字节数；单文件读取上限由 codec 规定。
   std::size_t source_bytes{16U * 1024U * 1024U};
   std::size_t nodes{65536U};
   std::size_t dependencies{65536U};
@@ -20,35 +21,56 @@ struct scene_prepare_limits {
 };
 
 struct prepared_prefab_description {
+  asset_ref<const prefab_description> resource;
   gneiss::engine::prefab_description description;
   std::size_t maximum_depth{};
   std::vector<std::size_t> parent_first;
 };
 
-/** 工作者自有的不可变准备结果；不含 World、缓存租约或后端资源。
+/** 工作者自有的准备结果；持有不可变 Prefab 引用，不含 World 或后端资源。
  * Prefab v1 不支持嵌套实例；渲染依赖的材质/纹理闭包由资产准备阶段解析。
- * source_bytes 只计原始描述；解析后的字符串与索引另占内存。 */
+ * source_bytes 只计解析后保留的作者 JSON；解析后的字符串与索引另占内存。 */
 struct prepared_scene_description {
   gneiss::engine::scene_description description;
   std::vector<std::size_t> parent_first;
   std::map<std::string, prepared_prefab_description> prefabs;
   std::vector<gneiss::engine::render_asset_reload> assets;
   std::size_t instance_nodes{};
+  // 累计保留的作者 JSON 字节数；单文件读取上限由 codec 规定。
   std::size_t source_bytes{};
 };
 
-/** 只读、有界 CPU 准备。支持在文件与节点边界取消，单次 JSON 解析不可抢占。
- * 完成前复读 Scene/Prefab 原始字节以检测变化；不承诺外部文件系统事务隔离。
- * 失败清空输出；取消返回 INVALID_STATE，由协调者区分取消与失败终态。 */
-[[nodiscard]] gneiss::engine::result prepare_scene_description(
-    const gneiss::engine::virtual_file_system& files, std::string_view uri,
-    prepared_scene_description& output, gneiss::engine::scene_diagnostic& diagnostic,
-    const std::function<bool()>& cancelled, scene_prepare_limits limits = {}) noexcept;
+/** 所属线程取得的不可变输入；工作线程不读取文件或访问 manager。 */
+struct scene_description_inputs {
+  asset_ref<const scene_description> scene;
+  std::map<std::string, asset_ref<const prefab_description>> prefabs;
+};
+/** 所属线程推进普通资源请求；销毁即放弃本请求的观察权。 */
+class GNEISS_API scene_description_request final {
+public:
+  scene_description_request(asset_manager&, std::string uri, bool prefab,
+                            scene_prepare_limits limits = {});
+  ~scene_description_request();
+  result advance(scene_description_inputs&, scene_diagnostic&);
 
-/** 单个 Prefab 的异步 CPU 准备入口；输出只包含一个 Prefab 及其渲染依赖。 */
-[[nodiscard]] gneiss::engine::result prepare_prefab_description(
-    const gneiss::engine::virtual_file_system& files, std::string_view uri,
-    prepared_scene_description& output, gneiss::engine::scene_diagnostic& diagnostic,
-    const std::function<bool()>& cancelled, scene_prepare_limits limits = {}) noexcept;
+private:
+  struct state;
+  std::unique_ptr<state> state_;
+};
+/** 纯 CPU 排序和依赖收集；prefab_uri 非空表示仅准备一个 Prefab。 */
+[[nodiscard]] GNEISS_API result prepare_loaded_scene(const scene_description_inputs&,
+                                                     std::string_view prefab_uri,
+                                                     prepared_scene_description&, scene_diagnostic&,
+                                                     const std::function<bool()>& cancelled,
+                                                     scene_prepare_limits limits = {}) noexcept;
+/** 所属线程同步加载描述并准备；显式重新加载，不推进任务队列。 */
+[[nodiscard]] result prepare_scene_description(asset_manager&, std::string_view uri,
+                                               prepared_scene_description&, scene_diagnostic&,
+                                               const std::function<bool()>& cancelled,
+                                               scene_prepare_limits limits = {}) noexcept;
+[[nodiscard]] result prepare_prefab_description(asset_manager&, std::string_view uri,
+                                                prepared_scene_description&, scene_diagnostic&,
+                                                const std::function<bool()>& cancelled,
+                                                scene_prepare_limits limits = {}) noexcept;
 
 } // namespace gneiss::engine

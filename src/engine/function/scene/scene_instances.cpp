@@ -6,6 +6,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
+#include "engine/resource/asset_manager.hpp"
 
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/reflection/component_identity.hpp"
@@ -1790,12 +1791,10 @@ gneiss::engine::result scene_instances::capture_render_assets(
 }
 
 scene_instances::scene_instances(gneiss::engine::world& native_world, gneiss::engine::rid world,
-                                 const gneiss::engine::virtual_file_system& file_system,
                                  gneiss::engine::render_asset_loader& loader,
                                  gneiss::engine::prefab_asset_loader& prefab_loader) noexcept
-    : native_world_(native_world), reflection_context_(world), file_system_(file_system),
-      loader_(loader), prefab_loader_(prefab_loader), domain_(allocate_domain()),
-      instances_(domain_) {
+    : native_world_(native_world), reflection_context_(world), loader_(loader),
+      prefab_loader_(prefab_loader), domain_(allocate_domain()), instances_(domain_) {
   (void)gneiss::engine::create_property_registry(registry_);
 }
 
@@ -1808,16 +1807,14 @@ gneiss::engine::result scene_instances::load(std::string_view uri,
   }
   *out_instance = gneiss::engine::null_rid;
   try {
-    gneiss::engine::scene_description description;
-    gneiss::engine::scene_diagnostic diagnostic;
-    auto result =
-        gneiss::engine::load_scene_description(file_system_, uri, description, diagnostic);
+    asset_ref<const scene_description> description;
+    auto result = loader_.assets().load_sync(uri, description);
     if (result != gneiss::engine::result::success) {
       return result;
     }
     auto instance = std::make_unique<scene_instance>(native_world_, reflection_context_, loader_,
                                                      prefab_loader_, registry_);
-    result = instance->initialize(std::move(description));
+    result = instance->initialize(*description);
     if (result != gneiss::engine::result::success) {
       return result;
     }
@@ -1837,12 +1834,9 @@ gneiss::engine::result scene_instances::reload(gneiss::engine::rid instance,
     if (value == nullptr || *value == nullptr) {
       return gneiss::engine::result::invalid_handle;
     }
-    gneiss::engine::scene_description candidate;
-    gneiss::engine::scene_diagnostic diagnostic;
-    const auto result =
-        gneiss::engine::load_scene_description(file_system_, uri, candidate, diagnostic);
-    return result == gneiss::engine::result::success ? (*value)->reload(std::move(candidate))
-                                                     : result;
+    asset_ref<const scene_description> candidate;
+    const auto result = loader_.assets().load_sync(uri, candidate, true);
+    return result == gneiss::engine::result::success ? (*value)->reload(*candidate) : result;
   } catch (const std::bad_alloc&) {
     return gneiss::engine::result::out_of_memory;
   } catch (...) {

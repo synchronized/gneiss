@@ -179,7 +179,8 @@ void run() {
       R"("prefab_instances":[{"instance_uuid":"00000000-0000-4000-8000-000000000004","prefab":"asset://p.prefab","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"overrides":[]}])");
   gneiss::engine::prepared_scene_description prepared;
   gneiss::engine::scene_diagnostic scene_error;
-  check(gneiss::engine::prepare_scene_description(vfs, "asset://s.scene", prepared, scene_error,
+  check(gneiss::engine::prepare_scene_description(active_assets, "asset://s.scene", prepared,
+                                                  scene_error,
                                                   {}) == gneiss::engine::result::success);
   auto candidate = std::make_unique<runtime::scene_domain>();
   check(candidate->initialize(candidate_assets, candidate_render) ==
@@ -454,7 +455,8 @@ void run() {
   check(old_pixels->parameters.color[0] == 1.0F);
 
   // 构造失败时仅回收候选节点；即使依赖缺失也不能退回主线程文件读取。
-  check(gneiss::engine::prepare_scene_description(vfs, "asset://s.scene", prepared, scene_error,
+  check(gneiss::engine::prepare_scene_description(active_assets, "asset://s.scene", prepared,
+                                                  scene_error,
                                                   {}) == gneiss::engine::result::success);
   candidate = std::make_unique<runtime::scene_domain>();
   check(candidate->initialize(candidate_assets, candidate_render) ==

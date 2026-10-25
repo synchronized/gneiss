@@ -4,8 +4,6 @@
 #include "engine/resource/types/prefab_description.hpp"
 #include "engine/core/result.hpp"
 
-#include "engine/resource/vfs/virtual_file_system.hpp"
-
 #include <yyjson.h>
 
 #include <algorithm>
@@ -181,23 +179,6 @@ gneiss::engine::result parse_prefab_description(std::string_view json,
     fail(out_diagnostic, gneiss::engine::result::internal, "", "Prefab 解析内部错误");
     return out_diagnostic.result;
   }
-}
-
-gneiss::engine::result
-load_prefab_description(const gneiss::engine::virtual_file_system& file_system,
-                        std::string_view uri, prefab_description& out_prefab,
-                        scene_diagnostic& out_diagnostic) noexcept {
-  std::vector<std::byte> bytes;
-  const auto result = file_system.read(uri, bytes);
-  if (result != gneiss::engine::result::success) {
-    out_prefab = {};
-    out_diagnostic = {};
-    fail(out_diagnostic, result, "", "无法通过 VFS 读取 Prefab");
-    return result;
-  }
-  return parse_prefab_description(
-      std::string_view(reinterpret_cast<const char*>(bytes.data()), bytes.size()), out_prefab,
-      out_diagnostic);
 }
 
 gneiss::engine::result serialize_prefab_description(const prefab_description& prefab,

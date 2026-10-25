@@ -5,14 +5,14 @@
 #define GNEISS_SCENE_PREFAB_ASSET_LOADER_HPP_
 
 #include "engine/core/result.hpp"
-#include "engine/resource/cache/resource_cache.hpp"
+#include "engine/resource/asset_ref.hpp"
 #include "engine/resource/types/prefab_description.hpp"
 
 #include <memory>
 #include <string_view>
 
 namespace gneiss::engine {
-class virtual_file_system;
+class asset_manager;
 }
 
 namespace gneiss::engine {
@@ -21,9 +21,8 @@ using prefab_asset_ref = asset_ref<const prefab_description>;
 
 class prefab_asset_loader final {
 public:
-  prefab_asset_loader(const gneiss::engine::virtual_file_system& file_system,
-                      gneiss::engine::resource_cache& cache) noexcept
-      : file_system_(file_system), cache_(cache) {}
+  explicit prefab_asset_loader(asset_manager& assets) noexcept : assets_(assets) {}
+  [[nodiscard]] asset_manager& assets() const noexcept { return assets_; }
 
   [[nodiscard]] gneiss::engine::result acquire(std::string_view uri, prefab_asset_ref& out_lease,
                                                scene_diagnostic& out_diagnostic) noexcept;
@@ -38,8 +37,7 @@ public:
 private:
   [[nodiscard]] gneiss::engine::result load(std::string_view uri, prefab_asset_ref& output,
                                             scene_diagnostic& diagnostic, bool reload) noexcept;
-  const gneiss::engine::virtual_file_system& file_system_;
-  gneiss::engine::resource_cache& cache_;
+  asset_manager& assets_;
 };
 
 } // namespace gneiss::engine

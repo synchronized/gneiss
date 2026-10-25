@@ -6,8 +6,9 @@
 ## 状态
 
 已完成初步源码盘点和材质描述命名收敛；材质身份和反射编解码注册已实现并通过编译验收。
+Scene/Prefab 已接入统一 manager 与双向 codec，同步和后台描述准备使用同一加载入口；运行验证待统一执行。
 材质加载使用 material_description，删除单字段文档包装，所有权保持不变；按最新决定移除材质 v1–v4，仅读写 v5。
-本次材质编解码及 v5 收敛已通过 Windows Clang Debug 全部启用目标编译、格式及边界检查；未执行测试或 CI。
+材质编解码及 v5 收敛、Scene/Prefab 入口迁移已通过 Windows Clang Debug 全部启用目标编译、格式及边界检查；未执行测试或 CI。
 
 ## 目标与非目标
 
@@ -23,8 +24,8 @@
 | material_description | 材质参数、五个纹理 URI，纯 CPU 描述 | 已合并旧 source/document，并接入反射 codec 与通用加载 |
 | material_parameters | 参数、颜色数组、枚举和采样数组 | 描述与运行期共用；现有 value 尚不能完整表达 |
 | action_map | 直接共享只读输入映射；运行状态由 InputService 管理 | 已移除包装和专用 decoder，注册解码 codec；尚无编码能力 |
-| scene_description | 对象、Prefab 实例列表、UUID、源版本和 author_json | 注册现有专用读写，保留格式及未知字段能力 |
-| prefab_description | 对象、依赖列表、UUID、源版本和 author_json | 同上，保留单根约束和依赖校验 |
+| scene_description | 对象、Prefab 实例列表、UUID、源版本和 author_json | 已注册专用读写，保留格式及未知字段能力 |
+| prefab_description | 对象、依赖列表、UUID、源版本和 author_json | 已接入统一加载，保留单根约束和依赖校验 |
 | mesh_data | 拥有顶点、索引及可选属性数组 | 保留专用二进制 codec，不逐顶点装入 value |
 | prepared_texture_data | 解码/准备数据、设备配置、选中变体及 payload_source | 准备结果不是完整持久化描述，不将整个对象序列化 |
 | mesh_view | 借用数组视图 | 不作为独立持久化资源 |
@@ -66,7 +67,7 @@ Gneiss 先采用固定的可选序列化能力，不移植通用 capability、�
 5. 已接入显式 decoder 优先、反射 fallback；材质同步加载、重载和后台请求均经同一 manager。
    Render Loader 借用 manager；同步缓存、codec 诊断与描述引用生命周期一并收敛。
    编译用例覆盖选择、失败与冻结；运行验证仍按用户要求延后。
-6. 已迁移 ActionMap，保留 1 MiB 上限及加载成功后采用映射的规则；Scene、Prefab 待迁移。
+6. 已迁移 ActionMap，保留 1 MiB 上限及加载成功后采用映射的规则；Scene、Prefab 已迁移，同步与后台路径统一；实例创建直接持有准备结果的 Prefab 引用。
    Mesh/Texture 保留专用 codec 和准备流程。
 7. 最后按实际编辑需求增加嵌套字段、数组和枚举支持。
 
@@ -81,4 +82,5 @@ Gneiss 先采用固定的可选序列化能力，不移植通用 capability、�
 ## 待确认项
 
 已确定首版为每类型一组编解码函数、借用输入/输出对象、拥有文本的诊断；文件格式和版本由具体 codec 校验，注册接口不重复传入格式名。
-其他资源的编解码接入仍待实施。材质入口已统一，运行测试及大场景验证按用户要求延后。
+普通描述入口已统一；Mesh/Texture 的专用读取保留。运行测试及大场景验证按用户要求延后。
+准备预算与引用采用规则见[资产参考](../reference/assets.md#scene-与-prefab-描述)。

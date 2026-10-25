@@ -2,7 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
+#include "engine/resource/asset_manager.hpp"
+#include "engine/resource/loaders/scene_serialization.hpp"
 
 #include "engine/resource/vfs/virtual_file_system.hpp"
 
@@ -62,6 +65,17 @@ std::string instance(std::string_view id) {
 "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"overrides":[]})";
 }
 
+unsigned scene_decodes{}, prefab_decodes{};
+result custom_scene(std::span<const std::byte> bytes, scene_description& value,
+                    serialization_diagnostic& diagnostic) {
+  ++scene_decodes;
+  return decode_scene(bytes, value, diagnostic);
+}
+result custom_prefab(std::span<const std::byte> bytes, prefab_description& value,
+                     serialization_diagnostic& diagnostic) {
+  ++prefab_decodes;
+  return decode_prefab(bytes, value, diagnostic);
+}
 void run() {
   auto memory = std::make_shared<memory_files>();
   memory->files["main.scene"] = std::string(scene_prefix) + std::string(object) +
@@ -72,22 +86,54 @@ void run() {
       std::string(object) + "]}";
   gneiss::engine::virtual_file_system files;
   check(files.mount("asset://", memory) == gneiss::engine::result::success);
+  task_scheduler executor({.workers = 0, .mode = execution_mode::cooperative});
+  asset_manager assets(files);
+  check(assets
+            .register_decoder<scene_description>(&custom_scene,
+                                                 scene_description::maximum_source_bytes)
+            .ok());
+  check(assets
+            .register_decoder<prefab_description>(&custom_prefab,
+                                                  prefab_description::maximum_source_bytes)
+            .ok());
+  assets.attach_task_executor(executor);
   prepared_scene_description output;
   gneiss::engine::scene_diagnostic diagnostic;
   auto prepare = [&](scene_prepare_limits limits = {}, const std::function<bool()>& cancel = {}) {
-    return prepare_scene_description(files, "asset://main.scene", output, diagnostic, cancel,
+    return prepare_scene_description(assets, "asset://main.scene", output, diagnostic, cancel,
                                      limits);
   };
   check(prepare() == gneiss::engine::result::success);
   check(output.prefabs.size() == 1U && output.assets.size() == 2U && output.instance_nodes == 5U);
   check(memory->reads["p.prefab"] == 1U && output.parent_first == std::vector<std::size_t>{0U});
-  const auto bytes = memory->files["main.scene"].size() + memory->files["p.prefab"].size();
+  const auto bytes = output.description.author_json.size() +
+                     output.prefabs.begin()->second.description.author_json.size();
   check(output.source_bytes == bytes);
-  check(prepare_prefab_description(files, "asset://p.prefab", output, diagnostic, {}) ==
+  check(scene_decodes == 1U && prefab_decodes == 1U);
+  scene_description_request request(assets, "asset://main.scene", false);
+  scene_description_inputs inputs;
+  auto status = result::not_ready;
+  for (unsigned i = 0; i < 100U && status == result::not_ready; ++i) {
+    status = request.advance(inputs, diagnostic);
+    check(executor.run_ready().status == drive_status::success);
+  }
+  check(status.ok() && scene_decodes == 2U && prefab_decodes == 2U);
+  const auto reads = memory->reads;
+  check(prepare_loaded_scene(inputs, {}, output, diagnostic, {}).ok());
+  check(memory->reads == reads &&
+        output.prefabs.at("asset://p.prefab").resource == inputs.prefabs.at("asset://p.prefab"));
+  asset_ref<const prefab_description> newer;
+  check(assets.load_sync("asset://p.prefab", newer, true).ok());
+  check(newer != output.prefabs.at("asset://p.prefab").resource);
+  check(prepare_loaded_scene(inputs, {}, output, diagnostic, {}).ok());
+  asset_ref<const prefab_description> cached;
+  check(assets.load_sync("asset://p.prefab", cached).ok() && cached == newer);
+
+  check(prepare_prefab_description(assets, "asset://p.prefab", output, diagnostic, {}) ==
         gneiss::engine::result::success);
   check(output.prefabs.size() == 1U && output.instance_nodes == 2U && output.assets.size() == 2U);
   check(output.description.objects.empty());
-  check(prepare_prefab_description(files, "asset://p.prefab", output, diagnostic,
+  check(prepare_prefab_description(assets, "asset://p.prefab", output, diagnostic,
                                    [] { return true; }) == gneiss::engine::result::invalid_state);
   check(output.prefabs.empty() && output.assets.empty());
   check(prepare({.source_bytes = bytes, .nodes = 5U}) == gneiss::engine::result::success);

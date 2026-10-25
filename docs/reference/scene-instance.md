@@ -7,7 +7,7 @@
 
 `engine::scene_instances::load` 由所属 Application 的原生场景服务接收规范场景 URI，在 Application 创建线程同步执行：
 
-1. 通过 VFS 读取并完整校验场景描述。
+1. 通过 asset_manager 加载并校验场景描述；普通加载复用缓存，显式重载重新读取。
 2. 获取场景引用的全部 Mesh 与 Material 缓存租约。
 3. 父节点优先创建 Entity 和 Scene Node，再设置 Transform 与组件。
 4. 获取场景声明的 Prefab，并在实例根下创建各自独立的源节点 Runtime 投影。

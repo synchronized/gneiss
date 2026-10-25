@@ -442,9 +442,40 @@ void run() {
   rejected.advance_resources();
   check(first.take(a) == gneiss::engine::result::invalid_state, "queue rejection does not hang");
 }
+void stored_value_supersedes_pending() {
+  task_scheduler executor({.workers = 0, .mode = execution_mode::cooperative});
+  auto source = std::make_shared<memory_files>();
+  virtual_file_system files;
+  check(files.mount("asset://", source).ok(), "store mount");
+  asset_manager assets(files);
+  check(assets.register_decoder(std::make_shared<loader>()).ok(), "store decoder");
+  assets.attach_task_executor(executor);
+  asset_request<value> pending;
+  check(assets.load("asset://stored", pending).ok(), "pending before store");
+  asset_ref<const value> stored;
+  check(
+      assets.store<value>("asset://stored", std::make_shared<const value>(value{'s'}), stored).ok(),
+      "store value");
+  asset_ref<const value> old;
+  for (unsigned i = 0; i < 100 && pending.take(old) == result::not_ready; ++i) {
+    assets.advance_resources();
+    check(executor.run_ready().status == drive_status::success, "store drive");
+  }
+  check(old && old->byte == 'a', "pending observer retains its own result");
+  asset_ref<const value> current;
+  check(assets.load_sync("asset://stored", current).ok() && current == stored &&
+            current->byte == 's',
+        "old request cannot overwrite stored value");
+  check(assets.store<value>("invalid", {}, current) == result::invalid_argument &&
+            current == stored,
+        "failed store preserves output");
+  assets.stop_resources();
+}
+
 }
 int main() {
   try {
+    stored_value_supersedes_pending();
     decoder_selection();
     reference_lifetime();
     cache_collection();
