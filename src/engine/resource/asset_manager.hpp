@@ -10,7 +10,7 @@
 #include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/resource/types/action_map.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
-#include "loaders/asset_loader.hpp"
+#include "loaders/asset_decoder.hpp"
 #include "types/action_map_asset.hpp"
 #include <memory>
 #include <utility>
@@ -25,7 +25,10 @@ namespace gneiss::engine {
  * 功能层装配类型加载器；底层 asset 模块不依赖 Scene/Render。 */
 class GNEISS_API asset_manager final {
 public:
-  explicit asset_manager(gneiss::engine::virtual_file_system files);
+  /** 默认 Registry 包含内置资源 codec；传入的 Registry 必须已冻结。
+   * 管理器持有 Registry；fallback_limit 限制反射资源输入，显式 decoder 可指定自己的上限。 */
+  explicit asset_manager(gneiss::engine::virtual_file_system files, registry_ref registry = {},
+                         std::size_t fallback_limit = 64U * 1024U * 1024U);
   ~asset_manager();
   /** 借用 VFS 与宿主执行器；不创建独立线程池。 */
   void attach_task_executor(gneiss::engine::task_executor& executor);
@@ -39,14 +42,30 @@ public:
   void stop_resources() noexcept;
   /** 显式注册 CPU 类型；首次请求后冻结注册。VFS 来源由本管理器固定持有。 */
   [[nodiscard]] gneiss::engine::result
-  register_loader(const std::shared_ptr<const asset_loader>& loader) noexcept;
+  register_decoder(const std::shared_ptr<const asset_decoder>& loader) noexcept;
+  /** 无需继承或注册反射；注册失败不改变已有解码器，首次加载后禁止注册。 */
+  template <class T>
+  [[nodiscard]] result register_decoder(asset_decode_function<T> function,
+                                        std::size_t maximum_bytes) noexcept {
+    if (!function || maximum_bytes == 0)
+      return result::invalid_argument;
+    try {
+      return register_decoder(
+          std::make_shared<detail::typed_asset_decoder<T>>(function, maximum_bytes));
+    } catch (const std::bad_alloc&) {
+      return result::out_of_memory;
+    } catch (...) {
+      return result::internal;
+    }
+  }
   /** 默认复用已完成缓存；reload 重新读取并解析，在途同键请求合并。
    * 所属线程调用；执行器须存活至 stop_resources 返回。 */
   template <typename T>
   [[nodiscard]] gneiss::engine::result load(std::string_view uri, asset_request<T>& output,
                                             bool reload = false) noexcept {
     std::shared_ptr<detail::asset_state> state;
-    const auto status = request(gneiss::engine::runtime_type_of<T>(), uri, reload, state);
+    const auto status = request(gneiss::engine::runtime_type_of<T>(), uri, reload, state,
+                                &detail::make_reflected_decoder<T>);
     if (status == gneiss::engine::result::success)
       output = asset_request<T>{std::move(state)};
     return status;
@@ -56,7 +75,8 @@ public:
   [[nodiscard]] gneiss::engine::result load_sync(std::string_view uri,
                                                  asset_ref<const T>& output) noexcept {
     std::shared_ptr<const void> value;
-    const auto status = load_sync_erased(gneiss::engine::runtime_type_of<T>(), uri, value);
+    const auto status = load_sync_erased(gneiss::engine::runtime_type_of<T>(), uri, value,
+                                         &detail::make_reflected_decoder<T>);
     if (status == gneiss::engine::result::success)
       output = asset_ref<const T>{std::static_pointer_cast<const T>(value)};
     return status;
@@ -76,12 +96,18 @@ public:
   [[nodiscard]] gneiss::engine::prefab_asset_loader& prefab_loader() noexcept { return prefabs_; }
 
 private:
-  [[nodiscard]] gneiss::engine::result
-  request(gneiss::engine::type_id type, std::string_view uri, bool reload,
-          std::shared_ptr<detail::asset_state>& output) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  load_sync_erased(gneiss::engine::type_id type, std::string_view uri,
-                   std::shared_ptr<const void>& output) noexcept;
+  using decoder_factory = result (*)(const registry_ref&, std::size_t,
+                                     std::shared_ptr<const asset_decoder>&);
+  [[nodiscard]] result resolve_decoder(type_id, decoder_factory,
+                                       std::shared_ptr<const asset_decoder>&);
+  [[nodiscard]] gneiss::engine::result request(gneiss::engine::type_id type, std::string_view uri,
+                                               bool reload,
+                                               std::shared_ptr<detail::asset_state>& output,
+                                               decoder_factory fallback) noexcept;
+  [[nodiscard]] gneiss::engine::result load_sync_erased(gneiss::engine::type_id type,
+                                                        std::string_view uri,
+                                                        std::shared_ptr<const void>& output,
+                                                        decoder_factory fallback) noexcept;
   struct resource_state;
   std::unique_ptr<resource_state> resource_state_;
   gneiss::engine::virtual_file_system files_;

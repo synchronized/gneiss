@@ -62,6 +62,12 @@ add_executable(gneiss_asset_material_test material_description_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/png_decoder.cpp")
+target_sources(gneiss_asset_material_test PRIVATE
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/resource_registry.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/material_serialization.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/reflection/type_registry.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/type_id.cpp")
+
 target_compile_definitions(gneiss_asset_material_test PRIVATE GNEISS_ASSET_LIBUV GNEISS_BUILDING_LIBRARY)
 target_include_directories(gneiss_asset_material_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_asset_material_test PRIVATE

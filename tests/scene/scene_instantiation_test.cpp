@@ -58,7 +58,7 @@ constexpr std::string_view object =
 void unified_resource_index() {
   using namespace gneiss::engine;
   using gneiss::engine::result;
-  class text_loader final : public asset_loader {
+  class text_loader final : public asset_decoder {
   public:
     gneiss::engine::type_id target_type() const noexcept override {
       return gneiss::engine::runtime_type_of<std::string>();
@@ -78,7 +78,7 @@ void unified_resource_index() {
   gneiss::engine::render_resource_service resources;
   asset_manager assets(files);
   gneiss::engine::render_asset_loader render(files, assets.cache(), resources);
-  check(assets.register_loader(std::make_shared<text_loader>()) == result::success);
+  check(assets.register_decoder(std::make_shared<text_loader>()) == result::success);
   asset_ref<const std::string> cpu;
   check(assets.load_sync("asset://same", cpu) == result::success);
   prefab_description description;

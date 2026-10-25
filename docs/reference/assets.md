@@ -137,3 +137,25 @@ metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 `*_document` 留给编辑器文档，`prepared_*` 与 `*_mirror` 表示准备数据及后端镜像。
 此规则不要求数学值、网格数组等所有可序列化类型都使用 description 后缀，
 也不将任务调度等其他领域的 description 解释为可持久化资源。
+
+## 普通资源读取与解码
+
+asset_manager 通过 VFS 读取有界字节，再调用 asset_decoder；解码器不接收 URI 或 VFS。
+`register_decoder<T>(function, maximum_bytes)` 可直接登记
+`result(span<const byte>, T&, serialization_diagnostic&)` 函数，无需类型继承或反射身份。
+仍可继承 asset_decoder 提供有状态解码器；回调必须支持不同输入的并发调用。
+
+同步和异步加载都优先使用显式 decoder；未注册时，按 type_id 查找冻结 Registry 中的 decode。
+没有解码能力时在读取前返回 unsupported；显式解码失败不再回退。适配器在临时对象上解码，
+成功才进入缓存，失败保留既有资源和调用者输出。当前 asset_manager 返回结果码，尚不向调用者暴露
+codec 的详细诊断；特殊材质准备路径继续保留路径、消息和字节位置。
+
+首次有效加载进入解码器选择后冻结显式注册，后续反射适配不改变 codec 选择。
+管理器持有 Registry；默认使用共享的内置资源 Registry，目前包含材质 codec。
+构造时也可传入已冻结的自定义 Registry，未冻结或零输入上限抛出 invalid_argument。
+反射读取默认上限为 64 MiB，可通过构造参数指定；显式 decoder 使用自己的上限。
+
+材质描述可直接 `load<material_description>` / `load_sync<material_description>`。
+渲染资源的同步加载和后台准备复用内置 Registry 的相同 codec，保留自己的依赖处理与 RID 创建；
+它们不查询某个 asset_manager 实例的显式 decoder 覆盖。纹理和网格仍使用专用范围读取及准备流程。
+反射 fallback 调用登记的函数，不代表自动遍历属性反序列化。

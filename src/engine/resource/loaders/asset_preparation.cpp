@@ -3,6 +3,7 @@
 
 #include "engine/resource/loaders/asset_preparation.hpp"
 #include "engine/core/result.hpp"
+#include "engine/resource/resource_registry.hpp"
 
 #include "engine/resource/loaders/asset_parsing.hpp"
 
@@ -584,7 +585,10 @@ gneiss::engine::result decode_non_texture(const asset_preparation_source& source
     asset.bytes = mesh.data_bytes();
   } else if (source.type == asset_type::material) {
     material_description material;
-    result = parse_material(bytes, material, diagnostic);
+    serialization_diagnostic decoded;
+    result = decode_resource(bytes, material, decoded);
+    if (result.failed())
+      fail(diagnostic, result, decoded.path, decoded.message, decoded.byte_offset);
     if (result != gneiss::engine::result::success) {
       return result;
     }

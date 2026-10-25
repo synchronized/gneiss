@@ -3,18 +3,21 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset_manager.hpp"
+#include "engine/core/reflection/type_registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
+#include "engine/resource/resource_registry.hpp"
 #include "engine/resource/vfs/asset_source.hpp"
 #include "engine/resource/vfs/asset_uri.hpp"
 #include <algorithm>
 #include <atomic>
 #include <map>
+#include <stdexcept>
 
 namespace gneiss::engine {
 namespace {
-class input_loader final : public asset_loader {
+class input_decoder final : public asset_decoder {
 public:
   [[nodiscard]] gneiss::engine::type_id target_type() const noexcept override {
     return gneiss::engine::runtime_type_of<action_map_asset>();
@@ -44,7 +47,7 @@ struct asset_manager::resource_state {
   struct operation {
     key identity;
     std::uint64_t generation;
-    std::shared_ptr<const asset_loader> loader;
+    std::shared_ptr<const asset_decoder> loader;
     std::shared_ptr<detail::asset_state> observer{std::make_shared<detail::asset_state>()};
     asset_source source;
     std::shared_ptr<const void> value;
@@ -52,7 +55,7 @@ struct asset_manager::resource_state {
     std::shared_ptr<const resource_cache::entry> previous;
     std::atomic_bool settled{false};
     gneiss::engine::result status{gneiss::engine::result::not_ready};
-    operation(key id, std::uint64_t version, std::shared_ptr<const asset_loader> parser,
+    operation(key id, std::uint64_t version, std::shared_ptr<const asset_decoder> parser,
               const virtual_file_system& files)
         : identity(std::move(id)), generation(version), loader(std::move(parser)),
           source(files, std::get<1>(identity), loader->maximum_bytes()) {}
@@ -81,7 +84,9 @@ struct asset_manager::resource_state {
   gneiss::engine::task_executor* executor{};
   gneiss::engine::task_scope scope{};
   bool frozen{}, stopped{};
-  std::map<gneiss::engine::type_id, std::shared_ptr<const asset_loader>> loaders;
+  registry_ref registry;
+  std::size_t fallback_limit{};
+  std::map<gneiss::engine::type_id, std::shared_ptr<const asset_decoder>> decoders;
   std::map<key, entry> requests;
   std::vector<std::shared_ptr<operation>> active;
 
@@ -128,11 +133,24 @@ struct asset_manager::resource_state {
     requests.clear();
   }
 };
-asset_manager::asset_manager(virtual_file_system files)
+asset_manager::asset_manager(virtual_file_system files, registry_ref registry,
+                             std::size_t fallback_limit)
     : resource_state_(std::make_unique<resource_state>()), files_(std::move(files)),
       prefabs_(files_, cache_) {
-  resource_state_->loaders.emplace(gneiss::engine::runtime_type_of<action_map_asset>(),
-                                   std::make_shared<input_loader>());
+  if (!registry) {
+    const auto status = builtin_resource_registry(registry);
+    if (status == result::out_of_memory)
+      throw std::bad_alloc{};
+    if (status.failed())
+      throw std::runtime_error("无法创建资源反射注册表");
+  }
+  bool frozen{};
+  if (fallback_limit == 0 || is_frozen(registry, frozen).failed() || !frozen)
+    throw std::invalid_argument("资源 Registry 必须冻结，输入上限必须非零");
+  resource_state_->registry = std::move(registry);
+  resource_state_->fallback_limit = fallback_limit;
+  resource_state_->decoders.emplace(gneiss::engine::runtime_type_of<action_map_asset>(),
+                                    std::make_shared<input_decoder>());
 }
 asset_manager::~asset_manager() { stop_resources(); }
 void asset_manager::attach_task_executor(gneiss::engine::task_executor& executor) {
@@ -143,7 +161,7 @@ void asset_manager::attach_task_executor(gneiss::engine::task_executor& executor
   }
 }
 gneiss::engine::result
-asset_manager::register_loader(const std::shared_ptr<const asset_loader>& loader) noexcept try {
+asset_manager::register_decoder(const std::shared_ptr<const asset_decoder>& loader) noexcept try {
   auto& state = *resource_state_;
   if (state.stopped || state.frozen) {
     return gneiss::engine::result::invalid_state;
@@ -152,17 +170,32 @@ asset_manager::register_loader(const std::shared_ptr<const asset_loader>& loader
     return gneiss::engine::result::invalid_argument;
   }
   const auto type = loader->target_type();
-  return state.loaders.emplace(type, loader).second ? gneiss::engine::result::success
-                                                    : gneiss::engine::result::invalid_argument;
+  return state.decoders.emplace(type, loader).second ? gneiss::engine::result::success
+                                                     : gneiss::engine::result::invalid_argument;
 } catch (const std::bad_alloc&) {
   return gneiss::engine::result::out_of_memory;
 } catch (...) {
   return gneiss::engine::result::internal;
 }
+result asset_manager::resolve_decoder(type_id type, decoder_factory fallback,
+                                      std::shared_ptr<const asset_decoder>& output) {
+  auto& state = *resource_state_;
+  state.frozen = true;
+  const auto found = state.decoders.find(type);
+  if (found != state.decoders.end()) {
+    output = found->second;
+    return result::success;
+  }
+  const auto status = fallback(state.registry, state.fallback_limit, output);
+  if (status == result::success)
+    state.decoders.emplace(type, output);
+  return status;
+}
+
 gneiss::engine::result asset_manager::request(gneiss::engine::type_id type, std::string_view uri,
                                               bool reload,
-                                              std::shared_ptr<detail::asset_state>& output) noexcept
-    try {
+                                              std::shared_ptr<detail::asset_state>& output,
+                                              decoder_factory fallback) noexcept try {
   auto& state = *resource_state_;
   if (state.stopped) {
     return gneiss::engine::result::invalid_state;
@@ -173,11 +206,10 @@ gneiss::engine::result asset_manager::request(gneiss::engine::type_id type, std:
   if (validate_uri(uri) != gneiss::engine::result::success) {
     return gneiss::engine::result::invalid_argument;
   }
-  const auto found = state.loaders.find(type);
-  if (found == state.loaders.end()) {
-    return gneiss::engine::result::unsupported;
-  }
-  state.frozen = true;
+  std::shared_ptr<const asset_decoder> decoder;
+  const auto resolved = resolve_decoder(type, fallback, decoder);
+  if (resolved.failed())
+    return resolved;
   std::shared_ptr<const asset_source_domain> domain;
   const auto identified = files_.resolve_source(uri, domain);
   if (identified != gneiss::engine::result::success)
@@ -197,7 +229,7 @@ gneiss::engine::result asset_manager::request(gneiss::engine::type_id type, std:
     return gneiss::engine::result::success;
   }
   auto work =
-      std::make_shared<resource_state::operation>(key, entry.generation + 1, found->second, files_);
+      std::make_shared<resource_state::operation>(key, entry.generation + 1, decoder, files_);
   work->previous = cached;
   state.active.push_back(work);
   try {
@@ -217,8 +249,8 @@ gneiss::engine::result asset_manager::request(gneiss::engine::type_id type, std:
 }
 gneiss::engine::result asset_manager::load_sync_erased(gneiss::engine::type_id type,
                                                        std::string_view uri,
-                                                       std::shared_ptr<const void>& output) noexcept
-    try {
+                                                       std::shared_ptr<const void>& output,
+                                                       decoder_factory fallback) noexcept try {
   auto& state = *resource_state_;
   if (state.stopped) {
     return gneiss::engine::result::invalid_state;
@@ -226,16 +258,15 @@ gneiss::engine::result asset_manager::load_sync_erased(gneiss::engine::type_id t
   if (validate_uri(uri) != gneiss::engine::result::success) {
     return gneiss::engine::result::invalid_argument;
   }
-  const auto found = state.loaders.find(type);
-  if (found == state.loaders.end()) {
-    return gneiss::engine::result::unsupported;
-  }
-  state.frozen = true;
+  std::shared_ptr<const asset_decoder> decoder;
+  const auto resolved = resolve_decoder(type, fallback, decoder);
+  if (resolved.failed())
+    return resolved;
   std::shared_ptr<const asset_source_domain> domain;
   const auto identified = files_.resolve_source(uri, domain);
   if (identified != gneiss::engine::result::success)
     return identified;
-  const auto& loader = *found->second;
+  const auto& loader = *decoder;
   auto& entry = state.requests[{domain, std::string(uri), type}];
   asset_ref<const resource_cache::entry> cached;
   const auto status = cache_.load(

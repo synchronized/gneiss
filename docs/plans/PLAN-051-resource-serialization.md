@@ -20,8 +20,8 @@
 
 | 类型 | 当前数据及职责 | 整理方向 |
 | --- | --- | --- |
-| material_description | 材质参数、五个纹理 URI，纯 CPU 描述 | 已合并旧 source/document；后续作为首个编解码注册试点 |
-| material_parameters | 参数、颜色数组、枚举和采样数组 | 嵌套值类型；现有 value 尚不能完整表达 |
+| material_description | 材质参数、五个纹理 URI，纯 CPU 描述 | 已合并旧 source/document，并接入反射 codec 与通用加载 |
+| material_parameters | 参数、颜色数组、枚举和采样数组 | 描述与运行期共用；现有 value 尚不能完整表达 |
 | action_map / action_map_asset | 输入映射及共享资源包装 | 区分描述与输入运行状态，审查包装必要性 |
 | scene_description | 对象、Prefab 实例列表、UUID、源版本和 author_json | 注册现有专用读写，保留格式及未知字段能力 |
 | prefab_description | 对象、依赖列表、UUID、源版本和 author_json | 同上，保留单根约束和依赖校验 |
@@ -32,8 +32,8 @@
 
 ## 现状与问题
 
-asset_manager 已按运行期 type_id 查询 CPU Loader；asset_loader 负责从字节解码拥有的数据。
-反射目前只有属性访问，支持固定 value 类别；没有数组、枚举、可选字段及嵌套对象 schema。
+asset_manager 已按运行期 type_id 选择显式 asset_decoder 或冻结 Registry codec；VFS 负责读取字节。
+反射已有属性访问及可选 codec，value 类别固定；没有数组、枚举、可选字段及嵌套对象 schema。
 Scene/Prefab 的现有序列化还保留受支持文档中的未知 JSON 字段，不能直接替换成字段遍历。
 运行期注册身份和文件中的格式版本职责不同，不能因新增反射类型就擅自修改文件布局。
 
@@ -63,7 +63,8 @@ Gneiss 先采用固定的可选序列化能力，不移植通用 capability、�
 2. 已完成材质类型统一为 material_description，删除 material_document 包装；URI 与运行期依赖保持分离。
 3. 已实现最小编解码注册接口、材质身份和 v5 保存；旧版本拒绝，示例及夹具迁移。
 4. 已统一描述与运行期资源的 material_parameters，移除逐字段转换；默认值及调用点已统一。
-5. 验证材质读写闭环后接入 Loader，清除相同类型重复的 codec 登记。
+5. 已接入显式 decoder 优先、反射 fallback；材质同步加载及后台准备复用内置 codec。
+   编译用例覆盖选择、失败与冻结；运行验证仍按用户要求延后。
 6. 迁移 ActionMap、Scene、Prefab；Mesh/Texture 保留专用 codec 和准备流程。
 7. 最后按实际编辑需求增加嵌套字段、数组和枚举支持。
 
@@ -78,4 +79,4 @@ Gneiss 先采用固定的可选序列化能力，不移植通用 capability、�
 ## 待确认项
 
 已确定首版为每类型一组编解码函数、借用输入/输出对象、拥有文本的诊断；文件格式和版本由具体 codec 校验，注册接口不重复传入格式名。
-Loader 自动适配及其他资源的编解码接入仍待实施。
+其他资源的编解码接入仍待实施；特殊 Render 准备入口不使用管理器实例的显式覆盖，详见资产参考。

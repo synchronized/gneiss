@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/reflection/type_registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/resource/asset_manager.hpp"
+#include "engine/resource/loaders/material_serialization.hpp"
+#include "engine/resource/types/material_description.hpp"
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -29,6 +32,7 @@ public:
   mutable char byte{'a'};
   mutable bool change{};
   bool missing{}, oversized{};
+  std::vector<std::byte> contents;
   gneiss::engine::result read(std::string_view path,
                               std::vector<std::byte>& output) const noexcept override {
     return read_bounded(path, 8, output);
@@ -38,10 +42,10 @@ public:
     ++reads;
     if (missing)
       return gneiss::engine::result::not_found;
-    if (oversized || limit < 1)
+    if (oversized || limit < 1 || contents.size() > limit)
       return gneiss::engine::result::invalid_argument;
     try {
-      output = {static_cast<std::byte>(byte)};
+      output = contents.empty() ? std::vector{static_cast<std::byte>(byte)} : contents;
       if (change)
         ++byte;
       return gneiss::engine::result::success;
@@ -50,7 +54,7 @@ public:
     }
   }
 };
-class loader final : public asset_loader {
+class loader final : public asset_decoder {
 public:
   mutable unsigned decodes{};
   gneiss::engine::type_id target_type() const noexcept override {
@@ -66,6 +70,98 @@ public:
     return gneiss::engine::result::success;
   }
 };
+result explicit_decode(std::span<const std::byte> bytes, value& output, serialization_diagnostic&) {
+  output.byte = 'x';
+  return bytes.front() == std::byte{'!'} ? result::invalid_argument : result::success;
+}
+void decoder_selection() {
+  auto source = std::make_shared<memory_files>();
+  virtual_file_system files;
+  check(files.mount("asset://", source) == result::success, "decoder mount");
+  registry_ref registry;
+  check(create_native(registry) == result::success, "decoder registry");
+  serialization_binding codec;
+  codec.decode = [](std::span<const std::byte> bytes, void* object, serialization_diagnostic&) {
+    static_cast<value*>(object)->byte = 'r';
+    return bytes.front() == std::byte{'?'} ? result::invalid_argument : result::success;
+  };
+  check(register_type<value>(registry, {.guid = material_description::type_guid,
+                                        .name = "test_asset",
+                                        .serialization = codec}) == result::success,
+        "reflection decoder registration");
+  check(freeze(registry) == result::success, "freeze decoder registry");
+  asset_manager reflected(files, registry);
+  registry.reset();
+  asset_ref<const value> output;
+  check(reflected.load_sync("asset://value", output) == result::success && output->byte == 'r',
+        "reflection fallback retains registry");
+  auto previous = output;
+  source->byte = '?';
+  check(reflected.load_sync("asset://value", output) == result::invalid_argument &&
+            output == previous,
+        "reflection failure preserves output");
+  check(reflected.register_decoder<value>(&explicit_decode, 8) == result::invalid_state,
+        "fallback freezes registration");
+  source->byte = 'a';
+  task_scheduler executor({.workers = 0, .mode = execution_mode::cooperative});
+  reflected.attach_task_executor(executor);
+  asset_request<value> request;
+  check(reflected.load("asset://async", request) == result::success, "async reflection request");
+  auto async_status = request.take(output);
+  for (unsigned i = 0; i != 32 && async_status == result::not_ready; ++i) {
+    check(executor.run_ready().status == drive_status::success, "reflection drive");
+    reflected.advance_resources();
+    async_status = request.take(output);
+  }
+  check(async_status == result::success && output->byte == 'r', "async reflection decode");
+  // 同一个类型同时具备反射与显式解码器时，只采用显式函数。
+  check(create_native(registry) == result::success, "override registry");
+  check(register_type<value>(registry, {.guid = material_description::type_guid,
+                                        .name = "test_asset",
+                                        .serialization = codec}) == result::success,
+        "override reflection");
+  check(freeze(registry) == result::success, "override freeze");
+  asset_manager explicit_assets(files, registry);
+  check(explicit_assets.register_decoder<value>(&explicit_decode, 8) == result::success,
+        "typed decoder");
+  check(explicit_assets.register_decoder<value>(&explicit_decode, 8) == result::invalid_argument,
+        "duplicate decoder");
+  check(explicit_assets.load_sync("asset://explicit", output) == result::success &&
+            output->byte == 'x',
+        "explicit decoder wins");
+  previous = output;
+  source->byte = '!';
+  check(explicit_assets.load_sync("asset://explicit", output) == result::invalid_argument &&
+            output == previous,
+        "explicit failure does not fall back");
+  asset_manager unknown(files);
+  const auto reads = source->reads;
+  check(unknown.load_sync("asset://unknown", output) == result::unsupported &&
+            source->reads == reads,
+        "missing decoder fails before IO");
+  asset_manager native(files);
+  check(native.register_decoder<value>(&explicit_decode, 8) == result::success,
+        "unreflected decoder registration");
+  source->byte = 'a';
+  check(native.load_sync("asset://native", output) == result::success && output->byte == 'x',
+        "unreflected type loads");
+  material_description description;
+  description.parameters.metallic = 0.25F;
+  serialization_diagnostic diagnostic;
+  check(encode_material(description, source->contents, diagnostic) == result::success,
+        "material fixture");
+  asset_manager material_assets(files);
+  asset_ref<const material_description> material;
+  check(material_assets.load_sync("asset://material", material) == result::success &&
+            material->parameters.metallic == 0.25F,
+        "builtin material reflection load");
+  asset_manager limited(files, {}, 1);
+  auto saved = material;
+  check(limited.load_sync("asset://material", material) == result::invalid_argument &&
+            material == saved,
+        "reflection input limit preserves output");
+  reflected.stop_resources();
+}
 void reference_lifetime() {
   struct tracked {
     explicit tracked(unsigned& count) : destroyed(count) {}
@@ -95,7 +191,7 @@ void cache_collection() {
   check(files.mount("asset://", source) == gneiss::engine::result::success, "collection mount");
   task_scheduler executor({.workers = 0, .mode = execution_mode::cooperative});
   asset_manager assets(files);
-  check(assets.register_loader(std::make_shared<loader>()) == gneiss::engine::result::success,
+  check(assets.register_decoder(std::make_shared<loader>()) == gneiss::engine::result::success,
         "collection loader");
   assets.attach_task_executor(executor);
   asset_ref<const value> held;
@@ -159,8 +255,8 @@ void run() {
   task_scheduler executor({.workers = 0, .mode = execution_mode::cooperative});
   auto parser = std::make_shared<loader>();
   asset_manager assets(files);
-  check(assets.register_loader(parser) == gneiss::engine::result::success, "register");
-  check(assets.register_loader(parser) == gneiss::engine::result::invalid_argument,
+  check(assets.register_decoder(parser) == gneiss::engine::result::success, "register");
+  check(assets.register_decoder(parser) == gneiss::engine::result::invalid_argument,
         "duplicate registration");
   asset_request<value> first, second;
   check(assets.load("asset://value", first) == gneiss::engine::result::not_ready,
@@ -191,7 +287,8 @@ void run() {
         "one read and read and decode shared");
   check(first.take(b) == gneiss::engine::result::invalid_state && b == a,
         "consume once preserves output");
-  check(assets.register_loader(std::make_shared<loader>()) == gneiss::engine::result::invalid_state,
+  check(assets.register_decoder(std::make_shared<loader>()) ==
+            gneiss::engine::result::invalid_state,
         "frozen");
   source->byte = 'b';
   check(assets.load("asset://value", first) == gneiss::engine::result::success, "cached");
@@ -299,7 +396,7 @@ void run() {
 
   task_scheduler stopped({.workers = 0, .mode = execution_mode::cooperative});
   asset_manager rejected(files);
-  check(rejected.register_loader(parser) == gneiss::engine::result::success, "rejection parser");
+  check(rejected.register_decoder(parser) == gneiss::engine::result::success, "rejection parser");
   rejected.attach_task_executor(stopped);
   stopped.request_stop();
   check(rejected.load("asset://value", first) == gneiss::engine::result::success,
@@ -310,6 +407,7 @@ void run() {
 }
 int main() {
   try {
+    decoder_selection();
     reference_lifetime();
     cache_collection();
     run();

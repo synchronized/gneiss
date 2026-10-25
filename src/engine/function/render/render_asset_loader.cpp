@@ -4,6 +4,7 @@
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
+#include "engine/resource/resource_registry.hpp"
 #include <atomic>
 
 #include "engine/function/render/render_resource_service.hpp"
@@ -582,13 +583,16 @@ render_asset_loader::acquire_material(std::string_view uri, render_asset_ref& ou
       uri, gneiss::engine::runtime_type_of<material_asset>(),
       [this, uri, &out_diagnostic](std::shared_ptr<const void>& output) -> gneiss::engine::result {
         std::vector<std::byte> bytes;
-        auto result = file_system_.read(uri, bytes);
+        auto result = file_system_.read_bounded(uri, 64U * 1024U * 1024U, bytes);
         if (result != gneiss::engine::result::success) {
           fail(out_diagnostic, result, "", "无法通过 VFS 读取 Material");
           return result;
         }
         gneiss::engine::material_description source;
-        result = parse_material(bytes, source, out_diagnostic);
+        serialization_diagnostic decoded;
+        result = decode_resource(bytes, source, decoded);
+        if (result.failed())
+          fail(out_diagnostic, result, decoded.path, decoded.message, decoded.byte_offset);
         if (result != gneiss::engine::result::success) {
           return result;
         }

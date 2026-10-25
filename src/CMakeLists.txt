@@ -121,6 +121,9 @@ target_sources(
     engine/function/render/normal_math.hpp
     engine/core/reflection/type_registry.cpp
     engine/core/reflection/serialization.hpp
+    engine/resource/resource_registry.cpp
+    engine/resource/resource_registry.hpp
+    engine/resource/loaders/asset_decoder.hpp
     engine/resource/loaders/material_serialization.cpp
     engine/resource/loaders/material_serialization.hpp
     engine/resource/types/material_description.hpp
