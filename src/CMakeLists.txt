@@ -120,6 +120,10 @@ target_sources(
     engine/function/render/normal_math.cpp
     engine/function/render/normal_math.hpp
     engine/core/reflection/type_registry.cpp
+    engine/core/reflection/serialization.hpp
+    engine/resource/loaders/material_serialization.cpp
+    engine/resource/loaders/material_serialization.hpp
+    engine/resource/types/material_description.hpp
     engine/core/reflection/type_builder.hpp
     engine/core/reflection/type_registry.hpp
     engine/core/reflection/property_registry.hpp

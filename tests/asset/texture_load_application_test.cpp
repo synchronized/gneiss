@@ -97,7 +97,7 @@ void run(gneiss::engine::execution_mode mode) {
       << R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]]})";
   const auto write_material = [&](bool green) {
     std::ofstream(files.root / "m.material")
-        << R"({"format":"gneiss.material","version":2,"color":)"
+        << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":)"
         << (green ? "[0,1,0,1]" : "[1,0,0,1]")
         << R"(,"base_color_texture":"asset://a.texture.json"})";
   };

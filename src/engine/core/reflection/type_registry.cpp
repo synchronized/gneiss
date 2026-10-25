@@ -125,6 +125,8 @@ struct type_record {
   std::uint32_t schema_version = 0;
   std::string name;
   std::vector<field_record> fields;
+  std::string serialization_format;
+  serialization_binding serialization{};
 };
 
 [[nodiscard]] bool validate_field(const field_definition& field) noexcept {
@@ -140,6 +142,12 @@ struct type_record {
       desc.fields.size() > std::numeric_limits<std::uint32_t>::max() || !is_valid_name(desc.name)) {
     return false;
   }
+  const auto& codec = desc.serialization;
+  if (codec.encode || codec.decode) {
+    if (codec.format.empty() || !is_valid_name(codec.format))
+      return false;
+  } else if (!codec.format.empty())
+    return false;
   for (std::size_t index = 0; index < desc.fields.size(); ++index) {
     if (!validate_field(desc.fields[index])) {
       return false;
@@ -211,6 +219,9 @@ public:
       record->type_id = desc.type_id;
       record->schema_version = desc.schema_version;
       record->name.assign(desc.name);
+      record->serialization_format = desc.serialization.format;
+      record->serialization = desc.serialization;
+      record->serialization.format = record->serialization_format;
       record->fields.reserve(desc.fields.size());
       for (const auto& field : desc.fields) {
         record->fields.push_back({.id = field.id.get(),
@@ -450,6 +461,22 @@ public:
     return result::internal;
   }
 
+  result find_serialization(engine::type_id id, serialization_binding& output) const noexcept try {
+    std::shared_lock lock(mutex_);
+    if (!is_frozen_)
+      return result::not_ready;
+    const auto found = by_cpp_type_.find(id);
+    if (found == by_cpp_type_.end())
+      return result::not_found;
+    const auto& codec = found->second->serialization;
+    if (!codec.encode && !codec.decode)
+      return result::unsupported;
+    output = codec;
+    return result::success;
+  } catch (...) {
+    return result::internal;
+  }
+
 private:
   [[nodiscard]] gneiss::engine::result find_accessor(type_guid type_id, std::uint32_t field_id,
                                                      property_accessor& output) const noexcept {
@@ -573,3 +600,10 @@ result write_property(const registry_ref& registry, type_guid type, field_id fie
   return set_property(registry, type, field.get(), object, input);
 }
 } // namespace gneiss::engine
+
+namespace gneiss::engine {
+result find_serialization(const registry_ref& registry, type_id id,
+                          serialization_binding& output) noexcept {
+  return registry ? registry->find_serialization(id, output) : result::invalid_handle;
+}
+}

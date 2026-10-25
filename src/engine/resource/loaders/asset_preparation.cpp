@@ -407,18 +407,7 @@ parse_mesh(const std::vector<std::byte>& bytes,
     return diagnostic.result;
   }
   yyjson_val* root = yyjson_doc_get_root(document.get());
-  yyjson_val* version_value = yyjson_obj_get(root, "version");
-  const auto requested_version =
-      yyjson_is_uint(version_value) ? yyjson_get_uint(version_value) : 0U;
-  constexpr std::array v1_fields{std::string_view{"format"}, std::string_view{"version"},
-                                 std::string_view{"color"}};
-  constexpr std::array v2_fields{std::string_view{"format"}, std::string_view{"version"},
-                                 std::string_view{"color"}, std::string_view{"base_color_texture"}};
-  constexpr std::array v3_fields{
-      std::string_view{"format"},   std::string_view{"version"},
-      std::string_view{"color"},    std::string_view{"base_color_texture"},
-      std::string_view{"metallic"}, std::string_view{"roughness"}};
-  constexpr std::array v4_fields{
+  constexpr std::array fields{
       std::string_view{"format"},
       std::string_view{"version"},
       std::string_view{"color"},
@@ -432,30 +421,16 @@ parse_mesh(const std::vector<std::byte>& bytes,
       std::string_view{"normal_scale"},
       std::string_view{"occlusion_strength"},
       std::string_view{"emissive"},
+      std::string_view{"alpha_mode"},
+      std::string_view{"double_sided"},
+      std::string_view{"alpha_cutoff"},
+      std::string_view{"sampling"},
   };
-  auto v5_fields = std::vector<std::string_view>(v4_fields.begin(), v4_fields.end());
-  for (const auto* const name : {"alpha_mode", "double_sided", "alpha_cutoff", "sampling"}) {
-    v5_fields.emplace_back(name);
-  }
-  std::uint64_t version = 0;
-  auto fields = std::span<const std::string_view>{v1_fields};
-  switch (requested_version) {
-  case 2U:
-    fields = v2_fields;
-    break;
-  case 3U:
-    fields = v3_fields;
-    break;
-  case 4U:
-    fields = v4_fields;
-    break;
-  case 5U:
-    fields = v5_fields;
-    break;
-  default:
-    break;
-  }
-  if (!validate_header(root, "gneiss.material", fields, 5U, version, diagnostic)) {
+  std::uint64_t version{};
+  if (!validate_header(root, "gneiss.material", fields, 5U, version, diagnostic))
+    return diagnostic.result;
+  if (version != 5U) {
+    fail(diagnostic, result::unsupported, "/version", "材质仅支持版本 5");
     return diagnostic.result;
   }
   yyjson_val* color = yyjson_obj_get(root, "color");
@@ -471,9 +446,9 @@ parse_mesh(const std::vector<std::byte>& bytes,
       return diagnostic.result;
     }
   }
-  if (version >= 2U) {
+  {
     yyjson_val* texture = yyjson_obj_get(root, "base_color_texture");
-    if (version >= 3U && yyjson_is_null(texture)) {
+    if (yyjson_is_null(texture)) {
       out_source.texture_uris[0].clear();
     } else if (!yyjson_is_str(texture) || yyjson_get_len(texture) == 0U) {
       fail(diagnostic, gneiss::engine::result::invalid_argument, "/base_color_texture",
@@ -483,21 +458,19 @@ parse_mesh(const std::vector<std::byte>& bytes,
       out_source.texture_uris[0].assign(json_string(texture));
     }
   }
-  if ((version >= 3U) &&
-      (!read_float(yyjson_obj_get(root, "metallic"), out_source.parameters.metallic) ||
-       out_source.parameters.metallic < 0.0F || out_source.parameters.metallic > 1.0F ||
-       !read_float(yyjson_obj_get(root, "roughness"), out_source.parameters.roughness) ||
-       out_source.parameters.roughness < 0.0F || out_source.parameters.roughness > 1.0F)) {
+  if (!read_float(yyjson_obj_get(root, "metallic"), out_source.parameters.metallic) ||
+      out_source.parameters.metallic < 0.0F || out_source.parameters.metallic > 1.0F ||
+      !read_float(yyjson_obj_get(root, "roughness"), out_source.parameters.roughness) ||
+      out_source.parameters.roughness < 0.0F || out_source.parameters.roughness > 1.0F) {
     fail(diagnostic, gneiss::engine::result::invalid_argument, "/metallic",
          "metallic 与 roughness 必须位于 0..1");
     return diagnostic.result;
   }
 
-  if (version >= 4U &&
-      parse_pbr_extensions(root, out_source, diagnostic) != gneiss::engine::result::success) {
+  if (parse_pbr_extensions(root, out_source, diagnostic) != gneiss::engine::result::success) {
     return diagnostic.result;
   }
-  if (version == 5U && !parse_material_state(root, out_source.parameters)) {
+  if (!parse_material_state(root, out_source.parameters)) {
     fail(diagnostic, gneiss::engine::result::invalid_argument, "/sampling",
          "材质状态或逐槽采样设置无效");
     return diagnostic.result;

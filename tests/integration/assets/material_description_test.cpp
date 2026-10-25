@@ -47,7 +47,8 @@ void run(std::size_t document_limit) {
     out << text;
     check(out.good(), "write fixture");
   };
-  std::string initial = R"({"format":"gneiss.material","version":1,"color":[1,0,0,1]})";
+  std::string initial =
+      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,0,0,1]})";
   initial.resize(document_limit, ' ');
   write(initial);
   gneiss::engine::uv_loop_executor loop;
@@ -68,7 +69,8 @@ void run(std::size_t document_limit) {
   check(decode_material_description(document_bytes, *old, decode_diagnostic) ==
             gneiss::engine::result::success,
         "decode old");
-  write(R"({"format":"gneiss.material","version":1,"color":[0,1,0,1]})");
+  write(
+      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,1,0,1]})");
   check(files.read("asset://material.json", document_bytes) == gneiss::engine::result::success,
         "read new");
   check(decode_material_description(document_bytes, *current, decode_diagnostic) ==
@@ -78,8 +80,8 @@ void run(std::size_t document_limit) {
   auto prepare = [&](bool change_source, bool dependency_missing) {
     write(
         dependency_missing
-            ? R"({"format":"gneiss.material","version":2,"color":[1,0,0,1],"base_color_texture":"asset://missing"})"
-            : R"({"format":"gneiss.material","version":1,"color":[1,0,0,1]})");
+            ? R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[1,0,0,1],"base_color_texture":"asset://missing"})"
+            : R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,0,0,1]})");
     const std::array requested{
         asset_preparation_source{"asset://material.json", asset_type::material}};
     asset_preparation preparation(

@@ -112,3 +112,23 @@ Registry 使用原生共享引用管理，最后一个引用释放时销毁，�
 
 初始化阶段由调用方串行注册和绑定；冻结后的查询与访问器查找可以并发调用。
 目标对象的线程规则由访问器决定，内建 World 操作仅允许所属线程调用。
+
+## 类型编解码
+
+`serialization.hpp` 提供可选 `serialization_binding` 和拥有错误位置文本的
+`serialization_diagnostic`。能力与类型、字段一起登记到同一 Registry，不依赖资源层。
+`type_builder<T>::serialization<Encode, Decode>(format)` 推导类型适配；任一函数可为 nullptr，
+但至少具备一个方向。格式名由 builder 和 Registry 分别拥有，同一 builder 不允许重复设置。
+每个类型当前只登记一个格式族，具体版本由 codec 校验，不提供任意 capability 或对象工厂。
+
+`find_serialization` 按运行期 type_id 查询冻结 Registry；格式名借用 Registry。
+`serialize<T>` 在临时字节数组上调用 codec，成功才替换输出；`deserialize<T>` 默认构造临时 T，
+成功后无异常移动赋值。T 必须满足相应构造和赋值约束。失败保持输出；bad_alloc 转为
+out_of_memory，其余异常转为 internal。诊断在调用开始清空，失败时可携带路径、字节偏移和消息。
+未冻结返回 not_ready，未知类型返回 not_found，缺少方向返回 unsupported，空 Registry 返回 invalid_handle。
+回调在 Registry 锁外执行，要求可并发处理不同对象；对象与输入只在调用期间借用。
+输入大小限制由文件读取入口控制，反射不负责 I/O、缓存、任务或 GPU 上传。
+
+资源层 `register_material_reflection` 显式登记 material_description 的稳定身份及
+`gneiss.material` codec；不会隐式修改组件属性 Registry。资源消费者在冻结前调用该入口。
+材质未展开数组等字段，只登记整体编解码能力；实际格式见[材质格式](render-asset-formats.md#material)。

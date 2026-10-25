@@ -112,7 +112,8 @@ void run() {
       std::string(object) + "]}";
   files->files["m.mesh"] =
       R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]]})";
-  files->files["m.material"] = R"({"format":"gneiss.material","version":1,"color":[1,0,0,1]})";
+  files->files["m.material"] =
+      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,0,0,1]})";
   gneiss::engine::virtual_file_system vfs;
   check(vfs.mount("asset://", files) == gneiss::engine::result::success);
   gneiss::engine::render_resource_service resources;
@@ -171,7 +172,8 @@ void run() {
         gneiss::engine::result::success);
   auto old_pixels = resources.share_material(gneiss::engine::asset_rid(old_material));
   check(old_pixels && old_pixels->red == 1.0F);
-  files->files["m.material"] = R"({"format":"gneiss.material","version":1,"color":[0,1,0,1]})";
+  files->files["m.material"] =
+      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,1,0,1]})";
   const auto empty_instances = files->files["s.scene"].find("\"prefab_instances\":[]");
   files->files["s.scene"].replace(
       empty_instances, 21U,
@@ -220,7 +222,8 @@ void run() {
   check(candidate_render.acquire_cached(requests.front(), uncached) ==
         gneiss::engine::result::success);
   // 绑定复用稳定资源；另一个 URI 的蓝色材质不影响它。
-  files->files["blue.material"] = R"({"format":"gneiss.material","version":1,"color":[0,0,1,1]})";
+  files->files["blue.material"] =
+      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,0,1,1]})";
   gneiss::engine::render_asset_ref unrelated;
   check(candidate_render.acquire_material("asset://blue.material", unrelated, diagnostic) ==
         gneiss::engine::result::success);

@@ -179,7 +179,7 @@ int main() {
       !write(pbr_source / "normal.texture.json", normal_desc) ||
       !write(
           pbr_source / "material.material.json",
-          R"({"format":"gneiss.material","version":4,"color":[1,1,1,1],"metallic":1,"roughness":1,"base_color_texture":"asset://color.texture.json","metallic_roughness_texture":"asset://data.texture.json","normal_texture":"asset://normal.texture.json","occlusion_texture":"asset://data.texture.json","emissive_texture":"asset://color.texture.json"})")) {
+          R"({"format":"gneiss.material","version":5,"color":[1,1,1,1],"metallic":1,"roughness":1,"base_color_texture":"asset://color.texture.json","metallic_roughness_texture":"asset://data.texture.json","normal_texture":"asset://normal.texture.json","occlusion_texture":"asset://data.texture.json","emissive_texture":"asset://color.texture.json"})")) {
     return 9;
   }
   auto pbr_request = shipping_request;

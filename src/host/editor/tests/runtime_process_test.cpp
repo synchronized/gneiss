@@ -354,7 +354,7 @@ int main() try {
   {
     std::ofstream stream(material_path);
     stream
-        << R"({"format":"gneiss.material","version":3,"color":[1,1,1,1],"base_color_texture":"asset://textures/test.texture.json","metallic":0,"roughness":1})";
+        << R"({"format":"gneiss.material","version":5,"color":[1,1,1,1],"base_color_texture":"asset://textures/test.texture.json","metallic":0,"roughness":1})";
   }
   if (process.publish_asset_revision(material_reload) != gneiss::engine::result::success ||
       !wait_for_reload(gneiss::host::runtime_asset_reload_state::applied)) {

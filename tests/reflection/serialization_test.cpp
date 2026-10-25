@@ -1,0 +1,105 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+#include "engine/core/reflection/type_builder.hpp"
+#include "engine/resource/loaders/material_serialization.hpp"
+#include <limits>
+#include <stdexcept>
+namespace e = gneiss::engine;
+std::span<const std::byte> bytes(std::string_view text) {
+  return std::as_bytes(std::span{text.data(), text.size()});
+}
+struct probe {
+  inline static constexpr std::string_view type_name = "codec_probe";
+  inline static constexpr e::type_guid type_guid{e::guid::from_bytes({7, 6, 5})};
+  int number = 3;
+};
+e::result bad_encode(const probe&, std::vector<std::byte>& output, e::serialization_diagnostic&) {
+  output.clear();
+  throw std::bad_alloc{};
+}
+e::result bad_decode(std::span<const std::byte>, probe& output, e::serialization_diagnostic&) {
+  output.number = 9;
+  return e::result::invalid_argument;
+}
+int main() {
+  e::registry_ref registry;
+  e::serialization_diagnostic diagnostic;
+  e::material_description material;
+  std::vector<std::byte> output{std::byte{42}};
+  if (e::serialize(registry, material, output, diagnostic) != e::result::invalid_handle ||
+      output.size() != 1)
+    return 1;
+  if (e::create_native(registry).failed() || e::register_material_reflection(registry).failed())
+    return 2;
+  if (e::serialize(registry, material, output, diagnostic) != e::result::not_ready)
+    return 3;
+  if (e::type_builder<probe>{registry}.serialization<&bad_encode, &bad_decode>("").commit() !=
+      e::result::invalid_argument)
+    return 4;
+  {
+    std::string format = "test.probe";
+    if (e::type_builder<probe>{registry}
+            .serialization<&bad_encode, &bad_decode>(format)
+            .commit()
+            .failed())
+      return 5;
+  }
+  if (e::register_material_reflection(registry) != e::result::invalid_argument ||
+      e::freeze(registry).failed())
+    return 6;
+  e::serialization_binding binding;
+  if (e::find_serialization(registry, e::runtime_type_of<probe>(), binding).failed() ||
+      binding.format != "test.probe")
+    return 7;
+  probe object;
+  if (e::serialize(registry, object, output, diagnostic) != e::result::out_of_memory ||
+      output.size() != 1 || output[0] != std::byte{42})
+    return 8;
+  if (e::deserialize(registry, bytes("bad"), object, diagnostic) != e::result::invalid_argument ||
+      object.number != 3)
+    return 9;
+  material.parameters.color = {0.25F, 0.5F, 0.75F, 1};
+  material.parameters.metallic = 0.5F;
+  material.parameters.alpha_mode = e::material_alpha_mode::mask;
+  material.parameters.double_sided = true;
+  material.texture_uris[0] = "asset://textures/纹理\".json";
+  material.parameters.sampling[0].uv_set = 1;
+  if (e::serialize(registry, material, output, diagnostic).failed())
+    return 10;
+  e::material_description restored;
+  if (e::deserialize(registry, output, restored, diagnostic).failed() ||
+      restored.parameters.color != material.parameters.color ||
+      restored.texture_uris != material.texture_uris || restored.parameters.metallic != 0.5F ||
+      restored.parameters.alpha_mode != e::material_alpha_mode::mask ||
+      !restored.parameters.double_sided || restored.parameters.sampling[0].uv_set != 1)
+    return 11;
+  const auto saved = output;
+  material.parameters.color[0] = std::numeric_limits<float>::infinity();
+  if (e::serialize(registry, material, output, diagnostic) != e::result::invalid_argument ||
+      output != saved)
+    return 12;
+  material.parameters.color[0] = 2;
+  if (e::serialize(registry, material, output, diagnostic) != e::result::invalid_argument ||
+      output != saved)
+    return 13;
+  for (unsigned version : {1U, 2U, 3U, 4U, 6U}) {
+    const auto text = std::string{R"({"format":"gneiss.material","version":)"} +
+                      std::to_string(version) + R"(,"color":[1,1,1,1]})";
+    if (e::deserialize(registry, bytes(text), restored, diagnostic) != e::result::unsupported ||
+        restored.parameters.color[0] != 0.25F)
+      return 14;
+  }
+  if (e::deserialize(registry, bytes("{"), restored, diagnostic) != e::result::invalid_argument ||
+      restored.parameters.color[0] != 0.25F)
+    return 15;
+  if (e::register_material_reflection(registry) != e::result::invalid_state)
+    return 16;
+  e::registry_ref no_codec;
+  if (e::create_native(no_codec).failed() || e::type_builder<probe>{no_codec}.commit().failed() ||
+      e::freeze(no_codec).failed())
+    return 17;
+  if (e::serialize(no_codec, object, output, diagnostic) != e::result::unsupported ||
+      output != saved)
+    return 18;
+  return 0;
+}

@@ -31,7 +31,7 @@ struct fixture {
     std::ofstream(root / "mesh.json")
         << R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]]})";
     std::ofstream(root / "material.json")
-        << R"({"format":"gneiss.material","version":1,"color":[1,0,0,1]})";
+        << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,0,0,1]})";
     std::ofstream(root / "scene.json")
         << R"({"format":"gneiss.scene","version":4,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[],"prefab_instances":[]})";
     std::ofstream prefab(root / "prefab.json");
@@ -177,7 +177,7 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   std::ofstream(files.root / "mesh.json")
       << R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]]})";
   std::ofstream(files.root / "material.json")
-      << R"({"format":"gneiss.material","version":1,"color":[1,0,0,1]})";
+      << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,0,0,1]})";
   // 第二个实例的覆盖引用将被删除的节点，第一候选已准备也不得部分提交。
   const auto removed_uuid = session.prefab_nodes()[2U].source_node_uuid;
   const auto second_node = session.find_prefab_source(second_uuid, removed_uuid)->node;

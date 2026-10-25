@@ -107,7 +107,7 @@ void prepared_source_revisions() {
       R"({"format":"gneiss.texture","version":1,"source":"asset://payload/image.ktx2","color_space":"srgb"})");
   source->text(
       "material",
-      R"({"format":"gneiss.material","version":2,"color":[1,1,1,1],"base_color_texture":"asset://texture"})");
+      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[1,1,1,1],"base_color_texture":"asset://texture"})");
   virtual_file_system files;
   check(files.mount("asset://", source) == gneiss::engine::result::success);
   const std::array requests{asset_preparation_source{"asset://material", asset_type::material}};
@@ -625,7 +625,7 @@ void mixed(gneiss::engine::execution_mode mode, bool pbr = false) {
       R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})");
   files->text(
       "m.material.json",
-      R"({"format":"gneiss.material","version":3,"color":[1,1,1,1],"base_color_texture":"asset://a.texture.json","metallic":0,"roughness":1})");
+      R"({"format":"gneiss.material","version":5,"color":[1,1,1,1],"base_color_texture":"asset://a.texture.json","metallic":0,"roughness":1})");
   if (pbr) {
     for (unsigned i = 1; i < 5U; ++i) {
       files->text(
@@ -634,7 +634,7 @@ void mixed(gneiss::engine::execution_mode mode, bool pbr = false) {
     }
     files->text(
         "m.material.json",
-        R"({"format":"gneiss.material","version":4,"color":[1,1,1,1],"base_color_texture":"asset://a.texture.json","metallic":0,"roughness":1,"metallic_roughness_texture":"asset://1.texture.json","normal_texture":"asset://2.texture.json","occlusion_texture":"asset://3.texture.json","emissive_texture":"asset://4.texture.json","emissive":[0.2,0.3,0.4]})");
+        R"({"format":"gneiss.material","version":5,"color":[1,1,1,1],"base_color_texture":"asset://a.texture.json","metallic":0,"roughness":1,"metallic_roughness_texture":"asset://1.texture.json","normal_texture":"asset://2.texture.json","occlusion_texture":"asset://3.texture.json","emissive_texture":"asset://4.texture.json","emissive":[0.2,0.3,0.4]})");
   }
   const auto expected_assets = pbr ? 11U : 7U;
   const std::string mesh =

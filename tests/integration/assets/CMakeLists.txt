@@ -51,6 +51,7 @@ if(NOT GNEISS_TASK_THREADS OR EMSCRIPTEN)
 endif()
 # 材质文档验证只链接 CPU 准备实现，不链接 Engine 或创建渲染资源。
 add_executable(gneiss_asset_material_test material_description_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/engine/core/guid.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"

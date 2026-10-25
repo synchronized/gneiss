@@ -6,6 +6,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/traits/type_identity.hpp"
 #include "property_registry.hpp"
+#include "serialization.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <memory>
@@ -26,6 +27,7 @@ struct type_definition {
   std::uint32_t schema_version{};
   std::string_view name{};
   std::span<const field_definition> fields{};
+  serialization_binding serialization{};
 };
 /** 回调借用实际类型的对象指针；调用方保证对象存活、类型正确和线程访问合法。
  * setter 必须先校验再修改，失败保持对象；注册表不复制对象或回滚任意回调副作用。

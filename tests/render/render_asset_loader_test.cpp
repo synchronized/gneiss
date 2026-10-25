@@ -443,8 +443,9 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   memory->files.emplace(
       "models/triangle.mesh.json",
       R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[-0.5,-0.5,0],[0.5,-0.5,0],[0,0.5,0]]})");
-  memory->files.emplace("materials/default.material.json",
-                        R"({"format":"gneiss.material","version":1,"color":[0.25,0.5,0.75,1]})");
+  memory->files.emplace(
+      "materials/default.material.json",
+      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0.25,0.5,0.75,1]})");
   memory->files.emplace("models/broken.mesh.json", "{");
   const std::string png_data(reinterpret_cast<const char*>(png_bytes.data()), png_bytes.size());
   memory->files.emplace("textures/white.png", png_data);
@@ -492,7 +493,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.5,-0.5,0],[0.5,-0.5,0],[0,0.5,0]],"uvs":[[0,0],[1,0],[0.5,1]],"normals":[[0,0,2],[0,0,1],[0,0,1]]})");
   memory->files.emplace(
       "materials/textured.material.json",
-      R"({"format":"gneiss.material","version":3,"color":[1,0.5,0.25,1],"base_color_texture":"asset://textures/white.texture.json","metallic":0.25,"roughness":0.75})");
+      R"({"format":"gneiss.material","version":5,"color":[1,0.5,0.25,1],"base_color_texture":"asset://textures/white.texture.json","metallic":0.25,"roughness":0.75})");
   add_indexed_mesh(*memory);
 
   gneiss::engine::virtual_file_system file_system;
@@ -717,7 +718,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   memory->files["models/textured.mesh.json"] =
       R"({"format":"gneiss.mesh","version":2,"topology":"triangle_list","vertices":[[-1,-1,0],[1,-1,0],[0,1,0]],"uvs":[[0,0],[1,0],[0.5,1]]})";
   memory->files["materials/textured.material.json"] =
-      R"({"format":"gneiss.material","version":2,"color":[0.2,0.4,0.6,1],"base_color_texture":"asset://textures/white.texture.json"})";
+      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[0.2,0.4,0.6,1],"base_color_texture":"asset://textures/white.texture.json"})";
   const std::array reloads{
       gneiss::engine::render_asset_reload{.uri = "asset://models/textured.mesh.json",
                                           .type = gneiss::engine::render_asset_type::mesh},

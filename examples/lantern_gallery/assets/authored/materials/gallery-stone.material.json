@@ -1,5 +1,13 @@
 {
   "format": "gneiss.material",
-  "version": 1,
-  "color": [0.31, 0.38, 0.44, 1.0]
+  "version": 5,
+  "metallic": 0,
+  "roughness": 1,
+  "base_color_texture": null,
+  "color": [
+    0.31,
+    0.38,
+    0.44,
+    1.0
+  ]
 }

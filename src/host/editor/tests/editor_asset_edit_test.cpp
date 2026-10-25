@@ -30,9 +30,9 @@ struct fixture {
     std::ofstream(root / "mesh.json")
         << R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]]})";
     std::ofstream(root / "a.json")
-        << R"({"format":"gneiss.material","version":1,"color":[1,0,0,1]})";
+        << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,0,0,1]})";
     std::ofstream(root / "b.json")
-        << R"({"format":"gneiss.material","version":1,"color":[0,1,0,1]})";
+        << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,1,0,1]})";
     std::ofstream(root / "scene.json")
         << R"({"format":"gneiss.scene","version":4,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://mesh.json","material":"asset://a.json"}}}],"prefab_instances":[]})";
   }
@@ -100,7 +100,7 @@ void run(gneiss::engine::execution_mode mode) {
   check(binding().material == changed_binding.material);
   // 新材质准备期间撤销前一次编辑；迟到结果不得覆盖撤销后的确切版本。
   std::ofstream(files.root / "c.json")
-      << R"({"format":"gneiss.material","version":1,"color":[0,0,1,1]})";
+      << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,0,1,1]})";
   check(request("asset://c.json") == gneiss::engine::result::success && edit.active());
   check(history.undo() == gneiss::engine::result::success);
   drive();
@@ -154,7 +154,7 @@ void run(gneiss::engine::execution_mode mode) {
   edit.dismiss();
   // 文档已经关闭的迟到成功回执不能提交历史或采用新版本。
   std::ofstream(files.root / "c.json")
-      << R"({"format":"gneiss.material","version":1,"color":[0,0,1,1]})";
+      << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,0,1,1]})";
   check(request("asset://c.json") == gneiss::engine::result::success);
   session.close();
   drive();
@@ -169,7 +169,7 @@ void run(gneiss::engine::execution_mode mode) {
   // 旧请求还在准备时切换到另一个有效场景；不能污染新场景或采用旧候选。
   check(session.create_empty(*app, world) == gneiss::engine::result::success);
   std::ofstream(files.root / "d.json")
-      << R"({"format":"gneiss.material","version":1,"color":[1,1,0,1]})";
+      << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,1,0,1]})";
   check(edit.request_add(*app, session, history, "stale",
                          {.mesh_uri = "asset://mesh.json", .material_uri = "asset://d.json"}) ==
         gneiss::engine::result::success);

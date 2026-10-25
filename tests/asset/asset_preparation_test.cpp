@@ -37,9 +37,9 @@ public:
     constexpr std::string_view mesh =
         R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]]})";
     constexpr std::string_view material =
-        R"({"format":"gneiss.material","version":1,"color":[1,1,1,1]})";
+        R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,1,1,1]})";
     constexpr std::string_view linked_material =
-        R"({"format":"gneiss.material","version":2,"color":[1,1,1,1],"base_color_texture":"asset://dependency"})";
+        R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[1,1,1,1],"base_color_texture":"asset://dependency"})";
     auto bytes = mesh;
     if (path == "material") {
       bytes = material;

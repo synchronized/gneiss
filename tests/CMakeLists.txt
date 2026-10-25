@@ -650,6 +650,7 @@ add_test(NAME gneiss.scene_projection_math COMMAND gneiss_scene_projection_math_
 
 # CPU 准备单独链接：不得通过 Engine 或资源服务补齐依赖。
 add_executable(gneiss_render_asset_preparation_test
+  "${PROJECT_SOURCE_DIR}/src/engine/core/guid.cpp"
   asset/asset_preparation_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/asset_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_uri.cpp"
@@ -1057,3 +1058,11 @@ target_compile_features(gneiss_type_builder_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_type_builder_test)
 gneiss_target_output_directories(gneiss_type_builder_test)
 add_test(NAME gneiss.type_builder COMMAND gneiss_type_builder_test)
+
+add_executable(gneiss_serialization_test reflection/serialization_test.cpp)
+target_include_directories(gneiss_serialization_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_serialization_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_serialization_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_serialization_test)
+gneiss_target_output_directories(gneiss_serialization_test)
+add_test(NAME gneiss.serialization COMMAND gneiss_serialization_test)

@@ -97,37 +97,12 @@ Mesh v3 继续要求 `uvs`，并增加数量与顶点一致的单位 `normals`�
 
 ## Material
 
-建议扩展名为 `.material.json`：
+仅读写 `gneiss.material` v5，建议扩展名为 `.material.json`。v1–v4 和未知版本拒绝加载。
 
 ```json
 {
   "format": "gneiss.material",
-  "version": 1,
-  "color": [0.95, 0.35, 0.12, 1.0]
-}
-```
-
-`color` 为线性空间 RGBA，每个分量位于 0..1。v1 不包含纹理、Shader 参数或材质图。
-
-Material v2 将 `color` 解释为 base-color 因子，并增加必需的 Texture 描述 URI：
-
-```json
-{
-  "format": "gneiss.material",
-  "version": 2,
-  "color": [1.0, 1.0, 1.0, 1.0],
-  "base_color_texture": "asset://textures/white.texture.json"
-}
-```
-
-Material 租约持有其 Texture 租约；Material 释放前依赖的 Texture RID 始终有效。
-
-Material v3 增加标准 PBR 的金属度与感知粗糙度，并允许没有基础颜色纹理：
-
-```json
-{
-  "format": "gneiss.material",
-  "version": 3,
+  "version": 5,
   "color": [1.0, 1.0, 1.0, 1.0],
   "base_color_texture": null,
   "metallic": 0.0,
@@ -135,19 +110,15 @@ Material v3 增加标准 PBR 的金属度与感知粗糙度，并允许没有基
 }
 ```
 
-`metallic` 与 `roughness` 均位于 0..1。它们属于 Gneiss 作者资产语义，运行时再投影为
-Granit 标准 PBR Material 参数；作者资产不引用 `.grmat` 或后端 Shader。后端投影使用 Granit
-公开的标准 PBR Schema、Material 和 Shader Asset 元数据契约，Gneiss 不解析或复制其私有布局。
+`color` 是线性 RGBA，各分量位于 0..1；`metallic` 与 `roughness` 必需且位于 0..1。
+`base_color_texture` 必需，为非空 URI 或 null。其余四槽 `metallic_roughness_texture`、
+`normal_texture`、`occlusion_texture`、`emissive_texture` 可以省略或为 null。
+可选参数包括 `normal_scale`（默认 1，有限值）、`occlusion_strength`（默认 1，0..1）、
+`emissive`（默认 `[0,0,0]`，线性 RGB 各分量 0..1）、`alpha_mode`（默认 `OPAQUE`，
+另支持 `MASK`、`BLEND`）、`double_sided`（默认 false）、`alpha_cutoff`（默认 0.5，有限非负）。
+MR 的 G/B 通道分别保存粗糙度/金属度，AO 使用 R；基础颜色和自发光纹理使用 sRGB，其余使用 linear。
+作者材质只保存参数和 URI，不保存 RID 或后端对象。运行期材质及帧快照保留纹理依赖。
 
-Material v4 在 v3 基础上增加可选的 `metallic_roughness_texture`、`normal_texture`、
-`occlusion_texture`、`emissive_texture` URI（省略或 null 使用中性默认纹理），以及
-`normal_scale`（默认 1，有限值，允许负值）、`occlusion_strength`（默认 1，0..1）、
-`emissive`（默认 `[0,0,0]`，线性 RGB 各分量 0..1）。MR 的 G/B 通道分别保存粗糙度/金属度，AO 使用 R。
-基础颜色和自发光纹理应声明 sRGB，其余槽声明 linear。材质租约和帧快照保留所有纹理依赖，
-异步材质重载将全部依赖作为一个事务准备；任一项失败不会发布部分材质。
-
-Material v5 保留 v4 字段，新增可选 `alpha_mode`（`OPAQUE` 默认、`MASK`、`BLEND`）、
-`double_sided`（默认 false）、`alpha_cutoff`（默认 0.5，有限非负）以及 `sampling`。
 `sampling` 省略时五槽均使用 UV0、linear、trilinear、repeat；提供时必须为五项数组，顺序为
 base color、MR、normal、AO、emissive，每项要求以下六个整数：
 
@@ -160,7 +131,7 @@ base color、MR、normal、AO、emissive，每项要求以下六个整数：
 
 glTF 导入输出 v5，保留五类纹理、逐槽 UV/采样、Alpha 模式、双面及 COLOR_0。
 UV2 及以上显式拒绝；法线缺切线时按其所用 UV 集生成。透明由 Granit 在每 View 的不透明阶段后
-进行对象级排序；不保证相交三角形的精确透明顺序，不包含折射/OIT。旧 v1–v4 材质保持 OPAQUE 默认。
+进行对象级排序；不保证相交三角形的精确透明顺序，不包含折射/OIT。
 GPU 使用统一包含 UV1/Color 的布局与对应标准变体；缺失顶点色补白色，基础颜色与 Alpha 各乘一次。
 负缩放的绕序与切线空间修正由 Granit 公共管线处理。
 
