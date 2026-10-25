@@ -51,7 +51,7 @@ bool typed_registration() {
   if (e::describe_type(registry, e::type_id{}, info) != result::not_found ||
       info.guid != data_guid || e::describe_type<double>(registry, info) != result::not_found ||
       info.guid != data_guid ||
-      e::register_type<int>(registry, definition) != result::invalid_state)
+      e::register_type<reflected_object>(registry, definition) != result::invalid_state)
     return false;
   std::array<bool, 4> queried{};
   std::array<std::thread, 4> readers;

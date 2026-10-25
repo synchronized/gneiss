@@ -181,9 +181,21 @@ struct type_record {
 
 class type_registry_state final {
 public:
-  [[nodiscard]] gneiss::engine::result register_type(const type_definition& desc) noexcept {
+  [[nodiscard]] gneiss::engine::result
+  register_type(const type_definition& desc,
+                std::span<const property_binding> bindings = {}) noexcept {
     if (!validate_type(desc)) {
       return gneiss::engine::result::invalid_argument;
+    }
+    if (!bindings.empty()) {
+      if (bindings.size() != desc.fields.size())
+        return result::invalid_argument;
+      for (std::size_t i = 0; i < bindings.size(); ++i) {
+        const auto& binding = bindings[i];
+        if (!is_valid_property_kind(binding.kind) || (!binding.getter && !binding.setter) ||
+            (desc.fields[i].flags == field_flags::read_only && binding.setter))
+          return result::invalid_argument;
+      }
     }
     try {
       std::unique_lock lock(mutex_);
@@ -206,6 +218,11 @@ public:
                                   .flags = static_cast<std::uint32_t>(field.flags),
                                   .name = std::string(field.name),
                                   .accessor = {}});
+      }
+      for (std::size_t i = 0; i < bindings.size(); ++i) {
+        const auto& binding = bindings[i];
+        record->fields[i].accessor = {binding.kind, binding.getter, binding.setter,
+                                      binding.user_data};
       }
       // 先预留所有者数组容量，索引插入成功后移动所有权不再分配；失败不会留下半条记录。
       types_.reserve(types_.size() + 1);
@@ -492,6 +509,11 @@ gneiss::engine::result register_type(const registry_ref& state,
                                      const type_definition& desc) noexcept {
   return state ? state->register_type(desc) : gneiss::engine::result::invalid_handle;
 }
+result register_type(const registry_ref& state, const type_definition& desc,
+                     std::span<const property_binding> bindings) noexcept {
+  return state ? state->register_type(desc, bindings) : result::invalid_handle;
+}
+
 gneiss::engine::result bind_property(const registry_ref& state, type_guid type_id, field_id field,
                                      const property_binding& desc) noexcept {
   return state ? state->bind_property(type_id, field.get(), desc)

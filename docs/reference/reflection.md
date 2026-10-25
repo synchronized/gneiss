@@ -30,11 +30,43 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 `bind_property` 绑定原生函数指针、类别和借用上下文；相同完整绑定可重复调用。
 `freeze` 按 GUID 字节顺序和字段编号排序，之后禁止注册与绑定。重复冻结幂等成功。
 
+## C++ 类型注册
+
+`type_identity<T>` 优先读取类内静态 `type_name` 和 `type_guid`，也允许外部特化；
+未声明名称时回退到 `type_name<T>`，未声明 GUID 时为空。cv/ref 委托规范化类型。
+当前 bool、float、vector3、quaternion 的 traits 提供内建字段原有的稳定 GUID；
+其他属性类型使用 builder 前须提供相应 GUID 特化，不能按编译器名称临时生成。
+
+`type_builder<T>` 位于 `type_builder.hpp`，使用现有 Registry，没有第二套运行期状态。
+类型具有静态身份时可这样注册：
+
+```cpp
+return type_builder<camera_properties>{registry}
+    .schema_version(1)
+    .readonly<&camera_properties::is_primary>(camera_is_primary_field, "is_primary")
+    .commit();
+```
+
+- `property<&T::member>(id, name)` 自动推导值类别和 GUID，生成直接读写回调。
+- `property<Getter, Setter>(id, name)` 接受成员函数或有类型自由函数；getter 接收 const 对象，
+  返回 value 可表达的值；setter 接收可变对象和值，返回 result 或 void。
+- `readonly<Getter>(id, name)` 接受数据成员或 getter，只注册读取能力。
+- 默认 schema_version 为 1；字段名称、非零字段 ID 显式提供，不能依赖注册顺序。
+- builder 拥有字段名称，成员指针编译进回调，不保存对象和 user_data；需外部同步。
+- commit 一次性登记类型及绑定，重复字段、身份冲突、冻结或分配失败不会留下该类型。
+  builder 只允许提交一次；多个类型的注册不组成整体事务。
+- 直接成员适用于无需额外约束的属性；带约束的 setter 必须先校验再修改。
+  不支持的 value 类型在模板实例化时报错，不引入任意对象或偏移量访问。
+
+底层 `register_type(registry, definition, bindings)` 的非空 bindings 必须与 fields 等长、顺序对应。
+空 bindings 保留原有只登记描述、之后显式 bind_property 的入口。
+
 ## 查询与属性值
 
 `type_count`、`describe_type_at` 枚举冻结元数据；`describe_type`、`describe_field` 直接查询记录。
 `describe_type` 支持稳定 GUID 和运行期 `type_id` 两种入口，指向同一份记录。
-`register_type<T>` 填充并校验 C++ 类型身份；`describe_type<T>` 使用 `runtime_type_of<T>()` 查询。
+`register_type<T>` 从 `type_identity<std::remove_cvref_t<T>>` 补齐名称、GUID 和运行期 ID；
+显式名称或 GUID 与非空 traits 身份冲突时返回 `invalid_argument`。`describe_type<T>` 使用 `runtime_type_of<T>()` 查询。
 模板去除顶层 cv/ref；注册 `void` 或传入不匹配的非空 `type_id` 返回 `invalid_argument`。
 不对应 C++ 类型的描述保留空 `type_id`，仍可按 GUID 查询。运行期 ID 不进入文件或 IPC。
 `field_definition` 的编号和标志分别使用 `field_id` 与 `field_flags`；`bind_property` 接收强类型字段编号。

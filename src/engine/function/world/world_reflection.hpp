@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/math/camera_settings.hpp"
+#include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/reflection/property_registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
@@ -9,6 +10,8 @@
 namespace gneiss::engine {
 /** World 层相机属性快照；活动状态只读，不持有 World 或组件地址。 */
 struct camera_properties {
+  inline static constexpr std::string_view type_name = "camera";
+  inline static constexpr engine::type_guid type_guid = camera_component_type;
   camera_settings settings{};
   bool is_primary{};
 };

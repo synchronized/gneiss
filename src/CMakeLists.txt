@@ -120,6 +120,7 @@ target_sources(
     engine/function/render/normal_math.cpp
     engine/function/render/normal_math.hpp
     engine/core/reflection/type_registry.cpp
+    engine/core/reflection/type_builder.hpp
     engine/core/reflection/type_registry.hpp
     engine/core/reflection/property_registry.hpp
     engine/function/scene/scene_tree.cpp
