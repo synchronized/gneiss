@@ -57,7 +57,6 @@ void scene_service::stop_load() noexcept {
   scope_ = {};
   resources_ = nullptr;
   notification_.reset();
-  files_ = {};
 }
 void scene_service::check_owner() const {
   if (std::this_thread::get_id() != owner_) {

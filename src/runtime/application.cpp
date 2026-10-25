@@ -240,9 +240,8 @@ application::attach_task_executor(gneiss::engine::task_executor& executor) noexc
       backend.discard = backend.begin;
       backend.flush = [] {};
     }
-    return storage_->scene_service_.attach_executor(executor, storage_->asset_file_system_,
-                                                    storage_->resources_, std::move(backend),
-                                                    storage_->loop_notification_);
+    return storage_->scene_service_.attach_executor(
+        executor, storage_->resources_, std::move(backend), storage_->loop_notification_);
   } catch (const std::bad_alloc&) {
     return gneiss::engine::result::out_of_memory;
   } catch (...) {

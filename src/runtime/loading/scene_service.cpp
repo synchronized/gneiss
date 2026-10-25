@@ -32,15 +32,13 @@ gneiss::engine::result scene_service::initialize(gneiss::engine::asset_manager& 
 }
 
 gneiss::engine::result scene_service::attach_executor(
-    gneiss::engine::task_executor& executor, const gneiss::engine::virtual_file_system& files,
-    gneiss::engine::render_resource_service& resources,
+    gneiss::engine::task_executor& executor, gneiss::engine::render_resource_service& resources,
     gneiss::engine::texture_upload_backend backend,
     std::shared_ptr<gneiss::engine::progress_notification> notification) {
   if (textures_ || !active_) {
     return gneiss::engine::result::invalid_state;
   }
   // 先构造可失败依赖，再发布装配状态，失败时不留下半装配服务。
-  auto mounted_files = files;
   const auto profile = backend.profile;
   auto textures = std::make_unique<gneiss::engine::texture_load_service>(
       executor, *render_assets_, std::move(backend), notification);
@@ -48,7 +46,6 @@ gneiss::engine::result scene_service::attach_executor(
   if (scope.id == 0U) {
     return gneiss::engine::result::invalid_state;
   }
-  files_ = std::move(mounted_files);
   executor_ = &executor;
   scope_ = scope;
   resources_ = &resources;

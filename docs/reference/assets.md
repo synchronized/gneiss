@@ -42,7 +42,7 @@ Application 内部将资产根作为 `asset://` 根挂载到虚拟文件系统�
 
 | 入口 | 强引用与访问 | 更新规则 |
 | --- | --- | --- |
-| `asset_manager::load_sync<T>`、`asset_request<T>::take` | `asset_ref<const T>`，直接访问 CPU 描述 | 新加载替换当前缓存，旧引用继续保活旧数据 |
+| `asset_manager::load_sync<T>`、`asset_request<T>::take` | `asset_ref<const T>`，直接访问 CPU 描述 | 成功重载替换当前缓存，旧引用继续保活旧数据 |
 | Prefab 描述 | `prefab_asset_ref`，即 `asset_ref<const prefab_description>` | 别名引用保活缓存条目；重载不会修改旧描述 |
 | Render Loader、场景绑定、编辑器历史 | `render_asset_ref`，即缓存条目的 `asset_ref` | 普通重载保持 RID 稳定，上传完成后更新内容 |
 
@@ -55,7 +55,7 @@ Application 内部将资产根作为 `asset://` 根挂载到虚拟文件系统�
 类型键使用 `engine::type_id`，由同一 Engine 按规范 C++ 类型名集中分配，
 只在当前运行期有效，不写入资产文件或公共 ABI；约束见 [Core 身份类型](core.md#内部基础身份类型)。
 通用请求表只保留请求顺序和在途观察状态，不保存另一份当前资源。
-通用异步加载默认复用成功缓存，显式 reload 重新读取；同步 load_sync 总是重新读取。
+通用同步和异步加载默认复用成功缓存；显式 `reload=true` 才重新读取。
 资源表统一通过 `resource_cache::load` 查询、按需执行回调并登记成功结果；显式重载失败
 （包括回调抛异常或返回空资源）保留旧条目，首次失败不残留占位。相同键递归加载返回
 `invalid_state`，不同键的依赖仍可递归加载。Prefab 普通加载和重载共用解析流程；
@@ -185,3 +185,17 @@ Prefab 直接使用 `load_sync<prefab_description>` / `load<prefab_description>`
 `store<T>` 用于显式采用已构造的数据，成功后较早请求只能返回各自结果，不能覆盖当前缓存；
 失败保留原输出。`store<T>` 不执行 codec 校验，调用者负责提供已验证的内存对象。
 World、场景实例及编辑会话仍由场景服务管理，不进入资源缓存。
+
+### 描述与实例的持有关系
+
+| 对象 | 谁持有 | 释放与更新 |
+| --- | --- | --- |
+| Scene CPU 描述 | manager 缓存、加载请求及准备输入 | 场景实例持有自己的可变描述；准备输入释放后，缓存描述可在无外部引用时回收 |
+| Prefab CPU 描述 | manager 缓存、准备结果、Prefab 实例及编辑器历史 | 实例与历史持有旧来源时不会被强制回收；覆写副本与共享来源分开 |
+| Material CPU 描述 | manager 缓存、准备/上传任务、运行期材质 | 运行期更新成功才切换描述与纹理依赖；失败保留旧运行期数据 |
+| ActionMap | manager 缓存、请求；InputService 持有采用后的独立值 | 采用时复制并校验，失败保留原映射；成功后无需长期持有资产引用 |
+
+`stop_resources()` 排空 manager 任务并结束在途请求，不等于立即清空成功缓存；缓存随管理器销毁，
+或通过 `collect_unused()` 回收。已持有的 CPU 引用可继续存活。Application 关闭时先停止资源任务，
+再关闭场景服务并释放场景/渲染加载器及 manager，最后关闭后端与 I/O 执行器。
+外部渲染引用仍必须遵守渲染服务生命周期，不能照搬 CPU 引用跨管理器存活的规则。

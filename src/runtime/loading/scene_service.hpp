@@ -16,7 +16,7 @@
 namespace gneiss::runtime {
 
 /** 场景生命周期的唯一拥有者；全部调用限宿主线程。
- * 借用的文件系统、渲染服务与执行器必须存活至 shutdown 返回。
+ * 借用的资产管理器、渲染服务与执行器必须存活至 shutdown 返回。
  * shutdown 可等待在途任务；须在关闭渲染后端和 I/O 执行器之前调用。
  */
 class scene_service final {
@@ -30,7 +30,6 @@ public:
                                                   gneiss::engine::render_asset_loader& render);
   [[nodiscard]] gneiss::engine::result
   attach_executor(gneiss::engine::task_executor& executor,
-                  const gneiss::engine::virtual_file_system& files,
                   gneiss::engine::render_resource_service& resources,
                   gneiss::engine::texture_upload_backend backend,
                   std::shared_ptr<gneiss::engine::progress_notification> notification);
@@ -95,7 +94,6 @@ private:
   void check_owner() const;
   gneiss::engine::task_executor* executor_{};
   gneiss::engine::task_scope scope_{};
-  gneiss::engine::virtual_file_system files_;
   gneiss::engine::render_resource_service* resources_{};
   std::shared_ptr<gneiss::engine::progress_notification> notification_;
   std::unique_ptr<load_task> pending_;
