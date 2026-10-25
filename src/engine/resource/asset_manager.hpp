@@ -100,6 +100,11 @@ public:
   asset_manager(const asset_manager&) = delete;
   asset_manager& operator=(const asset_manager&) = delete;
   [[nodiscard]] const gneiss::engine::virtual_file_system& files() const noexcept { return files_; }
+  /** 借用同线程异步文件服务；停止后为空。 */
+  [[nodiscard]] std::shared_ptr<file_service> async_files() const noexcept;
+  /** 解析统一来源身份，不执行文件 I/O。 */
+  [[nodiscard]] result identify(std::string_view uri, std::uint32_t type,
+                                asset_identity& output) const noexcept;
   /** 所属线程回收无外部引用且无在途任务的缓存；不强制卸载活跃资源。 */
   void collect_unused() noexcept;
   /** 功能层 Loader 借用唯一资源索引；所属线程使用，不转移缓存所有权。 */

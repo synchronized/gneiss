@@ -219,7 +219,7 @@ gneiss::engine::rid asset_rid(const render_asset_ref& asset) noexcept {
 bool render_asset_loader::owns(const render_asset_ref& lease) const noexcept {
   gneiss::engine::asset_identity identity;
   if (!lease || !lease->resource ||
-      file_system_.identify(lease->uri, static_cast<std::uint32_t>(asset_kind(lease)), identity) !=
+      assets_.identify(lease->uri, static_cast<std::uint32_t>(asset_kind(lease)), identity) !=
           gneiss::engine::result::success ||
       identity.source != lease->source) {
     return false;
@@ -275,7 +275,10 @@ render_asset_loader::acquire_cached(const render_asset_reload& source, render_as
   output = {};
   try {
     std::shared_ptr<const gneiss::engine::asset_source_domain> domain;
-    const auto identified = file_system_.resolve_source(source.uri, domain);
+    asset_identity identity;
+    const auto identified =
+        assets_.identify(source.uri, static_cast<std::uint32_t>(source.type), identity);
+    domain = std::move(identity.source);
     if (identified != gneiss::engine::result::success)
       return identified;
     const auto current = cache_.observe(source.uri, cache_type(source.type), domain).lock();
@@ -373,7 +376,7 @@ gneiss::engine::result render_asset_loader::reserve_asset(const render_asset_rel
     }
     gneiss::engine::asset_identity identity;
     const auto identified =
-        file_system_.identify(source.uri, static_cast<std::uint32_t>(source.type), identity);
+        assets_.identify(source.uri, static_cast<std::uint32_t>(source.type), identity);
     if (identified != gneiss::engine::result::success) {
       return identified;
     }
@@ -458,7 +461,7 @@ gneiss::engine::result render_asset_loader::prepare_upload(prepared_render_asset
   }
   for (const auto& input : prepared.sources) {
     gneiss::engine::asset_identity identity;
-    if (file_system_.identify(input.identity.uri, input.identity.type, identity) !=
+    if (assets_.identify(input.identity.uri, input.identity.type, identity) !=
             gneiss::engine::result::success ||
         identity != input.identity) {
       return gneiss::engine::result::invalid_argument;
@@ -537,7 +540,7 @@ render_asset_loader::acquire_mesh(std::string_view uri, render_asset_ref& out_le
   out_lease = {};
   out_diagnostic = {};
   gneiss::engine::asset_identity identity;
-  const auto identified = file_system_.identify(uri, mesh_type, identity);
+  const auto identified = assets_.identify(uri, mesh_type, identity);
   if (identified != gneiss::engine::result::success) {
     return identified;
   }
@@ -613,7 +616,7 @@ render_asset_loader::acquire_material(std::string_view uri, render_asset_ref& ou
   out_lease = {};
   out_diagnostic = {};
   gneiss::engine::asset_identity identity;
-  const auto identified = file_system_.identify(uri, material_type, identity);
+  const auto identified = assets_.identify(uri, material_type, identity);
   if (identified != gneiss::engine::result::success) {
     return identified;
   }
@@ -695,7 +698,7 @@ render_asset_loader::acquire_texture(std::string_view uri, render_asset_ref& out
   out_lease = {};
   out_diagnostic = {};
   gneiss::engine::asset_identity identity;
-  const auto identified = file_system_.identify(uri, texture_type, identity);
+  const auto identified = assets_.identify(uri, texture_type, identity);
   if (identified != gneiss::engine::result::success) {
     return identified;
   }

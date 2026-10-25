@@ -80,3 +80,4 @@ Reference 和实现为准。
 - [ADR-075：普通资源加载不再强制来源复验](ADR-075-remove-source-revalidation.md)
 
 - [ADR-084：统一回调式文件服务](ADR-084-async-file-service.md)
+- [ADR-085：渲染资产分阶段读取与纯内存解码](ADR-085-render-asset-loading.md)

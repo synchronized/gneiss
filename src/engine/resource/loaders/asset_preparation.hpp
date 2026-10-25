@@ -74,6 +74,17 @@ struct prepared_asset {
   std::array<std::string, 5> texture_uris;
   std::size_t bytes{};
 };
+/** 已读输入的纯 CPU 解码；不访问真实 VFS。成功才替换输出。
+ * Texture 传入描述字节、负载 URI 和负载；Mesh 只使用描述字节。
+ * 选中纹理变体保留 CPU 数据，恢复上传无需读文件。 */
+[[nodiscard]] result decode_loaded_asset(const asset_preparation_source& source,
+                                         std::vector<std::byte> description,
+                                         std::string payload_uri, std::vector<std::byte> payload,
+                                         prepared_asset& output, asset_diagnostic& diagnostic,
+                                         std::size_t maximum_bytes, texture_prepare_profile profile,
+                                         asset_ref<const material_description> material = {},
+                                         std::size_t material_bytes = 0U);
+
 struct prepared_batch {
   std::vector<prepared_asset> assets;
   std::size_t bytes{};

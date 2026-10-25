@@ -116,6 +116,26 @@ struct asset_manager::resource_state {
     files.reset();
   }
 };
+std::shared_ptr<file_service> asset_manager::async_files() const noexcept {
+  return resource_state_->files;
+}
+result asset_manager::identify(std::string_view uri, std::uint32_t type,
+                               asset_identity& output) const noexcept {
+  output = {};
+  if (!resource_state_->files || type == 0U)
+    return result::invalid_state;
+  try {
+    std::shared_ptr<const asset_source_domain> domain;
+    const auto status = resource_state_->files->resolve_source(uri, domain);
+    if (status.failed())
+      return status;
+    output = {.source = std::move(domain), .uri = std::string(uri), .type = type};
+    return result::success;
+  } catch (...) {
+    return result::out_of_memory;
+  }
+}
+
 asset_manager::asset_manager(virtual_file_system files, registry_ref registry,
                              std::size_t fallback_limit)
     : asset_manager(std::make_shared<file_service>(

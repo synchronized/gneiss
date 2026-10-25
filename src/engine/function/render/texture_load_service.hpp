@@ -111,6 +111,7 @@ private:
   void finish_item(gneiss::engine::result result, bool applied);
   void poll_upload(pending& value);
   bool start_item(pending& value);
+  result start_read(pending& value, std::string_view uri, bool payload);
   bool prepare_item_upload(pending& value);
   void advance_impl();
   void check_owner() const;

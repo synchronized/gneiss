@@ -172,7 +172,22 @@ ActionMap 限制为 1 MiB，解析器也检查此上限；显式 decoder 使用�
 后台协调者在所属线程发起请求并领取描述，工作线程只处理只读描述和纹理依赖，不访问 manager。
 asset_preparation 不读取或解码材质文件，材质输入缺失返回 unsupported。运行期材质持有对应描述引用，
 更新成功后切换引用；失败保留旧 RID 内容与描述。CPU 描述和渲染资源以不同类型键保存在同一索引中。
-纹理和网格仍使用专用范围读取及准备流程。
+运行时 texture_load_service 的网格和纹理通过 manager.async_files() 使用同一个文件服务，
+通过 manager.identify() 解析来源域；不依赖注入构造中的旧 VFS 挂载。
+网格完成有界整读后提交一次纯内存解码；纹理先读取描述并解析依赖 URI，再读取完整负载，
+随后解码。CPU 任务不推进文件请求，也不采用同步文件回退。材质领取描述后也使用纯内存准备入口。
+
+texture_description 表示现有纹理 JSON 的运行时视图；尺寸、变体和 mip 布局仍来自容器 Manifest。
+网格复用 GNMS 文件头，不增加重复描述文件。当前不是 mip/LOD 流送：每项输入与解码输出各有
+64 MiB 上限，纹理描述和负载输入合计也受该上限限制，批次准备总量上限仍为 256 MiB；
+注入文件服务须配置可接受相应 max_bytes 的上限，否则提交返回 invalid_argument。
+多个纹理变体可能全部被读取，但有设备 profile 时只保留选中变体的 CPU 负载和 Manifest。
+运行异步路径释放原文件来源，GPU 恢复直接复用 CPU 数据；代价是该数据随资源引用常驻。
+显式同步 prepare_assets/prepare_texture 等工具接口继续保留原契约。
+
+文件完成和解码完成均不代表 GPU 可用，只有上传后端确认并完成资源更新才进入 applied。
+读取失败不上传半成品，更新失败保留旧内容；取消请求放弃观察，迟到文件回调只持有弱引用。
+完整加载链路的实施边界见 [PLAN-052](../plans/PLAN-052-async-render-assets.md)。
 反射 fallback 调用登记的函数，不代表自动遍历属性反序列化。
 
 ### Scene 与 Prefab 描述

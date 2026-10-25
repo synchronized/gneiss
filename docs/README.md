@@ -85,6 +85,7 @@
 ## 路线图与开发计划
 
 - [统一异步文件服务](plans/PLAN-051-async-file-service.md)
+- [网格与纹理异步加载](plans/PLAN-052-async-render-assets.md)
 
 - [移除 CAORS、采用 Granit 示例资产管理模型：迁移与八项问题分析](plans/PLAN-051-asset-manager-replacement.md)
 - [统一资源强引用与生命周期规则](plans/PLAN-051-asset-references.md)
@@ -207,6 +208,7 @@
 ## 架构决策
 
 - [ADR-084：统一回调式文件服务](decisions/ADR-084-async-file-service.md)
+- [ADR-085：渲染资产分阶段读取与纯内存解码](decisions/ADR-085-render-asset-loading.md)
 
 - [ADR-069：资源模块与运行时组装边界](decisions/ADR-069-resource-runtime-boundaries.md)
 

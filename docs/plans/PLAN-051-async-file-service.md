@@ -8,7 +8,8 @@
 实现中。服务核心、内存后端和旧异步读取回执适配已实现，当前行为见[文件服务参考](../reference/file-service.md)。
 普通 CPU 资源异步加载已接入 file_service，读完后只提交一次解码任务；asset_source 已删除。
 支持宿主注入服务，旧 VFS 构造自动导入挂载并保留缓存来源身份。
-桌面完整后端、旧同步加载、网格/纹理专用读取及异步宿主关闭仍待实施。
+网格/纹理运行路径已按 [PLAN-052](PLAN-052-async-render-assets.md) 接入全量异步读取和纯内存解码。
+桌面完整后端、旧同步加载、按需区间读取及异步宿主关闭仍待实施。
 浏览器、写入持久化和完全统一的文件入口尚未落地。
 Windows Clang Debug 全工程编译、格式和边界检查已通过；契约测试已编译但未执行。
 大场景、浏览器与 CI 在统一验收时运行。
@@ -69,7 +70,8 @@ result shutdown(completion_callback);
 2. **桌面接入**：复用 libuv 异步打开/读/关闭；增加异步写/stat/list/flush，移除该路径 std::filesystem。
 3. **资产迁移（进行中）**：已完成服务注入、普通异步加载、删除 asset_source 与该链路同步回退，
    宿主通过 advance_resources 驱动文件完成，导入挂载保留缓存来源身份。
-   待迁移显式同步加载、网格/纹理区间读取、宿主异步 shutdown；不以同步等待桥接新服务。
+   网格/纹理运行路径由 [PLAN-052](PLAN-052-async-render-assets.md) 优先迁移；
+   待迁移显式同步加载、按需区间读取、宿主异步 shutdown；不以同步等待桥接新服务。
 4. **浏览器闭环**：Fetch 远程读取；FS 内存操作；IDBFS mount 后 syncfs(true) 完成才 ready；
    write 后显式 syncfs(false) 持久化，同域串行同步。处理 JS 异常并映射 result。
 5. **大文件与缓存**：严格校验 HTTP Range 响应，限定在途块与总预算；锁定 SDK 验证流式能力；

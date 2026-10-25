@@ -6,9 +6,13 @@
 #include "engine/core/result.hpp"
 #include "engine/resource/loaders/asset_preparation.hpp"
 #include "engine/resource/types/material_description.hpp"
+#include "engine/resource/types/texture_description.hpp"
 
 // 同步加载与后台准备共用解析契约；不接触缓存或资源服务。
 namespace gneiss::engine::detail {
+
+[[nodiscard]] result parse_texture(const std::vector<std::byte>& bytes, texture_description& output,
+                                   asset_diagnostic& diagnostic);
 
 void fail(asset_diagnostic& diagnostic, gneiss::engine::result result, std::string_view path,
           std::string_view message, std::size_t offset = 0) noexcept;

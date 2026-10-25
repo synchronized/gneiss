@@ -35,11 +35,6 @@
 
 namespace gneiss::engine::detail {
 
-struct texture_source final {
-  std::string uri;
-  gneiss::engine::texture_color_space color_space{};
-};
-
 void fail(asset_diagnostic& diagnostic, gneiss::engine::result result, std::string_view path,
           std::string_view message, std::size_t offset) noexcept {
   diagnostic.result = result;
@@ -479,7 +474,7 @@ parse_mesh(const std::vector<std::byte>& bytes,
 }
 
 [[nodiscard]] gneiss::engine::result parse_texture(const std::vector<std::byte>& bytes,
-                                                   texture_source& out_source,
+                                                   texture_description& out_source,
                                                    asset_diagnostic& diagnostic) {
   auto document = parse_document(bytes, diagnostic);
   if (!document) {
@@ -693,6 +688,69 @@ unsigned asset_order(asset_type type) {
 }
 
 } // namespace
+
+// 只读内存来源：复用纹理容器范围校验，绝不访问磁盘。
+namespace {
+class loaded_memory_source final : public read_source {
+public:
+  explicit loaded_memory_source(std::vector<std::byte> bytes) : bytes_(std::move(bytes)) {}
+  std::uint64_t size() const noexcept override { return bytes_.size(); }
+  result read_at(std::uint64_t offset, std::span<std::byte> output) const noexcept override {
+    if (offset > bytes_.size() || output.size() > bytes_.size() - offset)
+      return result::invalid_argument;
+    std::copy_n(bytes_.begin() + static_cast<std::ptrdiff_t>(offset), output.size(),
+                output.begin());
+    return result::success;
+  }
+
+private:
+  std::vector<std::byte> bytes_;
+};
+}
+
+result decode_loaded_asset(const asset_preparation_source& source,
+                           std::vector<std::byte> description, std::string payload_uri,
+                           std::vector<std::byte> payload, prepared_asset& output,
+                           asset_diagnostic& diagnostic, std::size_t maximum_bytes,
+                           texture_prepare_profile profile,
+                           asset_ref<const material_description> material,
+                           std::size_t material_bytes) {
+  prepared_asset decoded;
+  decoded.source = source;
+  decoded.description = std::move(material);
+  result status;
+  if (source.type == asset_type::texture) {
+    auto input = std::make_shared<prepared_input_files>();
+    input->description_uri = source.uri;
+    input->description = std::move(description);
+    input->image_uri = std::move(payload_uri);
+    if (profile.generation != 0U && input->image_uri.ends_with(".gneiss-texture"))
+      input->source = std::make_shared<loaded_memory_source>(std::move(payload));
+    else
+      input->image = std::move(payload);
+    virtual_file_system memory;
+    status = memory.mount("asset://", input);
+    if (status.failed())
+      return status;
+    status = prepare_texture(memory, source.uri, decoded.texture, diagnostic, maximum_bytes,
+                             maximum_bytes, profile);
+    // 释放整容器来源；恢复上传直接使用选中变体的 CPU 负载。
+    decoded.texture.payload_source.reset();
+    decoded.bytes = decoded.texture.manifest.size() + decoded.texture.payload.size();
+    for (const auto& level : decoded.texture.levels)
+      decoded.bytes += level.pixels.size();
+  } else {
+    std::vector<asset_preparation_source> unused;
+    status = decode_non_texture(source, description, decoded, diagnostic, material_bytes,
+                                maximum_bytes, unused, false);
+  }
+  if (status.failed())
+    return status;
+  if (decoded.bytes > maximum_bytes)
+    return result::out_of_memory;
+  output = std::move(decoded);
+  return result::success;
+}
 
 struct asset_preparation::state {
   material_descriptions materials;
@@ -944,7 +1002,7 @@ struct asset_preparation::state {
       step = phase::decode;
       return gneiss::engine::result::success;
     }
-    texture_source source;
+    texture_description source;
     const auto parsed = parse_texture(input->description, source, diagnostic);
     if (parsed != gneiss::engine::result::success) {
       return parsed;
@@ -1177,7 +1235,7 @@ gneiss::engine::result prepare_texture(const gneiss::engine::virtual_file_system
       fail(out_diagnostic, result, "", "无法通过 VFS 读取 Texture 描述");
       return result;
     }
-    texture_source source;
+    texture_description source;
     result = parse_texture(description_bytes, source, out_diagnostic);
     if (result != gneiss::engine::result::success) {
       return result;

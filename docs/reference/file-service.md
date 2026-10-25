@@ -100,6 +100,9 @@ shutdown 取消尚未完成请求，已有终态照常交付。关闭回调遵�
 Application 的既有同步 teardown 释放读来源和渲染快照后再停止 libuv loop，
 尚未改成逐次轮询的异步宿主关闭流程，不宣称整个引擎关闭已经非阻塞。
 
+Mesh/Texture 的运行时加载也借用该服务；等待文件期间不提交 CPU 任务，
+描述、完整负载读取和 GPU 上传保持独立阶段。具体契约见 [资产参考](assets.md)。
+
 ## 验证状态
 
 契约测试源位于 `tests/integration/assets/file_service_test.cpp`，目标 `gneiss_file_service_test`。

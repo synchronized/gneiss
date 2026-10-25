@@ -6,6 +6,8 @@
 #include "engine/core/diagnostics/task_submission.hpp"
 #include "engine/core/result.hpp"
 #include "engine/resource/asset_manager.hpp"
+#include "engine/resource/files/file_service.hpp"
+#include "engine/resource/loaders/asset_parsing.hpp"
 #include "engine/resource/types/material_description.hpp"
 #include "engine/resource/vfs/asset_uri.hpp"
 #include <algorithm>
@@ -16,13 +18,26 @@ namespace gneiss::engine {
 struct texture_load_service::pending {
   struct cpu_result {
     prepared_render_batch batch;
-    std::unique_ptr<gneiss::engine::asset_preparation> preparation;
+    asset_ref<const material_description> material;
+    asset_preparation_source source;
+    texture_description description;
+    file_bytes description_bytes, payload_bytes;
+    std::vector<prepared_source> inputs;
+    texture_prepare_profile profile;
+    std::size_t limit{};
+    bool reading{}, parse_description{}, needs_payload{};
     bool complete{};
     gneiss::engine::result result{gneiss::engine::result::success};
     std::string message;
     double milliseconds{};
   };
   std::shared_ptr<cpu_result> cpu;
+  std::shared_ptr<file_service> files;
+  file_request_id read_request;
+  ~pending() {
+    if (files && read_request.value != 0U)
+      (void)files->cancel(read_request);
+  }
   asset_request<material_description> material_request;
   render_asset_loader::asset_upload item;
   std::vector<render_asset_ref> targets;
@@ -182,15 +197,39 @@ gneiss::engine::submit_result texture_load_service::submit_preparation(pending& 
       [cpu = value.cpu](const gneiss::engine::task_context& context) {
         GNEISS_PROFILE_SCOPE("asset.prepare.step");
         const auto started = std::chrono::steady_clock::now();
-        asset_diagnostic diagnostic;
-        cpu->result = cpu->preparation->advance(
-            std::size_t{context.allows_blocking_wait() ? 16U : 4U} * 1024U * 1024U,
-            [&] { return context.stop_requested(); }, cpu->batch, diagnostic, cpu->complete,
-            std::chrono::milliseconds(context.allows_blocking_wait() ? 4 : 0));
-        if (cpu->complete) {
-          cpu->message = std::move(diagnostic.message);
-          cpu->preparation.reset();
+        if (context.stop_requested()) {
+          cpu->result = result::cancelled;
+          cpu->complete = true;
+          return task_outcome{.state = task_state::cancelled};
         }
+        asset_diagnostic diagnostic;
+        if (cpu->parse_description) {
+          cpu->result = detail::parse_texture(cpu->description_bytes, cpu->description, diagnostic);
+          cpu->parse_description = false;
+          cpu->needs_payload = cpu->result.ok();
+          cpu->complete = cpu->result.failed();
+        } else {
+          if (!cpu->inputs.empty()) {
+            cpu->inputs.front().bytes = cpu->description_bytes.size();
+            cpu->inputs.front().digest = sha256(cpu->description_bytes);
+          }
+          if (cpu->inputs.size() > 1U) {
+            cpu->inputs.back().bytes = cpu->payload_bytes.size();
+            cpu->inputs.back().digest = sha256(cpu->payload_bytes);
+          }
+          prepared_asset prepared;
+          cpu->result = decode_loaded_asset(cpu->source, std::move(cpu->description_bytes),
+                                            cpu->description.uri, std::move(cpu->payload_bytes),
+                                            prepared, diagnostic, cpu->limit, cpu->profile,
+                                            cpu->material, sizeof(material_resource));
+          if (cpu->result.ok()) {
+            prepared.sources = std::move(cpu->inputs);
+            cpu->batch.bytes = prepared.bytes;
+            cpu->batch.assets.push_back(std::move(prepared));
+          }
+          cpu->complete = true;
+        }
+        cpu->message = std::move(diagnostic.message);
         cpu->milliseconds +=
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started)
                 .count();
@@ -267,6 +306,9 @@ void texture_load_service::finish_item(gneiss::engine::result result, bool appli
     value.completion.message = "资源加载失败：" + item.source.uri;
   }
   value.item = {};
+  if (value.files && value.read_request.value != 0U)
+    (void)value.files->cancel(value.read_request);
+  value.read_request = {};
   value.cpu.reset();
   value.material_request.cancel();
   value.prepared = false;
@@ -361,6 +403,9 @@ bool texture_load_service::start_item(pending& value) {
     return false;
   }
   value.cpu = std::make_shared<pending::cpu_result>();
+  value.cpu->source = source;
+  value.cpu->profile = backend_.profile;
+  value.cpu->limit = std::min(maximum_bytes, value.limit - value.completion.prepared_bytes);
   if (source.type == render_asset_type::material) {
     const auto status = loader_.assets().load(source.uri, value.material_request, value.reload);
     if (status.failed()) {
@@ -369,17 +414,47 @@ bool texture_load_service::start_item(pending& value) {
     }
     return true;
   }
-  value.cpu->preparation = std::make_unique<gneiss::engine::asset_preparation>(
-      loader_.assets().files(), std::span(&source, 1U),
-      gneiss::engine::asset_preparation::limits{
-          .material_bytes = sizeof(material_resource),
-          .maximum_assets = 1U,
-          .maximum_bytes = value.limit - value.completion.prepared_bytes,
-          .include_dependencies = false,
-      },
-      backend_.profile);
+  value.cpu->parse_description = source.type == render_asset_type::texture;
+  value.files = loader_.assets().async_files();
+  const auto status = start_read(value, source.uri, false);
+  if (status.failed()) {
+    finish_item(status, false);
+    return false;
+  }
   return true;
 }
+result texture_load_service::start_read(pending& value, std::string_view uri, bool payload) {
+  if (!value.files)
+    return result::invalid_state;
+  prepared_source input;
+  const auto identified = loader_.assets().identify(
+      uri, static_cast<std::uint32_t>(value.cpu->source.type), input.identity);
+  if (identified.failed())
+    return identified;
+  const auto used = payload ? value.cpu->description_bytes.size() : 0U;
+  if (used >= value.cpu->limit)
+    return result::out_of_memory;
+  value.cpu->inputs.push_back(std::move(input));
+  value.cpu->reading = true;
+  const auto accepted = value.files->read(
+      uri, {.max_bytes = value.cpu->limit - used},
+      [weak = std::weak_ptr(value.cpu), payload](file_completion<file_bytes> completed) {
+        if (auto cpu = weak.lock()) {
+          cpu->reading = false;
+          cpu->result = completed.status;
+          cpu->complete = completed.status.failed();
+          if (payload)
+            cpu->payload_bytes = std::move(completed.data);
+          else
+            cpu->description_bytes = std::move(completed.data);
+        }
+      },
+      value.read_request);
+  if (accepted.failed())
+    value.cpu->reading = false;
+  return accepted;
+}
+
 bool texture_load_service::prepare_item_upload(pending& value) {
   if (value.cpu->batch.assets.size() != 1U) {
     finish_item(gneiss::engine::result::internal, false);
@@ -446,6 +521,23 @@ void texture_load_service::advance_impl() {
   if (!value.cpu && !start_item(value)) {
     return;
   }
+  if (value.cpu->reading) {
+    const auto dispatched = value.files->dispatch_completions(64U);
+    if (dispatched.failed()) {
+      finish_item(dispatched, false);
+      return;
+    }
+    if (value.cpu->reading)
+      return;
+    value.read_request = {};
+  }
+  if (value.cpu->needs_payload) {
+    value.cpu->needs_payload = false;
+    const auto status = start_read(value, value.cpu->description.uri, true);
+    if (status.failed())
+      finish_item(status, false);
+    return;
+  }
   if (value.material_request) {
     loader_.assets().advance_resources();
     asset_ref<const material_description> description;
@@ -458,16 +550,7 @@ void texture_load_service::advance_impl() {
       finish_item(status, false);
       return;
     }
-    const auto& source = value.completion.results[value.cursor].source;
-    material_descriptions materials;
-    materials.emplace(source.uri, std::move(description));
-    value.cpu->preparation = std::make_unique<asset_preparation>(
-        loader_.assets().files(), std::span(&source, 1U),
-        asset_preparation::limits{.material_bytes = sizeof(material_resource),
-                                  .maximum_assets = 1U,
-                                  .maximum_bytes = value.limit - value.completion.prepared_bytes,
-                                  .include_dependencies = false},
-        backend_.profile, std::move(materials));
+    value.cpu->material = std::move(description);
   }
   if (!value.cpu->complete) {
     const auto accepted = submit_preparation(value);
@@ -524,6 +607,8 @@ bool texture_load_service::cancel_unpublished() {
     return false;
   }
   pending_->cancelled = true;
+  if (pending_->files && pending_->read_request.value != 0U)
+    (void)pending_->files->cancel(pending_->read_request);
   (void)executor_.cancel(pending_->task);
   return true;
 }
