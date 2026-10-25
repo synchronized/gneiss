@@ -4,7 +4,9 @@
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_resource_service.hpp"
+#include "engine/resource/asset_manager.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
+#include "engine/resource/loaders/material_serialization.hpp"
 #include "engine/resource/loaders/mesh_binary.hpp"
 #include "engine/resource/loaders/texture_binary.hpp"
 #include "engine/resource/loaders/texture_container.hpp"
@@ -28,6 +30,25 @@
 #include <vector>
 
 namespace {
+
+class counting_material_decoder final : public gneiss::engine::asset_decoder {
+public:
+  mutable unsigned calls{};
+  gneiss::engine::type_id target_type() const noexcept override {
+    return gneiss::engine::runtime_type_of<gneiss::engine::material_description>();
+  }
+  std::size_t maximum_bytes() const noexcept override { return 64U * 1024U; }
+  gneiss::engine::result
+  decode(const std::vector<std::byte>& bytes, std::shared_ptr<const void>& output,
+         gneiss::engine::serialization_diagnostic& diagnostic) const override {
+    ++calls;
+    auto value = std::make_shared<gneiss::engine::material_description>();
+    auto status = gneiss::engine::decode_material(bytes, *value, diagnostic);
+    if (status == gneiss::engine::result::success)
+      output = std::move(value);
+    return status;
+  }
+};
 
 class memory_file_system final : public gneiss::engine::file_system {
 public:
@@ -258,15 +279,17 @@ void selected_variants() {
   memory->files["t.gneiss-texture"].back() ^= 1;
   const std::array requests{
       render_asset_reload{.uri = "asset://t.texture.json", .type = render_asset_type::texture}};
+  render_resource_service resources;
+  gneiss::engine::asset_manager asset_owner(files);
+  [[maybe_unused]] auto& cache = asset_owner.cache();
   prepared_render_batch batch;
-  require(prepare_render_assets(files, requests, batch, diagnostic, {}, 1U, limit, compressed) ==
-          gneiss::engine::result::success);
+  require(prepare_render_assets(asset_owner, requests, batch, diagnostic, {}, 1U, limit,
+                                compressed) == gneiss::engine::result::success);
   require(batch.bytes == limit && batch.assets.front().texture.profile == compressed);
   const auto* prepared_payload = batch.assets.front().texture.payload.data();
   const auto* prepared_manifest = batch.assets.front().texture.manifest.data();
-  render_resource_service resources;
-  gneiss::engine::resource_cache cache;
-  render_asset_loader loader(files, cache, resources);
+
+  render_asset_loader loader(asset_owner, resources);
   std::array<render_asset_loader::asset_upload, 1> candidate;
   require(loader.prepare_upload(std::move(batch.assets.front()), candidate.front()) ==
           gneiss::engine::result::success);
@@ -301,20 +324,20 @@ void selected_variants() {
               gneiss::engine::result::not_found &&
           !lease);
   require(prepare_render_assets(
-              files, requests, batch, diagnostic, [] { return true; }, 1U, limit, compressed) ==
-              gneiss::engine::result::invalid_state &&
+              asset_owner, requests, batch, diagnostic, [] { return true; }, 1U, limit,
+              compressed) == gneiss::engine::result::invalid_state &&
           batch.assets.empty());
   // 描述和负载各扫描一次；后续整文件读取会变化，但不会再发起来源复验。
   memory->full_reads = 0U;
   memory->change_on_reread = true;
-  require(prepare_render_assets(files, requests, batch, diagnostic, {}, 1U, limit, compressed) ==
-              gneiss::engine::result::success &&
+  require(prepare_render_assets(asset_owner, requests, batch, diagnostic, {}, 1U, limit,
+                                compressed) == gneiss::engine::result::success &&
           batch.assets.size() == 1U && memory->full_reads == 2U);
   memory->change_on_reread = false;
   unsigned cancellation_checks{};
   require(prepare_render_assets(
-              files, requests, batch, diagnostic, [&] { return ++cancellation_checks == 2U; }, 1U,
-              limit, compressed) == gneiss::engine::result::invalid_state &&
+              asset_owner, requests, batch, diagnostic, [&] { return ++cancellation_checks == 2U; },
+              1U, limit, compressed) == gneiss::engine::result::invalid_state &&
           batch.assets.empty());
   // 单纹理也走通用候选入口；移动后仍保留负载与设备身份。
   require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, binary.size(),
@@ -386,8 +409,12 @@ bool material_parameter_roundtrip(gneiss::engine::virtual_file_system& files,
     return true;
   };
   render_resource_service resources;
-  gneiss::engine::resource_cache cache;
-  render_asset_loader loader(files, cache, resources);
+  gneiss::engine::asset_manager asset_owner(files);
+  [[maybe_unused]] auto& cache = asset_owner.cache();
+  auto decoder = std::make_shared<counting_material_decoder>();
+  if (asset_owner.register_decoder(decoder).failed())
+    return false;
+  render_asset_loader loader(asset_owner, resources);
   asset_diagnostic diagnostic;
   render_asset_ref synchronous;
   if (loader.acquire_material("asset://parameters.material.json", synchronous, diagnostic) !=
@@ -400,7 +427,7 @@ bool material_parameter_roundtrip(gneiss::engine::virtual_file_system& files,
   const std::array request{render_asset_reload{.uri = "asset://parameters.material.json",
                                                .type = render_asset_type::material}};
   const auto before = resources.live_resource_count();
-  if (prepare_render_assets(files, request, batch, diagnostic, {}) !=
+  if (prepare_render_assets(asset_owner, request, batch, diagnostic, {}) !=
           gneiss::engine::result::success ||
       batch.assets.size() != 2U || resources.live_resource_count() != before ||
       batch.assets.back().bytes !=
@@ -428,6 +455,12 @@ bool material_parameter_roundtrip(gneiss::engine::virtual_file_system& files,
       !matches(resources.get_material(gneiss::engine::asset_rid(synchronous)))) {
     return false;
   }
+  if (decoder->calls != 1U)
+    return false;
+  const auto original_rid = asset_rid(synchronous);
+  if (loader.reload_assets(request, diagnostic).failed() || decoder->calls != 2U ||
+      asset_rid(synchronous) != original_rid)
+    return false;
   return true;
 }
 
@@ -500,8 +533,9 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
 
   gneiss::engine::virtual_file_system file_system;
   gneiss::engine::render_resource_service resources;
-  gneiss::engine::resource_cache cache;
-  gneiss::engine::render_asset_loader loader(file_system, cache, resources);
+  gneiss::engine::asset_manager asset_owner(file_system);
+  [[maybe_unused]] auto& cache = asset_owner.cache();
+  gneiss::engine::render_asset_loader loader(asset_owner, resources);
   if (file_system.mount("asset://", memory) != gneiss::engine::result::success) {
     return 1;
   }
@@ -677,7 +711,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
         gneiss::engine::render_asset_reload{"asset://models/indexed.gneiss-mesh",
                                             gneiss::engine::render_asset_type::mesh}};
     gneiss::engine::prepared_render_batch batch;
-    if (gneiss::engine::prepare_render_assets(file_system, requests, batch, diagnostic, {}) !=
+    if (gneiss::engine::prepare_render_assets(asset_owner, requests, batch, diagnostic, {}) !=
             gneiss::engine::result::success ||
         batch.assets.size() != 2U || cache.size() != cache_before ||
         resources.live_resource_count() != resources_before) {
@@ -701,7 +735,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     // 使用重新加载绕过旧缓存，失败必须保持旧资源版本。
     if (loader.reload_assets(std::span(requests).first(1U), diagnostic) !=
             gneiss::engine::result::invalid_argument ||
-        gneiss::engine::prepare_render_assets(file_system, requests, batch, diagnostic, {}) !=
+        gneiss::engine::prepare_render_assets(asset_owner, requests, batch, diagnostic, {}) !=
             gneiss::engine::result::invalid_argument ||
         !batch.assets.empty()) {
       return 43;
@@ -828,7 +862,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   reloaded_texture = {};
   after_failed_reload = {};
   loader.release_unused();
-  if (cache.size() != 2U) {
+  if (cache.size() != 3U) {
     return 21;
   }
   if (resources.live_resource_count() != 2U) {

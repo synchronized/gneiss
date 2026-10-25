@@ -77,7 +77,6 @@ public:
   static constexpr std::size_t maximum_upload_bytes = maximum_prepared_bytes;
   static constexpr std::size_t maximum_bytes = 64U * 1024U * 1024U;
   texture_load_service(gneiss::engine::task_executor& executor,
-                       gneiss::engine::virtual_file_system file_system,
                        gneiss::engine::render_asset_loader& loader, texture_upload_backend backend,
                        std::shared_ptr<gneiss::engine::progress_notification> notification = {});
   ~texture_load_service();
@@ -118,7 +117,6 @@ private:
   void finish(gneiss::engine::result result, texture_load_state state);
   gneiss::engine::task_executor& executor_;
   gneiss::engine::task_scope scope_;
-  gneiss::engine::virtual_file_system file_system_;
   gneiss::engine::render_asset_loader& loader_;
   texture_upload_backend backend_;
   std::shared_ptr<gneiss::engine::progress_notification> notification_;

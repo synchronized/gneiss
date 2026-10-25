@@ -5,6 +5,8 @@
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/diagnostics/task_submission.hpp"
 #include "engine/core/result.hpp"
+#include "engine/resource/asset_manager.hpp"
+#include "engine/resource/types/material_description.hpp"
 #include "engine/resource/vfs/asset_uri.hpp"
 #include <algorithm>
 #include <set>
@@ -21,6 +23,7 @@ struct texture_load_service::pending {
     double milliseconds{};
   };
   std::shared_ptr<cpu_result> cpu;
+  asset_request<material_description> material_request;
   render_asset_loader::asset_upload item;
   std::vector<render_asset_ref> targets;
   texture_load_completion completion;
@@ -45,17 +48,23 @@ struct texture_load_service::pending {
 };
 
 texture_load_service::texture_load_service(
-    gneiss::engine::task_executor& executor, gneiss::engine::virtual_file_system file_system,
-    render_asset_loader& loader, texture_upload_backend backend,
+    gneiss::engine::task_executor& executor, render_asset_loader& loader,
+    texture_upload_backend backend,
     std::shared_ptr<gneiss::engine::progress_notification> notification)
-    : executor_(executor), scope_(executor.make_scope()), file_system_(std::move(file_system)),
-      loader_(loader), backend_(std::move(backend)), notification_(std::move(notification)) {
+    : executor_(executor), scope_(executor.make_scope()), loader_(loader),
+      backend_(std::move(backend)), notification_(std::move(notification)) {
   if (scope_.id == 0U || !backend_.begin || !backend_.poll || !backend_.discard ||
       !backend_.flush) {
     if (scope_.id != 0U) {
       (void)executor_.close_scope(scope_);
     }
     throw std::invalid_argument("资产服务执行或上传后端无效");
+  }
+  try {
+    loader_.assets().attach_task_executor(executor_);
+  } catch (...) {
+    (void)executor_.close_scope(scope_);
+    throw;
   }
 }
 texture_load_service::~texture_load_service() {
@@ -259,6 +268,7 @@ void texture_load_service::finish_item(gneiss::engine::result result, bool appli
   }
   value.item = {};
   value.cpu.reset();
+  value.material_request.cancel();
   value.prepared = false;
   value.operation = gneiss::engine::result::success;
   ++value.cursor;
@@ -351,8 +361,16 @@ bool texture_load_service::start_item(pending& value) {
     return false;
   }
   value.cpu = std::make_shared<pending::cpu_result>();
+  if (source.type == render_asset_type::material) {
+    const auto status = loader_.assets().load(source.uri, value.material_request, value.reload);
+    if (status.failed()) {
+      finish_item(status, false);
+      return false;
+    }
+    return true;
+  }
   value.cpu->preparation = std::make_unique<gneiss::engine::asset_preparation>(
-      file_system_, std::span(&source, 1U),
+      loader_.assets().files(), std::span(&source, 1U),
       gneiss::engine::asset_preparation::limits{
           .material_bytes = sizeof(material_resource),
           .maximum_assets = 1U,
@@ -427,6 +445,29 @@ void texture_load_service::advance_impl() {
   }
   if (!value.cpu && !start_item(value)) {
     return;
+  }
+  if (value.material_request) {
+    loader_.assets().advance_resources();
+    asset_ref<const material_description> description;
+    serialization_diagnostic diagnostic;
+    const auto status = value.material_request.take(description, &diagnostic);
+    if (status == result::not_ready)
+      return;
+    if (status.failed()) {
+      value.cpu->message = std::move(diagnostic.message);
+      finish_item(status, false);
+      return;
+    }
+    const auto& source = value.completion.results[value.cursor].source;
+    material_descriptions materials;
+    materials.emplace(source.uri, std::move(description));
+    value.cpu->preparation = std::make_unique<asset_preparation>(
+        loader_.assets().files(), std::span(&source, 1U),
+        asset_preparation::limits{.material_bytes = sizeof(material_resource),
+                                  .maximum_assets = 1U,
+                                  .maximum_bytes = value.limit - value.completion.prepared_bytes,
+                                  .include_dependencies = false},
+        backend_.profile, std::move(materials));
   }
   if (!value.cpu->complete) {
     const auto accepted = submit_preparation(value);

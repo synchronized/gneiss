@@ -3,7 +3,6 @@
 
 #include "engine/resource/loaders/asset_preparation.hpp"
 #include "engine/core/result.hpp"
-#include "engine/resource/resource_registry.hpp"
 
 #include "engine/resource/loaders/asset_parsing.hpp"
 
@@ -584,17 +583,10 @@ gneiss::engine::result decode_non_texture(const asset_preparation_source& source
     }
     asset.bytes = mesh.data_bytes();
   } else if (source.type == asset_type::material) {
-    material_description material;
-    serialization_diagnostic decoded;
-    result = decode_resource(bytes, material, decoded);
-    if (result.failed())
-      fail(diagnostic, result, decoded.path, decoded.message, decoded.byte_offset);
-    if (result != gneiss::engine::result::success) {
-      return result;
-    }
-    asset.material = material.parameters;
-
-    asset.texture_uris = std::move(material.texture_uris);
+    if (!asset.description)
+      return gneiss::engine::result::unsupported;
+    asset.material = asset.description->parameters;
+    asset.texture_uris = asset.description->texture_uris;
     // 由调用方传入发布预算，Asset 不依赖资源对象布局。
     if (material_bytes == 0U) {
       fail(diagnostic, gneiss::engine::result::invalid_argument, source.uri,
@@ -703,6 +695,7 @@ unsigned asset_order(asset_type type) {
 } // namespace
 
 struct asset_preparation::state {
+  material_descriptions materials;
   enum class phase : std::uint8_t { select, description, payload, decode, finished };
   virtual_file_system files;
   std::vector<asset_preparation_source> pending;
@@ -919,6 +912,14 @@ struct asset_preparation::state {
       current.source = source;
       input = std::make_shared<prepared_input_files>();
       input->description_uri = source.uri;
+      if (source.type == asset_type::material) {
+        const auto found = materials.find(source.uri);
+        if (found == materials.end() || !found->second)
+          return gneiss::engine::result::unsupported;
+        current.description = found->second;
+        step = phase::decode;
+        return gneiss::engine::result::success;
+      }
       step = phase::description;
       return begin_read(source.uri, maximum_bytes, true);
     }
@@ -1058,10 +1059,12 @@ struct asset_preparation::state {
 };
 asset_preparation::asset_preparation(const virtual_file_system& files,
                                      std::span<const asset_preparation_source> requested,
-                                     limits budget, texture_prepare_profile profile)
+                                     limits budget, texture_prepare_profile profile,
+                                     material_descriptions materials)
     : state_(std::make_unique<state>()) {
   auto& value = *state_;
   value.files = files;
+  value.materials = std::move(materials);
   value.pending.assign(requested.begin(), requested.end());
   value.material_bytes = budget.material_bytes;
   value.maximum_assets = budget.maximum_assets;
@@ -1132,8 +1135,8 @@ gneiss::engine::result prepare_assets(const virtual_file_system& files,
                                       prepared_batch& output, asset_diagnostic& diagnostic,
                                       const std::function<bool()>& cancelled,
                                       std::size_t material_bytes, std::size_t maximum_assets,
-                                      std::size_t maximum_bytes,
-                                      texture_prepare_profile profile) noexcept {
+                                      std::size_t maximum_bytes, texture_prepare_profile profile,
+                                      material_descriptions materials) noexcept {
   output = {};
   diagnostic = {};
   try {
@@ -1144,7 +1147,7 @@ gneiss::engine::result prepare_assets(const virtual_file_system& files,
                                       .maximum_bytes = maximum_bytes,
                                       .deferred_reads = false,
                                   },
-                                  profile);
+                                  profile, std::move(materials));
     bool complete{};
     auto result = gneiss::engine::result::success;
     while (result == gneiss::engine::result::success && !complete) {

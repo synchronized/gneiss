@@ -84,11 +84,20 @@ void run(std::size_t document_limit) {
             : R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,0,0,1]})");
     const std::array requested{
         asset_preparation_source{"asset://material.json", asset_type::material}};
+    asset_diagnostic diagnostic;
+    std::vector<std::byte> bytes;
+    auto description = std::make_shared<material_description>();
+    check(files.read("asset://material.json", bytes) == result::success, "read description");
+    check(decode_material_description(bytes, *description, diagnostic) == result::success,
+          "decode description");
+    material_descriptions descriptions;
+    descriptions.emplace("asset://material.json",
+                         asset_ref<const material_description>{description});
     asset_preparation preparation(
         files, requested,
-        {.material_bytes = 256, .maximum_assets = 8, .maximum_bytes = document_limit}, {});
+        {.material_bytes = 256, .maximum_assets = 8, .maximum_bytes = document_limit}, {},
+        std::move(descriptions));
     prepared_batch batch;
-    asset_diagnostic diagnostic;
     bool complete = false;
     gneiss::engine::result status = gneiss::engine::result::success;
     const auto deadline = std::chrono::steady_clock::now() + 10s;
@@ -112,7 +121,7 @@ void run(std::size_t document_limit) {
       if (change_source)
         write("{}");
       const auto& prepared = batch.assets.front();
-      check(!prepared.sources.empty() && prepared.material.color[0] == 1, "batch version and data");
+      check(prepared.sources.empty() && prepared.material.color[0] == 1, "batch version and data");
     }
   };
   prepare(false, false);

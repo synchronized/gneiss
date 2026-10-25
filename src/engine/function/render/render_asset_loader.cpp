@@ -4,7 +4,7 @@
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
-#include "engine/resource/resource_registry.hpp"
+#include "engine/resource/asset_manager.hpp"
 #include <atomic>
 
 #include "engine/function/render/render_resource_service.hpp"
@@ -52,6 +52,7 @@ struct material_asset final {
   material_asset& operator=(const material_asset&) = delete;
   gneiss::engine::render_resource_service* resources;
   gneiss::engine::rid rid;
+  mutable asset_ref<const material_description> description;
   mutable std::uint64_t update_sequence{};
   mutable std::array<gneiss::engine::asset_ref<const gneiss::engine::resource_cache::entry>, 5>
       textures;
@@ -147,10 +148,45 @@ append_texture_dependencies(std::vector<gneiss::engine::render_asset_reload>& qu
 
 namespace gneiss::engine {
 
-render_asset_loader::render_asset_loader(const gneiss::engine::virtual_file_system& file_system,
-                                         gneiss::engine::resource_cache& cache,
+gneiss::engine::result
+prepare_render_assets(asset_manager& assets, std::span<const render_asset_reload> requested,
+                      prepared_render_batch& output, asset_diagnostic& diagnostic,
+                      const std::function<bool()>& cancelled, std::size_t maximum_assets,
+                      std::size_t maximum_bytes, texture_prepare_profile profile,
+                      bool reload) noexcept try {
+  output = {};
+  diagnostic = {};
+  if (requested.empty() || requested.size() > maximum_assets)
+    return result::invalid_argument;
+  material_descriptions materials;
+  for (const auto& source : requested) {
+    if (cancelled && cancelled())
+      return result::invalid_state;
+    if (source.type != asset_type::material || materials.contains(source.uri))
+      continue;
+    asset_ref<const material_description> description;
+    serialization_diagnostic decoded;
+    const auto status = assets.load_sync(source.uri, description, reload, &decoded);
+    if (status.failed()) {
+      diagnostic = {status, decoded.byte_offset, std::move(decoded.path),
+                    std::move(decoded.message)};
+      return status;
+    }
+    materials.emplace(source.uri, std::move(description));
+  }
+  return gneiss::engine::prepare_assets(assets.files(), requested, output, diagnostic, cancelled,
+                                        sizeof(material_resource), maximum_assets, maximum_bytes,
+                                        profile, std::move(materials));
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
+}
+
+render_asset_loader::render_asset_loader(asset_manager& assets,
                                          render_resource_service& resources) noexcept
-    : file_system_(file_system), cache_(cache), resources_(resources) {}
+    : assets_(assets), file_system_(assets.files()), cache_(assets.cache()), resources_(resources) {
+}
 
 render_asset_type asset_kind(const render_asset_ref& asset) noexcept {
   if (asset) {
@@ -384,6 +420,7 @@ gneiss::engine::result render_asset_loader::reserve_asset(const render_asset_rel
 
 gneiss::engine::result render_asset_loader::prepare_material_upload(prepared_render_asset& prepared,
                                                                     asset_upload& upload) {
+  upload.description = prepared.description;
   gneiss::engine::material_resource material{.parameters = prepared.material};
   for (std::size_t slot = 0; slot < prepared.texture_uris.size(); ++slot) {
     const auto& uri = prepared.texture_uris[slot];
@@ -489,6 +526,7 @@ gneiss::engine::result render_asset_loader::complete_upload(asset_upload& upload
     return gneiss::engine::result::out_of_memory;
   }
   auto material = std::static_pointer_cast<const material_asset>(upload.target->resource);
+  material->description = std::move(upload.description);
   material->textures = upload.dependencies;
   return gneiss::engine::result::success;
 }
@@ -582,20 +620,14 @@ render_asset_loader::acquire_material(std::string_view uri, render_asset_ref& ou
   const auto result = cache_.load(
       uri, gneiss::engine::runtime_type_of<material_asset>(),
       [this, uri, &out_diagnostic](std::shared_ptr<const void>& output) -> gneiss::engine::result {
-        std::vector<std::byte> bytes;
-        auto result = file_system_.read_bounded(uri, 64U * 1024U * 1024U, bytes);
-        if (result != gneiss::engine::result::success) {
-          fail(out_diagnostic, result, "", "无法通过 VFS 读取 Material");
-          return result;
-        }
-        gneiss::engine::material_description source;
+        asset_ref<const material_description> description;
         serialization_diagnostic decoded;
-        result = decode_resource(bytes, source, decoded);
-        if (result.failed())
+        auto result = assets_.load_sync(uri, description, false, &decoded);
+        if (result.failed()) {
           fail(out_diagnostic, result, decoded.path, decoded.message, decoded.byte_offset);
-        if (result != gneiss::engine::result::success) {
           return result;
         }
+        const auto& source = *description;
         gneiss::engine::material_resource material{.parameters = source.parameters};
 
         std::array<gneiss::engine::asset_ref<const gneiss::engine::resource_cache::entry>, 5>
@@ -626,7 +658,9 @@ render_asset_loader::acquire_material(std::string_view uri, render_asset_ref& ou
           return result;
         }
         try {
-          output = std::make_shared<material_asset>(resources_, rid, std::move(dependencies));
+          auto asset = std::make_shared<material_asset>(resources_, rid, std::move(dependencies));
+          asset->description = std::move(description);
+          output = std::move(asset);
         } catch (...) {
           (void)resources_.destroy_material(rid);
           throw;
@@ -737,22 +771,9 @@ render_asset_loader::reload_assets(std::span<const render_asset_reload> assets,
         summary = updated;
         continue;
       }
-      gneiss::engine::asset_preparation preparation(
-          file_system_, std::span(&source, 1U),
-          {
-              .material_bytes = sizeof(material_resource),
-              .maximum_assets = 1U,
-              .maximum_bytes = std::size_t{256U} * 1024U * 1024U,
-              .deferred_reads = false,
-              .include_dependencies = false,
-          },
-          default_profile_);
       prepared_render_batch batch;
-      bool complete{};
-      do {
-        updated = preparation.advance(std::size_t{256U} * 1024U * 1024U, {}, batch, out_diagnostic,
-                                      complete);
-      } while (!complete && updated == gneiss::engine::result::success);
+      updated = prepare_render_assets(assets_, std::span(&source, 1U), batch, out_diagnostic, {},
+                                      256U, 256U * 1024U * 1024U, default_profile_, true);
       if (updated == gneiss::engine::result::success) {
         auto& prepared = batch.assets.front();
         updated = append_texture_dependencies(queue, prepared.texture_uris);

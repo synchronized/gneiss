@@ -70,13 +70,14 @@ public:
       output = asset_request<T>{std::move(state)};
     return status;
   }
-  /** 同步读取不驱动任务队列；成功发布使同键较早异步请求失去当前缓存写入权。 */
+  /** 同步加载默认复用缓存；reload 才重新读取。成功读取使较早异步请求失去缓存写入权。 */
   template <typename T>
-  [[nodiscard]] gneiss::engine::result load_sync(std::string_view uri,
-                                                 asset_ref<const T>& output) noexcept {
+  [[nodiscard]] gneiss::engine::result
+  load_sync(std::string_view uri, asset_ref<const T>& output, bool reload = false,
+            serialization_diagnostic* diagnostic = nullptr) noexcept {
     std::shared_ptr<const void> value;
     const auto status = load_sync_erased(gneiss::engine::runtime_type_of<T>(), uri, value,
-                                         &detail::make_reflected_decoder<T>);
+                                         &detail::make_reflected_decoder<T>, reload, diagnostic);
     if (status == gneiss::engine::result::success)
       output = asset_ref<const T>{std::static_pointer_cast<const T>(value)};
     return status;
@@ -88,9 +89,7 @@ public:
   void collect_unused() noexcept;
   [[nodiscard]] gneiss::engine::result
   acquire(std::string_view uri, gneiss::engine::prefab_asset_ref& output,
-          gneiss::engine::scene_diagnostic& diagnostic) noexcept {
-    return prefabs_.acquire(uri, output, diagnostic);
-  }
+          gneiss::engine::scene_diagnostic& diagnostic) noexcept;
   /** 功能层 Loader 借用唯一资源索引；所属线程使用，不转移缓存所有权。 */
   [[nodiscard]] resource_cache& cache() noexcept { return cache_; }
   [[nodiscard]] gneiss::engine::prefab_asset_loader& prefab_loader() noexcept { return prefabs_; }
@@ -104,10 +103,10 @@ private:
                                                bool reload,
                                                std::shared_ptr<detail::asset_state>& output,
                                                decoder_factory fallback) noexcept;
-  [[nodiscard]] gneiss::engine::result load_sync_erased(gneiss::engine::type_id type,
-                                                        std::string_view uri,
-                                                        std::shared_ptr<const void>& output,
-                                                        decoder_factory fallback) noexcept;
+  [[nodiscard]] gneiss::engine::result
+  load_sync_erased(gneiss::engine::type_id type, std::string_view uri,
+                   std::shared_ptr<const void>& output, decoder_factory fallback, bool reload,
+                   serialization_diagnostic* diagnostic) noexcept;
   struct resource_state;
   std::unique_ptr<resource_state> resource_state_;
   gneiss::engine::virtual_file_system files_;

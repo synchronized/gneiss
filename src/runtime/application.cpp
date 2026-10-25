@@ -408,7 +408,7 @@ gneiss::engine::result application::initialize() noexcept {
     storage_->asset_manager_ =
         std::make_unique<gneiss::engine::asset_manager>(storage_->asset_file_system_);
     storage_->render_assets_ = std::make_unique<gneiss::engine::render_asset_loader>(
-        storage_->asset_file_system_, storage_->asset_manager_->cache(), storage_->resources_);
+        *storage_->asset_manager_, storage_->resources_);
     const auto result =
         storage_->scene_service_.initialize(*storage_->asset_manager_, *storage_->render_assets_);
     if (result != gneiss::engine::result::success) {

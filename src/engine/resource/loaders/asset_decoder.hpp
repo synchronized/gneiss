@@ -18,7 +18,8 @@ public:
   [[nodiscard]] virtual gneiss::engine::type_id target_type() const noexcept = 0;
   [[nodiscard]] virtual std::size_t maximum_bytes() const noexcept = 0;
   [[nodiscard]] virtual gneiss::engine::result
-  decode(const std::vector<std::byte>& bytes, std::shared_ptr<const void>& output) const = 0;
+  decode(const std::vector<std::byte>& bytes, std::shared_ptr<const void>& output,
+         serialization_diagnostic& diagnostic) const = 0;
 };
 
 /** 有类型解码函数；失败对象由适配器丢弃，可并发处理不同输入。 */
@@ -32,10 +33,9 @@ public:
       : function_(function), limit_(limit), registry_(std::move(registry)), binding_(binding) {}
   type_id target_type() const noexcept override { return runtime_type_of<T>(); }
   std::size_t maximum_bytes() const noexcept override { return limit_; }
-  result decode(const std::vector<std::byte>& bytes,
-                std::shared_ptr<const void>& output) const override {
+  result decode(const std::vector<std::byte>& bytes, std::shared_ptr<const void>& output,
+                serialization_diagnostic& diagnostic) const override {
     auto pending = std::make_shared<T>();
-    serialization_diagnostic diagnostic;
     const auto status = function_ ? function_(bytes, *pending, diagnostic)
                                   : binding_.decode(bytes, pending.get(), diagnostic);
     if (status == result::success)

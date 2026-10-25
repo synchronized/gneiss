@@ -3,6 +3,7 @@
 
 #include "engine/core/result.hpp"
 #include "engine/resource/loaders/asset_preparation.hpp"
+#include "engine/resource/loaders/material_description_decoder.hpp"
 
 #include "engine/resource/vfs/virtual_file_system.hpp"
 
@@ -12,6 +13,29 @@
 #include <thread>
 
 namespace {
+gneiss::engine::result
+prepare_test_materials(const gneiss::engine::virtual_file_system& files,
+                       std::span<const gneiss::engine::asset_preparation_source> requested,
+                       gneiss::engine::prepared_batch& output,
+                       gneiss::engine::asset_diagnostic& diagnostic,
+                       const std::function<bool()>& cancelled, std::size_t material_bytes,
+                       std::size_t count = 256U, std::size_t limit = 256U * 1024U * 1024U) {
+  using namespace gneiss::engine;
+  material_descriptions descriptions;
+  for (const auto& source : requested) {
+    std::vector<std::byte> bytes;
+    auto description = std::make_shared<material_description>();
+    auto status = files.read(source.uri, bytes);
+    if (status == result::success)
+      status = decode_material_description(bytes, *description, diagnostic);
+    if (status.failed())
+      return status;
+    descriptions.emplace(source.uri, asset_ref<const material_description>{description});
+  }
+  return prepare_assets(files, requested, output, diagnostic, cancelled, material_bytes, count,
+                        limit, {}, std::move(descriptions));
+}
+
 // 准备契约不能再次退化为带纹理句柄与发布操作的资源结构。
 template <typename T>
 concept has_texture_handle = requires(T value) { value.base_color_texture; };
@@ -435,17 +459,17 @@ int main() try {
   const std::array material_request{
       asset_preparation_source{.uri = "asset://material", .type = asset_type::material},
   };
-  if (prepare_assets(files, material_request, output, diagnostic, {}, 1000U, 1U, 1000U) !=
+  if (prepare_test_materials(files, material_request, output, diagnostic, {}, 1000U, 1U, 1000U) !=
           gneiss::engine::result::success ||
       output.bytes != 1000U || output.assets.size() != 1U) {
     return 8;
   }
-  if (prepare_assets(files, material_request, output, diagnostic, {}, 0U) !=
+  if (prepare_test_materials(files, material_request, output, diagnostic, {}, 0U) !=
           gneiss::engine::result::invalid_argument ||
       !output.assets.empty()) {
     return 9;
   }
-  if (prepare_assets(files, material_request, output, diagnostic, {}, 1001U, 1U, 1000U) !=
+  if (prepare_test_materials(files, material_request, output, diagnostic, {}, 1001U, 1U, 1000U) !=
           gneiss::engine::result::out_of_memory ||
       !output.assets.empty()) {
     return 10;
@@ -454,7 +478,7 @@ int main() try {
       asset_preparation_source{.uri = "asset://linked", .type = asset_type::material},
   };
   constexpr auto maximum = std::numeric_limits<std::size_t>::max();
-  if (prepare_assets(files, linked_request, output, diagnostic, {}, maximum, 2U, maximum) !=
+  if (prepare_test_materials(files, linked_request, output, diagnostic, {}, maximum, 2U, maximum) !=
           gneiss::engine::result::out_of_memory ||
       !output.assets.empty()) {
     return 11;

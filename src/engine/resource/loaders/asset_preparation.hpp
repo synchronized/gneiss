@@ -4,10 +4,12 @@
 #pragma once
 
 #include "engine/core/sha256.hpp"
+#include "engine/resource/asset_ref.hpp"
 #include "engine/resource/types/asset_identity.hpp"
 #include "engine/resource/types/material_parameters.hpp"
 #include "engine/resource/types/mesh_data.hpp"
 #include "engine/resource/types/texture_preparation_data.hpp"
+#include <map>
 
 #include "engine/core/result.hpp"
 #include <chrono>
@@ -20,6 +22,7 @@
 
 namespace gneiss::engine {
 class virtual_file_system;
+struct material_description;
 }
 
 namespace gneiss::engine {
@@ -55,8 +58,13 @@ struct prepared_source final {
   gneiss::engine::sha256_digest digest{};
 };
 
-/** 后台解析后的自有 CPU 数据；不持有缓存或后端对象，材质依赖仅使用 URI。 */
+/** 材质输入由所属线程加载后传入；只读引用保活描述，准备器不查询缓存。 */
+using material_descriptions =
+    std::map<std::string, asset_ref<const material_description>, std::less<>>;
+
+/** 后台准备结果；材质保留描述引用，纹理依赖使用 URI，不持有后端对象。 */
 struct prepared_asset {
+  asset_ref<const material_description> description;
   asset_preparation_source source;
   /** 描述在首位，纹理负载在其后；材质的资产依赖仍由 texture_uris 表示。 */
   std::vector<prepared_source> sources;
@@ -73,6 +81,7 @@ struct prepared_batch {
   std::size_t input_bytes{};
 };
 /** 资产层的分步 CPU 准备；同一实例须串行推进。全部请求完成解析后输出，不重新读取来源。
+ * 材质必须在 materials 中提供已解码描述，否则返回 unsupported，不读取材质文件。
  * 每步限制区间读取/摘要字节，解析仍是单项同步调用；旧整文件后端保留同步兼容行为。 */
 class asset_preparation final {
 public:
@@ -86,7 +95,7 @@ public:
   };
   asset_preparation(const virtual_file_system& files,
                     std::span<const asset_preparation_source> requested, limits budget,
-                    texture_prepare_profile profile);
+                    texture_prepare_profile profile, material_descriptions materials = {});
   ~asset_preparation();
   [[nodiscard]] gneiss::engine::result advance(std::size_t byte_budget,
                                                const std::function<bool()>& cancelled,
@@ -106,6 +115,6 @@ prepare_assets(const gneiss::engine::virtual_file_system& files,
                asset_diagnostic& diagnostic, const std::function<bool()>& cancelled,
                std::size_t material_bytes, std::size_t maximum_assets = 256U,
                std::size_t maximum_bytes = 256U * 1024U * 1024U,
-               texture_prepare_profile profile = {}) noexcept;
+               texture_prepare_profile profile = {}, material_descriptions materials = {}) noexcept;
 
 } // namespace gneiss::engine

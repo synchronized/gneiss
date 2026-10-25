@@ -26,7 +26,8 @@ public:
     return maximum_action_map_bytes;
   }
   gneiss::engine::result decode(const std::vector<std::byte>& bytes,
-                                std::shared_ptr<const void>& output) const override {
+                                std::shared_ptr<const void>& output,
+                                serialization_diagnostic&) const override {
     auto value = std::make_shared<action_map_asset>();
     const auto status =
         parse_action_map({reinterpret_cast<const char*>(bytes.data()), bytes.size()}, value->map);
@@ -51,6 +52,7 @@ struct asset_manager::resource_state {
     std::shared_ptr<detail::asset_state> observer{std::make_shared<detail::asset_state>()};
     asset_source source;
     std::shared_ptr<const void> value;
+    serialization_diagnostic diagnostic;
     // 在途重载保活旧缓存条目；失败后旧内容仍可复用。
     std::shared_ptr<const resource_cache::entry> previous;
     std::atomic_bool settled{false};
@@ -64,7 +66,7 @@ struct asset_manager::resource_state {
       if (status != gneiss::engine::result::success) {
         return;
       }
-      status = loader->decode(source.bytes(), value);
+      status = loader->decode(source.bytes(), value, diagnostic);
       if (status == gneiss::engine::result::success && !value) {
         status = gneiss::engine::result::internal;
       }
@@ -152,9 +154,15 @@ asset_manager::asset_manager(virtual_file_system files, registry_ref registry,
   resource_state_->decoders.emplace(gneiss::engine::runtime_type_of<action_map_asset>(),
                                     std::make_shared<input_decoder>());
 }
+result asset_manager::acquire(std::string_view uri, prefab_asset_ref& output,
+                              scene_diagnostic& diagnostic) noexcept {
+  return prefabs_.acquire(uri, output, diagnostic);
+}
 asset_manager::~asset_manager() { stop_resources(); }
 void asset_manager::attach_task_executor(gneiss::engine::task_executor& executor) {
   auto& state = *resource_state_;
+  if (state.executor && state.executor != &executor)
+    throw std::invalid_argument("资产管理器不能切换执行器");
   if ((state.executor == nullptr) && !state.stopped) {
     state.scope = executor.make_scope();
     state.executor = &executor;
@@ -247,10 +255,13 @@ gneiss::engine::result asset_manager::request(gneiss::engine::type_id type, std:
 } catch (...) {
   return gneiss::engine::result::internal;
 }
-gneiss::engine::result asset_manager::load_sync_erased(gneiss::engine::type_id type,
-                                                       std::string_view uri,
-                                                       std::shared_ptr<const void>& output,
-                                                       decoder_factory fallback) noexcept try {
+gneiss::engine::result
+asset_manager::load_sync_erased(gneiss::engine::type_id type, std::string_view uri,
+                                std::shared_ptr<const void>& output, decoder_factory fallback,
+                                bool reload, serialization_diagnostic* diagnostic) noexcept try {
+  serialization_diagnostic local;
+  if (diagnostic)
+    *diagnostic = {};
   auto& state = *resource_state_;
   if (state.stopped) {
     return gneiss::engine::result::invalid_state;
@@ -269,18 +280,24 @@ gneiss::engine::result asset_manager::load_sync_erased(gneiss::engine::type_id t
   const auto& loader = *decoder;
   auto& entry = state.requests[{domain, std::string(uri), type}];
   asset_ref<const resource_cache::entry> cached;
+  bool decoded{};
   const auto status = cache_.load(
       uri, type,
       [&](auto& stored) {
+        decoded = true;
         std::vector<std::byte> bytes;
         const auto read = files_.read_bounded(uri, loader.maximum_bytes(), bytes);
-        return read == gneiss::engine::result::success ? loader.decode(bytes, stored) : read;
+        return read == gneiss::engine::result::success
+                   ? loader.decode(bytes, stored, diagnostic ? *diagnostic : local)
+                   : read;
       },
-      cached, domain, true);
+      cached, domain, reload);
   if (status != gneiss::engine::result::success)
     return status;
-  ++entry.generation;
-  entry.pending.reset();
+  if (decoded) {
+    ++entry.generation;
+    entry.pending.reset();
+  }
   output = std::shared_ptr<const void>(cached.shared(), cached->resource.get());
   return gneiss::engine::result::success;
 } catch (const std::bad_alloc&) {
@@ -291,7 +308,7 @@ gneiss::engine::result asset_manager::load_sync_erased(gneiss::engine::type_id t
 gneiss::engine::result asset_manager::load_input(std::string_view uri, action_map& output) noexcept
     try {
   asset_ref<const action_map_asset> value;
-  const auto status = load_sync(uri, value);
+  const auto status = load_sync(uri, value, true);
   if (status == gneiss::engine::result::success) {
     auto copy = value->map;
     output = std::move(copy);
@@ -356,6 +373,7 @@ void asset_manager::advance_resources() {
     {
       const std::scoped_lock lock(work->observer->mutex);
       work->observer->status = work->status;
+      work->observer->diagnostic = std::move(work->diagnostic);
       if (work->status == gneiss::engine::result::success) {
         work->observer->value = std::move(work->value);
       }

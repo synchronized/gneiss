@@ -48,6 +48,7 @@ public:
   /** 单个加载任务的上传数据；没有独立资产身份或候选 RID。 */
   struct asset_upload {
     render_asset_ref target;
+    asset_ref<const material_description> description;
     std::uint64_t sequence{};
     render_upload_item data;
     std::array<gneiss::engine::asset_ref<const gneiss::engine::resource_cache::entry>, 5>
@@ -79,9 +80,9 @@ public:
   /** 返回指定材质持有的纹理租约；非材质返回空数组，不读取来源或缓存。 */
   [[nodiscard]] static std::array<render_asset_ref, 5>
   texture_dependencies(const render_asset_ref& material) noexcept;
-  render_asset_loader(const gneiss::engine::virtual_file_system& file_system,
-                      gneiss::engine::resource_cache& cache,
-                      render_resource_service& resources) noexcept;
+  render_asset_loader(asset_manager& assets, render_resource_service& resources) noexcept;
+
+  [[nodiscard]] asset_manager& assets() const noexcept { return assets_; }
 
   /** 宿主装配设备后设置同步加载的纹理准备配置。 */
   void set_default_profile(texture_prepare_profile profile) noexcept { default_profile_ = profile; }
@@ -104,6 +105,7 @@ private:
   gneiss::engine::result prepare_material_upload(prepared_render_asset& prepared,
                                                  asset_upload& upload);
   [[nodiscard]] std::uint64_t* update_sequence(const render_asset_ref& lease) const noexcept;
+  asset_manager& assets_;
   texture_prepare_profile default_profile_{};
   const gneiss::engine::virtual_file_system& file_system_;
   gneiss::engine::resource_cache& cache_;

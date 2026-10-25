@@ -9,6 +9,7 @@
 #include "engine/function/scene/prefab_runtime_instance.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include "engine/function/world/world_service.hpp"
+#include "engine/resource/asset_manager.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
 #include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/resource/vfs/file_system.hpp"
@@ -237,8 +238,9 @@ int main() try {
 
   gneiss::engine::virtual_file_system file_system;
   gneiss::engine::render_resource_service resources;
-  gneiss::engine::resource_cache cache;
-  gneiss::engine::render_asset_loader render_loader(file_system, cache, resources);
+  gneiss::engine::asset_manager asset_owner(file_system);
+  [[maybe_unused]] auto& cache = asset_owner.cache();
+  gneiss::engine::render_asset_loader render_loader(asset_owner, resources);
   gneiss::engine::prefab_asset_loader prefab_loader(file_system, cache);
   if (file_system.mount("asset://prefabs/", std::make_shared<memory_file_system>()) !=
       gneiss::engine::result::success) {

@@ -64,8 +64,8 @@ void unified_resource_index() {
       return gneiss::engine::runtime_type_of<std::string>();
     }
     std::size_t maximum_bytes() const noexcept override { return 64U; }
-    result decode(const std::vector<std::byte>& bytes,
-                  std::shared_ptr<const void>& output) const override {
+    result decode(const std::vector<std::byte>& bytes, std::shared_ptr<const void>& output,
+                  serialization_diagnostic&) const override {
       output = std::make_shared<const std::string>(reinterpret_cast<const char*>(bytes.data()),
                                                    bytes.size());
       return result::success;
@@ -77,7 +77,7 @@ void unified_resource_index() {
   check(files.mount("asset://", source) == result::success);
   gneiss::engine::render_resource_service resources;
   asset_manager assets(files);
-  gneiss::engine::render_asset_loader render(files, assets.cache(), resources);
+  gneiss::engine::render_asset_loader render(assets, resources);
   check(assets.register_decoder(std::make_shared<text_loader>()) == result::success);
   asset_ref<const std::string> cpu;
   check(assets.load_sync("asset://same", cpu) == result::success);
@@ -118,10 +118,9 @@ void run() {
   check(vfs.mount("asset://", files) == gneiss::engine::result::success);
   gneiss::engine::render_resource_service resources;
   gneiss::engine::asset_manager active_assets(vfs);
-  gneiss::engine::resource_cache active_cache, candidate_cache;
-  gneiss::engine::render_asset_loader active_render(vfs, active_cache, resources);
-  gneiss::engine::render_asset_loader candidate_render(vfs, candidate_cache, resources);
   gneiss::engine::asset_manager candidate_assets(vfs);
+  gneiss::engine::render_asset_loader active_render(active_assets, resources);
+  gneiss::engine::render_asset_loader candidate_render(candidate_assets, resources);
   {
     gneiss::engine::render_asset_ref first, second;
     gneiss::engine::asset_diagnostic diagnostic;
@@ -145,8 +144,8 @@ void run() {
     gneiss::engine::render_asset_ref invalid;
     check(!active_render.owns(invalid));
     gneiss::engine::render_resource_service foreign_resources;
-    gneiss::engine::resource_cache foreign_cache;
-    gneiss::engine::render_asset_loader foreign_assets(vfs, foreign_cache, foreign_resources);
+    gneiss::engine::asset_manager foreign_owner(vfs);
+    gneiss::engine::render_asset_loader foreign_assets(foreign_owner, foreign_resources);
     gneiss::engine::render_asset_ref foreign_mesh;
     check(foreign_assets.acquire_mesh("asset://m.mesh", foreign_mesh, diagnostic) ==
           gneiss::engine::result::success);
@@ -195,7 +194,7 @@ void run() {
                             gneiss::engine::render_asset_reload{
                                 "asset://m.material", gneiss::engine::render_asset_type::material}};
   gneiss::engine::prepared_render_batch batch;
-  check(gneiss::engine::prepare_render_assets(vfs, requests, batch, diagnostic, {}) ==
+  check(gneiss::engine::prepare_render_assets(active_assets, requests, batch, diagnostic, {}) ==
         gneiss::engine::result::success);
   std::vector<gneiss::engine::render_asset_loader::asset_upload> staged;
   for (auto& asset : batch.assets) {

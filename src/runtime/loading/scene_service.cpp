@@ -43,7 +43,7 @@ gneiss::engine::result scene_service::attach_executor(
   auto mounted_files = files;
   const auto profile = backend.profile;
   auto textures = std::make_unique<gneiss::engine::texture_load_service>(
-      executor, files, *render_assets_, std::move(backend), notification);
+      executor, *render_assets_, std::move(backend), notification);
   const auto scope = executor.make_scope();
   if (scope.id == 0U) {
     return gneiss::engine::result::invalid_state;

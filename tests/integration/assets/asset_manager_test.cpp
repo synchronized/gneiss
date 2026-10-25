@@ -62,7 +62,8 @@ public:
   }
   std::size_t maximum_bytes() const noexcept override { return 8; }
   gneiss::engine::result decode(const std::vector<std::byte>& bytes,
-                                std::shared_ptr<const void>& output) const override {
+                                std::shared_ptr<const void>& output,
+                                serialization_diagnostic&) const override {
     ++decodes;
     if (bytes.empty() || bytes[0] == std::byte{'!'})
       return gneiss::engine::result::invalid_argument;
@@ -81,7 +82,10 @@ void decoder_selection() {
   registry_ref registry;
   check(create_native(registry) == result::success, "decoder registry");
   serialization_binding codec;
-  codec.decode = [](std::span<const std::byte> bytes, void* object, serialization_diagnostic&) {
+  codec.decode = [](std::span<const std::byte> bytes, void* object,
+                    serialization_diagnostic& diagnostic) {
+    if (bytes.front() == std::byte{'?'})
+      diagnostic = {7U, "/value", "invalid value"};
     static_cast<value*>(object)->byte = 'r';
     return bytes.front() == std::byte{'?'} ? result::invalid_argument : result::success;
   };
@@ -93,18 +97,35 @@ void decoder_selection() {
   asset_manager reflected(files, registry);
   registry.reset();
   asset_ref<const value> output;
-  check(reflected.load_sync("asset://value", output) == result::success && output->byte == 'r',
+  check(reflected.load_sync("asset://value", output, true) == result::success &&
+            output->byte == 'r',
         "reflection fallback retains registry");
+  const auto cached_reads = source->reads;
+  auto cached_output = output;
+  check(reflected.load_sync("asset://value", output) == result::success &&
+            output == cached_output && source->reads == cached_reads,
+        "sync load reuses cache");
   auto previous = output;
   source->byte = '?';
-  check(reflected.load_sync("asset://value", output) == result::invalid_argument &&
+  serialization_diagnostic failure;
+  check(reflected.load_sync("asset://value", output, true, &failure) == result::invalid_argument &&
             output == previous,
         "reflection failure preserves output");
+  check(failure.byte_offset == 7U && failure.path == "/value" && failure.message == "invalid value",
+        "sync diagnostic");
   check(reflected.register_decoder<value>(&explicit_decode, 8) == result::invalid_state,
         "fallback freezes registration");
   source->byte = 'a';
   task_scheduler executor({.workers = 0, .mode = execution_mode::cooperative});
   reflected.attach_task_executor(executor);
+  task_scheduler other_executor({.workers = 0, .mode = execution_mode::cooperative});
+  bool rejected_executor{};
+  try {
+    reflected.attach_task_executor(other_executor);
+  } catch (const std::invalid_argument&) {
+    rejected_executor = true;
+  }
+  check(rejected_executor, "manager rejects executor replacement");
   asset_request<value> request;
   check(reflected.load("asset://async", request) == result::success, "async reflection request");
   auto async_status = request.take(output);
@@ -114,6 +135,20 @@ void decoder_selection() {
     async_status = request.take(output);
   }
   check(async_status == result::success && output->byte == 'r', "async reflection decode");
+  source->byte = '?';
+  previous = output;
+  check(reflected.load("asset://async", request, true) == result::success, "async failure request");
+  async_status = result::not_ready;
+  for (unsigned i = 0; i != 32 && async_status == result::not_ready; ++i) {
+    check(executor.run_ready().status == drive_status::success, "failure drive");
+    reflected.advance_resources();
+    async_status = request.take(output, &failure);
+  }
+  check(async_status == result::invalid_argument && output == previous &&
+            failure.byte_offset == 7U && failure.path == "/value" &&
+            failure.message == "invalid value",
+        "async diagnostic and unchanged output");
+  source->byte = 'a';
   // 同一个类型同时具备反射与显式解码器时，只采用显式函数。
   check(create_native(registry) == result::success, "override registry");
   check(register_type<value>(registry, {.guid = material_description::type_guid,
@@ -126,12 +161,12 @@ void decoder_selection() {
         "typed decoder");
   check(explicit_assets.register_decoder<value>(&explicit_decode, 8) == result::invalid_argument,
         "duplicate decoder");
-  check(explicit_assets.load_sync("asset://explicit", output) == result::success &&
+  check(explicit_assets.load_sync("asset://explicit", output, true) == result::success &&
             output->byte == 'x',
         "explicit decoder wins");
   previous = output;
   source->byte = '!';
-  check(explicit_assets.load_sync("asset://explicit", output) == result::invalid_argument &&
+  check(explicit_assets.load_sync("asset://explicit", output, true) == result::invalid_argument &&
             output == previous,
         "explicit failure does not fall back");
   asset_manager unknown(files);
@@ -306,7 +341,8 @@ void run() {
   check(assets.load("asset://value", first, true) == gneiss::engine::result::success, "old async");
   check(executor.run_ready().status == drive_status::success, "old work ready");
   source->byte = 'd';
-  check(assets.load_sync("asset://value", b) == gneiss::engine::result::success && b->byte == 'd',
+  check(assets.load_sync("asset://value", b, true) == gneiss::engine::result::success &&
+            b->byte == 'd',
         "sync wins");
   check(wait(first, a) == gneiss::engine::result::success && a->byte == 'c',
         "old subscriber receives old result");
@@ -320,7 +356,7 @@ void run() {
   check(executor.run_ready().status == drive_status::success, "first-load work ready");
   source->byte = 'y';
   asset_ref<const value> independent;
-  check(assets.load_sync("asset://new", independent) == gneiss::engine::result::success,
+  check(assets.load_sync("asset://new", independent, true) == gneiss::engine::result::success,
         "first-load sync");
   asset_ref<const value> old;
   check(wait(first, old) == gneiss::engine::result::success && old->byte == 'x',
@@ -333,7 +369,8 @@ void run() {
         "async before failed sync");
   check(executor.run_ready().status == drive_status::success, "reload work ready");
   source->byte = '!';
-  check(assets.load_sync("asset://new", independent) == gneiss::engine::result::invalid_argument &&
+  check(assets.load_sync("asset://new", independent, true) ==
+                gneiss::engine::result::invalid_argument &&
             independent->byte == 'y',
         "failed sync preserves reference");
   check(wait(first, old) == gneiss::engine::result::success && old->byte == 'z',
@@ -344,7 +381,8 @@ void run() {
         "async published after failed sync");
 
   source->byte = '!';
-  check(assets.load_sync("asset://value", a) == gneiss::engine::result::invalid_argument && a == b,
+  check(assets.load_sync("asset://value", a, true) == gneiss::engine::result::invalid_argument &&
+            a == b,
         "sync failure preserves output");
   check(assets.load("asset://value", first, true) == gneiss::engine::result::success,
         "invalid decode");

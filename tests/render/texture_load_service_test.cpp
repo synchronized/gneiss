@@ -4,6 +4,8 @@
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/render/texture_load_service.hpp"
+#include "engine/resource/asset_manager.hpp"
+#include "engine/resource/loaders/material_serialization.hpp"
 #include "engine/resource/loaders/texture_container.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
 #include <algorithm>
@@ -18,6 +20,21 @@ namespace {
 using namespace gneiss;
 using namespace gneiss::engine;
 using namespace gneiss::engine;
+class counting_material_decoder final : public asset_decoder {
+public:
+  mutable std::atomic_uint calls{};
+  type_id target_type() const noexcept override { return runtime_type_of<material_description>(); }
+  std::size_t maximum_bytes() const noexcept override { return 64U * 1024U; }
+  result decode(const std::vector<std::byte>& bytes, std::shared_ptr<const void>& output,
+                serialization_diagnostic& diagnostic) const override {
+    ++calls;
+    auto value = std::make_shared<material_description>();
+    auto status = decode_material(bytes, *value, diagnostic);
+    if (status == result::success)
+      output = std::move(value);
+    return status;
+  }
+};
 void check(bool value, std::source_location at = std::source_location::current()) {
   if (!value) {
     throw std::runtime_error("异步资产契约失败，行=" + std::to_string(at.line()));
@@ -185,8 +202,9 @@ void independent_update_sequences() {
   check(files.mount("asset://", std::make_shared<memory_files>()) ==
         gneiss::engine::result::success);
   render_resource_service resources;
-  resource_cache cache;
-  render_asset_loader loader(files, cache, resources);
+  gneiss::engine::asset_manager asset_owner(files);
+  [[maybe_unused]] auto& cache = asset_owner.cache();
+  render_asset_loader loader(asset_owner, resources);
   const render_asset_reload source_a{"asset://a", render_asset_type::material};
   const render_asset_reload source_b{"asset://b", render_asset_type::material};
   render_asset_ref a, b;
@@ -195,13 +213,13 @@ void independent_update_sequences() {
   virtual_file_system different;
   check(different.mount("asset://", std::make_shared<memory_files>()) ==
         gneiss::engine::result::success);
-  render_asset_loader isolated(different, cache, resources);
+  asset_manager isolated_owner(different);
+  render_asset_loader isolated(isolated_owner, resources);
   render_asset_ref conflict;
   check(isolated.reserve_asset(source_a, conflict) == gneiss::engine::result::success &&
         conflict != a && gneiss::engine::asset_rid(conflict) != gneiss::engine::asset_rid(a));
   check(!isolated.owns(a));
-  const auto copied = files;
-  render_asset_loader shared(copied, cache, resources);
+  render_asset_loader shared(asset_owner, resources);
   check(shared.reserve_asset(source_a, conflict) == gneiss::engine::result::success &&
         gneiss::engine::asset_rid(conflict) == gneiss::engine::asset_rid(a));
 
@@ -234,8 +252,9 @@ void reserved_material_lifetime() {
   virtual_file_system files;
   check(files.mount("asset://", source) == gneiss::engine::result::success);
   render_resource_service resources;
-  resource_cache cache;
-  render_asset_loader loader(files, cache, resources);
+  gneiss::engine::asset_manager asset_owner(files);
+  [[maybe_unused]] auto& cache = asset_owner.cache();
+  render_asset_loader loader(asset_owner, resources);
   const render_asset_reload request{"asset://material", render_asset_type::material};
   render_asset_ref target;
   check(loader.reserve_asset(request, target) == gneiss::engine::result::success);
@@ -273,8 +292,9 @@ void cooperative_read_slices() {
   virtual_file_system vfs;
   check(vfs.mount("asset://", files) == gneiss::engine::result::success);
   render_resource_service resources;
-  resource_cache cache;
-  render_asset_loader loader(vfs, cache, resources);
+  gneiss::engine::asset_manager asset_owner(vfs);
+  [[maybe_unused]] auto& cache = asset_owner.cache();
+  render_asset_loader loader(asset_owner, resources);
   texture_upload_backend backend{
       .begin =
           [](const auto&, auto& sequence) {
@@ -293,7 +313,7 @@ void cooperative_read_slices() {
           },
       .flush = [] {},
   };
-  texture_load_service service(scheduler, vfs, loader, std::move(backend), {});
+  texture_load_service service(scheduler, loader, std::move(backend), {});
   const std::vector<std::string> uris{"asset://large.texture.json"};
   std::uint64_t request{};
   check(service.submit(uris, 1U, 1U, request) == gneiss::engine::result::success);
@@ -340,8 +360,9 @@ void delayed_single_texture_update() {
   virtual_file_system vfs;
   check(vfs.mount("asset://", files) == gneiss::engine::result::success);
   render_resource_service resources;
-  resource_cache cache;
-  render_asset_loader loader(vfs, cache, resources);
+  gneiss::engine::asset_manager asset_owner(vfs);
+  [[maybe_unused]] auto& cache = asset_owner.cache();
+  render_asset_loader loader(asset_owner, resources);
   bool budget_available{};
   bool acknowledged{};
   unsigned attempts{};
@@ -372,7 +393,7 @@ void delayed_single_texture_update() {
       .discard = [](auto, auto&) { return gneiss::engine::result::internal; },
       .flush = [&] { acknowledged = true; },
   };
-  texture_load_service service(scheduler, vfs, loader, std::move(backend), {});
+  texture_load_service service(scheduler, loader, std::move(backend), {});
   const auto advance = [&] {
     (void)scheduler.run_ready();
     service.advance();
@@ -484,8 +505,9 @@ void run(gneiss::engine::execution_mode mode) {
   virtual_file_system vfs;
   check(vfs.mount("asset://", files) == gneiss::engine::result::success);
   render_resource_service resources;
-  resource_cache cache;
-  render_asset_loader loader(vfs, cache, resources);
+  gneiss::engine::asset_manager asset_owner(vfs);
+  [[maybe_unused]] auto& cache = asset_owner.cache();
+  render_asset_loader loader(asset_owner, resources);
   bool uploaded{};
   bool ready{};
   gneiss::engine::result upload_result = gneiss::engine::result::success;
@@ -508,7 +530,7 @@ void run(gneiss::engine::execution_mode mode) {
                                        return gneiss::engine::result::success;
                                      },
                                  .flush = [&] { ready = true; }};
-  texture_load_service service(scheduler, vfs, loader, std::move(backend), {});
+  texture_load_service service(scheduler, loader, std::move(backend), {});
   const auto advance = [&] {
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
@@ -649,8 +671,11 @@ void mixed(gneiss::engine::execution_mode mode, bool pbr = false) {
   virtual_file_system vfs;
   check(vfs.mount("asset://", files) == gneiss::engine::result::success);
   render_resource_service resources;
-  resource_cache cache;
-  render_asset_loader loader(vfs, cache, resources);
+  gneiss::engine::asset_manager asset_owner(vfs);
+  [[maybe_unused]] auto& cache = asset_owner.cache();
+  auto decoder = std::make_shared<counting_material_decoder>();
+  check(asset_owner.register_decoder(decoder) == result::success);
+  render_asset_loader loader(asset_owner, resources);
   unsigned chunks{}, discards{};
   std::size_t first_chunk{};
   bool fail = true;
@@ -691,7 +716,7 @@ void mixed(gneiss::engine::execution_mode mode, bool pbr = false) {
       .estimate_bytes = [](const auto& item) -> std::size_t {
         return item.mesh ? 5U * 1024U * 1024U : 1U * 1024U * 1024U;
       }};
-  texture_load_service service(scheduler, vfs, loader, std::move(backend), {});
+  texture_load_service service(scheduler, loader, std::move(backend), {});
   const auto advance = [&] {
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
@@ -736,6 +761,7 @@ void mixed(gneiss::engine::execution_mode mode, bool pbr = false) {
   until([&] { return service.take(completion); });
   check(completion.state == texture_load_state::applied &&
         completion.assets.size() == expected_assets);
+  check(decoder->calls.load() != 0U);
   auto leases = completion.assets;
   render_asset_ref mesh_lease, material_lease;
   check(loader.acquire_cached(requested[1], mesh_lease) == gneiss::engine::result::success);
@@ -812,18 +838,18 @@ void mixed(gneiss::engine::execution_mode mode, bool pbr = false) {
   asset_diagnostic diagnostic;
   auto conflicting = requested;
   conflicting.push_back({"asset://a.texture.json", render_asset_type::mesh});
-  check(prepare_render_assets(vfs, conflicting, prepared, diagnostic, [] { return false; }) !=
+  check(prepare_render_assets(asset_owner, conflicting, prepared, diagnostic,
+                              [] { return false; }) != gneiss::engine::result::success);
+  check(prepare_render_assets(
+            asset_owner, requested, prepared, diagnostic, [] { return false; }, 2U) !=
+        gneiss::engine::result::success);
+  check(prepare_render_assets(asset_owner, requested, prepared, diagnostic, [] { return true; }) !=
         gneiss::engine::result::success);
   check(prepare_render_assets(
-            vfs, requested, prepared, diagnostic, [] { return false; }, 2U) !=
-        gneiss::engine::result::success);
-  check(prepare_render_assets(vfs, requested, prepared, diagnostic, [] { return true; }) !=
-        gneiss::engine::result::success);
-  check(prepare_render_assets(
-            vfs, requested, prepared, diagnostic, [] { return false; }, 256U, 8U) !=
+            asset_owner, requested, prepared, diagnostic, [] { return false; }, 256U, 8U) !=
         gneiss::engine::result::success);
   files->files.erase("image.ktx2");
-  check(prepare_render_assets(vfs, requested, prepared, diagnostic, [] { return false; }) !=
+  check(prepare_render_assets(asset_owner, requested, prepared, diagnostic, [] { return false; }) !=
         gneiss::engine::result::success);
 }
 void packaged_lifetime(gneiss::engine::execution_mode mode) {
@@ -850,8 +876,9 @@ void packaged_lifetime(gneiss::engine::execution_mode mode) {
   virtual_file_system vfs;
   check(vfs.mount("asset://", files) == gneiss::engine::result::success);
   render_resource_service resources;
-  resource_cache cache;
-  render_asset_loader loader(vfs, cache, resources);
+  gneiss::engine::asset_manager asset_owner(vfs);
+  [[maybe_unused]] auto& cache = asset_owner.cache();
+  render_asset_loader loader(asset_owner, resources);
   texture_upload_backend::data in_flight;
   std::weak_ptr<const std::vector<std::byte>> observed;
   bool ack{};
@@ -889,7 +916,7 @@ void packaged_lifetime(gneiss::engine::execution_mode mode) {
           },
       .profile = {.generation = 1U, .sampled_transfer_formats = {true, true, false, false}}};
   auto service = std::make_unique<texture_load_service>(
-      scheduler, vfs, loader, std::move(backend),
+      scheduler, loader, std::move(backend),
       std::shared_ptr<gneiss::engine::progress_notification>{});
   const auto until = [&](auto predicate) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -959,8 +986,9 @@ void cancel_unpublished_upload(gneiss::engine::execution_mode mode, bool after_f
   virtual_file_system vfs;
   check(vfs.mount("asset://", files) == gneiss::engine::result::success);
   render_resource_service resources;
-  resource_cache cache;
-  render_asset_loader loader(vfs, cache, resources);
+  gneiss::engine::asset_manager asset_owner(vfs);
+  [[maybe_unused]] auto& cache = asset_owner.cache();
+  render_asset_loader loader(asset_owner, resources);
   unsigned uploads{};
   unsigned discards{};
   bool upload_ack{};
@@ -995,7 +1023,7 @@ void cancel_unpublished_upload(gneiss::engine::execution_mode mode, bool after_f
       .flush = [&] { upload_ack = discard_ack = true; },
       .estimate_bytes = [](const auto&) { return texture_load_service::upload_budget_bytes; },
   };
-  texture_load_service service(scheduler, vfs, loader, std::move(backend), {});
+  texture_load_service service(scheduler, loader, std::move(backend), {});
   const auto advance = [&] {
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();

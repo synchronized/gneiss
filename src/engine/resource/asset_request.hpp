@@ -4,6 +4,7 @@
 
 #pragma once
 #include "asset_ref.hpp"
+#include "engine/core/reflection/serialization.hpp"
 #include "engine/core/result.hpp"
 #include <memory>
 #include <mutex>
@@ -16,6 +17,7 @@ struct asset_state {
   std::mutex mutex;
   gneiss::engine::result status{gneiss::engine::result::not_ready};
   std::shared_ptr<const void> value;
+  serialization_diagnostic diagnostic;
 };
 }
 /** 内部移动请求；取消仅放弃本观察者，成功领取一次只读结果。
@@ -32,11 +34,15 @@ public:
   asset_request& operator=(asset_request&&) noexcept = default;
   [[nodiscard]] explicit operator bool() const noexcept { return state_ != nullptr; }
   void cancel() noexcept { state_.reset(); }
-  [[nodiscard]] gneiss::engine::result take(reference& output) noexcept {
+  [[nodiscard]] gneiss::engine::result take(reference& output,
+                                            serialization_diagnostic* diagnostic = nullptr) noexcept
+      try {
     if (!state_)
       return gneiss::engine::result::invalid_state;
     auto state = state_;
     const std::scoped_lock lock(state->mutex);
+    if (diagnostic)
+      *diagnostic = state->diagnostic;
     if (state->status != gneiss::engine::result::success)
       return state->status;
     if (!state->value)
@@ -44,6 +50,10 @@ public:
     output = reference{std::static_pointer_cast<const T>(state->value)};
     state_.reset();
     return gneiss::engine::result::success;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
   }
 
 private:

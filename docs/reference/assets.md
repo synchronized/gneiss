@@ -147,8 +147,7 @@ asset_manager 通过 VFS 读取有界字节，再调用 asset_decoder；解码�
 
 同步和异步加载都优先使用显式 decoder；未注册时，按 type_id 查找冻结 Registry 中的 decode。
 没有解码能力时在读取前返回 unsupported；显式解码失败不再回退。适配器在临时对象上解码，
-成功才进入缓存，失败保留既有资源和调用者输出。当前 asset_manager 返回结果码，尚不向调用者暴露
-codec 的详细诊断；特殊材质准备路径继续保留路径、消息和字节位置。
+成功才进入缓存，失败保留既有资源和调用者输出。`load_sync` 和 `asset_request::take` 的可选 diagnostic 参数返回 codec 的路径、消息和字节位置。
 
 首次有效加载进入解码器选择后冻结显式注册，后续反射适配不改变 codec 选择。
 管理器持有 Registry；默认使用共享的内置资源 Registry，目前包含材质 codec。
@@ -156,6 +155,11 @@ codec 的详细诊断；特殊材质准备路径继续保留路径、消息和�
 反射读取默认上限为 64 MiB，可通过构造参数指定；显式 decoder 使用自己的上限。
 
 材质描述可直接 `load<material_description>` / `load_sync<material_description>`。
-渲染资源的同步加载和后台准备复用内置 Registry 的相同 codec，保留自己的依赖处理与 RID 创建；
-它们不查询某个 asset_manager 实例的显式 decoder 覆盖。纹理和网格仍使用专用范围读取及准备流程。
+渲染 Loader 借用同一个 asset_manager；同步加载、同步重载和后台材质请求均采用该管理器的
+显式 decoder/反射选择规则。普通同步加载复用 CPU 描述缓存，reload 才重新读取；Input 的
+显式重新加载入口仍强制读取。缓存命中不使较早异步请求失去写入权，成功同步读取才覆盖它。
+后台协调者在所属线程发起请求并领取描述，工作线程只处理只读描述和纹理依赖，不访问 manager。
+asset_preparation 不读取或解码材质文件，材质输入缺失返回 unsupported。运行期材质持有对应描述引用，
+更新成功后切换引用；失败保留旧 RID 内容与描述。CPU 描述和渲染资源以不同类型键保存在同一索引中。
+纹理和网格仍使用专用范围读取及准备流程。
 反射 fallback 调用登记的函数，不代表自动遍历属性反序列化。
