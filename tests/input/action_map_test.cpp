@@ -2,6 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/resource/asset_manager.hpp"
+#include "engine/resource/resource_registry.hpp"
 #include "engine/resource/types/action_map.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
 #include <cstring>
@@ -11,12 +14,14 @@ class changing_files final : public gneiss::engine::file_system {
 public:
   std::string first, second;
   mutable unsigned reads = 0;
+  mutable std::size_t last_limit{};
   bool fail_verify = false;
   gneiss::engine::result read(std::string_view, std::vector<std::byte>&) const noexcept override {
     return gneiss::engine::result::internal; // 测试禁止回退到无界读取。
   }
   gneiss::engine::result read_bounded(std::string_view, std::size_t limit,
                                       std::vector<std::byte>& output) const noexcept override {
+    last_limit = limit;
     const auto& text = reads++ == 0 ? first : second;
     if (fail_verify && reads > 1)
       return gneiss::engine::result::io;
@@ -61,30 +66,95 @@ int main() {
   gneiss::engine::virtual_file_system files;
   if (files.mount("asset://", backend) != gneiss::engine::result::success)
     return 3;
+  gneiss::engine::asset_manager assets(files);
   backend->first = valid;
   backend->second = valid;
-  if (gneiss::engine::load_action_map(files, "asset://input/map", map) !=
-          gneiss::engine::result::success ||
+  if (assets.load_input("asset://input/map", map) != gneiss::engine::result::success ||
       backend->reads != 1)
     return 4;
   // 本次读取完成后来源变化或后续读取失败，不触发二次读取。
   backend->reads = 0;
   backend->second.replace(backend->second.find("move"), 4, "turn");
-  if (gneiss::engine::load_action_map(files, "asset://input/map", map) !=
-          gneiss::engine::result::success ||
+  if (assets.load_input("asset://input/map", map) != gneiss::engine::result::success ||
       backend->reads != 1 || map.actions[0].name != "move")
     return 5;
   backend->reads = 0;
   backend->fail_verify = true;
-  if (gneiss::engine::load_action_map(files, "asset://input/map", map) !=
-          gneiss::engine::result::success ||
+  if (assets.load_input("asset://input/map", map) != gneiss::engine::result::success ||
       backend->reads != 1 || map.actions[0].name != "move")
     return 6;
   backend->reads = 0;
   backend->first.assign(gneiss::engine::maximum_action_map_bytes + 1, ' ');
-  if (gneiss::engine::load_action_map(files, "asset://input/map", map) !=
-          gneiss::engine::result::invalid_argument ||
+  if (assets.load_input("asset://input/map", map) != gneiss::engine::result::invalid_argument ||
       backend->reads != 1 || map.actions[0].name != "move")
     return 7;
+  using namespace gneiss::engine;
+  if (backend->last_limit != maximum_action_map_bytes)
+    return 8;
+  registry_ref registry;
+  serialization_binding codec;
+  if (builtin_resource_registry(registry).failed() ||
+      find_serialization(registry, runtime_type_of<action_map>(), codec).failed() ||
+      !codec.decode || codec.encode)
+    return 9;
+  serialization_diagnostic diagnostic;
+  std::vector<std::byte> encoded{std::byte{42}};
+  if (serialize(registry, map, encoded, diagnostic) != result::unsupported ||
+      encoded != std::vector{std::byte{42}})
+    return 10;
+  const auto invalid = std::as_bytes(std::span{invalid_scale, std::strlen(invalid_scale)});
+  if (deserialize(registry, invalid, map, diagnostic) != result::invalid_argument ||
+      diagnostic.path != "/actions/0/bindings/0" || diagnostic.message.empty() ||
+      map.actions.front().name != "move")
+    return 11;
+  backend->reads = 0;
+  backend->fail_verify = false;
+  backend->first = backend->second = valid;
+  asset_ref<const action_map> shared;
+  if (assets.load_sync("asset://input/shared", shared).failed())
+    return 12;
+  auto previous = shared;
+  if (assets.load_sync("asset://input/shared", shared).failed() || shared != previous ||
+      backend->reads != 1)
+    return 13;
+  task_scheduler executor({.workers = 0, .mode = execution_mode::cooperative});
+  asset_manager asynchronous(files);
+  asynchronous.attach_task_executor(executor);
+  asset_request<action_map> request;
+  if (asynchronous.request_input("asset://input/map", request).failed())
+    return 14;
+  auto status = result::not_ready;
+  for (unsigned i = 0; i != 32 && status == result::not_ready; ++i) {
+    if (executor.run_ready().status != drive_status::success)
+      return 15;
+    asynchronous.advance_resources();
+    status = request.take(shared, &diagnostic);
+  }
+  if (status.failed() || shared->actions.front().name != "move" ||
+      backend->last_limit != maximum_action_map_bytes)
+    return 16;
+  previous = shared;
+  backend->first = backend->second = invalid_scale;
+  if (asynchronous.request_input("asset://input/map", request).failed())
+    return 17;
+  status = result::not_ready;
+  for (unsigned i = 0; i != 32 && status == result::not_ready; ++i) {
+    (void)executor.run_ready();
+    asynchronous.advance_resources();
+    status = request.take(shared, &diagnostic);
+  }
+  if (status != result::invalid_argument || shared != previous ||
+      diagnostic.path != "/actions/0/bindings/0")
+    return 18;
+  asset_manager custom(files);
+  const auto override_decode =
+      +[](std::span<const std::byte>, action_map& output, serialization_diagnostic&) -> result {
+    output.actions = {{.name = "override", .bindings = {{.physical_key = 4, .scale = 1.0F}}}};
+    return result::success;
+  };
+  if (custom.register_decoder<action_map>(override_decode, maximum_action_map_bytes).failed() ||
+      custom.load_input("asset://input/map", map).failed() ||
+      map.actions.front().name != "override")
+    return 19;
   return 0;
 }

@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/core/result.hpp"
 #include "engine/resource/asset_request.hpp"
-#include "engine/resource/types/action_map_asset.hpp"
+#include "engine/resource/types/action_map.hpp"
 namespace gneiss::engine {
 class input_service;
 }
@@ -19,7 +19,7 @@ public:
   action_map_application(const action_map_application&) = delete;
   action_map_application& operator=(const action_map_application&) = delete;
   [[nodiscard]] gneiss::engine::result
-  begin(gneiss::engine::asset_request<gneiss::engine::action_map_asset> request) noexcept;
+  begin(gneiss::engine::asset_request<gneiss::engine::action_map> request) noexcept;
   void cancel() noexcept;
   [[nodiscard]] gneiss::engine::result status() const noexcept { return result_; }
   /** 不推进调度器或等待 I/O；加载完成后最多替换一次。失败保留原映射与 action_id。 */
@@ -27,7 +27,7 @@ public:
   [[nodiscard]] action_map_apply_state state() const noexcept { return state_; }
 
 private:
-  gneiss::engine::asset_request<gneiss::engine::action_map_asset> request_;
+  gneiss::engine::asset_request<gneiss::engine::action_map> request_;
   action_map_apply_state state_ = action_map_apply_state::idle;
   gneiss::engine::result result_ = gneiss::engine::result::invalid_state;
 };

@@ -16,28 +16,6 @@
 #include <stdexcept>
 
 namespace gneiss::engine {
-namespace {
-class input_decoder final : public asset_decoder {
-public:
-  [[nodiscard]] gneiss::engine::type_id target_type() const noexcept override {
-    return gneiss::engine::runtime_type_of<action_map_asset>();
-  }
-  [[nodiscard]] std::size_t maximum_bytes() const noexcept override {
-    return maximum_action_map_bytes;
-  }
-  gneiss::engine::result decode(const std::vector<std::byte>& bytes,
-                                std::shared_ptr<const void>& output,
-                                serialization_diagnostic&) const override {
-    auto value = std::make_shared<action_map_asset>();
-    const auto status =
-        parse_action_map({reinterpret_cast<const char*>(bytes.data()), bytes.size()}, value->map);
-    if (status == gneiss::engine::result::success) {
-      output = std::move(value);
-    }
-    return status;
-  }
-};
-}
 // 移植示例的类型/位置请求表、合并与只读发布；接入已有执行器，不创建私有线程池。
 struct asset_manager::resource_state {
   using key = resource_cache::key;
@@ -151,8 +129,6 @@ asset_manager::asset_manager(virtual_file_system files, registry_ref registry,
     throw std::invalid_argument("资源 Registry 必须冻结，输入上限必须非零");
   resource_state_->registry = std::move(registry);
   resource_state_->fallback_limit = fallback_limit;
-  resource_state_->decoders.emplace(gneiss::engine::runtime_type_of<action_map_asset>(),
-                                    std::make_shared<input_decoder>());
 }
 result asset_manager::acquire(std::string_view uri, prefab_asset_ref& output,
                               scene_diagnostic& diagnostic) noexcept {
@@ -307,10 +283,10 @@ asset_manager::load_sync_erased(gneiss::engine::type_id type, std::string_view u
 }
 gneiss::engine::result asset_manager::load_input(std::string_view uri, action_map& output) noexcept
     try {
-  asset_ref<const action_map_asset> value;
+  asset_ref<const action_map> value;
   const auto status = load_sync(uri, value, true);
   if (status == gneiss::engine::result::success) {
-    auto copy = value->map;
+    auto copy = *value;
     output = std::move(copy);
   }
   return status;
@@ -319,9 +295,8 @@ gneiss::engine::result asset_manager::load_input(std::string_view uri, action_ma
 } catch (...) {
   return gneiss::engine::result::internal;
 }
-gneiss::engine::result
-asset_manager::request_input(std::string_view uri,
-                             asset_request<action_map_asset>& output) noexcept {
+gneiss::engine::result asset_manager::request_input(std::string_view uri,
+                                                    asset_request<action_map>& output) noexcept {
   return load(uri, output, true);
 }
 void asset_manager::advance_resources() {

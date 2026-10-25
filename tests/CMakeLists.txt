@@ -260,14 +260,13 @@ add_executable(
   gneiss_action_map_test
   input/action_map_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/action_map_validation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/types/action_map.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/action_map_parser.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
 )
 target_include_directories(gneiss_action_map_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_action_map_test PRIVATE GNEISS_BUILDING_LIBRARY)
-target_link_libraries(gneiss_action_map_test PRIVATE gneiss::engine gneiss_yyjson)
+target_link_libraries(gneiss_action_map_test PRIVATE gneiss::engine gneiss_yyjson gneiss_tasks)
 target_compile_features(gneiss_action_map_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_action_map_test)
 gneiss_target_output_directories(gneiss_action_map_test)
@@ -867,7 +866,6 @@ add_executable(gneiss_scene_instantiation_test scene/scene_instantiation_test.cp
 # 测试直接构造私有 manager，编译其实现而不向 DLL 公共 ABI 导出内部类型。
 target_sources(gneiss_scene_instantiation_test PRIVATE
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_manager.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/types/action_map.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/action_map_parser.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/action_map_validation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_source.cpp")

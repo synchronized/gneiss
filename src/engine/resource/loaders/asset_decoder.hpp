@@ -6,6 +6,7 @@
 #include "engine/core/reflection/serialization.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
+#include <algorithm>
 #include <memory>
 #include <vector>
 
@@ -63,6 +64,8 @@ result make_reflected_decoder(const registry_ref& registry, std::size_t limit,
   if (!binding.decode)
     return result::unsupported;
   if constexpr (std::is_default_constructible_v<T> && !std::is_const_v<T>) {
+    if constexpr (requires { T::maximum_source_bytes; })
+      limit = std::min(limit, static_cast<std::size_t>(T::maximum_source_bytes));
     output = std::make_shared<typed_asset_decoder<T>>(nullptr, limit, registry, binding);
     return result::success;
   } else {

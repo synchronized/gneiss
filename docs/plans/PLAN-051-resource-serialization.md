@@ -22,7 +22,7 @@
 | --- | --- | --- |
 | material_description | 材质参数、五个纹理 URI，纯 CPU 描述 | 已合并旧 source/document，并接入反射 codec 与通用加载 |
 | material_parameters | 参数、颜色数组、枚举和采样数组 | 描述与运行期共用；现有 value 尚不能完整表达 |
-| action_map / action_map_asset | 输入映射及共享资源包装 | 区分描述与输入运行状态，审查包装必要性 |
+| action_map | 直接共享只读输入映射；运行状态由 InputService 管理 | 已移除包装和专用 decoder，注册解码 codec；尚无编码能力 |
 | scene_description | 对象、Prefab 实例列表、UUID、源版本和 author_json | 注册现有专用读写，保留格式及未知字段能力 |
 | prefab_description | 对象、依赖列表、UUID、源版本和 author_json | 同上，保留单根约束和依赖校验 |
 | mesh_data | 拥有顶点、索引及可选属性数组 | 保留专用二进制 codec，不逐顶点装入 value |
@@ -66,7 +66,8 @@ Gneiss 先采用固定的可选序列化能力，不移植通用 capability、�
 5. 已接入显式 decoder 优先、反射 fallback；材质同步加载、重载和后台请求均经同一 manager。
    Render Loader 借用 manager；同步缓存、codec 诊断与描述引用生命周期一并收敛。
    编译用例覆盖选择、失败与冻结；运行验证仍按用户要求延后。
-6. 迁移 ActionMap、Scene、Prefab；Mesh/Texture 保留专用 codec 和准备流程。
+6. 已迁移 ActionMap，保留 1 MiB 上限及加载成功后采用映射的规则；Scene、Prefab 待迁移。
+   Mesh/Texture 保留专用 codec 和准备流程。
 7. 最后按实际编辑需求增加嵌套字段、数组和枚举支持。
 
 ## 验收条件

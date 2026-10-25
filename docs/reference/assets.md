@@ -150,9 +150,10 @@ asset_manager 通过 VFS 读取有界字节，再调用 asset_decoder；解码�
 成功才进入缓存，失败保留既有资源和调用者输出。`load_sync` 和 `asset_request::take` 的可选 diagnostic 参数返回 codec 的路径、消息和字节位置。
 
 首次有效加载进入解码器选择后冻结显式注册，后续反射适配不改变 codec 选择。
-管理器持有 Registry；默认使用共享的内置资源 Registry，目前包含材质 codec。
+管理器持有 Registry；默认使用共享的内置资源 Registry，目前包含材质 codec 和 ActionMap 解码器。
 构造时也可传入已冻结的自定义 Registry，未冻结或零输入上限抛出 invalid_argument。
-反射读取默认上限为 64 MiB，可通过构造参数指定；显式 decoder 使用自己的上限。
+反射读取默认上限为 64 MiB，可通过构造参数指定；类型声明 `maximum_source_bytes` 时取两者较小值。
+ActionMap 限制为 1 MiB，解析器也检查此上限；显式 decoder 使用自己的上限。
 
 材质描述可直接 `load<material_description>` / `load_sync<material_description>`。
 渲染 Loader 借用同一个 asset_manager；同步加载、同步重载和后台材质请求均采用该管理器的

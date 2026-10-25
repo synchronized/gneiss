@@ -58,3 +58,15 @@ while (host.poll_input(event).ok()) {
 失效，加载失败保留原映射；ID 不能跨 Application 使用。`find_action` 和 `get_action_state`
 失败时保留输出，非零 ID 不保证映射仍存活。原生入口直接调用 Application 成员函数，
 不再提供接收 C Application 句柄的自由函数包装。
+
+## 映射资源加载
+
+`action_map` 直接作为共享的只读 CPU 描述，使用 `asset_ref<const action_map>` 和
+`asset_request<action_map>`；不再包裹 action_map_asset。内置 Registry 登记 input-map v1
+解码能力，普通加载采用 asset_manager 的显式 decoder 优先、反射兜底规则。
+当前没有编码器，反射 serialize 返回 unsupported；不得将解码能力视为保存支持。
+
+通用 load/load_sync 默认复用缓存；Application 的显式加载与异步重载仍重新读取。
+加载和解析不修改输入服务，成功后由 Application 在所属线程复制描述并调用 replace_action_map。
+读取、解码或采用失败保留旧映射；动作 ID 的失效规则不变。大小上限为 1 MiB，
+codec 诊断提供 JSON 字节偏移或字段路径。格式约束仍以[输入映射格式](input-map-format.md)为准。

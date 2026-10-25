@@ -11,7 +11,6 @@
 #include "engine/resource/types/action_map.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
 #include "loaders/asset_decoder.hpp"
-#include "types/action_map_asset.hpp"
 #include <memory>
 #include <utility>
 
@@ -35,8 +34,8 @@ public:
   /** 同步准备失败不改输出，不驱动宿主任务队列；采用与取消由调用者负责。 */
   [[nodiscard]] gneiss::engine::result load_input(std::string_view uri,
                                                   gneiss::engine::action_map& output) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  request_input(std::string_view uri, asset_request<action_map_asset>& output) noexcept;
+  [[nodiscard]] gneiss::engine::result request_input(std::string_view uri,
+                                                     asset_request<action_map>& output) noexcept;
   void advance_resources();
   /** 调用者先取消并释放请求，再停止资源工作。 */
   void stop_resources() noexcept;
