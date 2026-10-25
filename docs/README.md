@@ -570,3 +570,5 @@
 - [ADR-082：撤销动态游戏模块](decisions/ADR-082-remove-dynamic-game-module.md)
 
 - [C++ 类型注册简化计划](plans/PLAN-051-reflection-builder.md)
+
+- [资源类型与反射序列化计划](plans/PLAN-051-resource-serialization.md)
