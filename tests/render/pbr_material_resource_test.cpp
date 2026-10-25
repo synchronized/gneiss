@@ -17,14 +17,15 @@ int main() {
   // 原生路径同样拒绝非法枚举，不能依赖 C 入口代替服务校验。
   gneiss::engine::material_resource native;
   gneiss::engine::rid native_handle{};
-  native.alpha_mode = static_cast<gneiss::engine::material_alpha_mode>(UINT32_MAX);
+  native.parameters.alpha_mode = static_cast<gneiss::engine::material_alpha_mode>(UINT32_MAX);
   if (resources.create_material(native, &native_handle) != gneiss::engine::result::invalid_argument)
     return 30;
-  native.alpha_mode = gneiss::engine::material_alpha_mode::opaque;
-  native.sampling[2].address_v = static_cast<gneiss::engine::texture_address>(UINT32_MAX);
+  native.parameters.alpha_mode = gneiss::engine::material_alpha_mode::opaque;
+  native.parameters.sampling[2].address_v =
+      static_cast<gneiss::engine::texture_address>(UINT32_MAX);
   if (resources.create_material(native, &native_handle) != gneiss::engine::result::invalid_argument)
     return 31;
-  native.sampling[2] = {};
+  native.parameters.sampling[2] = {};
   if (resources.create_material(native, &native_handle) != gneiss::engine::result::success ||
       resources.destroy_material(native_handle) != gneiss::engine::result::success)
     return 32;
@@ -46,16 +47,16 @@ int main() {
   desc.normal_texture = texture;
   desc.occlusion_texture = texture;
   desc.emissive_texture = texture;
-  desc.normal_scale = 0.5F;
-  desc.occlusion_strength = 0.25F;
-  desc.emissive[1] = 0.75F;
+  desc.parameters.normal_scale = 0.5F;
+  desc.parameters.occlusion_strength = 0.25F;
+  desc.parameters.emissive[1] = 0.75F;
   gneiss::engine::rid material{};
   if (resources.create_material(desc, &material) != gneiss::engine::result::success) {
     return 2;
   }
   const auto* value = resources.get_material(material);
-  if (value == nullptr || value->normal_scale != 0.5F || value->occlusion_strength != 0.25F ||
-      value->emissive[1] != 0.75F) {
+  if (value == nullptr || value->parameters.normal_scale != 0.5F ||
+      value->parameters.occlusion_strength != 0.25F || value->parameters.emissive[1] != 0.75F) {
     return 3;
   }
   for (const auto handle : value->texture_handles()) {
@@ -80,39 +81,40 @@ int main() {
     }
     desc.*slot = texture;
   }
-  desc.normal_scale = std::numeric_limits<float>::quiet_NaN();
+  desc.parameters.normal_scale = std::numeric_limits<float>::quiet_NaN();
   if (resources.create_material(desc, &material) != gneiss::engine::result::invalid_argument) {
     return 7;
   }
-  desc.normal_scale = -0.5F;
+  desc.parameters.normal_scale = -0.5F;
   if (resources.create_material(desc, &material) != gneiss::engine::result::success ||
-      resources.get_material(material)->normal_scale != -0.5F ||
+      resources.get_material(material)->parameters.normal_scale != -0.5F ||
       resources.destroy_material(material) != gneiss::engine::result::success) {
     return 13;
   }
-  desc.normal_scale = 1.0F;
-  desc.occlusion_strength = 1.1F;
+  desc.parameters.normal_scale = 1.0F;
+  desc.parameters.occlusion_strength = 1.1F;
   if (resources.create_material(desc, &material) != gneiss::engine::result::invalid_argument) {
     return 8;
   }
-  desc.occlusion_strength = 1.0F;
-  desc.emissive[2] = std::numeric_limits<float>::infinity();
+  desc.parameters.occlusion_strength = 1.0F;
+  desc.parameters.emissive[2] = std::numeric_limits<float>::infinity();
   if (resources.create_material(desc, &material) != gneiss::engine::result::invalid_argument) {
     return 9;
   }
   desc = {};
-  desc.alpha_mode = gneiss::engine::material_alpha_mode::blend;
-  desc.double_sided = 1;
-  desc.alpha_cutoff = 1.5F;
+  desc.parameters.alpha_mode = gneiss::engine::material_alpha_mode::blend;
+  desc.parameters.double_sided = 1;
+  desc.parameters.alpha_cutoff = 1.5F;
   desc.base_color_texture = texture;
-  desc.sampling[0].uv_set = 1;
-  desc.sampling[0].address_u = gneiss::engine::texture_address::mirror;
+  desc.parameters.sampling[0].uv_set = 1;
+  desc.parameters.sampling[0].address_u = gneiss::engine::texture_address::mirror;
   if (resources.create_material(desc, &material) != gneiss::engine::result::success)
     return 16;
   value = resources.get_material(material);
-  if (value->alpha_mode != gneiss::engine::material_alpha_mode::blend ||
-      value->double_sided != 1U || value->alpha_cutoff != 1.5F || value->uv1_mask() != 1U ||
-      value->sampling[0].address_u != gneiss::engine::texture_address::mirror)
+  if (value->parameters.alpha_mode != gneiss::engine::material_alpha_mode::blend ||
+      value->parameters.double_sided != 1U || value->parameters.alpha_cutoff != 1.5F ||
+      value->uv1_mask() != 1U ||
+      value->parameters.sampling[0].address_u != gneiss::engine::texture_address::mirror)
     return 17;
   if (resources.destroy_material(material) != gneiss::engine::result::success)
     return 18;
@@ -124,13 +126,15 @@ int main() {
     field = saved;
     return rejected;
   };
-  if (!rejects_invalid(desc.alpha_mode) || !rejects_invalid(desc.sampling[0].uv_set) ||
-      !rejects_invalid(desc.sampling[0].mag_filter) ||
-      !rejects_invalid(desc.sampling[0].min_filter) ||
-      !rejects_invalid(desc.sampling[0].mip_filter) ||
-      !rejects_invalid(desc.sampling[0].address_u) || !rejects_invalid(desc.sampling[0].address_v))
+  if (!rejects_invalid(desc.parameters.alpha_mode) ||
+      !rejects_invalid(desc.parameters.sampling[0].uv_set) ||
+      !rejects_invalid(desc.parameters.sampling[0].mag_filter) ||
+      !rejects_invalid(desc.parameters.sampling[0].min_filter) ||
+      !rejects_invalid(desc.parameters.sampling[0].mip_filter) ||
+      !rejects_invalid(desc.parameters.sampling[0].address_u) ||
+      !rejects_invalid(desc.parameters.sampling[0].address_v))
     return 19;
-  desc.alpha_cutoff = std::numeric_limits<float>::quiet_NaN();
+  desc.parameters.alpha_cutoff = std::numeric_limits<float>::quiet_NaN();
   if (resources.create_material(desc, &material) != gneiss::engine::result::invalid_argument)
     return 20;
   desc = {};

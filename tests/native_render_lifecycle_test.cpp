@@ -24,9 +24,9 @@ int main() try {
   mesh_desc.vertices = vertices;
   mesh_desc.indices = indices;
   native::material_resource material_desc;
-  material_desc.red = 0.25F;
-  material_desc.green = 0.5F;
-  material_desc.blue = 0.75F;
+  material_desc.parameters.color[0] = 0.25F;
+  material_desc.parameters.color[1] = 0.5F;
+  material_desc.parameters.color[2] = 0.75F;
   native::texture_view texture_desc;
   texture_desc.width = texture_desc.height = 1U;
   texture_desc.row_stride_bytes = 4U;
@@ -53,7 +53,7 @@ int main() try {
   // 非法负载不能分配资源。
   mesh = material = texture = 0;
   mesh_desc.vertices = std::span{vertices}.first(2);
-  material_desc.alpha = 2.0F;
+  material_desc.parameters.color[3] = 2.0F;
   texture_desc.row_stride_bytes = 3U;
   if (resources.create_mesh(mesh_desc, &mesh) != native::result::invalid_argument ||
       resources.create_material(material_desc, &material) != native::result::invalid_argument ||

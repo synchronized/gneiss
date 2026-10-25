@@ -4,7 +4,7 @@
 #pragma once
 
 #include "engine/core/rid.hpp"
-#include "engine/resource/types/material_types.hpp"
+#include "engine/resource/types/material_parameters.hpp"
 #include "engine/resource/types/mesh_data.hpp"
 #include "engine/resource/types/texture_preparation_data.hpp"
 #include "engine/resource/types/texture_types.hpp"
@@ -24,24 +24,12 @@ namespace gneiss::engine {
 using mesh_resource = gneiss::engine::mesh_data;
 
 struct material_resource {
-  float red{1.0F};
-  float green{1.0F};
-  float blue{1.0F};
-  float alpha{1.0F};
+  material_parameters parameters{};
   gneiss::engine::rid base_color_texture{};
-  float metallic{0.0F};
-  float roughness{1.0F};
   gneiss::engine::rid metallic_roughness_texture{};
   gneiss::engine::rid normal_texture{};
   gneiss::engine::rid occlusion_texture{};
   gneiss::engine::rid emissive_texture{};
-  float normal_scale{1.0F};
-  float occlusion_strength{1.0F};
-  std::array<float, 3> emissive{};
-  gneiss::engine::material_alpha_mode alpha_mode{gneiss::engine::material_alpha_mode::opaque};
-  bool double_sided{};
-  float alpha_cutoff{0.5F};
-  std::array<gneiss::engine::texture_sampling, 5> sampling{};
 
   [[nodiscard]] std::array<gneiss::engine::rid, 5> texture_handles() const noexcept {
     return {base_color_texture, metallic_roughness_texture, normal_texture, occlusion_texture,
@@ -51,7 +39,7 @@ struct material_resource {
     std::uint32_t mask{};
     const auto handles = texture_handles();
     for (std::size_t slot = 0; slot < handles.size(); ++slot)
-      if (handles[slot] != gneiss::engine::null_rid && sampling[slot].uv_set == 1U)
+      if (handles[slot] != gneiss::engine::null_rid && parameters.sampling[slot].uv_set == 1U)
         mask |= (1U << slot);
     return mask;
   }

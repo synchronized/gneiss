@@ -125,7 +125,10 @@ Runtime 的清理补报为事件，不重复发送请求响应；Editor 仅更�
 `material_description` 是唯一的 CPU 材质描述，包含 `material_parameters parameters` 和
 五槽纹理 URI；解析结果直接使用此类型，不再增加单字段文档包装。
 材质仅读写 v5，字段及默认值见 [Render 资产格式](render-asset-formats.md)。
-`material_resource` 使用纹理 RID，属于渲染运行期数据；后端 `material_mirror` 持有 Granit 对象。
+`material_resource` 与描述共用 `material_parameters parameters`，纹理依赖改用 RID；
+加载时整体复制参数，渲染服务与后端直接读取同一参数结构。参数默认白色、不透明、
+metallic=0、roughness=1；这不免除材质文件必填字段的校验。
+运行期数据由渲染服务管理；后端 `material_mirror` 持有 Granit 对象。
 描述不包含 RID、GPU 对象或编辑会话状态。可通过 register_material_reflection 显式登记编解码能力，
 接口见[反射参考](reflection.md#类型编解码)。
 

@@ -19,7 +19,8 @@ Mesh、Material 和 Texture 的 RID 由 Application 的 Resource Service 管理�
 Material 保存线性 RGBA、金属度、粗糙度、五类 PBR Texture RID 及法线/AO/自发光因子，
 字段范围与纹理用途见 [Render 资产格式](render-asset-formats.md#material)。创建不转移 Texture 所有权；
 直接创建资源时调用方必须维持依赖有效，资产 Loader 的 Material 租约则持有全部 Texture 租约。
-`create_material` 接收原生 `material_resource`，默认构造提供中性值。
+`create_material` 接收原生 `material_resource`，其 `parameters` 使用与材质描述相同的
+`material_parameters`，默认构造提供中性值；纹理槽仍保存 RID。
 当前描述支持逐槽 UV0/UV1 与采样器、OPAQUE/MASK/BLEND、Alpha Cutoff 和双面。
 
 `create_texture(texture_view, ...)` 接受二维 RGBA8 像素，并显式区分线性与 sRGB 颜色空间。宽高必须位于

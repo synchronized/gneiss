@@ -88,9 +88,9 @@ int main() {
   native::mesh_view mesh_desc{};
   mesh_desc.vertices = vertices;
   native::material_resource material_desc{};
-  material_desc.red = 0.95F;
-  material_desc.green = 0.35F;
-  material_desc.blue = 0.12F;
+  material_desc.parameters.color[0] = 0.95F;
+  material_desc.parameters.color[1] = 0.35F;
+  material_desc.parameters.color[2] = 0.12F;
   constexpr std::array<std::uint8_t, 16> pixels{255, 255, 255, 255, 32,  64,  255, 255,
                                                 32,  64,  255, 255, 255, 255, 255, 255};
   native::texture_view texture_desc{};

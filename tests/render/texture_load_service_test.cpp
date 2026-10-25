@@ -773,7 +773,7 @@ void mixed(gneiss::engine::execution_mode mode, bool pbr = false) {
   const auto* material = resources.get_material(gneiss::engine::asset_rid(material_lease));
   check(material && resources.get_texture(material->base_color_texture) != nullptr);
   if (pbr) {
-    check(material->emissive[2] == 0.4F);
+    check(material->parameters.emissive[2] == 0.4F);
     for (const auto texture : material->texture_handles()) {
       check(texture != gneiss::engine::null_rid && resources.get_texture(texture) != nullptr);
     }

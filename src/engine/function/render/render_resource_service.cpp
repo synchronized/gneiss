@@ -325,15 +325,15 @@ render_resource_service::prepare_mesh_data(std::shared_ptr<const mesh_resource> 
 gneiss::engine::result render_resource_service::prepare_material_data(
     const material_resource& value, std::shared_ptr<const material_resource>& output) noexcept {
   output.reset();
-  if (!is_valid() || !valid_color(value.red) || !valid_color(value.green) ||
-      !valid_color(value.blue) || !valid_color(value.alpha) || !valid_color(value.metallic) ||
-      !valid_color(value.roughness)) {
+  const auto& parameters = value.parameters;
+  if (!is_valid() || !std::ranges::all_of(parameters.color, valid_color) ||
+      !valid_color(parameters.metallic) || !valid_color(parameters.roughness)) {
     return gneiss::engine::result::invalid_argument;
   }
-  if (!std::isfinite(value.normal_scale) || !valid_color(value.occlusion_strength) ||
-      !std::ranges::all_of(value.emissive, valid_color) ||
-      value.alpha_mode > gneiss::engine::material_alpha_mode::blend ||
-      !std::isfinite(value.alpha_cutoff) || value.alpha_cutoff < 0.0F) {
+  if (!std::isfinite(parameters.normal_scale) || !valid_color(parameters.occlusion_strength) ||
+      !std::ranges::all_of(parameters.emissive, valid_color) ||
+      parameters.alpha_mode > gneiss::engine::material_alpha_mode::blend ||
+      !std::isfinite(parameters.alpha_cutoff) || parameters.alpha_cutoff < 0.0F) {
     return gneiss::engine::result::invalid_argument;
   }
   for (const auto texture : value.texture_handles()) {
@@ -342,7 +342,7 @@ gneiss::engine::result render_resource_service::prepare_material_data(
       return gneiss::engine::result::invalid_argument;
     }
   }
-  for (const auto& sample : value.sampling) {
+  for (const auto& sample : value.parameters.sampling) {
     if (!gneiss::engine::valid_sampling(sample)) {
       return gneiss::engine::result::invalid_argument;
     }

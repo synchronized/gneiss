@@ -10,9 +10,9 @@
 
 namespace gneiss::engine {
 
-/** 资产解析得到的材质参数；不包含纹理 RID，纹理依赖单独用 URI 表达。 */
+/** 描述数据和运行期资源共用的材质参数；不包含纹理 URI 或 RID。 */
 struct material_parameters {
-  std::array<float, 4> color{};
+  std::array<float, 4> color{1.0F, 1.0F, 1.0F, 1.0F};
   float metallic{};
   float roughness{1.0F};
   float normal_scale{1.0F};

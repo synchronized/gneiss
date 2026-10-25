@@ -171,7 +171,7 @@ void run() {
   check(active_render.acquire_material("asset://m.material", old_material, diagnostic) ==
         gneiss::engine::result::success);
   auto old_pixels = resources.share_material(gneiss::engine::asset_rid(old_material));
-  check(old_pixels && old_pixels->red == 1.0F);
+  check(old_pixels && old_pixels->parameters.color[0] == 1.0F);
   files->files["m.material"] =
       R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,1,0,1]})";
   const auto empty_instances = files->files["s.scene"].find("\"prefab_instances\":[]");
@@ -215,7 +215,7 @@ void run() {
       gneiss::engine::render_asset_loader::material_ref(bindings.at("asset://m.material"));
   const auto mesh_rid = gneiss::engine::asset_rid(bindings.at("asset://m.mesh"));
   check(material && gneiss::engine::asset_rid(material) != gneiss::engine::asset_rid(old_material));
-  check(resources.get_material(gneiss::engine::asset_rid(material))->green == 1.0F);
+  check(resources.get_material(gneiss::engine::asset_rid(material))->parameters.color[1] == 1.0F);
   check(!gneiss::engine::render_asset_loader::mesh_ref(bindings.at("asset://m.material")));
   check(!gneiss::engine::render_asset_loader::material_ref(bindings.at("asset://m.mesh")));
   gneiss::engine::render_asset_ref uncached;
@@ -238,7 +238,8 @@ void run() {
   check(gneiss::engine::result{gneiss::engine::entity_count(active->world(), unchanged_count)} ==
             gneiss::engine::result::success &&
         unchanged_count == 1U);
-  check(resources.get_material(gneiss::engine::asset_rid(old_material))->red == 1.0F);
+  check(resources.get_material(gneiss::engine::asset_rid(old_material))->parameters.color[0] ==
+        1.0F);
   check(files->reads == reads);
   // 候选仅持有一份运行时；移动、失败和取消不得泄漏或提前发布。
   {
@@ -339,7 +340,7 @@ void run() {
   material = {};
   candidate_render.release_unused();
   check(resources.get_material(selected_material) != nullptr &&
-        resources.get_material(selected_material)->green == 1.0F);
+        resources.get_material(selected_material)->parameters.color[1] == 1.0F);
   gneiss::engine::render_asset_ref next_version;
   check(candidate_render.acquire_cached(requests.back(), next_version) ==
         gneiss::engine::result::success);
@@ -377,7 +378,8 @@ void run() {
       .entity = ordinary.entity, .expected = edited, .replacement = edited}};
   check(gneiss::engine::replace_mesh_renderers(candidate->world(), material_only) ==
         gneiss::engine::result::success);
-  check(resources.get_material(gneiss::engine::asset_rid(old_material))->red == 1.0F);
+  check(resources.get_material(gneiss::engine::asset_rid(old_material))->parameters.color[0] ==
+        1.0F);
   candidate_render.release_unused();
   check(resources.get_material(selected_material) != nullptr);
   captured.clear();
@@ -450,7 +452,7 @@ void run() {
   candidate.reset();
   check(gneiss::engine::result{gneiss::engine::entity_count(old_world, count)} ==
         gneiss::engine::result::invalid_handle);
-  check(old_pixels->red == 1.0F);
+  check(old_pixels->parameters.color[0] == 1.0F);
 
   // 构造失败时仅回收候选节点；即使依赖缺失也不能退回主线程文件读取。
   check(gneiss::engine::prepare_scene_description(vfs, "asset://s.scene", prepared, scene_error,

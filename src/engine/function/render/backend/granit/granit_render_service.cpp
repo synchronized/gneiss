@@ -371,11 +371,11 @@ granit_render_service::create_material_mirror(const gneiss::engine::material_res
                                               const std::array<granit_texture_view, 5>& textures,
                                               material_mirror& output) noexcept {
   output.textures = textures;
-  const std::array color{source.red, source.green, source.blue, source.alpha};
+  const auto& color = source.parameters.color;
   constexpr std::array addresses{granit::address_mode::repeat, granit::address_mode::clamp_to_edge,
                                  granit::address_mode::mirrored_repeat};
-  for (std::size_t slot = 0; slot < source.sampling.size(); ++slot) {
-    const auto& sampling = source.sampling[slot];
+  for (std::size_t slot = 0; slot < source.parameters.sampling.size(); ++slot) {
+    const auto& sampling = source.parameters.sampling[slot];
     const auto initialized = output.samplers[slot].initialize(
         renderer_,
         {.mag_filter = sampling.mag_filter == gneiss::engine::texture_filter::linear
@@ -395,15 +395,15 @@ granit_render_service::create_material_mirror(const gneiss::engine::material_res
       return initialized;
   }
   const auto uv1_mask = source.uv1_mask();
-  const float normal_scale = source.normal_scale;
-  const float occlusion_strength = source.occlusion_strength;
-  const auto& emissive = source.emissive;
+  const float normal_scale = source.parameters.normal_scale;
+  const float occlusion_strength = source.parameters.occlusion_strength;
+  const auto& emissive = source.parameters.emissive;
   constexpr std::uint32_t debug_display = 0;
   const std::array updates{
       granit::material_parameter_update::value(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_ALPHA_CUTOFF),
           granit::material_parameter_type::float32,
-          std::as_bytes(std::span{&source.alpha_cutoff, 1})),
+          std::as_bytes(std::span{&source.parameters.alpha_cutoff, 1})),
       granit::material_parameter_update::value(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_UV1_MASK),
           granit::material_parameter_type::uint32, std::as_bytes(std::span{&uv1_mask, 1})),
@@ -413,10 +413,12 @@ granit_render_service::create_material_mirror(const gneiss::engine::material_res
           std::as_bytes(std::span{color.data(), color.size()})),
       granit::material_parameter_update::value(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_METALLIC),
-          granit::material_parameter_type::float32, std::as_bytes(std::span{&source.metallic, 1})),
+          granit::material_parameter_type::float32,
+          std::as_bytes(std::span{&source.parameters.metallic, 1})),
       granit::material_parameter_update::value(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_PERCEPTUAL_ROUGHNESS),
-          granit::material_parameter_type::float32, std::as_bytes(std::span{&source.roughness, 1})),
+          granit::material_parameter_type::float32,
+          std::as_bytes(std::span{&source.parameters.roughness, 1})),
       granit::material_parameter_update::value(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_NORMAL_SCALE),
           granit::material_parameter_type::float32, std::as_bytes(std::span{&normal_scale, 1})),
@@ -1372,8 +1374,8 @@ granit_render_service::execute_frame(gneiss::engine::render_frame_packet& packet
           return gneiss::engine::result::invalid_argument;
         // GPU 布局统一包含 UV1 与颜色；缺失属性填零 UV / 白色，变体必须匹配 72 字节步长。
         const auto variant = granit_pbr_material_variant_key(
-            GRANIT_PBR_TEXTURE_ALL, static_cast<std::uint32_t>(material->alpha_mode),
-            material->double_sided, 1U, 1U);
+            GRANIT_PBR_TEXTURE_ALL, static_cast<std::uint32_t>(material->parameters.alpha_mode),
+            material->parameters.double_sided, 1U, 1U);
         renderables.push_back(
             {.model = to_granit_matrix(model),
              .normal_matrix = to_granit_matrix(normal),

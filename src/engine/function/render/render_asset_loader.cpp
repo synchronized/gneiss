@@ -82,29 +82,6 @@ namespace {
 
 using namespace gneiss::engine::detail;
 
-// 仅在所属线程的发布边界构造资源值，随后绑定经过验证的纹理租约。
-[[nodiscard]] gneiss::engine::material_resource
-material_data(const gneiss::engine::material_parameters& parameters) noexcept {
-  gneiss::engine::material_resource material{
-      .red = parameters.color[0],
-      .green = parameters.color[1],
-      .blue = parameters.color[2],
-      .alpha = parameters.color[3],
-      .base_color_texture = gneiss::engine::null_rid,
-      .metallic = parameters.metallic,
-      .roughness = parameters.roughness,
-  };
-  material.normal_scale = parameters.normal_scale;
-  material.occlusion_strength = parameters.occlusion_strength;
-  material.emissive = parameters.emissive;
-  material.alpha_mode = parameters.alpha_mode;
-  material.double_sided = parameters.double_sided;
-  material.alpha_cutoff = parameters.alpha_cutoff;
-  material.sampling = parameters.sampling;
-
-  return material;
-}
-
 // 数组所有权在发布边界移动，弱上传引用由 Render 随后建立。
 [[nodiscard]] gneiss::engine::texture_resource
 texture_data(gneiss::engine::prepared_texture_data prepared) noexcept {
@@ -406,7 +383,7 @@ gneiss::engine::result render_asset_loader::reserve_asset(const render_asset_rel
 
 gneiss::engine::result render_asset_loader::prepare_material_upload(prepared_render_asset& prepared,
                                                                     asset_upload& upload) {
-  auto material = material_data(prepared.material);
+  gneiss::engine::material_resource material{.parameters = prepared.material};
   for (std::size_t slot = 0; slot < prepared.texture_uris.size(); ++slot) {
     const auto& uri = prepared.texture_uris[slot];
     if (uri.empty()) {
@@ -615,7 +592,7 @@ render_asset_loader::acquire_material(std::string_view uri, render_asset_ref& ou
         if (result != gneiss::engine::result::success) {
           return result;
         }
-        auto material = material_data(source.parameters);
+        gneiss::engine::material_resource material{.parameters = source.parameters};
 
         std::array<gneiss::engine::asset_ref<const gneiss::engine::resource_cache::entry>, 5>
             dependencies;

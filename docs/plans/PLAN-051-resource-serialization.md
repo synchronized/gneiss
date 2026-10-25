@@ -62,9 +62,10 @@ Gneiss 先采用固定的可选序列化能力，不移植通用 capability、�
 1. 完整核对各类读写、缓存键、引用入口及文件版本，确认权威 CPU 数据类型。
 2. 已完成材质类型统一为 material_description，删除 material_document 包装；URI 与运行期依赖保持分离。
 3. 已实现最小编解码注册接口、材质身份和 v5 保存；旧版本拒绝，示例及夹具迁移。
-4. 验证材质读写闭环后接入 Loader，清除相同类型重复的 codec 登记。
-5. 迁移 ActionMap、Scene、Prefab；Mesh/Texture 保留专用 codec 和准备流程。
-6. 最后按实际编辑需求增加嵌套字段、数组和枚举支持。
+4. 已统一描述与运行期资源的 material_parameters，移除逐字段转换；默认值及调用点已统一。
+5. 验证材质读写闭环后接入 Loader，清除相同类型重复的 codec 登记。
+6. 迁移 ActionMap、Scene、Prefab；Mesh/Texture 保留专用 codec 和准备流程。
+7. 最后按实际编辑需求增加嵌套字段、数组和枚举支持。
 
 ## 验收条件
 

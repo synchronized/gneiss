@@ -361,17 +361,19 @@ bool material_parameter_roundtrip(gneiss::engine::virtual_file_system& files,
   json += "]}";
   memory.files["parameters.material.json"] = json;
   const auto matches = [](const material_resource* value) {
-    if (value == nullptr || value->red != 0.25F || value->green != 0.5F || value->blue != 0.75F ||
-        value->alpha != 0.5F || value->metallic != 0.25F || value->roughness != 0.75F ||
-        value->normal_scale != 0.5F || value->occlusion_strength != 0.25F ||
-        value->emissive != std::array{0.25F, 0.5F, 0.75F} ||
-        value->alpha_mode != gneiss::engine::material_alpha_mode::mask ||
-        value->alpha_cutoff != 0.25F || value->double_sided != 1U) {
+    if (value == nullptr || value->parameters.color[0] != 0.25F ||
+        value->parameters.color[1] != 0.5F || value->parameters.color[2] != 0.75F ||
+        value->parameters.color[3] != 0.5F || value->parameters.metallic != 0.25F ||
+        value->parameters.roughness != 0.75F || value->parameters.normal_scale != 0.5F ||
+        value->parameters.occlusion_strength != 0.25F ||
+        value->parameters.emissive != std::array{0.25F, 0.5F, 0.75F} ||
+        value->parameters.alpha_mode != gneiss::engine::material_alpha_mode::mask ||
+        value->parameters.alpha_cutoff != 0.25F || value->parameters.double_sided != 1U) {
       return false;
     }
     const auto handles = value->texture_handles();
     for (std::size_t slot = 0; slot < handles.size(); ++slot) {
-      const auto& sample = value->sampling[slot];
+      const auto& sample = value->parameters.sampling[slot];
       if (handles[slot] == gneiss::engine::null_rid || sample.uv_set != slot % 2U ||
           static_cast<std::uint32_t>(sample.mag_filter) != 0U ||
           static_cast<std::uint32_t>(sample.min_filter) != 1U ||
@@ -643,8 +645,8 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
       !mesh_resource->normals.empty() || mesh_resource->vertices[1].u != 1.0F ||
       mesh_resource->vertices[2].v != 1.0F || material_resource == nullptr ||
       material_resource->base_color_texture != gneiss::engine::asset_rid(first_texture) ||
-      material_resource->metallic != 0.25F || material_resource->roughness != 0.75F ||
-      resources.live_resource_count() != 7U) {
+      material_resource->parameters.metallic != 0.25F ||
+      material_resource->parameters.roughness != 0.75F || resources.live_resource_count() != 7U) {
     return 11;
   }
 
@@ -751,8 +753,8 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
       resources.share_mesh(old_mesh) == old_mesh_data ||
       resources.share_material(old_material) == old_material_data ||
       resources.share_texture(old_texture) == old_texture_data ||
-      old_material_data->red == reloaded_material_resource->red ||
-      reloaded_material_resource->red != 0.2F) {
+      old_material_data->parameters.color[0] == reloaded_material_resource->parameters.color[0] ||
+      reloaded_material_resource->parameters.color[0] != 0.2F) {
     return 18;
   }
   const auto updated_mesh_data = resources.share_mesh(old_mesh);

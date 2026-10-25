@@ -125,8 +125,10 @@ void run_pending_resources() {
   check(resources.reserve_mesh(&mesh) == gneiss::engine::result::success);
   check(resources.reserve_texture(&texture) == gneiss::engine::result::success);
   gneiss::engine::material_resource material_desc;
-  material_desc.red = material_desc.green = material_desc.blue = 0.0F;
-  material_desc.emissive[0] = material_desc.emissive[1] = material_desc.emissive[2] = 1.0F;
+  material_desc.parameters.color[0] = material_desc.parameters.color[1] =
+      material_desc.parameters.color[2] = 0.0F;
+  material_desc.parameters.emissive[0] = material_desc.parameters.emissive[1] =
+      material_desc.parameters.emissive[2] = 1.0F;
   material_desc.emissive_texture = texture;
   gneiss::engine::rid material{};
   check(gneiss::engine::result{resources.create_material(material_desc, &material)} ==
