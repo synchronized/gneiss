@@ -22,6 +22,7 @@ static_assert(result{std::numeric_limits<std::int32_t>::max()}.code() ==
 int main() {
   return result::dependency_failed.message() == "dependency failed" &&
                  result::success.message() == "success" &&
+                 result::cancelled.message() == "operation cancelled" &&
                  result::invalid_argument.message() == "invalid argument" &&
                  result{-999}.message() == "unrecognized result"
              ? 0

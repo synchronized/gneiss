@@ -33,6 +33,7 @@ public:
   static const result internal;
   static const result not_found;
   static const result io;
+  static const result cancelled;
 
 private:
   std::int32_t code_{-1};
@@ -50,6 +51,7 @@ inline constexpr result result::not_ready{-9};
 inline constexpr result result::internal{-10};
 inline constexpr result result::not_found{-11};
 inline constexpr result result::io{-12};
+inline constexpr result result::cancelled{-13};
 
 /** 返回静态英文文本；未知码保持原值，文本为 unrecognized result。 */
 [[nodiscard]] GNEISS_API const char* result_message(result value) noexcept;

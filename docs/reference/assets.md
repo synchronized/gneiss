@@ -3,9 +3,11 @@
 
 # 资产 URI、目录挂载与缓存
 
+独立文件服务核心见[异步文件服务](file-service.md)；当前资产加载尚未迁移到该入口。
+
 ## URI 规则
 
-Gneiss 当前只支持规范形式的 `asset://` URI，例如：
+现有资产加载入口当前只支持规范形式的 `asset://` URI，例如：
 
 ```text
 asset://models/triangle.mesh

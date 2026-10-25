@@ -39,6 +39,8 @@
 
 ## API 参考
 
+- [异步文件服务](reference/file-service.md)
+
 - [API 稳定级别与兼容策略](reference/compatibility.md)
 - [C++ 调用边界与共享值类型](reference/cpp-sdk.md)
 - [Core 版本与结果接口](reference/core.md)
@@ -81,6 +83,8 @@
 - [0.42.0：真实大场景异步加载与安全切换](versions/0.42.0.md)
 
 ## 路线图与开发计划
+
+- [统一异步文件服务](plans/PLAN-051-async-file-service.md)
 
 - [移除 CAORS、采用 Granit 示例资产管理模型：迁移与八项问题分析](plans/PLAN-051-asset-manager-replacement.md)
 - [统一资源强引用与生命周期规则](plans/PLAN-051-asset-references.md)
@@ -201,6 +205,8 @@
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)
 
 ## 架构决策
+
+- [ADR-084：统一回调式文件服务](decisions/ADR-084-async-file-service.md)
 
 - [ADR-069：资源模块与运行时组装边界](decisions/ADR-069-resource-runtime-boundaries.md)
 

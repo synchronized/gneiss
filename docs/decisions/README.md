@@ -78,3 +78,5 @@ Reference 和实现为准。
 - [ADR-074：内部统一使用原生结果对象](ADR-074-native-result.md)
 
 - [ADR-075：普通资源加载不再强制来源复验](ADR-075-remove-source-revalidation.md)
+
+- [ADR-084：统一回调式文件服务](ADR-084-async-file-service.md)

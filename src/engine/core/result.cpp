@@ -31,6 +31,8 @@ const char* gneiss::engine::result_message(result value) noexcept {
     return "not found";
   case result::io.code():
     return "I/O error";
+  case result::cancelled.code():
+    return "operation cancelled";
   default:
     return "unrecognized result";
   }
