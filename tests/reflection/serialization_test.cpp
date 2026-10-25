@@ -33,23 +33,22 @@ int main() {
     return 2;
   if (e::serialize(registry, material, output, diagnostic) != e::result::not_ready)
     return 3;
-  if (e::type_builder<probe>{registry}.serialization<&bad_encode, &bad_decode>("").commit() !=
+  if (e::type_builder<probe>{registry}.serialization<nullptr, nullptr>().commit() !=
       e::result::invalid_argument)
     return 4;
-  {
-    std::string format = "test.probe";
-    if (e::type_builder<probe>{registry}
-            .serialization<&bad_encode, &bad_decode>(format)
-            .commit()
-            .failed())
-      return 5;
-  }
+  if (e::type_builder<probe>{registry}
+          .serialization<&bad_encode, &bad_decode>()
+          .serialization<&bad_encode, &bad_decode>()
+          .commit() != e::result::invalid_argument)
+    return 5;
+  if (e::type_builder<probe>{registry}.serialization<&bad_encode, &bad_decode>().commit().failed())
+    return 5;
   if (e::register_material_reflection(registry) != e::result::invalid_argument ||
       e::freeze(registry).failed())
     return 6;
   e::serialization_binding binding;
   if (e::find_serialization(registry, e::runtime_type_of<probe>(), binding).failed() ||
-      binding.format != "test.probe")
+      !binding.encode || !binding.decode)
     return 7;
   probe object;
   if (e::serialize(registry, object, output, diagnostic) != e::result::out_of_memory ||

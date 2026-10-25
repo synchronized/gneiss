@@ -137,7 +137,7 @@ result encode_material(const material_description& object, std::vector<std::byte
 
 result register_material_reflection(const registry_ref& registry) noexcept {
   return type_builder<material_description>{registry}
-      .serialization<&encode_material, &decode_material>("gneiss.material")
+      .serialization<&encode_material, &decode_material>()
       .commit();
 }
 }

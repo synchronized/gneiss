@@ -117,11 +117,11 @@ Registry 使用原生共享引用管理，最后一个引用释放时销毁，�
 
 `serialization.hpp` 提供可选 `serialization_binding` 和拥有错误位置文本的
 `serialization_diagnostic`。能力与类型、字段一起登记到同一 Registry，不依赖资源层。
-`type_builder<T>::serialization<Encode, Decode>(format)` 推导类型适配；任一函数可为 nullptr，
-但至少具备一个方向。格式名由 builder 和 Registry 分别拥有，同一 builder 不允许重复设置。
-每个类型当前只登记一个格式族，具体版本由 codec 校验，不提供任意 capability 或对象工厂。
+`type_builder<T>::serialization<Encode, Decode>()` 推导类型适配；任一函数可为 nullptr，
+但至少具备一个方向。同一 builder 不允许重复设置。
+每个类型当前只登记一组编解码函数，文件格式标识及版本由 codec 自行校验，不提供任意 capability 或对象工厂。
 
-`find_serialization` 按运行期 type_id 查询冻结 Registry；格式名借用 Registry。
+`find_serialization` 按运行期 type_id 查询冻结 Registry 中的函数表，不登记重复的格式名称。
 `serialize<T>` 在临时字节数组上调用 codec，成功才替换输出；`deserialize<T>` 默认构造临时 T，
 成功后无异常移动赋值。T 必须满足相应构造和赋值约束。失败保持输出；bad_alloc 转为
 out_of_memory，其余异常转为 internal。诊断在调用开始清空，失败时可携带路径、字节偏移和消息。

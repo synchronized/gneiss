@@ -16,14 +16,13 @@ struct serialization_diagnostic {
   std::string path;
   std::string message;
 };
-/** 每种类型可选一个格式族，版本由 codec 识别。对象及字节仅在调用期间借用。
+/** 每种类型可选一组编解码函数，文件格式及版本由 codec 识别。对象及字节仅在调用期间借用。
  * 回调必须可并发操作不同对象；模块需在 Registry 使用期间存活。 */
 struct serialization_binding {
-  std::string_view format{};
   result (*encode)(const void*, std::vector<std::byte>&, serialization_diagnostic&){};
   result (*decode)(std::span<const std::byte>, void*, serialization_diagnostic&){};
 };
-/** 冻结后查询；format 借用 Registry，失败保持输出，未登记能力返回 unsupported。 */
+/** 冻结后查询函数表；失败保持输出，未登记能力返回 unsupported。 */
 [[nodiscard]] GNEISS_API result find_serialization(const registry_ref&, type_id,
                                                    serialization_binding&) noexcept;
 /** 成功才替换输出；对象必须与模板类型相符，未知类型不隐式注册。 */

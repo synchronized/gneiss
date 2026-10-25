@@ -125,7 +125,6 @@ struct type_record {
   std::uint32_t schema_version = 0;
   std::string name;
   std::vector<field_record> fields;
-  std::string serialization_format;
   serialization_binding serialization{};
 };
 
@@ -142,12 +141,6 @@ struct type_record {
       desc.fields.size() > std::numeric_limits<std::uint32_t>::max() || !is_valid_name(desc.name)) {
     return false;
   }
-  const auto& codec = desc.serialization;
-  if (codec.encode || codec.decode) {
-    if (codec.format.empty() || !is_valid_name(codec.format))
-      return false;
-  } else if (!codec.format.empty())
-    return false;
   for (std::size_t index = 0; index < desc.fields.size(); ++index) {
     if (!validate_field(desc.fields[index])) {
       return false;
@@ -219,9 +212,7 @@ public:
       record->type_id = desc.type_id;
       record->schema_version = desc.schema_version;
       record->name.assign(desc.name);
-      record->serialization_format = desc.serialization.format;
       record->serialization = desc.serialization;
-      record->serialization.format = record->serialization_format;
       record->fields.reserve(desc.fields.size());
       for (const auto& field : desc.fields) {
         record->fields.push_back({.id = field.id.get(),

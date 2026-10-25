@@ -91,9 +91,8 @@ public:
                                  return result::success;
                                }});
   }
-  /** Encode/Decode 是有类型函数，允许 nullptr 表示缺少该方向。格式名由 builder 拥有。 */
-  template <auto Encode, auto Decode>
-  type_builder& serialization(std::string_view format) noexcept {
+  /** Encode/Decode 是有类型函数，允许 nullptr 表示缺少该方向。文件格式由 codec 自行校验。 */
+  template <auto Encode, auto Decode> type_builder& serialization() noexcept {
     if (committed_ || status_.failed())
       return *this;
     if (has_serialization_) {
@@ -105,23 +104,16 @@ public:
       status_ = result::invalid_argument;
       return *this;
     }
-    try {
-      format_ = format;
-      if constexpr (Encode != nullptr)
-        codec_.encode = [](const void* object, std::vector<std::byte>& output,
-                           serialization_diagnostic& diagnostic) -> result {
-          return std::invoke(Encode, *static_cast<const object_type*>(object), output, diagnostic);
-        };
-      if constexpr (Decode != nullptr)
-        codec_.decode = [](std::span<const std::byte> bytes, void* object,
-                           serialization_diagnostic& diagnostic) -> result {
-          return std::invoke(Decode, bytes, *static_cast<object_type*>(object), diagnostic);
-        };
-    } catch (const std::bad_alloc&) {
-      status_ = result::out_of_memory;
-    } catch (...) {
-      status_ = result::internal;
-    }
+    if constexpr (Encode != nullptr)
+      codec_.encode = [](const void* object, std::vector<std::byte>& output,
+                         serialization_diagnostic& diagnostic) -> result {
+        return std::invoke(Encode, *static_cast<const object_type*>(object), output, diagnostic);
+      };
+    if constexpr (Decode != nullptr)
+      codec_.decode = [](std::span<const std::byte> bytes, void* object,
+                         serialization_diagnostic& diagnostic) -> result {
+        return std::invoke(Decode, bytes, *static_cast<object_type*>(object), diagnostic);
+      };
     return *this;
   }
   [[nodiscard]] result commit() noexcept {
@@ -139,7 +131,6 @@ public:
         fields.push_back({item.id, item.guid, item.flags, item.name});
         bindings.push_back(item.binding);
       }
-      codec_.format = format_;
       return register_type<object_type>(
           registry_, {.schema_version = version_, .fields = fields, .serialization = codec_},
           bindings);
@@ -166,7 +157,6 @@ private:
     return *this;
   }
   serialization_binding codec_{};
-  std::string format_;
   bool has_serialization_ = false;
   registry_ref registry_;
   std::vector<entry> entries_;
