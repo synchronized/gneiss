@@ -5,7 +5,7 @@
 
 #include "engine/core/result.hpp"
 #include "engine/resource/loaders/asset_preparation.hpp"
-#include "engine/resource/types/material_source.hpp"
+#include "engine/resource/types/material_description.hpp"
 
 // 同步加载与后台准备共用解析契约；不接触缓存或资源服务。
 namespace gneiss::engine::detail {
@@ -26,7 +26,7 @@ parse_mesh(const std::vector<std::byte>& bytes,
     std::vector<gneiss::engine::mesh_color>& out_colors, asset_diagnostic& diagnostic);
 
 [[nodiscard]] gneiss::engine::result parse_material(const std::vector<std::byte>& bytes,
-                                                    material_source& out_source,
+                                                    material_description& out_source,
                                                     asset_diagnostic& diagnostic);
 
 } // namespace gneiss::engine::detail

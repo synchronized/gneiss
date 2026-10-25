@@ -628,7 +628,7 @@ if(NOT status EQUAL 0)
 endif()
 
 # 资源类型与版本索引不能重新通过后端适配获取领域定义。
-foreach(location IN ITEMS types/material_document.hpp cache/material_document_versions.hpp)
+foreach(location IN ITEMS types/material_description.hpp cache/material_document_versions.hpp)
   foreach(header IN ITEMS engine/platform/caors/document_loader.hpp engine/resource/backend/caors/caors_material_document.hpp)
     file(WRITE "${fixture}/src/engine/resource/${location}" "#include <${header}>\n")
     execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
@@ -640,7 +640,7 @@ foreach(location IN ITEMS types/material_document.hpp cache/material_document_ve
     endif()
   endforeach()
 endforeach()
-file(WRITE "${fixture}/src/engine/resource/types/material_document.hpp" "#include <memory>\n")
+file(WRITE "${fixture}/src/engine/resource/types/material_description.hpp" "#include <memory>\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
 if(NOT status EQUAL 0)

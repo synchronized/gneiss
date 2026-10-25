@@ -3,7 +3,7 @@
 
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/resource/loaders/material_document_decoder.hpp"
+#include "engine/resource/loaders/material_description_decoder.hpp"
 #include "engine/resource/vfs/native_file_system.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
 #include "uv_async_file.hpp"
@@ -18,7 +18,7 @@
 #include <thread>
 #include <type_traits>
 
-static_assert(!std::is_polymorphic_v<gneiss::engine::material_document>);
+static_assert(!std::is_polymorphic_v<gneiss::engine::material_description>);
 
 namespace {
 void check(bool ok, const char* message) {
@@ -59,19 +59,19 @@ void run(std::size_t document_limit) {
                        std::make_shared<gneiss::engine::uv_path_resolver>(loop));
   virtual_file_system files;
   check(files.mount("asset://", native) == gneiss::engine::result::success, "mount");
-  auto old = std::make_shared<material_document>();
-  auto current = std::make_shared<material_document>();
+  auto old = std::make_shared<material_description>();
+  auto current = std::make_shared<material_description>();
   std::vector<std::byte> document_bytes;
   asset_diagnostic decode_diagnostic;
   check(files.read("asset://material.json", document_bytes) == gneiss::engine::result::success,
         "read old");
-  check(decode_material_document(document_bytes, *old, decode_diagnostic) ==
+  check(decode_material_description(document_bytes, *old, decode_diagnostic) ==
             gneiss::engine::result::success,
         "decode old");
   write(R"({"format":"gneiss.material","version":1,"color":[0,1,0,1]})");
   check(files.read("asset://material.json", document_bytes) == gneiss::engine::result::success,
         "read new");
-  check(decode_material_document(document_bytes, *current, decode_diagnostic) ==
+  check(decode_material_description(document_bytes, *current, decode_diagnostic) ==
             gneiss::engine::result::success,
         "decode new");
   // 直接走生产使用的分步准备：复用已读取字节，不再从 Loader 启动第二次读取。
@@ -103,7 +103,7 @@ void run(std::size_t document_limit) {
     if (dependency_missing) {
       check(status != gneiss::engine::result::success && batch.assets.empty(),
             "failed batch not returned");
-      check(current->source.parameters.color[1] == 1, "failed batch keeps old document");
+      check(current->parameters.color[1] == 1, "failed batch keeps old document");
     } else {
       check(status == gneiss::engine::result::success && batch.assets.size() == 1,
             "prepared material batch");

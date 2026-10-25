@@ -286,8 +286,9 @@ parse_mesh(const std::vector<std::byte>& bytes,
   return gneiss::engine::result::success;
 }
 
-[[nodiscard]] gneiss::engine::result
-parse_pbr_extensions(yyjson_val* root, material_source& out_source, asset_diagnostic& diagnostic) {
+[[nodiscard]] gneiss::engine::result parse_pbr_extensions(yyjson_val* root,
+                                                          material_description& out_source,
+                                                          asset_diagnostic& diagnostic) {
   constexpr std::array names{
       "base_color_texture", "metallic_roughness_texture", "normal_texture",
       "occlusion_texture",  "emissive_texture",
@@ -399,7 +400,7 @@ parse_pbr_extensions(yyjson_val* root, material_source& out_source, asset_diagno
 }
 
 [[nodiscard]] gneiss::engine::result parse_material(const std::vector<std::byte>& bytes,
-                                                    material_source& out_source,
+                                                    material_description& out_source,
                                                     asset_diagnostic& diagnostic) {
   auto document = parse_document(bytes, diagnostic);
   if (!document) {
@@ -609,7 +610,7 @@ gneiss::engine::result decode_non_texture(const asset_preparation_source& source
     }
     asset.bytes = mesh.data_bytes();
   } else if (source.type == asset_type::material) {
-    material_source material;
+    material_description material;
     result = parse_material(bytes, material, diagnostic);
     if (result != gneiss::engine::result::success) {
       return result;

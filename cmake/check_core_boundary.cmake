@@ -57,7 +57,7 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "Runtime 不得反向依赖宿主：${source}")
   endif()
 
-  if(source MATCHES "/src/engine/resource/types/(material_source|material_document|mesh_document)[.]hpp$" AND
+  if(source MATCHES "/src/engine/resource/types/(material_description|material_source|material_document|mesh_document)[.]hpp$" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"]engine/(platform/|resource/(loaders/|cache/|backend/))")
     message(FATAL_ERROR "CPU 资源类型不得依赖加载器、缓存或平台适配：${source}")
   endif()

@@ -5,8 +5,9 @@
 
 ## 状态
 
-已完成初步源码盘点；以下注册接口与迁移方案为提议，尚未实现。
-本阶段仅整理计划，不改变资源格式、加载和所有权。
+已完成初步源码盘点和材质描述命名收敛；反射编解码注册尚未实现。
+材质加载使用 material_description，删除单字段文档包装，不改变资源格式和所有权。
+本次命名迁移已通过 Windows Clang Debug 全部启用目标编译、格式及边界检查；未执行测试或 CI。
 
 ## 目标与非目标
 
@@ -19,8 +20,7 @@
 
 | 类型 | 当前数据及职责 | 整理方向 |
 | --- | --- | --- |
-| material_source | 材质参数、五个纹理 URI，纯 CPU 描述 | 首个资源类型身份及编解码注册试点 |
-| material_document | 仅包装 material_source | 核对所有引用、缓存键和 Loader 后评估合并，不直接重命名删除 |
+| material_description | 材质参数、五个纹理 URI，纯 CPU 描述 | 已合并旧 source/document；后续作为首个编解码注册试点 |
 | material_parameters | 参数、颜色数组、枚举和采样数组 | 嵌套值类型；现有 value 尚不能完整表达 |
 | action_map / action_map_asset | 输入映射及共享资源包装 | 区分描述与输入运行状态，审查包装必要性 |
 | scene_description | 对象、Prefab 实例列表、UUID、源版本和 author_json | 注册现有专用读写，保留格式及未知字段能力 |
@@ -60,7 +60,7 @@ Gneiss 先采用固定的可选序列化能力，不移植通用 capability、�
 ## 实施顺序
 
 1. 完整核对各类读写、缓存键、引用入口及文件版本，确认权威 CPU 数据类型。
-2. 从 material_source 开始，明确 material_document 包装是否删除；保留 URI 与运行期依赖分离。
+2. 已完成材质类型统一为 material_description，删除 material_document 包装；URI 与运行期依赖保持分离。
 3. 添加最小编解码注册接口，复用现有材质解析，补齐明确格式的保存实现。
 4. 验证材质读写闭环后接入 Loader，清除相同类型重复的 codec 登记。
 5. 迁移 ActionMap、Scene、Prefab；Mesh/Texture 保留专用 codec 和准备流程。

@@ -119,3 +119,17 @@ Runtime 的 `scene` 域消息可携带内部 `budget` 对象。容量字段为�
 `cleanup_pending` 同样是可选布尔字段，缺省 false，不能与 `cleanup_complete` 同时为 true。
 Runtime 的清理补报为事件，不重复发送请求响应；Editor 仅更新同一取消请求的预算。
 生命周期依据见 [ADR-058](../decisions/ADR-058-scene-cancellation-cleanup.md)。
+
+## 资源描述与运行期材质
+
+`material_description` 是唯一的 CPU 材质描述，包含 `material_parameters parameters` 和
+五槽纹理 URI；解析结果直接使用此类型，不再增加单字段文档包装。
+现有材质格式及各版本默认值不变，见 [Render 资产格式](render-asset-formats.md)。
+`material_resource` 使用纹理 RID，属于渲染运行期数据；后端 `material_mirror` 持有 Granit 对象。
+描述不包含 RID、GPU 对象或编辑会话状态，目前尚未登记反射编解码能力。
+
+资源领域命名按职责区分：`*_description` 表示可持久化的描述，`*_parameters`/`*_settings`
+表示参数，`*_data` 表示实际数据，`*_resource` 表示服务使用的运行期资源；
+`*_document` 留给编辑器文档，`prepared_*` 与 `*_mirror` 表示准备数据及后端镜像。
+此规则不要求数学值、网格数组等所有可序列化类型都使用 description 后缀，
+也不将任务调度等其他领域的 description 解释为可持久化资源。

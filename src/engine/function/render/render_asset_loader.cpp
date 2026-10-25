@@ -611,7 +611,7 @@ render_asset_loader::acquire_material(std::string_view uri, render_asset_ref& ou
           fail(out_diagnostic, result, "", "无法通过 VFS 读取 Material");
           return result;
         }
-        gneiss::engine::material_source source;
+        gneiss::engine::material_description source;
         result = parse_material(bytes, source, out_diagnostic);
         if (result != gneiss::engine::result::success) {
           return result;
