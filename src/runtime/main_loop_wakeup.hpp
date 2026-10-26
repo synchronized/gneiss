@@ -13,11 +13,11 @@
 #include <cstdint>
 #include <mutex>
 
-namespace gneiss::engine {
+namespace gneiss::runtime {
 
 /** 原生宿主的有限等待；代次在处理队列前读取，避免检查与入睡之间丢通知。
  * 不在 Web/无线程宿主实例化；超时是请求期限，不是系统调度的实时保证。 */
-class loop_progress final : public progress_notification {
+class main_loop_wakeup final : public gneiss::engine::progress_notification {
 public:
   [[nodiscard]] std::uint64_t snapshot() const noexcept {
     return generation_.load(std::memory_order_acquire);
@@ -47,4 +47,4 @@ private:
   std::condition_variable ready_;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss::runtime

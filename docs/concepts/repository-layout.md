@@ -21,6 +21,8 @@
 没有兼容转发头。渲染 Loader 与上传保留在 `function/render`，Prefab 实例化和编辑保留在
 `function/scene`。资源代码已按 `types/`、`loaders/`、`vfs/` 和 `cache/` 分类。
 Application 组装位于 `src/runtime/`，加载流程位于其 `loading/`，配置位于 `configuration/`。
+主循环唤醒实现位于 `src/runtime/main_loop_wakeup.hpp`，属于 `gneiss::runtime`；
+任务和渲染仅依赖 Core 的 `progress_notification` 接口，不依赖 Runtime 的等待实现。
 游戏上下文归 `runtime/game/`，依赖 Application 的 C 适配归 `runtime/api/`。
 Engine 源码不得反向包含 Runtime；当前仍一起编入 `gneiss_engine`，没有新增公共库目标。
 目标与剩余批次见[模块布局计划](../plans/PLAN-051-module-layout.md)。

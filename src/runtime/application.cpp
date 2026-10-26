@@ -20,7 +20,7 @@
 #include <optional>
 #include <thread>
 #ifdef GNEISS_NATIVE_LOOP_WAIT
-#include "engine/core/loop_progress.hpp"
+#include "runtime/main_loop_wakeup.hpp"
 #endif
 
 #include "engine/resource/vfs/asset_uri.hpp"
@@ -316,7 +316,7 @@ gneiss::engine::result application::initialize() noexcept {
     }
     try {
 #ifdef GNEISS_NATIVE_LOOP_WAIT
-      storage_->loop_notification_ = std::make_shared<gneiss::engine::loop_progress>();
+      storage_->loop_notification_ = std::make_shared<gneiss::runtime::main_loop_wakeup>();
 #endif
     } catch (const std::bad_alloc&) {
       storage_->granit_platform_.reset();
@@ -751,7 +751,7 @@ gneiss::engine::result application::run(std::uint64_t max_frame_count) noexcept 
     const gneiss::engine::loop_frame frame_trace(trace.get(), storage_->frame_index_, trace_origin);
 #ifdef GNEISS_NATIVE_LOOP_WAIT
     auto* progress =
-        static_cast<gneiss::engine::loop_progress*>(storage_->loop_notification_.get());
+        static_cast<gneiss::runtime::main_loop_wakeup*>(storage_->loop_notification_.get());
     const auto observed = progress != nullptr ? progress->snapshot() : 0U;
 #endif
     bool should_close = false;

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/loop_progress.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "runtime/main_loop_wakeup.hpp"
 
 #include <barrier>
 #include <memory>
@@ -12,7 +12,7 @@
 
 using namespace std::chrono_literals;
 int main() try {
-  auto signal = std::make_shared<gneiss::engine::loop_progress>();
+  auto signal = std::make_shared<gneiss::runtime::main_loop_wakeup>();
   const auto initial = signal->snapshot();
   if (signal->wait(initial, 1ms)) {
     return 1;
@@ -84,7 +84,7 @@ int main() try {
   }
   task_scheduler workers({.workers = 1U});
   const auto worker_scope = workers.make_scope();
-  auto worker_signal = std::make_shared<gneiss::engine::loop_progress>();
+  auto worker_signal = std::make_shared<gneiss::runtime::main_loop_wakeup>();
   task_handle worker_task;
   if (workers.submit(
           {.scope = worker_scope, .notification = worker_signal},

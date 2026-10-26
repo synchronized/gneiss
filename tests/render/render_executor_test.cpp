@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/loop_progress.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_executor.hpp"
+#include "runtime/main_loop_wakeup.hpp"
 
 #include <atomic>
 #include <condition_variable>
@@ -15,7 +15,7 @@ namespace {
 bool resumable_command_allows_frames(gneiss::engine::result terminal) {
   using namespace gneiss::engine;
   std::atomic_bool frame_executed{};
-  auto started = std::make_shared<gneiss::engine::loop_progress>();
+  auto started = std::make_shared<gneiss::runtime::main_loop_wakeup>();
   auto lifetime = std::make_shared<int>(7);
   std::weak_ptr<int> retained = lifetime;
   threaded_render_executor executor;
@@ -330,7 +330,7 @@ int main() {
       required_sequence == 0U) {
     return 21;
   }
-  auto signal = std::make_shared<gneiss::engine::loop_progress>();
+  auto signal = std::make_shared<gneiss::runtime::main_loop_wakeup>();
   required_executor.set_completion_notification(signal);
   const auto observed = signal->snapshot();
   std::uint64_t notified_sequence{};

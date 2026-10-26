@@ -45,6 +45,7 @@ target_sources(
     runtime/loading/scene_domain.hpp
     runtime/application.cpp
     runtime/application.hpp
+    runtime/main_loop_wakeup.hpp
     runtime/configuration/application_configuration.hpp
     engine/resource/vfs/asset_uri.cpp
     engine/resource/vfs/asset_uri.hpp
