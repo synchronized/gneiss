@@ -43,6 +43,16 @@ struct operation : std::enable_shared_from_this<operation> {
   }
   void submitted(int code) noexcept {
     if (code < 0) {
+      if (step == stage::close) {
+        // 仅异步关闭提交失败时，在 I/O 线程释放已打开描述符；不向调用方提供同步接口。
+        uv_fs_req_cleanup(&request);
+        uv_fs_t cleanup{};
+        (void)uv_fs_close(nullptr, &cleanup, descriptor, nullptr);
+        uv_fs_req_cleanup(&cleanup);
+        descriptor = -1;
+        finish(status.failed() ? status : from_uv_status(code));
+        return;
+      }
       request.result = code;
       advance();
     }
