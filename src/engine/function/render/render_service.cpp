@@ -30,7 +30,6 @@
 #include <vector>
 
 #include "engine/core/log/log_dispatcher.hpp"
-#include "engine/resource/loaders/texture_container.hpp"
 
 #include <granit/core/version.h>
 #include <granit/renderer/native_surface.hpp>

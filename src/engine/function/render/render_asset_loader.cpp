@@ -10,7 +10,6 @@
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/resource/loaders/asset_parsing.hpp"
 #include "engine/resource/loaders/mesh_binary.hpp"
-#include "engine/resource/loaders/texture_container.hpp"
 #include "engine/resource/asset_uri.hpp"
 
 #include <algorithm>

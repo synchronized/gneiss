@@ -187,8 +187,9 @@ void mesh_data_lifetime() {
   auto prepare = [&](const virtual_file_system& vfs) {
     prepared_batch batch;
     asset_diagnostic diagnostic;
-    check(prepare_assets(vfs, requests, batch, diagnostic, {}, 128U) ==
-          gneiss::engine::result::success);
+    asset_manager owner(gneiss::test_support::test_files(vfs));
+    check(gneiss::test_support::prepare_render_for_test(owner, vfs, requests, batch, diagnostic,
+                                                        {}) == gneiss::engine::result::success);
     return batch;
   };
   auto first = prepare(files);

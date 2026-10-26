@@ -5,7 +5,6 @@
 #include "engine/core/result.hpp"
 
 #include "engine/resource/loaders/mesh_tangent.hpp"
-#include "engine/resource/loaders/texture_container.hpp"
 
 #include <algorithm>
 #include <atomic>

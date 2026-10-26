@@ -21,7 +21,6 @@
 #include <string_view>
 
 namespace gneiss::engine {
-class virtual_file_system;
 struct material_description;
 }
 
@@ -33,15 +32,6 @@ struct asset_diagnostic final {
   std::string path;
   std::string message;
 };
-
-/** 纯 CPU 准备：不访问缓存、RID 表或 GPU；调用方拥有只读 VFS 快照及输出。
- * 有界读取需要后端支持；读取结果按格式校验，不提供来源版本一致性保证。 */
-[[nodiscard]] gneiss::engine::result
-prepare_texture(const gneiss::engine::virtual_file_system& file_system, std::string_view uri,
-                gneiss::engine::prepared_texture_data& output, asset_diagnostic& diagnostic,
-                std::size_t input_limit = std::numeric_limits<std::size_t>::max(),
-                std::size_t output_limit = 256U * 1024U * 1024U,
-                texture_prepare_profile profile = {}) noexcept;
 
 enum class asset_type : std::uint32_t { invalid = 0U, mesh = 1U, material = 2U, texture = 3U };
 
@@ -91,41 +81,4 @@ struct prepared_batch {
   /** 整文件快照持有的输入字节；区间读取没有源副本，不计入此值。 */
   std::size_t input_bytes{};
 };
-/** 资产层的分步 CPU 准备；同一实例须串行推进。全部请求完成解析后输出，不重新读取来源。
- * 材质必须在 materials 中提供已解码描述，否则返回 unsupported，不读取材质文件。
- * 每步限制区间读取/摘要字节，解析仍是单项同步调用；旧整文件后端保留同步兼容行为。 */
-class asset_preparation final {
-public:
-  struct limits {
-    std::size_t material_bytes{};
-    std::size_t maximum_assets{};
-    std::size_t maximum_bytes{};
-    bool deferred_reads{true};
-    /** false 仅解析请求本身；依赖仍返回 URI，由调用方独立调度。 */
-    bool include_dependencies{true};
-  };
-  asset_preparation(const virtual_file_system& files,
-                    std::span<const asset_preparation_source> requested, limits budget,
-                    texture_prepare_profile profile, material_descriptions materials = {});
-  ~asset_preparation();
-  [[nodiscard]] gneiss::engine::result advance(std::size_t byte_budget,
-                                               const std::function<bool()>& cancelled,
-                                               prepared_batch& output, asset_diagnostic& diagnostic,
-                                               bool& complete,
-                                               std::chrono::milliseconds wait_budget = {}) noexcept;
-
-private:
-  struct state;
-  std::unique_ptr<state> state_;
-};
-/** material_bytes 由调用方指定单个材质发布所需的字节估算；含材质时不得为零。
- * 该值与依赖 URI 共同计入 maximum_bytes，溢出或预算不足拒绝整批。 */
-[[nodiscard]] gneiss::engine::result
-prepare_assets(const gneiss::engine::virtual_file_system& files,
-               std::span<const asset_preparation_source> requested, prepared_batch& output,
-               asset_diagnostic& diagnostic, const std::function<bool()>& cancelled,
-               std::size_t material_bytes, std::size_t maximum_assets = 256U,
-               std::size_t maximum_bytes = 256U * 1024U * 1024U,
-               texture_prepare_profile profile = {}, material_descriptions materials = {}) noexcept;
-
 } // namespace gneiss::engine
