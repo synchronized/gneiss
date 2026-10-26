@@ -3010,6 +3010,20 @@ int run_editor(int argc, char** argv) {
   state.editing.prefabs().dismiss();
   state.camera.shutdown();
   const auto closed = state.editing.close();
+  auto shutdown_result = application->request_shutdown();
+  if (shutdown_result.ok()) {
+    do {
+      if (state.task_scheduler.mode() == gneiss::engine::execution_mode::cooperative)
+        (void)state.task_scheduler.run_ready();
+      shutdown_result = application->advance_shutdown();
+      if (shutdown_result == gneiss::engine::result::not_ready)
+        std::this_thread::yield();
+    } while (shutdown_result == gneiss::engine::result::not_ready);
+  }
+  if (shutdown_result.failed()) {
+    report_startup_failure("Editor 异步关闭", shutdown_result);
+    return 4;
+  }
   if (closed.failed()) {
     report_startup_failure("Editor 文档关闭", closed);
     return 4;

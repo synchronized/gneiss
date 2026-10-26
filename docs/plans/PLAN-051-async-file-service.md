@@ -23,7 +23,8 @@ Application::reload_render_assets 和 render_asset_loader::reload_assets 已删�
 资产管理器已支持请求停止和非阻塞收尾；运行中解码、迟到 I/O 及停止后拒绝加载的小型测试通过。
 Application 已新增分阶段关闭入口，串联 Scene、资产管理器和文件服务；
 空闲、场景读取中、资源读取中的线程池/协作模式小型关闭测试通过。
-生产宿主调用方仍待切换，Render 最终销毁和析构仍有同步兜底。
+Runtime/Editor 正常事件循环退出已接入分阶段关闭；Editor 先释放文档/UI 借用，再收尾文件与 CPU 任务。
+启动失败路径、Render 最终销毁和析构仍有同步兜底。
 Scene 实例/重载、Render 等同步调用方迁移、宿主异步关闭、删除 VFS、浏览器和大文件能力仍待完成。
 不将 Platform 搬迁或桌面后端实现等同于整份计划完成；大场景和 CI 仍留待统一验收。
 架构决策见 [ADR-084](../decisions/ADR-084-async-file-service.md)。

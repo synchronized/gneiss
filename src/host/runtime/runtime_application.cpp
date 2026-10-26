@@ -29,6 +29,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -718,25 +719,31 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
   if (ipc_session) {
     (void)ipc_session->stop();
   }
+  auto shutdown_result = application->request_shutdown();
+  if (shutdown_result.ok()) {
+    do {
+      if (task_scheduler.mode() == gneiss::engine::execution_mode::cooperative)
+        (void)task_scheduler.run_ready();
+      shutdown_result = application->advance_shutdown();
+      if (shutdown_result == gneiss::engine::result::not_ready)
+        std::this_thread::yield();
+    } while (shutdown_result == gneiss::engine::result::not_ready);
+  }
+  if (shutdown_result.failed())
+    log.write("ERROR", "shutdown", shutdown_result, "Runtime 关闭失败");
   if (operation != gneiss::engine::result::success) {
     log.write("ERROR", "run", static_cast<gneiss::engine::result>(operation), "Runtime 主循环失败");
 
-    (void)application->scenes()->unload(scene);
     return 7;
   }
   if (context.ipc_failure != gneiss::engine::result::success) {
     log.write("ERROR", "ipc", context.ipc_failure, "Runtime 因 Editor IPC 会话失败而退出");
 
-    (void)application->scenes()->unload(scene);
     return 11;
   }
 
-  native_result =
-      !scene.is_valid() ? gneiss::engine::result::success : application->scenes()->unload(scene);
-  if (native_result != gneiss::engine::result::success) {
-    log.write("ERROR", "scene_unload", native_result, "启动场景卸载失败");
+  if (shutdown_result.failed())
     return 10;
-  }
   if (context.scene_failed && options.smoke)
     return 4;
   log.write("INFO", "shutdown", gneiss::engine::result::success, "Runtime 已正常退出");

@@ -759,8 +759,10 @@ gneiss::engine::result application::run(std::uint64_t max_frame_count) noexcept 
     }
 
     const auto advanced = advance_resource_io();
-    if (advanced.failed())
+    if (advanced.failed()) {
+      storage_->is_running_ = false;
       return advanced;
+    }
     (void)storage_->input_application_.poll(storage_->input_);
     const auto current_time_ns = now_ns();
     const auto raw_delta = current_time_ns >= storage_->previous_time_ns_
