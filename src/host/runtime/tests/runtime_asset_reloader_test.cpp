@@ -11,46 +11,62 @@ int main() {
   using namespace gneiss::host;
   unsigned calls = 0U;
   gneiss::engine::result next_result = gneiss::engine::result::success;
-  runtime_asset_reloader reloader([&](std::span<const ipc_asset_revision> assets) {
-    ++calls;
-    return assets.empty() ? gneiss::engine::result::invalid_argument : next_result;
-  });
+  runtime_asset_reloader reloader(
+      [&](const ipc_asset_reload_request&) {
+        ++calls;
+        return gneiss::engine::result::success;
+      },
+      [&](gneiss::engine::result& result, auto&, bool& ready) {
+        result = next_result;
+        ready = true;
+        return gneiss::engine::result::success;
+      });
+  auto execute = [&](const auto& request, auto& response) {
+    auto status = reloader.execute(request, response);
+    if (status == gneiss::engine::result::not_ready) {
+      bool ready{};
+      status = reloader.advance(response, ready);
+      if (!ready)
+        return gneiss::engine::result::internal;
+    }
+    return status;
+  };
   ipc_asset_reload_request request{
       .session_id = 3U,
       .revision = 1U,
       .assets = {{.uri = "asset://main.scene", .type = ipc_asset_type::scene}}};
   ipc_asset_reload_result response;
-  if (reloader.execute(request, response) != gneiss::engine::result::success ||
+  if (execute(request, response) != gneiss::engine::result::success ||
       response.status != ipc_asset_apply_status::applied || calls != 1U ||
       reloader.applied_revision() != 1U) {
     return 1;
   }
-  if (reloader.execute(request, response) != gneiss::engine::result::success ||
+  if (execute(request, response) != gneiss::engine::result::success ||
       response.status != ipc_asset_apply_status::stale || calls != 1U) {
     return 2;
   }
   request.revision = 2U;
   next_result = gneiss::engine::result::io;
-  if (reloader.execute(request, response) != gneiss::engine::result::success ||
+  if (execute(request, response) != gneiss::engine::result::success ||
       response.status != ipc_asset_apply_status::failed || calls != 2U ||
       reloader.applied_revision() != 1U) {
     return 3;
   }
   next_result = gneiss::engine::result::unsupported;
-  if (reloader.execute(request, response) != gneiss::engine::result::success ||
+  if (execute(request, response) != gneiss::engine::result::success ||
       response.status != ipc_asset_apply_status::restart_required || calls != 3U ||
       reloader.applied_revision() != 1U) {
     return 4;
   }
   next_result = gneiss::engine::result::success;
   request.session_id = 4U;
-  if (reloader.execute(request, response) != gneiss::engine::result::success ||
+  if (execute(request, response) != gneiss::engine::result::success ||
       response.status != ipc_asset_apply_status::applied || reloader.session_id() != 4U ||
       reloader.applied_revision() != 2U) {
     return 5;
   }
   gneiss::engine::result thread_result = gneiss::engine::result::success;
-  std::thread other([&] { thread_result = reloader.execute(request, response); });
+  std::thread other([&] { thread_result = execute(request, response); });
   other.join();
   if (thread_result != gneiss::engine::result::invalid_state) {
     return 6;
@@ -60,10 +76,6 @@ int main() {
   gneiss::engine::result async_result = gneiss::engine::result::success;
   gneiss::engine::result begin_result = gneiss::engine::result::success;
   runtime_asset_reloader asynchronous(
-      [&](auto) {
-        ++calls;
-        return gneiss::engine::result::success;
-      },
       [&](const auto&) {
         ++accepted;
         return begin_result;
@@ -140,7 +152,7 @@ int main() {
       calls != synchronous_calls || asynchronous.applied_revision() != 2U) {
     return 16;
   }
-  // 未装配或仅装配一个异步回调时，三类渲染资产都不能进入同步 apply。
+  // 缺少任一异步回调时，任何资产都不能开始加载。
   for (unsigned wiring = 0U; wiring < 3U; ++wiring) {
     runtime_asset_reloader::begin_function begin;
     runtime_asset_reloader::poll_function poll;
@@ -156,14 +168,10 @@ int main() {
         return gneiss::engine::result::success;
       };
     }
-    runtime_asset_reloader incomplete(
-        [&](auto) {
-          ++calls;
-          return gneiss::engine::result::success;
-        },
-        begin, poll);
+    runtime_asset_reloader incomplete(begin, poll);
     for (const auto type :
-         {ipc_asset_type::texture, ipc_asset_type::material, ipc_asset_type::static_mesh}) {
+         {ipc_asset_type::texture, ipc_asset_type::material, ipc_asset_type::static_mesh,
+          ipc_asset_type::scene, ipc_asset_type::prefab}) {
       request.assets = {{.uri = "asset://asset.json", .type = type}};
       if (incomplete.execute(request, response) != gneiss::engine::result::success ||
           response.status != ipc_asset_apply_status::failed || calls != synchronous_calls ||

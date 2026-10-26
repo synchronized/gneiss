@@ -128,10 +128,11 @@ public:
   [[nodiscard]] gneiss::engine::render_resource_service& resources() noexcept;
   /** 借用应用级资产管理器；仅所属线程使用，有效期不超过 Application。 */
   [[nodiscard]] gneiss::engine::asset_manager& assets() noexcept;
-  [[nodiscard]] gneiss::engine::result reload_scene(gneiss::scene_instance_id instance,
-                                                    std::string_view uri) noexcept;
-  [[nodiscard]] gneiss::engine::result reload_prefab(gneiss::scene_instance_id instance,
-                                                     std::string_view uri) noexcept;
+  /** 异步重载现有实例的结构；prefab 指定是否更新该实例中的同源 Prefab。 */
+  [[nodiscard]] engine::result request_scene_reload(scene_instance_id instance,
+                                                    std::string_view uri,
+                                                    bool prefab = false) noexcept;
+  [[nodiscard]] engine::result poll_scene_reload(engine::result& result, bool& ready) noexcept;
   [[nodiscard]] gneiss::engine::scene_instances* scenes() noexcept;
   [[nodiscard]] const gneiss::engine::keyboard_state& keyboard_state() const noexcept;
   [[nodiscard]] const gneiss::engine::pointer_state& pointer_state() const noexcept;

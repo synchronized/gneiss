@@ -245,22 +245,32 @@ gneiss::engine::result application::activate_scene(std::uint64_t request,
   }
 }
 
-gneiss::engine::result application::reload_scene(gneiss::scene_instance_id instance,
-                                                 std::string_view uri) noexcept {
-  if (scene_loading()) {
-    return gneiss::engine::result::not_ready;
-  }
-  return scenes() == nullptr ? gneiss::engine::result::invalid_state
-                             : scenes()->reload(instance, uri);
+gneiss::engine::result application::request_scene_reload(scene_instance_id instance,
+                                                         std::string_view uri, bool prefab) noexcept
+    try {
+  if (!is_owner_thread() || !accepts_requests())
+    return engine::result::invalid_state;
+  return storage_->scene_service_.request_reload(instance, uri, prefab);
+} catch (const std::bad_alloc&) {
+  return engine::result::out_of_memory;
+} catch (...) {
+  return engine::result::internal;
 }
 
-gneiss::engine::result application::reload_prefab(gneiss::scene_instance_id instance,
-                                                  std::string_view uri) noexcept {
-  if (scene_loading()) {
-    return gneiss::engine::result::not_ready;
-  }
-  return scenes() == nullptr ? gneiss::engine::result::invalid_state
-                             : scenes()->reload_prefab(instance, uri);
+gneiss::engine::result application::poll_scene_reload(engine::result& result, bool& ready) noexcept
+    try {
+  ready = false;
+  if (!is_owner_thread() || !accepts_requests())
+    return engine::result::invalid_state;
+  const auto status = advance_resource_io();
+  if (status.failed())
+    return status;
+  storage_->scene_service_.advance();
+  return storage_->scene_service_.poll_reload(result, ready);
+} catch (const std::bad_alloc&) {
+  return engine::result::out_of_memory;
+} catch (...) {
+  return engine::result::internal;
 }
 
 gneiss::engine::result application::initialize() noexcept {

@@ -17,16 +17,13 @@ namespace gneiss::host {
 /** Runtime 主线程上的资产重载请求协调器。 */
 class runtime_asset_reloader final {
 public:
-  using apply_function = std::function<gneiss::engine::result(std::span<const ipc_asset_revision>)>;
   using begin_function = std::function<gneiss::engine::result(const ipc_asset_reload_request&)>;
   using poll_function = std::function<gneiss::engine::result(
       gneiss::engine::result&, std::vector<ipc_asset_item_result>&, bool&)>;
 
-  explicit runtime_asset_reloader(apply_function apply, begin_function begin = {},
-                                  poll_function poll = {});
-  /** 渲染资产只经 begin/poll 处理，缺少任一回调时失败，不调用同步 apply。
-   * apply 暂时只处理单个 Scene/Prefab 结构重载，仍待迁移。
-   * 接受异步请求后 execute 返回 not_ready；只有 advance 才生成终态。 */
+  explicit runtime_asset_reloader(begin_function begin, poll_function poll);
+  /** 所有资产只经 begin/poll 处理；接受后 execute 返回 not_ready。
+   * 只有 advance 消费终态后才更新已应用修订。 */
   [[nodiscard]] gneiss::engine::result advance(ipc_asset_reload_result& response,
                                                bool& ready) noexcept;
 
@@ -38,7 +35,6 @@ public:
   [[nodiscard]] std::uint64_t applied_revision() const noexcept { return applied_revision_; }
 
 private:
-  apply_function apply_;
   begin_function begin_;
   poll_function poll_;
   std::optional<ipc_asset_reload_request> pending_;

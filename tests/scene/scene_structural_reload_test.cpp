@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/async_scene_reload.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
@@ -43,6 +44,7 @@ int main() try {
 
   gneiss::runtime::application_configuration config;
   config.asset_root = root_text;
+  gneiss::engine::task_scheduler scheduler({.mode = gneiss::engine::execution_mode::cooperative});
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::scene_instance_id scene = {};
   gneiss::scene_node_id camera_before;
@@ -61,9 +63,12 @@ int main() try {
     return 1;
   }
 
+  if (application->attach_task_executor(scheduler).failed())
+    return 10;
   const auto retired_child = old_child;
   write_scene(scene_path, "{}");
-  if (application->reload_scene(scene, uri) != gneiss::engine::result::success) {
+  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, uri, false) !=
+      gneiss::engine::result::success) {
     return 2;
   }
   gneiss::scene_node_id camera_after;
@@ -90,7 +95,8 @@ int main() try {
   write_scene(
       scene_path,
       R"({"mesh_renderer":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/triangle.material.json"}})");
-  if (application->reload_scene(scene, uri) != gneiss::engine::result::not_found ||
+  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, uri, false) !=
+          gneiss::engine::result::not_found ||
       application->scenes()->find_node(scene, camera_uuid, camera_after) !=
           gneiss::engine::result::success ||
       camera_after != camera_before ||

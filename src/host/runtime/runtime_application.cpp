@@ -27,6 +27,7 @@
 #include <filesystem>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -84,40 +85,6 @@ struct runtime_context final {
 
 [[nodiscard]] std::string path_text(const std::filesystem::path& path) {
   return path.generic_string();
-}
-
-gneiss::engine::result
-apply_asset_revision(gneiss::runtime::application& application, gneiss::scene_instance_id scene,
-                     std::string_view startup_scene,
-                     std::span<const gneiss::host::ipc_asset_revision> assets) noexcept {
-  try {
-    if (assets.empty()) {
-      return gneiss::engine::result::invalid_argument;
-    }
-    if (assets.front().type == gneiss::host::ipc_asset_type::scene) {
-      if (assets.size() != 1U) {
-        return gneiss::engine::result::invalid_argument;
-      }
-      if (assets.front().uri != startup_scene) {
-        return gneiss::engine::result::success;
-      }
-      return application.reload_scene(scene, assets.front().uri);
-    }
-    if (assets.front().type == gneiss::host::ipc_asset_type::prefab) {
-      if (assets.size() != 1U) {
-        return gneiss::engine::result::invalid_argument;
-      }
-      const auto reloaded = application.reload_prefab(scene, assets.front().uri);
-      return reloaded == gneiss::engine::result::not_found ? gneiss::engine::result::success
-                                                           : reloaded;
-    }
-    // 网格、材质和纹理由异步入口处理；此处只保留结构重载适配。
-    return gneiss::engine::result::invalid_argument;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::result::internal;
-  }
 }
 
 [[nodiscard]] bool parse_options(int argc, char** argv, runtime_options& output) {
@@ -574,13 +541,25 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
   context.scene_inspection = &scene_inspection;
   context.inspection_session_id = inspection_serial == 0U ? 1U : inspection_serial;
   context.scene = scene;
+  std::optional<gneiss::host::ipc_asset_revision> structural_reload;
+  bool structural_ignored{};
   gneiss::host::runtime_asset_reloader asset_reloader(
-      [native_application = application.get(), &scene,
-       &active_scene_uri](std::span<const gneiss::host::ipc_asset_revision> assets) {
-        return apply_asset_revision(*native_application, scene, active_scene_uri, assets);
-      },
-      [native_application =
-           application.get()](const gneiss::host::ipc_asset_reload_request& request) {
+      [&, native_application =
+              application.get()](const gneiss::host::ipc_asset_reload_request& request) {
+        const auto& first = request.assets.front();
+        if (first.type == gneiss::host::ipc_asset_type::scene ||
+            first.type == gneiss::host::ipc_asset_type::prefab) {
+          structural_ignored =
+              first.type == gneiss::host::ipc_asset_type::scene && first.uri != active_scene_uri;
+          const auto accepted =
+              structural_ignored
+                  ? gneiss::engine::result::success
+                  : native_application->request_scene_reload(
+                        scene, first.uri, first.type == gneiss::host::ipc_asset_type::prefab);
+          if (accepted.ok())
+            structural_reload = first;
+          return accepted;
+        }
         std::vector<gneiss::engine::render_asset_reload> assets;
         for (const auto& asset : request.assets) {
           using type = gneiss::engine::render_asset_type;
@@ -593,9 +572,23 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
         return native_application->request_assets(assets, request.session_id, request.revision,
                                                   accepted, true);
       },
-      [native_application = application.get(),
-       &log](gneiss::engine::result& result,
-             std::vector<gneiss::host::ipc_asset_item_result>& items, bool& ready) {
+      [&, native_application = application.get()](
+          gneiss::engine::result& result, std::vector<gneiss::host::ipc_asset_item_result>& items,
+          bool& ready) {
+        if (structural_reload) {
+          auto operation = gneiss::engine::result::success;
+          if (structural_ignored) {
+            result = gneiss::engine::result::success;
+            ready = true;
+          } else {
+            operation = native_application->poll_scene_reload(result, ready);
+          }
+          if (ready) {
+            items.push_back({*structural_reload, result, result.ok()});
+            structural_reload.reset();
+          }
+          return operation;
+        }
         gneiss::engine::texture_load_completion completion;
         const auto operation = native_application->poll_assets(completion, ready);
         if (ready) {

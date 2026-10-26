@@ -8,6 +8,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/texture_load_service.hpp"
+#include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/loading/scene_domain.hpp"
 #include "runtime/loading/scene_load_types.hpp"
@@ -49,7 +50,7 @@ public:
 
   [[nodiscard]] bool can_start_load() const noexcept;
   [[nodiscard]] bool can_activate() const noexcept {
-    return !stopping_ && !retired_ && textures_ && !textures_->busy();
+    return !stopping_ && !reload_ && !retired_ && textures_ && !textures_->busy();
   }
   [[nodiscard]] bool loading() const noexcept;
   [[nodiscard]] scene_retirement_statistics retirement() const noexcept;
@@ -73,7 +74,27 @@ public:
   [[nodiscard]] gneiss::engine::result
   poll_assets(gneiss::engine::texture_load_completion& completion, bool& ready);
 
+  /** 异步读取结构与依赖，所属线程原位修改实例；不切换 World。
+   * 重载期间拒绝其他加载；poll_reload 消费终态后释放请求槽位。 */
+  [[nodiscard]] engine::result request_reload(scene_instance_id instance, std::string_view uri,
+                                              bool prefab);
+  [[nodiscard]] engine::result poll_reload(engine::result& result, bool& ready);
+
 private:
+  struct reload_task {
+    scene_instance_id instance;
+    std::string uri;
+    bool prefab{};
+    std::unique_ptr<engine::scene_description_request> descriptions;
+    engine::scene_description_inputs inputs;
+    engine::prepared_scene_description prepared;
+    std::vector<engine::render_asset_ref> retained;
+    std::size_t cursor{};
+    bool asset_pending{};
+    engine::result result{engine::result::not_ready};
+  };
+  void advance_reload();
+  std::unique_ptr<reload_task> reload_;
   void advance_visuals();
   void advance_stop();
   bool stopping_{};

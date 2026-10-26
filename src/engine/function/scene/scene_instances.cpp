@@ -340,11 +340,23 @@ gneiss::engine::result scene_instance::reload(gneiss::engine::scene_description 
       target.node = objects_[previous->second].node;
     }
     if (source.mesh_renderer) {
-      gneiss::engine::asset_diagnostic diagnostic;
-      result = loader_.acquire_mesh(source.mesh_renderer->mesh_uri, target.mesh, diagnostic);
+      result = [&] {
+        render_asset_ref cached;
+        const auto status = loader_.acquire_cached(
+            {source.mesh_renderer->mesh_uri, render_asset_type::mesh}, cached);
+        if (status.ok())
+          target.mesh = render_asset_loader::mesh_ref(cached);
+        return status;
+      }();
       if (result == gneiss::engine::result::success) {
-        result = loader_.acquire_material(source.mesh_renderer->material_uri, target.material,
-                                          diagnostic);
+        result = [&] {
+          render_asset_ref cached;
+          const auto status = loader_.acquire_cached(
+              {source.mesh_renderer->material_uri, render_asset_type::material}, cached);
+          if (status.ok())
+            target.material = render_asset_loader::material_ref(cached);
+          return status;
+        }();
       }
       if (result != gneiss::engine::result::success) {
         return result;
@@ -523,7 +535,8 @@ gneiss::engine::result scene_instance::reload(gneiss::engine::scene_description 
   return gneiss::engine::result::success;
 }
 
-gneiss::engine::result scene_instance::reload_prefab(std::string_view uri) {
+gneiss::engine::result scene_instance::reload_prefab(std::string_view uri,
+                                                     prefab_asset_ref candidate) {
   std::vector<std::size_t> affected;
   affected.reserve(description_.prefab_instances.size());
   for (std::size_t index = 0U; index < description_.prefab_instances.size(); ++index) {
@@ -535,11 +548,7 @@ gneiss::engine::result scene_instance::reload_prefab(std::string_view uri) {
     return gneiss::engine::result::not_found;
   }
 
-  gneiss::engine::prefab_asset_ref candidate;
-  auto result = loader_.assets().load_sync(uri, candidate, true);
-  if (result != gneiss::engine::result::success) {
-    return result;
-  }
+  auto result = gneiss::engine::result::success;
   for (const auto index : affected) {
     result = prefab_instances_[index]->validate_reload(
         candidate, registry_, description_.prefab_instances[index].overrides);
@@ -1719,36 +1728,29 @@ gneiss::engine::result scene_instances::load(std::string_view uri,
   }
 }
 
-gneiss::engine::result scene_instances::reload(scene_instance_id instance,
-                                               std::string_view uri) noexcept {
-  try {
-    auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
-    if (value == nullptr || *value == nullptr) {
-      return gneiss::engine::result::invalid_handle;
-    }
-    asset_ref<const scene_description> candidate;
-    const auto result = loader_.assets().load_sync(uri, candidate, true);
-    return result == gneiss::engine::result::success ? (*value)->reload(*candidate) : result;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::result::internal;
-  }
+gneiss::engine::result scene_instances::reload_loaded(scene_instance_id instance,
+                                                      scene_description description) noexcept try {
+  auto* value = instances_.get(instance, resource_type::scene_instance);
+  return value && *value ? (*value)->reload(std::move(description)) : result::invalid_handle;
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
 }
 
-gneiss::engine::result scene_instances::reload_prefab(scene_instance_id instance,
-                                                      std::string_view uri) noexcept {
-  try {
-    auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
-    if (value == nullptr || *value == nullptr) {
-      return gneiss::engine::result::invalid_handle;
-    }
-    return (*value)->reload_prefab(uri);
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::result::internal;
-  }
+gneiss::engine::result scene_instances::reload_prefab_loaded(scene_instance_id instance,
+                                                             std::string_view uri,
+                                                             prefab_asset_ref candidate) noexcept
+    try {
+  if (!candidate)
+    return result::invalid_argument;
+  auto* value = instances_.get(instance, resource_type::scene_instance);
+  return value && *value ? (*value)->reload_prefab(uri, std::move(candidate))
+                         : result::invalid_handle;
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
 }
 
 gneiss::engine::result scene_instances::create_empty(std::string_view scene_uuid,

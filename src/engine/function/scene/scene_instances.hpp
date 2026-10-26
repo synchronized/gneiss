@@ -74,10 +74,11 @@ public:
   }
   [[nodiscard]] gneiss::engine::result load(std::string_view uri,
                                             scene_instance_id* out_instance) noexcept;
-  [[nodiscard]] gneiss::engine::result reload(scene_instance_id instance,
-                                              std::string_view uri) noexcept;
-  [[nodiscard]] gneiss::engine::result reload_prefab(scene_instance_id instance,
-                                                     std::string_view uri) noexcept;
+  /** 应用已经加载的描述；调用方先准备渲染依赖，保持现有节点身份。 */
+  [[nodiscard]] result reload_loaded(scene_instance_id instance,
+                                     scene_description description) noexcept;
+  [[nodiscard]] result reload_prefab_loaded(scene_instance_id instance, std::string_view uri,
+                                            prefab_asset_ref candidate) noexcept;
   [[nodiscard]] gneiss::engine::result create_empty(std::string_view scene_uuid,
                                                     scene_instance_id* out_instance) noexcept;
   [[nodiscard]] gneiss::engine::result unload(scene_instance_id instance) noexcept;

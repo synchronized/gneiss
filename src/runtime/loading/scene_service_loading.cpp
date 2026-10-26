@@ -52,6 +52,7 @@ void scene_service::request_stop() {
   if (stopping_)
     return;
   stopping_ = true;
+  reload_.reset();
   visual_queue_.clear();
   visual_completion_.reset();
   if (textures_)

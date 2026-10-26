@@ -807,7 +807,7 @@ gneiss_target_output_directories(gneiss_scene_instance_test)
 add_test(NAME gneiss.scene_instance COMMAND gneiss_scene_instance_test)
 
 add_executable(gneiss_scene_structural_reload_test scene/scene_structural_reload_test.cpp)
-target_link_libraries(gneiss_scene_structural_reload_test PRIVATE gneiss::engine)
+target_link_libraries(gneiss_scene_structural_reload_test PRIVATE gneiss::engine gneiss_tasks)
 target_include_directories(gneiss_scene_structural_reload_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(
   gneiss_scene_structural_reload_test
@@ -901,7 +901,7 @@ gneiss_target_output_directories(gneiss_scene_prefab_instance_test)
 add_test(NAME gneiss.scene_prefab_instance COMMAND gneiss_scene_prefab_instance_test)
 
 add_executable(gneiss_prefab_structural_reload_test scene/prefab_structural_reload_test.cpp)
-target_link_libraries(gneiss_prefab_structural_reload_test PRIVATE gneiss::engine)
+target_link_libraries(gneiss_prefab_structural_reload_test PRIVATE gneiss::engine gneiss_tasks)
 target_include_directories(gneiss_prefab_structural_reload_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(
   gneiss_prefab_structural_reload_test

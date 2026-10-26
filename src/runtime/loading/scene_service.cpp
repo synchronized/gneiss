@@ -72,6 +72,7 @@ void scene_service::advance() {
   }
   advance_visuals();
   advance_load();
+  advance_reload();
 }
 
 void scene_service::advance_visuals() {
@@ -125,6 +126,7 @@ void scene_service::shutdown() noexcept {
   visual_queue_.clear();
   visual_completion_.reset();
   visual_pending_ = false;
+  reload_.reset();
   stop_load();
   textures_.reset();
   retired_.reset();
@@ -137,7 +139,8 @@ void scene_service::shutdown() noexcept {
 }
 
 bool scene_service::can_start_load() const noexcept {
-  return !stopping_ && !retired_ && textures_ && (!textures_->busy() || visual_pending_);
+  return !stopping_ && !reload_ && !retired_ && textures_ &&
+         (!textures_->busy() || visual_pending_);
 }
 bool scene_service::loading() const noexcept {
   return pending_ != nullptr || completed_.has_value();
@@ -162,7 +165,7 @@ scene_service::request_assets(std::span<const gneiss::engine::render_asset_reloa
   request = 0U;
   if (stopping_)
     return gneiss::engine::result::invalid_state;
-  if (!textures_ || loading() || visual_loading() || textures_->busy()) {
+  if (!textures_ || reload_ || loading() || visual_loading() || textures_->busy()) {
     return gneiss::engine::result::not_ready;
   }
   return textures_->submit_assets(sources, session, revision, request, reload);
@@ -171,12 +174,101 @@ scene_service::request_assets(std::span<const gneiss::engine::render_asset_reloa
 gneiss::engine::result
 scene_service::poll_assets(gneiss::engine::texture_load_completion& completion, bool& ready) {
   ready = false;
-  if (!textures_ || visual_loading()) {
+  if (!textures_ || reload_ || visual_loading()) {
     return gneiss::engine::result::not_ready;
   }
   textures_->advance();
   ready = textures_->take(completion);
   return gneiss::engine::result::success;
+}
+
+engine::result scene_service::request_reload(scene_instance_id instance, std::string_view uri,
+                                             bool prefab) {
+  check_owner();
+  if (stopping_ || !active_ || !textures_ || !asset_owner_)
+    return engine::result::invalid_state;
+  if (reload_ || loading() || visual_loading() || textures_->busy() || retired_)
+    return engine::result::not_ready;
+  std::uint64_t count{};
+  const auto valid = scenes()->get_node_count(instance, &count);
+  if (valid.failed())
+    return valid;
+  auto next = std::make_unique<reload_task>();
+  next->instance = instance;
+  next->uri = uri;
+  next->prefab = prefab;
+  next->descriptions =
+      std::make_unique<engine::scene_description_request>(*asset_owner_, next->uri, prefab);
+  reload_ = std::move(next);
+  return engine::result::success;
+}
+
+void scene_service::advance_reload() try {
+  if (!reload_ || reload_->result != engine::result::not_ready)
+    return;
+  auto& value = *reload_;
+  if (value.descriptions) {
+    engine::scene_diagnostic diagnostic;
+    auto status = value.descriptions->advance(value.inputs, diagnostic);
+    if (status == engine::result::not_ready)
+      return;
+    if (status.ok())
+      status =
+          engine::prepare_loaded_scene(value.inputs, value.prefab ? value.uri : std::string_view{},
+                                       value.prepared, diagnostic, {});
+    value.descriptions.reset();
+    if (status.failed()) {
+      value.result = status;
+      return;
+    }
+  }
+  if (value.asset_pending) {
+    textures_->advance();
+    engine::texture_load_completion completion;
+    if (!textures_->take(completion))
+      return;
+    value.asset_pending = false;
+    if (completion.result.failed()) {
+      value.result = completion.result;
+      return;
+    }
+    for (auto& asset : completion.assets)
+      value.retained.push_back(std::move(asset));
+    ++value.cursor;
+  }
+  if (value.cursor < value.prepared.assets.size()) {
+    std::uint64_t request{};
+    const auto status = textures_->submit_assets(
+        std::span(value.prepared.assets).subspan(value.cursor, 1), 1, 1, request, false);
+    if (status.ok())
+      value.asset_pending = true;
+    else if (status != engine::result::not_ready)
+      value.result = status;
+    return;
+  }
+  value.result =
+      value.prefab ? scenes()->reload_prefab_loaded(value.instance, value.uri,
+                                                    value.inputs.prefabs.at(value.uri))
+                   : scenes()->reload_loaded(value.instance, std::move(value.prepared.description));
+} catch (const std::bad_alloc&) {
+  if (reload_)
+    reload_->result = engine::result::out_of_memory;
+} catch (...) {
+  if (reload_)
+    reload_->result = engine::result::internal;
+}
+
+engine::result scene_service::poll_reload(engine::result& result, bool& ready) {
+  check_owner();
+  ready = false;
+  if (!reload_)
+    return engine::result::invalid_state;
+  if (reload_->result == engine::result::not_ready)
+    return engine::result::success;
+  result = reload_->result;
+  reload_.reset();
+  ready = true;
+  return engine::result::success;
 }
 
 } // namespace gneiss::runtime

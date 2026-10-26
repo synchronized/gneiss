@@ -117,11 +117,23 @@ gneiss::engine::result prefab_runtime_instance::validate_reload(
     if (!source.mesh_renderer) {
       continue;
     }
-    gneiss::engine::asset_diagnostic diagnostic;
-    result = loader_.acquire_mesh(source.mesh_renderer->mesh_uri, meshes[index], diagnostic);
+    result = [&] {
+      render_asset_ref cached;
+      const auto status =
+          loader_.acquire_cached({source.mesh_renderer->mesh_uri, render_asset_type::mesh}, cached);
+      if (status.ok())
+        meshes[index] = render_asset_loader::mesh_ref(cached);
+      return status;
+    }();
     if (result == gneiss::engine::result::success) {
-      result = loader_.acquire_material(source.mesh_renderer->material_uri, materials[index],
-                                        diagnostic);
+      result = [&] {
+        render_asset_ref cached;
+        const auto status = loader_.acquire_cached(
+            {source.mesh_renderer->material_uri, render_asset_type::material}, cached);
+        if (status.ok())
+          materials[index] = render_asset_loader::material_ref(cached);
+        return status;
+      }();
     }
     if (result != gneiss::engine::result::success) {
       return result;
@@ -178,11 +190,23 @@ gneiss::engine::result prefab_runtime_instance::reload(
       target.node = nodes_[previous->second].node;
     }
     if (source.mesh_renderer) {
-      gneiss::engine::asset_diagnostic diagnostic;
-      result = loader_.acquire_mesh(source.mesh_renderer->mesh_uri, target.mesh, diagnostic);
+      result = [&] {
+        render_asset_ref cached;
+        const auto status = loader_.acquire_cached(
+            {source.mesh_renderer->mesh_uri, render_asset_type::mesh}, cached);
+        if (status.ok())
+          target.mesh = render_asset_loader::mesh_ref(cached);
+        return status;
+      }();
       if (result == gneiss::engine::result::success) {
-        result = loader_.acquire_material(source.mesh_renderer->material_uri, target.material,
-                                          diagnostic);
+        result = [&] {
+          render_asset_ref cached;
+          const auto status = loader_.acquire_cached(
+              {source.mesh_renderer->material_uri, render_asset_type::material}, cached);
+          if (status.ok())
+            target.material = render_asset_loader::material_ref(cached);
+          return status;
+        }();
       }
       if (result != gneiss::engine::result::success) {
         return result;

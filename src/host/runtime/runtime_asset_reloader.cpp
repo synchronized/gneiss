@@ -10,10 +10,8 @@
 
 namespace gneiss::host {
 
-runtime_asset_reloader::runtime_asset_reloader(apply_function apply, begin_function begin,
-                                               poll_function poll)
-    : apply_(std::move(apply)), begin_(std::move(begin)), poll_(std::move(poll)),
-      owner_thread_(std::this_thread::get_id()) {}
+runtime_asset_reloader::runtime_asset_reloader(begin_function begin, poll_function poll)
+    : begin_(std::move(begin)), poll_(std::move(poll)), owner_thread_(std::this_thread::get_id()) {}
 
 gneiss::engine::result runtime_asset_reloader::execute(const ipc_asset_reload_request& request,
                                                        ipc_asset_reload_result& response) noexcept
@@ -22,7 +20,7 @@ gneiss::engine::result runtime_asset_reloader::execute(const ipc_asset_reload_re
               .revision = request.revision,
               .status = ipc_asset_apply_status::failed,
               .message = {}};
-  if (!apply_ || request.session_id == 0U || request.revision == 0U || request.assets.empty()) {
+  if (request.session_id == 0U || request.revision == 0U || request.assets.empty()) {
     response.message = "资产重载请求无效";
     return gneiss::engine::result::invalid_argument;
   }
@@ -45,12 +43,16 @@ gneiss::engine::result runtime_asset_reloader::execute(const ipc_asset_reload_re
     return gneiss::engine::result::success;
   }
   auto applied = gneiss::engine::result::success;
-  if (std::ranges::all_of(request.assets, [](const auto& item) {
-        return item.type == ipc_asset_type::texture || item.type == ipc_asset_type::material ||
-               item.type == ipc_asset_type::static_mesh;
-      })) {
+  if (std::ranges::all_of(request.assets,
+                          [](const auto& item) {
+                            return item.type == ipc_asset_type::texture ||
+                                   item.type == ipc_asset_type::material ||
+                                   item.type == ipc_asset_type::static_mesh;
+                          }) ||
+      (request.assets.size() == 1U && (request.assets.front().type == ipc_asset_type::scene ||
+                                       request.assets.front().type == ipc_asset_type::prefab))) {
     if (!begin_ || !poll_) {
-      response.message = "渲染资产重载需要异步服务，不能回退到主线程加载";
+      response.message = "资产重载需要完整的异步服务";
       return gneiss::engine::result::success;
     }
     try {
@@ -64,10 +66,6 @@ gneiss::engine::result runtime_asset_reloader::execute(const ipc_asset_reload_re
       pending_.reset();
       applied = gneiss::engine::result::out_of_memory;
     }
-  } else if (request.assets.size() == 1U &&
-             (request.assets.front().type == ipc_asset_type::scene ||
-              request.assets.front().type == ipc_asset_type::prefab)) {
-    applied = apply_(request.assets);
   } else {
     response.message = "不支持混合场景结构与渲染资产的重载批次";
     return gneiss::engine::result::invalid_argument;
@@ -113,7 +111,9 @@ gneiss::engine::result runtime_asset_reloader::advance(ipc_asset_reload_result& 
   response = {.session_id = pending_->session_id,
               .revision = pending_->revision,
               .status = applied == gneiss::engine::result::success ? ipc_asset_apply_status::applied
-                                                                   : ipc_asset_apply_status::failed,
+                        : applied == gneiss::engine::result::unsupported
+                            ? ipc_asset_apply_status::restart_required
+                            : ipc_asset_apply_status::failed,
               .message = applied == gneiss::engine::result::success ? "资产修订已应用"
                                                                     : "异步资产应用失败"};
   response.items = std::move(items);

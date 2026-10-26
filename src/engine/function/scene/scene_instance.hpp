@@ -79,7 +79,8 @@ public:
   /** 事务式替换普通场景节点；当前不接受 Prefab 实例容器变化。 */
   [[nodiscard]] gneiss::engine::result reload(gneiss::engine::scene_description candidate);
   /** 将指定 Prefab URI 的新修订应用到当前 Scene 内全部同源实例。 */
-  [[nodiscard]] gneiss::engine::result reload_prefab(std::string_view uri);
+  [[nodiscard]] gneiss::engine::result reload_prefab(std::string_view uri,
+                                                     prefab_asset_ref candidate);
 
   /** 单场景 Prefab 实例操作；服务已校验线程与句柄，不修改 Prefab 源资源。 */
   [[nodiscard]] gneiss::engine::result

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/async_scene_reload.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
@@ -65,6 +66,7 @@ int main() try {
   const auto root_text = root.generic_string();
   gneiss::runtime::application_configuration config;
   config.asset_root = root_text;
+  gneiss::engine::task_scheduler scheduler({.mode = gneiss::engine::execution_mode::cooperative});
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::scene_instance_id scene = {};
   constexpr std::string_view scene_uri = "asset://scenes/prefab.scene.json";
@@ -92,9 +94,12 @@ int main() try {
     return 3;
   }
 
+  if (application->attach_task_executor(scheduler).failed())
+    return 10;
   const auto prefab_path = root / "prefabs" / "test.prefab.json";
   write_prefab(prefab_path, source_root_uuid, true);
-  if (application->reload_prefab(scene, prefab_uri) != gneiss::engine::result::success) {
+  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, prefab_uri,
+                                                  true) != gneiss::engine::result::success) {
     return 4;
   }
   gneiss::engine::prefab_node_view first_after;
@@ -122,7 +127,8 @@ int main() try {
 
   constexpr std::string_view replacement_root_uuid = "30000000-0000-4000-8000-000000000099";
   write_prefab(prefab_path, replacement_root_uuid, false);
-  if (application->reload_prefab(scene, prefab_uri) != gneiss::engine::result::not_found ||
+  if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, prefab_uri,
+                                                  true) != gneiss::engine::result::not_found ||
       find_source(application, scene, first_instance_uuid, source_root_uuid, first_after) !=
           gneiss::engine::result::success ||
       first_after.node != first_before.node ||
