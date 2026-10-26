@@ -27,6 +27,7 @@
 #include "engine/resource/vfs/asset_uri.hpp"
 #include <cmath>
 #ifdef __EMSCRIPTEN__
+#include "engine/platform/files/browser/browser_file_backend.hpp"
 #include "engine/platform/files/browser/fetch_file_backend.hpp"
 #endif
 #ifdef GNEISS_ASSET_LIBUV
@@ -295,9 +296,20 @@ gneiss::engine::result application::initialize() noexcept {
           *storage_->asset_io_executor_, std::string(storage_->config_.asset_root));
 #elif defined(__EMSCRIPTEN__)
       auto base = std::string(storage_->config_.asset_root);
-      if (!base.ends_with('/'))
-        base += '/';
-      backend = std::make_shared<engine::fetch_file_backend>(std::move(base));
+      if (base.starts_with('/') && !base.starts_with("//")) {
+        while (base.size() > 1 && base.ends_with('/'))
+          base.pop_back();
+        auto local = std::make_shared<engine::browser_file_backend>(
+            std::move(base), engine::browser_file_storage::existing);
+        const auto initialized = local->initialize([](engine::result) {});
+        if (initialized.failed())
+          return initialized;
+        backend = std::move(local);
+      } else {
+        if (!base.ends_with('/'))
+          base += '/';
+        backend = std::make_shared<engine::fetch_file_backend>(std::move(base));
+      }
 #else
       return engine::result::unsupported;
 #endif

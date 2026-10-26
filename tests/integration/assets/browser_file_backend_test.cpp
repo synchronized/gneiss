@@ -85,7 +85,8 @@ void fetch_checks() {
 }
 void restore() {
   local.reset();
-  local = std::make_shared<browser_file_backend>("/gneiss-files-test", true);
+  local = std::make_shared<browser_file_backend>("/gneiss-files-test",
+                                                 browser_file_storage::persistent);
   check(local
             ->initialize([](result status) {
               check(status.ok());
@@ -119,7 +120,29 @@ void restore() {
 }
 }
 int main() {
-  local = std::make_shared<browser_file_backend>("/gneiss-files-test", true);
+  EM_ASM({
+    FS.mkdir('/preloaded');
+    FS.mkdir('/preloaded/assets');
+    FS.writeFile('/preloaded/assets/data', new Uint8Array([ 1, 2, 3, 4, 5 ]));
+    FS.symlink('/preloaded/assets', '/preloaded/link');
+  });
+  {
+    browser_file_backend borrowed("/preloaded/assets", browser_file_storage::existing);
+    check(borrowed.initialize([](result status) { check(status.ok()); }).ok());
+    check(
+        borrowed
+            .read("data", {8}, [](auto value) { check(value.status.ok() && value.data == bytes); })
+            .ok());
+    check(borrowed.initialize([](result) {}) == result::invalid_state);
+    browser_file_backend missing("/absent", browser_file_storage::existing);
+    check(missing.initialize([](result) { check(false); }) == result::not_found);
+    browser_file_backend linked("/preloaded/link", browser_file_storage::existing);
+    check(linked.initialize([](result) { check(false); }) == result::invalid_argument);
+  }
+  check(EM_ASM_INT({ return FS.readFile('/preloaded/assets/data').length; }) == 5);
+
+  local = std::make_shared<browser_file_backend>("/gneiss-files-test",
+                                                 browser_file_storage::persistent);
   check(local->read("data", {8}, [](auto) {}) == result::not_ready);
   check(local
             ->initialize([](result status) {

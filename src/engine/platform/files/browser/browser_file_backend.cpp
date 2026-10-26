@@ -88,6 +88,7 @@ result information(const struct stat& value, file_info& output) {
 }
 struct browser_file_backend::implementation : std::enable_shared_from_this<implementation> {
   std::string root;
+  browser_file_storage storage{};
   bool persistent{}, mounted{}, ready{}, busy{};
   ~implementation() {
     if (mounted)
@@ -167,14 +168,15 @@ struct browser_file_backend::implementation : std::enable_shared_from_this<imple
     return result::success;
   }
 };
-browser_file_backend::browser_file_backend(std::string root, bool persistent)
+browser_file_backend::browser_file_backend(std::string root, browser_file_storage storage)
     : impl_(std::make_shared<implementation>()) {
   if (!emscripten_is_main_runtime_thread() || !root.starts_with('/') || root.size() < 2 ||
-      root.find('/', 1) != std::string::npos ||
+      (storage != browser_file_storage::existing && root.find('/', 1) != std::string::npos) ||
       !detail::valid_file_path(std::string_view(root).substr(1)))
     throw std::invalid_argument("浏览器挂载根目录无效");
   impl_->root = std::move(root);
-  impl_->persistent = persistent;
+  impl_->storage = storage;
+  impl_->persistent = storage == browser_file_storage::persistent;
 }
 browser_file_backend::~browser_file_backend() = default;
 result browser_file_backend::initialize(completion_callback callback) {
@@ -184,6 +186,21 @@ result browser_file_backend::initialize(completion_callback callback) {
     return result::invalid_state;
   if (impl_->busy)
     return result::not_ready;
+  if (impl_->storage == browser_file_storage::existing) {
+    // 逐层拒绝符号链接；宿主必须在初始化之前准备好整个目录。
+    for (std::size_t end = 1; end <= impl_->root.size(); ++end) {
+      if (end != impl_->root.size() && impl_->root[end] != '/')
+        continue;
+      struct stat info{};
+      if (::lstat(impl_->root.substr(0, end).c_str(), &info) != 0)
+        return error_result();
+      if (!S_ISDIR(info.st_mode))
+        return result::invalid_argument;
+    }
+    impl_->ready = true;
+    callback(result::success);
+    return result::success;
+  }
   if (!impl_->mounted) {
     if (mount_files(impl_->root.c_str(), impl_->persistent) != 0)
       return result::io;
