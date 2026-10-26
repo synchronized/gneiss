@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../../tests/support/async_application.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
@@ -145,7 +146,7 @@ bool test_capture_prefab_scene() {
   gneiss::scene_instance_id scene = {};
   if (gneiss::engine::result{gneiss::runtime::application::create(desc, application)} !=
           gneiss::engine::result::success ||
-      gneiss::engine::result{application->scenes()->load(scene_uri, &scene)} !=
+      gneiss::engine::result{gneiss::test_support::load_scene(*application, scene_uri, &scene)} !=
           gneiss::engine::result::success) {
     return false;
   }

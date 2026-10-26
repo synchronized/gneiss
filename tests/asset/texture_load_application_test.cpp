@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/async_application.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
@@ -106,8 +107,8 @@ void run(gneiss::engine::execution_mode mode) {
       << R"({"format":"gneiss.scene","version":4,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://m.mesh","material":"asset://m.material"}}},{"uuid":"00000000-0000-4000-8000-000000000003","parent":null,"transform":{"translation":[2,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://m.mesh","material":"asset://m.material"}}}],"prefab_instances":[]})";
   constexpr std::string_view scene_uri = "asset://s.scene";
   gneiss::scene_instance_id scene{};
-  check(gneiss::engine::result{app->scenes()->load(scene_uri, &scene)} ==
-        gneiss::engine::result::success);
+  check(gneiss::engine::result{gneiss::test_support::load_scene(
+            *app, scene_uri, &scene, &scheduler)} == gneiss::engine::result::success);
   const auto capture = [&](std::uint64_t index) {
     gneiss::engine::scene_node_view info;
     check(gneiss::engine::result{app->scenes()->get_node_info(scene, index, info)} ==
@@ -197,8 +198,8 @@ void run(gneiss::engine::execution_mode mode) {
   check(world->replace_mesh_renderers(unchanged) == gneiss::engine::result::success);
   // 卸载冲突使用者后可重试；完成后释放租约，Application 仍可正常关闭。
   check(gneiss::engine::result{app->scenes()->unload(scene)} == gneiss::engine::result::success);
-  check(gneiss::engine::result{app->scenes()->load(scene_uri, &scene)} ==
-        gneiss::engine::result::success);
+  check(gneiss::engine::result{gneiss::test_support::load_scene(
+            *app, scene_uri, &scene, &scheduler)} == gneiss::engine::result::success);
   check(app->request_assets(uris, 2U, 8U, request, true) == gneiss::engine::result::success);
   wait();
   check(completion.result == gneiss::engine::result::success);

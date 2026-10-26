@@ -194,23 +194,6 @@ gneiss::engine::result scene_document::adopt(runtime::application& application,
   }
 }
 
-gneiss::engine::result scene_document::open(runtime::application& application,
-                                            gneiss::engine::world* world,
-                                            std::string_view uri) noexcept {
-  if (!application.is_owner_thread() || !application.accepts_requests())
-    return gneiss::engine::result::invalid_state;
-  if (world != application.native_world() || uri.empty())
-    return gneiss::engine::result::invalid_argument;
-  scene_instance_id pending{};
-  const auto loaded = application.scenes()->load(uri, &pending);
-  if (loaded != gneiss::engine::result::success)
-    return loaded;
-  const auto adopted = adopt(application, world, pending, uri);
-  if (adopted != gneiss::engine::result::success)
-    (void)application.scenes()->unload(pending);
-  return adopted;
-}
-
 gneiss::engine::result scene_document::create_empty(runtime::application& application,
                                                     gneiss::engine::world* world,
                                                     std::string_view scene_uuid) noexcept {

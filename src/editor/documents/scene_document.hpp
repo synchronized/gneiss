@@ -104,9 +104,6 @@ public:
                                              gneiss::engine::world* world,
                                              gneiss::scene_instance_id scene,
                                              std::string_view uri) noexcept;
-  [[nodiscard]] gneiss::engine::result open(runtime::application& application,
-                                            gneiss::engine::world* world,
-                                            std::string_view uri) noexcept;
   [[nodiscard]] gneiss::engine::result create_empty(runtime::application& application,
                                                     gneiss::engine::world* world,
                                                     std::string_view scene_uuid) noexcept;

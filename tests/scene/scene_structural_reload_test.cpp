@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/async_application.hpp"
 #include "../support/async_scene_reload.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
@@ -53,7 +54,8 @@ int main() try {
   constexpr std::string_view uri = "asset://scenes/triangle.scene.json";
   if (gneiss::runtime::application::create(config, application) !=
           gneiss::engine::result::success ||
-      application->scenes()->load(uri, &scene) != gneiss::engine::result::success ||
+      gneiss::test_support::load_scene(*application, uri, &scene, &scheduler) !=
+          gneiss::engine::result::success ||
       application->scenes()->find_node(scene, camera_uuid, camera_before) !=
           gneiss::engine::result::success ||
       application->scenes()->find_node(scene, old_child_uuid, old_child) !=
@@ -63,8 +65,6 @@ int main() try {
     return 1;
   }
 
-  if (application->attach_task_executor(scheduler).failed())
-    return 10;
   const auto retired_child = old_child;
   write_scene(scene_path, "{}");
   if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, uri, false) !=

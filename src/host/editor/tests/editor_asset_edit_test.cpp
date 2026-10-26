@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "../../../../tests/support/async_document.hpp"
 #include "commands/editor_asset_edit.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/core/result.hpp"
@@ -56,7 +57,8 @@ void run(gneiss::engine::execution_mode mode) {
   editor::scene_document session;
   editor::editor_command_history history;
   editor::editor_asset_edit edit;
-  check(session.open(*app, world, "asset://scene.json") == gneiss::engine::result::success);
+  check(gneiss::test_support::open_document(session, *app, world, "asset://scene.json",
+                                            &scheduler) == gneiss::engine::result::success);
   const auto uuid = session.nodes().front().uuid;
   const auto drive = [&] {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);

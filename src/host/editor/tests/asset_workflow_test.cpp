@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../../tests/support/async_document.hpp"
 #include "asset_reimport_queue.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
@@ -89,7 +90,8 @@ int main() try {
   if (gneiss::engine::result{gneiss::runtime::application::create(desc, app)} !=
           gneiss::engine::result::success ||
       (world = app->native_world()) == nullptr ||
-      session.open(*app, world, project.startup_scene) != gneiss::engine::result::success ||
+      gneiss::test_support::open_document(session, *app, world, project.startup_scene) !=
+          gneiss::engine::result::success ||
       session.create_mesh_renderer_node("Imported", *mesh, *material, node) !=
           gneiss::engine::result::success ||
       session.save(project.asset_root) != gneiss::engine::result::success) {

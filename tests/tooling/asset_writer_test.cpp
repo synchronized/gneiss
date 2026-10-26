@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/async_application.hpp"
 #include "engine/core/rid.hpp"
 #include "tooling/asset_import/asset_writer.hpp"
 #include "tooling/asset_import/gltf_importer.hpp"
@@ -76,7 +77,8 @@ int main() { // NOLINT(bugprone-exception-escape)
   constexpr std::string_view scene_uri = "asset://scenes/scene.scene.json";
   if (gneiss::runtime::application::create(description, application) !=
           gneiss::engine::result::success ||
-      application->scenes()->load(scene_uri, &scene) != gneiss::engine::result::success ||
+      gneiss::test_support::load_scene(*application, scene_uri, &scene) !=
+          gneiss::engine::result::success ||
       application->native_world()->entity_count(entity_count) != gneiss::engine::result::success ||
       entity_count != 1U ||
       application->scenes()->unload(scene) != gneiss::engine::result::success ||
@@ -100,7 +102,8 @@ int main() { // NOLINT(bugprone-exception-escape)
   entity_count = 0;
   if (gneiss::runtime::application::create(description, application) !=
           gneiss::engine::result::success ||
-      application->scenes()->load(scene_uri, &scene) != gneiss::engine::result::success ||
+      gneiss::test_support::load_scene(*application, scene_uri, &scene) !=
+          gneiss::engine::result::success ||
       application->native_world()->entity_count(entity_count) != gneiss::engine::result::success ||
       entity_count != 3U ||
       application->scenes()->unload(scene) != gneiss::engine::result::success ||

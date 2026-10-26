@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/async_application.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
@@ -21,7 +22,8 @@ int main() try {
   std::uint64_t entity_count = 0;
   if (gneiss::runtime::application::create(application_desc, application) !=
           gneiss::engine::result::success ||
-      application->scenes()->load(scene_uri, &scene) != gneiss::engine::result::success ||
+      gneiss::test_support::load_scene(*application, scene_uri, &scene) !=
+          gneiss::engine::result::success ||
       application->native_world()->entity_count(entity_count) != gneiss::engine::result::success ||
       entity_count != 3U) {
     return 1;
@@ -172,7 +174,8 @@ int main() try {
     return 7;
   }
   scene = gneiss::scene_instance_id{};
-  if (application->scenes()->load(missing_scene_uri, &scene) != gneiss::engine::result::not_found ||
+  if (gneiss::test_support::load_scene(*application, missing_scene_uri, &scene) !=
+          gneiss::engine::result::not_found ||
       scene != gneiss::scene_instance_id{} ||
       application->native_world()->entity_count(entity_count) != gneiss::engine::result::success ||
       entity_count != 0U) {

@@ -427,3 +427,11 @@ if(TARGET gneiss_editor_asset_workflow_test)
     GNEISS_TEST_RUNTIME="$<TARGET_FILE:gneiss_runtime>")
   add_dependencies(gneiss_editor_asset_workflow_test gneiss_runtime)
 endif()
+
+# 异步场景测试由宿主驱动任务，不使用生产同步加载入口。
+foreach(test IN ITEMS gneiss_editor_prefab_edit_test gneiss_editor_asset_edit_test gneiss_editor_transform_gizmo_drag_test gneiss_editor_session_test gneiss_editor_save_test gneiss_editor_prefab_authoring_test gneiss_editor_runtime_launch_test gneiss_editor_task_response_benchmark gneiss_editor_asset_workflow_test)
+  if(TARGET ${test})
+    target_link_libraries(${test} PRIVATE gneiss_tasks)
+    target_include_directories(${test} PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  endif()
+endforeach()

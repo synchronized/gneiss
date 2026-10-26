@@ -47,15 +47,6 @@ gneiss::engine::transform to_transform(const gneiss::engine::object_description&
   return value;
 }
 
-gneiss::engine::transform
-to_transform(const gneiss::engine::prefab_instance_description& instance) noexcept {
-  gneiss::engine::transform value{};
-  value.translation = instance.translation;
-  value.rotation = instance.rotation;
-  value.scale = instance.scale;
-  return value;
-}
-
 [[nodiscard]] bool is_canonical_uuid(std::string_view value) noexcept {
   if (value.size() != 36U) {
     return false;
@@ -153,90 +144,6 @@ gneiss::engine::result apply_mesh_renderer(gneiss::engine::world& native_world,
 
 } // namespace
 
-gneiss::engine::result
-scene_instance::stage_assets(const gneiss::engine::scene_description& description) {
-  objects_.reserve(description.objects.size());
-  for (const auto& source : description.objects) {
-    scene_instance::object target{};
-    target.uuid = source.uuid;
-    if (source.mesh_renderer) {
-      gneiss::engine::asset_diagnostic diagnostic;
-      auto result = loader_.acquire_mesh(source.mesh_renderer->mesh_uri, target.mesh, diagnostic);
-      if (result == gneiss::engine::result::success) {
-        result = loader_.acquire_material(source.mesh_renderer->material_uri, target.material,
-                                          diagnostic);
-      }
-      if (result != gneiss::engine::result::success) {
-        return result;
-      }
-    }
-    objects_.push_back(std::move(target));
-  }
-  return gneiss::engine::result::success;
-}
-gneiss::engine::result
-scene_instance::commit_scene(const gneiss::engine::scene_description& description) {
-  std::unordered_map<std::string_view, scene_node_id> nodes;
-  nodes.reserve(description.objects.size());
-  std::vector<bool> committed(description.objects.size());
-  std::size_t committed_count = 0;
-  while (committed_count < description.objects.size()) {
-    bool made_progress = false;
-    for (std::size_t index = 0; index < description.objects.size(); ++index) {
-      if (committed[index]) {
-        continue;
-      }
-      const auto& source = description.objects[index];
-      scene_node_id parent = null_scene_node_id;
-      if (source.parent_uuid) {
-        const auto found = nodes.find(*source.parent_uuid);
-        if (found == nodes.end()) {
-          continue;
-        }
-        parent = found->second;
-      }
-      auto& target = objects_[index];
-      const auto result = commit_object(native_world_, source, target, parent);
-      if (result != gneiss::engine::result::success) {
-        return result;
-      }
-      nodes.emplace(target.uuid, target.node);
-      committed[index] = true;
-      ++committed_count;
-      made_progress = true;
-    }
-    if (!made_progress) {
-      return gneiss::engine::result::internal;
-    }
-  }
-  return gneiss::engine::result::success;
-}
-
-gneiss::engine::result
-scene_instance::commit_prefabs(const gneiss::engine::scene_description& description) {
-  prefab_instances_.reserve(description.prefab_instances.size());
-  for (const auto& source : description.prefab_instances) {
-    gneiss::engine::prefab_asset_ref lease;
-    auto result = loader_.assets().load_sync(source.prefab_uri, lease);
-    if (result != gneiss::engine::result::success) {
-      return result;
-    }
-    const auto parent = source.parent_uuid ? find_node(*source.parent_uuid) : null_scene_node_id;
-    if (source.parent_uuid && parent == null_scene_node_id) {
-      return gneiss::engine::result::internal;
-    }
-    std::unique_ptr<prefab_runtime_instance> runtime;
-    result = prefab_runtime_instance::create(native_world_, loader_, std::move(lease), registry_,
-                                             source.instance_uuid, parent, to_transform(source),
-                                             source.overrides, runtime);
-    if (result != gneiss::engine::result::success) {
-      return result;
-    }
-    prefab_instances_.push_back(std::move(runtime));
-  }
-  return gneiss::engine::result::success;
-}
-
 scene_instance::scene_instance(gneiss::engine::world& native_world,
                                gneiss::engine::render_asset_loader& loader,
                                const gneiss::engine::meta::registry_ref& registry) noexcept
@@ -244,19 +151,6 @@ scene_instance::scene_instance(gneiss::engine::world& native_world,
 
 scene_instance::~scene_instance() noexcept { rollback(); }
 
-gneiss::engine::result scene_instance::initialize(gneiss::engine::scene_description candidate) {
-  auto result = stage_assets(candidate);
-  if (result == gneiss::engine::result::success) {
-    result = commit_scene(candidate);
-  }
-  if (result == gneiss::engine::result::success) {
-    result = commit_prefabs(candidate);
-  }
-  if (result == gneiss::engine::result::success) {
-    description_ = std::move(candidate);
-  }
-  return result;
-}
 void scene_instance::append_staged_prefab(std::unique_ptr<prefab_runtime_instance> candidate) {
   prefab_instances_.push_back(std::move(candidate));
 }
@@ -1715,32 +1609,6 @@ scene_instances::scene_instances(gneiss::engine::world& native_world,
 }
 
 scene_instances::~scene_instances() noexcept = default;
-
-gneiss::engine::result scene_instances::load(std::string_view uri,
-                                             scene_instance_id* out_instance) noexcept {
-  if (out_instance == nullptr || !is_valid()) {
-    return gneiss::engine::result::invalid_argument;
-  }
-  *out_instance = {};
-  try {
-    asset_ref<const scene_description> description;
-    auto result = loader_.assets().load_sync(uri, description);
-    if (result != gneiss::engine::result::success) {
-      return result;
-    }
-    auto instance = std::make_unique<scene_instance>(native_world_, loader_, registry_);
-    result = instance->initialize(*description);
-    if (result != gneiss::engine::result::success) {
-      return result;
-    }
-    return instances_.create(gneiss::engine::resource_type::scene_instance, std::move(instance),
-                             out_instance);
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::result::internal;
-  }
-}
 
 gneiss::engine::result scene_instances::reload_loaded(scene_instance_id instance,
                                                       scene_description description) noexcept try {

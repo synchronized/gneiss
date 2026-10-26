@@ -184,3 +184,11 @@ foreach(test IN ITEMS gneiss_texture_mip_generator_test gneiss_tangent_generatio
     target_include_directories(${test} PRIVATE "${PROJECT_SOURCE_DIR}/src")
   endif()
 endforeach()
+
+# 异步场景测试由宿主驱动任务，不使用生产同步加载入口。
+foreach(test IN ITEMS gneiss_asset_writer_test)
+  if(TARGET ${test})
+    target_link_libraries(${test} PRIVATE gneiss_tasks)
+    target_include_directories(${test} PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  endif()
+endforeach()

@@ -237,3 +237,11 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
 elseif(GNEISS_ENABLE_GRANIT_PLATFORM)
   message(STATUS "GNEISS_BUILD_TOOLS=OFF，跳过需要离线导入的 Lantern 示例")
 endif()
+
+# 异步场景测试由宿主驱动任务，不使用生产同步加载入口。
+foreach(test IN ITEMS gneiss_editor_lantern_workflow_test gneiss_editor_lantern_prefab_authoring_workflow_test)
+  if(TARGET ${test})
+    target_link_libraries(${test} PRIVATE gneiss_tasks)
+    target_include_directories(${test} PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  endif()
+endforeach()

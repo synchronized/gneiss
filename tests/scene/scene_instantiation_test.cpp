@@ -168,7 +168,21 @@ void run() {
   check(active->native_world() == initialized_world && active->scenes() == initialized_scenes);
 
   gneiss::scene_instance_id old_scene{};
-  check(active->scenes()->load("asset://s.scene", &old_scene) == gneiss::engine::result::success);
+  engine::prepared_scene_description initial;
+  engine::scene_diagnostic initial_error;
+  check(test_support::prepare_scene_for_test(active_assets, executor, false, "asset://s.scene",
+                                             initial, initial_error, {})
+            .ok());
+  engine::scene_instances::asset_bindings initial_bindings;
+  for (const auto& request : initial.assets) {
+    engine::render_asset_ref reference;
+    engine::asset_diagnostic error;
+    check(active_render.acquire_asset(request.type, request.uri, reference, error).ok());
+    initial_bindings.emplace(std::string(engine::asset_uri(reference)), reference);
+  }
+  check(
+      active->scenes()->instantiate_prepared(std::move(initial), initial_bindings, old_scene).ok());
+  initial_bindings.clear();
   gneiss::engine::scene_node_view old_info;
   check(active->scenes()->get_node_info(old_scene, 0U, old_info) ==
         gneiss::engine::result::success);
@@ -311,11 +325,13 @@ void run() {
   const auto selected_material = gneiss::engine::asset_rid(material);
   // 多个场景共享相同 URI 的资源身份。
   gneiss::scene_instance_id additional{};
-  check(candidate->scenes()->load("asset://s.scene", &additional) ==
-        gneiss::engine::result::success);
+  check(candidate->scenes()->capture_prepared(new_scene, prepared, bindings).ok());
+  check(candidate->scenes()->instantiate_prepared(std::move(prepared), bindings, additional).ok());
   gneiss::scene_instance_id duplicate_scene{};
-  check(candidate->scenes()->load("asset://s.scene", &duplicate_scene) ==
-        gneiss::engine::result::success);
+  check(candidate->scenes()->capture_prepared(new_scene, prepared, bindings).ok());
+  check(candidate->scenes()
+            ->instantiate_prepared(std::move(prepared), bindings, duplicate_scene)
+            .ok());
   check(candidate->scenes()->unload(duplicate_scene) == gneiss::engine::result::success);
   check(candidate->scenes()->unload(additional) == gneiss::engine::result::success);
   material = {};

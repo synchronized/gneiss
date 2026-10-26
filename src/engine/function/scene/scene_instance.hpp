@@ -117,20 +117,12 @@ public:
     return objects_.at(index).node;
   }
   void append_staged_prefab(std::unique_ptr<prefab_runtime_instance> candidate);
-  [[nodiscard]] gneiss::engine::result initialize(gneiss::engine::scene_description candidate);
 
 private:
   friend class scene_instances;
-  [[nodiscard]] gneiss::engine::result
-  stage_assets(const gneiss::engine::scene_description& source);
-  [[nodiscard]] gneiss::engine::result
-  commit_scene(const gneiss::engine::scene_description& source);
-  [[nodiscard]] gneiss::engine::result
-  commit_prefabs(const gneiss::engine::scene_description& source);
   std::vector<object> objects_;
   std::vector<std::unique_ptr<prefab_runtime_instance>> prefab_instances_;
   gneiss::engine::scene_description description_;
-
   struct prefab_refresh_transaction final {
     prefab_refresh_token token = {};
     std::string instance_uuid;

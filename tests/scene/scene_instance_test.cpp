@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/async_application.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
@@ -47,7 +48,8 @@ int main() try {
   std::uint64_t entity_count = 0;
   std::uint64_t node_count = 0;
   if (application == nullptr || second_application == nullptr ||
-      application->scenes()->load(scene_uri, &scene) != gneiss::engine::result::success ||
+      gneiss::test_support::load_scene(*application, scene_uri, &scene) !=
+          gneiss::engine::result::success ||
       scene == gneiss::scene_instance_id{} ||
       application->native_world()->entity_count(entity_count) != gneiss::engine::result::success ||
       entity_count != 2U ||
@@ -306,10 +308,10 @@ int main() try {
   const auto failing_application = create_application(failure_root);
   scene = gneiss::scene_instance_id{};
   if (failing_application == nullptr ||
-      failing_application->scenes()->load(missing_uri, &scene) !=
+      gneiss::test_support::load_scene(*failing_application, missing_uri, &scene) !=
           gneiss::engine::result::not_found ||
       scene != gneiss::scene_instance_id{} ||
-      failing_application->scenes()->load(corrupt_uri, &scene) !=
+      gneiss::test_support::load_scene(*failing_application, corrupt_uri, &scene) !=
           gneiss::engine::result::invalid_argument ||
       scene != gneiss::scene_instance_id{} ||
       failing_application->scenes()->create_empty(empty_uuid, &scene) !=

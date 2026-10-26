@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../../tests/support/async_application.hpp"
 #include "commands/native_author_transaction.hpp"
 #include "commands/prefab_authoring.hpp"
 #include "engine/core/result.hpp"
@@ -151,7 +152,7 @@ verify_documents(const std::vector<gneiss::editor::author_document_change>& chan
   std::uint64_t prefab_nodes{};
   return gneiss::runtime::application::create(desc, application) ==
              gneiss::engine::result::success &&
-         application->scenes()->load("asset://scenes/main.scene.json", &scene) ==
+         gneiss::test_support::load_scene(*application, "asset://scenes/main.scene.json", &scene) ==
              gneiss::engine::result::success &&
          application->scenes()->get_node_count(scene, &objects) ==
              gneiss::engine::result::success &&

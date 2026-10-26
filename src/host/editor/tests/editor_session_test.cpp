@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../../tests/support/async_document.hpp"
 #include "commands/runtime_author_apply.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
@@ -40,7 +41,8 @@ int main() try {
   if (gneiss::engine::result{gneiss::runtime::application::create(desc, application)} !=
           gneiss::engine::result::success ||
       (world = application->native_world()) == nullptr ||
-      session.open(*application, world, scene_uri) != gneiss::engine::result::success ||
+      gneiss::test_support::open_document(session, *application, world, scene_uri) !=
+          gneiss::engine::result::success ||
       !session.is_open() || session.is_dirty() || session.uri() != scene_uri ||
       session.nodes().size() != 2U || session.nodes()[0].display_name != "Camera" ||
       session.nodes()[1].display_name != session.nodes()[1].uuid ||
@@ -72,7 +74,8 @@ int main() try {
   }
   session.mark_dirty();
   if (!session.is_dirty() ||
-      session.open(*application, world, missing_uri) != gneiss::engine::result::not_found ||
+      gneiss::test_support::open_document(session, *application, world, missing_uri) !=
+          gneiss::engine::result::not_found ||
       !session.is_open() || !session.is_dirty() || session.uri() != scene_uri ||
       session.selected_node() == nullptr) {
     return 3;
@@ -91,7 +94,8 @@ int main() try {
   }
   constexpr std::string_view prefab_scene_uri = "asset://scenes/prefab.scene.json";
   constexpr std::string_view prefab_uri = "asset://prefabs/test.prefab.json";
-  if (session.open(*application, world, prefab_scene_uri) != gneiss::engine::result::success ||
+  if (gneiss::test_support::open_document(session, *application, world, prefab_scene_uri) !=
+          gneiss::engine::result::success ||
       session.nodes().size() != 1U || session.prefab_nodes().size() != 2U ||
       !session.prefab_nodes()[0].is_instance_root || session.prefab_nodes()[0].is_read_only ||
       session.prefab_nodes()[1].is_instance_root || !session.prefab_nodes()[1].is_read_only ||

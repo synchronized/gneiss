@@ -77,8 +77,6 @@ public:
   [[nodiscard]] bool is_valid() const noexcept {
     return domain_ != 0U && static_cast<bool>(registry_);
   }
-  [[nodiscard]] gneiss::engine::result load(std::string_view uri,
-                                            scene_instance_id* out_instance) noexcept;
   /** 应用已经加载的描述；调用方先准备渲染依赖，保持现有节点身份。 */
   [[nodiscard]] result reload_loaded(scene_instance_id instance,
                                      scene_description description) noexcept;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../../tests/support/async_document.hpp"
 #include "asset_browser_model.hpp"
 #include "asset_import_controller.hpp"
 #include "commands/editor_command_history.hpp"
@@ -139,7 +140,8 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   gneiss::editor::scene_document session;
   if (create_application(project.asset_root, application) != gneiss::engine::result::success ||
       (world = application->native_world()) == nullptr ||
-      session.open(*application, world, project.startup_scene) != gneiss::engine::result::success) {
+      gneiss::test_support::open_document(session, *application, world, project.startup_scene) !=
+          gneiss::engine::result::success) {
     return 8;
   }
   constexpr std::string_view prefab_uri = "asset://prefabs/lantern.prefab.json";
@@ -246,7 +248,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   session.close();
 
   gneiss::editor::scene_document reloaded;
-  if (reloaded.open(*application, world, project.startup_scene) !=
+  if (gneiss::test_support::open_document(reloaded, *application, world, project.startup_scene) !=
           gneiss::engine::result::success ||
       reloaded.find_node(snapshot.uuid) == nullptr || reloaded.prefab_nodes().size() != 15U ||
       count_prefab_name(reloaded, "Lantern Glass Updated") != 3U) {

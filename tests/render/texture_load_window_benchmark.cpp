@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/async_application.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 
@@ -180,8 +181,8 @@ int main(int argc, char** argv) try {
     return 1;
   }
   constexpr std::string_view scene = "asset://scenes/test.scene.json";
-  if (gneiss::engine::result{app->scenes()->load(scene, &state.scene)} !=
-      gneiss::engine::result::success) {
+  if (gneiss::engine::result{gneiss::test_support::load_scene(
+          *app, scene, &state.scene, &scheduler)} != gneiss::engine::result::success) {
     return 2;
   }
   gneiss::engine::scene_node_view info;

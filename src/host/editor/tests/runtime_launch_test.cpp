@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../../tests/support/async_document.hpp"
 #include "commands/runtime_author_apply.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
@@ -48,7 +49,8 @@ int main() try {
   if (create_application(project.asset_root, author_application) !=
           gneiss::engine::result::success ||
       (author_world = author_application->native_world()) == nullptr ||
-      author_session.open(*author_application, author_world, project.startup_scene) !=
+      gneiss::test_support::open_document(author_session, *author_application, author_world,
+                                          project.startup_scene) !=
           gneiss::engine::result::success) {
     return 2;
   }
@@ -116,7 +118,8 @@ int main() try {
   if (create_application(project.asset_root, runtime_application) !=
           gneiss::engine::result::success ||
       (runtime_world = runtime_application->native_world()) == nullptr ||
-      runtime_session.open(*runtime_application, runtime_world, project.startup_scene) !=
+      gneiss::test_support::open_document(runtime_session, *runtime_application, runtime_world,
+                                          project.startup_scene) !=
           gneiss::engine::result::success) {
     return 6;
   }

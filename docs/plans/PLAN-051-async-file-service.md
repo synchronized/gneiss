@@ -32,14 +32,15 @@ Runtime 的 Scene/Prefab 结构重载已改用异步描述/依赖准备，完成
 撤销/重做不再重新读盘；文件事务仍使用 Editor 现有保存实现。
 编辑器复制 Prefab 已使用异步编辑入口，旧 asset_scene_commands 同步命令已删除；
 子树删除/复制与 Mesh Renderer 移除的撤销持有资源强引用，恢复只消费内存或查询缓存。
-旧 Scene 首次实例化、仅供旧测试使用的编辑辅助接口、Render 首次同步获取、删除 VFS、浏览器和大文件能力仍待完成。
+Scene 首次同步 load、Document 同步 open 及其同步准备实现已删除；测试通过专用宿主驱动异步请求，
+场景域测试直接消费已准备描述和资源引用。旧 Prefab 编辑辅助接口、Render 首次同步获取、删除 VFS、浏览器和大文件能力仍待完成。
 不将 Platform 搬迁或桌面后端实现等同于整份计划完成；大场景和 CI 仍留待统一验收。
 架构决策见 [ADR-084](../decisions/ADR-084-async-file-service.md)。
 
 ## 当前五项收尾进度
 
 - Runtime/Editor 事件循环正常退出已采用分阶段关闭；启动失败和析构兜底尚待收敛。
-- Scene/Prefab 结构重载、编辑器文件监听、作者历史恢复已迁移；旧首次实例化与编辑辅助 API 仍待迁移。
+- Scene/Prefab 结构重载、编辑器文件监听、作者历史恢复已迁移；首次同步 load/open 已删除，旧 Prefab 编辑辅助 API 仍待迁移。
 - Render 首次 acquire 的同步准备回退仍存在，须在上述调用方迁移后删除。
 - load_sync、同步准备器、VFS 适配器和旧 VFS 仍存在；Application 尚未直接装配 Platform 后端。
 - 当前改动已通过 Windows 编译、相关小型测试及 Core 分层检查；完整计划验收尚未开始。

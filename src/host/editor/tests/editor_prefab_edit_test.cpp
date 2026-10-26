@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "../../../../tests/support/async_document.hpp"
 #include "commands/editor_prefab_edit.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
@@ -70,7 +71,8 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   editor::scene_document session;
   editor::editor_command_history history;
   editor::editor_prefab_edit edit;
-  check(session.open(*app, world, "asset://scene.json") == gneiss::engine::result::success);
+  check(gneiss::test_support::open_document(session, *app, world, "asset://scene.json",
+                                            &scheduler) == gneiss::engine::result::success);
   scene_node_id first, second;
   check(session.create_prefab_instance("First", "asset://prefab.json", {}, first) ==
         gneiss::engine::result::success);
@@ -235,7 +237,8 @@ void run(gneiss::engine::execution_mode mode) {
   editor::scene_document session;
   editor::editor_command_history history;
   editor::editor_prefab_edit edit;
-  check(session.open(*app, world, "asset://scene.json") == gneiss::engine::result::success);
+  check(gneiss::test_support::open_document(session, *app, world, "asset://scene.json",
+                                            &scheduler) == gneiss::engine::result::success);
   const auto request = [&](std::string_view uri = "asset://prefab.json") {
     return edit.request(*app, scheduler, session, history, "Placed", uri, {});
   };

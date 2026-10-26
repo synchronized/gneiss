@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../../tests/support/async_document.hpp"
 #include "asset_background_worker.hpp"
 #include "author_asset_service.hpp"
 #include "documents/scene_document.hpp"
@@ -91,7 +92,8 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
               (world = app->native_world()) != gneiss::engine::null_rid,
           "基准应用创建失败");
   const auto open_ms = measure([&] {
-    require(session.open(*app, world, "asset://main.scene.json") == gneiss::engine::result::success,
+    require(gneiss::test_support::open_document(session, *app, world, "asset://main.scene.json",
+                                                &scheduler) == gneiss::engine::result::success,
             "多 Prefab 场景加载失败");
   });
   worker.start(root, assets);
@@ -135,8 +137,9 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
           change.uri.ends_with(".prefab.json")) {
         require(change.operation == gneiss::engine::result::success, "Prefab 读取失败");
         max_apply = std::max(max_apply, measure([&] {
-                               require(session.open(*app, world, "asset://main.scene.json") ==
-                                           gneiss::engine::result::success,
+                               require(gneiss::test_support::open_document(
+                                           session, *app, world, "asset://main.scene.json",
+                                           &scheduler) == gneiss::engine::result::success,
                                        "主线程应用失败");
                              }));
         authors.mark_applied(change.uri);

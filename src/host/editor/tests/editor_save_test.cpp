@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../../tests/support/async_document.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
@@ -72,7 +73,8 @@ int main() try {
   gneiss::editor::scene_document session;
   if (create_application(root, application) != gneiss::engine::result::success ||
       (world = application->native_world()) == nullptr ||
-      session.open(*application, world, scene_uri) != gneiss::engine::result::success ||
+      gneiss::test_support::open_document(session, *application, world, scene_uri) !=
+          gneiss::engine::result::success ||
       session.select(session.nodes()[0].node) != gneiss::engine::result::success) {
     return 3;
   }
@@ -189,7 +191,7 @@ int main() try {
   std::shared_ptr<gneiss::runtime::application> reloaded_application;
   gneiss::scene_instance_id reloaded_scene{};
   if (create_application(root, reloaded_application) != gneiss::engine::result::success ||
-      reloaded_application->scenes()->load(scene_uri, &reloaded_scene) !=
+      gneiss::test_support::load_scene(*reloaded_application, scene_uri, &reloaded_scene) !=
           gneiss::engine::result::success) {
     return 11;
   }

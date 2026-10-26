@@ -126,17 +126,14 @@ int main(int argc, char** argv) try {
   }
   const auto root = std::filesystem::absolute(argv[1]).string();
   const std::filesystem::path prefix(argv[2]);
-  const std::string_view mode = argc >= 4 ? argv[3] : "sync";
-  if (mode != "sync" && mode != "thread" && mode != "cooperative") {
+  const std::string_view mode = argc >= 4 ? argv[3] : "thread";
+  if (mode != "thread" && mode != "cooperative") {
     return 2;
   }
   const std::string_view scenario = argc >= 5 ? argv[4] : "initial";
   if (scenario != "initial" && scenario != "switch" && scenario != "repeat" &&
       scenario != "interact" && scenario != "cancel-prepare" && scenario != "cancel-assets" &&
       scenario != "cancel-ready" && scenario != "failure" && scenario != "close") {
-    return 2;
-  }
-  if (mode == "sync" && scenario != "initial") {
     return 2;
   }
   gneiss::engine::task_scheduler scheduler(
@@ -164,7 +161,7 @@ int main(int argc, char** argv) try {
       gneiss::engine::result{app->run(3U)} != gneiss::engine::result::success) {
     return 3;
   }
-  if (mode != "sync" && app->attach_task_executor(scheduler) != gneiss::engine::result::success) {
+  if (app->attach_task_executor(scheduler) != gneiss::engine::result::success) {
     return 3;
   }
   gneiss::scene_instance_id scene{};
@@ -270,9 +267,7 @@ int main(int argc, char** argv) try {
       phase_maximum_intervals{};
   auto previous_phase = gneiss::runtime::scene_load_phase::preparing;
   double activation_elapsed_ms{};
-  if (mode == "sync") {
-    result = gneiss::engine::result{app->scenes()->load(uri, &scene)};
-  } else {
+  {
     using namespace gneiss::runtime;
     std::uint64_t request{};
     if (result == gneiss::engine::result::success) {
@@ -483,7 +478,7 @@ int main(int argc, char** argv) try {
     update = {};
   }
   const auto load_and_drain_ms = milliseconds(start);
-  const auto load_ms = mode == "sync" ? load_and_drain_ms : activation_elapsed_ms;
+  const auto load_ms = activation_elapsed_ms;
 
   if (trace_loop) {
     std::ofstream trace(prefix.string() + ".loop.csv");
