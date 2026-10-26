@@ -123,8 +123,6 @@ public:
   [[nodiscard]] gneiss::engine::render_resource_service& resources() noexcept;
   /** 借用应用级资产管理器；仅所属线程使用，有效期不超过 Application。 */
   [[nodiscard]] gneiss::engine::asset_manager& assets() noexcept;
-  [[nodiscard]] gneiss::engine::result
-  reload_render_assets(std::span<const gneiss::engine::render_asset_reload> assets) noexcept;
   [[nodiscard]] gneiss::engine::result reload_scene(gneiss::scene_instance_id instance,
                                                     std::string_view uri) noexcept;
   [[nodiscard]] gneiss::engine::result reload_prefab(gneiss::scene_instance_id instance,

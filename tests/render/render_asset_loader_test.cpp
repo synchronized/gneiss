@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/memory_read_file_system.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_resource_service.hpp"
+#include "engine/function/render/texture_load_service.hpp"
+#include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
 #include "engine/resource/loaders/material_serialization.hpp"
@@ -32,6 +35,33 @@
 
 namespace {
 
+gneiss::engine::result
+reload_assets_for_test(gneiss::engine::render_asset_loader& loader,
+                       gneiss::engine::task_scheduler& scheduler,
+                       std::span<const gneiss::engine::render_asset_reload> sources,
+                       gneiss::engine::asset_diagnostic& diagnostic) {
+  using namespace gneiss::engine;
+  texture_load_service service(scheduler, loader);
+  std::uint64_t request{};
+  auto status = service.submit_assets(sources, 1, 1, request, true);
+  if (status.failed())
+    return status;
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  for (;;) {
+    (void)scheduler.run_ready();
+    (void)loader.assets().async_files()->dispatch_completions(64);
+    loader.assets().advance_resources();
+    service.advance();
+    texture_load_completion completion;
+    if (service.take(completion)) {
+      diagnostic = {completion.result, 0, {}, std::move(completion.message)};
+      return completion.result;
+    }
+    if (std::chrono::steady_clock::now() > deadline)
+      throw std::runtime_error("异步重载测试超时");
+  }
+}
+
 class counting_material_decoder final : public gneiss::engine::asset_decoder {
 public:
   mutable unsigned calls{};
@@ -51,7 +81,7 @@ public:
   }
 };
 
-class memory_file_system final : public gneiss::engine::file_system {
+class memory_file_system final : public gneiss::test_support::memory_read_file_system {
 public:
   std::unordered_map<std::string, std::string> files;
   mutable std::size_t read_count = 0;
@@ -282,7 +312,10 @@ void selected_variants() {
   const std::array requests{
       render_asset_reload{.uri = "asset://t.texture.json", .type = render_asset_type::texture}};
   render_resource_service resources;
+  gneiss::engine::task_scheduler scheduler(
+      {.workers = 0, .mode = gneiss::engine::execution_mode::cooperative});
   gneiss::engine::asset_manager asset_owner(files);
+  asset_owner.attach_task_executor(scheduler);
   [[maybe_unused]] auto& cache = asset_owner.cache();
   prepared_render_batch batch;
   require(prepare_render_assets(asset_owner, requests, batch, diagnostic, {}, 1U, limit,
@@ -394,7 +427,10 @@ bool material_parameter_roundtrip(gneiss::engine::virtual_file_system& files,
     return true;
   };
   render_resource_service resources;
+  gneiss::engine::task_scheduler scheduler(
+      {.workers = 0, .mode = gneiss::engine::execution_mode::cooperative});
   gneiss::engine::asset_manager asset_owner(files);
+  asset_owner.attach_task_executor(scheduler);
   [[maybe_unused]] auto& cache = asset_owner.cache();
   auto decoder = std::make_shared<counting_material_decoder>();
   if (asset_owner.register_decoder(decoder).failed())
@@ -444,8 +480,8 @@ bool material_parameter_roundtrip(gneiss::engine::virtual_file_system& files,
   if (decoder->calls != 1U)
     return false;
   const auto original_rid = asset_rid(synchronous);
-  if (loader.reload_assets(request, diagnostic).failed() || decoder->calls != 2U ||
-      asset_rid(synchronous) != original_rid)
+  if (reload_assets_for_test(loader, scheduler, request, diagnostic).failed() ||
+      decoder->calls != 2U || asset_rid(synchronous) != original_rid)
     return false;
   return true;
 }
@@ -521,7 +557,10 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   gneiss::engine::render_resource_service resources;
   if (file_system.mount("asset://", memory).failed())
     return 1;
+  gneiss::engine::task_scheduler scheduler(
+      {.workers = 0, .mode = gneiss::engine::execution_mode::cooperative});
   gneiss::engine::asset_manager asset_owner(file_system);
+  asset_owner.attach_task_executor(scheduler);
   [[maybe_unused]] auto& cache = asset_owner.cache();
   gneiss::engine::render_asset_loader loader(asset_owner, resources);
 
@@ -730,7 +769,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     invalid_json.replace(invalid_json.find("-42469.96875"), 12U, "1e100");
     memory->files["models/tiled.mesh.json"] = invalid_json;
     // 使用重新加载绕过旧缓存，失败必须保持旧资源版本。
-    if (loader.reload_assets(std::span(requests).first(1U), diagnostic) !=
+    if (reload_assets_for_test(loader, scheduler, std::span(requests).first(1U), diagnostic) !=
             gneiss::engine::result::invalid_argument ||
         gneiss::engine::prepare_render_assets(asset_owner, requests, batch, diagnostic, {}) !=
             gneiss::engine::result::invalid_argument ||
@@ -759,7 +798,8 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
                                           .type = gneiss::engine::render_asset_type::material},
       gneiss::engine::render_asset_reload{.uri = "asset://textures/white.texture.json",
                                           .type = gneiss::engine::render_asset_type::texture}};
-  if (loader.reload_assets(reloads, diagnostic) != gneiss::engine::result::success) {
+  if (reload_assets_for_test(loader, scheduler, reloads, diagnostic) !=
+      gneiss::engine::result::success) {
     return 16;
   }
   gneiss::engine::render_asset_ref reloaded_mesh;
@@ -799,7 +839,8 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   memory->files["materials/textured.material.json"] = "{";
   auto& successful_mesh = memory->files["models/textured.mesh.json"];
   successful_mesh.replace(successful_mesh.find("[-1,-1,0]"), 9U, "[-2,-1,0]");
-  if (loader.reload_assets(reloads, diagnostic) != gneiss::engine::result::invalid_argument) {
+  if (reload_assets_for_test(loader, scheduler, reloads, diagnostic) !=
+      gneiss::engine::result::invalid_argument) {
     return 19;
   }
   gneiss::engine::render_asset_ref after_failed_reload;

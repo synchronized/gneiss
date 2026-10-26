@@ -32,7 +32,6 @@ struct sample {
 struct context {
   gneiss::engine::task_scheduler* scheduler{};
   std::filesystem::path root;
-  bool synchronous{};
   bool model{};
   std::vector<gneiss::engine::render_asset_reload> assets;
   bool close_during_load{};
@@ -101,35 +100,14 @@ gneiss::engine::result native_update(runtime::application& app, context& state) 
           << R"({"format":"gneiss.texture","version":1,"source":"asset://textures/after.png","color_space":"srgb"})";
     }
     state.requested = true;
-    if (state.synchronous) {
-      const std::vector<gneiss::engine::render_asset_reload> reloads{
-          {"asset://textures/test.texture.json", gneiss::engine::render_asset_type::texture},
-          {"asset://materials/test.material.json", gneiss::engine::render_asset_type::material}};
-      const auto start = std::chrono::steady_clock::now();
-      auto result = app.reload_render_assets(reloads);
-      if (result != gneiss::engine::result::success) {
-        return result;
-      }
-      constexpr std::string_view mesh = "asset://models/test.mesh.json";
-      constexpr std::string_view material = "asset://materials/test.material.json";
-      result = app.scenes()->set_mesh_renderer(state.scene, state.mesh, mesh, material);
-      state.prepare_ms =
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
-              .count();
-      state.completed = result == gneiss::engine::result::success;
-      if (result != gneiss::engine::result::success) {
-        return result;
-      }
-    } else {
-      const std::array uris{
-          gneiss::engine::render_asset_reload{.uri = "asset://textures/test.texture.json",
-                                              .type = gneiss::engine::render_asset_type::texture}};
-      std::uint64_t request{};
-      const auto result = state.model ? app.request_assets(state.assets, 1U, 1U, request, true)
-                                      : app.request_assets(uris, 1U, 1U, request, true);
-      if (result != gneiss::engine::result::success) {
-        return result;
-      }
+    const std::array uris{
+        gneiss::engine::render_asset_reload{.uri = "asset://textures/test.texture.json",
+                                            .type = gneiss::engine::render_asset_type::texture}};
+    std::uint64_t request{};
+    const auto result = state.model ? app.request_assets(state.assets, 1U, 1U, request, true)
+                                    : app.request_assets(uris, 1U, 1U, request, true);
+    if (result != gneiss::engine::result::success) {
+      return result;
     }
   }
   if (state.requested && !state.completed) {
@@ -166,6 +144,8 @@ int main(int argc, char** argv) try {
     return 64;
   }
   const std::string mode = argv[2];
+  if (mode != "async" && mode != "cooperative" && mode != "close")
+    return 64;
   gneiss::engine::task_scheduler scheduler(
       {.mode = mode == "cooperative" ? gneiss::engine::execution_mode::cooperative
                                      : gneiss::engine::execution_mode::thread_pool});
@@ -186,7 +166,6 @@ int main(int argc, char** argv) try {
         state.assets.push_back({uri, gneiss::engine::render_asset_type::material});
     }
   }
-  state.synchronous = mode == "sync";
   state.close_during_load = mode == "close";
   std::shared_ptr<runtime::application> app;
   runtime::application_configuration desc;

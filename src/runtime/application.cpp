@@ -236,15 +236,6 @@ gneiss::engine::result application::activate_scene(std::uint64_t request,
   }
 }
 
-gneiss::engine::result application::reload_render_assets(
-    std::span<const gneiss::engine::render_asset_reload> assets) noexcept {
-  if (scene_loading()) {
-    return gneiss::engine::result::not_ready;
-  }
-  gneiss::engine::asset_diagnostic diagnostic;
-  return storage_->render_assets_->reload_assets(assets, diagnostic);
-}
-
 gneiss::engine::result application::reload_scene(gneiss::scene_instance_id instance,
                                                  std::string_view uri) noexcept {
   if (scene_loading()) {

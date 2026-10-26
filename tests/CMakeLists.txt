@@ -686,6 +686,7 @@ add_test(NAME gneiss.render_asset_preparation COMMAND gneiss_render_asset_prepar
 add_executable(
   gneiss_render_asset_loader_test
   render/render_asset_loader_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/texture_load_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_binary.cpp"
@@ -706,7 +707,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
 endif()
 target_link_libraries(
-  gneiss_render_asset_loader_test PRIVATE gneiss::engine gneiss_yyjson gneiss_png granit::granit granit::asset_tools
+  gneiss_render_asset_loader_test PRIVATE gneiss::engine gneiss_tasks gneiss_yyjson gneiss_png granit::granit granit::asset_tools
 )
 target_compile_features(gneiss_render_asset_loader_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_asset_loader_test)

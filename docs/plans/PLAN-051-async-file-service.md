@@ -18,6 +18,8 @@ Scene/Prefab 准备层已删除同步 prepare_scene_description/prepare_prefab_d
 统一使用 scene_description_request 加载输入和 prepare_loaded_scene 纯内存准备。
 四个场景示例已改用异步请求及显式激活；属性检查示例的加载、保存、重新加载小闭环通过。
 异步纹理解码直接消费描述/负载字节，不再建立临时 VFS；旧同步准备器仍待删除。
+Application::reload_render_assets 和 render_asset_loader::reload_assets 已删除，
+重载调用方统一使用 request_assets/poll_assets 或 texture_load_service；首次同步获取仍待迁移。
 Scene 实例/重载、Render 等同步调用方迁移、宿主异步关闭、删除 VFS、浏览器和大文件能力仍待完成。
 不将 Platform 搬迁或桌面后端实现等同于整份计划完成；大场景和 CI 仍留待统一验收。
 架构决策见 [ADR-084](../decisions/ADR-084-async-file-service.md)。

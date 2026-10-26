@@ -450,52 +450,6 @@ gneiss::engine::result render_asset_loader::apply_update(asset_update& upload) n
   return gneiss::engine::result::success;
 }
 
-gneiss::engine::result
-render_asset_loader::reload_assets(std::span<const render_asset_reload> assets,
-                                   asset_diagnostic& out_diagnostic) noexcept {
-  out_diagnostic = {};
-  if (assets.empty()) {
-    return gneiss::engine::result::invalid_argument;
-  }
-  try {
-    if (assets.size() > 256U) {
-      return gneiss::engine::result::invalid_argument;
-    }
-    result summary{result::success};
-    for (const auto& source : assets) {
-      prepared_render_batch batch;
-      auto updated = prepare_render_assets(assets_, std::span(&source, 1U), batch, out_diagnostic,
-                                           {}, 256U, 256U * 1024U * 1024U, default_profile_, true);
-      if (updated.ok()) {
-        // 准备器按依赖优先排序；不能把第一项误认为请求本身。
-        for (auto& prepared : batch.assets) {
-          render_asset_ref cached;
-          const bool requested =
-              prepared.source.uri == source.uri && prepared.source.type == source.type;
-          if (!requested && acquire_cached(prepared.source, cached, default_profile_).ok())
-            continue;
-          asset_update update;
-          updated = prepare_update(std::move(prepared), update);
-          if (updated.ok())
-            updated = apply_update(update);
-          if (updated.failed())
-            break;
-        }
-      }
-      if (updated.failed())
-        summary = updated;
-    }
-    if (summary != gneiss::engine::result::success) {
-      detail::fail(out_diagnostic, summary, "", "部分资源同步更新失败");
-    }
-    return summary;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::result::internal;
-  }
-}
-
 result render_asset_loader::acquire_mesh(std::string_view uri, gneiss::engine::mesh& output,
                                          asset_diagnostic& diagnostic) noexcept {
   render_asset_ref entry;

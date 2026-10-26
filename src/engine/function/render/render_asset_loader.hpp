@@ -124,10 +124,6 @@ public:
   [[nodiscard]] result acquire_asset(render_asset_type type, std::string_view uri,
                                      render_asset_ref& output,
                                      asset_diagnostic& diagnostic) noexcept;
-  /** 同步逐项准备并更新 CPU 内容；旧 URI 资源保留 RID，失败保旧。
-   * 不等待 GPU 上传；后续渲染帧按 CPU 内容重建镜像。已有使用者保持同一 RID。 */
-  [[nodiscard]] gneiss::engine::result reload_assets(std::span<const render_asset_reload> assets,
-                                                     asset_diagnostic& out_diagnostic) noexcept;
   void release_unused() noexcept;
 
 private:

@@ -66,9 +66,11 @@ struct fixture {
                  static_cast<std::streamsize>(bytes.size()));
   }
 };
-void run_sync_reload() {
+void run_asset_reload() {
   fixture files(true);
   files.color(std::byte{255}, std::byte{0});
+  gneiss::engine::task_scheduler scheduler(
+      {.workers = 0, .mode = gneiss::engine::execution_mode::cooperative});
   std::shared_ptr<runtime::application> app;
   const auto root = files.root.string();
   runtime::application_configuration desc;
@@ -77,6 +79,24 @@ void run_sync_reload() {
   desc.asset_root = root;
   check(gneiss::engine::result{runtime::application::create(desc, app)} ==
         gneiss::engine::result::success);
+  check(app->attach_task_executor(scheduler).ok());
+  const auto reload = [&](std::span<const gneiss::engine::render_asset_reload> requests) {
+    std::uint64_t request{};
+    auto status = app->request_assets(requests, 1, 1, request, true);
+    if (status.failed())
+      return status;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    for (;;) {
+      (void)scheduler.run_ready();
+      gneiss::engine::texture_load_completion completion;
+      bool ready{};
+      status = app->poll_assets(completion, ready);
+      if (status.failed() || ready)
+        return status.failed() ? status : completion.result;
+      check(std::chrono::steady_clock::now() < deadline);
+      std::this_thread::yield();
+    }
+  };
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance_id scene{};
   check(gneiss::engine::result{app->scenes()->load(uri, &scene)} ==
@@ -105,12 +125,12 @@ void run_sync_reload() {
   files.color(std::byte{0}, std::byte{255});
   const std::array requests{gneiss::engine::render_asset_reload{
       .uri = "asset://t.texture.json", .type = gneiss::engine::render_asset_type::texture}};
-  check(app->reload_render_assets(requests) == gneiss::engine::result::success);
+  check(reload(requests) == gneiss::engine::result::success);
   // 不重载场景、不重建材质：已有引用必须看到同一纹理 RID 的新内容。
   const auto updated = await_color(true);
   check(updated[1] > updated[0] + 30U);
   std::ofstream(files.root / "t.texture.json") << "{";
-  check(app->reload_render_assets(requests) == gneiss::engine::result::invalid_argument);
+  check(reload(requests) == gneiss::engine::result::invalid_argument);
   check(pixel() == updated);
 }
 
@@ -826,7 +846,7 @@ int main(int argc, char* argv[]) try {
     return 0;
   }
   std::fprintf(stderr, "asset-pixel: pending resources\n");
-  run_sync_reload();
+  run_asset_reload();
   run_pending_resources();
   std::fprintf(stderr, "asset-pixel: mip\n");
   run_mip_sampling();

@@ -6,7 +6,6 @@
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
-#include "engine/resource/vfs/virtual_file_system.hpp"
 
 #include <deque>
 #include <optional>
@@ -49,8 +48,8 @@ struct asset_load_progress {
   bool can_cancel{};
 };
 
-/** 主线程服务；只读 VFS 副本和单项临时数据由任务拥有，CPU 内容采用留在所属线程，GPU 上传由 Render
- * 独立安排。 挂载后端在服务生存期内不得重配，read_bounded 须支持只读并发访问。
+/** 主线程加载编排；文件服务读取字节，任务只解码已有内存数据。
+ * 宿主统一分发文件完成；CPU 内容在所属线程采用，GPU 上传由 Render 独立安排。
  * 只接受一个在途批次；宿主保序排队，容量满返回 NOT_READY，不自动创建池。 */
 class texture_load_service final {
 public:
