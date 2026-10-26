@@ -117,8 +117,6 @@ add_library(
   commands/editor_prefab_edit.hpp
   runtime_launch.cpp
   runtime_launch.hpp
-  commands/asset_scene_commands.cpp
-  commands/asset_scene_commands.hpp
   commands/author_property_edit.cpp
   commands/author_property_edit.hpp
   commands/runtime_author_apply.cpp

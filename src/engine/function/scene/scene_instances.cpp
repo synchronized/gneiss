@@ -1173,10 +1173,10 @@ gneiss::engine::result scene_instance::capture_subtree(scene_node_id root,
   }
 }
 
-gneiss::engine::result scene_instance::restore_subtree(std::string_view snapshot,
-                                                       scene_node_id parent,
-                                                       std::span<const uuid_mapping> mappings,
-                                                       scene_node_id* out_root) {
+gneiss::engine::result
+scene_instance::restore_subtree(std::string_view snapshot, scene_node_id parent,
+                                std::span<const uuid_mapping> mappings, scene_node_id* out_root,
+                                std::span<const scene_mesh_binding> bindings) {
   gneiss::engine::scene_description subtree;
   gneiss::engine::scene_diagnostic diagnostic;
   auto result = gneiss::engine::parse_scene_description(snapshot, subtree, diagnostic);
@@ -1265,12 +1265,26 @@ gneiss::engine::result scene_instance::restore_subtree(std::string_view snapshot
                     .mesh = {},
                     .material = {}};
       if (author.mesh_renderer) {
-        gneiss::engine::asset_diagnostic asset_diagnostic;
-        result =
-            loader_.acquire_mesh(author.mesh_renderer->mesh_uri, target.mesh, asset_diagnostic);
-        if (result == gneiss::engine::result::success) {
-          result = loader_.acquire_material(author.mesh_renderer->material_uri, target.material,
-                                            asset_diagnostic);
+        const auto found = std::ranges::find_if(bindings, [&](const auto& binding) {
+          return asset_uri(binding.mesh) == author.mesh_renderer->mesh_uri &&
+                 asset_uri(binding.material) == author.mesh_renderer->material_uri;
+        });
+        if (found != bindings.end()) {
+          if (!loader_.owns(found->mesh) || !loader_.owns(found->material))
+            return result::invalid_handle;
+          target.mesh = found->mesh;
+          target.material = found->material;
+        } else {
+          render_asset_ref cached;
+          result = loader_.acquire_cached({author.mesh_renderer->mesh_uri, render_asset_type::mesh},
+                                          cached);
+          if (result.ok()) {
+            target.mesh = render_asset_loader::mesh_ref(cached);
+            result = loader_.acquire_cached(
+                {author.mesh_renderer->material_uri, render_asset_type::material}, cached);
+            if (result.ok())
+              target.material = render_asset_loader::material_ref(cached);
+          }
         }
         if (result != gneiss::engine::result::success) {
           return result;
@@ -2074,11 +2088,11 @@ gneiss::engine::result scene_instances::capture_subtree(scene_instance_id instan
   }
 }
 
-gneiss::engine::result scene_instances::restore_subtree(scene_instance_id instance,
-                                                        std::string_view snapshot,
-                                                        scene_node_id parent_value,
-                                                        std::span<const uuid_mapping> mappings,
-                                                        scene_node_id& out_root_value) noexcept {
+gneiss::engine::result
+scene_instances::restore_subtree(scene_instance_id instance, std::string_view snapshot,
+                                 scene_node_id parent_value, std::span<const uuid_mapping> mappings,
+                                 scene_node_id& out_root_value,
+                                 std::span<const scene_mesh_binding> bindings) noexcept {
   auto parent = parent_value;
   auto out_root_storage = out_root_value;
   auto* out_root = &out_root_storage;
@@ -2091,7 +2105,7 @@ gneiss::engine::result scene_instances::restore_subtree(scene_instance_id instan
       auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
       return value == nullptr || *value == nullptr
                  ? gneiss::engine::result::invalid_handle
-                 : (*value)->restore_subtree(snapshot, parent, mappings, out_root);
+                 : (*value)->restore_subtree(snapshot, parent, mappings, out_root, bindings);
     } catch (...) {
       return gneiss::engine::result::internal;
     }

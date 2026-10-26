@@ -61,10 +61,10 @@ public:
   [[nodiscard]] gneiss::engine::result reparent_node(scene_node_id node, scene_node_id parent);
   [[nodiscard]] gneiss::engine::result capture_subtree(scene_node_id root,
                                                        std::string& out_snapshot) const;
-  [[nodiscard]] gneiss::engine::result restore_subtree(std::string_view snapshot,
-                                                       scene_node_id parent,
-                                                       std::span<const uuid_mapping> mappings,
-                                                       scene_node_id* out_root);
+  [[nodiscard]] gneiss::engine::result
+  restore_subtree(std::string_view snapshot, scene_node_id parent,
+                  std::span<const uuid_mapping> mappings, scene_node_id* out_root,
+                  std::span<const scene_mesh_binding> bindings);
   [[nodiscard]] gneiss::engine::result destroy_subtree(scene_node_id root);
   [[nodiscard]] gneiss::engine::result
   create_mesh_renderer_node(const mesh_renderer_node_creation& desc, scene_node_id* out_node,

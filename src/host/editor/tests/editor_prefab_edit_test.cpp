@@ -88,6 +88,7 @@ void run_refresh(gneiss::engine::execution_mode mode) {
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
+    app->advance_scene_load();
     edit.advance();
     std::this_thread::yield();
   };
@@ -242,6 +243,7 @@ void run(gneiss::engine::execution_mode mode) {
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
+    app->advance_scene_load();
     edit.advance();
     std::this_thread::yield();
   };

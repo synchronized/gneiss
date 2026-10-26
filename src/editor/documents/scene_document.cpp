@@ -665,6 +665,29 @@ gneiss::engine::result scene_document::reparent_node(scene_node_id node,
   return refreshed;
 }
 
+engine::result
+scene_document::capture_subtree_bindings(scene_node_id root,
+                                         std::vector<engine::scene_mesh_binding>& output) const {
+  for (const auto& candidate : nodes_) {
+    if (candidate.mesh_uri.empty())
+      continue;
+    auto current = candidate.node;
+    while (current.is_valid()) {
+      if (current == root) {
+        engine::scene_mesh_binding binding;
+        const auto status = application_->capture_mesh_binding(scene_, candidate.node, binding);
+        if (status.failed())
+          return status;
+        output.push_back(std::move(binding));
+        break;
+      }
+      const auto ancestor = std::ranges::find(nodes_, current, &scene_node_record::node);
+      current = ancestor == nodes_.end() ? scene_node_id{} : ancestor->parent;
+    }
+  }
+  return engine::result::success;
+}
+
 gneiss::engine::result
 scene_document::destroy_subtree(scene_node_id node, scene_subtree_snapshot& out_snapshot) noexcept {
   if (!is_open() || !node.is_valid()) {
@@ -675,7 +698,8 @@ scene_document::destroy_subtree(scene_node_id node, scene_subtree_snapshot& out_
     return gneiss::engine::result::not_found;
   }
   try {
-    scene_subtree_snapshot snapshot{.json = {}, .parent_uuid = {}, .root_uuid = found->uuid};
+    scene_subtree_snapshot snapshot{
+        .json = {}, .parent_uuid = {}, .root_uuid = found->uuid, .resources = {}};
     if (found->parent.is_valid()) {
       const auto parent = std::ranges::find(nodes_, found->parent, &scene_node_record::node);
       if (parent == nodes_.end()) {
@@ -689,6 +713,9 @@ scene_document::destroy_subtree(scene_node_id node, scene_subtree_snapshot& out_
     if (operation != gneiss::engine::result::success) {
       return operation;
     }
+    operation = capture_subtree_bindings(node, snapshot.resources);
+    if (operation.failed())
+      return operation;
     operation = with_scene([&](auto& service) {
       return service.destroy_subtree(scene_, gneiss::scene_node_id{node});
     });
@@ -719,8 +746,8 @@ gneiss::engine::result scene_document::restore_subtree(const scene_subtree_snaps
     parent = record->node;
   }
   const auto operation = with_node(out_node, [&](auto& service, auto& output) {
-    return service.restore_subtree(scene_, snapshot.json, gneiss::scene_node_id{parent}, {},
-                                   output);
+    return service.restore_subtree(scene_, snapshot.json, gneiss::scene_node_id{parent}, {}, output,
+                                   snapshot.resources);
   });
   if (operation != gneiss::engine::result::success) {
     return operation;
@@ -746,6 +773,10 @@ gneiss::engine::result scene_document::duplicate_subtree(scene_node_id node, sce
     if (operation != gneiss::engine::result::success) {
       return operation;
     }
+    std::vector<engine::scene_mesh_binding> bindings;
+    operation = capture_subtree_bindings(node, bindings);
+    if (operation.failed())
+      return operation;
     std::vector<std::string> sources;
     std::vector<std::string> targets;
     for (const auto& candidate : nodes_) {
@@ -767,7 +798,7 @@ gneiss::engine::result scene_document::duplicate_subtree(scene_node_id node, sce
     }
     operation = with_node(out_node, [&](auto& service, auto& output) {
       return service.restore_subtree(scene_, snapshot, gneiss::scene_node_id{parent}, mappings,
-                                     output);
+                                     output, bindings);
     });
     if (operation == gneiss::engine::result::success) {
       selection_ = out_node;

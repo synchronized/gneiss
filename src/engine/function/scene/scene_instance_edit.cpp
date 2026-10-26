@@ -53,11 +53,17 @@ scene_instance::replace_mesh_binding(scene_node_id node_value, const scene_mesh_
           .replacement = {.mesh = replacement.mesh, .material = replacement.material},
       },
   };
-  const auto changed = native_world_.replace_mesh_renderers(changes);
+  const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
+  auto changed = result::success;
+  if (!expected.mesh && !expected.material && !description_.objects[index].mesh_renderer) {
+    changed = native_world_.entity_set_mesh_renderer(
+        entity_id{found->entity}, {.mesh = replacement.mesh, .material = replacement.material});
+  } else {
+    changed = native_world_.replace_mesh_renderers(changes);
+  }
   if (changed != gneiss::engine::result::success) {
     return changed;
   }
-  const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
   description_.objects[index].mesh_renderer = std::move(author);
   found->mesh = replacement.mesh;
   found->material = replacement.material;

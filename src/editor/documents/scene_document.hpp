@@ -9,6 +9,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_mesh_binding.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/types/scene_description.hpp"
 namespace gneiss::runtime {
@@ -81,6 +82,8 @@ struct scene_subtree_snapshot final {
   std::string json;
   std::string parent_uuid;
   std::string root_uuid;
+  // 历史记录保活资源，删除后撤销无需重新加载。
+  std::vector<engine::scene_mesh_binding> resources;
 };
 
 /** 单个场景的编辑文档：保存 URI、选择、脏状态和节点查询快照。
@@ -208,6 +211,8 @@ public:
   void clear_dirty() noexcept { is_dirty_ = false; }
 
 private:
+  engine::result capture_subtree_bindings(scene_node_id root,
+                                          std::vector<engine::scene_mesh_binding>& output) const;
   template <class F> gneiss::engine::result with_scene(F&& action) const noexcept;
   template <class F>
   gneiss::engine::result with_node(scene_node_id& output, F&& action) const noexcept;

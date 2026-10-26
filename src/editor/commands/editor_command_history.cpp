@@ -97,9 +97,10 @@ editor_command_history::record(std::unique_ptr<editor_command> value) noexcept {
 }
 
 gneiss::engine::result editor_command_history::prepare_record() noexcept try {
-  if (is_pending() || capacity_ == 0U) {
+  if (is_pending())
     return gneiss::engine::result::not_ready;
-  }
+  if (capacity_ == 0U)
+    return gneiss::engine::result::invalid_argument;
   entries_.reserve(entries_.size() + 1U);
   return gneiss::engine::result::success;
 } catch (const std::bad_alloc&) {

@@ -62,7 +62,8 @@ public:
   [[nodiscard]] gneiss::engine::result capture_mesh_binding(scene_instance_id instance,
                                                             scene_node_id node,
                                                             mesh_binding& output) const noexcept;
-  /** 仅提交就绪租约；校验旧租约及 ECS，失败保留原描述和资源，不加载资产。 */
+  /** 仅提交资源引用；expected 为空时恢复已移除组件，不加载资产。
+   * 替换既有组件时校验旧引用及 ECS，失败保留原描述和资源。 */
   [[nodiscard]] gneiss::engine::result
   replace_mesh_binding(scene_instance_id instance, scene_node_id node, const mesh_binding& expected,
                        const mesh_binding& replacement) noexcept;
@@ -142,9 +143,11 @@ public:
   [[nodiscard]] gneiss::engine::result capture_subtree(scene_instance_id instance,
                                                        scene_node_id root,
                                                        std::string& out_snapshot) const noexcept;
+  /** 只消费内存 JSON 和资源引用；缺失引用仅查询缓存，不读取文件。 */
   [[nodiscard]] gneiss::engine::result
   restore_subtree(scene_instance_id instance, std::string_view snapshot, scene_node_id parent,
-                  std::span<const uuid_mapping> mappings, scene_node_id& out_root) noexcept;
+                  std::span<const uuid_mapping> mappings, scene_node_id& out_root,
+                  std::span<const scene_mesh_binding> bindings = {}) noexcept;
   [[nodiscard]] gneiss::engine::result destroy_subtree(scene_instance_id instance,
                                                        scene_node_id root) noexcept;
   [[nodiscard]] gneiss::engine::result

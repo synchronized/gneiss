@@ -58,7 +58,11 @@ gneiss::engine::result editor_asset_edit::commit(runtime::application& applicati
     return gneiss::engine::result::invalid_state;
   }
   if (creating_) {
-    return commit_add(application, session, history);
+    const auto was_dirty = session.is_dirty();
+    const auto operation = commit_add(application, session, history);
+    if (operation.failed() && !was_dirty)
+      session.clear_dirty();
+    return operation;
   }
   const auto apply = [&application, &session, scene = scene_, node = node_](
                          const auto& expected, const auto& replacement) -> gneiss::engine::result {
@@ -81,6 +85,57 @@ gneiss::engine::result editor_asset_edit::commit(runtime::application& applicati
     session.clear_dirty();
   }
   return operation;
+}
+
+engine::result editor_asset_edit::request_remove(runtime::application& application,
+                                                 scene_document& session,
+                                                 editor_command_history& history,
+                                                 std::string_view uuid) try {
+  if (active_ || history.is_pending())
+    return engine::result::not_ready;
+  const auto* node = session.find_node(uuid);
+  if (!node)
+    return engine::result::not_found;
+  const auto scene = session.scene_handle();
+  engine::scene_mesh_binding binding;
+  auto status = application.capture_mesh_binding(scene, node->node, binding);
+  if (status.failed())
+    return status;
+  if (!binding.mesh || !binding.material)
+    return engine::result::not_found;
+  const auto was_dirty = session.is_dirty();
+  status = history.execute({
+      .label = "移除 Mesh Renderer",
+      .undo =
+          [&application, &session, scene, uuid = std::string(uuid), binding] {
+            if (session.scene_handle() != scene)
+              return engine::result::invalid_state;
+            const auto* current = session.find_node(uuid);
+            if (!current)
+              return engine::result::not_found;
+            return session.commit_mesh_renderer(current->node, engine::asset_uri(binding.mesh),
+                                                engine::asset_uri(binding.material), [&] {
+                                                  return application.replace_mesh_binding(
+                                                      scene, current->node, {}, binding);
+                                                });
+          },
+      .redo =
+          [&session, scene, uuid = std::string(uuid)] {
+            if (session.scene_handle() != scene)
+              return engine::result::invalid_state;
+            const auto* current = session.find_node(uuid);
+            return current ? session.remove_mesh_renderer(current->node)
+                           : engine::result::not_found;
+          },
+      .merge_key = {},
+  });
+  if (status.failed() && !was_dirty)
+    session.clear_dirty();
+  return status;
+} catch (const std::bad_alloc&) {
+  return engine::result::out_of_memory;
+} catch (...) {
+  return engine::result::internal;
 }
 
 gneiss::engine::result editor_asset_edit::request(runtime::application& application,

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "commands/asset_scene_commands.hpp"
 #include "commands/editor_command_history.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
@@ -11,6 +10,12 @@
 #include "engine/function/scene/scene_instances.hpp"
 
 namespace gneiss::editor {
+/** 提交期间借用的资源地址；请求接收后自行复制 URI。 */
+struct mesh_asset_reference final {
+  std::string_view mesh_uri;
+  std::string_view material_uri;
+};
+
 /** 所属线程的一次模态资产替换；命令租约须在 Application 销毁前释放。 */
 class editor_asset_edit final {
 public:
@@ -20,6 +25,9 @@ public:
   gneiss::engine::result request(runtime::application& application, scene_document& session,
                                  editor_command_history& history, std::string_view uuid,
                                  mesh_asset_reference assets);
+  /** 移除组件并把资源强引用保存在历史中；撤销不加载文件。 */
+  gneiss::engine::result request_remove(runtime::application& application, scene_document& session,
+                                        editor_command_history& history, std::string_view uuid);
   void advance(runtime::application& application, scene_document& session,
                editor_command_history& history);
   void cancel(runtime::application& application);

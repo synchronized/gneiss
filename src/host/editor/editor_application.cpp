@@ -8,7 +8,6 @@
 #include "engine/function/world/world.hpp"
 
 #include "child_process.hpp"
-#include "commands/asset_scene_commands.hpp"
 #include "commands/author_property_edit.hpp"
 #include "commands/editor_asset_edit.hpp"
 #include "commands/editor_command_history.hpp"
@@ -2154,37 +2153,10 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
               parent = found->node;
             }
           }
-          gneiss::scene_node_id duplicate;
-          state.history_error = state.editing.document().create_prefab_instance(
-              prefab_selected->display_name, prefab_selected->prefab_uri, parent, duplicate);
-          if (state.history_error == gneiss::engine::result::success) {
-            const auto duplicate_uuid =
-                state.editing.document().selected_prefab_node()->instance_uuid;
-            auto snapshot = std::make_shared<gneiss::editor::prefab_instance_snapshot>();
-            state.history_error = state.editing.history().record(
-                {.label = "复制 Prefab 实例",
-                 .undo =
-                     [&state, duplicate_uuid, snapshot] {
-                       const auto* current =
-                           state.editing.document().find_prefab_root(duplicate_uuid);
-                       return current == nullptr ? gneiss::engine::result::not_found
-                                                 : state.editing.document().destroy_prefab_instance(
-                                                       current->node, *snapshot);
-                     },
-                 .redo =
-                     [&state, snapshot] {
-                       gneiss::scene_node_id restored;
-                       return state.editing.document().restore_prefab_instance(*snapshot, restored);
-                     },
-                 .merge_key = {}});
-            if (state.history_error != gneiss::engine::result::success) {
-              const auto* current = state.editing.document().find_prefab_root(duplicate_uuid);
-              if (current != nullptr) {
-                gneiss::editor::prefab_instance_snapshot discarded;
-                (void)state.editing.document().destroy_prefab_instance(current->node, discarded);
-              }
-            }
-          }
+          state.history_error = state.editing.prefabs().request(
+              *state.application, state.task_scheduler, state.editing.document(),
+              state.editing.history(), prefab_selected->display_name, prefab_selected->prefab_uri,
+              parent);
         }
         ImGui::SameLine();
         if (ImGui::Button("Delete Prefab")) {
@@ -2732,8 +2704,6 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
       const auto has_mesh =
           (selected->component_flags &
            static_cast<std::uint32_t>(gneiss::scene_node_components::mesh_renderer)) != 0U;
-      const auto selected_mesh_uri = selected->mesh_uri;
-      const auto selected_material_uri = selected->material_uri;
       bool components_changed = false;
       if (ImGui::Button(has_camera ? "Remove Camera" : "Add Camera")) {
         if (has_camera) {
@@ -2798,33 +2768,8 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
       const auto remove_mesh_requested = ImGui::Button("Remove Mesh Renderer");
       ImGui::EndDisabled();
       if (remove_mesh_requested) {
-        state.history_error = state.editing.document().remove_mesh_renderer(selected->node);
-        if (state.history_error == gneiss::engine::result::success) {
-          state.history_error = state.editing.history().record(
-              {.label = "移除 Mesh Renderer",
-               .undo =
-                   [&state, uuid, selected_mesh_uri, selected_material_uri] {
-                     const auto* node = state.editing.document().find_node(uuid);
-                     return node == nullptr
-                                ? gneiss::engine::result::not_found
-                                : state.editing.document().set_mesh_renderer(
-                                      node->node, selected_mesh_uri, selected_material_uri);
-                   },
-               .redo =
-                   [&state, uuid] {
-                     const auto* node = state.editing.document().find_node(uuid);
-                     return node == nullptr
-                                ? gneiss::engine::result::not_found
-                                : state.editing.document().remove_mesh_renderer(node->node);
-                   },
-               .merge_key = {}});
-          if (state.history_error != gneiss::engine::result::success) {
-            if (const auto* node = state.editing.document().find_node(uuid); node != nullptr) {
-              (void)state.editing.document().set_mesh_renderer(node->node, selected_mesh_uri,
-                                                               selected_material_uri);
-            }
-          }
-        }
+        state.history_error = state.editing.assets().request_remove(
+            *state.application, state.editing.document(), state.editing.history(), uuid);
         state.inspected_entity = {};
         components_changed = state.history_error == gneiss::engine::result::success;
       }
