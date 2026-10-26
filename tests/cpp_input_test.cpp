@@ -3,6 +3,7 @@
 
 #include "engine/core/entity_id.hpp"
 #include "runtime/application.hpp"
+#include "support/async_input.hpp"
 #include <thread>
 #include <type_traits>
 
@@ -14,6 +15,8 @@ int main() {
   constexpr std::string_view uri = "asset://input/default.input-map.json";
   gneiss::runtime::application_configuration config;
   config.asset_root = asset_root;
+  gneiss::engine::task_scheduler scheduler(
+      {.workers = 0, .mode = gneiss::engine::execution_mode::cooperative});
   std::shared_ptr<gneiss::runtime::application> app, other;
   gneiss::engine::action_id action;
   gneiss::engine::action_state state{};
@@ -21,17 +24,19 @@ int main() {
   if (gneiss::runtime::application::create(config, app).failed() || action.value != 0 ||
       app->get_action_state(action, state) != result::invalid_handle ||
       app->poll_input(event) != result::not_ready || app->keyboard_state().modifiers != 0 ||
-      app->pointer_state().buttons != 0 || app->load_action_map(uri).failed() ||
+      app->pointer_state().buttons != 0 ||
+      gneiss::test_support::load_input_for_test(*app, scheduler, uri).failed() ||
       app->find_action("move_horizontal", action).failed() || action.value == 0 ||
       app->get_action_state(action, state).failed() || state.held || state.value != 0.0F) {
     return 1;
   }
   const auto original = action;
   if (app->find_action("missing", action) != result::not_found || action.value != 0 ||
-      app->load_action_map("asset://input/missing.input-map.json") != result::not_found ||
+      gneiss::test_support::load_input_for_test(
+          *app, scheduler, "asset://input/missing.input-map.json") != result::not_found ||
       app->get_action_state(original, state).failed() ||
       gneiss::runtime::application::create(config, other).failed() ||
-      other->load_action_map(uri).failed() ||
+      gneiss::test_support::load_input_for_test(*other, scheduler, uri).failed() ||
       other->get_action_state(original, state) != result::invalid_handle) {
     return 2;
   }
@@ -47,7 +52,8 @@ int main() {
   worker.join();
   if (thread_result != result::invalid_state || thread_state_result != result::invalid_state ||
       thread_event_result != result::invalid_state || state.value != 7.0F ||
-      event.timestamp_ns != 99 || action != original || app->load_action_map(uri).failed() ||
+      event.timestamp_ns != 99 || action != original ||
+      gneiss::test_support::load_input_for_test(*app, scheduler, uri).failed() ||
       app->get_action_state(original, state) != result::invalid_handle ||
       app->find_action("move_horizontal", action).failed() || action == original ||
       app->get_action_state(action, state).failed()) {

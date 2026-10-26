@@ -502,17 +502,6 @@ gneiss::engine::result application::cancel_action_map() noexcept {
   storage_->input_application_.cancel();
   return gneiss::engine::result::success;
 }
-gneiss::engine::result application::load_action_map(std::string_view uri) noexcept {
-  if (!is_owner_thread() || !accepts_requests())
-    return gneiss::engine::result::invalid_state;
-  storage_->input_application_.cancel();
-  gneiss::engine::action_map map;
-  const auto result = storage_->asset_manager_->load_input(uri, map);
-  return result == gneiss::engine::result::success
-             ? storage_->input_.replace_action_map(std::move(map))
-             : result;
-}
-
 gneiss::engine::result
 application::find_action(std::string_view name,
                          gneiss::engine::action_id& out_action) const noexcept {

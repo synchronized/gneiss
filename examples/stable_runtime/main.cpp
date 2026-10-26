@@ -3,6 +3,7 @@
 
 #include "../support/scope_exit.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -29,6 +30,7 @@ struct sample_state {
   gneiss::engine::action_id quit;
   double angle = 0.0;
   bool measure = false;
+  std::uint64_t measured_updates{};
   std::chrono::steady_clock::time_point previous_update;
   std::array<double, measure_sample_frames> frame_times_ms{};
   std::size_t frame_time_count = 0U;
@@ -50,7 +52,7 @@ gneiss::engine::result update_sample(gneiss::runtime::application& application,
   auto* state = static_cast<sample_state*>(user_data);
   if (state->measure) {
     const auto current_update = std::chrono::steady_clock::now();
-    if (time.frame_index >= measure_warmup_frames &&
+    if (state->measured_updates++ >= measure_warmup_frames &&
         state->frame_time_count < state->frame_times_ms.size()) {
       state->frame_times_ms[state->frame_time_count] =
           std::chrono::duration<double, std::milli>(current_update - state->previous_update)
@@ -125,12 +127,17 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   const auto started = clock::now();
   sample_state state;
   state.measure = measure;
+  gneiss::engine::task_scheduler scheduler(
+      {.workers = 0, .mode = gneiss::engine::execution_mode::cooperative});
+  bool can_update = false;
   std::shared_ptr<gneiss::runtime::application> native_application;
   gneiss::runtime::application_configuration config;
   config.use_granit_window = true;
   config.window.title = title;
   config.asset_root = asset_root;
   config.callbacks.update = [&](const auto& time) {
+    if (!can_update)
+      return gneiss::engine::result::success;
     return update_sample(*native_application, time, &state);
   };
   example::scope_exit close{[&] {
@@ -143,6 +150,16 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
     return 1;
   }
   const auto application_ready = clock::now();
+  if (native_application->attach_task_executor(scheduler).failed() ||
+      native_application->begin_action_map(input_map_uri).failed())
+    return 2;
+  while (native_application->action_map_status() == gneiss::engine::result::not_ready) {
+    (void)scheduler.run_ready();
+    if (native_application->run(1).failed())
+      return 2;
+  }
+  if (native_application->action_map_status().failed())
+    return 2;
   gneiss::scene_instance_id scene{};
   example::scope_exit unload{[&] {
     if (scene)
@@ -154,7 +171,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
     return 3;
   }
   const auto scene_ready = clock::now();
-  result = native_application->load_action_map(input_map_uri);
+  result = native_application->action_map_status();
   if (result != gneiss::engine::result::success) {
     report_failure("加载输入映射", result);
     return 4;
@@ -174,6 +191,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   }
   const auto setup_ready = clock::now();
 
+  can_update = true;
   state.previous_update = clock::now();
   std::uint64_t frame_count = smoke ? 3U : 0U;
   if (measure) {

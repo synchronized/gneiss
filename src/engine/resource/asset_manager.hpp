@@ -37,9 +37,6 @@ public:
   ~asset_manager();
   /** 借用宿主解码执行器；文件 I/O 由服务后端执行，不创建独立线程池。 */
   void attach_task_executor(gneiss::engine::task_executor& executor);
-  /** 同步准备失败不改输出，不驱动宿主任务队列；采用与取消由调用者负责。 */
-  [[nodiscard]] gneiss::engine::result load_input(std::string_view uri,
-                                                  gneiss::engine::action_map& output) noexcept;
   [[nodiscard]] gneiss::engine::result request_input(std::string_view uri,
                                                      asset_request<action_map>& output) noexcept;
   /** 宿主每次先分发文件完成，再推进本管理器；不驱动文件或其他服务回调。 */

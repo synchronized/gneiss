@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime/application.hpp"
+#include "support/async_input.hpp"
 #include <stdexcept>
 namespace {
 using namespace gneiss;
@@ -59,6 +60,7 @@ void loop() {
   check(shutdowns == 3);
 }
 void action_maps() {
+  engine::task_scheduler scheduler({.workers = 0, .mode = engine::execution_mode::cooperative});
   runtime::application_configuration config;
   config.asset_root = GNEISS_TEST_ASSET_ROOT;
   std::shared_ptr<runtime::application> app, other;
@@ -66,17 +68,18 @@ void action_maps() {
   constexpr auto uri = "asset://input/default.input-map.json";
   engine::action_id action;
   engine::action_state state;
-  check(app->load_action_map(uri).ok());
+  check(gneiss::test_support::load_input_for_test(*app, scheduler, uri).ok());
   check(app->find_action("move_horizontal", action).ok() && action.value != 0);
   check(app->get_action_state(action, state).ok() && !state.held && state.value == 0);
-  check(app->load_action_map("asset://input/missing.input-map.json") == engine::result::not_found);
+  check(gneiss::test_support::load_input_for_test(
+            *app, scheduler, "asset://input/missing.input-map.json") == engine::result::not_found);
   check(app->get_action_state(action, state).ok());
-  check(app->load_action_map(uri).ok());
+  check(gneiss::test_support::load_input_for_test(*app, scheduler, uri).ok());
   check(app->get_action_state(action, state) == engine::result::invalid_handle);
   // 使用当前仍有效的动作验证跨 Application 拒绝，避免只验证旧代次。
   check(app->find_action("move_horizontal", action).ok());
   check(runtime::application::create(config, other).ok());
-  check(other->load_action_map(uri).ok());
+  check(gneiss::test_support::load_input_for_test(*other, scheduler, uri).ok());
   check(other->get_action_state(action, state) == engine::result::invalid_handle);
 }
 void creation_failures() {

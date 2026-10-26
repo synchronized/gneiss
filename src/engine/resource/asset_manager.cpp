@@ -383,20 +383,6 @@ gneiss::engine::result asset_manager::load_sync_erased(
 } catch (...) {
   return gneiss::engine::result::internal;
 }
-gneiss::engine::result asset_manager::load_input(std::string_view uri, action_map& output) noexcept
-    try {
-  asset_ref<const action_map> value;
-  const auto status = load_sync(uri, value, true);
-  if (status == gneiss::engine::result::success) {
-    auto copy = *value;
-    output = std::move(copy);
-  }
-  return status;
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::result::out_of_memory;
-} catch (...) {
-  return gneiss::engine::result::internal;
-}
 gneiss::engine::result asset_manager::request_input(std::string_view uri,
                                                     asset_request<action_map>& output) noexcept {
   return load(uri, output, true);

@@ -3,6 +3,7 @@
 
 #include "../support/scope_exit.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -74,12 +75,17 @@ int run_example(int argc, char** argv) {
   const auto asset_root = has_installed_assets && !path_error
                               ? installed_asset_root.string()
                               : std::string{GNEISS_TEMPLE_SOURCE_ASSET_ROOT};
+  gneiss::engine::task_scheduler scheduler(
+      {.workers = 0, .mode = gneiss::engine::execution_mode::cooperative});
+  bool can_update = false;
   std::shared_ptr<gneiss::runtime::application> native_application;
   gneiss::runtime::application_configuration config;
   config.use_granit_window = true;
   config.window.title = title;
   config.asset_root = asset_root;
   config.callbacks.update = [&](const auto& time) {
+    if (!can_update)
+      return gneiss::engine::result::success;
     return update_temple(*native_application, time, &state);
   };
   example::scope_exit close{[&] {
@@ -90,9 +96,19 @@ int run_example(int argc, char** argv) {
   if (create_result.failed()) {
     return 1;
   }
+  if (native_application->attach_task_executor(scheduler).failed() ||
+      native_application->begin_action_map(input_map_uri).failed())
+    return 2;
+  while (native_application->action_map_status() == gneiss::engine::result::not_ready) {
+    (void)scheduler.run_ready();
+    if (native_application->run(1).failed())
+      return 2;
+  }
+  if (native_application->action_map_status().failed())
+    return 2;
   gneiss::scene_instance_id scene{};
   if (native_application->scenes()->load(scene_uri, &scene) != gneiss::engine::result::success ||
-      native_application->load_action_map(input_map_uri) != gneiss::engine::result::success ||
+      native_application->action_map_status() != gneiss::engine::result::success ||
       native_application->find_action("move_horizontal", state.orbit) !=
           gneiss::engine::result::success ||
       native_application->find_action("quit", state.quit) != gneiss::engine::result::success ||
@@ -100,6 +116,7 @@ int run_example(int argc, char** argv) {
           gneiss::engine::result::success) {
     return 2;
   }
+  can_update = true;
   if (native_application->run(smoke ? 3U : 0U) != gneiss::engine::result::success) {
     return 3;
   }

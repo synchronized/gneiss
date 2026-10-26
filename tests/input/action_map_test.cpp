@@ -17,6 +17,26 @@ void advance_assets_for_test(gneiss::engine::asset_manager& assets) {
     (void)files->dispatch_completions(64);
   assets.advance_resources();
 }
+gneiss::engine::result load_map_for_test(gneiss::engine::asset_manager& assets,
+                                         gneiss::engine::task_scheduler& executor,
+                                         std::string_view uri, gneiss::engine::action_map& output) {
+  gneiss::engine::asset_request<gneiss::engine::action_map> request;
+  auto status = assets.request_input(uri, request);
+  if (status.failed())
+    return status;
+  gneiss::engine::asset_ref<const gneiss::engine::action_map> value;
+  for (unsigned i = 0; i < 32; ++i) {
+    advance_assets_for_test(assets);
+    (void)executor.run_ready();
+    status = request.take(value);
+    if (status != gneiss::engine::result::not_ready) {
+      if (status.ok())
+        output = *value;
+      return status;
+    }
+  }
+  return gneiss::engine::result::internal;
+}
 class changing_files final : public gneiss::test_support::memory_read_file_system {
 public:
   std::string first, second;
@@ -73,31 +93,37 @@ int main() {
   gneiss::engine::virtual_file_system files;
   if (files.mount("asset://", backend) != gneiss::engine::result::success)
     return 3;
+  gneiss::engine::task_scheduler executor(
+      {.workers = 0, .mode = gneiss::engine::execution_mode::cooperative});
   gneiss::engine::asset_manager assets(files);
+  assets.attach_task_executor(executor);
   backend->first = valid;
   backend->second = valid;
-  if (assets.load_input("asset://input/map", map) != gneiss::engine::result::success ||
+  if (load_map_for_test(assets, executor, "asset://input/map", map) !=
+          gneiss::engine::result::success ||
       backend->reads != 1)
     return 4;
   // 本次读取完成后来源变化或后续读取失败，不触发二次读取。
   backend->reads = 0;
   backend->second.replace(backend->second.find("move"), 4, "turn");
-  if (assets.load_input("asset://input/map", map) != gneiss::engine::result::success ||
+  if (load_map_for_test(assets, executor, "asset://input/map", map) !=
+          gneiss::engine::result::success ||
       backend->reads != 1 || map.actions[0].name != "move")
     return 5;
   backend->reads = 0;
   backend->fail_verify = true;
-  if (assets.load_input("asset://input/map", map) != gneiss::engine::result::success ||
+  if (load_map_for_test(assets, executor, "asset://input/map", map) !=
+          gneiss::engine::result::success ||
       backend->reads != 1 || map.actions[0].name != "move")
     return 6;
   backend->reads = 0;
   backend->first.assign(gneiss::engine::maximum_action_map_bytes + 1, ' ');
-  if (assets.load_input("asset://input/map", map) != gneiss::engine::result::invalid_argument ||
+  if (load_map_for_test(assets, executor, "asset://input/map", map) !=
+          gneiss::engine::result::invalid_argument ||
       backend->reads != 1 || map.actions[0].name != "move")
     return 7;
   using namespace gneiss::engine;
-  if (backend->last_limit != maximum_action_map_bytes)
-    return 8;
+  // 异步打开来源后检查读取上限，不调用旧 read_bounded。
   gneiss::engine::meta::registry_ref registry;
   gneiss::engine::meta::serialization_binding codec;
   if (builtin_resource_registry(registry).failed() ||
@@ -124,7 +150,6 @@ int main() {
   if (assets.load_sync("asset://input/shared", shared).failed() || shared != previous ||
       backend->reads != 1)
     return 13;
-  task_scheduler executor({.workers = 0, .mode = execution_mode::cooperative});
   asset_manager asynchronous(files);
   asynchronous.attach_task_executor(executor);
   asset_request<action_map> request;
@@ -166,13 +191,14 @@ int main() {
     return 25;
   backend->first = backend->second = invalid_scale;
   asset_manager custom(files);
+  custom.attach_task_executor(executor);
   const auto override_decode = +[](std::span<const std::byte>, action_map& output,
                                    gneiss::engine::meta::serialization_diagnostic&) -> result {
     output.actions = {{.name = "override", .bindings = {{.physical_key = 4, .scale = 1.0F}}}};
     return result::success;
   };
   if (custom.register_decoder<action_map>(override_decode, maximum_action_map_bytes).failed() ||
-      custom.load_input("asset://input/map", map).failed() ||
+      load_map_for_test(custom, executor, "asset://input/map", map).failed() ||
       map.actions.front().name != "override")
     return 19;
   return 0;

@@ -118,9 +118,6 @@ void run(const char* assets, bool cooperative) {
   check(app->begin_action_map("asset://input/default.input-map.json") ==
             gneiss::engine::result::not_ready,
         "requires executor");
-  check(app->load_action_map("asset://input/default.input-map.json") ==
-            gneiss::engine::result::success,
-        "sync load does not require executor");
   check(app->attach_task_executor(scheduler) == gneiss::engine::result::success, "attach");
 #if !GNEISS_TEST_TASK_THREADS || defined(__EMSCRIPTEN__)
   // 未配置真实异步后端的平台不能恢复旧同步回退；浏览器后端接入后替换此能力断言。
@@ -155,9 +152,6 @@ void run(const char* assets, bool cooperative) {
     std::ofstream oversized(root / "input/oversized.json", std::ios::binary);
     oversized << std::string(gneiss::engine::maximum_action_map_bytes + 1, ' ');
   }
-  check(app->load_action_map("asset://input/oversized.json") ==
-            gneiss::engine::result::invalid_argument,
-        "sync document limit");
   check(app->begin_action_map("asset://input/oversized.json") == gneiss::engine::result::success,
         "async oversized request admitted");
   wait();
@@ -189,13 +183,11 @@ void run(const char* assets, bool cooperative) {
                              std::filesystem::copy_options::overwrite_existing);
   check(app->begin_action_map("asset://input/default.input-map.json") ==
             gneiss::engine::result::success,
-        "begin before sync");
-  check(app->load_action_map("asset://input/default.input-map.json") ==
-            gneiss::engine::result::success,
-        "sync unchanged");
-  check(app->run(2) == gneiss::engine::result::success &&
-            app->action_map_status() == gneiss::engine::result::invalid_state,
-        "sync cancels older async apply");
+        "begin before replacement");
+  check(app->begin_action_map("asset://input/default.input-map.json").ok(),
+        "new request replaces observer");
+  wait();
+  check(app->action_map_status().ok(), "new async request applied");
 #if GNEISS_TEST_TASK_THREADS
   gneiss::engine::result cross_thread = gneiss::engine::result::success;
   std::thread other(

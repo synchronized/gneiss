@@ -135,7 +135,6 @@ public:
   [[nodiscard]] gneiss::engine::result poll_input(gneiss::engine::input_event& out_event) noexcept;
   [[nodiscard]] gneiss::engine::result get_window_size(std::uint32_t& out_width,
                                                        std::uint32_t& out_height) const noexcept;
-  [[nodiscard]] gneiss::engine::result load_action_map(std::string_view uri) noexcept;
   /** 仅所属线程；成功只表示已接受，主循环在 update 前应用。未启用后端返回 UNSUPPORTED。 */
   [[nodiscard]] gneiss::engine::result begin_action_map(std::string_view uri) noexcept;
   /** NOT_READY 表示在途；成功表示已应用。失败保留原映射。 */

@@ -34,7 +34,8 @@ Granit 的类型、句柄和枚举只存在于 `src/engine/platform/granit/`，�
 
 ## C++ 入口
 
-`gneiss::runtime::application` 提供 `poll_input`、`keyboard_state`、`pointer_state`、`load_action_map`、
+`gneiss::runtime::application` 提供 `poll_input`、`keyboard_state`、`pointer_state`、`begin_action_map`、
+`action_map_status`、`cancel_action_map`、
 `find_action` 和 `get_action_state` 成员；不需要先取出裸 Application 句柄。
 事件和状态使用 `gneiss::engine` 中的原生值类型，不包含 `struct_size` 和 ABI 保留字段。
 `input_event::type` 指定 `data` 联合体的活动成员；只按对应事件类型访问该成员。
@@ -70,3 +71,6 @@ while (host.poll_input(event).ok()) {
 加载和解析不修改输入服务，成功后由 Application 在所属线程复制描述并调用 replace_action_map。
 读取、解码或采用失败保留旧映射；动作 ID 的失效规则不变。大小上限为 1 MiB，
 codec 诊断提供 JSON 字节偏移或字段路径。格式约束仍以[输入映射格式](input-map-format.md)为准。
+
+输入映射只提供异步加载：先附加任务执行器，再调用 begin_action_map；成功仅表示请求被接受。
+宿主事件循环在 update 前应用结果，通过 action_map_status 查询终态；不存在同步 load_action_map。
