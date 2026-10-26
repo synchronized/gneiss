@@ -551,13 +551,26 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
             first.type == gneiss::host::ipc_asset_type::prefab) {
           structural_ignored =
               first.type == gneiss::host::ipc_asset_type::scene && first.uri != active_scene_uri;
+          if (first.type == gneiss::host::ipc_asset_type::prefab) {
+            gneiss::engine::scene_description description;
+            const auto captured =
+                native_application->scenes()->capture_description(scene, description);
+            if (captured.failed())
+              return captured;
+            structural_ignored =
+                std::ranges::none_of(description.prefab_instances, [&](const auto& instance) {
+                  return instance.prefab_uri == first.uri;
+                });
+          }
+          // 先准备可分配的回执，再提交请求，避免接受后因分配失败丢失观察状态。
+          structural_reload = first;
           const auto accepted =
               structural_ignored
                   ? gneiss::engine::result::success
                   : native_application->request_scene_reload(
                         scene, first.uri, first.type == gneiss::host::ipc_asset_type::prefab);
-          if (accepted.ok())
-            structural_reload = first;
+          if (accepted.failed())
+            structural_reload.reset();
           return accepted;
         }
         std::vector<gneiss::engine::render_asset_reload> assets;

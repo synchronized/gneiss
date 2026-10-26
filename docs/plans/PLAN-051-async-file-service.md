@@ -34,6 +34,14 @@ Runtime 的 Scene/Prefab 结构重载已改用异步描述/依赖准备，完成
 不将 Platform 搬迁或桌面后端实现等同于整份计划完成；大场景和 CI 仍留待统一验收。
 架构决策见 [ADR-084](../decisions/ADR-084-async-file-service.md)。
 
+## 当前五项收尾进度
+
+- Runtime/Editor 事件循环正常退出已采用分阶段关闭；启动失败和析构兜底尚待收敛。
+- Scene/Prefab 结构重载、编辑器文件监听、作者历史恢复已迁移；旧首次实例化与编辑辅助 API 仍待迁移。
+- Render 首次 acquire 的同步准备回退仍存在，须在上述调用方迁移后删除。
+- load_sync、同步准备器、VFS 适配器和旧 VFS 仍存在；Application 尚未直接装配 Platform 后端。
+- 当前改动已通过 Windows 编译、相关小型测试及 Core 分层检查；完整计划验收尚未开始。
+
 ## 本轮确认范围（待实施）
 
 本轮将文件抽象整体收敛到 `engine/platform/files`，由它完整替换旧 VFS。
