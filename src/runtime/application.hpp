@@ -20,7 +20,6 @@
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
-#include "engine/resource/vfs/virtual_file_system.hpp"
 #include "runtime/configuration/application_configuration.hpp"
 #include "runtime/loading/scene_load_types.hpp"
 
@@ -51,7 +50,6 @@ public:
   [[nodiscard]] static gneiss::engine::result
   create(const runtime::application_configuration& config,
          std::shared_ptr<application>& output) noexcept;
-  [[nodiscard]] const gneiss::engine::virtual_file_system& asset_files() const noexcept;
   [[nodiscard]] gneiss::engine::result
   set_view_camera(const gneiss::engine::view_camera* camera) noexcept;
   [[nodiscard]] gneiss::engine::result capture_frame(std::uint32_t width, std::uint32_t height,

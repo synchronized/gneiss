@@ -59,6 +59,7 @@ public:
              std::span<const std::byte> environment_asset = {}, float environment_intensity = 1.0F,
              float environment_rotation_radians = 0.0F,
              gneiss::engine::log_dispatcher* log = nullptr) noexcept;
+  result request_environment(std::shared_ptr<const std::vector<std::byte>>, float, float) noexcept;
   [[nodiscard]] gneiss::engine::result shutdown(granit::renderer_resource_stats& stats) noexcept;
   [[nodiscard]] gneiss::engine::result finish_frames() noexcept;
   void set_completion_notification(
@@ -915,7 +916,46 @@ gneiss::engine::result render_service::implementation::initialize(
   return initialize_result;
 }
 
+result render_service::implementation::request_environment(
+    std::shared_ptr<const std::vector<std::byte>> bytes, float intensity, float rotation) noexcept
+    try {
+  if (!bytes || bytes->empty() || !std::isfinite(intensity) || !std::isfinite(rotation))
+    return result::invalid_argument;
+  std::uint64_t sequence{};
+  return executor_.submit_command(
+      [this, bytes = std::move(bytes), intensity, rotation](const render_command_reporter&) {
+        // 与帧提交在同一执行器串行；在途 GPU 引用由 Granit 保活。
+        (void)environment_.reset();
+        environment_asset_requested_ = true;
+        auto status = environment_.initialize(renderer_, *bytes);
+        environment_fallback_ = status.failed();
+        if (status.failed()) {
+          (void)environment_.reset();
+          status = environment_.initialize_builtin(renderer_);
+        }
+        if (status.ok())
+          status = environment_.get_info(environment_info_);
+        if (status.ok()) {
+          environment_info_.environment.intensity = intensity;
+          environment_info_.environment.rotation_radians = rotation;
+          environment_intensity_ = intensity;
+          environment_rotation_radians_ = rotation;
+        }
+        return map_result(status);
+      },
+      sequence);
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
+}
+
 gneiss::engine::result render_service::implementation::collect_completions() noexcept {
+  render_command_completion command;
+  while (executor_.try_take_command_completion(command)) {
+    if (command.status.failed())
+      return command.status;
+  }
   gneiss::engine::render_frame_completion completion;
   while (executor_.try_take_frame_completion(completion)) {
     if (recycled_frame_packets_.size() < 3U) {
@@ -1593,6 +1633,11 @@ render_service::implementation::execute_frame(
 render_service::render_service() : impl_(std::make_unique<implementation>()) {}
 render_service::~render_service() = default;
 render_resource_service& render_service::resources() noexcept { return impl_->resources_; }
+result render_service::request_environment(std::shared_ptr<const std::vector<std::byte>> bytes,
+                                           float intensity, float rotation) noexcept {
+  return impl_->request_environment(std::move(bytes), intensity, rotation);
+}
+
 result render_service::initialize(const native_window_info& window,
                                   std::span<const std::byte> environment_asset,
                                   float environment_intensity, float environment_rotation_radians,

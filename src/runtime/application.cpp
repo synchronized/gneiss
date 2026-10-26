@@ -25,12 +25,14 @@
 #endif
 
 #include "engine/resource/vfs/asset_uri.hpp"
-#include "engine/resource/vfs/native_file_system.hpp"
 #include <cmath>
+#ifdef __EMSCRIPTEN__
+#include "engine/platform/files/browser/fetch_file_backend.hpp"
+#endif
 #ifdef GNEISS_ASSET_LIBUV
-#include "engine/platform/io/uv/uv_async_file.hpp"
+#include "engine/platform/files/native_file_backend.hpp"
 #include "engine/platform/io/uv/uv_loop_executor.hpp"
-#include "engine/platform/io/uv/uv_path_resolver.hpp"
+
 #endif
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/function/world/render_snapshot.hpp"
@@ -62,9 +64,14 @@ struct application::storage {
   std::optional<gneiss::engine::view_camera> view_camera_;
 #ifdef GNEISS_ASSET_LIBUV
   std::unique_ptr<gneiss::engine::uv_loop_executor> asset_io_executor_;
-  std::shared_ptr<gneiss::engine::native_file_system> native_assets_;
 #endif
-  gneiss::engine::virtual_file_system asset_file_system_;
+  std::shared_ptr<engine::file_service> files_;
+  struct environment_read {
+    bool ready{};
+    engine::result status{engine::result::not_ready};
+    std::shared_ptr<const std::vector<std::byte>> bytes;
+  };
+  std::shared_ptr<environment_read> environment_;
   std::unique_ptr<gneiss::engine::asset_manager> asset_manager_;
   std::unique_ptr<gneiss::engine::render_asset_loader> render_assets_;
   runtime::action_map_application input_application_;
@@ -203,19 +210,6 @@ application::attach_task_executor(gneiss::engine::task_executor& executor) noexc
     return gneiss::engine::result::invalid_state;
   }
   try {
-#ifdef GNEISS_ASSET_LIBUV
-    if (storage_->native_assets_ && !storage_->asset_io_executor_) {
-      auto loop = std::make_unique<gneiss::engine::uv_loop_executor>();
-      auto files = std::make_shared<gneiss::engine::uv_file_io>(*loop);
-      auto paths = std::make_shared<gneiss::engine::uv_path_resolver>(*loop);
-      const auto started = loop->start();
-      if (started != gneiss::engine::result::success) {
-        return started;
-      }
-      storage_->native_assets_->set_async_io(std::move(files), std::move(paths));
-      storage_->asset_io_executor_ = std::move(loop);
-    }
-#endif
     storage_->asset_manager_->attach_task_executor(executor);
     storage_->asset_executor_attached_ = true;
     gneiss::engine::texture_prepare_profile profile;
@@ -287,27 +281,35 @@ gneiss::engine::result application::initialize() noexcept {
   if (!storage_->resources_.is_valid()) {
     return gneiss::engine::result::out_of_memory;
   }
-  if (!storage_->config_.asset_root.empty()) {
-    std::shared_ptr<gneiss::engine::native_file_system> native_file_system;
-    try {
-      native_file_system = std::make_shared<gneiss::engine::native_file_system>();
-    } catch (const std::bad_alloc&) {
-      return gneiss::engine::result::out_of_memory;
-    } catch (...) {
-      return gneiss::engine::result::internal;
-    }
-    auto mount_result = native_file_system->initialize(storage_->config_.asset_root);
-    if (mount_result == gneiss::engine::result::success) {
+  try {
+    storage_->files_ = std::make_shared<engine::file_service>(
+        engine::file_service_options{.max_file_bytes = 64U * 1024U * 1024U});
+    if (!storage_->config_.asset_root.empty()) {
+      std::shared_ptr<engine::file_backend> backend;
 #ifdef GNEISS_ASSET_LIBUV
-      storage_->native_assets_ = native_file_system;
+      storage_->asset_io_executor_ = std::make_unique<engine::uv_loop_executor>();
+      const auto started = storage_->asset_io_executor_->start();
+      if (started.failed())
+        return started;
+      backend = std::make_shared<engine::native_file_backend>(
+          *storage_->asset_io_executor_, std::string(storage_->config_.asset_root));
+#elif defined(__EMSCRIPTEN__)
+      auto base = std::string(storage_->config_.asset_root);
+      if (!base.ends_with('/'))
+        base += '/';
+      backend = std::make_shared<engine::fetch_file_backend>(std::move(base));
+#else
+      return engine::result::unsupported;
 #endif
-      mount_result = storage_->asset_file_system_.mount("asset://", std::move(native_file_system));
+      const auto mounted = storage_->files_->mount(
+          {.prefix = "asset://", .readers = {backend}, .writer = {}, .source = {}});
+      if (mounted.failed())
+        return mounted;
     }
-    if (mount_result != gneiss::engine::result::success) {
-      report(gneiss::engine::severity::error, gneiss::engine::category::asset, mount_result,
-             "asset", "资产根目录挂载失败");
-      return mount_result;
-    }
+  } catch (const std::bad_alloc&) {
+    return engine::result::out_of_memory;
+  } catch (...) {
+    return engine::result::internal;
   }
   if (storage_->config_.use_granit_window) {
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
@@ -336,21 +338,9 @@ gneiss::engine::result application::initialize() noexcept {
       storage_->granit_platform_.reset();
       return gneiss::engine::result::internal;
     }
-    std::vector<std::byte> environment_asset;
-    if (!storage_->config_.environment_asset.empty()) {
-      const auto environment_result =
-          storage_->asset_file_system_.read(storage_->config_.environment_asset, environment_asset);
-      if (environment_result != gneiss::engine::result::success) {
-        report(gneiss::engine::severity::error, gneiss::engine::category::asset, environment_result,
-               "environment", "环境资产读取失败");
-        storage_->granit_platform_.reset();
-        return environment_result;
-      }
-    }
     const auto render_result = storage_->render_service_->initialize(
-        storage_->granit_platform_->native_window(), environment_asset,
-        storage_->config_.environment_intensity, storage_->config_.environment_rotation_radians,
-        storage_->log_dispatcher_.get());
+        storage_->granit_platform_->native_window(), {}, storage_->config_.environment_intensity,
+        storage_->config_.environment_rotation_radians, storage_->log_dispatcher_.get());
     if (render_result != gneiss::engine::result::success) {
       report(gneiss::engine::severity::error, gneiss::engine::category::backend, render_result,
              "granit.render", "Granit 渲染服务初始化失败");
@@ -358,6 +348,34 @@ gneiss::engine::result application::initialize() noexcept {
       return render_result;
     }
     storage_->render_service_->set_completion_notification(storage_->loop_notification_);
+    if (!storage_->config_.environment_asset.empty()) {
+      try {
+        auto state = std::make_shared<storage::environment_read>();
+        engine::file_request_id request;
+        const auto accepted = storage_->files_->read(
+            storage_->config_.environment_asset, {.max_bytes = 64U * 1024U * 1024U},
+            [state](engine::file_completion<engine::file_bytes> value) {
+              state->status = value.status;
+              if (value.status.ok()) {
+                try {
+                  state->bytes =
+                      std::make_shared<const std::vector<std::byte>>(std::move(value.data));
+                } catch (...) {
+                  state->status = engine::result::out_of_memory;
+                }
+              }
+              state->ready = true;
+            },
+            request);
+        if (accepted.failed())
+          return accepted;
+        storage_->environment_ = std::move(state);
+      } catch (const std::bad_alloc&) {
+        return engine::result::out_of_memory;
+      } catch (...) {
+        return engine::result::internal;
+      }
+    }
 #else
     report(gneiss::engine::severity::error, gneiss::engine::category::backend,
            gneiss::engine::result::unsupported, "granit.platform",
@@ -386,8 +404,7 @@ gneiss::engine::result application::initialize() noexcept {
   storage_->platform_initialized_ = true;
 
   try {
-    storage_->asset_manager_ =
-        std::make_unique<gneiss::engine::asset_manager>(storage_->asset_file_system_);
+    storage_->asset_manager_ = std::make_unique<gneiss::engine::asset_manager>(storage_->files_);
     storage_->render_assets_ = std::make_unique<gneiss::engine::render_asset_loader>(
         *storage_->asset_manager_, storage_->resources_);
     const auto result =
@@ -942,11 +959,8 @@ gneiss::engine::result application::shutdown() noexcept {
   storage_->is_updating_ = false;
   storage_->ui_draw_list_.clear();
   storage_->debug_draw_list_.clear();
-#ifdef GNEISS_ASSET_LIBUV
-  if (storage_->native_assets_) {
-    storage_->native_assets_->set_async_io({}, {});
-  }
-#endif
+  storage_->environment_.reset();
+  storage_->files_.reset();
   if (storage_->platform_initialized_) {
     if (storage_->config_.callbacks.shutdown != nullptr) {
       try {
@@ -1054,10 +1068,6 @@ gneiss::engine::result application::shutdown() noexcept {
   storage_->resources_.close();
   storage_->shutting_down_ = false;
   return shutdown_result;
-}
-
-const gneiss::engine::virtual_file_system& application::asset_files() const noexcept {
-  return storage_->asset_file_system_;
 }
 
 bool application::has_asset_loading_service() const noexcept {
@@ -1267,6 +1277,23 @@ gneiss::engine::result application::advance_resource_io() {
       return status;
   }
   storage_->asset_manager_->advance_resources();
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+  if (auto state = storage_->environment_; state && state->ready) {
+    if (state->status.failed()) {
+      storage_->environment_.reset();
+      report(engine::severity::error, engine::category::asset, state->status, "environment",
+             "环境资产异步读取失败");
+      return state->status;
+    }
+    const auto submitted = storage_->render_service_->request_environment(
+        state->bytes, storage_->config_.environment_intensity,
+        storage_->config_.environment_rotation_radians);
+    if (submitted != engine::result::not_ready)
+      storage_->environment_.reset();
+    if (submitted.failed() && submitted != engine::result::not_ready)
+      return submitted;
+  }
+#endif
   return gneiss::engine::result::success;
 }
 

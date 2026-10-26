@@ -13,6 +13,10 @@ result render_service::initialize(const native_window_info&, std::span<const std
                                   float, log_dispatcher*) noexcept {
   return result::unsupported;
 }
+result render_service::request_environment(std::shared_ptr<const std::vector<std::byte>>, float,
+                                           float) noexcept {
+  return result::unsupported;
+}
 result render_service::shutdown(render_device_stats& stats) noexcept {
   impl_->resources.close();
   stats = {};

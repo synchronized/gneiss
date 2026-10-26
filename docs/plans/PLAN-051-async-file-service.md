@@ -7,12 +7,14 @@
 
 实现中。服务核心与内存后端已迁入 platform/files，来源标记已通用化；
 Platform 不再依赖旧 VFS 或资产层。独立 libuv 桌面后端已实现读、范围读、写、stat/list/flush。
-Windows 本地服务契约、桌面后端和资产管理小范围测试通过；宿主仍经 Resource 过渡适配接入旧 VFS。
+Windows 本地服务契约、桌面后端和资产管理小范围测试通过；Application 已直接装配 file_service 与 libuv 后端。
+旧 VFS 构造及过渡适配器仅供尚未迁移的准备器/测试使用，Runtime 不再依赖它们。
 asset_manager 已提供 find_loaded；普通 CPU、Mesh/Texture 异步加载已使用文件服务。
 宿主已统一分发文件完成，Manager、Scene 和 Texture Loader 不再隐式驱动共享服务。
 服务已增加在途及待分发字节缓冲的总预算；已知长度文件支持按需单块读取，无隐式预读。
 Fetch 与 MEMFS/IDBFS 后端已实现，Emscripten 5.0.6 编译及本地 Edge 小型持久化/范围读取测试通过。
-浏览器宿主接入、存储异常、未知长度下载及平台复制峰值仍待验证或实现。
+Application 的浏览器分支已接入 Fetch 读取，asset_root 作为 URL 基址；该宿主分支尚未完整构建验证。
+浏览器本地持久化挂载、存储异常、未知长度下载及平台复制峰值仍待验证或实现。
 输入映射已删除同步 load_input/load_action_map，示例和测试改用异步请求。
 Scene/Prefab 准备层已删除同步 prepare_scene_description/prepare_prefab_description，
 统一使用 scene_description_request 加载输入和 prepare_loaded_scene 纯内存准备。
@@ -36,7 +38,9 @@ Scene 首次同步 load、Document 同步 open 及其同步准备实现已删除
 场景域测试直接消费已准备描述和资源引用。Prefab 旧同步创建、恢复、刷新及刷新 token/事务表已删除，
 测试改用异步编辑命令及持有资源的历史快照，创建、覆盖保留、删除与撤销重做的小型测试通过。
 Render acquire_* 已收敛为纯缓存查询，缺失不再同步准备或读盘；导入节点测试与历史改走异步编辑命令。
-异步渲染加载回执保留解析错误路径和字节偏移。独立旧同步准备器、删除 VFS、浏览器和大文件能力仍待完成。
+异步渲染加载回执保留解析错误路径和字节偏移。
+环境贴图启动读取已改用文件服务：先使用内置环境，读取完成后由渲染执行器采用字节；
+读取失败在宿主推进时报告，解析失败继续使用内置环境。此 GPU 更新路径已编译，尚未运行画面验证。独立旧同步准备器、删除 VFS、浏览器和大文件能力仍待完成。
 不将 Platform 搬迁或桌面后端实现等同于整份计划完成；大场景和 CI 仍留待统一验收。
 架构决策见 [ADR-084](../decisions/ADR-084-async-file-service.md)。
 
@@ -45,7 +49,7 @@ Render acquire_* 已收敛为纯缓存查询，缺失不再同步准备或读盘
 - Runtime/Editor 事件循环正常退出已采用分阶段关闭；启动失败和析构兜底尚待收敛。
 - Scene/Prefab 结构重载、编辑器文件监听、作者历史恢复已迁移；首次同步 load/open 和旧 Prefab 编辑辅助 API 已删除；Mesh 编辑辅助 API 尚待收敛。
 - Render 首次 acquire 的同步准备回退已删除；缓存缺失统一由异步请求处理。
-- load_sync、同步准备器、VFS 适配器和旧 VFS 仍存在；Application 尚未直接装配 Platform 后端。
+- Application 已直接装配 Platform 后端并删除 asset_files；load_sync、同步准备器、测试用 VFS 适配器和旧 VFS 仍待删除。
 - 当前改动已通过 Windows 编译、相关小型测试及 Core 分层检查；完整计划验收尚未开始。
 
 ## 本轮确认范围（待实施）
