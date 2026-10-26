@@ -12,7 +12,6 @@
 #include "engine/resource/loaders/material_serialization.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
 #include <algorithm>
-#include <granit/asset_tools/texture_builder.hpp>
 
 #include <atomic>
 #include <cstdio>

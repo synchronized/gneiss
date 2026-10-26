@@ -360,34 +360,7 @@ gneiss::engine::result application::initialize() noexcept {
       return render_result;
     }
     storage_->render_service_->set_completion_notification(storage_->loop_notification_);
-    if (!storage_->config_.environment_asset.empty()) {
-      try {
-        auto state = std::make_shared<storage::environment_read>();
-        engine::file_request_id request;
-        const auto accepted = storage_->files_->read(
-            storage_->config_.environment_asset, {.max_bytes = 64U * 1024U * 1024U},
-            [state](engine::file_completion<engine::file_bytes> value) {
-              state->status = value.status;
-              if (value.status.ok()) {
-                try {
-                  state->bytes =
-                      std::make_shared<const std::vector<std::byte>>(std::move(value.data));
-                } catch (...) {
-                  state->status = engine::result::out_of_memory;
-                }
-              }
-              state->ready = true;
-            },
-            request);
-        if (accepted.failed())
-          return accepted;
-        storage_->environment_ = std::move(state);
-      } catch (const std::bad_alloc&) {
-        return engine::result::out_of_memory;
-      } catch (...) {
-        return engine::result::internal;
-      }
-    }
+
 #else
     report(gneiss::engine::severity::error, gneiss::engine::category::backend,
            gneiss::engine::result::unsupported, "granit.platform",
@@ -434,6 +407,37 @@ gneiss::engine::result application::initialize() noexcept {
     static_cast<void>(shutdown());
     return gneiss::engine::result::internal;
   }
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+  // 完成所有宿主/场景初始化后才提交 I/O，失败回退不遗留后台文件请求。
+  if (storage_->granit_platform_ && !storage_->config_.environment_asset.empty()) {
+    try {
+      auto state = std::make_shared<storage::environment_read>();
+      engine::file_request_id request;
+      const auto accepted = storage_->files_->read(
+          storage_->config_.environment_asset, {.max_bytes = 64U * 1024U * 1024U},
+          [state](engine::file_completion<engine::file_bytes> value) {
+            state->status = value.status;
+            if (value.status.ok()) {
+              try {
+                state->bytes =
+                    std::make_shared<const std::vector<std::byte>>(std::move(value.data));
+              } catch (...) {
+                state->status = engine::result::out_of_memory;
+              }
+            }
+            state->ready = true;
+          },
+          request);
+      if (accepted.failed())
+        return accepted;
+      storage_->environment_ = std::move(state);
+    } catch (const std::bad_alloc&) {
+      return engine::result::out_of_memory;
+    } catch (...) {
+      return engine::result::internal;
+    }
+  }
+#endif
   return gneiss::engine::result::success;
 }
 
@@ -897,7 +901,7 @@ gneiss::engine::result application::request_shutdown() noexcept try {
   if (storage_->shutdown_requested_)
     return gneiss::engine::result::success;
   auto receipt = std::make_shared<storage::file_close_receipt>();
-  auto files = storage_->asset_manager_ ? storage_->asset_manager_->async_files() : nullptr;
+  auto files = storage_->files_;
   if (files) {
     const auto requested = files->shutdown([receipt](auto status) {
       receipt->result = status;

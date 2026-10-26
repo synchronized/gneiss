@@ -16,7 +16,9 @@
 #include "engine/resource/loaders/texture_binary.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
 
+#if defined(GNEISS_HAS_GRANIT_PLATFORM)
 #include <granit/asset_tools/texture_builder.hpp>
+#endif
 
 #include <algorithm>
 #include <array>
@@ -168,6 +170,7 @@ indexed_mesh_is_preserved(gneiss::engine::render_asset_loader& loader,
 }
 
 [[nodiscard]] std::vector<std::byte> make_runtime_texture() {
+#if defined(GNEISS_HAS_GRANIT_PLATFORM)
   const std::array payload = {std::byte{0xff}, std::byte{0xff}, std::byte{0xff}, std::byte{0xff}};
   const std::array subresources{
       granit::asset_tools::texture::subresource_info{.mip_level = 0U,
@@ -192,6 +195,10 @@ indexed_mesh_is_preserved(gneiss::engine::render_asset_loader& loader,
     return {};
   }
   return output;
+#else
+  // 无渲染后端时在读取负载后报告 unsupported，不进入封装解析。
+  return {std::byte{0}};
+#endif
 }
 
 void selected_variants() {

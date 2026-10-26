@@ -148,21 +148,46 @@ int main() {
             ->initialize([](result status) {
               check(status.ok());
               check(local
-                        ->write("data", bytes, {},
-                                [](result written) {
-                                  check(written.ok());
-                                  check(local
-                                            ->flush([](result flushed) {
-                                              check(flushed.ok());
-                                              // 等本轮回调释放保活引用后再重新挂载。
-                                              emscripten_async_call([](void*) { restore(); },
-                                                                    nullptr, 0);
-                                            })
-                                            .ok());
-                                  check(local->write("late", {}, {}, [](auto) {}) ==
-                                        result::not_ready);
-                                  check(local->flush([](auto) {}) == result::not_ready);
-                                })
+                        ->write(
+                            "data", bytes, {},
+                            [](result written) {
+                              check(written.ok());
+                              // 注入一次持久化失败，验证内存数据保留及 flush 可重试。
+                              EM_ASM({
+                                const mount =
+                                    FS.lookupPath('/gneiss-files-test', {follow_mount : true})
+                                        .node.mount;
+                                const original = mount.type.syncfs;
+                                mount.type.syncfs = (target, populate, callback) => {
+                                  mount.type.syncfs = original;
+                                  callback(new Error('injected persistence failure'));
+                                };
+                              });
+                              bool failed = false;
+                              check(local
+                                        ->flush([&](result status) {
+                                          check(status == result::io);
+                                          failed = true;
+                                        })
+                                        .ok() &&
+                                    failed);
+                              check(local
+                                        ->read("data", {8},
+                                               [](auto value) {
+                                                 check(value.status.ok() && value.data == bytes);
+                                               })
+                                        .ok());
+                              check(local
+                                        ->flush([](result flushed) {
+                                          check(flushed.ok());
+                                          // 等本轮回调释放保活引用后再重新挂载。
+                                          emscripten_async_call([](void*) { restore(); }, nullptr,
+                                                                0);
+                                        })
+                                        .ok());
+                              check(local->write("late", {}, {}, [](auto) {}) == result::not_ready);
+                              check(local->flush([](auto) {}) == result::not_ready);
+                            })
                         .ok());
             })
             .ok());

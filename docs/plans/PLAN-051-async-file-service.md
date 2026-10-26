@@ -16,9 +16,11 @@ asset_manager 已提供 find_loaded；普通 CPU、Mesh/Texture 异步加载已�
 服务已增加在途及待分发字节缓冲的总预算；已知长度文件支持按需单块读取，无隐式预读。
 Fetch 与 MEMFS/IDBFS 后端已实现，Emscripten 5.0.6 编译及本地 Edge 小型持久化/范围读取测试通过。
 Application 的浏览器分支按 asset_root 装配后端：单斜线开头的绝对路径借用 Emscripten FS 已有目录，
-其他路径作为 Fetch URL 基址；已有目录不由后端卸载。浏览器后端的借用生命周期、缺失路径和符号链接
-拒绝，以及原有 IDBFS/Fetch 小型测试通过；该宿主分支尚未完整构建验证。
-浏览器本地持久化挂载、存储异常、未知长度下载及平台复制峰值仍待验证或实现。
+HTTP(S) 地址作为 Fetch URL 基址；已有目录不由后端卸载。浏览器后端的借用生命周期、缺失路径和符号链接
+拒绝，以及原有 IDBFS/Fetch 小型测试通过；Emscripten 下 Engine/Application 编译通过，
+预加载资产宿主的加载、重载失败保留、取消及分阶段关闭在 Node/Wasm 环境通过。
+Edge 小型测试已覆盖 IDBFS 写入/恢复、注入持久化失败后的重试与内存保留。
+真实配额耗尽、跨域部署、未知长度下载及平台复制峰值仍待验证或实现。
 输入映射已删除同步 load_input/load_action_map，示例和测试改用异步请求。
 Scene/Prefab 准备层已删除同步 prepare_scene_description/prepare_prefab_description，
 统一使用 scene_description_request 加载输入和 prepare_loaded_scene 纯内存准备。
@@ -30,7 +32,8 @@ Application::reload_render_assets 和 render_asset_loader::reload_assets 已删�
 Application 已新增分阶段关闭入口，串联 Scene、资产管理器和文件服务；
 空闲、场景读取中、资源读取中的线程池/协作模式小型关闭测试通过。
 Runtime/Editor 正常事件循环退出已接入分阶段关闭；Editor 先释放文档/UI 借用，再收尾文件与 CPU 任务。
-启动失败路径、Render 最终销毁和析构仍有同步兜底。
+环境贴图 I/O 延后到全部初始化成功后提交，初始化失败不再遗留该读取。
+Render 最终销毁和未按协议关闭的析构仍有同步兜底。
 Runtime 的 Scene/Prefab 结构重载已改用异步描述/依赖准备，完成后原位更新节点；IPC 仅在完成后更新修订。
 结构重载的 Scene/Prefab 实例代码只查询已准备资源，不同步读盘；成功、依赖缺失、节点身份与 IPC 失败语义的小型测试通过。
 编辑器文件监听已改为请求异步场景加载，成功后才通知 Runtime 并确认指纹；加载期间保留后续事件。
@@ -219,6 +222,17 @@ result shutdown(completion_callback);
 7. **按需扩展**：字节缓存及 JS Promise 仅在实际调用方需要时增加，不作为删除 VFS 的前置条件。
 
 阶段 1—4 完成代表桌面 VFS 替换完成；浏览器和大文件核心范围仍属本计划，不能提前标记整份计划完成。
+
+## 未知长度流式下载的待决边界
+
+当前 SDK 的 Emscripten Fetch 在流式模式下循环读取 ReadableStream 并调用 onprogress，
+C++ 完成回调不能暂停或恢复网络读取。因此它的流式回调不等于按消费者需求读取，
+仅给缓存设上限会导致慢消费者下载失败，不能作为背压验收通过。
+
+已向用户确认：是否允许仅未知长度流式路径在浏览器后端内部使用 JS Fetch + ReadableStream，
+普通整读与范围读继续使用 Emscripten Fetch；上层保持 C++ 回调。
+此选择涉及原需求指定的 Emscripten Fetch，答复前不改变该路径的实现约束。
+当前已知长度的 file_read_stream 按需范围读取不受此待决项影响。
 
 ## 测试与验收
 

@@ -675,8 +675,12 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
 endif()
 target_link_libraries(
-  gneiss_render_asset_loader_test PRIVATE gneiss::engine gneiss_tasks gneiss_yyjson gneiss_png granit::granit granit::asset_tools
+  gneiss_render_asset_loader_test PRIVATE gneiss::engine gneiss_tasks gneiss_yyjson gneiss_png granit::granit
 )
+if(GNEISS_ENABLE_GRANIT_PLATFORM)
+  target_link_libraries(gneiss_render_asset_loader_test PRIVATE granit::asset_tools)
+endif()
+
 target_compile_features(gneiss_render_asset_loader_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_asset_loader_test)
 gneiss_target_output_directories(gneiss_render_asset_loader_test)
@@ -704,7 +708,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   target_compile_definitions(gneiss_texture_load_service_test PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
 endif()
 target_link_libraries(
-  gneiss_texture_load_service_test PRIVATE gneiss::engine gneiss_tasks gneiss_yyjson gneiss_png granit::granit granit::asset_tools
+  gneiss_texture_load_service_test PRIVATE gneiss::engine gneiss_tasks gneiss_yyjson gneiss_png granit::granit
 )
 target_compile_features(gneiss_texture_load_service_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_texture_load_service_test)
@@ -949,8 +953,6 @@ gneiss_target_compile_warnings(gneiss_native_draw_submission_test)
 gneiss_target_output_directories(gneiss_native_draw_submission_test)
 add_test(NAME gneiss.native-draw-submission COMMAND gneiss_native_draw_submission_test)
 
-if(COMMAND gneiss_enable_asset_libuv)
-endif()
 
 
 add_executable(gneiss_task_header_visibility_test core/task_header_visibility_test.cpp)

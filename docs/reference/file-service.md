@@ -6,11 +6,11 @@
 ## 当前范围
 
 内部原生入口位于 `src/engine/platform/files/file_service.hpp`，命名空间为 `gneiss::engine`。
-当前实现 Platform 服务核心、内存后端和独立 libuv 桌面后端；旧异步读取适配仍留在 Resource。asset_manager 的普通 CPU 资源异步读取
-已接入服务，文件完成后才提交一次解码任务；旧 asset_source 已删除。
-旧 VFS 同步加载、网格/纹理的专用范围读取与宿主同步关闭仍待后续迁移。
-已实现已知长度文件的按需分块读取，以及 Fetch 与 MEMFS/IDBFS 浏览器后端。
-字节缓存、JS Promise 尚未实现；Application 尚未切换独立桌面/浏览器后端。
+当前实现 Platform 服务核心、内存后端、独立 libuv 桌面后端和 Fetch/MEMFS/IDBFS 浏览器后端。
+Application 已直接装配后端；普通 CPU、网格和纹理加载统一使用文件服务。
+旧 VFS、同步准备器和迁移适配器已删除；文件完成后才提交 CPU 解码任务。
+已实现已知长度文件的按需分块读取；未知长度下载与平台复制峰值的闭环仍待完成。
+字节缓存、JS Promise 尚未实现，按需增加。
 后续迁移见[开发计划](../plans/PLAN-051-async-file-service.md)。
 
 ## 对象与所有权
@@ -97,7 +97,8 @@ shutdown 取消尚未完成请求，已有终态照常交付。关闭回调遵�
 不以整读模拟范围。跨域服务器须暴露 Content-Range 等响应头；不使用 destinationPath。
 整读仍经过浏览器和 Emscripten 的缓冲与复制，不保证这些额外缓冲受服务预算限制。
 
-`browser_file_backend` 管理独立 MEMFS 或 IDBFS 挂载，仅在浏览器主线程使用。
+`browser_file_backend` 的 memory/persistent 模式管理独立 MEMFS/IDBFS 挂载；existing 模式借用
+宿主已存在的目录，不挂载、不恢复或卸载它。三种模式均仅在浏览器主线程使用。
 initialize 的恢复回调成功后才接受访问；内存操作可内联完成，服务仍延迟交付用户回调。
 write 仅确认内存写入；flush 调用当前 IDBFS 挂载的 syncfs(false)，不影响其他挂载。
 恢复与 flush 串行，同步期间对本后端的新访问返回 not_ready；失败后可重试。

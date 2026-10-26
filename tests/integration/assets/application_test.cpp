@@ -119,8 +119,8 @@ void run(const char* assets, bool cooperative) {
             gneiss::engine::result::not_ready,
         "requires executor");
   check(app->attach_task_executor(scheduler) == gneiss::engine::result::success, "attach");
-#if !GNEISS_TEST_TASK_THREADS || defined(__EMSCRIPTEN__)
-  // 未配置真实异步后端的平台不能恢复旧同步回退；浏览器后端接入后替换此能力断言。
+#if !GNEISS_TEST_TASK_THREADS && !defined(__EMSCRIPTEN__)
+  // 未配置真实异步后端的平台不能恢复旧同步回退；浏览器内存后端则验证完整加载流程。
   check(app->begin_action_map("asset://input/default.input-map.json").ok(),
         "unsupported backend request");
   for (unsigned i = 0; i < 8 && app->action_map_status() == engine::result::not_ready; ++i)
@@ -140,6 +140,23 @@ void run(const char* assets, bool cooperative) {
       std::this_thread::sleep_for(1ms);
 #endif
     } while (app->action_map_status() == gneiss::engine::result::not_ready);
+  };
+  const auto close = [&] {
+    check(app->request_shutdown().ok(), "request staged shutdown");
+    const auto deadline = std::chrono::steady_clock::now() + 10s;
+    for (;;) {
+      if (cooperative)
+        check(scheduler.run_ready().status == engine::drive_status::success, "close drive");
+      const auto status = app->advance_shutdown();
+      if (status != engine::result::not_ready) {
+        check(status.ok(), "staged shutdown complete");
+        break;
+      }
+      check(std::chrono::steady_clock::now() < deadline, "close timeout");
+#if GNEISS_TEST_TASK_THREADS
+      std::this_thread::sleep_for(1ms);
+#endif
+    }
   };
   check(app->begin_action_map("asset://input/default.input-map.json") ==
             gneiss::engine::result::success,
@@ -198,7 +215,7 @@ void run(const char* assets, bool cooperative) {
   check(app->begin_action_map("asset://input/default.input-map.json") ==
             gneiss::engine::result::success,
         "shutdown begin");
-  check(app->shutdown() == gneiss::engine::result::success, "shutdown in flight");
+  close();
   check(app->begin_action_map("asset://input/default.input-map.json") ==
             gneiss::engine::result::invalid_state,
         "shutdown rejects requests");
@@ -213,7 +230,7 @@ void run(const char* assets, bool cooperative) {
   wait();
   check(app->action_map_status() == gneiss::engine::result::success,
         "new owner independently applies input");
-  check(app->shutdown() == gneiss::engine::result::success, "new owner shutdown");
+  close();
 }
 }
 int main(int argc, char** argv) {

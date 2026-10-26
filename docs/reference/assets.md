@@ -27,7 +27,7 @@ auto result = gneiss::engine::validate_uri(uri);
 
 Application 将 `application_configuration::asset_root` 装配为 `asset://` 只读挂载。
 桌面使用 libuv 原生后端；浏览器单斜线开头的绝对路径借用预加载到 Emscripten FS 的目录，
-其他路径使用 Fetch URL 基址。借用目录不会在后端销毁时被卸载。
+HTTP(S) 地址使用 Fetch URL 基址。借用目录不会在后端销毁时被卸载。
 文件服务按最长前缀路由，后端只接收相对路径；读回退链和唯一写入后端的契约见文件服务参考。
 资产根为空时不建立挂载；文件缺失通过异步结果报告。
 
