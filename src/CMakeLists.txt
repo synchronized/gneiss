@@ -33,7 +33,6 @@ target_sources(
     engine/platform/files/file_read_stream.cpp
     engine/platform/files/file_service.cpp
     engine/platform/files/memory_file_backend.cpp
-    engine/resource/files/async_read_file_backend.cpp
     engine/core/sha256.cpp
     engine/core/sha256.hpp
     runtime/loading/prefab_preparation.cpp

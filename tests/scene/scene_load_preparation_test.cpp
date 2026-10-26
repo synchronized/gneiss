@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/async_asset.hpp"
 #include "../support/async_scene.hpp"
 #include "../support/memory_read_file_system.hpp"
 #include "engine/core/result.hpp"
@@ -89,8 +90,8 @@ void run() {
       std::string(object) + "]}";
   gneiss::engine::virtual_file_system files;
   check(files.mount("asset://", memory) == gneiss::engine::result::success);
-  task_scheduler executor({.workers = 0, .mode = execution_mode::cooperative});
-  asset_manager assets(files);
+  auto& executor = gneiss::test_support::asset_tasks();
+  asset_manager assets(gneiss::test_support::test_files(files));
   check(assets
             .register_decoder<scene_description>(&custom_scene,
                                                  scene_description::maximum_source_bytes)
@@ -128,11 +129,12 @@ void run() {
   check(memory->reads == reads &&
         output.prefabs.at("asset://p.prefab").resource == inputs.prefabs.at("asset://p.prefab"));
   asset_ref<const prefab_description> newer;
-  check(assets.load_sync("asset://p.prefab", newer, true).ok());
+  check(gneiss::test_support::load_asset(assets, "asset://p.prefab", newer, true).ok());
   check(newer != output.prefabs.at("asset://p.prefab").resource);
   check(prepare_loaded_scene(inputs, {}, output, diagnostic, {}).ok());
   asset_ref<const prefab_description> cached;
-  check(assets.load_sync("asset://p.prefab", cached).ok() && cached == newer);
+  check(gneiss::test_support::load_asset(assets, "asset://p.prefab", cached).ok() &&
+        cached == newer);
 
   check(gneiss::test_support::prepare_scene_for_test(assets, executor, true, "asset://p.prefab",
                                                      output, diagnostic,

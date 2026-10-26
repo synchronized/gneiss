@@ -43,8 +43,8 @@ public:
   [[nodiscard]] std::size_t mount_count() const noexcept { return mounts_.size(); }
 
 private:
-  friend GNEISS_API std::shared_ptr<file_service> make_file_service(const virtual_file_system&,
-                                                                    file_service_options);
+  friend std::shared_ptr<file_service> make_file_service(const virtual_file_system&,
+                                                         file_service_options);
   struct mount_entry final {
     std::string point;
     std::shared_ptr<file_system> backend;

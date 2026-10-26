@@ -1,6 +1,13 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
+# 旧内存资产夹具的临时桥接；生产引擎不链接此目标。
+add_library(gneiss_test_legacy_files STATIC "${PROJECT_SOURCE_DIR}/tests/support/legacy_file_backend.cpp")
+target_include_directories(gneiss_test_legacy_files PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_test_legacy_files PRIVATE gneiss::engine)
+target_compile_features(gneiss_test_legacy_files PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_test_legacy_files)
+
 add_executable(gneiss_asset_application_test application_test.cpp)
 target_include_directories(gneiss_asset_application_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_asset_application_test PRIVATE gneiss::engine gneiss_tasks)
@@ -28,7 +35,7 @@ add_executable(gneiss_asset_manager_test asset_manager_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp")
 target_include_directories(gneiss_asset_manager_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-target_link_libraries(gneiss_asset_manager_test PRIVATE gneiss::engine gneiss_tasks)
+target_link_libraries(gneiss_asset_manager_test PRIVATE gneiss::engine gneiss_tasks gneiss_test_legacy_files)
 target_compile_definitions(gneiss_asset_manager_test PRIVATE GNEISS_TEST_TASK_THREADS=$<BOOL:${GNEISS_TASK_THREADS}>)
 gneiss_target_compile_warnings(gneiss_asset_manager_test)
 gneiss_target_output_directories(gneiss_asset_manager_test)
@@ -39,7 +46,7 @@ add_executable(gneiss_file_service_test file_service_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/platform/files/file_read_stream.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/platform/files/file_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/platform/files/memory_file_backend.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/files/async_read_file_backend.cpp")
+  "${PROJECT_SOURCE_DIR}/tests/support/legacy_file_backend.cpp")
 target_include_directories(gneiss_file_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_file_service_test PRIVATE gneiss_core_values)
 target_compile_features(gneiss_file_service_test PRIVATE cxx_std_20)

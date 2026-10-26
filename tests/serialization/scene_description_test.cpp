@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/async_asset.hpp"
+#include "../support/memory_read_file_system.hpp"
 #include "engine/core/result.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/resource_registry.hpp"
@@ -63,7 +65,7 @@ constexpr std::string_view prefab_scene = R"({
          diagnostic.result == expected && diagnostic.path == path && scene.objects.empty();
 }
 
-class memory_file_system final : public gneiss::engine::file_system {
+class memory_file_system final : public gneiss::test_support::memory_read_file_system {
 public:
   explicit memory_file_system(std::string content) : content_(std::move(content)) {}
 
@@ -229,9 +231,10 @@ int main() try {
   if (file_system.mount("asset://scenes/", std::make_shared<memory_file_system>(std::string(
                                                valid_scene))) != gneiss::engine::result::success)
     return 6;
-  gneiss::engine::asset_manager assets(file_system);
+  gneiss::engine::asset_manager assets(gneiss::test_support::test_files(file_system));
   gneiss::engine::asset_ref<const gneiss::engine::scene_description> loaded;
-  if (assets.load_sync("asset://scenes/main.scene.json", loaded).failed() || !loaded)
+  if (gneiss::test_support::load_asset(assets, "asset://scenes/main.scene.json", loaded).failed() ||
+      !loaded)
     return 6;
   return fails_with("{\"format\":", gneiss::engine::result::invalid_argument, "") ? 0 : 7;
 } catch (...) {

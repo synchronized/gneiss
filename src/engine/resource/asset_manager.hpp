@@ -8,7 +8,6 @@
 #include "engine/core/type_id.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
 #include "engine/resource/types/action_map.hpp"
-#include "engine/resource/vfs/virtual_file_system.hpp"
 #include "loaders/asset_decoder.hpp"
 #include <memory>
 #include <utility>
@@ -24,13 +23,8 @@ namespace gneiss::engine {
  * 功能层装配类型加载器；底层 asset 模块不依赖 Scene/Render。 */
 class GNEISS_API asset_manager final {
 public:
-  /** 默认 Registry 包含内置资源 codec；传入的 Registry 必须已冻结。
-   * 管理器持有 Registry；fallback_limit 限制反射资源输入，显式 decoder 可指定自己的上限。 */
-  explicit asset_manager(gneiss::engine::virtual_file_system files,
-                         gneiss::engine::meta::registry_ref registry = {},
-                         std::size_t fallback_limit = 64U * 1024U * 1024U);
   /** 注入同线程文件服务；宿主驱动文件完成分发，advance_resources 只推进 CPU 解码和资源结果。
-   * 此入口不提供同步文件读取，load_sync 仅能复用已有缓存；服务可由宿主共享持有。 */
+   * 不提供同步文件读取；缓存查询使用 find_loaded，服务可由宿主共享持有。 */
   explicit asset_manager(std::shared_ptr<file_service> files,
                          gneiss::engine::meta::registry_ref registry = {},
                          std::size_t fallback_limit = 64U * 1024U * 1024U);
@@ -49,7 +43,7 @@ public:
   /** 迁移期同步关闭兜底：终止观察者并取消文件请求，等待已有 CPU 解码任务收尾。
    * 共享文件服务继续由宿主分发/关闭；独占服务随管理器销毁放弃通知，后端保活实际 I/O。 */
   void stop_resources() noexcept;
-  /** 显式注册 CPU 类型；首次请求后冻结注册。VFS 来源由本管理器固定持有。 */
+  /** 显式注册 CPU 类型；首次请求后冻结注册。来源身份由注入的文件服务确定。 */
   [[nodiscard]] gneiss::engine::result
   register_decoder(const std::shared_ptr<const asset_decoder>& loader) noexcept;
   /** 无需继承或注册反射；注册失败不改变已有解码器，首次加载后禁止注册。 */
@@ -89,19 +83,6 @@ public:
       output = asset_ref<const T>{std::static_pointer_cast<const T>(value)};
     return status;
   }
-  /** 同步加载默认复用缓存；仅旧 VFS 构造入口支持缓存未命中时同步读文件。
-   * 注入文件服务时未命中返回 unsupported；成功读取使较早异步请求失去缓存写入权。 */
-  template <typename T>
-  [[nodiscard]] gneiss::engine::result
-  load_sync(std::string_view uri, asset_ref<const T>& output, bool reload = false,
-            gneiss::engine::meta::serialization_diagnostic* diagnostic = nullptr) noexcept {
-    std::shared_ptr<const void> value;
-    const auto status = load_sync_erased(gneiss::engine::runtime_type_of<T>(), uri, value,
-                                         &detail::make_reflected_decoder<T>, reload, diagnostic);
-    if (status == gneiss::engine::result::success)
-      output = asset_ref<const T>{std::static_pointer_cast<const T>(value)};
-    return status;
-  }
   /** 所属线程采用已经构造的数据；成功后较早异步请求不能覆盖缓存。 */
   template <class T>
   [[nodiscard]] result store(std::string_view uri, std::shared_ptr<const T> value,
@@ -114,7 +95,6 @@ public:
   }
   asset_manager(const asset_manager&) = delete;
   asset_manager& operator=(const asset_manager&) = delete;
-  [[nodiscard]] const gneiss::engine::virtual_file_system& files() const noexcept { return files_; }
   /** 借用同线程异步文件服务；停止后为空。 */
   [[nodiscard]] std::shared_ptr<file_service> async_files() const noexcept;
   /** 解析统一来源身份，不执行文件 I/O。 */
@@ -134,16 +114,11 @@ private:
                                                bool reload,
                                                std::shared_ptr<detail::asset_state>& output,
                                                decoder_factory fallback) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  load_sync_erased(gneiss::engine::type_id type, std::string_view uri,
-                   std::shared_ptr<const void>& output, decoder_factory fallback, bool reload,
-                   gneiss::engine::meta::serialization_diagnostic* diagnostic) noexcept;
   result find_loaded_erased(type_id, std::string_view, std::shared_ptr<const void>&) const noexcept;
   result store_erased(type_id, std::string_view, std::shared_ptr<const void>,
                       std::shared_ptr<const void>&) noexcept;
   struct resource_state;
   std::unique_ptr<resource_state> resource_state_;
-  gneiss::engine::virtual_file_system files_;
   gneiss::engine::resource_cache cache_;
 };
 }

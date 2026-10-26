@@ -18,7 +18,6 @@
 
 #include "engine/function/scene/structural_diff.hpp"
 #include "engine/resource/types/scene_description.hpp"
-#include "engine/resource/vfs/virtual_file_system.hpp"
 
 #include <algorithm>
 #include <atomic>

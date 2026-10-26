@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/async_asset.hpp"
+#include "../support/memory_read_file_system.hpp"
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
@@ -59,7 +61,7 @@ constexpr std::string_view broken_prefab_json = R"({
   }]
 })";
 
-class memory_file_system final : public gneiss::engine::file_system {
+class memory_file_system final : public gneiss::test_support::memory_read_file_system {
 public:
   gneiss::engine::result read_bounded(std::string_view path, std::size_t limit,
                                       std::vector<std::byte>& output) const noexcept override {
@@ -199,16 +201,16 @@ int main() try {
       gneiss::engine::result::success) {
     return 3;
   }
-  gneiss::engine::asset_manager asset_owner(file_system);
+  gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(file_system));
   [[maybe_unused]] auto& cache = asset_owner.cache();
   gneiss::engine::render_asset_loader render_loader(asset_owner, resources);
   auto& prefab_loader = asset_owner;
   gneiss::engine::prefab_asset_ref first_lease;
   gneiss::engine::prefab_asset_ref second_lease;
-  if (prefab_loader.load_sync("asset://prefabs/lamp.prefab.json", first_lease) !=
-          gneiss::engine::result::success ||
-      prefab_loader.load_sync("asset://prefabs/lamp.prefab.json", second_lease) !=
-          gneiss::engine::result::success) {
+  if (gneiss::test_support::load_asset(prefab_loader, "asset://prefabs/lamp.prefab.json",
+                                       first_lease) != gneiss::engine::result::success ||
+      gneiss::test_support::load_asset(prefab_loader, "asset://prefabs/lamp.prefab.json",
+                                       second_lease) != gneiss::engine::result::success) {
     return 4;
   }
 
@@ -271,8 +273,8 @@ int main() try {
   }
 
   gneiss::engine::prefab_asset_ref invalid_override_lease;
-  if (prefab_loader.load_sync("asset://prefabs/lamp.prefab.json", invalid_override_lease) !=
-      gneiss::engine::result::success) {
+  if (gneiss::test_support::load_asset(prefab_loader, "asset://prefabs/lamp.prefab.json",
+                                       invalid_override_lease) != gneiss::engine::result::success) {
     return 7;
   }
   const std::vector<gneiss::engine::prefab_property_override> invalid_overrides{{
@@ -302,8 +304,8 @@ int main() try {
   }
 
   gneiss::engine::prefab_asset_ref failure_lease;
-  if (prefab_loader.load_sync("asset://prefabs/lamp.prefab.json", failure_lease) !=
-      gneiss::engine::result::success) {
+  if (gneiss::test_support::load_asset(prefab_loader, "asset://prefabs/lamp.prefab.json",
+                                       failure_lease) != gneiss::engine::result::success) {
     return 7;
   }
   gneiss::engine::transform invalid_transform = {};
@@ -320,8 +322,8 @@ int main() try {
   }
 
   gneiss::engine::prefab_asset_ref broken_lease;
-  if (prefab_loader.load_sync("asset://prefabs/broken.prefab.json", broken_lease) !=
-      gneiss::engine::result::success) {
+  if (gneiss::test_support::load_asset(prefab_loader, "asset://prefabs/broken.prefab.json",
+                                       broken_lease) != gneiss::engine::result::success) {
     return 9;
   }
   if (gneiss::engine::prefab_runtime_instance::create(

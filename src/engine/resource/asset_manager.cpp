@@ -8,7 +8,6 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "engine/resource/files/async_read_file_backend.hpp"
 #include "engine/resource/resource_registry.hpp"
 #include "engine/resource/vfs/asset_uri.hpp"
 #include <algorithm>
@@ -61,7 +60,6 @@ struct asset_manager::resource_state {
     }
   };
   std::shared_ptr<file_service> files;
-  bool legacy_sync{};
   gneiss::engine::task_executor* executor{};
   gneiss::engine::task_scope scope{};
   bool frozen{}, stopped{};
@@ -159,16 +157,6 @@ result asset_manager::identify(std::string_view uri, std::uint32_t type,
   }
 }
 
-asset_manager::asset_manager(virtual_file_system files, gneiss::engine::meta::registry_ref registry,
-                             std::size_t fallback_limit)
-    : asset_manager(make_file_service(
-                        files, file_service_options{.max_requests = 64,
-                                                    .max_file_bytes =
-                                                        std::numeric_limits<std::size_t>::max()}),
-                    std::move(registry), fallback_limit) {
-  files_ = std::move(files);
-  resource_state_->legacy_sync = true;
-}
 asset_manager::asset_manager(std::shared_ptr<file_service> files,
                              gneiss::engine::meta::registry_ref registry,
                              std::size_t fallback_limit)
@@ -353,58 +341,6 @@ result asset_manager::find_loaded_erased(type_id type, std::string_view uri,
   return result::internal;
 }
 
-gneiss::engine::result asset_manager::load_sync_erased(
-    gneiss::engine::type_id type, std::string_view uri, std::shared_ptr<const void>& output,
-    decoder_factory fallback, bool reload,
-    gneiss::engine::meta::serialization_diagnostic* diagnostic) noexcept try {
-  gneiss::engine::meta::serialization_diagnostic local;
-  if (diagnostic)
-    *diagnostic = {};
-  auto& state = *resource_state_;
-  if (state.stopped) {
-    return gneiss::engine::result::invalid_state;
-  }
-  if (validate_uri(uri) != gneiss::engine::result::success) {
-    return gneiss::engine::result::invalid_argument;
-  }
-  std::shared_ptr<const asset_decoder> decoder;
-  const auto resolved = resolve_decoder(type, fallback, decoder);
-  if (resolved.failed())
-    return resolved;
-  std::shared_ptr<const file_source_domain> domain;
-  const auto identified = state.files->resolve_source(uri, domain);
-  if (identified != gneiss::engine::result::success)
-    return identified;
-  const auto& loader = *decoder;
-  auto& entry = state.requests[{domain, std::string(uri), type}];
-  asset_ref<const resource_cache::entry> cached;
-  bool decoded{};
-  const auto status = cache_.load(
-      uri, type,
-      [&](auto& stored) {
-        if (!state.legacy_sync)
-          return result::unsupported;
-        decoded = true;
-        std::vector<std::byte> bytes;
-        const auto read = files_.read_bounded(uri, loader.maximum_bytes(), bytes);
-        return read == gneiss::engine::result::success
-                   ? loader.decode(bytes, stored, diagnostic ? *diagnostic : local)
-                   : read;
-      },
-      cached, domain, reload);
-  if (status != gneiss::engine::result::success)
-    return status;
-  if (decoded) {
-    ++entry.generation;
-    entry.pending.reset();
-  }
-  output = std::shared_ptr<const void>(cached.shared(), cached->resource.get());
-  return gneiss::engine::result::success;
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::result::out_of_memory;
-} catch (...) {
-  return gneiss::engine::result::internal;
-}
 gneiss::engine::result asset_manager::request_input(std::string_view uri,
                                                     asset_request<action_map>& output) noexcept {
   return load(uri, output, true);

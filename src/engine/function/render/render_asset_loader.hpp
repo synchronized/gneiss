@@ -19,6 +19,7 @@
 #include <string_view>
 
 namespace gneiss::engine {
+class asset_manager;
 class virtual_file_system;
 }
 

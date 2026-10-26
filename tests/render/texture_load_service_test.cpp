@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/memory_read_file_system.hpp"
+#include "../support/prepare_render.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/render/texture_load_service.hpp"
@@ -136,19 +137,19 @@ void prepared_source_revisions() {
   virtual_file_system files;
   check(files.mount("asset://", source) == gneiss::engine::result::success);
   const std::array requests{asset_preparation_source{"asset://material", asset_type::material}};
-  asset_manager owner(files);
+  asset_manager owner(gneiss::test_support::test_files(files));
   prepared_batch before;
   prepared_batch after;
   asset_diagnostic diagnostic;
-  check(prepare_render_assets(owner, requests, before, diagnostic, {}) ==
-        gneiss::engine::result::success);
+  check(gneiss::test_support::prepare_render_for_test(owner, files, requests, before, diagnostic,
+                                                      {}) == gneiss::engine::result::success);
   prepared_batch repeated;
-  check(prepare_render_assets(owner, requests, repeated, diagnostic, {}) ==
-        gneiss::engine::result::success);
+  check(gneiss::test_support::prepare_render_for_test(owner, files, requests, repeated, diagnostic,
+                                                      {}) == gneiss::engine::result::success);
   source->pixel(std::byte{20});
   source->files["payload/image.ktx2"] = source->files.at("image.ktx2");
-  check(prepare_render_assets(owner, requests, after, diagnostic, {}) ==
-        gneiss::engine::result::success);
+  check(gneiss::test_support::prepare_render_for_test(owner, files, requests, after, diagnostic,
+                                                      {}) == gneiss::engine::result::success);
   check(before.assets.size() == 2U && after.assets.size() == 2U);
   for (std::size_t index = 0; index < before.assets.size(); ++index) {
     const auto& old_asset = before.assets[index];
@@ -213,7 +214,7 @@ void independent_update_sequences() {
   check(files.mount("asset://", std::make_shared<memory_files>()) ==
         gneiss::engine::result::success);
   render_resource_service resources;
-  gneiss::engine::asset_manager asset_owner(files);
+  gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   [[maybe_unused]] auto& cache = asset_owner.cache();
   render_asset_loader loader(asset_owner, resources);
   const render_asset_reload source_a{"asset://a", render_asset_type::material};
@@ -224,7 +225,7 @@ void independent_update_sequences() {
   virtual_file_system different;
   check(different.mount("asset://", std::make_shared<memory_files>()) ==
         gneiss::engine::result::success);
-  asset_manager isolated_owner(different);
+  asset_manager isolated_owner(gneiss::test_support::test_files(different));
   render_asset_loader isolated(isolated_owner, resources);
   render_asset_ref conflict;
   check(isolated.reserve_asset(source_a, conflict) == gneiss::engine::result::success &&
@@ -263,7 +264,7 @@ void reserved_material_lifetime() {
   virtual_file_system files;
   check(files.mount("asset://", source) == gneiss::engine::result::success);
   render_resource_service resources;
-  gneiss::engine::asset_manager asset_owner(files);
+  gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   [[maybe_unused]] auto& cache = asset_owner.cache();
   render_asset_loader loader(asset_owner, resources);
   const render_asset_reload request{"asset://material", render_asset_type::material};
@@ -290,7 +291,7 @@ void cpu_loading(execution_mode mode) {
       file_service_options{.max_file_bytes = texture_load_service::maximum_bytes});
   check(files->mount({.prefix = "asset://", .readers = {backend}, .writer = {}}).ok());
   render_resource_service resources;
-  asset_manager manager(files);
+  asset_manager manager(gneiss::test_support::test_files(files));
   render_asset_loader loader(manager, resources);
   texture_load_service service(scheduler, loader);
   memory_files fixture;

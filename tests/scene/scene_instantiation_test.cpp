@@ -4,6 +4,7 @@
 #include "../support/async_render.hpp"
 #include "../support/async_scene.hpp"
 #include "../support/memory_read_file_system.hpp"
+#include "../support/prepare_render.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/type_id.hpp"
@@ -79,11 +80,11 @@ void unified_resource_index() {
   virtual_file_system files;
   check(files.mount("asset://", source) == result::success);
   gneiss::engine::render_resource_service resources;
-  asset_manager assets(files);
+  asset_manager assets(gneiss::test_support::test_files(files));
   gneiss::engine::render_asset_loader render(assets, resources);
   check(assets.register_decoder(std::make_shared<text_loader>()) == result::success);
   asset_ref<const std::string> cpu;
-  check(assets.load_sync("asset://same", cpu) == result::success);
+  check(gneiss::test_support::load_asset(assets, "asset://same", cpu) == result::success);
   prefab_description description;
   description.objects.emplace_back();
   prefab_asset_ref prefab;
@@ -123,9 +124,9 @@ void run() {
   check(vfs.mount("asset://", files) == gneiss::engine::result::success);
   gneiss::engine::render_resource_service resources;
   auto& executor = gneiss::test_support::render_tasks();
-  gneiss::engine::asset_manager active_assets(vfs);
+  gneiss::engine::asset_manager active_assets(gneiss::test_support::test_files(vfs));
   active_assets.attach_task_executor(executor);
-  gneiss::engine::asset_manager candidate_assets(vfs);
+  gneiss::engine::asset_manager candidate_assets(gneiss::test_support::test_files(vfs));
   gneiss::engine::render_asset_loader active_render(active_assets, resources);
   gneiss::engine::render_asset_loader candidate_render(candidate_assets, resources);
   {
@@ -144,7 +145,8 @@ void run() {
     const auto render_count = resources.live_resource_count();
     gneiss::engine::prefab_asset_ref prefab;
     gneiss::engine::scene_diagnostic prefab_diagnostic;
-    check(active_assets.load_sync("asset://p.prefab", prefab) == gneiss::engine::result::success);
+    check(gneiss::test_support::load_asset(active_assets, "asset://p.prefab", prefab) ==
+          gneiss::engine::result::success);
     check(prefab.get() != nullptr);
     check(resources.live_resource_count() == render_count);
     active_assets.collect_unused();
@@ -152,7 +154,7 @@ void run() {
     gneiss::engine::render_asset_ref invalid;
     check(!active_render.owns(invalid));
     gneiss::engine::render_resource_service foreign_resources;
-    gneiss::engine::asset_manager foreign_owner(vfs);
+    gneiss::engine::asset_manager foreign_owner(gneiss::test_support::test_files(vfs));
     gneiss::engine::render_asset_loader foreign_assets(foreign_owner, foreign_resources);
     gneiss::engine::render_asset_ref foreign_mesh;
     check(gneiss::test_support::load_render(foreign_assets, gneiss::engine::render_asset_type::mesh,
@@ -217,8 +219,9 @@ void run() {
                             gneiss::engine::render_asset_reload{
                                 "asset://m.material", gneiss::engine::render_asset_type::material}};
   gneiss::engine::prepared_render_batch batch;
-  check(gneiss::engine::prepare_render_assets(candidate_assets, requests, batch, diagnostic, {}) ==
-        gneiss::engine::result::success);
+  check(gneiss::test_support::prepare_render_for_test(candidate_assets, vfs, requests, batch,
+                                                      diagnostic,
+                                                      {}) == gneiss::engine::result::success);
   std::vector<gneiss::engine::render_asset_loader::asset_update> staged;
   for (auto& asset : batch.assets) {
     gneiss::engine::render_asset_loader::asset_update value;

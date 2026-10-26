@@ -11,13 +11,12 @@
 namespace gneiss::engine {
 class file_system;
 class virtual_file_system;
-/** 迁移期上层适配；Platform 不依赖旧 VFS。调用方迁完后删除。 */
-GNEISS_API std::shared_ptr<file_service> make_file_service(const virtual_file_system&,
-                                                           file_service_options);
+/** 仅用于旧内存测试夹具；不进入生产引擎。夹具迁完后删除。 */
+std::shared_ptr<file_service> make_file_service(const virtual_file_system&, file_service_options);
 /** 将现有异步文件后端接入回调服务，仅允许 begin_open/begin_read/异步 close。
  * 迁移期用于已配置 libuv 的 native_file_system；禁止同步回退。
  * 平台执行器必须持续运行至服务关闭完成，不支持写/stat/list/flush。 */
-class GNEISS_API async_read_file_backend final : public file_backend {
+class async_read_file_backend final : public file_backend {
 public:
   explicit async_read_file_backend(std::shared_ptr<file_system> backend);
   ~async_read_file_backend() override;

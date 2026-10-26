@@ -8,7 +8,8 @@
 实现中。服务核心与内存后端已迁入 platform/files，来源标记已通用化；
 Platform 不再依赖旧 VFS 或资产层。独立 libuv 桌面后端已实现读、范围读、写、stat/list/flush。
 Windows 本地服务契约、桌面后端和资产管理小范围测试通过；Application 已直接装配 file_service 与 libuv 后端。
-旧 VFS 构造及过渡适配器仅供尚未迁移的准备器/测试使用，Runtime 不再依赖它们。
+asset_manager 的旧 VFS 构造、files() 和 load_sync/load_sync_erased 已删除，统一注入文件服务。
+旧适配器仅保留在 tests/support，生产引擎不再编译它；旧 VFS 与同步准备器本体仍待删除。
 asset_manager 已提供 find_loaded；普通 CPU、Mesh/Texture 异步加载已使用文件服务。
 宿主已统一分发文件完成，Manager、Scene 和 Texture Loader 不再隐式驱动共享服务。
 服务已增加在途及待分发字节缓冲的总预算；已知长度文件支持按需单块读取，无隐式预读。
@@ -40,7 +41,8 @@ Scene 首次同步 load、Document 同步 open 及其同步准备实现已删除
 Render acquire_* 已收敛为纯缓存查询，缺失不再同步准备或读盘；导入节点测试与历史改走异步编辑命令。
 异步渲染加载回执保留解析错误路径和字节偏移。
 环境贴图启动读取已改用文件服务：先使用内置环境，读取完成后由渲染执行器采用字节；
-读取失败在宿主推进时报告，解析失败继续使用内置环境。此 GPU 更新路径已编译，尚未运行画面验证。独立旧同步准备器、删除 VFS、浏览器和大文件能力仍待完成。
+读取失败在宿主推进时报告，解析失败继续使用内置环境。此 GPU 更新路径已编译，尚未运行画面验证。Render 的 prepare_render_assets 同步入口已删除；准备器测试临时通过测试宿主异步加载材质。
+底层旧同步准备器、删除 VFS、浏览器和大文件能力仍待完成。
 不将 Platform 搬迁或桌面后端实现等同于整份计划完成；大场景和 CI 仍留待统一验收。
 架构决策见 [ADR-084](../decisions/ADR-084-async-file-service.md)。
 
@@ -49,7 +51,8 @@ Render acquire_* 已收敛为纯缓存查询，缺失不再同步准备或读盘
 - Runtime/Editor 事件循环正常退出已采用分阶段关闭；启动失败和析构兜底尚待收敛。
 - Scene/Prefab 结构重载、编辑器文件监听、作者历史恢复已迁移；首次同步 load/open 和旧 Prefab 编辑辅助 API 已删除；Mesh 编辑辅助 API 尚待收敛。
 - Render 首次 acquire 的同步准备回退已删除；缓存缺失统一由异步请求处理。
-- Application 已直接装配 Platform 后端并删除 asset_files；load_sync、同步准备器、测试用 VFS 适配器和旧 VFS 仍待删除。
+- Application 已直接装配 Platform 后端并删除 asset_files；Manager 同步入口和 VFS 构造已删除。
+  同步准备器、旧 VFS 及测试专用兼容夹具仍待删除。
 - 当前改动已通过 Windows 编译、相关小型测试及 Core 分层检查；完整计划验收尚未开始。
 
 ## 本轮确认范围（待实施）
@@ -57,7 +60,7 @@ Render acquire_* 已收敛为纯缓存查询，缺失不再同步准备或读盘
 本轮将文件抽象整体收敛到 `engine/platform/files`，由它完整替换旧 VFS。
 文件操作与资产加载只提供异步入口，不保留同步工具入口、同步回退或阻塞等待包装。
 纯内存解析、序列化、缓存查询和已准备数据的场景实例化仍可同步执行。
-本节描述完整目标；核心已迁入 Platform，resource/files 只暂存旧 VFS 适配器，其他迁移状态见上节。
+本节描述完整目标；核心已迁入 Platform，原 resource/files 的适配器已移出生产树；其他迁移状态见上节。
 
 ### 对象与依赖方向
 
@@ -76,7 +79,7 @@ Render acquire_* 已收敛为纯缓存查询，缺失不再同步准备或读盘
 ### Platform 迁移前置条件
 
 迁移前 file_service 导入 virtual_file_system 挂载并使用 Resource 的 asset_source_domain。
-当前已将导入移到 Resource 适配函数并通用化来源标记；async_read_file_backend 仍包装旧 file_system，待删除。
+来源标记已通用化，原 Resource 适配函数已移至 tests/support，仅兼容未迁移的测试夹具。
 
 文件层已定义不透明的 `file_source_domain` 挂载来源标记，由挂载表创建并持有。
 `resolve_source` 只解析来源，不执行 I/O；Resource 的 asset_identity 引用该标记，

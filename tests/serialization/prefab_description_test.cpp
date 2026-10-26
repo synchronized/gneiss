@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/async_asset.hpp"
+#include "../support/memory_read_file_system.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_tree.hpp"
@@ -50,7 +52,7 @@ constexpr std::string_view valid_prefab = R"({
   return text;
 }
 
-class memory_file_system final : public gneiss::engine::file_system {
+class memory_file_system final : public gneiss::test_support::memory_read_file_system {
 public:
   explicit memory_file_system(std::string content) : content_(std::move(content)) {}
 
@@ -100,9 +102,9 @@ bool prepared_description_contract() {
   if (different_source.mount("asset://prefabs/", backend) != gneiss::engine::result::success) {
     return false;
   }
-  asset_manager assets(files);
+  asset_manager assets(gneiss::test_support::test_files(files));
   auto& cache = assets.cache();
-  asset_manager other_assets(different_source);
+  asset_manager other_assets(gneiss::test_support::test_files(different_source));
   constexpr std::string_view uri = "asset://prefabs/lamp.prefab.json";
   gneiss::engine::prefab_description description;
   gneiss::engine::scene_diagnostic diagnostic;
@@ -111,7 +113,7 @@ bool prepared_description_contract() {
     return false;
   }
   gneiss::engine::prefab_asset_ref legacy;
-  if (assets.load_sync(uri, legacy) != gneiss::engine::result::success) {
+  if (gneiss::test_support::load_asset(assets, uri, legacy) != gneiss::engine::result::success) {
     return false;
   }
   gneiss::engine::prefab_asset_ref first, reused, changed, foreign;
@@ -138,7 +140,7 @@ bool prepared_description_contract() {
     return false;
   }
   gneiss::engine::prefab_asset_ref ordinary;
-  if (assets.load_sync(uri, ordinary) != gneiss::engine::result::success ||
+  if (gneiss::test_support::load_asset(assets, uri, ordinary) != gneiss::engine::result::success ||
       ordinary.get() != changed.get()) {
     return false;
   }
@@ -286,27 +288,27 @@ int main() try {
   gneiss::engine::virtual_file_system file_system;
   if (file_system.mount("asset://prefabs/", mounted).failed())
     return 7;
-  gneiss::engine::asset_manager assets(file_system);
+  gneiss::engine::asset_manager assets(gneiss::test_support::test_files(file_system));
   auto& cache = assets.cache();
   gneiss::engine::prefab_asset_ref first;
   gneiss::engine::prefab_asset_ref second;
-  if (assets.load_sync("asset://prefabs/lamp.prefab.json", first) !=
+  if (gneiss::test_support::load_asset(assets, "asset://prefabs/lamp.prefab.json", first) !=
           gneiss::engine::result::success ||
-      assets.load_sync("asset://prefabs/lamp.prefab.json", second) !=
+      gneiss::test_support::load_asset(assets, "asset://prefabs/lamp.prefab.json", second) !=
           gneiss::engine::result::success ||
       first.get() == nullptr || first.get() != second.get() || mounted->read_count != 1U ||
       cache.size() != 1U) {
     return 7;
   }
   gneiss::engine::prefab_asset_ref reloaded;
-  if (assets.load_sync("asset://prefabs/lamp.prefab.json", reloaded, true) !=
-          gneiss::engine::result::success ||
+  if (gneiss::test_support::load_asset(assets, "asset://prefabs/lamp.prefab.json", reloaded,
+                                       true) != gneiss::engine::result::success ||
       !reloaded || reloaded.get() == first.get() || mounted->read_count != 2U ||
       cache.size() != 1U) {
     return 7;
   }
   gneiss::engine::prefab_asset_ref invalid;
-  if (assets.load_sync("asset://prefabs/../lamp.prefab.json", invalid) !=
+  if (gneiss::test_support::load_asset(assets, "asset://prefabs/../lamp.prefab.json", invalid) !=
           gneiss::engine::result::invalid_argument ||
       invalid) {
     return 8;

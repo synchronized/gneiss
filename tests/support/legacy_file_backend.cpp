@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/resource/files/async_read_file_backend.hpp"
+#include "legacy_file_backend.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
 #include <stdexcept>
 

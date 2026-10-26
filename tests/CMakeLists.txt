@@ -1094,3 +1094,14 @@ endforeach()
 
 target_sources(gneiss_scene_instantiation_test PRIVATE
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/texture_load_service.cpp")
+
+# 异步资产测试由宿主推进解码任务。
+foreach(test IN ITEMS gneiss_scene_description_test gneiss_prefab_description_test gneiss_prefab_runtime_instance_test)
+  target_link_libraries(${test} PRIVATE gneiss_tasks)
+endforeach()
+
+foreach(test IN ITEMS gneiss_action_map_test gneiss_scene_description_test gneiss_prefab_description_test
+    gneiss_scene_load_preparation_test gneiss_scene_instantiation_test gneiss_prefab_runtime_instance_test
+    gneiss_texture_load_service_test gneiss_render_asset_loader_test)
+  target_link_libraries(${test} PRIVATE gneiss_test_legacy_files)
+endforeach()

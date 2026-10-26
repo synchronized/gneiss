@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/async_asset.hpp"
 #include "../support/memory_read_file_system.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
@@ -93,9 +94,8 @@ int main() {
   gneiss::engine::virtual_file_system files;
   if (files.mount("asset://", backend) != gneiss::engine::result::success)
     return 3;
-  gneiss::engine::task_scheduler executor(
-      {.workers = 0, .mode = gneiss::engine::execution_mode::cooperative});
-  gneiss::engine::asset_manager assets(files);
+  auto& executor = gneiss::test_support::asset_tasks();
+  gneiss::engine::asset_manager assets(gneiss::test_support::test_files(files));
   assets.attach_task_executor(executor);
   backend->first = valid;
   backend->second = valid;
@@ -144,13 +144,13 @@ int main() {
   backend->fail_verify = false;
   backend->first = backend->second = valid;
   asset_ref<const action_map> shared;
-  if (assets.load_sync("asset://input/shared", shared).failed())
+  if (gneiss::test_support::load_asset(assets, "asset://input/shared", shared).failed())
     return 12;
   auto previous = shared;
-  if (assets.load_sync("asset://input/shared", shared).failed() || shared != previous ||
-      backend->reads != 1)
+  if (gneiss::test_support::load_asset(assets, "asset://input/shared", shared).failed() ||
+      shared != previous || backend->reads != 1)
     return 13;
-  asset_manager asynchronous(files);
+  asset_manager asynchronous(gneiss::test_support::test_files(files));
   asynchronous.attach_task_executor(executor);
   asset_request<action_map> request;
   if (asynchronous.request_input("asset://input/map", request).failed())
@@ -190,7 +190,7 @@ int main() {
   if (status != result::invalid_argument || shared != previous)
     return 25;
   backend->first = backend->second = invalid_scale;
-  asset_manager custom(files);
+  asset_manager custom(gneiss::test_support::test_files(files));
   custom.attach_task_executor(executor);
   const auto override_decode = +[](std::span<const std::byte>, action_map& output,
                                    gneiss::engine::meta::serialization_diagnostic&) -> result {

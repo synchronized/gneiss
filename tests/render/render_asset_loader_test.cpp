@@ -3,6 +3,7 @@
 
 #include "../support/async_render.hpp"
 #include "../support/memory_read_file_system.hpp"
+#include "../support/prepare_render.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_resource_service.hpp"
@@ -314,12 +315,13 @@ void selected_variants() {
       render_asset_reload{.uri = "asset://t.texture.json", .type = render_asset_type::texture}};
   render_resource_service resources;
   auto& scheduler = gneiss::test_support::render_tasks();
-  gneiss::engine::asset_manager asset_owner(files);
+  gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   asset_owner.attach_task_executor(scheduler);
   [[maybe_unused]] auto& cache = asset_owner.cache();
   prepared_render_batch batch;
-  require(prepare_render_assets(asset_owner, requests, batch, diagnostic, {}, 1U, limit,
-                                compressed) == gneiss::engine::result::success);
+  require(gneiss::test_support::prepare_render_for_test(asset_owner, files, requests, batch,
+                                                        diagnostic, {}, 1U, limit, compressed) ==
+          gneiss::engine::result::success);
   require(batch.bytes == limit && batch.assets.front().texture.profile == compressed);
   const auto* prepared_payload = batch.assets.front().texture.payload.data();
   const auto* prepared_manifest = batch.assets.front().texture.manifest.data();
@@ -345,21 +347,23 @@ void selected_variants() {
   require(loader.acquire_cached(requests.front(), lease, fallback) ==
               gneiss::engine::result::not_found &&
           !lease);
-  require(prepare_render_assets(
-              asset_owner, requests, batch, diagnostic, [] { return true; }, 1U, limit,
+  require(gneiss::test_support::prepare_render_for_test(
+              asset_owner, files, requests, batch, diagnostic, [] { return true; }, 1U, limit,
               compressed) == gneiss::engine::result::invalid_state &&
           batch.assets.empty());
   // 描述和负载各扫描一次；后续整文件读取会变化，但不会再发起来源复验。
   memory->full_reads = 0U;
   memory->change_on_reread = true;
-  require(prepare_render_assets(asset_owner, requests, batch, diagnostic, {}, 1U, limit,
-                                compressed) == gneiss::engine::result::success &&
+  require(gneiss::test_support::prepare_render_for_test(asset_owner, files, requests, batch,
+                                                        diagnostic, {}, 1U, limit, compressed) ==
+              gneiss::engine::result::success &&
           batch.assets.size() == 1U && memory->full_reads == 2U);
   memory->change_on_reread = false;
   unsigned cancellation_checks{};
-  require(prepare_render_assets(
-              asset_owner, requests, batch, diagnostic, [&] { return ++cancellation_checks == 2U; },
-              1U, limit, compressed) == gneiss::engine::result::invalid_state &&
+  require(gneiss::test_support::prepare_render_for_test(
+              asset_owner, files, requests, batch, diagnostic,
+              [&] { return ++cancellation_checks == 2U; }, 1U, limit,
+              compressed) == gneiss::engine::result::invalid_state &&
           batch.assets.empty());
   // 单纹理也走通用候选入口；移动后仍保留负载与设备身份。
   require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, binary.size(),
@@ -428,7 +432,7 @@ bool material_parameter_roundtrip(gneiss::engine::virtual_file_system& files,
   };
   render_resource_service resources;
   auto& scheduler = gneiss::test_support::render_tasks();
-  gneiss::engine::asset_manager asset_owner(files);
+  gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   asset_owner.attach_task_executor(scheduler);
   [[maybe_unused]] auto& cache = asset_owner.cache();
   auto decoder = std::make_shared<counting_material_decoder>();
@@ -448,8 +452,8 @@ bool material_parameter_roundtrip(gneiss::engine::virtual_file_system& files,
   const std::array request{render_asset_reload{.uri = "asset://parameters.material.json",
                                                .type = render_asset_type::material}};
   const auto before = resources.live_resource_count();
-  if (prepare_render_assets(asset_owner, request, batch, diagnostic, {}) !=
-          gneiss::engine::result::success ||
+  if (gneiss::test_support::prepare_render_for_test(asset_owner, files, request, batch, diagnostic,
+                                                    {}) != gneiss::engine::result::success ||
       batch.assets.size() != 2U || resources.live_resource_count() != before ||
       batch.assets.back().bytes !=
           sizeof(material_data) +
@@ -563,7 +567,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   if (file_system.mount("asset://", memory).failed())
     return 1;
   auto& scheduler = gneiss::test_support::render_tasks();
-  gneiss::engine::asset_manager asset_owner(file_system);
+  gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(file_system));
   asset_owner.attach_task_executor(scheduler);
   [[maybe_unused]] auto& cache = asset_owner.cache();
   gneiss::engine::render_asset_loader loader(asset_owner, resources);
@@ -763,8 +767,9 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
         gneiss::engine::render_asset_reload{"asset://models/indexed.gneiss-mesh",
                                             gneiss::engine::render_asset_type::mesh}};
     gneiss::engine::prepared_render_batch batch;
-    if (gneiss::engine::prepare_render_assets(asset_owner, requests, batch, diagnostic, {}) !=
-            gneiss::engine::result::success ||
+    if (gneiss::test_support::prepare_render_for_test(asset_owner, file_system, requests, batch,
+                                                      diagnostic,
+                                                      {}) != gneiss::engine::result::success ||
         batch.assets.size() != 2U || cache.size() != cache_before ||
         resources.live_resource_count() != resources_before) {
       return 40;
@@ -788,7 +793,8 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     // 使用重新加载绕过旧缓存，失败必须保持旧资源版本。
     if (reload_assets_for_test(loader, scheduler, std::span(requests).first(1U), diagnostic) !=
             gneiss::engine::result::invalid_argument ||
-        gneiss::engine::prepare_render_assets(asset_owner, requests, batch, diagnostic, {}) !=
+        gneiss::test_support::prepare_render_for_test(asset_owner, file_system, requests, batch,
+                                                      diagnostic, {}) !=
             gneiss::engine::result::invalid_argument ||
         !batch.assets.empty()) {
       return 43;
@@ -977,7 +983,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   // 缓存已经销毁但调用方仍持有资源：最后释放先排队，再由所属线程撤销 RID。
   gneiss::engine::render_asset_ref retained;
   {
-    gneiss::engine::asset_manager temporary_assets(file_system);
+    gneiss::engine::asset_manager temporary_assets(gneiss::test_support::test_files(file_system));
     gneiss::engine::render_asset_loader temporary_loader(temporary_assets, resources);
     if (gneiss::test_support::load_render(temporary_loader, gneiss::engine::render_asset_type::mesh,
                                           "asset://models/triangle.mesh.json", retained,
@@ -993,7 +999,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   // 服务先销毁时外部引用只能释放 CPU 外壳，不再解引用服务裸指针。
   {
     gneiss::engine::render_resource_service temporary_resources;
-    gneiss::engine::asset_manager temporary_assets(file_system);
+    gneiss::engine::asset_manager temporary_assets(gneiss::test_support::test_files(file_system));
     gneiss::engine::render_asset_loader temporary_loader(temporary_assets, temporary_resources);
     if (gneiss::test_support::load_render(temporary_loader, gneiss::engine::render_asset_type::mesh,
                                           "asset://models/triangle.mesh.json", retained,

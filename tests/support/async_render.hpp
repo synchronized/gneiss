@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "async_asset.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include <chrono>
 #include <stdexcept>
 namespace gneiss::test_support {
-inline engine::task_scheduler& render_tasks() {
-  static engine::task_scheduler tasks({.workers = 0, .mode = engine::execution_mode::cooperative});
-  return tasks;
-}
+inline engine::task_scheduler& render_tasks() { return asset_tasks(); }
 inline engine::result load_render(engine::render_asset_loader& loader,
                                   engine::render_asset_type type, std::string_view uri,
                                   engine::render_asset_ref& output,
