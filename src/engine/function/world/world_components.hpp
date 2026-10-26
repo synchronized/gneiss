@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/core/math/camera_settings.hpp"
+#include "engine/core/math/camera.hpp"
 #include "engine/function/render/render_resource.hpp"
 
 namespace gneiss::engine {

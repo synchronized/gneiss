@@ -1,10 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/math/scene_projection_math.hpp"
-#include <cmath>
-#include <glm/ext/matrix_transform.hpp>
+#include "engine/core/math/transform.hpp"
+
 namespace gneiss::engine {
+vector3 transform_normal(const vector3& normal,
+                         const gneiss::engine::transform& transform) noexcept {
+  const auto value =
+      glm::normalize(transform.rotation *
+                     (gneiss::engine::vector3{normal[0], normal[1], normal[2]} / transform.scale));
+  return {value.x, value.y, value.z};
+}
+
 bool build_model_matrices(const transform& value, matrix4& model, matrix4& normal) noexcept {
   const auto squared = glm::dot(value.rotation, value.rotation);
   if (!std::isfinite(squared) || squared <= 0)
@@ -20,4 +27,4 @@ bool build_model_matrices(const transform& value, matrix4& model, matrix4& norma
   normal = glm::scale(rotation, vector3{1.0F} / value.scale);
   return true;
 }
-}
+} // namespace gneiss::engine

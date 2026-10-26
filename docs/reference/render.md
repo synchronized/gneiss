@@ -78,7 +78,7 @@ Application 关闭及资源表析构时排空队列并关闭端点、失效全�
 ## ECS 组件
 
 `world::entity_configure_camera` 使用原生 `camera_settings` 设置或替换 Camera 组件。透视参数
-必须满足视场角位于 `0..π`、`near_plane > 0` 且 `far_plane > near_plane`。活动 Camera 通过
+必须满足`0 < fov < π`、`near > 0` 且 `far > near`。活动 Camera 通过
 `world::set_active_camera` 独立选择，每个 World 至多一个；移除或销毁活动 Camera 后，World
 进入无活动 Camera 状态。`world::entity_set_camera` 可同时指定活动相机标志。
 

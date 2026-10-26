@@ -55,12 +55,11 @@ gneiss::engine::result gneiss::engine::register_reflection(const registry_ref& r
   if (operation.failed())
     return operation;
   return type_builder<camera_properties>{registry}
-      .property<&get_camera<&camera_settings::vertical_field_of_view_radians>,
-                &set_camera<&camera_settings::vertical_field_of_view_radians, true>>(
+      .property<&get_camera<&camera_settings::fov>, &set_camera<&camera_settings::fov, true>>(
           camera_vertical_field_of_view_field, "vertical_field_of_view_radians")
-      .property<&get_camera<&camera_settings::near_plane>,
-                &set_camera<&camera_settings::near_plane>>(camera_near_plane_field, "near_plane")
-      .property<&get_camera<&camera_settings::far_plane>, &set_camera<&camera_settings::far_plane>>(
+      .property<&get_camera<&camera_settings::near>, &set_camera<&camera_settings::near>>(
+          camera_near_plane_field, "near_plane")
+      .property<&get_camera<&camera_settings::far>, &set_camera<&camera_settings::far>>(
           camera_far_plane_field, "far_plane")
       .readonly<&camera_properties::is_primary>(camera_is_primary_field, "is_primary")
       .commit();

@@ -5,7 +5,7 @@
 
 #include "runtime_object_id.hpp"
 
-#include "engine/core/math/camera_settings.hpp"
+#include "engine/core/math/camera.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"

@@ -67,14 +67,12 @@ int main() {
   if (engine::write_component_property(registry, *first, entity.get(), camera_type,
                                        gneiss::field_id{2}, value)
           .failed() ||
-      first->entity_get_camera(entity, camera).failed() ||
-      std::abs(camera.near_plane - 0.5F) > 0.0001F)
+      first->entity_get_camera(entity, camera).failed() || std::abs(camera.near - 0.5F) > 0.0001F)
     return 8;
-  value.payload = camera.far_plane + 1;
+  value.payload = camera.far + 1;
   if (engine::write_component_property(registry, *first, entity.get(), camera_type,
                                        gneiss::field_id{2}, value) != result::invalid_argument ||
-      first->entity_get_camera(entity, camera).failed() ||
-      std::abs(camera.near_plane - 0.5F) > 0.0001F ||
+      first->entity_get_camera(entity, camera).failed() || std::abs(camera.near - 0.5F) > 0.0001F ||
       engine::read_component_property(registry, *first, missing.get(), camera_type,
                                       gneiss::field_id{2}, value) != result::not_found)
     return 9;

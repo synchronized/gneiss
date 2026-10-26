@@ -32,7 +32,7 @@ int main(void) {
       active_camera != gneiss::entity_id{} ||
       first->entity_configure_camera(entity, camera) != gneiss::engine::result::success ||
       first->entity_get_camera(entity, queried_camera) != gneiss::engine::result::success ||
-      queried_camera.near_plane != camera.near_plane ||
+      queried_camera.near != camera.near ||
       second->set_active_camera(entity) != gneiss::engine::result::invalid_handle ||
       first->set_active_camera(entity) != gneiss::engine::result::success ||
       first->get_active_camera(active_camera) != gneiss::engine::result::success ||

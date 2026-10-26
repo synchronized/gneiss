@@ -14,7 +14,7 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/guid.hpp
   engine/core/value.hpp
 
-  engine/core/math/camera_settings.hpp
+  engine/core/math/camera.hpp
   engine/core/entity_id.hpp
   engine/core/reflection/reflection_types.hpp
   engine/core/reflection/component_identity.hpp
@@ -72,8 +72,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   runtime/loading/scene_load_types.hpp
   engine/resource/types/action_map.hpp
   engine/function/input/input_service.hpp
-  engine/core/math/camera_math.hpp
-  engine/core/math/camera_settings.hpp
+  engine/core/math/camera.hpp
   engine/function/render/debug_draw_list.hpp
   engine/function/render/draw_types.hpp
   engine/function/render/render_asset_loader.hpp

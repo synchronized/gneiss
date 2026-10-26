@@ -17,7 +17,7 @@ int run_host_tests() {
   if (application->set_view_camera(&view) != gneiss::engine::result::success) {
     return 21;
   }
-  view.camera.near_plane = -1.0F;
+  view.camera.near = -1.0F;
   if (application->set_view_camera(&view) != gneiss::engine::result::invalid_argument) {
     return 22;
   }
@@ -86,7 +86,7 @@ int run_tests() {
   }
   // 无效视口输入不能回退到运行时相机，也不能覆盖上一份有效快照。
   auto invalid_view = editor_view;
-  invalid_view.camera.near_plane = -1.0F;
+  invalid_view.camera.near = -1.0F;
   if (gneiss::engine::build_render_snapshot(world, 800U, 600U, snapshot, &invalid_view) !=
           gneiss::engine::result::invalid_argument ||
       snapshot.camera.transform.translation[0] != 17.0F) {

@@ -48,7 +48,7 @@ bool test_scene_adapter() {
     change.node.name = std::string(512U, 's');
     change.node.local_transform.translation[1] = 7.0F;
     change.node.component_flags = 3U;
-    change.node.camera.near_plane = 0.75F;
+    change.node.camera.near = 0.75F;
     change.node.mesh_uri = "asset://mesh";
     change.node.material_uri = "asset://material";
     input.changes.push_back(std::move(change));
@@ -71,7 +71,7 @@ bool test_scene_adapter() {
       node.prefab_instance_uuid != "instance-uuid" ||
       node.prefab_source_node_uuid != "source-uuid" || node.name != std::string(512U, 's') ||
       node.local_transform.translation[1] != 7.0F || node.component_flags != 3U ||
-      node.camera.near_plane != 0.75F || node.mesh_uri != "asset://mesh" ||
+      node.camera.near != 0.75F || node.mesh_uri != "asset://mesh" ||
       node.material_uri != "asset://material" ||
       output.changes[1].type != gneiss::editor::runtime_scene_change_type::remove ||
       output.changes[1].id.value != 51U || output.changes[1].id.generation != 52U) {

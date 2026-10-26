@@ -52,3 +52,20 @@
 不提供类型擦除对象的析构回调或字段注册；具体资源仍由已有 `asset_ref` 与 Loader 管理。
 见 [ADR-081](../decisions/ADR-081-runtime-type-identity.md)。
 编译消费者应链接 Engine，不能把 string_name.cpp 各自复制进插件生成独立的字符串表。
+
+## 数学类型与运算
+
+`engine/core/math` 使用 `gneiss::engine` 命名空间，按职责组织，不依赖渲染后端：
+
+| 文件 | 内容 |
+| --- | --- |
+| `types.hpp` | GLM 配置、向量/矩阵/四元数别名、分量和数组访问 |
+| `functions.hpp` | 有限值判断、矩阵数组转换、矩阵乘向量 |
+| `transform.hpp/.cpp` | TRS 类型与校验、组合、Model/Normal 矩阵和法线变换 |
+| `camera.hpp/.cpp` | camera_settings、视图矩阵和透视投影 |
+
+`camera_settings` 字段为 `fov`（垂直视场角，弧度）、`near`（近裁剪面）和 `far`（远裁剪面）。
+默认均为零，不代表有效投影；使用时要求 `0 < fov < π`、`0 < near < far`，且所有参数有限。
+场景描述和文件/IPC 编码仍使用原有长字段名，边界转换显式映射这些字段。
+`camera.hpp` 清除已定义的 Win32 near/far 旧宏；平台代码在其后包含 Windows 头时，
+应在平台边界清除这两个宏，不能让宏影响后续成员访问。

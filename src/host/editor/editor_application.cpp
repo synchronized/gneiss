@@ -214,7 +214,7 @@ gneiss::engine::result submit_editor_ui(editor_state& state) {
   const auto& settings = state.camera.settings();
   const auto& transform = state.camera.current_transform();
   const gneiss::engine::view_camera view{
-      .camera = {settings.vertical_field_of_view_radians, settings.near_plane, settings.far_plane},
+      .camera = {settings.fov, settings.near, settings.far},
       .transform = {transform.translation, transform.rotation, transform.scale}};
   const auto operation = state.application->set_view_camera(&view);
   return operation == gneiss::engine::result::success ? state.ui.submit(*state.application)

@@ -239,7 +239,7 @@ int main() try {
   gneiss::engine::transform transform;
   transform.translation[0] = 5.0F;
   gneiss::engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  camera.near_plane = 0.25F;
+  camera.near = 0.25F;
   std::string json;
   if (application->native_world()->node_get_entity(camera_node, camera_entity) !=
           gneiss::engine::result::success ||

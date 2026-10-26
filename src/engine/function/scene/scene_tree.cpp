@@ -5,7 +5,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/scene_types.hpp"
 
-#include "engine/core/math/functions.hpp"
+#include "engine/core/math/transform.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>

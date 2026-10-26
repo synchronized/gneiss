@@ -68,8 +68,8 @@ gneiss::engine::result world::create_staged_object(const gneiss::engine::publica
                                                    staged_object& output) noexcept {
   output = {};
   if (description.camera != nullptr &&
-      !is_valid_camera(description.camera->vertical_field_of_view_radians,
-                       description.camera->near_plane, description.camera->far_plane)) {
+      !is_valid_camera(description.camera->fov, description.camera->near,
+                       description.camera->far)) {
     return gneiss::engine::result::invalid_argument;
   }
   if (description.renderer != nullptr &&
@@ -204,8 +204,7 @@ gneiss::engine::result world::entity_set_camera(entity_id entity_value,
                                                 const camera_settings& camera,
                                                 bool primary) noexcept {
   std::uint64_t entity = entity_value.get();
-  if (!is_valid_camera(camera.vertical_field_of_view_radians, camera.near_plane,
-                       camera.far_plane)) {
+  if (!is_valid_camera(camera.fov, camera.near, camera.far)) {
     return gneiss::engine::result::invalid_argument;
   }
   try {
@@ -219,8 +218,7 @@ gneiss::engine::result world::entity_set_camera(entity_id entity_value,
       return gneiss::engine::result::invalid_handle;
     }
     state->emplace_or_replace<camera_component>(
-        entity, camera_settings{camera.vertical_field_of_view_radians, camera.near_plane,
-                                camera.far_plane});
+        entity, camera_settings{camera.fov, camera.near, camera.far});
     if (primary) {
       return state->set_active_camera(entity);
     }
@@ -235,7 +233,7 @@ gneiss::engine::result world::entity_set_camera(entity_id entity_value,
 gneiss::engine::result world::entity_configure_camera(entity_id entity_value,
                                                       const camera_settings& desc) noexcept {
   std::uint64_t entity = entity_value.get();
-  if (!is_valid_camera(desc.vertical_field_of_view_radians, desc.near_plane, desc.far_plane)) {
+  if (!is_valid_camera(desc.fov, desc.near, desc.far)) {
     return gneiss::engine::result::invalid_argument;
   }
   try {
@@ -273,9 +271,8 @@ gneiss::engine::result world::entity_get_camera(entity_id entity_value,
     if (component == nullptr) {
       return gneiss::engine::result::not_found;
     }
-    out_camera = {.vertical_field_of_view_radians = component->value.vertical_field_of_view_radians,
-                  .near_plane = component->value.near_plane,
-                  .far_plane = component->value.far_plane};
+    out_camera = {
+        .fov = component->value.fov, .near = component->value.near, .far = component->value.far};
     return gneiss::engine::result::success;
   } catch (...) {
     return gneiss::engine::result::internal;

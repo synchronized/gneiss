@@ -330,9 +330,9 @@ gneiss::engine::result prefab_runtime_instance::reload(
       if (camera_result == gneiss::engine::result::success) {
         std::uint64_t active = UINT64_C(0);
         snapshot.camera = gneiss::engine::camera_description{
-            .vertical_field_of_view_radians = camera.vertical_field_of_view_radians,
-            .near_plane = camera.near_plane,
-            .far_plane = camera.far_plane,
+            .vertical_field_of_view_radians = camera.fov,
+            .near_plane = camera.near,
+            .far_plane = camera.far,
             .is_primary = gneiss::engine::write_identifier<entity_id>(
                               active,
                               [&](auto& native_output) {
@@ -480,18 +480,18 @@ gneiss::engine::result apply_candidate_object(const gneiss::engine::registry_ref
     gneiss::engine::camera_properties properties;
     auto& settings = properties.settings;
     settings = {
-        .vertical_field_of_view_radians = camera.vertical_field_of_view_radians,
-        .near_plane = camera.near_plane,
-        .far_plane = camera.far_plane,
+        .fov = camera.vertical_field_of_view_radians,
+        .near = camera.near_plane,
+        .far = camera.far_plane,
     };
     result = gneiss::engine::set_property(state, value.key.type_id, value.key.field_id.get(),
                                           &properties, native);
     if (result != gneiss::engine::result::success) {
       return result;
     }
-    camera.vertical_field_of_view_radians = settings.vertical_field_of_view_radians;
-    camera.near_plane = settings.near_plane;
-    camera.far_plane = settings.far_plane;
+    camera.vertical_field_of_view_radians = settings.fov;
+    camera.near_plane = settings.near;
+    camera.far_plane = settings.far;
   } else {
     // 当前对象格式只存储这些组件，不能将其他类型解释为同一候选内存布局。
     return gneiss::engine::result::unsupported;
@@ -664,9 +664,9 @@ gneiss::engine::result prefab_runtime_instance::commit_node(std::size_t index,
   if (publication_) {
     gneiss::engine::camera_settings camera{};
     if (source.camera) {
-      camera = {.vertical_field_of_view_radians = source.camera->vertical_field_of_view_radians,
-                .near_plane = source.camera->near_plane,
-                .far_plane = source.camera->far_plane};
+      camera = {.fov = source.camera->vertical_field_of_view_radians,
+                .near = source.camera->near_plane,
+                .far = source.camera->far_plane};
     }
     const gneiss::engine::mesh_renderer renderer{.mesh = target.mesh, .material = target.material};
     gneiss::engine::staged_object object;
@@ -694,10 +694,10 @@ gneiss::engine::result prefab_runtime_instance::commit_node(std::size_t index,
     result = native_world_.node_set_local_transform(gneiss::scene_node_id{target.node}, transform);
   }
   if (result == gneiss::engine::result::success && source.camera) {
-    const gneiss::engine::camera_settings camera{.vertical_field_of_view_radians =
+    const gneiss::engine::camera_settings camera{.fov =
                                                      source.camera->vertical_field_of_view_radians,
-                                                 .near_plane = source.camera->near_plane,
-                                                 .far_plane = source.camera->far_plane};
+                                                 .near = source.camera->near_plane,
+                                                 .far = source.camera->far_plane};
     result = native_world_.entity_configure_camera(gneiss::entity_id{target.entity}, camera);
     if (result == gneiss::engine::result::success && source.camera->is_primary) {
       result = native_world_.set_active_camera(gneiss::entity_id{target.entity});

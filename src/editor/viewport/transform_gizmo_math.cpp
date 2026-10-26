@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "transform_gizmo_math.hpp"
-#include "engine/core/math/functions.hpp"
+#include "engine/core/math/transform.hpp"
 #include <algorithm>
 #include <cmath>
 #include <glm/ext/matrix_clip_space.hpp>

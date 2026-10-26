@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/math/camera_math.hpp"
+#include "engine/core/math/camera.hpp"
 #include <cmath>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
@@ -18,17 +18,11 @@ result build_view_matrix(const transform& value, matrix4& output) noexcept {
 }
 result build_perspective_matrix(const camera_settings& camera, float aspect,
                                 matrix4& output) noexcept {
-  if (!std::isfinite(aspect) || aspect <= 0 ||
-      !std::isfinite(camera.vertical_field_of_view_radians) || !std::isfinite(camera.near_plane) ||
-      !std::isfinite(camera.far_plane) || camera.vertical_field_of_view_radians <= 0 ||
-      camera.vertical_field_of_view_radians >= std::numbers::pi_v<float> ||
-      camera.near_plane <= 0 || camera.far_plane <= camera.near_plane)
+  if (!std::isfinite(aspect) || aspect <= 0 || !std::isfinite(camera.fov) ||
+      !std::isfinite(camera.near) || !std::isfinite(camera.far) || camera.fov <= 0 ||
+      camera.fov >= std::numbers::pi_v<float> || camera.near <= 0 || camera.far <= camera.near)
     return result::invalid_argument;
-  output = glm::perspectiveRH_ZO(camera.vertical_field_of_view_radians, aspect, camera.near_plane,
-                                 camera.far_plane);
+  output = glm::perspectiveRH_ZO(camera.fov, aspect, camera.near, camera.far);
   return result::success;
-}
-vector4 transform_vector(const matrix4& matrix, const vector4& vector) noexcept {
-  return matrix * vector;
 }
 }

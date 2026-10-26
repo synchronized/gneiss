@@ -9,7 +9,7 @@ foreach(probe IN LISTS namespace_probes)
   file(WRITE "${probe}" "")
 endforeach()
 file(MAKE_DIRECTORY "${fixture}/src/engine/function/render")
-file(WRITE "${fixture}/src/engine/core/math/camera_math.hpp" "")
+file(WRITE "${fixture}/src/engine/core/math/camera.hpp" "")
 file(WRITE "${fixture}/src/engine/function/render/render_resource_data.hpp" "")
 file(MAKE_DIRECTORY "${fixture}/src/runtime")
 file(WRITE "${fixture}/src/runtime/loading/scene_service.cpp" "")
@@ -391,7 +391,7 @@ endif()
 # 原生快照不能重新引入场景 ABI 值或 Granit 数学依赖。
 foreach(content IN ITEMS "gneiss_transform transform;" "gneiss_camera camera;"
     "#include <granit/render.h>" "#include \"engine/function/render/backend/granit/probe.hpp\"")
-  file(WRITE "${fixture}/src/engine/core/math/camera_math.hpp" "${content}\n")
+  file(WRITE "${fixture}/src/engine/core/math/camera.hpp" "${content}\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
@@ -399,7 +399,7 @@ foreach(content IN ITEMS "gneiss_transform transform;" "gneiss_camera camera;"
     message(FATAL_ERROR "原生快照边界未拒绝违规输入：${content}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/engine/core/math/camera_math.hpp" "")
+file(WRITE "${fixture}/src/engine/core/math/camera.hpp" "")
 
 foreach(content IN ITEMS "gneiss_texture texture;" "gneiss_mesh_vertex vertex;"
     "#include <gneiss/engine/render.h>" "auto mode = GNEISS_MATERIAL_ALPHA_BLEND;")

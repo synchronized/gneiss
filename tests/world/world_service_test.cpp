@@ -116,9 +116,9 @@ bool batch_publication_test() {
   std::array<service::staged_object, 2> old_objects;
   std::array<service::staged_object, 2> new_objects;
   const service::camera_settings camera{
-      .vertical_field_of_view_radians = 1.0F,
-      .near_plane = 0.1F,
-      .far_plane = 100.0F,
+      .fov = 1.0F,
+      .near = 0.1F,
+      .far = 100.0F,
   };
   service::staged_object_description description;
   description.camera = &camera;
@@ -236,15 +236,15 @@ int main() {
   service::camera_settings settings;
   if (world->entity_get_camera(gneiss::entity_id{entity}, settings) !=
           gneiss::engine::result::success ||
-      settings.near_plane != camera.near_plane || settings.far_plane != camera.far_plane) {
+      settings.near != camera.near || settings.far != camera.far) {
     return 5;
   }
-  settings.far_plane = settings.near_plane;
+  settings.far = settings.near;
   if (world->entity_configure_camera(gneiss::entity_id{entity}, settings) !=
           gneiss::engine::result::invalid_argument ||
       world->entity_get_camera(gneiss::entity_id{entity}, camera) !=
           gneiss::engine::result::success ||
-      camera.near_plane == camera.far_plane) {
+      camera.near == camera.far) {
     return 6;
   }
   gneiss::engine::result wrong_thread{};
@@ -280,14 +280,14 @@ int main() {
   if (gneiss::engine::set_property(reflection, service::camera_property_type(),
                                    gneiss::engine::camera_far_plane_field.get(), &candidate_camera,
                                    proposed) != gneiss::engine::result::success ||
-      candidate_camera.settings.near_plane != 30 || candidate_camera.settings.far_plane != 40) {
+      candidate_camera.settings.near != 30 || candidate_camera.settings.far != 40) {
     return 18;
   }
   gneiss::engine::publication group;
   service::staged_object root, child, failed;
   service::staged_object_description object;
   object.camera = &settings;
-  settings.far_plane = 100.0F;
+  settings.far = 100.0F;
   if (world->begin_publication(group) != gneiss::engine::result::success ||
       world->create_staged_object(group, object, root) != gneiss::engine::result::success ||
       world->entity_count(count) != gneiss::engine::result::success || count != 1U) {

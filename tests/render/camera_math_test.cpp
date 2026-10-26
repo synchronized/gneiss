@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/math/camera_math.hpp"
+#include "engine/core/math/camera.hpp"
 #include "engine/core/result.hpp"
 
 #include <array>
@@ -50,15 +50,15 @@ int main() {
   }
 
   gneiss::engine::camera_settings camera;
-  camera.vertical_field_of_view_radians = 1.57079633F;
-  camera.near_plane = 0.1F;
-  camera.far_plane = 100.0F;
+  camera.fov = 1.57079633F;
+  camera.near = 0.1F;
+  camera.far = 100.0F;
   matrix4 projection;
   if (build_perspective_matrix(camera, 2.0F, projection) != gneiss::engine::result::success) {
     return 5;
   }
-  const auto near_point = transform_vector(projection, {0.0F, 0.0F, -camera.near_plane, 1.0F});
-  const auto far_point = transform_vector(projection, {0.0F, 0.0F, -camera.far_plane, 1.0F});
+  const auto near_point = transform_vector(projection, {0.0F, 0.0F, -camera.near, 1.0F});
+  const auto far_point = transform_vector(projection, {0.0F, 0.0F, -camera.far, 1.0F});
   const auto upper_point = transform_vector(projection, {0.0F, 1.0F, -1.0F, 1.0F});
   const auto lower_point = transform_vector(projection, {0.0F, -1.0F, -1.0F, 1.0F});
   if (!nearly_equal(near_point[2] / near_point[3], 0.0F) ||
@@ -77,7 +77,7 @@ int main() {
           gneiss::engine::result::invalid_argument) {
     return 7;
   }
-  camera.far_plane = std::numeric_limits<float>::infinity();
+  camera.far = std::numeric_limits<float>::infinity();
   return build_perspective_matrix(camera, 1.0F, projection) ==
                  gneiss::engine::result::invalid_argument
              ? 0

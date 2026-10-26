@@ -120,13 +120,11 @@ target_sources(
     engine/function/render/render_asset_loader.hpp
     engine/resource/loaders/png_decoder.cpp
     engine/resource/loaders/png_decoder.hpp
-    engine/core/math/scene_projection_math.cpp
-    engine/core/math/scene_projection_math.hpp
-    engine/core/math/camera_math.cpp
-    engine/core/math/camera_math.hpp
+    engine/core/math/transform.cpp
+    engine/core/math/transform.hpp
+    engine/core/math/camera.cpp
+    engine/core/math/camera.hpp
     engine/function/render/render_snapshot.hpp
-    engine/core/math/normal_math.cpp
-    engine/core/math/normal_math.hpp
     engine/core/reflection/type_registry.cpp
     engine/core/reflection/serialization.hpp
     engine/resource/resource_registry.cpp

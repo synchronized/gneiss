@@ -205,9 +205,9 @@ void draw_runtime_inspector(const runtime_scene_node& node,
   if ((node.component_flags & static_cast<std::uint32_t>(gneiss::scene_node_components::camera)) !=
           0U &&
       ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
-    auto field_of_view = node.camera.vertical_field_of_view_radians;
-    auto near_plane = node.camera.near_plane;
-    auto far_plane = node.camera.far_plane;
+    auto field_of_view = node.camera.fov;
+    auto near_plane = node.camera.near;
+    auto far_plane = node.camera.far;
     ImGui::PushID(static_cast<int>(gneiss::engine::camera_vertical_field_of_view_field.get()));
     ImGui::DragFloat("Vertical FOV (radians)", &field_of_view);
     ImGui::PopID();

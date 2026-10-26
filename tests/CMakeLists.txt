@@ -430,7 +430,7 @@ add_test(NAME gneiss.component_reflection COMMAND gneiss_component_reflection_te
 add_executable(
   gneiss_render_snapshot_test
   world/render_snapshot_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/core/math/camera_math.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/math/camera.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_tree.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/world/render_snapshot.cpp"
 )
@@ -444,7 +444,7 @@ add_test(NAME gneiss.render_snapshot COMMAND gneiss_render_snapshot_test)
 add_executable(
   gneiss_camera_math_test
   render/camera_math_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/core/math/camera_math.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/math/camera.cpp"
 )
 target_include_directories(gneiss_camera_math_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_camera_math_test PRIVATE gneiss::engine)
@@ -456,7 +456,7 @@ add_test(NAME gneiss.camera_math COMMAND gneiss_camera_math_test)
 add_executable(
   gneiss_normal_math_test
   render/normal_math_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/core/math/normal_math.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/math/transform.cpp"
 )
 target_include_directories(gneiss_normal_math_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_normal_math_test PRIVATE gneiss::engine)
@@ -648,7 +648,7 @@ add_test(NAME gneiss.texture_container COMMAND gneiss_texture_container_test)
 add_executable(
   gneiss_scene_projection_math_test
   render/scene_projection_math_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/core/math/scene_projection_math.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/math/transform.cpp"
 )
 target_include_directories(
   gneiss_scene_projection_math_test PRIVATE "${PROJECT_SOURCE_DIR}/src"

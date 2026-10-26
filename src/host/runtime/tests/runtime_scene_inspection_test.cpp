@@ -56,14 +56,14 @@ bool test_full_and_incremental_snapshot() {
   nodes[1].component_flags =
       static_cast<std::uint32_t>(gneiss::scene_node_components::camera) |
       static_cast<std::uint32_t>(gneiss::scene_node_components::mesh_renderer);
-  nodes[1].camera.near_plane = 0.25F;
+  nodes[1].camera.near = 0.25F;
   nodes[1].mesh_uri = "asset:///meshes/child.gneiss-mesh";
   nodes[1].material_uri = "asset:///materials/child.material.json";
   if (inspection.capture(nodes, false, snapshot) != gneiss::engine::result::success ||
       snapshot.is_full || snapshot.stamp.sequence != 2U || snapshot.changes.size() != 1U ||
       snapshot.changes[0].type != runtime_scene_change_type::upsert ||
       snapshot.changes[0].id != old_child_id || snapshot.changes[0].node.name != "Renamed" ||
-      snapshot.changes[0].node.camera.near_plane != 0.25F ||
+      snapshot.changes[0].node.camera.near != 0.25F ||
       snapshot.changes[0].node.mesh_uri != nodes[1].mesh_uri ||
       snapshot.changes[0].node.material_uri != nodes[1].material_uri) {
     return false;

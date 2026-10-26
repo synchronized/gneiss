@@ -38,7 +38,7 @@ void editor_camera::shutdown() noexcept {
 }
 
 gneiss::engine::camera_settings editor_camera::settings() const noexcept {
-  return {.vertical_field_of_view_radians = 1.04719755F, .near_plane = 0.05F, .far_plane = 2000.0F};
+  return {.fov = 1.04719755F, .near = 0.05F, .far = 2000.0F};
 }
 
 void editor_camera::update_rotation() noexcept {

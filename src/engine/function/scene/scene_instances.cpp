@@ -89,10 +89,10 @@ gneiss::engine::result commit_object(gneiss::engine::world& native_world,
     result = native_world.node_set_local_transform(gneiss::scene_node_id{target.node}, transform);
   }
   if (result == gneiss::engine::result::success && source.camera) {
-    const gneiss::engine::camera_settings camera{.vertical_field_of_view_radians =
+    const gneiss::engine::camera_settings camera{.fov =
                                                      source.camera->vertical_field_of_view_radians,
-                                                 .near_plane = source.camera->near_plane,
-                                                 .far_plane = source.camera->far_plane};
+                                                 .near = source.camera->near_plane,
+                                                 .far = source.camera->far_plane};
     result = native_world.entity_configure_camera(gneiss::entity_id{target.entity}, camera);
     if (result == gneiss::engine::result::success && source.camera->is_primary) {
       result = native_world.set_active_camera(gneiss::entity_id{target.entity});
@@ -461,11 +461,11 @@ gneiss::engine::result scene_instance::reload(gneiss::engine::scene_description 
                                    return native_world_.get_active_camera(native_output);
                                  }) == gneiss::engine::result::success &&
                              active == target.entity;
-        snapshot.camera = gneiss::engine::camera_description{
-            .vertical_field_of_view_radians = camera.vertical_field_of_view_radians,
-            .near_plane = camera.near_plane,
-            .far_plane = camera.far_plane,
-            .is_primary = primary};
+        snapshot.camera =
+            gneiss::engine::camera_description{.vertical_field_of_view_radians = camera.fov,
+                                               .near_plane = camera.near,
+                                               .far_plane = camera.far,
+                                               .is_primary = primary};
       } else if (camera_result != gneiss::engine::result::not_found) {
         result = camera_result;
       }
@@ -610,9 +610,9 @@ gneiss::engine::result scene_instance::get_node_info(std::uint64_t index, scene_
         return result;
       }
       out_info.camera = gneiss::engine::camera_description{
-          .vertical_field_of_view_radians = camera.vertical_field_of_view_radians,
-          .near_plane = camera.near_plane,
-          .far_plane = camera.far_plane,
+          .vertical_field_of_view_radians = camera.fov,
+          .near_plane = camera.near,
+          .far_plane = camera.far,
           .is_primary = author.camera->is_primary,
       };
       out_info.component_flags |= scene_node_components::camera;
@@ -1587,9 +1587,7 @@ gneiss::engine::result scene_instance::set_camera(scene_node_id node,
   }
   const auto result = native_world_.entity_configure_camera(
       gneiss::entity_id{found->entity},
-      {.vertical_field_of_view_radians = desc.vertical_field_of_view_radians,
-       .near_plane = desc.near_plane,
-       .far_plane = desc.far_plane});
+      {.fov = desc.vertical_field_of_view_radians, .near = desc.near_plane, .far = desc.far_plane});
   if (result != gneiss::engine::result::success) {
     return result;
   }
@@ -1707,9 +1705,9 @@ gneiss::engine::result scene_instance::capture_description(scene_description& ou
       if (result != gneiss::engine::result::success) {
         return result;
       }
-      author.camera->vertical_field_of_view_radians = camera.vertical_field_of_view_radians;
-      author.camera->near_plane = camera.near_plane;
-      author.camera->far_plane = camera.far_plane;
+      author.camera->vertical_field_of_view_radians = camera.fov;
+      author.camera->near_plane = camera.near;
+      author.camera->far_plane = camera.far;
       author.camera->is_primary = runtime.entity == active_camera;
     }
   }

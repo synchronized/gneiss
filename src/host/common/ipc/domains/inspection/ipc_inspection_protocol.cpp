@@ -84,8 +84,7 @@ bool parse_float_array(yyjson_val* object, const char* key, float* output,
 }
 
 bool valid_camera(const gneiss::engine::camera_settings& camera) noexcept {
-  return std::isfinite(camera.vertical_field_of_view_radians) && std::isfinite(camera.near_plane) &&
-         std::isfinite(camera.far_plane);
+  return std::isfinite(camera.fov) && std::isfinite(camera.near) && std::isfinite(camera.far);
 }
 
 bool add_node(yyjson_mut_doc* document, yyjson_mut_val* change,
@@ -111,9 +110,9 @@ bool add_node(yyjson_mut_doc* document, yyjson_mut_val* change,
          yyjson_mut_obj_add_uint(document, value, "component_flags", node.component_flags) &&
          camera != nullptr &&
          yyjson_mut_obj_add_real(document, camera, "vertical_field_of_view_radians",
-                                 node.camera.vertical_field_of_view_radians) &&
-         yyjson_mut_obj_add_real(document, camera, "near_plane", node.camera.near_plane) &&
-         yyjson_mut_obj_add_real(document, camera, "far_plane", node.camera.far_plane) &&
+                                 node.camera.fov) &&
+         yyjson_mut_obj_add_real(document, camera, "near_plane", node.camera.near) &&
+         yyjson_mut_obj_add_real(document, camera, "far_plane", node.camera.far) &&
          yyjson_mut_obj_add_val(document, value, "camera", camera) &&
          yyjson_mut_obj_add_strncpy(document, value, "mesh_uri", node.mesh_uri.data(),
                                     node.mesh_uri.size()) &&
@@ -177,9 +176,9 @@ bool parse_node(yyjson_val* change, gneiss::host::ipc_inspection_node& output) {
       far_value > std::numeric_limits<float>::max()) {
     return false;
   }
-  output.camera.vertical_field_of_view_radians = static_cast<float>(fov);
-  output.camera.near_plane = static_cast<float>(near_value);
-  output.camera.far_plane = static_cast<float>(far_value);
+  output.camera.fov = static_cast<float>(fov);
+  output.camera.near = static_cast<float>(near_value);
+  output.camera.far = static_cast<float>(far_value);
   output.mesh_uri.assign(yyjson_get_str(mesh_uri), yyjson_get_len(mesh_uri));
   output.material_uri.assign(yyjson_get_str(material_uri), yyjson_get_len(material_uri));
   return true;

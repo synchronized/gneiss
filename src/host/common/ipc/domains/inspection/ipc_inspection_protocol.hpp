@@ -6,7 +6,7 @@
 
 #include "ipc_dispatcher.hpp"
 
-#include "engine/core/math/camera_settings.hpp"
+#include "engine/core/math/camera.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/core/result.hpp"
 

@@ -31,21 +31,18 @@ bool equal_node(const gneiss::host::runtime_scene_snapshot_node& left,
          left.prefab_instance_uuid == right.prefab_instance_uuid &&
          left.prefab_source_node_uuid == right.prefab_source_node_uuid && left.name == right.name &&
          equal_transform(left.local_transform, right.local_transform) &&
-         left.component_flags == right.component_flags &&
-         left.camera.vertical_field_of_view_radians ==
-             right.camera.vertical_field_of_view_radians &&
-         left.camera.near_plane == right.camera.near_plane &&
-         left.camera.far_plane == right.camera.far_plane && left.mesh_uri == right.mesh_uri &&
-         left.material_uri == right.material_uri;
+         left.component_flags == right.component_flags && left.camera.fov == right.camera.fov &&
+         left.camera.near == right.camera.near && left.camera.far == right.camera.far &&
+         left.mesh_uri == right.mesh_uri && left.material_uri == right.material_uri;
 }
 
 gneiss::engine::camera_settings
 inspection_camera(const std::optional<gneiss::engine::camera_description>& camera) noexcept {
   gneiss::engine::camera_settings output{1.04719755F, 0.1F, 1000.0F};
   if (camera) {
-    output.vertical_field_of_view_radians = camera->vertical_field_of_view_radians;
-    output.near_plane = camera->near_plane;
-    output.far_plane = camera->far_plane;
+    output.fov = camera->vertical_field_of_view_radians;
+    output.near = camera->near_plane;
+    output.far = camera->far_plane;
   }
   return output;
 }

@@ -26,8 +26,7 @@ gneiss::engine::result build_render_snapshot(world_state& world, std::uint32_t v
       const auto active_camera = world.active_camera();
       if (const auto* component = world.get<camera_component>(active_camera);
           component != nullptr) {
-        selected.camera = {component->value.vertical_field_of_view_radians,
-                           component->value.near_plane, component->value.far_plane};
+        selected.camera = {component->value.fov, component->value.near, component->value.far};
         gneiss::engine::transform transform;
         has_camera = world.scene().get_world_for_entity(active_camera, &transform) ==
                      gneiss::engine::result::success;

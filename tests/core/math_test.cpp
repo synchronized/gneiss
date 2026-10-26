@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/math/functions.hpp"
+#include "engine/core/math/transform.hpp"
 #include "engine/core/reflection/reflection_types.hpp"
 #include <cmath>
 #include <type_traits>
