@@ -274,7 +274,7 @@ template <std::size_t Size>
   return -1;
 }
 
-[[nodiscard]] bool parse_type_id(yyjson_val* value, gneiss::engine::type_guid& output) noexcept {
+[[nodiscard]] bool parse_type_id(yyjson_val* value, gneiss::engine::guid& output) noexcept {
   if (!yyjson_is_str(value) || yyjson_get_len(value) != 32U) {
     return false;
   }
@@ -291,7 +291,7 @@ template <std::size_t Size>
   if (std::ranges::all_of(parsed, [](std::uint8_t byte) { return byte == 0U; })) {
     return false;
   }
-  output = gneiss::engine::type_guid{gneiss::engine::guid::from_bytes(parsed)};
+  output = gneiss::engine::guid::from_bytes(parsed);
   return true;
 }
 
@@ -339,12 +339,12 @@ template <std::size_t Size>
   } else if (kind == "string" && yyjson_is_str(value)) {
     parsed.payload = std::string(json_string(value));
   } else if (kind == "type_id") {
-    gneiss::engine::type_guid id{};
+    gneiss::engine::guid id{};
     if (!parse_type_id(value, id)) {
       return false;
     }
     std::array<std::uint8_t, 16> bytes{};
-    std::ranges::copy(id.value.bytes(), bytes.begin());
+    std::ranges::copy(id.bytes(), bytes.begin());
     parsed.payload = bytes;
   } else if (kind == "vec3") {
     std::array<float, 3> numbers{};
@@ -384,7 +384,7 @@ template <std::size_t Size>
     }
     return false;
   }
-  gneiss::engine::type_guid type_id{};
+  gneiss::engine::guid type_id{};
   if (!parse_type_id(yyjson_obj_get(value, "type_id"), type_id)) {
     fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/type_id",
          "Type ID 必须是非零的 32 位小写十六进制");
@@ -650,11 +650,11 @@ template <class Values>
   return put_value(document, object, "components", components) ? object : nullptr;
 }
 
-[[nodiscard]] std::string type_id_text(gneiss::engine::type_guid id) {
+[[nodiscard]] std::string type_id_text(gneiss::engine::guid id) {
   std::string text(32U, '0');
   for (std::size_t index = 0U; index < 16U; ++index) {
-    text[index * 2U] = hex_digits[id.value.bytes()[index] >> 4U];
-    text[index * 2U + 1U] = hex_digits[id.value.bytes()[index] & 0x0FU];
+    text[index * 2U] = hex_digits[id.bytes()[index] >> 4U];
+    text[index * 2U + 1U] = hex_digits[id.bytes()[index] & 0x0FU];
   }
   return text;
 }
@@ -690,7 +690,7 @@ make_override_value(yyjson_mut_doc* document, const gneiss::engine::prefab_prope
                  yyjson_mut_obj_add_strncpy(document, object, "value", payload.data(),
                                             payload.size());
         } else if constexpr (std::is_same_v<value_type, std::array<std::uint8_t, 16>>) {
-          const gneiss::engine::type_guid id{gneiss::engine::guid::from_bytes(payload)};
+          const gneiss::engine::guid id{gneiss::engine::guid::from_bytes(payload)};
           const auto text = type_id_text(id);
           return yyjson_mut_obj_add_str(document, object, "kind", "type_id") &&
                  yyjson_mut_obj_add_strncpy(document, object, "value", text.data(), text.size());

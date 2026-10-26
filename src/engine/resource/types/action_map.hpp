@@ -4,8 +4,8 @@
 #ifndef GNEISS_ASSET_ACTION_MAP_HPP_
 #define GNEISS_ASSET_ACTION_MAP_HPP_
 
+#include "engine/core/guid.hpp"
 #include "engine/core/result.hpp"
-#include "engine/core/type_guid.hpp"
 
 #include <cstdint>
 #include <span>
@@ -35,7 +35,7 @@ inline constexpr std::size_t maximum_action_map_bytes = 1024U * 1024U;
 /** 可共享的只读描述；实时输入状态由 InputService 单独管理。 */
 struct action_map final {
   inline static constexpr std::string_view type_name = "action_map";
-  inline static constexpr engine::type_guid type_guid{
+  inline static constexpr engine::guid type_guid{
       engine::guid::from_bytes({0x2c, 0x83, 0x19, 0xd2, 0x67, 0x3f, 0x4a, 0x51, 0x93, 0x80, 0x7a,
                                 0xc5, 0x02, 0xe6, 0x94, 0xb1})};
   inline static constexpr std::size_t maximum_source_bytes = maximum_action_map_bytes;

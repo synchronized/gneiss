@@ -56,7 +56,7 @@ gneiss::engine::result runtime_property_edits::prepare(runtime_property_key key,
                                    .field_id = key.field_id,
                                    .expected_revision = expected_revision,
                                    .value = std::move(value)};
-    command.type_id = engine::type_guid{engine::guid::from_bytes(key.type_id)};
+    command.type_id = engine::guid::from_bytes(key.type_id);
     edits_[key] = {.state = runtime_property_edit_state::pending,
                    .command_id = command_id,
                    .revision = expected_revision,

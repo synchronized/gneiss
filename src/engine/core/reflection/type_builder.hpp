@@ -30,7 +30,7 @@ template <class T> class type_builder {
   struct entry {
     field_id id;
     std::string name;
-    engine::type_guid guid;
+    engine::guid guid;
     field_flags flags;
     property_binding binding;
   };

@@ -17,7 +17,7 @@ namespace {
 gneiss::engine::result write_author_property(scene_document& session,
                                              property_inspector_model& inspector,
                                              gneiss::engine::world* world, std::string_view uuid,
-                                             gneiss::engine::type_guid type_id, field_id field_id,
+                                             gneiss::engine::guid type_id, field_id field_id,
                                              const gneiss::engine::value& value) noexcept {
   const auto* current = session.find_node(uuid);
   if (current == nullptr) {
@@ -45,8 +45,7 @@ edit_author_property(scene_document& session, editor_command_history& history,
   const auto field_id = property.id;
   const auto previous = property.value;
   std::string merge_key = "property:" + uuid;
-  merge_key.append(reinterpret_cast<const char*>(type_id.value.bytes().data()),
-                   sizeof(type_id.value.bytes()));
+  merge_key.append(reinterpret_cast<const char*>(type_id.bytes().data()), sizeof(type_id.bytes()));
   const auto field_number = field_id.get();
   merge_key.append(reinterpret_cast<const char*>(&field_number), sizeof(field_number));
   merge_key.append(reinterpret_cast<const char*>(&edit_serial), sizeof(edit_serial));

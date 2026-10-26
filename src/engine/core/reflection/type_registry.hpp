@@ -16,12 +16,12 @@
 namespace gneiss::engine {
 struct field_definition {
   field_id id{};
-  engine::type_guid type_guid{};
+  engine::guid type_guid{};
   field_flags flags = field_flags::none;
   std::string_view name{};
 };
 struct type_definition {
-  engine::type_guid guid{};
+  engine::guid guid{};
   /** 可空；非空时必须与 guid 一一对应，不持久化。 */
   engine::type_id type_id{};
   std::uint32_t schema_version{};
@@ -38,14 +38,14 @@ struct property_binding {
   result (*setter)(void*, void*, const gneiss::engine::value&) = nullptr;
   void* user_data{};
 };
-[[nodiscard]] inline bool valid_type_id(type_guid id) noexcept { return static_cast<bool>(id); }
+[[nodiscard]] inline bool valid_type_id(guid id) noexcept { return static_cast<bool>(id); }
 /** 创建同一实现的原生对象，不注册公共 RID；失败保持原输出。 */
 [[nodiscard]] GNEISS_API gneiss::engine::result create_native(registry_ref& output) noexcept;
 /** 深拷贝元数据；重复 GUID 或非空运行期 ID 返回 invalid_argument，冻结后禁止注册。 */
 [[nodiscard]] GNEISS_API gneiss::engine::result register_type(const registry_ref& state,
                                                               const type_definition& desc) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
-bind_property(const registry_ref& state, type_guid type_id, field_id field,
+bind_property(const registry_ref& state, guid type_id, field_id field,
               const property_binding& desc) noexcept;
 /** 同时登记全部字段绑定；bindings 与 fields 顺序对应，失败不登记类型。 */
 [[nodiscard]] GNEISS_API result register_type(const registry_ref&, const type_definition&,
@@ -74,10 +74,10 @@ template <class T>
 [[nodiscard]] GNEISS_API gneiss::engine::result is_frozen(const registry_ref& state,
                                                           bool& output) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
-get_property(const registry_ref& state, type_guid type_id, std::uint32_t field_id,
-             const void* object, gneiss::engine::value& output) noexcept;
+get_property(const registry_ref& state, guid type_id, std::uint32_t field_id, const void* object,
+             gneiss::engine::value& output) noexcept;
 [[nodiscard]] GNEISS_API gneiss::engine::result
-set_property(const registry_ref& state, type_guid type_id, std::uint32_t field_id, void* object,
+set_property(const registry_ref& state, guid type_id, std::uint32_t field_id, void* object,
              const gneiss::engine::value& value) noexcept;
 } // namespace gneiss::engine
 #endif

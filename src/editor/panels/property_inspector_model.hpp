@@ -24,7 +24,7 @@ struct inspector_property final {
 };
 
 struct inspector_component final {
-  gneiss::engine::type_guid type_id{};
+  gneiss::engine::guid type_id{};
   std::string name;
   std::vector<inspector_property> properties;
 };
@@ -47,14 +47,12 @@ public:
                                                entity_id entity) noexcept;
 
   /** 通过 World 组件属性入口写入属性；失败时保留运行时值和当前快照。 */
-  [[nodiscard]] gneiss::engine::result set_value(gneiss::engine::type_guid type_id,
-                                                 field_id field_id,
+  [[nodiscard]] gneiss::engine::result set_value(gneiss::engine::guid type_id, field_id field_id,
                                                  const gneiss::engine::value& value) noexcept;
 
   /** 按稳定实体 ID 写入属性，供撤销/重做在选择变化后复用。 */
   [[nodiscard]] gneiss::engine::result set_value(gneiss::engine::world* world, entity_id entity,
-                                                 gneiss::engine::type_guid type_id,
-                                                 field_id field_id,
+                                                 gneiss::engine::guid type_id, field_id field_id,
                                                  const gneiss::engine::value& value) noexcept;
 
   [[nodiscard]] const std::vector<inspector_component>& components() const noexcept {

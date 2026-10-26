@@ -12,7 +12,6 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/version.hpp
   engine/core/log/log_types.hpp
   engine/core/guid.hpp
-  engine/core/type_guid.hpp
   engine/core/value.hpp
 
   engine/core/math/camera_settings.hpp
@@ -45,7 +44,6 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/frame_time.hpp
   engine/core/guid.hpp
   engine/core/string_name.hpp
-  engine/core/type_guid.hpp
   engine/core/value.hpp
   engine/core/traits/type_name.hpp
   engine/core/traits/type_identity.hpp

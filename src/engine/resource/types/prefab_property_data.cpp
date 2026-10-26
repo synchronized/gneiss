@@ -42,10 +42,10 @@ bool prefab_property_override_key_less(const prefab_property_override_key& left,
   if (left.node.source_node_uuid != right.node.source_node_uuid) {
     return left.node.source_node_uuid < right.node.source_node_uuid;
   }
-  if (!std::ranges::equal(left.type_id.value.bytes(), right.type_id.value.bytes())) {
+  if (!std::ranges::equal(left.type_id.bytes(), right.type_id.bytes())) {
     return std::lexicographical_compare(
-        std::begin(left.type_id.value.bytes()), std::end(left.type_id.value.bytes()),
-        std::begin(right.type_id.value.bytes()), std::end(right.type_id.value.bytes()));
+        std::begin(left.type_id.bytes()), std::end(left.type_id.bytes()),
+        std::begin(right.type_id.bytes()), std::end(right.type_id.bytes()));
   }
   return left.field_id.get() < right.field_id.get();
 }
@@ -53,7 +53,7 @@ bool prefab_property_override_key_less(const prefab_property_override_key& left,
 bool prefab_property_override_key::operator==(
     const prefab_property_override_key& other) const noexcept {
   return node == other.node && field_id == other.field_id &&
-         std::ranges::equal(type_id.value.bytes(), other.type_id.value.bytes());
+         std::ranges::equal(type_id.bytes(), other.type_id.bytes());
 }
 
 gneiss::engine::value_kind prefab_property_value_kind(const prefab_property_value& value) noexcept {

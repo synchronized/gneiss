@@ -4,7 +4,7 @@
 namespace e = gneiss::engine;
 struct sample {
   inline static constexpr std::string_view type_name = "sample";
-  inline static constexpr e::type_guid type_guid{e::guid::from_bytes({9, 8, 7})};
+  inline static constexpr e::guid type_guid{e::guid::from_bytes({9, 8, 7})};
   float speed = 1;
   bool active = true;
   float get_speed() const noexcept { return speed; }

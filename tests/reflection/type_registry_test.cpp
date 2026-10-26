@@ -15,9 +15,9 @@ bool typed_registration() {
   e::registry_ref registry;
   if (e::create_native(registry).failed())
     return false;
-  const e::type_guid object_guid{e::guid::from_bytes({0x30})};
-  const e::type_guid other_guid{e::guid::from_bytes({0x10})};
-  const e::type_guid data_guid{e::guid::from_bytes({0x20})};
+  const e::guid object_guid{e::guid::from_bytes({0x30})};
+  const e::guid other_guid{e::guid::from_bytes({0x10})};
+  const e::guid data_guid{e::guid::from_bytes({0x20})};
   const e::type_definition definition{
       .guid = object_guid, .schema_version = 1, .name = "Object", .fields = {}};
   gneiss::type_info info{.guid = data_guid};
@@ -77,8 +77,8 @@ int main() {
     return 20;
   namespace engine = gneiss::engine;
   using engine::result;
-  constexpr engine::type_guid object_type{engine::guid::from_bytes({0x20})};
-  constexpr engine::type_guid scalar_type{engine::guid::from_bytes({0x10})};
+  constexpr engine::guid object_type{engine::guid::from_bytes({0x20})};
+  constexpr engine::guid scalar_type{engine::guid::from_bytes({0x10})};
   const engine::field_definition field{gneiss::field_id{1}, scalar_type, gneiss::field_flags::none,
                                        "value"};
   const std::array duplicate_fields{field, field};

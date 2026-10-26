@@ -113,14 +113,13 @@ bool test_property_write_round_trip() {
     return false;
   }
 
-  gneiss::host::ipc_property_write command{
-      .session_id = 7U,
-      .command_id = 11U,
-      .object = {2U, 3U},
-      .type_id = gneiss::engine::type_guid{gneiss::engine::guid::from_bytes({1U})},
-      .field_id = 4U,
-      .expected_revision = 1U,
-      .value = {std::array<float, 3>{1.0F, 2.0F, 3.0F}}};
+  gneiss::host::ipc_property_write command{.session_id = 7U,
+                                           .command_id = 11U,
+                                           .object = {2U, 3U},
+                                           .type_id = gneiss::engine::guid::from_bytes({1U}),
+                                           .field_id = 4U,
+                                           .expected_revision = 1U,
+                                           .value = {std::array<float, 3>{1.0F, 2.0F, 3.0F}}};
   gneiss::engine::ipc_envelope frame;
   if (gneiss::host::encode_ipc_property_write_v2(command, 11U, frame) !=
           gneiss::engine::result::success ||
@@ -181,14 +180,14 @@ bool test_property_flood_does_not_block_stop() {
     return false;
   }
   for (std::uint64_t index = 1U; index <= 40U; ++index) {
-    const gneiss::host::ipc_property_write command{
-        .session_id = 7U,
-        .command_id = index,
-        .object = {index, 1U},
-        .type_id = gneiss::engine::type_guid{gneiss::engine::guid::from_bytes({1U})},
-        .field_id = 4U,
-        .expected_revision = 1U,
-        .value = {true}};
+    const gneiss::host::ipc_property_write command{.session_id = 7U,
+                                                   .command_id = index,
+                                                   .object = {index, 1U},
+                                                   .type_id =
+                                                       gneiss::engine::guid::from_bytes({1U}),
+                                                   .field_id = 4U,
+                                                   .expected_revision = 1U,
+                                                   .value = {true}};
     gneiss::engine::ipc_envelope frame;
     if (gneiss::host::encode_ipc_property_write_v2(command, static_cast<std::uint32_t>(index),
                                                    frame) != gneiss::engine::result::success ||

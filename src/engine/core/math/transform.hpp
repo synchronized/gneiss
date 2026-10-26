@@ -10,7 +10,7 @@ namespace gneiss::engine {
 /** 纯值 TRS；四元数分量访问及序列化顺序为 xyzw，构造顺序为 wxyz，不持有场景或后端状态。 */
 struct transform {
   inline static constexpr std::string_view type_name = "transform";
-  inline static constexpr engine::type_guid type_guid = transform_component_type;
+  inline static constexpr engine::guid type_guid = transform_component_type;
   vector3 translation{0.0F};
   quaternion rotation{1.0F, 0.0F, 0.0F, 0.0F};
   vector3 scale{1.0F};

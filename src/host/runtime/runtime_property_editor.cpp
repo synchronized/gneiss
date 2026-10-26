@@ -23,7 +23,7 @@ gneiss::engine::result to_native_value(const gneiss::host::ipc_property_value& s
         if constexpr (std::is_same_v<T, std::monostate>) {
           return gneiss::engine::result::invalid_argument;
         } else if constexpr (std::is_same_v<T, std::array<std::uint8_t, 16>>) {
-          output.payload = gneiss::engine::type_guid{gneiss::engine::guid::from_bytes(payload)};
+          output.payload = gneiss::engine::guid::from_bytes(payload);
         } else if constexpr (std::is_same_v<T, std::array<float, 3>>) {
           output.payload = gneiss::property_vec3{payload[0], payload[1], payload[2]};
         } else if constexpr (std::is_same_v<T, std::array<float, 4>>) {
@@ -48,8 +48,8 @@ gneiss::engine::result from_native_value(const gneiss::engine::value& source,
         using T = std::decay_t<decltype(payload)>;
         if constexpr (std::is_same_v<T, std::monostate>) {
           return gneiss::engine::result::unsupported;
-        } else if constexpr (std::is_same_v<T, gneiss::engine::type_guid>) {
-          output.payload = payload.value.bytes();
+        } else if constexpr (std::is_same_v<T, gneiss::engine::guid>) {
+          output.payload = payload.bytes();
         } else if constexpr (std::is_same_v<T, gneiss::property_vec3>) {
           output.payload = std::array{payload.x, payload.y, payload.z};
         } else if constexpr (std::is_same_v<T, gneiss::property_quaternion>) {
@@ -126,7 +126,7 @@ runtime_property_editor::execute(const ipc_property_write& command,
   }
 
   property_key key{.object = command.object, .field_id = command.field_id};
-  std::ranges::copy(command.type_id.value.bytes(), key.type_id.begin());
+  std::ranges::copy(command.type_id.bytes(), key.type_id.begin());
   auto [revision, inserted] = revisions_.try_emplace(key, 1U);
   (void)inserted;
   response.revision = revision->second;
@@ -137,7 +137,7 @@ runtime_property_editor::execute(const ipc_property_write& command,
     return gneiss::engine::result::success;
   }
 
-  const gneiss::engine::type_guid property_type{gneiss::engine::guid::from_bytes(key.type_id)};
+  const gneiss::engine::guid property_type{gneiss::engine::guid::from_bytes(key.type_id)};
   const field_id property_field{command.field_id};
   type_info description;
   operation = gneiss::engine::describe_type(registry_, property_type, description);

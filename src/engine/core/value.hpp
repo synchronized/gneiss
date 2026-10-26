@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/guid.hpp"
 #include "engine/core/math/types.hpp"
-#include "engine/core/type_guid.hpp"
 #include <cstdint>
 #include <string>
 #include <variant>
@@ -27,7 +27,7 @@ enum class value_kind : std::uint32_t {
  * 通用值不限制字符串编码或浮点范围；反射、文件和 IPC 各自执行边界校验。 */
 struct value {
   using storage_type = std::variant<std::monostate, bool, std::int64_t, std::uint64_t, float,
-                                    double, std::string, engine::type_guid, vector3, quaternion>;
+                                    double, std::string, engine::guid, vector3, quaternion>;
   storage_type payload;
   [[nodiscard]] value_kind kind() const noexcept {
     return payload.valueless_by_exception() ? value_kind::invalid

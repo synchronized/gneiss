@@ -30,8 +30,8 @@ namespace {
 bool native_values() {
   namespace reflection = gneiss::engine;
   gneiss::engine::registry_ref registry;
-  const gneiss::engine::type_guid id{gneiss::engine::guid::from_bytes({7})};
-  const gneiss::engine::type_guid native_id{gneiss::engine::guid::from_bytes({7})};
+  const gneiss::engine::guid id{gneiss::engine::guid::from_bytes({7})};
+  const gneiss::engine::guid native_id{gneiss::engine::guid::from_bytes({7})};
   const std::array fields{gneiss::engine::field_definition{.id = gneiss::field_id{1},
                                                            .type_guid = id,
                                                            .flags = gneiss::field_flags::none,
@@ -117,7 +117,7 @@ bool native_values() {
       metadata.fields.size() != 1 ||
       metadata.fields[0].kind != gneiss::engine::value_kind::string || metadata.guid != native_id ||
       metadata.fields[0].type_guid != native_id ||
-      gneiss::engine::describe_type(registry, gneiss::engine::type_guid{}, metadata) !=
+      gneiss::engine::describe_type(registry, gneiss::engine::guid{}, metadata) !=
           gneiss::engine::result::not_found ||
       metadata.guid != native_id || metadata.fields.size() != 1 ||
       gneiss::engine::describe_type({}, native_id, metadata) !=
@@ -166,7 +166,7 @@ int main() try {
   gneiss::engine::registry_ref state;
   if (gneiss::engine::create_native(state).failed())
     return 1;
-  const gneiss::engine::type_guid type_id{gneiss::engine::guid::from_bytes({1})};
+  const gneiss::engine::guid type_id{gneiss::engine::guid::from_bytes({1})};
   std::string name = "sample";
   const std::array fields{
       gneiss::engine::field_definition{

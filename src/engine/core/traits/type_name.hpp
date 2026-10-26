@@ -5,7 +5,7 @@
 #ifndef GNEISS_ENGINE_TYPE_NAME_HPP_
 #define GNEISS_ENGINE_TYPE_NAME_HPP_
 
-#include "engine/core/type_guid.hpp"
+#include "engine/core/guid.hpp"
 
 #include <chrono>
 #include <filesystem>
@@ -125,10 +125,6 @@ template <> struct type_name<std::chrono::system_clock::time_point> {
 
 template <> struct type_name<guid> {
   inline static constexpr std::string_view value = "gneiss.guid";
-};
-
-template <> struct type_name<type_guid> {
-  inline static constexpr std::string_view value = "gneiss.type_guid";
 };
 
 namespace detail {

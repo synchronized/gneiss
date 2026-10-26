@@ -684,8 +684,7 @@ gneiss::engine::result scene_instance::get_prefab_node_info(std::uint64_t index,
       const auto transform_type = gneiss::engine::transform_component_type;
       for (const auto& override_value : author.overrides) {
         if (override_value.key.node.source_node_uuid != source.address->source_node_uuid ||
-            !std::ranges::equal(override_value.key.type_id.value.bytes(),
-                                transform_type.value.bytes())) {
+            !std::ranges::equal(override_value.key.type_id.bytes(), transform_type.bytes())) {
           continue;
         }
         switch (override_value.key.field_id.get()) {

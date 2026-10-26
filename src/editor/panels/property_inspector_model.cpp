@@ -87,7 +87,7 @@ gneiss::engine::result property_inspector_model::refresh(gneiss::engine::world* 
 }
 
 gneiss::engine::result
-property_inspector_model::set_value(gneiss::engine::type_guid type_id, field_id field_id,
+property_inspector_model::set_value(gneiss::engine::guid type_id, field_id field_id,
                                     const gneiss::engine::value& value) noexcept {
   if (!registry_ || world_ == nullptr || entity_.get() == UINT64_C(0)) {
     return gneiss::engine::result::invalid_state;
@@ -120,7 +120,7 @@ property_inspector_model::set_value(gneiss::engine::type_guid type_id, field_id 
 
 gneiss::engine::result
 property_inspector_model::set_value(gneiss::engine::world* world_handle, entity_id entity,
-                                    gneiss::engine::type_guid type_id, field_id field_id,
+                                    gneiss::engine::guid type_id, field_id field_id,
                                     const gneiss::engine::value& value) noexcept {
   if (!registry_ || world_handle == nullptr || !entity.is_valid()) {
     return gneiss::engine::result::invalid_argument;

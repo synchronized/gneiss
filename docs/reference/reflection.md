@@ -7,7 +7,7 @@
 
 反射注册与查询使用 `src/engine/core/reflection/type_registry.hpp` 和
 `property_registry.hpp` 中的原生接口。Registry 的 C 函数、公共句柄表及 C 元数据缓存已删除。
-旧 `reflection.h`、C 属性值布局和转换头已删除；Editor/Runtime 属性命令直接持有原生 `type_guid`。
+旧 `reflection.h`、C 属性值布局和转换头已删除；Editor/Runtime 属性命令直接持有原生 `guid`。
 IPC 仍使用既有 32 位十六进制字符串编码 GUID，不传输原生对象布局。
 
 当前支持类型、字段和显式属性访问器，内建 Transform 与 Camera 已接入；不提供对象构造、
@@ -15,7 +15,7 @@ IPC 仍使用既有 32 位十六进制字符串编码 GUID，不传输原生对�
 
 ## 身份与注册
 
-`engine::type_guid` 保存 16 字节稳定类型身份，全零无效；`engine::type_id` 是进程内类型编号，
+`engine::guid` 保存 16 字节稳定类型身份，全零无效；`engine::type_id` 是进程内类型编号，
 不用于反射存档。字段完整身份由稳定 GUID 与非零字段编号组成。名称用于 UTF-8 显示和诊断。
 GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按主机端序解释。
 

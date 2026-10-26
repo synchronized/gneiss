@@ -81,15 +81,15 @@ gneiss::engine::result create_property_registry(gneiss::engine::registry_ref& ou
   }
   return operation;
 }
-gneiss::engine::type_guid transform_property_type() noexcept { return transform_component_type; }
-gneiss::engine::type_guid camera_property_type() noexcept { return camera_component_type; }
+gneiss::engine::guid transform_property_type() noexcept { return transform_component_type; }
+gneiss::engine::guid camera_property_type() noexcept { return camera_component_type; }
 } // namespace gneiss::engine
 
 namespace gneiss::engine {
 namespace {
 /** World 接口负责线程与实体校验；反射只修改副本，成功后才提交。 */
 template <class Access>
-result access_component(world& world, std::uint64_t entity, type_guid type, bool write,
+result access_component(world& world, std::uint64_t entity, guid type, bool write,
                         Access&& access) noexcept {
   if (type == transform_component_type) {
     transform value;
@@ -120,8 +120,7 @@ result access_component(world& world, std::uint64_t entity, type_guid type, bool
 }
 }
 result read_component_property(const registry_ref& registry, world& world, std::uint64_t entity,
-                               type_guid type, field_id field,
-                               gneiss::engine::value& value) noexcept {
+                               guid type, field_id field, gneiss::engine::value& value) noexcept {
   if (!registry)
     return result::invalid_handle;
   return access_component(world, entity, type, false, [&](auto* object) {
@@ -129,7 +128,7 @@ result read_component_property(const registry_ref& registry, world& world, std::
   });
 }
 result write_component_property(const registry_ref& registry, world& world, std::uint64_t entity,
-                                type_guid type, field_id field,
+                                guid type, field_id field,
                                 const gneiss::engine::value& value) noexcept {
   if (!registry)
     return result::invalid_handle;

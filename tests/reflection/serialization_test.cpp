@@ -10,7 +10,7 @@ std::span<const std::byte> bytes(std::string_view text) {
 }
 struct probe {
   inline static constexpr std::string_view type_name = "codec_probe";
-  inline static constexpr e::type_guid type_guid{e::guid::from_bytes({7, 6, 5})};
+  inline static constexpr e::guid type_guid{e::guid::from_bytes({7, 6, 5})};
   int number = 3;
 };
 e::result bad_encode(const probe&, std::vector<std::byte>& output, e::serialization_diagnostic&) {

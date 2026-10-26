@@ -54,7 +54,7 @@ to_native_value(const gneiss::engine::prefab_property_value& source,
         else if constexpr (std::is_same_v<type, std::string>)
           output.payload = payload;
         else if constexpr (std::is_same_v<type, std::array<std::uint8_t, 16>>)
-          output.payload = gneiss::engine::type_guid{gneiss::engine::guid::from_bytes(payload)};
+          output.payload = gneiss::engine::guid::from_bytes(payload);
         else if constexpr (std::is_same_v<type, std::array<float, 3>>)
           output.payload = gneiss::property_vec3{payload[0], payload[1], payload[2]};
         else if constexpr (std::is_same_v<type, std::array<float, 4>>)
@@ -461,7 +461,7 @@ gneiss::engine::result apply_candidate_object(const gneiss::engine::registry_ref
                                               const gneiss::engine::value& native,
                                               gneiss::engine::object_description& object) {
   auto result = gneiss::engine::result::success;
-  const auto is_type = [&](gneiss::engine::type_guid type) { return value.key.type_id == type; };
+  const auto is_type = [&](gneiss::engine::guid type) { return value.key.type_id == type; };
   if (is_type(gneiss::engine::transform_component_type)) {
     auto transform = to_transform(object);
     result = gneiss::engine::set_property(state, value.key.type_id, value.key.field_id.get(),

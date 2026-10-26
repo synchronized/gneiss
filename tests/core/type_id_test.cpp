@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/type_guid.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/type_id.hpp"
 #include <array>
 #include <string>
@@ -9,8 +9,8 @@
 gneiss::engine::type_id runtime_type_from_other_unit();
 int main() {
   using namespace gneiss::engine;
-  static_assert(!std::is_convertible_v<type_id, type_guid>);
-  static_assert(!std::is_convertible_v<type_guid, type_id>);
+  static_assert(!std::is_convertible_v<type_id, gneiss::engine::guid>);
+  static_assert(!std::is_convertible_v<gneiss::engine::guid, type_id>);
   static_assert(detail::canonical_cpp_type_name<int[2][3]>() !=
                 detail::canonical_cpp_type_name<int[2][4]>());
   const auto text = runtime_type_of<std::string>();

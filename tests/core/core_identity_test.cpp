@@ -17,9 +17,7 @@ struct unnamed_asset {};
 namespace gneiss::engine {
 template <> struct type_identity<identified_asset> {
   static constexpr std::string_view name() noexcept { return "test.identified_asset"; }
-  static constexpr type_guid guid() noexcept {
-    return type_guid{engine::guid::from_bytes({1, 2, 3, 4})};
-  }
+  static constexpr engine::guid guid() noexcept { return engine::guid::from_bytes({1, 2, 3, 4}); }
 };
 }
 

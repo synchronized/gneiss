@@ -5,9 +5,9 @@
 #ifndef GNEISS_ENGINE_TYPE_IDENTITY_HPP_
 #define GNEISS_ENGINE_TYPE_IDENTITY_HPP_
 
+#include "engine/core/guid.hpp"
 #include "engine/core/math/types.hpp"
 #include "engine/core/traits/type_name.hpp"
-#include "engine/core/type_guid.hpp"
 
 #include <string_view>
 #include <type_traits>
@@ -34,11 +34,11 @@ template <typename T, typename = void> struct type_identity {
     }
   }
 
-  [[nodiscard]] static constexpr type_guid guid() noexcept {
-    if constexpr (requires { type_guid{type::type_guid}; }) {
-      return type_guid{type::type_guid};
+  [[nodiscard]] static constexpr engine::guid guid() noexcept {
+    if constexpr (requires { engine::guid{type::type_guid}; }) {
+      return engine::guid{type::type_guid};
     } else {
-      return type_guid::nil();
+      return engine::guid::nil();
     }
   }
 };
@@ -50,34 +50,30 @@ struct type_identity<T> : type_identity<std::remove_cvref_t<T>> {};
 /** 当前内建反射字段的持久化身份，沿用既有 GUID。 */
 template <> struct type_identity<vector3> {
   static constexpr std::string_view name() noexcept { return "vec3"; }
-  static constexpr engine::type_guid guid() noexcept {
-    return engine::type_guid{
-        engine::guid::from_bytes({0x90, 0xbc, 0xc8, 0x13, 0xa5, 0x3c, 0x41, 0x96, 0xaa, 0x35, 0x93,
-                                  0xf8, 0x94, 0x6e, 0x82, 0xcb})};
+  static constexpr engine::guid guid() noexcept {
+    return engine::guid::from_bytes({0x90, 0xbc, 0xc8, 0x13, 0xa5, 0x3c, 0x41, 0x96, 0xaa, 0x35,
+                                     0x93, 0xf8, 0x94, 0x6e, 0x82, 0xcb});
   }
 };
 template <> struct type_identity<quaternion> {
   static constexpr std::string_view name() noexcept { return "quaternion"; }
-  static constexpr engine::type_guid guid() noexcept {
-    return engine::type_guid{
-        engine::guid::from_bytes({0x21, 0xc1, 0x11, 0xbd, 0xd7, 0x54, 0x44, 0xf0, 0x89, 0xc1, 0xf7,
-                                  0xcc, 0x27, 0x75, 0xd9, 0x1e})};
+  static constexpr engine::guid guid() noexcept {
+    return engine::guid::from_bytes({0x21, 0xc1, 0x11, 0xbd, 0xd7, 0x54, 0x44, 0xf0, 0x89, 0xc1,
+                                     0xf7, 0xcc, 0x27, 0x75, 0xd9, 0x1e});
   }
 };
 template <> struct type_identity<float> {
   static constexpr std::string_view name() noexcept { return "float"; }
-  static constexpr engine::type_guid guid() noexcept {
-    return engine::type_guid{
-        engine::guid::from_bytes({0xa2, 0x7e, 0x99, 0x02, 0xf3, 0xcb, 0x48, 0x45, 0xa7, 0xe8, 0x32,
-                                  0x17, 0xf9, 0x75, 0x9f, 0xc5})};
+  static constexpr engine::guid guid() noexcept {
+    return engine::guid::from_bytes({0xa2, 0x7e, 0x99, 0x02, 0xf3, 0xcb, 0x48, 0x45, 0xa7, 0xe8,
+                                     0x32, 0x17, 0xf9, 0x75, 0x9f, 0xc5});
   }
 };
 template <> struct type_identity<bool> {
   static constexpr std::string_view name() noexcept { return "bool"; }
-  static constexpr engine::type_guid guid() noexcept {
-    return engine::type_guid{
-        engine::guid::from_bytes({0xc2, 0xaf, 0x2a, 0xd1, 0xa6, 0x25, 0x48, 0x42, 0xb4, 0xdd, 0x74,
-                                  0xe9, 0x77, 0x06, 0x7e, 0x35})};
+  static constexpr engine::guid guid() noexcept {
+    return engine::guid::from_bytes({0xc2, 0xaf, 0x2a, 0xd1, 0xa6, 0x25, 0x48, 0x42, 0xb4, 0xdd,
+                                     0x74, 0xe9, 0x77, 0x06, 0x7e, 0x35});
   }
 };
 

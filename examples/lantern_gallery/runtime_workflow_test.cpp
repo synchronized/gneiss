@@ -125,7 +125,7 @@ gneiss::editor::runtime_property_key transform_key(const gneiss::editor::runtime
   gneiss::editor::runtime_property_key key{
       .object = {node.id.value, node.id.generation}, .type_id = {}, .field_id = field_id};
   const auto type_id = gneiss::engine::transform_component_type;
-  std::ranges::copy(type_id.value.bytes(), key.type_id.begin());
+  std::ranges::copy(type_id.bytes(), key.type_id.begin());
   return key;
 }
 

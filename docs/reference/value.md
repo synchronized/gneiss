@@ -7,8 +7,8 @@
 用于反射读写、组件属性、编辑器快照和撤销记录。
 
 `value::payload` 为 `storage_type`（std::variant），支持空值、bool、int64、uint64、float、double、
-std::string、type_guid、vector3、quaternion。`kind()` 返回当前类别，默认空值及异常无值状态返回 invalid。
-稳定 GUID 对应 `value_kind::type_guid`，类别数值仍为 7；其他类别序号也保持不变。
+std::string、guid、vector3、quaternion。`kind()` 返回当前类别，默认空值及异常无值状态返回 invalid。
+稳定 GUID 直接存储 `engine::guid`，对应 `value_kind::type_guid`（保留既有语义类别名），类别数值仍为 7；其他类别序号也保持不变。
 
 字符串由值持有，复制后不依赖原对象或注册表；修改副本不改变原字符串。构造和复制可能抛出分配异常，
 移动不复制字符串。读取字段时复制文本，写入字段时传 const value&；调用方不得保存输入引用超过调用期。

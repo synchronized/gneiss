@@ -12,10 +12,10 @@
 
 namespace {
 using gneiss::engine::result;
-constexpr gneiss::engine::type_guid camera_type{gneiss::engine::guid::from_bytes(
+constexpr gneiss::engine::guid camera_type{gneiss::engine::guid::from_bytes(
     {0x21, 0x6a, 0x90, 0x31, 0x45, 0xe4, 0x47, 0x41, 0xa5, 0xd2, 0xb8, 0x11, 0x6d, 0x61, 0x42, 1})};
-constexpr gneiss::engine::type_guid float_type{gneiss::engine::guid::from_bytes({1})};
-constexpr gneiss::engine::type_guid string_type{gneiss::engine::guid::from_bytes({2})};
+constexpr gneiss::engine::guid float_type{gneiss::engine::guid::from_bytes({1})};
+constexpr gneiss::engine::guid string_type{gneiss::engine::guid::from_bytes({2})};
 struct camera_fixture {
   float field_of_view = 60.0F;
   std::string_view label = "主相机";

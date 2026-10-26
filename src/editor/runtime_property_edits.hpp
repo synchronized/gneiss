@@ -6,8 +6,8 @@
 
 #include "runtime_object_id.hpp"
 
+#include "engine/core/guid.hpp"
 #include "engine/core/result.hpp"
-#include "engine/core/type_guid.hpp"
 
 #include <array>
 #include <chrono>
@@ -31,7 +31,7 @@ struct runtime_property_write final {
   std::uint64_t session_id = 0U;
   std::uint64_t command_id = 0U;
   runtime_object_id object;
-  gneiss::engine::type_guid type_id{};
+  gneiss::engine::guid type_id{};
   std::uint32_t field_id = 0U;
   std::uint64_t expected_revision = 0U;
   runtime_property_value value;
