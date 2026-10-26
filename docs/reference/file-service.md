@@ -9,7 +9,8 @@
 当前实现 Platform 服务核心、内存后端和独立 libuv 桌面后端；旧异步读取适配仍留在 Resource。asset_manager 的普通 CPU 资源异步读取
 已接入服务，文件完成后才提交一次解码任务；旧 asset_source 已删除。
 旧 VFS 同步加载、网格/纹理的专用范围读取与宿主同步关闭仍待后续迁移。
-浏览器 Fetch/FS/IDBFS、流式读取、字节缓存、JS Promise 尚未实现；Application 尚未切换独立桌面后端。
+已实现已知长度文件的按需分块读取，以及 Fetch 与 MEMFS/IDBFS 浏览器后端。
+字节缓存、JS Promise 尚未实现；Application 尚未切换独立桌面/浏览器后端。
 后续迁移见[开发计划](../plans/PLAN-051-async-file-service.md)。
 
 ## 对象与所有权
@@ -42,6 +43,15 @@
 取消请求须等待后端收尾才释放预算，已完成未分发的字节继续占用；在调用用户回调前释放预留。
 该预算覆盖服务的字节负载，不包括消费者接收后的数据、目录扫描元数据和平台内部复制。
 分发预算只限制用户回调数量，不是精确 CPU 时间预算。内存后端复制字节仍有成本。
+
+## 分块读取
+
+`file_read_stream` 持有服务、URI、已知长度和块大小；长度通常来自异步 stat。
+`read_next` 最多接受一个在途块，消费者再次请求才继续，无隐式预读。
+完成块包含 offset、拥有的 bytes 和 eof；空文件交付一次空 EOF。
+失败不推进位置，可重试；析构取消观察而不等待 I/O。
+每块受服务字节预算约束，但消费者保留的旧块不计入预算；不提供跨块文件快照。
+未知长度 HTTP 响应的流式下载与浏览器内部复制峰值尚未解决。
 
 ## 路由与路径
 
@@ -81,6 +91,19 @@ shutdown 取消尚未完成请求，已有终态照常交付。关闭回调遵�
 写入完成前 fsync 并关闭文件，因此 flush 覆盖此前已完成写入；不承诺跨文件原子性或目录项崩溃恢复。
 每次操作解析实际路径并拒绝根目录外目标；不承诺抵抗并发恶意符号链接替换。
 列举普通文件和目录，特殊条目返回 unsupported；分页不提供快照，底层 scandir 仍可能枚举整个目录。
+
+`fetch_file_backend` 使用浏览器主线程 Emscripten Fetch，提供只读 HTTP GET/HEAD。
+范围请求要求匹配的 206、Content-Range 和字节数；返回整文件 200 时报告 unsupported，
+不以整读模拟范围。跨域服务器须暴露 Content-Range 等响应头；不使用 destinationPath。
+整读仍经过浏览器和 Emscripten 的缓冲与复制，不保证这些额外缓冲受服务预算限制。
+
+`browser_file_backend` 管理独立 MEMFS 或 IDBFS 挂载，仅在浏览器主线程使用。
+initialize 的恢复回调成功后才接受访问；内存操作可内联完成，服务仍延迟交付用户回调。
+write 仅确认内存写入；flush 调用当前 IDBFS 挂载的 syncfs(false)，不影响其他挂载。
+恢复与 flush 串行，同步期间对本后端的新访问返回 not_ready；失败后可重试。
+直接析构不自动 flush；宿主须等待显式 flush 完成，再关闭服务和销毁后端。
+在途持久化保活挂载，完成后才允许卸载；路径分量拒绝符号链接。
+根目录为独立的一级绝对路径，初始化创建挂载点；文件父目录须存在。
 
 `async_read_file_backend` 适配旧 `file_system` 的异步打开/区间读/关闭回执。
 每次读取最多 64 KiB，验证上限和短读；成功及读取失败均等待异步关闭后再报告。
@@ -124,4 +147,16 @@ Mesh/Texture 的运行时加载也借用该服务；等待文件期间不提交 
 覆盖延迟分发、路由、分页、范围、容量、取消、关闭、线程交付及异步回执编排。
 Windows 本地服务契约、资产管理和 native_file_backend 小范围测试已通过；
 桌面测试覆盖真实读写、范围边界、读取上限、缺失文件、重复创建、元数据、列举、flush 和关闭。
-跨平台、大文件及浏览器持久化行为尚未验收。
+Emscripten 5.0.6 + 本地 Edge 小型浏览器测试通过：IDBFS 写入/flush/重新挂载恢复、
+范围边界、重复创建、stat/list，以及 HTTP 206、错误 Content-Range、200 回退和读取上限。
+浏览器宿主接入、异常关页、存储配额失败与大文件峰值尚未验收。
+
+小型浏览器测试为 `tests/integration/assets/browser_file_backend_test.cpp`，Emscripten CMake 目标
+`gneiss_browser_file_backend_test`。生成 JS/Wasm 后可用本机 Chromium/Edge 执行：
+
+```sh
+node tests/integration/assets/run_browser_files.cjs <测试.js路径> <浏览器可执行文件路径>
+```
+
+脚本需要支持原生 fetch/WebSocket 的 Node，使用随机本地端口和产物目录内独立浏览器配置。
+测试配置保留在产物目录以便排查，不使用个人浏览器配置。

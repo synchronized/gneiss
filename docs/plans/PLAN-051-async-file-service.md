@@ -10,7 +10,9 @@ Platform 不再依赖旧 VFS 或资产层。独立 libuv 桌面后端已实现�
 Windows 本地服务契约、桌面后端和资产管理小范围测试通过；宿主仍经 Resource 过渡适配接入旧 VFS。
 asset_manager 已提供 find_loaded；普通 CPU、Mesh/Texture 异步加载已使用文件服务。
 宿主已统一分发文件完成，Manager、Scene 和 Texture Loader 不再隐式驱动共享服务。
-服务已增加在途及待分发字节缓冲的总预算；流式背压和平台复制峰值仍待后续处理。
+服务已增加在途及待分发字节缓冲的总预算；已知长度文件支持按需单块读取，无隐式预读。
+Fetch 与 MEMFS/IDBFS 后端已实现，Emscripten 5.0.6 编译及本地 Edge 小型持久化/范围读取测试通过。
+浏览器宿主接入、存储异常、未知长度下载及平台复制峰值仍待验证或实现。
 输入映射已删除同步 load_input/load_action_map，示例和测试改用异步请求。
 Scene/Prefab 准备层已删除同步 prepare_scene_description/prepare_prefab_description，
 统一使用 scene_description_request 加载输入和 prepare_loaded_scene 纯内存准备。

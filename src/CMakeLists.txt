@@ -30,6 +30,7 @@ target_sources(
     engine/resource/resource_retirement_queue.hpp
     engine/resource/asset_manager.hpp
     engine/resource/asset_manager.cpp
+    engine/platform/files/file_read_stream.cpp
     engine/platform/files/file_service.cpp
     engine/platform/files/memory_file_backend.cpp
     engine/resource/files/async_read_file_backend.cpp
@@ -321,4 +322,11 @@ set_target_properties(
 
 if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME)
   add_subdirectory(engine/platform)
+endif()
+
+if(EMSCRIPTEN)
+  target_sources(gneiss_engine PRIVATE
+    engine/platform/files/browser/fetch_file_backend.cpp
+    engine/platform/files/browser/browser_file_backend.cpp)
+  target_link_options(gneiss_engine PUBLIC "-sFETCH=1" "-lidbfs.js")
 endif()

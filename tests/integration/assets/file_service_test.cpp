@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/platform/files/file_read_stream.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/platform/files/memory_file_backend.hpp"
 #include "engine/resource/files/async_read_file_backend.hpp"
@@ -329,6 +330,55 @@ void byte_budget() {
   pump(service);
 }
 
+void stream_blocks() {
+  auto memory = std::make_shared<memory_file_backend>();
+  const file_bytes bytes{std::byte{1}, std::byte{2}, std::byte{3}, std::byte{4}, std::byte{5}};
+  check(memory->write("data", bytes, {}, [](auto) {}).ok(), "stream seed");
+  auto service = std::make_shared<file_service>(file_service_options{8, 8, 2});
+  check(service->mount({"asset://", {memory}, {}}).ok(), "stream mount");
+  file_read_stream stream(service, "asset://data", 5, 2);
+  file_bytes output;
+  bool eof{};
+  unsigned calls{};
+  const auto next = [&](file_completion<file_block> value) {
+    check(value.status.ok() && value.data.offset == output.size(), "ordered block");
+    output.insert(output.end(), value.data.bytes.begin(), value.data.bytes.end());
+    eof = value.data.eof;
+    ++calls;
+  };
+  check(stream.read_next(next).ok() && calls == 0, "stream defers callback");
+  check(stream.read_next(next) == result::not_ready, "one inflight block");
+  pump(*service);
+  check(calls == 1 && !eof, "first block");
+  pump(*service);
+  check(calls == 1, "no implicit prefetch");
+  check(stream.read_next(next).ok(), "next block");
+  pump(*service);
+  check(stream.read_next(next).ok(), "last block");
+  pump(*service);
+  check(calls == 3 && eof && output == bytes, "stream complete");
+  check(stream.read_next(next) == result::invalid_state, "EOF terminal");
+  check(memory->write("empty", {}, {}, [](auto) {}).ok(), "empty seed");
+  file_read_stream empty(service, "asset://empty", 0, 2);
+  bool empty_done{};
+  check(empty
+            .read_next([&](auto value) {
+              check(value.status.ok() && value.data.eof && value.data.bytes.empty(), "empty EOF");
+              empty_done = true;
+            })
+            .ok(),
+        "empty read");
+  pump(*service);
+  check(empty_done, "empty delivered");
+  bool abandoned{};
+  {
+    file_read_stream transient(service, "asset://data", 5, 2);
+    check(transient.read_next([&](auto) { abandoned = true; }).ok(), "transient read");
+  }
+  pump(*service);
+  check(!abandoned, "destroyed observer not called");
+}
+
 void lifetime() {
   auto backend = std::make_shared<controlled_backend>();
   file_service service({1, 64});
@@ -580,6 +630,7 @@ int main() {
     memory_and_routes();
     pagination_and_reentry();
     byte_budget();
+    stream_blocks();
     lifetime();
     async_bridge();
     return 0;

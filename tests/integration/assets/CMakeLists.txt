@@ -35,6 +35,7 @@ add_test(NAME gneiss.assets.manager COMMAND gneiss_asset_manager_test)
 set_tests_properties(gneiss.assets.manager PROPERTIES TIMEOUT 30)
 
 add_executable(gneiss_file_service_test file_service_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/engine/platform/files/file_read_stream.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/platform/files/file_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/platform/files/memory_file_backend.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/files/async_read_file_backend.cpp")
@@ -49,6 +50,16 @@ endif()
 gneiss_target_compile_warnings(gneiss_file_service_test)
 gneiss_target_output_directories(gneiss_file_service_test)
 add_test(NAME gneiss.files.service COMMAND gneiss_file_service_test)
+
+if(EMSCRIPTEN)
+  add_executable(gneiss_browser_file_backend_test browser_file_backend_test.cpp
+    "${PROJECT_SOURCE_DIR}/src/engine/platform/files/browser/browser_file_backend.cpp"
+    "${PROJECT_SOURCE_DIR}/src/engine/platform/files/browser/fetch_file_backend.cpp")
+  target_include_directories(gneiss_browser_file_backend_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_compile_features(gneiss_browser_file_backend_test PRIVATE cxx_std_20)
+  target_link_options(gneiss_browser_file_backend_test PRIVATE "-sFETCH=1" "-lidbfs.js" "-sEXIT_RUNTIME=0")
+  gneiss_target_compile_warnings(gneiss_browser_file_backend_test)
+endif()
 
 if(NOT GNEISS_TASK_THREADS OR EMSCRIPTEN)
   return()
