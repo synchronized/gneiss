@@ -18,6 +18,7 @@
 #include "commands/runtime_author_apply.hpp"
 #include "documents/document_editing.hpp"
 #include "documents/editor_scene_loader.hpp"
+#include "documents/scene_document_snapshot.hpp"
 #include "editor_project.hpp"
 #include "editor_theme.hpp"
 #include "editor_ui.hpp"
@@ -425,7 +426,8 @@ void restore_author_selection(editor_state& state, const author_selection& selec
 
 [[nodiscard]] gneiss::engine::result
 apply_author_documents(editor_state& state, author_document_operation documents,
-                       const author_selection& selection) noexcept {
+                       const author_selection& selection,
+                       const gneiss::editor::scene_document_snapshot& snapshot) noexcept {
   if (documents.changes == nullptr || documents.rollback == nullptr) {
     return gneiss::engine::result::invalid_argument;
   }
@@ -433,13 +435,11 @@ apply_author_documents(editor_state& state, author_document_operation documents,
     auto operation =
         gneiss::editor::commit_native_author_transaction(state.asset_root, *documents.changes);
     if (operation == gneiss::engine::result::success) {
-      const auto uri = std::string{state.editing.document().uri()};
-      operation = state.editing.document().open(*state.application, state.world, uri);
-      if (operation != gneiss::engine::result::success) {
+      operation = gneiss::editor::restore_scene_document(*state.application,
+                                                         state.editing.document(), snapshot);
+      if (operation.failed())
         (void)gneiss::editor::commit_native_author_transaction(state.asset_root,
                                                                *documents.rollback);
-        (void)state.editing.document().open(*state.application, state.world, uri);
-      }
     }
     if (operation == gneiss::engine::result::success) {
       restore_author_selection(state, selection);
@@ -469,27 +469,37 @@ record_author_documents(editor_state& state, std::string label,
         std::make_shared<std::vector<gneiss::editor::author_document_change>>(std::move(inverse));
     auto undo_target = std::make_shared<author_selection>(undo_selection);
     auto redo_target = std::make_shared<author_selection>(redo_selection);
+    auto before = std::make_shared<gneiss::editor::scene_document_snapshot>();
+    auto after = std::make_shared<gneiss::editor::scene_document_snapshot>();
+    operation = gneiss::editor::capture_scene_document(*state.application, state.editing.document(),
+                                                       *before);
+    if (operation.ok())
+      operation = gneiss::editor::prepare_scene_document(*before, *forward, *after);
+    if (operation.failed())
+      return operation;
     operation = apply_author_documents(
-        state, {.changes = forward.get(), .rollback = backward.get()}, redo_selection);
+        state, {.changes = forward.get(), .rollback = backward.get()}, redo_selection, *after);
     if (operation != gneiss::engine::result::success) {
       return operation;
     }
     operation = state.editing.history().record(
         {.label = std::move(label),
          .undo =
-             [&state, forward, backward, undo_target] {
-               return apply_author_documents(
-                   state, {.changes = backward.get(), .rollback = forward.get()}, *undo_target);
+             [&state, forward, backward, undo_target, before] {
+               return apply_author_documents(state,
+                                             {.changes = backward.get(), .rollback = forward.get()},
+                                             *undo_target, *before);
              },
          .redo =
-             [&state, forward, backward, redo_target] {
-               return apply_author_documents(
-                   state, {.changes = forward.get(), .rollback = backward.get()}, *redo_target);
+             [&state, forward, backward, redo_target, after] {
+               return apply_author_documents(state,
+                                             {.changes = forward.get(), .rollback = backward.get()},
+                                             *redo_target, *after);
              },
          .merge_key = {}});
     if (operation != gneiss::engine::result::success) {
       (void)apply_author_documents(state, {.changes = backward.get(), .rollback = forward.get()},
-                                   undo_selection);
+                                   undo_selection, *before);
       return operation;
     }
     state.editing.history().mark_saved();

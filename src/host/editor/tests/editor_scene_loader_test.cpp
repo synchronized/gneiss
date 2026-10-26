@@ -2,8 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "documents/editor_scene_loader.hpp"
+#include "documents/scene_document_snapshot.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/resource/resource_registry.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
@@ -105,6 +107,48 @@ void run(gneiss::engine::execution_mode mode) {
   drain();
   check(loader.operation() == gneiss::engine::result::success && session.nodes().size() == 1U &&
         session.prefab_nodes().size() == 2U && camera.is_valid());
+  const auto visual_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (app->visual_assets_loading()) {
+    check(std::chrono::steady_clock::now() < visual_deadline);
+    tick();
+  }
+  editor::scene_document_snapshot before;
+  check(editor::capture_scene_document(*app, session, before).ok());
+  auto changed_description = before.description.description;
+  const auto original_name = changed_description.objects.front().name;
+  changed_description.objects.front().name = "Snapshot edit";
+  std::string replacement;
+  engine::meta::registry_ref registry;
+  check(engine::builtin_resource_registry(registry).ok());
+  const auto encode = [&] {
+    std::vector<std::byte> bytes;
+    engine::meta::serialization_diagnostic diagnostic;
+    const auto status = engine::meta::serialize(registry, changed_description, bytes, diagnostic);
+    replacement.assign(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    return status;
+  };
+  check(encode().ok());
+  const editor::author_document_change change{
+      .path = "scenes/prefab.scene.json", .baseline = {}, .replacement = replacement};
+  editor::scene_document_snapshot after;
+  check(editor::prepare_scene_document(before, std::span(&change, 1), after).ok());
+  check(editor::restore_scene_document(*app, session, after).ok());
+  check(app->native_world() == world && session.nodes().front().display_name == "Snapshot edit" &&
+        session.prefab_nodes().size() == 2U);
+  check(editor::restore_scene_document(*app, session, before).ok());
+  check(session.nodes().front().display_name == original_name &&
+        session.prefab_nodes().size() == 2U);
+  // 引入未准备依赖时失败，保留输出与当前实例，不触发加载。
+  changed_description.objects.front().mesh_renderer = engine::mesh_renderer_description{
+      .mesh_uri = "asset://missing.mesh.json", .material_uri = "asset://missing.material.json"};
+  check(encode().ok());
+  const editor::author_document_change missing{
+      .path = "scenes/prefab.scene.json", .baseline = {}, .replacement = replacement};
+  const auto stable_scene = session.scene_handle();
+  check(editor::prepare_scene_document(before, std::span(&missing, 1), after) ==
+        engine::result::not_ready);
+  check(session.scene_handle() == stable_scene &&
+        after.description.description.objects.front().name == "Snapshot edit");
   // 无效场景的原生查询拒绝，不影响活动场景。
   check(gneiss::engine::result{app->scenes()->get_node_count(
             gneiss::scene_instance_id{}, &count)} == gneiss::engine::result::invalid_handle);

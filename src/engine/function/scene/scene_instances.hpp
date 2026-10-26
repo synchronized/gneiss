@@ -41,6 +41,10 @@ public:
   [[nodiscard]] gneiss::engine::result instantiate_prepared(prepared_scene_description prepared,
                                                             const asset_bindings& assets,
                                                             scene_instance_id& output) noexcept;
+  /** 捕获纯内存描述和已加载资源强引用；不读文件，资源尚未准备时返回失败。 */
+  [[nodiscard]] result capture_prepared(scene_instance_id instance,
+                                        prepared_scene_description& description,
+                                        asset_bindings& assets) const noexcept;
   /** 同步实例化；替换先移除旧实例，失败只清理本次新建节点，不恢复旧实例。 */
   [[nodiscard]] result instantiate_prefab_ready(scene_instance_id instance,
                                                 const prefab_instance_description& author,

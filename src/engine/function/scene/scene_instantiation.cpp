@@ -97,4 +97,46 @@ gneiss::engine::result scene_instances::instantiate_prepared(prepared_scene_desc
     return gneiss::engine::result::internal;
   }
 }
+result scene_instances::capture_prepared(scene_instance_id instance,
+                                         prepared_scene_description& description,
+                                         asset_bindings& assets) const noexcept try {
+  const auto* value = instances_.get(instance, resource_type::scene_instance);
+  if (!value || !*value)
+    return result::invalid_handle;
+  auto scene = std::make_shared<scene_description>();
+  auto status = (*value)->capture_description(*scene);
+  if (status.failed())
+    return status;
+  scene_description_inputs inputs;
+  inputs.scene = asset_ref<const scene_description>{scene};
+  for (const auto& prefab : scene->prefab_instances) {
+    prefab_instance_description author;
+    prefab_asset_ref source;
+    status = (*value)->capture_prefab_instance_header(prefab.instance_uuid, author, source);
+    if (status.failed())
+      return status;
+    inputs.prefabs.insert_or_assign(prefab.prefab_uri, std::move(source));
+  }
+  prepared_scene_description prepared;
+  scene_diagnostic diagnostic;
+  status = prepare_loaded_scene(inputs, {}, prepared, diagnostic, {});
+  if (status.failed())
+    return status;
+  asset_bindings bindings;
+  for (const auto& source : prepared.assets) {
+    render_asset_ref resource;
+    status = loader_.acquire_cached(source, resource);
+    if (status.failed())
+      return status;
+    bindings.emplace(source.uri, std::move(resource));
+  }
+  description = std::move(prepared);
+  assets = std::move(bindings);
+  return result::success;
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
+}
+
 } // namespace gneiss::engine
