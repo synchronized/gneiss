@@ -5,6 +5,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
+#include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/loaders/scene_serialization.hpp"
 
@@ -115,6 +116,8 @@ void run() {
   scene_description_inputs inputs;
   auto status = result::not_ready;
   for (unsigned i = 0; i < 100U && status == result::not_ready; ++i) {
+    check(assets.async_files()->dispatch_completions(64).ok());
+    assets.advance_resources();
     status = request.advance(inputs, diagnostic);
     check(executor.run_ready().status == drive_status::success);
   }

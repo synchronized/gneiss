@@ -101,6 +101,7 @@ public:
                                                       runtime::scene_load_completion& completion);
 
 private:
+  [[nodiscard]] gneiss::engine::result advance_resource_io();
   explicit application(const runtime::application_configuration& config);
   [[nodiscard]] gneiss::engine::result initialize() noexcept;
   void report_visual_completion();

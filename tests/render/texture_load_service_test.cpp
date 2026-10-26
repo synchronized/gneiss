@@ -303,6 +303,8 @@ void cpu_loading(execution_mode mode) {
   texture_load_completion completed;
   auto advance = [&] {
     (void)scheduler.run_ready();
+    check(files->dispatch_completions(64).ok());
+    manager.advance_resources();
     service.advance();
     std::this_thread::yield();
   };

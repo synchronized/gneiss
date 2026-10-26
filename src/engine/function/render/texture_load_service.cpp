@@ -454,16 +454,9 @@ void texture_load_service::advance_impl() {
   if (!value.cpu && !start_item(value)) {
     return;
   }
-  if (value.cpu->reading) {
-    const auto dispatched = value.files->dispatch_completions(64U);
-    if (dispatched.failed()) {
-      finish_item(dispatched, false);
-      return;
-    }
-    if (value.cpu->reading)
-      return;
-    value.read_request = {};
-  }
+  if (value.cpu->reading)
+    return;
+  value.read_request = {};
   if (value.cpu->needs_payload) {
     value.cpu->needs_payload = false;
     const auto status = start_read(value, value.cpu->description.uri, true);
@@ -472,7 +465,6 @@ void texture_load_service::advance_impl() {
     return;
   }
   if (value.material_request) {
-    loader_.assets().advance_resources();
     asset_ref<const material_description> description;
     gneiss::engine::meta::serialization_diagnostic diagnostic;
     const auto status = value.material_request.take(description, &diagnostic);

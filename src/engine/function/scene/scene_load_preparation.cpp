@@ -323,7 +323,6 @@ result scene_description_request::advance(scene_description_inputs& output,
     diagnostic = {status, decoded.byte_offset, std::move(decoded.path), std::move(decoded.message)};
     return status;
   };
-  s.assets.advance_resources();
   if (!s.started) {
     auto status = result::success;
     if (s.prefab)

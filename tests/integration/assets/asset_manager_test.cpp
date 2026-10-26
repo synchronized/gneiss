@@ -24,6 +24,11 @@ struct asset_value {
 };
 }
 namespace {
+void advance_assets_for_test(gneiss::engine::asset_manager& assets) {
+  if (const auto files = assets.async_files())
+    (void)files->dispatch_completions(64);
+  assets.advance_resources();
+}
 using namespace gneiss;
 using namespace gneiss::engine;
 using namespace gneiss::engine;
@@ -113,15 +118,15 @@ void injected_file_service() {
   check(assets->load("asset://other", full) == result::not_ready && !full,
         "file capacity propagates");
   for (unsigned i = 0; i < 8; ++i)
-    assets->advance_resources();
+    advance_assets_for_test(*assets);
   check(executor.stats().submitted == 0 && decoder->decodes == 0,
         "IO waiting submits no CPU polling task");
   backend->finish('q');
-  assets->advance_resources();
+  advance_assets_for_test(*assets);
   check(executor.stats().submitted == 1 && decoder->decodes == 0,
         "one decode after file completion");
   check(executor.run_ready().status == drive_status::success, "decode task");
-  assets->advance_resources();
+  advance_assets_for_test(*assets);
   check(first.take(loaded).ok() && second.take(other).ok() && loaded == other &&
             loaded->byte == 'q',
         "shared decoded result");
@@ -135,9 +140,9 @@ void injected_file_service() {
         "service cache source identity");
   check(assets->load("asset://value", first, true).ok(), "cancel service load");
   first.cancel();
-  assets->advance_resources();
+  advance_assets_for_test(*assets);
   backend->finish('r');
-  assets->advance_resources();
+  advance_assets_for_test(*assets);
   check(executor.stats().submitted == 1, "cancelled IO never decodes");
   check(assets->find_loaded("asset://value", other).ok() && other == loaded,
         "cancel preserves cache");
@@ -219,7 +224,7 @@ void decoder_selection() {
   auto async_status = request.take(output);
   for (unsigned i = 0; i != 32 && async_status == result::not_ready; ++i) {
     check(executor.run_ready().status == drive_status::success, "reflection drive");
-    reflected.advance_resources();
+    advance_assets_for_test(reflected);
     async_status = request.take(output);
   }
   check(async_status == result::success && output->byte == 'r', "async reflection decode");
@@ -229,7 +234,7 @@ void decoder_selection() {
   async_status = result::not_ready;
   for (unsigned i = 0; i != 32 && async_status == result::not_ready; ++i) {
     check(executor.run_ready().status == drive_status::success, "failure drive");
-    reflected.advance_resources();
+    advance_assets_for_test(reflected);
     async_status = request.take(output, &failure);
   }
   check(async_status == result::invalid_argument && output == previous &&
@@ -338,13 +343,13 @@ void cache_collection() {
   request.cancel();
   assets.collect_unused();
   check(executor.run_ready().status == drive_status::success, "cancelled work completes");
-  assets.advance_resources();
+  advance_assets_for_test(assets);
   assets.collect_unused();
   check(assets.load("asset://value", request) == gneiss::engine::result::success,
         "retry collected load");
   for (unsigned i = 0; i < 10 && !copy; ++i) {
     check(executor.run_ready().status == drive_status::success, "collection drive");
-    assets.advance_resources();
+    advance_assets_for_test(assets);
     assets.collect_unused();
     const auto status = request.take(copy);
     check(status == gneiss::engine::result::success || status == gneiss::engine::result::not_ready,
@@ -360,7 +365,7 @@ void cache_collection() {
   auto reload_status = gneiss::engine::result::not_ready;
   for (unsigned i = 0; i < 10 && reload_status == gneiss::engine::result::not_ready; ++i) {
     check(executor.run_ready().status == drive_status::success, "failed reload drive");
-    assets.advance_resources();
+    advance_assets_for_test(assets);
     reload_status = request.take(copy);
   }
   check(reload_status == gneiss::engine::result::invalid_argument,
@@ -388,7 +393,7 @@ void run() {
   assets.attach_task_executor(executor);
   auto drive = [&] {
     check(executor.run_ready().status == drive_status::success, "drive");
-    assets.advance_resources();
+    advance_assets_for_test(assets);
   };
   auto wait = [&](asset_request<value>& request, asset_ref<const value>& output) {
     for (unsigned i = 0; i < 100; ++i) {
@@ -428,7 +433,7 @@ void run() {
   // 旧请求先执行完但延迟发布；同步新版本发布后，旧结果不能回写缓存。
   source->byte = 'c';
   check(assets.load("asset://value", first, true) == gneiss::engine::result::success, "old async");
-  assets.advance_resources(); // 文件快照先交给异步来源，解码尚未发布。
+  advance_assets_for_test(assets); // 文件快照先交给异步来源，解码尚未发布。
   check(executor.run_ready().status == drive_status::success, "old work ready");
   source->byte = 'd';
   check(assets.load_sync("asset://value", b, true) == gneiss::engine::result::success &&
@@ -443,7 +448,7 @@ void run() {
 
   source->byte = 'x';
   check(assets.load("asset://new", first) == gneiss::engine::result::success, "first-load overlap");
-  assets.advance_resources(); // 文件快照先交给异步来源，解码尚未发布。
+  advance_assets_for_test(assets); // 文件快照先交给异步来源，解码尚未发布。
   check(executor.run_ready().status == drive_status::success, "first-load work ready");
   source->byte = 'y';
   asset_ref<const value> independent;
@@ -458,7 +463,7 @@ void run() {
   source->byte = 'z';
   check(assets.load("asset://new", first, true) == gneiss::engine::result::success,
         "async before failed sync");
-  assets.advance_resources(); // 文件快照先交给异步来源，解码尚未发布。
+  advance_assets_for_test(assets); // 文件快照先交给异步来源，解码尚未发布。
   check(executor.run_ready().status == drive_status::success, "reload work ready");
   source->byte = '!';
   check(assets.load_sync("asset://new", independent, true) ==
@@ -532,7 +537,7 @@ void run() {
   check(rejected.load("asset://value", first) == gneiss::engine::result::success,
         "rejection is terminal request");
   for (unsigned i = 0; i < 16 && first.take(a) == result::not_ready; ++i)
-    rejected.advance_resources();
+    advance_assets_for_test(rejected);
   check(first.take(a) == gneiss::engine::result::invalid_state, "queue rejection does not hang");
 }
 void stored_value_supersedes_pending() {
@@ -551,7 +556,7 @@ void stored_value_supersedes_pending() {
       "store value");
   asset_ref<const value> old;
   for (unsigned i = 0; i < 100 && pending.take(old) == result::not_ready; ++i) {
-    assets.advance_resources();
+    advance_assets_for_test(assets);
     check(executor.run_ready().status == drive_status::success, "store drive");
   }
   check(old && old->byte == 'a', "pending observer retains its own result");

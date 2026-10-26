@@ -406,11 +406,7 @@ void asset_manager::advance_resources() {
   if (state.executor == nullptr) {
     return;
   }
-  // 文件完成只在所属线程交付，解码执行器不再承担 I/O 轮询。
-  // 分发可能运行同服务上的其他回调；保活服务并检查回调是否停止了管理器。
-  auto files = state.files;
-  if (files->dispatch_completions(64) != result::success || state.stopped)
-    return;
+  // 文件完成由宿主统一分发；这里只处理 CPU 解码与资源结果。
   std::vector<gneiss::engine::task_completion> completions;
   (void)state.executor->poll(state.scope, completions);
   for (auto it = state.active.begin(); it != state.active.end();) {

@@ -29,7 +29,7 @@ public:
   explicit asset_manager(gneiss::engine::virtual_file_system files,
                          gneiss::engine::meta::registry_ref registry = {},
                          std::size_t fallback_limit = 64U * 1024U * 1024U);
-  /** 注入同线程文件服务；advance_resources 驱动完成分发，只提交 CPU 解码任务。
+  /** 注入同线程文件服务；宿主驱动文件完成分发，advance_resources 只推进 CPU 解码和资源结果。
    * 此入口不提供同步文件读取，load_sync 仅能复用已有缓存；服务可由宿主共享持有。 */
   explicit asset_manager(std::shared_ptr<file_service> files,
                          gneiss::engine::meta::registry_ref registry = {},
@@ -42,6 +42,7 @@ public:
                                                   gneiss::engine::action_map& output) noexcept;
   [[nodiscard]] gneiss::engine::result request_input(std::string_view uri,
                                                      asset_request<action_map>& output) noexcept;
+  /** 宿主每次先分发文件完成，再推进本管理器；不驱动文件或其他服务回调。 */
   void advance_resources();
   /** 终止资产观察者并取消文件请求，等待已有 CPU 解码任务收尾。
    * 共享文件服务继续由宿主分发/关闭；独占服务随管理器销毁放弃通知，后端保活实际 I/O。 */

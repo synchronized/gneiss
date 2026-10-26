@@ -4,6 +4,7 @@
 #include "../support/memory_read_file_system.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/resource_registry.hpp"
 #include "engine/resource/types/action_map.hpp"
@@ -11,6 +12,11 @@
 #include <cstring>
 
 namespace {
+void advance_assets_for_test(gneiss::engine::asset_manager& assets) {
+  if (const auto files = assets.async_files())
+    (void)files->dispatch_completions(64);
+  assets.advance_resources();
+}
 class changing_files final : public gneiss::test_support::memory_read_file_system {
 public:
   std::string first, second;
@@ -128,7 +134,7 @@ int main() {
   for (unsigned i = 0; i != 32 && status == result::not_ready; ++i) {
     if (executor.run_ready().status != drive_status::success)
       return 15;
-    asynchronous.advance_resources();
+    advance_assets_for_test(asynchronous);
     status = request.take(shared, &diagnostic);
   }
   if (status.failed() || shared->actions.front().name != "move")
@@ -140,7 +146,7 @@ int main() {
   status = result::not_ready;
   for (unsigned i = 0; i != 32 && status == result::not_ready; ++i) {
     (void)executor.run_ready();
-    asynchronous.advance_resources();
+    advance_assets_for_test(asynchronous);
     status = request.take(shared, &diagnostic);
   }
   if (status != result::invalid_argument || shared != previous ||
@@ -153,7 +159,7 @@ int main() {
   status = result::not_ready;
   for (unsigned i = 0; i < 32 && status == result::not_ready; ++i) {
     (void)executor.run_ready();
-    asynchronous.advance_resources();
+    advance_assets_for_test(asynchronous);
     status = request.take(shared);
   }
   if (status != result::invalid_argument || shared != previous)

@@ -13,6 +13,7 @@
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "runtime/loading/action_map_application.hpp"
 #include "runtime/loading/scene_service.hpp"
@@ -768,7 +769,9 @@ gneiss::engine::result application::run(std::uint64_t max_frame_count) noexcept 
       }
     }
 
-    storage_->asset_manager_->advance_resources();
+    const auto advanced = advance_resource_io();
+    if (advanced.failed())
+      return advanced;
     (void)storage_->input_application_.poll(storage_->input_);
     const auto current_time_ns = now_ns();
     const auto raw_delta = current_time_ns >= storage_->previous_time_ns_
@@ -1113,6 +1116,9 @@ gneiss::engine::result application::poll_scene(runtime::scene_load_completion& c
   if (!is_owner_thread() || !accepts_requests())
     return gneiss::engine::result::invalid_state;
   try {
+    const auto advanced = advance_resource_io();
+    if (advanced.failed())
+      return advanced;
     const auto result = storage_->scene_service_.poll_scene(completion, ready);
     report_visual_completion();
     return result;
@@ -1161,6 +1167,9 @@ gneiss::engine::result application::poll_assets(gneiss::engine::texture_load_com
   if (!is_owner_thread() || !accepts_requests())
     return gneiss::engine::result::invalid_state;
   try {
+    const auto advanced = advance_resource_io();
+    if (advanced.failed())
+      return advanced;
     return storage_->scene_service_.poll_assets(completion, ready);
   } catch (const std::bad_alloc&) {
     return gneiss::engine::result::out_of_memory;
@@ -1185,7 +1194,21 @@ gneiss::engine::result application::cancel_assets() noexcept {
                                       : gneiss::engine::result::not_ready;
 }
 
+gneiss::engine::result application::advance_resource_io() {
+  if (!is_owner_thread() || !accepts_requests())
+    return gneiss::engine::result::invalid_state;
+  if (const auto files = storage_->asset_manager_->async_files()) {
+    const auto status = files->dispatch_completions(64);
+    if (status.failed())
+      return status;
+  }
+  storage_->asset_manager_->advance_resources();
+  return gneiss::engine::result::success;
+}
+
 void application::advance_scene_load() {
+  if (advance_resource_io().failed())
+    return;
   (void)storage_->resources_.drain_retired_resources();
   storage_->scene_service_.advance();
   report_visual_completion();

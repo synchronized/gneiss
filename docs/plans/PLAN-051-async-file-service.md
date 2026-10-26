@@ -9,7 +9,8 @@
 Platform 不再依赖旧 VFS 或资产层。独立 libuv 桌面后端已实现读、范围读、写、stat/list/flush。
 Windows 本地服务契约、桌面后端和资产管理小范围测试通过；宿主仍经 Resource 过渡适配接入旧 VFS。
 asset_manager 已提供 find_loaded；普通 CPU、Mesh/Texture 异步加载已使用文件服务。
-同步加载调用方迁移、宿主统一分发/异步关闭、删除 VFS、浏览器和大文件能力仍待完成。
+宿主已统一分发文件完成，Manager、Scene 和 Texture Loader 不再隐式驱动共享服务。
+同步加载调用方迁移、宿主异步关闭、删除 VFS、浏览器和大文件能力仍待完成。
 不将 Platform 搬迁或桌面后端实现等同于整份计划完成；大场景和 CI 仍留待统一验收。
 架构决策见 [ADR-084](../decisions/ADR-084-async-file-service.md)。
 
