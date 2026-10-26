@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../../../tests/support/async_document.hpp"
+#include "../../../../tests/support/async_mesh_edit.hpp"
 #include "asset_reimport_queue.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
@@ -92,8 +93,8 @@ int main() try {
       (world = app->native_world()) == nullptr ||
       gneiss::test_support::open_document(session, *app, world, project.startup_scene) !=
           gneiss::engine::result::success ||
-      session.create_mesh_renderer_node("Imported", *mesh, *material, node) !=
-          gneiss::engine::result::success ||
+      gneiss::test_support::create_mesh_document(*app, session, "Imported", *mesh, *material,
+                                                 node) != gneiss::engine::result::success ||
       session.save(project.asset_root) != gneiss::engine::result::success) {
     return 5;
   }
@@ -138,9 +139,11 @@ int main() try {
   queue.request_rescan(); // 模拟源文件事件丢失，通过补扫恢复同一导入事务。
   const auto now = asset_reimport_queue::clock::now();
   (void)queue.tick(project.project_root, project.asset_root, now);
-  if (queue.tick(project.project_root, project.asset_root, now + std::chrono::milliseconds(2)) !=
-          1U ||
-      read_text(material_path) == previous_material) {
+  const auto imported_count =
+      queue.tick(project.project_root, project.asset_root, now + std::chrono::milliseconds(2));
+  if (imported_count != 1U || read_text(material_path) == previous_material) {
+    std::cerr << "reimport count=" << imported_count << " pending=" << queue.pending_count()
+              << " rescanning=" << queue.is_rescanning() << "\n";
     return fail(8);
   }
   std::vector<asset_reimport_event> events;

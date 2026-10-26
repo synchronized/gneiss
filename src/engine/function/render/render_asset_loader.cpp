@@ -510,26 +510,6 @@ result render_asset_loader::acquire_asset(render_asset_type type, std::string_vi
   output = {};
   diagnostic = {};
   const render_asset_reload source{std::string(uri), type};
-  auto status = acquire_cached(source, output, default_profile_);
-  if (status != result::not_found)
-    return status;
-  prepared_render_batch batch;
-  status = prepare_render_assets(assets_, std::span(&source, 1U), batch, diagnostic, {}, 256U,
-                                 256U * 1024U * 1024U, default_profile_);
-  if (status.failed())
-    return status;
-  // 与异步路径共用内容验证及更新；依赖先就绪，再采用材质参数。
-  for (auto it = batch.assets.begin(); it != batch.assets.end(); ++it) {
-    render_asset_ref existing;
-    if (acquire_cached(it->source, existing, default_profile_).ok())
-      continue;
-    asset_update update;
-    status = prepare_update(std::move(*it), update);
-    if (status.ok())
-      status = apply_update(update);
-    if (status.failed())
-      return status;
-  }
   return acquire_cached(source, output, default_profile_);
 } catch (const std::bad_alloc&) {
   return result::out_of_memory;

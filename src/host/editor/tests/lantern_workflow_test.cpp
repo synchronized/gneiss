@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../../tests/support/async_mesh_edit.hpp"
 #include "../../../../tests/support/async_prefab_edit.hpp"
 #include "asset_browser_model.hpp"
 #include "asset_import_controller.hpp"
@@ -197,9 +198,11 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   for (std::size_t i = 0; i < instance_uuids.size(); ++i)
     if (gneiss::test_support::finish_history(refresh_history, refresh_history.redo()).failed())
       return 9;
+  gneiss::editor::editor_command_history history;
   gneiss::scene_node_id node;
-  if (session.create_mesh_renderer_node("Imported Lantern", mesh->asset_uri, material->asset_uri,
-                                        node) != gneiss::engine::result::success) {
+  if (gneiss::test_support::create_mesh_document(*application, session, "Imported Lantern",
+                                                 mesh->asset_uri, material->asset_uri, node,
+                                                 &history) != gneiss::engine::result::success) {
     return 10;
   }
   const auto* created = session.selected_node();
@@ -208,24 +211,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
                                                      .display_name = created->display_name,
                                                      .mesh_uri = created->mesh_uri,
                                                      .material_uri = created->material_uri};
-  gneiss::editor::editor_command_history history;
-  if (history.record({.label = "创建导入节点",
-                      .undo =
-                          [&session, uuid = snapshot.uuid] {
-                            const auto* current = session.find_node(uuid);
-                            if (current == nullptr) {
-                              return gneiss::engine::result::not_found;
-                            }
-                            gneiss::editor::scene_node_snapshot discarded;
-                            return session.destroy_node(current->node, discarded);
-                          },
-                      .redo =
-                          [&session, snapshot] {
-                            gneiss::scene_node_id restored;
-                            return session.restore_mesh_renderer_node(snapshot, restored);
-                          },
-                      .merge_key = {}}) != gneiss::engine::result::success ||
-      history.undo() != gneiss::engine::result::success ||
+  if (history.undo() != gneiss::engine::result::success ||
       session.find_node(snapshot.uuid) != nullptr ||
       history.redo() != gneiss::engine::result::success ||
       session.find_node(snapshot.uuid) == nullptr ||
@@ -242,6 +228,8 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
     return 12;
   }
   reloaded.close();
+  history.clear();
+  refresh_history.clear();
   application.reset();
   return 0;
 } catch (...) {

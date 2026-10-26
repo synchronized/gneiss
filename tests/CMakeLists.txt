@@ -1091,3 +1091,6 @@ foreach(test IN ITEMS gneiss_texture_load_application_test gneiss_asset_pixel_te
     target_include_directories(${test} PRIVATE "${PROJECT_SOURCE_DIR}/src")
   endif()
 endforeach()
+
+target_sources(gneiss_scene_instantiation_test PRIVATE
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/texture_load_service.cpp")

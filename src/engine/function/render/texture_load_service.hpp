@@ -27,6 +27,9 @@ struct texture_load_completion {
   texture_load_state state{texture_load_state::failed};
   gneiss::engine::result result{gneiss::engine::result::internal};
   std::string message{};
+  /** 解析错误位置；文件读取失败时 path 为请求 URI。 */
+  std::string path;
+  std::size_t byte_offset{};
   std::vector<gneiss::engine::render_asset_ref> assets;
   /** 包含显式请求及已发现依赖；取消/失败也保留已成功项，元数据不延长资源寿命。 */
   std::vector<asset_load_result> results;

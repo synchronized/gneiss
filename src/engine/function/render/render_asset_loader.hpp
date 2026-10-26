@@ -109,7 +109,7 @@ public:
 
   [[nodiscard]] asset_manager& assets() const noexcept { return assets_; }
 
-  /** 宿主装配设备后设置同步加载的纹理准备配置。 */
+  /** 宿主装配设备后设置缓存查询使用的纹理设备配置。 */
   void set_default_profile(texture_prepare_profile profile) noexcept { default_profile_ = profile; }
   [[nodiscard]] gneiss::engine::result acquire_mesh(std::string_view uri,
                                                     gneiss::engine::mesh& out_lease,
@@ -120,7 +120,7 @@ public:
   [[nodiscard]] gneiss::engine::result acquire_texture(std::string_view uri,
                                                        gneiss::engine::texture& out_lease,
                                                        asset_diagnostic& out_diagnostic) noexcept;
-  /** 混合批次工具入口；普通调用方使用类型化 acquire_*。 */
+  /** 只查询缓存，不读盘；缺失返回 not_found，由调用方请求异步加载。 */
   [[nodiscard]] result acquire_asset(render_asset_type type, std::string_view uri,
                                      render_asset_ref& output,
                                      asset_diagnostic& diagnostic) noexcept;

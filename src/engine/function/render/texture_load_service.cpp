@@ -29,6 +29,8 @@ struct texture_load_service::pending {
     bool complete{};
     gneiss::engine::result result{gneiss::engine::result::success};
     std::string message;
+    std::string path;
+    std::size_t byte_offset{};
     double milliseconds{};
   };
   std::shared_ptr<cpu_result> cpu;
@@ -216,6 +218,8 @@ gneiss::engine::submit_result texture_load_service::submit_preparation(pending& 
           cpu->complete = true;
         }
         cpu->message = std::move(diagnostic.message);
+        cpu->path = std::move(diagnostic.path);
+        cpu->byte_offset = diagnostic.byte_offset;
         cpu->milliseconds +=
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started)
                 .count();
@@ -286,10 +290,13 @@ void texture_load_service::finish_item(gneiss::engine::result result, bool appli
     value.completion.prepare_ms += value.cpu->milliseconds;
     if (!value.cpu->message.empty()) {
       value.completion.message = value.cpu->message;
+      value.completion.path = value.cpu->path;
+      value.completion.byte_offset = value.cpu->byte_offset;
     }
   }
   if (!applied && value.completion.message.empty()) {
     value.completion.message = "资源加载失败：" + item.source.uri;
+    value.completion.path = item.source.uri;
   }
   value.item = {};
   if (value.files && value.read_request.value != 0U)
@@ -472,6 +479,8 @@ void texture_load_service::advance_impl() {
       return;
     if (status.failed()) {
       value.cpu->message = std::move(diagnostic.message);
+      value.cpu->path = std::move(diagnostic.path);
+      value.cpu->byte_offset = diagnostic.byte_offset;
       finish_item(status, false);
       return;
     }

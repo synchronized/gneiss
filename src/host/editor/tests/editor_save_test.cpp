@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../../../tests/support/async_document.hpp"
+#include "../../../../tests/support/async_mesh_edit.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
@@ -86,8 +87,9 @@ int main() try {
   }
   session.mark_dirty();
   gneiss::scene_node_id created_node;
-  if (session.create_mesh_renderer_node("Created", mesh_uri, material_uri, created_node) !=
-          gneiss::engine::result::success ||
+  if (gneiss::test_support::create_mesh_document(*application, session, "Created", mesh_uri,
+                                                 material_uri,
+                                                 created_node) != gneiss::engine::result::success ||
       !created_node.is_valid() || session.nodes().size() != 3U ||
       session.set_mesh_renderer(created_node, mesh_uri, material_uri) !=
           gneiss::engine::result::success) {
