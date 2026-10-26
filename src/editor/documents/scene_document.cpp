@@ -1163,6 +1163,7 @@ gneiss::engine::result scene_document::commit_mesh_renderer(
   }
   found->mesh_uri.swap(mesh);
   found->material_uri.swap(material);
+  found->component_flags |= static_cast<std::uint32_t>(scene_node_components::mesh_renderer);
   is_dirty_ = true;
   return gneiss::engine::result::success;
 } catch (const std::bad_alloc&) {

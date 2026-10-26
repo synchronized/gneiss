@@ -176,6 +176,8 @@ int main() try {
       app->capture_mesh_binding(session.scene_handle(), session.find_node(uuid)->node,
                                 restored_binding)
           .failed() ||
+      (session.find_node(uuid)->component_flags &
+       static_cast<std::uint32_t>(scene_node_components::mesh_renderer)) == 0U ||
       removed_binding.mesh != restored_binding.mesh ||
       removed_binding.material != restored_binding.material || run_history(false).failed() ||
       run_history(true).failed())
