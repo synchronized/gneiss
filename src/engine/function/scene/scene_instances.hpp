@@ -9,7 +9,6 @@
 #include "engine/core/rid_table.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
-#include "engine/function/scene/prefab_candidate.hpp"
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
 #include "engine/function/scene/scene_query.hpp"
@@ -42,25 +41,14 @@ public:
   [[nodiscard]] gneiss::engine::result instantiate_prepared(prepared_scene_description prepared,
                                                             const asset_bindings& assets,
                                                             scene_instance_id& output) noexcept;
-  /** 所属线程预留作者容器并验证身份；不读取资产，不发布候选。
-   * output 非空时拒绝覆盖；构造失败仍可能交还待清理候选。 */
-  [[nodiscard]] gneiss::engine::result begin_prefab_candidate(
-      scene_instance_id instance, const gneiss::engine::prefab_instance_description& author,
-      gneiss::engine::prefab_asset_ref prefab, gneiss::engine::prefab_description prepared,
-      prefab_candidate& output, bool replacing = false) noexcept;
-  /** 已预留容量、调用方已准备镜像和历史后提交。成功消耗候选，失败保留。 */
-  [[nodiscard]] gneiss::engine::result
-  commit_prefab_candidate(scene_instance_id instance, prefab_candidate& candidate) noexcept;
-  /** 整批失败不修改场景；成功后各候选接收退休旧实例，由调用方分步清理。 */
-  [[nodiscard]] gneiss::engine::result
-  commit_prefab_replacements(scene_instance_id instance,
-                             std::span<prefab_candidate* const> replacements) noexcept;
-  [[nodiscard]] gneiss::engine::result prepare_prefab_removal(scene_instance_id instance,
-                                                              std::string_view uuid,
-                                                              bool& complete) noexcept;
-  [[nodiscard]] gneiss::engine::result commit_prefab_removal(scene_instance_id instance,
-                                                             std::string_view uuid,
-                                                             prefab_candidate& candidate) noexcept;
+  /** 同步实例化；替换先移除旧实例，失败只清理本次新建节点，不恢复旧实例。 */
+  [[nodiscard]] result instantiate_prefab_ready(scene_instance_id instance,
+                                                const prefab_instance_description& author,
+                                                prefab_asset_ref prefab,
+                                                std::span<const scene_mesh_binding> bindings,
+                                                bool replacing, scene_node_id& output) noexcept;
+  [[nodiscard]] result remove_prefab_instance(scene_instance_id instance,
+                                              std::string_view uuid) noexcept;
   /** 创建仅消费已就绪租约，不加载；失败不留下节点。 */
   [[nodiscard]] gneiss::engine::result
   create_mesh_renderer_node_ready(scene_instance_id instance,

@@ -737,77 +737,25 @@ scene_instances::capture_prefab_binding(scene_instance_id instance, std::string_
   return (*slot)->capture_prefab_instance_binding(uuid, index, output);
 }
 
-gneiss::engine::result scene_instances::begin_prefab_candidate(
-    scene_instance_id instance, const gneiss::engine::prefab_instance_description& author,
-    gneiss::engine::prefab_asset_ref prefab, gneiss::engine::prefab_description prepared,
-    prefab_candidate& output, bool replacing) noexcept {
-  if (output.is_valid()) {
-    return gneiss::engine::result::invalid_state;
-  }
-  if (!native_world_.is_owner_thread()) {
-    return gneiss::engine::result::invalid_state;
-  }
-  auto* slot = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
-  if (!slot || !*slot) {
-    return gneiss::engine::result::invalid_handle;
-  }
-  return (*slot)->prepare_prefab_instance_candidate(instance, author, std::move(prefab), prepared,
-                                                    output, replacing);
+result scene_instances::instantiate_prefab_ready(scene_instance_id instance,
+                                                 const prefab_instance_description& author,
+                                                 prefab_asset_ref prefab,
+                                                 std::span<const scene_mesh_binding> bindings,
+                                                 bool replacing, scene_node_id& output) noexcept {
+  output = {};
+  if (!native_world_.is_owner_thread())
+    return result::invalid_state;
+  auto* slot = instances_.get(instance, resource_type::scene_instance);
+  return !slot || !*slot ? result::invalid_handle
+                         : (*slot)->instantiate_prefab_ready(author, std::move(prefab), bindings,
+                                                             replacing, output);
 }
-
-gneiss::engine::result
-scene_instances::commit_prefab_candidate(scene_instance_id instance,
-                                         prefab_candidate& candidate) noexcept {
-  if (!native_world_.is_owner_thread()) {
-    return gneiss::engine::result::invalid_state;
-  }
-  auto* slot = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
-  if (!slot || !*slot) {
-    return gneiss::engine::result::invalid_handle;
-  }
-  return (*slot)->publish_prefab_instance_candidate(instance, candidate);
-}
-
-gneiss::engine::result scene_instances::commit_prefab_replacements(
-    scene_instance_id instance, std::span<prefab_candidate* const> replacements) noexcept {
-  if (!native_world_.is_owner_thread()) {
-    return gneiss::engine::result::invalid_state;
-  }
-  auto* slot = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
-  if (!slot || !*slot) {
-    return gneiss::engine::result::invalid_handle;
-  }
-  return (*slot)->replace_prefab_instance_versions(instance, replacements);
-}
-
-gneiss::engine::result scene_instances::prepare_prefab_removal(scene_instance_id instance,
-                                                               std::string_view uuid,
-                                                               bool& complete) noexcept {
-  complete = false;
-  if (!native_world_.is_owner_thread()) {
-    return gneiss::engine::result::invalid_state;
-  }
-  auto* slot = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
-  if (!slot || !*slot) {
-    return gneiss::engine::result::invalid_handle;
-  }
-  return (*slot)->prepare_prefab_instance_removal(uuid, complete);
-}
-
-gneiss::engine::result
-scene_instances::commit_prefab_removal(scene_instance_id instance, std::string_view uuid,
-                                       prefab_candidate& candidate) noexcept {
-  if (candidate.is_valid()) {
-    return gneiss::engine::result::invalid_state;
-  }
-  if (!native_world_.is_owner_thread()) {
-    return gneiss::engine::result::invalid_state;
-  }
-  auto* slot = instances_.get(instance, gneiss::engine::resource_type::scene_instance);
-  if (!slot || !*slot) {
-    return gneiss::engine::result::invalid_handle;
-  }
-  return (*slot)->remove_prefab_instance(uuid, candidate);
+result scene_instances::remove_prefab_instance(scene_instance_id instance,
+                                               std::string_view uuid) noexcept {
+  if (!native_world_.is_owner_thread())
+    return result::invalid_state;
+  auto* slot = instances_.get(instance, resource_type::scene_instance);
+  return !slot || !*slot ? result::invalid_handle : (*slot)->remove_prefab_instance(uuid);
 }
 
 gneiss::engine::result scene_instance::create_prefab_instance(const prefab_creation& desc,

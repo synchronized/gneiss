@@ -3,7 +3,6 @@
 
 #pragma once
 #include "engine/core/entity_id.hpp"
-#include "engine/core/publication_group.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
@@ -25,24 +24,6 @@ public:
   world(const world&) = delete;
   world& operator=(const world&) = delete;
   [[nodiscard]] bool is_owner_thread() const noexcept;
-  [[nodiscard]] gneiss::engine::result
-  begin_publication(gneiss::engine::publication& output) noexcept;
-  [[nodiscard]] gneiss::engine::result publish(const gneiss::engine::publication& group) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  retire_publication(const gneiss::engine::publication& group) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  replace_publications(std::span<const gneiss::engine::publication> previous,
-                       std::span<const gneiss::engine::publication> candidates) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  bind_publication(const gneiss::engine::publication& group,
-                   gneiss::engine::staged_object object) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  create_staged_object(const gneiss::engine::publication& group,
-                       const gneiss::engine::staged_object_description& description,
-                       gneiss::engine::staged_object& output) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  destroy_staged_object(const gneiss::engine::publication& group,
-                        gneiss::engine::staged_object object) noexcept;
   [[nodiscard]] gneiss::engine::result entity_create(entity_id& out_entity) noexcept;
   [[nodiscard]] gneiss::engine::result entity_destroy(entity_id entity) noexcept;
   [[nodiscard]] gneiss::engine::result entity_is_alive(entity_id entity,

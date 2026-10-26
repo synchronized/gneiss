@@ -81,8 +81,7 @@ public:
   /** 将指定 Prefab URI 的新修订应用到当前 Scene 内全部同源实例。 */
   [[nodiscard]] gneiss::engine::result reload_prefab(std::string_view uri);
 
-  /** 单场景 Prefab 实例事务；服务已校验线程与句柄，不修改 Prefab 源资源。
-   * instance 参数仅用于候选所属场景校验，不拥有或重新解析公共句柄。 */
+  /** 单场景 Prefab 实例操作；服务已校验线程与句柄，不修改 Prefab 源资源。 */
   [[nodiscard]] gneiss::engine::result
   capture_prefab_instance_header(std::string_view uuid,
                                  gneiss::engine::prefab_instance_description& author,
@@ -90,20 +89,11 @@ public:
   [[nodiscard]] gneiss::engine::result
   capture_prefab_instance_binding(std::string_view uuid, std::size_t index,
                                   scene_mesh_binding& output) const noexcept;
-  [[nodiscard]] gneiss::engine::result prepare_prefab_instance_candidate(
-      scene_instance_id instance, const gneiss::engine::prefab_instance_description& author,
-      gneiss::engine::prefab_asset_ref prefab, const gneiss::engine::prefab_description& prepared,
-      prefab_candidate& output, bool replacing) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  publish_prefab_instance_candidate(scene_instance_id instance,
-                                    prefab_candidate& candidate) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  replace_prefab_instance_versions(scene_instance_id instance,
-                                   std::span<prefab_candidate* const> replacements) noexcept;
-  [[nodiscard]] gneiss::engine::result prepare_prefab_instance_removal(std::string_view uuid,
-                                                                       bool& complete) noexcept;
-  [[nodiscard]] gneiss::engine::result remove_prefab_instance(std::string_view uuid,
-                                                              prefab_candidate& candidate) noexcept;
+  [[nodiscard]] result instantiate_prefab_ready(const prefab_instance_description& author,
+                                                prefab_asset_ref prefab,
+                                                std::span<const scene_mesh_binding> bindings,
+                                                bool replacing, scene_node_id& output) noexcept;
+  [[nodiscard]] result remove_prefab_instance(std::string_view uuid) noexcept;
 
   /** 私有批量替换事务，只能在所属线程同一次无重入调用内准备和提交。
    * Scene 和节点存储必须存活且保持稳定；放弃事务不修改绑定。 */

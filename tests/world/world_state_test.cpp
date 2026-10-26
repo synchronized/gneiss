@@ -83,65 +83,19 @@ int run_tests() {
   if (replacement == entity || first.is_alive(entity) || !first.is_alive(replacement)) {
     return 5;
   }
-  const auto group = first.begin_publication();
-  const auto candidate = first.create_staged_entity(group);
-  const auto cancelled = first.create_staged_entity(group);
-  gneiss::engine::result other_thread_result = gneiss::engine::result::success;
-  std::thread worker([&] { other_thread_result = first.publish(group); });
-  worker.join();
-  if (other_thread_result != gneiss::engine::result::invalid_state) {
-    return 10;
-  }
-  if (candidate == UINT64_C(0) || !first.emplace_staged<position>(group, candidate, 40) ||
-      first.is_alive(candidate) || first.get<position>(candidate) != nullptr ||
-      first.entity_count() != 1U || first.destroy_entity(candidate) ||
-      second.create_staged_entity(group) != UINT64_C(0) ||
-      second.publish(group) != gneiss::engine::result::invalid_state) {
-    return 6;
-  }
+  const auto visible = first.create_entity();
+  first.emplace<position>(visible, 40);
   int visited = 0;
   first.each<position>([&](const position&) { ++visited; });
-  if (visited != 0 || !first.destroy_staged_entity(group, cancelled) ||
-      first.destroy_staged_entity(group, cancelled) ||
-      first.publish(group) != gneiss::engine::result::success || first.entity_count() != 2U ||
-      !first.is_alive(candidate) || first.get<position>(candidate)->value != 40 ||
-      first.publish(group) != gneiss::engine::result::invalid_state ||
-      first.emplace_staged<position>(group, candidate, 41) ||
-      first.create_staged_entity(group) != UINT64_C(0)) {
-    return 7;
-  }
-  first.each<position>([&](entt::entity, const position&) { ++visited; });
-  if (visited != 1 || !first.destroy_entity(candidate) || first.is_alive(candidate) ||
-      first.entity_count() != 1U) {
-    return 8;
-  }
-  const auto other = first.begin_publication();
-  const auto hidden = first.create_staged_entity(other);
-  gneiss::scene_node_id parent{}, child{}, leaf{}, rejected{};
-  const auto nested = first.begin_publication();
+  if (!first.is_alive(visible) || first.entity_count() != 2U || visited != 1)
+    return 6;
+  gneiss::scene_node_id parent{}, child{};
   auto& tree = first.scene();
-  const gneiss::engine::transform identity = gneiss::engine::transform{};
-  if (tree.create({}, replacement, &parent) != gneiss::engine::result::success ||
-      tree.create_staged(other, parent, hidden, &child) != gneiss::engine::result::success ||
-      tree.create_staged(other, child, 0, &leaf) != gneiss::engine::result::success ||
-      tree.create_staged(nested, child, 0, &rejected) != gneiss::engine::result::invalid_handle ||
-      tree.create(child, 0, &rejected) != gneiss::engine::result::invalid_handle ||
-      tree.set_local(child, identity) != gneiss::engine::result::invalid_handle ||
-      tree.set_staged_local(nested, child, identity) != gneiss::engine::result::invalid_handle ||
-      tree.set_staged_local(other, child, identity) != gneiss::engine::result::success ||
-      tree.destroy(child) != gneiss::engine::result::invalid_handle ||
-      tree.destroy(parent) != gneiss::engine::result::not_ready ||
-      tree.destroy_staged_leaf(other, child) != gneiss::engine::result::not_ready ||
-      tree.destroy_staged_leaf(other, leaf) != gneiss::engine::result::success ||
-      tree.destroy_staged_leaf(other, leaf) != gneiss::engine::result::invalid_handle ||
-      tree.destroy_staged_leaf(other, child) != gneiss::engine::result::success ||
-      tree.destroy(parent) != gneiss::engine::result::success) {
-    return 11;
-  }
-  if (first.destroy_staged_entity(group, hidden) || !first.destroy_staged_entity(other, hidden) ||
-      first.entity_count() != 1U) {
-    return 9;
-  }
+  if (tree.create({}, replacement, &parent).failed() ||
+      tree.create(parent, visible, &child).failed() || tree.get_entity(child) != visible ||
+      tree.destroy(parent).failed() || tree.get_local(child) != nullptr ||
+      !first.destroy_entity(visible) || first.destroy_entity(visible) || first.entity_count() != 1U)
+    return 7;
   return 0;
 }
 

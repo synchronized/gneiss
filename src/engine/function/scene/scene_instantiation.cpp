@@ -54,7 +54,7 @@ gneiss::engine::result scene_instances::instantiate_prepared(prepared_scene_desc
       transform.translation = source.translation;
       transform.rotation = source.rotation;
       transform.scale = source.scale;
-      auto result = prefab->begin_staged(
+      auto result = prefab->create_root(
           source.parent_uuid ? nodes.at(*source.parent_uuid) : null_scene_node_id, transform);
       if (result != gneiss::engine::result::success) {
         return result;
@@ -63,7 +63,7 @@ gneiss::engine::result scene_instances::instantiate_prepared(prepared_scene_desc
       prefab_nodes.reserve(lease.get()->objects.size());
       for (const auto index : prepared.prefabs.at(source.prefab_uri).parent_first) {
         const auto& node = lease.get()->objects.at(index);
-        result = prefab->create_staged_node(
+        result = prefab->create_node(
             index, node.parent_uuid ? prefab_nodes.at(*node.parent_uuid) : prefab->root(),
             gneiss::engine::render_asset_loader::mesh_ref(
                 node.mesh_renderer ? find_asset(node.mesh_renderer->mesh_uri)
@@ -82,7 +82,7 @@ gneiss::engine::result scene_instances::instantiate_prepared(prepared_scene_desc
         prefab_nodes.emplace(node.uuid, info.node);
       }
       for (const auto& override_value : source.overrides) {
-        result = prefab->apply_staged_override(registry_, override_value);
+        result = prefab->apply_override(registry_, override_value);
         if (result != gneiss::engine::result::success) {
           return result;
         }

@@ -32,35 +32,9 @@ public:
          gneiss::engine::prefab_instance_description author,
          std::vector<gneiss::engine::render_asset_ref> assets,
          std::shared_ptr<const prefab_placement_snapshot>& output) noexcept;
-  static gneiss::engine::result begin(runtime::application& application,
-                                      gneiss::scene_instance_id scene,
-                                      std::shared_ptr<const prefab_placement_snapshot> snapshot,
-                                      bool removing, std::unique_ptr<prefab_placement>& output,
-                                      bool replacing = false) noexcept;
-  ~prefab_placement();
-  gneiss::engine::result advance(bool& ready) noexcept;
-  gneiss::engine::result preview(std::size_t index,
-                                 gneiss::engine::prefab_node_view& output) const noexcept;
-  gneiss::engine::result commit() noexcept;
-  /** 仅接受同一场景的就绪替换事务；全部成功或全部保持原状。 */
-  static gneiss::engine::result
-  commit_replacements(std::span<prefab_placement* const> entries) noexcept;
-  bool cleanup_step(std::size_t budget = 64U) noexcept;
-  std::size_t node_count() const noexcept;
-  scene_node_id root() const noexcept;
-
-private:
-  gneiss::engine::result create_next_node();
-  prefab_placement(runtime::application& application,
-                   std::shared_ptr<const prefab_placement_snapshot> snapshot,
-                   gneiss::scene_instance_id scene, bool removing);
-  runtime::application& application_;
-  gneiss::scene_instance_id scene_{};
-  std::shared_ptr<const prefab_placement_snapshot> snapshot_;
-  gneiss::engine::prefab_candidate candidate_;
-  std::map<std::string_view, scene_node_id, std::less<>> nodes_;
-  std::size_t cursor_{};
-  bool removing_{}, replacing_{}, retirement_ready_{}, ready_{}, committed_{};
-  scene_node_id root_{};
+  /** 同步创建或删除；替换不保留旧运行实例，output 失败置空。 */
+  static gneiss::engine::result apply(application& application, scene_instance_id scene,
+                                      const prefab_placement_snapshot& snapshot, bool removing,
+                                      bool replacing, scene_node_id& output) noexcept;
 };
 }

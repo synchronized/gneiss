@@ -181,7 +181,11 @@ A 不暂停主线程或渲染；取消先完成候选清理再解除互斥。文
 [模态资产替换记录](../records/M-331-editor-modal-asset-edit.md)与
 [网格节点创建记录](../records/M-331-editor-modal-mesh-create.md)；Prefab、子树恢复等入口继续迁移。
 
-### 已确认：Prefab 实例化采用分帧结构事务
+### 历史选择：Prefab 实例化采用分帧结构事务（已被 ADR-088 替代）
+
+2026-10-26 用户取消完整准备后统一替换与失败保留旧实例要求。
+当前决策与删除范围以 [ADR-088](../decisions/ADR-088-prefab-direct-instantiation.md)
+及 [PLAN-055](PLAN-055-prefab-direct-instantiation.md) 为准；下文保留当时方案比较。
 
 2026-10-16 检查 `prefab_runtime_instance::create`：当前依次同步准备渲染资产、
 在当前 World 创建全部节点、应用覆盖。`begin_staged` 等分步构造接口用于候选 World，

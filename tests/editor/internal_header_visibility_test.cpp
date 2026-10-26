@@ -40,10 +40,8 @@
                   __has_include("engine/function/scene/prefab_runtime_instance.hpp")
 #error "宿主获得了场景实例的私有实现头"
 #endif
-#include "engine/function/scene/prefab_candidate.hpp"
+#include "engine/resource/types/prefab_description.hpp"
 #include <type_traits>
-static_assert(!std::is_copy_constructible_v<gneiss::engine::prefab_candidate>);
-static_assert(std::is_nothrow_move_constructible_v<gneiss::engine::prefab_candidate>);
 static_assert(!std::is_convertible_v<gneiss::entity_id, gneiss::scene_node_id>);
 static_assert(!std::is_convertible_v<std::uint64_t, gneiss::scene_node_id>);
 static_assert(std::is_invocable_v<decltype(&gneiss::engine::world::entity_destroy),
@@ -56,10 +54,6 @@ static_assert(
 static_assert(
     std::is_same_v<decltype(gneiss::engine::prefab_creation::parent), gneiss::scene_node_id>);
 static_assert(std::is_same_v<decltype(gneiss::engine::mesh_renderer_node_creation::parent),
-                             gneiss::scene_node_id>);
-static_assert(std::is_same_v<decltype(gneiss::engine::staged_object::entity), gneiss::entity_id>);
-static_assert(std::is_same_v<decltype(gneiss::engine::staged_object::node), gneiss::scene_node_id>);
-static_assert(std::is_same_v<decltype(gneiss::engine::staged_object_description::parent),
                              gneiss::scene_node_id>);
 static_assert(
     std::is_same_v<decltype(gneiss::engine::mesh_renderer_replacement::entity), gneiss::entity_id>);

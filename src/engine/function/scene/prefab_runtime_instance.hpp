@@ -4,7 +4,6 @@
 #ifndef GNEISS_SCENE_PREFAB_RUNTIME_INSTANCE_HPP_
 #define GNEISS_SCENE_PREFAB_RUNTIME_INSTANCE_HPP_
 
-#include "engine/core/publication_group.hpp"
 #include "engine/core/reflection/property_registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/scene_types.hpp"
@@ -27,11 +26,10 @@ class prefab_runtime_instance final {
 public:
   /** 只修改私有描述，失败保持 output 不变；不读文件、不创建实体、不发送通知。 */
   [[nodiscard]] static gneiss::engine::result
-  prepare_candidate_description(const gneiss::engine::prefab_description& source,
-                                const gneiss::engine::registry_ref& registry,
-                                std::string_view instance_uuid,
-                                std::span<const gneiss::engine::prefab_property_override> overrides,
-                                gneiss::engine::prefab_description& output) noexcept;
+  prepare_description(const gneiss::engine::prefab_description& source,
+                      const gneiss::engine::registry_ref& registry, std::string_view instance_uuid,
+                      std::span<const gneiss::engine::prefab_property_override> overrides,
+                      gneiss::engine::prefab_description& output) noexcept;
   struct node_info final {
     const gneiss::engine::prefab_author_address* address = nullptr;
     std::string_view name;
@@ -60,10 +58,6 @@ public:
   [[nodiscard]] scene_node_id root() const noexcept { return root_node_; }
   [[nodiscard]] std::uint64_t root_entity() const noexcept { return root_entity_; }
   [[nodiscard]] gneiss::engine::prefab_asset_ref prefab_lease() const noexcept { return prefab_; }
-  /** 仅供未发布候选的镜像准备；返回值有效期不超过实例或下一次重载。 */
-  [[nodiscard]] const gneiss::engine::prefab_description& candidate_description() const noexcept {
-    return prepared_ ? *prepared_ : *prefab_.get();
-  }
   [[nodiscard]] scene_node_id find_node(std::string_view source_node_uuid) const noexcept;
   [[nodiscard]] std::uint64_t find_entity(std::string_view source_node_uuid) const noexcept;
   [[nodiscard]] const gneiss::engine::object_description*
@@ -81,31 +75,18 @@ public:
   reload(gneiss::engine::prefab_asset_ref candidate, const gneiss::engine::registry_ref& registry,
          const std::vector<gneiss::engine::prefab_property_override>& overrides);
 
-  /** 候选 World 专用的分阶段构造；每次只创建一个节点，渲染资源由调用方传入租约。 */
-  [[nodiscard]] gneiss::engine::result begin_staged(scene_node_id parent,
-                                                    const gneiss::engine::transform& transform);
-  /** 活动 World 内隐藏构造；描述已完成覆盖验证，发布前不激活相机。 */
-  [[nodiscard]] gneiss::engine::result begin_hidden(scene_node_id parent,
-                                                    const gneiss::engine::transform& transform,
-                                                    gneiss::engine::prefab_description prepared);
-  [[nodiscard]] gneiss::engine::result publish_hidden() noexcept;
-  [[nodiscard]] gneiss::engine::result retire_hidden() noexcept;
-  /** 旧同步实例也可加入退休组；逐项准备不改变可见性，取消可保留这些内部关联。 */
-  [[nodiscard]] gneiss::engine::result prepare_retirement_step(bool& complete);
-  [[nodiscard]] gneiss::engine::result create_staged_node(std::size_t index, scene_node_id parent,
-                                                          gneiss::engine::mesh mesh,
-                                                          gneiss::engine::material material);
+  /** 同步构造的内部步骤；节点直接可见，资源由调用方传入，失败由实例析构清理。 */
+  [[nodiscard]] gneiss::engine::result create_root(scene_node_id parent,
+                                                   const gneiss::engine::transform& transform);
+  [[nodiscard]] gneiss::engine::result create_node(std::size_t index, scene_node_id parent,
+                                                   gneiss::engine::mesh mesh,
+                                                   gneiss::engine::material material);
   [[nodiscard]] gneiss::engine::result
-  apply_staged_override(const gneiss::engine::registry_ref& registry,
-                        const gneiss::engine::prefab_property_override& value) noexcept;
-  /** 候选构造取消：每次最多处理 budget 个节点/记录；完成前须继续推进，禁止继续构造。
-   * 不回收共享资产缓存；返回 true 表示候选节点、记录和来源租约均已释放。
-   */
-  [[nodiscard]] bool cancel_staged_step(std::size_t budget) noexcept;
+  apply_override(const gneiss::engine::registry_ref& registry,
+                 const gneiss::engine::prefab_property_override& value) noexcept;
 
 private:
   friend class scene_instance;
-  friend class prefab_candidate;
   [[nodiscard]] gneiss::engine::result commit_node(std::size_t index, scene_node_id parent);
   struct runtime_node final {
     gneiss::engine::prefab_author_address address;
@@ -115,7 +96,7 @@ private:
     scene_node_id parent = null_scene_node_id;
     gneiss::engine::mesh mesh;
     gneiss::engine::material material;
-    bool staged_attempted{};
+    bool creation_attempted{};
   };
 
   void rollback() noexcept;
@@ -135,15 +116,7 @@ private:
   std::uint64_t root_entity_ = UINT64_C(0);
   scene_node_id root_node_ = null_scene_node_id;
   std::vector<runtime_node> nodes_;
-  std::vector<std::size_t> staged_order_;
-  bool staged_{};
-  bool cancelling_{};
-  gneiss::engine::publication publication_;
   std::optional<gneiss::engine::prefab_description> prepared_;
-  bool published_{};
-  scene_instance_id candidate_scene_{};
-  scene_node_id candidate_previous_root_{};
-  std::size_t retirement_cursor_{};
 };
 
 } // namespace gneiss::engine

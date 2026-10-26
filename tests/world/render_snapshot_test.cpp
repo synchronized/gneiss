@@ -75,7 +75,6 @@ int run_tests() {
       snapshot.instances.front().transform.translation[0] != 2.0F) {
     return 3;
   }
-  const auto group = world.begin_publication();
   gneiss::engine::view_camera editor_view;
   editor_view.transform.translation[0] = 17.0F;
   if (gneiss::engine::build_render_snapshot(world, 800U, 600U, snapshot, &editor_view) !=
@@ -92,28 +91,16 @@ int run_tests() {
       snapshot.camera.transform.translation[0] != 17.0F) {
     return 7;
   }
-  const auto pending_mesh = world.create_staged_entity(group);
-  const auto pending_camera = world.create_staged_entity(group);
-  gneiss::scene_node_id pending_node = gneiss::null_scene_node_id;
-  if (!world.emplace_staged<gneiss::engine::mesh_renderer_component>(group, pending_mesh,
-                                                                     renderer) ||
-      !world.emplace_staged<gneiss::engine::camera_component>(group, pending_camera, camera) ||
-      world.scene().create_staged(group, gneiss::null_scene_node_id, pending_mesh, &pending_node) !=
-          gneiss::engine::result::success ||
-      world.scene().get_local(pending_node) != nullptr ||
-      world.scene().get_local_for_entity(pending_mesh) != nullptr ||
-      world.scene().get_entity(pending_node) != UINT64_C(0) ||
-      world.set_active_camera(pending_camera) != gneiss::engine::result::invalid_handle ||
-      world.active_camera() != camera_entity ||
-      gneiss::engine::build_render_snapshot(world, 1280U, 720U, snapshot) !=
-          gneiss::engine::result::success ||
-      snapshot.instances.size() != 1U || world.publish(group) != gneiss::engine::result::success ||
-      gneiss::engine::build_render_snapshot(world, 1280U, 720U, snapshot) !=
-          gneiss::engine::result::success ||
+  const auto added_mesh = world.create_entity();
+  world.emplace<gneiss::engine::mesh_renderer_component>(added_mesh, renderer);
+  gneiss::scene_node_id added_node;
+  if (world.scene().create({}, added_mesh, &added_node).failed() ||
+      world.scene().get_local(added_node) == nullptr ||
+      world.scene().get_local_for_entity(added_mesh) == nullptr ||
+      gneiss::engine::build_render_snapshot(world, 1280U, 720U, snapshot).failed() ||
       snapshot.instances.size() != 2U || world.active_camera() != camera_entity ||
-      world.scene().get_entity(pending_node) != pending_mesh) {
+      world.scene().get_entity(added_node) != added_mesh)
     return 5;
-  }
   if (!world.destroy_entity(camera_entity) ||
       gneiss::engine::build_render_snapshot(world, 1280U, 720U, snapshot) !=
           gneiss::engine::result::success ||
@@ -128,7 +115,7 @@ int run_tests() {
   }
   // ECS 释放后提交快照独立保活；工作线程最后释放只入队，不复活旧 RID。
   renderer = {};
-  if (!world.destroy_entity(mesh_entity) || !world.destroy_entity(pending_mesh))
+  if (!world.destroy_entity(mesh_entity) || !world.destroy_entity(added_mesh))
     return 31;
   if (resources.drain_retired_resources() != 0U || snapshot.instances.empty())
     return 32;

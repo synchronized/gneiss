@@ -55,7 +55,6 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/input/input_types.hpp
   engine/core/log/log_dispatcher.hpp
   engine/core/progress_notification.hpp
-  engine/core/publication_group.hpp
   engine/core/reflection/serialization.hpp
   engine/resource/resource_registry.hpp
   engine/core/reflection/property_registry.hpp
@@ -90,7 +89,6 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/types/prefab_property_data.hpp
   engine/resource/types/prefab_description.hpp
   engine/function/scene/prefab_property_override.hpp
-  engine/function/scene/prefab_candidate.hpp
   engine/function/scene/scene_creation.hpp
   engine/function/scene/scene_mesh_binding.hpp
   engine/resource/types/scene_description.hpp

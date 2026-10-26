@@ -249,69 +249,59 @@ void run() {
   check(resources.get_material(gneiss::engine::asset_rid(old_material))->parameters.color[0] ==
         1.0F);
   check(files->reads == reads);
-  // 候选仅持有一份运行时；移动、失败和取消不得泄漏或提前发布。
+  // 同步创建不读文件；替换失败删除旧实例并清理新建残留。
   {
     gneiss::engine::prefab_asset_ref source;
     gneiss::engine::prefab_instance_description author;
-    check(candidate->scenes()->capture_prefab_header(new_scene,
-                                                     "00000000-0000-4000-8000-000000000004", author,
-                                                     source) == gneiss::engine::result::success);
-    const auto original_uuid = author.instance_uuid;
-    const auto* original_source = source.get();
-    check(candidate->scenes()->capture_prefab_header(new_scene, "missing", author, source) ==
-          gneiss::engine::result::not_found);
-    check(author.instance_uuid == original_uuid && source.get() == original_source);
-    bool removal_complete = true;
-    check(candidate->scenes()->prepare_prefab_removal(new_scene, "missing", removal_complete) ==
-              gneiss::engine::result::not_found &&
-          !removal_complete);
+    check(candidate->scenes()
+              ->capture_prefab_header(new_scene, "00000000-0000-4000-8000-000000000004", author,
+                                      source)
+              .ok());
+    std::vector<gneiss::engine::scene_mesh_binding> bindings(source.get()->objects.size());
+    for (std::size_t i = 0; i < bindings.size(); ++i)
+      check(candidate->scenes()
+                ->capture_prefab_binding(new_scene, author.instance_uuid, i, bindings[i])
+                .ok());
     author.instance_uuid = "00000000-0000-4000-8000-000000000077";
-    author.prefab_uri = "asset://p.prefab";
-    author.rotation = gneiss::engine::quaternion_xyzw(0, 0, 0, 1);
-    author.scale = {1, 1, 1};
-    gneiss::engine::prefab_candidate pending;
-    const auto transaction_reads = files->reads;
-    check(candidate->scenes()->begin_prefab_candidate(new_scene, author, source, *source.get(),
-                                                      pending) == gneiss::engine::result::success);
-    const auto hidden_root = pending.root();
-    check(candidate->scenes()->begin_prefab_candidate(new_scene, author, source, *source.get(),
-                                                      pending) ==
-          gneiss::engine::result::invalid_state);
-    check(pending.root() == hidden_root);
-    check(candidate->scenes()->commit_prefab_removal(new_scene, original_uuid, pending) ==
-          gneiss::engine::result::invalid_state);
-    check(pending.root() == hidden_root);
-    gneiss::engine::prefab_candidate moved{std::move(pending)};
-    check(!pending.is_valid() && moved.is_valid());
-    check(candidate->scenes()->commit_prefab_candidate(old_scene, moved) ==
-          gneiss::engine::result::invalid_handle);
-    check(candidate->scenes()->commit_prefab_candidate(new_scene, moved) ==
-          gneiss::engine::result::invalid_state);
-    gneiss::engine::result foreign{};
-    bool cleaned_on_worker = true;
-    gneiss::engine::result foreign_commit{};
+    const auto reads_before = files->reads;
+    std::uint64_t baseline{};
+    check(candidate->native_world()->entity_count(baseline).ok());
+    gneiss::scene_node_id root;
+    gneiss::engine::result foreign;
     std::thread worker([&] {
-      gneiss::engine::prefab_node_view preview;
-      foreign = moved.preview(0, preview);
-      foreign_commit = candidate->scenes()->commit_prefab_candidate(new_scene, moved);
-      cleaned_on_worker = moved.cleanup_step(1);
+      foreign = candidate->scenes()->instantiate_prefab_ready(new_scene, author, source, bindings,
+                                                              false, root);
     });
     worker.join();
-    check(foreign == gneiss::engine::result::invalid_state && !cleaned_on_worker &&
-          foreign_commit == gneiss::engine::result::invalid_state);
-    gneiss::engine::prefab_candidate assigned;
-    assigned = std::move(moved);
-    check(!moved.is_valid() && assigned.is_valid());
-    for (unsigned step = 0; step < 8 && assigned.is_valid(); ++step)
-      (void)assigned.cleanup_step(1);
-    check(!assigned.is_valid() && assigned.cleanup_step(1));
-    gneiss::engine::transform hidden;
-    check(candidate->native_world()->node_get_local_transform(scene_node_id{hidden_root}, hidden) ==
+    check(foreign == gneiss::engine::result::invalid_state && !root);
+    check(candidate->scenes()->instantiate_prefab_ready(old_scene, author, source, bindings, false,
+                                                        root) ==
           gneiss::engine::result::invalid_handle);
+    check(candidate->scenes()
+              ->instantiate_prefab_ready(new_scene, author, source, bindings, false, root)
+              .ok());
+    const auto previous_root = root;
+    gneiss::engine::transform queried;
+    check(candidate->native_world()->node_get_local_transform(root, queried).ok());
+    check(candidate->scenes()
+              ->instantiate_prefab_ready(new_scene, author, source, bindings, true, root)
+              .ok());
+    check(root != previous_root);
+    check(candidate->native_world()->node_get_local_transform(previous_root, queried) ==
+          gneiss::engine::result::invalid_handle);
+    const auto replaced_root = root;
+    // 根变换非法使创建在旧实例已删除后失败。
+    author.scale = {0, 1, 1};
+    check(candidate->scenes()
+              ->instantiate_prefab_ready(new_scene, author, source, bindings, true, root)
+              .failed());
+    check(!root && candidate->native_world()->node_get_local_transform(replaced_root, queried) ==
+                       gneiss::engine::result::invalid_handle);
     std::uint64_t count{};
-    check(candidate->native_world()->entity_count(count) == gneiss::engine::result::success &&
-          count == 3);
-    check(files->reads == transaction_reads);
+    check(candidate->native_world()->entity_count(count).ok() && count == baseline);
+    check(candidate->scenes()->remove_prefab_instance(new_scene, author.instance_uuid) ==
+          gneiss::engine::result::not_found);
+    check(files->reads == reads_before);
   }
   const auto selected_material = gneiss::engine::asset_rid(material);
   // 多个场景共享相同 URI 的资源身份。

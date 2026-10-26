@@ -241,6 +241,21 @@ gneiss::engine::result scene_document::create_empty(runtime::application& applic
   }
 }
 
+gneiss::engine::result scene_document::synchronize_nodes() noexcept {
+  const auto previous_selection = selection_;
+  selection_ = {};
+  const auto status = refresh_nodes();
+  if (status.failed()) {
+    nodes_.clear();
+    prefab_nodes_.clear();
+    selection_ = {};
+  } else if (previous_selection) {
+    // 删除或替换导致选择失效是正常结果，不是节点列表同步失败。
+    (void)select(previous_selection);
+  }
+  return status;
+}
+
 gneiss::engine::result scene_document::refresh_nodes() noexcept {
   try {
     std::uint64_t count = 0;

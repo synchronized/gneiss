@@ -64,155 +64,15 @@ bool native_operations() {
       owner->entity_is_alive(gneiss::entity_id{entity}, alive) != gneiss::engine::result::success ||
       !alive)
     return false;
-  gneiss::engine::publication group;
-  gneiss::engine::staged_object candidate;
-  if (owner->begin_publication(group) != gneiss::engine::result::success ||
-      owner->create_staged_object(group, {}, candidate) != gneiss::engine::result::success ||
-      owner->entity_count(count) != gneiss::engine::result::success || count != 1 ||
-      owner->publish(group) != gneiss::engine::result::success ||
-      owner->entity_count(count) != gneiss::engine::result::success || count != 2)
-    return false;
   owner.reset();
   return !owner;
 }
 
-bool original_groups_visible(const gneiss::engine::world_owner& world,
-                             const std::array<gneiss::engine::staged_object, 2>& old_objects,
-                             const std::array<gneiss::engine::staged_object, 2>& new_objects) {
-  namespace service = gneiss::engine;
-
-  std::uint64_t count{};
-  std::uint64_t active{};
-  if (world->entity_count(count) != gneiss::engine::result::success || count != 2U ||
-      gneiss::engine::write_identifier<gneiss::entity_id>(
-          active, [&](auto& native_output) { return world->get_active_camera(native_output); }) !=
-          gneiss::engine::result::success ||
-      active != old_objects[0].entity.get()) {
-    return false;
-  }
-  for (std::size_t index = 0; index < old_objects.size(); ++index) {
-    bool alive{};
-    if (world->entity_is_alive(gneiss::entity_id{old_objects[index].entity.get()}, alive) !=
-            gneiss::engine::result::success ||
-        alive == 0U ||
-        world->entity_is_alive(gneiss::entity_id{new_objects[index].entity.get()}, alive) !=
-            gneiss::engine::result::success ||
-        alive != 0U) {
-      return false;
-    }
-  }
-  return true;
-}
-bool batch_publication_test() {
-  namespace service = gneiss::engine;
-  gneiss::engine::world_owner world{};
-  gneiss::engine::world_owner other{};
-  if (service::create_native(world) != gneiss::engine::result::success ||
-      service::create_native(other) != gneiss::engine::result::success) {
-    return false;
-  }
-  std::array<gneiss::engine::publication, 2> previous;
-  std::array<gneiss::engine::publication, 2> candidates;
-  std::array<service::staged_object, 2> old_objects;
-  std::array<service::staged_object, 2> new_objects;
-  const service::camera_settings camera{
-      .fov = 1.0F,
-      .near = 0.1F,
-      .far = 100.0F,
-  };
-  service::staged_object_description description;
-  description.camera = &camera;
-  for (std::size_t index = 0; index < previous.size(); ++index) {
-    if (world->begin_publication(previous[index]) != gneiss::engine::result::success ||
-        world->begin_publication(candidates[index]) != gneiss::engine::result::success ||
-        world->create_staged_object(previous[index], description, old_objects[index]) !=
-            gneiss::engine::result::success ||
-        world->create_staged_object(candidates[index], description, new_objects[index]) !=
-            gneiss::engine::result::success ||
-        world->publish(previous[index]) != gneiss::engine::result::success) {
-      return false;
-    }
-  }
-  if (world->set_active_camera(gneiss::entity_id{old_objects[0].entity.get()}) !=
-      gneiss::engine::result::success) {
-    return false;
-  }
-  const auto unchanged = [&] { return original_groups_visible(world, old_objects, new_objects); };
-  // 后一个候选非法不得提前退休第一个旧组；同时验证空列表、重复和跨域。
-  const std::array<gneiss::engine::publication, 2> invalid{candidates[0], {}};
-  const std::array duplicates{candidates[0], candidates[0]};
-  const std::array duplicate_previous{previous[0], previous[0]};
-  gneiss::engine::publication foreign;
-  if (other->begin_publication(foreign) != gneiss::engine::result::success) {
-    return false;
-  }
-  const std::array mixed{candidates[0], foreign};
-  if (world->replace_publications({}, {}) != gneiss::engine::result::invalid_argument ||
-      world->replace_publications(previous, invalid) != gneiss::engine::result::invalid_state ||
-      world->replace_publications(previous, duplicates) !=
-          gneiss::engine::result::invalid_argument ||
-      world->replace_publications(duplicate_previous, candidates) !=
-          gneiss::engine::result::invalid_argument ||
-      world->replace_publications(previous, mixed) != gneiss::engine::result::invalid_state ||
-      !unchanged()) {
-    return false;
-  }
-  gneiss::engine::result wrong_thread{};
-  std::thread worker([&] { wrong_thread = world->replace_publications(previous, candidates); });
-  worker.join();
-  if (wrong_thread != gneiss::engine::result::invalid_state || !unchanged()) {
-    return false;
-  }
-  // 旧组下存在其他组的隐藏孩子时拒绝整批替换，避免留下悬空父关系。
-  gneiss::engine::publication external;
-  service::staged_object child;
-  description.parent = old_objects[1].node;
-  if (world->begin_publication(external) != gneiss::engine::result::success ||
-      world->create_staged_object(external, description, child) !=
-          gneiss::engine::result::success ||
-      world->replace_publications(previous, candidates) != gneiss::engine::result::invalid_state ||
-      !unchanged() ||
-      world->destroy_staged_object(external, child) != gneiss::engine::result::success ||
-      world->replace_publications(previous, candidates) != gneiss::engine::result::success) {
-    return false;
-  }
-  std::uint64_t count{};
-  std::uint64_t active{};
-  if (world->entity_count(count) != gneiss::engine::result::success || count != 2U ||
-      gneiss::engine::write_identifier<gneiss::entity_id>(
-          active, [&](auto& native_output) { return world->get_active_camera(native_output); }) !=
-          gneiss::engine::result::not_ready ||
-      active != 0U ||
-      world->replace_publications(previous, candidates) != gneiss::engine::result::invalid_state ||
-      world->replace_publications(candidates, previous) != gneiss::engine::result::invalid_state) {
-    return false;
-  }
-  for (std::size_t index = 0; index < previous.size(); ++index) {
-    bool alive{};
-    if (world->entity_is_alive(gneiss::entity_id{old_objects[index].entity.get()}, alive) !=
-            gneiss::engine::result::success ||
-        alive != 0U ||
-        world->entity_is_alive(gneiss::entity_id{new_objects[index].entity.get()}, alive) !=
-            gneiss::engine::result::success ||
-        alive == 0U ||
-        world->destroy_staged_object(previous[index], old_objects[index]) !=
-            gneiss::engine::result::success ||
-        world->destroy_staged_object(previous[index], old_objects[index]) !=
-            gneiss::engine::result::invalid_handle) {
-      return false;
-    }
-  }
-  return (world.reset(), gneiss::engine::result::success) == gneiss::engine::result::success &&
-         (other.reset(), gneiss::engine::result::success) == gneiss::engine::result::success;
-}
 }
 
 int main() {
   if (!native_operations())
     return 20;
-  if (!batch_publication_test()) {
-    return 19;
-  }
   namespace service = gneiss::engine;
   gneiss::engine::world_owner world{};
   if (gneiss::engine::create_native(world) != gneiss::engine::result::success) {
@@ -282,44 +142,6 @@ int main() {
                                    proposed) != gneiss::engine::result::success ||
       candidate_camera.settings.near != 30 || candidate_camera.settings.far != 40) {
     return 18;
-  }
-  gneiss::engine::publication group;
-  service::staged_object root, child, failed;
-  service::staged_object_description object;
-  object.camera = &settings;
-  settings.far = 100.0F;
-  if (world->begin_publication(group) != gneiss::engine::result::success ||
-      world->create_staged_object(group, object, root) != gneiss::engine::result::success ||
-      world->entity_count(count) != gneiss::engine::result::success || count != 1U) {
-    return 10;
-  }
-  object.parent = root.node;
-  if (world->create_staged_object(group, object, child) != gneiss::engine::result::success ||
-      world->destroy_staged_object(group, root) != gneiss::engine::result::not_ready ||
-      world->destroy_staged_object(group, {root.entity, child.node}) !=
-          gneiss::engine::result::invalid_handle ||
-      world->destroy_staged_object(group, child) != gneiss::engine::result::success ||
-      world->destroy_staged_object(group, child) != gneiss::engine::result::invalid_handle) {
-    return 11;
-  }
-  object.transform.scale[0] = 0;
-  if (world->create_staged_object(group, object, failed) !=
-          gneiss::engine::result::invalid_argument ||
-      failed.entity.is_valid() || failed.node.is_valid()) {
-    return 12;
-  }
-  std::thread staging_worker([&] { wrong_thread = world->publish(group); });
-  staging_worker.join();
-  if (wrong_thread != gneiss::engine::result::invalid_state ||
-      world->publish(group) != gneiss::engine::result::success ||
-      world->entity_count(count) != gneiss::engine::result::success || count != 2U ||
-      world->publish(group) != gneiss::engine::result::invalid_state ||
-      world->destroy_staged_object(group, root) != gneiss::engine::result::invalid_handle ||
-      world->node_destroy(gneiss::scene_node_id{root.node.get()}) !=
-          gneiss::engine::result::success ||
-      world->entity_destroy(gneiss::entity_id{root.entity.get()}) !=
-          gneiss::engine::result::success) {
-    return 13;
   }
   // 借用只在拥有者存活期使用；移动拥有者不改变对象地址。
   service::world_owner native;

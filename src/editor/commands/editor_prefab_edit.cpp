@@ -13,301 +13,78 @@ namespace gneiss::editor {
 namespace {
 using runtime::prefab_placement;
 using runtime::prefab_placement_snapshot;
-gneiss::engine::result make_prefab_record(const gneiss::engine::prefab_node_view& info,
-                                          const gneiss::engine::prefab_instance_description& author,
-                                          const scene_document& session,
-                                          prefab_node_record& record) {
-  record.node = scene_node_id{info.node};
-  record.parent = scene_node_id{info.parent};
-  record.entity = entity_id{info.entity};
-  record.instance_uuid = info.instance_uuid;
-  record.source_node_uuid = info.source_node_uuid;
-  record.display_name = info.name;
-  record.prefab_uri = info.prefab_uri;
-  record.local_transform = {info.local_transform.translation, info.local_transform.rotation,
-                            info.local_transform.scale};
-  record.source_local_transform = {info.source_local_transform.translation,
-                                   info.source_local_transform.rotation,
-                                   info.source_local_transform.scale};
-  record.is_instance_root = has_flags(info.flags, scene_prefab_flags::instance_root);
-  record.is_read_only = !record.is_instance_root;
-  record.override_flags =
-      static_cast<std::uint32_t>(info.flags) &
-      (static_cast<std::uint32_t>(gneiss::scene_prefab_flags::translation_overridden) |
-       static_cast<std::uint32_t>(gneiss::scene_prefab_flags::rotation_overridden) |
-       static_cast<std::uint32_t>(gneiss::scene_prefab_flags::scale_overridden));
-  if (record.is_instance_root && author.parent_uuid) {
-    const auto* parent = session.find_node(*author.parent_uuid);
-    if (parent == nullptr) {
-      return gneiss::engine::result::invalid_handle;
-    }
-    record.parent = parent->node;
-  }
-  return gneiss::engine::result::success;
-}
-class prefab_history_operation final : public editor_history_operation {
+using prefab_snapshots = std::vector<std::shared_ptr<const prefab_placement_snapshot>>;
+class prefab_history_operation : public editor_history_operation {
 public:
   prefab_history_operation(runtime::application& application, scene_document& session,
-                           gneiss::scene_instance_id scene,
+                           scene_instance_id scene,
                            std::shared_ptr<const prefab_placement_snapshot> snapshot, bool removing)
-      : application_(application), scene_(scene), session_(session), snapshot_(std::move(snapshot)),
-        removing_(removing) {}
+      : prefab_history_operation(application, session, scene, prefab_snapshots{std::move(snapshot)},
+                                 removing, false) {}
+  prefab_history_operation(runtime::application& application, scene_document& session,
+                           scene_instance_id scene, prefab_snapshots snapshots, bool removing,
+                           bool replacing)
+      : application_(application), session_(session), scene_(scene),
+        snapshots_(std::move(snapshots)), removing_(removing), replacing_(replacing) {}
   gneiss::engine::result advance(bool& complete) noexcept override try {
-    complete = false;
-    if (committed_ || cancelled_ || status_.failed()) {
-      return cleanup(complete);
+    using gneiss::engine::result;
+    complete = true;
+    if (finished_)
+      return result::invalid_state;
+    finished_ = true;
+    if (cancelled_ || session_.scene_handle() != scene_)
+      return result::invalid_state;
+    std::string selected_instance, selected_source;
+    if (const auto* selected = session_.selected_prefab_node()) {
+      selected_instance = selected->instance_uuid;
+      selected_source = selected->source_node_uuid;
     }
-    if (session_.scene_handle() != scene_) {
-      status_ = gneiss::engine::result::invalid_state;
-      return gneiss::engine::result::success;
+    scene_node_id root;
+    auto status = result{result::success};
+    // 同一调用内逐个创建；前面的成功不会因后面的失败回滚。
+    for (const auto& snapshot : snapshots_) {
+      status =
+          prefab_placement::apply(application_, scene_, *snapshot, removing_, replacing_, root);
+      if (status.failed())
+        break;
     }
-    if (!transaction_) {
-      status_ = prefab_placement::begin(application_, scene_, snapshot_, removing_, transaction_);
-      if (status_.failed()) {
-        return gneiss::engine::result::success;
-      }
-      records_.reserve(session_.prefab_nodes().size() +
-                       (removing_ ? 0U : transaction_->node_count()));
+    session_.mark_dirty();
+    const auto refreshed = session_.synchronize_nodes();
+    if (refreshed.failed())
+      return refreshed;
+    if (replacing_ && !selected_instance.empty()) {
+      const auto* selected = session_.find_prefab_source(selected_instance, selected_source);
+      if (!selected)
+        selected = session_.find_prefab_root(selected_instance);
+      if (selected)
+        (void)session_.select(selected->node);
+    } else if (!removing_ && root) {
+      (void)session_.select(root);
     }
-    bool ready{};
-    status_ = transaction_->advance(ready);
-    if (status_.failed() || !ready) {
-      return gneiss::engine::result::success;
-    }
-    return prepare_mirror();
+    return status;
   } catch (const std::bad_alloc&) {
-    status_ = gneiss::engine::result::out_of_memory;
-    return gneiss::engine::result::success;
+    return gneiss::engine::result::out_of_memory;
   } catch (...) {
-    status_ = gneiss::engine::result::internal;
-    return gneiss::engine::result::success;
+    return gneiss::engine::result::internal;
   }
   void cancel() noexcept override {
-    if (!committed_) {
+    if (!finished_)
       cancelled_ = true;
-    }
   }
-  [[nodiscard]] bool can_cancel() const noexcept override { return !committed_; }
+  bool can_cancel() const noexcept override { return !finished_; }
 
 private:
-  gneiss::engine::result cleanup(bool& complete) {
-    if (transaction_ && !transaction_->cleanup_step()) {
-      return gneiss::engine::result::success;
-    }
-    for (unsigned i = 0; i < 64U && !records_.empty(); ++i) {
-      records_.pop_back();
-    }
-    complete = records_.empty();
-    if (!complete || committed_) {
-      return gneiss::engine::result::success;
-    }
-    return cancelled_ ? gneiss::engine::result::invalid_state : status_;
-  }
-  gneiss::engine::result append_record() {
-    gneiss::engine::prefab_node_view info;
-    const auto previewed = transaction_->preview(new_cursor_++, info);
-    if (previewed.failed()) {
-      return previewed;
-    }
-    prefab_node_record record;
-    const auto converted = make_prefab_record(info, snapshot_->author, session_, record);
-    if (converted.failed()) {
-      return converted;
-    }
-    records_.push_back(std::move(record));
-    return gneiss::engine::result::success;
-  }
-  gneiss::engine::result prepare_mirror() {
-    for (unsigned step = 0; step < 64U; ++step) {
-      if (old_cursor_ < session_.prefab_nodes().size()) {
-        const auto& record = session_.prefab_nodes()[old_cursor_++];
-        if (!removing_ || record.instance_uuid != snapshot_->author.instance_uuid) {
-          records_.push_back(record);
-        }
-      } else if (!removing_ && new_cursor_ < transaction_->node_count()) {
-        const auto added = append_record();
-        if (added.failed()) {
-          status_ = added;
-          return gneiss::engine::result::success;
-        }
-      } else {
-        const auto commit = [&] { return transaction_->commit(); };
-        status_ = commit();
-        if (status_.failed()) {
-          return gneiss::engine::result::success;
-        }
-        session_.publish_prefab_records(records_, removing_ ? scene_node_id{}
-                                                            : scene_node_id{transaction_->root()});
-        committed_ = true;
-        return gneiss::engine::result::success;
-      }
-    }
-    return gneiss::engine::result::success;
-  }
   runtime::application& application_;
-  gneiss::scene_instance_id scene_{};
   scene_document& session_;
-  std::shared_ptr<const prefab_placement_snapshot> snapshot_;
-  std::unique_ptr<prefab_placement> transaction_;
-  std::vector<prefab_node_record> records_;
-  std::size_t old_cursor_{}, new_cursor_{};
-  bool removing_{}, committed_{}, cancelled_{};
-  gneiss::engine::result status_{gneiss::engine::result::success};
+  scene_instance_id scene_;
+  prefab_snapshots snapshots_;
+  bool removing_{}, replacing_{}, finished_{}, cancelled_{};
 };
-using prefab_snapshots = std::vector<std::shared_ptr<const prefab_placement_snapshot>>;
-class prefab_refresh_operation final : public editor_history_operation {
+class prefab_refresh_operation final : public prefab_history_operation {
 public:
   prefab_refresh_operation(runtime::application& application, scene_document& session,
-                           gneiss::scene_instance_id scene, prefab_snapshots snapshots)
-      : application_(application), scene_(scene), session_(session),
-        snapshots_(std::move(snapshots)), selection_(session.selection()) {
-    transactions_.resize(snapshots_.size());
-    for (const auto& snapshot : snapshots_) {
-      uuids_.push_back(snapshot->author.instance_uuid);
-    }
-    const auto selected =
-        std::ranges::find(session.prefab_nodes(), selection_, &prefab_node_record::node);
-    if (selected != session.prefab_nodes().end() && is_target(selected->instance_uuid)) {
-      selected_instance_ = selected->instance_uuid;
-      selected_source_ = selected->source_node_uuid;
-      selection_ = {};
-    }
-    std::size_t capacity = session.prefab_nodes().size();
-    for (const auto& snapshot : snapshots_) {
-      capacity += snapshot->order.size() + 1U;
-    }
-    records_.reserve(capacity);
-    entries_.reserve(snapshots_.size());
-  }
-  gneiss::engine::result advance(bool& complete) noexcept override try {
-    complete = false;
-    if (committed_ || cancelled_ || status_.failed()) {
-      return cleanup(complete);
-    }
-    if (session_.scene_handle() != scene_) {
-      status_ = gneiss::engine::result::invalid_state;
-      return gneiss::engine::result::success;
-    }
-    if (construct_cursor_ < transactions_.size()) {
-      auto& transaction = transactions_[construct_cursor_];
-      if (!transaction) {
-        status_ = prefab_placement::begin(application_, scene_, snapshots_[construct_cursor_],
-                                          false, transaction, true);
-        if (status_.failed()) {
-          return gneiss::engine::result::success;
-        }
-        entries_.push_back(transaction.get());
-      }
-      bool ready{};
-      status_ = transaction->advance(ready);
-      if (status_.ok() && ready) {
-        ++construct_cursor_;
-      }
-      return gneiss::engine::result::success;
-    }
-    prepare_mirror();
-    return gneiss::engine::result::success;
-  } catch (const std::bad_alloc&) {
-    status_ = gneiss::engine::result::out_of_memory;
-    return gneiss::engine::result::success;
-  } catch (...) {
-    status_ = gneiss::engine::result::internal;
-    return gneiss::engine::result::success;
-  }
-  void cancel() noexcept override {
-    if (!committed_) {
-      cancelled_ = true;
-    }
-  }
-  [[nodiscard]] bool can_cancel() const noexcept override { return !committed_; }
-
-private:
-  [[nodiscard]] bool is_target(std::string_view uuid) const {
-    return std::ranges::find(uuids_, uuid) != uuids_.end();
-  }
-  gneiss::engine::result cleanup(bool& complete) {
-    if (cleanup_cursor_ < transactions_.size()) {
-      auto& transaction = transactions_[cleanup_cursor_];
-      if (!transaction || transaction->cleanup_step()) {
-        transaction.reset();
-        ++cleanup_cursor_;
-      }
-      return gneiss::engine::result::success;
-    }
-    for (unsigned step = 0; step < 64U && !records_.empty(); ++step) {
-      records_.pop_back();
-    }
-    complete = records_.empty();
-    if (!complete || committed_) {
-      return gneiss::engine::result::success;
-    }
-    return cancelled_ ? gneiss::engine::result::invalid_state : status_;
-  }
-  gneiss::engine::result append_record() {
-    gneiss::engine::prefab_node_view info;
-    const auto result = transactions_[mirror_cursor_]->preview(node_cursor_++, info);
-    if (result.failed()) {
-      return result;
-    }
-    prefab_node_record record;
-    const auto converted =
-        make_prefab_record(info, snapshots_[mirror_cursor_]->author, session_, record);
-    if (converted.failed()) {
-      return converted;
-    }
-    if (record.instance_uuid == selected_instance_) {
-      if (record.is_instance_root) {
-        selection_ = record.node;
-      }
-      if (record.source_node_uuid == selected_source_) {
-        selection_ = record.node;
-      }
-    }
-    records_.push_back(std::move(record));
-    return gneiss::engine::result::success;
-  }
-  void prepare_mirror() {
-    for (unsigned step = 0; step < 64U; ++step) {
-      if (old_cursor_ < session_.prefab_nodes().size()) {
-        const auto& record = session_.prefab_nodes()[old_cursor_++];
-        if (!is_target(record.instance_uuid)) {
-          records_.push_back(record);
-        }
-      } else if (mirror_cursor_ < transactions_.size()) {
-        if (node_cursor_ == transactions_[mirror_cursor_]->node_count()) {
-          ++mirror_cursor_;
-          node_cursor_ = 0U;
-          continue;
-        }
-        status_ = append_record();
-        if (status_.failed()) {
-          return;
-        }
-      } else {
-        const auto commit = [&] { return prefab_placement::commit_replacements(entries_); };
-        status_ = commit();
-        if (status_.ok()) {
-          session_.publish_prefab_records(records_, selection_);
-          committed_ = true;
-        }
-        return;
-      }
-    }
-  }
-  runtime::application& application_;
-  gneiss::scene_instance_id scene_{};
-  scene_document& session_;
-  prefab_snapshots snapshots_;
-  scene_node_id selection_;
-  std::string selected_instance_, selected_source_;
-  std::vector<std::string> uuids_;
-  std::vector<std::unique_ptr<prefab_placement>> transactions_;
-  std::vector<prefab_placement*> entries_;
-  std::vector<prefab_node_record> records_;
-  std::size_t construct_cursor_{}, cleanup_cursor_{}, old_cursor_{}, mirror_cursor_{},
-      node_cursor_{};
-  bool committed_{}, cancelled_{};
-  gneiss::engine::result status_{gneiss::engine::result::success};
+                           scene_instance_id scene, prefab_snapshots snapshots)
+      : prefab_history_operation(application, session, scene, std::move(snapshots), false, true) {}
 };
 class prefab_refresh_command final : public editor_command {
 public:

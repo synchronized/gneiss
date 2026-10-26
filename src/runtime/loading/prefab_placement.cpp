@@ -87,178 +87,38 @@ prefab_placement::freeze(runtime::application& application,
 } catch (...) {
   return gneiss::engine::result::internal;
 }
-prefab_placement::prefab_placement(runtime::application& application,
-                                   std::shared_ptr<const prefab_placement_snapshot> snapshot,
-                                   gneiss::scene_instance_id scene, bool removing)
-    : application_(application), scene_(scene), snapshot_(std::move(snapshot)),
-      removing_(removing) {}
-prefab_placement::~prefab_placement() = default;
-gneiss::engine::result
-prefab_placement::begin(runtime::application& application, gneiss::scene_instance_id scene,
-                        std::shared_ptr<const prefab_placement_snapshot> snapshot, bool removing,
-                        std::unique_ptr<prefab_placement>& output, bool replacing) noexcept try {
-  output.reset();
-  auto* host = &application;
-  const auto validation = host->is_owner_thread() && host->accepts_requests()
-                              ? gneiss::engine::result::success
-                              : gneiss::engine::result::invalid_state;
-  if (validation != gneiss::engine::result::success || !snapshot) {
-    return validation == gneiss::engine::result::success ? gneiss::engine::result::invalid_argument
-                                                         : validation;
-  }
-  auto value = std::unique_ptr<prefab_placement>(
-      new prefab_placement(application, std::move(snapshot), scene, removing));
-  if (removing && replacing) {
-    return gneiss::engine::result::invalid_argument;
-  }
-  value->replacing_ = replacing;
-  auto result = gneiss::engine::result::success;
-  if (!removing) {
-    result = host->scenes()->begin_prefab_candidate(
-        scene, value->snapshot_->author, value->snapshot_->prefab, *value->snapshot_->prefab.get(),
-        value->candidate_, replacing);
-    if (value->candidate_.is_valid()) {
-      value->root_ = value->candidate_.root();
-    }
-  }
-  output = std::move(value);
-  return result;
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::result::out_of_memory;
-} catch (...) {
-  return gneiss::engine::result::internal;
-}
-gneiss::engine::result prefab_placement::create_next_node() {
-  const auto index = snapshot_->order[cursor_];
-  const auto& source = snapshot_->prefab.get()->objects.at(index);
-  const auto find = [&](const std::string& uri) {
-    const auto found = snapshot_->assets.find(uri);
-    return found == snapshot_->assets.end() ? gneiss::engine::render_asset_ref{} : found->second;
-  };
-  gneiss::engine::scene_mesh_binding binding;
-  if (!snapshot_->bindings.empty()) {
-    binding = snapshot_->bindings.at(index);
-  } else if (source.mesh_renderer) {
-    binding = {
-        .mesh = gneiss::engine::render_asset_loader::mesh_ref(find(source.mesh_renderer->mesh_uri)),
-        .material = gneiss::engine::render_asset_loader::material_ref(
-            find(source.mesh_renderer->material_uri)),
-    };
-  }
-  scene_node_id node{};
-  const auto result = candidate_.create_node(
-      index, source.parent_uuid ? nodes_.at(*source.parent_uuid) : candidate_.root(), binding.mesh,
-      binding.material, node);
-  if (result != gneiss::engine::result::success)
-    return result;
-  nodes_.emplace(source.uuid, node);
-  ++cursor_;
-
-  return gneiss::engine::result::success;
-}
-gneiss::engine::result prefab_placement::advance(bool& ready) noexcept try {
-  ready = false;
-  auto* host = &application_;
-  const auto validation = host->is_owner_thread() && host->accepts_requests()
-                              ? gneiss::engine::result::success
-                              : gneiss::engine::result::invalid_state;
-  if (validation != gneiss::engine::result::success || committed_) {
-    return validation == gneiss::engine::result::success ? gneiss::engine::result::invalid_state
-                                                         : validation;
-  }
-  for (unsigned step = 0; step < 64U && !ready_; ++step) {
-    if (removing_) {
-      const auto result =
-          host->scenes()->prepare_prefab_removal(scene_, snapshot_->author.instance_uuid, ready_);
-      if (result != gneiss::engine::result::success) {
-        return result;
-      }
-    } else if (cursor_ < snapshot_->order.size()) {
-      const auto created = create_next_node();
-      if (created != gneiss::engine::result::success) {
-        return created;
-      }
-    } else if (replacing_ && !retirement_ready_) {
-      const auto result = host->scenes()->prepare_prefab_removal(
-          scene_, snapshot_->author.instance_uuid, retirement_ready_);
-      if (result != gneiss::engine::result::success) {
-        return result;
-      }
-    } else {
-      ready_ = true;
-    }
-  }
-  ready = ready_;
-  return gneiss::engine::result::success;
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::result::out_of_memory;
-} catch (...) {
-  return gneiss::engine::result::internal;
-}
-std::size_t prefab_placement::node_count() const noexcept { return snapshot_->order.size() + 1U; }
-scene_node_id prefab_placement::root() const noexcept { return root_; }
-gneiss::engine::result
-prefab_placement::preview(std::size_t index,
-                          gneiss::engine::prefab_node_view& output) const noexcept {
+gneiss::engine::result prefab_placement::apply(application& app, scene_instance_id scene,
+                                               const prefab_placement_snapshot& snapshot,
+                                               bool removing, bool replacing,
+                                               scene_node_id& output) noexcept try {
+  using namespace gneiss::engine;
   output = {};
-  if (!ready_ || removing_ || !candidate_.is_valid() || index >= node_count()) {
-    return gneiss::engine::result::invalid_state;
-  }
-  return candidate_.preview(index, output);
-}
-
-gneiss::engine::result prefab_placement::commit() noexcept {
-  auto* host = &application_;
-  const auto validation = host->is_owner_thread() && host->accepts_requests()
-                              ? gneiss::engine::result::success
-                              : gneiss::engine::result::invalid_state;
-  if (validation != gneiss::engine::result::success || !ready_ || committed_ || replacing_) {
-    return validation == gneiss::engine::result::success ? gneiss::engine::result::invalid_state
-                                                         : validation;
-  }
-  const auto result = removing_ ? host->scenes()->commit_prefab_removal(
-                                      scene_, snapshot_->author.instance_uuid, candidate_)
-                                : host->scenes()->commit_prefab_candidate(scene_, candidate_);
-  committed_ = result == gneiss::engine::result::success;
-  return result;
-}
-gneiss::engine::result
-prefab_placement::commit_replacements(std::span<prefab_placement* const> entries) noexcept try {
-  if (entries.empty() || entries.front() == nullptr) {
-    return gneiss::engine::result::invalid_argument;
-  }
-  auto& application = entries.front()->application_;
-  const auto scene = entries.front()->scene_;
-  auto* host = &application;
-  const auto validation = host->is_owner_thread() && host->accepts_requests()
-                              ? gneiss::engine::result::success
-                              : gneiss::engine::result::invalid_state;
-  if (validation != gneiss::engine::result::success) {
-    return validation;
-  }
-  std::vector<gneiss::engine::prefab_candidate*> replacements;
-  replacements.reserve(entries.size());
-  for (auto* entry : entries) {
-    if (entry == nullptr || &entry->application_ != &application || entry->scene_ != scene ||
-        !entry->replacing_ || !entry->ready_ || entry->committed_) {
-      return gneiss::engine::result::invalid_state;
-    }
-    replacements.push_back(&entry->candidate_);
-  }
-  const auto result = host->scenes()->commit_prefab_replacements(scene, replacements);
-  if (result == gneiss::engine::result::success) {
-    for (auto* entry : entries) {
-      entry->committed_ = true;
+  if (!app.is_owner_thread() || !app.accepts_requests() || !app.scenes())
+    return result::invalid_state;
+  if (removing)
+    return replacing ? result::invalid_argument
+                     : app.scenes()->remove_prefab_instance(scene, snapshot.author.instance_uuid);
+  if (!snapshot.prefab)
+    return result::invalid_argument;
+  auto bindings = snapshot.bindings;
+  if (bindings.empty()) {
+    bindings.resize(snapshot.prefab.get()->objects.size());
+    const auto find = [&](const std::string& uri) {
+      const auto found = snapshot.assets.find(uri);
+      return found == snapshot.assets.end() ? render_asset_ref{} : found->second;
+    };
+    for (std::size_t i = 0; i < bindings.size(); ++i) {
+      const auto& object = snapshot.prefab.get()->objects[i];
+      if (object.mesh_renderer)
+        bindings[i] = {render_asset_loader::mesh_ref(find(object.mesh_renderer->mesh_uri)),
+                       render_asset_loader::material_ref(find(object.mesh_renderer->material_uri))};
     }
   }
-  return result;
+  return app.scenes()->instantiate_prefab_ready(scene, snapshot.author, snapshot.prefab, bindings,
+                                                replacing, output);
 } catch (const std::bad_alloc&) {
   return gneiss::engine::result::out_of_memory;
 } catch (...) {
   return gneiss::engine::result::internal;
-}
-
-bool prefab_placement::cleanup_step(std::size_t budget) noexcept {
-  return candidate_.cleanup_step(budget);
 }
 }

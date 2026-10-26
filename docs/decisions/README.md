@@ -85,3 +85,4 @@ Reference 和实现为准。
 - [ADR-086：场景对象身份与资源 RID 分离](ADR-086-scene-object-identities.md)
 
 - [ADR-087：类型化渲染资源与服务生命周期](ADR-087-render-resource-model.md)
+- [ADR-088：Prefab 直接实例化与非原子替换](ADR-088-prefab-direct-instantiation.md)

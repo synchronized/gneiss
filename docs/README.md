@@ -88,6 +88,7 @@
 - [网格与纹理异步加载](plans/PLAN-052-async-render-assets.md)
 - [场景对象身份与资源 RID 分离](plans/PLAN-053-scene-object-identities.md)
 - [渲染资源对象模型与生命周期收敛](plans/PLAN-054-render-resource-model.md)
+- [删除 Prefab 发布组与隐藏候选](plans/PLAN-055-prefab-direct-instantiation.md)
 
 - [移除 CAORS、采用 Granit 示例资产管理模型：迁移与八项问题分析](plans/PLAN-051-asset-manager-replacement.md)
 - [统一资源强引用与生命周期规则](plans/PLAN-051-asset-references.md)
