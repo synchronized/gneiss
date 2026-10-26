@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../support/memory_read_file_system.hpp"
+#include "../support/memory_file_fixture.hpp"
 #include "../support/prepare_render.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_resource_service.hpp"
@@ -10,7 +10,6 @@
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/loaders/material_serialization.hpp"
-#include "engine/resource/loaders/texture_container.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
 #include <algorithm>
 #include <granit/asset_tools/texture_builder.hpp>
@@ -28,47 +27,10 @@ void check(bool value, std::source_location at = std::source_location::current()
     throw std::runtime_error("异步资产契约失败，行=" + std::to_string(at.line()));
   }
 }
-struct memory_files final : gneiss::test_support::memory_read_file_system {
+struct memory_files final : gneiss::test_support::memory_file_fixture {
   std::map<std::string, std::vector<std::byte>> files;
   mutable std::thread::id reader;
   std::shared_ptr<std::atomic_size_t> bytes_read = std::make_shared<std::atomic_size_t>();
-  gneiss::engine::result open_read(std::string_view path,
-                                   std::unique_ptr<read_source>& output) const noexcept override {
-    reader = std::this_thread::get_id();
-    output.reset();
-    const auto found = files.find(std::string(path));
-    if (found == files.end()) {
-      return gneiss::engine::result::not_found;
-    }
-    class memory_source final : public read_source {
-    public:
-      explicit memory_source(std::vector<std::byte> bytes,
-                             std::shared_ptr<std::atomic_size_t> bytes_read)
-          : bytes_(std::move(bytes)), bytes_read_(std::move(bytes_read)) {}
-      std::uint64_t size() const noexcept override { return bytes_.size(); }
-      gneiss::engine::result read_at(std::uint64_t offset,
-                                     std::span<std::byte> output) const noexcept override {
-        if (offset > bytes_.size() || output.size() > bytes_.size() - offset) {
-          return gneiss::engine::result::io;
-        }
-        std::ranges::copy(
-            std::span{bytes_}.subspan(static_cast<std::size_t>(offset), output.size()),
-            output.begin());
-        bytes_read_->fetch_add(output.size(), std::memory_order_relaxed);
-        return gneiss::engine::result::success;
-      }
-
-    private:
-      std::vector<std::byte> bytes_;
-      std::shared_ptr<std::atomic_size_t> bytes_read_;
-    };
-    try {
-      output = std::make_unique<memory_source>(found->second, bytes_read);
-    } catch (...) {
-      return gneiss::engine::result::out_of_memory;
-    }
-    return gneiss::engine::result::success;
-  }
   gneiss::engine::result read(std::string_view path,
                               std::vector<std::byte>& bytes) const noexcept override {
     return read_bounded(path, SIZE_MAX, bytes);
@@ -134,7 +96,7 @@ void prepared_source_revisions() {
   source->text(
       "material",
       R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[1,1,1,1],"base_color_texture":"asset://texture"})");
-  virtual_file_system files;
+  gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == gneiss::engine::result::success);
   const std::array requests{asset_preparation_source{"asset://material", asset_type::material}};
   asset_manager owner(gneiss::test_support::test_files(files));
@@ -181,10 +143,10 @@ void mesh_data_lifetime() {
   const std::string text =
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[1,0],[0,1]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
   source->text("mesh", text);
-  virtual_file_system files;
+  gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == gneiss::engine::result::success);
   const std::array requests{asset_preparation_source{"asset://mesh", asset_type::mesh}};
-  auto prepare = [&](const virtual_file_system& vfs) {
+  auto prepare = [&](const gneiss::test_support::fixture_files& vfs) {
     prepared_batch batch;
     asset_diagnostic diagnostic;
     asset_manager owner(gneiss::test_support::test_files(vfs));
@@ -211,7 +173,7 @@ void mesh_data_lifetime() {
   check(lifetime.expired());
 }
 void independent_update_sequences() {
-  virtual_file_system files;
+  gneiss::test_support::fixture_files files;
   check(files.mount("asset://", std::make_shared<memory_files>()) ==
         gneiss::engine::result::success);
   render_resource_service resources;
@@ -223,7 +185,7 @@ void independent_update_sequences() {
   render_asset_ref a, b;
   check(loader.reserve_asset(source_a, a) == gneiss::engine::result::success);
   check(loader.reserve_asset(source_b, b) == gneiss::engine::result::success);
-  virtual_file_system different;
+  gneiss::test_support::fixture_files different;
   check(different.mount("asset://", std::make_shared<memory_files>()) ==
         gneiss::engine::result::success);
   asset_manager isolated_owner(gneiss::test_support::test_files(different));
@@ -262,7 +224,7 @@ void independent_update_sequences() {
 }
 void reserved_material_lifetime() {
   auto source = std::make_shared<memory_files>();
-  virtual_file_system files;
+  gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == gneiss::engine::result::success);
   render_resource_service resources;
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));

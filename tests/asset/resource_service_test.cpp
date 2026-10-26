@@ -4,8 +4,6 @@
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
-#include "engine/resource/vfs/native_file_system.hpp"
-#include "engine/resource/vfs/virtual_file_system.hpp"
 
 #include <array>
 #include <cstddef>
@@ -15,137 +13,7 @@
 #include <string>
 #include <vector>
 
-namespace {
-
-bool source_identity_contract() {
-  using namespace gneiss::engine;
-  auto backend = std::make_shared<native_file_system>();
-  virtual_file_system first;
-  asset_identity original;
-  if (first.identify("asset://model.mesh", 1U, original) != gneiss::engine::result::not_found ||
-      first.mount("asset://", backend) != gneiss::engine::result::success ||
-      first.identify("asset://model.mesh", 1U, original) != gneiss::engine::result::success) {
-    return false;
-  }
-  // 未初始化文件后端仍能解析身份：本接口不应引入同步 I/O。
-  auto copied = first;
-  asset_identity observed;
-  if (copied.identify(original.uri, original.type, observed) != gneiss::engine::result::success ||
-      observed != original) {
-    return false;
-  }
-  virtual_file_system independent;
-  if (independent.mount("asset://", backend) != gneiss::engine::result::success ||
-      independent.identify(original.uri, original.type, observed) !=
-          gneiss::engine::result::success ||
-      observed == original || observed.source == original.source) {
-    return false;
-  }
-  if (first.identify(original.uri, 2U, observed) != gneiss::engine::result::success ||
-      observed == original ||
-      first.identify("asset://Model.mesh", 1U, observed) != gneiss::engine::result::success ||
-      observed == original) {
-    return false;
-  }
-  asset_identity before_overlay;
-  if (copied.identify("asset://nested/model.mesh", 1U, before_overlay) !=
-          gneiss::engine::result::success ||
-      copied.mount("asset://nested/", backend) != gneiss::engine::result::success ||
-      copied.identify(before_overlay.uri, 1U, observed) != gneiss::engine::result::success ||
-      observed.source == before_overlay.source ||
-      first.identify(before_overlay.uri, 1U, observed) != gneiss::engine::result::success ||
-      observed != before_overlay) {
-    return false;
-  }
-  if (first.identify("asset://../bad", 1U, observed) != gneiss::engine::result::invalid_argument ||
-      observed.source || !observed.uri.empty() || observed.type != 0U ||
-      first.identify(original.uri, 0U, observed) != gneiss::engine::result::invalid_argument) {
-    return false;
-  }
-  const std::weak_ptr<const file_source_domain> source = original.source;
-  first = {};
-  copied = {};
-  before_overlay = {};
-  if (source.expired()) {
-    return false;
-  }
-  original = {};
-  return source.expired();
-}
-
-struct temporary_directory final {
-  std::filesystem::path path =
-      std::filesystem::temp_directory_path() /
-      ("gneiss-asset-test-" + std::to_string(std::hash<std::string>{}(__FILE__)));
-  temporary_directory() {
-    std::filesystem::remove_all(path);
-    std::filesystem::create_directories(path / "models");
-  }
-  ~temporary_directory() noexcept {
-    try {
-      std::error_code ignored;
-      std::filesystem::remove_all(path, ignored);
-      // NOLINTNEXTLINE(bugprone-empty-catch): 析构期间只能尽力清理测试临时目录。
-    } catch (...) {
-    }
-  }
-};
-
-} // namespace
-
 int main() try {
-  if (!source_identity_contract()) {
-    return 30;
-  }
-  temporary_directory directory;
-  {
-    std::ofstream stream(directory.path / "models" / "triangle.mesh", std::ios::binary);
-    stream << "mesh";
-  }
-
-  auto provider = std::make_shared<gneiss::engine::native_file_system>();
-  gneiss::engine::virtual_file_system file_system;
-  std::vector<std::byte> bytes;
-  if (provider->read("models/triangle.mesh", bytes) != gneiss::engine::result::invalid_state ||
-      provider->initialize(directory.path.string()) != gneiss::engine::result::success ||
-      !provider->is_initialized() ||
-      file_system.mount("asset://", provider) != gneiss::engine::result::success ||
-      file_system.mount("asset://", provider) != gneiss::engine::result::invalid_state ||
-      file_system.read("asset://models/triangle.mesh", bytes) != gneiss::engine::result::success ||
-      bytes.size() != 4U ||
-      file_system.read("asset://models/missing.mesh", bytes) != gneiss::engine::result::not_found ||
-      file_system.read("asset://../outside", bytes) != gneiss::engine::result::invalid_argument) {
-    return 1;
-  }
-
-  const auto previous = bytes;
-  if (file_system.read_bounded("asset://models/triangle.mesh", 3U, bytes) !=
-          gneiss::engine::result::invalid_argument ||
-      bytes != previous ||
-      file_system.read_bounded("asset://models/triangle.mesh", 4U, bytes) !=
-          gneiss::engine::result::success ||
-      bytes.size() != 4U ||
-      file_system.read_bounded("asset://../outside", 4U, bytes) !=
-          gneiss::engine::result::invalid_argument) {
-    return 20;
-  }
-
-  const auto override_root = directory.path / "override";
-  std::filesystem::create_directories(override_root);
-  {
-    std::ofstream stream(override_root / "special.mesh", std::ios::binary);
-    stream << "override";
-  }
-  auto override_provider = std::make_shared<gneiss::engine::native_file_system>();
-  if (override_provider->initialize(override_root.string()) != gneiss::engine::result::success ||
-      file_system.mount("asset://models/", override_provider) != gneiss::engine::result::success ||
-      file_system.mount("asset://invalid", override_provider) !=
-          gneiss::engine::result::invalid_argument ||
-      file_system.read("asset://models/special.mesh", bytes) != gneiss::engine::result::success ||
-      bytes.size() != 8U || file_system.mount_count() != 2U) {
-    return 2;
-  }
-
   {
     using namespace gneiss::engine;
     using gneiss::engine::result;

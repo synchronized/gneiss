@@ -3,7 +3,7 @@
 
 # 资产 URI、目录挂载与缓存
 
-普通资源异步读取已经接入[文件服务](file-service.md)；同步加载及网格/纹理专用读取仍使用 VFS。
+普通资源、网格和纹理统一通过[文件服务](file-service.md)异步读取；旧 VFS 和同步加载入口已删除。
 
 ## URI 规则
 
@@ -23,18 +23,13 @@ URI 使用 UTF-8 和正斜杠，scheme 区分大小写。空路径、空路径�
 auto result = gneiss::engine::validate_uri(uri);
 ```
 
-## VFS 与资产根目录
+## 文件服务与资产根目录
 
-`gneiss_application_desc.asset_root` 与 `asset_root_length` 可在创建 Application 时挂载一个 UTF-8
-目录。两者必须同时为空或同时有效；目录不存在时创建返回 `GNEISS_ERROR_NOT_FOUND`。旧版结构大小
-仍可创建不挂载资产根的 Application。
-
-Application 内部将资产根作为 `asset://` 根挂载到虚拟文件系统（VFS）。VFS 按最长挂载点前缀
-路由，文件系统后端只接收相对路径，因此未来可以把子目录挂载到归档或网络后端而不修改 Loader。
-
-当前唯一实现是只读 `native_file_system`。它读取普通文件，并解析真实路径确认目标仍位于资产根内，
-因此路径穿越和指向根外的符号链接不会被访问。VFS 后端接口目前保持内部；尚未实现目录枚举、写入、
-归档或网络后端。Windows 原生范围来源另提供可轮询 I/O；类型 Loader 通过该 VFS 读取文件。
+Application 将 `application_configuration::asset_root` 装配为 `asset://` 只读挂载。
+桌面使用 libuv 原生后端；浏览器单斜线开头的绝对路径借用预加载到 Emscripten FS 的目录，
+其他路径使用 Fetch URL 基址。借用目录不会在后端销毁时被卸载。
+文件服务按最长前缀路由，后端只接收相对路径；读回退链和唯一写入后端的契约见文件服务参考。
+资产根为空时不建立挂载；文件缺失通过异步结果报告。
 
 ## 缓存与生命周期
 
@@ -44,7 +39,7 @@ Application 内部将资产根作为 `asset://` 根挂载到虚拟文件系统�
 
 | 入口 | 强引用与访问 | 更新规则 |
 | --- | --- | --- |
-| `asset_manager::load_sync<T>`、`asset_request<T>::take` | `asset_ref<const T>`，直接访问 CPU 描述 | 成功重载替换当前缓存，旧引用继续保活旧数据 |
+| `asset_manager::find_loaded<T>`、`asset_request<T>::take` | `asset_ref<const T>`，直接访问 CPU 描述 | 成功重载替换当前缓存，旧引用继续保活旧数据 |
 | Prefab 描述 | `prefab_asset_ref`，即 `asset_ref<const prefab_description>` | 别名引用保活缓存条目；重载不会修改旧描述 |
 | Render Loader、场景绑定、编辑器历史 | `mesh`、`material`、`texture` 强引用；混合批次另用缓存条目 | CPU 内容采用即完成，资源身份保持稳定，GPU 更新由 Render 独立处理 |
 
@@ -57,7 +52,7 @@ Application 内部将资产根作为 `asset://` 根挂载到虚拟文件系统�
 类型键使用 `engine::type_id`，由同一 Engine 按规范 C++ 类型名集中分配，
 只在当前运行期有效，不写入资产文件或公共 ABI；约束见 [Core 身份类型](core.md#内部基础身份类型)。
 通用请求表只保留请求顺序和在途观察状态，不保存另一份当前资源。
-通用同步和异步加载默认复用成功缓存；显式 `reload=true` 才重新读取。
+通用异步加载默认复用成功缓存；显式 `reload=true` 才重新读取。
 资源表统一通过 `resource_cache::load` 查询、按需执行回调并登记成功结果；显式重载失败
 （包括回调抛异常或返回空资源）保留旧条目，首次失败不残留占位。相同键递归加载返回
 `invalid_state`，不同键的依赖仍可递归加载。Prefab 普通加载和重载共用解析流程；
@@ -76,31 +71,20 @@ Application 和场景统一调用管理器回收；Render Loader 的回收入口
 引用计数并不提供资源数据的线程安全。CPU 数据可按只读契约共享。运行渲染资源的最后释放可在
 任意线程发生，删除器仅入队，由所属线程析构；服务关闭后走 detached 路径。
 GPU 在途使用的安全回收由 Render 及后端负责，详见[运行资源生命周期](render.md#运行资源身份与销毁)。
-同步 API 仍限 Application 创建线程；异步文件服务与 CPU 解码执行器分别负责 I/O 和解码。
+缓存查询与资源采用限所属线程；异步文件服务与 CPU 解码执行器分别负责 I/O 和解码。
 
 引用规则见 [ADR-077](../decisions/ADR-077-asset-references.md)，统一索引见
 [ADR-078](../decisions/ADR-078-unified-asset-index.md)。
 
 ## 内部异步准备
 
-网格、纹理与材质共用 CPU 准备器；同步工具路径和异步任务路径采用相同内容校验与更新入口。
-Asset 层拥有准备状态、输入缓冲和来源身份。每个执行步骤共用读取字节预算，
-并限制状态转换次数；短操作可在同一步连续完成，避免每个转换都等待下一宿主帧。
-时间边界在操作之间检查，不能抢占单次 JSON/PNG 解析或同步文件系统调用。
-thread 与 cooperative 使用同一准备实现；cooperative 在步骤之间返回宿主。
-普通 CPU 资源读取另由文件服务处理，桌面 libuv loop 不依赖 CPU 执行器的运行模式。
+网格、纹理与材质共用纯内存解码入口 `decode_loaded_asset`，该入口不读取文件、不递归加载依赖。
+文件服务返回字节后，加载编排层提交 CPU 任务；thread 与 cooperative 使用同一解码实现。
+协作模式的单次 JSON/PNG 解码仍不可抢占，不承诺单帧时间上界。
 
-VFS 使用 `open_read` / `begin_open_read`，只负责打开和读取，没有验证回执。
-准备流程保留本次实际读取内容的来源摘要；完成后不重新打开来源或做整批复验。
-材质参数和网格数据由加载结果直接持有，不再通过独立 CPU 文档缓存按内容去重。
-网格上传准备使用移动构造建立共享所有权，渲染资源及在途帧释放最后一个引用后销毁数据。
-文件更新由后续加载或重载处理，不保证多个文件属于同一时刻。短读、取消和格式错误仍返回失败。
-纹理容器的 Manifest/负载摘要校验仍保留；CPU 负载常驻供 Render 重建，不从 Render 同步读取文件。
-渲染专用准备对只提供整文件读取的内部后端仍保留同步回退，不承诺同样的单步时间上界。
-普通 CPU 资源异步加载已删除该回退，后端缺少异步能力时返回 unsupported。
-Windows 原生后端提供 OVERLAPPED 范围请求，跨步骤保留自有缓冲；NOT_READY 时返回宿主，
-请求销毁前完成取消回收。同步 API 不采用轮询忙等。Linux 原生范围读取及未实现这一可选契约的
-后端仍同步执行，不保证文件系统等待上界；不保证外部文件内容不可变。
+准备结果拥有网格数组或纹理 CPU 内容，材质依赖以 URI 返回，由加载编排层继续请求。
+纹理 Manifest 和所选负载摘要仍校验；CPU 负载常驻供 Render 重建，不保留可重新打开的文件来源。
+文件更新由后续加载处理，不保证多个文件属于同一时刻。文件读取失败、取消和格式错误分别通过结果码报告。
 
 ## 场景请求的清理快照
 
@@ -146,18 +130,17 @@ metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 
 asset_manager 的 load 请求通过 file_service 读取有界字节；完成回调交付字节后只提交一次
 asset-decode 任务。等待文件期间不轮询 CPU 任务，不再使用 asset_source。
-解码器不接收 URI 或 VFS。advance_resources 在所属线程驱动文件回调和解码结果登记。
+普通类型解码器只消费字节。宿主先分发文件完成，再由 advance_resources 推进解码结果登记。
 
-迁移期旧 VFS 构造仍支持显式 load_sync 读文件；注入 shared_ptr<file_service> 的构造
-只能同步复用已完成缓存，未命中返回 unsupported，不能阻塞等待服务回调。
-两种构造均保持已有的缓存、reload、失败保护和来源身份规则。
+asset_manager 仅接受 shared_ptr<file_service>。`find_loaded<T>` 只查询已完成缓存，
+未命中返回 not_found；`load<T>` 返回请求，不阻塞等待文件或解码。
 `register_decoder<T>(function, maximum_bytes)` 可直接登记
 `result(span<const byte>, T&, serialization_diagnostic&)` 函数，无需类型继承或反射身份。
 仍可继承 asset_decoder 提供有状态解码器；回调必须支持不同输入的并发调用。
 
-同步和异步加载都优先使用显式 decoder；未注册时，按 type_id 查找冻结 Registry 中的 decode。
+加载优先使用显式 decoder；未注册时，按 type_id 查找冻结 Registry 中的 decode。
 没有解码能力时在读取前返回 unsupported；显式解码失败不再回退。适配器在临时对象上解码，
-成功才进入缓存，失败保留既有资源和调用者输出。`load_sync` 和 `asset_request::take` 的可选 diagnostic 参数返回 codec 的路径、消息和字节位置。
+成功才进入缓存，失败保留既有资源和调用者输出。`asset_request::take` 的可选 diagnostic 参数返回 codec 的路径、消息和字节位置。
 
 首次有效加载进入解码器选择后冻结显式注册，后续反射适配不改变 codec 选择。
 管理器持有 Registry；默认使用共享的内置资源 Registry，目前包含材质、Scene、Prefab codec 和 ActionMap 解码器。
@@ -165,15 +148,10 @@ asset-decode 任务。等待文件期间不轮询 CPU 任务，不再使用 asse
 反射读取默认上限为 64 MiB，可通过构造参数指定；类型声明 `maximum_source_bytes` 时取两者较小值。
 ActionMap 限制为 1 MiB，解析器也检查此上限；显式 decoder 使用自己的上限。
 
-材质描述可直接 `load<material_description>` / `load_sync<material_description>`。
-渲染 Loader 借用同一个 asset_manager；同步加载、同步重载和后台材质请求均采用该管理器的
-显式 decoder/反射选择规则。普通同步加载复用 CPU 描述缓存，reload 才重新读取；Input 的
-显式重新加载入口仍强制读取。缓存命中不使较早异步请求失去写入权，成功同步读取才覆盖它。
-后台协调者在所属线程发起请求并领取描述，工作线程只处理只读描述和纹理依赖，不访问 manager。
-asset_preparation 不读取或解码材质文件，材质输入缺失返回 unsupported。运行期材质持有对应描述引用，
-更新成功后切换引用；失败保留旧 RID 内容与描述。CPU 描述和渲染资源以不同类型键保存在同一索引中。
-运行时 texture_load_service 的网格和纹理通过 manager.async_files() 使用同一个文件服务，
-通过 manager.identify() 解析来源域；不依赖注入构造中的旧 VFS 挂载。
+材质描述通过 `load<material_description>` 加载，Render Loader 借用同一个 asset_manager。
+加载编排层在所属线程领取描述，工作线程只处理只读数据和纹理依赖，不访问管理器。
+运行时 texture_load_service 的网格和纹理通过 manager.async_files() 使用同一文件服务，
+通过 manager.identify() 解析来源域。CPU 描述与渲染资源以不同类型键保存在同一索引中。
 网格完成有界整读后提交一次纯内存解码；纹理先读取描述并解析依赖 URI，再读取完整负载，
 随后解码。CPU 任务不推进文件请求，也不采用同步文件回退。材质领取描述后也使用纯内存准备入口。
 
@@ -183,9 +161,9 @@ texture_description 表示现有纹理 JSON 的运行时视图；尺寸、变体
 注入文件服务须配置可接受相应 max_bytes 的上限，否则提交返回 invalid_argument。
 多个纹理变体可能全部被读取，但有设备 profile 时只保留选中变体的 CPU 负载和 Manifest。
 运行异步路径释放原文件来源，GPU 恢复直接复用 CPU 数据；代价是该数据随资源引用常驻。
-显式同步 prepare_assets/prepare_texture 等工具接口继续保留原契约。
+旧 prepare_assets/prepare_texture 和分步 asset_preparation 接口已删除。
 
-文件完成和解码完成均不代表 GPU 可用，只有上传后端确认并完成资源更新才进入 applied。
+加载回执的 applied 表示 CPU 内容已被采用，不表示 GPU 已可用；上传与 GPU 生命周期由 Render 独立管理。
 读取失败不上传半成品，更新失败保留旧内容；取消请求放弃观察，迟到文件回调只持有弱引用。
 完整加载链路的实施边界见 [PLAN-052](../plans/PLAN-052-async-render-assets.md)。
 反射 fallback 调用登记的函数，不代表自动遍历属性反序列化。

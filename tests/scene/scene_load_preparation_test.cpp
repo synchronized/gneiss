@@ -3,7 +3,7 @@
 
 #include "../support/async_asset.hpp"
 #include "../support/async_scene.hpp"
-#include "../support/memory_read_file_system.hpp"
+#include "../support/memory_file_fixture.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
@@ -11,7 +11,7 @@
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/loaders/scene_serialization.hpp"
 
-#include "engine/resource/vfs/virtual_file_system.hpp"
+#include "../support/memory_file_fixture.hpp"
 
 #include <cstdio>
 #include <map>
@@ -28,7 +28,7 @@ void check(bool value, std::source_location where = std::source_location::curren
   }
 }
 
-struct memory_files final : gneiss::test_support::memory_read_file_system {
+struct memory_files final : gneiss::test_support::memory_file_fixture {
   std::map<std::string, std::string> files;
   mutable std::map<std::string, unsigned> reads;
   bool change_on_verify{};
@@ -88,7 +88,7 @@ void run() {
   memory->files["p.prefab"] =
       R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"00000000-0000-4000-8000-000000000005","objects":[)" +
       std::string(object) + "]}";
-  gneiss::engine::virtual_file_system files;
+  gneiss::test_support::fixture_files files;
   check(files.mount("asset://", memory) == gneiss::engine::result::success);
   auto& executor = gneiss::test_support::asset_tasks();
   asset_manager assets(gneiss::test_support::test_files(files));

@@ -274,7 +274,6 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/action_map_validation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/action_map_parser.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
 )
 target_include_directories(gneiss_action_map_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_action_map_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -487,7 +486,7 @@ add_executable(gneiss_scene_load_preparation_test
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp")
+)
 target_include_directories(gneiss_scene_load_preparation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_scene_load_preparation_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_scene_load_preparation_test PRIVATE gneiss::engine gneiss_yyjson gneiss_tasks)
@@ -509,7 +508,6 @@ add_executable(
   gneiss_scene_description_test
   serialization/scene_description_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/scene_description.cpp"
 )
@@ -526,7 +524,6 @@ add_executable(
   serialization/prefab_description_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/cache/resource_cache.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/prefab_description.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/prefab_property_data.cpp"
@@ -545,7 +542,6 @@ add_executable(
   gneiss_prefab_property_override_test
   serialization/prefab_property_override_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/prefab_description.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
@@ -563,9 +559,7 @@ add_executable(
   gneiss_resource_service_test
   asset/resource_service_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/native_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/cache/resource_cache.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
 )
 target_include_directories(gneiss_resource_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_resource_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -584,19 +578,7 @@ gneiss_target_compile_warnings(gneiss_loop_timing_test)
 gneiss_target_output_directories(gneiss_loop_timing_test)
 add_test(NAME gneiss.loop_timing COMMAND gneiss_loop_timing_test)
 
-add_executable(gneiss_read_source_test
-  asset/read_source_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/native_file_system.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp")
-target_include_directories(gneiss_read_source_test PRIVATE
-  "${PROJECT_SOURCE_DIR}/src")
-target_link_libraries(gneiss_read_source_test PRIVATE Threads::Threads)
-target_compile_definitions(gneiss_read_source_test PRIVATE GNEISS_BUILDING_LIBRARY)
-target_compile_features(gneiss_read_source_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_read_source_test)
-gneiss_target_output_directories(gneiss_read_source_test)
-add_test(NAME gneiss.read_source COMMAND gneiss_read_source_test)
+
 
 add_executable(
   gneiss_mesh_binary_test
@@ -631,17 +613,7 @@ gneiss_target_compile_warnings(gneiss_texture_binary_test)
 gneiss_target_output_directories(gneiss_texture_binary_test)
 add_test(NAME gneiss.texture_binary COMMAND gneiss_texture_binary_test)
 
-add_executable(gneiss_texture_container_test
-  asset/texture_container_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_container.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp")
-target_include_directories(gneiss_texture_container_test PRIVATE
-  "${PROJECT_SOURCE_DIR}/src")
-target_compile_features(gneiss_texture_container_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_texture_container_test)
-gneiss_target_output_directories(gneiss_texture_container_test)
-add_test(NAME gneiss.texture_container COMMAND gneiss_texture_container_test)
+
 
 add_executable(
   gneiss_scene_projection_math_test
@@ -666,8 +638,6 @@ add_executable(gneiss_render_asset_preparation_test
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_ktx2.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_container.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/png_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
 )
@@ -692,10 +662,8 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/cache/resource_cache.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/asset_preparation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource.cpp"
@@ -723,10 +691,8 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/cache/resource_cache.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/asset_preparation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource.cpp"
@@ -840,11 +806,9 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/cache/resource_cache.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/png_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/asset_preparation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource.cpp"
@@ -986,8 +950,6 @@ gneiss_target_output_directories(gneiss_native_draw_submission_test)
 add_test(NAME gneiss.native-draw-submission COMMAND gneiss_native_draw_submission_test)
 
 if(COMMAND gneiss_enable_asset_libuv)
-  gneiss_enable_asset_libuv(gneiss_read_source_test)
-  gneiss_enable_asset_libuv(gneiss_resource_service_test)
 endif()
 
 
@@ -1103,5 +1065,5 @@ endforeach()
 foreach(test IN ITEMS gneiss_action_map_test gneiss_scene_description_test gneiss_prefab_description_test
     gneiss_scene_load_preparation_test gneiss_scene_instantiation_test gneiss_prefab_runtime_instance_test
     gneiss_texture_load_service_test gneiss_render_asset_loader_test)
-  target_link_libraries(${test} PRIVATE gneiss_test_legacy_files)
+  target_link_libraries(${test} PRIVATE)
 endforeach()

@@ -2,14 +2,13 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_asset.hpp"
-#include "../support/memory_read_file_system.hpp"
+#include "../support/memory_file_fixture.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/resource_registry.hpp"
 #include "engine/resource/types/action_map.hpp"
-#include "engine/resource/vfs/virtual_file_system.hpp"
 #include <cstring>
 
 namespace {
@@ -38,7 +37,7 @@ gneiss::engine::result load_map_for_test(gneiss::engine::asset_manager& assets,
   }
   return gneiss::engine::result::internal;
 }
-class changing_files final : public gneiss::test_support::memory_read_file_system {
+class changing_files final : public gneiss::test_support::memory_file_fixture {
 public:
   std::string first, second;
   mutable unsigned reads = 0;
@@ -91,7 +90,7 @@ int main() {
     return 2;
   }
   auto backend = std::make_shared<changing_files>();
-  gneiss::engine::virtual_file_system files;
+  gneiss::test_support::fixture_files files;
   if (files.mount("asset://", backend) != gneiss::engine::result::success)
     return 3;
   auto& executor = gneiss::test_support::asset_tasks();

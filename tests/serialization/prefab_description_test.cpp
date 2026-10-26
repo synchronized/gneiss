@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_asset.hpp"
-#include "../support/memory_read_file_system.hpp"
+#include "../support/memory_file_fixture.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_tree.hpp"
@@ -10,8 +10,6 @@
 #include "engine/resource/cache/resource_cache.hpp"
 #include "engine/resource/resource_registry.hpp"
 #include "engine/resource/types/prefab_description.hpp"
-#include "engine/resource/vfs/file_system.hpp"
-#include "engine/resource/vfs/virtual_file_system.hpp"
 
 #include <cstddef>
 #include <memory>
@@ -52,7 +50,7 @@ constexpr std::string_view valid_prefab = R"({
   return text;
 }
 
-class memory_file_system final : public gneiss::test_support::memory_read_file_system {
+class memory_file_system final : public gneiss::test_support::memory_file_fixture {
 public:
   explicit memory_file_system(std::string content) : content_(std::move(content)) {}
 
@@ -92,13 +90,13 @@ bool prepared_description_contract() {
   using namespace gneiss::engine;
   using namespace gneiss::engine;
 
-  virtual_file_system files;
+  gneiss::test_support::fixture_files files;
   auto backend = std::make_shared<memory_file_system>(std::string(valid_prefab));
   if (files.mount("asset://prefabs/", backend) != gneiss::engine::result::success) {
     return false;
   }
 
-  virtual_file_system different_source;
+  gneiss::test_support::fixture_files different_source;
   if (different_source.mount("asset://prefabs/", backend) != gneiss::engine::result::success) {
     return false;
   }
@@ -285,7 +283,7 @@ int main() try {
   }
 
   auto mounted = std::make_shared<memory_file_system>(std::string(valid_prefab));
-  gneiss::engine::virtual_file_system file_system;
+  gneiss::test_support::fixture_files file_system;
   if (file_system.mount("asset://prefabs/", mounted).failed())
     return 7;
   gneiss::engine::asset_manager assets(gneiss::test_support::test_files(file_system));

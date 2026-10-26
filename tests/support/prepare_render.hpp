@@ -10,7 +10,7 @@
 namespace gneiss::test_support {
 using namespace gneiss::engine;
 // 仅组织内存测试夹具；生产解码器只消费字节，不负责读取与递归依赖。
-inline result decode_fixture(const virtual_file_system& files,
+inline result decode_fixture(const gneiss::test_support::fixture_files& files,
                              const asset_preparation_source& source, prepared_asset& output,
                              asset_diagnostic& diagnostic, std::size_t input_limit,
                              std::size_t output_limit, texture_prepare_profile profile = {}) {
@@ -54,9 +54,9 @@ inline result decode_fixture(const virtual_file_system& files,
   }
   return result::success;
 }
-inline result decode_texture_fixture(const virtual_file_system& files, std::string_view uri,
-                                     prepared_texture_data& output, asset_diagnostic& diagnostic,
-                                     std::size_t input_limit,
+inline result decode_texture_fixture(const gneiss::test_support::fixture_files& files,
+                                     std::string_view uri, prepared_texture_data& output,
+                                     asset_diagnostic& diagnostic, std::size_t input_limit,
                                      std::size_t output_limit = 256U * 1024U * 1024U,
                                      texture_prepare_profile profile = {}) {
   output = {};
@@ -68,7 +68,8 @@ inline result decode_texture_fixture(const virtual_file_system& files, std::stri
     output = std::move(decoded.texture);
   return status;
 }
-inline result prepare_render_for_test(asset_manager& assets, const virtual_file_system& files,
+inline result prepare_render_for_test(asset_manager& assets,
+                                      const gneiss::test_support::fixture_files& files,
                                       std::span<const render_asset_reload> requested,
                                       prepared_render_batch& output, asset_diagnostic& diagnostic,
                                       const std::function<bool()>& cancelled,

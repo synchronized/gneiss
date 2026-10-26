@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_asset.hpp"
-#include "../support/memory_read_file_system.hpp"
+#include "../support/memory_file_fixture.hpp"
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
@@ -15,8 +15,6 @@
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
 #include "engine/resource/types/prefab_description.hpp"
-#include "engine/resource/vfs/file_system.hpp"
-#include "engine/resource/vfs/virtual_file_system.hpp"
 
 #include "engine/core/rid.hpp"
 
@@ -61,7 +59,7 @@ constexpr std::string_view broken_prefab_json = R"({
   }]
 })";
 
-class memory_file_system final : public gneiss::test_support::memory_read_file_system {
+class memory_file_system final : public gneiss::test_support::memory_file_fixture {
 public:
   gneiss::engine::result read_bounded(std::string_view path, std::size_t limit,
                                       std::vector<std::byte>& output) const noexcept override {
@@ -195,7 +193,7 @@ int main() try {
   if (gneiss::engine::create_property_registry(registry).failed())
     return 2;
 
-  gneiss::engine::virtual_file_system file_system;
+  gneiss::test_support::fixture_files file_system;
   gneiss::engine::render_resource_service resources;
   if (file_system.mount("asset://prefabs/", std::make_shared<memory_file_system>()) !=
       gneiss::engine::result::success) {

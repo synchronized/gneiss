@@ -3,7 +3,7 @@
 
 #include "../support/async_render.hpp"
 #include "../support/async_scene.hpp"
-#include "../support/memory_read_file_system.hpp"
+#include "../support/memory_file_fixture.hpp"
 #include "../support/prepare_render.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
@@ -12,7 +12,6 @@
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/asset_manager.hpp"
-#include "engine/resource/vfs/virtual_file_system.hpp"
 #include "runtime/loading/scene_domain.hpp"
 #include <algorithm>
 #include <thread>
@@ -28,7 +27,7 @@ void check(bool value, std::source_location where = std::source_location::curren
     throw std::runtime_error("场景候选隔离失败，行=" + std::to_string(where.line()));
   }
 }
-struct memory_files final : gneiss::test_support::memory_read_file_system {
+struct memory_files final : gneiss::test_support::memory_file_fixture {
   std::map<std::string, std::string> files;
   mutable unsigned reads{};
   gneiss::engine::result read(std::string_view path,
@@ -77,7 +76,7 @@ void unified_resource_index() {
   };
   auto source = std::make_shared<memory_files>();
   source->files["same"] = "cpu";
-  virtual_file_system files;
+  gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == result::success);
   gneiss::engine::render_resource_service resources;
   asset_manager assets(gneiss::test_support::test_files(files));
@@ -120,7 +119,7 @@ void run() {
       R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]]})";
   files->files["m.material"] =
       R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,0,0,1]})";
-  gneiss::engine::virtual_file_system vfs;
+  gneiss::test_support::fixture_files vfs;
   check(vfs.mount("asset://", files) == gneiss::engine::result::success);
   gneiss::engine::render_resource_service resources;
   auto& executor = gneiss::test_support::render_tasks();

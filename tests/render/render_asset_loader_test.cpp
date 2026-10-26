@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_render.hpp"
-#include "../support/memory_read_file_system.hpp"
+#include "../support/memory_file_fixture.hpp"
 #include "../support/prepare_render.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
@@ -14,10 +14,7 @@
 #include "engine/resource/loaders/material_serialization.hpp"
 #include "engine/resource/loaders/mesh_binary.hpp"
 #include "engine/resource/loaders/texture_binary.hpp"
-#include "engine/resource/loaders/texture_container.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
-#include "engine/resource/vfs/file_system.hpp"
-#include "engine/resource/vfs/virtual_file_system.hpp"
 
 #include <granit/asset_tools/texture_builder.hpp>
 
@@ -83,7 +80,7 @@ public:
   }
 };
 
-class memory_file_system final : public gneiss::test_support::memory_read_file_system {
+class memory_file_system final : public gneiss::test_support::memory_file_fixture {
 public:
   std::unordered_map<std::string, std::string> files;
   mutable std::size_t read_count = 0;
@@ -237,7 +234,7 @@ void selected_variants() {
       std::string(reinterpret_cast<const char*>(binary.data()), binary.size());
   memory->files["t.texture.json"] =
       R"({"format":"gneiss.texture","version":1,"source":"asset://t.gneiss-texture","color_space":"srgb"})";
-  gneiss::engine::virtual_file_system files;
+  gneiss::test_support::fixture_files files;
   require(files.mount("asset://", memory) == gneiss::engine::result::success);
   const texture_prepare_profile compressed{.generation = 1U,
                                            .sampled_transfer_formats = {true, true, true, true}};
@@ -351,7 +348,7 @@ void selected_variants() {
 }
 
 // 同步与异步更新都保留纯参数；准备上传不另建资源 RID。
-bool material_parameter_roundtrip(gneiss::engine::virtual_file_system& files,
+bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
                                   memory_file_system& memory) {
   using namespace gneiss::engine;
   std::string json =
@@ -529,7 +526,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
       R"({"format":"gneiss.material","version":5,"color":[1,0.5,0.25,1],"base_color_texture":"asset://textures/white.texture.json","metallic":0.25,"roughness":0.75})");
   add_indexed_mesh(*memory);
 
-  gneiss::engine::virtual_file_system file_system;
+  gneiss::test_support::fixture_files file_system;
   gneiss::engine::render_resource_service resources;
   if (file_system.mount("asset://", memory).failed())
     return 1;
@@ -542,7 +539,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   {
     auto parameter_files = std::make_shared<memory_file_system>();
     parameter_files->files = memory->files;
-    gneiss::engine::virtual_file_system parameter_vfs;
+    gneiss::test_support::fixture_files parameter_vfs;
     if (parameter_vfs.mount("asset://", parameter_files) != gneiss::engine::result::success ||
         !material_parameter_roundtrip(parameter_vfs, *parameter_files)) {
       return 40;

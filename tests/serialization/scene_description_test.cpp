@@ -2,13 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_asset.hpp"
-#include "../support/memory_read_file_system.hpp"
+#include "../support/memory_file_fixture.hpp"
 #include "engine/core/result.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/resource_registry.hpp"
 #include "engine/resource/types/scene_description.hpp"
-#include "engine/resource/vfs/file_system.hpp"
-#include "engine/resource/vfs/virtual_file_system.hpp"
 
 #include <array>
 #include <cstddef>
@@ -65,7 +63,7 @@ constexpr std::string_view prefab_scene = R"({
          diagnostic.result == expected && diagnostic.path == path && scene.objects.empty();
 }
 
-class memory_file_system final : public gneiss::test_support::memory_read_file_system {
+class memory_file_system final : public gneiss::test_support::memory_file_fixture {
 public:
   explicit memory_file_system(std::string content) : content_(std::move(content)) {}
 
@@ -227,7 +225,7 @@ int main() try {
     }
   }
 
-  gneiss::engine::virtual_file_system file_system;
+  gneiss::test_support::fixture_files file_system;
   if (file_system.mount("asset://scenes/", std::make_shared<memory_file_system>(std::string(
                                                valid_scene))) != gneiss::engine::result::success)
     return 6;

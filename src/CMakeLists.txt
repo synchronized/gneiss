@@ -50,23 +50,16 @@ target_sources(
     engine/resource/asset_uri.cpp
     engine/resource/asset_uri.hpp
     engine/resource/types/asset_identity.hpp
-    engine/resource/vfs/file_system.hpp
     engine/resource/loaders/mesh_binary.cpp
     engine/resource/loaders/mesh_binary.hpp
     engine/resource/loaders/texture_ktx2.cpp
     engine/resource/loaders/texture_ktx2.hpp
     engine/resource/loaders/texture_binary.cpp
     engine/resource/loaders/texture_binary.hpp
-    engine/resource/loaders/texture_container.cpp
-    engine/resource/loaders/texture_container.hpp
     engine/function/render/texture_load_service.cpp
     engine/function/render/texture_load_service.hpp
-    engine/resource/vfs/native_file_system.cpp
-    engine/resource/vfs/native_file_system.hpp
     engine/resource/cache/resource_cache.cpp
     engine/resource/cache/resource_cache.hpp
-    engine/resource/vfs/virtual_file_system.cpp
-    engine/resource/vfs/virtual_file_system.hpp
     engine/core/service_registry.cpp
     engine/core/service_registry.hpp
     engine/core/rid_table.hpp

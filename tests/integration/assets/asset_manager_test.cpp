@@ -2,8 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../support/async_asset.hpp"
-#include "../../support/legacy_file_backend.hpp"
-#include "../../support/memory_read_file_system.hpp"
+#include "../../support/memory_file_fixture.hpp"
 #include "engine/core/meta/type_registration.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
@@ -41,7 +40,7 @@ void check(bool ok, const char* message) {
     throw std::runtime_error(message);
 }
 using value = gneiss::test_support::asset_value;
-class memory_files final : public gneiss::test_support::memory_read_file_system {
+class memory_files final : public gneiss::test_support::memory_file_fixture {
 public:
   mutable unsigned reads{};
   mutable char byte{'a'};
@@ -164,20 +163,11 @@ void injected_file_service() {
   check(files->shutdown([&](result status) { closed = status.ok(); }).ok(),
         "shared service shutdown");
   check(files->dispatch_completions(64).ok() && closed, "shared service drained");
-
-  auto legacy_backend = std::make_shared<memory_files>();
-  virtual_file_system legacy;
-  check(legacy.mount("asset://", legacy_backend).ok(), "legacy identity mount");
-  auto imported = make_file_service(legacy, {});
-  std::shared_ptr<const file_source_domain> original, migrated;
-  check(legacy.resolve_source("asset://value", original).ok() &&
-            imported->resolve_source("asset://value", migrated).ok() && original == migrated,
-        "migration preserves source identity");
 }
 void decoder_selection() {
   auto& executor = gneiss::test_support::asset_tasks();
   auto source = std::make_shared<memory_files>();
-  virtual_file_system files;
+  gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == result::success, "decoder mount");
   gneiss::engine::meta::registry_ref registry;
   check(create_native(registry) == result::success, "decoder registry");
@@ -331,7 +321,7 @@ void reference_lifetime() {
 }
 void cache_collection() {
   auto source = std::make_shared<memory_files>();
-  virtual_file_system files;
+  gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == gneiss::engine::result::success, "collection mount");
   auto& executor = gneiss::test_support::asset_tasks();
   asset_manager assets(gneiss::test_support::test_files(files));
@@ -396,7 +386,7 @@ void cache_collection() {
 }
 void run() {
   auto source = std::make_shared<memory_files>();
-  virtual_file_system files;
+  gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == gneiss::engine::result::success, "mount");
   auto& executor = gneiss::test_support::asset_tasks();
   auto parser = std::make_shared<loader>();
@@ -563,7 +553,7 @@ void run() {
 void stored_value_supersedes_pending() {
   auto& executor = gneiss::test_support::asset_tasks();
   auto source = std::make_shared<memory_files>();
-  virtual_file_system files;
+  gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source).ok(), "store mount");
   asset_manager assets(gneiss::test_support::test_files(files));
   check(assets.register_decoder(std::make_shared<loader>()).ok(), "store decoder");

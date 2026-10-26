@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../support/legacy_file_backend.hpp"
 #include "engine/platform/files/file_read_stream.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/platform/files/memory_file_backend.hpp"
-#include "engine/resource/vfs/file_system.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -479,160 +477,40 @@ void lifetime() {
   }
   late({result::success, {}});
 }
-struct counters {
-  unsigned opens{}, reads{}, closes{};
-  std::size_t maximum{}, size{150000};
-  bool short_read{};
-};
-class read final : public read_operation {
-public:
-  explicit read(std::size_t size) : bytes_(size, std::byte{42}) {}
-  gneiss::engine::result poll(std::span<const std::byte>& output) noexcept override {
-    if (!polled_) {
-      polled_ = true;
-      return gneiss::engine::result::not_ready;
-    }
-    output = bytes_;
-    return gneiss::engine::result::success;
-  }
-
-private:
-  bool polled_{};
-  std::vector<std::byte> bytes_;
-};
-class source final : public read_source {
-public:
-  explicit source(std::shared_ptr<counters> stats) : stats_(std::move(stats)) {}
-  std::uint64_t size() const noexcept override { return stats_->size; }
-  gneiss::engine::result read_at(std::uint64_t, std::span<std::byte>) const noexcept override {
-    return gneiss::engine::result::internal;
-  }
-  gneiss::engine::result
-  begin_read(std::uint64_t, std::size_t size,
-             std::unique_ptr<read_operation>& output) const noexcept override {
-    ++stats_->reads;
-    stats_->maximum = std::max(stats_->maximum, size);
-    try {
-      output = std::make_unique<read>(size - (stats_->short_read ? 1U : 0U));
-      return gneiss::engine::result::success;
-    } catch (...) {
-      return gneiss::engine::result::out_of_memory;
-    }
-  }
-  gneiss::engine::result begin_close() const noexcept override {
-    ++stats_->closes;
-    return gneiss::engine::result::success;
-  }
-  gneiss::engine::result poll_close() const noexcept override {
-    if (!closed_) {
-      closed_ = true;
-      return gneiss::engine::result::not_ready;
-    }
-    return gneiss::engine::result::success;
-  }
-
-private:
-  std::shared_ptr<counters> stats_;
-  mutable bool closed_{};
-};
-class opening final : public open_read_operation {
-public:
-  explicit opening(std::shared_ptr<counters> stats) : stats_(std::move(stats)) {}
-  gneiss::engine::result poll(std::unique_ptr<read_source>& output) noexcept override {
-    if (!polled_) {
-      polled_ = true;
-      return gneiss::engine::result::not_ready;
-    }
-    try {
-      output = std::make_unique<source>(stats_);
-      return gneiss::engine::result::success;
-    } catch (...) {
-      return gneiss::engine::result::out_of_memory;
-    }
-  }
-
-private:
-  std::shared_ptr<counters> stats_;
-  bool polled_{};
-};
-class files final : public file_system {
-public:
-  std::shared_ptr<counters> stats = std::make_shared<counters>();
-  gneiss::engine::result
-  begin_open_read(std::string_view,
-                  std::unique_ptr<open_read_operation>& output) const noexcept override {
-    ++stats->opens;
-    try {
-      output = std::make_unique<opening>(stats);
-      return gneiss::engine::result::success;
-    } catch (...) {
-      return gneiss::engine::result::out_of_memory;
-    }
-  }
-  gneiss::engine::result read(std::string_view, std::vector<std::byte>&) const noexcept override {
-    return gneiss::engine::result::internal;
-  }
-};
-void async_bridge() {
-  auto backend = std::make_shared<files>();
-  auto adapter = std::make_shared<async_read_file_backend>(backend);
-  file_service service;
-  check(service.mount({"asset://", {adapter}, {}}) == result::success, "adapter mount");
-  file_request_id id;
-  bool done = false;
-  check(service.read(
-            "asset://test", {150000},
-            [&](auto completed) {
-              check(completed.status == result::success && completed.data.size() == 150000 &&
-                        backend->stats->closes == 1,
-                    "async completion after close");
-              done = true;
-            },
-            id) == result::success &&
-            !done,
-        "async read");
-  for (unsigned i = 0; i < 32 && !done; ++i)
-    pump(service);
-  check(done && backend->stats->reads == 3 && backend->stats->maximum == 65536, "chunked read");
-  done = false;
-  check(service.read(
-            "asset://test", {149999},
-            [&](auto completed) {
-              check(completed.status == result::invalid_argument && completed.data.empty() &&
-                        backend->stats->closes == 2,
-                    "oversize closes");
-              done = true;
-            },
-            id) == result::success,
-        "oversize request");
-  for (unsigned i = 0; i < 32 && !done; ++i)
-    pump(service);
-  check(done && backend->stats->reads == 3, "oversize no reads");
-  backend->stats->short_read = true;
-  done = false;
-  check(service.read_range(
-            "asset://test", {1, 10},
-            [&](auto completed) {
-              check(completed.status == result::io && completed.data.empty() &&
-                        backend->stats->closes == 3,
-                    "short read closes");
-              done = true;
-            },
-            id) == result::success,
-        "short request");
-  for (unsigned i = 0; i < 32 && !done; ++i)
-    pump(service);
-  check(done, "short completes");
+// 来源标记属于挂载；共享后端不意味着共享资产命名域。
+void source_identity() {
+  auto backend = std::make_shared<memory_file_backend>();
+  auto first = std::make_unique<file_service>();
+  auto second = std::make_unique<file_service>();
+  std::shared_ptr<const file_source_domain> original, independent, nested;
+  check(first->resolve_source("asset://item", original) == result::not_found && !original,
+        "unmounted identity");
+  check(first->mount({"asset://", {backend}, {}}).ok(), "first identity mount");
+  check(second->mount({"asset://", {backend}, {}}).ok(), "independent identity mount");
+  check(first->resolve_source("asset://item", original).ok() && original, "identity without IO");
+  check(second->resolve_source("asset://item", independent).ok() && independent != original,
+        "same backend separate domains");
+  check(second->mount({"asset://nested/", {backend}, {}, original}).ok(), "explicit shared domain");
+  check(second->resolve_source("asset://nested/item", nested).ok() && nested == original,
+        "longest prefix source");
+  check(first->resolve_source("asset://../invalid", nested) == result::invalid_argument && !nested,
+        "invalid identity clears output");
+  std::weak_ptr<const file_source_domain> lifetime = original;
+  first.reset();
+  second.reset();
+  check(!lifetime.expired(), "asset identity retains domain");
+  original.reset();
+  check(lifetime.expired(), "last identity releases domain");
 }
 } // namespace
 int main() {
   try {
+    source_identity();
     memory_and_routes();
     pagination_and_reentry();
     byte_budget();
     stream_blocks();
     lifetime();
-    async_bridge();
     return 0;
   } catch (const std::exception& error) {
     std::fprintf(stderr, "%s\n", error.what());

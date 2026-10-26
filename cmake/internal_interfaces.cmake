@@ -29,18 +29,15 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/types/asset_identity.hpp
   engine/resource/loaders/asset_preparation.hpp
   engine/resource/asset_uri.hpp
-  engine/resource/vfs/file_system.hpp
   engine/resource/types/material_parameters.hpp
   engine/resource/types/material_types.hpp
   engine/resource/types/mesh_data.hpp
-  engine/resource/vfs/read_source.hpp
   engine/resource/asset_ref.hpp
   engine/resource/resource_retirement_queue.hpp
   engine/resource/cache/resource_cache.hpp
   engine/resource/loaders/texture_ktx2.hpp
   engine/resource/types/texture_preparation_data.hpp
   engine/resource/types/texture_types.hpp
-  engine/resource/vfs/virtual_file_system.hpp
   engine/core/diagnostics/diagnostic.hpp
   engine/core/diagnostics/loop_timing.hpp
   engine/core/frame_time.hpp

@@ -4,7 +4,7 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_manager.hpp"
-#include "legacy_files.hpp"
+#include "memory_file_fixture.hpp"
 #include <chrono>
 #include <stdexcept>
 namespace gneiss::test_support {

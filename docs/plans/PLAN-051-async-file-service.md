@@ -9,8 +9,8 @@
 Platform 不再依赖旧 VFS 或资产层。独立 libuv 桌面后端已实现读、范围读、写、stat/list/flush。
 Windows 本地服务契约、桌面后端和资产管理小范围测试通过；Application 已直接装配 file_service 与 libuv 后端。
 asset_manager 的旧 VFS 构造、files() 和 load_sync/load_sync_erased 已删除，统一注入文件服务。
-旧适配器仅保留在 tests/support，生产引擎不再编译它；资产 URI 校验已独立到 resource/asset_uri。
-旧 VFS 与测试夹具仍待删除；生产同步准备器本体已删除。
+旧 VFS、纹理文件容器、同步准备器及迁移适配器已删除；资产 URI 校验位于 resource/asset_uri。
+测试通过内存 Platform 后端装配文件服务；来源身份、路由、范围读和生命周期由现有服务测试覆盖。
 asset_manager 已提供 find_loaded；普通 CPU、Mesh/Texture 异步加载已使用文件服务。
 宿主已统一分发文件完成，Manager、Scene 和 Texture Loader 不再隐式驱动共享服务。
 服务已增加在途及待分发字节缓冲的总预算；已知长度文件支持按需单块读取，无隐式预读。
@@ -48,7 +48,7 @@ Render acquire_* 已收敛为纯缓存查询，缺失不再同步准备或读盘
 Render 的 prepare_render_assets 同步入口已删除；准备器测试临时通过测试宿主异步加载材质。
 asset_preparation 分步状态机、prepare_assets/prepare_texture 同步入口及纹理文件来源引用已删除。
 解码器只消费内存，相关测试改为内存解码契约；读取、取消及关闭由文件/加载服务测试验证。
-删除 VFS、浏览器和大文件能力仍待完成。
+浏览器与大文件能力的完整验收仍待完成。
 不将 Platform 搬迁或桌面后端实现等同于整份计划完成；大场景和 CI 仍留待统一验收。
 架构决策见 [ADR-084](../decisions/ADR-084-async-file-service.md)。
 
@@ -58,7 +58,7 @@ asset_preparation 分步状态机、prepare_assets/prepare_texture 同步入口�
 - Scene/Prefab 结构重载、编辑器文件监听、作者历史恢复已迁移；首次同步 load/open 和旧 Prefab 编辑辅助 API 已删除；Mesh 编辑辅助 API 尚待收敛。
 - Render 首次 acquire 的同步准备回退已删除；缓存缺失统一由异步请求处理。
 - Application 已直接装配 Platform 后端并删除 asset_files；Manager 同步入口和 VFS 构造已删除。
-  同步准备器已删除；旧 VFS 及测试专用兼容夹具仍待删除。
+  同步准备器、旧 VFS 及测试迁移适配器已删除。
 - 当前改动已通过 Windows 编译、相关小型测试及 Core 分层检查；完整计划验收尚未开始。
 
 ## 本轮确认范围（待实施）
