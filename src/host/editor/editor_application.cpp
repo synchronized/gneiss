@@ -60,12 +60,14 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <limits>
 #include <memory>
 #include <new>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -169,6 +171,8 @@ struct editor_state {
   gneiss::editor::author_asset_service author_assets{task_scheduler};
   gneiss::editor::asset_background_worker asset_reimports{{}, &task_scheduler};
   bool asset_shutdown_pending{};
+  std::deque<gneiss::editor::asset_file_event> pending_author_events;
+  std::optional<std::string> author_reload_uri;
   std::size_t observed_author_drops = 0U;
   std::size_t observed_source_drops = 0U;
   std::size_t observed_candidate_drops = 0U;
@@ -1327,6 +1331,21 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
     if (loading != gneiss::engine::result::success) {
       return loading;
     }
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+    if (state.author_reload_uri && !state.scene_loader.active()) {
+      auto operation = state.scene_loader.operation();
+      if (operation.ok())
+        operation = state.runtime.publish_asset_revision(
+            std::span<const std::string>(&*state.author_reload_uri, 1U));
+      if (operation.ok()) {
+        state.author_assets.mark_applied(*state.author_reload_uri);
+        state.asset_reimports.request_refresh();
+      } else {
+        state.author_assets.mark_failed(*state.author_reload_uri, operation);
+      }
+      state.author_reload_uri.reset();
+    }
+#endif
     if (scene_changed) {
       state.inspector.clear();
       state.inspected_entity = {};
@@ -1481,7 +1500,11 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
     for (auto& candidate : author_candidates) {
       author_events.push_back({.relative_path = std::move(candidate)});
     }
-    for (const auto& event : author_events) {
+    for (auto& event : author_events)
+      state.pending_author_events.push_back(std::move(event));
+    while (!state.pending_author_events.empty()) {
+      auto event = std::move(state.pending_author_events.front());
+      state.pending_author_events.pop_front();
       if (event.kind == gneiss::editor::asset_file_event_kind::error) {
         if (state.author_watch_result == gneiss::engine::result::success) {
           state.author_assets.request_rescan();
@@ -1511,10 +1534,16 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
           });
       auto operation = gneiss::engine::result::success;
       if (is_current_scene || is_used_prefab) {
-        const auto current_uri = std::string{state.editing.document().uri()};
-        operation = state.editing.document().open(*state.application, state.world, current_uri);
-        if (operation == gneiss::engine::result::success) {
-          state.editing.history().clear();
+        operation = state.scene_loader.request(*state.application, state.editing,
+                                               state.editing.document().uri());
+        if (operation.ok()) {
+          state.author_reload_uri = change.uri;
+          // 暂停消费后续变更，保留本次指纹，加载完成后才确认并通知 Runtime。
+          break;
+        }
+        if (operation == gneiss::engine::result::not_ready) {
+          state.pending_author_events.push_front(std::move(event));
+          break;
         }
       }
       if (operation == gneiss::engine::result::success) {
@@ -1556,6 +1585,13 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
       }
     }
 #endif
+    if (state.scene_loader.active()) {
+      const auto begun = state.ui.begin_frame(*state.application, *time);
+      if (begun.failed())
+        return begun;
+      draw_scene_loading(state);
+      return submit_editor_ui(state);
+    }
     if (state.runtime_attempted) {
       state.runtime_result = state.runtime.last_result();
     }
