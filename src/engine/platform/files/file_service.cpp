@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/resource/files/file_service.hpp"
+#include "engine/platform/files/file_service.hpp"
 
-#include "engine/resource/files/async_read_file_backend.hpp"
-#include "engine/resource/files/file_backend.hpp"
-#include "engine/resource/files/file_path.hpp"
-#include "engine/resource/vfs/virtual_file_system.hpp"
+#include "engine/platform/files/file_backend.hpp"
+#include "engine/platform/files/file_path.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -125,9 +123,7 @@ template <class T> struct typed_request final : pending_request {
 struct file_service::implementation {
   file_service_options options;
   std::thread::id owner = std::this_thread::get_id();
-  struct mounted_files : mount_description {
-    std::shared_ptr<const asset_source_domain> source;
-  };
+  using mounted_files = mount_description;
   std::vector<mounted_files> mounts;
   std::vector<std::shared_ptr<file_backend>> backends;
   std::vector<std::unique_ptr<pending_request>> pending;
@@ -202,22 +198,10 @@ file_service::file_service(file_service_options options)
     : impl_(std::make_unique<implementation>()) {
   impl_->options = options;
 }
-file_service::file_service(const virtual_file_system& files, file_service_options options)
-    : file_service(options) {
-  for (const auto& entry : files.mounts_) {
-    const auto status =
-        mount({entry.point, {std::make_shared<async_read_file_backend>(entry.backend)}, {}});
-    if (status == result::out_of_memory)
-      throw std::bad_alloc{};
-    if (status.failed())
-      throw std::invalid_argument("无法导入文件挂载");
-    impl_->mounts.back().source = entry.source;
-  }
-}
 file_service::~file_service() = default;
 result
 file_service::resolve_source(std::string_view uri,
-                             std::shared_ptr<const asset_source_domain>& output) const noexcept {
+                             std::shared_ptr<const file_source_domain>& output) const noexcept {
   output.reset();
   if (!impl_->on_owner() || impl_->closing)
     return result::invalid_state;
@@ -250,8 +234,9 @@ result file_service::mount(mount_description description) noexcept {
     for (const auto& backend : description.readers)
       append(backend);
     append(description.writer);
-    impl_->mounts.push_back(
-        {std::move(description), std::make_shared<const asset_source_domain>()});
+    if (!description.source)
+      description.source = std::make_shared<const file_source_domain>();
+    impl_->mounts.push_back(std::move(description));
     impl_->backends = std::move(backends);
     return result::success;
   } catch (const std::bad_alloc&) {

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/resource/files/memory_file_backend.hpp"
+#include "engine/platform/files/memory_file_backend.hpp"
 
-#include "engine/resource/files/file_path.hpp"
+#include "engine/platform/files/file_path.hpp"
 
 #include <iterator>
 #include <utility>

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/resource/files/file_types.hpp"
+#include "engine/platform/files/file_types.hpp"
 
 #include <string_view>
 

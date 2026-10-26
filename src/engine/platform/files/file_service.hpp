@@ -3,19 +3,19 @@
 
 #pragma once
 
-#include "engine/resource/files/file_types.hpp"
+#include "engine/platform/files/file_types.hpp"
 
 #include <memory>
 #include <string_view>
 
 namespace gneiss::engine {
 class file_backend;
-class virtual_file_system;
-struct asset_source_domain;
 struct mount_description {
   std::string prefix;
   std::vector<std::shared_ptr<file_backend>> readers;
   std::shared_ptr<file_backend> writer;
+  /** 默认创建独立来源；共享标记仅用于相同不可变挂载配置的服务。 */
+  std::shared_ptr<const file_source_domain> source{};
 };
 struct file_service_options {
   std::size_t max_requests{64};
@@ -29,13 +29,11 @@ struct file_service_options {
 class GNEISS_API file_service final {
 public:
   explicit file_service(file_service_options options = {});
-  /** 迁移期导入旧挂载及来源身份，只接入异步读取，不启用同步回退。 */
-  explicit file_service(const virtual_file_system& files, file_service_options options = {});
   ~file_service();
   /** 查询挂载来源身份，不执行 I/O；失败清空输出，限所属线程。 */
   [[nodiscard]] result
   resolve_source(std::string_view uri,
-                 std::shared_ptr<const asset_source_domain>& output) const noexcept;
+                 std::shared_ptr<const file_source_domain>& output) const noexcept;
   file_service(const file_service&) = delete;
   file_service& operator=(const file_service&) = delete;
   file_service(file_service&&) = delete;

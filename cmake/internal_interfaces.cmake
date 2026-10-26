@@ -25,6 +25,7 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
 
 # 同源码宿主允许使用的引擎契约及其值类型闭包；不得添加后端、注册表实现或场景域存储。
 gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
+  engine/platform/files/file_types.hpp
   engine/resource/types/asset_identity.hpp
   engine/resource/loaders/asset_preparation.hpp
   engine/resource/vfs/asset_uri.hpp

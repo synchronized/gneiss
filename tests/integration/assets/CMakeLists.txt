@@ -35,8 +35,8 @@ add_test(NAME gneiss.assets.manager COMMAND gneiss_asset_manager_test)
 set_tests_properties(gneiss.assets.manager PROPERTIES TIMEOUT 30)
 
 add_executable(gneiss_file_service_test file_service_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/files/file_service.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/files/memory_file_backend.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/platform/files/file_service.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/platform/files/memory_file_backend.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/files/async_read_file_backend.cpp")
 target_include_directories(gneiss_file_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_file_service_test PRIVATE gneiss_core_values)
@@ -74,3 +74,18 @@ gneiss_target_compile_warnings(gneiss_asset_material_test)
 gneiss_target_output_directories(gneiss_asset_material_test)
 add_test(NAME gneiss.assets.material COMMAND gneiss_asset_material_test)
 set_tests_properties(gneiss.assets.material PROPERTIES TIMEOUT 30)
+
+if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
+  add_executable(gneiss_native_file_backend_test native_file_backend_test.cpp
+    "${PROJECT_SOURCE_DIR}/src/engine/platform/files/file_service.cpp")
+  target_include_directories(gneiss_native_file_backend_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_link_libraries(gneiss_native_file_backend_test PRIVATE gneiss_core_values)
+  target_compile_features(gneiss_native_file_backend_test PRIVATE cxx_std_20)
+  target_compile_definitions(gneiss_native_file_backend_test PRIVATE GNEISS_BUILDING_LIBRARY)
+  gneiss_enable_asset_libuv(gneiss_native_file_backend_test)
+  gneiss_target_compile_warnings(gneiss_native_file_backend_test)
+  gneiss_target_output_directories(gneiss_native_file_backend_test)
+  file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/native-files")
+  add_test(NAME gneiss.files.native COMMAND gneiss_native_file_backend_test "${CMAKE_CURRENT_BINARY_DIR}/native-files")
+  set_tests_properties(gneiss.files.native PROPERTIES TIMEOUT 20)
+endif()

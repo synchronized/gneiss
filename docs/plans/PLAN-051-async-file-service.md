@@ -5,14 +5,12 @@
 
 ## 状态
 
-实现中。服务核心、内存后端和旧异步读取回执适配已实现，当前行为见[文件服务参考](../reference/file-service.md)。
-普通 CPU 资源异步加载已接入 file_service，读完后只提交一次解码任务；asset_source 已删除。
-支持宿主注入服务，旧 VFS 构造自动导入挂载并保留缓存来源身份。
-网格/纹理运行路径已按 [PLAN-052](PLAN-052-async-render-assets.md) 接入全量异步读取和纯内存解码。
-桌面完整后端、旧同步加载、按需区间读取及异步宿主关闭仍待实施。
-浏览器、写入持久化和完全统一的文件入口尚未落地。
-Windows Clang Debug 全工程编译、格式和边界检查已通过；契约测试已编译但未执行。
-大场景、浏览器与 CI 在统一验收时运行。
+实现中。服务核心与内存后端已迁入 platform/files，来源标记已通用化；
+Platform 不再依赖旧 VFS 或资产层。独立 libuv 桌面后端已实现读、范围读、写、stat/list/flush。
+Windows 本地服务契约、桌面后端和资产管理小范围测试通过；宿主仍经 Resource 过渡适配接入旧 VFS。
+asset_manager 已提供 find_loaded；普通 CPU、Mesh/Texture 异步加载已使用文件服务。
+同步加载调用方迁移、宿主统一分发/异步关闭、删除 VFS、浏览器和大文件能力仍待完成。
+不将 Platform 搬迁或桌面后端实现等同于整份计划完成；大场景和 CI 仍留待统一验收。
 架构决策见 [ADR-084](../decisions/ADR-084-async-file-service.md)。
 
 ## 本轮确认范围（待实施）
@@ -20,7 +18,7 @@ Windows Clang Debug 全工程编译、格式和边界检查已通过；契约测
 本轮将文件抽象整体收敛到 `engine/platform/files`，由它完整替换旧 VFS。
 文件操作与资产加载只提供异步入口，不保留同步工具入口、同步回退或阻塞等待包装。
 纯内存解析、序列化、缓存查询和已准备数据的场景实例化仍可同步执行。
-本节是目标结构，当前代码仍位于 `resource/files`，不得将迁移目标描述为已完成能力。
+本节描述完整目标；核心已迁入 Platform，resource/files 只暂存旧 VFS 适配器，其他迁移状态见上节。
 
 ### 对象与依赖方向
 
@@ -38,10 +36,10 @@ Windows Clang Debug 全工程编译、格式和边界检查已通过；契约测
 
 ### Platform 迁移前置条件
 
-当前 file_service 导入 virtual_file_system 挂载，并使用 Resource 的 asset_source_domain；
-async_read_file_backend 还包装旧 file_system。这些依赖必须先解除，不能直接移动目录。
+迁移前 file_service 导入 virtual_file_system 挂载并使用 Resource 的 asset_source_domain。
+当前已将导入移到 Resource 适配函数并通用化来源标记；async_read_file_backend 仍包装旧 file_system，待删除。
 
-计划在文件层定义不透明的 `file_source_domain` 挂载来源标记，由挂载表创建并持有。
+文件层已定义不透明的 `file_source_domain` 挂载来源标记，由挂载表创建并持有。
 `resolve_source` 只解析来源，不执行 I/O；Resource 的 asset_identity 引用该标记，
 URI、类型与缓存规则仍由 Resource 解释。该标记不是持久 AssetId、内容版本或文件后端所有者。
 不同来源不能因 URI 相同命中同一资产，持有标记也不应延长后端或 GPU 生命周期。

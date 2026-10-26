@@ -14,12 +14,14 @@
 
 namespace gneiss::engine {
 
+class file_service;
+struct file_service_options;
 class virtual_file_system final {
 public:
   /** 解析最长匹配挂载的来源域，不读文件；失败清空输出。无并发挂载时可并发查询。 */
   [[nodiscard]] gneiss::engine::result
   resolve_source(std::string_view uri,
-                 std::shared_ptr<const asset_source_domain>& output) const noexcept;
+                 std::shared_ptr<const file_source_domain>& output) const noexcept;
   /** 仅解析挂载身份，不读取文件或验证存在性；失败清空 output。
    * VFS 副本共享已有挂载身份，新挂载使用新身份；挂载后的后端不得重新指向其他来源。
    * 无并发挂载时允许并发查询。类型零无效，URI 保留大小写。
@@ -41,11 +43,12 @@ public:
   [[nodiscard]] std::size_t mount_count() const noexcept { return mounts_.size(); }
 
 private:
-  friend class file_service;
+  friend GNEISS_API std::shared_ptr<file_service> make_file_service(const virtual_file_system&,
+                                                                    file_service_options);
   struct mount_entry final {
     std::string point;
     std::shared_ptr<file_system> backend;
-    std::shared_ptr<const asset_source_domain> source;
+    std::shared_ptr<const file_source_domain> source;
   };
 
   std::vector<mount_entry> mounts_;

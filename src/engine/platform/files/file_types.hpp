@@ -14,6 +14,9 @@
 
 namespace gneiss::engine {
 
+/** 挂载来源的运行期标记；不拥有后端，不表示内容版本或持久身份。 */
+struct file_source_domain final {};
+
 struct file_request_id {
   std::uint64_t value{};
   friend bool operator==(file_request_id, file_request_id) = default;

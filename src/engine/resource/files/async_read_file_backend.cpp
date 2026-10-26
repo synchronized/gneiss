@@ -2,8 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/resource/files/async_read_file_backend.hpp"
+#include "engine/resource/vfs/virtual_file_system.hpp"
+#include <stdexcept>
 
-#include "engine/resource/files/file_path.hpp"
+#include "engine/platform/files/file_path.hpp"
 #include "engine/resource/vfs/file_system.hpp"
 
 #include <algorithm>
@@ -158,3 +160,21 @@ void async_read_file_backend::poll() noexcept {
   }
 }
 } // namespace gneiss::engine
+
+namespace gneiss::engine {
+std::shared_ptr<file_service> make_file_service(const virtual_file_system& files,
+                                                file_service_options options) {
+  auto service = std::make_shared<file_service>(options);
+  for (const auto& entry : files.mounts_) {
+    const auto status = service->mount({entry.point,
+                                        {std::make_shared<async_read_file_backend>(entry.backend)},
+                                        {},
+                                        entry.source});
+    if (status == result::out_of_memory)
+      throw std::bad_alloc{};
+    if (status.failed())
+      throw std::invalid_argument("无法导入文件挂载");
+  }
+  return service;
+}
+}

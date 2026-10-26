@@ -62,7 +62,7 @@ bool source_identity_contract() {
       first.identify(original.uri, 0U, observed) != gneiss::engine::result::invalid_argument) {
     return false;
   }
-  const std::weak_ptr<const asset_source_domain> source = original.source;
+  const std::weak_ptr<const file_source_domain> source = original.source;
   first = {};
   copied = {};
   before_overlay = {};
@@ -150,8 +150,8 @@ int main() try {
     using namespace gneiss::engine;
     using gneiss::engine::result;
     resource_cache index;
-    auto source_a = std::make_shared<asset_source_domain>();
-    auto source_b = std::make_shared<asset_source_domain>();
+    auto source_a = std::make_shared<file_source_domain>();
+    auto source_b = std::make_shared<file_source_domain>();
     asset_ref<const resource_cache::entry> a, b, c, again;
     const auto integer = [](auto& output) {
       output = std::make_shared<const int>(42);

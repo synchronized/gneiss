@@ -6,9 +6,10 @@
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
+#include "engine/platform/files/file_backend.hpp"
+#include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_manager.hpp"
-#include "engine/resource/files/file_backend.hpp"
-#include "engine/resource/files/file_service.hpp"
+#include "engine/resource/files/async_read_file_backend.hpp"
 #include "engine/resource/loaders/material_serialization.hpp"
 #include "engine/resource/types/material_description.hpp"
 #include <cstdio>
@@ -104,8 +105,8 @@ void injected_file_service() {
   assets->attach_task_executor(executor);
   asset_request<value> first, second;
   asset_ref<const value> loaded, other;
-  check(assets->load_sync("asset://missing", loaded) == result::unsupported,
-        "no synchronous service fallback");
+  check(assets->find_loaded("asset://missing", loaded) == result::not_found,
+        "cache miss does not trigger IO");
   check(assets->load("asset://value", first).ok(), "service request");
   check(assets->load("asset://value", second).ok(), "service coalescing");
   asset_request<value> full;
@@ -124,9 +125,11 @@ void injected_file_service() {
   check(first.take(loaded).ok() && second.take(other).ok() && loaded == other &&
             loaded->byte == 'q',
         "shared decoded result");
-  check(assets->load_sync("asset://value", other).ok() && other == loaded,
+  check(assets->find_loaded("asset://value", other).ok() && other == loaded,
         "service cache readable synchronously");
-  std::shared_ptr<const asset_source_domain> source;
+  check(assets->find_loaded("asset://missing", other) == result::not_found && other == loaded,
+        "cache miss preserves output");
+  std::shared_ptr<const file_source_domain> source;
   check(files->resolve_source("asset://value", source).ok() && source &&
             assets->cache().size() == 1,
         "service cache source identity");
@@ -136,7 +139,7 @@ void injected_file_service() {
   backend->finish('r');
   assets->advance_resources();
   check(executor.stats().submitted == 1, "cancelled IO never decodes");
-  check(assets->load_sync("asset://value", other).ok() && other == loaded,
+  check(assets->find_loaded("asset://value", other).ok() && other == loaded,
         "cancel preserves cache");
   check(assets->load("asset://late", first).ok(), "late request");
   assets->stop_resources();
@@ -153,10 +156,10 @@ void injected_file_service() {
   auto legacy_backend = std::make_shared<memory_files>();
   virtual_file_system legacy;
   check(legacy.mount("asset://", legacy_backend).ok(), "legacy identity mount");
-  file_service imported(legacy);
-  std::shared_ptr<const asset_source_domain> original, migrated;
+  auto imported = make_file_service(legacy, {});
+  std::shared_ptr<const file_source_domain> original, migrated;
   check(legacy.resolve_source("asset://value", original).ok() &&
-            imported.resolve_source("asset://value", migrated).ok() && original == migrated,
+            imported->resolve_source("asset://value", migrated).ok() && original == migrated,
         "migration preserves source identity");
 }
 void decoder_selection() {

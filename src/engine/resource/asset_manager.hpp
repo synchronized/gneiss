@@ -76,6 +76,16 @@ public:
       output = asset_request<T>{std::move(state)};
     return status;
   }
+  /** 只查询已完成缓存，不读取文件或提交任务；未命中返回 not_found，失败保持输出。 */
+  template <class T>
+  [[nodiscard]] result find_loaded(std::string_view uri,
+                                   asset_ref<const T>& output) const noexcept {
+    std::shared_ptr<const void> value;
+    const auto status = find_loaded_erased(runtime_type_of<T>(), uri, value);
+    if (status.ok())
+      output = asset_ref<const T>{std::static_pointer_cast<const T>(value)};
+    return status;
+  }
   /** 同步加载默认复用缓存；仅旧 VFS 构造入口支持缓存未命中时同步读文件。
    * 注入文件服务时未命中返回 unsupported；成功读取使较早异步请求失去缓存写入权。 */
   template <typename T>
@@ -125,6 +135,7 @@ private:
   load_sync_erased(gneiss::engine::type_id type, std::string_view uri,
                    std::shared_ptr<const void>& output, decoder_factory fallback, bool reload,
                    gneiss::engine::meta::serialization_diagnostic* diagnostic) noexcept;
+  result find_loaded_erased(type_id, std::string_view, std::shared_ptr<const void>&) const noexcept;
   result store_erased(type_id, std::string_view, std::shared_ptr<const void>,
                       std::shared_ptr<const void>&) noexcept;
   struct resource_state;

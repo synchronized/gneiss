@@ -3,12 +3,17 @@
 
 #pragma once
 
-#include "engine/resource/files/file_backend.hpp"
+#include "engine/platform/files/file_backend.hpp"
+#include "engine/platform/files/file_service.hpp"
 
 #include <memory>
 
 namespace gneiss::engine {
 class file_system;
+class virtual_file_system;
+/** 迁移期上层适配；Platform 不依赖旧 VFS。调用方迁完后删除。 */
+GNEISS_API std::shared_ptr<file_service> make_file_service(const virtual_file_system&,
+                                                           file_service_options);
 /** 将现有异步文件后端接入回调服务，仅允许 begin_open/begin_read/异步 close。
  * 迁移期用于已配置 libuv 的 native_file_system；禁止同步回退。
  * 平台执行器必须持续运行至服务关闭完成，不支持写/stat/list/flush。 */

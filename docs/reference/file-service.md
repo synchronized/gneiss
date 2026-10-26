@@ -5,11 +5,11 @@
 
 ## 当前范围
 
-内部原生入口位于 `src/engine/resource/files/file_service.hpp`，命名空间为 `gneiss::engine`。
-当前实现服务核心、内存后端和旧异步读取回执适配。asset_manager 的普通 CPU 资源异步读取
+内部原生入口位于 `src/engine/platform/files/file_service.hpp`，命名空间为 `gneiss::engine`。
+当前实现 Platform 服务核心、内存后端和独立 libuv 桌面后端；旧异步读取适配仍留在 Resource。asset_manager 的普通 CPU 资源异步读取
 已接入服务，文件完成后才提交一次解码任务；旧 asset_source 已删除。
 旧 VFS 同步加载、网格/纹理的专用范围读取与宿主同步关闭仍待后续迁移。
-浏览器 Fetch/FS/IDBFS、桌面写入/元数据/列举/持久化、流式读取、字节缓存、JS Promise 尚未实现。
+浏览器 Fetch/FS/IDBFS、流式读取、字节缓存、JS Promise 尚未实现；Application 尚未切换独立桌面后端。
 后续迁移见[开发计划](../plans/PLAN-051-async-file-service.md)。
 
 ## 对象与所有权
@@ -72,6 +72,12 @@ shutdown 取消尚未完成请求，已有终态照常交付。关闭回调遵�
 不能用文件覆盖非空目录，也不能在文件下创建子项；数据仅保存在内存，flush 返回 unsupported。
 其操作在所属线程执行，不涉及磁盘或网络。
 
+`native_file_backend` 直接使用 libuv 异步文件 API，支持 read/read_range/write/stat/list/flush。
+借用宿主执行器，不自行建线程；根目录和写入父目录须已存在，不依赖 std::filesystem。
+写入完成前 fsync 并关闭文件，因此 flush 覆盖此前已完成写入；不承诺跨文件原子性或目录项崩溃恢复。
+每次操作解析实际路径并拒绝根目录外目标；不承诺抵抗并发恶意符号链接替换。
+列举普通文件和目录，特殊条目返回 unsupported；分页不提供快照，底层 scandir 仍可能枚举整个目录。
+
 `async_read_file_backend` 适配旧 `file_system` 的异步打开/区间读/关闭回执。
 每次读取最多 64 KiB，验证上限和短读；成功及读取失败均等待异步关闭后再报告。
 不支持异步读取的后端返回 unsupported，绝不调用同步 open_read/read/read_at 回退。
@@ -86,10 +92,13 @@ shutdown 取消尚未完成请求，已有终态照常交付。关闭回调遵�
 同键请求合并、失败保留旧资源、取消独立观察者以及已存储内容不被旧请求覆盖的规则不变。
 
 文件服务每个挂载具有稳定来源域，`resolve_source` 仅查询身份。
-迁移期 `file_service(const virtual_file_system&, options)` 导入挂载时复用旧来源域，
+来源标记为 Platform 的 `file_source_domain`，不拥有后端或 GPU 资源。
+迁移期 Resource 的 `make_file_service(vfs, options)` 导入挂载时复用旧来源域，
 避免旧渲染入口与新异步入口对同一 URI 建立不同缓存身份。
 旧 `asset_manager(virtual_file_system, ...)` 构造内部导入服务，保留显式同步加载能力。
 新注入构造不提供同步磁盘回退，load_sync 仅复用成功缓存，未命中返回 unsupported。
+新增 find_loaded<T> 只查询已完成缓存，未命中返回 not_found，失败保持输出，不读盘或提交任务；
+旧同步入口将在调用方迁移完成后删除。
 
 桌面启用 libuv 的构建中，Application 即使使用协作式 CPU 调度也配置异步 I/O loop。
 尚无实际异步后端的无线程/浏览器构建返回 unsupported，不再恢复同步文件回退。
@@ -107,4 +116,6 @@ Mesh/Texture 的运行时加载也借用该服务；等待文件期间不提交 
 
 契约测试源位于 `tests/integration/assets/file_service_test.cpp`，目标 `gneiss_file_service_test`。
 覆盖延迟分发、路由、分页、范围、容量、取消、关闭、线程交付及异步回执编排。
-当前阶段只编译，不执行测试；跨平台和持久化行为尚未验收。
+Windows 本地服务契约、资产管理和 native_file_backend 小范围测试已通过；
+桌面测试覆盖真实读写、范围边界、读取上限、缺失文件、重复创建、元数据、列举、flush 和关闭。
+跨平台、大文件及浏览器持久化行为尚未验收。

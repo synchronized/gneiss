@@ -3,7 +3,7 @@
 
 #include "engine/resource/vfs/asset_uri.hpp"
 #include "engine/core/result.hpp"
-#include "engine/resource/files/file_path.hpp"
+#include "engine/platform/files/file_path.hpp"
 
 namespace {
 

@@ -30,8 +30,8 @@ target_sources(
     engine/resource/resource_retirement_queue.hpp
     engine/resource/asset_manager.hpp
     engine/resource/asset_manager.cpp
-    engine/resource/files/file_service.cpp
-    engine/resource/files/memory_file_backend.cpp
+    engine/platform/files/file_service.cpp
+    engine/platform/files/memory_file_backend.cpp
     engine/resource/files/async_read_file_backend.cpp
     engine/core/sha256.cpp
     engine/core/sha256.hpp
