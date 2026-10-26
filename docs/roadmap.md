@@ -21,6 +21,8 @@
 
 ## 阶段概览
 
+渲染资源对象模型处于设计中：优先完成类型化资源和 Render 生命周期收敛；CPU 数据释放策略与流送为后续阶段，见 [PLAN-054](plans/PLAN-054-render-resource-model.md)。
+
 当前实现中的文件服务收敛见 [PLAN-051：统一异步文件服务](plans/PLAN-051-async-file-service.md)。
 
 | 阶段 | 目标 | 状态 |
