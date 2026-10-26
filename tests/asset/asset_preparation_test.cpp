@@ -443,8 +443,8 @@ int main() try {
   }
   source->change_on_verify = true;
   if (prepare_assets(files, requests, output, diagnostic, {}, 0U) !=
-          gneiss::engine::result::invalid_state ||
-      !output.assets.empty() || diagnostic.result != gneiss::engine::result::invalid_state) {
+          gneiss::engine::result::success ||
+      output.assets.size() != 1U || output.assets[0].mesh.vertices.size() != 3U) {
     return 5;
   }
   const std::array missing{

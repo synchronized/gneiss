@@ -39,17 +39,6 @@ public:
   [[nodiscard]] GNEISS_API texture reference_texture(rid handle);
   [[nodiscard]] GNEISS_API material reference_material(rid handle);
 
-  /** 仅运行资源使用延迟析构；CPU 负载仍使用普通 shared_ptr。 */
-  template <typename T, typename... Args> std::shared_ptr<T> make_runtime_resource(Args&&... args) {
-    if (!retirement_)
-      retirement_ = std::make_unique<resource_retirement_queue>(this);
-    return retirement_->make<T>(
-        [](T& value, void* owner) noexcept {
-          // 关闭后只析构 CPU 外壳，禁止访问已销毁的服务。
-          value.resources_ = static_cast<render_resource_service*>(owner);
-        },
-        std::forward<Args>(args)...);
-  }
   std::size_t drain_retired_resources() noexcept { return retirement_ ? retirement_->drain() : 0U; }
   /** 所属线程查询；跟踪共享对象，包含仍被旧帧持有的已销毁 RID 数据，不强持有对象。 */
   [[nodiscard]] render_memory_usage memory_usage() const noexcept;
@@ -100,6 +89,9 @@ public:
   destroy_material(gneiss::engine::rid material) noexcept;
   [[nodiscard]] GNEISS_API gneiss::engine::result
   create_texture(const texture_view& desc, gneiss::engine::rid* out_texture) noexcept;
+  /** 程序化纹理的强引用入口；失败清理临时槽位，成功后由引用管理销毁。 */
+  [[nodiscard]] GNEISS_API result create_texture(const texture_view& desc,
+                                                 texture& output) noexcept;
   /** 创建已经过容器校验的内部多 Mip Texture。 */
   [[nodiscard]] gneiss::engine::result create_texture(texture_data resource,
                                                       gneiss::engine::rid* out_texture) noexcept;
@@ -124,6 +116,17 @@ public:
   [[nodiscard]] GNEISS_API std::size_t live_resource_count() const noexcept;
 
 private:
+  /** 仅运行资源使用延迟析构；CPU 负载仍使用普通 shared_ptr。 */
+  template <typename T, typename... Args> std::shared_ptr<T> make_runtime_resource(Args&&... args) {
+    if (!retirement_)
+      retirement_ = std::make_unique<resource_retirement_queue>(this);
+    return retirement_->make<T>(
+        [](T& value, void* owner) noexcept {
+          // 关闭后只析构 CPU 外壳，禁止访问已销毁的服务。
+          value.resources_ = static_cast<render_resource_service*>(owner);
+        },
+        std::forward<Args>(args)...);
+  }
   template <typename Data, typename Resource> struct resource_record {
     explicit resource_record(std::shared_ptr<const Data> value) : data(std::move(value)) {}
     std::shared_ptr<const Data> data;

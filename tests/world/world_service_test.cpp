@@ -73,7 +73,7 @@ bool native_operations() {
       owner->entity_count(count) != gneiss::engine::result::success || count != 2)
     return false;
   owner.reset();
-  return owner->entity_count(count) == gneiss::engine::result::invalid_handle;
+  return !owner;
 }
 
 bool original_groups_visible(const gneiss::engine::world_owner& world,

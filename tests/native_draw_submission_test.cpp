@@ -9,7 +9,7 @@
 
 namespace {
 struct draw_context {
-  gneiss::engine::rid texture{};
+  gneiss::engine::texture texture;
   unsigned updates = 0;
   unsigned failure = 0;
 };
@@ -31,7 +31,7 @@ gneiss::engine::result update(gneiss::runtime::application& app, draw_context& c
   std::array<std::uint32_t, 3> indices{0, 1, 2};
   const std::array commands{
       gneiss::engine::ui_draw_command{
-          .texture = app.resources().reference_texture(context.texture),
+          .texture = context.texture,
           .clip_min = {0, 0},
           .clip_max = {32, 32},
           .index_count = 3,
@@ -95,9 +95,11 @@ int main() {
   const std::array<std::uint8_t, 4> pixels{255, 255, 255, 255};
   const gneiss::engine::texture_view texture{
       .width = 1, .height = 1, .row_stride_bytes = 4, .pixels = pixels};
-  if (app->resources().create_texture(texture, &context.texture).failed()) {
+  gneiss::engine::rid handle{};
+  if (app->resources().create_texture(texture, &handle).failed()) {
     return 2;
   }
+  context.texture = app->resources().reference_texture(handle);
   if (app->submit_debug_draw_list({}) != gneiss::engine::result::invalid_state ||
       app->submit_ui_draw_list({}) != gneiss::engine::result::invalid_state) {
     return 3;
@@ -109,8 +111,6 @@ int main() {
   if (context.updates != 2) {
     return 4;
   }
-  if (app->resources().destroy_texture(context.texture).failed()) {
-    return 5;
-  }
+  context.texture.reset();
   return app->shutdown().failed() ? 6 : 0;
 }

@@ -519,12 +519,11 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
 
   gneiss::engine::virtual_file_system file_system;
   gneiss::engine::render_resource_service resources;
+  if (file_system.mount("asset://", memory).failed())
+    return 1;
   gneiss::engine::asset_manager asset_owner(file_system);
   [[maybe_unused]] auto& cache = asset_owner.cache();
   gneiss::engine::render_asset_loader loader(asset_owner, resources);
-  if (file_system.mount("asset://", memory) != gneiss::engine::result::success) {
-    return 1;
-  }
 
   {
     auto parameter_files = std::make_shared<memory_file_system>();
@@ -548,7 +547,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
                            diagnostic) != gneiss::engine::result::success ||
       gneiss::engine::asset_rid(first_mesh) == gneiss::engine::null_rid ||
       gneiss::engine::asset_rid(first_mesh) != gneiss::engine::asset_rid(second_mesh) ||
-      memory->read_count != 1U ||
+      memory->read_count + memory->full_reads != 1U ||
       loader.acquire_asset(gneiss::engine::render_asset_type::material,
                            "asset://materials/default.material.json", material,
                            diagnostic) != gneiss::engine::result::success ||
@@ -648,7 +647,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   if (loader.acquire_asset(gneiss::engine::render_asset_type::texture,
                            "asset://textures/missing.texture.json", missing_texture,
                            diagnostic) != gneiss::engine::result::not_found ||
-      missing_texture || diagnostic.path != "/source") {
+      missing_texture || diagnostic.path != "asset://textures/missing.texture.json") {
     return 8;
   }
   memory->files.emplace("textures/missing.png", png_data);

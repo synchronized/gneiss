@@ -83,6 +83,13 @@ public:
     }
   }
 
+  gneiss::engine::result read_bounded(std::string_view path, std::size_t limit,
+                                      std::vector<std::byte>& output) const noexcept override {
+    if (content_.size() > limit)
+      return gneiss::engine::result::invalid_argument;
+    return read(path, output);
+  }
+
 private:
   std::string content_;
 };

@@ -85,7 +85,7 @@ void run() {
   invalid.uri = "asset://../escape";
   check(encode_ipc_scene_request(invalid, ipc_scene_operation::load, 9U, envelope) ==
         gneiss::engine::result::invalid_argument);
-  for (unsigned index = 0U; index < 8U; ++index) {
+  for (unsigned index = 0U; index <= static_cast<unsigned>(ipc_scene_phase::cancelled); ++index) {
     const auto phase = static_cast<ipc_scene_phase>(index);
     ipc_scene_progress progress{.source = source,
                                 .phase = phase,

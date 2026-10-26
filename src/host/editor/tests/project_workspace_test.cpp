@@ -138,13 +138,15 @@ int main() try {
   manifest.close();
   if (first_zip_bytes.empty() || first_zip_bytes != second_zip_bytes ||
       manifest_text.find("\"profile\": \"debug\"") == std::string::npos ||
-      manifest_text.find("120970d812836f19888625587a4606a5ad23cef31c8684e601771552548fc6b9") ==
+      manifest_text.find("d92c6a81b2ff50096bcda80885427d1f59a25b5f483f7055523504925d16ab23") ==
           std::string::npos) {
     return 11;
   }
   if (gneiss::host::verify_package_manifest(package_root) != gneiss::engine::result::success) {
     return 12;
   }
+  std::ofstream(package_root / "bin" / runtime_name, std::ios::binary | std::ios::trunc)
+      << "tampered runtime";
   if (gneiss::host::verify_package_manifest(package_root) !=
       gneiss::engine::result::dependency_failed) {
     return 13;

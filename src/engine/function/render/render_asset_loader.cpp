@@ -59,30 +59,6 @@ gneiss::engine::type_id cache_type(gneiss::engine::render_asset_type type) noexc
   }
 }
 
-gneiss::engine::result
-append_texture_dependencies(std::vector<gneiss::engine::render_asset_reload>& queue,
-                            const std::array<std::string, 5>& uris) {
-  using gneiss::engine::render_asset_type;
-  for (const auto& uri : uris) {
-    if (uri.empty()) {
-      continue;
-    }
-    const auto found =
-        std::ranges::find_if(queue, [&](const auto& item) { return item.uri == uri; });
-    if (found != queue.end()) {
-      if (found->type != render_asset_type::texture) {
-        return gneiss::engine::result::invalid_argument;
-      }
-      continue;
-    }
-    if (queue.size() == 256U) {
-      return gneiss::engine::result::invalid_argument;
-    }
-    queue.push_back({.uri = uri, .type = render_asset_type::texture});
-  }
-  return gneiss::engine::result::success;
-}
-
 } // namespace
 
 namespace gneiss::engine {
@@ -485,37 +461,29 @@ render_asset_loader::reload_assets(std::span<const render_asset_reload> assets,
     if (assets.size() > 256U) {
       return gneiss::engine::result::invalid_argument;
     }
-    std::vector<render_asset_reload> queue(assets.begin(), assets.end());
-    gneiss::engine::result summary{gneiss::engine::result::success};
-    for (std::size_t index = 0; index < queue.size(); ++index) {
-      const auto source = queue[index];
-      render_asset_ref target;
-      if (index >= assets.size() &&
-          acquire_cached(source, target, default_profile_) == gneiss::engine::result::success) {
-        continue;
-      }
-      auto updated = reserve_asset(source, target);
-      if (updated != gneiss::engine::result::success) {
-        summary = updated;
-        continue;
-      }
+    result summary{result::success};
+    for (const auto& source : assets) {
       prepared_render_batch batch;
-      updated = prepare_render_assets(assets_, std::span(&source, 1U), batch, out_diagnostic, {},
-                                      256U, 256U * 1024U * 1024U, default_profile_, true);
-      if (updated == gneiss::engine::result::success) {
-        auto& prepared = batch.assets.front();
-        updated = append_texture_dependencies(queue, prepared.texture_uris);
-        asset_update upload;
-        if (updated == gneiss::engine::result::success) {
-          updated = prepare_update(std::move(prepared), upload, target);
-        }
-        if (updated == gneiss::engine::result::success) {
-          updated = apply_update(upload);
+      auto updated = prepare_render_assets(assets_, std::span(&source, 1U), batch, out_diagnostic,
+                                           {}, 256U, 256U * 1024U * 1024U, default_profile_, true);
+      if (updated.ok()) {
+        // 准备器按依赖优先排序；不能把第一项误认为请求本身。
+        for (auto& prepared : batch.assets) {
+          render_asset_ref cached;
+          const bool requested =
+              prepared.source.uri == source.uri && prepared.source.type == source.type;
+          if (!requested && acquire_cached(prepared.source, cached, default_profile_).ok())
+            continue;
+          asset_update update;
+          updated = prepare_update(std::move(prepared), update);
+          if (updated.ok())
+            updated = apply_update(update);
+          if (updated.failed())
+            break;
         }
       }
-      if (updated != gneiss::engine::result::success) {
+      if (updated.failed())
         summary = updated;
-      }
     }
     if (summary != gneiss::engine::result::success) {
       detail::fail(out_diagnostic, summary, "", "部分资源同步更新失败");
@@ -597,7 +565,7 @@ result render_asset_loader::acquire_asset(render_asset_type type, std::string_vi
   if (status.failed())
     return status;
   // 与异步路径共用内容验证及更新；依赖先就绪，再采用材质参数。
-  for (auto it = batch.assets.rbegin(); it != batch.assets.rend(); ++it) {
+  for (auto it = batch.assets.begin(); it != batch.assets.end(); ++it) {
     render_asset_ref existing;
     if (acquire_cached(it->source, existing, default_profile_).ok())
       continue;

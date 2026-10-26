@@ -98,8 +98,8 @@ void run(gneiss::engine::execution_mode mode) {
   check(camera.is_valid() && session.nodes().size() == 2U);
   tick();
   std::uint64_t count{};
-  check(gneiss::engine::result{current->entity_count(count)} ==
-        gneiss::engine::result::invalid_handle);
+  // current 是旧域的借用指针，域销毁后不能再解引用。
+  check(world->entity_count(count).ok());
   check(loader.request(*app, editing, "asset://scenes/prefab.scene.json") ==
         gneiss::engine::result::success);
   drain();

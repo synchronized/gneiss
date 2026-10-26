@@ -13,6 +13,7 @@ class application;
 }
 namespace gneiss::runtime {
 /** 单个 Prefab 纯描述准备；所属线程取得描述引用，工作任务只排序并收集依赖，不访问活动 World。
+ * Application 须先通过 attach_task_executor 接入同一执行器及平台异步文件后端。
  * 所属线程操作。取消后仍须 poll 至完成；Application、资产管理器与执行器须晚于该对象销毁。
  */
 class GNEISS_API prefab_preparation final {

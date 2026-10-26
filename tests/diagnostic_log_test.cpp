@@ -52,7 +52,7 @@ int main() {
     std::unique_lock lock(state.mutex);
     if (!state.changed.wait_for(lock, std::chrono::seconds(2),
                                 [&state] { return state.log_count == 1U; }) ||
-        state.source != "application" || state.category != "backend" ||
+        state.source != "application" || state.category != "application" ||
         state.result != gneiss::engine::result::internal) {
       return 2;
     }

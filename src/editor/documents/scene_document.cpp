@@ -612,6 +612,9 @@ void scene_document::release_prefab_refresh(gneiss::prefab_refresh_token token) 
 
 gneiss::engine::result scene_document::rename_node(scene_node_id node,
                                                    std::string_view name) noexcept {
+  if (application_ && !application_->is_owner_thread()) {
+    return gneiss::engine::result::invalid_state;
+  }
   if (!is_open() || !node.is_valid()) {
     return gneiss::engine::result::invalid_argument;
   }

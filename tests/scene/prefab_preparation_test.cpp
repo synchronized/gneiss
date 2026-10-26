@@ -13,7 +13,8 @@ bool run(gneiss::engine::execution_mode mode) {
   description.asset_root = root;
   std::shared_ptr<gneiss::runtime::application> application;
   if (gneiss::runtime::application::create(description, application) !=
-      gneiss::engine::result::success) {
+          gneiss::engine::result::success ||
+      application->attach_task_executor(executor) != gneiss::engine::result::success) {
     return false;
   }
   for (int attempt = 0; attempt < 3; ++attempt) {

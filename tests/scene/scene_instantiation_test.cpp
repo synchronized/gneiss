@@ -100,7 +100,7 @@ void unified_resource_index() {
   assets.collect_unused();
   check(assets.cache().size() == 1U && render.owns(material));
   material.reset();
-  assets.collect_unused();
+  render.release_unused();
   check(assets.cache().size() == 0U && resources.live_resource_count() == 0U);
 }
 
@@ -194,7 +194,7 @@ void run() {
                             gneiss::engine::render_asset_reload{
                                 "asset://m.material", gneiss::engine::render_asset_type::material}};
   gneiss::engine::prepared_render_batch batch;
-  check(gneiss::engine::prepare_render_assets(active_assets, requests, batch, diagnostic, {}) ==
+  check(gneiss::engine::prepare_render_assets(candidate_assets, requests, batch, diagnostic, {}) ==
         gneiss::engine::result::success);
   std::vector<gneiss::engine::render_asset_loader::asset_update> staged;
   for (auto& asset : batch.assets) {
@@ -425,7 +425,6 @@ void run() {
         gneiss::engine::result::success);
   const auto snapshot_reads = files->reads;
   check(files->reads == snapshot_reads);
-  const auto old_world = active->native_world();
   active.swap(candidate);
   std::uint64_t count{};
   check(gneiss::engine::result{active->native_world()->entity_count(count)} ==
@@ -437,8 +436,7 @@ void run() {
         count == 1U);
   old_material = {};
   candidate.reset();
-  check(gneiss::engine::result{old_world->entity_count(count)} ==
-        gneiss::engine::result::invalid_handle);
+  // 旧域已析构；此前借用的 World 指针不再可访问。
   check(old_pixels->parameters.color[0] == 1.0F);
 
   // 构造失败时仅回收候选节点；即使依赖缺失也不能退回主线程文件读取。

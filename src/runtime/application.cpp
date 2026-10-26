@@ -795,6 +795,8 @@ gneiss::engine::result application::run(std::uint64_t max_frame_count) noexcept 
       });
       storage_->is_updating_ = false;
       if (update_result != gneiss::engine::result::success) {
+        report(gneiss::engine::severity::error, gneiss::engine::category::application,
+               update_result, "application", "更新回调失败");
         storage_->ui_draw_list_.clear();
         storage_->debug_draw_list_.clear();
         storage_->is_running_ = false;

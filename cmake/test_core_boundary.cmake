@@ -3,6 +3,11 @@
 
 cmake_minimum_required(VERSION 3.23)
 set(fixture "${GNEISS_BINARY_DIR}/runtime-layout-v2-boundary-fixture")
+# 恢复全部反例文件；前次执行留下的非法命名空间不能污染基线检查。
+file(GLOB_RECURSE namespace_probes "${fixture}/src/*namespace_probe.cpp")
+foreach(probe IN LISTS namespace_probes)
+  file(WRITE "${probe}" "")
+endforeach()
 file(MAKE_DIRECTORY "${fixture}/src/engine/function/render")
 file(WRITE "${fixture}/src/engine/function/render/camera_math.hpp" "")
 file(WRITE "${fixture}/src/engine/function/render/render_resource_data.hpp" "")

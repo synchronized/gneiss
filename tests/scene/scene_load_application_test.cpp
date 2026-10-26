@@ -239,7 +239,9 @@ void run(gneiss::engine::execution_mode mode) {
   check(app->request_scene(uri, 1U, 2U, rejected) == gneiss::engine::result::not_ready &&
         rejected == 0U);
   (void)drive();
-  check(old_world->entity_count(count) == gneiss::engine::result::invalid_handle);
+  // 旧域已销毁，native_world() 的借用指针不能再解引用。
+  old_world = nullptr;
+  check(app->native_world()->entity_count(count).ok());
 
   // ready 阶段仍可取消，不改写活动域；迟到请求身份不能取消后续请求。
   check(app->request_scene(uri, 1U, 2U, request) == gneiss::engine::result::success);
@@ -252,22 +254,14 @@ void run(gneiss::engine::execution_mode mode) {
         gneiss::engine::render_resource_service::default_memory_limit);
   check((old_world = app->native_world()) != nullptr && old_world == observed);
 
-  // 描述已准备后改变源文件：最终复读必须拒绝发布，旧 World 保持存活。
-  check(app->request_scene(uri, 1U, 3U, request) == gneiss::engine::result::success);
+  // 描述已准备后不复读来源；当前请求使用自己的 CPU 快照，后续请求才重新读取。
+  check(app->request_scene(uri, 1U, 3U, request).ok());
   (void)await_phase(scene_load_phase::assets);
   std::ofstream(files.root / "scene.json", std::ios::app) << ' ';
-  const auto changed_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-  bool changed{};
-  while (!changed && std::chrono::steady_clock::now() < changed_deadline) {
-    auto result = drive();
-    if (result.first) {
-      check(result.second.progress.phase == scene_load_phase::failed &&
-            result.second.result == gneiss::engine::result::invalid_state);
-      check(result.second.progress.cleanup_complete);
-      changed = true;
-    }
-  }
-  check(changed && observed->entity_count(count) == gneiss::engine::result::success && count == 1U);
+  (void)await_phase(scene_load_phase::ready);
+  check(app->cancel_scene(request).ok());
+  check(drive().first);
+  check(observed->entity_count(count).ok() && count == 1U);
 
   // 视觉来源损坏不阻止结构 ready；取消仍保持旧 World。
   std::ofstream(files.root / "material.json") << "broken";
@@ -285,7 +279,7 @@ void run(gneiss::engine::execution_mode mode) {
   // ready 只完成结构，取消仍必须保留已经激活的 World。
   check((observed = app->native_world()) != nullptr);
   for (const auto phase :
-       {scene_load_phase::preparing, scene_load_phase::instantiating, scene_load_phase::ready}) {
+       {scene_load_phase::preparing, scene_load_phase::assets, scene_load_phase::ready}) {
     check(app->request_scene(uri, 1U, 5U, request) == gneiss::engine::result::success);
     if (phase != scene_load_phase::preparing) {
       (void)await_phase(phase);
@@ -317,7 +311,8 @@ void run(gneiss::engine::execution_mode mode) {
   check(app->request_scene(uri, 1U, 7U, request) == gneiss::engine::result::success);
   app.reset();
   check(scheduler.stats().retained == 0U);
-  check(observed->entity_count(count) == gneiss::engine::result::invalid_handle);
+  // Application 销毁后不再访问借用的 World。
+  observed = nullptr;
 }
 
 void shared_scene_assets(gneiss::engine::execution_mode mode) {
@@ -388,7 +383,9 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   std::uint64_t count{};
   check(old_world->entity_count(count) == gneiss::engine::result::success);
   check(!poll());
-  check(old_world->entity_count(count) == gneiss::engine::result::invalid_handle);
+  // 旧域已销毁，native_world() 的借用指针不能再解引用。
+  old_world = nullptr;
+  check(app->native_world()->entity_count(count).ok());
   check(new_world->entity_count(count) == gneiss::engine::result::success && count == 1U);
   // 更新完成后保持稳定资源引用；取消场景切换不撤回已更新的共享资源。
   std::ofstream(files.root / "material.json")

@@ -27,14 +27,15 @@ int main() {
     return 1;
   }
   const auto original = action;
-  if (app->find_action("missing", action) != result::not_found || action != original ||
+  if (app->find_action("missing", action) != result::not_found || action.value != 0 ||
       app->load_action_map("asset://input/missing.input-map.json") != result::not_found ||
-      app->get_action_state(action, state).failed() ||
+      app->get_action_state(original, state).failed() ||
       gneiss::runtime::application::create(config, other).failed() ||
       other->load_action_map(uri).failed() ||
-      other->get_action_state(action, state) != result::invalid_handle) {
+      other->get_action_state(original, state) != result::invalid_handle) {
     return 2;
   }
+  action = original;
   result thread_result, thread_state_result, thread_event_result;
   state.value = 7.0F;
   event.timestamp_ns = 99;

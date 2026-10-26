@@ -569,6 +569,24 @@ render_resource_service::create_packaged_texture(texture_data resource,
              : result;
 }
 
+result render_resource_service::create_texture(const texture_view& desc, texture& output) noexcept {
+  output.reset();
+  rid handle{};
+  const auto status = create_texture(desc, &handle);
+  if (status.failed())
+    return status;
+  try {
+    output = reference_texture(handle);
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    (void)destroy_texture(handle);
+    return result::out_of_memory;
+  } catch (...) {
+    (void)destroy_texture(handle);
+    return result::internal;
+  }
+}
+
 gneiss::engine::result
 render_resource_service::destroy_texture(gneiss::engine::rid texture) noexcept {
   return textures_.destroy(texture, gneiss::engine::resource_type::texture);

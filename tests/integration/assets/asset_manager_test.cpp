@@ -17,6 +17,8 @@
 
 namespace gneiss::test_support {
 struct asset_value {
+  static constexpr auto type_guid = gneiss::engine::material_description::type_guid;
+  static constexpr std::string_view type_name = "test_asset";
   char byte{};
 };
 }
@@ -171,6 +173,7 @@ void decoder_selection() {
     return bytes.front() == std::byte{'?'} ? result::invalid_argument : result::success;
   };
   check(register_type<value>(registry, {.guid = material_description::type_guid,
+                                        .schema_version = 1U,
                                         .name = "test_asset",
                                         .serialization = codec}) == result::success,
         "reflection decoder registration");
@@ -233,6 +236,7 @@ void decoder_selection() {
   // 同一个类型同时具备反射与显式解码器时，只采用显式函数。
   check(create_native(registry) == result::success, "override registry");
   check(register_type<value>(registry, {.guid = material_description::type_guid,
+                                        .schema_version = 1U,
                                         .name = "test_asset",
                                         .serialization = codec}) == result::success,
         "override reflection");

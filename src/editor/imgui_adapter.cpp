@@ -233,18 +233,10 @@ gneiss::engine::result imgui_adapter::initialize(runtime::application& applicati
   texture_desc.height = static_cast<std::uint32_t>(atlas_height);
   texture_desc.row_stride_bytes = texture_desc.width * 4U;
   texture_desc.pixels = premultiplied;
-  gneiss::engine::rid handle{};
-  const auto result = application.resources().create_texture(texture_desc, &handle);
-  if (result != gneiss::engine::result::success) {
+  const auto result = application.resources().create_texture(texture_desc, font_texture_);
+  if (result.failed())
     return result;
-  }
-  try {
-    font_texture_ = application.resources().reference_texture(handle);
-  } catch (...) {
-    (void)application.resources().destroy_texture(handle);
-    throw;
-  }
-  io.Fonts->SetTexID(static_cast<ImTextureID>(handle));
+  io.Fonts->SetTexID(static_cast<ImTextureID>(gneiss::engine::resource_handle(font_texture_)));
   io.Fonts->TexRef._TexData->SetStatus(ImTextureStatus_OK);
   return gneiss::engine::result::success;
 }

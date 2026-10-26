@@ -11,6 +11,7 @@
 #include "engine/resource/loaders/texture_ktx2.hpp"
 #include "runtime/application.hpp"
 #include <array>
+#include <chrono>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -18,6 +19,7 @@
 #include <granit/renderer/texture_asset.hpp>
 #include <source_location>
 #include <stdexcept>
+#include <thread>
 
 namespace {
 using namespace gneiss;
@@ -88,14 +90,24 @@ void run_sync_reload() {
         std::to_integer<unsigned>(image.pixels[offset + 2U]),
     };
   };
-  const auto initial = pixel();
+  const auto await_color = [&](bool blue) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    auto value = pixel();
+    while (value[blue ? 1U : 0U] <= value[blue ? 0U : 1U] + 30U) {
+      check(std::chrono::steady_clock::now() < deadline);
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      value = pixel();
+    }
+    return value;
+  };
+  const auto initial = await_color(false);
   check(initial[0] > initial[1] + 30U);
   files.color(std::byte{0}, std::byte{255});
   const std::array requests{gneiss::engine::render_asset_reload{
       .uri = "asset://t.texture.json", .type = gneiss::engine::render_asset_type::texture}};
   check(app->reload_render_assets(requests) == gneiss::engine::result::success);
   // 不重载场景、不重建材质：已有引用必须看到同一纹理 RID 的新内容。
-  const auto updated = pixel();
+  const auto updated = await_color(true);
   check(updated[1] > updated[0] + 30U);
   std::ofstream(files.root / "t.texture.json") << "{";
   check(app->reload_render_assets(requests) == gneiss::engine::result::invalid_argument);
@@ -175,12 +187,24 @@ void run_pending_resources() {
       },
   };
   check(resources.replace_texture(texture, red));
-  const auto ready = pixel();
+  const auto await_pixel = [&](bool is_blue) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    auto color = pixel();
+    const auto expected = is_blue ? 2U : 0U;
+    const auto other = is_blue ? 0U : 2U;
+    while (!(color[expected] > color[1] + 30U && color[expected] > color[other] + 30U) &&
+           std::chrono::steady_clock::now() < deadline) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      color = pixel();
+    }
+    return color;
+  };
+  const auto ready = await_pixel(false);
   check(ready[0] > ready[1] + 30U && ready[0] > ready[2] + 30U);
   auto blue = std::make_shared<gneiss::engine::texture_data>(*red);
   blue->levels.front().pixels = {std::byte{0}, std::byte{0}, std::byte{255}, std::byte{255}};
   check(resources.replace_texture(texture, blue));
-  const auto updated = pixel();
+  const auto updated = await_pixel(true);
   check(updated[2] > updated[0] + 30U && updated[2] > updated[1] + 30U);
   // 无效完成不能覆盖旧内容；已缓存 GPU 镜像也不能掩盖 RID 销毁。
   check(!resources.replace_texture(texture, {}));
@@ -597,7 +621,19 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
                       std::to_integer<unsigned>(image.pixels[offset + 1U]),
                       std::to_integer<unsigned>(image.pixels[offset + 2U])};
   };
-  const auto before = capture();
+  const auto await_capture = [&](bool is_blue) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    auto image = capture();
+    auto color = center(image);
+    while (!(is_blue ? color[2] > color[0] + 30U : color[0] > color[2] + 30U) &&
+           std::chrono::steady_clock::now() < deadline) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      image = capture();
+      color = center(image);
+    }
+    return image;
+  };
+  const auto before = await_capture(true);
   const auto blue = center(before);
   std::printf("before=%u,%u,%u\n", blue[0], blue[1], blue[2]);
   check(blue[2] > blue[0] + 30U);
@@ -627,7 +663,7 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
   };
   files.color(std::byte{240}, std::byte{20});
   check(reload() == gneiss::engine::result::success);
-  const auto after = capture();
+  const auto after = await_capture(false);
   const auto red = center(after);
   std::printf("after=%u,%u,%u\n", red[0], red[1], red[2]);
   check(red[0] > red[2] + 30U && before.pixels != after.pixels);
@@ -646,7 +682,7 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
   std::ofstream(files.root / "g.mesh.json")
       << R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.3,-0.3,0],[0.3,-0.3,0],[0,0.3,0]],"uvs":[[0,0],[1,0],[0.5,1]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
   check(reload(true) == gneiss::engine::result::success);
-  const auto mixed = capture();
+  const auto mixed = await_capture(true);
   const auto mixed_color = center(mixed);
   check(mixed_color[2] > mixed_color[0] + 30U);
   const auto coverage = [](const auto& image) {
@@ -659,7 +695,7 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
     return count;
   };
   check(coverage(mixed) > 0U && coverage(mixed) < coverage(after) / 2U);
-  // 同批有效材质与损坏网格不可部分发布。
+  // 准备阶段遇到损坏网格时，本批尚未进入采用，已有画面保持不变。
   std::ofstream(files.root / "m.material.json")
       << R"({"format":"gneiss.material","version":5,"color":[1,0,0,1],"metallic":0,"roughness":1})";
   std::ofstream(files.root / "g.mesh.json") << "broken";

@@ -20,7 +20,7 @@ namespace native = gneiss::engine;
 namespace {
 
 struct smoke_context final {
-  native::rid texture{};
+  native::texture texture;
   bool received_key{};
 };
 
@@ -40,7 +40,7 @@ native::result submit_ui(gneiss::runtime::application& application, smoke_contex
       native::ui_vertex{{16.0F, 64.0F}, {0.0F, 1.0F}, UINT32_C(0xccffffff)}};
   constexpr std::array<std::uint32_t, 6> indices{0U, 1U, 2U, 2U, 3U, 0U};
   const std::array commands{
-      native::ui_draw_command{.texture = application.resources().reference_texture(context.texture),
+      native::ui_draw_command{.texture = context.texture,
                               .clip_min = {16.0F, 16.0F},
                               .clip_max = {144.0F, 64.0F},
                               .first_index = 0U,
@@ -103,7 +103,7 @@ int main() {
     std::fprintf(stderr, "测试 Texture 创建失败\n");
     return 2;
   }
-  context.texture = texture;
+  context.texture = resources.reference_texture(texture);
 #ifdef _WIN32
   // 投递真实窗口消息，验证显式事件泵送及原生输入事件传递。
   const auto window = FindWindowW(nullptr, L"Gneiss Granit Platform Smoke Test");

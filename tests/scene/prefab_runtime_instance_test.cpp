@@ -61,6 +61,16 @@ constexpr std::string_view broken_prefab_json = R"({
 
 class memory_file_system final : public gneiss::engine::file_system {
 public:
+  gneiss::engine::result read_bounded(std::string_view path, std::size_t limit,
+                                      std::vector<std::byte>& output) const noexcept override {
+    const auto content =
+        path == "lamp.prefab.json"
+            ? prefab_json
+            : (path == "broken.prefab.json" ? broken_prefab_json : std::string_view{});
+    if (content.size() > limit)
+      return gneiss::engine::result::invalid_argument;
+    return read(path, output);
+  }
   [[nodiscard]] gneiss::engine::result
   read(std::string_view path, std::vector<std::byte>& out_bytes) const noexcept override {
     const auto content =
@@ -240,14 +250,14 @@ int main() try {
 
   gneiss::engine::virtual_file_system file_system;
   gneiss::engine::render_resource_service resources;
-  gneiss::engine::asset_manager asset_owner(file_system);
-  [[maybe_unused]] auto& cache = asset_owner.cache();
-  gneiss::engine::render_asset_loader render_loader(asset_owner, resources);
-  auto& prefab_loader = asset_owner;
   if (file_system.mount("asset://prefabs/", std::make_shared<memory_file_system>()) !=
       gneiss::engine::result::success) {
     return 3;
   }
+  gneiss::engine::asset_manager asset_owner(file_system);
+  [[maybe_unused]] auto& cache = asset_owner.cache();
+  gneiss::engine::render_asset_loader render_loader(asset_owner, resources);
+  auto& prefab_loader = asset_owner;
   gneiss::engine::prefab_asset_ref first_lease;
   gneiss::engine::prefab_asset_ref second_lease;
   if (prefab_loader.load_sync("asset://prefabs/lamp.prefab.json", first_lease) !=
