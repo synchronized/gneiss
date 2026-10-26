@@ -1374,7 +1374,7 @@ render_service::implementation::execute_frame(
         }
         gneiss::engine::matrix4 model;
         gneiss::engine::matrix4 normal;
-        if (!build_model_matrices(instance.transform, model, normal))
+        if (!model_and_normal_matrices(instance.transform, model, normal))
           return gneiss::engine::result::invalid_argument;
         const auto payload = static_cast<std::uint64_t>(index) + 1U;
         const auto gpu_mesh = mesh_mirrors_.find(resource_handle(instance.mesh));

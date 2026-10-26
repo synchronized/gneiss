@@ -12,7 +12,7 @@ vector3 transform_normal(const vector3& normal,
   return {value.x, value.y, value.z};
 }
 
-bool build_model_matrices(const transform& value, matrix4& model, matrix4& normal) noexcept {
+bool model_and_normal_matrices(const transform& value, matrix4& model, matrix4& normal) noexcept {
   const auto squared = glm::dot(value.rotation, value.rotation);
   if (!std::isfinite(squared) || squared <= 0)
     return false;

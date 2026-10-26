@@ -60,7 +60,7 @@
 | 文件 | 内容 |
 | --- | --- |
 | `types.hpp` | GLM 配置、向量/矩阵/四元数别名、分量和数组访问 |
-| `functions.hpp` | 有限值判断、矩阵数组转换、矩阵乘向量 |
+| `functions.hpp` | 有限值判断、矩阵数组转换、位置与方向变换 |
 | `transform.hpp/.cpp` | TRS 类型与校验、组合、Model/Normal 矩阵和法线变换 |
 | `camera.hpp/.cpp` | camera_settings、视图矩阵和透视投影 |
 
@@ -69,3 +69,20 @@
 场景描述和文件/IPC 编码仍使用原有长字段名，边界转换显式映射这些字段。
 `camera.hpp` 清除已定义的 Win32 near/far 旧宏；平台代码在其后包含 Windows 头时，
 应在平台边界清除这两个宏，不能让宏影响后续成员访问。
+
+数学函数以运算语义命名，不保留旧 build_* 或 valid_transform 转发入口：
+
+| 接口 | 语义与失败行为 |
+| --- | --- |
+| `is_valid_transform` | 判断 TRS 是否满足既有有限值、单位旋转与非退化缩放约束 |
+| `model_matrix` | 从有效 TRS 计算 Model 矩阵；不做输入校验 |
+| `model_and_normal_matrices` | 计算 Model/Normal 矩阵；校验失败返回 false，保持输出 |
+| `view_matrix_rh` | 右手视图矩阵，忽略缩放；失败返回 result，保持输出 |
+| `perspective_rh_zo` | 右手、深度 [0,1] 透视投影；失败返回 result，保持输出 |
+| `transform_vector(matrix4, vector3)` | 以 w=0 变换方向，不应用平移，不归一化或透视除法 |
+| `transform_point(matrix4, vector3, output)` | 以 w=1 变换位置并透视除法；w=0、非有限结果或除法溢出时返回 false，保持输出 |
+| `is_finite(matrix3/matrix4)` | 检查包括非对角项在内的全部分量 |
+
+四维齐次坐标运算直接使用 `matrix * vector4`。编辑器 Gizmo 复用 Core 的相机函数，
+在适配边界转换成外部数组；非法相机参数延续返回零数组的编辑器约定。
+底层继续使用 GLM，不另外实现 add/subtract/multiply 或修改 normalize 的既有语义。

@@ -17,18 +17,18 @@ bool nearly_equal(float left, float right) noexcept { return std::abs(left - rig
 } // namespace
 
 int main() {
-  using gneiss::engine::build_perspective_matrix;
-  using gneiss::engine::build_view_matrix;
   using gneiss::engine::matrix4;
-  using gneiss::engine::transform_vector;
+  using gneiss::engine::perspective_rh_zo;
+  using gneiss::engine::vector4;
+  using gneiss::engine::view_matrix_rh;
 
   matrix4 view;
   gneiss::engine::transform transform = {};
   transform.translation[2] = 2.0F;
-  if (build_view_matrix(transform, view) != gneiss::engine::result::success) {
+  if (view_matrix_rh(transform, view) != gneiss::engine::result::success) {
     return 1;
   }
-  const auto translated_origin = transform_vector(view, {0.0F, 0.0F, 0.0F, 1.0F});
+  const auto translated_origin = view * vector4{0.0F, 0.0F, 0.0F, 1.0F};
   if (!nearly_equal(translated_origin[2], -2.0F) || !nearly_equal(translated_origin[3], 1.0F)) {
     return 2;
   }
@@ -40,10 +40,10 @@ int main() {
   transform.scale[0] = 8.0F;
   transform.scale[1] = 9.0F;
   transform.scale[2] = 10.0F;
-  if (build_view_matrix(transform, view) != gneiss::engine::result::success) {
+  if (view_matrix_rh(transform, view) != gneiss::engine::result::success) {
     return 3;
   }
-  const auto camera_forward_point = transform_vector(view, {-2.0F, 0.0F, 0.0F, 1.0F});
+  const auto camera_forward_point = view * vector4{-2.0F, 0.0F, 0.0F, 1.0F};
   if (!nearly_equal(camera_forward_point[0], 0.0F) ||
       !nearly_equal(camera_forward_point[2], -2.0F)) {
     return 4;
@@ -54,13 +54,13 @@ int main() {
   camera.near = 0.1F;
   camera.far = 100.0F;
   matrix4 projection;
-  if (build_perspective_matrix(camera, 2.0F, projection) != gneiss::engine::result::success) {
+  if (perspective_rh_zo(camera, 2.0F, projection) != gneiss::engine::result::success) {
     return 5;
   }
-  const auto near_point = transform_vector(projection, {0.0F, 0.0F, -camera.near, 1.0F});
-  const auto far_point = transform_vector(projection, {0.0F, 0.0F, -camera.far, 1.0F});
-  const auto upper_point = transform_vector(projection, {0.0F, 1.0F, -1.0F, 1.0F});
-  const auto lower_point = transform_vector(projection, {0.0F, -1.0F, -1.0F, 1.0F});
+  const auto near_point = projection * vector4{0.0F, 0.0F, -camera.near, 1.0F};
+  const auto far_point = projection * vector4{0.0F, 0.0F, -camera.far, 1.0F};
+  const auto upper_point = projection * vector4{0.0F, 1.0F, -1.0F, 1.0F};
+  const auto lower_point = projection * vector4{0.0F, -1.0F, -1.0F, 1.0F};
   if (!nearly_equal(near_point[2] / near_point[3], 0.0F) ||
       !nearly_equal(far_point[2] / far_point[3], 1.0F) ||
       !nearly_equal(upper_point[1] / upper_point[3], 1.0F) ||
@@ -68,18 +68,19 @@ int main() {
     return 6;
   }
 
+  const auto previous_view = view;
+  const auto previous_projection = projection;
   transform.rotation[0] = 0.0F;
   transform.rotation[1] = 0.0F;
   transform.rotation[2] = 0.0F;
   transform.rotation[3] = 0.0F;
-  if (build_view_matrix(transform, view) != gneiss::engine::result::invalid_argument ||
-      build_perspective_matrix(camera, 0.0F, projection) !=
-          gneiss::engine::result::invalid_argument) {
+  if (view_matrix_rh(transform, view) != gneiss::engine::result::invalid_argument ||
+      perspective_rh_zo(camera, 0.0F, projection) != gneiss::engine::result::invalid_argument ||
+      view != previous_view || projection != previous_projection) {
     return 7;
   }
   camera.far = std::numeric_limits<float>::infinity();
-  return build_perspective_matrix(camera, 1.0F, projection) ==
-                 gneiss::engine::result::invalid_argument
+  return perspective_rh_zo(camera, 1.0F, projection) == gneiss::engine::result::invalid_argument
              ? 0
              : 8;
 }

@@ -125,5 +125,19 @@ int main() {
       matrix_roundtrip.translation[0] != 123.0F) {
     return 10;
   }
+  // 相机适配保持右手、Y 向上投影与忽略缩放的视图语义。
+  gneiss::engine::transform camera;
+  camera.translation.z = 2.0F;
+  camera.scale = {2, 3, 4};
+  const auto view = gneiss::editor::build_gizmo_view_matrix(camera);
+  const auto projection = gneiss::editor::build_gizmo_projection_matrix(2.0F);
+  if (!near(view[0], 1.0F) || !near(view[14], -2.0F) ||
+      !near(projection[0], std::sqrt(3.0F) / 2.0F) || !near(projection[5], std::sqrt(3.0F)) ||
+      !near(projection[11], -1.0F))
+    return 11;
+  camera.rotation = {0, 0, 0, 0};
+  if (gneiss::editor::build_gizmo_view_matrix(camera) != gneiss::editor::gizmo_matrix{} ||
+      gneiss::editor::build_gizmo_projection_matrix(0) != gneiss::editor::gizmo_matrix{})
+    return 12;
   return 0;
 }

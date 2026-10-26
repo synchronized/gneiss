@@ -20,9 +20,9 @@ struct camera_settings {
   float near{}; ///< 近裁剪面距离。
   float far{};  ///< 远裁剪面距离。
 };
-/** 使用世界平移与旋转构造右手视图矩阵；缩放不参与观察变换。 */
-[[nodiscard]] result build_view_matrix(const transform& value, matrix4& output) noexcept;
-/** 右手透视投影；逻辑裁剪空间 Y 向上、深度范围为 0..1。 */
-[[nodiscard]] result build_perspective_matrix(const camera_settings& camera, float aspect,
-                                              matrix4& output) noexcept;
+/** 使用世界平移与旋转构造右手视图矩阵；缩放不参与观察变换；非法输入不修改 output。 */
+[[nodiscard]] GNEISS_API result view_matrix_rh(const transform& value, matrix4& output) noexcept;
+/** 右手透视投影；逻辑裁剪空间 Y 向上、深度范围为 0..1；非法输入不修改 output。 */
+[[nodiscard]] GNEISS_API result perspective_rh_zo(const camera_settings& camera, float aspect,
+                                                  matrix4& output) noexcept;
 } // namespace gneiss::engine

@@ -2,10 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "transform_gizmo_math.hpp"
-#include "engine/core/math/transform.hpp"
+#include "engine/core/math/camera.hpp"
 #include <algorithm>
 #include <cmath>
-#include <glm/ext/matrix_clip_space.hpp>
 #include <numbers>
 namespace gneiss::editor {
 namespace {
@@ -15,24 +14,24 @@ bool positive_scale(const transform& value) noexcept {
 }
 }
 gizmo_matrix build_gizmo_projection_matrix(float aspect) noexcept {
-  if (!std::isfinite(aspect) || aspect <= 0)
+  engine::matrix4 output;
+  if (engine::perspective_rh_zo({std::numbers::pi_v<float> / 3, 0.05F, 2000.0F}, aspect, output)
+          .failed())
     return {};
-  return engine::matrix_to_array(
-      glm::perspectiveRH_ZO(std::numbers::pi_v<float> / 3, aspect, 0.05F, 2000.0F));
+  return engine::matrix_to_array(output);
 }
 
 gizmo_matrix build_gizmo_view_matrix(const engine::transform& camera) noexcept {
-  const auto squared = glm::dot(camera.rotation, camera.rotation);
-  if (!engine::is_finite(camera.translation) || !std::isfinite(squared) || squared <= 0)
+  engine::matrix4 output;
+  if (engine::view_matrix_rh(camera, output).failed())
     return {};
-  return engine::matrix_to_array(glm::mat4_cast(glm::conjugate(glm::normalize(camera.rotation))) *
-                                 glm::translate(engine::matrix4{1.0F}, -camera.translation));
+  return engine::matrix_to_array(output);
 }
 engine::result transform_to_gizmo_matrix(const engine::transform& value,
                                          gizmo_matrix& output) noexcept {
-  if (!engine::valid_transform(value) || !positive_scale(value))
+  if (!engine::is_valid_transform(value) || !positive_scale(value))
     return engine::result::unsupported;
-  output = engine::matrix_to_array(engine::transform_matrix(value));
+  output = engine::matrix_to_array(engine::model_matrix(value));
   return engine::result::success;
 }
 engine::result gizmo_matrix_to_transform(const gizmo_matrix& value,
@@ -62,7 +61,7 @@ engine::result gizmo_matrix_to_transform(const gizmo_matrix& value,
 engine::result world_to_local_transform(const engine::transform* parent,
                                         const engine::transform& world,
                                         engine::transform& output) noexcept {
-  if (!engine::valid_transform(world) || (parent && !engine::valid_transform(*parent)))
+  if (!engine::is_valid_transform(world) || (parent && !engine::is_valid_transform(*parent)))
     return engine::result::invalid_argument;
   if (!positive_scale(world) || (parent && !positive_scale(*parent)))
     return engine::result::unsupported;

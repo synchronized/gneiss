@@ -21,7 +21,7 @@ gneiss::engine::transform combine(const gneiss::engine::transform& parent,
                                   const gneiss::engine::transform& local) noexcept {
   return compose_transform(parent, local);
 }
-bool is_valid(const gneiss::engine::transform& value) noexcept { return valid_transform(value); }
+bool is_valid(const gneiss::engine::transform& value) noexcept { return is_valid_transform(value); }
 
 } // namespace
 

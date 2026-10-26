@@ -36,10 +36,10 @@ gneiss::engine::result build_render_snapshot(world_state& world, std::uint32_t v
     if (has_camera) {
       gneiss::engine::matrix4 view;
       gneiss::engine::matrix4 projection;
-      const auto view_result = gneiss::engine::build_view_matrix(selected.transform, view);
+      const auto view_result = gneiss::engine::view_matrix_rh(selected.transform, view);
       const auto aspect = static_cast<float>(viewport_width) / static_cast<float>(viewport_height);
       const auto projection_result =
-          gneiss::engine::build_perspective_matrix(selected.camera, aspect, projection);
+          gneiss::engine::perspective_rh_zo(selected.camera, aspect, projection);
       if (view_result != gneiss::engine::result::success) {
         return view_result;
       }
