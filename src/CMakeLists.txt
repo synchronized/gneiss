@@ -27,6 +27,7 @@ target_sources(
   gneiss_engine
   PRIVATE
     engine/resource/asset_ref.hpp
+    engine/resource/resource_retirement_queue.hpp
     engine/resource/asset_manager.hpp
     engine/resource/asset_manager.cpp
     engine/resource/files/file_service.cpp

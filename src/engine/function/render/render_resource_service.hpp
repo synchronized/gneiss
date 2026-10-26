@@ -9,6 +9,7 @@
 #include "engine/core/rid_table.hpp"
 #include "engine/function/render/render_resource_data.hpp"
 #include "engine/function/render/texture_view.hpp"
+#include "engine/resource/resource_retirement_queue.hpp"
 
 #include "engine/core/export.hpp"
 #include <array>
@@ -32,6 +33,19 @@ class render_resource_service final {
 public:
   static constexpr std::uint64_t default_memory_limit = UINT64_C(4) * 1024U * 1024U * 1024U;
   explicit render_resource_service(std::uint64_t memory_limit = default_memory_limit) noexcept;
+  ~render_resource_service();
+  /** 仅运行资源使用延迟析构；CPU 负载仍使用普通 shared_ptr。 */
+  template <typename T, typename... Args> std::shared_ptr<T> make_runtime_resource(Args&&... args) {
+    if (!retirement_)
+      retirement_ = std::make_unique<resource_retirement_queue>(this);
+    return retirement_->make<T>(
+        [](T& value, void* owner) noexcept {
+          // 关闭后只析构 CPU 外壳，禁止访问已销毁的服务。
+          value.resources = static_cast<render_resource_service*>(owner);
+        },
+        std::forward<Args>(args)...);
+  }
+  std::size_t drain_retired_resources() noexcept { return retirement_ ? retirement_->drain() : 0U; }
   /** 所属线程查询；跟踪共享对象，包含仍被旧帧持有的已销毁 RID 数据，不强持有对象。 */
   [[nodiscard]] render_memory_usage memory_usage() const noexcept;
   [[nodiscard]] std::uint64_t available_memory_bytes() const noexcept;
@@ -108,6 +122,7 @@ private:
   template <typename Resource>
   std::shared_ptr<const Resource> track(std::shared_ptr<const Resource> resource,
                                         std::vector<std::weak_ptr<const Resource>>& history);
+  std::unique_ptr<resource_retirement_queue> retirement_;
   std::uint64_t memory_limit_{};
   mutable std::vector<std::weak_ptr<const mesh_resource>> mesh_history_;
   mutable std::vector<std::weak_ptr<const material_resource>> material_history_;

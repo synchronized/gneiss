@@ -99,7 +99,7 @@ public:
    * 不等待 GPU 上传；后续渲染帧按 CPU 内容重建镜像。已有使用者保持同一 RID。 */
   [[nodiscard]] gneiss::engine::result reload_assets(std::span<const render_asset_reload> assets,
                                                      asset_diagnostic& out_diagnostic) noexcept;
-  void release_unused() noexcept { cache_.release_unused(); }
+  void release_unused() noexcept;
 
 private:
   gneiss::engine::result prepare_material_upload(prepared_render_asset& prepared,

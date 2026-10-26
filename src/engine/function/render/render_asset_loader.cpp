@@ -148,6 +148,13 @@ append_texture_dependencies(std::vector<gneiss::engine::render_asset_reload>& qu
 
 namespace gneiss::engine {
 
+void render_asset_loader::release_unused() noexcept {
+  // 析构材质才会释放其纹理依赖，消费后重新扫描统一缓存。
+  do {
+    cache_.release_unused();
+  } while (resources_.drain_retired_resources() != 0U);
+}
+
 gneiss::engine::result
 prepare_render_assets(asset_manager& assets, std::span<const render_asset_reload> requested,
                       prepared_render_batch& output, asset_diagnostic& diagnostic,
@@ -386,19 +393,19 @@ gneiss::engine::result render_asset_loader::reserve_asset(const render_asset_rel
           auto result = gneiss::engine::result::invalid_argument;
           switch (source.type) {
           case render_asset_type::mesh: {
-            auto asset = std::make_shared<mesh_asset>(resources_, 0U);
+            auto asset = resources_.make_runtime_resource<mesh_asset>(resources_, 0U);
             result = resources_.reserve_mesh(&asset->rid);
             resource = std::move(asset);
             break;
           }
           case render_asset_type::texture: {
-            auto asset = std::make_shared<texture_asset>(resources_, 0U);
+            auto asset = resources_.make_runtime_resource<texture_asset>(resources_, 0U);
             result = resources_.reserve_texture(&asset->rid);
             resource = std::move(asset);
             break;
           }
           case render_asset_type::material: {
-            auto asset = std::make_shared<material_asset>(resources_, 0U);
+            auto asset = resources_.make_runtime_resource<material_asset>(resources_, 0U);
             result = resources_.reserve_material(&asset->rid);
             resource = std::move(asset);
             break;
@@ -581,7 +588,7 @@ render_asset_loader::acquire_mesh(std::string_view uri, render_asset_ref& out_le
           return result;
         }
         try {
-          output = std::make_shared<mesh_asset>(resources_, rid);
+          output = resources_.make_runtime_resource<mesh_asset>(resources_, rid);
         } catch (...) {
           (void)resources_.destroy_mesh(rid);
           throw;
@@ -661,7 +668,8 @@ render_asset_loader::acquire_material(std::string_view uri, render_asset_ref& ou
           return result;
         }
         try {
-          auto asset = std::make_shared<material_asset>(resources_, rid, std::move(dependencies));
+          auto asset = resources_.make_runtime_resource<material_asset>(resources_, rid,
+                                                                        std::move(dependencies));
           asset->description = std::move(description);
           output = std::move(asset);
         } catch (...) {
@@ -720,7 +728,7 @@ render_asset_loader::acquire_texture(std::string_view uri, render_asset_ref& out
           return result;
         }
         try {
-          output = std::make_shared<texture_asset>(resources_, rid);
+          output = resources_.make_runtime_resource<texture_asset>(resources_, rid);
         } catch (...) {
           (void)resources_.destroy_texture(rid);
           throw;

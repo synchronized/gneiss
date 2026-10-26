@@ -1010,6 +1010,7 @@ gneiss::engine::result application::shutdown() noexcept {
   // 必须先释放渲染端最后的快照，再关闭文件执行器；否则 join 等待仍被引用的 uv handle。
   storage_->asset_io_executor_.reset();
 #endif
+  (void)storage_->resources_.drain_retired_resources();
   storage_->shutting_down_ = false;
   return shutdown_result;
 }
@@ -1211,6 +1212,7 @@ gneiss::engine::result application::cancel_assets() noexcept {
 }
 
 void application::advance_scene_load() {
+  (void)storage_->resources_.drain_retired_resources();
   storage_->scene_service_.advance();
   report_visual_completion();
 }

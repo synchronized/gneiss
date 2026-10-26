@@ -61,6 +61,11 @@ render_resource_service::render_resource_service(std::uint64_t memory_limit) noe
     : memory_limit_(memory_limit), domain_(allocate_domain()), meshes_(domain_),
       materials_(domain_), textures_(domain_) {}
 
+render_resource_service::~render_resource_service() {
+  if (retirement_)
+    retirement_->close();
+}
+
 gneiss::engine::result render_resource_service::reserve_mesh(gneiss::engine::rid* output) noexcept {
   return meshes_.create(gneiss::engine::resource_type::mesh, std::shared_ptr<const mesh_resource>{},
                         output);

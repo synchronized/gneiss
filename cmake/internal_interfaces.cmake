@@ -34,6 +34,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/types/mesh_data.hpp
   engine/resource/vfs/read_source.hpp
   engine/resource/asset_ref.hpp
+  engine/resource/resource_retirement_queue.hpp
   engine/resource/cache/resource_cache.hpp
   engine/resource/loaders/texture_ktx2.hpp
   engine/resource/types/texture_preparation_data.hpp

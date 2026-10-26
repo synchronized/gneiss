@@ -876,6 +876,31 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   if (cache.size() != 0U || resources.live_resource_count() != 0U) {
     return 13;
   }
+  // 缓存已经销毁但调用方仍持有资源：最后释放先排队，再由所属线程撤销 RID。
+  gneiss::engine::render_asset_ref retained;
+  {
+    gneiss::engine::asset_manager temporary_assets(file_system);
+    gneiss::engine::render_asset_loader temporary_loader(temporary_assets, resources);
+    if (temporary_loader.acquire_mesh("asset://models/triangle.mesh.json", retained, diagnostic) !=
+        gneiss::engine::result::success)
+      return 30;
+  }
+  const auto retained_rid = gneiss::engine::asset_rid(retained);
+  retained.reset();
+  if (resources.mesh_status(retained_rid) != gneiss::engine::result::success ||
+      resources.drain_retired_resources() != 1U ||
+      resources.mesh_status(retained_rid) != gneiss::engine::result::invalid_handle)
+    return 31;
+  // 服务先销毁时外部引用只能释放 CPU 外壳，不再解引用服务裸指针。
+  {
+    gneiss::engine::render_resource_service temporary_resources;
+    gneiss::engine::asset_manager temporary_assets(file_system);
+    gneiss::engine::render_asset_loader temporary_loader(temporary_assets, temporary_resources);
+    if (temporary_loader.acquire_mesh("asset://models/triangle.mesh.json", retained, diagnostic) !=
+        gneiss::engine::result::success)
+      return 32;
+  }
+  retained.reset();
   return 0;
 } catch (...) {
   return 99;
