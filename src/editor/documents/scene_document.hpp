@@ -62,14 +62,6 @@ struct prefab_node_record final {
   bool is_read_only = true;
 };
 
-struct prefab_instance_snapshot final {
-  std::string instance_uuid;
-  std::string parent_uuid;
-  std::string display_name;
-  std::string prefab_uri;
-  gneiss::engine::transform local_transform = {};
-};
-
 struct scene_node_snapshot final {
   std::string uuid;
   std::string parent_uuid;
@@ -141,23 +133,8 @@ public:
   [[nodiscard]] gneiss::engine::result validate_selection() noexcept;
   [[nodiscard]] gneiss::engine::result create_node(std::string_view name, scene_node_id parent,
                                                    scene_node_id& out_node) noexcept;
-  [[nodiscard]] gneiss::engine::result create_prefab_instance(std::string_view name,
-                                                              std::string_view prefab_uri,
-                                                              scene_node_id parent,
-                                                              scene_node_id& out_root) noexcept;
   [[nodiscard]] gneiss::engine::result rename_prefab_instance(scene_node_id root,
                                                               std::string_view name) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  destroy_prefab_instance(scene_node_id root, prefab_instance_snapshot& out_snapshot) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  restore_prefab_instance(const prefab_instance_snapshot& snapshot,
-                          scene_node_id& out_root) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  refresh_prefab_instance(scene_node_id root, scene_node_id& out_new_root,
-                          gneiss::prefab_refresh_token& out_token) noexcept;
-  [[nodiscard]] gneiss::engine::result toggle_prefab_refresh(gneiss::prefab_refresh_token token,
-                                                             scene_node_id& out_new_root) noexcept;
-  void release_prefab_refresh(gneiss::prefab_refresh_token token) noexcept;
   [[nodiscard]] gneiss::engine::result rename_node(scene_node_id node,
                                                    std::string_view name) noexcept;
   [[nodiscard]] gneiss::engine::result reparent_node(scene_node_id node,

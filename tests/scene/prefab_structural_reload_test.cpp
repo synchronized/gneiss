@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../support/async_application.hpp"
+#include "../support/async_prefab.hpp"
 #include "../support/async_scene_reload.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
@@ -82,7 +82,8 @@ int main() try {
   create.instance_uuid = second_instance_uuid;
   create.prefab_uri = prefab_uri;
   gneiss::scene_node_id second_root;
-  if (application->scenes()->create_prefab_instance(scene, create, second_root).failed()) {
+  if (gneiss::test_support::create_prefab(*application, scene, create, second_root, &scheduler)
+          .failed()) {
     return 2;
   }
 

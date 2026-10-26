@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "../../../../tests/support/async_document.hpp"
+#include "../../../../tests/support/async_prefab_edit.hpp"
 #include "commands/editor_prefab_edit.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
@@ -74,10 +74,11 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   check(gneiss::test_support::open_document(session, *app, world, "asset://scene.json",
                                             &scheduler) == gneiss::engine::result::success);
   scene_node_id first, second;
-  check(session.create_prefab_instance("First", "asset://prefab.json", {}, first) ==
-        gneiss::engine::result::success);
-  check(session.create_prefab_instance("Second", "asset://prefab.json", {}, second) ==
-        gneiss::engine::result::success);
+  check(test_support::create_prefab_document(*app, session, "First", "asset://prefab.json", {},
+                                             first, &scheduler) == gneiss::engine::result::success);
+  check(test_support::create_prefab_document(*app, session, "Second", "asset://prefab.json", {},
+                                             second,
+                                             &scheduler) == gneiss::engine::result::success);
   const auto first_uuid = session.prefab_nodes()[0].instance_uuid;
   const auto second_uuid = session.prefab_nodes()[151].instance_uuid;
   const auto source_uuid = session.prefab_nodes()[1].source_node_uuid;
@@ -267,10 +268,11 @@ void run(gneiss::engine::execution_mode mode) {
     }
     check(outcome == expected);
   };
-  // 同步创建的实例支持直接删除与基于快照的历史恢复。
+  // 已加载实例支持直接删除与基于快照的历史恢复。
   scene_node_id legacy;
-  check(session.create_prefab_instance("Legacy", "asset://prefab.json", {}, legacy) ==
-        gneiss::engine::result::success);
+  check(test_support::create_prefab_document(*app, session, "Legacy", "asset://prefab.json", {},
+                                             legacy,
+                                             &scheduler) == gneiss::engine::result::success);
   check(edit.request_remove(*app, session, history, legacy) == gneiss::engine::result::success);
   drive();
   check(edit.operation() == gneiss::engine::result::success && session.prefab_nodes().empty());

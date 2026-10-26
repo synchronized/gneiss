@@ -42,19 +42,11 @@ public:
   [[nodiscard]] std::uint64_t get_prefab_node_count() const noexcept;
   [[nodiscard]] gneiss::engine::result get_prefab_node_info(std::uint64_t index,
                                                             prefab_node_view& out_info) const;
-  [[nodiscard]] gneiss::engine::result create_prefab_instance(const prefab_creation& desc,
-                                                              scene_node_id* out_root);
   [[nodiscard]] gneiss::engine::result set_prefab_instance_name(scene_node_id root,
                                                                 std::string_view name);
   [[nodiscard]] gneiss::engine::result
   set_prefab_source_transform(scene_node_id node, const gneiss::engine::transform& transform);
   [[nodiscard]] gneiss::engine::result destroy_prefab_instance(scene_node_id root) noexcept;
-  [[nodiscard]] gneiss::engine::result refresh_prefab_instance(scene_node_id root,
-                                                               scene_node_id* out_new_root,
-                                                               prefab_refresh_token* out_token);
-  [[nodiscard]] gneiss::engine::result toggle_prefab_refresh(prefab_refresh_token token,
-                                                             scene_node_id* out_new_root);
-  [[nodiscard]] gneiss::engine::result release_prefab_refresh(prefab_refresh_token token) noexcept;
   [[nodiscard]] gneiss::engine::result create_node(const node_creation& desc,
                                                    scene_node_id* out_node);
   [[nodiscard]] gneiss::engine::result set_node_name(scene_node_id node, std::string_view name);
@@ -123,17 +115,10 @@ private:
   std::vector<object> objects_;
   std::vector<std::unique_ptr<prefab_runtime_instance>> prefab_instances_;
   gneiss::engine::scene_description description_;
-  struct prefab_refresh_transaction final {
-    prefab_refresh_token token = {};
-    std::string instance_uuid;
-    gneiss::engine::prefab_asset_ref alternate;
-  };
 
   gneiss::engine::world& native_world_;
   gneiss::engine::render_asset_loader& loader_;
   gneiss::engine::meta::registry_ref registry_;
-  std::vector<prefab_refresh_transaction> prefab_refresh_transactions_;
-  std::uint64_t next_prefab_refresh_token_ = 1U;
 };
 
 }

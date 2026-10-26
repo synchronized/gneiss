@@ -14,12 +14,10 @@ inline engine::task_scheduler& application_tasks() {
   static engine::task_scheduler tasks({.workers = 1U});
   return tasks;
 }
-inline engine::result load_scene(runtime::application& app, std::string_view uri,
-                                 scene_instance_id* output,
-                                 engine::task_scheduler* tasks = nullptr) {
-  if (!output)
-    return engine::result::invalid_argument;
-  *output = {};
+inline engine::result prepare_scene(runtime::application& app, std::string_view uri,
+                                    engine::prepared_scene_description& prepared,
+                                    engine::scene_instances::asset_bindings& bindings,
+                                    engine::task_scheduler* tasks = nullptr, bool prefab = false) {
   if (!tasks)
     tasks = &application_tasks();
   const auto attached = app.attach_task_executor(*tasks);
@@ -33,7 +31,7 @@ inline engine::result load_scene(runtime::application& app, std::string_view uri
     std::this_thread::yield();
     return std::chrono::steady_clock::now() < deadline;
   };
-  engine::scene_description_request request(app.assets(), std::string(uri), false);
+  engine::scene_description_request request(app.assets(), std::string(uri), prefab);
   engine::scene_description_inputs inputs;
   engine::scene_diagnostic diagnostic;
   for (;;) {
@@ -46,11 +44,11 @@ inline engine::result load_scene(runtime::application& app, std::string_view uri
       return status;
     break;
   }
-  engine::prepared_scene_description prepared;
-  auto status = engine::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {});
+  auto status = engine::prepare_loaded_scene(inputs, prefab ? uri : std::string_view{}, prepared,
+                                             diagnostic, {});
   if (status.failed())
     return status;
-  engine::scene_instances::asset_bindings bindings;
+  bindings.clear();
   for (const auto& source : prepared.assets) {
     std::uint64_t id{};
     status = app.request_assets(std::span(&source, 1), 1, 1, id, false);
@@ -72,6 +70,19 @@ inline engine::result load_scene(runtime::application& app, std::string_view uri
       bindings.insert_or_assign(key, std::move(asset));
     }
   }
-  return app.scenes()->instantiate_prepared(std::move(prepared), bindings, *output);
+  return engine::result::success;
+}
+inline engine::result load_scene(runtime::application& app, std::string_view uri,
+                                 scene_instance_id* output,
+                                 engine::task_scheduler* tasks = nullptr) {
+  if (!output)
+    return engine::result::invalid_argument;
+  *output = {};
+  engine::prepared_scene_description prepared;
+  engine::scene_instances::asset_bindings bindings;
+  auto status = prepare_scene(app, uri, prepared, bindings, tasks);
+  return status.failed()
+             ? status
+             : app.scenes()->instantiate_prepared(std::move(prepared), bindings, *output);
 }
 }

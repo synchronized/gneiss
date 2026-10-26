@@ -36,20 +36,6 @@ private:
   std::uint64_t value_{};
 };
 
-/** 非拥有的运行期标识；不能与节点或渲染资源句柄混用。 */
-class prefab_refresh_token final {
-public:
-  constexpr prefab_refresh_token() noexcept = default;
-  explicit constexpr prefab_refresh_token(std::uint64_t value) noexcept : value_(value) {}
-  explicit constexpr operator bool() const noexcept { return value_ != 0U; }
-  [[nodiscard]] constexpr bool is_valid() const noexcept { return value_ != 0U; }
-  [[nodiscard]] constexpr std::uint64_t get() const noexcept { return value_; }
-  friend constexpr auto operator<=>(prefab_refresh_token, prefab_refresh_token) noexcept = default;
-
-private:
-  std::uint64_t value_{};
-};
-
 // NOLINTNEXTLINE(performance-enum-size): 保留完整标志位宽度。
 enum class scene_node_components : std::uint32_t {
   none = 0,

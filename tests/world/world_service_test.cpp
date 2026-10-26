@@ -17,7 +17,6 @@
 static_assert(!std::is_convertible_v<gneiss::engine::rid, gneiss::scene_instance_id>);
 static_assert(!std::is_convertible_v<gneiss::scene_instance_id, gneiss::engine::rid>);
 static_assert(!std::is_convertible_v<gneiss::scene_node_id, gneiss::scene_instance_id>);
-static_assert(!std::is_convertible_v<gneiss::prefab_refresh_token, gneiss::scene_node_id>);
 
 namespace {
 bool native_operations() {

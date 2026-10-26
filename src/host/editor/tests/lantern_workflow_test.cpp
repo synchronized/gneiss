@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../../../tests/support/async_document.hpp"
+#include "../../../../tests/support/async_prefab_edit.hpp"
 #include "asset_browser_model.hpp"
 #include "asset_import_controller.hpp"
 #include "commands/editor_command_history.hpp"
@@ -179,37 +179,24 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   }
   prefab_text.replace(old_name, std::string_view{"Lantern Glass"}.size(), "Lantern Glass Updated");
   write_text(prefab_path, prefab_text);
-  std::vector<gneiss::prefab_refresh_token> refresh_tokens;
+  gneiss::editor::editor_command_history refresh_history;
   for (const auto instance_uuid : instance_uuids) {
     const auto* root_node = session.find_prefab_root(instance_uuid);
-    gneiss::scene_node_id refreshed_root;
-    gneiss::prefab_refresh_token token = {};
-    if (root_node == nullptr ||
-        session.refresh_prefab_instance(root_node->node, refreshed_root, token) !=
-            gneiss::engine::result::success) {
+    if (!root_node || gneiss::test_support::refresh_prefab_document(
+                          *application, session, refresh_history, root_node->node)
+                          .failed())
       return 9;
-    }
-    refresh_tokens.push_back(token);
   }
-  if (count_prefab_name(session, "Lantern Glass Updated") != 3U) {
+  if (count_prefab_name(session, "Lantern Glass Updated") != 3U)
     return 9;
-  }
-  for (const auto token : refresh_tokens) {
-    gneiss::scene_node_id restored_root;
-    if (session.toggle_prefab_refresh(token, restored_root) != gneiss::engine::result::success) {
+  for (std::size_t i = 0; i < instance_uuids.size(); ++i)
+    if (gneiss::test_support::finish_history(refresh_history, refresh_history.undo()).failed())
       return 9;
-    }
-  }
-  if (count_prefab_name(session, "Lantern Glass") != 3U) {
+  if (count_prefab_name(session, "Lantern Glass") != 3U)
     return 9;
-  }
-  for (const auto token : refresh_tokens) {
-    gneiss::scene_node_id refreshed_root;
-    if (session.toggle_prefab_refresh(token, refreshed_root) != gneiss::engine::result::success) {
+  for (std::size_t i = 0; i < instance_uuids.size(); ++i)
+    if (gneiss::test_support::finish_history(refresh_history, refresh_history.redo()).failed())
       return 9;
-    }
-    session.release_prefab_refresh(token);
-  }
   gneiss::scene_node_id node;
   if (session.create_mesh_renderer_node("Imported Lantern", mesh->asset_uri, material->asset_uri,
                                         node) != gneiss::engine::result::success) {

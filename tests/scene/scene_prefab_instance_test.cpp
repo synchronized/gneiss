@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../support/async_application.hpp"
+#include "../support/async_prefab.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
@@ -69,16 +69,12 @@ int main() try {
   }
 
   const auto stale_loaded_root = prefab_root.node;
-  gneiss::prefab_refresh_token loaded_refresh{};
-  if (application->scenes()->refresh_prefab_instance(scene, stale_loaded_root, prefab_root.node,
-                                                     &loaded_refresh) !=
-          gneiss::engine::result::success ||
+  if (gneiss::test_support::refresh_prefab(*application, scene, prefab_root.instance_uuid,
+                                           prefab_root.node) != gneiss::engine::result::success ||
       prefab_root.node == gneiss::null_scene_node_id || prefab_root.node == stale_loaded_root ||
       application->scenes()->get_prefab_node_info(scene, 1U, prefab_source) !=
           gneiss::engine::result::success ||
-      prefab_source.local_transform.translation[0] != 4.0F ||
-      application->scenes()->release_prefab_refresh(scene, loaded_refresh) !=
-          gneiss::engine::result::success) {
+      prefab_source.local_transform.translation[0] != 4.0F) {
     return 2;
   }
 
@@ -97,7 +93,7 @@ int main() try {
     return 3;
   }
   create_desc.parent = prefab_root.node;
-  if (application->scenes()->create_prefab_instance(scene, create_desc, created_root) !=
+  if (gneiss::test_support::create_prefab(*application, scene, create_desc, created_root) !=
           gneiss::engine::result::invalid_handle ||
       created_root != gneiss::null_scene_node_id) {
     return 3;
@@ -105,7 +101,7 @@ int main() try {
   constexpr std::string_view missing_prefab_uri = "asset://prefabs/not-found.prefab.json";
   create_desc.parent = anchor;
   create_desc.prefab_uri = missing_prefab_uri;
-  if (application->scenes()->create_prefab_instance(scene, create_desc, created_root) !=
+  if (gneiss::test_support::create_prefab(*application, scene, create_desc, created_root) !=
           gneiss::engine::result::not_found ||
       created_root != gneiss::null_scene_node_id ||
       application->native_world()->entity_count(entity_count) != gneiss::engine::result::success ||
@@ -114,7 +110,7 @@ int main() try {
   }
   create_desc.prefab_uri = prefab_uri;
   create_desc.parent = anchor;
-  if (application->scenes()->create_prefab_instance(scene, create_desc, created_root) !=
+  if (gneiss::test_support::create_prefab(*application, scene, create_desc, created_root) !=
           gneiss::engine::result::success ||
       created_root == gneiss::null_scene_node_id ||
       application->scenes()->get_prefab_node_count(scene, &prefab_node_count) !=
@@ -135,25 +131,14 @@ int main() try {
   }
   const auto stale_root = created_root;
   gneiss::entity_id stale_entity;
-  gneiss::prefab_refresh_token refresh_token{};
-  if (application->scenes()->refresh_prefab_instance(
-          scene, stale_root, created_root, &refresh_token) != gneiss::engine::result::success ||
+  if (gneiss::test_support::refresh_prefab(*application, scene, created_uuid, created_root) !=
+          gneiss::engine::result::success ||
       created_root == gneiss::null_scene_node_id || created_root == stale_root ||
-      !refresh_token.is_valid() ||
       application->native_world()->node_get_entity(stale_root, stale_entity) !=
           gneiss::engine::result::invalid_handle) {
     return 4;
   }
-  const auto refreshed_root = created_root;
-  if (application->scenes()->toggle_prefab_refresh(scene, refresh_token, created_root) !=
-          gneiss::engine::result::success ||
-      created_root == refreshed_root ||
-      application->scenes()->toggle_prefab_refresh(scene, refresh_token, created_root) !=
-          gneiss::engine::result::success ||
-      created_root == gneiss::null_scene_node_id ||
-      application->scenes()->release_prefab_refresh(scene, refresh_token) !=
-          gneiss::engine::result::success ||
-      application->scenes()->destroy_prefab_instance(scene, prefab_root.node) !=
+  if (application->scenes()->destroy_prefab_instance(scene, prefab_root.node) !=
           gneiss::engine::result::success ||
       application->scenes()->get_prefab_node_count(scene, &prefab_node_count) !=
           gneiss::engine::result::success ||

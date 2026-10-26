@@ -112,9 +112,6 @@ public:
                                                               std::string_view uuid,
                                                               std::size_t index,
                                                               mesh_binding& output) const noexcept;
-  [[nodiscard]] gneiss::engine::result create_prefab_instance(scene_instance_id instance,
-                                                              const prefab_creation& desc,
-                                                              scene_node_id& out_root) noexcept;
   [[nodiscard]] gneiss::engine::result set_prefab_instance_name(scene_instance_id instance,
                                                                 scene_node_id root,
                                                                 std::string_view name) noexcept;
@@ -123,14 +120,6 @@ public:
                               const gneiss::engine::transform& transform) noexcept;
   [[nodiscard]] gneiss::engine::result destroy_prefab_instance(scene_instance_id instance,
                                                                scene_node_id root) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  refresh_prefab_instance(scene_instance_id instance, scene_node_id root,
-                          scene_node_id& out_new_root, prefab_refresh_token* out_token) noexcept;
-  [[nodiscard]] gneiss::engine::result toggle_prefab_refresh(scene_instance_id instance,
-                                                             prefab_refresh_token token,
-                                                             scene_node_id& out_new_root) noexcept;
-  [[nodiscard]] gneiss::engine::result release_prefab_refresh(scene_instance_id instance,
-                                                              prefab_refresh_token token) noexcept;
   [[nodiscard]] gneiss::engine::result create_node(scene_instance_id instance,
                                                    const node_creation& desc,
                                                    scene_node_id& out_node) noexcept;
