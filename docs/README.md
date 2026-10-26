@@ -209,7 +209,7 @@
 
 ## 架构决策
 
-- [ADR-087：类型化渲染资源与服务生命周期（提议）](decisions/ADR-087-render-resource-model.md)
+- [ADR-087：类型化渲染资源与服务生命周期](decisions/ADR-087-render-resource-model.md)
 
 - [ADR-084：统一回调式文件服务](decisions/ADR-084-async-file-service.md)
 - [ADR-085：渲染资产分阶段读取与纯内存解码](decisions/ADR-085-render-asset-loading.md)
