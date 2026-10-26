@@ -36,6 +36,7 @@ bool run(gneiss::engine::execution_mode mode) {
       if (mode == gneiss::engine::execution_mode::cooperative) {
         (void)executor.run_ready();
       }
+      application->advance_scene_load();
       result = request->poll(output, complete);
       std::this_thread::yield();
     }

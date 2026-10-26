@@ -12,7 +12,9 @@ asset_manager 已提供 find_loaded；普通 CPU、Mesh/Texture 异步加载已�
 宿主已统一分发文件完成，Manager、Scene 和 Texture Loader 不再隐式驱动共享服务。
 服务已增加在途及待分发字节缓冲的总预算；流式背压和平台复制峰值仍待后续处理。
 输入映射已删除同步 load_input/load_action_map，示例和测试改用异步请求。
-Scene/Prefab/Render 等同步调用方迁移、宿主异步关闭、删除 VFS、浏览器和大文件能力仍待完成。
+Scene/Prefab 准备层已删除同步 prepare_scene_description/prepare_prefab_description，
+统一使用 scene_description_request 加载输入和 prepare_loaded_scene 纯内存准备。
+Scene 实例/重载、Render 等同步调用方迁移、宿主异步关闭、删除 VFS、浏览器和大文件能力仍待完成。
 不将 Platform 搬迁或桌面后端实现等同于整份计划完成；大场景和 CI 仍留待统一验收。
 架构决策见 [ADR-084](../decisions/ADR-084-async-file-service.md)。
 

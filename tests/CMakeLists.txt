@@ -882,7 +882,7 @@ target_sources(gneiss_scene_instantiation_test PRIVATE
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/action_map_validation.cpp")
 target_include_directories(gneiss_scene_instantiation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_scene_instantiation_test PRIVATE GNEISS_BUILDING_LIBRARY)
-target_link_libraries(gneiss_scene_instantiation_test PRIVATE gneiss::engine gneiss_yyjson gneiss_png granit::granit)
+target_link_libraries(gneiss_scene_instantiation_test PRIVATE gneiss::engine gneiss_tasks gneiss_yyjson gneiss_png granit::granit)
 target_compile_features(gneiss_scene_instantiation_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_scene_instantiation_test)
 gneiss_target_output_directories(gneiss_scene_instantiation_test)

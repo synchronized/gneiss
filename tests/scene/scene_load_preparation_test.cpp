@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/async_scene.hpp"
 #include "../support/memory_read_file_system.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
@@ -102,8 +103,8 @@ void run() {
   prepared_scene_description output;
   gneiss::engine::scene_diagnostic diagnostic;
   auto prepare = [&](scene_prepare_limits limits = {}, const std::function<bool()>& cancel = {}) {
-    return prepare_scene_description(assets, "asset://main.scene", output, diagnostic, cancel,
-                                     limits);
+    return gneiss::test_support::prepare_scene_for_test(
+        assets, executor, false, "asset://main.scene", output, diagnostic, cancel, limits);
   };
   check(prepare() == gneiss::engine::result::success);
   check(output.prefabs.size() == 1U && output.assets.size() == 2U && output.instance_nodes == 5U);
@@ -133,12 +134,14 @@ void run() {
   asset_ref<const prefab_description> cached;
   check(assets.load_sync("asset://p.prefab", cached).ok() && cached == newer);
 
-  check(prepare_prefab_description(assets, "asset://p.prefab", output, diagnostic, {}) ==
-        gneiss::engine::result::success);
+  check(gneiss::test_support::prepare_scene_for_test(assets, executor, true, "asset://p.prefab",
+                                                     output, diagnostic,
+                                                     {}) == gneiss::engine::result::success);
   check(output.prefabs.size() == 1U && output.instance_nodes == 2U && output.assets.size() == 2U);
   check(output.description.objects.empty());
-  check(prepare_prefab_description(assets, "asset://p.prefab", output, diagnostic,
-                                   [] { return true; }) == gneiss::engine::result::invalid_state);
+  check(gneiss::test_support::prepare_scene_for_test(assets, executor, true, "asset://p.prefab",
+                                                     output, diagnostic, [] { return true; }) ==
+        gneiss::engine::result::invalid_state);
   check(output.prefabs.empty() && output.assets.empty());
   check(prepare({.source_bytes = bytes, .nodes = 5U}) == gneiss::engine::result::success);
   check(prepare({.source_bytes = bytes - 1U}) == gneiss::engine::result::invalid_argument);

@@ -44,7 +44,8 @@ struct scene_description_inputs {
   asset_ref<const scene_description> scene;
   std::map<std::string, asset_ref<const prefab_description>> prefabs;
 };
-/** 所属线程推进普通资源请求；销毁即放弃本请求的观察权。 */
+/** 所属线程推进普通资源请求；销毁即放弃本请求的观察权。
+ * 宿主须先分发文件完成并推进资产管理器；本对象不驱动文件或任务队列。 */
 class GNEISS_API scene_description_request final {
 public:
   scene_description_request(asset_manager&, std::string uri, bool prefab,
@@ -62,14 +63,4 @@ private:
                                                      prepared_scene_description&, scene_diagnostic&,
                                                      const std::function<bool()>& cancelled,
                                                      scene_prepare_limits limits = {}) noexcept;
-/** 所属线程同步加载描述并准备；显式重新加载，不推进任务队列。 */
-[[nodiscard]] result prepare_scene_description(asset_manager&, std::string_view uri,
-                                               prepared_scene_description&, scene_diagnostic&,
-                                               const std::function<bool()>& cancelled,
-                                               scene_prepare_limits limits = {}) noexcept;
-[[nodiscard]] result prepare_prefab_description(asset_manager&, std::string_view uri,
-                                                prepared_scene_description&, scene_diagnostic&,
-                                                const std::function<bool()>& cancelled,
-                                                scene_prepare_limits limits = {}) noexcept;
-
 } // namespace gneiss::engine

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/async_scene.hpp"
+#include "../support/memory_read_file_system.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/type_id.hpp"
@@ -24,7 +26,7 @@ void check(bool value, std::source_location where = std::source_location::curren
     throw std::runtime_error("场景候选隔离失败，行=" + std::to_string(where.line()));
   }
 }
-struct memory_files final : gneiss::engine::file_system {
+struct memory_files final : gneiss::test_support::memory_read_file_system {
   std::map<std::string, std::string> files;
   mutable unsigned reads{};
   gneiss::engine::result read(std::string_view path,
@@ -119,7 +121,10 @@ void run() {
   gneiss::engine::virtual_file_system vfs;
   check(vfs.mount("asset://", files) == gneiss::engine::result::success);
   gneiss::engine::render_resource_service resources;
+  gneiss::engine::task_scheduler executor(
+      {.workers = 0, .mode = gneiss::engine::execution_mode::cooperative});
   gneiss::engine::asset_manager active_assets(vfs);
+  active_assets.attach_task_executor(executor);
   gneiss::engine::asset_manager candidate_assets(vfs);
   gneiss::engine::render_asset_loader active_render(active_assets, resources);
   gneiss::engine::render_asset_loader candidate_render(candidate_assets, resources);
@@ -182,9 +187,9 @@ void run() {
       R"("prefab_instances":[{"instance_uuid":"00000000-0000-4000-8000-000000000004","prefab":"asset://p.prefab","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"overrides":[]}])");
   gneiss::engine::prepared_scene_description prepared;
   gneiss::engine::scene_diagnostic scene_error;
-  check(gneiss::engine::prepare_scene_description(active_assets, "asset://s.scene", prepared,
-                                                  scene_error,
-                                                  {}) == gneiss::engine::result::success);
+  check(gneiss::test_support::prepare_scene_for_test(active_assets, executor, false,
+                                                     "asset://s.scene", prepared, scene_error,
+                                                     {}) == gneiss::engine::result::success);
   auto candidate = std::make_unique<runtime::scene_domain>();
   check(candidate->initialize(candidate_render) == gneiss::engine::result::success);
   check(!gneiss::engine::render_asset_ref{});
@@ -430,9 +435,9 @@ void run() {
   check(old_pixels->parameters.color[0] == 1.0F);
 
   // 构造失败时仅回收候选节点；即使依赖缺失也不能退回主线程文件读取。
-  check(gneiss::engine::prepare_scene_description(active_assets, "asset://s.scene", prepared,
-                                                  scene_error,
-                                                  {}) == gneiss::engine::result::success);
+  check(gneiss::test_support::prepare_scene_for_test(active_assets, executor, false,
+                                                     "asset://s.scene", prepared, scene_error,
+                                                     {}) == gneiss::engine::result::success);
   candidate = std::make_unique<runtime::scene_domain>();
   check(candidate->initialize(candidate_render) == gneiss::engine::result::success);
   const auto failure_reads = files->reads;
