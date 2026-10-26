@@ -3,10 +3,10 @@
 
 #include "commands/runtime_author_apply.hpp"
 #include "documents/scene_document.hpp"
-#include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 

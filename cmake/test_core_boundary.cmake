@@ -20,14 +20,14 @@ file(MAKE_DIRECTORY "${fixture}/src/engine/api")
 file(WRITE "${fixture}/src/engine/api/probe.cpp" "")
 # 每次先恢复合法内容，避免上次中断的反例污染其他检查。
 file(WRITE "${fixture}/src/engine/platform/probe.cpp" "#include <gneiss/core/result.hpp>\n")
-file(MAKE_DIRECTORY "${fixture}/src/engine/core" "${fixture}/src/engine/function/world" "${fixture}/src/runtime" "${fixture}/src/engine/core/reflection" "${fixture}/src/engine/function/render" "${fixture}/src/engine/resource")
+file(MAKE_DIRECTORY "${fixture}/src/engine/core" "${fixture}/src/engine/function/world" "${fixture}/src/runtime" "${fixture}/src/engine/core/meta" "${fixture}/src/engine/function/render" "${fixture}/src/engine/resource")
 # 清除上一次失败用例遗留的内容，保证反例可重复执行。
 file(WRITE "${fixture}/src/engine/resource/probe.cpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "#include <gneiss/render.h>\n")
 file(WRITE "${fixture}/src/engine/resource/loaders/asset_preparation.cpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/src/engine/resource/loaders/asset_preparation.hpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/src/engine/resource/loaders/png_decoder.cpp" "#include <gneiss/core/result.h>\n")
-file(WRITE "${fixture}/src/engine/core/reflection/probe.cpp" "#include <gneiss/reflection.h>\n")
+file(WRITE "${fixture}/src/engine/core/meta/probe.cpp" "#include <gneiss/reflection.h>\n")
 file(WRITE "${fixture}/src/engine/function/world/probe.cpp" "#include <gneiss/render.h>\n")
 file(WRITE "${fixture}/src/runtime/probe.cpp" "#include <gneiss/application.h>\n")
 foreach(content IN ITEMS "extern \"C\" int forbidden();" "#include <gneiss/application.hpp>" "#include <gneiss/engine/application.hpp>")
@@ -86,7 +86,7 @@ endif()
 file(WRITE "${fixture}/src/engine/function/world/probe.cpp" "#include <gneiss/render.h>\n")
 
 foreach(content IN ITEMS "extern \"C\" int forbidden();" "#include <gneiss/reflection.hpp>")
-  file(WRITE "${fixture}/src/engine/core/reflection/probe.cpp" "${content}\n")
+  file(WRITE "${fixture}/src/engine/core/meta/probe.cpp" "${content}\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
@@ -94,7 +94,7 @@ foreach(content IN ITEMS "extern \"C\" int forbidden();" "#include <gneiss/refle
     message(FATAL_ERROR "Reflection 边界检查未拒绝违规输入：${content}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/engine/core/reflection/probe.cpp" "#include <gneiss/reflection.h>\n")
+file(WRITE "${fixture}/src/engine/core/meta/probe.cpp" "#include <gneiss/reflection.h>\n")
 
 foreach(layer IN ITEMS world scene application)
   file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "#include \"${layer}/state.hpp\"\n")
@@ -513,7 +513,7 @@ if(NOT status EQUAL 0)
 endif()
 
 file(MAKE_DIRECTORY "${fixture}/src/engine/resource")
-foreach(header IN ITEMS "engine/core/reflection/property_registry.hpp"
+foreach(header IN ITEMS "engine/core/meta/type_registry.hpp"
     "engine/function/scene/prefab_property_override.hpp" "engine/function/world/world.hpp")
   file(WRITE "${fixture}/src/engine/resource/types/scene_description.hpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"

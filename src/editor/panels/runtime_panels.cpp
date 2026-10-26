@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "panels/runtime_panels.hpp"
-#include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/scene_types.hpp"
+#include "engine/function/world/component_identity.hpp"
 
 #include "viewport/editor_rotation_math.hpp"
 

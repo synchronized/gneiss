@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/reflection/reflection_types.hpp"
+#include "engine/core/math/transform.hpp"
+#include "engine/core/meta/field.hpp"
 namespace gneiss::engine {
 /** 内建组件的持久化身份；不依赖 Registry、World 或 C ABI。 */
-inline constexpr gneiss::engine::guid transform_component_type{
-    guid::from_bytes({0x69, 0x64, 0x4f, 0x20, 0xb2, 0xd2, 0x4e, 0x48, 0x8c, 0x74, 0x91, 0xf4, 0xf9,
-                      0x52, 0xec, 0x2d})};
+inline constexpr gneiss::engine::guid transform_component_type = transform::type_guid;
 inline constexpr gneiss::engine::guid camera_component_type{
     guid::from_bytes({0xd1, 0x3a, 0x72, 0xf5, 0x71, 0xed, 0x43, 0xd6, 0x98, 0x98, 0x12, 0x06, 0x3f,
                       0xd3, 0x71, 0x83})};

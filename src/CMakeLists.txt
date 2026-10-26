@@ -82,8 +82,9 @@ target_sources(
     engine/core/version.hpp
 
     engine/core/entity_id.hpp
-    engine/core/reflection/reflection_types.hpp
-    engine/core/reflection/component_identity.hpp
+    engine/core/meta/field.hpp
+    engine/core/meta/type_info.hpp
+    engine/function/world/component_identity.hpp
 
     engine/core/scene_types.hpp
     engine/core/type_id.cpp
@@ -126,17 +127,17 @@ target_sources(
     engine/core/math/camera.cpp
     engine/core/math/camera.hpp
     engine/function/render/render_snapshot.hpp
-    engine/core/reflection/type_registry.cpp
-    engine/core/reflection/serialization.hpp
+    engine/core/meta/type_registry.cpp
+    engine/core/meta/serialization.hpp
     engine/resource/resource_registry.cpp
     engine/resource/resource_registry.hpp
     engine/resource/loaders/asset_decoder.hpp
     engine/resource/loaders/material_serialization.cpp
     engine/resource/loaders/material_serialization.hpp
     engine/resource/types/material_description.hpp
-    engine/core/reflection/type_builder.hpp
-    engine/core/reflection/type_registry.hpp
-    engine/core/reflection/property_registry.hpp
+    engine/core/meta/type_builder.hpp
+    engine/core/meta/type_registration.hpp
+    engine/core/meta/type_registry.hpp
     engine/function/scene/scene_tree.cpp
     engine/function/scene/scene_tree.hpp
     engine/function/scene/scene_instantiation.cpp

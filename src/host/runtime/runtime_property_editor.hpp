@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_RUNTIME_PROPERTY_EDITOR_H_
 #define GNEISS_APPS_RUNTIME_RUNTIME_PROPERTY_EDITOR_H_
 
-#include "engine/core/reflection/property_registry.hpp"
+#include "engine/core/meta/type_registry.hpp"
 #include "engine/core/result.hpp"
 #include "ipc_property_protocol.hpp"
 #include "runtime_scene_inspection.hpp"

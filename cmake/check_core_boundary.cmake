@@ -76,7 +76,7 @@ foreach(source IN LISTS sources)
   endif()
 
   if(source MATCHES "/src/engine/resource/types/(scene_description|prefab_description|prefab_property_data)[.](cpp|hpp)$" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"]engine/core/reflection/(property_registry|type_registry|type_registry_state)[.]hpp")
+      content MATCHES "#[ \t]*include[ \t]*[<\"]engine/core/meta/(type_registration|type_registry|type_registry_state)[.]hpp")
     message(FATAL_ERROR "场景资产描述不得依赖运行时 Registry：${source}")
   endif()
 
@@ -110,7 +110,7 @@ foreach(source IN LISTS sources)
        content MATCHES "engine/api/"))
     message(FATAL_ERROR "原生输入模块不得反向依赖输入 ABI：${source}")
   endif()
-  if(source MATCHES "/src/engine/core/reflection/" AND
+  if(source MATCHES "/src/engine/core/meta/" AND
       (content MATCHES "gneiss_(type_registry|property_|field_|type_info|type_desc|type_id)" OR
        content MATCHES "gneiss/engine/reflection[.]h|engine/values/"))
     message(FATAL_ERROR "原生反射注册表不得依赖旧 C 属性布局、句柄表或转换层：${source}")
@@ -138,7 +138,7 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "编辑器内部不得使用 SDK 所有者或绕回 Registry C ABI：${source}")
   endif()
   if(source MATCHES "/src/editor/(panels/property_inspector_model|commands/author_property_edit|panels/author_property_panel|viewport/editor_rotation_math)[.](cpp|hpp)$" AND
-      content MATCHES "gneiss_property_|GNEISS_PROPERTY_|engine/core/reflection/type_registry[.]hpp|[.][.]/engine/")
+      content MATCHES "gneiss_property_|GNEISS_PROPERTY_|engine/core/meta/type_registration[.]hpp|[.][.]/engine/")
     message(FATAL_ERROR "编辑属性链不得泄漏 C 属性布局或绕过模块契约：${source}")
   endif()
   if(source MATCHES "/src/editor/" AND content MATCHES "[.][.]/engine/")

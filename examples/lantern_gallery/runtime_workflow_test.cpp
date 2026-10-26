@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/reflection/component_identity.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include "runtime_process.hpp"
 
 #include "engine/core/rid.hpp"

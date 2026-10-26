@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/reflection/type_registry.hpp"
+#include "engine/core/meta/type_registration.hpp"
 #include <array>
 #include <cmath>
 #include <limits>

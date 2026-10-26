@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world_reflection.hpp"
 
-#include "engine/core/reflection/type_registry.hpp"
+#include "engine/core/meta/type_registration.hpp"
 
 #include <array>
 #include <cmath>

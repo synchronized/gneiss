@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset_manager.hpp"
-#include "engine/core/reflection/type_registry.hpp"
+#include "engine/core/meta/type_registration.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"

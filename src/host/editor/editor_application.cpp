@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "editor_application.hpp"
-#include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
 
 #include "child_process.hpp"

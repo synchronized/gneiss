@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/reflection/serialization.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/resource/types/material_description.hpp"
 namespace gneiss::engine {
 /** 仅读写材质 JSON v5；旧版本返回 unsupported，不保留原文本排版。失败保持输出。 */

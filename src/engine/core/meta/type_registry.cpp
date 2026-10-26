@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/reflection/type_registry.hpp"
+#include "engine/core/meta/type_registration.hpp"
 #include "engine/core/result.hpp"
 
 #include <algorithm>
@@ -129,14 +129,14 @@ struct type_record {
 };
 
 [[nodiscard]] bool validate_field(const field_definition& field) noexcept {
-  return field.id.is_valid() && valid_type_id(field.type_guid) &&
+  return field.id.is_valid() && static_cast<bool>(field.type_guid) &&
          (static_cast<std::uint32_t>(field.flags) &
           ~static_cast<std::uint32_t>(field_flags::read_only)) == 0U &&
          !field.name.empty() && field.name.size() <= std::numeric_limits<std::uint32_t>::max() &&
          is_valid_name(field.name);
 }
 [[nodiscard]] bool validate_type(const type_definition& desc) noexcept {
-  if (!valid_type_id(desc.guid) || desc.schema_version == 0U || desc.name.empty() ||
+  if (!static_cast<bool>(desc.guid) || desc.schema_version == 0U || desc.name.empty() ||
       desc.name.size() > std::numeric_limits<std::uint32_t>::max() ||
       desc.fields.size() > std::numeric_limits<std::uint32_t>::max() || !is_valid_name(desc.name)) {
     return false;

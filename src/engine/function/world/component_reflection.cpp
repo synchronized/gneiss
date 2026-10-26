@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/math/transform.hpp"
-#include "engine/core/reflection/type_builder.hpp"
+#include "engine/core/meta/type_builder.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include <cmath>

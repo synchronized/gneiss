@@ -14,6 +14,15 @@ Prefab 和数据迁移。若自研完整 ECS，首版需要同时解决实体回
 
 ## 决策
 
+### 2026-10-26：Meta 模块归属整理
+
+通用类型元数据、注册、查询、属性访问和编解码绑定位于 `engine/core/meta/`。
+查询入口 `type_registry.hpp` 与注册入口 `type_registration.hpp` 分离，仍然共享唯一注册表；
+同源码宿主可使用查询接口，不因此获得注册实现入口。目录名称不增加一层 C++ 命名空间。
+内建组件 GUID 与字段编号归 `engine/function/world/component_identity.hpp`；
+Transform 的 GUID 由纯数学值类型自身声明，World 引用该常量，Core 不依赖 World。
+通用 `guid`、进程内 `type_id`、`value` 和 `traits/type_identity` 保留原有归属。
+
 - 使用 EnTT `3.15.0` 作为内部 ECS 存储和查询实现，以 Git submodule 锁定版本。
 - Gneiss 定义自己的 `entity_id`、World 和 System 边界；公共头文件不包含 EnTT，公共 ABI 不出现
   `entt::entity`、类型哈希或 Registry。

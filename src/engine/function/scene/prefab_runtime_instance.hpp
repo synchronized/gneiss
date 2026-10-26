@@ -4,7 +4,7 @@
 #ifndef GNEISS_SCENE_PREFAB_RUNTIME_INSTANCE_HPP_
 #define GNEISS_SCENE_PREFAB_RUNTIME_INSTANCE_HPP_
 
-#include "engine/core/reflection/property_registry.hpp"
+#include "engine/core/meta/type_registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/render/render_asset_loader.hpp"

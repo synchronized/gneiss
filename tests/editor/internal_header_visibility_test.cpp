@@ -21,7 +21,7 @@
 #if __has_include("runtime/loading/scene_service.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
-#if __has_include("engine/core/reflection/type_registry.hpp")
+#if __has_include("engine/core/meta/type_registration.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
 #if __has_include("engine/function/world/world_state.hpp")

@@ -16,8 +16,9 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
 
   engine/core/math/camera.hpp
   engine/core/entity_id.hpp
-  engine/core/reflection/reflection_types.hpp
-  engine/core/reflection/component_identity.hpp
+  engine/core/meta/field.hpp
+  engine/core/meta/type_info.hpp
+  engine/function/world/component_identity.hpp
 
   engine/core/scene_types.hpp
 )
@@ -55,9 +56,9 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/input/input_types.hpp
   engine/core/log/log_dispatcher.hpp
   engine/core/progress_notification.hpp
-  engine/core/reflection/serialization.hpp
+  engine/core/meta/serialization.hpp
   engine/resource/resource_registry.hpp
-  engine/core/reflection/property_registry.hpp
+  engine/core/meta/type_registry.hpp
   engine/core/type_id.hpp
   engine/core/detail/canonical_type_name.hpp
   engine/core/rid.hpp

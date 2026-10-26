@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/reflection/property_registry.hpp"
+#include "engine/core/meta/type_registry.hpp"
 #include <cstddef>
 #include <new>
 #include <span>

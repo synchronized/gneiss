@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "scene_serialization.hpp"
-#include "engine/core/reflection/type_builder.hpp"
+#include "engine/core/meta/type_builder.hpp"
 #include <cstring>
 namespace gneiss::engine {
 result decode_scene(std::span<const std::byte> bytes, scene_description& output,

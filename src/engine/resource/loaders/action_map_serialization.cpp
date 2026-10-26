@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "action_map_serialization.hpp"
-#include "engine/core/reflection/type_builder.hpp"
+#include "engine/core/meta/type_builder.hpp"
 namespace gneiss::engine {
 result decode_action_map(std::span<const std::byte> bytes, action_map& output,
                          serialization_diagnostic& diagnostic) noexcept {

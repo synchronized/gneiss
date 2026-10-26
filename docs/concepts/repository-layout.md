@@ -106,7 +106,7 @@ assetc CLI 实现位于 `src/host/assetc/`，入口位于 `apps/assetc/`，工�
 | Render | `src/engine/function/render/` | 渲染输入快照、资源 RID、帧包与执行器 | 已存在 |
 | Input | `src/engine/function/input/` | 输入状态与动作映射 | 已迁移 |
 | Game | `src/runtime/game/` | Game Module 上下文与宿主桥接 | 已迁移 |
-| Reflection | `src/engine/core/reflection/` | 唯一类型注册表与属性访问 | 已存在 |
+| Meta | `src/engine/core/meta/` | 类型元数据、唯一注册表、属性访问与编解码绑定；组件身份归 World | 已存在 |
 | Log | `src/engine/core/log/` | 通用文本校验与异步事件投递；Application 独立适配公共回调 | 已迁移 |
 | C ABI | `src/engine/api/`、`src/runtime/api/` | 公开描述适配、异常隔离及内部入口委托 | 已存在 |
 | Tooling | `src/tooling/` | 离线资产处理实现 | 已存在 |
@@ -205,10 +205,11 @@ Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真�
 - `scene_load_types.hpp` 仅包含加载进度与完成信息；`scene_service.hpp`、场景域状态及
   注册表实现不向宿主导出。动态游戏模块所需桥接通过 `application_bridge.hpp` 提供。
 
-属性面板和撤销历史使用 `reflection_internal::property_value`，其中字符串为自有文本；
-`property_registry.hpp` 提供同一 Registry 的原生查询和写入。内置组件注册入口是
-`world_reflection.hpp`，无需包含 World 句柄表。公共 SDK 值适配位于 `detail/reflection_values.hpp`，
-不携带 SDK 所有者；外部借用文本与内部自有快照的生命周期分别遵循各自接口约定。
+属性面板和撤销历史使用 `gneiss::engine::value`，其中字符串为自有文本；
+`meta/type_registry.hpp` 提供同一注册表的类型查询和属性读写。
+注册输入与冻结操作位于 `meta/type_registration.hpp`，内置组件注册入口是
+`world_reflection.hpp`。元数据名称借用注册表，属性读取结果拥有自己的数据；
+具体文件职责见[反射接口参考](../reference/reflection.md)。
 
 `scene_instance_edit.cpp` 实现单实例的已就绪材质绑定提交；Scene 服务校验入口，实例同步
 更新 ECS、作者描述和资源租约。`scene_mesh_binding.hpp` 与 `render_statistics.hpp` 分别提供

@@ -5,8 +5,8 @@
 
 ## 当前范围
 
-反射注册与查询使用 `src/engine/core/reflection/type_registry.hpp` 和
-`property_registry.hpp` 中的原生接口。Registry 的 C 函数、公共句柄表及 C 元数据缓存已删除。
+反射注册与查询使用 `src/engine/core/meta/type_registration.hpp` 和
+`type_registry.hpp` 中的原生接口。Registry 的 C 函数、公共句柄表及 C 元数据缓存已删除。
 旧 `reflection.h`、C 属性值布局和转换头已删除；Editor/Runtime 属性命令直接持有原生 `guid`。
 IPC 仍使用既有 32 位十六进制字符串编码 GUID，不传输原生对象布局。
 
@@ -14,6 +14,21 @@ IPC 仍使用既有 32 位十六进制字符串编码 GUID，不传输原生对�
 继承、注销、解冻、描述替换或动态模块卸载。
 
 ## 身份与注册
+
+文件按职责组织，不新增第二套注册表：
+
+| 文件 | 职责与主要类型 |
+| --- | --- |
+| `meta/field.hpp` | `field_id`、字段标志和属性读写能力 |
+| `meta/type_info.hpp` | 查询结果 `type_info`、`field_info` |
+| `meta/type_registry.hpp` | `registry_ref`、类型/字段查询、属性读写 |
+| `meta/type_registration.hpp` | 注册输入 `type_definition`、`field_definition`、`property_binding`，创建、注册与冻结 |
+| `meta/type_registry.cpp` | 唯一注册表的私有存储与实现 |
+| `meta/type_builder.hpp` | C++ 模板注册构建器 |
+| `meta/serialization.hpp` | 编解码绑定、诊断与序列化入口 |
+
+内建组件身份位于 `engine/function/world/component_identity.hpp`，不属于通用 Meta。
+`guid`、`type_id`、`value` 仍是 Core 基础类型，`type_identity` 仍是 traits 定制点。
 
 `engine::guid` 保存 16 字节稳定类型身份，全零无效；`engine::type_id` 是进程内类型编号，
 不用于反射存档。字段完整身份由稳定 GUID 与非零字段编号组成。名称用于 UTF-8 显示和诊断。

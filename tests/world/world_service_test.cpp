@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/identifier_conversion.hpp"
-#include "engine/core/reflection/component_identity.hpp"
-#include "engine/core/reflection/type_registry.hpp"
+#include "engine/core/meta/type_registration.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
 

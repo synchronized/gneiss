@@ -9,7 +9,7 @@
 #include "engine/resource/resource_registry.hpp"
 #include "runtime/application.hpp"
 
-#include "engine/core/reflection/component_identity.hpp"
+#include "engine/function/world/component_identity.hpp"
 
 #include "engine/resource/vfs/asset_uri.hpp"
 

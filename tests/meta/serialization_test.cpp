@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/reflection/type_builder.hpp"
+#include "engine/core/meta/type_builder.hpp"
 #include "engine/resource/loaders/material_serialization.hpp"
 #include <limits>
 #include <stdexcept>

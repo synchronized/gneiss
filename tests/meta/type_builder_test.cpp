@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/reflection/type_builder.hpp"
+#include "engine/core/meta/type_builder.hpp"
 namespace e = gneiss::engine;
 struct sample {
   inline static constexpr std::string_view type_name = "sample";

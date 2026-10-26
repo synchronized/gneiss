@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "resource_registry.hpp"
-#include "engine/core/reflection/type_registry.hpp"
+#include "engine/core/meta/type_registration.hpp"
 #include "engine/resource/loaders/action_map_serialization.hpp"
 #include "engine/resource/loaders/material_serialization.hpp"
 #include "engine/resource/loaders/scene_serialization.hpp"

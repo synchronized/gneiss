@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_REFLECTION_TYPE_REGISTRY_HPP_
-#define GNEISS_REFLECTION_TYPE_REGISTRY_HPP_
+#ifndef GNEISS_META_TYPE_REGISTRATION_HPP_
+#define GNEISS_META_TYPE_REGISTRATION_HPP_
+#include "engine/core/meta/serialization.hpp"
+#include "engine/core/meta/type_registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/traits/type_identity.hpp"
-#include "property_registry.hpp"
-#include "serialization.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <memory>
@@ -38,7 +38,6 @@ struct property_binding {
   result (*setter)(void*, void*, const gneiss::engine::value&) = nullptr;
   void* user_data{};
 };
-[[nodiscard]] inline bool valid_type_id(guid id) noexcept { return static_cast<bool>(id); }
 /** 创建同一实现的原生对象，不注册公共 RID；失败保持原输出。 */
 [[nodiscard]] GNEISS_API gneiss::engine::result create_native(registry_ref& output) noexcept;
 /** 深拷贝元数据；重复 GUID 或非空运行期 ID 返回 invalid_argument，冻结后禁止注册。 */

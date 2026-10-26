@@ -5,7 +5,7 @@
 #define GNEISS_APPS_EDITOR_PROPERTY_INSPECTOR_MODEL_H_
 
 #include "engine/core/entity_id.hpp"
-#include "engine/core/reflection/property_registry.hpp"
+#include "engine/core/meta/type_registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"

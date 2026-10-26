@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/math/camera.hpp"
-#include "engine/core/reflection/component_identity.hpp"
-#include "engine/core/reflection/property_registry.hpp"
+#include "engine/core/meta/type_registry.hpp"
 #include "engine/core/result.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
 
 namespace gneiss::engine {

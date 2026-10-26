@@ -2,12 +2,12 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "commands/author_property_edit.hpp"
-#include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/result.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
-#include "engine/core/reflection/reflection_types.hpp"
+#include "engine/core/meta/type_info.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 
