@@ -20,6 +20,8 @@ struct mount_description {
 struct file_service_options {
   std::size_t max_requests{64};
   std::size_t max_file_bytes{16U * 1024U * 1024U};
+  /** 在途及待分发字节缓冲预算；整读按上限预留，交付后由消费者负责。 */
+  std::size_t max_buffer_bytes{256U * 1024U * 1024U};
 };
 
 /** 仅所属线程调用；后端完成数据通过同步保护转交。不可复制/移动。

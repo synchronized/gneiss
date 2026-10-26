@@ -285,6 +285,50 @@ void pagination_and_reentry() {
   }
 }
 
+void byte_budget() {
+  auto backend = std::make_shared<controlled_backend>();
+  file_service service({8, 64, 16});
+  check(service.mount({"asset://", {backend}, {}}).ok(), "budget mount");
+  file_request_id first, rejected;
+  check(service.read(
+            "asset://a", {17}, [](auto) {}, rejected) == result::invalid_argument &&
+            rejected.value == 0,
+        "request exceeds total budget");
+  bool delivered{};
+  check(service
+            .read(
+                "asset://a", {16},
+                [&](auto) {
+                  delivered = true;
+                  check(service.read(
+                                   "asset://b", {16}, [](auto) {}, first)
+                            .ok(),
+                        "budget released before callback");
+                },
+                first)
+            .ok(),
+        "budget reservation");
+  check(service.read(
+            "asset://b", {1}, [](auto) {}, rejected) == result::not_ready &&
+            backend->reads == 1,
+        "inflight budget prevents submission");
+  backend->complete();
+  check(service.read(
+            "asset://b", {1}, [](auto) {}, rejected) == result::not_ready,
+        "completed bytes remain reserved until delivery");
+  pump(service);
+  check(delivered && backend->reads == 2, "delivery admits next read");
+  check(service.cancel(first).ok(), "cancel budget request");
+  check(service.read(
+            "asset://b", {1}, [](auto) {}, rejected) == result::not_ready,
+        "cancel waits for backend before releasing budget");
+  backend->complete();
+  pump(service);
+  check(service.read("asset://b", {16}, [](auto) {}, first).ok(), "cancelled budget released");
+  backend->complete();
+  pump(service);
+}
+
 void lifetime() {
   auto backend = std::make_shared<controlled_backend>();
   file_service service({1, 64});
@@ -535,6 +579,7 @@ int main() {
   try {
     memory_and_routes();
     pagination_and_reentry();
+    byte_budget();
     lifetime();
     async_bridge();
     return 0;

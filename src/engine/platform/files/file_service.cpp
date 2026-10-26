@@ -37,9 +37,21 @@ template <class T> struct completion_state {
   bool cancelled{};
 };
 
+struct buffer_budget {
+  std::size_t reserved{};
+};
 struct pending_request {
   file_request_id id;
-  virtual ~pending_request() = default;
+  std::shared_ptr<buffer_budget> budget;
+  std::size_t reserved{};
+  void release_budget() noexcept {
+    if (budget) {
+      budget->reserved -= reserved;
+      reserved = 0;
+      budget.reset();
+    }
+  }
+  virtual ~pending_request() { release_budget(); }
   virtual result cancel() = 0;
   virtual bool advance() = 0;
   virtual void deliver() = 0;
@@ -122,6 +134,7 @@ template <class T> struct typed_request final : pending_request {
 
 struct file_service::implementation {
   file_service_options options;
+  std::shared_ptr<buffer_budget> budget = std::make_shared<buffer_budget>();
   std::thread::id owner = std::this_thread::get_id();
   using mounted_files = mount_description;
   std::vector<mounted_files> mounts;
@@ -144,12 +157,17 @@ struct file_service::implementation {
   template <class T, class Start>
   result submit(std::string_view uri, bool writing, file_callback<T> callback,
                 file_request_id& output, Start start, bool exact_mount = false,
-                std::optional<std::size_t> reader_index = {}) noexcept {
+                std::optional<std::size_t> reader_index = {},
+                std::size_t reserve_bytes = 0) noexcept {
     output = {};
     if (!on_owner() || closing)
       return result::invalid_state;
     if (!callback || !detail::valid_file_uri(uri))
       return result::invalid_argument;
+    if (reserve_bytes > options.max_buffer_bytes)
+      return result::invalid_argument;
+    if (reserve_bytes > options.max_buffer_bytes - budget->reserved)
+      return result::not_ready;
     if (pending.size() >= options.max_requests)
       return result::not_ready;
     const auto* mount = resolve(uri);
@@ -163,6 +181,9 @@ struct file_service::implementation {
       return result::unsupported;
     try {
       auto request = std::make_unique<typed_request<T>>();
+      request->budget = budget;
+      request->reserved = reserve_bytes;
+      budget->reserved += reserve_bytes;
       if (reader_index && *reader_index >= mount->readers.size())
         return result::invalid_argument;
       request->backends = writing        ? std::vector{mount->writer}
@@ -255,7 +276,8 @@ result file_service::read(std::string_view uri, read_options options,
       uri, false, std::move(callback), request,
       [options](file_backend& backend, std::string_view path, auto done) {
         return backend.read(path, options, std::move(done));
-      });
+      },
+      false, {}, options.max_bytes);
 }
 result file_service::read_range(std::string_view uri, file_range range,
                                 file_callback<file_bytes> callback,
@@ -268,7 +290,8 @@ result file_service::read_range(std::string_view uri, file_range range,
       uri, false, std::move(callback), request,
       [range](file_backend& backend, std::string_view path, auto done) {
         return backend.read_range(path, range, std::move(done));
-      });
+      },
+      false, {}, range.size);
 }
 result file_service::write(std::string_view uri, file_bytes bytes, write_options options,
                            completion_callback callback, file_request_id& request) noexcept {
@@ -276,6 +299,7 @@ result file_service::write(std::string_view uri, file_bytes bytes, write_options
   if (!callback || bytes.size() > impl_->options.max_file_bytes ||
       (options.mode != write_mode::replace && options.mode != write_mode::create_new))
     return result::invalid_argument;
+  const auto reserve_bytes = bytes.size();
   try {
     return impl_->submit<file_unit>(
         uri, true,
@@ -287,7 +311,8 @@ result file_service::write(std::string_view uri, file_bytes bytes, write_options
                                             auto done) mutable {
           return backend.write(path, std::move(bytes), options,
                                [done = std::move(done)](result status) { done({status, {}}); });
-        });
+        },
+        false, {}, reserve_bytes);
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;
   } catch (...) {
@@ -383,6 +408,7 @@ result file_service::dispatch_completions(std::size_t max_callbacks) {
     auto ready = std::move(impl_->pending[index]);
     impl_->pending.erase(impl_->pending.begin() + static_cast<std::ptrdiff_t>(index));
     ++delivered;
+    ready->release_budget();
     ready->deliver();
   }
   if (impl_->closing && impl_->pending.empty() && impl_->on_shutdown && delivered < max_callbacks) {
