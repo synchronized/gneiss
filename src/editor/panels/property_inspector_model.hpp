@@ -16,10 +16,11 @@
 namespace gneiss::editor {
 
 struct inspector_property final {
-  field_id id{};
+  gneiss::engine::meta::property_id id{};
   std::string name;
   gneiss::engine::value_kind kind = gneiss::engine::value_kind::invalid;
-  property_capabilities capabilities = property_capabilities::none;
+  gneiss::engine::meta::property_capabilities capabilities =
+      gneiss::engine::meta::property_capabilities::none;
   gneiss::engine::value value{};
 };
 
@@ -47,12 +48,14 @@ public:
                                                entity_id entity) noexcept;
 
   /** 通过 World 组件属性入口写入属性；失败时保留运行时值和当前快照。 */
-  [[nodiscard]] gneiss::engine::result set_value(gneiss::engine::guid type_id, field_id field_id,
+  [[nodiscard]] gneiss::engine::result set_value(gneiss::engine::guid type_id,
+                                                 gneiss::engine::meta::property_id field_id,
                                                  const gneiss::engine::value& value) noexcept;
 
   /** 按稳定实体 ID 写入属性，供撤销/重做在选择变化后复用。 */
   [[nodiscard]] gneiss::engine::result set_value(gneiss::engine::world* world, entity_id entity,
-                                                 gneiss::engine::guid type_id, field_id field_id,
+                                                 gneiss::engine::guid type_id,
+                                                 gneiss::engine::meta::property_id field_id,
                                                  const gneiss::engine::value& value) noexcept;
 
   [[nodiscard]] const std::vector<inspector_component>& components() const noexcept {
@@ -60,7 +63,7 @@ public:
   }
 
 private:
-  gneiss::engine::registry_ref registry_;
+  gneiss::engine::meta::registry_ref registry_;
   gneiss::engine::world* world_{};
   entity_id entity_{};
   std::vector<inspector_component> components_;

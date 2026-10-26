@@ -56,7 +56,7 @@ to_native_value(const gneiss::engine::prefab_property_value& source,
         else if constexpr (std::is_same_v<type, std::array<std::uint8_t, 16>>)
           output.payload = gneiss::engine::guid::from_bytes(payload);
         else if constexpr (std::is_same_v<type, std::array<float, 3>>)
-          output.payload = gneiss::property_vec3{payload[0], payload[1], payload[2]};
+          output.payload = gneiss::engine::vector3{payload[0], payload[1], payload[2]};
         else if constexpr (std::is_same_v<type, std::array<float, 4>>)
           output.payload =
               gneiss::engine::quaternion_xyzw(payload[0], payload[1], payload[2], payload[3]);
@@ -97,7 +97,8 @@ prefab_runtime_instance::prefab_runtime_instance(gneiss::engine::world& native_w
 prefab_runtime_instance::~prefab_runtime_instance() noexcept { rollback(); }
 
 gneiss::engine::result prefab_runtime_instance::validate_reload(
-    const gneiss::engine::prefab_asset_ref& candidate, const gneiss::engine::registry_ref& registry,
+    const gneiss::engine::prefab_asset_ref& candidate,
+    const gneiss::engine::meta::registry_ref& registry,
     const std::vector<gneiss::engine::prefab_property_override>& overrides) {
   if (!candidate || !prefab_ || candidate.get()->uuid != prefab_.get()->uuid ||
       candidate.get()->objects.empty()) {
@@ -147,7 +148,7 @@ gneiss::engine::result prefab_runtime_instance::validate_reload(
 }
 
 gneiss::engine::result prefab_runtime_instance::reload(
-    gneiss::engine::prefab_asset_ref candidate, const gneiss::engine::registry_ref& registry,
+    gneiss::engine::prefab_asset_ref candidate, const gneiss::engine::meta::registry_ref& registry,
     const std::vector<gneiss::engine::prefab_property_override>& overrides) {
 
   auto result = validate_reload(candidate, registry, overrides);
@@ -389,7 +390,7 @@ gneiss::engine::result prefab_runtime_instance::reload(
 
 gneiss::engine::result prefab_runtime_instance::create(
     gneiss::engine::world& native_world, gneiss::engine::render_asset_loader& loader,
-    gneiss::engine::prefab_asset_ref prefab, const gneiss::engine::registry_ref& registry,
+    gneiss::engine::prefab_asset_ref prefab, const gneiss::engine::meta::registry_ref& registry,
     std::string_view instance_uuid, scene_node_id parent,
     const gneiss::engine::transform& root_transform,
     const std::vector<gneiss::engine::prefab_property_override>& overrides,
@@ -436,7 +437,7 @@ gneiss::engine::result prefab_runtime_instance::create(
 }
 
 namespace {
-gneiss::engine::result apply_candidate_object(const gneiss::engine::registry_ref& state,
+gneiss::engine::result apply_candidate_object(const gneiss::engine::meta::registry_ref& state,
                                               const gneiss::engine::prefab_property_override& value,
                                               const gneiss::engine::value& native,
                                               gneiss::engine::object_description& object) {
@@ -444,8 +445,8 @@ gneiss::engine::result apply_candidate_object(const gneiss::engine::registry_ref
   const auto is_type = [&](gneiss::engine::guid type) { return value.key.type_id == type; };
   if (is_type(gneiss::engine::transform_component_type)) {
     auto transform = to_transform(object);
-    result = gneiss::engine::set_property(state, value.key.type_id, value.key.field_id.get(),
-                                          &transform, native);
+    result = gneiss::engine::meta::set_property(state, value.key.type_id, value.key.field_id.get(),
+                                                &transform, native);
     if (result != gneiss::engine::result::success) {
       return result;
     }
@@ -464,8 +465,8 @@ gneiss::engine::result apply_candidate_object(const gneiss::engine::registry_ref
         .near = camera.near_plane,
         .far = camera.far_plane,
     };
-    result = gneiss::engine::set_property(state, value.key.type_id, value.key.field_id.get(),
-                                          &properties, native);
+    result = gneiss::engine::meta::set_property(state, value.key.type_id, value.key.field_id.get(),
+                                                &properties, native);
     if (result != gneiss::engine::result::success) {
       return result;
     }
@@ -481,8 +482,8 @@ gneiss::engine::result apply_candidate_object(const gneiss::engine::registry_ref
 }
 
 gneiss::engine::result prefab_runtime_instance::prepare_description(
-    const gneiss::engine::prefab_description& source, const gneiss::engine::registry_ref& registry,
-    std::string_view instance_uuid,
+    const gneiss::engine::prefab_description& source,
+    const gneiss::engine::meta::registry_ref& registry, std::string_view instance_uuid,
     std::span<const gneiss::engine::prefab_property_override> overrides,
     gneiss::engine::prefab_description& output) noexcept try {
   auto candidate = source;
@@ -527,7 +528,7 @@ gneiss::engine::result prefab_runtime_instance::prepare_description(
 }
 
 gneiss::engine::result prefab_runtime_instance::apply_overrides(
-    const gneiss::engine::registry_ref& registry,
+    const gneiss::engine::meta::registry_ref& registry,
     std::span<const gneiss::engine::prefab_property_override> overrides) noexcept try {
   for (const auto& override_value : overrides) {
     if (override_value.key.node.instance_uuid != instance_uuid_) {
@@ -720,7 +721,7 @@ gneiss::engine::result prefab_runtime_instance::create_node(std::size_t index, s
 }
 
 gneiss::engine::result prefab_runtime_instance::apply_override(
-    const gneiss::engine::registry_ref& registry,
+    const gneiss::engine::meta::registry_ref& registry,
     const gneiss::engine::prefab_property_override& value) noexcept {
   return apply_overrides(registry, std::span(&value, 1U));
 }

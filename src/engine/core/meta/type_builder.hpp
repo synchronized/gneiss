@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss::engine::meta {
 namespace detail {
 template <class T, std::size_t Index = 1> constexpr value_kind reflected_value_kind() {
   if constexpr (Index == std::variant_size_v<value::storage_type>) {
@@ -28,10 +28,10 @@ template <class T, std::size_t Index = 1> constexpr value_kind reflected_value_k
 template <class T> class type_builder {
   using object_type = std::remove_cvref_t<T>;
   struct entry {
-    field_id id;
+    property_id id;
     std::string name;
     engine::guid guid;
-    field_flags flags;
+    property_flags flags;
     property_binding binding;
   };
 
@@ -41,10 +41,10 @@ public:
     version_ = version;
     return *this;
   }
-  template <auto Member> type_builder& property(field_id id, std::string_view name) noexcept {
+  template <auto Member> type_builder& property(property_id id, std::string_view name) noexcept {
     static_assert(std::is_member_object_pointer_v<decltype(Member)>);
     using property_type = std::remove_cvref_t<std::invoke_result_t<decltype(Member), object_type&>>;
-    return add<property_type>(id, name, field_flags::none,
+    return add<property_type>(id, name, property_flags::none,
                               {.kind = detail::reflected_value_kind<property_type>(),
                                .getter = [](void*, const void* object, value& output) -> result {
                                  output.payload =
@@ -58,11 +58,11 @@ public:
                                }});
   }
   template <auto Getter, auto Setter>
-  type_builder& property(field_id id, std::string_view name) noexcept {
+  type_builder& property(property_id id, std::string_view name) noexcept {
     using property_type =
         std::remove_cvref_t<std::invoke_result_t<decltype(Getter), const object_type&>>;
     return add<property_type>(
-        id, name, field_flags::none,
+        id, name, property_flags::none,
         {.kind = detail::reflected_value_kind<property_type>(),
          .getter = [](void*, const void* object, value& output) -> result {
            output.payload = std::invoke(Getter, *static_cast<const object_type*>(object));
@@ -80,10 +80,10 @@ public:
            }
          }});
   }
-  template <auto Getter> type_builder& readonly(field_id id, std::string_view name) noexcept {
+  template <auto Getter> type_builder& readonly(property_id id, std::string_view name) noexcept {
     using property_type =
         std::remove_cvref_t<std::invoke_result_t<decltype(Getter), const object_type&>>;
-    return add<property_type>(id, name, field_flags::read_only,
+    return add<property_type>(id, name, property_flags::read_only,
                               {.kind = detail::reflected_value_kind<property_type>(),
                                .getter = [](void*, const void* object, value& output) -> result {
                                  output.payload =
@@ -123,16 +123,17 @@ public:
     if (status_.failed())
       return status_;
     try {
-      std::vector<field_definition> fields;
+      std::vector<property_definition> properties;
       std::vector<property_binding> bindings;
-      fields.reserve(entries_.size());
+      properties.reserve(entries_.size());
       bindings.reserve(entries_.size());
       for (const auto& item : entries_) {
-        fields.push_back({item.id, item.guid, item.flags, item.name});
+        properties.push_back({item.id, item.guid, item.flags, item.name});
         bindings.push_back(item.binding);
       }
       return register_type<object_type>(
-          registry_, {.schema_version = version_, .fields = fields, .serialization = codec_},
+          registry_,
+          {.schema_version = version_, .properties = properties, .serialization = codec_},
           bindings);
     } catch (const std::bad_alloc&) {
       return result::out_of_memory;
@@ -143,7 +144,7 @@ public:
 
 private:
   template <class Property>
-  type_builder& add(field_id id, std::string_view name, field_flags flags,
+  type_builder& add(property_id id, std::string_view name, property_flags flags,
                     property_binding binding) noexcept {
     if (committed_ || status_.failed())
       return *this;

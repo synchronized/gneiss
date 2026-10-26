@@ -13,7 +13,7 @@ namespace gneiss::engine {
 class scene_instance final {
 public:
   scene_instance(gneiss::engine::world& native_world, gneiss::engine::render_asset_loader& loader,
-                 const gneiss::engine::registry_ref& registry) noexcept;
+                 const gneiss::engine::meta::registry_ref& registry) noexcept;
   ~scene_instance() noexcept;
 
   scene_instance(const scene_instance&) = delete;
@@ -138,7 +138,7 @@ private:
 
   gneiss::engine::world& native_world_;
   gneiss::engine::render_asset_loader& loader_;
-  gneiss::engine::registry_ref registry_;
+  gneiss::engine::meta::registry_ref registry_;
   std::vector<prefab_refresh_transaction> prefab_refresh_transactions_;
   std::uint64_t next_prefab_refresh_token_ = 1U;
 };

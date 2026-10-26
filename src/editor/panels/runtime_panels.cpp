@@ -122,7 +122,7 @@ void draw_runtime_inspector(const runtime_scene_node& node,
   if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
     auto translation = gneiss::engine::component_array(node.local_transform.translation);
     auto scale = gneiss::engine::component_array(node.local_transform.scale);
-    gneiss::property_quaternion quaternion = gneiss::engine::quaternion_xyzw(
+    gneiss::engine::quaternion quaternion = gneiss::engine::quaternion_xyzw(
         node.local_transform.rotation[0], node.local_transform.rotation[1],
         node.local_transform.rotation[2], node.local_transform.rotation[3]);
     std::array<float, 3> rotation{};
@@ -182,7 +182,7 @@ void draw_runtime_inspector(const runtime_scene_node& node,
     ImGui::PopID();
     ImGui::EndDisabled();
     if (rotation_committed) {
-      gneiss::property_quaternion edited{};
+      gneiss::engine::quaternion edited{};
       const auto converted = euler_degrees_to_quaternion(rotation, edited);
       if (converted == gneiss::engine::result::success) {
         const auto revision = rotation_edit != nullptr && rotation_edit->revision != 0U

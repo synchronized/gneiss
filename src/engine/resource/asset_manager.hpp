@@ -26,11 +26,13 @@ class GNEISS_API asset_manager final {
 public:
   /** 默认 Registry 包含内置资源 codec；传入的 Registry 必须已冻结。
    * 管理器持有 Registry；fallback_limit 限制反射资源输入，显式 decoder 可指定自己的上限。 */
-  explicit asset_manager(gneiss::engine::virtual_file_system files, registry_ref registry = {},
+  explicit asset_manager(gneiss::engine::virtual_file_system files,
+                         gneiss::engine::meta::registry_ref registry = {},
                          std::size_t fallback_limit = 64U * 1024U * 1024U);
   /** 注入同线程文件服务；advance_resources 驱动完成分发，只提交 CPU 解码任务。
    * 此入口不提供同步文件读取，load_sync 仅能复用已有缓存；服务可由宿主共享持有。 */
-  explicit asset_manager(std::shared_ptr<file_service> files, registry_ref registry = {},
+  explicit asset_manager(std::shared_ptr<file_service> files,
+                         gneiss::engine::meta::registry_ref registry = {},
                          std::size_t fallback_limit = 64U * 1024U * 1024U);
   ~asset_manager();
   /** 借用宿主解码执行器；文件 I/O 由服务后端执行，不创建独立线程池。 */
@@ -79,7 +81,7 @@ public:
   template <typename T>
   [[nodiscard]] gneiss::engine::result
   load_sync(std::string_view uri, asset_ref<const T>& output, bool reload = false,
-            serialization_diagnostic* diagnostic = nullptr) noexcept {
+            gneiss::engine::meta::serialization_diagnostic* diagnostic = nullptr) noexcept {
     std::shared_ptr<const void> value;
     const auto status = load_sync_erased(gneiss::engine::runtime_type_of<T>(), uri, value,
                                          &detail::make_reflected_decoder<T>, reload, diagnostic);
@@ -111,7 +113,7 @@ public:
   [[nodiscard]] resource_cache& cache() noexcept { return cache_; }
 
 private:
-  using decoder_factory = result (*)(const registry_ref&, std::size_t,
+  using decoder_factory = result (*)(const gneiss::engine::meta::registry_ref&, std::size_t,
                                      std::shared_ptr<const asset_decoder>&);
   [[nodiscard]] result resolve_decoder(type_id, decoder_factory,
                                        std::shared_ptr<const asset_decoder>&);
@@ -122,7 +124,7 @@ private:
   [[nodiscard]] gneiss::engine::result
   load_sync_erased(gneiss::engine::type_id type, std::string_view uri,
                    std::shared_ptr<const void>& output, decoder_factory fallback, bool reload,
-                   serialization_diagnostic* diagnostic) noexcept;
+                   gneiss::engine::meta::serialization_diagnostic* diagnostic) noexcept;
   result store_erased(type_id, std::string_view, std::shared_ptr<const void>,
                       std::shared_ptr<const void>&) noexcept;
   struct resource_state;

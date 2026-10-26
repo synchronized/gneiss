@@ -17,7 +17,7 @@ struct asset_state {
   std::mutex mutex;
   gneiss::engine::result status{gneiss::engine::result::not_ready};
   std::shared_ptr<const void> value;
-  serialization_diagnostic diagnostic;
+  gneiss::engine::meta::serialization_diagnostic diagnostic;
 };
 }
 /** 内部移动请求；取消仅放弃本观察者，成功领取一次只读结果。
@@ -34,9 +34,9 @@ public:
   asset_request& operator=(asset_request&&) noexcept = default;
   [[nodiscard]] explicit operator bool() const noexcept { return state_ != nullptr; }
   void cancel() noexcept { state_.reset(); }
-  [[nodiscard]] gneiss::engine::result take(reference& output,
-                                            serialization_diagnostic* diagnostic = nullptr) noexcept
-      try {
+  [[nodiscard]] gneiss::engine::result
+  take(reference& output,
+       gneiss::engine::meta::serialization_diagnostic* diagnostic = nullptr) noexcept try {
     if (!state_)
       return gneiss::engine::result::invalid_state;
     auto state = state_;

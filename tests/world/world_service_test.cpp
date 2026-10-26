@@ -108,38 +108,39 @@ int main() {
     return 6;
   }
   gneiss::engine::result wrong_thread{};
-  gneiss::engine::registry_ref reflection;
+  gneiss::engine::meta::registry_ref reflection;
   if (gneiss::engine::create_property_registry(reflection).failed())
     return 14;
   gneiss::engine::transform candidate_transform;
   gneiss::engine::value proposed;
-  proposed.payload = gneiss::property_vec3{2, 3, 4};
-  if (gneiss::engine::set_property(reflection, service::transform_property_type(),
-                                   gneiss::engine::transform_translation_field.get(),
-                                   &candidate_transform,
-                                   proposed) != gneiss::engine::result::success ||
+  proposed.payload = gneiss::engine::vector3{2, 3, 4};
+  if (gneiss::engine::meta::set_property(reflection, service::transform_property_type(),
+                                         gneiss::engine::transform_translation_field.get(),
+                                         &candidate_transform,
+                                         proposed) != gneiss::engine::result::success ||
       candidate_transform.translation[0] != 2) {
     return 15;
   }
-  proposed.payload = gneiss::property_vec3{0, 1, 1};
-  if (gneiss::engine::set_property(reflection, service::transform_property_type(),
-                                   gneiss::engine::transform_scale_field.get(),
-                                   &candidate_transform,
-                                   proposed) != gneiss::engine::result::invalid_argument ||
+  proposed.payload = gneiss::engine::vector3{0, 1, 1};
+  if (gneiss::engine::meta::set_property(reflection, service::transform_property_type(),
+                                         gneiss::engine::transform_scale_field.get(),
+                                         &candidate_transform,
+                                         proposed) != gneiss::engine::result::invalid_argument ||
       candidate_transform.scale[0] != 1) {
     return 16;
   }
   service::camera_properties candidate_camera{{1, 10, 20}, false};
   proposed.payload = 30.0F;
-  if (gneiss::engine::set_property(reflection, service::camera_property_type(),
-                                   gneiss::engine::camera_near_plane_field.get(), &candidate_camera,
-                                   proposed) != gneiss::engine::result::success) {
+  if (gneiss::engine::meta::set_property(reflection, service::camera_property_type(),
+                                         gneiss::engine::camera_near_plane_field.get(),
+                                         &candidate_camera,
+                                         proposed) != gneiss::engine::result::success) {
     return 17;
   }
   proposed.payload = 40.0F;
-  if (gneiss::engine::set_property(reflection, service::camera_property_type(),
-                                   gneiss::engine::camera_far_plane_field.get(), &candidate_camera,
-                                   proposed) != gneiss::engine::result::success ||
+  if (gneiss::engine::meta::set_property(
+          reflection, service::camera_property_type(), gneiss::engine::camera_far_plane_field.get(),
+          &candidate_camera, proposed) != gneiss::engine::result::success ||
       candidate_camera.settings.near != 30 || candidate_camera.settings.far != 40) {
     return 18;
   }

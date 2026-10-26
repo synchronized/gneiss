@@ -169,32 +169,33 @@ int main() try {
   // 反射 codec 保留未知字段；解码失败不覆盖旧对象。
   {
     namespace e = gneiss::engine;
-    e::registry_ref registry;
+    gneiss::engine::meta::registry_ref registry;
     if (e::builtin_resource_registry(registry).failed())
       return 90;
     auto text = std::string(valid_prefab);
     text.insert(1, R"("codec_unknown":{"keep":7},)");
     const auto source = std::as_bytes(std::span{text.data(), text.size()});
     e::prefab_description value;
-    e::serialization_diagnostic detail;
+    gneiss::engine::meta::serialization_diagnostic detail;
     std::vector<std::byte> encoded;
-    if (e::deserialize(registry, source, value, detail).failed() ||
-        e::serialize(registry, value, encoded, detail).failed())
+    if (gneiss::engine::meta::deserialize(registry, source, value, detail).failed() ||
+        gneiss::engine::meta::serialize(registry, value, encoded, detail).failed())
       return 91;
     e::prefab_description restored;
-    if (e::deserialize(registry, encoded, restored, detail).failed() ||
+    if (gneiss::engine::meta::deserialize(registry, encoded, restored, detail).failed() ||
         restored.objects.size() != value.objects.size() ||
         restored.author_json.find("codec_unknown") == std::string::npos)
       return 92;
     const auto saved = restored.author_json;
     const std::string broken = "{";
-    if (e::deserialize(registry, std::as_bytes(std::span{broken.data(), broken.size()}), restored,
-                       detail)
+    if (gneiss::engine::meta::deserialize(
+            registry, std::as_bytes(std::span{broken.data(), broken.size()}), restored, detail)
             .ok() ||
         restored.author_json != saved)
       return 93;
     std::vector<std::byte> oversized(e::prefab_description::maximum_source_bytes + 1U);
-    if (e::deserialize(registry, oversized, restored, detail) != e::result::invalid_argument ||
+    if (gneiss::engine::meta::deserialize(registry, oversized, restored, detail) !=
+            e::result::invalid_argument ||
         restored.author_json != saved)
       return 94;
   }

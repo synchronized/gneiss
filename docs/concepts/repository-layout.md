@@ -254,6 +254,10 @@ Scene 服务完成入口校验后转交实例，不直接修改这些事务的�
 World 为 `gneiss::engine`，应用对象为 `gneiss::runtime::application`。
 Core、Resource、Render 等目录仍隔离职责和依赖，不再对应额外的命名空间。
 单文件辅助代码使用匿名命名空间，头文件实现细节允许 `detail`，不保留旧名兼容别名。
+
+Meta 是上述平铺规则的明确例外：反射描述、注册、查询和编解码接口位于
+`gneiss::engine::meta`，避免通用名称与业务模块冲突。基础值类型和 traits 定制点仍在
+`gneiss::engine`；不为旧 Meta 限定名保留兼容别名。
 公共值类型仍属于 `gneiss`，公共 C 接口不变。
 决策见 [ADR-079](../decisions/ADR-079-flat-namespaces.md)。
 

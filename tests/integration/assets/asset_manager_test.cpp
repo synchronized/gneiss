@@ -68,7 +68,7 @@ public:
   std::size_t maximum_bytes() const noexcept override { return 8; }
   gneiss::engine::result decode(const std::vector<std::byte>& bytes,
                                 std::shared_ptr<const void>& output,
-                                serialization_diagnostic&) const override {
+                                gneiss::engine::meta::serialization_diagnostic&) const override {
     ++decodes;
     if (bytes.empty() || bytes[0] == std::byte{'!'})
       return gneiss::engine::result::invalid_argument;
@@ -76,7 +76,8 @@ public:
     return gneiss::engine::result::success;
   }
 };
-result explicit_decode(std::span<const std::byte> bytes, value& output, serialization_diagnostic&) {
+result explicit_decode(std::span<const std::byte> bytes, value& output,
+                       gneiss::engine::meta::serialization_diagnostic&) {
   output.byte = 'x';
   return bytes.front() == std::byte{'!'} ? result::invalid_argument : result::success;
 }
@@ -162,11 +163,11 @@ void decoder_selection() {
   auto source = std::make_shared<memory_files>();
   virtual_file_system files;
   check(files.mount("asset://", source) == result::success, "decoder mount");
-  registry_ref registry;
+  gneiss::engine::meta::registry_ref registry;
   check(create_native(registry) == result::success, "decoder registry");
-  serialization_binding codec;
+  gneiss::engine::meta::serialization_binding codec;
   codec.decode = [](std::span<const std::byte> bytes, void* object,
-                    serialization_diagnostic& diagnostic) {
+                    gneiss::engine::meta::serialization_diagnostic& diagnostic) {
     if (bytes.front() == std::byte{'?'})
       diagnostic = {7U, "/value", "invalid value"};
     static_cast<value*>(object)->byte = 'r';
@@ -191,7 +192,7 @@ void decoder_selection() {
         "sync load reuses cache");
   auto previous = output;
   source->byte = '?';
-  serialization_diagnostic failure;
+  gneiss::engine::meta::serialization_diagnostic failure;
   check(reflected.load_sync("asset://value", output, true, &failure) == result::invalid_argument &&
             output == previous,
         "reflection failure preserves output");
@@ -267,7 +268,7 @@ void decoder_selection() {
         "unreflected type loads");
   material_description description;
   description.parameters.metallic = 0.25F;
-  serialization_diagnostic diagnostic;
+  gneiss::engine::meta::serialization_diagnostic diagnostic;
   check(encode_material(description, source->contents, diagnostic) == result::success,
         "material fixture");
   asset_manager material_assets(files);

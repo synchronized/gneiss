@@ -27,7 +27,8 @@ public:
   /** 只修改私有描述，失败保持 output 不变；不读文件、不创建实体、不发送通知。 */
   [[nodiscard]] static gneiss::engine::result
   prepare_description(const gneiss::engine::prefab_description& source,
-                      const gneiss::engine::registry_ref& registry, std::string_view instance_uuid,
+                      const gneiss::engine::meta::registry_ref& registry,
+                      std::string_view instance_uuid,
                       std::span<const gneiss::engine::prefab_property_override> overrides,
                       gneiss::engine::prefab_description& output) noexcept;
   struct node_info final {
@@ -49,9 +50,9 @@ public:
 
   [[nodiscard]] static gneiss::engine::result
   create(gneiss::engine::world& native_world, gneiss::engine::render_asset_loader& loader,
-         gneiss::engine::prefab_asset_ref prefab, const gneiss::engine::registry_ref& registry,
-         std::string_view instance_uuid, scene_node_id parent,
-         const gneiss::engine::transform& root_transform,
+         gneiss::engine::prefab_asset_ref prefab,
+         const gneiss::engine::meta::registry_ref& registry, std::string_view instance_uuid,
+         scene_node_id parent, const gneiss::engine::transform& root_transform,
          const std::vector<gneiss::engine::prefab_property_override>& overrides,
          std::unique_ptr<prefab_runtime_instance>& out_instance) noexcept;
 
@@ -68,11 +69,12 @@ public:
   /** 验证候选来源、覆盖与资源是否可提交，不修改 World。 */
   [[nodiscard]] gneiss::engine::result
   validate_reload(const gneiss::engine::prefab_asset_ref& candidate,
-                  const gneiss::engine::registry_ref& registry,
+                  const gneiss::engine::meta::registry_ref& registry,
                   const std::vector<gneiss::engine::prefab_property_override>& overrides);
   /** 保持实例根与匹配来源节点身份，提交已经验证的来源修订。 */
   [[nodiscard]] gneiss::engine::result
-  reload(gneiss::engine::prefab_asset_ref candidate, const gneiss::engine::registry_ref& registry,
+  reload(gneiss::engine::prefab_asset_ref candidate,
+         const gneiss::engine::meta::registry_ref& registry,
          const std::vector<gneiss::engine::prefab_property_override>& overrides);
 
   /** 同步构造的内部步骤；节点直接可见，资源由调用方传入，失败由实例析构清理。 */
@@ -82,7 +84,7 @@ public:
                                                    gneiss::engine::mesh mesh,
                                                    gneiss::engine::material material);
   [[nodiscard]] gneiss::engine::result
-  apply_override(const gneiss::engine::registry_ref& registry,
+  apply_override(const gneiss::engine::meta::registry_ref& registry,
                  const gneiss::engine::prefab_property_override& value) noexcept;
 
 private:
@@ -106,7 +108,7 @@ private:
                                               scene_node_id parent,
                                               const gneiss::engine::transform& root_transform);
   [[nodiscard]] gneiss::engine::result
-  apply_overrides(const gneiss::engine::registry_ref& registry,
+  apply_overrides(const gneiss::engine::meta::registry_ref& registry,
                   std::span<const gneiss::engine::prefab_property_override> overrides) noexcept;
 
   gneiss::engine::world& native_world_;

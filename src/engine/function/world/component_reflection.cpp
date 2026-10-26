@@ -40,9 +40,10 @@ result set_camera(camera_properties& object, const float& scalar) {
 }
 }
 
-gneiss::engine::result gneiss::engine::register_reflection(const registry_ref& registry) {
+gneiss::engine::result
+gneiss::engine::register_reflection(const gneiss::engine::meta::registry_ref& registry) {
   auto operation =
-      type_builder<transform>{registry}
+      gneiss::engine::meta::type_builder<transform>{registry}
           .property<&get_transform<&transform::translation>,
                     &set_transform<&transform::translation, vector3>>(transform_translation_field,
                                                                       "translation")
@@ -54,7 +55,7 @@ gneiss::engine::result gneiss::engine::register_reflection(const registry_ref& r
           .commit();
   if (operation.failed())
     return operation;
-  return type_builder<camera_properties>{registry}
+  return gneiss::engine::meta::type_builder<camera_properties>{registry}
       .property<&get_camera<&camera_settings::fov>, &set_camera<&camera_settings::fov, true>>(
           camera_vertical_field_of_view_field, "vertical_field_of_view_radians")
       .property<&get_camera<&camera_settings::near>, &set_camera<&camera_settings::near>>(
@@ -66,14 +67,15 @@ gneiss::engine::result gneiss::engine::register_reflection(const registry_ref& r
 }
 
 namespace gneiss::engine {
-gneiss::engine::result create_property_registry(gneiss::engine::registry_ref& output) noexcept {
-  gneiss::engine::registry_ref pending;
-  auto operation = gneiss::engine::create_native(pending);
+gneiss::engine::result
+create_property_registry(gneiss::engine::meta::registry_ref& output) noexcept {
+  gneiss::engine::meta::registry_ref pending;
+  auto operation = gneiss::engine::meta::create_native(pending);
   if (operation == gneiss::engine::result::success) {
     operation = register_reflection(pending);
   }
   if (operation == gneiss::engine::result::success) {
-    operation = gneiss::engine::freeze(pending);
+    operation = gneiss::engine::meta::freeze(pending);
   }
   if (operation == gneiss::engine::result::success) {
     output = std::move(pending);
@@ -118,16 +120,19 @@ result access_component(world& world, std::uint64_t entity, guid type, bool writ
   return result::unsupported;
 }
 }
-result read_component_property(const registry_ref& registry, world& world, std::uint64_t entity,
-                               guid type, field_id field, gneiss::engine::value& value) noexcept {
+result read_component_property(const gneiss::engine::meta::registry_ref& registry, world& world,
+                               std::uint64_t entity, guid type,
+                               gneiss::engine::meta::property_id field,
+                               gneiss::engine::value& value) noexcept {
   if (!registry)
     return result::invalid_handle;
   return access_component(world, entity, type, false, [&](auto* object) {
     return read_property(registry, type, field, object, value);
   });
 }
-result write_component_property(const registry_ref& registry, world& world, std::uint64_t entity,
-                                guid type, field_id field,
+result write_component_property(const gneiss::engine::meta::registry_ref& registry, world& world,
+                                std::uint64_t entity, guid type,
+                                gneiss::engine::meta::property_id field,
                                 const gneiss::engine::value& value) noexcept {
   if (!registry)
     return result::invalid_handle;

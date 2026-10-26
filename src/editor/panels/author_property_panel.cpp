@@ -22,7 +22,8 @@ bool draw_property(const inspector_component& component, const inspector_propert
     error = gneiss::engine::result::invalid_argument;
     return false;
   }
-  const auto writable = has_flags(property.capabilities, property_capabilities::writable);
+  const auto writable =
+      has_flags(property.capabilities, gneiss::engine::meta::property_capabilities::writable);
   bool changed = false;
   ImGui::PushID(static_cast<int>(property.id.get()));
   ImGui::BeginDisabled(!writable);
@@ -37,20 +38,20 @@ bool draw_property(const inspector_component& component, const inspector_propert
     changed = ImGui::DragFloat(property.name.c_str(), &std::get<float>(value.payload), 0.01F);
     break;
   case gneiss::engine::value_kind::vec3:
-    changed =
-        ImGui::DragFloat3(property.name.c_str(), &std::get<property_vec3>(value.payload).x, 0.05F);
+    changed = ImGui::DragFloat3(property.name.c_str(),
+                                &std::get<gneiss::engine::vector3>(value.payload).x, 0.05F);
     break;
   case gneiss::engine::value_kind::quaternion: {
     std::array<float, 3> euler{};
     error = gneiss::editor::quaternion_to_euler_degrees(
-        std::get<property_quaternion>(value.payload), euler);
+        std::get<gneiss::engine::quaternion>(value.payload), euler);
     if (error != gneiss::engine::result::success) {
       break;
     }
     changed = ImGui::DragFloat3(property.name.c_str(), euler.data(), 0.25F, 0.0F, 0.0F, "%.1f°");
     if (changed) {
       error = gneiss::editor::euler_degrees_to_quaternion(
-          euler, std::get<property_quaternion>(value.payload));
+          euler, std::get<gneiss::engine::quaternion>(value.payload));
     }
     break;
   }

@@ -9,7 +9,7 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-namespace gneiss::engine {
+namespace gneiss::engine::meta {
 /** 编解码错误位置；拥有文本，不依赖资源、文件系统或后端。 */
 struct serialization_diagnostic {
   std::size_t byte_offset{};

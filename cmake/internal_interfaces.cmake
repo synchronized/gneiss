@@ -16,7 +16,7 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
 
   engine/core/math/camera.hpp
   engine/core/entity_id.hpp
-  engine/core/meta/field.hpp
+  engine/core/meta/property.hpp
   engine/core/meta/type_info.hpp
   engine/function/world/component_identity.hpp
 

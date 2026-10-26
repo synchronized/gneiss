@@ -411,7 +411,8 @@ template <std::size_t Size>
                       .source_node_uuid = std::move(source_node_uuid),
                   },
               .type_id = type_id,
-              .field_id = gneiss::field_id{static_cast<std::uint32_t>(yyjson_get_uint(field))},
+              .field_id = gneiss::engine::meta::property_id{static_cast<std::uint32_t>(
+                  yyjson_get_uint(field))},
           },
       .value = std::move(parsed_value),
   };

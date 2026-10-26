@@ -13,7 +13,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss::engine::meta {
 struct serialization_diagnostic;
 }
 
@@ -47,7 +47,7 @@ struct action_map final {
 
 [[nodiscard]] gneiss::engine::result
 parse_action_map(std::string_view json, action_map& out_map,
-                 serialization_diagnostic* diagnostic = nullptr) noexcept;
+                 gneiss::engine::meta::serialization_diagnostic* diagnostic = nullptr) noexcept;
 
 } // namespace gneiss::engine
 

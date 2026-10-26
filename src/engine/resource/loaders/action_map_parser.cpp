@@ -37,8 +37,9 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
 
 namespace gneiss::engine {
 
-gneiss::engine::result parse_action_map(std::string_view json, action_map& out_map,
-                                        serialization_diagnostic* diagnostic) noexcept {
+gneiss::engine::result
+parse_action_map(std::string_view json, action_map& out_map,
+                 gneiss::engine::meta::serialization_diagnostic* diagnostic) noexcept {
   try {
     if (diagnostic)
       *diagnostic = {};

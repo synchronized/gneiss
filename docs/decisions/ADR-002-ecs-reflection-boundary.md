@@ -18,7 +18,8 @@ Prefab 和数据迁移。若自研完整 ECS，首版需要同时解决实体回
 
 通用类型元数据、注册、查询、属性访问和编解码绑定位于 `engine/core/meta/`。
 查询入口 `type_registry.hpp` 与注册入口 `type_registration.hpp` 分离，仍然共享唯一注册表；
-同源码宿主可使用查询接口，不因此获得注册实现入口。目录名称不增加一层 C++ 命名空间。
+同源码宿主可使用查询接口，不因此获得注册实现入口。Meta 的通用类型与函数使用 `gneiss::engine::meta`，避免与业务模块的类型和注册入口冲突；
+基础 `guid`、`type_id`、`value`、数学类型与 traits 定制点仍位于 `gneiss::engine`。
 内建组件 GUID 与字段编号归 `engine/function/world/component_identity.hpp`；
 Transform 的 GUID 由纯数学值类型自身声明，World 引用该常量，Core 不依赖 World。
 通用 `guid`、进程内 `type_id`、`value` 和 `traits/type_identity` 保留原有归属。

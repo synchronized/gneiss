@@ -474,7 +474,7 @@ void texture_load_service::advance_impl() {
   if (value.material_request) {
     loader_.assets().advance_resources();
     asset_ref<const material_description> description;
-    serialization_diagnostic diagnostic;
+    gneiss::engine::meta::serialization_diagnostic diagnostic;
     const auto status = value.material_request.take(description, &diagnostic);
     if (status == result::not_ready)
       return;

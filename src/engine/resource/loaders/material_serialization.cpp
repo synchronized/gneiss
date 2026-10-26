@@ -12,7 +12,7 @@
 
 namespace gneiss::engine {
 result decode_material(std::span<const std::byte> bytes, material_description& output,
-                       serialization_diagnostic& diagnostic) noexcept try {
+                       gneiss::engine::meta::serialization_diagnostic& diagnostic) noexcept try {
   diagnostic = {};
   std::vector<std::byte> owned(bytes.begin(), bytes.end());
   asset_diagnostic asset_error;
@@ -27,7 +27,7 @@ result decode_material(std::span<const std::byte> bytes, material_description& o
 }
 
 result encode_material(const material_description& object, std::vector<std::byte>& output,
-                       serialization_diagnostic& diagnostic) noexcept try {
+                       gneiss::engine::meta::serialization_diagnostic& diagnostic) noexcept try {
   diagnostic = {};
   const auto& p = object.parameters;
   // JSON 不接受非有限数值；其余范围复用同一解析器校验，避免维护第二套格式规则。
@@ -135,8 +135,8 @@ result encode_material(const material_description& object, std::vector<std::byte
   return result::internal;
 }
 
-result register_material_reflection(const registry_ref& registry) noexcept {
-  return type_builder<material_description>{registry}
+result register_material_reflection(const gneiss::engine::meta::registry_ref& registry) noexcept {
+  return gneiss::engine::meta::type_builder<material_description>{registry}
       .serialization<&encode_material, &decode_material>()
       .commit();
 }

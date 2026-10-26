@@ -31,7 +31,7 @@ make_translation(const char* instance, std::array<float, 3> value) {
 } // namespace
 
 int main() {
-  gneiss::engine::registry_ref registry;
+  gneiss::engine::meta::registry_ref registry;
   if (gneiss::engine::create_property_registry(registry).failed())
     return 1;
 
@@ -83,7 +83,7 @@ int main() {
   gneiss::engine::prefab_property_override read_only{
       .key = {.node = {.instance_uuid = instance_a, .source_node_uuid = source_node},
               .type_id = gneiss::engine::camera_component_type,
-              .field_id = gneiss::field_id{4}},
+              .field_id = gneiss::engine::meta::property_id{4}},
       .value = {.payload = true}};
   if (gneiss::engine::validate_prefab_property_override(registry, read_only) !=
       gneiss::engine::result::invalid_argument) {
@@ -91,7 +91,7 @@ int main() {
   }
 
   auto missing = make_translation(instance_a, {1.0F, 0.0F, 0.0F});
-  missing.key.field_id = gneiss::field_id{999};
+  missing.key.field_id = gneiss::engine::meta::property_id{999};
   if (gneiss::engine::validate_prefab_property_override(registry, missing) !=
       gneiss::engine::result::not_found) {
     return 7;

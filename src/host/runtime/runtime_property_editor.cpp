@@ -25,7 +25,7 @@ gneiss::engine::result to_native_value(const gneiss::host::ipc_property_value& s
         } else if constexpr (std::is_same_v<T, std::array<std::uint8_t, 16>>) {
           output.payload = gneiss::engine::guid::from_bytes(payload);
         } else if constexpr (std::is_same_v<T, std::array<float, 3>>) {
-          output.payload = gneiss::property_vec3{payload[0], payload[1], payload[2]};
+          output.payload = gneiss::engine::vector3{payload[0], payload[1], payload[2]};
         } else if constexpr (std::is_same_v<T, std::array<float, 4>>) {
           output.payload =
               gneiss::engine::quaternion_xyzw(payload[0], payload[1], payload[2], payload[3]);
@@ -50,9 +50,9 @@ gneiss::engine::result from_native_value(const gneiss::engine::value& source,
           return gneiss::engine::result::unsupported;
         } else if constexpr (std::is_same_v<T, gneiss::engine::guid>) {
           output.payload = payload.bytes();
-        } else if constexpr (std::is_same_v<T, gneiss::property_vec3>) {
+        } else if constexpr (std::is_same_v<T, gneiss::engine::vector3>) {
           output.payload = std::array{payload.x, payload.y, payload.z};
-        } else if constexpr (std::is_same_v<T, gneiss::property_quaternion>) {
+        } else if constexpr (std::is_same_v<T, gneiss::engine::quaternion>) {
           output.payload = std::array{payload.x, payload.y, payload.z, payload.w};
         } else {
           output.payload = payload;
@@ -78,7 +78,7 @@ gneiss::engine::result runtime_property_editor::initialize(gneiss::engine::world
   if (session_id == 0U || registry_ != nullptr) {
     return gneiss::engine::result::invalid_argument;
   }
-  gneiss::engine::registry_ref registry;
+  gneiss::engine::meta::registry_ref registry;
   const auto operation = gneiss::engine::create_property_registry(registry);
   if (operation.failed()) {
     return operation;
@@ -138,14 +138,16 @@ runtime_property_editor::execute(const ipc_property_write& command,
   }
 
   const gneiss::engine::guid property_type{gneiss::engine::guid::from_bytes(key.type_id)};
-  const field_id property_field{command.field_id};
-  type_info description;
-  operation = gneiss::engine::describe_type(registry_, property_type, description);
-  const auto field = std::ranges::find(description.fields, property_field, &field_info::id);
-  if (operation.failed() || field == description.fields.end() ||
-      !has_flags(field->capabilities, property_capabilities::writable)) {
-    response.code = field == description.fields.end() ? gneiss::engine::result::not_found.code()
-                                                      : gneiss::engine::result::unsupported.code();
+  const gneiss::engine::meta::property_id property_field{command.field_id};
+  gneiss::engine::meta::type_info description;
+  operation = gneiss::engine::meta::describe_type(registry_, property_type, description);
+  const auto field = std::ranges::find(description.properties, property_field,
+                                       &gneiss::engine::meta::property_info::id);
+  if (operation.failed() || field == description.properties.end() ||
+      !has_flags(field->capabilities, gneiss::engine::meta::property_capabilities::writable)) {
+    response.code = field == description.properties.end()
+                        ? gneiss::engine::result::not_found.code()
+                        : gneiss::engine::result::unsupported.code();
     if (operation.failed()) {
       response.code = operation.code();
     }

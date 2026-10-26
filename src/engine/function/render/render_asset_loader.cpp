@@ -87,7 +87,7 @@ prepare_render_assets(asset_manager& assets, std::span<const render_asset_reload
     if (source.type != asset_type::material || materials.contains(source.uri))
       continue;
     asset_ref<const material_description> description;
-    serialization_diagnostic decoded;
+    gneiss::engine::meta::serialization_diagnostic decoded;
     const auto status = assets.load_sync(source.uri, description, reload, &decoded);
     if (status.failed()) {
       diagnostic = {status, decoded.byte_offset, std::move(decoded.path),

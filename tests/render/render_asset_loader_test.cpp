@@ -41,7 +41,7 @@ public:
   std::size_t maximum_bytes() const noexcept override { return 64U * 1024U; }
   gneiss::engine::result
   decode(const std::vector<std::byte>& bytes, std::shared_ptr<const void>& output,
-         gneiss::engine::serialization_diagnostic& diagnostic) const override {
+         gneiss::engine::meta::serialization_diagnostic& diagnostic) const override {
     ++calls;
     auto value = std::make_shared<gneiss::engine::material_description>();
     auto status = gneiss::engine::decode_material(bytes, *value, diagnostic);

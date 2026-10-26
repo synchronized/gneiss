@@ -51,11 +51,11 @@ bool save_codec_contract(gneiss::runtime::application& application) {
   if (document.save_as(directory.path, "asset://saved.scene.json", &saved).failed() ||
       document.is_dirty())
     return false;
-  e::registry_ref registry;
-  e::serialization_diagnostic diagnostic;
+  gneiss::engine::meta::registry_ref registry;
+  gneiss::engine::meta::serialization_diagnostic diagnostic;
   if (e::builtin_resource_registry(registry).failed() ||
-      e::deserialize(registry, std::as_bytes(std::span{saved.data(), saved.size()}), snapshot,
-                     diagnostic)
+      gneiss::engine::meta::deserialize(
+          registry, std::as_bytes(std::span{saved.data(), saved.size()}), snapshot, diagnostic)
           .failed() ||
       snapshot.objects.size() != 1 || snapshot.objects.front().name != "保存节点" ||
       snapshot.objects.front().translation != local.translation)

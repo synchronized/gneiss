@@ -110,21 +110,21 @@ void normalize_zero(gneiss::engine::prefab_property_value& value) noexcept {
 namespace gneiss::engine {
 
 gneiss::engine::result
-validate_prefab_property_override(const gneiss::engine::registry_ref& registry,
+validate_prefab_property_override(const gneiss::engine::meta::registry_ref& registry,
                                   const gneiss::engine::prefab_property_override& value) noexcept
     try {
   if (!gneiss::engine::is_valid_prefab_author_address(value.key.node) || !value.key.type_id ||
       !value.key.field_id.is_valid() || !valid_value(value.value)) {
     return gneiss::engine::result::invalid_argument;
   }
-  field_info field;
-  const auto found =
-      gneiss::engine::describe_field(registry, value.key.type_id, value.key.field_id, field);
+  gneiss::engine::meta::property_info field;
+  const auto found = gneiss::engine::meta::describe_property(registry, value.key.type_id,
+                                                             value.key.field_id, field);
   if (found.failed()) {
     return static_cast<gneiss::engine::result>(found);
   }
   if (field.kind != gneiss::engine::prefab_property_value_kind(value.value) ||
-      !has_flags(field.capabilities, property_capabilities::writable)) {
+      !has_flags(field.capabilities, gneiss::engine::meta::property_capabilities::writable)) {
     return gneiss::engine::result::invalid_argument;
   }
   return gneiss::engine::result::success;
@@ -133,7 +133,7 @@ validate_prefab_property_override(const gneiss::engine::registry_ref& registry,
 }
 
 gneiss::engine::result
-set_prefab_property_override(const gneiss::engine::registry_ref& registry,
+set_prefab_property_override(const gneiss::engine::meta::registry_ref& registry,
                              std::vector<gneiss::engine::prefab_property_override>& overrides,
                              gneiss::engine::prefab_property_override candidate,
                              gneiss::engine::prefab_property_value source_value) noexcept {

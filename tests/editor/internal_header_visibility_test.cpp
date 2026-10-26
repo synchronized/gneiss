@@ -60,7 +60,7 @@ static_assert(
 static_assert(std::is_same_v<decltype(gneiss::engine::prefab_property_override_key::type_id),
                              gneiss::engine::guid>);
 static_assert(std::is_same_v<decltype(gneiss::engine::prefab_property_override_key::field_id),
-                             gneiss::field_id>);
+                             gneiss::engine::meta::property_id>);
 template <typename T>
 concept exposes_texture_service = requires(T& value) { value.texture_service(); };
 template <typename T>

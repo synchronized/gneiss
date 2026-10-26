@@ -20,22 +20,24 @@ public:
   [[nodiscard]] virtual std::size_t maximum_bytes() const noexcept = 0;
   [[nodiscard]] virtual gneiss::engine::result
   decode(const std::vector<std::byte>& bytes, std::shared_ptr<const void>& output,
-         serialization_diagnostic& diagnostic) const = 0;
+         gneiss::engine::meta::serialization_diagnostic& diagnostic) const = 0;
 };
 
 /** 有类型解码函数；失败对象由适配器丢弃，可并发处理不同输入。 */
 template <class T>
-using asset_decode_function = result (*)(std::span<const std::byte>, T&, serialization_diagnostic&);
+using asset_decode_function = result (*)(std::span<const std::byte>, T&,
+                                         gneiss::engine::meta::serialization_diagnostic&);
 namespace detail {
 template <class T> class typed_asset_decoder final : public asset_decoder {
 public:
   typed_asset_decoder(asset_decode_function<T> function, std::size_t limit,
-                      registry_ref registry = {}, serialization_binding binding = {})
+                      gneiss::engine::meta::registry_ref registry = {},
+                      gneiss::engine::meta::serialization_binding binding = {})
       : function_(function), limit_(limit), registry_(std::move(registry)), binding_(binding) {}
   type_id target_type() const noexcept override { return runtime_type_of<T>(); }
   std::size_t maximum_bytes() const noexcept override { return limit_; }
   result decode(const std::vector<std::byte>& bytes, std::shared_ptr<const void>& output,
-                serialization_diagnostic& diagnostic) const override {
+                gneiss::engine::meta::serialization_diagnostic& diagnostic) const override {
     auto pending = std::make_shared<T>();
     const auto status = function_ ? function_(bytes, *pending, diagnostic)
                                   : binding_.decode(bytes, pending.get(), diagnostic);
@@ -47,15 +49,15 @@ public:
 private:
   asset_decode_function<T> function_{};
   std::size_t limit_{};
-  registry_ref registry_;
-  serialization_binding binding_{};
+  gneiss::engine::meta::registry_ref registry_;
+  gneiss::engine::meta::serialization_binding binding_{};
 };
 template <class T>
-result make_reflected_decoder(const registry_ref& registry, std::size_t limit,
+result make_reflected_decoder(const gneiss::engine::meta::registry_ref& registry, std::size_t limit,
                               std::shared_ptr<const asset_decoder>& output) {
   if (!registry)
     return result::unsupported;
-  serialization_binding binding;
+  gneiss::engine::meta::serialization_binding binding;
   const auto status = find_serialization(registry, runtime_type_of<T>(), binding);
   if (status == result::not_found)
     return result::unsupported;

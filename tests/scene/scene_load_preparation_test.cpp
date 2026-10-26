@@ -68,12 +68,12 @@ std::string instance(std::string_view id) {
 
 unsigned scene_decodes{}, prefab_decodes{};
 result custom_scene(std::span<const std::byte> bytes, scene_description& value,
-                    serialization_diagnostic& diagnostic) {
+                    gneiss::engine::meta::serialization_diagnostic& diagnostic) {
   ++scene_decodes;
   return decode_scene(bytes, value, diagnostic);
 }
 result custom_prefab(std::span<const std::byte> bytes, prefab_description& value,
-                     serialization_diagnostic& diagnostic) {
+                     gneiss::engine::meta::serialization_diagnostic& diagnostic) {
   ++prefab_decodes;
   return decode_prefab(bytes, value, diagnostic);
 }

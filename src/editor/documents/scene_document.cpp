@@ -1187,13 +1187,13 @@ gneiss::engine::result scene_document::save_to(const std::filesystem::path& asse
         with_scene([&](auto& service) { return service.capture_description(scene_, description); });
     if (operation.failed())
       return operation;
-    gneiss::engine::registry_ref registry;
+    gneiss::engine::meta::registry_ref registry;
     operation = gneiss::engine::builtin_resource_registry(registry);
     if (operation.failed())
       return operation;
     std::vector<std::byte> encoded;
-    gneiss::engine::serialization_diagnostic diagnostic;
-    operation = gneiss::engine::serialize(registry, description, encoded, diagnostic);
+    gneiss::engine::meta::serialization_diagnostic diagnostic;
+    operation = gneiss::engine::meta::serialize(registry, description, encoded, diagnostic);
     if (operation.failed())
       return operation;
     std::string json(reinterpret_cast<const char*>(encoded.data()), encoded.size());

@@ -65,7 +65,7 @@ void unified_resource_index() {
     }
     std::size_t maximum_bytes() const noexcept override { return 64U; }
     result decode(const std::vector<std::byte>& bytes, std::shared_ptr<const void>& output,
-                  serialization_diagnostic&) const override {
+                  gneiss::engine::meta::serialization_diagnostic&) const override {
       output = std::make_shared<const std::string>(reinterpret_cast<const char*>(bytes.data()),
                                                    bytes.size());
       return result::success;

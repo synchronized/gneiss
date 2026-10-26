@@ -5,7 +5,7 @@
 #include <cstring>
 namespace gneiss::engine {
 result decode_scene(std::span<const std::byte> bytes, scene_description& output,
-                    serialization_diagnostic& diagnostic) noexcept try {
+                    gneiss::engine::meta::serialization_diagnostic& diagnostic) noexcept try {
   diagnostic = {};
   if (bytes.size() > scene_description::maximum_source_bytes) {
     diagnostic.message = "资源描述超过单文件大小上限";
@@ -25,7 +25,7 @@ result decode_scene(std::span<const std::byte> bytes, scene_description& output,
   return result::internal;
 }
 result encode_scene(const scene_description& object, std::vector<std::byte>& output,
-                    serialization_diagnostic& diagnostic) noexcept try {
+                    gneiss::engine::meta::serialization_diagnostic& diagnostic) noexcept try {
   diagnostic = {};
   std::string text;
   auto status = serialize_scene_description(object, text);
@@ -43,13 +43,13 @@ result encode_scene(const scene_description& object, std::vector<std::byte>& out
 } catch (...) {
   return result::internal;
 }
-result register_scene_reflection(const registry_ref& registry) noexcept {
-  return type_builder<scene_description>{registry}
+result register_scene_reflection(const gneiss::engine::meta::registry_ref& registry) noexcept {
+  return gneiss::engine::meta::type_builder<scene_description>{registry}
       .serialization<&encode_scene, &decode_scene>()
       .commit();
 }
 result decode_prefab(std::span<const std::byte> bytes, prefab_description& output,
-                     serialization_diagnostic& diagnostic) noexcept try {
+                     gneiss::engine::meta::serialization_diagnostic& diagnostic) noexcept try {
   diagnostic = {};
   if (bytes.size() > prefab_description::maximum_source_bytes) {
     diagnostic.message = "资源描述超过单文件大小上限";
@@ -69,7 +69,7 @@ result decode_prefab(std::span<const std::byte> bytes, prefab_description& outpu
   return result::internal;
 }
 result encode_prefab(const prefab_description& object, std::vector<std::byte>& output,
-                     serialization_diagnostic& diagnostic) noexcept try {
+                     gneiss::engine::meta::serialization_diagnostic& diagnostic) noexcept try {
   diagnostic = {};
   std::string text;
   auto status = serialize_prefab_description(object, text);
@@ -87,8 +87,8 @@ result encode_prefab(const prefab_description& object, std::vector<std::byte>& o
 } catch (...) {
   return result::internal;
 }
-result register_prefab_reflection(const registry_ref& registry) noexcept {
-  return type_builder<prefab_description>{registry}
+result register_prefab_reflection(const gneiss::engine::meta::registry_ref& registry) noexcept {
+  return gneiss::engine::meta::type_builder<prefab_description>{registry}
       .serialization<&encode_prefab, &decode_prefab>()
       .commit();
 }

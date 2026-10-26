@@ -51,7 +51,7 @@ int main() try {
       return gneiss::engine::result{gneiss::engine::result::not_found};
     }
     auto value = found->value;
-    std::get<property_vec3>(value.payload).x = next;
+    std::get<gneiss::engine::vector3>(value.payload).x = next;
     return edit_author_property(session, target, inspector, world_handle, component, *found, value,
                                 serial);
   };
@@ -83,7 +83,7 @@ int main() try {
     return 7;
   }
   auto invalid = scale->value;
-  std::get<property_vec3>(invalid.payload).x = 0.0F;
+  std::get<gneiss::engine::vector3>(invalid.payload).x = 0.0F;
   if (edit_author_property(session, history, inspector, world_handle, component, *scale, invalid,
                            4U) != gneiss::engine::result::invalid_argument ||
       history.size() != 2U) {

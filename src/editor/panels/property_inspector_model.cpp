@@ -37,8 +37,8 @@ gneiss::engine::result property_inspector_model::refresh(gneiss::engine::world* 
         gneiss::engine::camera_property_type(),
     };
     for (const auto type_id : reflected_component_types) {
-      type_info type{};
-      auto operation = gneiss::engine::describe_type(registry_, type_id, type);
+      gneiss::engine::meta::type_info type{};
+      auto operation = gneiss::engine::meta::describe_type(registry_, type_id, type);
       if (operation != gneiss::engine::result::success) {
         clear();
         return operation;
@@ -49,9 +49,9 @@ gneiss::engine::result property_inspector_model::refresh(gneiss::engine::world* 
           .properties = {},
       };
       bool component_missing = false;
-      component.properties.reserve(type.fields.size());
-      for (std::uint32_t index = 0; index < type.fields.size(); ++index) {
-        const auto& field = type.fields[index];
+      component.properties.reserve(type.properties.size());
+      for (std::uint32_t index = 0; index < type.properties.size(); ++index) {
+        const auto& field = type.properties[index];
         gneiss::engine::value value;
         operation = gneiss::engine::read_component_property(registry_, *world_handle, entity.get(),
                                                             type.guid, field.id, value);
@@ -87,7 +87,8 @@ gneiss::engine::result property_inspector_model::refresh(gneiss::engine::world* 
 }
 
 gneiss::engine::result
-property_inspector_model::set_value(gneiss::engine::guid type_id, field_id field_id,
+property_inspector_model::set_value(gneiss::engine::guid type_id,
+                                    gneiss::engine::meta::property_id field_id,
                                     const gneiss::engine::value& value) noexcept {
   if (!registry_ || world_ == nullptr || entity_.get() == UINT64_C(0)) {
     return gneiss::engine::result::invalid_state;
@@ -101,7 +102,7 @@ property_inspector_model::set_value(gneiss::engine::guid type_id, field_id field
   if (property == component->properties.end()) {
     return gneiss::engine::result::not_found;
   }
-  if (!has_flags(property->capabilities, property_capabilities::writable)) {
+  if (!has_flags(property->capabilities, gneiss::engine::meta::property_capabilities::writable)) {
     return gneiss::engine::result::unsupported;
   }
   const auto operation = gneiss::engine::write_component_property(registry_, *world_, entity_.get(),
@@ -118,10 +119,9 @@ property_inspector_model::set_value(gneiss::engine::guid type_id, field_id field
   return operation;
 }
 
-gneiss::engine::result
-property_inspector_model::set_value(gneiss::engine::world* world_handle, entity_id entity,
-                                    gneiss::engine::guid type_id, field_id field_id,
-                                    const gneiss::engine::value& value) noexcept {
+gneiss::engine::result property_inspector_model::set_value(
+    gneiss::engine::world* world_handle, entity_id entity, gneiss::engine::guid type_id,
+    gneiss::engine::meta::property_id field_id, const gneiss::engine::value& value) noexcept {
   if (!registry_ || world_handle == nullptr || !entity.is_valid()) {
     return gneiss::engine::result::invalid_argument;
   }

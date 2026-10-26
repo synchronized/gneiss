@@ -8,7 +8,7 @@
 #include <memory>
 #include <string>
 
-namespace gneiss::engine {
+namespace gneiss::engine::meta {
 class type_registry_state;
 /** 原生注册表共享所有者；最后一个引用释放时销毁，借用元数据不得超过该生命周期。 */
 using registry_ref = std::shared_ptr<type_registry_state>;
@@ -29,17 +29,17 @@ template <class T>
   return describe_type(registry, runtime_type_of<T>(), output);
 }
 /** 字段名称借用已冻结 Registry；失败保持输出。 */
-[[nodiscard]] GNEISS_API gneiss::engine::result describe_field(const registry_ref& registry,
-                                                               gneiss::engine::guid type,
-                                                               field_id field,
-                                                               field_info& output) noexcept;
+[[nodiscard]] GNEISS_API gneiss::engine::result describe_property(const registry_ref& registry,
+                                                                  gneiss::engine::guid type,
+                                                                  property_id property,
+                                                                  property_info& output) noexcept;
 /** 读取自有快照；失败保持输出。冻结后的 Registry 可共享，对象的类型、寿命和线程访问由调用方保证。
  */
 [[nodiscard]] GNEISS_API gneiss::engine::result
-read_property(const registry_ref& registry, gneiss::engine::guid type, field_id field,
+read_property(const registry_ref& registry, gneiss::engine::guid type, property_id property,
               const void* object, gneiss::engine::value& output) noexcept;
 /** 输入在调用期间借用；沿用访问器的校验、线程与错误语义，不跨线程投递。 */
 [[nodiscard]] GNEISS_API gneiss::engine::result
-write_property(const registry_ref& registry, gneiss::engine::guid type, field_id field,
+write_property(const registry_ref& registry, gneiss::engine::guid type, property_id property,
                void* object, const gneiss::engine::value& value) noexcept;
-} // namespace gneiss::engine
+} // namespace gneiss::engine::meta

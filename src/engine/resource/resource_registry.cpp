@@ -7,12 +7,12 @@
 #include "engine/resource/loaders/scene_serialization.hpp"
 #include <mutex>
 namespace gneiss::engine {
-result builtin_resource_registry(registry_ref& output) noexcept try {
+result builtin_resource_registry(gneiss::engine::meta::registry_ref& output) noexcept try {
   static std::mutex mutex;
-  static registry_ref registry;
+  static gneiss::engine::meta::registry_ref registry;
   const std::scoped_lock lock(mutex);
   if (!registry) {
-    registry_ref pending;
+    gneiss::engine::meta::registry_ref pending;
     auto status = create_native(pending);
     if (status == result::success)
       status = register_material_reflection(pending);

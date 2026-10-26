@@ -24,7 +24,8 @@ Gizmo 保持正缩放、无剪切的限制。
 
 ## 反射与数据边界
 
-`property_vec3` 和 `property_quaternion` 是统一类型的别名，现有反射属性种类及稳定 GUID 不变。
+反射属性直接使用 `engine::vector3` 和 `engine::quaternion`，不提供属性专用数学别名；
+现有反射属性种类及稳定 GUID 不变。
 这次不增加 vector2、vector4 或矩阵的反射字段种类。
 
 Scene、导入节点、运行时 Transform、渲染矩阵和编辑器计算使用统一数学类型。

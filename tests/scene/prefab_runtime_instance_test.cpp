@@ -93,7 +93,7 @@ public:
 };
 
 bool check_failed_camera_prefab(
-    gneiss::engine::world& native_world, const gneiss::engine::registry_ref& registry,
+    gneiss::engine::world& native_world, const gneiss::engine::meta::registry_ref& registry,
     gneiss::engine::render_asset_loader& render_loader,
     gneiss::engine::asset_manager& prefab_loader, const gneiss::engine::prefab_description& source,
     const std::vector<gneiss::engine::prefab_property_override>& invalid_overrides) {
@@ -189,7 +189,7 @@ int main() try {
     return 1;
   }
   auto& native_world = *world_owner;
-  gneiss::engine::registry_ref registry;
+  gneiss::engine::meta::registry_ref registry;
   if (gneiss::engine::create_property_registry(registry).failed())
     return 2;
 

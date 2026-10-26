@@ -163,7 +163,7 @@ private:
   using instance_ptr = std::unique_ptr<scene_instance>;
   gneiss::engine::world& native_world_;
   gneiss::engine::render_asset_loader& loader_;
-  gneiss::engine::registry_ref registry_;
+  gneiss::engine::meta::registry_ref registry_;
   std::uint16_t domain_;
   gneiss::engine::rid_table<instance_ptr, scene_instance_id> instances_;
 };

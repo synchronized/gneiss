@@ -230,3 +230,7 @@ docs/                   项目文档
 单文件辅助实现使用匿名命名空间，头文件实现细节允许 `detail`。
 不保留旧领域命名空间兼容别名。目录、头文件可见性与 CMake 依赖继续约束分层。
 该命名空间迁移不改变 C ABI；旧共享值的后续收敛见 PLAN-051。决策见 [ADR-079](../decisions/ADR-079-flat-namespaces.md)。
+
+Meta 是上述平铺规则的明确例外：反射描述、注册、查询和编解码接口位于
+`gneiss::engine::meta`，避免通用名称与业务模块冲突。基础值类型和 traits 定制点仍在
+`gneiss::engine`；不为旧 Meta 限定名保留兼容别名。

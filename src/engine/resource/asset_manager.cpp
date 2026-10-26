@@ -33,7 +33,7 @@ struct asset_manager::resource_state {
     file_bytes bytes;
     bool reading{true}, read_complete{};
     std::shared_ptr<const void> value;
-    serialization_diagnostic diagnostic;
+    gneiss::engine::meta::serialization_diagnostic diagnostic;
     // 在途重载保活旧缓存条目；失败后旧内容仍可复用。
     std::shared_ptr<const resource_cache::entry> previous;
     std::atomic_bool settled{false};
@@ -64,7 +64,7 @@ struct asset_manager::resource_state {
   gneiss::engine::task_executor* executor{};
   gneiss::engine::task_scope scope{};
   bool frozen{}, stopped{};
-  registry_ref registry;
+  gneiss::engine::meta::registry_ref registry;
   std::size_t fallback_limit{};
   std::map<gneiss::engine::type_id, std::shared_ptr<const asset_decoder>> decoders;
   std::map<key, entry> requests;
@@ -136,7 +136,7 @@ result asset_manager::identify(std::string_view uri, std::uint32_t type,
   }
 }
 
-asset_manager::asset_manager(virtual_file_system files, registry_ref registry,
+asset_manager::asset_manager(virtual_file_system files, gneiss::engine::meta::registry_ref registry,
                              std::size_t fallback_limit)
     : asset_manager(std::make_shared<file_service>(
                         files, file_service_options{.max_requests = 64,
@@ -146,7 +146,8 @@ asset_manager::asset_manager(virtual_file_system files, registry_ref registry,
   files_ = std::move(files);
   resource_state_->legacy_sync = true;
 }
-asset_manager::asset_manager(std::shared_ptr<file_service> files, registry_ref registry,
+asset_manager::asset_manager(std::shared_ptr<file_service> files,
+                             gneiss::engine::meta::registry_ref registry,
                              std::size_t fallback_limit)
     : resource_state_(std::make_unique<resource_state>()) {
   if (!files)
@@ -308,11 +309,11 @@ gneiss::engine::result asset_manager::request(gneiss::engine::type_id type, std:
 } catch (...) {
   return gneiss::engine::result::internal;
 }
-gneiss::engine::result
-asset_manager::load_sync_erased(gneiss::engine::type_id type, std::string_view uri,
-                                std::shared_ptr<const void>& output, decoder_factory fallback,
-                                bool reload, serialization_diagnostic* diagnostic) noexcept try {
-  serialization_diagnostic local;
+gneiss::engine::result asset_manager::load_sync_erased(
+    gneiss::engine::type_id type, std::string_view uri, std::shared_ptr<const void>& output,
+    decoder_factory fallback, bool reload,
+    gneiss::engine::meta::serialization_diagnostic* diagnostic) noexcept try {
+  gneiss::engine::meta::serialization_diagnostic local;
   if (diagnostic)
     *diagnostic = {};
   auto& state = *resource_state_;

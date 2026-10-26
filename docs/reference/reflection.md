@@ -15,14 +15,19 @@ IPC 仍使用既有 32 位十六进制字符串编码 GUID，不传输原生对�
 
 ## 身份与注册
 
+Meta 的类型与函数统一位于 `gneiss::engine::meta`，不保留旧命名空间别名。
+`type_definition.properties` 和 `type_info.properties` 分别保存注册描述和查询结果。
+数学属性直接使用 `engine::vector3`、`engine::quaternion`，不提供属性专用别名。
+属性编号与存档、IPC 中既有的 `"field_id"` 格式键保持不变。
+
 文件按职责组织，不新增第二套注册表：
 
 | 文件 | 职责与主要类型 |
 | --- | --- |
-| `meta/field.hpp` | `field_id`、字段标志和属性读写能力 |
-| `meta/type_info.hpp` | 查询结果 `type_info`、`field_info` |
+| `meta/property.hpp` | `property_id`、字段标志和属性读写能力 |
+| `meta/type_info.hpp` | 查询结果 `type_info`、`property_info` |
 | `meta/type_registry.hpp` | `registry_ref`、类型/字段查询、属性读写 |
-| `meta/type_registration.hpp` | 注册输入 `type_definition`、`field_definition`、`property_binding`，创建、注册与冻结 |
+| `meta/type_registration.hpp` | 注册输入 `type_definition`、`property_definition`、`property_binding`，创建、注册与冻结 |
 | `meta/type_registry.cpp` | 唯一注册表的私有存储与实现 |
 | `meta/type_builder.hpp` | C++ 模板注册构建器 |
 | `meta/serialization.hpp` | 编解码绑定、诊断与序列化入口 |
@@ -34,8 +39,8 @@ IPC 仍使用既有 32 位十六进制字符串编码 GUID，不传输原生对�
 不用于反射存档。字段完整身份由稳定 GUID 与非零字段编号组成。名称用于 UTF-8 显示和诊断。
 GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按主机端序解释。
 
-`field_definition.type_guid` 表示字段值的语义类型，无需事先注册该类型。
-`field_flags::read_only` 禁止为字段绑定 setter。
+`property_definition.type_guid` 表示字段值的语义类型，无需事先注册该类型。
+`property_flags::read_only` 禁止为字段绑定 setter。
 
 `create_native` 创建 `registry_ref` 所有者；`register_type` 深拷贝名称和字段描述。
 类型自身的稳定身份为 `type_definition.guid`、`type_info.guid`；注册输入另有可选的运行期 `type_id`。
@@ -56,7 +61,7 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 类型具有静态身份时可这样注册：
 
 ```cpp
-return type_builder<camera_properties>{registry}
+return gneiss::engine::meta::type_builder<camera_properties>{registry}
     .schema_version(1)
     .readonly<&camera_properties::is_primary>(camera_is_primary_field, "is_primary")
     .commit();
@@ -73,18 +78,18 @@ return type_builder<camera_properties>{registry}
 - 直接成员适用于无需额外约束的属性；带约束的 setter 必须先校验再修改。
   不支持的 value 类型在模板实例化时报错，不引入任意对象或偏移量访问。
 
-底层 `register_type(registry, definition, bindings)` 的非空 bindings 必须与 fields 等长、顺序对应。
+底层 `register_type(registry, definition, bindings)` 的非空 bindings 必须与 properties 等长、顺序对应。
 空 bindings 保留原有只登记描述、之后显式 bind_property 的入口。
 
 ## 查询与属性值
 
-`type_count`、`describe_type_at` 枚举冻结元数据；`describe_type`、`describe_field` 直接查询记录。
+`type_count`、`describe_type_at` 枚举冻结元数据；`describe_type`、`describe_property` 直接查询记录。
 `describe_type` 支持稳定 GUID 和运行期 `type_id` 两种入口，指向同一份记录。
 `register_type<T>` 从 `type_identity<std::remove_cvref_t<T>>` 补齐名称、GUID 和运行期 ID；
 显式名称或 GUID 与非空 traits 身份冲突时返回 `invalid_argument`。`describe_type<T>` 使用 `runtime_type_of<T>()` 查询。
 模板去除顶层 cv/ref；注册 `void` 或传入不匹配的非空 `type_id` 返回 `invalid_argument`。
 不对应 C++ 类型的描述保留空 `type_id`，仍可按 GUID 查询。运行期 ID 不进入文件或 IPC。
-`field_definition` 的编号和标志分别使用 `field_id` 与 `field_flags`；`bind_property` 接收强类型字段编号。
+`property_definition` 的编号和标志分别使用 `property_id` 与 `property_flags`；`bind_property` 接收强类型字段编号。
 查询失败保持输出；未冻结返回 `not_ready`，未知身份或越界索引返回 `not_found`，空引用返回
 `invalid_handle`。类型查询输出拥有字段数组，名称借用 Registry，不能超过 Registry 生命周期。
 

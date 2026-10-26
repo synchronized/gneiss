@@ -232,7 +232,7 @@ result prepare_sync(asset_manager& assets, std::string_view uri, bool prefab,
   output = {};
   diagnostic = {};
   scene_description_inputs inputs;
-  serialization_diagnostic decoded;
+  gneiss::engine::meta::serialization_diagnostic decoded;
   auto status = result::success;
   if (cancelled && cancelled())
     return result::invalid_state;
@@ -318,7 +318,7 @@ scene_description_request::~scene_description_request() = default;
 result scene_description_request::advance(scene_description_inputs& output,
                                           scene_diagnostic& diagnostic) {
   auto& s = *state_;
-  serialization_diagnostic decoded;
+  gneiss::engine::meta::serialization_diagnostic decoded;
   const auto fail = [&](result status) {
     diagnostic = {status, decoded.byte_offset, std::move(decoded.path), std::move(decoded.message)};
     return status;

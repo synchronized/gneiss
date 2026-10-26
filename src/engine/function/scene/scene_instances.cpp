@@ -239,7 +239,7 @@ scene_instance::commit_prefabs(const gneiss::engine::scene_description& descript
 
 scene_instance::scene_instance(gneiss::engine::world& native_world,
                                gneiss::engine::render_asset_loader& loader,
-                               const gneiss::engine::registry_ref& registry) noexcept
+                               const gneiss::engine::meta::registry_ref& registry) noexcept
     : native_world_(native_world), loader_(loader), registry_(registry) {}
 
 scene_instance::~scene_instance() noexcept { rollback(); }

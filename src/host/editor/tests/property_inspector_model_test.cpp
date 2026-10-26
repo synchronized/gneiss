@@ -54,7 +54,7 @@ int main() {
   }
 
   gneiss::engine::value value;
-  value.payload = gneiss::property_vec3{2.0F, 3.0F, 4.0F};
+  value.payload = gneiss::engine::vector3{2.0F, 3.0F, 4.0F};
   if (inspector.set_value(gneiss::engine::transform_component_type,
                           gneiss::engine::transform_translation_field,
                           value) != gneiss::engine::result::success) {
@@ -66,14 +66,15 @@ int main() {
     return 4;
   }
 
-  value.payload = gneiss::property_vec3{0.0F, 1.0F, 1.0F};
+  value.payload = gneiss::engine::vector3{0.0F, 1.0F, 1.0F};
   if (inspector.set_value(gneiss::engine::transform_component_type,
                           gneiss::engine::transform_scale_field,
                           value) != gneiss::engine::result::invalid_argument ||
       owner->entity_get_local_transform(entity, transform) != gneiss::engine::result::success ||
       !nearly_equal(transform.scale[0], 1.0F) ||
       !nearly_equal(
-          std::get<gneiss::property_vec3>(inspector.components()[0].properties[2].value.payload).x,
+          std::get<gneiss::engine::vector3>(inspector.components()[0].properties[2].value.payload)
+              .x,
           1.0F)) {
     return 5;
   }

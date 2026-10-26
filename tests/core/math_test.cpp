@@ -7,8 +7,8 @@
 #include <limits>
 #include <type_traits>
 
-static_assert(std::is_same_v<gneiss::property_vec3, gneiss::engine::vector3>);
-static_assert(std::is_same_v<gneiss::property_quaternion, gneiss::engine::quaternion>);
+static_assert(std::is_same_v<gneiss::engine::vector3, gneiss::engine::vector3>);
+static_assert(std::is_same_v<gneiss::engine::quaternion, gneiss::engine::quaternion>);
 
 int main() {
   using namespace gneiss::engine;

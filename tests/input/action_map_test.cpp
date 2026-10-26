@@ -92,13 +92,13 @@ int main() {
   using namespace gneiss::engine;
   if (backend->last_limit != maximum_action_map_bytes)
     return 8;
-  registry_ref registry;
-  serialization_binding codec;
+  gneiss::engine::meta::registry_ref registry;
+  gneiss::engine::meta::serialization_binding codec;
   if (builtin_resource_registry(registry).failed() ||
       find_serialization(registry, runtime_type_of<action_map>(), codec).failed() ||
       !codec.decode || codec.encode)
     return 9;
-  serialization_diagnostic diagnostic;
+  gneiss::engine::meta::serialization_diagnostic diagnostic;
   std::vector<std::byte> encoded{std::byte{42}};
   if (serialize(registry, map, encoded, diagnostic) != result::unsupported ||
       encoded != std::vector{std::byte{42}})
@@ -160,8 +160,8 @@ int main() {
     return 25;
   backend->first = backend->second = invalid_scale;
   asset_manager custom(files);
-  const auto override_decode =
-      +[](std::span<const std::byte>, action_map& output, serialization_diagnostic&) -> result {
+  const auto override_decode = +[](std::span<const std::byte>, action_map& output,
+                                   gneiss::engine::meta::serialization_diagnostic&) -> result {
     output.actions = {{.name = "override", .bindings = {{.physical_key = 4, .scale = 1.0F}}}};
     return result::success;
   };
