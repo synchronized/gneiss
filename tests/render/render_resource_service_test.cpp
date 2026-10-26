@@ -92,7 +92,7 @@ bool verify_shared_budget() {
       rejected != 0U || resources.share_texture(candidate) != prepared) {
     return false;
   }
-  const auto replacement = std::make_shared<const texture_resource>(*prepared);
+  const auto replacement = std::make_shared<const texture_data>(*prepared);
   if (resources.replace_texture(candidate, replacement) ||
       resources.share_texture(candidate) != prepared) {
     return false;

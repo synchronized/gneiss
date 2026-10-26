@@ -21,9 +21,7 @@ class texture_payload_source;
 
 namespace gneiss::engine {
 
-using mesh_resource = gneiss::engine::mesh_data;
-
-struct material_resource {
+struct material_data {
   material_parameters parameters{};
   gneiss::engine::rid base_color_texture{};
   gneiss::engine::rid metallic_roughness_texture{};
@@ -50,7 +48,7 @@ struct material_resource {
   }
 };
 
-struct texture_resource {
+struct texture_data {
   std::uint32_t width;
   std::uint32_t height;
   gneiss::engine::texture_format format;

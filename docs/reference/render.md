@@ -19,7 +19,7 @@ Mesh、Material 和 Texture 的 RID 由 Application 的 Resource Service 管理�
 Material 保存线性 RGBA、金属度、粗糙度、五类 PBR Texture RID 及法线/AO/自发光因子，
 字段范围与纹理用途见 [Render 资产格式](render-asset-formats.md#material)。创建不转移 Texture 所有权；
 直接创建资源时调用方必须维持依赖有效，资产 Loader 的 Material 租约则持有全部 Texture 租约。
-`create_material` 接收原生 `material_resource`，其 `parameters` 使用与材质描述相同的
+`create_material` 接收原生 `material_data`，其 `parameters` 使用与材质描述相同的
 `material_parameters`，默认构造提供中性值；纹理槽仍保存 RID。
 当前描述支持逐槽 UV0/UV1 与采样器、OPAQUE/MASK/BLEND、Alpha Cutoff 和双面。
 
@@ -32,6 +32,21 @@ Material 可选引用 Texture RID；Granit 后端按 RID 建立 GPU 镜像并通
 domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
 `result::invalid_handle`。销毁 RID 后，帧包或调用方已有的强引用仍可维持 CPU 数据，
 直到最后一个引用释放；该保留数据继续占用服务内存额度。
+
+## 运行资源身份与销毁
+
+`render_resource.hpp` 定义 `mesh_resource`、`texture_resource`、`material_resource`，
+分别使用 `mesh`、`texture`、`material`（`asset_ref<const T>`）持有。
+它们与 CPU 负载 `mesh_data`、`texture_data`、`material_data` 是不同类型；
+当前 Loader 的混合请求仍返回缓存条目，`entry::as<T>()` 检查类型并取得同一对象的强引用。
+缓存清理同时检查条目租约和运行对象强引用，避免对象仍被使用时丢失 URI 身份。
+ECS 和上层帧快照仍使用 RID，迁移进度见 [PLAN-054](../plans/PLAN-054-render-resource-model.md)。
+
+三类运行对象只能经资源销毁队列构造。最后一个强引用释放只将预分配节点入队，
+所属线程在 Application 资产推进、Loader 缓存清理及关闭时消费；不在队列锁内执行析构。
+材质析构释放纹理强引用产生的后续节点会继续排空。纯 CPU 数据仍使用普通 RAII。
+资源服务析构前排空队列并关闭端点；服务析构后仍存活的外部引用只销毁无服务依赖的外壳，
+不会调用旧服务。GPU 对象继续由 Render 执行器管理，CPU 销毁队列不替代 GPU 完成同步。
 
 ## 当前帧即时 UI 数据
 

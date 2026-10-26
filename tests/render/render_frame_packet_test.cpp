@@ -38,7 +38,7 @@ bool pending_resources() {
       foreign.mesh_status(mesh) != gneiss::engine::result::invalid_handle) {
     return false;
   }
-  material_resource description;
+  material_data description;
   description.base_color_texture = mesh;
   if (resources.create_material(description, &material) !=
       gneiss::engine::result::invalid_argument) {
@@ -67,7 +67,7 @@ bool pending_resources() {
     return false;
   }
   const auto* neutral = fallback.resources.get_material(pending_material);
-  auto material_data = std::make_shared<material_resource>(description);
+  auto material_data = std::make_shared<gneiss::engine::material_data>(description);
   if (!resources.replace_material(pending_material, material_data) ||
       resources.material_status(pending_material) != gneiss::engine::result::success) {
     return false;
@@ -91,9 +91,9 @@ bool pending_resources() {
       before.resources.mesh_pending(texture) || before.resources.texture_pending(0U)) {
     return false;
   }
-  auto mesh_data = std::make_shared<mesh_resource>();
+  auto mesh_data = std::make_shared<gneiss::engine::mesh_data>();
   mesh_data->vertices.resize(3U);
-  auto texture_data = std::make_shared<texture_resource>();
+  auto texture_data = std::make_shared<gneiss::engine::texture_data>();
   texture_data->width = texture_data->height = 1U;
   texture_data->levels.push_back(
       {.width = 1U,
@@ -167,7 +167,7 @@ int main() {
     return 2;
   }
 
-  material_resource material_desc;
+  material_data material_desc;
   material_desc.base_color_texture = texture;
   std::array<gneiss::engine::rid, 4> pbr_textures{};
   for (auto& handle : pbr_textures) {

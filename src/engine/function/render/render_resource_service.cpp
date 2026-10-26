@@ -34,13 +34,13 @@ bool valid_color(float value) noexcept {
 std::uint64_t saturated_add(std::uint64_t left, std::uint64_t right) noexcept {
   return right > UINT64_MAX - left ? UINT64_MAX : left + right;
 }
-render_memory_usage measure(const mesh_resource& value) noexcept {
+render_memory_usage measure(const mesh_data& value) noexcept {
   return {.logical_bytes = value.data_bytes(), .cpu_data_bytes = value.data_bytes()};
 }
-render_memory_usage measure([[maybe_unused]] const material_resource& value) noexcept {
-  return {.logical_bytes = sizeof(material_resource), .cpu_data_bytes = sizeof(material_resource)};
+render_memory_usage measure([[maybe_unused]] const material_data& value) noexcept {
+  return {.logical_bytes = sizeof(material_data), .cpu_data_bytes = sizeof(material_data)};
 }
-render_memory_usage measure(const texture_resource& value) noexcept {
+render_memory_usage measure(const texture_data& value) noexcept {
   std::uint64_t bytes = value.payload.size();
   for (const auto& mip : value.levels) {
     bytes = saturated_add(bytes, mip.pixels.size());
@@ -67,13 +67,13 @@ render_resource_service::~render_resource_service() {
 }
 
 gneiss::engine::result render_resource_service::reserve_mesh(gneiss::engine::rid* output) noexcept {
-  return meshes_.create(gneiss::engine::resource_type::mesh, std::shared_ptr<const mesh_resource>{},
+  return meshes_.create(gneiss::engine::resource_type::mesh, std::shared_ptr<const mesh_data>{},
                         output);
 }
 gneiss::engine::result
 render_resource_service::reserve_texture(gneiss::engine::rid* output) noexcept {
   return textures_.create(gneiss::engine::resource_type::texture,
-                          std::shared_ptr<const texture_resource>{}, output);
+                          std::shared_ptr<const texture_data>{}, output);
 }
 gneiss::engine::result
 render_resource_service::mesh_status(gneiss::engine::rid mesh) const noexcept {
@@ -84,7 +84,7 @@ render_resource_service::mesh_status(gneiss::engine::rid mesh) const noexcept {
 gneiss::engine::result
 render_resource_service::reserve_material(gneiss::engine::rid* output) noexcept {
   return materials_.create(gneiss::engine::resource_type::material,
-                           std::shared_ptr<const material_resource>{}, output);
+                           std::shared_ptr<const material_data>{}, output);
 }
 gneiss::engine::result
 render_resource_service::material_status(gneiss::engine::rid material) const noexcept {
@@ -210,7 +210,7 @@ render_resource_service::create_mesh(const gneiss::engine::mesh_view& desc,
   const auto colors = desc.colors;
   *out_mesh = 0U;
   try {
-    mesh_resource resource{
+    mesh_data resource{
         .vertices = {vertices.begin(), vertices.end()},
         .normals = {normals.begin(), normals.end()},
         .indices = {indices.begin(), indices.end()},
@@ -220,7 +220,7 @@ render_resource_service::create_mesh(const gneiss::engine::mesh_view& desc,
     };
     return meshes_.create(
         gneiss::engine::resource_type::mesh,
-        track(std::make_shared<const mesh_resource>(std::move(resource)), mesh_history_), out_mesh);
+        track(std::make_shared<const mesh_data>(std::move(resource)), mesh_history_), out_mesh);
   } catch (const std::bad_alloc&) {
     return gneiss::engine::result::out_of_memory;
   } catch (...) {
@@ -228,7 +228,7 @@ render_resource_service::create_mesh(const gneiss::engine::mesh_view& desc,
   }
 }
 
-gneiss::engine::result render_resource_service::create_mesh(mesh_resource resource,
+gneiss::engine::result render_resource_service::create_mesh(mesh_data resource,
                                                             gneiss::engine::rid* output) noexcept {
   if (output == nullptr || !is_valid()) {
     return gneiss::engine::result::invalid_argument;
@@ -248,7 +248,7 @@ gneiss::engine::result render_resource_service::create_mesh(mesh_resource resour
 }
 
 gneiss::engine::result
-render_resource_service::create_prepared_mesh(mesh_resource resource,
+render_resource_service::create_prepared_mesh(mesh_data resource,
                                               gneiss::engine::rid* output) noexcept {
   if (output == nullptr || !is_valid()) {
     return gneiss::engine::result::invalid_argument;
@@ -257,7 +257,7 @@ render_resource_service::create_prepared_mesh(mesh_resource resource,
   try {
     return meshes_.create(
         gneiss::engine::resource_type::mesh,
-        track(std::make_shared<const mesh_resource>(std::move(resource)), mesh_history_), output);
+        track(std::make_shared<const mesh_data>(std::move(resource)), mesh_history_), output);
   } catch (const std::bad_alloc&) {
     return gneiss::engine::result::out_of_memory;
   } catch (...) {
@@ -265,7 +265,7 @@ render_resource_service::create_prepared_mesh(mesh_resource resource,
   }
 }
 gneiss::engine::result
-render_resource_service::create_prepared_mesh(std::shared_ptr<const mesh_resource> resource,
+render_resource_service::create_prepared_mesh(std::shared_ptr<const mesh_data> resource,
                                               gneiss::engine::rid* output) noexcept {
   if (output == nullptr || !is_valid() || !resource) {
     return gneiss::engine::result::invalid_argument;
@@ -281,7 +281,7 @@ render_resource_service::create_prepared_mesh(std::shared_ptr<const mesh_resourc
   }
 }
 bool render_resource_service::replace_mesh(gneiss::engine::rid rid,
-                                           std::shared_ptr<const mesh_resource> data) noexcept {
+                                           std::shared_ptr<const mesh_data> data) noexcept {
   auto* slot = meshes_.get(rid, gneiss::engine::resource_type::mesh);
   if (!slot || !data) {
     return false;
@@ -293,8 +293,8 @@ bool render_resource_service::replace_mesh(gneiss::engine::rid rid,
   }
   return true;
 }
-bool render_resource_service::replace_material(
-    gneiss::engine::rid rid, std::shared_ptr<const material_resource> data) noexcept {
+bool render_resource_service::replace_material(gneiss::engine::rid rid,
+                                               std::shared_ptr<const material_data> data) noexcept {
   auto* slot = materials_.get(rid, gneiss::engine::resource_type::material);
   if (!slot || !data) {
     return false;
@@ -312,8 +312,8 @@ gneiss::engine::result render_resource_service::destroy_mesh(gneiss::engine::rid
 }
 
 gneiss::engine::result
-render_resource_service::prepare_mesh_data(std::shared_ptr<const mesh_resource> resource,
-                                           std::shared_ptr<const mesh_resource>& output) noexcept {
+render_resource_service::prepare_mesh_data(std::shared_ptr<const mesh_data> resource,
+                                           std::shared_ptr<const mesh_data>& output) noexcept {
   output.reset();
   if (!is_valid() || !resource)
     return gneiss::engine::result::invalid_argument;
@@ -328,7 +328,7 @@ render_resource_service::prepare_mesh_data(std::shared_ptr<const mesh_resource> 
 }
 
 gneiss::engine::result render_resource_service::prepare_material_data(
-    const material_resource& value, std::shared_ptr<const material_resource>& output) noexcept {
+    const material_data& value, std::shared_ptr<const material_data>& output) noexcept {
   output.reset();
   const auto& parameters = value.parameters;
   if (!is_valid() || !std::ranges::all_of(parameters.color, valid_color) ||
@@ -353,7 +353,7 @@ gneiss::engine::result render_resource_service::prepare_material_data(
     }
   }
   try {
-    output = track(std::make_shared<const material_resource>(value), material_history_);
+    output = track(std::make_shared<const material_data>(value), material_history_);
     return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
     return gneiss::engine::result::out_of_memory;
@@ -363,12 +363,12 @@ gneiss::engine::result render_resource_service::prepare_material_data(
 }
 
 gneiss::engine::result
-render_resource_service::create_material(const material_resource& value,
+render_resource_service::create_material(const material_data& value,
                                          gneiss::engine::rid* output) noexcept {
   if (!output)
     return gneiss::engine::result::invalid_argument;
   *output = 0U;
-  std::shared_ptr<const material_resource> data;
+  std::shared_ptr<const material_data> data;
   const auto result = prepare_material_data(value, data);
   return result == gneiss::engine::result::success
              ? materials_.create(gneiss::engine::resource_type::material, std::move(data), output)
@@ -401,14 +401,13 @@ render_resource_service::create_texture(const texture_view& desc,
     return gneiss::engine::result::invalid_argument;
   }
   try {
-    texture_resource resource{
-        .width = desc.width,
-        .height = desc.height,
-        .format = desc.format,
-        .color_space = desc.color_space,
-        .levels = {{.width = desc.width, .height = desc.height, .pixels = {}}},
-        .manifest = {},
-        .payload = {}};
+    texture_data resource{.width = desc.width,
+                          .height = desc.height,
+                          .format = desc.format,
+                          .color_space = desc.color_space,
+                          .levels = {{.width = desc.width, .height = desc.height, .pixels = {}}},
+                          .manifest = {},
+                          .payload = {}};
     resource.levels.front().pixels.resize(static_cast<std::size_t>(packed_size));
     for (std::uint32_t row = 0; row < desc.height; ++row) {
       std::memcpy(resource.levels.front().pixels.data() +
@@ -425,7 +424,7 @@ render_resource_service::create_texture(const texture_view& desc,
 }
 
 gneiss::engine::result render_resource_service::prepare_texture_data(
-    texture_resource resource, std::shared_ptr<const texture_resource>& output) noexcept {
+    texture_data resource, std::shared_ptr<const texture_data>& output) noexcept {
   output.reset();
   if (resource.manifest.empty()) {
     if (!is_valid() || resource.width == 0U || resource.height == 0U ||
@@ -461,7 +460,7 @@ gneiss::engine::result render_resource_service::prepare_texture_data(
     }
   }
   try {
-    output = track(std::make_shared<const texture_resource>(std::move(resource)), texture_history_);
+    output = track(std::make_shared<const texture_data>(std::move(resource)), texture_history_);
     return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
     return gneiss::engine::result::out_of_memory;
@@ -471,12 +470,12 @@ gneiss::engine::result render_resource_service::prepare_texture_data(
 }
 
 gneiss::engine::result
-render_resource_service::create_texture(texture_resource resource,
+render_resource_service::create_texture(texture_data resource,
                                         gneiss::engine::rid* output) noexcept {
   if (!output || !resource.manifest.empty())
     return gneiss::engine::result::invalid_argument;
   *output = 0U;
-  std::shared_ptr<const texture_resource> data;
+  std::shared_ptr<const texture_data> data;
   const auto result = prepare_texture_data(std::move(resource), data);
   return result == gneiss::engine::result::success
              ? textures_.create(gneiss::engine::resource_type::texture, std::move(data), output)
@@ -484,12 +483,12 @@ render_resource_service::create_texture(texture_resource resource,
 }
 
 gneiss::engine::result
-render_resource_service::create_packaged_texture(texture_resource resource,
+render_resource_service::create_packaged_texture(texture_data resource,
                                                  gneiss::engine::rid* output) noexcept {
   if (!output || resource.manifest.empty())
     return gneiss::engine::result::invalid_argument;
   *output = 0U;
-  std::shared_ptr<const texture_resource> data;
+  std::shared_ptr<const texture_data> data;
   const auto result = prepare_texture_data(std::move(resource), data);
   return result == gneiss::engine::result::success
              ? textures_.create(gneiss::engine::resource_type::texture, std::move(data), output)
@@ -502,7 +501,7 @@ render_resource_service::destroy_texture(gneiss::engine::rid texture) noexcept {
 }
 
 bool render_resource_service::replace_texture(
-    gneiss::engine::rid texture, std::shared_ptr<const texture_resource> prepared) noexcept {
+    gneiss::engine::rid texture, std::shared_ptr<const texture_data> prepared) noexcept {
   auto* slot = textures_.get(texture, gneiss::engine::resource_type::texture);
   if (slot == nullptr || !prepared) {
     return false;
@@ -515,36 +514,36 @@ bool render_resource_service::replace_texture(
   return true;
 }
 
-const mesh_resource* render_resource_service::get_mesh(gneiss::engine::rid mesh) const noexcept {
+const mesh_data* render_resource_service::get_mesh(gneiss::engine::rid mesh) const noexcept {
   const auto* resource = meshes_.get(mesh, gneiss::engine::resource_type::mesh);
   return resource == nullptr ? nullptr : resource->get();
 }
 
-const material_resource*
+const material_data*
 render_resource_service::get_material(gneiss::engine::rid material) const noexcept {
   const auto* resource = materials_.get(material, gneiss::engine::resource_type::material);
   return resource == nullptr ? nullptr : resource->get();
 }
 
-const texture_resource*
+const texture_data*
 render_resource_service::get_texture(gneiss::engine::rid texture) const noexcept {
   const auto* resource = textures_.get(texture, gneiss::engine::resource_type::texture);
   return resource == nullptr ? nullptr : resource->get();
 }
 
-std::shared_ptr<const mesh_resource>
+std::shared_ptr<const mesh_data>
 render_resource_service::share_mesh(gneiss::engine::rid mesh) const noexcept {
   const auto* resource = meshes_.get(mesh, gneiss::engine::resource_type::mesh);
   return resource == nullptr ? nullptr : *resource;
 }
 
-std::shared_ptr<const material_resource>
+std::shared_ptr<const material_data>
 render_resource_service::share_material(gneiss::engine::rid material) const noexcept {
   const auto* resource = materials_.get(material, gneiss::engine::resource_type::material);
   return resource == nullptr ? nullptr : *resource;
 }
 
-std::shared_ptr<const texture_resource>
+std::shared_ptr<const texture_data>
 render_resource_service::share_texture(gneiss::engine::rid texture) const noexcept {
   const auto* resource = textures_.get(texture, gneiss::engine::resource_type::texture);
   return resource == nullptr ? nullptr : *resource;

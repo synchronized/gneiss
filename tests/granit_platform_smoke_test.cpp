@@ -87,7 +87,7 @@ int main() {
       native::mesh_vertex{.x = 0.0F, .y = 0.6F, .z = 0.0F, .u = 0.5F, .v = 1.0F}};
   native::mesh_view mesh_desc{};
   mesh_desc.vertices = vertices;
-  native::material_resource material_desc{};
+  native::material_data material_desc{};
   material_desc.parameters.color[0] = 0.95F;
   material_desc.parameters.color[1] = 0.35F;
   material_desc.parameters.color[2] = 0.12F;

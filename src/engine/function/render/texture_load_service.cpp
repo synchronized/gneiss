@@ -221,7 +221,7 @@ gneiss::engine::submit_result texture_load_service::submit_preparation(pending& 
           cpu->result = decode_loaded_asset(cpu->source, std::move(cpu->description_bytes),
                                             cpu->description.uri, std::move(cpu->payload_bytes),
                                             prepared, diagnostic, cpu->limit, cpu->profile,
-                                            cpu->material, sizeof(material_resource));
+                                            cpu->material, sizeof(material_data));
           if (cpu->result.ok()) {
             prepared.sources = std::move(cpu->inputs);
             cpu->batch.bytes = prepared.bytes;

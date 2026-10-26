@@ -37,6 +37,12 @@ public:
     resource_state state = resource_state::unloaded;
     gneiss::engine::result failure = gneiss::engine::result::success;
     std::shared_ptr<const void> resource;
+    /** 验证类型后共享运行对象的原控制块，不把缓存条目暴露给类型化使用者。 */
+    template <typename T> [[nodiscard]] asset_ref<const T> as() const noexcept {
+      return type == runtime_type_of<T>()
+                 ? asset_ref<const T>{std::static_pointer_cast<const T>(resource)}
+                 : asset_ref<const T>{};
+    }
   };
 
   using loader = std::function<gneiss::engine::result(std::shared_ptr<const void>&)>;

@@ -20,10 +20,10 @@ namespace gneiss::engine {
 
 class render_resource_snapshot final {
 public:
-  [[nodiscard]] const mesh_resource* get_mesh(gneiss::engine::rid mesh) const noexcept;
+  [[nodiscard]] const mesh_data* get_mesh(gneiss::engine::rid mesh) const noexcept;
   /** 已捕获的预留材质返回中性缺省参数；未捕获或无效句柄仍返回空。 */
-  [[nodiscard]] const material_resource* get_material(gneiss::engine::rid material) const noexcept;
-  [[nodiscard]] const texture_resource* get_texture(gneiss::engine::rid texture) const noexcept;
+  [[nodiscard]] const material_data* get_material(gneiss::engine::rid material) const noexcept;
+  [[nodiscard]] const texture_data* get_texture(gneiss::engine::rid texture) const noexcept;
   [[nodiscard]] bool mesh_pending(gneiss::engine::rid mesh) const noexcept;
   [[nodiscard]] bool texture_pending(gneiss::engine::rid texture) const noexcept;
 
@@ -34,9 +34,9 @@ private:
                               const ui_draw_list&, const debug_draw_list&,
                               struct render_frame_packet&) noexcept;
 
-  std::unordered_map<gneiss::engine::rid, std::shared_ptr<const mesh_resource>> meshes_;
-  std::unordered_map<gneiss::engine::rid, std::shared_ptr<const material_resource>> materials_;
-  std::unordered_map<gneiss::engine::rid, std::shared_ptr<const texture_resource>> textures_;
+  std::unordered_map<gneiss::engine::rid, std::shared_ptr<const mesh_data>> meshes_;
+  std::unordered_map<gneiss::engine::rid, std::shared_ptr<const material_data>> materials_;
+  std::unordered_map<gneiss::engine::rid, std::shared_ptr<const texture_data>> textures_;
 };
 
 struct render_frame_capture_metrics final {

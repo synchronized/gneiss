@@ -23,7 +23,7 @@ int main() try {
   native::mesh_view mesh_desc;
   mesh_desc.vertices = vertices;
   mesh_desc.indices = indices;
-  native::material_resource material_desc;
+  native::material_data material_desc;
   material_desc.parameters.color[0] = 0.25F;
   material_desc.parameters.color[1] = 0.5F;
   material_desc.parameters.color[2] = 0.75F;

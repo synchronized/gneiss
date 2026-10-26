@@ -37,22 +37,22 @@ bool render_resource_snapshot::texture_pending(gneiss::engine::rid texture) cons
   return found != textures_.end() && !found->second;
 }
 
-const mesh_resource* render_resource_snapshot::get_mesh(gneiss::engine::rid mesh) const noexcept {
+const mesh_data* render_resource_snapshot::get_mesh(gneiss::engine::rid mesh) const noexcept {
   const auto found = meshes_.find(mesh);
   return found == meshes_.end() ? nullptr : found->second.get();
 }
 
-const material_resource*
+const material_data*
 render_resource_snapshot::get_material(gneiss::engine::rid material) const noexcept {
   const auto found = materials_.find(material);
   if (found == materials_.end()) {
     return nullptr;
   }
-  static const material_resource fallback{};
+  static const material_data fallback{};
   return found->second ? found->second.get() : &fallback;
 }
 
-const texture_resource*
+const texture_data*
 render_resource_snapshot::get_texture(gneiss::engine::rid texture) const noexcept {
   const auto found = textures_.find(texture);
   return found == textures_.end() ? nullptr : found->second.get();
@@ -122,9 +122,9 @@ gneiss::engine::result capture_render_frame_packet(const gneiss::engine::native_
         candidate.ui.commands().size() * sizeof(ui_draw_command) +
         candidate.debug.lines().size() * sizeof(debug_line);
     copied_payload_bytes +=
-        candidate.resources.meshes_.size() * sizeof(std::shared_ptr<const mesh_resource>) +
-        candidate.resources.materials_.size() * sizeof(std::shared_ptr<const material_resource>) +
-        candidate.resources.textures_.size() * sizeof(std::shared_ptr<const texture_resource>);
+        candidate.resources.meshes_.size() * sizeof(std::shared_ptr<const mesh_data>) +
+        candidate.resources.materials_.size() * sizeof(std::shared_ptr<const material_data>) +
+        candidate.resources.textures_.size() * sizeof(std::shared_ptr<const texture_data>);
     candidate.capture.capture_ms =
         std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - capture_started)
             .count();

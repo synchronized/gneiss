@@ -162,14 +162,17 @@ CPU 加载不必等待所有依赖 GPU 就绪；依赖的 CPU 完成条件由具
 
 ## 实施顺序
 
-### 阶段一：类型化运行资源（待开始，本轮）
+### 阶段一：类型化运行资源（实施中，本轮）
 
 - [ ] 审计全部 render_asset_ref、asset_rid、share_* 以及创建/销毁调用，列出迁移表。
-- [ ] 将隐藏 mesh_asset/texture_asset/material_asset 迁移为显式运行对象；解决旧名称冲突。
+- [x] 将隐藏 mesh_asset/texture_asset/material_asset 迁移为显式运行对象；解决旧名称冲突。
 - [ ] 将 mesh_resource 数据别名还原为 mesh_data；纹理元信息、上传字节、恢复数据分离。
+  mesh_data、texture_data 和 material_data 已与运行身份区分；纹理元信息与恢复/上传载体进一步拆分尚待实施。
 - [ ] Loader 返回 mesh/texture/material 类型化引用；审计擦除的真实用途，优先最简单的类型化存储。
 - [ ] 同来源域、URI、类型重用同一对象；重载修改受控内容，不替换业务持有的身份。
 - [ ] 将材质纹理强引用迁入材质对象；迁移 ECS、快照、运行时、编辑器、示例和测试代码，删除重复保活集合。
+  material_resource 已直接持有参数和 texture 强引用，不再持有 description 或纹理缓存条目；
+  缓存清理已考虑直接类型化引用，ECS/快照迁移和场景重复保活集合清理仍待实施。
 
 ### 阶段二：统一 Render 生命周期（实施中，本轮）
 
@@ -202,8 +205,9 @@ CPU 加载不必等待所有依赖 GPU 就绪；依赖的 CPU 完成条件由具
 每次提交运行 git diff --check，修改 C++ 时执行相应格式与边界检查。
 运行行为用例保留在验收清单，待架构统一后执行，不能因编译通过标记为已验证。
 
-销毁队列接入阶段已通过 Windows Clang Debug 全量编译、修改文件格式检查、Core/Public 边界检查
-和 `git diff --check`。新增队列线程/关闭竞争用例及 Loader 生命周期用例均仅编译，未运行。
+销毁队列接入及运行对象/CPU 数据拆分已通过 Windows Clang Debug 全量编译、修改文件格式检查、
+Core/Public 边界检查和 `git diff --check`。新增队列线程/关闭竞争、Loader 生命周期、
+类型化引用保活与重载身份用例均仅编译，未运行。
 
 | 行为用例 | 预期结果 | 本计划状态 |
 | --- | --- | --- |

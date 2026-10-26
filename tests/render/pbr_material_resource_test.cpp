@@ -15,7 +15,7 @@ int main() {
   render_resource_service resources;
   render_resource_service other;
   // 原生路径同样拒绝非法枚举，不能依赖 C 入口代替服务校验。
-  gneiss::engine::material_resource native;
+  gneiss::engine::material_data native;
   gneiss::engine::rid native_handle{};
   native.parameters.alpha_mode = static_cast<gneiss::engine::material_alpha_mode>(UINT32_MAX);
   if (resources.create_material(native, &native_handle) != gneiss::engine::result::invalid_argument)
@@ -41,7 +41,7 @@ int main() {
       other.create_texture(texture_desc, &foreign) != gneiss::engine::result::success) {
     return 1;
   }
-  gneiss::engine::material_resource desc;
+  gneiss::engine::material_data desc;
   desc.base_color_texture = texture;
   desc.metallic_roughness_texture = texture;
   desc.normal_texture = texture;
@@ -69,11 +69,11 @@ int main() {
       resources.get_texture(texture) == nullptr) {
     return 5;
   }
-  const std::array slots{&gneiss::engine::material_resource::base_color_texture,
-                         &gneiss::engine::material_resource::metallic_roughness_texture,
-                         &gneiss::engine::material_resource::normal_texture,
-                         &gneiss::engine::material_resource::occlusion_texture,
-                         &gneiss::engine::material_resource::emissive_texture};
+  const std::array slots{&gneiss::engine::material_data::base_color_texture,
+                         &gneiss::engine::material_data::metallic_roughness_texture,
+                         &gneiss::engine::material_data::normal_texture,
+                         &gneiss::engine::material_data::occlusion_texture,
+                         &gneiss::engine::material_data::emissive_texture};
   for (const auto slot : slots) {
     desc.*slot = foreign;
     if (resources.create_material(desc, &material) != gneiss::engine::result::invalid_argument) {

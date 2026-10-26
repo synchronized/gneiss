@@ -76,8 +76,8 @@ void resource_cache::release_unused() noexcept {
   do {
     removed = false;
     for (auto iterator = entries_.begin(); iterator != entries_.end();) {
-      // map 与调用方或依赖租约之外没有持有者时即可释放。
-      if (iterator->second.use_count() == 1) {
+      // 同时考虑条目租约和直接类型化引用，避免对象仍在使用时丢失 URI 身份。
+      if (iterator->second.use_count() == 1 && iterator->second->resource.use_count() <= 1) {
         iterator = entries_.erase(iterator);
         removed = true;
       } else {

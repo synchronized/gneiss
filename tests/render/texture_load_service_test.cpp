@@ -1007,7 +1007,7 @@ void packaged_lifetime(gneiss::engine::execution_mode mode) {
   [[maybe_unused]] auto& cache = asset_owner.cache();
   render_asset_loader loader(asset_owner, resources);
   texture_upload_backend::data in_flight;
-  std::weak_ptr<const texture_resource> observed;
+  std::weak_ptr<const texture_data> observed;
   bool ack{};
   bool oversized{true};
   auto upload_result = gneiss::engine::result::initialization_failed;

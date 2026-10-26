@@ -106,6 +106,8 @@ target_sources(
     engine/core/log/log_dispatcher.cpp
     engine/core/log/log_dispatcher.hpp
     engine/core/log/log_types.hpp
+    engine/function/render/render_resource.cpp
+    engine/function/render/render_resource.hpp
     engine/function/render/render_resource_service.cpp
     engine/function/render/render_resource_service.hpp
     engine/function/render/texture_view.hpp

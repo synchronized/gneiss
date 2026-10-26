@@ -124,7 +124,7 @@ void run_pending_resources() {
   gneiss::engine::rid texture{};
   check(resources.reserve_mesh(&mesh) == gneiss::engine::result::success);
   check(resources.reserve_texture(&texture) == gneiss::engine::result::success);
-  gneiss::engine::material_resource material_desc;
+  gneiss::engine::material_data material_desc;
   material_desc.parameters.color[0] = material_desc.parameters.color[1] =
       material_desc.parameters.color[2] = 0.0F;
   material_desc.parameters.emissive[0] = material_desc.parameters.emissive[1] =
@@ -151,7 +151,7 @@ void run_pending_resources() {
     };
   };
   const auto hidden = pixel();
-  auto geometry = std::make_shared<gneiss::engine::mesh_resource>();
+  auto geometry = std::make_shared<gneiss::engine::mesh_data>();
   geometry->vertices = {
       {.x = -0.8F, .y = -0.7F, .z = 0.0F, .u = 0.0F, .v = 0.0F},
       {.x = 0.8F, .y = -0.7F, .z = 0.0F, .u = 1.0F, .v = 0.0F},
@@ -162,7 +162,7 @@ void run_pending_resources() {
   const auto placeholder = pixel();
   check(placeholder[0] > hidden[0] + 30U && placeholder[1] > hidden[1] + 30U &&
         placeholder[2] > hidden[2] + 30U);
-  auto red = std::make_shared<gneiss::engine::texture_resource>();
+  auto red = std::make_shared<gneiss::engine::texture_data>();
   red->width = red->height = 1U;
   red->format = gneiss::engine::texture_format::rgba8_unorm;
   red->color_space = gneiss::engine::texture_color_space::srgb;
@@ -176,7 +176,7 @@ void run_pending_resources() {
   check(resources.replace_texture(texture, red));
   const auto ready = pixel();
   check(ready[0] > ready[1] + 30U && ready[0] > ready[2] + 30U);
-  auto blue = std::make_shared<gneiss::engine::texture_resource>(*red);
+  auto blue = std::make_shared<gneiss::engine::texture_data>(*red);
   blue->levels.front().pixels = {std::byte{0}, std::byte{0}, std::byte{255}, std::byte{255}};
   check(resources.replace_texture(texture, blue));
   const auto updated = pixel();

@@ -81,7 +81,7 @@ public:
   [[nodiscard]] gneiss::engine::texture_prepare_profile texture_profile() const noexcept {
     return texture_profile_;
   }
-  using texture_data = std::shared_ptr<const gneiss::engine::texture_resource>;
+  using texture_data = std::shared_ptr<const gneiss::engine::texture_data>;
   [[nodiscard]] static std::size_t
   estimate_upload_bytes(const gneiss::engine::render_upload_item& item) noexcept;
   [[nodiscard]] gneiss::engine::result
@@ -107,7 +107,7 @@ private:
   [[nodiscard]] gneiss::engine::result collect_completions() noexcept;
 
   struct texture_mirror final {
-    const gneiss::engine::texture_resource* source{};
+    const gneiss::engine::texture_data* source{};
     granit::texture texture;
     granit::texture_view view;
     // 异步完成时输出实际选择的上传信息，不能在提交阶段报告 ready。
@@ -120,10 +120,10 @@ private:
     texture_data data;
     texture_mirror mirror;
   };
-  std::unordered_map<const gneiss::engine::texture_resource*, prepared_texture> prepared_textures_;
+  std::unordered_map<const gneiss::engine::texture_data*, prepared_texture> prepared_textures_;
 
   struct mesh_mirror final {
-    const gneiss::engine::mesh_resource* source{};
+    const gneiss::engine::mesh_data* source{};
     granit::buffer vertices;
     granit::buffer indices;
     granit::mesh mesh;
@@ -133,31 +133,31 @@ private:
   };
 
   struct material_mirror final {
-    const gneiss::engine::material_resource* source{};
+    const gneiss::engine::material_data* source{};
     std::array<granit_texture_view, 5> textures{};
     std::array<granit::sampler, 5> samplers;
     granit::material_instance material;
   };
 
   struct prepared_mesh {
-    std::shared_ptr<const gneiss::engine::mesh_resource> data;
+    std::shared_ptr<const gneiss::engine::mesh_data> data;
     mesh_mirror mirror;
   };
-  std::unordered_map<const gneiss::engine::mesh_resource*, prepared_mesh> prepared_meshes_;
+  std::unordered_map<const gneiss::engine::mesh_data*, prepared_mesh> prepared_meshes_;
   void discard_upload_data(std::span<const gneiss::engine::render_upload_item> data) noexcept;
-  [[nodiscard]] granit::result create_mesh_mirror(const gneiss::engine::mesh_resource& source,
+  [[nodiscard]] granit::result create_mesh_mirror(const gneiss::engine::mesh_data& source,
                                                   mesh_mirror& output) noexcept;
 
   [[nodiscard]] granit::result initialize_pipeline() noexcept;
   [[nodiscard]] granit::result
-  create_texture_mirror(const gneiss::engine::texture_resource& source, texture_mirror& output,
+  create_texture_mirror(const gneiss::engine::texture_data& source, texture_mirror& output,
                         gneiss::engine::rid rid = gneiss::engine::null_rid,
                         granit::async_operation* operation = nullptr) noexcept;
   void log_texture(gneiss::engine::rid rid, const char* stage, granit::result result,
                    std::uint32_t variant, granit::texture_format format, std::uint32_t mips,
                    std::uint64_t bytes) noexcept;
   [[nodiscard]] granit::result
-  create_material_mirror(const gneiss::engine::material_resource& source,
+  create_material_mirror(const gneiss::engine::material_data& source,
                          const std::array<granit_texture_view, 5>& textures,
                          material_mirror& output) noexcept;
   [[nodiscard]] granit::result ensure_default_textures() noexcept;
@@ -257,7 +257,7 @@ granit_matrix4 to_granit_matrix(const gneiss::engine::matrix4& source) noexcept 
   return result;
 }
 
-float mesh_bounds_radius(const gneiss::engine::mesh_resource& mesh,
+float mesh_bounds_radius(const gneiss::engine::mesh_data& mesh,
                          const gneiss::engine::transform& transform) noexcept {
   float radius_squared = 0.0F;
   for (const auto& vertex : mesh.vertices) {
@@ -269,7 +269,7 @@ float mesh_bounds_radius(const gneiss::engine::mesh_resource& mesh,
   return std::sqrt(radius_squared) * scale;
 }
 
-granit::result append_mesh_geometry(const gneiss::engine::mesh_resource& source,
+granit::result append_mesh_geometry(const gneiss::engine::mesh_data& source,
                                     std::vector<gpu_vertex>& vertices,
                                     std::vector<std::uint32_t>& indices, geometry_range& range) {
   const auto source_index_count =
@@ -372,7 +372,7 @@ void render_service::implementation::log_texture(gneiss::engine::rid rid, const 
 }
 
 granit::result render_service::implementation::create_texture_mirror(
-    const gneiss::engine::texture_resource& source, texture_mirror& output, gneiss::engine::rid rid,
+    const gneiss::engine::texture_data& source, texture_mirror& output, gneiss::engine::rid rid,
     granit::async_operation* operation) noexcept {
   if (source.profile.generation != 0U && source.profile != texture_profile_) {
     return granit::result::invalid_argument;
@@ -539,8 +539,8 @@ granit::result render_service::implementation::create_texture_mirror(
 }
 
 granit::result render_service::implementation::create_material_mirror(
-    const gneiss::engine::material_resource& source,
-    const std::array<granit_texture_view, 5>& textures, material_mirror& output) noexcept {
+    const gneiss::engine::material_data& source, const std::array<granit_texture_view, 5>& textures,
+    material_mirror& output) noexcept {
   output.textures = textures;
   const auto& color = source.parameters.color;
   constexpr std::array addresses{granit::address_mode::repeat, granit::address_mode::clamp_to_edge,
@@ -645,7 +645,7 @@ granit::result render_service::implementation::create_material_mirror(
 }
 
 granit::result
-render_service::implementation::create_mesh_mirror(const gneiss::engine::mesh_resource& source,
+render_service::implementation::create_mesh_mirror(const gneiss::engine::mesh_data& source,
                                                    mesh_mirror& output) noexcept {
   try {
     if (auto found = prepared_meshes_.find(&source); found != prepared_meshes_.end()) {
@@ -745,7 +745,7 @@ granit::result render_service::implementation::ensure_default_textures() noexcep
     return granit::result::success;
   }
   try {
-    gneiss::engine::texture_resource white_srgb{
+    gneiss::engine::texture_data white_srgb{
         .width = 1,
         .height = 1,
         .format = gneiss::engine::texture_format::rgba8_unorm,
@@ -756,9 +756,9 @@ granit::result render_service::implementation::ensure_default_textures() noexcep
                                std::byte{0xff}}}},
         .manifest = {},
         .payload = {}};
-    gneiss::engine::texture_resource white_linear = white_srgb;
+    gneiss::engine::texture_data white_linear = white_srgb;
     white_linear.color_space = gneiss::engine::texture_color_space::linear;
-    gneiss::engine::texture_resource normal_linear = white_linear;
+    gneiss::engine::texture_data normal_linear = white_linear;
     normal_linear.levels.front().pixels = {std::byte{0x80}, std::byte{0x80}, std::byte{0xff},
                                            std::byte{0xff}};
     auto result = create_texture_mirror(white_srgb, default_white_srgb_);
@@ -913,7 +913,7 @@ std::size_t render_service::implementation::estimate_upload_bytes(
       bytes += level.pixels.size();
     return bytes;
   }
-  return sizeof(gneiss::engine::material_resource);
+  return sizeof(gneiss::engine::material_data);
 }
 
 gneiss::engine::result render_service::implementation::prepare_textures(

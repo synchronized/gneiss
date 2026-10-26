@@ -6,6 +6,7 @@
 
 #include "engine/core/rid.hpp"
 #include "engine/function/render/render_asset_preparation.hpp"
+#include "engine/function/render/render_resource.hpp"
 #include "engine/function/render/render_resource_data.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
 
@@ -35,24 +36,22 @@ using render_asset_ref = gneiss::engine::asset_ref<const gneiss::engine::resourc
 
 /** 上传任务只携带不可变 CPU 数据；后端所有权留在渲染服务。 */
 struct render_upload_item {
-  std::shared_ptr<const mesh_resource> mesh;
-  std::shared_ptr<const material_resource> material;
-  std::shared_ptr<const texture_resource> texture;
+  std::shared_ptr<const mesh_data> mesh;
+  std::shared_ptr<const material_data> material;
+  std::shared_ptr<const texture_data> texture;
   std::size_t bytes{};
   std::shared_ptr<const std::vector<std::byte>> texture_payload{};
 };
 
-/** resources 必须晚于缓存及其所有资产租约销毁；租约析构会释放对应 RID。 */
+/** Loader 的资源服务必须存活；资源引用可晚于服务释放，关闭后仅析构无后端依赖的外壳。 */
 class render_asset_loader final {
 public:
   /** 单个加载任务的上传数据；没有独立资产身份或候选 RID。 */
   struct asset_upload {
     render_asset_ref target;
-    asset_ref<const material_description> description;
     std::uint64_t sequence{};
     render_upload_item data;
-    std::array<gneiss::engine::asset_ref<const gneiss::engine::resource_cache::entry>, 5>
-        dependencies;
+    std::array<texture, 5> dependencies;
   };
   /** 所属线程分配请求顺序；仅用于拒绝迟到结果，不是内容版本或缓存失效序号。 */
   [[nodiscard]] std::uint64_t next_update_sequence() noexcept;
@@ -77,9 +76,6 @@ public:
   [[nodiscard]] static render_asset_ref mesh_ref(const render_asset_ref& lease) noexcept;
   [[nodiscard]] static render_asset_ref material_ref(const render_asset_ref& lease) noexcept;
   [[nodiscard]] bool owns(const render_asset_ref& lease) const noexcept;
-  /** 返回指定材质持有的纹理租约；非材质返回空数组，不读取来源或缓存。 */
-  [[nodiscard]] static std::array<render_asset_ref, 5>
-  texture_dependencies(const render_asset_ref& material) noexcept;
   render_asset_loader(asset_manager& assets, render_resource_service& resources) noexcept;
 
   [[nodiscard]] asset_manager& assets() const noexcept { return assets_; }

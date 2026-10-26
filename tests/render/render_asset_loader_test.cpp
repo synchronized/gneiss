@@ -383,7 +383,7 @@ bool material_parameter_roundtrip(gneiss::engine::virtual_file_system& files,
   }
   json += "]}";
   memory.files["parameters.material.json"] = json;
-  const auto matches = [](const material_resource* value) {
+  const auto matches = [](const material_data* value) {
     if (value == nullptr || value->parameters.color[0] != 0.25F ||
         value->parameters.color[1] != 0.5F || value->parameters.color[2] != 0.75F ||
         value->parameters.color[3] != 0.5F || value->parameters.metallic != 0.25F ||
@@ -431,7 +431,7 @@ bool material_parameter_roundtrip(gneiss::engine::virtual_file_system& files,
           gneiss::engine::result::success ||
       batch.assets.size() != 2U || resources.live_resource_count() != before ||
       batch.assets.back().bytes !=
-          sizeof(material_resource) +
+          sizeof(material_data) +
               5U * std::string_view("asset://textures/white.texture.json").size() ||
       batch.assets.back().material.color != std::array{0.25F, 0.5F, 0.75F, 0.5F}) {
     return false;
@@ -672,15 +672,14 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
                               diagnostic) != gneiss::engine::result::success) {
     return 10;
   }
-  const auto* mesh_resource = resources.get_mesh(gneiss::engine::asset_rid(textured_mesh));
-  const auto* material_resource =
-      resources.get_material(gneiss::engine::asset_rid(textured_material));
-  if (mesh_resource == nullptr || mesh_resource->vertices.size() != 3U ||
-      !mesh_resource->normals.empty() || mesh_resource->vertices[1].u != 1.0F ||
-      mesh_resource->vertices[2].v != 1.0F || material_resource == nullptr ||
-      material_resource->base_color_texture != gneiss::engine::asset_rid(first_texture) ||
-      material_resource->parameters.metallic != 0.25F ||
-      material_resource->parameters.roughness != 0.75F || resources.live_resource_count() != 7U) {
+  const auto* mesh_data = resources.get_mesh(gneiss::engine::asset_rid(textured_mesh));
+  const auto* material_data = resources.get_material(gneiss::engine::asset_rid(textured_material));
+  if (mesh_data == nullptr || mesh_data->vertices.size() != 3U || !mesh_data->normals.empty() ||
+      mesh_data->vertices[1].u != 1.0F || mesh_data->vertices[2].v != 1.0F ||
+      material_data == nullptr ||
+      material_data->base_color_texture != gneiss::engine::asset_rid(first_texture) ||
+      material_data->parameters.metallic != 0.25F || material_data->parameters.roughness != 0.75F ||
+      resources.live_resource_count() != 7U) {
     return 11;
   }
 
@@ -774,11 +773,16 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
           gneiss::engine::result::success ||
       loader.acquire_texture(reloads[2].uri, reloaded_texture, diagnostic) !=
           gneiss::engine::result::success ||
+      reloaded_mesh->resource.get() != textured_mesh->resource.get() ||
       gneiss::engine::asset_rid(reloaded_mesh) != old_mesh ||
       gneiss::engine::asset_rid(reloaded_material) != old_material ||
       gneiss::engine::asset_rid(reloaded_texture) != old_texture) {
     return 17;
   }
+  if (reloaded_material->as<gneiss::engine::material_resource>()->parameters().color[0] != 0.2F ||
+      reloaded_material->as<gneiss::engine::material_resource>()->textures()[0].get() !=
+          reloaded_texture->as<gneiss::engine::texture_resource>().get())
+    return 37;
   const auto* reloaded_material_resource =
       resources.get_material(gneiss::engine::asset_rid(reloaded_material));
   if (reloaded_material_resource == nullptr ||
@@ -862,7 +866,8 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   reloaded_texture = {};
   after_failed_reload = {};
   loader.release_unused();
-  if (cache.size() != 3U) {
+  // 运行材质只持有参数与纹理，不再保活可序列化 description。
+  if (cache.size() != 2U) {
     return 21;
   }
   if (resources.live_resource_count() != 2U) {
@@ -876,6 +881,27 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   if (cache.size() != 0U || resources.live_resource_count() != 0U) {
     return 13;
   }
+  // 类型化引用共享运行对象控制块，清理缓存不能使同 URI 重建第二个对象。
+  gneiss::engine::render_asset_ref typed_entry;
+  if (loader.acquire_mesh("asset://models/triangle.mesh.json", typed_entry, diagnostic) !=
+      gneiss::engine::result::success)
+    return 33;
+  gneiss::engine::mesh typed_mesh = typed_entry->as<gneiss::engine::mesh_resource>();
+  if (!typed_mesh || typed_entry->as<gneiss::engine::texture_resource>())
+    return 34;
+  const auto* identity = typed_mesh.get();
+  typed_entry.reset();
+  loader.release_unused();
+  if (loader.acquire_mesh("asset://models/triangle.mesh.json", typed_entry, diagnostic) !=
+          gneiss::engine::result::success ||
+      typed_entry->as<gneiss::engine::mesh_resource>().get() != identity)
+    return 35;
+  typed_entry.reset();
+  typed_mesh.reset();
+  loader.release_unused();
+  if (cache.size() != 0U || resources.live_resource_count() != 0U)
+    return 36;
+
   // 缓存已经销毁但调用方仍持有资源：最后释放先排队，再由所属线程撤销 RID。
   gneiss::engine::render_asset_ref retained;
   {
