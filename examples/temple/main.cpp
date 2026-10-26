@@ -84,6 +84,7 @@ int run_example(int argc, char** argv) {
   config.window.title = title;
   config.asset_root = asset_root;
   config.callbacks.update = [&](const auto& time) {
+    (void)scheduler.run_ready();
     if (!can_update)
       return gneiss::engine::result::success;
     return update_temple(*native_application, time, &state);
@@ -99,16 +100,34 @@ int run_example(int argc, char** argv) {
   if (native_application->attach_task_executor(scheduler).failed() ||
       native_application->begin_action_map(input_map_uri).failed())
     return 2;
-  while (native_application->action_map_status() == gneiss::engine::result::not_ready) {
+  std::uint64_t scene_request{};
+  if (native_application->request_scene(scene_uri, 1, 1, scene_request).failed())
+    return 2;
+  gneiss::scene_instance_id scene{};
+  gneiss::runtime::scene_load_completion completion;
+  // 启动阶段继续处理窗口事件和文件完成；不调用同步场景加载。
+  while (!scene || native_application->action_map_status() == gneiss::engine::result::not_ready) {
     (void)scheduler.run_ready();
     if (native_application->run(1).failed())
       return 2;
+    if (!scene) {
+      bool finished = false;
+      if (native_application->poll_scene(completion, finished).failed() ||
+          (finished && completion.result.failed()))
+        return 2;
+      gneiss::runtime::scene_load_progress progress;
+      if (native_application->scene_progress(progress) &&
+          progress.phase == gneiss::runtime::scene_load_phase::ready &&
+          native_application->can_activate_scene()) {
+        if (native_application->activate_scene(scene_request, completion).failed())
+          return 2;
+        scene = completion.scene;
+      }
+    }
   }
   if (native_application->action_map_status().failed())
     return 2;
-  gneiss::scene_instance_id scene{};
-  if (native_application->scenes()->load(scene_uri, &scene) != gneiss::engine::result::success ||
-      native_application->action_map_status() != gneiss::engine::result::success ||
+  if (native_application->action_map_status() != gneiss::engine::result::success ||
       native_application->find_action("move_horizontal", state.orbit) !=
           gneiss::engine::result::success ||
       native_application->find_action("quit", state.quit) != gneiss::engine::result::success ||

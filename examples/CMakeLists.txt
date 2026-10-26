@@ -21,7 +21,7 @@ install(
 )
 
 add_executable(gneiss_property_inspector_example property_inspector/main.cpp)
-target_link_libraries(gneiss_property_inspector_example PRIVATE gneiss::engine gneiss_native_interface)
+target_link_libraries(gneiss_property_inspector_example PRIVATE gneiss::engine gneiss_native_interface gneiss_tasks)
 target_compile_definitions(
   gneiss_property_inspector_example
   PRIVATE

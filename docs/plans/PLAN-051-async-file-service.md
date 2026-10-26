@@ -16,6 +16,7 @@ Fetch 与 MEMFS/IDBFS 后端已实现，Emscripten 5.0.6 编译及本地 Edge �
 输入映射已删除同步 load_input/load_action_map，示例和测试改用异步请求。
 Scene/Prefab 准备层已删除同步 prepare_scene_description/prepare_prefab_description，
 统一使用 scene_description_request 加载输入和 prepare_loaded_scene 纯内存准备。
+四个场景示例已改用异步请求及显式激活；属性检查示例的加载、保存、重新加载小闭环通过。
 Scene 实例/重载、Render 等同步调用方迁移、宿主异步关闭、删除 VFS、浏览器和大文件能力仍待完成。
 不将 Platform 搬迁或桌面后端实现等同于整份计划完成；大场景和 CI 仍留待统一验收。
 架构决策见 [ADR-084](../decisions/ADR-084-async-file-service.md)。

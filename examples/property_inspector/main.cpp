@@ -3,6 +3,7 @@
 #include "../support/scope_exit.hpp"
 #include "engine/core/meta/type_registry.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
@@ -18,12 +19,34 @@
 namespace {
 constexpr std::string_view scene_uri = "asset://scenes/property.scene.json";
 constexpr std::string_view camera_uuid = "37cff772-2e8d-4bc7-9ed2-f94435926d4e";
-bool open_scene(std::string_view root, std::shared_ptr<gneiss::runtime::application>& app,
+bool open_scene(gneiss::engine::task_scheduler& scheduler, std::string_view root,
+                std::shared_ptr<gneiss::runtime::application>& app,
                 gneiss::scene_instance_id& scene) {
   gneiss::runtime::application_configuration config;
   config.asset_root = root;
-  return gneiss::runtime::application::create(config, app) == gneiss::engine::result::success &&
-         app->scenes()->load(scene_uri, &scene) == gneiss::engine::result::success;
+  if (gneiss::runtime::application::create(config, app).failed() ||
+      app->attach_task_executor(scheduler).failed())
+    return false;
+  std::uint64_t request{};
+  if (app->request_scene(scene_uri, 1, 1, request).failed())
+    return false;
+  gneiss::runtime::scene_load_completion completion;
+  // 命令行示例的宿主循环；解码与 I/O 都从异步请求取得。
+  for (;;) {
+    (void)scheduler.run_ready();
+    bool finished = false;
+    if (app->run(1).failed() || app->poll_scene(completion, finished).failed() ||
+        (finished && completion.result.failed()))
+      return false;
+    gneiss::runtime::scene_load_progress progress;
+    if (app->scene_progress(progress) &&
+        progress.phase == gneiss::runtime::scene_load_phase::ready && app->can_activate_scene())
+      break;
+  }
+  if (app->activate_scene(request, completion).failed())
+    return false;
+  scene = completion.scene;
+  return true;
 }
 bool target_for(gneiss::runtime::application& app, gneiss::scene_instance_id scene,
                 gneiss::entity_id& target) {
@@ -52,6 +75,8 @@ int main() try {
       std::printf("  字段 %u: %.*s\n", field.id.get(), static_cast<int>(field.name.size()),
                   field.name.data());
   }
+  gneiss::engine::task_scheduler scheduler(
+      {.workers = 0, .mode = gneiss::engine::execution_mode::cooperative});
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::scene_instance_id scene{};
   example::scope_exit close{[&] {
@@ -61,7 +86,7 @@ int main() try {
       (void)app->shutdown();
     }
   }};
-  if (!open_scene(GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT, app, scene))
+  if (!open_scene(scheduler, GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT, app, scene))
     return 2;
   gneiss::entity_id target{};
   if (!target_for(*app, scene, target))
@@ -97,7 +122,8 @@ int main() try {
     if (!out)
       return 5;
   }
-  if (!open_scene(output_root.generic_string(), app, scene) || !target_for(*app, scene, target))
+  if (!open_scene(scheduler, output_root.generic_string(), app, scene) ||
+      !target_for(*app, scene, target))
     return 6;
   if (gneiss::engine::read_component_property(registry, *app->native_world(), target.get(),
                                               gneiss::engine::transform_property_type(),

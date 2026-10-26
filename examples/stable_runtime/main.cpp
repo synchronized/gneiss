@@ -136,6 +136,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   config.window.title = title;
   config.asset_root = asset_root;
   config.callbacks.update = [&](const auto& time) {
+    (void)scheduler.run_ready();
     if (!can_update)
       return gneiss::engine::result::success;
     return update_sample(*native_application, time, &state);
@@ -153,25 +154,39 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   if (native_application->attach_task_executor(scheduler).failed() ||
       native_application->begin_action_map(input_map_uri).failed())
     return 2;
-  while (native_application->action_map_status() == gneiss::engine::result::not_ready) {
+  std::uint64_t scene_request{};
+  if (native_application->request_scene(scene_uri, 1, 1, scene_request).failed())
+    return 2;
+  gneiss::scene_instance_id scene{};
+  gneiss::runtime::scene_load_completion completion;
+  // 启动阶段继续处理窗口事件和文件完成；不调用同步场景加载。
+  while (!scene || native_application->action_map_status() == gneiss::engine::result::not_ready) {
     (void)scheduler.run_ready();
     if (native_application->run(1).failed())
       return 2;
+    if (!scene) {
+      bool finished = false;
+      if (native_application->poll_scene(completion, finished).failed() ||
+          (finished && completion.result.failed()))
+        return 2;
+      gneiss::runtime::scene_load_progress progress;
+      if (native_application->scene_progress(progress) &&
+          progress.phase == gneiss::runtime::scene_load_phase::ready &&
+          native_application->can_activate_scene()) {
+        if (native_application->activate_scene(scene_request, completion).failed())
+          return 2;
+        scene = completion.scene;
+      }
+    }
   }
   if (native_application->action_map_status().failed())
     return 2;
-  gneiss::scene_instance_id scene{};
   example::scope_exit unload{[&] {
     if (scene)
       (void)native_application->scenes()->unload(scene);
   }};
-  auto result = gneiss::engine::result{native_application->scenes()->load(scene_uri, &scene)};
-  if (result != gneiss::engine::result::success) {
-    report_failure("加载场景", result);
-    return 3;
-  }
   const auto scene_ready = clock::now();
-  result = native_application->action_map_status();
+  auto result = native_application->action_map_status();
   if (result != gneiss::engine::result::success) {
     report_failure("加载输入映射", result);
     return 4;
