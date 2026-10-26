@@ -233,11 +233,18 @@ gneiss::engine::result imgui_adapter::initialize(runtime::application& applicati
   texture_desc.height = static_cast<std::uint32_t>(atlas_height);
   texture_desc.row_stride_bytes = texture_desc.width * 4U;
   texture_desc.pixels = premultiplied;
-  const auto result = application.resources().create_texture(texture_desc, &font_texture_);
+  gneiss::engine::rid handle{};
+  const auto result = application.resources().create_texture(texture_desc, &handle);
   if (result != gneiss::engine::result::success) {
     return result;
   }
-  io.Fonts->SetTexID(static_cast<ImTextureID>(font_texture_));
+  try {
+    font_texture_ = application.resources().reference_texture(handle);
+  } catch (...) {
+    (void)application.resources().destroy_texture(handle);
+    throw;
+  }
+  io.Fonts->SetTexID(static_cast<ImTextureID>(handle));
   io.Fonts->TexRef._TexData->SetStatus(ImTextureStatus_OK);
   return gneiss::engine::result::success;
 }
@@ -247,10 +254,7 @@ void imgui_adapter::shutdown(runtime::application& application) noexcept {
     return;
   }
   ImGui::SetCurrentContext(context_);
-  if (font_texture_ != gneiss::engine::null_rid) {
-    (void)application.resources().destroy_texture(font_texture_);
-    font_texture_ = gneiss::engine::null_rid;
-  }
+  font_texture_.reset();
   if (context_ != nullptr) {
     ImGui::DestroyContext(context_);
     context_ = nullptr;
@@ -377,7 +381,7 @@ gneiss::engine::result imgui_adapter::submit(runtime::application& application) 
       }
       const auto texture = static_cast<gneiss::engine::rid>(command.GetTexID());
       gneiss::engine::ui_draw_command converted{};
-      converted.texture = texture;
+      converted.texture = application.resources().reference_texture(texture);
       converted.clip_min[0] = command.ClipRect.x - draw_data->DisplayPos.x;
       converted.clip_min[1] = command.ClipRect.y - draw_data->DisplayPos.y;
       converted.clip_max[0] = command.ClipRect.z - draw_data->DisplayPos.x;

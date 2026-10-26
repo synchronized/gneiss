@@ -48,7 +48,6 @@ struct context {
   bool restored{};
   double prepare_ms{};
   double commit_ms{};
-  double upload_ms{};
   double max_update_ms{};
   std::size_t prepared_bytes{};
   gneiss::engine::render_queue_stats stats;
@@ -146,7 +145,6 @@ gneiss::engine::result native_update(runtime::application& app, context& state) 
       }
       state.prepare_ms = completion.prepare_ms;
       state.commit_ms = completion.commit_ms;
-      state.upload_ms = completion.upload_ms;
       state.prepared_bytes = completion.prepared_bytes;
       state.completed = true;
     }
@@ -229,13 +227,13 @@ int main(int argc, char** argv) try {
     output << sample.elapsed << ',' << sample.rendered << ',' << sample.render_interval << ','
            << sample.update_interval << '\n';
   }
-  std::printf("mode=%s result=%d prepare_ms=%.3f commit_ms=%.3f upload_ms=%.3f max_update_ms=%.3f "
+  std::printf("mode=%s result=%d prepare_ms=%.3f commit_ms=%.3f max_update_ms=%.3f "
               "prepared_bytes=%zu rendered=%llu "
               "resize=%u restored=%u queue_peak=%zu\n",
-              mode.c_str(), (result).code(), state.prepare_ms, state.commit_ms, state.upload_ms,
-              state.max_update_ms, state.prepared_bytes,
-              static_cast<unsigned long long>(state.stats.presented_frames), state.resized,
-              static_cast<unsigned>(state.restored), state.stats.pending_high_watermark);
+              mode.c_str(), (result).code(), state.prepare_ms, state.commit_ms, state.max_update_ms,
+              state.prepared_bytes, static_cast<unsigned long long>(state.stats.presented_frames),
+              state.resized, static_cast<unsigned>(state.restored),
+              state.stats.pending_high_watermark);
   std::printf("lifetime_seconds=%.3f completed=%u\n", lifetime,
               static_cast<unsigned>(state.completed));
   return result == gneiss::engine::result::success &&

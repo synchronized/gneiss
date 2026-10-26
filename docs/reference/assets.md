@@ -46,10 +46,10 @@ Application 内部将资产根作为 `asset://` 根挂载到虚拟文件系统�
 | --- | --- | --- |
 | `asset_manager::load_sync<T>`、`asset_request<T>::take` | `asset_ref<const T>`，直接访问 CPU 描述 | 成功重载替换当前缓存，旧引用继续保活旧数据 |
 | Prefab 描述 | `prefab_asset_ref`，即 `asset_ref<const prefab_description>` | 别名引用保活缓存条目；重载不会修改旧描述 |
-| Render Loader、场景绑定、编辑器历史 | `render_asset_ref`，即缓存条目的 `asset_ref` | 普通重载保持 RID 稳定，上传完成后更新内容 |
+| Render Loader、场景绑定、编辑器历史 | `mesh`、`material`、`texture` 强引用；混合批次另用缓存条目 | CPU 内容采用即完成，资源身份保持稳定，GPU 更新由 Render 独立处理 |
 
 渲染引用通过 `asset_rid`、`asset_kind`、`asset_uri` 访问 RID、类型和 URI；空引用分别返回
-零 RID、invalid 类型和空 URI。场景绑定仍校验资源类型与所属服务，ECS 只保存 RID。
+零 RID、invalid 类型和空 URI。场景绑定校验所属服务及来源域，ECS 保存类型化资源强引用。
 上传任务和在途渲染帧对具体数据的共享所有权不等同于资产身份引用。
 
 `asset_manager` 唯一持有 `resource_cache::entries_`，统一按「来源域 + URI + C++ 类型」索引。
@@ -73,9 +73,9 @@ Application 和场景统一调用管理器回收；Render Loader 的回收入口
 已完成但尚未领取的请求也保活结果。关闭通用管理器不使已领取的 CPU 描述引用失效。
 失败不永久缓存，重载失败保留当前成功数据；输出参数的失败行为以具体接口契约为准。
 
-引用计数并不提供资源数据的线程安全。CPU 数据可按只读契约共享；渲染资产的最后释放仍限
-所属线程，渲染服务必须晚于资产引用销毁。GPU 在途使用的安全回收由渲染服务及后端负责，
-`asset_ref` 不直接调用 GPU API，也不隐式切换销毁线程。
+引用计数并不提供资源数据的线程安全。CPU 数据可按只读契约共享。运行渲染资源的最后释放可在
+任意线程发生，删除器仅入队，由所属线程析构；服务关闭后走 detached 路径。
+GPU 在途使用的安全回收由 Render 及后端负责，详见[运行资源生命周期](render.md#运行资源身份与销毁)。
 同步 API 仍限 Application 创建线程；异步文件服务与 CPU 解码执行器分别负责 I/O 和解码。
 
 引用规则见 [ADR-077](../decisions/ADR-077-asset-references.md)，统一索引见
@@ -83,7 +83,8 @@ Application 和场景统一调用管理器回收；Render Loader 的回收入口
 
 ## 内部异步准备
 
-以下分步准备规则仅描述尚未迁移的网格、纹理等渲染专用读取。Asset 层拥有准备状态、输入缓冲、候选和来源身份。每个执行步骤共用读取字节预算，
+网格、纹理与材质共用 CPU 准备器；同步工具路径和异步任务路径采用相同内容校验与更新入口。
+Asset 层拥有准备状态、输入缓冲和来源身份。每个执行步骤共用读取字节预算，
 并限制状态转换次数；短操作可在同一步连续完成，避免每个转换都等待下一宿主帧。
 时间边界在操作之间检查，不能抢占单次 JSON/PNG 解析或同步文件系统调用。
 thread 与 cooperative 使用同一准备实现；cooperative 在步骤之间返回宿主。
@@ -94,7 +95,7 @@ VFS 使用 `open_read` / `begin_open_read`，只负责打开和读取，没有�
 材质参数和网格数据由加载结果直接持有，不再通过独立 CPU 文档缓存按内容去重。
 网格上传准备使用移动构造建立共享所有权，渲染资源及在途帧释放最后一个引用后销毁数据。
 文件更新由后续加载或重载处理，不保证多个文件属于同一时刻。短读、取消和格式错误仍返回失败。
-纹理容器的 Manifest/负载摘要校验与旧 GPU 数据恢复的摘要匹配仍保留。
+纹理容器的 Manifest/负载摘要校验仍保留；CPU 负载常驻供 Render 重建，不从 Render 同步读取文件。
 渲染专用准备对只提供整文件读取的内部后端仍保留同步回退，不承诺同样的单步时间上界。
 普通 CPU 资源异步加载已删除该回退，后端缺少异步能力时返回 unsupported。
 Windows 原生后端提供 OVERLAPPED 范围请求，跨步骤保留自有缓冲；NOT_READY 时返回宿主，
@@ -103,19 +104,17 @@ Windows 原生后端提供 OVERLAPPED 范围请求，跨步骤保留自有缓冲
 
 ## 场景请求的清理快照
 
-场景候选尚未发布时，取消会停止后续上传批次；已经提交的上传仍等待回执，
-再回滚未发布的 GPU 投影。回滚结束前不销毁上传租约，也不报告清理完成。
-上传中的场景取消可以先返回唯一取消终态，同时以 `cleanup_pending=true` 明确资源仍在清理。
-清理期间不能激活候选或接受重试；完成后通过进度查询获得账本补报，不产生第二次终态。
-普通资产重载获得上传许可后仍完成或回滚原事务，不改变其迟到取消语义。
+场景取消停止后续 I/O/CPU 任务并清理尚未激活的逻辑对象。清理完成取决于请求与场景状态，
+不等待普通资产的 GPU 上传回执。已成功采用的共享 CPU 资源不因取消而回滚。
+活动场景或已提交帧持有的资源继续有效，GPU 上传及其保活由 Render 独立管理。
 
 Runtime 的 `scene` 域消息可携带内部 `budget` 对象。容量字段为无符号 64 位字节数：
 `candidate_logical_bytes`、`candidate_cpu_data_bytes`、`application_logical_bytes`、
-`application_cpu_data_bytes`、`available_bytes`、`upload_reserved_bytes`、`peak_upload_bytes`。
-候选为已完成批次统计，Application 为资源账本，上传预留为当前子批次估算；均不是进程 RSS 或实际显存。
+`application_cpu_data_bytes`、`available_bytes`。
+候选为已完成 CPU 批次统计，Application 为资源账本；均不是进程 RSS 或实际显存。
 
-可选布尔字段 `cleanup_complete` 只有在失败/取消请求的内部状态和上传租约销毁后才为 true。
-此时候选分项保留回收前的诊断值，Application 和上传预留重新采样回收后的账本。
+可选布尔字段 `cleanup_complete` 只有在失败/取消请求的内部请求与暂存状态清理后才为 true。
+此时候选分项保留回收前的诊断值，Application 重新采样回收后的账本。
 活动场景、共享缓存和旧渲染帧仍可合法持有资源；该字段不表示整个 Application 已清空。
 成功激活将候选转移给活动场景，不使用这个标记表示释放。
 旧消息省略该字段按 false（未确认）处理；错误类型被拒绝，既有 IPC 域版本不变。

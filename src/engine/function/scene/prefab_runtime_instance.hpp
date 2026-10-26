@@ -92,9 +92,9 @@ public:
   [[nodiscard]] gneiss::engine::result retire_hidden() noexcept;
   /** 旧同步实例也可加入退休组；逐项准备不改变可见性，取消可保留这些内部关联。 */
   [[nodiscard]] gneiss::engine::result prepare_retirement_step(bool& complete);
-  [[nodiscard]] gneiss::engine::result
-  create_staged_node(std::size_t index, scene_node_id parent, gneiss::engine::render_asset_ref mesh,
-                     gneiss::engine::render_asset_ref material);
+  [[nodiscard]] gneiss::engine::result create_staged_node(std::size_t index, scene_node_id parent,
+                                                          gneiss::engine::mesh mesh,
+                                                          gneiss::engine::material material);
   [[nodiscard]] gneiss::engine::result
   apply_staged_override(const gneiss::engine::registry_ref& registry,
                         const gneiss::engine::prefab_property_override& value) noexcept;
@@ -113,8 +113,8 @@ private:
     std::uint64_t entity = UINT64_C(0);
     scene_node_id node = null_scene_node_id;
     scene_node_id parent = null_scene_node_id;
-    gneiss::engine::render_asset_ref mesh;
-    gneiss::engine::render_asset_ref material;
+    gneiss::engine::mesh mesh;
+    gneiss::engine::material material;
     bool staged_attempted{};
   };
 

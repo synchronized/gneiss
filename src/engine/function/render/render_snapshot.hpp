@@ -4,8 +4,8 @@
 #ifndef GNEISS_RENDER_RENDER_SNAPSHOT_HPP_
 #define GNEISS_RENDER_RENDER_SNAPSHOT_HPP_
 
-#include "engine/core/rid.hpp"
 #include "engine/function/render/camera_math.hpp"
+#include "engine/function/render/render_resource.hpp"
 #include <cstdint>
 
 #include <vector>
@@ -18,7 +18,7 @@ struct view_camera {
   gneiss::engine::transform transform{};
 };
 
-/** Render 输入快照；只含值与 RID，不依赖 World、ECS 或场景节点状态。 */
+/** Render 输入快照；包含值与资源强引用，不依赖 World、ECS 或场景节点状态。 */
 struct render_camera_snapshot {
   camera_settings camera;
   gneiss::engine::transform transform;
@@ -29,8 +29,8 @@ struct render_camera_snapshot {
 };
 
 struct render_instance_snapshot {
-  gneiss::engine::rid mesh;
-  gneiss::engine::rid material;
+  gneiss::engine::mesh mesh;
+  gneiss::engine::material material;
   gneiss::engine::transform transform;
 };
 

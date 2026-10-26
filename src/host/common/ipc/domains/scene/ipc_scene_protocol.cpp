@@ -44,14 +44,6 @@ bool read_budget(yyjson_val* budget, ipc_scene_budget& parsed) {
     return false;
   }
   parsed.available_bytes = yyjson_get_uint(yyjson_obj_get(budget, "available_bytes"));
-  if (!yyjson_is_uint(yyjson_obj_get(budget, "upload_reserved_bytes"))) {
-    return false;
-  }
-  parsed.upload_reserved_bytes = yyjson_get_uint(yyjson_obj_get(budget, "upload_reserved_bytes"));
-  if (!yyjson_is_uint(yyjson_obj_get(budget, "peak_upload_bytes"))) {
-    return false;
-  }
-  parsed.peak_upload_bytes = yyjson_get_uint(yyjson_obj_get(budget, "peak_upload_bytes"));
   if (auto* cleanup = yyjson_obj_get(budget, "cleanup_complete")) {
     if (!yyjson_is_bool(cleanup)) {
       return false;
@@ -223,10 +215,6 @@ gneiss::engine::result encode_ipc_scene_progress(const ipc_scene_progress& value
                                  value.budget->application_cpu_data_bytes) ||
         !yyjson_mut_obj_add_uint(doc.get(), budget, "available_bytes",
                                  value.budget->available_bytes) ||
-        !yyjson_mut_obj_add_uint(doc.get(), budget, "upload_reserved_bytes",
-                                 value.budget->upload_reserved_bytes) ||
-        !yyjson_mut_obj_add_uint(doc.get(), budget, "peak_upload_bytes",
-                                 value.budget->peak_upload_bytes) ||
         !yyjson_mut_obj_add_bool(doc.get(), budget, "cleanup_complete",
                                  value.budget->cleanup_complete) ||
         !yyjson_mut_obj_add_bool(doc.get(), budget, "cleanup_pending",

@@ -613,7 +613,6 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
           const auto metrics = "prepare_ms=" + std::to_string(completion.prepare_ms) +
                                " commit_ms=" + std::to_string(completion.commit_ms) +
                                " prepared_bytes=" + std::to_string(completion.prepared_bytes) +
-                               " upload_ms=" + std::to_string(completion.upload_ms) +
                                " queue_ms=" + std::to_string(completion.queue_ms) + " " +
                                completion.message;
           log.write(completion.result == gneiss::engine::result::success ? "INFO" : "ERROR",

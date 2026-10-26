@@ -43,6 +43,8 @@ struct render_device_stats {
 class render_service final {
 public:
   render_service();
+  /** 内部装配入口：借用服务所拥有的 CPU 资源表，不能独立关闭或延长其寿命。 */
+  [[nodiscard]] render_resource_service& resources() noexcept;
   ~render_service();
   render_service(const render_service&) = delete;
   render_service& operator=(const render_service&) = delete;
@@ -63,15 +65,8 @@ public:
                               std::uint64_t* out_sequence = nullptr) noexcept;
   [[nodiscard]] bool try_take_required_completion(render_frame_completion& completion) noexcept;
   [[nodiscard]] render_queue_stats query_performance_stats() const noexcept;
-  [[nodiscard]] double latest_texture_upload_ms() const noexcept;
   /** initialize 完成后读取；设备重建后重新获取。 */
   [[nodiscard]] texture_prepare_profile texture_profile() const noexcept;
-  [[nodiscard]] static std::size_t estimate_upload_bytes(const render_upload_item& item) noexcept;
-  [[nodiscard]] result prepare_textures(std::vector<render_upload_item> data,
-                                        std::uint64_t& sequence) noexcept;
-  [[nodiscard]] bool poll_texture_preparation(std::uint64_t sequence, result& status) noexcept;
-  [[nodiscard]] result discard_prepared_textures(std::vector<render_upload_item> data,
-                                                 std::uint64_t& sequence) noexcept;
 
 private:
   struct implementation;

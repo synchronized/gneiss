@@ -77,20 +77,22 @@ gneiss::engine::result capture_render_frame_packet(const gneiss::engine::native_
     candidate.debug = debug;
     for (const auto& instance : candidate.scene.instances) {
       auto result = capture_resource(
-          instance.mesh, candidate.resources.meshes_,
+          resource_handle(instance.mesh), candidate.resources.meshes_,
           [&](const auto handle) { return resources.share_mesh(handle); },
-          resources.mesh_status(instance.mesh) == gneiss::engine::result::not_ready);
+          resources.mesh_status(resource_handle(instance.mesh)) ==
+              gneiss::engine::result::not_ready);
       if (result != gneiss::engine::result::success) {
         return result;
       }
       result = capture_resource(
-          instance.material, candidate.resources.materials_,
+          resource_handle(instance.material), candidate.resources.materials_,
           [&](const auto handle) { return resources.share_material(handle); },
-          resources.material_status(instance.material) == gneiss::engine::result::not_ready);
+          resources.material_status(resource_handle(instance.material)) ==
+              gneiss::engine::result::not_ready);
       if (result != gneiss::engine::result::success) {
         return result;
       }
-      const auto& material = *candidate.resources.get_material(instance.material);
+      const auto& material = *candidate.resources.get_material(resource_handle(instance.material));
       for (const auto texture : material.texture_handles()) {
         if (texture == gneiss::engine::null_rid)
           continue;
@@ -105,11 +107,12 @@ gneiss::engine::result capture_render_frame_packet(const gneiss::engine::native_
     }
     for (const auto& command : candidate.ui.commands()) {
       // UI 尚未接入占位策略，不能让场景中捕获的空纹理条目绕过 UI 就绪检查。
-      if (resources.texture_status(command.texture) == gneiss::engine::result::not_ready) {
+      if (resources.texture_status(resource_handle(command.texture)) ==
+          gneiss::engine::result::not_ready) {
         return gneiss::engine::result::not_ready;
       }
       const auto result =
-          capture_resource(command.texture, candidate.resources.textures_,
+          capture_resource(resource_handle(command.texture), candidate.resources.textures_,
                            [&](const auto handle) { return resources.share_texture(handle); });
       if (result != gneiss::engine::result::success) {
         return result;

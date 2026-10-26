@@ -104,8 +104,6 @@ ipc_scene_budget budget_snapshot(const ::gneiss::runtime::scene_load_progress& v
       .application_logical_bytes = value.application_logical_bytes,
       .application_cpu_data_bytes = value.application_cpu_data_bytes,
       .available_bytes = value.available_bytes,
-      .upload_reserved_bytes = value.upload_reserved_bytes,
-      .peak_upload_bytes = value.peak_upload_bytes,
       .cleanup_complete = value.cleanup_complete,
       .cleanup_pending = value.cleanup_pending,
   };

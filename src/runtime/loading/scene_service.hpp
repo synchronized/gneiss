@@ -32,7 +32,7 @@ public:
   [[nodiscard]] gneiss::engine::result
   attach_executor(gneiss::engine::task_executor& executor,
                   gneiss::engine::render_resource_service& resources,
-                  gneiss::engine::texture_upload_backend backend,
+                  gneiss::engine::texture_prepare_profile profile,
                   std::shared_ptr<gneiss::engine::progress_notification> notification);
   void advance();
   /** 激活后的视觉资源独立完成，不影响结构激活结果；所属线程消费诊断。 */

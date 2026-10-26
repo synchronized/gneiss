@@ -59,7 +59,6 @@ void run() {
   check(process.supports_scene_loading());
   check(process.scene_load_status().budget.has_value());
   check(process.scene_load_status().budget->available_bytes > 0U);
-  check(process.scene_load_status().budget->upload_reserved_bytes == 0U);
   const auto old_session = process.scene_mirror().session_id();
   const auto old_node = process.scene_mirror().nodes().front().id;
   check(process.load_scene("asset://scenes/retry.scene.json") == gneiss::engine::result::success);
@@ -78,9 +77,7 @@ void run() {
   check(process.load_scene("asset://scenes/main.scene.json") == gneiss::engine::result::success);
   check(process.cancel_scene_load() == gneiss::engine::result::success);
   await([&] { return process.scene_load_status().phase == ipc_scene_phase::cancelled; });
-  check(process.scene_load_status().budget &&
-        process.scene_load_status().budget->cleanup_complete &&
-        process.scene_load_status().budget->upload_reserved_bytes == 0U);
+  check(process.scene_load_status().budget && process.scene_load_status().budget->cleanup_complete);
   check(process.scene_mirror().session_id() == new_session);
   check(process.retry_scene_load() == gneiss::engine::result::success);
   await([&] {

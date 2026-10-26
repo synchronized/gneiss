@@ -27,19 +27,16 @@ struct scene_load_progress {
   /** 去重后的候选逻辑容量；纹理释放 CPU 负载后仍计入所选负载，约束 2 GiB 上限。 */
   std::size_t resident_bytes{};
   bool can_cancel{};
-  bool gpu_in_flight{};
   /** 候选已提交 CPU 数组字节与纹理逻辑负载；不是 RSS 或驱动显存。 */
   std::size_t cpu_data_bytes{};
   std::size_t texture_payload_bytes{};
-  std::size_t peak_upload_bytes{};
   /** Application 资源账本快照；不含后台临时分配或驱动额外占用。 */
   std::uint64_t application_logical_bytes{};
   std::uint64_t application_cpu_data_bytes{};
   std::uint64_t available_bytes{};
-  std::uint64_t upload_reserved_bytes{};
-  /** 失败/取消后请求容器与上传租约已释放；不表示活动场景或旧帧占用归零。 */
+  /** 失败/取消后请求容器与 CPU 资源引用已释放；不表示活动场景或旧帧占用归零。 */
   bool cleanup_complete{};
-  /** 取消已确认，但上传回执与候选清理仍在推进；此时不得重试。 */
+  /** 取消已确认，但 CPU 任务与候选清理仍在推进；此时不得重试。 */
   bool cleanup_pending{};
 };
 struct scene_load_completion {
@@ -49,7 +46,6 @@ struct scene_load_completion {
   gneiss::scene_instance_id scene{};
   double prepare_ms{};
   double asset_prepare_ms{};
-  double upload_ms{};
   double maximum_advance_ms{};
   double activation_ms{};
   double cleanup_ms{};

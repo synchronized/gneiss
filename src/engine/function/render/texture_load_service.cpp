@@ -39,7 +39,7 @@ struct texture_load_service::pending {
       (void)files->cancel(read_request);
   }
   asset_request<material_description> material_request;
-  render_asset_loader::asset_upload item;
+  render_asset_loader::asset_update item;
   std::vector<render_asset_ref> targets;
   texture_load_completion completion;
   gneiss::engine::task_handle task;
@@ -47,16 +47,9 @@ struct texture_load_service::pending {
   std::size_t cursor{};
   std::size_t limit{};
   std::uint64_t sequence{};
-  std::uint64_t upload{};
-  std::size_t upload_reserved_bytes{};
   bool reload{};
   bool prepared{};
-  bool ever_uploaded{};
-  bool in_flight{};
-  bool needs_discard{};
-  bool discarding{};
   bool cancelled{};
-  gneiss::engine::result operation{gneiss::engine::result::success};
   gneiss::engine::result summary{gneiss::engine::result::success};
   gneiss::engine::result fatal{gneiss::engine::result::success};
   std::chrono::steady_clock::time_point started{std::chrono::steady_clock::now()};
@@ -64,16 +57,15 @@ struct texture_load_service::pending {
 
 texture_load_service::texture_load_service(
     gneiss::engine::task_executor& executor, render_asset_loader& loader,
-    texture_upload_backend backend,
+    texture_prepare_profile profile,
     std::shared_ptr<gneiss::engine::progress_notification> notification)
-    : executor_(executor), scope_(executor.make_scope()), loader_(loader),
-      backend_(std::move(backend)), notification_(std::move(notification)) {
-  if (scope_.id == 0U || !backend_.begin || !backend_.poll || !backend_.discard ||
-      !backend_.flush) {
+    : executor_(executor), scope_(executor.make_scope()), loader_(loader), profile_(profile),
+      notification_(std::move(notification)) {
+  if (scope_.id == 0U) {
     if (scope_.id != 0U) {
       (void)executor_.close_scope(scope_);
     }
-    throw std::invalid_argument("资产服务执行或上传后端无效");
+    throw std::invalid_argument("资产服务执行器无效");
   }
   try {
     loader_.assets().attach_task_executor(executor_);
@@ -86,13 +78,7 @@ texture_load_service::~texture_load_service() {
   try {
     request_stop();
     (void)executor_.close_scope(scope_);
-    if (pending_ && !pending_->in_flight && !pending_->needs_discard) {
-      pending_.reset();
-    }
-    while (pending_) {
-      backend_.flush();
-      advance();
-    }
+    pending_.reset();
     loader_.release_unused();
   } catch (...) {
     std::terminate();
@@ -144,7 +130,7 @@ gneiss::engine::result texture_load_service::submit_assets(
   value->completion.request = ++sequence_;
   value->completion.session = session;
   value->completion.revision = revision;
-  value->completion.profile = backend_.profile;
+  value->completion.profile = profile_;
   value->explicit_count = sources.size();
   value->limit = prepare_limit;
   value->reload = reload;
@@ -155,7 +141,7 @@ gneiss::engine::result texture_load_service::submit_assets(
   bool cached = !reload;
   for (const auto& source : sources) {
     render_asset_ref target;
-    const auto ready = loader_.acquire_cached(source, target, backend_.profile);
+    const auto ready = loader_.acquire_cached(source, target, profile_);
     cached = cached && ready == gneiss::engine::result::success;
     const auto reserved = loader_.reserve_asset(source, target);
     if (reserved != gneiss::engine::result::success) {
@@ -181,7 +167,7 @@ gneiss::engine::result texture_load_service::submit_assets(
   // 服务槽位接受整个请求；执行器暂满时由后续推进重试调度。
   for (std::size_t index = 0; index < value->targets.size(); ++index) {
     render_asset_ref ready;
-    if (reload || loader_.acquire_cached(sources[index], ready, backend_.profile) !=
+    if (reload || loader_.acquire_cached(sources[index], ready, profile_) !=
                       gneiss::engine::result::success) {
       (void)loader_.claim_update(value->targets[index], value->sequence);
     }
@@ -312,7 +298,6 @@ void texture_load_service::finish_item(gneiss::engine::result result, bool appli
   value.cpu.reset();
   value.material_request.cancel();
   value.prepared = false;
-  value.operation = gneiss::engine::result::success;
   ++value.cursor;
   if (notification_) {
     notification_->notify();
@@ -357,40 +342,11 @@ void texture_load_service::advance() {
     }
   }
 }
-void texture_load_service::poll_upload(pending& value) {
-  auto result = gneiss::engine::result::success;
-  if (!backend_.poll(value.upload, result)) {
-    return;
-  }
-  value.in_flight = false;
-  value.upload_reserved_bytes = 0U;
-  if (value.discarding) {
-    value.discarding = value.needs_discard = false;
-    finish_item(value.operation, false);
-    return;
-  }
-  if (backend_.elapsed_ms) {
-    value.completion.upload_ms += backend_.elapsed_ms();
-  }
-  if (result != gneiss::engine::result::success) {
-    finish_item(result, false);
-    return;
-  }
-  value.operation = value.cancelled ? gneiss::engine::result::invalid_state : value.fatal;
-  if (value.operation == gneiss::engine::result::success) {
-    value.operation = loader_.complete_upload(value.item);
-  }
-  if (value.operation == gneiss::engine::result::success) {
-    finish_item(gneiss::engine::result::success, true);
-    return;
-  }
-  value.needs_discard = true;
-}
 bool texture_load_service::start_item(pending& value) {
   const auto& source = value.completion.results[value.cursor].source;
   render_asset_ref cached;
   if ((!value.reload || value.cursor >= value.explicit_count) &&
-      loader_.acquire_cached(source, cached, backend_.profile) == gneiss::engine::result::success) {
+      loader_.acquire_cached(source, cached, profile_) == gneiss::engine::result::success) {
     finish_item(gneiss::engine::result::success, true);
     return false;
   }
@@ -404,7 +360,7 @@ bool texture_load_service::start_item(pending& value) {
   }
   value.cpu = std::make_shared<pending::cpu_result>();
   value.cpu->source = source;
-  value.cpu->profile = backend_.profile;
+  value.cpu->profile = profile_;
   value.cpu->limit = std::min(maximum_bytes, value.limit - value.completion.prepared_bytes);
   if (source.type == render_asset_type::material) {
     const auto status = loader_.assets().load(source.uri, value.material_request, value.reload);
@@ -455,7 +411,7 @@ result texture_load_service::start_read(pending& value, std::string_view uri, bo
   return accepted;
 }
 
-bool texture_load_service::prepare_item_upload(pending& value) {
+bool texture_load_service::prepare_item_update(pending& value) {
   if (value.cpu->batch.assets.size() != 1U) {
     finish_item(gneiss::engine::result::internal, false);
     return false;
@@ -467,17 +423,10 @@ bool texture_load_service::prepare_item_upload(pending& value) {
     return false;
   }
   value.completion.prepared_bytes += prepared.bytes;
-  const auto staged = loader_.prepare_upload(std::move(prepared), value.item,
+  const auto staged = loader_.prepare_update(std::move(prepared), value.item,
                                              value.targets[value.cursor], value.sequence);
   if (staged != gneiss::engine::result::success) {
     finish_item(staged, false);
-    return false;
-  }
-  if (backend_.estimate_bytes) {
-    value.item.data.bytes = backend_.estimate_bytes(value.item.data);
-  }
-  if (value.item.data.bytes > maximum_upload_bytes) {
-    finish_item(gneiss::engine::result::out_of_memory, false);
     return false;
   }
   value.prepared = true;
@@ -488,22 +437,6 @@ void texture_load_service::advance_impl() {
     return;
   }
   auto& value = *pending_;
-  if (value.in_flight) {
-    poll_upload(value);
-    return;
-  }
-  if (value.needs_discard) {
-    const auto result = backend_.discard({value.item.data}, value.upload);
-    if (result == gneiss::engine::result::not_ready) {
-      return;
-    }
-    if (result != gneiss::engine::result::success) {
-      finish(result, texture_load_state::failed);
-      return;
-    }
-    value.in_flight = value.discarding = true;
-    return;
-  }
   if (!advance_preparation(value)) {
     return;
   }
@@ -564,21 +497,11 @@ void texture_load_service::advance_impl() {
     finish_item(value.cpu->result, false);
     return;
   }
-  if (!value.prepared && !prepare_item_upload(value)) {
+  if (!value.prepared && !prepare_item_update(value)) {
     return;
   }
-  const auto uploaded = backend_.begin({value.item.data}, value.upload);
-  if (uploaded == gneiss::engine::result::not_ready) {
-    return;
-  }
-  if (uploaded != gneiss::engine::result::success) {
-    finish_item(uploaded, false);
-    return;
-  }
-  value.upload_reserved_bytes = value.item.data.bytes;
-  value.completion.peak_upload_bytes =
-      std::max(value.completion.peak_upload_bytes, value.upload_reserved_bytes);
-  value.ever_uploaded = value.in_flight = true;
+  const auto adopted = loader_.apply_update(value.item);
+  finish_item(adopted, adopted.ok());
 }
 std::span<const render_asset_ref> texture_load_service::requested_assets() const {
   check_owner();
@@ -599,7 +522,7 @@ bool texture_load_service::take(texture_load_completion& output) {
 }
 bool texture_load_service::cancel() {
   check_owner();
-  return pending_ && !pending_->ever_uploaded && cancel_unpublished();
+  return cancel_unpublished();
 }
 bool texture_load_service::cancel_unpublished() {
   check_owner();
@@ -628,12 +551,11 @@ bool texture_load_service::progress(asset_load_progress& output) const {
       .request = value.completion.request,
       .session = value.completion.session,
       .revision = value.completion.revision,
-      .state = value.ever_uploaded ? texture_load_state::uploading : texture_load_state::preparing,
+      .state = texture_load_state::preparing,
       .completed_assets = static_cast<std::size_t>(std::ranges::count_if(
           value.completion.results, [](const auto& item) { return item.applied; })),
       .total_assets = value.completion.results.size(),
-      .can_cancel = !value.ever_uploaded,
-      .upload_reserved_bytes = value.upload_reserved_bytes,
+      .can_cancel = !value.cancelled,
   };
   return true;
 }

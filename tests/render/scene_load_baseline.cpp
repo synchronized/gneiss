@@ -65,7 +65,7 @@ std::uint64_t peak_resident_bytes() {
                                              : 0U;
 #endif
 }
-// 场景切换的预载也走设备变体选择和有界上传，不能用同步预载阻断被测异步路径。
+// 场景切换的预载也走设备变体选择和 CPU 准备，不能用同步预载阻断被测异步路径。
 gneiss::engine::result preload_scene(const std::shared_ptr<gneiss::runtime::application>& app,
                                      gneiss::engine::task_scheduler& scheduler, bool cooperative,
                                      std::string_view uri, gneiss::scene_instance_id& scene) {
@@ -116,7 +116,7 @@ gneiss::engine::result preload_scene(const std::shared_ptr<gneiss::runtime::appl
 int main(int argc, char** argv) try {
   if (argc < 3 || argc > 6) {
     std::fprintf(stderr, "用法：scene_load_baseline <资产目录> <输出前缀> [thread|cooperative] "
-                         "[initial|switch|repeat|interact|cancel-prepare|cancel-assets|cancel-gpu|"
+                         "[initial|switch|repeat|interact|cancel-prepare|cancel-assets|"
                          "cancel-ready|failure|close] [trace]\n");
     return 2;
   }
@@ -133,13 +133,7 @@ int main(int argc, char** argv) try {
   const std::string_view scenario = argc >= 5 ? argv[4] : "initial";
   if (scenario != "initial" && scenario != "switch" && scenario != "repeat" &&
       scenario != "interact" && scenario != "cancel-prepare" && scenario != "cancel-assets" &&
-      scenario != "cancel-gpu" && scenario != "cancel-ready" && scenario != "failure" &&
-      scenario != "close") {
-    return 2;
-  }
-  // 早激活后不存在场景提交前 GPU 上传阶段；该旧场景不能再作为有效测量。
-  if (scenario == "cancel-gpu") {
-    std::fprintf(stderr, "cancel-gpu 已移除：GPU 取消由活动资源加载契约测试覆盖。\n");
+      scenario != "cancel-ready" && scenario != "failure" && scenario != "close") {
     return 2;
   }
   if (mode == "sync" && scenario != "initial") {
@@ -456,8 +450,6 @@ int main(int argc, char** argv) try {
         const bool cancel_phase =
             scenario == "cancel-assets"
                 ? progress.phase == scene_load_phase::assets && progress.completed > 0U
-            : scenario == "cancel-gpu"
-                ? progress.gpu_in_flight
                 : scenario == "cancel-ready" && progress.phase == scene_load_phase::ready;
         if (cancel_phase && !cancel_requested) {
           cancel_start = clock_type::now();
@@ -530,13 +522,11 @@ int main(int argc, char** argv) try {
            << ",\"candidate_resident_bytes\":" << completion.progress.resident_bytes
            << ",\"candidate_cpu_data_bytes\":" << completion.progress.cpu_data_bytes
            << ",\"candidate_texture_payload_bytes\":" << completion.progress.texture_payload_bytes
-           << ",\"peak_upload_bytes\":" << completion.progress.peak_upload_bytes
            << ",\"application_logical_bytes\":" << completion.progress.application_logical_bytes
            << ",\"application_cpu_data_bytes\":" << completion.progress.application_cpu_data_bytes
            << ",\"available_bytes\":" << completion.progress.available_bytes
            << ",\"cleanup_ms\":" << completion.cleanup_ms
            << ",\"cleanup_complete\":" << (completion.progress.cleanup_complete ? "true" : "false")
-           << ",\"upload_reserved_bytes\":" << completion.progress.upload_reserved_bytes
            << ",\"live_resources\":" << retirement.live_resources
            << ",\"peak_resident_bytes\":" << peak
            << ",\"retained_tasks\":" << scheduler.stats().retained << "}\n";
@@ -566,8 +556,7 @@ int main(int argc, char** argv) try {
     return 14;
   }
   // 终态证明请求已清理，旧场景仍拥有其资源；失败后在同一 Application 内重新加载。
-  if (preserve &&
-      (!completion.progress.cleanup_complete || completion.progress.upload_reserved_bytes != 0U)) {
+  if (preserve && (!completion.progress.cleanup_complete)) {
     return 15;
   }
   double retry_ms{};
@@ -650,17 +639,14 @@ int main(int argc, char** argv) try {
          << ",\n  \"minimized_at_ms\": " << minimized_at_ms
          << ",\n  \"prepare_ms\": " << completion.prepare_ms
          << ",\n  \"asset_prepare_ms\": " << completion.asset_prepare_ms
-         << ",\n  \"upload_ms\": " << completion.upload_ms
          << ",\n  \"maximum_advance_ms\": " << completion.maximum_advance_ms
          << ",\n  \"activation_ms\": " << completion.activation_ms << ",\n  \"cleanup_ms\": "
          << (observed_cleanup_pending ? std::string{"null"} : std::to_string(completion.cleanup_ms))
          << ",\n  \"cleanup_complete\": "
          << (completion.progress.cleanup_complete ? "true" : "false")
-         << ",\n  \"upload_reserved_bytes\": " << completion.progress.upload_reserved_bytes
          << ",\n  \"candidate_resident_bytes\": " << completion.progress.resident_bytes
          << ",\"candidate_cpu_data_bytes\":" << completion.progress.cpu_data_bytes
          << ",\"candidate_texture_payload_bytes\":" << completion.progress.texture_payload_bytes
-         << ",\"peak_upload_bytes\":" << completion.progress.peak_upload_bytes
          << ",\"application_logical_bytes\":" << completion.progress.application_logical_bytes
          << ",\"application_cpu_data_bytes\":" << completion.progress.application_cpu_data_bytes
          << ",\"available_bytes\":" << completion.progress.available_bytes

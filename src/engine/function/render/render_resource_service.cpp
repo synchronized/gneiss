@@ -46,13 +46,6 @@ render_memory_usage measure(const texture_data& value) noexcept {
     bytes = saturated_add(bytes, mip.pixels.size());
   }
   auto cpu = saturated_add(bytes, value.manifest.size());
-  if (value.payload_source) {
-    bytes = value.payload_source->size();
-    cpu = saturated_add(cpu, value.payload_source->metadata_bytes());
-    if (const auto upload = value.upload_payload.lock()) {
-      cpu = saturated_add(cpu, upload->size());
-    }
-  }
   return {.logical_bytes = saturated_add(bytes, value.manifest.size()), .cpu_data_bytes = cpu};
 }
 } // namespace
@@ -61,9 +54,75 @@ render_resource_service::render_resource_service(std::uint64_t memory_limit) noe
     : memory_limit_(memory_limit), domain_(allocate_domain()), meshes_(domain_),
       materials_(domain_), textures_(domain_) {}
 
-render_resource_service::~render_resource_service() {
+mesh render_resource_service::reference_mesh(rid handle) {
+  auto* slot = meshes_.get(handle, resource_type::mesh);
+  if (!slot)
+    return {};
+  if (auto existing = slot->identity.lock())
+    return mesh{std::move(existing)};
+  // 强引用归零已进入销毁队列，不能为同一 RID 创建第二个所有者。
+  if (slot->has_identity)
+    return {};
+  auto value = make_runtime_resource<mesh_resource>(*this, handle);
+  slot->identity = value;
+  slot->has_identity = true;
+  if (slot->data)
+    value->metadata_ = mesh_metadata{slot->data->vertices.size(), slot->data->indices.size(),
+                                     !slot->data->normals.empty(), !slot->data->uv1.empty()};
+  return mesh{std::move(value)};
+}
+texture render_resource_service::reference_texture(rid handle) {
+  auto* slot = textures_.get(handle, resource_type::texture);
+  if (!slot)
+    return {};
+  if (auto existing = slot->identity.lock())
+    return texture{std::move(existing)};
+  // 强引用归零已进入销毁队列，不能为同一 RID 创建第二个所有者。
+  if (slot->has_identity)
+    return {};
+  auto value = make_runtime_resource<texture_resource>(*this, handle);
+  slot->identity = value;
+  slot->has_identity = true;
+  if (slot->data)
+    value->metadata_ = texture_metadata{
+        slot->data->width, slot->data->height,
+        slot->data->levels.empty()
+            ? std::nullopt
+            : std::optional{static_cast<std::uint32_t>(slot->data->levels.size())},
+        slot->data->manifest.empty() ? std::optional{slot->data->format} : std::nullopt,
+        slot->data->color_space};
+  return texture{std::move(value)};
+}
+material render_resource_service::reference_material(rid handle) {
+  auto* slot = materials_.get(handle, resource_type::material);
+  if (!slot)
+    return {};
+  if (auto existing = slot->identity.lock())
+    return material{std::move(existing)};
+  // 强引用归零已进入销毁队列，不能为同一 RID 创建第二个所有者。
+  if (slot->has_identity)
+    return {};
+  auto value = make_runtime_resource<material_resource>(*this, handle);
+  slot->identity = value;
+  slot->has_identity = true;
+  if (slot->data) {
+    value->parameters_ = slot->data->parameters;
+    const auto handles = slot->data->texture_handles();
+    for (std::size_t index = 0; index < handles.size(); ++index)
+      if (handles[index] != null_rid)
+        value->textures_[index] = reference_texture(handles[index]);
+  }
+  return material{std::move(value)};
+}
+
+render_resource_service::~render_resource_service() { close(); }
+void render_resource_service::close() noexcept {
   if (retirement_)
     retirement_->close();
+  meshes_.close();
+  materials_.close();
+  textures_.close();
+  domain_ = 0U;
 }
 
 gneiss::engine::result render_resource_service::reserve_mesh(gneiss::engine::rid* output) noexcept {
@@ -79,7 +138,7 @@ gneiss::engine::result
 render_resource_service::mesh_status(gneiss::engine::rid mesh) const noexcept {
   const auto* slot = meshes_.get(mesh, gneiss::engine::resource_type::mesh);
   return !slot ? gneiss::engine::result::invalid_handle
-               : (*slot ? gneiss::engine::result::success : gneiss::engine::result::not_ready);
+               : (slot->data ? gneiss::engine::result::success : gneiss::engine::result::not_ready);
 }
 gneiss::engine::result
 render_resource_service::reserve_material(gneiss::engine::rid* output) noexcept {
@@ -92,13 +151,13 @@ render_resource_service::material_status(gneiss::engine::rid material) const noe
   if (slot == nullptr) {
     return gneiss::engine::result::invalid_handle;
   }
-  return *slot ? gneiss::engine::result::success : gneiss::engine::result::not_ready;
+  return slot->data ? gneiss::engine::result::success : gneiss::engine::result::not_ready;
 }
 gneiss::engine::result
 render_resource_service::texture_status(gneiss::engine::rid texture) const noexcept {
   const auto* slot = textures_.get(texture, gneiss::engine::resource_type::texture);
   return !slot ? gneiss::engine::result::invalid_handle
-               : (*slot ? gneiss::engine::result::success : gneiss::engine::result::not_ready);
+               : (slot->data ? gneiss::engine::result::success : gneiss::engine::result::not_ready);
 }
 
 render_memory_usage render_resource_service::memory_usage() const noexcept {
@@ -287,7 +346,10 @@ bool render_resource_service::replace_mesh(gneiss::engine::rid rid,
     return false;
   }
   try {
-    *slot = track(std::move(data), mesh_history_);
+    slot->data = track(std::move(data), mesh_history_);
+    if (auto identity = slot->identity.lock())
+      identity->metadata_ = mesh_metadata{slot->data->vertices.size(), slot->data->indices.size(),
+                                          !slot->data->normals.empty(), !slot->data->uv1.empty()};
   } catch (...) {
     return false;
   }
@@ -300,7 +362,21 @@ bool render_resource_service::replace_material(gneiss::engine::rid rid,
     return false;
   }
   try {
-    *slot = track(std::move(data), material_history_);
+    std::array<texture, 5> dependencies;
+    const auto identity = slot->identity.lock();
+    const auto handles = data->texture_handles();
+    for (std::size_t index = 0; index < handles.size(); ++index) {
+      if (!identity || handles[index] == null_rid)
+        continue;
+      dependencies[index] = reference_texture(handles[index]);
+      if (!dependencies[index])
+        return false;
+    }
+    slot->data = track(std::move(data), material_history_);
+    if (identity) {
+      identity->parameters_ = slot->data->parameters;
+      identity->textures_ = std::move(dependencies);
+    }
   } catch (...) {
     return false;
   }
@@ -453,9 +529,7 @@ gneiss::engine::result render_resource_service::prepare_texture_data(
         resource.format != gneiss::engine::texture_format::rgba8_unorm ||
         (resource.color_space != gneiss::engine::texture_color_space::linear &&
          resource.color_space != gneiss::engine::texture_color_space::srgb) ||
-        !resource.levels.empty() || resource.manifest.empty() ||
-        (resource.payload.empty() &&
-         (!resource.payload_source || resource.upload_payload.expired()))) {
+        !resource.levels.empty() || resource.manifest.empty() || resource.payload.empty()) {
       return gneiss::engine::result::invalid_argument;
     }
   }
@@ -507,7 +581,15 @@ bool render_resource_service::replace_texture(
     return false;
   }
   try {
-    *slot = track(std::move(prepared), texture_history_);
+    slot->data = track(std::move(prepared), texture_history_);
+    if (auto identity = slot->identity.lock())
+      identity->metadata_ = texture_metadata{
+          slot->data->width, slot->data->height,
+          slot->data->levels.empty()
+              ? std::nullopt
+              : std::optional{static_cast<std::uint32_t>(slot->data->levels.size())},
+          slot->data->manifest.empty() ? std::optional{slot->data->format} : std::nullopt,
+          slot->data->color_space};
   } catch (...) {
     return false;
   }
@@ -516,37 +598,37 @@ bool render_resource_service::replace_texture(
 
 const mesh_data* render_resource_service::get_mesh(gneiss::engine::rid mesh) const noexcept {
   const auto* resource = meshes_.get(mesh, gneiss::engine::resource_type::mesh);
-  return resource == nullptr ? nullptr : resource->get();
+  return resource == nullptr ? nullptr : resource->data.get();
 }
 
 const material_data*
 render_resource_service::get_material(gneiss::engine::rid material) const noexcept {
   const auto* resource = materials_.get(material, gneiss::engine::resource_type::material);
-  return resource == nullptr ? nullptr : resource->get();
+  return resource == nullptr ? nullptr : resource->data.get();
 }
 
 const texture_data*
 render_resource_service::get_texture(gneiss::engine::rid texture) const noexcept {
   const auto* resource = textures_.get(texture, gneiss::engine::resource_type::texture);
-  return resource == nullptr ? nullptr : resource->get();
+  return resource == nullptr ? nullptr : resource->data.get();
 }
 
 std::shared_ptr<const mesh_data>
 render_resource_service::share_mesh(gneiss::engine::rid mesh) const noexcept {
   const auto* resource = meshes_.get(mesh, gneiss::engine::resource_type::mesh);
-  return resource == nullptr ? nullptr : *resource;
+  return resource == nullptr ? nullptr : resource->data;
 }
 
 std::shared_ptr<const material_data>
 render_resource_service::share_material(gneiss::engine::rid material) const noexcept {
   const auto* resource = materials_.get(material, gneiss::engine::resource_type::material);
-  return resource == nullptr ? nullptr : *resource;
+  return resource == nullptr ? nullptr : resource->data;
 }
 
 std::shared_ptr<const texture_data>
 render_resource_service::share_texture(gneiss::engine::rid texture) const noexcept {
   const auto* resource = textures_.get(texture, gneiss::engine::resource_type::texture);
-  return resource == nullptr ? nullptr : *resource;
+  return resource == nullptr ? nullptr : resource->data;
 }
 
 std::size_t render_resource_service::live_resource_count() const noexcept {

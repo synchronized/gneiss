@@ -152,6 +152,12 @@ public:
     }
   }
 
+  /** 永久关闭槽位表；使全部旧句柄失效并拒绝后续创建。 */
+  void close() noexcept {
+    domain_ = 0U;
+    slots_.clear();
+  }
+
   [[nodiscard]] std::size_t live_count() const noexcept {
     std::size_t count = 0;
     for (const auto& slot : slots_) {

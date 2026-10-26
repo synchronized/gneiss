@@ -31,7 +31,7 @@ gneiss::engine::result update(gneiss::runtime::application& app, draw_context& c
   std::array<std::uint32_t, 3> indices{0, 1, 2};
   const std::array commands{
       gneiss::engine::ui_draw_command{
-          .texture = context.texture,
+          .texture = app.resources().reference_texture(context.texture),
           .clip_min = {0, 0},
           .clip_max = {32, 32},
           .index_count = 3,

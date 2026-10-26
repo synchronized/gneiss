@@ -106,7 +106,6 @@ void visual_failure(gneiss::engine::execution_mode mode) {
   };
   scene_load_progress progress;
   until([&] { return app->scene_progress(progress) && progress.phase == scene_load_phase::ready; });
-  check(progress.upload_reserved_bytes == 0U && !progress.gpu_in_flight);
   scene_load_completion completion;
   check(app->activate_scene(request, completion) == gneiss::engine::result::success);
   scene_node_id node;
@@ -122,7 +121,7 @@ void visual_failure(gneiss::engine::execution_mode mode) {
   gneiss::engine::render_asset_ref ready;
   check(app->query_ready_asset({"asset://mesh.json", gneiss::engine::render_asset_type::mesh},
                                ready) == gneiss::engine::result::success);
-  check(ready == binding.mesh);
+  check(gneiss::engine::asset_cast<gneiss::engine::mesh_resource>(ready) == binding.mesh);
   check(
       app->query_ready_asset({"asset://material.json", gneiss::engine::render_asset_type::material},
                              ready) == gneiss::engine::result::not_ready);
@@ -141,7 +140,9 @@ void visual_failure(gneiss::engine::execution_mode mode) {
     check(app->poll_assets(loaded, finished) == gneiss::engine::result::success);
     return finished;
   });
-  check(loaded.result == gneiss::engine::result::success && loaded.assets.front() == material);
+  check(loaded.result == gneiss::engine::result::success &&
+        gneiss::engine::asset_cast<gneiss::engine::material_resource>(loaded.assets.front()) ==
+            material);
   check(app->capture_mesh_binding(completion.scene, node, binding) ==
             gneiss::engine::result::success &&
         binding.material == material);
@@ -213,7 +214,6 @@ void run(gneiss::engine::execution_mode mode) {
   };
   const auto prepared = await_phase(scene_load_phase::ready);
   // 结构 ready 时视觉内容尚未读取或上传。
-  check(prepared.resident_bytes == 0U && !prepared.gpu_in_flight);
   gneiss::engine::render_asset_ref not_ready;
   check(app->query_ready_asset({"asset://mesh.json", gneiss::engine::render_asset_type::mesh},
                                not_ready) == gneiss::engine::result::not_ready);
@@ -223,7 +223,6 @@ void run(gneiss::engine::execution_mode mode) {
   check(prepared.available_bytes +
             std::max(prepared.application_logical_bytes, prepared.application_cpu_data_bytes) ==
         gneiss::engine::render_resource_service::default_memory_limit);
-  check(prepared.upload_reserved_bytes == 0U);
   gneiss::engine::world* observed{};
   check((observed = app->native_world()) != nullptr && observed == old_world);
   std::uint64_t count{};
@@ -249,8 +248,6 @@ void run(gneiss::engine::execution_mode mode) {
   check(app->cancel_scene(request) == gneiss::engine::result::success);
   auto [finished, cancelled] = drive();
   check(finished && cancelled.progress.phase == scene_load_phase::cancelled);
-  check(cancelled.progress.cleanup_complete && !cancelled.progress.gpu_in_flight);
-  check(cancelled.progress.upload_reserved_bytes == 0U);
   check(cancelled.progress.application_logical_bytes <=
         gneiss::engine::render_resource_service::default_memory_limit);
   check((old_world = app->native_world()) != nullptr && old_world == observed);
@@ -266,8 +263,7 @@ void run(gneiss::engine::execution_mode mode) {
     if (result.first) {
       check(result.second.progress.phase == scene_load_phase::failed &&
             result.second.result == gneiss::engine::result::invalid_state);
-      check(result.second.progress.cleanup_complete &&
-            result.second.progress.upload_reserved_bytes == 0U);
+      check(result.second.progress.cleanup_complete);
       changed = true;
     }
   }
@@ -301,8 +297,7 @@ void run(gneiss::engine::execution_mode mode) {
       auto [done, cancelled_result] = drive();
       if (done) {
         check(cancelled_result.progress.phase == scene_load_phase::cancelled);
-        check(cancelled_result.progress.cleanup_complete &&
-              cancelled_result.progress.upload_reserved_bytes == 0U);
+        check(cancelled_result.progress.cleanup_complete);
         stopped = true;
       }
     }
@@ -386,7 +381,8 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   check(second.application_logical_bytes > 0U);
   check(app->activate_scene(request, completion) == gneiss::engine::result::success);
   auto reused = binding();
-  check(reused.mesh == mesh && reused.material == material);
+  check(reused.mesh == gneiss::engine::asset_cast<gneiss::engine::mesh_resource>(mesh) &&
+        reused.material == gneiss::engine::asset_cast<gneiss::engine::material_resource>(material));
   gneiss::engine::world* new_world{};
   check((new_world = app->native_world()) != nullptr && old_world != new_world);
   std::uint64_t count{};
@@ -411,18 +407,24 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   (void)prepare();
   check(app->activate_scene(request, completion) == gneiss::engine::result::success);
   auto changed = binding();
-  check(changed.mesh == mesh && changed.material == material);
-  check(selected(gneiss::engine::render_asset_type::material, "asset://material.json") ==
+  check(changed.mesh == gneiss::engine::asset_cast<gneiss::engine::mesh_resource>(mesh) &&
+        changed.material ==
+            gneiss::engine::asset_cast<gneiss::engine::material_resource>(material));
+  check(gneiss::engine::asset_cast<gneiss::engine::material_resource>(
+            selected(gneiss::engine::render_asset_type::material, "asset://material.json")) ==
         changed.material);
   check(!poll());
-  check(original.mesh == mesh && original.material == material);
+  check(original.mesh == gneiss::engine::asset_cast<gneiss::engine::mesh_resource>(mesh) &&
+        original.material ==
+            gneiss::engine::asset_cast<gneiss::engine::material_resource>(material));
   // 已缓存资源不因打开场景而隐式重读损坏文件；显式重载独立处理。
   check((new_world = app->native_world()) != nullptr);
   std::ofstream(files.root / "material.json") << "broken";
   (void)prepare();
   check(app->activate_scene(request, completion) == gneiss::engine::result::success);
   drain_visuals(app, scheduler, mode);
-  check(selected(gneiss::engine::render_asset_type::material, "asset://material.json") ==
+  check(gneiss::engine::asset_cast<gneiss::engine::material_resource>(
+            selected(gneiss::engine::render_asset_type::material, "asset://material.json")) ==
         changed.material);
 }
 
@@ -505,7 +507,7 @@ void shared_texture_versions(gneiss::engine::execution_mode mode) {
   }
   // 显式纹理重载仅返回该纹理，不重读材质或返回历史版本。
   check(assets.result == gneiss::engine::result::success && assets.assets.size() == 1U &&
-        assets.peak_upload_bytes > 0U);
+        assets.prepared_bytes > 0U);
   // 视觉文件变化不属于场景结构快照；打开场景复用当前成功资源。
   bool ignored{};
   check(app->poll_scene(scene_completion, ignored) == gneiss::engine::result::success && !ignored);

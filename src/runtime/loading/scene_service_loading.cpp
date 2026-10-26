@@ -95,7 +95,6 @@ void scene_service::sample_budget(scene_load_progress& value) const {
   value.application_logical_bytes = usage.logical_bytes;
   value.application_cpu_data_bytes = usage.cpu_data_bytes;
   value.available_bytes = resources_->available_memory_bytes();
-  value.upload_reserved_bytes = 0U;
 }
 bool scene_service::scene_progress(scene_load_progress& value) const {
   check_owner();
@@ -134,7 +133,6 @@ void scene_service::finish(gneiss::engine::result result, scene_load_phase phase
   asset_owner_->collect_unused();
   // 候选分项保留结束前的诊断值，Application/上传账本必须在请求销毁后采样。
   sample_budget(completion.progress);
-  completion.progress.gpu_in_flight = false;
   completion.progress.cleanup_complete = true;
   completion.progress.cleanup_pending = false;
   completion.cleanup_ms = elapsed(cleanup_started);

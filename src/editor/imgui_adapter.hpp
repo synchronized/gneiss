@@ -39,7 +39,7 @@ private:
   void process_input(const gneiss::engine::input_event& event);
 
   ImGuiContext* context_ = nullptr;
-  gneiss::engine::rid font_texture_{};
+  gneiss::engine::texture font_texture_;
   std::vector<gneiss::engine::ui_vertex> vertices_;
   std::vector<std::uint32_t> indices_;
   std::vector<gneiss::engine::ui_draw_command> commands_;

@@ -53,6 +53,7 @@
 namespace gneiss::engine {
 struct render_service::implementation final {
 public:
+  render_resource_service resources_;
   [[nodiscard]] gneiss::engine::result
   initialize(const gneiss::engine::native_window_info& window,
              std::span<const std::byte> environment_asset = {}, float environment_intensity = 1.0F,
@@ -74,27 +75,12 @@ public:
   [[nodiscard]] bool
   try_take_required_completion(gneiss::engine::render_frame_completion& completion) noexcept;
   [[nodiscard]] gneiss::engine::render_queue_stats query_performance_stats() const noexcept;
-  [[nodiscard]] double latest_texture_upload_ms() const noexcept {
-    return latest_texture_upload_ms_;
-  }
   /** 仅在 initialize 完成后由宿主读取；设备重建必须重新发布。 */
   [[nodiscard]] gneiss::engine::texture_prepare_profile texture_profile() const noexcept {
     return texture_profile_;
   }
-  using texture_data = std::shared_ptr<const gneiss::engine::texture_data>;
-  [[nodiscard]] static std::size_t
-  estimate_upload_bytes(const gneiss::engine::render_upload_item& item) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  prepare_textures(std::vector<gneiss::engine::render_upload_item> data,
-                   std::uint64_t& sequence) noexcept;
-  [[nodiscard]] bool poll_texture_preparation(std::uint64_t sequence,
-                                              gneiss::engine::result& result) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  discard_prepared_textures(std::vector<gneiss::engine::render_upload_item> data,
-                            std::uint64_t& sequence) noexcept;
 
 private:
-  double latest_texture_upload_ms_{};
   [[nodiscard]] gneiss::engine::result
   initialize_gpu(const gneiss::engine::native_window_info& window,
                  std::span<const std::byte> environment_asset, float environment_intensity,
@@ -108,6 +94,7 @@ private:
 
   struct texture_mirror final {
     const gneiss::engine::texture_data* source{};
+    std::shared_ptr<const gneiss::engine::texture_data> data;
     granit::texture texture;
     granit::texture_view view;
     // 异步完成时输出实际选择的上传信息，不能在提交阶段报告 ready。
@@ -116,14 +103,15 @@ private:
     std::uint32_t mips{};
     std::uint64_t bytes{};
   };
-  struct prepared_texture {
-    texture_data data;
-    texture_mirror mirror;
+  struct pending_texture {
+    std::shared_ptr<texture_mirror> mirror;
+    granit::async_operation operation;
   };
-  std::unordered_map<const gneiss::engine::texture_data*, prepared_texture> prepared_textures_;
-
+  std::unordered_map<rid, pending_texture> pending_textures_;
+  void refresh_texture(rid handle, std::shared_ptr<const gneiss::engine::texture_data> data);
   struct mesh_mirror final {
     const gneiss::engine::mesh_data* source{};
+    std::shared_ptr<const gneiss::engine::mesh_data> data;
     granit::buffer vertices;
     granit::buffer indices;
     granit::mesh mesh;
@@ -134,17 +122,13 @@ private:
 
   struct material_mirror final {
     const gneiss::engine::material_data* source{};
+    std::shared_ptr<const gneiss::engine::material_data> data;
+    std::array<std::shared_ptr<const texture_mirror>, 5> dependencies;
     std::array<granit_texture_view, 5> textures{};
     std::array<granit::sampler, 5> samplers;
     granit::material_instance material;
   };
 
-  struct prepared_mesh {
-    std::shared_ptr<const gneiss::engine::mesh_data> data;
-    mesh_mirror mirror;
-  };
-  std::unordered_map<const gneiss::engine::mesh_data*, prepared_mesh> prepared_meshes_;
-  void discard_upload_data(std::span<const gneiss::engine::render_upload_item> data) noexcept;
   [[nodiscard]] granit::result create_mesh_mirror(const gneiss::engine::mesh_data& source,
                                                   mesh_mirror& output) noexcept;
 
@@ -185,7 +169,7 @@ private:
   texture_mirror default_white_srgb_;
   texture_mirror default_white_linear_;
   texture_mirror default_normal_linear_;
-  std::unordered_map<gneiss::engine::rid, texture_mirror> texture_mirrors_;
+  std::unordered_map<gneiss::engine::rid, std::shared_ptr<texture_mirror>> texture_mirrors_;
   std::unordered_map<gneiss::engine::rid, mesh_mirror> mesh_mirrors_;
   std::unordered_map<gneiss::engine::rid, material_mirror> material_mirrors_;
   granit::texture_format swapchain_format_{granit::texture_format::undefined};
@@ -377,11 +361,7 @@ granit::result render_service::implementation::create_texture_mirror(
   if (source.profile.generation != 0U && source.profile != texture_profile_) {
     return granit::result::invalid_argument;
   }
-  if (auto found = prepared_textures_.find(&source); found != prepared_textures_.end()) {
-    output = std::move(found->second.mirror);
-    prepared_textures_.erase(found);
-    return granit::result::success;
-  }
+
   output.source = &source;
   if (!source.manifest.empty()) {
     granit::texture_asset_info info;
@@ -404,33 +384,7 @@ granit::result render_service::implementation::create_texture_mirror(
     }
     const auto& variant = info.variants[selection.variant_index];
     const bool selected = source.profile.generation != 0U;
-    auto upload_payload = source.upload_payload.lock();
-    std::vector<std::byte> restored_payload;
-    std::span<const std::byte> available_payload = source.payload;
-    if (source.payload_source && selected && available_payload.empty()) {
-      if (source.payload_source->size() != variant.payload_size ||
-          variant.payload_size > std::numeric_limits<std::size_t>::max()) {
-        output.source = nullptr;
-        return granit::result::invalid_argument;
-      }
-      if (upload_payload) {
-        available_payload = *upload_payload;
-      } else {
-        // 常规异步首次上传持有租约；仅 GPU 投影缺失时按原摘要恢复，禁止用新版源替代。
-        const auto restored = source.payload_source->read(
-            restored_payload, static_cast<std::size_t>(variant.payload_size));
-        if (restored != gneiss::engine::result::success) {
-          output.source = nullptr;
-          const auto failure = restored == gneiss::engine::result::out_of_memory
-                                   ? granit::result::out_of_memory
-                                   : granit::result::invalid_argument;
-          log_texture(rid, "restore", failure, selection.variant_index, selection.format,
-                      info.mip_levels, variant.payload_size);
-          return failure;
-        }
-        available_payload = restored_payload;
-      }
-    }
+    const std::span<const std::byte> available_payload = source.payload;
     if (selected &&
         (source.profile != texture_profile_ || source.selected_variant != selection.variant_index ||
          available_payload.size() != variant.payload_size)) {
@@ -648,11 +602,7 @@ granit::result
 render_service::implementation::create_mesh_mirror(const gneiss::engine::mesh_data& source,
                                                    mesh_mirror& output) noexcept {
   try {
-    if (auto found = prepared_meshes_.find(&source); found != prepared_meshes_.end()) {
-      output = std::move(found->second.mirror);
-      prepared_meshes_.erase(found);
-      return granit::result::success;
-    }
+
     std::vector<gpu_vertex> vertices;
     std::vector<std::uint32_t> indices;
     geometry_range range;
@@ -807,26 +757,18 @@ granit::result render_service::implementation::prepare_ui_draw_list(
       if (left >= right || top >= bottom || command.index_count == 0U) {
         continue;
       }
-      auto found = texture_mirrors_.find(command.texture);
-      if (found == texture_mirrors_.end()) {
-        const auto* texture = resources.get_texture(command.texture);
-        if (texture == nullptr) {
-          return granit::result::invalid_handle;
-        }
-        texture_mirror mirror;
-        result = create_texture_mirror(*texture, mirror, command.texture);
-        if (result.failed()) {
-          return result;
-        }
-        found = texture_mirrors_.emplace(command.texture, std::move(mirror)).first;
-      }
+      refresh_texture(resource_handle(command.texture),
+                      resources.share_texture(resource_handle(command.texture)));
+      const auto found = texture_mirrors_.find(resource_handle(command.texture));
+      if (found == texture_mirrors_.end())
+        continue;
       const auto first_index = static_cast<std::uint32_t>(indices.size());
       for (std::uint32_t item = 0; item < command.index_count; ++item) {
         indices.push_back(ui.indices()[command.first_index + item] + command.vertex_offset);
       }
       ranges.push_back({.first_index = first_index,
                         .index_count = command.index_count,
-                        .state = {.texture = found->second.view.ref(),
+                        .state = {.texture = found->second->view.ref(),
                                   .sampler = ui_sampler_.ref(),
                                   .clip = {.x = static_cast<std::int32_t>(left),
                                            .y = static_cast<std::int32_t>(top),
@@ -842,19 +784,54 @@ granit::result render_service::implementation::prepare_ui_draw_list(
   }
 }
 
+void render_service::implementation::refresh_texture(
+    rid handle, std::shared_ptr<const gneiss::engine::texture_data> data) {
+  if (!data)
+    return;
+  auto active = texture_mirrors_.find(handle);
+  if (active != texture_mirrors_.end() && active->second->data == data)
+    return;
+  auto pending = pending_textures_.find(handle);
+  if (pending != pending_textures_.end()) {
+    granit::async_operation_status status;
+    auto result = pending->second.operation.get_status(status);
+    if (result.ok() && !status.complete())
+      return;
+    if (result.ok())
+      result = status.operation_result;
+    const auto& mirror = pending->second.mirror;
+    log_texture(handle, result.ok() ? "ready" : "upload", result, mirror->variant, mirror->format,
+                mirror->mips, mirror->bytes);
+    if (result.ok() && mirror->data == data)
+      texture_mirrors_.insert_or_assign(handle, mirror);
+    pending_textures_.erase(pending);
+    return;
+  }
+  pending_texture next;
+  next.mirror = std::make_shared<texture_mirror>();
+  next.mirror->data = std::move(data);
+  const auto result =
+      create_texture_mirror(*next.mirror->data, *next.mirror, handle, &next.operation);
+  if (result.failed())
+    return;
+  if (next.operation.valid())
+    pending_textures_.emplace(handle, std::move(next));
+  else
+    texture_mirrors_.insert_or_assign(handle, std::move(next.mirror));
+}
+
 void render_service::implementation::release_invalid_textures(
     const gneiss::engine::render_resource_snapshot& resources) noexcept {
-  std::erase_if(prepared_meshes_,
-                [](const auto& item) { return item.second.data.use_count() == 1; });
-  for (auto iterator = prepared_textures_.begin(); iterator != prepared_textures_.end();) {
-    if (iterator->second.data.use_count() == 1) {
-      iterator = prepared_textures_.erase(iterator);
-    } else {
+  for (auto iterator = pending_textures_.begin(); iterator != pending_textures_.end();) {
+    granit::async_operation_status status;
+    const auto result = iterator->second.operation.get_status(status);
+    if (!resources.get_texture(iterator->first) && (result.failed() || status.complete()))
+      iterator = pending_textures_.erase(iterator);
+    else
       ++iterator;
-    }
   }
   for (auto iterator = texture_mirrors_.begin(); iterator != texture_mirrors_.end();) {
-    if (resources.get_texture(iterator->first) != iterator->second.source) {
+    if (resources.get_texture(iterator->first) == nullptr) {
       iterator = texture_mirrors_.erase(iterator);
     } else {
       ++iterator;
@@ -866,7 +843,7 @@ void render_service::implementation::release_invalid_textures(
 void render_service::implementation::release_invalid_meshes(
     const gneiss::engine::render_resource_snapshot& resources) noexcept {
   for (auto iterator = mesh_mirrors_.begin(); iterator != mesh_mirrors_.end();) {
-    if (resources.get_mesh(iterator->first) != iterator->second.source) {
+    if (resources.get_mesh(iterator->first) == nullptr) {
       iterator = mesh_mirrors_.erase(iterator);
     } else {
       ++iterator;
@@ -877,155 +854,11 @@ void render_service::implementation::release_invalid_meshes(
 void render_service::implementation::release_invalid_materials(
     const gneiss::engine::render_resource_snapshot& resources) noexcept {
   for (auto iterator = material_mirrors_.begin(); iterator != material_mirrors_.end();) {
-    if (resources.get_material(iterator->first) != iterator->second.source) {
+    if (resources.get_material(iterator->first) == nullptr) {
       iterator = material_mirrors_.erase(iterator);
     } else {
       ++iterator;
     }
-  }
-}
-
-void render_service::implementation::discard_upload_data(
-    std::span<const gneiss::engine::render_upload_item> data) noexcept {
-  for (const auto& item : data) {
-    if (item.mesh) {
-      prepared_meshes_.erase(item.mesh.get());
-    }
-    if (item.texture) {
-      prepared_textures_.erase(item.texture.get());
-    }
-  }
-}
-std::size_t render_service::implementation::estimate_upload_bytes(
-    const gneiss::engine::render_upload_item& item) noexcept {
-  if (item.mesh)
-    return item.mesh->vertices.size() * sizeof(gpu_vertex) +
-           (item.mesh->indices.empty() ? item.mesh->vertices.size() : item.mesh->indices.size()) *
-               sizeof(std::uint32_t);
-  if (item.texture) {
-    if (item.texture->payload_source) {
-      return static_cast<std::size_t>(item.texture->payload_source->size());
-    }
-    if (!item.texture->payload.empty())
-      return item.texture->payload.size();
-    std::size_t bytes{};
-    for (const auto& level : item.texture->levels)
-      bytes += level.pixels.size();
-    return bytes;
-  }
-  return sizeof(gneiss::engine::material_data);
-}
-
-gneiss::engine::result render_service::implementation::prepare_textures(
-    std::vector<gneiss::engine::render_upload_item> data, std::uint64_t& sequence) noexcept {
-  try {
-    if (data.empty()) {
-      return gneiss::engine::result::invalid_argument;
-    }
-    struct preparation {
-      std::size_t completed{};
-      prepared_texture texture;
-      granit::async_operation operation;
-    };
-    auto progress = std::make_shared<preparation>();
-    return executor_.submit_command(
-        [this, data = std::move(data),
-         progress](const gneiss::engine::render_command_reporter& reporter) {
-          try {
-            while (progress->completed < data.size()) {
-              const auto& item = data[progress->completed];
-              auto result = granit::result::invalid_argument;
-              if (item.texture) {
-                auto& value = progress->texture;
-                if (!value.data) {
-                  result = create_texture_mirror(*item.texture, value.mirror,
-                                                 gneiss::engine::null_rid, &progress->operation);
-                  if (result == granit::result::not_ready) {
-                    return gneiss::engine::result::not_ready;
-                  }
-                  if (result.ok()) {
-                    value.data = item.texture;
-                  }
-                } else {
-                  result = granit::result::success;
-                }
-                if (result.ok() && progress->operation.valid()) {
-                  granit::async_operation_status status;
-                  result = progress->operation.get_status(status);
-                  if (result.ok() && !status.complete()) {
-                    return gneiss::engine::result::not_ready;
-                  }
-                  if (result.ok()) {
-                    result = status.operation_result;
-                  }
-                  log_texture(gneiss::engine::null_rid, result.ok() ? "ready" : "upload", result,
-                              value.mirror.variant, value.mirror.format, value.mirror.mips,
-                              value.mirror.bytes);
-                  static_cast<void>(progress->operation.reset());
-                }
-                if (result.ok()) {
-                  prepared_textures_.insert_or_assign(item.texture.get(), std::move(value));
-                  value = {};
-                }
-              } else if (item.mesh) {
-                prepared_mesh value{.data = item.mesh, .mirror = {}};
-                result = create_mesh_mirror(*item.mesh, value.mirror);
-                if (result.ok()) {
-                  prepared_meshes_.insert_or_assign(item.mesh.get(), std::move(value));
-                }
-              } else if (item.material) {
-                // 材质没有独立的纹理上传负载；首次绘制时直接建立活动材质。
-                result = granit::result::success;
-              }
-              if (result.failed()) {
-                discard_upload_data(data);
-                return map_result(result);
-              }
-              reporter.report(gneiss::engine::render_command_stage::uploading,
-                              ++progress->completed, data.size());
-            }
-            return gneiss::engine::result::success;
-          } catch (const std::bad_alloc&) {
-            discard_upload_data(data);
-            return gneiss::engine::result::out_of_memory;
-          } catch (...) {
-            discard_upload_data(data);
-            return gneiss::engine::result::internal;
-          }
-        },
-        sequence, gneiss::engine::render_command_policy::resumable);
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::result::internal;
-  }
-}
-
-bool render_service::implementation::poll_texture_preparation(
-    std::uint64_t sequence, gneiss::engine::result& result) noexcept {
-  gneiss::engine::render_command_completion completion;
-  if (!executor_.try_take_command_completion(completion)) {
-    return false;
-  }
-  latest_texture_upload_ms_ = completion.execution_ms;
-  result = completion.sequence == sequence ? completion.status : gneiss::engine::result::internal;
-  return true;
-}
-
-gneiss::engine::result render_service::implementation::discard_prepared_textures(
-    std::vector<gneiss::engine::render_upload_item> data, std::uint64_t& sequence) noexcept {
-  try {
-    return executor_.submit_command(
-        [this, data = std::move(data)](const gneiss::engine::render_command_reporter&) {
-          discard_upload_data(data);
-          return gneiss::engine::result::success;
-        },
-        sequence);
-
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::result::internal;
   }
 }
 
@@ -1320,8 +1153,16 @@ render_service::implementation::shutdown_gpu(granit::renderer_resource_stats& st
   material_mirrors_.clear();
   mesh_mirrors_.clear();
   texture_mirrors_.clear();
-  prepared_meshes_.clear();
-  prepared_textures_.clear();
+  for (auto& [handle, pending] : pending_textures_) {
+    (void)handle;
+    granit::async_operation_status status;
+    while (pending.operation.get_status(status).ok() && !status.complete()) {
+      if (renderer_.process_events().failed())
+        break;
+      std::this_thread::yield();
+    }
+  }
+  pending_textures_.clear();
   static_cast<void>(default_normal_linear_.view.reset());
   static_cast<void>(default_normal_linear_.texture.reset());
   static_cast<void>(default_white_linear_.view.reset());
@@ -1390,27 +1231,33 @@ render_service::implementation::execute_frame(
   release_invalid_meshes(resources);
   try {
     for (const auto& instance : snapshot.instances) {
-      if (resources.mesh_pending(instance.mesh)) {
+      if (resources.mesh_pending(resource_handle(instance.mesh))) {
         continue;
       }
-      if (!mesh_mirrors_.contains(instance.mesh)) {
-        const auto* source = resources.get_mesh(instance.mesh);
-        if (source == nullptr)
-          return gneiss::engine::result::invalid_handle;
-        mesh_mirror mirror;
-        const auto created = create_mesh_mirror(*source, mirror);
-        if (created.failed()) {
-          return map_result(created);
+      const auto handle = resource_handle(instance.mesh);
+      auto source = resources.share_mesh(handle);
+      const auto current = mesh_mirrors_.find(handle);
+      if (source && (current == mesh_mirrors_.end() || current->second.data != source)) {
+        mesh_mirror replacement;
+        const auto created = create_mesh_mirror(*source, replacement);
+        if (created.ok()) {
+          replacement.data = std::move(source);
+          mesh_mirrors_.insert_or_assign(handle, std::move(replacement));
+        } else if (log_) {
+          (void)log_->submit({.severity = level::error,
+                              .source = "render.mesh",
+                              .category = "render.resource",
+                              .message = "网格上传失败，保留当前可用内容",
+                              .result = map_result(created)});
         }
-        mesh_mirrors_.emplace(instance.mesh, std::move(mirror));
       }
     }
 
     for (const auto& instance : snapshot.instances) {
-      if (resources.mesh_pending(instance.mesh)) {
+      if (resources.mesh_pending(resource_handle(instance.mesh))) {
         continue;
       }
-      const auto* material = resources.get_material(instance.material);
+      const auto* material = resources.get_material(resource_handle(instance.material));
       if (material == nullptr)
         return gneiss::engine::result::invalid_handle;
       std::array textures{
@@ -1428,41 +1275,32 @@ render_service::implementation::execute_frame(
         }
         if (texture == nullptr)
           return gneiss::engine::result::invalid_handle;
-        auto found = texture_mirrors_.find(handle);
-        if (found == texture_mirrors_.end()) {
-          texture_mirror mirror;
-          const auto created = create_texture_mirror(*texture, mirror, handle);
-          if (created.failed())
-            return map_result(created);
-          found = texture_mirrors_.emplace(handle, std::move(mirror)).first;
+        refresh_texture(handle, resources.share_texture(handle));
+        const auto found = texture_mirrors_.find(handle);
+        if (found != texture_mirrors_.end())
+          textures[slot] = found->second->view.native_handle();
+      }
+      auto found = material_mirrors_.find(resource_handle(instance.material));
+      if (found == material_mirrors_.end() || found->second.source != material ||
+          found->second.textures != textures) {
+        material_mirror replacement;
+        const auto created = create_material_mirror(*material, textures, replacement);
+        if (created.ok()) {
+          replacement.data = resources.share_material(resource_handle(instance.material));
+          for (std::size_t slot = 0; slot < handles.size(); ++slot) {
+            const auto dependency = texture_mirrors_.find(handles[slot]);
+            if (dependency != texture_mirrors_.end())
+              replacement.dependencies[slot] = dependency->second;
+          }
+          material_mirrors_.insert_or_assign(resource_handle(instance.material),
+                                             std::move(replacement));
+        } else if (log_) {
+          (void)log_->submit({.severity = level::error,
+                              .source = "render.material",
+                              .category = "render.resource",
+                              .message = "材质更新失败，保留当前可用内容",
+                              .result = map_result(created)});
         }
-        textures[slot] = found->second.view.native_handle();
-      }
-      auto found = material_mirrors_.find(instance.material);
-      // 默认纹理就绪或纹理重载只更新绑定，不销毁材质及采样器。
-      if (found != material_mirrors_.end() && found->second.textures != textures) {
-        constexpr std::array parameters{
-            GRANIT_PBR_PARAMETER_BASE_COLOR_TEXTURE,
-            GRANIT_PBR_PARAMETER_METALLIC_ROUGHNESS_TEXTURE, GRANIT_PBR_PARAMETER_NORMAL_TEXTURE,
-            GRANIT_PBR_PARAMETER_OCCLUSION_TEXTURE, GRANIT_PBR_PARAMETER_EMISSIVE_TEXTURE};
-        const auto binding = [&](std::size_t slot) {
-          return granit::material_parameter_update::texture_binding(
-              granit::material_parameter_id(parameters[slot]),
-              granit::texture_view_ref::from_native(textures[slot]));
-        };
-        const std::array updates{binding(0), binding(1), binding(2), binding(3), binding(4)};
-        const auto updated = found->second.material.update(updates);
-        if (updated.failed())
-          return map_result(updated);
-        // 更新失败保持旧记录并退出本帧，下一帧仍会重试，不绘制失效绑定。
-        found->second.textures = textures;
-      }
-      if (found == material_mirrors_.end()) {
-        material_mirror mirror;
-        const auto created = create_material_mirror(*material, textures, mirror);
-        if (created.failed())
-          return map_result(created);
-        material_mirrors_.emplace(instance.material, std::move(mirror));
       }
     }
   } catch (const std::bad_alloc&) {
@@ -1531,7 +1369,7 @@ render_service::implementation::execute_frame(
       bindings.reserve(snapshot.instances.size());
       for (std::size_t index = 0; index < snapshot.instances.size(); ++index) {
         const auto& instance = snapshot.instances[index];
-        if (resources.mesh_pending(instance.mesh)) {
+        if (resources.mesh_pending(resource_handle(instance.mesh))) {
           continue;
         }
         gneiss::engine::matrix4 model;
@@ -1539,8 +1377,12 @@ render_service::implementation::execute_frame(
         if (!build_model_matrices(instance.transform, model, normal))
           return gneiss::engine::result::invalid_argument;
         const auto payload = static_cast<std::uint64_t>(index) + 1U;
-        const auto* mesh = resources.get_mesh(instance.mesh);
-        const auto* material = resources.get_material(instance.material);
+        const auto gpu_mesh = mesh_mirrors_.find(resource_handle(instance.mesh));
+        const auto gpu_material = material_mirrors_.find(resource_handle(instance.material));
+        if (gpu_mesh == mesh_mirrors_.end() || gpu_material == material_mirrors_.end())
+          continue;
+        const auto* mesh = gpu_mesh->second.source;
+        const auto* material = gpu_material->second.source;
         if (material->uv1_mask() != 0U && mesh->uv1.empty())
           return gneiss::engine::result::invalid_argument;
         // GPU 布局统一包含 UV1 与颜色；缺失属性填零 UV / 白色，变体必须匹配 72 字节步长。
@@ -1554,14 +1396,15 @@ render_service::implementation::execute_frame(
                                instance.transform.translation[2]},
              .bounds_radius = mesh_bounds_radius(*mesh, instance.transform),
              .layer_mask = UINT64_MAX,
-             .sort_key = instance.material,
+             .sort_key = resource_handle(instance.material),
              .payload = payload,
              .object_id = static_cast<std::uint32_t>(index + 1U),
              .reserved = 0});
-        bindings.push_back({.payload = payload,
-                            .mesh = mesh_mirrors_.at(instance.mesh).mesh.ref(),
-                            .material = material_mirrors_.at(instance.material).material.ref(),
-                            .variant = variant});
+        bindings.push_back(
+            {.payload = payload,
+             .mesh = mesh_mirrors_.at(resource_handle(instance.mesh)).mesh.ref(),
+             .material = material_mirrors_.at(resource_handle(instance.material)).material.ref(),
+             .variant = variant});
       }
     } catch (const std::bad_alloc&) {
       return gneiss::engine::result::out_of_memory;
@@ -1749,6 +1592,7 @@ render_service::implementation::execute_frame(
 
 render_service::render_service() : impl_(std::make_unique<implementation>()) {}
 render_service::~render_service() = default;
+render_resource_service& render_service::resources() noexcept { return impl_->resources_; }
 result render_service::initialize(const native_window_info& window,
                                   std::span<const std::byte> environment_asset,
                                   float environment_intensity, float environment_rotation_radians,
@@ -1781,6 +1625,8 @@ result render_service::shutdown(render_device_stats& stats) noexcept {
       .readback_batch_count = stats.readback_batch_count,
   };
   const auto status = impl_->shutdown(native);
+  if (status.ok())
+    impl_->resources_.close();
   stats = {
       .total_live_count = native.total_live_count,
       .buffer_count = native.buffer_count,
@@ -1825,25 +1671,8 @@ bool render_service::try_take_required_completion(render_frame_completion& compl
 render_queue_stats render_service::query_performance_stats() const noexcept {
   return impl_->query_performance_stats();
 }
-double render_service::latest_texture_upload_ms() const noexcept {
-  return impl_->latest_texture_upload_ms();
-}
 texture_prepare_profile render_service::texture_profile() const noexcept {
   return impl_->texture_profile();
-}
-std::size_t render_service::estimate_upload_bytes(const render_upload_item& item) noexcept {
-  return implementation::estimate_upload_bytes(item);
-}
-result render_service::prepare_textures(std::vector<render_upload_item> data,
-                                        std::uint64_t& sequence) noexcept {
-  return impl_->prepare_textures(std::move(data), sequence);
-}
-bool render_service::poll_texture_preparation(std::uint64_t sequence, result& status) noexcept {
-  return impl_->poll_texture_preparation(sequence, status);
-}
-result render_service::discard_prepared_textures(std::vector<render_upload_item> data,
-                                                 std::uint64_t& sequence) noexcept {
-  return impl_->discard_prepared_textures(std::move(data), sequence);
 }
 
 } // namespace gneiss::engine

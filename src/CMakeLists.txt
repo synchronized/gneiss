@@ -179,6 +179,10 @@ target_sources(
 
 )
 
+if(NOT GNEISS_ENABLE_GRANIT_PLATFORM)
+  target_sources(gneiss_engine PRIVATE engine/function/render/render_service_headless.cpp)
+endif()
+
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   set(granit_pbr_asset_dir "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/libraries")
   set(granit_pbr_assets pbr_standard.grshlib)

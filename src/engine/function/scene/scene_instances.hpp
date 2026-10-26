@@ -74,12 +74,6 @@ public:
   [[nodiscard]] gneiss::engine::result
   replace_mesh_binding(scene_instance_id instance, scene_node_id node, const mesh_binding& expected,
                        const mesh_binding& replacement) noexcept;
-  /** 所属线程采集此 World 普通节点和 Prefab 实际持有的网格、材质租约。
-   * 按 RID 去重，使用稳定资源引用；不读文件、不查询最新缓存。
-   * 成功替换 output，失败保持 output；快照延长资源寿命，须早于渲染服务释放。
-   * 不包含裸 ECS RID 使用者；后续切换仍需验证使用者当前状态。 */
-  [[nodiscard]] gneiss::engine::result
-  capture_render_assets(std::vector<gneiss::engine::render_asset_ref>& output) noexcept;
   /** 验证普通作者节点归属，不接受 Prefab 的只读来源节点。 */
   [[nodiscard]] gneiss::engine::result validate_editable_node(scene_instance_id instance,
                                                               scene_node_id node) const noexcept;

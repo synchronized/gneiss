@@ -34,15 +34,14 @@ gneiss::engine::result scene_service::initialize(gneiss::engine::asset_manager& 
 
 gneiss::engine::result scene_service::attach_executor(
     gneiss::engine::task_executor& executor, gneiss::engine::render_resource_service& resources,
-    gneiss::engine::texture_upload_backend backend,
+    gneiss::engine::texture_prepare_profile profile,
     std::shared_ptr<gneiss::engine::progress_notification> notification) {
   if (textures_ || !active_) {
     return gneiss::engine::result::invalid_state;
   }
   // 先构造可失败依赖，再发布装配状态，失败时不留下半装配服务。
-  const auto profile = backend.profile;
-  auto textures = std::make_unique<gneiss::engine::texture_load_service>(
-      executor, *render_assets_, std::move(backend), notification);
+  auto textures = std::make_unique<gneiss::engine::texture_load_service>(executor, *render_assets_,
+                                                                         profile, notification);
   const auto scope = executor.make_scope();
   if (scope.id == 0U) {
     return gneiss::engine::result::invalid_state;

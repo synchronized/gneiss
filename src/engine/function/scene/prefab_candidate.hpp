@@ -21,8 +21,8 @@ public:
   [[nodiscard]] bool is_valid() const noexcept;
   [[nodiscard]] scene_node_id root() const noexcept;
   [[nodiscard]] gneiss::engine::result create_node(std::size_t index, scene_node_id parent,
-                                                   gneiss::engine::render_asset_ref mesh,
-                                                   gneiss::engine::render_asset_ref material,
+                                                   gneiss::engine::mesh mesh,
+                                                   gneiss::engine::material material,
                                                    scene_node_id& output);
   /** 返回的文本借用到候选修改、移动、提交或清理；失败清空 output。 */
   [[nodiscard]] gneiss::engine::result preview(std::size_t index,

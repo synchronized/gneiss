@@ -40,7 +40,7 @@ native::result submit_ui(gneiss::runtime::application& application, smoke_contex
       native::ui_vertex{{16.0F, 64.0F}, {0.0F, 1.0F}, UINT32_C(0xccffffff)}};
   constexpr std::array<std::uint32_t, 6> indices{0U, 1U, 2U, 2U, 3U, 0U};
   const std::array commands{
-      native::ui_draw_command{.texture = context.texture,
+      native::ui_draw_command{.texture = application.resources().reference_texture(context.texture),
                               .clip_min = {16.0F, 16.0F},
                               .clip_max = {144.0F, 64.0F},
                               .first_index = 0U,
@@ -137,8 +137,11 @@ int main() {
   entity_id camera_entity{}, mesh_entity{}, plain_mesh_entity{};
   scene_node_id camera_node{}, mesh_node{}, plain_mesh_node{};
   const native::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  native::mesh_renderer mesh_renderer{.mesh = mesh, .material = material};
-  native::mesh_renderer plain_mesh_renderer{.mesh = mesh, .material = plain_material};
+  native::mesh_renderer mesh_renderer{.mesh = resources.reference_mesh(mesh),
+                                      .material = resources.reference_material(material)};
+  native::mesh_renderer plain_mesh_renderer{.mesh = resources.reference_mesh(mesh),
+                                            .material =
+                                                resources.reference_material(plain_material)};
   native::transform camera_transform;
   camera_transform.translation[2] = 2.0F;
   native::transform near_transform;
@@ -171,8 +174,8 @@ int main() {
       resources.create_mesh(mesh_desc, &replacement_mesh).failed()) {
     return 5;
   }
-  mesh_renderer.mesh = replacement_mesh;
-  plain_mesh_renderer.mesh = replacement_mesh;
+  mesh_renderer.mesh = resources.reference_mesh(replacement_mesh);
+  plain_mesh_renderer.mesh = resources.reference_mesh(replacement_mesh);
   if (world.entity_set_mesh_renderer(mesh_entity, mesh_renderer).failed() ||
       world.entity_set_mesh_renderer(plain_mesh_entity, plain_mesh_renderer).failed()) {
     return 6;

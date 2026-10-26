@@ -21,8 +21,8 @@ scene_node_id prefab_candidate::root() const noexcept {
   return runtime_ ? scene_node_id{runtime_->root()} : scene_node_id{};
 }
 gneiss::engine::result prefab_candidate::create_node(std::size_t index, scene_node_id parent,
-                                                     gneiss::engine::render_asset_ref mesh,
-                                                     gneiss::engine::render_asset_ref material,
+                                                     gneiss::engine::mesh mesh,
+                                                     gneiss::engine::material material,
                                                      scene_node_id& output) {
   if (!runtime_ || !runtime_->native_world_.is_owner_thread() || runtime_->published_ ||
       runtime_->cancelling_)

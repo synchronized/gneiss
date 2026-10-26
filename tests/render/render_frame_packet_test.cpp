@@ -49,7 +49,9 @@ bool pending_resources() {
     return false;
   }
   render_snapshot scene;
-  scene.instances.push_back({.mesh = mesh, .material = material, .transform = {}});
+  scene.instances.push_back({.mesh = resources.reference_mesh(mesh),
+                             .material = resources.reference_material(material),
+                             .transform = {}});
   rid pending_material{};
   if (resources.reserve_material(&pending_material) != gneiss::engine::result::success ||
       resources.material_status(pending_material) != gneiss::engine::result::not_ready ||
@@ -58,7 +60,7 @@ bool pending_resources() {
     return false;
   }
   auto pending_scene = scene;
-  pending_scene.instances.front().material = pending_material;
+  pending_scene.instances.front().material = resources.reference_material(pending_material);
   render_frame_packet fallback;
   if (capture_render_frame_packet({}, pending_scene, resources, {}, {}, fallback) !=
           gneiss::engine::result::success ||
@@ -185,7 +187,9 @@ int main() {
 
   gneiss::engine::render_snapshot scene;
   scene.has_camera = true;
-  scene.instances.push_back({.mesh = mesh, .material = material, .transform = {}});
+  scene.instances.push_back({.mesh = resources.reference_mesh(mesh),
+                             .material = resources.reference_material(material),
+                             .transform = {}});
   debug_draw_list debug;
   const std::array lines{gneiss::engine::debug_line{.start = {0.0F, 0.0F, 0.0F},
                                                     .end = {1.0F, 0.0F, 0.0F},

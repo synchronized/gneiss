@@ -154,6 +154,7 @@ add_executable(
   gneiss_render_resource_service_test
   render/render_resource_service_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource.cpp"
 )
 target_include_directories(gneiss_render_resource_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_render_resource_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -167,6 +168,7 @@ add_executable(
   gneiss_pbr_material_resource_test
   render/pbr_material_resource_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource.cpp"
 )
 target_include_directories(gneiss_pbr_material_resource_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_pbr_material_resource_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -180,6 +182,7 @@ add_executable(
   gneiss_ui_draw_list_test
   render/ui_draw_list_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/ui_draw_list.cpp"
 )
 target_include_directories(gneiss_ui_draw_list_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -359,6 +362,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
     "${PROJECT_SOURCE_DIR}/src/engine/function/render/debug_draw_list.cpp"
     "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_frame_packet.cpp"
     "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource.cpp"
   )
   target_include_directories(gneiss_render_frame_packet_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_compile_definitions(gneiss_render_frame_packet_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -691,11 +695,11 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/cache/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_asset_loader.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/asset_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/png_decoder.cpp"
 )
 target_include_directories(gneiss_render_asset_loader_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -722,11 +726,11 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/cache/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_asset_loader.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/asset_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/png_decoder.cpp"
 )
 target_include_directories(gneiss_texture_load_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -840,11 +844,11 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/png_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_asset_loader.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/asset_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/prefab_description.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"

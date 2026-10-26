@@ -1089,8 +1089,6 @@ void draw_asset_browser(editor_state& state) {
         .application_logical = budget.application_logical_bytes,
         .application_cpu = budget.application_cpu_data_bytes,
         .available = budget.available_bytes,
-        .upload = budget.upload_reserved_bytes,
-        .peak_upload = budget.peak_upload_bytes,
         .cleanup_complete = budget.cleanup_complete,
         .cleanup_pending = budget.cleanup_pending,
     };
@@ -1429,9 +1427,7 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
                        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
       const auto& progress = state.editing.assets().progress();
       if (state.editing.assets().active()) {
-        ImGui::TextUnformatted(progress.state == gneiss::engine::texture_load_state::uploading
-                                   ? "Uploading assets"
-                                   : "Preparing assets");
+        ImGui::TextUnformatted("读取与解码资源");
         if (progress.total_assets != 0U) {
           ImGui::ProgressBar(static_cast<float>(progress.completed_assets) /
                                  static_cast<float>(progress.total_assets),

@@ -140,15 +140,15 @@ gneiss::engine::result prefab_placement::create_next_node() {
     binding = snapshot_->bindings.at(index);
   } else if (source.mesh_renderer) {
     binding = {
-        .mesh = find(source.mesh_renderer->mesh_uri),
-        .material = find(source.mesh_renderer->material_uri),
+        .mesh = gneiss::engine::render_asset_loader::mesh_ref(find(source.mesh_renderer->mesh_uri)),
+        .material = gneiss::engine::render_asset_loader::material_ref(
+            find(source.mesh_renderer->material_uri)),
     };
   }
   scene_node_id node{};
   const auto result = candidate_.create_node(
-      index, source.parent_uuid ? nodes_.at(*source.parent_uuid) : candidate_.root(),
-      gneiss::engine::render_asset_loader::mesh_ref(binding.mesh),
-      gneiss::engine::render_asset_loader::material_ref(binding.material), node);
+      index, source.parent_uuid ? nodes_.at(*source.parent_uuid) : candidate_.root(), binding.mesh,
+      binding.material, node);
   if (result != gneiss::engine::result::success)
     return result;
   nodes_.emplace(source.uuid, node);

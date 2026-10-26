@@ -33,14 +33,12 @@ scene_instance::replace_mesh_binding(scene_node_id node_value, const scene_mesh_
     return gneiss::engine::result::invalid_argument;
   }
   const auto node = node_value;
-  using loader = gneiss::engine::render_asset_loader;
   scene_mesh_binding current;
   const auto captured = capture_mesh_binding(node_value, current);
   if (captured != gneiss::engine::result::success) {
     return captured;
   }
-  if (gneiss::engine::asset_rid(current.mesh) != gneiss::engine::asset_rid(expected.mesh) ||
-      gneiss::engine::asset_rid(current.material) != gneiss::engine::asset_rid(expected.material)) {
+  if (current.mesh != expected.mesh || current.material != expected.material) {
     return gneiss::engine::result::invalid_state;
   }
   const auto found = std::ranges::find(objects_, node, &scene_instance::object::node);
@@ -51,10 +49,8 @@ scene_instance::replace_mesh_binding(scene_node_id node_value, const scene_mesh_
   const std::array changes{
       gneiss::engine::mesh_renderer_replacement{
           .entity = entity_id{found->entity},
-          .expected = {.mesh = gneiss::engine::asset_rid(expected.mesh),
-                       .material = gneiss::engine::asset_rid(expected.material)},
-          .replacement = {.mesh = gneiss::engine::asset_rid(replacement.mesh),
-                          .material = gneiss::engine::asset_rid(replacement.material)},
+          .expected = {.mesh = expected.mesh, .material = expected.material},
+          .replacement = {.mesh = replacement.mesh, .material = replacement.material},
       },
   };
   const auto changed = native_world_.replace_mesh_renderers(changes);
@@ -63,8 +59,8 @@ scene_instance::replace_mesh_binding(scene_node_id node_value, const scene_mesh_
   }
   const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
   description_.objects[index].mesh_renderer = std::move(author);
-  found->mesh = loader::mesh_ref(replacement.mesh);
-  found->material = loader::material_ref(replacement.material);
+  found->mesh = replacement.mesh;
+  found->material = replacement.material;
   return gneiss::engine::result::success;
 } catch (const std::bad_alloc&) {
   return gneiss::engine::result::out_of_memory;

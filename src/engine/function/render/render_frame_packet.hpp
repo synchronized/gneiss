@@ -24,6 +24,18 @@ public:
   /** 已捕获的预留材质返回中性缺省参数；未捕获或无效句柄仍返回空。 */
   [[nodiscard]] const material_data* get_material(gneiss::engine::rid material) const noexcept;
   [[nodiscard]] const texture_data* get_texture(gneiss::engine::rid texture) const noexcept;
+  [[nodiscard]] std::shared_ptr<const mesh_data> share_mesh(rid handle) const noexcept {
+    const auto found = meshes_.find(handle);
+    return found == meshes_.end() ? nullptr : found->second;
+  }
+  [[nodiscard]] std::shared_ptr<const material_data> share_material(rid handle) const noexcept {
+    const auto found = materials_.find(handle);
+    return found == materials_.end() ? nullptr : found->second;
+  }
+  [[nodiscard]] std::shared_ptr<const texture_data> share_texture(rid handle) const noexcept {
+    const auto found = textures_.find(handle);
+    return found == textures_.end() ? nullptr : found->second;
+  }
   [[nodiscard]] bool mesh_pending(gneiss::engine::rid mesh) const noexcept;
   [[nodiscard]] bool texture_pending(gneiss::engine::rid texture) const noexcept;
 

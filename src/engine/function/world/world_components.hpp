@@ -4,17 +4,17 @@
 #pragma once
 
 #include "engine/core/math/camera_settings.hpp"
-#include "engine/core/rid.hpp"
+#include "engine/function/render/render_resource.hpp"
 
 namespace gneiss::engine {
 /** 相机参数为纯数据；活动相机只由 World 的实体 ID 决定。 */
 struct camera_component {
   gneiss::engine::camera_settings value;
 };
-/** 组件只借用服务资源 RID；资产租约由场景实例持有。 */
+/** 组件直接保活运行资源，必须执行正常的构造、移动和析构。 */
 struct mesh_renderer {
-  gneiss::engine::rid mesh{};
-  gneiss::engine::rid material{};
+  gneiss::engine::mesh mesh{};
+  gneiss::engine::material material{};
 };
 struct mesh_renderer_component {
   mesh_renderer value;

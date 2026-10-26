@@ -137,7 +137,8 @@ void run_pending_resources() {
   check(gneiss::engine::result{app->scenes()->get_node_info(scene, 1U, info)} ==
         gneiss::engine::result::success);
   check(gneiss::has_flags(info.component_flags, gneiss::scene_node_components::mesh_renderer));
-  const gneiss::engine::mesh_renderer binding{.mesh = mesh, .material = material};
+  const gneiss::engine::mesh_renderer binding{.mesh = resources.reference_mesh(mesh),
+                                              .material = resources.reference_material(material)};
   check(gneiss::engine::result{native->native_world()->entity_set_mesh_renderer(
             info.entity, binding)} == gneiss::engine::result::success);
   const auto pixel = [&] {
@@ -301,8 +302,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
       check(app->scene_progress(progress));
       if (progress.phase == scene_load_phase::ready) {
         check(app->activate_scene(request, completion) == gneiss::engine::result::success);
-        check(completion.progress.texture_payload_bytes == 0U &&
-              completion.progress.peak_upload_bytes == 0U);
+        check(completion.progress.texture_payload_bytes == 0U);
         auto native = app;
         gneiss::engine::frame_image initial;
         check(app->capture_frame(128U, 128U, initial) == gneiss::engine::result::success);

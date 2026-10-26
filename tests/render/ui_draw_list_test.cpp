@@ -24,12 +24,13 @@ int main() {
                       gneiss::engine::ui_vertex{{1.0F, 0.0F}, {1.0F, 0.0F}, UINT32_C(0xffffffff)},
                       gneiss::engine::ui_vertex{{0.0F, 1.0F}, {0.0F, 1.0F}, UINT32_C(0xffffffff)}};
   std::array<std::uint32_t, 3> indices{0U, 1U, 2U};
-  std::array commands{gneiss::engine::ui_draw_command{.texture = texture,
-                                                      .clip_min = {0.0F, 0.0F},
-                                                      .clip_max = {640.0F, 480.0F},
-                                                      .first_index = 0U,
-                                                      .index_count = 3U,
-                                                      .vertex_offset = 0U}};
+  std::array commands{
+      gneiss::engine::ui_draw_command{.texture = resources.reference_texture(texture),
+                                      .clip_min = {0.0F, 0.0F},
+                                      .clip_max = {640.0F, 480.0F},
+                                      .first_index = 0U,
+                                      .index_count = 3U,
+                                      .vertex_offset = 0U}};
   gneiss::engine::ui_draw_view desc;
   desc.display_width = 640.0F;
   desc.display_height = 480.0F;

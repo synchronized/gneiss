@@ -37,15 +37,16 @@ gneiss::engine::result ui_draw_list::replace(const ui_draw_view& desc,
     }
   }
   for (const auto& command : desc.commands) {
-    if (command.texture == gneiss::engine::null_rid ||
-        resources.get_texture(command.texture) == nullptr || !is_finite(command.clip_min[0]) ||
-        !is_finite(command.clip_min[1]) || !is_finite(command.clip_max[0]) ||
-        !is_finite(command.clip_max[1]) || command.clip_min[0] >= command.clip_max[0] ||
-        command.clip_min[1] >= command.clip_max[1] || command.first_index > desc.indices.size() ||
+    if (resource_handle(command.texture) == gneiss::engine::null_rid ||
+        resources.get_texture(resource_handle(command.texture)) == nullptr ||
+        !is_finite(command.clip_min[0]) || !is_finite(command.clip_min[1]) ||
+        !is_finite(command.clip_max[0]) || !is_finite(command.clip_max[1]) ||
+        command.clip_min[0] >= command.clip_max[0] || command.clip_min[1] >= command.clip_max[1] ||
+        command.first_index > desc.indices.size() ||
         command.index_count > desc.indices.size() - command.first_index ||
         command.index_count % 3U != 0U) {
-      return command.texture != gneiss::engine::null_rid &&
-                     resources.get_texture(command.texture) == nullptr
+      return resource_handle(command.texture) != gneiss::engine::null_rid &&
+                     resources.get_texture(resource_handle(command.texture)) == nullptr
                  ? gneiss::engine::result::invalid_handle
                  : gneiss::engine::result::invalid_argument;
     }

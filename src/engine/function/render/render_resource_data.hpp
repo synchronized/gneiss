@@ -16,10 +16,6 @@
 #include <vector>
 
 namespace gneiss::engine {
-class texture_payload_source;
-}
-
-namespace gneiss::engine {
 
 struct material_data {
   material_parameters parameters{};
@@ -59,9 +55,6 @@ struct texture_data {
   /** profile 非零时 payload 从选中变体起点开始，不含其他变体。 */
   texture_prepare_profile profile{};
   std::uint32_t selected_variant{UINT32_MAX};
-  /** 仅文件选中变体可重建；长期资源不强持有上传负载。 */
-  std::shared_ptr<const gneiss::engine::texture_payload_source> payload_source{};
-  std::weak_ptr<const std::vector<std::byte>> upload_payload{};
 };
 
 } // namespace gneiss::engine

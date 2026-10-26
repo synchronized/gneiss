@@ -35,8 +35,6 @@ struct ipc_scene_budget {
   std::uint64_t application_logical_bytes{};
   std::uint64_t application_cpu_data_bytes{};
   std::uint64_t available_bytes{};
-  std::uint64_t upload_reserved_bytes{};
-  std::uint64_t peak_upload_bytes{};
   /** 可选扩展；旧消息缺省 false（未确认），true 表示失败/取消请求已完成清理。 */
   bool cleanup_complete{};
   bool cleanup_pending{};

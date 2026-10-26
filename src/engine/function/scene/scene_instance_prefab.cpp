@@ -11,26 +11,6 @@
 #include <utility>
 
 namespace gneiss::engine {
-void scene_instance::append_render_assets(
-    std::vector<gneiss::engine::render_asset_ref>& output) const {
-  const auto append = [&](const auto& node) {
-    if (node.mesh) {
-      output.push_back(node.mesh);
-    }
-    if (node.material) {
-      output.push_back(node.material);
-    }
-  };
-  for (const auto& node : objects_) {
-    append(node);
-  }
-  for (const auto& prefab : prefab_instances_) {
-    for (const auto& node : prefab->nodes_) {
-      append(node);
-    }
-  }
-}
-
 gneiss::engine::result scene_instance::capture_prefab_instance_header(
     std::string_view uuid, gneiss::engine::prefab_instance_description& author,
     gneiss::engine::prefab_asset_ref& source) const noexcept try {

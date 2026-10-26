@@ -110,8 +110,6 @@ void run() {
         .application_logical_bytes = 3U,
         .application_cpu_data_bytes = 4U,
         .available_bytes = 5U,
-        .upload_reserved_bytes = 6U,
-        .peak_upload_bytes = 7U,
         .cleanup_complete = true,
     };
     check(encode_ipc_scene_progress(progress, 0U, envelope) == gneiss::engine::result::success);
@@ -120,8 +118,7 @@ void run() {
           decoded.budget->candidate_cpu_data_bytes == 2U &&
           decoded.budget->application_logical_bytes == 3U &&
           decoded.budget->application_cpu_data_bytes == 4U &&
-          decoded.budget->available_bytes == 5U && decoded.budget->upload_reserved_bytes == 6U &&
-          decoded.budget->peak_upload_bytes == 7U && decoded.budget->cleanup_complete);
+          decoded.budget->available_bytes == 5U && decoded.budget->cleanup_complete);
     const std::string encoded(envelope.payload.begin(), envelope.payload.end());
     auto legacy = encoded;
     const auto cleanup_offset = legacy.find(",\"cleanup_complete\":true");

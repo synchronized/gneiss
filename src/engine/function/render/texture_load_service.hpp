@@ -14,7 +14,7 @@
 
 namespace gneiss::engine {
 
-enum class texture_load_state : std::uint8_t { preparing, uploading, applied, failed, cancelled };
+enum class texture_load_state : std::uint8_t { preparing, applied, failed, cancelled };
 /** 请求中每项资源的结果；未生效项的 result 表示停止处理的原因，不表示旧内容失效。 */
 struct asset_load_result {
   render_asset_reload source;
@@ -35,24 +35,10 @@ struct texture_load_completion {
   texture_prepare_profile profile{};
   double prepare_ms{};
   double queue_ms{};
-  double upload_ms{};
   double commit_ms{};
   /** 本请求累计成功解码的字节估算，不是同时驻留内存。 */
   std::size_t prepared_bytes{};
-  /** 后端估算的最大单次在途上传字节，不是驱动显存统计。 */
-  std::size_t peak_upload_bytes{};
 };
-struct texture_upload_backend {
-  using data = std::vector<gneiss::engine::render_upload_item>;
-  std::function<gneiss::engine::result(data, std::uint64_t&)> begin;
-  std::function<bool(std::uint64_t, gneiss::engine::result&)> poll;
-  std::function<gneiss::engine::result(data, std::uint64_t&)> discard;
-  std::function<void()> flush;
-  std::function<double()> elapsed_ms{};
-  std::function<std::size_t(const gneiss::engine::render_upload_item&)> estimate_bytes{};
-  gneiss::engine::texture_prepare_profile profile{};
-};
-
 struct asset_load_progress {
   std::uint64_t request{};
   std::uint64_t session{};
@@ -61,23 +47,20 @@ struct asset_load_progress {
   std::size_t completed_assets{};
   std::size_t total_assets{};
   bool can_cancel{};
-  std::size_t upload_reserved_bytes{};
 };
 
-/** 主线程服务；只读 VFS 副本和单项临时数据由任务拥有，缓存及 GPU 操作仍留在所属线程。
- * 挂载后端在服务生存期内不得重配，read_bounded 须支持只读并发访问。
+/** 主线程服务；只读 VFS 副本和单项临时数据由任务拥有，CPU 内容采用留在所属线程，GPU 上传由 Render
+ * 独立安排。 挂载后端在服务生存期内不得重配，read_bounded 须支持只读并发访问。
  * 只接受一个在途批次；宿主保序排队，容量满返回 NOT_READY，不自动创建池。 */
 class texture_load_service final {
 public:
   static constexpr std::size_t maximum_batch = 16U;
   static constexpr std::size_t maximum_assets = 256U;
   static constexpr std::size_t maximum_prepared_bytes = 256U * 1024U * 1024U;
-  // 8 MiB 为分批目标；不可拆单资产允许超出，但不得超过上传硬上限。
-  static constexpr std::size_t upload_budget_bytes = 8U * 1024U * 1024U;
-  static constexpr std::size_t maximum_upload_bytes = maximum_prepared_bytes;
   static constexpr std::size_t maximum_bytes = 64U * 1024U * 1024U;
   texture_load_service(gneiss::engine::task_executor& executor,
-                       gneiss::engine::render_asset_loader& loader, texture_upload_backend backend,
+                       gneiss::engine::render_asset_loader& loader,
+                       texture_prepare_profile profile = {},
                        std::shared_ptr<gneiss::engine::progress_notification> notification = {});
   ~texture_load_service();
   [[nodiscard]] gneiss::engine::result submit(std::span<const std::string> uris,
@@ -93,12 +76,12 @@ public:
    * 目标有效不代表 CPU/GPU 已就绪；失败目标在使用者释放租约后由缓存清理回收。 */
   [[nodiscard]] std::span<const render_asset_ref> requested_assets() const;
   [[nodiscard]] bool busy() const noexcept { return pending_ != nullptr || completed_.has_value(); }
-  [[nodiscard]] texture_prepare_profile profile() const noexcept { return backend_.profile; }
+  [[nodiscard]] texture_prepare_profile profile() const noexcept { return profile_; }
   void advance();
   [[nodiscard]] bool take(texture_load_completion& output);
-  /** 提交许可前取消；已进入 GPU 阶段后须等待结果或使用 cancel_unpublished。 */
+  /** 取消尚未完成的 CPU 工作；已经采用的项保留。 */
   bool cancel();
-  /** 停止后续上传并安全清理未生效内容；已生效内容保留。 */
+  /** 停止后续读取与解码；已生效内容保留。 */
   bool cancel_unpublished();
   void request_stop();
   [[nodiscard]] bool stopped() const;
@@ -109,17 +92,16 @@ private:
   bool advance_preparation(pending& value);
   gneiss::engine::result enqueue_dependencies(pending& value, const prepared_render_asset& asset);
   void finish_item(gneiss::engine::result result, bool applied);
-  void poll_upload(pending& value);
   bool start_item(pending& value);
   result start_read(pending& value, std::string_view uri, bool payload);
-  bool prepare_item_upload(pending& value);
+  bool prepare_item_update(pending& value);
   void advance_impl();
   void check_owner() const;
   void finish(gneiss::engine::result result, texture_load_state state);
   gneiss::engine::task_executor& executor_;
   gneiss::engine::task_scope scope_;
   gneiss::engine::render_asset_loader& loader_;
-  texture_upload_backend backend_;
+  texture_prepare_profile profile_;
   std::shared_ptr<gneiss::engine::progress_notification> notification_;
   std::unique_ptr<pending> pending_;
   std::optional<texture_load_completion> completed_;

@@ -172,10 +172,7 @@ void draw_scene_status(const asset_browser_view& view, const panel_buttons& butt
       ImGui::Text("Application: logical %.1f MiB, CPU data %.1f MiB",
                   static_cast<double>(budget.application_logical) / mib,
                   static_cast<double>(budget.application_cpu) / mib);
-      ImGui::Text("Available: %.1f MiB | Upload: %.1f MiB (peak %.1f MiB)",
-                  static_cast<double>(budget.available) / mib,
-                  static_cast<double>(budget.upload) / mib,
-                  static_cast<double>(budget.peak_upload) / mib);
+      ImGui::Text("Available: %.1f MiB", static_cast<double>(budget.available) / mib);
       ImGui::TextDisabled("Resource accounting snapshot; not process RAM or GPU memory");
       if (budget.cleanup_complete) {
         ImGui::TextUnformatted("Request cleanup complete; other live resources may remain");

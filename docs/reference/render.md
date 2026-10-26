@@ -5,7 +5,8 @@
 
 ## 资源生命周期
 
-Mesh、Material 和 Texture 的 RID 由 Application 的 Resource Service 管理。
+Mesh、Material 和 Texture 的运行身份及 CPU 内容表由 Application 的 `render_service` 私有实现拥有。
+`resources()` 是内部装配和程序化资源创建的借用入口，不是独立服务所有者。
 原生 `render_resource_service::create_mesh(mesh_view, ...)` 会在调用
 期间复制顶点、可选法线、切线、UV1、顶点色及可选 UInt32 索引；调用返回后，调用方可以立即释放源数据。Mesh 至少需要
 三个有限值顶点。索引非空时数量必须至少为三个且为三的倍数，所有索引必须小于顶点数；索引为空时
@@ -16,9 +17,9 @@ Mesh、Material 和 Texture 的 RID 由 Application 的 Resource Service 管理�
 属性以原生 span 表达，空 span 表示未提供；数量、有限值及缺省规则见[资产格式](render-asset-formats.md)。
 拥有型 `mesh_data` 重载校验后转移数组所有权，避免再次复制。
 
-Material 保存线性 RGBA、金属度、粗糙度、五类 PBR Texture RID 及法线/AO/自发光因子，
-字段范围与纹理用途见 [Render 资产格式](render-asset-formats.md#material)。创建不转移 Texture 所有权；
-直接创建资源时调用方必须维持依赖有效，资产 Loader 的 Material 租约则持有全部 Texture 租约。
+运行材质保存线性 RGBA、金属度、粗糙度、法线/AO/自发光因子以及五槽 Texture 强引用，
+字段范围与纹理用途见 [Render 资产格式](render-asset-formats.md#material)。
+内部 `material_data` 使用 RID 记录后端绑定；取得运行材质引用时同时取得对应纹理的强引用。
 `create_material` 接收原生 `material_data`，其 `parameters` 使用与材质描述相同的
 `material_parameters`，默认构造提供中性值；纹理槽仍保存 RID。
 当前描述支持逐槽 UV0/UV1 与采样器、OPAQUE/MASK/BLEND、Alpha Cutoff 和双面。
@@ -40,18 +41,22 @@ domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
 它们与 CPU 负载 `mesh_data`、`texture_data`、`material_data` 是不同类型；
 当前 Loader 的混合请求仍返回缓存条目，`entry::as<T>()` 检查类型并取得同一对象的强引用。
 缓存清理同时检查条目租约和运行对象强引用，避免对象仍被使用时丢失 URI 身份。
-ECS 和上层帧快照仍使用 RID，迁移进度见 [PLAN-054](../plans/PLAN-054-render-resource-model.md)。
+ECS、场景编辑绑定、UI 命令和上层帧快照使用类型化强引用。
+`acquire_mesh/material/texture` 返回对应引用；混合请求使用 `render_asset_ref`，在边界用 `asset_cast<T>` 转换。
+场景和 Prefab 的绑定记录仍用于作者编辑、预加载及失败恢复；不再额外采集全场景资源保活集合。
+资源 `source()` 保存来源域、URI 和资产类型；程序生成对象没有文件来源。
+Mesh/Texture 的 `metadata()` 在 CPU 内容采用后可读；未加载时为空，容器纹理未知的 Mip/格式字段也为空。
 
 三类运行对象只能经资源销毁队列构造。最后一个强引用释放只将预分配节点入队，
 所属线程在 Application 资产推进、Loader 缓存清理及关闭时消费；不在队列锁内执行析构。
 材质析构释放纹理强引用产生的后续节点会继续排空。纯 CPU 数据仍使用普通 RAII。
-资源服务析构前排空队列并关闭端点；服务析构后仍存活的外部引用只销毁无服务依赖的外壳，
+Application 关闭及资源表析构时排空队列并关闭端点、失效全部槽位；关闭后仍存活的外部引用只销毁无服务依赖的外壳，
 不会调用旧服务。GPU 对象继续由 Render 执行器管理，CPU 销毁队列不替代 GPU 完成同步。
 
 ## 当前帧即时 UI 数据
 
 `application::submit_ui_draw_list` 在 Application 的 `update` 回调内提交后端无关的即时 UI
-数据。描述包含显示尺寸、Framebuffer 缩放、RGBA8 顶点、UInt32 索引以及引用 Texture RID 的绘制
+数据。描述包含显示尺寸、Framebuffer 缩放、RGBA8 顶点、UInt32 索引以及持有 Texture 强引用的绘制
 命令；每条命令同时给出裁剪矩形、索引范围和顶点偏移。Runtime 在返回前深拷贝全部数组，调用方可
 立即复用或释放源内存。
 
@@ -81,10 +86,10 @@ ECS 和上层帧快照仍使用 RID，迁移进度见 [PLAN-054](../plans/PLAN-0
 的活动 Camera 不进入渲染快照；窗口尺寸为零时跳过渲染。内部矩阵遵循
 [ADR-012](../decisions/ADR-012-3d-camera-coordinate-boundary.md)，不进入公共 ABI。
 
-`world::entity_set_mesh_renderer` 设置 Mesh Renderer 组件。组件只借用 Mesh 与 Material RID，
-不延长资源生命周期，也不保存 Granit 类型。实体必须关联 Scene Node 才会获得世界 Transform 并
+`world::entity_set_mesh_renderer` 设置 Mesh Renderer 组件。组件持有 Mesh 与 Material 强引用，
+执行正常的 C++ 构造、复制和析构，不保存 Granit 类型。实体必须关联 Scene Node 才会获得世界 Transform 并
 进入渲染快照。资源已销毁或来自其他 Application 时，帧提交返回
-`GNEISS_ERROR_INVALID_HANDLE`。
+`result::invalid_handle`。
 
 ## 当前渲染路径
 
@@ -95,8 +100,8 @@ metallic-roughness、normal、occlusion、emissive 五槽和对应因子；未�
 不带法线的旧网格仍使用无光照路径。
 
 base color/emissive 的 sRGB 采样转换为线性空间，其余槽使用线性数据。Cook 资产携带完整 Mip 链，
-场景按材质逐槽选择 UV、寻址和过滤，缺省为 repeat/trilinear。CPU 资产准备及 GPU 上传、候选提交
-与旧帧持有由现有资产加载链路管理。负缩放切线空间、UV1、顶点色、MASK 阴影及双面可见性已有 GPU 回归；
+场景按材质逐槽选择 UV、寻址和过滤，缺省为 repeat/trilinear。CPU 内容采用即普通加载完成；
+Render 根据帧中使用的资源独立安排 GPU 上传，帧包固定具体 CPU 内容。负缩放切线空间、UV1、顶点色、MASK 阴影及双面可见性已有 GPU 回归；
 BLEND 使用对象级排序和标准透明阶段，不能解决相交三角形或折射，不承诺双面阴影的完整语义。
 已接入项与限制见[上游跟踪](../plans/UPSTREAM-043-granit-pbr.md)，不等同于完整 glTF 材质支持。
 
@@ -110,17 +115,19 @@ Canvas 负责动态几何上传、Alpha Pipeline、Scissor 和 UInt32 索引绘�
 
 ## 后端材质状态
 
-后端仅维护活动 material_mirror，不再提前缓存 prepared_material。首次绘制创建 Granit
-材质与采样器，失败由该帧返回；CPU 准备成功不代表后端材质已创建。
-默认纹理变为就绪或纹理重载时，通过 material_instance::update 更新五槽绑定；
-更新成功才记录新纹理句柄，失败终止该帧并在后续使用时重试。
-纹理失效不清空其他材质；材质 CPU 来源替换仍重建自身参数和采样器。
-Mesh/Texture 的实际上传状态继续保留。此行为不要求 Granit 增加接口。
+Render 只维护当前 GPU 内容和必要的在途纹理上传，不提供普通加载用的上传进度接口。
+纹理 CPU 负载明确保留，Render 不再同步重读源文件恢复。纹理异步操作持有自己的 CPU 数据，
+完成后才采用 GPU 纹理；未完成时场景使用默认纹理，已有纹理则继续使用旧内容。
+首次 Mesh 不可用时跳过对象；更新失败保留旧镜像并记录诊断。
+材质参数或纹理绑定变化时创建新的后端材质，成功才替换；旧材质保活其实际使用的纹理镜像。
+GPU 失败不改变已经成功的 CPU 加载结果。UI 首次纹理未上传完成时跳过对应命令。
+本轮未实施 CPU 数据驱逐、Mip/LOD 流送或 GPU 回读恢复。
 
 ## 渲染服务对象边界
 
 Application 拥有 `engine::render_service`，用于设备初始化、帧/上传提交、完成回收及关闭。
-它与管理 RID 和引擎资源数据的 `render_resource_service` 是不同对象。
+管理 RID 和 CPU 内容的 `render_resource_service` 是其私有实现拥有的内部资源表，
+Application 及 Loader 只借用该表；无窗口构建也拥有相同 CPU 表，不初始化 GPU。
 `render_service.hpp` 不包含 Granit 头文件，也不暴露 Granit 类型；后端状态放在 `.cpp` 的 PImpl 中。
 关闭统计使用引擎值类型 `render_device_stats`，不返回设备或后端句柄。
 

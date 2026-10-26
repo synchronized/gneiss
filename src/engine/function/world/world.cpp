@@ -73,7 +73,7 @@ gneiss::engine::result world::create_staged_object(const gneiss::engine::publica
     return gneiss::engine::result::invalid_argument;
   }
   if (description.renderer != nullptr &&
-      (description.renderer->mesh == null_rid || description.renderer->material == null_rid)) {
+      (!description.renderer->mesh || !description.renderer->material)) {
     return gneiss::engine::result::invalid_argument;
   }
   return with_state(*state_, [&](world_state& state) {
@@ -337,8 +337,8 @@ world::replace_mesh_renderers(std::span<const mesh_renderer_replacement> replace
     }
     std::unordered_set<std::uint64_t> entities;
     for (const auto& change : replacements) {
-      if (!entities.insert(change.entity.get()).second || change.replacement.mesh == null_rid ||
-          change.replacement.material == null_rid) {
+      if (!entities.insert(change.entity.get()).second || !change.replacement.mesh ||
+          !change.replacement.material) {
         return gneiss::engine::result::invalid_argument;
       }
       if (!state->is_alive(change.entity.get())) {
@@ -366,7 +366,7 @@ world::replace_mesh_renderers(std::span<const mesh_renderer_replacement> replace
 gneiss::engine::result world::entity_set_mesh_renderer(entity_id entity_value,
                                                        const mesh_renderer& renderer) noexcept {
   std::uint64_t entity = entity_value.get();
-  if (renderer.mesh == null_rid || renderer.material == null_rid) {
+  if (!renderer.mesh || !renderer.material) {
     return gneiss::engine::result::invalid_argument;
   }
 
@@ -389,6 +389,7 @@ gneiss::engine::result world::entity_set_mesh_renderer(entity_id entity_value,
     return gneiss::engine::result::internal;
   }
 }
+
 gneiss::engine::result world::entity_remove_mesh_renderer(entity_id entity_value) noexcept {
   std::uint64_t entity = entity_value.get();
   try {

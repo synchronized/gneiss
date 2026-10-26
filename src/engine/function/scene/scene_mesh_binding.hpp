@@ -5,10 +5,10 @@
 #include "engine/function/render/render_asset_loader.hpp"
 
 namespace gneiss::engine {
-/** 持有已就绪 Mesh/Material 版本；不拥有 Scene，须在渲染服务释放前销毁。 */
+/** 作者编辑绑定及撤销快照；持有稳定资源身份，不表示 GPU 已就绪。 */
 struct scene_mesh_binding {
-  gneiss::engine::render_asset_ref mesh;
-  gneiss::engine::render_asset_ref material;
+  gneiss::engine::mesh mesh;
+  gneiss::engine::material material;
 };
 
 } // namespace gneiss::engine

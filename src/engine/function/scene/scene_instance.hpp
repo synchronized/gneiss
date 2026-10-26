@@ -23,16 +23,16 @@ public:
     std::string uuid;
     std::uint64_t entity = UINT64_C(0);
     scene_node_id node = null_scene_node_id;
-    gneiss::engine::render_asset_ref mesh;
-    gneiss::engine::render_asset_ref material;
+    gneiss::engine::mesh mesh;
+    gneiss::engine::material material;
   };
 
   void rollback() noexcept;
   /** 仅用于不可见候选 World，分阶段入口不执行文件读取。 */
   void initialize_staged(gneiss::engine::scene_description candidate);
-  [[nodiscard]] gneiss::engine::result
-  create_staged_node(std::size_t index, scene_node_id parent, gneiss::engine::render_asset_ref mesh,
-                     gneiss::engine::render_asset_ref material);
+  [[nodiscard]] gneiss::engine::result create_staged_node(std::size_t index, scene_node_id parent,
+                                                          gneiss::engine::mesh mesh,
+                                                          gneiss::engine::material material);
 
   [[nodiscard]] scene_node_id find_node(std::string_view uuid) const noexcept;
   [[nodiscard]] gneiss::engine::result capture_description(scene_description& output) const;
@@ -109,7 +109,6 @@ public:
    * Scene 和节点存储必须存活且保持稳定；放弃事务不修改绑定。 */
   /** 所属线程收集普通节点与 Prefab 的资源引用；追加至事务临时数组，分配失败向调用者传播。
    * 不去重、不发布资源，也不改变场景；服务负责跨实例去重和失败输出保留。 */
-  void append_render_assets(std::vector<gneiss::engine::render_asset_ref>& output) const;
 
   /** 调用方服务已验证所属线程和租约归属；实例负责作者数据与 ECS 同步提交。 */
   [[nodiscard]] gneiss::engine::result

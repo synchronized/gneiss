@@ -34,14 +34,19 @@ int run_host_tests() {
 }
 
 int run_tests() {
+  gneiss::engine::render_resource_service resources;
+  gneiss::engine::rid mesh_id{}, material_id{};
+  if (resources.reserve_mesh(&mesh_id).failed() ||
+      resources.reserve_material(&material_id).failed())
+    return 30;
   gneiss::engine::world_state world{1};
   const auto camera_entity = world.create_entity();
   const auto mesh_entity = world.create_entity();
   gneiss::scene_node_id camera_node = gneiss::null_scene_node_id;
   gneiss::scene_node_id mesh_node = gneiss::null_scene_node_id;
   const gneiss::engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  const gneiss::engine::mesh_renderer renderer{.mesh = UINT64_C(0x1001),
-                                               .material = UINT64_C(0x2001)};
+  gneiss::engine::mesh_renderer renderer{.mesh = resources.reference_mesh(mesh_id),
+                                         .material = resources.reference_material(material_id)};
   gneiss::engine::transform mesh_transform = gneiss::engine::transform{};
   mesh_transform.translation[0] = 2.0F;
 
@@ -121,6 +126,18 @@ int run_tests() {
       snapshot.camera.viewport_width != 640U || world.active_camera() != UINT64_C(0)) {
     return 8;
   }
+  // ECS 释放后提交快照独立保活；工作线程最后释放只入队，不复活旧 RID。
+  renderer = {};
+  if (!world.destroy_entity(mesh_entity) || !world.destroy_entity(pending_mesh))
+    return 31;
+  if (resources.drain_retired_resources() != 0U || snapshot.instances.empty())
+    return 32;
+  std::thread release([&] { snapshot = {}; });
+  release.join();
+  if (resources.reference_mesh(mesh_id) || resources.reference_material(material_id))
+    return 33;
+  if (resources.drain_retired_resources() != 2U || resources.live_resource_count() != 0U)
+    return 34;
   return 0;
 }
 

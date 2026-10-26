@@ -7,6 +7,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/rid_table.hpp"
+#include "engine/function/render/render_resource.hpp"
 #include "engine/function/render/render_resource_data.hpp"
 #include "engine/function/render/texture_view.hpp"
 #include "engine/resource/resource_retirement_queue.hpp"
@@ -19,10 +20,6 @@
 #include <vector>
 
 namespace gneiss::engine {
-class texture_payload_source;
-}
-
-namespace gneiss::engine {
 
 struct render_memory_usage {
   std::uint64_t logical_bytes{};
@@ -32,8 +29,16 @@ struct render_memory_usage {
 class render_resource_service final {
 public:
   static constexpr std::uint64_t default_memory_limit = UINT64_C(4) * 1024U * 1024U * 1024U;
-  explicit render_resource_service(std::uint64_t memory_limit = default_memory_limit) noexcept;
-  ~render_resource_service();
+  GNEISS_API explicit render_resource_service(
+      std::uint64_t memory_limit = default_memory_limit) noexcept;
+  GNEISS_API ~render_resource_service();
+  /** 所属线程永久关闭，晚释放引用只销毁 CPU 外壳。 */
+  GNEISS_API void close() noexcept;
+  /** 所属线程取得槽位的唯一运行对象；非法 RID 返回空，分配失败抛出 bad_alloc。 */
+  [[nodiscard]] GNEISS_API mesh reference_mesh(rid handle);
+  [[nodiscard]] GNEISS_API texture reference_texture(rid handle);
+  [[nodiscard]] GNEISS_API material reference_material(rid handle);
+
   /** 仅运行资源使用延迟析构；CPU 负载仍使用普通 shared_ptr。 */
   template <typename T, typename... Args> std::shared_ptr<T> make_runtime_resource(Args&&... args) {
     if (!retirement_)
@@ -57,7 +62,8 @@ public:
   reserve_mesh(gneiss::engine::rid* output) noexcept;
   [[nodiscard]] GNEISS_API gneiss::engine::result
   reserve_texture(gneiss::engine::rid* output) noexcept;
-  [[nodiscard]] gneiss::engine::result reserve_material(gneiss::engine::rid* output) noexcept;
+  [[nodiscard]] GNEISS_API gneiss::engine::result
+  reserve_material(gneiss::engine::rid* output) noexcept;
   /** 只查询 CPU 内容：SUCCESS 已填充，NOT_READY 仅预留，INVALID_HANDLE 已失效或不属于本服务。 */
   [[nodiscard]] gneiss::engine::result mesh_status(gneiss::engine::rid mesh) const noexcept;
   [[nodiscard]] gneiss::engine::result texture_status(gneiss::engine::rid texture) const noexcept;
@@ -115,9 +121,15 @@ public:
   share_material(gneiss::engine::rid material) const noexcept;
   [[nodiscard]] std::shared_ptr<const texture_data>
   share_texture(gneiss::engine::rid texture) const noexcept;
-  [[nodiscard]] std::size_t live_resource_count() const noexcept;
+  [[nodiscard]] GNEISS_API std::size_t live_resource_count() const noexcept;
 
 private:
+  template <typename Data, typename Resource> struct resource_record {
+    explicit resource_record(std::shared_ptr<const Data> value) : data(std::move(value)) {}
+    std::shared_ptr<const Data> data;
+    std::weak_ptr<const Resource> identity;
+    bool has_identity{};
+  };
   template <typename Resource>
   std::shared_ptr<const Resource> track(std::shared_ptr<const Resource> resource,
                                         std::vector<std::weak_ptr<const Resource>>& history);
@@ -127,9 +139,9 @@ private:
   mutable std::vector<std::weak_ptr<const material_data>> material_history_;
   mutable std::vector<std::weak_ptr<const texture_data>> texture_history_;
   std::uint16_t domain_{};
-  gneiss::engine::rid_table<std::shared_ptr<const mesh_data>> meshes_;
-  gneiss::engine::rid_table<std::shared_ptr<const material_data>> materials_;
-  gneiss::engine::rid_table<std::shared_ptr<const texture_data>> textures_;
+  gneiss::engine::rid_table<resource_record<mesh_data, mesh_resource>> meshes_;
+  gneiss::engine::rid_table<resource_record<material_data, material_resource>> materials_;
+  gneiss::engine::rid_table<resource_record<texture_data, texture_resource>> textures_;
 };
 
 } // namespace gneiss::engine
