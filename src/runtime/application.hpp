@@ -114,6 +114,11 @@ public:
   application(application&&) = delete;
   application& operator=(application&&) = delete;
 
+  /** 所属线程、run 之外请求关闭；拒绝新操作，不等待文件和 CPU 任务。
+   * 继续调用 advance_shutdown，返回 not_ready 时让出执行权；终态后可销毁宿主执行器。 */
+  [[nodiscard]] gneiss::engine::result request_shutdown() noexcept;
+  /** 非阻塞推进文件/CPU 收尾；最终设备销毁仍使用 Render 的既有关闭流程。 */
+  [[nodiscard]] gneiss::engine::result advance_shutdown() noexcept;
   [[nodiscard]] gneiss::engine::result shutdown() noexcept;
   [[nodiscard]] gneiss::engine::result run(std::uint64_t max_frame_count) noexcept;
   [[nodiscard]] bool is_owner_thread() const noexcept;

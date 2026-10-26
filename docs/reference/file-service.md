@@ -138,8 +138,13 @@ asset_manager 已提供 request_stop_resources：立即拒绝新加载、终止�
 管理器停止不等于共享文件服务关闭，后者仍须独立 shutdown 并等待完成回调。
 迁移期 stop_resources 与析构仍保留等待已有 CPU scope 收尾的兜底。
 宿主持有的共享服务继续由宿主分发并正常 shutdown；独占服务析构放弃通知，在途后端自行清理。
-Application 的既有同步 teardown 释放读来源和渲染快照后再停止 libuv loop，
-尚未改成逐次轮询的异步宿主关闭流程，不宣称整个引擎关闭已经非阻塞。
+Application 新增 request_shutdown/advance_shutdown，均在所属线程、run 之外调用。
+request_shutdown 拒绝新操作并请求取消 Scene、资产管理器及文件服务；不等待后台任务。
+advance_shutdown 分发文件完成并推进 CPU 收尾，未完成返回 not_ready，宿主须让出执行权后再次推进。
+Scene 不再创建节点或采用视觉资源；所有 CPU scope 静止、文件服务关闭回执到达后才销毁依赖。
+关闭回调与设备销毁只执行一次，终态可重复查询；借用的宿主执行器须存活至终态。
+最终 Render 设备销毁仍沿用既有同步流程，不宣称整个引擎关闭完全非阻塞。
+现有 shutdown/析构仍保留同步兜底，生产宿主关闭调用方仍待切换。
 
 Mesh/Texture 的运行时加载也借用该服务；等待文件期间不提交 CPU 任务，
 描述、完整负载读取和 GPU 上传保持独立阶段。具体契约见 [资产参考](assets.md)。

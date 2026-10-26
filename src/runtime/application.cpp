@@ -76,6 +76,15 @@ struct application::storage {
   std::uint64_t previous_time_ns_ = 0;
   std::atomic<bool> accepts_requests_{false};
   bool shutting_down_ = false;
+  bool shutdown_requested_{};
+  bool shutdown_complete_{};
+  gneiss::engine::result shutdown_result_{gneiss::engine::result::success};
+  struct file_close_receipt {
+    bool ready{};
+    gneiss::engine::result result{gneiss::engine::result::success};
+  };
+  std::shared_ptr<file_close_receipt> file_close_;
+  std::shared_ptr<gneiss::engine::file_service> closing_files_;
   bool platform_initialized_ = false;
   bool is_running_ = false;
   bool is_paused_ = false;
@@ -839,6 +848,69 @@ gneiss::engine::result application::run(std::uint64_t max_frame_count) noexcept 
 
 bool application::is_owner_thread() const noexcept {
   return storage_->owner_thread_ == std::this_thread::get_id();
+}
+
+gneiss::engine::result application::request_shutdown() noexcept try {
+  if (!is_owner_thread() || storage_->is_running_ || storage_->shutting_down_)
+    return gneiss::engine::result::invalid_state;
+  if (storage_->shutdown_requested_)
+    return gneiss::engine::result::success;
+  auto receipt = std::make_shared<storage::file_close_receipt>();
+  auto files = storage_->asset_manager_ ? storage_->asset_manager_->async_files() : nullptr;
+  if (files) {
+    const auto requested = files->shutdown([receipt](auto status) {
+      receipt->result = status;
+      receipt->ready = true;
+    });
+    if (requested.failed())
+      return requested;
+  } else {
+    receipt->ready = true;
+  }
+  storage_->file_close_ = std::move(receipt);
+  storage_->closing_files_ = std::move(files);
+  storage_->shutdown_requested_ = true;
+  storage_->accepts_requests_.store(false, std::memory_order_release);
+  storage_->input_application_.cancel();
+  storage_->scene_service_.request_stop();
+  if (storage_->asset_manager_)
+    storage_->asset_manager_->request_stop_resources();
+  return gneiss::engine::result::success;
+} catch (const std::bad_alloc&) {
+  return gneiss::engine::result::out_of_memory;
+} catch (...) {
+  return gneiss::engine::result::internal;
+}
+
+gneiss::engine::result application::advance_shutdown() noexcept try {
+  if (!is_owner_thread() || storage_->is_running_ || storage_->shutting_down_ ||
+      !storage_->shutdown_requested_)
+    return gneiss::engine::result::invalid_state;
+  if (storage_->shutdown_complete_)
+    return storage_->shutdown_result_;
+  if (storage_->closing_files_) {
+    const auto dispatched = storage_->closing_files_->dispatch_completions(64);
+    if (dispatched.failed())
+      return dispatched;
+  }
+  storage_->scene_service_.advance();
+  if (storage_->asset_manager_)
+    storage_->asset_manager_->advance_resources();
+  if (!storage_->scene_service_.stopped() ||
+      (storage_->asset_manager_ && !storage_->asset_manager_->resources_stopped()) ||
+      !storage_->file_close_->ready)
+    return gneiss::engine::result::not_ready;
+  auto status = shutdown();
+  if (status.ok())
+    status = storage_->file_close_->result;
+  storage_->closing_files_.reset();
+  storage_->shutdown_complete_ = true;
+  storage_->shutdown_result_ = status;
+  return status;
+} catch (const std::bad_alloc&) {
+  return gneiss::engine::result::out_of_memory;
+} catch (...) {
+  return gneiss::engine::result::internal;
 }
 
 gneiss::engine::result application::shutdown() noexcept {

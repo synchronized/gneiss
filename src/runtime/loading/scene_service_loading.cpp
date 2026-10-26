@@ -47,6 +47,35 @@ struct scene_service::load_task {
 scene_service::scene_service() = default;
 scene_service::~scene_service() noexcept { shutdown(); }
 
+void scene_service::request_stop() {
+  check_owner();
+  if (stopping_)
+    return;
+  stopping_ = true;
+  visual_queue_.clear();
+  visual_completion_.reset();
+  if (textures_)
+    textures_->request_stop();
+  if (pending_)
+    pending_->cancelled = true;
+  if (executor_)
+    executor_->cancel_scope(scope_);
+}
+bool scene_service::stopped() const noexcept {
+  return stopping_ && !executor_ && !textures_ && !active_ && !retired_;
+}
+void scene_service::advance_stop() {
+  if (stopped())
+    return;
+  if (textures_)
+    textures_->advance();
+  advance_load();
+  if ((textures_ && !textures_->stopped()) || (executor_ && !executor_->idle(scope_)))
+    return;
+  // 两个 CPU scope 已静止，沿用销毁顺序，此时不会等待后台任务。
+  shutdown();
+}
+
 void scene_service::stop_load() noexcept {
   if (executor_) {
     executor_->cancel_scope(scope_);

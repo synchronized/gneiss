@@ -18,7 +18,7 @@ namespace gneiss::runtime {
 
 gneiss::engine::result scene_service::initialize(gneiss::engine::asset_manager& assets,
                                                  gneiss::engine::render_asset_loader& render) {
-  if (active_) {
+  if (active_ || stopping_) {
     return gneiss::engine::result::invalid_state;
   }
   auto next = std::make_unique<scene_domain>();
@@ -56,6 +56,11 @@ gneiss::engine::result scene_service::attach_executor(
 }
 
 void scene_service::advance() {
+  check_owner();
+  if (stopping_) {
+    advance_stop();
+    return;
+  }
   if (retired_) {
     const auto start = std::chrono::steady_clock::now();
     const gneiss::engine::loop_span span(gneiss::engine::loop_stage::retirement);
@@ -116,6 +121,7 @@ bool scene_service::take_visual_completion(gneiss::engine::texture_load_completi
 }
 
 void scene_service::shutdown() noexcept {
+  stopping_ = true;
   visual_queue_.clear();
   visual_completion_.reset();
   visual_pending_ = false;
@@ -131,7 +137,7 @@ void scene_service::shutdown() noexcept {
 }
 
 bool scene_service::can_start_load() const noexcept {
-  return !retired_ && textures_ && (!textures_->busy() || visual_pending_);
+  return !stopping_ && !retired_ && textures_ && (!textures_->busy() || visual_pending_);
 }
 bool scene_service::loading() const noexcept {
   return pending_ != nullptr || completed_.has_value();
@@ -154,6 +160,8 @@ scene_service::request_assets(std::span<const gneiss::engine::render_asset_reloa
                               std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
                               bool reload) {
   request = 0U;
+  if (stopping_)
+    return gneiss::engine::result::invalid_state;
   if (!textures_ || loading() || visual_loading() || textures_->busy()) {
     return gneiss::engine::result::not_ready;
   }

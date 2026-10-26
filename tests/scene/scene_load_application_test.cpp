@@ -523,8 +523,59 @@ void shared_texture_versions(gneiss::engine::execution_mode mode) {
   check(app->activate_scene(request, scene_completion) == gneiss::engine::result::success);
   drain_visuals(app, scheduler, mode);
 }
+void asynchronous_shutdown(gneiss::engine::execution_mode mode) {
+  fixture files;
+  for (int stage = 0; stage < 3; ++stage) {
+    gneiss::engine::task_scheduler scheduler({.workers = 1U, .mode = mode});
+    application_configuration config;
+    const auto root = files.root.string();
+    config.asset_root = root;
+    unsigned closed{};
+    config.callbacks.shutdown = [&] { ++closed; };
+    std::shared_ptr<application> app;
+    check(application::create(config, app).ok());
+    check(app->attach_task_executor(scheduler).ok());
+    check(app->advance_shutdown() == gneiss::engine::result::invalid_state);
+    std::uint64_t request{};
+    if (stage == 1) {
+      check(app->request_scene("asset://scene.json", 1, 1, request).ok());
+      app->advance_scene_load();
+    } else if (stage == 2) {
+      const std::array sources{gneiss::engine::render_asset_reload{
+          "asset://mesh.json", gneiss::engine::render_asset_type::mesh}};
+      check(app->request_assets(sources, 1, 1, request, true).ok());
+      gneiss::engine::texture_load_completion completion;
+      bool ready{};
+      check(app->poll_assets(completion, ready).ok());
+    }
+    check(app->request_shutdown().ok() && !app->accepts_requests() && closed == 0);
+    check(app->request_shutdown().ok());
+    check(app->request_scene("asset://scene.json", 1, 2, request) ==
+          gneiss::engine::result::invalid_state);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    for (;;) {
+      const auto status = app->advance_shutdown();
+      if (status != gneiss::engine::result::not_ready) {
+        check(status.ok());
+        break;
+      }
+      check(std::chrono::steady_clock::now() < deadline);
+      if (mode == gneiss::engine::execution_mode::cooperative)
+        (void)scheduler.run_ready();
+      std::this_thread::yield();
+    }
+    check(app->native_world() == nullptr && closed == 1);
+    check(scheduler.stats().retained == 0 && scheduler.stats().running == 0);
+    check(app->advance_shutdown().ok() && closed == 1);
+    app.reset();
+    check(closed == 1);
+  }
+}
+
 } // namespace
 int main() try {
+  asynchronous_shutdown(gneiss::engine::execution_mode::thread_pool);
+  asynchronous_shutdown(gneiss::engine::execution_mode::cooperative);
   visual_failure(gneiss::engine::execution_mode::thread_pool);
   visual_failure(gneiss::engine::execution_mode::cooperative);
   run(gneiss::engine::execution_mode::thread_pool);

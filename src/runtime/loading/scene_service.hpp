@@ -42,11 +42,14 @@ public:
   }
   [[nodiscard]] gneiss::engine::result activate(std::uint64_t request,
                                                 scene_load_completion& completion);
+  /** 请求停止加载，不等待 CPU/I/O；继续 advance 至 stopped，再释放依赖。 */
+  void request_stop();
+  [[nodiscard]] bool stopped() const noexcept;
   void shutdown() noexcept;
 
   [[nodiscard]] bool can_start_load() const noexcept;
   [[nodiscard]] bool can_activate() const noexcept {
-    return !retired_ && textures_ && !textures_->busy();
+    return !stopping_ && !retired_ && textures_ && !textures_->busy();
   }
   [[nodiscard]] bool loading() const noexcept;
   [[nodiscard]] scene_retirement_statistics retirement() const noexcept;
@@ -72,6 +75,8 @@ public:
 
 private:
   void advance_visuals();
+  void advance_stop();
+  bool stopping_{};
   std::vector<gneiss::engine::render_asset_reload> visual_queue_;
   std::size_t visual_cursor_{};
   std::uint64_t visual_session_{};
