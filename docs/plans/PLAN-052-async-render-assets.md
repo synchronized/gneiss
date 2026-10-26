@@ -12,7 +12,9 @@
 运行时 texture_load_service 的 Mesh/Texture 路径统一使用 file_service：等待文件时不占 CPU
 任务，文件完成后提交纯内存解码，再交渲染服务上传。保留材质独立加载及依赖队列。
 本轮完成全量数据异步加载，不实现 mip/LOD 流送、稀疏驻留、首次绘制触发加载或新的版本事务。
-显式同步工具接口继续保留；浏览器后端、异步宿主关闭属于 PLAN-051 后续范围。
+本轮实现曾保留显式同步工具接口；后续已确认在 [PLAN-051](PLAN-051-async-file-service.md) 中删除，
+并将文件服务迁入 Platform，补齐浏览器后端及异步宿主关闭。加载成功的目标语义以
+[PLAN-054](PLAN-054-render-resource-model.md) 为准：CPU 内容就绪，不等待 GPU 上传。
 
 ## 已确认的数据职责
 

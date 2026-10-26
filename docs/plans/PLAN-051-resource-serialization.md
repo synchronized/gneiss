@@ -37,6 +37,8 @@ SceneService 已删除不再使用的 VFS 副本。
 
 asset_manager 已按运行期 type_id 选择显式 asset_decoder 或冻结 Registry codec；
 异步字节读取使用 file_service，迁移期显式同步加载仍使用 VFS。
+后续按[文件服务计划](PLAN-051-async-file-service.md) 将文件服务迁入 Platform，
+删除同步加载与 VFS，保留纯内存 codec 和不触发 I/O 的缓存查询。
 反射已有属性访问及可选 codec，value 类别固定；没有数组、枚举、可选字段及嵌套对象 schema。
 Scene/Prefab 的现有序列化还保留受支持文档中的未知 JSON 字段，不能直接替换成字段遍历。
 运行期注册身份和文件中的格式版本职责不同，不能因新增反射类型就擅自修改文件布局。

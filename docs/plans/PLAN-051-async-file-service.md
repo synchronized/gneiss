@@ -15,11 +15,104 @@ Windows Clang Debug 全工程编译、格式和边界检查已通过；契约测
 大场景、浏览器与 CI 在统一验收时运行。
 架构决策见 [ADR-084](../decisions/ADR-084-async-file-service.md)。
 
+## 本轮确认范围（待实施）
+
+本轮将文件抽象整体收敛到 `engine/platform/files`，由它完整替换旧 VFS。
+文件操作与资产加载只提供异步入口，不保留同步工具入口、同步回退或阻塞等待包装。
+纯内存解析、序列化、缓存查询和已准备数据的场景实例化仍可同步执行。
+本节是目标结构，当前代码仍位于 `resource/files`，不得将迁移目标描述为已完成能力。
+
+### 对象与依赖方向
+
+- Application 统一装配文件服务、平台 I/O 执行器、CPU 任务执行器与资产管理器。
+- file_service 管理挂载、读取回退链、唯一写入后端、请求、取消及所属线程完成分发。
+- file_backend 只处理路径和字节；桌面、浏览器与内存实现不理解资产或反射。
+- asset_manager 管理解码器、在途加载去重、资源引用与唯一缓存；必要的依赖编排仍由资源 Loader 负责。
+- 宿主统一调用 dispatch_completions；asset_manager 不再隐式驱动共享文件服务。
+- Scene 在必要 CPU 数据准备好后同步创建实例，不恢复跨帧构建、候选发布或跨资源事务。
+- Render 生命周期和加载成功语义沿用 [PLAN-054](PLAN-054-render-resource-model.md)：
+  加载只承诺本次请求的 CPU 内容就绪，不等待 GPU 上传，不将上传进度加入文件请求。
+
+依赖方向为 Resource → Platform → Core。Platform 不得包含 Resource、Meta codec、Scene 或 Render。
+现有边界检查保持严格，不通过放宽规则允许反向依赖。
+
+### Platform 迁移前置条件
+
+当前 file_service 导入 virtual_file_system 挂载，并使用 Resource 的 asset_source_domain；
+async_read_file_backend 还包装旧 file_system。这些依赖必须先解除，不能直接移动目录。
+
+计划在文件层定义不透明的 `file_source_domain` 挂载来源标记，由挂载表创建并持有。
+`resolve_source` 只解析来源，不执行 I/O；Resource 的 asset_identity 引用该标记，
+URI、类型与缓存规则仍由 Resource 解释。该标记不是持久 AssetId、内容版本或文件后端所有者。
+不同来源不能因 URI 相同命中同一资产，持有标记也不应延长后端或 GPU 生命周期。
+删除旧 asset_source_domain 定义，避免为同一挂载维护两套身份；迁移期身份转换仅存在于上层适配中。
+
+旧 VFS 导入构造和适配器在调用方迁完后删除，不随文件服务下沉到 Platform。
+通用路径校验迁入文件层；仅适用于 asset:// 的校验继续留在 Resource，不把资源协议限制扩散到所有文件挂载。
+
+### 目标目录（规划）
+
+```text
+src/engine/
+  platform/
+    files/
+      file_service.hpp/.cpp
+      file_backend.hpp
+      file_types.hpp
+      file_path.hpp
+      memory_file_backend.hpp/.cpp
+      native_file_backend.hpp/.cpp
+      browser/
+        fetch_file_backend.hpp/.cpp
+        browser_file_backend.hpp/.cpp
+    io/uv/                         # 复用平台执行器等设施
+  resource/
+    asset_manager.hpp/.cpp
+    asset_request.hpp
+    asset_ref.hpp
+    asset_uri.hpp/.cpp              # 资源专用 URI 规则
+    cache/
+    loaders/
+    types/
+```
+
+类型仍位于 `gneiss::engine`，目录不增加命名空间层级。服务及平台后端通过 PImpl 隐藏第三方类型。
+后端由宿主装配；服务核心不依赖具体后端。同步更新 CMake 源文件、头文件可见性和测试包含路径。
+最终删除 resource/files、resource/vfs 和 async_read_file_backend；平台底层回执仅在确有内部调用时保留，
+不再向资源调用方暴露旧 open/read/close 协议。
+
+### 资产 API（规划示意）
+
+```cpp
+template<class T>
+result load(std::string_view uri, asset_request<T>& request, bool reload = false);
+
+template<class T>
+result find_loaded(std::string_view uri, asset_ref<const T>& output);
+```
+
+复用现有 asset_request<T>；take() 只检查并领取结果，未完成返回 not_ready，不驱动队列、不等待 I/O。
+find_loaded 只查询已完成缓存，未命中返回 not_found，失败保持输出；不读盘、不解码、不注册加载任务。
+保留显式 decoder 优先、Meta codec 回退、纯内存 store 和资源强引用规则，不强制所有资源注册属性反射。
+取消资产请求仍表示放弃本观察者，不影响共享加载的其他观察者。
+
+删除 load_sync、load_sync_erased、同步 load_input、旧 VFS 构造、files() 旧访问器、legacy_sync 与同步回退。
+普通文件回调不得内联调用用户代码；缓存查询是明确的同步内存 API，与异步 load 分开。
+场景打开、Prefab 依赖、编辑器保存和重载均迁移到完成后继续的流程；
+保存完成后更新保存状态，持久化承诺依赖 flush。命令行工具仅由最外层驱动事件循环至任务完成。
+
+### 宿主关闭（规划）
+
+停止业务提交 → 资产管理器停止接收并取消/收尾任务 → 文件服务 shutdown →
+宿主持续分发文件完成并收尾 CPU 任务 → 文件关闭回调完成 → 停止平台执行器。
+资产关闭不能阻塞所属线程等待依赖该线程分发的任务。解码执行器须存活至最后一个解码任务结束。
+共享服务仅由宿主关闭；析构不能替代正常关闭协议，迟到回调不得访问失效业务对象。
+
 ## 背景与目标
 
 迁移前 virtual_file_system 只支持 asset://、只读后端和轮询回执，asset_source 编排打开、分块、关闭，
 并允许同步回退。目标是统一桌面/浏览器异步文件调用，资源层只处理字节解码和资源缓存。
-文件服务吸收挂载路由、请求生命周期、取消、回调分发；平台差异留在后端。
+文件服务吸收挂载路由、请求生命周期、取消、回调分发；整套通用文件能力归 Platform，资源语义留在 Resource。
 
 ## 非目标
 
@@ -56,7 +149,7 @@ result stat(uri, file_callback<file_info>, file_request_id&);
 result list(uri, list_options, file_callback<directory_page>, file_request_id&);
 result flush(mount_point, completion_callback, file_request_id&);
 result cancel(file_request_id);
-void dispatch_completions(size_t max_callbacks);
+result dispatch_completions(size_t max_callbacks);
 result shutdown(completion_callback);
 ```
 
@@ -66,19 +159,27 @@ result shutdown(completion_callback);
 
 ## 实施顺序
 
-1. **核心闭环（已实现，运行验收待办）**：错误码、请求 ID、延迟分发、取消/关闭、读写路由、内存后端；编译契约测试。
-2. **桌面接入**：复用 libuv 异步打开/读/关闭；增加异步写/stat/list/flush，移除该路径 std::filesystem。
-3. **资产迁移（进行中）**：已完成服务注入、普通异步加载、删除 asset_source 与该链路同步回退，
-   宿主通过 advance_resources 驱动文件完成，导入挂载保留缓存来源身份。
-   网格/纹理运行路径由 [PLAN-052](PLAN-052-async-render-assets.md) 优先迁移；
-   待迁移显式同步加载、按需区间读取、宿主异步 shutdown；不以同步等待桥接新服务。
-4. **浏览器闭环**：Fetch 远程读取；FS 内存操作；IDBFS mount 后 syncfs(true) 完成才 ready；
-   write 后显式 syncfs(false) 持久化，同域串行同步。处理 JS 异常并映射 result。
-5. **大文件与缓存**：严格校验 HTTP Range 响应，限定在途块与总预算；锁定 SDK 验证流式能力；
-   加入按需字节缓存，明确更新、失效、离线回退，不缓存文件错误为成功。
-6. **可选 JS 入口**：有实际调用方时包装回调为真 Promise；取消也必须 settle，不依赖 Asyncify/JSPI。
+1. **已有核心复用**：保留服务核心与内存后端，审计请求、错误、取消、来源身份和关闭契约。
+2. **独立桌面后端**：直接接入平台 libuv 执行器，补齐读、范围读、写、stat、list、flush，
+   不经过旧 file_system，不依赖 std::filesystem，不新增线程池。
+3. **调用方迁移**：迁移宿主挂载与完成分发、asset_manager、Scene/Prefab、编辑器、工具、示例和测试；
+   增加 find_loaded，移除同步加载及工作线程等待；内存解码不再创建临时 VFS。
+4. **关闭与分层收敛**：完成异步关闭，来源身份通用化，搬入 platform/files，删除 VFS 和过渡适配器。
+   若分步实施需要临时桥接，桥接只允许在 Resource/宿主侧，不让 Platform 反向依赖旧 VFS。
+5. **浏览器闭环**：Fetch 远程读取；FS 内存操作；IDBFS 恢复完成才 ready；
+   写入后显式持久化，同域串行同步；错误统一映射 result。
+6. **大文件闭环**：严格校验范围响应，补齐有界流式读取、背压与总缓冲预算，验证复制峰值；
+   不把范围读取等同于 mip/LOD 流送，也不承诺 IDBFS 任意大文件低内存存储。
+7. **按需扩展**：字节缓存及 JS Promise 仅在实际调用方需要时增加，不作为删除 VFS 的前置条件。
+
+阶段 1—4 完成代表桌面 VFS 替换完成；浏览器和大文件核心范围仍属本计划，不能提前标记整份计划完成。
 
 ## 测试与验收
+
+- 源码、构建与活跃测试无旧 VFS、同步资产加载、迁移适配器入口；历史记录不改写。
+- Platform 不包含 Resource，Resource 通过唯一文件服务访问存储；来源身份及缓存隔离正确。
+- 场景准备缺失依赖时等待异步加载，实例化不临时读盘；不恢复版本发布或跨帧实例构建。
+- 宿主正常退出等待文件和 CPU 任务收尾，最后才停止执行器；调用方销毁后没有失效访问。
 
 - 统一后端测试：空文件、范围边界、上限、短读、缺失、拒绝写、元数据和分页；支持/不支持能力明确。
 - 路由测试：最长前缀、not_found 回退、io/unsupported 不回退、唯一写入、写后读取优先级。
