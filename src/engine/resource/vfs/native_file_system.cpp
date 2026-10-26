@@ -4,7 +4,7 @@
 #include "engine/resource/vfs/native_file_system.hpp"
 #include "engine/core/result.hpp"
 
-#include "engine/resource/vfs/asset_uri.hpp"
+#include "engine/resource/asset_uri.hpp"
 #ifdef GNEISS_ASSET_LIBUV
 #include "engine/platform/io/uv/uv_async_file.hpp"
 #include "engine/platform/io/uv/uv_file_reader.hpp"

@@ -9,7 +9,7 @@
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/loaders/asset_parsing.hpp"
 #include "engine/resource/types/material_description.hpp"
-#include "engine/resource/vfs/asset_uri.hpp"
+#include "engine/resource/asset_uri.hpp"
 #include <algorithm>
 #include <set>
 #include <stdexcept>

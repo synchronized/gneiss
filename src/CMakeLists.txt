@@ -47,8 +47,8 @@ target_sources(
     runtime/application.hpp
     runtime/main_loop_wakeup.hpp
     runtime/configuration/application_configuration.hpp
-    engine/resource/vfs/asset_uri.cpp
-    engine/resource/vfs/asset_uri.hpp
+    engine/resource/asset_uri.cpp
+    engine/resource/asset_uri.hpp
     engine/resource/types/asset_identity.hpp
     engine/resource/vfs/file_system.hpp
     engine/resource/loaders/mesh_binary.cpp

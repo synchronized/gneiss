@@ -4,7 +4,7 @@
 #include "engine/resource/vfs/virtual_file_system.hpp"
 #include "engine/core/result.hpp"
 
-#include "engine/resource/vfs/asset_uri.hpp"
+#include "engine/resource/asset_uri.hpp"
 
 #include <algorithm>
 #include <limits>

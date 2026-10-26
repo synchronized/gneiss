@@ -12,7 +12,7 @@
 #include "runtime/loading/scene_service.hpp"
 
 #include "engine/resource/loaders/texture_container.hpp"
-#include "engine/resource/vfs/asset_uri.hpp"
+#include "engine/resource/asset_uri.hpp"
 
 #include <algorithm>
 #include <stdexcept>

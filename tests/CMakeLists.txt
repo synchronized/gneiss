@@ -273,7 +273,7 @@ add_executable(
   input/action_map_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/action_map_validation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/action_map_parser.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
 )
 target_include_directories(gneiss_action_map_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -486,7 +486,7 @@ add_executable(gneiss_scene_load_preparation_test
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/prefab_description.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp")
 target_include_directories(gneiss_scene_load_preparation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_scene_load_preparation_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -508,7 +508,7 @@ add_test(NAME gneiss.prefab-preparation COMMAND gneiss_prefab_preparation_test)
 add_executable(
   gneiss_scene_description_test
   serialization/scene_description_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/scene_description.cpp"
@@ -524,7 +524,7 @@ add_test(NAME gneiss.scene_description COMMAND gneiss_scene_description_test)
 add_executable(
   gneiss_prefab_description_test
   serialization/prefab_description_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/cache/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
@@ -544,7 +544,7 @@ add_test(NAME gneiss.prefab_description COMMAND gneiss_prefab_description_test)
 add_executable(
   gneiss_prefab_property_override_test
   serialization/prefab_property_override_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/prefab_description.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/prefab_property_data.cpp"
@@ -562,7 +562,7 @@ add_test(NAME gneiss.prefab_property_override COMMAND gneiss_prefab_property_ove
 add_executable(
   gneiss_resource_service_test
   asset/resource_service_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/native_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/cache/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
@@ -586,7 +586,7 @@ add_test(NAME gneiss.loop_timing COMMAND gneiss_loop_timing_test)
 
 add_executable(gneiss_read_source_test
   asset/read_source_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/native_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp")
 target_include_directories(gneiss_read_source_test PRIVATE
@@ -662,7 +662,7 @@ add_executable(gneiss_render_asset_preparation_test
   "${PROJECT_SOURCE_DIR}/src/engine/core/guid.cpp"
   asset/asset_preparation_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/asset_preparation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_ktx2.cpp"
@@ -687,7 +687,7 @@ add_executable(
   gneiss_render_asset_loader_test
   render/render_asset_loader_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/texture_load_service.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_ktx2.cpp"
@@ -718,7 +718,7 @@ add_executable(
   gneiss_texture_load_service_test
   render/texture_load_service_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/texture_load_service.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_ktx2.cpp"
@@ -835,7 +835,7 @@ add_test(NAME gneiss.structural_diff COMMAND gneiss_structural_diff_test)
 add_executable(
   gneiss_prefab_runtime_instance_test
   scene/prefab_runtime_instance_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_ktx2.cpp"

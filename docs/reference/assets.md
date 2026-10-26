@@ -18,7 +18,7 @@ URI 使用 UTF-8 和正斜杠，scheme 区分大小写。空路径、空路径�
 冒号、查询、片段和百分号编码均返回 `engine::result::invalid_argument`。原生校验函数不访问文件系统：
 
 ```cpp
-#include "engine/resource/vfs/asset_uri.hpp"
+#include "engine/resource/asset_uri.hpp"
 
 auto result = gneiss::engine::validate_uri(uri);
 ```

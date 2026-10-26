@@ -4,7 +4,7 @@
 #include "engine/core/result.hpp"
 #include <gneiss/app/project_description.hpp>
 
-#include "engine/resource/vfs/asset_uri.hpp"
+#include "engine/resource/asset_uri.hpp"
 
 #include <yyjson.h>
 

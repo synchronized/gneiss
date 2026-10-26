@@ -11,7 +11,7 @@
 
 #include "engine/function/world/component_identity.hpp"
 
-#include "engine/resource/vfs/asset_uri.hpp"
+#include "engine/resource/asset_uri.hpp"
 
 #include <algorithm>
 #include <array>

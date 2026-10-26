@@ -28,7 +28,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/platform/files/file_types.hpp
   engine/resource/types/asset_identity.hpp
   engine/resource/loaders/asset_preparation.hpp
-  engine/resource/vfs/asset_uri.hpp
+  engine/resource/asset_uri.hpp
   engine/resource/vfs/file_system.hpp
   engine/resource/types/material_parameters.hpp
   engine/resource/types/material_types.hpp

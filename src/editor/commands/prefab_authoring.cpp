@@ -4,7 +4,7 @@
 #include "commands/prefab_authoring.hpp"
 #include "engine/core/result.hpp"
 
-#include "engine/resource/vfs/asset_uri.hpp"
+#include "engine/resource/asset_uri.hpp"
 
 #include <yyjson.h>
 

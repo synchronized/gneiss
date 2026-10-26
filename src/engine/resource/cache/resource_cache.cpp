@@ -6,7 +6,7 @@
 #include "engine/core/type_id.hpp"
 #include "engine/resource/asset_ref.hpp"
 
-#include "engine/resource/vfs/asset_uri.hpp"
+#include "engine/resource/asset_uri.hpp"
 
 #include <algorithm>
 #include <new>

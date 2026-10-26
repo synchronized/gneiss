@@ -24,7 +24,7 @@
 #include "runtime/main_loop_wakeup.hpp"
 #endif
 
-#include "engine/resource/vfs/asset_uri.hpp"
+#include "engine/resource/asset_uri.hpp"
 #include <cmath>
 #ifdef __EMSCRIPTEN__
 #include "engine/platform/files/browser/browser_file_backend.hpp"

@@ -9,7 +9,8 @@
 Platform 不再依赖旧 VFS 或资产层。独立 libuv 桌面后端已实现读、范围读、写、stat/list/flush。
 Windows 本地服务契约、桌面后端和资产管理小范围测试通过；Application 已直接装配 file_service 与 libuv 后端。
 asset_manager 的旧 VFS 构造、files() 和 load_sync/load_sync_erased 已删除，统一注入文件服务。
-旧适配器仅保留在 tests/support，生产引擎不再编译它；旧 VFS 与同步准备器本体仍待删除。
+旧适配器仅保留在 tests/support，生产引擎不再编译它；资产 URI 校验已独立到 resource/asset_uri。
+旧 VFS 与同步准备器本体仍待删除。
 asset_manager 已提供 find_loaded；普通 CPU、Mesh/Texture 异步加载已使用文件服务。
 宿主已统一分发文件完成，Manager、Scene 和 Texture Loader 不再隐式驱动共享服务。
 服务已增加在途及待分发字节缓冲的总预算；已知长度文件支持按需单块读取，无隐式预读。
