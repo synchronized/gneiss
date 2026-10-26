@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/render/scene_projection_math.hpp"
+#include "engine/core/math/scene_projection_math.hpp"
 #include <cmath>
 #include <glm/ext/matrix_transform.hpp>
 namespace gneiss::engine {

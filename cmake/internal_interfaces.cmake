@@ -74,7 +74,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   runtime/loading/scene_load_types.hpp
   engine/resource/types/action_map.hpp
   engine/function/input/input_service.hpp
-  engine/function/render/camera_math.hpp
+  engine/core/math/camera_math.hpp
   engine/core/math/camera_settings.hpp
   engine/function/render/debug_draw_list.hpp
   engine/function/render/draw_types.hpp

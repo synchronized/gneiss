@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_RENDER_NORMAL_MATH_HPP_
-#define GNEISS_RENDER_NORMAL_MATH_HPP_
+#ifndef GNEISS_CORE_NORMAL_MATH_HPP_
+#define GNEISS_CORE_NORMAL_MATH_HPP_
 
 #include "engine/core/math/transform.hpp"
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_RENDER_CAMERA_MATH_HPP_
-#define GNEISS_RENDER_CAMERA_MATH_HPP_
+#ifndef GNEISS_CORE_CAMERA_MATH_HPP_
+#define GNEISS_CORE_CAMERA_MATH_HPP_
 
 #include "engine/core/math/camera_settings.hpp"
 #include "engine/core/math/transform.hpp"

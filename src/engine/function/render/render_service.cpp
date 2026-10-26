@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/render/render_service.hpp"
+#include "engine/core/math/scene_projection_math.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/backend/granit/pbr_shader_resolver.hpp"
@@ -10,7 +11,6 @@
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_resource_service.hpp"
-#include "engine/function/render/scene_projection_math.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/platform/native_window_info.hpp"
 #include <array>
