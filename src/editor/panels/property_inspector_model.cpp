@@ -4,6 +4,7 @@
 #include "panels/property_inspector_model.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
 
 #include <algorithm>
@@ -23,9 +24,9 @@ void property_inspector_model::clear() noexcept {
   entity_ = {};
 }
 
-gneiss::engine::result property_inspector_model::refresh(gneiss::engine::rid world_handle,
+gneiss::engine::result property_inspector_model::refresh(gneiss::engine::world* world_handle,
                                                          entity_id entity) noexcept {
-  if (!registry_ || world_handle == gneiss::engine::null_rid || !entity.is_valid()) {
+  if (!registry_ || world_handle == nullptr || !entity.is_valid()) {
     clear();
     return gneiss::engine::result::invalid_argument;
   }
@@ -52,7 +53,7 @@ gneiss::engine::result property_inspector_model::refresh(gneiss::engine::rid wor
       for (std::uint32_t index = 0; index < type.fields.size(); ++index) {
         const auto& field = type.fields[index];
         gneiss::engine::value value;
-        operation = gneiss::engine::read_component_property(registry_, world_handle, entity.get(),
+        operation = gneiss::engine::read_component_property(registry_, *world_handle, entity.get(),
                                                             type.guid, field.id, value);
         if (operation == gneiss::engine::result::not_found) {
           component_missing = true;
@@ -88,7 +89,7 @@ gneiss::engine::result property_inspector_model::refresh(gneiss::engine::rid wor
 gneiss::engine::result
 property_inspector_model::set_value(gneiss::engine::type_guid type_id, field_id field_id,
                                     const gneiss::engine::value& value) noexcept {
-  if (!registry_ || world_ == gneiss::engine::null_rid || entity_.get() == UINT64_C(0)) {
+  if (!registry_ || world_ == nullptr || entity_.get() == UINT64_C(0)) {
     return gneiss::engine::result::invalid_state;
   }
   auto component = std::ranges::find_if(
@@ -103,12 +104,12 @@ property_inspector_model::set_value(gneiss::engine::type_guid type_id, field_id 
   if (!has_flags(property->capabilities, property_capabilities::writable)) {
     return gneiss::engine::result::unsupported;
   }
-  const auto operation = gneiss::engine::write_component_property(registry_, world_, entity_.get(),
+  const auto operation = gneiss::engine::write_component_property(registry_, *world_, entity_.get(),
                                                                   type_id, field_id, value);
   if (operation == gneiss::engine::result::success) {
     gneiss::engine::value refreshed;
     const auto read_operation = gneiss::engine::read_component_property(
-        registry_, world_, entity_.get(), type_id, field_id, refreshed);
+        registry_, *world_, entity_.get(), type_id, field_id, refreshed);
     if (read_operation != gneiss::engine::result::success) {
       return read_operation;
     }
@@ -118,14 +119,14 @@ property_inspector_model::set_value(gneiss::engine::type_guid type_id, field_id 
 }
 
 gneiss::engine::result
-property_inspector_model::set_value(gneiss::engine::rid world_handle, entity_id entity,
+property_inspector_model::set_value(gneiss::engine::world* world_handle, entity_id entity,
                                     gneiss::engine::type_guid type_id, field_id field_id,
                                     const gneiss::engine::value& value) noexcept {
-  if (!registry_ || world_handle == gneiss::engine::null_rid || !entity.is_valid()) {
+  if (!registry_ || world_handle == nullptr || !entity.is_valid()) {
     return gneiss::engine::result::invalid_argument;
   }
   const auto operation = gneiss::engine::write_component_property(
-      registry_, world_handle, entity.get(), type_id, field_id, value);
+      registry_, *world_handle, entity.get(), type_id, field_id, value);
   if (operation != gneiss::engine::result::success || world_handle != world_ ||
       entity.get() != entity_.get()) {
     return operation;

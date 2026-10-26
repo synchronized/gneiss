@@ -81,3 +81,5 @@ Reference 和实现为准。
 
 - [ADR-084：统一回调式文件服务](ADR-084-async-file-service.md)
 - [ADR-085：渲染资产分阶段读取与纯内存解码](ADR-085-render-asset-loading.md)
+
+- [ADR-086：场景对象身份与资源 RID 分离](ADR-086-scene-object-identities.md)

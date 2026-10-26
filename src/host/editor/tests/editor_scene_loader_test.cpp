@@ -6,7 +6,7 @@
 #include "engine/core/rid.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"
-#include "engine/function/world/world_service.hpp"
+#include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
 #include <chrono>
@@ -37,7 +37,7 @@ void run(gneiss::engine::execution_mode mode) {
   editor::editor_camera camera;
   auto& history = editing.history();
   editor::editor_scene_loader loader;
-  auto world = app->world();
+  auto world = app->native_world();
   check(session.create_empty(*app, world) == gneiss::engine::result::success);
   check(camera.initialize() == gneiss::engine::result::success);
   const auto original = world;
@@ -98,7 +98,7 @@ void run(gneiss::engine::execution_mode mode) {
   check(camera.is_valid() && session.nodes().size() == 2U);
   tick();
   std::uint64_t count{};
-  check(gneiss::engine::result{gneiss::engine::entity_count(current, count)} ==
+  check(gneiss::engine::result{current->entity_count(count)} ==
         gneiss::engine::result::invalid_handle);
   check(loader.request(*app, editing, "asset://scenes/prefab.scene.json") ==
         gneiss::engine::result::success);
@@ -106,8 +106,8 @@ void run(gneiss::engine::execution_mode mode) {
   check(loader.operation() == gneiss::engine::result::success && session.nodes().size() == 1U &&
         session.prefab_nodes().size() == 2U && camera.is_valid());
   // 无效场景的原生查询拒绝，不影响活动场景。
-  check(gneiss::engine::result{app->scenes()->get_node_count(gneiss::engine::null_rid, &count)} ==
-        gneiss::engine::result::invalid_handle);
+  check(gneiss::engine::result{app->scenes()->get_node_count(
+            gneiss::scene_instance_id{}, &count)} == gneiss::engine::result::invalid_handle);
   camera.shutdown();
   session.close();
   // 在途任务随 Application 关闭；执行器必须最后销毁。

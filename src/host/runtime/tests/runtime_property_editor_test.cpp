@@ -29,8 +29,8 @@ namespace {
 
 bool test_write_and_revision() {
   gneiss::engine::world_owner owner;
-  gneiss::engine::rid world{};
-  GNEISS_TEST_CHECK(gneiss::engine::create_native(owner, world) == gneiss::engine::result::success);
+
+  GNEISS_TEST_CHECK(gneiss::engine::create_native(owner) == gneiss::engine::result::success);
   gneiss::entity_id entity;
   GNEISS_TEST_CHECK(owner->entity_create(entity) == gneiss::engine::result::success);
   gneiss::scene_node_id scene_node;
@@ -57,7 +57,7 @@ bool test_write_and_revision() {
   GNEISS_TEST_CHECK(inspection.capture(nodes, false, snapshot) == gneiss::engine::result::success);
 
   gneiss::host::runtime_property_editor editor;
-  GNEISS_TEST_CHECK(editor.initialize(world, inspection, 7U) == gneiss::engine::result::success);
+  GNEISS_TEST_CHECK(editor.initialize(*owner, inspection, 7U) == gneiss::engine::result::success);
   const gneiss::host::ipc_property_write command{
       .session_id = 7U,
       .command_id = 1U,
@@ -96,11 +96,11 @@ bool test_write_and_revision() {
 
 bool test_rejections() {
   gneiss::engine::world_owner owner;
-  gneiss::engine::rid world{};
-  GNEISS_TEST_CHECK(gneiss::engine::create_native(owner, world) == gneiss::engine::result::success);
+
+  GNEISS_TEST_CHECK(gneiss::engine::create_native(owner) == gneiss::engine::result::success);
   gneiss::host::runtime_scene_inspection inspection(9U);
   gneiss::host::runtime_property_editor editor;
-  GNEISS_TEST_CHECK(editor.initialize(world, inspection, 9U) == gneiss::engine::result::success);
+  GNEISS_TEST_CHECK(editor.initialize(*owner, inspection, 9U) == gneiss::engine::result::success);
   const gneiss::host::ipc_property_write missing{
       .session_id = 9U,
       .command_id = 1U,

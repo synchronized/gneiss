@@ -5,14 +5,15 @@
 
 ## World 生命周期
 
-`gneiss::engine::create_native(owner, borrowed)` 创建空 World，返回唯一拥有者 `world_owner`
-和只借用的 RID。拥有者在创建线程释放时销毁 World 及全部实体、组件，并撤销借用 RID。
-工厂失败不替换已有 owner，输出 RID 置零；Application 拥有的 World 不授予调用方销毁权。
-完整 World C API 与版本化创建描述已经删除。
+`gneiss::engine::create_native(owner)` 创建空 World，返回独占拥有者 `world_owner`。
+拥有者在创建线程释放时销毁 World 及全部实体、组件；失败不替换 owner，重复创建返回 invalid_state。
+World 不再登记全局 RID 表，不提供借用 RID 或 world_service 转发接口。
+工厂仅分配节点与实体校验所需的唯一所属域，域编号不会复用。
 
 World 及其实体只能在创建线程访问；跨线程操作返回 `result::invalid_state`。
-拥有者有效期间直接调用原生 `world` 成员，不能在销毁后访问借用指针。
-内部注册表验证 RID 的 domain、generation 和线程归属，失效 RID 返回 `invalid_handle`。
+内部直接借用 world&；Application 的 native_world() 返回活动对象的借用指针。
+场景切换或关闭后必须重新获取，禁止解引用旧指针；借用者必须在 World 销毁前清理。
+反射组件入口也直接接收 world&，不再按句柄查回对象。
 
 ## Entity 生命周期
 

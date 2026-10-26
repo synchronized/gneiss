@@ -169,8 +169,7 @@ target_sources(
     engine/function/world/world.cpp
     engine/function/world/world.hpp
     engine/function/world/world_types.hpp
-    engine/function/world/world_service.cpp
-    engine/function/world/world_service.hpp
+    engine/function/world/world_factory.cpp
     engine/function/world/world_reflection.hpp
     engine/function/world/component_reflection.cpp
     engine/function/world/world_state.hpp

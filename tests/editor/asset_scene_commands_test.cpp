@@ -19,11 +19,11 @@ int main() try {
   gneiss::runtime::application_configuration desc;
   desc.asset_root = assets;
   std::shared_ptr<gneiss::runtime::application> app;
-  gneiss::engine::rid world = gneiss::engine::null_rid;
+  gneiss::engine::world* world = nullptr;
   scene_document session;
   editor_command_history history;
   if (gneiss::engine::result{gneiss::runtime::application::create(desc, app)}.failed() ||
-      (world = app->world()) == gneiss::engine::null_rid ||
+      (world = app->native_world()) == nullptr ||
       session.open(*app, world, "asset://scenes/triangle.scene.json").failed()) {
     return 1;
   }

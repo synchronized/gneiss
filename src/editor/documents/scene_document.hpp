@@ -9,6 +9,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
+#include "engine/function/world/world.hpp"
 #include "engine/resource/types/scene_description.hpp"
 namespace gneiss::runtime {
 class application;
@@ -97,15 +98,17 @@ public:
   scene_document& operator=(scene_document&& other) noexcept;
   /** 接收已经激活的场景；成功后拥有句柄，所属线程调用。 */
   [[nodiscard]] gneiss::engine::result adopt(runtime::application& application,
-                                             gneiss::engine::rid world, gneiss::engine::rid scene,
+                                             gneiss::engine::world* world,
+                                             gneiss::scene_instance_id scene,
                                              std::string_view uri) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  open(runtime::application& application, gneiss::engine::rid world, std::string_view uri) noexcept;
+  [[nodiscard]] gneiss::engine::result open(runtime::application& application,
+                                            gneiss::engine::world* world,
+                                            std::string_view uri) noexcept;
   [[nodiscard]] gneiss::engine::result create_empty(runtime::application& application,
-                                                    gneiss::engine::rid world,
+                                                    gneiss::engine::world* world,
                                                     std::string_view scene_uuid) noexcept;
   [[nodiscard]] gneiss::engine::result create_empty(runtime::application& application,
-                                                    gneiss::engine::rid world) noexcept;
+                                                    gneiss::engine::world* world) noexcept;
   void close() noexcept;
 
   [[nodiscard]] bool is_open() const noexcept;
@@ -114,7 +117,7 @@ public:
       const scene_node_snapshot& snapshot,
       const std::function<gneiss::engine::result(scene_node_id, scene_node_id&)>& create,
       scene_node_id& output) noexcept;
-  [[nodiscard]] gneiss::engine::rid scene_handle() const noexcept { return scene_; }
+  [[nodiscard]] gneiss::scene_instance_id scene_handle() const noexcept { return scene_; }
   /** 预分配作者值后调用提交；回调失败不改编辑器镜像，不执行资产加载。 */
   [[nodiscard]] gneiss::engine::result
   commit_mesh_renderer(scene_node_id node, std::string_view mesh_uri, std::string_view material_uri,
@@ -158,10 +161,10 @@ public:
                           scene_node_id& out_root) noexcept;
   [[nodiscard]] gneiss::engine::result
   refresh_prefab_instance(scene_node_id root, scene_node_id& out_new_root,
-                          gneiss::engine::rid& out_token) noexcept;
-  [[nodiscard]] gneiss::engine::result toggle_prefab_refresh(gneiss::engine::rid token,
+                          gneiss::prefab_refresh_token& out_token) noexcept;
+  [[nodiscard]] gneiss::engine::result toggle_prefab_refresh(gneiss::prefab_refresh_token token,
                                                              scene_node_id& out_new_root) noexcept;
-  void release_prefab_refresh(gneiss::engine::rid token) noexcept;
+  void release_prefab_refresh(gneiss::prefab_refresh_token token) noexcept;
   [[nodiscard]] gneiss::engine::result rename_node(scene_node_id node,
                                                    std::string_view name) noexcept;
   [[nodiscard]] gneiss::engine::result reparent_node(scene_node_id node,
@@ -219,10 +222,10 @@ private:
                                                std::string* saved_content) noexcept;
   [[nodiscard]] gneiss::engine::result
   create_mesh_renderer_node(const scene_node_snapshot& snapshot, scene_node_id& out_node) noexcept;
-  gneiss::engine::rid world_ = 0;
+  gneiss::engine::world* world_ = nullptr;
   // 借用宿主；宿主必须在关闭/销毁 Application 前关闭编辑文档。
   runtime::application* application_{};
-  gneiss::engine::rid scene_{};
+  gneiss::scene_instance_id scene_{};
   std::vector<scene_node_record> nodes_;
   std::vector<prefab_node_record> prefab_nodes_;
   scene_node_id selection_;

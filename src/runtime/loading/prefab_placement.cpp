@@ -3,14 +3,15 @@
 #include "runtime/loading/prefab_placement.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/scene_types.hpp"
 #include "engine/function/scene/structural_diff.hpp"
-#include "engine/function/world/world_service.hpp"
+#include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 #include <algorithm>
 
 namespace gneiss::runtime {
 gneiss::engine::result prefab_placement::capture_step(
-    runtime::application& application, std::string_view uuid, gneiss::engine::rid scene,
+    runtime::application& application, std::string_view uuid, gneiss::scene_instance_id scene,
     std::shared_ptr<prefab_placement_snapshot>& snapshot, bool& complete) noexcept try {
   complete = false;
   auto* host = &application;
@@ -88,12 +89,12 @@ prefab_placement::freeze(runtime::application& application,
 }
 prefab_placement::prefab_placement(runtime::application& application,
                                    std::shared_ptr<const prefab_placement_snapshot> snapshot,
-                                   gneiss::engine::rid scene, bool removing)
+                                   gneiss::scene_instance_id scene, bool removing)
     : application_(application), scene_(scene), snapshot_(std::move(snapshot)),
       removing_(removing) {}
 prefab_placement::~prefab_placement() = default;
 gneiss::engine::result
-prefab_placement::begin(runtime::application& application, gneiss::engine::rid scene,
+prefab_placement::begin(runtime::application& application, gneiss::scene_instance_id scene,
                         std::shared_ptr<const prefab_placement_snapshot> snapshot, bool removing,
                         std::unique_ptr<prefab_placement>& output, bool replacing) noexcept try {
   output.reset();

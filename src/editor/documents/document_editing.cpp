@@ -4,6 +4,7 @@
 #include "documents/document_editing.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/world/world.hpp"
 namespace gneiss::editor {
 bool document_editing::active() const noexcept {
   return assets_.active() || prefabs_.active() || history_.is_pending();
@@ -21,7 +22,7 @@ void document_editing::advance_cleanup(runtime::application& application) {
   assets_.advance(application, document_, history_);
 }
 gneiss::engine::result document_editing::create_empty(runtime::application& application,
-                                                      gneiss::engine::rid world) {
+                                                      gneiss::engine::world* world) {
   if (active())
     return gneiss::engine::result::not_ready;
   scene_document candidate;

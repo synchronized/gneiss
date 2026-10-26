@@ -76,7 +76,7 @@ void run_sync_reload() {
   check(gneiss::engine::result{runtime::application::create(desc, app)} ==
         gneiss::engine::result::success);
   constexpr std::string_view uri = "asset://s.scene.json";
-  gneiss::engine::rid scene{};
+  gneiss::scene_instance_id scene{};
   check(gneiss::engine::result{app->scenes()->load(uri, &scene)} ==
         gneiss::engine::result::success);
   const auto pixel = [&] {
@@ -114,7 +114,7 @@ void run_pending_resources() {
   check(gneiss::engine::result{runtime::application::create(desc, app)} ==
         gneiss::engine::result::success);
   constexpr std::string_view uri = "asset://s.scene.json";
-  gneiss::engine::rid scene{};
+  gneiss::scene_instance_id scene{};
   check(gneiss::engine::result{app->scenes()->load(uri, &scene)} ==
         gneiss::engine::result::success);
   auto native = app;
@@ -281,7 +281,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
   check(gneiss::engine::result{runtime::application::create(desc, app)} ==
         gneiss::engine::result::success);
   constexpr std::string_view uri = "asset://s.scene.json";
-  gneiss::engine::rid scene{};
+  gneiss::scene_instance_id scene{};
   if (async) {
     using namespace runtime;
     check(app->attach_task_executor(scheduler) == gneiss::engine::result::success);
@@ -385,7 +385,7 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
   check(gneiss::engine::result{runtime::application::create(desc, app)} ==
         gneiss::engine::result::success);
   constexpr std::string_view uri = "asset://s.scene.json";
-  gneiss::engine::rid scene{};
+  gneiss::scene_instance_id scene{};
   check(gneiss::engine::result{app->scenes()->load(uri, &scene)} ==
         gneiss::engine::result::success);
   check(gneiss::engine::result{app->run(3U)} == gneiss::engine::result::success);
@@ -500,7 +500,7 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   check(gneiss::engine::result{runtime::application::create(desc, app)} ==
         gneiss::engine::result::success);
   constexpr std::string_view uri = "asset://s.scene.json";
-  gneiss::engine::rid scene{};
+  gneiss::scene_instance_id scene{};
   check(gneiss::engine::result{app->scenes()->load(uri, &scene)} ==
         gneiss::engine::result::success);
   check(gneiss::engine::result{app->run(3U)} == gneiss::engine::result::success);
@@ -577,7 +577,7 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
   check(gneiss::engine::result{runtime::application::create(desc, app)} ==
         gneiss::engine::result::success);
   check(app->attach_task_executor(scheduler) == gneiss::engine::result::success);
-  gneiss::engine::rid scene{};
+  gneiss::scene_instance_id scene{};
   constexpr std::string_view uri = "asset://s.scene.json";
   check(gneiss::engine::result{app->scenes()->load(uri, &scene)} ==
         gneiss::engine::result::success);
@@ -682,7 +682,7 @@ void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
         gneiss::engine::result::success);
   check(app->attach_task_executor(scheduler) == gneiss::engine::result::success);
   constexpr std::string_view uri = "asset://s.scene.json";
-  gneiss::engine::rid scene{};
+  gneiss::scene_instance_id scene{};
   check(gneiss::engine::result{app->scenes()->load(uri, &scene)} ==
         gneiss::engine::result::success);
   check(gneiss::engine::result{app->run(3U)} == gneiss::engine::result::success);

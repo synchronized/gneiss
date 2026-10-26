@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/math/transform.hpp"
 #include "engine/core/reflection/type_builder.hpp"
+#include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
-#include "engine/function/world/world_service.hpp"
 #include <cmath>
 #include <numbers>
 
@@ -89,35 +89,37 @@ namespace gneiss::engine {
 namespace {
 /** World 接口负责线程与实体校验；反射只修改副本，成功后才提交。 */
 template <class Access>
-result access_component(rid world, std::uint64_t entity, type_guid type, bool write,
+result access_component(world& world, std::uint64_t entity, type_guid type, bool write,
                         Access&& access) noexcept {
   if (type == transform_component_type) {
     transform value;
-    auto operation = entity_get_local_transform(world, entity, value);
+    auto operation = world.entity_get_local_transform(entity_id{entity}, value);
     if (operation.failed())
       return operation;
     operation = access(&value);
-    return operation.failed() || !write ? operation
-                                        : entity_set_local_transform(world, entity, value);
+    return operation.failed() || !write
+               ? operation
+               : world.entity_set_local_transform(entity_id{entity}, value);
   }
   if (type == camera_component_type) {
     camera_properties value;
-    auto operation = entity_get_camera(world, entity, value.settings);
+    auto operation = world.entity_get_camera(entity_id{entity}, value.settings);
     if (operation.failed())
       return operation;
-    std::uint64_t active{};
-    operation = get_active_camera(world, active);
+    entity_id active{};
+    operation = world.get_active_camera(active);
     if (operation.failed() && operation != result::not_ready)
       return operation;
-    value.is_primary = active == entity;
+    value.is_primary = active.get() == entity;
     operation = access(&value);
-    return operation.failed() || !write ? operation
-                                        : entity_configure_camera(world, entity, value.settings);
+    return operation.failed() || !write
+               ? operation
+               : world.entity_configure_camera(entity_id{entity}, value.settings);
   }
   return result::unsupported;
 }
 }
-result read_component_property(const registry_ref& registry, rid world, std::uint64_t entity,
+result read_component_property(const registry_ref& registry, world& world, std::uint64_t entity,
                                type_guid type, field_id field,
                                gneiss::engine::value& value) noexcept {
   if (!registry)
@@ -126,7 +128,7 @@ result read_component_property(const registry_ref& registry, rid world, std::uin
     return read_property(registry, type, field, object, value);
   });
 }
-result write_component_property(const registry_ref& registry, rid world, std::uint64_t entity,
+result write_component_property(const registry_ref& registry, world& world, std::uint64_t entity,
                                 type_guid type, field_id field,
                                 const gneiss::engine::value& value) noexcept {
   if (!registry)

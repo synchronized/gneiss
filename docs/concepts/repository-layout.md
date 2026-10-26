@@ -171,7 +171,7 @@ Engine 公共接口统一位于 `include/gneiss/engine/`，基础类型位于其
 | 场景切换 | `src/runtime/loading/scene_service.hpp` | 拥有活动与退役域、内部加载任务，协调激活 |
 | 加载实现 | `src/runtime/loading/scene_service_loading.cpp` | 统一服务的内部临时任务；后台准备、同步实例化与激活 |
 | 场景域 | `src/runtime/loading/scene_domain.hpp` | 仅拥有 World 与场景实例集合；不重复存储资源加载器引用或 World RID，初始化成功才发布 |
-| World 数据和操作 | `src/engine/function/world/world.hpp` | 原生对象拥有 ECS/树状态；`world_service.hpp` 管理 C 兼容句柄与反射接入 |
+| World 数据和操作 | `src/engine/function/world/world.hpp` | 原生对象拥有 ECS/树状态；`world_factory.cpp` 创建独占拥有者，反射直接借用对象 |
 | Scene 实例集合 | `src/engine/function/scene/scene_instances.hpp` | 通过强类型节点 ID 操作实例；借用所属 World |
 | Scene 私有实例 | `src/engine/function/scene/scene_instance.hpp` | 维护节点、作者描述及所使用资源版本的租约，不向宿主提供头文件 |
 | Prefab 候选事务 | `src/engine/function/scene/prefab_candidate.hpp` | 独占未发布候选或退休实例；支持移动与分步清理，不暴露运行时实现 |

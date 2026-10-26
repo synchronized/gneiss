@@ -8,6 +8,7 @@
 #include "engine/core/math/transform.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/scene_types.hpp"
 #include "ipc_inspection_protocol.hpp"
 
 #include "engine/core/rid.hpp"
@@ -56,7 +57,8 @@ public:
                                                bool force_full,
                                                runtime_scene_snapshot& output) noexcept;
   [[nodiscard]] gneiss::engine::result capture_scene(::gneiss::runtime::application& application,
-                                                     gneiss::engine::rid scene, bool force_full,
+                                                     gneiss::scene_instance_id scene,
+                                                     bool force_full,
                                                      runtime_scene_snapshot& output) noexcept;
   [[nodiscard]] gneiss::engine::result resolve_entity(ipc_runtime_object_id object,
                                                       std::uint64_t& output) const noexcept;

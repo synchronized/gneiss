@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include <compare>
 #include <concepts>
 #include <cstdint>
 
@@ -11,15 +12,44 @@ class scene_node_id final {
 public:
   constexpr scene_node_id() noexcept = default;
   explicit constexpr scene_node_id(std::uint64_t value) noexcept : value_(value) {}
+  explicit constexpr operator bool() const noexcept { return value_ != 0U; }
   [[nodiscard]] constexpr bool is_valid() const noexcept { return value_ != 0; }
   [[nodiscard]] constexpr std::uint64_t get() const noexcept { return value_; }
-  friend constexpr bool operator==(scene_node_id, scene_node_id) noexcept = default;
+  friend constexpr auto operator<=>(scene_node_id, scene_node_id) noexcept = default;
 
 private:
   std::uint64_t value_ = 0;
 };
 
 inline constexpr scene_node_id null_scene_node_id{};
+/** 非拥有的运行期标识；不能与节点或渲染资源句柄混用。 */
+class scene_instance_id final {
+public:
+  constexpr scene_instance_id() noexcept = default;
+  explicit constexpr scene_instance_id(std::uint64_t value) noexcept : value_(value) {}
+  explicit constexpr operator bool() const noexcept { return value_ != 0U; }
+  [[nodiscard]] constexpr bool is_valid() const noexcept { return value_ != 0U; }
+  [[nodiscard]] constexpr std::uint64_t get() const noexcept { return value_; }
+  friend constexpr auto operator<=>(scene_instance_id, scene_instance_id) noexcept = default;
+
+private:
+  std::uint64_t value_{};
+};
+
+/** 非拥有的运行期标识；不能与节点或渲染资源句柄混用。 */
+class prefab_refresh_token final {
+public:
+  constexpr prefab_refresh_token() noexcept = default;
+  explicit constexpr prefab_refresh_token(std::uint64_t value) noexcept : value_(value) {}
+  explicit constexpr operator bool() const noexcept { return value_ != 0U; }
+  [[nodiscard]] constexpr bool is_valid() const noexcept { return value_ != 0U; }
+  [[nodiscard]] constexpr std::uint64_t get() const noexcept { return value_; }
+  friend constexpr auto operator<=>(prefab_refresh_token, prefab_refresh_token) noexcept = default;
+
+private:
+  std::uint64_t value_{};
+};
+
 // NOLINTNEXTLINE(performance-enum-size): 保留完整标志位宽度。
 enum class scene_node_components : std::uint32_t {
   none = 0,

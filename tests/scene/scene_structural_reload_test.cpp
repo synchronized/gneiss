@@ -44,7 +44,7 @@ int main() try {
   gneiss::runtime::application_configuration config;
   config.asset_root = root_text;
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss::engine::rid scene = gneiss::engine::null_rid;
+  gneiss::scene_instance_id scene = {};
   gneiss::scene_node_id camera_before;
   gneiss::scene_node_id old_child;
   gneiss::entity_id camera_entity_before;

@@ -5,7 +5,6 @@
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/function/world/world_service.hpp"
 #include "runtime/application.hpp"
 
 #include <atomic>
@@ -91,7 +90,7 @@ void test_asset_request_boundaries() {
     std::uint64_t request = 17;
     bool ready = true;
     runtime::scene_load_completion scene_completion;
-    scene_completion.scene = 29;
+    scene_completion.scene = gneiss::scene_instance_id{29};
     runtime::scene_load_progress scene_progress;
     check(app->request_scene("project://missing.scene", 1, 1, request) ==
               gneiss::engine::result::invalid_state &&
@@ -100,19 +99,20 @@ void test_asset_request_boundaries() {
           !ready);
     check(app->cancel_scene(1) == gneiss::engine::result::invalid_state);
     check(app->activate_scene(1, scene_completion) == gneiss::engine::result::invalid_state);
-    check(!app->scene_progress(scene_progress) && scene_completion.scene == 29);
+    check(!app->scene_progress(scene_progress) &&
+          scene_completion.scene == gneiss::scene_instance_id{29});
     gneiss::engine::texture_load_completion completion;
     completion.request = 23;
     gneiss::engine::render_asset_ref lease;
     gneiss::engine::scene_instances::mesh_binding binding;
     gneiss::scene_node_id created{19};
-    check(app->create_mesh_node_ready(0, {}, {}, created) ==
+    check(app->create_mesh_node_ready({}, {}, {}, created) ==
               gneiss::engine::result::invalid_state &&
           !created.is_valid());
     check(app->collect_unused_edit_assets() == gneiss::engine::result::invalid_state);
     check(app->query_ready_asset({}, lease) == gneiss::engine::result::invalid_state && !lease);
-    check(app->capture_mesh_binding(0, {}, binding) == gneiss::engine::result::invalid_state);
-    check(app->replace_mesh_binding(0, {}, binding, binding) ==
+    check(app->capture_mesh_binding({}, {}, binding) == gneiss::engine::result::invalid_state);
+    check(app->replace_mesh_binding({}, {}, binding, binding) ==
           gneiss::engine::result::invalid_state);
     check(app->prepare_edit_assets({}, 1, request) == gneiss::engine::result::invalid_state &&
           request == 0);
@@ -222,8 +222,8 @@ int main() try {
   worker.join();
   check(other_thread == gneiss::engine::result::invalid_state && state.frames == 3U);
   // Application 持有的 World 不授予调用方销毁权。
-  const auto borrowed_world = app->world();
-  check(gneiss::engine::destroy_world(borrowed_world) == gneiss::engine::result::invalid_state);
+  const auto borrowed_world = app->native_world();
+  check(borrowed_world != nullptr);
   gneiss::entity_id owned_entity;
   check(app->native_world()->entity_create(owned_entity) == gneiss::engine::result::success);
   check(state.shutdowns == 0U);
@@ -236,10 +236,8 @@ int main() try {
   previous.reset();
   check(app->run(1U) == gneiss::engine::result::success && state.frames == 4U);
   check(app->shutdown() == gneiss::engine::result::success);
-  std::uint64_t count{};
-  check(gneiss::engine::entity_count(borrowed_world, count) ==
-        gneiss::engine::result::invalid_handle);
-  check(gneiss::engine::destroy_world(borrowed_world) == gneiss::engine::result::invalid_handle);
+  // 关闭后借用失效，不再解引用旧指针。
+  check(app->native_world() == nullptr);
   check(app->run(1U) == gneiss::engine::result::invalid_state);
   app.reset();
   check(state.shutdowns == 2U);

@@ -41,14 +41,14 @@ int main() try {
   constexpr std::string_view missing_mesh_uri = "asset://models/missing.mesh.json";
   const auto application = create_application(asset_root);
   const auto second_application = create_application(asset_root);
-  gneiss::engine::rid scene = gneiss::engine::null_rid;
+  gneiss::scene_instance_id scene = {};
   gneiss::scene_node_id triangle;
   gneiss::scene_node_id camera_node;
   std::uint64_t entity_count = 0;
   std::uint64_t node_count = 0;
   if (application == nullptr || second_application == nullptr ||
       application->scenes()->load(scene_uri, &scene) != gneiss::engine::result::success ||
-      scene == gneiss::engine::null_rid ||
+      scene == gneiss::scene_instance_id{} ||
       application->native_world()->entity_count(entity_count) != gneiss::engine::result::success ||
       entity_count != 2U ||
       application->scenes()->find_node(scene, triangle_uuid, triangle) !=
@@ -82,7 +82,7 @@ int main() try {
     return 2;
   }
   gneiss::engine::scene_node_view invalid_info;
-  if (application->scenes()->get_node_info(gneiss::engine::null_rid, 0U, invalid_info) !=
+  if (application->scenes()->get_node_info(gneiss::scene_instance_id{}, 0U, invalid_info) !=
       gneiss::engine::result::invalid_handle) {
     return 3;
   }
@@ -111,7 +111,7 @@ int main() try {
   author_camera.near_plane = -1.0F;
   if (application->scenes()->set_camera(scene, created_node, author_camera) !=
           gneiss::engine::result::invalid_argument ||
-      application->scenes()->set_camera(gneiss::engine::null_rid, created_node, author_camera) !=
+      application->scenes()->set_camera(gneiss::scene_instance_id{}, created_node, author_camera) !=
           gneiss::engine::result::invalid_handle ||
       application->scenes()->set_camera(scene, gneiss::scene_node_id{UINT64_MAX}, author_camera) !=
           gneiss::engine::result::invalid_handle) {
@@ -276,11 +276,11 @@ int main() try {
     return 9;
   }
   constexpr std::string_view empty_uuid = "00000000-0000-4000-8000-000000000099";
-  gneiss::engine::rid empty_scene = gneiss::engine::null_rid;
+  gneiss::scene_instance_id empty_scene = gneiss::scene_instance_id{};
   std::uint64_t empty_count = 1U;
   if (application->scenes()->create_empty("invalid", &empty_scene) !=
           gneiss::engine::result::invalid_argument ||
-      empty_scene != gneiss::engine::null_rid ||
+      empty_scene != gneiss::scene_instance_id{} ||
       application->scenes()->create_empty(empty_uuid, &empty_scene) !=
           gneiss::engine::result::success ||
       application->scenes()->get_node_count(empty_scene, &empty_count) !=
@@ -304,14 +304,14 @@ int main() try {
   }
 
   const auto failing_application = create_application(failure_root);
-  scene = gneiss::engine::null_rid;
+  scene = gneiss::scene_instance_id{};
   if (failing_application == nullptr ||
       failing_application->scenes()->load(missing_uri, &scene) !=
           gneiss::engine::result::not_found ||
-      scene != gneiss::engine::null_rid ||
+      scene != gneiss::scene_instance_id{} ||
       failing_application->scenes()->load(corrupt_uri, &scene) !=
           gneiss::engine::result::invalid_argument ||
-      scene != gneiss::engine::null_rid ||
+      scene != gneiss::scene_instance_id{} ||
       failing_application->scenes()->create_empty(empty_uuid, &scene) !=
           gneiss::engine::result::success ||
       failing_application->scenes()->unload(scene) != gneiss::engine::result::success ||

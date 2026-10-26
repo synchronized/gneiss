@@ -12,6 +12,7 @@
 #include <limits>
 #include <new>
 #include <optional>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -22,8 +23,6 @@ enum class resource_type : std::uint8_t {
   test_resource = 1,
   mesh = 2,
   material = 3,
-  world = 4,
-  application = 5,
   scene_instance = 6,
   texture = 7,
 };
@@ -63,8 +62,9 @@ struct rid_parts {
 
 } // namespace detail
 
-/** 单个 Service 拥有的资源表；调用方负责外部同步。 */
-template <typename Resource> class rid_table final {
+/** 所有者持有的代次槽位表；默认使用资源 RID，也可指定独立强类型标识。
+ * 调用方负责外部同步；不同 Identifier 的接口不能互传句柄。 */
+template <typename Resource, typename Identifier = rid> class rid_table final {
 public:
   explicit rid_table(std::uint16_t domain) noexcept : domain_(domain) {}
 
@@ -75,11 +75,11 @@ public:
 
   template <typename Value>
   [[nodiscard]] gneiss::engine::result create(resource_type type, Value&& value,
-                                              rid* out_rid) noexcept {
+                                              Identifier* out_rid) noexcept {
     if (out_rid == nullptr || domain_ == 0U || type == resource_type::invalid) {
       return gneiss::engine::result::invalid_argument;
     }
-    *out_rid = null_rid;
+    *out_rid = Identifier{};
 
     try {
       std::size_t index = 0;
@@ -98,8 +98,8 @@ public:
       auto& slot = slots_[index];
       slot.value.emplace(std::forward<Value>(value));
       slot.type = type;
-      *out_rid =
-          detail::encode_rid({static_cast<std::uint32_t>(index), slot.generation, type, domain_});
+      *out_rid = Identifier{
+          detail::encode_rid({static_cast<std::uint32_t>(index), slot.generation, type, domain_})};
       return gneiss::engine::result::success;
     } catch (const std::bad_alloc&) {
       return gneiss::engine::result::out_of_memory;
@@ -108,24 +108,25 @@ public:
     }
   }
 
-  [[nodiscard]] Resource* get(rid value, resource_type expected_type) noexcept {
-    const auto parts = detail::decode_rid(value);
+  [[nodiscard]] Resource* get(Identifier value, resource_type expected_type) noexcept {
+    const auto parts = detail::decode_rid(raw(value));
     if (!is_valid(parts, expected_type)) {
       return nullptr;
     }
     return &*slots_[parts.slot].value;
   }
 
-  [[nodiscard]] const Resource* get(rid value, resource_type expected_type) const noexcept {
-    const auto parts = detail::decode_rid(value);
+  [[nodiscard]] const Resource* get(Identifier value, resource_type expected_type) const noexcept {
+    const auto parts = detail::decode_rid(raw(value));
     if (!is_valid(parts, expected_type)) {
       return nullptr;
     }
     return &*slots_[parts.slot].value;
   }
 
-  [[nodiscard]] gneiss::engine::result destroy(rid value, resource_type expected_type) noexcept {
-    const auto parts = detail::decode_rid(value);
+  [[nodiscard]] gneiss::engine::result destroy(Identifier value,
+                                               resource_type expected_type) noexcept {
+    const auto parts = detail::decode_rid(raw(value));
     if (!is_valid(parts, expected_type)) {
       return gneiss::engine::result::invalid_handle;
     }
@@ -160,6 +161,12 @@ public:
   }
 
 private:
+  static rid raw(Identifier value) noexcept {
+    if constexpr (std::is_same_v<Identifier, rid>)
+      return value;
+    else
+      return value.get();
+  }
   struct slot {
     std::optional<Resource> value;
     std::uint16_t generation = 1U;

@@ -6,7 +6,7 @@
 #include "engine/core/type_id.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
-#include "engine/function/world/world_service.hpp"
+#include "engine/function/world/world.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
 #include "runtime/loading/scene_domain.hpp"
@@ -153,15 +153,15 @@ void run() {
     check(!active_render.owns(foreign_mesh));
   }
   auto active = std::make_unique<runtime::scene_domain>();
-  check(active->native_world() == nullptr && active->world() == gneiss::engine::null_rid &&
+  check(active->native_world() == nullptr && active->native_world() == nullptr &&
         active->scenes() == nullptr);
   check(active->initialize(active_render) == gneiss::engine::result::success);
-  const auto initialized_world = active->world();
+  const auto initialized_world = active->native_world();
   auto* initialized_scenes = active->scenes();
   check(active->initialize(active_render) == gneiss::engine::result::invalid_state);
-  check(active->world() == initialized_world && active->scenes() == initialized_scenes);
+  check(active->native_world() == initialized_world && active->scenes() == initialized_scenes);
 
-  gneiss::engine::rid old_scene{};
+  gneiss::scene_instance_id old_scene{};
   check(active->scenes()->load("asset://s.scene", &old_scene) == gneiss::engine::result::success);
   gneiss::engine::scene_node_view old_info;
   check(active->scenes()->get_node_info(old_scene, 0U, old_info) ==
@@ -230,20 +230,20 @@ void run() {
   check(gneiss::engine::asset_rid(unrelated) != gneiss::engine::asset_rid(material));
   staged.clear();
   const auto reads = files->reads;
-  gneiss::engine::rid new_scene{};
+  gneiss::scene_instance_id new_scene{};
   // 缺少来源引用必须拒绝，不能通过临时描述回写缓存。
   auto missing_source = prepared;
   missing_source.prefabs.begin()->second.resource.reset();
-  gneiss::engine::rid rejected_scene{};
+  gneiss::scene_instance_id rejected_scene{};
   check(candidate->scenes()->instantiate_prepared(std::move(missing_source), bindings,
                                                   rejected_scene) ==
             gneiss::engine::result::invalid_argument &&
-        rejected_scene == gneiss::engine::null_rid);
+        rejected_scene == gneiss::scene_instance_id{});
   check(candidate->scenes()->instantiate_prepared(std::move(prepared), bindings, new_scene) ==
         gneiss::engine::result::success);
-  check(new_scene != gneiss::engine::null_rid);
+  check(new_scene != gneiss::scene_instance_id{});
   std::uint64_t unchanged_count{};
-  check(gneiss::engine::result{gneiss::engine::entity_count(active->world(), unchanged_count)} ==
+  check(gneiss::engine::result{active->native_world()->entity_count(unchanged_count)} ==
             gneiss::engine::result::success &&
         unchanged_count == 1U);
   check(resources.get_material(gneiss::engine::asset_rid(old_material))->parameters.color[0] ==
@@ -323,13 +323,13 @@ void run() {
   check(has_rid(mesh_rid) && has_rid(selected_material) &&
         !has_rid(gneiss::engine::asset_rid(unrelated)));
   // 多个场景共享相同 URI 的资源，按 RID 去重。
-  gneiss::engine::rid additional{};
+  gneiss::scene_instance_id additional{};
   check(candidate->scenes()->load("asset://s.scene", &additional) ==
         gneiss::engine::result::success);
   check(candidate->scenes()->capture_render_assets(captured) == gneiss::engine::result::success);
   check(captured.size() == 2U && has_rid(selected_material) &&
         !has_rid(gneiss::engine::asset_rid(unrelated)));
-  gneiss::engine::rid duplicate_scene{};
+  gneiss::scene_instance_id duplicate_scene{};
   check(candidate->scenes()->load("asset://s.scene", &duplicate_scene) ==
         gneiss::engine::result::success);
   check(candidate->scenes()->capture_render_assets(captured) == gneiss::engine::result::success);
@@ -366,12 +366,12 @@ void run() {
                                                "asset://m.material") ==
         gneiss::engine::result::success);
   check(files->reads == edit_reads);
-  check(gneiss::engine::replace_mesh_renderers(candidate->world(), unchanged) ==
+  check(candidate->native_world()->replace_mesh_renderers(unchanged) ==
         gneiss::engine::result::success);
   check(candidate->scenes()->set_mesh_renderer(new_scene, ordinary.node, "asset://m.mesh",
                                                "asset://missing.material") ==
         gneiss::engine::result::not_found);
-  check(gneiss::engine::replace_mesh_renderers(candidate->world(), unchanged) ==
+  check(candidate->native_world()->replace_mesh_renderers(unchanged) ==
         gneiss::engine::result::success);
   files->files["other.material"] = files->files["m.material"];
   check(candidate->scenes()->set_mesh_renderer(new_scene, ordinary.node, "asset://m.mesh",
@@ -384,7 +384,7 @@ void run() {
       .mesh = mesh_rid, .material = gneiss::engine::asset_rid(edited_material)};
   const std::array material_only{gneiss::engine::mesh_renderer_replacement{
       .entity = ordinary.entity, .expected = edited, .replacement = edited}};
-  check(gneiss::engine::replace_mesh_renderers(candidate->world(), material_only) ==
+  check(candidate->native_world()->replace_mesh_renderers(material_only) ==
         gneiss::engine::result::success);
   check(resources.get_material(gneiss::engine::asset_rid(old_material))->parameters.color[0] ==
         1.0F);
@@ -446,10 +446,10 @@ void run() {
         has_rid(gneiss::engine::asset_rid(next_version)));
   check(files->reads == snapshot_reads);
   captured.clear();
-  const auto old_world = active->world();
+  const auto old_world = active->native_world();
   active.swap(candidate);
   std::uint64_t count{};
-  check(gneiss::engine::result{gneiss::engine::entity_count(active->world(), count)} ==
+  check(gneiss::engine::result{active->native_world()->entity_count(count)} ==
             gneiss::engine::result::success &&
         count == 3U);
   check(active->scenes()->get_node_count(old_scene, &count) ==
@@ -458,7 +458,7 @@ void run() {
         count == 1U);
   old_material = {};
   candidate.reset();
-  check(gneiss::engine::result{gneiss::engine::entity_count(old_world, count)} ==
+  check(gneiss::engine::result{old_world->entity_count(count)} ==
         gneiss::engine::result::invalid_handle);
   check(old_pixels->parameters.color[0] == 1.0F);
 
@@ -469,15 +469,15 @@ void run() {
   candidate = std::make_unique<runtime::scene_domain>();
   check(candidate->initialize(candidate_render) == gneiss::engine::result::success);
   const auto failure_reads = files->reads;
-  gneiss::engine::rid failed_instance{};
+  gneiss::scene_instance_id failed_instance{};
   check(candidate->scenes()->instantiate_prepared(std::move(prepared), {}, failed_instance) ==
         gneiss::engine::result::not_ready);
-  check(failed_instance == gneiss::engine::null_rid);
+  check(failed_instance == gneiss::scene_instance_id{});
   check(files->reads == failure_reads);
-  check(gneiss::engine::result{gneiss::engine::entity_count(candidate->world(), count)} ==
+  check(gneiss::engine::result{candidate->native_world()->entity_count(count)} ==
             gneiss::engine::result::success &&
         count == 0U);
-  check(gneiss::engine::result{gneiss::engine::entity_count(active->world(), count)} ==
+  check(gneiss::engine::result{active->native_world()->entity_count(count)} ==
             gneiss::engine::result::success &&
         count == 3U);
 }

@@ -86,6 +86,7 @@
 
 - [统一异步文件服务](plans/PLAN-051-async-file-service.md)
 - [网格与纹理异步加载](plans/PLAN-052-async-render-assets.md)
+- [场景对象身份与资源 RID 分离](plans/PLAN-053-scene-object-identities.md)
 
 - [移除 CAORS、采用 Granit 示例资产管理模型：迁移与八项问题分析](plans/PLAN-051-asset-manager-replacement.md)
 - [统一资源强引用与生命周期规则](plans/PLAN-051-asset-references.md)
@@ -582,3 +583,6 @@
 - [资源类型与反射序列化计划](plans/PLAN-051-resource-serialization.md)
 
 - [后端材质状态收敛](plans/PLAN-051-backend-material.md)
+
+
+- [场景对象身份迁移实施记录](records/scene-object-identities-2026-10-26.md)

@@ -3,7 +3,7 @@
 
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/world/world_service.hpp"
+#include "engine/function/world/world.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"
@@ -105,7 +105,7 @@ void run(gneiss::engine::execution_mode mode) {
   std::ofstream(files.root / "s.scene")
       << R"({"format":"gneiss.scene","version":4,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://m.mesh","material":"asset://m.material"}}},{"uuid":"00000000-0000-4000-8000-000000000003","parent":null,"transform":{"translation":[2,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://m.mesh","material":"asset://m.material"}}}],"prefab_instances":[]})";
   constexpr std::string_view scene_uri = "asset://s.scene";
-  gneiss::engine::rid scene{};
+  gneiss::scene_instance_id scene{};
   check(gneiss::engine::result{app->scenes()->load(scene_uri, &scene)} ==
         gneiss::engine::result::success);
   const auto capture = [&](std::uint64_t index) {
@@ -176,7 +176,7 @@ void run(gneiss::engine::execution_mode mode) {
   gneiss::engine::scene_node_view node;
   check(gneiss::engine::result{app->scenes()->get_node_info(scene, 0U, node)} ==
         gneiss::engine::result::success);
-  const auto world = app->world();
+  const auto world = app->native_world();
   check(app->request_assets(uris, 2U, 7U, request, true) == gneiss::engine::result::success);
   const gneiss::engine::mesh_renderer external{gneiss::engine::rid{UINT64_MAX},
                                                gneiss::engine::rid{UINT64_MAX}};
@@ -190,8 +190,7 @@ void run(gneiss::engine::execution_mode mode) {
       gneiss::engine::mesh_renderer_replacement{.entity = node.entity,
                                                 .expected = {external.mesh, external.material},
                                                 .replacement = {external.mesh, external.material}}};
-  check(gneiss::engine::replace_mesh_renderers(world, unchanged) ==
-        gneiss::engine::result::success);
+  check(world->replace_mesh_renderers(unchanged) == gneiss::engine::result::success);
   // 卸载冲突使用者后可重试；完成后释放租约，Application 仍可正常关闭。
   check(gneiss::engine::result{app->scenes()->unload(scene)} == gneiss::engine::result::success);
   check(gneiss::engine::result{app->scenes()->load(scene_uri, &scene)} ==

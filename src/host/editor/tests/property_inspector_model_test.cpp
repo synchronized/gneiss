@@ -22,13 +22,13 @@ namespace {
 
 int main() {
   gneiss::engine::world_owner owner;
-  gneiss::engine::rid world{};
+
   gneiss::entity_id entity;
   gneiss::entity_id transform_only;
   gneiss::scene_node_id entity_node;
   gneiss::scene_node_id transform_only_node;
   gneiss::editor::property_inspector_model inspector;
-  if (gneiss::engine::create_native(owner, world) != gneiss::engine::result::success ||
+  if (gneiss::engine::create_native(owner) != gneiss::engine::result::success ||
       owner->entity_create(entity) != gneiss::engine::result::success ||
       owner->entity_create(transform_only) != gneiss::engine::result::success ||
       inspector.initialize() != gneiss::engine::result::success) {
@@ -42,7 +42,7 @@ int main() {
       owner->set_active_camera(gneiss::entity_id{entity}) != gneiss::engine::result::success) {
     return 2;
   }
-  if (inspector.refresh(world, entity) != gneiss::engine::result::success) {
+  if (inspector.refresh(owner.get(), entity) != gneiss::engine::result::success) {
     return 20;
   }
   if (inspector.components().size() != 2U) {
@@ -84,21 +84,21 @@ int main() {
                           value) != gneiss::engine::result::unsupported) {
     return 6;
   }
-  if (inspector.refresh(world, transform_only) != gneiss::engine::result::success ||
+  if (inspector.refresh(owner.get(), transform_only) != gneiss::engine::result::success ||
       inspector.components().size() != 1U) {
     return 7;
   }
   if (owner->entity_destroy(transform_only) != gneiss::engine::result::success ||
-      inspector.refresh(world, transform_only) != gneiss::engine::result::invalid_handle ||
+      inspector.refresh(owner.get(), transform_only) != gneiss::engine::result::invalid_handle ||
       !inspector.components().empty()) {
     return 8;
   }
   // 冻结元数据可读不代表 World 可跨线程写入；不并发访问模型本身。
   auto cross_thread = gneiss::engine::result{gneiss::engine::result::success};
-  std::thread worker([&] { cross_thread = inspector.refresh(world, entity); });
+  std::thread worker([&] { cross_thread = inspector.refresh(owner.get(), entity); });
   worker.join();
   if (cross_thread != gneiss::engine::result::invalid_state || !inspector.components().empty() ||
-      inspector.refresh(world, entity).failed()) {
+      inspector.refresh(owner.get(), entity).failed()) {
     return 9;
   }
   return 0;

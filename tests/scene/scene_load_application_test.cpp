@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/identifier_conversion.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/resource/loaders/mesh_binary.hpp"
@@ -8,7 +9,7 @@
 #include "runtime/application.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"
-#include "engine/function/world/world_service.hpp"
+#include "engine/function/world/world.hpp"
 
 #include <cstdio>
 #include <filesystem>
@@ -174,10 +175,12 @@ void run(gneiss::engine::execution_mode mode) {
         !idle_ready);
   check(app->cancel_scene(99U) == gneiss::engine::result::not_ready);
   check(app->attach_task_executor(scheduler) == gneiss::engine::result::success);
-  gneiss::engine::rid old_world{};
-  check((old_world = app->world()) != gneiss::engine::null_rid);
+  gneiss::engine::world* old_world{};
+  check((old_world = app->native_world()) != nullptr);
   std::uint64_t old_entity{};
-  check(gneiss::engine::entity_create(old_world, old_entity) == gneiss::engine::result::success);
+  check(gneiss::engine::write_identifier<gneiss::entity_id>(old_entity, [&](auto& native_output) {
+          return old_world->entity_create(native_output);
+        }) == gneiss::engine::result::success);
   constexpr std::string_view uri = "asset://scene.json";
   std::uint64_t request{};
   check(app->request_scene(uri, 1U, 1U, request) == gneiss::engine::result::success);
@@ -221,25 +224,23 @@ void run(gneiss::engine::execution_mode mode) {
             std::max(prepared.application_logical_bytes, prepared.application_cpu_data_bytes) ==
         gneiss::engine::render_resource_service::default_memory_limit);
   check(prepared.upload_reserved_bytes == 0U);
-  gneiss::engine::rid observed{};
-  check((observed = app->world()) != gneiss::engine::null_rid && observed == old_world);
+  gneiss::engine::world* observed{};
+  check((observed = app->native_world()) != nullptr && observed == old_world);
   std::uint64_t count{};
-  check(gneiss::engine::entity_count(old_world, count) == gneiss::engine::result::success &&
-        count == 1U);
+  check(old_world->entity_count(count) == gneiss::engine::result::success && count == 1U);
   scene_load_completion completion;
   check(app->activate_scene(first + 100U, completion) == gneiss::engine::result::not_ready);
   check(app->activate_scene(first, completion) == gneiss::engine::result::success);
-  check(completion.scene != gneiss::engine::null_rid &&
+  check(completion.scene != gneiss::scene_instance_id{} &&
         completion.progress.phase == scene_load_phase::applied);
-  check((observed = app->world()) != gneiss::engine::null_rid && observed != old_world);
+  check((observed = app->native_world()) != nullptr && observed != old_world);
   check(app->cancel_scene(first) == gneiss::engine::result::not_ready);
   // 激活后的旧域由 session 延迟退役，期间不能接收下一次打开。
-  check(gneiss::engine::entity_count(old_world, count) == gneiss::engine::result::success &&
-        count == 1U);
+  check(old_world->entity_count(count) == gneiss::engine::result::success && count == 1U);
   check(app->request_scene(uri, 1U, 2U, rejected) == gneiss::engine::result::not_ready &&
         rejected == 0U);
   (void)drive();
-  check(gneiss::engine::entity_count(old_world, count) == gneiss::engine::result::invalid_handle);
+  check(old_world->entity_count(count) == gneiss::engine::result::invalid_handle);
 
   // ready 阶段仍可取消，不改写活动域；迟到请求身份不能取消后续请求。
   check(app->request_scene(uri, 1U, 2U, request) == gneiss::engine::result::success);
@@ -252,7 +253,7 @@ void run(gneiss::engine::execution_mode mode) {
   check(cancelled.progress.upload_reserved_bytes == 0U);
   check(cancelled.progress.application_logical_bytes <=
         gneiss::engine::render_resource_service::default_memory_limit);
-  check((old_world = app->world()) != gneiss::engine::null_rid && old_world == observed);
+  check((old_world = app->native_world()) != nullptr && old_world == observed);
 
   // 描述已准备后改变源文件：最终复读必须拒绝发布，旧 World 保持存活。
   check(app->request_scene(uri, 1U, 3U, request) == gneiss::engine::result::success);
@@ -270,9 +271,7 @@ void run(gneiss::engine::execution_mode mode) {
       changed = true;
     }
   }
-  check(changed &&
-        gneiss::engine::entity_count(observed, count) == gneiss::engine::result::success &&
-        count == 1U);
+  check(changed && observed->entity_count(count) == gneiss::engine::result::success && count == 1U);
 
   // 视觉来源损坏不阻止结构 ready；取消仍保持旧 World。
   std::ofstream(files.root / "material.json") << "broken";
@@ -280,8 +279,7 @@ void run(gneiss::engine::execution_mode mode) {
   (void)await_phase(scene_load_phase::ready);
   check(app->cancel_scene(request) == gneiss::engine::result::success);
   check(drive().first);
-  check(gneiss::engine::entity_count(observed, count) == gneiss::engine::result::success &&
-        count == 1U);
+  check(observed->entity_count(count) == gneiss::engine::result::success && count == 1U);
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,1,0,1]})";
   check(app->request_scene(uri, 1U, 4U, request) == gneiss::engine::result::success);
@@ -289,7 +287,7 @@ void run(gneiss::engine::execution_mode mode) {
   check(app->activate_scene(request, completion) == gneiss::engine::result::success);
   (void)drive();
   // ready 只完成结构，取消仍必须保留已经激活的 World。
-  check((observed = app->world()) != gneiss::engine::null_rid);
+  check((observed = app->native_world()) != nullptr);
   for (const auto phase :
        {scene_load_phase::preparing, scene_load_phase::instantiating, scene_load_phase::ready}) {
     check(app->request_scene(uri, 1U, 5U, request) == gneiss::engine::result::success);
@@ -308,8 +306,7 @@ void run(gneiss::engine::execution_mode mode) {
         stopped = true;
       }
     }
-    check(stopped &&
-          gneiss::engine::entity_count(observed, count) == gneiss::engine::result::success &&
+    check(stopped && observed->entity_count(count) == gneiss::engine::result::success &&
           count == 1U);
   }
   // 无渲染依赖的空场景不需要采用批次，也必须正常激活。
@@ -320,13 +317,12 @@ void run(gneiss::engine::execution_mode mode) {
   (void)await_phase(scene_load_phase::ready);
   check(app->activate_scene(request, completion) == gneiss::engine::result::success);
   (void)drive();
-  check((observed = app->world()) != gneiss::engine::null_rid);
-  check(gneiss::engine::entity_count(observed, count) == gneiss::engine::result::success &&
-        count == 0U);
+  check((observed = app->native_world()) != nullptr);
+  check(observed->entity_count(count) == gneiss::engine::result::success && count == 0U);
   check(app->request_scene(uri, 1U, 7U, request) == gneiss::engine::result::success);
   app.reset();
   check(scheduler.stats().retained == 0U);
-  check(gneiss::engine::entity_count(observed, count) == gneiss::engine::result::invalid_handle);
+  check(observed->entity_count(count) == gneiss::engine::result::invalid_handle);
 }
 
 void shared_scene_assets(gneiss::engine::execution_mode mode) {
@@ -382,8 +378,8 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   auto original = binding();
   auto mesh = selected(gneiss::engine::render_asset_type::mesh, "asset://mesh.json");
   auto material = selected(gneiss::engine::render_asset_type::material, "asset://material.json");
-  gneiss::engine::rid old_world{};
-  check((old_world = app->world()) != gneiss::engine::null_rid);
+  gneiss::engine::world* old_world{};
+  check((old_world = app->native_world()) != nullptr);
   check(!poll());
   // 两个 World 同时持有相同版本，不重复计量或创建后端资源。
   const auto second = prepare();
@@ -391,14 +387,13 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   check(app->activate_scene(request, completion) == gneiss::engine::result::success);
   auto reused = binding();
   check(reused.mesh == mesh && reused.material == material);
-  gneiss::engine::rid new_world{};
-  check((new_world = app->world()) != gneiss::engine::null_rid && old_world != new_world);
+  gneiss::engine::world* new_world{};
+  check((new_world = app->native_world()) != nullptr && old_world != new_world);
   std::uint64_t count{};
-  check(gneiss::engine::entity_count(old_world, count) == gneiss::engine::result::success);
+  check(old_world->entity_count(count) == gneiss::engine::result::success);
   check(!poll());
-  check(gneiss::engine::entity_count(old_world, count) == gneiss::engine::result::invalid_handle);
-  check(gneiss::engine::entity_count(new_world, count) == gneiss::engine::result::success &&
-        count == 1U);
+  check(old_world->entity_count(count) == gneiss::engine::result::invalid_handle);
+  check(new_world->entity_count(count) == gneiss::engine::result::success && count == 1U);
   // 更新完成后保持稳定资源引用；取消场景切换不撤回已更新的共享资源。
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,1,0,1]})";
@@ -422,7 +417,7 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   check(!poll());
   check(original.mesh == mesh && original.material == material);
   // 已缓存资源不因打开场景而隐式重读损坏文件；显式重载独立处理。
-  check((new_world = app->world()) != gneiss::engine::null_rid);
+  check((new_world = app->native_world()) != nullptr);
   std::ofstream(files.root / "material.json") << "broken";
   (void)prepare();
   check(app->activate_scene(request, completion) == gneiss::engine::result::success);

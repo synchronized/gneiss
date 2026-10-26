@@ -90,7 +90,7 @@ int run_example(int argc, char** argv) {
   if (create_result.failed()) {
     return 1;
   }
-  gneiss::engine::rid scene{};
+  gneiss::scene_instance_id scene{};
   if (native_application->scenes()->load(scene_uri, &scene) != gneiss::engine::result::success ||
       native_application->load_action_map(input_map_uri) != gneiss::engine::result::success ||
       native_application->find_action("move_horizontal", state.orbit) !=

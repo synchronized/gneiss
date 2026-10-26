@@ -5,7 +5,7 @@
 
 int main(void) {
   gneiss::engine::world_owner world;
-  gneiss::engine::rid world_handle{};
+
   gneiss::entity_id entity = gneiss::entity_id{};
   gneiss::scene_node_id root = gneiss::scene_node_id{};
   gneiss::scene_node_id child = gneiss::scene_node_id{};
@@ -16,7 +16,7 @@ int main(void) {
   gneiss::engine::transform world_transform;
   gneiss::entity_id attached = gneiss::entity_id{};
 
-  if (gneiss::engine::create_native(world, world_handle) != gneiss::engine::result::success ||
+  if (gneiss::engine::create_native(world) != gneiss::engine::result::success ||
       world->entity_create(entity) != gneiss::engine::result::success ||
       world->node_create(gneiss::scene_node_id{}, gneiss::entity_id{}, root) !=
           gneiss::engine::result::success ||

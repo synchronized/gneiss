@@ -6,6 +6,7 @@
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/scene_types.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 
@@ -43,7 +44,7 @@ private:
   gneiss::engine::result commit(runtime::application& application, scene_document& session,
                                 editor_command_history& history);
   gneiss::engine::scene_mesh_binding previous_, next_;
-  gneiss::engine::rid scene_{};
+  gneiss::scene_instance_id scene_{};
   scene_node_id node_;
   std::string mesh_, material_;
   std::uint64_t revision_{}, request_{};

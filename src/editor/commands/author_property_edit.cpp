@@ -4,6 +4,7 @@
 #include "commands/author_property_edit.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/world/world.hpp"
 
 #include <memory>
 #include <new>
@@ -15,7 +16,7 @@ namespace gneiss::editor {
 namespace {
 gneiss::engine::result write_author_property(scene_document& session,
                                              property_inspector_model& inspector,
-                                             gneiss::engine::rid world, std::string_view uuid,
+                                             gneiss::engine::world* world, std::string_view uuid,
                                              gneiss::engine::type_guid type_id, field_id field_id,
                                              const gneiss::engine::value& value) noexcept {
   const auto* current = session.find_node(uuid);
@@ -32,7 +33,7 @@ gneiss::engine::result write_author_property(scene_document& session,
 
 gneiss::engine::result
 edit_author_property(scene_document& session, editor_command_history& history,
-                     property_inspector_model& inspector, gneiss::engine::rid world,
+                     property_inspector_model& inspector, gneiss::engine::world* world,
                      const inspector_component& component, const inspector_property& property,
                      const gneiss::engine::value& value, std::uint64_t edit_serial) noexcept try {
   const auto* selected = session.selected_node();

@@ -9,7 +9,7 @@
 #include "ipc_property_protocol.hpp"
 #include "runtime_scene_inspection.hpp"
 
-#include "engine/core/rid.hpp"
+#include "engine/function/world/world.hpp"
 
 #include <array>
 #include <cstdint>
@@ -18,7 +18,7 @@
 
 namespace gneiss::host {
 
-/** Runtime 主线程属性命令执行器。 */
+/** Runtime 主线程属性命令执行器；借用 World，须在其销毁前 reset。 */
 class runtime_property_editor final {
 public:
   runtime_property_editor() = default;
@@ -27,7 +27,7 @@ public:
   runtime_property_editor(const runtime_property_editor&) = delete;
   runtime_property_editor& operator=(const runtime_property_editor&) = delete;
 
-  [[nodiscard]] gneiss::engine::result initialize(gneiss::engine::rid world,
+  [[nodiscard]] gneiss::engine::result initialize(gneiss::engine::world& world,
                                                   runtime_scene_inspection& inspection,
                                                   std::uint64_t session_id) noexcept;
   [[nodiscard]] gneiss::engine::result execute(const ipc_property_write& command,
@@ -46,7 +46,7 @@ private:
     }
   };
 
-  gneiss::engine::rid world_ = gneiss::engine::null_rid;
+  gneiss::engine::world* world_ = nullptr;
   runtime_scene_inspection* inspection_ = nullptr;
   std::uint64_t session_id_ = 0U;
   gneiss::engine::registry_ref registry_;

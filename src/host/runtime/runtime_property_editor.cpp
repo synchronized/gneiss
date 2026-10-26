@@ -3,7 +3,7 @@
 
 #include "runtime_property_editor.hpp"
 #include "engine/core/result.hpp"
-#include "engine/core/rid.hpp"
+#include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
 
 #include <algorithm>
@@ -72,10 +72,10 @@ namespace gneiss::host {
 
 runtime_property_editor::~runtime_property_editor() { reset(); }
 
-gneiss::engine::result runtime_property_editor::initialize(gneiss::engine::rid world,
+gneiss::engine::result runtime_property_editor::initialize(gneiss::engine::world& world,
                                                            runtime_scene_inspection& inspection,
                                                            std::uint64_t session_id) noexcept {
-  if (world == gneiss::engine::null_rid || session_id == 0U || registry_ != nullptr) {
+  if (session_id == 0U || registry_ != nullptr) {
     return gneiss::engine::result::invalid_argument;
   }
   gneiss::engine::registry_ref registry;
@@ -83,7 +83,7 @@ gneiss::engine::result runtime_property_editor::initialize(gneiss::engine::rid w
   if (operation.failed()) {
     return operation;
   }
-  world_ = world;
+  world_ = &world;
   inspection_ = &inspection;
   session_id_ = session_id;
   registry_ = std::move(registry);
@@ -92,7 +92,7 @@ gneiss::engine::result runtime_property_editor::initialize(gneiss::engine::rid w
 
 void runtime_property_editor::reset() noexcept {
   registry_.reset();
-  world_ = gneiss::engine::null_rid;
+  world_ = nullptr;
   inspection_ = nullptr;
   session_id_ = 0U;
   revisions_.clear();
@@ -162,11 +162,11 @@ runtime_property_editor::execute(const ipc_property_write& command,
   gneiss::engine::value value;
   operation = to_native_value(command.value, value);
   if (operation.ok()) {
-    operation = gneiss::engine::write_component_property(registry_, world_, entity, property_type,
+    operation = gneiss::engine::write_component_property(registry_, *world_, entity, property_type,
                                                          property_field, value);
     if (operation.ok()) {
       gneiss::engine::value canonical;
-      operation = gneiss::engine::read_component_property(registry_, world_, entity, property_type,
+      operation = gneiss::engine::read_component_property(registry_, *world_, entity, property_type,
                                                           property_field, canonical);
       if (operation.ok()) {
         operation = from_native_value(canonical, response.canonical_value);

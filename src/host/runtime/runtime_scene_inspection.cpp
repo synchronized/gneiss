@@ -4,6 +4,7 @@
 #include "runtime_scene_inspection.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/scene_types.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -218,11 +219,11 @@ runtime_scene_inspection::capture(std::span<const runtime_scene_source_node> nod
 
 gneiss::engine::result
 runtime_scene_inspection::capture_scene(::gneiss::runtime::application& application,
-                                        gneiss::engine::rid scene, bool force_full,
+                                        gneiss::scene_instance_id scene, bool force_full,
                                         runtime_scene_snapshot& output) noexcept {
   if (!application.is_owner_thread() || !application.accepts_requests())
     return gneiss::engine::result::invalid_state;
-  if (scene == gneiss::engine::null_rid) {
+  if (!scene.is_valid()) {
     return gneiss::engine::result::invalid_argument;
   }
   std::uint64_t count = 0U;

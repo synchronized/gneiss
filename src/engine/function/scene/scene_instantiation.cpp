@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
-#include "engine/core/rid.hpp"
+#include "engine/core/scene_types.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
@@ -13,8 +13,8 @@
 namespace gneiss::engine {
 gneiss::engine::result scene_instances::instantiate_prepared(prepared_scene_description prepared,
                                                              const asset_bindings& assets,
-                                                             gneiss::engine::rid& output) noexcept {
-  output = gneiss::engine::null_rid;
+                                                             scene_instance_id& output) noexcept {
+  output = {};
   if (!is_valid()) {
     return gneiss::engine::result::invalid_argument;
   }
@@ -27,15 +27,14 @@ gneiss::engine::result scene_instances::instantiate_prepared(prepared_scene_desc
       if (!source.resource)
         return result::invalid_argument;
     }
-    auto instance =
-        std::make_unique<scene_instance>(native_world_, reflection_context_, loader_, registry_);
+    auto instance = std::make_unique<scene_instance>(native_world_, loader_, registry_);
     instance->initialize_staged(std::move(prepared.description));
-    std::unordered_map<std::string, gneiss::engine::rid> nodes;
+    std::unordered_map<std::string, scene_node_id> nodes;
     nodes.reserve(instance->source().objects.size());
     for (const auto index : prepared.parent_first) {
       const auto& source = instance->source().objects.at(index);
       const auto result = instance->create_staged_node(
-          index, source.parent_uuid ? nodes.at(*source.parent_uuid) : gneiss::engine::null_rid,
+          index, source.parent_uuid ? nodes.at(*source.parent_uuid) : null_scene_node_id,
           gneiss::engine::render_asset_loader::mesh_ref(
               source.mesh_renderer ? find_asset(source.mesh_renderer->mesh_uri)
                                    : gneiss::engine::render_asset_ref{}),
@@ -49,18 +48,18 @@ gneiss::engine::result scene_instances::instantiate_prepared(prepared_scene_desc
     }
     for (const auto& source : instance->source().prefab_instances) {
       const auto lease = prepared.prefabs.at(source.prefab_uri).resource;
-      auto prefab = std::make_unique<prefab_runtime_instance>(native_world_, reflection_context_,
-                                                              loader_, lease, source.instance_uuid);
+      auto prefab = std::make_unique<prefab_runtime_instance>(native_world_, loader_, lease,
+                                                              source.instance_uuid);
       gneiss::engine::transform transform{};
       transform.translation = source.translation;
       transform.rotation = source.rotation;
       transform.scale = source.scale;
       auto result = prefab->begin_staged(
-          source.parent_uuid ? nodes.at(*source.parent_uuid) : gneiss::engine::null_rid, transform);
+          source.parent_uuid ? nodes.at(*source.parent_uuid) : null_scene_node_id, transform);
       if (result != gneiss::engine::result::success) {
         return result;
       }
-      std::unordered_map<std::string, gneiss::engine::rid> prefab_nodes;
+      std::unordered_map<std::string, scene_node_id> prefab_nodes;
       prefab_nodes.reserve(lease.get()->objects.size());
       for (const auto index : prepared.prefabs.at(source.prefab_uri).parent_first) {
         const auto& node = lease.get()->objects.at(index);

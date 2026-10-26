@@ -103,7 +103,7 @@ int run_example(int argc, char** argv) {
     return 1;
   }
   const auto application_ready = clock::now();
-  gneiss::engine::rid scene{};
+  gneiss::scene_instance_id scene{};
   if (native_application->scenes()->load(scene_uri, &scene) != gneiss::engine::result::success) {
     return 2;
   }

@@ -7,6 +7,7 @@
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/world/world.hpp"
 #include "panels/property_inspector_model.hpp"
 
 namespace gneiss::editor {
@@ -18,7 +19,7 @@ namespace gneiss::editor {
  * 写入或历史记录失败时不标脏；记录失败会恢复旧值。 */
 [[nodiscard]] gneiss::engine::result
 edit_author_property(scene_document& session, editor_command_history& history,
-                     property_inspector_model& inspector, gneiss::engine::rid world,
+                     property_inspector_model& inspector, gneiss::engine::world* world,
                      const inspector_component& component, const inspector_property& property,
                      const gneiss::engine::value& value, std::uint64_t edit_serial) noexcept;
 

@@ -4,7 +4,7 @@
 #include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/scene/prefab_runtime_instance.hpp"
-#include "engine/function/world/world_service.hpp"
+#include "engine/function/world/world.hpp"
 #include <algorithm>
 namespace gneiss::engine {
 namespace {
@@ -28,7 +28,7 @@ gneiss::engine::result prefab_candidate::create_node(std::size_t index, scene_no
       runtime_->cancelling_)
     return gneiss::engine::result::invalid_state;
   const auto result =
-      runtime_->create_staged_node(index, parent.get(), std::move(mesh), std::move(material));
+      runtime_->create_staged_node(index, parent, std::move(mesh), std::move(material));
   if (result != gneiss::engine::result::success)
     return result;
   prefab_runtime_instance::node_info info;

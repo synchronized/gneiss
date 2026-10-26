@@ -3,6 +3,16 @@
 
 # 场景加载、实例、序列化与卸载
 
+## 运行期身份与所有权
+
+`scene_instances` 独占拥有 `scene_instance`，对外使用非拥有的 `gneiss::scene_instance_id`。
+实例表保留所属域、槽位代次与销毁后失效校验；不同实例集合不能混用 ID。
+节点从场景树内部到编辑器入口统一使用 `gneiss::scene_node_id`，保留独立的树域与代次校验。
+Prefab 刷新记录使用 `gneiss::prefab_refresh_token`，它只在所属场景实例内标识一次可撤销刷新。
+这些强类型不能隐式转换为资源 RID，也不保活对象；场景文件继续使用 UUID，不保存运行期 ID。
+
+World 由场景域独占拥有，实例集合和实例借用 `world&`，析构时先清理实例再销毁 World。
+
 ## 加载阶段
 
 `engine::scene_instances::load` 由所属 Application 的原生场景服务接收规范场景 URI，在 Application 创建线程同步执行：

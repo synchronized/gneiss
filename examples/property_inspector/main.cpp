@@ -19,13 +19,13 @@ namespace {
 constexpr std::string_view scene_uri = "asset://scenes/property.scene.json";
 constexpr std::string_view camera_uuid = "37cff772-2e8d-4bc7-9ed2-f94435926d4e";
 bool open_scene(std::string_view root, std::shared_ptr<gneiss::runtime::application>& app,
-                gneiss::engine::rid& scene) {
+                gneiss::scene_instance_id& scene) {
   gneiss::runtime::application_configuration config;
   config.asset_root = root;
   return gneiss::runtime::application::create(config, app) == gneiss::engine::result::success &&
          app->scenes()->load(scene_uri, &scene) == gneiss::engine::result::success;
 }
-bool target_for(gneiss::runtime::application& app, gneiss::engine::rid scene,
+bool target_for(gneiss::runtime::application& app, gneiss::scene_instance_id scene,
                 gneiss::entity_id& target) {
   gneiss::scene_node_id node;
   gneiss::entity_id entity;
@@ -53,7 +53,7 @@ int main() try {
                   field.name.data());
   }
   std::shared_ptr<gneiss::runtime::application> app;
-  gneiss::engine::rid scene{};
+  gneiss::scene_instance_id scene{};
   example::scope_exit close{[&] {
     if (app) {
       if (scene)
@@ -67,13 +67,13 @@ int main() try {
   if (!target_for(*app, scene, target))
     return 3;
   gneiss::engine::value value{.payload = gneiss::property_vec3{2, 1, 4}};
-  if (gneiss::engine::write_component_property(registry, app->world(), target.get(),
+  if (gneiss::engine::write_component_property(registry, *app->native_world(), target.get(),
                                                gneiss::engine::transform_property_type(),
                                                gneiss::field_id{1}, value)
           .failed())
     return 3;
   value.payload = 0.25F;
-  if (gneiss::engine::write_component_property(registry, app->world(), target.get(),
+  if (gneiss::engine::write_component_property(registry, *app->native_world(), target.get(),
                                                gneiss::engine::camera_property_type(),
                                                gneiss::field_id{2}, value)
           .failed())
@@ -81,7 +81,7 @@ int main() try {
   std::string json;
   if (app->scenes()->serialize(scene, json).failed() || app->scenes()->unload(scene).failed())
     return 4;
-  scene = 0;
+  scene = {};
   if (app->shutdown().failed())
     return 4;
   app.reset();
@@ -99,14 +99,14 @@ int main() try {
   }
   if (!open_scene(output_root.generic_string(), app, scene) || !target_for(*app, scene, target))
     return 6;
-  if (gneiss::engine::read_component_property(registry, app->world(), target.get(),
+  if (gneiss::engine::read_component_property(registry, *app->native_world(), target.get(),
                                               gneiss::engine::transform_property_type(),
                                               gneiss::field_id{1}, value)
           .failed() ||
       value.kind() != gneiss::engine::value_kind::vec3 ||
       std::abs(std::get<gneiss::property_vec3>(value.payload).x - 2) > 0.0001F)
     return 6;
-  if (gneiss::engine::read_component_property(registry, app->world(), target.get(),
+  if (gneiss::engine::read_component_property(registry, *app->native_world(), target.get(),
                                               gneiss::engine::camera_property_type(),
                                               gneiss::field_id{2}, value)
           .failed() ||
@@ -115,7 +115,7 @@ int main() try {
     return 6;
   if (app->scenes()->unload(scene).failed())
     return 6;
-  scene = 0;
+  scene = {};
   if (app->shutdown().failed())
     return 6;
   app.reset();

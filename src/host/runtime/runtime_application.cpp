@@ -3,6 +3,7 @@
 
 #include "runtime_application.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/scene_types.hpp"
 
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
@@ -56,7 +57,7 @@ struct runtime_context final {
   gneiss::host::runtime_scene_inspection* scene_inspection = nullptr;
   gneiss::host::runtime_property_editor* property_editor = nullptr;
   gneiss::host::runtime_asset_reloader* asset_reloader = nullptr;
-  gneiss::engine::rid scene = gneiss::engine::null_rid;
+  gneiss::scene_instance_id scene = {};
   std::uint64_t next_inspection_ns = 0U;
   std::uint64_t inspection_session_id = 0U;
   std::uint64_t next_statistics_ns = 0U;
@@ -85,7 +86,7 @@ struct runtime_context final {
 }
 
 gneiss::engine::result
-apply_asset_revision(gneiss::runtime::application& application, gneiss::engine::rid scene,
+apply_asset_revision(gneiss::runtime::application& application, gneiss::scene_instance_id scene,
                      std::string_view startup_scene,
                      std::span<const gneiss::host::ipc_asset_revision> assets) noexcept {
   try {
@@ -407,7 +408,8 @@ gneiss::engine::result update_runtime(const gneiss::engine::frame_time* time, vo
     }
   }
   if (context.ipc_session != nullptr && context.scene_inspection != nullptr &&
-      context.scene != gneiss::engine::null_rid && time->elapsed_ns >= context.next_inspection_ns &&
+      context.scene != gneiss::scene_instance_id{} &&
+      time->elapsed_ns >= context.next_inspection_ns &&
       context.ipc_session->supports_domain(gneiss::engine::ipc_domain::inspection)) {
     context.next_inspection_ns = time->elapsed_ns + UINT64_C(100000000);
     gneiss::host::runtime_scene_snapshot snapshot;
@@ -428,7 +430,7 @@ gneiss::engine::result update_runtime(const gneiss::engine::frame_time* time, vo
       return request_exit();
     }
   }
-  if (context.ipc_session != nullptr && context.scene != gneiss::engine::null_rid &&
+  if (context.ipc_session != nullptr && context.scene != gneiss::scene_instance_id{} &&
       context.inspection_session_id != 0U && time->elapsed_ns >= context.next_statistics_ns) {
     context.next_statistics_ns = time->elapsed_ns + UINT64_C(250000000);
     std::uint64_t scene_node_count = 0U;
@@ -561,7 +563,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
     }
   }
 
-  gneiss::engine::rid scene = gneiss::engine::null_rid;
+  gneiss::scene_instance_id scene = {};
   auto native_result = gneiss::engine::result::success;
   std::string active_scene_uri = project.startup_scene;
   const auto inspection_serial =
@@ -621,12 +623,12 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
       });
   context.asset_reloader = &asset_reloader;
 
-  gneiss::engine::rid world = gneiss::engine::null_rid;
-  world = application->world();
+  gneiss::engine::world* world = nullptr;
+  world = application->native_world();
   native_result = gneiss::engine::result::success;
   gneiss::host::runtime_property_editor property_editor;
   if (native_result == gneiss::engine::result::success) {
-    operation = property_editor.initialize(world, scene_inspection, context.inspection_session_id);
+    operation = property_editor.initialize(*world, scene_inspection, context.inspection_session_id);
   } else {
     operation = native_result;
   }
@@ -654,12 +656,12 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
     context.force_full_inspection = true;
     context.next_inspection_ns = 0U;
     context.next_statistics_sequence = 1U;
-    world = application->world();
+    world = application->native_world();
     auto applied = gneiss::engine::result::success;
     if (applied != gneiss::engine::result::success)
       return applied;
     const auto initialized =
-        property_editor.initialize(world, scene_inspection, context.inspection_session_id);
+        property_editor.initialize(*world, scene_inspection, context.inspection_session_id);
     if (initialized != gneiss::engine::result::success)
       return initialized;
     log.write("INFO", "startup_scene", gneiss::engine::result::success, "场景加载完成",
@@ -713,7 +715,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
   context.asset_reloader = nullptr;
   context.property_editor = nullptr;
   context.scene_inspection = nullptr;
-  context.scene = gneiss::engine::null_rid;
+  context.scene = gneiss::scene_instance_id{};
   if (ipc_session) {
     (void)ipc_session->stop();
   }
@@ -730,8 +732,8 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
     return 11;
   }
 
-  native_result = scene == gneiss::engine::null_rid ? gneiss::engine::result::success
-                                                    : application->scenes()->unload(scene);
+  native_result =
+      !scene.is_valid() ? gneiss::engine::result::success : application->scenes()->unload(scene);
   if (native_result != gneiss::engine::result::success) {
     log.write("ERROR", "scene_unload", native_result, "启动场景卸载失败");
     return 10;

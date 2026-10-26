@@ -32,7 +32,7 @@ bool save_codec_contract(gneiss::runtime::application& application) {
   if (!std::filesystem::create_directory(directory.path))
     return false;
   gneiss::editor::scene_document document;
-  if (document.create_empty(application, application.world()).failed())
+  if (document.create_empty(application, application.native_world()).failed())
     return false;
   gneiss::scene_node_id node;
   if (document.create_node("保存节点", {}, node).failed())
@@ -43,7 +43,7 @@ bool save_codec_contract(gneiss::runtime::application& application) {
     return false;
   e::scene_description snapshot;
   snapshot.uuid = "保留输出";
-  if (application.scenes()->capture_description(e::null_rid, snapshot) !=
+  if (application.scenes()->capture_description(gneiss::scene_instance_id{}, snapshot) !=
           e::result::invalid_handle ||
       snapshot.uuid != "保留输出")
     return false;
@@ -124,7 +124,7 @@ int main() try {
   bool cancelled = false;
   bool released_while_open = false;
   gneiss::editor::document_editing editing;
-  if (editing.create_empty(*application, application->world()).failed())
+  if (editing.create_empty(*application, application->native_world()).failed())
     return 2;
   const auto scene = editing.document().scene_handle();
   if (editing.history()
@@ -140,7 +140,7 @@ int main() try {
     return 4;
   gneiss::editor::editor_scene_loader loader;
   gneiss::editor::editor_camera camera;
-  auto world = application->world();
+  auto world = application->native_world();
   bool changed = true;
   if (editing.create_empty(*application, world) != gneiss::engine::result::not_ready ||
       loader.request(*application, editing, "asset://scene.json") !=
@@ -166,8 +166,7 @@ int main() try {
           .record(
               std::make_unique<pending_command>(editing.document(), cancelled, released_while_open))
           .failed() ||
-      editing.create_empty(*application, gneiss::engine::null_rid) !=
-          gneiss::engine::result::invalid_argument ||
+      editing.create_empty(*application, nullptr) != gneiss::engine::result::invalid_argument ||
       editing.document().scene_handle() != original || !editing.history().can_undo() ||
       released_while_open)
     return 10;

@@ -96,7 +96,7 @@ setter 应先校验再修改，Core 不回滚第三方回调已经产生的副�
 `create_property_registry` 直接创建已注册且冻结的内建 Registry。
 稳定身份使用 `transform_component_type`、`camera_component_type` 或对应原生查询函数。
 
-`world_reflection.hpp` 提供 `read_component_property`、`write_component_property`：显式接收 World RID、
+`world_reflection.hpp` 提供 `read_component_property`、`write_component_property`：显式接收 `world&`、
 Entity、类型 GUID 和字段 ID。先通过 World 接口校验线程和实体并读出组件副本，基础反射操作副本，
 写成功后通过既有 World 接口提交，以保留联合校验、Transform 传播和既有更新行为。
 Editor、Runtime 和运行时 Prefab 覆盖使用这些组件入口；Core 不依赖 World。

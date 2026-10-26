@@ -39,11 +39,11 @@ int main() try {
   const std::string root = GNEISS_EDITOR_TEST_ASSET_ROOT;
   desc.asset_root = root;
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss::engine::rid world = gneiss::engine::null_rid;
+  gneiss::engine::world* world = nullptr;
   gneiss::editor::scene_document session;
   if (gneiss::engine::result{gneiss::runtime::application::create(desc, application)} !=
           gneiss::engine::result::success ||
-      (world = application->world()) == gneiss::engine::null_rid ||
+      (world = application->native_world()) == nullptr ||
       session.open(*application, world, "asset://scenes/triangle.scene.json") !=
           gneiss::engine::result::success) {
     return 1;

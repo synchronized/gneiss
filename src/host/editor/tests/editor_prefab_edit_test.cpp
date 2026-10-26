@@ -65,8 +65,8 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   check(gneiss::engine::result{gneiss::runtime::application::create(desc, app)} ==
         gneiss::engine::result::success);
   check(app->attach_task_executor(scheduler) == gneiss::engine::result::success);
-  gneiss::engine::rid world{};
-  check((world = app->world()) != gneiss::engine::null_rid);
+  gneiss::engine::world* world{};
+  check((world = app->native_world()) != nullptr);
   editor::scene_document session;
   editor::editor_command_history history;
   editor::editor_prefab_edit edit;
@@ -235,8 +235,8 @@ void run(gneiss::engine::execution_mode mode) {
   check(gneiss::engine::result{gneiss::runtime::application::create(desc, app)} ==
         gneiss::engine::result::success);
   check(app->attach_task_executor(scheduler) == gneiss::engine::result::success);
-  gneiss::engine::rid world{};
-  check((world = app->world()) != gneiss::engine::null_rid);
+  gneiss::engine::world* world{};
+  check((world = app->native_world()) != nullptr);
   editor::scene_document session;
   editor::editor_command_history history;
   editor::editor_prefab_edit edit;

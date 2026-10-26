@@ -3,6 +3,7 @@
 
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/scene_types.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/resource_registry.hpp"
@@ -126,8 +127,13 @@ gneiss::engine::result make_asset_uri(const std::filesystem::path& asset_root,
 }
 
 bool scene_document::is_open() const noexcept {
-  return application_ && scene_ && application_->accepts_requests() &&
-         application_->world() == world_;
+  if (!application_ || !scene_ || !application_->is_owner_thread() ||
+      !application_->accepts_requests() || application_->native_world() != world_)
+    return false;
+  // 地址可能被后续 World 复用；实例 ID 的所属域仍必须匹配当前实例集合。
+  auto* scenes = application_->scenes();
+  std::uint64_t count{};
+  return scenes && scenes->get_node_count(scene_, &count).ok();
 }
 template <class F> gneiss::engine::result scene_document::with_scene(F&& action) const noexcept {
   if (!application_ || !application_->is_owner_thread() || !is_open())
@@ -148,8 +154,8 @@ scene_document& scene_document::operator=(scene_document&& other) noexcept {
   if (this != &other) {
     close();
     application_ = std::exchange(other.application_, nullptr);
-    world_ = std::exchange(other.world_, 0);
-    scene_ = std::exchange(other.scene_, 0);
+    world_ = std::exchange(other.world_, nullptr);
+    scene_ = std::exchange(other.scene_, scene_instance_id{});
     nodes_ = std::move(other.nodes_);
     prefab_nodes_ = std::move(other.prefab_nodes_);
     selection_ = std::exchange(other.selection_, {});
@@ -160,11 +166,12 @@ scene_document& scene_document::operator=(scene_document&& other) noexcept {
 }
 
 gneiss::engine::result scene_document::adopt(runtime::application& application,
-                                             gneiss::engine::rid world, gneiss::engine::rid scene,
+                                             gneiss::engine::world* world,
+                                             gneiss::scene_instance_id scene,
                                              std::string_view uri) noexcept {
   if (!application.is_owner_thread() || !application.accepts_requests())
     return gneiss::engine::result::invalid_state;
-  if (world != application.world() || uri.empty() || !scene)
+  if (world != application.native_world() || uri.empty() || !scene)
     return gneiss::engine::result::invalid_argument;
   try {
     scene_document pending;
@@ -175,7 +182,7 @@ gneiss::engine::result scene_document::adopt(runtime::application& application,
     const auto refreshed = pending.refresh_nodes();
     if (refreshed != gneiss::engine::result::success) {
       // 失败时仍由调用方持有场景，不改变当前文档。
-      pending.scene_ = 0;
+      pending.scene_ = {};
       return refreshed;
     }
     *this = std::move(pending);
@@ -188,13 +195,13 @@ gneiss::engine::result scene_document::adopt(runtime::application& application,
 }
 
 gneiss::engine::result scene_document::open(runtime::application& application,
-                                            gneiss::engine::rid world,
+                                            gneiss::engine::world* world,
                                             std::string_view uri) noexcept {
   if (!application.is_owner_thread() || !application.accepts_requests())
     return gneiss::engine::result::invalid_state;
-  if (world != application.world() || uri.empty())
+  if (world != application.native_world() || uri.empty())
     return gneiss::engine::result::invalid_argument;
-  gneiss::engine::rid pending{};
+  scene_instance_id pending{};
   const auto loaded = application.scenes()->load(uri, &pending);
   if (loaded != gneiss::engine::result::success)
     return loaded;
@@ -205,13 +212,13 @@ gneiss::engine::result scene_document::open(runtime::application& application,
 }
 
 gneiss::engine::result scene_document::create_empty(runtime::application& application,
-                                                    gneiss::engine::rid world,
+                                                    gneiss::engine::world* world,
                                                     std::string_view scene_uuid) noexcept {
   if (!application.is_owner_thread() || !application.accepts_requests())
     return gneiss::engine::result::invalid_state;
-  if (world != application.world() || scene_uuid.empty())
+  if (world != application.native_world() || scene_uuid.empty())
     return gneiss::engine::result::invalid_argument;
-  gneiss::engine::rid pending{};
+  scene_instance_id pending{};
   const auto created = application.scenes()->create_empty(scene_uuid, &pending);
   if (created != gneiss::engine::result::success)
     return created;
@@ -224,7 +231,7 @@ gneiss::engine::result scene_document::create_empty(runtime::application& applic
 }
 
 gneiss::engine::result scene_document::create_empty(runtime::application& application,
-                                                    gneiss::engine::rid world) noexcept {
+                                                    gneiss::engine::world* world) noexcept {
   try {
     return create_empty(application, world, make_uuid_value());
   } catch (const std::bad_alloc&) {
@@ -566,7 +573,7 @@ scene_document::restore_prefab_instance(const prefab_instance_snapshot& snapshot
 
 gneiss::engine::result
 scene_document::refresh_prefab_instance(scene_node_id root, scene_node_id& out_new_root,
-                                        gneiss::engine::rid& out_token) noexcept {
+                                        gneiss::prefab_refresh_token& out_token) noexcept {
   const auto operation = with_node(out_new_root, [&](auto& service, auto& output) {
     return service.refresh_prefab_instance(scene_, gneiss::scene_node_id{root}, output, &out_token);
   });
@@ -581,7 +588,7 @@ scene_document::refresh_prefab_instance(scene_node_id root, scene_node_id& out_n
   return refreshed;
 }
 
-gneiss::engine::result scene_document::toggle_prefab_refresh(gneiss::engine::rid token,
+gneiss::engine::result scene_document::toggle_prefab_refresh(gneiss::prefab_refresh_token token,
                                                              scene_node_id& out_new_root) noexcept {
   const auto operation = with_node(out_new_root, [&](auto& service, auto& output) {
     return service.toggle_prefab_refresh(scene_, token, output);
@@ -597,8 +604,8 @@ gneiss::engine::result scene_document::toggle_prefab_refresh(gneiss::engine::rid
   return refreshed;
 }
 
-void scene_document::release_prefab_refresh(gneiss::engine::rid token) noexcept {
-  if (is_open() && token != 0) {
+void scene_document::release_prefab_refresh(gneiss::prefab_refresh_token token) noexcept {
+  if (is_open() && token.is_valid()) {
     (void)with_scene([&](auto& service) { return service.release_prefab_refresh(scene_, token); });
   }
 }
@@ -809,7 +816,7 @@ void scene_document::close() noexcept {
   is_dirty_ = false;
   if (is_open())
     (void)with_scene([&](auto& service) { return service.unload(scene_); });
-  scene_ = 0;
+  scene_ = {};
   application_ = nullptr;
   world_ = 0;
 }

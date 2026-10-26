@@ -5,6 +5,7 @@
 #include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
+#include "engine/function/world/world.hpp"
 
 #include "child_process.hpp"
 #include "commands/asset_scene_commands.hpp"
@@ -116,7 +117,7 @@ struct editor_state {
   std::chrono::steady_clock::time_point smoke_started{std::chrono::steady_clock::now()};
   gneiss::editor::document_editing editing;
   gneiss::editor::property_inspector_model inspector;
-  gneiss::engine::rid world = gneiss::engine::null_rid;
+  gneiss::engine::world* world = nullptr;
   gneiss::entity_id inspected_entity;
   gneiss::editor::runtime_scene_selection runtime_selection;
   gneiss::engine::result inspector_error = gneiss::engine::result::success;
@@ -2961,7 +2962,7 @@ int run_editor(int argc, char** argv) {
   }
   operation = state.inspector.initialize();
   if (operation == gneiss::engine::result::success) {
-    state.world = application->world();
+    state.world = application->native_world();
   }
   if (operation != gneiss::engine::result::success) {
     report_startup_failure("Editor World/Inspector 初始化", operation);

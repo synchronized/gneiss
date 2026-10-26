@@ -8,6 +8,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/texture_load_service.hpp"
+#include "engine/function/world/world.hpp"
 #include "runtime/loading/scene_domain.hpp"
 #include "runtime/loading/scene_load_types.hpp"
 #include <optional>
@@ -49,7 +50,6 @@ public:
   }
   [[nodiscard]] bool loading() const noexcept;
   [[nodiscard]] scene_retirement_statistics retirement() const noexcept;
-  [[nodiscard]] gneiss::engine::rid world() const noexcept;
   [[nodiscard]] gneiss::engine::world* native_world() const noexcept;
   [[nodiscard]] gneiss::engine::scene_instances* scenes() noexcept;
   /** 内部适配借用；视觉服务在 attach_executor 后存活至 shutdown，不随场景切换重建。 */

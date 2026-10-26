@@ -5,6 +5,7 @@
 #include "commands/prefab_authoring.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/scene_types.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "runtime/application.hpp"
 
@@ -55,7 +56,7 @@ struct temporary_project final {
   gneiss::runtime::application_configuration desc;
   desc.asset_root = root_text;
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss::engine::rid scene{};
+  gneiss::scene_instance_id scene{};
   std::uint64_t objects{};
   std::uint64_t prefab_nodes{};
   return gneiss::runtime::application::create(desc, application) ==

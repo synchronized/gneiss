@@ -84,11 +84,11 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
   gneiss::runtime::application_configuration desc;
   desc.asset_root = asset_text;
   std::shared_ptr<gneiss::runtime::application> app;
-  gneiss::engine::rid world{};
+  gneiss::engine::world* world{};
   scene_document session;
   require(gneiss::engine::result{gneiss::runtime::application::create(desc, app)} ==
                   gneiss::engine::result::success &&
-              (world = app->world()) != gneiss::engine::null_rid,
+              (world = app->native_world()) != gneiss::engine::null_rid,
           "基准应用创建失败");
   const auto open_ms = measure([&] {
     require(session.open(*app, world, "asset://main.scene.json") == gneiss::engine::result::success,

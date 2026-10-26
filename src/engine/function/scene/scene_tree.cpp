@@ -3,7 +3,7 @@
 
 #include "engine/function/scene/scene_tree.hpp"
 #include "engine/core/result.hpp"
-#include "engine/core/rid.hpp"
+#include "engine/core/scene_types.hpp"
 
 #include "engine/core/math/functions.hpp"
 #include <algorithm>
@@ -25,19 +25,18 @@ bool is_valid(const gneiss::engine::transform& value) noexcept { return valid_tr
 
 } // namespace
 
-gneiss::engine::rid scene_tree::encode(std::uint16_t index,
-                                       std::uint16_t generation) const noexcept {
-  return (static_cast<std::uint64_t>(domain_) << 32U) |
-         (static_cast<std::uint64_t>(generation) << 16U) | static_cast<std::uint64_t>(index + 1U);
+scene_node_id scene_tree::encode(std::uint16_t index, std::uint16_t generation) const noexcept {
+  return scene_node_id{(static_cast<std::uint64_t>(domain_) << 32U) |
+                       (static_cast<std::uint64_t>(generation) << 16U) |
+                       static_cast<std::uint64_t>(index + 1U)};
 }
 
-scene_tree::slot* scene_tree::find(gneiss::engine::rid id) noexcept {
+scene_tree::slot* scene_tree::find(scene_node_id id) noexcept {
   return const_cast<slot*>(std::as_const(*this).find(id));
 }
 
 gneiss::engine::result
-scene_tree::bind_publication(gneiss::engine::rid id,
-                             const gneiss::engine::publication& group) noexcept {
+scene_tree::bind_publication(scene_node_id id, const gneiss::engine::publication& group) noexcept {
   auto* node = find(id);
   if (!node || node->value->publication || !group || group->domain_ != domain_ ||
       !group->published_ || group->retired_) {
@@ -62,44 +61,43 @@ bool scene_tree::publication_closed(const gneiss::engine::publication& group) co
   return true;
 }
 
-const scene_tree::slot* scene_tree::find(gneiss::engine::rid id) const noexcept {
+const scene_tree::slot* scene_tree::find(scene_node_id id) const noexcept {
   const auto* value = find_raw(id);
   return value != nullptr && (!value->value->publication || value->value->publication->published_)
              ? value
              : nullptr;
 }
 
-scene_tree::slot* scene_tree::find_raw(gneiss::engine::rid id) noexcept {
+scene_tree::slot* scene_tree::find_raw(scene_node_id id) noexcept {
   return const_cast<slot*>(std::as_const(*this).find_raw(id));
 }
 
-const scene_tree::slot* scene_tree::find_raw(gneiss::engine::rid id) const noexcept {
-  if (id == gneiss::engine::null_rid || static_cast<std::uint32_t>(id >> 32U) != domain_) {
+const scene_tree::slot* scene_tree::find_raw(scene_node_id id) const noexcept {
+  if (id == null_scene_node_id || static_cast<std::uint32_t>(id.get() >> 32U) != domain_) {
     return nullptr;
   }
-  const auto encoded_index = static_cast<std::uint16_t>(id);
+  const auto encoded_index = static_cast<std::uint16_t>(id.get());
   if (encoded_index == 0U) {
     return nullptr;
   }
   const auto index = static_cast<std::size_t>(encoded_index - 1U);
-  const auto generation = static_cast<std::uint16_t>(id >> 16U);
+  const auto generation = static_cast<std::uint16_t>(id.get() >> 16U);
   if (index >= slots_.size() || !slots_[index].value || slots_[index].generation != generation) {
     return nullptr;
   }
   return &slots_[index];
 }
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): 两种标识在 C ABI 中均为定宽整数。
-gneiss::engine::result scene_tree::create(gneiss::engine::rid parent, std::uint64_t entity,
-                                          gneiss::engine::rid* out_node) noexcept {
+gneiss::engine::result scene_tree::create(scene_node_id parent, std::uint64_t entity,
+                                          scene_node_id* out_node) noexcept {
   return create_impl({}, parent, entity, out_node);
 }
 
 gneiss::engine::result scene_tree::create_staged(const gneiss::engine::publication& group,
-                                                 gneiss::engine::rid parent, std::uint64_t entity,
-                                                 gneiss::engine::rid* output) noexcept {
+                                                 scene_node_id parent, std::uint64_t entity,
+                                                 scene_node_id* output) noexcept {
   if (output != nullptr) {
-    *output = gneiss::engine::null_rid;
+    *output = null_scene_node_id;
   }
   if (!group || group->domain_ != domain_ || group->published_ || group->retired_) {
     return gneiss::engine::result::invalid_state;
@@ -108,13 +106,13 @@ gneiss::engine::result scene_tree::create_staged(const gneiss::engine::publicati
 }
 
 gneiss::engine::result scene_tree::create_impl(const gneiss::engine::publication& group,
-                                               gneiss::engine::rid parent, std::uint64_t entity,
-                                               gneiss::engine::rid* out_node) noexcept {
+                                               scene_node_id parent, std::uint64_t entity,
+                                               scene_node_id* out_node) noexcept {
   if (out_node == nullptr) {
     return gneiss::engine::result::invalid_argument;
   }
-  *out_node = gneiss::engine::null_rid;
-  if (parent != gneiss::engine::null_rid) {
+  *out_node = null_scene_node_id;
+  if (parent != null_scene_node_id) {
     const auto* value = find_raw(parent);
     if (value == nullptr || (value->value->publication && !value->value->publication->published_ &&
                              value->value->publication != group)) {
@@ -126,9 +124,9 @@ gneiss::engine::result scene_tree::create_impl(const gneiss::engine::publication
       })) {
     return gneiss::engine::result::invalid_state;
   }
-  *out_node = gneiss::engine::null_rid;
+  *out_node = null_scene_node_id;
   try {
-    if (parent != gneiss::engine::null_rid) {
+    if (parent != null_scene_node_id) {
       auto& children = find_raw(parent)->value->children;
       children.reserve(children.size() + 1U);
     }
@@ -148,7 +146,7 @@ gneiss::engine::result scene_tree::create_impl(const gneiss::engine::publication
     target.value->entity = entity;
     target.value->publication = group;
     const auto id = encode(static_cast<std::uint16_t>(index), target.generation);
-    if (parent != gneiss::engine::null_rid) {
+    if (parent != null_scene_node_id) {
       find_raw(parent)->value->children.push_back(id);
     }
     *out_node = id;
@@ -161,19 +159,19 @@ gneiss::engine::result scene_tree::create_impl(const gneiss::engine::publication
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): 参数名称明确表达父子关系。
-void scene_tree::remove_child(gneiss::engine::rid parent, gneiss::engine::rid child) noexcept {
+void scene_tree::remove_child(scene_node_id parent, scene_node_id child) noexcept {
   if (auto* parent_slot = find_raw(parent); parent_slot != nullptr) {
     std::erase(parent_slot->value->children, child);
   }
 }
 
-void scene_tree::destroy_subtree(gneiss::engine::rid id) noexcept {
+void scene_tree::destroy_subtree(scene_node_id id) noexcept {
   auto* target = find_raw(id);
   const auto children = std::move(target->value->children);
   for (const auto child : children) {
     destroy_subtree(child);
   }
-  const auto index = static_cast<std::size_t>(static_cast<std::uint16_t>(id) - 1U);
+  const auto index = static_cast<std::size_t>(static_cast<std::uint16_t>(id.get()) - 1U);
   auto& target_slot = slots_[index];
   target_slot.value.reset();
   if (target_slot.generation == std::numeric_limits<std::uint16_t>::max()) {
@@ -183,7 +181,7 @@ void scene_tree::destroy_subtree(gneiss::engine::rid id) noexcept {
   }
 }
 
-gneiss::engine::result scene_tree::destroy(gneiss::engine::rid node_id) noexcept {
+gneiss::engine::result scene_tree::destroy(scene_node_id node_id) noexcept {
   auto* target = find(node_id);
   if (target == nullptr) {
     return gneiss::engine::result::invalid_handle;
@@ -196,7 +194,7 @@ gneiss::engine::result scene_tree::destroy(gneiss::engine::rid node_id) noexcept
   return gneiss::engine::result::success;
 }
 
-bool scene_tree::has_unpublished_descendant(gneiss::engine::rid id) const noexcept {
+bool scene_tree::has_unpublished_descendant(scene_node_id id) const noexcept {
   const auto* value = find_raw(id);
   if (value->value->publication && !value->value->publication->published_) {
     return true;
@@ -206,7 +204,7 @@ bool scene_tree::has_unpublished_descendant(gneiss::engine::rid id) const noexce
 }
 
 std::uint64_t scene_tree::get_staged_entity(const gneiss::engine::publication& group,
-                                            gneiss::engine::rid id) const noexcept {
+                                            scene_node_id id) const noexcept {
   const auto* value = find_raw(id);
   return group && group->domain_ == domain_ && !group->published_ && value != nullptr &&
                  value->value->publication == group
@@ -215,7 +213,7 @@ std::uint64_t scene_tree::get_staged_entity(const gneiss::engine::publication& g
 }
 
 gneiss::engine::result
-scene_tree::set_staged_local(const gneiss::engine::publication& group, gneiss::engine::rid id,
+scene_tree::set_staged_local(const gneiss::engine::publication& group, scene_node_id id,
                              const gneiss::engine::transform& transform) noexcept {
   auto* value = find_raw(id);
   if (!group || group->domain_ != domain_ || group->published_ || group->retired_ ||
@@ -230,7 +228,7 @@ scene_tree::set_staged_local(const gneiss::engine::publication& group, gneiss::e
 }
 
 gneiss::engine::result scene_tree::destroy_staged_leaf(const gneiss::engine::publication& group,
-                                                       gneiss::engine::rid id) noexcept {
+                                                       scene_node_id id) noexcept {
   auto* value = find_raw(id);
   if (!group || group->domain_ != domain_ || group->published_ || value == nullptr ||
       value->value->publication != group) {
@@ -245,10 +243,9 @@ gneiss::engine::result scene_tree::destroy_staged_leaf(const gneiss::engine::pub
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): 参数名称明确表达祖先与候选节点。
-bool scene_tree::is_descendant(gneiss::engine::rid ancestor,
-                               gneiss::engine::rid candidate) const noexcept {
+bool scene_tree::is_descendant(scene_node_id ancestor, scene_node_id candidate) const noexcept {
   auto current = candidate;
-  while (current != gneiss::engine::null_rid) {
+  while (current != null_scene_node_id) {
     if (current == ancestor) {
       return true;
     }
@@ -261,17 +258,16 @@ bool scene_tree::is_descendant(gneiss::engine::rid ancestor,
   return false;
 }
 
-gneiss::engine::result scene_tree::reparent(gneiss::engine::rid node_id,
-                                            gneiss::engine::rid parent) noexcept {
+gneiss::engine::result scene_tree::reparent(scene_node_id node_id, scene_node_id parent) noexcept {
   auto* target = find(node_id);
-  if (target == nullptr || (parent != gneiss::engine::null_rid && find(parent) == nullptr)) {
+  if (target == nullptr || (parent != null_scene_node_id && find(parent) == nullptr)) {
     return gneiss::engine::result::invalid_handle;
   }
   if (node_id == parent || is_descendant(node_id, parent)) {
     return gneiss::engine::result::invalid_argument;
   }
   try {
-    if (parent != gneiss::engine::null_rid) {
+    if (parent != null_scene_node_id) {
       find(parent)->value->children.push_back(node_id);
     }
     remove_child(target->value->parent, node_id);
@@ -284,7 +280,7 @@ gneiss::engine::result scene_tree::reparent(gneiss::engine::rid node_id,
   }
 }
 
-gneiss::engine::result scene_tree::set_local(gneiss::engine::rid node_id,
+gneiss::engine::result scene_tree::set_local(scene_node_id node_id,
                                              const gneiss::engine::transform& transform) noexcept {
   auto* target = find(node_id);
   if (target == nullptr) {
@@ -297,13 +293,13 @@ gneiss::engine::result scene_tree::set_local(gneiss::engine::rid node_id,
   return gneiss::engine::result::success;
 }
 
-const gneiss::engine::transform* scene_tree::get_local(gneiss::engine::rid node_id) const noexcept {
+const gneiss::engine::transform* scene_tree::get_local(scene_node_id node_id) const noexcept {
   const auto* target = find(node_id);
   return target == nullptr ? nullptr : &target->value->local;
 }
 
 gneiss::engine::result
-scene_tree::get_world(gneiss::engine::rid node_id,
+scene_tree::get_world(scene_node_id node_id,
                       gneiss::engine::transform* out_transform) const noexcept {
   const auto* target = find(node_id);
   if (target == nullptr || out_transform == nullptr) {
@@ -311,7 +307,7 @@ scene_tree::get_world(gneiss::engine::rid node_id,
   }
   auto result = target->value->local;
   auto parent = target->value->parent;
-  while (parent != gneiss::engine::null_rid) {
+  while (parent != null_scene_node_id) {
     const auto* parent_slot = find(parent);
     result = combine(parent_slot->value->local, result);
     parent = parent_slot->value->parent;
@@ -365,14 +361,14 @@ scene_tree::set_local_for_entity(std::uint64_t entity,
   return gneiss::engine::result::not_found;
 }
 
-std::uint64_t scene_tree::get_entity(gneiss::engine::rid node_id) const noexcept {
+std::uint64_t scene_tree::get_entity(scene_node_id node_id) const noexcept {
   const auto* target = find(node_id);
   return target == nullptr ? UINT64_C(0) : target->value->entity;
 }
 
-gneiss::engine::rid scene_tree::get_parent(gneiss::engine::rid node_id) const noexcept {
+scene_node_id scene_tree::get_parent(scene_node_id node_id) const noexcept {
   const auto* target = find(node_id);
-  return target == nullptr ? gneiss::engine::null_rid : target->value->parent;
+  return target == nullptr ? null_scene_node_id : target->value->parent;
 }
 
 void scene_tree::detach_entity(std::uint64_t entity) noexcept {

@@ -4,6 +4,7 @@
 #include "documents/editor_scene_loader.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
 namespace gneiss::editor {
@@ -47,7 +48,7 @@ gneiss::engine::result editor_scene_loader::cancel(runtime::application& applica
 
 gneiss::engine::result editor_scene_loader::advance(runtime::application& application,
                                                     document_editing& editing,
-                                                    gneiss::engine::rid& world,
+                                                    gneiss::engine::world*& world,
                                                     editor_camera& camera, bool& changed) {
   using namespace runtime;
   changed = false;
@@ -111,7 +112,7 @@ gneiss::engine::result editor_scene_loader::advance(runtime::application& applic
   if (closed.failed())
     return closed;
   camera.shutdown();
-  world = application.world();
+  world = application.native_world();
   auto operation = gneiss::engine::result::success;
   if (operation == gneiss::engine::result::success) {
     operation = editing.document().adopt(application, world, completion.scene, uri_);

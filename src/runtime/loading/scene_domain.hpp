@@ -6,7 +6,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
-#include "engine/function/world/world_service.hpp"
+#include "engine/function/world/world.hpp"
 
 namespace gneiss::runtime {
 
@@ -23,14 +23,11 @@ public:
   [[nodiscard]] gneiss::engine::result
   initialize(gneiss::engine::render_asset_loader& render) noexcept;
   [[nodiscard]] gneiss::engine::world* native_world() const noexcept { return world_owner_.get(); }
-  [[nodiscard]] gneiss::engine::rid world() const noexcept {
-    return world_owner_ ? world_owner_.get_deleter().borrowed : gneiss::engine::null_rid;
-  }
   /** 借用实例集合；初始化前为空，有效期不超过本域。 */
   [[nodiscard]] gneiss::engine::scene_instances* scenes() const noexcept { return scenes_.get(); }
 
 private:
-  // 按声明逆序析构：先释放场景及其资源引用，再撤销 World 的借用 RID。
+  // 按声明逆序析构：先释放场景及其资源引用，再销毁 World。
   gneiss::engine::world_owner world_owner_;
   std::unique_ptr<gneiss::engine::scene_instances> scenes_;
 };

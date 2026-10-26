@@ -71,7 +71,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   gneiss::runtime::application_configuration description;
   description.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss::engine::rid scene = gneiss::engine::null_rid;
+  gneiss::scene_instance_id scene = {};
   std::uint64_t entity_count = 0;
   constexpr std::string_view scene_uri = "asset://scenes/scene.scene.json";
   if (gneiss::runtime::application::create(description, application) !=
@@ -96,7 +96,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   const auto multi_asset_root = multi.generic_string();
   description.asset_root = multi_asset_root;
   application.reset();
-  scene = gneiss::engine::null_rid;
+  scene = gneiss::scene_instance_id{};
   entity_count = 0;
   if (gneiss::runtime::application::create(description, application) !=
           gneiss::engine::result::success ||

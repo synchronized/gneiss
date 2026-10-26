@@ -69,10 +69,10 @@ bool approximately_equal(const gneiss::engine::transform& left,
 
 int run_tests() {
   gneiss::engine::scene_tree tree{17};
-  gneiss::engine::rid root{};
-  gneiss::engine::rid child{};
-  gneiss::engine::rid grandchild{};
-  gneiss::engine::rid other_root{};
+  gneiss::scene_node_id root{};
+  gneiss::scene_node_id child{};
+  gneiss::scene_node_id grandchild{};
+  gneiss::scene_node_id other_root{};
   constexpr std::uint64_t entity = 42;
   if (tree.create({}, {}, &root) != gneiss::engine::result::success ||
       tree.create(root, {}, &child) != gneiss::engine::result::success ||

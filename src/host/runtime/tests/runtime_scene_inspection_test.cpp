@@ -142,7 +142,7 @@ bool test_capture_prefab_scene() {
   gneiss::runtime::application_configuration desc;
   desc.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss::engine::rid scene = gneiss::engine::null_rid;
+  gneiss::scene_instance_id scene = {};
   if (gneiss::engine::result{gneiss::runtime::application::create(desc, application)} !=
           gneiss::engine::result::success ||
       gneiss::engine::result{application->scenes()->load(scene_uri, &scene)} !=

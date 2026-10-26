@@ -143,7 +143,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
     return 1;
   }
   const auto application_ready = clock::now();
-  gneiss::engine::rid scene{};
+  gneiss::scene_instance_id scene{};
   example::scope_exit unload{[&] {
     if (scene)
       (void)native_application->scenes()->unload(scene);
@@ -188,7 +188,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   result = ([&] {
     auto status = native_application->scenes()->unload(scene);
     if (status == gneiss::engine::result::success)
-      scene = 0;
+      scene = {};
     return gneiss::engine::result{status};
   })();
   if (result != gneiss::engine::result::success) {

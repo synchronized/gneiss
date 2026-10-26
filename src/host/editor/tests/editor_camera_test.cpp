@@ -20,10 +20,10 @@ bool near(float lhs, float rhs) { return std::abs(lhs - rhs) < 1.0e-4F; }
 
 int main() {
   gneiss::engine::world_owner owner;
-  gneiss::engine::rid world{};
+
   gneiss::editor::editor_camera camera;
   gneiss::entity_id active_camera = gneiss::entity_id{};
-  if (gneiss::engine::create_native(owner, world) != gneiss::engine::result::success ||
+  if (gneiss::engine::create_native(owner) != gneiss::engine::result::success ||
       camera.initialize() != gneiss::engine::result::success || !camera.is_valid() ||
       gneiss::engine::result{owner->get_active_camera(active_camera)} !=
           gneiss::engine::result::not_ready ||

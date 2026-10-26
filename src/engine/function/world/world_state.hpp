@@ -114,8 +114,8 @@ public:
     return gneiss::engine::result::success;
   }
   /** 结构重载中新创建的可见对象加入原发布组；保持可见，不改变实体总数。 */
-  [[nodiscard]] gneiss::engine::result
-  bind_publication(const publication& group, std::uint64_t entity, gneiss::engine::rid node) {
+  [[nodiscard]] gneiss::engine::result bind_publication(const publication& group,
+                                                        std::uint64_t entity, scene_node_id node) {
     if (!valid_group(group) || !group->published_ || group->retired_ || !is_alive(entity) ||
         scene_.get_entity(node) != entity) {
       return gneiss::engine::result::invalid_state;

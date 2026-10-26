@@ -35,11 +35,11 @@ int main() try {
   gneiss::runtime::application_configuration desc;
   desc.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
-  gneiss::engine::rid world = gneiss::engine::null_rid;
+  gneiss::engine::world* world = nullptr;
   gneiss::editor::scene_document session;
   if (gneiss::engine::result{gneiss::runtime::application::create(desc, application)} !=
           gneiss::engine::result::success ||
-      (world = application->world()) == gneiss::engine::null_rid ||
+      (world = application->native_world()) == nullptr ||
       session.open(*application, world, scene_uri) != gneiss::engine::result::success ||
       !session.is_open() || session.is_dirty() || session.uri() != scene_uri ||
       session.nodes().size() != 2U || session.nodes()[0].display_name != "Camera" ||
@@ -62,7 +62,7 @@ int main() try {
   if (foreign != gneiss::engine::result::invalid_state || session.is_dirty())
     return 22;
   auto native = application;
-  if (session.adopt(*native, world, gneiss::engine::null_rid, scene_uri) !=
+  if (session.adopt(*native, world, gneiss::scene_instance_id{}, scene_uri) !=
           gneiss::engine::result::invalid_argument ||
       session.scene_handle() != original_scene)
     return 23;
@@ -182,7 +182,7 @@ int main() try {
   auto moved = session.selected_prefab_node()->local_transform;
   moved.translation[1] = 3.0F;
   const auto stale_root = prefab_root;
-  gneiss::engine::rid refresh_token = gneiss::engine::null_rid;
+  gneiss::prefab_refresh_token refresh_token{};
   if (session.set_local_transform(prefab_root, moved) != gneiss::engine::result::success ||
       session.refresh_prefab_instance(prefab_root, prefab_root, refresh_token) !=
           gneiss::engine::result::success ||

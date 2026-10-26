@@ -18,7 +18,7 @@ int main() try {
   using namespace gneiss;
   using namespace gneiss::editor;
   std::shared_ptr<gneiss::runtime::application> app;
-  gneiss::engine::rid world_handle = gneiss::engine::null_rid;
+  gneiss::engine::world* world_handle = nullptr;
   scene_document session;
   editor_command_history history;
   transform_gizmo_drag drag;
@@ -26,7 +26,7 @@ int main() try {
   scene_node_id second;
   gneiss::runtime::application_configuration desc;
   if (gneiss::engine::result{gneiss::runtime::application::create(desc, app)}.failed() ||
-      (world_handle = app->world()) == gneiss::engine::null_rid ||
+      (world_handle = app->native_world()) == nullptr ||
       session.create_empty(*app, world_handle).failed() ||
       session.create_node("First", {}, first).failed() ||
       session.create_node("Second", {}, second).failed() || session.select(first).failed()) {

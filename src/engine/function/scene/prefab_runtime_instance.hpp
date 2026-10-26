@@ -7,13 +7,13 @@
 #include "engine/core/publication_group.hpp"
 #include "engine/core/reflection/property_registry.hpp"
 #include "engine/core/result.hpp"
-#include "engine/core/rid.hpp"
+#include "engine/core/scene_types.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/resource/types/prefab_description.hpp"
 
 #include "engine/function/world/world.hpp"
 
-#include "engine/core/rid.hpp"
+#include "engine/core/scene_types.hpp"
 
 #include <memory>
 #include <string>
@@ -36,11 +36,11 @@ public:
     const gneiss::engine::prefab_author_address* address = nullptr;
     std::string_view name;
     std::uint64_t entity = UINT64_C(0);
-    gneiss::engine::rid node = gneiss::engine::null_rid;
-    gneiss::engine::rid parent = gneiss::engine::null_rid;
+    scene_node_id node = null_scene_node_id;
+    scene_node_id parent = null_scene_node_id;
   };
 
-  prefab_runtime_instance(gneiss::engine::world& native_world, gneiss::engine::rid world,
+  prefab_runtime_instance(gneiss::engine::world& native_world,
                           gneiss::engine::render_asset_loader& loader,
                           gneiss::engine::prefab_asset_ref prefab,
                           std::string instance_uuid) noexcept;
@@ -50,21 +50,21 @@ public:
   prefab_runtime_instance& operator=(const prefab_runtime_instance&) = delete;
 
   [[nodiscard]] static gneiss::engine::result
-  create(gneiss::engine::world& native_world, gneiss::engine::rid world,
-         gneiss::engine::render_asset_loader& loader, gneiss::engine::prefab_asset_ref prefab,
-         const gneiss::engine::registry_ref& registry, std::string_view instance_uuid,
-         gneiss::engine::rid parent, const gneiss::engine::transform& root_transform,
+  create(gneiss::engine::world& native_world, gneiss::engine::render_asset_loader& loader,
+         gneiss::engine::prefab_asset_ref prefab, const gneiss::engine::registry_ref& registry,
+         std::string_view instance_uuid, scene_node_id parent,
+         const gneiss::engine::transform& root_transform,
          const std::vector<gneiss::engine::prefab_property_override>& overrides,
          std::unique_ptr<prefab_runtime_instance>& out_instance) noexcept;
 
-  [[nodiscard]] gneiss::engine::rid root() const noexcept { return root_node_; }
+  [[nodiscard]] scene_node_id root() const noexcept { return root_node_; }
   [[nodiscard]] std::uint64_t root_entity() const noexcept { return root_entity_; }
   [[nodiscard]] gneiss::engine::prefab_asset_ref prefab_lease() const noexcept { return prefab_; }
   /** 仅供未发布候选的镜像准备；返回值有效期不超过实例或下一次重载。 */
   [[nodiscard]] const gneiss::engine::prefab_description& candidate_description() const noexcept {
     return prepared_ ? *prepared_ : *prefab_.get();
   }
-  [[nodiscard]] gneiss::engine::rid find_node(std::string_view source_node_uuid) const noexcept;
+  [[nodiscard]] scene_node_id find_node(std::string_view source_node_uuid) const noexcept;
   [[nodiscard]] std::uint64_t find_entity(std::string_view source_node_uuid) const noexcept;
   [[nodiscard]] const gneiss::engine::object_description*
   find_source_object(std::string_view source_node_uuid) const noexcept;
@@ -82,10 +82,10 @@ public:
          const std::vector<gneiss::engine::prefab_property_override>& overrides);
 
   /** 候选 World 专用的分阶段构造；每次只创建一个节点，渲染资源由调用方传入租约。 */
-  [[nodiscard]] gneiss::engine::result begin_staged(gneiss::engine::rid parent,
+  [[nodiscard]] gneiss::engine::result begin_staged(scene_node_id parent,
                                                     const gneiss::engine::transform& transform);
   /** 活动 World 内隐藏构造；描述已完成覆盖验证，发布前不激活相机。 */
-  [[nodiscard]] gneiss::engine::result begin_hidden(gneiss::engine::rid parent,
+  [[nodiscard]] gneiss::engine::result begin_hidden(scene_node_id parent,
                                                     const gneiss::engine::transform& transform,
                                                     gneiss::engine::prefab_description prepared);
   [[nodiscard]] gneiss::engine::result publish_hidden() noexcept;
@@ -93,8 +93,7 @@ public:
   /** 旧同步实例也可加入退休组；逐项准备不改变可见性，取消可保留这些内部关联。 */
   [[nodiscard]] gneiss::engine::result prepare_retirement_step(bool& complete);
   [[nodiscard]] gneiss::engine::result
-  create_staged_node(std::size_t index, gneiss::engine::rid parent,
-                     gneiss::engine::render_asset_ref mesh,
+  create_staged_node(std::size_t index, scene_node_id parent, gneiss::engine::render_asset_ref mesh,
                      gneiss::engine::render_asset_ref material);
   [[nodiscard]] gneiss::engine::result
   apply_staged_override(const gneiss::engine::registry_ref& registry,
@@ -107,13 +106,13 @@ public:
 private:
   friend class scene_instance;
   friend class prefab_candidate;
-  [[nodiscard]] gneiss::engine::result commit_node(std::size_t index, gneiss::engine::rid parent);
+  [[nodiscard]] gneiss::engine::result commit_node(std::size_t index, scene_node_id parent);
   struct runtime_node final {
     gneiss::engine::prefab_author_address address;
     std::string name;
     std::uint64_t entity = UINT64_C(0);
-    gneiss::engine::rid node = gneiss::engine::null_rid;
-    gneiss::engine::rid parent = gneiss::engine::null_rid;
+    scene_node_id node = null_scene_node_id;
+    scene_node_id parent = null_scene_node_id;
     gneiss::engine::render_asset_ref mesh;
     gneiss::engine::render_asset_ref material;
     bool staged_attempted{};
@@ -123,20 +122,18 @@ private:
   [[nodiscard]] gneiss::engine::result
   stage_assets(const gneiss::engine::prefab_description& description);
   [[nodiscard]] gneiss::engine::result commit(const gneiss::engine::prefab_description& description,
-                                              gneiss::engine::rid parent,
+                                              scene_node_id parent,
                                               const gneiss::engine::transform& root_transform);
   [[nodiscard]] gneiss::engine::result
   apply_overrides(const gneiss::engine::registry_ref& registry,
                   std::span<const gneiss::engine::prefab_property_override> overrides) noexcept;
 
   gneiss::engine::world& native_world_;
-  // 仅供原生反射访问器定位；不拥有 World，不用于普通场景操作。
-  gneiss::engine::rid reflection_context_;
   gneiss::engine::render_asset_loader& loader_;
   gneiss::engine::prefab_asset_ref prefab_;
   std::string instance_uuid_;
   std::uint64_t root_entity_ = UINT64_C(0);
-  gneiss::engine::rid root_node_ = gneiss::engine::null_rid;
+  scene_node_id root_node_ = null_scene_node_id;
   std::vector<runtime_node> nodes_;
   std::vector<std::size_t> staged_order_;
   bool staged_{};
@@ -144,8 +141,8 @@ private:
   gneiss::engine::publication publication_;
   std::optional<gneiss::engine::prefab_description> prepared_;
   bool published_{};
-  gneiss::engine::rid candidate_scene_{};
-  gneiss::engine::rid candidate_previous_root_{};
+  scene_instance_id candidate_scene_{};
+  scene_node_id candidate_previous_root_{};
   std::size_t retirement_cursor_{};
 };
 

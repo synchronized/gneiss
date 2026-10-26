@@ -117,11 +117,11 @@ int run_tests() {
   }
   const auto other = first.begin_publication();
   const auto hidden = first.create_staged_entity(other);
-  gneiss::engine::rid parent{}, child{}, leaf{}, rejected{};
+  gneiss::scene_node_id parent{}, child{}, leaf{}, rejected{};
   const auto nested = first.begin_publication();
   auto& tree = first.scene();
   const gneiss::engine::transform identity = gneiss::engine::transform{};
-  if (tree.create(0, replacement, &parent) != gneiss::engine::result::success ||
+  if (tree.create({}, replacement, &parent) != gneiss::engine::result::success ||
       tree.create_staged(other, parent, hidden, &child) != gneiss::engine::result::success ||
       tree.create_staged(other, child, 0, &leaf) != gneiss::engine::result::success ||
       tree.create_staged(nested, child, 0, &rejected) != gneiss::engine::result::invalid_handle ||

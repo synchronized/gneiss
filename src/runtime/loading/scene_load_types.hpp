@@ -3,6 +3,7 @@
 #pragma once
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/scene_types.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -45,7 +46,7 @@ struct scene_load_completion {
   scene_load_progress progress;
   gneiss::engine::result result{gneiss::engine::result::internal};
   std::string message;
-  gneiss::engine::rid scene{};
+  gneiss::scene_instance_id scene{};
   double prepare_ms{};
   double asset_prepare_ms{};
   double upload_ms{};

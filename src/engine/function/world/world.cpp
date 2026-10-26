@@ -60,7 +60,7 @@ world::replace_publications(std::span<const gneiss::engine::publication> previou
 gneiss::engine::result world::bind_publication(const gneiss::engine::publication& group,
                                                staged_object object) noexcept {
   return with_state(*state_, [&](world_state& state) {
-    return state.bind_publication(group, object.entity.get(), object.node.get());
+    return state.bind_publication(group, object.entity.get(), object.node);
   });
 }
 gneiss::engine::result world::create_staged_object(const gneiss::engine::publication& group,
@@ -73,13 +73,12 @@ gneiss::engine::result world::create_staged_object(const gneiss::engine::publica
     return gneiss::engine::result::invalid_argument;
   }
   if (description.renderer != nullptr &&
-      (description.renderer->mesh == gneiss::engine::null_rid ||
-       description.renderer->material == gneiss::engine::null_rid)) {
+      (description.renderer->mesh == null_rid || description.renderer->material == null_rid)) {
     return gneiss::engine::result::invalid_argument;
   }
   return with_state(*state_, [&](world_state& state) {
     std::uint64_t candidate_entity{};
-    gneiss::engine::rid candidate_node{};
+    scene_node_id candidate_node{};
     auto operation = gneiss::engine::result::success;
     try {
       candidate_entity = state.create_staged_entity(group);
@@ -94,8 +93,8 @@ gneiss::engine::result world::create_staged_object(const gneiss::engine::publica
             group, candidate_entity,
             mesh_renderer{description.renderer->mesh, description.renderer->material});
       }
-      operation = state.scene().create_staged(group, description.parent.get(), candidate_entity,
-                                              &candidate_node);
+      operation =
+          state.scene().create_staged(group, description.parent, candidate_entity, &candidate_node);
       if (operation == gneiss::engine::result::success) {
         operation = state.scene().set_staged_local(group, candidate_node, description.transform);
       }
@@ -108,7 +107,7 @@ gneiss::engine::result world::create_staged_object(const gneiss::engine::publica
       output = {.entity = entity_id{candidate_entity}, .node = scene_node_id{candidate_node}};
       return operation;
     }
-    if (candidate_node != gneiss::engine::null_rid) {
+    if (candidate_node != null_scene_node_id) {
       (void)state.scene().destroy_staged_leaf(group, candidate_node);
     }
     if (candidate_entity != UINT64_C(0)) {
@@ -121,10 +120,10 @@ gneiss::engine::result world::destroy_staged_object(const gneiss::engine::public
                                                     staged_object object) noexcept {
   return with_state(*state_, [&](world_state& state) {
     if (object.entity.get() == UINT64_C(0) ||
-        state.scene().get_staged_entity(group, object.node.get()) != object.entity.get()) {
+        state.scene().get_staged_entity(group, object.node) != object.entity.get()) {
       return gneiss::engine::result::invalid_handle;
     }
-    const auto operation = state.scene().destroy_staged_leaf(group, object.node.get());
+    const auto operation = state.scene().destroy_staged_leaf(group, object.node);
     if (operation != gneiss::engine::result::success) {
       return operation;
     }
@@ -338,9 +337,8 @@ world::replace_mesh_renderers(std::span<const mesh_renderer_replacement> replace
     }
     std::unordered_set<std::uint64_t> entities;
     for (const auto& change : replacements) {
-      if (!entities.insert(change.entity.get()).second ||
-          change.replacement.mesh == gneiss::engine::null_rid ||
-          change.replacement.material == gneiss::engine::null_rid) {
+      if (!entities.insert(change.entity.get()).second || change.replacement.mesh == null_rid ||
+          change.replacement.material == null_rid) {
         return gneiss::engine::result::invalid_argument;
       }
       if (!state->is_alive(change.entity.get())) {
@@ -368,7 +366,7 @@ world::replace_mesh_renderers(std::span<const mesh_renderer_replacement> replace
 gneiss::engine::result world::entity_set_mesh_renderer(entity_id entity_value,
                                                        const mesh_renderer& renderer) noexcept {
   std::uint64_t entity = entity_value.get();
-  if (renderer.mesh == gneiss::engine::null_rid || renderer.material == gneiss::engine::null_rid) {
+  if (renderer.mesh == null_rid || renderer.material == null_rid) {
     return gneiss::engine::result::invalid_argument;
   }
 
@@ -405,11 +403,11 @@ gneiss::engine::result world::entity_remove_mesh_renderer(entity_id entity_value
 }
 gneiss::engine::result world::node_create(scene_node_id parent_value, entity_id entity_value,
                                           scene_node_id& out_node_value) noexcept {
-  gneiss::engine::rid parent = parent_value.get();
+  scene_node_id parent = parent_value;
   std::uint64_t entity = entity_value.get();
-  gneiss::engine::rid out_node = out_node_value.get();
+  scene_node_id out_node = out_node_value;
   const auto operation_result = [&]() -> gneiss::engine::result {
-    out_node = gneiss::engine::null_rid;
+    out_node = null_scene_node_id;
     try {
       auto* state = state_.get();
       const auto thread_result = (is_owner_thread() ? gneiss::engine::result::success
@@ -429,7 +427,7 @@ gneiss::engine::result world::node_create(scene_node_id parent_value, entity_id 
   return operation_result;
 }
 gneiss::engine::result world::node_destroy(scene_node_id node_value) noexcept {
-  gneiss::engine::rid node = node_value.get();
+  scene_node_id node = node_value;
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? gneiss::engine::result::success
@@ -442,8 +440,8 @@ gneiss::engine::result world::node_destroy(scene_node_id node_value) noexcept {
 }
 gneiss::engine::result world::node_reparent(scene_node_id node_value,
                                             scene_node_id parent_value) noexcept {
-  gneiss::engine::rid node = node_value.get();
-  gneiss::engine::rid parent = parent_value.get();
+  scene_node_id node = node_value;
+  scene_node_id parent = parent_value;
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? gneiss::engine::result::success
@@ -457,7 +455,7 @@ gneiss::engine::result world::node_reparent(scene_node_id node_value,
 gneiss::engine::result
 world::node_set_local_transform(scene_node_id node_value,
                                 const gneiss::engine::transform& transform) noexcept {
-  gneiss::engine::rid node = node_value.get();
+  scene_node_id node = node_value;
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? gneiss::engine::result::success
@@ -472,7 +470,7 @@ world::node_set_local_transform(scene_node_id node_value,
 gneiss::engine::result
 world::node_get_local_transform(scene_node_id node_value,
                                 gneiss::engine::transform& out_transform) noexcept {
-  gneiss::engine::rid node = node_value.get();
+  scene_node_id node = node_value;
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? gneiss::engine::result::success
@@ -493,7 +491,7 @@ world::node_get_local_transform(scene_node_id node_value,
 gneiss::engine::result
 world::node_get_world_transform(scene_node_id node_value,
                                 gneiss::engine::transform& out_transform) noexcept {
-  gneiss::engine::rid node = node_value.get();
+  scene_node_id node = node_value;
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? gneiss::engine::result::success
@@ -511,7 +509,7 @@ world::node_get_world_transform(scene_node_id node_value,
 }
 gneiss::engine::result world::node_get_entity(scene_node_id node_value,
                                               entity_id& out_entity_value) noexcept {
-  gneiss::engine::rid node = node_value.get();
+  scene_node_id node = node_value;
   std::uint64_t out_entity = out_entity_value.get();
   const auto operation_result = [&]() -> gneiss::engine::result {
     out_entity = UINT64_C(0);
@@ -537,10 +535,10 @@ gneiss::engine::result world::node_get_entity(scene_node_id node_value,
 }
 gneiss::engine::result world::node_get_parent(scene_node_id node_value,
                                               scene_node_id& out_parent_value) noexcept {
-  gneiss::engine::rid node = node_value.get();
-  gneiss::engine::rid out_parent = out_parent_value.get();
+  scene_node_id node = node_value;
+  scene_node_id out_parent = out_parent_value;
   const auto operation_result = [&]() -> gneiss::engine::result {
-    out_parent = gneiss::engine::null_rid;
+    out_parent = null_scene_node_id;
     try {
       auto* state = state_.get();
       const auto thread_result = (is_owner_thread() ? gneiss::engine::result::success

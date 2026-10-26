@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/identifier_conversion.hpp"
 #include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/scene/prefab_runtime_instance.hpp"
+#include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
-#include "engine/function/world/world_service.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
 #include "engine/resource/types/prefab_description.hpp"
@@ -82,8 +83,7 @@ public:
 };
 
 bool check_failed_camera_prefab(
-    gneiss::engine::world& native_world, gneiss::engine::rid world,
-    const gneiss::engine::registry_ref& registry,
+    gneiss::engine::world& native_world, const gneiss::engine::registry_ref& registry,
     gneiss::engine::render_asset_loader& render_loader,
     gneiss::engine::asset_manager& prefab_loader, const gneiss::engine::prefab_description& source,
     const std::vector<gneiss::engine::prefab_property_override>& invalid_overrides) {
@@ -101,53 +101,56 @@ bool check_failed_camera_prefab(
   }
   std::uint64_t previous{};
   const gneiss::engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  if (gneiss::engine::result{gneiss::engine::entity_create(world, previous)} !=
+  if (gneiss::engine::result{gneiss::engine::write_identifier<gneiss::entity_id>(
+          previous, [&](auto& output) { return native_world.entity_create(output); })} !=
           gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss::engine::entity_configure_camera(world, previous, camera)} !=
-          gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss::engine::set_active_camera(world, previous)} !=
+      gneiss::engine::result{native_world.entity_configure_camera(
+          gneiss::entity_id{previous}, camera)} != gneiss::engine::result::success ||
+      gneiss::engine::result{native_world.set_active_camera(gneiss::entity_id{previous})} !=
           gneiss::engine::result::success) {
     return false;
   }
   const gneiss::engine::transform transform = {};
   std::unique_ptr<gneiss::engine::prefab_runtime_instance> candidate;
   const auto operation = gneiss::engine::prefab_runtime_instance::create(
-      native_world, world, render_loader, lease, registry, "20000000-0000-4000-8000-000000000005",
-      gneiss::engine::null_rid, transform, invalid_overrides, candidate);
+      native_world, render_loader, lease, registry, "20000000-0000-4000-8000-000000000005",
+      gneiss::null_scene_node_id, transform, invalid_overrides, candidate);
   std::uint64_t active{};
   std::uint64_t count{};
-  const bool preserved = operation == gneiss::engine::result::not_found && !candidate &&
-                         gneiss::engine::result{gneiss::engine::get_active_camera(world, active)} ==
-                             gneiss::engine::result::success &&
-                         active == previous &&
-                         gneiss::engine::result{gneiss::engine::entity_count(world, count)} ==
-                             gneiss::engine::result::success &&
-                         count == 7U;
-  if (gneiss::engine::result{gneiss::engine::entity_destroy(world, previous)} !=
+  const bool preserved =
+      operation == gneiss::engine::result::not_found && !candidate &&
+      gneiss::engine::result{gneiss::engine::write_identifier<gneiss::entity_id>(
+          active, [&](auto& output) { return native_world.get_active_camera(output); })} ==
+          gneiss::engine::result::success &&
+      active == previous &&
+      gneiss::engine::result{native_world.entity_count(count)} == gneiss::engine::result::success &&
+      count == 7U;
+  if (gneiss::engine::result{native_world.entity_destroy(gneiss::entity_id{previous})} !=
           gneiss::engine::result::success ||
       !preserved) {
     return false;
   }
   // 原本没有相机时，失败候选也不能留下活动相机或实体。
   return gneiss::engine::prefab_runtime_instance::create(
-             native_world, world, render_loader, lease, registry,
-             "20000000-0000-4000-8000-000000000005", gneiss::engine::null_rid, transform,
-             invalid_overrides, candidate) == gneiss::engine::result::not_found &&
+             native_world, render_loader, lease, registry, "20000000-0000-4000-8000-000000000005",
+             gneiss::null_scene_node_id, transform, invalid_overrides,
+             candidate) == gneiss::engine::result::not_found &&
          !candidate &&
-         gneiss::engine::result{gneiss::engine::get_active_camera(world, active)} ==
+         gneiss::engine::result{gneiss::engine::write_identifier<gneiss::entity_id>(
+             active, [&](auto& output) { return native_world.get_active_camera(output); })} ==
              gneiss::engine::result::not_ready &&
-         gneiss::engine::result{gneiss::engine::entity_count(world, count)} ==
+         gneiss::engine::result{native_world.entity_count(count)} ==
              gneiss::engine::result::success &&
          count == 6U;
 }
 
-bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss::engine::rid world,
+bool check_hidden_prefab(gneiss::engine::world& native_world,
                          const gneiss::engine::registry_ref& registry,
                          gneiss::engine::render_asset_loader& loader,
                          gneiss::engine::asset_manager& prefabs,
-                         gneiss::engine::prefab_asset_ref lease, gneiss::engine::rid parent) {
+                         gneiss::engine::prefab_asset_ref lease, gneiss::scene_node_id parent) {
   using gneiss::engine::prefab_runtime_instance;
-  prefab_runtime_instance candidate(native_world, world, loader, lease,
+  prefab_runtime_instance candidate(native_world, loader, lease,
                                     "20000000-0000-4000-8000-000000000006");
   auto prepared = *lease.get();
   prepared.objects[0].translation[0] = 19.0F;
@@ -166,8 +169,7 @@ bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss::engine::ri
       info.parent != candidate.root() ||
       native_world.node_get_local_transform(gneiss::scene_node_id{info.node}, queried) !=
           gneiss::engine::result::invalid_handle ||
-      gneiss::engine::result{gneiss::engine::entity_count(world, count)} !=
-          gneiss::engine::result::success ||
+      gneiss::engine::result{native_world.entity_count(count)} != gneiss::engine::result::success ||
       count != 6U ||
       candidate.create_staged_node(1U, info.node, {}, {}) != gneiss::engine::result::success ||
       candidate.publish_hidden() != gneiss::engine::result::success ||
@@ -176,8 +178,7 @@ bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss::engine::ri
       native_world.node_get_local_transform(gneiss::scene_node_id{info.node}, queried) !=
           gneiss::engine::result::success ||
       queried.translation[0] != 19.0F || lease.get()->objects[0].translation[0] != 1.0F ||
-      gneiss::engine::result{gneiss::engine::entity_count(world, count)} !=
-          gneiss::engine::result::success ||
+      gneiss::engine::result{native_world.entity_count(count)} != gneiss::engine::result::success ||
       count != 9U) {
     return false;
   }
@@ -192,16 +193,14 @@ bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss::engine::ri
           std::make_shared<const gneiss::engine::prefab_description>(std::move(expanded)),
           expanded_lease) != gneiss::engine::result::success ||
       candidate.reload(expanded_lease, registry, {}) != gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss::engine::entity_count(world, count)} !=
-          gneiss::engine::result::success ||
+      gneiss::engine::result{native_world.entity_count(count)} != gneiss::engine::result::success ||
       count != 10U) {
     return false;
   }
   if (candidate.retire_hidden() != gneiss::engine::result::success ||
       native_world.node_get_local_transform(gneiss::scene_node_id{info.node}, queried) !=
           gneiss::engine::result::invalid_handle ||
-      gneiss::engine::result{gneiss::engine::entity_count(world, count)} !=
-          gneiss::engine::result::success ||
+      gneiss::engine::result{native_world.entity_count(count)} != gneiss::engine::result::success ||
       count != 6U || candidate.cancel_staged_step(1U) || candidate.cancel_staged_step(1U) ||
       !candidate.cancel_staged_step(5U) ||
       candidate.publish_hidden() != gneiss::engine::result::invalid_state) {
@@ -209,7 +208,7 @@ bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss::engine::ri
   }
   // 提交前取消与析构兜底不得影响现有父节点。
   {
-    prefab_runtime_instance aborted(native_world, world, loader, lease,
+    prefab_runtime_instance aborted(native_world, loader, lease,
                                     "20000000-0000-4000-8000-000000000007");
     if (aborted.begin_hidden(parent, identity, *lease.get()) != gneiss::engine::result::success ||
         aborted.create_staged_node(0U, aborted.root(), {}, {}) != gneiss::engine::result::success ||
@@ -221,7 +220,7 @@ bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss::engine::ri
   }
   return native_world.node_get_local_transform(gneiss::scene_node_id{parent}, queried) ==
              gneiss::engine::result::success &&
-         gneiss::engine::result{gneiss::engine::entity_count(world, count)} ==
+         gneiss::engine::result{native_world.entity_count(count)} ==
              gneiss::engine::result::success &&
          count == 6U;
 }
@@ -229,9 +228,9 @@ bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss::engine::ri
 } // namespace
 
 int main() try {
-  gneiss::engine::rid world = gneiss::engine::null_rid;
+
   gneiss::engine::world_owner world_owner;
-  if (gneiss::engine::create_native(world_owner, world) != gneiss::engine::result::success) {
+  if (gneiss::engine::create_native(world_owner) != gneiss::engine::result::success) {
     return 1;
   }
   auto& native_world = *world_owner;
@@ -273,12 +272,12 @@ int main() try {
       .value = {.payload = std::array{3.0F, 0.0F, 0.0F}},
   }};
   if (gneiss::engine::prefab_runtime_instance::create(
-          native_world, world, render_loader, std::move(first_lease), registry,
-          "20000000-0000-4000-8000-000000000001", gneiss::engine::null_rid, first_transform,
+          native_world, render_loader, std::move(first_lease), registry,
+          "20000000-0000-4000-8000-000000000001", gneiss::null_scene_node_id, first_transform,
           first_overrides, first) != gneiss::engine::result::success ||
       gneiss::engine::prefab_runtime_instance::create(
-          native_world, world, render_loader, std::move(second_lease), registry,
-          "20000000-0000-4000-8000-000000000002", gneiss::engine::null_rid, second_transform,
+          native_world, render_loader, std::move(second_lease), registry,
+          "20000000-0000-4000-8000-000000000002", gneiss::null_scene_node_id, second_transform,
           no_overrides, second) != gneiss::engine::result::success ||
       first->node_count() != 2U || second->node_count() != 2U) {
     return 5;
@@ -303,14 +302,14 @@ int main() try {
   gneiss::engine::transform first_world = {};
   gneiss::engine::transform second_world = {};
   std::uint64_t entity_count = 0;
-  if (first_source_root == gneiss::engine::null_rid ||
-      second_source_root == gneiss::engine::null_rid || first_source_root == second_source_root ||
+  if (first_source_root == gneiss::null_scene_node_id ||
+      second_source_root == gneiss::null_scene_node_id || first_source_root == second_source_root ||
       native_world.node_get_world_transform(gneiss::scene_node_id{first_source_root},
                                             first_world) != gneiss::engine::result::success ||
       native_world.node_get_world_transform(gneiss::scene_node_id{second_source_root},
                                             second_world) != gneiss::engine::result::success ||
       first_world.translation[0] != 13.0F || second_world.translation[0] != -4.0F ||
-      gneiss::engine::result{gneiss::engine::entity_count(world, entity_count)} !=
+      gneiss::engine::result{native_world.entity_count(entity_count)} !=
           gneiss::engine::result::success ||
       entity_count != 6U) {
     return 6;
@@ -329,20 +328,20 @@ int main() try {
       .value = {.payload = std::array{3.0F, 0.0F, 0.0F}},
   }};
   std::unique_ptr<gneiss::engine::prefab_runtime_instance> failed;
-  if (!check_hidden_prefab(native_world, world, registry, render_loader, prefab_loader,
+  if (!check_hidden_prefab(native_world, registry, render_loader, prefab_loader,
                            first->prefab_lease(), first->root())) {
     return 17;
   }
-  if (!check_failed_camera_prefab(native_world, world, registry, render_loader, prefab_loader,
+  if (!check_failed_camera_prefab(native_world, registry, render_loader, prefab_loader,
                                   *first->prefab_lease().get(), invalid_overrides)) {
     return 16;
   }
   if (gneiss::engine::prefab_runtime_instance::create(
-          native_world, world, render_loader, std::move(invalid_override_lease), registry,
-          "20000000-0000-4000-8000-000000000005", gneiss::engine::null_rid, first_transform,
+          native_world, render_loader, std::move(invalid_override_lease), registry,
+          "20000000-0000-4000-8000-000000000005", gneiss::null_scene_node_id, first_transform,
           invalid_overrides, failed) != gneiss::engine::result::not_found ||
       failed ||
-      gneiss::engine::result{gneiss::engine::entity_count(world, entity_count)} !=
+      gneiss::engine::result{native_world.entity_count(entity_count)} !=
           gneiss::engine::result::success ||
       entity_count != 6U) {
     return 7;
@@ -356,11 +355,11 @@ int main() try {
   gneiss::engine::transform invalid_transform = {};
   invalid_transform.scale[1] = 0.0F;
   if (gneiss::engine::prefab_runtime_instance::create(
-          native_world, world, render_loader, std::move(failure_lease), registry,
-          "20000000-0000-4000-8000-000000000003", gneiss::engine::null_rid, invalid_transform,
+          native_world, render_loader, std::move(failure_lease), registry,
+          "20000000-0000-4000-8000-000000000003", gneiss::null_scene_node_id, invalid_transform,
           no_overrides, failed) != gneiss::engine::result::invalid_argument ||
       failed ||
-      gneiss::engine::result{gneiss::engine::entity_count(world, entity_count)} !=
+      gneiss::engine::result{native_world.entity_count(entity_count)} !=
           gneiss::engine::result::success ||
       entity_count != 6U) {
     return 8;
@@ -372,47 +371,47 @@ int main() try {
     return 9;
   }
   if (gneiss::engine::prefab_runtime_instance::create(
-          native_world, world, render_loader, std::move(broken_lease), registry,
-          "20000000-0000-4000-8000-000000000004", gneiss::engine::null_rid, first_transform,
+          native_world, render_loader, std::move(broken_lease), registry,
+          "20000000-0000-4000-8000-000000000004", gneiss::null_scene_node_id, first_transform,
           no_overrides, failed) != gneiss::engine::result::not_found ||
       failed ||
-      gneiss::engine::result{gneiss::engine::entity_count(world, entity_count)} !=
+      gneiss::engine::result{native_world.entity_count(entity_count)} !=
           gneiss::engine::result::success ||
       entity_count != 6U) {
     return 10;
   }
 
   {
-    gneiss::engine::prefab_runtime_instance staged(native_world, world, render_loader,
+    gneiss::engine::prefab_runtime_instance staged(native_world, render_loader,
                                                    second->prefab_lease(),
                                                    "20000000-0000-4000-8000-000000000005");
-    if (staged.begin_staged(gneiss::engine::null_rid, first_transform) !=
+    if (staged.begin_staged(gneiss::null_scene_node_id, first_transform) !=
             gneiss::engine::result::success ||
         staged.create_staged_node(0U, staged.root(), {}, {}) != gneiss::engine::result::success ||
         staged.create_staged_node(1U, staged.find_node("10000000-0000-4000-8000-000000000002"), {},
                                   {}) != gneiss::engine::result::success ||
         staged.cancel_staged_step(0U) ||
-        gneiss::engine::result{gneiss::engine::entity_count(world, entity_count)} !=
+        gneiss::engine::result{native_world.entity_count(entity_count)} !=
             gneiss::engine::result::success ||
         entity_count != 9U || staged.cancel_staged_step(1U) ||
-        gneiss::engine::result{gneiss::engine::entity_count(world, entity_count)} !=
+        gneiss::engine::result{native_world.entity_count(entity_count)} !=
             gneiss::engine::result::success ||
         entity_count != 8U ||
         staged.create_staged_node(1U, staged.root(), {}, {}) !=
             gneiss::engine::result::invalid_state ||
         staged.cancel_staged_step(1U) ||
-        gneiss::engine::result{gneiss::engine::entity_count(world, entity_count)} !=
+        gneiss::engine::result{native_world.entity_count(entity_count)} !=
             gneiss::engine::result::success ||
         entity_count != 7U || staged.cancel_staged_step(2U) || !staged.cancel_staged_step(1U) ||
         !staged.cancel_staged_step(1U) ||
-        gneiss::engine::result{gneiss::engine::entity_count(world, entity_count)} !=
+        gneiss::engine::result{native_world.entity_count(entity_count)} !=
             gneiss::engine::result::success ||
         entity_count != 6U) {
       return 13;
     }
   }
   first.reset();
-  if (gneiss::engine::result{gneiss::engine::entity_count(world, entity_count)} !=
+  if (gneiss::engine::result{native_world.entity_count(entity_count)} !=
           gneiss::engine::result::success ||
       entity_count != 3U ||
       native_world.node_get_world_transform(gneiss::scene_node_id{first_source_root},
@@ -423,11 +422,9 @@ int main() try {
     return 11;
   }
   second.reset();
-  if (gneiss::engine::result{gneiss::engine::entity_count(world, entity_count)} !=
+  if (gneiss::engine::result{native_world.entity_count(entity_count)} !=
           gneiss::engine::result::success ||
-      entity_count != 0U ||
-      gneiss::engine::result{gneiss::engine::destroy_world(world)} !=
-          gneiss::engine::result::invalid_state) {
+      entity_count != 0U) {
     return 12;
   }
   return 0;

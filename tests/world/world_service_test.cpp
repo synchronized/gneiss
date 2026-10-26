@@ -1,24 +1,29 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/identifier_conversion.hpp"
 #include "engine/core/reflection/component_identity.hpp"
 #include "engine/core/reflection/type_registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
-#include "engine/function/world/world_service.hpp"
 
 #include <array>
 #include <cstdint>
 #include <thread>
+#include <type_traits>
+
+static_assert(!std::is_convertible_v<gneiss::engine::rid, gneiss::scene_instance_id>);
+static_assert(!std::is_convertible_v<gneiss::scene_instance_id, gneiss::engine::rid>);
+static_assert(!std::is_convertible_v<gneiss::scene_node_id, gneiss::scene_instance_id>);
+static_assert(!std::is_convertible_v<gneiss::prefab_refresh_token, gneiss::scene_node_id>);
 
 namespace {
 bool native_operations() {
   using namespace gneiss;
   gneiss::engine::world_owner owner;
-  gneiss::engine::rid borrowed{};
-  if (gneiss::engine::create_native(owner, borrowed) != gneiss::engine::result::success)
+  if (gneiss::engine::create_native(owner) != gneiss::engine::result::success)
     return false;
   entity_id entity{};
   scene_node_id node{};
@@ -28,8 +33,7 @@ bool native_operations() {
       owner->node_create(gneiss::scene_node_id{0}, gneiss::entity_id{entity}, node) !=
           gneiss::engine::result::success ||
       owner->entity_is_alive(gneiss::entity_id{entity}, alive) != gneiss::engine::result::success ||
-      !alive || gneiss::engine::entity_count(borrowed, count) != gneiss::engine::result::success ||
-      count != 1)
+      !alive || owner->entity_count(count) != gneiss::engine::result::success || count != 1)
     return false;
   gneiss::engine::transform local;
   local.translation = {2, 3, 4};
@@ -69,27 +73,29 @@ bool native_operations() {
       owner->entity_count(count) != gneiss::engine::result::success || count != 2)
     return false;
   owner.reset();
-  return gneiss::engine::entity_count(borrowed, count) == gneiss::engine::result::invalid_handle;
+  return owner->entity_count(count) == gneiss::engine::result::invalid_handle;
 }
 
-bool original_groups_visible(gneiss::engine::rid world,
+bool original_groups_visible(const gneiss::engine::world_owner& world,
                              const std::array<gneiss::engine::staged_object, 2>& old_objects,
                              const std::array<gneiss::engine::staged_object, 2>& new_objects) {
   namespace service = gneiss::engine;
 
   std::uint64_t count{};
   std::uint64_t active{};
-  if (service::entity_count(world, count) != gneiss::engine::result::success || count != 2U ||
-      service::get_active_camera(world, active) != gneiss::engine::result::success ||
+  if (world->entity_count(count) != gneiss::engine::result::success || count != 2U ||
+      gneiss::engine::write_identifier<gneiss::entity_id>(
+          active, [&](auto& native_output) { return world->get_active_camera(native_output); }) !=
+          gneiss::engine::result::success ||
       active != old_objects[0].entity.get()) {
     return false;
   }
   for (std::size_t index = 0; index < old_objects.size(); ++index) {
-    std::uint8_t alive{};
-    if (service::entity_is_alive(world, old_objects[index].entity.get(), alive) !=
+    bool alive{};
+    if (world->entity_is_alive(gneiss::entity_id{old_objects[index].entity.get()}, alive) !=
             gneiss::engine::result::success ||
         alive == 0U ||
-        service::entity_is_alive(world, new_objects[index].entity.get(), alive) !=
+        world->entity_is_alive(gneiss::entity_id{new_objects[index].entity.get()}, alive) !=
             gneiss::engine::result::success ||
         alive != 0U) {
       return false;
@@ -99,10 +105,10 @@ bool original_groups_visible(gneiss::engine::rid world,
 }
 bool batch_publication_test() {
   namespace service = gneiss::engine;
-  gneiss::engine::rid world{};
-  gneiss::engine::rid other{};
-  if (service::create_world(world) != gneiss::engine::result::success ||
-      service::create_world(other) != gneiss::engine::result::success) {
+  gneiss::engine::world_owner world{};
+  gneiss::engine::world_owner other{};
+  if (service::create_native(world) != gneiss::engine::result::success ||
+      service::create_native(other) != gneiss::engine::result::success) {
     return false;
   }
   std::array<gneiss::engine::publication, 2> previous;
@@ -117,17 +123,17 @@ bool batch_publication_test() {
   service::staged_object_description description;
   description.camera = &camera;
   for (std::size_t index = 0; index < previous.size(); ++index) {
-    if (service::begin_publication(world, previous[index]) != gneiss::engine::result::success ||
-        service::begin_publication(world, candidates[index]) != gneiss::engine::result::success ||
-        service::create_staged_object(world, previous[index], description, old_objects[index]) !=
+    if (world->begin_publication(previous[index]) != gneiss::engine::result::success ||
+        world->begin_publication(candidates[index]) != gneiss::engine::result::success ||
+        world->create_staged_object(previous[index], description, old_objects[index]) !=
             gneiss::engine::result::success ||
-        service::create_staged_object(world, candidates[index], description, new_objects[index]) !=
+        world->create_staged_object(candidates[index], description, new_objects[index]) !=
             gneiss::engine::result::success ||
-        service::publish(world, previous[index]) != gneiss::engine::result::success) {
+        world->publish(previous[index]) != gneiss::engine::result::success) {
       return false;
     }
   }
-  if (service::set_active_camera(world, old_objects[0].entity.get()) !=
+  if (world->set_active_camera(gneiss::entity_id{old_objects[0].entity.get()}) !=
       gneiss::engine::result::success) {
     return false;
   }
@@ -137,25 +143,22 @@ bool batch_publication_test() {
   const std::array duplicates{candidates[0], candidates[0]};
   const std::array duplicate_previous{previous[0], previous[0]};
   gneiss::engine::publication foreign;
-  if (service::begin_publication(other, foreign) != gneiss::engine::result::success) {
+  if (other->begin_publication(foreign) != gneiss::engine::result::success) {
     return false;
   }
   const std::array mixed{candidates[0], foreign};
-  if (service::replace_publications(world, {}, {}) != gneiss::engine::result::invalid_argument ||
-      service::replace_publications(world, previous, invalid) !=
-          gneiss::engine::result::invalid_state ||
-      service::replace_publications(world, previous, duplicates) !=
+  if (world->replace_publications({}, {}) != gneiss::engine::result::invalid_argument ||
+      world->replace_publications(previous, invalid) != gneiss::engine::result::invalid_state ||
+      world->replace_publications(previous, duplicates) !=
           gneiss::engine::result::invalid_argument ||
-      service::replace_publications(world, duplicate_previous, candidates) !=
+      world->replace_publications(duplicate_previous, candidates) !=
           gneiss::engine::result::invalid_argument ||
-      service::replace_publications(world, previous, mixed) !=
-          gneiss::engine::result::invalid_state ||
+      world->replace_publications(previous, mixed) != gneiss::engine::result::invalid_state ||
       !unchanged()) {
     return false;
   }
   gneiss::engine::result wrong_thread{};
-  std::thread worker(
-      [&] { wrong_thread = service::replace_publications(world, previous, candidates); });
+  std::thread worker([&] { wrong_thread = world->replace_publications(previous, candidates); });
   worker.join();
   if (wrong_thread != gneiss::engine::result::invalid_state || !unchanged()) {
     return false;
@@ -164,45 +167,43 @@ bool batch_publication_test() {
   gneiss::engine::publication external;
   service::staged_object child;
   description.parent = old_objects[1].node;
-  if (service::begin_publication(world, external) != gneiss::engine::result::success ||
-      service::create_staged_object(world, external, description, child) !=
+  if (world->begin_publication(external) != gneiss::engine::result::success ||
+      world->create_staged_object(external, description, child) !=
           gneiss::engine::result::success ||
-      service::replace_publications(world, previous, candidates) !=
-          gneiss::engine::result::invalid_state ||
+      world->replace_publications(previous, candidates) != gneiss::engine::result::invalid_state ||
       !unchanged() ||
-      service::destroy_staged_object(world, external, child) != gneiss::engine::result::success ||
-      service::replace_publications(world, previous, candidates) !=
-          gneiss::engine::result::success) {
+      world->destroy_staged_object(external, child) != gneiss::engine::result::success ||
+      world->replace_publications(previous, candidates) != gneiss::engine::result::success) {
     return false;
   }
   std::uint64_t count{};
   std::uint64_t active{};
-  if (service::entity_count(world, count) != gneiss::engine::result::success || count != 2U ||
-      service::get_active_camera(world, active) != gneiss::engine::result::not_ready ||
+  if (world->entity_count(count) != gneiss::engine::result::success || count != 2U ||
+      gneiss::engine::write_identifier<gneiss::entity_id>(
+          active, [&](auto& native_output) { return world->get_active_camera(native_output); }) !=
+          gneiss::engine::result::not_ready ||
       active != 0U ||
-      service::replace_publications(world, previous, candidates) !=
-          gneiss::engine::result::invalid_state ||
-      service::replace_publications(world, candidates, previous) !=
-          gneiss::engine::result::invalid_state) {
+      world->replace_publications(previous, candidates) != gneiss::engine::result::invalid_state ||
+      world->replace_publications(candidates, previous) != gneiss::engine::result::invalid_state) {
     return false;
   }
   for (std::size_t index = 0; index < previous.size(); ++index) {
-    std::uint8_t alive{};
-    if (service::entity_is_alive(world, old_objects[index].entity.get(), alive) !=
+    bool alive{};
+    if (world->entity_is_alive(gneiss::entity_id{old_objects[index].entity.get()}, alive) !=
             gneiss::engine::result::success ||
         alive != 0U ||
-        service::entity_is_alive(world, new_objects[index].entity.get(), alive) !=
+        world->entity_is_alive(gneiss::entity_id{new_objects[index].entity.get()}, alive) !=
             gneiss::engine::result::success ||
         alive == 0U ||
-        service::destroy_staged_object(world, previous[index], old_objects[index]) !=
+        world->destroy_staged_object(previous[index], old_objects[index]) !=
             gneiss::engine::result::success ||
-        service::destroy_staged_object(world, previous[index], old_objects[index]) !=
+        world->destroy_staged_object(previous[index], old_objects[index]) !=
             gneiss::engine::result::invalid_handle) {
       return false;
     }
   }
-  return service::destroy_world(world) == gneiss::engine::result::success &&
-         service::destroy_world(other) == gneiss::engine::result::success;
+  return (world.reset(), gneiss::engine::result::success) == gneiss::engine::result::success &&
+         (other.reset(), gneiss::engine::result::success) == gneiss::engine::result::success;
 }
 }
 
@@ -213,33 +214,36 @@ int main() {
     return 19;
   }
   namespace service = gneiss::engine;
-  gneiss::engine::rid world{};
-  if (gneiss::engine::create_world(world) != gneiss::engine::result::success) {
+  gneiss::engine::world_owner world{};
+  if (gneiss::engine::create_native(world) != gneiss::engine::result::success) {
     return 1;
   }
   std::uint64_t entity{};
-  if (service::entity_create(world, entity) != gneiss::engine::result::success) {
+  if (gneiss::engine::write_identifier<gneiss::entity_id>(entity, [&](auto& native_output) {
+        return world->entity_create(native_output);
+      }) != gneiss::engine::result::success) {
     return 2;
   }
   std::uint64_t count{};
-  if (gneiss::engine::entity_count(world, count) != gneiss::engine::result::success ||
-      count != 1U) {
+  if (world->entity_count(count) != gneiss::engine::result::success || count != 1U) {
     return 3;
   }
   gneiss::engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  if (gneiss::engine::entity_configure_camera(world, entity, camera) !=
+  if (world->entity_configure_camera(gneiss::entity_id{entity}, camera) !=
       gneiss::engine::result::success) {
     return 4;
   }
   service::camera_settings settings;
-  if (service::entity_get_camera(world, entity, settings) != gneiss::engine::result::success ||
+  if (world->entity_get_camera(gneiss::entity_id{entity}, settings) !=
+          gneiss::engine::result::success ||
       settings.near_plane != camera.near_plane || settings.far_plane != camera.far_plane) {
     return 5;
   }
   settings.far_plane = settings.near_plane;
-  if (service::entity_configure_camera(world, entity, settings) !=
+  if (world->entity_configure_camera(gneiss::entity_id{entity}, settings) !=
           gneiss::engine::result::invalid_argument ||
-      gneiss::engine::entity_get_camera(world, entity, camera) != gneiss::engine::result::success ||
+      world->entity_get_camera(gneiss::entity_id{entity}, camera) !=
+          gneiss::engine::result::success ||
       camera.near_plane == camera.far_plane) {
     return 6;
   }
@@ -284,90 +288,53 @@ int main() {
   service::staged_object_description object;
   object.camera = &settings;
   settings.far_plane = 100.0F;
-  if (service::begin_publication(world, group) != gneiss::engine::result::success ||
-      service::create_staged_object(world, group, object, root) !=
-          gneiss::engine::result::success ||
-      service::entity_count(world, count) != gneiss::engine::result::success || count != 1U) {
+  if (world->begin_publication(group) != gneiss::engine::result::success ||
+      world->create_staged_object(group, object, root) != gneiss::engine::result::success ||
+      world->entity_count(count) != gneiss::engine::result::success || count != 1U) {
     return 10;
   }
   object.parent = root.node;
-  if (service::create_staged_object(world, group, object, child) !=
-          gneiss::engine::result::success ||
-      service::destroy_staged_object(world, group, root) != gneiss::engine::result::not_ready ||
-      service::destroy_staged_object(world, group, {root.entity, child.node}) !=
+  if (world->create_staged_object(group, object, child) != gneiss::engine::result::success ||
+      world->destroy_staged_object(group, root) != gneiss::engine::result::not_ready ||
+      world->destroy_staged_object(group, {root.entity, child.node}) !=
           gneiss::engine::result::invalid_handle ||
-      service::destroy_staged_object(world, group, child) != gneiss::engine::result::success ||
-      service::destroy_staged_object(world, group, child) !=
-          gneiss::engine::result::invalid_handle) {
+      world->destroy_staged_object(group, child) != gneiss::engine::result::success ||
+      world->destroy_staged_object(group, child) != gneiss::engine::result::invalid_handle) {
     return 11;
   }
   object.transform.scale[0] = 0;
-  if (service::create_staged_object(world, group, object, failed) !=
+  if (world->create_staged_object(group, object, failed) !=
           gneiss::engine::result::invalid_argument ||
       failed.entity.is_valid() || failed.node.is_valid()) {
     return 12;
   }
-  std::thread staging_worker([&] { wrong_thread = service::publish(world, group); });
+  std::thread staging_worker([&] { wrong_thread = world->publish(group); });
   staging_worker.join();
   if (wrong_thread != gneiss::engine::result::invalid_state ||
-      service::publish(world, group) != gneiss::engine::result::success ||
-      service::entity_count(world, count) != gneiss::engine::result::success || count != 2U ||
-      service::publish(world, group) != gneiss::engine::result::invalid_state ||
-      service::destroy_staged_object(world, group, root) !=
-          gneiss::engine::result::invalid_handle ||
-      service::node_destroy(world, root.node.get()) != gneiss::engine::result::success ||
-      service::entity_destroy(world, root.entity.get()) != gneiss::engine::result::success) {
+      world->publish(group) != gneiss::engine::result::success ||
+      world->entity_count(count) != gneiss::engine::result::success || count != 2U ||
+      world->publish(group) != gneiss::engine::result::invalid_state ||
+      world->destroy_staged_object(group, root) != gneiss::engine::result::invalid_handle ||
+      world->node_destroy(gneiss::scene_node_id{root.node.get()}) !=
+          gneiss::engine::result::success ||
+      world->entity_destroy(gneiss::entity_id{root.entity.get()}) !=
+          gneiss::engine::result::success) {
     return 13;
   }
-  std::thread worker([&] { wrong_thread = service::destroy_world(world); });
-  worker.join();
-  if (wrong_thread != gneiss::engine::result::invalid_state ||
-      service::destroy_world(world) != gneiss::engine::result::success ||
-      gneiss::engine::destroy_world(world) != gneiss::engine::result::invalid_handle) {
-    return 7;
-  }
-  // C 和私有 C++ 入口使用同一个 generation 注册表，不能各自拥有一份 World。
-  const auto stale = world;
-  if (service::create_world(world) != gneiss::engine::result::success || world == stale ||
-      service::entity_count(stale, count) != gneiss::engine::result::invalid_handle ||
-      gneiss::engine::destroy_world(world) != gneiss::engine::result::success) {
-    return 8;
-  }
-  // 原生拥有者析构自动撤销借用；移动不会使 RID 提前失效，也不授予借用方销毁权。
+  // 借用只在拥有者存活期使用；移动拥有者不改变对象地址。
   service::world_owner native;
-  gneiss::engine::rid borrowed{};
-  if (service::create_native(native, borrowed) != gneiss::engine::result::success || !native ||
-      gneiss::engine::destroy_world(borrowed) != gneiss::engine::result::invalid_state)
+  if (service::create_native(native).failed())
     return 14;
   const auto* original = native.get();
-  gneiss::engine::rid rejected = borrowed;
-  if (service::create_native(native, rejected) != gneiss::engine::result::invalid_state ||
-      rejected != 0 || native.get() != original)
+  if (service::create_native(native) != service::result::invalid_state || native.get() != original)
     return 15;
   service::world_owner moved = std::move(native);
-  if (service::entity_count(borrowed, count) != gneiss::engine::result::success || count != 0)
+  if (native || moved.get() != original || moved->entity_count(count).failed())
     return 16;
-  std::thread borrowed_worker([&] { wrong_thread = gneiss::engine::destroy_world(borrowed); });
-  borrowed_worker.join();
-  if (wrong_thread != gneiss::engine::result::invalid_state)
+  std::thread worker([&] { wrong_thread = moved->entity_count(count); });
+  worker.join();
+  if (wrong_thread != service::result::invalid_state)
     return 17;
   moved.reset();
-  if (service::entity_count(borrowed, count) != gneiss::engine::result::invalid_handle ||
-      gneiss::engine::destroy_world(borrowed) != gneiss::engine::result::invalid_handle)
-    return 18;
-  if (service::create_native(native, rejected) != gneiss::engine::result::success ||
-      rejected == borrowed ||
-      service::entity_count(borrowed, count) != gneiss::engine::result::invalid_handle)
-    return 19;
-  native.reset();
-  // 服务先校验相机参数；失败查询不改写输出。
-  camera.far_plane = camera.near_plane;
-  if (gneiss::engine::entity_configure_camera(stale, entity, camera) !=
-          gneiss::engine::result::invalid_argument ||
-      gneiss::engine::entity_get_camera(stale, entity, camera) !=
-          gneiss::engine::result::invalid_handle ||
-      camera.far_plane != camera.near_plane) {
-    return 9;
-  }
   return 0;
 }

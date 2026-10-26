@@ -5,11 +5,11 @@
 
 int main(void) {
   gneiss::engine::world_owner first;
-  gneiss::engine::rid first_handle{};
+
   gneiss::engine::world_owner second;
-  gneiss::engine::rid second_handle{};
-  if (gneiss::engine::create_native(first, first_handle) != gneiss::engine::result::success ||
-      gneiss::engine::create_native(second, second_handle) != gneiss::engine::result::success) {
+
+  if (gneiss::engine::create_native(first) != gneiss::engine::result::success ||
+      gneiss::engine::create_native(second) != gneiss::engine::result::success) {
     return 1;
   }
 

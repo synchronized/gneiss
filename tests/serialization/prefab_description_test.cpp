@@ -254,14 +254,14 @@ int main() try {
 
   // 实例根作为源根的父节点，沿用 Scene Tree 的父子变换组合约定。
   gneiss::engine::scene_tree tree(1U);
-  gneiss::engine::rid instance_root = gneiss::engine::null_rid;
-  gneiss::engine::rid source_root = gneiss::engine::null_rid;
+  gneiss::scene_node_id instance_root = gneiss::scene_node_id{};
+  gneiss::scene_node_id source_root = gneiss::null_scene_node_id;
   gneiss::engine::transform instance_transform = gneiss::engine::transform{};
   instance_transform.translation[0] = 10.0F;
   instance_transform.scale[0] = 2.0F;
   gneiss::engine::transform source_transform = gneiss::engine::transform{};
   source_transform.translation[0] = 3.0F;
-  if (tree.create(gneiss::engine::null_rid, UINT64_C(0), &instance_root) !=
+  if (tree.create(gneiss::null_scene_node_id, UINT64_C(0), &instance_root) !=
           gneiss::engine::result::success ||
       tree.create(instance_root, UINT64_C(0), &source_root) != gneiss::engine::result::success ||
       tree.set_local(instance_root, instance_transform) != gneiss::engine::result::success ||

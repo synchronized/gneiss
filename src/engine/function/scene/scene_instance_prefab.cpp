@@ -3,6 +3,7 @@
 
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/scene_types.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include <algorithm>
 #include <new>
@@ -78,7 +79,7 @@ scene_instance::capture_prefab_instance_binding(std::string_view uuid, std::size
 }
 
 gneiss::engine::result scene_instance::prepare_prefab_instance_candidate(
-    gneiss::engine::rid instance, const gneiss::engine::prefab_instance_description& author,
+    gneiss::scene_instance_id instance, const gneiss::engine::prefab_instance_description& author,
     gneiss::engine::prefab_asset_ref prefab, const gneiss::engine::prefab_description& prepared,
     prefab_candidate& output, bool replacing) noexcept try {
   if (output.is_valid()) {
@@ -89,13 +90,12 @@ gneiss::engine::result scene_instance::prepare_prefab_instance_candidate(
     return value->instance_uuid_ == author.instance_uuid;
   });
   if (!gneiss::engine::is_canonical_prefab_uuid(author.instance_uuid) ||
-      find_node(author.instance_uuid) != gneiss::engine::null_rid ||
+      find_node(author.instance_uuid) != null_scene_node_id ||
       (replacing ? previous == prefab_instances_.end() : previous != prefab_instances_.end())) {
     return gneiss::engine::result::invalid_argument;
   }
-  const auto parent =
-      author.parent_uuid ? find_node(*author.parent_uuid) : gneiss::engine::null_rid;
-  if (author.parent_uuid && parent == gneiss::engine::null_rid) {
+  const auto parent = author.parent_uuid ? find_node(*author.parent_uuid) : null_scene_node_id;
+  if (author.parent_uuid && parent == null_scene_node_id) {
     return gneiss::engine::result::invalid_handle;
   }
   gneiss::engine::prefab_description effective;
@@ -104,11 +104,11 @@ gneiss::engine::result scene_instance::prepare_prefab_instance_candidate(
   if (validation != gneiss::engine::result::success) {
     return validation;
   }
-  const auto previous_root = replacing ? (*previous)->root() : 0U;
+  const auto previous_root = replacing ? (*previous)->root() : scene_node_id{};
   description_.prefab_instances.reserve(description_.prefab_instances.size() + 1U);
   prefab_instances_.reserve(prefab_instances_.size() + 1U);
   auto candidate = std::make_unique<prefab_runtime_instance>(
-      native_world_, reflection_context_, loader_, std::move(prefab), author.instance_uuid);
+      native_world_, loader_, std::move(prefab), author.instance_uuid);
   gneiss::engine::transform transform = {};
   transform.translation = author.translation;
   transform.rotation = author.rotation;
@@ -128,7 +128,7 @@ gneiss::engine::result scene_instance::prepare_prefab_instance_candidate(
 // 已验证容量；两次 push_back 不分配，元素移动由编译断言保证不抛出。
 // NOLINTBEGIN(bugprone-exception-escape): 分析器无法关联容量检查与 vector::push_back。
 gneiss::engine::result
-scene_instance::publish_prefab_instance_candidate(gneiss::engine::rid instance,
+scene_instance::publish_prefab_instance_candidate(gneiss::scene_instance_id instance,
                                                   prefab_candidate& candidate) noexcept {
   auto& author = candidate.author_;
   auto& runtime = candidate.runtime_;
@@ -136,7 +136,7 @@ scene_instance::publish_prefab_instance_candidate(gneiss::engine::rid instance,
       runtime->candidate_scene_ != instance || runtime->instance_uuid_ != author.instance_uuid) {
     return gneiss::engine::result::invalid_handle;
   }
-  if (find_node(author.instance_uuid) != gneiss::engine::null_rid ||
+  if (find_node(author.instance_uuid) != null_scene_node_id ||
       description_.prefab_instances.size() == description_.prefab_instances.capacity() ||
       prefab_instances_.size() == prefab_instances_.capacity() ||
       std::ranges::any_of(description_.prefab_instances, [&](const auto& existing) {
@@ -158,7 +158,8 @@ scene_instance::publish_prefab_instance_candidate(gneiss::engine::rid instance,
 // NOLINTEND(bugprone-exception-escape)
 
 gneiss::engine::result scene_instance::replace_prefab_instance_versions(
-    gneiss::engine::rid instance, std::span<prefab_candidate* const> replacements) noexcept try {
+    gneiss::scene_instance_id instance, std::span<prefab_candidate* const> replacements) noexcept
+    try {
   if (replacements.empty()) {
     return gneiss::engine::result::invalid_argument;
   }
@@ -175,9 +176,10 @@ gneiss::engine::result scene_instance::replace_prefab_instance_versions(
     const auto& candidate = *entry->runtime_;
     if (&candidate.native_world_ != &native_world_ || candidate.candidate_scene_ != instance ||
         candidate.instance_uuid_ != entry->author_.instance_uuid || !candidate.prepared_ ||
-        candidate.root_node_ == gneiss::engine::null_rid || candidate.published_ ||
-        candidate.cancelling_ ||
-        std::ranges::any_of(candidate.nodes_, [](const auto& node) { return node.node == 0U; })) {
+        candidate.root_node_ == null_scene_node_id || candidate.published_ ||
+        candidate.cancelling_ || std::ranges::any_of(candidate.nodes_, [](const auto& node) {
+          return !node.node.is_valid();
+        })) {
       return gneiss::engine::result::invalid_state;
     }
     const auto found = std::ranges::find_if(prefab_instances_, [&](const auto& value) {

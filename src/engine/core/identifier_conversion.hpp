@@ -15,4 +15,10 @@ auto write_identifier(std::uint64_t& destination, Function&& operation) {
   destination = value.get();
   return result;
 }
+template <typename Identifier, typename Function>
+  requires(std::same_as<Identifier, entity_id> || std::same_as<Identifier, scene_node_id>)
+auto write_identifier(Identifier& destination, Function&& operation) {
+  return std::forward<Function>(operation)(destination);
+}
+
 }

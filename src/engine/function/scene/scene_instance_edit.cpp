@@ -12,7 +12,7 @@ gneiss::engine::result
 scene_instance::capture_mesh_binding(scene_node_id node,
                                      scene_mesh_binding& output) const noexcept {
   output = {};
-  const auto found = std::ranges::find(objects_, node.get(), &object::node);
+  const auto found = std::ranges::find(objects_, node, &object::node);
   if (found == objects_.end()) {
     return gneiss::engine::result::invalid_handle;
   }
@@ -32,7 +32,7 @@ scene_instance::replace_mesh_binding(scene_node_id node_value, const scene_mesh_
       !loader_.owns(replacement.mesh) || !loader_.owns(replacement.material)) {
     return gneiss::engine::result::invalid_argument;
   }
-  const auto node = node_value.get();
+  const auto node = node_value;
   using loader = gneiss::engine::render_asset_loader;
   scene_mesh_binding current;
   const auto captured = capture_mesh_binding(node_value, current);
@@ -73,6 +73,6 @@ scene_instance::replace_mesh_binding(scene_node_id node_value, const scene_mesh_
 }
 
 bool scene_instance::contains_editable_node(scene_node_id node) const noexcept {
-  return std::ranges::find(objects_, node.get(), &object::node) != objects_.end();
+  return std::ranges::find(objects_, node, &object::node) != objects_.end();
 }
 } // namespace gneiss::engine
