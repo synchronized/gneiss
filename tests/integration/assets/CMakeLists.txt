@@ -29,6 +29,7 @@ add_executable(gneiss_asset_manager_test asset_manager_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp")
 target_include_directories(gneiss_asset_manager_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_asset_manager_test PRIVATE gneiss::engine gneiss_tasks)
+target_compile_definitions(gneiss_asset_manager_test PRIVATE GNEISS_TEST_TASK_THREADS=$<BOOL:${GNEISS_TASK_THREADS}>)
 gneiss_target_compile_warnings(gneiss_asset_manager_test)
 gneiss_target_output_directories(gneiss_asset_manager_test)
 add_test(NAME gneiss.assets.manager COMMAND gneiss_asset_manager_test)

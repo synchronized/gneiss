@@ -100,21 +100,43 @@ struct asset_manager::resource_state {
     }
   }
   ~resource_state() { stop(); }
-  void stop() noexcept {
+  void request_stop() noexcept {
+    if (stopped)
+      return;
     stopped = true;
-    if (executor != nullptr) {
-      (void)executor->close_scope(scope);
-      executor = nullptr;
-    }
+    if (executor)
+      executor->cancel_scope(scope);
     for (const auto& work : active) {
       if (work->reading && work->read_request.value != 0)
         (void)files->cancel(work->read_request);
       const std::scoped_lock lock(work->observer->mutex);
-      work->observer->status = gneiss::engine::result::invalid_state;
+      work->observer->status = result::invalid_state;
+    }
+  }
+  bool finish_stop() noexcept {
+    if (!stopped)
+      return false;
+    // 停止提交后 idle 不会重新变忙；只在全部 CPU 任务退出后回收 scope。
+    if (executor) {
+      if (!executor->idle(scope))
+        return false;
+      if (!executor->close_scope(scope))
+        return false;
+      executor = nullptr;
     }
     active.clear();
     requests.clear();
     files.reset();
+    return true;
+  }
+  void stop() noexcept {
+    request_stop();
+    // 迁移期析构兜底；宿主应先 request_stop 并推进到 finish_stop 完成。
+    if (executor) {
+      (void)executor->close_scope(scope);
+      executor = nullptr;
+    }
+    (void)finish_stop();
   }
 };
 std::shared_ptr<file_service> asset_manager::async_files() const noexcept {
@@ -389,6 +411,10 @@ gneiss::engine::result asset_manager::request_input(std::string_view uri,
 }
 void asset_manager::advance_resources() {
   auto& state = *resource_state_;
+  if (state.stopped) {
+    (void)state.finish_stop();
+    return;
+  }
   if (state.executor == nullptr) {
     return;
   }
@@ -469,6 +495,10 @@ void asset_manager::collect_unused() noexcept {
         state.active, [&](const auto& work) { return work->identity == identity; });
     return !active && entry.pending.expired();
   });
+}
+void asset_manager::request_stop_resources() noexcept { resource_state_->request_stop(); }
+bool asset_manager::resources_stopped() const noexcept {
+  return resource_state_->stopped && !resource_state_->executor && !resource_state_->files;
 }
 void asset_manager::stop_resources() noexcept { resource_state_->stop(); }
 }

@@ -133,7 +133,10 @@ Application 主循环及显式场景/资产轮询入口共用同一宿主推进�
 尚无实际异步后端的无线程/浏览器构建返回 unsupported，不再恢复同步文件回退。
 文件操作和 CPU 调度线程数是不同配置，不应把 cooperative 等同于所有文件操作都在主线程执行。
 
-当前 stop_resources 仍等待已有 CPU scope 收尾，终止观察者、取消读取并释放服务引用。
+asset_manager 已提供 request_stop_resources：立即拒绝新加载、终止观察者并请求取消，不等待 CPU 解码退出。
+宿主继续调用 advance_resources，直到 resources_stopped；已停止管理器不会发布迟到解码结果。
+管理器停止不等于共享文件服务关闭，后者仍须独立 shutdown 并等待完成回调。
+迁移期 stop_resources 与析构仍保留等待已有 CPU scope 收尾的兜底。
 宿主持有的共享服务继续由宿主分发并正常 shutdown；独占服务析构放弃通知，在途后端自行清理。
 Application 的既有同步 teardown 释放读来源和渲染快照后再停止 libuv loop，
 尚未改成逐次轮询的异步宿主关闭流程，不宣称整个引擎关闭已经非阻塞。

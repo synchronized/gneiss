@@ -12,9 +12,12 @@
 #include "engine/resource/files/async_read_file_backend.hpp"
 #include "engine/resource/loaders/material_serialization.hpp"
 #include "engine/resource/types/material_description.hpp"
+#include <atomic>
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
+#include <thread>
 
 namespace gneiss::test_support {
 struct asset_value {
@@ -147,7 +150,10 @@ void injected_file_service() {
   check(assets->find_loaded("asset://value", other).ok() && other == loaded,
         "cancel preserves cache");
   check(assets->load("asset://late", first).ok(), "late request");
-  assets->stop_resources();
+  assets->request_stop_resources();
+  check(!assets->resources_stopped(), "stop completion requires owner advance");
+  assets->advance_resources();
+  check(assets->resources_stopped(), "manager stops without waiting for file callback");
   assets.reset();
   check(first.take(other) == result::invalid_state && other == loaded, "stop terminates observer");
   backend->finish('s');
@@ -570,10 +576,68 @@ void stored_value_supersedes_pending() {
   assets.stop_resources();
 }
 
+#if GNEISS_TEST_TASK_THREADS
+void nonblocking_decode_shutdown() {
+  struct gated_decoder final : asset_decoder {
+    mutable std::atomic_bool entered{}, released{};
+    type_id target_type() const noexcept override { return runtime_type_of<value>(); }
+    std::size_t maximum_bytes() const noexcept override { return 8; }
+    result decode(const std::vector<std::byte>&, std::shared_ptr<const void>& output,
+                  meta::serialization_diagnostic&) const override {
+      entered.store(true, std::memory_order_release);
+      while (!released.load(std::memory_order_acquire))
+        std::this_thread::yield();
+      output = std::make_shared<const value>(value{'z'});
+      return result::success;
+    }
+  };
+  task_scheduler executor({.workers = 1, .mode = execution_mode::thread_pool});
+  auto backend = std::make_shared<delayed_files>();
+  auto files = std::make_shared<file_service>();
+  check(files->mount({"asset://", {backend}, {}}).ok(), "stop mount");
+  asset_manager assets(files);
+  auto decoder = std::make_shared<gated_decoder>();
+  check(assets.register_decoder(decoder).ok(), "stop decoder");
+  assets.attach_task_executor(executor);
+  struct release_guard {
+    gated_decoder& decoder;
+    ~release_guard() { decoder.released.store(true, std::memory_order_release); }
+  } release{*decoder};
+  asset_request<value> request;
+  check(assets.load("asset://busy", request).ok(), "stop load");
+  backend->finish('z');
+  advance_assets_for_test(assets);
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (!decoder->entered.load(std::memory_order_acquire)) {
+    check(std::chrono::steady_clock::now() < deadline, "decoder started");
+    std::this_thread::yield();
+  }
+  assets.request_stop_resources();
+  assets.advance_resources();
+  check(!assets.resources_stopped(), "running decode does not block stop request");
+  asset_ref<const value> output;
+  check(request.take(output) == result::invalid_state && !output,
+        "observer terminates immediately");
+  asset_request<value> rejected;
+  check(assets.load("asset://other", rejected) == result::invalid_state, "stop rejects work");
+  decoder->released.store(true, std::memory_order_release);
+  while (!assets.resources_stopped()) {
+    assets.advance_resources();
+    check(std::chrono::steady_clock::now() < deadline, "stop drains after decoder exit");
+    std::this_thread::yield();
+  }
+  check(executor.stats().retained == 0, "stop releases task scope");
+  check(request.take(output) == result::invalid_state && !output, "late CPU result not published");
+}
+#endif
+
 }
 int main() {
   try {
     injected_file_service();
+#if GNEISS_TEST_TASK_THREADS
+    nonblocking_decode_shutdown();
+#endif
     stored_value_supersedes_pending();
     decoder_selection();
     reference_lifetime();

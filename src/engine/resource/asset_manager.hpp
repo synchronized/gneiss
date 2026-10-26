@@ -41,7 +41,12 @@ public:
                                                      asset_request<action_map>& output) noexcept;
   /** 宿主每次先分发文件完成，再推进本管理器；不驱动文件或其他服务回调。 */
   void advance_resources();
-  /** 终止资产观察者并取消文件请求，等待已有 CPU 解码任务收尾。
+  /** 请求停止：立即拒绝新加载、终止观察者并取消 I/O/CPU 任务，不等待任务退出。
+   * 宿主持有文件服务并继续分发，调用 advance_resources 收尾，直到 resources_stopped。
+   * 不自动关闭共享文件服务；已完成资源引用不失效。 */
+  void request_stop_resources() noexcept;
+  [[nodiscard]] bool resources_stopped() const noexcept;
+  /** 迁移期同步关闭兜底：终止观察者并取消文件请求，等待已有 CPU 解码任务收尾。
    * 共享文件服务继续由宿主分发/关闭；独占服务随管理器销毁放弃通知，后端保活实际 I/O。 */
   void stop_resources() noexcept;
   /** 显式注册 CPU 类型；首次请求后冻结注册。VFS 来源由本管理器固定持有。 */
