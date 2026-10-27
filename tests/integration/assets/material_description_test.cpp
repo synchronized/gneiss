@@ -24,12 +24,13 @@ void run(std::size_t limit) {
   text.resize(limit, ' ');
   auto old = std::make_shared<material_description>();
   asset_diagnostic diagnostic;
+  meta::serialization_diagnostic codec_diagnostic;
   auto input = bytes(text);
-  check(decode_material_description(input, *old, diagnostic).ok());
+  check(decode_material(input, *old, codec_diagnostic).ok());
   input = bytes(
       R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[0,1,0,1],"base_color_texture":"asset://missing"})");
   auto current = std::make_shared<material_description>();
-  check(decode_material_description(input, *current, diagnostic).ok());
+  check(decode_material(input, *current, codec_diagnostic).ok());
   prepared_asset prepared;
   const asset_preparation_source source{"asset://material.json", asset_type::material};
   check(decode_loaded_asset(source, {}, {}, {}, prepared, diagnostic, limit, {},
@@ -48,7 +49,8 @@ void run(std::size_t limit) {
   check(decode_loaded_asset(source, {}, {}, {}, prepared, diagnostic, 1, {}, retained, 256) ==
         result::out_of_memory);
   check(prepared.description == retained && prepared.material.color[1] == 1);
-  check(decode_material_description(bytes("{}"), *current, diagnostic).failed());
+  check(decode_material(bytes("{}"), *current, codec_diagnostic).failed());
+  check(current->parameters.color[1] == 1 && current->texture_uris[0] == "asset://missing");
 }
 }
 int main() try {

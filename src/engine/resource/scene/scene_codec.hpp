@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/meta/serialization_types.hpp"
 #include "scene_description.hpp"
 namespace gneiss::engine {
 [[nodiscard]] gneiss::engine::result
@@ -17,5 +17,5 @@ parse_scene_description(std::string_view json, scene_description& out_scene,
                                              meta::serialization_diagnostic&) noexcept;
 [[nodiscard]] GNEISS_API result encode_scene(const scene_description&, std::vector<std::byte>&,
                                              meta::serialization_diagnostic&) noexcept;
-[[nodiscard]] GNEISS_API result register_scene_reflection(const meta::registry_ref&) noexcept;
+
 }

@@ -3,7 +3,7 @@
 
 #pragma once
 #include "engine/core/guid.hpp"
-#include "engine/resource/texture/texture_types.hpp"
+#include "engine/resource/texture/texture_description.hpp"
 #include <array>
 #include <cstdint>
 #include <string>

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/resource/mesh/mesh_binary.hpp"
-#include "engine/resource/mesh/mesh_tangent.hpp"
+#include "engine/resource/mesh/mesh_data.hpp"
 
 #include <algorithm>
 #include <bit>

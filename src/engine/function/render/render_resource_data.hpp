@@ -7,7 +7,7 @@
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/mesh/mesh_data.hpp"
 #include "engine/resource/texture/texture_data.hpp"
-#include "engine/resource/texture/texture_types.hpp"
+#include "engine/resource/texture/texture_description.hpp"
 
 #include <array>
 #include <cstddef>

@@ -42,7 +42,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/resource_cache.hpp
   engine/resource/texture/texture_ktx2.hpp
   engine/resource/texture/texture_data.hpp
-  engine/resource/texture/texture_types.hpp
+  engine/resource/texture/texture_description.hpp
   engine/core/diagnostics/diagnostic.hpp
   engine/core/diagnostics/loop_timing.hpp
   engine/core/frame_time.hpp
@@ -115,7 +115,7 @@ gneiss_internal_headers(gneiss_tooling_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/export.hpp
   engine/core/result.hpp
   engine/resource/mesh/mesh_binary.hpp
-  engine/resource/texture/texture_types.hpp
+  engine/resource/texture/texture_description.hpp
   engine/resource/material/material_description.hpp
   tooling/asset_build/asset_build.hpp
   tooling/asset_build/ktx2_probe.hpp

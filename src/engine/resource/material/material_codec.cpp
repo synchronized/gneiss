@@ -9,7 +9,9 @@
 #include <new>
 #include <yyjson.h>
 
-namespace gneiss::engine::detail {
+namespace gneiss::engine {
+namespace {
+using namespace detail;
 [[nodiscard]] gneiss::engine::result parse_pbr_extensions(yyjson_val* root,
                                                           material_description& out_source,
                                                           asset_diagnostic& diagnostic) {
@@ -203,26 +205,19 @@ namespace gneiss::engine::detail {
 }
 
 }
-namespace gneiss::engine {
-/** 复用批次已经读取的字节；不进行 I/O、来源复验或共享版本登记；解析失败保持原输出。 */
-gneiss::engine::result decode_material_description(const std::vector<std::byte>& bytes,
-                                                   material_description& value,
-                                                   asset_diagnostic& diagnostic) {
-  material_description pending;
-  const auto status = gneiss::engine::detail::parse_material(bytes, pending, diagnostic);
-  if (status == result::success)
-    value = std::move(pending);
-  return status;
 }
-
+namespace gneiss::engine {
 result decode_material(std::span<const std::byte> bytes, material_description& output,
                        gneiss::engine::meta::serialization_diagnostic& diagnostic) noexcept try {
   diagnostic = {};
   std::vector<std::byte> owned(bytes.begin(), bytes.end());
   asset_diagnostic asset_error;
-  const auto status = decode_material_description(owned, output, asset_error);
+  material_description pending;
+  const auto status = parse_material(owned, pending, asset_error);
   diagnostic = {asset_error.byte_offset, std::move(asset_error.path),
                 std::move(asset_error.message)};
+  if (status == result::success)
+    output = std::move(pending);
   return status;
 } catch (const std::bad_alloc&) {
   return result::out_of_memory;

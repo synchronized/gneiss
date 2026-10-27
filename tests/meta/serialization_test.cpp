@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/meta/serialization.hpp"
+#include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/material/material_codec.hpp"
 #include <limits>
 #include <stdexcept>

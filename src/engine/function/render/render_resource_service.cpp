@@ -4,7 +4,7 @@
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/core/result.hpp"
 
-#include "engine/resource/mesh/mesh_tangent.hpp"
+#include "engine/resource/mesh/mesh_data.hpp"
 
 #include <algorithm>
 #include <atomic>

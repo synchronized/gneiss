@@ -327,3 +327,8 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 资源命名空间仍为 `gneiss::engine`；目录不增加命名空间层次。
 `function/render/render_asset_preparation` 负责已读输入的渲染批次组织，
 `function/render/resource_retirement_queue` 负责渲染资源延迟销毁。CPU 解码不调用渲染服务。
+
+资源头文件按实际使用边界收敛：`texture_description.hpp` 集中纹理枚举、采样参数和来源描述，
+`mesh_data.hpp` 集中网格数据与切线校验。各 codec 仅依赖序列化值类型，
+`register_*_reflection` 的声明统一位于 `builtin_resource_registration.hpp`。
+材质字节解码统一使用 `decode_material`，采用 `serialization_diagnostic`，失败保持原输出。
