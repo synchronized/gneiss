@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/platform/files/browser/browser_file_backend.hpp"
 #include "engine/platform/files/browser/fetch_file_backend.hpp"
+#include "engine/platform/files/file_read_stream.hpp"
 #include <cstdlib>
 #include <emscripten.h>
 #include <memory>
@@ -16,6 +17,8 @@ void check(bool condition) {
     std::abort();
   }
 }
+void stream_checks();
+void unsupported_stream();
 void fetch_checks() {
   remote =
       std::make_shared<fetch_file_backend>(emscripten_run_script_string("location.origin + '/'"));
@@ -64,12 +67,7 @@ void fetch_checks() {
                                                                                           info.data
                                                                                                   .size ==
                                                                                               5);
-                                                                                      EM_ASM({
-                                                                                        document
-                                                                                            .body
-                                                                                            .textContent =
-                                                                                            'PASS';
-                                                                                      });
+                                                                                      unsupported_stream();
                                                                                     })
                                                                                 .ok());
                                                                       })
@@ -82,6 +80,137 @@ void fetch_checks() {
                         .ok());
               })
           .ok());
+}
+std::shared_ptr<file_service> streaming_files;
+std::unique_ptr<file_read_stream> streaming;
+unsigned phase{}, pause_frames{}, delivered{}, paused_reads{};
+std::uint64_t streamed_bytes{};
+bool waiting{}, finished{};
+void stream_tick() {
+  check(streaming_files->dispatch_completions(16).ok());
+  if (finished) {
+    streaming.reset();
+    streaming_files.reset();
+    emscripten_cancel_main_loop();
+    check(EM_ASM_INT({ return GneissFetchStreams.entries.size; }) == 0);
+    EM_ASM({ document.body.textContent = 'PASS'; });
+    return;
+  }
+  if (waiting)
+    return;
+  if (phase == 0) {
+    if (pause_frames) {
+      check(EM_ASM_INT({ return globalThis.gneissStreamReads; }) == static_cast<int>(paused_reads));
+      --pause_frames;
+      return;
+    }
+    waiting = true;
+    check(streaming
+              ->read_next([](auto value) {
+                check(value.status.ok() && value.data.offset == streamed_bytes &&
+                      value.data.bytes.size() <= 32);
+                for (std::size_t i = 0; i < value.data.bytes.size(); ++i)
+                  check(value.data.bytes[i] == static_cast<std::byte>((streamed_bytes + i) % 251));
+                streamed_bytes += value.data.bytes.size();
+                ++delivered;
+                waiting = false;
+                if (value.data.eof) {
+                  check(streamed_bytes == 257 && delivered > 8);
+                  phase = 10;
+                } else {
+                  pause_frames = 3;
+                  paused_reads = EM_ASM_INT({ return globalThis.gneissStreamReads; });
+                }
+              })
+              .ok());
+    check(streaming->read_next([](auto) { check(false); }) == result::not_ready);
+  } else if (phase == 10) {
+    streaming =
+        std::make_unique<file_read_stream>(streaming_files, "remote://empty", std::nullopt, 32);
+    waiting = true;
+    check(streaming
+              ->read_next([](auto value) {
+                check(value.status.ok() && value.data.eof && value.data.bytes.empty() &&
+                      value.data.offset == 0);
+                waiting = false;
+                phase = 1;
+              })
+              .ok());
+  } else if (phase == 1) {
+    streaming =
+        std::make_unique<file_read_stream>(streaming_files, "remote://stall", std::nullopt, 32);
+    waiting = true;
+    check(streaming
+              ->read_next([](auto value) {
+                check(value.status == result::cancelled);
+                waiting = false;
+                phase = 3;
+              })
+              .ok());
+    phase = 2;
+    // 等待响应头和在途 read()；取消必须立即终止来源，不等服务端结束。
+    emscripten_async_call([](void*) { check(streaming->cancel().ok()); }, nullptr, 100);
+  } else if (phase == 3) {
+    streaming =
+        std::make_unique<file_read_stream>(streaming_files, "remote://stream", std::nullopt, 32);
+    waiting = true;
+    check(streaming
+              ->read_next([](auto value) {
+                check(value.status.ok() && !value.data.eof);
+                waiting = false;
+                phase = 4;
+              })
+              .ok());
+  } else if (phase == 4) {
+    // 消费者暂停时服务关闭也必须释放 reader。
+    waiting = true;
+    check(streaming_files
+              ->shutdown([](result status) {
+                check(status.ok());
+                finished = true;
+              })
+              .ok());
+  }
+}
+void unsupported_stream() {
+  // clang-format off
+  EM_ASM({
+    const original = ReadableStream.prototype.getReader;
+    ReadableStream.prototype.getReader = function(options) {
+      if (options && options.mode == 'byob') {
+        ReadableStream.prototype.getReader = original;
+        throw new TypeError('injected unsupported BYOB');
+      }
+      return original.call(this, options);
+    };
+  });
+  // clang-format on
+  check(remote
+            ->open_stream("stream",
+                          [](auto opened) {
+                            check(opened.status == result::unsupported && !opened.data);
+                            check(EM_ASM_INT({ return GneissFetchStreams.entries.size; }) == 0);
+                            stream_checks();
+                          })
+            .ok());
+}
+void stream_checks() {
+  EM_ASM({
+    globalThis.gneissStreamReads = 0;
+    const original = ReadableStreamBYOBReader.prototype.read;
+    ReadableStreamBYOBReader.prototype.read = function(... args) {
+      ++globalThis.gneissStreamReads;
+      return original.apply(this, args);
+    };
+  });
+  streaming_files = std::make_shared<file_service>(
+      file_service_options{.max_file_bytes = 32, .max_buffer_bytes = 64});
+  const auto base = std::string(emscripten_run_script_string("location.origin + '/'"));
+  auto absent = std::make_shared<fetch_file_backend>(base + "absent/");
+  check(streaming_files->mount({"remote://", {absent, remote}, {}}).ok());
+  streaming =
+      std::make_unique<file_read_stream>(streaming_files, "remote://stream", std::nullopt, 32);
+  emscripten_set_main_loop(stream_tick, 0, false);
 }
 void restore() {
   local.reset();

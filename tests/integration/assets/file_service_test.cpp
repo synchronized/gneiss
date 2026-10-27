@@ -477,6 +477,153 @@ void lifetime() {
   }
   late({result::success, {}});
 }
+class controlled_stream final : public file_backend_stream {
+public:
+  file_callback<file_block> callback;
+  std::size_t reads{};
+  std::uint64_t offset{};
+  bool closed{};
+  result read_next(std::size_t maximum, file_callback<file_block> done) override {
+    check(maximum == 8, "stream block bound");
+    if (closed)
+      return result::invalid_state;
+    if (callback)
+      return result::not_ready;
+    ++reads;
+    callback = std::move(done);
+    return result::success;
+  }
+  void complete(std::size_t count, bool eof = false) {
+    auto done = std::move(callback);
+    const auto begin = offset;
+    offset += count;
+    done({result::success, {file_bytes(count, std::byte{7}), begin, eof}});
+  }
+  void close() noexcept override {
+    closed = true;
+    if (auto done = std::move(callback))
+      done({result::cancelled, {}});
+  }
+};
+class streaming_backend final : public file_backend {
+public:
+  std::shared_ptr<controlled_stream> stream;
+  unsigned opens{};
+  bool missing{};
+  result open_stream(std::string_view,
+                     file_callback<std::shared_ptr<file_backend_stream>> done) override {
+    ++opens;
+    if (missing)
+      return result::not_found;
+    stream = std::make_shared<controlled_stream>();
+    done({result::success, stream});
+    return result::success;
+  }
+};
+void sequential_streams() {
+  auto files = std::make_shared<file_service>(
+      file_service_options{.max_file_bytes = 16, .max_buffer_bytes = 16});
+  auto missing = std::make_shared<streaming_backend>();
+  missing->missing = true;
+  auto backend = std::make_shared<streaming_backend>();
+  check(files->mount({"asset://", {missing, backend}, {}}).ok(), "stream mount");
+  auto stream = std::make_unique<file_read_stream>(files, "asset://unknown", std::nullopt, 8);
+  unsigned received = 0;
+  check(stream->read_next([&](auto value) {
+                check(value.status.ok() && value.data.offset == 0 && value.data.bytes.size() == 3 &&
+                          !value.data.eof,
+                      "first unknown block");
+                ++received;
+              }).ok() &&
+            received == 0,
+        "stream open is deferred");
+  for (int i = 0; i < 3; ++i)
+    pump(*files);
+  check(missing->opens == 1 && backend->opens == 1 && backend->stream->reads == 1, "open fallback");
+  check(stream->read_next([](auto) {}) == result::not_ready, "one block in flight");
+  file_request_id request;
+  check(files->read(
+            "asset://other", {1}, [](auto) {}, request) == result::not_ready,
+        "JS and Wasm block budgets reserved");
+  backend->stream->complete(3);
+  check(received == 0, "backend completion is deferred");
+  pump(*files);
+  for (int i = 0; i < 3; ++i)
+    pump(*files);
+  check(received == 1 && backend->stream->reads == 1, "slow consumer does not prefetch");
+  check(stream
+            ->read_next([&](auto value) {
+              check(value.status.ok() && value.data.offset == 3 && value.data.bytes.empty() &&
+                        value.data.eof,
+                    "unknown EOF");
+              ++received;
+            })
+            .ok(),
+        "EOF request");
+  backend->stream->complete(0, true);
+  pump(*files);
+  check(received == 2 && backend->stream->closed &&
+            stream->read_next([](auto) {}) == result::invalid_state,
+        "EOF closes source");
+  stream = std::make_unique<file_read_stream>(files, "asset://cancel", std::nullopt, 8);
+  result cancelled;
+  check(stream->read_next([&](auto value) { cancelled = value.status; }).ok(),
+        "cancel stream open");
+  for (int i = 0; i < 3; ++i)
+    pump(*files);
+  check(stream->cancel().ok() && backend->stream->closed && cancelled == result::unknown,
+        "cancel aborts source");
+  pump(*files);
+  check(cancelled == result::cancelled, "cancel delivered once");
+  stream = std::make_unique<file_read_stream>(files, "asset://invalid", std::nullopt, 8);
+  result oversized;
+  check(stream->read_next([&](auto value) { oversized = value.status; }).ok(),
+        "invalid stream open");
+  for (int i = 0; i < 3; ++i)
+    pump(*files);
+  backend->stream->complete(9);
+  pump(*files);
+  check(oversized == result::io && backend->stream->closed,
+        "backend block violation closes source");
+  stream = std::make_unique<file_read_stream>(files, "asset://destroy", std::nullopt, 8);
+  check(
+      stream->read_next([](auto) { check(false, "destroyed consumer must not be notified"); }).ok(),
+      "destruction stream open");
+  for (int i = 0; i < 3; ++i)
+    pump(*files);
+  auto abandoned = backend->stream;
+  stream.reset();
+  check(abandoned->closed, "destruction aborts pending read");
+  pump(*files);
+  stream = std::make_unique<file_read_stream>(files, "asset://unopened", std::nullopt, 8);
+  check(stream->read_next([](auto) { check(false, "destroyed opening consumer"); }).ok(),
+        "late open");
+  stream.reset();
+  for (int i = 0; i < 3; ++i)
+    pump(*files);
+  check(backend->stream->closed, "late open closes source");
+  stream = std::make_unique<file_read_stream>(files, "asset://close", std::nullopt, 8);
+  check(stream
+            ->read_next([](auto value) {
+              check(value.status == result::cancelled, "shutdown cancels stream");
+            })
+            .ok(),
+        "close stream open");
+  for (int i = 0; i < 3; ++i)
+    pump(*files);
+  bool closed = false;
+  check(files
+            ->shutdown([&](auto value) {
+              check(value.ok(), "close result");
+              closed = true;
+            })
+            .ok(),
+        "stream service shutdown");
+  check(backend->stream->closed && !closed, "shutdown closes backend immediately");
+  pump(*files);
+  check(closed, "shutdown drained");
+}
+
 // 来源标记属于挂载；共享后端不意味着共享资产命名域。
 void source_identity() {
   auto backend = std::make_shared<memory_file_backend>();
@@ -505,6 +652,7 @@ void source_identity() {
 } // namespace
 int main() {
   try {
+    sequential_streams();
     source_identity();
     memory_and_routes();
     pagination_and_reentry();

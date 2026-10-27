@@ -27,6 +27,12 @@ Platform 不依赖资产身份、Meta codec 或旧 VFS；挂载提供通用来�
 write 与 flush 分开；浏览器 IDBFS 恢复、写入、持久化具有独立时序。
 使用现有调度能力，不新增通用 Service 基类或线程池；JS Promise 仅作可选适配。
 
+2026-10-27 补充决策：未知长度 HTTP 流采用后端私有 JS Fetch + ReadableStream BYOB，
+由消费者逐块请求；普通整读与范围读继续使用 Emscripten Fetch。JS 位于
+`platform/files/browser/fetch_stream.js`，通过 CMake 的 `--js-library` 自动链接，
+安装包携带链接依赖，不提供公共 JS API。不支持 BYOB 时返回 unsupported。
+服务按 JS 与 Wasm 两份块缓冲预留预算；浏览器自身网络缓存不属于引擎可控预算。
+
 ## 影响
 
 能够隐藏平台差异和开放/读取/关闭细节，调用方通过回调组合工作。

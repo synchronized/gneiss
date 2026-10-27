@@ -20,7 +20,8 @@ HTTP(S) 地址作为 Fetch URL 基址；已有目录不由后端卸载。浏览�
 拒绝，以及原有 IDBFS/Fetch 小型测试通过；Emscripten 下 Engine/Application 编译通过，
 预加载资产宿主的加载、重载失败保留、取消及分阶段关闭在 Node/Wasm 环境通过。
 Edge 小型测试已覆盖 IDBFS 写入/恢复、注入持久化失败后的重试与内存保留。
-真实配额耗尽、跨域部署、未知长度下载及平台复制峰值仍待验证或实现。
+未知长度流已实现私有 JS Fetch/BYOB 桥接，按消费者请求读取，JS/Wasm 块缓冲共同计入预算。
+真实配额耗尽、跨域部署及浏览器内部网络缓存峰值尚未验证。
 输入映射已删除同步 load_input/load_action_map，示例和测试改用异步请求。
 Scene/Prefab 准备层已删除同步 prepare_scene_description/prepare_prefab_description，
 统一使用 scene_description_request 加载输入和 prepare_loaded_scene 纯内存准备。
@@ -167,7 +168,7 @@ find_loaded 只查询已完成缓存，未命中返回 not_found，失败保持�
 
 不重引入 CAORS、资源版本事务、通用 Service 基类、新线程池或公共 C ABI。
 浏览器不用 libuv 模拟文件系统，不依赖 Fetch destinationPath 落 IDBFS，不依赖 std::filesystem。
-不以 IDBFS 承诺任意大文件低内存存储，不提供主线程阻塞等待，不默认增加 JS 桥接或多级缓存。
+不以 IDBFS 承诺任意大文件低内存存储，不提供主线程阻塞等待，不增加公共 JS Promise API 或多级缓存。
 
 ## 已确认决策
 
@@ -223,16 +224,17 @@ result shutdown(completion_callback);
 
 阶段 1—4 完成代表桌面 VFS 替换完成；浏览器和大文件核心范围仍属本计划，不能提前标记整份计划完成。
 
-## 未知长度流式下载的待决边界
+## 未知长度流式下载
 
 当前 SDK 的 Emscripten Fetch 在流式模式下循环读取 ReadableStream 并调用 onprogress，
 C++ 完成回调不能暂停或恢复网络读取。因此它的流式回调不等于按消费者需求读取，
 仅给缓存设上限会导致慢消费者下载失败，不能作为背压验收通过。
 
-已向用户确认：是否允许仅未知长度流式路径在浏览器后端内部使用 JS Fetch + ReadableStream，
-普通整读与范围读继续使用 Emscripten Fetch；上层保持 C++ 回调。
-此选择涉及原需求指定的 Emscripten Fetch，答复前不改变该路径的实现约束。
-当前已知长度的 file_read_stream 按需范围读取不受此待决项影响。
+用户已确认采用后端私有 JS Fetch + ReadableStream BYOB，现已实现；
+普通整读与范围读继续使用 Emscripten Fetch，上层保持 C++ 回调。
+Windows 服务契约及 Edge 小型测试通过，覆盖未知长度、空响应、暂停不预读、取消、
+关闭、BYOB 不支持、来源回退和缓冲预算；安装后 CMake 消费者链接通过。
+具体行为与限制见[文件服务参考](../reference/file-service.md)。
 
 ## 测试与验收
 
@@ -247,7 +249,7 @@ C++ 完成回调不能暂停或恢复网络读取。因此它的流式回调不�
 - 桌面：所有文件操作不在提交/分发线程执行阻塞文件 I/O；正常/失败路径都等待关闭收尾。
 - 浏览器：初始化恢复顺序、flush 失败、容量不足、Range 不支持、CORS、缓存失效、关闭期间回调。
 - 大文件：应用缓冲和 JS/Wasm 复制峰值纳入预算，消费者慢时不会无限堆积；IDBFS 限制单独说明。
-- 当前只编译测试代码与主工程，运行结果不得标记为通过。
+- 已执行的小型测试可报告实测结果；大场景、耗时 CI 和未运行的平台场景仍留待统一验收。
 
 ## 风险与取舍
 

@@ -9,7 +9,7 @@
 当前实现 Platform 服务核心、内存后端、独立 libuv 桌面后端和 Fetch/MEMFS/IDBFS 浏览器后端。
 Application 已直接装配后端；普通 CPU、网格和纹理加载统一使用文件服务。
 旧 VFS、同步准备器和迁移适配器已删除；文件完成后才提交 CPU 解码任务。
-已实现已知长度文件的按需分块读取；未知长度下载与平台复制峰值的闭环仍待完成。
+支持已知长度的按需范围读取，以及浏览器未知长度 HTTP 的按需流式读取。
 字节缓存、JS Promise 尚未实现，按需增加。
 后续迁移见[开发计划](../plans/PLAN-051-async-file-service.md)。
 
@@ -46,12 +46,23 @@ Application 已直接装配后端；普通 CPU、网格和纹理加载统一使�
 
 ## 分块读取
 
-`file_read_stream` 持有服务、URI、已知长度和块大小；长度通常来自异步 stat。
-`read_next` 最多接受一个在途块，消费者再次请求才继续，无隐式预读。
-完成块包含 offset、拥有的 bytes 和 eof；空文件交付一次空 EOF。
-失败不推进位置，可重试；析构取消观察而不等待 I/O。
-每块受服务字节预算约束，但消费者保留的旧块不计入预算；不提供跨块文件快照。
-未知长度 HTTP 响应的流式下载与浏览器内部复制峰值尚未解决。
+`file_read_stream(service, uri, optional_size, block_bytes)` 持有服务引用，在所属线程使用和销毁。
+已知长度使用范围读取；`std::nullopt` 在首次 read_next 时打开后端顺序流。
+read_next 最多接受一个在途块，消费者再次请求才继续，无隐式预读。
+完成块包含 offset、拥有的 bytes 和 eof；空文件交付一次空 EOF，EOF 后拒绝继续读取。
+已知长度失败可原位置重试；未知长度后端读取失败或取消终止流，提交失败可重试。
+析构取消观察并关闭已打开的来源，不等待 I/O；服务仍由宿主分发和关闭。
+打开时仅 not_found 尝试下一后端，开始读取后固定来源，不提供跨块文件快照。
+
+浏览器顺序流使用 Fetch + ReadableStream BYOB；后端或浏览器不支持时返回 unsupported。
+每块按两倍 block_bytes 预留 JS 与 Wasm 缓冲预算；消费者持有的旧块、浏览器内部网络
+缓存和分配器开销不计入该预算。暂停消费期间不调用 reader.read，不保证浏览器停止接收网络数据。
+打开和单次在途读取各有 30 秒超时，消费者暂停不计时。打开期间的取消仍等待后端返回或超时；
+来源打开后的取消立即关闭 reader，并通过服务分发终态。
+服务关闭也关闭暂停中的流。
+
+私有桥接位于 `src/engine/platform/files/browser/fetch_stream.js`，CMake 自动以
+`--js-library` 链接；安装包携带该链接依赖，应用无需单独加载 JS。普通整读和范围读仍使用 Emscripten Fetch。
 
 ## 路由与路径
 
@@ -106,12 +117,6 @@ write 仅确认内存写入；flush 调用当前 IDBFS 挂载的 syncfs(false)�
 在途持久化保活挂载，完成后才允许卸载；路径分量拒绝符号链接。
 根目录为独立的一级绝对路径，初始化创建挂载点；文件父目录须存在。
 
-`async_read_file_backend` 适配旧 `file_system` 的异步打开/区间读/关闭回执。
-每次读取最多 64 KiB，验证上限和短读；成功及读取失败均等待异步关闭后再报告。
-不支持异步读取的后端返回 unsupported，绝不调用同步 open_read/read/read_at 回退。
-适配器本身不依赖 std::filesystem；迁移期 native_file_system 仍使用该类型处理根路径，
-尚未完成桌面后端去除 std::filesystem 的目标。
-
 ## 资产管理器接入
 
 `asset_manager(shared_ptr<file_service>, registry, limit)` 持有宿主注入的同线程服务。
@@ -123,15 +128,11 @@ Application 主循环及显式场景/资产轮询入口共用同一宿主推进�
 
 文件服务每个挂载具有稳定来源域，`resolve_source` 仅查询身份。
 来源标记为 Platform 的 `file_source_domain`，不拥有后端或 GPU 资源。
-迁移期 Resource 的 `make_file_service(vfs, options)` 导入挂载时复用旧来源域，
-避免旧渲染入口与新异步入口对同一 URI 建立不同缓存身份。
-旧 `asset_manager(virtual_file_system, ...)` 构造内部导入服务，保留显式同步加载能力。
-新注入构造不提供同步磁盘回退，load_sync 仅复用成功缓存，未命中返回 unsupported。
-新增 find_loaded<T> 只查询已完成缓存，未命中返回 not_found，失败保持输出，不读盘或提交任务；
-旧同步入口将在调用方迁移完成后删除。
+asset_manager 仅接受文件服务注入；find_loaded<T> 只查询已完成缓存，未命中返回 not_found，
+失败保持输出，不读盘或提交任务。旧 VFS 构造、同步加载与迁移适配器已删除。
 
 桌面启用 libuv 的构建中，Application 即使使用协作式 CPU 调度也配置异步 I/O loop。
-尚无实际异步后端的无线程/浏览器构建返回 unsupported，不再恢复同步文件回退。
+浏览器按 asset_root 使用 HTTP Fetch 或借用 Emscripten FS 目录，不恢复同步文件回退。
 文件操作和 CPU 调度线程数是不同配置，不应把 cooperative 等同于所有文件操作都在主线程执行。
 
 asset_manager 已提供 request_stop_resources：立即拒绝新加载、终止观察者并请求取消，不等待 CPU 解码退出。
@@ -145,7 +146,7 @@ advance_shutdown 分发文件完成并推进 CPU 收尾，未完成返回 not_re
 Scene 不再创建节点或采用视觉资源；所有 CPU scope 静止、文件服务关闭回执到达后才销毁依赖。
 关闭回调与设备销毁只执行一次，终态可重复查询；借用的宿主执行器须存活至终态。
 最终 Render 设备销毁仍沿用既有同步流程，不宣称整个引擎关闭完全非阻塞。
-现有 shutdown/析构仍保留同步兜底，生产宿主关闭调用方仍待切换。
+Runtime/Editor 正常退出已采用分阶段关闭；现有 shutdown/析构仍保留同步兜底。
 
 Mesh/Texture 的运行时加载也借用该服务；等待文件期间不提交 CPU 任务，
 描述、完整负载读取和 GPU 上传保持独立阶段。具体契约见 [资产参考](assets.md)。
@@ -158,7 +159,9 @@ Windows 本地服务契约、资产管理和 native_file_backend 小范围测试
 桌面测试覆盖真实读写、范围边界、读取上限、缺失文件、重复创建、元数据、列举、flush 和关闭。
 Emscripten 5.0.6 + 本地 Edge 小型浏览器测试通过：IDBFS 写入/flush/重新挂载恢复、
 范围边界、重复创建、stat/list，以及 HTTP 206、错误 Content-Range、200 回退和读取上限。
-浏览器宿主接入、异常关页、存储配额失败与大文件峰值尚未验收。
+浏览器宿主加载/取消/分阶段关闭及注入持久化失败重试已通过小型测试。
+未知长度流的空响应、背压、取消、关闭和不支持 BYOB 已通过 Edge 测试；
+真实配额耗尽、跨域部署、异常关页与浏览器内部网络缓存峰值尚未验收。
 
 小型浏览器测试为 `tests/integration/assets/browser_file_backend_test.cpp`，Emscripten CMake 目标
 `gneiss_browser_file_backend_test`。生成 JS/Wasm 后可用本机 Chromium/Edge 执行：

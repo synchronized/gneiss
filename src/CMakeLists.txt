@@ -318,7 +318,11 @@ endif()
 
 if(EMSCRIPTEN)
   target_sources(gneiss_engine PRIVATE
+    engine/platform/files/browser/fetch_stream.cpp
     engine/platform/files/browser/fetch_file_backend.cpp
     engine/platform/files/browser/browser_file_backend.cpp)
-  target_link_options(gneiss_engine PUBLIC "-sFETCH=1" "-lidbfs.js")
+  target_link_options(gneiss_engine PUBLIC "-sFETCH=1" "-lidbfs.js"
+    "$<BUILD_INTERFACE:SHELL:--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/engine/platform/files/browser/fetch_stream.js\">")
+  set_property(TARGET gneiss_engine APPEND PROPERTY INTERFACE_LINK_DEPENDS
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/engine/platform/files/browser/fetch_stream.js>")
 endif()

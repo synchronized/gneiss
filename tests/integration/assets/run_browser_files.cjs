@@ -12,6 +12,24 @@ const root = path.dirname(path.resolve(artifact));
 const name = path.basename(artifact);
 const server = http.createServer((request, response) => {
   const route = request.url.split('?')[0];
+  if (route === '/empty') {
+    response.writeHead(200, {'Content-Length':0}); response.end(); return;
+  }
+  if (route === '/stream') {
+    const bytes = Buffer.from(Array.from({length:257}, (_, i) => i % 251));
+    response.writeHead(200, {'Content-Type':'application/octet-stream'});
+    response.write(bytes.subarray(0, 91));
+    response.write(bytes.subarray(91, 173));
+    response.end(bytes.subarray(173));
+    return;
+  }
+  if (route === '/stall') {
+    response.writeHead(200, {'Content-Type':'application/octet-stream'});
+    response.flushHeaders();
+    const timer = setTimeout(() => response.end(Buffer.from([1])), 5000);
+    response.on('close', () => clearTimeout(timer));
+    return;
+  }
   if (['/bytes','/ignore','/bad','/missing'].includes(route)) {
     let data = Buffer.from([1,2,3,4,5]);
     let status = 200;

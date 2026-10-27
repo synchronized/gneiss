@@ -194,7 +194,17 @@ foreach(source IN LISTS sources)
   if(source MATCHES "/src/runtime/" AND content MATCHES "gneiss_log_message")
     message(FATAL_ERROR "Application/Game 内部日志只接收文本视图，不得消费 C 消息描述：${source}")
   endif()
-  if(content MATCHES "extern[ \t]+\"C\"")
+  # 浏览器桥接只允许这三个私有 JS 导入声明；其他 C 链接声明或定义仍拒绝。
+  set(abi_content "${content}")
+  if(source MATCHES "/src/engine/platform/files/browser/fetch_stream\\.cpp$")
+    string(REPLACE [=[extern "C" {
+void gneiss_fetch_stream_open(const char*, void*, void (*)(void*, int, int));
+void gneiss_fetch_stream_read(int, void*, std::size_t, void*,
+                              void (*)(void*, int, std::size_t, int));
+void gneiss_fetch_stream_close(int);
+}]=] "" abi_content "${abi_content}")
+  endif()
+  if(abi_content MATCHES "extern[ \t]+\"C\"")
     message(FATAL_ERROR "内部模块 不得定义 C ABI 入口：${source}")
   endif()
   if(content MATCHES "#[ \t]*include[ \t]*[<\"]gneiss/(engine/)?(application|world|scene|resource|render|reflection|game_module|gneiss)\\.hpp[>\"]")

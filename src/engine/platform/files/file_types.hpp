@@ -22,6 +22,11 @@ struct file_request_id {
   friend bool operator==(file_request_id, file_request_id) = default;
 };
 using file_bytes = std::vector<std::byte>;
+struct file_block {
+  file_bytes bytes;
+  std::uint64_t offset{};
+  bool eof{};
+};
 enum class file_kind { regular, directory };
 struct file_info {
   file_kind kind{file_kind::regular};

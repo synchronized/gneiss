@@ -88,6 +88,13 @@ endif()
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
+if(EMSCRIPTEN)
+  install(FILES "${PROJECT_SOURCE_DIR}/src/engine/platform/files/browser/fetch_stream.js"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/js")
+  target_link_options(gneiss_engine INTERFACE
+    "$<INSTALL_INTERFACE:SHELL:--js-library \"$<INSTALL_PREFIX>/${CMAKE_INSTALL_DATADIR}/gneiss/js/fetch_stream.js\">")
+endif()
+
 
 if(DEFINED GNEISS_LIBUV_SOURCE_DIR)
   install(

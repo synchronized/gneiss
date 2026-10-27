@@ -10,6 +10,8 @@
 
 namespace gneiss::engine {
 class file_backend;
+class file_backend_stream;
+class file_read_stream;
 struct mount_description {
   std::string prefix;
   std::vector<std::shared_ptr<file_backend>> readers;
@@ -66,6 +68,12 @@ public:
   [[nodiscard]] result shutdown(completion_callback callback) noexcept;
 
 private:
+  friend class file_read_stream;
+  result open_stream_source(std::string_view, std::size_t,
+                            file_callback<std::shared_ptr<file_backend_stream>>,
+                            file_request_id&) noexcept;
+  result read_stream_source(std::string_view, std::shared_ptr<file_backend_stream>, std::size_t,
+                            file_callback<file_block>, file_request_id&) noexcept;
   struct implementation;
   std::unique_ptr<implementation> impl_;
 };

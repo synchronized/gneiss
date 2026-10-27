@@ -5,9 +5,19 @@
 
 #include "engine/platform/files/file_types.hpp"
 
+#include <memory>
 #include <string_view>
 
 namespace gneiss::engine {
+
+/** 单消费者顺序来源；不预读。close 可重复调用，终止在途读取且不等待。
+ * 成功接受的读取必须完成一次；失败后来源不可重试。仅所属线程调用。 */
+class file_backend_stream {
+public:
+  virtual ~file_backend_stream() = default;
+  virtual result read_next(std::size_t maximum_bytes, file_callback<file_block>) = 0;
+  virtual void close() noexcept = 0;
+};
 
 /** 后端扩展接口；提交/poll 在服务所属线程调用，完成可来自任意线程。
  * 成功接受后恰好调用一次回调，失败不调用；回调可内联，但不包含用户代码。
@@ -16,6 +26,10 @@ namespace gneiss::engine {
 class file_backend {
 public:
   virtual ~file_backend() = default;
+  virtual result open_stream(std::string_view,
+                             file_callback<std::shared_ptr<file_backend_stream>>) {
+    return result::unsupported;
+  }
   virtual result read(std::string_view, read_options, file_callback<file_bytes>) {
     return result::unsupported;
   }

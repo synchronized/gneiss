@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/platform/files/browser/fetch_file_backend.hpp"
 #include "engine/platform/files/file_path.hpp"
+#include "fetch_stream.hpp"
 #include <algorithm>
 #include <charconv>
 #include <cstring>
@@ -186,6 +187,13 @@ fetch_file_backend::fetch_file_backend(std::string base_url) : base_url_(std::mo
   if (!base_url_.ends_with('/') ||
       (!base_url_.starts_with("https://") && !base_url_.starts_with("http://")))
     throw std::invalid_argument("HTTP 文件根地址无效");
+}
+result
+fetch_file_backend::open_stream(std::string_view path,
+                                file_callback<std::shared_ptr<file_backend_stream>> callback) {
+  if (!detail::valid_file_path(path) || !callback)
+    return result::invalid_argument;
+  return open_fetch_stream(base_url_ + std::string(path), std::move(callback));
 }
 result fetch_file_backend::read(std::string_view path, read_options options,
                                 file_callback<file_bytes> callback) {
