@@ -128,11 +128,11 @@ metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 
 ## 普通资源读取与解码
 
-asset_manager 的 load 请求通过 file_service 读取有界字节；完成回调交付字节后只提交一次
+asset_manager 的 load 请求通过 files::service 读取有界字节；完成回调交付字节后只提交一次
 asset-decode 任务。等待文件期间不轮询 CPU 任务，不再使用 asset_source。
 普通类型解码器只消费字节。宿主先分发文件完成，再由 advance_resources 推进解码结果登记。
 
-asset_manager 仅接受 shared_ptr<file_service>。`find_loaded<T>` 只查询已完成缓存，
+asset_manager 仅接受 shared_ptr<files::service>。`find_loaded<T>` 只查询已完成缓存，
 未命中返回 not_found；`load<T>` 返回请求，不阻塞等待文件或解码。
 `register_decoder<T>(function, maximum_bytes)` 可直接登记
 `result(span<const byte>, T&, serialization_diagnostic&)` 函数，无需类型继承或反射身份。

@@ -53,14 +53,18 @@ int main() try {
       document.create_node("before", {}, node).failed())
     return 5;
   std::shared_ptr<editor::scene_document::save_receipt> receipt;
-  if (document.begin_save(*files, "asset://scene.json", engine::write_mode::create_new, receipt)
+  if (document
+          .begin_save(*files, "asset://scene.json", gneiss::engine::files::write_mode::create_new,
+                      receipt)
           .failed() ||
       receipt->complete || document.rename_node(node, "after").failed() ||
       test_support::await_file(*files, receipt).failed() ||
       document.accept_save(*receipt).failed() || !document.is_dirty() ||
       read(root / "scene.json").find("before") == std::string::npos)
     return 6;
-  if (document.begin_save(*files, document.uri(), engine::write_mode::replace, receipt).failed())
+  if (document
+          .begin_save(*files, document.uri(), gneiss::engine::files::write_mode::replace, receipt)
+          .failed())
     return 7;
   document.close(); // 回调不访问已经关闭的文档。
   if (test_support::await_file(*files, receipt).failed() ||

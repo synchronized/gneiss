@@ -7,9 +7,9 @@
 #include "engine/core/result.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_manager.hpp"
+#include "engine/resource/asset_uri.hpp"
 #include "engine/resource/loaders/asset_parsing.hpp"
 #include "engine/resource/types/material_description.hpp"
-#include "engine/resource/asset_uri.hpp"
 #include <algorithm>
 #include <set>
 #include <stdexcept>
@@ -21,7 +21,7 @@ struct texture_load_service::pending {
     asset_ref<const material_description> material;
     asset_preparation_source source;
     texture_description description;
-    file_bytes description_bytes, payload_bytes;
+    gneiss::engine::files::bytes description_bytes, payload_bytes;
     std::vector<prepared_source> inputs;
     texture_prepare_profile profile;
     std::size_t limit{};
@@ -34,8 +34,8 @@ struct texture_load_service::pending {
     double milliseconds{};
   };
   std::shared_ptr<cpu_result> cpu;
-  std::shared_ptr<file_service> files;
-  file_request_id read_request;
+  std::shared_ptr<gneiss::engine::files::service> files;
+  gneiss::engine::files::request_id read_request;
   ~pending() {
     if (files && read_request.value != 0U)
       (void)files->cancel(read_request);
@@ -401,7 +401,8 @@ result texture_load_service::start_read(pending& value, std::string_view uri, bo
   value.cpu->reading = true;
   const auto accepted = value.files->read(
       uri, {.max_bytes = value.cpu->limit - used},
-      [weak = std::weak_ptr(value.cpu), payload](file_completion<file_bytes> completed) {
+      [weak = std::weak_ptr(value.cpu),
+       payload](gneiss::engine::files::completion<gneiss::engine::files::bytes> completed) {
         if (auto cpu = weak.lock()) {
           cpu->reading = false;
           cpu->result = completed.status;

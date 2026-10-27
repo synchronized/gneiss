@@ -14,10 +14,11 @@
 
 namespace gneiss::engine {
 
-gneiss::engine::result resource_cache::load(std::string_view uri, gneiss::engine::type_id type,
-                                            const loader& decode, asset_ref<const entry>& out_entry,
-                                            std::shared_ptr<const file_source_domain> source,
-                                            bool reload) noexcept {
+gneiss::engine::result
+resource_cache::load(std::string_view uri, gneiss::engine::type_id type, const loader& decode,
+                     asset_ref<const entry>& out_entry,
+                     std::shared_ptr<const gneiss::engine::files::source_domain> source,
+                     bool reload) noexcept {
   using gneiss::engine::result;
   out_entry.reset();
   if (type == gneiss::engine::runtime_type_of<void>() || !decode ||
@@ -89,7 +90,7 @@ void resource_cache::release_unused() noexcept {
 
 std::weak_ptr<const resource_cache::entry>
 resource_cache::observe(std::string_view uri, gneiss::engine::type_id type,
-                        std::shared_ptr<const file_source_domain> source) const {
+                        std::shared_ptr<const gneiss::engine::files::source_domain> source) const {
   const auto found = entries_.find(key{std::move(source), std::string(uri), type});
   return found == entries_.end() ? std::weak_ptr<const entry>{}
                                  : std::weak_ptr<const entry>{found->second.shared()};

@@ -27,7 +27,7 @@ public:
   editor_layout() = default;
   editor_layout(const editor_layout&) = delete;
   editor_layout& operator=(const editor_layout&) = delete;
-  [[nodiscard]] engine::result initialize(std::shared_ptr<engine::file_service> files,
+  [[nodiscard]] engine::result initialize(std::shared_ptr<gneiss::engine::files::service> files,
                                           std::string_view project_key,
                                           editor_panel_visibility& visibility) noexcept;
   [[nodiscard]] engine::result advance(editor_panel_visibility& visibility) noexcept;
@@ -40,13 +40,14 @@ public:
 private:
   struct read_receipt {
     bool complete{};
-    engine::file_completion<engine::file_bytes> value{engine::result::not_ready};
+    gneiss::engine::files::completion<gneiss::engine::files::bytes> value{
+        engine::result::not_ready};
   };
   struct write_receipt {
     bool complete{};
     engine::result status{engine::result::not_ready};
   };
-  std::shared_ptr<engine::file_service> files_;
+  std::shared_ptr<gneiss::engine::files::service> files_;
   std::shared_ptr<read_receipt> read_;
   std::shared_ptr<write_receipt> write_;
   std::string uri_;

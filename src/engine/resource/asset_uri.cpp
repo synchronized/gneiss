@@ -15,7 +15,7 @@ namespace gneiss::engine {
 
 gneiss::engine::result validate_uri(std::string_view uri) noexcept {
   if (!uri.starts_with(scheme) || uri.size() == scheme.size() || uri.ends_with('/') ||
-      !detail::valid_file_path(uri.substr(scheme.size()))) {
+      !files::detail::valid_file_path(uri.substr(scheme.size()))) {
     return gneiss::engine::result::invalid_argument;
   }
   return gneiss::engine::result::success;

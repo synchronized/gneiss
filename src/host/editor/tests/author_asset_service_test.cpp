@@ -45,22 +45,24 @@ struct fixture {
     std::filesystem::remove_all(root, error);
   }
 };
-class delayed_backend final : public engine::file_backend {
+class delayed_backend final : public gneiss::engine::files::backend {
 public:
-  engine::file_callback<engine::file_bytes> pending;
-  engine::file_callback<engine::directory_page> pending_list;
+  gneiss::engine::files::callback<gneiss::engine::files::bytes> pending;
+  gneiss::engine::files::callback<gneiss::engine::files::directory_page> pending_list;
   bool delay_list{};
-  engine::result list(std::string_view, engine::list_options,
-                      engine::file_callback<engine::directory_page> callback) override {
+  engine::result
+  list(std::string_view, gneiss::engine::files::list_options,
+       gneiss::engine::files::callback<gneiss::engine::files::directory_page> callback) override {
     if (delay_list)
       pending_list = std::move(callback);
     else
-      callback(
-          {engine::result::success, {{{"main.scene.json", {engine::file_kind::regular, {}}}}, {}}});
+      callback({engine::result::success,
+                {{{"main.scene.json", {gneiss::engine::files::kind::regular, {}}}}, {}}});
     return engine::result::success;
   }
-  engine::result read(std::string_view, engine::read_options,
-                      engine::file_callback<engine::file_bytes> callback) override {
+  engine::result
+  read(std::string_view, gneiss::engine::files::read_options,
+       gneiss::engine::files::callback<gneiss::engine::files::bytes> callback) override {
     require(!pending, "指纹读取不得并发积压");
     pending = std::move(callback);
     return engine::result::success;
@@ -70,7 +72,7 @@ void pending_shutdown(bool destroy, bool list = false) {
   fixture disk;
   write(disk.root / "main.scene.json", "initial");
   engine::task_scheduler scheduler({.workers = 0, .mode = engine::execution_mode::cooperative});
-  auto files = std::make_shared<engine::file_service>();
+  auto files = std::make_shared<gneiss::engine::files::service>();
   auto backend = std::make_shared<delayed_backend>();
   require(files->mount({"asset://", {backend}, {}}).ok(), "测试挂载失败");
   backend->delay_list = list;
@@ -99,7 +101,7 @@ void pending_shutdown(bool destroy, bool list = false) {
   require(files->dispatch_completions(64).ok(), "迟到回调分发失败");
   if (service)
     require(service->stopped(), "文件收尾后仍未停止");
-  engine::file_request_id request;
+  gneiss::engine::files::request_id request;
   require(files->read(
                    "asset://other", {1}, [](auto) {}, request)
               .ok(),
@@ -110,7 +112,7 @@ void pending_shutdown(bool destroy, bool list = false) {
 }
 void scan_failure_retry() {
   engine::task_scheduler scheduler({.workers = 0, .mode = engine::execution_mode::cooperative});
-  auto files = std::make_shared<engine::file_service>();
+  auto files = std::make_shared<gneiss::engine::files::service>();
   auto backend = std::make_shared<delayed_backend>();
   backend->delay_list = true;
   require(files->mount({"asset://", {backend}, {}}).ok(), "扫描测试挂载失败");

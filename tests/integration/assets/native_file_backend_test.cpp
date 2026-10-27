@@ -18,10 +18,10 @@ int main(int argc, char** argv) {
     return 1;
   uv_loop_executor executor;
   check(executor.start().ok());
-  auto backend = std::make_shared<native_file_backend>(executor, argv[1]);
-  file_service service;
+  auto backend = std::make_shared<gneiss::engine::files::native_backend>(executor, argv[1]);
+  gneiss::engine::files::service service;
   check(service.mount({"test://", {backend}, backend}).ok());
-  file_request_id request;
+  gneiss::engine::files::request_id request;
   bool done{};
   result status;
   const auto pump = [&] {
@@ -39,13 +39,13 @@ int main(int argc, char** argv) {
   };
   check(backend->write("", {}, {}, complete) == result::invalid_argument);
   check(backend->write("directory/", {}, {}, complete) == result::invalid_argument);
-  file_bytes bytes{std::byte{1}, std::byte{2}, std::byte{3}};
+  gneiss::engine::files::bytes bytes{std::byte{1}, std::byte{2}, std::byte{3}};
   check(service.write("test://native.bin", bytes, {}, complete, request).ok());
   check(!done);
   pump();
   check(status.ok());
-  file_bytes output;
-  const auto read = [&](file_completion<file_bytes> value) {
+  gneiss::engine::files::bytes output;
+  const auto read = [&](gneiss::engine::files::completion<gneiss::engine::files::bytes> value) {
     status = value.status;
     output = std::move(value.data);
     done = true;
@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
   check(status.ok() && output == bytes);
   check(service.read_range("test://native.bin", {1, 2}, read, request).ok());
   pump();
-  check(status.ok() && output == file_bytes({std::byte{2}, std::byte{3}}));
+  check(status.ok() && output == gneiss::engine::files::bytes({std::byte{2}, std::byte{3}}));
   check(service.read_range("test://native.bin", {2, 2}, read, request).ok());
   pump();
   check(status == result::invalid_argument && output.empty());
@@ -66,7 +66,8 @@ int main(int argc, char** argv) {
   pump();
   check(status == result::not_found);
   check(service
-            .write("test://native.bin", {std::byte{9}}, {write_mode::create_new}, complete, request)
+            .write("test://native.bin", {std::byte{9}},
+                   {gneiss::engine::files::write_mode::create_new}, complete, request)
             .ok());
   pump();
   check(status == result::invalid_state);
@@ -81,11 +82,11 @@ int main(int argc, char** argv) {
   check(service.read("test://native.bin", {16}, read, request).ok());
   pump();
   check(status.ok() && output == bytes);
-  file_info info;
+  gneiss::engine::files::info info;
   check(service
             .stat(
                 "test://native.bin",
-                [&](file_completion<file_info> value) {
+                [&](gneiss::engine::files::completion<gneiss::engine::files::info> value) {
                   status = value.status;
                   info = value.data;
                   done = true;
@@ -94,17 +95,18 @@ int main(int argc, char** argv) {
             .ok());
   pump();
   check(status.ok() && info.size == 3);
-  directory_page page;
-  check(service
-            .list(
-                "test://", {1, {}},
-                [&](file_completion<directory_page> value) {
-                  status = value.status;
-                  page = std::move(value.data);
-                  done = true;
-                },
-                request)
-            .ok());
+  gneiss::engine::files::directory_page page;
+  check(
+      service
+          .list(
+              "test://", {1, {}},
+              [&](gneiss::engine::files::completion<gneiss::engine::files::directory_page> value) {
+                status = value.status;
+                page = std::move(value.data);
+                done = true;
+              },
+              request)
+          .ok());
   pump();
   check(status.ok() && page.entries.size() == 1);
   check(service.flush("test://", complete, request).ok());

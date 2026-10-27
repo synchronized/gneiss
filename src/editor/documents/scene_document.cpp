@@ -1004,7 +1004,7 @@ engine::result scene_document::encode_scene(std::string& output) const noexcept 
   status = engine::builtin_resource_registry(registry);
   if (status.failed())
     return status;
-  engine::file_bytes encoded;
+  gneiss::engine::files::bytes encoded;
   engine::meta::serialization_diagnostic diagnostic;
   status = engine::meta::serialize(registry, description, encoded, diagnostic);
   if (status.ok())
@@ -1016,8 +1016,9 @@ engine::result scene_document::encode_scene(std::string& output) const noexcept 
   return engine::result::internal;
 }
 
-engine::result scene_document::begin_save(engine::file_service& files, std::string_view uri,
-                                          engine::write_mode mode,
+engine::result scene_document::begin_save(gneiss::engine::files::service& files,
+                                          std::string_view uri,
+                                          gneiss::engine::files::write_mode mode,
                                           std::shared_ptr<save_receipt>& output) noexcept {
   output.reset();
   if (!is_open() || !uri.starts_with("asset://") || engine::validate_uri(uri).failed())
@@ -1030,7 +1031,7 @@ engine::result scene_document::begin_save(engine::file_service& files, std::stri
     if (status.failed())
       return status;
     const auto bytes = std::as_bytes(std::span{receipt->content.data(), receipt->content.size()});
-    engine::file_request_id request;
+    gneiss::engine::files::request_id request;
     status = files.write(
         uri, {bytes.begin(), bytes.end()}, {mode},
         [receipt](engine::result value) {

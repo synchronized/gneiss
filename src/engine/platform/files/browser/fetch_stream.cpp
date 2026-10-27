@@ -11,7 +11,7 @@ void gneiss_fetch_stream_read(int, void*, std::size_t, void*,
                               void (*)(void*, int, std::size_t, int));
 void gneiss_fetch_stream_close(int);
 }
-namespace gneiss::engine {
+namespace gneiss::engine::files {
 namespace {
 result translate(int status) {
   switch (status) {
@@ -29,7 +29,7 @@ result translate(int status) {
     return result::io;
   }
 }
-class fetch_stream final : public file_backend_stream,
+class fetch_stream final : public backend_stream,
                            public std::enable_shared_from_this<fetch_stream> {
 public:
   int handle{};
@@ -37,8 +37,8 @@ public:
   bool busy{}, ended{};
   struct reading {
     std::shared_ptr<fetch_stream> owner;
-    file_bytes bytes;
-    file_callback<file_block> callback;
+    files::bytes bytes;
+    files::callback<block> callback;
   };
   ~fetch_stream() override { close(); }
   void close() noexcept override {
@@ -66,7 +66,7 @@ public:
       self.close();
     pending->callback({result::success, {std::move(pending->bytes), offset, eof != 0}});
   }
-  result read_next(std::size_t maximum_bytes, file_callback<file_block> callback) override {
+  result read_next(std::size_t maximum_bytes, files::callback<block> callback) override {
     if (!emscripten_is_main_runtime_thread())
       return result::invalid_state;
     if (!callback || !maximum_bytes)
@@ -76,7 +76,7 @@ public:
     if (busy)
       return result::not_ready;
     auto pending = std::make_unique<reading>(
-        reading{shared_from_this(), file_bytes(maximum_bytes), std::move(callback)});
+        reading{shared_from_this(), files::bytes(maximum_bytes), std::move(callback)});
     auto* data = pending->bytes.data();
     busy = true;
     gneiss_fetch_stream_read(handle, data, maximum_bytes, pending.release(), received);
@@ -84,7 +84,7 @@ public:
   }
 };
 struct opening {
-  file_callback<std::shared_ptr<file_backend_stream>> callback;
+  files::callback<std::shared_ptr<backend_stream>> callback;
   std::shared_ptr<fetch_stream> stream = std::make_shared<fetch_stream>();
   static void opened(void* context, int status, int handle) {
     std::unique_ptr<opening> pending(static_cast<opening*>(context));
@@ -98,7 +98,7 @@ struct opening {
 };
 }
 result open_fetch_stream(std::string url,
-                         file_callback<std::shared_ptr<file_backend_stream>> callback) {
+                         files::callback<std::shared_ptr<backend_stream>> callback) {
   if (!emscripten_is_main_runtime_thread())
     return result::invalid_state;
   if (!callback)

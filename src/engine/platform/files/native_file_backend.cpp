@@ -12,7 +12,7 @@
 #include <sys/stat.h>
 #include <utility>
 
-namespace gneiss::engine {
+namespace gneiss::engine::files {
 namespace {
 enum class operation_kind { read, write, stat, list };
 enum class stage {
@@ -35,17 +35,17 @@ struct operation : std::enable_shared_from_this<operation> {
   operation_kind kind{};
   stage step{};
   std::string root, relative, path, canonical_root, temporary;
-  file_bytes bytes;
-  file_range range{};
+  files::bytes bytes;
+  range range{};
   std::size_t limit{}, position{}, skip{};
   bool ranged{}, create_new{}, temporary_created{};
   int descriptor{-1};
   result status{result::success};
-  file_callback<file_bytes> on_read;
+  files::callback<files::bytes> on_read;
   completion_callback on_write;
-  file_callback<file_info> on_stat;
-  file_callback<directory_page> on_list;
-  file_info info;
+  files::callback<files::info> on_stat;
+  files::callback<directory_page> on_list;
+  files::info info;
   directory_page page;
 
   static void completed(uv_fs_t* req) noexcept {
@@ -80,11 +80,11 @@ struct operation : std::enable_shared_from_this<operation> {
     auto owner = std::move(keep_alive);
     // 后端回调仅进入服务的完成队列；业务回调由所属线程分发。
     if (on_read)
-      on_read({value, value.ok() ? std::move(bytes) : file_bytes{}});
+      on_read({value, value.ok() ? std::move(bytes) : files::bytes{}});
     else if (on_write)
       on_write(value);
     else if (on_stat)
-      on_stat({value, value.ok() ? info : file_info{}});
+      on_stat({value, value.ok() ? info : files::info{}});
     else if (on_list)
       on_list({value, value.ok() ? std::move(page) : directory_page{}});
   }
@@ -170,8 +170,7 @@ struct operation : std::enable_shared_from_this<operation> {
             return;
           }
           page.entries.push_back(
-              {entry.name,
-               {entry.type == UV_DIRENT_DIR ? file_kind::directory : file_kind::regular, {}}});
+              {entry.name, {entry.type == UV_DIRENT_DIR ? kind::directory : kind::regular, {}}});
         }
         uv_fs_req_cleanup(&request);
         finish(code != 0 && code != UV_EOF ? from_uv_status(code) : result::success);
@@ -249,7 +248,7 @@ struct operation : std::enable_shared_from_this<operation> {
           close(result::unsupported);
           break;
         }
-        info = {mode == S_IFDIR ? file_kind::directory : file_kind::regular, metadata.st_size};
+        info = {mode == S_IFDIR ? kind::directory : kind::regular, metadata.st_size};
         if (kind == operation_kind::stat) {
           finish(result::success);
           break;
@@ -308,7 +307,7 @@ struct operation : std::enable_shared_from_this<operation> {
   }
 };
 }
-struct native_file_backend::implementation {
+struct native_backend::implementation {
   uv_loop_executor& executor;
   std::string root;
   result submit(std::string_view path, std::shared_ptr<operation> pending) {
@@ -320,14 +319,14 @@ struct native_file_backend::implementation {
         executor, [pending = std::move(pending)](uv_loop_t* loop) { pending->begin(loop); });
   }
 };
-native_file_backend::native_file_backend(uv_loop_executor& executor, std::string root)
+native_backend::native_backend(uv_loop_executor& executor, std::string root)
     : impl_(std::make_unique<implementation>(implementation{executor, std::move(root)})) {
   if (impl_->root.empty() || impl_->root.find('\0') != std::string::npos)
     throw std::invalid_argument("文件根目录无效");
 }
-native_file_backend::~native_file_backend() = default;
-result native_file_backend::read(std::string_view path, read_options options,
-                                 file_callback<file_bytes> callback) {
+native_backend::~native_backend() = default;
+result native_backend::read(std::string_view path, read_options options,
+                            files::callback<files::bytes> callback) {
   if (!callback || options.max_bytes == 0)
     return result::invalid_argument;
   auto pending = std::make_shared<operation>();
@@ -336,8 +335,8 @@ result native_file_backend::read(std::string_view path, read_options options,
   pending->on_read = std::move(callback);
   return impl_->submit(path, std::move(pending));
 }
-result native_file_backend::read_range(std::string_view path, file_range range,
-                                       file_callback<file_bytes> callback) {
+result native_backend::read_range(std::string_view path, range range,
+                                  files::callback<files::bytes> callback) {
   if (!callback ||
       range.offset > static_cast<std::uint64_t>((std::numeric_limits<std::int64_t>::max)()) ||
       range.size >
@@ -351,8 +350,8 @@ result native_file_backend::read_range(std::string_view path, file_range range,
   pending->on_read = std::move(callback);
   return impl_->submit(path, std::move(pending));
 }
-result native_file_backend::write(std::string_view path, file_bytes bytes, write_options options,
-                                  completion_callback callback) {
+result native_backend::write(std::string_view path, files::bytes bytes, write_options options,
+                             completion_callback callback) {
   if (!callback || path.empty() || path.ends_with('/') ||
       (options.mode != write_mode::replace && options.mode != write_mode::create_new))
     return result::invalid_argument;
@@ -363,7 +362,7 @@ result native_file_backend::write(std::string_view path, file_bytes bytes, write
   pending->on_write = std::move(callback);
   return impl_->submit(path, std::move(pending));
 }
-result native_file_backend::stat(std::string_view path, file_callback<file_info> callback) {
+result native_backend::stat(std::string_view path, files::callback<files::info> callback) {
   if (!callback)
     return result::invalid_argument;
   auto pending = std::make_shared<operation>();
@@ -371,8 +370,8 @@ result native_file_backend::stat(std::string_view path, file_callback<file_info>
   pending->on_stat = std::move(callback);
   return impl_->submit(path, std::move(pending));
 }
-result native_file_backend::list(std::string_view path, list_options options,
-                                 file_callback<directory_page> callback) {
+result native_backend::list(std::string_view path, list_options options,
+                            files::callback<directory_page> callback) {
   if (!callback || options.max_entries == 0)
     return result::invalid_argument;
   auto pending = std::make_shared<operation>();
@@ -387,7 +386,7 @@ result native_file_backend::list(std::string_view path, list_options options,
   pending->on_list = std::move(callback);
   return impl_->submit(path, std::move(pending));
 }
-result native_file_backend::flush(completion_callback callback) {
+result native_backend::flush(completion_callback callback) {
   if (!callback)
     return result::invalid_argument;
   // 每个已完成写入均已 fsync；不承诺尚未完成写入或跨文件事务。

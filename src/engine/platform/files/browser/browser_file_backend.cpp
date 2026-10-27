@@ -15,7 +15,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-namespace gneiss::engine {
+namespace gneiss::engine::files {
 namespace {
 // 仅创建独立内存文件系统，不触发同步磁盘 I/O。
 EM_JS(int, mount_files, (const char* root, int persistent), {
@@ -77,19 +77,19 @@ struct descriptor {
       ::close(value);
   }
 };
-result information(const struct stat& value, file_info& output) {
+result information(const struct stat& value, files::info& output) {
   if (S_ISREG(value.st_mode))
-    output = {file_kind::regular, static_cast<std::uint64_t>(value.st_size)};
+    output = {kind::regular, static_cast<std::uint64_t>(value.st_size)};
   else if (S_ISDIR(value.st_mode))
-    output = {file_kind::directory, {}};
+    output = {kind::directory, {}};
   else
     return result::unsupported;
   return result::success;
 }
 }
-struct browser_file_backend::implementation : std::enable_shared_from_this<implementation> {
+struct browser_backend::implementation : std::enable_shared_from_this<implementation> {
   std::string root;
-  browser_file_storage storage{};
+  browser_storage storage{};
   bool persistent{}, mounted{}, ready{}, busy{};
   ~implementation() {
     if (mounted)
@@ -141,8 +141,8 @@ struct browser_file_backend::implementation : std::enable_shared_from_this<imple
     sync_files(root.c_str(), populate, request.release(), synced);
     return result::success;
   }
-  result bytes(std::string_view relative, std::optional<file_range> range, std::size_t limit,
-               file_callback<file_bytes> callback) {
+  result bytes(std::string_view relative, std::optional<range> range, std::size_t limit,
+               files::callback<files::bytes> callback) {
     std::string filename;
     auto status = path(relative, filename);
     if (status.failed())
@@ -161,7 +161,7 @@ struct browser_file_backend::implementation : std::enable_shared_from_this<imple
     if (offset > size || count > size - offset || count > limit ||
         count > static_cast<std::uint64_t>(std::numeric_limits<ssize_t>::max()))
       return result::invalid_argument;
-    file_bytes output(static_cast<std::size_t>(count));
+    files::bytes output(static_cast<std::size_t>(count));
     if (count && ::pread(file.value, output.data(), output.size(), static_cast<off_t>(offset)) !=
                      static_cast<ssize_t>(count))
       return result::io;
@@ -169,25 +169,25 @@ struct browser_file_backend::implementation : std::enable_shared_from_this<imple
     return result::success;
   }
 };
-browser_file_backend::browser_file_backend(std::string root, browser_file_storage storage)
+browser_backend::browser_backend(std::string root, browser_storage storage)
     : impl_(std::make_shared<implementation>()) {
   if (!emscripten_is_main_runtime_thread() || !root.starts_with('/') || root.size() < 2 ||
-      (storage != browser_file_storage::existing && root.find('/', 1) != std::string::npos) ||
+      (storage != browser_storage::existing && root.find('/', 1) != std::string::npos) ||
       !detail::valid_file_path(std::string_view(root).substr(1)))
     throw std::invalid_argument("浏览器挂载根目录无效");
   impl_->root = std::move(root);
   impl_->storage = storage;
-  impl_->persistent = storage == browser_file_storage::persistent;
+  impl_->persistent = storage == browser_storage::persistent;
 }
-browser_file_backend::~browser_file_backend() = default;
-result browser_file_backend::initialize(completion_callback callback) {
+browser_backend::~browser_backend() = default;
+result browser_backend::initialize(completion_callback callback) {
   if (!callback)
     return result::invalid_argument;
   if (!emscripten_is_main_runtime_thread() || impl_->ready)
     return result::invalid_state;
   if (impl_->busy)
     return result::not_ready;
-  if (impl_->storage == browser_file_storage::existing) {
+  if (impl_->storage == browser_storage::existing) {
     // 逐层拒绝符号链接；宿主必须在初始化之前准备好整个目录。
     for (std::size_t end = 1; end <= impl_->root.size(); ++end) {
       if (end != impl_->root.size() && impl_->root[end] != '/')
@@ -213,20 +213,20 @@ result browser_file_backend::initialize(completion_callback callback) {
   callback(result::success);
   return result::success;
 }
-result browser_file_backend::read(std::string_view path, read_options options,
-                                  file_callback<file_bytes> callback) {
+result browser_backend::read(std::string_view path, read_options options,
+                             files::callback<files::bytes> callback) {
   if (!callback || !options.max_bytes)
     return result::invalid_argument;
   return impl_->bytes(path, {}, options.max_bytes, std::move(callback));
 }
-result browser_file_backend::read_range(std::string_view path, file_range range,
-                                        file_callback<file_bytes> callback) {
+result browser_backend::read_range(std::string_view path, range range,
+                                   files::callback<files::bytes> callback) {
   if (!callback)
     return result::invalid_argument;
   return impl_->bytes(path, range, std::numeric_limits<ssize_t>::max(), std::move(callback));
 }
-result browser_file_backend::write(std::string_view path, file_bytes bytes, write_options options,
-                                   completion_callback callback) {
+result browser_backend::write(std::string_view path, files::bytes bytes, write_options options,
+                              completion_callback callback) {
   if (!callback || bytes.size() > static_cast<std::size_t>(std::numeric_limits<ssize_t>::max()) ||
       path.empty() || path.ends_with('/') ||
       (options.mode != write_mode::replace && options.mode != write_mode::create_new))
@@ -259,7 +259,7 @@ result browser_file_backend::write(std::string_view path, file_bytes bytes, writ
   callback(result::success);
   return result::success;
 }
-result browser_file_backend::stat(std::string_view path, file_callback<file_info> callback) {
+result browser_backend::stat(std::string_view path, files::callback<files::info> callback) {
   if (!callback)
     return result::invalid_argument;
   std::string filename;
@@ -269,15 +269,15 @@ result browser_file_backend::stat(std::string_view path, file_callback<file_info
   struct stat value{};
   if (::lstat(filename.c_str(), &value) != 0)
     return error_result();
-  file_info output;
+  files::info output;
   status = information(value, output);
   if (status.failed())
     return status;
   callback({result::success, output});
   return result::success;
 }
-result browser_file_backend::list(std::string_view path, list_options options,
-                                  file_callback<directory_page> callback) {
+result browser_backend::list(std::string_view path, list_options options,
+                             files::callback<directory_page> callback) {
   if (!callback || options.max_entries == 0)
     return result::invalid_argument;
   std::string filename;
@@ -310,7 +310,7 @@ result browser_file_backend::list(std::string_view path, list_options options,
     struct stat value{};
     if (::lstat((filename + '/' + std::string(name)).c_str(), &value) != 0)
       return error_result();
-    file_info info;
+    files::info info;
     status = information(value, info);
     if (status.failed())
       return status;
@@ -322,7 +322,7 @@ result browser_file_backend::list(std::string_view path, list_options options,
   callback({result::success, std::move(page)});
   return result::success;
 }
-result browser_file_backend::flush(completion_callback callback) {
+result browser_backend::flush(completion_callback callback) {
   if (!callback)
     return result::invalid_argument;
   if (!emscripten_is_main_runtime_thread())

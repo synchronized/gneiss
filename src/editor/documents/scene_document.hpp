@@ -181,8 +181,9 @@ public:
     bool complete{};
   };
   /** 提交当前内容的单文件安全保存；不阻塞、不修改 URI 或脏状态。 */
-  [[nodiscard]] engine::result begin_save(engine::file_service& files, std::string_view uri,
-                                          engine::write_mode mode,
+  [[nodiscard]] engine::result begin_save(gneiss::engine::files::service& files,
+                                          std::string_view uri,
+                                          gneiss::engine::files::write_mode mode,
                                           std::shared_ptr<save_receipt>& output) noexcept;
   /** 接收成功保存；场景实例不匹配时拒绝，保存期间的新修改保持 dirty。 */
   [[nodiscard]] engine::result accept_save(const save_receipt& receipt) noexcept;

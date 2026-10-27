@@ -3,7 +3,8 @@
 #include "commands/author_file_save.hpp"
 #include <span>
 namespace gneiss::editor {
-engine::result begin_author_file_save(engine::file_service& files, author_document_change change,
+engine::result begin_author_file_save(gneiss::engine::files::service& files,
+                                      author_document_change change,
                                       std::shared_ptr<author_file_save>& output) noexcept {
   output.reset();
   if (change.path.empty() || !change.replacement)
@@ -14,10 +15,11 @@ engine::result begin_author_file_save(engine::file_service& files, author_docume
                   exists = change.baseline.has_value()]() {
       try {
         const auto bytes = std::as_bytes(std::span{content.data(), content.size()});
-        engine::file_request_id request;
+        gneiss::engine::files::request_id request;
         auto status = files.write(
             uri, {bytes.begin(), bytes.end()},
-            {exists ? engine::write_mode::replace : engine::write_mode::create_new},
+            {exists ? gneiss::engine::files::write_mode::replace
+                    : gneiss::engine::files::write_mode::create_new},
             [receipt](engine::result value) {
               receipt->status = value;
               receipt->complete = true;
@@ -36,11 +38,11 @@ engine::result begin_author_file_save(engine::file_service& files, author_docume
     };
     engine::result status;
     if (change.baseline) {
-      engine::file_request_id request;
+      gneiss::engine::files::request_id request;
       status = files.read(
           "asset://" + change.path, {16U * 1024U * 1024U},
           [receipt, baseline = std::move(*change.baseline), write = std::move(write)](
-              engine::file_completion<engine::file_bytes> completion) mutable {
+              gneiss::engine::files::completion<gneiss::engine::files::bytes> completion) mutable {
             if (completion.status.ok() &&
                 std::string_view(reinterpret_cast<const char*>(completion.data.data()),
                                  completion.data.size()) != baseline)

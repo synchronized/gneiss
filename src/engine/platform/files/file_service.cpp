@@ -17,7 +17,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace gneiss::engine {
+namespace gneiss::engine::files {
 namespace {
 std::atomic_uint64_t next_request{1};
 struct file_unit {};
@@ -33,7 +33,7 @@ std::uint64_t allocate_request() noexcept {
 
 template <class T> struct completion_state {
   std::mutex mutex;
-  std::optional<file_completion<T>> completed;
+  std::optional<completion<T>> completed;
   bool cancelled{};
 };
 
@@ -41,7 +41,7 @@ struct buffer_budget {
   std::size_t reserved{};
 };
 struct pending_request {
-  file_request_id id;
+  request_id id;
   std::shared_ptr<buffer_budget> budget;
   std::size_t reserved{};
   void release_budget() noexcept {
@@ -59,16 +59,16 @@ struct pending_request {
 
 template <class T> struct typed_request final : pending_request {
   std::shared_ptr<completion_state<T>> state = std::make_shared<completion_state<T>>();
-  std::vector<std::shared_ptr<file_backend>> backends;
+  std::vector<std::shared_ptr<backend>> backends;
   std::size_t index{}, backend_base{};
   std::string uri;
-  std::function<result(file_backend&, file_callback<T>)> start;
-  file_callback<T> callback;
+  std::function<result(backend&, files::callback<T>)> start;
+  files::callback<T> callback;
   std::function<void()> abort;
-  file_completion<T> outcome;
+  completion<T> outcome;
 
   void begin() noexcept {
-    const auto complete = [shared = state](file_completion<T> value) {
+    const auto complete = [shared = state](completion<T> value) {
       std::lock_guard lock(shared->mutex);
       if (!shared->completed)
         shared->completed = std::move(value);
@@ -101,7 +101,7 @@ template <class T> struct typed_request final : pending_request {
 
   bool advance() override {
     bool fallback = false;
-    std::shared_ptr<file_backend_stream> cancelled_source;
+    std::shared_ptr<backend_stream> cancelled_source;
     {
       std::lock_guard lock(state->mutex);
       if (!state->completed)
@@ -109,7 +109,7 @@ template <class T> struct typed_request final : pending_request {
       outcome = std::move(*state->completed);
       if (state->cancelled) {
         // 取消打开后仍可能收到来源；不能只丢弃引用，后端也可能持有它。
-        if constexpr (std::is_same_v<T, std::shared_ptr<file_backend_stream>>) {
+        if constexpr (std::is_same_v<T, std::shared_ptr<backend_stream>>) {
           cancelled_source = std::move(outcome.data);
         }
         outcome = {result::cancelled, {}};
@@ -146,17 +146,17 @@ template <class T> struct typed_request final : pending_request {
 };
 } // namespace
 
-struct file_service::implementation {
-  file_service_options options;
+struct service::implementation {
+  service_options options;
   std::shared_ptr<buffer_budget> budget = std::make_shared<buffer_budget>();
   std::thread::id owner = std::this_thread::get_id();
   using mounted_files = mount_description;
   std::vector<mounted_files> mounts;
-  std::vector<std::shared_ptr<file_backend>> backends;
+  std::vector<std::shared_ptr<backend>> backends;
   std::vector<std::unique_ptr<pending_request>> pending;
   completion_callback on_shutdown;
   bool frozen{}, closing{}, dispatching{};
-  std::vector<std::weak_ptr<file_backend_stream>> streams;
+  std::vector<std::weak_ptr<backend_stream>> streams;
   void close_streams() noexcept {
     for (const auto& weak : streams)
       if (auto stream = weak.lock())
@@ -177,10 +177,9 @@ struct file_service::implementation {
   }
 
   template <class T, class Start>
-  result submit(std::string_view uri, bool writing, file_callback<T> callback,
-                file_request_id& output, Start start, bool exact_mount = false,
-                std::optional<std::size_t> reader_index = {}, std::size_t reserve_bytes = 0,
-                std::function<void()> abort = {}) noexcept {
+  result submit(std::string_view uri, bool writing, files::callback<T> callback, request_id& output,
+                Start start, bool exact_mount = false, std::optional<std::size_t> reader_index = {},
+                std::size_t reserve_bytes = 0, std::function<void()> abort = {}) noexcept {
     output = {};
     if (!on_owner() || closing)
       return result::invalid_state;
@@ -217,8 +216,8 @@ struct file_service::implementation {
       request->callback = std::move(callback);
       request->abort = std::move(abort);
       request->start = [path = std::string(uri.substr(mount->prefix.size())),
-                        start = std::move(start)](file_backend& backend,
-                                                  file_callback<T> done) mutable {
+                        start = std::move(start)](backend& backend,
+                                                  files::callback<T> done) mutable {
         return start(backend, path, std::move(done));
       };
       request->id.value = allocate_request();
@@ -238,14 +237,12 @@ struct file_service::implementation {
   }
 };
 
-file_service::file_service(file_service_options options)
-    : impl_(std::make_unique<implementation>()) {
+service::service(service_options options) : impl_(std::make_unique<implementation>()) {
   impl_->options = options;
 }
-file_service::~file_service() = default;
-result
-file_service::resolve_source(std::string_view uri,
-                             std::shared_ptr<const file_source_domain>& output) const noexcept {
+service::~service() = default;
+result service::resolve_source(std::string_view uri,
+                               std::shared_ptr<const source_domain>& output) const noexcept {
   output.reset();
   if (!impl_->on_owner() || impl_->closing)
     return result::invalid_state;
@@ -258,7 +255,7 @@ file_service::resolve_source(std::string_view uri,
   return result::success;
 }
 
-result file_service::mount(mount_description description) noexcept {
+result service::mount(mount_description description) noexcept {
   if (!impl_->on_owner() || impl_->frozen || impl_->closing)
     return result::invalid_state;
   if (!description.prefix.ends_with('/') || !detail::valid_file_uri(description.prefix) ||
@@ -279,7 +276,7 @@ result file_service::mount(mount_description description) noexcept {
       append(backend);
     append(description.writer);
     if (!description.source)
-      description.source = std::make_shared<const file_source_domain>();
+      description.source = std::make_shared<const source_domain>();
     impl_->mounts.push_back(std::move(description));
     impl_->backends = std::move(backends);
     return result::success;
@@ -290,41 +287,39 @@ result file_service::mount(mount_description description) noexcept {
   }
 }
 
-result file_service::read(std::string_view uri, read_options options,
-                          file_callback<file_bytes> callback, file_request_id& request) noexcept {
+result service::read(std::string_view uri, read_options options,
+                     files::callback<files::bytes> callback, request_id& request) noexcept {
   request = {};
   if (options.max_bytes == 0 || options.max_bytes > impl_->options.max_file_bytes)
     return result::invalid_argument;
-  return impl_->submit<file_bytes>(
+  return impl_->submit<files::bytes>(
       uri, false, std::move(callback), request,
-      [options](file_backend& backend, std::string_view path, auto done) {
+      [options](backend& backend, std::string_view path, auto done) {
         return backend.read(path, options, std::move(done));
       },
       false, {}, options.max_bytes);
 }
-result file_service::read_range(std::string_view uri, file_range range,
-                                file_callback<file_bytes> callback,
-                                file_request_id& request) noexcept {
+result service::read_range(std::string_view uri, range range,
+                           files::callback<files::bytes> callback, request_id& request) noexcept {
   request = {};
   if (range.size > impl_->options.max_file_bytes ||
       range.offset > std::numeric_limits<std::uint64_t>::max() - range.size)
     return result::invalid_argument;
-  return impl_->submit<file_bytes>(
+  return impl_->submit<files::bytes>(
       uri, false, std::move(callback), request,
-      [range](file_backend& backend, std::string_view path, auto done) {
+      [range](backend& backend, std::string_view path, auto done) {
         return backend.read_range(path, range, std::move(done));
       },
       false, {}, range.size);
 }
-result
-file_service::open_stream_source(std::string_view uri, std::size_t block_bytes,
-                                 file_callback<std::shared_ptr<file_backend_stream>> callback,
-                                 file_request_id& request) noexcept try {
+result service::open_stream_source(std::string_view uri, std::size_t block_bytes,
+                                   files::callback<std::shared_ptr<backend_stream>> callback,
+                                   request_id& request) noexcept try {
   request = {};
   if (!callback || !block_bytes || block_bytes > impl_->options.max_file_bytes ||
       block_bytes > impl_->options.max_buffer_bytes / 2)
     return result::invalid_argument;
-  return impl_->submit<std::shared_ptr<file_backend_stream>>(
+  return impl_->submit<std::shared_ptr<backend_stream>>(
       uri, false,
       [this, callback = std::move(callback)](auto value) mutable {
         if (value.status.ok()) {
@@ -348,25 +343,24 @@ file_service::open_stream_source(std::string_view uri, std::size_t block_bytes,
         callback(std::move(value));
       },
       request,
-      [](file_backend& backend, std::string_view path, auto done) {
+      [](backend& backend, std::string_view path, auto done) {
         return backend.open_stream(path, std::move(done));
       });
 } catch (...) {
   return result::out_of_memory;
 }
 
-result file_service::read_stream_source(std::string_view uri,
-                                        std::shared_ptr<file_backend_stream> source,
-                                        std::size_t block_bytes, file_callback<file_block> callback,
-                                        file_request_id& request) noexcept try {
+result service::read_stream_source(std::string_view uri, std::shared_ptr<backend_stream> source,
+                                   std::size_t block_bytes, files::callback<block> callback,
+                                   request_id& request) noexcept try {
   request = {};
   if (!callback || !source || !block_bytes || block_bytes > impl_->options.max_file_bytes ||
       block_bytes > impl_->options.max_buffer_bytes / 2)
     return result::invalid_argument;
   // 顺序来源在打开时已完成回退选择；后续块固定该来源，不再重新选择后端。
-  return impl_->submit<file_block>(
+  return impl_->submit<block>(
       uri, false, std::move(callback), request,
-      [source, block_bytes](file_backend&, std::string_view, auto done) {
+      [source, block_bytes](backend&, std::string_view, auto done) {
         return source->read_next(block_bytes, std::move(done));
       },
       false, 0, block_bytes * 2, [source] { source->close(); });
@@ -374,8 +368,8 @@ result file_service::read_stream_source(std::string_view uri,
   return result::out_of_memory;
 }
 
-result file_service::write(std::string_view uri, file_bytes bytes, write_options options,
-                           completion_callback callback, file_request_id& request) noexcept {
+result service::write(std::string_view uri, files::bytes bytes, write_options options,
+                      completion_callback callback, request_id& request) noexcept {
   request = {};
   if (!callback || bytes.size() > impl_->options.max_file_bytes ||
       (options.mode != write_mode::replace && options.mode != write_mode::create_new))
@@ -384,11 +378,9 @@ result file_service::write(std::string_view uri, file_bytes bytes, write_options
   try {
     return impl_->submit<file_unit>(
         uri, true,
-        [callback = std::move(callback)](file_completion<file_unit> value) {
-          callback(value.status);
-        },
+        [callback = std::move(callback)](completion<file_unit> value) { callback(value.status); },
         request,
-        [bytes = std::move(bytes), options](file_backend& backend, std::string_view path,
+        [bytes = std::move(bytes), options](backend& backend, std::string_view path,
                                             auto done) mutable {
           return backend.write(path, std::move(bytes), options,
                                [done = std::move(done)](result status) { done({status, {}}); });
@@ -400,16 +392,15 @@ result file_service::write(std::string_view uri, file_bytes bytes, write_options
     return result::internal;
   }
 }
-result file_service::stat(std::string_view uri, file_callback<file_info> callback,
-                          file_request_id& request) noexcept {
-  return impl_->submit<file_info>(uri, false, std::move(callback), request,
-                                  [](file_backend& backend, std::string_view path, auto done) {
-                                    return backend.stat(path, std::move(done));
-                                  });
+result service::stat(std::string_view uri, files::callback<files::info> callback,
+                     request_id& request) noexcept {
+  return impl_->submit<files::info>(uri, false, std::move(callback), request,
+                                    [](backend& backend, std::string_view path, auto done) {
+                                      return backend.stat(path, std::move(done));
+                                    });
 }
-result file_service::list(std::string_view uri, list_options options,
-                          file_callback<directory_page> callback,
-                          file_request_id& request) noexcept {
+result service::list(std::string_view uri, list_options options,
+                     files::callback<directory_page> callback, request_id& request) noexcept {
   request = {};
   if (!impl_->on_owner() || impl_->closing)
     return result::invalid_state;
@@ -433,24 +424,22 @@ result file_service::list(std::string_view uri, list_options options,
   }
   return impl_->submit<directory_page>(
       uri, false, std::move(callback), request,
-      [options = std::move(options)](file_backend& backend, std::string_view path, auto done) {
+      [options = std::move(options)](backend& backend, std::string_view path, auto done) {
         return backend.list(path, options, std::move(done));
       },
       false, reader_index);
 }
-result file_service::flush(std::string_view mount_point, completion_callback callback,
-                           file_request_id& request) noexcept {
+result service::flush(std::string_view mount_point, completion_callback callback,
+                      request_id& request) noexcept {
   request = {};
   if (!callback)
     return result::invalid_argument;
   try {
     return impl_->submit<file_unit>(
         mount_point, true,
-        [callback = std::move(callback)](file_completion<file_unit> value) {
-          callback(value.status);
-        },
+        [callback = std::move(callback)](completion<file_unit> value) { callback(value.status); },
         request,
-        [](file_backend& backend, std::string_view, auto done) {
+        [](backend& backend, std::string_view, auto done) {
           return backend.flush([done = std::move(done)](result status) { done({status, {}}); });
         },
         true);
@@ -460,14 +449,14 @@ result file_service::flush(std::string_view mount_point, completion_callback cal
     return result::internal;
   }
 }
-result file_service::cancel(file_request_id request) noexcept {
+result service::cancel(request_id request) noexcept {
   if (!impl_->on_owner())
     return result::invalid_state;
   const auto found = std::ranges::find_if(
       impl_->pending, [request](const auto& value) { return value->id == request; });
   return found == impl_->pending.end() ? result::invalid_handle : (*found)->cancel();
 }
-result file_service::dispatch_completions(std::size_t max_callbacks) {
+result service::dispatch_completions(std::size_t max_callbacks) {
   if (!impl_->on_owner() || impl_->dispatching)
     return result::invalid_state;
   if (max_callbacks == 0)
@@ -498,7 +487,7 @@ result file_service::dispatch_completions(std::size_t max_callbacks) {
   }
   return result::success;
 }
-result file_service::shutdown(completion_callback callback) noexcept {
+result service::shutdown(completion_callback callback) noexcept {
   if (!impl_->on_owner() || impl_->closing)
     return result::invalid_state;
   if (!callback)
@@ -511,4 +500,4 @@ result file_service::shutdown(completion_callback callback) noexcept {
   return result::success;
 }
 
-} // namespace gneiss::engine
+} // namespace gneiss::engine::files

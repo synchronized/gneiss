@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace gneiss::engine::detail {
+namespace gneiss::engine::files::detail {
 [[nodiscard]] inline bool is_valid_utf8(std::string_view text) noexcept {
   std::size_t index = 0;
   while (index < text.size()) {
@@ -81,4 +81,4 @@ inline bool valid_file_uri(std::string_view uri) noexcept {
   }
   return valid_file_path(uri.substr(marker + 3));
 }
-} // namespace gneiss::engine::detail
+} // namespace gneiss::engine::files::detail

@@ -360,13 +360,13 @@ read_author_asset(editor_state& state, std::string uri,
     return result::not_ready;
   struct receipt {
     bool complete{};
-    file_completion<file_bytes> value{result::not_ready};
+    gneiss::engine::files::completion<gneiss::engine::files::bytes> value{result::not_ready};
   };
   auto received = std::make_shared<receipt>();
-  file_request_id request;
+  gneiss::engine::files::request_id request;
   const auto status = state.application->async_files()->read(
       uri, {16U * 1024U * 1024U},
-      [received](file_completion<file_bytes> value) {
+      [received](gneiss::engine::files::completion<gneiss::engine::files::bytes> value) {
         received->value = std::move(value);
         received->complete = true;
       },
@@ -665,7 +665,7 @@ unpack_selected_prefab(editor_state& state, std::string_view instance_uuid,
 }
 
 gneiss::engine::result begin_scene_save(editor_state& state, std::string_view uri,
-                                        gneiss::engine::write_mode mode) {
+                                        gneiss::engine::files::write_mode mode) {
   if (state.pending_file_operation)
     return gneiss::engine::result::not_ready;
   std::shared_ptr<gneiss::editor::scene_document::save_receipt> receipt;
@@ -698,14 +698,15 @@ gneiss::engine::result save_document_as(editor_state& state) {
   std::string uri;
   if (status.ok())
     status = gneiss::editor::make_asset_uri(state.asset_root, path, uri);
-  return status.failed() ? status
-                         : begin_scene_save(state, uri, gneiss::engine::write_mode::create_new);
+  return status.failed()
+             ? status
+             : begin_scene_save(state, uri, gneiss::engine::files::write_mode::create_new);
 }
 gneiss::engine::result save_document(editor_state& state) {
   if (state.editing.document().uri().empty())
     return save_document_as(state);
   return begin_scene_save(state, state.editing.document().uri(),
-                          gneiss::engine::write_mode::replace);
+                          gneiss::engine::files::write_mode::replace);
 }
 
 gneiss::engine::result launch_runtime(editor_state& state, bool save_changes) noexcept {

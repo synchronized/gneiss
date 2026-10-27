@@ -64,12 +64,12 @@ int main() try {
   if (runtime::application::create(config, app).failed())
     return 1;
   auto files = app->async_files();
-  engine::file_request_id forbidden;
+  gneiss::engine::files::request_id forbidden;
   if (files->write(
           "asset://must-not-write", {}, {}, [](auto) {}, forbidden) != result::unsupported ||
       forbidden.value != 0)
     return 18;
-  std::shared_ptr<const engine::file_source_domain> asset_source, user_source;
+  std::shared_ptr<const gneiss::engine::files::source_domain> asset_source, user_source;
   if (files->resolve_source("asset://example", asset_source).failed() ||
       files->resolve_source("user://example", user_source).failed() || asset_source == user_source)
     return 19;

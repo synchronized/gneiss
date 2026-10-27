@@ -12,30 +12,30 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss::engine::files {
 
 /** 挂载来源的运行期标记；不拥有后端，不表示内容版本或持久身份。 */
-struct file_source_domain final {};
+struct source_domain final {};
 
-struct file_request_id {
+struct request_id {
   std::uint64_t value{};
-  friend bool operator==(file_request_id, file_request_id) = default;
+  friend bool operator==(request_id, request_id) = default;
 };
-using file_bytes = std::vector<std::byte>;
-struct file_block {
-  file_bytes bytes;
+using bytes = std::vector<std::byte>;
+struct block {
+  files::bytes bytes;
   std::uint64_t offset{};
   bool eof{};
 };
-enum class file_kind { regular, directory };
-struct file_info {
-  file_kind kind{file_kind::regular};
+enum class kind { regular, directory };
+struct info {
+  files::kind kind{files::kind::regular};
   std::optional<std::uint64_t> size;
 };
 struct read_options {
   std::size_t max_bytes{};
 };
-struct file_range {
+struct range {
   std::uint64_t offset{};
   std::size_t size{};
 };
@@ -47,7 +47,7 @@ struct write_options {
 };
 struct directory_entry {
   std::string name;
-  file_info info;
+  files::info info;
 };
 /** 游标为后端返回的不透明值，只能用于同一路径和后端；不保证目录快照。 */
 struct list_options {
@@ -58,11 +58,11 @@ struct directory_page {
   std::vector<directory_entry> entries;
   std::string next_cursor;
 };
-template <class T> struct file_completion {
+template <class T> struct completion {
   result status;
   T data{}; // 失败时为空，不提供部分结果。
 };
-template <class T> using file_callback = std::function<void(file_completion<T>)>;
+template <class T> using callback = std::function<void(completion<T>)>;
 using completion_callback = std::function<void(result)>;
 
-} // namespace gneiss::engine
+} // namespace gneiss::engine::files

@@ -8,9 +8,9 @@
 #include <atomic>
 
 #include "engine/function/render/render_resource_service.hpp"
+#include "engine/resource/asset_uri.hpp"
 #include "engine/resource/loaders/asset_parsing.hpp"
 #include "engine/resource/loaders/mesh_binary.hpp"
-#include "engine/resource/asset_uri.hpp"
 
 #include <algorithm>
 #include <array>
@@ -138,7 +138,7 @@ render_asset_loader::acquire_cached(const render_asset_reload& source, render_as
                                     texture_prepare_profile profile) const noexcept {
   output = {};
   try {
-    std::shared_ptr<const gneiss::engine::file_source_domain> domain;
+    std::shared_ptr<const gneiss::engine::files::source_domain> domain;
     asset_identity identity;
     const auto identified =
         assets_.identify(source.uri, static_cast<std::uint32_t>(source.type), identity);

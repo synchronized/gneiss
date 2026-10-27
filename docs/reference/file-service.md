@@ -5,7 +5,7 @@
 
 ## 当前范围
 
-内部原生入口位于 `src/engine/platform/files/file_service.hpp`，命名空间为 `gneiss::engine`。
+内部原生入口位于 `src/engine/platform/files/file_service.hpp`，命名空间为 `gneiss::engine::files`。
 当前实现 Platform 服务核心、内存后端、独立 libuv 桌面后端和 Fetch/MEMFS/IDBFS 浏览器后端。
 Application 已直接装配后端；普通 CPU、网格和纹理加载统一使用文件服务。
 旧 VFS、同步准备器和迁移适配器已删除；文件完成后才提交 CPU 解码任务。
@@ -15,9 +15,9 @@ Application 已直接装配后端；普通 CPU、网格和纹理加载统一使�
 
 ## 对象与所有权
 
-- `file_service` 为不可复制/移动的 PImpl 对象。构造线程为所属线程。
+- `files::service` 为不可复制/移动的 PImpl 对象。构造线程为所属线程。
 - 服务拥有挂载后端的共享引用、在途请求及用户回调；请求 ID 仅用于取消。
-- `file_backend` 是后端扩展接口。提交和 poll 由所属线程驱动，完成可来自任意线程。
+- `files::backend` 是后端扩展接口。提交和 poll 由所属线程驱动，完成可来自任意线程。
 - 后端成功接受操作后恰好调用一次完成回调；提交失败不得回调。后端自行保活异步数据。
 - 服务复制 URI，按值接收写缓冲；完成结果拥有字节，调用方可将其移动到解码任务。
 - 后端可能内联完成，但用户回调始终延迟到服务分发。
@@ -46,7 +46,7 @@ Application 已直接装配后端；普通 CPU、网格和纹理加载统一使�
 
 ## 分块读取
 
-`file_read_stream(service, uri, optional_size, block_bytes)` 持有服务引用，在所属线程使用和销毁。
+`files::read_stream(service, uri, optional_size, block_bytes)` 持有服务引用，在所属线程使用和销毁。
 已知长度使用范围读取；`std::nullopt` 在首次 read_next 时打开后端顺序流。
 read_next 最多接受一个在途块，消费者再次请求才继续，无隐式预读。
 完成块包含 offset、拥有的 bytes 和 eof；空文件交付一次空 EOF，EOF 后拒绝继续读取。
@@ -98,11 +98,11 @@ shutdown 取消尚未完成请求，已有终态照常交付。关闭回调遵�
 
 ## 已有后端
 
-`memory_file_backend` 提供 read/read_range/write/stat/list，写入隐式建立父目录。
+`files::memory_backend` 提供 read/read_range/write/stat/list，写入隐式建立父目录。
 不能用文件覆盖非空目录，也不能在文件下创建子项；数据仅保存在内存，flush 返回 unsupported。
 其操作在所属线程执行，不涉及磁盘或网络。
 
-`native_file_backend` 直接使用 libuv 异步文件 API，支持 read/read_range/write/stat/list/flush。
+`files::native_backend` 直接使用 libuv 异步文件 API，支持 read/read_range/write/stat/list/flush。
 借用宿主执行器，不自行建线程；根目录和写入父目录须已存在，不依赖 std::filesystem。
 写入使用同目录独占临时文件，完整写入、fsync 和关闭后才发布：replace 使用 rename，create_new
 使用 link 保证目标已存在时不覆盖，再清理临时文件。发布前失败保持旧目标；失败清理尽力执行，
@@ -112,12 +112,12 @@ flush 覆盖此前已完成写入；不承诺跨文件原子性、跨进程内�
 每次操作解析实际路径并拒绝根目录外目标；不承诺抵抗并发恶意符号链接替换。
 列举普通文件和目录，特殊条目返回 unsupported；分页不提供快照，底层 scandir 仍可能枚举整个目录。
 
-`fetch_file_backend` 使用浏览器主线程 Emscripten Fetch，提供只读 HTTP GET/HEAD。
+`files::fetch_backend` 使用浏览器主线程 Emscripten Fetch，提供只读 HTTP GET/HEAD。
 范围请求要求匹配的 206、Content-Range 和字节数；返回整文件 200 时报告 unsupported，
 不以整读模拟范围。跨域服务器须暴露 Content-Range 等响应头；不使用 destinationPath。
 整读仍经过浏览器和 Emscripten 的缓冲与复制，不保证这些额外缓冲受服务预算限制。
 
-`browser_file_backend` 的 memory/persistent 模式管理独立 MEMFS/IDBFS 挂载；existing 模式借用
+`files::browser_backend` 的 memory/persistent 模式管理独立 MEMFS/IDBFS 挂载；existing 模式借用
 宿主已存在的目录，不挂载、不恢复或卸载它。三种模式均仅在浏览器主线程使用。
 initialize 的恢复回调成功后才接受访问；内存操作可内联完成，服务仍延迟交付用户回调。
 write 在内存 FS 中写临时文件并 rename，失败时保留旧目标；create_new 在同一线程操作内拒绝覆盖。
@@ -129,7 +129,7 @@ write 仅确认内存可见；flush 调用当前 IDBFS 挂载的 syncfs(false)�
 
 ## 资产管理器接入
 
-`asset_manager(shared_ptr<file_service>, registry, limit)` 持有宿主注入的同线程服务。
+`asset_manager(shared_ptr<files::service>, registry, limit)` 持有宿主注入的同线程服务。
 宿主先分发文件完成，再调用 `advance_resources` 推进 CPU 解码及结果登记；管理器和 Loader 不隐式分发文件回调。
 Application 主循环及显式场景/资产轮询入口共用同一宿主推进函数，独立消费者须自行驱动服务。
 等待文件期间不提交 CPU 轮询任务。
@@ -137,7 +137,7 @@ Application 主循环及显式场景/资产轮询入口共用同一宿主推进�
 同键请求合并、失败保留旧资源、取消独立观察者以及已存储内容不被旧请求覆盖的规则不变。
 
 文件服务每个挂载具有稳定来源域，`resolve_source` 仅查询身份。
-来源标记为 Platform 的 `file_source_domain`，不拥有后端或 GPU 资源。
+来源标记为 Platform 的 `files::source_domain`，不拥有后端或 GPU 资源。
 asset_manager 仅接受文件服务注入；find_loaded<T> 只查询已完成缓存，未命中返回 not_found，
 失败保持输出，不读盘或提交任务。旧 VFS 构造、同步加载与迁移适配器已删除。
 
@@ -176,7 +176,7 @@ Application::async_files 返回共享文件服务，宿主继续负责统一分�
 
 契约测试源位于 `tests/integration/assets/file_service_test.cpp`，目标 `gneiss_file_service_test`。
 覆盖延迟分发、路由、分页、范围、容量、取消、关闭、线程交付及异步回执编排。
-Windows 本地服务契约、资产管理和 native_file_backend 小范围测试已通过；
+Windows 本地服务契约、资产管理和 files::native_backend 小范围测试已通过；
 桌面测试覆盖真实读写、范围边界、读取上限、缺失文件、重复创建、元数据、列举、flush 和关闭。
 Emscripten 5.0.6 + 本地 Edge 小型浏览器测试通过：IDBFS 写入/flush/重新挂载恢复、
 范围边界、重复创建、stat/list，以及 HTTP 206、错误 Content-Range、200 回退和读取上限。

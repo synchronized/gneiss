@@ -7,7 +7,7 @@
 namespace gneiss::test_support {
 // 仅测试驱动回调；生产接口没有同步等待包装。
 template <class Receipt>
-inline engine::result await_file(engine::file_service& files,
+inline engine::result await_file(gneiss::engine::files::service& files,
                                  const std::shared_ptr<Receipt>& receipt) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (!receipt->complete) {
@@ -30,9 +30,10 @@ inline engine::result save_document(editor::scene_document& document,
   if (status.failed())
     return status;
   std::shared_ptr<editor::scene_document::save_receipt> receipt;
-  status = document.begin_save(
-      *application->async_files(), uri.empty() ? document.uri() : uri,
-      uri.empty() ? engine::write_mode::replace : engine::write_mode::create_new, receipt);
+  status = document.begin_save(*application->async_files(), uri.empty() ? document.uri() : uri,
+                               uri.empty() ? gneiss::engine::files::write_mode::replace
+                                           : gneiss::engine::files::write_mode::create_new,
+                               receipt);
   if (status.ok())
     status = await_file(*application->async_files(), receipt);
   if (status.ok())

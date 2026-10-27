@@ -28,7 +28,7 @@ bool structural(std::string_view uri) {
 struct author_asset_service::implementation {
   enum class command_kind : std::uint8_t { probe, saved, applied };
   struct read_receipt {
-    gneiss::engine::file_completion<gneiss::engine::file_bytes> value;
+    gneiss::engine::files::completion<gneiss::engine::files::bytes> value;
     bool ready{};
     std::uint64_t revision{};
   };
@@ -50,7 +50,7 @@ struct author_asset_service::implementation {
   };
 
   struct list_receipt {
-    gneiss::engine::file_completion<gneiss::engine::directory_page> value;
+    gneiss::engine::files::completion<gneiss::engine::files::directory_page> value;
     bool ready{};
   };
   struct directory {
@@ -61,10 +61,10 @@ struct author_asset_service::implementation {
   std::deque<std::string> known;
   std::unordered_set<std::string> seen;
   std::shared_ptr<list_receipt> listing;
-  gneiss::engine::file_request_id list_request;
+  gneiss::engine::files::request_id list_request;
   bool baseline{true};
-  std::shared_ptr<gneiss::engine::file_service> files;
-  gneiss::engine::file_request_id read_request;
+  std::shared_ptr<gneiss::engine::files::service> files;
+  gneiss::engine::files::request_id read_request;
   std::shared_ptr<read_receipt> reading;
   gneiss::engine::task_scheduler& scheduler;
   gneiss::engine::task_scope scope;
@@ -144,7 +144,7 @@ struct author_asset_service::implementation {
         directories.pop_front();
       for (const auto& entry : value.data.entries) {
         const auto uri = prefix + entry.name;
-        if (entry.info.kind == gneiss::engine::file_kind::directory)
+        if (entry.info.kind == gneiss::engine::files::kind::directory)
           directories.push_back({uri + "/", {}});
         else if (structural(uri) && seen.insert(uri).second)
           (void)enqueue({.kind = command_kind::probe, .uri = uri, .baseline = baseline});
@@ -292,7 +292,7 @@ author_asset_service::~author_asset_service() {
   (void)impl_->scheduler.close_scope(impl_->scope);
 }
 gneiss::engine::result
-author_asset_service::initialize(std::shared_ptr<gneiss::engine::file_service> files) {
+author_asset_service::initialize(std::shared_ptr<gneiss::engine::files::service> files) {
   if (!files || impl_->files || impl_->stopping) {
     return gneiss::engine::result::invalid_argument;
   }

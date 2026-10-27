@@ -81,7 +81,7 @@ void build_default_workspace(ImGuiID dockspace_id, const ImGuiViewport& viewport
 
 } // namespace
 
-engine::result editor_layout::initialize(std::shared_ptr<engine::file_service> files,
+engine::result editor_layout::initialize(std::shared_ptr<gneiss::engine::files::service> files,
                                          std::string_view project_key,
                                          editor_panel_visibility& visibility) noexcept try {
   if (!files || project_key.empty() || saving())
@@ -93,7 +93,7 @@ engine::result editor_layout::initialize(std::shared_ptr<engine::file_service> f
   reset_layout_requested = true;
   reset_generation_ = reset_generation;
   auto receipt = std::make_shared<read_receipt>();
-  engine::file_request_id request;
+  gneiss::engine::files::request_id request;
   const auto status = files_->read(
       uri_, {maximum_layout_size},
       [receipt](auto value) {
@@ -191,7 +191,7 @@ engine::result editor_layout::save(const editor_panel_visibility& visibility) no
     contents.append(data, size);
     auto receipt = std::make_shared<write_receipt>();
     const auto bytes = std::as_bytes(std::span{contents.data(), contents.size()});
-    engine::file_request_id request;
+    gneiss::engine::files::request_id request;
     const auto status = files_->write(
         uri_, {bytes.begin(), bytes.end()}, {},
         [receipt](auto status) {

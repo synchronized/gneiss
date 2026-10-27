@@ -67,7 +67,7 @@ struct application::storage {
 #ifdef GNEISS_ASSET_LIBUV
   std::unique_ptr<gneiss::engine::uv_loop_executor> asset_io_executor_;
 #endif
-  std::shared_ptr<engine::file_service> files_;
+  std::shared_ptr<gneiss::engine::files::service> files_;
   struct environment_read {
     bool ready{};
     engine::result status{engine::result::not_ready};
@@ -93,7 +93,7 @@ struct application::storage {
     gneiss::engine::result result{gneiss::engine::result::success};
   };
   std::shared_ptr<file_close_receipt> file_close_;
-  std::shared_ptr<gneiss::engine::file_service> closing_files_;
+  std::shared_ptr<gneiss::engine::files::service> closing_files_;
   bool platform_initialized_ = false;
   bool is_running_ = false;
   bool is_paused_ = false;
@@ -284,15 +284,15 @@ gneiss::engine::result application::initialize() noexcept {
     return gneiss::engine::result::out_of_memory;
   }
   try {
-    storage_->files_ = std::make_shared<engine::file_service>(
-        engine::file_service_options{.max_file_bytes = 64U * 1024U * 1024U});
+    storage_->files_ = std::make_shared<gneiss::engine::files::service>(
+        gneiss::engine::files::service_options{.max_file_bytes = 64U * 1024U * 1024U});
     for (const auto& [prefix, root, writable] :
          {std::tuple<std::string_view, std::string_view, bool>{
               "asset://", storage_->config_.asset_root, storage_->config_.writable_assets},
           {"user://", storage_->config_.user_root, true}}) {
       if (root.empty())
         continue;
-      std::shared_ptr<engine::file_backend> backend;
+      std::shared_ptr<gneiss::engine::files::backend> backend;
 #ifdef GNEISS_ASSET_LIBUV
       if (!storage_->asset_io_executor_) {
         storage_->asset_io_executor_ = std::make_unique<engine::uv_loop_executor>();
@@ -300,15 +300,15 @@ gneiss::engine::result application::initialize() noexcept {
         if (started.failed())
           return started;
       }
-      backend = std::make_shared<engine::native_file_backend>(*storage_->asset_io_executor_,
-                                                              std::string(root));
+      backend = std::make_shared<gneiss::engine::files::native_backend>(
+          *storage_->asset_io_executor_, std::string(root));
 #elif defined(__EMSCRIPTEN__)
       auto base = std::string(root);
       if (base.starts_with('/') && !base.starts_with("//")) {
         while (base.size() > 1 && base.ends_with('/'))
           base.pop_back();
-        auto local = std::make_shared<engine::browser_file_backend>(
-            std::move(base), engine::browser_file_storage::existing);
+        auto local = std::make_shared<gneiss::engine::files::browser_backend>(
+            std::move(base), gneiss::engine::files::browser_storage::existing);
         const auto initialized = local->initialize([](engine::result) {});
         if (initialized.failed())
           return initialized;
@@ -316,7 +316,7 @@ gneiss::engine::result application::initialize() noexcept {
       } else {
         if (!base.ends_with('/'))
           base += '/';
-        backend = std::make_shared<engine::fetch_file_backend>(std::move(base));
+        backend = std::make_shared<gneiss::engine::files::fetch_backend>(std::move(base));
       }
 #else
       return engine::result::unsupported;
@@ -422,10 +422,10 @@ gneiss::engine::result application::initialize() noexcept {
   if (storage_->granit_platform_ && !storage_->config_.environment_asset.empty()) {
     try {
       auto state = std::make_shared<storage::environment_read>();
-      engine::file_request_id request;
+      gneiss::engine::files::request_id request;
       const auto accepted = storage_->files_->read(
           storage_->config_.environment_asset, {.max_bytes = 64U * 1024U * 1024U},
-          [state](engine::file_completion<engine::file_bytes> value) {
+          [state](gneiss::engine::files::completion<gneiss::engine::files::bytes> value) {
             state->status = value.status;
             if (value.status.ok()) {
               try {
@@ -1370,7 +1370,7 @@ gneiss::engine::render_resource_service& application::resources() noexcept {
   return storage_->resources_;
 }
 
-std::shared_ptr<gneiss::engine::file_service> application::async_files() const noexcept {
+std::shared_ptr<gneiss::engine::files::service> application::async_files() const noexcept {
   return storage_->files_;
 }
 

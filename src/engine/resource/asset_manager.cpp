@@ -8,8 +8,8 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "engine/resource/resource_registry.hpp"
 #include "engine/resource/asset_uri.hpp"
+#include "engine/resource/resource_registry.hpp"
 #include <algorithm>
 #include <atomic>
 #include <limits>
@@ -29,8 +29,8 @@ struct asset_manager::resource_state {
     std::uint64_t generation;
     std::shared_ptr<const asset_decoder> loader;
     std::shared_ptr<detail::asset_state> observer{std::make_shared<detail::asset_state>()};
-    file_request_id read_request;
-    file_bytes bytes;
+    gneiss::engine::files::request_id read_request;
+    gneiss::engine::files::bytes bytes;
     bool reading{true}, read_complete{};
     std::shared_ptr<const void> value;
     gneiss::engine::meta::serialization_diagnostic diagnostic;
@@ -45,7 +45,7 @@ struct asset_manager::resource_state {
       // 解码任务只有一次终态；not_ready 不能变成永久挂起的资产请求。
       if (status == result::not_ready || (status == result::success && !value))
         status = result::internal;
-      file_bytes{}.swap(bytes);
+      gneiss::engine::files::bytes{}.swap(bytes);
     }
   };
   // 执行器丢弃排队任务时也产生终态；所有数据先写入，再 release 发布。
@@ -59,7 +59,7 @@ struct asset_manager::resource_state {
       work->settled.store(true, std::memory_order_release);
     }
   };
-  std::shared_ptr<file_service> files;
+  std::shared_ptr<gneiss::engine::files::service> files;
   gneiss::engine::task_executor* executor{};
   gneiss::engine::task_scope scope{};
   bool frozen{}, stopped{};
@@ -137,7 +137,7 @@ struct asset_manager::resource_state {
     (void)finish_stop();
   }
 };
-std::shared_ptr<file_service> asset_manager::async_files() const noexcept {
+std::shared_ptr<gneiss::engine::files::service> asset_manager::async_files() const noexcept {
   return resource_state_->files;
 }
 result asset_manager::identify(std::string_view uri, std::uint32_t type,
@@ -146,7 +146,7 @@ result asset_manager::identify(std::string_view uri, std::uint32_t type,
   if (!resource_state_->files || type == 0U)
     return result::invalid_state;
   try {
-    std::shared_ptr<const file_source_domain> domain;
+    std::shared_ptr<const gneiss::engine::files::source_domain> domain;
     const auto status = resource_state_->files->resolve_source(uri, domain);
     if (status.failed())
       return status;
@@ -157,7 +157,7 @@ result asset_manager::identify(std::string_view uri, std::uint32_t type,
   }
 }
 
-asset_manager::asset_manager(std::shared_ptr<file_service> files,
+asset_manager::asset_manager(std::shared_ptr<gneiss::engine::files::service> files,
                              gneiss::engine::meta::registry_ref registry,
                              std::size_t fallback_limit)
     : resource_state_(std::make_unique<resource_state>()) {
@@ -185,7 +185,7 @@ result asset_manager::store_erased(type_id type, std::string_view uri,
     return result::invalid_state;
   if (!value || validate_uri(uri).failed())
     return result::invalid_argument;
-  std::shared_ptr<const file_source_domain> domain;
+  std::shared_ptr<const gneiss::engine::files::source_domain> domain;
   auto status = state.files->resolve_source(uri, domain);
   if (status.failed())
     return status;
@@ -270,7 +270,7 @@ gneiss::engine::result asset_manager::request(gneiss::engine::type_id type, std:
   const auto resolved = resolve_decoder(type, fallback, decoder);
   if (resolved.failed())
     return resolved;
-  std::shared_ptr<const file_source_domain> domain;
+  std::shared_ptr<const gneiss::engine::files::source_domain> domain;
   const auto identified = state.files->resolve_source(uri, domain);
   if (identified != gneiss::engine::result::success)
     return identified;
@@ -294,7 +294,8 @@ gneiss::engine::result asset_manager::request(gneiss::engine::type_id type, std:
   try {
     const auto submitted = state.files->read(
         uri, {decoder->maximum_bytes()},
-        [weak = std::weak_ptr(work)](file_completion<file_bytes> completed) {
+        [weak = std::weak_ptr(work)](
+            gneiss::engine::files::completion<gneiss::engine::files::bytes> completed) {
           // 回调只向仍存活的操作交付字节；停止/销毁后不捕获 manager 或执行器。
           if (auto operation = weak.lock()) {
             operation->status = completed.status;
@@ -326,7 +327,7 @@ result asset_manager::find_loaded_erased(type_id type, std::string_view uri,
     return result::invalid_state;
   if (validate_uri(uri).failed())
     return result::invalid_argument;
-  std::shared_ptr<const file_source_domain> source;
+  std::shared_ptr<const gneiss::engine::files::source_domain> source;
   const auto status = resource_state_->files->resolve_source(uri, source);
   if (status.failed())
     return status;

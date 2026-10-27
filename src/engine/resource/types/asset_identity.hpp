@@ -15,7 +15,7 @@ namespace gneiss::engine {
  * 持有来源标记避免地址复用导致身份误判，不延长文件后端或 GPU 资源寿命。
  */
 struct asset_identity final {
-  std::shared_ptr<const file_source_domain> source;
+  std::shared_ptr<const gneiss::engine::files::source_domain> source;
   std::string uri;
   std::uint32_t type{};
   bool operator==(const asset_identity&) const = default;

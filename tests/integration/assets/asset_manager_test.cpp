@@ -90,10 +90,11 @@ result explicit_decode(std::span<const std::byte> bytes, value& output,
   output.byte = 'x';
   return bytes.front() == std::byte{'!'} ? result::invalid_argument : result::success;
 }
-class delayed_files final : public file_backend {
+class delayed_files final : public gneiss::engine::files::backend {
 public:
-  file_callback<file_bytes> pending;
-  result read(std::string_view, read_options, file_callback<file_bytes> callback) override {
+  gneiss::engine::files::callback<gneiss::engine::files::bytes> pending;
+  result read(std::string_view, gneiss::engine::files::read_options,
+              gneiss::engine::files::callback<gneiss::engine::files::bytes> callback) override {
     pending = std::move(callback);
     return result::success;
   }
@@ -104,7 +105,8 @@ public:
 };
 void injected_file_service() {
   auto backend = std::make_shared<delayed_files>();
-  auto files = std::make_shared<file_service>(file_service_options{1, 64});
+  auto files = std::make_shared<gneiss::engine::files::service>(
+      gneiss::engine::files::service_options{1, 64});
   check(files->mount({"asset://", {backend}, {}}).ok(), "service mount");
   auto& executor = gneiss::test_support::asset_tasks();
   auto assets = std::make_unique<asset_manager>(gneiss::test_support::test_files(files));
@@ -137,7 +139,7 @@ void injected_file_service() {
         "service cache readable synchronously");
   check(assets->find_loaded("asset://missing", other) == result::not_found && other == loaded,
         "cache miss preserves output");
-  std::shared_ptr<const file_source_domain> source;
+  std::shared_ptr<const gneiss::engine::files::source_domain> source;
   check(files->resolve_source("asset://value", source).ok() && source &&
             assets->cache().size() == 1,
         "service cache source identity");
@@ -597,7 +599,7 @@ void nonblocking_decode_shutdown() {
   };
   task_scheduler executor({.workers = 1, .mode = execution_mode::thread_pool});
   auto backend = std::make_shared<delayed_files>();
-  auto files = std::make_shared<file_service>();
+  auto files = std::make_shared<gneiss::engine::files::service>();
   check(files->mount({"asset://", {backend}, {}}).ok(), "stop mount");
   asset_manager assets(gneiss::test_support::test_files(files));
   auto decoder = std::make_shared<gated_decoder>();

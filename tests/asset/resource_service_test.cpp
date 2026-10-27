@@ -18,8 +18,8 @@ int main() try {
     using namespace gneiss::engine;
     using gneiss::engine::result;
     resource_cache index;
-    auto source_a = std::make_shared<file_source_domain>();
-    auto source_b = std::make_shared<file_source_domain>();
+    auto source_a = std::make_shared<gneiss::engine::files::source_domain>();
+    auto source_b = std::make_shared<gneiss::engine::files::source_domain>();
     asset_ref<const resource_cache::entry> a, b, c, again;
     const auto integer = [](auto& output) {
       output = std::make_shared<const int>(42);

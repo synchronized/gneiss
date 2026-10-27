@@ -56,6 +56,17 @@ asset_preparation 分步状态机、prepare_assets/prepare_texture 同步入口�
 不将 Platform 搬迁或桌面后端实现等同于整份计划完成；大场景和 CI 仍留待统一验收。
 架构决策见 [ADR-084](../decisions/ADR-084-async-file-service.md)。
 
+## 文件命名空间收敛
+
+文件系统迁入 `gneiss::engine::files`：service、backend、read_stream、request_id、bytes、
+completion/callback、source_domain 及读写/目录类型统一归属；后端为 native_backend、
+memory_backend、browser_backend、fetch_backend。调用方直接使用新名称，不保留兼容别名。
+共享执行器、result 和资源层不迁入 files；头文件路径保持原位置。
+Windows Clang Debug 完整编译和 11 项小型测试通过：files.service/native、assets.application/manager、
+asset_uri、render_asset_loader、texture-load-service、editor.ui-layout/author-file-save/
+author-asset-service/author-asset-monitor。Emscripten 三个浏览器实现及浏览器专项源码语法检查通过；
+格式、Core 分层及 git diff --check 通过。未运行浏览器交互、大场景或完整 CI。
+
 ## 当前五项收尾进度
 
 - Runtime/Editor 事件循环正常退出已采用分阶段关闭；启动失败和析构兜底尚待收敛。
@@ -255,7 +266,7 @@ find_loaded 只查询已完成缓存，未命中返回 not_found，失败保持�
 
 ## 已确认决策
 
-- 类型位于 gneiss::engine，file_service 使用 PImpl，平台类型不进入服务头文件。
+- 文件类型位于 gneiss::engine::files，service 使用 PImpl，平台类型不进入服务头文件。
 - 读、区间读、写、元数据、分页列举、flush 均异步提交；返回值只表示是否接受请求。
 - 提交失败不回调；接受后在正常服务生命周期内恰好一次终态回调，缓存命中也禁止内联回调。
 - 所属线程提交、取消、配置和分发；后台仅提交完成数据。回调可提交/取消请求，不允许递归分发。

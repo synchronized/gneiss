@@ -66,20 +66,20 @@ struct memory_files final : gneiss::test_support::memory_file_fixture {
   }
 };
 // 人工延迟后端只接受回调；用于验证文件等待与 CPU 调度完全分离。
-class delayed_backend final : public file_backend {
+class delayed_backend final : public gneiss::engine::files::backend {
 public:
   std::string path;
-  file_callback<file_bytes> callback;
+  gneiss::engine::files::callback<gneiss::engine::files::bytes> callback;
   std::size_t reads{};
-  result read(std::string_view requested, read_options,
-              file_callback<file_bytes> completed) override {
+  result read(std::string_view requested, gneiss::engine::files::read_options,
+              gneiss::engine::files::callback<gneiss::engine::files::bytes> completed) override {
     check(!callback);
     path = requested;
     callback = std::move(completed);
     ++reads;
     return result::success;
   }
-  void complete(file_bytes bytes, result status = result::success) {
+  void complete(gneiss::engine::files::bytes bytes, result status = result::success) {
     auto completed = std::move(callback);
     check(static_cast<bool>(completed));
     completed({.status = status, .data = std::move(bytes)});
@@ -249,8 +249,9 @@ void reserved_material_lifetime() {
 void cpu_loading(execution_mode mode) {
   task_scheduler scheduler({.mode = mode});
   auto backend = std::make_shared<delayed_backend>();
-  auto files = std::make_shared<file_service>(
-      file_service_options{.max_file_bytes = texture_load_service::maximum_bytes});
+  auto files =
+      std::make_shared<gneiss::engine::files::service>(gneiss::engine::files::service_options{
+          .max_file_bytes = texture_load_service::maximum_bytes});
   check(files->mount({.prefix = "asset://", .readers = {backend}, .writer = {}}).ok());
   render_resource_service resources;
   asset_manager manager(gneiss::test_support::test_files(files));

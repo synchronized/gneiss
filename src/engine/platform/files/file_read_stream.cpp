@@ -5,25 +5,24 @@
 #include <algorithm>
 #include <limits>
 #include <stdexcept>
-namespace gneiss::engine {
-struct file_read_stream::state : std::enable_shared_from_this<state> {
-  std::shared_ptr<file_service> files;
+namespace gneiss::engine::files {
+struct read_stream::state : std::enable_shared_from_this<state> {
+  std::shared_ptr<service> files;
   std::string uri;
   std::optional<std::uint64_t> size;
   std::uint64_t offset{};
-  std::shared_ptr<file_backend_stream> source;
+  std::shared_ptr<backend_stream> source;
   std::size_t block_bytes{};
-  file_request_id request;
+  request_id request;
   bool pending{}, ended{};
   ~state() {
     if (source)
       source->close();
   }
-  result next(file_callback<file_block> callback) {
+  result next(files::callback<block> callback) {
     const auto status = files->read_stream_source(
         uri, source, block_bytes,
-        [weak = weak_from_this(),
-         callback = std::move(callback)](file_completion<file_block> value) mutable {
+        [weak = weak_from_this(), callback = std::move(callback)](completion<block> value) mutable {
           const auto current = weak.lock();
           if (!current)
             return;
@@ -52,8 +51,8 @@ struct file_read_stream::state : std::enable_shared_from_this<state> {
     return status;
   }
 };
-file_read_stream::file_read_stream(std::shared_ptr<file_service> files, std::string uri,
-                                   std::optional<std::uint64_t> size, std::size_t block_bytes)
+read_stream::read_stream(std::shared_ptr<service> files, std::string uri,
+                         std::optional<std::uint64_t> size, std::size_t block_bytes)
     : state_(std::make_shared<state>()) {
   if (!files || block_bytes == 0)
     throw std::invalid_argument("文件流配置无效");
@@ -62,11 +61,11 @@ file_read_stream::file_read_stream(std::shared_ptr<file_service> files, std::str
   state_->size = size;
   state_->block_bytes = block_bytes;
 }
-file_read_stream::~file_read_stream() {
+read_stream::~read_stream() {
   if (state_->pending)
     (void)state_->files->cancel(state_->request);
 }
-result file_read_stream::cancel() noexcept {
+result read_stream::cancel() noexcept {
   auto& s = *state_;
   if (s.size)
     return s.pending ? s.files->cancel(s.request) : result::invalid_state;
@@ -80,7 +79,7 @@ result file_read_stream::cancel() noexcept {
   }
   return status;
 }
-result file_read_stream::read_sequential(file_callback<file_block> callback) noexcept try {
+result read_stream::read_sequential(files::callback<block> callback) noexcept try {
   auto& s = *state_;
   if (s.source)
     return s.next(std::move(callback));
@@ -116,7 +115,7 @@ result file_read_stream::read_sequential(file_callback<file_block> callback) noe
 } catch (...) {
   return result::out_of_memory;
 }
-result file_read_stream::read_next(file_callback<file_block> callback) noexcept try {
+result read_stream::read_next(files::callback<block> callback) noexcept try {
   auto& s = *state_;
   if (!callback)
     return result::invalid_argument;
@@ -132,7 +131,7 @@ result file_read_stream::read_next(file_callback<file_block> callback) noexcept 
   const auto status = s.files->read_range(
       s.uri, {offset, length},
       [weak = std::weak_ptr<state>(state_), offset, length,
-       callback = std::move(callback)](file_completion<file_bytes> value) mutable {
+       callback = std::move(callback)](completion<files::bytes> value) mutable {
         const auto current = weak.lock();
         if (!current)
           return;

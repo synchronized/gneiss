@@ -14,7 +14,9 @@
 
 namespace gneiss::engine {
 class task_executor;
-class file_service;
+namespace files {
+class service;
+}
 }
 
 namespace gneiss::engine {
@@ -25,7 +27,7 @@ class GNEISS_API asset_manager final {
 public:
   /** 注入同线程文件服务；宿主驱动文件完成分发，advance_resources 只推进 CPU 解码和资源结果。
    * 不提供同步文件读取；缓存查询使用 find_loaded，服务可由宿主共享持有。 */
-  explicit asset_manager(std::shared_ptr<file_service> files,
+  explicit asset_manager(std::shared_ptr<gneiss::engine::files::service> files,
                          gneiss::engine::meta::registry_ref registry = {},
                          std::size_t fallback_limit = 64U * 1024U * 1024U);
   ~asset_manager();
@@ -96,7 +98,7 @@ public:
   asset_manager(const asset_manager&) = delete;
   asset_manager& operator=(const asset_manager&) = delete;
   /** 借用同线程异步文件服务；停止后为空。 */
-  [[nodiscard]] std::shared_ptr<file_service> async_files() const noexcept;
+  [[nodiscard]] std::shared_ptr<gneiss::engine::files::service> async_files() const noexcept;
   /** 解析统一来源身份，不执行文件 I/O。 */
   [[nodiscard]] result identify(std::string_view uri, std::uint32_t type,
                                 asset_identity& output) const noexcept;
