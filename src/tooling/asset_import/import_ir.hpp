@@ -4,7 +4,7 @@
 #pragma once
 
 #include "engine/core/math/types.hpp"
-#include "engine/resource/material/material_types.hpp"
+#include "engine/resource/material/material_description.hpp"
 #include "engine/resource/texture/texture_types.hpp"
 
 #include <array>

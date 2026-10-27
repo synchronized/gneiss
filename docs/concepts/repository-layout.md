@@ -294,7 +294,7 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 ## CPU 类型与缓存
 
 - `resource/asset_decoder.hpp`：消费内存字节的类型解码契约，不要求字段反射。
-- `resource/material/material_description.hpp`：可序列化的材质 CPU 描述。
+- `resource/material/material_description.hpp`：集中定义透明模式、共用材质参数和可序列化的 CPU 描述；编解码接口独立放在 codec。
 - `resource/material/material_codec.hpp`：材质 JSON 编解码，失败保持原输出。
 - `resource/mesh/mesh_data.hpp`：CPU 网格数组；描述与二进制解码位于同目录。
 - `resource/texture/texture_data.hpp`：CPU mip、容器负载及解码能力快照，不依赖 KTX2 codec。

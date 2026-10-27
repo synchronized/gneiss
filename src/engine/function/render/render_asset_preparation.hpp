@@ -6,7 +6,7 @@
 #include "engine/core/sha256.hpp"
 #include "engine/resource/asset_identity.hpp"
 #include "engine/resource/asset_ref.hpp"
-#include "engine/resource/material/material_parameters.hpp"
+#include "engine/resource/material/material_description.hpp"
 #include "engine/resource/mesh/mesh_data.hpp"
 #include "engine/resource/texture/texture_data.hpp"
 #include <map>

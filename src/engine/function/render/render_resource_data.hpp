@@ -4,7 +4,7 @@
 #pragma once
 
 #include "engine/core/rid.hpp"
-#include "engine/resource/material/material_parameters.hpp"
+#include "engine/resource/material/material_description.hpp"
 #include "engine/resource/mesh/mesh_data.hpp"
 #include "engine/resource/texture/texture_data.hpp"
 #include "engine/resource/texture/texture_types.hpp"
