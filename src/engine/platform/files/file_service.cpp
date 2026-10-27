@@ -101,17 +101,25 @@ template <class T> struct typed_request final : pending_request {
 
   bool advance() override {
     bool fallback = false;
+    std::shared_ptr<file_backend_stream> cancelled_source;
     {
       std::lock_guard lock(state->mutex);
       if (!state->completed)
         return false;
       outcome = std::move(*state->completed);
-      if (state->cancelled)
+      if (state->cancelled) {
+        // 取消打开后仍可能收到来源；不能只丢弃引用，后端也可能持有它。
+        if constexpr (std::is_same_v<T, std::shared_ptr<file_backend_stream>>) {
+          cancelled_source = std::move(outcome.data);
+        }
         outcome = {result::cancelled, {}};
+      }
       fallback = outcome.status == result::not_found && index + 1 < backends.size();
       if (fallback)
         state->completed.reset();
     }
+    if (cancelled_source)
+      cancelled_source->close();
     if (fallback) {
       ++index;
       begin();

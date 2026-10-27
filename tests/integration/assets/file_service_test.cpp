@@ -509,14 +509,18 @@ class streaming_backend final : public file_backend {
 public:
   std::shared_ptr<controlled_stream> stream;
   unsigned opens{};
-  bool missing{};
+  bool missing{}, deferred{};
+  file_callback<std::shared_ptr<file_backend_stream>> opening;
   result open_stream(std::string_view,
                      file_callback<std::shared_ptr<file_backend_stream>> done) override {
     ++opens;
     if (missing)
       return result::not_found;
     stream = std::make_shared<controlled_stream>();
-    done({result::success, stream});
+    if (deferred)
+      opening = std::move(done);
+    else
+      done({result::success, stream});
     return result::success;
   }
 };
@@ -602,6 +606,19 @@ void sequential_streams() {
   for (int i = 0; i < 3; ++i)
     pump(*files);
   check(backend->stream->closed, "late open closes source");
+  backend->deferred = true;
+  stream = std::make_unique<file_read_stream>(files, "asset://late-cancel", std::nullopt, 8);
+  result late_status;
+  check(stream->read_next([&](auto value) { late_status = value.status; }).ok(), "deferred open");
+  pump(*files);
+  check(stream->cancel().ok(), "cancel pending open");
+  auto late_source = backend->stream;
+  auto opened = std::move(backend->opening);
+  opened({result::success, late_source});
+  pump(*files);
+  check(late_status == result::cancelled && late_source->closed && late_source->reads == 0,
+        "cancelled opening closes retained source without reading");
+  backend->deferred = false;
   stream = std::make_unique<file_read_stream>(files, "asset://close", std::nullopt, 8);
   check(stream
             ->read_next([](auto value) {

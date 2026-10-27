@@ -9,10 +9,8 @@
 #include <array>
 
 #include <algorithm>
-#include <chrono>
 #include <filesystem>
 #include <fstream>
-#include <string>
 #include <vector>
 
 namespace {
@@ -32,10 +30,10 @@ std::vector<std::byte> read_file(const std::filesystem::path& path) {
 int main() {
   using gneiss::engine::pbr_shader_resolver;
   const auto root = std::filesystem::path{GNEISS_TEST_GRANIT_PBR_ASSET_DIR};
-  pbr_shader_resolver resolver;
-  if (resolver.valid() || resolver.initialize(root) != GRANIT_SUCCESS || !resolver.valid())
-    return 1;
   const auto expected = read_file(root / "pbr_standard.grshlib");
+  pbr_shader_resolver resolver;
+  if (resolver.valid() || resolver.initialize(expected) != GRANIT_SUCCESS || !resolver.valid())
+    return 1;
   if (expected.empty() || !std::ranges::equal(expected, resolver.shader_archive()))
     return 2;
   granit_shader_library_info info = GRANIT_SHADER_LIBRARY_INFO_INIT;
@@ -45,8 +43,7 @@ int main() {
     return 3;
   resolver.reset();
   if (resolver.valid() || !resolver.shader_archive().empty() ||
-      resolver.initialize(root / "missing") != GRANIT_ERROR_INITIALIZATION_FAILED ||
-      resolver.valid())
+      resolver.initialize({}) != GRANIT_ERROR_INITIALIZATION_FAILED || resolver.valid())
     return 4;
   if (resolver.initialize_embedded() != GRANIT_SUCCESS || !resolver.valid() ||
       !std::ranges::equal(expected, resolver.shader_archive()))
@@ -75,11 +72,6 @@ int main() {
                                         0U) != GRANIT_PBR_VERTEX_LAYOUT_MISSING_UV0)
     return 10;
 
-  const auto unique = std::chrono::steady_clock::now().time_since_epoch().count();
-  const auto fixture =
-      std::filesystem::temp_directory_path() / ("gneiss-pbr-library-" + std::to_string(unique));
-  std::filesystem::create_directories(fixture);
-  const auto path = fixture / "pbr_standard.grshlib";
   // 截断与内容损坏均必须清除先前成功加载的归档，不能留下可借用的旧状态。
   for (const auto truncated : {true, false}) {
     auto damaged = expected;
@@ -87,18 +79,11 @@ int main() {
       damaged.resize(damaged.size() / 2);
     else
       damaged.front() ^= std::byte{0xff};
-    {
-      std::ofstream output(path, std::ios::binary);
-      output.write(reinterpret_cast<const char*>(damaged.data()),
-                   static_cast<std::streamsize>(damaged.size()));
-    }
     if (resolver.initialize_embedded() != GRANIT_SUCCESS ||
-        resolver.initialize(fixture) != GRANIT_ERROR_INITIALIZATION_FAILED || resolver.valid() ||
+        resolver.initialize(damaged) != GRANIT_ERROR_INITIALIZATION_FAILED || resolver.valid() ||
         !resolver.shader_archive().empty()) {
-      std::filesystem::remove_all(fixture);
       return 7;
     }
   }
-  std::filesystem::remove_all(fixture);
   return resolver.initialize_embedded() == GRANIT_SUCCESS ? 0 : 8;
 }

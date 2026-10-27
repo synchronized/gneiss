@@ -7,7 +7,6 @@
 #include <granit/core/result.h>
 
 #include <cstddef>
-#include <filesystem>
 #include <span>
 #include <vector>
 
@@ -16,7 +15,7 @@ namespace gneiss::engine {
 /** 校验并持有标准 PBR Shader Library 字节；GPU 变体解析由 Granit 负责。 */
 class pbr_shader_resolver final {
 public:
-  [[nodiscard]] granit_result initialize(const std::filesystem::path& asset_directory) noexcept;
+  [[nodiscard]] granit_result initialize(std::span<const std::byte> bytes) noexcept;
   [[nodiscard]] granit_result initialize_embedded() noexcept;
   /** 仅在借用 shader_archive 的 GPU Library 销毁后调用。 */
   void reset() noexcept;

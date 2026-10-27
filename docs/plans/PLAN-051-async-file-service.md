@@ -65,6 +65,25 @@ asset_preparation 分步状态机、prepare_assets/prepare_texture 同步入口�
   同步准备器、旧 VFS 及测试迁移适配器已删除。
 - 当前改动已通过 Windows 编译、相关小型测试及 Core 分层检查；完整计划验收尚未开始。
 
+## 生产调用链核对与剩余实现
+
+2026-10-27 核对：Asset/Scene 的旧 load_sync/open_read 入口已删除；
+PBR Shader resolver 改为只消费内存字节，生产启动使用内嵌归档，文件读取只留在测试夹具。
+顺序流取消打开后，迟到成功返回的来源由服务在所属线程显式关闭，即使后端仍持有引用也不会遗留活动来源。
+
+以下是实际实现缺口，不属于单纯的未验证项：
+
+- `editor/author_asset_monitor.cpp` 仍直接读文件计算指纹，由 author_asset_service 的任务编排驱动；
+  这不等于已经接入 file_service，也不能在协作调度下宣称没有主线程阻塞。
+  后续将指纹读取迁入文件服务，保留监听/扫描与基线确认语义。
+- `editor/commands/native_author_transaction.cpp` 的原生保存事务仍直接访问文件；
+  迁移需保留提交失败与撤销历史语义，不能仅将单次写入改成异步就视为完成。
+- `editor/editor_ui.cpp` 的布局读写仍为本地配置路径，后续独立接入 user 挂载。
+- Application 正常退出已有分阶段关闭；Render 最终销毁、初始化失败及误用析构的同步兜底仍存在。
+
+真实配额、跨域部署、大文件峰值属于验证缺口；公共 JS Promise、字节缓存和流送系统属于按需扩展，
+不作为本轮清理的前置条件。上述实现缺口完成前不宣称所有生产文件访问均已统一。
+
 ## 本轮确认范围（待实施）
 
 本轮将文件抽象整体收敛到 `engine/platform/files`，由它完整替换旧 VFS。
@@ -89,7 +108,7 @@ asset_preparation 分步状态机、prepare_assets/prepare_texture 同步入口�
 ### Platform 迁移前置条件
 
 迁移前 file_service 导入 virtual_file_system 挂载并使用 Resource 的 asset_source_domain。
-来源标记已通用化，原 Resource 适配函数已移至 tests/support，仅兼容未迁移的测试夹具。
+来源标记已通用化，原 Resource 适配函数与测试过渡夹具已删除。
 
 文件层已定义不透明的 `file_source_domain` 挂载来源标记，由挂载表创建并持有。
 `resolve_source` 只解析来源，不执行 I/O；Resource 的 asset_identity 引用该标记，
