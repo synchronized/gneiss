@@ -332,3 +332,6 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 `mesh_data.hpp` 集中网格数据与切线校验。各 codec 仅依赖序列化值类型，
 `register_*_reflection` 的声明统一位于 `builtin_resource_registration.hpp`。
 材质字节解码统一使用 `decode_material`，采用 `serialization_diagnostic`，失败保持原输出。
+
+CPU 网格的法线、切线、附加 UV 和颜色直接使用 `math::vector3/4/2/4`；
+`mesh_vertex` 组合 `position` 与 `uv`。文件 codec 仍逐分量读写，渲染实现转换到独立 GPU 顶点布局。

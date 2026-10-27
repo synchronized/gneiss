@@ -187,11 +187,11 @@ void run_pending_resources() {
   const auto hidden = pixel();
   auto geometry = std::make_shared<gneiss::engine::mesh_data>();
   geometry->vertices = {
-      {.x = -0.8F, .y = -0.7F, .z = 0.0F, .u = 0.0F, .v = 0.0F},
-      {.x = 0.8F, .y = -0.7F, .z = 0.0F, .u = 1.0F, .v = 0.0F},
-      {.x = 0.0F, .y = 0.8F, .z = 0.0F, .u = 0.5F, .v = 1.0F},
+      {.position = {-0.8F, -0.7F, 0.0F}, .uv = {0.0F, 0.0F}},
+      {.position = {0.8F, -0.7F, 0.0F}, .uv = {1.0F, 0.0F}},
+      {.position = {0.0F, 0.8F, 0.0F}, .uv = {0.5F, 1.0F}},
   };
-  geometry->normals.assign(3U, {.x = 0.0F, .y = 0.0F, .z = 1.0F});
+  geometry->normals.assign(3U, {0.0F, 0.0F, 1.0F});
   check(resources.replace_mesh(mesh, geometry));
   const auto placeholder = pixel();
   check(placeholder[0] > hidden[0] + 30U && placeholder[1] > hidden[1] + 30U &&

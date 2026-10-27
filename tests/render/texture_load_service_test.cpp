@@ -167,7 +167,7 @@ void mesh_data_lifetime() {
   std::weak_ptr<const mesh_data> lifetime = mesh;
   first = {};
   mesh.reset();
-  check(!lifetime.expired() && frame->vertices[1].x == 1.0F);
+  check(!lifetime.expired() && frame->vertices[1].position.x == 1.0F);
   frame.reset();
   check(lifetime.expired());
 }

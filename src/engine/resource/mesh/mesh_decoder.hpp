@@ -8,13 +8,14 @@ namespace gneiss::engine::detail {
 [[nodiscard]] gneiss::engine::result
 parse_mesh(const std::vector<std::byte>& bytes,
            std::vector<gneiss::engine::mesh_vertex>& out_vertices,
-           std::vector<gneiss::engine::mesh_normal>& out_normals, asset_diagnostic& diagnostic);
+           std::vector<gneiss::engine::math::vector3>& out_normals, asset_diagnostic& diagnostic);
 
 [[nodiscard]] gneiss::engine::result parse_binary_mesh(
     const std::vector<std::byte>& bytes, std::vector<gneiss::engine::mesh_vertex>& out_vertices,
-    std::vector<gneiss::engine::mesh_normal>& out_normals, std::vector<std::uint32_t>& out_indices,
-    std::vector<gneiss::engine::mesh_tangent>& out_tangents,
-    std::vector<gneiss::engine::mesh_uv>& out_uv1,
-    std::vector<gneiss::engine::mesh_color>& out_colors, asset_diagnostic& diagnostic);
+    std::vector<gneiss::engine::math::vector3>& out_normals,
+    std::vector<std::uint32_t>& out_indices,
+    std::vector<gneiss::engine::math::vector4>& out_tangents,
+    std::vector<gneiss::engine::math::vector2>& out_uv1,
+    std::vector<gneiss::engine::math::vector4>& out_colors, asset_diagnostic& diagnostic);
 
 }

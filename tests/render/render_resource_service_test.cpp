@@ -22,9 +22,9 @@ bool verify_borrowed_inputs() {
   if (resources.create_mesh(mesh_source, &mesh) != gneiss::engine::result::success) {
     return false;
   }
-  vertices[0].x = 42.0F;
+  vertices[0].position.x = 42.0F;
   auto retained_mesh = resources.share_mesh(mesh);
-  if (retained_mesh->vertices[0].x != 0.0F ||
+  if (retained_mesh->vertices[0].position.x != 0.0F ||
       resources.destroy_mesh(mesh) != gneiss::engine::result::success ||
       retained_mesh->vertices.size() != 3U) {
     return false;
@@ -38,7 +38,7 @@ bool verify_borrowed_inputs() {
       resources.destroy_mesh(mesh) != gneiss::engine::result::success)
     return false;
   owned.vertices.resize(3);
-  owned.vertices[0].x = std::numeric_limits<float>::infinity();
+  owned.vertices[0].position.x = std::numeric_limits<float>::infinity();
   if (resources.create_mesh(std::move(owned), &mesh) != gneiss::engine::result::invalid_argument)
     return false;
   std::array<std::uint8_t, 4> pixels{1U, 2U, 3U, 4U};
@@ -58,7 +58,7 @@ bool verify_borrowed_inputs() {
       retained_texture->levels[0].pixels.size() != 4U) {
     return false;
   }
-  const std::array<mesh_normal, 1> invalid_normals{};
+  const std::array<math::vector3, 1> invalid_normals{};
   mesh_source.normals = invalid_normals;
   return resources.create_mesh(mesh_source, &mesh) == result::invalid_argument;
 }
@@ -120,12 +120,12 @@ int main() {
   }
   gneiss::engine::render_resource_service resources;
   constexpr std::array vertices{
-      gneiss::engine::mesh_vertex{.x = 0.0F, .y = 0.0F, .z = 0.0F, .u = 0.0F, .v = 0.0F},
-      gneiss::engine::mesh_vertex{.x = 1.0F, .y = 0.0F, .z = 0.0F, .u = 1.0F, .v = 0.0F},
-      gneiss::engine::mesh_vertex{.x = 0.0F, .y = 1.0F, .z = 0.0F, .u = 0.0F, .v = 1.0F}};
-  constexpr std::array normals{gneiss::engine::mesh_normal{.x = 0.0F, .y = 0.0F, .z = 1.0F},
-                               gneiss::engine::mesh_normal{.x = 0.0F, .y = 0.0F, .z = 1.0F},
-                               gneiss::engine::mesh_normal{.x = 0.0F, .y = 0.0F, .z = 1.0F}};
+      gneiss::engine::mesh_vertex{.position = {0.0F, 0.0F, 0.0F}, .uv = {0.0F, 0.0F}},
+      gneiss::engine::mesh_vertex{.position = {1.0F, 0.0F, 0.0F}, .uv = {1.0F, 0.0F}},
+      gneiss::engine::mesh_vertex{.position = {0.0F, 1.0F, 0.0F}, .uv = {0.0F, 1.0F}}};
+  constexpr std::array normals{gneiss::engine::math::vector3{0.0F, 0.0F, 1.0F},
+                               gneiss::engine::math::vector3{0.0F, 0.0F, 1.0F},
+                               gneiss::engine::math::vector3{0.0F, 0.0F, 1.0F}};
   gneiss::engine::mesh_view mesh_desc;
   mesh_desc.vertices = vertices;
   mesh_desc.normals = normals;
@@ -138,9 +138,9 @@ int main() {
       resources.destroy_mesh(mesh) != gneiss::engine::result::success) {
     return 10;
   }
-  std::array tangents{gneiss::engine::mesh_tangent{1, 0, 0, 1},
-                      gneiss::engine::mesh_tangent{1, 0, 0, -1},
-                      gneiss::engine::mesh_tangent{1, 0, 0, 1}};
+  std::array tangents{gneiss::engine::math::vector4{1, 0, 0, 1},
+                      gneiss::engine::math::vector4{1, 0, 0, -1},
+                      gneiss::engine::math::vector4{1, 0, 0, 1}};
   mesh_desc.tangents = tangents;
   if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::result::success ||
       resources.get_mesh(mesh)->tangents[1].w != -1.0F ||
@@ -154,29 +154,29 @@ int main() {
     return 21;
   mesh_desc.tangents = {};
   auto tiled_vertices = vertices;
-  tiled_vertices[0].u = -42469.96875F;
-  tiled_vertices[1].v = 22.5F;
+  tiled_vertices[0].uv.x = -42469.96875F;
+  tiled_vertices[1].uv.y = 22.5F;
   mesh_desc.vertices = tiled_vertices;
   if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::result::success ||
-      resources.get_mesh(mesh)->vertices[0].u != tiled_vertices[0].u ||
-      resources.get_mesh(mesh)->vertices[1].v != tiled_vertices[1].v ||
+      resources.get_mesh(mesh)->vertices[0].uv.x != tiled_vertices[0].uv.x ||
+      resources.get_mesh(mesh)->vertices[1].uv.y != tiled_vertices[1].uv.y ||
       resources.destroy_mesh(mesh) != gneiss::engine::result::success) {
     return 16;
   }
   for (const auto invalid :
        {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()}) {
-    tiled_vertices[0].u = invalid;
+    tiled_vertices[0].uv.x = invalid;
     if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::result::invalid_argument ||
         resources.live_resource_count() != 0U) {
       return 17;
     }
-    tiled_vertices[0].u = 0.0F;
-    tiled_vertices[0].v = invalid;
+    tiled_vertices[0].uv.x = 0.0F;
+    tiled_vertices[0].uv.y = invalid;
     if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::result::invalid_argument ||
         resources.live_resource_count() != 0U) {
       return 18;
     }
-    tiled_vertices[0].v = 0.0F;
+    tiled_vertices[0].uv.y = 0.0F;
   }
   mesh_desc.vertices = vertices;
   auto invalid_normals = normals;
@@ -196,8 +196,9 @@ int main() {
     return 14;
   }
   mesh_desc.indices = indices;
-  std::array<gneiss::engine::mesh_uv, 3> uv1{{{0, 1}, {1, 0}, {0.5F, 0.5F}}};
-  std::array<gneiss::engine::mesh_color, 3> colors{{{1, 0, 0, 1}, {0, 1, 0, 0.5F}, {0, 0, 1, 0}}};
+  std::array<gneiss::engine::math::vector2, 3> uv1{{{0, 1}, {1, 0}, {0.5F, 0.5F}}};
+  std::array<gneiss::engine::math::vector4, 3> colors{
+      {{1, 0, 0, 1}, {0, 1, 0, 0.5F}, {0, 0, 1, 0}}};
   mesh_desc.uv1 = uv1;
   mesh_desc.colors = colors;
   if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::result::success ||

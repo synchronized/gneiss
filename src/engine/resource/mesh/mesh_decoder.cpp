@@ -9,7 +9,7 @@ namespace gneiss::engine::detail {
 [[nodiscard]] gneiss::engine::result
 parse_mesh(const std::vector<std::byte>& bytes,
            std::vector<gneiss::engine::mesh_vertex>& out_vertices,
-           std::vector<gneiss::engine::mesh_normal>& out_normals, asset_diagnostic& diagnostic) {
+           std::vector<gneiss::engine::math::vector3>& out_normals, asset_diagnostic& diagnostic) {
   auto document = parse_document(bytes, diagnostic);
   if (!document) {
     return diagnostic.result;
@@ -72,9 +72,9 @@ parse_mesh(const std::vector<std::byte>& bytes,
       return diagnostic.result;
     }
     gneiss::engine::mesh_vertex parsed{};
-    if (!read_float(yyjson_arr_get(vertex, 0), parsed.x) ||
-        !read_float(yyjson_arr_get(vertex, 1), parsed.y) ||
-        !read_float(yyjson_arr_get(vertex, 2), parsed.z)) {
+    if (!read_float(yyjson_arr_get(vertex, 0), parsed.position.x) ||
+        !read_float(yyjson_arr_get(vertex, 1), parsed.position.y) ||
+        !read_float(yyjson_arr_get(vertex, 2), parsed.position.z)) {
       fail(diagnostic, gneiss::engine::result::invalid_argument,
            "/vertices/" + std::to_string(index), "顶点数值必须是有限 float");
       return diagnostic.result;
@@ -82,8 +82,8 @@ parse_mesh(const std::vector<std::byte>& bytes,
     if (version >= 2U) {
       yyjson_val* uv = yyjson_arr_get(uvs, index);
       if (!yyjson_is_arr(uv) || yyjson_arr_size(uv) != 2U ||
-          !read_float(yyjson_arr_get(uv, 0), parsed.u) ||
-          !read_float(yyjson_arr_get(uv, 1), parsed.v)) {
+          !read_float(yyjson_arr_get(uv, 0), parsed.uv.x) ||
+          !read_float(yyjson_arr_get(uv, 1), parsed.uv.y)) {
         fail(diagnostic, gneiss::engine::result::invalid_argument, "/uvs/" + std::to_string(index),
              "UV 必须包含两个有限 float 数值");
         return diagnostic.result;
@@ -92,7 +92,7 @@ parse_mesh(const std::vector<std::byte>& bytes,
     out_vertices.push_back(parsed);
     if (version >= 3U) {
       yyjson_val* normal = yyjson_arr_get(normals, index);
-      gneiss::engine::mesh_normal parsed_normal{};
+      gneiss::engine::math::vector3 parsed_normal{};
       if (!yyjson_is_arr(normal) || yyjson_arr_size(normal) != 3U ||
           !read_float(yyjson_arr_get(normal, 0), parsed_normal.x) ||
           !read_float(yyjson_arr_get(normal, 1), parsed_normal.y) ||
@@ -117,10 +117,11 @@ parse_mesh(const std::vector<std::byte>& bytes,
 
 [[nodiscard]] gneiss::engine::result parse_binary_mesh(
     const std::vector<std::byte>& bytes, std::vector<gneiss::engine::mesh_vertex>& out_vertices,
-    std::vector<gneiss::engine::mesh_normal>& out_normals, std::vector<std::uint32_t>& out_indices,
-    std::vector<gneiss::engine::mesh_tangent>& out_tangents,
-    std::vector<gneiss::engine::mesh_uv>& out_uv1,
-    std::vector<gneiss::engine::mesh_color>& out_colors, asset_diagnostic& diagnostic) {
+    std::vector<gneiss::engine::math::vector3>& out_normals,
+    std::vector<std::uint32_t>& out_indices,
+    std::vector<gneiss::engine::math::vector4>& out_tangents,
+    std::vector<gneiss::engine::math::vector2>& out_uv1,
+    std::vector<gneiss::engine::math::vector4>& out_colors, asset_diagnostic& diagnostic) {
   gneiss::engine::mesh_binary_data data;
   gneiss::engine::mesh_binary_diagnostic binary_diagnostic;
   const auto result = gneiss::engine::decode_mesh_binary(bytes, data, binary_diagnostic);
@@ -135,22 +136,20 @@ parse_mesh(const std::vector<std::byte>& bytes,
   out_vertices.reserve(data.vertices.size());
   out_normals.reserve(data.vertices.size());
   for (const auto& source : data.vertices) {
-    out_vertices.push_back({.x = source.position[0],
-                            .y = source.position[1],
-                            .z = source.position[2],
-                            .u = source.texcoord[0],
-                            .v = source.texcoord[1]});
-    out_normals.push_back({.x = source.normal[0], .y = source.normal[1], .z = source.normal[2]});
+    out_vertices.push_back(
+        {.position = {source.position[0], source.position[1], source.position[2]},
+         .uv = {source.texcoord[0], source.texcoord[1]}});
+    out_normals.push_back({source.normal[0], source.normal[1], source.normal[2]});
   }
   out_tangents.reserve(data.tangents.size());
   for (const auto& tangent : data.tangents) {
-    out_tangents.push_back({.x = tangent[0], .y = tangent[1], .z = tangent[2], .w = tangent[3]});
+    out_tangents.push_back({tangent[0], tangent[1], tangent[2], tangent[3]});
   }
   for (const auto& uv : data.uv1) {
-    out_uv1.push_back({.u = uv[0], .v = uv[1]});
+    out_uv1.push_back({uv[0], uv[1]});
   }
   for (const auto& c : data.colors) {
-    out_colors.push_back({.r = c[0], .g = c[1], .b = c[2], .a = c[3]});
+    out_colors.push_back({c[0], c[1], c[2], c[3]});
   }
   out_indices = std::move(data.indices);
   return gneiss::engine::result::success;

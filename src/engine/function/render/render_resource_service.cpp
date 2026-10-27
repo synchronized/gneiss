@@ -218,9 +218,10 @@ gneiss::engine::result validate_mesh(const gneiss::engine::mesh_view& desc) noex
   }
   if (!std::ranges::all_of(vertices,
                            [](const auto& vertex) {
-                             return std::isfinite(vertex.x) && std::isfinite(vertex.y) &&
-                                    std::isfinite(vertex.z) && std::isfinite(vertex.u) &&
-                                    std::isfinite(vertex.v);
+                             return std::isfinite(vertex.position.x) &&
+                                    std::isfinite(vertex.position.y) &&
+                                    std::isfinite(vertex.position.z) &&
+                                    std::isfinite(vertex.uv.x) && std::isfinite(vertex.uv.y);
                            }) ||
       !std::ranges::all_of(normals,
                            [](const auto& normal) {
@@ -231,7 +232,7 @@ gneiss::engine::result validate_mesh(const gneiss::engine::mesh_view& desc) noex
                            }) ||
       !std::ranges::all_of(indices, [&](const auto index) { return index < vertices.size(); }) ||
       !std::ranges::all_of(
-          uv1, [](const auto& uv) { return std::isfinite(uv.u) && std::isfinite(uv.v); }) ||
+          uv1, [](const auto& uv) { return std::isfinite(uv.x) && std::isfinite(uv.y); }) ||
       !std::ranges::all_of(colors, [](const auto& color) {
         return valid_color(color.r) && valid_color(color.g) && valid_color(color.b) &&
                valid_color(color.a);

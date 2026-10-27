@@ -245,8 +245,9 @@ float mesh_bounds_radius(const gneiss::engine::mesh_data& mesh,
                          const gneiss::engine::math::transform& transform) noexcept {
   float radius_squared = 0.0F;
   for (const auto& vertex : mesh.vertices) {
-    radius_squared =
-        std::max(radius_squared, vertex.x * vertex.x + vertex.y * vertex.y + vertex.z * vertex.z);
+    radius_squared = std::max(radius_squared, vertex.position.x * vertex.position.x +
+                                                  vertex.position.y * vertex.position.y +
+                                                  vertex.position.z * vertex.position.z);
   }
   const auto scale = std::max(
       {std::abs(transform.scale[0]), std::abs(transform.scale[1]), std::abs(transform.scale[2])});
@@ -268,19 +269,19 @@ granit::result append_mesh_geometry(const gneiss::engine::mesh_data& source,
   range.index_count = static_cast<std::uint32_t>(source_index_count);
   for (std::size_t index = 0; index < source.vertices.size(); ++index) {
     const auto& vertex = source.vertices[index];
-    const auto normal = source.normals.empty() ? gneiss::engine::mesh_normal{0.0F, 1.0F, 0.0F}
+    const auto normal = source.normals.empty() ? gneiss::engine::math::vector3{0.0F, 1.0F, 0.0F}
                                                : source.normals[index];
     const auto tangent = source.tangents.empty()
-                             ? gneiss::engine::mesh_tangent{1.0F, 0.0F, 0.0F, 1.0F}
+                             ? gneiss::engine::math::vector4{1.0F, 0.0F, 0.0F, 1.0F}
                              : source.tangents[index];
-    const auto uv1 = source.uv1.empty() ? gneiss::engine::mesh_uv{0, 0} : source.uv1[index];
+    const auto uv1 = source.uv1.empty() ? gneiss::engine::math::vector2{0, 0} : source.uv1[index];
     const auto color =
-        source.colors.empty() ? gneiss::engine::mesh_color{1, 1, 1, 1} : source.colors[index];
-    vertices.push_back({.position = {vertex.x, vertex.y, vertex.z},
+        source.colors.empty() ? gneiss::engine::math::vector4{1, 1, 1, 1} : source.colors[index];
+    vertices.push_back({.position = {vertex.position.x, vertex.position.y, vertex.position.z},
                         .normal = {normal.x, normal.y, normal.z},
                         .tangent = {tangent.x, tangent.y, tangent.z, tangent.w},
-                        .texture_coordinate = {vertex.u, vertex.v},
-                        .uv1 = {uv1.u, uv1.v},
+                        .texture_coordinate = {vertex.uv.x, vertex.uv.y},
+                        .uv1 = {uv1.x, uv1.y},
                         .color = {color.r, color.g, color.b, color.a}});
   }
   if (source.indices.empty()) {

@@ -82,9 +82,9 @@ int main() {
   }
   auto& resources = application->resources();
   constexpr std::array vertices{
-      native::mesh_vertex{.x = -0.6F, .y = -0.5F, .z = 0.0F, .u = 0.0F, .v = 0.0F},
-      native::mesh_vertex{.x = 0.6F, .y = -0.5F, .z = 0.0F, .u = 1.0F, .v = 0.0F},
-      native::mesh_vertex{.x = 0.0F, .y = 0.6F, .z = 0.0F, .u = 0.5F, .v = 1.0F}};
+      native::mesh_vertex{.position = {-0.6F, -0.5F, 0.0F}, .uv = {0.0F, 0.0F}},
+      native::mesh_vertex{.position = {0.6F, -0.5F, 0.0F}, .uv = {1.0F, 0.0F}},
+      native::mesh_vertex{.position = {0.0F, 0.6F, 0.0F}, .uv = {0.5F, 1.0F}}};
   native::mesh_view mesh_desc{};
   mesh_desc.vertices = vertices;
   native::material_data material_desc{};

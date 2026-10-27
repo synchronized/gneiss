@@ -18,9 +18,10 @@ bool invalid_prepared_mesh(const mesh_data& mesh) {
           (!mesh.indices.empty() && (mesh.indices.size() < 3U || mesh.indices.size() % 3U != 0U)) ||
           !std::ranges::all_of(mesh.vertices,
                                [](const auto& v) {
-                                 return std::isfinite(v.x) && std::isfinite(v.y) &&
-                                        std::isfinite(v.z) && std::isfinite(v.u) &&
-                                        std::isfinite(v.v);
+                                 return std::isfinite(v.position.x) &&
+                                        std::isfinite(v.position.y) &&
+                                        std::isfinite(v.position.z) && std::isfinite(v.uv.x) &&
+                                        std::isfinite(v.uv.y);
                                }) ||
           !std::ranges::all_of(mesh.normals,
                                [](const auto& n) {

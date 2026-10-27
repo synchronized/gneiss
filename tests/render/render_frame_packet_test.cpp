@@ -159,9 +159,9 @@ int main() {
   }
 
   constexpr std::array vertices{
-      gneiss::engine::mesh_vertex{.x = 0.0F, .y = 0.0F, .z = 0.0F, .u = 0.0F, .v = 0.0F},
-      gneiss::engine::mesh_vertex{.x = 1.0F, .y = 0.0F, .z = 0.0F, .u = 1.0F, .v = 0.0F},
-      gneiss::engine::mesh_vertex{.x = 0.0F, .y = 1.0F, .z = 0.0F, .u = 0.0F, .v = 1.0F}};
+      gneiss::engine::mesh_vertex{.position = {0.0F, 0.0F, 0.0F}, .uv = {0.0F, 0.0F}},
+      gneiss::engine::mesh_vertex{.position = {1.0F, 0.0F, 0.0F}, .uv = {1.0F, 0.0F}},
+      gneiss::engine::mesh_vertex{.position = {0.0F, 1.0F, 0.0F}, .uv = {0.0F, 1.0F}}};
   gneiss::engine::mesh_view mesh_desc;
   mesh_desc.vertices = vertices;
   gneiss::engine::rid mesh = gneiss::engine::null_rid;

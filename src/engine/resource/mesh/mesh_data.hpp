@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/math/types.hpp"
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -12,43 +13,32 @@
 
 namespace gneiss::engine {
 struct mesh_vertex {
-  float x{}, y{}, z{}, u{}, v{};
-};
-struct mesh_normal {
-  float x{}, y{}, z{};
-};
-struct mesh_tangent {
-  float x{}, y{}, z{}, w{};
-};
-struct mesh_uv {
-  float u{}, v{};
-};
-struct mesh_color {
-  float r{}, g{}, b{}, a{};
+  math::vector3 position{};
+  math::vector2 uv{};
 };
 
 /** 创建期间借用；校验通过后资源服务复制数组，调用结束后不保留视图。 */
 struct mesh_view {
   std::span<const mesh_vertex> vertices;
-  std::span<const mesh_normal> normals;
+  std::span<const math::vector3> normals;
   std::span<const std::uint32_t> indices;
-  std::span<const mesh_tangent> tangents;
-  std::span<const mesh_uv> uv1;
-  std::span<const mesh_color> colors;
+  std::span<const math::vector4> tangents;
+  std::span<const math::vector2> uv1;
+  std::span<const math::vector4> colors;
 };
 
 struct mesh_data {
   std::vector<mesh_vertex> vertices;
-  std::vector<mesh_normal> normals;
+  std::vector<math::vector3> normals;
   std::vector<std::uint32_t> indices;
-  std::vector<mesh_tangent> tangents{};
-  std::vector<mesh_uv> uv1{};
-  std::vector<mesh_color> colors{};
+  std::vector<math::vector4> tangents{};
+  std::vector<math::vector2> uv1{};
+  std::vector<math::vector4> colors{};
   /** 资产候选与累计驻留使用相同的有效数据字节数，不含容器容量与 GPU 镜像。 */
   [[nodiscard]] std::size_t data_bytes() const noexcept {
-    return vertices.size() * sizeof(mesh_vertex) + normals.size() * sizeof(mesh_normal) +
-           indices.size() * sizeof(std::uint32_t) + tangents.size() * sizeof(mesh_tangent) +
-           uv1.size() * sizeof(mesh_uv) + colors.size() * sizeof(mesh_color);
+    return vertices.size() * sizeof(mesh_vertex) + normals.size() * sizeof(math::vector3) +
+           indices.size() * sizeof(std::uint32_t) + tangents.size() * sizeof(math::vector4) +
+           uv1.size() * sizeof(math::vector2) + colors.size() * sizeof(math::vector4);
   }
 };
 

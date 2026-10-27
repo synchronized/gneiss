@@ -15,9 +15,9 @@ int main() try {
     return 1;
   auto& resources = first->resources();
   auto& other = second->resources();
-  const std::array vertices{native::mesh_vertex{-0.5F, -0.5F, 0.0F, 0.0F, 0.0F},
-                            native::mesh_vertex{0.5F, -0.5F, 0.0F, 1.0F, 0.0F},
-                            native::mesh_vertex{0.0F, 0.5F, 0.0F, 0.5F, 1.0F}};
+  const std::array vertices{native::mesh_vertex{{-0.5F, -0.5F, 0.0F}, {0.0F, 0.0F}},
+                            native::mesh_vertex{{0.5F, -0.5F, 0.0F}, {1.0F, 0.0F}},
+                            native::mesh_vertex{{0.0F, 0.5F, 0.0F}, {0.5F, 1.0F}}};
   const std::array<std::uint32_t, 3> indices{0U, 1U, 2U};
   const std::array<std::uint8_t, 4> pixels{255U, 0U, 0U, 255U};
   native::mesh_view mesh_desc;

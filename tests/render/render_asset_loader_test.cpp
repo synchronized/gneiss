@@ -166,7 +166,7 @@ indexed_mesh_is_preserved(gneiss::engine::render_asset_loader& loader,
   const auto* resource = resources.get_mesh(gneiss::engine::asset_rid(mesh));
   return resource != nullptr && resource->vertices.size() == 4U && resource->normals.size() == 4U &&
          resource->indices.size() == 6U && resource->indices[5] == 3U &&
-         resource->vertices[0].u == -42469.96875F && resource->vertices[0].v == 22.5F;
+         resource->vertices[0].uv.x == -42469.96875F && resource->vertices[0].uv.y == 22.5F;
 }
 
 [[nodiscard]] std::vector<std::byte> make_runtime_texture() {
@@ -701,7 +701,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   const auto* mesh_data = resources.get_mesh(gneiss::engine::asset_rid(textured_mesh));
   const auto* material_data = resources.get_material(gneiss::engine::asset_rid(textured_material));
   if (mesh_data == nullptr || mesh_data->vertices.size() != 3U || !mesh_data->normals.empty() ||
-      mesh_data->vertices[1].u != 1.0F || mesh_data->vertices[2].v != 1.0F ||
+      mesh_data->vertices[1].uv.x != 1.0F || mesh_data->vertices[2].uv.y != 1.0F ||
       material_data == nullptr ||
       material_data->base_color_texture != gneiss::engine::asset_rid(first_texture) ||
       material_data->parameters.metallic != 0.25F || material_data->parameters.roughness != 0.75F ||
@@ -747,7 +747,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
       return 40;
     }
     for (const auto& asset : batch.assets) {
-      if (asset.mesh.vertices[0].u != -42469.96875F || asset.mesh.vertices[0].v != 22.5F) {
+      if (asset.mesh.vertices[0].uv.x != -42469.96875F || asset.mesh.vertices[0].uv.y != 22.5F) {
         return 41;
       }
     }
@@ -755,7 +755,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     if (gneiss::test_support::load_render(loader, gneiss::engine::render_asset_type::mesh,
                                           requests[0].uri, tiled,
                                           diagnostic) != gneiss::engine::result::success ||
-        resources.get_mesh(gneiss::engine::asset_rid(tiled))->vertices[0].u != -42469.96875F) {
+        resources.get_mesh(gneiss::engine::asset_rid(tiled))->vertices[0].uv.x != -42469.96875F) {
       return 42;
     }
     tiled = {};
@@ -848,7 +848,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
       gneiss::engine::asset_rid(after_failed_reload) !=
           gneiss::engine::asset_rid(reloaded_material) ||
       resources.share_mesh(old_mesh) == updated_mesh_data ||
-      resources.get_mesh(old_mesh)->vertices.front().x != -2.0F ||
+      resources.get_mesh(old_mesh)->vertices.front().position.x != -2.0F ||
       resources.share_material(old_material) != updated_material_data ||
       resources.share_texture(old_texture) == updated_texture_data) {
     return 20;
