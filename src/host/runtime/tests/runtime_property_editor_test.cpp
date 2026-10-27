@@ -35,7 +35,7 @@ bool test_write_and_revision() {
   GNEISS_TEST_CHECK(owner->entity_create(entity) == gneiss::engine::result::success);
   gneiss::scene_node_id scene_node;
   GNEISS_TEST_CHECK(owner->node_create({}, entity, scene_node) == gneiss::engine::result::success);
-  const gneiss::engine::transform identity{};
+  const gneiss::engine::math::transform identity{};
   GNEISS_TEST_CHECK(owner->node_set_local_transform(scene_node, identity) ==
                     gneiss::engine::result::success);
 
@@ -75,7 +75,7 @@ bool test_write_and_revision() {
   GNEISS_TEST_CHECK(response.code == gneiss::engine::result::success.code());
   GNEISS_TEST_CHECK(response.revision == 2U);
   GNEISS_TEST_CHECK(response.canonical_value.payload == command.value.payload);
-  gneiss::engine::transform transform{};
+  gneiss::engine::math::transform transform{};
   GNEISS_TEST_CHECK(owner->entity_get_local_transform(entity, transform) ==
                     gneiss::engine::result::success);
   GNEISS_TEST_CHECK(transform.translation[0] == 2.0F && transform.translation[1] == 3.0F &&

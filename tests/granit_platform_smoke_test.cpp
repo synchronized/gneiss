@@ -136,18 +136,18 @@ int main() {
   auto& world = *application->native_world();
   entity_id camera_entity{}, mesh_entity{}, plain_mesh_entity{};
   scene_node_id camera_node{}, mesh_node{}, plain_mesh_node{};
-  const native::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
+  const native::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   native::mesh_renderer mesh_renderer{.mesh = resources.reference_mesh(mesh),
                                       .material = resources.reference_material(material)};
   native::mesh_renderer plain_mesh_renderer{.mesh = resources.reference_mesh(mesh),
                                             .material =
                                                 resources.reference_material(plain_material)};
-  native::transform camera_transform;
+  native::math::transform camera_transform;
   camera_transform.translation[2] = 2.0F;
-  native::transform near_transform;
+  native::math::transform near_transform;
   near_transform.translation[0] = -0.55F;
   near_transform.translation[2] = 0.5F;
-  native::transform plain_transform;
+  native::math::transform plain_transform;
   plain_transform.translation[0] = 0.55F;
   plain_transform.translation[2] = 0.5F;
   if (world.entity_create(camera_entity).failed() || world.entity_create(mesh_entity).failed() ||

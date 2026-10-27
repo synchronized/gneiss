@@ -16,7 +16,7 @@ int main() try {
   property.name = "Rotation";
   property.kind = gneiss::engine::value_kind::quaternion;
   property.capabilities = gneiss::engine::meta::property_capabilities::writable;
-  property.value.payload = gneiss::engine::quaternion_xyzw(0.0F, 0.0F, 0.0F, 1.0F);
+  property.value.payload = gneiss::engine::math::quaternion_xyzw(0.0F, 0.0F, 0.0F, 1.0F);
   component.properties.push_back(property);
   std::array components{component};
   unsigned writes = 0U;
@@ -51,7 +51,7 @@ int main() try {
   draw();
   const bool valid = error.ok() && ImGui::GetDrawData()->TotalVtxCount > 0;
   // 非法四元数只报告错误，不调用写入或变更模型；不需要原生窗口。
-  std::get<gneiss::engine::quaternion>(components[0].properties[0].value.payload).w = 0.0F;
+  std::get<gneiss::engine::math::quaternion>(components[0].properties[0].value.payload).w = 0.0F;
   draw();
   const bool invalid = error == gneiss::engine::result::invalid_argument;
   ImGui::DestroyContext();

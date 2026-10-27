@@ -38,7 +38,7 @@ int main() try {
     return 2;
   }
   const auto is_x = [&](float expected) {
-    gneiss::engine::transform local{};
+    gneiss::engine::math::transform local{};
     return app->native_world()->entity_get_local_transform(entity, local) ==
                gneiss::engine::result::success &&
            std::abs(local.translation[0] - expected) < 0.0001F;
@@ -51,7 +51,7 @@ int main() try {
       return gneiss::engine::result{gneiss::engine::result::not_found};
     }
     auto value = found->value;
-    std::get<gneiss::engine::vector3>(value.payload).x = next;
+    std::get<gneiss::engine::math::vector3>(value.payload).x = next;
     return edit_author_property(session, target, inspector, world_handle, component, *found, value,
                                 serial);
   };
@@ -83,7 +83,7 @@ int main() try {
     return 7;
   }
   auto invalid = scale->value;
-  std::get<gneiss::engine::vector3>(invalid.payload).x = 0.0F;
+  std::get<gneiss::engine::math::vector3>(invalid.payload).x = 0.0F;
   if (edit_author_property(session, history, inspector, world_handle, component, *scale, invalid,
                            4U) != gneiss::engine::result::invalid_argument ||
       history.size() != 2U) {

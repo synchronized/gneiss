@@ -17,13 +17,13 @@ bool nearly_equal(float left, float right) noexcept { return std::abs(left - rig
 } // namespace
 
 int main() {
-  using gneiss::engine::matrix4;
-  using gneiss::engine::perspective_rh_zo;
-  using gneiss::engine::vector4;
-  using gneiss::engine::view_matrix_rh;
+  using gneiss::engine::math::matrix4;
+  using gneiss::engine::math::perspective_rh_zo;
+  using gneiss::engine::math::vector4;
+  using gneiss::engine::math::view_matrix_rh;
 
   matrix4 view;
-  gneiss::engine::transform transform = {};
+  gneiss::engine::math::transform transform = {};
   transform.translation[2] = 2.0F;
   if (view_matrix_rh(transform, view) != gneiss::engine::result::success) {
     return 1;
@@ -49,7 +49,7 @@ int main() {
     return 4;
   }
 
-  gneiss::engine::camera_settings camera;
+  gneiss::engine::math::camera_settings camera;
   camera.fov = 1.57079633F;
   camera.near = 0.1F;
   camera.far = 100.0F;

@@ -200,7 +200,7 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   check(session.prefab_nodes().size() == 150U && session.is_dirty());
   std::uint64_t count{};
   check(app->native_world()->entity_count(count).ok() && count == 150U);
-  gneiss::engine::transform invalidated;
+  gneiss::engine::math::transform invalidated;
   check(app->native_world()->node_get_local_transform(second_node, invalidated) ==
         gneiss::engine::result::invalid_handle);
   // 部分失败后仍能再次编辑，并对后续成功操作执行撤销。

@@ -92,7 +92,7 @@ gneiss::engine::result world::entity_count(uint64_t& out_count) noexcept {
   }
 }
 gneiss::engine::result world::entity_set_camera(entity_id entity_value,
-                                                const camera_settings& camera,
+                                                const math::camera_settings& camera,
                                                 bool primary) noexcept {
   std::uint64_t entity = entity_value.get();
   if (!is_valid_camera(camera.fov, camera.near, camera.far)) {
@@ -109,7 +109,7 @@ gneiss::engine::result world::entity_set_camera(entity_id entity_value,
       return gneiss::engine::result::invalid_handle;
     }
     state->emplace_or_replace<camera_component>(
-        entity, camera_settings{camera.fov, camera.near, camera.far});
+        entity, math::camera_settings{camera.fov, camera.near, camera.far});
     if (primary) {
       return state->set_active_camera(entity);
     }
@@ -122,7 +122,7 @@ gneiss::engine::result world::entity_set_camera(entity_id entity_value,
   }
 }
 gneiss::engine::result world::entity_configure_camera(entity_id entity_value,
-                                                      const camera_settings& desc) noexcept {
+                                                      const math::camera_settings& desc) noexcept {
   std::uint64_t entity = entity_value.get();
   if (!is_valid_camera(desc.fov, desc.near, desc.far)) {
     return gneiss::engine::result::invalid_argument;
@@ -146,7 +146,7 @@ gneiss::engine::result world::entity_configure_camera(entity_id entity_value,
   }
 }
 gneiss::engine::result world::entity_get_camera(entity_id entity_value,
-                                                camera_settings& out_camera) noexcept {
+                                                math::camera_settings& out_camera) noexcept {
   std::uint64_t entity = entity_value.get();
   try {
     auto* state = state_.get();
@@ -343,7 +343,7 @@ gneiss::engine::result world::node_reparent(scene_node_id node_value,
 }
 gneiss::engine::result
 world::node_set_local_transform(scene_node_id node_value,
-                                const gneiss::engine::transform& transform) noexcept {
+                                const gneiss::engine::math::transform& transform) noexcept {
   scene_node_id node = node_value;
   try {
     auto* state = state_.get();
@@ -358,7 +358,7 @@ world::node_set_local_transform(scene_node_id node_value,
 }
 gneiss::engine::result
 world::node_get_local_transform(scene_node_id node_value,
-                                gneiss::engine::transform& out_transform) noexcept {
+                                gneiss::engine::math::transform& out_transform) noexcept {
   scene_node_id node = node_value;
   try {
     auto* state = state_.get();
@@ -379,7 +379,7 @@ world::node_get_local_transform(scene_node_id node_value,
 }
 gneiss::engine::result
 world::node_get_world_transform(scene_node_id node_value,
-                                gneiss::engine::transform& out_transform) noexcept {
+                                gneiss::engine::math::transform& out_transform) noexcept {
   scene_node_id node = node_value;
   try {
     auto* state = state_.get();
@@ -387,7 +387,7 @@ world::node_get_world_transform(scene_node_id node_value,
                                                   : gneiss::engine::result::invalid_state);
     if (thread_result != gneiss::engine::result::success)
       return thread_result;
-    gneiss::engine::transform value;
+    gneiss::engine::math::transform value;
     const auto result = state->scene().get_world(node, &value);
     if (result == gneiss::engine::result::success)
       out_transform = value;
@@ -449,7 +449,7 @@ gneiss::engine::result world::node_get_parent(scene_node_id node_value,
 }
 gneiss::engine::result
 world::entity_get_local_transform(entity_id entity_value,
-                                  gneiss::engine::transform& out_transform) noexcept {
+                                  gneiss::engine::math::transform& out_transform) noexcept {
   std::uint64_t entity = entity_value.get();
   out_transform = {};
   try {
@@ -474,7 +474,7 @@ world::entity_get_local_transform(entity_id entity_value,
 }
 gneiss::engine::result
 world::entity_set_local_transform(entity_id entity_value,
-                                  const gneiss::engine::transform& transform) noexcept {
+                                  const gneiss::engine::math::transform& transform) noexcept {
   std::uint64_t entity = entity_value.get();
   try {
     auto* state = state_.get();

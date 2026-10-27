@@ -34,7 +34,7 @@ int main() try {
   }
   bool wait_release = false;
   gneiss::engine::result error = gneiss::engine::result::success;
-  gneiss::engine::transform camera = {};
+  gneiss::engine::math::transform camera = {};
   camera.translation[2] = 5.0F;
   const transform_gizmo_context context{
       .session = session,
@@ -69,7 +69,7 @@ int main() try {
     ImGui::DestroyContext();
     return 2;
   }
-  gneiss::engine::transform moved = {};
+  gneiss::engine::math::transform moved = {};
   moved.translation[0] = 2.0F;
   gizmo_matrix matrix{};
   if (transform_to_gizmo_matrix(moved, matrix).failed() || drag.begin(session).failed() ||
@@ -83,7 +83,7 @@ int main() try {
     ImGui::DestroyContext();
     return 4;
   }
-  gneiss::engine::transform actual = {};
+  gneiss::engine::math::transform actual = {};
   if (session.get_world_transform(first, actual).failed() ||
       std::abs(actual.translation[0]) > 0.0001F || session.select(first).failed() ||
       drag.begin(session).failed() || drag.preview(session, matrix).failed()) {

@@ -70,7 +70,7 @@ gneiss::engine::result native_update(runtime::application& app, context& state) 
         {elapsed, stats.presented_frames, stats.latest_frame_interval_ms, interval});
   }
   state.stats = stats;
-  gneiss::engine::transform transform;
+  gneiss::engine::math::transform transform;
   transform.translation[0] = static_cast<float>(std::sin(elapsed) * 0.15);
   transform.translation[2] = 2.0F;
   if (gneiss::engine::result{app.native_world()->node_set_local_transform(

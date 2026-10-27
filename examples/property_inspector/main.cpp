@@ -91,7 +91,7 @@ int main() try {
   gneiss::entity_id target{};
   if (!target_for(*app, scene, target))
     return 3;
-  gneiss::engine::value value{.payload = gneiss::engine::vector3{2, 1, 4}};
+  gneiss::engine::value value{.payload = gneiss::engine::math::vector3{2, 1, 4}};
   if (gneiss::engine::write_component_property(registry, *app->native_world(), target.get(),
                                                gneiss::engine::transform_property_type(),
                                                gneiss::engine::meta::property_id{1}, value)
@@ -130,7 +130,7 @@ int main() try {
                                               gneiss::engine::meta::property_id{1}, value)
           .failed() ||
       value.kind() != gneiss::engine::value_kind::vec3 ||
-      std::abs(std::get<gneiss::engine::vector3>(value.payload).x - 2) > 0.0001F)
+      std::abs(std::get<gneiss::engine::math::vector3>(value.payload).x - 2) > 0.0001F)
     return 6;
   if (gneiss::engine::read_component_property(registry, *app->native_world(), target.get(),
                                               gneiss::engine::camera_property_type(),

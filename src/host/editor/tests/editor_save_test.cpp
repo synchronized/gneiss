@@ -80,7 +80,7 @@ int main() try {
       session.select(session.nodes()[0].node) != gneiss::engine::result::success) {
     return 3;
   }
-  gneiss::engine::transform transform{};
+  gneiss::engine::math::transform transform{};
   transform.translation[0] = 7.0F;
   if (application->native_world()->entity_set_local_transform(
           session.selected_node()->entity, transform) != gneiss::engine::result::success) {
@@ -206,7 +206,7 @@ int main() try {
   gneiss::scene_node_id camera_node;
   gneiss::scene_node_id reloaded_created_node;
   gneiss::entity_id camera_entity;
-  gneiss::engine::transform reloaded_transform{};
+  gneiss::engine::math::transform reloaded_transform{};
   if (reloaded_application->scenes()->find_node(reloaded_scene, camera_uuid, camera_node) !=
           gneiss::engine::result::success ||
       reloaded_application->scenes()->find_node(

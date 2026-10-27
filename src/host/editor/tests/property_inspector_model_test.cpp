@@ -34,7 +34,7 @@ int main() {
       inspector.initialize() != gneiss::engine::result::success) {
     return 1;
   }
-  gneiss::engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
+  gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   if (owner->node_create({}, entity, entity_node) != gneiss::engine::result::success ||
       owner->node_create({}, transform_only, transform_only_node) !=
           gneiss::engine::result::success ||
@@ -54,28 +54,28 @@ int main() {
   }
 
   gneiss::engine::value value;
-  value.payload = gneiss::engine::vector3{2.0F, 3.0F, 4.0F};
+  value.payload = gneiss::engine::math::vector3{2.0F, 3.0F, 4.0F};
   if (inspector.set_value(gneiss::engine::transform_component_type,
                           gneiss::engine::transform_translation_field,
                           value) != gneiss::engine::result::success) {
     return 3;
   }
-  gneiss::engine::transform transform{};
+  gneiss::engine::math::transform transform{};
   if (owner->entity_get_local_transform(entity, transform) != gneiss::engine::result::success ||
       !nearly_equal(transform.translation[0], 2.0F)) {
     return 4;
   }
 
-  value.payload = gneiss::engine::vector3{0.0F, 1.0F, 1.0F};
+  value.payload = gneiss::engine::math::vector3{0.0F, 1.0F, 1.0F};
   if (inspector.set_value(gneiss::engine::transform_component_type,
                           gneiss::engine::transform_scale_field,
                           value) != gneiss::engine::result::invalid_argument ||
       owner->entity_get_local_transform(entity, transform) != gneiss::engine::result::success ||
       !nearly_equal(transform.scale[0], 1.0F) ||
-      !nearly_equal(
-          std::get<gneiss::engine::vector3>(inspector.components()[0].properties[2].value.payload)
-              .x,
-          1.0F)) {
+      !nearly_equal(std::get<gneiss::engine::math::vector3>(
+                        inspector.components()[0].properties[2].value.payload)
+                        .x,
+                    1.0F)) {
     return 5;
   }
 

@@ -11,9 +11,9 @@ int main(void) {
   gneiss::scene_node_id child = gneiss::scene_node_id{};
   gneiss::scene_node_id duplicate = gneiss::scene_node_id{};
   gneiss::scene_node_id parent = gneiss::scene_node_id{};
-  gneiss::engine::transform root_transform;
-  gneiss::engine::transform child_transform;
-  gneiss::engine::transform world_transform;
+  gneiss::engine::math::transform root_transform;
+  gneiss::engine::math::transform child_transform;
+  gneiss::engine::math::transform world_transform;
   gneiss::entity_id attached = gneiss::entity_id{};
 
   if (gneiss::engine::create_native(world) != gneiss::engine::result::success ||

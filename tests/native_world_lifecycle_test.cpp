@@ -25,8 +25,8 @@ int main(void) {
       count != 1U) {
     return 3;
   }
-  gneiss::engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  gneiss::engine::camera_settings queried_camera{1.04719755F, 0.1F, 1000.0F};
+  gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
+  gneiss::engine::math::camera_settings queried_camera{1.04719755F, 0.1F, 1000.0F};
   gneiss::entity_id active_camera = gneiss::entity_id{};
   if (first->get_active_camera(active_camera) != gneiss::engine::result::not_ready ||
       active_camera != gneiss::entity_id{} ||

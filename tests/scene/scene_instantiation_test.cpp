@@ -306,7 +306,7 @@ void run() {
               ->instantiate_prefab_ready(new_scene, author, source, bindings, false, root)
               .ok());
     const auto previous_root = root;
-    gneiss::engine::transform queried;
+    gneiss::engine::math::transform queried;
     check(candidate->native_world()->node_get_local_transform(root, queried).ok());
     check(candidate->scenes()
               ->instantiate_prefab_ready(new_scene, author, source, bindings, true, root)

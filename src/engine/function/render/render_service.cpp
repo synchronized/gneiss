@@ -230,19 +230,19 @@ struct geometry_range final {
   std::uint32_t index_count{};
 };
 
-gneiss::engine::matrix4 multiply(const gneiss::engine::matrix4& left,
-                                 const gneiss::engine::matrix4& right) noexcept {
+gneiss::engine::math::matrix4 multiply(const gneiss::engine::math::matrix4& left,
+                                       const gneiss::engine::math::matrix4& right) noexcept {
   return left * right;
 }
 
-granit_matrix4 to_granit_matrix(const gneiss::engine::matrix4& source) noexcept {
+granit_matrix4 to_granit_matrix(const gneiss::engine::math::matrix4& source) noexcept {
   granit_matrix4 result{};
-  std::ranges::copy(gneiss::engine::matrix_elements(source), result.elements);
+  std::ranges::copy(gneiss::engine::math::matrix_elements(source), result.elements);
   return result;
 }
 
 float mesh_bounds_radius(const gneiss::engine::mesh_data& mesh,
-                         const gneiss::engine::transform& transform) noexcept {
+                         const gneiss::engine::math::transform& transform) noexcept {
   float radius_squared = 0.0F;
   for (const auto& vertex : mesh.vertices) {
     radius_squared =
@@ -1411,9 +1411,9 @@ render_service::implementation::execute_frame(
         if (resources.mesh_pending(resource_handle(instance.mesh))) {
           continue;
         }
-        gneiss::engine::matrix4 model;
-        gneiss::engine::matrix4 normal;
-        if (!model_and_normal_matrices(instance.transform, model, normal))
+        gneiss::engine::math::matrix4 model;
+        gneiss::engine::math::matrix4 normal;
+        if (!math::model_and_normal_matrices(instance.transform, model, normal))
           return gneiss::engine::result::invalid_argument;
         const auto payload = static_cast<std::uint64_t>(index) + 1U;
         const auto gpu_mesh = mesh_mirrors_.find(resource_handle(instance.mesh));

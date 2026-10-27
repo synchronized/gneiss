@@ -17,11 +17,13 @@
 namespace gneiss::engine {
 namespace {
 
-gneiss::engine::transform combine(const gneiss::engine::transform& parent,
-                                  const gneiss::engine::transform& local) noexcept {
+gneiss::engine::math::transform combine(const gneiss::engine::math::transform& parent,
+                                        const gneiss::engine::math::transform& local) noexcept {
   return compose_transform(parent, local);
 }
-bool is_valid(const gneiss::engine::transform& value) noexcept { return is_valid_transform(value); }
+bool is_valid(const gneiss::engine::math::transform& value) noexcept {
+  return is_valid_transform(value);
+}
 
 } // namespace
 
@@ -173,8 +175,9 @@ gneiss::engine::result scene_tree::reparent(scene_node_id node_id, scene_node_id
   }
 }
 
-gneiss::engine::result scene_tree::set_local(scene_node_id node_id,
-                                             const gneiss::engine::transform& transform) noexcept {
+gneiss::engine::result
+scene_tree::set_local(scene_node_id node_id,
+                      const gneiss::engine::math::transform& transform) noexcept {
   auto* target = find(node_id);
   if (target == nullptr) {
     return gneiss::engine::result::invalid_handle;
@@ -186,14 +189,14 @@ gneiss::engine::result scene_tree::set_local(scene_node_id node_id,
   return gneiss::engine::result::success;
 }
 
-const gneiss::engine::transform* scene_tree::get_local(scene_node_id node_id) const noexcept {
+const gneiss::engine::math::transform* scene_tree::get_local(scene_node_id node_id) const noexcept {
   const auto* target = find(node_id);
   return target == nullptr ? nullptr : &target->value->local;
 }
 
 gneiss::engine::result
 scene_tree::get_world(scene_node_id node_id,
-                      gneiss::engine::transform* out_transform) const noexcept {
+                      gneiss::engine::math::transform* out_transform) const noexcept {
   const auto* target = find(node_id);
   if (target == nullptr || out_transform == nullptr) {
     return gneiss::engine::result::invalid_handle;
@@ -211,7 +214,7 @@ scene_tree::get_world(scene_node_id node_id,
 
 gneiss::engine::result
 scene_tree::get_world_for_entity(std::uint64_t entity,
-                                 gneiss::engine::transform* out_transform) const noexcept {
+                                 gneiss::engine::math::transform* out_transform) const noexcept {
   if (entity == UINT64_C(0) || out_transform == nullptr) {
     return gneiss::engine::result::invalid_argument;
   }
@@ -225,7 +228,7 @@ scene_tree::get_world_for_entity(std::uint64_t entity,
   return gneiss::engine::result::not_ready;
 }
 
-const gneiss::engine::transform*
+const gneiss::engine::math::transform*
 scene_tree::get_local_for_entity(std::uint64_t entity) const noexcept {
   if (entity == UINT64_C(0)) {
     return nullptr;
@@ -238,7 +241,7 @@ scene_tree::get_local_for_entity(std::uint64_t entity) const noexcept {
 
 gneiss::engine::result
 scene_tree::set_local_for_entity(std::uint64_t entity,
-                                 const gneiss::engine::transform& transform) noexcept {
+                                 const gneiss::engine::math::transform& transform) noexcept {
   if (entity == UINT64_C(0)) {
     return gneiss::engine::result::invalid_argument;
   }

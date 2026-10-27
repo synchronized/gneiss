@@ -50,7 +50,7 @@ gneiss::engine::result scene_instances::instantiate_prepared(prepared_scene_desc
       const auto lease = prepared.prefabs.at(source.prefab_uri).resource;
       auto prefab = std::make_unique<prefab_runtime_instance>(native_world_, loader_, lease,
                                                               source.instance_uuid);
-      gneiss::engine::transform transform{};
+      gneiss::engine::math::transform transform{};
       transform.translation = source.translation;
       transform.rotation = source.rotation;
       transform.scale = source.scale;

@@ -303,8 +303,8 @@ gneiss::engine::result scene_document::refresh_nodes() noexcept {
 
 gneiss::engine::result
 scene_document::get_world_transform(scene_node_id node,
-                                    gneiss::engine::transform& output) const noexcept {
-  gneiss::engine::transform value;
+                                    gneiss::engine::math::transform& output) const noexcept {
+  gneiss::engine::math::transform value;
   const auto operation = with_scene(
       [&](auto&) { return application_->native_world()->node_get_world_transform(node, value); });
   if (operation.ok())
@@ -314,7 +314,7 @@ scene_document::get_world_transform(scene_node_id node,
 
 gneiss::engine::result
 scene_document::set_local_transform(scene_node_id node,
-                                    const gneiss::engine::transform& value) noexcept {
+                                    const gneiss::engine::math::transform& value) noexcept {
   if (!is_open() || !node.is_valid()) {
     return gneiss::engine::result::invalid_argument;
   }
@@ -359,9 +359,9 @@ scene_document::set_local_transform(scene_node_id node,
   return gneiss::engine::result::success;
 }
 
-gneiss::engine::result
-scene_document::restore_prefab_transform_field(scene_node_id node, std::uint32_t field_id,
-                                               gneiss::engine::transform& out_previous) noexcept {
+gneiss::engine::result scene_document::restore_prefab_transform_field(
+    scene_node_id node, std::uint32_t field_id,
+    gneiss::engine::math::transform& out_previous) noexcept {
   const auto found = std::ranges::find(prefab_nodes_, node, &prefab_node_record::node);
   if (found == prefab_nodes_.end() || found->is_instance_root) {
     return gneiss::engine::result::invalid_argument;
@@ -390,7 +390,7 @@ scene_document::restore_prefab_transform_field(scene_node_id node, std::uint32_t
 
 gneiss::engine::result
 scene_document::restore_prefab_transform(scene_node_id node,
-                                         gneiss::engine::transform& out_previous) noexcept {
+                                         gneiss::engine::math::transform& out_previous) noexcept {
   const auto found = std::ranges::find(prefab_nodes_, node, &prefab_node_record::node);
   if (found == prefab_nodes_.end() || found->is_instance_root) {
     return gneiss::engine::result::invalid_argument;

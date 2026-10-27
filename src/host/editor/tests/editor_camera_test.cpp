@@ -37,7 +37,7 @@ int main() {
     return 8;
   }
   gneiss::entity_id scene_camera{};
-  const gneiss::engine::camera_settings settings{1.04719755F, 0.1F, 1000.0F};
+  const gneiss::engine::math::camera_settings settings{1.04719755F, 0.1F, 1000.0F};
   if (gneiss::engine::result{owner->entity_create(scene_camera)} !=
           gneiss::engine::result::success ||
       gneiss::engine::result{owner->entity_configure_camera(scene_camera, settings)} !=
@@ -54,7 +54,7 @@ int main() {
       near(camera.current_transform().translation[2], initial.translation[2])) {
     return 2;
   }
-  gneiss::engine::transform target{};
+  gneiss::engine::math::transform target{};
   target.translation[0] = 3.0F;
   target.translation[1] = 4.0F;
   target.translation[2] = 5.0F;

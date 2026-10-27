@@ -11,7 +11,8 @@
 namespace gneiss::editor {
 namespace {
 
-bool equal(const gneiss::engine::transform& left, const gneiss::engine::transform& right) noexcept {
+bool equal(const gneiss::engine::math::transform& left,
+           const gneiss::engine::math::transform& right) noexcept {
   return left.translation == right.translation && left.rotation == right.rotation &&
          left.scale == right.scale;
 }
@@ -46,13 +47,13 @@ gneiss::engine::result transform_gizmo_drag::preview(scene_document& session,
   if (!matches_selection(session)) {
     return gneiss::engine::result::invalid_state;
   }
-  gneiss::engine::transform target = {};
+  gneiss::engine::math::transform target = {};
   auto operation = gizmo_matrix_to_transform(matrix, target);
-  gneiss::engine::transform parent = {};
+  gneiss::engine::math::transform parent = {};
   if (operation == gneiss::engine::result::success && parent_.is_valid()) {
     operation = session.get_world_transform(parent_, parent);
   }
-  gneiss::engine::transform local = {};
+  gneiss::engine::math::transform local = {};
   if (operation == gneiss::engine::result::success) {
     operation = world_to_local_transform(parent_.is_valid() ? &parent : nullptr, target, local);
   }
@@ -82,7 +83,7 @@ gneiss::engine::result transform_gizmo_drag::finish(scene_document& session,
   auto operation = gneiss::engine::result::success;
   try {
     const auto resolve = [&session, uuid = uuid_, instance = instance_uuid_,
-                          source = source_uuid_](const gneiss::engine::transform& value) {
+                          source = source_uuid_](const gneiss::engine::math::transform& value) {
       const auto* target = uuid.empty() ? nullptr : session.find_node(uuid);
       const auto* prefab_target =
           source.empty() ? nullptr : session.find_prefab_source(instance, source);

@@ -14,16 +14,16 @@ namespace gneiss::engine {
 
 /** 由视口持有的相机输入；不引用 World 或场景实体。 */
 struct view_camera {
-  camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  gneiss::engine::transform transform{};
+  math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
+  gneiss::engine::math::transform transform{};
 };
 
 /** Render 输入快照；包含值与资源强引用，不依赖 World、ECS 或场景节点状态。 */
 struct render_camera_snapshot {
-  camera_settings camera;
-  gneiss::engine::transform transform;
-  gneiss::engine::matrix4 view;
-  gneiss::engine::matrix4 projection;
+  math::camera_settings camera;
+  gneiss::engine::math::transform transform;
+  gneiss::engine::math::matrix4 view;
+  gneiss::engine::math::matrix4 projection;
   std::uint32_t viewport_width{};
   std::uint32_t viewport_height{};
 };
@@ -31,7 +31,7 @@ struct render_camera_snapshot {
 struct render_instance_snapshot {
   gneiss::engine::mesh mesh;
   gneiss::engine::material material;
-  gneiss::engine::transform transform;
+  gneiss::engine::math::transform transform;
 };
 
 struct render_snapshot {

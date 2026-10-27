@@ -26,8 +26,9 @@ enum class value_kind : std::uint32_t {
  * 字符串构造和复制可能抛出分配异常，调用方在结果码边界转换错误。
  * 通用值不限制字符串编码或浮点范围；反射、文件和 IPC 各自执行边界校验。 */
 struct value {
-  using storage_type = std::variant<std::monostate, bool, std::int64_t, std::uint64_t, float,
-                                    double, std::string, engine::guid, vector3, quaternion>;
+  using storage_type =
+      std::variant<std::monostate, bool, std::int64_t, std::uint64_t, float, double, std::string,
+                   engine::guid, math::vector3, math::quaternion>;
   storage_type payload;
   [[nodiscard]] value_kind kind() const noexcept {
     return payload.valueless_by_exception() ? value_kind::invalid

@@ -117,7 +117,7 @@ public:
                                                                 std::string_view name) noexcept;
   [[nodiscard]] gneiss::engine::result
   set_prefab_source_transform(scene_instance_id instance, scene_node_id node,
-                              const gneiss::engine::transform& transform) noexcept;
+                              const gneiss::engine::math::transform& transform) noexcept;
   [[nodiscard]] gneiss::engine::result destroy_prefab_instance(scene_instance_id instance,
                                                                scene_node_id root) noexcept;
   [[nodiscard]] gneiss::engine::result create_node(scene_instance_id instance,

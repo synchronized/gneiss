@@ -37,7 +37,7 @@ void editor_camera::shutdown() noexcept {
   pitch_ = -0.3F;
 }
 
-gneiss::engine::camera_settings editor_camera::settings() const noexcept {
+gneiss::engine::math::camera_settings editor_camera::settings() const noexcept {
   return {.fov = 1.04719755F, .near = 0.05F, .far = 2000.0F};
 }
 
@@ -75,7 +75,7 @@ gneiss::engine::result editor_camera::update(const editor_camera_input& input) n
   return gneiss::engine::result::success;
 }
 
-gneiss::engine::result editor_camera::focus(const gneiss::engine::transform& target,
+gneiss::engine::result editor_camera::focus(const gneiss::engine::math::transform& target,
                                             float distance) noexcept {
   if (!is_valid() || !std::isfinite(distance) || distance <= 0.0F) {
     return gneiss::engine::result::invalid_argument;

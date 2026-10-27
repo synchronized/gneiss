@@ -18,7 +18,7 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 #include <span>
-namespace gneiss::engine {
+namespace gneiss::engine::math {
 using vector2 = glm::vec<2, float, glm::packed_highp>;
 using vector3 = glm::vec<3, float, glm::packed_highp>;
 using vector4 = glm::vec<4, float, glm::packed_highp>;

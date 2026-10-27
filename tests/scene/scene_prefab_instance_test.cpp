@@ -51,7 +51,7 @@ int main() try {
     return 2;
   }
 
-  gneiss::engine::transform source_transform;
+  gneiss::engine::math::transform source_transform;
   source_transform.translation[0] = 1.0F;
   if (application->scenes()->set_prefab_source_transform(
           scene, prefab_source.node, source_transform) != gneiss::engine::result::success) {
@@ -121,7 +121,7 @@ int main() try {
     return 3;
   }
   constexpr std::string_view renamed = "Renamed Lamp";
-  gneiss::engine::transform moved;
+  gneiss::engine::math::transform moved;
   moved.translation[0] = 4.0F;
   if (application->scenes()->set_prefab_instance_name(scene, created_root, renamed) !=
           gneiss::engine::result::success ||

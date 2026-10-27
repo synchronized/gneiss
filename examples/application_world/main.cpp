@@ -16,11 +16,11 @@ int main() {
   if (world->entity_create(state.entity).failed() ||
       world->node_create({}, state.entity, node).failed())
     return 2;
-  gneiss::engine::transform initial;
+  gneiss::engine::math::transform initial;
   initial.translation = {1, 2, 3};
   if (world->entity_set_local_transform(state.entity, initial).failed() || app->run(8).failed())
     return 3;
-  gneiss::engine::transform final;
+  gneiss::engine::math::transform final;
   if (world->entity_get_local_transform(state.entity, final).failed() || state.updates != 3 ||
       final.translation[0] != 4 || final.translation[1] != 2 || final.translation[2] != 3)
     return 4;

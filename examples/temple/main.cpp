@@ -46,7 +46,7 @@ gneiss::engine::result update_temple(gneiss::runtime::application& application,
   constexpr double height = 2.3;
   const auto yaw_half = state->angle * 0.5;
   const auto pitch_half = std::atan2(-height, radius) * 0.5;
-  gneiss::engine::transform transform{};
+  gneiss::engine::math::transform transform{};
   transform.translation[0] = static_cast<float>(std::sin(state->angle) * radius);
   transform.translation[1] = static_cast<float>(height);
   transform.translation[2] = static_cast<float>(std::cos(state->angle) * radius);

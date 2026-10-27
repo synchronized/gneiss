@@ -5,7 +5,7 @@
 #include "engine/core/meta/property.hpp"
 namespace gneiss::engine {
 /** 内建组件的持久化身份；不依赖 Registry、World 或 C ABI。 */
-inline constexpr gneiss::engine::guid transform_component_type = transform::type_guid;
+inline constexpr gneiss::engine::guid transform_component_type = math::transform::type_guid;
 inline constexpr gneiss::engine::guid camera_component_type{
     guid::from_bytes({0xd1, 0x3a, 0x72, 0xf5, 0x71, 0xed, 0x43, 0xd6, 0x98, 0x98, 0x12, 0x06, 0x3f,
                       0xd3, 0x71, 0x83})};

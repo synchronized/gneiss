@@ -38,7 +38,7 @@ bool save_codec_contract(gneiss::runtime::application& application) {
   gneiss::scene_node_id node;
   if (document.create_node("保存节点", {}, node).failed())
     return false;
-  e::transform local{};
+  e::math::transform local{};
   local.translation = {2, 3, 4};
   if (document.set_local_transform(node, local).failed())
     return false;

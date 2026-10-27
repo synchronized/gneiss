@@ -110,7 +110,7 @@ bool check_failed_camera_prefab(
     return false;
   }
   std::uint64_t previous{};
-  const gneiss::engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
+  const gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   if (gneiss::engine::result{gneiss::engine::write_identifier<gneiss::entity_id>(
           previous, [&](auto& output) { return native_world.entity_create(output); })} !=
           gneiss::engine::result::success ||
@@ -120,7 +120,7 @@ bool check_failed_camera_prefab(
           gneiss::engine::result::success) {
     return false;
   }
-  const gneiss::engine::transform transform = {};
+  const gneiss::engine::math::transform transform = {};
   std::unique_ptr<gneiss::engine::prefab_runtime_instance> candidate;
   const auto operation = gneiss::engine::prefab_runtime_instance::create(
       native_world, render_loader, lease, registry, "20000000-0000-4000-8000-000000000005",
@@ -167,13 +167,13 @@ bool check_visible_prefab(gneiss::engine::world& world, gneiss::engine::render_a
         instance.create_node(0, instance.root(), {}, {}).failed())
       return false;
     created = instance.root();
-    gneiss::engine::transform transform;
+    gneiss::engine::math::transform transform;
     if (world.node_get_local_transform(created, transform).failed() ||
         world.entity_count(during).failed() || during != before + 2U)
       return false;
     // 部分创建直接可见；放弃时由实例拥有者回收，不依赖隐藏组。
   }
-  gneiss::engine::transform transform;
+  gneiss::engine::math::transform transform;
   return world.entity_count(after).ok() && after == before &&
          world.node_get_local_transform(created, transform) ==
              gneiss::engine::result::invalid_handle &&
@@ -212,9 +212,9 @@ int main() try {
     return 4;
   }
 
-  gneiss::engine::transform first_transform = {};
+  gneiss::engine::math::transform first_transform = {};
   first_transform.translation[0] = 10.0F;
-  gneiss::engine::transform second_transform = {};
+  gneiss::engine::math::transform second_transform = {};
   second_transform.translation[0] = -5.0F;
   std::unique_ptr<gneiss::engine::prefab_runtime_instance> first;
   std::unique_ptr<gneiss::engine::prefab_runtime_instance> second;
@@ -254,8 +254,8 @@ int main() try {
 
   const auto first_source_root = first->find_node("10000000-0000-4000-8000-000000000002");
   const auto second_source_root = second->find_node("10000000-0000-4000-8000-000000000002");
-  gneiss::engine::transform first_world = {};
-  gneiss::engine::transform second_world = {};
+  gneiss::engine::math::transform first_world = {};
+  gneiss::engine::math::transform second_world = {};
   std::uint64_t entity_count = 0;
   if (first_source_root == gneiss::null_scene_node_id ||
       second_source_root == gneiss::null_scene_node_id || first_source_root == second_source_root ||
@@ -306,7 +306,7 @@ int main() try {
                                        failure_lease) != gneiss::engine::result::success) {
     return 7;
   }
-  gneiss::engine::transform invalid_transform = {};
+  gneiss::engine::math::transform invalid_transform = {};
   invalid_transform.scale[1] = 0.0F;
   if (gneiss::engine::prefab_runtime_instance::create(
           native_world, render_loader, std::move(failure_lease), registry,

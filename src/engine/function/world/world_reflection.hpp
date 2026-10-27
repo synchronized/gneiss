@@ -14,7 +14,7 @@ register_reflection(const gneiss::engine::meta::registry_ref& registry);
 struct camera_properties {
   inline static constexpr std::string_view type_name = "camera";
   inline static constexpr engine::guid type_guid = camera_component_type;
-  camera_settings settings{};
+  math::camera_settings settings{};
   bool is_primary{};
 };
 

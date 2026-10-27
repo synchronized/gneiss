@@ -127,9 +127,9 @@ void configure(std::ostream& stream) {
   return stream.good();
 }
 
-void write_transform(std::ostream& stream, const gneiss::engine::vector3& translation,
-                     const gneiss::engine::quaternion& rotation,
-                     const gneiss::engine::vector3& scale) {
+void write_transform(std::ostream& stream, const gneiss::engine::math::vector3& translation,
+                     const gneiss::engine::math::quaternion& rotation,
+                     const gneiss::engine::math::vector3& scale) {
   stream << R"("transform": {"translation": [)" << translation[0] << ',' << translation[1] << ','
          << translation[2] << R"(], "rotation": [)" << rotation[0] << ',' << rotation[1] << ','
          << rotation[2] << ',' << rotation[3] << R"(], "scale": [)" << scale[0] << ',' << scale[1]
@@ -186,9 +186,9 @@ void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t pr
     stream << "}}" << (++emitted == total_count ? "\n" : ",\n");
   }
   std::size_t synthetic_index = 0;
-  const gneiss::engine::vector3 identity_translation{};
-  const gneiss::engine::quaternion identity_rotation{1.0F, 0.0F, 0.0F, 0.0F};
-  const gneiss::engine::vector3 identity_scale{1.0F};
+  const gneiss::engine::math::vector3 identity_translation{};
+  const gneiss::engine::math::quaternion identity_rotation{1.0F, 0.0F, 0.0F, 0.0F};
+  const gneiss::engine::math::vector3 identity_scale{1.0F};
   for (std::size_t node_index = 0; node_index < data.nodes.size(); ++node_index) {
     const auto& node = data.nodes[node_index];
     if (!node.mesh_index || data.meshes[*node.mesh_index].primitives.size() <= 1U) {

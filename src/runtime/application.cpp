@@ -630,10 +630,10 @@ application::set_view_camera(const gneiss::engine::view_camera* camera) noexcept
     storage_->view_camera_.reset();
     return gneiss::engine::result::success;
   }
-  gneiss::engine::matrix4 matrix;
-  auto result = gneiss::engine::view_matrix_rh(camera->transform, matrix);
+  gneiss::engine::math::matrix4 matrix;
+  auto result = gneiss::engine::math::view_matrix_rh(camera->transform, matrix);
   if (result == gneiss::engine::result::success) {
-    result = gneiss::engine::perspective_rh_zo(camera->camera, 1.0F, matrix);
+    result = gneiss::engine::math::perspective_rh_zo(camera->camera, 1.0F, matrix);
   }
   if (result == gneiss::engine::result::success) {
     storage_->view_camera_ = *camera;

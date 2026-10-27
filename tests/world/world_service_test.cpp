@@ -34,9 +34,9 @@ bool native_operations() {
       owner->entity_is_alive(gneiss::entity_id{entity}, alive) != gneiss::engine::result::success ||
       !alive || owner->entity_count(count) != gneiss::engine::result::success || count != 1)
     return false;
-  gneiss::engine::transform local;
+  gneiss::engine::math::transform local;
   local.translation = {2, 3, 4};
-  gneiss::engine::transform actual;
+  gneiss::engine::math::transform actual;
   if (owner->node_set_local_transform(gneiss::scene_node_id{node}, local) !=
           gneiss::engine::result::success ||
       owner->node_get_world_transform(gneiss::scene_node_id{node}, actual) !=
@@ -87,12 +87,12 @@ int main() {
   if (world->entity_count(count) != gneiss::engine::result::success || count != 1U) {
     return 3;
   }
-  gneiss::engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
+  gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   if (world->entity_configure_camera(gneiss::entity_id{entity}, camera) !=
       gneiss::engine::result::success) {
     return 4;
   }
-  service::camera_settings settings;
+  service::math::camera_settings settings;
   if (world->entity_get_camera(gneiss::entity_id{entity}, settings) !=
           gneiss::engine::result::success ||
       settings.near != camera.near || settings.far != camera.far) {
@@ -110,9 +110,9 @@ int main() {
   gneiss::engine::meta::registry_ref reflection;
   if (gneiss::engine::create_property_registry(reflection).failed())
     return 14;
-  gneiss::engine::transform candidate_transform;
+  gneiss::engine::math::transform candidate_transform;
   gneiss::engine::value proposed;
-  proposed.payload = gneiss::engine::vector3{2, 3, 4};
+  proposed.payload = gneiss::engine::math::vector3{2, 3, 4};
   if (gneiss::engine::meta::set_property(reflection, service::transform_property_type(),
                                          gneiss::engine::transform_translation_field.get(),
                                          &candidate_transform,
@@ -120,7 +120,7 @@ int main() {
       candidate_transform.translation[0] != 2) {
     return 15;
   }
-  proposed.payload = gneiss::engine::vector3{0, 1, 1};
+  proposed.payload = gneiss::engine::math::vector3{0, 1, 1};
   if (gneiss::engine::meta::set_property(reflection, service::transform_property_type(),
                                          gneiss::engine::transform_scale_field.get(),
                                          &candidate_transform,

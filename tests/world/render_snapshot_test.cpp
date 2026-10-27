@@ -44,10 +44,10 @@ int run_tests() {
   const auto mesh_entity = world.create_entity();
   gneiss::scene_node_id camera_node = gneiss::null_scene_node_id;
   gneiss::scene_node_id mesh_node = gneiss::null_scene_node_id;
-  const gneiss::engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
+  const gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   gneiss::engine::mesh_renderer renderer{.mesh = resources.reference_mesh(mesh_id),
                                          .material = resources.reference_material(material_id)};
-  gneiss::engine::transform mesh_transform = gneiss::engine::transform{};
+  gneiss::engine::math::transform mesh_transform = gneiss::engine::math::transform{};
   mesh_transform.translation[0] = 2.0F;
 
   if (world.scene().create(gneiss::null_scene_node_id, camera_entity, &camera_node) !=
@@ -68,8 +68,8 @@ int run_tests() {
           gneiss::engine::result::success ||
       !snapshot.has_camera || snapshot.instances.size() != 1U ||
       snapshot.camera.viewport_width != 1280U || snapshot.camera.viewport_height != 720U ||
-      gneiss::engine::matrix_elements(snapshot.camera.view)[15] != 1.0F ||
-      gneiss::engine::matrix_elements(snapshot.camera.projection)[0] == 0.0F ||
+      gneiss::engine::math::matrix_elements(snapshot.camera.view)[15] != 1.0F ||
+      gneiss::engine::math::matrix_elements(snapshot.camera.projection)[0] == 0.0F ||
       snapshot.instances.front().mesh != renderer.mesh ||
       snapshot.instances.front().material != renderer.material ||
       snapshot.instances.front().transform.translation[0] != 2.0F) {

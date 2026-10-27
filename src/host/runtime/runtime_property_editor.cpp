@@ -25,10 +25,10 @@ gneiss::engine::result to_native_value(const gneiss::host::ipc_property_value& s
         } else if constexpr (std::is_same_v<T, std::array<std::uint8_t, 16>>) {
           output.payload = gneiss::engine::guid::from_bytes(payload);
         } else if constexpr (std::is_same_v<T, std::array<float, 3>>) {
-          output.payload = gneiss::engine::vector3{payload[0], payload[1], payload[2]};
+          output.payload = gneiss::engine::math::vector3{payload[0], payload[1], payload[2]};
         } else if constexpr (std::is_same_v<T, std::array<float, 4>>) {
           output.payload =
-              gneiss::engine::quaternion_xyzw(payload[0], payload[1], payload[2], payload[3]);
+              gneiss::engine::math::quaternion_xyzw(payload[0], payload[1], payload[2], payload[3]);
         } else {
           output.payload = payload;
         }
@@ -50,9 +50,9 @@ gneiss::engine::result from_native_value(const gneiss::engine::value& source,
           return gneiss::engine::result::unsupported;
         } else if constexpr (std::is_same_v<T, gneiss::engine::guid>) {
           output.payload = payload.bytes();
-        } else if constexpr (std::is_same_v<T, gneiss::engine::vector3>) {
+        } else if constexpr (std::is_same_v<T, gneiss::engine::math::vector3>) {
           output.payload = std::array{payload.x, payload.y, payload.z};
-        } else if constexpr (std::is_same_v<T, gneiss::engine::quaternion>) {
+        } else if constexpr (std::is_same_v<T, gneiss::engine::math::quaternion>) {
           output.payload = std::array{payload.x, payload.y, payload.z, payload.w};
         } else {
           output.payload = payload;

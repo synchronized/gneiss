@@ -9,7 +9,7 @@
 namespace gneiss::engine {
 /** 相机参数为纯数据；活动相机只由 World 的实体 ID 决定。 */
 struct camera_component {
-  gneiss::engine::camera_settings value;
+  gneiss::engine::math::camera_settings value;
 };
 /** 组件直接保活运行资源，必须执行正常的构造、移动和析构。 */
 struct mesh_renderer {

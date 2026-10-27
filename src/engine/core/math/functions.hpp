@@ -5,7 +5,7 @@
 #include "engine/core/math/types.hpp"
 #include <algorithm>
 #include <cmath>
-namespace gneiss::engine {
+namespace gneiss::engine::math {
 template <class T> bool is_finite(const T& value) noexcept {
   return std::ranges::all_of(components(value), [](float v) { return std::isfinite(v); });
 }
@@ -46,4 +46,4 @@ inline matrix4 matrix_from_array(const std::array<float, 16>& value) noexcept {
   output = candidate;
   return true;
 }
-} // namespace gneiss::engine
+} // namespace gneiss::engine::math

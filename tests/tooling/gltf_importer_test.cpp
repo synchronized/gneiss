@@ -95,8 +95,8 @@ int main() { // NOLINT(bugprone-exception-escape)
       valid.data.meshes[0].primitives[0].index_accessor != 3U ||
       valid.data.meshes[0].primitives[0].vertices.size() != 3U ||
       valid.data.meshes[0].primitives[0].indices != std::vector<std::uint32_t>{0U, 1U, 2U} ||
-      valid.data.nodes[0].translation != gneiss::engine::vector3{1.0F, 2.0F, 3.0F} ||
-      valid.data.nodes[0].scale != gneiss::engine::vector3{2.0F, 2.0F, 2.0F} ||
+      valid.data.nodes[0].translation != gneiss::engine::math::vector3{1.0F, 2.0F, 3.0F} ||
+      valid.data.nodes[0].scale != gneiss::engine::math::vector3{2.0F, 2.0F, 2.0F} ||
       valid.data.materials.size() != 1U ||
       valid.data.materials[0].base_color != std::array<float, 4>{0.5F, 0.6F, 0.7F, 1.0F} ||
       valid.data.materials[0].base_color_image_index != 0U ||

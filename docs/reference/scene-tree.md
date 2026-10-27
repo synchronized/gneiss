@@ -25,7 +25,7 @@ Scene Tree 和所属 World 一样只能在 World 的创建线程访问。跨 Wor
 
 ## Transform
 
-`gneiss::engine::transform` 包含平移、四元数旋转和缩放，默认构造提供单位变换。
+`gneiss::engine::math::transform` 包含平移、四元数旋转和缩放，默认构造提供单位变换。
 Scene Tree 是层级 Transform 的唯一权威存储：
 
 - 局部 Transform 相对于父节点；根节点相对于世界原点。

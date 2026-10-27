@@ -28,9 +28,9 @@ struct import_ir_node {
   std::string name;
   std::optional<std::size_t> mesh_index;
   std::vector<std::size_t> children;
-  gneiss::engine::vector3 translation{};
-  gneiss::engine::quaternion rotation{1.0F, 0.0F, 0.0F, 0.0F};
-  gneiss::engine::vector3 scale{1.0F};
+  gneiss::engine::math::vector3 translation{};
+  gneiss::engine::math::quaternion rotation{1.0F, 0.0F, 0.0F, 0.0F};
+  gneiss::engine::math::vector3 scale{1.0F};
 };
 
 struct import_ir_primitive {

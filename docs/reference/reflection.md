@@ -17,7 +17,7 @@ IPC 仍使用既有 32 位十六进制字符串编码 GUID，不传输原生对�
 
 Meta 的类型与函数统一位于 `gneiss::engine::meta`，不保留旧命名空间别名。
 `type_definition.properties` 和 `type_info.properties` 分别保存注册描述和查询结果。
-数学属性直接使用 `engine::vector3`、`engine::quaternion`，不提供属性专用别名。
+数学属性直接使用 `engine::math::vector3`、`engine::math::quaternion`，不提供属性专用别名。
 属性编号与存档、IPC 中既有的 `"field_id"` 格式键保持不变。
 
 文件按职责组织，不新增第二套注册表：

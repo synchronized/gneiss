@@ -238,9 +238,9 @@ int main() try {
     return 6;
   }
   gneiss::entity_id camera_entity;
-  gneiss::engine::transform transform;
+  gneiss::engine::math::transform transform;
   transform.translation[0] = 5.0F;
-  gneiss::engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
+  gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   camera.near = 0.25F;
   std::string json;
   if (application->native_world()->node_get_entity(camera_node, camera_entity) !=

@@ -1213,7 +1213,7 @@ gneiss::engine::result update_editor_camera(editor_state& state,
       selected_node = prefab->node;
     }
     if (selected_node.is_valid()) {
-      gneiss::engine::transform target;
+      gneiss::engine::math::transform target;
       const auto result =
           state.application->native_world()->node_get_world_transform(selected_node, target);
       if (result != gneiss::engine::result::success) {
@@ -2534,13 +2534,13 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
         auto edited = prefab->local_transform;
         const auto previous = prefab->local_transform;
         std::array<float, 3> rotation{};
-        const gneiss::engine::quaternion quaternion = gneiss::engine::quaternion_xyzw(
+        const gneiss::engine::math::quaternion quaternion = gneiss::engine::math::quaternion_xyzw(
             edited.rotation[0], edited.rotation[1], edited.rotation[2], edited.rotation[3]);
         (void)gneiss::editor::quaternion_to_euler_degrees(quaternion, rotation);
         bool changed = ImGui::DragFloat3(
-            "Translation", gneiss::engine::components(edited.translation).data(), 0.05F);
+            "Translation", gneiss::engine::math::components(edited.translation).data(), 0.05F);
         if (ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°")) {
-          gneiss::engine::quaternion converted{};
+          gneiss::engine::math::quaternion converted{};
           if (gneiss::editor::euler_degrees_to_quaternion(rotation, converted) ==
               gneiss::engine::result::success) {
             edited.rotation[0] = converted.x;
@@ -2550,9 +2550,9 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
             changed = true;
           }
         }
-        changed =
-            ImGui::DragFloat3("Scale", gneiss::engine::components(edited.scale).data(), 0.05F) ||
-            changed;
+        changed = ImGui::DragFloat3("Scale", gneiss::engine::math::components(edited.scale).data(),
+                                    0.05F) ||
+                  changed;
         if (changed) {
           const auto* current =
               state.editing.document().find_prefab_source(instance_uuid, source_uuid);
@@ -2592,7 +2592,7 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
           }
           const auto* current =
               state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-          gneiss::engine::transform restored_previous{};
+          gneiss::engine::math::transform restored_previous{};
           state.history_error = current == nullptr
                                     ? gneiss::engine::result::not_found
                                     : state.editing.document().restore_prefab_transform_field(
@@ -2648,7 +2648,7 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
         const bool restore_all = ImGui::Button("Restore All Transform");
         ImGui::EndDisabled();
         if (restore_all) {
-          gneiss::engine::transform all_previous{};
+          gneiss::engine::math::transform all_previous{};
           state.history_error =
               state.editing.document().restore_prefab_transform(current->node, all_previous);
           current = state.editing.document().find_prefab_source(instance_uuid, source_uuid);
@@ -2729,14 +2729,14 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
         }
         auto edited = prefab->local_transform;
         std::array<float, 3> rotation{};
-        const gneiss::engine::quaternion quaternion = gneiss::engine::quaternion_xyzw(
+        const gneiss::engine::math::quaternion quaternion = gneiss::engine::math::quaternion_xyzw(
             edited.rotation[0], edited.rotation[1], edited.rotation[2], edited.rotation[3]);
         (void)gneiss::editor::quaternion_to_euler_degrees(quaternion, rotation);
         const auto previous = prefab->local_transform;
         bool changed = ImGui::DragFloat3(
-            "Translation", gneiss::engine::components(edited.translation).data(), 0.05F);
+            "Translation", gneiss::engine::math::components(edited.translation).data(), 0.05F);
         if (ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°")) {
-          gneiss::engine::quaternion converted{};
+          gneiss::engine::math::quaternion converted{};
           if (gneiss::editor::euler_degrees_to_quaternion(rotation, converted) ==
               gneiss::engine::result::success) {
             edited.rotation[0] = converted.x;
@@ -2746,9 +2746,9 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
             changed = true;
           }
         }
-        changed =
-            ImGui::DragFloat3("Scale", gneiss::engine::components(edited.scale).data(), 0.05F) ||
-            changed;
+        changed = ImGui::DragFloat3("Scale", gneiss::engine::math::components(edited.scale).data(),
+                                    0.05F) ||
+                  changed;
         if (changed) {
           const auto* current = state.editing.document().find_prefab_root(instance_uuid);
           state.history_error =

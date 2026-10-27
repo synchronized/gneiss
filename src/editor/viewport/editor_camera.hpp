@@ -33,19 +33,19 @@ public:
 
   [[nodiscard]] bool is_valid() const noexcept { return initialized_; }
   [[nodiscard]] gneiss::engine::result update(const editor_camera_input& input) noexcept;
-  [[nodiscard]] gneiss::engine::result focus(const gneiss::engine::transform& target,
+  [[nodiscard]] gneiss::engine::result focus(const gneiss::engine::math::transform& target,
                                              float distance = 5.0F) noexcept;
-  [[nodiscard]] const gneiss::engine::transform& current_transform() const noexcept {
+  [[nodiscard]] const gneiss::engine::math::transform& current_transform() const noexcept {
     return transform_;
   }
 
-  [[nodiscard]] gneiss::engine::camera_settings settings() const noexcept;
+  [[nodiscard]] gneiss::engine::math::camera_settings settings() const noexcept;
 
 private:
   void update_rotation() noexcept;
 
   bool initialized_{};
-  gneiss::engine::transform transform_ = {};
+  gneiss::engine::math::transform transform_ = {};
   float yaw_ = 0.0F;
   float pitch_ = -0.3F;
 };

@@ -116,7 +116,7 @@ int main() try {
        static_cast<std::uint32_t>(gneiss::scene_prefab_flags::translation_overridden)) == 0U) {
     return 7;
   }
-  gneiss::engine::transform previous_source{};
+  gneiss::engine::math::transform previous_source{};
   if (session.restore_prefab_transform_field(session.selection(),
                                              gneiss::engine::transform_translation_field.get(),
                                              previous_source) != gneiss::engine::result::success ||

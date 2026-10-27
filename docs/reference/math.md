@@ -3,9 +3,12 @@
 
 # 内部数学类型与边界转换
 
-`engine/core/math/types.hpp` 是内部统一入口，必须先于其他 GLM 头包含。`gneiss::engine` 提供
+`engine/core/math/types.hpp` 是内部统一入口，必须先于其他 GLM 头包含。`gneiss::engine::math` 提供
 `vector2`、`vector3`、`vector4`、`quaternion`、`matrix3`、`matrix4`，均为 GLM 的 packed float 别名。
 不提供第二套数学对象包装，也不安装为公共 SDK。
+同目录的 `transform`、`camera_settings` 和数学辅助函数也位于该命名空间；
+调用示例为 `math::vector3`、`math::transform`、`math::perspective_rh_zo`（在 Engine 内）。
+不提供 `gneiss::engine` 下的旧数学类型或函数兼容别名。
 
 ## 运算与初始化
 
@@ -18,13 +21,13 @@
 `components()` 提供向量和四元数的分量视图，四元数视图保持 xyzw；`matrix_elements()` 提供列主序矩阵视图。
 视图不延长对象寿命，不得保存临时对象产生的视图。
 
-`functions.hpp` 提供 TRS 检查、组合和矩阵转换。场景树保持分量 TRS 组合：父缩放、父旋转、父平移依次
+`functions.hpp` 提供有限值检查、数组转换及点/向量变换；`transform.hpp` 提供 TRS 检查、组合和矩阵转换。场景树保持分量 TRS 组合：父缩放、父旋转、父平移依次
 作用于子平移，旋转相乘、缩放逐分量相乘。非均匀缩放与旋转产生的剪切不在此表示范围内。
 Gizmo 保持正缩放、无剪切的限制。
 
 ## 反射与数据边界
 
-反射属性直接使用 `engine::vector3` 和 `engine::quaternion`，不提供属性专用数学别名；
+反射属性直接使用 `engine::math::vector3` 和 `engine::math::quaternion`，不提供属性专用数学别名；
 现有反射属性种类及稳定 GUID 不变。
 这次不增加 vector2、vector4 或矩阵的反射字段种类。
 

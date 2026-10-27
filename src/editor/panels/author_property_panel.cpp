@@ -39,19 +39,19 @@ bool draw_property(const inspector_component& component, const inspector_propert
     break;
   case gneiss::engine::value_kind::vec3:
     changed = ImGui::DragFloat3(property.name.c_str(),
-                                &std::get<gneiss::engine::vector3>(value.payload).x, 0.05F);
+                                &std::get<gneiss::engine::math::vector3>(value.payload).x, 0.05F);
     break;
   case gneiss::engine::value_kind::quaternion: {
     std::array<float, 3> euler{};
     error = gneiss::editor::quaternion_to_euler_degrees(
-        std::get<gneiss::engine::quaternion>(value.payload), euler);
+        std::get<gneiss::engine::math::quaternion>(value.payload), euler);
     if (error != gneiss::engine::result::success) {
       break;
     }
     changed = ImGui::DragFloat3(property.name.c_str(), euler.data(), 0.25F, 0.0F, 0.0F, "%.1f°");
     if (changed) {
       error = gneiss::editor::euler_degrees_to_quaternion(
-          euler, std::get<gneiss::engine::quaternion>(value.payload));
+          euler, std::get<gneiss::engine::math::quaternion>(value.payload));
     }
     break;
   }

@@ -19,7 +19,7 @@ gneiss::engine::object_description object(std::string uuid,
           .name = "节点",
           .parent_uuid = std::move(parent),
           .translation = {},
-          .rotation = gneiss::engine::quaternion_xyzw(0.0F, 0.0F, 0.0F, 1.0F),
+          .rotation = gneiss::engine::math::quaternion_xyzw(0.0F, 0.0F, 0.0F, 1.0F),
           .scale = {1.0F, 1.0F, 1.0F},
           .camera = std::nullopt,
           .mesh_renderer = std::nullopt};

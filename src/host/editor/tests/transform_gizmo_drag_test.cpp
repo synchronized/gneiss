@@ -18,7 +18,8 @@ using namespace gneiss;
 
 namespace {
 
-bool near(const gneiss::engine::transform& left, const gneiss::engine::transform& right) {
+bool near(const gneiss::engine::math::transform& left,
+          const gneiss::engine::math::transform& right) {
   for (std::size_t index = 0; index < 3U; ++index) {
     if (std::abs(left.translation[index] - right.translation[index]) > 1.0e-4F ||
         std::abs(left.scale[index] - right.scale[index]) > 1.0e-4F) {
@@ -73,7 +74,7 @@ int main() try {
       if (drag.begin(session) != gneiss::engine::result::success) {
         return 4;
       }
-      gneiss::engine::transform desired{};
+      gneiss::engine::math::transform desired{};
       if (application->native_world()->node_get_world_transform(
               gneiss::scene_node_id{target.get()}, desired) != gneiss::engine::result::success) {
         return 5;
@@ -91,7 +92,7 @@ int main() try {
           desired.scale[1] += 0.5F;
         }
         gneiss::editor::gizmo_matrix matrix{};
-        gneiss::engine::transform actual{};
+        gneiss::engine::math::transform actual{};
         if (gneiss::editor::transform_to_gizmo_matrix(desired, matrix) !=
                 gneiss::engine::result::success ||
             drag.preview(session, matrix) != gneiss::engine::result::success ||
@@ -122,7 +123,7 @@ int main() try {
   gneiss::editor::editor_command_history unavailable_history(0U);
   session.clear_dirty();
   const auto before = session.selected_node()->local_transform;
-  gneiss::engine::transform desired = before;
+  gneiss::engine::math::transform desired = before;
   desired.translation[2] += 2.0F;
   gneiss::editor::gizmo_matrix matrix{};
   if (drag.begin(session) != gneiss::engine::result::success ||

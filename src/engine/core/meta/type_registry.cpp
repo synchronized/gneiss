@@ -93,9 +93,9 @@ namespace {
           return is_valid_name(item);
         else if constexpr (std::is_same_v<type, guid>)
           return static_cast<bool>(item);
-        else if constexpr (std::is_same_v<type, gneiss::engine::vector3>)
+        else if constexpr (std::is_same_v<type, gneiss::engine::math::vector3>)
           return std::isfinite(item.x) && std::isfinite(item.y) && std::isfinite(item.z);
-        else if constexpr (std::is_same_v<type, gneiss::engine::quaternion>)
+        else if constexpr (std::is_same_v<type, gneiss::engine::math::quaternion>)
           return std::isfinite(item.x) && std::isfinite(item.y) && std::isfinite(item.z) &&
                  std::isfinite(item.w);
         else

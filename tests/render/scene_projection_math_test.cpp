@@ -13,10 +13,10 @@ bool near(float left, float right) { return std::abs(left - right) < 0.0001F; }
 } // namespace
 
 int main() {
-  using gneiss::engine::matrix4;
-  using gneiss::engine::model_and_normal_matrices;
+  using gneiss::engine::math::matrix4;
+  using gneiss::engine::math::model_and_normal_matrices;
 
-  gneiss::engine::transform transform{};
+  gneiss::engine::math::transform transform{};
   transform.translation[0] = 1.0F;
   transform.translation[1] = 2.0F;
   transform.translation[2] = 3.0F;
@@ -28,28 +28,28 @@ int main() {
   matrix4 model;
   matrix4 normal;
   if (!model_and_normal_matrices(transform, model, normal) ||
-      !near(gneiss::engine::matrix_elements(model)[0], 2.0F) ||
-      !near(gneiss::engine::matrix_elements(model)[5], 3.0F) ||
-      !near(gneiss::engine::matrix_elements(model)[10], 4.0F) ||
-      !near(gneiss::engine::matrix_elements(model)[12], 1.0F) ||
-      !near(gneiss::engine::matrix_elements(model)[13], 2.0F) ||
-      !near(gneiss::engine::matrix_elements(model)[14], 3.0F) ||
-      !near(gneiss::engine::matrix_elements(normal)[0], 0.5F) ||
-      !near(gneiss::engine::matrix_elements(normal)[5], 1.0F / 3.0F) ||
-      !near(gneiss::engine::matrix_elements(normal)[10], 0.25F)) {
+      !near(gneiss::engine::math::matrix_elements(model)[0], 2.0F) ||
+      !near(gneiss::engine::math::matrix_elements(model)[5], 3.0F) ||
+      !near(gneiss::engine::math::matrix_elements(model)[10], 4.0F) ||
+      !near(gneiss::engine::math::matrix_elements(model)[12], 1.0F) ||
+      !near(gneiss::engine::math::matrix_elements(model)[13], 2.0F) ||
+      !near(gneiss::engine::math::matrix_elements(model)[14], 3.0F) ||
+      !near(gneiss::engine::math::matrix_elements(normal)[0], 0.5F) ||
+      !near(gneiss::engine::math::matrix_elements(normal)[5], 1.0F / 3.0F) ||
+      !near(gneiss::engine::math::matrix_elements(normal)[10], 0.25F)) {
     return 1;
   }
 
   // 复用已填充矩阵，负缩放仍须生成正确逆转置，非写入元素不能残留。
-  std::ranges::fill(gneiss::engine::matrix_elements(model), 9.0F);
-  std::ranges::fill(gneiss::engine::matrix_elements(normal), 9.0F);
+  std::ranges::fill(gneiss::engine::math::matrix_elements(model), 9.0F);
+  std::ranges::fill(gneiss::engine::math::matrix_elements(normal), 9.0F);
   transform.scale[0] = -2.0F;
   if (!model_and_normal_matrices(transform, model, normal) ||
-      !near(gneiss::engine::matrix_elements(model)[0], -2.0F) ||
-      !near(gneiss::engine::matrix_elements(normal)[0], -0.5F) ||
-      gneiss::engine::matrix_elements(model)[3] != 0.0F ||
-      gneiss::engine::matrix_elements(normal)[12] != 0.0F ||
-      gneiss::engine::matrix_elements(normal)[15] != 1.0F) {
+      !near(gneiss::engine::math::matrix_elements(model)[0], -2.0F) ||
+      !near(gneiss::engine::math::matrix_elements(normal)[0], -0.5F) ||
+      gneiss::engine::math::matrix_elements(model)[3] != 0.0F ||
+      gneiss::engine::math::matrix_elements(normal)[12] != 0.0F ||
+      gneiss::engine::math::matrix_elements(normal)[15] != 1.0F) {
     return 3;
   }
   const auto previous_model = model;

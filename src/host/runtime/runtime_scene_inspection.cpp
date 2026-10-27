@@ -19,8 +19,8 @@
 
 namespace {
 
-bool equal_transform(const gneiss::engine::transform& left,
-                     const gneiss::engine::transform& right) noexcept {
+bool equal_transform(const gneiss::engine::math::transform& left,
+                     const gneiss::engine::math::transform& right) noexcept {
   return (left.translation == right.translation) && (left.rotation == right.rotation) &&
          (left.scale == right.scale);
 }
@@ -36,9 +36,9 @@ bool equal_node(const gneiss::host::runtime_scene_snapshot_node& left,
          left.mesh_uri == right.mesh_uri && left.material_uri == right.material_uri;
 }
 
-gneiss::engine::camera_settings
+gneiss::engine::math::camera_settings
 inspection_camera(const std::optional<gneiss::engine::camera_description>& camera) noexcept {
-  gneiss::engine::camera_settings output{1.04719755F, 0.1F, 1000.0F};
+  gneiss::engine::math::camera_settings output{1.04719755F, 0.1F, 1000.0F};
   if (camera) {
     output.fov = camera->vertical_field_of_view_radians;
     output.near = camera->near_plane;

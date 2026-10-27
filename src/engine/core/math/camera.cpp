@@ -6,7 +6,7 @@
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <numbers>
-namespace gneiss::engine {
+namespace gneiss::engine::math {
 result view_matrix_rh(const transform& value, matrix4& output) noexcept {
   const auto squared = glm::dot(value.rotation, value.rotation);
   if (!std::isfinite(squared) || squared <= 0 || !std::isfinite(value.translation.x) ||

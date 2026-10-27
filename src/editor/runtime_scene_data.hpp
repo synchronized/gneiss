@@ -53,9 +53,9 @@ struct runtime_scene_node final {
   std::string prefab_instance_uuid;
   std::string prefab_source_node_uuid;
   std::string name;
-  gneiss::engine::transform local_transform;
+  gneiss::engine::math::transform local_transform;
   std::uint32_t component_flags = 0U;
-  gneiss::engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
+  gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   std::string mesh_uri;
   std::string material_uri;
 };

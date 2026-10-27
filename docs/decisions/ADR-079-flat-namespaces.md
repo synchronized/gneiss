@@ -14,8 +14,12 @@ gneiss::tooling、gneiss::host。目录不再逐级映射为命名空间。
 公共 C 接口与 gneiss 下的公共共享值类型不变；不提供旧命名兼容别名。
 
 Meta 是上述平铺规则的明确例外：反射描述、注册、查询和编解码接口位于
-`gneiss::engine::meta`，避免通用名称与业务模块冲突。基础值类型和 traits 定制点仍在
+`gneiss::engine::meta`，避免通用名称与业务模块冲突。非数学基础值类型和 traits 定制点仍在
 `gneiss::engine`；不为旧 Meta 限定名保留兼容别名。
+
+2026-10-27 补充领域例外：数学类型及辅助函数归 `gneiss::engine::math`，文件服务及相关类型归
+`gneiss::engine::files`，分别遵循 [ADR-083](ADR-083-unified-math.md) 和
+[ADR-084](ADR-084-async-file-service.md)。不为其他目录自动增设命名空间。
 
 ## 影响
 

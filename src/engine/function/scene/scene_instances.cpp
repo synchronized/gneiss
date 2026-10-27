@@ -38,8 +38,9 @@ std::uint16_t allocate_domain() noexcept {
                                                             : UINT16_C(0);
 }
 
-gneiss::engine::transform to_transform(const gneiss::engine::object_description& object) noexcept {
-  gneiss::engine::transform value{};
+gneiss::engine::math::transform
+to_transform(const gneiss::engine::object_description& object) noexcept {
+  gneiss::engine::math::transform value{};
   value.translation = object.translation;
   value.rotation = object.rotation;
   value.scale = object.scale;
@@ -79,10 +80,10 @@ gneiss::engine::result commit_object(gneiss::engine::world& native_world,
     result = native_world.node_set_local_transform(gneiss::scene_node_id{target.node}, transform);
   }
   if (result == gneiss::engine::result::success && source.camera) {
-    const gneiss::engine::camera_settings camera{.fov =
-                                                     source.camera->vertical_field_of_view_radians,
-                                                 .near = source.camera->near_plane,
-                                                 .far = source.camera->far_plane};
+    const gneiss::engine::math::camera_settings camera{
+        .fov = source.camera->vertical_field_of_view_radians,
+        .near = source.camera->near_plane,
+        .far = source.camera->far_plane};
     result = native_world.entity_configure_camera(gneiss::entity_id{target.entity}, camera);
     if (result == gneiss::engine::result::success && source.camera->is_primary) {
       result = native_world.set_active_camera(gneiss::entity_id{target.entity});
@@ -126,8 +127,8 @@ apply_camera(gneiss::engine::world& native_world, std::uint64_t entity,
     const auto result = native_world.entity_remove_camera(gneiss::entity_id{entity});
     return result == gneiss::engine::result::not_found ? gneiss::engine::result::success : result;
   }
-  const gneiss::engine::camera_settings value{camera->vertical_field_of_view_radians,
-                                              camera->near_plane, camera->far_plane};
+  const gneiss::engine::math::camera_settings value{camera->vertical_field_of_view_radians,
+                                                    camera->near_plane, camera->far_plane};
   return native_world.entity_set_camera(gneiss::entity_id{entity}, value, camera->is_primary);
 }
 
@@ -313,7 +314,7 @@ gneiss::engine::result scene_instance::reload(gneiss::engine::scene_description 
     std::size_t new_index;
     structural_change changes;
     scene_node_id parent;
-    gneiss::engine::transform transform;
+    gneiss::engine::math::transform transform;
     std::optional<gneiss::engine::camera_description> camera;
   };
   std::vector<update_snapshot> applied;
@@ -355,7 +356,7 @@ gneiss::engine::result scene_instance::reload(gneiss::engine::scene_description 
     }
     if (result == gneiss::engine::result::success &&
         has_change(update.changes, structural_change::camera)) {
-      gneiss::engine::camera_settings camera;
+      gneiss::engine::math::camera_settings camera;
       const auto camera_result =
           native_world_.entity_get_camera(gneiss::entity_id{target.entity}, camera);
       if (camera_result == gneiss::engine::result::success) {
@@ -501,7 +502,7 @@ gneiss::engine::result scene_instance::get_node_info(std::uint64_t index, scene_
                                    ? scene_node_components::mesh_renderer
                                    : scene_node_components::none;
     if (author.camera) {
-      gneiss::engine::camera_settings camera;
+      gneiss::engine::math::camera_settings camera;
       result = native_world_.entity_get_camera(gneiss::entity_id{entity}, camera);
       if (result != gneiss::engine::result::success) {
         return result;
@@ -542,7 +543,7 @@ gneiss::engine::result scene_instance::get_prefab_node_info(std::uint64_t index,
       if (result != gneiss::engine::result::success) {
         return result;
       }
-      gneiss::engine::transform transform = {};
+      gneiss::engine::math::transform transform = {};
       result =
           native_world_.node_get_local_transform(gneiss::scene_node_id{runtime.root()}, transform);
       if (result != gneiss::engine::result::success) {
@@ -676,7 +677,7 @@ gneiss::engine::result scene_instance::set_prefab_instance_name(scene_node_id ro
 
 gneiss::engine::result
 scene_instance::set_prefab_source_transform(scene_node_id node,
-                                            const gneiss::engine::transform& transform) {
+                                            const gneiss::engine::math::transform& transform) {
   for (std::size_t index = 0U; index < prefab_instances_.size(); ++index) {
     auto& runtime = *prefab_instances_[index];
     prefab_runtime_instance::node_info info;
@@ -696,24 +697,24 @@ scene_instance::set_prefab_source_transform(scene_node_id node,
               .key = {.node = *info.address,
                       .type_id = type_id,
                       .field_id = gneiss::engine::transform_translation_field},
-              .value = {.payload = gneiss::engine::component_array(transform.translation)}},
+              .value = {.payload = gneiss::engine::math::component_array(transform.translation)}},
           gneiss::engine::prefab_property_override{
               .key = {.node = *info.address,
                       .type_id = type_id,
                       .field_id = gneiss::engine::transform_rotation_field},
-              .value = {.payload = gneiss::engine::component_array(transform.rotation)}},
+              .value = {.payload = gneiss::engine::math::component_array(transform.rotation)}},
           gneiss::engine::prefab_property_override{
               .key = {.node = *info.address,
                       .type_id = type_id,
                       .field_id = gneiss::engine::transform_scale_field},
-              .value = {.payload = gneiss::engine::component_array(transform.scale)}}};
+              .value = {.payload = gneiss::engine::math::component_array(transform.scale)}}};
       const std::array source_values{
           gneiss::engine::prefab_property_value{
-              .payload = gneiss::engine::component_array(source->translation)},
+              .payload = gneiss::engine::math::component_array(source->translation)},
           gneiss::engine::prefab_property_value{
-              .payload = gneiss::engine::component_array(source->rotation)},
+              .payload = gneiss::engine::math::component_array(source->rotation)},
           gneiss::engine::prefab_property_value{
-              .payload = gneiss::engine::component_array(source->scale)}};
+              .payload = gneiss::engine::math::component_array(source->scale)}};
       for (std::size_t field_index = 0U; field_index < candidates.size(); ++field_index) {
         const auto result = set_prefab_property_override(
             registry_, pending, candidates[field_index], source_values[field_index]);
@@ -1193,7 +1194,7 @@ scene_instance::create_mesh_renderer_node(const mesh_renderer_node_creation& des
         .name = std::string(name),
         .parent_uuid = std::move(parent_uuid),
         .translation = {},
-        .rotation = gneiss::engine::quaternion_xyzw(0.0F, 0.0F, 0.0F, 1.0F),
+        .rotation = gneiss::engine::math::quaternion_xyzw(0.0F, 0.0F, 0.0F, 1.0F),
         .scale = {1.0F, 1.0F, 1.0F},
         .camera = std::nullopt,
         .mesh_renderer = gneiss::engine::mesh_renderer_description{
@@ -1393,7 +1394,7 @@ gneiss::engine::result scene_instance::capture_description(scene_description& ou
   for (std::size_t index = 0; index < objects_.size(); ++index) {
     const auto& runtime = objects_[index];
     auto& author = current.objects[index];
-    gneiss::engine::transform transform = {};
+    gneiss::engine::math::transform transform = {};
     auto result =
         native_world_.entity_get_local_transform(gneiss::entity_id{runtime.entity}, transform);
     if (result != gneiss::engine::result::success) {
@@ -1403,7 +1404,7 @@ gneiss::engine::result scene_instance::capture_description(scene_description& ou
     author.rotation = transform.rotation;
     author.scale = transform.scale;
     if (author.camera) {
-      gneiss::engine::camera_settings camera;
+      gneiss::engine::math::camera_settings camera;
       result = native_world_.entity_get_camera(gneiss::entity_id{runtime.entity}, camera);
       if (result != gneiss::engine::result::success) {
         return result;
@@ -1419,7 +1420,7 @@ gneiss::engine::result scene_instance::capture_description(scene_description& ou
   }
   for (std::size_t index = 0; index < prefab_instances_.size(); ++index) {
     auto& author = current.prefab_instances[index];
-    gneiss::engine::transform transform = {};
+    gneiss::engine::math::transform transform = {};
     const auto result = native_world_.node_get_local_transform(
         gneiss::scene_node_id{prefab_instances_[index]->root()}, transform);
     if (result != gneiss::engine::result::success) {
@@ -1607,9 +1608,9 @@ gneiss::engine::result scene_instances::set_prefab_instance_name(scene_instance_
   }
 }
 
-gneiss::engine::result
-scene_instances::set_prefab_source_transform(scene_instance_id instance, scene_node_id node_value,
-                                             const gneiss::engine::transform& transform) noexcept {
+gneiss::engine::result scene_instances::set_prefab_source_transform(
+    scene_instance_id instance, scene_node_id node_value,
+    const gneiss::engine::math::transform& transform) noexcept {
   auto node = node_value;
   try {
     auto* value = instances_.get(instance, gneiss::engine::resource_type::scene_instance);

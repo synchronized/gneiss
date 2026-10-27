@@ -12,15 +12,16 @@ namespace {
 
 constexpr float normalization_tolerance = 1.0e-3F;
 
-bool is_finite(const gneiss::engine::quaternion& value) noexcept {
+bool is_finite(const gneiss::engine::math::quaternion& value) noexcept {
   return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z) &&
          std::isfinite(value.w);
 }
 
 } // namespace
 
-gneiss::engine::result quaternion_to_euler_degrees(const gneiss::engine::quaternion& quaternion,
-                                                   std::array<float, 3>& output) noexcept {
+gneiss::engine::result
+quaternion_to_euler_degrees(const gneiss::engine::math::quaternion& quaternion,
+                            std::array<float, 3>& output) noexcept {
   if (!is_finite(quaternion)) {
     return gneiss::engine::result::invalid_argument;
   }
@@ -28,16 +29,18 @@ gneiss::engine::result quaternion_to_euler_degrees(const gneiss::engine::quatern
   if (!std::isfinite(length) || length <= normalization_tolerance) {
     return gneiss::engine::result::invalid_argument;
   }
-  output = gneiss::engine::component_array(glm::degrees(glm::eulerAngles(quaternion / length)));
+  output =
+      gneiss::engine::math::component_array(glm::degrees(glm::eulerAngles(quaternion / length)));
   return gneiss::engine::result::success;
 }
 
-gneiss::engine::result euler_degrees_to_quaternion(const std::array<float, 3>& euler,
-                                                   gneiss::engine::quaternion& output) noexcept {
+gneiss::engine::result
+euler_degrees_to_quaternion(const std::array<float, 3>& euler,
+                            gneiss::engine::math::quaternion& output) noexcept {
   if (!std::ranges::all_of(euler, [](float value) { return std::isfinite(value); })) {
     return gneiss::engine::result::invalid_argument;
   }
-  output = glm::quat(glm::radians(gneiss::engine::vector3{euler[0], euler[1], euler[2]}));
+  output = glm::quat(glm::radians(gneiss::engine::math::vector3{euler[0], euler[1], euler[2]}));
   return gneiss::engine::result::success;
 }
 

@@ -27,19 +27,19 @@ gneiss::engine::result build_render_snapshot(world_state& world, std::uint32_t v
       if (const auto* component = world.get<camera_component>(active_camera);
           component != nullptr) {
         selected.camera = {component->value.fov, component->value.near, component->value.far};
-        gneiss::engine::transform transform;
+        gneiss::engine::math::transform transform;
         has_camera = world.scene().get_world_for_entity(active_camera, &transform) ==
                      gneiss::engine::result::success;
         selected.transform = transform;
       }
     }
     if (has_camera) {
-      gneiss::engine::matrix4 view;
-      gneiss::engine::matrix4 projection;
-      const auto view_result = gneiss::engine::view_matrix_rh(selected.transform, view);
+      gneiss::engine::math::matrix4 view;
+      gneiss::engine::math::matrix4 projection;
+      const auto view_result = gneiss::engine::math::view_matrix_rh(selected.transform, view);
       const auto aspect = static_cast<float>(viewport_width) / static_cast<float>(viewport_height);
       const auto projection_result =
-          gneiss::engine::perspective_rh_zo(selected.camera, aspect, projection);
+          gneiss::engine::math::perspective_rh_zo(selected.camera, aspect, projection);
       if (view_result != gneiss::engine::result::success) {
         return view_result;
       }
@@ -57,7 +57,7 @@ gneiss::engine::result build_render_snapshot(world_state& world, std::uint32_t v
     world.each<mesh_renderer_component>(
         [&](entt::entity native_entity, const mesh_renderer_component& component) {
           const auto entity = world.encode_entity(native_entity);
-          gneiss::engine::transform transform;
+          gneiss::engine::math::transform transform;
           if (world.scene().get_world_for_entity(entity, &transform) ==
               gneiss::engine::result::success) {
             snapshot.instances.push_back({.mesh = component.value.mesh,

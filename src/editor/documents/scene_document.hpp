@@ -42,7 +42,7 @@ struct scene_node_record final {
   std::string display_name;
   std::string mesh_uri;
   std::string material_uri;
-  gneiss::engine::transform local_transform = {};
+  gneiss::engine::math::transform local_transform = {};
   std::uint32_t component_flags = 0U;
   gneiss::engine::camera_description camera{};
   bool is_primary_camera = false;
@@ -56,8 +56,8 @@ struct prefab_node_record final {
   std::string source_node_uuid;
   std::string display_name;
   std::string prefab_uri;
-  gneiss::engine::transform local_transform = {};
-  gneiss::engine::transform source_local_transform = {};
+  gneiss::engine::math::transform local_transform = {};
+  gneiss::engine::math::transform source_local_transform = {};
   std::uint32_t override_flags = 0U;
   bool is_instance_root = false;
   bool is_read_only = true;
@@ -141,17 +141,18 @@ public:
   [[nodiscard]] gneiss::engine::result reparent_node(scene_node_id node,
                                                      scene_node_id parent) noexcept;
   [[nodiscard]] gneiss::engine::result
-  get_world_transform(scene_node_id node, gneiss::engine::transform& output) const noexcept;
+  get_world_transform(scene_node_id node, gneiss::engine::math::transform& output) const noexcept;
   /** 设置节点局部 TRS；成功后刷新缓存并标记场景已修改。 */
   [[nodiscard]] gneiss::engine::result
-  set_local_transform(scene_node_id node, const gneiss::engine::transform& value) noexcept;
+  set_local_transform(scene_node_id node, const gneiss::engine::math::transform& value) noexcept;
   /** 恢复 Prefab 来源节点的单个 Transform 字段；返回操作前的有效值。 */
   [[nodiscard]] gneiss::engine::result
   restore_prefab_transform_field(scene_node_id node, std::uint32_t field_id,
-                                 gneiss::engine::transform& out_previous) noexcept;
+                                 gneiss::engine::math::transform& out_previous) noexcept;
   /** 恢复 Prefab 来源节点的全部 Transform 字段；返回操作前的有效值。 */
   [[nodiscard]] gneiss::engine::result
-  restore_prefab_transform(scene_node_id node, gneiss::engine::transform& out_previous) noexcept;
+  restore_prefab_transform(scene_node_id node,
+                           gneiss::engine::math::transform& out_previous) noexcept;
   [[nodiscard]] gneiss::engine::result
   destroy_subtree(scene_node_id node, scene_subtree_snapshot& out_snapshot) noexcept;
   [[nodiscard]] gneiss::engine::result restore_subtree(const scene_subtree_snapshot& snapshot,

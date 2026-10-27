@@ -22,7 +22,7 @@ gneiss::engine::result scene_instance::capture_prefab_instance_header(
   }
   const auto index = static_cast<std::size_t>(found - description_.prefab_instances.begin());
   auto copy = *found;
-  gneiss::engine::transform transform{};
+  gneiss::engine::math::transform transform{};
   const auto queried = native_world_.node_get_local_transform(
       gneiss::scene_node_id{prefab_instances_[index]->root()}, transform);
   if (queried != gneiss::engine::result::success) {

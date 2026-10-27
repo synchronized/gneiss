@@ -7,11 +7,12 @@
 #include <limits>
 #include <type_traits>
 
-static_assert(std::is_same_v<gneiss::engine::vector3, gneiss::engine::vector3>);
-static_assert(std::is_same_v<gneiss::engine::quaternion, gneiss::engine::quaternion>);
+static_assert(std::is_same_v<gneiss::engine::math::vector3, gneiss::engine::math::vector3>);
+static_assert(std::is_same_v<gneiss::engine::math::quaternion, gneiss::engine::math::quaternion>);
 
 int main() {
   using namespace gneiss::engine;
+  using namespace gneiss::engine::math;
   const auto near = [](float a, float b) { return std::abs(a - b) < 1.0e-5F; };
   // 非平凡旋转同时约束构造顺序、文件分量顺序和右手旋转方向。
   constexpr float half_sqrt_two = 0.7071067811865475F;

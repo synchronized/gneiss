@@ -52,7 +52,7 @@ public:
   create(gneiss::engine::world& native_world, gneiss::engine::render_asset_loader& loader,
          gneiss::engine::prefab_asset_ref prefab,
          const gneiss::engine::meta::registry_ref& registry, std::string_view instance_uuid,
-         scene_node_id parent, const gneiss::engine::transform& root_transform,
+         scene_node_id parent, const gneiss::engine::math::transform& root_transform,
          const std::vector<gneiss::engine::prefab_property_override>& overrides,
          std::unique_ptr<prefab_runtime_instance>& out_instance) noexcept;
 
@@ -78,8 +78,8 @@ public:
          const std::vector<gneiss::engine::prefab_property_override>& overrides);
 
   /** 同步构造的内部步骤；节点直接可见，资源由调用方传入，失败由实例析构清理。 */
-  [[nodiscard]] gneiss::engine::result create_root(scene_node_id parent,
-                                                   const gneiss::engine::transform& transform);
+  [[nodiscard]] gneiss::engine::result
+  create_root(scene_node_id parent, const gneiss::engine::math::transform& transform);
   [[nodiscard]] gneiss::engine::result create_node(std::size_t index, scene_node_id parent,
                                                    gneiss::engine::mesh mesh,
                                                    gneiss::engine::material material);
@@ -104,9 +104,9 @@ private:
   void rollback() noexcept;
   [[nodiscard]] gneiss::engine::result
   stage_assets(const gneiss::engine::prefab_description& description);
-  [[nodiscard]] gneiss::engine::result commit(const gneiss::engine::prefab_description& description,
-                                              scene_node_id parent,
-                                              const gneiss::engine::transform& root_transform);
+  [[nodiscard]] gneiss::engine::result
+  commit(const gneiss::engine::prefab_description& description, scene_node_id parent,
+         const gneiss::engine::math::transform& root_transform);
   [[nodiscard]] gneiss::engine::result
   apply_overrides(const gneiss::engine::meta::registry_ref& registry,
                   std::span<const gneiss::engine::prefab_property_override> overrides) noexcept;

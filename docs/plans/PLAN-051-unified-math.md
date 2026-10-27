@@ -19,3 +19,12 @@
 - 独立安装目录包含 GLM 原始许可证，不安装 GLM 头文件或新增公共 SDK。
 - 新增数学契约用例并编译，未执行单元测试、图形交互、大场景或 CI；旋转奇异点及 Gizmo 交互留待统一功能回归。
 - 当前使用契约见 [数学参考](../reference/math.md)。
+
+## 2026-10-27 Math 命名空间整理
+
+将 `core/math` 的类型与函数迁入 `gneiss::engine::math`，更新 Scene/ECS、渲染、编辑器、
+导入、示例、测试和反射注册；不保留旧名称别名。已有反射 GUID、展示名、字段顺序和序列化格式不变。
+本轮 Windows Clang Debug 完整编译通过；10 项专项通过：math、value、camera_math、normal_math、
+scene_projection_math、scene_tree_transform、component_reflection、reflection-boundary、
+editor.transform-gizmo-math、editor.rotation-math。格式、Core 分层和 git diff --check 通过。
+未运行大场景、图形交互、浏览器或远端 CI。

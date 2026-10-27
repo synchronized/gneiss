@@ -6,7 +6,7 @@
 namespace example {
 gneiss::engine::result update(gneiss::runtime::application& app, scene_state& state) noexcept {
   auto* world = app.native_world();
-  gneiss::engine::transform transform;
+  gneiss::engine::math::transform transform;
   auto status = world->entity_get_local_transform(state.entity, transform);
   if (status.failed())
     return status;

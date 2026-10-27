@@ -48,14 +48,14 @@ template <class T>
 struct type_identity<T> : type_identity<std::remove_cvref_t<T>> {};
 
 /** 当前内建反射字段的持久化身份，沿用既有 GUID。 */
-template <> struct type_identity<vector3> {
+template <> struct type_identity<math::vector3> {
   static constexpr std::string_view name() noexcept { return "vec3"; }
   static constexpr engine::guid guid() noexcept {
     return engine::guid::from_bytes({0x90, 0xbc, 0xc8, 0x13, 0xa5, 0x3c, 0x41, 0x96, 0xaa, 0x35,
                                      0x93, 0xf8, 0x94, 0x6e, 0x82, 0xcb});
   }
 };
-template <> struct type_identity<quaternion> {
+template <> struct type_identity<math::quaternion> {
   static constexpr std::string_view name() noexcept { return "quaternion"; }
   static constexpr engine::guid guid() noexcept {
     return engine::guid::from_bytes({0x21, 0xc1, 0x11, 0xbd, 0xd7, 0x54, 0x44, 0xf0, 0x89, 0xc1,

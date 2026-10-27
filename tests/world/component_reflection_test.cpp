@@ -28,7 +28,7 @@ int main() {
       info.properties.size() != 3 ||
       gneiss::engine::meta::describe_type(registry, camera_type, info).failed() ||
       info.properties.size() != 4 ||
-      gneiss::engine::meta::describe_type<engine::transform>(registry, info).failed() ||
+      gneiss::engine::meta::describe_type<engine::math::transform>(registry, info).failed() ||
       info.guid != transform_type ||
       gneiss::engine::meta::describe_type<engine::camera_properties>(registry, info).failed() ||
       info.guid != camera_type)
@@ -38,14 +38,14 @@ int main() {
                                       gneiss::engine::meta::property_id{1}, value)
           .failed() ||
       value.kind() != gneiss::engine::value_kind::vec3 ||
-      std::abs(std::get<gneiss::engine::vector3>(value.payload).x) > 0.0001F)
+      std::abs(std::get<gneiss::engine::math::vector3>(value.payload).x) > 0.0001F)
     return 3;
-  value.payload = gneiss::engine::vector3{2, 3, 4};
+  value.payload = gneiss::engine::math::vector3{2, 3, 4};
   if (engine::write_component_property(registry, *first, entity.get(), transform_type,
                                        gneiss::engine::meta::property_id{1}, value)
           .failed())
     return 4;
-  engine::transform transform;
+  engine::math::transform transform;
   if (first->entity_get_local_transform(entity, transform).failed() ||
       std::abs(transform.translation[0] - 2) > 0.0001F ||
       engine::read_component_property(registry, *first, missing.get(), transform_type,
@@ -55,14 +55,14 @@ int main() {
                                       gneiss::engine::meta::property_id{1},
                                       value) != result::invalid_handle)
     return 5;
-  value.payload = gneiss::engine::vector3{0, 1, 1};
+  value.payload = gneiss::engine::math::vector3{0, 1, 1};
   if (engine::write_component_property(registry, *first, entity.get(), transform_type,
                                        gneiss::engine::meta::property_id{3},
                                        value) != result::invalid_argument ||
       first->entity_get_local_transform(entity, transform).failed() ||
       std::abs(transform.scale[0] - 1) > 0.0001F)
     return 6;
-  engine::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
+  engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   if (first->entity_set_camera(entity, camera, true).failed() ||
       engine::read_component_property(registry, *first, entity.get(), camera_type,
                                       gneiss::engine::meta::property_id{4}, value)
@@ -89,7 +89,7 @@ int main() {
     gneiss::engine::value isolated;
     foreign_read = engine::read_component_property(registry, *first, entity.get(), transform_type,
                                                    gneiss::engine::meta::property_id{1}, isolated);
-    isolated.payload = gneiss::engine::vector3{9, 9, 9};
+    isolated.payload = gneiss::engine::math::vector3{9, 9, 9};
     foreign_write =
         engine::write_component_property(registry, *first, entity.get(), transform_type,
                                          gneiss::engine::meta::property_id{1}, isolated);

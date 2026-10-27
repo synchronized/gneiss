@@ -29,10 +29,16 @@ int main() {
   if (std::get<std::string>(moved.payload)[0] != 'y')
     return 3;
   // 类别序号同时供既有资产适配器使用，固定类别的顺序必须保持。
-  const std::array values{
-      value{},          value{true},        value{std::int64_t{-1}}, value{std::uint64_t{1}},
-      value{1.0F},      value{1.0},         value{std::string{}},    value{gneiss::engine::guid{}},
-      value{vector3{}}, value{quaternion{}}};
+  const std::array values{value{},
+                          value{true},
+                          value{std::int64_t{-1}},
+                          value{std::uint64_t{1}},
+                          value{1.0F},
+                          value{1.0},
+                          value{std::string{}},
+                          value{gneiss::engine::guid{}},
+                          value{math::vector3{}},
+                          value{math::quaternion{}}};
   for (std::size_t i = 0; i < values.size(); ++i)
     if (static_cast<std::size_t>(values[i].kind()) != i)
       return 4;

@@ -3,12 +3,12 @@
 
 #include "engine/core/math/transform.hpp"
 
-namespace gneiss::engine {
+namespace gneiss::engine::math {
 vector3 transform_normal(const vector3& normal,
-                         const gneiss::engine::transform& transform) noexcept {
-  const auto value =
-      glm::normalize(transform.rotation *
-                     (gneiss::engine::vector3{normal[0], normal[1], normal[2]} / transform.scale));
+                         const gneiss::engine::math::transform& transform) noexcept {
+  const auto value = glm::normalize(
+      transform.rotation *
+      (gneiss::engine::math::vector3{normal[0], normal[1], normal[2]} / transform.scale));
   return {value.x, value.y, value.z};
 }
 
@@ -27,4 +27,4 @@ bool model_and_normal_matrices(const transform& value, matrix4& model, matrix4& 
   normal = glm::scale(rotation, vector3{1.0F} / value.scale);
   return true;
 }
-} // namespace gneiss::engine
+} // namespace gneiss::engine::math

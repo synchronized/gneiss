@@ -116,11 +116,11 @@ template <std::size_t Size>
                                    gneiss::engine::object_description& output,
                                    scene_diagnostic& diagnostic) {
   if (!yyjson_is_obj(value) ||
-      !read_float_array(value, "translation", path, gneiss::engine::components(output.translation),
+      !read_float_array(value, "translation", path,
+                        gneiss::engine::math::components(output.translation), diagnostic) ||
+      !read_float_array(value, "rotation", path, gneiss::engine::math::components(output.rotation),
                         diagnostic) ||
-      !read_float_array(value, "rotation", path, gneiss::engine::components(output.rotation),
-                        diagnostic) ||
-      !read_float_array(value, "scale", path, gneiss::engine::components(output.scale),
+      !read_float_array(value, "scale", path, gneiss::engine::math::components(output.scale),
                         diagnostic)) {
     if (diagnostic.result == gneiss::engine::result::success) {
       fail(diagnostic, gneiss::engine::result::invalid_argument, path, "transform 必须是对象");
@@ -128,11 +128,11 @@ template <std::size_t Size>
     return false;
   }
   const double rotation_length =
-      std::sqrt(std::inner_product(gneiss::engine::components(output.rotation).begin(),
-                                   gneiss::engine::components(output.rotation).end(),
-                                   gneiss::engine::components(output.rotation).begin(), 0.0));
+      std::sqrt(std::inner_product(gneiss::engine::math::components(output.rotation).begin(),
+                                   gneiss::engine::math::components(output.rotation).end(),
+                                   gneiss::engine::math::components(output.rotation).begin(), 0.0));
   if (std::abs(rotation_length - 1.0) > 1.0e-4 ||
-      std::ranges::any_of(gneiss::engine::components(output.scale),
+      std::ranges::any_of(gneiss::engine::math::components(output.scale),
                           [](float value) { return std::abs(value) < 1.0e-6F; })) {
     fail(diagnostic, gneiss::engine::result::invalid_argument, path,
          "旋转必须归一化且缩放分量不能为零");
@@ -582,7 +582,7 @@ template <std::size_t Size>
 template <class Values>
 [[nodiscard]] yyjson_mut_val* make_float_array(yyjson_mut_doc* document,
                                                const Values& source_values) {
-  const auto values = gneiss::engine::components(source_values);
+  const auto values = gneiss::engine::math::components(source_values);
   yyjson_mut_val* array = yyjson_mut_arr(document);
   if (array == nullptr) {
     return nullptr;
