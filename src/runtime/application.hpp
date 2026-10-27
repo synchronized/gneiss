@@ -29,6 +29,7 @@
 
 namespace gneiss::engine {
 class asset_manager;
+class file_service;
 class render_resource_service;
 struct frame_image;
 }
@@ -126,6 +127,8 @@ public:
   [[nodiscard]] gneiss::engine::render_resource_service& resources() noexcept;
   /** 借用应用级资产管理器；仅所属线程使用，有效期不超过 Application。 */
   [[nodiscard]] gneiss::engine::asset_manager& assets() noexcept;
+  /** 共享宿主文件服务；由 Application 分发和关闭，消费者只提交/取消自己的请求。 */
+  [[nodiscard]] std::shared_ptr<gneiss::engine::file_service> async_files() const noexcept;
   /** 异步重载现有实例的结构；prefab 指定是否更新该实例中的同源 Prefab。 */
   [[nodiscard]] engine::result request_scene_reload(scene_instance_id instance,
                                                     std::string_view uri,

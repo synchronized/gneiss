@@ -73,9 +73,12 @@ PBR Shader resolver 改为只消费内存字节，生产启动使用内嵌归档
 
 以下是实际实现缺口，不属于单纯的未验证项：
 
-- `editor/author_asset_monitor.cpp` 仍直接读文件计算指纹，由 author_asset_service 的任务编排驱动；
-  这不等于已经接入 file_service，也不能在协作调度下宣称没有主线程阻塞。
-  后续将指纹读取迁入文件服务，保留监听/扫描与基线确认语义。
+- 编辑器指纹内容读取已接入 Application 共享 file_service；等待 I/O 不提交 CPU 任务，
+  完成后计算哈希，保存确认仍使用保存时的原始内容。已删除 monitor 的同步 fingerprint/acknowledge 读盘入口。
+  同路径在途事件触发补扫，保存使旧读取失效；停止等待自身文件回执，析构迟到回调只持有独立回执。
+  Windows 编译、线程池/协作模式的服务测试与 monitor 测试通过，包括在途取消和提前销毁。
+  `author_asset_monitor` 的目录枚举及根路径查询仍使用 std::filesystem，协作模式仍有元数据阻塞风险，
+  后续需接入 file_service 的 stat/list；不能宣称整个监视流程已无同步 I/O。
 - `editor/commands/native_author_transaction.cpp` 的原生保存事务仍直接访问文件；
   迁移需保留提交失败与撤销历史语义，不能仅将单次写入改成异步就视为完成。
 - `editor/editor_ui.cpp` 的布局读写仍为本地配置路径，后续独立接入 user 挂载。

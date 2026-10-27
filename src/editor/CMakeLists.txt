@@ -55,6 +55,7 @@ if(TARGET gneiss_asset_import_sdk)
   target_link_libraries(
     gneiss_editor_assets
     PRIVATE gneiss_io_uv gneiss::libuv
+    PUBLIC gneiss_native_interface
     PUBLIC gneiss::engine gneiss_asset_import_sdk gneiss_tasks
   )
   target_include_directories(gneiss_editor_assets PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

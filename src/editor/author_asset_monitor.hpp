@@ -33,17 +33,17 @@ struct author_asset_change final {
   std::uint64_t fingerprint{};
 };
 
-/** 跟踪 Scene/Prefab 作者文件内容；用于区分自身保存、外部变化与未保存冲突。 */
+/** 跟踪 Scene/Prefab 指纹和目录；内容指纹由调用方提供，不读取文件内容。 */
 class author_asset_monitor final {
 public:
-  [[nodiscard]] gneiss::engine::result initialize(const std::filesystem::path& asset_root,
-                                                  bool build_baseline = true) noexcept;
+  [[nodiscard]] gneiss::engine::result initialize(const std::filesystem::path& asset_root) noexcept;
+  /** 使用本次异步读取的结果比较基线；不执行 I/O。 */
   [[nodiscard]] author_asset_change observe(const std::filesystem::path& relative_path,
-                                            bool document_dirty) noexcept;
-  [[nodiscard]] gneiss::engine::result acknowledge(std::string_view uri) noexcept;
+                                            bool document_dirty, gneiss::engine::result operation,
+                                            std::uint64_t fingerprint) noexcept;
   [[nodiscard]] gneiss::engine::result acknowledge_content(std::string_view uri,
                                                            std::string_view content) noexcept;
-  void establish_baseline(std::string_view uri);
+  void establish_baseline(std::string_view uri, std::uint64_t value);
   void accept_fingerprint(std::string_view uri, std::uint64_t value);
   /** 分帧枚举已知与磁盘作者文件，调用方仍通过 observe 执行冲突检查。 */
   void request_rescan() noexcept { rescan_requested_ = true; }
@@ -51,15 +51,12 @@ public:
                                                    std::size_t budget = 8U) noexcept;
   [[nodiscard]] bool is_rescanning() const noexcept { return rescan_requested_ || rescan_active_; }
   [[nodiscard]] gneiss::engine::result rescan_result() const noexcept { return rescan_result_; }
-  void mark_applied(std::string_view uri) noexcept;
+  void mark_applied(std::string_view uri, std::uint64_t value) noexcept;
   void mark_failed(std::string_view uri, gneiss::engine::result operation) noexcept;
 
   [[nodiscard]] const author_asset_change& status() const noexcept { return status_; }
 
 private:
-  [[nodiscard]] gneiss::engine::result fingerprint(std::string_view uri,
-                                                   std::uint64_t& output) const noexcept;
-
   std::filesystem::path asset_root_;
   std::unordered_map<std::string, std::uint64_t> fingerprints_;
   author_asset_change status_;

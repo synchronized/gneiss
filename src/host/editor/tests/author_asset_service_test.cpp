@@ -3,6 +3,8 @@
 
 #include "author_asset_service.hpp"
 #include "engine/core/result.hpp"
+#include "engine/platform/files/file_backend.hpp"
+#include "runtime/application.hpp"
 
 #include <chrono>
 #include <cstdio>
@@ -42,6 +44,52 @@ struct fixture {
     std::filesystem::remove_all(root, error);
   }
 };
+class delayed_backend final : public engine::file_backend {
+public:
+  engine::file_callback<engine::file_bytes> pending;
+  engine::result read(std::string_view, engine::read_options,
+                      engine::file_callback<engine::file_bytes> callback) override {
+    require(!pending, "指纹读取不得并发积压");
+    pending = std::move(callback);
+    return engine::result::success;
+  }
+};
+void pending_shutdown(bool destroy) {
+  fixture disk;
+  write(disk.root / "main.scene.json", "initial");
+  engine::task_scheduler scheduler({.workers = 0, .mode = engine::execution_mode::cooperative});
+  auto files = std::make_shared<engine::file_service>();
+  auto backend = std::make_shared<delayed_backend>();
+  require(files->mount({"asset://", {backend}, {}}).ok(), "测试挂载失败");
+  auto service = std::make_unique<author_asset_service>(scheduler);
+  require(service->initialize(disk.root, files).ok(), "延迟服务初始化失败");
+  until([&] {
+    (void)scheduler.run_ready();
+    (void)files->dispatch_completions(64);
+    std::vector<std::filesystem::path> paths;
+    (void)service->poll_rescan(paths);
+    return static_cast<bool>(backend->pending);
+  });
+  require(scheduler.stats().running == 0 && scheduler.stats().waiting == 0,
+          "等待文件期间占用 CPU 任务");
+  service->request_stop();
+  require(!service->stopped(), "文件未收尾却报告停止");
+  if (destroy)
+    service.reset();
+  auto complete = std::move(backend->pending);
+  complete({engine::result::success, {std::byte{7}}});
+  require(files->dispatch_completions(64).ok(), "迟到回调分发失败");
+  if (service)
+    require(service->stopped(), "文件收尾后仍未停止");
+  engine::file_request_id request;
+  require(files->read(
+                   "asset://other", {1}, [](auto) {}, request)
+              .ok(),
+          "停止作者服务关闭了共享文件服务");
+  complete = std::move(backend->pending);
+  complete({engine::result::success, {}});
+  (void)files->dispatch_completions(64);
+}
 void run(std::size_t workers,
          gneiss::engine::execution_mode mode = gneiss::engine::execution_mode::thread_pool) {
   fixture files;
@@ -49,10 +97,17 @@ void run(std::size_t workers,
   constexpr auto uri = "asset://main.scene.json";
   write(path, "initial");
   gneiss::engine::task_scheduler scheduler({.workers = workers, .mode = mode});
+  gneiss::runtime::application_configuration config;
+  const auto root_text = files.root.generic_string();
+  config.asset_root = root_text;
+  std::shared_ptr<gneiss::runtime::application> app;
+  require(gneiss::runtime::application::create(config, app).ok(), "测试文件宿主创建失败");
+  auto io = app->async_files();
   author_asset_service service(scheduler);
-  require(service.initialize(files.root) == gneiss::engine::result::success, "启动失败");
+  require(service.initialize(files.root, io) == gneiss::engine::result::success, "启动失败");
   auto drain = [&] {
     until([&] {
+      require(io->dispatch_completions(64).ok(), "文件完成分发失败");
       if (mode == gneiss::engine::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
@@ -73,6 +128,7 @@ void run(std::size_t workers,
   (void)service.observe("main.scene.json", false);
   author_asset_change found;
   until([&] {
+    require(io->dispatch_completions(64).ok(), "文件完成分发失败");
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
@@ -88,6 +144,7 @@ void run(std::size_t workers,
   service.request_rescan();
   std::vector<std::filesystem::path> old_paths;
   until([&] {
+    require(io->dispatch_completions(64).ok(), "文件完成分发失败");
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
@@ -100,6 +157,7 @@ void run(std::size_t workers,
   write(path, "external-after-save");
   found = {};
   until([&] {
+    require(io->dispatch_completions(64).ok(), "文件完成分发失败");
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
@@ -118,6 +176,7 @@ void run(std::size_t workers,
   service.request_rescan();
   found = {};
   until([&] {
+    require(io->dispatch_completions(64).ok(), "文件完成分发失败");
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
@@ -137,6 +196,7 @@ void run(std::size_t workers,
           "接受越界路径");
   service.request_stop();
   until([&] {
+    require(io->dispatch_completions(64).ok(), "文件完成分发失败");
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
@@ -152,6 +212,8 @@ void run(std::size_t workers,
 }
 } // namespace
 int main() try {
+  pending_shutdown(false);
+  pending_shutdown(true);
   run(1U);
   run(3U);
   run(0U, gneiss::engine::execution_mode::cooperative);

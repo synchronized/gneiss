@@ -2888,20 +2888,6 @@ int run_editor(int argc, char** argv) {
   state.asset_reimports.start(state.project_root, state.asset_root);
   state.asset_reimports.request_refresh();
   start_source_asset_watch(state);
-  const auto author_monitor_result = state.author_assets.initialize(state.asset_root);
-  if (author_monitor_result != gneiss::engine::result::success) {
-    const auto message = author_monitor_result.message();
-    std::fprintf(stderr, "Gneiss Editor 作者资产监视初始化失败：结果=%d，消息=%.*s\n",
-                 author_monitor_result.code(), static_cast<int>(message.size()), message.data());
-  } else {
-    const auto author_watcher_result = state.author_asset_watcher.start(state.asset_root);
-    state.author_watch_result = author_watcher_result;
-    if (author_watcher_result != gneiss::engine::result::success) {
-      const auto message = author_watcher_result.message();
-      std::fprintf(stderr, "Gneiss Editor 作者资产监听启动失败：结果=%d，消息=%.*s\n",
-                   author_watcher_result.code(), static_cast<int>(message.size()), message.data());
-    }
-  }
 #endif
   const auto title = project.name + " - Gneiss Editor";
   gneiss::runtime::application_configuration desc;
@@ -2931,6 +2917,23 @@ int run_editor(int argc, char** argv) {
   if (operation != gneiss::engine::result::success) {
     return 2;
   }
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+  const auto author_monitor_result =
+      state.author_assets.initialize(state.asset_root, application->async_files());
+  if (author_monitor_result != gneiss::engine::result::success) {
+    const auto message = author_monitor_result.message();
+    std::fprintf(stderr, "Gneiss Editor 作者资产监视初始化失败：结果=%d，消息=%.*s\n",
+                 author_monitor_result.code(), static_cast<int>(message.size()), message.data());
+  } else {
+    const auto author_watcher_result = state.author_asset_watcher.start(state.asset_root);
+    state.author_watch_result = author_watcher_result;
+    if (author_watcher_result != gneiss::engine::result::success) {
+      const auto message = author_watcher_result.message();
+      std::fprintf(stderr, "Gneiss Editor 作者资产监听启动失败：结果=%d，消息=%.*s\n",
+                   author_watcher_result.code(), static_cast<int>(message.size()), message.data());
+    }
+  }
+#endif
   state.application = application.get();
   operation = state.ui.initialize(*application);
   if (operation != gneiss::engine::result::success) {

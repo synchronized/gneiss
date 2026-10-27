@@ -1360,6 +1360,10 @@ gneiss::engine::render_resource_service& application::resources() noexcept {
   return storage_->resources_;
 }
 
+std::shared_ptr<gneiss::engine::file_service> application::async_files() const noexcept {
+  return storage_->files_;
+}
+
 gneiss::engine::asset_manager& application::assets() noexcept { return *storage_->asset_manager_; }
 
 gneiss::engine::scene_instances* application::scenes() noexcept {

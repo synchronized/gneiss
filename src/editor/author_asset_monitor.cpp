@@ -4,8 +4,6 @@
 #include "author_asset_monitor.hpp"
 #include "engine/core/result.hpp"
 
-#include <array>
-#include <fstream>
 #include <string_view>
 
 namespace gneiss::editor {
@@ -27,8 +25,8 @@ namespace {
 
 } // namespace
 
-gneiss::engine::result author_asset_monitor::initialize(const std::filesystem::path& asset_root,
-                                                        bool build_baseline) noexcept {
+gneiss::engine::result
+author_asset_monitor::initialize(const std::filesystem::path& asset_root) noexcept {
   if (asset_root.empty()) {
     return gneiss::engine::result::invalid_argument;
   }
@@ -44,22 +42,6 @@ gneiss::engine::result author_asset_monitor::initialize(const std::filesystem::p
     rescan_known_.clear();
     rescan_seen_.clear();
     fingerprints_.clear();
-    if (build_baseline) {
-      for (const auto& item : std::filesystem::recursive_directory_iterator(asset_root_)) {
-        if (!item.is_regular_file()) {
-          continue;
-        }
-        const auto relative = path_utf8(item.path().lexically_relative(asset_root_));
-        if (!is_structural_asset(relative)) {
-          continue;
-        }
-        const auto uri = "asset://" + relative;
-        std::uint64_t value = 0U;
-        if (fingerprint(uri, value) == gneiss::engine::result::success) {
-          fingerprints_.insert_or_assign(uri, value);
-        }
-      }
-    }
     status_ = {};
     return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
@@ -119,57 +101,16 @@ gneiss::engine::result author_asset_monitor::poll_rescan(std::vector<std::filesy
   return rescan_result_;
 }
 
-gneiss::engine::result author_asset_monitor::fingerprint(std::string_view uri,
-                                                         std::uint64_t& output) const noexcept {
-  constexpr std::string_view scheme = "asset://";
-  if (asset_root_.empty() || !uri.starts_with(scheme)) {
-    return gneiss::engine::result::invalid_argument;
-  }
-  try {
-    const auto destination =
-        std::filesystem::weakly_canonical(asset_root_ / utf8_path(uri.substr(scheme.size())));
-    const auto relative = destination.lexically_relative(asset_root_);
-    if (relative.empty() || relative.is_absolute()) {
-      return gneiss::engine::result::invalid_argument;
-    }
-    for (const auto& component : relative) {
-      if (component == "..") {
-        return gneiss::engine::result::invalid_argument;
-      }
-    }
-    std::ifstream stream(destination, std::ios::binary);
-    if (!stream) {
-      return gneiss::engine::result::not_found;
-    }
-    std::uint64_t hash = 14695981039346656037ULL;
-    std::array<char, 4096U> buffer{};
-    while (stream) {
-      stream.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
-      for (std::streamsize index = 0; index < stream.gcount(); ++index) {
-        hash ^= static_cast<unsigned char>(buffer[static_cast<std::size_t>(index)]);
-        hash *= 1099511628211ULL;
-      }
-    }
-    if (!stream.eof()) {
-      return gneiss::engine::result::io;
-    }
-    output = hash;
-    return gneiss::engine::result::success;
-  } catch (...) {
-    return gneiss::engine::result::io;
-  }
-}
-
 author_asset_change author_asset_monitor::observe(const std::filesystem::path& relative_path,
-                                                  bool document_dirty) noexcept {
+                                                  bool document_dirty,
+                                                  gneiss::engine::result operation,
+                                                  std::uint64_t value) noexcept {
   try {
     const auto relative = path_utf8(relative_path.lexically_normal());
     if (!is_structural_asset(relative)) {
       return {};
     }
     const auto uri = "asset://" + relative;
-    std::uint64_t value = 0U;
-    const auto operation = fingerprint(uri, value);
     const auto known = fingerprints_.find(uri);
     if (operation == gneiss::engine::result::success && known != fingerprints_.end() &&
         known->second == value) {
@@ -198,20 +139,6 @@ author_asset_change author_asset_monitor::observe(const std::filesystem::path& r
   }
 }
 
-gneiss::engine::result author_asset_monitor::acknowledge(std::string_view uri) noexcept {
-  std::uint64_t value = 0U;
-  const auto operation = fingerprint(uri, value);
-  if (operation == gneiss::engine::result::success) {
-    try {
-      fingerprints_.insert_or_assign(std::string(uri), value);
-      status_ = {};
-    } catch (...) {
-      return gneiss::engine::result::out_of_memory;
-    }
-  }
-  return operation;
-}
-
 gneiss::engine::result
 author_asset_monitor::acknowledge_content(std::string_view uri, std::string_view content) noexcept {
   try {
@@ -227,9 +154,9 @@ author_asset_monitor::acknowledge_content(std::string_view uri, std::string_view
   }
 }
 
-void author_asset_monitor::establish_baseline(std::string_view uri) {
+void author_asset_monitor::establish_baseline(std::string_view uri, std::uint64_t value) {
   if (!fingerprints_.contains(std::string(uri))) {
-    (void)acknowledge(uri);
+    accept_fingerprint(uri, value);
   }
 }
 
@@ -237,8 +164,9 @@ void author_asset_monitor::accept_fingerprint(std::string_view uri, std::uint64_
   fingerprints_.insert_or_assign(std::string(uri), value);
 }
 
-void author_asset_monitor::mark_applied(std::string_view uri) noexcept {
-  const auto operation = acknowledge(uri);
+void author_asset_monitor::mark_applied(std::string_view uri, std::uint64_t value) noexcept {
+  accept_fingerprint(uri, value);
+  const auto operation = gneiss::engine::result::success;
   status_ = {
       .state = operation == gneiss::engine::result::success ? author_asset_change_state::applied
                                                             : author_asset_change_state::failed,

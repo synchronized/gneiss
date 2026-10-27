@@ -71,16 +71,6 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
   author_asset_service authors(scheduler);
   asset_background_worker worker({}, &scheduler);
   const auto assets = root / "assets";
-  require(authors.initialize(assets) == gneiss::engine::result::success, "作者服务启动失败");
-  const auto baseline_start = clock_type::now();
-  while (authors.is_rescanning()) {
-    std::vector<std::filesystem::path> paths;
-    require(authors.poll_rescan(paths) == gneiss::engine::result::success, "作者基线扫描失败");
-    require(clock_type::now() - baseline_start < std::chrono::seconds(60), "基线超时");
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  }
-  const auto baseline_ms =
-      std::chrono::duration<double, std::milli>(clock_type::now() - baseline_start).count();
   const auto asset_text = assets.generic_string();
   gneiss::runtime::application_configuration desc;
   desc.asset_root = asset_text;
@@ -91,6 +81,18 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
                   gneiss::engine::result::success &&
               (world = app->native_world()) != gneiss::engine::null_rid,
           "基准应用创建失败");
+  require(authors.initialize(assets, app->async_files()) == gneiss::engine::result::success,
+          "作者服务启动失败");
+  const auto baseline_start = clock_type::now();
+  while (authors.is_rescanning()) {
+    (void)app->async_files()->dispatch_completions(64);
+    std::vector<std::filesystem::path> paths;
+    require(authors.poll_rescan(paths) == gneiss::engine::result::success, "作者基线扫描失败");
+    require(clock_type::now() - baseline_start < std::chrono::seconds(60), "基线超时");
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  const auto baseline_ms =
+      std::chrono::duration<double, std::milli>(clock_type::now() - baseline_start).count();
   const auto open_ms = measure([&] {
     require(gneiss::test_support::open_document(session, *app, world, "asset://main.scene.json",
                                                 &scheduler) == gneiss::engine::result::success,
@@ -119,6 +121,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
     previous = now;
     require(now - start < std::chrono::seconds(120), "真实资产基准超时");
     std::vector<std::filesystem::path> paths;
+    (void)app->async_files()->dispatch_completions(64);
     max_poll = std::max(
         max_poll, measure([&] {
           require(authors.poll_rescan(paths) == gneiss::engine::result::success, "作者扫描失败");

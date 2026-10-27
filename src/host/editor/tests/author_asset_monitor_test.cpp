@@ -7,6 +7,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <string>
 
 namespace {
@@ -31,31 +32,49 @@ int main() {
   }
 
   gneiss::editor::author_asset_monitor monitor;
-  if (monitor.initialize(root) != gneiss::engine::result::success ||
-      monitor.observe("scenes/main.scene.json", false).state !=
-          gneiss::editor::author_asset_change_state::idle) {
+  auto hash = [](std::string_view content) {
+    std::uint64_t value = 14695981039346656037ULL;
+    for (unsigned char byte : content) {
+      value ^= byte;
+      value *= 1099511628211ULL;
+    }
+    return value;
+  };
+  auto observe = [&](const std::filesystem::path& path, bool dirty) {
+    std::ifstream input(root / path, std::ios::binary);
+    const auto status = input ? gneiss::engine::result::success : gneiss::engine::result::not_found;
+    const std::string content{std::istreambuf_iterator<char>(input), {}};
+    return monitor.observe(path, dirty, status, hash(content));
+  };
+
+  if (monitor.initialize(root) != gneiss::engine::result::success) {
     return 2;
   }
-  if (!write_text(scene, "second") || monitor.observe("scenes/main.scene.json", true).state !=
+  monitor.establish_baseline("asset://scenes/main.scene.json", hash("first"));
+  if (observe("scenes/main.scene.json", false).state !=
+      gneiss::editor::author_asset_change_state::idle) {
+    return 2;
+  }
+  if (!write_text(scene, "second") || observe("scenes/main.scene.json", true).state !=
                                           gneiss::editor::author_asset_change_state::conflict) {
     return 3;
   }
-  if (monitor.observe("scenes/main.scene.json", false).state !=
+  if (observe("scenes/main.scene.json", false).state !=
       gneiss::editor::author_asset_change_state::changed) {
     return 4;
   }
-  monitor.mark_applied("asset://scenes/main.scene.json");
+  monitor.mark_applied("asset://scenes/main.scene.json", hash("second"));
   if (monitor.status().state != gneiss::editor::author_asset_change_state::applied ||
-      monitor.observe("scenes/main.scene.json", false).state !=
+      observe("scenes/main.scene.json", false).state !=
           gneiss::editor::author_asset_change_state::idle) {
     return 5;
   }
-  if (monitor.observe("textures/stone.png", false).state !=
+  if (observe("textures/stone.png", false).state !=
       gneiss::editor::author_asset_change_state::idle) {
     return 6;
   }
   std::filesystem::remove(scene);
-  const auto removed = monitor.observe("scenes/main.scene.json", false);
+  const auto removed = observe("scenes/main.scene.json", false);
   if (removed.state != gneiss::editor::author_asset_change_state::changed ||
       removed.operation != gneiss::engine::result::not_found) {
     return 7;
@@ -78,7 +97,7 @@ int main() {
       return 10;
     }
     for (const auto& path : paths) {
-      const auto change = monitor.observe(path, false);
+      const auto change = observe(path, false);
       found_removed |= change.uri == "asset://scenes/main.scene.json" &&
                        change.operation == gneiss::engine::result::not_found;
       found_new |= change.uri == "asset://new.prefab.json" &&
@@ -95,10 +114,10 @@ int main() {
     (void)monitor.poll_rescan(paths, 1U);
     for (const auto& path : paths) {
       found_conflict |=
-          monitor.observe(path, true).state == gneiss::editor::author_asset_change_state::conflict;
+          observe(path, true).state == gneiss::editor::author_asset_change_state::conflict;
     }
   }
-  if (!found_conflict || monitor.observe("scenes/main.scene.json", false).state !=
+  if (!found_conflict || observe("scenes/main.scene.json", false).state !=
                              gneiss::editor::author_asset_change_state::changed) {
     return 12;
   }

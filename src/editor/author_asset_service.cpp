@@ -26,14 +26,23 @@ bool structural(std::string_view uri) {
 
 struct author_asset_service::implementation {
   enum class command_kind : std::uint8_t { probe, saved, applied };
+  struct read_receipt {
+    gneiss::engine::file_completion<gneiss::engine::file_bytes> value;
+    bool ready{};
+    std::uint64_t revision{};
+  };
   struct command {
     command_kind kind{};
     std::string uri{};
     std::shared_ptr<const std::string> content{};
     std::uint64_t hash{};
+    bool baseline{};
+    std::shared_ptr<read_receipt> read{};
   };
   struct batch {
     std::vector<author_asset_change> changes;
+    std::vector<std::filesystem::path> paths;
+    bool baseline{};
     gneiss::engine::result operation{gneiss::engine::result::success};
     bool scanning{};
     std::uint64_t revision{};
@@ -44,6 +53,9 @@ struct author_asset_service::implementation {
     bool baseline{true};
   };
 
+  std::shared_ptr<gneiss::engine::file_service> files;
+  gneiss::engine::file_request_id read_request;
+  std::shared_ptr<read_receipt> reading;
   gneiss::engine::task_scheduler& scheduler;
   gneiss::engine::task_scope scope;
   std::shared_ptr<backend> worker{std::make_shared<backend>()};
@@ -70,6 +82,8 @@ struct author_asset_service::implementation {
         std::ranges::any_of(commands, [&value](const auto& item) {
           return item.kind == command_kind::probe && item.uri == value.uri;
         })) {
+      // 同一路径读取在途时收到新事件，完成后补扫，不能吞掉较新的写入。
+      rescan = true;
       return true;
     }
     if (commands.size() >= 256U) {
@@ -81,6 +95,10 @@ struct author_asset_service::implementation {
   }
 
   void pump() {
+    if (reading && reading->ready) {
+      reading.reset();
+      read_request = {};
+    }
     std::vector<gneiss::engine::task_completion> completions;
     scheduler.poll(scope, completions, 1U);
     if (!completions.empty() && active) {
@@ -89,6 +107,10 @@ struct author_asset_service::implementation {
                       : gneiss::engine::result::internal;
       scanning = active->scanning;
       if (active->revision == revision) {
+        for (const auto& path : active->paths) {
+          (void)enqueue(
+              {.kind = command_kind::probe, .uri = uri_for(path), .baseline = active->baseline});
+        }
         for (auto& change : active->changes) {
           ready.push_back(std::move(change));
         }
@@ -102,22 +124,52 @@ struct author_asset_service::implementation {
         (commands.empty() && !rescan && !scanning)) {
       return;
     }
+    if (!commands.empty() && commands.front().kind == command_kind::probe) {
+      auto& item = commands.front();
+      if (item.read && item.read->ready && item.read->revision != revision)
+        item.read.reset();
+      if (!item.read) {
+        if (reading)
+          return;
+        auto receipt = std::make_shared<read_receipt>();
+        receipt->revision = revision;
+        const auto accepted = files->read(
+            item.uri, {16U * 1024U * 1024U},
+            [receipt](auto value) {
+              receipt->value = std::move(value);
+              receipt->ready = true;
+            },
+            read_request);
+        if (accepted == gneiss::engine::result::not_ready)
+          return;
+        item.read = receipt;
+        if (accepted.failed()) {
+          receipt->value.status = accepted;
+          receipt->ready = true;
+        } else {
+          reading = receipt;
+        }
+      }
+      if (!item.read->ready)
+        return;
+    }
     auto output = std::make_shared<batch>();
     output->revision = revision;
     std::vector<command> work;
-    const auto count = std::min<std::size_t>(8U, commands.size());
+    const auto count = std::min<std::size_t>(1U, commands.size());
     work.reserve(count);
     for (std::size_t index = 0U; index < count; ++index) {
       work.push_back(commands[index]);
     }
     const auto scan = rescan;
+    const auto enumerate = commands.empty();
     gneiss::engine::task_handle handle;
     const auto accepted = scheduler.submit(
         {.name = "author-assets.check", .scope = scope},
-        [state = worker, output, work = std::move(work), scan,
+        [state = worker, output, work = std::move(work), scan, enumerate,
          asset_root = root](const gneiss::engine::task_context& context) {
           if (!state->initialized) {
-            output->operation = state->monitor.initialize(asset_root, false);
+            output->operation = state->monitor.initialize(asset_root);
             if (output->operation != gneiss::engine::result::success) {
               return gneiss::engine::task_outcome{};
             }
@@ -133,29 +185,27 @@ struct author_asset_service::implementation {
             } else if (item.kind == command_kind::applied) {
               state->monitor.accept_fingerprint(item.uri, item.hash);
             } else {
-              auto change = state->monitor.observe(path_for(item.uri), false);
-              if (change.state != author_asset_change_state::idle) {
-                output->changes.push_back(std::move(change));
+              std::uint64_t hash = 14695981039346656037ULL;
+              for (const auto byte : item.read->value.data) {
+                hash ^= std::to_integer<unsigned char>(byte);
+                hash *= 1099511628211ULL;
+              }
+              if (item.baseline) {
+                if (item.read->value.status.ok())
+                  state->monitor.establish_baseline(item.uri, hash);
+              } else {
+                auto change = state->monitor.observe(path_for(item.uri), false,
+                                                     item.read->value.status, hash);
+                if (change.state != author_asset_change_state::idle)
+                  output->changes.push_back(std::move(change));
               }
             }
           }
-          if (scan) {
+          if (scan)
             state->monitor.request_rescan();
-          }
-          std::vector<std::filesystem::path> paths;
-          output->operation = state->monitor.poll_rescan(paths, 8U);
-          for (const auto& path : paths) {
-            if (context.stop_requested()) {
-              return gneiss::engine::task_outcome{gneiss::engine::task_state::cancelled};
-            }
-            if (state->baseline) {
-              state->monitor.establish_baseline(uri_for(path));
-            } else {
-              auto change = state->monitor.observe(path, false);
-              if (change.state != author_asset_change_state::idle) {
-                output->changes.push_back(std::move(change));
-              }
-            }
+          if (enumerate) {
+            output->baseline = state->baseline;
+            output->operation = state->monitor.poll_rescan(output->paths, 8U);
           }
           output->scanning = state->monitor.is_rescanning();
           if (!output->scanning) {
@@ -182,10 +232,13 @@ author_asset_service::~author_asset_service() {
   request_stop();
   (void)impl_->scheduler.close_scope(impl_->scope);
 }
-gneiss::engine::result author_asset_service::initialize(const std::filesystem::path& root) {
-  if (root.empty() || !impl_->root.empty() || impl_->stopping) {
+gneiss::engine::result
+author_asset_service::initialize(const std::filesystem::path& root,
+                                 std::shared_ptr<gneiss::engine::file_service> files) {
+  if (!files || root.empty() || !impl_->root.empty() || impl_->stopping) {
     return gneiss::engine::result::invalid_argument;
   }
+  impl_->files = std::move(files);
   impl_->root = root;
   impl_->rescan = true;
   impl_->pump();
@@ -254,7 +307,8 @@ gneiss::engine::result author_asset_service::poll_rescan(std::vector<std::filesy
 }
 bool author_asset_service::is_rescanning() const {
   return impl_->rescan || impl_->scanning || static_cast<bool>(impl_->active) ||
-         !impl_->commands.empty() || !impl_->ready.empty() || !impl_->prepared.empty();
+         static_cast<bool>(impl_->reading) || !impl_->commands.empty() || !impl_->ready.empty() ||
+         !impl_->prepared.empty();
 }
 gneiss::engine::result author_asset_service::rescan_result() const { return impl_->operation; }
 void author_asset_service::mark_applied(std::string_view uri) {
@@ -279,9 +333,13 @@ void author_asset_service::mark_failed(std::string_view uri, gneiss::engine::res
 const author_asset_change& author_asset_service::status() const { return impl_->current; }
 void author_asset_service::request_stop() {
   impl_->stopping = true;
+  if (impl_->read_request.value)
+    (void)impl_->files->cancel(impl_->read_request);
+  impl_->commands.clear();
   impl_->scheduler.cancel_scope(impl_->scope);
 }
 bool author_asset_service::stopped() const {
-  return impl_->stopping && impl_->scheduler.idle(impl_->scope);
+  return impl_->stopping && (!impl_->reading || impl_->reading->ready) &&
+         impl_->scheduler.idle(impl_->scope);
 }
 } // namespace gneiss::editor
