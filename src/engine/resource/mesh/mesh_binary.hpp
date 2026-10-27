@@ -4,7 +4,7 @@
 #ifndef GNEISS_ASSET_MESH_BINARY_HPP_
 #define GNEISS_ASSET_MESH_BINARY_HPP_
 
-#include "engine/core/math/aabb.hpp"
+#include "engine/core/math/aabb3.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -23,8 +23,8 @@ struct mesh_binary_data final {
   std::vector<mesh_binary_vertex> vertices;
   std::vector<std::uint32_t> indices;
   /** 解码得到的局部包围盒；编码时根据顶点重算，不信任此字段。 */
-  math::aabb bounds{};
-  /** 为空时编码 v1；非空时编码 v2，存在 UV1/颜色时编码 v3。 */
+  math::aabb3 bounds{};
+  /** 固定编码 v3；切线必须完整，UV1/颜色允许缺失并由 flags 标记。 */
   std::vector<math::vector4> tangents{};
   std::vector<math::vector2> uv1{};
   std::vector<math::vector4> colors{};

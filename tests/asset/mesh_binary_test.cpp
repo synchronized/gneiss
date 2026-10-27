@@ -29,18 +29,18 @@ void write_u64(std::vector<std::byte>& bytes, std::size_t offset, std::uint64_t 
   }
 }
 
-// 独立构造既有 v1/v2/v3 字节布局，防止编码器和解码器一起漂移。
-bool matches_legacy_layout(const std::vector<std::byte>& encoded, std::uint16_t version) {
-  const std::uint16_t stride = version == 1 ? 32 : (version == 2 ? 48 : 72);
+// 独立构造固定 v3 布局，覆盖可选属性标记与缺省槽值。
+bool matches_v3_layout(const std::vector<std::byte>& encoded, std::uint32_t flags) {
+  constexpr std::uint16_t stride = 72;
   const std::size_t index_offset = ((80U + 3U * stride) + 15U) & ~std::size_t{15U};
   std::vector<std::byte> expected(index_offset + 12U);
   expected[0] = std::byte{'G'};
   expected[1] = std::byte{'N'};
   expected[2] = std::byte{'M'};
   expected[3] = std::byte{'S'};
-  write_u16(expected, 4, version);
+  write_u16(expected, 4, 3);
   write_u16(expected, 6, 80);
-  write_u32(expected, 8, version == 3 ? 3U : 0U);
+  write_u32(expected, 8, flags);
   write_u32(expected, 12, 3);
   write_u32(expected, 16, 3);
   write_u16(expected, 20, stride);
@@ -63,13 +63,12 @@ bool matches_legacy_layout(const std::vector<std::byte>& encoded, std::uint16_t 
     const auto offset = 80 + i * stride;
     for (std::size_t j = 0; j < 8; ++j)
       put(offset + 4 * j, vertices[i][j]);
-    if (version >= 2) {
-      put(offset + 32, 1);
-      put(offset + 44, -1);
+    put(offset + 32, 1);
+    put(offset + 44, -1);
+    for (std::size_t j = 0; j < 6; ++j) {
+      const bool present = j < 2 ? (flags & 1U) != 0U : (flags & 2U) != 0U;
+      put(offset + 48 + 4 * j, present ? extras[i][j] : (j < 2 ? 0.0F : 1.0F));
     }
-    if (version == 3)
-      for (std::size_t j = 0; j < 6; ++j)
-        put(offset + 48 + 4 * j, extras[i][j]);
     write_u32(expected, index_offset + i * 4, static_cast<std::uint32_t>(i));
   }
   return encoded == expected;
@@ -86,12 +85,12 @@ int main() { // NOLINT(bugprone-exception-escape)
       {.position = {0.0F, 0.5F, 0.0F}, .texcoord = {0.5F, 1.0F}, .normal = {0, 0, 1}},
   };
   source.indices = {0, 1, 2};
+  source.tangents.assign(3U, {1, 0, 0, -1});
   std::vector<std::byte> encoded;
   asset::mesh_binary_diagnostic diagnostic;
   if (asset::encode_mesh_binary(source, encoded, diagnostic) !=
           asset::mesh_binary_result::success ||
-      !matches_legacy_layout(encoded, 1) || encoded.size() != 188U ||
-      !asset::is_mesh_binary(encoded)) {
+      !matches_v3_layout(encoded, 0) || encoded.size() != 316U || !asset::is_mesh_binary(encoded)) {
     return 1;
   }
   asset::mesh_binary_data decoded;
@@ -104,13 +103,24 @@ int main() { // NOLINT(bugprone-exception-escape)
     return 2;
   }
 
-  auto unsupported = encoded;
-  write_u16(unsupported, 4U, 4U);
-  if (asset::decode_mesh_binary(unsupported, decoded, diagnostic) !=
-          asset::mesh_binary_result::unsupported_version ||
-      diagnostic.byte_offset != 4U) {
-    return 3;
+  for (const auto version : {1U, 2U, 4U}) {
+    auto unsupported = encoded;
+    write_u16(unsupported, 4U, static_cast<std::uint16_t>(version));
+    if (asset::decode_mesh_binary(unsupported, decoded, diagnostic) !=
+            asset::mesh_binary_result::unsupported_version ||
+        diagnostic.byte_offset != 4U)
+      return 3;
   }
+  auto bad_flags = encoded;
+  write_u32(bad_flags, 8, 4);
+  if (asset::decode_mesh_binary(bad_flags, decoded, diagnostic) !=
+      asset::mesh_binary_result::invalid_data)
+    return 17;
+  auto bad_stride = encoded;
+  write_u16(bad_stride, 20, 48);
+  if (asset::decode_mesh_binary(bad_stride, decoded, diagnostic) !=
+      asset::mesh_binary_result::invalid_data)
+    return 18;
   auto invalid_magic = encoded;
   invalid_magic[0] = std::byte{'X'};
   if (asset::decode_mesh_binary(invalid_magic, decoded, diagnostic) !=
@@ -136,10 +146,10 @@ int main() { // NOLINT(bugprone-exception-escape)
     return 7;
   }
   auto invalid_index = encoded;
-  write_u32(invalid_index, 176U, 3U);
+  write_u32(invalid_index, 304U, 3U);
   if (asset::decode_mesh_binary(invalid_index, decoded, diagnostic) !=
           asset::mesh_binary_result::invalid_data ||
-      diagnostic.byte_offset != 176U) {
+      diagnostic.byte_offset != 304U) {
     return 8;
   }
   auto wrong_bounds = encoded;
@@ -158,8 +168,8 @@ int main() { // NOLINT(bugprone-exception-escape)
           asset::mesh_binary_result::success ||
       asset::decode_mesh_binary(encoded, decoded, diagnostic) !=
           asset::mesh_binary_result::success ||
-      decoded.tangents != source.tangents || !matches_legacy_layout(encoded, 2) ||
-      encoded.size() != 236U)
+      decoded.tangents != source.tangents || !matches_v3_layout(encoded, 0) ||
+      encoded.size() != 316U)
     return 10;
   auto invalid_tangent = encoded;
   write_u32(invalid_tangent, 124U, 0U);
@@ -178,7 +188,7 @@ int main() { // NOLINT(bugprone-exception-escape)
       asset::decode_mesh_binary(encoded, decoded, diagnostic) !=
           asset::mesh_binary_result::success ||
       decoded.uv1 != source.uv1 || decoded.colors != source.colors ||
-      !matches_legacy_layout(encoded, 3) || encoded.size() != 316U)
+      !matches_v3_layout(encoded, 3) || encoded.size() != 316U)
     return 13;
   source.colors[0][0] = 2.0F;
   if (asset::encode_mesh_binary(source, encoded, diagnostic) !=
@@ -189,5 +199,30 @@ int main() { // NOLINT(bugprone-exception-escape)
   if (asset::encode_mesh_binary(source, encoded, diagnostic) !=
       asset::mesh_binary_result::invalid_data)
     return 15;
+  source.uv1.clear();
+  source.tangents.clear();
+  if (asset::encode_mesh_binary(source, encoded, diagnostic) !=
+      asset::mesh_binary_result::invalid_data)
+    return 19;
+  source.tangents.assign(2U, {1, 0, 0, -1});
+  if (asset::encode_mesh_binary(source, encoded, diagnostic) !=
+      asset::mesh_binary_result::invalid_data)
+    return 20;
+  source.tangents.assign(3U, {1, 0, 0, -1});
+  for (std::uint32_t flags = 0; flags < 4; ++flags) {
+    source.uv1 = {{0, 1}, {1, 0}, {0.25F, 0.75F}};
+    source.colors = {{1, 0, 0, 1}, {0, 1, 0, 0.5F}, {0, 0, 1, 0}};
+    if ((flags & 1U) == 0U)
+      source.uv1.clear();
+    if ((flags & 2U) == 0U)
+      source.colors.clear();
+    if (asset::encode_mesh_binary(source, encoded, diagnostic) !=
+            asset::mesh_binary_result::success ||
+        !matches_v3_layout(encoded, flags) ||
+        asset::decode_mesh_binary(encoded, decoded, diagnostic) !=
+            asset::mesh_binary_result::success ||
+        decoded.uv1 != source.uv1 || decoded.colors != source.colors)
+      return 21;
+  }
   return 0;
 }

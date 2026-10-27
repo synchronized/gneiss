@@ -19,6 +19,8 @@ namespace {
 
 constexpr std::array<std::byte, 4> magic = {std::byte{'G'}, std::byte{'N'}, std::byte{'M'},
                                             std::byte{'S'}};
+constexpr std::uint16_t format_version = 3;
+constexpr std::uint16_t vertex_stride = 72;
 constexpr std::uint16_t header_size = 80;
 constexpr std::uint16_t index_size = 4;
 constexpr std::uint64_t vertex_offset = header_size;
@@ -100,12 +102,8 @@ mesh_binary_result encode_mesh_binary(const mesh_binary_data& data, std::vector<
       fail(diagnostic, mesh_binary_result::invalid_data, 0, "Mesh 数量超出范围或不是三角形列表");
       return diagnostic.result;
     }
-    const bool extended = !data.uv1.empty() || !data.colors.empty();
-    const std::uint16_t format_version = extended ? 3U : (data.tangents.empty() ? 1U : 2U);
-    const std::uint16_t vertex_stride = extended ? 72U : (data.tangents.empty() ? 32U : 48U);
     const std::uint32_t flags = (data.uv1.empty() ? 0U : 1U) | (data.colors.empty() ? 0U : 2U);
-    if ((extended && data.tangents.size() != data.vertices.size()) ||
-        (!data.uv1.empty() && data.uv1.size() != data.vertices.size()) ||
+    if ((!data.uv1.empty() && data.uv1.size() != data.vertices.size()) ||
         (!data.colors.empty() && data.colors.size() != data.vertices.size()) ||
         !std::ranges::all_of(
             data.uv1,
@@ -118,8 +116,8 @@ mesh_binary_result encode_mesh_binary(const mesh_binary_data& data, std::vector<
       fail(diagnostic, mesh_binary_result::invalid_data, 0, "UV1/顶点色数量或数值无效");
       return diagnostic.result;
     }
-    if (!data.tangents.empty() && data.tangents.size() != data.vertices.size()) {
-      fail(diagnostic, mesh_binary_result::invalid_data, 0, "切线数量必须与顶点数量一致");
+    if (data.tangents.size() != data.vertices.size()) {
+      fail(diagnostic, mesh_binary_result::invalid_data, 0, "v3 必须提供与顶点数量一致的完整切线");
       return diagnostic.result;
     }
     for (std::size_t index = 0; index < data.tangents.size(); ++index) {
@@ -129,7 +127,7 @@ mesh_binary_result encode_mesh_binary(const mesh_binary_data& data, std::vector<
         return diagnostic.result;
       }
     }
-    math::aabb bounds{data.vertices.front().position, data.vertices.front().position};
+    math::aabb3 bounds{data.vertices.front().position, data.vertices.front().position};
     for (const auto& vertex : data.vertices) {
       if (!finite(vertex) || !valid_normal(vertex.normal)) {
         fail(diagnostic, mesh_binary_result::invalid_data, 0, "Mesh 顶点包含无效数值或非单位法线");
@@ -177,11 +175,9 @@ mesh_binary_result encode_mesh_binary(const mesh_binary_data& data, std::vector<
       for (const auto value : math::components(vertex.normal)) {
         append_float(output, value);
       }
-      if (!data.tangents.empty()) {
-        for (const auto value : math::components(data.tangents[index]))
-          append_float(output, value);
-      }
-      if (extended) {
+      for (const auto value : math::components(data.tangents[index]))
+        append_float(output, value);
+      {
         const auto uv = data.uv1.empty() ? math::vector2{} : data.uv1[index];
         const auto color = data.colors.empty() ? math::vector4{1, 1, 1, 1} : data.colors[index];
         for (const auto value : math::components(uv))
@@ -217,11 +213,10 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
       return diagnostic.result;
     }
     const auto version = read_integer<std::uint16_t>(bytes, 4);
-    if (version != 1U && version != 2U && version != 3U) {
+    if (version != format_version) {
       fail(diagnostic, mesh_binary_result::unsupported_version, 4, "不支持的 Mesh Binary 版本");
       return diagnostic.result;
     }
-    const std::uint16_t vertex_stride = version == 1U ? 32U : (version == 2U ? 48U : 72U);
     const auto stored_header_size = read_integer<std::uint16_t>(bytes, 6);
     const auto flags = read_integer<std::uint32_t>(bytes, 8);
     const auto vertex_count = read_integer<std::uint32_t>(bytes, 12);
@@ -232,12 +227,10 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
     const auto stored_index_offset = read_integer<std::uint64_t>(bytes, 32);
     const auto stored_file_size = read_integer<std::uint64_t>(bytes, 40);
     const auto reserved = read_integer<std::uint64_t>(bytes, 72);
-    if (stored_header_size != header_size ||
-        (version < 3U ? flags != 0U : (flags == 0U || flags > 3U)) ||
-        stored_vertex_stride != vertex_stride || stored_index_size != index_size ||
-        stored_vertex_offset != vertex_offset || reserved != 0U ||
-        stored_file_size != bytes.size() || vertex_count == 0U || index_count < 3U ||
-        index_count % 3U != 0U ||
+    if (stored_header_size != header_size || flags > 3U || stored_vertex_stride != vertex_stride ||
+        stored_index_size != index_size || stored_vertex_offset != vertex_offset ||
+        reserved != 0U || stored_file_size != bytes.size() || vertex_count == 0U ||
+        index_count < 3U || index_count % 3U != 0U ||
         !checked_region(stored_vertex_offset, vertex_count, vertex_stride, stored_file_size) ||
         !checked_region(stored_index_offset, index_count, index_size, stored_file_size) ||
         stored_index_offset !=
@@ -257,8 +250,7 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
       }
     }
     output.vertices.resize(vertex_count);
-    if (version >= 2U)
-      output.tangents.resize(vertex_count);
+    output.tangents.resize(vertex_count);
     if ((flags & 1U) != 0U)
       output.uv1.resize(vertex_count);
     if ((flags & 2U) != 0U)
@@ -272,7 +264,7 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
       }
       vertex.texcoord[0] = read_float(bytes, offset + 12U);
       vertex.texcoord[1] = read_float(bytes, offset + 16U);
-      if (version >= 2U) {
+      {
         auto& tangent = output.tangents[index];
         for (std::size_t component = 0; component < 4U; ++component) {
           tangent[component] = read_float(bytes, offset + 32U + component * 4U);
@@ -282,7 +274,7 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
           return diagnostic.result;
         }
       }
-      if (version == 3U) {
+      {
         math::vector2 uv{read_float(bytes, offset + 48U), read_float(bytes, offset + 52U)};
         math::vector4 color{};
         for (std::size_t component = 0; component < 4U; ++component)
@@ -342,8 +334,7 @@ std::string dump_mesh_binary_json(const mesh_binary_data& data) {
   std::ostringstream stream;
   stream.imbue(std::locale::classic());
   stream << std::setprecision(std::numeric_limits<float>::max_digits10)
-         << "{\n  \"format\": \"gneiss.mesh.debug\",\n  \"version\": "
-         << (!data.uv1.empty() || !data.colors.empty() ? 3 : (data.tangents.empty() ? 1 : 2))
+         << "{\n  \"format\": \"gneiss.mesh.debug\",\n  \"version\": " << format_version
          << ",\n  \"vertices\": [\n";
   for (std::size_t index = 0; index < data.vertices.size(); ++index) {
     const auto& value = data.vertices[index];

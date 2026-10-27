@@ -388,7 +388,7 @@ processor_registry make_default_registry() {
   static_cast<void>(registry.register_processor(
       {.id = "gneiss.texture", .version = 5U, .suffixes = {".png", ".jpg", ".jpeg", ".ktx2"}}));
   static_cast<void>(registry.register_processor(
-      {.id = "gneiss.mesh", .version = 2U, .suffixes = {".gneiss-mesh", ".mesh.json"}}));
+      {.id = "gneiss.mesh", .version = 3U, .suffixes = {".gneiss-mesh", ".mesh.json"}}));
   static_cast<void>(registry.register_processor(
       {.id = "gneiss.material", .version = 2U, .suffixes = {".material.json", ".grmat"}}));
   static_cast<void>(

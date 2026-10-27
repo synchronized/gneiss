@@ -336,6 +336,6 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 CPU 网格的法线、切线、附加 UV 和颜色直接使用 `math::vector3/4/2/4`；
 `mesh_vertex` 组合 `position` 与 `uv`。文件 codec 仍逐分量读写，渲染实现转换到独立 GPU 顶点布局。
 
-二进制网格中间数据也使用统一数学向量，局部边界用 `math::aabb` 表示。
+二进制网格中间数据也使用统一数学向量，局部边界用 `math::aabb3` 表示。
 AABB 的默认值是原点退化盒；包含和相交均包含边界，无效边界使查询返回 false。
-网格编码仍从顶点重算包围盒，并以固定偏移逐分量读写，文件版本与布局保持不变。
+网格编码仍从顶点重算包围盒，并以固定偏移逐分量读写；二进制格式只读写 v3，详见[资产格式](../reference/render-asset-formats.md#mesh-binary-v3)。

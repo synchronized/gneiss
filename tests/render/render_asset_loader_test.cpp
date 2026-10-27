@@ -143,6 +143,7 @@ void add_indexed_mesh(memory_file_system& memory) {
                                                       .texcoord = {0.0F, 1.0F},
                                                       .normal = {0.0F, 0.0F, 1.0F}}},
                                         .indices = {0U, 1U, 2U, 0U, 2U, 3U}};
+  data.tangents.assign(data.vertices.size(), {1, 0, 0, 1});
   std::vector<std::byte> bytes;
   gneiss::engine::mesh_binary_diagnostic diagnostic;
   if (gneiss::engine::encode_mesh_binary(data, bytes, diagnostic) !=

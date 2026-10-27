@@ -6,41 +6,40 @@
 Runtime Mesh 优先使用二进制；旧 Mesh、Material 与 Texture 描述使用严格 UTF-8 JSON。所有格式仅由
 内部 Loader 使用，资源 URI 规则见[资产 URI、目录挂载与缓存](assets.md)。
 
-## Mesh Binary v1 / v2 / v3
+## Mesh Binary v3
 
-建议扩展名为 `.gneiss-mesh`。多字节整数与 IEEE 754 Float32 固定使用小端序，所有 Offset 相对
-文件起点。Header 固定为 80 字节：
+建议扩展名为 `.gneiss-mesh`。只读写 v3；v1、v2 和未知版本返回 `unsupported_version`，
+旧二进制资产必须重新导入。多字节整数与 IEEE 754 Float32 固定为小端序，所有 Offset 相对文件起点。
 
-| Offset | 大小 | 字段 | v1 值或含义 |
+| Offset | 大小 | 字段 | 值或含义 |
 | ---: | ---: | --- | --- |
 | 0 | 4 | magic | ASCII `GNMS` |
-| 4 | 2 | version | `1` |
+| 4 | 2 | version | `3` |
 | 6 | 2 | header_size | `80` |
-| 8 | 4 | flags | `0` |
+| 8 | 4 | flags | 0..3；位 0 表示 UV1，位 1 表示颜色 |
 | 12 | 4 | vertex_count | 唯一顶点数 |
 | 16 | 4 | index_count | UInt32 索引数，必须是 3 的倍数 |
-| 20 | 2 | vertex_stride | `32` |
+| 20 | 2 | vertex_stride | `72` |
 | 22 | 2 | index_size | `4` |
 | 24 | 8 | vertex_offset | `80` |
 | 32 | 8 | index_offset | 16 字节对齐 |
 | 40 | 8 | file_size | 必须等于实际文件大小 |
-| 48 | 24 | bounds | AABB min Float3、max Float3 |
+| 48 | 24 | bounds | 局部 AABB min Float3、max Float3 |
 | 72 | 8 | reserved | `0` |
 
-顶点按 Position Float3、UV Float2、Normal Float3 交错排列，共 32 字节。随后填充到 16 字节边界，
-再保存 UInt32 索引。v1 只支持三角形列表、有限 Float32 和单位法线；Decoder 必须在分配或读取前验证
-版本、数量乘法、Offset、区域重叠、文件边界、AABB 和索引范围。Runtime Loader 将唯一顶点与索引
-直接交给 Render Service；Granit 后端通过 Index Buffer 绘制，不再展开为重复顶点。
+顶点固定依次保存 Position Float3、UV Float2、Normal Float3、Tangent Float4、UV1 Float2、
+线性 RGBA Color Float4，共 72 字节；随后填充到 16 字节边界，再保存 UInt32 索引。
+UV1 缺失填零、颜色缺失填白，但对应 flags 为零，解码后仍返回空的可选属性数组。
+切线必须逐顶点提供，XYZ 为与法线正交的单位向量（误差 `1e-4`），W 为 `+1` 或 `-1`。
+编码器不生成切线；缺失或无效直接报错。glTF 导入器保留作者手性并正交化切线，
+缺失或可修复的共线切线使用 MikkTSpace 生成；无法生成有效切线时导入失败。
 
-v2 保留 Header 布局，`version=2`、`vertex_stride=48`，在每顶点的 Normal 后追加 Tangent Float4。
-XYZ 必须为单位切线并与法线正交（误差 `1e-4`），W 必须精确为 `+1` 或 `-1`。
-新 glTF 导入器保留作者手性并正交化切线；缺失时使用 MikkTSpace 生成，在 UV 镜像接缝拆点。
-有限但与法线共线的作者切线按 Primitive 重生成并记录诊断；非有限值、非法手性或
-无法生成有效切线时导入失败；无切线的旧 v1 文件仍能读取，不具备准确的法线贴图基础。
+Decoder 验证版本、数量乘法、步长、Offset、文件边界、AABB、索引范围和属性值。
+边界必须与顶点计算结果一致；UV 有限，颜色分量位于 0..1。Runtime 向 Render Service 提交
+唯一顶点与索引，由后端通过 Index Buffer 绘制。
 
-v3 保留 Header，步长为 72 字节：在 v2 后追加 UV1 Float2、线性 RGBA Color Float4。
-`flags` 位 0/1 分别表示 UV1/Color 存在，值必须为 1..3；缺失槽填零 UV / 白色。
-UV 必须有限，颜色分量位于 0..1；数组数量与顶点一致。存在扩展属性时导入输出 v3，否则输出 v2。
+Mesh 构建处理器版本已提升至 3，旧缓存键失效；应从作者源重新导入并 Cook。
+这不改变下文 JSON Mesh 的独立版本规则。
 
 `gneiss_assetc inspect` 输出摘要，`validate` 只校验，`dump <file> --format json` 按需生成完整 Debug
 JSON。Debug JSON 的格式标识为 `gneiss.mesh.debug`，不是 Runtime 输入。
