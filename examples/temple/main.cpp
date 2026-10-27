@@ -80,7 +80,7 @@ int run_example(int argc, char** argv) {
   bool can_update = false;
   std::shared_ptr<gneiss::runtime::application> native_application;
   gneiss::runtime::application_configuration config;
-  config.use_granit_window = true;
+  config.enable_window = true;
   config.window.title = title;
   config.asset_root = asset_root;
   config.callbacks.update = [&](const auto& time) {

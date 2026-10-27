@@ -75,7 +75,7 @@ void run_asset_reload() {
   std::shared_ptr<runtime::application> app;
   const auto root = files.root.string();
   runtime::application_configuration desc;
-  desc.use_granit_window = true;
+  desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
   check(gneiss::engine::result{runtime::application::create(desc, app)} ==
@@ -141,7 +141,7 @@ void run_pending_resources() {
   std::shared_ptr<runtime::application> app;
   const auto root = files.root.string();
   runtime::application_configuration desc;
-  desc.use_granit_window = true;
+  desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
   check(gneiss::engine::result{runtime::application::create(desc, app)} ==
@@ -321,7 +321,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
   std::shared_ptr<runtime::application> app;
   const auto root = files.root.string();
   runtime::application_configuration desc;
-  desc.use_granit_window = true;
+  desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
   check(gneiss::engine::result{runtime::application::create(desc, app)} ==
@@ -424,7 +424,7 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
   std::shared_ptr<runtime::application> app;
   const auto root = files.root.string();
   runtime::application_configuration desc;
-  desc.use_granit_window = true;
+  desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
   check(gneiss::engine::result{runtime::application::create(desc, app)} ==
@@ -539,7 +539,7 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   std::shared_ptr<runtime::application> app;
   const auto root = files.root.string();
   runtime::application_configuration desc;
-  desc.use_granit_window = true;
+  desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
   check(gneiss::engine::result{runtime::application::create(desc, app)} ==
@@ -616,7 +616,7 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
   std::shared_ptr<runtime::application> app;
   const auto root = files.root.string();
   runtime::application_configuration desc;
-  desc.use_granit_window = true;
+  desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
   check(gneiss::engine::result{runtime::application::create(desc, app)} ==
@@ -732,7 +732,7 @@ void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
   std::shared_ptr<runtime::application> app;
   const auto root = files.root.string();
   runtime::application_configuration desc;
-  desc.use_granit_window = true;
+  desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
   check(gneiss::engine::result{runtime::application::create(desc, app)} ==

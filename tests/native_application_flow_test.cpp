@@ -3,12 +3,17 @@
 
 #include "runtime/application.hpp"
 #include "support/async_input.hpp"
+#include <cstdio>
+#include <source_location>
 #include <stdexcept>
 namespace {
 using namespace gneiss;
-void check(bool value) {
-  if (!value)
+void check(bool value, std::source_location location = std::source_location::current()) {
+  if (!value) {
+    std::fprintf(stderr, "Application 原生流程失败：%s:%u\n", location.file_name(),
+                 location.line());
     throw std::runtime_error("Application 原生流程失败");
+  }
 }
 void loop() {
   std::shared_ptr<runtime::application> app;
@@ -92,20 +97,29 @@ void creation_failures() {
     ++diagnostics;
     reported = event.result;
   };
-  config.use_granit_window = true;
+  config.enable_window = true;
   config.window.width = 0;
   check(runtime::application::create(config, app) == engine::result::invalid_argument);
   // 配置校验在创建对象前返回结果，不经过运行期诊断回调。
   check(!app && diagnostics == 0);
-  config.use_granit_window = false;
+  config.enable_window = false;
   config.window.width = 1280;
   config.asset_root = "gneiss-test-directory-does-not-exist";
+  // 挂载只配置来源；缺失目录在实际异步读取时报告，不在创建阶段同步探测。
+  check(runtime::application::create(config, app).ok());
+  engine::task_scheduler scheduler({.workers = 0, .mode = engine::execution_mode::cooperative});
+  check(test_support::load_input_for_test(
+            *app, scheduler, "asset://input/missing.input-map.json") == engine::result::not_found);
+  app.reset();
+  config.asset_root = {};
+  config.callbacks.initialize = [] { return engine::result::not_found; };
   diagnostics = 0;
   check(runtime::application::create(config, app) == engine::result::not_found);
   check(!app && diagnostics == 1 && reported == engine::result::not_found);
 #ifdef GNEISS_TEST_NO_GRANIT_PLATFORM
+  config.callbacks.initialize = {};
   config.asset_root = {};
-  config.use_granit_window = true;
+  config.enable_window = true;
   diagnostics = 0;
   check(runtime::application::create(config, app) == engine::result::unsupported);
   check(!app && diagnostics == 1 && reported == engine::result::unsupported);

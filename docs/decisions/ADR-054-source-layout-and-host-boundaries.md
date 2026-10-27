@@ -122,3 +122,10 @@ Runtime 面板只借用镜像与宿主提供的同步操作，不直接依赖进
 
 后续决策：0.47 计划移除上述旧路径转发兼容，见 [ADR-055](ADR-055-native-cpp-sdk.md)。
 本段保留 0.46 的决策背景，规范目录与宿主边界不变。
+
+## 窗口服务边界补充（2026-10-27）
+
+Platform 使用 `gneiss::engine::window_service` 表达窗口、事件和键鼠状态职责，替代后端命名的
+`granit_platform`。通过 PImpl 将 Granit 类型限制在实现文件，Runtime Application 负责服务装配
+和主循环，不合并窗口事件转换到 Runtime。不新增第二个 Application、虚基类或后端工厂。
+配置使用用途名称 `enable_window`；原生窗口信息保留为内部渲染桥接，先释放渲染再销毁窗口。

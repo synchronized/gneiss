@@ -31,10 +31,16 @@ update 只接收帧时间，诊断回调只接收诊断事件，关闭请求回�
 
 ## 平台与窗口
 
-`application_configuration::use_granit_window` 默认为 false，允许空回调无窗口模式。
+`application_configuration::enable_window` 默认为 false，允许空回调无窗口模式。
 窗口默认 1280×720。启用 Granit 窗口需要构建选项 `GNEISS_ENABLE_GRANIT_PLATFORM`；
 未提供后端时请求窗口返回 `unsupported`。窗口模式不允许同时提供平台 initialize、
 poll_events 或 shutdown 回调，业务 update 与时间回调仍可使用。
+
+Application 私有持有 `engine::window_service`，负责窗口生命周期及键盘/鼠标事件轮询。
+`engine/platform/window_service.hpp` 不包含 Granit 头；具体窗口类型、原生句柄提取和事件转换
+封装在 `.cpp` 的 PImpl 中。服务只能由所属线程使用，不可复制或移动；原生窗口信息仅供内部渲染桥接，
+不能超过服务生命周期。Application 先关闭渲染，再销毁窗口服务。
+当前仍只有 Granit 实现，没有后端工厂或运行期实现选择；构建开关继续准确表示 Granit 依赖。
 
 `get_window_size` 返回当前客户区尺寸。Win32 路径采用物理像素，与指针坐标一致；
 无窗口模式返回配置尺寸。最小化时尺寸可能为零，恢复后再提交渲染。

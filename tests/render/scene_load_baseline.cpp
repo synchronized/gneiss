@@ -146,7 +146,7 @@ int main(int argc, char** argv) try {
   desc.callbacks.update = [&](const auto&) {
     return update ? update(app.get()) : gneiss::engine::result::success;
   };
-  desc.use_granit_window = true;
+  desc.enable_window = true;
   desc.asset_root = root;
   constexpr std::string_view title = "Gneiss Scene Loading Baseline";
   desc.window.title = title;

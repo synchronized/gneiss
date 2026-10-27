@@ -250,7 +250,7 @@ gneiss::engine::result run_project_manager(bool smoke, editor_project& output) n
       state.closing = true;
       return !state.pending;
     };
-    desc.use_granit_window = true;
+    desc.enable_window = true;
     desc.window.title = title;
 
     desc.window.width = 720U;

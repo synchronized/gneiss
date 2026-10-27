@@ -27,7 +27,7 @@ void close_pending_window(const char* assets) {
   gneiss::engine::task_scheduler scheduler({.workers = 1});
   runtime::application_configuration config;
   config.asset_root = assets;
-  config.use_granit_window = true;
+  config.enable_window = true;
   config.window.visible = false;
   config.window.title = "Gneiss Asset pending close test";
   unsigned updates = 0;

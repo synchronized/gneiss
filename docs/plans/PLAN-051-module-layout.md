@@ -286,3 +286,14 @@ backend/caors 仅保留加载器适配，不再充当资源类型与版本策略
 验收覆盖批次跨缓存外壳生命周期、跨批次共享、失败不发布和纹理服务集成。
 
 本批实现与验证见[缓存对象迁移记录](../records/2026-10-21-cpu-cache-objects.md)。
+
+## 2026-10-27 窗口服务封装
+
+将 granit_platform 改为 engine/platform/window_service.hpp/.cpp；PImpl 隐藏 Granit Window 类型，
+Application 持有服务并保持先渲染后窗口的关闭顺序。配置字段改为 enable_window，调用方同步迁移，
+不保留旧别名或创建替代实现框架。头文件可见性检查不提供 Granit 包含路径。
+Windows Clang Debug 完整编译通过，包括不提供 Granit 包含目录的服务头检查。
+7 项专项通过：runtime.async-input-startup、input_service、native-application-flow、
+native-application、cpp_input、core-boundary、core-boundary-negative。原生流程用例已修正旧的同步
+目录校验预期，验证实际异步读取返回 not_found，并保留初始化失败诊断覆盖。
+格式及 git diff --check 通过；未运行大场景、耗时 CI、浏览器或真实窗口交互。

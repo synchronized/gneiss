@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_PLATFORM_GRANIT_GRANIT_PLATFORM_HPP_
-#define GNEISS_PLATFORM_GRANIT_GRANIT_PLATFORM_HPP_
+#ifndef GNEISS_PLATFORM_WINDOW_SERVICE_HPP_
+#define GNEISS_PLATFORM_WINDOW_SERVICE_HPP_
 
 #include "engine/platform/native_window_info.hpp"
 
@@ -10,12 +10,20 @@
 #include "engine/core/result.hpp"
 #include "engine/platform/window_configuration.hpp"
 
-#include <granit/window.hpp>
+#include <memory>
 
 namespace gneiss::engine {
 
-class granit_platform final {
+/** 窗口与输入事件服务；所属线程创建、调用和销毁。原生窗口信息仅在服务存活期间借用。
+ * 构造分配私有实现，可能抛出 bad_alloc；运行操作通过 result 返回错误。 */
+class window_service final {
 public:
+  window_service();
+  ~window_service();
+  window_service(const window_service&) = delete;
+  window_service& operator=(const window_service&) = delete;
+  window_service(window_service&&) = delete;
+  window_service& operator=(window_service&&) = delete;
   [[nodiscard]] gneiss::engine::result initialize(const window_configuration& config) noexcept;
   [[nodiscard]] gneiss::engine::result poll(bool& out_should_close, bool& out_focus_lost) noexcept;
   [[nodiscard]] gneiss::engine::result poll_input(gneiss::engine::input_event& out_event) noexcept;
@@ -23,13 +31,12 @@ public:
   keyboard(gneiss::engine::keyboard_state& out_state) const noexcept;
   [[nodiscard]] gneiss::engine::result
   pointer(gneiss::engine::pointer_state& out_state) const noexcept;
-  [[nodiscard]] const native_window_info& native_window() const noexcept { return native_window_; }
-  [[nodiscard]] native_window_info& native_window() noexcept { return native_window_; }
+  [[nodiscard]] const native_window_info& native_window() const noexcept;
+  [[nodiscard]] native_window_info& native_window() noexcept;
 
 private:
-  granit::window_system window_system_;
-  granit::window window_;
-  native_window_info native_window_;
+  struct implementation;
+  std::unique_ptr<implementation> impl_;
 };
 
 } // namespace gneiss::engine

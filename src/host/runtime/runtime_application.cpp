@@ -484,7 +484,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
   desc.callbacks.update = [&context](const gneiss::engine::frame_time& time) {
     return update_runtime(&time, &context);
   };
-  desc.use_granit_window = true;
+  desc.enable_window = true;
   desc.window.title = project.name;
   desc.window.visible =
       !options.smoke && !options.hidden; // 自动冒烟创建真实隐藏窗口，避免抢占桌面。

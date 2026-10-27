@@ -70,7 +70,7 @@ int main() {
   smoke_context context;
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::runtime::application_configuration config;
-  config.use_granit_window = true;
+  config.enable_window = true;
   config.window = {.title = title, .width = 320, .height = 240};
   config.callbacks.update = [&](const native::frame_time&) {
     return submit_ui(*application, context);

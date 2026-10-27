@@ -134,7 +134,7 @@ int main() {
   value.assets = &worker;
 #endif
   gneiss::runtime::application_configuration config;
-  config.use_granit_window = true;
+  config.enable_window = true;
   config.window.width = 640U;
   config.window.height = 480U;
   config.window.title = "Gneiss 0.37 interaction probe";

@@ -235,8 +235,8 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   target_sources(
     gneiss_engine
     PRIVATE
-      engine/platform/granit/granit_platform.cpp
-      engine/platform/granit/granit_platform.hpp
+      engine/platform/window_service.cpp
+      engine/platform/window_service.hpp
       engine/platform/native_window_info.hpp
       engine/platform/window_configuration.hpp
       engine/function/render/render_service.cpp

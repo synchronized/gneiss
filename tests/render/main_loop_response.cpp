@@ -294,7 +294,7 @@ int main(int argc, char** argv) try {
   const auto title = "Gneiss Response " + std::to_string(GetCurrentProcessId());
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::runtime::application_configuration desc;
-  desc.use_granit_window = true;
+  desc.enable_window = true;
   desc.asset_root = asset_root;
   desc.window.visible = false;
   desc.window.high_dpi = false;

@@ -31,7 +31,7 @@ struct application_callbacks final {
 /** 原生创建配置；字符串仅在 initialize 期间借用。 */
 struct application_configuration final {
   application_callbacks callbacks;
-  bool use_granit_window = false;
+  bool enable_window = false;
   gneiss::engine::window_configuration window;
   std::string_view asset_root;
   /** 编辑器显式允许单文件保存；Runtime 默认只读，远程 Fetch 不支持写入。 */

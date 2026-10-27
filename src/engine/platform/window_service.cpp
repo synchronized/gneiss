@@ -1,16 +1,30 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/platform/granit/granit_platform.hpp"
+#include "engine/platform/window_service.hpp"
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/result.hpp"
 
+#include <granit/window.hpp>
 #include <granit/window/native.hpp>
 
 #include <cstring>
 #include <string_view>
 
 namespace gneiss::engine {
+struct window_service::implementation {
+  // 析构顺序：窗口先于窗口系统销毁；Application 先释放借用窗口的渲染服务。
+  granit::window_system window_system_;
+  granit::window window_;
+  native_window_info native_window_;
+};
+window_service::window_service() : impl_(std::make_unique<implementation>()) {}
+window_service::~window_service() = default;
+const native_window_info& window_service::native_window() const noexcept {
+  return impl_->native_window_;
+}
+native_window_info& window_service::native_window() noexcept { return impl_->native_window_; }
+
 namespace {
 
 gneiss::engine::result map_result(granit::result result) noexcept {
@@ -38,8 +52,8 @@ gneiss::engine::result map_result(granit::result result) noexcept {
 
 } // namespace
 
-gneiss::engine::result granit_platform::initialize(const window_configuration& config) noexcept {
-  auto result = window_system_.initialize();
+gneiss::engine::result window_service::initialize(const window_configuration& config) noexcept {
+  auto result = impl_->window_system_.initialize();
   if (result.failed()) {
     return map_result(result);
   }
@@ -47,48 +61,48 @@ gneiss::engine::result granit_platform::initialize(const window_configuration& c
   flags |= config.visible ? GRANIT_WINDOW_VISIBLE_BIT : 0U;
   flags |= config.resizable ? GRANIT_WINDOW_RESIZABLE_BIT : 0U;
   flags |= config.high_dpi ? GRANIT_WINDOW_HIGH_DPI_BIT : 0U;
-  result = window_.initialize(window_system_, {
-                                                  .title = config.title,
-                                                  .width = config.width,
-                                                  .height = config.height,
-                                                  .flags = static_cast<granit::window_flag>(flags),
-                                              });
+  result = impl_->window_.initialize(impl_->window_system_,
+                                     {
+                                         .title = config.title,
+                                         .width = config.width,
+                                         .height = config.height,
+                                         .flags = static_cast<granit::window_flag>(flags),
+                                     });
   if (result.failed()) {
     return map_result(result);
   }
-  native_window_.width = config.width;
-  native_window_.height = config.height;
+  impl_->native_window_.width = config.width;
+  impl_->native_window_.height = config.height;
   granit::window_native_win32 win32{};
-  result = granit::get_native(window_system_, window_.ref(), win32);
+  result = granit::get_native(impl_->window_system_, impl_->window_.ref(), win32);
   if (result.ok()) {
-    native_window_.display = win32.instance;
-    native_window_.window = win32.window;
-    native_window_.backend = native_window_backend::win32;
+    impl_->native_window_.display = win32.instance;
+    impl_->native_window_.window = win32.window;
+    impl_->native_window_.backend = native_window_backend::win32;
     return gneiss::engine::result::success;
   }
   granit::window_native_xcb xcb{};
-  result = granit::get_native(window_system_, window_.ref(), xcb);
+  result = granit::get_native(impl_->window_system_, impl_->window_.ref(), xcb);
   if (result.ok()) {
-    native_window_.display = xcb.connection;
-    native_window_.xcb_window = xcb.window;
-    native_window_.backend = native_window_backend::xcb;
+    impl_->native_window_.display = xcb.connection;
+    impl_->native_window_.xcb_window = xcb.window;
+    impl_->native_window_.backend = native_window_backend::xcb;
     return gneiss::engine::result::success;
   }
   granit::window_native_wayland wayland{};
-  result = granit::get_native(window_system_, window_.ref(), wayland);
+  result = granit::get_native(impl_->window_system_, impl_->window_.ref(), wayland);
   if (result.ok()) {
-    native_window_.display = wayland.display;
-    native_window_.window = wayland.surface;
-    native_window_.backend = native_window_backend::wayland;
+    impl_->native_window_.display = wayland.display;
+    impl_->native_window_.window = wayland.surface;
+    impl_->native_window_.backend = native_window_backend::wayland;
     return gneiss::engine::result::success;
   }
   return map_result(result);
 }
 
-gneiss::engine::result
-granit_platform::poll_input(gneiss::engine::input_event& out_event) noexcept {
+gneiss::engine::result window_service::poll_input(gneiss::engine::input_event& out_event) noexcept {
   granit::input_event source{};
-  const auto result = window_system_.poll(source);
+  const auto result = impl_->window_system_.poll(source);
   if (result.failed()) {
     return map_result(result);
   }
@@ -143,9 +157,9 @@ granit_platform::poll_input(gneiss::engine::input_event& out_event) noexcept {
 }
 
 gneiss::engine::result
-granit_platform::keyboard(gneiss::engine::keyboard_state& out_state) const noexcept {
+window_service::keyboard(gneiss::engine::keyboard_state& out_state) const noexcept {
   granit::keyboard_state source{};
-  const auto result = window_system_.keyboard(window_.ref(), source);
+  const auto result = impl_->window_system_.keyboard(impl_->window_.ref(), source);
   if (result == granit::result::invalid_handle) {
     out_state = {};
     return gneiss::engine::result::success;
@@ -162,9 +176,9 @@ granit_platform::keyboard(gneiss::engine::keyboard_state& out_state) const noexc
 }
 
 gneiss::engine::result
-granit_platform::pointer(gneiss::engine::pointer_state& out_state) const noexcept {
+window_service::pointer(gneiss::engine::pointer_state& out_state) const noexcept {
   granit::pointer_state source{};
-  const auto result = window_system_.pointer(window_.ref(), source);
+  const auto result = impl_->window_system_.pointer(impl_->window_.ref(), source);
   if (result == granit::result::invalid_handle) {
     out_state = {};
     return gneiss::engine::result::success;
@@ -180,38 +194,39 @@ granit_platform::pointer(gneiss::engine::pointer_state& out_state) const noexcep
   return gneiss::engine::result::success;
 }
 
-gneiss::engine::result granit_platform::poll(bool& out_should_close,
-                                             bool& out_focus_lost) noexcept {
+gneiss::engine::result window_service::poll(bool& out_should_close, bool& out_focus_lost) noexcept {
   out_should_close = false;
   out_focus_lost = false;
   // 每轮只泵送一次，再依次消费窗口和输入队列。
   const auto pump_result =
       gneiss::engine::measure(gneiss::engine::loop_stage::window_pump,
-                              [&]() noexcept { return window_system_.process_events(); });
+                              [&]() noexcept { return impl_->window_system_.process_events(); });
   if (pump_result.failed()) {
     return map_result(pump_result);
   }
   const gneiss::engine::loop_span events(gneiss::engine::loop_stage::window_events);
   granit::window_event event{};
-  auto result = window_system_.poll(event);
+  auto result = impl_->window_system_.poll(event);
   while (result == granit::result::success) {
-    if (event.type == granit::window_event_type::close_requested && event.window == window_.ref()) {
+    if (event.type == granit::window_event_type::close_requested &&
+        event.window == impl_->window_.ref()) {
       out_should_close = true;
     } else if (event.type == granit::window_event_type::focus_changed &&
-               event.window == window_.ref() && !event.data.focus.focused) {
+               event.window == impl_->window_.ref() && !event.data.focus.focused) {
       out_focus_lost = true;
-    } else if (event.type == granit::window_event_type::resized && event.window == window_.ref()) {
-      native_window_.width = event.data.resized.width;
-      native_window_.height = event.data.resized.height;
-      native_window_.needs_recreate = true;
+    } else if (event.type == granit::window_event_type::resized &&
+               event.window == impl_->window_.ref()) {
+      impl_->native_window_.width = event.data.resized.width;
+      impl_->native_window_.height = event.data.resized.height;
+      impl_->native_window_.needs_recreate = true;
     } else if (event.type == granit::window_event_type::scale_changed &&
-               event.window == window_.ref()) {
-      native_window_.width = event.data.scale.width;
-      native_window_.height = event.data.scale.height;
-      native_window_.needs_recreate = true;
+               event.window == impl_->window_.ref()) {
+      impl_->native_window_.width = event.data.scale.width;
+      impl_->native_window_.height = event.data.scale.height;
+      impl_->native_window_.needs_recreate = true;
     }
     event = {};
-    result = window_system_.poll(event);
+    result = impl_->window_system_.poll(event);
   }
   return result == granit::result::not_ready ? gneiss::engine::result::success : map_result(result);
 }

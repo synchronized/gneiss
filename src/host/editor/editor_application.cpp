@@ -2990,7 +2990,7 @@ int run_editor(int argc, char** argv) {
     return update_editor(&time, &state);
   };
   desc.callbacks.close_requested = [&state]() { return handle_close_requested(&state) != 0U; };
-  desc.use_granit_window = true;
+  desc.enable_window = true;
   desc.window.title = title;
 
   desc.window.width = 1280;

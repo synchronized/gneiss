@@ -171,7 +171,7 @@ int main(int argc, char** argv) try {
   std::shared_ptr<runtime::application> app;
   runtime::application_configuration desc;
   const auto root = state.root.string();
-  desc.use_granit_window = true;
+  desc.enable_window = true;
   desc.asset_root = root;
   desc.window.title = title;
   desc.window.high_dpi = false;
