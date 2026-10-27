@@ -195,6 +195,30 @@ using gneiss::editor::author_transaction;
          !std::filesystem::exists(root.parent_path() / "escaped.json");
 }
 
+bool test_single_source_save(const std::filesystem::path& root) {
+  const author_document_change create{
+      .path = "prefabs/single.prefab.json", .baseline = {}, .replacement = "first"};
+  if (!gneiss::editor::save_native_author_file(root, create).ok() ||
+      read_file(root / create.path) != "first")
+    return false;
+  if (gneiss::editor::save_native_author_file(root, create) !=
+      gneiss::engine::result::invalid_state)
+    return false;
+  const author_document_change replace{
+      .path = create.path, .baseline = "first", .replacement = "second"};
+  if (!gneiss::editor::save_native_author_file(root, replace).ok() ||
+      read_file(root / create.path) != "second")
+    return false;
+  if (gneiss::editor::save_native_author_file(root, replace) !=
+          gneiss::engine::result::invalid_state ||
+      read_file(root / create.path) != "second")
+    return false;
+  const author_document_change remove{.path = create.path, .baseline = "second", .replacement = {}};
+  return gneiss::editor::save_native_author_file(root, remove) ==
+             gneiss::engine::result::invalid_argument &&
+         read_file(root / create.path) == "second";
+}
+
 } // namespace
 
 int main() try {
@@ -209,7 +233,7 @@ int main() try {
   const auto second = test_native_commit_and_conflict(root);
   const auto third = test_native_recovery(root);
   const auto fourth = test_native_create_and_path_guard(root);
-  const auto passed = first && second && third && fourth;
+  const auto passed = first && second && third && fourth && test_single_source_save(root);
   std::filesystem::remove_all(root);
   return passed ? 0 : 1;
 } catch (...) {

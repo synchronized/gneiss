@@ -14,6 +14,12 @@
 
 namespace gneiss::editor {
 
+/** 单文件保存：校验旧内容、写临时文件再替换；不创建跨文件日志，不支持删除。
+ * 同步过渡入口，仅用于显式保存来源；普通编辑及撤销不得调用。 */
+[[nodiscard]] gneiss::engine::result
+save_native_author_file(const std::filesystem::path& asset_root,
+                        const author_document_change& change) noexcept;
+
 struct native_author_transaction_options final {
   /** 仅供故障恢复测试：替换指定数量目标后模拟进程中断并保留恢复目录。 */
   std::size_t interrupt_after_replacements = std::numeric_limits<std::size_t>::max();

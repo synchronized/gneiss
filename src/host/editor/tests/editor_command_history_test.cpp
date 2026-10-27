@@ -203,6 +203,9 @@ int main() {
     return 12;
   }
 
+  if (history.clear(false) != gneiss::engine::result::success || !history.is_dirty() ||
+      history.can_undo() || history.can_redo())
+    return 13;
   history.clear();
   return history.can_undo() || history.can_redo() || history.is_dirty() ? 9 : 0;
 }

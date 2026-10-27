@@ -94,7 +94,7 @@ public:
   [[nodiscard]] gneiss::engine::result undo() noexcept;
   [[nodiscard]] gneiss::engine::result redo() noexcept;
   /** 在途操作完成清理前拒绝清空或改变保存点。 */
-  gneiss::engine::result clear() noexcept;
+  gneiss::engine::result clear(bool saved = true) noexcept;
   gneiss::engine::result mark_saved() noexcept {
     if (is_pending()) {
       return gneiss::engine::result::not_ready;

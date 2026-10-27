@@ -236,14 +236,14 @@ void editor_command_history::cancel_pending() noexcept {
   }
 }
 
-gneiss::engine::result editor_command_history::clear() noexcept {
+gneiss::engine::result editor_command_history::clear(bool saved) noexcept {
   if (is_pending()) {
     return gneiss::engine::result::not_ready;
   }
   entries_.clear();
   cursor_ = 0U;
   current_state_ = allocate_state();
-  saved_state_ = current_state_;
+  saved_state_ = saved ? current_state_ : 0U;
   return gneiss::engine::result::success;
 }
 

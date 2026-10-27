@@ -323,6 +323,43 @@ apply_journal(const std::filesystem::path& journal, const std::vector<journal_en
 
 } // namespace
 
+gneiss::engine::result save_native_author_file(const std::filesystem::path& asset_root,
+                                               const author_document_change& change) noexcept try {
+  if (!change.replacement)
+    return gneiss::engine::result::invalid_argument;
+  std::error_code error;
+  const auto root = std::filesystem::canonical(asset_root, error);
+  if (error)
+    return gneiss::engine::result::io;
+  std::vector<journal_entry> entries;
+  const auto checked = validate_changes(root, std::span{&change, 1U}, entries);
+  if (checked.failed())
+    return checked;
+  const auto& destination = entries.front().destination;
+  auto temporary = destination;
+  temporary += ".gneiss-save-" +
+               std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".tmp";
+  if (!write_file(temporary, *change.replacement)) {
+    std::filesystem::remove(temporary, error);
+    return gneiss::engine::result::io;
+  }
+  auto status = gneiss::engine::result::success;
+  if (change.baseline) {
+    status = replace_file(temporary, destination);
+  } else {
+    // 新建不得覆盖另一操作刚创建的目标；链接成功后移除临时名称。
+    std::filesystem::create_hard_link(temporary, destination, error);
+    if (error)
+      status = gneiss::engine::result::io;
+  }
+  std::filesystem::remove(temporary, error);
+  return status;
+} catch (const std::bad_alloc&) {
+  return gneiss::engine::result::out_of_memory;
+} catch (...) {
+  return gneiss::engine::result::io;
+}
+
 gneiss::engine::result
 recover_native_author_transactions(const std::filesystem::path& asset_root) noexcept {
   try {

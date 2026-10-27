@@ -96,11 +96,6 @@ struct author_scene_document final {
   std::string content;
 };
 
-struct author_document_operation final {
-  const std::vector<gneiss::editor::author_document_change>* changes = nullptr;
-  const std::vector<gneiss::editor::author_document_change>* rollback = nullptr;
-};
-
 struct editor_state {
   // 宿主拥有对象；只在其 run 回调期间借用。
   gneiss::runtime::application* application{};
@@ -329,9 +324,6 @@ void synchronize_history_dirty(editor_state& state) noexcept {
 gneiss::engine::result undo_editor_command(editor_state& state) noexcept {
   const auto result = state.editing.history().undo();
   if (result == gneiss::engine::result::success) {
-    if (!state.editing.document().is_dirty()) {
-      state.editing.history().mark_saved();
-    }
     synchronize_history_dirty(state);
   }
   return result;
@@ -340,9 +332,6 @@ gneiss::engine::result undo_editor_command(editor_state& state) noexcept {
 gneiss::engine::result redo_editor_command(editor_state& state) noexcept {
   const auto result = state.editing.history().redo();
   if (result == gneiss::engine::result::success) {
-    if (!state.editing.document().is_dirty()) {
-      state.editing.history().mark_saved();
-    }
     synchronize_history_dirty(state);
   }
   return result;
@@ -424,107 +413,91 @@ void restore_author_selection(editor_state& state, const author_selection& selec
 }
 
 [[nodiscard]] gneiss::engine::result
-apply_author_documents(editor_state& state, author_document_operation documents,
-                       const author_selection& selection,
-                       const gneiss::editor::scene_document_snapshot& snapshot) noexcept {
-  if (documents.changes == nullptr || documents.rollback == nullptr) {
-    return gneiss::engine::result::invalid_argument;
+apply_author_snapshot(editor_state& state, const author_selection& selection,
+                      const gneiss::editor::scene_document_snapshot& snapshot) noexcept {
+  const auto status = gneiss::editor::restore_scene_document(*state.application,
+                                                             state.editing.document(), snapshot);
+  if (status.ok()) {
+    state.editing.document().mark_dirty();
+    restore_author_selection(state, selection);
   }
-  try {
-    auto operation =
-        gneiss::editor::commit_native_author_transaction(state.asset_root, *documents.changes);
-    if (operation == gneiss::engine::result::success) {
-      operation = gneiss::editor::restore_scene_document(*state.application,
-                                                         state.editing.document(), snapshot);
-      if (operation.failed())
-        (void)gneiss::editor::commit_native_author_transaction(state.asset_root,
-                                                               *documents.rollback);
-    }
-    if (operation == gneiss::engine::result::success) {
-      restore_author_selection(state, selection);
-    }
-    return operation;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::result::internal;
-  }
+  return status;
 }
 
 [[nodiscard]] gneiss::engine::result
 record_author_documents(editor_state& state, std::string label,
                         std::vector<gneiss::editor::author_document_change> changes,
                         const author_selection& undo_selection,
-                        const author_selection& redo_selection) {
-  std::vector<gneiss::editor::author_document_change> inverse;
-  auto operation = gneiss::editor::invert_author_document_changes(changes, inverse);
-  if (operation != gneiss::engine::result::success) {
-    return operation;
-  }
-  try {
-    auto forward =
-        std::make_shared<std::vector<gneiss::editor::author_document_change>>(std::move(changes));
-    auto backward =
-        std::make_shared<std::vector<gneiss::editor::author_document_change>>(std::move(inverse));
-    auto undo_target = std::make_shared<author_selection>(undo_selection);
-    auto redo_target = std::make_shared<author_selection>(redo_selection);
-    auto before = std::make_shared<gneiss::editor::scene_document_snapshot>();
-    auto after = std::make_shared<gneiss::editor::scene_document_snapshot>();
-    operation = gneiss::editor::capture_scene_document(*state.application, state.editing.document(),
-                                                       *before);
-    if (operation.ok())
-      operation = gneiss::editor::prepare_scene_document(*before, *forward, *after);
-    if (operation.failed())
-      return operation;
-    operation = apply_author_documents(
-        state, {.changes = forward.get(), .rollback = backward.get()}, redo_selection, *after);
-    if (operation != gneiss::engine::result::success) {
-      return operation;
+                        const author_selection& redo_selection, bool save_source = false,
+                        bool history_boundary = false) {
+  if (state.editing.history().is_pending())
+    return gneiss::engine::result::not_ready;
+  auto before = std::make_shared<gneiss::editor::scene_document_snapshot>();
+  auto after = std::make_shared<gneiss::editor::scene_document_snapshot>();
+  auto status =
+      gneiss::editor::capture_scene_document(*state.application, state.editing.document(), *before);
+  if (status.ok())
+    status = gneiss::editor::prepare_scene_document(*before, changes, *after);
+  if (status.failed())
+    return status;
+  if (save_source) {
+    // 规划器只允许一个来源；父场景变更仅用于准备内存快照。
+    const gneiss::editor::author_document_change* source = nullptr;
+    for (const auto& change : changes) {
+      if ("asset://" + change.path == before->uri)
+        continue;
+      if (source || !change.path.ends_with(".prefab.json"))
+        return gneiss::engine::result::invalid_argument;
+      source = &change;
     }
-    operation = state.editing.history().record(
-        {.label = std::move(label),
-         .undo =
-             [&state, forward, backward, undo_target, before] {
-               return apply_author_documents(state,
-                                             {.changes = backward.get(), .rollback = forward.get()},
-                                             *undo_target, *before);
-             },
-         .redo =
-             [&state, forward, backward, redo_target, after] {
-               return apply_author_documents(state,
-                                             {.changes = forward.get(), .rollback = backward.get()},
-                                             *redo_target, *after);
-             },
-         .merge_key = {}});
-    if (operation != gneiss::engine::result::success) {
-      (void)apply_author_documents(state, {.changes = backward.get(), .rollback = forward.get()},
-                                   undo_selection, *before);
-      return operation;
-    }
-    state.editing.history().mark_saved();
-    return gneiss::engine::result::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::result::internal;
+    if (!source)
+      return gneiss::engine::result::invalid_argument;
+    status = gneiss::editor::save_native_author_file(state.asset_root, *source);
+    if (status.failed())
+      return status;
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+    const auto source_uri = "asset://" + source->path;
+    (void)state.author_assets.acknowledge(source_uri, *source->replacement);
+    (void)state.runtime.publish_asset_revision(std::span<const std::string>(&source_uri, 1U));
+#endif
   }
+  if (history_boundary) {
+    // 共享来源已经保存；旧快照不能再通过普通撤销恢复旧来源投影。
+    (void)state.editing.history().clear(false);
+    state.editing.document().mark_dirty();
+  }
+  status = apply_author_snapshot(state, redo_selection, *after);
+  if (status.failed() || history_boundary)
+    return status;
+  status = state.editing.history().record(
+      {.label = std::move(label),
+       .undo = [&state, undo_selection,
+                before] { return apply_author_snapshot(state, undo_selection, *before); },
+       .redo = [&state, redo_selection,
+                after] { return apply_author_snapshot(state, redo_selection, *after); },
+       .merge_key = {}});
+  if (status.failed()) {
+    (void)apply_author_snapshot(state, undo_selection, *before);
+    synchronize_history_dirty(state);
+  }
+  return status;
 }
 
 [[nodiscard]] gneiss::engine::result current_author_scene(editor_state& state,
                                                           author_scene_document& output) noexcept {
-  author_asset_document document;
-  const auto operation = read_author_asset(state, state.editing.document().uri(), document);
-  output.relative_path = std::move(document.relative_path);
-  output.content = std::move(document.content);
-  return operation;
+  const auto& uri = state.editing.document().uri();
+  if (!std::string_view(uri).starts_with("asset://"))
+    return gneiss::engine::result::invalid_state;
+  output.relative_path = std::string_view(uri).substr(8);
+  return state.application->scenes()->serialize(state.editing.document().scene_handle(),
+                                                output.content);
 }
 
 [[nodiscard]] gneiss::engine::result apply_selected_prefab(editor_state& state,
                                                            std::string_view instance_uuid,
                                                            std::string_view source_uuid) {
   const auto* selected = state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-  if (selected == nullptr || selected->override_flags == 0U ||
-      state.editing.document().is_dirty() || state.runtime.is_busy()) {
+  if (selected == nullptr || selected->override_flags == 0U || state.runtime.is_busy()) {
     return gneiss::engine::result::invalid_state;
   }
   author_scene_document scene;
@@ -547,7 +520,7 @@ record_author_documents(editor_state& state, std::string label,
                                      .primary_uuid = std::string{instance_uuid},
                                      .source_uuid = std::string{source_uuid}};
     operation = record_author_documents(state, "应用 Prefab 实例覆盖", std::move(plan.changes),
-                                        selection, selection);
+                                        selection, selection, true, true);
   }
   return operation;
 }
@@ -555,7 +528,7 @@ record_author_documents(editor_state& state, std::string label,
 [[nodiscard]] gneiss::engine::result unpack_selected_prefab(editor_state& state,
                                                             std::string_view instance_uuid) {
   const auto* root = state.editing.document().find_prefab_root(instance_uuid);
-  if (root == nullptr || state.editing.document().is_dirty() || state.runtime.is_busy()) {
+  if (root == nullptr || state.runtime.is_busy()) {
     return gneiss::engine::result::invalid_state;
   }
   const auto prefab_uri = root->prefab_uri;
@@ -615,8 +588,8 @@ record_author_documents(editor_state& state, std::string label,
 [[nodiscard]] gneiss::engine::result create_prefab_from_selected(editor_state& state,
                                                                  std::string_view root_uuid,
                                                                  std::string_view prefab_path) {
-  if (state.editing.document().find_node(root_uuid) == nullptr ||
-      state.editing.document().is_dirty() || state.runtime.is_busy() || prefab_path.empty()) {
+  if (state.editing.document().find_node(root_uuid) == nullptr || state.runtime.is_busy() ||
+      prefab_path.empty()) {
     return gneiss::engine::result::invalid_state;
   }
   author_scene_document scene;
@@ -649,7 +622,8 @@ record_author_documents(editor_state& state, std::string label,
                                          .source_uuid = {}},
                                         {.kind = author_selection_kind::prefab_root,
                                          .primary_uuid = instance_uuid,
-                                         .source_uuid = {}});
+                                         .source_uuid = {}},
+                                        true);
   }
   return operation;
 }
@@ -2171,7 +2145,7 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
               state.editing.history(), prefab_selected->node);
         }
         ImGui::SameLine();
-        ImGui::BeginDisabled(state.editing.document().is_dirty() || state.runtime.is_busy());
+        ImGui::BeginDisabled(state.runtime.is_busy());
         if (ImGui::Button("Unpack Prefab...")) {
           state.pending_prefab_author_action = prefab_author_action::unpack;
           state.pending_prefab_instance_uuid = prefab_selected->instance_uuid;
@@ -2182,7 +2156,7 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
           .nodes = state.editing.document().nodes(),
           .prefab_nodes = state.editing.document().prefab_nodes(),
           .selection = state.editing.document().selection(),
-          .can_create_prefab = !state.editing.document().is_dirty() && !state.runtime.is_busy(),
+          .can_create_prefab = !state.runtime.is_busy(),
       });
       using tree_action = gneiss::editor::author_hierarchy_action;
       switch (tree_request.action) {
@@ -2225,13 +2199,16 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
                                  ImGuiWindowFlags_AlwaysAutoResize)) {
         switch (state.pending_prefab_author_action) {
         case prefab_author_action::create:
-          ImGui::TextUnformatted("Create the selected subtree as a Prefab source.");
+          ImGui::TextUnformatted(
+              "Save a Prefab source and replace this subtree in the unsaved scene.");
+          ImGui::TextDisabled("Undo restores the subtree but keeps the saved Prefab file.");
           ImGui::InputText("Asset path", state.prefab_path_buffer.data(),
                            state.prefab_path_buffer.size());
           break;
         case prefab_author_action::apply:
           ImGui::TextUnformatted("Apply this instance's Transform overrides to the shared source?");
-          ImGui::TextDisabled("All instances using the source will be reloaded.");
+          ImGui::TextDisabled(
+              "Saves the shared source and clears undo history. The scene remains unsaved.");
           break;
         case prefab_author_action::unpack:
           ImGui::TextUnformatted("Unpack this instance into ordinary scene nodes?");
@@ -2408,8 +2385,7 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
       ImGui::Text("Prefab: %s", prefab->prefab_uri.c_str());
       ImGui::Text("Entity: %llu", static_cast<unsigned long long>(prefab->entity.get()));
       if (!prefab->is_instance_root) {
-        ImGui::BeginDisabled(prefab->override_flags == 0U || state.editing.document().is_dirty() ||
-                             state.runtime.is_busy());
+        ImGui::BeginDisabled(prefab->override_flags == 0U || state.runtime.is_busy());
         if (ImGui::Button("Apply Overrides to Prefab...")) {
           state.pending_prefab_author_action = prefab_author_action::apply;
           state.pending_prefab_instance_uuid = prefab->instance_uuid;
@@ -2867,11 +2843,6 @@ int run_editor(int argc, char** argv) {
                    options.project.c_str());
       return 65;
     }
-  }
-  const auto recovery = gneiss::editor::recover_native_author_transactions(project.asset_root);
-  if (recovery != gneiss::engine::result::success) {
-    report_startup_failure("作者事务恢复", recovery, path_utf8(project.asset_root));
-    return 66;
   }
   const auto asset_root_text = path_utf8(project.asset_root);
   if (asset_root_text.size() > std::numeric_limits<std::uint32_t>::max()) {
