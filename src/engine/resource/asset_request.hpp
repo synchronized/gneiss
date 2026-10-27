@@ -4,7 +4,7 @@
 
 #pragma once
 #include "asset_ref.hpp"
-#include "engine/core/meta/serialization.hpp"
+#include "engine/core/meta/serialization_types.hpp"
 #include "engine/core/result.hpp"
 #include <memory>
 #include <mutex>

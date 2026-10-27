@@ -129,3 +129,12 @@ Platform 使用 `gneiss::engine::window_service` 表达窗口、事件和键鼠�
 `granit_platform`。通过 PImpl 将 Granit 类型限制在实现文件，Runtime Application 负责服务装配
 和主循环，不合并窗口事件转换到 Runtime。不新增第二个 Application、虚基类或后端工厂。
 配置使用用途名称 `enable_window`；原生窗口信息保留为内部渲染桥接，先释放渲染再销毁窗口。
+
+## 资源目录补充（2026-10-27）
+
+资源目录按 material、texture、mesh、scene 和 input 聚合 CPU 数据与编解码实现，
+通用管理器、引用、请求、缓存、身份和内置注册入口保留在 resource 根目录。
+JSON 公共实现细节放入 detail，不新增加载器框架或领域命名空间。
+渲染批次调度和渲染资源延迟销毁队列归 function/render；资源解码不得反向依赖 Render。
+纹理 CPU 数据与采样值独立于具体文件格式，格式解码器依赖数据定义。Granit 纹理容器适配
+仍封装在纹理解码实现文件中，描述头不暴露后端类型。文件格式与所有权语义保持不变。

@@ -70,20 +70,23 @@ endif()
 if(NOT GNEISS_TASK_THREADS OR EMSCRIPTEN)
   return()
 endif()
-# 材质文档验证只链接 CPU 准备实现，不链接 Engine 或创建渲染资源。
+# 材质描述与保活契约只链接 codec 和 CPU 准备实现，不链接 Engine 或创建渲染资源。
 add_executable(gneiss_asset_material_test material_description_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/core/guid.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/asset_preparation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/mesh_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_ktx2.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/png_decoder.cpp")
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/material/material_codec.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_asset_preparation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp")
+
 target_compile_definitions(gneiss_asset_material_test PRIVATE GNEISS_ASSET_LIBUV GNEISS_BUILDING_LIBRARY)
 target_include_directories(gneiss_asset_material_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_asset_material_test PRIVATE
-  gneiss_tasks gneiss_io_uv gneiss_core_values gneiss_yyjson gneiss_png granit::granit)
+  gneiss_core_values gneiss_yyjson gneiss_png granit::granit)
 gneiss_target_compile_warnings(gneiss_asset_material_test)
 gneiss_target_output_directories(gneiss_asset_material_test)
 add_test(NAME gneiss.assets.material COMMAND gneiss_asset_material_test)

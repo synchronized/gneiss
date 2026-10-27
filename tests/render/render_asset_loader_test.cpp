@@ -10,11 +10,11 @@
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_manager.hpp"
-#include "engine/resource/cache/resource_cache.hpp"
-#include "engine/resource/loaders/material_serialization.hpp"
-#include "engine/resource/loaders/mesh_binary.hpp"
-#include "engine/resource/loaders/texture_binary.hpp"
-#include "engine/resource/loaders/texture_ktx2.hpp"
+#include "engine/resource/material/material_codec.hpp"
+#include "engine/resource/mesh/mesh_binary.hpp"
+#include "engine/resource/resource_cache.hpp"
+#include "engine/resource/texture/texture_binary.hpp"
+#include "engine/resource/texture/texture_ktx2.hpp"
 
 #if defined(GNEISS_HAS_GRANIT_PLATFORM)
 #include <granit/asset_tools/texture_builder.hpp>

@@ -9,9 +9,8 @@
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_manager.hpp"
-#include "engine/resource/loaders/scene_serialization.hpp"
-
-#include "../support/memory_file_fixture.hpp"
+#include "engine/resource/scene/prefab_codec.hpp"
+#include "engine/resource/scene/scene_codec.hpp"
 
 #include <cstdio>
 #include <map>

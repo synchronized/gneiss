@@ -7,8 +7,9 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_manager.hpp"
-#include "engine/resource/resource_registry.hpp"
-#include "engine/resource/types/action_map.hpp"
+#include "engine/resource/builtin_resource_registration.hpp"
+#include "engine/resource/input/action_map.hpp"
+#include "engine/resource/input/action_map_codec.hpp"
 #include <cstring>
 
 namespace {

@@ -8,9 +8,10 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_tree.hpp"
 #include "engine/resource/asset_manager.hpp"
-#include "engine/resource/cache/resource_cache.hpp"
-#include "engine/resource/resource_registry.hpp"
-#include "engine/resource/types/prefab_description.hpp"
+#include "engine/resource/builtin_resource_registration.hpp"
+#include "engine/resource/resource_cache.hpp"
+#include "engine/resource/scene/prefab_codec.hpp"
+#include "engine/resource/scene/prefab_description.hpp"
 
 #include <cstddef>
 #include <memory>

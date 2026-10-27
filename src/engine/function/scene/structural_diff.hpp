@@ -5,7 +5,7 @@
 #define GNEISS_SCENE_STRUCTURAL_DIFF_HPP_
 
 #include "engine/core/result.hpp"
-#include "engine/resource/types/scene_description.hpp"
+#include "engine/resource/scene/scene_description.hpp"
 
 #include <cstddef>
 #include <cstdint>

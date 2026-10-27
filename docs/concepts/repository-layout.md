@@ -102,7 +102,7 @@ assetc CLI 实现位于 `src/host/assetc/`，入口位于 `apps/assetc/`，工�
 | Scene | `src/engine/function/scene/` | Scene Tree、节点映射与层级 Transform | 已存在 |
 | Application | `src/runtime/` | 顶层生命周期、初始化回滚和主循环编排 | 已存在 |
 | Platform | `src/engine/platform/` | 窗口、IO、IPC、子进程和动态库等平台能力的隔离 | 已存在 |
-| Asset | `src/engine/resource/` | VFS、格式、CPU 解码与缓存 | 已迁移 |
+| Asset | `src/engine/resource/` | 格式、CPU 解码与资产缓存 | 已迁移 |
 | Render | `src/engine/function/render/` | 渲染输入快照、资源 RID、帧包与执行器 | 已存在 |
 | Input | `src/engine/function/input/` | 输入状态与动作映射 | 已迁移 |
 | Game | `src/runtime/game/` | Game Module 上下文与宿主桥接 | 已迁移 |
@@ -117,7 +117,7 @@ Platform 的窗口服务位于 `src/engine/platform/window_service.hpp/.cpp`，G
 Application 的 C 入口将版本化描述转换为内部 `application_configuration`，Platform 只接收
 `window_configuration`。用户回调仍是实际 ABI 边界，不将回调上下文复制成另一套状态。渲染快照的值类型位于 `src/engine/function/render/render_snapshot.hpp`，
 World 的提取函数位于 `src/engine/function/world/render_snapshot.hpp`，Render 不反向包含 World/Scene/Application。
-`src/engine/resource/loaders/png_decoder.hpp` 提供 CPU 解码，Cook 与运行时加载共用；解码不依赖渲染服务。
+`src/engine/resource/texture/png_decoder.hpp` 提供 CPU 解码，Cook 与运行时加载共用；解码不依赖渲染服务。
 
 Scene 的节点创建使用内部借用参数，普通节点与 Prefab 查询返回内部视图。公共查询结构的版本写回
 归 `src/engine/api/scene_query_conversion.hpp`；核心查询不依据 ABI 尺寸分支。字符串寿命仍由 Scene 管理。
@@ -130,7 +130,8 @@ Render 的同步资源创建接收内部 `mesh_view`、`texture_view` 与 `mater
 继续负责数值、拓扑、RID 与预算校验，成功后拥有数据副本。资产加载器不生成版本化 C 描述。
 
 `render_asset_loader` 暂仍位于 Render，它连接 Asset 缓存租约与 Render 资源发布，并不只是格式
-解码器。CPU 准备和解析实现位于 `src/engine/resource/loaders/asset_preparation.hpp/.cpp`，
+解码器。CPU 解析按资源类型位于 `src/engine/resource/`，渲染批次调度位于
+`src/engine/function/render/render_asset_preparation.hpp/.cpp`，
 Render 的准备适配只传入发布资源的预算。三类准备数据均使用 Asset 值类型，材质依赖仅用 URI，
 发布边界绑定纹理 RID 并移动纹理数组；上传弱引用仍由 Render 管理。Asset 不包含 Render 实现，
 独立准备测试不链接 Engine、缓存或资源服务。其余迁移见 [0.45 实施计划](../plans/DEV-045-cpp-boundaries.md)。
@@ -292,11 +293,12 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 
 ## CPU 类型与缓存
 
-- `resource/types/material_source.hpp`：纯材质来源描述。
-- `resource/types/material_document.hpp`：纯 CPU 材质描述，加载摘要归准备任务；Mesh 直接共享 `mesh_data`。
-- `resource/loaders/material_document_decoder.hpp`：消费现有字节的解析函数。
-- `resource/loaders/asset_loader.hpp`：显式类型注册与纯 CPU 解码契约，不要求字段反射。
-- `resource/vfs/asset_source.*`：有界分步读取、异步打开/关闭与明确的同步回退。
+- `resource/asset_decoder.hpp`：消费内存字节的类型解码契约，不要求字段反射。
+- `resource/material/material_description.hpp`：可序列化的材质 CPU 描述。
+- `resource/material/material_codec.hpp`：材质 JSON 编解码，失败保持原输出。
+- `resource/mesh/mesh_data.hpp`：CPU 网格数组；描述与二进制解码位于同目录。
+- `resource/texture/texture_data.hpp`：CPU mip、容器负载及解码能力快照，不依赖 KTX2 codec。
+- `engine/platform/files/`：异步文件读写与平台后端。
 
 准备结果直接拥有材质参数、纹理 URI 和网格数组。上传准备把网格数组移动到只读共享对象，
 由渲染资源和仍在使用它的帧保活；最后一个引用释放时销毁。
@@ -306,3 +308,22 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 统一强引用位于 `resource/asset_ref.hpp`。Prefab 引用直接访问描述并保活缓存拥有者；
 渲染资产使用同一种缓存条目引用，专用 Mesh/Material/Texture lease 类已删除。
 身份、回收、重载和线程规则见[资产引用契约](../reference/assets.md#缓存与生命周期)。
+
+## 资源目录
+
+`engine/resource` 根目录管理通用资产请求、强引用、身份、URI、缓存和解码入口。
+`builtin_resource_registration.hpp/.cpp` 注册内置资源的反射身份与 codec，不是 URI 资源索引。
+
+| 子目录 | 职责 |
+| --- | --- |
+| material | 材质描述、参数、状态及 JSON codec |
+| texture | 纹理描述、采样值、CPU 数据、PNG/KTX2/运行容器解码 |
+| mesh | 网格 CPU 数据、描述解码与二进制格式 |
+| scene | 场景和 Prefab 描述、独立 codec、覆写值 |
+| input | 输入映射描述、语义校验与 codec |
+| detail | 仅供资源实现复用的 JSON 解析辅助 |
+
+描述头定义数据，codec 负责解析和序列化，`asset_manager` 负责异步读取和共享请求。
+资源命名空间仍为 `gneiss::engine`；目录不增加命名空间层次。
+`function/render/render_asset_preparation` 负责已读输入的渲染批次组织，
+`function/render/resource_retirement_queue` 负责渲染资源延迟销毁。CPU 解码不调用渲染服务。

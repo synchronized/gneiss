@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/meta/serialization.hpp"
-#include "engine/resource/loaders/material_serialization.hpp"
+#include "engine/resource/material/material_codec.hpp"
 #include <limits>
 #include <stdexcept>
 namespace e = gneiss::engine;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/resource/loaders/asset_preparation.hpp"
-#include "engine/resource/types/material_description.hpp"
+#include "engine/function/render/render_asset_preparation.hpp"
+#include "engine/resource/material/material_description.hpp"
 #include <cstring>
 #include <limits>
 #include <stdexcept>

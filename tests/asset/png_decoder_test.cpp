@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
-#include "engine/resource/loaders/png_decoder.hpp"
+#include "engine/resource/texture/png_decoder.hpp"
 
 #include <array>
 #include <cstddef>

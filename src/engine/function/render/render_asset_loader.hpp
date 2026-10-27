@@ -8,7 +8,7 @@
 #include "engine/function/render/render_asset_preparation.hpp"
 #include "engine/function/render/render_resource.hpp"
 #include "engine/function/render/render_resource_data.hpp"
-#include "engine/resource/cache/resource_cache.hpp"
+#include "engine/resource/resource_cache.hpp"
 
 #include "engine/core/result.hpp"
 

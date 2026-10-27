@@ -13,10 +13,8 @@
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include "engine/resource/asset_manager.hpp"
-#include "engine/resource/cache/resource_cache.hpp"
-#include "engine/resource/types/prefab_description.hpp"
-
-#include "engine/core/rid.hpp"
+#include "engine/resource/resource_cache.hpp"
+#include "engine/resource/scene/prefab_description.hpp"
 
 #include <array>
 #include <cstddef>

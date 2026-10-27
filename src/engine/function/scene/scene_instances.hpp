@@ -12,12 +12,10 @@
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
 #include "engine/function/scene/scene_query.hpp"
-#include "engine/resource/types/prefab_description.hpp"
-#include "engine/resource/types/scene_description.hpp"
+#include "engine/resource/scene/prefab_description.hpp"
+#include "engine/resource/scene/scene_description.hpp"
 
 #include "engine/function/world/world.hpp"
-
-#include "engine/core/scene_types.hpp"
 
 #include <map>
 #include <memory>

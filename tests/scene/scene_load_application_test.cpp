@@ -4,8 +4,8 @@
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/resource/loaders/mesh_binary.hpp"
-#include "engine/resource/loaders/texture_ktx2.hpp"
+#include "engine/resource/mesh/mesh_binary.hpp"
+#include "engine/resource/texture/texture_ktx2.hpp"
 #include "runtime/application.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"

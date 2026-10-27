@@ -6,7 +6,7 @@
 #include "engine/core/meta/serialization.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/resource/resource_registry.hpp"
+#include "engine/resource/builtin_resource_registration.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"

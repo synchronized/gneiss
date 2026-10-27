@@ -297,3 +297,15 @@ Windows Clang Debug 完整编译通过，包括不提供 Granit 包含目录的�
 native-application、cpp_input、core-boundary、core-boundary-negative。原生流程用例已修正旧的同步
 目录校验预期，验证实际异步读取返回 not_found，并保留初始化失败诊断覆盖。
 格式及 git diff --check 通过；未运行大场景、耗时 CI、浏览器或真实窗口交互。
+
+## 资源按用途整理（2026-10-27）
+
+本轮范围：以 material、texture、mesh、scene、input 替代 types/loaders 分类，通用设施归根目录。
+渲染批次与销毁队列归 Render，CPU 数据不依赖格式解码头；不调整加载、缓存或上传协议。
+
+- [x] 移动文件、更新消费者包含路径和构建清单，不保留转发头。
+- [x] 拆分混合准备实现，合并薄编解码包装，分开 Scene 与 Prefab codec。
+- [x] 将纹理 mip 与采样类型归纹理，内置类型注册集中到专用入口。
+- [x] Windows Clang Debug 完整编译、16 项相关小测试及依赖边界反例检查通过；未运行大场景及远端 CI。
+
+当前文件职责见[源码布局](../concepts/repository-layout.md#资源目录)。

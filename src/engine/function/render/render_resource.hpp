@@ -5,10 +5,10 @@
 
 #include "engine/core/rid.hpp"
 #include "engine/resource/asset_ref.hpp"
-#include "engine/resource/cache/resource_cache.hpp"
-#include "engine/resource/types/material_parameters.hpp"
+#include "engine/resource/material/material_parameters.hpp"
+#include "engine/resource/resource_cache.hpp"
 
-#include "engine/resource/types/texture_types.hpp"
+#include "engine/resource/texture/texture_types.hpp"
 #include <array>
 #include <cstdint>
 #include <optional>

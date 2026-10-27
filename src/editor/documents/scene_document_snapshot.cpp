@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/scene_document_snapshot.hpp"
 #include "engine/core/meta/serialization.hpp"
-#include "engine/resource/resource_registry.hpp"
+#include "engine/resource/builtin_resource_registration.hpp"
 #include "runtime/application.hpp"
 namespace gneiss::editor {
 engine::result capture_scene_document(runtime::application& app, const scene_document& document,

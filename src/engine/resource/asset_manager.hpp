@@ -3,12 +3,12 @@
 #ifndef GNEISS_ENGINE_ASSET_MANAGER_HPP_
 #define GNEISS_ENGINE_ASSET_MANAGER_HPP_
 
+#include "asset_decoder.hpp"
 #include "asset_request.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
-#include "engine/resource/cache/resource_cache.hpp"
-#include "engine/resource/types/action_map.hpp"
-#include "loaders/asset_decoder.hpp"
+#include "engine/resource/input/action_map.hpp"
+#include "engine/resource/resource_cache.hpp"
 #include <memory>
 #include <utility>
 

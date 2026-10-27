@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/core/result.hpp"
 #include "engine/resource/asset_request.hpp"
-#include "engine/resource/types/action_map.hpp"
+#include "engine/resource/input/action_map.hpp"
 namespace gneiss::engine {
 class input_service;
 }

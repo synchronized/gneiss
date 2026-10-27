@@ -6,7 +6,7 @@
 
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/result.hpp"
-#include "engine/resource/types/prefab_property_data.hpp"
+#include "engine/resource/scene/prefab_property_data.hpp"
 
 #include <array>
 #include <cstdint>

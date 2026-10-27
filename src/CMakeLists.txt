@@ -27,7 +27,7 @@ target_sources(
   gneiss_engine
   PRIVATE
     engine/resource/asset_ref.hpp
-    engine/resource/resource_retirement_queue.hpp
+    engine/function/render/resource_retirement_queue.hpp
     engine/resource/asset_manager.hpp
     engine/resource/asset_manager.cpp
     engine/platform/files/file_read_stream.cpp
@@ -49,17 +49,17 @@ target_sources(
     runtime/configuration/application_configuration.hpp
     engine/resource/asset_uri.cpp
     engine/resource/asset_uri.hpp
-    engine/resource/types/asset_identity.hpp
-    engine/resource/loaders/mesh_binary.cpp
-    engine/resource/loaders/mesh_binary.hpp
-    engine/resource/loaders/texture_ktx2.cpp
-    engine/resource/loaders/texture_ktx2.hpp
-    engine/resource/loaders/texture_binary.cpp
-    engine/resource/loaders/texture_binary.hpp
+    engine/resource/asset_identity.hpp
+    engine/resource/mesh/mesh_binary.cpp
+    engine/resource/mesh/mesh_binary.hpp
+    engine/resource/texture/texture_ktx2.cpp
+    engine/resource/texture/texture_ktx2.hpp
+    engine/resource/texture/texture_binary.cpp
+    engine/resource/texture/texture_binary.hpp
     engine/function/render/texture_load_service.cpp
     engine/function/render/texture_load_service.hpp
-    engine/resource/cache/resource_cache.cpp
-    engine/resource/cache/resource_cache.hpp
+    engine/resource/resource_cache.cpp
+    engine/resource/resource_cache.hpp
     engine/core/service_registry.cpp
     engine/core/service_registry.hpp
     engine/core/rid_table.hpp
@@ -88,13 +88,15 @@ target_sources(
     engine/function/input/input_service.cpp
     engine/core/input/input_types.hpp
     engine/function/input/input_service.hpp
-    engine/resource/types/action_map_validation.cpp
-    engine/resource/loaders/scene_serialization.cpp
-    engine/resource/loaders/scene_serialization.hpp
-    engine/resource/loaders/action_map_serialization.cpp
-    engine/resource/loaders/action_map_serialization.hpp
-    engine/resource/loaders/action_map_parser.cpp
-    engine/resource/types/action_map.hpp
+    engine/resource/input/action_map_validation.cpp
+    engine/resource/scene/prefab_codec.cpp
+    engine/resource/mesh/mesh_decoder.cpp
+    engine/resource/texture/texture_decoder.cpp
+    engine/resource/scene/scene_codec.cpp
+    engine/resource/scene/scene_codec.hpp
+    engine/resource/input/action_map_codec.cpp
+    engine/resource/input/action_map_codec.hpp
+    engine/resource/input/action_map.hpp
     engine/core/log/log.hpp
     engine/core/log/log.cpp
     engine/core/log/log_dispatcher.cpp
@@ -111,10 +113,10 @@ target_sources(
     engine/function/render/ui_draw_list.cpp
     engine/function/render/ui_draw_list.hpp
     engine/function/render/render_asset_loader.cpp
-    engine/resource/loaders/asset_preparation.cpp
+    engine/function/render/render_asset_preparation.cpp
     engine/function/render/render_asset_loader.hpp
-    engine/resource/loaders/png_decoder.cpp
-    engine/resource/loaders/png_decoder.hpp
+    engine/resource/texture/png_decoder.cpp
+    engine/resource/texture/png_decoder.hpp
     engine/core/math/transform.cpp
     engine/core/math/transform.hpp
     engine/core/math/camera.cpp
@@ -122,12 +124,12 @@ target_sources(
     engine/function/render/render_snapshot.hpp
     engine/core/meta/registry.cpp
     engine/core/meta/serialization.hpp
-    engine/resource/resource_registry.cpp
-    engine/resource/resource_registry.hpp
-    engine/resource/loaders/asset_decoder.hpp
-    engine/resource/loaders/material_serialization.cpp
-    engine/resource/loaders/material_serialization.hpp
-    engine/resource/types/material_description.hpp
+    engine/resource/builtin_resource_registration.cpp
+    engine/resource/builtin_resource_registration.hpp
+    engine/resource/asset_decoder.hpp
+    engine/resource/material/material_codec.cpp
+    engine/resource/material/material_codec.hpp
+    engine/resource/material/material_description.hpp
     engine/core/meta/registration.hpp
     engine/core/meta/property.hpp
     engine/core/meta/type.hpp
@@ -138,13 +140,11 @@ target_sources(
     engine/function/scene/scene_instantiation.cpp
     engine/function/scene/scene_load_preparation.cpp
     engine/function/scene/scene_load_preparation.hpp
-    engine/resource/types/scene_description.cpp
-    engine/resource/types/scene_description.hpp
+    engine/resource/scene/scene_description.hpp
     engine/function/scene/scene_creation.hpp
     engine/function/scene/scene_query.hpp
-    engine/resource/types/prefab_description.cpp
-    engine/resource/types/prefab_description.hpp
-    engine/resource/types/prefab_property_data.cpp
+    engine/resource/scene/prefab_description.hpp
+    engine/resource/scene/prefab_property_data.cpp
     engine/function/scene/prefab_property_override.cpp
     engine/function/scene/prefab_property_override.hpp
     engine/function/scene/prefab_runtime_instance.cpp

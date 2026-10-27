@@ -8,8 +8,8 @@
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/asset_uri.hpp"
-#include "engine/resource/loaders/asset_parsing.hpp"
-#include "engine/resource/types/material_description.hpp"
+#include "engine/resource/material/material_description.hpp"
+#include "engine/resource/texture/texture_decoder.hpp"
 #include <algorithm>
 #include <set>
 #include <stdexcept>

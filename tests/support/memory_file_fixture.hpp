@@ -3,8 +3,8 @@
 #pragma once
 #include "engine/platform/files/file_backend.hpp"
 #include "engine/platform/files/file_service.hpp"
+#include "engine/resource/asset_identity.hpp"
 #include "engine/resource/asset_uri.hpp"
-#include "engine/resource/types/asset_identity.hpp"
 #include <limits>
 namespace gneiss::test_support {
 // 可变内存测试数据：子类提供内存拷贝，不允许磁盘或网络读取。

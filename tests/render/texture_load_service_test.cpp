@@ -9,8 +9,8 @@
 #include "engine/platform/files/file_backend.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_manager.hpp"
-#include "engine/resource/loaders/material_serialization.hpp"
-#include "engine/resource/loaders/texture_ktx2.hpp"
+#include "engine/resource/material/material_codec.hpp"
+#include "engine/resource/texture/texture_ktx2.hpp"
 #include <algorithm>
 
 #include <atomic>

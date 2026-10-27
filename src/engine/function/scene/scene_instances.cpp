@@ -6,6 +6,7 @@
 #include "engine/core/scene_types.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/resource/asset_manager.hpp"
+#include "engine/resource/scene/scene_codec.hpp"
 
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/meta/registration.hpp"
@@ -17,7 +18,7 @@
 #include "engine/function/scene/scene_instance.hpp"
 
 #include "engine/function/scene/structural_diff.hpp"
-#include "engine/resource/types/scene_description.hpp"
+#include "engine/resource/scene/scene_description.hpp"
 
 #include <algorithm>
 #include <atomic>

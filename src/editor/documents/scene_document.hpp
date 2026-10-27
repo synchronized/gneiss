@@ -12,7 +12,8 @@
 #include "engine/function/scene/scene_mesh_binding.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "engine/resource/types/scene_description.hpp"
+#include "engine/resource/scene/scene_codec.hpp"
+#include "engine/resource/scene/scene_description.hpp"
 namespace gneiss::runtime {
 class application;
 }

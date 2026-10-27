@@ -5,10 +5,9 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/resource/loaders/texture_ktx2.hpp"
+#include "engine/resource/texture/texture_ktx2.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"
-#include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
 #include <cstdio>

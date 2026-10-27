@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/resource/resource_retirement_queue.hpp"
+#include "engine/function/render/resource_retirement_queue.hpp"
 
 #include <atomic>
 #include <barrier>

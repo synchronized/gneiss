@@ -9,8 +9,8 @@
 #include "engine/core/rid_table.hpp"
 #include "engine/function/render/render_resource.hpp"
 #include "engine/function/render/render_resource_data.hpp"
+#include "engine/function/render/resource_retirement_queue.hpp"
 #include "engine/function/render/texture_view.hpp"
-#include "engine/resource/resource_retirement_queue.hpp"
 
 #include "engine/core/export.hpp"
 #include <array>

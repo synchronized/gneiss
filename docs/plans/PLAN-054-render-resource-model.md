@@ -26,7 +26,7 @@
 
 源码依据：[渲染数据定义](../../src/engine/function/render/render_resource_data.hpp)、
 [Loader](../../src/engine/function/render/render_asset_loader.hpp)、
-[缓存](../../src/engine/resource/cache/resource_cache.hpp)、
+[缓存](../../src/engine/resource/resource_cache.hpp)、
 [资源表](../../src/engine/function/render/render_resource_service.hpp)、
 [快照](../../src/engine/function/render/render_snapshot.hpp)。以上为编写计划时的现状，迁移完成后由 Reference 描述新行为。
 

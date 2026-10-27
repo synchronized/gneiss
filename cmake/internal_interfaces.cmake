@@ -30,18 +30,20 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
 gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/platform/files/file_service.hpp
   engine/platform/files/file_types.hpp
-  engine/resource/types/asset_identity.hpp
-  engine/resource/loaders/asset_preparation.hpp
+  engine/resource/asset_identity.hpp
+  engine/resource/asset_diagnostic.hpp
+  engine/resource/scene/scene_codec.hpp
+  engine/resource/scene/prefab_codec.hpp
   engine/resource/asset_uri.hpp
-  engine/resource/types/material_parameters.hpp
-  engine/resource/types/material_types.hpp
-  engine/resource/types/mesh_data.hpp
+  engine/resource/material/material_parameters.hpp
+  engine/resource/material/material_types.hpp
+  engine/resource/mesh/mesh_data.hpp
   engine/resource/asset_ref.hpp
-  engine/resource/resource_retirement_queue.hpp
-  engine/resource/cache/resource_cache.hpp
-  engine/resource/loaders/texture_ktx2.hpp
-  engine/resource/types/texture_preparation_data.hpp
-  engine/resource/types/texture_types.hpp
+  engine/function/render/resource_retirement_queue.hpp
+  engine/resource/resource_cache.hpp
+  engine/resource/texture/texture_ktx2.hpp
+  engine/resource/texture/texture_data.hpp
+  engine/resource/texture/texture_types.hpp
   engine/core/diagnostics/diagnostic.hpp
   engine/core/diagnostics/loop_timing.hpp
   engine/core/frame_time.hpp
@@ -59,7 +61,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/log/log_dispatcher.hpp
   engine/core/progress_notification.hpp
   engine/core/meta/serialization.hpp
-  engine/resource/resource_registry.hpp
+  engine/resource/builtin_resource_registration.hpp
   engine/core/meta/registry.hpp
   engine/core/type_id.hpp
   engine/core/detail/canonical_type_name.hpp
@@ -72,7 +74,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   runtime/loading/prefab_placement.hpp
   runtime/loading/prefab_preparation.hpp
   runtime/loading/scene_load_types.hpp
-  engine/resource/types/action_map.hpp
+  engine/resource/input/action_map.hpp
   engine/function/input/input_service.hpp
   engine/core/math/camera.hpp
   engine/function/render/debug_draw_list.hpp
@@ -89,12 +91,12 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/render/texture_load_service.hpp
   engine/function/render/texture_view.hpp
   engine/function/render/ui_draw_list.hpp
-  engine/resource/types/prefab_property_data.hpp
-  engine/resource/types/prefab_description.hpp
+  engine/resource/scene/prefab_property_data.hpp
+  engine/resource/scene/prefab_description.hpp
   engine/function/scene/prefab_property_override.hpp
   engine/function/scene/scene_creation.hpp
   engine/function/scene/scene_mesh_binding.hpp
-  engine/resource/types/scene_description.hpp
+  engine/resource/scene/scene_description.hpp
   engine/function/scene/scene_instances.hpp
   engine/function/scene/scene_load_preparation.hpp
   engine/function/scene/scene_query.hpp
@@ -113,8 +115,9 @@ gneiss_internal_headers(gneiss_tooling_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/math/types.hpp
   engine/core/export.hpp
   engine/core/result.hpp
-  engine/resource/loaders/mesh_binary.hpp
-  engine/resource/types/material_types.hpp
+  engine/resource/mesh/mesh_binary.hpp
+  engine/resource/texture/texture_types.hpp
+  engine/resource/material/material_types.hpp
   tooling/asset_build/asset_build.hpp
   tooling/asset_build/ktx2_probe.hpp
   tooling/asset_build/runtime_texture_probe.hpp

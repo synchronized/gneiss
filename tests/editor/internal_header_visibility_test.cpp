@@ -40,7 +40,7 @@
                   __has_include("engine/function/scene/prefab_runtime_instance.hpp")
 #error "宿主获得了场景实例的私有实现头"
 #endif
-#include "engine/resource/types/prefab_description.hpp"
+#include "engine/resource/scene/prefab_description.hpp"
 #include <type_traits>
 static_assert(!std::is_convertible_v<gneiss::entity_id, gneiss::scene_node_id>);
 static_assert(!std::is_convertible_v<std::uint64_t, gneiss::scene_node_id>);

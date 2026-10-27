@@ -92,7 +92,7 @@ R4 的结构简化转入[渲染资产渐进加载计划](PLAN-051-progressive-re
 
 ### A3：资源身份、确切版本与旧引用
 
-**现状**：[resource_cache](../../src/engine/resource/cache/resource_cache.hpp) 区分固定版本与选择域，
+**现状**：[resource_cache](../../src/engine/resource/resource_cache.hpp) 区分固定版本与选择域，
 来源、依赖和准备配置参与身份；材质/Mesh 另有 CPU 版本索引。
 Granit 示例仅用目标类型与位置缓存，不能跨项目来源或准备配置无条件复用。
 
@@ -155,7 +155,7 @@ Godot 后台加载教程先取 PackedScene，再由调用者实例化并加入�
 
 ### A6：分步推进、取消与分步清理
 
-**现状**：[asset_preparation](../../src/engine/resource/loaders/asset_preparation.hpp) 有读取/摘要预算，
+**现状**：[asset_preparation](../../src/engine/function/render/render_asset_preparation.hpp) 有读取/摘要预算，
 Runtime 有旧场景退休与分步清理；部分解析仍为单项同步调用，不保证单步硬时限。
 
 **问题**：示例零线程 inline 执行可能令 `load()` 发起阶段阻塞；观察者取消也不代表任务已清理。

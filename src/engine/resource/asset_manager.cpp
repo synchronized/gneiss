@@ -9,7 +9,7 @@
 #include "engine/core/type_id.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_uri.hpp"
-#include "engine/resource/resource_registry.hpp"
+#include "engine/resource/builtin_resource_registration.hpp"
 #include <algorithm>
 #include <atomic>
 #include <limits>

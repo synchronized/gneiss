@@ -7,7 +7,7 @@
 #include "engine/core/input/input_types.hpp"
 #include "engine/core/result.hpp"
 
-#include "engine/resource/types/action_map.hpp"
+#include "engine/resource/input/action_map.hpp"
 
 #include <array>
 #include <cstddef>

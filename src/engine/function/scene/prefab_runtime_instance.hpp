@@ -8,11 +8,9 @@
 #include "engine/core/result.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
-#include "engine/resource/types/prefab_description.hpp"
+#include "engine/resource/scene/prefab_description.hpp"
 
 #include "engine/function/world/world.hpp"
-
-#include "engine/core/scene_types.hpp"
 
 #include <memory>
 #include <string>

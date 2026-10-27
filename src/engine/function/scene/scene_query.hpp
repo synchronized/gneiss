@@ -4,7 +4,7 @@
 #pragma once
 #include "engine/core/math/transform.hpp"
 
-#include "engine/resource/types/scene_description.hpp"
+#include "engine/resource/scene/scene_description.hpp"
 
 #include "engine/core/entity_id.hpp"
 #include "engine/core/scene_types.hpp"

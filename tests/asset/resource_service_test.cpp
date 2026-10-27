@@ -3,7 +3,7 @@
 
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
-#include "engine/resource/cache/resource_cache.hpp"
+#include "engine/resource/resource_cache.hpp"
 
 #include <array>
 #include <cstddef>

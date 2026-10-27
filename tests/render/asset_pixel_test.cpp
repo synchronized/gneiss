@@ -7,9 +7,9 @@
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/resource/loaders/mesh_binary.hpp"
-#include "engine/resource/loaders/texture_binary.hpp"
-#include "engine/resource/loaders/texture_ktx2.hpp"
+#include "engine/resource/mesh/mesh_binary.hpp"
+#include "engine/resource/texture/texture_binary.hpp"
+#include "engine/resource/texture/texture_ktx2.hpp"
 #include "runtime/application.hpp"
 #include <array>
 #include <chrono>

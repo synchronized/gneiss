@@ -61,11 +61,15 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "Runtime 不得反向依赖宿主：${source}")
   endif()
 
-  if(source MATCHES "/src/engine/resource/types/(material_description|material_source|material_document|mesh_document)[.]hpp$" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"]engine/(platform/|resource/(loaders/|cache/|backend/))")
+  if(source MATCHES "/src/engine/resource/(material|mesh)/(material_description|material_source|material_document|mesh_document)[.]hpp$" AND
+      content MATCHES "#[ \t]*include[ \t]*[<\"]engine/(platform/|resource/(detail/|resource_cache|asset_manager|asset_decoder|backend/|[^/]+/[^/]*_(codec|decoder)[.]hpp))")
     message(FATAL_ERROR "CPU 资源类型不得依赖加载器、缓存或平台适配：${source}")
   endif()
-  if(source MATCHES "/src/engine/resource/cache/" AND
+  if(source MATCHES "/src/engine/resource/texture/texture_(data|types|description)[.]hpp$" AND
+      content MATCHES "#[ \t]*include[ \t]*[<\"](engine/resource/)?(detail/|texture/)?[^\">]*(codec|decoder|texture_ktx2|texture_binary)[.]hpp")
+    message(FATAL_ERROR "纹理数据不得依赖格式编解码器：${source}")
+  endif()
+  if(source MATCHES "/src/engine/resource/resource_cache[.]" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"]engine/(platform/|resource/backend/)")
     message(FATAL_ERROR "CPU 版本缓存不得依赖文件后端或加载器适配：${source}")
   endif()
@@ -75,7 +79,7 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "资产管理器不得依赖渲染模块、上传通道或完成协议：${source}")
   endif()
 
-  if(source MATCHES "/src/engine/resource/types/(scene_description|prefab_description|prefab_property_data)[.](cpp|hpp)$" AND
+  if(source MATCHES "/src/engine/resource/scene/(scene_description|prefab_description|prefab_property_data)[.](cpp|hpp)$" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"]engine/core/meta/(registration|registry|serialization)[.]hpp")
     message(FATAL_ERROR "场景资产描述不得依赖运行时 Registry：${source}")
   endif()
@@ -94,7 +98,7 @@ foreach(source IN LISTS sources)
        content MATCHES "gneiss/engine/render[.]h"))
     message(FATAL_ERROR "原生 World 组件不得存储 C 渲染布局：${source}")
   endif()
-  if(source MATCHES "/src/engine/(resource/types/(mesh_data|material_types|material_parameters|texture_types|texture_preparation_data)|function/render/(render_resource_data|render_resource_service|render_snapshot|render_asset_loader|texture_view))[.](hpp|cpp)$" AND
+  if(source MATCHES "/src/engine/(resource/(mesh|material|texture)/(mesh_data|material_types|material_parameters|texture_types|texture_data)|function/render/(render_resource_data|render_resource_service|render_snapshot|render_asset_loader|texture_view))[.](hpp|cpp)$" AND
       (content MATCHES "gneiss_(mesh|material|texture)([^a-z_]|$)|gneiss_(mesh_vertex|mesh_normal|mesh_tangent|mesh_uv|mesh_color|texture_sampling)|GNEISS_(MATERIAL_ALPHA|TEXTURE_FILTER|TEXTURE_ADDRESS|TEXTURE_MIP|TEXTURE_FORMAT|TEXTURE_COLOR)_" OR
        content MATCHES "gneiss/engine/render[.]h"))
     message(FATAL_ERROR "原生资源接口不得依赖 Render C 值布局：${source}")
@@ -158,8 +162,8 @@ foreach(source IN LISTS sources)
   if(source MATCHES "/src/(engine|runtime)/api/")
     continue()
   endif()
-  if(source MATCHES "(/src/engine/resource/loaders/asset_(preparation|parsing)|/src/(engine/function/)?render/(render_asset_preparation|render_resource_data))\\.(cpp|hpp)$" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|render_resource_service)\\.(h|hpp)|engine/(resource/cache/resource_cache|core/rid_table)\\.hpp)[>\"]")
+  if(source MATCHES "(/src/engine/resource/(mesh/mesh_decoder|texture/texture_decoder|material/material_codec)|/src/(engine/function/)?render/(render_asset_preparation|render_resource_data))\\.(cpp|hpp)$" AND
+      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|render_resource_service)\\.(h|hpp)|engine/(resource/resource_cache|core/rid_table)\\.hpp)[>\"]")
     message(FATAL_ERROR "CPU 准备与值类型不得包含资源发布、缓存或 RID 表：${source}")
   endif()
   if(source MATCHES "/src/engine/core/" AND

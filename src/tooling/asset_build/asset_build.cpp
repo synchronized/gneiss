@@ -8,9 +8,9 @@
 #include "tooling/asset_build/ktx2_probe.hpp"
 #include "tooling/asset_build/runtime_texture_builder.hpp"
 
-#include "engine/resource/loaders/mesh_binary.hpp"
-#include "engine/resource/loaders/png_decoder.hpp"
-#include "engine/resource/loaders/texture_ktx2.hpp"
+#include "engine/resource/mesh/mesh_binary.hpp"
+#include "engine/resource/texture/png_decoder.hpp"
+#include "engine/resource/texture/texture_ktx2.hpp"
 
 #include <yyjson.h>
 

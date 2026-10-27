@@ -9,7 +9,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/resource/types/action_map.hpp"
+#include "engine/resource/input/action_map.hpp"
 
 #include "engine/core/log/log_dispatcher.hpp"
 #include "engine/function/render/debug_draw_list.hpp"

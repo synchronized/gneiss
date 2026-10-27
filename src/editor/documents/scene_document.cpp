@@ -7,7 +7,8 @@
 #include "engine/core/scene_types.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/resource/resource_registry.hpp"
+#include "engine/resource/builtin_resource_registration.hpp"
+#include "engine/resource/scene/scene_codec.hpp"
 #include "runtime/application.hpp"
 
 #include "engine/function/world/component_identity.hpp"
