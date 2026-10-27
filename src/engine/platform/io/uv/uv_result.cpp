@@ -18,6 +18,7 @@ gneiss::engine::result from_uv_status(int value) noexcept {
     return gneiss::engine::result::out_of_memory;
   case UV_ENOSYS:
     return gneiss::engine::result::unsupported;
+  case UV_EEXIST:
   case UV_EBUSY:
   case UV_EALREADY:
     return gneiss::engine::result::invalid_state;

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../../../tests/support/async_document.hpp"
+#include "../../../../tests/support/async_editor_save.hpp"
 #include "../../../../tests/support/async_mesh_edit.hpp"
 #include "asset_reimport_queue.hpp"
 #include "documents/scene_document.hpp"
@@ -95,7 +96,8 @@ int main() try {
           gneiss::engine::result::success ||
       gneiss::test_support::create_mesh_document(*app, session, "Imported", *mesh, *material,
                                                  node) != gneiss::engine::result::success ||
-      session.save(project.asset_root) != gneiss::engine::result::success) {
+      gneiss::test_support::save_document(session, project.asset_root) !=
+          gneiss::engine::result::success) {
     return 5;
   }
   session.close();

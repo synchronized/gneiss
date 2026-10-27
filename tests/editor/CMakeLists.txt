@@ -79,6 +79,7 @@ foreach(test IN ITEMS gneiss_editor_asset_scene_commands_test gneiss_editor_tran
 endforeach()
 
 add_executable(gneiss_editor_document_editing_test document_editing_test.cpp)
+target_include_directories(gneiss_editor_document_editing_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_editor_document_editing_test PRIVATE gneiss_scene_document)
 target_compile_features(gneiss_editor_document_editing_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_document_editing_test)

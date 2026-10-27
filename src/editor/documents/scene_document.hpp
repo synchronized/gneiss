@@ -11,6 +11,7 @@
 #include "engine/core/scene_types.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/platform/files/file_service.hpp"
 #include "engine/resource/types/scene_description.hpp"
 namespace gneiss::runtime {
 class application;
@@ -172,28 +173,32 @@ public:
   restore_mesh_renderer_node(const scene_node_snapshot& snapshot, scene_node_id& out_node) noexcept;
   [[nodiscard]] gneiss::engine::result destroy_node(scene_node_id node,
                                                     scene_node_snapshot& out_snapshot) noexcept;
-  /** 将当前场景原子替换到原 asset URI；成功后清除脏状态。 */
-  [[nodiscard]] gneiss::engine::result save(const std::filesystem::path& asset_root,
-                                            std::string* saved_content = nullptr) noexcept;
-  /** 将当前场景写入尚不存在的 asset URI，并将其设为后续保存目标。 */
-  [[nodiscard]] gneiss::engine::result save_as(const std::filesystem::path& asset_root,
-                                               std::string_view uri,
-                                               std::string* saved_content = nullptr) noexcept;
+  /** 保存回执独立于文档生命周期；完成只写回执，宿主推进后显式接收。 */
+  struct save_receipt {
+    gneiss::scene_instance_id scene;
+    std::string uri, content;
+    engine::result status{engine::result::not_ready};
+    bool complete{};
+  };
+  /** 提交当前内容的单文件安全保存；不阻塞、不修改 URI 或脏状态。 */
+  [[nodiscard]] engine::result begin_save(engine::file_service& files, std::string_view uri,
+                                          engine::write_mode mode,
+                                          std::shared_ptr<save_receipt>& output) noexcept;
+  /** 接收成功保存；场景实例不匹配时拒绝，保存期间的新修改保持 dirty。 */
+  [[nodiscard]] engine::result accept_save(const save_receipt& receipt) noexcept;
   /** 场景直接修改后重建视图；失败清空缓存，避免继续暴露失效节点。 */
   [[nodiscard]] gneiss::engine::result synchronize_nodes() noexcept;
   void mark_dirty() noexcept { is_dirty_ = true; }
   void clear_dirty() noexcept { is_dirty_ = false; }
 
 private:
+  engine::result encode_scene(std::string& output) const noexcept;
   engine::result capture_subtree_bindings(scene_node_id root,
                                           std::vector<engine::scene_mesh_binding>& output) const;
   template <class F> gneiss::engine::result with_scene(F&& action) const noexcept;
   template <class F>
   gneiss::engine::result with_node(scene_node_id& output, F&& action) const noexcept;
   [[nodiscard]] gneiss::engine::result refresh_nodes() noexcept;
-  [[nodiscard]] gneiss::engine::result save_to(const std::filesystem::path& asset_root,
-                                               std::string_view uri, bool require_existing,
-                                               std::string* saved_content) noexcept;
   [[nodiscard]] gneiss::engine::result
   create_mesh_renderer_node(const scene_node_snapshot& snapshot, scene_node_id& out_node) noexcept;
   gneiss::engine::world* world_ = nullptr;

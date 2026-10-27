@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/async_editor_save.hpp"
 #include "documents/document_editing.hpp"
 #include "documents/editor_scene_loader.hpp"
 #include "engine/core/result.hpp"
@@ -48,7 +49,9 @@ bool save_codec_contract(gneiss::runtime::application& application) {
       snapshot.uuid != "保留输出")
     return false;
   std::string saved;
-  if (document.save_as(directory.path, "asset://saved.scene.json", &saved).failed() ||
+  if (gneiss::test_support::save_document(document, directory.path, &saved,
+                                          "asset://saved.scene.json")
+          .failed() ||
       document.is_dirty())
     return false;
   gneiss::engine::meta::registry_ref registry;
@@ -65,8 +68,10 @@ bool save_codec_contract(gneiss::runtime::application& application) {
           .failed())
     return false;
   std::string unchanged = "保留输出";
-  if (document.save(directory.path, &unchanged) != e::result::invalid_argument ||
-      document.save_as(directory.path, "asset://failed.scene.json", &unchanged) !=
+  if (gneiss::test_support::save_document(document, directory.path, &unchanged) !=
+          e::result::invalid_argument ||
+      gneiss::test_support::save_document(document, directory.path, &unchanged,
+                                          "asset://failed.scene.json") !=
           e::result::invalid_argument ||
       unchanged != "保留输出" || !document.is_dirty() ||
       document.uri() != "asset://saved.scene.json" ||

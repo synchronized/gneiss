@@ -15,21 +15,13 @@
 
 #include <algorithm>
 #include <array>
-#include <chrono>
 #include <cstdint>
-#include <fstream>
 #include <iomanip>
 #include <new>
 #include <random>
 #include <sstream>
 #include <system_error>
 #include <utility>
-
-#if defined(_WIN32)
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <windows.h>
-#endif
 
 namespace gneiss::editor {
 namespace {
@@ -43,21 +35,6 @@ namespace {
     }
   }
   return true;
-}
-
-[[nodiscard]] gneiss::engine::result
-replace_file(const std::filesystem::path& temporary,
-             const std::filesystem::path& destination) noexcept {
-#if defined(_WIN32)
-  return MoveFileExW(temporary.c_str(), destination.c_str(),
-                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != FALSE
-             ? gneiss::engine::result::success
-             : gneiss::engine::result::io;
-#else
-  std::error_code error;
-  std::filesystem::rename(temporary, destination, error);
-  return error ? gneiss::engine::result::io : gneiss::engine::result::success;
-#endif
 }
 
 [[nodiscard]] std::string make_uuid_value() {
@@ -1017,91 +994,78 @@ gneiss::engine::result scene_document::commit_mesh_renderer(
   return gneiss::engine::result::internal;
 }
 
-gneiss::engine::result scene_document::save(const std::filesystem::path& asset_root,
-                                            std::string* saved_content) noexcept {
-  return save_to(asset_root, uri_, true, saved_content);
+engine::result scene_document::encode_scene(std::string& output) const noexcept try {
+  engine::scene_description description;
+  auto status =
+      with_scene([&](auto& service) { return service.capture_description(scene_, description); });
+  if (status.failed())
+    return status;
+  engine::meta::registry_ref registry;
+  status = engine::builtin_resource_registry(registry);
+  if (status.failed())
+    return status;
+  engine::file_bytes encoded;
+  engine::meta::serialization_diagnostic diagnostic;
+  status = engine::meta::serialize(registry, description, encoded, diagnostic);
+  if (status.ok())
+    output.assign(reinterpret_cast<const char*>(encoded.data()), encoded.size());
+  return status;
+} catch (const std::bad_alloc&) {
+  return engine::result::out_of_memory;
+} catch (...) {
+  return engine::result::internal;
 }
 
-gneiss::engine::result scene_document::save_as(const std::filesystem::path& asset_root,
-                                               std::string_view uri,
-                                               std::string* saved_content) noexcept {
-  return save_to(asset_root, uri, false, saved_content);
-}
-
-gneiss::engine::result scene_document::save_to(const std::filesystem::path& asset_root,
-                                               std::string_view uri, bool require_existing,
-                                               std::string* saved_content) noexcept {
-  if (!is_open() || asset_root.empty() ||
-      gneiss::engine::validate_uri(uri) != gneiss::engine::result::success) {
-    return gneiss::engine::result::invalid_argument;
-  }
+engine::result scene_document::begin_save(engine::file_service& files, std::string_view uri,
+                                          engine::write_mode mode,
+                                          std::shared_ptr<save_receipt>& output) noexcept {
+  output.reset();
+  if (!is_open() || !uri.starts_with("asset://") || engine::validate_uri(uri).failed())
+    return engine::result::invalid_argument;
   try {
-    const std::string target_uri{uri};
-    constexpr std::string_view scheme = "asset://";
-    const auto relative_text = target_uri.substr(scheme.size());
-    const auto relative = std::filesystem::path(std::u8string(
-        reinterpret_cast<const char8_t*>(relative_text.data()), relative_text.size()));
-    std::error_code error;
-    const auto canonical_root = std::filesystem::canonical(asset_root, error);
-    if (error || !std::filesystem::is_directory(canonical_root, error) || error) {
-      return gneiss::engine::result::io;
-    }
-    const auto destination = std::filesystem::weakly_canonical(canonical_root / relative, error);
-    if (error || !is_within(canonical_root, destination)) {
-      return gneiss::engine::result::io;
-    }
-    const auto exists = std::filesystem::exists(destination, error);
-    if (error ||
-        (require_existing && (!exists || !std::filesystem::is_regular_file(destination, error))) ||
-        (!require_existing && exists) || error ||
-        !std::filesystem::is_directory(destination.parent_path(), error) || error) {
-      return exists && !require_existing ? gneiss::engine::result::invalid_state
-                                         : gneiss::engine::result::io;
-    }
-
-    gneiss::engine::scene_description description;
-    auto operation =
-        with_scene([&](auto& service) { return service.capture_description(scene_, description); });
-    if (operation.failed())
-      return operation;
-    gneiss::engine::meta::registry_ref registry;
-    operation = gneiss::engine::builtin_resource_registry(registry);
-    if (operation.failed())
-      return operation;
-    std::vector<std::byte> encoded;
-    gneiss::engine::meta::serialization_diagnostic diagnostic;
-    operation = gneiss::engine::meta::serialize(registry, description, encoded, diagnostic);
-    if (operation.failed())
-      return operation;
-    std::string json(reinterpret_cast<const char*>(encoded.data()), encoded.size());
-    const auto suffix = std::chrono::steady_clock::now().time_since_epoch().count();
-    auto temporary = destination;
-    temporary += ".gneiss-" + std::to_string(suffix) + ".tmp";
-    {
-      std::ofstream stream(temporary, std::ios::binary | std::ios::trunc);
-      stream.write(json.data(), static_cast<std::streamsize>(json.size()));
-      stream.flush();
-      if (!stream) {
-        stream.close();
-        std::filesystem::remove(temporary, error);
-        return gneiss::engine::result::io;
-      }
-    }
-    operation = replace_file(temporary, destination);
-    if (operation != gneiss::engine::result::success) {
-      std::filesystem::remove(temporary, error);
-      return operation;
-    }
-    uri_ = target_uri;
-    if (saved_content != nullptr) {
-      *saved_content = std::move(json);
-    }
-    is_dirty_ = false;
-    return gneiss::engine::result::success;
+    auto receipt = std::make_shared<save_receipt>();
+    receipt->scene = scene_;
+    receipt->uri = uri;
+    auto status = encode_scene(receipt->content);
+    if (status.failed())
+      return status;
+    const auto bytes = std::as_bytes(std::span{receipt->content.data(), receipt->content.size()});
+    engine::file_request_id request;
+    status = files.write(
+        uri, {bytes.begin(), bytes.end()}, {mode},
+        [receipt](engine::result value) {
+          receipt->status = value;
+          receipt->complete = true;
+        },
+        request);
+    if (status.ok())
+      output = std::move(receipt);
+    return status;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::io;
+    return engine::result::internal;
+  }
+}
+engine::result scene_document::accept_save(const save_receipt& receipt) noexcept {
+  if (!receipt.complete)
+    return engine::result::not_ready;
+  if (receipt.status.failed())
+    return receipt.status;
+  if (!is_open() || scene_ != receipt.scene)
+    return engine::result::invalid_state;
+  try {
+    std::string current;
+    const auto status = encode_scene(current);
+    if (status.failed())
+      return status;
+    uri_ = receipt.uri;
+    is_dirty_ = current != receipt.content;
+    return engine::result::success;
+  } catch (const std::bad_alloc&) {
+    return engine::result::out_of_memory;
+  } catch (...) {
+    return engine::result::internal;
   }
 }
 

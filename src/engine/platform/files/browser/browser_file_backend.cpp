@@ -5,6 +5,7 @@
 #include <cerrno>
 #include <charconv>
 #include <cstdio>
+#include <cstdlib>
 #include <dirent.h>
 #include <emscripten.h>
 #include <emscripten/threading.h>
@@ -234,14 +235,27 @@ result browser_file_backend::write(std::string_view path, file_bytes bytes, writ
   const auto status = impl_->path(path, filename, true);
   if (status.failed())
     return status;
-  descriptor file{::open(
-      filename.c_str(),
-      O_WRONLY | O_CREAT | (options.mode == write_mode::create_new ? O_EXCL : O_TRUNC), 0600)};
+  // 浏览器 FS 操作只涉及内存；单线程内检查目标、写临时文件并 rename。
+  struct stat existing{};
+  if (options.mode == write_mode::create_new && ::lstat(filename.c_str(), &existing) == 0)
+    return result::invalid_state;
+  auto temporary = filename + ".gneiss-XXXXXX";
+  descriptor file{::mkstemp(temporary.data())};
   if (file.value < 0)
     return error_result();
+  auto operation = result::success;
   if (!bytes.empty() &&
       ::write(file.value, bytes.data(), bytes.size()) != static_cast<ssize_t>(bytes.size()))
-    return result::io;
+    operation = result::io;
+  if (::close(file.value) != 0)
+    operation = result::io;
+  file.value = -1;
+  if (operation.ok() && ::rename(temporary.c_str(), filename.c_str()) != 0)
+    operation = error_result();
+  if (operation.failed()) {
+    (void)::unlink(temporary.c_str());
+    return operation;
+  }
   callback(result::success);
   return result::success;
 }

@@ -15,18 +15,30 @@
 namespace gneiss::engine {
 namespace {
 enum class operation_kind { read, write, stat, list };
-enum class stage { root, target, parent, open, info, transfer, sync, close, directory };
+enum class stage {
+  root,
+  target,
+  parent,
+  open,
+  info,
+  transfer,
+  sync,
+  close,
+  publish,
+  cleanup,
+  directory
+};
 struct operation : std::enable_shared_from_this<operation> {
   uv_fs_t request{};
   uv_loop_t* loop{};
   std::shared_ptr<operation> keep_alive;
   operation_kind kind{};
   stage step{};
-  std::string root, relative, path, canonical_root;
+  std::string root, relative, path, canonical_root, temporary;
   file_bytes bytes;
   file_range range{};
   std::size_t limit{}, position{}, skip{};
-  bool ranged{}, create_new{};
+  bool ranged{}, create_new{}, temporary_created{};
   int descriptor{-1};
   result status{result::success};
   file_callback<file_bytes> on_read;
@@ -58,6 +70,13 @@ struct operation : std::enable_shared_from_this<operation> {
     }
   }
   void finish(result value) noexcept {
+    if (temporary_created) {
+      status = value;
+      temporary_created = false;
+      step = stage::cleanup;
+      submitted(uv_fs_unlink(loop, &request, temporary.c_str(), completed));
+      return;
+    }
     auto owner = std::move(keep_alive);
     // 后端回调仅进入服务的完成队列；业务回调由所属线程分发。
     if (on_read)
@@ -104,10 +123,13 @@ struct operation : std::enable_shared_from_this<operation> {
       submitted(uv_fs_scandir(loop, &request, path.c_str(), 0, completed));
     } else {
       step = stage::open;
-      const int flags = kind == operation_kind::read
-                            ? O_RDONLY
-                            : O_WRONLY | O_CREAT | (create_new ? O_EXCL : O_TRUNC);
-      submitted(uv_fs_open(loop, &request, path.c_str(), flags, 0666, completed));
+      if (kind == operation_kind::write) {
+        // 同目录独占临时文件；完整写入、fsync、关闭后才发布目标。
+        temporary = path + ".gneiss-XXXXXX";
+        submitted(uv_fs_mkstemp(loop, &request, temporary.c_str(), completed));
+      } else {
+        submitted(uv_fs_open(loop, &request, path.c_str(), O_RDONLY, 0666, completed));
+      }
     }
   }
   void transfer() {
@@ -158,11 +180,33 @@ struct operation : std::enable_shared_from_this<operation> {
       std::string resolved;
       if ((step == stage::root || step == stage::target || step == stage::parent) && value >= 0)
         resolved = normalized(static_cast<const char*>(request.ptr));
+      if (step == stage::open && kind == operation_kind::write && value >= 0) {
+        temporary = request.path;
+        temporary_created = true;
+      }
       const auto metadata = request.statbuf;
       uv_fs_req_cleanup(&request);
       if (step == stage::close) {
         descriptor = -1;
-        finish(status.failed() ? status : from_uv_status(static_cast<int>(value)));
+        if (status.ok() && value >= 0 && kind == operation_kind::write) {
+          step = stage::publish;
+          submitted(create_new
+                        ? uv_fs_link(loop, &request, temporary.c_str(), path.c_str(), completed)
+                        : uv_fs_rename(loop, &request, temporary.c_str(), path.c_str(), completed));
+        } else {
+          finish(status.failed() ? status : from_uv_status(static_cast<int>(value)));
+        }
+        return;
+      }
+      if (step == stage::cleanup) {
+        // 发布结果不因残留临时文件清理失败而改写。
+        finish(status);
+        return;
+      }
+      if (step == stage::publish) {
+        if (value >= 0 && !create_new)
+          temporary_created = false;
+        finish(from_uv_status(static_cast<int>(value)));
         return;
       }
       if (value < 0) {
@@ -183,7 +227,8 @@ struct operation : std::enable_shared_from_this<operation> {
         break;
       case stage::target:
       case stage::parent:
-        if (!contained(resolved)) {
+        if (!contained(resolved) || (kind == operation_kind::write && resolved == canonical_root &&
+                                     step == stage::target)) {
           close(result::invalid_argument);
           break;
         }
@@ -308,7 +353,8 @@ result native_file_backend::read_range(std::string_view path, file_range range,
 }
 result native_file_backend::write(std::string_view path, file_bytes bytes, write_options options,
                                   completion_callback callback) {
-  if (!callback || (options.mode != write_mode::replace && options.mode != write_mode::create_new))
+  if (!callback || path.empty() || path.ends_with('/') ||
+      (options.mode != write_mode::replace && options.mode != write_mode::create_new))
     return result::invalid_argument;
   auto pending = std::make_shared<operation>();
   pending->kind = operation_kind::write;

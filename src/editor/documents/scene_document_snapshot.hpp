@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "commands/author_transaction.hpp"
+#include "commands/author_document_change.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"

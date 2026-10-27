@@ -3,6 +3,7 @@
 #include "engine/platform/files/file_service.hpp"
 #include "engine/platform/files/native_file_backend.hpp"
 #include "engine/platform/io/uv/uv_loop_executor.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <stdexcept>
@@ -36,6 +37,8 @@ int main(int argc, char** argv) {
     status = value;
     done = true;
   };
+  check(backend->write("", {}, {}, complete) == result::invalid_argument);
+  check(backend->write("directory/", {}, {}, complete) == result::invalid_argument);
   file_bytes bytes{std::byte{1}, std::byte{2}, std::byte{3}};
   check(service.write("test://native.bin", bytes, {}, complete, request).ok());
   check(!done);
@@ -62,10 +65,22 @@ int main(int argc, char** argv) {
   check(service.read("test://missing.bin", {16}, read, request).ok());
   pump();
   check(status == result::not_found);
-  check(
-      service.write("test://native.bin", bytes, {write_mode::create_new}, complete, request).ok());
+  check(service
+            .write("test://native.bin", {std::byte{9}}, {write_mode::create_new}, complete, request)
+            .ok());
   pump();
-  check(status.failed());
+  check(status == result::invalid_state);
+  check(service.read("test://native.bin", {16}, read, request).ok());
+  pump();
+  check(status.ok() && output == bytes);
+  // 同一路径替换只在完整写入后可见。
+  std::reverse(bytes.begin(), bytes.end());
+  check(service.write("test://native.bin", bytes, {}, complete, request).ok());
+  pump();
+  check(status.ok());
+  check(service.read("test://native.bin", {16}, read, request).ok());
+  pump();
+  check(status.ok() && output == bytes);
   file_info info;
   check(service
             .stat(

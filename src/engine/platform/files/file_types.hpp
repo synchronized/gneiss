@@ -40,6 +40,8 @@ struct file_range {
   std::size_t size{};
 };
 enum class write_mode { replace, create_new };
+/** 单文件安全写入：完整准备后替换；create_new 不覆盖已有目标。
+ * 成功表示后端可见；浏览器持久化另需 flush，不承诺跨文件原子性或目录崩溃耐久性。 */
 struct write_options {
   write_mode mode{write_mode::replace};
 };

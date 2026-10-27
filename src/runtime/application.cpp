@@ -313,8 +313,11 @@ gneiss::engine::result application::initialize() noexcept {
 #else
       return engine::result::unsupported;
 #endif
-      const auto mounted = storage_->files_->mount(
-          {.prefix = "asset://", .readers = {backend}, .writer = {}, .source = {}});
+      const auto mounted =
+          storage_->files_->mount({.prefix = "asset://",
+                                   .readers = {backend},
+                                   .writer = storage_->config_.writable_assets ? backend : nullptr,
+                                   .source = {}});
       if (mounted.failed())
         return mounted;
     }

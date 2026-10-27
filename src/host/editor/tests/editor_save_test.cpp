@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../../../tests/support/async_document.hpp"
+#include "../../../../tests/support/async_editor_save.hpp"
 #include "../../../../tests/support/async_mesh_edit.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/result.hpp"
@@ -145,7 +146,8 @@ int main() try {
       session.find_node(created_uuid) == nullptr || session.nodes().size() != 5U) {
     return 6;
   }
-  if (session.save(root) != gneiss::engine::result::success || session.is_dirty()) {
+  if (gneiss::test_support::save_document(session, root) != gneiss::engine::result::success ||
+      session.is_dirty()) {
     return 7;
   }
   const auto saved = read_text(scene_path);
@@ -161,8 +163,9 @@ int main() try {
   }
   session.mark_dirty();
   const auto blocker = root / "not-a-directory";
-  if (!write_text(blocker, "blocker") || session.save(blocker) != gneiss::engine::result::io ||
-      !session.is_dirty() || read_text(scene_path) != saved) {
+  if (!write_text(blocker, "blocker") ||
+      gneiss::test_support::save_document(session, blocker).ok() || !session.is_dirty() ||
+      read_text(scene_path) != saved) {
     return 10;
   }
   constexpr std::string_view new_scene_uuid = "00000000-0000-4000-8000-000000000099";
@@ -180,10 +183,13 @@ int main() try {
           gneiss::engine::result::success ||
       !session.is_open() || !session.is_dirty() || !session.uri().empty() ||
       session.create_node("Root", {}, new_node) != gneiss::engine::result::success ||
-      session.save(root) != gneiss::engine::result::invalid_argument ||
-      session.save_as(root, new_scene_uri) != gneiss::engine::result::success ||
+      gneiss::test_support::save_document(session, root) !=
+          gneiss::engine::result::invalid_argument ||
+      gneiss::test_support::save_document(session, root, nullptr, new_scene_uri) !=
+          gneiss::engine::result::success ||
       session.is_dirty() || session.uri() != new_scene_uri ||
-      session.save_as(root, new_scene_uri) != gneiss::engine::result::invalid_state ||
+      gneiss::test_support::save_document(session, root, nullptr, new_scene_uri) !=
+          gneiss::engine::result::invalid_state ||
       read_text(root / "scenes" / "new.scene.json").find(new_scene_uuid) == std::string::npos) {
     return 17;
   }

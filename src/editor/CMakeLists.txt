@@ -77,10 +77,9 @@ add_library(
   runtime_property_edits.hpp
   console_model.cpp
   console_model.hpp
-  commands/author_transaction.cpp
-  commands/author_transaction.hpp
-  commands/native_author_transaction.cpp
-  commands/native_author_transaction.hpp
+  commands/author_document_change.hpp
+  commands/author_file_save.cpp
+  commands/author_file_save.hpp
   commands/prefab_authoring.cpp
   commands/prefab_authoring.hpp
   panels/property_inspector_model.cpp

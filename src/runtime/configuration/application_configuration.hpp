@@ -34,6 +34,8 @@ struct application_configuration final {
   bool use_granit_window = false;
   gneiss::engine::window_configuration window;
   std::string_view asset_root;
+  /** 编辑器显式允许单文件保存；Runtime 默认只读，远程 Fetch 不支持写入。 */
+  bool writable_assets = false;
   std::string_view environment_asset;
   float environment_intensity = 1.0F;
   float environment_rotation_radians = 0.0F;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../../tests/support/async_editor_save.hpp"
 #include "../../../../tests/support/async_mesh_edit.hpp"
 #include "../../../../tests/support/async_prefab_edit.hpp"
 #include "asset_browser_model.hpp"
@@ -215,7 +216,8 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
       session.find_node(snapshot.uuid) != nullptr ||
       history.redo() != gneiss::engine::result::success ||
       session.find_node(snapshot.uuid) == nullptr ||
-      session.save(project.asset_root) != gneiss::engine::result::success) {
+      gneiss::test_support::save_document(session, project.asset_root) !=
+          gneiss::engine::result::success) {
     return 11;
   }
   session.close();

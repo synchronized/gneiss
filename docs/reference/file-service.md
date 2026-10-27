@@ -28,7 +28,7 @@ Application 已直接装配后端；普通 CPU、网格和纹理加载统一使�
 | --- | --- |
 | read | 有界整文件读取，max_bytes 必须大于零 |
 | read_range | 精确范围，允许 EOF 处零长度，越界失败 |
-| write | replace 或 create_new；不承诺跨后端原子覆盖 |
+| write | 单文件安全写入，replace 替换、create_new 拒绝覆盖；持久化另见后端约定 |
 | stat | 文件/目录及可选字节数；未知与零长度不同 |
 | list | 当前目录分页，不递归、不合并后端、不保证快照 |
 | flush | 仅接受精确挂载点，调用唯一写后端的持久化能力 |
@@ -71,6 +71,8 @@ scheme 仅允许小写英文字母；路径须有效 UTF-8，拒绝控制字符�
 冒号、`.`、`..` 和空路径段。挂载根与目录允许尾部 `/`。
 首次接受请求后冻结挂载；最长前缀决定挂载，读取链只在 not_found 时继续。
 write/flush 只选择唯一 writer；缺少 writer 时提交返回 unsupported。
+Application 的 asset:// 默认只读；Editor 通过 application_configuration::writable_assets 显式启用
+本地写入后端。远程 Fetch 后端仍不支持写入。
 
 分页游标为服务生成的不透明字符串，只能原样用于同一服务、同一路径。
 后续页固定到原读取后端，不因覆盖链中新出现目录而切换；跨路径游标提交失败。
@@ -99,7 +101,11 @@ shutdown 取消尚未完成请求，已有终态照常交付。关闭回调遵�
 
 `native_file_backend` 直接使用 libuv 异步文件 API，支持 read/read_range/write/stat/list/flush。
 借用宿主执行器，不自行建线程；根目录和写入父目录须已存在，不依赖 std::filesystem。
-写入完成前 fsync 并关闭文件，因此 flush 覆盖此前已完成写入；不承诺跨文件原子性或目录项崩溃恢复。
+写入使用同目录独占临时文件，完整写入、fsync 和关闭后才发布：replace 使用 rename，create_new
+使用 link 保证目标已存在时不覆盖，再清理临时文件。发布前失败保持旧目标；失败清理尽力执行，
+清理失败可能留下临时文件。文件系统不支持硬链接时 create_new 返回错误。
+flush 覆盖此前已完成写入；不承诺跨文件原子性、跨进程内容比较交换或目录项崩溃恢复。
+临时文件替换不保留旧 inode/文件身份及自定义权限元数据。
 每次操作解析实际路径并拒绝根目录外目标；不承诺抵抗并发恶意符号链接替换。
 列举普通文件和目录，特殊条目返回 unsupported；分页不提供快照，底层 scandir 仍可能枚举整个目录。
 
@@ -111,7 +117,8 @@ shutdown 取消尚未完成请求，已有终态照常交付。关闭回调遵�
 `browser_file_backend` 的 memory/persistent 模式管理独立 MEMFS/IDBFS 挂载；existing 模式借用
 宿主已存在的目录，不挂载、不恢复或卸载它。三种模式均仅在浏览器主线程使用。
 initialize 的恢复回调成功后才接受访问；内存操作可内联完成，服务仍延迟交付用户回调。
-write 仅确认内存写入；flush 调用当前 IDBFS 挂载的 syncfs(false)，不影响其他挂载。
+write 在内存 FS 中写临时文件并 rename，失败时保留旧目标；create_new 在同一线程操作内拒绝覆盖。
+write 仅确认内存可见；flush 调用当前 IDBFS 挂载的 syncfs(false)，不影响其他挂载。
 恢复与 flush 串行，同步期间对本后端的新访问返回 not_ready；失败后可重试。
 直接析构不自动 flush；宿主须等待显式 flush 完成，再关闭服务和销毁后端。
 在途持久化保活挂载，完成后才允许卸载；路径分量拒绝符号链接。

@@ -673,23 +673,4 @@ prepare_unpack_prefab(std::string_view scene_json, std::string_view prefab_json,
   }
 }
 
-gneiss::engine::result
-invert_author_document_changes(std::span<const author_document_change> changes,
-                               std::vector<author_document_change>& out_changes) noexcept {
-  try {
-    std::vector<author_document_change> inverted;
-    inverted.reserve(changes.size());
-    for (const auto& change : changes) {
-      inverted.push_back(
-          {.path = change.path, .baseline = change.replacement, .replacement = change.baseline});
-    }
-    out_changes.swap(inverted);
-    return gneiss::engine::result::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::result::internal;
-  }
-}
-
 } // namespace gneiss::editor

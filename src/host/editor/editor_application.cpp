@@ -8,11 +8,11 @@
 #include "engine/function/world/world.hpp"
 
 #include "child_process.hpp"
+#include "commands/author_file_save.hpp"
 #include "commands/author_property_edit.hpp"
 #include "commands/editor_asset_edit.hpp"
 #include "commands/editor_command_history.hpp"
 #include "commands/editor_prefab_edit.hpp"
-#include "commands/native_author_transaction.hpp"
 #include "commands/prefab_authoring.hpp"
 #include "commands/runtime_author_apply.hpp"
 #include "documents/document_editing.hpp"
@@ -62,8 +62,6 @@
 #include <cstdio>
 #include <deque>
 #include <filesystem>
-#include <fstream>
-#include <iterator>
 #include <limits>
 #include <memory>
 #include <new>
@@ -122,6 +120,10 @@ struct editor_state {
   gneiss::engine::result prefab_author_result = gneiss::engine::result::success;
   bool prefab_author_attempted = false;
   bool prefab_author_busy = false;
+  // 仅宿主轮询回执并访问编辑状态；文件回调不捕获 editor_state。
+  std::function<bool(gneiss::engine::result&)> pending_file_operation;
+  bool file_operation_saves_scene{};
+  bool run_after_save{};
   std::array<char, 192> prefab_path_buffer{};
   prefab_author_action pending_prefab_author_action = prefab_author_action::none;
   std::string pending_prefab_instance_uuid;
@@ -347,45 +349,38 @@ gneiss::engine::result redo_editor_command(editor_state& state) noexcept {
   return {reinterpret_cast<const char*>(text.data()), text.size()};
 }
 
-[[nodiscard]] gneiss::engine::result author_uri_path(const editor_state& state,
-                                                     std::string_view uri,
-                                                     std::filesystem::path& path,
-                                                     std::string& relative_path) noexcept {
-  constexpr std::string_view prefix = "asset://";
-  if (!uri.starts_with(prefix) || uri.size() == prefix.size()) {
-    return gneiss::engine::result::invalid_argument;
-  }
-  try {
-    relative_path.assign(uri.substr(prefix.size()));
-    path = state.asset_root / utf8_path(relative_path);
-    return gneiss::engine::result::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::result::io;
-  }
-}
-
-[[nodiscard]] gneiss::engine::result read_author_asset(const editor_state& state,
-                                                       std::string_view uri,
-                                                       author_asset_document& output) noexcept {
-  std::filesystem::path path;
-  auto operation = author_uri_path(state, uri, path, output.relative_path);
-  if (operation != gneiss::engine::result::success) {
-    return operation;
-  }
-  try {
-    std::ifstream stream(path, std::ios::binary);
-    if (!stream) {
-      return gneiss::engine::result::not_found;
-    }
-    output.content.assign(std::istreambuf_iterator<char>{stream}, std::istreambuf_iterator<char>{});
-    return stream.bad() ? gneiss::engine::result::io : gneiss::engine::result::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::result::io;
-  }
+[[nodiscard]] gneiss::engine::result
+read_author_asset(editor_state& state, std::string uri,
+                  std::function<gneiss::engine::result(std::string)> next) {
+  using namespace gneiss::engine;
+  if (state.pending_file_operation)
+    return result::not_ready;
+  struct receipt {
+    bool complete{};
+    file_completion<file_bytes> value{result::not_ready};
+  };
+  auto received = std::make_shared<receipt>();
+  file_request_id request;
+  const auto status = state.application->async_files()->read(
+      uri, {16U * 1024U * 1024U},
+      [received](file_completion<file_bytes> value) {
+        received->value = std::move(value);
+        received->complete = true;
+      },
+      request);
+  if (status.failed())
+    return status;
+  state.file_operation_saves_scene = false;
+  state.pending_file_operation = [received, next = std::move(next)](result& value) {
+    if (!received->complete)
+      return false;
+    value = received->value.status;
+    if (value.ok())
+      value = next(std::string(reinterpret_cast<const char*>(received->value.data.data()),
+                               received->value.data.size()));
+    return true;
+  };
+  return result::not_ready;
 }
 
 void restore_author_selection(editor_state& state, const author_selection& selection) noexcept {
@@ -425,6 +420,34 @@ apply_author_snapshot(editor_state& state, const author_selection& selection,
 }
 
 [[nodiscard]] gneiss::engine::result
+adopt_author_documents(editor_state& state, std::string label,
+                       std::shared_ptr<gneiss::editor::scene_document_snapshot> before,
+                       std::shared_ptr<gneiss::editor::scene_document_snapshot> after,
+                       const author_selection& undo_selection,
+                       const author_selection& redo_selection, bool history_boundary) {
+  if (history_boundary) {
+    // 共享来源已经保存；旧快照不能再通过普通撤销恢复旧来源投影。
+    (void)state.editing.history().clear(false);
+    state.editing.document().mark_dirty();
+  }
+  auto status = apply_author_snapshot(state, redo_selection, *after);
+  if (status.failed() || history_boundary)
+    return status;
+  status = state.editing.history().record(
+      {.label = std::move(label),
+       .undo = [&state, undo_selection,
+                before] { return apply_author_snapshot(state, undo_selection, *before); },
+       .redo = [&state, redo_selection,
+                after] { return apply_author_snapshot(state, redo_selection, *after); },
+       .merge_key = {}});
+  if (status.failed()) {
+    (void)apply_author_snapshot(state, undo_selection, *before);
+    synchronize_history_dirty(state);
+  }
+  return status;
+}
+
+[[nodiscard]] gneiss::engine::result
 record_author_documents(editor_state& state, std::string label,
                         std::vector<gneiss::editor::author_document_change> changes,
                         const author_selection& undo_selection,
@@ -452,35 +475,34 @@ record_author_documents(editor_state& state, std::string label,
     }
     if (!source)
       return gneiss::engine::result::invalid_argument;
-    status = gneiss::editor::save_native_author_file(state.asset_root, *source);
+    std::shared_ptr<gneiss::editor::author_file_save> receipt;
+    status =
+        gneiss::editor::begin_author_file_save(*state.application->async_files(), *source, receipt);
     if (status.failed())
       return status;
-#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
     const auto source_uri = "asset://" + source->path;
-    (void)state.author_assets.acknowledge(source_uri, *source->replacement);
-    (void)state.runtime.publish_asset_revision(std::span<const std::string>(&source_uri, 1U));
+    const auto content = *source->replacement;
+    state.file_operation_saves_scene = false;
+    state.pending_file_operation = [&state, receipt, source_uri, content, label = std::move(label),
+                                    before, after, undo_selection, redo_selection,
+                                    history_boundary](gneiss::engine::result& value) mutable {
+      if (!receipt->complete)
+        return false;
+      value = receipt->status;
+      if (value.failed())
+        return true;
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+      (void)state.author_assets.acknowledge(source_uri, content);
+      (void)state.runtime.publish_asset_revision(std::span<const std::string>(&source_uri, 1U));
 #endif
+      value = adopt_author_documents(state, std::move(label), before, after, undo_selection,
+                                     redo_selection, history_boundary);
+      return true;
+    };
+    return gneiss::engine::result::not_ready;
   }
-  if (history_boundary) {
-    // 共享来源已经保存；旧快照不能再通过普通撤销恢复旧来源投影。
-    (void)state.editing.history().clear(false);
-    state.editing.document().mark_dirty();
-  }
-  status = apply_author_snapshot(state, redo_selection, *after);
-  if (status.failed() || history_boundary)
-    return status;
-  status = state.editing.history().record(
-      {.label = std::move(label),
-       .undo = [&state, undo_selection,
-                before] { return apply_author_snapshot(state, undo_selection, *before); },
-       .redo = [&state, redo_selection,
-                after] { return apply_author_snapshot(state, redo_selection, *after); },
-       .merge_key = {}});
-  if (status.failed()) {
-    (void)apply_author_snapshot(state, undo_selection, *before);
-    synchronize_history_dirty(state);
-  }
-  return status;
+  return adopt_author_documents(state, std::move(label), before, after, undo_selection,
+                                redo_selection, history_boundary);
 }
 
 [[nodiscard]] gneiss::engine::result current_author_scene(editor_state& state,
@@ -493,19 +515,26 @@ record_author_documents(editor_state& state, std::string label,
                                                 output.content);
 }
 
-[[nodiscard]] gneiss::engine::result apply_selected_prefab(editor_state& state,
-                                                           std::string_view instance_uuid,
-                                                           std::string_view source_uuid) {
+[[nodiscard]] gneiss::engine::result
+apply_selected_prefab(editor_state& state, std::string_view instance_uuid,
+                      std::string_view source_uuid,
+                      std::optional<std::string> source_content = {}) {
   const auto* selected = state.editing.document().find_prefab_source(instance_uuid, source_uuid);
   if (selected == nullptr || selected->override_flags == 0U || state.runtime.is_busy()) {
     return gneiss::engine::result::invalid_state;
   }
+  if (!source_content) {
+    return read_author_asset(state, selected->prefab_uri,
+                             [&state, instance = std::string(instance_uuid),
+                              source = std::string(source_uuid)](std::string content) {
+                               return apply_selected_prefab(state, instance, source,
+                                                            std::move(content));
+                             });
+  }
   author_scene_document scene;
   auto operation = current_author_scene(state, scene);
-  author_asset_document prefab;
-  if (operation == gneiss::engine::result::success) {
-    operation = read_author_asset(state, selected->prefab_uri, prefab);
-  }
+  author_asset_document prefab{std::string(selected->prefab_uri.substr(8)),
+                               std::move(*source_content)};
   gneiss::editor::apply_prefab_author_plan plan;
   if (operation == gneiss::engine::result::success) {
     operation = gneiss::editor::prepare_apply_prefab(scene.content, prefab.content,
@@ -525,19 +554,23 @@ record_author_documents(editor_state& state, std::string label,
   return operation;
 }
 
-[[nodiscard]] gneiss::engine::result unpack_selected_prefab(editor_state& state,
-                                                            std::string_view instance_uuid) {
+[[nodiscard]] gneiss::engine::result
+unpack_selected_prefab(editor_state& state, std::string_view instance_uuid,
+                       std::optional<std::string> source_content = {}) {
   const auto* root = state.editing.document().find_prefab_root(instance_uuid);
   if (root == nullptr || state.runtime.is_busy()) {
     return gneiss::engine::result::invalid_state;
   }
   const auto prefab_uri = root->prefab_uri;
+  if (!source_content) {
+    return read_author_asset(state, prefab_uri,
+                             [&state, instance = std::string(instance_uuid)](std::string content) {
+                               return unpack_selected_prefab(state, instance, std::move(content));
+                             });
+  }
   author_scene_document scene;
   auto operation = current_author_scene(state, scene);
-  author_asset_document prefab;
-  if (operation == gneiss::engine::result::success) {
-    operation = read_author_asset(state, prefab_uri, prefab);
-  }
+  author_asset_document prefab{prefab_uri.substr(8), std::move(*source_content)};
   std::string unpacked_root_uuid;
   if (operation == gneiss::engine::result::success) {
     operation = gneiss::editor::make_editor_uuid(unpacked_root_uuid);
@@ -628,64 +661,64 @@ record_author_documents(editor_state& state, std::string label,
   return operation;
 }
 
-gneiss::engine::result save_document_as(editor_state& state) {
-  std::filesystem::path path;
-  auto operation = gneiss::host::select_scene_save_path(path);
-  if (operation != gneiss::engine::result::success) {
-    return operation;
-  }
-  std::string uri;
-  std::string saved_content;
-  operation = gneiss::editor::make_asset_uri(state.asset_root, path, uri);
-  if (operation == gneiss::engine::result::success) {
-    operation = state.editing.document().save_as(state.asset_root, uri, &saved_content);
-  }
-  if (operation == gneiss::engine::result::success) {
-    state.editing.history().mark_saved();
+gneiss::engine::result begin_scene_save(editor_state& state, std::string_view uri,
+                                        gneiss::engine::write_mode mode) {
+  if (state.pending_file_operation)
+    return gneiss::engine::result::not_ready;
+  std::shared_ptr<gneiss::editor::scene_document::save_receipt> receipt;
+  const auto status =
+      state.editing.document().begin_save(*state.application->async_files(), uri, mode, receipt);
+  if (status.failed())
+    return status;
+  state.file_operation_saves_scene = true;
+  state.pending_file_operation = [&state, receipt](gneiss::engine::result& value) {
+    if (!receipt->complete)
+      return false;
+    value = state.editing.document().accept_save(*receipt);
+    if (value.ok()) {
+      if (!state.editing.document().is_dirty())
+        (void)state.editing.history().mark_saved();
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-    const auto saved_uri = std::string{state.editing.document().uri()};
-    const auto acknowledged = state.author_assets.acknowledge(saved_uri, std::move(saved_content));
-    if (acknowledged != gneiss::engine::result::success) {
-      state.author_assets.mark_failed(saved_uri, acknowledged);
-    }
-    (void)state.runtime.publish_asset_revision(std::span<const std::string>(&saved_uri, 1U));
+      (void)state.author_assets.acknowledge(receipt->uri, receipt->content);
+      (void)state.runtime.publish_asset_revision(std::span<const std::string>(&receipt->uri, 1U));
 #endif
-  }
-  return operation;
+    }
+    return true;
+  };
+  return gneiss::engine::result::not_ready;
 }
-
+gneiss::engine::result save_document_as(editor_state& state) {
+  if (state.pending_file_operation)
+    return gneiss::engine::result::not_ready;
+  std::filesystem::path path;
+  auto status = gneiss::host::select_scene_save_path(path);
+  std::string uri;
+  if (status.ok())
+    status = gneiss::editor::make_asset_uri(state.asset_root, path, uri);
+  return status.failed() ? status
+                         : begin_scene_save(state, uri, gneiss::engine::write_mode::create_new);
+}
 gneiss::engine::result save_document(editor_state& state) {
-  if (state.editing.document().uri().empty()) {
+  if (state.editing.document().uri().empty())
     return save_document_as(state);
-  }
-  std::string saved_content;
-  const auto operation = state.editing.document().save(state.asset_root, &saved_content);
-  if (operation == gneiss::engine::result::success) {
-    state.editing.history().mark_saved();
-#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-    const auto uri = std::string{state.editing.document().uri()};
-    const auto acknowledged = state.author_assets.acknowledge(uri, std::move(saved_content));
-    if (acknowledged != gneiss::engine::result::success) {
-      state.author_assets.mark_failed(uri, acknowledged);
-    }
-    (void)state.runtime.publish_asset_revision(std::span<const std::string>(&uri, 1U));
-#endif
-  }
-  return operation;
+  return begin_scene_save(state, state.editing.document().uri(),
+                          gneiss::engine::write_mode::replace);
 }
 
 gneiss::engine::result launch_runtime(editor_state& state, bool save_changes) noexcept {
 #if defined(GNEISS_EDITOR_HAS_RUNTIME)
+  if (save_changes) {
+    const auto status = save_document(state);
+    state.run_after_save = state.pending_file_operation != nullptr;
+    return status;
+  }
   gneiss::editor::runtime_launch_request request;
-  auto operation = save_changes ? save_document(state) : gneiss::engine::result::success;
+  auto operation = gneiss::engine::result::success;
   if (operation == gneiss::engine::result::success &&
       gneiss::editor::inspect_runtime_launch(state.editing.document(), state.project_root,
                                              request) !=
           gneiss::editor::runtime_launch_state::ready) {
     operation = gneiss::engine::result::invalid_state;
-  }
-  if (operation == gneiss::engine::result::success && save_changes) {
-    state.editing.history().mark_saved();
   }
   if (operation == gneiss::engine::result::success) {
     gneiss::host::project_description project;
@@ -757,6 +790,8 @@ gneiss::engine::result perform_document_action(editor_state& state,
 }
 
 void request_document_action(editor_state& state, gneiss::editor::document_action action) {
+  if (state.pending_file_operation)
+    return;
   const auto ready = state.document_actions.request(action, state.editing.document().is_dirty());
   if (ready != gneiss::editor::document_action::none) {
     state.history_error = perform_document_action(state, ready);
@@ -1305,6 +1340,51 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
     }
     auto& state = *static_cast<editor_state*>(user_data);
     state.runtime.update();
+    if (state.pending_file_operation) {
+      const bool saving = state.file_operation_saves_scene;
+      bool close_save_dialogs{};
+      auto pending = std::move(state.pending_file_operation);
+      gneiss::engine::result status;
+      if (!pending(status))
+        state.pending_file_operation = std::move(pending);
+      else if (!state.pending_file_operation) {
+        if (saving) {
+          state.save_result = status;
+          state.save_attempted = true;
+          if (status.ok() && !state.editing.document().is_dirty()) {
+            close_save_dialogs = true;
+            const auto action = state.document_actions.saved(status);
+            if (action != gneiss::editor::document_action::none)
+              state.history_error = perform_document_action(state, action);
+            if (state.run_after_save) {
+              state.runtime_result = launch_runtime(state, false);
+              state.pending_save_and_run = false;
+            }
+          }
+          state.run_after_save = false;
+        } else {
+          state.prefab_author_result = status;
+          state.prefab_author_attempted = true;
+        }
+      }
+      // 本帧只显示等待界面；防止完成同帧的输入落到已切换文档。
+      const auto begun = state.ui.begin_frame(*state.application, *time);
+      if (begun.failed())
+        return begun;
+      if (close_save_dialogs) {
+        for (const auto* name : {"Unsaved Changes", "Save and Run"}) {
+          if (ImGui::BeginPopupModal(name)) {
+            ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+          }
+        }
+      }
+      ImGui::Begin("File Operation", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+      ImGui::TextUnformatted(state.pending_file_operation ? "正在读取或保存文件……"
+                                                          : "文件操作已完成");
+      ImGui::End();
+      return submit_editor_ui(state);
+    }
     if (state.task_scheduler.mode() == gneiss::engine::execution_mode::cooperative) {
       (void)state.task_scheduler.run_ready();
     }
@@ -1760,7 +1840,7 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
       }
       ImGui::EndMainMenuBar();
     }
-    if (state.editing.history().is_pending()) {
+    if (state.editing.history().is_pending() || state.pending_file_operation) {
       return submit_editor_ui(state);
     }
     gneiss::editor::begin_editor_workspace();
@@ -1890,10 +1970,12 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
                   editor.history_error = perform_document_action(editor, action);
                 },
         });
+    if (state.pending_file_operation)
+      return submit_editor_ui(state);
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
       state.history_error = io.KeyShift ? redo_editor_command(state) : undo_editor_command(state);
     }
-    if (state.editing.history().is_pending()) {
+    if (state.editing.history().is_pending() || state.pending_file_operation) {
       return submit_editor_ui(state);
     }
 
@@ -2239,7 +2321,7 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
             break;
           }
           state.prefab_author_busy = false;
-          state.prefab_author_attempted = true;
+          state.prefab_author_attempted = !state.pending_file_operation;
           state.pending_prefab_author_action = prefab_author_action::none;
           ImGui::CloseCurrentPopup();
         }
@@ -2253,7 +2335,7 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
       }
     }
     ImGui::End();
-    if (state.editing.prefabs().active()) {
+    if (state.editing.prefabs().active() || state.pending_file_operation) {
       return submit_editor_ui(state);
     }
 
@@ -2788,6 +2870,10 @@ uint8_t handle_close_requested(void* user_data) noexcept {
     return 1U;
   }
   auto& state = *static_cast<editor_state*>(user_data);
+  if (state.pending_file_operation) {
+    state.document_actions.defer(gneiss::editor::document_action::exit_editor);
+    return 0U;
+  }
   if (state.scene_loader.active()) {
     (void)state.scene_loader.cancel(*state.application);
     // Application 析构负责在执行器存活时回收在途工作。
@@ -2872,6 +2958,7 @@ int run_editor(int argc, char** argv) {
   desc.window.width = 1280;
   desc.window.height = 720;
   desc.asset_root = asset_root_text;
+  desc.writable_assets = true;
 
   desc.environment_asset = project.environment.asset;
 

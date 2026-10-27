@@ -228,6 +228,19 @@ void restore() {
                             "data", {5, 0},
                             [](auto value) { check(value.status.ok() && value.data.empty()); })
                         .ok());
+              // 临时文件短写失败不能截断旧目标，也不能遗留临时条目。
+              EM_ASM({
+                const original = FS.write;
+                FS.write = (stream, buffer, offset, length, position, canOwn) => {
+                  FS.write = original;
+                  return original(stream, buffer, offset, Math.min(length, 1), position, canOwn);
+                };
+              });
+              check(local->write("data", bytes, {}, [](auto) { check(false); }) == result::io);
+              check(local
+                        ->read("data", {8},
+                               [](auto value) { check(value.status.ok() && value.data == bytes); })
+                        .ok());
               check(local->read_range("data", {4, 2}, [](auto) {}) == result::invalid_argument);
               check(local->read("missing", {8}, [](auto) {}) == result::not_found);
               check(local->write("data", {}, {write_mode::create_new}, [](auto) {}) ==

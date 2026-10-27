@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../../../tests/support/async_document.hpp"
+#include "../../../../tests/support/async_editor_save.hpp"
 #include "commands/runtime_author_apply.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
@@ -71,9 +72,9 @@ int main() try {
       !request.project_root.empty()) {
     return 4;
   }
-  if (gneiss::editor::save_and_prepare_runtime_launch(author_session, project.asset_root,
-                                                      project_root,
-                                                      request) != gneiss::engine::result::success ||
+  if (gneiss::test_support::save_document(author_session, project.asset_root).failed() ||
+      gneiss::editor::inspect_runtime_launch(author_session, project_root, request) !=
+          gneiss::editor::runtime_launch_state::ready ||
       author_session.is_dirty() || request.project_root != project_root) {
     return 5;
   }
@@ -93,7 +94,8 @@ int main() try {
           author_session, history, runtime_snapshot) != gneiss::engine::result::success ||
       !history.is_dirty() || !author_session.is_dirty() ||
       author_session.find_node(runtime_snapshot.uuid)->local_transform.translation[0] != 4.0F ||
-      author_session.save(project.asset_root) != gneiss::engine::result::success) {
+      gneiss::test_support::save_document(author_session, project.asset_root) !=
+          gneiss::engine::result::success) {
     return 6;
   }
   history.mark_saved();
