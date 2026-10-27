@@ -77,7 +77,7 @@ asset_preparation 分步状态机、prepare_assets/prepare_texture 同步入口�
 本轮四项收尾已完成：删除旧事务、补齐安全写入、迁移编辑器异步调用、更新相关测试与文档。
 Windows Clang Debug 编译及 9 项文件服务/编辑器小型测试通过；浏览器后端编译与 Edge 专项通过，
 覆盖临时文件短写失败保留原文件和持久化重试。未运行大场景、完整 CI 或编辑器手动交互验收。
-整体 PLAN-051 的剩余项仍见下节，不将本轮完成等同于所有平台文件访问迁移完成。
+整体 PLAN-051 的剩余项仍见下节，完成范围按调用用途确定，不要求迁移所有宿主文件访问。
 
 - 本阶段先调整语义。安全替换与来源读取的异步化、旧日志实现/测试清理分别核对，不以行为调整冒充全量迁移完成。
 
@@ -104,53 +104,54 @@ PBR Shader resolver 改为只消费内存字节，生产启动使用内嵌归档
   浏览器先在内存 FS 写临时文件再 rename，持久化仍需显式 flush。没有跨文件原子性、跨进程 CAS
   或目录崩溃耐久性承诺；硬链接不受支持时 create_new 返回错误。
 - 布局内容已通过 Application 的 user:// 挂载异步读写；启动先显示默认工作区，完成后采用配置，
-  Reset 使迟到读取失效。退出期间等待保存，失败可重试或不保存布局退出。
+  Reset 使迟到读取失效。退出期间等待保存回执，失败记录日志并继续退出。
   配置目录仍由宿主启动引导准备；不能把布局迁移表述为整个工程启动已后台化。
 - Application 正常退出已有分阶段关闭；Render 最终销毁、初始化失败及误用析构的同步兜底仍存在。
 
 真实配额、跨域部署、大文件峰值属于验证缺口；公共 JS Promise、字节缓存和流送系统属于按需扩展，
-不作为本轮清理的前置条件。上述实现缺口完成前不宣称所有生产文件访问均已统一。
+不作为本轮清理的前置条件。不宣称所有生产文件访问均已统一，也不再将其作为本计划目标。
 
 ## 剩余文件访问审计与最终验收清单
 
-2026-10-27 按生产源码扫描（排除测试夹具），核对了流式文件 API、fstream、stdio、
-filesystem 元数据/目录操作及 ImGui 文件入口。表中“未实现”不得当作仅缺少测试。
+2026-10-27 按生产源码核对后的范围修订：不以清空 fstream、stdio 或 filesystem 为完成条件。
+统一的是运行时资产与跨平台异步访问契约，桌面宿主和工具按执行位置保留同步能力。
 
-| 范围与源码 | 当前行为 | 后续工作与验收条件 |
+| 范围与源码 | 当前行为及本轮调整 | 验收或后续边界 |
 | --- | --- | --- |
-| `editor/editor_ui.cpp`、`host/editor/editor_application.cpp` | 布局内容已异步；user 根目录仍在启动引导创建 | 内容读写不出现原生文件 API；缺失用默认，损坏不采用，退出等待写回执 |
-| `host/common/project_description.cpp`、`host/editor/project_workspace.cpp`、`project_manager.cpp` | 工程描述、最近工程、模板创建仍同步；会从 Project Manager UI 调用 | **未实现**：工程引导任务与描述解析分开，迁移最近工程读写；目录创建/复制须有平台能力，不能用回调包装同步 I/O 冒充完成 |
-| `host/editor/runtime_process.cpp`、`host/runtime/runtime_application.cpp` | 进程会话目录原生创建/清理；IPC 不可用时仍通过 stop 文件通知/轮询 | **未实现**：收敛进程控制回退；保留无 IPC 停止、超时强退、孤儿进程清理验收。Editor 菜单中重复读取工程描述已删除，子进程自行校验 |
-| `editor/asset_browser_model.cpp`、`asset_import_controller.cpp`、`tooling/asset_import/*` | 导入/索引/源目录操作仍用原生 I/O；编辑器通过后台任务调用 | **未实现**：转换库与文件读写分离，接入异步目录/写入；后台执行不等于已统一 file_service |
-| `tooling/asset_build/*`、`host/assetc/*`、`host/editor/package_archive.cpp` | 离线构建、复制、打包及探测使用同步文件 API | **未实现**：工具宿主驱动异步请求；补齐目录、复制/移动与归档适配，保留构建产物和失败清理验收 |
-| `runtime/application.cpp`、`host/runtime/runtime_log.cpp` | 可选帧追踪与日志落盘/轮转仍原生 | **未实现**：有界日志队列、单独落盘与退出排空；不能声称主循环零阻塞文件访问 |
-| `editor/documents/scene_document.cpp`、`editor/asset_file_watcher.cpp` | 对话框路径归属校验、原生监听目录发现仍查询文件系统 | **未实现**：保留路径边界校验，迁移元数据查询；OS 监听能力仍归平台层 |
+| `editor_ui.cpp`、`editor_application.cpp` | 布局保留 user:// 异步读写；删除失败后的重试/放弃退出交互 | 缺失用默认，Reset 抵御迟到读取；保存失败记日志并退出，仍收尾已接受请求 |
+| `project_workspace.cpp` | 最近工程保留同步实现；替换不再先删除旧文件，写入显式检查关闭结果 | Windows 替换失败保留旧配置并清理临时文件；不保证跨进程写入仲裁 |
+| `project_manager.cpp`、`project_description.cpp` | 创建/打开/最近工程选择及保存记录已移至单工作线程调度器；输入结果独立拥有 | UI 不等待复制；任务期间拒绝重复提交；关闭等待任务完成；无中途取消，不冒充可立即退出 |
+| 工程启动及最近列表读取 | 启动引导仍同步，最近列表会校验工程；原生目录选择仍模态 | 允许保留；网络路径或大量校验若导致启动迟滞，另行将启动扫描后台化 |
+| `runtime_process.cpp`、`runtime_application.cpp` | 原生会话目录及 stop 文件回退保留 | 属于宿主进程控制；保持超时停止与清理，不要求接入资产服务 |
+| `asset_background_worker.cpp`、`asset_import_controller.cpp`、`tooling/asset_import/*` | 现有后台导入保留同步 I/O；已有停止检查和提交阶段边界 | 继续复用调度器及主线程结果消费，不改写为逐文件回调链 |
+| `tooling/asset_build/*`、`host/assetc/*`、`package_archive.cpp` | 离线构建和打包保留同步文件 API；Editor 使用打包子进程 | 宿主退出等待进程，保持失败产物清理；不承诺打包中途取消 |
+| `runtime_log.cpp`、Application 帧追踪 | 原生输出和 flush 保留 | 日志性能单独规划；协议输出不能统一取消 flush，不声称主循环零阻塞 |
+| `scene_document.cpp`、`asset_file_watcher.cpp` | 本地路径归属校验、原生监听和目录发现保留 | 不删除真实路径校验；路径辅助提取、扫描优化按实际需求实施 |
 
-关闭审查结果：
+关闭边界：
 
-- Editor 正常退出先停止自身生产者、取消编辑/加载，再等待布局和后台回执；之后释放文档/UI，
-  请求 Application 关闭，持续分发至文件与 CPU 工作完成，最后停止执行器。
-- Project Manager 正常退出已补显式 request_shutdown/advance_shutdown，不再直接 reset 依赖析构。
-- Editor 关闭时显式通知 Runtime 停止并持续 update，通知失败也进入既有超时收尾；打包子进程等待完成。
-  正常路径不再把活动子进程的两秒等待留给 runtime_process 析构。
-- **未实现**：Render 最终 shutdown 仍调用 executor.flush 并等待 GPU 销毁命令；这是显式同步阶段，
-  并非已经完成的异步销毁。须增加渲染关闭回执后再停止线程/窗口，并验证资源释放顺序。
-- **未实现**：初始化失败、异常退出及误用析构的兜底统一；本轮只保证正常关闭路径显式推进。
+- Editor 正常退出先停止生产者，再收尾布局、编辑/加载和后台工作，之后关闭共享文件服务和执行器。
+- Project Manager 正常关闭仍推进窗口循环等待工程任务；异常离开循环显式 close_scope 兜底。
+  任务不访问 UI，不为安全收尾创建第二套文件服务。
+- 既有 Runtime 子进程停止超时与 Application 分阶段关闭保留。
+- Render 最终 executor.flush/GPU 等待、异常退出兜底仍存在；异步渲染关闭为独立生命周期任务，
+  不再作为本计划完成的前置条件，不将当前实现描述为完全异步退出。
 
 验收分组：
 
-- **本轮本地验证通过**：Windows Debug 编译；8 项专项测试（files.service、files.native、
-  editor.ui-layout、author-file-save、runtime-stop-failure、author-asset-service、document-editing、
-  document-actions）。覆盖布局缺失/恢复/隔离/损坏/保存失败/重复保存/迟到回执，以及停止通知失败后的
-  子进程超时收尾。修改文件格式检查、Core 分层检查及 git diff --check 通过。
-- **已实现但待统一验证**：真实窗口布局拖动与退出交互、完整平台矩阵、浏览器实际配额/CORS/大文件内存峰值。
-- **尚未实现**：上表标注项及 Render 异步关闭；不能用编译通过代替实现完成。
-- 字节缓存、公共 JS Promise、流送系统仍按真实需求另立任务，不作为本轮收尾的扩展目标。
+- **必须异步且已落地**：运行时资产、远程读取、浏览器持久化、运行中的场景/作者文件保存。
+- **允许保留同步**：后台导入/打包/工程复制、独立工具、小型本地启动配置与宿主目录操作。
+- **本轮验证通过**：Windows Clang Debug 编译；5 项专项测试（ui-layout、project-workspace、
+  author-file-save、runtime-stop-failure、asset-background-worker），包括新增替换失败保留旧配置用例；
+  修改文件格式、Core 分层和 git diff --check 检查通过。
+- **待统一验证**：真实窗口响应与关闭交互、完整平台矩阵、浏览器配额/CORS/大文件峰值。
+- **另行规划**：日志性能、Render 异步关闭；字节缓存、公共 JS Promise、流送按真实需求扩展。
 
 ## 本轮确认范围（待实施）
 
 本轮将文件抽象整体收敛到 `engine/platform/files`，由它完整替换旧 VFS。
-文件操作与资产加载只提供异步入口，不保留同步工具入口、同步回退或阻塞等待包装。
+file_service 与运行时资产加载只提供异步入口，不保留同步回退或阻塞等待包装。
+桌面配置、后台工具的同步操作按上文范围修订保留。
 纯内存解析、序列化、缓存查询和已准备数据的场景实例化仍可同步执行。
 本节描述完整目标；核心已迁入 Platform，原 resource/files 的适配器已移出生产树；其他迁移状态见上节。
 
@@ -231,7 +232,7 @@ find_loaded 只查询已完成缓存，未命中返回 not_found，失败保持�
 删除 load_sync、load_sync_erased、同步 load_input、旧 VFS 构造、files() 旧访问器、legacy_sync 与同步回退。
 普通文件回调不得内联调用用户代码；缓存查询是明确的同步内存 API，与异步 load 分开。
 场景打开、Prefab 依赖、编辑器保存和重载均迁移到完成后继续的流程；
-保存完成后更新保存状态，持久化承诺依赖 flush。命令行工具仅由最外层驱动事件循环至任务完成。
+保存完成后更新保存状态，持久化承诺依赖 flush。命令行工具调用异步服务时由最外层驱动事件循环；独立原生工具内部允许同步 I/O。
 
 ### 宿主关闭（规划）
 
@@ -294,7 +295,7 @@ result shutdown(completion_callback);
 1. **已有核心复用**：保留服务核心与内存后端，审计请求、错误、取消、来源身份和关闭契约。
 2. **独立桌面后端**：直接接入平台 libuv 执行器，补齐读、范围读、写、stat、list、flush，
    不经过旧 file_system，不依赖 std::filesystem，不新增线程池。
-3. **调用方迁移**：迁移宿主挂载与完成分发、asset_manager、Scene/Prefab、编辑器、工具、示例和测试；
+3. **调用方迁移**：迁移宿主挂载与完成分发、asset_manager、Scene/Prefab、编辑器资产链路、示例和测试；
    增加 find_loaded，移除同步加载及工作线程等待；内存解码不再创建临时 VFS。
 4. **关闭与分层收敛**：完成异步关闭，来源身份通用化，搬入 platform/files，删除 VFS 和过渡适配器。
    若分步实施需要临时桥接，桥接只允许在 Resource/宿主侧，不让 Platform 反向依赖旧 VFS。
@@ -328,7 +329,7 @@ Windows 服务契约及 Edge 小型测试通过，覆盖未知长度、空响应
 - 统一后端测试：空文件、范围边界、上限、短读、缺失、拒绝写、元数据和分页；支持/不支持能力明确。
 - 路由测试：最长前缀、not_found 回退、io/unsupported 不回退、唯一写入、写后读取优先级。
 - 生命周期测试：不内联、预算分发、重入、跨服务 ID、取消竞态、迟到完成、关闭清理、后台完成线程。
-- 桌面：所有文件操作不在提交/分发线程执行阻塞文件 I/O；正常/失败路径都等待关闭收尾。
+- 桌面：file_service 后端操作不在提交/分发线程执行阻塞文件 I/O；正常/失败路径都等待关闭收尾。
 - 浏览器：初始化恢复顺序、flush 失败、容量不足、Range 不支持、CORS、缓存失效、关闭期间回调。
 - 大文件：应用缓冲和 JS/Wasm 复制峰值纳入预算，消费者慢时不会无限堆积；IDBFS 限制单独说明。
 - 已执行的小型测试可报告实测结果；大场景、耗时 CI 和未运行的平台场景仍留待统一验收。

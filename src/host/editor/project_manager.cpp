@@ -10,6 +10,7 @@
 #include "project_workspace.hpp"
 
 #include "engine/core/result.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
 #include "runtime/application.hpp"
 
 #include <imgui.h>
@@ -28,7 +29,16 @@
 namespace gneiss::host {
 namespace {
 
+struct project_job_result {
+  editor_project project;
+  engine::result status{engine::result::internal};
+};
+
 struct project_manager_state final {
+  engine::task_scheduler scheduler{{.workers = 1U}};
+  engine::task_scope scope{scheduler.make_scope()};
+  std::shared_ptr<project_job_result> pending;
+  bool closing{};
   runtime::application* application{};
   gneiss::editor::imgui_adapter ui;
   editor_project* output = nullptr;
@@ -62,16 +72,56 @@ void set_create_path(project_manager_state& state, const std::filesystem::path& 
 }
 
 gneiss::engine::result select_project(project_manager_state& state, editor_project project) {
-  (void)remember_recent_project(state.state_file, project);
   *state.output = std::move(project);
   state.selected = true;
   state.application->request_exit();
   return gneiss::engine::result::success;
 }
 
+// 桌面工程任务拥有输入和结果，不借用 UI 或输出对象；只在主线程采用完成结果。
+engine::result begin_project_job(project_manager_state& state, std::filesystem::path root,
+                                 std::string name = {}) {
+  if (state.pending || state.closing)
+    return engine::result::not_ready;
+  auto pending = std::make_shared<project_job_result>();
+  engine::task_handle task;
+  const auto submitted = state.scheduler.submit(
+      {.name = "工程创建或打开", .scope = state.scope},
+      [pending, state_file = state.state_file, root = std::move(root),
+       name = std::move(name)](const engine::task_context&) {
+        pending->status = name.empty() ? load_editor_project(root, pending->project)
+                                       : create_editor_project(root, name, pending->project);
+        if (pending->status.ok()) {
+          const auto saved = remember_recent_project(state_file, pending->project);
+          if (saved.failed())
+            std::fprintf(stderr, "最近工程配置保存失败：%d\n", saved.code());
+        }
+        return engine::task_outcome{};
+      },
+      task);
+  if (submitted != engine::submit_result::success)
+    return engine::result::internal;
+  state.pending = std::move(pending);
+  return engine::result::success;
+}
+
 gneiss::engine::result update_project_manager(project_manager_state& state,
                                               const gneiss::engine::frame_time& time) {
   try {
+    if (state.pending) {
+      std::vector<engine::task_completion> completed;
+      state.scheduler.poll(state.scope, completed);
+      if (!completed.empty()) {
+        auto pending = std::exchange(state.pending, {});
+        state.operation = completed.front().outcome.state == engine::task_state::succeeded
+                              ? pending->status
+                              : engine::result::internal;
+        if (!state.closing && state.operation.ok())
+          (void)select_project(state, std::move(pending->project));
+      }
+    }
+    if (state.closing && !state.pending)
+      state.application->request_exit();
     auto operation = state.ui.begin_frame(*state.application, time);
     if (operation != gneiss::engine::result::success) {
       return operation;
@@ -88,6 +138,7 @@ gneiss::engine::result update_project_manager(project_manager_state& state,
     ImGui::SameLine();
     ImGui::TextUnformatted("Project Manager");
     ImGui::Spacing();
+    ImGui::BeginDisabled(state.pending != nullptr || state.closing);
     if (ImGui::BeginTabBar("ProjectActions")) {
       if (ImGui::BeginTabItem("Recent")) {
         if (state.recent_projects.empty()) {
@@ -97,11 +148,7 @@ gneiss::engine::result update_project_manager(project_manager_state& state,
           const auto& project = state.recent_projects[index];
           ImGui::PushID(static_cast<int>(index));
           if (ImGui::Selectable(project.name.c_str())) {
-            editor_project pending;
-            state.operation = load_editor_project(project.project_root, pending);
-            if (state.operation == gneiss::engine::result::success) {
-              operation = select_project(state, std::move(pending));
-            }
+            state.operation = begin_project_job(state, project.project_root);
           }
           ImGui::SameLine(190.0F);
           ImGui::TextDisabled("%s", project.project_root.string().c_str());
@@ -126,11 +173,7 @@ gneiss::engine::result update_project_manager(project_manager_state& state,
         const auto open_requested = ImGui::Button("Open Project", ImVec2(140.0F, 0.0F));
         ImGui::EndDisabled();
         if (open_requested) {
-          editor_project pending;
-          state.operation = load_editor_project(utf8_path(state.project_path.data()), pending);
-          if (state.operation == gneiss::engine::result::success) {
-            operation = select_project(state, std::move(pending));
-          }
+          state.operation = begin_project_job(state, utf8_path(state.project_path.data()));
         }
         ImGui::EndTabItem();
       }
@@ -154,17 +197,16 @@ gneiss::engine::result update_project_manager(project_manager_state& state,
         const auto create_requested = ImGui::Button("Create Project", ImVec2(140.0F, 0.0F));
         ImGui::EndDisabled();
         if (create_requested) {
-          editor_project pending;
-          state.operation = create_editor_project(utf8_path(state.create_path.data()),
-                                                  state.create_name.data(), pending);
-          if (state.operation == gneiss::engine::result::success) {
-            operation = select_project(state, std::move(pending));
-          }
+          state.operation = begin_project_job(state, utf8_path(state.create_path.data()),
+                                              state.create_name.data());
         }
         ImGui::EndTabItem();
       }
       ImGui::EndTabBar();
     }
+    ImGui::EndDisabled();
+    if (state.pending)
+      ImGui::TextUnformatted(state.closing ? "正在等待工程任务收尾……" : "正在处理工程……");
     if (operation != gneiss::engine::result::success) {
       ImGui::EndChild();
       ImGui::End();
@@ -204,6 +246,10 @@ gneiss::engine::result run_project_manager(bool smoke, editor_project& output) n
     desc.callbacks.update = [&state](const gneiss::engine::frame_time& time) {
       return update_project_manager(state, time);
     };
+    desc.callbacks.close_requested = [&state] {
+      state.closing = true;
+      return !state.pending;
+    };
     desc.use_granit_window = true;
     desc.window.title = title;
 
@@ -237,6 +283,9 @@ gneiss::engine::result run_project_manager(bool smoke, editor_project& output) n
                      operation.code(), static_cast<int>(message.size()), message.data());
       }
     }
+    // 异常离开事件循环时也显式等待任务；任务不访问已经销毁的 UI。
+    (void)state.scheduler.close_scope(state.scope);
+    state.pending.reset();
     state.ui.shutdown(*application);
     // 正常退出显式收尾文件回执与服务，不依赖 Application 析构等待。
     auto closing = application->request_shutdown();

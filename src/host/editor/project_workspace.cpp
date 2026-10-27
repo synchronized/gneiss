@@ -10,6 +10,13 @@
 
 #include <yyjson.h>
 
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 #include <array>
 #include <cctype>
 #include <cstdlib>
@@ -112,6 +119,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
 [[nodiscard]] bool write_text(const std::filesystem::path& path, std::string_view text) {
   std::ofstream stream(path, std::ios::binary | std::ios::trunc);
   stream.write(text.data(), static_cast<std::streamsize>(text.size()));
+  stream.close();
   return static_cast<bool>(stream);
 }
 
@@ -214,11 +222,17 @@ write_recent_projects(const std::filesystem::path& state_file,
   if (!write_text(temporary, std::string_view(json.get(), length))) {
     return gneiss::engine::result::io;
   }
+  // 同目录替换失败时保留原文件，不能先删除旧配置。
+#if defined(_WIN32)
+  if (!MoveFileExW(std::filesystem::path(temporary).c_str(), state_file.c_str(),
+                   MOVEFILE_REPLACE_EXISTING))
+    error = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+#else
   std::filesystem::rename(temporary, state_file, error);
+#endif
   if (error) {
-    std::filesystem::remove(state_file, error);
-    error.clear();
-    std::filesystem::rename(temporary, state_file, error);
+    std::error_code ignored;
+    std::filesystem::remove(temporary, ignored);
   }
   return error ? gneiss::engine::result::io : gneiss::engine::result::success;
 }

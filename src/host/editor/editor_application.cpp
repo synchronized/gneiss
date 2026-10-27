@@ -150,7 +150,6 @@ struct editor_state {
   gneiss::editor::editor_layout layout;
   bool closing{};
   bool layout_save_started{};
-  bool discard_layout{};
   gneiss::engine::result layout_status{gneiss::engine::result::success};
   gizmo_operation gizmo_mode = gizmo_operation::translate;
   gneiss::editor::transform_gizmo_drag gizmo_drag;
@@ -1427,21 +1426,13 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
       }
       if (!state.smoke && !state.layout.saving() && state.layout_status.ok())
         state.layout_status = state.layout.save_result();
-      if (stopped && !state.layout.saving() && (state.layout_status.ok() || state.discard_layout))
+      if (stopped && !state.layout.saving())
         state.application->request_exit();
       const auto begun = state.ui.begin_frame(*state.application, *time);
       if (begun.failed())
         return begun;
       ImGui::Begin("Closing Editor");
-      if (state.layout_status.failed() && !state.layout.saving()) {
-        ImGui::TextUnformatted("布局保存失败，原文件保持不变。");
-        if (ImGui::Button("重试保存布局"))
-          state.layout_save_started = false;
-        ImGui::SameLine();
-        if (ImGui::Button("不保存布局并退出"))
-          state.discard_layout = true;
-      } else
-        ImGui::TextUnformatted("正在保存布局并收尾后台任务……");
+      ImGui::TextUnformatted("正在保存布局并收尾后台任务……");
       ImGui::End();
       return submit_editor_ui(state);
     }
@@ -3111,7 +3102,7 @@ int run_editor(int argc, char** argv) {
     state.editing.advance_cleanup(*application);
     std::this_thread::yield();
   }
-  if (!options.smoke && !state.discard_layout) {
+  if (!options.smoke) {
     const auto status =
         state.layout_status.failed() ? state.layout_status : state.layout.save_result();
     if (status.failed())

@@ -13,6 +13,13 @@
 #include <string>
 #include <vector>
 
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 using namespace gneiss::host;
 
 int main() try {
@@ -166,6 +173,19 @@ int main() try {
       recent.size() != 1U) {
     return 4;
   }
+  // 替换失败仍保留原配置；Windows 禁止删除共享用于稳定复现。
+#if defined(_WIN32)
+  const auto held = CreateFileW(state_file.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
+                                OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (held == INVALID_HANDLE_VALUE)
+    return 20;
+  const auto failed_save = remember_recent_project(state_file, project);
+  CloseHandle(held);
+  if (failed_save != gneiss::engine::result::io ||
+      load_recent_projects(state_file, recent).failed() || recent.size() != 1U ||
+      std::filesystem::exists(state_file.string() + ".tmp"))
+    return 21;
+#endif
   std::filesystem::remove_all(project_root);
   if (gneiss::host::load_recent_projects(state_file, recent) != gneiss::engine::result::success ||
       !recent.empty()) {
