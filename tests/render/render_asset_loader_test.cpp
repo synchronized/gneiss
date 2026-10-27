@@ -470,7 +470,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   auto memory = std::make_shared<memory_file_system>();
   memory->files.emplace(
       "models/triangle.mesh.json",
-      R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[-0.5,-0.5,0],[0.5,-0.5,0],[0,0.5,0]]})");
+      R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.5,-0.5,0],[0.5,-0.5,0],[0,0.5,0]],"uvs":[[0,0],[0,0],[0,0]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})");
   memory->files.emplace(
       "materials/default.material.json",
       R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0.25,0.5,0.75,1]})");
@@ -512,7 +512,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
       R"({"format":"gneiss.texture","version":1,"source":"asset://textures/packaged.gneiss-texture","color_space":"srgb"})");
   memory->files.emplace(
       "models/textured.mesh.json",
-      R"({"format":"gneiss.mesh","version":2,"topology":"triangle_list","vertices":[[-0.5,-0.5,0],[0.5,-0.5,0],[0,0.5,0]],"uvs":[[0,0],[1,0],[0.5,1]]})");
+      R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.5,-0.5,0],[0.5,-0.5,0],[0,0.5,0]],"uvs":[[0,0],[1,0],[0.5,1]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})");
   memory->files.emplace(
       "models/lit.mesh.json",
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.5,-0.5,0],[0.5,-0.5,0],[0,0.5,0]],"uvs":[[0,0],[1,0],[0.5,1]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})");
@@ -590,7 +590,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     return 4;
   }
   memory->files["models/broken.mesh.json"] =
-      R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]]})";
+      R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[0,0],[0,0]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})";
   if (gneiss::test_support::load_render(loader, gneiss::engine::render_asset_type::mesh,
                                         "asset://models/broken.mesh.json", broken,
                                         diagnostic) != gneiss::engine::result::success ||
@@ -678,7 +678,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   }
   const auto* mesh_data = resources.get_mesh(gneiss::engine::asset_rid(textured_mesh));
   const auto* material_data = resources.get_material(gneiss::engine::asset_rid(textured_material));
-  if (mesh_data == nullptr || mesh_data->vertices.size() != 3U || !mesh_data->normals.empty() ||
+  if (mesh_data == nullptr || mesh_data->vertices.size() != 3U || mesh_data->normals.size() != 3U ||
       mesh_data->vertices[1].uv.x != 1.0F || mesh_data->vertices[2].uv.y != 1.0F ||
       material_data == nullptr ||
       material_data->base_color_texture != gneiss::engine::asset_rid(first_texture) ||
@@ -709,7 +709,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     const auto cache_before = cache.size();
     const auto resources_before = resources.live_resource_count();
     constexpr std::string_view tiled_json =
-        R"({"format":"gneiss.mesh","version":2,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[-42469.96875,22.5],[2,0],[0,-2]]})";
+        R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[-42469.96875,22.5],[2,0],[0,-2]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})";
     memory->files["models/tiled.mesh.json"] = tiled_json;
     const std::array requests{
         gneiss::engine::render_asset_reload{"asset://models/tiled.mesh.json",
@@ -761,7 +761,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   const auto old_material_data = resources.share_material(old_material);
   const auto old_texture_data = resources.share_texture(old_texture);
   memory->files["models/textured.mesh.json"] =
-      R"({"format":"gneiss.mesh","version":2,"topology":"triangle_list","vertices":[[-1,-1,0],[1,-1,0],[0,1,0]],"uvs":[[0,0],[1,0],[0.5,1]]})";
+      R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-1,-1,0],[1,-1,0],[0,1,0]],"uvs":[[0,0],[1,0],[0.5,1]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})";
   memory->files["materials/textured.material.json"] =
       R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[0.2,0.4,0.6,1],"base_color_texture":"asset://textures/white.texture.json"})";
   const std::array reloads{

@@ -21,7 +21,7 @@ std::vector<std::byte> bytes(std::string_view text) {
 int main() try {
   const asset_preparation_source mesh{"asset://mesh", asset_type::mesh};
   constexpr auto text =
-      R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]]})";
+      R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[0,0],[0,0]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})";
   prepared_asset output;
   asset_diagnostic diagnostic;
   result status;
@@ -32,6 +32,25 @@ int main() try {
   worker.join();
   check(status.ok() && output.mesh.vertices.size() == 3 && output.bytes > 0);
   const auto* vertices = output.mesh.vertices.data();
+  check(output.mesh.normals.size() == 3 && output.mesh.normals[0].z == 1.0F);
+  // 版本拒绝不能覆盖上一次成功结果；旧布局无需补齐 v3 字段也应报告版本错误。
+  for (const auto version : {1, 2, 4}) {
+    const auto legacy = std::string{"{\"format\":\"gneiss.mesh\",\"version\":"} +
+                        std::to_string(version) +
+                        R"(,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]]})";
+    check(decode_loaded_asset(mesh, bytes(legacy), {}, {}, output, diagnostic, 65536, {}) ==
+          result::unsupported);
+    check(diagnostic.path == "/version" && output.mesh.vertices.data() == vertices);
+  }
+  for (const auto field : {"uvs", "normals"}) {
+    std::string missing{text};
+    const auto begin = missing.find(std::string{",\""} + field + "\":[");
+    const auto end = missing.find("]]", begin) + 2;
+    missing.erase(begin, end - begin);
+    check(decode_loaded_asset(mesh, bytes(missing), {}, {}, output, diagnostic, 65536, {}) ==
+          result::invalid_argument);
+    check(diagnostic.path == std::string{"/"} + field && output.mesh.vertices.data() == vertices);
+  }
   check(decode_loaded_asset(mesh, bytes("{}"), {}, {}, output, diagnostic, 65536, {}).failed());
   check(output.mesh.vertices.data() == vertices);
   check(decode_loaded_asset(mesh, bytes(text), {}, {}, output, diagnostic, 1, {}) ==

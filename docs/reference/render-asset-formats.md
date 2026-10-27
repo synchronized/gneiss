@@ -3,7 +3,7 @@
 
 # Render 资产格式
 
-Runtime Mesh 优先使用二进制；旧 Mesh、Material 与 Texture 描述使用严格 UTF-8 JSON。所有格式仅由
+Runtime Mesh 优先使用二进制；Mesh、Material 与 Texture 描述使用严格 UTF-8 JSON。所有格式仅由
 内部 Loader 使用，资源 URI 规则见[资产 URI、目录挂载与缓存](assets.md)。
 
 ## Mesh Binary v3
@@ -44,42 +44,15 @@ Mesh 构建处理器版本已提升至 3，旧缓存键失效；应从作者源�
 `gneiss_assetc inspect` 输出摘要，`validate` 只校验，`dump <file> --format json` 按需生成完整 Debug
 JSON。Debug JSON 的格式标识为 `gneiss.mesh.debug`，不是 Runtime 输入。
 
-## 兼容 JSON Mesh
+## Mesh JSON v3
 
-建议扩展名为 `.mesh.json`：
+建议扩展名为 `.mesh.json`。仅接受 `gneiss.mesh` v3；v1、v2 和未知正整数版本返回
+`unsupported`，诊断路径为 `/version`。旧资产需重新导入或显式补齐 UV 与单位法线。
 
-```json
-{
-  "format": "gneiss.mesh",
-  "version": 1,
-  "topology": "triangle_list",
-  "vertices": [
-    [-0.5, -0.5, 0.0],
-    [0.5, -0.5, 0.0],
-    [0.0, 0.5, 0.0]
-  ]
-}
-```
-
-`vertices` 每项为 `(x, y, z)` 位置。顶点数至少为 3 且是 3 的倍数，所有数值必须有限并可表示为
-float。v1 只支持 `triangle_list`，不包含索引、法线、UV、颜色或骨骼。
-
-Mesh v2 保留 `vertices`，并增加数量必须与顶点一致的 `uvs`；每项是有限二维纹理坐标 `(u, v)`：
-
-```json
-{
-  "format": "gneiss.mesh",
-  "version": 2,
-  "topology": "triangle_list",
-  "vertices": [[-0.5, -0.5, 0], [0.5, -0.5, 0], [0, 0.5, 0]],
-  "uvs": [[0, 0], [1, 0], [0.5, 1]]
-}
-```
-
-UV 的两个分量必须为有限 float，允许负数和大于 `1` 的平铺坐标，不进行截断或取模。
-采样寻址由 Material 决定，旧版本默认重复寻址。
-
-Mesh v3 继续要求 `uvs`，并增加数量与顶点一致的单位 `normals`；每项是右手坐标中的 `(x, y, z)`：
+`topology` 只支持 `triangle_list`。顶点数量至少为 3 且是 3 的倍数；
+`vertices`、`uvs`、`normals` 数量必须一致，分别包含 3、2、3 个有限 float 分量。
+UV 允许负数和大于 1 的平铺坐标，不截断或取模；采样寻址由材质决定。
+法线使用右手坐标系，长度允许 `1e-4` 误差。不再隐式填充 UV 或进入旧版无光照兼容路径。
 
 ```json
 {
@@ -91,8 +64,6 @@ Mesh v3 继续要求 `uvs`，并增加数量与顶点一致的单位 `normals`�
   "normals": [[0, 0, 1], [0, 0, 1], [0, 0, 1]]
 }
 ```
-
-法线长度允许 `1e-4` 误差。v1/v2 不隐式生成法线，进入明确的无光照兼容路径。
 
 ## Material
 

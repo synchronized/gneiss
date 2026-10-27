@@ -30,7 +30,7 @@ struct fixture {
   fixture() {
     std::filesystem::create_directories(root);
     std::ofstream(root / "mesh.json")
-        << R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]]})";
+        << R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[0,0],[0,0]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})";
     std::ofstream(root / "material.json")
         << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,0,0,1]})";
     std::ofstream(root / "scene.json")
@@ -173,7 +173,7 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   check(edit.operation().failed() && history.size() == 1U && session.selection() == preserved);
   history.clear();
   std::ofstream(files.root / "mesh.json")
-      << R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]]})";
+      << R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[0,0],[0,0]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})";
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,0,0,1]})";
   // 第二个实例覆盖失效：第一个替换保留，第二个旧实例删除，镜像反映部分结果。
