@@ -17,24 +17,12 @@ option(GNEISS_BUILD_EXAMPLES "构建 Gneiss 示例" ${PROJECT_IS_TOP_LEVEL})
 option(GNEISS_BUILD_TOOLS "构建 Gneiss 离线工具" ${PROJECT_IS_TOP_LEVEL})
 option(GNEISS_BUILD_EDITOR "构建 Gneiss Editor" OFF)
 option(GNEISS_BUILD_RUNTIME "构建 Gneiss Runtime 宿主" OFF)
-option(GNEISS_ENABLE_GRANIT_PLATFORM "启用 Granit Window 平台适配" OFF)
-
-if(GNEISS_BUILD_EDITOR AND NOT GNEISS_ENABLE_GRANIT_PLATFORM)
-  message(FATAL_ERROR "GNEISS_BUILD_EDITOR=ON 需要 GNEISS_ENABLE_GRANIT_PLATFORM=ON")
-endif()
-if(GNEISS_BUILD_RUNTIME AND NOT GNEISS_ENABLE_GRANIT_PLATFORM)
-  message(FATAL_ERROR "GNEISS_BUILD_RUNTIME=ON 需要 GNEISS_ENABLE_GRANIT_PLATFORM=ON")
-endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(gneiss_utility)
 include(profiling)
-if(GNEISS_ENABLE_GRANIT_PLATFORM OR GNEISS_BUILD_TOOLS OR GNEISS_BUILD_TESTING)
-  include(granit)
-endif()
-if(GNEISS_ENABLE_GRANIT_PLATFORM)
-  gneiss_resolve_granit_runtime()
-endif()
+include(granit)
+gneiss_resolve_granit_runtime()
 if(GNEISS_BUILD_TOOLS OR GNEISS_BUILD_TESTING)
   gneiss_resolve_granit_tools()
 endif()
@@ -123,17 +111,15 @@ install(
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 )
-if(GNEISS_ENABLE_GRANIT_PLATFORM)
-  install(
-    FILES
-      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/libraries/pbr_standard.grshlib"
-    DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/runtime-assets/granit/libraries"
-  )
-  install(
-    FILES "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/materials/pbr_standard.grmat"
-    DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/runtime-assets/granit/materials"
-  )
-endif()
+install(
+  FILES
+    "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/libraries/pbr_standard.grshlib"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/runtime-assets/granit/libraries"
+)
+install(
+  FILES "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/materials/pbr_standard.grmat"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/runtime-assets/granit/materials"
+)
 if(TARGET gneiss_runtime)
   install(
     TARGETS gneiss_runtime

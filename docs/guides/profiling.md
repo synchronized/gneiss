@@ -10,7 +10,7 @@
 ## 构建
 
 ```powershell
-cmake --preset windows-clang-profiling -DGNEISS_ENABLE_GRANIT_PLATFORM=ON
+cmake --preset windows-clang-profiling
 cmake --build build/windows-clang-profiling --target gneiss_main_loop_response gneiss_profiling_capture
 ```
 

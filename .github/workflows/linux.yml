@@ -139,7 +139,6 @@ jobs:
         run: |
           ccache --zero-stats
           cmake --preset "${{ steps.preset.outputs.name }}" \
-            -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
             -DGNEISS_BUILD_EDITOR=ON \
             -DGNEISS_BUILD_RUNTIME=ON \
             -DGNEISS_GRANIT_PROVIDER=FETCH \
@@ -222,7 +221,6 @@ jobs:
         shell: bash
         run: |
           cmake --preset linux-gcc-debug \
-            -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
             -DGNEISS_BUILD_EDITOR=OFF \
             -DGNEISS_BUILD_TOOLS=OFF \
             -DGNEISS_ENABLE_SANITIZERS=ON \

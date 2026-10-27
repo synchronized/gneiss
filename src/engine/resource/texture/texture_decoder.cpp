@@ -7,9 +7,7 @@
 #include "png_decoder.hpp"
 #include "texture_binary.hpp"
 #include "texture_ktx2.hpp"
-#if defined(GNEISS_HAS_GRANIT_PLATFORM)
 #include <granit/renderer/texture_asset.hpp>
-#endif
 namespace gneiss::engine::detail {
 [[nodiscard]] gneiss::engine::result parse_texture(const std::vector<std::byte>& bytes,
                                                    texture_description& out_source,
@@ -84,7 +82,6 @@ result decode_texture_payload(const texture_description& source,
     [[maybe_unused]] const bool selected =
         profile.generation != 0U && std::string_view(source.uri).ends_with(".gneiss-texture");
     if (std::string_view(source.uri).ends_with(".gneiss-texture")) {
-#if defined(GNEISS_HAS_GRANIT_PLATFORM)
       gneiss::engine::texture_binary_view binary;
       std::string decode_message;
       if (gneiss::engine::decode_texture_binary(image_bytes, binary, decode_message) !=
@@ -187,11 +184,6 @@ result decode_texture_payload(const texture_description& source,
           return gneiss::engine::result::unsupported;
         }
       }
-#else
-      fail(out_diagnostic, gneiss::engine::result::unsupported, "/source",
-           "当前构建未启用 Granit，无法加载运行纹理封装");
-      return gneiss::engine::result::unsupported;
-#endif
     } else if (std::string_view(source.uri).ends_with(".ktx2")) {
       gneiss::engine::texture_ktx2 texture;
       std::string decode_message;

@@ -171,120 +171,112 @@ target_sources(
 
 )
 
-if(NOT GNEISS_ENABLE_GRANIT_PLATFORM)
-  target_sources(gneiss_engine PRIVATE engine/function/render/render_service_headless.cpp)
-endif()
 
-if(GNEISS_ENABLE_GRANIT_PLATFORM)
-  set(granit_pbr_asset_dir "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/libraries")
-  set(granit_pbr_assets pbr_standard.grshlib)
-  if(NOT GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR)
-    message(FATAL_ERROR "Granit Render Pipeline 未提供标准资产目录")
+set(granit_pbr_asset_dir "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/libraries")
+set(granit_pbr_assets pbr_standard.grshlib)
+if(NOT GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR)
+  message(FATAL_ERROR "Granit Render Pipeline 未提供标准资产目录")
+endif()
+foreach(granit_pbr_asset IN LISTS granit_pbr_assets)
+  if(NOT EXISTS "${granit_pbr_asset_dir}/${granit_pbr_asset}")
+    message(FATAL_ERROR "缺少 Granit 标准 PBR 资产：${granit_pbr_asset_dir}/${granit_pbr_asset}")
   endif()
-  foreach(granit_pbr_asset IN LISTS granit_pbr_assets)
-    if(NOT EXISTS "${granit_pbr_asset_dir}/${granit_pbr_asset}")
-      message(FATAL_ERROR "缺少 Granit 标准 PBR 资产：${granit_pbr_asset_dir}/${granit_pbr_asset}")
-    endif()
-  endforeach()
-  set(granit_pbr_material_archive
-      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/materials/pbr_standard.grmat")
-  if(NOT EXISTS "${granit_pbr_material_archive}")
-    message(FATAL_ERROR "缺少 Granit 标准 PBR Material：${granit_pbr_material_archive}")
-  endif()
-  set(gneiss_pbr_embedded_dir "${CMAKE_CURRENT_BINARY_DIR}/generated/pbr")
-  set(gneiss_pbr_embedded_sources)
-  foreach(granit_pbr_asset IN LISTS granit_pbr_assets)
-    set(gneiss_pbr_embedded_source "${gneiss_pbr_embedded_dir}/${granit_pbr_asset}.inc")
-    add_custom_command(
-      OUTPUT "${gneiss_pbr_embedded_source}"
-      COMMAND "${CMAKE_COMMAND}" -E make_directory "${gneiss_pbr_embedded_dir}"
-      COMMAND
-        "${CMAKE_COMMAND}" "-DINPUT=${granit_pbr_asset_dir}/${granit_pbr_asset}"
-        "-DOUTPUT=${gneiss_pbr_embedded_source}"
-        -P "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
-      DEPENDS
-        "${granit_pbr_asset_dir}/${granit_pbr_asset}"
-        "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
-      VERBATIM
-    )
-    list(APPEND gneiss_pbr_embedded_sources "${gneiss_pbr_embedded_source}")
-  endforeach()
-  set(gneiss_pbr_material_include "${gneiss_pbr_embedded_dir}/pbr_standard.grmat.inc")
+endforeach()
+set(granit_pbr_material_archive
+    "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/materials/pbr_standard.grmat")
+if(NOT EXISTS "${granit_pbr_material_archive}")
+  message(FATAL_ERROR "缺少 Granit 标准 PBR Material：${granit_pbr_material_archive}")
+endif()
+set(gneiss_pbr_embedded_dir "${CMAKE_CURRENT_BINARY_DIR}/generated/pbr")
+set(gneiss_pbr_embedded_sources)
+foreach(granit_pbr_asset IN LISTS granit_pbr_assets)
+  set(gneiss_pbr_embedded_source "${gneiss_pbr_embedded_dir}/${granit_pbr_asset}.inc")
   add_custom_command(
-    OUTPUT "${gneiss_pbr_material_include}"
+    OUTPUT "${gneiss_pbr_embedded_source}"
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${gneiss_pbr_embedded_dir}"
     COMMAND
-      "${CMAKE_COMMAND}" "-DINPUT=${granit_pbr_material_archive}"
-      "-DOUTPUT=${gneiss_pbr_material_include}"
+      "${CMAKE_COMMAND}" "-DINPUT=${granit_pbr_asset_dir}/${granit_pbr_asset}"
+      "-DOUTPUT=${gneiss_pbr_embedded_source}"
       -P "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
-    DEPENDS "${granit_pbr_material_archive}" "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
+    DEPENDS
+      "${granit_pbr_asset_dir}/${granit_pbr_asset}"
+      "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
     VERBATIM
   )
+  list(APPEND gneiss_pbr_embedded_sources "${gneiss_pbr_embedded_source}")
+endforeach()
+set(gneiss_pbr_material_include "${gneiss_pbr_embedded_dir}/pbr_standard.grmat.inc")
+add_custom_command(
+  OUTPUT "${gneiss_pbr_material_include}"
+  COMMAND "${CMAKE_COMMAND}" -E make_directory "${gneiss_pbr_embedded_dir}"
+  COMMAND
+    "${CMAKE_COMMAND}" "-DINPUT=${granit_pbr_material_archive}"
+    "-DOUTPUT=${gneiss_pbr_material_include}"
+    -P "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
+  DEPENDS "${granit_pbr_material_archive}" "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
+  VERBATIM
+)
+add_custom_command(
+  TARGET gneiss_engine
+  POST_BUILD
+  COMMAND "${CMAKE_COMMAND}" -E make_directory
+          "$<TARGET_FILE_DIR:gneiss_engine>/assets/granit/materials"
+  COMMAND
+    "${CMAKE_COMMAND}" -E copy_if_different "${granit_pbr_material_archive}"
+    "$<TARGET_FILE_DIR:gneiss_engine>/assets/granit/materials"
+  VERBATIM
+)
+list(APPEND gneiss_pbr_embedded_sources "${gneiss_pbr_material_include}")
+target_sources(
+  gneiss_engine
+  PRIVATE
+    engine/platform/window_service.cpp
+    engine/platform/window_service.hpp
+    engine/platform/native_window_info.hpp
+    engine/platform/window_configuration.hpp
+    engine/function/render/render_service.cpp
+    engine/function/render/render_service.hpp
+    engine/function/render/backend/granit/pbr_shader_resolver.cpp
+    engine/function/render/backend/granit/pbr_shader_resolver.hpp
+    ${gneiss_pbr_embedded_sources}
+    engine/function/render/render_frame_packet.cpp
+    engine/function/render/render_frame_packet.hpp
+    engine/function/render/render_executor.cpp
+    engine/function/render/render_executor.hpp
+)
+if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
+  target_compile_definitions(gneiss_engine PRIVATE GNEISS_NATIVE_LOOP_WAIT)
+endif()
+target_include_directories(gneiss_engine PRIVATE "${gneiss_pbr_embedded_dir}")
+target_link_libraries(
+  gneiss_engine PRIVATE granit::granit granit::window granit::render_pipeline
+)
+add_custom_command(
+  TARGET gneiss_engine
+  POST_BUILD
+  COMMAND "${CMAKE_COMMAND}" -E make_directory
+          "$<TARGET_FILE_DIR:gneiss_engine>/assets/granit/libraries"
+  COMMAND
+    "${CMAKE_COMMAND}" -E copy_if_different
+    ${granit_pbr_assets}
+    "$<TARGET_FILE_DIR:gneiss_engine>/assets/granit/libraries"
+  WORKING_DIRECTORY "${granit_pbr_asset_dir}"
+  COMMAND_EXPAND_LISTS
+  VERBATIM
+)
+get_target_property(granit_runtime_is_imported granit::granit IMPORTED)
+get_target_property(granit_runtime_type granit::granit TYPE)
+if(WIN32 AND granit_runtime_is_imported AND granit_runtime_type STREQUAL "SHARED_LIBRARY")
+  # Windows 不会沿链接信息查找 DLL；把已安装 package 的运行时依赖放到 Gneiss 同目录。
   add_custom_command(
     TARGET gneiss_engine
     POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E make_directory
-            "$<TARGET_FILE_DIR:gneiss_engine>/assets/granit/materials"
     COMMAND
-      "${CMAKE_COMMAND}" -E copy_if_different "${granit_pbr_material_archive}"
-      "$<TARGET_FILE_DIR:gneiss_engine>/assets/granit/materials"
-    VERBATIM
-  )
-  list(APPEND gneiss_pbr_embedded_sources "${gneiss_pbr_material_include}")
-
-  target_sources(
-    gneiss_engine
-    PRIVATE
-      engine/platform/window_service.cpp
-      engine/platform/window_service.hpp
-      engine/platform/native_window_info.hpp
-      engine/platform/window_configuration.hpp
-      engine/function/render/render_service.cpp
-      engine/function/render/render_service.hpp
-      engine/function/render/backend/granit/pbr_shader_resolver.cpp
-      engine/function/render/backend/granit/pbr_shader_resolver.hpp
-      ${gneiss_pbr_embedded_sources}
-      engine/function/render/render_frame_packet.cpp
-      engine/function/render/render_frame_packet.hpp
-      engine/function/render/render_executor.cpp
-      engine/function/render/render_executor.hpp
-  )
-  target_compile_definitions(gneiss_engine PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
-  if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
-    target_compile_definitions(gneiss_engine PRIVATE GNEISS_NATIVE_LOOP_WAIT)
-  endif()
-  target_include_directories(gneiss_engine PRIVATE "${gneiss_pbr_embedded_dir}")
-  target_link_libraries(
-    gneiss_engine PRIVATE granit::granit granit::window granit::render_pipeline
-  )
-  add_custom_command(
-    TARGET gneiss_engine
-    POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E make_directory
-            "$<TARGET_FILE_DIR:gneiss_engine>/assets/granit/libraries"
-    COMMAND
-      "${CMAKE_COMMAND}" -E copy_if_different
-      ${granit_pbr_assets}
-      "$<TARGET_FILE_DIR:gneiss_engine>/assets/granit/libraries"
-    WORKING_DIRECTORY "${granit_pbr_asset_dir}"
+      "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:gneiss_engine>
+      $<TARGET_FILE_DIR:gneiss_engine>
     COMMAND_EXPAND_LISTS
     VERBATIM
   )
-
-  get_target_property(granit_runtime_is_imported granit::granit IMPORTED)
-  get_target_property(granit_runtime_type granit::granit TYPE)
-  if(WIN32 AND granit_runtime_is_imported AND granit_runtime_type STREQUAL "SHARED_LIBRARY")
-    # Windows 不会沿链接信息查找 DLL；把已安装 package 的运行时依赖放到 Gneiss 同目录。
-    add_custom_command(
-      TARGET gneiss_engine
-      POST_BUILD
-      COMMAND
-        "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:gneiss_engine>
-        $<TARGET_FILE_DIR:gneiss_engine>
-      COMMAND_EXPAND_LISTS
-      VERBATIM
-    )
-  endif()
 endif()
 
 target_compile_features(gneiss_engine PRIVATE cxx_std_20)

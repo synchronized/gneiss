@@ -16,9 +16,7 @@
 #include "engine/resource/texture/texture_binary.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
 
-#if defined(GNEISS_HAS_GRANIT_PLATFORM)
 #include <granit/asset_tools/texture_builder.hpp>
-#endif
 
 #include <algorithm>
 #include <array>
@@ -171,7 +169,6 @@ indexed_mesh_is_preserved(gneiss::engine::render_asset_loader& loader,
 }
 
 [[nodiscard]] std::vector<std::byte> make_runtime_texture() {
-#if defined(GNEISS_HAS_GRANIT_PLATFORM)
   const std::array payload = {std::byte{0xff}, std::byte{0xff}, std::byte{0xff}, std::byte{0xff}};
   const std::array subresources{
       granit::asset_tools::texture::subresource_info{.mip_level = 0U,
@@ -196,14 +193,9 @@ indexed_mesh_is_preserved(gneiss::engine::render_asset_loader& loader,
     return {};
   }
   return output;
-#else
-  // 无渲染后端时在读取负载后报告 unsupported，不进入封装解析。
-  return {std::byte{0}};
-#endif
 }
 
 void selected_variants() {
-#if defined(GNEISS_HAS_GRANIT_PLATFORM)
   using namespace gneiss::engine;
   const auto require = [](bool value,
                           std::source_location where = std::source_location::current()) {
@@ -351,8 +343,6 @@ void selected_variants() {
           single.front().data.texture->profile == compressed &&
           single.front().data.texture->selected_variant == 0U);
   require(loader.apply_update(single.front()) == gneiss::engine::result::success);
-
-#endif
 }
 
 // 同步与异步更新都保留纯参数；准备上传不另建资源 RID。
@@ -616,21 +606,8 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   for (const auto* uri :
        {"asset://textures/white.texture.json", "asset://textures/linear.texture.json",
         "asset://textures/packaged.texture.json"}) {
-    auto expected = gneiss::engine::result::success;
-#if !defined(GNEISS_HAS_GRANIT_PLATFORM)
-    if (std::string_view(uri).ends_with("packaged.texture.json")) {
-      expected = gneiss::engine::result::unsupported;
-    }
-#endif
     const auto result = gneiss::test_support::decode_texture_fixture(file_system, uri, prepared,
                                                                      diagnostic, 1024U * 1024U);
-    if (expected == gneiss::engine::result::unsupported) {
-      if (result != expected || prepared.width != 0U || diagnostic.path != "/source" ||
-          resources.live_resource_count() != before_resources || cache.size() != before_cache) {
-        return 43;
-      }
-      continue;
-    }
     if (result != gneiss::engine::result::success || prepared.width == 0U ||
         resources.live_resource_count() != before_resources || cache.size() != before_cache) {
       return 40;
@@ -870,7 +847,6 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   ktx_texture = {};
 
   gneiss::engine::render_asset_ref packaged_texture;
-#if defined(GNEISS_HAS_GRANIT_PLATFORM)
   if (gneiss::test_support::load_render(loader, gneiss::engine::render_asset_type::texture,
                                         "asset://textures/packaged.texture.json", packaged_texture,
                                         diagnostic) != gneiss::engine::result::success) {
@@ -883,16 +859,6 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     return 28;
   }
   packaged_texture = {};
-#else
-  const auto live_before = resources.live_resource_count();
-  if (gneiss::test_support::load_render(loader, gneiss::engine::render_asset_type::texture,
-                                        "asset://textures/packaged.texture.json", packaged_texture,
-                                        diagnostic) != gneiss::engine::result::unsupported ||
-      packaged_texture || diagnostic.path != "/source" || diagnostic.message.empty() ||
-      resources.live_resource_count() != live_before) {
-    return 29;
-  }
-#endif
 
   first_mesh = {};
   second_mesh = {};

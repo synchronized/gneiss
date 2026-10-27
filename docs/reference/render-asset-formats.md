@@ -166,8 +166,8 @@ base color 与 emissive 共用 sRGB 变体。纹理处理器版本与用途均�
 回退负载。两种变体使用相同完整 Mip 链；颜色空间决定对应的 UNORM 或 SRGB GPU 格式。编辑器直接
 运行尚未 Cook 的作者工程时保留 PNG 兼容路径。PNG 兼容加载包含 CPU 解码；Mip 生成和 BC7 编码只存在于工具路径。
 
-运行纹理封装的 Runtime 加载要求启用 `GNEISS_ENABLE_GRANIT_PLATFORM`；关闭时返回
-`GNEISS_ERROR_UNSUPPORTED` 并定位到 `/source`，不创建纹理 RID。PNG 与 KTX2 的 CPU 加载仍可用。
+运行纹理封装的 CPU 解码使用固定依赖 Granit 的 Manifest 接口，不要求创建窗口或初始化 GPU。
+PNG 与 KTX2 的 CPU 加载同样不依赖窗口。
 
 `gneiss_assetc inspect <file.gneiss-texture>` 校验外层封装、Manifest、二维完整 Mip 链、颜色空间、
 RGBA8 回退与所有变体的负载 SHA-256，输出尺寸、变体格式和各 Mip 的字节范围、行跨度。

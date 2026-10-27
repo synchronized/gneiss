@@ -39,10 +39,8 @@
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/function/world/render_snapshot.hpp"
 
-#ifdef GNEISS_HAS_GRANIT_PLATFORM
 #include "engine/function/render/render_service.hpp"
 #include "engine/platform/window_service.hpp"
-#endif
 
 #include <chrono>
 #include <cstdio>
@@ -101,9 +99,7 @@ struct application::storage {
   bool is_updating_ = false;
   gneiss::engine::input_service input_;
   std::unique_ptr<gneiss::engine::log_dispatcher> log_dispatcher_;
-#ifdef GNEISS_HAS_GRANIT_PLATFORM
   std::unique_ptr<gneiss::engine::window_service> window_service_;
-#endif
 };
 
 namespace {
@@ -196,11 +192,9 @@ application::application(const runtime::application_configuration& config)
 application::~application() noexcept { static_cast<void>(shutdown()); }
 
 gneiss::engine::render_queue_stats application::render_statistics() const noexcept {
-#ifdef GNEISS_HAS_GRANIT_PLATFORM
   if (storage_->window_service_) {
     return storage_->render_service_->query_performance_stats();
   }
-#endif
   return {};
 }
 
@@ -215,10 +209,8 @@ application::attach_task_executor(gneiss::engine::task_executor& executor) noexc
     storage_->asset_manager_->attach_task_executor(executor);
     storage_->asset_executor_attached_ = true;
     gneiss::engine::texture_prepare_profile profile;
-#ifdef GNEISS_HAS_GRANIT_PLATFORM
     if (storage_->window_service_)
       profile = storage_->render_service_->texture_profile();
-#endif
     return storage_->scene_service_.attach_executor(executor, storage_->resources_, profile,
                                                     storage_->loop_notification_);
   } catch (const std::bad_alloc&) {
@@ -334,7 +326,6 @@ gneiss::engine::result application::initialize() noexcept {
     return engine::result::internal;
   }
   if (storage_->config_.enable_window) {
-#ifdef GNEISS_HAS_GRANIT_PLATFORM
     try {
       storage_->window_service_ = std::make_unique<gneiss::engine::window_service>();
     } catch (const std::bad_alloc&) {
@@ -370,13 +361,6 @@ gneiss::engine::result application::initialize() noexcept {
       return render_result;
     }
     storage_->render_service_->set_completion_notification(storage_->loop_notification_);
-
-#else
-    report(gneiss::engine::severity::error, gneiss::engine::category::backend,
-           gneiss::engine::result::unsupported, "granit.platform",
-           "当前构建未启用 Granit 平台适配");
-    return gneiss::engine::result::unsupported;
-#endif
   }
   if (storage_->config_.callbacks.initialize != nullptr) {
     auto result = gneiss::engine::result::success;
@@ -417,7 +401,6 @@ gneiss::engine::result application::initialize() noexcept {
     static_cast<void>(shutdown());
     return gneiss::engine::result::internal;
   }
-#ifdef GNEISS_HAS_GRANIT_PLATFORM
   // 完成所有宿主/场景初始化后才提交 I/O，失败回退不遗留后台文件请求。
   if (storage_->window_service_ && !storage_->config_.environment_asset.empty()) {
     try {
@@ -447,7 +430,6 @@ gneiss::engine::result application::initialize() noexcept {
       return engine::result::internal;
     }
   }
-#endif
   return gneiss::engine::result::success;
 }
 
@@ -463,7 +445,6 @@ std::uint64_t application::now_ns() const {
 gneiss::engine::result application::poll_events(bool& out_should_close) noexcept {
   GNEISS_PROFILE_SCOPE("application.events");
   out_should_close = false;
-#ifdef GNEISS_HAS_GRANIT_PLATFORM
   if (storage_->window_service_ != nullptr) {
     storage_->input_.begin_frame();
     bool focus_lost = false;
@@ -510,7 +491,6 @@ gneiss::engine::result application::poll_events(bool& out_should_close) noexcept
     return input_result == gneiss::engine::result::not_ready ? gneiss::engine::result::success
                                                              : input_result;
   }
-#endif
   if (storage_->config_.callbacks.poll_events == nullptr) {
     return gneiss::engine::result::success;
   }
@@ -649,7 +629,6 @@ gneiss::engine::result application::capture_frame(std::uint32_t width, std::uint
   if (width == 0U || height == 0U || width > 1024U || height > 1024U) {
     return gneiss::engine::result::invalid_argument;
   }
-#ifdef GNEISS_HAS_GRANIT_PLATFORM
   if (!storage_->window_service_) {
     return gneiss::engine::result::unsupported;
   }
@@ -695,12 +674,8 @@ gneiss::engine::result application::capture_frame(std::uint32_t width, std::uint
   } catch (...) {
     return gneiss::engine::result::internal;
   }
-#else
-  return gneiss::engine::result::unsupported;
-#endif
 }
 
-#ifdef GNEISS_HAS_GRANIT_PLATFORM
 gneiss::engine::result application::render_frame() noexcept {
   GNEISS_PROFILE_SCOPE("application.render.submit");
   if (storage_->window_service_ == nullptr) {
@@ -753,22 +728,15 @@ gneiss::engine::result application::render_frame() noexcept {
   }
   return submit_result;
 }
-#else
-gneiss::engine::result application::render_frame() noexcept {
-  return gneiss::engine::result::unsupported;
-}
-#endif
 
 gneiss::engine::result application::get_window_size(std::uint32_t& out_width,
                                                     std::uint32_t& out_height) const noexcept {
-#ifdef GNEISS_HAS_GRANIT_PLATFORM
   if (storage_->window_service_ != nullptr) {
     const auto& window = storage_->window_service_->native_window();
     out_width = window.width;
     out_height = window.height;
     return gneiss::engine::result::success;
   }
-#endif
   out_width = storage_->config_.window.width;
   out_height = storage_->config_.window.height;
   return gneiss::engine::result::success;
@@ -850,7 +818,6 @@ gneiss::engine::result application::run(std::uint64_t max_frame_count) noexcept 
         return update_result;
       }
     }
-#ifdef GNEISS_HAS_GRANIT_PLATFORM
     const auto render_result =
         gneiss::engine::measure(gneiss::engine::loop_stage::render, [&] { return render_frame(); });
     // 渲染队列、交换链或后端资源可能暂时未就绪；跳过本帧并在下一帧重试。
@@ -861,7 +828,6 @@ gneiss::engine::result application::run(std::uint64_t max_frame_count) noexcept 
       storage_->is_running_ = false;
       return render_result;
     }
-#endif
     gneiss::engine::measure(gneiss::engine::loop_stage::draw_clear, [&] {
       storage_->ui_draw_list_.clear();
       storage_->debug_draw_list_.clear();
@@ -880,12 +846,10 @@ gneiss::engine::result application::run(std::uint64_t max_frame_count) noexcept 
   }
 
   storage_->is_running_ = false;
-#ifdef GNEISS_HAS_GRANIT_PLATFORM
   // 返回前回收已提交帧，避免短程运行把尚未回传的上传失败误报为成功。
   if (storage_->window_service_ != nullptr) {
     return storage_->render_service_->finish_frames();
   }
-#endif
   return gneiss::engine::result::success;
 } catch (const std::bad_alloc&) {
   storage_->is_running_ = false;
@@ -999,7 +963,6 @@ gneiss::engine::result application::shutdown() noexcept {
     }
     storage_->platform_initialized_ = false;
   }
-#ifdef GNEISS_HAS_GRANIT_PLATFORM
   if (storage_->window_service_ != nullptr) {
     const auto render_stats = storage_->render_service_->query_performance_stats();
     gneiss::engine::render_device_stats stats;
@@ -1085,8 +1048,6 @@ gneiss::engine::result application::shutdown() noexcept {
     }
   }
   storage_->window_service_.reset();
-#else
-#endif
 #ifdef GNEISS_ASSET_LIBUV
   // 生产任务与已提交工作已经收尾，最后关闭文件执行器。
   storage_->asset_io_executor_.reset();
@@ -1303,7 +1264,6 @@ gneiss::engine::result application::advance_resource_io() {
       return status;
   }
   storage_->asset_manager_->advance_resources();
-#ifdef GNEISS_HAS_GRANIT_PLATFORM
   if (auto state = storage_->environment_; state && state->ready) {
     if (state->status.failed()) {
       storage_->environment_.reset();
@@ -1319,7 +1279,6 @@ gneiss::engine::result application::advance_resource_io() {
     if (submitted.failed() && submitted != engine::result::not_ready)
       return submitted;
   }
-#endif
   return gneiss::engine::result::success;
 }
 

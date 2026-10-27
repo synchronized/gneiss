@@ -313,9 +313,6 @@ add_executable(gneiss_native_application_flow_test native_application_flow_test.
 target_link_libraries(gneiss_native_application_flow_test PRIVATE gneiss::engine gneiss_native_interface gneiss_tasks)
 target_compile_features(gneiss_native_application_flow_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_native_application_flow_test)
-if(NOT GNEISS_ENABLE_GRANIT_PLATFORM)
-  target_compile_definitions(gneiss_native_application_flow_test PRIVATE GNEISS_TEST_NO_GRANIT_PLATFORM)
-endif()
 target_compile_definitions(
   gneiss_native_application_flow_test PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
 )
@@ -341,69 +338,64 @@ gneiss_target_compile_warnings(gneiss_cpp_input_test)
 gneiss_target_output_directories(gneiss_cpp_input_test)
 add_test(NAME gneiss.cpp_input COMMAND gneiss_cpp_input_test)
 
-if(GNEISS_ENABLE_GRANIT_PLATFORM)
-  add_executable(
-    gneiss_render_executor_test
-    render/render_executor_test.cpp
-    "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_executor.cpp"
-  )
-  target_include_directories(gneiss_render_executor_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-  target_compile_definitions(gneiss_render_executor_test PRIVATE GNEISS_BUILDING_LIBRARY)
-  target_link_libraries(gneiss_render_executor_test PRIVATE gneiss::engine)
-  target_compile_features(gneiss_render_executor_test PRIVATE cxx_std_20)
-  gneiss_target_compile_warnings(gneiss_render_executor_test)
-  gneiss_target_output_directories(gneiss_render_executor_test)
-  add_test(NAME gneiss.render_executor COMMAND gneiss_render_executor_test)
-
-  add_executable(
-    gneiss_render_frame_packet_test
-    render/render_frame_packet_test.cpp
-    "${PROJECT_SOURCE_DIR}/src/engine/function/render/debug_draw_list.cpp"
-    "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_frame_packet.cpp"
-    "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource.cpp"
-  )
-  target_include_directories(gneiss_render_frame_packet_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-  target_compile_definitions(gneiss_render_frame_packet_test PRIVATE GNEISS_BUILDING_LIBRARY)
-  target_link_libraries(gneiss_render_frame_packet_test PRIVATE gneiss::engine)
-  target_compile_features(gneiss_render_frame_packet_test PRIVATE cxx_std_20)
-  gneiss_target_compile_warnings(gneiss_render_frame_packet_test)
-  gneiss_target_output_directories(gneiss_render_frame_packet_test)
-  add_test(NAME gneiss.render_frame_packet COMMAND gneiss_render_frame_packet_test)
-
-  add_executable(
-    gneiss_pbr_shader_resolver_test
-    render/pbr_shader_resolver_test.cpp
-    "${PROJECT_SOURCE_DIR}/src/engine/function/render/backend/granit/pbr_shader_resolver.cpp"
-  )
-  target_include_directories(
-    gneiss_pbr_shader_resolver_test
-    PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_BINARY_DIR}/src/generated/pbr"
-  )
-  target_compile_definitions(
-    gneiss_pbr_shader_resolver_test
-    PRIVATE
-      GNEISS_TEST_GRANIT_PBR_ASSET_DIR="${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/libraries"
-      GNEISS_TEST_GRANIT_PBR_MATERIAL="${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/materials/pbr_standard.grmat"
-  )
-  target_link_libraries(gneiss_pbr_shader_resolver_test PRIVATE granit::render_pipeline)
-  target_compile_features(gneiss_pbr_shader_resolver_test PRIVATE cxx_std_20)
-  add_dependencies(gneiss_pbr_shader_resolver_test gneiss_engine)
-  gneiss_target_compile_warnings(gneiss_pbr_shader_resolver_test)
-  gneiss_target_output_directories(gneiss_pbr_shader_resolver_test)
-  add_test(NAME gneiss.pbr_shader_resolver COMMAND gneiss_pbr_shader_resolver_test)
-
-  add_executable(gneiss_granit_platform_smoke_test granit_platform_smoke_test.cpp)
-  target_link_libraries(gneiss_granit_platform_smoke_test PRIVATE gneiss::engine gneiss_native_interface)
-  if(WIN32)
-    target_link_libraries(gneiss_granit_platform_smoke_test PRIVATE user32)
-  endif()
-  target_compile_features(gneiss_granit_platform_smoke_test PRIVATE cxx_std_20)
-  gneiss_target_compile_warnings(gneiss_granit_platform_smoke_test)
-  gneiss_target_output_directories(gneiss_granit_platform_smoke_test)
-  add_test(NAME gneiss.granit_platform_smoke COMMAND gneiss_granit_platform_smoke_test)
-  set_tests_properties(gneiss.granit_platform_smoke PROPERTIES TIMEOUT 30)
+add_executable(
+  gneiss_render_executor_test
+  render/render_executor_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_executor.cpp"
+)
+target_include_directories(gneiss_render_executor_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_render_executor_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_link_libraries(gneiss_render_executor_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_render_executor_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_render_executor_test)
+gneiss_target_output_directories(gneiss_render_executor_test)
+add_test(NAME gneiss.render_executor COMMAND gneiss_render_executor_test)
+add_executable(
+  gneiss_render_frame_packet_test
+  render/render_frame_packet_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/debug_draw_list.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_frame_packet.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
+"${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource.cpp"
+)
+target_include_directories(gneiss_render_frame_packet_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_render_frame_packet_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_link_libraries(gneiss_render_frame_packet_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_render_frame_packet_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_render_frame_packet_test)
+gneiss_target_output_directories(gneiss_render_frame_packet_test)
+add_test(NAME gneiss.render_frame_packet COMMAND gneiss_render_frame_packet_test)
+add_executable(
+  gneiss_pbr_shader_resolver_test
+  render/pbr_shader_resolver_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/backend/granit/pbr_shader_resolver.cpp"
+)
+target_include_directories(
+  gneiss_pbr_shader_resolver_test
+  PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_BINARY_DIR}/src/generated/pbr"
+)
+target_compile_definitions(
+  gneiss_pbr_shader_resolver_test
+  PRIVATE
+    GNEISS_TEST_GRANIT_PBR_ASSET_DIR="${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/libraries"
+    GNEISS_TEST_GRANIT_PBR_MATERIAL="${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/materials/pbr_standard.grmat"
+)
+target_link_libraries(gneiss_pbr_shader_resolver_test PRIVATE granit::render_pipeline)
+target_compile_features(gneiss_pbr_shader_resolver_test PRIVATE cxx_std_20)
+add_dependencies(gneiss_pbr_shader_resolver_test gneiss_engine)
+gneiss_target_compile_warnings(gneiss_pbr_shader_resolver_test)
+gneiss_target_output_directories(gneiss_pbr_shader_resolver_test)
+add_test(NAME gneiss.pbr_shader_resolver COMMAND gneiss_pbr_shader_resolver_test)
+add_executable(gneiss_granit_platform_smoke_test granit_platform_smoke_test.cpp)
+target_link_libraries(gneiss_granit_platform_smoke_test PRIVATE gneiss::engine gneiss_native_interface)
+if(WIN32)
+  target_link_libraries(gneiss_granit_platform_smoke_test PRIVATE user32)
 endif()
+target_compile_features(gneiss_granit_platform_smoke_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_granit_platform_smoke_test)
+gneiss_target_output_directories(gneiss_granit_platform_smoke_test)
+add_test(NAME gneiss.granit_platform_smoke COMMAND gneiss_granit_platform_smoke_test)
+set_tests_properties(gneiss.granit_platform_smoke PROPERTIES TIMEOUT 30)
 
 add_executable(
   gneiss_world_state_test
@@ -648,9 +640,6 @@ target_compile_definitions(gneiss_render_asset_preparation_test PRIVATE GNEISS_B
 target_include_directories(gneiss_render_asset_preparation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_render_asset_preparation_test PRIVATE
   gneiss_core_values gneiss_yyjson gneiss_png granit::granit Threads::Threads)
-if(GNEISS_ENABLE_GRANIT_PLATFORM)
-  target_compile_definitions(gneiss_render_asset_preparation_test PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
-endif()
 target_compile_features(gneiss_render_asset_preparation_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_asset_preparation_test)
 gneiss_target_output_directories(gneiss_render_asset_preparation_test)
@@ -676,15 +665,10 @@ add_executable(
 )
 target_include_directories(gneiss_render_asset_loader_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_BUILDING_LIBRARY)
-if(GNEISS_ENABLE_GRANIT_PLATFORM)
-  target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
-endif()
 target_link_libraries(
   gneiss_render_asset_loader_test PRIVATE gneiss::engine gneiss_tasks gneiss_yyjson gneiss_png granit::granit
 )
-if(GNEISS_ENABLE_GRANIT_PLATFORM)
-  target_link_libraries(gneiss_render_asset_loader_test PRIVATE granit::asset_tools)
-endif()
+target_link_libraries(gneiss_render_asset_loader_test PRIVATE granit::asset_tools)
 
 target_compile_features(gneiss_render_asset_loader_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_asset_loader_test)
@@ -711,9 +695,6 @@ add_executable(
 )
 target_include_directories(gneiss_texture_load_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_texture_load_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
-if(GNEISS_ENABLE_GRANIT_PLATFORM)
-  target_compile_definitions(gneiss_texture_load_service_test PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
-endif()
 target_link_libraries(
   gneiss_texture_load_service_test PRIVATE gneiss::engine gneiss_tasks gneiss_yyjson gneiss_png granit::granit
 )
@@ -731,44 +712,42 @@ gneiss_target_output_directories(gneiss_texture_load_application_test)
 add_test(NAME gneiss.texture-load-application COMMAND gneiss_texture_load_application_test)
 set_tests_properties(gneiss.texture-load-service gneiss.texture-load-application PROPERTIES TIMEOUT 30)
 
-if(GNEISS_ENABLE_GRANIT_PLATFORM)
-  add_executable(gneiss_asset_pixel_test render/asset_pixel_test.cpp
-    "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
-    "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
-    "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp")
-  target_include_directories(gneiss_asset_pixel_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-  target_link_libraries(gneiss_asset_pixel_test PRIVATE gneiss::engine gneiss_tasks granit::asset_tools granit::granit)
-  gneiss_target_compile_warnings(gneiss_asset_pixel_test)
-  gneiss_target_output_directories(gneiss_asset_pixel_test)
-  add_test(NAME gneiss.asset-pixel COMMAND gneiss_asset_pixel_test)
-  add_test(NAME gneiss.pbr-negative-scale COMMAND gneiss_asset_pixel_test --probe-negative-scale)
-  set_tests_properties(gneiss.asset-pixel PROPERTIES TIMEOUT 60)
-  if(WIN32 AND GNEISS_TASK_THREADS)
-    add_executable(gneiss_main_loop_response render/main_loop_response.cpp)
-    target_include_directories(gneiss_main_loop_response PRIVATE "${PROJECT_SOURCE_DIR}/src")
-    target_link_libraries(gneiss_main_loop_response PRIVATE gneiss::engine gneiss_tasks user32)
-    gneiss_target_compile_warnings(gneiss_main_loop_response)
-    gneiss_target_output_directories(gneiss_main_loop_response)
-    add_test(NAME gneiss.main-loop-response COMMAND gneiss_main_loop_response)
-    set_tests_properties(gneiss.main-loop-response PROPERTIES TIMEOUT 30 LABELS "gpu")
-  endif()
-  add_executable(gneiss_scene_load_baseline render/scene_load_baseline.cpp)
-  target_include_directories(gneiss_scene_load_baseline PRIVATE "${PROJECT_SOURCE_DIR}/src")
-  target_link_libraries(gneiss_scene_load_baseline PRIVATE gneiss::engine gneiss_tasks)
-  if(WIN32)
-    target_link_libraries(gneiss_scene_load_baseline PRIVATE psapi)
-  endif()
-  gneiss_target_compile_warnings(gneiss_scene_load_baseline)
-  gneiss_target_output_directories(gneiss_scene_load_baseline)
-  add_executable(gneiss_texture_load_window_benchmark render/texture_load_window_benchmark.cpp)
-  target_include_directories(gneiss_texture_load_window_benchmark PRIVATE "${PROJECT_SOURCE_DIR}/src")
-  target_link_libraries(gneiss_texture_load_window_benchmark PRIVATE gneiss::engine gneiss_tasks)
-  if(WIN32)
-    target_link_libraries(gneiss_texture_load_window_benchmark PRIVATE user32)
-  endif()
-  gneiss_target_compile_warnings(gneiss_texture_load_window_benchmark)
-  gneiss_target_output_directories(gneiss_texture_load_window_benchmark)
+add_executable(gneiss_asset_pixel_test render/asset_pixel_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp")
+target_include_directories(gneiss_asset_pixel_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_asset_pixel_test PRIVATE gneiss::engine gneiss_tasks granit::asset_tools granit::granit)
+gneiss_target_compile_warnings(gneiss_asset_pixel_test)
+gneiss_target_output_directories(gneiss_asset_pixel_test)
+add_test(NAME gneiss.asset-pixel COMMAND gneiss_asset_pixel_test)
+add_test(NAME gneiss.pbr-negative-scale COMMAND gneiss_asset_pixel_test --probe-negative-scale)
+set_tests_properties(gneiss.asset-pixel PROPERTIES TIMEOUT 60)
+if(WIN32 AND GNEISS_TASK_THREADS)
+  add_executable(gneiss_main_loop_response render/main_loop_response.cpp)
+  target_include_directories(gneiss_main_loop_response PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_link_libraries(gneiss_main_loop_response PRIVATE gneiss::engine gneiss_tasks user32)
+  gneiss_target_compile_warnings(gneiss_main_loop_response)
+  gneiss_target_output_directories(gneiss_main_loop_response)
+  add_test(NAME gneiss.main-loop-response COMMAND gneiss_main_loop_response)
+  set_tests_properties(gneiss.main-loop-response PROPERTIES TIMEOUT 30 LABELS "gpu")
 endif()
+add_executable(gneiss_scene_load_baseline render/scene_load_baseline.cpp)
+target_include_directories(gneiss_scene_load_baseline PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_scene_load_baseline PRIVATE gneiss::engine gneiss_tasks)
+if(WIN32)
+  target_link_libraries(gneiss_scene_load_baseline PRIVATE psapi)
+endif()
+gneiss_target_compile_warnings(gneiss_scene_load_baseline)
+gneiss_target_output_directories(gneiss_scene_load_baseline)
+add_executable(gneiss_texture_load_window_benchmark render/texture_load_window_benchmark.cpp)
+target_include_directories(gneiss_texture_load_window_benchmark PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_texture_load_window_benchmark PRIVATE gneiss::engine gneiss_tasks)
+if(WIN32)
+  target_link_libraries(gneiss_texture_load_window_benchmark PRIVATE user32)
+endif()
+gneiss_target_compile_warnings(gneiss_texture_load_window_benchmark)
+gneiss_target_output_directories(gneiss_texture_load_window_benchmark)
 
 add_executable(gneiss_scene_instance_test scene/scene_instance_test.cpp)
 target_link_libraries(gneiss_scene_instance_test PRIVATE gneiss::engine gneiss_native_interface)
@@ -899,10 +878,6 @@ endif()
 
 
 
-if(PROJECT_IS_TOP_LEVEL AND GNEISS_ENABLE_GRANIT_PLATFORM AND BUILD_SHARED_LIBS)
-
-
-endif()
 
 add_test(NAME gneiss.core-boundary
   COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
@@ -996,13 +971,6 @@ gneiss_target_output_directories(gneiss_core_identity_test)
 add_test(NAME gneiss.core-identity COMMAND gneiss_core_identity_test)
 
 # 直接编译用户工程模板，保证它只依赖最小游戏模块协议。
-if(BUILD_SHARED_LIBS)
-
-
-
-
-
-endif()
 
 # 同一 Engine 中的类型名注册、并发首次注册及跨翻译单元身份。
 add_executable(gneiss_type_id_test core/type_id_test.cpp core/type_id_other.cpp)

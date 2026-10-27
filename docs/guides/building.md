@@ -131,8 +131,7 @@ provider：优先复用父工程目标，其次查找 package，最后把锁定�
 `_deps`。开箱构建命令如下：
 
 ```sh
-cmake -S . -B build/granit-platform -G Ninja \
-  -DGNEISS_ENABLE_GRANIT_PLATFORM=ON
+cmake -S . -B build/granit-platform -G Ninja
 cmake --build build/granit-platform
 ctest --test-dir build/granit-platform --output-on-failure
 ```
@@ -141,7 +140,6 @@ ctest --test-dir build/granit-platform --output-on-failure
 
 ```sh
 cmake -S . -B build/granit-platform -G Ninja \
-  -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
   -DGNEISS_GRANIT_PROVIDER=PACKAGE \
   -DCMAKE_PREFIX_PATH=/path/to/granit/install
 cmake --build build/granit-platform
@@ -212,7 +210,6 @@ Runtime 宿主默认不参与普通构建，并需要 Granit 平台适配：
 
 ```sh
 cmake --preset windows-clang-debug \
-  -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
   -DGNEISS_BUILD_RUNTIME=ON
 cmake --build --preset windows-clang-debug --target gneiss_runtime
 ```
@@ -246,7 +243,6 @@ Editor 当前需要 Granit
 
 ```sh
 cmake --preset windows-clang-debug \
-  -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
   -DGNEISS_BUILD_EDITOR=ON \
   -DGNEISS_BUILD_RUNTIME=ON
 cmake --build --preset windows-clang-debug --target gneiss_editor

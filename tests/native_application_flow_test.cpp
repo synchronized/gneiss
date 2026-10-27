@@ -116,14 +116,6 @@ void creation_failures() {
   diagnostics = 0;
   check(runtime::application::create(config, app) == engine::result::not_found);
   check(!app && diagnostics == 1 && reported == engine::result::not_found);
-#ifdef GNEISS_TEST_NO_GRANIT_PLATFORM
-  config.callbacks.initialize = {};
-  config.asset_root = {};
-  config.enable_window = true;
-  diagnostics = 0;
-  check(runtime::application::create(config, app) == engine::result::unsupported);
-  check(!app && diagnostics == 1 && reported == engine::result::unsupported);
-#endif
 }
 }
 int main() try {

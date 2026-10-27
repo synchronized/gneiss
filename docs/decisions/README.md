@@ -86,3 +86,5 @@ Reference 和实现为准。
 
 - [ADR-087：类型化渲染资源与服务生命周期](ADR-087-render-resource-model.md)
 - [ADR-088：Prefab 直接实例化与非原子替换](ADR-088-prefab-direct-instantiation.md)
+
+- [ADR-089：固定 Granit 后端依赖](ADR-089-required-granit-backend.md)
