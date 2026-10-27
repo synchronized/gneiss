@@ -77,8 +77,9 @@ PBR Shader resolver 改为只消费内存字节，生产启动使用内嵌归档
   完成后计算哈希，保存确认仍使用保存时的原始内容。已删除 monitor 的同步 fingerprint/acknowledge 读盘入口。
   同路径在途事件触发补扫，保存使旧读取失效；停止等待自身文件回执，析构迟到回调只持有独立回执。
   Windows 编译、线程池/协作模式的服务测试与 monitor 测试通过，包括在途取消和提前销毁。
-  `author_asset_monitor` 的目录枚举及根路径查询仍使用 std::filesystem，协作模式仍有元数据阻塞风险，
-  后续需接入 file_service 的 stat/list；不能宣称整个监视流程已无同步 I/O。
+  目录扫描已改用共享服务的分页 list，复用条目类型递归扫描，无需额外 stat；
+  monitor 只保存指纹，删除原生目录迭代器和根路径查询。已知 URI 每轮仍探测，保留删除检测。
+  初始化仅注入含 asset:// 挂载的服务；列举错误结束本轮扫描，可显式补扫重试。
 - `editor/commands/native_author_transaction.cpp` 的原生保存事务仍直接访问文件；
   迁移需保留提交失败与撤销历史语义，不能仅将单次写入改成异步就视为完成。
 - `editor/editor_ui.cpp` 的布局读写仍为本地配置路径，后续独立接入 user 挂载。

@@ -2918,8 +2918,7 @@ int run_editor(int argc, char** argv) {
     return 2;
   }
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-  const auto author_monitor_result =
-      state.author_assets.initialize(state.asset_root, application->async_files());
+  const auto author_monitor_result = state.author_assets.initialize(application->async_files());
   if (author_monitor_result != gneiss::engine::result::success) {
     const auto message = author_monitor_result.message();
     std::fprintf(stderr, "Gneiss Editor 作者资产监视初始化失败：结果=%d，消息=%.*s\n",

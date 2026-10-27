@@ -12,6 +12,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <thread>
+#include <unordered_set>
 
 namespace {
 using namespace gneiss;
@@ -47,6 +48,17 @@ struct fixture {
 class delayed_backend final : public engine::file_backend {
 public:
   engine::file_callback<engine::file_bytes> pending;
+  engine::file_callback<engine::directory_page> pending_list;
+  bool delay_list{};
+  engine::result list(std::string_view, engine::list_options,
+                      engine::file_callback<engine::directory_page> callback) override {
+    if (delay_list)
+      pending_list = std::move(callback);
+    else
+      callback(
+          {engine::result::success, {{{"main.scene.json", {engine::file_kind::regular, {}}}}, {}}});
+    return engine::result::success;
+  }
   engine::result read(std::string_view, engine::read_options,
                       engine::file_callback<engine::file_bytes> callback) override {
     require(!pending, "指纹读取不得并发积压");
@@ -54,21 +66,22 @@ public:
     return engine::result::success;
   }
 };
-void pending_shutdown(bool destroy) {
+void pending_shutdown(bool destroy, bool list = false) {
   fixture disk;
   write(disk.root / "main.scene.json", "initial");
   engine::task_scheduler scheduler({.workers = 0, .mode = engine::execution_mode::cooperative});
   auto files = std::make_shared<engine::file_service>();
   auto backend = std::make_shared<delayed_backend>();
   require(files->mount({"asset://", {backend}, {}}).ok(), "测试挂载失败");
+  backend->delay_list = list;
   auto service = std::make_unique<author_asset_service>(scheduler);
-  require(service->initialize(disk.root, files).ok(), "延迟服务初始化失败");
+  require(service->initialize(files).ok(), "延迟服务初始化失败");
   until([&] {
     (void)scheduler.run_ready();
     (void)files->dispatch_completions(64);
     std::vector<std::filesystem::path> paths;
     (void)service->poll_rescan(paths);
-    return static_cast<bool>(backend->pending);
+    return list ? static_cast<bool>(backend->pending_list) : static_cast<bool>(backend->pending);
   });
   require(scheduler.stats().running == 0 && scheduler.stats().waiting == 0,
           "等待文件期间占用 CPU 任务");
@@ -76,8 +89,13 @@ void pending_shutdown(bool destroy) {
   require(!service->stopped(), "文件未收尾却报告停止");
   if (destroy)
     service.reset();
-  auto complete = std::move(backend->pending);
-  complete({engine::result::success, {std::byte{7}}});
+  if (list) {
+    auto complete_list = std::move(backend->pending_list);
+    complete_list({engine::result::success, {}});
+  } else {
+    auto complete = std::move(backend->pending);
+    complete({engine::result::success, {std::byte{7}}});
+  }
   require(files->dispatch_completions(64).ok(), "迟到回调分发失败");
   if (service)
     require(service->stopped(), "文件收尾后仍未停止");
@@ -86,9 +104,33 @@ void pending_shutdown(bool destroy) {
                    "asset://other", {1}, [](auto) {}, request)
               .ok(),
           "停止作者服务关闭了共享文件服务");
-  complete = std::move(backend->pending);
+  auto complete = std::move(backend->pending);
   complete({engine::result::success, {}});
   (void)files->dispatch_completions(64);
+}
+void scan_failure_retry() {
+  engine::task_scheduler scheduler({.workers = 0, .mode = engine::execution_mode::cooperative});
+  auto files = std::make_shared<engine::file_service>();
+  auto backend = std::make_shared<delayed_backend>();
+  backend->delay_list = true;
+  require(files->mount({"asset://", {backend}, {}}).ok(), "扫描测试挂载失败");
+  author_asset_service service(scheduler);
+  require(service.initialize(files).ok() && backend->pending_list, "首个目录请求未提交");
+  auto complete = std::move(backend->pending_list);
+  complete({engine::result::io, {}});
+  (void)files->dispatch_completions(64);
+  std::vector<std::filesystem::path> paths;
+  require(service.poll_rescan(paths) == engine::result::io && !service.is_rescanning(),
+          "目录失败没有结束本次扫描");
+  service.request_rescan();
+  require(service.poll_rescan(paths).ok() && backend->pending_list, "失败后不能重新扫描");
+  complete = std::move(backend->pending_list);
+  complete({engine::result::success, {}});
+  (void)files->dispatch_completions(64);
+  (void)service.poll_rescan(paths);
+  (void)service.poll_rescan(paths);
+  require(!service.is_rescanning() && paths.empty() && service.rescan_result().ok(),
+          "空目录恢复失败");
 }
 void run(std::size_t workers,
          gneiss::engine::execution_mode mode = gneiss::engine::execution_mode::thread_pool) {
@@ -96,6 +138,9 @@ void run(std::size_t workers,
   const auto path = files.root / "main.scene.json";
   constexpr auto uri = "asset://main.scene.json";
   write(path, "initial");
+  std::filesystem::create_directories(files.root / "nested");
+  for (unsigned i = 0; i < 20; ++i)
+    write(files.root / "nested" / (std::to_string(i) + ".prefab.json"), "initial");
   gneiss::engine::task_scheduler scheduler({.workers = workers, .mode = mode});
   gneiss::runtime::application_configuration config;
   const auto root_text = files.root.generic_string();
@@ -104,7 +149,7 @@ void run(std::size_t workers,
   require(gneiss::runtime::application::create(config, app).ok(), "测试文件宿主创建失败");
   auto io = app->async_files();
   author_asset_service service(scheduler);
-  require(service.initialize(files.root, io) == gneiss::engine::result::success, "启动失败");
+  require(service.initialize(io) == gneiss::engine::result::success, "启动失败");
   auto drain = [&] {
     until([&] {
       require(io->dispatch_completions(64).ok(), "文件完成分发失败");
@@ -124,6 +169,25 @@ void run(std::size_t workers,
     });
   };
   drain();
+  for (unsigned i = 0; i < 20; ++i)
+    write(files.root / "nested" / (std::to_string(i) + ".prefab.json"), "changed");
+  service.request_rescan();
+  std::unordered_set<std::string> nested;
+  until([&] {
+    (void)io->dispatch_completions(64);
+    if (mode == engine::execution_mode::cooperative)
+      (void)scheduler.run_ready();
+    std::vector<std::filesystem::path> paths;
+    require(service.poll_rescan(paths).ok(), "分页目录扫描失败");
+    for (const auto& item : paths) {
+      auto change = service.observe(item, false);
+      require(change.operation.ok(), "嵌套文件读取失败");
+      nested.insert(change.uri);
+      service.mark_applied(change.uri);
+    }
+    return !service.is_rescanning();
+  });
+  require(nested.size() == 20, "多页或递归目录漏文件");
   write(path, "external");
   (void)service.observe("main.scene.json", false);
   author_asset_change found;
@@ -212,8 +276,11 @@ void run(std::size_t workers,
 }
 } // namespace
 int main() try {
+  scan_failure_retry();
   pending_shutdown(false);
   pending_shutdown(true);
+  pending_shutdown(false, true);
+  pending_shutdown(true, true);
   run(1U);
   run(3U);
   run(0U, gneiss::engine::execution_mode::cooperative);

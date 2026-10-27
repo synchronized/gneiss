@@ -81,7 +81,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
                   gneiss::engine::result::success &&
               (world = app->native_world()) != gneiss::engine::null_rid,
           "基准应用创建失败");
-  require(authors.initialize(assets, app->async_files()) == gneiss::engine::result::success,
+  require(authors.initialize(app->async_files()) == gneiss::engine::result::success,
           "作者服务启动失败");
   const auto baseline_start = clock_type::now();
   while (authors.is_rescanning()) {

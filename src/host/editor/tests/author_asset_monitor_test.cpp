@@ -1,137 +1,38 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-
 #include "author_asset_monitor.hpp"
-#include "engine/core/result.hpp"
-
-#include <chrono>
-#include <filesystem>
-#include <fstream>
-#include <iterator>
-#include <string>
-
-namespace {
-
-[[nodiscard]] bool write_text(const std::filesystem::path& path, std::string_view text) {
-  std::ofstream stream(path, std::ios::binary | std::ios::trunc);
-  stream << text;
-  return static_cast<bool>(stream);
-}
-
-} // namespace
-
+#include <algorithm>
 int main() {
-  const auto suffix = std::chrono::steady_clock::now().time_since_epoch().count();
-  const auto root = std::filesystem::temp_directory_path() /
-                    ("gneiss-author-asset-monitor-" + std::to_string(suffix));
-  const auto scenes = root / "scenes";
-  const auto scene = scenes / "main.scene.json";
-  std::filesystem::create_directories(scenes);
-  if (!write_text(scene, "first")) {
+  using namespace gneiss::editor;
+  using gneiss::engine::result;
+  author_asset_monitor monitor;
+  constexpr auto uri = "asset://scenes/main.scene.json";
+  monitor.establish_baseline(uri, 1);
+  if (monitor.observe("scenes/main.scene.json", false, result::success, 1).state !=
+      author_asset_change_state::idle)
     return 1;
-  }
-
-  gneiss::editor::author_asset_monitor monitor;
-  auto hash = [](std::string_view content) {
-    std::uint64_t value = 14695981039346656037ULL;
-    for (unsigned char byte : content) {
-      value ^= byte;
-      value *= 1099511628211ULL;
-    }
-    return value;
-  };
-  auto observe = [&](const std::filesystem::path& path, bool dirty) {
-    std::ifstream input(root / path, std::ios::binary);
-    const auto status = input ? gneiss::engine::result::success : gneiss::engine::result::not_found;
-    const std::string content{std::istreambuf_iterator<char>(input), {}};
-    return monitor.observe(path, dirty, status, hash(content));
-  };
-
-  if (monitor.initialize(root) != gneiss::engine::result::success) {
+  if (monitor.observe("scenes/main.scene.json", true, result::success, 2).state !=
+      author_asset_change_state::conflict)
     return 2;
-  }
-  monitor.establish_baseline("asset://scenes/main.scene.json", hash("first"));
-  if (observe("scenes/main.scene.json", false).state !=
-      gneiss::editor::author_asset_change_state::idle) {
-    return 2;
-  }
-  if (!write_text(scene, "second") || observe("scenes/main.scene.json", true).state !=
-                                          gneiss::editor::author_asset_change_state::conflict) {
+  if (monitor.observe("scenes/main.scene.json", false, result::success, 2).state !=
+      author_asset_change_state::changed)
     return 3;
-  }
-  if (observe("scenes/main.scene.json", false).state !=
-      gneiss::editor::author_asset_change_state::changed) {
+  monitor.mark_applied(uri, 2);
+  monitor.establish_baseline(uri, 1);
+  if (monitor.observe("scenes/main.scene.json", false, result::success, 2).state !=
+      author_asset_change_state::idle)
     return 4;
-  }
-  monitor.mark_applied("asset://scenes/main.scene.json", hash("second"));
-  if (monitor.status().state != gneiss::editor::author_asset_change_state::applied ||
-      observe("scenes/main.scene.json", false).state !=
-          gneiss::editor::author_asset_change_state::idle) {
+  const auto deleted = monitor.observe("scenes/main.scene.json", false, result::not_found, 0);
+  if (deleted.operation != result::not_found || deleted.state != author_asset_change_state::changed)
     return 5;
-  }
-  if (observe("textures/stone.png", false).state !=
-      gneiss::editor::author_asset_change_state::idle) {
+  const auto known = monitor.known_uris();
+  if (known.size() != 1 || known.front() != uri)
     return 6;
-  }
-  std::filesystem::remove(scene);
-  const auto removed = observe("scenes/main.scene.json", false);
-  if (removed.state != gneiss::editor::author_asset_change_state::changed ||
-      removed.operation != gneiss::engine::result::not_found) {
+  monitor.mark_failed(uri, result::io);
+  if (monitor.status().state != author_asset_change_state::failed)
     return 7;
-  }
-  monitor.mark_failed(removed.uri, removed.operation);
-  if (monitor.status().state != gneiss::editor::author_asset_change_state::failed) {
-    return 8;
-  }
-  // 丢事件后同时找回删除和新增；每次最多枚举一个目录项或已知路径。
-  const auto prefab = root / "new.prefab.json";
-  if (!write_text(prefab, "new prefab")) {
-    return 9;
-  }
-  monitor.request_rescan();
-  bool found_removed = false;
-  bool found_new = false;
-  for (int frame = 0; frame < 32 && monitor.is_rescanning(); ++frame) {
-    std::vector<std::filesystem::path> paths;
-    if (monitor.poll_rescan(paths, 1U) != gneiss::engine::result::success || paths.size() > 1U) {
-      return 10;
-    }
-    for (const auto& path : paths) {
-      const auto change = observe(path, false);
-      found_removed |= change.uri == "asset://scenes/main.scene.json" &&
-                       change.operation == gneiss::engine::result::not_found;
-      found_new |= change.uri == "asset://new.prefab.json" &&
-                   change.state == gneiss::editor::author_asset_change_state::changed;
-    }
-  }
-  if (monitor.is_rescanning() || !found_removed || !found_new || !write_text(scene, "third")) {
-    return 11;
-  }
-  monitor.request_rescan();
-  bool found_conflict = false;
-  for (int frame = 0; frame < 32 && monitor.is_rescanning(); ++frame) {
-    std::vector<std::filesystem::path> paths;
-    (void)monitor.poll_rescan(paths, 1U);
-    for (const auto& path : paths) {
-      found_conflict |=
-          observe(path, true).state == gneiss::editor::author_asset_change_state::conflict;
-    }
-  }
-  if (!found_conflict || observe("scenes/main.scene.json", false).state !=
-                             gneiss::editor::author_asset_change_state::changed) {
-    return 12;
-  }
-  std::filesystem::remove_all(root);
-  monitor.request_rescan();
-  std::vector<std::filesystem::path> paths;
-  if (monitor.poll_rescan(paths) != gneiss::engine::result::io || monitor.is_rescanning()) {
-    return 13;
-  }
-  std::filesystem::create_directories(root);
-  monitor.request_rescan();
-  if (monitor.poll_rescan(paths) != gneiss::engine::result::success) {
-    return 14;
-  }
-  std::filesystem::remove_all(root);
-  return 0;
+  return monitor.observe("textures/a.png", false, result::success, 1).state ==
+                 author_asset_change_state::idle
+             ? 0
+             : 8;
 }

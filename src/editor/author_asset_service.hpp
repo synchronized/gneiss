@@ -18,10 +18,9 @@ class author_asset_service final {
 public:
   explicit author_asset_service(gneiss::engine::task_scheduler& scheduler);
   ~author_asset_service();
-  /// 注入对应 asset_root 的服务；内容上限 16 MiB，宿主持续分发到 stopped。
+  /// 注入包含 asset:// 挂载的服务；内容上限 16 MiB，宿主持续分发到 stopped。
   [[nodiscard]] gneiss::engine::result
-  initialize(const std::filesystem::path& root,
-             std::shared_ptr<gneiss::engine::file_service> files);
+  initialize(std::shared_ptr<gneiss::engine::file_service> files);
   [[nodiscard]] author_asset_change observe(const std::filesystem::path& path, bool dirty);
   /// 内容必须是已成功保存的原始字节；后台计算基线，不重新读取磁盘冒充自身保存。
   [[nodiscard]] gneiss::engine::result acknowledge(std::string_view uri, std::string content);
