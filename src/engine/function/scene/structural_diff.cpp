@@ -111,10 +111,9 @@ compare_objects(const gneiss::engine::object_description& old_object,
 
 namespace gneiss::engine {
 
-gneiss::engine::result
-build_structural_diff(const std::vector<gneiss::engine::object_description>& old_objects,
-                      const std::vector<gneiss::engine::object_description>& new_objects,
-                      structural_diff& output) noexcept {
+engine::result build_structural_diff(const std::vector<engine::object_description>& old_objects,
+                                     const std::vector<engine::object_description>& new_objects,
+                                     structural_diff& output) noexcept {
   output = {};
   try {
     object_index old_index;
@@ -122,10 +121,10 @@ build_structural_diff(const std::vector<gneiss::engine::object_description>& old
     std::vector<std::size_t> old_depths;
     std::vector<std::size_t> new_depths;
     auto result = build_index(old_objects, old_index, old_depths);
-    if (result == gneiss::engine::result::success) {
+    if (result == engine::result::success) {
       result = build_index(new_objects, new_index, new_depths);
     }
-    if (result != gneiss::engine::result::success) {
+    if (result != engine::result::success) {
       return result;
     }
 
@@ -161,13 +160,13 @@ build_structural_diff(const std::vector<gneiss::engine::object_description>& old
     std::ranges::sort(output.removed, [](const auto& left, const auto& right) {
       return left.depth != right.depth ? left.depth > right.depth : left.uuid < right.uuid;
     });
-    return gneiss::engine::result::success;
+    return engine::result::success;
   } catch (const std::bad_alloc&) {
     output = {};
-    return gneiss::engine::result::out_of_memory;
+    return engine::result::out_of_memory;
   } catch (...) {
     output = {};
-    return gneiss::engine::result::internal;
+    return engine::result::internal;
   }
 }
 

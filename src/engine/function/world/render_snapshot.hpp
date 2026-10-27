@@ -13,10 +13,10 @@ namespace gneiss::engine {
 
 class world_state;
 
-[[nodiscard]] gneiss::engine::result
-build_render_snapshot(world_state& world, std::uint32_t viewport_width,
-                      std::uint32_t viewport_height, gneiss::engine::render_snapshot& out_snapshot,
-                      const gneiss::engine::view_camera* camera = nullptr) noexcept;
+[[nodiscard]] result build_render_snapshot(world_state& world, std::uint32_t viewport_width,
+                                           std::uint32_t viewport_height,
+                                           render_snapshot& out_snapshot,
+                                           const view_camera* camera = nullptr) noexcept;
 
 } // namespace gneiss::engine
 

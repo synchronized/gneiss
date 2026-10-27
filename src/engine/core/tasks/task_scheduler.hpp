@@ -66,7 +66,7 @@ struct task_description {
   std::vector<task_handle> prerequisites{};
   task_priority priority{task_priority::background};
   std::chrono::steady_clock::time_point not_before{};
-  std::shared_ptr<gneiss::engine::progress_notification> notification{};
+  std::shared_ptr<progress_notification> notification{};
   // 仅借用到 submit 返回；调度器不得将此指针留给任务或后台线程。
   task_submission_timings* submission_timings{};
 };

@@ -9,30 +9,30 @@
 
 namespace gneiss::engine {
 
-gneiss::engine::result system_scheduler::add(system_id id, system_callback callback,
-                                             void* user_data) noexcept {
+engine::result system_scheduler::add(system_id id, system_callback callback,
+                                     void* user_data) noexcept {
   if (id == 0U || callback == nullptr ||
       std::ranges::any_of(systems_, [id](const entry& value) { return value.id == id; })) {
-    return gneiss::engine::result::invalid_argument;
+    return engine::result::invalid_argument;
   }
   try {
     systems_.push_back({.id = id, .callback = callback, .user_data = user_data});
-    return gneiss::engine::result::success;
+    return engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return engine::result::internal;
   }
 }
 
-gneiss::engine::result system_scheduler::run(world_state& world) noexcept {
+engine::result system_scheduler::run(world_state& world) noexcept {
   for (const auto& system : systems_) {
     const auto result = system.callback(world, system.user_data);
-    if (result != gneiss::engine::result::success) {
+    if (result != engine::result::success) {
       return result;
     }
   }
-  return gneiss::engine::result::success;
+  return engine::result::success;
 }
 
 } // namespace gneiss::engine

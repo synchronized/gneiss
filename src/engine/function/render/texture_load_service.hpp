@@ -17,7 +17,7 @@ enum class texture_load_state : std::uint8_t { preparing, applied, failed, cance
 /** 请求中每项资源的结果；未生效项的 result 表示停止处理的原因，不表示旧内容失效。 */
 struct asset_load_result {
   render_asset_reload source;
-  gneiss::engine::result result{gneiss::engine::result::not_ready};
+  engine::result result{engine::result::not_ready};
   bool applied{};
 };
 struct texture_load_completion {
@@ -25,12 +25,12 @@ struct texture_load_completion {
   std::uint64_t session{};
   std::uint64_t revision{};
   texture_load_state state{texture_load_state::failed};
-  gneiss::engine::result result{gneiss::engine::result::internal};
+  engine::result result{engine::result::internal};
   std::string message{};
   /** 解析错误位置；文件读取失败时 path 为请求 URI。 */
   std::string path;
   std::size_t byte_offset{};
-  std::vector<gneiss::engine::render_asset_ref> assets;
+  std::vector<render_asset_ref> assets;
   /** 包含显式请求及已发现依赖；取消/失败也保留已成功项，元数据不延长资源寿命。 */
   std::vector<asset_load_result> results;
   /** 本次准备使用的设备能力。 */
@@ -60,18 +60,17 @@ public:
   static constexpr std::size_t maximum_assets = 256U;
   static constexpr std::size_t maximum_prepared_bytes = 256U * 1024U * 1024U;
   static constexpr std::size_t maximum_bytes = 64U * 1024U * 1024U;
-  texture_load_service(gneiss::engine::task_executor& executor,
-                       gneiss::engine::render_asset_loader& loader,
+  texture_load_service(task_executor& executor, render_asset_loader& loader,
                        texture_prepare_profile profile = {},
-                       std::shared_ptr<gneiss::engine::progress_notification> notification = {});
+                       std::shared_ptr<progress_notification> notification = {});
   ~texture_load_service();
-  [[nodiscard]] gneiss::engine::result submit(std::span<const std::string> uris,
-                                              std::uint64_t session, std::uint64_t revision,
-                                              std::uint64_t& request, bool reload = true);
-  [[nodiscard]] gneiss::engine::result
-  submit_assets(std::span<const gneiss::engine::render_asset_reload> sources, std::uint64_t session,
-                std::uint64_t revision, std::uint64_t& request, bool reload = true,
-                std::size_t prepare_limit = maximum_prepared_bytes);
+  [[nodiscard]] engine::result submit(std::span<const std::string> uris, std::uint64_t session,
+                                      std::uint64_t revision, std::uint64_t& request,
+                                      bool reload = true);
+  [[nodiscard]] engine::result submit_assets(std::span<const render_asset_reload> sources,
+                                             std::uint64_t session, std::uint64_t revision,
+                                             std::uint64_t& request, bool reload = true,
+                                             std::size_t prepare_limit = maximum_prepared_bytes);
   [[nodiscard]] bool progress(asset_load_progress& output) const;
   /** 所属线程借用请求目标，普通模式提交成功即可取得；下一次推进/取回执后重新查询。
    * 需要长期引用的使用者复制租约；引用有效不代表内容已就绪。
@@ -90,21 +89,21 @@ public:
 
 private:
   struct pending;
-  gneiss::engine::submit_result submit_preparation(pending& value);
+  submit_result submit_preparation(pending& value);
   bool advance_preparation(pending& value);
-  gneiss::engine::result enqueue_dependencies(pending& value, const prepared_render_asset& asset);
-  void finish_item(gneiss::engine::result result, bool applied);
+  engine::result enqueue_dependencies(pending& value, const prepared_render_asset& asset);
+  void finish_item(engine::result result, bool applied);
   bool start_item(pending& value);
   result start_read(pending& value, std::string_view uri, bool payload);
   bool prepare_item_update(pending& value);
   void advance_impl();
   void check_owner() const;
-  void finish(gneiss::engine::result result, texture_load_state state);
-  gneiss::engine::task_executor& executor_;
-  gneiss::engine::task_scope scope_;
-  gneiss::engine::render_asset_loader& loader_;
+  void finish(engine::result result, texture_load_state state);
+  task_executor& executor_;
+  task_scope scope_;
+  render_asset_loader& loader_;
   texture_prepare_profile profile_;
-  std::shared_ptr<gneiss::engine::progress_notification> notification_;
+  std::shared_ptr<progress_notification> notification_;
   std::unique_ptr<pending> pending_;
   std::optional<texture_load_completion> completed_;
   std::uint64_t sequence_{};

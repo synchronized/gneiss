@@ -12,38 +12,37 @@ namespace gneiss::engine {
 namespace {
 
 template <typename Handle, typename Resource, typename Getter>
-gneiss::engine::result
-capture_resource(Handle handle, std::unordered_map<Handle, std::shared_ptr<const Resource>>& output,
-                 Getter&& getter, bool pending = false) {
+engine::result capture_resource(Handle handle,
+                                std::unordered_map<Handle, std::shared_ptr<const Resource>>& output,
+                                Getter&& getter, bool pending = false) {
   if (output.contains(handle)) {
-    return gneiss::engine::result::success;
+    return engine::result::success;
   }
   auto source = getter(handle);
   if (!source && !pending) {
-    return gneiss::engine::result::invalid_handle;
+    return engine::result::invalid_handle;
   }
   output.emplace(handle, std::move(source));
-  return gneiss::engine::result::success;
+  return engine::result::success;
 }
 
 } // namespace
 
-bool render_resource_snapshot::mesh_pending(gneiss::engine::rid mesh) const noexcept {
+bool render_resource_snapshot::mesh_pending(rid mesh) const noexcept {
   const auto found = meshes_.find(mesh);
   return found != meshes_.end() && !found->second;
 }
-bool render_resource_snapshot::texture_pending(gneiss::engine::rid texture) const noexcept {
+bool render_resource_snapshot::texture_pending(rid texture) const noexcept {
   const auto found = textures_.find(texture);
   return found != textures_.end() && !found->second;
 }
 
-const mesh_data* render_resource_snapshot::get_mesh(gneiss::engine::rid mesh) const noexcept {
+const mesh_data* render_resource_snapshot::get_mesh(rid mesh) const noexcept {
   const auto found = meshes_.find(mesh);
   return found == meshes_.end() ? nullptr : found->second.get();
 }
 
-const material_data*
-render_resource_snapshot::get_material(gneiss::engine::rid material) const noexcept {
+const material_data* render_resource_snapshot::get_material(rid material) const noexcept {
   const auto found = materials_.find(material);
   if (found == materials_.end()) {
     return nullptr;
@@ -52,18 +51,15 @@ render_resource_snapshot::get_material(gneiss::engine::rid material) const noexc
   return found->second ? found->second.get() : &fallback;
 }
 
-const texture_data*
-render_resource_snapshot::get_texture(gneiss::engine::rid texture) const noexcept {
+const texture_data* render_resource_snapshot::get_texture(rid texture) const noexcept {
   const auto found = textures_.find(texture);
   return found == textures_.end() ? nullptr : found->second.get();
 }
 
-gneiss::engine::result capture_render_frame_packet(const gneiss::engine::native_window_info& window,
-                                                   gneiss::engine::render_snapshot scene,
-                                                   const render_resource_service& resources,
-                                                   const ui_draw_list& ui,
-                                                   const debug_draw_list& debug,
-                                                   render_frame_packet& out_packet) noexcept {
+engine::result capture_render_frame_packet(const native_window_info& window, render_snapshot scene,
+                                           const render_resource_service& resources,
+                                           const ui_draw_list& ui, const debug_draw_list& debug,
+                                           render_frame_packet& out_packet) noexcept {
   const auto capture_started = std::chrono::steady_clock::now();
   try {
     render_frame_packet candidate = std::move(out_packet);
@@ -79,47 +75,45 @@ gneiss::engine::result capture_render_frame_packet(const gneiss::engine::native_
       auto result = capture_resource(
           resource_handle(instance.mesh), candidate.resources.meshes_,
           [&](const auto handle) { return resources.share_mesh(handle); },
-          resources.mesh_status(resource_handle(instance.mesh)) ==
-              gneiss::engine::result::not_ready);
-      if (result != gneiss::engine::result::success) {
+          resources.mesh_status(resource_handle(instance.mesh)) == engine::result::not_ready);
+      if (result != engine::result::success) {
         return result;
       }
       result = capture_resource(
           resource_handle(instance.material), candidate.resources.materials_,
           [&](const auto handle) { return resources.share_material(handle); },
           resources.material_status(resource_handle(instance.material)) ==
-              gneiss::engine::result::not_ready);
-      if (result != gneiss::engine::result::success) {
+              engine::result::not_ready);
+      if (result != engine::result::success) {
         return result;
       }
       const auto& material = *candidate.resources.get_material(resource_handle(instance.material));
       for (const auto texture : material.texture_handles()) {
-        if (texture == gneiss::engine::null_rid)
+        if (texture == null_rid)
           continue;
         result = capture_resource(
             texture, candidate.resources.textures_,
             [&](const auto handle) { return resources.share_texture(handle); },
-            resources.texture_status(texture) == gneiss::engine::result::not_ready);
-        if (result != gneiss::engine::result::success) {
+            resources.texture_status(texture) == engine::result::not_ready);
+        if (result != engine::result::success) {
           return result;
         }
       }
     }
     for (const auto& command : candidate.ui.commands()) {
       // UI 尚未接入占位策略，不能让场景中捕获的空纹理条目绕过 UI 就绪检查。
-      if (resources.texture_status(resource_handle(command.texture)) ==
-          gneiss::engine::result::not_ready) {
-        return gneiss::engine::result::not_ready;
+      if (resources.texture_status(resource_handle(command.texture)) == engine::result::not_ready) {
+        return engine::result::not_ready;
       }
       const auto result =
           capture_resource(resource_handle(command.texture), candidate.resources.textures_,
                            [&](const auto handle) { return resources.share_texture(handle); });
-      if (result != gneiss::engine::result::success) {
+      if (result != engine::result::success) {
         return result;
       }
     }
     std::size_t copied_payload_bytes =
-        candidate.scene.instances.size() * sizeof(gneiss::engine::render_instance_snapshot) +
+        candidate.scene.instances.size() * sizeof(render_instance_snapshot) +
         candidate.ui.vertices().size() * sizeof(ui_vertex) +
         candidate.ui.indices().size() * sizeof(std::uint32_t) +
         candidate.ui.commands().size() * sizeof(ui_draw_command) +
@@ -133,11 +127,11 @@ gneiss::engine::result capture_render_frame_packet(const gneiss::engine::native_
             .count();
     candidate.capture.copied_payload_bytes = copied_payload_bytes;
     out_packet = std::move(candidate);
-    return gneiss::engine::result::success;
+    return engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return engine::result::internal;
   }
 }
 

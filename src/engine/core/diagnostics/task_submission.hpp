@@ -10,15 +10,14 @@ namespace gneiss::engine {
 
 // 宿主调度器可能位于另一动态库，不能依赖它与调用方共享 thread_local。
 // 仅同步借用栈上结果，返回后合并到调用方的循环记录，不保存第二套调度状态。
-inline gneiss::engine::submit_result submit_observed(
-    gneiss::engine::task_executor& executor, gneiss::engine::task_description description,
-    gneiss::engine::task_executor::task_function function, gneiss::engine::task_handle& output) {
+inline submit_result submit_observed(task_executor& executor, task_description description,
+                                     task_executor::task_function function, task_handle& output) {
   if (active_loop_times == nullptr) {
     return executor.submit(std::move(description), std::move(function), output);
   }
   struct observation {
     stage_times* destination;
-    gneiss::engine::task_submission_timings timings{};
+    task_submission_timings timings{};
     ~observation() {
       if (!timings.measured) {
         return;

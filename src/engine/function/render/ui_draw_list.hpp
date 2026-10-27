@@ -27,8 +27,8 @@ struct ui_draw_view {
 
 class ui_draw_list final {
 public:
-  [[nodiscard]] gneiss::engine::result replace(const ui_draw_view& desc,
-                                               const render_resource_service& resources) noexcept;
+  [[nodiscard]] result replace(const ui_draw_view& desc,
+                               const render_resource_service& resources) noexcept;
   void clear() noexcept;
 
   [[nodiscard]] float display_width() const noexcept { return display_width_; }

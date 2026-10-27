@@ -11,27 +11,25 @@ namespace gneiss::engine {
 
 dynamic_library::~dynamic_library() { close(); }
 
-gneiss::engine::result dynamic_library::open(const std::filesystem::path& path) noexcept {
+result dynamic_library::open(const std::filesystem::path& path) noexcept {
   if (handle_ != nullptr || path.empty()) {
-    return gneiss::engine::result::invalid_state;
+    return result::invalid_state;
   }
   std::error_code error;
   if (!std::filesystem::is_regular_file(path, error)) {
-    return gneiss::engine::result::not_found;
+    return result::not_found;
   }
   handle_ = LoadLibraryW(path.c_str());
-  return handle_ != nullptr ? gneiss::engine::result::success
-                            : gneiss::engine::result::dependency_failed;
+  return handle_ != nullptr ? result::success : result::dependency_failed;
 }
 
-gneiss::engine::result dynamic_library::find_symbol(const char* name,
-                                                    void** out_symbol) const noexcept {
+result dynamic_library::find_symbol(const char* name, void** out_symbol) const noexcept {
   if (handle_ == nullptr || name == nullptr || name[0] == '\0' || out_symbol == nullptr) {
-    return gneiss::engine::result::invalid_argument;
+    return result::invalid_argument;
   }
   const auto symbol = GetProcAddress(static_cast<HMODULE>(handle_), name);
   *out_symbol = reinterpret_cast<void*>(symbol);
-  return symbol != nullptr ? gneiss::engine::result::success : gneiss::engine::result::not_found;
+  return symbol != nullptr ? result::success : result::not_found;
 }
 
 void dynamic_library::close() noexcept {

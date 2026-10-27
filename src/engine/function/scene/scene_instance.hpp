@@ -12,8 +12,8 @@
 namespace gneiss::engine {
 class scene_instance final {
 public:
-  scene_instance(gneiss::engine::world& native_world, gneiss::engine::render_asset_loader& loader,
-                 const gneiss::engine::meta::registry_ref& registry) noexcept;
+  scene_instance(world& native_world, render_asset_loader& loader,
+                 const meta::registry_ref& registry) noexcept;
   ~scene_instance() noexcept;
 
   scene_instance(const scene_instance&) = delete;
@@ -23,65 +23,56 @@ public:
     std::string uuid;
     std::uint64_t entity = UINT64_C(0);
     scene_node_id node = null_scene_node_id;
-    gneiss::engine::mesh mesh;
-    gneiss::engine::material material;
+    engine::mesh mesh;
+    engine::material material;
   };
 
   void rollback() noexcept;
   /** 仅用于不可见候选 World，分阶段入口不执行文件读取。 */
-  void initialize_staged(gneiss::engine::scene_description candidate);
-  [[nodiscard]] gneiss::engine::result create_staged_node(std::size_t index, scene_node_id parent,
-                                                          gneiss::engine::mesh mesh,
-                                                          gneiss::engine::material material);
+  void initialize_staged(scene_description candidate);
+  [[nodiscard]] result create_staged_node(std::size_t index, scene_node_id parent,
+                                          engine::mesh mesh, engine::material material);
 
   [[nodiscard]] scene_node_id find_node(std::string_view uuid) const noexcept;
-  [[nodiscard]] gneiss::engine::result capture_description(scene_description& output) const;
-  [[nodiscard]] gneiss::engine::result serialize(std::string& out_json) const;
-  [[nodiscard]] gneiss::engine::result get_node_info(std::uint64_t index, scene_node_view& out_info,
-                                                     node_query_detail detail) const;
+  [[nodiscard]] result capture_description(scene_description& output) const;
+  [[nodiscard]] result serialize(std::string& out_json) const;
+  [[nodiscard]] result get_node_info(std::uint64_t index, scene_node_view& out_info,
+                                     node_query_detail detail) const;
   [[nodiscard]] std::uint64_t get_prefab_node_count() const noexcept;
-  [[nodiscard]] gneiss::engine::result get_prefab_node_info(std::uint64_t index,
-                                                            prefab_node_view& out_info) const;
-  [[nodiscard]] gneiss::engine::result set_prefab_instance_name(scene_node_id root,
-                                                                std::string_view name);
-  [[nodiscard]] gneiss::engine::result
-  set_prefab_source_transform(scene_node_id node, const gneiss::engine::math::transform& transform);
-  [[nodiscard]] gneiss::engine::result destroy_prefab_instance(scene_node_id root) noexcept;
-  [[nodiscard]] gneiss::engine::result create_node(const node_creation& desc,
-                                                   scene_node_id* out_node);
-  [[nodiscard]] gneiss::engine::result set_node_name(scene_node_id node, std::string_view name);
-  [[nodiscard]] gneiss::engine::result reparent_node(scene_node_id node, scene_node_id parent);
-  [[nodiscard]] gneiss::engine::result capture_subtree(scene_node_id root,
-                                                       std::string& out_snapshot) const;
-  [[nodiscard]] gneiss::engine::result
-  restore_subtree(std::string_view snapshot, scene_node_id parent,
-                  std::span<const uuid_mapping> mappings, scene_node_id* out_root,
-                  std::span<const scene_mesh_binding> bindings);
-  [[nodiscard]] gneiss::engine::result destroy_subtree(scene_node_id root);
-  [[nodiscard]] gneiss::engine::result
-  create_mesh_renderer_node(const mesh_renderer_node_creation& desc, scene_node_id* out_node,
-                            const scene_mesh_binding* prepared = nullptr);
-  [[nodiscard]] gneiss::engine::result
-  set_mesh_renderer(scene_node_id node, std::string_view mesh_uri, std::string_view material_uri);
-  [[nodiscard]] gneiss::engine::result set_camera(scene_node_id node,
-                                                  const gneiss::engine::camera_description& desc);
-  [[nodiscard]] gneiss::engine::result remove_camera(scene_node_id node);
-  [[nodiscard]] gneiss::engine::result remove_mesh_renderer(scene_node_id node);
-  [[nodiscard]] gneiss::engine::result destroy_node(scene_node_id node);
+  [[nodiscard]] result get_prefab_node_info(std::uint64_t index, prefab_node_view& out_info) const;
+  [[nodiscard]] result set_prefab_instance_name(scene_node_id root, std::string_view name);
+  [[nodiscard]] result set_prefab_source_transform(scene_node_id node,
+                                                   const math::transform& transform);
+  [[nodiscard]] result destroy_prefab_instance(scene_node_id root) noexcept;
+  [[nodiscard]] result create_node(const node_creation& desc, scene_node_id* out_node);
+  [[nodiscard]] result set_node_name(scene_node_id node, std::string_view name);
+  [[nodiscard]] result reparent_node(scene_node_id node, scene_node_id parent);
+  [[nodiscard]] result capture_subtree(scene_node_id root, std::string& out_snapshot) const;
+  [[nodiscard]] result restore_subtree(std::string_view snapshot, scene_node_id parent,
+                                       std::span<const uuid_mapping> mappings,
+                                       scene_node_id* out_root,
+                                       std::span<const scene_mesh_binding> bindings);
+  [[nodiscard]] result destroy_subtree(scene_node_id root);
+  [[nodiscard]] result create_mesh_renderer_node(const mesh_renderer_node_creation& desc,
+                                                 scene_node_id* out_node,
+                                                 const scene_mesh_binding* prepared = nullptr);
+  [[nodiscard]] result set_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
+                                         std::string_view material_uri);
+  [[nodiscard]] result set_camera(scene_node_id node, const camera_description& desc);
+  [[nodiscard]] result remove_camera(scene_node_id node);
+  [[nodiscard]] result remove_mesh_renderer(scene_node_id node);
+  [[nodiscard]] result destroy_node(scene_node_id node);
   /** 事务式替换普通场景节点；当前不接受 Prefab 实例容器变化。 */
-  [[nodiscard]] gneiss::engine::result reload(gneiss::engine::scene_description candidate);
+  [[nodiscard]] result reload(scene_description candidate);
   /** 将指定 Prefab URI 的新修订应用到当前 Scene 内全部同源实例。 */
-  [[nodiscard]] gneiss::engine::result reload_prefab(std::string_view uri,
-                                                     prefab_asset_ref candidate);
+  [[nodiscard]] result reload_prefab(std::string_view uri, prefab_asset_ref candidate);
 
   /** 单场景 Prefab 实例操作；服务已校验线程与句柄，不修改 Prefab 源资源。 */
-  [[nodiscard]] gneiss::engine::result
-  capture_prefab_instance_header(std::string_view uuid,
-                                 gneiss::engine::prefab_instance_description& author,
-                                 gneiss::engine::prefab_asset_ref& source) const noexcept;
-  [[nodiscard]] gneiss::engine::result
-  capture_prefab_instance_binding(std::string_view uuid, std::size_t index,
-                                  scene_mesh_binding& output) const noexcept;
+  [[nodiscard]] result capture_prefab_instance_header(std::string_view uuid,
+                                                      prefab_instance_description& author,
+                                                      prefab_asset_ref& source) const noexcept;
+  [[nodiscard]] result capture_prefab_instance_binding(std::string_view uuid, std::size_t index,
+                                                       scene_mesh_binding& output) const noexcept;
   [[nodiscard]] result instantiate_prefab_ready(const prefab_instance_description& author,
                                                 prefab_asset_ref prefab,
                                                 std::span<const scene_mesh_binding> bindings,
@@ -94,17 +85,14 @@ public:
    * 不去重、不发布资源，也不改变场景；服务负责跨实例去重和失败输出保留。 */
 
   /** 调用方服务已验证所属线程和租约归属；实例负责作者数据与 ECS 同步提交。 */
-  [[nodiscard]] gneiss::engine::result
-  capture_mesh_binding(scene_node_id node, scene_mesh_binding& output) const noexcept;
-  [[nodiscard]] gneiss::engine::result
-  replace_mesh_binding(scene_node_id node, const scene_mesh_binding& expected,
-                       const scene_mesh_binding& replacement) noexcept;
+  [[nodiscard]] result capture_mesh_binding(scene_node_id node,
+                                            scene_mesh_binding& output) const noexcept;
+  [[nodiscard]] result replace_mesh_binding(scene_node_id node, const scene_mesh_binding& expected,
+                                            const scene_mesh_binding& replacement) noexcept;
   [[nodiscard]] bool contains_editable_node(scene_node_id node) const noexcept;
   [[nodiscard]] std::uint64_t node_count() const noexcept { return objects_.size(); }
 
-  [[nodiscard]] const gneiss::engine::scene_description& source() const noexcept {
-    return description_;
-  }
+  [[nodiscard]] const scene_description& source() const noexcept { return description_; }
   [[nodiscard]] scene_node_id staged_node(std::size_t index) const {
     return objects_.at(index).node;
   }
@@ -114,11 +102,11 @@ private:
   friend class scene_instances;
   std::vector<object> objects_;
   std::vector<std::unique_ptr<prefab_runtime_instance>> prefab_instances_;
-  gneiss::engine::scene_description description_;
+  scene_description description_;
 
-  gneiss::engine::world& native_world_;
-  gneiss::engine::render_asset_loader& loader_;
-  gneiss::engine::meta::registry_ref registry_;
+  world& native_world_;
+  render_asset_loader& loader_;
+  meta::registry_ref registry_;
 };
 
 }

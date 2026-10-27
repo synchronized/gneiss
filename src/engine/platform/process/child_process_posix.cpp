@@ -87,16 +87,16 @@ child_process::~child_process() {
   implementation_->close_process();
 }
 
-gneiss::engine::result child_process::start(const child_process_start_info& info) noexcept {
+result child_process::start(const child_process_start_info& info) noexcept {
   if (!implementation_ || is_running() || info.executable.empty()) {
-    return gneiss::engine::result::invalid_state;
+    return result::invalid_state;
   }
   try {
     std::error_code error;
     if (!std::filesystem::is_regular_file(info.executable, error) || error ||
         (!info.working_directory.empty() &&
          (!std::filesystem::is_directory(info.working_directory, error) || error))) {
-      return gneiss::engine::result::not_found;
+      return result::not_found;
     }
     implementation_->close_process();
     implementation_->output.clear();
@@ -105,13 +105,13 @@ gneiss::engine::result child_process::start(const child_process_start_info& info
 
     int output_pipe[2]{-1, -1};
     if (::pipe(output_pipe) != 0) {
-      return gneiss::engine::result::initialization_failed;
+      return result::initialization_failed;
     }
     const auto flags = ::fcntl(output_pipe[0], F_GETFL, 0);
     if (flags < 0 || ::fcntl(output_pipe[0], F_SETFL, flags | O_NONBLOCK) != 0) {
       close_descriptor(output_pipe[0]);
       close_descriptor(output_pipe[1]);
-      return gneiss::engine::result::initialization_failed;
+      return result::initialization_failed;
     }
 
     const auto executable = info.executable.string();
@@ -145,25 +145,24 @@ gneiss::engine::result child_process::start(const child_process_start_info& info
     close_descriptor(output_pipe[1]);
     if (child < 0) {
       close_descriptor(output_pipe[0]);
-      return gneiss::engine::result::initialization_failed;
+      return result::initialization_failed;
     }
     implementation_->process = child;
     implementation_->output_read = output_pipe[0];
     implementation_->has_started = true;
-    return gneiss::engine::result::success;
+    return result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::io;
+    return result::io;
   }
 }
 
-gneiss::engine::result child_process::terminate() noexcept {
+result child_process::terminate() noexcept {
   if (!implementation_ || !is_running()) {
-    return gneiss::engine::result::not_ready;
+    return result::not_ready;
   }
-  return ::kill(implementation_->process, SIGKILL) == 0 ? gneiss::engine::result::success
-                                                        : gneiss::engine::result::io;
+  return ::kill(implementation_->process, SIGKILL) == 0 ? result::success : result::io;
 }
 
 void child_process::update() noexcept {

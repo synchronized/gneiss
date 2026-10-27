@@ -10,7 +10,7 @@
 
 namespace gneiss::engine {
 
-[[nodiscard]] GNEISS_API gneiss::engine::result validate_uri(std::string_view uri) noexcept;
+[[nodiscard]] GNEISS_API result validate_uri(std::string_view uri) noexcept;
 [[nodiscard]] std::string_view uri_path(std::string_view uri) noexcept;
 
 } // namespace gneiss::engine

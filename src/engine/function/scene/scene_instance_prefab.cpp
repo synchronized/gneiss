@@ -12,20 +12,20 @@
 #include <utility>
 
 namespace gneiss::engine {
-gneiss::engine::result scene_instance::capture_prefab_instance_header(
-    std::string_view uuid, gneiss::engine::prefab_instance_description& author,
-    gneiss::engine::prefab_asset_ref& source) const noexcept try {
+result scene_instance::capture_prefab_instance_header(std::string_view uuid,
+                                                      prefab_instance_description& author,
+                                                      prefab_asset_ref& source) const noexcept try {
   const auto found = std::ranges::find(description_.prefab_instances, uuid,
-                                       &gneiss::engine::prefab_instance_description::instance_uuid);
+                                       &prefab_instance_description::instance_uuid);
   if (found == description_.prefab_instances.end()) {
-    return gneiss::engine::result::not_found;
+    return result::not_found;
   }
   const auto index = static_cast<std::size_t>(found - description_.prefab_instances.begin());
   auto copy = *found;
-  gneiss::engine::math::transform transform{};
+  math::transform transform{};
   const auto queried = native_world_.node_get_local_transform(
       gneiss::scene_node_id{prefab_instances_[index]->root()}, transform);
-  if (queried != gneiss::engine::result::success) {
+  if (queried != result::success) {
     return queried;
   }
   copy.translation = transform.translation;
@@ -33,30 +33,29 @@ gneiss::engine::result scene_instance::capture_prefab_instance_header(
   copy.scale = transform.scale;
   source = prefab_instances_[index]->prefab_lease();
   author = std::move(copy);
-  return gneiss::engine::result::success;
+  return result::success;
 } catch (const std::bad_alloc&) {
-  return gneiss::engine::result::out_of_memory;
+  return result::out_of_memory;
 } catch (...) {
-  return gneiss::engine::result::internal;
+  return result::internal;
 }
 
-gneiss::engine::result
-scene_instance::capture_prefab_instance_binding(std::string_view uuid, std::size_t index,
-                                                scene_mesh_binding& output) const noexcept {
+result scene_instance::capture_prefab_instance_binding(std::string_view uuid, std::size_t index,
+                                                       scene_mesh_binding& output) const noexcept {
   const auto found = std::ranges::find_if(
       prefab_instances_, [&](const auto& value) { return value->instance_uuid_ == uuid; });
   if (found == prefab_instances_.end()) {
-    return gneiss::engine::result::not_found;
+    return result::not_found;
   }
   if (index >= (*found)->nodes_.size()) {
-    return gneiss::engine::result::not_found;
+    return result::not_found;
   }
   const auto& node = (*found)->nodes_[index];
   output = {
       .mesh = node.mesh,
       .material = node.material,
   };
-  return gneiss::engine::result::success;
+  return result::success;
 }
 
 result scene_instance::instantiate_prefab_ready(const prefab_instance_description& author,

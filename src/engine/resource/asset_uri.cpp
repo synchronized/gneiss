@@ -13,12 +13,12 @@ constexpr std::string_view scheme = "asset://";
 
 namespace gneiss::engine {
 
-gneiss::engine::result validate_uri(std::string_view uri) noexcept {
+result validate_uri(std::string_view uri) noexcept {
   if (!uri.starts_with(scheme) || uri.size() == scheme.size() || uri.ends_with('/') ||
       !files::detail::valid_file_path(uri.substr(scheme.size()))) {
-    return gneiss::engine::result::invalid_argument;
+    return result::invalid_argument;
   }
-  return gneiss::engine::result::success;
+  return result::success;
 }
 
 std::string_view uri_path(std::string_view uri) noexcept { return uri.substr(scheme.size()); }

@@ -17,7 +17,7 @@ struct ui_vertex {
   std::uint32_t color_rgba8{};
 };
 struct ui_draw_command {
-  gneiss::engine::texture texture;
+  engine::texture texture;
   float clip_min[2]{};
   float clip_max[2]{};
   std::uint32_t first_index{}, index_count{}, vertex_offset{};

@@ -56,10 +56,9 @@ bool prefab_property_override_key::operator==(
          std::ranges::equal(type_id.bytes(), other.type_id.bytes());
 }
 
-gneiss::engine::value_kind prefab_property_value_kind(const prefab_property_value& value) noexcept {
-  return value.payload.valueless_by_exception()
-             ? gneiss::engine::value_kind::invalid
-             : static_cast<gneiss::engine::value_kind>(value.payload.index());
+value_kind prefab_property_value_kind(const prefab_property_value& value) noexcept {
+  return value.payload.valueless_by_exception() ? value_kind::invalid
+                                                : static_cast<value_kind>(value.payload.index());
 }
 
 } // namespace gneiss::engine

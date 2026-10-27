@@ -43,13 +43,13 @@ public:
 
 private:
   friend class resource_retirement_queue;
-  mesh_resource(render_resource_service& owner, gneiss::engine::rid value) noexcept;
-  friend gneiss::engine::rid resource_handle(const asset_ref<const mesh_resource>&) noexcept;
+  mesh_resource(render_resource_service& owner, rid value) noexcept;
+  friend rid resource_handle(const asset_ref<const mesh_resource>&) noexcept;
   friend class render_asset_loader;
   friend class render_resource_service;
-  friend gneiss::engine::rid asset_rid(const asset_ref<const resource_cache::entry>&) noexcept;
+  friend rid asset_rid(const asset_ref<const resource_cache::entry>&) noexcept;
   render_resource_service* resources_;
-  gneiss::engine::rid rid_;
+  rid rid_;
   mutable asset_identity identity_;
   mutable std::uint64_t update_sequence_{};
   mutable std::optional<mesh_metadata> metadata_;
@@ -69,13 +69,13 @@ public:
 
 private:
   friend class resource_retirement_queue;
-  texture_resource(render_resource_service& owner, gneiss::engine::rid value) noexcept;
-  friend gneiss::engine::rid resource_handle(const asset_ref<const texture_resource>&) noexcept;
+  texture_resource(render_resource_service& owner, rid value) noexcept;
+  friend rid resource_handle(const asset_ref<const texture_resource>&) noexcept;
   friend class render_asset_loader;
   friend class render_resource_service;
-  friend gneiss::engine::rid asset_rid(const asset_ref<const resource_cache::entry>&) noexcept;
+  friend rid asset_rid(const asset_ref<const resource_cache::entry>&) noexcept;
   render_resource_service* resources_;
-  gneiss::engine::rid rid_;
+  rid rid_;
   mutable asset_identity identity_;
   mutable std::uint64_t update_sequence_{};
   mutable std::optional<texture_metadata> metadata_;
@@ -97,14 +97,14 @@ public:
 
 private:
   friend class resource_retirement_queue;
-  material_resource(render_resource_service& owner, gneiss::engine::rid value,
+  material_resource(render_resource_service& owner, rid value,
                     std::array<texture, 5> dependencies = {}) noexcept;
-  friend gneiss::engine::rid resource_handle(const asset_ref<const material_resource>&) noexcept;
+  friend rid resource_handle(const asset_ref<const material_resource>&) noexcept;
   friend class render_asset_loader;
   friend class render_resource_service;
-  friend gneiss::engine::rid asset_rid(const asset_ref<const resource_cache::entry>&) noexcept;
+  friend rid asset_rid(const asset_ref<const resource_cache::entry>&) noexcept;
   render_resource_service* resources_;
-  gneiss::engine::rid rid_;
+  rid rid_;
   mutable asset_identity identity_;
   mutable std::uint64_t update_sequence_{};
   mutable material_parameters parameters_;
@@ -115,15 +115,11 @@ private:
 using material = asset_ref<const material_resource>;
 
 /** Render 内部标识提取；不转移所有权，不表示内容已就绪。 */
-inline gneiss::engine::rid resource_handle(const mesh& value) noexcept {
-  return value ? value->rid_ : null_rid;
-}
+inline rid resource_handle(const mesh& value) noexcept { return value ? value->rid_ : null_rid; }
 /** Render 内部标识提取；不转移所有权，不表示内容已就绪。 */
-inline gneiss::engine::rid resource_handle(const texture& value) noexcept {
-  return value ? value->rid_ : null_rid;
-}
+inline rid resource_handle(const texture& value) noexcept { return value ? value->rid_ : null_rid; }
 /** Render 内部标识提取；不转移所有权，不表示内容已就绪。 */
-inline gneiss::engine::rid resource_handle(const material& value) noexcept {
+inline rid resource_handle(const material& value) noexcept {
   return value ? value->rid_ : null_rid;
 }
 

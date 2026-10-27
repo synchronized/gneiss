@@ -31,8 +31,8 @@ struct texture_prepare_profile {
 struct prepared_texture_data {
   std::uint32_t width;
   std::uint32_t height;
-  gneiss::engine::texture_format format;
-  gneiss::engine::texture_color_space color_space;
+  texture_format format;
+  texture_color_space color_space;
   std::vector<texture_mip> levels;
   std::vector<std::byte> manifest;
   std::vector<std::byte> payload;

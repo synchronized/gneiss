@@ -277,8 +277,8 @@ submit_result task_scheduler::submit(task_description description, task_function
     *timings = {.measured = true};
   }
   std::unique_lock lock(impl_->mutex, std::defer_lock);
-  gneiss::engine::measure(timings != nullptr ? &timings->lock_ms : nullptr, [&] { lock.lock(); });
-  const gneiss::engine::loop_span work(timings != nullptr ? &timings->work_ms : nullptr);
+  engine::measure(timings != nullptr ? &timings->lock_ms : nullptr, [&] { lock.lock(); });
+  const loop_span work(timings != nullptr ? &timings->work_ms : nullptr);
   const auto reject = [&](submit_result result) {
     ++impl_->counters.rejected;
     return result;
@@ -300,8 +300,8 @@ submit_result task_scheduler::submit(task_description description, task_function
        serial->second.scope != description.scope.id)) {
     return reject(submit_result::invalid_argument);
   }
-  auto value = gneiss::engine::measure(timings != nullptr ? &timings->allocate_ms : nullptr,
-                                       [] { return std::make_shared<implementation::task>(); });
+  auto value = engine::measure(timings != nullptr ? &timings->allocate_ms : nullptr,
+                               [] { return std::make_shared<implementation::task>(); });
   for (const auto prerequisite : description.prerequisites) {
     const auto before = impl_->tasks.find(prerequisite.id);
     if (prerequisite.owner != impl_->owner || before == impl_->tasks.end()) {
@@ -318,13 +318,13 @@ submit_result task_scheduler::submit(task_description description, task_function
                        .outcome = {.state = task_state::waiting, .error = {}},
                        .queue_ms = 0,
                        .execution_ms = 0};
-  gneiss::engine::measure(timings != nullptr ? &timings->insert_ms : nullptr,
-                          [&] { impl_->tasks.emplace(handle.id, value); });
+  engine::measure(timings != nullptr ? &timings->insert_ms : nullptr,
+                  [&] { impl_->tasks.emplace(handle.id, value); });
   ++impl_->counters.submitted;
   output = handle;
   GNEISS_PROFILE_TASK(impl_->owner, handle.id, value->description.name);
-  gneiss::engine::measure(timings != nullptr ? &timings->notify_ms : nullptr,
-                          [&] { impl_->wake.notify_all(); });
+  engine::measure(timings != nullptr ? &timings->notify_ms : nullptr,
+                  [&] { impl_->wake.notify_all(); });
   return submit_result::success;
 }
 bool task_scheduler::cancel(task_handle task) {

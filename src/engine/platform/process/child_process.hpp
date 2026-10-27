@@ -29,8 +29,8 @@ public:
   child_process(const child_process&) = delete;
   child_process& operator=(const child_process&) = delete;
 
-  [[nodiscard]] gneiss::engine::result start(const child_process_start_info& info) noexcept;
-  [[nodiscard]] gneiss::engine::result terminate() noexcept;
+  [[nodiscard]] result start(const child_process_start_info& info) noexcept;
+  [[nodiscard]] result terminate() noexcept;
   void update() noexcept;
 
   [[nodiscard]] bool is_running() const noexcept;

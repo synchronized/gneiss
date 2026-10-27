@@ -12,7 +12,7 @@ enum class category : std::uint32_t { application = 1, asset, input, backend };
 struct diagnostic_view {
   severity level{severity::error};
   category source{category::application};
-  gneiss::engine::result result{gneiss::engine::result::success};
+  engine::result result{engine::result::success};
   std::string_view module;
   std::string_view message;
 };

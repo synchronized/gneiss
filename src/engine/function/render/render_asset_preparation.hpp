@@ -39,7 +39,7 @@ struct asset_preparation_source final {
 struct prepared_source final {
   asset_identity identity;
   std::uint64_t bytes{};
-  gneiss::engine::sha256_digest digest{};
+  sha256_digest digest{};
 };
 
 /** 材质输入由所属线程加载后传入；只读引用保活描述，准备器不查询缓存。 */
@@ -52,9 +52,9 @@ struct prepared_asset {
   asset_preparation_source source;
   /** 描述在首位，纹理负载在其后；材质的资产依赖仍由 texture_uris 表示。 */
   std::vector<prepared_source> sources;
-  gneiss::engine::mesh_data mesh;
-  gneiss::engine::prepared_texture_data texture{};
-  gneiss::engine::material_parameters material{};
+  mesh_data mesh;
+  prepared_texture_data texture{};
+  material_parameters material{};
   std::array<std::string, 5> texture_uris;
   std::size_t bytes{};
 };
@@ -75,9 +75,9 @@ struct prepared_batch {
   /** 整文件快照持有的输入字节；区间读取没有源副本，不计入此值。 */
   std::size_t input_bytes{};
 };
-using render_asset_type = gneiss::engine::asset_type;
-using render_asset_reload = gneiss::engine::asset_preparation_source;
-using prepared_render_asset = gneiss::engine::prepared_asset;
-using prepared_render_batch = gneiss::engine::prepared_batch;
+using render_asset_type = engine::asset_type;
+using render_asset_reload = engine::asset_preparation_source;
+using prepared_render_asset = engine::prepared_asset;
+using prepared_render_batch = engine::prepared_batch;
 
 } // namespace gneiss::engine

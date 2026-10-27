@@ -19,9 +19,8 @@ public:
   dynamic_library(const dynamic_library&) = delete;
   dynamic_library& operator=(const dynamic_library&) = delete;
 
-  [[nodiscard]] gneiss::engine::result open(const std::filesystem::path& path) noexcept;
-  [[nodiscard]] gneiss::engine::result find_symbol(const char* name,
-                                                   void** out_symbol) const noexcept;
+  [[nodiscard]] result open(const std::filesystem::path& path) noexcept;
+  [[nodiscard]] result find_symbol(const char* name, void** out_symbol) const noexcept;
   void close() noexcept;
   [[nodiscard]] bool is_open() const noexcept;
 

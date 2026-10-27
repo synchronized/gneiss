@@ -113,16 +113,16 @@ child_process::~child_process() {
   implementation_->close_process();
 }
 
-gneiss::engine::result child_process::start(const child_process_start_info& info) noexcept {
+engine::result child_process::start(const child_process_start_info& info) noexcept {
   if (!implementation_ || is_running() || info.executable.empty()) {
-    return gneiss::engine::result::invalid_state;
+    return engine::result::invalid_state;
   }
   try {
     std::error_code error;
     if (!std::filesystem::is_regular_file(info.executable, error) || error ||
         (!info.working_directory.empty() &&
          (!std::filesystem::is_directory(info.working_directory, error) || error))) {
-      return gneiss::engine::result::not_found;
+      return engine::result::not_found;
     }
     implementation_->close_process();
     implementation_->output.clear();
@@ -135,7 +135,7 @@ gneiss::engine::result child_process::start(const child_process_start_info& info
         SetHandleInformation(implementation_->output_read, HANDLE_FLAG_INHERIT, 0U) == 0) {
       close_handle(output_write);
       implementation_->close_process();
-      return gneiss::engine::result::initialization_failed;
+      return engine::result::initialization_failed;
     }
 
     STARTUPINFOW startup{};
@@ -160,25 +160,25 @@ gneiss::engine::result child_process::start(const child_process_start_info& info
     close_handle(output_write);
     if (created == 0) {
       implementation_->close_process();
-      return gneiss::engine::result::initialization_failed;
+      return engine::result::initialization_failed;
     }
     implementation_->process = process.hProcess;
     implementation_->thread = process.hThread;
     implementation_->has_started = true;
-    return gneiss::engine::result::success;
+    return engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::io;
+    return engine::result::io;
   }
 }
 
-gneiss::engine::result child_process::terminate() noexcept {
+engine::result child_process::terminate() noexcept {
   if (!implementation_ || !is_running()) {
-    return gneiss::engine::result::not_ready;
+    return engine::result::not_ready;
   }
-  return TerminateProcess(implementation_->process, 70U) != 0 ? gneiss::engine::result::success
-                                                              : gneiss::engine::result::io;
+  return TerminateProcess(implementation_->process, 70U) != 0 ? engine::result::success
+                                                              : engine::result::io;
 }
 
 void child_process::update() noexcept {

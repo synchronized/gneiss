@@ -51,12 +51,12 @@ log_dispatcher::~log_dispatcher() noexcept {
   }
 }
 
-gneiss::engine::result log_dispatcher::submit(const message_view& message) noexcept {
+engine::result log_dispatcher::submit(const message_view& message) noexcept {
   if (is_in_log_callback) {
-    return gneiss::engine::result::invalid_state;
+    return engine::result::invalid_state;
   }
   if (validate_message(message).failed()) {
-    return gneiss::engine::result::invalid_argument;
+    return engine::result::invalid_argument;
   }
   try {
     owned_event event;
@@ -71,21 +71,21 @@ gneiss::engine::result log_dispatcher::submit(const message_view& message) noexc
     {
       const std::scoped_lock lock(mutex_);
       if (is_stopping_) {
-        return gneiss::engine::result::invalid_state;
+        return engine::result::invalid_state;
       }
       if (queue_.size() >= capacity_) {
         ++dropped_count_;
-        return gneiss::engine::result::success;
+        return engine::result::success;
       }
       event.sequence = next_sequence_++;
       queue_.push_back(std::move(event));
     }
     ready_.notify_one();
-    return gneiss::engine::result::success;
+    return engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return engine::result::internal;
   }
 }
 
@@ -158,7 +158,7 @@ log_dispatcher::owned_event log_dispatcher::make_drop_event(std::uint64_t count)
     event.source = "engine.log";
     event.category = "backpressure";
     event.message = "日志队列已满，丢弃 " + std::to_string(count) + " 个事件";
-    event.result = gneiss::engine::result::not_ready;
+    event.result = engine::result::not_ready;
   } catch (...) {
     event.source.clear();
     event.category.clear();

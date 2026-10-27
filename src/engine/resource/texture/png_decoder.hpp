@@ -21,9 +21,9 @@ struct decoded_png final {
 
 /** CPU 解码；失败时清空尺寸与有效像素，允许复用已有容量。
  * 诊断或像素分配失败返回 OUT_OF_MEMORY；并发调用不得共享可写输出。 */
-[[nodiscard]] gneiss::engine::result
-decode_png(const std::vector<std::byte>& bytes, decoded_png& out_image, std::string& out_message,
-           std::size_t byte_limit = 256U * 1024U * 1024U) noexcept;
+[[nodiscard]] result decode_png(const std::vector<std::byte>& bytes, decoded_png& out_image,
+                                std::string& out_message,
+                                std::size_t byte_limit = 256U * 1024U * 1024U) noexcept;
 
 } // namespace gneiss::engine
 

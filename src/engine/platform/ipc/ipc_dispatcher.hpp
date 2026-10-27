@@ -34,8 +34,7 @@ struct ipc_operation_descriptor final {
   ipc_message_kind_mask runtime_to_editor_kinds = 0U;
 };
 
-using ipc_domain_handler = gneiss::engine::result (*)(void* context,
-                                                      const ipc_envelope& envelope) noexcept;
+using ipc_domain_handler = engine::result (*)(void* context, const ipc_envelope& envelope) noexcept;
 
 struct ipc_domain_descriptor final {
   ipc_domain domain = ipc_domain::session;
@@ -76,7 +75,7 @@ enum class ipc_dispatch_rejection : std::uint8_t {
 
 struct ipc_dispatch_outcome final {
   ipc_dispatch_rejection rejection = ipc_dispatch_rejection::none;
-  gneiss::engine::result handler_result = gneiss::engine::result::success;
+  engine::result handler_result = engine::result::success;
 
   [[nodiscard]] bool accepted() const noexcept { return rejection == ipc_dispatch_rejection::none; }
 };
@@ -84,8 +83,7 @@ struct ipc_dispatch_outcome final {
 /** 拥有域描述和操作规则副本；处理器上下文的生命周期由组合层保证。 */
 class ipc_domain_registry final {
 public:
-  [[nodiscard]] gneiss::engine::result
-  register_domain(const ipc_domain_descriptor& descriptor) noexcept;
+  [[nodiscard]] engine::result register_domain(const ipc_domain_descriptor& descriptor) noexcept;
   void clear() noexcept;
   [[nodiscard]] std::size_t size() const noexcept;
 

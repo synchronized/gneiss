@@ -12,23 +12,23 @@ namespace gneiss::engine {
 
 service_registry::~service_registry() noexcept { (void)shutdown(); }
 
-gneiss::engine::result service_registry::add(std::unique_ptr<service> value) noexcept {
+engine::result service_registry::add(std::unique_ptr<service> value) noexcept {
   if (value == nullptr || is_initializing_or_initialized_ || find(value->kind()) != nullptr) {
-    return gneiss::engine::result::invalid_argument;
+    return engine::result::invalid_argument;
   }
   try {
     entries_.push_back({.value = std::move(value), .is_initialized = false});
-    return gneiss::engine::result::success;
+    return engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return engine::result::internal;
   }
 }
 
-gneiss::engine::result service_registry::initialize() noexcept {
+engine::result service_registry::initialize() noexcept {
   if (is_initializing_or_initialized_) {
-    return gneiss::engine::result::invalid_state;
+    return engine::result::invalid_state;
   }
   is_initializing_or_initialized_ = true;
   last_shutdown_leak_count_ = 0;
@@ -37,10 +37,10 @@ gneiss::engine::result service_registry::initialize() noexcept {
     initialization_order_.reserve(entries_.size());
   } catch (const std::bad_alloc&) {
     is_initializing_or_initialized_ = false;
-    return gneiss::engine::result::out_of_memory;
+    return engine::result::out_of_memory;
   } catch (...) {
     is_initializing_or_initialized_ = false;
-    return gneiss::engine::result::internal;
+    return engine::result::internal;
   }
 
   try {
@@ -53,7 +53,7 @@ gneiss::engine::result service_registry::initialize() noexcept {
         }
 
         const auto result = candidate.value->initialize();
-        if (result != gneiss::engine::result::success) {
+        if (result != engine::result::success) {
           // 即使初始化只完成了一部分，也由 Registry 统一调用 shutdown 回收。
           candidate.is_initialized = true;
           initialization_order_.push_back(index);
@@ -67,17 +67,17 @@ gneiss::engine::result service_registry::initialize() noexcept {
 
       if (!made_progress) {
         rollback();
-        return gneiss::engine::result::dependency_failed;
+        return engine::result::dependency_failed;
       }
     }
   } catch (const std::bad_alloc&) {
     rollback();
-    return gneiss::engine::result::out_of_memory;
+    return engine::result::out_of_memory;
   } catch (...) {
     rollback();
-    return gneiss::engine::result::internal;
+    return engine::result::internal;
   }
-  return gneiss::engine::result::success;
+  return engine::result::success;
 }
 
 std::size_t service_registry::shutdown() noexcept {

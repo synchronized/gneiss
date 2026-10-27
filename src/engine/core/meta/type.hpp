@@ -20,7 +20,7 @@ struct type_definition {
 };
 /** 自有字段数组；名称借用冻结 Registry 的文本，复制/移动不产生临时数组悬空。 */
 struct type_info {
-  gneiss::engine::guid guid{};
+  engine::guid guid{};
   std::uint32_t schema_version = 0;
   std::string_view name{};
   std::vector<property_info> properties{};

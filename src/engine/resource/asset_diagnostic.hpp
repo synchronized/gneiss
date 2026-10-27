@@ -9,7 +9,7 @@
 
 namespace gneiss::engine {
 struct asset_diagnostic final {
-  gneiss::engine::result result = gneiss::engine::result::success;
+  engine::result result = engine::result::success;
   std::size_t byte_offset = 0;
   std::string path;
   std::string message;
@@ -18,7 +18,7 @@ struct asset_diagnostic final {
 }
 
 namespace gneiss::engine::detail {
-inline void fail(asset_diagnostic& diagnostic, gneiss::engine::result result, std::string_view path,
+inline void fail(asset_diagnostic& diagnostic, engine::result result, std::string_view path,
                  std::string_view message, std::size_t offset = 0) noexcept {
   diagnostic.result = result;
   diagnostic.byte_offset = offset;
@@ -26,7 +26,7 @@ inline void fail(asset_diagnostic& diagnostic, gneiss::engine::result result, st
     diagnostic.path = path;
     diagnostic.message = message;
   } catch (...) {
-    diagnostic.result = gneiss::engine::result::out_of_memory;
+    diagnostic.result = engine::result::out_of_memory;
     diagnostic.path.clear();
     diagnostic.message.clear();
   }

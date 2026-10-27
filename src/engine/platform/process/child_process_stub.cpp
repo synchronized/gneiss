@@ -14,12 +14,10 @@ struct child_process::implementation final {
 child_process::child_process() : implementation_(std::make_unique<implementation>()) {}
 child_process::~child_process() = default;
 
-gneiss::engine::result child_process::start(const child_process_start_info&) noexcept {
-  return gneiss::engine::result::unsupported;
+result child_process::start(const child_process_start_info&) noexcept {
+  return result::unsupported;
 }
-gneiss::engine::result child_process::terminate() noexcept {
-  return gneiss::engine::result::not_ready;
-}
+result child_process::terminate() noexcept { return result::not_ready; }
 void child_process::update() noexcept {}
 bool child_process::is_running() const noexcept { return false; }
 bool child_process::has_started() const noexcept { return false; }

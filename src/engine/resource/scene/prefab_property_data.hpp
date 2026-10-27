@@ -40,8 +40,8 @@ struct prefab_property_value final {
 /** 单个 Prefab 实例字段覆盖的稳定作者键。 */
 struct prefab_property_override_key final {
   prefab_author_address node;
-  gneiss::engine::guid type_id{};
-  gneiss::engine::meta::property_id field_id{};
+  guid type_id{};
+  meta::property_id field_id{};
 
   [[nodiscard]] bool operator==(const prefab_property_override_key& other) const noexcept;
 };
@@ -52,8 +52,7 @@ struct prefab_property_override final {
 };
 
 /** 返回作者属性值的类别；无值或异常失值返回 invalid。 */
-[[nodiscard]] gneiss::engine::value_kind
-prefab_property_value_kind(const prefab_property_value& value) noexcept;
+[[nodiscard]] value_kind prefab_property_value_kind(const prefab_property_value& value) noexcept;
 
 /** 按稳定作者键比较，用于确定性排序。 */
 [[nodiscard]] bool

@@ -30,10 +30,10 @@ struct prepared_prefab_description {
  * Prefab v1 不支持嵌套实例；渲染依赖的材质/纹理闭包由资产准备阶段解析。
  * source_bytes 只计解析后保留的作者 JSON；解析后的字符串与索引另占内存。 */
 struct prepared_scene_description {
-  gneiss::engine::scene_description description;
+  scene_description description;
   std::vector<std::size_t> parent_first;
   std::map<std::string, prepared_prefab_description> prefabs;
-  std::vector<gneiss::engine::render_asset_reload> assets;
+  std::vector<render_asset_reload> assets;
   std::size_t instance_nodes{};
   // 累计保留的作者 JSON 字节数；单文件读取上限由 codec 规定。
   std::size_t source_bytes{};

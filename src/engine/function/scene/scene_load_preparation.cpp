@@ -11,17 +11,17 @@
 namespace gneiss::engine {
 namespace {
 
-gneiss::engine::result order_nodes(const std::vector<gneiss::engine::object_description>& objects,
-                                   std::vector<std::size_t>& order, std::size_t maximum_depth,
-                                   const std::function<bool()>& cancelled,
-                                   std::size_t* out_depth = nullptr) {
+engine::result order_nodes(const std::vector<object_description>& objects,
+                           std::vector<std::size_t>& order, std::size_t maximum_depth,
+                           const std::function<bool()>& cancelled,
+                           std::size_t* out_depth = nullptr) {
   if (out_depth != nullptr) {
     *out_depth = 0U;
   }
   std::unordered_map<std::string_view, std::size_t> indices;
   for (std::size_t index = 0; index < objects.size(); ++index) {
     if (!indices.emplace(objects[index].uuid, index).second) {
-      return gneiss::engine::result::invalid_argument;
+      return engine::result::invalid_argument;
     }
   }
   std::vector<std::vector<std::size_t>> children(objects.size());
@@ -33,18 +33,18 @@ gneiss::engine::result order_nodes(const std::vector<gneiss::engine::object_desc
     } else {
       const auto parent = indices.find(*parent_uuid);
       if (parent == indices.end()) {
-        return gneiss::engine::result::invalid_argument;
+        return engine::result::invalid_argument;
       }
       children[parent->second].push_back(index);
     }
   }
   for (std::size_t cursor = 0; cursor < order.size(); ++cursor) {
     if (cancelled && cancelled()) {
-      return gneiss::engine::result::invalid_state;
+      return engine::result::invalid_state;
     }
     const auto index = order[cursor];
     if (depths[index] > maximum_depth) {
-      return gneiss::engine::result::invalid_argument;
+      return engine::result::invalid_argument;
     }
     if (out_depth != nullptr) {
       *out_depth = std::max(*out_depth, depths[index]);
@@ -54,8 +54,8 @@ gneiss::engine::result order_nodes(const std::vector<gneiss::engine::object_desc
       order.push_back(child);
     }
   }
-  return order.size() == objects.size() ? gneiss::engine::result::success
-                                        : gneiss::engine::result::invalid_argument;
+  return order.size() == objects.size() ? engine::result::success
+                                        : engine::result::invalid_argument;
 }
 
 class preparation final {
@@ -64,43 +64,43 @@ public:
   const std::function<bool()>& cancelled;
   scene_prepare_limits limits;
   prepared_scene_description candidate;
-  std::map<std::string, gneiss::engine::render_asset_type> dependencies;
+  std::map<std::string, engine::render_asset_type> dependencies;
   std::map<std::string, std::size_t> scene_depths;
 
-  gneiss::engine::result collect(const std::vector<gneiss::engine::object_description>& objects) {
-    using gneiss::engine::render_asset_type;
+  engine::result collect(const std::vector<object_description>& objects) {
+    using engine::render_asset_type;
     for (const auto& object : objects) {
       if (cancelled && cancelled()) {
-        return gneiss::engine::result::invalid_state;
+        return engine::result::invalid_state;
       }
       if (!object.mesh_renderer) {
         continue;
       }
       for (const auto& asset : {
-               gneiss::engine::render_asset_reload{
+               engine::render_asset_reload{
                    .uri = object.mesh_renderer->mesh_uri,
                    .type = render_asset_type::mesh,
                },
-               gneiss::engine::render_asset_reload{
+               engine::render_asset_reload{
                    .uri = object.mesh_renderer->material_uri,
                    .type = render_asset_type::material,
                },
            }) {
         const auto [entry, added] = dependencies.emplace(asset.uri, asset.type);
         if ((!added && entry->second != asset.type) || dependencies.size() > limits.dependencies) {
-          return gneiss::engine::result::invalid_argument;
+          return engine::result::invalid_argument;
         }
       }
     }
-    return gneiss::engine::result::success;
+    return engine::result::success;
   }
 
-  gneiss::engine::result add_prefab(const gneiss::engine::prefab_instance_description& instance) {
-    auto result = gneiss::engine::result::success;
+  engine::result add_prefab(const prefab_instance_description& instance) {
+    auto result = engine::result::success;
     auto found = candidate.prefabs.find(instance.prefab_uri);
     if (found == candidate.prefabs.end()) {
       if (candidate.prefabs.size() == limits.dependencies) {
-        return gneiss::engine::result::invalid_argument;
+        return engine::result::invalid_argument;
       }
       const auto input = inputs.prefabs.find(instance.prefab_uri);
       if (input == inputs.prefabs.end() || !input->second)
@@ -111,18 +111,17 @@ public:
       if (bytes > limits.source_bytes - candidate.source_bytes)
         return result::invalid_argument;
       candidate.source_bytes += bytes;
-      if (result == gneiss::engine::result::success &&
-          prefab.resource->objects.size() > limits.nodes) {
-        return gneiss::engine::result::invalid_argument;
+      if (result == engine::result::success && prefab.resource->objects.size() > limits.nodes) {
+        return engine::result::invalid_argument;
       }
-      if (result == gneiss::engine::result::success) {
+      if (result == engine::result::success) {
         result = order_nodes(prefab.resource->objects, prefab.parent_first, limits.hierarchy_depth,
                              cancelled, &prefab.maximum_depth);
       }
-      if (result == gneiss::engine::result::success) {
+      if (result == engine::result::success) {
         result = collect(prefab.resource->objects);
       }
-      if (result != gneiss::engine::result::success) {
+      if (result != engine::result::success) {
         return result;
       }
       found = candidate.prefabs.emplace(instance.prefab_uri, std::move(prefab)).first;
@@ -130,35 +129,35 @@ public:
     const auto parent_depth = instance.parent_uuid ? scene_depths.at(*instance.parent_uuid) : 0U;
     if (parent_depth >= limits.hierarchy_depth ||
         found->second.maximum_depth > limits.hierarchy_depth - parent_depth - 1U) {
-      return gneiss::engine::result::invalid_argument;
+      return engine::result::invalid_argument;
     }
     // 每个 Prefab 实例还有一个容器节点，共享描述不等于共享实例。
     const auto count = found->second.resource->objects.size();
     if (count >= limits.nodes - candidate.instance_nodes) {
-      return gneiss::engine::result::invalid_argument;
+      return engine::result::invalid_argument;
     }
     candidate.instance_nodes += count + 1U;
-    return gneiss::engine::result::success;
+    return engine::result::success;
   }
 
-  gneiss::engine::result run() {
+  engine::result run() {
     if (!inputs.scene)
       return result::invalid_argument;
     candidate.description = *inputs.scene;
     candidate.source_bytes = candidate.description.author_json.size();
     if (candidate.source_bytes > limits.source_bytes)
       return result::invalid_argument;
-    auto result = gneiss::engine::result::success;
+    auto result = engine::result::success;
     candidate.instance_nodes = candidate.description.objects.size();
     if (candidate.instance_nodes > limits.nodes) {
-      return gneiss::engine::result::invalid_argument;
+      return engine::result::invalid_argument;
     }
     result = order_nodes(candidate.description.objects, candidate.parent_first,
                          limits.hierarchy_depth, cancelled);
-    if (result == gneiss::engine::result::success) {
+    if (result == engine::result::success) {
       result = collect(candidate.description.objects);
     }
-    if (result != gneiss::engine::result::success) {
+    if (result != engine::result::success) {
       return result;
     }
     for (const auto index : candidate.parent_first) {
@@ -168,21 +167,21 @@ public:
     }
     for (const auto& instance : candidate.description.prefab_instances) {
       result = add_prefab(instance);
-      if (result != gneiss::engine::result::success) {
+      if (result != engine::result::success) {
         return result;
       }
     }
     return finish();
   }
 
-  gneiss::engine::result finish() {
+  engine::result finish() {
     if (cancelled && cancelled()) {
-      return gneiss::engine::result::invalid_state;
+      return engine::result::invalid_state;
     }
     for (const auto& [asset_uri, type] : dependencies) {
       candidate.assets.push_back({.uri = asset_uri, .type = type});
     }
-    return gneiss::engine::result::success;
+    return engine::result::success;
   }
 };
 
@@ -249,7 +248,7 @@ scene_description_request::~scene_description_request() = default;
 result scene_description_request::advance(scene_description_inputs& output,
                                           scene_diagnostic& diagnostic) {
   auto& s = *state_;
-  gneiss::engine::meta::serialization_diagnostic decoded;
+  meta::serialization_diagnostic decoded;
   const auto fail = [&](result status) {
     diagnostic = {status, decoded.byte_offset, std::move(decoded.path), std::move(decoded.message)};
     return status;

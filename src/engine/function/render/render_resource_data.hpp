@@ -19,13 +19,13 @@ namespace gneiss::engine {
 
 struct material_data {
   material_parameters parameters{};
-  gneiss::engine::rid base_color_texture{};
-  gneiss::engine::rid metallic_roughness_texture{};
-  gneiss::engine::rid normal_texture{};
-  gneiss::engine::rid occlusion_texture{};
-  gneiss::engine::rid emissive_texture{};
+  rid base_color_texture{};
+  rid metallic_roughness_texture{};
+  rid normal_texture{};
+  rid occlusion_texture{};
+  rid emissive_texture{};
 
-  [[nodiscard]] std::array<gneiss::engine::rid, 5> texture_handles() const noexcept {
+  [[nodiscard]] std::array<rid, 5> texture_handles() const noexcept {
     return {base_color_texture, metallic_roughness_texture, normal_texture, occlusion_texture,
             emissive_texture};
   }
@@ -33,11 +33,11 @@ struct material_data {
     std::uint32_t mask{};
     const auto handles = texture_handles();
     for (std::size_t slot = 0; slot < handles.size(); ++slot)
-      if (handles[slot] != gneiss::engine::null_rid && parameters.sampling[slot].uv_set == 1U)
+      if (handles[slot] != null_rid && parameters.sampling[slot].uv_set == 1U)
         mask |= (1U << slot);
     return mask;
   }
-  void set_texture(std::size_t slot, gneiss::engine::rid texture) noexcept {
+  void set_texture(std::size_t slot, rid texture) noexcept {
     const std::array slots{&base_color_texture, &metallic_roughness_texture, &normal_texture,
                            &occlusion_texture, &emissive_texture};
     *slots[slot] = texture;
@@ -47,9 +47,9 @@ struct material_data {
 struct texture_data {
   std::uint32_t width;
   std::uint32_t height;
-  gneiss::engine::texture_format format;
-  gneiss::engine::texture_color_space color_space;
-  std::vector<gneiss::engine::texture_mip> levels;
+  texture_format format;
+  texture_color_space color_space;
+  std::vector<texture_mip> levels;
   std::vector<std::byte> manifest;
   std::vector<std::byte> payload;
   /** profile 非零时 payload 从选中变体起点开始，不含其他变体。 */

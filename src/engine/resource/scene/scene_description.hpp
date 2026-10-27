@@ -21,7 +21,7 @@
 namespace gneiss::engine {
 
 struct scene_diagnostic final {
-  gneiss::engine::result result = gneiss::engine::result::success;
+  engine::result result = engine::result::success;
   std::size_t byte_offset = 0;
   std::string path;
   std::string message;
@@ -43,9 +43,9 @@ struct object_description final {
   std::string uuid;
   std::string name;
   std::optional<std::string> parent_uuid;
-  gneiss::engine::math::vector3 translation{};
-  gneiss::engine::math::quaternion rotation{0.0F, 0.0F, 0.0F, 0.0F};
-  gneiss::engine::math::vector3 scale{};
+  math::vector3 translation{};
+  math::quaternion rotation{0.0F, 0.0F, 0.0F, 0.0F};
+  math::vector3 scale{};
   std::optional<camera_description> camera;
   std::optional<mesh_renderer_description> mesh_renderer;
 };
@@ -55,9 +55,9 @@ struct prefab_instance_description final {
   std::string name;
   std::optional<std::string> parent_uuid;
   std::string prefab_uri;
-  gneiss::engine::math::vector3 translation{};
-  gneiss::engine::math::quaternion rotation{0.0F, 0.0F, 0.0F, 0.0F};
-  gneiss::engine::math::vector3 scale{};
+  math::vector3 translation{};
+  math::quaternion rotation{0.0F, 0.0F, 0.0F, 0.0F};
+  math::vector3 scale{};
   std::vector<prefab_property_override> overrides;
 };
 

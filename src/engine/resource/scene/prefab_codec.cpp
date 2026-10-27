@@ -76,9 +76,8 @@ void fail(gneiss::engine::scene_diagnostic& diagnostic, gneiss::engine::result r
 
 namespace gneiss::engine {
 
-gneiss::engine::result parse_prefab_description(std::string_view json,
-                                                prefab_description& out_prefab,
-                                                scene_diagnostic& out_diagnostic) noexcept {
+engine::result parse_prefab_description(std::string_view json, prefab_description& out_prefab,
+                                        scene_diagnostic& out_diagnostic) noexcept {
   out_prefab = {};
   out_diagnostic = {};
   try {
@@ -88,8 +87,7 @@ gneiss::engine::result parse_prefab_description(std::string_view json,
                                            YYJSON_READ_NOFLAG, nullptr, &error),
                           &yyjson_doc_free);
     if (!document) {
-      fail(out_diagnostic, gneiss::engine::result::invalid_argument, "", "Prefab JSON 语法错误",
-           error.pos);
+      fail(out_diagnostic, engine::result::invalid_argument, "", "Prefab JSON 语法错误", error.pos);
       return out_diagnostic.result;
     }
     yyjson_val* root = yyjson_doc_get_root(document.get());
@@ -98,32 +96,30 @@ gneiss::engine::result parse_prefab_description(std::string_view json,
     yyjson_val* uuid = yyjson_obj_get(root, "prefab_uuid");
     yyjson_val* objects = yyjson_obj_get(root, "objects");
     if (!yyjson_is_obj(root)) {
-      fail(out_diagnostic, gneiss::engine::result::invalid_argument, "", "Prefab 根值必须是对象");
+      fail(out_diagnostic, engine::result::invalid_argument, "", "Prefab 根值必须是对象");
       return out_diagnostic.result;
     }
     if (!yyjson_is_str(format) ||
         std::string_view{yyjson_get_str(format), yyjson_get_len(format)} != prefab_format) {
-      fail(out_diagnostic, gneiss::engine::result::invalid_argument, "/format",
-           "不是 Gneiss Prefab 文件");
+      fail(out_diagnostic, engine::result::invalid_argument, "/format", "不是 Gneiss Prefab 文件");
       return out_diagnostic.result;
     }
     if (!yyjson_is_uint(version) || yyjson_get_uint(version) != prefab_schema_version) {
       const auto result =
           yyjson_is_uint(version) && yyjson_get_uint(version) > prefab_schema_version
-              ? gneiss::engine::result::unsupported
-              : gneiss::engine::result::invalid_argument;
+              ? engine::result::unsupported
+              : engine::result::invalid_argument;
       fail(out_diagnostic, result, "/version", "不支持的 Prefab Schema 版本");
       return out_diagnostic.result;
     }
     if (!yyjson_is_str(uuid) ||
         !is_canonical_prefab_uuid({yyjson_get_str(uuid), yyjson_get_len(uuid)})) {
-      fail(out_diagnostic, gneiss::engine::result::invalid_argument, "/prefab_uuid",
+      fail(out_diagnostic, engine::result::invalid_argument, "/prefab_uuid",
            "prefab_uuid 必须是规范的小写 UUID");
       return out_diagnostic.result;
     }
     if (!yyjson_is_arr(objects)) {
-      fail(out_diagnostic, gneiss::engine::result::invalid_argument, "/objects",
-           "objects 必须是数组");
+      fail(out_diagnostic, engine::result::invalid_argument, "/objects", "objects 必须是数组");
       return out_diagnostic.result;
     }
 
@@ -132,8 +128,7 @@ gneiss::engine::result parse_prefab_description(std::string_view json,
     json_ptr objects_json(yyjson_val_write(objects, YYJSON_WRITE_NOFLAG, &objects_length),
                           &std::free);
     if (!objects_json) {
-      fail(out_diagnostic, gneiss::engine::result::out_of_memory, "/objects",
-           "无法复制 Prefab 节点");
+      fail(out_diagnostic, engine::result::out_of_memory, "/objects", "无法复制 Prefab 节点");
       return out_diagnostic.result;
     }
     const std::string_view prefab_uuid{yyjson_get_str(uuid), yyjson_get_len(uuid)};
@@ -145,7 +140,7 @@ gneiss::engine::result parse_prefab_description(std::string_view json,
 
     scene_description scene;
     auto result = parse_scene_description(scene_json, scene, out_diagnostic);
-    if (result != gneiss::engine::result::success) {
+    if (result != engine::result::success) {
       return result;
     }
     std::size_t root_count = 0;
@@ -153,7 +148,7 @@ gneiss::engine::result parse_prefab_description(std::string_view json,
       root_count += object.parent_uuid ? 0U : 1U;
     }
     if (root_count != 1U) {
-      fail(out_diagnostic, gneiss::engine::result::invalid_argument, "/objects",
+      fail(out_diagnostic, engine::result::invalid_argument, "/objects",
            "Prefab 必须且只能包含一个根节点");
       return out_diagnostic.result;
     }
@@ -171,22 +166,22 @@ gneiss::engine::result parse_prefab_description(std::string_view json,
     const auto unique_end = std::ranges::unique(out_prefab.dependencies).begin();
     out_prefab.dependencies.erase(unique_end, out_prefab.dependencies.end());
     out_prefab.author_json = json;
-    return gneiss::engine::result::success;
+    return engine::result::success;
   } catch (const std::bad_alloc&) {
     out_prefab = {};
-    fail(out_diagnostic, gneiss::engine::result::out_of_memory, "", "内存不足");
+    fail(out_diagnostic, engine::result::out_of_memory, "", "内存不足");
     return out_diagnostic.result;
   } catch (...) {
     out_prefab = {};
-    fail(out_diagnostic, gneiss::engine::result::internal, "", "Prefab 解析内部错误");
+    fail(out_diagnostic, engine::result::internal, "", "Prefab 解析内部错误");
     return out_diagnostic.result;
   }
 }
 
-gneiss::engine::result serialize_prefab_description(const prefab_description& prefab,
-                                                    std::string& out_json) noexcept {
+engine::result serialize_prefab_description(const prefab_description& prefab,
+                                            std::string& out_json) noexcept {
   if (prefab.author_json.empty() || prefab.uuid.empty()) {
-    return gneiss::engine::result::invalid_state;
+    return engine::result::invalid_state;
   }
   try {
     scene_description scene;
@@ -194,19 +189,19 @@ gneiss::engine::result serialize_prefab_description(const prefab_description& pr
     scene.uuid = prefab.uuid;
     scene.objects = prefab.objects;
     auto result = convert_author_envelope(prefab.author_json, prefab.uuid, true, scene.author_json);
-    if (result != gneiss::engine::result::success) {
+    if (result != engine::result::success) {
       return result;
     }
     std::string scene_json;
     result = serialize_scene_description(scene, scene_json);
-    if (result != gneiss::engine::result::success) {
+    if (result != engine::result::success) {
       return result;
     }
     return convert_author_envelope(scene_json, prefab.uuid, false, out_json);
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return engine::result::internal;
   }
 }
 
@@ -214,7 +209,7 @@ gneiss::engine::result serialize_prefab_description(const prefab_description& pr
 
 namespace gneiss::engine {
 result decode_prefab(std::span<const std::byte> bytes, prefab_description& output,
-                     gneiss::engine::meta::serialization_diagnostic& diagnostic) noexcept try {
+                     meta::serialization_diagnostic& diagnostic) noexcept try {
   diagnostic = {};
   if (bytes.size() > prefab_description::maximum_source_bytes) {
     diagnostic.message = "资源描述超过单文件大小上限";
@@ -234,7 +229,7 @@ result decode_prefab(std::span<const std::byte> bytes, prefab_description& outpu
   return result::internal;
 }
 result encode_prefab(const prefab_description& object, std::vector<std::byte>& output,
-                     gneiss::engine::meta::serialization_diagnostic& diagnostic) noexcept try {
+                     meta::serialization_diagnostic& diagnostic) noexcept try {
   diagnostic = {};
   std::string text;
   auto status = serialize_prefab_description(object, text);

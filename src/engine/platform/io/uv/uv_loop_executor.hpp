@@ -29,9 +29,9 @@ public:
   uv_loop_executor(const uv_loop_executor&) = delete;
   uv_loop_executor& operator=(const uv_loop_executor&) = delete;
 
-  [[nodiscard]] gneiss::engine::result start() noexcept;
-  [[nodiscard]] gneiss::engine::result post(task operation) noexcept;
-  [[nodiscard]] gneiss::engine::result stop() noexcept;
+  [[nodiscard]] result start() noexcept;
+  [[nodiscard]] result post(task operation) noexcept;
+  [[nodiscard]] result stop() noexcept;
 
   [[nodiscard]] bool is_running() const noexcept;
   [[nodiscard]] std::size_t failed_task_count() const noexcept;

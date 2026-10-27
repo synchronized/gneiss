@@ -40,7 +40,7 @@ enum class ipc_transport_event_type : std::uint8_t {
 
 struct ipc_transport_event final {
   ipc_transport_event_type type = ipc_transport_event_type::error;
-  gneiss::engine::result operation = gneiss::engine::result::success;
+  result operation = result::success;
   ipc_envelope envelope;
 };
 
@@ -55,10 +55,10 @@ public:
   ipc_transport(const ipc_transport&) = delete;
   ipc_transport& operator=(const ipc_transport&) = delete;
 
-  [[nodiscard]] gneiss::engine::result start_server() noexcept;
-  [[nodiscard]] gneiss::engine::result start_client(const ipc_endpoint& endpoint) noexcept;
-  [[nodiscard]] gneiss::engine::result send(const ipc_envelope& envelope) noexcept;
-  [[nodiscard]] gneiss::engine::result stop() noexcept;
+  [[nodiscard]] result start_server() noexcept;
+  [[nodiscard]] result start_client(const ipc_endpoint& endpoint) noexcept;
+  [[nodiscard]] result send(const ipc_envelope& envelope) noexcept;
+  [[nodiscard]] result stop() noexcept;
 
   [[nodiscard]] std::size_t poll_events(std::vector<ipc_transport_event>& output,
                                         std::size_t max_count = 64U) noexcept;

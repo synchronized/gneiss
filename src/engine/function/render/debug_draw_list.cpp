@@ -11,16 +11,16 @@
 
 namespace gneiss::engine {
 
-gneiss::engine::result debug_draw_list::replace(std::span<const debug_line> lines) noexcept {
+result debug_draw_list::replace(std::span<const debug_line> lines) noexcept {
   constexpr std::uint32_t maximum_lines = 1024U * 1024U;
   if (lines.size() > maximum_lines) {
-    return gneiss::engine::result::invalid_argument;
+    return result::invalid_argument;
   }
   for (const auto& line : lines) {
     if (!std::isfinite(line.width) || line.width <= 0.0F ||
         !std::ranges::all_of(line.start, [](float value) { return std::isfinite(value); }) ||
         !std::ranges::all_of(line.end, [](float value) { return std::isfinite(value); })) {
-      return gneiss::engine::result::invalid_argument;
+      return result::invalid_argument;
     }
   }
   try {
@@ -29,11 +29,11 @@ gneiss::engine::result debug_draw_list::replace(std::span<const debug_line> line
       pending.assign(lines.begin(), lines.end());
     }
     lines_ = std::move(pending);
-    return gneiss::engine::result::success;
+    return result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return result::internal;
   }
 }
 

@@ -37,7 +37,7 @@ struct uv_loop_executor::implementation final {
   std::atomic_bool running = false;
   std::atomic_size_t failed_tasks = 0U;
   bool initialization_finished = false;
-  gneiss::engine::result initialization_result = gneiss::engine::result::not_ready;
+  result initialization_result = result::not_ready;
   bool is_accepting = false;
   bool is_stopping = false;
 
@@ -64,7 +64,7 @@ struct uv_loop_executor::implementation final {
   }
 
   void run() noexcept {
-    auto operation = gneiss::engine::result::success;
+    auto operation = result::success;
 #ifndef _WIN32
     // libuv 的 POSIX 流写入可能产生 SIGPIPE。只在自有 I/O 线程阻塞它，
     // 保留 EPIPE 回执，不改变宿主的进程级信号处理器或调用线程掩码。
@@ -72,16 +72,16 @@ struct uv_loop_executor::implementation final {
     sigset_t blocked{};
     if (sigemptyset(&blocked) != 0 || sigaddset(&blocked, SIGPIPE) != 0 ||
         pthread_sigmask(SIG_BLOCK, &blocked, nullptr) != 0) {
-      operation = gneiss::engine::result::initialization_failed;
+      operation = result::initialization_failed;
     }
 #endif
-    if (operation == gneiss::engine::result::success) {
+    if (operation == result::success) {
       operation = from_uv_status(uv_loop_init(&loop));
     }
-    if (operation == gneiss::engine::result::success) {
+    if (operation == result::success) {
       wakeup.data = this;
       operation = from_uv_status(uv_async_init(&loop, &wakeup, on_wakeup));
-      if (operation != gneiss::engine::result::success) {
+      if (operation != result::success) {
         (void)uv_loop_close(&loop);
       }
     }
@@ -89,11 +89,11 @@ struct uv_loop_executor::implementation final {
       const std::scoped_lock lock(mutex);
       initialization_result = operation;
       initialization_finished = true;
-      is_accepting = operation == gneiss::engine::result::success;
+      is_accepting = operation == result::success;
       running.store(is_accepting, std::memory_order_release);
     }
     initialized.notify_one();
-    if (operation != gneiss::engine::result::success) {
+    if (operation != result::success) {
       return;
     }
 
@@ -112,18 +112,18 @@ uv_loop_executor::~uv_loop_executor() {
   }
 }
 
-gneiss::engine::result uv_loop_executor::start() noexcept {
+result uv_loop_executor::start() noexcept {
   if (!implementation_ || implementation_->queue_capacity == 0U) {
-    return gneiss::engine::result::invalid_argument;
+    return result::invalid_argument;
   }
   if (implementation_->worker.joinable()) {
-    return gneiss::engine::result::invalid_state;
+    return result::invalid_state;
   }
   try {
     {
       const std::scoped_lock lock(implementation_->mutex);
       implementation_->initialization_finished = false;
-      implementation_->initialization_result = gneiss::engine::result::not_ready;
+      implementation_->initialization_result = result::not_ready;
       implementation_->is_accepting = false;
       implementation_->is_stopping = false;
       implementation_->tasks.clear();
@@ -135,48 +135,48 @@ gneiss::engine::result uv_loop_executor::start() noexcept {
                                       [this] { return implementation_->initialization_finished; });
     const auto operation = implementation_->initialization_result;
     lock.unlock();
-    if (operation != gneiss::engine::result::success && implementation_->worker.joinable()) {
+    if (operation != result::success && implementation_->worker.joinable()) {
       implementation_->worker.join();
     }
     return operation;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::initialization_failed;
+    return result::initialization_failed;
   }
 }
 
-gneiss::engine::result uv_loop_executor::post(task operation) noexcept {
+result uv_loop_executor::post(task operation) noexcept {
   if (!implementation_ || !operation) {
-    return gneiss::engine::result::invalid_argument;
+    return result::invalid_argument;
   }
   try {
     const std::scoped_lock lock(implementation_->mutex);
     if (!implementation_->is_accepting || implementation_->is_stopping) {
-      return gneiss::engine::result::not_ready;
+      return result::not_ready;
     }
     if (implementation_->tasks.size() >= implementation_->queue_capacity) {
-      return gneiss::engine::result::not_ready;
+      return result::not_ready;
     }
     implementation_->tasks.push_back(std::move(operation));
     const auto wakeup_result = from_uv_status(uv_async_send(&implementation_->wakeup));
-    if (wakeup_result != gneiss::engine::result::success) {
+    if (wakeup_result != result::success) {
       implementation_->tasks.pop_back();
     }
     return wakeup_result;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return result::internal;
   }
 }
 
-gneiss::engine::result uv_loop_executor::stop() noexcept {
+result uv_loop_executor::stop() noexcept {
   if (!implementation_ || !implementation_->worker.joinable()) {
-    return gneiss::engine::result::not_ready;
+    return result::not_ready;
   }
   if (std::this_thread::get_id() == implementation_->worker.get_id()) {
-    return gneiss::engine::result::invalid_state;
+    return result::invalid_state;
   }
   int wakeup_result = 0;
   {
@@ -197,17 +197,17 @@ std::size_t uv_loop_executor::failed_task_count() const noexcept {
   return implementation_ ? implementation_->failed_tasks.load(std::memory_order_relaxed) : 0U;
 }
 
-gneiss::engine::result uv_loop_access::post(uv_loop_executor& executor, task operation) noexcept {
+result uv_loop_access::post(uv_loop_executor& executor, task operation) noexcept {
   if (!operation || !executor.implementation_) {
-    return gneiss::engine::result::invalid_argument;
+    return result::invalid_argument;
   }
   try {
     return executor.post([state = executor.implementation_.get(),
                           operation = std::move(operation)] { operation(&state->loop); });
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return result::internal;
   }
 }
 

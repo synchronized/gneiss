@@ -27,14 +27,14 @@ class GNEISS_API asset_manager final {
 public:
   /** 注入同线程文件服务；宿主驱动文件完成分发，advance_resources 只推进 CPU 解码和资源结果。
    * 不提供同步文件读取；缓存查询使用 find_loaded，服务可由宿主共享持有。 */
-  explicit asset_manager(std::shared_ptr<gneiss::engine::files::service> files,
-                         gneiss::engine::meta::registry_ref registry = {},
+  explicit asset_manager(std::shared_ptr<engine::files::service> files,
+                         meta::registry_ref registry = {},
                          std::size_t fallback_limit = 64U * 1024U * 1024U);
   ~asset_manager();
   /** 借用宿主解码执行器；文件 I/O 由服务后端执行，不创建独立线程池。 */
-  void attach_task_executor(gneiss::engine::task_executor& executor);
-  [[nodiscard]] gneiss::engine::result request_input(std::string_view uri,
-                                                     asset_request<action_map>& output) noexcept;
+  void attach_task_executor(engine::task_executor& executor);
+  [[nodiscard]] engine::result request_input(std::string_view uri,
+                                             asset_request<action_map>& output) noexcept;
   /** 宿主每次先分发文件完成，再推进本管理器；不驱动文件或其他服务回调。 */
   void advance_resources();
   /** 请求停止：立即拒绝新加载、终止观察者并取消 I/O/CPU 任务，不等待任务退出。
@@ -46,7 +46,7 @@ public:
    * 共享文件服务继续由宿主分发/关闭；独占服务随管理器销毁放弃通知，后端保活实际 I/O。 */
   void stop_resources() noexcept;
   /** 显式注册 CPU 类型；首次请求后冻结注册。来源身份由注入的文件服务确定。 */
-  [[nodiscard]] gneiss::engine::result
+  [[nodiscard]] engine::result
   register_decoder(const std::shared_ptr<const asset_decoder>& loader) noexcept;
   /** 无需继承或注册反射；注册失败不改变已有解码器，首次加载后禁止注册。 */
   template <class T>
@@ -66,12 +66,12 @@ public:
   /** 默认复用已完成缓存；reload 重新读取并解析，在途同键请求合并。
    * 所属线程调用；执行器须存活至 stop_resources 返回。 */
   template <typename T>
-  [[nodiscard]] gneiss::engine::result load(std::string_view uri, asset_request<T>& output,
-                                            bool reload = false) noexcept {
+  [[nodiscard]] engine::result load(std::string_view uri, asset_request<T>& output,
+                                    bool reload = false) noexcept {
     std::shared_ptr<detail::asset_state> state;
-    const auto status = request(gneiss::engine::runtime_type_of<T>(), uri, reload, state,
+    const auto status = request(engine::runtime_type_of<T>(), uri, reload, state,
                                 &detail::make_reflected_decoder<T>);
-    if (status == gneiss::engine::result::success)
+    if (status == engine::result::success)
       output = asset_request<T>{std::move(state)};
     return status;
   }
@@ -98,7 +98,7 @@ public:
   asset_manager(const asset_manager&) = delete;
   asset_manager& operator=(const asset_manager&) = delete;
   /** 借用同线程异步文件服务；停止后为空。 */
-  [[nodiscard]] std::shared_ptr<gneiss::engine::files::service> async_files() const noexcept;
+  [[nodiscard]] std::shared_ptr<engine::files::service> async_files() const noexcept;
   /** 解析统一来源身份，不执行文件 I/O。 */
   [[nodiscard]] result identify(std::string_view uri, std::uint32_t type,
                                 asset_identity& output) const noexcept;
@@ -108,20 +108,19 @@ public:
   [[nodiscard]] resource_cache& cache() noexcept { return cache_; }
 
 private:
-  using decoder_factory = result (*)(const gneiss::engine::meta::registry_ref&, std::size_t,
+  using decoder_factory = result (*)(const meta::registry_ref&, std::size_t,
                                      std::shared_ptr<const asset_decoder>&);
   [[nodiscard]] result resolve_decoder(type_id, decoder_factory,
                                        std::shared_ptr<const asset_decoder>&);
-  [[nodiscard]] gneiss::engine::result request(gneiss::engine::type_id type, std::string_view uri,
-                                               bool reload,
-                                               std::shared_ptr<detail::asset_state>& output,
-                                               decoder_factory fallback) noexcept;
+  [[nodiscard]] engine::result request(type_id type, std::string_view uri, bool reload,
+                                       std::shared_ptr<detail::asset_state>& output,
+                                       decoder_factory fallback) noexcept;
   result find_loaded_erased(type_id, std::string_view, std::shared_ptr<const void>&) const noexcept;
   result store_erased(type_id, std::string_view, std::shared_ptr<const void>,
                       std::shared_ptr<const void>&) noexcept;
   struct resource_state;
   std::unique_ptr<resource_state> resource_state_;
-  gneiss::engine::resource_cache cache_;
+  resource_cache cache_;
 };
 }
 

@@ -768,14 +768,13 @@ make_author_prefab_instance(yyjson_mut_doc* document,
 namespace gneiss::engine {
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): 顺序校验保持 Schema 错误优先级明确。
-gneiss::engine::result parse_current_scene_description(std::string_view json,
-                                                       scene_description& out_scene,
-                                                       scene_diagnostic& out_diagnostic) noexcept {
+engine::result parse_current_scene_description(std::string_view json, scene_description& out_scene,
+                                               scene_diagnostic& out_diagnostic) noexcept {
   out_scene = {};
   out_diagnostic = {};
   try {
     if (json.empty()) {
-      fail(out_diagnostic, gneiss::engine::result::invalid_argument, "", "场景文档为空");
+      fail(out_diagnostic, engine::result::invalid_argument, "", "场景文档为空");
       return out_diagnostic.result;
     }
     yyjson_read_err error{};
@@ -784,44 +783,42 @@ gneiss::engine::result parse_current_scene_description(std::string_view json,
                                            YYJSON_READ_NOFLAG, nullptr, &error),
                           &yyjson_doc_free);
     if (!document) {
-      fail(out_diagnostic, gneiss::engine::result::invalid_argument, "",
+      fail(out_diagnostic, engine::result::invalid_argument, "",
            error.msg != nullptr ? error.msg : "JSON 语法错误", error.pos);
       return out_diagnostic.result;
     }
     yyjson_val* root = yyjson_doc_get_root(document.get());
     if (!yyjson_is_obj(root)) {
-      if (out_diagnostic.result == gneiss::engine::result::success) {
-        fail(out_diagnostic, gneiss::engine::result::invalid_argument, "", "场景根必须是对象");
+      if (out_diagnostic.result == engine::result::success) {
+        fail(out_diagnostic, engine::result::invalid_argument, "", "场景根必须是对象");
       }
       return out_diagnostic.result;
     }
     yyjson_val* format = yyjson_obj_get(root, "format");
     if (!yyjson_is_str(format) || json_string(format) != scene_format) {
-      fail(out_diagnostic, gneiss::engine::result::invalid_argument, "/format", "场景格式标识错误");
+      fail(out_diagnostic, engine::result::invalid_argument, "/format", "场景格式标识错误");
       return out_diagnostic.result;
     }
     yyjson_val* version = yyjson_obj_get(root, "version");
     if (!yyjson_is_uint(version) || yyjson_get_uint(version) != schema_version) {
       fail(out_diagnostic,
            yyjson_is_uint(version) && yyjson_get_uint(version) > schema_version
-               ? gneiss::engine::result::unsupported
-               : gneiss::engine::result::invalid_argument,
+               ? engine::result::unsupported
+               : engine::result::invalid_argument,
            "/version", "不支持的场景 Schema 版本");
       return out_diagnostic.result;
     }
     scene_description parsed;
     if (!read_required_string(root, "scene_uuid", "", parsed.uuid, out_diagnostic) ||
         !is_canonical_uuid(parsed.uuid)) {
-      if (out_diagnostic.result == gneiss::engine::result::success) {
-        fail(out_diagnostic, gneiss::engine::result::invalid_argument, "/scene_uuid",
-             "场景 UUID 格式错误");
+      if (out_diagnostic.result == engine::result::success) {
+        fail(out_diagnostic, engine::result::invalid_argument, "/scene_uuid", "场景 UUID 格式错误");
       }
       return out_diagnostic.result;
     }
     yyjson_val* objects = yyjson_obj_get(root, "objects");
     if (!yyjson_is_arr(objects)) {
-      fail(out_diagnostic, gneiss::engine::result::invalid_argument, "/objects",
-           "objects 必须是数组");
+      fail(out_diagnostic, engine::result::invalid_argument, "/objects", "objects 必须是数组");
       return out_diagnostic.result;
     }
     parsed.objects.reserve(yyjson_arr_size(objects));
@@ -836,7 +833,7 @@ gneiss::engine::result parse_current_scene_description(std::string_view json,
     }
     yyjson_val* prefab_instances = yyjson_obj_get(root, "prefab_instances");
     if (!yyjson_is_arr(prefab_instances)) {
-      fail(out_diagnostic, gneiss::engine::result::invalid_argument, "/prefab_instances",
+      fail(out_diagnostic, engine::result::invalid_argument, "/prefab_instances",
            "prefab_instances 必须是数组");
       return out_diagnostic.result;
     }
@@ -855,19 +852,18 @@ gneiss::engine::result parse_current_scene_description(std::string_view json,
       return out_diagnostic.result;
     }
     out_scene = std::move(parsed);
-    return gneiss::engine::result::success;
+    return engine::result::success;
   } catch (const std::bad_alloc&) {
-    fail(out_diagnostic, gneiss::engine::result::out_of_memory, "", "内存不足");
+    fail(out_diagnostic, engine::result::out_of_memory, "", "内存不足");
     return out_diagnostic.result;
   } catch (...) {
-    fail(out_diagnostic, gneiss::engine::result::internal, "", "场景解析内部错误");
+    fail(out_diagnostic, engine::result::internal, "", "场景解析内部错误");
     return out_diagnostic.result;
   }
 }
 
-[[nodiscard]] gneiss::engine::result prepare_scene_json(std::string_view json,
-                                                        std::string& out_json,
-                                                        scene_diagnostic& diagnostic) noexcept {
+[[nodiscard]] engine::result prepare_scene_json(std::string_view json, std::string& out_json,
+                                                scene_diagnostic& diagnostic) noexcept {
   out_json.clear();
   try {
     yyjson_read_err error{};
@@ -876,34 +872,32 @@ gneiss::engine::result parse_current_scene_description(std::string_view json,
                                            YYJSON_READ_NOFLAG, nullptr, &error),
                           &yyjson_doc_free);
     if (!document) {
-      fail(diagnostic, gneiss::engine::result::invalid_argument, "",
+      fail(diagnostic, engine::result::invalid_argument, "",
            error.msg != nullptr ? error.msg : "JSON 语法错误", error.pos);
       return diagnostic.result;
     }
     yyjson_val* root = yyjson_doc_get_root(document.get());
     if (!yyjson_is_obj(root)) {
-      fail(diagnostic, gneiss::engine::result::invalid_argument, "", "场景根必须是对象");
+      fail(diagnostic, engine::result::invalid_argument, "", "场景根必须是对象");
       return diagnostic.result;
     }
     yyjson_val* format = yyjson_obj_get(root, "format");
     if (!yyjson_is_str(format) || json_string(format) != scene_format) {
-      fail(diagnostic, gneiss::engine::result::invalid_argument, "/format", "场景格式标识错误");
+      fail(diagnostic, engine::result::invalid_argument, "/format", "场景格式标识错误");
       return diagnostic.result;
     }
     yyjson_val* version = yyjson_obj_get(root, "version");
     if (!yyjson_is_uint(version)) {
-      fail(diagnostic, gneiss::engine::result::invalid_argument, "/version",
-           "场景 Schema 版本必须是整数");
+      fail(diagnostic, engine::result::invalid_argument, "/version", "场景 Schema 版本必须是整数");
       return diagnostic.result;
     }
     const auto source_version = yyjson_get_uint(version);
     if (source_version > schema_version) {
-      fail(diagnostic, gneiss::engine::result::unsupported, "/version", "场景 Schema 来自未来版本");
+      fail(diagnostic, engine::result::unsupported, "/version", "场景 Schema 来自未来版本");
       return diagnostic.result;
     }
     if (source_version != schema_version) {
-      fail(diagnostic, gneiss::engine::result::invalid_argument, "/version",
-           "不支持旧版场景 Schema");
+      fail(diagnostic, engine::result::invalid_argument, "/version", "不支持旧版场景 Schema");
       return diagnostic.result;
     }
 
@@ -911,7 +905,7 @@ gneiss::engine::result parse_current_scene_description(std::string_view json,
     mutable_document_ptr mutable_document(yyjson_doc_mut_copy(document.get(), nullptr),
                                           &yyjson_mut_doc_free);
     if (!mutable_document) {
-      fail(diagnostic, gneiss::engine::result::out_of_memory, "", "无法复制场景作者文档");
+      fail(diagnostic, engine::result::out_of_memory, "", "无法复制场景作者文档");
       return diagnostic.result;
     }
     std::size_t output_length = 0;
@@ -919,54 +913,54 @@ gneiss::engine::result parse_current_scene_description(std::string_view json,
     text_ptr output(yyjson_mut_write(mutable_document.get(), YYJSON_WRITE_NOFLAG, &output_length),
                     &std::free);
     if (!output) {
-      fail(diagnostic, gneiss::engine::result::out_of_memory, "", "无法复制场景作者文档");
+      fail(diagnostic, engine::result::out_of_memory, "", "无法复制场景作者文档");
       return diagnostic.result;
     }
     out_json.assign(output.get(), output_length);
-    return gneiss::engine::result::success;
+    return engine::result::success;
   } catch (const std::bad_alloc&) {
-    fail(diagnostic, gneiss::engine::result::out_of_memory, "", "内存不足");
+    fail(diagnostic, engine::result::out_of_memory, "", "内存不足");
     return diagnostic.result;
   } catch (...) {
-    fail(diagnostic, gneiss::engine::result::internal, "", "场景作者文档复制失败");
+    fail(diagnostic, engine::result::internal, "", "场景作者文档复制失败");
     return diagnostic.result;
   }
 }
 
-gneiss::engine::result parse_scene_description(std::string_view json, scene_description& out_scene,
-                                               scene_diagnostic& out_diagnostic) noexcept {
+engine::result parse_scene_description(std::string_view json, scene_description& out_scene,
+                                       scene_diagnostic& out_diagnostic) noexcept {
   out_scene = {};
   out_diagnostic = {};
   std::string current_json;
   auto result = prepare_scene_json(json, current_json, out_diagnostic);
-  if (result != gneiss::engine::result::success) {
+  if (result != engine::result::success) {
     return result;
   }
   scene_description parsed;
   result = parse_current_scene_description(current_json, parsed, out_diagnostic);
-  if (result != gneiss::engine::result::success) {
+  if (result != engine::result::success) {
     return result;
   }
   try {
     parsed.source_schema_version = static_cast<std::uint32_t>(schema_version);
     parsed.author_json = std::move(current_json);
     out_scene = std::move(parsed);
-    return gneiss::engine::result::success;
+    return engine::result::success;
   } catch (const std::bad_alloc&) {
     out_scene = {};
-    fail(out_diagnostic, gneiss::engine::result::out_of_memory, "", "内存不足");
+    fail(out_diagnostic, engine::result::out_of_memory, "", "内存不足");
     return out_diagnostic.result;
   } catch (...) {
     out_scene = {};
-    fail(out_diagnostic, gneiss::engine::result::internal, "", "场景作者文档复制失败");
+    fail(out_diagnostic, engine::result::internal, "", "场景作者文档复制失败");
     return out_diagnostic.result;
   }
 }
 
-gneiss::engine::result serialize_scene_description(const scene_description& scene,
-                                                   std::string& out_json) noexcept {
+engine::result serialize_scene_description(const scene_description& scene,
+                                           std::string& out_json) noexcept {
   if (scene.author_json.empty()) {
-    return gneiss::engine::result::invalid_state;
+    return engine::result::invalid_state;
   }
   try {
     yyjson_read_err error{};
@@ -979,18 +973,17 @@ gneiss::engine::result serialize_scene_description(const scene_description& scen
     mutable_document_ptr mutable_document(
         document ? yyjson_doc_mut_copy(document.get(), nullptr) : nullptr, &yyjson_mut_doc_free);
     if (!mutable_document) {
-      return document ? gneiss::engine::result::out_of_memory
-                      : gneiss::engine::result::invalid_state;
+      return document ? engine::result::out_of_memory : engine::result::invalid_state;
     }
     yyjson_mut_val* root = yyjson_mut_doc_get_root(mutable_document.get());
     yyjson_mut_val* objects = yyjson_mut_obj_get(root, "objects");
     if (!yyjson_mut_is_arr(objects) || yyjson_mut_arr_size(objects) > scene.objects.size()) {
-      return gneiss::engine::result::invalid_state;
+      return engine::result::invalid_state;
     }
     for (std::size_t index = yyjson_mut_arr_size(objects); index < scene.objects.size(); ++index) {
       auto* object = make_author_object(mutable_document.get(), scene.objects[index]);
       if (object == nullptr || !yyjson_mut_arr_add_val(objects, object)) {
-        return gneiss::engine::result::out_of_memory;
+        return engine::result::out_of_memory;
       }
     }
     for (std::size_t index = 0; index < scene.objects.size(); ++index) {
@@ -1011,14 +1004,14 @@ gneiss::engine::result serialize_scene_description(const scene_description& scen
                      make_float_array(mutable_document.get(), source.rotation)) ||
           !put_value(mutable_document.get(), transform, "scale",
                      make_float_array(mutable_document.get(), source.scale))) {
-        return gneiss::engine::result::out_of_memory;
+        return engine::result::out_of_memory;
       }
       if (source.name.empty()) {
         (void)yyjson_mut_obj_remove_key(object, "name");
       } else if (!put_value(mutable_document.get(), object, "name",
                             yyjson_mut_strncpy(mutable_document.get(), source.name.data(),
                                                source.name.size()))) {
-        return gneiss::engine::result::out_of_memory;
+        return engine::result::out_of_memory;
       }
       if (source.camera) {
         yyjson_mut_val* camera =
@@ -1032,7 +1025,7 @@ gneiss::engine::result serialize_scene_description(const scene_description& scen
                        yyjson_mut_real(mutable_document.get(), source.camera->far_plane)) ||
             !put_value(mutable_document.get(), camera, "is_primary",
                        yyjson_mut_bool(mutable_document.get(), source.camera->is_primary))) {
-          return gneiss::engine::result::out_of_memory;
+          return engine::result::out_of_memory;
         }
       } else {
         yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
@@ -1044,7 +1037,7 @@ gneiss::engine::result serialize_scene_description(const scene_description& scen
         if (renderer == nullptr) {
           renderer = yyjson_mut_obj(mutable_document.get());
           if (!put_value(mutable_document.get(), components, "mesh_renderer", renderer)) {
-            return gneiss::engine::result::out_of_memory;
+            return engine::result::out_of_memory;
           }
         }
         if (!put_value(mutable_document.get(), renderer, "mesh",
@@ -1055,7 +1048,7 @@ gneiss::engine::result serialize_scene_description(const scene_description& scen
                        yyjson_mut_strncpy(mutable_document.get(),
                                           source.mesh_renderer->material_uri.data(),
                                           source.mesh_renderer->material_uri.size()))) {
-          return gneiss::engine::result::out_of_memory;
+          return engine::result::out_of_memory;
         }
       } else {
         yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
@@ -1065,14 +1058,14 @@ gneiss::engine::result serialize_scene_description(const scene_description& scen
     yyjson_mut_val* prefab_instances = yyjson_mut_obj_get(root, "prefab_instances");
     if (!yyjson_mut_is_arr(prefab_instances) ||
         yyjson_mut_arr_size(prefab_instances) > scene.prefab_instances.size()) {
-      return gneiss::engine::result::invalid_state;
+      return engine::result::invalid_state;
     }
     for (std::size_t index = yyjson_mut_arr_size(prefab_instances);
          index < scene.prefab_instances.size(); ++index) {
       auto* instance =
           make_author_prefab_instance(mutable_document.get(), scene.prefab_instances[index]);
       if (instance == nullptr || !yyjson_mut_arr_add_val(prefab_instances, instance)) {
-        return gneiss::engine::result::out_of_memory;
+        return engine::result::out_of_memory;
       }
     }
     for (std::size_t index = 0; index < scene.prefab_instances.size(); ++index) {
@@ -1096,18 +1089,18 @@ gneiss::engine::result serialize_scene_description(const scene_description& scen
                      make_float_array(mutable_document.get(), source.rotation)) ||
           !put_value(mutable_document.get(), transform, "scale",
                      make_float_array(mutable_document.get(), source.scale))) {
-        return gneiss::engine::result::out_of_memory;
+        return engine::result::out_of_memory;
       }
       if (source.name.empty()) {
         (void)yyjson_mut_obj_remove_key(instance, "name");
       } else if (!put_value(mutable_document.get(), instance, "name",
                             yyjson_mut_strncpy(mutable_document.get(), source.name.data(),
                                                source.name.size()))) {
-        return gneiss::engine::result::out_of_memory;
+        return engine::result::out_of_memory;
       }
       if (!put_value(mutable_document.get(), instance, "overrides",
                      make_prefab_overrides(mutable_document.get(), source.overrides))) {
-        return gneiss::engine::result::out_of_memory;
+        return engine::result::out_of_memory;
       }
     }
     std::size_t output_length = 0;
@@ -1115,14 +1108,14 @@ gneiss::engine::result serialize_scene_description(const scene_description& scen
     text_ptr output(yyjson_mut_write(mutable_document.get(), YYJSON_WRITE_NOFLAG, &output_length),
                     &std::free);
     if (!output) {
-      return gneiss::engine::result::out_of_memory;
+      return engine::result::out_of_memory;
     }
     out_json.assign(output.get(), output_length);
-    return gneiss::engine::result::success;
+    return engine::result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return engine::result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return engine::result::internal;
   }
 }
 
@@ -1130,7 +1123,7 @@ gneiss::engine::result serialize_scene_description(const scene_description& scen
 
 namespace gneiss::engine {
 result decode_scene(std::span<const std::byte> bytes, scene_description& output,
-                    gneiss::engine::meta::serialization_diagnostic& diagnostic) noexcept try {
+                    meta::serialization_diagnostic& diagnostic) noexcept try {
   diagnostic = {};
   if (bytes.size() > scene_description::maximum_source_bytes) {
     diagnostic.message = "资源描述超过单文件大小上限";
@@ -1150,7 +1143,7 @@ result decode_scene(std::span<const std::byte> bytes, scene_description& output,
   return result::internal;
 }
 result encode_scene(const scene_description& object, std::vector<std::byte>& output,
-                    gneiss::engine::meta::serialization_diagnostic& diagnostic) noexcept try {
+                    meta::serialization_diagnostic& diagnostic) noexcept try {
   diagnostic = {};
   std::string text;
   auto status = serialize_scene_description(object, text);

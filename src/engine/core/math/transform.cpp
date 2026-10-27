@@ -4,11 +4,9 @@
 #include "engine/core/math/transform.hpp"
 
 namespace gneiss::engine::math {
-vector3 transform_normal(const vector3& normal,
-                         const gneiss::engine::math::transform& transform) noexcept {
-  const auto value = glm::normalize(
-      transform.rotation *
-      (gneiss::engine::math::vector3{normal[0], normal[1], normal[2]} / transform.scale));
+vector3 transform_normal(const vector3& normal, const math::transform& transform) noexcept {
+  const auto value = glm::normalize(transform.rotation *
+                                    (vector3{normal[0], normal[1], normal[2]} / transform.scale));
   return {value.x, value.y, value.z};
 }
 

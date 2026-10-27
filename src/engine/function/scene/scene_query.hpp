@@ -25,9 +25,9 @@ struct scene_node_view {
   std::string_view name;
   std::string_view mesh_uri;
   std::string_view material_uri;
-  gneiss::engine::math::transform local_transform = {};
+  math::transform local_transform = {};
   scene_node_components component_flags{};
-  std::optional<gneiss::engine::camera_description> camera;
+  std::optional<camera_description> camera;
 };
 
 struct prefab_node_view {
@@ -39,8 +39,8 @@ struct prefab_node_view {
   std::string_view source_node_uuid;
   std::string_view name;
   std::string_view prefab_uri;
-  gneiss::engine::math::transform local_transform = {};
-  gneiss::engine::math::transform source_local_transform = {};
+  math::transform local_transform = {};
+  math::transform source_local_transform = {};
 };
 
 } // namespace gneiss::engine

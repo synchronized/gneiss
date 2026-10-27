@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <cmath>
 namespace gneiss::engine {
-using namespace gneiss::engine::detail;
+using namespace engine::detail;
 
 namespace {
 bool invalid_prepared_mesh(const mesh_data& mesh) {
@@ -31,50 +31,47 @@ bool invalid_prepared_mesh(const mesh_data& mesh) {
                                }) ||
           !std::ranges::all_of(mesh.indices, [&](auto i) { return i < mesh.vertices.size(); }));
 }
-gneiss::engine::result decode_non_texture(const asset_preparation_source& source,
-                                          const std::vector<std::byte>& bytes,
-                                          prepared_asset& asset, asset_diagnostic& diagnostic,
-                                          std::size_t material_bytes, std::size_t maximum_bytes) {
-  auto result = gneiss::engine::result::success;
+engine::result decode_non_texture(const asset_preparation_source& source,
+                                  const std::vector<std::byte>& bytes, prepared_asset& asset,
+                                  asset_diagnostic& diagnostic, std::size_t material_bytes,
+                                  std::size_t maximum_bytes) {
+  auto result = engine::result::success;
   if (source.type == asset_type::mesh) {
     result =
-        gneiss::engine::is_mesh_binary(bytes)
+        engine::is_mesh_binary(bytes)
             ? parse_binary_mesh(bytes, asset.mesh.vertices, asset.mesh.normals, asset.mesh.indices,
                                 asset.mesh.tangents, asset.mesh.uv1, asset.mesh.colors, diagnostic)
             : parse_mesh(bytes, asset.mesh.vertices, asset.mesh.normals, diagnostic);
     // 此校验与 RID 创建的顶点/法线/索引契约一致，在后台完成。
     const auto& mesh = asset.mesh;
-    if (result == gneiss::engine::result::success && invalid_prepared_mesh(mesh)) {
-      result = gneiss::engine::result::invalid_argument;
+    if (result == engine::result::success && invalid_prepared_mesh(mesh)) {
+      result = engine::result::invalid_argument;
     }
     asset.bytes = mesh.data_bytes();
   } else if (source.type == asset_type::material) {
     if (!asset.description)
-      return gneiss::engine::result::unsupported;
+      return engine::result::unsupported;
     asset.material = asset.description->parameters;
     asset.texture_uris = asset.description->texture_uris;
     // 由调用方传入发布预算，Asset 不依赖资源对象布局。
     if (material_bytes == 0U) {
-      fail(diagnostic, gneiss::engine::result::invalid_argument, source.uri,
-           "材质发布预算不得为零");
-      return gneiss::engine::result::invalid_argument;
+      fail(diagnostic, engine::result::invalid_argument, source.uri, "材质发布预算不得为零");
+      return engine::result::invalid_argument;
     }
     if (material_bytes > maximum_bytes) {
-      fail(diagnostic, gneiss::engine::result::out_of_memory, source.uri,
-           "材质发布预算超过批次上限");
-      return gneiss::engine::result::out_of_memory;
+      fail(diagnostic, engine::result::out_of_memory, source.uri, "材质发布预算超过批次上限");
+      return engine::result::out_of_memory;
     }
     asset.bytes = material_bytes;
     for (const auto& uri : asset.texture_uris) {
       if (uri.size() > maximum_bytes - asset.bytes) {
-        fail(diagnostic, gneiss::engine::result::out_of_memory, source.uri,
-             "材质依赖超出批次字节上限");
-        return gneiss::engine::result::out_of_memory;
+        fail(diagnostic, engine::result::out_of_memory, source.uri, "材质依赖超出批次字节上限");
+        return engine::result::out_of_memory;
       }
       asset.bytes += uri.size();
     }
   } else {
-    result = gneiss::engine::result::invalid_argument;
+    result = engine::result::invalid_argument;
   }
   return result;
 }

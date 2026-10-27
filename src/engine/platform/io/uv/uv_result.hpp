@@ -9,7 +9,7 @@
 namespace gneiss::engine {
 
 /** 将 libuv 返回值转换为稳定的 Gneiss 结果码，不暴露 libuv 类型。 */
-[[nodiscard]] gneiss::engine::result from_uv_status(int value) noexcept;
+[[nodiscard]] result from_uv_status(int value) noexcept;
 
 } // namespace gneiss::engine
 

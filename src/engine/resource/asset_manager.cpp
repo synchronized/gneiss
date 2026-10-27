@@ -29,15 +29,15 @@ struct asset_manager::resource_state {
     std::uint64_t generation;
     std::shared_ptr<const asset_decoder> loader;
     std::shared_ptr<detail::asset_state> observer{std::make_shared<detail::asset_state>()};
-    gneiss::engine::files::request_id read_request;
-    gneiss::engine::files::bytes bytes;
+    engine::files::request_id read_request;
+    engine::files::bytes bytes;
     bool reading{true}, read_complete{};
     std::shared_ptr<const void> value;
-    gneiss::engine::meta::serialization_diagnostic diagnostic;
+    meta::serialization_diagnostic diagnostic;
     // 在途重载保活旧缓存条目；失败后旧内容仍可复用。
     std::shared_ptr<const resource_cache::entry> previous;
     std::atomic_bool settled{false};
-    gneiss::engine::result status{gneiss::engine::result::not_ready};
+    result status{result::not_ready};
     operation(key id, std::uint64_t version, std::shared_ptr<const asset_decoder> parser)
         : identity(std::move(id)), generation(version), loader(std::move(parser)) {}
     void decode() {
@@ -45,7 +45,7 @@ struct asset_manager::resource_state {
       // 解码任务只有一次终态；not_ready 不能变成永久挂起的资产请求。
       if (status == result::not_ready || (status == result::success && !value))
         status = result::internal;
-      gneiss::engine::files::bytes{}.swap(bytes);
+      engine::files::bytes{}.swap(bytes);
     }
   };
   // 执行器丢弃排队任务时也产生终态；所有数据先写入，再 release 发布。
@@ -54,18 +54,18 @@ struct asset_manager::resource_state {
     bool ran{};
     ~settlement() {
       if (!ran) {
-        work->status = gneiss::engine::result::invalid_state;
+        work->status = result::invalid_state;
       }
       work->settled.store(true, std::memory_order_release);
     }
   };
-  std::shared_ptr<gneiss::engine::files::service> files;
-  gneiss::engine::task_executor* executor{};
-  gneiss::engine::task_scope scope{};
+  std::shared_ptr<engine::files::service> files;
+  task_executor* executor{};
+  task_scope scope{};
   bool frozen{}, stopped{};
-  gneiss::engine::meta::registry_ref registry;
+  meta::registry_ref registry;
   std::size_t fallback_limit{};
-  std::map<gneiss::engine::type_id, std::shared_ptr<const asset_decoder>> decoders;
+  std::map<type_id, std::shared_ptr<const asset_decoder>> decoders;
   std::map<key, entry> requests;
   std::vector<std::shared_ptr<operation>> active;
 
@@ -73,28 +73,28 @@ struct asset_manager::resource_state {
     work->settled.store(false, std::memory_order_relaxed);
     auto completion = std::make_shared<settlement>();
     completion->work = work;
-    gneiss::engine::task_handle handle;
+    task_handle handle;
     const auto submitted = executor->submit(
         {.name = "asset-decode", .scope = scope},
         [completion](const auto& context) {
           auto& task = *completion->work;
           try {
             if (context.stop_requested()) {
-              task.status = gneiss::engine::result::invalid_state;
+              task.status = result::invalid_state;
             } else {
               task.decode();
             }
           } catch (const std::bad_alloc&) {
-            task.status = gneiss::engine::result::out_of_memory;
+            task.status = result::out_of_memory;
           } catch (...) {
-            task.status = gneiss::engine::result::internal;
+            task.status = result::internal;
           }
           completion->ran = true;
-          return gneiss::engine::task_outcome{};
+          return engine::task_outcome{};
         },
         handle);
-    if (submitted != gneiss::engine::submit_result::success) {
-      work->status = gneiss::engine::result::invalid_state;
+    if (submitted != submit_result::success) {
+      work->status = result::invalid_state;
     }
   }
   ~resource_state() { stop(); }
@@ -137,7 +137,7 @@ struct asset_manager::resource_state {
     (void)finish_stop();
   }
 };
-std::shared_ptr<gneiss::engine::files::service> asset_manager::async_files() const noexcept {
+std::shared_ptr<engine::files::service> asset_manager::async_files() const noexcept {
   return resource_state_->files;
 }
 result asset_manager::identify(std::string_view uri, std::uint32_t type,
@@ -146,7 +146,7 @@ result asset_manager::identify(std::string_view uri, std::uint32_t type,
   if (!resource_state_->files || type == 0U)
     return result::invalid_state;
   try {
-    std::shared_ptr<const gneiss::engine::files::source_domain> domain;
+    std::shared_ptr<const engine::files::source_domain> domain;
     const auto status = resource_state_->files->resolve_source(uri, domain);
     if (status.failed())
       return status;
@@ -157,9 +157,8 @@ result asset_manager::identify(std::string_view uri, std::uint32_t type,
   }
 }
 
-asset_manager::asset_manager(std::shared_ptr<gneiss::engine::files::service> files,
-                             gneiss::engine::meta::registry_ref registry,
-                             std::size_t fallback_limit)
+asset_manager::asset_manager(std::shared_ptr<engine::files::service> files,
+                             meta::registry_ref registry, std::size_t fallback_limit)
     : resource_state_(std::make_unique<resource_state>()) {
   if (!files)
     throw std::invalid_argument("文件服务不能为空");
@@ -185,7 +184,7 @@ result asset_manager::store_erased(type_id type, std::string_view uri,
     return result::invalid_state;
   if (!value || validate_uri(uri).failed())
     return result::invalid_argument;
-  std::shared_ptr<const gneiss::engine::files::source_domain> domain;
+  std::shared_ptr<const engine::files::source_domain> domain;
   auto status = state.files->resolve_source(uri, domain);
   if (status.failed())
     return status;
@@ -211,7 +210,7 @@ result asset_manager::store_erased(type_id type, std::string_view uri,
   return result::internal;
 }
 asset_manager::~asset_manager() { stop_resources(); }
-void asset_manager::attach_task_executor(gneiss::engine::task_executor& executor) {
+void asset_manager::attach_task_executor(task_executor& executor) {
   auto& state = *resource_state_;
   if (state.executor && state.executor != &executor)
     throw std::invalid_argument("资产管理器不能切换执行器");
@@ -220,22 +219,21 @@ void asset_manager::attach_task_executor(gneiss::engine::task_executor& executor
     state.executor = &executor;
   }
 }
-gneiss::engine::result
-asset_manager::register_decoder(const std::shared_ptr<const asset_decoder>& loader) noexcept try {
+result asset_manager::register_decoder(const std::shared_ptr<const asset_decoder>& loader) noexcept
+    try {
   auto& state = *resource_state_;
   if (state.stopped || state.frozen) {
-    return gneiss::engine::result::invalid_state;
+    return result::invalid_state;
   }
   if (!loader || loader->maximum_bytes() == 0) {
-    return gneiss::engine::result::invalid_argument;
+    return result::invalid_argument;
   }
   const auto type = loader->target_type();
-  return state.decoders.emplace(type, loader).second ? gneiss::engine::result::success
-                                                     : gneiss::engine::result::invalid_argument;
+  return state.decoders.emplace(type, loader).second ? result::success : result::invalid_argument;
 } catch (const std::bad_alloc&) {
-  return gneiss::engine::result::out_of_memory;
+  return result::out_of_memory;
 } catch (...) {
-  return gneiss::engine::result::internal;
+  return result::internal;
 }
 result asset_manager::resolve_decoder(type_id type, decoder_factory fallback,
                                       std::shared_ptr<const asset_decoder>& output) {
@@ -252,41 +250,40 @@ result asset_manager::resolve_decoder(type_id type, decoder_factory fallback,
   return status;
 }
 
-gneiss::engine::result asset_manager::request(gneiss::engine::type_id type, std::string_view uri,
-                                              bool reload,
-                                              std::shared_ptr<detail::asset_state>& output,
-                                              decoder_factory fallback) noexcept try {
+result asset_manager::request(type_id type, std::string_view uri, bool reload,
+                              std::shared_ptr<detail::asset_state>& output,
+                              decoder_factory fallback) noexcept try {
   auto& state = *resource_state_;
   if (state.stopped) {
-    return gneiss::engine::result::invalid_state;
+    return result::invalid_state;
   }
   if (state.executor == nullptr) {
-    return gneiss::engine::result::not_ready;
+    return result::not_ready;
   }
-  if (validate_uri(uri) != gneiss::engine::result::success) {
-    return gneiss::engine::result::invalid_argument;
+  if (validate_uri(uri) != result::success) {
+    return result::invalid_argument;
   }
   std::shared_ptr<const asset_decoder> decoder;
   const auto resolved = resolve_decoder(type, fallback, decoder);
   if (resolved.failed())
     return resolved;
-  std::shared_ptr<const gneiss::engine::files::source_domain> domain;
+  std::shared_ptr<const engine::files::source_domain> domain;
   const auto identified = state.files->resolve_source(uri, domain);
-  if (identified != gneiss::engine::result::success)
+  if (identified != result::success)
     return identified;
   resource_state::key key{domain, std::string(uri), type};
   auto& entry = state.requests[key];
   if (auto pending = entry.pending.lock()) {
     output = std::move(pending);
-    return gneiss::engine::result::success;
+    return result::success;
   }
   const auto cached = cache_.observe(uri, type, domain).lock();
-  if (!reload && cached && cached->state == gneiss::engine::resource_state::ready) {
+  if (!reload && cached && cached->state == engine::resource_state::ready) {
     auto ready = std::make_shared<detail::asset_state>();
-    ready->status = gneiss::engine::result::success;
+    ready->status = result::success;
     ready->value = std::shared_ptr<const void>(cached, cached->resource.get());
     output = std::move(ready);
-    return gneiss::engine::result::success;
+    return result::success;
   }
   auto work = std::make_shared<resource_state::operation>(key, entry.generation + 1, decoder);
   work->previous = cached;
@@ -294,8 +291,7 @@ gneiss::engine::result asset_manager::request(gneiss::engine::type_id type, std:
   try {
     const auto submitted = state.files->read(
         uri, {decoder->maximum_bytes()},
-        [weak = std::weak_ptr(work)](
-            gneiss::engine::files::completion<gneiss::engine::files::bytes> completed) {
+        [weak = std::weak_ptr(work)](engine::files::completion<engine::files::bytes> completed) {
           // 回调只向仍存活的操作交付字节；停止/销毁后不捕获 manager 或执行器。
           if (auto operation = weak.lock()) {
             operation->status = completed.status;
@@ -315,11 +311,11 @@ gneiss::engine::result asset_manager::request(gneiss::engine::type_id type, std:
   entry.generation = work->generation;
   entry.pending = work->observer;
   output = work->observer;
-  return gneiss::engine::result::success;
+  return result::success;
 } catch (const std::bad_alloc&) {
-  return gneiss::engine::result::out_of_memory;
+  return result::out_of_memory;
 } catch (...) {
-  return gneiss::engine::result::internal;
+  return result::internal;
 }
 result asset_manager::find_loaded_erased(type_id type, std::string_view uri,
                                          std::shared_ptr<const void>& output) const noexcept try {
@@ -327,12 +323,12 @@ result asset_manager::find_loaded_erased(type_id type, std::string_view uri,
     return result::invalid_state;
   if (validate_uri(uri).failed())
     return result::invalid_argument;
-  std::shared_ptr<const gneiss::engine::files::source_domain> source;
+  std::shared_ptr<const engine::files::source_domain> source;
   const auto status = resource_state_->files->resolve_source(uri, source);
   if (status.failed())
     return status;
   const auto entry = cache_.observe(uri, type, std::move(source)).lock();
-  if (!entry || entry->state != gneiss::engine::resource_state::ready || !entry->resource)
+  if (!entry || entry->state != engine::resource_state::ready || !entry->resource)
     return result::not_found;
   output = entry->resource;
   return result::success;
@@ -342,8 +338,8 @@ result asset_manager::find_loaded_erased(type_id type, std::string_view uri,
   return result::internal;
 }
 
-gneiss::engine::result asset_manager::request_input(std::string_view uri,
-                                                    asset_request<action_map>& output) noexcept {
+result asset_manager::request_input(std::string_view uri,
+                                    asset_request<action_map>& output) noexcept {
   return load(uri, output, true);
 }
 void asset_manager::advance_resources() {
@@ -356,7 +352,7 @@ void asset_manager::advance_resources() {
     return;
   }
   // 文件完成由宿主统一分发；这里只处理 CPU 解码与资源结果。
-  std::vector<gneiss::engine::task_completion> completions;
+  std::vector<task_completion> completions;
   (void)state.executor->poll(state.scope, completions);
   for (auto it = state.active.begin(); it != state.active.end();) {
     const auto& work = *it;
@@ -397,17 +393,17 @@ void asset_manager::advance_resources() {
     auto& entry = state.requests.at(work->identity);
     if (entry.generation == work->generation) {
       entry.pending.reset();
-      if (work->status == gneiss::engine::result::success) {
+      if (work->status == result::success) {
         const auto& [domain, uri, type] = work->identity;
         asset_ref<const resource_cache::entry> cached;
         work->status = cache_.load(
             uri, type,
             [&](auto& stored) {
               stored = work->value;
-              return gneiss::engine::result::success;
+              return result::success;
             },
             cached, domain, true);
-        if (work->status == gneiss::engine::result::success) {
+        if (work->status == result::success) {
           work->value = std::shared_ptr<const void>(cached.shared(), cached->resource.get());
         }
       }
@@ -416,7 +412,7 @@ void asset_manager::advance_resources() {
       const std::scoped_lock lock(work->observer->mutex);
       work->observer->status = work->status;
       work->observer->diagnostic = std::move(work->diagnostic);
-      if (work->status == gneiss::engine::result::success) {
+      if (work->status == result::success) {
         work->observer->value = std::move(work->value);
       }
     }

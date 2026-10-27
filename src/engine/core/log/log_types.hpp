@@ -16,7 +16,7 @@ struct message_view final {
   std::string_view source{};
   std::string_view category{};
   std::string_view message{};
-  gneiss::engine::result result{gneiss::engine::result::success};
+  engine::result result{engine::result::success};
 };
 
 /** 所有文本只在回调期间有效，接收方不得保留视图。 */

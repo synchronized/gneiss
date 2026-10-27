@@ -68,23 +68,22 @@ gneiss::engine::register_reflection(const gneiss::engine::meta::registry_ref& re
 }
 
 namespace gneiss::engine {
-gneiss::engine::result
-create_property_registry(gneiss::engine::meta::registry_ref& output) noexcept {
-  gneiss::engine::meta::registry_ref pending;
-  auto operation = gneiss::engine::meta::create_registry(pending);
-  if (operation == gneiss::engine::result::success) {
+result create_property_registry(meta::registry_ref& output) noexcept {
+  meta::registry_ref pending;
+  auto operation = meta::create_registry(pending);
+  if (operation == result::success) {
     operation = register_reflection(pending);
   }
-  if (operation == gneiss::engine::result::success) {
-    operation = gneiss::engine::meta::freeze(pending);
+  if (operation == result::success) {
+    operation = meta::freeze(pending);
   }
-  if (operation == gneiss::engine::result::success) {
+  if (operation == result::success) {
     output = std::move(pending);
   }
   return operation;
 }
-gneiss::engine::guid transform_property_type() noexcept { return transform_component_type; }
-gneiss::engine::guid camera_property_type() noexcept { return camera_component_type; }
+guid transform_property_type() noexcept { return transform_component_type; }
+guid camera_property_type() noexcept { return camera_component_type; }
 } // namespace gneiss::engine
 
 namespace gneiss::engine {
@@ -121,20 +120,18 @@ result access_component(world& world, std::uint64_t entity, guid type, bool writ
   return result::unsupported;
 }
 }
-result read_component_property(const gneiss::engine::meta::registry_ref& registry, world& world,
-                               std::uint64_t entity, guid type,
-                               gneiss::engine::meta::property_id field,
-                               gneiss::engine::value& value) noexcept {
+result read_component_property(const meta::registry_ref& registry, world& world,
+                               std::uint64_t entity, guid type, meta::property_id field,
+                               engine::value& value) noexcept {
   if (!registry)
     return result::invalid_handle;
   return access_component(world, entity, type, false, [&](auto* object) {
     return read_property(registry, type, field, object, value);
   });
 }
-result write_component_property(const gneiss::engine::meta::registry_ref& registry, world& world,
-                                std::uint64_t entity, guid type,
-                                gneiss::engine::meta::property_id field,
-                                const gneiss::engine::value& value) noexcept {
+result write_component_property(const meta::registry_ref& registry, world& world,
+                                std::uint64_t entity, guid type, meta::property_id field,
+                                const engine::value& value) noexcept {
   if (!registry)
     return result::invalid_handle;
   return access_component(world, entity, type, true, [&](auto* object) {

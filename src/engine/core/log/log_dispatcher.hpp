@@ -29,7 +29,7 @@ public:
   log_dispatcher(const log_dispatcher&) = delete;
   log_dispatcher& operator=(const log_dispatcher&) = delete;
 
-  [[nodiscard]] gneiss::engine::result submit(const message_view& message) noexcept;
+  [[nodiscard]] engine::result submit(const message_view& message) noexcept;
   void flush() noexcept;
 
 private:
@@ -42,7 +42,7 @@ private:
     std::string source;
     std::string category;
     std::string message;
-    gneiss::engine::result result = gneiss::engine::result::success;
+    engine::result result = engine::result::success;
   };
 
   void run() noexcept;

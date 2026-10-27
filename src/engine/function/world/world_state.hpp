@@ -94,45 +94,44 @@ public:
     return !is_alive(entity) ? nullptr : registry_.try_get<Component>(native);
   }
 
-  [[nodiscard]] gneiss::engine::result set_active_camera(std::uint64_t entity) noexcept {
+  [[nodiscard]] result set_active_camera(std::uint64_t entity) noexcept {
     if (!is_alive(entity)) {
-      return gneiss::engine::result::invalid_handle;
+      return result::invalid_handle;
     }
     if (get<camera_component>(entity) == nullptr) {
-      return gneiss::engine::result::not_ready;
+      return result::not_ready;
     }
     active_camera_ = entity;
-    return gneiss::engine::result::success;
+    return result::success;
   }
 
-  [[nodiscard]] gneiss::engine::result clear_camera(std::uint64_t entity) noexcept {
+  [[nodiscard]] result clear_camera(std::uint64_t entity) noexcept {
     if (!is_alive(entity)) {
-      return gneiss::engine::result::invalid_handle;
+      return result::invalid_handle;
     }
     const auto native = decode(entity);
     if (native == entt::null || !registry_.valid(native)) {
-      return gneiss::engine::result::invalid_handle;
+      return result::invalid_handle;
     }
     if (registry_.remove<camera_component>(native) == 0U) {
-      return gneiss::engine::result::not_found;
+      return result::not_found;
     }
     if (active_camera_ == entity) {
       active_camera_ = UINT64_C(0);
     }
-    return gneiss::engine::result::success;
+    return result::success;
   }
 
-  [[nodiscard]] gneiss::engine::result clear_mesh_renderer(std::uint64_t entity) noexcept {
+  [[nodiscard]] result clear_mesh_renderer(std::uint64_t entity) noexcept {
     if (!is_alive(entity)) {
-      return gneiss::engine::result::invalid_handle;
+      return result::invalid_handle;
     }
     const auto native = decode(entity);
     if (native == entt::null || !registry_.valid(native)) {
-      return gneiss::engine::result::invalid_handle;
+      return result::invalid_handle;
     }
-    return registry_.remove<mesh_renderer_component>(native) == 0U
-               ? gneiss::engine::result::not_found
-               : gneiss::engine::result::success;
+    return registry_.remove<mesh_renderer_component>(native) == 0U ? result::not_found
+                                                                   : result::success;
   }
 
   void clear_active_camera(std::uint64_t entity) noexcept {
@@ -154,8 +153,8 @@ public:
     });
   }
 
-  [[nodiscard]] gneiss::engine::scene_tree& scene() noexcept { return scene_; }
-  [[nodiscard]] const gneiss::engine::scene_tree& scene() const noexcept { return scene_; }
+  [[nodiscard]] scene_tree& scene() noexcept { return scene_; }
+  [[nodiscard]] const scene_tree& scene() const noexcept { return scene_; }
   [[nodiscard]] std::uint64_t encode_entity(entt::entity entity) const noexcept {
     return encode(entity);
   }
@@ -178,7 +177,7 @@ private:
   }
 
   entt::registry registry_;
-  gneiss::engine::scene_tree scene_;
+  scene_tree scene_;
   std::uint32_t domain_;
   std::thread::id owner_thread_;
   std::size_t entity_count_ = 0;

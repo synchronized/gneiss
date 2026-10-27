@@ -24,13 +24,11 @@ public:
   window_service& operator=(const window_service&) = delete;
   window_service(window_service&&) = delete;
   window_service& operator=(window_service&&) = delete;
-  [[nodiscard]] gneiss::engine::result initialize(const window_configuration& config) noexcept;
-  [[nodiscard]] gneiss::engine::result poll(bool& out_should_close, bool& out_focus_lost) noexcept;
-  [[nodiscard]] gneiss::engine::result poll_input(gneiss::engine::input_event& out_event) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  keyboard(gneiss::engine::keyboard_state& out_state) const noexcept;
-  [[nodiscard]] gneiss::engine::result
-  pointer(gneiss::engine::pointer_state& out_state) const noexcept;
+  [[nodiscard]] result initialize(const window_configuration& config) noexcept;
+  [[nodiscard]] result poll(bool& out_should_close, bool& out_focus_lost) noexcept;
+  [[nodiscard]] result poll_input(input_event& out_event) noexcept;
+  [[nodiscard]] result keyboard(keyboard_state& out_state) const noexcept;
+  [[nodiscard]] result pointer(pointer_state& out_state) const noexcept;
   [[nodiscard]] const native_window_info& native_window() const noexcept;
   [[nodiscard]] native_window_info& native_window() noexcept;
 

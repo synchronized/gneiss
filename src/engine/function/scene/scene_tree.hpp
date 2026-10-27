@@ -18,23 +18,18 @@ class scene_tree final {
 public:
   explicit scene_tree(std::uint32_t domain) noexcept : domain_(domain) {}
 
-  [[nodiscard]] gneiss::engine::result create(scene_node_id parent, std::uint64_t entity,
-                                              scene_node_id* out_node) noexcept;
-  [[nodiscard]] gneiss::engine::result destroy(scene_node_id node) noexcept;
-  [[nodiscard]] gneiss::engine::result reparent(scene_node_id node, scene_node_id parent) noexcept;
-  [[nodiscard]] gneiss::engine::result
-  set_local(scene_node_id node, const gneiss::engine::math::transform& transform) noexcept;
-  [[nodiscard]] const gneiss::engine::math::transform* get_local(scene_node_id node) const noexcept;
-  [[nodiscard]] gneiss::engine::result
-  get_world(scene_node_id node, gneiss::engine::math::transform* out_transform) const noexcept;
-  [[nodiscard]] gneiss::engine::result
-  get_world_for_entity(std::uint64_t entity,
-                       gneiss::engine::math::transform* out_transform) const noexcept;
-  [[nodiscard]] const gneiss::engine::math::transform*
-  get_local_for_entity(std::uint64_t entity) const noexcept;
-  [[nodiscard]] gneiss::engine::result
-  set_local_for_entity(std::uint64_t entity,
-                       const gneiss::engine::math::transform& transform) noexcept;
+  [[nodiscard]] result create(scene_node_id parent, std::uint64_t entity,
+                              scene_node_id* out_node) noexcept;
+  [[nodiscard]] result destroy(scene_node_id node) noexcept;
+  [[nodiscard]] result reparent(scene_node_id node, scene_node_id parent) noexcept;
+  [[nodiscard]] result set_local(scene_node_id node, const math::transform& transform) noexcept;
+  [[nodiscard]] const math::transform* get_local(scene_node_id node) const noexcept;
+  [[nodiscard]] result get_world(scene_node_id node, math::transform* out_transform) const noexcept;
+  [[nodiscard]] result get_world_for_entity(std::uint64_t entity,
+                                            math::transform* out_transform) const noexcept;
+  [[nodiscard]] const math::transform* get_local_for_entity(std::uint64_t entity) const noexcept;
+  [[nodiscard]] result set_local_for_entity(std::uint64_t entity,
+                                            const math::transform& transform) noexcept;
   [[nodiscard]] std::uint64_t get_entity(scene_node_id node) const noexcept;
   [[nodiscard]] scene_node_id get_parent(scene_node_id node) const noexcept;
   void detach_entity(std::uint64_t entity) noexcept;
@@ -44,7 +39,7 @@ private:
     scene_node_id parent = null_scene_node_id;
     std::vector<scene_node_id> children;
     std::uint64_t entity = UINT64_C(0);
-    gneiss::engine::math::transform local = gneiss::engine::math::transform{};
+    math::transform local = math::transform{};
   };
   struct slot {
     std::unique_ptr<node> value;

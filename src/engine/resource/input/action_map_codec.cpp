@@ -37,9 +37,8 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
 
 namespace gneiss::engine {
 
-gneiss::engine::result
-parse_action_map(std::string_view json, action_map& out_map,
-                 gneiss::engine::meta::serialization_diagnostic* diagnostic) noexcept {
+result parse_action_map(std::string_view json, action_map& out_map,
+                        meta::serialization_diagnostic* diagnostic) noexcept {
   try {
     if (diagnostic)
       *diagnostic = {};
@@ -47,7 +46,7 @@ parse_action_map(std::string_view json, action_map& out_map,
     const auto reject = [&](std::string_view message, std::size_t offset = 0U) {
       if (diagnostic)
         *diagnostic = {offset, path, std::string(message)};
-      return gneiss::engine::result::invalid_argument;
+      return result::invalid_argument;
     };
     if (json.size() > maximum_action_map_bytes)
       return reject("输入映射超过 1 MiB 上限");
@@ -126,11 +125,11 @@ parse_action_map(std::string_view json, action_map& out_map,
     if (diagnostic)
       *diagnostic = {};
     out_map = std::move(candidate);
-    return gneiss::engine::result::success;
+    return result::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return result::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return result::internal;
   }
 }
 
@@ -138,7 +137,7 @@ parse_action_map(std::string_view json, action_map& out_map,
 
 namespace gneiss::engine {
 result decode_action_map(std::span<const std::byte> bytes, action_map& output,
-                         gneiss::engine::meta::serialization_diagnostic& diagnostic) noexcept {
+                         meta::serialization_diagnostic& diagnostic) noexcept {
   return parse_action_map({reinterpret_cast<const char*>(bytes.data()), bytes.size()}, output,
                           &diagnostic);
 }

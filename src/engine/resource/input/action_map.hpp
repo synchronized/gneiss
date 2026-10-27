@@ -43,7 +43,7 @@ struct action_map final {
 };
 
 /** 原生构造与 JSON 加载共享语义约束；不改变输入映射。 */
-[[nodiscard]] gneiss::engine::result validate_action_map(const action_map& map) noexcept;
+[[nodiscard]] result validate_action_map(const action_map& map) noexcept;
 
 } // namespace gneiss::engine
 
