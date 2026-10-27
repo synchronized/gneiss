@@ -392,12 +392,12 @@ engine::result render_resource_service::prepare_material_data(
     const material_data& value, std::shared_ptr<const material_data>& output) noexcept {
   output.reset();
   const auto& parameters = value.parameters;
-  if (!is_valid() || !std::ranges::all_of(parameters.color, valid_color) ||
+  if (!is_valid() || !std::ranges::all_of(math::components(parameters.color), valid_color) ||
       !valid_color(parameters.metallic) || !valid_color(parameters.roughness)) {
     return engine::result::invalid_argument;
   }
   if (!std::isfinite(parameters.normal_scale) || !valid_color(parameters.occlusion_strength) ||
-      !std::ranges::all_of(parameters.emissive, valid_color) ||
+      !std::ranges::all_of(math::components(parameters.emissive), valid_color) ||
       parameters.alpha_mode > material_alpha_mode::blend ||
       !std::isfinite(parameters.alpha_cutoff) || parameters.alpha_cutoff < 0.0F) {
     return engine::result::invalid_argument;

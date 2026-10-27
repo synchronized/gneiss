@@ -155,11 +155,13 @@ using namespace detail;
     return diagnostic.result;
   }
   yyjson_val* color = yyjson_obj_get(root, "color");
-  if (!yyjson_is_arr(color) || yyjson_arr_size(color) != out_source.parameters.color.size()) {
+  if (!yyjson_is_arr(color) ||
+      yyjson_arr_size(color) != math::components(out_source.parameters.color).size()) {
     fail(diagnostic, result::invalid_argument, "/color", "颜色必须包含四个分量");
     return diagnostic.result;
   }
-  for (std::size_t index = 0; index < out_source.parameters.color.size(); ++index) {
+  for (std::size_t index = 0; index < math::components(out_source.parameters.color).size();
+       ++index) {
     if (!read_float(yyjson_arr_get(color, index), out_source.parameters.color[index]) ||
         out_source.parameters.color[index] < 0.0F || out_source.parameters.color[index] > 1.0F) {
       fail(diagnostic, result::invalid_argument, "/color/" + std::to_string(index),
@@ -226,9 +228,9 @@ result encode_material(const material_description& object, std::vector<std::byte
   bool finite = std::isfinite(p.metallic) && std::isfinite(p.roughness) &&
                 std::isfinite(p.normal_scale) && std::isfinite(p.occlusion_strength) &&
                 std::isfinite(p.alpha_cutoff);
-  for (float number : p.color)
+  for (float number : math::components(p.color))
     finite = finite && std::isfinite(number);
-  for (float number : p.emissive)
+  for (float number : math::components(p.emissive))
     finite = finite && std::isfinite(number);
   if (!finite || p.alpha_mode > material_alpha_mode::blend) {
     diagnostic.message = "材质包含非有限数值或未知透明模式";
@@ -264,12 +266,12 @@ result encode_material(const material_description& object, std::vector<std::byte
   };
   put("format", yyjson_mut_str(doc, "gneiss.material"));
   put("version", yyjson_mut_uint(doc, 5));
-  put("color", floats(p.color));
+  put("color", floats(math::components(p.color)));
   put("metallic", yyjson_mut_real(doc, p.metallic));
   put("roughness", yyjson_mut_real(doc, p.roughness));
   put("normal_scale", yyjson_mut_real(doc, p.normal_scale));
   put("occlusion_strength", yyjson_mut_real(doc, p.occlusion_strength));
-  put("emissive", floats(p.emissive));
+  put("emissive", floats(math::components(p.emissive)));
   constexpr std::array slots{"base_color_texture", "metallic_roughness_texture", "normal_texture",
                              "occlusion_texture", "emissive_texture"};
   for (std::size_t slot = 0; slot < slots.size(); ++slot) {

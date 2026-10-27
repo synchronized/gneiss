@@ -181,8 +181,8 @@ int main() try {
       scene.prefab_instances.size() != 1U || scene.prefab_instances[0].overrides.size() != 1U ||
       scene.prefab_instances[0].overrides[0].key.node.instance_uuid !=
           scene.prefab_instances[0].instance_uuid ||
-      std::get<std::array<float, 3>>(scene.prefab_instances[0].overrides[0].value.payload)[0] !=
-          4.0F ||
+      std::get<gneiss::engine::math::vector3>(
+          scene.prefab_instances[0].overrides[0].value.payload)[0] != 4.0F ||
       gneiss::engine::serialize_scene_description(scene, serialized) !=
           gneiss::engine::result::success ||
       serialized.find(R"("kind":"vec3")") == std::string::npos ||
@@ -214,7 +214,7 @@ int main() try {
       R"("kind":"float64","value":2.5)",
       R"("kind":"string","value":"text")",
       R"("kind":"type_id","value":"69644f20b2d24e488c7491f4f952ec2d")",
-      R"("kind":"quaternion","value":[0,0,0,1])",
+      R"("kind":"quaternion","value":[0.1,0.2,0.3,0.9])",
   };
   for (const auto value : other_values) {
     const auto candidate =
@@ -224,6 +224,17 @@ int main() try {
         gneiss::engine::serialize_scene_description(scene, serialized) !=
             gneiss::engine::result::success) {
       return 5;
+    }
+    gneiss::engine::scene_description roundtrip;
+    if (gneiss::engine::parse_scene_description(serialized, roundtrip, diagnostic).failed() ||
+        roundtrip.prefab_instances[0].overrides[0].value !=
+            scene.prefab_instances[0].overrides[0].value)
+      return 5;
+    if (value.find("quaternion") != std::string_view::npos) {
+      const auto& q = std::get<gneiss::engine::math::quaternion>(
+          roundtrip.prefab_instances[0].overrides[0].value.payload);
+      if (q.x != 0.1F || q.y != 0.2F || q.z != 0.3F || q.w != 0.9F)
+        return 5;
     }
   }
 

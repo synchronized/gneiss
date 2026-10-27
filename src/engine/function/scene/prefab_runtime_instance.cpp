@@ -43,35 +43,6 @@ to_transform(const gneiss::engine::object_description& object) noexcept {
   return value;
 }
 
-[[nodiscard]] gneiss::engine::result
-to_native_value(const gneiss::engine::prefab_property_value& source,
-                gneiss::engine::value& output) noexcept try {
-  output = {};
-  return std::visit(
-      [&](const auto& payload) -> gneiss::engine::result {
-        using type = std::decay_t<decltype(payload)>;
-        if constexpr (std::is_same_v<type, std::monostate>)
-          return gneiss::engine::result::invalid_argument;
-        else if constexpr (std::is_same_v<type, std::string>)
-          output.payload = payload;
-        else if constexpr (std::is_same_v<type, std::array<std::uint8_t, 16>>)
-          output.payload = gneiss::engine::guid::from_bytes(payload);
-        else if constexpr (std::is_same_v<type, std::array<float, 3>>)
-          output.payload = gneiss::engine::math::vector3{payload[0], payload[1], payload[2]};
-        else if constexpr (std::is_same_v<type, std::array<float, 4>>)
-          output.payload =
-              gneiss::engine::math::quaternion_xyzw(payload[0], payload[1], payload[2], payload[3]);
-        else
-          output.payload = payload;
-        return gneiss::engine::result::success;
-      },
-      source.payload);
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::result::out_of_memory;
-} catch (...) {
-  return gneiss::engine::result::internal;
-}
-
 gneiss::engine::result
 apply_camera(gneiss::engine::world& native_world, std::uint64_t entity,
              const std::optional<gneiss::engine::camera_description>& camera) noexcept {
@@ -519,12 +490,7 @@ engine::result prefab_runtime_instance::prepare_description(
     if (found == candidate.objects.end()) {
       return engine::result::not_found;
     }
-    engine::value native = engine::value{};
-    auto result = to_native_value(value.value, native);
-    if (result != engine::result::success) {
-      return result;
-    }
-    result = apply_candidate_object(state, value, native, *found);
+    const auto result = apply_candidate_object(state, value, value.value, *found);
     if (result != engine::result::success) {
       return result;
     }
@@ -559,13 +525,9 @@ engine::result prefab_runtime_instance::apply_overrides(
     if (found == nodes_.end()) {
       return engine::result::not_found;
     }
-    engine::value native_value = engine::value{};
-    auto result = to_native_value(override_value.value, native_value);
-    if (result == engine::result::success) {
-      result = engine::write_component_property(registry, native_world_, found->entity,
-                                                override_value.key.type_id,
-                                                override_value.key.field_id, native_value);
-    }
+    const auto result = engine::write_component_property(
+        registry, native_world_, found->entity, override_value.key.type_id,
+        override_value.key.field_id, override_value.value);
     if (result != engine::result::success) {
       return result;
     }

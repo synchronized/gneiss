@@ -30,6 +30,8 @@ struct value {
       std::variant<std::monostate, bool, std::int64_t, std::uint64_t, float, double, std::string,
                    engine::guid, math::vector3, math::quaternion>;
   storage_type payload;
+  /** 按类型及分量精确比较；不执行浮点容差或旋转等价比较。 */
+  [[nodiscard]] bool operator==(const value&) const = default;
   [[nodiscard]] value_kind kind() const noexcept {
     return payload.valueless_by_exception() ? value_kind::invalid
                                             : static_cast<value_kind>(payload.index());

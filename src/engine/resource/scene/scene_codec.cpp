@@ -296,26 +296,26 @@ template <std::size_t Size>
   return true;
 }
 
-template <std::size_t Size>
-[[nodiscard]] bool parse_override_float_array(yyjson_val* value,
-                                              std::array<float, Size>& output) noexcept {
-  if (!yyjson_is_arr(value) || yyjson_arr_size(value) != Size) {
+template <class T>
+[[nodiscard]] bool parse_override_float_array(yyjson_val* value, T& output) noexcept {
+  auto components = gneiss::engine::math::components(output);
+  const auto size = components.size();
+  if (!yyjson_is_arr(value) || yyjson_arr_size(value) != size) {
     return false;
   }
-  for (std::size_t index = 0U; index < Size; ++index) {
+  for (std::size_t index = 0U; index < size; ++index) {
     auto* item = yyjson_arr_get(value, index);
     const auto number = yyjson_get_num(item);
     if (!yyjson_is_num(item) || !std::isfinite(number) ||
         std::abs(number) > std::numeric_limits<float>::max()) {
       return false;
     }
-    output[index] = static_cast<float>(number);
+    components[index] = static_cast<float>(number);
   }
   return true;
 }
 
-[[nodiscard]] bool parse_override_value(yyjson_val* object,
-                                        gneiss::engine::prefab_property_value& output) {
+[[nodiscard]] bool parse_override_value(yyjson_val* object, gneiss::engine::value& output) {
   if (!yyjson_is_obj(object)) {
     return false;
   }
@@ -325,7 +325,7 @@ template <std::size_t Size>
     return false;
   }
   const auto kind = json_string(kind_value);
-  gneiss::engine::prefab_property_value parsed;
+  gneiss::engine::value parsed;
   if (kind == "bool" && yyjson_is_bool(value)) {
     parsed.payload = yyjson_get_bool(value);
   } else if (kind == "int64" && yyjson_is_sint(value)) {
@@ -344,17 +344,15 @@ template <std::size_t Size>
     if (!parse_type_id(value, id)) {
       return false;
     }
-    std::array<std::uint8_t, 16> bytes{};
-    std::ranges::copy(id.bytes(), bytes.begin());
-    parsed.payload = bytes;
+    parsed.payload = id;
   } else if (kind == "vec3") {
-    std::array<float, 3> numbers{};
+    gneiss::engine::math::vector3 numbers{};
     if (!parse_override_float_array(value, numbers)) {
       return false;
     }
     parsed.payload = numbers;
   } else if (kind == "quaternion") {
-    std::array<float, 4> numbers{};
+    gneiss::engine::math::quaternion numbers{};
     if (!parse_override_float_array(value, numbers)) {
       return false;
     }
@@ -398,7 +396,7 @@ template <std::size_t Size>
          "Field ID 必须是非零 uint32");
     return false;
   }
-  gneiss::engine::prefab_property_value parsed_value;
+  gneiss::engine::value parsed_value;
   if (!parse_override_value(yyjson_obj_get(value, "value"), parsed_value)) {
     fail(diagnostic, gneiss::engine::result::invalid_argument, path + "/value", "覆盖属性值无效");
     return false;
@@ -661,8 +659,8 @@ template <class Values>
   return text;
 }
 
-[[nodiscard]] yyjson_mut_val*
-make_override_value(yyjson_mut_doc* document, const gneiss::engine::prefab_property_value& source) {
+[[nodiscard]] yyjson_mut_val* make_override_value(yyjson_mut_doc* document,
+                                                  const gneiss::engine::value& source) {
   auto* object = yyjson_mut_obj(document);
   if (object == nullptr) {
     return nullptr;
@@ -691,12 +689,12 @@ make_override_value(yyjson_mut_doc* document, const gneiss::engine::prefab_prope
           return yyjson_mut_obj_add_str(document, object, "kind", "string") &&
                  yyjson_mut_obj_add_strncpy(document, object, "value", payload.data(),
                                             payload.size());
-        } else if constexpr (std::is_same_v<value_type, std::array<std::uint8_t, 16>>) {
-          const gneiss::engine::guid id{gneiss::engine::guid::from_bytes(payload)};
+        } else if constexpr (std::is_same_v<value_type, gneiss::engine::guid>) {
+          const auto& id = payload;
           const auto text = type_id_text(id);
           return yyjson_mut_obj_add_str(document, object, "kind", "type_id") &&
                  yyjson_mut_obj_add_strncpy(document, object, "value", text.data(), text.size());
-        } else if constexpr (std::is_same_v<value_type, std::array<float, 3>>) {
+        } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector3>) {
           return yyjson_mut_obj_add_str(document, object, "kind", "vec3") &&
                  put_value(document, object, "value", make_float_array(document, payload));
         } else {

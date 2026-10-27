@@ -42,6 +42,15 @@ int main() {
   for (std::size_t i = 0; i < values.size(); ++i)
     if (static_cast<std::size_t>(values[i].kind()) != i)
       return 4;
+  // 精确比较保留类型和四元数符号，不把同一旋转视为相同存储值。
+  for (const auto& item : values)
+    if (item != item)
+      return 6;
+  const value rotation{math::quaternion_xyzw(0.1F, 0.2F, 0.3F, 0.9F)};
+  if (value{1.0F} == value{1.0} ||
+      rotation == value{math::quaternion_xyzw(-0.1F, -0.2F, -0.3F, -0.9F)} ||
+      value{math::vector3{1, 2, 3}} == value{math::vector3{1, 2, 4}} || original == moved)
+    return 7;
   // 通用容器不施加反射边界的有限值或文本编码要求。
   value raw{std::string("a\0b", 3)};
   value infinity{std::numeric_limits<float>::infinity()};

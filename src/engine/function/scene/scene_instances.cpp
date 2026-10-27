@@ -680,23 +680,20 @@ engine::result scene_instance::set_prefab_source_transform(scene_node_id node,
       auto pending = description_.prefab_instances[index].overrides;
       const auto type_id = engine::transform_component_type;
       const std::array candidates{
-          engine::prefab_property_override{
-              .key = {.node = *info.address,
-                      .type_id = type_id,
-                      .field_id = transform_translation_field},
-              .value = {.payload = math::component_array(transform.translation)}},
-          engine::prefab_property_override{
-              .key = {.node = *info.address,
-                      .type_id = type_id,
-                      .field_id = transform_rotation_field},
-              .value = {.payload = math::component_array(transform.rotation)}},
+          engine::prefab_property_override{.key = {.node = *info.address,
+                                                   .type_id = type_id,
+                                                   .field_id = transform_translation_field},
+                                           .value = {.payload = transform.translation}},
+          engine::prefab_property_override{.key = {.node = *info.address,
+                                                   .type_id = type_id,
+                                                   .field_id = transform_rotation_field},
+                                           .value = {.payload = transform.rotation}},
           engine::prefab_property_override{
               .key = {.node = *info.address, .type_id = type_id, .field_id = transform_scale_field},
-              .value = {.payload = math::component_array(transform.scale)}}};
-      const std::array source_values{
-          engine::prefab_property_value{.payload = math::component_array(source->translation)},
-          engine::prefab_property_value{.payload = math::component_array(source->rotation)},
-          engine::prefab_property_value{.payload = math::component_array(source->scale)}};
+              .value = {.payload = transform.scale}}};
+      const std::array source_values{engine::value{.payload = source->translation},
+                                     engine::value{.payload = source->rotation},
+                                     engine::value{.payload = source->scale}};
       for (std::size_t field_index = 0U; field_index < candidates.size(); ++field_index) {
         const auto result = set_prefab_property_override(
             registry_, pending, candidates[field_index], source_values[field_index]);

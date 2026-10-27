@@ -222,7 +222,7 @@ int main() try {
                        .source_node_uuid = "10000000-0000-4000-8000-000000000002"},
               .type_id = gneiss::engine::transform_component_type,
               .field_id = gneiss::engine::transform_translation_field},
-      .value = {.payload = std::array{3.0F, 0.0F, 0.0F}},
+      .value = {.payload = gneiss::engine::math::vector3{3.0F, 0.0F, 0.0F}},
   }};
   if (gneiss::engine::prefab_runtime_instance::create(
           native_world, render_loader, std::move(first_lease), registry,
@@ -278,7 +278,7 @@ int main() try {
                        .source_node_uuid = "10000000-0000-4000-8000-000000000099"},
               .type_id = gneiss::engine::transform_component_type,
               .field_id = gneiss::engine::transform_translation_field},
-      .value = {.payload = std::array{3.0F, 0.0F, 0.0F}},
+      .value = {.payload = gneiss::engine::math::vector3{3.0F, 0.0F, 0.0F}},
   }};
   std::unique_ptr<gneiss::engine::prefab_runtime_instance> failed;
   if (!check_visible_prefab(native_world, render_loader, first->prefab_lease(), first->root())) {

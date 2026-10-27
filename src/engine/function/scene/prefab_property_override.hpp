@@ -29,7 +29,7 @@ validate_prefab_property_override(const meta::registry_ref& registry,
 [[nodiscard]] result set_prefab_property_override(const meta::registry_ref& registry,
                                                   std::vector<prefab_property_override>& overrides,
                                                   prefab_property_override candidate,
-                                                  prefab_property_value source_value) noexcept;
+                                                  engine::value source_value) noexcept;
 
 } // namespace gneiss::engine
 

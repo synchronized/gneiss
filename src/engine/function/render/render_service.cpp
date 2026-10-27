@@ -520,8 +520,7 @@ granit::result render_service::implementation::create_material_mirror(
           granit::material_parameter_type::uint32, std::as_bytes(std::span{&uv1_mask, 1})),
       granit::material_parameter_update::value(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_BASE_COLOR),
-          granit::material_parameter_type::float4,
-          std::as_bytes(std::span{color.data(), color.size()})),
+          granit::material_parameter_type::float4, std::as_bytes(math::components(color))),
       granit::material_parameter_update::value(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_METALLIC),
           granit::material_parameter_type::float32,
@@ -539,8 +538,7 @@ granit::result render_service::implementation::create_material_mirror(
           std::as_bytes(std::span{&occlusion_strength, 1})),
       granit::material_parameter_update::value(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_EMISSIVE),
-          granit::material_parameter_type::float3,
-          std::as_bytes(std::span{emissive.data(), emissive.size()})),
+          granit::material_parameter_type::float3, std::as_bytes(math::components(emissive))),
       granit::material_parameter_update::value(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_DEBUG_DISPLAY),
           granit::material_parameter_type::uint32, std::as_bytes(std::span{&debug_display, 1})),

@@ -59,7 +59,7 @@ using namespace gneiss::engine;
   return true;
 }
 
-[[nodiscard]] bool valid_value(const gneiss::engine::prefab_property_value& value) noexcept {
+[[nodiscard]] bool valid_value(const gneiss::engine::value& value) noexcept {
   if (value.payload.valueless_by_exception()) {
     return false;
   }
@@ -73,11 +73,12 @@ using namespace gneiss::engine;
           return std::isfinite(payload);
         } else if constexpr (std::is_same_v<value_type, std::string>) {
           return valid_utf8(payload);
-        } else if constexpr (std::is_same_v<value_type, std::array<std::uint8_t, 16>>) {
-          return std::ranges::any_of(payload, [](std::uint8_t byte) { return byte != 0U; });
-        } else if constexpr (std::is_same_v<value_type, std::array<float, 3>> ||
-                             std::is_same_v<value_type, std::array<float, 4>>) {
-          return std::ranges::all_of(payload, [](float item) { return std::isfinite(item); });
+        } else if constexpr (std::is_same_v<value_type, gneiss::engine::guid>) {
+          return static_cast<bool>(payload);
+        } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector3> ||
+                             std::is_same_v<value_type, gneiss::engine::math::quaternion>) {
+          return std::ranges::all_of(gneiss::engine::math::components(payload),
+                                     [](float item) { return std::isfinite(item); });
         } else {
           return true;
         }
@@ -85,7 +86,7 @@ using namespace gneiss::engine;
       value.payload);
 }
 
-void normalize_zero(gneiss::engine::prefab_property_value& value) noexcept {
+void normalize_zero(gneiss::engine::value& value) noexcept {
   std::visit(
       [](auto& payload) noexcept {
         using value_type = std::decay_t<decltype(payload)>;
@@ -93,9 +94,9 @@ void normalize_zero(gneiss::engine::prefab_property_value& value) noexcept {
           if (payload == 0) {
             payload = 0;
           }
-        } else if constexpr (std::is_same_v<value_type, std::array<float, 3>> ||
-                             std::is_same_v<value_type, std::array<float, 4>>) {
-          for (auto& item : payload) {
+        } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector3> ||
+                             std::is_same_v<value_type, gneiss::engine::math::quaternion>) {
+          for (auto& item : gneiss::engine::math::components(payload)) {
             if (item == 0.0F) {
               item = 0.0F;
             }
@@ -121,7 +122,7 @@ result validate_prefab_property_override(const meta::registry_ref& registry,
   if (found.failed()) {
     return static_cast<result>(found);
   }
-  if (field.kind != engine::prefab_property_value_kind(value.value) ||
+  if (field.kind != value.value.kind() ||
       !has_flags(field.capabilities, meta::property_capabilities::writable)) {
     return result::invalid_argument;
   }
@@ -133,13 +134,12 @@ result validate_prefab_property_override(const meta::registry_ref& registry,
 result set_prefab_property_override(const meta::registry_ref& registry,
                                     std::vector<prefab_property_override>& overrides,
                                     prefab_property_override candidate,
-                                    prefab_property_value source_value) noexcept {
+                                    engine::value source_value) noexcept {
   auto operation = validate_prefab_property_override(registry, candidate);
   if (operation != result::success) {
     return operation;
   }
-  if (!valid_value(source_value) || engine::prefab_property_value_kind(source_value) !=
-                                        engine::prefab_property_value_kind(candidate.value)) {
+  if (!valid_value(source_value) || source_value.kind() != candidate.value.kind()) {
     return result::invalid_argument;
   }
   normalize_zero(candidate.value);

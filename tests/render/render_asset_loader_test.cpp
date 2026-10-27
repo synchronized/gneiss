@@ -373,7 +373,7 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
         value->parameters.color[3] != 0.5F || value->parameters.metallic != 0.25F ||
         value->parameters.roughness != 0.75F || value->parameters.normal_scale != 0.5F ||
         value->parameters.occlusion_strength != 0.25F ||
-        value->parameters.emissive != std::array{0.25F, 0.5F, 0.75F} ||
+        value->parameters.emissive != math::vector3{0.25F, 0.5F, 0.75F} ||
         value->parameters.alpha_mode != gneiss::engine::material_alpha_mode::mask ||
         value->parameters.alpha_cutoff != 0.25F || value->parameters.double_sided != 1U) {
       return false;
@@ -420,7 +420,7 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
       batch.assets.back().bytes !=
           sizeof(material_data) +
               5U * std::string_view("asset://textures/white.texture.json").size() ||
-      batch.assets.back().material.color != std::array{0.25F, 0.5F, 0.75F, 0.5F}) {
+      batch.assets.back().material.color != math::vector4{0.25F, 0.5F, 0.75F, 0.5F}) {
     return false;
   }
   render_asset_loader::asset_update missing;

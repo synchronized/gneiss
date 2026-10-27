@@ -21,7 +21,7 @@ constexpr auto instance_b = "20000000-0000-4000-8000-000000000002";
 constexpr auto source_node = "10000000-0000-4000-8000-000000000002";
 
 [[nodiscard]] gneiss::engine::prefab_property_override
-make_translation(const char* instance, std::array<float, 3> value) {
+make_translation(const char* instance, gneiss::engine::math::vector3 value) {
   return {.key = {.node = {.instance_uuid = instance, .source_node_uuid = source_node},
                   .type_id = gneiss::engine::transform_component_type,
                   .field_id = gneiss::engine::transform_translation_field},
@@ -36,8 +36,7 @@ int main() {
     return 1;
 
   std::vector<gneiss::engine::prefab_property_override> overrides;
-  const gneiss::engine::prefab_property_value source{.payload =
-                                                         std::array<float, 3>{0.0F, 0.0F, 0.0F}};
+  const gneiss::engine::value source{.payload = gneiss::engine::math::vector3{0.0F, 0.0F, 0.0F}};
   auto second = make_translation(instance_b, {2.0F, 0.0F, 0.0F});
   auto first = make_translation(instance_a, {1.0F, 0.0F, 0.0F});
   if (gneiss::engine::validate_prefab_property_override(registry, first) !=
@@ -55,7 +54,7 @@ int main() {
   if (gneiss::engine::set_prefab_property_override(registry, overrides, updated, source) !=
           gneiss::engine::result::success ||
       overrides.size() != 2U ||
-      std::get<std::array<float, 3>>(overrides[0].value.payload)[0] != 3.0F) {
+      std::get<gneiss::engine::math::vector3>(overrides[0].value.payload)[0] != 3.0F) {
     return 3;
   }
 

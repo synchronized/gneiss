@@ -3,6 +3,7 @@
 
 #pragma once
 #include "engine/core/guid.hpp"
+#include "engine/core/math/types.hpp"
 #include "engine/resource/texture/texture_description.hpp"
 #include <array>
 #include <cstdint>
@@ -15,12 +16,12 @@ enum class material_alpha_mode : std::uint32_t { opaque, mask, blend };
 
 /** 描述数据和运行期资源共用的材质参数；不包含纹理 URI 或 RID。 */
 struct material_parameters {
-  std::array<float, 4> color{1.0F, 1.0F, 1.0F, 1.0F};
+  math::vector4 color{1.0F, 1.0F, 1.0F, 1.0F};
   float metallic{};
   float roughness{1.0F};
   float normal_scale{1.0F};
   float occlusion_strength{1.0F};
-  std::array<float, 3> emissive{};
+  math::vector3 emissive{};
   material_alpha_mode alpha_mode{material_alpha_mode::opaque};
   bool double_sided{};
   float alpha_cutoff{0.5F};

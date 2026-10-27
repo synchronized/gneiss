@@ -18,8 +18,10 @@ result debug_draw_list::replace(std::span<const debug_line> lines) noexcept {
   }
   for (const auto& line : lines) {
     if (!std::isfinite(line.width) || line.width <= 0.0F ||
-        !std::ranges::all_of(line.start, [](float value) { return std::isfinite(value); }) ||
-        !std::ranges::all_of(line.end, [](float value) { return std::isfinite(value); })) {
+        !std::ranges::all_of(math::components(line.start),
+                             [](float value) { return std::isfinite(value); }) ||
+        !std::ranges::all_of(math::components(line.end),
+                             [](float value) { return std::isfinite(value); })) {
       return result::invalid_argument;
     }
   }
