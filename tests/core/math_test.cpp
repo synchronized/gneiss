@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/math/aabb.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/core/meta/type.hpp"
 #include <cmath>
@@ -60,6 +61,31 @@ int main() {
   if (is_finite(nonfinite3) || is_finite(affine) ||
       transform_point(affine, vector3{1, 2, 3}, point) || point != preserved)
     return 11;
+  const aabb box{{-2, -4, -6}, {2, 4, 6}};
+  const aabb touching{{2, 4, 6}, {3, 5, 7}};
+  const aabb separate{{3, 5, 7}, {4, 6, 8}};
+  if (!box.is_valid() || box.center() != vector3{0} || box.size() != vector3{4, 8, 12} ||
+      !box.contains(box.min) || !box.contains(box.max) || box.contains(vector3{3, 0, 0}) ||
+      !box.intersects(touching) || !touching.intersects(box) || box.intersects(separate))
+    return 12;
+  const aabb point_box{};
+  const auto enlarged = box.expanded({5, 0, -8});
+  const auto combined = box.merged(separate);
+  if (!point_box.is_valid() || !point_box.contains(vector3{0}) || !point_box.intersects(box) ||
+      enlarged.min != vector3{-2, -4, -8} || enlarged.max != vector3{5, 4, 6} ||
+      combined.min != box.min || combined.max != separate.max)
+    return 13;
+  const aabb reversed{{1, 0, 0}, {0, 1, 1}};
+  const aabb nonfinite{{0, 0, 0}, {std::numeric_limits<float>::infinity(), 1, 1}};
+  const vector3 nan_point{std::numeric_limits<float>::quiet_NaN(), 0, 0};
+  if (reversed.is_valid() || nonfinite.is_valid() || reversed.contains(vector3{0}) ||
+      box.intersects(reversed) || nonfinite.intersects(box) || box.contains(nan_point) ||
+      aabb{nan_point, vector3{1}}.is_valid())
+    return 14;
+  const float largest = std::numeric_limits<float>::max();
+  if (aabb{{largest, 0, 0}, {largest, 0, 0}}.center().x != largest ||
+      aabb{{-largest, 0, 0}, {largest, 0, 0}}.center().x != 0)
+    return 15;
   auto invalid = parent;
   invalid.rotation = quaternion_xyzw(0, 0, 0, 0);
   return is_valid_transform(parent) && !is_valid_transform(invalid) ? 0 : 4;

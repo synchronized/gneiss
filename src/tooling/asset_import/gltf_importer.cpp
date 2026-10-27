@@ -556,7 +556,8 @@ populate_optional_attributes(const fastgltf::Asset& asset, const fastgltf::Primi
     for (std::size_t axis = 0; axis < 3U; ++axis) {
       tangent[axis] = static_cast<float>(t[axis] / length);
     }
-    if (!gneiss::engine::valid_mesh_tangent(tangent, {normal[0], normal[1], normal[2]})) {
+    if (!gneiss::engine::valid_mesh_tangent({tangent[0], tangent[1], tangent[2], tangent[3]},
+                                            {normal[0], normal[1], normal[2]})) {
       return "TANGENT 必须是正交单位切线且手性为正负一";
     }
   }

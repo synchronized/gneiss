@@ -42,8 +42,8 @@ struct mesh_data {
   }
 };
 
-[[nodiscard]] inline bool valid_mesh_tangent(const std::array<float, 4>& tangent,
-                                             const std::array<float, 3>& normal) noexcept {
+[[nodiscard]] inline bool valid_mesh_tangent(const math::vector4& tangent,
+                                             const math::vector3& normal) noexcept {
   const auto length =
       std::sqrt((tangent[0] * tangent[0]) + (tangent[1] * tangent[1]) + (tangent[2] * tangent[2]));
   const auto dot = (tangent[0] * normal[0]) + (tangent[1] * normal[1]) + (tangent[2] * normal[2]);

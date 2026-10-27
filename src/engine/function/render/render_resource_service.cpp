@@ -242,8 +242,7 @@ gneiss::engine::result validate_mesh(const gneiss::engine::mesh_view& desc) noex
   for (std::size_t index = 0; index < tangents.size(); ++index) {
     const auto& tangent = tangents[index];
     const auto& normal = normals[index];
-    if (!gneiss::engine::valid_mesh_tangent({tangent.x, tangent.y, tangent.z, tangent.w},
-                                            {normal.x, normal.y, normal.z})) {
+    if (!gneiss::engine::valid_mesh_tangent(tangent, normal)) {
       return gneiss::engine::result::invalid_argument;
     }
   }

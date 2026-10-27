@@ -45,11 +45,12 @@ void configure(std::ostream& stream) {
   data.tangents.reserve(primitive.vertices.size());
   data.indices = primitive.indices;
   for (const auto& source : primitive.vertices) {
-    data.tangents.push_back(source.tangent);
+    data.tangents.push_back(
+        {source.tangent[0], source.tangent[1], source.tangent[2], source.tangent[3]});
     if (primitive.has_uv1)
-      data.uv1.push_back(source.uv1);
+      data.uv1.push_back({source.uv1[0], source.uv1[1]});
     if (primitive.has_color)
-      data.colors.push_back(source.color);
+      data.colors.push_back({source.color[0], source.color[1], source.color[2], source.color[3]});
     data.vertices.push_back(
         {.position = {source.position[0], source.position[1], source.position[2]},
          .texcoord = {source.texcoord[0], source.texcoord[1]},

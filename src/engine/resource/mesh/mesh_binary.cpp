@@ -63,12 +63,15 @@ template <typename Integer>
 }
 
 [[nodiscard]] bool finite(const mesh_binary_vertex& vertex) noexcept {
-  return std::ranges::all_of(vertex.position, [](float value) { return std::isfinite(value); }) &&
-         std::ranges::all_of(vertex.texcoord, [](float value) { return std::isfinite(value); }) &&
-         std::ranges::all_of(vertex.normal, [](float value) { return std::isfinite(value); });
+  return std::ranges::all_of(math::components(vertex.position),
+                             [](float value) { return std::isfinite(value); }) &&
+         std::ranges::all_of(math::components(vertex.texcoord),
+                             [](float value) { return std::isfinite(value); }) &&
+         std::ranges::all_of(math::components(vertex.normal),
+                             [](float value) { return std::isfinite(value); });
 }
 
-[[nodiscard]] bool valid_normal(const std::array<float, 3>& normal) noexcept {
+[[nodiscard]] bool valid_normal(const math::vector3& normal) noexcept {
   const auto length =
       std::sqrt((normal[0] * normal[0]) + (normal[1] * normal[1]) + (normal[2] * normal[2]));
   return std::abs(length - 1.0F) <= 1.0e-4F;
@@ -108,8 +111,9 @@ mesh_binary_result encode_mesh_binary(const mesh_binary_data& data, std::vector<
             data.uv1,
             [](const auto& uv) { return std::isfinite(uv[0]) && std::isfinite(uv[1]); }) ||
         !std::ranges::all_of(data.colors, [](const auto& color) {
-          return std::ranges::all_of(
-              color, [](float v) { return std::isfinite(v) && v >= 0.0F && v <= 1.0F; });
+          return std::ranges::all_of(math::components(color), [](float v) {
+            return std::isfinite(v) && v >= 0.0F && v <= 1.0F;
+          });
         })) {
       fail(diagnostic, mesh_binary_result::invalid_data, 0, "UV1/顶点色数量或数值无效");
       return diagnostic.result;
@@ -125,17 +129,13 @@ mesh_binary_result encode_mesh_binary(const mesh_binary_data& data, std::vector<
         return diagnostic.result;
       }
     }
-    auto bounds_min = data.vertices.front().position;
-    auto bounds_max = bounds_min;
+    math::aabb bounds{data.vertices.front().position, data.vertices.front().position};
     for (const auto& vertex : data.vertices) {
       if (!finite(vertex) || !valid_normal(vertex.normal)) {
         fail(diagnostic, mesh_binary_result::invalid_data, 0, "Mesh 顶点包含无效数值或非单位法线");
         return diagnostic.result;
       }
-      for (std::size_t axis = 0; axis < 3U; ++axis) {
-        bounds_min[axis] = std::min(bounds_min[axis], vertex.position[axis]);
-        bounds_max[axis] = std::max(bounds_max[axis], vertex.position[axis]);
-      }
+      bounds = bounds.expanded(vertex.position);
     }
     for (const auto index : data.indices) {
       if (index >= data.vertices.size()) {
@@ -159,33 +159,34 @@ mesh_binary_result encode_mesh_binary(const mesh_binary_data& data, std::vector<
     append_integer(output, vertex_offset);
     append_integer(output, indices_offset);
     append_integer(output, file_size);
-    for (const auto value : bounds_min) {
+    for (const auto value : math::components(bounds.min)) {
       append_float(output, value);
     }
-    for (const auto value : bounds_max) {
+    for (const auto value : math::components(bounds.max)) {
       append_float(output, value);
     }
     append_integer(output, UINT64_C(0));
     for (std::size_t index = 0; index < data.vertices.size(); ++index) {
       const auto& vertex = data.vertices[index];
-      for (const auto value : vertex.position) {
+      for (const auto value : math::components(vertex.position)) {
         append_float(output, value);
       }
-      for (const auto value : vertex.texcoord) {
+      for (const auto value : math::components(vertex.texcoord)) {
         append_float(output, value);
       }
-      for (const auto value : vertex.normal) {
+      for (const auto value : math::components(vertex.normal)) {
         append_float(output, value);
       }
       if (!data.tangents.empty()) {
-        for (const auto value : data.tangents[index])
+        for (const auto value : math::components(data.tangents[index]))
           append_float(output, value);
       }
       if (extended) {
-        for (const auto value : (data.uv1.empty() ? std::array<float, 2>{} : data.uv1[index]))
+        const auto uv = data.uv1.empty() ? math::vector2{} : data.uv1[index];
+        const auto color = data.colors.empty() ? math::vector4{1, 1, 1, 1} : data.colors[index];
+        for (const auto value : math::components(uv))
           append_float(output, value);
-        for (const auto value :
-             (data.colors.empty() ? std::array<float, 4>{1, 1, 1, 1} : data.colors[index]))
+        for (const auto value : math::components(color))
           append_float(output, value);
       }
     }
@@ -246,10 +247,10 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
       return diagnostic.result;
     }
     for (std::size_t axis = 0; axis < 3U; ++axis) {
-      output.bounds_min[axis] = read_float(bytes, 48U + (axis * 4U));
-      output.bounds_max[axis] = read_float(bytes, 60U + (axis * 4U));
-      if (!std::isfinite(output.bounds_min[axis]) || !std::isfinite(output.bounds_max[axis]) ||
-          output.bounds_min[axis] > output.bounds_max[axis]) {
+      output.bounds.min[axis] = read_float(bytes, 48U + (axis * 4U));
+      output.bounds.max[axis] = read_float(bytes, 60U + (axis * 4U));
+      if (!std::isfinite(output.bounds.min[axis]) || !std::isfinite(output.bounds.max[axis]) ||
+          output.bounds.min[axis] > output.bounds.max[axis]) {
         fail(diagnostic, mesh_binary_result::invalid_data, 48U + (axis * 4U),
              "Mesh Binary 包围盒无效");
         return diagnostic.result;
@@ -282,13 +283,14 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
         }
       }
       if (version == 3U) {
-        std::array<float, 2> uv{read_float(bytes, offset + 48U), read_float(bytes, offset + 52U)};
-        std::array<float, 4> color{};
+        math::vector2 uv{read_float(bytes, offset + 48U), read_float(bytes, offset + 52U)};
+        math::vector4 color{};
         for (std::size_t component = 0; component < 4U; ++component)
           color[component] = read_float(bytes, offset + 56U + component * 4U);
         if (!std::isfinite(uv[0]) || !std::isfinite(uv[1]) ||
-            !std::ranges::all_of(
-                color, [](float v) { return std::isfinite(v) && v >= 0.0F && v <= 1.0F; })) {
+            !std::ranges::all_of(math::components(color), [](float v) {
+              return std::isfinite(v) && v >= 0.0F && v <= 1.0F;
+            })) {
           fail(diagnostic, mesh_binary_result::invalid_data, offset + 48U, "UV1/顶点色无效");
           return diagnostic.result;
         }
@@ -311,7 +313,7 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
         calculated_max[axis] = std::max(calculated_max[axis], vertex.position[axis]);
       }
     }
-    if (calculated_min != output.bounds_min || calculated_max != output.bounds_max) {
+    if (calculated_min != output.bounds.min || calculated_max != output.bounds.max) {
       fail(diagnostic, mesh_binary_result::invalid_data, 48, "Mesh Binary 包围盒与顶点不一致");
       return diagnostic.result;
     }

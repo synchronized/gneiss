@@ -485,7 +485,7 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
       test.back ? std::vector<std::uint32_t>{2, 1, 0} : std::vector<std::uint32_t>{0, 1, 2};
   mesh.tangents.assign(3, {1, 0, 0, 1});
   mesh.uv1.assign(3, {0.75F, 0.5F});
-  mesh.colors.assign(3, test.color);
+  mesh.colors.assign(3, {test.color[0], test.color[1], test.color[2], test.color[3]});
   std::vector<std::byte> bytes;
   gneiss::engine::mesh_binary_diagnostic diagnostic;
   check(gneiss::engine::encode_mesh_binary(mesh, bytes, diagnostic) ==

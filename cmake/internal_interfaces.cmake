@@ -4,6 +4,7 @@ include(internal_headers)
 
 # SDK 撤销期间的仓内共享值及转换辅助，不安装、不暴露实现目录。
 gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
+  engine/core/math/aabb.hpp
   engine/core/math/functions.hpp
   engine/core/math/transform.hpp
   engine/core/math/types.hpp

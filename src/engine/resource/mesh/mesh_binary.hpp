@@ -4,7 +4,7 @@
 #ifndef GNEISS_ASSET_MESH_BINARY_HPP_
 #define GNEISS_ASSET_MESH_BINARY_HPP_
 
-#include <array>
+#include "engine/core/math/aabb.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -14,20 +14,20 @@
 namespace gneiss::engine {
 
 struct mesh_binary_vertex final {
-  std::array<float, 3> position{};
-  std::array<float, 2> texcoord{};
-  std::array<float, 3> normal{};
+  math::vector3 position{};
+  math::vector2 texcoord{};
+  math::vector3 normal{};
 };
 
 struct mesh_binary_data final {
   std::vector<mesh_binary_vertex> vertices;
   std::vector<std::uint32_t> indices;
-  std::array<float, 3> bounds_min{};
-  std::array<float, 3> bounds_max{};
+  /** 解码得到的局部包围盒；编码时根据顶点重算，不信任此字段。 */
+  math::aabb bounds{};
   /** 为空时编码 v1；非空时编码 v2，存在 UV1/颜色时编码 v3。 */
-  std::vector<std::array<float, 4>> tangents{};
-  std::vector<std::array<float, 2>> uv1{};
-  std::vector<std::array<float, 4>> colors{};
+  std::vector<math::vector4> tangents{};
+  std::vector<math::vector2> uv1{};
+  std::vector<math::vector4> colors{};
 };
 
 enum class mesh_binary_result : std::uint8_t { success, invalid_data, unsupported_version };
