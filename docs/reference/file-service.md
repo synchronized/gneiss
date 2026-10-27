@@ -73,6 +73,9 @@ scheme 仅允许小写英文字母；路径须有效 UTF-8，拒绝控制字符�
 write/flush 只选择唯一 writer；缺少 writer 时提交返回 unsupported。
 Application 的 asset:// 默认只读；Editor 通过 application_configuration::writable_assets 显式启用
 本地写入后端。远程 Fetch 后端仍不支持写入。
+`application_configuration::user_root` 非空时额外挂载独立可写 `user://`；原生目录由宿主提前准备，
+与 asset:// 共用文件服务及 I/O 执行器。布局只向 user:// 写入，不污染资产目录。
+Emscripten 本地路径使用 existing FS 后端；该配置不自动创建 IDBFS 挂载或承诺持久化。
 
 分页游标为服务生成的不透明字符串，只能原样用于同一服务、同一路径。
 后续页固定到原读取后端，不因覆盖链中新出现目录而切换；跨路径游标提交失败。

@@ -20,6 +20,7 @@
 #include <atomic>
 #include <optional>
 #include <thread>
+#include <tuple>
 #ifdef GNEISS_NATIVE_LOOP_WAIT
 #include "runtime/main_loop_wakeup.hpp"
 #endif
@@ -285,17 +286,24 @@ gneiss::engine::result application::initialize() noexcept {
   try {
     storage_->files_ = std::make_shared<engine::file_service>(
         engine::file_service_options{.max_file_bytes = 64U * 1024U * 1024U});
-    if (!storage_->config_.asset_root.empty()) {
+    for (const auto& [prefix, root, writable] :
+         {std::tuple<std::string_view, std::string_view, bool>{
+              "asset://", storage_->config_.asset_root, storage_->config_.writable_assets},
+          {"user://", storage_->config_.user_root, true}}) {
+      if (root.empty())
+        continue;
       std::shared_ptr<engine::file_backend> backend;
 #ifdef GNEISS_ASSET_LIBUV
-      storage_->asset_io_executor_ = std::make_unique<engine::uv_loop_executor>();
-      const auto started = storage_->asset_io_executor_->start();
-      if (started.failed())
-        return started;
-      backend = std::make_shared<engine::native_file_backend>(
-          *storage_->asset_io_executor_, std::string(storage_->config_.asset_root));
+      if (!storage_->asset_io_executor_) {
+        storage_->asset_io_executor_ = std::make_unique<engine::uv_loop_executor>();
+        const auto started = storage_->asset_io_executor_->start();
+        if (started.failed())
+          return started;
+      }
+      backend = std::make_shared<engine::native_file_backend>(*storage_->asset_io_executor_,
+                                                              std::string(root));
 #elif defined(__EMSCRIPTEN__)
-      auto base = std::string(storage_->config_.asset_root);
+      auto base = std::string(root);
       if (base.starts_with('/') && !base.starts_with("//")) {
         while (base.size() > 1 && base.ends_with('/'))
           base.pop_back();
@@ -313,11 +321,10 @@ gneiss::engine::result application::initialize() noexcept {
 #else
       return engine::result::unsupported;
 #endif
-      const auto mounted =
-          storage_->files_->mount({.prefix = "asset://",
-                                   .readers = {backend},
-                                   .writer = storage_->config_.writable_assets ? backend : nullptr,
-                                   .source = {}});
+      const auto mounted = storage_->files_->mount({.prefix = std::string(prefix),
+                                                    .readers = {backend},
+                                                    .writer = writable ? backend : nullptr,
+                                                    .source = {}});
       if (mounted.failed())
         return mounted;
     }

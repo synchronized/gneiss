@@ -6,7 +6,7 @@
 
 #include "engine/core/result.hpp"
 
-#include <filesystem>
+#include "engine/platform/files/file_service.hpp"
 
 namespace gneiss::editor {
 
@@ -20,15 +20,38 @@ struct editor_panel_visibility final {
   bool console = true;
 };
 
-/** 从用户配置根加载当前工程的布局；无有效布局时使用默认工作区。 */
-[[nodiscard]] gneiss::engine::result
-initialize_editor_layout(const std::filesystem::path& user_state_file,
-                         const std::filesystem::path& project_root,
-                         editor_panel_visibility& visibility) noexcept;
+/** 布局异步状态；回调仅持有回执，advance 必须在 ImGui 帧开始前调用。
+ * 服务由宿主驱动并保活至保存完成；销毁对象不阻塞，也不访问 ImGui。 */
+class editor_layout final {
+public:
+  editor_layout() = default;
+  editor_layout(const editor_layout&) = delete;
+  editor_layout& operator=(const editor_layout&) = delete;
+  [[nodiscard]] engine::result initialize(std::shared_ptr<engine::file_service> files,
+                                          std::string_view project_key,
+                                          editor_panel_visibility& visibility) noexcept;
+  [[nodiscard]] engine::result advance(editor_panel_visibility& visibility) noexcept;
+  [[nodiscard]] engine::result save(const editor_panel_visibility& visibility) noexcept;
+  [[nodiscard]] bool loading() const noexcept { return read_ != nullptr; }
+  [[nodiscard]] bool saving() const noexcept { return write_ && !write_->complete; }
+  [[nodiscard]] engine::result save_result() const noexcept;
+  [[nodiscard]] std::string_view uri() const noexcept { return uri_; }
 
-/** 原子保存当前工程布局；失败不会破坏上一份有效布局。 */
-[[nodiscard]] gneiss::engine::result
-save_editor_layout(const editor_panel_visibility& visibility) noexcept;
+private:
+  struct read_receipt {
+    bool complete{};
+    engine::file_completion<engine::file_bytes> value{engine::result::not_ready};
+  };
+  struct write_receipt {
+    bool complete{};
+    engine::result status{engine::result::not_ready};
+  };
+  std::shared_ptr<engine::file_service> files_;
+  std::shared_ptr<read_receipt> read_;
+  std::shared_ptr<write_receipt> write_;
+  std::string uri_;
+  std::uint64_t reset_generation_{};
+};
 
 /** 丢弃当前布局，并在本帧重建默认工作区。 */
 void reset_editor_layout() noexcept;

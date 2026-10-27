@@ -36,6 +36,8 @@ struct application_configuration final {
   std::string_view asset_root;
   /** 编辑器显式允许单文件保存；Runtime 默认只读，远程 Fetch 不支持写入。 */
   bool writable_assets = false;
+  /** 宿主准备的用户配置目录；非空时挂载可写 user://，不属于资产来源。 */
+  std::string_view user_root;
   std::string_view environment_asset;
   float environment_intensity = 1.0F;
   float environment_rotation_radians = 0.0F;

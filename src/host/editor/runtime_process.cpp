@@ -545,13 +545,13 @@ gneiss::engine::result runtime_process::request_stop() noexcept {
   if (!is_running()) {
     return gneiss::engine::result::not_ready;
   }
+  // 通知失败也必须让所属线程的 update 在截止后收尾，不能把退出等待留给析构。
+  if (implementation_->stop_deadline == std::chrono::steady_clock::time_point{})
+    implementation_->stop_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
   if (implementation_->ipc_session.is_authenticated()) {
     const auto operation = implementation_->ipc_session.request_stop();
     if (operation == gneiss::engine::result::success) {
       implementation_->control_state = runtime_control_state::stopping;
-      if (implementation_->stop_deadline == std::chrono::steady_clock::time_point{}) {
-        implementation_->stop_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
-      }
       return gneiss::engine::result::success;
     }
   }
@@ -560,9 +560,6 @@ gneiss::engine::result runtime_process::request_stop() noexcept {
     signal.flush();
     if (!signal) {
       return gneiss::engine::result::io;
-    }
-    if (implementation_->stop_deadline == std::chrono::steady_clock::time_point{}) {
-      implementation_->stop_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
     }
     return gneiss::engine::result::success;
   } catch (...) {

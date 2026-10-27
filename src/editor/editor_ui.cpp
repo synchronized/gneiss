@@ -14,17 +14,11 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
-#include <fstream>
 #include <iomanip>
-#include <iterator>
+#include <span>
 #include <sstream>
 #include <string>
 #include <system_error>
-
-#if defined(_WIN32)
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#endif
 
 namespace gneiss::editor {
 namespace {
@@ -38,17 +32,11 @@ constexpr std::string_view layout_header_v2 = "GNEISS_EDITOR_LAYOUT 2\n";
 constexpr std::string_view panel_prefix = "PANELS ";
 constexpr std::size_t maximum_layout_size = 1024U * 1024U;
 
-std::filesystem::path active_layout_path;
 bool reset_layout_requested = false;
+std::uint64_t reset_generation{};
 
-[[nodiscard]] std::string normalized_project_key(const std::filesystem::path& project_root) {
-  std::error_code error;
-  auto normalized = std::filesystem::weakly_canonical(project_root, error);
-  if (error) {
-    normalized = project_root.lexically_normal();
-  }
-  const auto text = normalized.generic_u8string();
-  std::string key(reinterpret_cast<const char*>(text.data()), text.size());
+[[nodiscard]] std::string normalized_project_key(std::string_view project_key) {
+  std::string key(project_key);
 #if defined(_WIN32)
   std::ranges::transform(
       key, key.begin(), [](unsigned char value) { return static_cast<char>(std::tolower(value)); });
@@ -65,22 +53,6 @@ bool reset_layout_requested = false;
   std::ostringstream output;
   output << std::hex << std::setfill('0') << std::setw(16) << hash;
   return output.str();
-}
-
-[[nodiscard]] bool write_text(const std::filesystem::path& path, std::string_view text) {
-  std::ofstream stream(path, std::ios::binary | std::ios::trunc);
-  stream.write(text.data(), static_cast<std::streamsize>(text.size()));
-  return static_cast<bool>(stream);
-}
-
-[[nodiscard]] bool replace_file(const std::filesystem::path& source,
-                                const std::filesystem::path& destination) {
-#if defined(_WIN32)
-  return MoveFileExW(source.c_str(), destination.c_str(),
-                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;
-#else
-  return std::rename(source.c_str(), destination.c_str()) == 0;
-#endif
 }
 
 void build_default_workspace(ImGuiID dockspace_id, const ImGuiViewport& viewport) noexcept {
@@ -109,26 +81,53 @@ void build_default_workspace(ImGuiID dockspace_id, const ImGuiViewport& viewport
 
 } // namespace
 
-gneiss::engine::result initialize_editor_layout(const std::filesystem::path& user_state_file,
-                                                const std::filesystem::path& project_root,
-                                                editor_panel_visibility& visibility) noexcept {
+engine::result editor_layout::initialize(std::shared_ptr<engine::file_service> files,
+                                         std::string_view project_key,
+                                         editor_panel_visibility& visibility) noexcept try {
+  if (!files || project_key.empty() || saving())
+    return engine::result::invalid_argument;
+  visibility = {};
+  write_.reset();
+  files_ = std::move(files);
+  uri_ = "user://" + stable_project_hash(normalized_project_key(project_key)) + ".layout";
+  reset_layout_requested = true;
+  reset_generation_ = reset_generation;
+  auto receipt = std::make_shared<read_receipt>();
+  engine::file_request_id request;
+  const auto status = files_->read(
+      uri_, {maximum_layout_size},
+      [receipt](auto value) {
+        receipt->value = std::move(value);
+        receipt->complete = true;
+      },
+      request);
+  read_ = status.ok() ? std::move(receipt) : nullptr;
+  return status;
+} catch (const std::bad_alloc&) {
+  return engine::result::out_of_memory;
+} catch (...) {
+  return engine::result::internal;
+}
+
+engine::result editor_layout::advance(editor_panel_visibility& visibility) noexcept {
+  if (!read_)
+    return engine::result::success;
+  if (!read_->complete)
+    return engine::result::not_ready;
+  auto receipt = std::move(read_);
+  if (reset_generation_ != reset_generation)
+    return engine::result::success;
+  if (receipt->value.status == engine::result::not_found)
+    return engine::result::success;
+  if (receipt->value.status.failed())
+    return receipt->value.status;
   try {
-    visibility = {};
-    active_layout_path = user_state_file.parent_path() / "layouts" /
-                         (stable_project_hash(normalized_project_key(project_root)) + ".layout");
-    reset_layout_requested = false;
-    std::ifstream stream(active_layout_path, std::ios::binary);
-    if (!stream) {
-      return gneiss::engine::result::success;
-    }
-    const std::string contents{std::istreambuf_iterator<char>(stream),
-                               std::istreambuf_iterator<char>()};
-    if (contents.size() > maximum_layout_size) {
-      return gneiss::engine::result::invalid_argument;
-    }
+    const std::string_view contents(reinterpret_cast<const char*>(receipt->value.data.data()),
+                                    receipt->value.data.size());
+    editor_panel_visibility loaded;
     std::string_view ini;
     if (contents.starts_with(layout_header_v1)) {
-      visibility = {};
+      loaded = {};
       ini = std::string_view(contents).substr(layout_header_v1.size());
     } else if (contents.starts_with(layout_header_v2)) {
       auto remaining = std::string_view(contents).substr(layout_header_v2.size());
@@ -144,11 +143,11 @@ gneiss::engine::result initialize_editor_layout(const std::filesystem::path& use
       if (!std::ranges::all_of(flags, [](char value) { return value == '0' || value == '1'; })) {
         return gneiss::engine::result::invalid_argument;
       }
-      visibility = {.scene_hierarchy = flags[0] == '1',
-                    .asset_browser = flags[1] == '1',
-                    .scene_view = flags[2] == '1',
-                    .inspector = flags[3] == '1',
-                    .console = flags[4] == '1'};
+      loaded = {.scene_hierarchy = flags[0] == '1',
+                .asset_browser = flags[1] == '1',
+                .scene_view = flags[2] == '1',
+                .inspector = flags[3] == '1',
+                .console = flags[4] == '1'};
       ini = remaining.substr(newline + 1U);
     } else {
       return gneiss::engine::result::invalid_argument;
@@ -156,6 +155,8 @@ gneiss::engine::result initialize_editor_layout(const std::filesystem::path& use
     if (ini.empty()) {
       return gneiss::engine::result::invalid_argument;
     }
+    visibility = loaded;
+    reset_layout_requested = false;
     ImGui::LoadIniSettingsFromMemory(ini.data(), ini.size());
     return gneiss::engine::result::success;
   } catch (const std::bad_alloc&) {
@@ -165,10 +166,13 @@ gneiss::engine::result initialize_editor_layout(const std::filesystem::path& use
   }
 }
 
-gneiss::engine::result save_editor_layout(const editor_panel_visibility& visibility) noexcept {
-  if (active_layout_path.empty()) {
-    return gneiss::engine::result::invalid_state;
-  }
+engine::result editor_layout::save(const editor_panel_visibility& visibility) noexcept {
+  if (!files_ || uri_.empty())
+    return engine::result::invalid_state;
+  if (saving())
+    return engine::result::not_ready;
+  // 退出保存优先，迟到读取不能再覆盖当前用户布局。
+  read_.reset();
   try {
     std::size_t size = 0U;
     const auto* data = ImGui::SaveIniSettingsToMemory(&size);
@@ -176,13 +180,6 @@ gneiss::engine::result save_editor_layout(const editor_panel_visibility& visibil
         size + layout_header_v2.size() + panel_prefix.size() + 6U > maximum_layout_size) {
       return gneiss::engine::result::invalid_state;
     }
-    std::error_code error;
-    std::filesystem::create_directories(active_layout_path.parent_path(), error);
-    if (error) {
-      return gneiss::engine::result::io;
-    }
-    auto temporary = active_layout_path;
-    temporary += ".tmp";
     std::string contents(layout_header_v2);
     contents.append(panel_prefix);
     contents.push_back(visibility.scene_hierarchy ? '1' : '0');
@@ -192,14 +189,18 @@ gneiss::engine::result save_editor_layout(const editor_panel_visibility& visibil
     contents.push_back(visibility.console ? '1' : '0');
     contents.push_back('\n');
     contents.append(data, size);
-    if (!write_text(temporary, contents)) {
-      return gneiss::engine::result::io;
-    }
-    if (!replace_file(temporary, active_layout_path)) {
-      std::filesystem::remove(temporary, error);
-      return gneiss::engine::result::io;
-    }
-    return gneiss::engine::result::success;
+    auto receipt = std::make_shared<write_receipt>();
+    const auto bytes = std::as_bytes(std::span{contents.data(), contents.size()});
+    engine::file_request_id request;
+    const auto status = files_->write(
+        uri_, {bytes.begin(), bytes.end()}, {},
+        [receipt](auto status) {
+          receipt->status = status;
+          receipt->complete = true;
+        },
+        request);
+    write_ = status.ok() ? std::move(receipt) : nullptr;
+    return status;
   } catch (const std::bad_alloc&) {
     return gneiss::engine::result::out_of_memory;
   } catch (...) {
@@ -207,7 +208,13 @@ gneiss::engine::result save_editor_layout(const editor_panel_visibility& visibil
   }
 }
 
-void reset_editor_layout() noexcept { reset_layout_requested = true; }
+engine::result editor_layout::save_result() const noexcept {
+  return write_ && write_->complete ? write_->status : engine::result::not_ready;
+}
+void reset_editor_layout() noexcept {
+  reset_layout_requested = true;
+  ++reset_generation;
+}
 
 void begin_editor_workspace() noexcept {
   const auto* viewport = ImGui::GetMainViewport();

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "project_manager.hpp"
+#include <thread>
 
 #include "editor_theme.hpp"
 #include "imgui_adapter.hpp"
@@ -237,6 +238,17 @@ gneiss::engine::result run_project_manager(bool smoke, editor_project& output) n
       }
     }
     state.ui.shutdown(*application);
+    // 正常退出显式收尾文件回执与服务，不依赖 Application 析构等待。
+    auto closing = application->request_shutdown();
+    if (closing.ok()) {
+      do {
+        closing = application->advance_shutdown();
+        if (closing == gneiss::engine::result::not_ready)
+          std::this_thread::yield();
+      } while (closing == gneiss::engine::result::not_ready);
+    }
+    if (operation.ok())
+      operation = closing;
     application.reset();
     if (operation != gneiss::engine::result::success) {
       return operation;

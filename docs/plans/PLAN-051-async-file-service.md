@@ -103,11 +103,49 @@ PBR Shader resolver 改为只消费内存字节，生产启动使用内嵌归档
   桌面写入通过 libuv 完成同目录临时文件、fsync、关闭和 rename/link；创建新文件不覆盖已有目标。
   浏览器先在内存 FS 写临时文件再 rename，持久化仍需显式 flush。没有跨文件原子性、跨进程 CAS
   或目录崩溃耐久性承诺；硬链接不受支持时 create_new 返回错误。
-- `editor/editor_ui.cpp` 的布局读写仍为本地配置路径，后续独立接入 user 挂载。
+- 布局内容已通过 Application 的 user:// 挂载异步读写；启动先显示默认工作区，完成后采用配置，
+  Reset 使迟到读取失效。退出期间等待保存，失败可重试或不保存布局退出。
+  配置目录仍由宿主启动引导准备；不能把布局迁移表述为整个工程启动已后台化。
 - Application 正常退出已有分阶段关闭；Render 最终销毁、初始化失败及误用析构的同步兜底仍存在。
 
 真实配额、跨域部署、大文件峰值属于验证缺口；公共 JS Promise、字节缓存和流送系统属于按需扩展，
 不作为本轮清理的前置条件。上述实现缺口完成前不宣称所有生产文件访问均已统一。
+
+## 剩余文件访问审计与最终验收清单
+
+2026-10-27 按生产源码扫描（排除测试夹具），核对了流式文件 API、fstream、stdio、
+filesystem 元数据/目录操作及 ImGui 文件入口。表中“未实现”不得当作仅缺少测试。
+
+| 范围与源码 | 当前行为 | 后续工作与验收条件 |
+| --- | --- | --- |
+| `editor/editor_ui.cpp`、`host/editor/editor_application.cpp` | 布局内容已异步；user 根目录仍在启动引导创建 | 内容读写不出现原生文件 API；缺失用默认，损坏不采用，退出等待写回执 |
+| `host/common/project_description.cpp`、`host/editor/project_workspace.cpp`、`project_manager.cpp` | 工程描述、最近工程、模板创建仍同步；会从 Project Manager UI 调用 | **未实现**：工程引导任务与描述解析分开，迁移最近工程读写；目录创建/复制须有平台能力，不能用回调包装同步 I/O 冒充完成 |
+| `host/editor/runtime_process.cpp`、`host/runtime/runtime_application.cpp` | 进程会话目录原生创建/清理；IPC 不可用时仍通过 stop 文件通知/轮询 | **未实现**：收敛进程控制回退；保留无 IPC 停止、超时强退、孤儿进程清理验收。Editor 菜单中重复读取工程描述已删除，子进程自行校验 |
+| `editor/asset_browser_model.cpp`、`asset_import_controller.cpp`、`tooling/asset_import/*` | 导入/索引/源目录操作仍用原生 I/O；编辑器通过后台任务调用 | **未实现**：转换库与文件读写分离，接入异步目录/写入；后台执行不等于已统一 file_service |
+| `tooling/asset_build/*`、`host/assetc/*`、`host/editor/package_archive.cpp` | 离线构建、复制、打包及探测使用同步文件 API | **未实现**：工具宿主驱动异步请求；补齐目录、复制/移动与归档适配，保留构建产物和失败清理验收 |
+| `runtime/application.cpp`、`host/runtime/runtime_log.cpp` | 可选帧追踪与日志落盘/轮转仍原生 | **未实现**：有界日志队列、单独落盘与退出排空；不能声称主循环零阻塞文件访问 |
+| `editor/documents/scene_document.cpp`、`editor/asset_file_watcher.cpp` | 对话框路径归属校验、原生监听目录发现仍查询文件系统 | **未实现**：保留路径边界校验，迁移元数据查询；OS 监听能力仍归平台层 |
+
+关闭审查结果：
+
+- Editor 正常退出先停止自身生产者、取消编辑/加载，再等待布局和后台回执；之后释放文档/UI，
+  请求 Application 关闭，持续分发至文件与 CPU 工作完成，最后停止执行器。
+- Project Manager 正常退出已补显式 request_shutdown/advance_shutdown，不再直接 reset 依赖析构。
+- Editor 关闭时显式通知 Runtime 停止并持续 update，通知失败也进入既有超时收尾；打包子进程等待完成。
+  正常路径不再把活动子进程的两秒等待留给 runtime_process 析构。
+- **未实现**：Render 最终 shutdown 仍调用 executor.flush 并等待 GPU 销毁命令；这是显式同步阶段，
+  并非已经完成的异步销毁。须增加渲染关闭回执后再停止线程/窗口，并验证资源释放顺序。
+- **未实现**：初始化失败、异常退出及误用析构的兜底统一；本轮只保证正常关闭路径显式推进。
+
+验收分组：
+
+- **本轮本地验证通过**：Windows Debug 编译；8 项专项测试（files.service、files.native、
+  editor.ui-layout、author-file-save、runtime-stop-failure、author-asset-service、document-editing、
+  document-actions）。覆盖布局缺失/恢复/隔离/损坏/保存失败/重复保存/迟到回执，以及停止通知失败后的
+  子进程超时收尾。修改文件格式检查、Core 分层检查及 git diff --check 通过。
+- **已实现但待统一验证**：真实窗口布局拖动与退出交互、完整平台矩阵、浏览器实际配额/CORS/大文件内存峰值。
+- **尚未实现**：上表标注项及 Render 异步关闭；不能用编译通过代替实现完成。
+- 字节缓存、公共 JS Promise、流送系统仍按真实需求另立任务，不作为本轮收尾的扩展目标。
 
 ## 本轮确认范围（待实施）
 

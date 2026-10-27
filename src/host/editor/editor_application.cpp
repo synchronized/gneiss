@@ -147,6 +147,11 @@ struct editor_state {
   bool pending_save_and_run = false;
   bool show_imgui_demo = false;
   gneiss::editor::editor_panel_visibility panel_visibility;
+  gneiss::editor::editor_layout layout;
+  bool closing{};
+  bool layout_save_started{};
+  bool discard_layout{};
+  gneiss::engine::result layout_status{gneiss::engine::result::success};
   gizmo_operation gizmo_mode = gizmo_operation::translate;
   gneiss::editor::transform_gizmo_drag gizmo_drag;
   bool gizmo_wait_release = false;
@@ -167,7 +172,6 @@ struct editor_state {
   gneiss::editor::asset_file_watcher author_asset_watcher;
   gneiss::editor::author_asset_service author_assets{task_scheduler};
   gneiss::editor::asset_background_worker asset_reimports{{}, &task_scheduler};
-  bool asset_shutdown_pending{};
   std::deque<gneiss::editor::asset_file_event> pending_author_events;
   std::optional<std::string> author_reload_uri;
   std::size_t observed_author_drops = 0U;
@@ -721,11 +725,7 @@ gneiss::engine::result launch_runtime(editor_state& state, bool save_changes) no
     operation = gneiss::engine::result::invalid_state;
   }
   if (operation == gneiss::engine::result::success) {
-    gneiss::host::project_description project;
-    operation = gneiss::host::load_project_description(state.project_root, project);
-    if (operation == gneiss::engine::result::success) {
-      operation = state.runtime.start(std::filesystem::path{GNEISS_EDITOR_RUNTIME_PATH}, request);
-    }
+    operation = state.runtime.start(std::filesystem::path{GNEISS_EDITOR_RUNTIME_PATH}, request);
   }
   return operation;
 #else
@@ -748,6 +748,21 @@ void request_runtime_launch(editor_state& state) noexcept {
   state.runtime_attempted = true;
 }
 
+void begin_editor_exit(editor_state& state) {
+  if (state.closing)
+    return;
+  state.closing = true;
+  if (state.runtime.is_running())
+    state.runtime_result = state.runtime.request_stop();
+  state.editing.cancel(*state.application);
+  if (state.scene_loader.active())
+    (void)state.scene_loader.cancel(*state.application);
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+  state.asset_reimports.request_stop();
+  state.author_assets.request_stop();
+#endif
+}
+
 gneiss::engine::result perform_document_action(editor_state& state,
                                                gneiss::editor::document_action action) {
   gneiss::engine::result operation = gneiss::engine::result::success;
@@ -768,14 +783,7 @@ gneiss::engine::result perform_document_action(editor_state& state,
     break;
   }
   case gneiss::editor::document_action::exit_editor:
-#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-    state.asset_shutdown_pending = true;
-    state.asset_reimports.request_stop();
-    state.author_assets.request_stop();
-#else
-    state.application->request_exit();
-    operation = gneiss::engine::result::success;
-#endif
+    begin_editor_exit(state);
     break;
   case gneiss::editor::document_action::none:
     return gneiss::engine::result::success;
@@ -1340,6 +1348,13 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
     }
     auto& state = *static_cast<editor_state*>(user_data);
     state.runtime.update();
+    if (state.layout.loading()) {
+      const auto status = state.layout.advance(state.panel_visibility);
+      if (status.failed() && status != gneiss::engine::result::not_ready) {
+        state.layout_status = status;
+        std::fprintf(stderr, "Gneiss Editor 布局读取失败：%d\n", status.code());
+      }
+    }
     if (state.pending_file_operation) {
       const bool saving = state.file_operation_saves_scene;
       bool close_save_dialogs{};
@@ -1393,6 +1408,42 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
                                                     state.camera, scene_changed);
     if (loading != gneiss::engine::result::success) {
       return loading;
+    }
+    if (state.closing) {
+      state.editing.advance_cleanup(*state.application);
+      state.package_process.update();
+      bool stopped = !state.editing.active() && !state.scene_loader.active() &&
+                     !state.runtime.is_running() && !state.package_process.is_running();
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+      std::vector<std::filesystem::path> ignored;
+      (void)state.author_assets.poll_rescan(ignored);
+      (void)state.asset_reimports.poll_browser(state.assets, state.asset_result);
+      stopped = stopped && state.asset_reimports.status().stopped && state.author_assets.stopped();
+#endif
+      if (!state.layout_save_started) {
+        state.layout_save_started = true;
+        state.layout_status = state.smoke ? gneiss::engine::result::success
+                                          : state.layout.save(state.panel_visibility);
+      }
+      if (!state.smoke && !state.layout.saving() && state.layout_status.ok())
+        state.layout_status = state.layout.save_result();
+      if (stopped && !state.layout.saving() && (state.layout_status.ok() || state.discard_layout))
+        state.application->request_exit();
+      const auto begun = state.ui.begin_frame(*state.application, *time);
+      if (begun.failed())
+        return begun;
+      ImGui::Begin("Closing Editor");
+      if (state.layout_status.failed() && !state.layout.saving()) {
+        ImGui::TextUnformatted("布局保存失败，原文件保持不变。");
+        if (ImGui::Button("重试保存布局"))
+          state.layout_save_started = false;
+        ImGui::SameLine();
+        if (ImGui::Button("不保存布局并退出"))
+          state.discard_layout = true;
+      } else
+        ImGui::TextUnformatted("正在保存布局并收尾后台任务……");
+      ImGui::End();
+      return submit_editor_ui(state);
     }
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
     if (state.author_reload_uri && !state.scene_loader.active()) {
@@ -1631,10 +1682,6 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
     (void)state.asset_reimports.poll_browser(state.assets, state.asset_result);
     state.asset_reimports.set_paused(state.show_package_dialog ||
                                      state.package_process.is_running());
-    if (state.asset_shutdown_pending && state.asset_reimports.status().stopped &&
-        state.author_assets.stopped()) {
-      state.application->request_exit();
-    }
     std::vector<gneiss::editor::asset_reimport_event> reimport_events;
     (void)state.asset_reimports.poll_events(reimport_events);
     for (auto& event : reimport_events) {
@@ -1670,14 +1717,6 @@ gneiss::engine::result update_editor(const gneiss::engine::frame_time* time, voi
     if (result != gneiss::engine::result::success) {
       return result;
     }
-#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-    if (state.asset_shutdown_pending) {
-      ImGui::Begin("Closing Editor");
-      ImGui::TextUnformatted("Waiting for the current asset stage to finish...");
-      ImGui::End();
-      return submit_editor_ui(state);
-    }
-#endif
     gneiss::editor::begin_transform_gizmo_frame();
     // 先收尾再处理菜单、保存和撤销；折叠或隐藏面板也不能遗失已应用的拖动。
     if (state.gizmo_drag.is_active() &&
@@ -2870,14 +2909,16 @@ uint8_t handle_close_requested(void* user_data) noexcept {
     return 1U;
   }
   auto& state = *static_cast<editor_state*>(user_data);
+  if (state.closing)
+    return 0U;
   if (state.pending_file_operation) {
     state.document_actions.defer(gneiss::editor::document_action::exit_editor);
     return 0U;
   }
   if (state.scene_loader.active()) {
     (void)state.scene_loader.cancel(*state.application);
-    // Application 析构负责在执行器存活时回收在途工作。
-    return 1U;
+    begin_editor_exit(state);
+    return 0U;
   }
   if (state.editing.active()) {
     state.editing.cancel(*state.application);
@@ -2888,14 +2929,8 @@ uint8_t handle_close_requested(void* user_data) noexcept {
   state.editing.assets().dismiss();
   state.scene_loader.dismiss();
   if (!state.editing.document().is_dirty()) {
-#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-    state.asset_shutdown_pending = true;
-    state.asset_reimports.request_stop();
-    state.author_assets.request_stop();
-    return state.asset_reimports.status().stopped && state.author_assets.stopped() ? 1U : 0U;
-#else
-    return 1U;
-#endif
+    begin_editor_exit(state);
+    return 0U;
   }
   state.document_actions.defer(gneiss::editor::document_action::exit_editor);
   return 0U;
@@ -2947,7 +2982,18 @@ int run_editor(int argc, char** argv) {
   start_source_asset_watch(state);
 #endif
   const auto title = project.name + " - Gneiss Editor";
+  // 工程启动引导仍负责准备原生配置目录；运行后的布局内容只走 user://。
+  std::string user_root_text;
+  if (!options.smoke) {
+    const auto root = gneiss::host::default_editor_state_path().parent_path() / "layouts";
+    std::error_code error;
+    std::filesystem::create_directories(root, error);
+    if (error)
+      std::fprintf(stderr, "Gneiss Editor 用户目录创建失败：%s\n", error.message().c_str());
+    user_root_text = path_utf8(root);
+  }
   gneiss::runtime::application_configuration desc;
+  desc.user_root = user_root_text;
   desc.callbacks.update = [&state](const gneiss::engine::frame_time& time) {
     return update_editor(&time, &state);
   };
@@ -2998,8 +3044,8 @@ int run_editor(int argc, char** argv) {
     return 2;
   }
   if (!options.smoke) {
-    const auto layout_result = gneiss::editor::initialize_editor_layout(
-        gneiss::host::default_editor_state_path(), project.project_root, state.panel_visibility);
+    const auto layout_result = state.layout.initialize(
+        application->async_files(), path_utf8(project.project_root), state.panel_visibility);
     if (layout_result != gneiss::engine::result::success &&
         layout_result != gneiss::engine::result::invalid_argument) {
       const auto message = layout_result.message();
@@ -3033,21 +3079,43 @@ int run_editor(int argc, char** argv) {
   state.editing.history().clear();
   (void)state.scene_loader.request(*application, state.editing, project.startup_scene);
   const auto run_result = application->run(0U);
-  state.editing.cancel(*application);
-  while (state.editing.active()) {
+  state.pending_file_operation = {};
+  begin_editor_exit(state);
+  if (!options.smoke && !state.layout_save_started) {
+    state.layout_save_started = true;
+    state.layout_status = state.layout.save(state.panel_visibility);
+  }
+  auto editor_cleanup_pending = [&] {
+    bool pending = state.editing.active() || state.scene_loader.active() || state.layout.saving() ||
+                   state.runtime.is_running() || state.package_process.is_running();
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+    pending = pending || !state.author_assets.stopped() || !state.asset_reimports.status().stopped;
+#endif
+    return pending;
+  };
+  while (editor_cleanup_pending()) {
+    state.runtime.update();
+    state.package_process.update();
+    (void)application->async_files()->dispatch_completions(64);
+    bool scene_changed{};
+    (void)state.scene_loader.advance(*application, state.editing, state.world, state.camera,
+                                     scene_changed);
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+    std::vector<std::filesystem::path> ignored;
+    (void)state.author_assets.poll_rescan(ignored);
+    (void)state.asset_reimports.poll_browser(state.assets, state.asset_result);
+#endif
     if (state.task_scheduler.mode() == gneiss::engine::execution_mode::cooperative) {
       (void)state.task_scheduler.run_ready();
     }
     state.editing.advance_cleanup(*application);
     std::this_thread::yield();
   }
-  if (!options.smoke) {
-    const auto save_layout_result = gneiss::editor::save_editor_layout(state.panel_visibility);
-    if (save_layout_result != gneiss::engine::result::success) {
-      const auto message = save_layout_result.message();
-      std::fprintf(stderr, "Gneiss Editor 布局保存失败：结果=%d，消息=%.*s\n",
-                   save_layout_result.code(), static_cast<int>(message.size()), message.data());
-    }
+  if (!options.smoke && !state.discard_layout) {
+    const auto status =
+        state.layout_status.failed() ? state.layout_status : state.layout.save_result();
+    if (status.failed())
+      std::fprintf(stderr, "Gneiss Editor 布局保存失败：%d\n", status.code());
   }
   state.ui.shutdown(*application);
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
