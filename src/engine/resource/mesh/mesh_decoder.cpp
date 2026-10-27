@@ -6,10 +6,10 @@
 #include "mesh_binary.hpp"
 namespace gneiss::engine::detail {
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): 保持 Mesh Schema 诊断顺序。
-[[nodiscard]] gneiss::engine::result
-parse_mesh(const std::vector<std::byte>& bytes,
-           std::vector<gneiss::engine::mesh_vertex>& out_vertices,
-           std::vector<gneiss::engine::math::vector3>& out_normals, asset_diagnostic& diagnostic) {
+[[nodiscard]] result parse_mesh(const std::vector<std::byte>& bytes,
+                                std::vector<mesh_vertex>& out_vertices,
+                                std::vector<math::vector3>& out_normals,
+                                asset_diagnostic& diagnostic) {
   auto document = parse_document(bytes, diagnostic);
   if (!document) {
     return diagnostic.result;
@@ -38,26 +38,24 @@ parse_mesh(const std::vector<std::byte>& bytes,
   }
   yyjson_val* topology = yyjson_obj_get(root, "topology");
   if (!yyjson_is_str(topology) || json_string(topology) != "triangle_list") {
-    fail(diagnostic, gneiss::engine::result::invalid_argument, "/topology", "只支持 triangle_list");
+    fail(diagnostic, result::invalid_argument, "/topology", "只支持 triangle_list");
     return diagnostic.result;
   }
   yyjson_val* vertices = yyjson_obj_get(root, "vertices");
   const auto count = yyjson_arr_size(vertices);
   if (!yyjson_is_arr(vertices) || count < 3U || count % 3U != 0U ||
       count > std::numeric_limits<std::uint32_t>::max()) {
-    fail(diagnostic, gneiss::engine::result::invalid_argument, "/vertices",
-         "顶点数必须是大于零的三角形列表");
+    fail(diagnostic, result::invalid_argument, "/vertices", "顶点数必须是大于零的三角形列表");
     return diagnostic.result;
   }
   yyjson_val* uvs = yyjson_obj_get(root, "uvs");
   if (version >= 2U && (!yyjson_is_arr(uvs) || yyjson_arr_size(uvs) != count)) {
-    fail(diagnostic, gneiss::engine::result::invalid_argument, "/uvs", "UV 数量必须与顶点数量一致");
+    fail(diagnostic, result::invalid_argument, "/uvs", "UV 数量必须与顶点数量一致");
     return diagnostic.result;
   }
   yyjson_val* normals = yyjson_obj_get(root, "normals");
   if (version == 3U && (!yyjson_is_arr(normals) || yyjson_arr_size(normals) != count)) {
-    fail(diagnostic, gneiss::engine::result::invalid_argument, "/normals",
-         "法线数量必须与顶点数量一致");
+    fail(diagnostic, result::invalid_argument, "/normals", "法线数量必须与顶点数量一致");
     return diagnostic.result;
   }
   out_vertices.reserve(count);
@@ -67,16 +65,16 @@ parse_mesh(const std::vector<std::byte>& bytes,
   yyjson_val* vertex = nullptr;
   yyjson_arr_foreach(vertices, index, maximum, vertex) {
     if (!yyjson_is_arr(vertex) || yyjson_arr_size(vertex) != 3U) {
-      fail(diagnostic, gneiss::engine::result::invalid_argument,
-           "/vertices/" + std::to_string(index), "顶点必须包含三个数值");
+      fail(diagnostic, result::invalid_argument, "/vertices/" + std::to_string(index),
+           "顶点必须包含三个数值");
       return diagnostic.result;
     }
-    gneiss::engine::mesh_vertex parsed{};
+    mesh_vertex parsed{};
     if (!read_float(yyjson_arr_get(vertex, 0), parsed.position.x) ||
         !read_float(yyjson_arr_get(vertex, 1), parsed.position.y) ||
         !read_float(yyjson_arr_get(vertex, 2), parsed.position.z)) {
-      fail(diagnostic, gneiss::engine::result::invalid_argument,
-           "/vertices/" + std::to_string(index), "顶点数值必须是有限 float");
+      fail(diagnostic, result::invalid_argument, "/vertices/" + std::to_string(index),
+           "顶点数值必须是有限 float");
       return diagnostic.result;
     }
     if (version >= 2U) {
@@ -84,7 +82,7 @@ parse_mesh(const std::vector<std::byte>& bytes,
       if (!yyjson_is_arr(uv) || yyjson_arr_size(uv) != 2U ||
           !read_float(yyjson_arr_get(uv, 0), parsed.uv.x) ||
           !read_float(yyjson_arr_get(uv, 1), parsed.uv.y)) {
-        fail(diagnostic, gneiss::engine::result::invalid_argument, "/uvs/" + std::to_string(index),
+        fail(diagnostic, result::invalid_argument, "/uvs/" + std::to_string(index),
              "UV 必须包含两个有限 float 数值");
         return diagnostic.result;
       }
@@ -92,44 +90,41 @@ parse_mesh(const std::vector<std::byte>& bytes,
     out_vertices.push_back(parsed);
     if (version >= 3U) {
       yyjson_val* normal = yyjson_arr_get(normals, index);
-      gneiss::engine::math::vector3 parsed_normal{};
+      math::vector3 parsed_normal{};
       if (!yyjson_is_arr(normal) || yyjson_arr_size(normal) != 3U ||
           !read_float(yyjson_arr_get(normal, 0), parsed_normal.x) ||
           !read_float(yyjson_arr_get(normal, 1), parsed_normal.y) ||
           !read_float(yyjson_arr_get(normal, 2), parsed_normal.z)) {
-        fail(diagnostic, gneiss::engine::result::invalid_argument,
-             "/normals/" + std::to_string(index), "法线必须包含三个有限数值");
+        fail(diagnostic, result::invalid_argument, "/normals/" + std::to_string(index),
+             "法线必须包含三个有限数值");
         return diagnostic.result;
       }
       const auto length =
           std::sqrt((parsed_normal.x * parsed_normal.x) + (parsed_normal.y * parsed_normal.y) +
                     (parsed_normal.z * parsed_normal.z));
       if (std::abs(length - 1.0F) > 1.0e-4F) {
-        fail(diagnostic, gneiss::engine::result::invalid_argument,
-             "/normals/" + std::to_string(index), "法线必须归一化");
+        fail(diagnostic, result::invalid_argument, "/normals/" + std::to_string(index),
+             "法线必须归一化");
         return diagnostic.result;
       }
       out_normals.push_back(parsed_normal);
     }
   }
-  return gneiss::engine::result::success;
+  return result::success;
 }
 
-[[nodiscard]] gneiss::engine::result parse_binary_mesh(
-    const std::vector<std::byte>& bytes, std::vector<gneiss::engine::mesh_vertex>& out_vertices,
-    std::vector<gneiss::engine::math::vector3>& out_normals,
-    std::vector<std::uint32_t>& out_indices,
-    std::vector<gneiss::engine::math::vector4>& out_tangents,
-    std::vector<gneiss::engine::math::vector2>& out_uv1,
-    std::vector<gneiss::engine::math::vector4>& out_colors, asset_diagnostic& diagnostic) {
-  gneiss::engine::mesh_binary_data data;
-  gneiss::engine::mesh_binary_diagnostic binary_diagnostic;
-  const auto result = gneiss::engine::decode_mesh_binary(bytes, data, binary_diagnostic);
-  if (result != gneiss::engine::mesh_binary_result::success) {
+[[nodiscard]] result
+parse_binary_mesh(const std::vector<std::byte>& bytes, std::vector<mesh_vertex>& out_vertices,
+                  std::vector<math::vector3>& out_normals, std::vector<std::uint32_t>& out_indices,
+                  std::vector<math::vector4>& out_tangents, std::vector<math::vector2>& out_uv1,
+                  std::vector<math::vector4>& out_colors, asset_diagnostic& diagnostic) {
+  mesh_binary_data data;
+  mesh_binary_diagnostic binary_diagnostic;
+  const auto status = decode_mesh_binary(bytes, data, binary_diagnostic);
+  if (status != mesh_binary_result::success) {
     fail(diagnostic,
-         result == gneiss::engine::mesh_binary_result::unsupported_version
-             ? gneiss::engine::result::unsupported
-             : gneiss::engine::result::invalid_argument,
+         status == mesh_binary_result::unsupported_version ? result::unsupported
+                                                           : result::invalid_argument,
          "", binary_diagnostic.message, binary_diagnostic.byte_offset);
     return diagnostic.result;
   }
@@ -152,7 +147,7 @@ parse_mesh(const std::vector<std::byte>& bytes,
     out_colors.push_back({c[0], c[1], c[2], c[3]});
   }
   out_indices = std::move(data.indices);
-  return gneiss::engine::result::success;
+  return result::success;
 }
 
 }

@@ -21,10 +21,10 @@ struct material_parameters {
   float normal_scale{1.0F};
   float occlusion_strength{1.0F};
   std::array<float, 3> emissive{};
-  gneiss::engine::material_alpha_mode alpha_mode{gneiss::engine::material_alpha_mode::opaque};
+  material_alpha_mode alpha_mode{material_alpha_mode::opaque};
   bool double_sided{};
   float alpha_cutoff{0.5F};
-  std::array<gneiss::engine::texture_sampling, 5> sampling{};
+  std::array<texture_sampling, 5> sampling{};
 };
 
 /** 纯 CPU 材质描述；纹理依赖使用 URI，不包含资源句柄。 */

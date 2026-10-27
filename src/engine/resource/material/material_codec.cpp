@@ -12,9 +12,8 @@
 namespace gneiss::engine {
 namespace {
 using namespace detail;
-[[nodiscard]] gneiss::engine::result parse_pbr_extensions(yyjson_val* root,
-                                                          material_description& out_source,
-                                                          asset_diagnostic& diagnostic) {
+[[nodiscard]] result parse_pbr_extensions(yyjson_val* root, material_description& out_source,
+                                          asset_diagnostic& diagnostic) {
   constexpr std::array names{
       "base_color_texture", "metallic_roughness_texture", "normal_texture",
       "occlusion_texture",  "emissive_texture",
@@ -25,7 +24,7 @@ using namespace detail;
       continue;
     }
     if (!yyjson_is_str(texture) || yyjson_get_len(texture) == 0U) {
-      fail(diagnostic, gneiss::engine::result::invalid_argument, std::string{"/"} + names[slot],
+      fail(diagnostic, result::invalid_argument, std::string{"/"} + names[slot],
            "Texture 必须是非空 URI 或 null");
       return diagnostic.result;
     }
@@ -37,30 +36,27 @@ using namespace detail;
       (strength != nullptr && (!read_float(strength, out_source.parameters.occlusion_strength) ||
                                out_source.parameters.occlusion_strength < 0.0F ||
                                out_source.parameters.occlusion_strength > 1.0F))) {
-    fail(diagnostic, gneiss::engine::result::invalid_argument, "/normal_scale",
+    fail(diagnostic, result::invalid_argument, "/normal_scale",
          "法线缩放必须有限，AO 强度必须位于 0..1");
     return diagnostic.result;
   }
   if (auto* emissive = yyjson_obj_get(root, "emissive")) {
     if (!yyjson_is_arr(emissive) || yyjson_arr_size(emissive) != 3U) {
-      fail(diagnostic, gneiss::engine::result::invalid_argument, "/emissive",
-           "自发光必须包含三个分量");
+      fail(diagnostic, result::invalid_argument, "/emissive", "自发光必须包含三个分量");
       return diagnostic.result;
     }
     for (std::size_t i = 0; i < 3U; ++i) {
       if (!read_float(yyjson_arr_get(emissive, i), out_source.parameters.emissive[i]) ||
           out_source.parameters.emissive[i] < 0.0F || out_source.parameters.emissive[i] > 1.0F) {
-        fail(diagnostic, gneiss::engine::result::invalid_argument, "/emissive",
-             "自发光分量必须位于 0..1");
+        fail(diagnostic, result::invalid_argument, "/emissive", "自发光分量必须位于 0..1");
         return diagnostic.result;
       }
     }
   }
-  return gneiss::engine::result::success;
+  return result::success;
 }
 
-[[nodiscard]] bool parse_material_sampling(yyjson_val* root,
-                                           gneiss::engine::material_parameters& state) {
+[[nodiscard]] bool parse_material_sampling(yyjson_val* root, material_parameters& state) {
   if (auto* sampling = yyjson_obj_get(root, "sampling")) {
     if (!yyjson_is_arr(sampling) || yyjson_arr_size(sampling) != 5U) {
       return false;
@@ -84,29 +80,28 @@ using namespace detail;
         fields[field] = static_cast<std::uint32_t>(yyjson_get_uint(value));
       }
       sample = {fields[0],
-                static_cast<gneiss::engine::texture_filter>(fields[1]),
-                static_cast<gneiss::engine::texture_filter>(fields[2]),
-                static_cast<gneiss::engine::texture_mip_filter>(fields[3]),
-                static_cast<gneiss::engine::texture_address>(fields[4]),
-                static_cast<gneiss::engine::texture_address>(fields[5])};
+                static_cast<texture_filter>(fields[1]),
+                static_cast<texture_filter>(fields[2]),
+                static_cast<texture_mip_filter>(fields[3]),
+                static_cast<texture_address>(fields[4]),
+                static_cast<texture_address>(fields[5])};
     }
   }
   return true;
 }
 
-[[nodiscard]] bool parse_material_state(yyjson_val* root,
-                                        gneiss::engine::material_parameters& state) {
+[[nodiscard]] bool parse_material_state(yyjson_val* root, material_parameters& state) {
   if (auto* mode = yyjson_obj_get(root, "alpha_mode")) {
     if (!yyjson_is_str(mode)) {
       return false;
     }
     const auto name = json_string(mode);
     if (name == "OPAQUE") {
-      state.alpha_mode = gneiss::engine::material_alpha_mode::opaque;
+      state.alpha_mode = material_alpha_mode::opaque;
     } else if (name == "MASK") {
-      state.alpha_mode = gneiss::engine::material_alpha_mode::mask;
+      state.alpha_mode = material_alpha_mode::mask;
     } else if (name == "BLEND") {
-      state.alpha_mode = gneiss::engine::material_alpha_mode::blend;
+      state.alpha_mode = material_alpha_mode::blend;
     } else {
       return false;
     }
@@ -125,9 +120,9 @@ using namespace detail;
   return parse_material_sampling(root, state);
 }
 
-[[nodiscard]] gneiss::engine::result parse_material(const std::vector<std::byte>& bytes,
-                                                    material_description& out_source,
-                                                    asset_diagnostic& diagnostic) {
+[[nodiscard]] result parse_material(const std::vector<std::byte>& bytes,
+                                    material_description& out_source,
+                                    asset_diagnostic& diagnostic) {
   auto document = parse_document(bytes, diagnostic);
   if (!document) {
     return diagnostic.result;
@@ -161,13 +156,13 @@ using namespace detail;
   }
   yyjson_val* color = yyjson_obj_get(root, "color");
   if (!yyjson_is_arr(color) || yyjson_arr_size(color) != out_source.parameters.color.size()) {
-    fail(diagnostic, gneiss::engine::result::invalid_argument, "/color", "颜色必须包含四个分量");
+    fail(diagnostic, result::invalid_argument, "/color", "颜色必须包含四个分量");
     return diagnostic.result;
   }
   for (std::size_t index = 0; index < out_source.parameters.color.size(); ++index) {
     if (!read_float(yyjson_arr_get(color, index), out_source.parameters.color[index]) ||
         out_source.parameters.color[index] < 0.0F || out_source.parameters.color[index] > 1.0F) {
-      fail(diagnostic, gneiss::engine::result::invalid_argument, "/color/" + std::to_string(index),
+      fail(diagnostic, result::invalid_argument, "/color/" + std::to_string(index),
            "颜色分量必须位于 0..1");
       return diagnostic.result;
     }
@@ -177,7 +172,7 @@ using namespace detail;
     if (yyjson_is_null(texture)) {
       out_source.texture_uris[0].clear();
     } else if (!yyjson_is_str(texture) || yyjson_get_len(texture) == 0U) {
-      fail(diagnostic, gneiss::engine::result::invalid_argument, "/base_color_texture",
+      fail(diagnostic, result::invalid_argument, "/base_color_texture",
            "base-color Texture 必须是非空 URI");
       return diagnostic.result;
     } else {
@@ -188,27 +183,25 @@ using namespace detail;
       out_source.parameters.metallic < 0.0F || out_source.parameters.metallic > 1.0F ||
       !read_float(yyjson_obj_get(root, "roughness"), out_source.parameters.roughness) ||
       out_source.parameters.roughness < 0.0F || out_source.parameters.roughness > 1.0F) {
-    fail(diagnostic, gneiss::engine::result::invalid_argument, "/metallic",
-         "metallic 与 roughness 必须位于 0..1");
+    fail(diagnostic, result::invalid_argument, "/metallic", "metallic 与 roughness 必须位于 0..1");
     return diagnostic.result;
   }
 
-  if (parse_pbr_extensions(root, out_source, diagnostic) != gneiss::engine::result::success) {
+  if (parse_pbr_extensions(root, out_source, diagnostic) != result::success) {
     return diagnostic.result;
   }
   if (!parse_material_state(root, out_source.parameters)) {
-    fail(diagnostic, gneiss::engine::result::invalid_argument, "/sampling",
-         "材质状态或逐槽采样设置无效");
+    fail(diagnostic, result::invalid_argument, "/sampling", "材质状态或逐槽采样设置无效");
     return diagnostic.result;
   }
-  return gneiss::engine::result::success;
+  return result::success;
 }
 
 }
 }
 namespace gneiss::engine {
 result decode_material(std::span<const std::byte> bytes, material_description& output,
-                       gneiss::engine::meta::serialization_diagnostic& diagnostic) noexcept try {
+                       meta::serialization_diagnostic& diagnostic) noexcept try {
   diagnostic = {};
   std::vector<std::byte> owned(bytes.begin(), bytes.end());
   asset_diagnostic asset_error;
@@ -226,7 +219,7 @@ result decode_material(std::span<const std::byte> bytes, material_description& o
 }
 
 result encode_material(const material_description& object, std::vector<std::byte>& output,
-                       gneiss::engine::meta::serialization_diagnostic& diagnostic) noexcept try {
+                       meta::serialization_diagnostic& diagnostic) noexcept try {
   diagnostic = {};
   const auto& p = object.parameters;
   // JSON 不接受非有限数值；其余范围复用同一解析器校验，避免维护第二套格式规则。
