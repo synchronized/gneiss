@@ -5,7 +5,7 @@
 #include "engine/function/world/world.hpp"
 #include "viewport/editor_camera.hpp"
 
-#include "engine/core/meta/type_info.hpp"
+#include "engine/core/meta/type.hpp"
 #include "engine/core/rid.hpp"
 
 #include <cmath>

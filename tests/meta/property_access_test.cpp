@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/meta/type_registration.hpp"
+#include "engine/core/meta/registration.hpp"
 #include <array>
 #include <cmath>
 #include <limits>
@@ -70,7 +70,7 @@ int main() try {
                                                 gneiss::engine::meta::property_flags::none,
                                                 "malformed"}};
   gneiss::engine::meta::registry_ref registry;
-  if (gneiss::engine::meta::create_native(registry).failed() ||
+  if (gneiss::engine::meta::create_registry(registry).failed() ||
       gneiss::engine::meta::register_type(registry, {camera_type, {}, 1, "camera", fields})
           .failed())
     return 1;
@@ -118,62 +118,81 @@ int main() try {
   camera_fixture another;
   another.field_of_view = 45.0F;
   gneiss::engine::value independent;
-  if (gneiss::engine::meta::get_property(registry, camera_type, 1, &another, independent)
+  if (gneiss::engine::meta::read_property(
+          registry, camera_type, gneiss::engine::meta::property_id{1}, &another, independent)
           .failed() ||
       std::get<float>(independent.payload) != 45.0F)
     return 14;
   independent.payload = 75.0F;
-  if (gneiss::engine::meta::set_property(registry, camera_type, 1, &another, independent)
+  if (gneiss::engine::meta::write_property(
+          registry, camera_type, gneiss::engine::meta::property_id{1}, &another, independent)
           .failed() ||
       another.field_of_view != 75.0F || fixture.field_of_view != 60.0F ||
-      gneiss::engine::meta::get_property(registry, camera_type, 1, nullptr, independent) !=
-          result::invalid_argument)
+      gneiss::engine::meta::read_property(registry, camera_type,
+                                          gneiss::engine::meta::property_id{1}, nullptr,
+                                          independent) != result::invalid_argument)
     return 15;
   auto* const target = &fixture;
   gneiss::engine::value value;
-  if (gneiss::engine::meta::get_property(registry, camera_type, 1, target, value).failed() ||
+  if (gneiss::engine::meta::read_property(registry, camera_type,
+                                          gneiss::engine::meta::property_id{1}, target, value)
+          .failed() ||
       value.kind() != gneiss::engine::value_kind::float32 ||
       std::abs(std::get<float>(value.payload) - 60) > 0.001F)
     return 4;
   value.payload = 90.0F;
-  if (gneiss::engine::meta::set_property(registry, camera_type, 1, target, value).failed() ||
+  if (gneiss::engine::meta::write_property(registry, camera_type,
+                                           gneiss::engine::meta::property_id{1}, target, value)
+          .failed() ||
       std::abs(fixture.field_of_view - 90) > 0.001F)
     return 5;
   value.payload = -1.0F;
-  if (gneiss::engine::meta::set_property(registry, camera_type, 1, target, value) !=
-          result::invalid_argument ||
+  if (gneiss::engine::meta::write_property(registry, camera_type,
+                                           gneiss::engine::meta::property_id{1}, target,
+                                           value) != result::invalid_argument ||
       std::abs(fixture.field_of_view - 90) > 0.001F)
     return 6;
   value.payload = 90.0F;
-  if (gneiss::engine::meta::set_property(registry, camera_type, 1, nullptr, value) !=
-      result::invalid_argument)
+  if (gneiss::engine::meta::write_property(registry, camera_type,
+                                           gneiss::engine::meta::property_id{1}, nullptr,
+                                           value) != result::invalid_argument)
     return 7;
   value.payload = std::uint64_t{90};
-  if (gneiss::engine::meta::set_property(registry, camera_type, 1, target, value) !=
-      result::invalid_argument)
+  if (gneiss::engine::meta::write_property(registry, camera_type,
+                                           gneiss::engine::meta::property_id{1}, target,
+                                           value) != result::invalid_argument)
     return 8;
-  if (gneiss::engine::meta::get_property(registry, camera_type, 2, target, value).failed() ||
+  if (gneiss::engine::meta::read_property(registry, camera_type,
+                                          gneiss::engine::meta::property_id{2}, target, value)
+          .failed() ||
       value.kind() != gneiss::engine::value_kind::string ||
       std::get<std::string>(value.payload).size() != 9 ||
-      gneiss::engine::meta::set_property(registry, camera_type, 2, target, value) !=
-          result::unsupported ||
-      gneiss::engine::meta::get_property(registry, camera_type, 3, target, value) !=
-          result::unsupported ||
-      gneiss::engine::meta::get_property(registry, camera_type, 4, target, value) !=
-          result::internal ||
-      value.kind() != gneiss::engine::value_kind::invalid)
+      gneiss::engine::meta::write_property(registry, camera_type,
+                                           gneiss::engine::meta::property_id{2}, target,
+                                           value) != result::unsupported ||
+      gneiss::engine::meta::read_property(registry, camera_type,
+                                          gneiss::engine::meta::property_id{3}, target,
+                                          value) != result::unsupported ||
+      gneiss::engine::meta::read_property(registry, camera_type,
+                                          gneiss::engine::meta::property_id{4}, target,
+                                          value) != result::internal ||
+      value.kind() != gneiss::engine::value_kind::string ||
+      std::get<std::string>(value.payload) != "主相机")
     return 9;
-  // 回调抛异常转换为内部错误；getter 清空输出，setter 不修改目标。
+  // 回调抛异常转换为内部错误；读取保留原输出，setter 不修改目标。
   fixture.fail_get = true;
-  if (gneiss::engine::meta::get_property(registry, camera_type, 1, target, value) !=
-          result::internal ||
-      value.kind() != gneiss::engine::value_kind::invalid)
+  if (gneiss::engine::meta::read_property(registry, camera_type,
+                                          gneiss::engine::meta::property_id{1}, target,
+                                          value) != result::internal ||
+      value.kind() != gneiss::engine::value_kind::string ||
+      std::get<std::string>(value.payload) != "主相机")
     return 10;
   fixture.fail_get = false;
   fixture.fail_set = true;
   value.payload = 100.0F;
-  if (gneiss::engine::meta::set_property(registry, camera_type, 1, target, value) !=
-          result::internal ||
+  if (gneiss::engine::meta::write_property(registry, camera_type,
+                                           gneiss::engine::meta::property_id{1}, target,
+                                           value) != result::internal ||
       std::abs(fixture.field_of_view - 90) > 0.001F)
     return 11;
   // 原生快照拥有文本，不依赖 getter 后续返回值及 Registry 生命周期。
@@ -183,7 +202,9 @@ int main() try {
           .failed())
     return 12;
   fixture.label = "changed";
-  if (gneiss::engine::meta::get_property(registry, camera_type, 2, target, value).failed() ||
+  if (gneiss::engine::meta::read_property(registry, camera_type,
+                                          gneiss::engine::meta::property_id{2}, target, value)
+          .failed() ||
       std::get<std::string>(snapshot.payload) != "主相机" ||
       std::get<std::string>(value.payload) != "changed")
     return 13;
@@ -203,8 +224,9 @@ int main() try {
   const std::weak_ptr lifetime = registry;
   registry.reset();
   return lifetime.expired() &&
-                 gneiss::engine::meta::get_property(registry, camera_type, 1, target, value) ==
-                     result::invalid_handle &&
+                 gneiss::engine::meta::read_property(registry, camera_type,
+                                                     gneiss::engine::meta::property_id{1}, target,
+                                                     value) == result::invalid_handle &&
                  std::get<std::string>(snapshot.payload) == "主相机"
              ? 0
              : 14;

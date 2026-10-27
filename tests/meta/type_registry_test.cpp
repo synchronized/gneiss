@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/meta/type_registration.hpp"
+#include "engine/core/meta/registration.hpp"
 #include <array>
 #include <cstdint>
 #include <string>
@@ -13,7 +13,7 @@ bool typed_registration() {
   namespace e = gneiss::engine;
   using e::result;
   gneiss::engine::meta::registry_ref registry;
-  if (gneiss::engine::meta::create_native(registry).failed())
+  if (gneiss::engine::meta::create_registry(registry).failed())
     return false;
   const e::guid object_guid{e::guid::from_bytes({0x30})};
   const e::guid other_guid{e::guid::from_bytes({0x10})};
@@ -100,7 +100,7 @@ int main() {
   gneiss::engine::meta::registry_ref registry;
   bool frozen = true;
   std::uint32_t count = 99;
-  if (gneiss::engine::meta::create_native(registry).failed() ||
+  if (gneiss::engine::meta::create_registry(registry).failed() ||
       gneiss::engine::meta::is_frozen(registry, frozen).failed() || frozen ||
       gneiss::engine::meta::type_count(registry, count) != result::not_ready || count != 99 ||
       gneiss::engine::meta::register_type(registry, object).failed() ||
@@ -162,16 +162,21 @@ int main() {
                                               metadata) != result::not_found)
     return 7;
   gneiss::engine::value value;
-  if (gneiss::engine::meta::get_property(registry, object_type, 1, &stored, value).failed() ||
+  if (gneiss::engine::meta::read_property(registry, object_type,
+                                          gneiss::engine::meta::property_id{1}, &stored, value)
+          .failed() ||
       std::get<std::int64_t>(value.payload) != 2)
     return 8;
   value.payload = std::int64_t{7};
-  if (gneiss::engine::meta::set_property(registry, object_type, 1, &stored, value).failed() ||
+  if (gneiss::engine::meta::write_property(registry, object_type,
+                                           gneiss::engine::meta::property_id{1}, &stored, value)
+          .failed() ||
       stored != 7)
     return 9;
   value.payload = std::int64_t{11};
-  if (gneiss::engine::meta::set_property(registry, object_type, 1, &stored, value) !=
-          result::invalid_argument ||
+  if (gneiss::engine::meta::write_property(registry, object_type,
+                                           gneiss::engine::meta::property_id{1}, &stored,
+                                           value) != result::invalid_argument ||
       stored != 7)
     return 10;
   const std::weak_ptr lifetime = registry;

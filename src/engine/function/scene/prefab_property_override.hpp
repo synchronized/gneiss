@@ -4,7 +4,7 @@
 #ifndef GNEISS_SCENE_PREFAB_PROPERTY_OVERRIDE_HPP_
 #define GNEISS_SCENE_PREFAB_PROPERTY_OVERRIDE_HPP_
 
-#include "engine/core/meta/type_registry.hpp"
+#include "engine/core/meta/registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/resource/types/prefab_property_data.hpp"
 

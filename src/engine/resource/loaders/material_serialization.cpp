@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "material_serialization.hpp"
-#include "engine/core/meta/type_builder.hpp"
+#include "engine/core/meta/registration.hpp"
 #include "engine/resource/loaders/material_description_decoder.hpp"
 #include <cmath>
 #include <cstdlib>

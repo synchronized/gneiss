@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "documents/scene_document.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/scene/scene_instances.hpp"

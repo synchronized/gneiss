@@ -7,7 +7,7 @@
 #include "engine/function/scene/prefab_property_override.hpp"
 
 #include "engine/core/identifier_conversion.hpp"
-#include "engine/core/meta/type_registration.hpp"
+#include "engine/core/meta/registration.hpp"
 #include "engine/function/world/component_identity.hpp"
 
 #include "engine/function/world/world.hpp"
@@ -470,8 +470,8 @@ gneiss::engine::result apply_candidate_object(const gneiss::engine::meta::regist
   const auto is_type = [&](gneiss::engine::guid type) { return value.key.type_id == type; };
   if (is_type(gneiss::engine::transform_component_type)) {
     auto transform = to_transform(object);
-    result = gneiss::engine::meta::set_property(state, value.key.type_id, value.key.field_id.get(),
-                                                &transform, native);
+    result = gneiss::engine::meta::write_property(state, value.key.type_id, value.key.field_id,
+                                                  &transform, native);
     if (result != gneiss::engine::result::success) {
       return result;
     }
@@ -490,8 +490,8 @@ gneiss::engine::result apply_candidate_object(const gneiss::engine::meta::regist
         .near = camera.near_plane,
         .far = camera.far_plane,
     };
-    result = gneiss::engine::meta::set_property(state, value.key.type_id, value.key.field_id.get(),
-                                                &properties, native);
+    result = gneiss::engine::meta::write_property(state, value.key.type_id, value.key.field_id,
+                                                  &properties, native);
     if (result != gneiss::engine::result::success) {
       return result;
     }

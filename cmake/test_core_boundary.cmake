@@ -513,7 +513,8 @@ if(NOT status EQUAL 0)
 endif()
 
 file(MAKE_DIRECTORY "${fixture}/src/engine/resource")
-foreach(header IN ITEMS "engine/core/meta/type_registry.hpp"
+foreach(header IN ITEMS "engine/core/meta/registry.hpp"
+    "engine/core/meta/registration.hpp" "engine/core/meta/serialization.hpp"
     "engine/function/scene/prefab_property_override.hpp" "engine/function/world/world.hpp")
   file(WRITE "${fixture}/src/engine/resource/types/scene_description.hpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"

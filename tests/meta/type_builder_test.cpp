@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/meta/type_builder.hpp"
+#include "engine/core/meta/registration.hpp"
 namespace e = gneiss::engine;
 struct sample {
   inline static constexpr std::string_view type_name = "sample";
@@ -17,7 +17,7 @@ struct sample {
 };
 int main() {
   gneiss::engine::meta::registry_ref registry;
-  if (gneiss::engine::meta::create_native(registry).failed())
+  if (gneiss::engine::meta::create_registry(registry).failed())
     return 1;
   if (e::type_identity<const sample&>::guid() != sample::type_guid ||
       e::type_identity<sample>::name() != "sample" ||

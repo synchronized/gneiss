@@ -4,6 +4,7 @@
 #include "../support/async_editor_save.hpp"
 #include "documents/document_editing.hpp"
 #include "documents/editor_scene_loader.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"

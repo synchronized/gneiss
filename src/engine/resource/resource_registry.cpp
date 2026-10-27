@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "resource_registry.hpp"
-#include "engine/core/meta/type_registration.hpp"
+#include "engine/core/meta/registration.hpp"
 #include "engine/resource/loaders/action_map_serialization.hpp"
 #include "engine/resource/loaders/material_serialization.hpp"
 #include "engine/resource/loaders/scene_serialization.hpp"
@@ -13,7 +13,7 @@ result builtin_resource_registry(gneiss::engine::meta::registry_ref& output) noe
   const std::scoped_lock lock(mutex);
   if (!registry) {
     gneiss::engine::meta::registry_ref pending;
-    auto status = create_native(pending);
+    auto status = create_registry(pending);
     if (status == result::success)
       status = register_material_reflection(pending);
     if (status == result::success)

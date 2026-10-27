@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/meta/type_registration.hpp"
+#include "engine/core/meta/registration.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
@@ -14,7 +14,7 @@ int main() {
   engine::world_owner first, second;
   gneiss::entity_id entity, missing;
   gneiss::scene_node_id node;
-  if (gneiss::engine::meta::create_native(registry).failed() ||
+  if (gneiss::engine::meta::create_registry(registry).failed() ||
       engine::register_reflection(registry).failed() ||
       engine::register_reflection(registry) != engine::result::invalid_argument ||
       gneiss::engine::meta::freeze(registry).failed() || engine::create_native(first).failed() ||

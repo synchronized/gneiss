@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include "engine/core/meta/type_info.hpp"
+#include "engine/core/meta/type.hpp"
 #include <array>
 #include <cstdint>
 #include <string>

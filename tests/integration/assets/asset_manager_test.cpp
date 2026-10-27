@@ -3,7 +3,7 @@
 
 #include "../../support/async_asset.hpp"
 #include "../../support/memory_file_fixture.hpp"
-#include "engine/core/meta/type_registration.hpp"
+#include "engine/core/meta/registration.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
@@ -172,7 +172,7 @@ void decoder_selection() {
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == result::success, "decoder mount");
   gneiss::engine::meta::registry_ref registry;
-  check(create_native(registry) == result::success, "decoder registry");
+  check(create_registry(registry) == result::success, "decoder registry");
   gneiss::engine::meta::serialization_binding codec;
   codec.decode = [](std::span<const std::byte> bytes, void* object,
                     gneiss::engine::meta::serialization_diagnostic& diagnostic) {
@@ -244,7 +244,7 @@ void decoder_selection() {
         "async diagnostic and unchanged output");
   source->byte = 'a';
   // 同一个类型同时具备反射与显式解码器时，只采用显式函数。
-  check(create_native(registry) == result::success, "override registry");
+  check(create_registry(registry) == result::success, "override registry");
   check(register_type<value>(registry, {.guid = material_description::type_guid,
                                         .schema_version = 1U,
                                         .name = "test_asset",

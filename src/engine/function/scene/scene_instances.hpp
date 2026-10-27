@@ -4,7 +4,7 @@
 #ifndef GNEISS_SCENE_SCENE_INSTANCES_HPP_
 #define GNEISS_SCENE_SCENE_INSTANCES_HPP_
 
-#include "engine/core/meta/type_registry.hpp"
+#include "engine/core/meta/registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid_table.hpp"
 #include "engine/core/scene_types.hpp"

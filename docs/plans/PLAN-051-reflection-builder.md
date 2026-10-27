@@ -24,3 +24,17 @@
 ## 未决问题
 
 无；行为测试留待架构统一验收。
+
+## 2026-10-27 Meta 文件整理
+
+已确认按职责收敛为 property.hpp、type.hpp、serialization_types.hpp、registry.hpp/.cpp、
+registration.hpp 和 serialization.hpp。普通 C++ 注册以 registration.hpp 中的 type_builder<T> 为主，
+底层非模板注册仍写入同一注册表；模板 register_type<T> 也由 registration.hpp 提供。
+创建入口改为 create_registry；对外属性访问只保留 read_property/write_property，使用 property_id，
+读取失败保持原输出。移除旧头文件及全局 get/set 转发函数，私有存储仍集中在 registry.cpp。
+保持 GUID、类型描述布局、冻结规则、回调对象借用和序列化行为；不新增对象框架或类型擦除层。
+Windows Clang Debug 全部启用目标编译通过，6 个 Meta 头文件独立 C++20 编译通过。
+11 项专项通过：type_registry、type_builder、property_access、serialization、reflection-boundary、
+component_reflection、prefab_property_override、assets.manager、editor.property-inspector、
+core-boundary、core-boundary-negative。格式与 git diff --check 通过。
+未运行大场景、完整 CI、浏览器或图形交互。

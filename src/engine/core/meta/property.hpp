@@ -2,8 +2,12 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/guid.hpp"
+#include "engine/core/result.hpp"
+#include "engine/core/value.hpp"
 #include <concepts>
 #include <cstdint>
+#include <string_view>
 
 namespace gneiss::engine::meta {
 /** 类型内部的字段身份，零无效。 */
@@ -41,4 +45,28 @@ template <property_flag_type T> constexpr T& operator&=(T& left, T right) noexce
 template <property_flag_type T> [[nodiscard]] constexpr bool has_flags(T value, T flags) noexcept {
   return (value & flags) == flags;
 }
+struct property_definition {
+  property_id id{};
+  engine::guid type_guid{};
+  property_flags flags = property_flags::none;
+  std::string_view name{};
+};
+/** 名称由冻结 Registry 借出，有效期不超过 Registry。 */
+struct property_info {
+  property_id id{};
+  engine::guid type_guid{};
+  property_flags flags = property_flags::none;
+  std::string_view name{};
+  value_kind kind = value_kind::invalid;
+  property_capabilities capabilities = property_capabilities::none;
+};
+/** 回调借用实际类型的对象指针；调用方保证对象存活、类型正确和线程访问合法。
+ * setter 必须先校验再修改，失败保持对象；注册表不复制对象或回滚任意回调副作用。
+ * 上下文和对象借用；getter 输出拥有数据的 value，setter 只在调用期间借用输入 value。 */
+struct property_binding {
+  value_kind kind = value_kind::invalid;
+  result (*getter)(void*, const void*, value&) = nullptr;
+  result (*setter)(void*, void*, const value&) = nullptr;
+  void* user_data{};
+};
 } // namespace gneiss::engine::meta

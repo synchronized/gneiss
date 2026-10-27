@@ -8,7 +8,7 @@
 #include "engine/resource/asset_manager.hpp"
 
 #include "engine/core/identifier_conversion.hpp"
-#include "engine/core/meta/type_registration.hpp"
+#include "engine/core/meta/registration.hpp"
 #include "engine/function/world/component_identity.hpp"
 
 #include "engine/function/world/world.hpp"

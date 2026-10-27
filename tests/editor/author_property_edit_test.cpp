@@ -7,7 +7,7 @@
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
-#include "engine/core/meta/type_info.hpp"
+#include "engine/core/meta/type.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 

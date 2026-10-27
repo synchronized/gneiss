@@ -3,6 +3,7 @@
 
 #include "../support/async_asset.hpp"
 #include "../support/memory_file_fixture.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/core/result.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/resource_registry.hpp"

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/meta/type_registration.hpp"
+#include "engine/core/meta/registry.hpp"
+#include "engine/core/traits/type_identity.hpp"
 #include <functional>
 #include <new>
 #include <string>
@@ -9,6 +10,26 @@
 #include <vector>
 
 namespace gneiss::engine::meta {
+/** 从规范化 C++ 类型提取身份；显式身份与 traits 冲突时拒绝注册。 */
+template <class T>
+[[nodiscard]] result register_type(const registry_ref& registry, type_definition definition,
+                                   std::span<const property_binding> bindings = {}) noexcept {
+  using type = std::remove_cvref_t<T>;
+  const auto guid = type_identity<type>::guid();
+  const auto name = type_identity<type>::name();
+  if ((guid && definition.guid && guid != definition.guid) ||
+      (!name.empty() && !definition.name.empty() && name != definition.name))
+    return result::invalid_argument;
+  if (!definition.guid)
+    definition.guid = guid;
+  if (definition.name.empty())
+    definition.name = name;
+  const auto id = runtime_type_of<type>();
+  if (!id || (definition.type_id && definition.type_id != id))
+    return result::invalid_argument;
+  definition.type_id = id;
+  return register_type(registry, definition, bindings);
+}
 namespace detail {
 template <class T, std::size_t Index = 1> constexpr value_kind reflected_value_kind() {
   if constexpr (Index == std::variant_size_v<value::storage_type>) {

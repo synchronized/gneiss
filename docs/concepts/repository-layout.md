@@ -206,8 +206,8 @@ Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真�
   注册表实现不向宿主导出。动态游戏模块所需桥接通过 `application_bridge.hpp` 提供。
 
 属性面板和撤销历史使用 `gneiss::engine::value`，其中字符串为自有文本；
-`meta/type_registry.hpp` 提供同一注册表的类型查询和属性读写。
-注册输入与冻结操作位于 `meta/type_registration.hpp`，内置组件注册入口是
+`meta/registry.hpp` 提供同一注册表的创建、注册、冻结、查询和属性读写。
+C++ Builder 注册入口位于 `meta/registration.hpp`，内置组件注册入口是
 `world_reflection.hpp`。元数据名称借用注册表，属性读取结果拥有自己的数据；
 具体文件职责见[反射接口参考](../reference/reflection.md)。
 

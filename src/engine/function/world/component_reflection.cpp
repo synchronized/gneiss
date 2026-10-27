@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/math/transform.hpp"
-#include "engine/core/meta/type_builder.hpp"
+#include "engine/core/meta/registration.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include <cmath>
@@ -71,7 +71,7 @@ namespace gneiss::engine {
 gneiss::engine::result
 create_property_registry(gneiss::engine::meta::registry_ref& output) noexcept {
   gneiss::engine::meta::registry_ref pending;
-  auto operation = gneiss::engine::meta::create_native(pending);
+  auto operation = gneiss::engine::meta::create_registry(pending);
   if (operation == gneiss::engine::result::success) {
     operation = register_reflection(pending);
   }

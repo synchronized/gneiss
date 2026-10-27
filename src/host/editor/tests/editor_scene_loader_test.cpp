@@ -3,6 +3,7 @@
 
 #include "documents/editor_scene_loader.hpp"
 #include "documents/scene_document_snapshot.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/resource/resource_registry.hpp"

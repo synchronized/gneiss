@@ -6,7 +6,7 @@
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world_reflection.hpp"
 
-#include "engine/core/meta/type_registration.hpp"
+#include "engine/core/meta/registration.hpp"
 
 #include <array>
 #include <cmath>

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include "engine/core/meta/type_registry.hpp"
+#include "engine/core/meta/registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/scene/prefab_runtime_instance.hpp"

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/math/camera.hpp"
-#include "engine/core/meta/type_registry.hpp"
+#include "engine/core/meta/registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"

@@ -5,8 +5,8 @@
 
 ## 当前范围
 
-反射注册与查询使用 `src/engine/core/meta/type_registration.hpp` 和
-`type_registry.hpp` 中的原生接口。Registry 的 C 函数、公共句柄表及 C 元数据缓存已删除。
+反射注册与查询使用 `src/engine/core/meta/registration.hpp` 和
+`registry.hpp` 中的原生接口。Registry 的 C 函数、公共句柄表及 C 元数据缓存已删除。
 旧 `reflection.h`、C 属性值布局和转换头已删除；Editor/Runtime 属性命令直接持有原生 `guid`。
 IPC 仍使用既有 32 位十六进制字符串编码 GUID，不传输原生对象布局。
 
@@ -24,13 +24,13 @@ Meta 的类型与函数统一位于 `gneiss::engine::meta`，不保留旧命名�
 
 | 文件 | 职责与主要类型 |
 | --- | --- |
-| `meta/property.hpp` | `property_id`、字段标志和属性读写能力 |
-| `meta/type_info.hpp` | 查询结果 `type_info`、`property_info` |
-| `meta/type_registry.hpp` | `registry_ref`、类型/字段查询、属性读写 |
-| `meta/type_registration.hpp` | 注册输入 `type_definition`、`property_definition`、`property_binding`，创建、注册与冻结 |
-| `meta/type_registry.cpp` | 唯一注册表的私有存储与实现 |
-| `meta/type_builder.hpp` | C++ 模板注册构建器 |
-| `meta/serialization.hpp` | 编解码绑定、诊断与序列化入口 |
+| `meta/property.hpp` | 属性 ID、标志、注册描述、查询结果及访问器绑定 |
+| `meta/type.hpp` | `type_definition`、`type_info`，不依赖注册表 |
+| `meta/serialization_types.hpp` | 编解码函数表和诊断值，不依赖注册表 |
+| `meta/registry.hpp` | `registry_ref`、创建/注册/冻结、查询、属性访问和编解码函数表查询 |
+| `meta/registry.cpp` | 唯一注册表的私有存储与实现 |
+| `meta/registration.hpp` | C++ Builder 注册入口与模板身份适配 |
+| `meta/serialization.hpp` | `serialize<T>`、`deserialize<T>` 调用模板 |
 
 内建组件身份位于 `engine/function/world/component_identity.hpp`，不属于通用 Meta。
 `guid`、`type_id`、`value` 仍是 Core 基础类型，`type_identity` 仍是 traits 定制点。
@@ -42,7 +42,7 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 `property_definition.type_guid` 表示字段值的语义类型，无需事先注册该类型。
 `property_flags::read_only` 禁止为字段绑定 setter。
 
-`create_native` 创建 `registry_ref` 所有者；`register_type` 深拷贝名称和字段描述。
+`create_registry` 创建 `registry_ref` 所有者；`register_type` 深拷贝名称和字段描述。
 类型自身的稳定身份为 `type_definition.guid`、`type_info.guid`；注册输入另有可选的运行期 `type_id`。
 重复 GUID 或重复非空运行期 ID 的注册返回 `result::invalid_argument`，不覆盖已有记录。
 注册名称不得为空或包含内嵌空字符，必须是合法 UTF-8；重复字段编号或名称也会被拒绝。
@@ -57,7 +57,9 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 当前 bool、float、vector3、quaternion 的 traits 提供内建字段原有的稳定 GUID；
 其他属性类型使用 builder 前须提供相应 GUID 特化，不能按编译器名称临时生成。
 
-`type_builder<T>` 位于 `type_builder.hpp`，使用现有 Registry，没有第二套运行期状态。
+`registration.hpp` 是普通 C++ 类型注册的主要入口，通过 `type_builder<T>` 使用现有 Registry，
+没有第二套运行期状态。动态描述仍可使用 `registry.hpp` 的非模板注册函数。
+调用序列化模板须直接包含 `serialization.hpp`。不保留旧头文件转发层或 get/set 属性入口。
 类型具有静态身份时可这样注册：
 
 ```cpp
@@ -97,13 +99,13 @@ return gneiss::engine::meta::type_builder<camera_properties>{registry}
 浮点与数学值必须有限，字符串必须为无内嵌空字符的合法 UTF-8，GUID 不得全零。
 字段专属范围和四元数归一化由 setter 校验，失败不得留下部分修改。
 
-回调、底层 get/set、高层 read/write 及组件接口统一使用 [engine::value](value.md)。
+回调、read/write 及组件接口统一使用 [engine::value](value.md)。
 getter 输出 `value&`，字符串复制进值；setter 接收 `const value&`，不保留输入引用。
 不再存在借用值和拥有值之间的转换。`read_property` 使用临时值，失败保持原输出，成功后移动结果；
 `write_property` 直接传递同一份 const 值。
 
 未绑定字段或缺少对应方向的访问器返回 `unsupported`。getter 抛异常或返回非法类别/值时返回
-`internal` 并清空底层输出；自有快照查询保持原输出。setter 异常也转换为 `internal`；getter/setter 的分配异常转换为 `out_of_memory`。
+`internal`，`read_property` 保持原输出。setter 异常也转换为 `internal`；getter/setter 的分配异常转换为 `out_of_memory`。
 基础 getter 接收 `const void* object`，setter 接收 `void* object`。对象仅在调用期间借用，Registry
 不复制、不持有对象，也不解释 World/Entity 标识。调用方必须保证对象实际类型、寿命及线程访问合法。
 空对象返回 `invalid_argument`；不支持运行期校验任意 void* 的实际类型。
