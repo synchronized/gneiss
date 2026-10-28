@@ -9,9 +9,12 @@ Mesh、Material 和 Texture 的 CPU 内容表由 Application 的 `render_service
 调用方通过 `application::render()` 使用 RID 接口，不能借用资源表。
 运行身份、元信息与材质依赖由 Application 的 `render_resource_factory` 维护，
 通过 `application::resource_factory()` 借用，程序化纹理使用 `create_texture(factory, texture_view, texture&)`。
-迁移期 `reference_mesh/texture/material(factory, rid)` 接管调用方创建的 RID，同一工厂复用同一包装，
-每个 Render 只装配一个工厂，不得重复接管；普通文件加载继续使用统一 URI 缓存。
-接管既有材质 RID 时，其纹理必须已有强引用；缺失时返回空，不隐式接管纹理。
+工厂 `reserve_mesh/texture/material(ref&)` 预留新资源，`create_mesh/texture` 创建有内容的资源，
+`create_material(parameters, textures, material&)` 显式传入纹理强引用。成功后输出拥有者，失败输出为空。
+不存在外部 RID 接管入口；多个工厂即使共用 Render，也各自创建不同的 RID，不能接管彼此的资源。
+`find_mesh/texture/material(rid)` 只返回本工厂已有对象的引用，未知或已释放对象返回空。
+普通文件加载仍通过统一 URI 缓存复用对象。上层提取的 RID 仅用于借用，不得手动销毁资源拥有的 RID。
+底层 Render 的裸 RID 创建/销毁接口保留，调用方须自行配对，不能混入强引用所有权。
 UI 使用 `factory.find_texture(rid)` 仅查询已有引用，缺失返回空，不隐式建立资源拥有者。
 这些接口声明在 `engine/resource/render_resource_factory.hpp`；资源对象头不声明 Render 服务类型。
 原生 `render_service::create_mesh(mesh_view, ...)` 会在调用

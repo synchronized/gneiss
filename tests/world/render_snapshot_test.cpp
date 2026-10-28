@@ -38,19 +38,21 @@ int run_host_tests() {
 int run_tests() {
   gneiss::engine::render_service resources;
   gneiss::engine::render_resource_factory resources_factory{resources};
-  gneiss::engine::rid mesh_id{}, material_id{};
-  if (resources.reserve_mesh(&mesh_id).failed() ||
-      resources.reserve_material(&material_id).failed())
+  gneiss::engine::mesh mesh_ref;
+  gneiss::engine::material material_ref;
+  if (resources_factory.reserve_mesh(mesh_ref).failed() ||
+      resources_factory.reserve_material(material_ref).failed())
     return 30;
+  const auto mesh_id = resource_handle(mesh_ref);
+  const auto material_id = resource_handle(material_ref);
   gneiss::engine::world_state world{1};
   const auto camera_entity = world.create_entity();
   const auto mesh_entity = world.create_entity();
   gneiss::scene_node_id camera_node = gneiss::null_scene_node_id;
   gneiss::scene_node_id mesh_node = gneiss::null_scene_node_id;
   const gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  gneiss::engine::mesh_renderer renderer{
-      .mesh = gneiss::engine::reference_mesh(resources_factory, mesh_id),
-      .material = gneiss::engine::reference_material(resources_factory, material_id)};
+  gneiss::engine::mesh_renderer renderer{.mesh = resources_factory.find_mesh(mesh_id),
+                                         .material = resources_factory.find_material(material_id)};
   gneiss::engine::math::transform mesh_transform = gneiss::engine::math::transform{};
   mesh_transform.translation[0] = 2.0F;
 
@@ -119,14 +121,15 @@ int run_tests() {
   }
   // ECS 释放后提交快照独立保活；工作线程最后释放只入队，不复活旧 RID。
   renderer = {};
+  mesh_ref.reset();
+  material_ref.reset();
   if (!world.destroy_entity(mesh_entity) || !world.destroy_entity(added_mesh))
     return 31;
   if (resources_factory.drain() != 0U || snapshot.instances.empty())
     return 32;
   std::thread release([&] { snapshot = {}; });
   release.join();
-  if (gneiss::engine::reference_mesh(resources_factory, mesh_id) ||
-      gneiss::engine::reference_material(resources_factory, material_id))
+  if (resources_factory.find_mesh(mesh_id) || resources_factory.find_material(material_id))
     return 33;
   if (resources_factory.drain() != 2U || resources.live_resource_count() != 0U)
     return 34;

@@ -248,59 +248,29 @@ engine::result render_asset_loader::reserve_asset(const render_asset_reload& sou
           auto result = engine::result::invalid_argument;
           switch (source.type) {
           case render_asset_type::mesh: {
-            engine::rid handle{};
-            result = resources_.reserve_mesh(&handle);
+            engine::mesh value;
+            result = factory_.reserve_mesh(value);
             if (result.ok()) {
-              try {
-                auto value = gneiss::engine::reference_mesh(factory_, handle);
-                if (!value) {
-                  (void)resources_.destroy_mesh(handle);
-                  return engine::result::invalid_state;
-                }
-                detail::mesh_resource_access::set_source(*value, identity);
-                resource = value.shared();
-              } catch (...) {
-                (void)resources_.destroy_mesh(handle);
-                throw;
-              }
+              detail::mesh_resource_access::set_source(*value, identity);
+              resource = value.shared();
             }
             break;
           }
           case render_asset_type::texture: {
-            engine::rid handle{};
-            result = resources_.reserve_texture(&handle);
+            engine::texture value;
+            result = factory_.reserve_texture(value);
             if (result.ok()) {
-              try {
-                auto value = gneiss::engine::reference_texture(factory_, handle);
-                if (!value) {
-                  (void)resources_.destroy_texture(handle);
-                  return engine::result::invalid_state;
-                }
-                detail::texture_resource_access::set_source(*value, identity);
-                resource = value.shared();
-              } catch (...) {
-                (void)resources_.destroy_texture(handle);
-                throw;
-              }
+              detail::texture_resource_access::set_source(*value, identity);
+              resource = value.shared();
             }
             break;
           }
           case render_asset_type::material: {
-            engine::rid handle{};
-            result = resources_.reserve_material(&handle);
+            engine::material value;
+            result = factory_.reserve_material(value);
             if (result.ok()) {
-              try {
-                auto value = gneiss::engine::reference_material(factory_, handle);
-                if (!value) {
-                  (void)resources_.destroy_material(handle);
-                  return engine::result::invalid_state;
-                }
-                detail::material_resource_access::set_source(*value, identity);
-                resource = value.shared();
-              } catch (...) {
-                (void)resources_.destroy_material(handle);
-                throw;
-              }
+              detail::material_resource_access::set_source(*value, identity);
+              resource = value.shared();
             }
             break;
           }

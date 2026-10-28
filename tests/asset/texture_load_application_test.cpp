@@ -180,12 +180,9 @@ void run(gneiss::engine::execution_mode mode) {
         gneiss::engine::result::success);
   const auto world = app->native_world();
   check(app->request_assets(uris, 2U, 7U, request, true) == gneiss::engine::result::success);
-  gneiss::engine::rid external_mesh{}, external_material{};
-  check(app->render().reserve_mesh(&external_mesh).ok());
-  check(app->render().reserve_material(&external_material).ok());
-  const gneiss::engine::mesh_renderer external{
-      gneiss::engine::reference_mesh(app->resource_factory(), external_mesh),
-      gneiss::engine::reference_material(app->resource_factory(), external_material)};
+  gneiss::engine::mesh_renderer external;
+  check(app->resource_factory().reserve_mesh(external.mesh).ok());
+  check(app->resource_factory().reserve_material(external.material).ok());
   check(gneiss::engine::result{app->native_world()->entity_set_mesh_renderer(
             node.entity, external)} == gneiss::engine::result::success);
   wait();

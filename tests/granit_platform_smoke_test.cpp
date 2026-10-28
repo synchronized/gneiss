@@ -101,11 +101,13 @@ int main() {
   texture_desc.row_stride_bytes = 8;
   texture_desc.pixels = pixels;
   native::rid mesh{}, material{}, plain_material{}, texture{};
-  if (resources.create_texture(texture_desc, &texture).failed()) {
+  native::mesh mesh_owner;
+  native::material material_owner, plain_material_owner;
+  if (resources_factory.create_texture(texture_desc, context.texture).failed()) {
     std::fprintf(stderr, "测试 Texture 创建失败\n");
     return 2;
   }
-  context.texture = gneiss::engine::reference_texture(resources_factory, texture);
+  texture = resource_handle(context.texture);
 #ifdef _WIN32
   // 投递真实窗口消息，验证显式事件泵送及原生输入事件传递。
   const auto window = FindWindowW(nullptr, L"Gneiss Granit Platform Smoke Test");
@@ -125,26 +127,30 @@ int main() {
     return 11;
   }
 #endif
-  if (resources.create_mesh(mesh_desc, &mesh).failed() ||
-      resources.create_material(material_desc, &plain_material).failed()) {
+  if (resources_factory.create_mesh(mesh_desc, mesh_owner).failed() ||
+      resources_factory.create_material(material_desc.parameters, {}, plain_material_owner)
+          .failed()) {
     std::fprintf(stderr, "测试基础资源创建失败\n");
     return 2;
   }
+  mesh = resource_handle(mesh_owner);
+  plain_material = resource_handle(plain_material_owner);
   material_desc.base_color_texture = texture;
-  if (resources.create_material(material_desc, &material).failed()) {
+  if (resources_factory.create_material(material_desc.parameters, {context.texture}, material_owner)
+          .failed()) {
     std::fprintf(stderr, "测试资源创建失败\n");
     return 2;
   }
+  material = resource_handle(material_owner);
   auto& world = *application->native_world();
   entity_id camera_entity{}, mesh_entity{}, plain_mesh_entity{};
   scene_node_id camera_node{}, mesh_node{}, plain_mesh_node{};
   const native::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  native::mesh_renderer mesh_renderer{
-      .mesh = gneiss::engine::reference_mesh(resources_factory, mesh),
-      .material = gneiss::engine::reference_material(resources_factory, material)};
-  native::mesh_renderer plain_mesh_renderer{
-      .mesh = gneiss::engine::reference_mesh(resources_factory, mesh),
-      .material = gneiss::engine::reference_material(resources_factory, plain_material)};
+  native::mesh_renderer mesh_renderer{.mesh = resources_factory.find_mesh(mesh),
+                                      .material = resources_factory.find_material(material)};
+  native::mesh_renderer plain_mesh_renderer{.mesh = resources_factory.find_mesh(mesh),
+                                            .material =
+                                                resources_factory.find_material(plain_material)};
   native::math::transform camera_transform;
   camera_transform.translation[2] = 2.0F;
   native::math::transform near_transform;
@@ -174,11 +180,12 @@ int main() {
   }
   native::rid replacement_mesh{};
   if (resources.destroy_mesh(mesh).failed() ||
-      resources.create_mesh(mesh_desc, &replacement_mesh).failed()) {
+      resources_factory.create_mesh(mesh_desc, mesh_owner).failed()) {
     return 5;
   }
-  mesh_renderer.mesh = gneiss::engine::reference_mesh(resources_factory, replacement_mesh);
-  plain_mesh_renderer.mesh = gneiss::engine::reference_mesh(resources_factory, replacement_mesh);
+  replacement_mesh = resource_handle(mesh_owner);
+  mesh_renderer.mesh = mesh_owner;
+  plain_mesh_renderer.mesh = resources_factory.find_mesh(replacement_mesh);
   if (world.entity_set_mesh_renderer(mesh_entity, mesh_renderer).failed() ||
       world.entity_set_mesh_renderer(plain_mesh_entity, plain_mesh_renderer).failed()) {
     return 6;

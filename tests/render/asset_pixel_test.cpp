@@ -156,27 +156,28 @@ void run_pending_resources() {
   check(native != nullptr);
   auto& resources = native->render();
   auto& resources_factory = native->resource_factory();
-  gneiss::engine::rid mesh{};
-  gneiss::engine::rid texture{};
-  check(resources.reserve_mesh(&mesh) == gneiss::engine::result::success);
-  check(resources.reserve_texture(&texture) == gneiss::engine::result::success);
-  auto texture_ref = gneiss::engine::reference_texture(resources_factory, texture);
+  gneiss::engine::mesh mesh_ref;
+  gneiss::engine::texture texture_ref;
+  check(resources_factory.reserve_mesh(mesh_ref) == gneiss::engine::result::success);
+  check(resources_factory.reserve_texture(texture_ref) == gneiss::engine::result::success);
+  const auto mesh = resource_handle(mesh_ref);
+  const auto texture = resource_handle(texture_ref);
   gneiss::engine::material_data material_desc;
   material_desc.parameters.color[0] = material_desc.parameters.color[1] =
       material_desc.parameters.color[2] = 0.0F;
   material_desc.parameters.emissive[0] = material_desc.parameters.emissive[1] =
       material_desc.parameters.emissive[2] = 1.0F;
   material_desc.emissive_texture = texture;
-  gneiss::engine::rid material{};
-  check(gneiss::engine::result{resources.create_material(material_desc, &material)} ==
-        gneiss::engine::result::success);
+  gneiss::engine::material material_ref;
+  check(gneiss::engine::result{resources_factory.create_material(
+            material_desc.parameters, {gneiss::engine::texture{}, {}, {}, {}, texture_ref},
+            material_ref)} == gneiss::engine::result::success);
   gneiss::engine::scene_node_view info;
   check(gneiss::engine::result{app->scenes()->get_node_info(scene, 1U, info)} ==
         gneiss::engine::result::success);
   check(gneiss::has_flags(info.component_flags, gneiss::scene_node_components::mesh_renderer));
-  const gneiss::engine::mesh_renderer binding{
-      .mesh = gneiss::engine::reference_mesh(resources_factory, mesh),
-      .material = gneiss::engine::reference_material(resources_factory, material)};
+  const gneiss::engine::mesh_renderer binding{.mesh = resources_factory.find_mesh(mesh),
+                                              .material = material_ref};
   check(gneiss::engine::result{native->native_world()->entity_set_mesh_renderer(
             info.entity, binding)} == gneiss::engine::result::success);
   const auto pixel = [&] {
@@ -244,7 +245,7 @@ void run_pending_resources() {
   check(gneiss::engine::result{native->native_world()->entity_remove_mesh_renderer(info.entity)} ==
         gneiss::engine::result::success);
   check(pixel() == hidden);
-  check(gneiss::engine::result{resources.destroy_material(material)} ==
+  check(gneiss::engine::result{resources.destroy_material(resource_handle(material_ref))} ==
         gneiss::engine::result::success);
   check(gneiss::engine::result{resources.destroy_mesh(mesh)} == gneiss::engine::result::success);
 }

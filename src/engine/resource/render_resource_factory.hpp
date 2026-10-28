@@ -10,6 +10,7 @@
 namespace gneiss::engine {
 class render_service;
 struct mesh_data;
+struct mesh_view;
 struct texture_data;
 struct material_data;
 /** 资源层装配上下文；宿主须在 Render 之前关闭/销毁，所有操作限所属线程。
@@ -21,10 +22,15 @@ public:
   render_resource_factory(const render_resource_factory&) = delete;
   render_resource_factory& operator=(const render_resource_factory&) = delete;
   [[nodiscard]] render_service& render() const noexcept;
-  /** 迁移入口：接管调用方创建的 RID；同一工厂复用包装，不允许跨工厂重复接管。 */
-  mesh reference_mesh(rid handle);
-  texture reference_texture(rid handle);
-  material reference_material(rid handle);
+  /** 创建新的渲染身份并返回唯一拥有者；失败输出为空，不接管外部 RID。 */
+  result reserve_mesh(mesh& output) noexcept;
+  result reserve_texture(texture& output) noexcept;
+  result reserve_material(material& output) noexcept;
+  result create_mesh(const mesh_view& desc, mesh& output) noexcept;
+  result create_material(const material_parameters& parameters, std::array<texture, 5> dependencies,
+                         material& output) noexcept;
+  mesh find_mesh(rid handle) const noexcept;
+  material find_material(rid handle) const noexcept;
   /** 仅查询现有纹理引用；UI 等借用 RID 的调用方不得创建拥有者。 */
   texture find_texture(rid handle) const noexcept;
   /** 提交 CPU 内容后更新上层对象，不等待 GPU；材质依赖由调用方显式提供。 */
@@ -41,9 +47,6 @@ private:
   struct implementation;
   std::unique_ptr<implementation> impl_;
 };
-[[nodiscard]] GNEISS_API mesh reference_mesh(render_resource_factory& factory, rid handle);
-[[nodiscard]] GNEISS_API texture reference_texture(render_resource_factory& factory, rid handle);
-[[nodiscard]] GNEISS_API material reference_material(render_resource_factory& factory, rid handle);
 [[nodiscard]] GNEISS_API result create_texture(render_resource_factory& factory,
                                                const texture_view& desc, texture& output) noexcept;
 } // namespace gneiss::engine

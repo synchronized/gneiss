@@ -972,17 +972,17 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     using namespace gneiss::engine;
     render_service local;
     gneiss::engine::render_resource_factory local_factory{local};
-    rid mesh_handle{}, texture_handle{}, material_handle{};
-    if (local.reserve_mesh(&mesh_handle).failed() ||
-        local.reserve_texture(&texture_handle).failed())
+    gneiss::engine::mesh mesh_ref;
+    gneiss::engine::texture texture_ref;
+    gneiss::engine::material material_ref;
+    if (local_factory.reserve_mesh(mesh_ref).failed() ||
+        local_factory.reserve_texture(texture_ref).failed())
       return 60;
-    auto mesh_ref = gneiss::engine::reference_mesh(local_factory, mesh_handle);
-    auto texture_ref = gneiss::engine::reference_texture(local_factory, texture_handle);
-    gneiss::engine::material_data material_data_value;
-    material_data_value.base_color_texture = texture_handle;
-    if (local.create_material(material_data_value, &material_handle).failed())
+    const auto mesh_handle = resource_handle(mesh_ref);
+    const auto texture_handle = resource_handle(texture_ref);
+    if (local_factory.create_material({}, {texture_ref}, material_ref).failed())
       return 61;
-    auto material_ref = gneiss::engine::reference_material(local_factory, material_handle);
+    const auto material_handle = resource_handle(material_ref);
     if (!mesh_ref || !texture_ref || !material_ref || material_ref->textures()[0] != texture_ref)
       return 62;
     texture_ref.reset();
@@ -992,8 +992,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
           material_ref.reset();
         });
     worker.join();
-    if (gneiss::engine::reference_mesh(local_factory, mesh_handle) ||
-        gneiss::engine::reference_material(local_factory, material_handle))
+    if (local_factory.find_mesh(mesh_handle) || local_factory.find_material(material_handle))
       return 65;
     if (local.live_resource_count() != 3U || local_factory.drain() != 3U ||
         local.live_resource_count() != 0U ||
@@ -1006,17 +1005,16 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   {
     gneiss::engine::render_service closing;
     gneiss::engine::render_resource_factory closing_factory{closing};
-    gneiss::engine::rid handle{};
-    if (closing.reserve_mesh(&handle).failed())
+    gneiss::engine::mesh reference;
+    if (closing_factory.reserve_mesh(reference).failed())
       return 38;
-    auto reference = gneiss::engine::reference_mesh(closing_factory, handle);
+    const auto handle = resource_handle(reference);
     closing_factory.close();
     gneiss::engine::render_device_stats stats{};
     if (closing.texture_profile().generation != 0U || closing.shutdown(stats).failed() ||
         stats.total_live_count != 0U || closing.shutdown(stats).failed())
       return 64;
-    if (closing.is_valid() || closing.live_resource_count() ||
-        gneiss::engine::reference_mesh(closing_factory, handle))
+    if (closing.is_valid() || closing.live_resource_count() || closing_factory.find_mesh(handle))
       return 39;
     std::thread late([resource = std::move(reference)]() mutable { resource.reset(); });
     late.join();

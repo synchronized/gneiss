@@ -9,6 +9,13 @@
 #include <array>
 #include <cstdint>
 #include <thread>
+#include <type_traits>
+
+template <typename Factory>
+concept can_adopt_texture =
+    requires(Factory& factory, gneiss::engine::rid handle) { factory.reference_texture(handle); };
+static_assert(!can_adopt_texture<gneiss::engine::render_resource_factory>);
+static_assert(!std::is_constructible_v<gneiss::engine::texture_resource, gneiss::engine::rid>);
 
 int main() {
   gneiss::engine::render_service resources;
@@ -94,20 +101,34 @@ int main() {
   if (resources.create_texture(texture_desc, &unowned).failed() ||
       resources_factory.find_texture(unowned) || resources.texture_status(unowned).failed())
     return 9;
-  rid legacy_material{};
-  material_data legacy;
-  legacy.base_color_texture = unowned;
-  if (resources.create_material(legacy, &legacy_material).failed() ||
-      resources_factory.reference_material(legacy_material) ||
-      resources_factory.find_texture(unowned))
+  // 两个工厂共用一个 Render，也不能从裸 RID 建立第二个拥有者。
+  render_resource_factory peer{resources};
+  if (peer.find_texture(resource_handle(texture)))
     return 17;
-  auto adopted_texture = resources_factory.reference_texture(unowned);
-  auto adopted_material = resources_factory.reference_material(legacy_material);
-  if (!adopted_material || adopted_material->textures()[0] != adopted_texture)
+  gneiss::engine::texture peer_texture;
+  if (peer.create_texture(texture_desc, peer_texture).failed() ||
+      resource_handle(peer_texture) == resource_handle(texture))
     return 18;
-  adopted_material.reset();
-  adopted_texture.reset();
-  (void)resources_factory.drain();
+  const auto peer_handle = resource_handle(peer_texture);
+  auto copied = peer_texture;
+  peer_texture.reset();
+  if (peer.drain() != 0 || peer.find_texture(peer_handle) != copied)
+    return 20;
+  copied.reset();
+  if (peer.find_texture(peer_handle) || peer.drain() != 1 || peer.drain() != 0 ||
+      resources.texture_status(peer_handle) != result::invalid_handle)
+    return 21;
+  gneiss::engine::material foreign_material;
+  if (peer.create_material({}, {texture}, foreign_material) != result::invalid_argument ||
+      foreign_material)
+    return 22;
+  if (peer.create_texture(texture_desc, peer_texture).failed())
+    return 23;
+  peer.close();
+  if (resources.texture_status(resource_handle(texture)).failed() ||
+      resources.texture_status(resource_handle(peer_texture)) != result::invalid_handle)
+    return 19;
+  (void)resources.destroy_texture(unowned);
 
   const auto handle = resource_handle(texture);
   auto changed = std::make_shared<texture_data>(*resources.share_texture(handle));
@@ -123,10 +144,10 @@ int main() {
       other_resources_factory.update_texture(texture, changed))
     return 10;
 
-  rid material_handle{};
-  if (resources.reserve_material(&material_handle).failed())
+  gneiss::engine::material material_ref;
+  if (resources_factory.reserve_material(material_ref).failed())
     return 11;
-  auto material_ref = reference_material(resources_factory, material_handle);
+  const auto material_handle = resource_handle(material_ref);
   auto content = std::make_shared<material_data>();
   content->base_color_texture = handle;
   // 缺失依赖必须在 Render 内容变化之前拒绝。

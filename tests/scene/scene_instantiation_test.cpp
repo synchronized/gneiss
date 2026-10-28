@@ -358,8 +358,8 @@ void run() {
   check(candidate->scenes()->get_prefab_node_info(new_scene, 1U, prefab_node) ==
         gneiss::engine::result::success);
   const gneiss::engine::mesh_renderer expected{
-      .mesh = gneiss::engine::reference_mesh(resources_factory, mesh_rid),
-      .material = gneiss::engine::reference_material(resources_factory, selected_material)};
+      .mesh = resources_factory.find_mesh(mesh_rid),
+      .material = resources_factory.find_material(selected_material)};
   const std::array unchanged{gneiss::engine::mesh_renderer_replacement{
       .entity = ordinary.entity, .expected = expected, .replacement = expected}};
   const auto edit_reads = files->reads;
@@ -383,7 +383,7 @@ void run() {
                                                "asset://other.material") ==
         gneiss::engine::result::success);
   const gneiss::engine::mesh_renderer edited{
-      .mesh = gneiss::engine::reference_mesh(resources_factory, mesh_rid),
+      .mesh = resources_factory.find_mesh(mesh_rid),
       .material = edited_material->as<gneiss::engine::material_resource>()};
   const std::array material_only{gneiss::engine::mesh_renderer_replacement{
       .entity = ordinary.entity, .expected = edited, .replacement = edited}};
