@@ -507,7 +507,7 @@ add_executable(
   gneiss_prefab_description_test
   serialization/prefab_description_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_codec.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
@@ -543,7 +543,7 @@ add_executable(
   gneiss_resource_service_test
   asset/resource_service_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_cache.cpp"
 )
 target_include_directories(gneiss_resource_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_resource_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -645,7 +645,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/render_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
@@ -673,7 +673,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/render_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
@@ -783,7 +783,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/render_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"

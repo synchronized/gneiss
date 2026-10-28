@@ -9,7 +9,7 @@
 #include "engine/resource/asset_decoder.hpp"
 #include "engine/resource/asset_request.hpp"
 #include "engine/resource/input/action_map.hpp"
-#include "engine/resource/resource_cache.hpp"
+#include "engine/function/resource/resource_cache.hpp"
 #include <memory>
 #include <utility>
 

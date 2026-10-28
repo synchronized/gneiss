@@ -4,7 +4,7 @@
 #include "engine/function/resource/asset_types.hpp"
 #include "engine/resource/material/material_resource.hpp"
 #include "engine/resource/mesh/mesh_resource.hpp"
-#include "engine/resource/resource_cache.hpp"
+#include "engine/function/resource/resource_cache.hpp"
 namespace gneiss::engine {
 enum class texture_load_state : std::uint8_t { preparing, applied, failed, cancelled };
 /** 请求中每项资源的结果；未生效项的 result 表示停止处理的原因，不表示旧内容失效。 */

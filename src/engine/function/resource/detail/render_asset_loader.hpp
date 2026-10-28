@@ -11,7 +11,7 @@
 #include "engine/function/resource/detail/render_resource_factory.hpp"
 #include "engine/resource/material/material_resource.hpp"
 #include "engine/resource/mesh/mesh_resource.hpp"
-#include "engine/resource/resource_cache.hpp"
+#include "engine/function/resource/resource_cache.hpp"
 
 #include "engine/core/result.hpp"
 

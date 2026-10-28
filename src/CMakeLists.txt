@@ -59,8 +59,8 @@ target_sources(
     engine/resource/texture/texture_binary.hpp
     engine/function/resource/detail/texture_load_service.cpp
     engine/function/resource/detail/texture_load_service.hpp
-    engine/resource/resource_cache.cpp
-    engine/resource/resource_cache.hpp
+    engine/function/resource/resource_cache.cpp
+    engine/function/resource/resource_cache.hpp
     engine/core/service_registry.cpp
     engine/core/service_registry.hpp
     engine/core/rid_table.hpp

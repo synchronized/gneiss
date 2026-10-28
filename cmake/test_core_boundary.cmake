@@ -163,7 +163,7 @@ endforeach()
 file(WRITE "${fixture}/src/engine/resource/probe.cpp" "#include <gneiss/core/result.h>\n")
 
 foreach(header IN ITEMS "engine/function/resource/detail/render_asset_loader.hpp" "engine/function/render/render_service.hpp"
-    "engine/resource/resource_cache.hpp" "engine/core/rid_table.hpp")
+    "engine/function/resource/resource_cache.hpp" "engine/core/rid_table.hpp")
   file(WRITE "${fixture}/src/engine/function/resource/asset_preparation.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
@@ -636,13 +636,13 @@ if(NOT status EQUAL 0)
 endif()
 
 # 资源类型与版本索引不能重新通过后端适配获取领域定义。
-foreach(location IN ITEMS material/material_description.hpp resource_cache.hpp)
+foreach(location IN ITEMS engine/resource/material/material_description.hpp engine/function/resource/resource_cache.hpp)
   foreach(header IN ITEMS engine/platform/caors/document_loader.hpp engine/resource/backend/caors/caors_material_document.hpp)
-    file(WRITE "${fixture}/src/engine/resource/${location}" "#include <${header}>\n")
+    file(WRITE "${fixture}/src/${location}" "#include <${header}>\n")
     execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
       -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
       RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
-    file(REMOVE "${fixture}/src/engine/resource/${location}")
+    file(REMOVE "${fixture}/src/${location}")
     if(status EQUAL 0)
       message(FATAL_ERROR "未拒绝资源领域反向依赖：${location} -> ${header}")
     endif()

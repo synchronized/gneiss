@@ -88,7 +88,7 @@ foreach(source IN LISTS sources)
       content MATCHES "#[ \t]*include[ \t]*[<\"](engine/resource/)?(detail/|texture/)?[^\">]*(codec|decoder|texture_ktx2|texture_binary)[.]hpp")
     message(FATAL_ERROR "纹理数据不得依赖格式编解码器：${source}")
   endif()
-  if(source MATCHES "/src/engine/resource/resource_cache[.]" AND
+  if(source MATCHES "/src/engine/function/resource/resource_cache[.]" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"]engine/(platform/|resource/backend/)")
     message(FATAL_ERROR "CPU 版本缓存不得依赖文件后端或加载器适配：${source}")
   endif()
@@ -177,7 +177,7 @@ foreach(source IN LISTS sources)
     continue()
   endif()
   if(source MATCHES "(/src/engine/resource/(mesh/mesh_decoder|texture/texture_decoder|material/material_codec)|/src/engine/function/(resource/asset_preparation|render/render_resource_data))\\.(cpp|hpp)$" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|render_service)\\.(h|hpp)|engine/(resource/resource_cache|core/rid_table)\\.hpp)[>\"]")
+      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|render_service)\\.(h|hpp)|engine/(function/resource/resource_cache|core/rid_table)\\.hpp)[>\"]")
     message(FATAL_ERROR "CPU 准备与值类型不得包含资源发布、缓存或 RID 表：${source}")
   endif()
   if(source MATCHES "/src/engine/core/" AND

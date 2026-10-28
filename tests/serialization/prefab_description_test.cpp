@@ -9,7 +9,7 @@
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/scene/scene_tree.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
-#include "engine/resource/resource_cache.hpp"
+#include "engine/function/resource/resource_cache.hpp"
 #include "engine/resource/scene/prefab_codec.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 

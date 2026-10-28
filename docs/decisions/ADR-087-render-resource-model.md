@@ -74,4 +74,5 @@ RID 查询仅锁定本工厂已有弱引用。材质创建和更新均显式传�
 asset_manager 迁到 engine/function/resource，拥有运行资源创建和加载编排的私有实现。
 Application 只装配资产管理器与渲染服务；Scene 借用管理器，不再拥有视觉资源加载服务。
 文件服务和执行器仍由宿主提供，GPU 上传继续独立于 CPU 加载完成。
-资源值、格式编解码与缓存基础设施保留 engine/resource，不反向依赖功能层。
+resource_cache 与 asset_manager 同属 engine/function/resource，负责运行期索引和缓存策略。
+资源值、引用与格式编解码保留 engine/resource，不反向依赖功能层。

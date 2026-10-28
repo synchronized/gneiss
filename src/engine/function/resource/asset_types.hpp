@@ -4,7 +4,7 @@
 #include "engine/function/resource/asset_preparation.hpp"
 #include "engine/resource/material/material_resource.hpp"
 #include "engine/resource/mesh/mesh_resource.hpp"
-#include "engine/resource/resource_cache.hpp"
+#include "engine/function/resource/resource_cache.hpp"
 namespace gneiss::engine {
 struct material_data;
 /** 统一持有资产缓存条目；非空仅表示身份存在，不代表 GPU 就绪。 */

@@ -13,7 +13,7 @@
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/material/material_codec.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
-#include "engine/resource/resource_cache.hpp"
+#include "engine/function/resource/resource_cache.hpp"
 #include "engine/resource/texture/texture_binary.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
 

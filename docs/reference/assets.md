@@ -56,6 +56,7 @@ CPU 数据表位于 `render_service` 私有实现，Loader 与宿主通过其 RI
 功能层资产管理器负责强引用创建、元信息及材质依赖，详见 [Render 资源与服务边界](render.md)。
 
 
+`resource_cache` 位于 `engine/function/resource/resource_cache.hpp`，与资产管理器同属功能层。
 `asset_manager` 唯一持有 `resource_cache::entries_`，统一按「来源域 + URI + C++ 类型」索引。
 通用 CPU 资产、Prefab 和渲染资产共用此表；同 URI 的不同类型或来源各自独立。
 类型键使用 `engine::type_id`，由同一 Engine 按规范 C++ 类型名集中分配，
