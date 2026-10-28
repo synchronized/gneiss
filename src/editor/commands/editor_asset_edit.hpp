@@ -6,7 +6,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
-#include "engine/function/resource/asset_load_types.hpp"
+#include "engine/function/resource/asset_types.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 
 namespace gneiss::editor {

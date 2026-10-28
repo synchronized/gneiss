@@ -64,11 +64,11 @@ public:
   const std::function<bool()>& cancelled;
   scene_prepare_limits limits;
   prepared_scene_description candidate;
-  std::map<std::string, engine::render_asset_type> dependencies;
+  std::map<std::string, engine::asset_type> dependencies;
   std::map<std::string, std::size_t> scene_depths;
 
   engine::result collect(const std::vector<object_description>& objects) {
-    using engine::render_asset_type;
+    using engine::asset_type;
     for (const auto& object : objects) {
       if (cancelled && cancelled()) {
         return engine::result::invalid_state;
@@ -77,13 +77,13 @@ public:
         continue;
       }
       for (const auto& asset : {
-               engine::render_asset_reload{
+               engine::asset_source{
                    .uri = object.mesh_renderer->mesh_uri,
-                   .type = render_asset_type::mesh,
+                   .type = asset_type::mesh,
                },
-               engine::render_asset_reload{
+               engine::asset_source{
                    .uri = object.mesh_renderer->material_uri,
-                   .type = render_asset_type::material,
+                   .type = asset_type::material,
                },
            }) {
         const auto [entry, added] = dependencies.emplace(asset.uri, asset.type);

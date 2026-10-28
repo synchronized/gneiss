@@ -25,8 +25,8 @@ result scene_instance::capture_mesh_binding(scene_node_id node,
 result scene_instance::replace_mesh_binding(scene_node_id node_value,
                                             const scene_mesh_binding& expected,
                                             const scene_mesh_binding& replacement) noexcept try {
-  if (engine::asset_kind(replacement.mesh) != render_asset_type::mesh ||
-      engine::asset_kind(replacement.material) != render_asset_type::material ||
+  if (engine::asset_kind(replacement.mesh) != asset_type::mesh ||
+      engine::asset_kind(replacement.material) != asset_type::material ||
       !loader_.owns(replacement.mesh) || !loader_.owns(replacement.material)) {
     return result::invalid_argument;
   }

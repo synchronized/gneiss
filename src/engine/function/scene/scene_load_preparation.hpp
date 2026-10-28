@@ -33,7 +33,7 @@ struct prepared_scene_description {
   scene_description description;
   std::vector<std::size_t> parent_first;
   std::map<std::string, prepared_prefab_description> prefabs;
-  std::vector<render_asset_reload> assets;
+  std::vector<asset_source> assets;
   std::size_t instance_nodes{};
   // 累计保留的作者 JSON 字节数；单文件读取上限由 codec 规定。
   std::size_t source_bytes{};

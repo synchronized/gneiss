@@ -30,7 +30,7 @@ namespace {
 void advance_assets_for_test(gneiss::engine::asset_manager& assets) {
   if (const auto files = assets.async_files())
     (void)files->dispatch_completions(64);
-  assets.advance_resources();
+  assets.advance();
 }
 using namespace gneiss;
 using namespace gneiss::engine;
@@ -152,10 +152,10 @@ void injected_file_service() {
   check(assets->find_loaded("asset://value", other).ok() && other == loaded,
         "cancel preserves cache");
   check(assets->load("asset://late", first).ok(), "late request");
-  assets->request_stop_resources();
-  check(!assets->resources_stopped(), "stop completion requires owner advance");
-  assets->advance_resources();
-  check(assets->resources_stopped(), "manager stops without waiting for file callback");
+  assets->request_stop();
+  check(!assets->stopped(), "stop completion requires owner advance");
+  assets->advance();
+  check(assets->stopped(), "manager stops without waiting for file callback");
   assets.reset();
   check(first.take(other) == result::invalid_state && other == loaded, "stop terminates observer");
   backend->finish('s');
@@ -296,7 +296,7 @@ void decoder_selection() {
                 result::invalid_argument &&
             material == saved,
         "reflection input limit preserves output");
-  reflected.stop_resources();
+  reflected.stop();
 }
 void reference_lifetime() {
   struct tracked {
@@ -383,7 +383,7 @@ void cache_collection() {
   check(assets.load("asset://value", request) == gneiss::engine::result::success &&
             request.take(copy) == gneiss::engine::result::success && copy->byte == 'b',
         "failed reload retains cached content through collection");
-  assets.stop_resources();
+  assets.stop();
   check(copy->byte == 'b', "reference survives manager stop");
 }
 void run() {
@@ -533,7 +533,7 @@ void run() {
         "cancelled work not published");
   check(assets.load("asset://value", first, true) == gneiss::engine::result::success,
         "close pending");
-  assets.stop_resources();
+  assets.stop();
   check(first.take(a) == gneiss::engine::result::invalid_state && a == b,
         "close terminates observers");
   check(assets.load("asset://value", second) == gneiss::engine::result::invalid_state,
@@ -579,7 +579,7 @@ void stored_value_supersedes_pending() {
   check(assets.store<value>("invalid", {}, current) == result::invalid_argument &&
             current == stored,
         "failed store preserves output");
-  assets.stop_resources();
+  assets.stop();
 }
 
 #if GNEISS_TEST_TASK_THREADS
@@ -618,17 +618,17 @@ void nonblocking_decode_shutdown() {
     check(std::chrono::steady_clock::now() < deadline, "decoder started");
     std::this_thread::yield();
   }
-  assets.request_stop_resources();
-  assets.advance_resources();
-  check(!assets.resources_stopped(), "running decode does not block stop request");
+  assets.request_stop();
+  assets.advance();
+  check(!assets.stopped(), "running decode does not block stop request");
   asset_ref<const value> output;
   check(request.take(output) == result::invalid_state && !output,
         "observer terminates immediately");
   asset_request<value> rejected;
   check(assets.load("asset://other", rejected) == result::invalid_state, "stop rejects work");
   decoder->released.store(true, std::memory_order_release);
-  while (!assets.resources_stopped()) {
-    assets.advance_resources();
+  while (!assets.stopped()) {
+    assets.advance();
     check(std::chrono::steady_clock::now() < deadline, "stop drains after decoder exit");
     std::this_thread::yield();
   }

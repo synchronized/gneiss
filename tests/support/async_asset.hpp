@@ -27,7 +27,7 @@ engine::result load_asset(engine::asset_manager& assets, std::string_view uri,
   while ((status = request.take(output, diagnostic)) == engine::result::not_ready) {
     (void)tasks.run_ready();
     (void)assets.async_files()->dispatch_completions(64);
-    assets.advance_resources();
+    assets.advance();
     if (std::chrono::steady_clock::now() > deadline)
       throw std::runtime_error("资产请求测试超时");
   }

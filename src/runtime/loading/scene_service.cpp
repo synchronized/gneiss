@@ -79,7 +79,7 @@ void scene_service::advance_visuals() {
   }
   if (visual_pending_) {
     loading_assets()->advance();
-    gneiss::engine::texture_load_completion completion;
+    gneiss::engine::asset_load_completion completion;
     if (!loading_assets()->take(completion)) {
       return;
     }
@@ -102,7 +102,7 @@ void scene_service::advance_visuals() {
   if (submitted == gneiss::engine::result::success) {
     visual_pending_ = true;
   } else {
-    gneiss::engine::texture_load_completion completion;
+    gneiss::engine::asset_load_completion completion;
     completion.result = submitted;
     completion.results.push_back({.source = visual_queue_[visual_cursor_], .result = submitted});
     visual_completion_ = std::move(completion);
@@ -110,7 +110,7 @@ void scene_service::advance_visuals() {
   ++visual_cursor_;
 }
 
-bool scene_service::take_visual_completion(gneiss::engine::texture_load_completion& output) {
+bool scene_service::take_visual_completion(gneiss::engine::asset_load_completion& output) {
   if (!visual_completion_) {
     return false;
   }
@@ -158,7 +158,7 @@ gneiss::engine::asset_manager* scene_service::loading_assets() const noexcept {
   return loading_attached_ ? asset_owner_ : nullptr;
 }
 gneiss::engine::result
-scene_service::request_assets(std::span<const gneiss::engine::render_asset_reload> sources,
+scene_service::request_assets(std::span<const gneiss::engine::asset_source> sources,
                               std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
                               bool reload) {
   request = 0U;
@@ -170,8 +170,8 @@ scene_service::request_assets(std::span<const gneiss::engine::render_asset_reloa
   return loading_assets()->submit_assets(sources, session, revision, request, reload);
 }
 
-gneiss::engine::result
-scene_service::poll_assets(gneiss::engine::texture_load_completion& completion, bool& ready) {
+gneiss::engine::result scene_service::poll_assets(gneiss::engine::asset_load_completion& completion,
+                                                  bool& ready) {
   ready = false;
   if (!loading_assets() || reload_ || visual_loading()) {
     return gneiss::engine::result::not_ready;
@@ -223,7 +223,7 @@ void scene_service::advance_reload() try {
   }
   if (value.asset_pending) {
     loading_assets()->advance();
-    engine::texture_load_completion completion;
+    engine::asset_load_completion completion;
     if (!loading_assets()->take(completion))
       return;
     value.asset_pending = false;

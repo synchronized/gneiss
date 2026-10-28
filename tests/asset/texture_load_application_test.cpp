@@ -64,11 +64,11 @@ void run(gneiss::engine::execution_mode mode) {
   check(app->attach_task_executor(scheduler) == gneiss::engine::result::success);
   check(app->cancel_assets() == gneiss::engine::result::not_ready);
   check(app->attach_task_executor(scheduler) == gneiss::engine::result::invalid_state);
-  const std::array uris{gneiss::engine::render_asset_reload{
-      .uri = "asset://a.texture.json", .type = gneiss::engine::render_asset_type::texture}};
+  const std::array uris{gneiss::engine::asset_source{.uri = "asset://a.texture.json",
+                                                     .type = gneiss::engine::asset_type::texture}};
   std::uint64_t request{};
   check(app->request_assets(uris, 2U, 1U, request, false) == gneiss::engine::result::success);
-  gneiss::engine::texture_load_completion completion;
+  gneiss::engine::asset_load_completion completion;
   bool ready{};
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (!ready) {
@@ -82,7 +82,7 @@ void run(gneiss::engine::execution_mode mode) {
   check(completion.result == gneiss::engine::result::success && completion.request == request &&
         completion.assets.size() == 1U &&
         gneiss::engine::asset_kind(completion.assets.front()) ==
-            gneiss::engine::render_asset_type::texture);
+            gneiss::engine::asset_type::texture);
   const auto wait = [&] {
     bool completed = false;
     const auto limit = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -125,8 +125,8 @@ void run(gneiss::engine::execution_mode mode) {
   wait();
   // 只请求纹理不重读材质，场景使用者保持稳定资源引用。
   check(completion.result == gneiss::engine::result::success && completion.assets.size() == 1U);
-  const gneiss::engine::render_asset_reload material_source{
-      .uri = "asset://m.material", .type = gneiss::engine::render_asset_type::material};
+  const gneiss::engine::asset_source material_source{.uri = "asset://m.material",
+                                                     .type = gneiss::engine::asset_type::material};
   gneiss::engine::render_asset_ref selected_before;
   check(app->query_ready_asset(material_source, selected_before) ==
         gneiss::engine::result::success);
@@ -172,7 +172,7 @@ void run(gneiss::engine::execution_mode mode) {
   check(app->request_assets(uris, 2U, 6U, request, true) == gneiss::engine::result::success);
   check(app->cancel_assets() == gneiss::engine::result::success);
   wait();
-  check(completion.state == gneiss::engine::texture_load_state::cancelled &&
+  check(completion.state == gneiss::engine::asset_load_state::cancelled &&
         completion.assets.empty());
   // 上传期间 ECS 改绑不妨碍资源更新，也不能被重载覆盖。
   gneiss::engine::scene_node_view node;
@@ -187,7 +187,7 @@ void run(gneiss::engine::execution_mode mode) {
             node.entity, external)} == gneiss::engine::result::success);
   wait();
   check(completion.result == gneiss::engine::result::success &&
-        completion.state == gneiss::engine::texture_load_state::applied &&
+        completion.state == gneiss::engine::asset_load_state::applied &&
         completion.assets.size() == 1U);
   const std::array unchanged{
       gneiss::engine::mesh_renderer_replacement{.entity = node.entity,

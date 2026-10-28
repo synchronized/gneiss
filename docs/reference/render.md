@@ -16,7 +16,7 @@ Mesh、Material 和 Texture 的 CPU 内容表由 Application 的 `render_service
 普通文件加载通过同一个管理器的 URI 缓存复用对象。上层提取的 RID 仅用于借用，不得手动销毁资源拥有的 RID。
 底层 Render 的裸 RID 创建/销毁接口保留，调用方须自行配对，不能混入强引用所有权。
 UI 使用 `assets.find_texture(rid)` 保活已有纹理，不隐式建立资源拥有者。
-管理器位于 `engine/function/resource/asset_manager.hpp`；加载状态、资源工厂及销毁队列属于其私有实现。
+管理器位于 `engine/function/resource/asset_manager.hpp`；批次加载状态、资源工厂及销毁队列属于其私有实现；更新任务不属于对外接口。
 宿主先停止资产加载并销毁管理器，再关闭 Render；资源对象头不声明 Render 服务类型。
 原生 `render_service::create_mesh(mesh_view, ...)` 会在调用
 期间复制顶点、可选法线、切线、UV1、顶点色及可选 UInt32 索引；调用返回后，调用方可以立即释放源数据。Mesh 至少需要

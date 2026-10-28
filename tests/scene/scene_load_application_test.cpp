@@ -121,22 +121,21 @@ void visual_failure(gneiss::engine::execution_mode mode) {
   until([&] { return !app->visual_assets_loading(); });
   check(failures == 1U);
   gneiss::engine::render_asset_ref ready;
-  check(app->query_ready_asset({"asset://mesh.json", gneiss::engine::render_asset_type::mesh},
-                               ready) == gneiss::engine::result::success);
+  check(app->query_ready_asset({"asset://mesh.json", gneiss::engine::asset_type::mesh}, ready) ==
+        gneiss::engine::result::success);
   check(gneiss::engine::asset_cast<gneiss::engine::mesh_resource>(ready) == binding.mesh);
-  check(
-      app->query_ready_asset({"asset://material.json", gneiss::engine::render_asset_type::material},
-                             ready) == gneiss::engine::result::not_ready);
+  check(app->query_ready_asset({"asset://material.json", gneiss::engine::asset_type::material},
+                               ready) == gneiss::engine::result::not_ready);
   std::uint64_t nodes{};
   check(app->scenes()->get_node_count(completion.scene, &nodes) ==
             gneiss::engine::result::success &&
         nodes == 1U);
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,1,0,1]})";
-  const std::array sources{gneiss::engine::render_asset_reload{
-      "asset://material.json", gneiss::engine::render_asset_type::material}};
+  const std::array sources{
+      gneiss::engine::asset_source{"asset://material.json", gneiss::engine::asset_type::material}};
   check(app->request_assets(sources, 1U, 2U, request, true) == gneiss::engine::result::success);
-  gneiss::engine::texture_load_completion loaded;
+  gneiss::engine::asset_load_completion loaded;
   until([&] {
     bool finished{};
     check(app->poll_assets(loaded, finished) == gneiss::engine::result::success);
@@ -217,7 +216,7 @@ void run(gneiss::engine::execution_mode mode) {
   const auto prepared = await_phase(scene_load_phase::ready);
   // 结构 ready 时视觉内容尚未读取或上传。
   gneiss::engine::render_asset_ref not_ready;
-  check(app->query_ready_asset({"asset://mesh.json", gneiss::engine::render_asset_type::mesh},
+  check(app->query_ready_asset({"asset://mesh.json", gneiss::engine::asset_type::mesh},
                                not_ready) == gneiss::engine::result::not_ready);
   check(prepared.cpu_data_bytes == prepared.resident_bytes);
   check(prepared.application_logical_bytes >= prepared.resident_bytes);
@@ -348,7 +347,7 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
     } while (progress.phase != scene_load_phase::ready);
     return progress;
   };
-  auto selected = [&](gneiss::engine::render_asset_type type, const char* uri) {
+  auto selected = [&](gneiss::engine::asset_type type, const char* uri) {
     gneiss::engine::render_asset_ref lease;
     check(app->query_ready_asset({.uri = uri, .type = type}, lease) ==
           gneiss::engine::result::success);
@@ -368,8 +367,8 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   check(app->activate_scene(request, completion) == gneiss::engine::result::success);
   drain_visuals(app, scheduler, mode);
   auto original = binding();
-  auto mesh = selected(gneiss::engine::render_asset_type::mesh, "asset://mesh.json");
-  auto material = selected(gneiss::engine::render_asset_type::material, "asset://material.json");
+  auto mesh = selected(gneiss::engine::asset_type::mesh, "asset://mesh.json");
+  auto material = selected(gneiss::engine::asset_type::material, "asset://material.json");
   gneiss::engine::world* old_world{};
   check((old_world = app->native_world()) != nullptr);
   check(!poll());
@@ -393,7 +392,7 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,1,0,1]})";
   (void)prepare();
-  check(selected(gneiss::engine::render_asset_type::material, "asset://material.json") == material);
+  check(selected(gneiss::engine::asset_type::material, "asset://material.json") == material);
   check(app->cancel_scene(request) == gneiss::engine::result::success);
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (!poll()) {
@@ -401,7 +400,7 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   }
   check(completion.progress.phase == scene_load_phase::cancelled &&
         completion.progress.cleanup_complete);
-  check(selected(gneiss::engine::render_asset_type::material, "asset://material.json") == material);
+  check(selected(gneiss::engine::asset_type::material, "asset://material.json") == material);
   // 重试和激活都继续复用同一资源身份。
   (void)prepare();
   check(app->activate_scene(request, completion) == gneiss::engine::result::success);
@@ -409,9 +408,8 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   check(changed.mesh == gneiss::engine::asset_cast<gneiss::engine::mesh_resource>(mesh) &&
         changed.material ==
             gneiss::engine::asset_cast<gneiss::engine::material_resource>(material));
-  check(gneiss::engine::asset_cast<gneiss::engine::material_resource>(
-            selected(gneiss::engine::render_asset_type::material, "asset://material.json")) ==
-        changed.material);
+  check(gneiss::engine::asset_cast<gneiss::engine::material_resource>(selected(
+            gneiss::engine::asset_type::material, "asset://material.json")) == changed.material);
   check(!poll());
   check(original.mesh == gneiss::engine::asset_cast<gneiss::engine::mesh_resource>(mesh) &&
         original.material ==
@@ -422,9 +420,8 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   (void)prepare();
   check(app->activate_scene(request, completion) == gneiss::engine::result::success);
   drain_visuals(app, scheduler, mode);
-  check(gneiss::engine::asset_cast<gneiss::engine::material_resource>(
-            selected(gneiss::engine::render_asset_type::material, "asset://material.json")) ==
-        changed.material);
+  check(gneiss::engine::asset_cast<gneiss::engine::material_resource>(selected(
+            gneiss::engine::asset_type::material, "asset://material.json")) == changed.material);
 }
 
 void shared_texture_versions(gneiss::engine::execution_mode mode) {
@@ -491,10 +488,10 @@ void shared_texture_versions(gneiss::engine::execution_mode mode) {
   check(app->scenes()->get_node_count(scene_completion.scene, &count) ==
             gneiss::engine::result::success &&
         count == 2U);
-  const std::array textures{gneiss::engine::render_asset_reload{
-      .uri = "asset://texture.json", .type = gneiss::engine::render_asset_type::texture}};
+  const std::array textures{gneiss::engine::asset_source{
+      .uri = "asset://texture.json", .type = gneiss::engine::asset_type::texture}};
   check(app->request_assets(textures, 1U, 2U, request, true) == gneiss::engine::result::success);
-  gneiss::engine::texture_load_completion assets;
+  gneiss::engine::asset_load_completion assets;
   bool ready{};
   while (!ready) {
     check(std::chrono::steady_clock::now() < deadline);
@@ -543,10 +540,10 @@ void asynchronous_shutdown(gneiss::engine::execution_mode mode) {
       check(app->request_scene("asset://scene.json", 1, 1, request).ok());
       app->advance_scene_load();
     } else if (stage == 2) {
-      const std::array sources{gneiss::engine::render_asset_reload{
-          "asset://mesh.json", gneiss::engine::render_asset_type::mesh}};
+      const std::array sources{
+          gneiss::engine::asset_source{"asset://mesh.json", gneiss::engine::asset_type::mesh}};
       check(app->request_assets(sources, 1, 1, request, true).ok());
-      gneiss::engine::texture_load_completion completion;
+      gneiss::engine::asset_load_completion completion;
       bool ready{};
       check(app->poll_assets(completion, ready).ok());
     }

@@ -13,7 +13,7 @@ struct mesh_data;
 struct mesh_view;
 struct texture_data;
 struct material_data;
-/** 资源层装配上下文；宿主须在 Render 之前关闭/销毁，所有操作限所属线程。
+/** 管理器私有装配实现；须在 Render 之前关闭/销毁，所有操作限所属线程。
  * 管理强引用的唯一包装和销毁队列，不管理 URI 缓存或 GPU 对象。 */
 class GNEISS_API render_resource_factory final {
 public:

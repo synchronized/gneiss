@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/resource/detail/texture_load_service.hpp"
+#include "engine/function/resource/detail/asset_load_batch.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/diagnostics/task_submission.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_resource_data.hpp"
 #include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/resource/detail/asset_render_state.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include "engine/resource/material/material_description.hpp"
@@ -16,11 +17,11 @@
 #include <stdexcept>
 
 namespace gneiss::engine {
-struct texture_load_service::pending {
+struct asset_load_batch::pending {
   struct cpu_result {
-    prepared_render_batch batch;
+    prepared_batch batch;
     asset_ref<const material_description> material;
-    asset_preparation_source source;
+    asset_source source;
     texture_description description;
     engine::files::bytes description_bytes, payload_bytes;
     std::vector<prepared_source> inputs;
@@ -42,9 +43,9 @@ struct texture_load_service::pending {
       (void)files->cancel(read_request);
   }
   asset_request<material_description> material_request;
-  asset_manager::asset_update item;
+  detail::asset_update item;
   std::vector<render_asset_ref> targets;
-  texture_load_completion completion;
+  asset_load_completion completion;
   task_handle task;
   std::size_t explicit_count{};
   std::size_t cursor{};
@@ -58,57 +59,57 @@ struct texture_load_service::pending {
   std::chrono::steady_clock::time_point started{std::chrono::steady_clock::now()};
 };
 
-texture_load_service::texture_load_service(task_executor& executor, asset_manager& loader,
-                                           texture_prepare_profile profile,
-                                           std::shared_ptr<progress_notification> notification)
-    : executor_(executor), scope_(executor.make_scope()), loader_(loader), profile_(profile),
+asset_load_batch::asset_load_batch(task_executor& executor, asset_manager& assets,
+                                   texture_prepare_profile profile,
+                                   std::shared_ptr<progress_notification> notification)
+    : executor_(executor), scope_(executor.make_scope()), assets_(assets), profile_(profile),
       notification_(std::move(notification)) {
   if (scope_.id == 0U) {
     if (scope_.id != 0U) {
       (void)executor_.close_scope(scope_);
     }
-    throw std::invalid_argument("资产服务执行器无效");
+    throw std::invalid_argument("资产批次执行器无效");
   }
   try {
-    loader_.attach_task_executor(executor_);
+    assets_.attach_task_executor(executor_);
   } catch (...) {
     (void)executor_.close_scope(scope_);
     throw;
   }
 }
-texture_load_service::~texture_load_service() {
+asset_load_batch::~asset_load_batch() {
   try {
     request_stop();
     (void)executor_.close_scope(scope_);
     pending_.reset();
-    loader_.release_unused();
+    assets_.collect_unused();
   } catch (...) {
     std::terminate();
   }
 }
-void texture_load_service::check_owner() const {
+void asset_load_batch::check_owner() const {
   if (std::this_thread::get_id() != owner_) {
-    throw std::logic_error("资产服务线程错误");
+    throw std::logic_error("资产批次线程错误");
   }
 }
 
-engine::result texture_load_service::submit(std::span<const std::string> uris,
-                                            std::uint64_t session, std::uint64_t revision,
-                                            std::uint64_t& request, bool reload) {
+engine::result asset_load_batch::submit(std::span<const std::string> uris, std::uint64_t session,
+                                        std::uint64_t revision, std::uint64_t& request,
+                                        bool reload) {
   request = 0U;
   if (uris.size() > maximum_batch) {
     return engine::result::invalid_argument;
   }
-  std::vector<render_asset_reload> sources;
+  std::vector<asset_source> sources;
   for (const auto& uri : uris) {
-    sources.push_back({.uri = uri, .type = render_asset_type::texture});
+    sources.push_back({.uri = uri, .type = asset_type::texture});
   }
   return submit_assets(sources, session, revision, request, reload);
 }
-engine::result texture_load_service::submit_assets(std::span<const render_asset_reload> sources,
-                                                   std::uint64_t session, std::uint64_t revision,
-                                                   std::uint64_t& request, bool reload,
-                                                   std::size_t prepare_limit) {
+engine::result asset_load_batch::submit_assets(std::span<const asset_source> sources,
+                                               std::uint64_t session, std::uint64_t revision,
+                                               std::uint64_t& request, bool reload,
+                                               std::size_t prepare_limit) {
   request = 0U;
   if (std::this_thread::get_id() != owner_ || stopping_) {
     return engine::result::invalid_state;
@@ -124,8 +125,8 @@ engine::result texture_load_service::submit_assets(std::span<const render_asset_
   for (const auto& source : sources) {
     if (engine::validate_uri(source.uri) != engine::result::success ||
         !unique.insert(source.uri).second ||
-        (source.type != render_asset_type::mesh && source.type != render_asset_type::material &&
-         source.type != render_asset_type::texture)) {
+        (source.type != asset_type::mesh && source.type != asset_type::material &&
+         source.type != asset_type::texture)) {
       return engine::result::invalid_argument;
     }
   }
@@ -137,19 +138,19 @@ engine::result texture_load_service::submit_assets(std::span<const render_asset_
   value->explicit_count = sources.size();
   value->limit = prepare_limit;
   value->reload = reload;
-  value->sequence = loader_.next_update_sequence();
+  value->sequence = detail::asset_update::next_update_sequence();
   value->targets.reserve(maximum_assets);
   value->completion.results.reserve(maximum_assets);
   value->completion.assets.reserve(maximum_assets);
   bool cached = !reload;
   for (const auto& source : sources) {
     render_asset_ref target;
-    const auto ready = loader_.acquire_cached(source, target, profile_);
+    const auto ready = assets_.acquire_cached(source, target, profile_);
     cached = cached && ready == engine::result::success;
-    const auto reserved = loader_.reserve_asset(source, target);
+    const auto reserved = assets_.reserve_asset(source, target);
     if (reserved != engine::result::success) {
       value.reset();
-      loader_.release_unused();
+      assets_.collect_unused();
       return reserved;
     }
     value->targets.push_back(std::move(target));
@@ -162,17 +163,17 @@ engine::result texture_load_service::submit_assets(std::span<const render_asset_
       item.applied = true;
     }
     value->completion.result = engine::result::success;
-    value->completion.state = texture_load_state::applied;
+    value->completion.state = asset_load_state::applied;
     request = value->completion.request;
     completed_ = std::move(value->completion);
     return engine::result::success;
   }
-  // 服务槽位接受整个请求；执行器暂满时由后续推进重试调度。
+  // 批次接受整个请求；执行器暂满时由后续推进重试调度。
   for (std::size_t index = 0; index < value->targets.size(); ++index) {
     render_asset_ref ready;
     if (reload ||
-        loader_.acquire_cached(sources[index], ready, profile_) != engine::result::success) {
-      (void)loader_.claim_update(value->targets[index], value->sequence);
+        assets_.acquire_cached(sources[index], ready, profile_) != engine::result::success) {
+      (void)detail::asset_update::claim_update(assets_, value->targets[index], value->sequence);
     }
   }
   request = value->completion.request;
@@ -180,7 +181,7 @@ engine::result texture_load_service::submit_assets(std::span<const render_asset_
   return engine::result::success;
 }
 
-submit_result texture_load_service::submit_preparation(pending& value) {
+submit_result asset_load_batch::submit_preparation(pending& value) {
   return engine::submit_observed(
       executor_, {.name = "render_assets.prepare", .scope = scope_, .notification = notification_},
       [cpu = value.cpu](const task_context& context) {
@@ -232,7 +233,7 @@ submit_result texture_load_service::submit_preparation(pending& value) {
       },
       value.task);
 }
-bool texture_load_service::advance_preparation(pending& value) {
+bool asset_load_batch::advance_preparation(pending& value) {
   if (value.task.id != 0U) {
     std::vector<task_completion> completions;
     if (executor_.poll(scope_, completions, 1U) == 0U) {
@@ -248,8 +249,7 @@ bool texture_load_service::advance_preparation(pending& value) {
   }
   return true;
 }
-engine::result texture_load_service::enqueue_dependencies(pending& value,
-                                                          const prepared_render_asset& asset) {
+engine::result asset_load_batch::enqueue_dependencies(pending& value, const prepared_asset& asset) {
   for (const auto& uri : asset.texture_uris) {
     if (uri.empty()) {
       continue;
@@ -257,7 +257,7 @@ engine::result texture_load_service::enqueue_dependencies(pending& value,
     const auto found = std::ranges::find_if(
         value.completion.results, [&](const auto& item) { return item.source.uri == uri; });
     if (found != value.completion.results.end()) {
-      if (found->source.type != render_asset_type::texture) {
+      if (found->source.type != asset_type::texture) {
         return engine::result::invalid_argument;
       }
       continue;
@@ -265,9 +265,9 @@ engine::result texture_load_service::enqueue_dependencies(pending& value,
     if (value.completion.results.size() == maximum_assets) {
       return engine::result::invalid_argument;
     }
-    render_asset_reload source{.uri = uri, .type = render_asset_type::texture};
+    asset_source source{.uri = uri, .type = asset_type::texture};
     render_asset_ref target;
-    const auto reserved = loader_.reserve_asset(source, target);
+    const auto reserved = assets_.reserve_asset(source, target);
     if (reserved != engine::result::success) {
       return reserved;
     }
@@ -276,7 +276,7 @@ engine::result texture_load_service::enqueue_dependencies(pending& value,
   }
   return engine::result::success;
 }
-void texture_load_service::finish_item(engine::result result, bool applied) {
+void asset_load_batch::finish_item(engine::result result, bool applied) {
   auto& value = *pending_;
   auto& item = value.completion.results[value.cursor];
   item.result = result;
@@ -310,7 +310,7 @@ void texture_load_service::finish_item(engine::result result, bool applied) {
     notification_->notify();
   }
 }
-void texture_load_service::finish(engine::result result, texture_load_state state) {
+void asset_load_batch::finish(engine::result result, asset_load_state state) {
   auto& value = *pending_;
   value.completion.result = result;
   value.completion.state = state;
@@ -327,12 +327,12 @@ void texture_load_service::finish(engine::result result, texture_load_state stat
   }
   completed_ = std::move(value.completion);
   pending_.reset();
-  loader_.release_unused();
+  assets_.collect_unused();
   if (notification_) {
     notification_->notify();
   }
 }
-void texture_load_service::advance() {
+void asset_load_batch::advance() {
   GNEISS_PROFILE_SCOPE("asset.advance");
   check_owner();
   try {
@@ -349,15 +349,15 @@ void texture_load_service::advance() {
     }
   }
 }
-bool texture_load_service::start_item(pending& value) {
+bool asset_load_batch::start_item(pending& value) {
   const auto& source = value.completion.results[value.cursor].source;
   render_asset_ref cached;
   if ((!value.reload || value.cursor >= value.explicit_count) &&
-      loader_.acquire_cached(source, cached, profile_) == engine::result::success) {
+      assets_.acquire_cached(source, cached, profile_) == engine::result::success) {
     finish_item(engine::result::success, true);
     return false;
   }
-  if (!loader_.claim_update(value.targets[value.cursor], value.sequence)) {
+  if (!detail::asset_update::claim_update(assets_, value.targets[value.cursor], value.sequence)) {
     finish_item(engine::result::invalid_state, false);
     return false;
   }
@@ -369,16 +369,16 @@ bool texture_load_service::start_item(pending& value) {
   value.cpu->source = source;
   value.cpu->profile = profile_;
   value.cpu->limit = std::min(maximum_bytes, value.limit - value.completion.prepared_bytes);
-  if (source.type == render_asset_type::material) {
-    const auto status = loader_.load(source.uri, value.material_request, value.reload);
+  if (source.type == asset_type::material) {
+    const auto status = assets_.load(source.uri, value.material_request, value.reload);
     if (status.failed()) {
       finish_item(status, false);
       return false;
     }
     return true;
   }
-  value.cpu->parse_description = source.type == render_asset_type::texture;
-  value.files = loader_.async_files();
+  value.cpu->parse_description = source.type == asset_type::texture;
+  value.files = assets_.async_files();
   const auto status = start_read(value, source.uri, false);
   if (status.failed()) {
     finish_item(status, false);
@@ -386,12 +386,12 @@ bool texture_load_service::start_item(pending& value) {
   }
   return true;
 }
-result texture_load_service::start_read(pending& value, std::string_view uri, bool payload) {
+result asset_load_batch::start_read(pending& value, std::string_view uri, bool payload) {
   if (!value.files)
     return result::invalid_state;
   prepared_source input;
   const auto identified =
-      loader_.identify(uri, static_cast<std::uint32_t>(value.cpu->source.type), input.identity);
+      assets_.identify(uri, static_cast<std::uint32_t>(value.cpu->source.type), input.identity);
   if (identified.failed())
     return identified;
   const auto used = payload ? value.cpu->description_bytes.size() : 0U;
@@ -419,7 +419,7 @@ result texture_load_service::start_read(pending& value, std::string_view uri, bo
   return accepted;
 }
 
-bool texture_load_service::prepare_item_update(pending& value) {
+bool asset_load_batch::prepare_item_update(pending& value) {
   if (value.cpu->batch.assets.size() != 1U) {
     finish_item(engine::result::internal, false);
     return false;
@@ -431,8 +431,8 @@ bool texture_load_service::prepare_item_update(pending& value) {
     return false;
   }
   value.completion.prepared_bytes += prepared.bytes;
-  const auto staged = loader_.prepare_update(std::move(prepared), value.item,
-                                             value.targets[value.cursor], value.sequence);
+  const auto staged = detail::asset_update::prepare_update(
+      assets_, std::move(prepared), value.item, value.targets[value.cursor], value.sequence);
   if (staged != engine::result::success) {
     finish_item(staged, false);
     return false;
@@ -440,7 +440,7 @@ bool texture_load_service::prepare_item_update(pending& value) {
   value.prepared = true;
   return true;
 }
-void texture_load_service::advance_impl() {
+void asset_load_batch::advance_impl() {
   if (!pending_) {
     return;
   }
@@ -450,12 +450,12 @@ void texture_load_service::advance_impl() {
   }
   if (value.cancelled || value.fatal != engine::result::success) {
     finish(value.cancelled ? engine::result::invalid_state : value.fatal,
-           value.cancelled ? texture_load_state::cancelled : texture_load_state::failed);
+           value.cancelled ? asset_load_state::cancelled : asset_load_state::failed);
     return;
   }
   if (value.cursor == value.completion.results.size()) {
-    finish(value.summary, value.summary == engine::result::success ? texture_load_state::applied
-                                                                   : texture_load_state::failed);
+    finish(value.summary, value.summary == engine::result::success ? asset_load_state::applied
+                                                                   : asset_load_state::failed);
     return;
   }
   if (!value.cpu && !start_item(value)) {
@@ -500,10 +500,10 @@ void texture_load_service::advance_impl() {
   if (!value.prepared && !prepare_item_update(value)) {
     return;
   }
-  const auto adopted = loader_.apply_update(value.item);
+  const auto adopted = detail::asset_update::apply_update(assets_, value.item);
   finish_item(adopted, adopted.ok());
 }
-std::span<const render_asset_ref> texture_load_service::requested_assets() const {
+std::span<const render_asset_ref> asset_load_batch::requested_assets() const {
   check_owner();
   if (pending_) {
     return std::span(pending_->targets).first(pending_->explicit_count);
@@ -511,7 +511,7 @@ std::span<const render_asset_ref> texture_load_service::requested_assets() const
   return completed_ ? std::span<const render_asset_ref>{completed_->assets}
                     : std::span<const render_asset_ref>{};
 }
-bool texture_load_service::take(texture_load_completion& output) {
+bool asset_load_batch::take(asset_load_completion& output) {
   check_owner();
   if (!completed_) {
     return false;
@@ -520,11 +520,7 @@ bool texture_load_service::take(texture_load_completion& output) {
   completed_.reset();
   return true;
 }
-bool texture_load_service::cancel() {
-  check_owner();
-  return cancel_unpublished();
-}
-bool texture_load_service::cancel_unpublished() {
+bool asset_load_batch::cancel() {
   check_owner();
   if (!pending_) {
     return false;
@@ -535,12 +531,12 @@ bool texture_load_service::cancel_unpublished() {
   (void)executor_.cancel(pending_->task);
   return true;
 }
-void texture_load_service::request_stop() {
+void asset_load_batch::request_stop() {
   stopping_ = true;
-  (void)cancel_unpublished();
+  (void)cancel();
 }
-bool texture_load_service::stopped() const { return stopping_ && !pending_; }
-bool texture_load_service::progress(asset_load_progress& output) const {
+bool asset_load_batch::stopped() const { return stopping_ && !pending_; }
+bool asset_load_batch::progress(asset_load_progress& output) const {
   check_owner();
   output = {};
   if (!pending_) {
@@ -551,7 +547,7 @@ bool texture_load_service::progress(asset_load_progress& output) const {
       .request = value.completion.request,
       .session = value.completion.session,
       .revision = value.completion.revision,
-      .state = texture_load_state::preparing,
+      .state = asset_load_state::preparing,
       .completed_assets = static_cast<std::size_t>(std::ranges::count_if(
           value.completion.results, [](const auto& item) { return item.applied; })),
       .total_assets = value.completion.results.size(),

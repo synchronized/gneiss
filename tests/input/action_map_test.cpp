@@ -16,7 +16,7 @@ namespace {
 void advance_assets_for_test(gneiss::engine::asset_manager& assets) {
   if (const auto files = assets.async_files())
     (void)files->dispatch_completions(64);
-  assets.advance_resources();
+  assets.advance();
 }
 gneiss::engine::result load_map_for_test(gneiss::engine::asset_manager& assets,
                                          gneiss::engine::task_scheduler& executor,

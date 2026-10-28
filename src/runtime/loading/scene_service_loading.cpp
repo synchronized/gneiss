@@ -37,7 +37,7 @@ struct scene_service::load_task {
   scene_load_completion result;
   std::unique_ptr<scene_domain> candidate;
   gneiss::engine::scene_instances::asset_bindings bindings;
-  std::vector<gneiss::engine::render_asset_reload> requested;
+  std::vector<gneiss::engine::asset_source> requested;
   std::size_t cursor{};
   bool preparing{true};
   bool cancelled{};
@@ -115,7 +115,7 @@ gneiss::engine::result scene_service::request_scene(std::string_view uri, std::u
   visual_queue_.clear();
   visual_cursor_ = 0U;
   if (visual_pending_) {
-    (void)loading_assets()->cancel_unpublished();
+    (void)loading_assets()->cancel();
   }
   return gneiss::engine::result::success;
 }
@@ -158,7 +158,6 @@ void scene_service::finish(gneiss::engine::result result, scene_load_phase phase
   auto completion = std::move(pending_->result);
   const auto cleanup_started = clock_type::now();
   pending_.reset();
-  asset_owner_->release_unused();
   asset_owner_->collect_unused();
   // 候选分项保留结束前的诊断值，Application/上传账本必须在请求销毁后采样。
   sample_budget(completion.progress);

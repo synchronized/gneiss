@@ -197,14 +197,14 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
     previous_ = {};
     return operation_ = gneiss::engine::result::invalid_state;
   }
-  std::vector<gneiss::engine::render_asset_reload> missing;
-  const auto resolve = [&](std::string_view uri, gneiss::engine::render_asset_type type,
+  std::vector<gneiss::engine::asset_source> missing;
+  const auto resolve = [&](std::string_view uri, gneiss::engine::asset_type type,
                            const auto& previous, auto& next) {
     if (gneiss::engine::asset_uri(previous) == uri) {
       next = previous;
       return;
     }
-    gneiss::engine::render_asset_reload source{.uri = std::string(uri), .type = type};
+    gneiss::engine::asset_source source{.uri = std::string(uri), .type = type};
     gneiss::engine::render_asset_ref entry;
     const auto ready = application.query_ready_asset(source, entry);
     using resource_type = std::remove_reference_t<decltype(*next)>;
@@ -215,9 +215,8 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
       operation_ = ready;
     }
   };
-  resolve(mesh_, gneiss::engine::render_asset_type::mesh, previous_.mesh, next_.mesh);
-  resolve(material_, gneiss::engine::render_asset_type::material, previous_.material,
-          next_.material);
+  resolve(mesh_, gneiss::engine::asset_type::mesh, previous_.mesh, next_.mesh);
+  resolve(material_, gneiss::engine::asset_type::material, previous_.material, next_.material);
   if (operation_.failed()) {
     previous_ = {};
     next_ = {};
@@ -253,7 +252,7 @@ void editor_asset_edit::advance(runtime::application& application, scene_documen
     return;
   }
   (void)application.asset_progress(progress_);
-  gneiss::engine::texture_load_completion completion;
+  gneiss::engine::asset_load_completion completion;
   bool ready{};
   const auto polled = application.poll_assets(completion, ready);
   if (polled == gneiss::engine::result::success && !ready) {
@@ -269,11 +268,11 @@ void editor_asset_edit::advance(runtime::application& application, scene_documen
   if (operation_.ok()) {
     for (const auto& lease : completion.assets) {
       if (!next_.mesh && gneiss::engine::asset_uri(lease) == mesh_ &&
-          gneiss::engine::asset_kind(lease) == gneiss::engine::render_asset_type::mesh) {
+          gneiss::engine::asset_kind(lease) == gneiss::engine::asset_type::mesh) {
         next_.mesh = gneiss::engine::asset_cast<gneiss::engine::mesh_resource>(lease);
       }
       if (!next_.material && gneiss::engine::asset_uri(lease) == material_ &&
-          gneiss::engine::asset_kind(lease) == gneiss::engine::render_asset_type::material) {
+          gneiss::engine::asset_kind(lease) == gneiss::engine::asset_type::material) {
         next_.material = gneiss::engine::asset_cast<gneiss::engine::material_resource>(lease);
       }
     }

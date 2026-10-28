@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/function/resource/asset_preparation.hpp"
+#include "engine/function/resource/detail/asset_decode.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
 #include <cstring>
@@ -20,7 +20,7 @@ std::vector<std::byte> bytes(std::string_view text) {
 }
 }
 int main() try {
-  const asset_preparation_source mesh{"asset://mesh", asset_type::mesh};
+  const asset_source mesh{"asset://mesh", asset_type::mesh};
   constexpr auto text =
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[0,0],[0,0]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})";
   prepared_asset output;
@@ -59,7 +59,7 @@ int main() try {
   check(output.mesh.vertices.data() == vertices);
   check(decode_loaded_asset({"asset://invalid", asset_type::invalid}, {}, {}, {}, output,
                             diagnostic, 65536, {}) == result::invalid_argument);
-  const asset_preparation_source material{"asset://material", asset_type::material};
+  const asset_source material{"asset://material", asset_type::material};
   auto description = std::make_shared<material_description>();
   asset_ref<const material_description> reference{description};
   check(decode_loaded_asset(material, {}, {}, {}, output, diagnostic, 1000, {}, reference, 1000)

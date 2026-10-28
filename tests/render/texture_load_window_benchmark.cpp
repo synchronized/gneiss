@@ -35,7 +35,7 @@ struct context {
   gneiss::engine::task_scheduler* scheduler{};
   std::filesystem::path root;
   bool model{};
-  std::vector<gneiss::engine::render_asset_reload> assets;
+  std::vector<gneiss::engine::asset_source> assets;
   bool close_during_load{};
   gneiss::scene_instance_id scene{};
   gneiss::scene_node_id camera{};
@@ -102,9 +102,8 @@ gneiss::engine::result native_update(runtime::application& app, context& state) 
           << R"({"format":"gneiss.texture","version":2,"source":"asset://textures/after.png","color_space":"srgb","usage":"default"})";
     }
     state.requested = true;
-    const std::array uris{
-        gneiss::engine::render_asset_reload{.uri = "asset://textures/test.texture.json",
-                                            .type = gneiss::engine::render_asset_type::texture}};
+    const std::array uris{gneiss::engine::asset_source{
+        .uri = "asset://textures/test.texture.json", .type = gneiss::engine::asset_type::texture}};
     std::uint64_t request{};
     const auto result = state.model ? app.request_assets(state.assets, 1U, 1U, request, true)
                                     : app.request_assets(uris, 1U, 1U, request, true);
@@ -113,7 +112,7 @@ gneiss::engine::result native_update(runtime::application& app, context& state) 
     }
   }
   if (state.requested && !state.completed) {
-    gneiss::engine::texture_load_completion completion;
+    gneiss::engine::asset_load_completion completion;
     bool ready{};
     const auto result = app.poll_assets(completion, ready);
     if (result != gneiss::engine::result::success) {
@@ -163,9 +162,9 @@ int main(int argc, char** argv) try {
       const auto uri =
           "asset://" + std::filesystem::relative(file.path(), state.root).generic_string();
       if (name.ends_with(".gneiss-mesh"))
-        state.assets.push_back({uri, gneiss::engine::render_asset_type::mesh});
+        state.assets.push_back({uri, gneiss::engine::asset_type::mesh});
       if (name.ends_with(".material.json"))
-        state.assets.push_back({uri, gneiss::engine::render_asset_type::material});
+        state.assets.push_back({uri, gneiss::engine::asset_type::material});
     }
   }
   state.close_during_load = mode == "close";

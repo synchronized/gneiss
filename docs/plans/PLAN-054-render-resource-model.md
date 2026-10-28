@@ -308,3 +308,15 @@ Windows Clang Debug 全量构建、无 Granit Engine 构建、完整 CTest 190/1
 不新增流送、事务、跨资源原子发布或 GPU 就绪等待。
 
 本轮 Windows Clang Debug 编译及 29 项相关测试通过；验收范围与限制见[记录](../records/2026-10-28-render-resource-boundary.md#统一资产管理入口)。
+
+## 资产管理目录与私有实现收敛
+
+本轮保留现有缓存、CPU 完成、取消及资源销毁语义，不增加流送或新的加载队列。
+
+- [x] 合并对外加载类型，统一批次命名，删除 render_* 准备类型兼容别名。
+- [x] 解码移入 detail/asset_decode，批次改为 asset_load_batch。
+- [x] 删除 render_asset_loader 对象，将缓存查询与资源采用逻辑并入管理器实现。
+- [x] 内部更新任务和操作不再暴露在管理器公共接口；统一推进、回收和整体停止入口。
+- [x] 更新边界检查、调用方及文档，编译并验证加载、取消、关闭和资源寿命。
+
+Windows Clang Debug 编译及 30 项相关测试通过；详见[目录收敛验收记录](../records/2026-10-28-render-resource-boundary.md#资产管理目录与私有实现收敛)。

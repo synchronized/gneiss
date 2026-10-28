@@ -25,7 +25,7 @@ prepare_scene_for_test(engine::asset_manager& assets, engine::task_scheduler& ex
     const auto dispatch = assets.async_files()->dispatch_completions(64);
     if (dispatch.failed())
       return diagnostic.result = dispatch;
-    assets.advance_resources();
+    assets.advance();
     (void)executor.run_ready();
     const auto status = request.advance(inputs, diagnostic);
     if (status == engine::result::not_ready)

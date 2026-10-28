@@ -85,7 +85,7 @@ void run_asset_reload() {
   check(gneiss::engine::result{runtime::application::create(desc, app)} ==
         gneiss::engine::result::success);
   check(app->attach_task_executor(scheduler).ok());
-  const auto reload = [&](std::span<const gneiss::engine::render_asset_reload> requests) {
+  const auto reload = [&](std::span<const gneiss::engine::asset_source> requests) {
     std::uint64_t request{};
     auto status = app->request_assets(requests, 1, 1, request, true);
     if (status.failed())
@@ -93,7 +93,7 @@ void run_asset_reload() {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     for (;;) {
       (void)scheduler.run_ready();
-      gneiss::engine::texture_load_completion completion;
+      gneiss::engine::asset_load_completion completion;
       bool ready{};
       status = app->poll_assets(completion, ready);
       if (status.failed() || ready)
@@ -128,8 +128,8 @@ void run_asset_reload() {
   const auto initial = await_color(false);
   check(initial[0] > initial[1] + 30U);
   files.color(std::byte{0}, std::byte{255});
-  const std::array requests{gneiss::engine::render_asset_reload{
-      .uri = "asset://t.texture.json", .type = gneiss::engine::render_asset_type::texture}};
+  const std::array requests{gneiss::engine::asset_source{
+      .uri = "asset://t.texture.json", .type = gneiss::engine::asset_type::texture}};
   check(reload(requests) == gneiss::engine::result::success);
   // 不重载场景、不重建材质：已有引用必须看到同一纹理 RID 的新内容。
   const auto updated = await_color(true);
@@ -667,17 +667,15 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
   std::printf("before=%u,%u,%u\n", blue[0], blue[1], blue[2]);
   check(blue[2] > blue[0] + 30U);
   const auto reload = [&](bool mixed = false) {
-    using type = gneiss::engine::render_asset_type;
-    const std::vector<gneiss::engine::render_asset_reload> assets =
+    using type = gneiss::engine::asset_type;
+    const std::vector<gneiss::engine::asset_source> assets =
         mixed
-            ? std::vector<gneiss::engine::render_asset_reload>{{"asset://g.mesh.json", type::mesh},
-                                                               {"asset://m.material.json",
-                                                                type::material}}
-            : std::vector<gneiss::engine::render_asset_reload>{
-                  {"asset://t.texture.json", type::texture}};
+            ? std::vector<gneiss::engine::asset_source>{{"asset://g.mesh.json", type::mesh},
+                                                        {"asset://m.material.json", type::material}}
+            : std::vector<gneiss::engine::asset_source>{{"asset://t.texture.json", type::texture}};
     std::uint64_t request{};
     check(app->request_assets(assets, 1U, 1U, request, true) == gneiss::engine::result::success);
-    gneiss::engine::texture_load_completion completed;
+    gneiss::engine::asset_load_completion completed;
     bool ready{};
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     while (!ready) {

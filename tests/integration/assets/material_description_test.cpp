@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/function/resource/asset_preparation.hpp"
+#include "engine/function/resource/detail/asset_decode.hpp"
 #include "engine/resource/material/material_codec.hpp"
 #include <cstdio>
 #include <cstring>
@@ -32,7 +32,7 @@ void run(std::size_t limit) {
   auto current = std::make_shared<material_description>();
   check(decode_material(input, *current, codec_diagnostic).ok());
   prepared_asset prepared;
-  const asset_preparation_source source{"asset://material.json", asset_type::material};
+  const asset_source source{"asset://material.json", asset_type::material};
   check(decode_loaded_asset(source, {}, {}, {}, prepared, diagnostic, limit, {},
                             asset_ref<const material_description>{old}, 256)
             .ok());

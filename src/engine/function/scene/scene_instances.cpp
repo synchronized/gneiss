@@ -167,9 +167,9 @@ engine::result scene_instance::create_staged_node(std::size_t index, scene_node_
     if (!mesh || !material) {
       return engine::result::not_ready;
     }
-    if (engine::asset_kind(mesh) != engine::render_asset_type::mesh ||
-        engine::asset_kind(material) != engine::render_asset_type::material ||
-        !loader_.owns(mesh) || !loader_.owns(material)) {
+    if (engine::asset_kind(mesh) != engine::asset_type::mesh ||
+        engine::asset_kind(material) != engine::asset_type::material || !loader_.owns(mesh) ||
+        !loader_.owns(material)) {
       return engine::result::invalid_argument;
     }
     target.mesh = std::move(mesh);
@@ -193,7 +193,7 @@ void scene_instance::rollback() noexcept {
     iterator->material = {};
   }
   objects_.clear();
-  loader_.release_unused();
+  loader_.collect_unused();
 }
 
 scene_node_id scene_instance::find_node(std::string_view uuid) const noexcept {
@@ -229,8 +229,8 @@ engine::result scene_instance::reload(scene_description candidate) {
     if (source.mesh_renderer) {
       result = [&] {
         render_asset_ref cached;
-        const auto status = loader_.acquire_cached(
-            {source.mesh_renderer->mesh_uri, render_asset_type::mesh}, cached);
+        const auto status =
+            loader_.acquire_cached({source.mesh_renderer->mesh_uri, asset_type::mesh}, cached);
         if (status.ok())
           target.mesh = asset_manager::mesh_ref(cached);
         return status;
@@ -239,7 +239,7 @@ engine::result scene_instance::reload(scene_description candidate) {
         result = [&] {
           render_asset_ref cached;
           const auto status = loader_.acquire_cached(
-              {source.mesh_renderer->material_uri, render_asset_type::material}, cached);
+              {source.mesh_renderer->material_uri, asset_type::material}, cached);
           if (status.ok())
             target.material = asset_manager::material_ref(cached);
           return status;
@@ -417,7 +417,7 @@ engine::result scene_instance::reload(scene_description candidate) {
 
   objects_ = std::move(staged);
   description_ = std::move(candidate);
-  loader_.release_unused();
+  loader_.collect_unused();
   return engine::result::success;
 }
 
@@ -986,12 +986,12 @@ engine::result scene_instance::restore_subtree(std::string_view snapshot, scene_
           target.material = found->material;
         } else {
           render_asset_ref cached;
-          result = loader_.acquire_cached({author.mesh_renderer->mesh_uri, render_asset_type::mesh},
-                                          cached);
+          result =
+              loader_.acquire_cached({author.mesh_renderer->mesh_uri, asset_type::mesh}, cached);
           if (result.ok()) {
             target.mesh = asset_manager::mesh_ref(cached);
             result = loader_.acquire_cached(
-                {author.mesh_renderer->material_uri, render_asset_type::material}, cached);
+                {author.mesh_renderer->material_uri, asset_type::material}, cached);
             if (result.ok())
               target.material = asset_manager::material_ref(cached);
           }
@@ -1037,7 +1037,7 @@ engine::result scene_instance::restore_subtree(std::string_view snapshot, scene_
               (void)native_world_.node_destroy(gneiss::scene_node_id{value.node});
             }
           }
-          loader_.release_unused();
+          loader_.collect_unused();
           return result;
         }
         committed_nodes.emplace(staged[index].uuid, staged[index].node);
@@ -1129,7 +1129,7 @@ engine::result scene_instance::destroy_subtree(scene_node_id root) {
     std::erase_if(objects_, [&removed](const auto& value) { return removed.contains(value.uuid); });
     std::erase_if(description_.objects,
                   [&removed](const auto& value) { return removed.contains(value.uuid); });
-    loader_.release_unused();
+    loader_.collect_unused();
     return engine::result::success;
   } catch (const std::bad_alloc&) {
     return engine::result::out_of_memory;
@@ -1139,8 +1139,8 @@ engine::result scene_instance::destroy_subtree(scene_node_id root) {
 engine::result scene_instance::create_mesh_renderer_node(const mesh_renderer_node_creation& desc,
                                                          scene_node_id* out_node,
                                                          const scene_mesh_binding* prepared) {
-  if (prepared && (engine::asset_kind(prepared->mesh) != engine::render_asset_type::mesh ||
-                   engine::asset_kind(prepared->material) != engine::render_asset_type::material ||
+  if (prepared && (engine::asset_kind(prepared->mesh) != engine::asset_type::mesh ||
+                   engine::asset_kind(prepared->material) != engine::asset_type::material ||
                    !loader_.owns(prepared->mesh) || !loader_.owns(prepared->material) ||
                    engine::asset_uri(prepared->mesh) != desc.mesh_uri ||
                    engine::asset_uri(prepared->material) != desc.material_uri)) {
@@ -1245,7 +1245,7 @@ engine::result scene_instance::set_mesh_renderer(scene_node_id node, std::string
     description_.objects[index].mesh_renderer = std::move(author);
     found->mesh = std::move(mesh);
     found->material = std::move(material);
-    loader_.release_unused();
+    loader_.collect_unused();
     return engine::result::success;
   } catch (const std::bad_alloc&) {
     return engine::result::out_of_memory;
@@ -1316,7 +1316,7 @@ engine::result scene_instance::remove_mesh_renderer(scene_node_id node) {
   description_.objects[index].mesh_renderer.reset();
   found->mesh = {};
   found->material = {};
-  loader_.release_unused();
+  loader_.collect_unused();
   return engine::result::success;
 }
 
@@ -1346,7 +1346,7 @@ engine::result scene_instance::destroy_node(scene_node_id node) {
   }
   objects_.erase(found);
   description_.objects.erase(description_.objects.begin() + static_cast<std::ptrdiff_t>(index));
-  loader_.release_unused();
+  loader_.collect_unused();
   return engine::result::success;
 }
 
@@ -1768,7 +1768,7 @@ engine::result scene_instances::replace_mesh_binding(scene_instance_id instance,
   if (owner != engine::result::success) {
     return owner;
   }
-  using type = engine::render_asset_type;
+  using type = engine::asset_type;
   if (engine::asset_kind(replacement.mesh) != type::mesh ||
       engine::asset_kind(replacement.material) != type::material ||
       !loader_.owns(replacement.mesh) || !loader_.owns(replacement.material)) {

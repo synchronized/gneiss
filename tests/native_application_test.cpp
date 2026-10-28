@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
-#include "engine/function/resource/detail/texture_load_service.hpp"
+#include "engine/function/resource/asset_types.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -101,7 +101,7 @@ void test_asset_request_boundaries() {
     check(app->activate_scene(1, scene_completion) == gneiss::engine::result::invalid_state);
     check(!app->scene_progress(scene_progress) &&
           scene_completion.scene == gneiss::scene_instance_id{29});
-    gneiss::engine::texture_load_completion completion;
+    gneiss::engine::asset_load_completion completion;
     completion.request = 23;
     gneiss::engine::render_asset_ref lease;
     gneiss::engine::scene_instances::mesh_binding binding;

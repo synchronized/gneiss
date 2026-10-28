@@ -3,7 +3,7 @@
 #pragma once
 #include "async_asset.hpp"
 #include "engine/function/render/render_resource_data.hpp"
-#include "engine/function/resource/asset_preparation.hpp"
+#include "engine/function/resource/detail/asset_decode.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
 #include <algorithm>
@@ -12,7 +12,7 @@ namespace gneiss::test_support {
 using namespace gneiss::engine;
 // 仅组织内存测试夹具；生产解码器只消费字节，不负责读取与递归依赖。
 inline result decode_fixture(const gneiss::test_support::fixture_files& files,
-                             const asset_preparation_source& source, prepared_asset& output,
+                             const asset_source& source, prepared_asset& output,
                              asset_diagnostic& diagnostic, std::size_t input_limit,
                              std::size_t output_limit, texture_prepare_profile profile = {}) {
   std::vector<std::byte> description, payload;
@@ -71,8 +71,8 @@ inline result decode_texture_fixture(const gneiss::test_support::fixture_files& 
 }
 inline result prepare_render_for_test(asset_manager& assets,
                                       const gneiss::test_support::fixture_files& files,
-                                      std::span<const render_asset_reload> requested,
-                                      prepared_render_batch& output, asset_diagnostic& diagnostic,
+                                      std::span<const asset_source> requested,
+                                      prepared_batch& output, asset_diagnostic& diagnostic,
                                       const std::function<bool()>& cancelled,
                                       std::size_t maximum_assets = 256U,
                                       std::size_t maximum_bytes = 256U * 1024U * 1024U,
@@ -82,7 +82,7 @@ inline result prepare_render_for_test(asset_manager& assets,
   if (requested.empty() || requested.size() > maximum_assets)
     return result::invalid_argument;
   prepared_batch batch;
-  std::vector<asset_preparation_source> pending(requested.begin(), requested.end());
+  std::vector<asset_source> pending(requested.begin(), requested.end());
   std::set<std::pair<std::string, asset_type>> seen;
   for (std::size_t index = 0; index < pending.size(); ++index) {
     if (cancelled && cancelled())

@@ -164,8 +164,8 @@ void run(gneiss::engine::execution_mode mode) {
         history.size() == creation_count);
   gneiss::engine::render_asset_ref unused;
   check(app->query_ready_asset(
-            {.uri = "asset://c.json", .type = gneiss::engine::render_asset_type::material},
-            unused) == gneiss::engine::result::not_ready &&
+            {.uri = "asset://c.json", .type = gneiss::engine::asset_type::material}, unused) ==
+            gneiss::engine::result::not_ready &&
         !unused);
   history.clear();
   // 旧请求还在准备时切换到另一个有效场景；不能污染新场景或采用旧候选。
@@ -184,8 +184,8 @@ void run(gneiss::engine::execution_mode mode) {
   check(edit.operation() == gneiss::engine::result::invalid_state &&
         session.scene_handle() == new_scene && session.nodes().empty() && history.size() == 0U);
   check(app->query_ready_asset(
-            {.uri = "asset://d.json", .type = gneiss::engine::render_asset_type::material},
-            unused) == gneiss::engine::result::not_ready);
+            {.uri = "asset://d.json", .type = gneiss::engine::asset_type::material}, unused) ==
+        gneiss::engine::result::not_ready);
   session.close();
 }
 }

@@ -91,7 +91,7 @@ prefab_runtime_instance::validate_reload(const prefab_asset_ref& candidate,
     result = [&] {
       render_asset_ref cached;
       const auto status =
-          loader_.acquire_cached({source.mesh_renderer->mesh_uri, render_asset_type::mesh}, cached);
+          loader_.acquire_cached({source.mesh_renderer->mesh_uri, asset_type::mesh}, cached);
       if (status.ok())
         meshes[index] = asset_manager::mesh_ref(cached);
       return status;
@@ -100,7 +100,7 @@ prefab_runtime_instance::validate_reload(const prefab_asset_ref& candidate,
       result = [&] {
         render_asset_ref cached;
         const auto status = loader_.acquire_cached(
-            {source.mesh_renderer->material_uri, render_asset_type::material}, cached);
+            {source.mesh_renderer->material_uri, asset_type::material}, cached);
         if (status.ok())
           materials[index] = asset_manager::material_ref(cached);
         return status;
@@ -163,8 +163,8 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
     if (source.mesh_renderer) {
       result = [&] {
         render_asset_ref cached;
-        const auto status = loader_.acquire_cached(
-            {source.mesh_renderer->mesh_uri, render_asset_type::mesh}, cached);
+        const auto status =
+            loader_.acquire_cached({source.mesh_renderer->mesh_uri, asset_type::mesh}, cached);
         if (status.ok())
           target.mesh = asset_manager::mesh_ref(cached);
         return status;
@@ -173,7 +173,7 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
         result = [&] {
           render_asset_ref cached;
           const auto status = loader_.acquire_cached(
-              {source.mesh_renderer->material_uri, render_asset_type::material}, cached);
+              {source.mesh_renderer->material_uri, asset_type::material}, cached);
           if (status.ok())
             target.material = asset_manager::material_ref(cached);
           return status;
@@ -376,7 +376,7 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
   }
   prefab_ = std::move(candidate);
   prepared_.reset();
-  loader_.release_unused();
+  loader_.collect_unused();
   return engine::result::success;
 }
 
@@ -678,8 +678,8 @@ engine::result prefab_runtime_instance::create_node(std::size_t index, scene_nod
     if (!mesh || !material) {
       return engine::result::not_ready;
     }
-    if (engine::asset_kind(mesh) != render_asset_type::mesh ||
-        engine::asset_kind(material) != render_asset_type::material || !loader_.owns(mesh) ||
+    if (engine::asset_kind(mesh) != asset_type::mesh ||
+        engine::asset_kind(material) != asset_type::material || !loader_.owns(mesh) ||
         !loader_.owns(material)) {
       return engine::result::invalid_argument;
     }
@@ -719,7 +719,7 @@ void prefab_runtime_instance::rollback() noexcept {
     root_node_ = null_scene_node_id;
   }
   prefab_ = {};
-  loader_.release_unused();
+  loader_.collect_unused();
 }
 
 scene_node_id prefab_runtime_instance::find_node(std::string_view source_node_uuid) const noexcept {

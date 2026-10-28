@@ -36,7 +36,7 @@ public:
                   std::shared_ptr<gneiss::engine::progress_notification> notification);
   void advance();
   /** 激活后的视觉资源独立完成，不影响结构激活结果；所属线程消费诊断。 */
-  [[nodiscard]] bool take_visual_completion(gneiss::engine::texture_load_completion& output);
+  [[nodiscard]] bool take_visual_completion(gneiss::engine::asset_load_completion& output);
   [[nodiscard]] bool visual_loading() const noexcept {
     return visual_pending_ || !visual_queue_.empty();
   }
@@ -66,12 +66,11 @@ public:
   [[nodiscard]] gneiss::engine::result cancel_scene(std::uint64_t request);
   /** 更新稳定资源的内容，活动 World 的引用不变；失败项保留旧内容。 */
   [[nodiscard]] gneiss::engine::result
-  request_assets(std::span<const gneiss::engine::render_asset_reload> sources,
-                 std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
-                 bool reload);
+  request_assets(std::span<const gneiss::engine::asset_source> sources, std::uint64_t session,
+                 std::uint64_t revision, std::uint64_t& request, bool reload);
   /** 所属线程、渲染快照捕获之前调用；回执报告内容更新结果，不改变场景引用。 */
   [[nodiscard]] gneiss::engine::result
-  poll_assets(gneiss::engine::texture_load_completion& completion, bool& ready);
+  poll_assets(gneiss::engine::asset_load_completion& completion, bool& ready);
 
   /** 异步读取结构与依赖，所属线程原位修改实例；不切换 World。
    * 重载期间拒绝其他加载；poll_reload 消费终态后释放请求槽位。 */
@@ -97,12 +96,12 @@ private:
   void advance_visuals();
   void advance_stop();
   bool stopping_{};
-  std::vector<gneiss::engine::render_asset_reload> visual_queue_;
+  std::vector<gneiss::engine::asset_source> visual_queue_;
   std::size_t visual_cursor_{};
   std::uint64_t visual_session_{};
   std::uint64_t visual_revision_{};
   bool visual_pending_{};
-  std::optional<gneiss::engine::texture_load_completion> visual_completion_;
+  std::optional<gneiss::engine::asset_load_completion> visual_completion_;
   gneiss::engine::asset_manager* asset_owner_{};
   std::unique_ptr<scene_domain> active_;
   std::unique_ptr<scene_domain> retired_;

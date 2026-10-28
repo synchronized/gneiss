@@ -130,7 +130,7 @@ write 仅确认内存可见；flush 调用当前 IDBFS 挂载的 syncfs(false)�
 ## 资产管理器接入
 
 `asset_manager(shared_ptr<files::service>, registry, limit)` 持有宿主注入的同线程服务。
-宿主先分发文件完成，再调用 `advance_resources` 推进 CPU 解码及结果登记；管理器和 Loader 不隐式分发文件回调。
+宿主先分发文件完成，再调用 `advance` 推进 CPU 解码及结果登记；管理器和 Loader 不隐式分发文件回调。
 Application 主循环及显式场景/资产轮询入口共用同一宿主推进函数，独立消费者须自行驱动服务。
 等待文件期间不提交 CPU 轮询任务。
 读取回调只捕获操作弱引用，不捕获 manager 或执行器，停止后的迟到完成不能触发解码。
@@ -145,10 +145,10 @@ asset_manager 仅接受文件服务注入；find_loaded<T> 只查询已完成缓
 浏览器按 asset_root 使用 HTTP Fetch 或借用 Emscripten FS 目录，不恢复同步文件回退。
 文件操作和 CPU 调度线程数是不同配置，不应把 cooperative 等同于所有文件操作都在主线程执行。
 
-asset_manager 已提供 request_stop_resources：立即拒绝新加载、终止观察者并请求取消，不等待 CPU 解码退出。
-宿主继续调用 advance_resources，直到 resources_stopped；已停止管理器不会发布迟到解码结果。
+asset_manager 已提供 request_stop：立即拒绝新加载、终止观察者并请求取消，不等待 CPU 解码退出。
+宿主继续调用 advance，直到 stopped；已停止管理器不会发布迟到解码结果。
 管理器停止不等于共享文件服务关闭，后者仍须独立 shutdown 并等待完成回调。
-迁移期 stop_resources 与析构仍保留等待已有 CPU scope 收尾的兜底。
+迁移期 stop 与析构仍保留等待已有 CPU scope 收尾的兜底。
 宿主持有的共享服务继续由宿主分发并正常 shutdown；独占服务析构放弃通知，在途后端自行清理。
 Application 新增 request_shutdown/advance_shutdown，均在所属线程、run 之外调用。
 request_shutdown 拒绝新操作并请求取消 Scene、资产管理器及文件服务；不等待后台任务。

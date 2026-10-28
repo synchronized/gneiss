@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset_preparation.hpp"
+#include "asset_decode.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
 #include "engine/resource/mesh/mesh_decoder.hpp"
@@ -31,10 +31,9 @@ bool invalid_prepared_mesh(const mesh_data& mesh) {
                                }) ||
           !std::ranges::all_of(mesh.indices, [&](auto i) { return i < mesh.vertices.size(); }));
 }
-engine::result decode_non_texture(const asset_preparation_source& source,
-                                  const std::vector<std::byte>& bytes, prepared_asset& asset,
-                                  asset_diagnostic& diagnostic, std::size_t material_bytes,
-                                  std::size_t maximum_bytes) {
+engine::result decode_non_texture(const asset_source& source, const std::vector<std::byte>& bytes,
+                                  prepared_asset& asset, asset_diagnostic& diagnostic,
+                                  std::size_t material_bytes, std::size_t maximum_bytes) {
   auto result = engine::result::success;
   if (source.type == asset_type::mesh) {
     result =
@@ -76,11 +75,10 @@ engine::result decode_non_texture(const asset_preparation_source& source,
   return result;
 }
 } // namespace
-result decode_loaded_asset(const asset_preparation_source& source,
-                           std::vector<std::byte> description, std::string payload_uri,
-                           std::vector<std::byte> payload, prepared_asset& output,
-                           asset_diagnostic& diagnostic, std::size_t maximum_bytes,
-                           texture_prepare_profile profile,
+result decode_loaded_asset(const asset_source& source, std::vector<std::byte> description,
+                           std::string payload_uri, std::vector<std::byte> payload,
+                           prepared_asset& output, asset_diagnostic& diagnostic,
+                           std::size_t maximum_bytes, texture_prepare_profile profile,
                            asset_ref<const material_description> material,
                            std::size_t material_bytes) {
   prepared_asset decoded;

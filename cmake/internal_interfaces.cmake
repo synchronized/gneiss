@@ -37,7 +37,6 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/asset_request.hpp
   engine/function/resource/asset_manager.hpp
   engine/function/resource/asset_types.hpp
-  engine/function/resource/asset_load_types.hpp
   engine/resource/scene/scene_codec.hpp
   engine/resource/scene/prefab_codec.hpp
   engine/resource/asset_uri.hpp
@@ -84,7 +83,6 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/math/camera.hpp
   engine/function/render/debug_draw_list.hpp
   engine/function/render/draw_types.hpp
-  engine/function/resource/asset_preparation.hpp
   engine/function/render/render_executor.hpp
   engine/function/render/render_frame_packet.hpp
   engine/resource/mesh/mesh_resource.hpp

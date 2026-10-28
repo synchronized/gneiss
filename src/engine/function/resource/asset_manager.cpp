@@ -211,7 +211,7 @@ result asset_manager::store_erased(type_id type, std::string_view uri,
   return result::internal;
 }
 asset_manager::~asset_manager() {
-  stop_resources();
+  stop();
   render_state_.reset();
 }
 void asset_manager::attach_task_executor(task_executor& executor) {
@@ -346,7 +346,7 @@ result asset_manager::request_input(std::string_view uri,
                                     asset_request<action_map>& output) noexcept {
   return load(uri, output, true);
 }
-void asset_manager::advance_resources() {
+void asset_manager::advance() {
   advance_render();
   auto& state = *resource_state_;
   if (state.stopped) {
@@ -425,7 +425,7 @@ void asset_manager::advance_resources() {
   }
 }
 void asset_manager::collect_unused() noexcept {
-  release_unused();
+  release_cached_resources();
   auto& state = *resource_state_;
   std::erase_if(state.requests, [&](const auto& item) {
     const auto& [identity, entry] = item;
@@ -434,15 +434,15 @@ void asset_manager::collect_unused() noexcept {
     return !active && entry.pending.expired();
   });
 }
-void asset_manager::request_stop_resources() noexcept {
-  request_stop();
+void asset_manager::request_stop() noexcept {
+  request_stop_render();
   resource_state_->request_stop();
 }
-bool asset_manager::resources_stopped() const noexcept {
-  return stopped() && resource_state_->stopped && !resource_state_->executor &&
+bool asset_manager::stopped() const noexcept {
+  return render_stopped() && resource_state_->stopped && !resource_state_->executor &&
          !resource_state_->files;
 }
-void asset_manager::stop_resources() noexcept {
+void asset_manager::stop() noexcept {
   stop_render();
   resource_state_->stop();
 }

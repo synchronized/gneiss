@@ -23,10 +23,12 @@
 #if __has_include("runtime/loading/scene_domain.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
-#if __has_include("engine/function/resource/detail/render_asset_loader.hpp") ||                    \
+#if __has_include("engine/function/resource/detail/asset_decode.hpp") ||                           \
                   __has_include(                                                                   \
-                      "engine/function/resource/detail/render_resource_factory.hpp") ||            \
-                      __has_include("engine/function/resource/detail/texture_load_service.hpp")
+                      "engine/function/resource/detail/asset_render_state.hpp") ||                 \
+                      __has_include(                                                               \
+                          "engine/function/resource/detail/render_resource_factory.hpp") ||        \
+                          __has_include("engine/function/resource/detail/asset_load_batch.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
 #if __has_include("runtime/loading/scene_service.hpp")
@@ -89,4 +91,10 @@ template <typename T>
 concept exposes_resource_table = requires(T& value) { value.resources(); };
 static_assert(!exposes_resource_table<gneiss::runtime::application>);
 static_assert(!exposes_resource_table<gneiss::engine::render_service>);
+template <typename T>
+concept exposes_asset_update = requires { &T::prepare_update; };
+template <typename T>
+concept exposes_asset_claim = requires { &T::claim_update; };
+static_assert(!exposes_asset_update<gneiss::engine::asset_manager>);
+static_assert(!exposes_asset_claim<gneiss::engine::asset_manager>);
 int main() { return 0; }

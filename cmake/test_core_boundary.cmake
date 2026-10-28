@@ -25,7 +25,7 @@ file(MAKE_DIRECTORY "${fixture}/src/engine/core" "${fixture}/src/engine/function
 # 清除上一次失败用例遗留的内容，保证反例可重复执行。
 file(WRITE "${fixture}/src/engine/resource/probe.cpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "#include <gneiss/render.h>\n")
-file(WRITE "${fixture}/src/engine/function/resource/asset_preparation.cpp" "#include <gneiss/core/result.h>\n")
+file(WRITE "${fixture}/src/engine/function/resource/detail/asset_decode.cpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/src/engine/resource/texture/texture_decoder.hpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/src/engine/resource/texture/png_decoder.cpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/src/engine/core/meta/probe.cpp" "#include <gneiss/reflection.h>\n")
@@ -162,9 +162,9 @@ foreach(header IN ITEMS "render/resource.hpp" "world/state.hpp" "scene/tree.hpp"
 endforeach()
 file(WRITE "${fixture}/src/engine/resource/probe.cpp" "#include <gneiss/core/result.h>\n")
 
-foreach(header IN ITEMS "engine/function/resource/detail/render_asset_loader.hpp" "engine/function/render/render_service.hpp"
+foreach(header IN ITEMS "engine/function/resource/detail/asset_render_state.hpp" "engine/function/resource/asset_manager.hpp" "engine/function/render/render_service.hpp"
     "engine/function/resource/resource_cache.hpp" "engine/core/rid_table.hpp")
-  file(WRITE "${fixture}/src/engine/function/resource/asset_preparation.cpp" "#include <${header}>\n")
+  file(WRITE "${fixture}/src/engine/function/resource/detail/asset_decode.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
@@ -172,7 +172,7 @@ foreach(header IN ITEMS "engine/function/resource/detail/render_asset_loader.hpp
     message(FATAL_ERROR "边界检查未拒绝 CPU 准备包含 ${header}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/engine/function/resource/asset_preparation.cpp" "#include <gneiss/core/result.h>\n")
+file(WRITE "${fixture}/src/engine/function/resource/detail/asset_decode.cpp" "#include <gneiss/core/result.h>\n")
 
 file(WRITE "${fixture}/src/engine/resource/texture/texture_decoder.hpp" "#include <engine/function/render/render_resource_data.hpp>\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
@@ -335,8 +335,9 @@ endforeach()
 foreach(header IN ITEMS engine/platform/window_service.hpp
                         engine/function/render/render_resource_storage.hpp
                         granit/granit.hpp
-                        engine/function/resource/detail/texture_load_service.hpp
-                        engine/function/resource/detail/render_asset_loader.hpp
+                        engine/function/resource/detail/asset_decode.hpp
+                        engine/function/resource/detail/asset_load_batch.hpp
+                        engine/function/resource/detail/asset_render_state.hpp
                         engine/function/resource/detail/render_resource_factory.hpp)
   file(WRITE "${fixture}/src/runtime/loading/scene_service.cpp"
     "#include <${header}>\n")

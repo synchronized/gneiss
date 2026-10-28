@@ -620,7 +620,7 @@ add_executable(gneiss_render_asset_preparation_test
   asset/asset_preparation_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/asset_preparation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/asset_decode.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
@@ -640,16 +640,15 @@ add_test(NAME gneiss.render_asset_preparation COMMAND gneiss_render_asset_prepar
 add_executable(
   gneiss_render_asset_loader_test
   render/render_asset_loader_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/texture_load_service.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/asset_load_batch.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_cache.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/render_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/asset_preparation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/asset_decode.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.cpp"
 )
@@ -668,16 +667,15 @@ add_test(NAME gneiss.render_asset_loader COMMAND gneiss_render_asset_loader_test
 add_executable(
   gneiss_texture_load_service_test
   render/texture_load_service_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/texture_load_service.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/asset_load_batch.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_cache.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/render_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/asset_preparation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/asset_decode.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.cpp"
 )
@@ -785,10 +783,9 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/render_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/asset_preparation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/asset_decode.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_codec.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
@@ -1020,7 +1017,7 @@ foreach(test IN ITEMS gneiss_texture_load_application_test gneiss_asset_pixel_te
 endforeach()
 
 target_sources(gneiss_scene_instantiation_test PRIVATE
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/texture_load_service.cpp")
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/detail/asset_load_batch.cpp")
 
 # 异步资产测试由宿主推进解码任务。
 foreach(test IN ITEMS gneiss_scene_description_test gneiss_prefab_description_test gneiss_prefab_runtime_instance_test)

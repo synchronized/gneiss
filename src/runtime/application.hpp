@@ -65,7 +65,7 @@ public:
       const gneiss::engine::scene_mesh_binding& prepared, scene_node_id& output) noexcept;
   [[nodiscard]] gneiss::engine::result collect_unused_edit_assets() noexcept;
   [[nodiscard]] gneiss::engine::result
-  query_ready_asset(const gneiss::engine::render_asset_reload& source,
+  query_ready_asset(const gneiss::engine::asset_source& source,
                     gneiss::engine::render_asset_ref& output) noexcept;
   [[nodiscard]] gneiss::engine::result
   capture_mesh_binding(gneiss::scene_instance_id scene, scene_node_id node,
@@ -75,8 +75,8 @@ public:
                        const gneiss::engine::scene_mesh_binding& expected,
                        const gneiss::engine::scene_mesh_binding& replacement) noexcept;
   [[nodiscard]] gneiss::engine::result
-  prepare_edit_assets(std::span<const gneiss::engine::render_asset_reload> sources,
-                      std::uint64_t revision, std::uint64_t& request) noexcept;
+  prepare_edit_assets(std::span<const gneiss::engine::asset_source> sources, std::uint64_t revision,
+                      std::uint64_t& request) noexcept;
   [[nodiscard]] gneiss::engine::result request_scene(std::string_view uri, std::uint64_t session,
                                                      std::uint64_t revision,
                                                      std::uint64_t& request);
@@ -86,11 +86,10 @@ public:
   [[nodiscard]] gneiss::engine::result cancel_scene(std::uint64_t request);
   [[nodiscard]] bool scene_loading() const noexcept;
   [[nodiscard]] gneiss::engine::result
-  request_assets(std::span<const gneiss::engine::render_asset_reload> sources,
-                 std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
-                 bool reload);
+  request_assets(std::span<const gneiss::engine::asset_source> sources, std::uint64_t session,
+                 std::uint64_t revision, std::uint64_t& request, bool reload);
   [[nodiscard]] gneiss::engine::result
-  poll_assets(gneiss::engine::texture_load_completion& completion, bool& ready);
+  poll_assets(gneiss::engine::asset_load_completion& completion, bool& ready);
   [[nodiscard]] bool asset_progress(gneiss::engine::asset_load_progress& progress) const noexcept;
   [[nodiscard]] gneiss::engine::result cancel_assets() noexcept;
   void advance_scene_load();

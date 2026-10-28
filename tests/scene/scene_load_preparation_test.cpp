@@ -118,7 +118,7 @@ void run() {
   auto status = result::not_ready;
   for (unsigned i = 0; i < 100U && status == result::not_ready; ++i) {
     check(assets.async_files()->dispatch_completions(64).ok());
-    assets.advance_resources();
+    assets.advance();
     status = request.advance(inputs, diagnostic);
     check(executor.run_ready().status == drive_status::success);
   }

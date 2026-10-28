@@ -16,7 +16,7 @@ endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
   if(content MATCHES "engine/resource/(mesh|texture|material)/detail/[a-z_]+_resource_access[.]hpp" AND
-      NOT source MATCHES "/src/engine/(resource/(mesh|texture|material)/[a-z_]+_resource|function/resource/detail/(render_resource_factory|render_asset_loader))[.]cpp$")
+      NOT source MATCHES "/src/engine/(resource/(mesh|texture|material)/[a-z_]+_resource|function/resource/(detail/render_resource_factory|asset_manager_render))[.]cpp$")
     message(FATAL_ERROR "资源私有访问器不得泄漏到普通调用方：${source}")
   endif()
 
@@ -176,8 +176,8 @@ foreach(source IN LISTS sources)
   if(source MATCHES "/src/(engine|runtime)/api/")
     continue()
   endif()
-  if(source MATCHES "(/src/engine/resource/(mesh/mesh_decoder|texture/texture_decoder|material/material_codec)|/src/engine/function/(resource/asset_preparation|render/render_resource_data))\\.(cpp|hpp)$" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|render_service)\\.(h|hpp)|engine/(function/resource/resource_cache|core/rid_table)\\.hpp)[>\"]")
+  if(source MATCHES "(/src/engine/resource/(mesh/mesh_decoder|texture/texture_decoder|material/material_codec)|/src/engine/function/(resource/detail/asset_decode|render/render_resource_data))\\.(cpp|hpp)$" AND
+      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|render_service)\\.(h|hpp)|engine/(function/resource/(resource_cache|asset_manager|detail/(asset_render_state|asset_load_batch|render_resource_factory))|core/rid_table)\\.hpp)[>\"]")
     message(FATAL_ERROR "CPU 准备与值类型不得包含资源发布、缓存或 RID 表：${source}")
   endif()
   if(source MATCHES "/src/engine/core/" AND

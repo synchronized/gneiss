@@ -92,3 +92,24 @@ Windows Clang Debug 全量编译通过，29 项相关测试通过，涵盖 CPU �
 
 未运行大场景、GPU 图像验证、跨平台/静态库矩阵或远端 CI；未修改 Granit。
 当前仍为完整 CPU 负载加载，流送、GPU 驻留控制和统一模板化运行资源请求不属于本轮交付。
+
+## 资产管理目录与私有实现收敛
+
+function/resource 从 16 个文件整理为 13 个：根目录保留管理器、公共加载类型和缓存，
+解码及批次实现进入 detail。asset_load_types 合并到 asset_types；
+texture_load_service 改为私有 asset_load_batch，完成与状态改名为 asset_load_completion/state。
+删除 render_asset_type/reload、prepared_render_asset/batch 的兼容别名；请求使用 asset_type/source。
+
+删除 render_asset_loader 对象和两份文件，其查询与内容采用逻辑直接归入 asset_manager_render.cpp。
+管理器不再暴露 prepare_update、apply_update、claim_update 或请求序号分配；
+单项更新数据与操作位于私有 asset_render_state.hpp 中，继续拒绝迟到结果，不引入事务。
+宿主统一使用 advance、collect_unused、request_stop/stopped 和析构兜底 stop；
+删除重复推进、回收、取消和仅停止视觉批次的公共入口。Render 的 RID 与 GPU 管理边界不变。
+
+Windows Clang Debug 编译通过；30 项相关测试通过，覆盖 CPU 缓存、运行资源加载、
+材质依赖、请求顺序、取消与停止、跨线程释放、Scene/Prefab、编辑器调用和模块边界。
+内部头可见性检查禁止宿主包含解码/更新实现，并在编译期确认管理器不再提供准备和占用更新接口。
+改动行格式化、旧符号扫描和 git diff --check 通过。
+
+未运行大场景、GPU 图像验证、跨平台或静态库矩阵、远端 CI；未修改 Granit。
+本轮没有增加流送、GPU 就绪等待或统一模板化运行资源请求。

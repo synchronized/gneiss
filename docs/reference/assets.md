@@ -143,15 +143,23 @@ metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 纯 CPU 使用者只需 `attach_task_executor`，不要求 Render。
 Scene/Editor 借用管理器，不再独立创建 Loader、Factory 或 TextureLoadService。
 `load<T>` 保留 CPU 描述解码契约；带纹理依赖的网格、材质和纹理使用 `submit_assets` 批次接口，
-通过 `take(texture_load_completion&)` 领取结果。两种请求共用管理器、文件服务和资源索引，
+通过 `take(asset_load_completion&)` 领取结果。两种请求共用管理器、文件服务和资源索引，
 本次没有将批次结果另包成一套模板请求队列。
-宿主统一调用 `advance_resources`（`advance` 为同义入口）；
-关闭调用 `request_stop_resources` 并推进至 `resources_stopped`，最后销毁管理器，再关闭 Render。
+宿主统一调用 `advance()` 推进加载，使用 `collect_unused()` 回收无外部引用的缓存；
+关闭调用 `request_stop` 并推进至 `stopped`，最后销毁管理器，再关闭 Render。
 内部加载文件位于 `detail/`，不向宿主开放。资源数据及格式编解码仍位于 `engine/resource`。
 
+`asset_types.hpp` 集中声明 `asset_source`、`asset_load_state`、`asset_load_completion`、
+`asset_load_progress` 及混合资源引用辅助函数。asset_type 当前只枚举 Mesh、Material、Texture，
+CPU 描述类型仍由 load<T> 的 C++ 类型确定。
+私有 `asset_load_batch` 负责异步批次，`asset_decode` 只解码已有字节，
+`asset_render_state` 保存渲染资源装配状态和单项更新任务。不存在独立 Render Loader 对象，
+缓存查询和内容采用实现在 asset_manager_render.cpp 中。更新准备、序号占用和采用操作不向上层公开。
+
+
 asset_manager 的 load 请求通过 files::service 读取有界字节；完成回调交付字节后只提交一次
-asset-decode 任务。等待文件期间不轮询 CPU 任务，不再使用 asset_source。
-普通类型解码器只消费字节。宿主先分发文件完成，再由 advance_resources 推进解码结果登记。
+asset-decode 任务。等待文件期间不轮询 CPU 任务，不使用同步文件适配。
+普通类型解码器只消费字节。宿主先分发文件完成，再由 advance 推进解码结果登记。
 
 asset_manager 仅接受 shared_ptr<files::service>。`find_loaded<T>` 只查询已完成缓存，
 未命中返回 not_found；`load<T>` 返回请求，不阻塞等待文件或解码。
@@ -219,7 +227,7 @@ World、场景实例及编辑会话仍由场景服务管理，不进入资源缓
 | Material CPU 描述 | manager 缓存、准备/上传任务、运行期材质 | 运行期更新成功才切换描述与纹理依赖；失败保留旧运行期数据 |
 | ActionMap | manager 缓存、请求；InputService 持有采用后的独立值 | 采用时复制并校验，失败保留原映射；成功后无需长期持有资产引用 |
 
-`stop_resources()` 排空 manager 任务并结束在途请求，不等于立即清空成功缓存；缓存随管理器销毁，
+`stop()` 排空 manager 任务并结束在途请求，不等于立即清空成功缓存；缓存随管理器销毁，
 或通过 `collect_unused()` 回收。已持有的 CPU 引用可继续存活。Application 关闭时先停止资源任务，
 再关闭场景服务并释放场景/渲染加载器及 manager，最后关闭后端与 I/O 执行器。
 外部渲染引用仍必须遵守渲染服务生命周期，不能照搬 CPU 引用跨管理器存活的规则。

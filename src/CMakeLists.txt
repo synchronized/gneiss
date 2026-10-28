@@ -57,8 +57,8 @@ target_sources(
     engine/resource/texture/texture_ktx2.hpp
     engine/resource/texture/texture_binary.cpp
     engine/resource/texture/texture_binary.hpp
-    engine/function/resource/detail/texture_load_service.cpp
-    engine/function/resource/detail/texture_load_service.hpp
+    engine/function/resource/detail/asset_load_batch.cpp
+    engine/function/resource/detail/asset_load_batch.hpp
     engine/function/resource/resource_cache.cpp
     engine/function/resource/resource_cache.hpp
     engine/core/service_registry.cpp
@@ -122,9 +122,7 @@ target_sources(
     engine/function/render/debug_draw_list.hpp
     engine/function/render/ui_draw_list.cpp
     engine/function/render/ui_draw_list.hpp
-    engine/function/resource/detail/render_asset_loader.cpp
-    engine/function/resource/asset_preparation.cpp
-    engine/function/resource/detail/render_asset_loader.hpp
+    engine/function/resource/detail/asset_decode.cpp
     engine/resource/texture/png_decoder.cpp
     engine/resource/texture/png_decoder.hpp
     engine/core/math/transform.cpp

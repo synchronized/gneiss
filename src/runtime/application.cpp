@@ -887,7 +887,7 @@ gneiss::engine::result application::request_shutdown() noexcept try {
   storage_->input_application_.cancel();
   storage_->scene_service_.request_stop();
   if (storage_->asset_manager_)
-    storage_->asset_manager_->request_stop_resources();
+    storage_->asset_manager_->request_stop();
   return gneiss::engine::result::success;
 } catch (const std::bad_alloc&) {
   return gneiss::engine::result::out_of_memory;
@@ -908,9 +908,9 @@ gneiss::engine::result application::advance_shutdown() noexcept try {
   }
   storage_->scene_service_.advance();
   if (storage_->asset_manager_)
-    storage_->asset_manager_->advance_resources();
+    storage_->asset_manager_->advance();
   if (!storage_->scene_service_.stopped() ||
-      (storage_->asset_manager_ && !storage_->asset_manager_->resources_stopped()) ||
+      (storage_->asset_manager_ && !storage_->asset_manager_->stopped()) ||
       !storage_->file_close_->ready)
     return gneiss::engine::result::not_ready;
   auto status = shutdown();
@@ -935,7 +935,7 @@ gneiss::engine::result application::shutdown() noexcept {
   auto shutdown_result = gneiss::engine::result::success;
   storage_->input_application_.cancel();
   if (storage_->asset_manager_) {
-    storage_->asset_manager_->stop_resources();
+    storage_->asset_manager_->stop();
   }
   storage_->scene_service_.shutdown();
   storage_->asset_manager_.reset();
@@ -1081,7 +1081,7 @@ gneiss::engine::result application::collect_unused_edit_assets() noexcept {
 }
 
 gneiss::engine::result
-application::query_ready_asset(const gneiss::engine::render_asset_reload& source,
+application::query_ready_asset(const gneiss::engine::asset_source& source,
                                gneiss::engine::render_asset_ref& output) noexcept {
   output = {};
   const auto valid = is_owner_thread() && accepts_requests()
@@ -1122,7 +1122,7 @@ gneiss::engine::result application::replace_mesh_binding(
 }
 
 gneiss::engine::result
-application::prepare_edit_assets(std::span<const gneiss::engine::render_asset_reload> sources,
+application::prepare_edit_assets(std::span<const gneiss::engine::asset_source> sources,
                                  std::uint64_t revision, std::uint64_t& request) noexcept try {
   request = 0U;
   const auto valid = is_owner_thread() && accepts_requests()
@@ -1198,7 +1198,7 @@ gneiss::engine::result application::cancel_scene(std::uint64_t request) {
 bool application::scene_loading() const noexcept { return storage_->scene_service_.loading(); }
 
 gneiss::engine::result
-application::request_assets(std::span<const gneiss::engine::render_asset_reload> sources,
+application::request_assets(std::span<const gneiss::engine::asset_source> sources,
                             std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
                             bool reload) {
   request = 0;
@@ -1215,7 +1215,7 @@ application::request_assets(std::span<const gneiss::engine::render_asset_reload>
   }
 }
 
-gneiss::engine::result application::poll_assets(gneiss::engine::texture_load_completion& completion,
+gneiss::engine::result application::poll_assets(gneiss::engine::asset_load_completion& completion,
                                                 bool& ready) {
   ready = false;
   if (!is_owner_thread() || !accepts_requests())
@@ -1256,7 +1256,7 @@ gneiss::engine::result application::advance_resource_io() {
     if (status.failed())
       return status;
   }
-  storage_->asset_manager_->advance_resources();
+  storage_->asset_manager_->advance();
   if (auto state = storage_->environment_; state && state->ready) {
     if (state->status.failed()) {
       storage_->environment_.reset();
@@ -1283,9 +1283,9 @@ void application::advance_scene_load() {
 }
 
 void application::report_visual_completion() {
-  gneiss::engine::texture_load_completion completion;
+  gneiss::engine::asset_load_completion completion;
   if (storage_->scene_service_.take_visual_completion(completion) &&
-      completion.state != gneiss::engine::texture_load_state::cancelled) {
+      completion.state != gneiss::engine::asset_load_state::cancelled) {
     for (const auto& item : completion.results) {
       if (!item.applied) {
         report(gneiss::engine::severity::error, gneiss::engine::category::asset, item.result,

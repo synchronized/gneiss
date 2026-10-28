@@ -7,6 +7,7 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/resource/detail/asset_render_state.hpp"
 #include "engine/function/resource/detail/render_resource_factory.hpp"
 #include "engine/platform/files/file_backend.hpp"
 #include "engine/platform/files/file_service.hpp"
@@ -99,7 +100,7 @@ void prepared_source_revisions() {
       R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[1,1,1,1],"base_color_texture":"asset://texture"})");
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == gneiss::engine::result::success);
-  const std::array requests{asset_preparation_source{"asset://material", asset_type::material}};
+  const std::array requests{asset_source{"asset://material", asset_type::material}};
   asset_manager owner(gneiss::test_support::test_files(files));
   prepared_batch before;
   prepared_batch after;
@@ -146,7 +147,7 @@ void mesh_data_lifetime() {
   source->text("mesh", text);
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == gneiss::engine::result::success);
-  const std::array requests{asset_preparation_source{"asset://mesh", asset_type::mesh}};
+  const std::array requests{asset_source{"asset://mesh", asset_type::mesh}};
   auto prepare = [&](const gneiss::test_support::fixture_files& vfs) {
     prepared_batch batch;
     asset_diagnostic diagnostic;
@@ -185,8 +186,8 @@ void independent_update_sequences() {
   auto& loader = asset_owner;
   if (loader.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
-  const render_asset_reload source_a{"asset://a", render_asset_type::material};
-  const render_asset_reload source_b{"asset://b", render_asset_type::material};
+  const asset_source source_a{"asset://a", asset_type::material};
+  const asset_source source_b{"asset://b", asset_type::material};
   render_asset_ref a, b;
   check(loader.reserve_asset(source_a, a) == gneiss::engine::result::success);
   check(loader.reserve_asset(source_b, b) == gneiss::engine::result::success);
@@ -208,28 +209,33 @@ void independent_update_sequences() {
         gneiss::engine::asset_rid(conflict) == gneiss::engine::asset_rid(a));
 
   const auto stage = [&](const auto& source, const auto& target, auto sequence, auto& output) {
-    prepared_render_asset prepared;
+    prepared_asset prepared;
     prepared.source = source;
-    return loader.prepare_update(std::move(prepared), output, target, sequence);
+    return gneiss::engine::detail::asset_update::prepare_update(loader, std::move(prepared), output,
+                                                                target, sequence);
   };
-  std::array<asset_manager::asset_update, 1> first, unrelated, late, latest;
-  const auto first_sequence = loader.next_update_sequence();
+  std::array<detail::asset_update, 1> first, unrelated, late, latest;
+  const auto first_sequence = gneiss::engine::detail::asset_update::next_update_sequence();
   check(stage(source_a, a, first_sequence, first.front()) == gneiss::engine::result::success);
-  check(stage(source_b, b, loader.next_update_sequence(), unrelated.front()) ==
+  check(stage(source_b, b, gneiss::engine::detail::asset_update::next_update_sequence(),
+              unrelated.front()) == gneiss::engine::result::success);
+  check(gneiss::engine::detail::asset_update::apply_update(loader, unrelated.front()) ==
         gneiss::engine::result::success);
-  check(loader.apply_update(unrelated.front()) == gneiss::engine::result::success);
-  check(loader.apply_update(first.front()) == gneiss::engine::result::success);
+  check(gneiss::engine::detail::asset_update::apply_update(loader, first.front()) ==
+        gneiss::engine::result::success);
   const auto previous = resources.share_material(gneiss::engine::asset_rid(a));
-  const auto old_sequence = loader.next_update_sequence();
+  const auto old_sequence = gneiss::engine::detail::asset_update::next_update_sequence();
   check(stage(source_a, a, old_sequence, late.front()) == gneiss::engine::result::success);
-  const auto new_sequence = loader.next_update_sequence();
-  check(loader.claim_update(a, new_sequence));
+  const auto new_sequence = gneiss::engine::detail::asset_update::next_update_sequence();
+  check(gneiss::engine::detail::asset_update::claim_update(loader, a, new_sequence));
   // 新请求尚未完成也阻止旧任务覆盖；最新请求失败时仍保留当前成功内容。
-  check(loader.apply_update(late.front()) == gneiss::engine::result::invalid_state);
+  check(gneiss::engine::detail::asset_update::apply_update(loader, late.front()) ==
+        gneiss::engine::result::invalid_state);
   check(resources.share_material(gneiss::engine::asset_rid(a)) == previous);
   check(stage(source_a, a, old_sequence, late.front()) == gneiss::engine::result::invalid_state);
   check(stage(source_a, a, new_sequence, latest.front()) == gneiss::engine::result::success);
-  check(loader.apply_update(latest.front()) == gneiss::engine::result::success);
+  check(gneiss::engine::detail::asset_update::apply_update(loader, latest.front()) ==
+        gneiss::engine::result::success);
 }
 void reserved_material_lifetime() {
   auto source = std::make_shared<memory_files>();
@@ -242,21 +248,23 @@ void reserved_material_lifetime() {
   auto& loader = asset_owner;
   if (loader.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
-  const render_asset_reload request{"asset://material", render_asset_type::material};
+  const asset_source request{"asset://material", asset_type::material};
   render_asset_ref target;
   check(loader.reserve_asset(request, target) == gneiss::engine::result::success);
   const auto rid = gneiss::engine::asset_rid(target);
-  prepared_render_asset prepared;
+  prepared_asset prepared;
   prepared.source = request;
-  std::array<asset_manager::asset_update, 1> candidates;
-  check(loader.prepare_update(std::move(prepared), candidates.front(), target) ==
+  std::array<detail::asset_update, 1> candidates;
+  check(gneiss::engine::detail::asset_update::prepare_update(loader, std::move(prepared),
+                                                             candidates.front(), target) ==
         gneiss::engine::result::success);
   check(resources.material_status(rid) == gneiss::engine::result::not_ready);
-  check(loader.apply_update(candidates.front()) == gneiss::engine::result::success);
+  check(gneiss::engine::detail::asset_update::apply_update(loader, candidates.front()) ==
+        gneiss::engine::result::success);
   candidates = {};
   check(resources.material_status(rid) == gneiss::engine::result::success);
   target = {};
-  loader.release_unused();
+  loader.collect_unused();
   check(resources.material_status(rid) == gneiss::engine::result::invalid_handle);
 }
 void cpu_loading(execution_mode mode) {
@@ -281,11 +289,11 @@ void cpu_loading(execution_mode mode) {
       R"({"format":"gneiss.texture","version":2,"source":"asset://image.ktx2","color_space":"srgb","usage":"default"})");
   const std::array<std::string, 1> uris{"asset://texture"};
   std::uint64_t request{};
-  texture_load_completion completed;
+  asset_load_completion completed;
   auto advance = [&] {
     (void)scheduler.run_ready();
     check(files->dispatch_completions(64).ok());
-    manager.advance_resources();
+    manager.advance();
     std::this_thread::yield();
   };
   auto until = [&](auto predicate) {
@@ -306,7 +314,7 @@ void cpu_loading(execution_mode mode) {
   backend->complete(fixture.files.at("image.ktx2"));
   until([&] { return service.take(completed); });
   // 没有 Render 或 GPU 回执，CPU 数据就绪即成功。
-  check(completed.result.ok() && completed.state == texture_load_state::applied);
+  check(completed.result.ok() && completed.state == asset_load_state::applied);
   check(resources.texture_status(asset_rid(target)).ok());
   const auto previous = resources.share_texture(asset_rid(target));
   check(previous && previous->levels.front().pixels.front() == std::byte{42});
@@ -323,7 +331,7 @@ void cpu_loading(execution_mode mode) {
   until([&] { return bool(backend->callback); });
   check(service.cancel());
   until([&] { return service.take(completed); });
-  check(completed.state == texture_load_state::cancelled);
+  check(completed.state == asset_load_state::cancelled);
   backend->complete(fixture.files.at("texture"));
   check(files->dispatch_completions(64U).ok());
   check(resources.share_texture(asset_rid(target)) == previous);
@@ -333,8 +341,8 @@ void cpu_loading(execution_mode mode) {
   fixture.text(
       "material",
       R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[1,1,1,1],"base_color_texture":"asset://texture"})");
-  const std::array mixed{render_asset_reload{"asset://mesh", render_asset_type::mesh},
-                         render_asset_reload{"asset://material", render_asset_type::material}};
+  const std::array mixed{asset_source{"asset://mesh", asset_type::mesh},
+                         asset_source{"asset://material", asset_type::material}};
   check(service.submit_assets(mixed, 1U, 5U, request).ok());
   auto mesh_target = service.requested_assets().front();
   auto material_target = service.requested_assets().back();
@@ -356,7 +364,7 @@ void cpu_loading(execution_mode mode) {
   const auto adopted_mesh = resources.share_mesh(asset_rid(mesh_target));
   check(service.cancel());
   until([&] { return service.take(completed); });
-  check(completed.state == texture_load_state::cancelled && completed.results.front().applied);
+  check(completed.state == asset_load_state::cancelled && completed.results.front().applied);
   backend->complete(fixture.files.at("material"));
   check(files->dispatch_completions(64U).ok());
   check(resources.share_mesh(asset_rid(mesh_target)) == adopted_mesh);
@@ -368,8 +376,8 @@ void cpu_loading(execution_mode mode) {
     return service.take(completed);
   });
   check(completed.result.failed() && resources.share_mesh(asset_rid(mesh_target)) == adopted_mesh);
-  manager.request_stop_resources();
-  until([&] { return manager.resources_stopped(); });
+  manager.request_stop();
+  until([&] { return manager.stopped(); });
   texture rejected;
   check(manager.reserve_texture(rejected) == result::invalid_state && !rejected);
   check(manager.configure_loading(scheduler) == result::invalid_state);
