@@ -16,12 +16,12 @@ endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
   if(content MATCHES "engine/resource/(mesh|texture|material)/detail/[a-z_]+_resource_access[.]hpp" AND
-      NOT source MATCHES "/src/engine/(resource/(mesh|texture|material)/[a-z_]+_resource|function/resource/(detail/render_resource_factory|asset_manager_render))[.]cpp$")
+      NOT source MATCHES "/src/engine/(resource/(mesh|texture|material)/[a-z_]+_resource|function/resource/(detail/render_resource_factory|resource_service))[.]cpp$")
     message(FATAL_ERROR "资源私有访问器不得泄漏到普通调用方：${source}")
   endif()
 
   if(content MATCHES "engine/function/resource/detail/" AND
-      NOT source MATCHES "/src/engine/function/resource/(detail/|asset_manager[^/]*[.]cpp$)")
+      NOT source MATCHES "/src/engine/function/resource/(detail/|resource_service[.]cpp$)")
     message(FATAL_ERROR "资产加载私有实现不得泄漏到普通调用方：${source}")
   endif()
 

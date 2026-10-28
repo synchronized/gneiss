@@ -331,3 +331,13 @@ Windows Clang Debug 编译及 30 项相关测试通过；详见[目录收敛验�
 本轮不引入动态类型擦除注册、流送或新的加载状态协议。
 
 Windows Clang Debug 编译及 30 项相关测试通过；详见[解码内容验收记录](../records/2026-10-28-render-resource-boundary.md#类型明确的解码与更新内容)。
+
+## 分离 CPU 加载与运行资源管理
+
+- [x] 将运行资源接口、索引和私有装配迁到 resource_service，asset_manager 保留 CPU 加载。
+- [x] 迁移 Application、Scene、编辑器及测试调用，明确推进和关闭顺序。
+- [x] 验证缓存隔离、加载/取消、资源寿命与边界，完成编译和相关测试。
+
+不增加事务、GPU 就绪等待或新的流送能力。
+
+Windows Clang Debug 编译及 30 项相关测试通过；见[服务拆分验收记录](../records/2026-10-28-render-resource-boundary.md#分离资产加载器与运行资源服务)。

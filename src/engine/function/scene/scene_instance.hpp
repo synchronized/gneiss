@@ -12,7 +12,7 @@
 namespace gneiss::engine {
 class scene_instance final {
 public:
-  scene_instance(world& native_world, asset_manager& loader,
+  scene_instance(world& native_world, resource_service& loader,
                  const meta::registry_ref& registry) noexcept;
   ~scene_instance() noexcept;
 
@@ -105,7 +105,7 @@ private:
   scene_description description_;
 
   world& native_world_;
-  asset_manager& loader_;
+  resource_service& loader_;
   meta::registry_ref registry_;
 };
 

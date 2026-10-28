@@ -83,7 +83,7 @@ int main() {
     return 1;
   }
   auto& resources = application->render();
-  auto& resources_factory = application->assets();
+  auto& resources_factory = application->resources();
   constexpr std::array vertices{
       native::mesh_vertex{.position = {-0.6F, -0.5F, 0.0F}, .uv = {0.0F, 0.0F}},
       native::mesh_vertex{.position = {0.6F, -0.5F, 0.0F}, .uv = {1.0F, 0.0F}},

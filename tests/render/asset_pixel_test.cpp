@@ -157,7 +157,7 @@ void run_pending_resources() {
   auto native = app;
   check(native != nullptr);
   auto& resources = native->render();
-  auto& resources_factory = native->assets();
+  auto& resources_factory = native->resources();
   gneiss::engine::mesh mesh_ref;
   gneiss::engine::texture texture_ref;
   check(resources_factory.reserve_mesh(mesh_ref) == gneiss::engine::result::success);

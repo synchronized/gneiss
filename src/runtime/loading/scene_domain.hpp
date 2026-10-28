@@ -20,7 +20,8 @@ public:
   scene_domain(const scene_domain&) = delete;
   scene_domain& operator=(const scene_domain&) = delete;
   /** 全部初始化成功后发布；失败保持空域，可重试。重复初始化拒绝且保持原状态。 */
-  [[nodiscard]] gneiss::engine::result initialize(gneiss::engine::asset_manager& render) noexcept;
+  [[nodiscard]] gneiss::engine::result
+  initialize(gneiss::engine::resource_service& render) noexcept;
   [[nodiscard]] gneiss::engine::world* native_world() const noexcept { return world_owner_.get(); }
   /** 借用实例集合；初始化前为空，有效期不超过本域。 */
   [[nodiscard]] gneiss::engine::scene_instances* scenes() const noexcept { return scenes_.get(); }

@@ -7,7 +7,6 @@
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
-#include "engine/function/resource/detail/asset_render_state.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
@@ -210,10 +209,7 @@ result asset_manager::store_erased(type_id type, std::string_view uri,
 } catch (...) {
   return result::internal;
 }
-asset_manager::~asset_manager() {
-  stop();
-  render_state_.reset();
-}
+asset_manager::~asset_manager() { stop(); }
 void asset_manager::attach_task_executor(task_executor& executor) {
   auto& state = *resource_state_;
   if (state.executor && state.executor != &executor)
@@ -347,7 +343,6 @@ result asset_manager::request_input(std::string_view uri,
   return load(uri, output, true);
 }
 void asset_manager::advance() {
-  advance_render();
   auto& state = *resource_state_;
   if (state.stopped) {
     (void)state.finish_stop();
@@ -425,7 +420,7 @@ void asset_manager::advance() {
   }
 }
 void asset_manager::collect_unused() noexcept {
-  release_cached_resources();
+  cache_.release_unused();
   auto& state = *resource_state_;
   std::erase_if(state.requests, [&](const auto& item) {
     const auto& [identity, entry] = item;
@@ -434,16 +429,9 @@ void asset_manager::collect_unused() noexcept {
     return !active && entry.pending.expired();
   });
 }
-void asset_manager::request_stop() noexcept {
-  request_stop_render();
-  resource_state_->request_stop();
-}
+void asset_manager::request_stop() noexcept { resource_state_->request_stop(); }
 bool asset_manager::stopped() const noexcept {
-  return render_stopped() && resource_state_->stopped && !resource_state_->executor &&
-         !resource_state_->files;
+  return resource_state_->stopped && !resource_state_->executor && !resource_state_->files;
 }
-void asset_manager::stop() noexcept {
-  stop_render();
-  resource_state_->stop();
-}
+void asset_manager::stop() noexcept { resource_state_->stop(); }
 }

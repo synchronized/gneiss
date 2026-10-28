@@ -141,3 +141,22 @@ texture_decode_input 或 material_decode_input。纹理描述、两段输入字�
 Windows Clang Debug 编译通过，11 项相关测试全部通过，覆盖解码准备、加载、材质依赖、
 协作式与线程池执行、读取失败、取消后延迟回调、Scene/Prefab 以及 Core/World 边界。
 改动行格式化及 git diff --check 通过。未运行独立 clang-tidy、大场景、GPU 图像验证或远端 CI。
+
+## 分离资产加载器与运行资源服务
+
+新增 resource_service，迁入原 asset_manager_render.cpp 中的运行资源创建、身份缓存、
+批次装配、内容采用及私有工厂所有权。asset_manager 删除 Render 绑定、运行资源操作和批次接口，
+只保留 CPU 类型加载、解码注册及 CPU 缓存。资源服务借用加载器，两者各自拥有不同内容的缓存。
+运行资源批次仍由私有 asset_load_batch 编排：材质描述使用 asset_manager.load，
+网格和纹理复用加载器的文件服务与来源解析，工作线程调用纯内存编解码器。
+本轮不重写类型化加载请求协议，不增加第二份运行资源索引或 GPU 等待。
+
+Application 分别提供 assets() 和 resources()；Scene、运行资源加载、程序化创建及 UI 纹理
+保活迁到资源服务。宿主分别推进两者；资源服务停止不关闭共享加载器，关闭后晚释放仍只处理 CPU 外壳。
+ADR-087、接口参考、构建清单及私有实现边界同步更新。
+
+Windows Clang Debug 全量编译通过，30 项相关测试通过，包括 CPU 资产、运行资源缓存复用、
+混合加载、取消、服务关闭、跨线程最后释放、Scene/Prefab、Application、编辑器和模块边界。
+测试确认同 URI 的 CPU 描述与运行资源进入不同缓存，各自回收，并检查资产管理器不再暴露 Render 绑定。
+改动行格式化、旧路径扫描及 git diff --check 通过。
+未运行独立 clang-tidy、大场景、GPU 图像验证、跨平台/静态库矩阵或远端 CI；未修改 Granit。

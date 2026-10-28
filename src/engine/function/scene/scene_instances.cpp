@@ -4,7 +4,7 @@
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/scene_types.hpp"
-#include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/resource/resource_service.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
 
@@ -139,7 +139,7 @@ engine::result apply_mesh_renderer(world& native_world, scene_instance::object& 
 
 } // namespace
 
-scene_instance::scene_instance(world& native_world, asset_manager& loader,
+scene_instance::scene_instance(world& native_world, resource_service& loader,
                                const meta::registry_ref& registry) noexcept
     : native_world_(native_world), loader_(loader), registry_(registry) {}
 
@@ -232,7 +232,7 @@ engine::result scene_instance::reload(scene_description candidate) {
         const auto status =
             loader_.acquire_cached({source.mesh_renderer->mesh_uri, asset_type::mesh}, cached);
         if (status.ok())
-          target.mesh = asset_manager::mesh_ref(cached);
+          target.mesh = resource_service::mesh_ref(cached);
         return status;
       }();
       if (result == engine::result::success) {
@@ -241,7 +241,7 @@ engine::result scene_instance::reload(scene_description candidate) {
           const auto status = loader_.acquire_cached(
               {source.mesh_renderer->material_uri, asset_type::material}, cached);
           if (status.ok())
-            target.material = asset_manager::material_ref(cached);
+            target.material = resource_service::material_ref(cached);
           return status;
         }();
       }
@@ -989,11 +989,11 @@ engine::result scene_instance::restore_subtree(std::string_view snapshot, scene_
           result =
               loader_.acquire_cached({author.mesh_renderer->mesh_uri, asset_type::mesh}, cached);
           if (result.ok()) {
-            target.mesh = asset_manager::mesh_ref(cached);
+            target.mesh = resource_service::mesh_ref(cached);
             result = loader_.acquire_cached(
                 {author.mesh_renderer->material_uri, asset_type::material}, cached);
             if (result.ok())
-              target.material = asset_manager::material_ref(cached);
+              target.material = resource_service::material_ref(cached);
           }
         }
         if (result != engine::result::success) {
@@ -1409,7 +1409,7 @@ engine::result scene_instance::serialize(std::string& out_json) const {
   return status.ok() ? serialize_scene_description(current, out_json) : status;
 }
 
-scene_instances::scene_instances(world& native_world, asset_manager& loader) noexcept
+scene_instances::scene_instances(world& native_world, resource_service& loader) noexcept
     : native_world_(native_world), loader_(loader), domain_(allocate_domain()),
       instances_(domain_) {
   (void)engine::create_property_registry(registry_);

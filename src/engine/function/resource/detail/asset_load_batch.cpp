@@ -8,6 +8,7 @@
 #include "engine/function/render/render_resource_data.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/resource/detail/asset_render_state.hpp"
+#include "engine/function/resource/resource_service.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include "engine/resource/material/material_description.hpp"
@@ -74,7 +75,7 @@ struct asset_load_batch::pending {
   std::chrono::steady_clock::time_point started{std::chrono::steady_clock::now()};
 };
 
-asset_load_batch::asset_load_batch(task_executor& executor, asset_manager& assets,
+asset_load_batch::asset_load_batch(task_executor& executor, resource_service& assets,
                                    texture_prepare_profile profile,
                                    std::shared_ptr<progress_notification> notification)
     : executor_(executor), scope_(executor.make_scope()), assets_(assets), profile_(profile),
@@ -86,7 +87,7 @@ asset_load_batch::asset_load_batch(task_executor& executor, asset_manager& asset
     throw std::invalid_argument("资产批次执行器无效");
   }
   try {
-    assets_.attach_task_executor(executor_);
+    assets_.assets().attach_task_executor(executor_);
   } catch (...) {
     (void)executor_.close_scope(scope_);
     throw;
@@ -403,7 +404,7 @@ bool asset_load_batch::start_item(pending& value) {
   value.cpu->limit = std::min(maximum_bytes, value.limit - value.completion.prepared_bytes);
   if (source.type == asset_type::material) {
     value.cpu->input.emplace<material_decode_input>();
-    const auto status = assets_.load(source.uri, value.material_request, value.reload);
+    const auto status = assets_.assets().load(source.uri, value.material_request, value.reload);
     if (status.failed()) {
       finish_item(status, false);
       return false;
@@ -414,7 +415,7 @@ bool asset_load_batch::start_item(pending& value) {
     value.cpu->input.emplace<texture_decode_input>().profile = profile_;
   else
     value.cpu->input.emplace<mesh_decode_input>();
-  value.files = assets_.async_files();
+  value.files = assets_.assets().async_files();
   const auto status = start_read(value, source.uri, false);
   if (status.failed()) {
     finish_item(status, false);

@@ -69,6 +69,7 @@ struct application::storage {
   };
   std::shared_ptr<environment_read> environment_;
   std::unique_ptr<gneiss::engine::asset_manager> asset_manager_;
+  std::unique_ptr<gneiss::engine::resource_service> resource_service_;
   runtime::action_map_application input_application_;
   bool asset_executor_attached_ = false;
   runtime::scene_service scene_service_;
@@ -379,9 +380,11 @@ gneiss::engine::result application::initialize() noexcept {
 
   try {
     storage_->asset_manager_ = std::make_unique<gneiss::engine::asset_manager>(storage_->files_);
-    if (storage_->asset_manager_->attach_render(*storage_->render_service_).failed())
+    storage_->resource_service_ =
+        std::make_unique<gneiss::engine::resource_service>(*storage_->asset_manager_);
+    if (storage_->resource_service_->attach_render(*storage_->render_service_).failed())
       return engine::result::invalid_state;
-    const auto result = storage_->scene_service_.initialize(*storage_->asset_manager_);
+    const auto result = storage_->scene_service_.initialize(*storage_->resource_service_);
     if (result != gneiss::engine::result::success) {
       report(gneiss::engine::severity::error, gneiss::engine::category::application, result,
              "scene", "场景域创建失败");
@@ -886,6 +889,8 @@ gneiss::engine::result application::request_shutdown() noexcept try {
   storage_->accepts_requests_.store(false, std::memory_order_release);
   storage_->input_application_.cancel();
   storage_->scene_service_.request_stop();
+  if (storage_->resource_service_)
+    storage_->resource_service_->request_stop();
   if (storage_->asset_manager_)
     storage_->asset_manager_->request_stop();
   return gneiss::engine::result::success;
@@ -907,9 +912,12 @@ gneiss::engine::result application::advance_shutdown() noexcept try {
       return dispatched;
   }
   storage_->scene_service_.advance();
+  if (storage_->resource_service_)
+    storage_->resource_service_->advance();
   if (storage_->asset_manager_)
     storage_->asset_manager_->advance();
   if (!storage_->scene_service_.stopped() ||
+      (storage_->resource_service_ && !storage_->resource_service_->stopped()) ||
       (storage_->asset_manager_ && !storage_->asset_manager_->stopped()) ||
       !storage_->file_close_->ready)
     return gneiss::engine::result::not_ready;
@@ -934,10 +942,12 @@ gneiss::engine::result application::shutdown() noexcept {
   storage_->accepts_requests_.store(false, std::memory_order_release);
   auto shutdown_result = gneiss::engine::result::success;
   storage_->input_application_.cancel();
-  if (storage_->asset_manager_) {
-    storage_->asset_manager_->stop();
-  }
+  if (storage_->resource_service_)
+    storage_->resource_service_->stop();
   storage_->scene_service_.shutdown();
+  storage_->resource_service_.reset();
+  if (storage_->asset_manager_)
+    storage_->asset_manager_->stop();
   storage_->asset_manager_.reset();
   storage_->is_updating_ = false;
   storage_->ui_draw_list_.clear();
@@ -1054,7 +1064,7 @@ bool application::has_asset_loading_service() const noexcept {
   return storage_->scene_service_.loading_assets() != nullptr;
 }
 
-gneiss::engine::asset_manager* application::loading_assets() noexcept {
+gneiss::engine::resource_service* application::loading_assets() noexcept {
   return storage_->scene_service_.loading_assets();
 }
 
@@ -1075,6 +1085,7 @@ gneiss::engine::result application::collect_unused_edit_assets() noexcept {
                          ? gneiss::engine::result::success
                          : gneiss::engine::result::invalid_state;
   if (valid == gneiss::engine::result::success) {
+    storage_->resource_service_->collect_unused();
     storage_->asset_manager_->collect_unused();
   }
   return valid;
@@ -1092,7 +1103,7 @@ application::query_ready_asset(const gneiss::engine::asset_source& source,
   }
   auto* service = loading_assets();
   const auto result =
-      service ? storage_->asset_manager_->acquire_cached(source, output, service->profile())
+      service ? storage_->resource_service_->acquire_cached(source, output, service->profile())
               : gneiss::engine::result::not_ready;
   return result == gneiss::engine::result::not_found ? gneiss::engine::result::not_ready : result;
 }
@@ -1136,7 +1147,7 @@ application::prepare_edit_assets(std::span<const gneiss::engine::asset_source> s
     return gneiss::engine::result::not_ready;
   }
   return service->submit_assets(sources, 1U, revision, request, true,
-                                gneiss::engine::asset_manager::maximum_prepared_bytes);
+                                gneiss::engine::resource_service::maximum_prepared_bytes);
 } catch (const std::bad_alloc&) {
   return gneiss::engine::result::out_of_memory;
 } catch (...) {
@@ -1256,6 +1267,7 @@ gneiss::engine::result application::advance_resource_io() {
     if (status.failed())
       return status;
   }
+  storage_->resource_service_->advance();
   storage_->asset_manager_->advance();
   if (auto state = storage_->environment_; state && state->ready) {
     if (state->status.failed()) {
@@ -1326,6 +1338,9 @@ std::shared_ptr<gneiss::engine::files::service> application::async_files() const
 }
 
 gneiss::engine::asset_manager& application::assets() noexcept { return *storage_->asset_manager_; }
+gneiss::engine::resource_service& application::resources() noexcept {
+  return *storage_->resource_service_;
+}
 
 gneiss::engine::scene_instances* application::scenes() noexcept {
   return storage_->scene_service_.scenes();

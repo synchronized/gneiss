@@ -89,7 +89,8 @@ static_assert(std::is_same_v<decltype(std::declval<gneiss::runtime::application&
 #include "engine/function/render/render_service.hpp"
 template <typename T>
 concept exposes_resource_table = requires(T& value) { value.resources(); };
-static_assert(!exposes_resource_table<gneiss::runtime::application>);
+static_assert(std::is_same_v<decltype(std::declval<gneiss::runtime::application&>().resources()),
+                             gneiss::engine::resource_service&>);
 static_assert(!exposes_resource_table<gneiss::engine::render_service>);
 template <typename T>
 concept exposes_asset_update = requires { &T::prepare_update; };
@@ -97,4 +98,9 @@ template <typename T>
 concept exposes_asset_claim = requires { &T::claim_update; };
 static_assert(!exposes_asset_update<gneiss::engine::asset_manager>);
 static_assert(!exposes_asset_claim<gneiss::engine::asset_manager>);
+template <typename T>
+concept exposes_render_attachment = requires { &T::attach_render; };
+static_assert(!exposes_render_attachment<gneiss::engine::asset_manager>);
+static_assert(!exposes_asset_update<gneiss::engine::resource_service>);
+static_assert(!exposes_asset_claim<gneiss::engine::resource_service>);
 int main() { return 0; }

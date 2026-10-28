@@ -44,7 +44,7 @@ Render 保留上传完成、失败、暂存数据和后端可用性管理。
 长期目标是 `engine/function/render` 只保留渲染实现及服务边界，上层资源通过
 `render_service` 的 RID 接口创建、更新和销毁渲染端记录。普通业务不改回 RID 所有权。
 `engine/function/resource/detail/render_resource_factory.cpp` 在功能层协调资源对象与 Render RID 接口，
-不归入渲染服务内部。资源值与编解码器不得反向依赖功能层。Application 拥有 asset_manager 和 Render，管理器内部拥有资源工厂，
+不归入渲染服务内部。资源值与编解码器不得反向依赖功能层。Application 拥有 asset_manager、resource_service 和 Render，资源服务内部拥有资源工厂，
 工厂管理资源包装及销毁队列，且必须先于 Render 关闭和析构；Render 不拥有工厂、不回调上层对象。
 更新方向固定为功能层准备资源依赖 → Render 接受 CPU 数据 → 工厂更新资源元信息和强引用。
 材质更新直接使用 Loader 已取得的纹理强引用，不由 Render 从 RID 重建依赖。
@@ -69,14 +69,14 @@ RID 查询仅锁定本工厂已有弱引用。材质创建和更新均显式传�
 
 实施步骤、验收和待落实细节以 [PLAN-054](../plans/PLAN-054-render-resource-model.md) 为唯一来源。
 
-## 统一功能层资产管理入口
+## 功能层加载与运行资源服务
 
-asset_manager 迁到 engine/function/resource，拥有运行资源创建和加载编排的私有实现。
-Application 只装配资产管理器与渲染服务；Scene 借用管理器，不再拥有视觉资源加载服务。
-文件服务和执行器仍由宿主提供，GPU 上传继续独立于 CPU 加载完成。
-resource_cache 与 asset_manager 同属 engine/function/resource，负责运行期索引和缓存策略。
-资源值、引用与格式编解码保留 engine/resource，不反向依赖功能层。
+asset_manager 负责异步 CPU 数据加载、解码注册、请求合并与 CPU 缓存，不依赖 Render。
+resource_service 借用 asset_manager 和 render_service，拥有运行资源索引、私有工厂、批次装配
+和释放队列。Scene 和程序化创建调用 resource_service；描述加载调用 asset_manager。
+两者缓存对象不同，同一个运行资源只由 resource_service 登记。资源值和格式编解码仍在
+engine/resource，不反向依赖服务。GPU 上传独立于 CPU 内容采用完成。
 
-资产管理器不保留独立 Loader 转发层。异步批次和纯内存解码是私有实现，
-更新任务只用于拒绝迟到结果和采用单项内容，不属于对外资产协议。
-对外头仅提供管理器、加载请求/结果值及缓存契约；加载推进、回收和整体停止各保留一个入口。
+资源服务停止不关闭共享的 asset_manager 或文件服务；宿主先停止资源批次、释放场景，
+销毁资源服务，再销毁资产管理器和 Render。服务不增加 Loader 转发层、事务或 GPU 等待协议。
+本决策替代此前由 asset_manager 同时拥有加载与运行资源创建的方案。

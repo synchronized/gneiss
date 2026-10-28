@@ -29,8 +29,9 @@ target_sources(
     engine/resource/asset_ref.hpp
     engine/resource/resource_retirement_queue.hpp
     engine/function/resource/asset_manager.hpp
+    engine/function/resource/resource_service.hpp
     engine/function/resource/asset_manager.cpp
-    engine/function/resource/asset_manager_render.cpp
+    engine/function/resource/resource_service.cpp
     engine/platform/files/file_read_stream.cpp
     engine/platform/files/file_service.cpp
     engine/platform/files/memory_file_backend.cpp

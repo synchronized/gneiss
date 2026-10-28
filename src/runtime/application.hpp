@@ -9,6 +9,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/resource/resource_service.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/input/action_map.hpp"
 
@@ -127,6 +128,7 @@ public:
   [[nodiscard]] gneiss::engine::render_service& render() noexcept;
   /** 借用应用级资产管理器；仅所属线程使用，有效期不超过 Application。 */
   [[nodiscard]] gneiss::engine::asset_manager& assets() noexcept;
+  [[nodiscard]] gneiss::engine::resource_service& resources() noexcept;
   /** 共享宿主文件服务；由 Application 分发和关闭，消费者只提交/取消自己的请求。 */
   [[nodiscard]] std::shared_ptr<gneiss::engine::files::service> async_files() const noexcept;
   /** 异步重载现有实例的结构；prefab 指定是否更新该实例中的同源 Prefab。 */
@@ -167,7 +169,7 @@ private:
   [[nodiscard]] std::uint64_t now_ns() const;
   [[nodiscard]] gneiss::engine::result poll_events(bool& out_should_close) noexcept;
   [[nodiscard]] gneiss::engine::result render_frame() noexcept;
-  [[nodiscard]] gneiss::engine::asset_manager* loading_assets() noexcept;
+  [[nodiscard]] gneiss::engine::resource_service* loading_assets() noexcept;
   struct storage;
   std::unique_ptr<storage> storage_;
 };

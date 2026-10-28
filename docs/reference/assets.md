@@ -57,8 +57,9 @@ CPU 数据表位于 `render_service` 私有实现，Loader 与宿主通过其 RI
 
 
 `resource_cache` 位于 `engine/function/resource/resource_cache.hpp`，与资产管理器同属功能层。
-`asset_manager` 唯一持有 `resource_cache::entries_`，统一按「来源域 + URI + C++ 类型」索引。
-通用 CPU 资产、Prefab 和渲染资产共用此表；同 URI 的不同类型或来源各自独立。
+`asset_manager` 持有 CPU 数据缓存，`resource_service` 持有运行资源缓存；
+两者复用 `resource_cache` 实现，均按「来源域 + URI + C++ 类型」索引，不重复登记同一运行对象。
+通用 CPU 数据及 Prefab 属于加载器缓存，渲染资产属于资源服务缓存；同 URI 的不同类型或来源各自独立。
 类型键使用 `engine::type_id`，由同一 Engine 按规范 C++ 类型名集中分配，
 只在当前运行期有效，不写入资产文件或公共 ABI；约束见 [Core 身份类型](core.md#内部基础身份类型)。
 通用请求表只保留请求顺序和在途观察状态，不保存另一份当前资源。
@@ -66,14 +67,14 @@ CPU 数据表位于 `render_service` 私有实现，Loader 与宿主通过其 RI
 资源表统一通过 `resource_cache::load` 查询、按需执行回调并登记成功结果；显式重载失败
 （包括回调抛异常或返回空资源）保留旧条目，首次失败不残留占位。相同键递归加载返回
 `invalid_state`，不同键的依赖仍可递归加载。Prefab 普通加载和重载共用解析流程；
-渲染预留在缓存未命中时才创建 RID，服务归属和 GPU 就绪仍由 Render Loader 检查。
+渲染预留在缓存未命中时才创建 RID，服务归属与 CPU 内容是否可用由资源服务检查，完成不等待 GPU。
 CPU 解码由注入的执行器运行，完成结果在所属线程通过同一入口登记；协作模式在所属线程执行解码。
 
 请求取消只放弃当前观察者，不使其他引用失效。
 
 缓存持有强引用，在所属线程调用 `collect_unused()` / `release_unused()` 回收无使用者的条目。
-Application 和场景统一调用管理器回收；Render Loader 的回收入口也只转发到这张共享表。
-回收同时覆盖 CPU、Prefab 和渲染条目，保留在途请求索引；CPU 重载任务暂时持有旧条目，
+Application 可分别调用两个对象回收；场景运行资源通过资源服务回收。
+CPU 缓存回收保留在途请求索引；CPU 重载任务暂时持有旧条目，
 避免回收与失败重载叠加导致旧内容提前消失。
 已完成但尚未领取的请求也保活结果。关闭通用管理器不使已领取的 CPU 描述引用失效。
 失败不永久缓存，重载失败保留当前成功数据；输出参数的失败行为以具体接口契约为准。
@@ -143,15 +144,16 @@ metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 
 ## 普通资源读取与解码
 
-管理器位于 `engine/function/resource`。宿主构造管理器后用 `attach_render(render_service&)` 绑定
-渲染服务，再用 `configure_loading(executor, profile, notification)` 装配异步加载。
+两个对象位于 `engine/function/resource`。宿主构造 asset_manager 后，将其传给 resource_service；
+资源服务用 `attach_render(render_service&)` 绑定 Render，
+再用 `configure_loading(executor, profile, notification)` 装配运行资源异步加载。
 纯 CPU 使用者只需 `attach_task_executor`，不要求 Render。
-Scene/Editor 借用管理器，不再独立创建 Loader、Factory 或 TextureLoadService。
-`load<T>` 保留 CPU 描述解码契约；带纹理依赖的网格、材质和纹理使用 `submit_assets` 批次接口，
-通过 `take(asset_load_completion&)` 领取结果。两种请求共用管理器、文件服务和资源索引，
-本次没有将批次结果另包成一套模板请求队列。
-宿主统一调用 `advance()` 推进加载，使用 `collect_unused()` 回收无外部引用的缓存；
-关闭调用 `request_stop` 并推进至 `stopped`，最后销毁管理器，再关闭 Render。
+Scene/Editor 通过 resource_service 创建、查询和加载运行资源，通过 asset_manager 加载描述。
+`load<T>` 保留 CPU 描述解码契约；resource_service 使用 `submit_assets` 提交运行资源批次，
+通过 `take(asset_load_completion&)` 领取 CPU 内容采用结果。两者共享文件服务与执行器，各自持有缓存。
+Application 提供 `assets()` 和 `resources()`；宿主分发文件完成后分别推进两个对象。
+资源服务停止不关闭共享加载器：先停止资源批次并释放场景，再销毁资源服务、资产管理器和 Render。
+各自的 `collect_unused()` 只回收所属缓存；运行资源强引用仍保活对应对象。
 内部加载文件位于 `detail/`，不向宿主开放。资源数据及格式编解码仍位于 `engine/resource`。
 
 `asset_types.hpp` 集中声明 `asset_source`、`asset_load_state`、`asset_load_completion`、
@@ -159,7 +161,7 @@ Scene/Editor 借用管理器，不再独立创建 Loader、Factory 或 TextureLo
 CPU 描述类型仍由 load<T> 的 C++ 类型确定。
 私有 `asset_load_batch` 负责异步批次，`asset_decode` 只解码已有字节，
 `asset_render_state` 保存渲染资源装配状态和单项更新任务。不存在独立 Render Loader 对象，
-缓存查询和内容采用实现在 asset_manager_render.cpp 中。更新准备、序号占用和采用操作不向上层公开。
+缓存查询和内容采用实现在 resource_service.cpp 中。更新准备、序号占用和采用操作不向上层公开。
 
 
 asset_manager 的 load 请求通过 files::service 读取有界字节；完成回调交付字节后只提交一次
@@ -182,10 +184,10 @@ asset_manager 仅接受 shared_ptr<files::service>。`find_loaded<T>` 只查询�
 反射读取默认上限为 64 MiB，可通过构造参数指定；类型声明 `maximum_source_bytes` 时取两者较小值。
 ActionMap 限制为 1 MiB，解析器也检查此上限；显式 decoder 使用自己的上限。
 
-功能层 `asset_manager` 同时拥有 CPU 描述加载与运行资源加载编排。材质描述通过 `load<material_description>` 加载。
+功能层 `asset_manager` 负责 CPU 描述加载，`resource_service` 负责运行资源加载编排。材质描述通过 `load<material_description>` 加载。
 加载编排层在所属线程领取描述，工作线程只处理只读数据和纹理依赖，不访问管理器。
-管理器内部的网格和纹理加载使用 async_files() 返回的同一文件服务，
-通过 manager.identify() 解析来源域。CPU 描述与渲染资源以不同类型键保存在同一索引中。
+资源服务私有批次中的网格和纹理加载使用 asset_manager.async_files() 返回的同一文件服务，
+通过 asset_manager.identify() 解析来源域。CPU 描述和运行资源分别存入各自缓存。
 网格完成有界整读后提交一次纯内存解码；纹理先读取描述并解析依赖 URI，再读取完整负载，
 随后解码。CPU 任务不推进文件请求，也不采用同步文件回退。材质领取描述后也使用纯内存准备入口。
 

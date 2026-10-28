@@ -7,7 +7,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/resource/resource_service.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "runtime/loading/scene_service.hpp"
 
@@ -109,7 +109,7 @@ gneiss::engine::result scene_service::request_scene(std::string_view uri, std::u
   next->result.progress = {
       .request = ++sequence_, .session = session, .revision = revision, .can_cancel = true};
   next->description_request = std::make_unique<gneiss::engine::scene_description_request>(
-      *asset_owner_, std::string(uri), false);
+      asset_owner_->assets(), std::string(uri), false);
   request = next->result.progress.request;
   pending_ = std::move(next);
   visual_queue_.clear();

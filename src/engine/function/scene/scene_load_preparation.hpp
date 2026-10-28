@@ -5,6 +5,7 @@
 
 #include "engine/core/result.hpp"
 #include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/resource/asset_types.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 
 #include <functional>

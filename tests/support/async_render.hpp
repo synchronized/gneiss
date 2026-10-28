@@ -2,13 +2,13 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "async_asset.hpp"
-#include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/resource/resource_service.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include <chrono>
 #include <stdexcept>
 namespace gneiss::test_support {
 inline engine::task_scheduler& render_tasks() { return asset_tasks(); }
-inline engine::result load_render(engine::asset_manager& loader, engine::asset_type type,
+inline engine::result load_render(engine::resource_service& loader, engine::asset_type type,
                                   std::string_view uri, engine::render_asset_ref& output,
                                   engine::asset_diagnostic& diagnostic) {
   auto status = loader.acquire_asset(type, uri, output, diagnostic);
@@ -26,7 +26,8 @@ inline engine::result load_render(engine::asset_manager& loader, engine::asset_t
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   for (;;) {
     (void)tasks.run_ready();
-    (void)loader.async_files()->dispatch_completions(64);
+    (void)loader.assets().async_files()->dispatch_completions(64);
+    loader.assets().advance();
     loader.advance();
     engine::asset_load_completion completion;
     if (loader.take(completion)) {

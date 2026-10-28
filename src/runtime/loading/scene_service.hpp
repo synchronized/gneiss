@@ -7,7 +7,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/resource/resource_service.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/loading/scene_domain.hpp"
@@ -28,7 +28,7 @@ public:
   scene_service(const scene_service&) = delete;
   scene_service& operator=(const scene_service&) = delete;
 
-  [[nodiscard]] gneiss::engine::result initialize(gneiss::engine::asset_manager& assets);
+  [[nodiscard]] gneiss::engine::result initialize(gneiss::engine::resource_service& assets);
   [[nodiscard]] gneiss::engine::result
   attach_executor(gneiss::engine::task_executor& executor,
                   gneiss::engine::render_service& resources,
@@ -56,7 +56,7 @@ public:
   [[nodiscard]] gneiss::engine::world* native_world() const noexcept;
   [[nodiscard]] gneiss::engine::scene_instances* scenes() noexcept;
   /** 内部适配借用；视觉服务在 attach_executor 后存活至 shutdown，不随场景切换重建。 */
-  [[nodiscard]] gneiss::engine::asset_manager* loading_assets() const noexcept;
+  [[nodiscard]] gneiss::engine::resource_service* loading_assets() const noexcept;
   /** 请求、进度和完成值不暴露候选域；激活仍由宿主在安全点显式调用。 */
   [[nodiscard]] gneiss::engine::result request_scene(std::string_view uri, std::uint64_t session,
                                                      std::uint64_t revision,
@@ -102,7 +102,7 @@ private:
   std::uint64_t visual_revision_{};
   bool visual_pending_{};
   std::optional<gneiss::engine::asset_load_completion> visual_completion_;
-  gneiss::engine::asset_manager* asset_owner_{};
+  gneiss::engine::resource_service* asset_owner_{};
   std::unique_ptr<scene_domain> active_;
   std::unique_ptr<scene_domain> retired_;
   scene_retirement_statistics retirement_;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/function/resource/resource_service.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/function/resource/asset_manager.hpp"
@@ -82,7 +83,14 @@ engine::rid asset_rid(const render_asset_ref& asset) noexcept {
   return 0U;
 }
 
-result asset_manager::attach_render(render_service& render, texture_prepare_profile profile) {
+resource_service::resource_service(asset_manager& assets) : assets_(assets) {}
+resource_service::~resource_service() { stop(); }
+result resource_service::identify(std::string_view uri, std::uint32_t type,
+                                  asset_identity& output) const noexcept {
+  return assets_.identify(uri, type, output);
+}
+
+result resource_service::attach_render(render_service& render, texture_prepare_profile profile) {
   if (render_stopping_)
     return result::invalid_state;
   if (render_state_)
@@ -91,11 +99,11 @@ result asset_manager::attach_render(render_service& render, texture_prepare_prof
   render_state_->default_profile = profile;
   return result::success;
 }
-result asset_manager::configure_loading(task_executor& executor, texture_prepare_profile profile,
-                                        std::shared_ptr<progress_notification> notification) {
+result resource_service::configure_loading(task_executor& executor, texture_prepare_profile profile,
+                                           std::shared_ptr<progress_notification> notification) {
   if (!render_state_ || render_stopping_)
     return result::invalid_state;
-  attach_task_executor(executor);
+  assets_.attach_task_executor(executor);
   if (render_state_->batch)
     return result::success;
   render_state_->default_profile = profile;
@@ -104,76 +112,79 @@ result asset_manager::configure_loading(task_executor& executor, texture_prepare
   return result::success;
 }
 
-void asset_manager::advance_render() {
+void resource_service::advance() {
   if (!render_state_)
     return;
   (void)render_state_->factory.drain();
   if (render_state_->batch)
     render_state_->batch->advance();
 }
-void asset_manager::stop_render() noexcept {
+void resource_service::stop() noexcept {
   render_stopping_ = true;
   if (render_state_)
     render_state_->batch.reset();
+  collect_unused();
+  if (render_state_)
+    render_state_->factory.close();
 }
-void asset_manager::request_stop_render() {
+void resource_service::request_stop() noexcept {
   render_stopping_ = true;
   if (render_state_ && render_state_->batch)
     render_state_->batch->request_stop();
 }
-bool asset_manager::render_stopped() const {
+bool resource_service::stopped() const noexcept {
   return !render_state_ || !render_state_->batch || render_state_->batch->stopped();
 }
 
-result asset_manager::reserve_mesh(mesh& out) noexcept {
+result resource_service::reserve_mesh(mesh& out) noexcept {
   if (!render_state_ || render_stopping_) {
     out.reset();
     return result::invalid_state;
   }
   return render_state_->factory.reserve_mesh(out);
 }
-mesh asset_manager::find_mesh(rid id) const noexcept {
+mesh resource_service::find_mesh(rid id) const noexcept {
   return render_state_ ? render_state_->factory.find_mesh(id) : mesh{};
 }
 
-result asset_manager::reserve_texture(texture& out) noexcept {
+result resource_service::reserve_texture(texture& out) noexcept {
   if (!render_state_ || render_stopping_) {
     out.reset();
     return result::invalid_state;
   }
   return render_state_->factory.reserve_texture(out);
 }
-texture asset_manager::find_texture(rid id) const noexcept {
+texture resource_service::find_texture(rid id) const noexcept {
   return render_state_ ? render_state_->factory.find_texture(id) : texture{};
 }
 
-result asset_manager::reserve_material(material& out) noexcept {
+result resource_service::reserve_material(material& out) noexcept {
   if (!render_state_ || render_stopping_) {
     out.reset();
     return result::invalid_state;
   }
   return render_state_->factory.reserve_material(out);
 }
-material asset_manager::find_material(rid id) const noexcept {
+material resource_service::find_material(rid id) const noexcept {
   return render_state_ ? render_state_->factory.find_material(id) : material{};
 }
 
-result asset_manager::create_mesh(const mesh_view& data, mesh& out) noexcept {
+result resource_service::create_mesh(const mesh_view& data, mesh& out) noexcept {
   if (!render_state_ || render_stopping_) {
     out.reset();
     return result::invalid_state;
   }
   return render_state_->factory.create_mesh(data, out);
 }
-result asset_manager::create_texture(const texture_view& data, texture& out) noexcept {
+result resource_service::create_texture(const texture_view& data, texture& out) noexcept {
   if (!render_state_ || render_stopping_) {
     out.reset();
     return result::invalid_state;
   }
   return render_state_->factory.create_texture(data, out);
 }
-result asset_manager::create_material(const material_parameters& data, std::array<texture, 5> deps,
-                                      material& out) noexcept {
+result resource_service::create_material(const material_parameters& data,
+                                         std::array<texture, 5> deps, material& out) noexcept {
   if (!render_state_ || render_stopping_) {
     out.reset();
     return result::invalid_state;
@@ -181,45 +192,45 @@ result asset_manager::create_material(const material_parameters& data, std::arra
   return render_state_->factory.create_material(data, std::move(deps), out);
 }
 
-result asset_manager::submit_assets(std::span<const asset_source> sources, std::uint64_t session,
-                                    std::uint64_t revision, std::uint64_t& request, bool reload,
-                                    std::size_t limit) {
+result resource_service::submit_assets(std::span<const asset_source> sources, std::uint64_t session,
+                                       std::uint64_t revision, std::uint64_t& request, bool reload,
+                                       std::size_t limit) {
   if (!render_state_ || !render_state_->batch || render_stopping_) {
     request = 0U;
     return result::invalid_state;
   }
   return render_state_->batch->submit_assets(sources, session, revision, request, reload, limit);
 }
-result asset_manager::submit(std::span<const std::string> uris, std::uint64_t session,
-                             std::uint64_t revision, std::uint64_t& request, bool reload) {
+result resource_service::submit(std::span<const std::string> uris, std::uint64_t session,
+                                std::uint64_t revision, std::uint64_t& request, bool reload) {
   if (!render_state_ || !render_state_->batch || render_stopping_) {
     request = 0U;
     return result::invalid_state;
   }
   return render_state_->batch->submit(uris, session, revision, request, reload);
 }
-bool asset_manager::progress(asset_load_progress& out) const {
+bool resource_service::progress(asset_load_progress& out) const {
   return render_state_ && render_state_->batch && render_state_->batch->progress(out);
 }
-bool asset_manager::take(asset_load_completion& out) {
+bool resource_service::take(asset_load_completion& out) {
   return render_state_ && render_state_->batch && render_state_->batch->take(out);
 }
-bool asset_manager::busy() const noexcept {
+bool resource_service::busy() const noexcept {
   return render_state_ && render_state_->batch && render_state_->batch->busy();
 }
-bool asset_manager::cancel() {
+bool resource_service::cancel() {
   return render_state_ && render_state_->batch && render_state_->batch->cancel();
 }
-texture_prepare_profile asset_manager::profile() const noexcept {
+texture_prepare_profile resource_service::profile() const noexcept {
   return render_state_ && render_state_->batch ? render_state_->batch->profile()
                                                : texture_prepare_profile{};
 }
-std::span<const render_asset_ref> asset_manager::requested_assets() const {
+std::span<const render_asset_ref> resource_service::requested_assets() const {
   return render_state_ && render_state_->batch ? render_state_->batch->requested_assets()
                                                : std::span<const render_asset_ref>{};
 }
 
-void asset_manager::release_cached_resources() noexcept {
+void resource_service::collect_unused() noexcept {
   if (!render_state_) {
     cache_.release_unused();
     return;
@@ -230,7 +241,7 @@ void asset_manager::release_cached_resources() noexcept {
   } while (render_state_->factory.drain() != 0U);
 }
 
-bool asset_manager::owns(const render_asset_ref& lease) const noexcept {
+bool resource_service::owns(const render_asset_ref& lease) const noexcept {
   if (!render_state_)
     return false;
   asset_identity identity;
@@ -255,8 +266,9 @@ bool asset_manager::owns(const render_asset_ref& lease) const noexcept {
   }
 }
 
-engine::result asset_manager::acquire_cached(const asset_source& source, render_asset_ref& output,
-                                             texture_prepare_profile profile) const noexcept {
+engine::result resource_service::acquire_cached(const asset_source& source,
+                                                render_asset_ref& output,
+                                                texture_prepare_profile profile) const noexcept {
   if (!render_state_ || render_stopping_)
     return result::invalid_state;
   output = {};
@@ -327,7 +339,7 @@ std::uint64_t detail::asset_update::next_update_sequence() noexcept {
   return sequence.fetch_add(1U, std::memory_order_relaxed) + 1U;
 }
 
-std::uint64_t detail::asset_update::update_sequence(asset_manager& assets,
+std::uint64_t detail::asset_update::update_sequence(resource_service& assets,
                                                     const render_asset_ref& lease) noexcept {
   if (!assets.render_state_ || assets.render_stopping_)
     return 0U;
@@ -350,7 +362,7 @@ std::uint64_t detail::asset_update::update_sequence(asset_manager& assets,
   return 0U;
 }
 
-bool detail::asset_update::claim_update(asset_manager& assets, const render_asset_ref& lease,
+bool detail::asset_update::claim_update(resource_service& assets, const render_asset_ref& lease,
                                         std::uint64_t sequence) noexcept {
   if (!assets.render_state_ || assets.render_stopping_)
     return false;
@@ -372,8 +384,8 @@ bool detail::asset_update::claim_update(asset_manager& assets, const render_asse
   return false;
 }
 
-engine::result asset_manager::reserve_asset(const asset_source& source,
-                                            render_asset_ref& output) noexcept {
+engine::result resource_service::reserve_asset(const asset_source& source,
+                                               render_asset_ref& output) noexcept {
   if (!render_state_ || render_stopping_)
     return result::invalid_state;
   output = {};
@@ -437,7 +449,7 @@ engine::result asset_manager::reserve_asset(const asset_source& source,
 }
 
 engine::result detail::asset_update::prepare_material_update(
-    asset_manager& assets, const material_description& description, asset_update& upload) {
+    resource_service& assets, const material_description& description, asset_update& upload) {
   if (!assets.render_state_ || assets.render_stopping_)
     return result::invalid_state;
   asset_update::material_content content;
@@ -463,8 +475,8 @@ engine::result detail::asset_update::prepare_material_update(
   return status;
 }
 
-engine::result detail::asset_update::prepare_update(asset_manager& assets, decoded_asset prepared,
-                                                    asset_update& output,
+engine::result detail::asset_update::prepare_update(resource_service& assets,
+                                                    decoded_asset prepared, asset_update& output,
                                                     const render_asset_ref& target,
                                                     std::uint64_t sequence) noexcept try {
   if (!assets.render_state_ || assets.render_stopping_)
@@ -534,7 +546,7 @@ engine::result detail::asset_update::prepare_update(asset_manager& assets, decod
   return engine::result::internal;
 }
 
-engine::result detail::asset_update::apply_update(asset_manager& assets,
+engine::result detail::asset_update::apply_update(resource_service& assets,
                                                   asset_update& upload) noexcept {
   if (!assets.render_state_ || assets.render_stopping_)
     return result::invalid_state;
@@ -568,8 +580,8 @@ engine::result detail::asset_update::apply_update(asset_manager& assets,
       upload.data);
 }
 
-result asset_manager::acquire_mesh(std::string_view uri, engine::mesh& output,
-                                   asset_diagnostic& diagnostic) noexcept {
+result resource_service::acquire_mesh(std::string_view uri, engine::mesh& output,
+                                      asset_diagnostic& diagnostic) noexcept {
   if (!render_state_ || render_stopping_)
     return result::invalid_state;
   render_asset_ref entry;
@@ -578,7 +590,7 @@ result asset_manager::acquire_mesh(std::string_view uri, engine::mesh& output,
   return status;
 }
 
-bool asset_manager::owns(const engine::mesh& value) const noexcept {
+bool resource_service::owns(const engine::mesh& value) const noexcept {
   if (!render_state_)
     return false;
   if (!value ||
@@ -590,8 +602,8 @@ bool asset_manager::owns(const engine::mesh& value) const noexcept {
          identity == value->source();
 }
 
-result asset_manager::acquire_texture(std::string_view uri, engine::texture& output,
-                                      asset_diagnostic& diagnostic) noexcept {
+result resource_service::acquire_texture(std::string_view uri, engine::texture& output,
+                                         asset_diagnostic& diagnostic) noexcept {
   if (!render_state_ || render_stopping_)
     return result::invalid_state;
   render_asset_ref entry;
@@ -600,7 +612,7 @@ result asset_manager::acquire_texture(std::string_view uri, engine::texture& out
   return status;
 }
 
-bool asset_manager::owns(const engine::texture& value) const noexcept {
+bool resource_service::owns(const engine::texture& value) const noexcept {
   if (!render_state_)
     return false;
   if (!value || render_state_->factory.render().texture_status(resource_handle(value)) ==
@@ -612,8 +624,8 @@ bool asset_manager::owns(const engine::texture& value) const noexcept {
          identity == value->source();
 }
 
-result asset_manager::acquire_material(std::string_view uri, engine::material& output,
-                                       asset_diagnostic& diagnostic) noexcept {
+result resource_service::acquire_material(std::string_view uri, engine::material& output,
+                                          asset_diagnostic& diagnostic) noexcept {
   if (!render_state_ || render_stopping_)
     return result::invalid_state;
   render_asset_ref entry;
@@ -622,7 +634,7 @@ result asset_manager::acquire_material(std::string_view uri, engine::material& o
   return status;
 }
 
-bool asset_manager::owns(const engine::material& value) const noexcept {
+bool resource_service::owns(const engine::material& value) const noexcept {
   if (!render_state_)
     return false;
   if (!value || render_state_->factory.render().material_status(resource_handle(value)) ==
@@ -634,8 +646,9 @@ bool asset_manager::owns(const engine::material& value) const noexcept {
          identity == value->source();
 }
 
-result asset_manager::acquire_asset(asset_type type, std::string_view uri, render_asset_ref& output,
-                                    asset_diagnostic& diagnostic) noexcept try {
+result resource_service::acquire_asset(asset_type type, std::string_view uri,
+                                       render_asset_ref& output,
+                                       asset_diagnostic& diagnostic) noexcept try {
   if (!render_state_ || render_stopping_)
     return result::invalid_state;
   output = {};

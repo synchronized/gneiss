@@ -11,6 +11,7 @@
 #include "engine/function/resource/detail/asset_render_state.hpp"
 #include "engine/function/resource/detail/render_resource_factory.hpp"
 #include "engine/function/resource/resource_cache.hpp"
+#include "engine/function/resource/resource_service.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/material/material_codec.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
@@ -35,7 +36,7 @@
 
 namespace {
 
-gneiss::engine::result reload_assets_for_test(gneiss::engine::asset_manager& loader,
+gneiss::engine::result reload_assets_for_test(gneiss::engine::resource_service& loader,
                                               gneiss::engine::task_scheduler& scheduler,
                                               std::span<const gneiss::engine::asset_source> sources,
                                               gneiss::engine::asset_diagnostic& diagnostic) {
@@ -50,7 +51,8 @@ gneiss::engine::result reload_assets_for_test(gneiss::engine::asset_manager& loa
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   for (;;) {
     (void)scheduler.run_ready();
-    (void)loader.async_files()->dispatch_completions(64);
+    (void)loader.assets().async_files()->dispatch_completions(64);
+    loader.assets().advance();
     loader.advance();
     asset_load_completion completion;
     if (loader.take(completion)) {
@@ -153,7 +155,7 @@ void add_indexed_mesh(memory_file_system& memory) {
                        std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size()));
 }
 
-[[nodiscard]] bool indexed_mesh_is_preserved(gneiss::engine::asset_manager& loader,
+[[nodiscard]] bool indexed_mesh_is_preserved(gneiss::engine::resource_service& loader,
                                              const gneiss::engine::render_service& resources) {
   gneiss::engine::render_asset_ref mesh;
   gneiss::engine::asset_diagnostic diagnostic;
@@ -281,7 +283,6 @@ void selected_variants() {
   auto& scheduler = gneiss::test_support::render_tasks();
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   asset_owner.attach_task_executor(scheduler);
-  [[maybe_unused]] auto& cache = asset_owner.cache();
   prepared_batch batch;
   require(gneiss::test_support::prepare_render_for_test(asset_owner, files, requests, batch,
                                                         diagnostic, {}, 1U, limit, compressed) ==
@@ -293,7 +294,8 @@ void selected_variants() {
   const auto* prepared_manifest =
       std::get<texture_data>(batch.assets.front().content).manifest.data();
 
-  auto& loader = asset_owner;
+  gneiss::engine::resource_service loader{asset_owner};
+  [[maybe_unused]] const auto& cache = loader.cache();
   if (loader.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   std::array<detail::asset_update, 1> candidate;
@@ -409,11 +411,11 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
   auto& scheduler = gneiss::test_support::render_tasks();
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   asset_owner.attach_task_executor(scheduler);
-  [[maybe_unused]] auto& cache = asset_owner.cache();
   auto decoder = std::make_shared<counting_material_decoder>();
   if (asset_owner.register_decoder(decoder).failed())
     return false;
-  auto& loader = asset_owner;
+  gneiss::engine::resource_service loader{asset_owner};
+  [[maybe_unused]] const auto& cache = loader.cache();
   if (loader.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   asset_diagnostic diagnostic;
@@ -552,8 +554,8 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   auto& scheduler = gneiss::test_support::render_tasks();
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(file_system));
   asset_owner.attach_task_executor(scheduler);
-  [[maybe_unused]] auto& cache = asset_owner.cache();
-  auto& loader = asset_owner;
+  gneiss::engine::resource_service loader{asset_owner};
+  [[maybe_unused]] const auto& cache = loader.cache();
   if (loader.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
 
@@ -675,7 +677,8 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   {
     gneiss::engine::render_service other_render;
 
-    gneiss::engine::asset_manager other_loader(asset_owner.async_files());
+    gneiss::engine::asset_manager other_assets(asset_owner.async_files());
+    gneiss::engine::resource_service other_loader{other_assets};
     if (other_loader.attach_render(other_render).failed())
       throw std::runtime_error("资源管理器渲染绑定失败");
     const auto mesh_ref = first_mesh->as<gneiss::engine::mesh_resource>();
@@ -960,7 +963,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   gneiss::engine::render_asset_ref retained;
   {
     gneiss::engine::asset_manager temporary_assets(gneiss::test_support::test_files(file_system));
-    auto& temporary_loader = temporary_assets;
+    gneiss::engine::resource_service temporary_loader{temporary_assets};
     if (temporary_loader.attach_render(resources).failed())
       throw std::runtime_error("资源管理器渲染绑定失败");
     if (gneiss::test_support::load_render(temporary_loader, gneiss::engine::asset_type::mesh,
@@ -977,7 +980,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     gneiss::engine::render_service temporary_resources;
 
     gneiss::engine::asset_manager temporary_assets(gneiss::test_support::test_files(file_system));
-    auto& temporary_loader = temporary_assets;
+    gneiss::engine::resource_service temporary_loader{temporary_assets};
     if (temporary_loader.attach_render(temporary_resources).failed())
       throw std::runtime_error("资源管理器渲染绑定失败");
     if (gneiss::test_support::load_render(temporary_loader, gneiss::engine::asset_type::mesh,

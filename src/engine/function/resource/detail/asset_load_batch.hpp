@@ -5,9 +5,9 @@
 
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/resource/asset_types.hpp"
 #include "engine/function/resource/detail/asset_decode.hpp"
+#include "engine/function/resource/resource_service.hpp"
 
 #include <deque>
 #include <optional>
@@ -24,7 +24,7 @@ public:
   static constexpr std::size_t maximum_assets = 256U;
   static constexpr std::size_t maximum_prepared_bytes = 256U * 1024U * 1024U;
   static constexpr std::size_t maximum_bytes = 64U * 1024U * 1024U;
-  asset_load_batch(task_executor& executor, asset_manager& assets,
+  asset_load_batch(task_executor& executor, resource_service& assets,
                    texture_prepare_profile profile = {},
                    std::shared_ptr<progress_notification> notification = {});
   ~asset_load_batch();
@@ -63,7 +63,7 @@ private:
   void finish(engine::result result, asset_load_state state);
   task_executor& executor_;
   task_scope scope_;
-  asset_manager& assets_;
+  resource_service& assets_;
   texture_prepare_profile profile_;
   std::shared_ptr<progress_notification> notification_;
   std::unique_ptr<pending> pending_;

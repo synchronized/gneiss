@@ -12,6 +12,7 @@
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/resource/detail/asset_render_state.hpp"
 #include "engine/function/resource/detail/render_resource_factory.hpp"
+#include "engine/function/resource/resource_service.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/loading/scene_domain.hpp"
@@ -83,7 +84,7 @@ void unified_resource_index() {
   gneiss::engine::render_service resources;
   gneiss::engine::render_resource_factory resources_factory{resources};
   asset_manager assets(gneiss::test_support::test_files(files));
-  auto& render = assets;
+  resource_service render{assets};
   if (render.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   check(assets.register_decoder(std::make_shared<text_loader>()) == result::success);
@@ -100,13 +101,14 @@ void unified_resource_index() {
   check(render.reserve_asset({"asset://same", gneiss::engine::asset_type::material}, material) ==
         result::success);
   assets.collect_unused();
-  check(assets.cache().size() == 3U && *cpu == "cpu" && resources.live_resource_count() == 1U);
+  check(assets.cache().size() == 2U && render.cache().size() == 1U && *cpu == "cpu" &&
+        resources.live_resource_count() == 1U);
   prefab.reset();
   assets.collect_unused();
-  check(assets.cache().size() == 2U);
+  check(assets.cache().size() == 1U && render.cache().size() == 1U);
   cpu.reset();
   assets.collect_unused();
-  check(assets.cache().size() == 1U && render.owns(material));
+  check(assets.cache().size() == 0U && render.owns(material));
   material.reset();
   render.collect_unused();
   check(assets.cache().size() == 0U && resources.live_resource_count() == 0U);
@@ -132,10 +134,10 @@ void run() {
   gneiss::engine::asset_manager active_assets(gneiss::test_support::test_files(vfs));
   active_assets.attach_task_executor(executor);
   gneiss::engine::asset_manager candidate_assets(gneiss::test_support::test_files(vfs));
-  auto& active_render = active_assets;
+  gneiss::engine::resource_service active_render{active_assets};
   if (active_render.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
-  auto& candidate_render = candidate_assets;
+  gneiss::engine::resource_service candidate_render{candidate_assets};
   if (candidate_render.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   {
@@ -165,7 +167,7 @@ void run() {
     gneiss::engine::render_service foreign_resources;
 
     gneiss::engine::asset_manager foreign_owner(gneiss::test_support::test_files(vfs));
-    auto& foreign_assets = foreign_owner;
+    gneiss::engine::resource_service foreign_assets{foreign_owner};
     if (foreign_assets.attach_render(foreign_resources).failed())
       throw std::runtime_error("资源管理器渲染绑定失败");
     gneiss::engine::render_asset_ref foreign_mesh;
@@ -248,12 +250,12 @@ void run() {
   for (const auto& value : staged) {
     bindings.emplace(std::string(gneiss::engine::asset_uri(value.target)), value.target);
   }
-  auto material = gneiss::engine::asset_manager::material_ref(bindings.at("asset://m.material"));
+  auto material = gneiss::engine::resource_service::material_ref(bindings.at("asset://m.material"));
   const auto mesh_rid = gneiss::engine::asset_rid(bindings.at("asset://m.mesh"));
   check(material && gneiss::engine::asset_rid(material) != gneiss::engine::asset_rid(old_material));
   check(resources.get_material(gneiss::engine::asset_rid(material))->parameters.color[1] == 1.0F);
-  check(!gneiss::engine::asset_manager::mesh_ref(bindings.at("asset://m.material")));
-  check(!gneiss::engine::asset_manager::material_ref(bindings.at("asset://m.mesh")));
+  check(!gneiss::engine::resource_service::mesh_ref(bindings.at("asset://m.material")));
+  check(!gneiss::engine::resource_service::material_ref(bindings.at("asset://m.mesh")));
   gneiss::engine::render_asset_ref uncached;
   check(candidate_render.acquire_cached(requests.front(), uncached) ==
         gneiss::engine::result::success);

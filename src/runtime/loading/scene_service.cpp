@@ -5,7 +5,7 @@
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/resource/resource_service.hpp"
 #include "engine/function/world/world.hpp"
 
 #include <algorithm>
@@ -16,7 +16,7 @@
 
 namespace gneiss::runtime {
 
-gneiss::engine::result scene_service::initialize(gneiss::engine::asset_manager& assets) {
+gneiss::engine::result scene_service::initialize(gneiss::engine::resource_service& assets) {
   if (active_ || stopping_) {
     return gneiss::engine::result::invalid_state;
   }
@@ -154,7 +154,7 @@ gneiss::engine::world* scene_service::native_world() const noexcept {
 gneiss::engine::scene_instances* scene_service::scenes() noexcept {
   return active_ ? active_->scenes() : nullptr;
 }
-gneiss::engine::asset_manager* scene_service::loading_assets() const noexcept {
+gneiss::engine::resource_service* scene_service::loading_assets() const noexcept {
   return loading_attached_ ? asset_owner_ : nullptr;
 }
 gneiss::engine::result
@@ -196,8 +196,8 @@ engine::result scene_service::request_reload(scene_instance_id instance, std::st
   next->instance = instance;
   next->uri = uri;
   next->prefab = prefab;
-  next->descriptions =
-      std::make_unique<engine::scene_description_request>(*asset_owner_, next->uri, prefab);
+  next->descriptions = std::make_unique<engine::scene_description_request>(asset_owner_->assets(),
+                                                                           next->uri, prefab);
   reload_ = std::move(next);
   return engine::result::success;
 }

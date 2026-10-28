@@ -8,7 +8,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid_table.hpp"
 #include "engine/core/scene_types.hpp"
-#include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/resource/resource_service.hpp"
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
 #include "engine/function/scene/scene_query.hpp"
@@ -67,7 +67,7 @@ public:
   /** 验证普通作者节点归属，不接受 Prefab 的只读来源节点。 */
   [[nodiscard]] result validate_editable_node(scene_instance_id instance,
                                               scene_node_id node) const noexcept;
-  scene_instances(world& native_world, asset_manager& loader) noexcept;
+  scene_instances(world& native_world, resource_service& loader) noexcept;
   ~scene_instances() noexcept;
 
   [[nodiscard]] bool is_valid() const noexcept {
@@ -140,7 +140,7 @@ public:
 private:
   using instance_ptr = std::unique_ptr<scene_instance>;
   world& native_world_;
-  asset_manager& loader_;
+  resource_service& loader_;
   meta::registry_ref registry_;
   std::uint16_t domain_;
   rid_table<instance_ptr, scene_instance_id> instances_;

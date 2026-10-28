@@ -8,11 +8,12 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/resource/resource_cache.hpp"
+#include "engine/function/resource/resource_service.hpp"
 #include "engine/function/scene/prefab_runtime_instance.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
-#include "engine/function/resource/resource_cache.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 #include <stdexcept>
 
@@ -92,7 +93,7 @@ public:
 
 bool check_failed_camera_prefab(
     gneiss::engine::world& native_world, const gneiss::engine::meta::registry_ref& registry,
-    gneiss::engine::asset_manager& render_loader, gneiss::engine::asset_manager& prefab_loader,
+    gneiss::engine::resource_service& render_loader, gneiss::engine::asset_manager& prefab_loader,
     const gneiss::engine::prefab_description& source,
     const std::vector<gneiss::engine::prefab_property_override>& invalid_overrides) {
   auto description = source;
@@ -152,7 +153,7 @@ bool check_failed_camera_prefab(
          count == 6U;
 }
 
-bool check_visible_prefab(gneiss::engine::world& world, gneiss::engine::asset_manager& loader,
+bool check_visible_prefab(gneiss::engine::world& world, gneiss::engine::resource_service& loader,
                           gneiss::engine::prefab_asset_ref source, gneiss::scene_node_id parent) {
   std::uint64_t before{}, during{}, after{};
   if (world.entity_count(before).failed())
@@ -200,7 +201,7 @@ int main() try {
   }
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(file_system));
   [[maybe_unused]] auto& cache = asset_owner.cache();
-  auto& render_loader = asset_owner;
+  gneiss::engine::resource_service render_loader{asset_owner};
   if (render_loader.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   auto& prefab_loader = asset_owner;
