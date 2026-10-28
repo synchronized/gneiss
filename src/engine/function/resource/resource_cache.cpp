@@ -14,12 +14,10 @@
 
 namespace gneiss::engine {
 
-engine::error resource_cache::load(std::string_view uri, type_id type, const loader& decode,
-                                   asset_ref<const entry>& out_entry,
-                                   std::shared_ptr<const files::source_domain> source,
-                                   bool reload) noexcept {
+result<asset_ref<const resource_cache::entry>>
+resource_cache::load(std::string_view uri, type_id type, const loader& decode,
+                     std::shared_ptr<const files::source_domain> source, bool reload) noexcept {
   using engine::error;
-  out_entry.reset();
   if (type == engine::runtime_type_of<void>() || !decode || validate_uri(uri) != error::success)
     return error::invalid_argument;
   try {
@@ -29,8 +27,7 @@ engine::error resource_cache::load(std::string_view uri, type_id type, const loa
       if (found->second->is_loading)
         return error::invalid_state;
       if (!reload) {
-        out_entry = found->second;
-        return error::success;
+        return found->second;
       }
     }
     auto value = std::make_shared<entry>();
@@ -42,7 +39,10 @@ engine::error resource_cache::load(std::string_view uri, type_id type, const loa
     entries_.insert_or_assign(identity, asset_ref<const entry>{value});
     error status;
     try {
-      status = decode(value->resource);
+      auto decoded = decode();
+      status = decoded ? error::success : decoded.error();
+      if (decoded)
+        value->resource = std::move(*decoded);
       if (status == error::success && !value->resource)
         status = error::internal;
     } catch (const std::bad_alloc&) {
@@ -59,8 +59,7 @@ engine::error resource_cache::load(std::string_view uri, type_id type, const loa
       return status;
     }
     value->is_loading = false;
-    out_entry = asset_ref<const entry>{std::move(value)};
-    return error::success;
+    return asset_ref<const entry>{std::move(value)};
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
   } catch (...) {

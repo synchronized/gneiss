@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 
-#include "engine/core/error.hpp"
 #include "engine/core/export.hpp"
+#include "engine/core/result.hpp"
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/render_resource_data.hpp"
 #include "engine/platform/native_window_info.hpp"
@@ -86,38 +86,38 @@ public:
   [[nodiscard]] bool is_valid() const noexcept;
   /** 所属线程预留合法 RID；尚无 CPU 内容，不可直接绘制。由 replace_* 填充，destroy_* 取消。
    * 不创建后端对象；所有权属于调用方，销毁和跨服务校验与普通 RID 一致。 */
-  [[nodiscard]] error reserve_mesh(rid* output) noexcept;
-  [[nodiscard]] error reserve_texture(rid* output) noexcept;
-  [[nodiscard]] error reserve_material(rid* output) noexcept;
+  [[nodiscard]] result<rid> reserve_mesh() noexcept;
+  [[nodiscard]] result<rid> reserve_texture() noexcept;
+  [[nodiscard]] result<rid> reserve_material() noexcept;
   /** 只查询 CPU 内容：SUCCESS 已填充，NOT_READY 仅预留，INVALID_HANDLE 已失效或不属于本服务。 */
   [[nodiscard]] error mesh_status(rid mesh) const noexcept;
   [[nodiscard]] error texture_status(rid texture) const noexcept;
   [[nodiscard]] error material_status(rid material) const noexcept;
-  [[nodiscard]] error create_mesh(const mesh_view& desc, rid* out_mesh) noexcept;
+  [[nodiscard]] result<rid> create_mesh(const mesh_view& desc) noexcept;
   /** 校验并接收拥有型网格，成功路径不再复制数组。 */
-  [[nodiscard]] error create_mesh(mesh_data resource, rid* output) noexcept;
+  [[nodiscard]] result<rid> create_mesh(mesh_data resource) noexcept;
   /** 内部 CPU 候选已经校验，移动所有权避免主线程复制大数组。 */
-  [[nodiscard]] error create_prepared_mesh(mesh_data resource, rid* output) noexcept;
+  [[nodiscard]] result<rid> create_prepared_mesh(mesh_data resource) noexcept;
   /** 已校验不可变 CPU 网格；RID 与旧帧共享同一对象，销毁 RID 不使外部引用失效。 */
-  [[nodiscard]] error create_prepared_mesh(std::shared_ptr<const mesh_data> resource,
-                                           rid* output) noexcept;
+  [[nodiscard]] result<rid>
+  create_prepared_mesh(std::shared_ptr<const mesh_data> resource) noexcept;
   [[nodiscard]] bool replace_mesh(rid rid, std::shared_ptr<const mesh_data> data) noexcept;
   [[nodiscard]] bool replace_material(rid rid, std::shared_ptr<const material_data> data) noexcept;
   /** 校验并登记临时 CPU 数据，不分配 RID；任务和帧引用共同决定数据寿命。 */
-  [[nodiscard]] error prepare_mesh_data(std::shared_ptr<const mesh_data> resource,
-                                        std::shared_ptr<const mesh_data>& output) noexcept;
-  [[nodiscard]] error prepare_material_data(const material_data& resource,
-                                            std::shared_ptr<const material_data>& output) noexcept;
-  [[nodiscard]] error prepare_texture_data(texture_data resource,
-                                           std::shared_ptr<const texture_data>& output) noexcept;
+  [[nodiscard]] result<std::shared_ptr<const mesh_data>>
+  prepare_mesh_data(std::shared_ptr<const mesh_data> resource) noexcept;
+  [[nodiscard]] result<std::shared_ptr<const material_data>>
+  prepare_material_data(const material_data& resource) noexcept;
+  [[nodiscard]] result<std::shared_ptr<const texture_data>>
+  prepare_texture_data(texture_data resource) noexcept;
   [[nodiscard]] error destroy_mesh(rid mesh) noexcept;
-  [[nodiscard]] error create_material(const material_data& value, rid* out_material) noexcept;
+  [[nodiscard]] result<rid> create_material(const material_data& value) noexcept;
   [[nodiscard]] error destroy_material(rid material) noexcept;
-  [[nodiscard]] error create_texture(const texture_view& desc, rid* out_texture) noexcept;
+  [[nodiscard]] result<rid> create_texture(const texture_view& desc) noexcept;
   /** 创建已经过容器校验的内部多 Mip Texture。 */
-  [[nodiscard]] error create_texture(texture_data resource, rid* out_texture) noexcept;
+  [[nodiscard]] result<rid> create_texture(texture_data resource) noexcept;
   /** 保存已经过外层容器与 Granit Manifest 检查的运行纹理。 */
-  [[nodiscard]] error create_packaged_texture(texture_data resource, rid* out_texture) noexcept;
+  [[nodiscard]] result<rid> create_packaged_texture(texture_data resource) noexcept;
   [[nodiscard]] error destroy_texture(rid texture) noexcept;
   /** 主线程提交已验证候选；保持 RID generation，既有帧仍拥有旧数据快照。 */
   [[nodiscard]] bool replace_texture(rid texture,

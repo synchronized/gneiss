@@ -166,7 +166,8 @@ void mesh_data_lifetime() {
   render_service resources;
   gneiss::engine::resource_service::implementation resources_factory{resources};
   gneiss::engine::rid rid{};
-  check(resources.create_prepared_mesh(mesh, &rid) == gneiss::engine::error::success);
+  check(gneiss::test_support::assign_value(resources.create_prepared_mesh(mesh), rid) ==
+        gneiss::engine::error::success);
   check(resources.share_mesh(rid) == mesh);
   auto frame = resources.share_mesh(rid);
   check(resources.destroy_mesh(rid) == gneiss::engine::error::success &&

@@ -249,3 +249,17 @@ Windows Clang Debug 编译通过，30 项相关测试全部通过。新增直接
 - `cmake --build --preset windows-clang-debug -j6` 完整构建通过；43 项相关短测试通过（12.27 秒）；
   `git diff --check` 通过。未运行大场景、GPU 图像验证、其他平台构建或远端 CI。
 - 私有缓存/Render RID 操作与其他领域的 out 接口仍按原契约保留，本记录不表示全引擎接口迁移完成。
+
+## 缓存与 Render 创建链值返回（2026-10-29）
+
+- resource_cache::load 返回缓存条目的值结果，创建回调返回资源指针或错误；
+  保留空对象拒绝、同键递归保护、失败重载恢复旧缓存和引用回收。
+- Render 的 reserve/create 系列返回 result<rid>，prepare_*_data 返回不可变 CPU 数据引用的结果。
+  取消输出指针及空输出指针分支；destroy/replace 保持已有生命周期语义。
+- resource_service 私有 reserve/create 链直接返回资源引用，公开接口无需先用 out 接收再包装。
+  RID 已创建但资源包装失败时继续清理 RID 和索引，不改变跨服务拒绝和延迟销毁规则。
+- 新增直接值返回的缓存重用/失败重载验证；预留 RID 测试直接验证关闭后的错误结果。
+- Windows Clang Debug 完整构建通过。43 项相关短测试首轮 42 项通过；预算测试仍断言旧输出变量被清零，
+  改为直接检查失败结果且保留旧资源及预算断言后，该项复测通过。全部相关测试已通过。
+- git diff --check 通过；未运行大场景、GPU 图像验证、其他平台或远端 CI。
+- 尚未迁移底层 rid_table 的槽位构造接口、帧操作输出及 World/Scene/Meta 等其他领域接口。

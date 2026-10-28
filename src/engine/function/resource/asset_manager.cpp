@@ -281,21 +281,15 @@ error asset_manager::store_erased(type_id type, std::string_view uri,
   if (status.failed())
     return status;
   auto& request = state.requests[{domain, std::string(uri), type}];
-  asset_ref<const resource_cache::entry> entry;
-  status = cache_.load(
-      uri, type,
-      [&](auto& stored) {
-        stored = value;
-        return error::success;
-      },
-      entry, domain, true);
-  if (status == error::success) {
-    state.frozen = true;
-    ++request.generation;
-    request.pending.reset();
-    output = std::shared_ptr<const void>(entry.shared(), entry->resource.get());
-  }
-  return status;
+  auto stored = cache_.load(
+      uri, type, [&]() -> result<std::shared_ptr<const void>> { return value; }, domain, true);
+  if (!stored)
+    return stored.error();
+  state.frozen = true;
+  ++request.generation;
+  request.pending.reset();
+  output = std::shared_ptr<const void>(stored->shared(), (*stored)->resource.get());
+  return error::success;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -605,17 +599,12 @@ void asset_manager::advance() {
       entry.pending.reset();
       if (work->status == error::success) {
         const auto& [domain, uri, type] = work->identity;
-        asset_ref<const resource_cache::entry> cached;
-        work->status = cache_.load(
-            uri, type,
-            [&](auto& stored) {
-              stored = work->value;
-              return error::success;
-            },
-            cached, domain, true);
-        if (work->status == error::success) {
-          work->value = std::shared_ptr<const void>(cached.shared(), cached->resource.get());
-        }
+        auto cached = cache_.load(
+            uri, type, [&]() -> result<std::shared_ptr<const void>> { return work->value; }, domain,
+            true);
+        work->status = cached ? error::success : cached.error();
+        if (cached)
+          work->value = std::shared_ptr<const void>(cached->shared(), (*cached)->resource.get());
       }
     }
     {

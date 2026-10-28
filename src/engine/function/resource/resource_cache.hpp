@@ -4,7 +4,7 @@
 #ifndef GNEISS_ASSET_RESOURCE_CACHE_HPP_
 #define GNEISS_ASSET_RESOURCE_CACHE_HPP_
 
-#include "engine/core/error.hpp"
+#include "engine/core/result.hpp"
 #include "engine/resource/asset_identity.hpp"
 #include "engine/resource/asset_ref.hpp"
 
@@ -41,14 +41,13 @@ public:
     }
   };
 
-  using loader = std::function<engine::error(std::shared_ptr<const void>&)>;
+  using loader = std::function<result<std::shared_ptr<const void>>()>;
 
   /** 所属线程统一加载入口；默认复用，reload 成功后替换，失败保留旧条目。
    * 回调仅在需要加载时执行；同键递归加载返回 invalid_state。 */
-  [[nodiscard]] error load(std::string_view uri, type_id type, const loader& decode,
-                           asset_ref<const entry>& out_entry,
-                           std::shared_ptr<const files::source_domain> source = {},
-                           bool reload = false) noexcept;
+  [[nodiscard]] result<asset_ref<const entry>>
+  load(std::string_view uri, type_id type, const loader& decode,
+       std::shared_ptr<const files::source_domain> source = {}, bool reload = false) noexcept;
   void release_unused() noexcept;
   /** 只观察当前身份，不触发加载；返回的弱引用不会阻止卸载。 */
   [[nodiscard]] std::weak_ptr<const entry>

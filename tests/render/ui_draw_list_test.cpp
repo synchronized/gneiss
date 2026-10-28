@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
@@ -27,7 +28,8 @@ int main() {
   texture_desc.row_stride_bytes = 4U;
   texture_desc.pixels = pixels;
   gneiss::engine::texture texture;
-  if (resources_factory.create_texture(texture_desc, texture) != gneiss::engine::error::success) {
+  if (gneiss::test_support::take_value(resources_factory.create_texture(texture_desc), texture) !=
+      gneiss::engine::error::success) {
     return 1;
   }
 
@@ -90,13 +92,15 @@ int main() {
     return 7;
   }
   gneiss::engine::texture rejected = texture;
-  if (resources_factory.create_texture({}, rejected) != gneiss::engine::error::invalid_argument ||
+  if (gneiss::test_support::take_value(resources_factory.create_texture({}), rejected) !=
+          gneiss::engine::error::invalid_argument ||
       rejected || !texture)
     return 8;
   // UI 查询不得为裸 RID 自动建立拥有者。
   using namespace gneiss::engine;
   rid unowned{};
-  if (resources.create_texture(texture_desc, &unowned).failed() ||
+  if (gneiss::test_support::assign_value(resources.create_texture(texture_desc), unowned)
+          .failed() ||
       resources_factory.find_texture(unowned) || resources.texture_status(unowned).failed())
     return 9;
   // 两个工厂共用一个 Render，也不能从裸 RID 建立第二个拥有者。
@@ -104,7 +108,7 @@ int main() {
   if (peer.find_texture(resource_handle(texture)))
     return 17;
   gneiss::engine::texture peer_texture;
-  if (peer.create_texture(texture_desc, peer_texture).failed() ||
+  if (gneiss::test_support::take_value(peer.create_texture(texture_desc), peer_texture).failed() ||
       resource_handle(peer_texture) == resource_handle(texture))
     return 18;
   const auto peer_handle = resource_handle(peer_texture);
@@ -117,10 +121,11 @@ int main() {
       resources.texture_status(peer_handle) != error::invalid_handle)
     return 21;
   gneiss::engine::material foreign_material;
-  if (peer.create_material({}, {texture}, foreign_material) != error::invalid_argument ||
+  if (gneiss::test_support::take_value(peer.create_material({}, {texture}), foreign_material) !=
+          error::invalid_argument ||
       foreign_material)
     return 22;
-  if (peer.create_texture(texture_desc, peer_texture).failed())
+  if (gneiss::test_support::take_value(peer.create_texture(texture_desc), peer_texture).failed())
     return 23;
   peer.close();
   if (resources.texture_status(resource_handle(texture)).failed() ||
@@ -143,7 +148,7 @@ int main() {
     return 10;
 
   gneiss::engine::material material_ref;
-  if (resources_factory.reserve_material(material_ref).failed())
+  if (gneiss::test_support::take_value(resources_factory.reserve_material(), material_ref).failed())
     return 11;
   const auto material_handle = resource_handle(material_ref);
   auto content = std::make_shared<material_data>();
@@ -166,10 +171,11 @@ int main() {
   if (!resources.is_valid() || resources.live_resource_count() != 0 ||
       resources_factory.find_texture(handle) ||
       resources_factory.update_texture(texture, changed) ||
-      resources_factory.create_texture(texture_desc, rejected) != error::invalid_state)
+      gneiss::test_support::take_value(resources_factory.create_texture(texture_desc), rejected) !=
+          error::invalid_state)
     return 14;
   // 工厂关闭不关闭服务，裸 RID 接口仍然可以使用。
-  if (resources.create_texture(texture_desc, &unowned).failed())
+  if (gneiss::test_support::assign_value(resources.create_texture(texture_desc), unowned).failed())
     return 15;
   (void)resources.destroy_texture(unowned);
   std::thread worker([value = std::move(material_ref)]() mutable { value.reset(); });

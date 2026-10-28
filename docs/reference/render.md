@@ -3,6 +3,11 @@
 
 # Render 资源、组件与帧提取
 
+Render 的 `reserve_mesh/texture/material()` 与 `create_*` 系列返回 `result<rid>`；
+失败结果不含 RID，调用方无需准备输出指针。销毁仍返回 `error`。
+`prepare_mesh/material/texture_data()` 返回 `result<shared_ptr<const ..._data>>`，
+只准备和登记 CPU 数据，不等待 GPU 上传。资源服务内部创建链同样使用值返回。
+
 ## 资源生命周期
 
 Mesh、Material 和 Texture 的 CPU 内容表由 Application 的 `render_service` 私有实现拥有。

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_service.hpp"
@@ -21,12 +22,20 @@ bool pending_resources() {
   render_service foreign;
 
   rid mesh{}, texture{}, material{};
-  rid cancelled{};
-  if (resources.reserve_mesh(nullptr) != gneiss::engine::error::invalid_argument ||
-      resources.reserve_texture(nullptr) != gneiss::engine::error::invalid_argument ||
-      resources.reserve_material(nullptr) != gneiss::engine::error::invalid_argument ||
-      resources.reserve_mesh(&cancelled) != gneiss::engine::error::success ||
-      resources.destroy_mesh(cancelled) != gneiss::engine::error::success ||
+  auto reserved = resources.reserve_mesh();
+  if (!reserved || *reserved == null_rid)
+    return false;
+  const auto cancelled = *reserved;
+  render_service closed;
+  closed.close_resources();
+  auto no_mesh = closed.reserve_mesh();
+  auto no_texture = closed.reserve_texture();
+  auto no_material = closed.reserve_material();
+  if (no_mesh || no_texture || no_material || no_mesh.error() != error::invalid_argument ||
+      no_texture.error() != error::invalid_argument ||
+      no_material.error() != error::invalid_argument)
+    return false;
+  if (resources.destroy_mesh(cancelled) != gneiss::engine::error::success ||
       resources.mesh_status(cancelled) != gneiss::engine::error::invalid_handle ||
       resources.destroy_mesh(cancelled) != gneiss::engine::error::invalid_handle) {
     return false;
@@ -34,8 +43,8 @@ bool pending_resources() {
   gneiss::engine::mesh mesh_owner;
   gneiss::engine::texture texture_owner;
   gneiss::engine::material material_owner;
-  if (resources_factory.reserve_mesh(mesh_owner).failed() ||
-      resources_factory.reserve_texture(texture_owner).failed())
+  if (gneiss::test_support::take_value(resources_factory.reserve_mesh(), mesh_owner).failed() ||
+      gneiss::test_support::take_value(resources_factory.reserve_texture(), texture_owner).failed())
     return false;
   mesh = resource_handle(mesh_owner);
   texture = resource_handle(texture_owner);
@@ -51,13 +60,14 @@ bool pending_resources() {
   auto texture_ref = resources_factory.find_texture(texture);
   material_data description;
   description.base_color_texture = mesh;
-  if (resources.create_material(description, &material) !=
+  if (gneiss::test_support::assign_value(resources.create_material(description), material) !=
       gneiss::engine::error::invalid_argument) {
     return false;
   }
   description.base_color_texture = texture;
-  if (resources_factory.create_material(description.parameters, {texture_owner}, material_owner) !=
-      gneiss::engine::error::success) {
+  if (gneiss::test_support::take_value(
+          resources_factory.create_material(description.parameters, {texture_owner}),
+          material_owner) != gneiss::engine::error::success) {
     return false;
   }
   material = resource_handle(material_owner);
@@ -66,7 +76,8 @@ bool pending_resources() {
                              .material = resources_factory.find_material(material),
                              .transform = {}});
   gneiss::engine::material pending_owner;
-  if (resources_factory.reserve_material(pending_owner).failed())
+  if (gneiss::test_support::take_value(resources_factory.reserve_material(), pending_owner)
+          .failed())
     return false;
   const auto pending_material = resource_handle(pending_owner);
   if (resources.material_status(pending_material) != gneiss::engine::error::not_ready ||
@@ -142,7 +153,8 @@ bool pending_resources() {
     return false;
   }
   rid replacement{};
-  if (resources.reserve_texture(&replacement) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(resources.reserve_texture(), replacement) !=
+          gneiss::engine::error::success ||
       replacement == texture || resources.replace_texture(texture, texture_data) ||
       resources.destroy_mesh(mesh) != gneiss::engine::error::success ||
       resources.destroy_mesh(mesh) != gneiss::engine::error::invalid_handle ||
@@ -170,8 +182,8 @@ int main() {
   texture_desc.row_stride_bytes = 64U * 4U;
   texture_desc.pixels = pixels;
   gneiss::engine::texture texture_owner;
-  if (resources_factory.create_texture(texture_desc, texture_owner) !=
-      gneiss::engine::error::success) {
+  if (gneiss::test_support::take_value(resources_factory.create_texture(texture_desc),
+                                       texture_owner) != gneiss::engine::error::success) {
     return 1;
   }
 
@@ -183,7 +195,8 @@ int main() {
   gneiss::engine::mesh_view mesh_desc;
   mesh_desc.vertices = vertices;
   gneiss::engine::mesh mesh_owner;
-  if (resources_factory.create_mesh(mesh_desc, mesh_owner) != gneiss::engine::error::success) {
+  if (gneiss::test_support::take_value(resources_factory.create_mesh(mesh_desc), mesh_owner) !=
+      gneiss::engine::error::success) {
     return 2;
   }
 
@@ -194,7 +207,9 @@ int main() {
   material_desc.base_color_texture = texture;
   std::array<gneiss::engine::rid, 4> pbr_textures{};
   for (std::size_t i = 0; i < pbr_refs.size(); ++i) {
-    if (resources_factory.create_texture(texture_desc, pbr_refs[i]).failed())
+    if (gneiss::test_support::take_value(resources_factory.create_texture(texture_desc),
+                                         pbr_refs[i])
+            .failed())
       return 8;
     pbr_textures[i] = resource_handle(pbr_refs[i]);
   }
@@ -203,9 +218,10 @@ int main() {
   material_desc.occlusion_texture = pbr_textures[2];
   material_desc.emissive_texture = pbr_textures[3];
   gneiss::engine::material material_owner;
-  if (resources_factory.create_material(
-          material_desc.parameters,
-          {texture_owner, pbr_refs[0], pbr_refs[1], pbr_refs[2], pbr_refs[3]},
+  if (gneiss::test_support::take_value(
+          resources_factory.create_material(
+              material_desc.parameters,
+              {texture_owner, pbr_refs[0], pbr_refs[1], pbr_refs[2], pbr_refs[3]}),
           material_owner) != gneiss::engine::error::success) {
     return 3;
   }

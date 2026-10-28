@@ -4,6 +4,7 @@
 #include "engine/function/render/render_service.hpp"
 #include "engine/resource/texture/texture_view.hpp"
 #include "runtime/application.hpp"
+#include "support/value_result.hpp"
 
 #include <array>
 
@@ -33,10 +34,12 @@ int main() try {
   texture_desc.row_stride_bytes = 4U;
   texture_desc.pixels = pixels;
   native::rid mesh{}, material{}, texture{};
-  if (resources.create_mesh(mesh_desc, &mesh).failed() ||
-      resources.create_material(material_desc, &material).failed() ||
-      resources.create_texture(texture_desc, &texture).failed() || mesh == 0 || material == 0 ||
-      texture == 0)
+  if (gneiss::test_support::assign_value(resources.create_mesh(mesh_desc), mesh).failed() ||
+      gneiss::test_support::assign_value(resources.create_material(material_desc), material)
+          .failed() ||
+      gneiss::test_support::assign_value(resources.create_texture(texture_desc), texture)
+          .failed() ||
+      mesh == 0 || material == 0 || texture == 0)
     return 2;
   if (resources.destroy_mesh(material) != native::error::invalid_handle ||
       other.destroy_mesh(mesh) != native::error::invalid_handle ||
@@ -56,14 +59,19 @@ int main() try {
   mesh_desc.vertices = std::span{vertices}.first(2);
   material_desc.parameters.color[3] = 2.0F;
   texture_desc.row_stride_bytes = 3U;
-  if (resources.create_mesh(mesh_desc, &mesh) != native::error::invalid_argument ||
-      resources.create_material(material_desc, &material) != native::error::invalid_argument ||
-      resources.create_texture(texture_desc, &texture) != native::error::invalid_argument ||
+  if (gneiss::test_support::assign_value(resources.create_mesh(mesh_desc), mesh) !=
+          native::error::invalid_argument ||
+      gneiss::test_support::assign_value(resources.create_material(material_desc), material) !=
+          native::error::invalid_argument ||
+      gneiss::test_support::assign_value(resources.create_texture(texture_desc), texture) !=
+          native::error::invalid_argument ||
       mesh != 0 || material != 0 || texture != 0)
     return 5;
   mesh_desc.vertices = vertices;
   mesh_desc.indices = std::span{indices}.first(1);
-  if (resources.create_mesh(mesh_desc, &mesh) != native::error::invalid_argument || mesh != 0)
+  if (gneiss::test_support::assign_value(resources.create_mesh(mesh_desc), mesh) !=
+          native::error::invalid_argument ||
+      mesh != 0)
     return 6;
   return first->shutdown().ok() && second->shutdown().ok() ? 0 : 7;
 } catch (...) {

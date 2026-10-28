@@ -414,3 +414,15 @@ Windows Clang Debug 编译及 30 项相关测试通过，见[统一加载验收�
 - [x] 完整编译与相关短测试；不运行大场景、GPU 验证或远端 CI。
 
 验收：Windows Clang Debug 完整编译、43 项相关短测试通过；见[资源领取迁移记录](../records/2026-10-28-render-resource-boundary.md#资源领取与身份入口值返回2026-10-29)。
+
+
+## 缓存与 Render 创建链值返回（2026-10-29）
+
+- [x] resource_cache::load 与创建回调返回值结果；失败重载、空对象和同键递归保护不变。
+- [x] Render 的 reserve/create 系列返回 result<rid>，prepare_*_data 返回不可变数据引用的结果。
+- [x] resource_service 私有创建链同步改为值返回，保留 RID 创建失败后的清理行为。
+- [x] 迁移调用方并验证缓存、错误、资源生命周期和跨服务拒绝；完整编译和相关短测试。
+
+底层 rid_table 原位槽位构造，以及帧提交统计、World/Scene/Meta 等其他领域接口继续单独核查。
+
+验收：Windows Clang Debug 完整编译及 43 项相关短测试通过。见[缓存与 Render 迁移记录](../records/2026-10-28-render-resource-boundary.md#缓存与-render-创建链值返回2026-10-29)。

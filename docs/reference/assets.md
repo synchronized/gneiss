@@ -83,7 +83,9 @@ CPU 数据表位于 `render_service` 私有实现，Loader 与宿主通过其 RI
 只在当前运行期有效，不写入资产文件或公共 ABI；约束见 [Core 身份类型](core.md#内部基础身份类型)。
 通用请求表只保留请求顺序和在途观察状态，不保存另一份当前资源。
 通用异步加载默认复用成功缓存；显式 `reload=true` 才重新读取。
-资源表统一通过 `resource_cache::load` 查询、按需执行回调并登记成功结果；显式重载失败
+资源表统一通过 `resource_cache::load` 查询、按需执行回调并登记成功结果；
+该入口返回 `result<asset_ref<const entry>>`，创建回调返回 `result<shared_ptr<const void>>`，
+失败不会提供部分构造的缓存条目；显式重载失败
 （包括回调抛异常或返回空资源）保留旧条目，首次失败不残留占位。相同键递归加载返回
 `invalid_state`，不同键的依赖仍可递归加载。Prefab 普通加载和重载共用解析流程；
 渲染预留在缓存未命中时才创建 RID，服务归属与 CPU 内容是否可用由资源服务检查，完成不等待 GPU。

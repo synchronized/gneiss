@@ -981,12 +981,14 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     gneiss::engine::mesh mesh_ref;
     gneiss::engine::texture texture_ref;
     gneiss::engine::material material_ref;
-    if (local_factory.reserve_mesh(mesh_ref).failed() ||
-        local_factory.reserve_texture(texture_ref).failed())
+    if (gneiss::test_support::take_value(local_factory.reserve_mesh(), mesh_ref).failed() ||
+        gneiss::test_support::take_value(local_factory.reserve_texture(), texture_ref).failed())
       return 60;
     const auto mesh_handle = resource_handle(mesh_ref);
     const auto texture_handle = resource_handle(texture_ref);
-    if (local_factory.create_material({}, {texture_ref}, material_ref).failed())
+    if (gneiss::test_support::take_value(local_factory.create_material({}, {texture_ref}),
+                                         material_ref)
+            .failed())
       return 61;
     const auto material_handle = resource_handle(material_ref);
     if (!mesh_ref || !texture_ref || !material_ref || material_ref->textures()[0] != texture_ref)
@@ -1012,7 +1014,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     gneiss::engine::render_service closing;
     gneiss::engine::resource_service::implementation closing_factory{closing};
     gneiss::engine::mesh reference;
-    if (closing_factory.reserve_mesh(reference).failed())
+    if (gneiss::test_support::take_value(closing_factory.reserve_mesh(), reference).failed())
       return 38;
     const auto handle = resource_handle(reference);
     closing_factory.close();

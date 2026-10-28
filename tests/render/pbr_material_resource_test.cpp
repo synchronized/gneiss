@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/render/render_service.hpp"
 
@@ -18,15 +19,18 @@ int main() {
   gneiss::engine::material_data native;
   gneiss::engine::rid native_handle{};
   native.parameters.alpha_mode = static_cast<gneiss::engine::material_alpha_mode>(UINT32_MAX);
-  if (resources.create_material(native, &native_handle) != gneiss::engine::error::invalid_argument)
+  if (gneiss::test_support::assign_value(resources.create_material(native), native_handle) !=
+      gneiss::engine::error::invalid_argument)
     return 30;
   native.parameters.alpha_mode = gneiss::engine::material_alpha_mode::opaque;
   native.parameters.sampling[2].address_v =
       static_cast<gneiss::engine::texture_address>(UINT32_MAX);
-  if (resources.create_material(native, &native_handle) != gneiss::engine::error::invalid_argument)
+  if (gneiss::test_support::assign_value(resources.create_material(native), native_handle) !=
+      gneiss::engine::error::invalid_argument)
     return 31;
   native.parameters.sampling[2] = {};
-  if (resources.create_material(native, &native_handle) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(resources.create_material(native), native_handle) !=
+          gneiss::engine::error::success ||
       resources.destroy_material(native_handle) != gneiss::engine::error::success)
     return 32;
   constexpr std::array<std::uint8_t, 4> pixel{128U, 128U, 255U, 255U};
@@ -37,8 +41,10 @@ int main() {
   texture_desc.pixels = pixel;
   gneiss::engine::rid texture{};
   gneiss::engine::rid foreign{};
-  if (resources.create_texture(texture_desc, &texture) != gneiss::engine::error::success ||
-      other.create_texture(texture_desc, &foreign) != gneiss::engine::error::success) {
+  if (gneiss::test_support::assign_value(resources.create_texture(texture_desc), texture) !=
+          gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(other.create_texture(texture_desc), foreign) !=
+          gneiss::engine::error::success) {
     return 1;
   }
   gneiss::engine::material_data desc;
@@ -51,7 +57,8 @@ int main() {
   desc.parameters.occlusion_strength = 0.25F;
   desc.parameters.emissive[1] = 0.75F;
   gneiss::engine::rid material{};
-  if (resources.create_material(desc, &material) != gneiss::engine::error::success) {
+  if (gneiss::test_support::assign_value(resources.create_material(desc), material) !=
+      gneiss::engine::error::success) {
     return 2;
   }
   const auto* value = resources.get_material(material);
@@ -76,29 +83,34 @@ int main() {
                          &gneiss::engine::material_data::emissive_texture};
   for (const auto slot : slots) {
     desc.*slot = foreign;
-    if (resources.create_material(desc, &material) != gneiss::engine::error::invalid_argument) {
+    if (gneiss::test_support::assign_value(resources.create_material(desc), material) !=
+        gneiss::engine::error::invalid_argument) {
       return 6;
     }
     desc.*slot = texture;
   }
   desc.parameters.normal_scale = std::numeric_limits<float>::quiet_NaN();
-  if (resources.create_material(desc, &material) != gneiss::engine::error::invalid_argument) {
+  if (gneiss::test_support::assign_value(resources.create_material(desc), material) !=
+      gneiss::engine::error::invalid_argument) {
     return 7;
   }
   desc.parameters.normal_scale = -0.5F;
-  if (resources.create_material(desc, &material) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(resources.create_material(desc), material) !=
+          gneiss::engine::error::success ||
       resources.get_material(material)->parameters.normal_scale != -0.5F ||
       resources.destroy_material(material) != gneiss::engine::error::success) {
     return 13;
   }
   desc.parameters.normal_scale = 1.0F;
   desc.parameters.occlusion_strength = 1.1F;
-  if (resources.create_material(desc, &material) != gneiss::engine::error::invalid_argument) {
+  if (gneiss::test_support::assign_value(resources.create_material(desc), material) !=
+      gneiss::engine::error::invalid_argument) {
     return 8;
   }
   desc.parameters.occlusion_strength = 1.0F;
   desc.parameters.emissive[2] = std::numeric_limits<float>::infinity();
-  if (resources.create_material(desc, &material) != gneiss::engine::error::invalid_argument) {
+  if (gneiss::test_support::assign_value(resources.create_material(desc), material) !=
+      gneiss::engine::error::invalid_argument) {
     return 9;
   }
   desc = {};
@@ -108,7 +120,8 @@ int main() {
   desc.base_color_texture = texture;
   desc.parameters.sampling[0].uv_set = 1;
   desc.parameters.sampling[0].address_u = gneiss::engine::texture_address::mirror;
-  if (resources.create_material(desc, &material) != gneiss::engine::error::success)
+  if (gneiss::test_support::assign_value(resources.create_material(desc), material) !=
+      gneiss::engine::error::success)
     return 16;
   value = resources.get_material(material);
   if (value->parameters.alpha_mode != gneiss::engine::material_alpha_mode::blend ||
@@ -122,7 +135,8 @@ int main() {
     const auto saved = field;
     field = static_cast<std::remove_reference_t<decltype(field)>>(UINT32_MAX);
     const bool rejected =
-        resources.create_material(desc, &material) == gneiss::engine::error::invalid_argument;
+        gneiss::test_support::assign_value(resources.create_material(desc), material) ==
+        gneiss::engine::error::invalid_argument;
     field = saved;
     return rejected;
   };
@@ -135,12 +149,14 @@ int main() {
       !rejects_invalid(desc.parameters.sampling[0].address_v))
     return 19;
   desc.parameters.alpha_cutoff = std::numeric_limits<float>::quiet_NaN();
-  if (resources.create_material(desc, &material) != gneiss::engine::error::invalid_argument)
+  if (gneiss::test_support::assign_value(resources.create_material(desc), material) !=
+      gneiss::engine::error::invalid_argument)
     return 20;
   desc = {};
   desc.normal_texture = texture;
   if (resources.destroy_texture(texture) != gneiss::engine::error::success ||
-      resources.create_material(desc, &material) != gneiss::engine::error::invalid_argument ||
+      gneiss::test_support::assign_value(resources.create_material(desc), material) !=
+          gneiss::engine::error::invalid_argument ||
       resources.live_resource_count() != 0U) {
     return 14;
   }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/render_service.hpp"
@@ -40,8 +41,8 @@ int run_tests() {
   gneiss::engine::resource_service::implementation resources_factory{resources};
   gneiss::engine::mesh mesh_ref;
   gneiss::engine::material material_ref;
-  if (resources_factory.reserve_mesh(mesh_ref).failed() ||
-      resources_factory.reserve_material(material_ref).failed())
+  if (gneiss::test_support::take_value(resources_factory.reserve_mesh(), mesh_ref).failed() ||
+      gneiss::test_support::take_value(resources_factory.reserve_material(), material_ref).failed())
     return 30;
   const auto mesh_id = resource_handle(mesh_ref);
   const auto material_id = resource_handle(material_ref);
