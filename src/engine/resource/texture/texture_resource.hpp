@@ -41,7 +41,6 @@ private:
   texture_resource(rid value) noexcept;
   rid rid_;
   mutable asset_identity identity_;
-  mutable std::uint64_t update_sequence_{};
   mutable std::optional<texture_metadata> metadata_;
 };
 

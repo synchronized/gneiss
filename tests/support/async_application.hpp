@@ -54,7 +54,7 @@ inline engine::result prepare_scene(runtime::application& app, std::string_view 
     status = app.request_assets(std::span(&source, 1), 1, 1, id, false);
     if (status.failed())
       return status;
-    engine::asset_load_completion completion;
+    runtime::asset_load_completion completion;
     bool ready{};
     while (!ready) {
       if (!step())

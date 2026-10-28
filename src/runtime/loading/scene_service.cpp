@@ -49,7 +49,7 @@ gneiss::engine::result scene_service::attach_executor(
   scope_ = scope;
   resources_ = &resources;
   notification_ = std::move(notification);
-  loading_attached_ = true;
+  loading_ = std::make_unique<resource_load_group>(*asset_owner_);
   return gneiss::engine::result::success;
 }
 
@@ -79,7 +79,7 @@ void scene_service::advance_visuals() {
   }
   if (visual_pending_) {
     loading_assets()->advance();
-    gneiss::engine::asset_load_completion completion;
+    gneiss::runtime::asset_load_completion completion;
     if (!loading_assets()->take(completion)) {
       return;
     }
@@ -102,7 +102,7 @@ void scene_service::advance_visuals() {
   if (submitted == gneiss::engine::result::success) {
     visual_pending_ = true;
   } else {
-    gneiss::engine::asset_load_completion completion;
+    gneiss::runtime::asset_load_completion completion;
     completion.result = submitted;
     completion.results.push_back({.source = visual_queue_[visual_cursor_], .result = submitted});
     visual_completion_ = std::move(completion);
@@ -110,7 +110,7 @@ void scene_service::advance_visuals() {
   ++visual_cursor_;
 }
 
-bool scene_service::take_visual_completion(gneiss::engine::asset_load_completion& output) {
+bool scene_service::take_visual_completion(gneiss::runtime::asset_load_completion& output) {
   if (!visual_completion_) {
     return false;
   }
@@ -126,7 +126,7 @@ void scene_service::shutdown() noexcept {
   visual_pending_ = false;
   reload_.reset();
   stop_load();
-  loading_attached_ = false;
+  loading_.reset();
   retired_.reset();
   active_.reset();
   if (asset_owner_ != nullptr) {
@@ -154,9 +154,7 @@ gneiss::engine::world* scene_service::native_world() const noexcept {
 gneiss::engine::scene_instances* scene_service::scenes() noexcept {
   return active_ ? active_->scenes() : nullptr;
 }
-gneiss::engine::resource_service* scene_service::loading_assets() const noexcept {
-  return loading_attached_ ? asset_owner_ : nullptr;
-}
+resource_load_group* scene_service::loading_assets() const noexcept { return loading_.get(); }
 gneiss::engine::result
 scene_service::request_assets(std::span<const gneiss::engine::asset_source> sources,
                               std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
@@ -170,8 +168,8 @@ scene_service::request_assets(std::span<const gneiss::engine::asset_source> sour
   return loading_assets()->submit_assets(sources, session, revision, request, reload);
 }
 
-gneiss::engine::result scene_service::poll_assets(gneiss::engine::asset_load_completion& completion,
-                                                  bool& ready) {
+gneiss::engine::result
+scene_service::poll_assets(gneiss::runtime::asset_load_completion& completion, bool& ready) {
   ready = false;
   if (!loading_assets() || reload_ || visual_loading()) {
     return gneiss::engine::result::not_ready;
@@ -223,7 +221,7 @@ void scene_service::advance_reload() try {
   }
   if (value.asset_pending) {
     loading_assets()->advance();
-    engine::asset_load_completion completion;
+    runtime::asset_load_completion completion;
     if (!loading_assets()->take(completion))
       return;
     value.asset_pending = false;

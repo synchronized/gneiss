@@ -112,7 +112,7 @@ gneiss::engine::result native_update(runtime::application& app, context& state) 
     }
   }
   if (state.requested && !state.completed) {
-    gneiss::engine::asset_load_completion completion;
+    gneiss::runtime::asset_load_completion completion;
     bool ready{};
     const auto result = app.poll_assets(completion, ready);
     if (result != gneiss::engine::result::success) {

@@ -95,7 +95,7 @@ asset_manager 的 `load_mesh_data`、`load_texture_data` 返回 `asset_data_requ
 成功领取时移动 CPU 内容；取消只放弃请求，不等待工作线程，完成不会进入长期缓存。
 可领取的 asset_data_metrics 包含来源快照、解码字节估算、解码与队列耗时。
 内部 `decoded_asset::content` 使用 `std::variant`，只持有一种内容；`kind()` 从内容推导类型。
-材质不重复保存参数与依赖 URI。内部更新任务同样使用互斥内容，采用前检查空引用及目标类型。
+材质不重复保存参数与依赖 URI；内容采用前检查空引用、目标类型和来源身份。
 文件服务返回字节后，加载编排层提交 CPU 任务；thread 与 cooperative 使用同一解码实现。
 协作模式的单次 JSON/PNG 解码仍不可抢占，不承诺单帧时间上界。
 
@@ -150,20 +150,26 @@ metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 再用 `configure_loading(executor, profile, notification)` 装配运行资源异步加载。
 纯 CPU 使用者只需 `attach_task_executor`，不要求 Render。
 Scene/Editor 通过 resource_service 创建、查询和加载运行资源，通过 asset_manager 加载描述。
-`load<T>` 保留 CPU 描述解码契约；resource_service 使用 `submit_assets` 提交运行资源批次，
-通过 `take(asset_load_completion&)` 领取 CPU 内容采用结果。两者共享文件服务与执行器，各自持有缓存。
+asset_manager 的 `load<T>` 保留 CPU 描述解码契约；resource_service 的
+`load<texture_resource>(uri, request)` 等接口返回 `resource_request`。
+所属线程通过 `status()` 查询，`get<texture_resource>()` 获取强引用；成功表示 CPU 内容与依赖已采用。
+两者共享文件服务与执行器，各自持有缓存。
+同身份在途请求（含 reload）共享一次加载；请求复制共享观察权，cancel 仅释放当前观察权。
+所有观察者释放后取消未采用工作；再次 reload 须在前次完成后调用，不建立版本覆盖协议。
+材质依赖失败时材质请求失败，成功的独立资源不回滚。
 Application 提供 `assets()` 和 `resources()`；宿主分发文件完成后分别推进两个对象。
-资源服务停止不关闭共享加载器：先停止资源批次并释放场景，再销毁资源服务、资产管理器和 Render。
+资源服务停止不关闭共享加载器：先停止资源请求并释放场景，再销毁资源服务、资产管理器和 Render。
 各自的 `collect_unused()` 只回收所属缓存；运行资源强引用仍保活对应对象。
 内部加载文件位于 `detail/`，不向宿主开放。资源数据及格式编解码仍位于 `engine/resource`。
 
-`asset_types.hpp` 集中声明 `asset_source`、`asset_load_state`、`asset_load_completion`、
-`asset_load_progress` 及混合资源引用辅助函数。asset_type 当前只枚举 Mesh、Material、Texture，
+`asset_types.hpp` 声明 `asset_source` 及混合资源引用辅助函数；
+场景批量进度和回执位于 Runtime 的 `resource_load_types.hpp`，属于 `gneiss::runtime`。asset_type 当前只枚举 Mesh、Material、Texture，
 CPU 描述类型仍由 load<T> 的 C++ 类型确定。
-私有 `asset_load_batch` 负责异步批次，`asset_decode` 只解码已有字节，
-`resource_service_impl` 定义服务私有实现和纯数据更新记录；
-创建、RID 包装、延迟销毁及更新操作均属于服务实现，不再存在独立资源工厂。不存在独立 Render Loader 对象，
-缓存查询和内容采用实现在 resource_service.cpp 中。更新准备、序号占用和采用操作不向上层公开。
+`resource_loading.cpp` 保存服务私有的单资源请求状态，`asset_decode` 只解码已有字节。
+`resource_service_impl` 定义服务私有实现；创建、RID 包装、延迟销毁和内容采用均属于服务。
+没有独立批次加载器、资源工厂或 prepare/apply 更新记录，也不在资源对象上保存更新序号。
+Runtime 的 `resource_load_group` 仅为场景与编辑器串行组合单资源请求、汇总显式请求结果；
+它不读文件、不解析依赖、不创建后端资源，且不占用资源服务的全局加载槽位。
 
 
 asset_manager 的 load 请求通过 files::service 读取有界字节；完成回调交付字节后只提交一次
@@ -187,17 +193,18 @@ asset_manager 仅接受 shared_ptr<files::service>。`find_loaded<T>` 只查询�
 ActionMap 限制为 1 MiB，解析器也检查此上限；显式 decoder 使用自己的上限。
 
 功能层 `asset_manager` 负责 CPU 描述加载，`resource_service` 负责运行资源加载编排。材质描述通过 `load<material_description>` 加载。
-加载编排层在所属线程领取描述，工作线程只处理只读数据和纹理依赖，不访问管理器。
+资源服务在所属线程领取描述并请求纹理依赖，工作线程只解码 CPU 数据。
 网格和纹理由 asset_manager 的类型化入口加载，与描述请求共用文件读取、任务调度和关闭流程。
 网格读取后解码一次；纹理先读取并解析描述，再读取负载，按请求携带的设备能力解码。
 描述与负载合计受输入预算限制，输出另行校验预算；失败不采用内容。
 一次性请求不合并独立调用，运行资源请求的复用由 resource_service 保证。
-资源批次只领取 CPU 数据、校验来源并装配运行资源依赖，不直接访问文件服务或解码执行器。
+资源服务领取 CPU 数据、校验来源并装配依赖，不直接访问文件服务或解码执行器。
 材质仍领取缓存描述，预算检查和纹理强引用装配属于资源服务。
 
 texture_description 表示现有纹理 JSON 的运行时视图；尺寸、变体和 mip 布局仍来自容器 Manifest。
 网格复用 GNMS 文件头，不增加重复描述文件。当前不是 mip/LOD 流送：每项输入与解码输出各有
-64 MiB 上限，纹理描述和负载输入合计也受该上限限制，批次准备总量上限仍为 256 MiB；
+默认 64 MiB 上限，纹理描述和负载输入合计也受该上限限制；不再设置跨资源的批次预算，
+直接单资源接口可显式设置上限（最多 256 MiB），这不代表全局内存预算或流送调度；
 注入文件服务须配置可接受相应 max_bytes 的上限，否则提交返回 invalid_argument。
 多个纹理变体可能全部被读取，但有设备 profile 时只保留选中变体的 CPU 负载和 Manifest。
 运行异步路径释放原文件来源，GPU 恢复直接复用 CPU 数据；代价是该数据随资源引用常驻。

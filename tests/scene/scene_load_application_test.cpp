@@ -135,7 +135,7 @@ void visual_failure(gneiss::engine::execution_mode mode) {
   const std::array sources{
       gneiss::engine::asset_source{"asset://material.json", gneiss::engine::asset_type::material}};
   check(app->request_assets(sources, 1U, 2U, request, true) == gneiss::engine::result::success);
-  gneiss::engine::asset_load_completion loaded;
+  gneiss::runtime::asset_load_completion loaded;
   until([&] {
     bool finished{};
     check(app->poll_assets(loaded, finished) == gneiss::engine::result::success);
@@ -491,7 +491,7 @@ void shared_texture_versions(gneiss::engine::execution_mode mode) {
   const std::array textures{gneiss::engine::asset_source{
       .uri = "asset://texture.json", .type = gneiss::engine::asset_type::texture}};
   check(app->request_assets(textures, 1U, 2U, request, true) == gneiss::engine::result::success);
-  gneiss::engine::asset_load_completion assets;
+  gneiss::runtime::asset_load_completion assets;
   bool ready{};
   while (!ready) {
     check(std::chrono::steady_clock::now() < deadline);
@@ -543,7 +543,7 @@ void asynchronous_shutdown(gneiss::engine::execution_mode mode) {
       const std::array sources{
           gneiss::engine::asset_source{"asset://mesh.json", gneiss::engine::asset_type::mesh}};
       check(app->request_assets(sources, 1, 1, request, true).ok());
-      gneiss::engine::asset_load_completion completion;
+      gneiss::runtime::asset_load_completion completion;
       bool ready{};
       check(app->poll_assets(completion, ready).ok());
     }

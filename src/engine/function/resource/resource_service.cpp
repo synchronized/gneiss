@@ -9,7 +9,6 @@
 #include "engine/resource/material/detail/material_resource_access.hpp"
 #include "engine/resource/mesh/detail/mesh_resource_access.hpp"
 #include "engine/resource/texture/detail/texture_resource_access.hpp"
-#include <atomic>
 
 #include "engine/function/render/render_service.hpp"
 #include "engine/resource/asset_uri.hpp"
@@ -361,12 +360,12 @@ result resource_service::configure_loading(task_executor& executor, texture_prep
                                            std::shared_ptr<progress_notification> notification) {
   if (!impl_ || render_stopping_)
     return result::invalid_state;
-  assets_.attach_task_executor(executor);
-  if (impl_->batch)
+  if (impl_->loading_configured)
     return result::success;
+  assets_.attach_task_executor(executor);
   impl_->default_profile = profile;
-  impl_->batch =
-      std::make_unique<asset_load_batch>(executor, *this, profile, std::move(notification));
+  impl_->notification = std::move(notification);
+  impl_->loading_configured = true;
   return result::success;
 }
 
@@ -374,24 +373,23 @@ void resource_service::advance() {
   if (!impl_)
     return;
   (void)impl_->drain();
-  if (impl_->batch)
-    impl_->batch->advance();
+  impl_->advance(*this);
 }
 void resource_service::stop() noexcept {
   render_stopping_ = true;
   if (impl_)
-    impl_->batch.reset();
+    impl_->stop_loading();
   collect_unused();
   if (impl_)
     impl_->close();
 }
 void resource_service::request_stop() noexcept {
   render_stopping_ = true;
-  if (impl_ && impl_->batch)
-    impl_->batch->request_stop();
+  if (impl_)
+    impl_->stop_loading();
 }
 bool resource_service::stopped() const noexcept {
-  return !impl_ || !impl_->batch || impl_->batch->stopped();
+  return !impl_ || (render_stopping_ && impl_->pending.empty());
 }
 
 result resource_service::reserve_mesh(mesh& out) noexcept {
@@ -450,39 +448,8 @@ result resource_service::create_material(const material_parameters& data,
   return impl_->create_material(data, std::move(deps), out);
 }
 
-result resource_service::submit_assets(std::span<const asset_source> sources, std::uint64_t session,
-                                       std::uint64_t revision, std::uint64_t& request, bool reload,
-                                       std::size_t limit) {
-  if (!impl_ || !impl_->batch || render_stopping_) {
-    request = 0U;
-    return result::invalid_state;
-  }
-  return impl_->batch->submit_assets(sources, session, revision, request, reload, limit);
-}
-result resource_service::submit(std::span<const std::string> uris, std::uint64_t session,
-                                std::uint64_t revision, std::uint64_t& request, bool reload) {
-  if (!impl_ || !impl_->batch || render_stopping_) {
-    request = 0U;
-    return result::invalid_state;
-  }
-  return impl_->batch->submit(uris, session, revision, request, reload);
-}
-bool resource_service::progress(asset_load_progress& out) const {
-  return impl_ && impl_->batch && impl_->batch->progress(out);
-}
-bool resource_service::take(asset_load_completion& out) {
-  return impl_ && impl_->batch && impl_->batch->take(out);
-}
-bool resource_service::busy() const noexcept {
-  return impl_ && impl_->batch && impl_->batch->busy();
-}
-bool resource_service::cancel() { return impl_ && impl_->batch && impl_->batch->cancel(); }
 texture_prepare_profile resource_service::profile() const noexcept {
-  return impl_ && impl_->batch ? impl_->batch->profile() : texture_prepare_profile{};
-}
-std::span<const render_asset_ref> resource_service::requested_assets() const {
-  return impl_ && impl_->batch ? impl_->batch->requested_assets()
-                               : std::span<const render_asset_ref>{};
+  return impl_ ? impl_->default_profile : texture_prepare_profile{};
 }
 
 void resource_service::collect_unused() noexcept {
@@ -585,59 +552,6 @@ engine::result resource_service::acquire_cached(const asset_source& source,
   }
 }
 
-std::uint64_t resource_service::implementation::next_update_sequence() noexcept {
-  // 进程内单调请求序号，仅用于拒绝迟到的单项结果。
-  static std::atomic_uint64_t sequence{};
-  return sequence.fetch_add(1U, std::memory_order_relaxed) + 1U;
-}
-
-std::uint64_t
-resource_service::implementation::update_sequence(resource_service& assets,
-                                                  const render_asset_ref& lease) noexcept {
-  if (!assets.impl_ || assets.render_stopping_)
-    return 0U;
-  if (!assets.owns(lease)) {
-    return 0U;
-  }
-  switch (asset_kind(lease)) {
-  case asset_type::mesh:
-    return detail::mesh_resource_access::update_sequence(
-        *std::static_pointer_cast<const mesh_resource>(lease->resource));
-  case asset_type::texture:
-    return detail::texture_resource_access::update_sequence(
-        *std::static_pointer_cast<const texture_resource>(lease->resource));
-  case asset_type::material:
-    return detail::material_resource_access::update_sequence(
-        *std::static_pointer_cast<const material_resource>(lease->resource));
-  case asset_type::invalid:
-    return 0U;
-  }
-  return 0U;
-}
-
-bool resource_service::implementation::claim_update(resource_service& assets,
-                                                    const render_asset_ref& lease,
-                                                    std::uint64_t sequence) noexcept {
-  if (!assets.impl_ || assets.render_stopping_)
-    return false;
-  if (!assets.owns(lease))
-    return false;
-  switch (asset_kind(lease)) {
-  case asset_type::mesh:
-    return detail::mesh_resource_access::claim_update(
-        *std::static_pointer_cast<const mesh_resource>(lease->resource), sequence);
-  case asset_type::texture:
-    return detail::texture_resource_access::claim_update(
-        *std::static_pointer_cast<const texture_resource>(lease->resource), sequence);
-  case asset_type::material:
-    return detail::material_resource_access::claim_update(
-        *std::static_pointer_cast<const material_resource>(lease->resource), sequence);
-  case asset_type::invalid:
-    return false;
-  }
-  return false;
-}
-
 engine::result resource_service::reserve_asset(const asset_source& source,
                                                render_asset_ref& output) noexcept {
   if (!impl_ || render_stopping_)
@@ -702,135 +616,76 @@ engine::result resource_service::reserve_asset(const asset_source& source,
   }
 }
 
-engine::result
-resource_service::implementation::prepare_material_update(resource_service& assets,
-                                                          const material_description& description,
-                                                          detail::asset_update& upload) {
+result resource_service::implementation::adopt(resource_service& assets, decoded_asset decoded,
+                                               render_asset_ref& target) noexcept try {
   if (!assets.impl_ || assets.render_stopping_)
     return result::invalid_state;
-  detail::asset_update::material_content content;
-  material_data material{.parameters = description.parameters};
-  for (std::size_t slot = 0; slot < description.texture_uris.size(); ++slot) {
-    const auto& uri = description.texture_uris[slot];
-    if (uri.empty()) {
-      continue;
-    }
-    render_asset_ref dependency;
-    const auto reserved =
-        assets.reserve_asset({.uri = uri, .type = asset_type::texture}, dependency);
-    if (reserved != engine::result::success) {
-      return reserved;
-    }
-    material.set_texture(slot, asset_rid(dependency));
-    content.dependencies[slot] = dependency->as<texture_resource>();
-  }
-  const auto status = assets.impl_->render().prepare_material_data(material, content.data);
-  if (status.ok())
-    upload.data = std::move(content);
-  return status;
-}
-
-engine::result resource_service::implementation::prepare_update(
-    resource_service& assets, decoded_asset prepared, detail::asset_update& output,
-    const render_asset_ref& target, std::uint64_t sequence) noexcept try {
-  if (!assets.impl_ || assets.render_stopping_)
-    return result::invalid_state;
-  output = {};
-  const auto kind = prepared.kind();
+  const auto kind = decoded.kind();
   if (kind == asset_type::invalid)
     return result::invalid_argument;
-  if (const auto* material = std::get_if<asset_ref<const material_description>>(&prepared.content);
+  if (const auto* material = std::get_if<asset_ref<const material_description>>(&decoded.content);
       material && !*material)
     return result::invalid_argument;
-  detail::asset_update upload;
-  upload.target = target;
-  if (!upload.target) {
-    const auto reserved = assets.reserve_asset({prepared.uri, kind}, upload.target);
-    if (reserved != engine::result::success) {
-      return reserved;
-    }
+  if (!target) {
+    const auto status = assets.reserve_asset({decoded.uri, kind}, target);
+    if (status.failed())
+      return status;
   }
-  if (engine::asset_kind(upload.target) != kind ||
-      engine::asset_uri(upload.target) != prepared.uri || !assets.owns(upload.target)) {
-    return engine::result::invalid_argument;
-  }
-  for (const auto& input : prepared.sources) {
+  if (asset_kind(target) != kind || asset_uri(target) != decoded.uri || !assets.owns(target))
+    return result::invalid_argument;
+  for (const auto& input : decoded.sources) {
     asset_identity identity;
-    if (assets.identify(input.identity.uri, input.identity.type, identity) !=
-            engine::result::success ||
-        identity != input.identity) {
-      return engine::result::invalid_argument;
-    }
+    if (assets.identify(input.identity.uri, input.identity.type, identity).failed() ||
+        identity != input.identity)
+      return result::invalid_argument;
   }
-  upload.sequence = sequence == 0U ? next_update_sequence() : sequence;
-  if (!claim_update(assets, upload.target, upload.sequence)) {
-    return engine::result::invalid_state;
-  }
-  const auto result = std::visit(
-      [&](auto& content) -> engine::result {
+  return std::visit(
+      [&](auto& content) -> result {
         using T = std::decay_t<decltype(content)>;
+        bool adopted{};
         if constexpr (std::is_same_v<T, mesh_data>) {
           std::shared_ptr<const mesh_data> data;
           const auto status = assets.impl_->render().prepare_mesh_data(
               std::make_shared<const mesh_data>(std::move(content)), data);
-          if (status.ok())
-            upload.data = std::move(data);
-          return status;
+          if (status.failed())
+            return status;
+          adopted = assets.impl_->update_mesh(asset_cast<mesh_resource>(target), std::move(data));
         } else if constexpr (std::is_same_v<T, texture_data>) {
           std::shared_ptr<const texture_data> data;
           const auto status = assets.impl_->render().prepare_texture_data(std::move(content), data);
-          if (status.ok())
-            upload.data = std::move(data);
-          return status;
-        } else if constexpr (std::is_same_v<T, asset_ref<const material_description>>) {
-          return prepare_material_update(assets, *content, upload);
-        } else {
-          return engine::result::invalid_argument;
-        }
-      },
-      prepared.content);
-  if (result == engine::result::success) {
-    output = std::move(upload);
-  }
-  return result;
-} catch (const std::bad_alloc&) {
-  return engine::result::out_of_memory;
-} catch (...) {
-  return engine::result::internal;
-}
-
-engine::result
-resource_service::implementation::apply_update(resource_service& assets,
-                                               detail::asset_update& upload) noexcept {
-  if (!assets.impl_ || assets.render_stopping_)
-    return result::invalid_state;
-  if (!assets.owns(upload.target) || update_sequence(assets, upload.target) != upload.sequence) {
-    return engine::result::invalid_state;
-  }
-  return std::visit(
-      [&](const auto& content) -> result {
-        using T = std::decay_t<decltype(content)>;
-        bool adopted{};
-        if constexpr (std::is_same_v<T, std::shared_ptr<const mesh_data>>) {
-          if (!content || asset_kind(upload.target) != asset_type::mesh)
-            return result::invalid_argument;
-          adopted = assets.impl_->update_mesh(asset_cast<mesh_resource>(upload.target), content);
-        } else if constexpr (std::is_same_v<T, std::shared_ptr<const texture_data>>) {
-          if (!content || asset_kind(upload.target) != asset_type::texture)
-            return result::invalid_argument;
+          if (status.failed())
+            return status;
           adopted =
-              assets.impl_->update_texture(asset_cast<texture_resource>(upload.target), content);
-        } else if constexpr (std::is_same_v<T, detail::asset_update::material_content>) {
-          if (!content.data || asset_kind(upload.target) != asset_type::material)
-            return result::invalid_argument;
-          adopted = assets.impl_->update_material(asset_cast<material_resource>(upload.target),
-                                                  content.data, content.dependencies);
-        } else {
+              assets.impl_->update_texture(asset_cast<texture_resource>(target), std::move(data));
+        } else if constexpr (std::is_same_v<T, asset_ref<const material_description>>) {
+          material_data value{.parameters = content->parameters};
+          std::array<texture, 5> dependencies;
+          for (std::size_t slot = 0; slot < content->texture_uris.size(); ++slot) {
+            const auto& uri = content->texture_uris[slot];
+            if (uri.empty())
+              continue;
+            render_asset_ref dependency;
+            const auto status = assets.reserve_asset({uri, asset_type::texture}, dependency);
+            if (status.failed())
+              return status;
+            dependencies[slot] = asset_cast<texture_resource>(dependency);
+            value.set_texture(slot, asset_rid(dependency));
+          }
+          std::shared_ptr<const material_data> data;
+          const auto status = assets.impl_->render().prepare_material_data(value, data);
+          if (status.failed())
+            return status;
+          adopted = assets.impl_->update_material(asset_cast<material_resource>(target),
+                                                  std::move(data), std::move(dependencies));
+        } else
           return result::invalid_argument;
-        }
         return adopted ? result::success : result::out_of_memory;
       },
-      upload.data);
+      decoded.content);
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
 }
 
 result resource_service::acquire_mesh(std::string_view uri, engine::mesh& output,

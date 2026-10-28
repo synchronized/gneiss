@@ -18,15 +18,7 @@ struct texture_resource_access final {
   static void set_source(const texture_resource& value, asset_identity source) {
     value.identity_ = std::move(source);
   }
-  static std::uint64_t update_sequence(const texture_resource& value) noexcept {
-    return value.update_sequence_;
-  }
-  static bool claim_update(const texture_resource& value, std::uint64_t sequence) noexcept {
-    if (sequence == 0U || sequence < value.update_sequence_)
-      return false;
-    value.update_sequence_ = sequence;
-    return true;
-  }
+
   static void set_metadata(const texture_resource& value, texture_metadata metadata) noexcept {
     value.metadata_ = std::move(metadata);
   }

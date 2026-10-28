@@ -177,7 +177,7 @@ void mesh_data_lifetime() {
   frame.reset();
   check(lifetime.expired());
 }
-void independent_update_sequences() {
+void independent_resource_identity() {
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", std::make_shared<memory_files>()) ==
         gneiss::engine::result::success);
@@ -210,66 +210,23 @@ void independent_update_sequences() {
   check(shared.reserve_asset(source_a, conflict) == gneiss::engine::result::success &&
         gneiss::engine::asset_rid(conflict) == gneiss::engine::asset_rid(a));
 
-  const auto stage = [&](const auto& source, const auto& target, auto sequence, auto& output) {
-    decoded_asset prepared;
-    prepared.uri = source.uri;
-    prepared.content =
+  const auto adopt = [&](const auto& source, auto& target) {
+    decoded_asset decoded;
+    decoded.uri = source.uri;
+    decoded.content =
         asset_ref<const material_description>{std::make_shared<const material_description>()};
-    return gneiss::engine::resource_service::implementation::prepare_update(
-        loader, std::move(prepared), output, target, sequence);
+    return resource_service::implementation::adopt(loader, std::move(decoded), target);
   };
-  std::array<detail::asset_update, 1> first, unrelated, late, latest;
-  const auto first_sequence =
-      gneiss::engine::resource_service::implementation::next_update_sequence();
-  check(stage(source_a, a, first_sequence, first.front()) == gneiss::engine::result::success);
-  check(stage(source_b, b, gneiss::engine::resource_service::implementation::next_update_sequence(),
-              unrelated.front()) == gneiss::engine::result::success);
-  check(gneiss::engine::resource_service::implementation::apply_update(loader, unrelated.front()) ==
-        gneiss::engine::result::success);
-  check(gneiss::engine::resource_service::implementation::apply_update(loader, first.front()) ==
-        gneiss::engine::result::success);
-  const auto previous = resources.share_material(gneiss::engine::asset_rid(a));
-  const auto old_sequence =
-      gneiss::engine::resource_service::implementation::next_update_sequence();
-  check(stage(source_a, a, old_sequence, late.front()) == gneiss::engine::result::success);
-  const auto new_sequence =
-      gneiss::engine::resource_service::implementation::next_update_sequence();
-  check(gneiss::engine::resource_service::implementation::claim_update(loader, a, new_sequence));
-  // 新请求尚未完成也阻止旧任务覆盖；最新请求失败时仍保留当前成功内容。
-  check(gneiss::engine::resource_service::implementation::apply_update(loader, late.front()) ==
-        gneiss::engine::result::invalid_state);
-  check(resources.share_material(gneiss::engine::asset_rid(a)) == previous);
-  check(stage(source_a, a, old_sequence, late.front()) == gneiss::engine::result::invalid_state);
-  check(stage(source_a, a, new_sequence, latest.front()) == gneiss::engine::result::success);
-  check(gneiss::engine::resource_service::implementation::apply_update(loader, latest.front()) ==
-        gneiss::engine::result::success);
-  // 内容互斥；空结果和类型不匹配不得占用序号或替换已有材质。
+  check(adopt(source_a, a).ok());
+  check(adopt(source_b, b).ok());
   const auto retained = resources.share_material(asset_rid(a));
   decoded_asset invalid;
   invalid.uri = source_a.uri;
-  detail::asset_update rejected;
-  check(resource_service::implementation::prepare_update(loader, invalid, rejected, a) ==
-        result::invalid_argument);
+  check(resource_service::implementation::adopt(loader, invalid, a) == result::invalid_argument);
   invalid.content = asset_ref<const material_description>{};
-  check(resource_service::implementation::prepare_update(loader, invalid, rejected, a) ==
-        result::invalid_argument);
+  check(resource_service::implementation::adopt(loader, invalid, a) == result::invalid_argument);
   invalid.content = texture_data{};
-  check(resource_service::implementation::prepare_update(loader, invalid, rejected, a) ==
-        result::invalid_argument);
-  auto invalid_update = latest.front();
-  invalid_update.data = std::monostate{};
-  check(resource_service::implementation::apply_update(loader, invalid_update) ==
-        result::invalid_argument);
-  invalid_update.data = std::shared_ptr<const texture_data>{};
-  check(resource_service::implementation::apply_update(loader, invalid_update) ==
-        result::invalid_argument);
-  invalid_update.data = std::make_shared<const texture_data>();
-  check(resource_service::implementation::apply_update(loader, invalid_update) ==
-        result::invalid_argument);
-  invalid_update.data = detail::asset_update::material_content{};
-  check(resource_service::implementation::apply_update(loader, invalid_update) ==
-        result::invalid_argument);
-  check(resource_service::implementation::apply_update(loader, latest.front()).ok());
+  check(resource_service::implementation::adopt(loader, invalid, a) == result::invalid_argument);
   check(resources.share_material(asset_rid(a)) == retained);
 }
 void reserved_material_lifetime() {
@@ -291,14 +248,8 @@ void reserved_material_lifetime() {
   prepared.uri = request.uri;
   prepared.content =
       asset_ref<const material_description>{std::make_shared<const material_description>()};
-  std::array<detail::asset_update, 1> candidates;
-  check(gneiss::engine::resource_service::implementation::prepare_update(
-            loader, std::move(prepared), candidates.front(), target) ==
-        gneiss::engine::result::success);
-  check(resources.material_status(rid) == gneiss::engine::result::not_ready);
-  check(gneiss::engine::resource_service::implementation::apply_update(
-            loader, candidates.front()) == gneiss::engine::result::success);
-  candidates = {};
+  check(resources.material_status(rid) == result::not_ready);
+  check(resource_service::implementation::adopt(loader, std::move(prepared), target).ok());
   check(resources.material_status(rid) == gneiss::engine::result::success);
   target = {};
   loader.collect_unused();
@@ -318,15 +269,12 @@ void cpu_loading(execution_mode mode) {
   if (loader.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   check(loader.configure_loading(scheduler).ok());
-  auto& service = loader;
   memory_files fixture;
   fixture.pixel(std::byte{42});
   fixture.text(
       "texture",
       R"({"format":"gneiss.texture","version":2,"source":"asset://image.ktx2","color_space":"srgb","usage":"default"})");
-  const std::array<std::string, 1> uris{"asset://texture"};
-  std::uint64_t request{};
-  asset_load_completion completed;
+  resource_request request;
   auto advance = [&] {
     (void)scheduler.run_ready();
     check(files->dispatch_completions(64).ok());
@@ -341,37 +289,36 @@ void cpu_loading(execution_mode mode) {
       advance();
     }
   };
-  check(service.submit(uris, 1U, 1U, request).ok());
-  auto target = service.requested_assets().front();
+  check(loader.load<texture_resource>("asset://texture", request).ok());
+  auto target = request.resource();
+  resource_request duplicate;
+  check(loader.load<texture_resource>("asset://texture", duplicate).ok());
+  check(duplicate.resource() == target);
   until([&] { return bool(backend->callback); });
   check(resources.texture_status(asset_rid(target)) == result::not_ready);
-  check(!service.take(completed));
+  request.cancel(); // 另一个调用方仍在等待，不取消共享工作。
   backend->complete(fixture.files.at("texture"));
   until([&] { return bool(backend->callback); });
   check(backend->path == "image.ktx2");
   backend->complete(fixture.files.at("image.ktx2"));
-  until([&] { return service.take(completed); });
-  // 没有 Render 或 GPU 回执，CPU 数据就绪即成功。
-  check(completed.result.ok() && completed.state == asset_load_state::applied);
-  check(resources.texture_status(asset_rid(target)).ok());
+  until([&] { return duplicate.status() != result::not_ready; });
+  check(duplicate.status().ok());
   const auto previous = resources.share_texture(asset_rid(target));
   check(previous && previous->levels.front().pixels.front() == std::byte{42});
   const auto reads = backend->reads;
-  check(service.submit(uris, 1U, 2U, request, false).ok());
-  until([&] { return service.take(completed); });
-  check(completed.result.ok() && backend->reads == reads);
-  check(service.submit(uris, 1U, 3U, request).ok());
+  check(loader.load<texture_resource>("asset://texture", request).ok());
+  check(request.status().ok() && backend->reads == reads);
+  check(loader.load<texture_resource>("asset://texture", request, true).ok());
   until([&] { return bool(backend->callback); });
   backend->complete({}, result::io);
-  until([&] { return service.take(completed); });
-  check(completed.result == result::io && resources.share_texture(asset_rid(target)) == previous);
-  check(service.submit(uris, 1U, 4U, request).ok());
+  until([&] { return request.status() != result::not_ready; });
+  check(request.status() == result::io && resources.share_texture(asset_rid(target)) == previous);
+  check(loader.load<texture_resource>("asset://texture", request, true).ok());
   until([&] { return bool(backend->callback); });
-  check(service.cancel());
-  until([&] { return service.take(completed); });
-  check(completed.state == asset_load_state::cancelled);
+  request.cancel();
+  advance();
   backend->complete(fixture.files.at("texture"));
-  check(files->dispatch_completions(64U).ok());
+  advance();
   check(resources.share_texture(asset_rid(target)) == previous);
   fixture.text(
       "mesh",
@@ -379,48 +326,32 @@ void cpu_loading(execution_mode mode) {
   fixture.text(
       "material",
       R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[1,1,1,1],"base_color_texture":"asset://texture"})");
-  const std::array mixed{asset_source{"asset://mesh", asset_type::mesh},
-                         asset_source{"asset://material", asset_type::material}};
-  check(service.submit_assets(mixed, 1U, 5U, request).ok());
-  auto mesh_target = service.requested_assets().front();
-  auto material_target = service.requested_assets().back();
+  check(loader.load<material_resource>("asset://material", request).ok());
   until([&] {
     if (backend->callback)
       backend->complete(fixture.files.at(backend->path));
-    return service.take(completed);
+    return request.status() != result::not_ready;
   });
-  auto material = asset_cast<material_resource>(material_target);
-  check(completed.result.ok() && resources.mesh_status(asset_rid(mesh_target)).ok());
-  check(material && material->textures()[0] == asset_cast<texture_resource>(target));
-  // 已采用网格之后取消后续材质读取，不回滚成功项或既有依赖。
-  check(service.submit_assets(mixed, 1U, 6U, request).ok());
-  until([&] {
-    if (backend->callback && backend->path == "mesh")
-      backend->complete(fixture.files.at("mesh"));
-    return backend->callback && backend->path == "material";
-  });
-  const auto adopted_mesh = resources.share_mesh(asset_rid(mesh_target));
-  check(service.cancel());
-  until([&] { return service.take(completed); });
-  check(completed.state == asset_load_state::cancelled && completed.results.front().applied);
-  backend->complete(fixture.files.at("material"));
-  check(files->dispatch_completions(64U).ok());
-  check(resources.share_mesh(asset_rid(mesh_target)) == adopted_mesh);
-  // CPU 字节预算失败不破坏已采用内容。
-  check(service.submit_assets(std::span(mixed).first(1U), 1U, 7U, request, true, 1U).ok());
+  check(request.status().ok());
+  check(request.get<material_resource>()->textures()[0] == asset_cast<texture_resource>(target));
+  check(loader.load({"asset://mesh", asset_type::mesh}, request, true, 1).ok());
   until([&] {
     if (backend->callback)
       backend->complete(fixture.files.at(backend->path));
-    return service.take(completed);
+    return request.status() != result::not_ready;
   });
-  check(completed.result.failed() && resources.share_mesh(asset_rid(mesh_target)) == adopted_mesh);
+  check(request.status().failed());
+  check(loader.load<texture_resource>("asset://texture", request, true).ok());
   loader.request_stop();
-  until([&] { return loader.stopped(); });
-  check(!manager.stopped()); // 资源服务停止不关闭共享的 CPU 加载器。
+  check(loader.stopped() && request.status() == result::invalid_state);
+  check(!manager.stopped());
+  if (backend->callback)
+    backend->complete({});
+  advance();
   texture rejected;
   check(loader.reserve_texture(rejected) == result::invalid_state && !rejected);
   check(loader.configure_loading(scheduler) == result::invalid_state);
-  check(service.submit(uris, 1U, 8U, request) == result::invalid_state && request == 0U);
+  check(loader.load<texture_resource>("asset://texture", request) == result::invalid_state);
   // 资源服务停止后仍能直接加载 CPU 内容，结果移动领取且不写入长期缓存。
   manager.collect_unused();
   const auto cached = manager.cache().size();
@@ -464,12 +395,67 @@ void cpu_loading(execution_mode mode) {
   until([&] { return manager.stopped(); });
   check(manager.load_mesh_data("asset://mesh", mesh_request) == result::invalid_state);
 }
+void independent_loads(execution_mode mode) {
+  task_scheduler scheduler({.mode = mode});
+  auto source = std::make_shared<memory_files>();
+  source->text(
+      "a",
+      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[1,1,1,1],"base_color_texture":null})");
+  source->text(
+      "b",
+      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[0,1,0,1],"base_color_texture":null})");
+  source->text(
+      "bad",
+      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[1,1,1,1],"base_color_texture":"asset://absent"})");
+  source->text(
+      "dependent",
+      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[1,1,1,1],"base_color_texture":"asset://texture"})");
+  source->text(
+      "texture",
+      R"({"format":"gneiss.texture","version":2,"source":"asset://image.ktx2","color_space":"srgb","usage":"default"})");
+  source->pixel(std::byte{42});
+  test_support::fixture_files files;
+  check(files.mount("asset://", source).ok());
+  asset_manager manager(test_support::test_files(files));
+  render_service render;
+  resource_service service(manager);
+  check(service.attach_render(render).ok());
+  check(service.configure_loading(scheduler).ok());
+  resource_request first, second, joined, bad, dependent;
+  check(service.load<material_resource>("asset://a", first).ok());
+  check(service.load<material_resource>("asset://b", second).ok());
+  check(service.load<material_resource>("asset://a", joined, true).ok());
+  check(first.resource() == joined.resource());
+  first.cancel();
+  check(service.load<material_resource>("asset://bad", bad).ok());
+  check(service.load<material_resource>("asset://dependent", dependent).ok());
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  while (joined.status() == result::not_ready || second.status() == result::not_ready ||
+         bad.status() == result::not_ready || dependent.status() == result::not_ready) {
+    check(std::chrono::steady_clock::now() < deadline);
+    (void)scheduler.run_ready();
+    check(manager.async_files()->dispatch_completions(64).ok());
+    manager.advance();
+    service.advance();
+    std::this_thread::yield();
+  }
+  check(joined.status().ok() && second.status().ok() && dependent.status().ok());
+  check(bad.status().failed() && bad.diagnostic().path == "asset://absent");
+  check(bool(dependent.get<material_resource>()->textures()[0]));
+  const auto bytes = source->bytes_read->load();
+  check(service.load<material_resource>("asset://a", first).ok());
+  check(first.status().ok() && first.resource() == joined.resource());
+  check(source->bytes_read->load() == bytes);
+}
+
 } // namespace
 int main() try {
   prepared_source_revisions();
   mesh_data_lifetime();
-  independent_update_sequences();
+  independent_resource_identity();
   reserved_material_lifetime();
+  independent_loads(execution_mode::cooperative);
+  independent_loads(execution_mode::thread_pool);
   cpu_loading(execution_mode::cooperative);
   cpu_loading(execution_mode::thread_pool);
   return 0;

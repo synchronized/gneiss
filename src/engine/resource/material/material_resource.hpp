@@ -32,7 +32,6 @@ private:
   material_resource(rid value, std::array<texture, 5> dependencies = {}) noexcept;
   rid rid_;
   mutable asset_identity identity_;
-  mutable std::uint64_t update_sequence_{};
   mutable material_parameters parameters_;
   mutable std::array<texture, 5> textures_;
 };

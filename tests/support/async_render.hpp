@@ -4,6 +4,7 @@
 #include "async_asset.hpp"
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/platform/files/file_service.hpp"
+#include "runtime/loading/resource_load_group.hpp"
 #include <chrono>
 #include <stdexcept>
 namespace gneiss::test_support {
@@ -19,8 +20,9 @@ inline engine::result load_render(engine::resource_service& loader, engine::asse
   if (status.failed())
     return status;
   const engine::asset_source source{std::string(uri), type};
+  runtime::resource_load_group group{loader};
   std::uint64_t request{};
-  status = loader.submit_assets(std::span(&source, 1), 1, 1, request, false);
+  status = group.submit_assets(std::span(&source, 1), 1, 1, request, false);
   if (status.failed())
     return status;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -28,9 +30,9 @@ inline engine::result load_render(engine::resource_service& loader, engine::asse
     (void)tasks.run_ready();
     (void)loader.assets().async_files()->dispatch_completions(64);
     loader.assets().advance();
-    loader.advance();
-    engine::asset_load_completion completion;
-    if (loader.take(completion)) {
+    group.advance();
+    runtime::asset_load_completion completion;
+    if (group.take(completion)) {
       diagnostic = {completion.result, completion.byte_offset, std::move(completion.path),
                     std::move(completion.message)};
       if (completion.result.failed()) {

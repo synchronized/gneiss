@@ -93,7 +93,7 @@ void run_asset_reload() {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     for (;;) {
       (void)scheduler.run_ready();
-      gneiss::engine::asset_load_completion completion;
+      gneiss::runtime::asset_load_completion completion;
       bool ready{};
       status = app->poll_assets(completion, ready);
       if (status.failed() || ready)
@@ -675,7 +675,7 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
             : std::vector<gneiss::engine::asset_source>{{"asset://t.texture.json", type::texture}};
     std::uint64_t request{};
     check(app->request_assets(assets, 1U, 1U, request, true) == gneiss::engine::result::success);
-    gneiss::engine::asset_load_completion completed;
+    gneiss::runtime::asset_load_completion completed;
     bool ready{};
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     while (!ready) {

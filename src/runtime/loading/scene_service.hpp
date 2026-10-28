@@ -10,6 +10,7 @@
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/function/world/world.hpp"
+#include "runtime/loading/resource_load_group.hpp"
 #include "runtime/loading/scene_domain.hpp"
 #include "runtime/loading/scene_load_types.hpp"
 #include <optional>
@@ -36,7 +37,7 @@ public:
                   std::shared_ptr<gneiss::engine::progress_notification> notification);
   void advance();
   /** 激活后的视觉资源独立完成，不影响结构激活结果；所属线程消费诊断。 */
-  [[nodiscard]] bool take_visual_completion(gneiss::engine::asset_load_completion& output);
+  [[nodiscard]] bool take_visual_completion(gneiss::runtime::asset_load_completion& output);
   [[nodiscard]] bool visual_loading() const noexcept {
     return visual_pending_ || !visual_queue_.empty();
   }
@@ -56,7 +57,7 @@ public:
   [[nodiscard]] gneiss::engine::world* native_world() const noexcept;
   [[nodiscard]] gneiss::engine::scene_instances* scenes() noexcept;
   /** 内部适配借用；视觉服务在 attach_executor 后存活至 shutdown，不随场景切换重建。 */
-  [[nodiscard]] gneiss::engine::resource_service* loading_assets() const noexcept;
+  [[nodiscard]] resource_load_group* loading_assets() const noexcept;
   /** 请求、进度和完成值不暴露候选域；激活仍由宿主在安全点显式调用。 */
   [[nodiscard]] gneiss::engine::result request_scene(std::string_view uri, std::uint64_t session,
                                                      std::uint64_t revision,
@@ -70,7 +71,7 @@ public:
                  std::uint64_t revision, std::uint64_t& request, bool reload);
   /** 所属线程、渲染快照捕获之前调用；回执报告内容更新结果，不改变场景引用。 */
   [[nodiscard]] gneiss::engine::result
-  poll_assets(gneiss::engine::asset_load_completion& completion, bool& ready);
+  poll_assets(gneiss::runtime::asset_load_completion& completion, bool& ready);
 
   /** 异步读取结构与依赖，所属线程原位修改实例；不切换 World。
    * 重载期间拒绝其他加载；poll_reload 消费终态后释放请求槽位。 */
@@ -101,7 +102,7 @@ private:
   std::uint64_t visual_session_{};
   std::uint64_t visual_revision_{};
   bool visual_pending_{};
-  std::optional<gneiss::engine::asset_load_completion> visual_completion_;
+  std::optional<gneiss::runtime::asset_load_completion> visual_completion_;
   gneiss::engine::resource_service* asset_owner_{};
   std::unique_ptr<scene_domain> active_;
   std::unique_ptr<scene_domain> retired_;
@@ -123,7 +124,7 @@ private:
   std::optional<scene_load_completion> completed_;
   std::uint64_t sequence_{};
   const std::thread::id owner_{std::this_thread::get_id()};
-  bool loading_attached_{};
+  std::unique_ptr<resource_load_group> loading_;
 };
 
 } // namespace gneiss::runtime

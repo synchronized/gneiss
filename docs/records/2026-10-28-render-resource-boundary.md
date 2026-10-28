@@ -193,3 +193,17 @@ Windows Clang Debug 编译通过，30 项相关测试全部通过。新增直接
 协作式和线程池模式均通过；既有预算、加载失败、取消、材质依赖、Scene/Prefab、编辑器和边界测试通过。
 改动行格式化、批次直接 I/O/解码调用扫描及 git diff --check 通过。
 未运行大场景、GPU 图像验证、独立 clang-tidy、跨平台/静态库矩阵或远端 CI。
+
+## 单资源加载替代基础批次
+
+- 删除 asset_load_batch、asset_update、prepare/apply 和资源更新序号。
+- resource_service.load<T> 返回单资源 resource_request；同身份在途请求合并，重载加入既有工作。
+  cancel 只释放当前观察权；没有观察者时放弃尚未采用的工作，迟到读取不修改资源。
+- 材质通过同一入口请求纹理，依赖失败反馈给材质；成功表示 CPU 内容及依赖已采用，不等待 GPU。
+- Runtime resource_load_group 仅组合单资源请求，进度/回执移至 gneiss::runtime。
+  results 只统计显式请求；取消保留已成功项；不再施加跨资源的批次字节预算。
+- 测试用 prepared_batch 移至测试夹具，生产头不再声明批次准备对象。
+- Windows Clang Debug 完整编译通过；30 项相关短测试通过，包括新增的协作式/线程池并发、
+  同 URI 复用、观察者取消隔离、依赖失败、缓存、停止及迟到完成覆盖。
+  首轮新增夹具缺少材质必填的 base_color_texture:null，修正夹具后通过。
+- 未运行大场景、GPU 图像验证、其他平台或远端 CI。加载并发不等于流送或全局内存预算。

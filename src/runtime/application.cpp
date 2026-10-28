@@ -1064,7 +1064,7 @@ bool application::has_asset_loading_service() const noexcept {
   return storage_->scene_service_.loading_assets() != nullptr;
 }
 
-gneiss::engine::resource_service* application::loading_assets() noexcept {
+resource_load_group* application::loading_assets() noexcept {
   return storage_->scene_service_.loading_assets();
 }
 
@@ -1226,7 +1226,7 @@ application::request_assets(std::span<const gneiss::engine::asset_source> source
   }
 }
 
-gneiss::engine::result application::poll_assets(gneiss::engine::asset_load_completion& completion,
+gneiss::engine::result application::poll_assets(gneiss::runtime::asset_load_completion& completion,
                                                 bool& ready) {
   ready = false;
   if (!is_owner_thread() || !accepts_requests())
@@ -1243,7 +1243,7 @@ gneiss::engine::result application::poll_assets(gneiss::engine::asset_load_compl
   }
 }
 
-bool application::asset_progress(gneiss::engine::asset_load_progress& progress) const noexcept {
+bool application::asset_progress(gneiss::runtime::asset_load_progress& progress) const noexcept {
   progress = {};
   if (!is_owner_thread() || !accepts_requests())
     return false;
@@ -1295,9 +1295,9 @@ void application::advance_scene_load() {
 }
 
 void application::report_visual_completion() {
-  gneiss::engine::asset_load_completion completion;
+  gneiss::runtime::asset_load_completion completion;
   if (storage_->scene_service_.take_visual_completion(completion) &&
-      completion.state != gneiss::engine::asset_load_state::cancelled) {
+      completion.state != gneiss::runtime::asset_load_state::cancelled) {
     for (const auto& item : completion.results) {
       if (!item.applied) {
         report(gneiss::engine::severity::error, gneiss::engine::category::asset, item.result,

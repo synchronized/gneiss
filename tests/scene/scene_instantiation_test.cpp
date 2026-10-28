@@ -234,20 +234,13 @@ void run() {
   check(gneiss::test_support::prepare_render_for_test(candidate_assets, vfs, requests, batch,
                                                       diagnostic,
                                                       {}) == gneiss::engine::result::success);
-  std::vector<gneiss::engine::detail::asset_update> staged;
-  for (auto& asset : batch.assets) {
-    gneiss::engine::detail::asset_update value;
-    check(gneiss::engine::resource_service::implementation::prepare_update(
-              candidate_render, std::move(asset), value) == gneiss::engine::result::success);
-    staged.push_back(std::move(value));
-  }
-  for (auto& value : staged) {
-    check(gneiss::engine::resource_service::implementation::apply_update(candidate_render, value) ==
-          gneiss::engine::result::success);
-  }
   gneiss::engine::scene_instances::asset_bindings bindings;
-  for (const auto& value : staged) {
-    bindings.emplace(std::string(gneiss::engine::asset_uri(value.target)), value.target);
+  for (auto& asset : batch.assets) {
+    gneiss::engine::render_asset_ref target;
+    check(gneiss::engine::resource_service::implementation::adopt(candidate_render,
+                                                                  std::move(asset), target)
+              .ok());
+    bindings.emplace(std::string(gneiss::engine::asset_uri(target)), target);
   }
   auto material = gneiss::engine::resource_service::material_ref(bindings.at("asset://m.material"));
   const auto mesh_rid = gneiss::engine::asset_rid(bindings.at("asset://m.mesh"));
@@ -266,7 +259,6 @@ void run() {
                                           "asset://blue.material", unrelated,
                                           diagnostic) == gneiss::engine::result::success);
   check(gneiss::engine::asset_rid(unrelated) != gneiss::engine::asset_rid(material));
-  staged.clear();
   const auto reads = files->reads;
   gneiss::scene_instance_id new_scene{};
   // 缺少来源引用必须拒绝，不能通过临时描述回写缓存。

@@ -43,8 +43,9 @@ gneiss::engine::result reload_assets_for_test(gneiss::engine::resource_service& 
   auto status = loader.configure_loading(scheduler);
   if (status.failed())
     return status;
+  gneiss::runtime::resource_load_group group{loader};
   std::uint64_t request{};
-  status = loader.submit_assets(sources, 1, 1, request, true);
+  status = group.submit_assets(sources, 1, 1, request, true);
   if (status.failed())
     return status;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -52,9 +53,9 @@ gneiss::engine::result reload_assets_for_test(gneiss::engine::resource_service& 
     (void)scheduler.run_ready();
     (void)loader.assets().async_files()->dispatch_completions(64);
     loader.assets().advance();
-    loader.advance();
-    asset_load_completion completion;
-    if (loader.take(completion)) {
+    group.advance();
+    gneiss::runtime::asset_load_completion completion;
+    if (group.take(completion)) {
       diagnostic = {completion.result, 0, {}, std::move(completion.message)};
       return completion.result;
     }
@@ -297,16 +298,14 @@ void selected_variants() {
   [[maybe_unused]] const auto& cache = loader.cache();
   if (loader.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
-  std::array<detail::asset_update, 1> candidate;
-  require(gneiss::engine::resource_service::implementation::prepare_update(
-              loader, std::move(batch.assets.front()), candidate.front()) ==
-          gneiss::engine::result::success);
-  const auto old_frame = std::get<std::shared_ptr<const texture_data>>(candidate.front().data);
+  render_asset_ref candidate;
+  require(
+      resource_service::implementation::adopt(loader, std::move(batch.assets.front()), candidate)
+          .ok());
+  const auto old_frame = resources.share_texture(asset_rid(candidate));
   require(old_frame->payload.data() == prepared_payload &&
           old_frame->manifest.data() == prepared_manifest && old_frame->profile == compressed &&
           old_frame->selected_variant == 0U);
-  require(gneiss::engine::resource_service::implementation::apply_update(
-              loader, candidate.front()) == gneiss::engine::result::success);
   // CPU 内容保留所选变体，设备恢复不再通过 Render 重读文件。
   const auto payload_before = old_frame->payload;
   const auto payload_offset = binary.size() - built.payload().size();
@@ -345,17 +344,11 @@ void selected_variants() {
   decoded_asset single_prepared;
   single_prepared.uri = "asset://single.texture.json";
   single_prepared.content = std::move(texture);
-  std::array<detail::asset_update, 1> single;
-  require(gneiss::engine::resource_service::implementation::prepare_update(
-              loader, std::move(single_prepared), single.front()) ==
-          gneiss::engine::result::success);
-  require(
-      std::get<std::shared_ptr<const texture_data>>(single.front().data)->payload.data() ==
-          single_payload &&
-      std::get<std::shared_ptr<const texture_data>>(single.front().data)->profile == compressed &&
-      std::get<std::shared_ptr<const texture_data>>(single.front().data)->selected_variant == 0U);
-  require(gneiss::engine::resource_service::implementation::apply_update(loader, single.front()) ==
-          gneiss::engine::result::success);
+  render_asset_ref single;
+  require(resource_service::implementation::adopt(loader, std::move(single_prepared), single).ok());
+  const auto single_data = resources.share_texture(asset_rid(single));
+  require(single_data->payload.data() == single_payload && single_data->profile == compressed &&
+          single_data->selected_variant == 0U);
 }
 
 // 同步与异步更新都保留纯参数；准备上传不另建资源 RID。
@@ -440,29 +433,15 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
               ->parameters.color != math::vector4{0.25F, 0.5F, 0.75F, 0.5F}) {
     return false;
   }
-  detail::asset_update missing;
-  if (gneiss::engine::resource_service::implementation::prepare_update(
-          loader, batch.assets.back(), missing) != gneiss::engine::result::success ||
-      resources.live_resource_count() != before) {
-    return false;
-  }
-  std::vector<detail::asset_update> candidates;
+  std::vector<render_asset_ref> retained;
   for (auto& prepared : batch.assets) {
-    detail::asset_update candidate;
-    if (gneiss::engine::resource_service::implementation::prepare_update(
-            loader, std::move(prepared), candidate) != gneiss::engine::result::success) {
+    render_asset_ref target;
+    if (resource_service::implementation::adopt(loader, std::move(prepared), target).failed())
       return false;
-    }
-    if (gneiss::engine::resource_service::implementation::apply_update(loader, candidate) !=
-        gneiss::engine::result::success)
-      return false;
-    candidates.push_back(std::move(candidate));
+    retained.push_back(std::move(target));
   }
-  if (!matches(
-          std::get<detail::asset_update::material_content>(candidates.back().data).data.get()) ||
-      !matches(resources.get_material(gneiss::engine::asset_rid(loaded)))) {
+  if (!matches(resources.get_material(asset_rid(loaded))))
     return false;
-  }
   const auto decode_count = decoder->calls;
   render_asset_ref cached;
   if (loader

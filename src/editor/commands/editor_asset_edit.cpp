@@ -252,7 +252,7 @@ void editor_asset_edit::advance(runtime::application& application, scene_documen
     return;
   }
   (void)application.asset_progress(progress_);
-  gneiss::engine::asset_load_completion completion;
+  gneiss::runtime::asset_load_completion completion;
   bool ready{};
   const auto polled = application.poll_assets(completion, ready);
   if (polled == gneiss::engine::result::success && !ready) {

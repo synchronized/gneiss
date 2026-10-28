@@ -8,6 +8,14 @@
 #include "engine/resource/texture/texture_decoder.hpp"
 #include <algorithm>
 #include <set>
+namespace gneiss::engine {
+struct prepared_batch {
+  std::vector<decoded_asset> assets;
+  std::size_t bytes{};
+  /** 整文件快照持有的输入字节；区间读取没有源副本，不计入此值。 */
+  std::size_t input_bytes{};
+};
+}
 namespace gneiss::test_support {
 using namespace gneiss::engine;
 // 仅组织内存测试夹具；生产解码器只消费字节，不负责读取与递归依赖。

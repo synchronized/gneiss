@@ -8,6 +8,7 @@
 #include "engine/core/scene_types.hpp"
 #include "engine/function/resource/asset_types.hpp"
 #include "engine/function/scene/scene_instances.hpp"
+#include "runtime/loading/resource_load_types.hpp"
 
 namespace gneiss::editor {
 /** 提交期间借用的资源地址；请求接收后自行复制 URI。 */
@@ -39,7 +40,7 @@ public:
   bool active() const noexcept { return active_; }
   bool visible() const noexcept { return visible_; }
   gneiss::engine::result operation() const noexcept { return operation_; }
-  const gneiss::engine::asset_load_progress& progress() const noexcept { return progress_; }
+  const gneiss::runtime::asset_load_progress& progress() const noexcept { return progress_; }
 
 private:
   gneiss::engine::result request_impl(runtime::application& application, scene_document& session,
@@ -56,7 +57,7 @@ private:
   scene_node_id node_;
   std::string mesh_, material_;
   std::uint64_t revision_{}, request_{};
-  gneiss::engine::asset_load_progress progress_;
+  gneiss::runtime::asset_load_progress progress_;
   gneiss::engine::result operation_{gneiss::engine::result::success};
   bool active_{}, visible_{}, cancelled_{};
 };

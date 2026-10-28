@@ -58,8 +58,7 @@ target_sources(
     engine/resource/texture/texture_ktx2.hpp
     engine/resource/texture/texture_binary.cpp
     engine/resource/texture/texture_binary.hpp
-    engine/function/resource/detail/asset_load_batch.cpp
-    engine/function/resource/detail/asset_load_batch.hpp
+    engine/function/resource/resource_loading.cpp
     engine/function/resource/resource_cache.cpp
     engine/function/resource/resource_cache.hpp
     engine/core/service_registry.cpp

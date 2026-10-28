@@ -2,26 +2,12 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/function/resource/detail/asset_decode.hpp"
-#include "engine/function/resource/detail/asset_load_batch.hpp"
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/resource/resource_retirement_queue.hpp"
 #include "engine/resource/texture/texture_view.hpp"
 #include <unordered_map>
 namespace gneiss::engine {
 struct material_data;
-namespace detail {
-struct asset_update {
-  struct material_content {
-    std::shared_ptr<const material_data> data;
-    std::array<texture, 5> dependencies;
-  };
-  using content = std::variant<std::monostate, std::shared_ptr<const mesh_data>,
-                               std::shared_ptr<const texture_data>, material_content>;
-  render_asset_ref target;
-  std::uint64_t sequence{};
-  content data;
-};
-}
 struct GNEISS_API resource_service::implementation final {
 public:
   explicit implementation(render_service& render);
@@ -47,7 +33,12 @@ public:
   ~implementation();
   render_service& render() const noexcept { return render_; }
   texture_prepare_profile default_profile{};
-  std::unique_ptr<asset_load_batch> batch;
+  struct pending_load;
+  std::vector<std::shared_ptr<pending_load>> pending;
+  std::shared_ptr<progress_notification> notification;
+  bool loading_configured{};
+  void advance(resource_service&);
+  void stop_loading() noexcept;
   /** 创建新的渲染身份并返回唯一拥有者；失败输出为空，不接管外部 RID。 */
   result reserve_mesh(mesh& output) noexcept;
   result reserve_texture(texture& output) noexcept;
@@ -65,14 +56,6 @@ public:
   bool update_material(const material& target, std::shared_ptr<const material_data> data,
                        std::array<texture, 5> dependencies) noexcept;
   result create_texture(const texture_view& desc, texture& output) noexcept;
-  static std::uint64_t next_update_sequence() noexcept;
-  static bool claim_update(resource_service&, const render_asset_ref&, std::uint64_t) noexcept;
-  static result prepare_update(resource_service&, decoded_asset, detail::asset_update&,
-                               const render_asset_ref& = {}, std::uint64_t = 0U) noexcept;
-  static result apply_update(resource_service&, detail::asset_update&) noexcept;
-
-  static std::uint64_t update_sequence(resource_service&, const render_asset_ref&) noexcept;
-  static result prepare_material_update(resource_service&, const material_description&,
-                                        detail::asset_update&);
+  static result adopt(resource_service&, decoded_asset, render_asset_ref&) noexcept;
 };
 } // namespace gneiss::engine

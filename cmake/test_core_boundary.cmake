@@ -336,7 +336,6 @@ foreach(header IN ITEMS engine/platform/window_service.hpp
                         engine/function/render/render_resource_storage.hpp
                         granit/granit.hpp
                         engine/function/resource/detail/asset_decode.hpp
-                        engine/function/resource/detail/asset_load_batch.hpp
                         engine/function/resource/detail/resource_service_impl.hpp
                         engine/function/resource/detail/resource_service_impl.hpp)
   file(WRITE "${fixture}/src/runtime/loading/scene_service.cpp"

@@ -83,7 +83,7 @@ result adopt_material_asset(std::string_view uri, asset_ref<const material_descr
   auto size = material_bytes;
   for (const auto& dependency : material->texture_uris) {
     if (dependency.size() > maximum_bytes - size) {
-      fail(diagnostic, result::out_of_memory, uri, "材质依赖超出批次字节上限");
+      fail(diagnostic, result::out_of_memory, uri, "材质依赖超出单资源字节上限");
       return result::out_of_memory;
     }
     size += dependency.size();

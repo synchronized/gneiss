@@ -21,6 +21,7 @@
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
 #include "runtime/configuration/application_configuration.hpp"
+#include "runtime/loading/resource_load_types.hpp"
 #include "runtime/loading/scene_load_types.hpp"
 
 #include <cstdint>
@@ -44,6 +45,7 @@ class world;
 }
 
 namespace gneiss::runtime {
+class resource_load_group;
 
 /** 内部真实运行对象；仅所属线程操作和释放最后一个持有引用。
  * 私有装配存储位于实现文件；此内部模块接口随源码构建，不属于安装 SDK。 */
@@ -90,8 +92,8 @@ public:
   request_assets(std::span<const gneiss::engine::asset_source> sources, std::uint64_t session,
                  std::uint64_t revision, std::uint64_t& request, bool reload);
   [[nodiscard]] gneiss::engine::result
-  poll_assets(gneiss::engine::asset_load_completion& completion, bool& ready);
-  [[nodiscard]] bool asset_progress(gneiss::engine::asset_load_progress& progress) const noexcept;
+  poll_assets(gneiss::runtime::asset_load_completion& completion, bool& ready);
+  [[nodiscard]] bool asset_progress(gneiss::runtime::asset_load_progress& progress) const noexcept;
   [[nodiscard]] gneiss::engine::result cancel_assets() noexcept;
   void advance_scene_load();
   [[nodiscard]] bool visual_assets_loading() const noexcept;
@@ -169,7 +171,7 @@ private:
   [[nodiscard]] std::uint64_t now_ns() const;
   [[nodiscard]] gneiss::engine::result poll_events(bool& out_should_close) noexcept;
   [[nodiscard]] gneiss::engine::result render_frame() noexcept;
-  [[nodiscard]] gneiss::engine::resource_service* loading_assets() noexcept;
+  [[nodiscard]] resource_load_group* loading_assets() noexcept;
   struct storage;
   std::unique_ptr<storage> storage_;
 };

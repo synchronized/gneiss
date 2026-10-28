@@ -264,7 +264,7 @@ gneiss::engine::result update_runtime(const gneiss::engine::frame_time* time, vo
       }
       if (!ready && asset_result == gneiss::engine::result::success &&
           time->elapsed_ns >= context.next_asset_progress_ns) {
-        gneiss::engine::asset_load_progress progress;
+        gneiss::runtime::asset_load_progress progress;
         if (context.application->asset_progress(progress)) {
           const gneiss::host::ipc_asset_reload_result event{
               .session_id = progress.session,
@@ -602,7 +602,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
           }
           return operation;
         }
-        gneiss::engine::asset_load_completion completion;
+        gneiss::runtime::asset_load_completion completion;
         const auto operation = native_application->poll_assets(completion, ready);
         if (ready) {
           for (const auto& item : completion.results) {
