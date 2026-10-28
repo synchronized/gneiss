@@ -7,7 +7,7 @@
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_resource_data.hpp"
 #include "engine/function/resource/asset_manager.hpp"
-#include "engine/function/resource/detail/asset_render_state.hpp"
+#include "engine/function/resource/detail/resource_service_impl.hpp"
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_uri.hpp"
@@ -154,7 +154,7 @@ engine::result asset_load_batch::submit_assets(std::span<const asset_source> sou
   value->explicit_count = sources.size();
   value->limit = prepare_limit;
   value->reload = reload;
-  value->sequence = detail::asset_update::next_update_sequence();
+  value->sequence = resource_service::implementation::next_update_sequence();
   value->targets.reserve(maximum_assets);
   value->completion.results.reserve(maximum_assets);
   value->completion.assets.reserve(maximum_assets);
@@ -189,7 +189,8 @@ engine::result asset_load_batch::submit_assets(std::span<const asset_source> sou
     render_asset_ref ready;
     if (reload ||
         assets_.acquire_cached(sources[index], ready, profile_) != engine::result::success) {
-      (void)detail::asset_update::claim_update(assets_, value->targets[index], value->sequence);
+      (void)resource_service::implementation::claim_update(assets_, value->targets[index],
+                                                           value->sequence);
     }
   }
   request = value->completion.request;
@@ -391,7 +392,8 @@ bool asset_load_batch::start_item(pending& value) {
     finish_item(engine::result::success, true);
     return false;
   }
-  if (!detail::asset_update::claim_update(assets_, value.targets[value.cursor], value.sequence)) {
+  if (!resource_service::implementation::claim_update(assets_, value.targets[value.cursor],
+                                                      value.sequence)) {
     finish_item(engine::result::invalid_state, false);
     return false;
   }
@@ -474,7 +476,7 @@ bool asset_load_batch::prepare_item_update(pending& value) {
     return false;
   }
   value.completion.prepared_bytes += prepared.bytes;
-  const auto staged = detail::asset_update::prepare_update(
+  const auto staged = resource_service::implementation::prepare_update(
       assets_, std::move(prepared), value.item, value.targets[value.cursor], value.sequence);
   if (staged != engine::result::success) {
     finish_item(staged, false);
@@ -544,7 +546,7 @@ void asset_load_batch::advance_impl() {
   if (!value.prepared && !prepare_item_update(value)) {
     return;
   }
-  const auto adopted = detail::asset_update::apply_update(assets_, value.item);
+  const auto adopted = resource_service::implementation::apply_update(assets_, value.item);
   finish_item(adopted, adopted.ok());
 }
 std::span<const render_asset_ref> asset_load_batch::requested_assets() const {

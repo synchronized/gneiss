@@ -112,8 +112,7 @@ target_sources(
     engine/resource/material/material_resource.hpp
     engine/function/render/render_service_resources.cpp
     engine/function/render/render_resource_storage.hpp
-    engine/function/resource/detail/render_resource_factory.cpp
-    engine/function/resource/detail/render_resource_factory.hpp
+    engine/function/resource/detail/resource_service_impl.hpp
     engine/resource/mesh/detail/mesh_resource_access.hpp
     engine/resource/texture/detail/texture_resource_access.hpp
     engine/resource/material/detail/material_resource_access.hpp

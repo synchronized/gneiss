@@ -160,7 +160,8 @@ Application 提供 `assets()` 和 `resources()`；宿主分发文件完成后分
 `asset_load_progress` 及混合资源引用辅助函数。asset_type 当前只枚举 Mesh、Material、Texture，
 CPU 描述类型仍由 load<T> 的 C++ 类型确定。
 私有 `asset_load_batch` 负责异步批次，`asset_decode` 只解码已有字节，
-`asset_render_state` 保存渲染资源装配状态和单项更新任务。不存在独立 Render Loader 对象，
+`resource_service_impl` 定义服务私有实现和纯数据更新记录；
+创建、RID 包装、延迟销毁及更新操作均属于服务实现，不再存在独立资源工厂。不存在独立 Render Loader 对象，
 缓存查询和内容采用实现在 resource_service.cpp 中。更新准备、序号占用和采用操作不向上层公开。
 
 

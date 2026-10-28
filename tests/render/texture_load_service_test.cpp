@@ -7,8 +7,7 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/asset_manager.hpp"
-#include "engine/function/resource/detail/asset_render_state.hpp"
-#include "engine/function/resource/detail/render_resource_factory.hpp"
+#include "engine/function/resource/detail/resource_service_impl.hpp"
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/platform/files/file_backend.hpp"
 #include "engine/platform/files/file_service.hpp"
@@ -164,7 +163,7 @@ void mesh_data_lifetime() {
       std::move(std::get<mesh_data>(first.assets.front().content)));
   check(mesh->vertices.data() == vertices);
   render_service resources;
-  gneiss::engine::render_resource_factory resources_factory{resources};
+  gneiss::engine::resource_service::implementation resources_factory{resources};
   gneiss::engine::rid rid{};
   check(resources.create_prepared_mesh(mesh, &rid) == gneiss::engine::result::success);
   check(resources.share_mesh(rid) == mesh);
@@ -183,7 +182,7 @@ void independent_update_sequences() {
   check(files.mount("asset://", std::make_shared<memory_files>()) ==
         gneiss::engine::result::success);
   render_service resources;
-  gneiss::engine::render_resource_factory resources_factory{resources};
+  gneiss::engine::resource_service::implementation resources_factory{resources};
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   [[maybe_unused]] auto& cache = asset_owner.cache();
   gneiss::engine::resource_service loader{asset_owner};
@@ -216,54 +215,61 @@ void independent_update_sequences() {
     prepared.uri = source.uri;
     prepared.content =
         asset_ref<const material_description>{std::make_shared<const material_description>()};
-    return gneiss::engine::detail::asset_update::prepare_update(loader, std::move(prepared), output,
-                                                                target, sequence);
+    return gneiss::engine::resource_service::implementation::prepare_update(
+        loader, std::move(prepared), output, target, sequence);
   };
   std::array<detail::asset_update, 1> first, unrelated, late, latest;
-  const auto first_sequence = gneiss::engine::detail::asset_update::next_update_sequence();
+  const auto first_sequence =
+      gneiss::engine::resource_service::implementation::next_update_sequence();
   check(stage(source_a, a, first_sequence, first.front()) == gneiss::engine::result::success);
-  check(stage(source_b, b, gneiss::engine::detail::asset_update::next_update_sequence(),
+  check(stage(source_b, b, gneiss::engine::resource_service::implementation::next_update_sequence(),
               unrelated.front()) == gneiss::engine::result::success);
-  check(gneiss::engine::detail::asset_update::apply_update(loader, unrelated.front()) ==
+  check(gneiss::engine::resource_service::implementation::apply_update(loader, unrelated.front()) ==
         gneiss::engine::result::success);
-  check(gneiss::engine::detail::asset_update::apply_update(loader, first.front()) ==
+  check(gneiss::engine::resource_service::implementation::apply_update(loader, first.front()) ==
         gneiss::engine::result::success);
   const auto previous = resources.share_material(gneiss::engine::asset_rid(a));
-  const auto old_sequence = gneiss::engine::detail::asset_update::next_update_sequence();
+  const auto old_sequence =
+      gneiss::engine::resource_service::implementation::next_update_sequence();
   check(stage(source_a, a, old_sequence, late.front()) == gneiss::engine::result::success);
-  const auto new_sequence = gneiss::engine::detail::asset_update::next_update_sequence();
-  check(gneiss::engine::detail::asset_update::claim_update(loader, a, new_sequence));
+  const auto new_sequence =
+      gneiss::engine::resource_service::implementation::next_update_sequence();
+  check(gneiss::engine::resource_service::implementation::claim_update(loader, a, new_sequence));
   // 新请求尚未完成也阻止旧任务覆盖；最新请求失败时仍保留当前成功内容。
-  check(gneiss::engine::detail::asset_update::apply_update(loader, late.front()) ==
+  check(gneiss::engine::resource_service::implementation::apply_update(loader, late.front()) ==
         gneiss::engine::result::invalid_state);
   check(resources.share_material(gneiss::engine::asset_rid(a)) == previous);
   check(stage(source_a, a, old_sequence, late.front()) == gneiss::engine::result::invalid_state);
   check(stage(source_a, a, new_sequence, latest.front()) == gneiss::engine::result::success);
-  check(gneiss::engine::detail::asset_update::apply_update(loader, latest.front()) ==
+  check(gneiss::engine::resource_service::implementation::apply_update(loader, latest.front()) ==
         gneiss::engine::result::success);
   // 内容互斥；空结果和类型不匹配不得占用序号或替换已有材质。
   const auto retained = resources.share_material(asset_rid(a));
   decoded_asset invalid;
   invalid.uri = source_a.uri;
   detail::asset_update rejected;
-  check(detail::asset_update::prepare_update(loader, invalid, rejected, a) ==
+  check(resource_service::implementation::prepare_update(loader, invalid, rejected, a) ==
         result::invalid_argument);
   invalid.content = asset_ref<const material_description>{};
-  check(detail::asset_update::prepare_update(loader, invalid, rejected, a) ==
+  check(resource_service::implementation::prepare_update(loader, invalid, rejected, a) ==
         result::invalid_argument);
   invalid.content = texture_data{};
-  check(detail::asset_update::prepare_update(loader, invalid, rejected, a) ==
+  check(resource_service::implementation::prepare_update(loader, invalid, rejected, a) ==
         result::invalid_argument);
   auto invalid_update = latest.front();
   invalid_update.data = std::monostate{};
-  check(detail::asset_update::apply_update(loader, invalid_update) == result::invalid_argument);
+  check(resource_service::implementation::apply_update(loader, invalid_update) ==
+        result::invalid_argument);
   invalid_update.data = std::shared_ptr<const texture_data>{};
-  check(detail::asset_update::apply_update(loader, invalid_update) == result::invalid_argument);
+  check(resource_service::implementation::apply_update(loader, invalid_update) ==
+        result::invalid_argument);
   invalid_update.data = std::make_shared<const texture_data>();
-  check(detail::asset_update::apply_update(loader, invalid_update) == result::invalid_argument);
+  check(resource_service::implementation::apply_update(loader, invalid_update) ==
+        result::invalid_argument);
   invalid_update.data = detail::asset_update::material_content{};
-  check(detail::asset_update::apply_update(loader, invalid_update) == result::invalid_argument);
-  check(detail::asset_update::apply_update(loader, latest.front()).ok());
+  check(resource_service::implementation::apply_update(loader, invalid_update) ==
+        result::invalid_argument);
+  check(resource_service::implementation::apply_update(loader, latest.front()).ok());
   check(resources.share_material(asset_rid(a)) == retained);
 }
 void reserved_material_lifetime() {
@@ -271,7 +277,7 @@ void reserved_material_lifetime() {
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == gneiss::engine::result::success);
   render_service resources;
-  gneiss::engine::render_resource_factory resources_factory{resources};
+  gneiss::engine::resource_service::implementation resources_factory{resources};
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   [[maybe_unused]] auto& cache = asset_owner.cache();
   gneiss::engine::resource_service loader{asset_owner};
@@ -286,12 +292,12 @@ void reserved_material_lifetime() {
   prepared.content =
       asset_ref<const material_description>{std::make_shared<const material_description>()};
   std::array<detail::asset_update, 1> candidates;
-  check(gneiss::engine::detail::asset_update::prepare_update(loader, std::move(prepared),
-                                                             candidates.front(), target) ==
+  check(gneiss::engine::resource_service::implementation::prepare_update(
+            loader, std::move(prepared), candidates.front(), target) ==
         gneiss::engine::result::success);
   check(resources.material_status(rid) == gneiss::engine::result::not_ready);
-  check(gneiss::engine::detail::asset_update::apply_update(loader, candidates.front()) ==
-        gneiss::engine::result::success);
+  check(gneiss::engine::resource_service::implementation::apply_update(
+            loader, candidates.front()) == gneiss::engine::result::success);
   candidates = {};
   check(resources.material_status(rid) == gneiss::engine::result::success);
   target = {};
@@ -306,7 +312,7 @@ void cpu_loading(execution_mode mode) {
           .max_file_bytes = resource_service::maximum_prepared_bytes});
   check(files->mount({.prefix = "asset://", .readers = {backend}, .writer = {}}).ok());
   render_service resources;
-  gneiss::engine::render_resource_factory resources_factory{resources};
+  gneiss::engine::resource_service::implementation resources_factory{resources};
   asset_manager manager(gneiss::test_support::test_files(files));
   gneiss::engine::resource_service loader{manager};
   if (loader.attach_render(resources).failed())

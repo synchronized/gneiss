@@ -4,7 +4,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/resource/detail/render_resource_factory.hpp"
+#include "engine/function/resource/detail/resource_service_impl.hpp"
 #include "engine/function/world/render_snapshot.hpp"
 #include "engine/function/world/world_state.hpp"
 #include "runtime/application.hpp"
@@ -37,7 +37,7 @@ int run_host_tests() {
 
 int run_tests() {
   gneiss::engine::render_service resources;
-  gneiss::engine::render_resource_factory resources_factory{resources};
+  gneiss::engine::resource_service::implementation resources_factory{resources};
   gneiss::engine::mesh mesh_ref;
   gneiss::engine::material material_ref;
   if (resources_factory.reserve_mesh(mesh_ref).failed() ||

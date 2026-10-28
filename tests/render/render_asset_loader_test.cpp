@@ -8,8 +8,7 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/asset_manager.hpp"
-#include "engine/function/resource/detail/asset_render_state.hpp"
-#include "engine/function/resource/detail/render_resource_factory.hpp"
+#include "engine/function/resource/detail/resource_service_impl.hpp"
 #include "engine/function/resource/resource_cache.hpp"
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/platform/files/file_service.hpp"
@@ -279,7 +278,7 @@ void selected_variants() {
   const std::array requests{
       asset_source{.uri = "asset://t.texture.json", .type = asset_type::texture}};
   render_service resources;
-  gneiss::engine::render_resource_factory resources_factory{resources};
+  gneiss::engine::resource_service::implementation resources_factory{resources};
   auto& scheduler = gneiss::test_support::render_tasks();
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   asset_owner.attach_task_executor(scheduler);
@@ -299,15 +298,15 @@ void selected_variants() {
   if (loader.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   std::array<detail::asset_update, 1> candidate;
-  require(gneiss::engine::detail::asset_update::prepare_update(
+  require(gneiss::engine::resource_service::implementation::prepare_update(
               loader, std::move(batch.assets.front()), candidate.front()) ==
           gneiss::engine::result::success);
   const auto old_frame = std::get<std::shared_ptr<const texture_data>>(candidate.front().data);
   require(old_frame->payload.data() == prepared_payload &&
           old_frame->manifest.data() == prepared_manifest && old_frame->profile == compressed &&
           old_frame->selected_variant == 0U);
-  require(gneiss::engine::detail::asset_update::apply_update(loader, candidate.front()) ==
-          gneiss::engine::result::success);
+  require(gneiss::engine::resource_service::implementation::apply_update(
+              loader, candidate.front()) == gneiss::engine::result::success);
   // CPU 内容保留所选变体，设备恢复不再通过 Render 重读文件。
   const auto payload_before = old_frame->payload;
   const auto payload_offset = binary.size() - built.payload().size();
@@ -347,15 +346,15 @@ void selected_variants() {
   single_prepared.uri = "asset://single.texture.json";
   single_prepared.content = std::move(texture);
   std::array<detail::asset_update, 1> single;
-  require(gneiss::engine::detail::asset_update::prepare_update(loader, std::move(single_prepared),
-                                                               single.front()) ==
+  require(gneiss::engine::resource_service::implementation::prepare_update(
+              loader, std::move(single_prepared), single.front()) ==
           gneiss::engine::result::success);
   require(
       std::get<std::shared_ptr<const texture_data>>(single.front().data)->payload.data() ==
           single_payload &&
       std::get<std::shared_ptr<const texture_data>>(single.front().data)->profile == compressed &&
       std::get<std::shared_ptr<const texture_data>>(single.front().data)->selected_variant == 0U);
-  require(gneiss::engine::detail::asset_update::apply_update(loader, single.front()) ==
+  require(gneiss::engine::resource_service::implementation::apply_update(loader, single.front()) ==
           gneiss::engine::result::success);
 }
 
@@ -407,7 +406,7 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
     return true;
   };
   render_service resources;
-  gneiss::engine::render_resource_factory resources_factory{resources};
+  gneiss::engine::resource_service::implementation resources_factory{resources};
   auto& scheduler = gneiss::test_support::render_tasks();
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   asset_owner.attach_task_executor(scheduler);
@@ -442,19 +441,19 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
     return false;
   }
   detail::asset_update missing;
-  if (gneiss::engine::detail::asset_update::prepare_update(loader, batch.assets.back(), missing) !=
-          gneiss::engine::result::success ||
+  if (gneiss::engine::resource_service::implementation::prepare_update(
+          loader, batch.assets.back(), missing) != gneiss::engine::result::success ||
       resources.live_resource_count() != before) {
     return false;
   }
   std::vector<detail::asset_update> candidates;
   for (auto& prepared : batch.assets) {
     detail::asset_update candidate;
-    if (gneiss::engine::detail::asset_update::prepare_update(
+    if (gneiss::engine::resource_service::implementation::prepare_update(
             loader, std::move(prepared), candidate) != gneiss::engine::result::success) {
       return false;
     }
-    if (gneiss::engine::detail::asset_update::apply_update(loader, candidate) !=
+    if (gneiss::engine::resource_service::implementation::apply_update(loader, candidate) !=
         gneiss::engine::result::success)
       return false;
     candidates.push_back(std::move(candidate));
@@ -548,7 +547,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
 
   gneiss::test_support::fixture_files file_system;
   gneiss::engine::render_service resources;
-  gneiss::engine::render_resource_factory resources_factory{resources};
+  gneiss::engine::resource_service::implementation resources_factory{resources};
   if (file_system.mount("asset://", memory).failed())
     return 1;
   auto& scheduler = gneiss::test_support::render_tasks();
@@ -993,7 +992,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   {
     using namespace gneiss::engine;
     render_service local;
-    gneiss::engine::render_resource_factory local_factory{local};
+    gneiss::engine::resource_service::implementation local_factory{local};
     gneiss::engine::mesh mesh_ref;
     gneiss::engine::texture texture_ref;
     gneiss::engine::material material_ref;
@@ -1026,7 +1025,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   // 显式关闭也立即失效旧句柄；晚释放在任意线程不再访问资源表。
   {
     gneiss::engine::render_service closing;
-    gneiss::engine::render_resource_factory closing_factory{closing};
+    gneiss::engine::resource_service::implementation closing_factory{closing};
     gneiss::engine::mesh reference;
     if (closing_factory.reserve_mesh(reference).failed())
       return 38;

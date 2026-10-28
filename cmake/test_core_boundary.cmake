@@ -162,7 +162,7 @@ foreach(header IN ITEMS "render/resource.hpp" "world/state.hpp" "scene/tree.hpp"
 endforeach()
 file(WRITE "${fixture}/src/engine/resource/probe.cpp" "#include <gneiss/core/result.h>\n")
 
-foreach(header IN ITEMS "engine/function/resource/detail/asset_render_state.hpp" "engine/function/resource/asset_manager.hpp" "engine/function/render/render_service.hpp"
+foreach(header IN ITEMS "engine/function/resource/detail/resource_service_impl.hpp" "engine/function/resource/asset_manager.hpp" "engine/function/render/render_service.hpp"
     "engine/function/resource/resource_cache.hpp" "engine/core/rid_table.hpp")
   file(WRITE "${fixture}/src/engine/function/resource/detail/asset_decode.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
@@ -337,8 +337,8 @@ foreach(header IN ITEMS engine/platform/window_service.hpp
                         granit/granit.hpp
                         engine/function/resource/detail/asset_decode.hpp
                         engine/function/resource/detail/asset_load_batch.hpp
-                        engine/function/resource/detail/asset_render_state.hpp
-                        engine/function/resource/detail/render_resource_factory.hpp)
+                        engine/function/resource/detail/resource_service_impl.hpp
+                        engine/function/resource/detail/resource_service_impl.hpp)
   file(WRITE "${fixture}/src/runtime/loading/scene_service.cpp"
     "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
@@ -684,7 +684,7 @@ endforeach()
 file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "// 已清理私有头探针\n")
 
 # Render 服务不得重新接管上层资源或销毁队列。
-foreach(header IN ITEMS "engine/function/resource/detail/render_resource_factory.hpp"
+foreach(header IN ITEMS "engine/function/resource/detail/resource_service_impl.hpp"
     "engine/resource/resource_retirement_queue.hpp"
     "engine/resource/texture/detail/texture_resource_access.hpp")
   file(WRITE "${fixture}/src/engine/function/render/render_service_resources.cpp" "#include <${header}>\n")

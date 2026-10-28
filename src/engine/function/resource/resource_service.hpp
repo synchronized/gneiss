@@ -18,6 +18,7 @@ struct asset_update;
  * 借用的资产管理器、执行器及 Render 必须覆盖服务寿命。 */
 class GNEISS_API resource_service final {
 public:
+  struct implementation; // 定义仅供服务内部实现使用。
   explicit resource_service(asset_manager& assets);
   ~resource_service();
   resource_service(const resource_service&) = delete;
@@ -79,13 +80,11 @@ public:
   std::span<const render_asset_ref> requested_assets() const;
 
 private:
-  friend struct detail::asset_update;
   friend class asset_load_batch;
   result identify(std::string_view, std::uint32_t, asset_identity&) const noexcept;
   asset_manager& assets_;
   bool render_stopping_{};
-  struct render_state;
-  std::unique_ptr<render_state> render_state_;
+  std::unique_ptr<implementation> impl_;
   resource_cache cache_;
 };
 }

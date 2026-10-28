@@ -10,8 +10,7 @@
 #include "engine/core/type_id.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/asset_manager.hpp"
-#include "engine/function/resource/detail/asset_render_state.hpp"
-#include "engine/function/resource/detail/render_resource_factory.hpp"
+#include "engine/function/resource/detail/resource_service_impl.hpp"
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/function/world/world.hpp"
@@ -82,7 +81,7 @@ void unified_resource_index() {
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == result::success);
   gneiss::engine::render_service resources;
-  gneiss::engine::render_resource_factory resources_factory{resources};
+  gneiss::engine::resource_service::implementation resources_factory{resources};
   asset_manager assets(gneiss::test_support::test_files(files));
   resource_service render{assets};
   if (render.attach_render(resources).failed())
@@ -129,7 +128,7 @@ void run() {
   gneiss::test_support::fixture_files vfs;
   check(vfs.mount("asset://", files) == gneiss::engine::result::success);
   gneiss::engine::render_service resources;
-  gneiss::engine::render_resource_factory resources_factory{resources};
+  gneiss::engine::resource_service::implementation resources_factory{resources};
   auto& executor = gneiss::test_support::render_tasks();
   gneiss::engine::asset_manager active_assets(gneiss::test_support::test_files(vfs));
   active_assets.attach_task_executor(executor);
@@ -238,12 +237,12 @@ void run() {
   std::vector<gneiss::engine::detail::asset_update> staged;
   for (auto& asset : batch.assets) {
     gneiss::engine::detail::asset_update value;
-    check(gneiss::engine::detail::asset_update::prepare_update(
+    check(gneiss::engine::resource_service::implementation::prepare_update(
               candidate_render, std::move(asset), value) == gneiss::engine::result::success);
     staged.push_back(std::move(value));
   }
   for (auto& value : staged) {
-    check(gneiss::engine::detail::asset_update::apply_update(candidate_render, value) ==
+    check(gneiss::engine::resource_service::implementation::apply_update(candidate_render, value) ==
           gneiss::engine::result::success);
   }
   gneiss::engine::scene_instances::asset_bindings bindings;

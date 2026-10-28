@@ -4,7 +4,7 @@
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/resource/detail/render_resource_factory.hpp"
+#include "engine/function/resource/detail/resource_service_impl.hpp"
 
 #include <array>
 #include <cstddef>
@@ -17,7 +17,7 @@ bool pending_resources() {
   using namespace gneiss::engine;
   using gneiss::engine::rid;
   render_service resources;
-  gneiss::engine::render_resource_factory resources_factory{resources};
+  gneiss::engine::resource_service::implementation resources_factory{resources};
   render_service foreign;
 
   rid mesh{}, texture{}, material{};
@@ -162,7 +162,7 @@ int main() {
   }
   using namespace gneiss::engine;
   render_service resources;
-  gneiss::engine::render_resource_factory resources_factory{resources};
+  gneiss::engine::resource_service::implementation resources_factory{resources};
   std::vector<std::uint8_t> pixels(64U * 64U * 4U, 1U);
   gneiss::engine::texture_view texture_desc;
   texture_desc.width = 64U;

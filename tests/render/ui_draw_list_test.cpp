@@ -4,7 +4,7 @@
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
-#include "engine/function/resource/detail/render_resource_factory.hpp"
+#include "engine/function/resource/detail/resource_service_impl.hpp"
 
 #include <array>
 #include <cstdint>
@@ -14,12 +14,12 @@
 template <typename Factory>
 concept can_adopt_texture =
     requires(Factory& factory, gneiss::engine::rid handle) { factory.reference_texture(handle); };
-static_assert(!can_adopt_texture<gneiss::engine::render_resource_factory>);
+static_assert(!can_adopt_texture<gneiss::engine::resource_service::implementation>);
 static_assert(!std::is_constructible_v<gneiss::engine::texture_resource, gneiss::engine::rid>);
 
 int main() {
   gneiss::engine::render_service resources;
-  gneiss::engine::render_resource_factory resources_factory{resources};
+  gneiss::engine::resource_service::implementation resources_factory{resources};
   constexpr std::array<std::uint8_t, 4> pixels{255U, 255U, 255U, 255U};
   gneiss::engine::texture_view texture_desc;
   texture_desc.width = 1U;
@@ -27,8 +27,7 @@ int main() {
   texture_desc.row_stride_bytes = 4U;
   texture_desc.pixels = pixels;
   gneiss::engine::texture texture;
-  if (gneiss::engine::create_texture(resources_factory, texture_desc, texture) !=
-      gneiss::engine::result::success) {
+  if (resources_factory.create_texture(texture_desc, texture) != gneiss::engine::result::success) {
     return 1;
   }
 
@@ -79,7 +78,7 @@ int main() {
   commands[0].index_count = 3U;
 
   gneiss::engine::render_service other_resources;
-  gneiss::engine::render_resource_factory other_resources_factory{other_resources};
+  gneiss::engine::resource_service::implementation other_resources_factory{other_resources};
   if (draw_list.replace(desc, other_resources) != gneiss::engine::result::invalid_handle ||
       draw_list.commands().size() != 1U) {
     return 6;
@@ -91,8 +90,7 @@ int main() {
     return 7;
   }
   gneiss::engine::texture rejected = texture;
-  if (gneiss::engine::create_texture(resources_factory, {}, rejected) !=
-          gneiss::engine::result::invalid_argument ||
+  if (resources_factory.create_texture({}, rejected) != gneiss::engine::result::invalid_argument ||
       rejected || !texture)
     return 8;
   // UI 查询不得为裸 RID 自动建立拥有者。
@@ -102,7 +100,7 @@ int main() {
       resources_factory.find_texture(unowned) || resources.texture_status(unowned).failed())
     return 9;
   // 两个工厂共用一个 Render，也不能从裸 RID 建立第二个拥有者。
-  render_resource_factory peer{resources};
+  resource_service::implementation peer{resources};
   if (peer.find_texture(resource_handle(texture)))
     return 17;
   gneiss::engine::texture peer_texture;

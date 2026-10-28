@@ -160,3 +160,18 @@ Windows Clang Debug 全量编译通过，30 项相关测试通过，包括 CPU �
 测试确认同 URI 的 CPU 描述与运行资源进入不同缓存，各自回收，并检查资产管理器不再暴露 Render 绑定。
 改动行格式化、旧路径扫描及 git diff --check 通过。
 未运行独立 clang-tidy、大场景、GPU 图像验证、跨平台/静态库矩阵或远端 CI；未修改 Granit。
+
+## 资源服务内部对象收敛
+
+删除 render_resource_factory.hpp/.cpp 和 asset_render_state.hpp，新增私有 resource_service_impl.hpp。
+原工厂的唯一包装索引、销毁队列、创建及更新操作直接归 resource_service::implementation；
+服务不再拥有独立工厂对象或第二层工厂 PImpl。原 render_state 合并到 implementation。
+asset_update 只保存目标、序号和互斥内容；准备、采用和请求顺序检查由服务内部实现提供。
+直接验证内部寿命的测试迁移至私有实现，宿主仍无法包含该实现头。
+
+Windows Clang Debug 编译及 30 项相关测试通过，覆盖 CPU/运行资源、缓存、加载和取消、
+跨线程最后释放、关闭后晚释放、Scene/Prefab、Application、编辑器和模块边界。
+改动行格式化及 git diff --check 通过。未运行大场景、GPU 图像验证、独立 clang-tidy 或远端 CI。
+
+本轮未统一网格/纹理与通用 load<T> 的加载契约：纹理仍由私有批次编排描述和负载读取，
+并向解码器传入设备能力；该剩余工作已在 PLAN-054 中明确，不作为本轮已完成能力。
