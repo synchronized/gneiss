@@ -6,11 +6,11 @@
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/render/texture_load_service.hpp"
+#include "engine/function/resource/render_resource_factory.hpp"
 #include "engine/platform/files/file_backend.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/material/material_codec.hpp"
-#include "engine/resource/render_resource_factory.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
 #include <algorithm>
 

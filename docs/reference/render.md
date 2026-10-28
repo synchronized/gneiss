@@ -16,7 +16,8 @@ Mesh、Material 和 Texture 的 CPU 内容表由 Application 的 `render_service
 普通文件加载仍通过统一 URI 缓存复用对象。上层提取的 RID 仅用于借用，不得手动销毁资源拥有的 RID。
 底层 Render 的裸 RID 创建/销毁接口保留，调用方须自行配对，不能混入强引用所有权。
 UI 使用 `factory.find_texture(rid)` 仅查询已有引用，缺失返回空，不隐式建立资源拥有者。
-这些接口声明在 `engine/resource/render_resource_factory.hpp`；资源对象头不声明 Render 服务类型。
+工厂位于功能层，协调资源对象与渲染服务；资源目录只保留资源类型及基础设施。
+这些接口声明在 `engine/function/resource/render_resource_factory.hpp`；资源对象头不声明 Render 服务类型。
 原生 `render_service::create_mesh(mesh_view, ...)` 会在调用
 期间复制顶点、可选法线、切线、UV1、顶点色及可选 UInt32 索引；调用返回后，调用方可以立即释放源数据。Mesh 至少需要
 三个有限值顶点。索引非空时数量必须至少为三个且为三的倍数，所有索引必须小于顶点数；索引为空时

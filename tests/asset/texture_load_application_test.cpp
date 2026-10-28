@@ -5,8 +5,8 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/resource/render_resource_factory.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/resource/render_resource_factory.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"

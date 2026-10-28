@@ -4,10 +4,10 @@
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
+#include "engine/function/resource/render_resource_factory.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/material/detail/material_resource_access.hpp"
 #include "engine/resource/mesh/detail/mesh_resource_access.hpp"
-#include "engine/resource/render_resource_factory.hpp"
 #include "engine/resource/texture/detail/texture_resource_access.hpp"
 #include <atomic>
 

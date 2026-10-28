@@ -61,3 +61,13 @@ Windows Clang Debug 全量编译及 18 项相关测试通过，改动行格式�
 两个工厂共用 Render 时身份与关闭隔离、跨工厂材质依赖拒绝。底层裸 RID 创建/销毁接口仍保留，
 上层资源提取的 RID 仅借用，不允许混用其销毁权。
 未运行大场景、GPU 图像验证、跨平台构建或远端 CI。
+
+## 工厂迁入功能层
+
+将 render_resource_factory.hpp/.cpp 移到 engine/function/resource，更新全部包含路径、CMake 源清单
+和原生接口头清单。删除 Resource 反向依赖功能层的工厂例外；私有访问器授权随工厂路径迁移。
+工厂接口和实现除包含路径外保持一致，仍由 Application 独立持有，不并入 render_service。
+
+Windows Clang Debug 全量编译通过；Core 正反边界、World 边界、内部头可见性、Render Loader 与
+UI 绘制列表共 6 项测试通过。改动行格式检查和 git diff --check 通过。
+未运行大场景、GPU 图像验证、跨平台矩阵或远端 CI。

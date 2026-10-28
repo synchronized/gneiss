@@ -288,3 +288,9 @@ Windows Clang Debug 全量构建、无 Granit Engine 构建、完整 CTest 190/1
 - [x] 验证共享引用只释放一次、跨工厂不能接管；关闭只对有效记录提交销毁。
 
 本轮 Windows Clang Debug 编译与 18 项相关测试通过；详见[边界验收补充](../records/2026-10-28-render-resource-boundary.md)。
+
+## 工厂目录收敛
+
+- [x] 将资源工厂迁入 `engine/function/resource`，保留 Application 分别拥有工厂与 Render。
+- [x] 更新包含路径、构建与原生接口清单，删除 Resource 依赖功能层的例外。
+- [x] Windows Clang Debug 编译及 6 项相关测试通过，覆盖模块边界、头文件可见性、Loader 与 UI。

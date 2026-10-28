@@ -681,7 +681,7 @@ endforeach()
 file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "// 已清理私有头探针\n")
 
 # Render 服务不得重新接管上层资源或销毁队列。
-foreach(header IN ITEMS "engine/resource/render_resource_factory.hpp"
+foreach(header IN ITEMS "engine/function/resource/render_resource_factory.hpp"
     "engine/resource/resource_retirement_queue.hpp"
     "engine/resource/texture/detail/texture_resource_access.hpp")
   file(WRITE "${fixture}/src/engine/function/render/render_service_resources.cpp" "#include <${header}>\n")

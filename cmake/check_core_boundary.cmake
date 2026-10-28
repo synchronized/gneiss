@@ -16,7 +16,7 @@ endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
   if(content MATCHES "engine/resource/(mesh|texture|material)/detail/[a-z_]+_resource_access[.]hpp" AND
-      NOT source MATCHES "/src/engine/(resource/((mesh|texture|material)/[a-z_]+_resource|render_resource_factory)|function/render/render_asset_loader)[.]cpp$")
+      NOT source MATCHES "/src/engine/(resource/(mesh|texture|material)/[a-z_]+_resource|function/(resource/render_resource_factory|render/render_asset_loader))[.]cpp$")
     message(FATAL_ERROR "资源私有访问器不得泄漏到普通调用方：${source}")
   endif()
 
@@ -195,13 +195,8 @@ foreach(source IN LISTS sources)
       content MATCHES "#[ \t]*include[ \t]*[<\"](engine/function/)?(world|scene|application)/")
     message(FATAL_ERROR "Render 不得反向包含 World / Scene / Application：${source}")
   endif()
-  set(resource_dependencies "${content}")
-  if(source MATCHES "/src/engine/resource/render_resource_factory[.]cpp$")
-    string(REPLACE "engine/function/render/render_service.hpp" "allowed_render_service_api"
-      resource_dependencies "${resource_dependencies}")
-  endif()
   if(source MATCHES "/src/engine/resource/" AND
-      resource_dependencies MATCHES "#[ \t]*include[ \t]*[<\"]((engine/)?(function|render|world|scene|application|editor|tooling|apps)/)")
+      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/)?(function|render|world|scene|application|editor|tooling|apps)/)")
     message(FATAL_ERROR "Asset 不得反向包含功能层或宿主实现：${source}")
   endif()
   if(content MATCHES "#[ \t]*include[ \t]*[<\"]engine/api/")

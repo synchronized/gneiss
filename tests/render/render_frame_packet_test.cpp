@@ -4,7 +4,7 @@
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/resource/render_resource_factory.hpp"
+#include "engine/function/resource/render_resource_factory.hpp"
 
 #include <array>
 #include <cstddef>

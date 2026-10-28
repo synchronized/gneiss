@@ -43,10 +43,10 @@ Render 保留上传完成、失败、暂存数据和后端可用性管理。
 资源头不包含 Render 实现；资源自身析构不调用 Render，RID 释放由延迟销毁队列负责。
 长期目标是 `engine/function/render` 只保留渲染实现及服务边界，上层资源通过
 `render_service` 的 RID 接口创建、更新和销毁渲染端记录。普通业务不改回 RID 所有权。
-资源层仅 `render_resource_factory.cpp` 作为装配实现依赖 `render_service.hpp` 的 RID 接口，
-资源值、编解码器与 asset_manager 仍不得依赖功能层。Application 显式拥有资源工厂和 Render，
+`engine/function/resource/render_resource_factory.cpp` 在功能层协调资源对象与 Render RID 接口，
+不归入渲染服务内部。资源值、编解码器与 asset_manager 不得依赖功能层，不再保留工厂例外。Application 显式拥有资源工厂和 Render，
 工厂管理资源包装及销毁队列，且必须先于 Render 关闭和析构；Render 不拥有工厂、不回调上层对象。
-更新方向固定为资源层准备依赖 → Render 接受 CPU 数据 → 资源层更新元信息和强引用。
+更新方向固定为功能层准备资源依赖 → Render 接受 CPU 数据 → 工厂更新资源元信息和强引用。
 材质更新直接使用 Loader 已取得的纹理强引用，不由 Render 从 RID 重建依赖。
 Render 私有表只保存 RID 对应内容；不新增 URI 缓存或重复控制块。
 宿主允许包含服务和工厂接口，但不能包含 RID 表或资源私有访问器；边界检查覆盖这些限制。
