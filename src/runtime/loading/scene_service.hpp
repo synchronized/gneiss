@@ -32,7 +32,7 @@ public:
                                                   gneiss::engine::render_asset_loader& render);
   [[nodiscard]] gneiss::engine::result
   attach_executor(gneiss::engine::task_executor& executor,
-                  gneiss::engine::render_resource_service& resources,
+                  gneiss::engine::render_service& resources,
                   gneiss::engine::texture_prepare_profile profile,
                   std::shared_ptr<gneiss::engine::progress_notification> notification);
   void advance();
@@ -120,7 +120,7 @@ private:
   void check_owner() const;
   gneiss::engine::task_executor* executor_{};
   gneiss::engine::task_scope scope_{};
-  gneiss::engine::render_resource_service* resources_{};
+  gneiss::engine::render_service* resources_{};
   std::shared_ptr<gneiss::engine::progress_notification> notification_;
   std::unique_ptr<load_task> pending_;
   std::optional<scene_load_completion> completed_;

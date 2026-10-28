@@ -10,9 +10,10 @@
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
-#include "engine/function/render/render_resource_service.hpp"
+#include "engine/function/render/render_resource_storage.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/platform/native_window_info.hpp"
+#include "engine/resource/resource_bindings.hpp"
 #include <array>
 #include <atomic>
 #include <deque>
@@ -52,7 +53,6 @@
 namespace gneiss::engine {
 struct render_service::implementation final {
 public:
-  render_resource_service resources_;
   [[nodiscard]] engine::result initialize(const native_window_info& window,
                                           std::span<const std::byte> environment_asset = {},
                                           float environment_intensity = 1.0F,
@@ -1026,7 +1026,8 @@ engine::result render_service::implementation::finish_frames() noexcept {
 engine::result
 render_service::implementation::shutdown(granit::renderer_resource_stats& stats) noexcept {
   if (!executor_.is_running()) {
-    return engine::result::not_ready;
+    stats = {};
+    return engine::result::success;
   }
   static_cast<void>(executor_.flush());
   const auto frame_result = collect_completions();
@@ -1602,9 +1603,14 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
   return map_result(result);
 }
 
-render_service::render_service() : impl_(std::make_unique<implementation>()) {}
-render_service::~render_service() = default;
-render_resource_service& render_service::resources() noexcept { return impl_->resources_; }
+render_service::render_service(std::uint64_t memory_limit)
+    : storage_(std::make_unique<resource_storage>(memory_limit)),
+      bindings_(std::make_unique<resource_bindings>(*this)),
+      impl_(std::make_unique<implementation>()) {}
+render_service::~render_service() {
+  impl_.reset();
+  close_resources();
+}
 result render_service::request_environment(std::shared_ptr<const std::vector<std::byte>> bytes,
                                            float intensity, float rotation) noexcept {
   return impl_->request_environment(std::move(bytes), intensity, rotation);
@@ -1614,6 +1620,8 @@ result render_service::initialize(const native_window_info& window,
                                   std::span<const std::byte> environment_asset,
                                   float environment_intensity, float environment_rotation_radians,
                                   log_dispatcher* log) noexcept {
+  if (!is_valid())
+    return result::invalid_state;
   return impl_->initialize(window, environment_asset, environment_intensity,
                            environment_rotation_radians, log);
 }
@@ -1643,7 +1651,7 @@ result render_service::shutdown(render_device_stats& stats) noexcept {
   };
   const auto status = impl_->shutdown(native);
   if (status.ok())
-    impl_->resources_.close();
+    close_resources();
   stats = {
       .total_live_count = native.total_live_count,
       .buffer_count = native.buffer_count,

@@ -4,6 +4,7 @@
 #include "../support/async_application.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
 
@@ -179,11 +180,11 @@ void run(gneiss::engine::execution_mode mode) {
   const auto world = app->native_world();
   check(app->request_assets(uris, 2U, 7U, request, true) == gneiss::engine::result::success);
   gneiss::engine::rid external_mesh{}, external_material{};
-  check(app->resources().reserve_mesh(&external_mesh).ok());
-  check(app->resources().reserve_material(&external_material).ok());
+  check(app->render().reserve_mesh(&external_mesh).ok());
+  check(app->render().reserve_material(&external_material).ok());
   const gneiss::engine::mesh_renderer external{
-      app->resources().reference_mesh(external_mesh),
-      app->resources().reference_material(external_material)};
+      gneiss::engine::reference_mesh(app->render(), external_mesh),
+      gneiss::engine::reference_material(app->render(), external_material)};
   check(gneiss::engine::result{app->native_world()->entity_set_mesh_renderer(
             node.entity, external)} == gneiss::engine::result::success);
   wait();

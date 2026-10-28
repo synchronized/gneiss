@@ -3,6 +3,7 @@
 
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/core/result.hpp"
+#include "engine/function/render/render_service.hpp"
 
 #include <cmath>
 #include <cstddef>
@@ -20,8 +21,7 @@ bool is_finite(float value) noexcept { return std::isfinite(value); }
 
 } // namespace
 
-result ui_draw_list::replace(const ui_draw_view& desc,
-                             const render_resource_service& resources) noexcept {
+result ui_draw_list::replace(const ui_draw_view& desc, const render_service& resources) noexcept {
   if (!is_finite(desc.display_width) || desc.display_width <= 0.0F ||
       !is_finite(desc.display_height) || desc.display_height <= 0.0F ||
       !is_finite(desc.framebuffer_scale_x) || desc.framebuffer_scale_x <= 0.0F ||

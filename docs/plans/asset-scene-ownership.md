@@ -55,7 +55,7 @@ URI 查询仍走旧路径。
 | `world_state` | `engine/function/world/` | 存放 ECS 实体与组件、Scene Tree、活动相机及身份域/线程校验信息 | 复用现有 World，不新建另一份运行数据 |
 | `application_scene_state` | `engine/function/application/` | 协调对象拥有；保留 World 与实例服务，退出共享缓存的所有权 | 已迁移缓存所有权，命名收敛待评估 |
 | `scene_controller` | `engine/function/application/` | Application 拥有；管理候选请求、当前域、旧域及安全切换 | 由当前 scene_session 演进并更名 |
-| `render_resource_service` | `engine/function/render/` | Application 拥有；管理 RID 与渲染资源数据，后端 GPU 操作仍交渲染后端 | 复用现有资源服务与帧持有 |
+| `render_service` | `engine/function/render/` | Application 拥有；管理 RID 与渲染资源数据，后端 GPU 操作仍交渲染后端 | 复用现有资源服务与帧持有 |
 | `application_state` | `engine/function/application/` | 宿主拥有；装配资产、场景与后端系统，推进主循环和整体启停 | 继续收敛现有实现 |
 
 `resource_cache` 作为资产系统内部机制继续评估复用，不与 asset_manager 各自维护一份权威索引。
@@ -98,7 +98,7 @@ application_scene_state 是运行上下文，不是单个 scene 的实例 contex
 ```text
 Application
 ├─ asset_manager                         跨场景域共享
-├─ render_resource_service               跨场景域共享
+├─ render_service               跨场景域共享
 └─ scene_controller
    ├─ 候选加载请求 → 候选运行环境
    ├─ 当前运行环境

@@ -3,6 +3,7 @@
 
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/core/result.hpp"
+#include "engine/function/render/render_service.hpp"
 
 #include <chrono>
 #include <new>
@@ -57,8 +58,8 @@ const texture_data* render_resource_snapshot::get_texture(rid texture) const noe
 }
 
 engine::result capture_render_frame_packet(const native_window_info& window, render_snapshot scene,
-                                           const render_resource_service& resources,
-                                           const ui_draw_list& ui, const debug_draw_list& debug,
+                                           const render_service& resources, const ui_draw_list& ui,
+                                           const debug_draw_list& debug,
                                            render_frame_packet& out_packet) noexcept {
   const auto capture_started = std::chrono::steady_clock::now();
   try {

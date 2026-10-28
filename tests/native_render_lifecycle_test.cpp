@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/render/texture_view.hpp"
+#include "engine/function/render/render_service.hpp"
+#include "engine/resource/texture/texture_view.hpp"
 #include "runtime/application.hpp"
 
 #include <array>
@@ -13,8 +14,8 @@ int main() try {
   if (gneiss::runtime::application::create({}, first).failed() ||
       gneiss::runtime::application::create({}, second).failed())
     return 1;
-  auto& resources = first->resources();
-  auto& other = second->resources();
+  auto& resources = first->render();
+  auto& other = second->render();
   const std::array vertices{native::mesh_vertex{{-0.5F, -0.5F, 0.0F}, {0.0F, 0.0F}},
                             native::mesh_vertex{{0.5F, -0.5F, 0.0F}, {1.0F, 0.0F}},
                             native::mesh_vertex{{0.0F, 0.5F, 0.0F}, {0.5F, 1.0F}}};

@@ -4,6 +4,7 @@
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
 #include "runtime/application.hpp"
@@ -222,7 +223,7 @@ void run(gneiss::engine::execution_mode mode) {
   check(prepared.application_cpu_data_bytes >= prepared.cpu_data_bytes);
   check(prepared.available_bytes +
             std::max(prepared.application_logical_bytes, prepared.application_cpu_data_bytes) ==
-        gneiss::engine::render_resource_service::default_memory_limit);
+        gneiss::engine::render_service::default_memory_limit);
   gneiss::engine::world* observed{};
   check((observed = app->native_world()) != nullptr && observed == old_world);
   std::uint64_t count{};
@@ -251,7 +252,7 @@ void run(gneiss::engine::execution_mode mode) {
   auto [finished, cancelled] = drive();
   check(finished && cancelled.progress.phase == scene_load_phase::cancelled);
   check(cancelled.progress.application_logical_bytes <=
-        gneiss::engine::render_resource_service::default_memory_limit);
+        gneiss::engine::render_service::default_memory_limit);
   check((old_world = app->native_world()) != nullptr && old_world == observed);
 
   // 描述已准备后不复读来源；当前请求使用自己的 CPU 快照，后续请求才重新读取。

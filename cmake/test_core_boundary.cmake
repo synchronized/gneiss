@@ -161,7 +161,7 @@ foreach(header IN ITEMS "render/resource.hpp" "world/state.hpp" "scene/tree.hpp"
 endforeach()
 file(WRITE "${fixture}/src/engine/resource/probe.cpp" "#include <gneiss/core/result.h>\n")
 
-foreach(header IN ITEMS "engine/function/render/render_asset_loader.hpp" "engine/function/render/render_resource_service.hpp"
+foreach(header IN ITEMS "engine/function/render/render_asset_loader.hpp" "engine/function/render/render_service.hpp"
     "engine/resource/resource_cache.hpp" "engine/core/rid_table.hpp")
   file(WRITE "${fixture}/src/engine/function/render/render_asset_preparation.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
@@ -329,9 +329,9 @@ foreach(module IN ITEMS application game)
   file(WRITE "${fixture}/src/runtime/${module}/probe.cpp" "")
 endforeach()
 
-# 协调层只接收上传接口，不能自行装配平台和 GPU 后端。
+# 协调层可使用 Render RID 接口，不能包含平台、私有表或 GPU 后端。
 foreach(header IN ITEMS engine/platform/window_service.hpp
-                        engine/function/render/render_service.hpp
+                        engine/function/render/render_resource_storage.hpp
                         granit/granit.hpp)
   file(WRITE "${fixture}/src/runtime/loading/scene_service.cpp"
     "#include <${header}>\n")
@@ -343,7 +343,7 @@ foreach(header IN ITEMS engine/platform/window_service.hpp
   endif()
 endforeach()
 file(WRITE "${fixture}/src/runtime/loading/scene_service.cpp"
-  "#include <engine/function/render/texture_load_service.hpp>\n")
+  "#include <engine/function/render/texture_load_service.hpp>\n#include <engine/function/render/render_service.hpp>\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
 if(NOT status EQUAL 0)
@@ -664,3 +664,15 @@ foreach(header IN ITEMS engine/resource/texture/texture_ktx2.hpp engine/resource
     message(FATAL_ERROR "未拒绝纹理数据反向依赖：${header}")
   endif()
 endforeach()
+
+# Render 只开放服务接口，不开放 RID 表与引用关联实现。
+foreach(header IN ITEMS "engine/function/render/render_resource_storage.hpp" "engine/resource/resource_bindings.hpp")
+  file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "#include <${header}>\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "边界检查未拒绝私有渲染头 ${header}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "// 已清理私有头探针\n")

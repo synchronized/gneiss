@@ -33,7 +33,7 @@ gneiss::engine::result scene_service::initialize(gneiss::engine::asset_manager& 
 }
 
 gneiss::engine::result scene_service::attach_executor(
-    gneiss::engine::task_executor& executor, gneiss::engine::render_resource_service& resources,
+    gneiss::engine::task_executor& executor, gneiss::engine::render_service& resources,
     gneiss::engine::texture_prepare_profile profile,
     std::shared_ptr<gneiss::engine::progress_notification> notification) {
   if (textures_ || !active_) {

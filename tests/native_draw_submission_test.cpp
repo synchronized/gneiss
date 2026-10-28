@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/render/render_resource_service.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "runtime/application.hpp"
 
 #include <array>
@@ -96,10 +96,10 @@ int main() {
   const gneiss::engine::texture_view texture{
       .width = 1, .height = 1, .row_stride_bytes = 4, .pixels = pixels};
   gneiss::engine::rid handle{};
-  if (app->resources().create_texture(texture, &handle).failed()) {
+  if (app->render().create_texture(texture, &handle).failed()) {
     return 2;
   }
-  context.texture = app->resources().reference_texture(handle);
+  context.texture = gneiss::engine::reference_texture(app->render(), handle);
   if (app->submit_debug_draw_list({}) != gneiss::engine::result::invalid_state ||
       app->submit_ui_draw_list({}) != gneiss::engine::result::invalid_state) {
     return 3;

@@ -7,6 +7,8 @@
 
 阶段一、二实现、入口审计和 Windows 本地功能回归已完成（2026-10-26）。
 完整 CTest 190/190 及 Sponza 两种调度模式通过，详见[验收记录](../records/2026-10-26-render-resource-validation.md)。
+2026-10-28 追加的资源层与 Render 接口收口已完成；Windows Debug 编译及 18 项相关测试通过，
+详见[接口收口验收记录](../records/2026-10-28-render-resource-boundary.md)。
 阶段三至五另行启动，不包含在本轮完成范围。
 长期边界决策见 [ADR-087](../decisions/ADR-087-render-resource-model.md)。
 本计划承接 [异步渲染资产加载](PLAN-052-async-render-assets.md) 与
@@ -27,7 +29,7 @@
 源码依据：[渲染数据定义](../../src/engine/function/render/render_resource_data.hpp)、
 [Loader](../../src/engine/function/render/render_asset_loader.hpp)、
 [缓存](../../src/engine/resource/resource_cache.hpp)、
-[资源表](../../src/engine/function/render/render_resource_service.hpp)、
+[资源表](../../src/engine/function/render/render_service.hpp)、
 [快照](../../src/engine/function/render/render_snapshot.hpp)。以上为编写计划时的现状，迁移完成后由 Reference 描述新行为。
 
 ## 目标和本轮范围
@@ -81,12 +83,12 @@ asset_manager：来源域 + URI + 类型 → 稳定运行资源
                                    └→ 本轮明确保留的恢复数据
 ```
 
-上层使用以下别名（规划 API）：
+上层使用以下只读强引用别名：
 
 ```cpp
-using mesh = asset_ref<mesh_resource>;
-using texture = asset_ref<texture_resource>;
-using material = asset_ref<material_resource>;
+using mesh = asset_ref<const mesh_resource>;
+using texture = asset_ref<const texture_resource>;
+using material = asset_ref<const material_resource>;
 ```
 
 不为了统一管理而强行类型擦除。可在同一个资产管理器内按类型分表，保持相同去重和加载规则；
@@ -197,7 +199,7 @@ CPU 加载不必等待所有依赖 GPU 就绪；依赖的 CPU 完成条件由具
 | ECS、上层帧快照、UI 命令 | 持有具体资源引用 | 普通 C++ 复制/析构即可保活 |
 | ImGui Texture ID | 适配器边界将整数标识解析成 `texture` | 第三方绘制协议要求整数 ID；提交的引擎命令持有引用 |
 | `share_*`、后端 RID 映射 | 只固定帧/上传采用的不可变 CPU 内容及 GPU 记录 | 不作为第二套 URI 身份缓存 |
-| `render_resource_service` | CPU 表由 `render_service::implementation` 独占拥有 | 类名暂保留；`resources()` 仅为内部装配/程序化创建提供借用，不拥有第二份表 |
+| Render RID 接口 | `render_service` 私有 CPU 表；资源层维护运行身份与依赖 | 删除 `render_resource_service` 和 `resources()` 借用；不复制 URI 缓存 |
 | 最后释放与关闭 | 一个控制块、一个预分配销毁节点；关闭后禁止复活槽位 | 后端仍沿用 Granit 的 GPU 延迟回收 |
 
 ### 资源层与 Render 接口收口（2026-10-28 追加）
@@ -207,9 +209,9 @@ CPU 加载不必等待所有依赖 GPU 就绪；依赖的 CPU 完成条件由具
 - [x] 将三类资源对象、元信息及强引用别名拆入各自资源目录，删除旧聚合头。
 - [x] ECS、快照和 UI 输入直接包含资源头；资源析构不反向调用 Render。
 - [x] 复用延迟销毁队列，先在所属线程释放 RID，再析构 CPU 对象及材质依赖。
-- [ ] 将 Loader、程序化创建和宿主对资源表的操作收口到 Render RID 接口，撤销 `resources()` 借用入口。
-- [ ] 将强引用创建、元信息更新与资源依赖管理移到资源层入口；Render 私有表只承担渲染端记录。
-- [ ] 审计帧构建、内存统计与关闭顺序，保持逻辑运行不初始化 GPU；再完成资源表私有化验收。
+- [x] 将 Loader、程序化创建和宿主对资源表的操作收口到 Render RID 接口，撤销 `resources()` 借用入口。
+- [x] 将强引用创建、元信息更新与资源依赖管理移到资源层入口；Render 私有表只承担渲染端记录。
+- [x] 审计帧构建、内存统计与关闭顺序，保持逻辑运行不初始化 GPU；完成资源表私有化验收。
 
 验收要求：资源头可独立包含，资源源码不包含 Render 实现；重复加载复用身份，
 材质依赖保活、工作线程最后释放、服务关闭后晚释放和 RID 失效均维持原语义。

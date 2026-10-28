@@ -15,6 +15,15 @@ if(NOT sources)
 endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
+  if(content MATCHES "engine/function/render/render_resource_storage[.]hpp" AND
+      NOT source MATCHES "/src/engine/function/render/(render_service|render_service_resources)[.]cpp$")
+    message(FATAL_ERROR "Render 私有 RID 表不得泄漏到调用方：${source}")
+  endif()
+  if(content MATCHES "engine/resource/resource_bindings[.]hpp" AND
+      NOT source MATCHES "/src/engine/(resource/resource_bindings|function/render/(render_service|render_service_resources))[.]cpp$")
+    message(FATAL_ERROR "资源身份关联只能由资源装配与 Render 生命周期实现访问：${source}")
+  endif()
+
   if(content MATCHES "#[ \t]*include[ \t]*[<\"]caors/|::caors::")
     message(FATAL_ERROR "CAORS 已移除；资源使用普通 CPU 类型和宿主执行器：${source}")
   endif()
@@ -98,7 +107,7 @@ foreach(source IN LISTS sources)
        content MATCHES "gneiss/engine/render[.]h"))
     message(FATAL_ERROR "原生 World 组件不得存储 C 渲染布局：${source}")
   endif()
-  if(source MATCHES "/src/engine/(resource/(mesh|material|texture)/(mesh_data|material_description|texture_description|texture_data)|function/render/(render_resource_data|render_resource_service|render_snapshot|render_asset_loader|texture_view))[.](hpp|cpp)$" AND
+  if(source MATCHES "/src/engine/(resource/(mesh|material|texture)/(mesh_data|material_description|texture_description|texture_data)|function/render/(render_resource_data|render_service|render_snapshot|render_asset_loader|texture_view))[.](hpp|cpp)$" AND
       (content MATCHES "gneiss_(mesh|material|texture)([^a-z_]|$)|gneiss_(mesh_vertex|mesh_normal|mesh_tangent|mesh_uv|mesh_color|texture_sampling)|GNEISS_(MATERIAL_ALPHA|TEXTURE_FILTER|TEXTURE_ADDRESS|TEXTURE_MIP|TEXTURE_FORMAT|TEXTURE_COLOR)_" OR
        content MATCHES "gneiss/engine/render[.]h"))
     message(FATAL_ERROR "原生资源接口不得依赖 Render C 值布局：${source}")
@@ -126,7 +135,7 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "原生日志模块不得依赖日志 ABI 或上层模块：${source}")
   endif()
   if(source MATCHES "/src/runtime/loading/scene_service(_loading)?\\.(cpp|hpp)$" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"](engine/platform/|engine/function/render/backend/|engine/function/render/render_service[.]hpp|granit/)")
+      content MATCHES "#[ \t]*include[ \t]*[<\"](engine/platform/|engine/function/render/backend/|engine/function/render/render_resource_storage[.]hpp|granit/)")
     message(FATAL_ERROR "场景生命周期协调不得直接依赖平台或渲染后端：${source}")
   endif()
   if(source MATCHES "/src/engine/" AND
@@ -163,7 +172,7 @@ foreach(source IN LISTS sources)
     continue()
   endif()
   if(source MATCHES "(/src/engine/resource/(mesh/mesh_decoder|texture/texture_decoder|material/material_codec)|/src/(engine/function/)?render/(render_asset_preparation|render_resource_data))\\.(cpp|hpp)$" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|render_resource_service)\\.(h|hpp)|engine/(resource/resource_cache|core/rid_table)\\.hpp)[>\"]")
+      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|render_service)\\.(h|hpp)|engine/(resource/resource_cache|core/rid_table)\\.hpp)[>\"]")
     message(FATAL_ERROR "CPU 准备与值类型不得包含资源发布、缓存或 RID 表：${source}")
   endif()
   if(source MATCHES "/src/engine/core/" AND
@@ -181,8 +190,13 @@ foreach(source IN LISTS sources)
       content MATCHES "#[ \t]*include[ \t]*[<\"](engine/function/)?(world|scene|application)/")
     message(FATAL_ERROR "Render 不得反向包含 World / Scene / Application：${source}")
   endif()
+  set(resource_dependencies "${content}")
+  if(source MATCHES "/src/engine/resource/resource_bindings[.]cpp$")
+    string(REPLACE "engine/function/render/render_service.hpp" "allowed_render_service_api"
+      resource_dependencies "${resource_dependencies}")
+  endif()
   if(source MATCHES "/src/engine/resource/" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/)?(function|render|world|scene|application|editor|tooling|apps)/)")
+      resource_dependencies MATCHES "#[ \t]*include[ \t]*[<\"]((engine/)?(function|render|world|scene|application|editor|tooling|apps)/)")
     message(FATAL_ERROR "Asset 不得反向包含功能层或宿主实现：${source}")
   endif()
   if(content MATCHES "#[ \t]*include[ \t]*[<\"]engine/api/")

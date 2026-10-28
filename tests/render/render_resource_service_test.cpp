@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
-#include "engine/function/render/render_resource_service.hpp"
-#include "engine/function/render/texture_view.hpp"
+#include "engine/function/render/render_service.hpp"
+#include "engine/resource/texture/texture_view.hpp"
 
 #include <algorithm>
 #include <array>
@@ -14,7 +14,7 @@
 namespace {
 bool verify_borrowed_inputs() {
   using namespace gneiss::engine;
-  render_resource_service resources;
+  render_service resources;
   std::array<gneiss::engine::mesh_vertex, 3> vertices{};
   gneiss::engine::mesh_view mesh_source;
   mesh_source.vertices = vertices;
@@ -65,7 +65,7 @@ bool verify_borrowed_inputs() {
 
 bool verify_shared_budget() {
   using namespace gneiss::engine;
-  render_resource_service resources{32U};
+  render_service resources{32U};
   const std::array<std::uint8_t, 16> pixels{};
   gneiss::engine::texture_view desc;
   desc.width = 2U;
@@ -118,7 +118,7 @@ int main() {
   if (!verify_shared_budget()) {
     return 30;
   }
-  gneiss::engine::render_resource_service resources;
+  gneiss::engine::render_service resources;
   constexpr std::array vertices{
       gneiss::engine::mesh_vertex{.position = {0.0F, 0.0F, 0.0F}, .uv = {0.0F, 0.0F}},
       gneiss::engine::mesh_vertex{.position = {1.0F, 0.0F, 0.0F}, .uv = {1.0F, 0.0F}},

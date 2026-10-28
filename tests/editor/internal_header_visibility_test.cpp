@@ -30,7 +30,8 @@
 #if __has_include("engine/function/world/world_service.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
-#if __has_include("engine/function/render/render_service.hpp")
+#if __has_include("engine/function/render/render_resource_storage.hpp") ||                         \
+                  __has_include("engine/resource/resource_bindings.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
 #if __has_include("engine/platform/io/uv/uv_file_system.hpp")
@@ -67,4 +68,10 @@ template <typename T>
 concept exposes_asset_loader = requires(T& value) { value.asset_loader(); };
 static_assert(!exposes_texture_service<gneiss::runtime::application>);
 static_assert(!exposes_asset_loader<gneiss::runtime::application>);
+// Render 服务是允许的 RID 边界，具体资源表和引用关联仍不可见。
+#include "engine/function/render/render_service.hpp"
+template <typename T>
+concept exposes_resource_table = requires(T& value) { value.resources(); };
+static_assert(!exposes_resource_table<gneiss::runtime::application>);
+static_assert(!exposes_resource_table<gneiss::engine::render_service>);
 int main() { return 0; }

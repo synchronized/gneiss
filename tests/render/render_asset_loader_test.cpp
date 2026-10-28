@@ -6,7 +6,7 @@
 #include "../support/prepare_render.hpp"
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
-#include "engine/function/render/render_resource_service.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_manager.hpp"
@@ -152,9 +152,8 @@ void add_indexed_mesh(memory_file_system& memory) {
                        std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size()));
 }
 
-[[nodiscard]] bool
-indexed_mesh_is_preserved(gneiss::engine::render_asset_loader& loader,
-                          const gneiss::engine::render_resource_service& resources) {
+[[nodiscard]] bool indexed_mesh_is_preserved(gneiss::engine::render_asset_loader& loader,
+                                             const gneiss::engine::render_service& resources) {
   gneiss::engine::render_asset_ref mesh;
   gneiss::engine::asset_diagnostic diagnostic;
   if (gneiss::test_support::load_render(loader, gneiss::engine::render_asset_type::mesh,
@@ -276,7 +275,7 @@ void selected_variants() {
   memory->files["t.gneiss-texture"].back() ^= 1;
   const std::array requests{
       render_asset_reload{.uri = "asset://t.texture.json", .type = render_asset_type::texture}};
-  render_resource_service resources;
+  render_service resources;
   auto& scheduler = gneiss::test_support::render_tasks();
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   asset_owner.attach_task_executor(scheduler);
@@ -392,7 +391,7 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
     }
     return true;
   };
-  render_resource_service resources;
+  render_service resources;
   auto& scheduler = gneiss::test_support::render_tasks();
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   asset_owner.attach_task_executor(scheduler);
@@ -525,7 +524,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   add_indexed_mesh(*memory);
 
   gneiss::test_support::fixture_files file_system;
-  gneiss::engine::render_resource_service resources;
+  gneiss::engine::render_service resources;
   if (file_system.mount("asset://", memory).failed())
     return 1;
   auto& scheduler = gneiss::test_support::render_tasks();
@@ -937,7 +936,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     return 31;
   // 服务先销毁时外部引用只能释放 CPU 外壳，不再解引用服务裸指针。
   {
-    gneiss::engine::render_resource_service temporary_resources;
+    gneiss::engine::render_service temporary_resources;
     gneiss::engine::asset_manager temporary_assets(gneiss::test_support::test_files(file_system));
     gneiss::engine::render_asset_loader temporary_loader(temporary_assets, temporary_resources);
     if (gneiss::test_support::load_render(temporary_loader, gneiss::engine::render_asset_type::mesh,
@@ -949,18 +948,18 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   // 工作线程最后释放材质与网格，由所属线程释放 RID 并级联释放纹理。
   {
     using namespace gneiss::engine;
-    render_resource_service local;
+    render_service local;
     rid mesh_handle{}, texture_handle{}, material_handle{};
     if (local.reserve_mesh(&mesh_handle).failed() ||
         local.reserve_texture(&texture_handle).failed())
       return 60;
-    auto mesh_ref = local.reference_mesh(mesh_handle);
-    auto texture_ref = local.reference_texture(texture_handle);
+    auto mesh_ref = gneiss::engine::reference_mesh(local, mesh_handle);
+    auto texture_ref = gneiss::engine::reference_texture(local, texture_handle);
     gneiss::engine::material_data material_data_value;
     material_data_value.base_color_texture = texture_handle;
     if (local.create_material(material_data_value, &material_handle).failed())
       return 61;
-    auto material_ref = local.reference_material(material_handle);
+    auto material_ref = gneiss::engine::reference_material(local, material_handle);
     if (!mesh_ref || !texture_ref || !material_ref || material_ref->textures()[0] != texture_ref)
       return 62;
     texture_ref.reset();
@@ -970,6 +969,9 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
           material_ref.reset();
         });
     worker.join();
+    if (gneiss::engine::reference_mesh(local, mesh_handle) ||
+        gneiss::engine::reference_material(local, material_handle))
+      return 65;
     if (local.live_resource_count() != 3U || local.drain_retired_resources() != 3U ||
         local.live_resource_count() != 0U ||
         local.mesh_status(mesh_handle) != result::invalid_handle ||
@@ -979,13 +981,17 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   }
   // 显式关闭也立即失效旧句柄；晚释放在任意线程不再访问资源表。
   {
-    gneiss::engine::render_resource_service closing;
+    gneiss::engine::render_service closing;
     gneiss::engine::rid handle{};
     if (closing.reserve_mesh(&handle).failed())
       return 38;
-    auto reference = closing.reference_mesh(handle);
-    closing.close();
-    if (closing.is_valid() || closing.live_resource_count() || closing.reference_mesh(handle))
+    auto reference = gneiss::engine::reference_mesh(closing, handle);
+    gneiss::engine::render_device_stats stats{};
+    if (closing.texture_profile().generation != 0U || closing.shutdown(stats).failed() ||
+        stats.total_live_count != 0U || closing.shutdown(stats).failed())
+      return 64;
+    if (closing.is_valid() || closing.live_resource_count() ||
+        gneiss::engine::reference_mesh(closing, handle))
       return 39;
     std::thread late([resource = std::move(reference)]() mutable { resource.reset(); });
     late.join();

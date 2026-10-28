@@ -3,6 +3,7 @@
 
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/function/world/render_snapshot.hpp"
 #include "engine/function/world/world_state.hpp"
 #include "runtime/application.hpp"
@@ -34,7 +35,7 @@ int run_host_tests() {
 }
 
 int run_tests() {
-  gneiss::engine::render_resource_service resources;
+  gneiss::engine::render_service resources;
   gneiss::engine::rid mesh_id{}, material_id{};
   if (resources.reserve_mesh(&mesh_id).failed() ||
       resources.reserve_material(&material_id).failed())
@@ -45,8 +46,9 @@ int run_tests() {
   gneiss::scene_node_id camera_node = gneiss::null_scene_node_id;
   gneiss::scene_node_id mesh_node = gneiss::null_scene_node_id;
   const gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  gneiss::engine::mesh_renderer renderer{.mesh = resources.reference_mesh(mesh_id),
-                                         .material = resources.reference_material(material_id)};
+  gneiss::engine::mesh_renderer renderer{
+      .mesh = gneiss::engine::reference_mesh(resources, mesh_id),
+      .material = gneiss::engine::reference_material(resources, material_id)};
   gneiss::engine::math::transform mesh_transform = gneiss::engine::math::transform{};
   mesh_transform.translation[0] = 2.0F;
 
@@ -121,7 +123,8 @@ int run_tests() {
     return 32;
   std::thread release([&] { snapshot = {}; });
   release.join();
-  if (resources.reference_mesh(mesh_id) || resources.reference_material(material_id))
+  if (gneiss::engine::reference_mesh(resources, mesh_id) ||
+      gneiss::engine::reference_material(resources, material_id))
     return 33;
   if (resources.drain_retired_resources() != 2U || resources.live_resource_count() != 0U)
     return 34;

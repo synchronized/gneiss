@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
-#include "engine/function/render/render_resource_service.hpp"
+#include "engine/function/render/render_service.hpp"
 
 #include <array>
 #include <cstddef>
@@ -11,9 +11,9 @@
 #include <type_traits>
 
 int main() {
-  using gneiss::engine::render_resource_service;
-  render_resource_service resources;
-  render_resource_service other;
+  using gneiss::engine::render_service;
+  render_service resources;
+  render_service other;
   // 原生路径同样拒绝非法枚举，不能依赖 C 入口代替服务校验。
   gneiss::engine::material_data native;
   gneiss::engine::rid native_handle{};

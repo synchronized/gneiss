@@ -5,9 +5,11 @@
 
 ## 资源生命周期
 
-Mesh、Material 和 Texture 的运行身份及 CPU 内容表由 Application 的 `render_service` 私有实现拥有。
-`resources()` 是内部装配和程序化资源创建的借用入口，不是独立服务所有者。
-原生 `render_resource_service::create_mesh(mesh_view, ...)` 会在调用
+Mesh、Material 和 Texture 的 CPU 内容表由 Application 的 `render_service` 私有实现拥有。
+调用方通过 `application::render()` 使用 RID 接口，不能借用资源表。
+运行身份、元信息与材质依赖由资源层维护，强引用入口为 `reference_mesh/texture/material(render, rid)`；
+程序化纹理可用 `create_texture(render, texture_view, texture&)` 直接取得强引用。
+原生 `render_service::create_mesh(mesh_view, ...)` 会在调用
 期间复制顶点、可选法线、切线、UV1、顶点色及可选 UInt32 索引；调用返回后，调用方可以立即释放源数据。Mesh 至少需要
 三个有限值顶点。索引非空时数量必须至少为三个且为三的倍数，所有索引必须小于顶点数；索引为空时
 顶点按 Triangle List 顺序解释。法线必须与顶点一一对应、保持有限且归一化；不提供法线的旧 Mesh
@@ -128,8 +130,10 @@ GPU 失败不改变已经成功的 CPU 加载结果。UI 首次纹理未上传�
 ## 渲染服务对象边界
 
 Application 拥有 `engine::render_service`，用于设备初始化、帧/上传提交、完成回收及关闭。
-管理 RID 和 CPU 内容的 `render_resource_service` 是其私有实现拥有的内部资源表，
-Application 及 Loader 只借用该表；无窗口构建也拥有相同 CPU 表，不初始化 GPU。
+RID 表位于私有 `resource_storage`，仅保存渲染内容；资源层的 `resource_bindings` 接管原表的
+弱引用身份关联、元信息更新、材质依赖及销毁队列，不增加 URI 缓存。两者由服务生命周期统一关闭。
+Application、Loader、UI 和帧构建使用 `render_service` 的 RID 操作及只读数据查询。
+仅构造服务和操作 CPU 资源不会初始化 GPU；无窗口路径调用 shutdown 可关闭资源，重复关闭成功。
 `render_service.hpp` 不包含 Granit 头文件，也不暴露 Granit 类型；后端状态放在 `.cpp` 的 PImpl 中。
 关闭统计使用引擎值类型 `render_device_stats`，不返回设备或后端句柄。
 

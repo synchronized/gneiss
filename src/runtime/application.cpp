@@ -10,7 +10,6 @@
 #include "engine/core/scene_types.hpp"
 #include "engine/function/input/input_service.hpp"
 #include "engine/function/render/render_executor.hpp"
-#include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/platform/files/file_service.hpp"
@@ -58,7 +57,6 @@ struct application::storage {
   runtime::application_configuration config_;
   std::unique_ptr<gneiss::engine::render_service> render_service_ =
       std::make_unique<gneiss::engine::render_service>();
-  gneiss::engine::render_resource_service& resources_ = render_service_->resources();
   gneiss::engine::ui_draw_list ui_draw_list_;
   gneiss::engine::debug_draw_list debug_draw_list_;
   std::optional<gneiss::engine::view_camera> view_camera_;
@@ -211,7 +209,7 @@ application::attach_task_executor(gneiss::engine::task_executor& executor) noexc
     gneiss::engine::texture_prepare_profile profile;
     if (storage_->window_service_)
       profile = storage_->render_service_->texture_profile();
-    return storage_->scene_service_.attach_executor(executor, storage_->resources_, profile,
+    return storage_->scene_service_.attach_executor(executor, *storage_->render_service_, profile,
                                                     storage_->loop_notification_);
   } catch (const std::bad_alloc&) {
     return gneiss::engine::result::out_of_memory;
@@ -272,7 +270,7 @@ gneiss::engine::result application::initialize() noexcept {
       return gneiss::engine::result::internal;
     }
   }
-  if (!storage_->resources_.is_valid()) {
+  if (!storage_->render_service_->is_valid()) {
     return gneiss::engine::result::out_of_memory;
   }
   try {
@@ -385,7 +383,7 @@ gneiss::engine::result application::initialize() noexcept {
   try {
     storage_->asset_manager_ = std::make_unique<gneiss::engine::asset_manager>(storage_->files_);
     storage_->render_assets_ = std::make_unique<gneiss::engine::render_asset_loader>(
-        *storage_->asset_manager_, storage_->resources_);
+        *storage_->asset_manager_, *storage_->render_service_);
     const auto result =
         storage_->scene_service_.initialize(*storage_->asset_manager_, *storage_->render_assets_);
     if (result != gneiss::engine::result::success) {
@@ -553,7 +551,7 @@ application::get_action_state(gneiss::engine::action_id action,
 
 gneiss::engine::result
 application::submit_ui_draw_list(const gneiss::engine::ui_draw_view& desc) noexcept {
-  return storage_->is_updating_ ? storage_->ui_draw_list_.replace(desc, storage_->resources_)
+  return storage_->is_updating_ ? storage_->ui_draw_list_.replace(desc, *storage_->render_service_)
                                 : gneiss::engine::result::invalid_state;
 }
 
@@ -645,7 +643,7 @@ gneiss::engine::result application::capture_frame(std::uint32_t width, std::uint
     }
     gneiss::engine::render_frame_packet packet;
     result = gneiss::engine::capture_render_frame_packet(
-        window, std::move(snapshot), storage_->resources_, storage_->ui_draw_list_,
+        window, std::move(snapshot), *storage_->render_service_, storage_->ui_draw_list_,
         storage_->debug_draw_list_, packet);
     if (result != gneiss::engine::result::success) {
       return result;
@@ -707,7 +705,7 @@ gneiss::engine::result application::render_frame() noexcept {
   const auto capture_result =
       gneiss::engine::measure(gneiss::engine::loop_stage::frame_capture, [&]() noexcept {
         return gneiss::engine::capture_render_frame_packet(
-            window, std::move(snapshot), storage_->resources_, storage_->ui_draw_list_,
+            window, std::move(snapshot), *storage_->render_service_, storage_->ui_draw_list_,
             storage_->debug_draw_list_, packet);
       });
   if (capture_result != gneiss::engine::result::success) {
@@ -1052,7 +1050,7 @@ gneiss::engine::result application::shutdown() noexcept {
   // 生产任务与已提交工作已经收尾，最后关闭文件执行器。
   storage_->asset_io_executor_.reset();
 #endif
-  storage_->resources_.close();
+  storage_->render_service_->close_resources();
   storage_->shutting_down_ = false;
   return shutdown_result;
 }
@@ -1285,7 +1283,7 @@ gneiss::engine::result application::advance_resource_io() {
 void application::advance_scene_load() {
   if (advance_resource_io().failed())
     return;
-  (void)storage_->resources_.drain_retired_resources();
+  (void)storage_->render_service_->drain_retired_resources();
   storage_->scene_service_.advance();
   report_visual_completion();
 }
@@ -1313,7 +1311,7 @@ bool application::visual_assets_loading() const noexcept {
 
 runtime::scene_retirement_statistics application::scene_retirement() const noexcept {
   auto value = storage_->scene_service_.retirement();
-  value.live_resources = storage_->resources_.live_resource_count();
+  value.live_resources = storage_->render_service_->live_resource_count();
   return value;
 }
 
@@ -1325,8 +1323,8 @@ gneiss::engine::world* application::native_world() const noexcept {
   return storage_->scene_service_.native_world();
 }
 
-gneiss::engine::render_resource_service& application::resources() noexcept {
-  return storage_->resources_;
+gneiss::engine::render_service& application::render() noexcept {
+  return *storage_->render_service_;
 }
 
 std::shared_ptr<gneiss::engine::files::service> application::async_files() const noexcept {

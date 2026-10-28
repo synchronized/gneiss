@@ -7,7 +7,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
-#include "engine/function/render/render_resource_service.hpp"
+#include "engine/function/render/render_resource_data.hpp"
 #include "engine/function/render/render_snapshot.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/platform/native_window_info.hpp"
@@ -17,6 +17,7 @@
 #include <unordered_map>
 
 namespace gneiss::engine {
+class render_service;
 
 class render_resource_snapshot final {
 public:
@@ -41,7 +42,7 @@ public:
 
 private:
   friend result capture_render_frame_packet(const native_window_info&, render_snapshot,
-                                            const render_resource_service&, const ui_draw_list&,
+                                            const render_service&, const ui_draw_list&,
                                             const debug_draw_list&,
                                             struct render_frame_packet&) noexcept;
 
@@ -77,7 +78,7 @@ struct render_frame_packet final {
 
 [[nodiscard]] result
 capture_render_frame_packet(const native_window_info& window, render_snapshot scene,
-                            const render_resource_service& resources, const ui_draw_list& ui,
+                            const render_service& resources, const ui_draw_list& ui,
                             const debug_draw_list& debug, render_frame_packet& out_packet) noexcept;
 
 } // namespace gneiss::engine

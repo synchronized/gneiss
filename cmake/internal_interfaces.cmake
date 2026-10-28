@@ -39,7 +39,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/material/material_description.hpp
   engine/resource/mesh/mesh_data.hpp
   engine/resource/asset_ref.hpp
-  engine/function/render/resource_retirement_queue.hpp
+  engine/resource/resource_retirement_queue.hpp
   engine/resource/resource_cache.hpp
   engine/resource/texture/texture_ktx2.hpp
   engine/resource/texture/texture_data.hpp
@@ -86,12 +86,12 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/mesh/mesh_resource.hpp
   engine/resource/texture/texture_resource.hpp
   engine/resource/material/material_resource.hpp
+  engine/function/render/render_service.hpp
   engine/function/render/render_resource_data.hpp
-  engine/function/render/render_resource_service.hpp
   engine/function/render/render_snapshot.hpp
   engine/function/render/render_statistics.hpp
   engine/function/render/texture_load_service.hpp
-  engine/function/render/texture_view.hpp
+  engine/resource/texture/texture_view.hpp
   engine/function/render/ui_draw_list.hpp
   engine/resource/scene/prefab_property_data.hpp
   engine/resource/scene/prefab_description.hpp

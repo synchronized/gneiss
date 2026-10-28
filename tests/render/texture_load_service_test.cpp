@@ -4,7 +4,7 @@
 #include "../support/memory_file_fixture.hpp"
 #include "../support/prepare_render.hpp"
 #include "engine/core/result.hpp"
-#include "engine/function/render/render_resource_service.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/platform/files/file_backend.hpp"
 #include "engine/platform/files/file_service.hpp"
@@ -157,7 +157,7 @@ void mesh_data_lifetime() {
   const auto* vertices = first.assets.front().mesh.vertices.data();
   auto mesh = std::make_shared<const mesh_data>(std::move(first.assets.front().mesh));
   check(mesh->vertices.data() == vertices);
-  render_resource_service resources;
+  render_service resources;
   gneiss::engine::rid rid{};
   check(resources.create_prepared_mesh(mesh, &rid) == gneiss::engine::result::success);
   check(resources.share_mesh(rid) == mesh);
@@ -175,7 +175,7 @@ void independent_update_sequences() {
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", std::make_shared<memory_files>()) ==
         gneiss::engine::result::success);
-  render_resource_service resources;
+  render_service resources;
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   [[maybe_unused]] auto& cache = asset_owner.cache();
   render_asset_loader loader(asset_owner, resources);
@@ -225,7 +225,7 @@ void reserved_material_lifetime() {
   auto source = std::make_shared<memory_files>();
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == gneiss::engine::result::success);
-  render_resource_service resources;
+  render_service resources;
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   [[maybe_unused]] auto& cache = asset_owner.cache();
   render_asset_loader loader(asset_owner, resources);
@@ -253,7 +253,7 @@ void cpu_loading(execution_mode mode) {
       std::make_shared<gneiss::engine::files::service>(gneiss::engine::files::service_options{
           .max_file_bytes = texture_load_service::maximum_bytes});
   check(files->mount({.prefix = "asset://", .readers = {backend}, .writer = {}}).ok());
-  render_resource_service resources;
+  render_service resources;
   asset_manager manager(gneiss::test_support::test_files(files));
   render_asset_loader loader(manager, resources);
   texture_load_service service(scheduler, loader);

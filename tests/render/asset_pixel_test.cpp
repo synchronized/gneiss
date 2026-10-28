@@ -5,6 +5,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
@@ -152,7 +153,7 @@ void run_pending_resources() {
         gneiss::engine::result::success);
   auto native = app;
   check(native != nullptr);
-  auto& resources = native->resources();
+  auto& resources = native->render();
   gneiss::engine::rid mesh{};
   gneiss::engine::rid texture{};
   check(resources.reserve_mesh(&mesh) == gneiss::engine::result::success);
@@ -170,8 +171,9 @@ void run_pending_resources() {
   check(gneiss::engine::result{app->scenes()->get_node_info(scene, 1U, info)} ==
         gneiss::engine::result::success);
   check(gneiss::has_flags(info.component_flags, gneiss::scene_node_components::mesh_renderer));
-  const gneiss::engine::mesh_renderer binding{.mesh = resources.reference_mesh(mesh),
-                                              .material = resources.reference_material(material)};
+  const gneiss::engine::mesh_renderer binding{
+      .mesh = gneiss::engine::reference_mesh(resources, mesh),
+      .material = gneiss::engine::reference_material(resources, material)};
   check(gneiss::engine::result{native->native_world()->entity_set_mesh_renderer(
             info.entity, binding)} == gneiss::engine::result::success);
   const auto pixel = [&] {

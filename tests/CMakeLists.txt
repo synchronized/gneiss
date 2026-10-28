@@ -153,10 +153,6 @@ add_test(NAME gneiss.native-render-lifecycle COMMAND gneiss_native_render_lifecy
 add_executable(
   gneiss_render_resource_service_test
   render/render_resource_service_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_resource.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_resource.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/material/material_resource.cpp"
 )
 target_include_directories(gneiss_render_resource_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_render_resource_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -169,10 +165,6 @@ add_test(NAME gneiss.render_resource_service COMMAND gneiss_render_resource_serv
 add_executable(
   gneiss_pbr_material_resource_test
   render/pbr_material_resource_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_resource.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_resource.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/material/material_resource.cpp"
 )
 target_include_directories(gneiss_pbr_material_resource_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_pbr_material_resource_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -185,10 +177,6 @@ add_test(NAME gneiss.pbr-material-resource COMMAND gneiss_pbr_material_resource_
 add_executable(
   gneiss_ui_draw_list_test
   render/ui_draw_list_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_resource.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_resource.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/material/material_resource.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/ui_draw_list.cpp"
 )
 target_include_directories(gneiss_ui_draw_list_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -361,10 +349,6 @@ add_executable(
   render/render_frame_packet_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/debug_draw_list.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_frame_packet.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
-"${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_resource.cpp"
-"${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_resource.cpp"
-"${PROJECT_SOURCE_DIR}/src/engine/resource/material/material_resource.cpp"
 )
 target_include_directories(gneiss_render_frame_packet_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_render_frame_packet_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -667,10 +651,6 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_asset_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_resource.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_resource.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/material/material_resource.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.cpp"
 )
 target_include_directories(gneiss_render_asset_loader_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -699,10 +679,6 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_asset_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_resource.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_resource.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/material/material_resource.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.cpp"
 )
 target_include_directories(gneiss_texture_load_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -814,10 +790,6 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_asset_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_resource.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_resource.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/material/material_resource.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_codec.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"

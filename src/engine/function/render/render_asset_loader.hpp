@@ -25,7 +25,7 @@ class asset_manager;
 
 namespace gneiss::engine {
 
-class render_resource_service;
+class render_service;
 
 /** 统一持有资产缓存条目；非空仅表示身份存在，不代表 GPU 就绪。 */
 using render_asset_ref = asset_ref<const resource_cache::entry>;
@@ -104,7 +104,7 @@ public:
   [[nodiscard]] bool owns(const texture& value) const noexcept;
   [[nodiscard]] bool owns(const material& value) const noexcept;
   [[nodiscard]] bool owns(const render_asset_ref& lease) const noexcept;
-  render_asset_loader(asset_manager& assets, render_resource_service& resources) noexcept;
+  render_asset_loader(asset_manager& assets, render_service& resources) noexcept;
 
   [[nodiscard]] asset_manager& assets() const noexcept { return assets_; }
 
@@ -128,7 +128,7 @@ private:
   asset_manager& assets_;
   texture_prepare_profile default_profile_{};
   resource_cache& cache_;
-  render_resource_service& resources_;
+  render_service& resources_;
 };
 
 } // namespace gneiss::engine

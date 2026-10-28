@@ -20,7 +20,7 @@ render_resource_service 与 render_service 中。流送尚未开始，需要先�
 可保存的 description 与上传用 data 分开；不是每类资源都必须增加对称类型层级。
 
 asset_manager 继续管理统一来源/URI/类型索引、加载调度和缓存，不依赖 Render 后端。
-功能层 Loader 负责装配；render_resource_service 逐步收进 render_service 私有实现。
+功能层 Loader 负责加载装配，通过 render_service 的 RID 接口操作私有 CPU 内容表。
 ECS 和上层帧输入允许持有引擎资源强引用，内部 RID 留在 Render 边界；
 ECS 必须支持非平凡组件生命周期，序列化仍使用资源标识。场景节点仍通过实体关联组件，
 不直接持有服务或第三方后端对象。替代原“ECS 仅纯值或 RID”的限制。
@@ -43,7 +43,11 @@ Render 保留上传完成、失败、暂存数据和后端可用性管理。
 资源头不包含 Render 实现；资源自身析构不调用 Render，RID 释放由延迟销毁队列负责。
 长期目标是 `engine/function/render` 只保留渲染实现及服务边界，上层资源通过
 `render_service` 的 RID 接口创建、更新和销毁渲染端记录。普通业务不改回 RID 所有权。
-资源表收口前保留现有内部装配，不新增另一份身份表或销毁队列；进度见 PLAN-054。
+资源层仅 `resource_bindings.cpp` 作为装配实现依赖 `render_service.hpp` 的 RID 接口，
+资源值、编解码器与 asset_manager 仍不得依赖功能层。原表的弱身份关联和销毁队列移入该装配实现，
+Render 私有表只保存 RID 对应内容；不新增 URI 缓存或重复控制块。
+宿主允许包含 Render 服务接口，但不能包含资源表或身份关联实现头；边界检查覆盖这些限制。
+实施及验收进度见 PLAN-054。
 
 ## 影响
 

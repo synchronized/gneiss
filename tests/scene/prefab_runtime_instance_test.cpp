@@ -7,7 +7,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
-#include "engine/function/render/render_resource_service.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/function/scene/prefab_runtime_instance.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
@@ -192,7 +192,7 @@ int main() try {
     return 2;
 
   gneiss::test_support::fixture_files file_system;
-  gneiss::engine::render_resource_service resources;
+  gneiss::engine::render_service resources;
   if (file_system.mount("asset://prefabs/", std::make_shared<memory_file_system>()) !=
       gneiss::engine::result::success) {
     return 3;

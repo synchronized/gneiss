@@ -93,7 +93,7 @@ editor_application
     asset_manager
     input_service
     render_service
-      render_resource_service
+      render_service
     world
       ECS 与 systems
       scene[]
@@ -115,7 +115,7 @@ Scene 负责节点层级和实体归属，World 负责实体数据和系统运�
 | scene_asset / prefab_asset | 可保存、可重复实例化的描述 | 活动实体和编辑选择 |
 | scene_instantiator | 描述到节点与实体的创建过程 | 独立缓存、编辑历史 |
 | scene_document | 编辑状态、撤销重做、保存 | 另一份运行时场景树 |
-| render_resource_service | GPU 创建、引用及延迟销毁 | 决定编辑操作成败 |
+| render_service | GPU 创建、引用及延迟销毁 | 决定编辑操作成败 |
 
 资源依赖：scene/prefab 描述引用 Mesh 与 Material，Material 引用 Texture。
 使用者通过资源强引用维持有效期，缓存按策略保留无人使用资源。节点只关联实体 ID，

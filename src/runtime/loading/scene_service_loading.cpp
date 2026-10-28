@@ -6,7 +6,7 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
-#include "engine/function/render/render_resource_service.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "runtime/loading/scene_service.hpp"

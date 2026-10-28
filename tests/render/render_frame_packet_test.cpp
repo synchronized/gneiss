@@ -3,6 +3,7 @@
 
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
+#include "engine/function/render/render_service.hpp"
 
 #include <array>
 #include <cstddef>
@@ -14,8 +15,8 @@ namespace {
 bool pending_resources() {
   using namespace gneiss::engine;
   using gneiss::engine::rid;
-  render_resource_service resources;
-  render_resource_service foreign;
+  render_service resources;
+  render_service foreign;
   rid mesh{}, texture{}, material{};
   rid cancelled{};
   if (resources.reserve_mesh(nullptr) != gneiss::engine::result::invalid_argument ||
@@ -49,8 +50,8 @@ bool pending_resources() {
     return false;
   }
   render_snapshot scene;
-  scene.instances.push_back({.mesh = resources.reference_mesh(mesh),
-                             .material = resources.reference_material(material),
+  scene.instances.push_back({.mesh = gneiss::engine::reference_mesh(resources, mesh),
+                             .material = gneiss::engine::reference_material(resources, material),
                              .transform = {}});
   rid pending_material{};
   if (resources.reserve_material(&pending_material) != gneiss::engine::result::success ||
@@ -60,7 +61,8 @@ bool pending_resources() {
     return false;
   }
   auto pending_scene = scene;
-  pending_scene.instances.front().material = resources.reference_material(pending_material);
+  pending_scene.instances.front().material =
+      gneiss::engine::reference_material(resources, pending_material);
   render_frame_packet fallback;
   if (capture_render_frame_packet({}, pending_scene, resources, {}, {}, fallback) !=
           gneiss::engine::result::success ||
@@ -146,7 +148,7 @@ int main() {
     return 10;
   }
   using namespace gneiss::engine;
-  render_resource_service resources;
+  render_service resources;
   std::vector<std::uint8_t> pixels(64U * 64U * 4U, 1U);
   gneiss::engine::texture_view texture_desc;
   texture_desc.width = 64U;
@@ -187,8 +189,8 @@ int main() {
 
   gneiss::engine::render_snapshot scene;
   scene.has_camera = true;
-  scene.instances.push_back({.mesh = resources.reference_mesh(mesh),
-                             .material = resources.reference_material(material),
+  scene.instances.push_back({.mesh = gneiss::engine::reference_mesh(resources, mesh),
+                             .material = gneiss::engine::reference_material(resources, material),
                              .transform = {}});
   debug_draw_list debug;
   const std::array lines{gneiss::engine::debug_line{.start = {0.0F, 0.0F, 0.0F},

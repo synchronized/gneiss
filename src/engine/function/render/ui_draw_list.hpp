@@ -4,7 +4,7 @@
 #ifndef GNEISS_RENDER_UI_DRAW_LIST_HPP_
 #define GNEISS_RENDER_UI_DRAW_LIST_HPP_
 
-#include "engine/function/render/render_resource_service.hpp"
+#include "engine/function/render/render_resource_data.hpp"
 
 #include "engine/core/result.hpp"
 #include "engine/function/render/draw_types.hpp"
@@ -13,6 +13,7 @@
 #include <vector>
 
 namespace gneiss::engine {
+class render_service;
 
 /** 同步提交借用；成功后绘制列表拥有数组副本，失败保留上一份列表。 */
 struct ui_draw_view {
@@ -27,8 +28,7 @@ struct ui_draw_view {
 
 class ui_draw_list final {
 public:
-  [[nodiscard]] result replace(const ui_draw_view& desc,
-                               const render_resource_service& resources) noexcept;
+  [[nodiscard]] result replace(const ui_draw_view& desc, const render_service& resources) noexcept;
   void clear() noexcept;
 
   [[nodiscard]] float display_width() const noexcept { return display_width_; }

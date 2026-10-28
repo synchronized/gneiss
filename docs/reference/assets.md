@@ -52,8 +52,8 @@ HTTP(S) 地址使用 Fetch URL 基址。借用目录不会在后端销毁时被�
 上层包含所需资源头，保存 `mesh`、`texture`、`material` 强引用；材质持有纹理强引用。
 资源对象析构只处理 CPU 状态与依赖，不调用 Render。Render 的延迟销毁队列先在所属线程
 释放 RID，再析构资源对象；服务关闭后的晚释放只析构 CPU 对象。
-CPU 数据表目前仍由 `render_resource_service` 管理，作为 `render_service` 的内部成员；
-现有 Loader 与宿主装配入口尚未完全收口为 `render_service` 的 RID 接口。
+CPU 数据表位于 `render_service` 私有实现，Loader 与宿主通过其 RID 接口操作。
+资源层负责强引用创建、元信息及材质依赖，详见 [Render 资源与服务边界](render.md)。
 
 
 `asset_manager` 唯一持有 `resource_cache::entries_`，统一按「来源域 + URI + C++ 类型」索引。

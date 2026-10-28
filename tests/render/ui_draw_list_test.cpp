@@ -2,13 +2,14 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 
 #include <array>
 #include <cstdint>
 
 int main() {
-  gneiss::engine::render_resource_service resources;
+  gneiss::engine::render_service resources;
   constexpr std::array<std::uint8_t, 4> pixels{255U, 255U, 255U, 255U};
   gneiss::engine::texture_view texture_desc;
   texture_desc.width = 1U;
@@ -16,7 +17,8 @@ int main() {
   texture_desc.row_stride_bytes = 4U;
   texture_desc.pixels = pixels;
   gneiss::engine::texture texture;
-  if (resources.create_texture(texture_desc, texture) != gneiss::engine::result::success) {
+  if (gneiss::engine::create_texture(resources, texture_desc, texture) !=
+      gneiss::engine::result::success) {
     return 1;
   }
 
@@ -66,7 +68,7 @@ int main() {
   }
   commands[0].index_count = 3U;
 
-  gneiss::engine::render_resource_service other_resources;
+  gneiss::engine::render_service other_resources;
   if (draw_list.replace(desc, other_resources) != gneiss::engine::result::invalid_handle ||
       draw_list.commands().size() != 1U) {
     return 6;
@@ -78,7 +80,8 @@ int main() {
     return 7;
   }
   gneiss::engine::texture rejected = texture;
-  if (resources.create_texture({}, rejected) != gneiss::engine::result::invalid_argument ||
+  if (gneiss::engine::create_texture(resources, {}, rejected) !=
+          gneiss::engine::result::invalid_argument ||
       rejected || !texture)
     return 8;
   return 0;

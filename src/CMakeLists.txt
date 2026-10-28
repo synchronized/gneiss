@@ -27,7 +27,7 @@ target_sources(
   gneiss_engine
   PRIVATE
     engine/resource/asset_ref.hpp
-    engine/function/render/resource_retirement_queue.hpp
+    engine/resource/resource_retirement_queue.hpp
     engine/resource/asset_manager.hpp
     engine/resource/asset_manager.cpp
     engine/platform/files/file_read_stream.cpp
@@ -108,9 +108,11 @@ target_sources(
     engine/resource/mesh/mesh_resource.hpp
     engine/resource/texture/texture_resource.hpp
     engine/resource/material/material_resource.hpp
-    engine/function/render/render_resource_service.cpp
-    engine/function/render/render_resource_service.hpp
-    engine/function/render/texture_view.hpp
+    engine/function/render/render_service_resources.cpp
+    engine/function/render/render_resource_storage.hpp
+    engine/resource/resource_bindings.cpp
+    engine/resource/resource_bindings.hpp
+    engine/resource/texture/texture_view.hpp
     engine/function/render/debug_draw_list.cpp
     engine/function/render/draw_types.hpp
     engine/function/render/debug_draw_list.hpp

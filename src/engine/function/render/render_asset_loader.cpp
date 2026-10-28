@@ -7,7 +7,7 @@
 #include "engine/resource/asset_manager.hpp"
 #include <atomic>
 
-#include "engine/function/render/render_resource_service.hpp"
+#include "engine/function/render/render_service.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
@@ -52,8 +52,7 @@ void render_asset_loader::release_unused() noexcept {
   } while (resources_.drain_retired_resources() != 0U);
 }
 
-render_asset_loader::render_asset_loader(asset_manager& assets,
-                                         render_resource_service& resources) noexcept
+render_asset_loader::render_asset_loader(asset_manager& assets, render_service& resources) noexcept
     : assets_(assets), cache_(assets.cache()), resources_(resources) {}
 
 render_asset_type asset_kind(const render_asset_ref& asset) noexcept {
@@ -238,7 +237,7 @@ engine::result render_asset_loader::reserve_asset(const render_asset_reload& sou
             result = resources_.reserve_mesh(&handle);
             if (result.ok()) {
               try {
-                auto value = resources_.reference_mesh(handle);
+                auto value = gneiss::engine::reference_mesh(resources_, handle);
                 value->identity_ = identity;
                 resource = value.shared();
               } catch (...) {
@@ -253,7 +252,7 @@ engine::result render_asset_loader::reserve_asset(const render_asset_reload& sou
             result = resources_.reserve_texture(&handle);
             if (result.ok()) {
               try {
-                auto value = resources_.reference_texture(handle);
+                auto value = gneiss::engine::reference_texture(resources_, handle);
                 value->identity_ = identity;
                 resource = value.shared();
               } catch (...) {
@@ -268,7 +267,7 @@ engine::result render_asset_loader::reserve_asset(const render_asset_reload& sou
             result = resources_.reserve_material(&handle);
             if (result.ok()) {
               try {
-                auto value = resources_.reference_material(handle);
+                auto value = gneiss::engine::reference_material(resources_, handle);
                 value->identity_ = identity;
                 resource = value.shared();
               } catch (...) {
