@@ -31,86 +31,64 @@ bool invalid_prepared_mesh(const mesh_data& mesh) {
                                }) ||
           !std::ranges::all_of(mesh.indices, [&](auto i) { return i < mesh.vertices.size(); }));
 }
-engine::result decode_non_texture(const asset_source& source, const std::vector<std::byte>& bytes,
-                                  prepared_asset& asset, asset_diagnostic& diagnostic,
-                                  std::size_t material_bytes, std::size_t maximum_bytes) {
-  auto result = engine::result::success;
-  if (source.type == asset_type::mesh) {
-    result =
-        engine::is_mesh_binary(bytes)
-            ? parse_binary_mesh(bytes, asset.mesh.vertices, asset.mesh.normals, asset.mesh.indices,
-                                asset.mesh.tangents, asset.mesh.uv1, asset.mesh.colors, diagnostic)
-            : parse_mesh(bytes, asset.mesh.vertices, asset.mesh.normals, diagnostic);
-    // 此校验与 RID 创建的顶点/法线/索引契约一致，在后台完成。
-    const auto& mesh = asset.mesh;
-    if (result == engine::result::success && invalid_prepared_mesh(mesh)) {
-      result = engine::result::invalid_argument;
-    }
-    asset.bytes = mesh.data_bytes();
-  } else if (source.type == asset_type::material) {
-    if (!asset.description)
-      return engine::result::unsupported;
-    asset.material = asset.description->parameters;
-    asset.texture_uris = asset.description->texture_uris;
-    // 由调用方传入发布预算，Asset 不依赖资源对象布局。
-    if (material_bytes == 0U) {
-      fail(diagnostic, engine::result::invalid_argument, source.uri, "材质发布预算不得为零");
-      return engine::result::invalid_argument;
-    }
-    if (material_bytes > maximum_bytes) {
-      fail(diagnostic, engine::result::out_of_memory, source.uri, "材质发布预算超过批次上限");
-      return engine::result::out_of_memory;
-    }
-    asset.bytes = material_bytes;
-    for (const auto& uri : asset.texture_uris) {
-      if (uri.size() > maximum_bytes - asset.bytes) {
-        fail(diagnostic, engine::result::out_of_memory, source.uri, "材质依赖超出批次字节上限");
-        return engine::result::out_of_memory;
-      }
-      asset.bytes += uri.size();
-    }
-  } else {
-    result = engine::result::invalid_argument;
-  }
-  return result;
-}
 } // namespace
-result decode_loaded_asset(const asset_source& source, std::vector<std::byte> description,
-                           std::string payload_uri, std::vector<std::byte> payload,
-                           prepared_asset& output, asset_diagnostic& diagnostic,
-                           std::size_t maximum_bytes, texture_prepare_profile profile,
-                           asset_ref<const material_description> material,
-                           std::size_t material_bytes) {
-  prepared_asset decoded;
-  decoded.source = source;
-  decoded.description = std::move(material);
-  result status;
-  if (source.type == asset_type::texture) {
-    if (description.size() > maximum_bytes || payload.size() > maximum_bytes)
-      return result::invalid_argument;
-    texture_description texture;
-    status = parse_texture(description, texture, diagnostic);
-    if (status.failed())
-      return status;
-    if (texture.uri != payload_uri) {
-      fail(diagnostic, result::invalid_argument, "/source", "纹理负载 URI 与描述不匹配");
-      return result::invalid_argument;
-    }
-    status = decode_texture_payload(texture, payload, decoded.texture, diagnostic, maximum_bytes,
-                                    maximum_bytes, profile);
-    decoded.bytes = decoded.texture.manifest.size() + decoded.texture.payload.size();
-    for (const auto& level : decoded.texture.levels)
-      decoded.bytes += level.pixels.size();
-  } else {
-    status =
-        decode_non_texture(source, description, decoded, diagnostic, material_bytes, maximum_bytes);
-  }
+result decode_mesh_asset(std::string_view uri, const std::vector<std::byte>& bytes,
+                         decoded_asset& output, asset_diagnostic& diagnostic,
+                         std::size_t maximum_bytes) {
+  mesh_data mesh;
+  auto status = is_mesh_binary(bytes)
+                    ? parse_binary_mesh(bytes, mesh.vertices, mesh.normals, mesh.indices,
+                                        mesh.tangents, mesh.uv1, mesh.colors, diagnostic)
+                    : parse_mesh(bytes, mesh.vertices, mesh.normals, diagnostic);
   if (status.failed())
     return status;
-  if (decoded.bytes > maximum_bytes)
+  if (invalid_prepared_mesh(mesh))
+    return result::invalid_argument;
+  const auto size = mesh.data_bytes();
+  if (size > maximum_bytes)
     return result::out_of_memory;
-  output = std::move(decoded);
+  output = {.uri = std::string(uri), .sources = {}, .content = std::move(mesh), .bytes = size};
   return result::success;
 }
-
+result decode_texture_asset(std::string_view uri, const texture_description& description,
+                            const std::vector<std::byte>& payload, decoded_asset& output,
+                            asset_diagnostic& diagnostic, std::size_t maximum_bytes,
+                            texture_prepare_profile profile) {
+  if (payload.size() > maximum_bytes)
+    return result::invalid_argument;
+  texture_data texture;
+  const auto status = decode_texture_payload(description, payload, texture, diagnostic,
+                                             maximum_bytes, maximum_bytes, profile);
+  if (status.failed())
+    return status;
+  auto size = texture.manifest.size() + texture.payload.size();
+  for (const auto& level : texture.levels)
+    size += level.pixels.size();
+  if (size > maximum_bytes)
+    return result::out_of_memory;
+  output = {.uri = std::string(uri), .sources = {}, .content = std::move(texture), .bytes = size};
+  return result::success;
+}
+result adopt_material_asset(std::string_view uri, asset_ref<const material_description> material,
+                            decoded_asset& output, asset_diagnostic& diagnostic,
+                            std::size_t maximum_bytes, std::size_t material_bytes) {
+  if (!material)
+    return result::invalid_argument;
+  if (material_bytes == 0U) {
+    fail(diagnostic, result::invalid_argument, uri, "材质内容预算不得为零");
+    return result::invalid_argument;
+  }
+  if (material_bytes > maximum_bytes)
+    return result::out_of_memory;
+  auto size = material_bytes;
+  for (const auto& dependency : material->texture_uris) {
+    if (dependency.size() > maximum_bytes - size) {
+      fail(diagnostic, result::out_of_memory, uri, "材质依赖超出批次字节上限");
+      return result::out_of_memory;
+    }
+    size += dependency.size();
+  }
+  output = {.uri = std::string(uri), .sources = {}, .content = std::move(material), .bytes = size};
+  return result::success;
+}
 } // namespace gneiss::engine

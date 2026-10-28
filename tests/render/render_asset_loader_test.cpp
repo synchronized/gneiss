@@ -286,9 +286,12 @@ void selected_variants() {
   require(gneiss::test_support::prepare_render_for_test(asset_owner, files, requests, batch,
                                                         diagnostic, {}, 1U, limit, compressed) ==
           gneiss::engine::result::success);
-  require(batch.bytes == limit && batch.assets.front().texture.profile == compressed);
-  const auto* prepared_payload = batch.assets.front().texture.payload.data();
-  const auto* prepared_manifest = batch.assets.front().texture.manifest.data();
+  require(batch.bytes == limit &&
+          std::get<texture_data>(batch.assets.front().content).profile == compressed);
+  const auto* prepared_payload =
+      std::get<texture_data>(batch.assets.front().content).payload.data();
+  const auto* prepared_manifest =
+      std::get<texture_data>(batch.assets.front().content).manifest.data();
 
   auto& loader = asset_owner;
   if (loader.attach_render(resources).failed())
@@ -297,7 +300,7 @@ void selected_variants() {
   require(gneiss::engine::detail::asset_update::prepare_update(
               loader, std::move(batch.assets.front()), candidate.front()) ==
           gneiss::engine::result::success);
-  const auto old_frame = candidate.front().data.texture;
+  const auto old_frame = std::get<std::shared_ptr<const texture_data>>(candidate.front().data);
   require(old_frame->payload.data() == prepared_payload &&
           old_frame->manifest.data() == prepared_manifest && old_frame->profile == compressed &&
           old_frame->selected_variant == 0U);
@@ -338,16 +341,18 @@ void selected_variants() {
               files, "asset://t.texture.json", texture, diagnostic, binary.size(), binary.size(),
               compressed) == gneiss::engine::result::success);
   const auto* single_payload = texture.payload.data();
-  prepared_asset single_prepared;
-  single_prepared.source = {"asset://single.texture.json", asset_type::texture};
-  single_prepared.texture = std::move(texture);
+  decoded_asset single_prepared;
+  single_prepared.uri = "asset://single.texture.json";
+  single_prepared.content = std::move(texture);
   std::array<detail::asset_update, 1> single;
   require(gneiss::engine::detail::asset_update::prepare_update(loader, std::move(single_prepared),
                                                                single.front()) ==
           gneiss::engine::result::success);
-  require(single.front().data.texture->payload.data() == single_payload &&
-          single.front().data.texture->profile == compressed &&
-          single.front().data.texture->selected_variant == 0U);
+  require(
+      std::get<std::shared_ptr<const texture_data>>(single.front().data)->payload.data() ==
+          single_payload &&
+      std::get<std::shared_ptr<const texture_data>>(single.front().data)->profile == compressed &&
+      std::get<std::shared_ptr<const texture_data>>(single.front().data)->selected_variant == 0U);
   require(gneiss::engine::detail::asset_update::apply_update(loader, single.front()) ==
           gneiss::engine::result::success);
 }
@@ -430,7 +435,8 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
       batch.assets.back().bytes !=
           sizeof(material_data) +
               5U * std::string_view("asset://textures/white.texture.json").size() ||
-      batch.assets.back().material.color != math::vector4{0.25F, 0.5F, 0.75F, 0.5F}) {
+      std::get<asset_ref<const material_description>>(batch.assets.back().content)
+              ->parameters.color != math::vector4{0.25F, 0.5F, 0.75F, 0.5F}) {
     return false;
   }
   detail::asset_update missing;
@@ -451,7 +457,8 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
       return false;
     candidates.push_back(std::move(candidate));
   }
-  if (!matches(candidates.back().data.material.get()) ||
+  if (!matches(
+          std::get<detail::asset_update::material_content>(candidates.back().data).data.get()) ||
       !matches(resources.get_material(gneiss::engine::asset_rid(loaded)))) {
     return false;
   }
@@ -755,7 +762,8 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
       return 40;
     }
     for (const auto& asset : batch.assets) {
-      if (asset.mesh.vertices[0].uv.x != -42469.96875F || asset.mesh.vertices[0].uv.y != 22.5F) {
+      if (std::get<gneiss::engine::mesh_data>(asset.content).vertices[0].uv.x != -42469.96875F ||
+          std::get<gneiss::engine::mesh_data>(asset.content).vertices[0].uv.y != 22.5F) {
         return 41;
       }
     }

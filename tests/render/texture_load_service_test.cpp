@@ -118,12 +118,12 @@ void prepared_source_revisions() {
   for (std::size_t index = 0; index < before.assets.size(); ++index) {
     const auto& old_asset = before.assets[index];
     const auto& new_asset = after.assets[index];
-    check(old_asset.source.uri == new_asset.source.uri);
+    check(old_asset.uri == new_asset.uri);
     if (!old_asset.sources.empty()) {
       check(old_asset.sources.front().identity == new_asset.sources.front().identity);
       check(old_asset.sources.front().digest == new_asset.sources.front().digest);
     }
-    if (old_asset.source.type == asset_type::texture) {
+    if (old_asset.kind() == asset_type::texture) {
       check(old_asset.sources.size() == 2U && new_asset.sources.size() == 2U);
       const auto& payload = new_asset.sources.back();
       asset_identity expected;
@@ -136,7 +136,8 @@ void prepared_source_revisions() {
       check(payload.digest != old_asset.sources.back().digest);
     } else {
       check(old_asset.sources.empty() && new_asset.sources.empty());
-      check(new_asset.texture_uris[0] == "asset://texture");
+      check(std::get<asset_ref<const material_description>>(new_asset.content)->texture_uris[0] ==
+            "asset://texture");
     }
   }
 }
@@ -157,8 +158,9 @@ void mesh_data_lifetime() {
     return batch;
   };
   auto first = prepare(files);
-  const auto* vertices = first.assets.front().mesh.vertices.data();
-  auto mesh = std::make_shared<const mesh_data>(std::move(first.assets.front().mesh));
+  const auto* vertices = std::get<mesh_data>(first.assets.front().content).vertices.data();
+  auto mesh = std::make_shared<const mesh_data>(
+      std::move(std::get<mesh_data>(first.assets.front().content)));
   check(mesh->vertices.data() == vertices);
   render_service resources;
   gneiss::engine::render_resource_factory resources_factory{resources};
@@ -209,8 +211,10 @@ void independent_update_sequences() {
         gneiss::engine::asset_rid(conflict) == gneiss::engine::asset_rid(a));
 
   const auto stage = [&](const auto& source, const auto& target, auto sequence, auto& output) {
-    prepared_asset prepared;
-    prepared.source = source;
+    decoded_asset prepared;
+    prepared.uri = source.uri;
+    prepared.content =
+        asset_ref<const material_description>{std::make_shared<const material_description>()};
     return gneiss::engine::detail::asset_update::prepare_update(loader, std::move(prepared), output,
                                                                 target, sequence);
   };
@@ -236,6 +240,30 @@ void independent_update_sequences() {
   check(stage(source_a, a, new_sequence, latest.front()) == gneiss::engine::result::success);
   check(gneiss::engine::detail::asset_update::apply_update(loader, latest.front()) ==
         gneiss::engine::result::success);
+  // 内容互斥；空结果和类型不匹配不得占用序号或替换已有材质。
+  const auto retained = resources.share_material(asset_rid(a));
+  decoded_asset invalid;
+  invalid.uri = source_a.uri;
+  detail::asset_update rejected;
+  check(detail::asset_update::prepare_update(loader, invalid, rejected, a) ==
+        result::invalid_argument);
+  invalid.content = asset_ref<const material_description>{};
+  check(detail::asset_update::prepare_update(loader, invalid, rejected, a) ==
+        result::invalid_argument);
+  invalid.content = texture_data{};
+  check(detail::asset_update::prepare_update(loader, invalid, rejected, a) ==
+        result::invalid_argument);
+  auto invalid_update = latest.front();
+  invalid_update.data = std::monostate{};
+  check(detail::asset_update::apply_update(loader, invalid_update) == result::invalid_argument);
+  invalid_update.data = std::shared_ptr<const texture_data>{};
+  check(detail::asset_update::apply_update(loader, invalid_update) == result::invalid_argument);
+  invalid_update.data = std::make_shared<const texture_data>();
+  check(detail::asset_update::apply_update(loader, invalid_update) == result::invalid_argument);
+  invalid_update.data = detail::asset_update::material_content{};
+  check(detail::asset_update::apply_update(loader, invalid_update) == result::invalid_argument);
+  check(detail::asset_update::apply_update(loader, latest.front()).ok());
+  check(resources.share_material(asset_rid(a)) == retained);
 }
 void reserved_material_lifetime() {
   auto source = std::make_shared<memory_files>();
@@ -252,8 +280,10 @@ void reserved_material_lifetime() {
   render_asset_ref target;
   check(loader.reserve_asset(request, target) == gneiss::engine::result::success);
   const auto rid = gneiss::engine::asset_rid(target);
-  prepared_asset prepared;
-  prepared.source = request;
+  decoded_asset prepared;
+  prepared.uri = request.uri;
+  prepared.content =
+      asset_ref<const material_description>{std::make_shared<const material_description>()};
   std::array<detail::asset_update, 1> candidates;
   check(gneiss::engine::detail::asset_update::prepare_update(loader, std::move(prepared),
                                                              candidates.front(), target) ==

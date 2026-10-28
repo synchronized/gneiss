@@ -12,7 +12,7 @@ namespace gneiss::test_support {
 using namespace gneiss::engine;
 // 仅组织内存测试夹具；生产解码器只消费字节，不负责读取与递归依赖。
 inline result decode_fixture(const gneiss::test_support::fixture_files& files,
-                             const asset_source& source, prepared_asset& output,
+                             const asset_source& source, decoded_asset& output,
                              asset_diagnostic& diagnostic, std::size_t input_limit,
                              std::size_t output_limit, texture_prepare_profile profile = {}) {
   std::vector<std::byte> description, payload;
@@ -20,8 +20,8 @@ inline result decode_fixture(const gneiss::test_support::fixture_files& files,
   if (status.failed())
     return status;
   std::string payload_uri;
+  texture_description parsed;
   if (source.type == asset_type::texture) {
-    texture_description parsed;
     status = detail::parse_texture(description, parsed, diagnostic);
     if (status.failed())
       return status;
@@ -33,8 +33,14 @@ inline result decode_fixture(const gneiss::test_support::fixture_files& files,
   const auto description_digest = sha256(description);
   const auto payload_digest = sha256(payload);
   const auto description_size = description.size(), payload_size = payload.size();
-  status = decode_loaded_asset(source, std::move(description), payload_uri, std::move(payload),
-                               output, diagnostic, std::max(input_limit, output_limit), profile);
+  if (source.type == asset_type::texture)
+    status = decode_texture_asset(source.uri, parsed, payload, output, diagnostic,
+                                  std::max(input_limit, output_limit), profile);
+  else if (source.type == asset_type::mesh)
+    status = decode_mesh_asset(source.uri, description, output, diagnostic,
+                               std::max(input_limit, output_limit));
+  else
+    return result::invalid_argument;
   if (status.failed())
     return status;
   if (output.bytes > output_limit) {
@@ -62,11 +68,11 @@ inline result decode_texture_fixture(const gneiss::test_support::fixture_files& 
                                      texture_prepare_profile profile = {}) {
   output = {};
   diagnostic = {};
-  prepared_asset decoded;
+  decoded_asset decoded;
   const auto status = decode_fixture(files, {std::string(uri), asset_type::texture}, decoded,
                                      diagnostic, input_limit, output_limit, profile);
   if (status.ok())
-    output = std::move(decoded.texture);
+    output = std::move(std::get<texture_data>(decoded.content));
   return status;
 }
 inline result prepare_render_for_test(asset_manager& assets,
@@ -92,7 +98,7 @@ inline result prepare_render_for_test(asset_manager& assets,
       continue;
     if (seen.size() > maximum_assets)
       return result::out_of_memory;
-    prepared_asset decoded;
+    decoded_asset decoded;
     result status;
     if (source.type == asset_type::material) {
       asset_ref<const material_description> material;
@@ -102,8 +108,8 @@ inline result prepare_render_for_test(asset_manager& assets,
         diagnostic = {status, error.byte_offset, std::move(error.path), std::move(error.message)};
         return status;
       }
-      status = decode_loaded_asset(source, {}, {}, {}, decoded, diagnostic, maximum_bytes, profile,
-                                   std::move(material), sizeof(material_data));
+      status = adopt_material_asset(source.uri, std::move(material), decoded, diagnostic,
+                                    maximum_bytes, sizeof(material_data));
     } else {
       status = decode_fixture(files, source, decoded, diagnostic, 64U * 1024U * 1024U,
                               maximum_bytes, profile);
@@ -115,16 +121,17 @@ inline result prepare_render_for_test(asset_manager& assets,
     if (decoded.bytes > maximum_bytes - batch.bytes)
       return result::out_of_memory;
     batch.bytes += decoded.bytes;
-    for (const auto& uri : decoded.texture_uris)
-      if (!uri.empty())
-        pending.push_back({uri, asset_type::texture});
+    if (const auto* material = std::get_if<asset_ref<const material_description>>(&decoded.content))
+      for (const auto& uri : (*material)->texture_uris)
+        if (!uri.empty())
+          pending.push_back({uri, asset_type::texture});
     batch.assets.push_back(std::move(decoded));
   }
   std::stable_sort(batch.assets.begin(), batch.assets.end(), [](const auto& a, const auto& b) {
     const auto order = [](asset_type type) {
       return type == asset_type::texture ? 0 : type == asset_type::mesh ? 1 : 2;
     };
-    return order(a.source.type) < order(b.source.type);
+    return order(a.kind()) < order(b.kind());
   });
   output = std::move(batch);
   return result::success;

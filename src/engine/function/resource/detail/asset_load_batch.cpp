@@ -207,11 +207,25 @@ submit_result asset_load_batch::submit_preparation(pending& value) {
             cpu->inputs.back().bytes = cpu->payload_bytes.size();
             cpu->inputs.back().digest = sha256(cpu->payload_bytes);
           }
-          prepared_asset prepared;
-          cpu->result = decode_loaded_asset(cpu->source, std::move(cpu->description_bytes),
-                                            cpu->description.uri, std::move(cpu->payload_bytes),
-                                            prepared, diagnostic, cpu->limit, cpu->profile,
-                                            cpu->material, sizeof(material_data));
+          decoded_asset prepared;
+          switch (cpu->source.type) {
+          case asset_type::mesh:
+            cpu->result = decode_mesh_asset(cpu->source.uri, cpu->description_bytes, prepared,
+                                            diagnostic, cpu->limit);
+            break;
+          case asset_type::texture:
+            cpu->result =
+                decode_texture_asset(cpu->source.uri, cpu->description, cpu->payload_bytes,
+                                     prepared, diagnostic, cpu->limit, cpu->profile);
+            break;
+          case asset_type::material:
+            cpu->result = adopt_material_asset(cpu->source.uri, cpu->material, prepared, diagnostic,
+                                               cpu->limit, sizeof(material_data));
+            break;
+          case asset_type::invalid:
+            cpu->result = result::invalid_argument;
+            break;
+          }
           if (cpu->result.ok()) {
             prepared.sources = std::move(cpu->inputs);
             cpu->batch.bytes = prepared.bytes;
@@ -249,8 +263,13 @@ bool asset_load_batch::advance_preparation(pending& value) {
   }
   return true;
 }
-engine::result asset_load_batch::enqueue_dependencies(pending& value, const prepared_asset& asset) {
-  for (const auto& uri : asset.texture_uris) {
+engine::result asset_load_batch::enqueue_dependencies(pending& value, const decoded_asset& asset) {
+  const auto* material = std::get_if<asset_ref<const material_description>>(&asset.content);
+  if (!material)
+    return result::success;
+  if (!*material)
+    return result::invalid_argument;
+  for (const auto& uri : (*material)->texture_uris) {
     if (uri.empty()) {
       continue;
     }

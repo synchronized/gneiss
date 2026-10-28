@@ -31,24 +31,29 @@ void run(std::size_t limit) {
       R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[0,1,0,1],"base_color_texture":"asset://missing"})");
   auto current = std::make_shared<material_description>();
   check(decode_material(input, *current, codec_diagnostic).ok());
-  prepared_asset prepared;
+  decoded_asset prepared;
   const asset_source source{"asset://material.json", asset_type::material};
-  check(decode_loaded_asset(source, {}, {}, {}, prepared, diagnostic, limit, {},
-                            asset_ref<const material_description>{old}, 256)
+  check(adopt_material_asset(source.uri, asset_ref<const material_description>{old}, prepared,
+                             diagnostic, limit, 256)
             .ok());
   old.reset();
   input.clear();
-  check(prepared.description && prepared.material.color[0] == 1 &&
+  check(std::get<asset_ref<const material_description>>(prepared.content) &&
+        std::get<asset_ref<const material_description>>(prepared.content)->parameters.color[0] ==
+            1 &&
         current->parameters.color[1] == 1);
   check(prepared.sources.empty());
-  check(decode_loaded_asset(source, {}, {}, {}, prepared, diagnostic, limit, {},
-                            asset_ref<const material_description>{current}, 256)
+  check(adopt_material_asset(source.uri, asset_ref<const material_description>{current}, prepared,
+                             diagnostic, limit, 256)
             .ok());
-  check(prepared.texture_uris[0] == "asset://missing");
-  const auto retained = prepared.description;
-  check(decode_loaded_asset(source, {}, {}, {}, prepared, diagnostic, 1, {}, retained, 256) ==
+  check(std::get<asset_ref<const material_description>>(prepared.content)->texture_uris[0] ==
+        "asset://missing");
+  const auto retained = std::get<asset_ref<const material_description>>(prepared.content);
+  check(adopt_material_asset(source.uri, retained, prepared, diagnostic, 1, 256) ==
         result::out_of_memory);
-  check(prepared.description == retained && prepared.material.color[1] == 1);
+  check(std::get<asset_ref<const material_description>>(prepared.content) == retained &&
+        std::get<asset_ref<const material_description>>(prepared.content)->parameters.color[1] ==
+            1);
   check(decode_material(bytes("{}"), *current, codec_diagnostic).failed());
   check(current->parameters.color[1] == 1 && current->texture_uris[0] == "asset://missing");
 }

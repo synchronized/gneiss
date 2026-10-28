@@ -53,7 +53,7 @@ private:
   struct pending;
   submit_result submit_preparation(pending& value);
   bool advance_preparation(pending& value);
-  engine::result enqueue_dependencies(pending& value, const prepared_asset& asset);
+  engine::result enqueue_dependencies(pending& value, const decoded_asset& asset);
   void finish_item(engine::result result, bool applied);
   bool start_item(pending& value);
   result start_read(pending& value, std::string_view uri, bool payload);

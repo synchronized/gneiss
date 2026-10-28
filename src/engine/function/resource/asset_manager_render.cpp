@@ -25,6 +25,7 @@
 #include <memory>
 #include <new>
 #include <span>
+#include <type_traits>
 #include <vector>
 
 namespace {
@@ -435,14 +436,14 @@ engine::result asset_manager::reserve_asset(const asset_source& source,
   }
 }
 
-engine::result detail::asset_update::prepare_material_update(asset_manager& assets,
-                                                             prepared_asset& prepared,
-                                                             asset_update& upload) {
+engine::result detail::asset_update::prepare_material_update(
+    asset_manager& assets, const material_description& description, asset_update& upload) {
   if (!assets.render_state_ || assets.render_stopping_)
     return result::invalid_state;
-  material_data material{.parameters = prepared.material};
-  for (std::size_t slot = 0; slot < prepared.texture_uris.size(); ++slot) {
-    const auto& uri = prepared.texture_uris[slot];
+  asset_update::material_content content;
+  material_data material{.parameters = description.parameters};
+  for (std::size_t slot = 0; slot < description.texture_uris.size(); ++slot) {
+    const auto& uri = description.texture_uris[slot];
     if (uri.empty()) {
       continue;
     }
@@ -453,29 +454,38 @@ engine::result detail::asset_update::prepare_material_update(asset_manager& asse
       return reserved;
     }
     material.set_texture(slot, asset_rid(dependency));
-    upload.dependencies[slot] = dependency->as<texture_resource>();
+    content.dependencies[slot] = dependency->as<texture_resource>();
   }
-  return assets.render_state_->factory.render().prepare_material_data(material,
-                                                                      upload.data.material);
+  const auto status =
+      assets.render_state_->factory.render().prepare_material_data(material, content.data);
+  if (status.ok())
+    upload.data = std::move(content);
+  return status;
 }
 
-engine::result detail::asset_update::prepare_update(asset_manager& assets, prepared_asset prepared,
+engine::result detail::asset_update::prepare_update(asset_manager& assets, decoded_asset prepared,
                                                     asset_update& output,
                                                     const render_asset_ref& target,
                                                     std::uint64_t sequence) noexcept try {
   if (!assets.render_state_ || assets.render_stopping_)
     return result::invalid_state;
   output = {};
+  const auto kind = prepared.kind();
+  if (kind == asset_type::invalid)
+    return result::invalid_argument;
+  if (const auto* material = std::get_if<asset_ref<const material_description>>(&prepared.content);
+      material && !*material)
+    return result::invalid_argument;
   asset_update upload;
   upload.target = target;
   if (!upload.target) {
-    const auto reserved = assets.reserve_asset(prepared.source, upload.target);
+    const auto reserved = assets.reserve_asset({prepared.uri, kind}, upload.target);
     if (reserved != engine::result::success) {
       return reserved;
     }
   }
-  if (engine::asset_kind(upload.target) != prepared.source.type ||
-      engine::asset_uri(upload.target) != prepared.source.uri || !assets.owns(upload.target)) {
+  if (engine::asset_kind(upload.target) != kind ||
+      engine::asset_uri(upload.target) != prepared.uri || !assets.owns(upload.target)) {
     return engine::result::invalid_argument;
   }
   for (const auto& input : prepared.sources) {
@@ -490,24 +500,30 @@ engine::result detail::asset_update::prepare_update(asset_manager& assets, prepa
   if (!claim_update(assets, upload.target, upload.sequence)) {
     return engine::result::invalid_state;
   }
-  upload.data.bytes = prepared.bytes;
-  engine::result result{engine::result::invalid_argument};
-  switch (prepared.source.type) {
-  case asset_type::mesh:
-    result = assets.render_state_->factory.render().prepare_mesh_data(
-        std::make_shared<const mesh_data>(std::move(prepared.mesh)), upload.data.mesh);
-    break;
-  case asset_type::texture: {
-    result = assets.render_state_->factory.render().prepare_texture_data(
-        std::move(prepared.texture), upload.data.texture);
-    break;
-  }
-  case asset_type::material:
-    result = prepare_material_update(assets, prepared, upload);
-    break;
-  case asset_type::invalid:
-    return engine::result::invalid_argument;
-  }
+  const auto result = std::visit(
+      [&](auto& content) -> engine::result {
+        using T = std::decay_t<decltype(content)>;
+        if constexpr (std::is_same_v<T, mesh_data>) {
+          std::shared_ptr<const mesh_data> data;
+          const auto status = assets.render_state_->factory.render().prepare_mesh_data(
+              std::make_shared<const mesh_data>(std::move(content)), data);
+          if (status.ok())
+            upload.data = std::move(data);
+          return status;
+        } else if constexpr (std::is_same_v<T, texture_data>) {
+          std::shared_ptr<const texture_data> data;
+          const auto status =
+              assets.render_state_->factory.render().prepare_texture_data(std::move(content), data);
+          if (status.ok())
+            upload.data = std::move(data);
+          return status;
+        } else if constexpr (std::is_same_v<T, asset_ref<const material_description>>) {
+          return prepare_material_update(assets, *content, upload);
+        } else {
+          return engine::result::invalid_argument;
+        }
+      },
+      prepared.content);
   if (result == engine::result::success) {
     output = std::move(upload);
   }
@@ -525,26 +541,31 @@ engine::result detail::asset_update::apply_update(asset_manager& assets,
   if (!assets.owns(upload.target) || update_sequence(assets, upload.target) != upload.sequence) {
     return engine::result::invalid_state;
   }
-  if (upload.data.mesh) {
-    return assets.render_state_->factory.update_mesh(asset_cast<mesh_resource>(upload.target),
-                                                     upload.data.mesh)
-               ? engine::result::success
-               : engine::result::out_of_memory;
-  }
-  if (upload.data.texture) {
-    return assets.render_state_->factory.update_texture(asset_cast<texture_resource>(upload.target),
-                                                        upload.data.texture)
-               ? engine::result::success
-               : engine::result::out_of_memory;
-  }
-  if (!upload.data.material) {
-    return engine::result::invalid_argument;
-  }
-  if (!assets.render_state_->factory.update_material(asset_cast<material_resource>(upload.target),
-                                                     upload.data.material, upload.dependencies)) {
-    return engine::result::out_of_memory;
-  }
-  return engine::result::success;
+  return std::visit(
+      [&](const auto& content) -> result {
+        using T = std::decay_t<decltype(content)>;
+        bool adopted{};
+        if constexpr (std::is_same_v<T, std::shared_ptr<const mesh_data>>) {
+          if (!content || asset_kind(upload.target) != asset_type::mesh)
+            return result::invalid_argument;
+          adopted = assets.render_state_->factory.update_mesh(
+              asset_cast<mesh_resource>(upload.target), content);
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<const texture_data>>) {
+          if (!content || asset_kind(upload.target) != asset_type::texture)
+            return result::invalid_argument;
+          adopted = assets.render_state_->factory.update_texture(
+              asset_cast<texture_resource>(upload.target), content);
+        } else if constexpr (std::is_same_v<T, material_content>) {
+          if (!content.data || asset_kind(upload.target) != asset_type::material)
+            return result::invalid_argument;
+          adopted = assets.render_state_->factory.update_material(
+              asset_cast<material_resource>(upload.target), content.data, content.dependencies);
+        } else {
+          return result::invalid_argument;
+        }
+        return adopted ? result::success : result::out_of_memory;
+      },
+      upload.data);
 }
 
 result asset_manager::acquire_mesh(std::string_view uri, engine::mesh& output,

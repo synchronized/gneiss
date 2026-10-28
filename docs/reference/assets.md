@@ -88,7 +88,10 @@ GPU 在途使用的安全回收由 Render 及后端负责，详见[运行资源�
 
 ## 内部异步准备
 
-网格、纹理与材质共用纯内存解码入口 `decode_loaded_asset`，该入口不读取文件、不递归加载依赖。
+网格使用 `decode_mesh_asset`，纹理使用 `decode_texture_asset` 接收已解析描述与负载；
+材质通过 `adopt_material_asset` 共享已解码描述。各入口不读取文件、不递归加载依赖。
+内部 `decoded_asset::content` 使用 `std::variant`，只持有一种内容；`kind()` 从内容推导类型。
+材质不重复保存参数与依赖 URI。内部更新任务同样使用互斥内容，采用前检查空引用及目标类型。
 文件服务返回字节后，加载编排层提交 CPU 任务；thread 与 cooperative 使用同一解码实现。
 协作模式的单次 JSON/PNG 解码仍不可抢占，不承诺单帧时间上界。
 
