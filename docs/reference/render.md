@@ -9,6 +9,7 @@ Mesh、Material 和 Texture 的 CPU 内容表由 Application 的 `render_service
 调用方通过 `application::render()` 使用 RID 接口，不能借用资源表。
 运行身份、元信息与材质依赖由资源层维护，强引用入口为 `reference_mesh/texture/material(render, rid)`；
 程序化纹理可用 `create_texture(render, texture_view, texture&)` 直接取得强引用。
+这些装配函数声明在 `engine/resource/render_resource_factory.hpp`；资源对象头不再声明 Render 服务类型。
 原生 `render_service::create_mesh(mesh_view, ...)` 会在调用
 期间复制顶点、可选法线、切线、UV1、顶点色及可选 UInt32 索引；调用返回后，调用方可以立即释放源数据。Mesh 至少需要
 三个有限值顶点。索引非空时数量必须至少为三个且为三的倍数，所有索引必须小于顶点数；索引为空时
@@ -41,6 +42,11 @@ domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
 `engine/resource` 下各资源目录的 `mesh_resource.hpp`、`texture_resource.hpp`、
 `material_resource.hpp` 分别定义同名运行对象，
 分别使用 `mesh`、`texture`、`material`（`asset_ref<const T>`）持有。
+各对象只保留对应 `detail::*_resource_access` 一个友元。访问器位于各资源目录的 `detail/`，
+提供构造、RID 查询、来源设置、更新序号校验及元信息/材质内容更新，不返回私有字段的可变引用。
+只有资源自身实现、资源装配和 Loader 可以包含访问器；普通上层使用只读资源接口。
+私有构造由 Access 提供的同步工厂完成，销毁队列仍在原节点内持有对象，保持唯一控制块与无分配入队。
+
 它们与 CPU 负载 `mesh_data`、`texture_data`、`material_data` 是不同类型；
 当前 Loader 的混合请求仍返回缓存条目，`entry::as<T>()` 检查类型并取得同一对象的强引用。
 缓存清理同时检查条目租约和运行对象强引用，避免对象仍被使用时丢失 URI 身份。

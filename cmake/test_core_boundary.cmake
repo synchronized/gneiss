@@ -666,7 +666,10 @@ foreach(header IN ITEMS engine/resource/texture/texture_ktx2.hpp engine/resource
 endforeach()
 
 # Render 只开放服务接口，不开放 RID 表与引用关联实现。
-foreach(header IN ITEMS "engine/function/render/render_resource_storage.hpp" "engine/resource/resource_bindings.hpp")
+foreach(header IN ITEMS "engine/function/render/render_resource_storage.hpp" "engine/resource/resource_bindings.hpp"
+    "engine/resource/texture/detail/texture_resource_access.hpp"
+    "engine/resource/mesh/detail/mesh_resource_access.hpp"
+    "engine/resource/material/detail/material_resource_access.hpp")
   file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"

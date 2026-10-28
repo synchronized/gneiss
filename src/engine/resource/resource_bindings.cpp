@@ -3,26 +3,35 @@
 
 #include "engine/resource/resource_bindings.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/resource/material/detail/material_resource_access.hpp"
+#include "engine/resource/mesh/detail/mesh_resource_access.hpp"
+#include "engine/resource/render_resource_factory.hpp"
+#include "engine/resource/texture/detail/texture_resource_access.hpp"
 #include <type_traits>
 namespace gneiss::engine {
 resource_bindings& resource_bindings::of(render_service& render) noexcept {
   return *render.bindings_;
 }
 template <typename T> std::shared_ptr<T> resource_bindings::make(rid handle) {
-  return retirement_.make<T>(
-      [](T& value, void* owner) noexcept {
-        auto* render = static_cast<render_service*>(owner);
-        if (render && value.rid_ != null_rid) {
-          if constexpr (std::is_same_v<T, mesh_resource>)
-            (void)render->destroy_mesh(value.rid_);
-          else if constexpr (std::is_same_v<T, texture_resource>)
-            (void)render->destroy_texture(value.rid_);
-          else if constexpr (std::is_same_v<T, material_resource>)
-            (void)render->destroy_material(value.rid_);
-        }
-      },
-      handle);
+  auto finalize = [](T& value, void* owner) noexcept {
+    auto* render = static_cast<render_service*>(owner);
+    if (!render)
+      return;
+    if constexpr (std::is_same_v<T, mesh_resource>)
+      (void)render->destroy_mesh(detail::mesh_resource_access::handle(value));
+    else if constexpr (std::is_same_v<T, texture_resource>)
+      (void)render->destroy_texture(detail::texture_resource_access::handle(value));
+    else if constexpr (std::is_same_v<T, material_resource>)
+      (void)render->destroy_material(detail::material_resource_access::handle(value));
+  };
+  if constexpr (std::is_same_v<T, mesh_resource>)
+    return detail::mesh_resource_access::make(retirement_, finalize, handle);
+  else if constexpr (std::is_same_v<T, texture_resource>)
+    return detail::texture_resource_access::make(retirement_, finalize, handle);
+  else if constexpr (std::is_same_v<T, material_resource>)
+    return detail::material_resource_access::make(retirement_, finalize, handle);
 }
+
 void resource_bindings::close() noexcept {
   retirement_.close();
   meshes_.clear();
@@ -85,18 +94,21 @@ void resource_bindings::update_mesh(rid handle, const mesh_data& data) noexcept 
   const auto found = meshes_.find(handle);
   if (found != meshes_.end())
     if (auto value = found->second.lock())
-      value->metadata_ = mesh_metadata{data.vertices.size(), data.indices.size(),
-                                       !data.normals.empty(), !data.uv1.empty()};
+      detail::mesh_resource_access::set_metadata(
+          *value, mesh_metadata{data.vertices.size(), data.indices.size(), !data.normals.empty(),
+                                !data.uv1.empty()});
 }
 void resource_bindings::update_texture(rid handle, const texture_data& data) noexcept {
   const auto found = textures_.find(handle);
   if (found != textures_.end())
     if (auto value = found->second.lock())
-      value->metadata_ = texture_metadata{
-          data.width, data.height,
-          data.levels.empty() ? std::nullopt
-                              : std::optional{static_cast<std::uint32_t>(data.levels.size())},
-          data.manifest.empty() ? std::optional{data.format} : std::nullopt, data.color_space};
+      detail::texture_resource_access::set_metadata(
+          *value,
+          texture_metadata{
+              data.width, data.height,
+              data.levels.empty() ? std::nullopt
+                                  : std::optional{static_cast<std::uint32_t>(data.levels.size())},
+              data.manifest.empty() ? std::optional{data.format} : std::nullopt, data.color_space});
 }
 bool resource_bindings::prepare_material(rid handle, const material_data& data,
                                          std::array<texture, 5>& dependencies) {
@@ -118,8 +130,8 @@ void resource_bindings::update_material(rid handle, const material_data& data,
   const auto found = materials_.find(handle);
   if (found != materials_.end())
     if (auto value = found->second.lock()) {
-      value->parameters_ = data.parameters;
-      value->textures_ = std::move(dependencies);
+      detail::material_resource_access::set_content(*value, data.parameters,
+                                                    std::move(dependencies));
     }
 }
 result create_texture(render_service& render, const texture_view& desc, texture& output) noexcept {

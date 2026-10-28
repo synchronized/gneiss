@@ -5,17 +5,16 @@
 
 #include "engine/core/export.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/resource/asset_identity.hpp"
 #include "engine/resource/asset_ref.hpp"
-#include "engine/resource/resource_cache.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <optional>
 
 namespace gneiss::engine {
-class render_asset_loader;
-class render_service;
-class resource_bindings;
-class resource_retirement_queue;
+namespace detail {
+struct mesh_resource_access;
+}
 
 struct mesh_metadata {
   std::size_t vertices{};
@@ -35,12 +34,8 @@ public:
   mesh_resource& operator=(const mesh_resource&) = delete;
 
 private:
-  friend class resource_retirement_queue;
+  friend struct detail::mesh_resource_access;
   mesh_resource(rid value) noexcept;
-  friend rid resource_handle(const asset_ref<const mesh_resource>&) noexcept;
-  friend class render_asset_loader;
-  friend class resource_bindings;
-  friend rid asset_rid(const asset_ref<const resource_cache::entry>&) noexcept;
   rid rid_;
   mutable asset_identity identity_;
   mutable std::uint64_t update_sequence_{};
@@ -50,9 +45,6 @@ private:
 using mesh = asset_ref<const mesh_resource>;
 
 /** Render 内部标识提取；不转移所有权，不表示内容已就绪。 */
-inline rid resource_handle(const mesh& value) noexcept { return value ? value->rid_ : null_rid; }
-
-/** 所属线程取得 RID 的唯一资源引用；无效 RID 返回空，分配失败抛出 bad_alloc。 */
-[[nodiscard]] GNEISS_API mesh reference_mesh(render_service& render, rid handle);
+[[nodiscard]] GNEISS_API rid resource_handle(const mesh& value) noexcept;
 
 } // namespace gneiss::engine

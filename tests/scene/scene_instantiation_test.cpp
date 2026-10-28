@@ -12,6 +12,7 @@
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/asset_manager.hpp"
+#include "engine/resource/render_resource_factory.hpp"
 #include "runtime/loading/scene_domain.hpp"
 #include <algorithm>
 #include <thread>

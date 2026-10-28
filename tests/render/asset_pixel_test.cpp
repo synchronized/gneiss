@@ -9,6 +9,7 @@
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
+#include "engine/resource/render_resource_factory.hpp"
 #include "engine/resource/texture/texture_binary.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
 #include "runtime/application.hpp"

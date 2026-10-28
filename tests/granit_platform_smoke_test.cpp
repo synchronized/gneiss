@@ -3,6 +3,7 @@
 
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/resource/render_resource_factory.hpp"
 #include "runtime/application.hpp"
 #include <memory>
 

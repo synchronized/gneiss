@@ -6,6 +6,7 @@
 #include <atomic>
 #include <barrier>
 #include <memory>
+#include <new>
 #include <thread>
 #include <vector>
 
@@ -35,6 +36,14 @@ void finalize(resource& value, void* owner) noexcept {
 int main() {
   counters counts;
   resource_retirement_queue queue(&counts);
+  // 工厂构造失败不能留下待销毁节点；队列随后仍可正常使用。
+  try {
+    (void)queue.make_with_factory<resource>(finalize, []() -> resource { throw std::bad_alloc{}; });
+    return 10;
+  } catch (const std::bad_alloc&) {
+    if (queue.drain() != 0U || counts.destroyed != 0U)
+      return 11;
+  }
   auto texture = queue.make<resource>(finalize, counts);
   auto material = queue.make<resource>(finalize, counts);
   material->dependency = std::move(texture);

@@ -112,6 +112,10 @@ target_sources(
     engine/function/render/render_resource_storage.hpp
     engine/resource/resource_bindings.cpp
     engine/resource/resource_bindings.hpp
+    engine/resource/render_resource_factory.hpp
+    engine/resource/mesh/detail/mesh_resource_access.hpp
+    engine/resource/texture/detail/texture_resource_access.hpp
+    engine/resource/material/detail/material_resource_access.hpp
     engine/resource/texture/texture_view.hpp
     engine/function/render/debug_draw_list.cpp
     engine/function/render/draw_types.hpp

@@ -38,9 +38,9 @@ class resource_retirement_queue final {
     }
   };
   template <typename T, typename Finalize> struct allocation final : node {
-    template <typename... Args>
-    allocation(Finalize finalizer, Args&&... args)
-        : finalize(std::move(finalizer)), value(std::forward<Args>(args)...) {
+    template <typename Factory>
+    allocation(Finalize finalizer, Factory&& factory)
+        : finalize(std::move(finalizer)), value(factory()) {
       this->destroy = [](node* entry, void* owner) noexcept {
         auto* self = static_cast<allocation*>(entry);
         self->finalize(self->value, owner);
@@ -59,13 +59,21 @@ public:
 
   template <typename T, typename Finalize, typename... Args>
   std::shared_ptr<T> make(Finalize finalize, Args&&... args) {
+    return make_with_factory<T>(std::move(finalize),
+                                [&]() { return T(std::forward<Args>(args)...); });
+  }
+
+  /** 工厂在创建节点时同步构造对象；C++20 保证消除拷贝，无需开放私有构造或增加控制块。 */
+  template <typename T, typename Finalize, typename Factory>
+  std::shared_ptr<T> make_with_factory(Finalize finalize, Factory&& factory) {
+    static_assert(std::is_same_v<std::invoke_result_t<Factory&>, T>);
     static_assert(std::is_nothrow_invocable_v<Finalize&, T&, void*>);
     static_assert(std::is_nothrow_destructible_v<T>);
     check_owner();
     // 创建只发生在所属线程；生产者只释放引用，不创建节点。
     if (closed_)
       std::terminate();
-    auto* entry = new allocation<T, Finalize>(std::move(finalize), std::forward<Args>(args)...);
+    auto* entry = new allocation<T, Finalize>(std::move(finalize), std::forward<Factory>(factory));
     return std::shared_ptr<T>(&entry->value,
                               [state = state_, entry](T*) noexcept { state->retire(entry); });
   }

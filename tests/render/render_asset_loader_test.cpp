@@ -12,6 +12,7 @@
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/material/material_codec.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
+#include "engine/resource/render_resource_factory.hpp"
 #include "engine/resource/resource_cache.hpp"
 #include "engine/resource/texture/texture_binary.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"

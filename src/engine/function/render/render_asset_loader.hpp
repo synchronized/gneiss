@@ -124,7 +124,7 @@ public:
 
 private:
   result prepare_material_update(prepared_render_asset& prepared, asset_update& upload);
-  [[nodiscard]] std::uint64_t* update_sequence(const render_asset_ref& lease) const noexcept;
+  [[nodiscard]] std::uint64_t update_sequence(const render_asset_ref& lease) const noexcept;
   asset_manager& assets_;
   texture_prepare_profile default_profile_{};
   resource_cache& cache_;

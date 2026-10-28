@@ -3,6 +3,7 @@
 
 #include "imgui_adapter.hpp"
 #include "engine/core/result.hpp"
+#include "engine/resource/render_resource_factory.hpp"
 #include "runtime/application.hpp"
 
 #include "editor_theme.hpp"

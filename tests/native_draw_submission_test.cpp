@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/render/render_service.hpp"
+#include "engine/resource/render_resource_factory.hpp"
 #include "runtime/application.hpp"
 
 #include <array>

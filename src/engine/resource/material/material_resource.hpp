@@ -5,17 +5,16 @@
 
 #include "engine/core/export.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/resource/asset_identity.hpp"
 #include "engine/resource/asset_ref.hpp"
 #include "engine/resource/material/material_description.hpp"
-#include "engine/resource/resource_cache.hpp"
 #include "engine/resource/texture/texture_resource.hpp"
 #include <array>
 
 namespace gneiss::engine {
-class render_asset_loader;
-class render_service;
-class resource_bindings;
-class resource_retirement_queue;
+namespace detail {
+struct material_resource_access;
+}
 
 /** 稳定运行身份，与 material_data 的 CPU 内容寿命分离。由 Render 创建并延迟析构。 */
 class GNEISS_API material_resource final {
@@ -29,12 +28,8 @@ public:
   material_resource& operator=(const material_resource&) = delete;
 
 private:
-  friend class resource_retirement_queue;
+  friend struct detail::material_resource_access;
   material_resource(rid value, std::array<texture, 5> dependencies = {}) noexcept;
-  friend rid resource_handle(const asset_ref<const material_resource>&) noexcept;
-  friend class render_asset_loader;
-  friend class resource_bindings;
-  friend rid asset_rid(const asset_ref<const resource_cache::entry>&) noexcept;
   rid rid_;
   mutable asset_identity identity_;
   mutable std::uint64_t update_sequence_{};
@@ -45,11 +40,6 @@ private:
 using material = asset_ref<const material_resource>;
 
 /** Render 内部标识提取；不转移所有权，不表示内容已就绪。 */
-inline rid resource_handle(const material& value) noexcept {
-  return value ? value->rid_ : null_rid;
-}
-
-/** 所属线程取得 RID 的唯一资源引用；无效 RID 返回空，分配失败抛出 bad_alloc。 */
-[[nodiscard]] GNEISS_API material reference_material(render_service& render, rid handle);
+[[nodiscard]] GNEISS_API rid resource_handle(const material& value) noexcept;
 
 } // namespace gneiss::engine

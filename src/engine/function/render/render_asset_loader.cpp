@@ -5,6 +5,10 @@
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/resource/asset_manager.hpp"
+#include "engine/resource/material/detail/material_resource_access.hpp"
+#include "engine/resource/mesh/detail/mesh_resource_access.hpp"
+#include "engine/resource/render_resource_factory.hpp"
+#include "engine/resource/texture/detail/texture_resource_access.hpp"
 #include <atomic>
 
 #include "engine/function/render/render_service.hpp"
@@ -75,11 +79,14 @@ engine::rid asset_rid(const render_asset_ref& asset) noexcept {
   case render_asset_type::invalid:
     return 0U;
   case render_asset_type::mesh:
-    return std::static_pointer_cast<const mesh_resource>(asset->resource)->rid_;
+    return detail::mesh_resource_access::handle(
+        *std::static_pointer_cast<const mesh_resource>(asset->resource));
   case render_asset_type::material:
-    return std::static_pointer_cast<const material_resource>(asset->resource)->rid_;
+    return detail::material_resource_access::handle(
+        *std::static_pointer_cast<const material_resource>(asset->resource));
   case render_asset_type::texture:
-    return std::static_pointer_cast<const texture_resource>(asset->resource)->rid_;
+    return detail::texture_resource_access::handle(
+        *std::static_pointer_cast<const texture_resource>(asset->resource));
   }
   return 0U;
 }
@@ -152,7 +159,7 @@ engine::result render_asset_loader::acquire_cached(const render_asset_reload& so
       return status;
     }
     const auto matches_profile = [&](const texture_resource& resource) {
-      const auto rid = resource.rid_;
+      const auto rid = detail::texture_resource_access::handle(resource);
       const auto* texture = resources_.get_texture(rid);
       return texture &&
              (profile.generation == 0U || texture->manifest.empty() || texture->profile == profile);
@@ -163,7 +170,7 @@ engine::result render_asset_loader::acquire_cached(const render_asset_reload& so
     }
     if (source.type == render_asset_type::material) {
       const auto material = std::static_pointer_cast<const material_resource>(current->resource);
-      for (const auto& texture : material->textures_) {
+      for (const auto& texture : material->textures()) {
         if (texture && !matches_profile(*texture)) {
           return engine::result::not_found;
         }
@@ -182,30 +189,43 @@ std::uint64_t render_asset_loader::next_update_sequence() noexcept {
   return sequence.fetch_add(1U, std::memory_order_relaxed) + 1U;
 }
 
-std::uint64_t* render_asset_loader::update_sequence(const render_asset_ref& lease) const noexcept {
+std::uint64_t render_asset_loader::update_sequence(const render_asset_ref& lease) const noexcept {
   if (!owns(lease)) {
-    return nullptr;
+    return 0U;
   }
   switch (asset_kind(lease)) {
   case render_asset_type::mesh:
-    return &std::static_pointer_cast<const mesh_resource>(lease->resource)->update_sequence_;
+    return detail::mesh_resource_access::update_sequence(
+        *std::static_pointer_cast<const mesh_resource>(lease->resource));
   case render_asset_type::texture:
-    return &std::static_pointer_cast<const texture_resource>(lease->resource)->update_sequence_;
+    return detail::texture_resource_access::update_sequence(
+        *std::static_pointer_cast<const texture_resource>(lease->resource));
   case render_asset_type::material:
-    return &std::static_pointer_cast<const material_resource>(lease->resource)->update_sequence_;
+    return detail::material_resource_access::update_sequence(
+        *std::static_pointer_cast<const material_resource>(lease->resource));
   case render_asset_type::invalid:
-    return nullptr;
+    return 0U;
   }
-  return nullptr;
+  return 0U;
 }
 bool render_asset_loader::claim_update(const render_asset_ref& lease,
                                        std::uint64_t sequence) noexcept {
-  auto* current = update_sequence(lease);
-  if (current == nullptr || sequence == 0U || sequence < *current) {
+  if (!owns(lease))
+    return false;
+  switch (asset_kind(lease)) {
+  case render_asset_type::mesh:
+    return detail::mesh_resource_access::claim_update(
+        *std::static_pointer_cast<const mesh_resource>(lease->resource), sequence);
+  case render_asset_type::texture:
+    return detail::texture_resource_access::claim_update(
+        *std::static_pointer_cast<const texture_resource>(lease->resource), sequence);
+  case render_asset_type::material:
+    return detail::material_resource_access::claim_update(
+        *std::static_pointer_cast<const material_resource>(lease->resource), sequence);
+  case render_asset_type::invalid:
     return false;
   }
-  *current = sequence;
-  return true;
+  return false;
 }
 
 engine::result render_asset_loader::reserve_asset(const render_asset_reload& source,
@@ -232,7 +252,7 @@ engine::result render_asset_loader::reserve_asset(const render_asset_reload& sou
             if (result.ok()) {
               try {
                 auto value = gneiss::engine::reference_mesh(resources_, handle);
-                value->identity_ = identity;
+                detail::mesh_resource_access::set_source(*value, identity);
                 resource = value.shared();
               } catch (...) {
                 (void)resources_.destroy_mesh(handle);
@@ -247,7 +267,7 @@ engine::result render_asset_loader::reserve_asset(const render_asset_reload& sou
             if (result.ok()) {
               try {
                 auto value = gneiss::engine::reference_texture(resources_, handle);
-                value->identity_ = identity;
+                detail::texture_resource_access::set_source(*value, identity);
                 resource = value.shared();
               } catch (...) {
                 (void)resources_.destroy_texture(handle);
@@ -262,7 +282,7 @@ engine::result render_asset_loader::reserve_asset(const render_asset_reload& sou
             if (result.ok()) {
               try {
                 auto value = gneiss::engine::reference_material(resources_, handle);
-                value->identity_ = identity;
+                detail::material_resource_access::set_source(*value, identity);
                 resource = value.shared();
               } catch (...) {
                 (void)resources_.destroy_material(handle);
@@ -366,7 +386,7 @@ engine::result render_asset_loader::prepare_update(prepared_render_asset prepare
 }
 
 engine::result render_asset_loader::apply_update(asset_update& upload) noexcept {
-  if (!owns(upload.target) || *update_sequence(upload.target) != upload.sequence) {
+  if (!owns(upload.target) || update_sequence(upload.target) != upload.sequence) {
     return engine::result::invalid_state;
   }
   const auto rid = asset_rid(upload.target);

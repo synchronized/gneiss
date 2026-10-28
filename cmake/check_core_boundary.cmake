@@ -15,6 +15,11 @@ if(NOT sources)
 endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
+  if(content MATCHES "engine/resource/(mesh|texture|material)/detail/[a-z_]+_resource_access[.]hpp" AND
+      NOT source MATCHES "/src/engine/(resource/((mesh|texture|material)/[a-z_]+_resource|resource_bindings)|function/render/render_asset_loader)[.]cpp$")
+    message(FATAL_ERROR "资源私有访问器不得泄漏到普通调用方：${source}")
+  endif()
+
   if(content MATCHES "engine/function/render/render_resource_storage[.]hpp" AND
       NOT source MATCHES "/src/engine/function/render/(render_service|render_service_resources)[.]cpp$")
     message(FATAL_ERROR "Render 私有 RID 表不得泄漏到调用方：${source}")

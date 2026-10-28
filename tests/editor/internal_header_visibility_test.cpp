@@ -12,6 +12,14 @@
 #include "panels/property_inspector_model.hpp"
 
 // 与真实宿主使用相同传递依赖；私有头重新泄漏时编译必须失败。
+#if __has_include("engine/resource/texture/detail/texture_resource_access.hpp") ||                 \
+                  __has_include(                                                                   \
+                      "engine/resource/mesh/detail/mesh_resource_access.hpp") ||                   \
+                      __has_include(                                                               \
+                          "engine/resource/material/detail/material_resource_access.hpp")
+#error "资源私有访问器泄漏到宿主"
+#endif
+
 #if __has_include("runtime/loading/scene_domain.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
