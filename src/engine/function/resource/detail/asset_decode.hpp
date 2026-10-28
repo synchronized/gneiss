@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "engine/core/sha256.hpp"
 #include "engine/function/resource/asset_types.hpp"
+#include "engine/resource/asset_data_request.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/mesh/mesh_data.hpp"
 #include "engine/resource/texture/texture_data.hpp"
@@ -16,20 +16,12 @@
 #include <vector>
 
 namespace gneiss::engine {
-/** 准备实际读取的输入；identity.type 使用所属资产类型，区分描述与负载的 URI。
- * 记录本次实际读取内容的摘要与长度；不是包含依赖及准备配置的完整缓存版本。 */
-struct prepared_source final {
-  asset_identity identity;
-  std::uint64_t bytes{};
-  sha256_digest digest{};
-};
-
 /** 解码结果只有一个有效内容；材质共享已经解码的不可变描述。 */
 using decoded_content =
     std::variant<std::monostate, mesh_data, texture_data, asset_ref<const material_description>>;
 struct decoded_asset {
   std::string uri;
-  std::vector<prepared_source> sources;
+  std::vector<asset_data_source> sources;
   decoded_content content;
   std::size_t bytes{};
   [[nodiscard]] asset_type kind() const noexcept {

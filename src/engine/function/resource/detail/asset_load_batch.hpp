@@ -51,18 +51,14 @@ public:
 
 private:
   struct pending;
-  submit_result submit_preparation(pending& value);
-  bool advance_preparation(pending& value);
+  result take_item(pending& value);
   engine::result enqueue_dependencies(pending& value, const decoded_asset& asset);
   void finish_item(engine::result result, bool applied);
   bool start_item(pending& value);
-  result start_read(pending& value, std::string_view uri, bool payload);
   bool prepare_item_update(pending& value);
   void advance_impl();
   void check_owner() const;
   void finish(engine::result result, asset_load_state state);
-  task_executor& executor_;
-  task_scope scope_;
   resource_service& assets_;
   texture_prepare_profile profile_;
   std::shared_ptr<progress_notification> notification_;

@@ -421,6 +421,48 @@ void cpu_loading(execution_mode mode) {
   check(loader.reserve_texture(rejected) == result::invalid_state && !rejected);
   check(loader.configure_loading(scheduler) == result::invalid_state);
   check(service.submit(uris, 1U, 8U, request) == result::invalid_state && request == 0U);
+  // 资源服务停止后仍能直接加载 CPU 内容，结果移动领取且不写入长期缓存。
+  manager.collect_unused();
+  const auto cached = manager.cache().size();
+  asset_data_request<mesh_data> mesh_request;
+  check(manager.load_mesh_data("asset://mesh", mesh_request).ok());
+  mesh_data mesh_content;
+  asset_data_metrics metrics;
+  result loaded{result::not_ready};
+  until([&] {
+    if (backend->callback)
+      backend->complete(fixture.files.at(backend->path));
+    loaded = mesh_request.take(mesh_content, nullptr, &metrics);
+    return loaded != result::not_ready;
+  });
+  check(loaded.ok() && mesh_content.vertices.size() == 3U && !mesh_request);
+  check(metrics.sources.size() == 1U && metrics.bytes == mesh_content.data_bytes());
+  check(mesh_request.take(mesh_content) == result::invalid_state);
+  check(manager.cache().size() == cached);
+  asset_ref<const mesh_data> absent_mesh;
+  check(manager.find_loaded("asset://mesh", absent_mesh) == result::not_found);
+
+  asset_data_request<texture_data> texture_request;
+  check(manager.load_texture_data("asset://texture", {}, texture_request).ok());
+  texture_data texture_content;
+  until([&] {
+    if (backend->callback)
+      backend->complete(fixture.files.at(backend->path));
+    loaded = texture_request.take(texture_content, nullptr, &metrics);
+    return loaded != result::not_ready;
+  });
+  check(loaded.ok() && texture_content.levels.front().pixels.front() == std::byte{42});
+  check(metrics.sources.size() == 2U &&
+        metrics.sources.back().identity.uri == "asset://image.ktx2");
+  check(manager.cache().size() == cached);
+
+  check(manager.load_texture_data("asset://texture", {}, texture_request).ok());
+  until([&] { return bool(backend->callback); });
+  manager.request_stop();
+  check(texture_request.take(texture_content) == result::invalid_state);
+  backend->complete(fixture.files.at("texture"));
+  until([&] { return manager.stopped(); });
+  check(manager.load_mesh_data("asset://mesh", mesh_request) == result::invalid_state);
 }
 } // namespace
 int main() try {

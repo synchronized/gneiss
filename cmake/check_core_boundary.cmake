@@ -21,7 +21,7 @@ foreach(source IN LISTS sources)
   endif()
 
   if(content MATCHES "engine/function/resource/detail/" AND
-      NOT source MATCHES "/src/engine/function/resource/(detail/|resource_service[.]cpp$)")
+      NOT source MATCHES "/src/engine/function/resource/(detail/|resource_service[.]cpp$|asset_manager[.]cpp$)")
     message(FATAL_ERROR "资产加载私有实现不得泄漏到普通调用方：${source}")
   endif()
 

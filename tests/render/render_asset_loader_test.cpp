@@ -695,7 +695,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   if (gneiss::test_support::load_render(loader, gneiss::engine::asset_type::texture,
                                         "asset://textures/missing.texture.json", missing_texture,
                                         diagnostic) != gneiss::engine::result::not_found ||
-      missing_texture || diagnostic.path != "asset://textures/missing.texture.json") {
+      missing_texture || diagnostic.path != "asset://textures/missing.png") {
     return 8;
   }
   memory->files.emplace("textures/missing.png", png_data);

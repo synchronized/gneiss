@@ -91,8 +91,9 @@ GPU 在途使用的安全回收由 Render 及后端负责，详见[运行资源�
 
 网格使用 `decode_mesh_asset`，纹理使用 `decode_texture_asset` 接收已解析描述与负载；
 材质通过 `adopt_material_asset` 共享已解码描述。各入口不读取文件、不递归加载依赖。
-批次内部 `decode_input` 使用 variant 区分网格字节、纹理描述与负载、材质描述引用；
-纹理专用能力和描述解析标记归入纹理分支，URI、预算和完成状态由任务统一维护。
+asset_manager 的 `load_mesh_data`、`load_texture_data` 返回 `asset_data_request<T>`，
+成功领取时移动 CPU 内容；取消只放弃请求，不等待工作线程，完成不会进入长期缓存。
+可领取的 asset_data_metrics 包含来源快照、解码字节估算、解码与队列耗时。
 内部 `decoded_asset::content` 使用 `std::variant`，只持有一种内容；`kind()` 从内容推导类型。
 材质不重复保存参数与依赖 URI。内部更新任务同样使用互斥内容，采用前检查空引用及目标类型。
 文件服务返回字节后，加载编排层提交 CPU 任务；thread 与 cooperative 使用同一解码实现。
@@ -187,10 +188,12 @@ ActionMap 限制为 1 MiB，解析器也检查此上限；显式 decoder 使用�
 
 功能层 `asset_manager` 负责 CPU 描述加载，`resource_service` 负责运行资源加载编排。材质描述通过 `load<material_description>` 加载。
 加载编排层在所属线程领取描述，工作线程只处理只读数据和纹理依赖，不访问管理器。
-资源服务私有批次中的网格和纹理加载使用 asset_manager.async_files() 返回的同一文件服务，
-通过 asset_manager.identify() 解析来源域。CPU 描述和运行资源分别存入各自缓存。
-网格完成有界整读后提交一次纯内存解码；纹理先读取描述并解析依赖 URI，再读取完整负载，
-随后解码。CPU 任务不推进文件请求，也不采用同步文件回退。材质领取描述后也使用纯内存准备入口。
+网格和纹理由 asset_manager 的类型化入口加载，与描述请求共用文件读取、任务调度和关闭流程。
+网格读取后解码一次；纹理先读取并解析描述，再读取负载，按请求携带的设备能力解码。
+描述与负载合计受输入预算限制，输出另行校验预算；失败不采用内容。
+一次性请求不合并独立调用，运行资源请求的复用由 resource_service 保证。
+资源批次只领取 CPU 数据、校验来源并装配运行资源依赖，不直接访问文件服务或解码执行器。
+材质仍领取缓存描述，预算检查和纹理强引用装配属于资源服务。
 
 texture_description 表示现有纹理 JSON 的运行时视图；尺寸、变体和 mip 布局仍来自容器 Manifest。
 网格复用 GNMS 文件头，不增加重复描述文件。当前不是 mip/LOD 流送：每项输入与解码输出各有

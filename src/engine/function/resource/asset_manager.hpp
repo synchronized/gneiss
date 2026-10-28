@@ -6,15 +6,19 @@
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/function/resource/resource_cache.hpp"
+#include "engine/resource/asset_data_request.hpp"
 #include "engine/resource/asset_decoder.hpp"
 #include "engine/resource/asset_identity.hpp"
 #include "engine/resource/asset_request.hpp"
 #include "engine/resource/input/action_map.hpp"
+#include "engine/resource/mesh/mesh_data.hpp"
+#include "engine/resource/texture/texture_data.hpp"
 #include <memory>
 #include <utility>
 
 namespace gneiss::engine {
 class task_executor;
+struct decoded_asset;
 class progress_notification;
 struct mesh_view;
 struct texture_view;
@@ -29,6 +33,12 @@ namespace gneiss::engine {
  * 只负责 CPU 数据加载；运行资源创建由 resource_service 负责。 */
 class GNEISS_API asset_manager final {
 public:
+  /** 一次性 CPU 加载，不查询或写入长期缓存；完成由 advance 在所属线程交付。 */
+  result load_mesh_data(std::string_view uri, asset_data_request<mesh_data>& output,
+                        std::size_t maximum_bytes = 64U * 1024U * 1024U) noexcept;
+  result load_texture_data(std::string_view uri, texture_prepare_profile profile,
+                           asset_data_request<texture_data>& output,
+                           std::size_t maximum_bytes = 64U * 1024U * 1024U) noexcept;
   /** 注入同线程文件服务；宿主驱动文件完成分发，advance 只推进 CPU 解码和资源结果。
    * 不提供同步文件读取；缓存查询使用 find_loaded，服务可由宿主共享持有。 */
   explicit asset_manager(std::shared_ptr<engine::files::service> files,
@@ -112,6 +122,9 @@ public:
   [[nodiscard]] resource_cache& cache() noexcept { return cache_; }
 
 private:
+  result request_data(std::string_view, bool, texture_prepare_profile, std::size_t,
+                      std::shared_ptr<detail::asset_state>,
+                      std::function<void(decoded_asset&&, double, double)>) noexcept;
   using decoder_factory = result (*)(const meta::registry_ref&, std::size_t,
                                      std::shared_ptr<const asset_decoder>&);
   [[nodiscard]] result resolve_decoder(type_id, decoder_factory,

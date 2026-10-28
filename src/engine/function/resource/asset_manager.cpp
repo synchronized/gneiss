@@ -7,9 +7,11 @@
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
+#include "engine/function/resource/detail/asset_decode.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
+#include "engine/resource/texture/texture_decoder.hpp"
 #include <algorithm>
 #include <atomic>
 #include <limits>
@@ -24,12 +26,29 @@ struct asset_manager::resource_state {
     std::uint64_t generation{};
     std::weak_ptr<detail::asset_state> pending;
   };
+  struct mesh_decode_input {};
+  struct texture_decode_input {
+    bool payload{}, next_read{};
+    texture_description description;
+    texture_prepare_profile profile;
+    std::size_t input_bytes{};
+  };
+  struct data_load {
+    std::variant<mesh_decode_input, texture_decode_input> input;
+    std::size_t limit{};
+    std::vector<asset_data_source> sources;
+    decoded_asset output;
+    double milliseconds{};
+    std::function<void(decoded_asset&&, double, double)> deliver;
+  };
   struct operation {
     key identity;
     std::uint64_t generation;
     std::shared_ptr<const asset_decoder> loader;
     std::shared_ptr<detail::asset_state> observer{std::make_shared<detail::asset_state>()};
     engine::files::request_id read_request;
+    task_handle task;
+    double queue_ms{};
     engine::files::bytes bytes;
     bool reading{true}, read_complete{};
     std::shared_ptr<const void> value;
@@ -40,7 +59,34 @@ struct asset_manager::resource_state {
     result status{result::not_ready};
     operation(key id, std::uint64_t version, std::shared_ptr<const asset_decoder> parser)
         : identity(std::move(id)), generation(version), loader(std::move(parser)) {}
+    std::optional<data_load> data;
     void decode() {
+      if (data) {
+        auto& input = *data;
+        const auto started = std::chrono::steady_clock::now();
+        asset_diagnostic error;
+        input.sources.back().bytes = bytes.size();
+        input.sources.back().digest = sha256(bytes);
+        const auto& uri = std::get<1>(identity);
+        if (auto* texture = std::get_if<texture_decode_input>(&input.input)) {
+          if (!texture->payload) {
+            status = detail::parse_texture(bytes, texture->description, error);
+            texture->input_bytes = bytes.size();
+            texture->next_read = status.ok();
+          } else {
+            status = decode_texture_asset(uri, texture->description, bytes, input.output, error,
+                                          input.limit, texture->profile);
+          }
+        } else {
+          status = decode_mesh_asset(uri, bytes, input.output, error, input.limit);
+        }
+        diagnostic = {error.byte_offset, std::move(error.path), std::move(error.message)};
+        input.milliseconds +=
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started)
+                .count();
+        files::bytes{}.swap(bytes);
+        return;
+      }
       status = loader->decode(bytes, value, diagnostic);
       // 解码任务只有一次终态；not_ready 不能变成永久挂起的资产请求。
       if (status == result::not_ready || (status == result::success && !value))
@@ -69,11 +115,40 @@ struct asset_manager::resource_state {
   std::map<key, entry> requests;
   std::vector<std::shared_ptr<operation>> active;
 
-  void schedule(const std::shared_ptr<operation>& work) {
+  result read(const std::shared_ptr<operation>& work, std::string_view uri, std::size_t limit) {
+    if (work->data) {
+      std::shared_ptr<const files::source_domain> domain;
+      const auto status = files->resolve_source(uri, domain);
+      if (status.failed())
+        return status;
+      work->data->sources.push_back(
+          {.identity = {std::move(domain), std::string(uri),
+                        static_cast<std::uint32_t>(
+                            std::holds_alternative<texture_decode_input>(work->data->input)
+                                ? asset_type::texture
+                                : asset_type::mesh)}});
+    }
+    work->reading = true;
+    work->read_complete = false;
+    work->settled.store(false, std::memory_order_relaxed);
+    return files->read(
+        uri, {limit},
+        [weak = std::weak_ptr(work),
+         path = std::string(uri)](files::completion<files::bytes> completed) {
+          if (auto operation = weak.lock()) {
+            operation->status = completed.status;
+            if (completed.status.failed())
+              operation->diagnostic = {0, path, "文件读取失败"};
+            operation->bytes = std::move(completed.data);
+            operation->read_complete = true;
+          }
+        },
+        work->read_request);
+  }
+  bool schedule(const std::shared_ptr<operation>& work) {
     work->settled.store(false, std::memory_order_relaxed);
     auto completion = std::make_shared<settlement>();
     completion->work = work;
-    task_handle handle;
     const auto submitted = executor->submit(
         {.name = "asset-decode", .scope = scope},
         [completion](const auto& context) {
@@ -92,10 +167,15 @@ struct asset_manager::resource_state {
           completion->ran = true;
           return engine::task_outcome{};
         },
-        handle);
-    if (submitted != submit_result::success) {
-      work->status = result::invalid_state;
+        work->task);
+    if (submitted == submit_result::full) {
+      completion->ran = true;
+      work->reading = true;
+      return false;
     }
+    if (submitted != submit_result::success)
+      work->status = result::invalid_state;
+    return true;
   }
   ~resource_state() { stop(); }
   void request_stop() noexcept {
@@ -289,17 +369,7 @@ result asset_manager::request(type_id type, std::string_view uri, bool reload,
   work->previous = cached;
   state.active.push_back(work);
   try {
-    const auto submitted = state.files->read(
-        uri, {decoder->maximum_bytes()},
-        [weak = std::weak_ptr(work)](engine::files::completion<engine::files::bytes> completed) {
-          // 回调只向仍存活的操作交付字节；停止/销毁后不捕获 manager 或执行器。
-          if (auto operation = weak.lock()) {
-            operation->status = completed.status;
-            operation->bytes = std::move(completed.data);
-            operation->read_complete = true;
-          }
-        },
-        work->read_request);
+    const auto submitted = state.read(work, uri, decoder->maximum_bytes());
     if (submitted != result::success) {
       state.active.pop_back();
       return submitted;
@@ -317,6 +387,88 @@ result asset_manager::request(type_id type, std::string_view uri, bool reload,
 } catch (...) {
   return result::internal;
 }
+result
+asset_manager::request_data(std::string_view uri, bool texture, texture_prepare_profile profile,
+                            std::size_t limit, std::shared_ptr<detail::asset_state> observer,
+                            std::function<void(decoded_asset&&, double, double)> deliver) noexcept
+    try {
+  auto& state = *resource_state_;
+  if (state.stopped)
+    return result::invalid_state;
+  if (!state.executor)
+    return result::not_ready;
+  if (validate_uri(uri).failed() || limit == 0U)
+    return result::invalid_argument;
+  std::shared_ptr<const files::source_domain> domain;
+  const auto identified = state.files->resolve_source(uri, domain);
+  if (identified.failed())
+    return identified;
+  auto work = std::make_shared<resource_state::operation>(
+      resource_state::key{domain, std::string(uri),
+                          texture ? runtime_type_of<texture_data>() : runtime_type_of<mesh_data>()},
+      0, nullptr);
+  work->observer = std::move(observer);
+  work->data.emplace();
+  if (texture)
+    work->data->input.emplace<resource_state::texture_decode_input>().profile = profile;
+  work->data->limit = limit;
+  work->data->deliver = std::move(deliver);
+  state.active.push_back(work);
+  try {
+    const auto status = state.read(work, uri, limit);
+    if (status.failed())
+      state.active.pop_back();
+    return status;
+  } catch (...) {
+    state.active.pop_back();
+    throw;
+  }
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
+}
+
+result asset_manager::load_mesh_data(std::string_view uri, asset_data_request<mesh_data>& output,
+                                     std::size_t limit) noexcept try {
+  auto state = std::make_shared<detail::asset_data_state<mesh_data>>();
+  const auto status =
+      request_data(uri, false, {}, limit, state,
+                   [weak = std::weak_ptr(state)](decoded_asset&& data, double ms, double queue_ms) {
+                     if (auto state = weak.lock()) {
+                       state->data.emplace(std::move(std::get<mesh_data>(data.content)));
+                       state->metrics = {std::move(data.sources), data.bytes, ms, queue_ms};
+                     }
+                   });
+  if (status.ok())
+    output.state_ = std::move(state);
+  return status;
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
+}
+result asset_manager::load_texture_data(std::string_view uri, texture_prepare_profile profile,
+                                        asset_data_request<texture_data>& output,
+                                        std::size_t limit) noexcept try {
+  auto state = std::make_shared<detail::asset_data_state<texture_data>>();
+  const auto status =
+      request_data(uri, true, profile, limit, state,
+                   [weak = std::weak_ptr(state)](decoded_asset&& data, double ms, double queue_ms) {
+                     if (auto state = weak.lock()) {
+                       state->data.emplace(std::move(std::get<texture_data>(data.content)));
+                       state->metrics = {std::move(data.sources), data.bytes, ms, queue_ms};
+                     }
+                   });
+  if (status.ok())
+    output.state_ = std::move(state);
+  return status;
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
+}
+
 result asset_manager::find_loaded_erased(type_id type, std::string_view uri,
                                          std::shared_ptr<const void>& output) const noexcept try {
   if (resource_state_->stopped || !resource_state_->files)
@@ -354,15 +506,26 @@ void asset_manager::advance() {
   // 文件完成由宿主统一分发；这里只处理 CPU 解码与资源结果。
   std::vector<task_completion> completions;
   (void)state.executor->poll(state.scope, completions);
+  for (const auto& completion : completions)
+    for (const auto& work : state.active)
+      if (work->task.id == completion.task.id) {
+        work->queue_ms += completion.queue_ms;
+        work->task = {};
+        break;
+      }
   for (auto it = state.active.begin(); it != state.active.end();) {
     const auto& work = *it;
     // 丢弃全部观察者后不再提交解码或发布；已经运行的任务自行保活并收尾。
     if (work->observer.use_count() == 1) {
+      if (work->task.id != 0U)
+        (void)state.executor->cancel(work->task);
       if (work->reading)
         (void)state.files->cancel(work->read_request);
-      auto& entry = state.requests.at(work->identity);
-      if (entry.generation == work->generation)
-        entry.pending.reset();
+      if (!work->data) {
+        auto& entry = state.requests.at(work->identity);
+        if (entry.generation == work->generation)
+          entry.pending.reset();
+      }
       it = state.active.erase(it);
       continue;
     }
@@ -374,7 +537,10 @@ void asset_manager::advance() {
       work->reading = false;
       if (work->status == result::success) {
         try {
-          state.schedule(work);
+          if (!state.schedule(work)) {
+            ++it;
+            continue;
+          }
         } catch (const std::bad_alloc&) {
           work->status = result::out_of_memory;
           work->settled.store(true, std::memory_order_release);
@@ -388,6 +554,37 @@ void asset_manager::advance() {
     }
     if (!work->settled.load(std::memory_order_acquire)) {
       ++it;
+      continue;
+    }
+    if (work->data) {
+      auto& input = *work->data;
+      auto* texture = std::get_if<resource_state::texture_decode_input>(&input.input);
+      if (work->status.ok() && texture && texture->next_read) {
+        texture->next_read = false;
+        texture->payload = true;
+        try {
+          work->status =
+              texture->input_bytes >= input.limit
+                  ? result::out_of_memory
+                  : state.read(work, texture->description.uri, input.limit - texture->input_bytes);
+        } catch (const std::bad_alloc&) {
+          work->status = result::out_of_memory;
+        } catch (...) {
+          work->status = result::internal;
+        }
+        if (work->status.ok()) {
+          ++it;
+          continue;
+        }
+      }
+      const std::scoped_lock lock(work->observer->mutex);
+      work->observer->diagnostic = std::move(work->diagnostic);
+      if (work->status.ok()) {
+        input.output.sources = std::move(input.sources);
+        input.deliver(std::move(input.output), input.milliseconds, work->queue_ms);
+      }
+      work->observer->status = work->status;
+      it = state.active.erase(it);
       continue;
     }
     auto& entry = state.requests.at(work->identity);
