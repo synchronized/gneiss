@@ -4,8 +4,8 @@
 
 #pragma once
 #include "asset_ref.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/meta/serialization_types.hpp"
-#include "engine/core/result.hpp"
 #include <memory>
 #include <mutex>
 #include <utility>
@@ -15,7 +15,7 @@ namespace detail {
 // 移植 Granit 示例 asset_state：请求共享结果，观察者各自拥有取消权。
 struct asset_state {
   std::mutex mutex;
-  result status{result::not_ready};
+  error status{error::not_ready};
   std::shared_ptr<const void> value;
   meta::serialization_diagnostic diagnostic;
 };
@@ -24,6 +24,7 @@ struct asset_state {
  * 不驱动队列、不等待 I/O；结果可晚于 manager 销毁。请求对象限所属线程操作。 */
 template <typename T> class asset_request final {
 public:
+  using value_type = T;
   using reference = asset_ref<const T>;
   asset_request() noexcept = default;
   explicit asset_request(std::shared_ptr<detail::asset_state> state) noexcept
@@ -34,25 +35,25 @@ public:
   asset_request& operator=(asset_request&&) noexcept = default;
   [[nodiscard]] explicit operator bool() const noexcept { return state_ != nullptr; }
   void cancel() noexcept { state_.reset(); }
-  [[nodiscard]] result take(reference& output,
-                            meta::serialization_diagnostic* diagnostic = nullptr) noexcept try {
+  [[nodiscard]] error take(reference& output,
+                           meta::serialization_diagnostic* diagnostic = nullptr) noexcept try {
     if (!state_)
-      return result::invalid_state;
+      return error::invalid_state;
     auto state = state_;
     const std::scoped_lock lock(state->mutex);
     if (diagnostic)
       *diagnostic = state->diagnostic;
-    if (state->status != result::success)
+    if (state->status != error::success)
       return state->status;
     if (!state->value)
-      return result::internal;
+      return error::internal;
     output = reference{std::static_pointer_cast<const T>(state->value)};
     state_.reset();
-    return result::success;
+    return error::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return error::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return error::internal;
   }
 
 private:

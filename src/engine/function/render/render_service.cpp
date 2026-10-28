@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/render/render_service.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/math/transform.hpp"
-#include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/backend/granit/pbr_shader_resolver.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
@@ -51,22 +51,22 @@
 namespace gneiss::engine {
 struct render_service::implementation final {
 public:
-  [[nodiscard]] engine::result initialize(const native_window_info& window,
-                                          std::span<const std::byte> environment_asset = {},
-                                          float environment_intensity = 1.0F,
-                                          float environment_rotation_radians = 0.0F,
-                                          log_dispatcher* log = nullptr) noexcept;
-  result request_environment(std::shared_ptr<const std::vector<std::byte>>, float, float) noexcept;
-  [[nodiscard]] engine::result shutdown(granit::renderer_resource_stats& stats) noexcept;
-  [[nodiscard]] engine::result finish_frames() noexcept;
+  [[nodiscard]] engine::error initialize(const native_window_info& window,
+                                         std::span<const std::byte> environment_asset = {},
+                                         float environment_intensity = 1.0F,
+                                         float environment_rotation_radians = 0.0F,
+                                         log_dispatcher* log = nullptr) noexcept;
+  error request_environment(std::shared_ptr<const std::vector<std::byte>>, float, float) noexcept;
+  [[nodiscard]] engine::error shutdown(granit::renderer_resource_stats& stats) noexcept;
+  [[nodiscard]] engine::error finish_frames() noexcept;
   void set_completion_notification(std::shared_ptr<progress_notification> notification) noexcept {
     executor_.set_completion_notification(std::move(notification));
   }
-  [[nodiscard]] engine::result prepare_frame_packet_storage(render_frame_packet& packet,
-                                                            bool& out_should_prepare) noexcept;
-  [[nodiscard]] engine::result submit(render_frame_packet packet,
-                                      render_frame_policy policy = render_frame_policy::replaceable,
-                                      std::uint64_t* out_sequence = nullptr) noexcept;
+  [[nodiscard]] engine::error prepare_frame_packet_storage(render_frame_packet& packet,
+                                                           bool& out_should_prepare) noexcept;
+  [[nodiscard]] engine::error submit(render_frame_packet packet,
+                                     render_frame_policy policy = render_frame_policy::replaceable,
+                                     std::uint64_t* out_sequence = nullptr) noexcept;
   [[nodiscard]] bool try_take_required_completion(render_frame_completion& completion) noexcept;
   [[nodiscard]] render_queue_stats query_performance_stats() const noexcept;
   /** 仅在 initialize 完成后由宿主读取；设备重建必须重新发布。 */
@@ -75,14 +75,14 @@ public:
   }
 
 private:
-  [[nodiscard]] engine::result initialize_gpu(const native_window_info& window,
-                                              std::span<const std::byte> environment_asset,
-                                              float environment_intensity,
-                                              float environment_rotation_radians) noexcept;
-  [[nodiscard]] engine::result shutdown_gpu(granit::renderer_resource_stats& stats) noexcept;
-  [[nodiscard]] engine::result execute_frame(render_frame_packet& packet,
-                                             render_execution_result& output) noexcept;
-  [[nodiscard]] engine::result collect_completions() noexcept;
+  [[nodiscard]] engine::error initialize_gpu(const native_window_info& window,
+                                             std::span<const std::byte> environment_asset,
+                                             float environment_intensity,
+                                             float environment_rotation_radians) noexcept;
+  [[nodiscard]] engine::error shutdown_gpu(granit::renderer_resource_stats& stats) noexcept;
+  [[nodiscard]] engine::error execute_frame(render_frame_packet& packet,
+                                            render_execution_result& output) noexcept;
+  [[nodiscard]] engine::error collect_completions() noexcept;
 
   struct texture_mirror final {
     const texture_data* source{};
@@ -181,27 +181,27 @@ namespace {
 static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR >= 44,
               "Gneiss requires Granit 0.44.0 or newer");
 
-engine::result map_result(granit::result result) noexcept {
+engine::error map_result(granit::result result) noexcept {
   switch (result.native()) {
   case granit::result::success.native():
-    return engine::result::success;
+    return engine::error::success;
   case granit::result::invalid_argument.native():
-    return engine::result::invalid_argument;
+    return engine::error::invalid_argument;
   case granit::result::invalid_handle.native():
-    return engine::result::invalid_handle;
+    return engine::error::invalid_handle;
   case granit::result::out_of_memory.native():
-    return engine::result::out_of_memory;
+    return engine::error::out_of_memory;
   case granit::result::unsupported.native():
   case granit::result::backend_unavailable.native():
-    return engine::result::unsupported;
+    return engine::error::unsupported;
   case granit::result::not_ready.native():
   case granit::result::out_of_date.native():
-    return engine::result::not_ready;
+    return engine::error::not_ready;
   case granit::result::initialization_failed.native():
   case granit::result::incompatible_driver.native():
-    return engine::result::initialization_failed;
+    return engine::error::initialization_failed;
   default:
-    return engine::result::dependency_failed;
+    return engine::error::dependency_failed;
   }
 }
 
@@ -337,7 +337,7 @@ void render_service::implementation::log_texture(engine::rid rid, const char* st
       .source = "granit.render.texture",
       .category = category,
       .message = {buffer.data(), std::min(static_cast<std::size_t>(length), buffer.size() - 1U)},
-      .result = engine::result{map_result(result)},
+      .result = engine::error{map_result(result)},
   }));
 }
 
@@ -841,7 +841,7 @@ void render_service::implementation::release_invalid_materials(
   }
 }
 
-engine::result render_service::implementation::initialize(
+engine::error render_service::implementation::initialize(
     const native_window_info& window, std::span<const std::byte> environment_asset,
     float environment_intensity, float environment_rotation_radians, log_dispatcher* log) noexcept {
   log_ = log;
@@ -851,11 +851,11 @@ engine::result render_service::implementation::initialize(
         output.needs_recreate = packet.window.needs_recreate;
         return result;
       });
-  if (executor_result != engine::result::success) {
+  if (executor_result != engine::error::success) {
     return executor_result;
   }
 
-  engine::result initialize_result = engine::result::unknown;
+  engine::error initialize_result = engine::error::unknown;
   std::uint64_t sequence{};
   const auto submit_result = executor_.submit_command(
       [this, window, environment_asset, environment_intensity, environment_rotation_radians,
@@ -867,34 +867,34 @@ engine::result render_service::implementation::initialize(
         return initialize_result;
       },
       sequence);
-  if (submit_result == engine::result::success) {
+  if (submit_result == engine::error::success) {
     static_cast<void>(executor_.flush());
   }
 
   render_command_completion completion;
   const auto has_completion = executor_.try_take_command_completion(completion);
-  if (submit_result != engine::result::success || !has_completion ||
-      completion.sequence != sequence || completion.status != engine::result::success) {
+  if (submit_result != engine::error::success || !has_completion ||
+      completion.sequence != sequence || completion.status != engine::error::success) {
     granit::renderer_resource_stats ignored{};
     std::uint64_t cleanup_sequence{};
     if (executor_.submit_command(
             [this, &ignored](const render_command_reporter&) { return shutdown_gpu(ignored); },
-            cleanup_sequence) == engine::result::success) {
+            cleanup_sequence) == engine::error::success) {
       static_cast<void>(executor_.flush());
     }
     executor_.stop();
-    return submit_result != engine::result::success
+    return submit_result != engine::error::success
                ? submit_result
-               : (has_completion ? completion.status : engine::result::internal);
+               : (has_completion ? completion.status : engine::error::internal);
   }
   return initialize_result;
 }
 
-result render_service::implementation::request_environment(
+error render_service::implementation::request_environment(
     std::shared_ptr<const std::vector<std::byte>> bytes, float intensity, float rotation) noexcept
     try {
   if (!bytes || bytes->empty() || !std::isfinite(intensity) || !std::isfinite(rotation))
-    return result::invalid_argument;
+    return error::invalid_argument;
   std::uint64_t sequence{};
   return executor_.submit_command(
       [this, bytes = std::move(bytes), intensity, rotation](const render_command_reporter&) {
@@ -919,12 +919,12 @@ result render_service::implementation::request_environment(
       },
       sequence);
 } catch (const std::bad_alloc&) {
-  return result::out_of_memory;
+  return error::out_of_memory;
 } catch (...) {
-  return result::internal;
+  return error::internal;
 }
 
-engine::result render_service::implementation::collect_completions() noexcept {
+engine::error render_service::implementation::collect_completions() noexcept {
   render_command_completion command;
   while (executor_.try_take_command_completion(command)) {
     if (command.status.failed())
@@ -947,18 +947,18 @@ engine::result render_service::implementation::collect_completions() noexcept {
       continue;
     }
     pending_recreate_ = pending_recreate_ || completion.execution.needs_recreate;
-    if (completion.status != engine::result::success) {
+    if (completion.status != engine::error::success) {
       return completion.status;
     }
   }
-  return engine::result::success;
+  return engine::error::success;
 }
 
-engine::result
+engine::error
 render_service::implementation::prepare_frame_packet_storage(render_frame_packet& packet,
                                                              bool& out_should_prepare) noexcept {
   const auto completion_result = collect_completions();
-  if (completion_result != engine::result::success) {
+  if (completion_result != engine::error::success) {
     return completion_result;
   }
   // 交互帧只预备一帧：低帧率时积压三份旧相机快照会把输入延迟放大到数百毫秒。
@@ -966,27 +966,27 @@ render_service::implementation::prepare_frame_packet_storage(render_frame_packet
   out_should_prepare = executor_.query_stats().pending_frames < 1U;
   if (!out_should_prepare) {
     executor_.record_skipped_frame_build();
-    return engine::result::success;
+    return engine::error::success;
   }
   if (!recycled_frame_packets_.empty()) {
     packet = std::move(recycled_frame_packets_.back());
     recycled_frame_packets_.pop_back();
   }
-  return engine::result::success;
+  return engine::error::success;
 }
 
-engine::result render_service::implementation::submit(render_frame_packet packet,
-                                                      render_frame_policy policy,
-                                                      std::uint64_t* out_sequence) noexcept {
+engine::error render_service::implementation::submit(render_frame_packet packet,
+                                                     render_frame_policy policy,
+                                                     std::uint64_t* out_sequence) noexcept {
   const auto completion_result = collect_completions();
-  if (completion_result != engine::result::success) {
+  if (completion_result != engine::error::success) {
     return completion_result;
   }
   packet.window.needs_recreate = packet.window.needs_recreate || pending_recreate_;
   pending_recreate_ = false;
   std::uint64_t sequence{};
   const auto result = executor_.submit_frame(std::move(packet), sequence, policy);
-  if (result == engine::result::success && out_sequence != nullptr) {
+  if (result == engine::error::success && out_sequence != nullptr) {
     *out_sequence = sequence;
   }
   return result;
@@ -994,7 +994,7 @@ engine::result render_service::implementation::submit(render_frame_packet packet
 
 bool render_service::implementation::try_take_required_completion(
     render_frame_completion& completion) noexcept {
-  if (collect_completions() != engine::result::success || required_frame_completions_.empty()) {
+  if (collect_completions() != engine::error::success || required_frame_completions_.empty()) {
     return false;
   }
   completion = std::move(required_frame_completions_.front());
@@ -1006,26 +1006,26 @@ render_queue_stats render_service::implementation::query_performance_stats() con
   return executor_.query_stats();
 }
 
-engine::result render_service::implementation::finish_frames() noexcept {
+engine::error render_service::implementation::finish_frames() noexcept {
   const auto flushed = executor_.flush();
-  if (flushed != engine::result::success) {
+  if (flushed != engine::error::success) {
     return flushed;
   }
-  auto result = engine::result::success;
-  for (auto completed = collect_completions(); completed != engine::result::success;
+  auto result = engine::error::success;
+  for (auto completed = collect_completions(); completed != engine::error::success;
        completed = collect_completions()) {
-    if (result == engine::result::success && completed != engine::result::not_ready) {
+    if (result == engine::error::success && completed != engine::error::not_ready) {
       result = completed;
     }
   }
   return result;
 }
 
-engine::result
+engine::error
 render_service::implementation::shutdown(granit::renderer_resource_stats& stats) noexcept {
   if (!executor_.is_running()) {
     stats = {};
-    return engine::result::success;
+    return engine::error::success;
   }
   static_cast<void>(executor_.flush());
   const auto frame_result = collect_completions();
@@ -1039,7 +1039,7 @@ render_service::implementation::shutdown(granit::renderer_resource_stats& stats)
         return result;
       },
       sequence);
-  if (submit_result == engine::result::success) {
+  if (submit_result == engine::error::success) {
     static_cast<void>(executor_.flush());
   }
   render_command_completion completion;
@@ -1047,19 +1047,19 @@ render_service::implementation::shutdown(granit::renderer_resource_stats& stats)
   executor_.stop();
   recycled_frame_packets_.clear();
   required_frame_completions_.clear();
-  if (frame_result != engine::result::success) {
+  if (frame_result != engine::error::success) {
     return frame_result;
   }
-  if (submit_result != engine::result::success) {
+  if (submit_result != engine::error::success) {
     return submit_result;
   }
   if (!has_completion || completion.sequence != sequence) {
-    return engine::result::internal;
+    return engine::error::internal;
   }
   return completion.status;
 }
 
-engine::result render_service::implementation::initialize_gpu(
+engine::error render_service::implementation::initialize_gpu(
     const native_window_info& window, std::span<const std::byte> environment_asset,
     float environment_intensity, float environment_rotation_radians) noexcept {
   auto result = renderer_.initialize({.application_name = "Gneiss",
@@ -1099,7 +1099,7 @@ engine::result render_service::implementation::initialize_gpu(
                                  granit::surface_desc::wayland(window.display, window.window));
     break;
   default:
-    return engine::result::unsupported;
+    return engine::error::unsupported;
   }
   if (result.ok()) {
     result = swapchain_.initialize(renderer_, surface_,
@@ -1157,7 +1157,7 @@ engine::result render_service::implementation::initialize_gpu(
   return map_result(result);
 }
 
-engine::result
+engine::error
 render_service::implementation::shutdown_gpu(granit::renderer_resource_stats& stats) noexcept {
   static_cast<void>(pipeline_.reset());
   static_cast<void>(environment_.reset());
@@ -1198,16 +1198,16 @@ render_service::implementation::shutdown_gpu(granit::renderer_resource_stats& st
   static_cast<void>(surface_.reset());
 
   const auto query_result = renderer_.get_resource_stats(stats);
-  const auto result = query_result.failed()
-                          ? map_result(query_result)
-                          : (stats.total_live_count == 0U ? engine::result::success
-                                                          : engine::result::invalid_state);
+  const auto result =
+      query_result.failed()
+          ? map_result(query_result)
+          : (stats.total_live_count == 0U ? engine::error::success : engine::error::invalid_state);
   static_cast<void>(renderer_.reset());
   return result;
 }
 
 // 单帧资源准备与提交必须保持 Granit 调用和失败回滚的线性顺序。
-engine::result
+engine::error
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 render_service::implementation::execute_frame(render_frame_packet& packet,
                                               render_execution_result& output) noexcept {
@@ -1220,13 +1220,13 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
   const auto& snapshot = packet.scene;
   const auto& resources = packet.resources;
   if (window.width == 0U || window.height == 0U)
-    return engine::result::success;
+    return engine::error::success;
 
   const auto resource_prepare_started = std::chrono::steady_clock::now();
   if (window.needs_recreate) {
     const auto recreate = swapchain_.recreate({.width = window.width, .height = window.height});
     if (recreate == granit::result::not_ready)
-      return engine::result::success;
+      return engine::error::success;
     if (recreate.failed())
       return map_result(recreate);
     granit::swapchain_info info;
@@ -1270,7 +1270,7 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
       }
       const auto* material = resources.get_material(resource_handle(instance.material));
       if (material == nullptr)
-        return engine::result::invalid_handle;
+        return engine::error::invalid_handle;
       std::array textures{
           default_white_srgb_.view.native_handle(), default_white_linear_.view.native_handle(),
           default_normal_linear_.view.native_handle(), default_white_linear_.view.native_handle(),
@@ -1285,7 +1285,7 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
           continue;
         }
         if (texture == nullptr)
-          return engine::result::invalid_handle;
+          return engine::error::invalid_handle;
         refresh_texture(handle, resources.share_texture(handle));
         const auto found = texture_mirrors_.find(handle);
         if (found != texture_mirrors_.end())
@@ -1315,9 +1315,9 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
       }
     }
   } catch (const std::bad_alloc&) {
-    return engine::result::out_of_memory;
+    return engine::error::out_of_memory;
   } catch (...) {
-    return engine::result::internal;
+    return engine::error::internal;
   }
 
   const auto ui_result = prepare_ui_draw_list(packet.ui, resources, window.width, window.height);
@@ -1347,7 +1347,7 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
         return map_result(result);
     }
   } catch (const std::bad_alloc&) {
-    return engine::result::out_of_memory;
+    return engine::error::out_of_memory;
   }
 
   granit::scene_snapshot scene;
@@ -1386,7 +1386,7 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
         math::matrix4 model;
         math::matrix4 normal;
         if (!math::model_and_normal_matrices(instance.transform, model, normal))
-          return engine::result::invalid_argument;
+          return engine::error::invalid_argument;
         const auto payload = static_cast<std::uint64_t>(index) + 1U;
         const auto gpu_mesh = mesh_mirrors_.find(resource_handle(instance.mesh));
         const auto gpu_material = material_mirrors_.find(resource_handle(instance.material));
@@ -1395,7 +1395,7 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
         const auto* mesh = gpu_mesh->second.source;
         const auto* material = gpu_material->second.source;
         if (material->uv1_mask() != 0U && mesh->uv1.empty())
-          return engine::result::invalid_argument;
+          return engine::error::invalid_argument;
         // GPU 布局统一包含 UV1 与颜色；缺失属性填零 UV / 白色，变体必须匹配 72 字节步长。
         const auto variant = granit_pbr_material_variant_key(
             GRANIT_PBR_TEXTURE_ALL, static_cast<std::uint32_t>(material->parameters.alpha_mode),
@@ -1418,7 +1418,7 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
              .variant = variant});
       }
     } catch (const std::bad_alloc&) {
-      return engine::result::out_of_memory;
+      return engine::error::out_of_memory;
     }
   }
   granit::scene_snapshot_desc scene_desc{};
@@ -1485,7 +1485,7 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
           break;
         }
         if (std::chrono::steady_clock::now() >= deadline) {
-          return engine::result::not_ready;
+          return engine::error::not_ready;
         }
         captured = renderer_.process_events();
         std::this_thread::yield();
@@ -1502,7 +1502,7 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
       }
       if (info.required_size != byte_count || info.bytes_per_row != window.width * 4U ||
           info.format != granit::texture_format::rgba8_unorm) {
-        return engine::result::internal;
+        return engine::error::internal;
       }
       packet.readback->pixels.resize(static_cast<std::size_t>(byte_count));
       std::uint64_t required{};
@@ -1512,11 +1512,11 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
       }
       packet.readback->width = window.width;
       packet.readback->height = window.height;
-      return engine::result::success;
+      return engine::error::success;
     } catch (const std::bad_alloc&) {
-      return engine::result::out_of_memory;
+      return engine::error::out_of_memory;
     } catch (...) {
-      return engine::result::internal;
+      return engine::error::internal;
     }
   }
 
@@ -1528,7 +1528,7 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
           .count();
   if (result == granit::result::out_of_date) {
     window.needs_recreate = true;
-    return engine::result::success;
+    return engine::error::success;
   }
   if (result.failed())
     return map_result(result);
@@ -1608,21 +1608,21 @@ render_service::~render_service() {
   impl_.reset();
   close_resources();
 }
-result render_service::request_environment(std::shared_ptr<const std::vector<std::byte>> bytes,
-                                           float intensity, float rotation) noexcept {
+error render_service::request_environment(std::shared_ptr<const std::vector<std::byte>> bytes,
+                                          float intensity, float rotation) noexcept {
   return impl_->request_environment(std::move(bytes), intensity, rotation);
 }
 
-result render_service::initialize(const native_window_info& window,
-                                  std::span<const std::byte> environment_asset,
-                                  float environment_intensity, float environment_rotation_radians,
-                                  log_dispatcher* log) noexcept {
+error render_service::initialize(const native_window_info& window,
+                                 std::span<const std::byte> environment_asset,
+                                 float environment_intensity, float environment_rotation_radians,
+                                 log_dispatcher* log) noexcept {
   if (!is_valid())
-    return result::invalid_state;
+    return error::invalid_state;
   return impl_->initialize(window, environment_asset, environment_intensity,
                            environment_rotation_radians, log);
 }
-result render_service::shutdown(render_device_stats& stats) noexcept {
+error render_service::shutdown(render_device_stats& stats) noexcept {
   granit::renderer_resource_stats native{
       .total_live_count = stats.total_live_count,
       .buffer_count = stats.buffer_count,
@@ -1674,17 +1674,17 @@ result render_service::shutdown(render_device_stats& stats) noexcept {
   };
   return status;
 }
-result render_service::finish_frames() noexcept { return impl_->finish_frames(); }
+error render_service::finish_frames() noexcept { return impl_->finish_frames(); }
 void render_service::set_completion_notification(
     std::shared_ptr<progress_notification> notification) noexcept {
   impl_->set_completion_notification(std::move(notification));
 }
-result render_service::prepare_frame_packet_storage(render_frame_packet& packet,
-                                                    bool& out_should_prepare) noexcept {
+error render_service::prepare_frame_packet_storage(render_frame_packet& packet,
+                                                   bool& out_should_prepare) noexcept {
   return impl_->prepare_frame_packet_storage(packet, out_should_prepare);
 }
-result render_service::submit(render_frame_packet packet, render_frame_policy policy,
-                              std::uint64_t* out_sequence) noexcept {
+error render_service::submit(render_frame_packet packet, render_frame_policy policy,
+                             std::uint64_t* out_sequence) noexcept {
   return impl_->submit(std::move(packet), policy, out_sequence);
 }
 bool render_service::try_take_required_completion(render_frame_completion& completion) noexcept {

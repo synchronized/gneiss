@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "runtime/loading/prefab_placement.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/scene/structural_diff.hpp"
@@ -10,27 +10,27 @@
 #include <algorithm>
 
 namespace gneiss::runtime {
-gneiss::engine::result prefab_placement::capture_step(
+gneiss::engine::error prefab_placement::capture_step(
     runtime::application& application, std::string_view uuid, gneiss::scene_instance_id scene,
     std::shared_ptr<prefab_placement_snapshot>& snapshot, bool& complete) noexcept try {
   complete = false;
   auto* host = &application;
   const auto validation = host->is_owner_thread() && host->accepts_requests()
-                              ? gneiss::engine::result::success
-                              : gneiss::engine::result::invalid_state;
-  if (validation != gneiss::engine::result::success) {
+                              ? gneiss::engine::error::success
+                              : gneiss::engine::error::invalid_state;
+  if (validation != gneiss::engine::error::success) {
     return validation;
   }
   if (!snapshot) {
     auto candidate = std::make_shared<prefab_placement_snapshot>();
     auto result =
         host->scenes()->capture_prefab_header(scene, uuid, candidate->author, candidate->prefab);
-    if (result != gneiss::engine::result::success) {
+    if (result != gneiss::engine::error::success) {
       return result;
     }
     gneiss::engine::structural_diff order;
     result = gneiss::engine::build_structural_diff({}, candidate->prefab.get()->objects, order);
-    if (result != gneiss::engine::result::success) {
+    if (result != gneiss::engine::error::success) {
       return result;
     }
     candidate->order.reserve(order.added.size());
@@ -45,20 +45,20 @@ gneiss::engine::result prefab_placement::capture_step(
     gneiss::engine::scene_mesh_binding binding;
     const auto result =
         host->scenes()->capture_prefab_binding(scene, uuid, snapshot->bindings.size(), binding);
-    if (result != gneiss::engine::result::success) {
+    if (result != gneiss::engine::error::success) {
       return result;
     }
     snapshot->bindings.push_back(std::move(binding));
   }
   complete = snapshot->bindings.size() == snapshot->order.size();
-  return gneiss::engine::result::success;
+  return gneiss::engine::error::success;
 } catch (const std::bad_alloc&) {
-  return gneiss::engine::result::out_of_memory;
+  return gneiss::engine::error::out_of_memory;
 } catch (...) {
-  return gneiss::engine::result::internal;
+  return gneiss::engine::error::internal;
 }
 
-gneiss::engine::result
+gneiss::engine::error
 prefab_placement::freeze(runtime::application& application,
                          gneiss::engine::prepared_prefab_description prepared,
                          gneiss::engine::prefab_instance_description author,
@@ -66,14 +66,14 @@ prefab_placement::freeze(runtime::application& application,
                          std::shared_ptr<const prefab_placement_snapshot>& output) noexcept try {
   auto* host = &application;
   const auto validation = host->is_owner_thread() && host->accepts_requests()
-                              ? gneiss::engine::result::success
-                              : gneiss::engine::result::invalid_state;
-  if (validation != gneiss::engine::result::success) {
+                              ? gneiss::engine::error::success
+                              : gneiss::engine::error::invalid_state;
+  if (validation != gneiss::engine::error::success) {
     return validation;
   }
   auto value = std::make_shared<prefab_placement_snapshot>();
   if (!prepared.resource)
-    return gneiss::engine::result::invalid_argument;
+    return gneiss::engine::error::invalid_argument;
   value->prefab = std::move(prepared.resource);
   value->author = std::move(author);
   value->order = std::move(prepared.parent_first);
@@ -81,25 +81,25 @@ prefab_placement::freeze(runtime::application& application,
     value->assets.emplace(gneiss::engine::asset_uri(asset), std::move(asset));
   }
   output = std::move(value);
-  return gneiss::engine::result::success;
+  return gneiss::engine::error::success;
 } catch (const std::bad_alloc&) {
-  return gneiss::engine::result::out_of_memory;
+  return gneiss::engine::error::out_of_memory;
 } catch (...) {
-  return gneiss::engine::result::internal;
+  return gneiss::engine::error::internal;
 }
-gneiss::engine::result prefab_placement::apply(application& app, scene_instance_id scene,
-                                               const prefab_placement_snapshot& snapshot,
-                                               bool removing, bool replacing,
-                                               scene_node_id& output) noexcept try {
+gneiss::engine::error prefab_placement::apply(application& app, scene_instance_id scene,
+                                              const prefab_placement_snapshot& snapshot,
+                                              bool removing, bool replacing,
+                                              scene_node_id& output) noexcept try {
   using namespace gneiss::engine;
   output = {};
   if (!app.is_owner_thread() || !app.accepts_requests() || !app.scenes())
-    return result::invalid_state;
+    return error::invalid_state;
   if (removing)
-    return replacing ? result::invalid_argument
+    return replacing ? error::invalid_argument
                      : app.scenes()->remove_prefab_instance(scene, snapshot.author.instance_uuid);
   if (!snapshot.prefab)
-    return result::invalid_argument;
+    return error::invalid_argument;
   auto bindings = snapshot.bindings;
   if (bindings.empty()) {
     bindings.resize(snapshot.prefab.get()->objects.size());
@@ -119,8 +119,8 @@ gneiss::engine::result prefab_placement::apply(application& app, scene_instance_
   return app.scenes()->instantiate_prefab_ready(scene, snapshot.author, snapshot.prefab, bindings,
                                                 replacing, output);
 } catch (const std::bad_alloc&) {
-  return gneiss::engine::result::out_of_memory;
+  return gneiss::engine::error::out_of_memory;
 } catch (...) {
-  return gneiss::engine::result::internal;
+  return gneiss::engine::error::internal;
 }
 }

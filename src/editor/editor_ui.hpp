@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_EDITOR_UI_H_
 #define GNEISS_APPS_EDITOR_EDITOR_UI_H_
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include "engine/platform/files/file_service.hpp"
 
@@ -27,25 +27,24 @@ public:
   editor_layout() = default;
   editor_layout(const editor_layout&) = delete;
   editor_layout& operator=(const editor_layout&) = delete;
-  [[nodiscard]] engine::result initialize(std::shared_ptr<gneiss::engine::files::service> files,
-                                          std::string_view project_key,
-                                          editor_panel_visibility& visibility) noexcept;
-  [[nodiscard]] engine::result advance(editor_panel_visibility& visibility) noexcept;
-  [[nodiscard]] engine::result save(const editor_panel_visibility& visibility) noexcept;
+  [[nodiscard]] engine::error initialize(std::shared_ptr<gneiss::engine::files::service> files,
+                                         std::string_view project_key,
+                                         editor_panel_visibility& visibility) noexcept;
+  [[nodiscard]] engine::error advance(editor_panel_visibility& visibility) noexcept;
+  [[nodiscard]] engine::error save(const editor_panel_visibility& visibility) noexcept;
   [[nodiscard]] bool loading() const noexcept { return read_ != nullptr; }
   [[nodiscard]] bool saving() const noexcept { return write_ && !write_->complete; }
-  [[nodiscard]] engine::result save_result() const noexcept;
+  [[nodiscard]] engine::error save_result() const noexcept;
   [[nodiscard]] std::string_view uri() const noexcept { return uri_; }
 
 private:
   struct read_receipt {
     bool complete{};
-    gneiss::engine::files::completion<gneiss::engine::files::bytes> value{
-        engine::result::not_ready};
+    gneiss::engine::files::completion<gneiss::engine::files::bytes> value{engine::error::not_ready};
   };
   struct write_receipt {
     bool complete{};
-    engine::result status{engine::result::not_ready};
+    engine::error status{engine::error::not_ready};
   };
   std::shared_ptr<gneiss::engine::files::service> files_;
   std::shared_ptr<read_receipt> read_;

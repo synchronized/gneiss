@@ -7,20 +7,20 @@
 namespace gneiss::test_support {
 // 仅测试驱动回调；生产接口没有同步等待包装。
 template <class Receipt>
-inline engine::result await_file(gneiss::engine::files::service& files,
-                                 const std::shared_ptr<Receipt>& receipt) {
+inline engine::error await_file(gneiss::engine::files::service& files,
+                                const std::shared_ptr<Receipt>& receipt) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (!receipt->complete) {
     if (std::chrono::steady_clock::now() > deadline)
-      return engine::result::internal;
+      return engine::error::internal;
     (void)files.dispatch_completions(64);
     std::this_thread::yield();
   }
   return receipt->status;
 }
-inline engine::result save_document(editor::scene_document& document,
-                                    const std::filesystem::path& root, std::string* saved = nullptr,
-                                    std::string_view uri = {}) {
+inline engine::error save_document(editor::scene_document& document,
+                                   const std::filesystem::path& root, std::string* saved = nullptr,
+                                   std::string_view uri = {}) {
   runtime::application_configuration config;
   config.writable_assets = true;
   const auto root_text = root.generic_string();

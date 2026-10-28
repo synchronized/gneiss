@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/function/scene/structural_diff.hpp"
 
 #include <array>
@@ -32,7 +32,7 @@ bool test_ordering() {
   const std::vector new_objects{object("new-child", "new-root"), object("new-root")};
   structural_diff difference;
   return build_structural_diff(old_objects, new_objects, difference) ==
-             gneiss::engine::result::success &&
+             gneiss::engine::error::success &&
          difference.added.size() == 2U && difference.added[0].uuid == "new-root" &&
          difference.added[1].uuid == "new-child" && difference.removed.size() == 2U &&
          difference.removed[0].uuid == "old-child" && difference.removed[1].uuid == "old-root";
@@ -57,7 +57,7 @@ bool test_updates() {
   const std::vector new_objects{object("new-parent"), object("old-parent"), current};
   structural_diff difference;
   if (build_structural_diff(old_objects, new_objects, difference) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       difference.updated.size() != 1U) {
     return false;
   }
@@ -77,12 +77,12 @@ bool test_invalid_inputs() {
   const std::vector missing_parent{object("node", "missing")};
   const std::vector cycle{object("first", "second"), object("second", "first")};
   return build_structural_diff({}, duplicate, difference) ==
-             gneiss::engine::result::invalid_argument &&
+             gneiss::engine::error::invalid_argument &&
          difference.empty() &&
          build_structural_diff({}, missing_parent, difference) ==
-             gneiss::engine::result::invalid_argument &&
+             gneiss::engine::error::invalid_argument &&
          difference.empty() &&
-         build_structural_diff({}, cycle, difference) == gneiss::engine::result::invalid_argument &&
+         build_structural_diff({}, cycle, difference) == gneiss::engine::error::invalid_argument &&
          difference.empty();
 }
 
@@ -93,7 +93,7 @@ int main() {
   using gneiss::engine::structural_diff;
   const std::vector unchanged{object("root"), object("child", "root")};
   structural_diff difference;
-  if (build_structural_diff(unchanged, unchanged, difference) != gneiss::engine::result::success ||
+  if (build_structural_diff(unchanged, unchanged, difference) != gneiss::engine::error::success ||
       !difference.empty()) {
     return 1;
   }

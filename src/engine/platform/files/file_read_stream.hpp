@@ -15,12 +15,12 @@ public:
   ~read_stream();
   read_stream(const read_stream&) = delete;
   read_stream& operator=(const read_stream&) = delete;
-  result read_next(files::callback<block> callback) noexcept;
+  error read_next(files::callback<block> callback) noexcept;
   /** 取消当前块，不回退已交付位置；成功后仍经所属线程通知 cancelled。 */
-  result cancel() noexcept;
+  error cancel() noexcept;
 
 private:
-  result read_sequential(files::callback<block>) noexcept;
+  error read_sequential(files::callback<block>) noexcept;
   struct state;
   std::shared_ptr<state> state_;
 };

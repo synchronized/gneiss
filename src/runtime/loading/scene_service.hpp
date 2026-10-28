@@ -4,7 +4,7 @@
 #ifndef GNEISS_RUNTIME_SCENE_SERVICE_HPP_
 #define GNEISS_RUNTIME_SCENE_SERVICE_HPP_
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/resource/resource_service.hpp"
@@ -29,8 +29,8 @@ public:
   scene_service(const scene_service&) = delete;
   scene_service& operator=(const scene_service&) = delete;
 
-  [[nodiscard]] gneiss::engine::result initialize(gneiss::engine::resource_service& assets);
-  [[nodiscard]] gneiss::engine::result
+  [[nodiscard]] gneiss::engine::error initialize(gneiss::engine::resource_service& assets);
+  [[nodiscard]] gneiss::engine::error
   attach_executor(gneiss::engine::task_executor& executor,
                   gneiss::engine::render_service& resources,
                   gneiss::engine::texture_prepare_profile profile,
@@ -41,8 +41,8 @@ public:
   [[nodiscard]] bool visual_loading() const noexcept {
     return visual_pending_ || !visual_queue_.empty();
   }
-  [[nodiscard]] gneiss::engine::result activate(std::uint64_t request,
-                                                scene_load_completion& completion);
+  [[nodiscard]] gneiss::engine::error activate(std::uint64_t request,
+                                               scene_load_completion& completion);
   /** 请求停止加载，不等待 CPU/I/O；继续 advance 至 stopped，再释放依赖。 */
   void request_stop();
   [[nodiscard]] bool stopped() const noexcept;
@@ -59,25 +59,24 @@ public:
   /** 内部适配借用；视觉服务在 attach_executor 后存活至 shutdown，不随场景切换重建。 */
   [[nodiscard]] resource_load_group* loading_assets() const noexcept;
   /** 请求、进度和完成值不暴露候选域；激活仍由宿主在安全点显式调用。 */
-  [[nodiscard]] gneiss::engine::result request_scene(std::string_view uri, std::uint64_t session,
-                                                     std::uint64_t revision,
-                                                     std::uint64_t& request);
+  [[nodiscard]] gneiss::engine::error request_scene(std::string_view uri, std::uint64_t session,
+                                                    std::uint64_t revision, std::uint64_t& request);
   [[nodiscard]] bool scene_progress(scene_load_progress& progress) const;
-  [[nodiscard]] gneiss::engine::result poll_scene(scene_load_completion& completion, bool& ready);
-  [[nodiscard]] gneiss::engine::result cancel_scene(std::uint64_t request);
+  [[nodiscard]] gneiss::engine::error poll_scene(scene_load_completion& completion, bool& ready);
+  [[nodiscard]] gneiss::engine::error cancel_scene(std::uint64_t request);
   /** 更新稳定资源的内容，活动 World 的引用不变；失败项保留旧内容。 */
-  [[nodiscard]] gneiss::engine::result
+  [[nodiscard]] gneiss::engine::error
   request_assets(std::span<const gneiss::engine::asset_source> sources, std::uint64_t session,
                  std::uint64_t revision, std::uint64_t& request, bool reload);
   /** 所属线程、渲染快照捕获之前调用；回执报告内容更新结果，不改变场景引用。 */
-  [[nodiscard]] gneiss::engine::result
+  [[nodiscard]] gneiss::engine::error
   poll_assets(gneiss::runtime::asset_load_completion& completion, bool& ready);
 
   /** 异步读取结构与依赖，所属线程原位修改实例；不切换 World。
    * 重载期间拒绝其他加载；poll_reload 消费终态后释放请求槽位。 */
-  [[nodiscard]] engine::result request_reload(scene_instance_id instance, std::string_view uri,
-                                              bool prefab);
-  [[nodiscard]] engine::result poll_reload(engine::result& result, bool& ready);
+  [[nodiscard]] engine::error request_reload(scene_instance_id instance, std::string_view uri,
+                                             bool prefab);
+  [[nodiscard]] engine::error poll_reload(engine::error& result, bool& ready);
 
 private:
   struct reload_task {
@@ -90,7 +89,7 @@ private:
     std::vector<engine::render_asset_ref> retained;
     std::size_t cursor{};
     bool asset_pending{};
-    engine::result result{engine::result::not_ready};
+    engine::error result{engine::error::not_ready};
   };
   void advance_reload();
   std::unique_ptr<reload_task> reload_;
@@ -113,7 +112,7 @@ private:
   void advance_load_impl();
   void stop_load() noexcept;
   void instantiate_loaded(load_task& value);
-  void finish(gneiss::engine::result result, scene_load_phase phase, std::string message = {});
+  void finish(gneiss::engine::error result, scene_load_phase phase, std::string message = {});
   void sample_budget(scene_load_progress& value) const;
   void check_owner() const;
   gneiss::engine::task_executor* executor_{};

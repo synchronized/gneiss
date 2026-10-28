@@ -4,8 +4,8 @@
 #ifndef GNEISS_SCENE_SCENE_DESCRIPTION_HPP_
 #define GNEISS_SCENE_SCENE_DESCRIPTION_HPP_
 
+#include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
-#include "engine/core/result.hpp"
 
 #include "engine/resource/scene/prefab_property_data.hpp"
 
@@ -21,7 +21,7 @@
 namespace gneiss::engine {
 
 struct scene_diagnostic final {
-  engine::result result = engine::result::success;
+  engine::error result = engine::error::success;
   std::size_t byte_offset = 0;
   std::string path;
   std::string message;

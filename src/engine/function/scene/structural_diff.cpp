@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/scene/structural_diff.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <algorithm>
 #include <functional>
@@ -38,49 +38,49 @@ equal_camera(const std::optional<gneiss::engine::camera_description>& left,
   return !left || (left->mesh_uri == right->mesh_uri && left->material_uri == right->material_uri);
 }
 
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 build_index(const std::vector<gneiss::engine::object_description>& objects, object_index& output,
             std::vector<std::size_t>& depths) {
   output.reserve(objects.size());
   depths.assign(objects.size(), 0U);
   for (std::size_t index = 0U; index < objects.size(); ++index) {
     if (objects[index].uuid.empty() || !output.emplace(objects[index].uuid, index).second) {
-      return gneiss::engine::result::invalid_argument;
+      return gneiss::engine::error::invalid_argument;
     }
   }
 
   enum class visit_state : std::uint8_t { unseen, visiting, complete };
   std::vector<visit_state> states(objects.size(), visit_state::unseen);
-  const std::function<gneiss::engine::result(std::size_t)> visit =
-      [&](std::size_t index) -> gneiss::engine::result {
+  const std::function<gneiss::engine::error(std::size_t)> visit =
+      [&](std::size_t index) -> gneiss::engine::error {
     if (states[index] == visit_state::complete) {
-      return gneiss::engine::result::success;
+      return gneiss::engine::error::success;
     }
     if (states[index] == visit_state::visiting) {
-      return gneiss::engine::result::invalid_argument;
+      return gneiss::engine::error::invalid_argument;
     }
     states[index] = visit_state::visiting;
     if (objects[index].parent_uuid) {
       const auto parent = output.find(*objects[index].parent_uuid);
       if (parent == output.end() || parent->second == index) {
-        return gneiss::engine::result::invalid_argument;
+        return gneiss::engine::error::invalid_argument;
       }
       const auto result = visit(parent->second);
-      if (result != gneiss::engine::result::success) {
+      if (result != gneiss::engine::error::success) {
         return result;
       }
       depths[index] = depths[parent->second] + 1U;
     }
     states[index] = visit_state::complete;
-    return gneiss::engine::result::success;
+    return gneiss::engine::error::success;
   };
   for (std::size_t index = 0U; index < objects.size(); ++index) {
     const auto result = visit(index);
-    if (result != gneiss::engine::result::success) {
+    if (result != gneiss::engine::error::success) {
       return result;
     }
   }
-  return gneiss::engine::result::success;
+  return gneiss::engine::error::success;
 }
 
 [[nodiscard]] gneiss::engine::structural_change
@@ -111,9 +111,9 @@ compare_objects(const gneiss::engine::object_description& old_object,
 
 namespace gneiss::engine {
 
-engine::result build_structural_diff(const std::vector<engine::object_description>& old_objects,
-                                     const std::vector<engine::object_description>& new_objects,
-                                     structural_diff& output) noexcept {
+engine::error build_structural_diff(const std::vector<engine::object_description>& old_objects,
+                                    const std::vector<engine::object_description>& new_objects,
+                                    structural_diff& output) noexcept {
   output = {};
   try {
     object_index old_index;
@@ -121,10 +121,10 @@ engine::result build_structural_diff(const std::vector<engine::object_descriptio
     std::vector<std::size_t> old_depths;
     std::vector<std::size_t> new_depths;
     auto result = build_index(old_objects, old_index, old_depths);
-    if (result == engine::result::success) {
+    if (result == engine::error::success) {
       result = build_index(new_objects, new_index, new_depths);
     }
-    if (result != engine::result::success) {
+    if (result != engine::error::success) {
       return result;
     }
 
@@ -160,13 +160,13 @@ engine::result build_structural_diff(const std::vector<engine::object_descriptio
     std::ranges::sort(output.removed, [](const auto& left, const auto& right) {
       return left.depth != right.depth ? left.depth > right.depth : left.uuid < right.uuid;
     });
-    return engine::result::success;
+    return engine::error::success;
   } catch (const std::bad_alloc&) {
     output = {};
-    return engine::result::out_of_memory;
+    return engine::error::out_of_memory;
   } catch (...) {
     output = {};
-    return engine::result::internal;
+    return engine::error::internal;
   }
 }
 

@@ -4,10 +4,10 @@
 #include "async_application.hpp"
 namespace gneiss::test_support {
 // 测试驱动异步准备；最终实例化只使用已准备描述与引用。
-inline engine::result instantiate_prefab(runtime::application& app, scene_instance_id scene,
-                                         const engine::prefab_instance_description& author,
-                                         scene_node_id& root, bool replacing = false,
-                                         engine::task_scheduler* tasks = nullptr) {
+inline engine::error instantiate_prefab(runtime::application& app, scene_instance_id scene,
+                                        const engine::prefab_instance_description& author,
+                                        scene_node_id& root, bool replacing = false,
+                                        engine::task_scheduler* tasks = nullptr) {
   root = {};
   engine::prepared_scene_description prepared;
   engine::scene_instances::asset_bindings assets;
@@ -27,9 +27,9 @@ inline engine::result instantiate_prefab(runtime::application& app, scene_instan
   }
   return app.scenes()->instantiate_prefab_ready(scene, author, source, bindings, replacing, root);
 }
-inline engine::result create_prefab(runtime::application& app, scene_instance_id scene,
-                                    const engine::prefab_creation& creation, scene_node_id& root,
-                                    engine::task_scheduler* tasks = nullptr) {
+inline engine::error create_prefab(runtime::application& app, scene_instance_id scene,
+                                   const engine::prefab_creation& creation, scene_node_id& root,
+                                   engine::task_scheduler* tasks = nullptr) {
   root = {};
   engine::prefab_instance_description author;
   author.instance_uuid = creation.instance_uuid;
@@ -54,12 +54,12 @@ inline engine::result create_prefab(runtime::application& app, scene_instance_id
       }
     }
     if (!author.parent_uuid)
-      return engine::result::invalid_handle;
+      return engine::error::invalid_handle;
   }
   return instantiate_prefab(app, scene, author, root, false, tasks);
 }
-inline engine::result refresh_prefab(runtime::application& app, scene_instance_id scene,
-                                     std::string_view uuid, scene_node_id& root) {
+inline engine::error refresh_prefab(runtime::application& app, scene_instance_id scene,
+                                    std::string_view uuid, scene_node_id& root) {
   engine::prefab_instance_description author;
   engine::prefab_asset_ref source;
   auto status = app.scenes()->capture_prefab_header(scene, uuid, author, source);

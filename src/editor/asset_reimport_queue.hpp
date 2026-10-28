@@ -5,7 +5,7 @@
 
 #include "asset_import_controller.hpp"
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <chrono>
 #include <cstddef>
@@ -58,13 +58,13 @@ public:
   asset_reimport_queue& operator=(const asset_reimport_queue&) = delete;
 
   /** 加入相对于工程 sources 的候选路径；重复通知会重置防抖期限。 */
-  [[nodiscard]] gneiss::engine::result notify(const std::filesystem::path& relative_path,
-                                              clock::time_point now = clock::now()) noexcept;
+  [[nodiscard]] gneiss::engine::error notify(const std::filesystem::path& relative_path,
+                                             clock::time_point now = clock::now()) noexcept;
 
   /** 请求检查索引中的全部源文件；执行中再次请求会合并为下一轮，不自动重试失败导入。 */
   void request_rescan() noexcept;
   [[nodiscard]] bool is_rescanning() const noexcept;
-  [[nodiscard]] gneiss::engine::result rescan_result() const noexcept;
+  [[nodiscard]] gneiss::engine::error rescan_result() const noexcept;
 
   /**
    * 处理到期候选；最多检查 max_candidates 个候选并尝试 max_imports 次导入（含失败）。

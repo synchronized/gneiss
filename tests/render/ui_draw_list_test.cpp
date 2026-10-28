@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/function/resource/detail/resource_service_impl.hpp"
@@ -27,7 +27,7 @@ int main() {
   texture_desc.row_stride_bytes = 4U;
   texture_desc.pixels = pixels;
   gneiss::engine::texture texture;
-  if (resources_factory.create_texture(texture_desc, texture) != gneiss::engine::result::success) {
+  if (resources_factory.create_texture(texture_desc, texture) != gneiss::engine::error::success) {
     return 1;
   }
 
@@ -49,7 +49,7 @@ int main() {
   desc.commands = commands;
 
   gneiss::engine::ui_draw_list draw_list;
-  if (draw_list.replace(desc, resources) != gneiss::engine::result::success ||
+  if (draw_list.replace(desc, resources) != gneiss::engine::error::success ||
       draw_list.vertices().size() != 3U || draw_list.indices().size() != 3U ||
       draw_list.commands().size() != 1U) {
     return 2;
@@ -64,14 +64,14 @@ int main() {
 
   indices[0] = 3U;
   commands[0].index_count = 3U;
-  if (draw_list.replace(desc, resources) != gneiss::engine::result::invalid_argument ||
+  if (draw_list.replace(desc, resources) != gneiss::engine::error::invalid_argument ||
       draw_list.indices()[0] != 0U) {
     return 4;
   }
   indices[0] = 0U;
 
   commands[0].index_count = 2U;
-  if (draw_list.replace(desc, resources) != gneiss::engine::result::invalid_argument ||
+  if (draw_list.replace(desc, resources) != gneiss::engine::error::invalid_argument ||
       draw_list.commands()[0].index_count != 3U) {
     return 5;
   }
@@ -79,7 +79,7 @@ int main() {
 
   gneiss::engine::render_service other_resources;
   gneiss::engine::resource_service::implementation other_resources_factory{other_resources};
-  if (draw_list.replace(desc, other_resources) != gneiss::engine::result::invalid_handle ||
+  if (draw_list.replace(desc, other_resources) != gneiss::engine::error::invalid_handle ||
       draw_list.commands().size() != 1U) {
     return 6;
   }
@@ -90,7 +90,7 @@ int main() {
     return 7;
   }
   gneiss::engine::texture rejected = texture;
-  if (resources_factory.create_texture({}, rejected) != gneiss::engine::result::invalid_argument ||
+  if (resources_factory.create_texture({}, rejected) != gneiss::engine::error::invalid_argument ||
       rejected || !texture)
     return 8;
   // UI 查询不得为裸 RID 自动建立拥有者。
@@ -114,17 +114,17 @@ int main() {
     return 20;
   copied.reset();
   if (peer.find_texture(peer_handle) || peer.drain() != 1 || peer.drain() != 0 ||
-      resources.texture_status(peer_handle) != result::invalid_handle)
+      resources.texture_status(peer_handle) != error::invalid_handle)
     return 21;
   gneiss::engine::material foreign_material;
-  if (peer.create_material({}, {texture}, foreign_material) != result::invalid_argument ||
+  if (peer.create_material({}, {texture}, foreign_material) != error::invalid_argument ||
       foreign_material)
     return 22;
   if (peer.create_texture(texture_desc, peer_texture).failed())
     return 23;
   peer.close();
   if (resources.texture_status(resource_handle(texture)).failed() ||
-      resources.texture_status(resource_handle(peer_texture)) != result::invalid_handle)
+      resources.texture_status(resource_handle(peer_texture)) != error::invalid_handle)
     return 19;
   (void)resources.destroy_texture(unowned);
 
@@ -150,7 +150,7 @@ int main() {
   content->base_color_texture = handle;
   // 缺失依赖必须在 Render 内容变化之前拒绝。
   if (resources_factory.update_material(material_ref, content, {}) ||
-      resources.material_status(material_handle) != result::not_ready ||
+      resources.material_status(material_handle) != error::not_ready ||
       !resources_factory.update_material(material_ref, content, {texture}) ||
       material_ref->textures()[0] != texture)
     return 12;
@@ -166,7 +166,7 @@ int main() {
   if (!resources.is_valid() || resources.live_resource_count() != 0 ||
       resources_factory.find_texture(handle) ||
       resources_factory.update_texture(texture, changed) ||
-      resources_factory.create_texture(texture_desc, rejected) != result::invalid_state)
+      resources_factory.create_texture(texture_desc, rejected) != error::invalid_state)
     return 14;
   // 工厂关闭不关闭服务，裸 RID 接口仍然可以使用。
   if (resources.create_texture(texture_desc, &unowned).failed())

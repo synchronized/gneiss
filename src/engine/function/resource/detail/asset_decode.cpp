@@ -32,63 +32,85 @@ bool invalid_prepared_mesh(const mesh_data& mesh) {
           !std::ranges::all_of(mesh.indices, [&](auto i) { return i < mesh.vertices.size(); }));
 }
 } // namespace
-result decode_mesh_asset(std::string_view uri, const std::vector<std::byte>& bytes,
-                         decoded_asset& output, asset_diagnostic& diagnostic,
-                         std::size_t maximum_bytes) {
+result<decoded_asset, asset_diagnostic> decode_mesh_asset(std::string_view uri,
+                                                          const std::vector<std::byte>& bytes,
+                                                          std::size_t maximum_bytes) {
+  asset_diagnostic diagnostic;
+  const auto failure = [&](error code) {
+    diagnostic.result = code;
+    if (diagnostic.path.empty())
+      diagnostic.path = uri;
+    return std::move(diagnostic);
+  };
   mesh_data mesh;
   auto status = is_mesh_binary(bytes)
                     ? parse_binary_mesh(bytes, mesh.vertices, mesh.normals, mesh.indices,
                                         mesh.tangents, mesh.uv1, mesh.colors, diagnostic)
                     : parse_mesh(bytes, mesh.vertices, mesh.normals, diagnostic);
   if (status.failed())
-    return status;
+    return failure(status);
   if (invalid_prepared_mesh(mesh))
-    return result::invalid_argument;
+    return failure(error::invalid_argument);
   const auto size = mesh.data_bytes();
   if (size > maximum_bytes)
-    return result::out_of_memory;
-  output = {.uri = std::string(uri), .sources = {}, .content = std::move(mesh), .bytes = size};
-  return result::success;
+    return failure(error::out_of_memory);
+  return decoded_asset{
+      .uri = std::string(uri), .sources = {}, .content = std::move(mesh), .bytes = size};
 }
-result decode_texture_asset(std::string_view uri, const texture_description& description,
-                            const std::vector<std::byte>& payload, decoded_asset& output,
-                            asset_diagnostic& diagnostic, std::size_t maximum_bytes,
-                            texture_prepare_profile profile) {
+result<decoded_asset, asset_diagnostic> decode_texture_asset(std::string_view uri,
+                                                             const texture_description& description,
+                                                             const std::vector<std::byte>& payload,
+                                                             std::size_t maximum_bytes,
+                                                             texture_prepare_profile profile) {
+  asset_diagnostic diagnostic;
+  const auto failure = [&](error code) {
+    diagnostic.result = code;
+    if (diagnostic.path.empty())
+      diagnostic.path = uri;
+    return std::move(diagnostic);
+  };
   if (payload.size() > maximum_bytes)
-    return result::invalid_argument;
+    return failure(error::invalid_argument);
   texture_data texture;
   const auto status = decode_texture_payload(description, payload, texture, diagnostic,
                                              maximum_bytes, maximum_bytes, profile);
   if (status.failed())
-    return status;
+    return failure(status);
   auto size = texture.manifest.size() + texture.payload.size();
   for (const auto& level : texture.levels)
     size += level.pixels.size();
   if (size > maximum_bytes)
-    return result::out_of_memory;
-  output = {.uri = std::string(uri), .sources = {}, .content = std::move(texture), .bytes = size};
-  return result::success;
+    return failure(error::out_of_memory);
+  return decoded_asset{
+      .uri = std::string(uri), .sources = {}, .content = std::move(texture), .bytes = size};
 }
-result adopt_material_asset(std::string_view uri, asset_ref<const material_description> material,
-                            decoded_asset& output, asset_diagnostic& diagnostic,
-                            std::size_t maximum_bytes, std::size_t material_bytes) {
+result<decoded_asset, asset_diagnostic>
+adopt_material_asset(std::string_view uri, asset_ref<const material_description> material,
+                     std::size_t maximum_bytes, std::size_t material_bytes) {
+  asset_diagnostic diagnostic;
+  const auto failure = [&](error code) {
+    diagnostic.result = code;
+    if (diagnostic.path.empty())
+      diagnostic.path = uri;
+    return std::move(diagnostic);
+  };
   if (!material)
-    return result::invalid_argument;
+    return failure(error::invalid_argument);
   if (material_bytes == 0U) {
-    fail(diagnostic, result::invalid_argument, uri, "材质内容预算不得为零");
-    return result::invalid_argument;
+    fail(diagnostic, error::invalid_argument, uri, "材质内容预算不得为零");
+    return failure(error::invalid_argument);
   }
   if (material_bytes > maximum_bytes)
-    return result::out_of_memory;
+    return failure(error::out_of_memory);
   auto size = material_bytes;
   for (const auto& dependency : material->texture_uris) {
     if (dependency.size() > maximum_bytes - size) {
-      fail(diagnostic, result::out_of_memory, uri, "材质依赖超出单资源字节上限");
-      return result::out_of_memory;
+      fail(diagnostic, error::out_of_memory, uri, "材质依赖超出单资源字节上限");
+      return failure(error::out_of_memory);
     }
     size += dependency.size();
   }
-  output = {.uri = std::string(uri), .sources = {}, .content = std::move(material), .bytes = size};
-  return result::success;
+  return decoded_asset{
+      .uri = std::string(uri), .sources = {}, .content = std::move(material), .bytes = size};
 }
 } // namespace gneiss::engine

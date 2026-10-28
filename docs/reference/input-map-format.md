@@ -27,7 +27,7 @@
 非零有限数。
 
 未知字段、未知格式或版本、空动作列表、重复名称、空绑定及非法数值均返回
-`result::invalid_argument`。解析采用事务语义：失败不会修改调用方已有映射。
+`error::invalid_argument`。解析采用事务语义：失败不会修改调用方已有映射。
 
 使用原生 Application 的 `begin_action_map` 从逻辑 URI 异步加载映射；
 `action_map_status` 返回成功后，通过 `find_action` 缓存动作句柄，使用 `get_action_state` 查询当帧状态。

@@ -5,6 +5,16 @@
 
 普通资源、网格和纹理统一通过[文件服务](file-service.md)异步读取；旧 VFS 和同步加载入口已删除。
 
+## 值返回入口
+
+`asset_manager::load<T>(uri, reload)` 返回 `result<asset_request<T>>`，表示是否成功提交请求；
+并不代表异步解码已完成。`find_loaded<T>(uri)` 与 `store<T>(uri, value)` 返回
+`result<asset_ref<const T>>`。网格、纹理一次性加载返回相应的 `result<asset_data_request<T>>`。
+
+`resource_service::find<T>(uri)` 返回 `result<asset_ref<const T>>`，`load<T>(uri, reload)`
+返回 `result<resource_request>`，`create_mesh/create_texture/create_material` 返回对应资源引用的 result。
+内存资产解码返回 `result<decoded_asset, asset_diagnostic>`。判断与取值规则见 [Core](core.md#错误状态与值结果)。
+
 ## URI 规则
 
 现有资产加载入口当前只支持规范形式的 `asset://` URI，例如：
@@ -15,7 +25,7 @@ asset://纹理/石头.png
 ```
 
 URI 使用 UTF-8 和正斜杠，scheme 区分大小写。空路径、空路径段、`.`、`..`、控制字符、反斜杠、
-冒号、查询、片段和百分号编码均返回 `engine::result::invalid_argument`。原生校验函数不访问文件系统：
+冒号、查询、片段和百分号编码均返回 `engine::error::invalid_argument`。原生校验函数不访问文件系统：
 
 ```cpp
 #include "engine/resource/asset_uri.hpp"
@@ -91,7 +101,7 @@ GPU 在途使用的安全回收由 Render 及后端负责，详见[运行资源�
 
 网格使用 `decode_mesh_asset`，纹理使用 `decode_texture_asset` 接收已解析描述与负载；
 材质通过 `adopt_material_asset` 共享已解码描述。各入口不读取文件、不递归加载依赖。
-asset_manager 的 `load_mesh_data`、`load_texture_data` 返回 `asset_data_request<T>`，
+asset_manager 的 `load_mesh_data`、`load_texture_data` 返回 `result<asset_data_request<T>>`，
 成功领取时移动 CPU 内容；取消只放弃请求，不等待工作线程，完成不会进入长期缓存。
 可领取的 asset_data_metrics 包含来源快照、解码字节估算、解码与队列耗时。
 内部 `decoded_asset::content` 使用 `std::variant`，只持有一种内容；`kind()` 从内容推导类型。
@@ -151,8 +161,8 @@ metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 纯 CPU 使用者只需 `attach_task_executor`，不要求 Render。
 Scene/Editor 通过 resource_service 创建、查询和加载运行资源，通过 asset_manager 加载描述。
 asset_manager 的 `load<T>` 保留 CPU 描述解码契约；resource_service 的
-`load<texture_resource>(uri, request)` 等接口返回 `resource_request`。
-缓存查询统一为 `find<T>(uri, output)`，混合类型使用 `find(asset_source, entry, profile)`；
+`load<texture_resource>(uri)` 等接口返回 `result<resource_request>`。
+缓存查询统一为 `find<T>(uri)`，混合类型使用 `find(asset_source, profile)`；
 不读取文件、不等待 GPU，失败清空输出。类型化查询使用服务配置的纹理 profile。
 所属线程通过 `status()` 查询，`get<texture_resource>()` 获取强引用；成功表示 CPU 内容与依赖已采用。
 两者共享文件服务与执行器，各自持有缓存。
@@ -190,7 +200,7 @@ asset_manager 仅接受 shared_ptr<files::service>。`find_loaded<T>` 只查询�
 
 加载优先使用显式 decoder；未注册时，按 type_id 查找冻结 Registry 中的 decode。
 没有解码能力时在读取前返回 unsupported；显式解码失败不再回退。适配器在临时对象上解码，
-成功才进入缓存，失败保留既有资源和调用者输出。`asset_request::take` 的可选 diagnostic 参数返回 codec 的路径、消息和字节位置。
+成功才进入缓存，失败保留既有缓存资源。`asset_request::take` 的可选 diagnostic 参数返回 codec 的路径、消息和字节位置。
 
 首次有效加载进入解码器选择后冻结显式注册，后续反射适配不改变 codec 选择。
 管理器持有 Registry；默认使用共享的内置资源 Registry，目前包含材质、Scene、Prefab codec 和 ActionMap 解码器。
@@ -226,7 +236,7 @@ texture_description 表示现有纹理 JSON 的运行时视图；尺寸、变体
 `scene_description` 和 `prefab_description` 通过同一 manager 同步或后台加载，默认 Registry
 注册现有格式的双向 codec；保留未知字段、层级及 Prefab 单根校验。每文件默认限制为 16 MiB，
 显式 decoder 可以指定自己的上限。直接 parse/serialize 函数仍用于编辑器的内存文本操作。
-Prefab 直接使用 `load_sync<prefab_description>` / `load<prefab_description>`；
+Prefab 直接使用 `load<prefab_description>`；
 显式重载使用 `reload=true`，不再保留专用 Prefab Loader 或转发接口。
 
 场景所属线程用 `scene_description_request` 取得场景及去重后的 Prefab 引用；工作线程只做

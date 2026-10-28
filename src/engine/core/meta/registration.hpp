@@ -12,21 +12,21 @@
 namespace gneiss::engine::meta {
 /** 从规范化 C++ 类型提取身份；显式身份与 traits 冲突时拒绝注册。 */
 template <class T>
-[[nodiscard]] result register_type(const registry_ref& registry, type_definition definition,
-                                   std::span<const property_binding> bindings = {}) noexcept {
+[[nodiscard]] error register_type(const registry_ref& registry, type_definition definition,
+                                  std::span<const property_binding> bindings = {}) noexcept {
   using type = std::remove_cvref_t<T>;
   const auto guid = type_identity<type>::guid();
   const auto name = type_identity<type>::name();
   if ((guid && definition.guid && guid != definition.guid) ||
       (!name.empty() && !definition.name.empty() && name != definition.name))
-    return result::invalid_argument;
+    return error::invalid_argument;
   if (!definition.guid)
     definition.guid = guid;
   if (definition.name.empty())
     definition.name = name;
   const auto id = runtime_type_of<type>();
   if (!id || (definition.type_id && definition.type_id != id))
-    return result::invalid_argument;
+    return error::invalid_argument;
   definition.type_id = id;
   return register_type(registry, definition, bindings);
 }
@@ -67,15 +67,15 @@ public:
     using property_type = std::remove_cvref_t<std::invoke_result_t<decltype(Member), object_type&>>;
     return add<property_type>(id, name, property_flags::none,
                               {.kind = detail::reflected_value_kind<property_type>(),
-                               .getter = [](void*, const void* object, value& output) -> result {
+                               .getter = [](void*, const void* object, value& output) -> error {
                                  output.payload =
                                      std::invoke(Member, *static_cast<const object_type*>(object));
-                                 return result::success;
+                                 return error::success;
                                },
-                               .setter = [](void*, void* object, const value& input) -> result {
+                               .setter = [](void*, void* object, const value& input) -> error {
                                  std::invoke(Member, *static_cast<object_type*>(object)) =
                                      std::get<property_type>(input.payload);
-                                 return result::success;
+                                 return error::success;
                                }});
   }
   template <auto Getter, auto Setter>
@@ -85,16 +85,16 @@ public:
     return add<property_type>(
         id, name, property_flags::none,
         {.kind = detail::reflected_value_kind<property_type>(),
-         .getter = [](void*, const void* object, value& output) -> result {
+         .getter = [](void*, const void* object, value& output) -> error {
            output.payload = std::invoke(Getter, *static_cast<const object_type*>(object));
-           return result::success;
+           return error::success;
          },
-         .setter = [](void*, void* object, const value& input) -> result {
+         .setter = [](void*, void* object, const value& input) -> error {
            if constexpr (std::is_void_v<std::invoke_result_t<decltype(Setter), object_type&,
                                                              const property_type&>>) {
              std::invoke(Setter, *static_cast<object_type*>(object),
                          std::get<property_type>(input.payload));
-             return result::success;
+             return error::success;
            } else {
              return std::invoke(Setter, *static_cast<object_type*>(object),
                                 std::get<property_type>(input.payload));
@@ -106,10 +106,10 @@ public:
         std::remove_cvref_t<std::invoke_result_t<decltype(Getter), const object_type&>>;
     return add<property_type>(id, name, property_flags::read_only,
                               {.kind = detail::reflected_value_kind<property_type>(),
-                               .getter = [](void*, const void* object, value& output) -> result {
+                               .getter = [](void*, const void* object, value& output) -> error {
                                  output.payload =
                                      std::invoke(Getter, *static_cast<const object_type*>(object));
-                                 return result::success;
+                                 return error::success;
                                }});
   }
   /** Encode/Decode 是有类型函数，允许 nullptr 表示缺少该方向。文件格式由 codec 自行校验。 */
@@ -117,29 +117,29 @@ public:
     if (committed_ || status_.failed())
       return *this;
     if (has_serialization_) {
-      status_ = result::invalid_argument;
+      status_ = error::invalid_argument;
       return *this;
     }
     has_serialization_ = true;
     if constexpr (Encode == nullptr && Decode == nullptr) {
-      status_ = result::invalid_argument;
+      status_ = error::invalid_argument;
       return *this;
     }
     if constexpr (Encode != nullptr)
       codec_.encode = [](const void* object, std::vector<std::byte>& output,
-                         serialization_diagnostic& diagnostic) -> result {
+                         serialization_diagnostic& diagnostic) -> error {
         return std::invoke(Encode, *static_cast<const object_type*>(object), output, diagnostic);
       };
     if constexpr (Decode != nullptr)
       codec_.decode = [](std::span<const std::byte> bytes, void* object,
-                         serialization_diagnostic& diagnostic) -> result {
+                         serialization_diagnostic& diagnostic) -> error {
         return std::invoke(Decode, bytes, *static_cast<object_type*>(object), diagnostic);
       };
     return *this;
   }
-  [[nodiscard]] result commit() noexcept {
+  [[nodiscard]] error commit() noexcept {
     if (committed_)
-      return result::invalid_state;
+      return error::invalid_state;
     committed_ = true;
     if (status_.failed())
       return status_;
@@ -157,9 +157,9 @@ public:
           {.schema_version = version_, .properties = properties, .serialization = codec_},
           bindings);
     } catch (const std::bad_alloc&) {
-      return result::out_of_memory;
+      return error::out_of_memory;
     } catch (...) {
-      return result::internal;
+      return error::internal;
     }
   }
 
@@ -172,9 +172,9 @@ private:
     try {
       entries_.push_back({id, std::string(name), type_identity<Property>::guid(), flags, binding});
     } catch (const std::bad_alloc&) {
-      status_ = result::out_of_memory;
+      status_ = error::out_of_memory;
     } catch (...) {
-      status_ = result::internal;
+      status_ = error::internal;
     }
     return *this;
   }
@@ -183,7 +183,7 @@ private:
   registry_ref registry_;
   std::vector<entry> entries_;
   std::uint32_t version_ = 1;
-  result status_ = result::success;
+  error status_ = error::success;
   bool committed_ = false;
 };
 }

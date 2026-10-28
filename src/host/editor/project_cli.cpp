@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "project_cli.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include "package_archive.hpp"
 #include "project_workspace.hpp"
@@ -21,7 +21,7 @@
 
 namespace {
 
-int fail(std::string_view stage, gneiss::engine::result operation) {
+int fail(std::string_view stage, gneiss::engine::error operation) {
   std::cerr << "Gneiss 工程操作失败：阶段=" << stage << "，结果=" << operation.code()
             << "，消息=" << operation.message() << '\n';
   return 1;
@@ -63,7 +63,7 @@ int gneiss::host::run_project_cli(int argc, char** argv) {
     const auto operation =
         argc == 5 ? gneiss::host::create_editor_project(argv[2], argv[4], argv[3], project)
                   : gneiss::host::create_editor_project(argv[2], argv[3], project);
-    if (!operation) {
+    if (operation.failed()) {
       return fail("创建工程", operation);
     }
     std::cout << project.project_root.string() << '\n';
@@ -71,7 +71,7 @@ int gneiss::host::run_project_cli(int argc, char** argv) {
   }
   if (command == "verify" && argc == 3) {
     const auto operation = gneiss::host::verify_package_manifest(argv[2]);
-    if (!operation) {
+    if (operation.failed()) {
       return fail("校验发布包", operation);
     }
     std::cout << std::filesystem::path(argv[2]).string() << '\n';
@@ -80,7 +80,7 @@ int gneiss::host::run_project_cli(int argc, char** argv) {
   if ((command == "export" || command == "package") && argc >= 5 && argc <= 7) {
     gneiss::host::project_description project;
     auto operation = gneiss::host::load_project_description(argv[2], project);
-    if (!operation) {
+    if (operation.failed()) {
       return fail("加载工程", operation);
     }
     gneiss::host::project_build_profile profile = gneiss::host::project_build_profile::development;
@@ -108,7 +108,7 @@ int gneiss::host::run_project_cli(int argc, char** argv) {
                 << std::flush;
     };
     operation = gneiss::host::export_editor_project(project, options, report);
-    if (!operation) {
+    if (operation.failed()) {
       return fail("生成发布包", operation);
     }
     std::cout << "资产构建：源=" << report.asset_source_count

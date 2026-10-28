@@ -10,24 +10,23 @@ namespace gneiss::test_support {
 // 可变内存测试数据：子类提供内存拷贝，不允许磁盘或网络读取。
 class memory_file_fixture : public gneiss::engine::files::backend {
 public:
-  virtual engine::result read(std::string_view path,
-                              gneiss::engine::files::bytes& bytes) const noexcept = 0;
-  virtual engine::result read_bounded(std::string_view path, std::size_t limit,
-                                      gneiss::engine::files::bytes& bytes) const noexcept {
+  virtual engine::error read(std::string_view path,
+                             gneiss::engine::files::bytes& bytes) const noexcept = 0;
+  virtual engine::error read_bounded(std::string_view path, std::size_t limit,
+                                     gneiss::engine::files::bytes& bytes) const noexcept {
     gneiss::engine::files::bytes data;
     auto status = read(path, data);
     if (status.failed())
       return status;
     if (data.size() > limit)
-      return engine::result::invalid_argument;
+      return engine::error::invalid_argument;
     bytes = std::move(data);
-    return engine::result::success;
+    return engine::error::success;
   }
-  engine::result
-  read(std::string_view path, gneiss::engine::files::read_options options,
-       gneiss::engine::files::callback<gneiss::engine::files::bytes> callback) final {
+  engine::error read(std::string_view path, gneiss::engine::files::read_options options,
+                     gneiss::engine::files::callback<gneiss::engine::files::bytes> callback) final {
     pending_.push_back({std::string(path), options, std::move(callback)});
-    return engine::result::success;
+    return engine::error::success;
   }
   void poll() noexcept final {
     auto pending = std::move(pending_);
@@ -54,9 +53,9 @@ struct fixture_files {
           .max_file_bytes = std::numeric_limits<std::size_t>::max()});
   std::shared_ptr<memory_file_fixture> memory;
   std::string prefix;
-  engine::result mount(std::string_view point, std::shared_ptr<memory_file_fixture> backend) {
+  engine::error mount(std::string_view point, std::shared_ptr<memory_file_fixture> backend) {
     if (memory)
-      return engine::result::invalid_state;
+      return engine::error::invalid_state;
     auto status = service->mount({std::string(point), {backend}, {}});
     if (status.ok()) {
       prefix = point;
@@ -64,19 +63,19 @@ struct fixture_files {
     }
     return status;
   }
-  engine::result read_bounded(std::string_view uri, std::size_t limit,
-                              gneiss::engine::files::bytes& bytes) const {
+  engine::error read_bounded(std::string_view uri, std::size_t limit,
+                             gneiss::engine::files::bytes& bytes) const {
     if (engine::validate_uri(uri).failed())
-      return engine::result::invalid_argument;
+      return engine::error::invalid_argument;
     if (!memory || !uri.starts_with(prefix))
-      return engine::result::not_found;
+      return engine::error::not_found;
     return memory->read_bounded(uri.substr(prefix.size()), limit, bytes);
   }
-  engine::result identify(std::string_view uri, std::uint32_t type,
-                          engine::asset_identity& output) const {
+  engine::error identify(std::string_view uri, std::uint32_t type,
+                         engine::asset_identity& output) const {
     output = {};
     if (!type || engine::validate_uri(uri).failed())
-      return engine::result::invalid_argument;
+      return engine::error::invalid_argument;
     std::shared_ptr<const gneiss::engine::files::source_domain> source;
     auto status = service->resolve_source(uri, source);
     if (status.ok())

@@ -4,7 +4,7 @@
 #ifndef GNEISS_WORLD_WORLD_STATE_HPP_
 #define GNEISS_WORLD_WORLD_STATE_HPP_
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world_components.hpp"
 
@@ -94,44 +94,44 @@ public:
     return !is_alive(entity) ? nullptr : registry_.try_get<Component>(native);
   }
 
-  [[nodiscard]] result set_active_camera(std::uint64_t entity) noexcept {
+  [[nodiscard]] error set_active_camera(std::uint64_t entity) noexcept {
     if (!is_alive(entity)) {
-      return result::invalid_handle;
+      return error::invalid_handle;
     }
     if (get<camera_component>(entity) == nullptr) {
-      return result::not_ready;
+      return error::not_ready;
     }
     active_camera_ = entity;
-    return result::success;
+    return error::success;
   }
 
-  [[nodiscard]] result clear_camera(std::uint64_t entity) noexcept {
+  [[nodiscard]] error clear_camera(std::uint64_t entity) noexcept {
     if (!is_alive(entity)) {
-      return result::invalid_handle;
+      return error::invalid_handle;
     }
     const auto native = decode(entity);
     if (native == entt::null || !registry_.valid(native)) {
-      return result::invalid_handle;
+      return error::invalid_handle;
     }
     if (registry_.remove<camera_component>(native) == 0U) {
-      return result::not_found;
+      return error::not_found;
     }
     if (active_camera_ == entity) {
       active_camera_ = UINT64_C(0);
     }
-    return result::success;
+    return error::success;
   }
 
-  [[nodiscard]] result clear_mesh_renderer(std::uint64_t entity) noexcept {
+  [[nodiscard]] error clear_mesh_renderer(std::uint64_t entity) noexcept {
     if (!is_alive(entity)) {
-      return result::invalid_handle;
+      return error::invalid_handle;
     }
     const auto native = decode(entity);
     if (native == entt::null || !registry_.valid(native)) {
-      return result::invalid_handle;
+      return error::invalid_handle;
     }
-    return registry_.remove<mesh_renderer_component>(native) == 0U ? result::not_found
-                                                                   : result::success;
+    return registry_.remove<mesh_renderer_component>(native) == 0U ? error::not_found
+                                                                   : error::success;
   }
 
   void clear_active_camera(std::uint64_t entity) noexcept {

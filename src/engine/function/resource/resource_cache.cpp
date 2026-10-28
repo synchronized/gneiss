@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/resource/resource_cache.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/resource/asset_ref.hpp"
 
@@ -14,23 +14,23 @@
 
 namespace gneiss::engine {
 
-engine::result resource_cache::load(std::string_view uri, type_id type, const loader& decode,
-                                    asset_ref<const entry>& out_entry,
-                                    std::shared_ptr<const files::source_domain> source,
-                                    bool reload) noexcept {
-  using engine::result;
+engine::error resource_cache::load(std::string_view uri, type_id type, const loader& decode,
+                                   asset_ref<const entry>& out_entry,
+                                   std::shared_ptr<const files::source_domain> source,
+                                   bool reload) noexcept {
+  using engine::error;
   out_entry.reset();
-  if (type == engine::runtime_type_of<void>() || !decode || validate_uri(uri) != result::success)
-    return result::invalid_argument;
+  if (type == engine::runtime_type_of<void>() || !decode || validate_uri(uri) != error::success)
+    return error::invalid_argument;
   try {
     const key identity{source, std::string(uri), type};
     auto found = entries_.find(identity);
     if (found != entries_.end()) {
       if (found->second->is_loading)
-        return result::invalid_state;
+        return error::invalid_state;
       if (!reload) {
         out_entry = found->second;
-        return result::success;
+        return error::success;
       }
     }
     auto value = std::make_shared<entry>();
@@ -40,18 +40,18 @@ engine::result resource_cache::load(std::string_view uri, type_id type, const lo
     // 加载期间保活旧值并阻止同键递归；失败（包括异常）恢复原条目。
     const auto previous = found == entries_.end() ? asset_ref<const entry>{} : found->second;
     entries_.insert_or_assign(identity, asset_ref<const entry>{value});
-    result status;
+    error status;
     try {
       status = decode(value->resource);
-      if (status == result::success && !value->resource)
-        status = result::internal;
+      if (status == error::success && !value->resource)
+        status = error::internal;
     } catch (const std::bad_alloc&) {
-      status = result::out_of_memory;
+      status = error::out_of_memory;
     } catch (...) {
-      status = result::internal;
+      status = error::internal;
     }
     found = entries_.find(identity);
-    if (status != result::success) {
+    if (status != error::success) {
       if (previous)
         found->second = previous;
       else
@@ -60,11 +60,11 @@ engine::result resource_cache::load(std::string_view uri, type_id type, const lo
     }
     value->is_loading = false;
     out_entry = asset_ref<const entry>{std::move(value)};
-    return result::success;
+    return error::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return error::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return error::internal;
   }
 }
 

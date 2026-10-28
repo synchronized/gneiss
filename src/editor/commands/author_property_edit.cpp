@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "commands/author_property_edit.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
 
@@ -14,15 +14,15 @@
 namespace gneiss::editor {
 
 namespace {
-gneiss::engine::result write_author_property(scene_document& session,
-                                             property_inspector_model& inspector,
-                                             gneiss::engine::world* world, std::string_view uuid,
-                                             gneiss::engine::guid type_id,
-                                             gneiss::engine::meta::property_id field_id,
-                                             const gneiss::engine::value& value) noexcept {
+gneiss::engine::error write_author_property(scene_document& session,
+                                            property_inspector_model& inspector,
+                                            gneiss::engine::world* world, std::string_view uuid,
+                                            gneiss::engine::guid type_id,
+                                            gneiss::engine::meta::property_id field_id,
+                                            const gneiss::engine::value& value) noexcept {
   const auto* current = session.find_node(uuid);
   if (current == nullptr) {
-    return gneiss::engine::result::not_found;
+    return gneiss::engine::error::not_found;
   }
   const auto operation = inspector.set_value(world, current->entity, type_id, field_id, value);
   if (operation.ok()) {
@@ -32,14 +32,14 @@ gneiss::engine::result write_author_property(scene_document& session,
 }
 } // namespace
 
-gneiss::engine::result
+gneiss::engine::error
 edit_author_property(scene_document& session, editor_command_history& history,
                      property_inspector_model& inspector, gneiss::engine::world* world,
                      const inspector_component& component, const inspector_property& property,
                      const gneiss::engine::value& value, std::uint64_t edit_serial) noexcept try {
   const auto* selected = session.selected_node();
   if (selected == nullptr) {
-    return gneiss::engine::result::invalid_state;
+    return gneiss::engine::error::invalid_state;
   }
   const auto uuid = selected->uuid;
   const auto type_id = component.type_id;
@@ -74,11 +74,11 @@ edit_author_property(scene_document& session, editor_command_history& history,
     return recorded;
   }
   session.mark_dirty();
-  return gneiss::engine::result::success;
+  return gneiss::engine::error::success;
 } catch (const std::bad_alloc&) {
-  return gneiss::engine::result::out_of_memory;
+  return gneiss::engine::error::out_of_memory;
 } catch (...) {
-  return gneiss::engine::result::internal;
+  return gneiss::engine::error::internal;
 }
 
 } // namespace gneiss::editor

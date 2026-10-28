@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_tree.hpp"
 
@@ -75,10 +75,10 @@ int run_tests() {
   gneiss::scene_node_id grandchild{};
   gneiss::scene_node_id other_root{};
   constexpr std::uint64_t entity = 42;
-  if (tree.create({}, {}, &root) != gneiss::engine::result::success ||
-      tree.create(root, {}, &child) != gneiss::engine::result::success ||
-      tree.create(child, entity, &grandchild) != gneiss::engine::result::success ||
-      tree.create({}, {}, &other_root) != gneiss::engine::result::success) {
+  if (tree.create({}, {}, &root) != gneiss::engine::error::success ||
+      tree.create(root, {}, &child) != gneiss::engine::error::success ||
+      tree.create(child, entity, &grandchild) != gneiss::engine::error::success ||
+      tree.create({}, {}, &other_root) != gneiss::engine::error::success) {
     return 1;
   }
 
@@ -105,15 +105,15 @@ int run_tests() {
   grandchild_transform.rotation[3] = half_sqrt_two;
   grandchild_transform.scale[1] = 0.25F;
   grandchild_transform.scale[2] = 2.0F;
-  if (tree.set_local(root, root_transform) != gneiss::engine::result::success ||
-      tree.set_local(child, child_transform) != gneiss::engine::result::success ||
-      tree.set_local(grandchild, grandchild_transform) != gneiss::engine::result::success) {
+  if (tree.set_local(root, root_transform) != gneiss::engine::error::success ||
+      tree.set_local(child, child_transform) != gneiss::engine::error::success ||
+      tree.set_local(grandchild, grandchild_transform) != gneiss::engine::error::success) {
     return 2;
   }
   const auto expected =
       reference_combine(root_transform, reference_combine(child_transform, grandchild_transform));
   gneiss::engine::math::transform actual = gneiss::engine::math::transform{};
-  if (tree.get_world(grandchild, &actual) != gneiss::engine::result::success ||
+  if (tree.get_world(grandchild, &actual) != gneiss::engine::error::success ||
       !approximately_equal(actual, expected) || tree.get_entity(grandchild) != entity) {
     return 3;
   }
@@ -122,9 +122,9 @@ int run_tests() {
   other_transform.translation[2] = -5.0F;
   other_transform.rotation[1] = -half_sqrt_two;
   other_transform.rotation[3] = half_sqrt_two;
-  if (tree.set_local(other_root, other_transform) != gneiss::engine::result::success ||
-      tree.reparent(grandchild, other_root) != gneiss::engine::result::success ||
-      tree.get_world(grandchild, &actual) != gneiss::engine::result::success ||
+  if (tree.set_local(other_root, other_transform) != gneiss::engine::error::success ||
+      tree.reparent(grandchild, other_root) != gneiss::engine::error::success ||
+      tree.get_world(grandchild, &actual) != gneiss::engine::error::success ||
       !approximately_equal(actual, reference_combine(other_transform, grandchild_transform)) ||
       tree.get_entity(grandchild) != entity) {
     return 4;
@@ -132,18 +132,18 @@ int run_tests() {
 
   auto invalid = grandchild_transform;
   invalid.translation[0] = std::numeric_limits<float>::infinity();
-  if (tree.set_local(grandchild, invalid) != gneiss::engine::result::invalid_argument) {
+  if (tree.set_local(grandchild, invalid) != gneiss::engine::error::invalid_argument) {
     return 5;
   }
   invalid = grandchild_transform;
   invalid.scale[1] = 0.0F;
-  if (tree.set_local(grandchild, invalid) != gneiss::engine::result::invalid_argument) {
+  if (tree.set_local(grandchild, invalid) != gneiss::engine::error::invalid_argument) {
     return 6;
   }
   invalid = grandchild_transform;
   invalid.rotation[3] = 2.0F;
-  if (tree.set_local(grandchild, invalid) != gneiss::engine::result::invalid_argument ||
-      tree.get_world(grandchild, &actual) != gneiss::engine::result::success ||
+  if (tree.set_local(grandchild, invalid) != gneiss::engine::error::invalid_argument ||
+      tree.get_world(grandchild, &actual) != gneiss::engine::error::success ||
       !approximately_equal(actual, reference_combine(other_transform, grandchild_transform))) {
     return 7;
   }

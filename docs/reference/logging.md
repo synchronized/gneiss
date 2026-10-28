@@ -69,7 +69,7 @@ const auto status = application.submit_log({
     .source = "assets",
     .category = "loading",
     .message = "资源尚未就绪",
-    .result = gneiss::engine::result::not_ready,
+    .result = gneiss::engine::error::not_ready,
 });
 ```
 

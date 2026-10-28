@@ -3,12 +3,12 @@
 #include "commands/author_file_save.hpp"
 #include <span>
 namespace gneiss::editor {
-engine::result begin_author_file_save(gneiss::engine::files::service& files,
-                                      author_document_change change,
-                                      std::shared_ptr<author_file_save>& output) noexcept {
+engine::error begin_author_file_save(gneiss::engine::files::service& files,
+                                     author_document_change change,
+                                     std::shared_ptr<author_file_save>& output) noexcept {
   output.reset();
   if (change.path.empty() || !change.replacement)
-    return engine::result::invalid_argument;
+    return engine::error::invalid_argument;
   try {
     auto receipt = std::make_shared<author_file_save>();
     auto write = [&files, receipt, uri = "asset://" + change.path, content = *change.replacement,
@@ -20,7 +20,7 @@ engine::result begin_author_file_save(gneiss::engine::files::service& files,
             uri, {bytes.begin(), bytes.end()},
             {exists ? gneiss::engine::files::write_mode::replace
                     : gneiss::engine::files::write_mode::create_new},
-            [receipt](engine::result value) {
+            [receipt](engine::error value) {
               receipt->status = value;
               receipt->complete = true;
             },
@@ -31,12 +31,12 @@ engine::result begin_author_file_save(gneiss::engine::files::service& files,
         }
         return status;
       } catch (...) {
-        receipt->status = engine::result::out_of_memory;
+        receipt->status = engine::error::out_of_memory;
         receipt->complete = true;
         return receipt->status;
       }
     };
-    engine::result status;
+    engine::error status;
     if (change.baseline) {
       gneiss::engine::files::request_id request;
       status = files.read(
@@ -46,7 +46,7 @@ engine::result begin_author_file_save(gneiss::engine::files::service& files,
             if (completion.status.ok() &&
                 std::string_view(reinterpret_cast<const char*>(completion.data.data()),
                                  completion.data.size()) != baseline)
-              completion.status = engine::result::invalid_state;
+              completion.status = engine::error::invalid_state;
             if (completion.status.failed()) {
               receipt->status = completion.status;
               receipt->complete = true;
@@ -61,9 +61,9 @@ engine::result begin_author_file_save(gneiss::engine::files::service& files,
       output = std::move(receipt);
     return status;
   } catch (const std::bad_alloc&) {
-    return engine::result::out_of_memory;
+    return engine::error::out_of_memory;
   } catch (...) {
-    return engine::result::internal;
+    return engine::error::internal;
   }
 }
 }

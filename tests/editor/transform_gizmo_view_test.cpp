@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 #include "viewport/transform_gizmo_view.hpp"
 
+#include "engine/core/error.hpp"
 #include "engine/core/math/transform.hpp"
-#include "engine/core/result.hpp"
 
 #include <imgui.h>
 
@@ -25,7 +25,7 @@ int main() try {
   scene_node_id first;
   scene_node_id second;
   gneiss::runtime::application_configuration desc;
-  if (gneiss::engine::result{gneiss::runtime::application::create(desc, app)}.failed() ||
+  if (gneiss::engine::error{gneiss::runtime::application::create(desc, app)}.failed() ||
       (world_handle = app->native_world()) == nullptr ||
       session.create_empty(*app, world_handle).failed() ||
       session.create_node("First", {}, first).failed() ||
@@ -33,7 +33,7 @@ int main() try {
     return 1;
   }
   bool wait_release = false;
-  gneiss::engine::result error = gneiss::engine::result::success;
+  gneiss::engine::error error = gneiss::engine::error::success;
   gneiss::engine::math::transform camera = {};
   camera.translation[2] = 5.0F;
   const transform_gizmo_context context{

@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
   check(service.mount({"test://", {backend}, backend}).ok());
   gneiss::engine::files::request_id request;
   bool done{};
-  result status;
+  error status;
   const auto pump = [&] {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     while (!done && std::chrono::steady_clock::now() < deadline) {
@@ -33,12 +33,12 @@ int main(int argc, char** argv) {
     check(done);
     done = false;
   };
-  const auto complete = [&](result value) {
+  const auto complete = [&](error value) {
     status = value;
     done = true;
   };
-  check(backend->write("", {}, {}, complete) == result::invalid_argument);
-  check(backend->write("directory/", {}, {}, complete) == result::invalid_argument);
+  check(backend->write("", {}, {}, complete) == error::invalid_argument);
+  check(backend->write("directory/", {}, {}, complete) == error::invalid_argument);
   gneiss::engine::files::bytes bytes{std::byte{1}, std::byte{2}, std::byte{3}};
   check(service.write("test://native.bin", bytes, {}, complete, request).ok());
   check(!done);
@@ -58,19 +58,19 @@ int main(int argc, char** argv) {
   check(status.ok() && output == gneiss::engine::files::bytes({std::byte{2}, std::byte{3}}));
   check(service.read_range("test://native.bin", {2, 2}, read, request).ok());
   pump();
-  check(status == result::invalid_argument && output.empty());
+  check(status == error::invalid_argument && output.empty());
   check(service.read("test://native.bin", {2}, read, request).ok());
   pump();
-  check(status == result::invalid_argument);
+  check(status == error::invalid_argument);
   check(service.read("test://missing.bin", {16}, read, request).ok());
   pump();
-  check(status == result::not_found);
+  check(status == error::not_found);
   check(service
             .write("test://native.bin", {std::byte{9}},
                    {gneiss::engine::files::write_mode::create_new}, complete, request)
             .ok());
   pump();
-  check(status == result::invalid_state);
+  check(status == error::invalid_state);
   check(service.read("test://native.bin", {16}, read, request).ok());
   pump();
   check(status.ok() && output == bytes);

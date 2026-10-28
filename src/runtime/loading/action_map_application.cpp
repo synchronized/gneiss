@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime/loading/action_map_application.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/function/input/input_service.hpp"
 
 namespace gneiss::runtime {
@@ -12,40 +12,39 @@ void action_map_application::cancel() noexcept {
     request_.cancel();
   request_ = {};
   state_ = action_map_apply_state::cancelled;
-  result_ = gneiss::engine::result::invalid_state;
+  result_ = gneiss::engine::error::invalid_state;
 }
-gneiss::engine::result action_map_application::begin(
+gneiss::engine::error action_map_application::begin(
     gneiss::engine::asset_request<gneiss::engine::action_map> request) noexcept {
   cancel();
   if (!request)
-    return gneiss::engine::result::invalid_argument;
+    return gneiss::engine::error::invalid_argument;
   request_ = std::move(request);
   state_ = action_map_apply_state::loading;
-  result_ = gneiss::engine::result::not_ready;
-  return gneiss::engine::result::success;
+  result_ = gneiss::engine::error::not_ready;
+  return gneiss::engine::error::success;
 }
-gneiss::engine::result
-action_map_application::poll(gneiss::engine::input_service& target) noexcept {
+gneiss::engine::error action_map_application::poll(gneiss::engine::input_service& target) noexcept {
   if (state_ != action_map_apply_state::loading)
     return result_;
   gneiss::engine::asset_request<gneiss::engine::action_map>::reference asset;
-  const auto loaded = request_ ? request_.take(asset) : gneiss::engine::result::invalid_state;
-  if (loaded == gneiss::engine::result::not_ready)
-    return gneiss::engine::result::not_ready;
+  const auto loaded = request_ ? request_.take(asset) : gneiss::engine::error::invalid_state;
+  if (loaded == gneiss::engine::error::not_ready)
+    return gneiss::engine::error::not_ready;
   result_ = loaded;
-  if (loaded == gneiss::engine::result::success) {
+  if (loaded == gneiss::engine::error::success) {
     try {
       auto map = *asset;
       result_ = target.replace_action_map(std::move(map));
     } catch (const std::bad_alloc&) {
-      result_ = gneiss::engine::result::out_of_memory;
+      result_ = gneiss::engine::error::out_of_memory;
     } catch (...) {
-      result_ = gneiss::engine::result::internal;
+      result_ = gneiss::engine::error::internal;
     }
   }
   request_ = {};
-  state_ = result_ == gneiss::engine::result::success ? action_map_apply_state::applied
-                                                      : action_map_apply_state::failed;
+  state_ = result_ == gneiss::engine::error::success ? action_map_apply_state::applied
+                                                     : action_map_apply_state::failed;
   return result_;
 }
 } // namespace gneiss::runtime

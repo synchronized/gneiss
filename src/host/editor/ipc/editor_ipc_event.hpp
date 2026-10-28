@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_EVENT_H_
 #define GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_EVENT_H_
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "ipc_asset_protocol.hpp"
 #include "ipc_control_protocol.hpp"
 #include "ipc_inspection_protocol.hpp"
@@ -45,28 +45,28 @@ using runtime_ipc_event =
                  runtime_property_result_event, runtime_asset_result_event,
                  runtime_scene_progress_event>;
 
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 decode_runtime_session_event(const gneiss::engine::ipc_envelope& envelope,
                              runtime_ipc_event& output) noexcept;
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 decode_runtime_control_event(const gneiss::engine::ipc_envelope& envelope,
                              runtime_ipc_event& output) noexcept;
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 decode_runtime_log_event(const gneiss::engine::ipc_envelope& envelope,
                          runtime_ipc_event& output) noexcept;
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 decode_runtime_inspection_event(const gneiss::engine::ipc_envelope& envelope,
                                 runtime_ipc_event& output) noexcept;
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 decode_runtime_statistics_event(const gneiss::engine::ipc_envelope& envelope,
                                 runtime_ipc_event& output) noexcept;
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 decode_runtime_property_event(const gneiss::engine::ipc_envelope& envelope,
                               runtime_ipc_event& output) noexcept;
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 decode_runtime_asset_event(const gneiss::engine::ipc_envelope& envelope,
                            runtime_ipc_event& output) noexcept;
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 decode_runtime_scene_event(const gneiss::engine::ipc_envelope& envelope,
                            runtime_ipc_event& output) noexcept;
 

@@ -15,12 +15,12 @@ class native_backend final : public backend {
 public:
   native_backend(uv_loop_executor& executor, std::string root);
   ~native_backend() override;
-  result read(std::string_view, read_options, files::callback<files::bytes>) override;
-  result read_range(std::string_view, range, files::callback<files::bytes>) override;
-  result write(std::string_view, files::bytes, write_options, completion_callback) override;
-  result stat(std::string_view, files::callback<files::info>) override;
-  result list(std::string_view, list_options, files::callback<directory_page>) override;
-  result flush(completion_callback) override;
+  error read(std::string_view, read_options, files::callback<files::bytes>) override;
+  error read_range(std::string_view, range, files::callback<files::bytes>) override;
+  error write(std::string_view, files::bytes, write_options, completion_callback) override;
+  error stat(std::string_view, files::callback<files::info>) override;
+  error list(std::string_view, list_options, files::callback<directory_page>) override;
+  error flush(completion_callback) override;
 
 private:
   struct implementation;

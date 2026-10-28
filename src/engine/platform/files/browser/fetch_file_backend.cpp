@@ -55,9 +55,9 @@ struct fetch_operation : std::enable_shared_from_this<fetch_operation> {
     if (self->finished)
       return;
     auto owner = self->keep_alive;
-    self->finish(fetch, fetch->status == 404 ? result::not_found : result::io);
+    self->finish(fetch, fetch->status == 404 ? error::not_found : error::io);
   }
-  void finish(emscripten_fetch_t* fetch, result status, files::bytes bytes = {},
+  void finish(emscripten_fetch_t* fetch, error status, files::bytes bytes = {},
               files::info info = {}) {
     if (finished)
       return;
@@ -90,19 +90,19 @@ struct fetch_operation : std::enable_shared_from_this<fetch_operation> {
     auto owner = self->keep_alive;
     try {
       if (self->ranged && fetch->status == 200) {
-        self->finish(fetch, result::unsupported);
+        self->finish(fetch, error::unsupported);
         return;
       }
       if (self->ranged && fetch->status == 206 && !self->valid_range(fetch)) {
-        self->finish(fetch, result::io);
+        self->finish(fetch, error::io);
         return;
       }
       std::uint64_t length{};
       const auto text = header(fetch, "content-length");
       if (!text.empty() && (!number(text, length) || length > self->limit))
-        self->finish(fetch, result::invalid_argument);
+        self->finish(fetch, error::invalid_argument);
     } catch (...) {
-      self->finish(fetch, result::out_of_memory);
+      self->finish(fetch, error::out_of_memory);
     }
   }
   static void progress(emscripten_fetch_t* fetch) {
@@ -112,7 +112,7 @@ struct fetch_operation : std::enable_shared_from_this<fetch_operation> {
     auto owner = self->keep_alive;
     if (fetch->totalBytes > self->limit || fetch->numBytes > self->limit ||
         fetch->dataOffset > self->limit - static_cast<std::size_t>(fetch->numBytes))
-      self->finish(fetch, result::invalid_argument);
+      self->finish(fetch, error::invalid_argument);
   }
   static void success(emscripten_fetch_t* fetch) noexcept {
     auto* self = static_cast<fetch_operation*>(fetch->userData);
@@ -126,41 +126,41 @@ struct fetch_operation : std::enable_shared_from_this<fetch_operation> {
         std::uint64_t size{};
         if (!length.empty()) {
           if (!number(length, size)) {
-            self->finish(fetch, result::io);
+            self->finish(fetch, error::io);
             return;
           }
           info.size = size;
         }
         if (self->on_stat) {
-          self->finish(fetch, result::success, {}, info);
+          self->finish(fetch, error::success, {}, info);
           return;
         }
         // 零长度范围通过 HEAD 校验，不发送非法 Range 头。
-        self->finish(fetch, !info.size                         ? result::unsupported
-                            : self->range.offset <= *info.size ? result::success
-                                                               : result::invalid_argument);
+        self->finish(fetch, !info.size                         ? error::unsupported
+                            : self->range.offset <= *info.size ? error::success
+                                                               : error::invalid_argument);
         return;
       }
       if (self->ranged && (fetch->status != 206 || !self->valid_range(fetch) ||
                            fetch->numBytes != self->range.size)) {
-        self->finish(fetch, fetch->status == 200 ? result::unsupported : result::io);
+        self->finish(fetch, fetch->status == 200 ? error::unsupported : error::io);
         return;
       }
       if (fetch->numBytes > self->limit || (fetch->numBytes && !fetch->data)) {
-        self->finish(fetch, result::invalid_argument);
+        self->finish(fetch, error::invalid_argument);
         return;
       }
       files::bytes bytes(static_cast<std::size_t>(fetch->numBytes));
       if (!bytes.empty())
         std::memcpy(bytes.data(), fetch->data, bytes.size());
-      self->finish(fetch, result::success, std::move(bytes));
+      self->finish(fetch, error::success, std::move(bytes));
     } catch (...) {
-      self->finish(fetch, result::out_of_memory);
+      self->finish(fetch, error::out_of_memory);
     }
   }
-  result begin() {
+  error begin() {
     if (!emscripten_is_main_runtime_thread())
-      return result::invalid_state;
+      return error::invalid_state;
     emscripten_fetch_attr_t attributes;
     emscripten_fetch_attr_init(&attributes);
     std::strcpy(attributes.requestMethod, head ? "HEAD" : "GET");
@@ -177,9 +177,9 @@ struct fetch_operation : std::enable_shared_from_this<fetch_operation> {
     keep_alive = shared_from_this();
     if (!emscripten_fetch(&attributes, url.c_str())) {
       keep_alive.reset();
-      return result::out_of_memory;
+      return error::out_of_memory;
     }
-    return result::success;
+    return error::success;
   }
 };
 }
@@ -188,27 +188,27 @@ fetch_backend::fetch_backend(std::string base_url) : base_url_(std::move(base_ur
       (!base_url_.starts_with("https://") && !base_url_.starts_with("http://")))
     throw std::invalid_argument("HTTP 文件根地址无效");
 }
-result fetch_backend::open_stream(std::string_view path,
-                                  files::callback<std::shared_ptr<backend_stream>> callback) {
+error fetch_backend::open_stream(std::string_view path,
+                                 files::callback<std::shared_ptr<backend_stream>> callback) {
   if (!detail::valid_file_path(path) || !callback)
-    return result::invalid_argument;
+    return error::invalid_argument;
   return open_fetch_stream(base_url_ + std::string(path), std::move(callback));
 }
-result fetch_backend::read(std::string_view path, read_options options,
-                           files::callback<files::bytes> callback) {
+error fetch_backend::read(std::string_view path, read_options options,
+                          files::callback<files::bytes> callback) {
   if (!detail::valid_file_path(path) || !callback || !options.max_bytes)
-    return result::invalid_argument;
+    return error::invalid_argument;
   auto request = std::make_shared<fetch_operation>();
   request->url = base_url_ + std::string(path);
   request->limit = options.max_bytes;
   request->on_read = std::move(callback);
   return request->begin();
 }
-result fetch_backend::read_range(std::string_view path, range range,
-                                 files::callback<files::bytes> callback) {
+error fetch_backend::read_range(std::string_view path, range range,
+                                files::callback<files::bytes> callback) {
   if (!detail::valid_file_path(path) || !callback ||
       range.offset > std::numeric_limits<std::uint64_t>::max() - range.size)
-    return result::invalid_argument;
+    return error::invalid_argument;
   auto request = std::make_shared<fetch_operation>();
   request->url = base_url_ + std::string(path);
   request->ranged = true;
@@ -220,9 +220,9 @@ result fetch_backend::read_range(std::string_view path, range range,
   request->on_read = std::move(callback);
   return request->begin();
 }
-result fetch_backend::stat(std::string_view path, files::callback<files::info> callback) {
+error fetch_backend::stat(std::string_view path, files::callback<files::info> callback) {
   if (!detail::valid_file_path(path) || !callback)
-    return result::invalid_argument;
+    return error::invalid_argument;
   auto request = std::make_shared<fetch_operation>();
   request->url = base_url_ + std::string(path);
   request->head = true;

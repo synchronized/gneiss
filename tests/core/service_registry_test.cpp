@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/service_registry.hpp"
 
 #include <algorithm>
@@ -35,7 +35,7 @@ struct test_service_config {
   service_kind kind;
   std::span<const service_kind> dependencies;
   int event_id;
-  gneiss::engine::result initialize_result;
+  gneiss::engine::error initialize_result;
   std::size_t live_resources = 0;
 };
 
@@ -48,7 +48,7 @@ public:
   [[nodiscard]] std::span<const service_kind> dependencies() const noexcept override {
     return config_.dependencies;
   }
-  [[nodiscard]] gneiss::engine::result initialize() noexcept override {
+  [[nodiscard]] gneiss::engine::error initialize() noexcept override {
     events_.push(config_.event_id);
     return config_.initialize_result;
   }
@@ -72,29 +72,29 @@ int run_tests() {
           test_service_config{.kind = service_kind::render,
                               .dependencies = render_dependencies,
                               .event_id = 3,
-                              .initialize_result = gneiss::engine::result::success,
+                              .initialize_result = gneiss::engine::error::success,
                               .live_resources = 2},
-          events)) != gneiss::engine::result::success ||
+          events)) != gneiss::engine::error::success ||
       registry.add(std::make_unique<test_service>(
           test_service_config{.kind = service_kind::resource,
                               .dependencies = platform_dependency,
                               .event_id = 2,
-                              .initialize_result = gneiss::engine::result::success,
+                              .initialize_result = gneiss::engine::error::success,
                               .live_resources = 1},
-          events)) != gneiss::engine::result::success ||
+          events)) != gneiss::engine::error::success ||
       registry.add(std::make_unique<test_service>(
           test_service_config{.kind = service_kind::platform,
                               .dependencies = {},
                               .event_id = 1,
-                              .initialize_result = gneiss::engine::result::success},
-          events)) != gneiss::engine::result::success) {
+                              .initialize_result = gneiss::engine::error::success},
+          events)) != gneiss::engine::error::success) {
     return 1;
   }
-  if (registry.initialize() != gneiss::engine::result::success || !events.matches({1, 2, 3})) {
+  if (registry.initialize() != gneiss::engine::error::success || !events.matches({1, 2, 3})) {
     return 2;
   }
   if (!registry.is_initialized(service_kind::render) ||
-      registry.initialize() != gneiss::engine::result::invalid_state || registry.shutdown() != 3U ||
+      registry.initialize() != gneiss::engine::error::invalid_state || registry.shutdown() != 3U ||
       !events.matches({1, 2, 3, -3, -2, -1})) {
     return 3;
   }
@@ -105,15 +105,15 @@ int run_tests() {
           test_service_config{.kind = service_kind::platform,
                               .dependencies = {},
                               .event_id = 1,
-                              .initialize_result = gneiss::engine::result::success},
-          rollback_events)) != gneiss::engine::result::success ||
+                              .initialize_result = gneiss::engine::error::success},
+          rollback_events)) != gneiss::engine::error::success ||
       rollback_registry.add(std::make_unique<test_service>(
           test_service_config{.kind = service_kind::resource,
                               .dependencies = platform_dependency,
                               .event_id = 2,
-                              .initialize_result = gneiss::engine::result::initialization_failed},
-          rollback_events)) != gneiss::engine::result::success ||
-      rollback_registry.initialize() != gneiss::engine::result::initialization_failed ||
+                              .initialize_result = gneiss::engine::error::initialization_failed},
+          rollback_events)) != gneiss::engine::error::success ||
+      rollback_registry.initialize() != gneiss::engine::error::initialization_failed ||
       !rollback_events.matches({1, 2, -2, -1})) {
     return 4;
   }
@@ -124,9 +124,9 @@ int run_tests() {
           test_service_config{.kind = service_kind::render,
                               .dependencies = render_dependencies,
                               .event_id = 3,
-                              .initialize_result = gneiss::engine::result::success},
-          missing_events)) != gneiss::engine::result::success ||
-      missing_registry.initialize() != gneiss::engine::result::dependency_failed ||
+                              .initialize_result = gneiss::engine::error::success},
+          missing_events)) != gneiss::engine::error::success ||
+      missing_registry.initialize() != gneiss::engine::error::dependency_failed ||
       !missing_events.is_empty()) {
     return 5;
   }

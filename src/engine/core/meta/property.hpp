@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
-#include "engine/core/result.hpp"
 #include "engine/core/value.hpp"
 #include <concepts>
 #include <cstdint>
@@ -65,8 +65,8 @@ struct property_info {
  * 上下文和对象借用；getter 输出拥有数据的 value，setter 只在调用期间借用输入 value。 */
 struct property_binding {
   value_kind kind = value_kind::invalid;
-  result (*getter)(void*, const void*, value&) = nullptr;
-  result (*setter)(void*, void*, const value&) = nullptr;
+  error (*getter)(void*, const void*, value&) = nullptr;
+  error (*setter)(void*, void*, const value&) = nullptr;
   void* user_data{};
 };
 } // namespace gneiss::engine::meta

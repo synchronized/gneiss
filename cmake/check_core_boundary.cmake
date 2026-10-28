@@ -49,7 +49,7 @@ foreach(source IN LISTS sources)
   # 普通内部操作只使用原生结果；C ABI 与测试夹具保留显式边界。
   if(NOT source MATCHES "/(api|tests)/" AND NOT source MATCHES "/src/engine/values/" AND
       content MATCHES "gneiss::result([^a-zA-Z0-9_]|$)|(^|[^a-zA-Z0-9_])gneiss_result([^a-zA-Z0-9_]|$)|GNEISS_(SUCCESS|ERROR_[A-Z_]+)")
-    message(FATAL_ERROR "内部操作须使用 engine::result，整数转换只放在 ABI/协议边界：${source}")
+    message(FATAL_ERROR "内部操作须使用 engine::error 或 result<T>，整数转换只放在 ABI/协议边界：${source}")
   endif()
   # 命名空间只表示架构层，目录和 include 检查继续约束模块依赖。
   if(content MATCHES "namespace[ \t]+gneiss::(engine|runtime|editor|tooling|host)::(core|platform|resource|render|world|scene|input|game|api|asset_build|asset_import|runtime|editor|assetc)([^a-zA-Z0-9_]|$)")

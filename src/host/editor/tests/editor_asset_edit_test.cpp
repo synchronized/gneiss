@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../../../../tests/support/async_document.hpp"
 #include "commands/editor_asset_edit.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/math/transform.hpp"
-#include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
@@ -49,16 +49,16 @@ void run(gneiss::engine::execution_mode mode) {
   gneiss::runtime::application_configuration desc;
   const auto root = files.root.string();
   desc.asset_root = root;
-  check(gneiss::engine::result{gneiss::runtime::application::create(desc, app)} ==
-        gneiss::engine::result::success);
-  check(app->attach_task_executor(scheduler) == gneiss::engine::result::success);
+  check(gneiss::engine::error{gneiss::runtime::application::create(desc, app)} ==
+        gneiss::engine::error::success);
+  check(app->attach_task_executor(scheduler) == gneiss::engine::error::success);
   gneiss::engine::world* world{};
   check((world = app->native_world()) != nullptr);
   editor::scene_document session;
   editor::editor_command_history history;
   editor::editor_asset_edit edit;
   check(gneiss::test_support::open_document(session, *app, world, "asset://scene.json",
-                                            &scheduler) == gneiss::engine::result::success);
+                                            &scheduler) == gneiss::engine::error::success);
   const auto uuid = session.nodes().front().uuid;
   const auto drive = [&] {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
@@ -78,49 +78,49 @@ void run(gneiss::engine::execution_mode mode) {
   const auto binding = [&] {
     gneiss::engine::scene_instances::mesh_binding value;
     check(app->capture_mesh_binding(session.scene_handle(), session.find_node(uuid)->node, value) ==
-          gneiss::engine::result::success);
+          gneiss::engine::error::success);
     return value;
   };
   const auto initial_binding = binding();
-  check(request("asset://b.json") == gneiss::engine::result::success && edit.active() &&
+  check(request("asset://b.json") == gneiss::engine::error::success && edit.active() &&
         edit.visible());
   check(history.size() == 0U && session.nodes().front().material_uri == "asset://a.json");
-  check(request("asset://b.json") == gneiss::engine::result::not_ready);
+  check(request("asset://b.json") == gneiss::engine::error::not_ready);
   drive();
-  check(edit.operation() == gneiss::engine::result::success && !edit.visible() &&
+  check(edit.operation() == gneiss::engine::error::success && !edit.visible() &&
         history.size() == 1U);
   check(session.nodes().front().material_uri == "asset://b.json");
   const auto changed_binding = binding();
   check(initial_binding.material != changed_binding.material);
   std::ofstream(files.root / "a.json") << "broken";
   std::ofstream(files.root / "b.json") << "broken";
-  check(history.undo() == gneiss::engine::result::success &&
+  check(history.undo() == gneiss::engine::error::success &&
         session.nodes().front().material_uri == "asset://a.json");
   check(binding().material == initial_binding.material);
-  check(history.redo() == gneiss::engine::result::success &&
+  check(history.redo() == gneiss::engine::error::success &&
         session.nodes().front().material_uri == "asset://b.json");
   check(binding().material == changed_binding.material);
   // 新材质准备期间撤销前一次编辑；迟到结果不得覆盖撤销后的确切版本。
   std::ofstream(files.root / "c.json")
       << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,0,1,1]})";
-  check(request("asset://c.json") == gneiss::engine::result::success && edit.active());
-  check(history.undo() == gneiss::engine::result::success);
+  check(request("asset://c.json") == gneiss::engine::error::success && edit.active());
+  check(history.undo() == gneiss::engine::error::success);
   drive();
-  check(edit.operation() == gneiss::engine::result::invalid_state && history.size() == 1U &&
+  check(edit.operation() == gneiss::engine::error::invalid_state && history.size() == 1U &&
         binding().material == initial_binding.material);
-  check(history.redo() == gneiss::engine::result::success &&
+  check(history.redo() == gneiss::engine::error::success &&
         binding().material == changed_binding.material);
   edit.dismiss();
-  check(history.undo() == gneiss::engine::result::success);
-  check(request("asset://b.json") == gneiss::engine::result::success && !edit.active() &&
+  check(history.undo() == gneiss::engine::error::success);
+  check(request("asset://b.json") == gneiss::engine::error::success && !edit.active() &&
         !edit.visible());
   const auto count = history.size();
-  check(request("asset://missing.json") == gneiss::engine::result::success);
+  check(request("asset://missing.json") == gneiss::engine::error::success);
   drive();
   check(edit.operation().failed() && history.size() == count &&
         session.nodes().front().material_uri == "asset://b.json");
   edit.dismiss();
-  check(request("asset://missing.json") == gneiss::engine::result::success);
+  check(request("asset://missing.json") == gneiss::engine::error::success);
   edit.cancel(*app);
   drive();
   check(!edit.visible() && history.size() == count);
@@ -128,28 +128,28 @@ void run(gneiss::engine::execution_mode mode) {
   const editor::mesh_asset_reference new_assets{.mesh_uri = "asset://mesh.json",
                                                 .material_uri = "asset://b.json"};
   check(edit.request_add(*app, session, history, "new node", new_assets) ==
-        gneiss::engine::result::success);
+        gneiss::engine::error::success);
   check(!edit.active() && session.nodes().size() == 2U && history.size() == count + 1U);
   drive();
-  check(edit.operation() == gneiss::engine::result::success && session.nodes().size() == 2U);
+  check(edit.operation() == gneiss::engine::error::success && session.nodes().size() == 2U);
   const auto created_uuid = session.nodes().back().uuid;
   std::ofstream(files.root / "mesh.json") << "broken";
-  check(history.undo() == gneiss::engine::result::success &&
+  check(history.undo() == gneiss::engine::error::success &&
         session.find_node(created_uuid) == nullptr);
-  check(history.redo() == gneiss::engine::result::success &&
+  check(history.redo() == gneiss::engine::error::success &&
         session.find_node(created_uuid) != nullptr);
   editor::editor_command_history disabled{0U};
   check(edit.request_add(*app, session, disabled, "rejected", new_assets) ==
-        gneiss::engine::result::invalid_argument);
+        gneiss::engine::error::invalid_argument);
   check(!edit.active() && session.nodes().size() == 2U);
   check(edit.request_add(*app, session, history, "ready node", new_assets) ==
-        gneiss::engine::result::success);
+        gneiss::engine::error::success);
   check(!edit.active() && !edit.visible() && session.nodes().size() == 3U);
   const auto creation_count = history.size();
   check(
       edit.request_add(*app, session, history, "missing",
                        {.mesh_uri = "asset://mesh.json", .material_uri = "asset://missing.json"}) ==
-      gneiss::engine::result::success);
+      gneiss::engine::error::success);
   drive();
   check(edit.operation().failed() && session.nodes().size() == 3U &&
         history.size() == creation_count);
@@ -157,35 +157,35 @@ void run(gneiss::engine::execution_mode mode) {
   // 文档已经关闭的迟到成功回执不能提交历史或采用新版本。
   std::ofstream(files.root / "c.json")
       << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,0,1,1]})";
-  check(request("asset://c.json") == gneiss::engine::result::success);
+  check(request("asset://c.json") == gneiss::engine::error::success);
   session.close();
   drive();
-  check(edit.operation() == gneiss::engine::result::invalid_state &&
+  check(edit.operation() == gneiss::engine::error::invalid_state &&
         history.size() == creation_count);
   gneiss::engine::render_asset_ref unused;
   check(app->query_ready_asset(
             {.uri = "asset://c.json", .type = gneiss::engine::asset_type::material}, unused) ==
-            gneiss::engine::result::not_ready &&
+            gneiss::engine::error::not_ready &&
         !unused);
   history.clear();
   // 旧请求还在准备时切换到另一个有效场景；不能污染新场景或采用旧候选。
-  check(session.create_empty(*app, world) == gneiss::engine::result::success);
+  check(session.create_empty(*app, world) == gneiss::engine::error::success);
   std::ofstream(files.root / "d.json")
       << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,1,0,1]})";
   check(edit.request_add(*app, session, history, "stale",
                          {.mesh_uri = "asset://mesh.json", .material_uri = "asset://d.json"}) ==
-        gneiss::engine::result::success);
+        gneiss::engine::error::success);
   check(edit.active());
   const auto previous_scene = session.scene_handle();
-  check(session.create_empty(*app, world) == gneiss::engine::result::success);
+  check(session.create_empty(*app, world) == gneiss::engine::error::success);
   const auto new_scene = session.scene_handle();
   check(new_scene != previous_scene);
   drive();
-  check(edit.operation() == gneiss::engine::result::invalid_state &&
+  check(edit.operation() == gneiss::engine::error::invalid_state &&
         session.scene_handle() == new_scene && session.nodes().empty() && history.size() == 0U);
   check(app->query_ready_asset(
             {.uri = "asset://d.json", .type = gneiss::engine::asset_type::material}, unused) ==
-        gneiss::engine::result::not_ready);
+        gneiss::engine::error::not_ready);
   session.close();
 }
 }

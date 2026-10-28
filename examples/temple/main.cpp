@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/scope_exit.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
@@ -24,21 +24,21 @@ struct example_state {
   double angle = 0.0;
 };
 
-gneiss::engine::result update_temple(gneiss::runtime::application& application,
-                                     const gneiss::engine::frame_time& time, void* user_data) {
+gneiss::engine::error update_temple(gneiss::runtime::application& application,
+                                    const gneiss::engine::frame_time& time, void* user_data) {
   if (user_data == nullptr) {
-    return gneiss::engine::result::invalid_argument;
+    return gneiss::engine::error::invalid_argument;
   }
   auto* state = static_cast<example_state*>(user_data);
   gneiss::engine::action_state orbit{};
   gneiss::engine::action_state quit{};
   if (application.get_action_state(state->orbit, orbit).failed() ||
       application.get_action_state(state->quit, quit).failed()) {
-    return gneiss::engine::result::invalid_state;
+    return gneiss::engine::error::invalid_state;
   }
   if (quit.pressed) {
     application.request_exit();
-    return gneiss::engine::result::success;
+    return gneiss::engine::error::success;
   }
   constexpr double nanoseconds_per_second = 1'000'000'000.0;
   state->angle += static_cast<double>(time.delta_ns) / nanoseconds_per_second * orbit.value;
@@ -86,7 +86,7 @@ int run_example(int argc, char** argv) {
   config.callbacks.update = [&](const auto& time) {
     (void)scheduler.run_ready();
     if (!can_update)
-      return gneiss::engine::result::success;
+      return gneiss::engine::error::success;
     return update_temple(*native_application, time, &state);
   };
   example::scope_exit close{[&] {
@@ -106,7 +106,7 @@ int run_example(int argc, char** argv) {
   gneiss::scene_instance_id scene{};
   gneiss::runtime::scene_load_completion completion;
   // 启动阶段继续处理窗口事件和文件完成；不调用同步场景加载。
-  while (!scene || native_application->action_map_status() == gneiss::engine::result::not_ready) {
+  while (!scene || native_application->action_map_status() == gneiss::engine::error::not_ready) {
     (void)scheduler.run_ready();
     if (native_application->run(1).failed())
       return 2;
@@ -127,19 +127,19 @@ int run_example(int argc, char** argv) {
   }
   if (native_application->action_map_status().failed())
     return 2;
-  if (native_application->action_map_status() != gneiss::engine::result::success ||
+  if (native_application->action_map_status() != gneiss::engine::error::success ||
       native_application->find_action("move_horizontal", state.orbit) !=
-          gneiss::engine::result::success ||
-      native_application->find_action("quit", state.quit) != gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
+      native_application->find_action("quit", state.quit) != gneiss::engine::error::success ||
       native_application->scenes()->find_node(scene, camera_uuid, state.camera_node) !=
-          gneiss::engine::result::success) {
+          gneiss::engine::error::success) {
     return 2;
   }
   can_update = true;
-  if (native_application->run(smoke ? 3U : 0U) != gneiss::engine::result::success) {
+  if (native_application->run(smoke ? 3U : 0U) != gneiss::engine::error::success) {
     return 3;
   }
-  return native_application->scenes()->unload(scene) == gneiss::engine::result::success ? 0 : 4;
+  return native_application->scenes()->unload(scene) == gneiss::engine::error::success ? 0 : 4;
 }
 
 int main(int argc, char** argv) {

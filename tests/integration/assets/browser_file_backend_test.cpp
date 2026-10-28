@@ -35,27 +35,26 @@ void fetch_checks() {
                         ->read_range(
                             "ignore", {1, 3},
                             [](auto ignored) {
-                              check(ignored.status == result::unsupported);
+                              check(ignored.status == error::unsupported);
                               check(
                                   remote
                                       ->read_range(
                                           "bad", {1, 3},
                                           [](auto bad) {
-                                            check(bad.status == result::io);
+                                            check(bad.status == error::io);
                                             check(
                                                 remote
                                                     ->read(
                                                         "missing", {8},
                                                         [](auto missing) {
-                                                          check(missing.status ==
-                                                                result::not_found);
+                                                          check(missing.status == error::not_found);
                                                           check(
                                                               remote
                                                                   ->read(
                                                                       "bytes", {2},
                                                                       [](auto large) {
                                                                         check(large.status ==
-                                                                              result::
+                                                                              error::
                                                                                   invalid_argument);
                                                                         check(
                                                                             remote
@@ -124,7 +123,7 @@ void stream_tick() {
                 }
               })
               .ok());
-    check(streaming->read_next([](auto) { check(false); }) == result::not_ready);
+    check(streaming->read_next([](auto) { check(false); }) == error::not_ready);
   } else if (phase == 10) {
     streaming = std::make_unique<gneiss::engine::files::read_stream>(
         streaming_files, "remote://empty", std::nullopt, 32);
@@ -143,7 +142,7 @@ void stream_tick() {
     waiting = true;
     check(streaming
               ->read_next([](auto value) {
-                check(value.status == result::cancelled);
+                check(value.status == error::cancelled);
                 waiting = false;
                 phase = 3;
               })
@@ -166,7 +165,7 @@ void stream_tick() {
     // 消费者暂停时服务关闭也必须释放 reader。
     waiting = true;
     check(streaming_files
-              ->shutdown([](result status) {
+              ->shutdown([](error status) {
                 check(status.ok());
                 finished = true;
               })
@@ -189,7 +188,7 @@ void unsupported_stream() {
   check(remote
             ->open_stream("stream",
                           [](auto opened) {
-                            check(opened.status == result::unsupported && !opened.data);
+                            check(opened.status == error::unsupported && !opened.data);
                             check(EM_ASM_INT({ return GneissFetchStreams.entries.size; }) == 0);
                             stream_checks();
                           })
@@ -218,7 +217,7 @@ void restore() {
   local = std::make_shared<gneiss::engine::files::browser_backend>(
       "/gneiss-files-test", gneiss::engine::files::browser_storage::persistent);
   check(local
-            ->initialize([](result status) {
+            ->initialize([](error status) {
               check(status.ok());
               check(local
                         ->read("data", {8},
@@ -237,15 +236,15 @@ void restore() {
                   return original(stream, buffer, offset, Math.min(length, 1), position, canOwn);
                 };
               });
-              check(local->write("data", bytes, {}, [](auto) { check(false); }) == result::io);
+              check(local->write("data", bytes, {}, [](auto) { check(false); }) == error::io);
               check(local
                         ->read("data", {8},
                                [](auto value) { check(value.status.ok() && value.data == bytes); })
                         .ok());
-              check(local->read_range("data", {4, 2}, [](auto) {}) == result::invalid_argument);
-              check(local->read("missing", {8}, [](auto) {}) == result::not_found);
+              check(local->read_range("data", {4, 2}, [](auto) {}) == error::invalid_argument);
+              check(local->read("missing", {8}, [](auto) {}) == error::not_found);
               check(local->write("data", {}, {gneiss::engine::files::write_mode::create_new},
-                                 [](auto) {}) == result::invalid_state);
+                                 [](auto) {}) == error::invalid_state);
               check(local
                         ->stat("data",
                                [](auto value) { check(value.status.ok() && value.data.size == 5); })
@@ -272,31 +271,31 @@ int main() {
   {
     gneiss::engine::files::browser_backend borrowed(
         "/preloaded/assets", gneiss::engine::files::browser_storage::existing);
-    check(borrowed.initialize([](result status) { check(status.ok()); }).ok());
+    check(borrowed.initialize([](error status) { check(status.ok()); }).ok());
     check(
         borrowed
             .read("data", {8}, [](auto value) { check(value.status.ok() && value.data == bytes); })
             .ok());
-    check(borrowed.initialize([](result) {}) == result::invalid_state);
+    check(borrowed.initialize([](error) {}) == error::invalid_state);
     gneiss::engine::files::browser_backend missing(
         "/absent", gneiss::engine::files::browser_storage::existing);
-    check(missing.initialize([](result) { check(false); }) == result::not_found);
+    check(missing.initialize([](error) { check(false); }) == error::not_found);
     gneiss::engine::files::browser_backend linked("/preloaded/link",
                                                   gneiss::engine::files::browser_storage::existing);
-    check(linked.initialize([](result) { check(false); }) == result::invalid_argument);
+    check(linked.initialize([](error) { check(false); }) == error::invalid_argument);
   }
   check(EM_ASM_INT({ return FS.readFile('/preloaded/assets/data').length; }) == 5);
 
   local = std::make_shared<gneiss::engine::files::browser_backend>(
       "/gneiss-files-test", gneiss::engine::files::browser_storage::persistent);
-  check(local->read("data", {8}, [](auto) {}) == result::not_ready);
+  check(local->read("data", {8}, [](auto) {}) == error::not_ready);
   check(local
-            ->initialize([](result status) {
+            ->initialize([](error status) {
               check(status.ok());
               check(local
                         ->write(
                             "data", bytes, {},
-                            [](result written) {
+                            [](error written) {
                               check(written.ok());
                               // 注入一次持久化失败，验证内存数据保留及 flush 可重试。
                               EM_ASM({
@@ -311,8 +310,8 @@ int main() {
                               });
                               bool failed = false;
                               check(local
-                                        ->flush([&](result status) {
-                                          check(status == result::io);
+                                        ->flush([&](error status) {
+                                          check(status == error::io);
                                           failed = true;
                                         })
                                         .ok() &&
@@ -324,15 +323,15 @@ int main() {
                                                })
                                         .ok());
                               check(local
-                                        ->flush([](result flushed) {
+                                        ->flush([](error flushed) {
                                           check(flushed.ok());
                                           // 等本轮回调释放保活引用后再重新挂载。
                                           emscripten_async_call([](void*) { restore(); }, nullptr,
                                                                 0);
                                         })
                                         .ok());
-                              check(local->write("late", {}, {}, [](auto) {}) == result::not_ready);
-                              check(local->flush([](auto) {}) == result::not_ready);
+                              check(local->write("late", {}, {}, [](auto) {}) == error::not_ready);
+                              check(local->flush([](auto) {}) == error::not_ready);
                             })
                         .ok());
             })

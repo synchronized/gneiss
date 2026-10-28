@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/input/input_service.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -36,13 +36,13 @@ bool input_service::push(const input_event& event) noexcept {
   return true;
 }
 
-result input_service::poll(input_event& out_event) noexcept {
+error input_service::poll(input_event& out_event) noexcept {
   out_event = {};
   if (read_index_ == event_count_) {
-    return result::not_ready;
+    return error::not_ready;
   }
   out_event = events_[read_index_++];
-  return result::success;
+  return error::success;
 }
 
 void input_service::clear_focus() noexcept {
@@ -52,7 +52,7 @@ void input_service::clear_focus() noexcept {
   update_actions();
 }
 
-result input_service::replace_action_map(action_map map) noexcept {
+error input_service::replace_action_map(action_map map) noexcept {
   if (const auto valid = validate_action_map(map); valid.failed()) {
     return valid;
   }
@@ -60,9 +60,9 @@ result input_service::replace_action_map(action_map map) noexcept {
   try {
     states.assign(map.actions.size(), engine::action_state{});
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return error::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return error::internal;
   }
   action_map_ = std::move(map);
   action_states_ = std::move(states);
@@ -71,32 +71,32 @@ result input_service::replace_action_map(action_map map) noexcept {
     action_generation_ = next_action_generation.fetch_add(1, std::memory_order_relaxed);
   }
   update_actions();
-  return result::success;
+  return error::success;
 }
 
-result input_service::find_action(std::string_view name,
-                                  engine::action_id& out_action) const noexcept {
+error input_service::find_action(std::string_view name,
+                                 engine::action_id& out_action) const noexcept {
   out_action = engine::action_id{};
   for (std::size_t index = 0; index < action_map_.actions.size(); ++index) {
     if (action_map_.actions[index].name == name) {
       out_action = {(static_cast<std::uint64_t>(action_generation_) << 32U) | (index + 1U)};
-      return result::success;
+      return error::success;
     }
   }
-  return result::not_found;
+  return error::not_found;
 }
 
-result input_service::get_action_state(engine::action_id action,
-                                       engine::action_state& out_state) const noexcept {
+error input_service::get_action_state(engine::action_id action,
+                                      engine::action_state& out_state) const noexcept {
   out_state = engine::action_state{};
   const auto generation = static_cast<std::uint32_t>(action.value >> 32U);
   const auto slot = static_cast<std::uint32_t>(action.value);
   if (generation == 0U || generation != action_generation_ || slot == 0U ||
       slot > action_states_.size()) {
-    return result::invalid_handle;
+    return error::invalid_handle;
   }
   out_state = action_states_[slot - 1U];
-  return result::success;
+  return error::success;
 }
 
 void input_service::update_actions() noexcept {

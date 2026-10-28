@@ -7,7 +7,7 @@ namespace gneiss::engine {
 namespace detail {
 struct resource_load_state {
   render_asset_ref target;
-  result status{result::not_ready};
+  error status{error::not_ready};
   asset_diagnostic diagnostic;
   asset_data_metrics metrics;
 };
@@ -17,7 +17,7 @@ struct resource_load_state {
 class resource_request final {
 public:
   explicit operator bool() const noexcept { return bool(state_); }
-  result status() const noexcept { return state_ ? state_->status : result::invalid_state; }
+  error status() const noexcept { return state_ ? state_->status : error::invalid_state; }
   render_asset_ref resource() const noexcept {
     return state_ ? state_->target : render_asset_ref{};
   }

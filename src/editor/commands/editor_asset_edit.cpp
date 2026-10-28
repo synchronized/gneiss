@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "commands/editor_asset_edit.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "runtime/application.hpp"
 
 namespace gneiss::editor {
-gneiss::engine::result editor_asset_edit::commit_add(runtime::application& application,
-                                                     scene_document& session,
-                                                     editor_command_history& history) {
+gneiss::engine::error editor_asset_edit::commit_add(runtime::application& application,
+                                                    scene_document& session,
+                                                    editor_command_history& history) {
   return history.execute({
       .label = "创建 Mesh Renderer 节点",
       .undo =
           [&session, scene = scene_, uuid = snapshot_.uuid] {
             if (session.scene_handle() != scene) {
-              return gneiss::engine::result{gneiss::engine::result::invalid_state};
+              return gneiss::engine::error{gneiss::engine::error::invalid_state};
             }
             const auto* node = session.find_node(uuid);
             if (node == nullptr) {
-              return gneiss::engine::result{gneiss::engine::result::not_found};
+              return gneiss::engine::error{gneiss::engine::error::not_found};
             }
             scene_node_snapshot discarded;
             return session.destroy_node(node->node, discarded);
@@ -25,7 +25,7 @@ gneiss::engine::result editor_asset_edit::commit_add(runtime::application& appli
       .redo =
           [&application, &session, scene = scene_, snapshot = snapshot_, leases = next_] {
             if (session.scene_handle() != scene) {
-              return gneiss::engine::result{gneiss::engine::result::invalid_state};
+              return gneiss::engine::error{gneiss::engine::error::invalid_state};
             }
             scene_node_id output;
             return session.commit_mesh_node(
@@ -51,11 +51,11 @@ gneiss::engine::result editor_asset_edit::commit_add(runtime::application& appli
   });
 }
 
-gneiss::engine::result editor_asset_edit::commit(runtime::application& application,
-                                                 scene_document& session,
-                                                 editor_command_history& history) {
+gneiss::engine::error editor_asset_edit::commit(runtime::application& application,
+                                                scene_document& session,
+                                                editor_command_history& history) {
   if (session.scene_handle() != scene_) {
-    return gneiss::engine::result::invalid_state;
+    return gneiss::engine::error::invalid_state;
   }
   if (creating_) {
     const auto was_dirty = session.is_dirty();
@@ -65,9 +65,9 @@ gneiss::engine::result editor_asset_edit::commit(runtime::application& applicati
     return operation;
   }
   const auto apply = [&application, &session, scene = scene_, node = node_](
-                         const auto& expected, const auto& replacement) -> gneiss::engine::result {
+                         const auto& expected, const auto& replacement) -> gneiss::engine::error {
     if (session.scene_handle() != scene) {
-      return gneiss::engine::result::invalid_state;
+      return gneiss::engine::error::invalid_state;
     }
     return session.commit_mesh_renderer(
         node, gneiss::engine::asset_uri(replacement.mesh),
@@ -87,32 +87,32 @@ gneiss::engine::result editor_asset_edit::commit(runtime::application& applicati
   return operation;
 }
 
-engine::result editor_asset_edit::request_remove(runtime::application& application,
-                                                 scene_document& session,
-                                                 editor_command_history& history,
-                                                 std::string_view uuid) try {
+engine::error editor_asset_edit::request_remove(runtime::application& application,
+                                                scene_document& session,
+                                                editor_command_history& history,
+                                                std::string_view uuid) try {
   if (active_ || history.is_pending())
-    return engine::result::not_ready;
+    return engine::error::not_ready;
   const auto* node = session.find_node(uuid);
   if (!node)
-    return engine::result::not_found;
+    return engine::error::not_found;
   const auto scene = session.scene_handle();
   engine::scene_mesh_binding binding;
   auto status = application.capture_mesh_binding(scene, node->node, binding);
   if (status.failed())
     return status;
   if (!binding.mesh || !binding.material)
-    return engine::result::not_found;
+    return engine::error::not_found;
   const auto was_dirty = session.is_dirty();
   status = history.execute({
       .label = "移除 Mesh Renderer",
       .undo =
           [&application, &session, scene, uuid = std::string(uuid), binding] {
             if (session.scene_handle() != scene)
-              return engine::result::invalid_state;
+              return engine::error::invalid_state;
             const auto* current = session.find_node(uuid);
             if (!current)
-              return engine::result::not_found;
+              return engine::error::not_found;
             return session.commit_mesh_renderer(current->node, engine::asset_uri(binding.mesh),
                                                 engine::asset_uri(binding.material), [&] {
                                                   return application.replace_mesh_binding(
@@ -122,10 +122,9 @@ engine::result editor_asset_edit::request_remove(runtime::application& applicati
       .redo =
           [&session, scene, uuid = std::string(uuid)] {
             if (session.scene_handle() != scene)
-              return engine::result::invalid_state;
+              return engine::error::invalid_state;
             const auto* current = session.find_node(uuid);
-            return current ? session.remove_mesh_renderer(current->node)
-                           : engine::result::not_found;
+            return current ? session.remove_mesh_renderer(current->node) : engine::error::not_found;
           },
       .merge_key = {},
   });
@@ -133,34 +132,34 @@ engine::result editor_asset_edit::request_remove(runtime::application& applicati
     session.clear_dirty();
   return status;
 } catch (const std::bad_alloc&) {
-  return engine::result::out_of_memory;
+  return engine::error::out_of_memory;
 } catch (...) {
-  return engine::result::internal;
+  return engine::error::internal;
 }
 
-gneiss::engine::result editor_asset_edit::request(runtime::application& application,
-                                                  scene_document& session,
-                                                  editor_command_history& history,
-                                                  std::string_view uuid,
-                                                  mesh_asset_reference assets) {
+gneiss::engine::error editor_asset_edit::request(runtime::application& application,
+                                                 scene_document& session,
+                                                 editor_command_history& history,
+                                                 std::string_view uuid,
+                                                 mesh_asset_reference assets) {
   return request_impl(application, session, history, uuid, assets, false);
 }
-gneiss::engine::result editor_asset_edit::request_add(runtime::application& application,
-                                                      scene_document& session,
-                                                      editor_command_history& history,
-                                                      std::string_view name,
-                                                      mesh_asset_reference assets) {
+gneiss::engine::error editor_asset_edit::request_add(runtime::application& application,
+                                                     scene_document& session,
+                                                     editor_command_history& history,
+                                                     std::string_view name,
+                                                     mesh_asset_reference assets) {
   return request_impl(application, session, history, name, assets, true);
 }
-gneiss::engine::result
+gneiss::engine::error
 editor_asset_edit::request_impl(runtime::application& application, scene_document& session,
                                 editor_command_history& history, std::string_view target,
                                 mesh_asset_reference assets, bool creating) try {
   if (active_) {
-    return gneiss::engine::result::not_ready;
+    return gneiss::engine::error::not_ready;
   }
   if (!session.is_open()) {
-    return gneiss::engine::result::invalid_state;
+    return gneiss::engine::error::invalid_state;
   }
   creating_ = creating;
   snapshot_ = {};
@@ -177,7 +176,7 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
   } else {
     const auto* node = session.find_node(target);
     if (node == nullptr) {
-      return gneiss::engine::result::not_found;
+      return gneiss::engine::error::not_found;
     }
     node_ = node->node;
   }
@@ -188,14 +187,14 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
   progress_ = {};
   cancelled_ = false;
   visible_ = false;
-  operation_ = creating_ ? gneiss::engine::result::success
+  operation_ = creating_ ? gneiss::engine::error::success
                          : application.capture_mesh_binding(scene_, node_, previous_);
   if (operation_.failed()) {
     return operation_;
   }
   if (!creating_ && (!previous_.mesh || !previous_.material)) {
     previous_ = {};
-    return operation_ = gneiss::engine::result::invalid_state;
+    return operation_ = gneiss::engine::error::invalid_state;
   }
   std::vector<gneiss::engine::asset_source> missing;
   const auto resolve = [&](std::string_view uri, gneiss::engine::asset_type type,
@@ -209,9 +208,9 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
     const auto ready = application.query_ready_asset(source, entry);
     using resource_type = std::remove_reference_t<decltype(*next)>;
     next = gneiss::engine::asset_cast<std::remove_const_t<resource_type>>(entry);
-    if (ready == gneiss::engine::result::not_ready) {
+    if (ready == gneiss::engine::error::not_ready) {
       missing.push_back(std::move(source));
-    } else if (ready != gneiss::engine::result::success) {
+    } else if (ready != gneiss::engine::error::success) {
       operation_ = ready;
     }
   };
@@ -239,11 +238,11 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
 } catch (const std::bad_alloc&) {
   previous_ = {};
   next_ = {};
-  return operation_ = gneiss::engine::result::out_of_memory;
+  return operation_ = gneiss::engine::error::out_of_memory;
 } catch (...) {
   previous_ = {};
   next_ = {};
-  return operation_ = gneiss::engine::result::internal;
+  return operation_ = gneiss::engine::error::internal;
 }
 
 void editor_asset_edit::advance(runtime::application& application, scene_document& session,
@@ -255,15 +254,15 @@ void editor_asset_edit::advance(runtime::application& application, scene_documen
   gneiss::runtime::asset_load_completion completion;
   bool ready{};
   const auto polled = application.poll_assets(completion, ready);
-  if (polled == gneiss::engine::result::success && !ready) {
+  if (polled == gneiss::engine::error::success && !ready) {
     return;
   }
-  operation_ = polled == gneiss::engine::result::success ? completion.result : polled;
+  operation_ = polled == gneiss::engine::error::success ? completion.result : polled;
   if (cancelled_) {
-    operation_ = gneiss::engine::result::invalid_state;
+    operation_ = gneiss::engine::error::invalid_state;
   }
   if (operation_.ok() && completion.request != request_) {
-    operation_ = gneiss::engine::result::invalid_state;
+    operation_ = gneiss::engine::error::invalid_state;
   }
   if (operation_.ok()) {
     for (const auto& lease : completion.assets) {
@@ -277,7 +276,7 @@ void editor_asset_edit::advance(runtime::application& application, scene_documen
       }
     }
     operation_ = next_.mesh && next_.material ? commit(application, session, history)
-                                              : gneiss::engine::result::invalid_state;
+                                              : gneiss::engine::error::invalid_state;
   }
   active_ = false;
   visible_ = operation_.failed() && !cancelled_;

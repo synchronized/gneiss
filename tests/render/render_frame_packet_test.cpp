@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/detail/resource_service_impl.hpp"
@@ -22,13 +22,13 @@ bool pending_resources() {
 
   rid mesh{}, texture{}, material{};
   rid cancelled{};
-  if (resources.reserve_mesh(nullptr) != gneiss::engine::result::invalid_argument ||
-      resources.reserve_texture(nullptr) != gneiss::engine::result::invalid_argument ||
-      resources.reserve_material(nullptr) != gneiss::engine::result::invalid_argument ||
-      resources.reserve_mesh(&cancelled) != gneiss::engine::result::success ||
-      resources.destroy_mesh(cancelled) != gneiss::engine::result::success ||
-      resources.mesh_status(cancelled) != gneiss::engine::result::invalid_handle ||
-      resources.destroy_mesh(cancelled) != gneiss::engine::result::invalid_handle) {
+  if (resources.reserve_mesh(nullptr) != gneiss::engine::error::invalid_argument ||
+      resources.reserve_texture(nullptr) != gneiss::engine::error::invalid_argument ||
+      resources.reserve_material(nullptr) != gneiss::engine::error::invalid_argument ||
+      resources.reserve_mesh(&cancelled) != gneiss::engine::error::success ||
+      resources.destroy_mesh(cancelled) != gneiss::engine::error::success ||
+      resources.mesh_status(cancelled) != gneiss::engine::error::invalid_handle ||
+      resources.destroy_mesh(cancelled) != gneiss::engine::error::invalid_handle) {
     return false;
   }
   gneiss::engine::mesh mesh_owner;
@@ -39,25 +39,25 @@ bool pending_resources() {
     return false;
   mesh = resource_handle(mesh_owner);
   texture = resource_handle(texture_owner);
-  if (resources.mesh_status(mesh) != gneiss::engine::result::not_ready ||
-      resources.texture_status(texture) != gneiss::engine::result::not_ready ||
-      resources.mesh_status(0U) != gneiss::engine::result::invalid_handle ||
-      resources.mesh_status(texture) != gneiss::engine::result::invalid_handle ||
-      resources.texture_status(mesh) != gneiss::engine::result::invalid_handle ||
-      foreign.texture_status(texture) != gneiss::engine::result::invalid_handle ||
-      foreign.mesh_status(mesh) != gneiss::engine::result::invalid_handle) {
+  if (resources.mesh_status(mesh) != gneiss::engine::error::not_ready ||
+      resources.texture_status(texture) != gneiss::engine::error::not_ready ||
+      resources.mesh_status(0U) != gneiss::engine::error::invalid_handle ||
+      resources.mesh_status(texture) != gneiss::engine::error::invalid_handle ||
+      resources.texture_status(mesh) != gneiss::engine::error::invalid_handle ||
+      foreign.texture_status(texture) != gneiss::engine::error::invalid_handle ||
+      foreign.mesh_status(mesh) != gneiss::engine::error::invalid_handle) {
     return false;
   }
   auto texture_ref = resources_factory.find_texture(texture);
   material_data description;
   description.base_color_texture = mesh;
   if (resources.create_material(description, &material) !=
-      gneiss::engine::result::invalid_argument) {
+      gneiss::engine::error::invalid_argument) {
     return false;
   }
   description.base_color_texture = texture;
   if (resources_factory.create_material(description.parameters, {texture_owner}, material_owner) !=
-      gneiss::engine::result::success) {
+      gneiss::engine::error::success) {
     return false;
   }
   material = resource_handle(material_owner);
@@ -69,16 +69,16 @@ bool pending_resources() {
   if (resources_factory.reserve_material(pending_owner).failed())
     return false;
   const auto pending_material = resource_handle(pending_owner);
-  if (resources.material_status(pending_material) != gneiss::engine::result::not_ready ||
-      foreign.material_status(pending_material) != gneiss::engine::result::invalid_handle ||
-      resources.material_status(mesh) != gneiss::engine::result::invalid_handle) {
+  if (resources.material_status(pending_material) != gneiss::engine::error::not_ready ||
+      foreign.material_status(pending_material) != gneiss::engine::error::invalid_handle ||
+      resources.material_status(mesh) != gneiss::engine::error::invalid_handle) {
     return false;
   }
   auto pending_scene = scene;
   pending_scene.instances.front().material = resources_factory.find_material(pending_material);
   render_frame_packet fallback;
   if (capture_render_frame_packet({}, pending_scene, resources, {}, {}, fallback) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       fallback.resources.get_material(pending_material) == nullptr ||
       fallback.resources.get_material(0U) != nullptr) {
     return false;
@@ -86,24 +86,24 @@ bool pending_resources() {
   const auto* neutral = fallback.resources.get_material(pending_material);
   auto material_data = std::make_shared<gneiss::engine::material_data>(description);
   if (!resources.replace_material(pending_material, material_data) ||
-      resources.material_status(pending_material) != gneiss::engine::result::success) {
+      resources.material_status(pending_material) != gneiss::engine::error::success) {
     return false;
   }
   render_frame_packet filled;
   if (capture_render_frame_packet({}, pending_scene, resources, {}, {}, filled) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       filled.resources.get_material(pending_material) != material_data.get() ||
       fallback.resources.get_material(pending_material) != neutral ||
       neutral->base_color_texture != 0U ||
-      resources.destroy_material(pending_material) != gneiss::engine::result::success ||
-      resources.destroy_material(pending_material) != gneiss::engine::result::invalid_handle ||
-      resources.material_status(pending_material) != gneiss::engine::result::invalid_handle ||
+      resources.destroy_material(pending_material) != gneiss::engine::error::success ||
+      resources.destroy_material(pending_material) != gneiss::engine::error::invalid_handle ||
+      resources.material_status(pending_material) != gneiss::engine::error::invalid_handle ||
       resources.replace_material(pending_material, material_data)) {
     return false;
   }
   render_frame_packet before;
   if (capture_render_frame_packet({}, scene, resources, {}, {}, before) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       !before.resources.mesh_pending(mesh) || !before.resources.texture_pending(texture) ||
       before.resources.mesh_pending(texture) || before.resources.texture_pending(0U)) {
     return false;
@@ -118,37 +118,37 @@ bool pending_resources() {
        .pixels = {std::byte{255}, std::byte{}, std::byte{}, std::byte{255}}});
   if (!resources.replace_mesh(mesh, mesh_data) ||
       !resources.replace_texture(texture, texture_data) ||
-      resources.mesh_status(mesh) != gneiss::engine::result::success ||
-      resources.texture_status(texture) != gneiss::engine::result::success) {
+      resources.mesh_status(mesh) != gneiss::engine::error::success ||
+      resources.texture_status(texture) != gneiss::engine::error::success) {
     return false;
   }
   render_frame_packet after;
   if (capture_render_frame_packet({}, scene, resources, {}, {}, after) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       after.resources.mesh_pending(mesh) || after.resources.texture_pending(texture) ||
       after.resources.get_mesh(mesh) != mesh_data.get() ||
       after.resources.get_texture(texture) != texture_data.get() ||
       !before.resources.mesh_pending(mesh) || !before.resources.texture_pending(texture)) {
     return false;
   }
-  if (resources.destroy_texture(texture) != gneiss::engine::result::success ||
-      resources.destroy_texture(texture) != gneiss::engine::result::invalid_handle ||
-      resources.texture_status(texture) != gneiss::engine::result::invalid_handle) {
+  if (resources.destroy_texture(texture) != gneiss::engine::error::success ||
+      resources.destroy_texture(texture) != gneiss::engine::error::invalid_handle ||
+      resources.texture_status(texture) != gneiss::engine::error::invalid_handle) {
     return false;
   }
   render_frame_packet invalid;
   if (capture_render_frame_packet({}, scene, resources, {}, {}, invalid) !=
-      gneiss::engine::result::invalid_handle) {
+      gneiss::engine::error::invalid_handle) {
     return false;
   }
   rid replacement{};
-  if (resources.reserve_texture(&replacement) != gneiss::engine::result::success ||
+  if (resources.reserve_texture(&replacement) != gneiss::engine::error::success ||
       replacement == texture || resources.replace_texture(texture, texture_data) ||
-      resources.destroy_mesh(mesh) != gneiss::engine::result::success ||
-      resources.destroy_mesh(mesh) != gneiss::engine::result::invalid_handle ||
+      resources.destroy_mesh(mesh) != gneiss::engine::error::success ||
+      resources.destroy_mesh(mesh) != gneiss::engine::error::invalid_handle ||
       resources.replace_mesh(mesh, mesh_data) ||
-      resources.destroy_texture(replacement) != gneiss::engine::result::success ||
-      resources.destroy_material(material) != gneiss::engine::result::success) {
+      resources.destroy_texture(replacement) != gneiss::engine::error::success ||
+      resources.destroy_material(material) != gneiss::engine::error::success) {
     return false;
   }
   return resources.live_resource_count() == 0U &&
@@ -171,7 +171,7 @@ int main() {
   texture_desc.pixels = pixels;
   gneiss::engine::texture texture_owner;
   if (resources_factory.create_texture(texture_desc, texture_owner) !=
-      gneiss::engine::result::success) {
+      gneiss::engine::error::success) {
     return 1;
   }
 
@@ -183,7 +183,7 @@ int main() {
   gneiss::engine::mesh_view mesh_desc;
   mesh_desc.vertices = vertices;
   gneiss::engine::mesh mesh_owner;
-  if (resources_factory.create_mesh(mesh_desc, mesh_owner) != gneiss::engine::result::success) {
+  if (resources_factory.create_mesh(mesh_desc, mesh_owner) != gneiss::engine::error::success) {
     return 2;
   }
 
@@ -206,7 +206,7 @@ int main() {
   if (resources_factory.create_material(
           material_desc.parameters,
           {texture_owner, pbr_refs[0], pbr_refs[1], pbr_refs[2], pbr_refs[3]},
-          material_owner) != gneiss::engine::result::success) {
+          material_owner) != gneiss::engine::error::success) {
     return 3;
   }
 
@@ -222,7 +222,7 @@ int main() {
                                                     .color_rgba8 = UINT32_C(0xffffffff),
                                                     .width = 1.0F,
                                                     .depth_test = true}};
-  if (debug.replace(lines) != gneiss::engine::result::success) {
+  if (debug.replace(lines) != gneiss::engine::error::success) {
     return 4;
   }
 
@@ -235,17 +235,17 @@ int main() {
   const auto* source_texture = resources.get_texture(texture);
   render_frame_packet packet;
   if (capture_render_frame_packet(window, std::move(scene), resources, ui, debug, packet) !=
-      gneiss::engine::result::success) {
+      gneiss::engine::error::success) {
     return 5;
   }
   debug.clear();
-  if (resources.destroy_material(material) != gneiss::engine::result::success ||
-      resources.destroy_mesh(mesh) != gneiss::engine::result::success ||
-      resources.destroy_texture(texture) != gneiss::engine::result::success) {
+  if (resources.destroy_material(material) != gneiss::engine::error::success ||
+      resources.destroy_mesh(mesh) != gneiss::engine::error::success ||
+      resources.destroy_texture(texture) != gneiss::engine::error::success) {
     return 6;
   }
   for (const auto handle : pbr_textures) {
-    if (resources.destroy_texture(handle) != gneiss::engine::result::success ||
+    if (resources.destroy_texture(handle) != gneiss::engine::error::success ||
         packet.resources.get_texture(handle) == nullptr ||
         packet.resources.get_texture(handle)->levels.front().pixels.front() != std::byte{1})
       return 9;

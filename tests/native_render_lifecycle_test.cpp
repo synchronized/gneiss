@@ -38,32 +38,32 @@ int main() try {
       resources.create_texture(texture_desc, &texture).failed() || mesh == 0 || material == 0 ||
       texture == 0)
     return 2;
-  if (resources.destroy_mesh(material) != native::result::invalid_handle ||
-      other.destroy_mesh(mesh) != native::result::invalid_handle ||
-      other.destroy_material(material) != native::result::invalid_handle ||
-      resources.destroy_texture(material) != native::result::invalid_handle ||
-      other.destroy_texture(texture) != native::result::invalid_handle)
+  if (resources.destroy_mesh(material) != native::error::invalid_handle ||
+      other.destroy_mesh(mesh) != native::error::invalid_handle ||
+      other.destroy_material(material) != native::error::invalid_handle ||
+      resources.destroy_texture(material) != native::error::invalid_handle ||
+      other.destroy_texture(texture) != native::error::invalid_handle)
     return 3;
   if (resources.destroy_mesh(mesh).failed() ||
-      resources.destroy_mesh(mesh) != native::result::invalid_handle ||
+      resources.destroy_mesh(mesh) != native::error::invalid_handle ||
       resources.destroy_material(material).failed() ||
-      resources.destroy_material(material) != native::result::invalid_handle ||
+      resources.destroy_material(material) != native::error::invalid_handle ||
       resources.destroy_texture(texture).failed() ||
-      resources.destroy_texture(texture) != native::result::invalid_handle)
+      resources.destroy_texture(texture) != native::error::invalid_handle)
     return 4;
   // 非法负载不能分配资源。
   mesh = material = texture = 0;
   mesh_desc.vertices = std::span{vertices}.first(2);
   material_desc.parameters.color[3] = 2.0F;
   texture_desc.row_stride_bytes = 3U;
-  if (resources.create_mesh(mesh_desc, &mesh) != native::result::invalid_argument ||
-      resources.create_material(material_desc, &material) != native::result::invalid_argument ||
-      resources.create_texture(texture_desc, &texture) != native::result::invalid_argument ||
+  if (resources.create_mesh(mesh_desc, &mesh) != native::error::invalid_argument ||
+      resources.create_material(material_desc, &material) != native::error::invalid_argument ||
+      resources.create_texture(texture_desc, &texture) != native::error::invalid_argument ||
       mesh != 0 || material != 0 || texture != 0)
     return 5;
   mesh_desc.vertices = vertices;
   mesh_desc.indices = std::span{indices}.first(1);
-  if (resources.create_mesh(mesh_desc, &mesh) != native::result::invalid_argument || mesh != 0)
+  if (resources.create_mesh(mesh_desc, &mesh) != native::error::invalid_argument || mesh != 0)
     return 6;
   return first->shutdown().ok() && second->shutdown().ok() ? 0 : 7;
 } catch (...) {

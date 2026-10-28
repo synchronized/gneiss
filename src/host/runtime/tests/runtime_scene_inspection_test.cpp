@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../../../tests/support/async_application.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "runtime_scene_inspection.hpp"
@@ -39,7 +39,7 @@ bool test_full_and_incremental_snapshot() {
   std::vector<runtime_scene_source_node> nodes{make_node(10U, 0U, "root", "Root"),
                                                make_node(20U, 10U, "child", "Child")};
   runtime_scene_snapshot snapshot;
-  if (inspection.capture(nodes, false, snapshot) != gneiss::engine::result::success ||
+  if (inspection.capture(nodes, false, snapshot) != gneiss::engine::error::success ||
       !snapshot.is_full || snapshot.stamp.session_id != 77U || snapshot.stamp.sequence != 1U ||
       snapshot.changes.size() != 2U || snapshot.changes[0].node.parent.is_valid() ||
       snapshot.changes[1].node.parent != snapshot.changes[0].id) {
@@ -47,7 +47,7 @@ bool test_full_and_incremental_snapshot() {
   }
   const auto root_id = snapshot.changes[0].id;
   const auto old_child_id = snapshot.changes[1].id;
-  if (inspection.capture(nodes, false, snapshot) != gneiss::engine::result::not_ready ||
+  if (inspection.capture(nodes, false, snapshot) != gneiss::engine::error::not_ready ||
       !snapshot.changes.empty()) {
     return false;
   }
@@ -60,7 +60,7 @@ bool test_full_and_incremental_snapshot() {
   nodes[1].camera.near = 0.25F;
   nodes[1].mesh_uri = "asset:///meshes/child.gneiss-mesh";
   nodes[1].material_uri = "asset:///materials/child.material.json";
-  if (inspection.capture(nodes, false, snapshot) != gneiss::engine::result::success ||
+  if (inspection.capture(nodes, false, snapshot) != gneiss::engine::error::success ||
       snapshot.is_full || snapshot.stamp.sequence != 2U || snapshot.changes.size() != 1U ||
       snapshot.changes[0].type != runtime_scene_change_type::upsert ||
       snapshot.changes[0].id != old_child_id || snapshot.changes[0].node.name != "Renamed" ||
@@ -71,20 +71,20 @@ bool test_full_and_incremental_snapshot() {
   }
 
   nodes.erase(nodes.begin() + 1);
-  if (inspection.capture(nodes, false, snapshot) != gneiss::engine::result::success ||
+  if (inspection.capture(nodes, false, snapshot) != gneiss::engine::error::success ||
       snapshot.changes.size() != 1U ||
       snapshot.changes[0].type != runtime_scene_change_type::remove ||
       snapshot.changes[0].id != old_child_id) {
     return false;
   }
   nodes.push_back(make_node(30U, 10U, "replacement", "Replacement"));
-  if (inspection.capture(nodes, false, snapshot) != gneiss::engine::result::success ||
+  if (inspection.capture(nodes, false, snapshot) != gneiss::engine::error::success ||
       snapshot.changes.size() != 1U || snapshot.changes[0].id.value != old_child_id.value ||
       snapshot.changes[0].id.generation != old_child_id.generation + 1U ||
       snapshot.changes[0].node.parent != root_id) {
     return false;
   }
-  return inspection.capture(nodes, true, snapshot) == gneiss::engine::result::success &&
+  return inspection.capture(nodes, true, snapshot) == gneiss::engine::error::success &&
          snapshot.is_full && snapshot.stamp.sequence == 5U && snapshot.changes.size() == 2U;
 }
 
@@ -93,21 +93,21 @@ bool test_validation_and_reset() {
   runtime_scene_inspection invalid(0U);
   runtime_scene_snapshot snapshot;
   std::vector<runtime_scene_source_node> nodes{make_node(1U, 0U, "node", "Node")};
-  if (invalid.capture(nodes, false, snapshot) != gneiss::engine::result::invalid_argument) {
+  if (invalid.capture(nodes, false, snapshot) != gneiss::engine::error::invalid_argument) {
     return false;
   }
   runtime_scene_inspection inspection(1U);
   nodes.push_back(make_node(1U, 0U, "duplicate-native", "Duplicate"));
-  if (inspection.capture(nodes, false, snapshot) != gneiss::engine::result::invalid_argument) {
+  if (inspection.capture(nodes, false, snapshot) != gneiss::engine::error::invalid_argument) {
     return false;
   }
   nodes = {make_node(1U, 99U, "orphan", "Orphan")};
-  if (inspection.capture(nodes, false, snapshot) != gneiss::engine::result::invalid_argument) {
+  if (inspection.capture(nodes, false, snapshot) != gneiss::engine::error::invalid_argument) {
     return false;
   }
   inspection.reset(2U);
   nodes = {make_node(1U, 0U, "node", "Node")};
-  return inspection.capture(nodes, false, snapshot) == gneiss::engine::result::success &&
+  return inspection.capture(nodes, false, snapshot) == gneiss::engine::error::success &&
          snapshot.stamp.session_id == 2U && snapshot.stamp.sequence == 1U && snapshot.is_full;
 }
 
@@ -115,9 +115,9 @@ bool test_empty_scene_is_stable() {
   gneiss::host::runtime_scene_inspection inspection(3U);
   gneiss::host::runtime_scene_snapshot snapshot;
   const std::vector<gneiss::host::runtime_scene_source_node> nodes;
-  return inspection.capture(nodes, false, snapshot) == gneiss::engine::result::success &&
+  return inspection.capture(nodes, false, snapshot) == gneiss::engine::error::success &&
          snapshot.is_full && snapshot.stamp.sequence == 1U && snapshot.changes.empty() &&
-         inspection.capture(nodes, false, snapshot) == gneiss::engine::result::not_ready;
+         inspection.capture(nodes, false, snapshot) == gneiss::engine::error::not_ready;
 }
 
 bool test_prefab_composite_identity() {
@@ -131,7 +131,7 @@ bool test_prefab_composite_identity() {
   second.prefab_source_node_uuid = "source";
   const std::vector<runtime_scene_source_node> nodes{first, second};
   runtime_scene_snapshot snapshot;
-  return inspection.capture(nodes, false, snapshot) == gneiss::engine::result::success &&
+  return inspection.capture(nodes, false, snapshot) == gneiss::engine::error::success &&
          snapshot.changes.size() == 2U && snapshot.changes[0].id != snapshot.changes[1].id &&
          snapshot.changes[0].node.prefab_instance_uuid == "instance-a" &&
          snapshot.changes[1].node.prefab_instance_uuid == "instance-b";
@@ -144,32 +144,32 @@ bool test_capture_prefab_scene() {
   desc.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::scene_instance_id scene = {};
-  if (gneiss::engine::result{gneiss::runtime::application::create(desc, application)} !=
-          gneiss::engine::result::success ||
-      gneiss::engine::result{gneiss::test_support::load_scene(*application, scene_uri, &scene)} !=
-          gneiss::engine::result::success) {
+  if (gneiss::engine::error{gneiss::runtime::application::create(desc, application)} !=
+          gneiss::engine::error::success ||
+      gneiss::engine::error{gneiss::test_support::load_scene(*application, scene_uri, &scene)} !=
+          gneiss::engine::error::success) {
     return false;
   }
   gneiss::host::runtime_scene_inspection inspection(5U);
   gneiss::host::runtime_scene_snapshot snapshot;
   const auto capture = inspection.capture_scene(*application, scene, false, snapshot);
   const bool valid =
-      capture == gneiss::engine::result::success && snapshot.changes.size() == 3U &&
+      capture == gneiss::engine::error::success && snapshot.changes.size() == 3U &&
       snapshot.changes[1].node.prefab_instance_uuid == "30000000-0000-4000-8000-000000000012" &&
       snapshot.changes[1].node.prefab_source_node_uuid.empty() &&
       snapshot.changes[2].node.prefab_source_node_uuid == "30000000-0000-4000-8000-000000000002" &&
       snapshot.changes[2].node.parent == snapshot.changes[1].node.id;
   auto native = application;
-  auto foreign = gneiss::engine::result::success;
+  auto foreign = gneiss::engine::error::success;
   const auto changes = snapshot.changes.size();
   std::thread worker([&] { foreign = inspection.capture_scene(*native, scene, true, snapshot); });
   worker.join();
-  if (foreign != gneiss::engine::result::invalid_state || snapshot.changes.size() != changes)
+  if (foreign != gneiss::engine::error::invalid_state || snapshot.changes.size() != changes)
     return false;
-  const bool unloaded = gneiss::engine::result{application->scenes()->unload(scene)} ==
-                        gneiss::engine::result::success;
+  const bool unloaded =
+      gneiss::engine::error{application->scenes()->unload(scene)} == gneiss::engine::error::success;
   const bool destroyed =
-      gneiss::engine::result{application->shutdown()} == gneiss::engine::result::success;
+      gneiss::engine::error{application->shutdown()} == gneiss::engine::error::success;
   return valid && unloaded && destroyed;
 }
 

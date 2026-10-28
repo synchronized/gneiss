@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_scene_mirror.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -54,15 +54,14 @@ bool valid_graph(const std::map<std::uint64_t, gneiss::editor::runtime_scene_nod
 
 namespace gneiss::editor {
 
-gneiss::engine::result
-runtime_scene_sequence_tracker::begin(std::uint64_t session_id,
-                                      std::uint64_t first_sequence) noexcept {
+gneiss::engine::error runtime_scene_sequence_tracker::begin(std::uint64_t session_id,
+                                                            std::uint64_t first_sequence) noexcept {
   if (session_id == 0U || first_sequence == 0U) {
-    return gneiss::engine::result::invalid_argument;
+    return gneiss::engine::error::invalid_argument;
   }
   session_id_ = session_id;
   next_sequence_ = first_sequence;
-  return gneiss::engine::result::success;
+  return gneiss::engine::error::success;
 }
 
 void runtime_scene_sequence_tracker::reset() noexcept {
@@ -92,10 +91,10 @@ runtime_scene_sequence_tracker::observe(runtime_scene_stamp stamp) noexcept {
   return runtime_scene_sequence_result::accepted;
 }
 
-gneiss::engine::result runtime_scene_mirror::apply(const runtime_scene_batch& batch) noexcept {
+gneiss::engine::error runtime_scene_mirror::apply(const runtime_scene_batch& batch) noexcept {
   if (batch.stamp.session_id == 0U || batch.stamp.sequence == 0U || batch.chunk_count == 0U ||
       batch.chunk_index >= batch.chunk_count) {
-    return gneiss::engine::result::invalid_argument;
+    return gneiss::engine::error::invalid_argument;
   }
   try {
     if (batch.chunk_count == 1U) {
@@ -112,12 +111,12 @@ gneiss::engine::result runtime_scene_mirror::apply(const runtime_scene_batch& ba
     }
     auto& slot = pending_chunks_[batch.chunk_index];
     if (slot.has_value()) {
-      return gneiss::engine::result::success;
+      return gneiss::engine::error::success;
     }
     slot = batch;
     if (!std::ranges::all_of(pending_chunks_,
                              [](const auto& chunk) { return chunk.has_value(); })) {
-      return gneiss::engine::result::success;
+      return gneiss::engine::error::success;
     }
     runtime_scene_batch complete;
     complete.stamp = pending_stamp_;
@@ -133,34 +132,34 @@ gneiss::engine::result runtime_scene_mirror::apply(const runtime_scene_batch& ba
   } catch (const std::bad_alloc&) {
     pending_chunks_.clear();
     needs_full_snapshot_ = true;
-    return gneiss::engine::result::out_of_memory;
+    return gneiss::engine::error::out_of_memory;
   } catch (...) {
     pending_chunks_.clear();
     needs_full_snapshot_ = true;
-    return gneiss::engine::result::internal;
+    return gneiss::engine::error::internal;
   }
 }
 
-gneiss::engine::result
+gneiss::engine::error
 runtime_scene_mirror::apply_complete(const runtime_scene_batch& batch) noexcept {
   try {
     if (batch.is_full) {
       if (sequence_.begin(batch.stamp.session_id, batch.stamp.sequence) !=
-          gneiss::engine::result::success) {
-        return gneiss::engine::result::invalid_argument;
+          gneiss::engine::error::success) {
+        return gneiss::engine::error::invalid_argument;
       }
     } else if (needs_full_snapshot_) {
-      return gneiss::engine::result::not_ready;
+      return gneiss::engine::error::not_ready;
     }
     const auto order = sequence_.observe(batch.stamp);
     if (order == runtime_scene_sequence_result::duplicate) {
-      return gneiss::engine::result::success;
+      return gneiss::engine::error::success;
     }
     if (order != runtime_scene_sequence_result::accepted) {
       needs_full_snapshot_ = true;
       return order == runtime_scene_sequence_result::invalid
-                 ? gneiss::engine::result::invalid_argument
-                 : gneiss::engine::result::not_ready;
+                 ? gneiss::engine::error::invalid_argument
+                 : gneiss::engine::error::not_ready;
     }
 
     std::map<std::uint64_t, runtime_scene_node> pending =
@@ -168,37 +167,37 @@ runtime_scene_mirror::apply_complete(const runtime_scene_batch& batch) noexcept 
     for (const auto& change : batch.changes) {
       if (!change.id.is_valid()) {
         needs_full_snapshot_ = true;
-        return gneiss::engine::result::invalid_argument;
+        return gneiss::engine::error::invalid_argument;
       }
       if (change.type == runtime_scene_change_type::remove) {
         const auto found = pending.find(change.id.value);
         if (found == pending.end() || found->second.id != change.id) {
           needs_full_snapshot_ = true;
-          return gneiss::engine::result::not_ready;
+          return gneiss::engine::error::not_ready;
         }
         pending.erase(found);
       } else {
         if (change.node.id != change.id) {
           needs_full_snapshot_ = true;
-          return gneiss::engine::result::invalid_argument;
+          return gneiss::engine::error::invalid_argument;
         }
         pending.insert_or_assign(change.id.value, change.node);
       }
     }
     if (!valid_graph(pending)) {
       needs_full_snapshot_ = true;
-      return gneiss::engine::result::invalid_argument;
+      return gneiss::engine::error::invalid_argument;
     }
     by_id_ = std::move(pending);
     rebuild_nodes();
     needs_full_snapshot_ = false;
-    return gneiss::engine::result::success;
+    return gneiss::engine::error::success;
   } catch (const std::bad_alloc&) {
     needs_full_snapshot_ = true;
-    return gneiss::engine::result::out_of_memory;
+    return gneiss::engine::error::out_of_memory;
   } catch (...) {
     needs_full_snapshot_ = true;
-    return gneiss::engine::result::internal;
+    return gneiss::engine::error::internal;
   }
 }
 

@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/error.hpp"
 #include "engine/core/math/transform.hpp"
-#include "engine/core/result.hpp"
 
 // Win32 的旧式内存模型宏不能占用相机成员名。
 #ifdef near
@@ -21,8 +21,8 @@ struct camera_settings {
   float far{};  ///< 远裁剪面距离。
 };
 /** 使用世界平移与旋转构造右手视图矩阵；缩放不参与观察变换；非法输入不修改 output。 */
-[[nodiscard]] GNEISS_API result view_matrix_rh(const transform& value, matrix4& output) noexcept;
+[[nodiscard]] GNEISS_API error view_matrix_rh(const transform& value, matrix4& output) noexcept;
 /** 右手透视投影；逻辑裁剪空间 Y 向上、深度范围为 0..1；非法输入不修改 output。 */
-[[nodiscard]] GNEISS_API result perspective_rh_zo(const camera_settings& camera, float aspect,
-                                                  matrix4& output) noexcept;
+[[nodiscard]] GNEISS_API error perspective_rh_zo(const camera_settings& camera, float aspect,
+                                                 matrix4& output) noexcept;
 } // namespace gneiss::engine::math

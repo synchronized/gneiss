@@ -10,15 +10,31 @@
 `src/engine/core/version.hpp`。构建版本头仅供内部实现与版本用例使用，不安装。
 游戏模块协议已撤销，不再发布模块 ABI 版本。
 
-## 结果码
+## 错误状态与值结果
 
-仓内操作统一使用 `gneiss::engine::result`（`engine/core/result.hpp`）。它只保存一个
-32 位结果码，提供 `ok()`、`failed()`、`code()`、`message()` 和显式布尔判断。
-默认构造产生 unknown；非负值成功，负值失败，不提供隐式整数转换。
-`message()` 返回静态英文文本的 string_view，未知数值返回 `unrecognized result`。
+`gneiss::engine::error`（`engine/core/error.hpp`）保存一个 32 位状态码，提供
+`ok()`、`failed()`、`code()`、`message()`，不提供布尔或隐式整数转换。
+默认构造产生 unknown；非负值成功，负值失败。无返回值的操作直接返回 error。
+`message()` 返回静态英文文本，未知数值返回 `unrecognized result`。
+整数仅在协议等边界显式构造或通过 `code()` 读取，旧状态类型 result 不再保留。
 
-普通内部调用直接传递该值；游戏模块撤销后，C 结果转换辅助也已删除。
-整数结果可通过显式构造与 code() 无损读写。旧 gneiss::result 别名不再保留。
+`gneiss::engine::result<T, E = error>`（`engine/core/result.hpp`）互斥持有成功值或失败原因：
+
+```cpp
+auto loaded = resources.load<texture_resource>(uri);
+if (!loaded)
+  return loaded.error();
+auto request = std::move(*loaded);
+```
+
+布尔为真表示有值；`*`、`->` 只能在成功时访问，`error()` 只能在失败时访问。
+失败时不构造 T；允许仅移动、不可默认构造的值。结果本身不额外分配堆内存，
+值或错误类型自身的分配行为不受影响。E 可使用带路径、位置与文本的解析诊断，
+不要求每一个轻量 error 都携带动态字符串。`result<void>` 支持泛型代码，无值业务操作优先使用 error。
+
+当前资源查询、创建、提交加载及内存解码入口使用值结果；底层缓冲区写入、就地编辑、
+请求领取及其他领域既有接口仍按各自契约使用引用参数，不以本次调整宣称全引擎已消除 out 参数。
+游戏模块与公共 C ABI 已撤销，不增加新的 C 转换层。
 
 ## 内部符号可见性
 

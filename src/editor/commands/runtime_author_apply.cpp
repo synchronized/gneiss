@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "commands/runtime_author_apply.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <new>
 #include <string>
@@ -26,15 +26,15 @@ gneiss::scene_node_id resolve_author_node(gneiss::editor::scene_document& sessio
 
 namespace gneiss::editor {
 
-gneiss::engine::result
+gneiss::engine::error
 apply_runtime_transform_to_author(scene_document& session, editor_command_history& history,
                                   const runtime_author_transform& runtime_node) noexcept try {
   if (runtime_node.uuid.empty()) {
-    return gneiss::engine::result::invalid_argument;
+    return gneiss::engine::error::invalid_argument;
   }
   const auto has_prefab_identity = !runtime_node.prefab_instance_uuid.empty();
   if (!has_prefab_identity && !runtime_node.prefab_source_node_uuid.empty()) {
-    return gneiss::engine::result::invalid_argument;
+    return gneiss::engine::error::invalid_argument;
   }
   const auto* author_node = has_prefab_identity ? nullptr : session.find_node(runtime_node.uuid);
   const auto* prefab_node =
@@ -45,7 +45,7 @@ apply_runtime_transform_to_author(scene_document& session, editor_command_histor
                  : session.find_prefab_source(runtime_node.prefab_instance_uuid,
                                               runtime_node.prefab_source_node_uuid));
   if (author_node == nullptr && prefab_node == nullptr) {
-    return gneiss::engine::result::not_found;
+    return gneiss::engine::error::not_found;
   }
   const std::string uuid(runtime_node.uuid);
   const std::string instance_uuid(runtime_node.prefab_instance_uuid);
@@ -58,21 +58,21 @@ apply_runtime_transform_to_author(scene_document& session, editor_command_histor
                               [&session, uuid, instance_uuid, source_uuid, before] {
                                 const auto node =
                                     resolve_author_node(session, uuid, instance_uuid, source_uuid);
-                                return !node.is_valid() ? gneiss::engine::result::not_found
+                                return !node.is_valid() ? gneiss::engine::error::not_found
                                                         : session.set_local_transform(node, before);
                               },
                           .redo =
                               [&session, uuid, instance_uuid, source_uuid, after] {
                                 const auto node =
                                     resolve_author_node(session, uuid, instance_uuid, source_uuid);
-                                return !node.is_valid() ? gneiss::engine::result::not_found
+                                return !node.is_valid() ? gneiss::engine::error::not_found
                                                         : session.set_local_transform(node, after);
                               },
                           .merge_key = {}});
 } catch (const std::bad_alloc&) {
-  return gneiss::engine::result::out_of_memory;
+  return gneiss::engine::error::out_of_memory;
 } catch (...) {
-  return gneiss::engine::result::internal;
+  return gneiss::engine::error::internal;
 }
 
 } // namespace gneiss::editor

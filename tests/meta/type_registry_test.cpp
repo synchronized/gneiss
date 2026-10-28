@@ -11,7 +11,7 @@ struct other_object {};
 
 bool typed_registration() {
   namespace e = gneiss::engine;
-  using e::result;
+  using e::error;
   gneiss::engine::meta::registry_ref registry;
   if (gneiss::engine::meta::create_registry(registry).failed())
     return false;
@@ -21,23 +21,23 @@ bool typed_registration() {
   const gneiss::engine::meta::type_definition definition{
       .guid = object_guid, .schema_version = 1, .name = "Object", .properties = {}};
   gneiss::engine::meta::type_info info{.guid = data_guid};
-  if (gneiss::engine::meta::describe_type<reflected_object>(registry, info) != result::not_ready ||
+  if (gneiss::engine::meta::describe_type<reflected_object>(registry, info) != error::not_ready ||
       info.guid != data_guid ||
       gneiss::engine::meta::register_type<reflected_object>(registry, definition).failed())
     return false;
   auto alternate = definition;
   alternate.guid = other_guid;
   if (gneiss::engine::meta::register_type<const reflected_object&>(registry, alternate) !=
-          result::invalid_argument ||
+          error::invalid_argument ||
       gneiss::engine::meta::register_type<other_object>(registry, definition) !=
-          result::invalid_argument ||
+          error::invalid_argument ||
       gneiss::engine::meta::register_type<reflected_object>(registry, definition) !=
-          result::invalid_argument ||
-      gneiss::engine::meta::register_type<void>(registry, alternate) != result::invalid_argument)
+          error::invalid_argument ||
+      gneiss::engine::meta::register_type<void>(registry, alternate) != error::invalid_argument)
     return false;
   alternate.type_id = e::runtime_type_of<reflected_object>();
   if (gneiss::engine::meta::register_type<other_object>(registry, alternate) !=
-      result::invalid_argument)
+      error::invalid_argument)
     return false;
   alternate.type_id = {};
   if (gneiss::engine::meta::register_type<other_object>(registry, alternate).failed())
@@ -56,12 +56,12 @@ bool typed_registration() {
       info.guid != other_guid ||
       gneiss::engine::meta::describe_type_at(registry, 1, info).failed() || info.guid != data_guid)
     return false;
-  if (gneiss::engine::meta::describe_type(registry, e::type_id{}, info) != result::not_found ||
+  if (gneiss::engine::meta::describe_type(registry, e::type_id{}, info) != error::not_found ||
       info.guid != data_guid ||
-      gneiss::engine::meta::describe_type<double>(registry, info) != result::not_found ||
+      gneiss::engine::meta::describe_type<double>(registry, info) != error::not_found ||
       info.guid != data_guid ||
       gneiss::engine::meta::register_type<reflected_object>(registry, definition) !=
-          result::invalid_state)
+          error::invalid_state)
     return false;
   std::array<bool, 4> queried{};
   std::array<std::thread, 4> readers;
@@ -69,7 +69,7 @@ bool typed_registration() {
     readers[i] = std::thread([&, i] {
       gneiss::engine::meta::type_info metadata;
       queried[i] = gneiss::engine::meta::describe_type<reflected_object>(registry, metadata) ==
-                       result::success &&
+                       error::success &&
                    metadata.guid == object_guid;
     });
   }
@@ -80,7 +80,7 @@ bool typed_registration() {
       return false;
   registry.reset();
   return gneiss::engine::meta::describe_type<reflected_object>(registry, info) ==
-             result::invalid_handle &&
+             error::invalid_handle &&
          info.guid == data_guid;
 }
 
@@ -88,7 +88,7 @@ int main() {
   if (!typed_registration())
     return 20;
   namespace engine = gneiss::engine;
-  using engine::result;
+  using engine::error;
   constexpr engine::guid object_type{engine::guid::from_bytes({0x20})};
   constexpr engine::guid scalar_type{engine::guid::from_bytes({0x10})};
   const gneiss::engine::meta::property_definition field{
@@ -102,40 +102,40 @@ int main() {
   std::uint32_t count = 99;
   if (gneiss::engine::meta::create_registry(registry).failed() ||
       gneiss::engine::meta::is_frozen(registry, frozen).failed() || frozen ||
-      gneiss::engine::meta::type_count(registry, count) != result::not_ready || count != 99 ||
+      gneiss::engine::meta::type_count(registry, count) != error::not_ready || count != 99 ||
       gneiss::engine::meta::register_type(registry, object).failed() ||
       gneiss::engine::meta::register_type(registry, scalar).failed() ||
-      gneiss::engine::meta::register_type(registry, object) != result::invalid_argument)
+      gneiss::engine::meta::register_type(registry, object) != error::invalid_argument)
     return 1;
   auto invalid = object;
   invalid.properties = duplicate_fields;
-  if (gneiss::engine::meta::register_type(registry, invalid) != result::invalid_argument)
+  if (gneiss::engine::meta::register_type(registry, invalid) != error::invalid_argument)
     return 2;
   invalid = object;
   invalid.schema_version = 2;
-  if (gneiss::engine::meta::register_type(registry, invalid) != result::invalid_argument)
+  if (gneiss::engine::meta::register_type(registry, invalid) != error::invalid_argument)
     return 3;
   invalid = scalar;
   invalid.name = "\xC0\xAF";
-  if (gneiss::engine::meta::register_type(registry, invalid) != result::invalid_argument)
+  if (gneiss::engine::meta::register_type(registry, invalid) != error::invalid_argument)
     return 4;
   invalid.guid = {};
   invalid.name = "nil";
-  if (gneiss::engine::meta::register_type(registry, invalid) != result::invalid_argument)
+  if (gneiss::engine::meta::register_type(registry, invalid) != error::invalid_argument)
     return 5;
   std::int64_t stored = 2;
   const gneiss::engine::meta::property_binding binding{
       .kind = gneiss::engine::value_kind::int64,
-      .getter = [](void*, const void* object, gneiss::engine::value& output) -> result {
+      .getter = [](void*, const void* object, gneiss::engine::value& output) -> error {
         output.payload = *static_cast<const std::int64_t*>(object);
-        return result::success;
+        return error::success;
       },
-      .setter = [](void*, void* object, const gneiss::engine::value& value) -> result {
+      .setter = [](void*, void* object, const gneiss::engine::value& value) -> error {
         const auto next = std::get<std::int64_t>(value.payload);
         if (next < -10 || next > 10)
-          return result::invalid_argument;
+          return error::invalid_argument;
         *static_cast<std::int64_t*>(object) = next;
-        return result::success;
+        return error::success;
       },
       .user_data = nullptr};
   if (gneiss::engine::meta::bind_property(registry, object_type,
@@ -144,7 +144,7 @@ int main() {
       gneiss::engine::meta::freeze(registry).failed() ||
       gneiss::engine::meta::freeze(registry).failed() ||
       gneiss::engine::meta::is_frozen(registry, frozen).failed() || !frozen ||
-      gneiss::engine::meta::register_type(registry, object) != result::invalid_state ||
+      gneiss::engine::meta::register_type(registry, object) != error::invalid_state ||
       gneiss::engine::meta::type_count(registry, count).failed() || count != 2)
     return 6;
   gneiss::engine::meta::type_info info;
@@ -159,7 +159,7 @@ int main() {
       metadata.name != "value" ||
       gneiss::engine::meta::describe_property(registry, object_type,
                                               gneiss::engine::meta::property_id{2},
-                                              metadata) != result::not_found)
+                                              metadata) != error::not_found)
     return 7;
   gneiss::engine::value value;
   if (gneiss::engine::meta::read_property(registry, object_type,
@@ -176,13 +176,13 @@ int main() {
   value.payload = std::int64_t{11};
   if (gneiss::engine::meta::write_property(registry, object_type,
                                            gneiss::engine::meta::property_id{1}, &stored,
-                                           value) != result::invalid_argument ||
+                                           value) != error::invalid_argument ||
       stored != 7)
     return 10;
   const std::weak_ptr lifetime = registry;
   registry.reset();
   return lifetime.expired() &&
-                 gneiss::engine::meta::type_count(registry, count) == result::invalid_handle
+                 gneiss::engine::meta::type_count(registry, count) == error::invalid_handle
              ? 0
              : 11;
 }

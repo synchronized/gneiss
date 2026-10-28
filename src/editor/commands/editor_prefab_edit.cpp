@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "commands/editor_prefab_edit.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "runtime/application.hpp"
@@ -26,21 +26,21 @@ public:
                            bool replacing)
       : application_(application), session_(session), scene_(scene),
         snapshots_(std::move(snapshots)), removing_(removing), replacing_(replacing) {}
-  gneiss::engine::result advance(bool& complete) noexcept override try {
-    using gneiss::engine::result;
+  gneiss::engine::error advance(bool& complete) noexcept override try {
+    using gneiss::engine::error;
     complete = true;
     if (finished_)
-      return result::invalid_state;
+      return error::invalid_state;
     finished_ = true;
     if (cancelled_ || session_.scene_handle() != scene_)
-      return result::invalid_state;
+      return error::invalid_state;
     std::string selected_instance, selected_source;
     if (const auto* selected = session_.selected_prefab_node()) {
       selected_instance = selected->instance_uuid;
       selected_source = selected->source_node_uuid;
     }
     scene_node_id root;
-    auto status = result{result::success};
+    auto status = error{error::success};
     // 同一调用内逐个创建；前面的成功不会因后面的失败回滚。
     for (const auto& snapshot : snapshots_) {
       status =
@@ -63,9 +63,9 @@ public:
     }
     return status;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return gneiss::engine::error::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return gneiss::engine::error::internal;
   }
   void cancel() noexcept override {
     if (!finished_)
@@ -94,21 +94,21 @@ public:
       : application_(application), scene_(scene), session_(session), before_(std::move(before)),
         after_(std::move(after)) {}
   [[nodiscard]] std::string_view label() const noexcept override { return "刷新同源 Prefab 实例"; }
-  gneiss::engine::result undo() noexcept override { return gneiss::engine::result::not_ready; }
-  gneiss::engine::result redo() noexcept override { return gneiss::engine::result::not_ready; }
-  gneiss::engine::result
+  gneiss::engine::error undo() noexcept override { return gneiss::engine::error::not_ready; }
+  gneiss::engine::error redo() noexcept override { return gneiss::engine::error::not_ready; }
+  gneiss::engine::error
   begin_history_operation(bool undo,
                           std::unique_ptr<editor_history_operation>& output) noexcept override try {
     if (session_.scene_handle() != scene_) {
-      return gneiss::engine::result::invalid_state;
+      return gneiss::engine::error::invalid_state;
     }
     output = std::make_unique<prefab_refresh_operation>(application_, session_, scene_,
                                                         undo ? before_ : after_);
-    return gneiss::engine::result::success;
+    return gneiss::engine::error::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return gneiss::engine::error::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return gneiss::engine::error::internal;
   }
 
 private:
@@ -127,21 +127,21 @@ public:
   [[nodiscard]] std::string_view label() const noexcept override {
     return removal_ ? "删除 Prefab 实例" : "放置 Prefab 实例";
   }
-  gneiss::engine::result undo() noexcept override { return gneiss::engine::result::not_ready; }
-  gneiss::engine::result redo() noexcept override { return gneiss::engine::result::not_ready; }
-  gneiss::engine::result
+  gneiss::engine::error undo() noexcept override { return gneiss::engine::error::not_ready; }
+  gneiss::engine::error redo() noexcept override { return gneiss::engine::error::not_ready; }
+  gneiss::engine::error
   begin_history_operation(bool undo,
                           std::unique_ptr<editor_history_operation>& output) noexcept override try {
     if (session_.scene_handle() != scene_) {
-      return gneiss::engine::result::invalid_state;
+      return gneiss::engine::error::invalid_state;
     }
     output = std::make_unique<prefab_history_operation>(application_, session_, scene_, snapshot_,
                                                         undo != removal_);
-    return gneiss::engine::result::success;
+    return gneiss::engine::error::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return gneiss::engine::error::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return gneiss::engine::error::internal;
   }
 
 private:
@@ -172,8 +172,8 @@ struct editor_prefab_edit::state {
   std::string target_uuid;
   std::uint64_t request{};
   bool asset_pending{}, cancelled{}, active{}, visible{};
-  gneiss::engine::result status{gneiss::engine::result::success};
-  gneiss::engine::result failure{gneiss::engine::result::success};
+  gneiss::engine::error status{gneiss::engine::error::success};
+  gneiss::engine::error failure{gneiss::engine::error::success};
   void finish() noexcept {
     active = false;
     if (failure.failed()) {
@@ -240,11 +240,11 @@ struct editor_prefab_edit::state {
       std::vector<gneiss::engine::asset_source> missing;
       for (const auto& asset : prepared.assets) {
         gneiss::engine::render_asset_ref lease;
-        const auto ready = refreshing ? gneiss::engine::result::not_ready
+        const auto ready = refreshing ? gneiss::engine::error::not_ready
                                       : application.query_ready_asset(asset, lease);
-        if (ready == gneiss::engine::result::success) {
+        if (ready == gneiss::engine::error::success) {
           assets.push_back(std::move(lease));
-        } else if (ready == gneiss::engine::result::not_ready) {
+        } else if (ready == gneiss::engine::error::not_ready) {
           missing.push_back(asset);
         } else {
           status = ready;
@@ -274,7 +274,7 @@ struct editor_prefab_edit::state {
       status = completion.result;
     }
     if (status.ok() && completion.request != request) {
-      status = gneiss::engine::result::invalid_state;
+      status = gneiss::engine::error::invalid_state;
     }
     if (status.ok()) {
       assets.insert(assets.end(), completion.assets.begin(), completion.assets.end());
@@ -305,22 +305,22 @@ prefab_edit_phase editor_prefab_edit::phase() const noexcept {
   }
   return prefab_edit_phase::constructing;
 }
-gneiss::engine::result editor_prefab_edit::operation() const noexcept {
-  return state_ ? state_->status : gneiss::engine::result::success;
+gneiss::engine::error editor_prefab_edit::operation() const noexcept {
+  return state_ ? state_->status : gneiss::engine::error::success;
 }
 void editor_prefab_edit::dismiss() noexcept {
   if (!active()) {
     state_.reset();
   }
 }
-gneiss::engine::result editor_prefab_edit::request(runtime::application& application,
-                                                   gneiss::engine::task_executor& executor,
-                                                   scene_document& session,
-                                                   editor_command_history& history,
-                                                   std::string_view name, std::string_view uri,
-                                                   scene_node_id parent) try {
+gneiss::engine::error editor_prefab_edit::request(runtime::application& application,
+                                                  gneiss::engine::task_executor& executor,
+                                                  scene_document& session,
+                                                  editor_command_history& history,
+                                                  std::string_view name, std::string_view uri,
+                                                  scene_node_id parent) try {
   if (active() || history.is_pending() || !session.is_open()) {
-    return gneiss::engine::result::not_ready;
+    return gneiss::engine::error::not_ready;
   }
   auto next = std::make_unique<state>(application);
   next->scene = session.scene_handle();
@@ -337,7 +337,7 @@ gneiss::engine::result editor_prefab_edit::request(runtime::application& applica
   if (parent.is_valid()) {
     const auto found = std::ranges::find(session.nodes(), parent, &scene_node_record::node);
     if (found == session.nodes().end()) {
-      return gneiss::engine::result::invalid_handle;
+      return gneiss::engine::error::invalid_handle;
     }
     next->author.parent_uuid = found->uuid;
   }
@@ -347,22 +347,22 @@ gneiss::engine::result editor_prefab_edit::request(runtime::application& applica
   }
   next->active = next->visible = true;
   state_ = std::move(next);
-  return gneiss::engine::result::success;
+  return gneiss::engine::error::success;
 } catch (const std::bad_alloc&) {
-  return gneiss::engine::result::out_of_memory;
+  return gneiss::engine::error::out_of_memory;
 } catch (...) {
-  return gneiss::engine::result::internal;
+  return gneiss::engine::error::internal;
 }
-gneiss::engine::result editor_prefab_edit::request_remove(runtime::application& application,
-                                                          scene_document& session,
-                                                          editor_command_history& history,
-                                                          scene_node_id root) try {
+gneiss::engine::error editor_prefab_edit::request_remove(runtime::application& application,
+                                                         scene_document& session,
+                                                         editor_command_history& history,
+                                                         scene_node_id root) try {
   if (active() || history.is_pending() || !session.is_open()) {
-    return gneiss::engine::result::not_ready;
+    return gneiss::engine::error::not_ready;
   }
   const auto found = std::ranges::find(session.prefab_nodes(), root, &prefab_node_record::node);
   if (found == session.prefab_nodes().end() || !found->is_instance_root) {
-    return gneiss::engine::result::invalid_handle;
+    return gneiss::engine::error::invalid_handle;
   }
   auto next = std::make_unique<state>(application);
   next->session = &session;
@@ -371,24 +371,24 @@ gneiss::engine::result editor_prefab_edit::request_remove(runtime::application& 
   next->target_uuid = found->instance_uuid;
   next->active = next->visible = next->removing = true;
   state_ = std::move(next);
-  return gneiss::engine::result::success;
+  return gneiss::engine::error::success;
 } catch (const std::bad_alloc&) {
-  return gneiss::engine::result::out_of_memory;
+  return gneiss::engine::error::out_of_memory;
 } catch (...) {
-  return gneiss::engine::result::internal;
+  return gneiss::engine::error::internal;
 }
 
-gneiss::engine::result editor_prefab_edit::request_refresh(runtime::application& application,
-                                                           gneiss::engine::task_executor& executor,
-                                                           scene_document& session,
-                                                           editor_command_history& history,
-                                                           scene_node_id root) try {
+gneiss::engine::error editor_prefab_edit::request_refresh(runtime::application& application,
+                                                          gneiss::engine::task_executor& executor,
+                                                          scene_document& session,
+                                                          editor_command_history& history,
+                                                          scene_node_id root) try {
   if (active() || history.is_pending() || !session.is_open()) {
-    return gneiss::engine::result::not_ready;
+    return gneiss::engine::error::not_ready;
   }
   const auto found = std::ranges::find(session.prefab_nodes(), root, &prefab_node_record::node);
   if (found == session.prefab_nodes().end() || !found->is_instance_root) {
-    return gneiss::engine::result::invalid_handle;
+    return gneiss::engine::error::invalid_handle;
   }
   auto next = std::make_unique<state>(application);
   next->scene = session.scene_handle();
@@ -407,11 +407,11 @@ gneiss::engine::result editor_prefab_edit::request_refresh(runtime::application&
   }
   next->active = next->visible = next->refreshing = true;
   state_ = std::move(next);
-  return gneiss::engine::result::success;
+  return gneiss::engine::error::success;
 } catch (const std::bad_alloc&) {
-  return gneiss::engine::result::out_of_memory;
+  return gneiss::engine::error::out_of_memory;
 } catch (...) {
-  return gneiss::engine::result::internal;
+  return gneiss::engine::error::internal;
 }
 
 void editor_prefab_edit::cancel() {
@@ -455,7 +455,7 @@ void editor_prefab_edit::advance() {
       return;
     }
     if (value.cancelled || value.session->scene_handle() != value.scene) {
-      value.status = gneiss::engine::result::invalid_state;
+      value.status = gneiss::engine::error::invalid_state;
     }
     if (value.status.failed()) {
       value.finish();
@@ -491,11 +491,11 @@ void editor_prefab_edit::advance() {
     value.operation = std::make_unique<prefab_history_operation>(
         value.application, *value.session, value.scene, std::move(snapshot), value.removing);
   } catch (const std::bad_alloc&) {
-    value.failure = gneiss::engine::result::out_of_memory;
+    value.failure = gneiss::engine::error::out_of_memory;
     value.status = value.failure;
     cancel();
   } catch (...) {
-    value.failure = gneiss::engine::result::internal;
+    value.failure = gneiss::engine::error::internal;
     value.status = value.failure;
     cancel();
   }

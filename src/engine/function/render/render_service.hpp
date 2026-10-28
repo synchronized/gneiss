@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 
+#include "engine/core/error.hpp"
 #include "engine/core/export.hpp"
-#include "engine/core/result.hpp"
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/render_resource_data.hpp"
 #include "engine/platform/native_window_info.hpp"
@@ -55,23 +55,23 @@ public:
   render_service& operator=(const render_service&) = delete;
   render_service(render_service&&) = delete;
   render_service& operator=(render_service&&) = delete;
-  [[nodiscard]] result initialize(const native_window_info& window,
-                                  std::span<const std::byte> environment_asset = {},
-                                  float environment_intensity = 1.0F,
-                                  float environment_rotation_radians = 0.0F,
-                                  log_dispatcher* log = nullptr) noexcept;
+  [[nodiscard]] error initialize(const native_window_info& window,
+                                 std::span<const std::byte> environment_asset = {},
+                                 float environment_intensity = 1.0F,
+                                 float environment_rotation_radians = 0.0F,
+                                 log_dispatcher* log = nullptr) noexcept;
   /** 异步提交已读取的环境字节；接受后执行器持有引用，调用方不等待 GPU。
    * 队列满返回 not_ready；解析失败沿用内置环境，执行失败由正常帧完成分发返回。 */
-  [[nodiscard]] result request_environment(std::shared_ptr<const std::vector<std::byte>> bytes,
-                                           float intensity, float rotation) noexcept;
-  [[nodiscard]] result shutdown(render_device_stats& stats) noexcept;
-  [[nodiscard]] result finish_frames() noexcept;
+  [[nodiscard]] error request_environment(std::shared_ptr<const std::vector<std::byte>> bytes,
+                                          float intensity, float rotation) noexcept;
+  [[nodiscard]] error shutdown(render_device_stats& stats) noexcept;
+  [[nodiscard]] error finish_frames() noexcept;
   void set_completion_notification(std::shared_ptr<progress_notification> notification) noexcept;
-  [[nodiscard]] result prepare_frame_packet_storage(render_frame_packet& packet,
-                                                    bool& out_should_prepare) noexcept;
-  [[nodiscard]] result submit(render_frame_packet packet,
-                              render_frame_policy policy = render_frame_policy::replaceable,
-                              std::uint64_t* out_sequence = nullptr) noexcept;
+  [[nodiscard]] error prepare_frame_packet_storage(render_frame_packet& packet,
+                                                   bool& out_should_prepare) noexcept;
+  [[nodiscard]] error submit(render_frame_packet packet,
+                             render_frame_policy policy = render_frame_policy::replaceable,
+                             std::uint64_t* out_sequence = nullptr) noexcept;
   [[nodiscard]] bool try_take_required_completion(render_frame_completion& completion) noexcept;
   [[nodiscard]] render_queue_stats query_performance_stats() const noexcept;
   /** initialize 完成后读取；设备重建后重新获取。 */
@@ -86,39 +86,39 @@ public:
   [[nodiscard]] bool is_valid() const noexcept;
   /** 所属线程预留合法 RID；尚无 CPU 内容，不可直接绘制。由 replace_* 填充，destroy_* 取消。
    * 不创建后端对象；所有权属于调用方，销毁和跨服务校验与普通 RID 一致。 */
-  [[nodiscard]] result reserve_mesh(rid* output) noexcept;
-  [[nodiscard]] result reserve_texture(rid* output) noexcept;
-  [[nodiscard]] result reserve_material(rid* output) noexcept;
+  [[nodiscard]] error reserve_mesh(rid* output) noexcept;
+  [[nodiscard]] error reserve_texture(rid* output) noexcept;
+  [[nodiscard]] error reserve_material(rid* output) noexcept;
   /** 只查询 CPU 内容：SUCCESS 已填充，NOT_READY 仅预留，INVALID_HANDLE 已失效或不属于本服务。 */
-  [[nodiscard]] result mesh_status(rid mesh) const noexcept;
-  [[nodiscard]] result texture_status(rid texture) const noexcept;
-  [[nodiscard]] result material_status(rid material) const noexcept;
-  [[nodiscard]] result create_mesh(const mesh_view& desc, rid* out_mesh) noexcept;
+  [[nodiscard]] error mesh_status(rid mesh) const noexcept;
+  [[nodiscard]] error texture_status(rid texture) const noexcept;
+  [[nodiscard]] error material_status(rid material) const noexcept;
+  [[nodiscard]] error create_mesh(const mesh_view& desc, rid* out_mesh) noexcept;
   /** 校验并接收拥有型网格，成功路径不再复制数组。 */
-  [[nodiscard]] result create_mesh(mesh_data resource, rid* output) noexcept;
+  [[nodiscard]] error create_mesh(mesh_data resource, rid* output) noexcept;
   /** 内部 CPU 候选已经校验，移动所有权避免主线程复制大数组。 */
-  [[nodiscard]] result create_prepared_mesh(mesh_data resource, rid* output) noexcept;
+  [[nodiscard]] error create_prepared_mesh(mesh_data resource, rid* output) noexcept;
   /** 已校验不可变 CPU 网格；RID 与旧帧共享同一对象，销毁 RID 不使外部引用失效。 */
-  [[nodiscard]] result create_prepared_mesh(std::shared_ptr<const mesh_data> resource,
-                                            rid* output) noexcept;
+  [[nodiscard]] error create_prepared_mesh(std::shared_ptr<const mesh_data> resource,
+                                           rid* output) noexcept;
   [[nodiscard]] bool replace_mesh(rid rid, std::shared_ptr<const mesh_data> data) noexcept;
   [[nodiscard]] bool replace_material(rid rid, std::shared_ptr<const material_data> data) noexcept;
   /** 校验并登记临时 CPU 数据，不分配 RID；任务和帧引用共同决定数据寿命。 */
-  [[nodiscard]] result prepare_mesh_data(std::shared_ptr<const mesh_data> resource,
-                                         std::shared_ptr<const mesh_data>& output) noexcept;
-  [[nodiscard]] result prepare_material_data(const material_data& resource,
-                                             std::shared_ptr<const material_data>& output) noexcept;
-  [[nodiscard]] result prepare_texture_data(texture_data resource,
-                                            std::shared_ptr<const texture_data>& output) noexcept;
-  [[nodiscard]] result destroy_mesh(rid mesh) noexcept;
-  [[nodiscard]] result create_material(const material_data& value, rid* out_material) noexcept;
-  [[nodiscard]] result destroy_material(rid material) noexcept;
-  [[nodiscard]] result create_texture(const texture_view& desc, rid* out_texture) noexcept;
+  [[nodiscard]] error prepare_mesh_data(std::shared_ptr<const mesh_data> resource,
+                                        std::shared_ptr<const mesh_data>& output) noexcept;
+  [[nodiscard]] error prepare_material_data(const material_data& resource,
+                                            std::shared_ptr<const material_data>& output) noexcept;
+  [[nodiscard]] error prepare_texture_data(texture_data resource,
+                                           std::shared_ptr<const texture_data>& output) noexcept;
+  [[nodiscard]] error destroy_mesh(rid mesh) noexcept;
+  [[nodiscard]] error create_material(const material_data& value, rid* out_material) noexcept;
+  [[nodiscard]] error destroy_material(rid material) noexcept;
+  [[nodiscard]] error create_texture(const texture_view& desc, rid* out_texture) noexcept;
   /** 创建已经过容器校验的内部多 Mip Texture。 */
-  [[nodiscard]] result create_texture(texture_data resource, rid* out_texture) noexcept;
+  [[nodiscard]] error create_texture(texture_data resource, rid* out_texture) noexcept;
   /** 保存已经过外层容器与 Granit Manifest 检查的运行纹理。 */
-  [[nodiscard]] result create_packaged_texture(texture_data resource, rid* out_texture) noexcept;
-  [[nodiscard]] result destroy_texture(rid texture) noexcept;
+  [[nodiscard]] error create_packaged_texture(texture_data resource, rid* out_texture) noexcept;
+  [[nodiscard]] error destroy_texture(rid texture) noexcept;
   /** 主线程提交已验证候选；保持 RID generation，既有帧仍拥有旧数据快照。 */
   [[nodiscard]] bool replace_texture(rid texture,
                                      std::shared_ptr<const texture_data> prepared) noexcept;

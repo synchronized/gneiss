@@ -44,7 +44,7 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 
 `create_registry` 创建 `registry_ref` 所有者；`register_type` 深拷贝名称和字段描述。
 类型自身的稳定身份为 `type_definition.guid`、`type_info.guid`；注册输入另有可选的运行期 `type_id`。
-重复 GUID 或重复非空运行期 ID 的注册返回 `result::invalid_argument`，不覆盖已有记录。
+重复 GUID 或重复非空运行期 ID 的注册返回 `error::invalid_argument`，不覆盖已有记录。
 注册名称不得为空或包含内嵌空字符，必须是合法 UTF-8；重复字段编号或名称也会被拒绝。
 
 `bind_property` 绑定原生函数指针、类别和借用上下文；相同完整绑定可重复调用。

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world_reflection.hpp"
@@ -40,11 +40,11 @@ int main() {
   auto second = make_translation(instance_b, {2.0F, 0.0F, 0.0F});
   auto first = make_translation(instance_a, {1.0F, 0.0F, 0.0F});
   if (gneiss::engine::validate_prefab_property_override(registry, first) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       gneiss::engine::set_prefab_property_override(registry, overrides, second, source) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       gneiss::engine::set_prefab_property_override(registry, overrides, first, source) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       overrides.size() != 2U || overrides[0].key.node.instance_uuid != instance_a ||
       overrides[1].key.node.instance_uuid != instance_b) {
     return 2;
@@ -52,7 +52,7 @@ int main() {
 
   auto updated = make_translation(instance_a, {3.0F, 0.0F, 0.0F});
   if (gneiss::engine::set_prefab_property_override(registry, overrides, updated, source) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       overrides.size() != 2U ||
       std::get<gneiss::engine::math::vector3>(overrides[0].value.payload)[0] != 3.0F) {
     return 3;
@@ -60,7 +60,7 @@ int main() {
 
   auto restored = make_translation(instance_a, {-0.0F, 0.0F, 0.0F});
   if (gneiss::engine::set_prefab_property_override(registry, overrides, restored, source) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       overrides.size() != 1U || overrides[0].key.node.instance_uuid != instance_b) {
     return 4;
   }
@@ -71,11 +71,11 @@ int main() {
   auto non_finite =
       make_translation(instance_a, {std::numeric_limits<float>::quiet_NaN(), 0.0F, 0.0F});
   if (gneiss::engine::validate_prefab_property_override(registry, wrong_type) !=
-          gneiss::engine::result::invalid_argument ||
+          gneiss::engine::error::invalid_argument ||
       gneiss::engine::validate_prefab_property_override(registry, invalid_address) !=
-          gneiss::engine::result::invalid_argument ||
+          gneiss::engine::error::invalid_argument ||
       gneiss::engine::validate_prefab_property_override(registry, non_finite) !=
-          gneiss::engine::result::invalid_argument) {
+          gneiss::engine::error::invalid_argument) {
     return 5;
   }
 
@@ -85,14 +85,14 @@ int main() {
               .field_id = gneiss::engine::meta::property_id{4}},
       .value = {.payload = true}};
   if (gneiss::engine::validate_prefab_property_override(registry, read_only) !=
-      gneiss::engine::result::invalid_argument) {
+      gneiss::engine::error::invalid_argument) {
     return 6;
   }
 
   auto missing = make_translation(instance_a, {1.0F, 0.0F, 0.0F});
   missing.key.field_id = gneiss::engine::meta::property_id{999};
   if (gneiss::engine::validate_prefab_property_override(registry, missing) !=
-      gneiss::engine::result::not_found) {
+      gneiss::engine::error::not_found) {
     return 7;
   }
 

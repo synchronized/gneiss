@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "panels/property_inspector_model.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
@@ -14,7 +14,7 @@
 #include <utility>
 
 namespace gneiss::editor {
-gneiss::engine::result property_inspector_model::initialize() noexcept {
+gneiss::engine::error property_inspector_model::initialize() noexcept {
   return gneiss::engine::create_property_registry(registry_);
 }
 
@@ -24,11 +24,11 @@ void property_inspector_model::clear() noexcept {
   entity_ = {};
 }
 
-gneiss::engine::result property_inspector_model::refresh(gneiss::engine::world* world_handle,
-                                                         entity_id entity) noexcept {
+gneiss::engine::error property_inspector_model::refresh(gneiss::engine::world* world_handle,
+                                                        entity_id entity) noexcept {
   if (!registry_ || world_handle == nullptr || !entity.is_valid()) {
     clear();
-    return gneiss::engine::result::invalid_argument;
+    return gneiss::engine::error::invalid_argument;
   }
   try {
     std::vector<inspector_component> pending;
@@ -39,7 +39,7 @@ gneiss::engine::result property_inspector_model::refresh(gneiss::engine::world* 
     for (const auto type_id : reflected_component_types) {
       gneiss::engine::meta::type_info type{};
       auto operation = gneiss::engine::meta::describe_type(registry_, type_id, type);
-      if (operation != gneiss::engine::result::success) {
+      if (operation != gneiss::engine::error::success) {
         clear();
         return operation;
       }
@@ -55,11 +55,11 @@ gneiss::engine::result property_inspector_model::refresh(gneiss::engine::world* 
         gneiss::engine::value value;
         operation = gneiss::engine::read_component_property(registry_, *world_handle, entity.get(),
                                                             type.guid, field.id, value);
-        if (operation == gneiss::engine::result::not_found) {
+        if (operation == gneiss::engine::error::not_found) {
           component_missing = true;
           break;
         }
-        if (operation != gneiss::engine::result::success) {
+        if (operation != gneiss::engine::error::success) {
           clear();
           return operation;
         }
@@ -78,40 +78,40 @@ gneiss::engine::result property_inspector_model::refresh(gneiss::engine::world* 
     components_ = std::move(pending);
     world_ = world_handle;
     entity_ = entity;
-    return gneiss::engine::result::success;
+    return gneiss::engine::error::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return gneiss::engine::error::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return gneiss::engine::error::internal;
   }
 }
 
-gneiss::engine::result
+gneiss::engine::error
 property_inspector_model::set_value(gneiss::engine::guid type_id,
                                     gneiss::engine::meta::property_id field_id,
                                     const gneiss::engine::value& value) noexcept {
   if (!registry_ || world_ == nullptr || entity_.get() == UINT64_C(0)) {
-    return gneiss::engine::result::invalid_state;
+    return gneiss::engine::error::invalid_state;
   }
   auto component = std::ranges::find_if(
       components_, [type_id](const auto& candidate) { return candidate.type_id == type_id; });
   if (component == components_.end()) {
-    return gneiss::engine::result::not_found;
+    return gneiss::engine::error::not_found;
   }
   auto property = std::ranges::find(component->properties, field_id, &inspector_property::id);
   if (property == component->properties.end()) {
-    return gneiss::engine::result::not_found;
+    return gneiss::engine::error::not_found;
   }
   if (!has_flags(property->capabilities, gneiss::engine::meta::property_capabilities::writable)) {
-    return gneiss::engine::result::unsupported;
+    return gneiss::engine::error::unsupported;
   }
   const auto operation = gneiss::engine::write_component_property(registry_, *world_, entity_.get(),
                                                                   type_id, field_id, value);
-  if (operation == gneiss::engine::result::success) {
+  if (operation == gneiss::engine::error::success) {
     gneiss::engine::value refreshed;
     const auto read_operation = gneiss::engine::read_component_property(
         registry_, *world_, entity_.get(), type_id, field_id, refreshed);
-    if (read_operation != gneiss::engine::result::success) {
+    if (read_operation != gneiss::engine::error::success) {
       return read_operation;
     }
     property->value = std::move(refreshed);
@@ -119,15 +119,15 @@ property_inspector_model::set_value(gneiss::engine::guid type_id,
   return operation;
 }
 
-gneiss::engine::result property_inspector_model::set_value(
+gneiss::engine::error property_inspector_model::set_value(
     gneiss::engine::world* world_handle, entity_id entity, gneiss::engine::guid type_id,
     gneiss::engine::meta::property_id field_id, const gneiss::engine::value& value) noexcept {
   if (!registry_ || world_handle == nullptr || !entity.is_valid()) {
-    return gneiss::engine::result::invalid_argument;
+    return gneiss::engine::error::invalid_argument;
   }
   const auto operation = gneiss::engine::write_component_property(
       registry_, *world_handle, entity.get(), type_id, field_id, value);
-  if (operation != gneiss::engine::result::success || world_handle != world_ ||
+  if (operation != gneiss::engine::error::success || world_handle != world_ ||
       entity.get() != entity_.get()) {
     return operation;
   }

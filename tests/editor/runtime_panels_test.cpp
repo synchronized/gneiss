@@ -57,14 +57,14 @@ int main() try {
           [](void* context, const runtime_property_key&, std::uint64_t,
              [[maybe_unused]] runtime_property_value value) {
             ++static_cast<observations*>(context)->mutations;
-            return gneiss::engine::result::success;
+            return gneiss::engine::error::success;
           },
       .apply_to_author =
           [](void* context, const runtime_scene_node&) {
             ++static_cast<observations*>(context)->mutations;
           },
       .report_result =
-          [](void* context, gneiss::engine::result) {
+          [](void* context, gneiss::engine::error) {
             ++static_cast<observations*>(context)->mutations;
           }};
   ImGui::CreateContext();

@@ -14,14 +14,14 @@ inline engine::task_scheduler& application_tasks() {
   static engine::task_scheduler tasks({.workers = 1U});
   return tasks;
 }
-inline engine::result prepare_scene(runtime::application& app, std::string_view uri,
-                                    engine::prepared_scene_description& prepared,
-                                    engine::scene_instances::asset_bindings& bindings,
-                                    engine::task_scheduler* tasks = nullptr, bool prefab = false) {
+inline engine::error prepare_scene(runtime::application& app, std::string_view uri,
+                                   engine::prepared_scene_description& prepared,
+                                   engine::scene_instances::asset_bindings& bindings,
+                                   engine::task_scheduler* tasks = nullptr, bool prefab = false) {
   if (!tasks)
     tasks = &application_tasks();
   const auto attached = app.attach_task_executor(*tasks);
-  if (attached.failed() && attached != engine::result::invalid_state)
+  if (attached.failed() && attached != engine::error::invalid_state)
     return attached;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
   const auto step = [&] {
@@ -36,9 +36,9 @@ inline engine::result prepare_scene(runtime::application& app, std::string_view 
   engine::scene_diagnostic diagnostic;
   for (;;) {
     if (!step())
-      return engine::result::internal;
+      return engine::error::internal;
     const auto status = request.advance(inputs, diagnostic);
-    if (status == engine::result::not_ready)
+    if (status == engine::error::not_ready)
       continue;
     if (status.failed())
       return status;
@@ -58,7 +58,7 @@ inline engine::result prepare_scene(runtime::application& app, std::string_view 
     bool ready{};
     while (!ready) {
       if (!step())
-        return engine::result::internal;
+        return engine::error::internal;
       status = app.poll_assets(completion, ready);
       if (status.failed())
         return status;
@@ -70,13 +70,13 @@ inline engine::result prepare_scene(runtime::application& app, std::string_view 
       bindings.insert_or_assign(key, std::move(asset));
     }
   }
-  return engine::result::success;
+  return engine::error::success;
 }
-inline engine::result load_scene(runtime::application& app, std::string_view uri,
-                                 scene_instance_id* output,
-                                 engine::task_scheduler* tasks = nullptr) {
+inline engine::error load_scene(runtime::application& app, std::string_view uri,
+                                scene_instance_id* output,
+                                engine::task_scheduler* tasks = nullptr) {
   if (!output)
-    return engine::result::invalid_argument;
+    return engine::error::invalid_argument;
   *output = {};
   engine::prepared_scene_description prepared;
   engine::scene_instances::asset_bindings bindings;

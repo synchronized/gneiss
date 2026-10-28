@@ -4,8 +4,8 @@
 #ifndef GNEISS_SCENE_SCENE_TREE_HPP_
 #define GNEISS_SCENE_SCENE_TREE_HPP_
 
+#include "engine/core/error.hpp"
 #include "engine/core/math/transform.hpp"
-#include "engine/core/result.hpp"
 #include "engine/core/scene_types.hpp"
 
 #include <cstdint>
@@ -18,18 +18,18 @@ class scene_tree final {
 public:
   explicit scene_tree(std::uint32_t domain) noexcept : domain_(domain) {}
 
-  [[nodiscard]] result create(scene_node_id parent, std::uint64_t entity,
-                              scene_node_id* out_node) noexcept;
-  [[nodiscard]] result destroy(scene_node_id node) noexcept;
-  [[nodiscard]] result reparent(scene_node_id node, scene_node_id parent) noexcept;
-  [[nodiscard]] result set_local(scene_node_id node, const math::transform& transform) noexcept;
+  [[nodiscard]] error create(scene_node_id parent, std::uint64_t entity,
+                             scene_node_id* out_node) noexcept;
+  [[nodiscard]] error destroy(scene_node_id node) noexcept;
+  [[nodiscard]] error reparent(scene_node_id node, scene_node_id parent) noexcept;
+  [[nodiscard]] error set_local(scene_node_id node, const math::transform& transform) noexcept;
   [[nodiscard]] const math::transform* get_local(scene_node_id node) const noexcept;
-  [[nodiscard]] result get_world(scene_node_id node, math::transform* out_transform) const noexcept;
-  [[nodiscard]] result get_world_for_entity(std::uint64_t entity,
-                                            math::transform* out_transform) const noexcept;
+  [[nodiscard]] error get_world(scene_node_id node, math::transform* out_transform) const noexcept;
+  [[nodiscard]] error get_world_for_entity(std::uint64_t entity,
+                                           math::transform* out_transform) const noexcept;
   [[nodiscard]] const math::transform* get_local_for_entity(std::uint64_t entity) const noexcept;
-  [[nodiscard]] result set_local_for_entity(std::uint64_t entity,
-                                            const math::transform& transform) noexcept;
+  [[nodiscard]] error set_local_for_entity(std::uint64_t entity,
+                                           const math::transform& transform) noexcept;
   [[nodiscard]] std::uint64_t get_entity(scene_node_id node) const noexcept;
   [[nodiscard]] scene_node_id get_parent(scene_node_id node) const noexcept;
   void detach_entity(std::uint64_t entity) noexcept;

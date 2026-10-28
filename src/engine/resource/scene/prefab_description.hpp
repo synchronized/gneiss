@@ -4,8 +4,8 @@
 #ifndef GNEISS_SCENE_PREFAB_DESCRIPTION_HPP_
 #define GNEISS_SCENE_PREFAB_DESCRIPTION_HPP_
 
+#include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
-#include "engine/core/result.hpp"
 #include "engine/resource/asset_ref.hpp"
 #include "engine/resource/scene/prefab_property_data.hpp"
 #include "engine/resource/scene/scene_description.hpp"

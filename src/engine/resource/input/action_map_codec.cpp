@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "action_map_codec.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/meta/serialization.hpp"
-#include "engine/core/result.hpp"
 #include "engine/resource/input/action_map.hpp"
 
 #include <yyjson.h>
@@ -37,8 +37,8 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
 
 namespace gneiss::engine {
 
-result parse_action_map(std::string_view json, action_map& out_map,
-                        meta::serialization_diagnostic* diagnostic) noexcept {
+error parse_action_map(std::string_view json, action_map& out_map,
+                       meta::serialization_diagnostic* diagnostic) noexcept {
   try {
     if (diagnostic)
       *diagnostic = {};
@@ -46,7 +46,7 @@ result parse_action_map(std::string_view json, action_map& out_map,
     const auto reject = [&](std::string_view message, std::size_t offset = 0U) {
       if (diagnostic)
         *diagnostic = {offset, path, std::string(message)};
-      return result::invalid_argument;
+      return error::invalid_argument;
     };
     if (json.size() > maximum_action_map_bytes)
       return reject("输入映射超过 1 MiB 上限");
@@ -56,7 +56,7 @@ result parse_action_map(std::string_view json, action_map& out_map,
                           &yyjson_doc_free);
     if (document == nullptr) {
       if (error.code == YYJSON_READ_ERROR_MEMORY_ALLOCATION)
-        return result::out_of_memory;
+        return error::out_of_memory;
       return reject("输入映射 JSON 无效", error.pos);
     }
     yyjson_val* root = yyjson_doc_get_root(document.get());
@@ -125,21 +125,20 @@ result parse_action_map(std::string_view json, action_map& out_map,
     if (diagnostic)
       *diagnostic = {};
     out_map = std::move(candidate);
-    return result::success;
+    return error::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return error::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return error::internal;
   }
 }
 
 } // namespace gneiss::engine
 
 namespace gneiss::engine {
-result decode_action_map(std::span<const std::byte> bytes, action_map& output,
-                         meta::serialization_diagnostic& diagnostic) noexcept {
+error decode_action_map(std::span<const std::byte> bytes, action_map& output,
+                        meta::serialization_diagnostic& diagnostic) noexcept {
   return parse_action_map({reinterpret_cast<const char*>(bytes.data()), bytes.size()}, output,
                           &diagnostic);
 }
-
 }

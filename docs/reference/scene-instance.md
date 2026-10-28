@@ -58,7 +58,7 @@ JSON 可为对象增加可选字符串 `name`；旧场景无需迁移，名称�
 文本。查询输出使用原生 scene_node_view，不再提供版本化 C 布局。
 
 节点描述中的 UTF-8 文本通过 string_view 借用到下次场景修改或父对象失效；跨修改保存时
-必须复制字符串。索引越界返回 result::not_found，节点或实体失效返回句柄错误。
+必须复制字符串。索引越界返回 error::not_found，节点或实体失效返回句柄错误。
 
 
 Prefab 使用独立的原生枚举接口 `engine::scene_instances::get_prefab_node_count` 与

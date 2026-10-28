@@ -18,12 +18,13 @@ struct resource_service::implementation::pending_load {
   std::size_t dependency_cursor{};
   std::size_t limit{};
 };
-result resource_service::load(const asset_source& source, resource_request& output, bool reload,
-                              std::size_t limit) try {
+result<resource_request> resource_service::load(const asset_source& source, bool reload,
+                                                std::size_t limit) try {
+  resource_request output;
   if (!impl_ || !impl_->loading_configured || render_stopping_)
-    return result::invalid_state;
+    return error::invalid_state;
   if (limit == 0 || limit > maximum_prepared_bytes)
-    return result::invalid_argument;
+    return error::invalid_argument;
   render_asset_ref target;
   const auto reserved = reserve_asset(source, target);
   if (reserved.failed())
@@ -31,52 +32,58 @@ result resource_service::load(const asset_source& source, resource_request& outp
   // 同一身份只允许一个实际工作；重载不制造并行版本或抢占已有请求。
   for (const auto& pending : impl_->pending) {
     if (pending->state->target == target && pending->state.use_count() > 1 &&
-        pending->state->status == result::not_ready) {
+        pending->state->status == error::not_ready) {
       output.state_ = pending->state;
-      return result::success;
+      return output;
     }
   }
   auto state = std::make_shared<detail::resource_load_state>();
   state->target = target;
-  if (!reload && find(source, target, profile()).ok()) {
-    state->status = result::success;
+  if (!reload && find(source, profile()).ok()) {
+    state->status = error::success;
     output.state_ = std::move(state);
-    return result::success;
+    return output;
   }
   auto work = std::make_shared<implementation::pending_load>();
   work->state = state;
   work->limit = limit;
-  result status;
   switch (source.type) {
-  case asset_type::mesh:
-    status = assets_.load_mesh_data(source.uri, work->cpu.emplace<asset_data_request<mesh_data>>(),
-                                    limit);
+  case asset_type::mesh: {
+    auto loaded = assets_.load_mesh_data(source.uri, limit);
+    if (!loaded)
+      return loaded.error();
+    work->cpu = std::move(*loaded);
     break;
-  case asset_type::texture:
-    status = assets_.load_texture_data(
-        source.uri, profile(), work->cpu.emplace<asset_data_request<texture_data>>(), limit);
-    break;
-  case asset_type::material:
-    status =
-        assets_.load(source.uri, work->cpu.emplace<asset_request<material_description>>(), reload);
-    break;
-  default:
-    return result::invalid_argument;
   }
-  if (status.failed())
-    return status;
+  case asset_type::texture: {
+    auto loaded = assets_.load_texture_data(source.uri, profile(), limit);
+    if (!loaded)
+      return loaded.error();
+    work->cpu = std::move(*loaded);
+    break;
+  }
+  case asset_type::material: {
+    auto loaded = assets_.load<material_description>(source.uri, reload);
+    if (!loaded)
+      return loaded.error();
+    work->cpu = std::move(*loaded);
+    break;
+  }
+  default:
+    return error::invalid_argument;
+  }
   impl_->pending.push_back(std::move(work));
   output.state_ = std::move(state);
-  return result::success;
+  return output;
 } catch (const std::bad_alloc&) {
-  return result::out_of_memory;
+  return error::out_of_memory;
 } catch (...) {
-  return result::internal;
+  return error::internal;
 }
 
 void resource_service::implementation::stop_loading() noexcept {
   for (auto& work : pending)
-    work->state->status = result::invalid_state;
+    work->state->status = error::invalid_state;
   pending.clear();
 }
 void resource_service::implementation::advance(resource_service& service) {
@@ -85,13 +92,13 @@ void resource_service::implementation::advance(resource_service& service) {
   for (std::size_t i = 0; i < count; ++i) {
     auto work = pending[i];
     auto& state = *work->state;
-    if (work->state.use_count() == 1 || state.status != result::not_ready)
+    if (work->state.use_count() == 1 || state.status != error::not_ready)
       continue;
     try {
       if (!work->description) {
         meta::serialization_diagnostic diagnostic;
         const auto status = std::visit(
-            [&](auto& request) -> result {
+            [&](auto& request) -> error {
               using T = std::decay_t<decltype(request)>;
               if constexpr (std::is_same_v<T, asset_data_request<mesh_data>>) {
                 mesh_data data;
@@ -114,19 +121,19 @@ void resource_service::implementation::advance(resource_service& service) {
                   return status;
                 auto bytes = sizeof(material_data);
                 if (bytes > work->limit)
-                  return result::out_of_memory;
+                  return error::out_of_memory;
                 for (const auto& uri : description->texture_uris) {
                   if (uri.size() > work->limit - bytes)
-                    return result::out_of_memory;
+                    return error::out_of_memory;
                   bytes += uri.size();
                 }
                 state.metrics.bytes = bytes;
                 work->description = std::move(description);
-                return result::success;
+                return error::success;
               }
             },
             work->cpu);
-        if (status == result::not_ready)
+        if (status == error::not_ready)
           continue;
         if (status.failed()) {
           state.status = status;
@@ -136,7 +143,7 @@ void resource_service::implementation::advance(resource_service& service) {
           continue;
         }
         if (!work->description) {
-          state.status = result::success;
+          state.status = error::success;
           continue;
         }
       }
@@ -150,14 +157,15 @@ void resource_service::implementation::advance(resource_service& service) {
           }
           auto& dependency = work->dependencies[work->dependency_cursor];
           if (!dependency) {
-            const auto status = service.load<texture_resource>(uri, dependency);
-            if (status.failed()) {
-              state.status = status;
+            auto loaded = service.load<texture_resource>(uri);
+            if (!loaded) {
+              state.status = loaded.error();
               break;
             }
+            dependency = std::move(*loaded);
           }
           const auto status = dependency.status();
-          if (status == result::not_ready)
+          if (status == error::not_ready)
             break;
           if (status.failed()) {
             state.status = status;
@@ -166,7 +174,7 @@ void resource_service::implementation::advance(resource_service& service) {
           }
           ++work->dependency_cursor;
         }
-        if (state.status.failed() && state.status != result::not_ready)
+        if (state.status.failed() && state.status != error::not_ready)
           continue;
         if (work->dependency_cursor < work->description->texture_uris.size())
           continue;
@@ -177,17 +185,17 @@ void resource_service::implementation::advance(resource_service& service) {
       state.status = adopt(service, *work->description, asset_cast<material_resource>(state.target),
                            std::move(dependencies));
     } catch (const std::bad_alloc&) {
-      state.status = result::out_of_memory;
+      state.status = error::out_of_memory;
     } catch (...) {
-      state.status = result::internal;
+      state.status = error::internal;
     }
   }
   if (notification && std::ranges::any_of(pending, [](const auto& work) {
-        return work->state->status != result::not_ready;
+        return work->state->status != error::not_ready;
       }))
     notification->notify();
   std::erase_if(pending, [](const auto& work) {
-    return work->state.use_count() == 1 || work->state->status != result::not_ready;
+    return work->state.use_count() == 1 || work->state->status != error::not_ready;
   });
 }
 }

@@ -64,7 +64,7 @@ clang-format -i <files...>
 | C++ 命名空间 | 小写 | `gneiss` |
 | C++ 类型 | 小写下划线 | `render_service` |
 | 函数和变量 | 小写下划线 | `create_entity`、`entity_count` |
-| 枚举值 | C 使用大写前缀；C++ 使用小写 | `GNEISS_RESULT_OK`、`result::ok` |
+| 枚举值 | C 使用大写前缀；C++ 使用小写 | `GNEISS_RESULT_OK`、`error::ok` |
 | 私有数据成员 | 小写下划线并带末尾下划线 | `world_id_` |
 | 模板参数 | 描述性 PascalCase | `ResourceType` |
 

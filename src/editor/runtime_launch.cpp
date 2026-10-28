@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_launch.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 namespace gneiss::editor {
 

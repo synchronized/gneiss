@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 namespace gneiss::editor {
 enum class document_action { none, new_scene, open_scene, exit_editor };
@@ -16,7 +16,7 @@ public:
   void defer(document_action action) noexcept;
   [[nodiscard]] bool pending() const noexcept { return pending_ != document_action::none; }
   /** 保存失败或尚未完成时保留请求；成功后仅返回一次动作。 */
-  [[nodiscard]] document_action saved(gneiss::engine::result operation) noexcept;
+  [[nodiscard]] document_action saved(gneiss::engine::error operation) noexcept;
   [[nodiscard]] document_action discard() noexcept;
   void cancel() noexcept;
 

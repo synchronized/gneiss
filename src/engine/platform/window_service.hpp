@@ -6,8 +6,8 @@
 
 #include "engine/platform/native_window_info.hpp"
 
+#include "engine/core/error.hpp"
 #include "engine/core/input/input_types.hpp"
-#include "engine/core/result.hpp"
 #include "engine/platform/window_configuration.hpp"
 
 #include <memory>
@@ -24,11 +24,11 @@ public:
   window_service& operator=(const window_service&) = delete;
   window_service(window_service&&) = delete;
   window_service& operator=(window_service&&) = delete;
-  [[nodiscard]] result initialize(const window_configuration& config) noexcept;
-  [[nodiscard]] result poll(bool& out_should_close, bool& out_focus_lost) noexcept;
-  [[nodiscard]] result poll_input(input_event& out_event) noexcept;
-  [[nodiscard]] result keyboard(keyboard_state& out_state) const noexcept;
-  [[nodiscard]] result pointer(pointer_state& out_state) const noexcept;
+  [[nodiscard]] error initialize(const window_configuration& config) noexcept;
+  [[nodiscard]] error poll(bool& out_should_close, bool& out_focus_lost) noexcept;
+  [[nodiscard]] error poll_input(input_event& out_event) noexcept;
+  [[nodiscard]] error keyboard(keyboard_state& out_state) const noexcept;
+  [[nodiscard]] error pointer(pointer_state& out_state) const noexcept;
   [[nodiscard]] const native_window_info& native_window() const noexcept;
   [[nodiscard]] native_window_info& native_window() noexcept;
 

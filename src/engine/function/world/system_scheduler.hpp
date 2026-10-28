@@ -6,7 +6,7 @@
 
 #include "engine/function/world/world_state.hpp"
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <cstdint>
 #include <vector>
@@ -14,14 +14,13 @@
 namespace gneiss::engine {
 
 using system_id = std::uint32_t;
-using system_callback = engine::result (*)(world_state& world, void* user_data) noexcept;
+using system_callback = engine::error (*)(world_state& world, void* user_data) noexcept;
 
 /** 按注册顺序串行执行 System；调用方负责外部同步。 */
 class system_scheduler final {
 public:
-  [[nodiscard]] engine::result add(system_id id, system_callback callback,
-                                   void* user_data) noexcept;
-  [[nodiscard]] engine::result run(world_state& world) noexcept;
+  [[nodiscard]] engine::error add(system_id id, system_callback callback, void* user_data) noexcept;
+  [[nodiscard]] engine::error run(world_state& world) noexcept;
   [[nodiscard]] std::size_t size() const noexcept { return systems_.size(); }
 
 private:

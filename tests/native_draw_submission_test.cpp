@@ -5,6 +5,7 @@
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/resource/texture/texture_view.hpp"
 #include "runtime/application.hpp"
+#include "support/value_result.hpp"
 
 #include <array>
 #include <memory>
@@ -16,7 +17,7 @@ struct draw_context {
   unsigned failure = 0;
 };
 
-gneiss::engine::result update(gneiss::runtime::application& app, draw_context& context) noexcept {
+gneiss::engine::error update(gneiss::runtime::application& app, draw_context& context) noexcept {
   ++context.updates;
   const auto submit_ui = [&](const gneiss::engine::ui_draw_view& value) {
     return app.submit_ui_draw_list(value);
@@ -48,17 +49,17 @@ gneiss::engine::result update(gneiss::runtime::application& app, draw_context& c
   };
   if (submit_ui(ui).failed()) {
     context.failure = 1;
-    return gneiss::engine::result::internal;
+    return gneiss::engine::error::internal;
   }
   indices[2] = 9;
-  if (submit_ui(ui) != gneiss::engine::result::invalid_argument) {
+  if (submit_ui(ui) != gneiss::engine::error::invalid_argument) {
     context.failure = 2;
-    return gneiss::engine::result::internal;
+    return gneiss::engine::error::internal;
   }
   indices[2] = 2;
   if (submit_ui(ui).failed()) {
     context.failure = 3;
-    return gneiss::engine::result::internal;
+    return gneiss::engine::error::internal;
   }
   std::array lines{
       gneiss::engine::debug_line{
@@ -72,15 +73,14 @@ gneiss::engine::result update(gneiss::runtime::application& app, draw_context& c
 
   if (submit_debug(lines).failed()) {
     context.failure = 4;
-    return gneiss::engine::result::internal;
+    return gneiss::engine::error::internal;
   }
   lines[0].width = -1;
-  if (submit_debug(lines) != gneiss::engine::result::invalid_argument ||
-      submit_debug({}).failed()) {
+  if (submit_debug(lines) != gneiss::engine::error::invalid_argument || submit_debug({}).failed()) {
     context.failure = 5;
-    return gneiss::engine::result::internal;
+    return gneiss::engine::error::internal;
   }
-  return gneiss::engine::result::success;
+  return gneiss::engine::error::success;
 }
 } // namespace
 
@@ -97,11 +97,12 @@ int main() {
   const std::array<std::uint8_t, 4> pixels{255, 255, 255, 255};
   const gneiss::engine::texture_view texture{
       .width = 1, .height = 1, .row_stride_bytes = 4, .pixels = pixels};
-  if (app->resources().create_texture(texture, context.texture).failed()) {
+  if (gneiss::test_support::take_value(app->resources().create_texture(texture), context.texture)
+          .failed()) {
     return 2;
   }
-  if (app->submit_debug_draw_list({}) != gneiss::engine::result::invalid_state ||
-      app->submit_ui_draw_list({}) != gneiss::engine::result::invalid_state) {
+  if (app->submit_debug_draw_list({}) != gneiss::engine::error::invalid_state ||
+      app->submit_ui_draw_list({}) != gneiss::engine::error::invalid_state) {
     return 3;
   }
   const auto status = app->run(2);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "ipc_session_protocol.hpp"
 
 #include <array>
@@ -17,12 +17,11 @@ namespace {
                   {.domain = gneiss::engine::ipc_domain::property, .version = 1U}}};
   gneiss::engine::ipc_envelope envelope;
   if (gneiss::host::encode_ipc_session_hello(request, false, 7U, envelope) !=
-      gneiss::engine::result::success) {
+      gneiss::engine::error::success) {
     return false;
   }
   gneiss::host::ipc_session_hello decoded;
-  if (gneiss::host::decode_ipc_session_hello(envelope, decoded) !=
-          gneiss::engine::result::success ||
+  if (gneiss::host::decode_ipc_session_hello(envelope, decoded) != gneiss::engine::error::success ||
       decoded.token != request.token || decoded.domains.size() != 2U) {
     return false;
   }
@@ -32,15 +31,15 @@ namespace {
                                      .domain = gneiss::engine::ipc_domain::log, .version = 1U}};
   gneiss::host::ipc_session_hello acknowledgment;
   if (gneiss::host::negotiate_ipc_session_hello(decoded, "secret", supported, acknowledgment) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       acknowledgment.domains.size() != 1U || acknowledgment.domains[0].version != 1U ||
       gneiss::host::encode_ipc_session_hello(acknowledgment, true, envelope.request_id, envelope) !=
-          gneiss::engine::result::success) {
+          gneiss::engine::error::success) {
     return false;
   }
   gneiss::host::ipc_session_hello accepted;
   return gneiss::host::decode_ipc_session_hello(envelope, accepted) ==
-             gneiss::engine::result::success &&
+             gneiss::engine::error::success &&
          accepted.token.empty() && accepted.domains == acknowledgment.domains;
 }
 
@@ -48,34 +47,34 @@ namespace {
   gneiss::engine::ipc_envelope envelope;
   const gneiss::host::ipc_session_heartbeat heartbeat{.nonce = 42U};
   if (gneiss::host::encode_ipc_session_heartbeat(heartbeat, false, 8U, envelope) !=
-      gneiss::engine::result::success) {
+      gneiss::engine::error::success) {
     return false;
   }
   gneiss::host::ipc_session_heartbeat decoded_heartbeat;
   if (gneiss::host::decode_ipc_session_heartbeat(envelope, decoded_heartbeat) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       decoded_heartbeat.nonce != heartbeat.nonce) {
     return false;
   }
   const gneiss::host::ipc_session_error error{.code = -8, .message = "状态错误"};
   if (gneiss::host::encode_ipc_session_error(error, 8U, envelope) !=
-      gneiss::engine::result::success) {
+      gneiss::engine::error::success) {
     return false;
   }
   gneiss::host::ipc_session_error decoded_error;
   if (gneiss::host::decode_ipc_session_error(envelope, decoded_error) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       decoded_error.code != error.code || decoded_error.message != error.message) {
     return false;
   }
   const gneiss::host::ipc_session_shutdown shutdown{.exit_code = 3};
   if (gneiss::host::encode_ipc_session_shutdown(shutdown, envelope) !=
-      gneiss::engine::result::success) {
+      gneiss::engine::error::success) {
     return false;
   }
   gneiss::host::ipc_session_shutdown decoded_shutdown;
   return gneiss::host::decode_ipc_session_shutdown(envelope, decoded_shutdown) ==
-             gneiss::engine::result::success &&
+             gneiss::engine::error::success &&
          decoded_shutdown.exit_code == shutdown.exit_code;
 }
 
@@ -87,17 +86,17 @@ namespace {
   constexpr std::array supported{gneiss::engine::ipc_domain_capability{
       .domain = gneiss::engine::ipc_domain::control, .version = 1U}};
   if (gneiss::host::negotiate_ipc_session_hello(request, "wrong", supported, output) !=
-      gneiss::engine::result::invalid_argument) {
+      gneiss::engine::error::invalid_argument) {
     return false;
   }
   request.domains.push_back(request.domains.front());
   if (gneiss::host::negotiate_ipc_session_hello(request, "secret", supported, output) !=
-      gneiss::engine::result::invalid_argument) {
+      gneiss::engine::error::invalid_argument) {
     return false;
   }
   gneiss::engine::ipc_envelope envelope;
   return gneiss::host::encode_ipc_session_hello(request, false, 0U, envelope) ==
-         gneiss::engine::result::invalid_argument;
+         gneiss::engine::error::invalid_argument;
 }
 
 [[nodiscard]] bool test_direction_rules() {

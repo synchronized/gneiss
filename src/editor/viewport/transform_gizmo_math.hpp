@@ -4,8 +4,8 @@
 #ifndef GNEISS_APPS_EDITOR_TRANSFORM_GIZMO_MATH_H_
 #define GNEISS_APPS_EDITOR_TRANSFORM_GIZMO_MATH_H_
 
+#include "engine/core/error.hpp"
 #include "engine/core/math/transform.hpp"
-#include "engine/core/result.hpp"
 
 #include <array>
 
@@ -20,12 +20,12 @@ using gizmo_matrix = std::array<float, 16>;
 build_gizmo_view_matrix(const gneiss::engine::math::transform& camera) noexcept;
 
 /** 按 column-major 布局把正缩放 TRS 转换为 Gizmo 模型矩阵。 */
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 transform_to_gizmo_matrix(const gneiss::engine::math::transform& value,
                           gizmo_matrix& output) noexcept;
 
 /** 从无剪切、正缩放的 Gizmo 模型矩阵恢复 TRS。 */
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 gizmo_matrix_to_transform(const gizmo_matrix& value,
                           gneiss::engine::math::transform& output) noexcept;
 
@@ -34,7 +34,7 @@ gizmo_matrix_to_transform(const gizmo_matrix& value,
  *
  * parent_world 为空表示根节点。负缩放因矩阵 Gizmo 分解存在符号歧义而返回 unsupported。
  */
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 world_to_local_transform(const gneiss::engine::math::transform* parent_world,
                          const gneiss::engine::math::transform& target_world,
                          gneiss::engine::math::transform& output) noexcept;

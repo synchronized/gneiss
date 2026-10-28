@@ -12,12 +12,12 @@ struct scene_document_snapshot {
   engine::prepared_scene_description description;
   engine::scene_instances::asset_bindings assets;
 };
-[[nodiscard]] engine::result capture_scene_document(runtime::application&, const scene_document&,
-                                                    scene_document_snapshot&) noexcept;
+[[nodiscard]] engine::error capture_scene_document(runtime::application&, const scene_document&,
+                                                   scene_document_snapshot&) noexcept;
 /** 仅应用内存中的作者文档变更；依赖必须来自原快照，新增外部资源须先异步加载。 */
-[[nodiscard]] engine::result prepare_scene_document(const scene_document_snapshot&,
-                                                    std::span<const author_document_change>,
-                                                    scene_document_snapshot&) noexcept;
-[[nodiscard]] engine::result restore_scene_document(runtime::application&, scene_document&,
-                                                    const scene_document_snapshot&) noexcept;
+[[nodiscard]] engine::error prepare_scene_document(const scene_document_snapshot&,
+                                                   std::span<const author_document_change>,
+                                                   scene_document_snapshot&) noexcept;
+[[nodiscard]] engine::error restore_scene_document(runtime::application&, scene_document&,
+                                                   const scene_document_snapshot&) noexcept;
 }

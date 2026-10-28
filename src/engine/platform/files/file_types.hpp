@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -59,10 +59,10 @@ struct directory_page {
   std::string next_cursor;
 };
 template <class T> struct completion {
-  result status;
+  error status;
   T data{}; // 失败时为空，不提供部分结果。
 };
 template <class T> using callback = std::function<void(completion<T>)>;
-using completion_callback = std::function<void(result)>;
+using completion_callback = std::function<void(error)>;
 
 } // namespace gneiss::engine::files

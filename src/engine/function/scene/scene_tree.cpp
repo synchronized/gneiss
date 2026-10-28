@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/scene/scene_tree.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/scene_types.hpp"
 
 #include "engine/core/math/transform.hpp"
@@ -50,22 +50,22 @@ const scene_tree::slot* scene_tree::find(scene_node_id id) const noexcept {
   return &slots_[index];
 }
 
-engine::result scene_tree::create(scene_node_id parent, std::uint64_t entity,
-                                  scene_node_id* out_node) noexcept {
+engine::error scene_tree::create(scene_node_id parent, std::uint64_t entity,
+                                 scene_node_id* out_node) noexcept {
   if (out_node == nullptr) {
-    return engine::result::invalid_argument;
+    return engine::error::invalid_argument;
   }
   *out_node = null_scene_node_id;
   if (parent != null_scene_node_id) {
     const auto* value = find(parent);
     if (value == nullptr) {
-      return engine::result::invalid_handle;
+      return engine::error::invalid_handle;
     }
   }
   if (entity != UINT64_C(0) && std::ranges::any_of(slots_, [entity](const slot& candidate) {
         return candidate.value && candidate.value->entity == entity;
       })) {
-    return engine::result::invalid_state;
+    return engine::error::invalid_state;
   }
   *out_node = null_scene_node_id;
   try {
@@ -78,7 +78,7 @@ engine::result scene_tree::create(scene_node_id parent, std::uint64_t entity,
       ++index;
     }
     if (index >= std::numeric_limits<std::uint16_t>::max()) {
-      return engine::result::out_of_memory;
+      return engine::error::out_of_memory;
     }
     if (index == slots_.size()) {
       slots_.emplace_back();
@@ -92,11 +92,11 @@ engine::result scene_tree::create(scene_node_id parent, std::uint64_t entity,
       find(parent)->value->children.push_back(id);
     }
     *out_node = id;
-    return engine::result::success;
+    return engine::error::success;
   } catch (const std::bad_alloc&) {
-    return engine::result::out_of_memory;
+    return engine::error::out_of_memory;
   } catch (...) {
-    return engine::result::internal;
+    return engine::error::internal;
   }
 }
 
@@ -123,15 +123,15 @@ void scene_tree::destroy_subtree(scene_node_id id) noexcept {
   }
 }
 
-engine::result scene_tree::destroy(scene_node_id node_id) noexcept {
+engine::error scene_tree::destroy(scene_node_id node_id) noexcept {
   auto* target = find(node_id);
   if (target == nullptr) {
-    return engine::result::invalid_handle;
+    return engine::error::invalid_handle;
   }
 
   remove_child(target->value->parent, node_id);
   destroy_subtree(node_id);
-  return engine::result::success;
+  return engine::error::success;
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): 参数名称明确表达祖先与候选节点。
@@ -150,13 +150,13 @@ bool scene_tree::is_descendant(scene_node_id ancestor, scene_node_id candidate) 
   return false;
 }
 
-engine::result scene_tree::reparent(scene_node_id node_id, scene_node_id parent) noexcept {
+engine::error scene_tree::reparent(scene_node_id node_id, scene_node_id parent) noexcept {
   auto* target = find(node_id);
   if (target == nullptr || (parent != null_scene_node_id && find(parent) == nullptr)) {
-    return engine::result::invalid_handle;
+    return engine::error::invalid_handle;
   }
   if (node_id == parent || is_descendant(node_id, parent)) {
-    return engine::result::invalid_argument;
+    return engine::error::invalid_argument;
   }
   try {
     if (parent != null_scene_node_id) {
@@ -164,25 +164,25 @@ engine::result scene_tree::reparent(scene_node_id node_id, scene_node_id parent)
     }
     remove_child(target->value->parent, node_id);
     target->value->parent = parent;
-    return engine::result::success;
+    return engine::error::success;
   } catch (const std::bad_alloc&) {
-    return engine::result::out_of_memory;
+    return engine::error::out_of_memory;
   } catch (...) {
-    return engine::result::internal;
+    return engine::error::internal;
   }
 }
 
-engine::result scene_tree::set_local(scene_node_id node_id,
-                                     const math::transform& transform) noexcept {
+engine::error scene_tree::set_local(scene_node_id node_id,
+                                    const math::transform& transform) noexcept {
   auto* target = find(node_id);
   if (target == nullptr) {
-    return engine::result::invalid_handle;
+    return engine::error::invalid_handle;
   }
   if (!is_valid(transform)) {
-    return engine::result::invalid_argument;
+    return engine::error::invalid_argument;
   }
   target->value->local = transform;
-  return engine::result::success;
+  return engine::error::success;
 }
 
 const math::transform* scene_tree::get_local(scene_node_id node_id) const noexcept {
@@ -190,11 +190,11 @@ const math::transform* scene_tree::get_local(scene_node_id node_id) const noexce
   return target == nullptr ? nullptr : &target->value->local;
 }
 
-engine::result scene_tree::get_world(scene_node_id node_id,
-                                     math::transform* out_transform) const noexcept {
+engine::error scene_tree::get_world(scene_node_id node_id,
+                                    math::transform* out_transform) const noexcept {
   const auto* target = find(node_id);
   if (target == nullptr || out_transform == nullptr) {
-    return engine::result::invalid_handle;
+    return engine::error::invalid_handle;
   }
   auto result = target->value->local;
   auto parent = target->value->parent;
@@ -204,13 +204,13 @@ engine::result scene_tree::get_world(scene_node_id node_id,
     parent = parent_slot->value->parent;
   }
   *out_transform = result;
-  return engine::result::success;
+  return engine::error::success;
 }
 
-engine::result scene_tree::get_world_for_entity(std::uint64_t entity,
-                                                math::transform* out_transform) const noexcept {
+engine::error scene_tree::get_world_for_entity(std::uint64_t entity,
+                                               math::transform* out_transform) const noexcept {
   if (entity == UINT64_C(0) || out_transform == nullptr) {
-    return engine::result::invalid_argument;
+    return engine::error::invalid_argument;
   }
   for (std::size_t index = 0; index < slots_.size(); ++index) {
     const auto& candidate = slots_[index];
@@ -219,7 +219,7 @@ engine::result scene_tree::get_world_for_entity(std::uint64_t entity,
                        out_transform);
     }
   }
-  return engine::result::not_ready;
+  return engine::error::not_ready;
 }
 
 const math::transform* scene_tree::get_local_for_entity(std::uint64_t entity) const noexcept {
@@ -232,10 +232,10 @@ const math::transform* scene_tree::get_local_for_entity(std::uint64_t entity) co
   return found == slots_.end() ? nullptr : &found->value->local;
 }
 
-engine::result scene_tree::set_local_for_entity(std::uint64_t entity,
-                                                const math::transform& transform) noexcept {
+engine::error scene_tree::set_local_for_entity(std::uint64_t entity,
+                                               const math::transform& transform) noexcept {
   if (entity == UINT64_C(0)) {
-    return engine::result::invalid_argument;
+    return engine::error::invalid_argument;
   }
   for (std::size_t index = 0; index < slots_.size(); ++index) {
     const auto& candidate = slots_[index];
@@ -243,7 +243,7 @@ engine::result scene_tree::set_local_for_entity(std::uint64_t entity,
       return set_local(encode(static_cast<std::uint16_t>(index), candidate.generation), transform);
     }
   }
-  return engine::result::not_found;
+  return engine::error::not_found;
 }
 
 std::uint64_t scene_tree::get_entity(scene_node_id node_id) const noexcept {

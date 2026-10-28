@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/result.hpp"
 #include "engine/function/resource/asset_types.hpp"
 #include "engine/resource/asset_data_request.hpp"
 #include "engine/resource/material/material_description.hpp"
@@ -34,21 +35,18 @@ struct decoded_asset {
     return asset_type::invalid;
   }
 };
-/** 纯内存网格解码；失败保持输出，不读取文件或创建渲染资源。 */
-[[nodiscard]] result decode_mesh_asset(std::string_view uri, const std::vector<std::byte>& bytes,
-                                       decoded_asset& output, asset_diagnostic& diagnostic,
-                                       std::size_t maximum_bytes);
-/** 描述已解析，负载已读取；按 profile 选择纹理内容，失败保持输出。 */
-[[nodiscard]] result decode_texture_asset(std::string_view uri,
-                                          const texture_description& description,
-                                          const std::vector<std::byte>& payload,
-                                          decoded_asset& output, asset_diagnostic& diagnostic,
-                                          std::size_t maximum_bytes,
-                                          texture_prepare_profile profile);
+/** 纯内存网格解码；失败返回诊断，不读取文件或创建渲染资源。 */
+[[nodiscard]] result<decoded_asset, asset_diagnostic>
+decode_mesh_asset(std::string_view uri, const std::vector<std::byte>& bytes,
+                  std::size_t maximum_bytes);
+/** 描述已解析，负载已读取；按 profile 选择纹理内容，失败返回诊断。 */
+[[nodiscard]] result<decoded_asset, asset_diagnostic>
+decode_texture_asset(std::string_view uri, const texture_description& description,
+                     const std::vector<std::byte>& payload, std::size_t maximum_bytes,
+                     texture_prepare_profile profile);
 /** 采用已解码材质，校验预算并共享原引用，不再次解析或复制参数和依赖。 */
-[[nodiscard]] result adopt_material_asset(std::string_view uri,
-                                          asset_ref<const material_description> material,
-                                          decoded_asset& output, asset_diagnostic& diagnostic,
-                                          std::size_t maximum_bytes, std::size_t material_bytes);
+[[nodiscard]] result<decoded_asset, asset_diagnostic>
+adopt_material_asset(std::string_view uri, asset_ref<const material_description> material,
+                     std::size_t maximum_bytes, std::size_t material_bytes);
 
 } // namespace gneiss::engine

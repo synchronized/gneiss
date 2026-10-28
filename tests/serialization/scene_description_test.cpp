@@ -3,8 +3,8 @@
 
 #include "../support/async_asset.hpp"
 #include "../support/memory_file_fixture.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/meta/serialization.hpp"
-#include "engine/core/result.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
@@ -57,7 +57,7 @@ constexpr std::string_view prefab_scene = R"({
   return text;
 }
 
-[[nodiscard]] bool fails_with(std::string_view json, gneiss::engine::result expected,
+[[nodiscard]] bool fails_with(std::string_view json, gneiss::engine::error expected,
                               std::string_view path) {
   gneiss::engine::scene_description scene;
   gneiss::engine::scene_diagnostic diagnostic;
@@ -69,26 +69,26 @@ class memory_file_system final : public gneiss::test_support::memory_file_fixtur
 public:
   explicit memory_file_system(std::string content) : content_(std::move(content)) {}
 
-  [[nodiscard]] gneiss::engine::result
+  [[nodiscard]] gneiss::engine::error
   read(std::string_view path, std::vector<std::byte>& out_bytes) const noexcept override {
     if (path != "main.scene.json") {
-      return gneiss::engine::result::not_found;
+      return gneiss::engine::error::not_found;
     }
     try {
       out_bytes.resize(content_.size());
       for (std::size_t index = 0U; index < content_.size(); ++index) {
         out_bytes[index] = static_cast<std::byte>(content_[index]);
       }
-      return gneiss::engine::result::success;
+      return gneiss::engine::error::success;
     } catch (...) {
-      return gneiss::engine::result::out_of_memory;
+      return gneiss::engine::error::out_of_memory;
     }
   }
 
-  gneiss::engine::result read_bounded(std::string_view path, std::size_t limit,
-                                      std::vector<std::byte>& output) const noexcept override {
+  gneiss::engine::error read_bounded(std::string_view path, std::size_t limit,
+                                     std::vector<std::byte>& output) const noexcept override {
     if (content_.size() > limit)
-      return gneiss::engine::result::invalid_argument;
+      return gneiss::engine::error::invalid_argument;
     return read(path, output);
   }
 
@@ -128,7 +128,7 @@ int main() try {
       return 93;
     std::vector<std::byte> oversized(e::scene_description::maximum_source_bytes + 1U);
     if (gneiss::engine::meta::deserialize(registry, oversized, restored, detail) !=
-            e::result::invalid_argument ||
+            e::error::invalid_argument ||
         restored.author_json != saved)
       return 94;
   }
@@ -137,11 +137,11 @@ int main() try {
   gneiss::engine::scene_diagnostic diagnostic;
   std::string serialized;
   if (gneiss::engine::parse_scene_description(valid_scene, scene, diagnostic) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       scene.source_schema_version != 4U || scene.objects.size() != 2U || !scene.objects[0].camera ||
       !scene.objects[1].mesh_renderer ||
       gneiss::engine::serialize_scene_description(scene, serialized) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       serialized.find(R"("unknown":true)") == std::string::npos) {
     return 1;
   }
@@ -162,29 +162,28 @@ int main() try {
       replace_once(std::string(valid_scene), R"("scale":[1,1,1])", R"("scale":[1,0,1])");
   const auto invalid_rotation =
       replace_once(std::string(valid_scene), R"("rotation":[0,0,0,1])", R"("rotation":[0,0,0,2])");
-  if (!fails_with(future, gneiss::engine::result::unsupported, "/version") ||
-      !fails_with(old, gneiss::engine::result::invalid_argument, "/version") ||
-      !fails_with(duplicate, gneiss::engine::result::invalid_argument, "/objects/1/uuid") ||
-      !fails_with(missing_parent, gneiss::engine::result::invalid_argument, "/objects/1/parent") ||
-      !fails_with(cycle, gneiss::engine::result::invalid_argument, "/objects/0/parent") ||
-      !fails_with(invalid_uri, gneiss::engine::result::invalid_argument,
+  if (!fails_with(future, gneiss::engine::error::unsupported, "/version") ||
+      !fails_with(old, gneiss::engine::error::invalid_argument, "/version") ||
+      !fails_with(duplicate, gneiss::engine::error::invalid_argument, "/objects/1/uuid") ||
+      !fails_with(missing_parent, gneiss::engine::error::invalid_argument, "/objects/1/parent") ||
+      !fails_with(cycle, gneiss::engine::error::invalid_argument, "/objects/0/parent") ||
+      !fails_with(invalid_uri, gneiss::engine::error::invalid_argument,
                   "/objects/1/components/mesh_renderer") ||
-      !fails_with(invalid_scale, gneiss::engine::result::invalid_argument,
-                  "/objects/0/transform") ||
-      !fails_with(invalid_rotation, gneiss::engine::result::invalid_argument,
+      !fails_with(invalid_scale, gneiss::engine::error::invalid_argument, "/objects/0/transform") ||
+      !fails_with(invalid_rotation, gneiss::engine::error::invalid_argument,
                   "/objects/0/transform")) {
     return 2;
   }
 
   if (gneiss::engine::parse_scene_description(prefab_scene, scene, diagnostic) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       scene.prefab_instances.size() != 1U || scene.prefab_instances[0].overrides.size() != 1U ||
       scene.prefab_instances[0].overrides[0].key.node.instance_uuid !=
           scene.prefab_instances[0].instance_uuid ||
       std::get<gneiss::engine::math::vector3>(
           scene.prefab_instances[0].overrides[0].value.payload)[0] != 4.0F ||
       gneiss::engine::serialize_scene_description(scene, serialized) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       serialized.find(R"("kind":"vec3")") == std::string::npos ||
       serialized.find(R"("unknown":true)") == std::string::npos) {
     return 3;
@@ -197,11 +196,11 @@ int main() try {
                                      "69644F20b2d24e488c7491f4f952ec2d");
   const auto bad_value =
       replace_once(std::string(prefab_scene), R"("value":[4,5,6])", R"("value":[4,5])");
-  if (!fails_with(duplicate_override, gneiss::engine::result::invalid_argument,
+  if (!fails_with(duplicate_override, gneiss::engine::error::invalid_argument,
                   "/prefab_instances/0/overrides") ||
-      !fails_with(bad_type, gneiss::engine::result::invalid_argument,
+      !fails_with(bad_type, gneiss::engine::error::invalid_argument,
                   "/prefab_instances/0/overrides/0/type_id") ||
-      !fails_with(bad_value, gneiss::engine::result::invalid_argument,
+      !fails_with(bad_value, gneiss::engine::error::invalid_argument,
                   "/prefab_instances/0/overrides/0/value")) {
     return 4;
   }
@@ -220,9 +219,9 @@ int main() try {
     const auto candidate =
         replace_once(std::string(prefab_scene), R"("kind":"vec3","value":[4,5,6])", value);
     if (gneiss::engine::parse_scene_description(candidate, scene, diagnostic) !=
-            gneiss::engine::result::success ||
+            gneiss::engine::error::success ||
         gneiss::engine::serialize_scene_description(scene, serialized) !=
-            gneiss::engine::result::success) {
+            gneiss::engine::error::success) {
       return 5;
     }
     gneiss::engine::scene_description roundtrip;
@@ -240,14 +239,14 @@ int main() try {
 
   gneiss::test_support::fixture_files file_system;
   if (file_system.mount("asset://scenes/", std::make_shared<memory_file_system>(std::string(
-                                               valid_scene))) != gneiss::engine::result::success)
+                                               valid_scene))) != gneiss::engine::error::success)
     return 6;
   gneiss::engine::asset_manager assets(gneiss::test_support::test_files(file_system));
   gneiss::engine::asset_ref<const gneiss::engine::scene_description> loaded;
   if (gneiss::test_support::load_asset(assets, "asset://scenes/main.scene.json", loaded).failed() ||
       !loaded)
     return 6;
-  return fails_with("{\"format\":", gneiss::engine::result::invalid_argument, "") ? 0 : 7;
+  return fails_with("{\"format\":", gneiss::engine::error::invalid_argument, "") ? 0 : 7;
 } catch (...) {
   return 99;
 }

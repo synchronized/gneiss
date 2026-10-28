@@ -24,7 +24,7 @@ void loop() {
   config.callbacks.now_ns = [&] { return clock += 10; };
   config.callbacks.poll_events = [&](bool& output) {
     output = close;
-    return engine::result::success;
+    return engine::error::success;
   };
   config.callbacks.close_requested = [&]() {
     ++closes;
@@ -40,13 +40,13 @@ void loop() {
     check(app->submit_debug_draw_list({}).ok());
     if (++updates == 3)
       app->request_exit();
-    return engine::result::success;
+    return engine::error::success;
   };
   check(runtime::application::create(config, app).ok());
   std::uint32_t width{}, height{};
   check(app->get_window_size(width, height).ok() && width == 1280 && height == 720);
   engine::input_event event;
-  check(app->poll_input(event) == engine::result::not_ready &&
+  check(app->poll_input(event) == engine::error::not_ready &&
         event.type == engine::event_type::none);
   check(app->keyboard_state().modifiers == 0 && app->keyboard_state().pressed_keys[0] == 0);
   check(app->pointer_state().buttons == 0 && !app->pointer_state().is_inside);
@@ -78,21 +78,21 @@ void action_maps() {
   check(app->find_action("move_horizontal", action).ok() && action.value != 0);
   check(app->get_action_state(action, state).ok() && !state.held && state.value == 0);
   check(gneiss::test_support::load_input_for_test(
-            *app, scheduler, "asset://input/missing.input-map.json") == engine::result::not_found);
+            *app, scheduler, "asset://input/missing.input-map.json") == engine::error::not_found);
   check(app->get_action_state(action, state).ok());
   check(gneiss::test_support::load_input_for_test(*app, scheduler, uri).ok());
-  check(app->get_action_state(action, state) == engine::result::invalid_handle);
+  check(app->get_action_state(action, state) == engine::error::invalid_handle);
   // 使用当前仍有效的动作验证跨 Application 拒绝，避免只验证旧代次。
   check(app->find_action("move_horizontal", action).ok());
   check(runtime::application::create(config, other).ok());
   check(gneiss::test_support::load_input_for_test(*other, scheduler, uri).ok());
-  check(other->get_action_state(action, state) == engine::result::invalid_handle);
+  check(other->get_action_state(action, state) == engine::error::invalid_handle);
 }
 void creation_failures() {
   runtime::application_configuration config;
   std::shared_ptr<runtime::application> app;
   unsigned diagnostics{};
-  engine::result reported;
+  engine::error reported;
   config.callbacks.diagnostic = [&](const engine::diagnostic_view& event) {
     check(!event.message.empty());
     ++diagnostics;
@@ -100,7 +100,7 @@ void creation_failures() {
   };
   config.enable_window = true;
   config.window.width = 0;
-  check(runtime::application::create(config, app) == engine::result::invalid_argument);
+  check(runtime::application::create(config, app) == engine::error::invalid_argument);
   // 配置校验在创建对象前返回结果，不经过运行期诊断回调。
   check(!app && diagnostics == 0);
   config.enable_window = false;
@@ -110,13 +110,13 @@ void creation_failures() {
   check(runtime::application::create(config, app).ok());
   engine::task_scheduler scheduler({.workers = 0, .mode = engine::execution_mode::cooperative});
   check(test_support::load_input_for_test(
-            *app, scheduler, "asset://input/missing.input-map.json") == engine::result::not_found);
+            *app, scheduler, "asset://input/missing.input-map.json") == engine::error::not_found);
   app.reset();
   config.asset_root = {};
-  config.callbacks.initialize = [] { return engine::result::not_found; };
+  config.callbacks.initialize = [] { return engine::error::not_found; };
   diagnostics = 0;
-  check(runtime::application::create(config, app) == engine::result::not_found);
-  check(!app && diagnostics == 1 && reported == engine::result::not_found);
+  check(runtime::application::create(config, app) == engine::error::not_found);
+  check(!app && diagnostics == 1 && reported == engine::error::not_found);
 }
 }
 int main() try {

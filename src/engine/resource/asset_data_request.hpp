@@ -37,10 +37,10 @@ public:
   asset_data_request& operator=(const asset_data_request&) = delete;
   explicit operator bool() const noexcept { return bool(state_); }
   void cancel() noexcept { state_.reset(); }
-  result take(T& output, meta::serialization_diagnostic* diagnostic = nullptr,
-              asset_data_metrics* metrics = nullptr) noexcept try {
+  error take(T& output, meta::serialization_diagnostic* diagnostic = nullptr,
+             asset_data_metrics* metrics = nullptr) noexcept try {
     if (!state_)
-      return result::invalid_state;
+      return error::invalid_state;
     auto state = state_;
     const std::scoped_lock lock(state->mutex);
     if (diagnostic)
@@ -48,16 +48,16 @@ public:
     if (state->status.failed())
       return state->status;
     if (!state->data)
-      return result::internal;
+      return error::internal;
     output = std::move(*state->data);
     if (metrics)
       *metrics = std::move(state->metrics);
     state_.reset();
-    return result::success;
+    return error::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return error::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return error::internal;
   }
 
 private:

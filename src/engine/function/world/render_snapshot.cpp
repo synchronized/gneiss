@@ -2,18 +2,18 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/world/render_snapshot.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include "engine/function/world/world_state.hpp"
 
 #include <new>
 
 namespace gneiss::engine {
-result build_render_snapshot(world_state& world, std::uint32_t viewport_width,
-                             std::uint32_t viewport_height, render_snapshot& out_snapshot,
-                             const view_camera* camera) noexcept {
+error build_render_snapshot(world_state& world, std::uint32_t viewport_width,
+                            std::uint32_t viewport_height, render_snapshot& out_snapshot,
+                            const view_camera* camera) noexcept {
   if (viewport_width == 0U || viewport_height == 0U) {
-    return result::invalid_argument;
+    return error::invalid_argument;
   }
   try {
     render_snapshot snapshot;
@@ -28,7 +28,7 @@ result build_render_snapshot(world_state& world, std::uint32_t viewport_width,
         selected.camera = {component->value.fov, component->value.near, component->value.far};
         math::transform transform;
         has_camera =
-            world.scene().get_world_for_entity(active_camera, &transform) == result::success;
+            world.scene().get_world_for_entity(active_camera, &transform) == error::success;
         selected.transform = transform;
       }
     }
@@ -38,10 +38,10 @@ result build_render_snapshot(world_state& world, std::uint32_t viewport_width,
       const auto view_result = math::view_matrix_rh(selected.transform, view);
       const auto aspect = static_cast<float>(viewport_width) / static_cast<float>(viewport_height);
       const auto projection_result = math::perspective_rh_zo(selected.camera, aspect, projection);
-      if (view_result != result::success) {
+      if (view_result != error::success) {
         return view_result;
       }
-      if (projection_result != result::success) {
+      if (projection_result != error::success) {
         return projection_result;
       }
       snapshot.camera = {.camera = selected.camera,
@@ -56,18 +56,18 @@ result build_render_snapshot(world_state& world, std::uint32_t viewport_width,
         [&](entt::entity native_entity, const mesh_renderer_component& component) {
           const auto entity = world.encode_entity(native_entity);
           math::transform transform;
-          if (world.scene().get_world_for_entity(entity, &transform) == result::success) {
+          if (world.scene().get_world_for_entity(entity, &transform) == error::success) {
             snapshot.instances.push_back({.mesh = component.value.mesh,
                                           .material = component.value.material,
                                           .transform = transform});
           }
         });
     out_snapshot = std::move(snapshot);
-    return result::success;
+    return error::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return error::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return error::internal;
   }
 }
 

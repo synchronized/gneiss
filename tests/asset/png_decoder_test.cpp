@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/resource/texture/png_decoder.hpp"
 
 #include <array>
@@ -49,16 +49,16 @@ int main() {
   }
   gneiss::engine::decoded_png image;
   std::string message;
-  if (gneiss::engine::decode_png(bytes, image, message) != gneiss::engine::result::success ||
+  if (gneiss::engine::decode_png(bytes, image, message) != gneiss::engine::error::success ||
       image.width != 1U || image.height != 1U || image.pixels.size() != 4U || !message.empty()) {
     return 1;
   }
   if (gneiss::engine::decode_png(bytes, image, message, 3U) !=
-          gneiss::engine::result::out_of_memory ||
+          gneiss::engine::error::out_of_memory ||
       image.width != 0U || !image.pixels.empty() || message.empty()) {
     return 3;
   }
-  if (gneiss::engine::decode_png(bytes, image, message, 4U) != gneiss::engine::result::success ||
+  if (gneiss::engine::decode_png(bytes, image, message, 4U) != gneiss::engine::error::success ||
       image.pixels.size() != 4U) {
     return 4;
   }
@@ -70,7 +70,7 @@ int main() {
       gneiss::engine::decode_png(bytes, allocation_image, allocation_message);
   fail_allocations = false;
   const bool pixel_failure_injected = allocation_failures != 0U;
-  if (!pixel_failure_injected || allocation_result != gneiss::engine::result::out_of_memory ||
+  if (!pixel_failure_injected || allocation_result != gneiss::engine::error::out_of_memory ||
       allocation_image.width != 0U || allocation_image.height != 0U ||
       !allocation_image.pixels.empty()) {
     return 5;
@@ -84,20 +84,20 @@ int main() {
   // 部分标准库的短字符串存储可容纳整条诊断，此时没有分配可失败。
   fail_allocations = false;
   const bool message_failure_injected = allocation_failures != 0U;
-  const auto expected = message_failure_injected ? gneiss::engine::result::out_of_memory
-                                                 : gneiss::engine::result::invalid_argument;
+  const auto expected = message_failure_injected ? gneiss::engine::error::out_of_memory
+                                                 : gneiss::engine::error::invalid_argument;
   if (empty_result != expected || allocation_image.width != 0U || allocation_image.height != 0U ||
       !allocation_image.pixels.empty()) {
     return 6;
   }
   if (gneiss::engine::decode_png(empty_bytes, allocation_image, allocation_message) !=
-          gneiss::engine::result::invalid_argument ||
+          gneiss::engine::error::invalid_argument ||
       allocation_message.empty()) {
     return 7;
   }
   bytes.resize(16);
   if (gneiss::engine::decode_png(bytes, image, message) !=
-          gneiss::engine::result::invalid_argument ||
+          gneiss::engine::error::invalid_argument ||
       image.width != 0U || image.height != 0U || !image.pixels.empty() || message.empty()) {
     return 2;
   }

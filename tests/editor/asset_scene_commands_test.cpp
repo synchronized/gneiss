@@ -4,7 +4,7 @@
 #include "commands/editor_asset_edit.hpp"
 #include "commands/editor_prefab_edit.hpp"
 #include "documents/editor_scene_loader.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/world/world.hpp"
@@ -32,7 +32,7 @@ int main() try {
   auto& history = editing.history();
   editor_camera camera;
   editor_scene_loader loader;
-  if (gneiss::engine::result{gneiss::runtime::application::create(desc, app)}.failed() ||
+  if (gneiss::engine::error{gneiss::runtime::application::create(desc, app)}.failed() ||
       (world = app->native_world()) == nullptr || app->attach_task_executor(scheduler).failed() ||
       camera.initialize().failed() ||
       loader.request(*app, editing, "asset://scenes/triangle.scene.json").failed()) {
@@ -119,7 +119,7 @@ int main() try {
       history.size() != 1U || session.find_node(uuid)->material_uri != material ||
       replace_mesh_assets(session, history, "missing",
                           {.mesh_uri = mesh, .material_uri = material}) !=
-          gneiss::engine::result::not_found) {
+          gneiss::engine::error::not_found) {
     return 4;
   }
   if (replace_mesh_assets(session, history, uuid, {.mesh_uri = mesh, .material_uri = material})
@@ -148,21 +148,21 @@ int main() try {
   const auto prefabs = session.prefab_nodes().size();
   const auto mesh_failed =
       add_mesh_asset(session, full, "Rollback Mesh", {.mesh_uri = mesh, .material_uri = material});
-  if (mesh_failed != engine::result::invalid_argument || session.nodes().size() != nodes ||
+  if (mesh_failed != engine::error::invalid_argument || session.nodes().size() != nodes ||
       session.is_dirty()) {
     std::fprintf(stderr, "网格回滚：结果=%d 节点=%zu/%zu 脏状态=%d\n", mesh_failed.code(),
                  session.nodes().size(), nodes, session.is_dirty());
     return 8;
   }
   const auto prefab_failed = add_prefab_asset(session, full, "Rollback Prefab", prefab, parent);
-  if (prefab_failed != engine::result::invalid_argument ||
+  if (prefab_failed != engine::error::invalid_argument ||
       session.prefab_nodes().size() != prefabs || session.is_dirty() || full.can_undo()) {
     std::fprintf(stderr, "Prefab 回滚：结果=%d 节点=%zu/%zu 脏状态=%d\n", prefab_failed.code(),
                  session.prefab_nodes().size(), prefabs, session.is_dirty());
     return 8;
   }
   if (replace_mesh_assets(session, full, uuid, {.mesh_uri = mesh, .material_uri = material}) !=
-          gneiss::engine::result::invalid_argument ||
+          gneiss::engine::error::invalid_argument ||
       session.is_dirty() || session.find_node(uuid)->material_uri != material) {
     return 9;
   }

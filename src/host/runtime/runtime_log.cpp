@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_log.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <gneiss/app/runtime_log_protocol.hpp>
 
@@ -19,7 +19,7 @@ namespace {
 constexpr std::uintmax_t maximum_log_size = 1024U * 1024U;
 
 [[nodiscard]] std::string format_event(std::string_view level, std::string_view stage,
-                                       gneiss::engine::result operation, std::string_view message,
+                                       gneiss::engine::error operation, std::string_view message,
                                        std::string_view context) {
   const auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
                              std::chrono::system_clock::now().time_since_epoch())
@@ -152,7 +152,7 @@ runtime_log::runtime_log(const std::filesystem::path& path) : path_(path) {
 }
 
 void runtime_log::write(std::string_view level, std::string_view stage,
-                        gneiss::engine::result operation, std::string_view message,
+                        gneiss::engine::error operation, std::string_view message,
                         std::string_view context) noexcept {
   try {
     const std::scoped_lock lock(mutex_);
@@ -188,7 +188,7 @@ void runtime_log::write(const gneiss::engine::event_view& source) noexcept {
     const auto event = format_structured_event(source);
     std::string protocol;
     if (gneiss::host::encode_runtime_log_event(source, protocol) ==
-        gneiss::engine::result::success) {
+        gneiss::engine::error::success) {
       std::fwrite(protocol.data(), sizeof(char), protocol.size(), stdout);
       std::fflush(stdout);
     } else {

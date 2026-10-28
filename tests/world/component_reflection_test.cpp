@@ -9,14 +9,14 @@
 
 int main() {
   namespace engine = gneiss::engine;
-  using engine::result;
+  using engine::error;
   gneiss::engine::meta::registry_ref registry;
   engine::world_owner first, second;
   gneiss::entity_id entity, missing;
   gneiss::scene_node_id node;
   if (gneiss::engine::meta::create_registry(registry).failed() ||
       engine::register_reflection(registry).failed() ||
-      engine::register_reflection(registry) != engine::result::invalid_argument ||
+      engine::register_reflection(registry) != engine::error::invalid_argument ||
       gneiss::engine::meta::freeze(registry).failed() || engine::create_native(first).failed() ||
       engine::create_native(second).failed() || first->entity_create(entity).failed() ||
       first->entity_create(missing).failed() || first->node_create({}, entity, node).failed())
@@ -50,15 +50,15 @@ int main() {
       std::abs(transform.translation[0] - 2) > 0.0001F ||
       engine::read_component_property(registry, *first, missing.get(), transform_type,
                                       gneiss::engine::meta::property_id{1},
-                                      value) != result::not_found ||
+                                      value) != error::not_found ||
       engine::read_component_property(registry, *second, entity.get(), transform_type,
                                       gneiss::engine::meta::property_id{1},
-                                      value) != result::invalid_handle)
+                                      value) != error::invalid_handle)
     return 5;
   value.payload = gneiss::engine::math::vector3{0, 1, 1};
   if (engine::write_component_property(registry, *first, entity.get(), transform_type,
                                        gneiss::engine::meta::property_id{3},
-                                       value) != result::invalid_argument ||
+                                       value) != error::invalid_argument ||
       first->entity_get_local_transform(entity, transform).failed() ||
       std::abs(transform.scale[0] - 1) > 0.0001F)
     return 6;
@@ -78,13 +78,13 @@ int main() {
   value.payload = camera.far + 1;
   if (engine::write_component_property(registry, *first, entity.get(), camera_type,
                                        gneiss::engine::meta::property_id{2},
-                                       value) != result::invalid_argument ||
+                                       value) != error::invalid_argument ||
       first->entity_get_camera(entity, camera).failed() || std::abs(camera.near - 0.5F) > 0.0001F ||
       engine::read_component_property(registry, *first, missing.get(), camera_type,
                                       gneiss::engine::meta::property_id{2},
-                                      value) != result::not_found)
+                                      value) != error::not_found)
     return 9;
-  result foreign_read{}, foreign_write{};
+  error foreign_read{}, foreign_write{};
   std::thread worker([&] {
     gneiss::engine::value isolated;
     foreign_read = engine::read_component_property(registry, *first, entity.get(), transform_type,
@@ -95,18 +95,18 @@ int main() {
                                          gneiss::engine::meta::property_id{1}, isolated);
   });
   worker.join();
-  if (foreign_read != result::invalid_state || foreign_write != result::invalid_state ||
+  if (foreign_read != error::invalid_state || foreign_write != error::invalid_state ||
       first->entity_get_local_transform(entity, transform).failed() || transform.translation.x != 2)
     return 11;
   value.payload = false;
   if (engine::write_component_property(registry, *first, entity.get(), camera_type,
                                        gneiss::engine::meta::property_id{4},
-                                       value) != result::unsupported)
+                                       value) != error::unsupported)
     return 12;
   if (first->entity_destroy(entity).failed() ||
       engine::read_component_property(registry, *first, entity.get(), camera_type,
                                       gneiss::engine::meta::property_id{2},
-                                      value) != result::invalid_handle)
+                                      value) != error::invalid_handle)
     return 10;
   return 0;
 }

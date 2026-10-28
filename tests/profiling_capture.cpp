@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "runtime/application.hpp"
 #include <tracy/Tracy.hpp>
@@ -20,7 +20,7 @@ struct context {
   gneiss::engine::task_scope scope = scheduler.make_scope();
   std::size_t received{};
 };
-gneiss::engine::result update(const gneiss::engine::frame_time& time, context& state) noexcept {
+gneiss::engine::error update(const gneiss::engine::frame_time& time, context& state) noexcept {
   try {
     gneiss::engine::task_handle task;
     const auto accepted = state.scheduler.submit(
@@ -32,14 +32,14 @@ gneiss::engine::result update(const gneiss::engine::frame_time& time, context& s
         },
         task);
     if (accepted != gneiss::engine::submit_result::success) {
-      return gneiss::engine::result::internal;
+      return gneiss::engine::error::internal;
     }
     std::vector<gneiss::engine::task_completion> completed;
     state.received += state.scheduler.poll(state.scope, completed);
     std::this_thread::sleep_for(2ms);
-    return gneiss::engine::result::success;
+    return gneiss::engine::error::success;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return gneiss::engine::error::internal;
   }
 }
 }

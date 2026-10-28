@@ -13,6 +13,7 @@ namespace gneiss::engine {
  * 不允许从裸指针建立所有权；借用 get() 的结果不得超过强引用有效期。 */
 template <typename T> class asset_ref final {
 public:
+  using element_type = T;
   asset_ref() noexcept = default;
   explicit asset_ref(std::shared_ptr<T> value) noexcept : value_(std::move(value)) {}
   asset_ref(const asset_ref&) noexcept = default;

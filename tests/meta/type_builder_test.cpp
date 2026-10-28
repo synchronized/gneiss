@@ -8,11 +8,11 @@ struct sample {
   float speed = 1;
   bool active = true;
   float get_speed() const noexcept { return speed; }
-  e::result set_speed(float input) noexcept {
+  e::error set_speed(float input) noexcept {
     if (input <= 0)
-      return e::result::invalid_argument;
+      return e::error::invalid_argument;
     speed = input;
-    return e::result::success;
+    return e::error::success;
   }
 };
 int main() {
@@ -24,12 +24,12 @@ int main() {
       e::type_identity<const float&>::guid() != e::type_identity<float>::guid())
     return 2;
   if (gneiss::engine::meta::register_type<sample>(
-          registry, {.schema_version = 1, .name = "conflict"}) != e::result::invalid_argument)
+          registry, {.schema_version = 1, .name = "conflict"}) != e::error::invalid_argument)
     return 3;
   if (gneiss::engine::meta::type_builder<sample>{registry}
           .property<&sample::speed>(gneiss::engine::meta::property_id{1}, "speed")
           .readonly<&sample::active>(gneiss::engine::meta::property_id{1}, "active")
-          .commit() != e::result::invalid_argument)
+          .commit() != e::error::invalid_argument)
     return 4;
   // 前一次失败不得留下类型；名称由 builder 拥有。
   gneiss::engine::meta::type_builder<const sample&> builder{registry};
@@ -40,7 +40,7 @@ int main() {
   }
   builder.readonly<&sample::active>(gneiss::engine::meta::property_id{2}, "active")
       .property<&sample::speed>(gneiss::engine::meta::property_id{3}, "raw_speed");
-  if (builder.commit().failed() || builder.commit() != e::result::invalid_state ||
+  if (builder.commit().failed() || builder.commit() != e::error::invalid_state ||
       gneiss::engine::meta::freeze(registry).failed())
     return 5;
   sample object;
@@ -58,12 +58,12 @@ int main() {
     return 7;
   if (gneiss::engine::meta::write_property(registry, sample::type_guid,
                                            gneiss::engine::meta::property_id{1}, &object,
-                                           e::value{-1.0F}) != e::result::invalid_argument ||
+                                           e::value{-1.0F}) != e::error::invalid_argument ||
       object.speed != 2)
     return 8;
   if (gneiss::engine::meta::write_property(registry, sample::type_guid,
                                            gneiss::engine::meta::property_id{2}, &object,
-                                           e::value{false}) == e::result::success ||
+                                           e::value{false}) == e::error::success ||
       !object.active)
     return 9;
   if (gneiss::engine::meta::write_property(registry, sample::type_guid,
@@ -74,7 +74,7 @@ int main() {
     return 10;
   if (gneiss::engine::meta::write_property(registry, sample::type_guid,
                                            gneiss::engine::meta::property_id{1}, &object,
-                                           e::value{true}) != e::result::invalid_argument ||
+                                           e::value{true}) != e::error::invalid_argument ||
       object.speed != 3)
     return 11;
   return 0;

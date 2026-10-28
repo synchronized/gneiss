@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
 
 #include <limits>
@@ -13,15 +13,15 @@ int main() {
                                   .color_rgba8 = UINT32_C(0xffffffff),
                                   .width = 1.0F,
                                   .depth_test = true};
-  if (list.replace({&line, 1U}) != gneiss::engine::result::success || list.lines().size() != 1U) {
+  if (list.replace({&line, 1U}) != gneiss::engine::error::success || list.lines().size() != 1U) {
     return 1;
   }
   line.width = std::numeric_limits<float>::quiet_NaN();
-  if (list.replace({&line, 1U}) != gneiss::engine::result::invalid_argument ||
+  if (list.replace({&line, 1U}) != gneiss::engine::error::invalid_argument ||
       list.lines().size() != 1U || list.lines()[0].width != 1.0F) {
     return 2;
   }
-  if (list.replace({}) != gneiss::engine::result::success || !list.lines().empty()) {
+  if (list.replace({}) != gneiss::engine::error::success || !list.lines().empty()) {
     return 4;
   }
   list.clear();

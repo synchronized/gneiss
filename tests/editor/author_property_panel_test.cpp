@@ -21,14 +21,14 @@ int main() try {
   std::array components{component};
   unsigned writes = 0U;
   std::uint64_t serial = 0U;
-  gneiss::engine::result error = gneiss::engine::result::success;
+  gneiss::engine::error error = gneiss::engine::error::success;
   const author_property_actions actions{
       .context = &writes,
       .write =
           [](void* context, const inspector_component&, const inspector_property&,
              const gneiss::engine::value&, std::uint64_t) {
             ++*static_cast<unsigned*>(context);
-            return gneiss::engine::result{gneiss::engine::result::success};
+            return gneiss::engine::error{gneiss::engine::error::success};
           },
   };
   ImGui::CreateContext();
@@ -53,7 +53,7 @@ int main() try {
   // 非法四元数只报告错误，不调用写入或变更模型；不需要原生窗口。
   std::get<gneiss::engine::math::quaternion>(components[0].properties[0].value.payload).w = 0.0F;
   draw();
-  const bool invalid = error == gneiss::engine::result::invalid_argument;
+  const bool invalid = error == gneiss::engine::error::invalid_argument;
   ImGui::DestroyContext();
   if (!valid) {
     return 3;

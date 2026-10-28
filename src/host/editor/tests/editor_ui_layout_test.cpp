@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "editor_ui.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "runtime/application.hpp"
 #include <chrono>
 #include <thread>
@@ -51,7 +51,7 @@ bool draw_workspace_frame() {
 
 int main() try {
   using namespace gneiss;
-  using engine::result;
+  using engine::error;
   const auto root = std::filesystem::temp_directory_path() /
                     ("gneiss-layout-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
@@ -66,7 +66,7 @@ int main() try {
   auto files = app->async_files();
   gneiss::engine::files::request_id forbidden;
   if (files->write(
-          "asset://must-not-write", {}, {}, [](auto) {}, forbidden) != result::unsupported ||
+          "asset://must-not-write", {}, {}, [](auto) {}, forbidden) != error::unsupported ||
       forbidden.value != 0)
     return 18;
   std::shared_ptr<const gneiss::engine::files::source_domain> asset_source, user_source;
@@ -88,9 +88,9 @@ int main() try {
   editor::editor_layout layout;
   create_test_context();
   if (layout.initialize(files, "/project-a", visibility).failed() || !layout.loading() ||
-      layout.advance(visibility) != result::not_ready || !draw_workspace_frame())
+      layout.advance(visibility) != error::not_ready || !draw_workspace_frame())
     return 2;
-  result loaded;
+  error loaded;
   if (!pump([&] {
         loaded = layout.advance(visibility);
         return layout.loading();
@@ -100,7 +100,7 @@ int main() try {
   visibility.console = false;
   visibility.asset_browser = false;
   if (layout.save(visibility).failed() || !layout.saving() ||
-      layout.save(visibility) != result::not_ready || !pump([&] { return layout.saving(); }) ||
+      layout.save(visibility) != error::not_ready || !pump([&] { return layout.saving(); }) ||
       layout.save_result().failed())
     return 4;
   const auto first_path = root / std::string(layout.uri().substr(7));
@@ -158,7 +158,7 @@ int main() try {
         loaded = layout.advance(visibility);
         return layout.loading();
       }) ||
-      loaded != result::invalid_argument || !visibility.console)
+      loaded != error::invalid_argument || !visibility.console)
     return 10;
   // 目标被目录占据时异步保存失败，不删除目录。
   std::filesystem::remove(first_path);
@@ -180,10 +180,10 @@ int main() try {
   ImGui::DestroyContext();
   if (app->request_shutdown().failed())
     return 13;
-  result closed;
+  error closed;
   if (!pump([&] {
         closed = app->advance_shutdown();
-        return closed == result::not_ready;
+        return closed == error::not_ready;
       }) ||
       closed.failed() || late_save.saving())
     return 14;

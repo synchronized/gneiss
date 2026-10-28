@@ -12,8 +12,8 @@
 namespace gneiss::engine {
 namespace {
 using namespace detail;
-[[nodiscard]] result parse_pbr_extensions(yyjson_val* root, material_description& out_source,
-                                          asset_diagnostic& diagnostic) {
+[[nodiscard]] error parse_pbr_extensions(yyjson_val* root, material_description& out_source,
+                                         asset_diagnostic& diagnostic) {
   constexpr std::array names{
       "base_color_texture", "metallic_roughness_texture", "normal_texture",
       "occlusion_texture",  "emissive_texture",
@@ -24,7 +24,7 @@ using namespace detail;
       continue;
     }
     if (!yyjson_is_str(texture) || yyjson_get_len(texture) == 0U) {
-      fail(diagnostic, result::invalid_argument, std::string{"/"} + names[slot],
+      fail(diagnostic, error::invalid_argument, std::string{"/"} + names[slot],
            "Texture 必须是非空 URI 或 null");
       return diagnostic.result;
     }
@@ -36,24 +36,24 @@ using namespace detail;
       (strength != nullptr && (!read_float(strength, out_source.parameters.occlusion_strength) ||
                                out_source.parameters.occlusion_strength < 0.0F ||
                                out_source.parameters.occlusion_strength > 1.0F))) {
-    fail(diagnostic, result::invalid_argument, "/normal_scale",
+    fail(diagnostic, error::invalid_argument, "/normal_scale",
          "法线缩放必须有限，AO 强度必须位于 0..1");
     return diagnostic.result;
   }
   if (auto* emissive = yyjson_obj_get(root, "emissive")) {
     if (!yyjson_is_arr(emissive) || yyjson_arr_size(emissive) != 3U) {
-      fail(diagnostic, result::invalid_argument, "/emissive", "自发光必须包含三个分量");
+      fail(diagnostic, error::invalid_argument, "/emissive", "自发光必须包含三个分量");
       return diagnostic.result;
     }
     for (std::size_t i = 0; i < 3U; ++i) {
       if (!read_float(yyjson_arr_get(emissive, i), out_source.parameters.emissive[i]) ||
           out_source.parameters.emissive[i] < 0.0F || out_source.parameters.emissive[i] > 1.0F) {
-        fail(diagnostic, result::invalid_argument, "/emissive", "自发光分量必须位于 0..1");
+        fail(diagnostic, error::invalid_argument, "/emissive", "自发光分量必须位于 0..1");
         return diagnostic.result;
       }
     }
   }
-  return result::success;
+  return error::success;
 }
 
 [[nodiscard]] bool parse_material_sampling(yyjson_val* root, material_parameters& state) {
@@ -120,9 +120,8 @@ using namespace detail;
   return parse_material_sampling(root, state);
 }
 
-[[nodiscard]] result parse_material(const std::vector<std::byte>& bytes,
-                                    material_description& out_source,
-                                    asset_diagnostic& diagnostic) {
+[[nodiscard]] error parse_material(const std::vector<std::byte>& bytes,
+                                   material_description& out_source, asset_diagnostic& diagnostic) {
   auto document = parse_document(bytes, diagnostic);
   if (!document) {
     return diagnostic.result;
@@ -151,20 +150,20 @@ using namespace detail;
   if (!validate_header(root, "gneiss.material", fields, 5U, version, diagnostic))
     return diagnostic.result;
   if (version != 5U) {
-    fail(diagnostic, result::unsupported, "/version", "材质仅支持版本 5");
+    fail(diagnostic, error::unsupported, "/version", "材质仅支持版本 5");
     return diagnostic.result;
   }
   yyjson_val* color = yyjson_obj_get(root, "color");
   if (!yyjson_is_arr(color) ||
       yyjson_arr_size(color) != math::components(out_source.parameters.color).size()) {
-    fail(diagnostic, result::invalid_argument, "/color", "颜色必须包含四个分量");
+    fail(diagnostic, error::invalid_argument, "/color", "颜色必须包含四个分量");
     return diagnostic.result;
   }
   for (std::size_t index = 0; index < math::components(out_source.parameters.color).size();
        ++index) {
     if (!read_float(yyjson_arr_get(color, index), out_source.parameters.color[index]) ||
         out_source.parameters.color[index] < 0.0F || out_source.parameters.color[index] > 1.0F) {
-      fail(diagnostic, result::invalid_argument, "/color/" + std::to_string(index),
+      fail(diagnostic, error::invalid_argument, "/color/" + std::to_string(index),
            "颜色分量必须位于 0..1");
       return diagnostic.result;
     }
@@ -174,7 +173,7 @@ using namespace detail;
     if (yyjson_is_null(texture)) {
       out_source.texture_uris[0].clear();
     } else if (!yyjson_is_str(texture) || yyjson_get_len(texture) == 0U) {
-      fail(diagnostic, result::invalid_argument, "/base_color_texture",
+      fail(diagnostic, error::invalid_argument, "/base_color_texture",
            "base-color Texture 必须是非空 URI");
       return diagnostic.result;
     } else {
@@ -185,25 +184,24 @@ using namespace detail;
       out_source.parameters.metallic < 0.0F || out_source.parameters.metallic > 1.0F ||
       !read_float(yyjson_obj_get(root, "roughness"), out_source.parameters.roughness) ||
       out_source.parameters.roughness < 0.0F || out_source.parameters.roughness > 1.0F) {
-    fail(diagnostic, result::invalid_argument, "/metallic", "metallic 与 roughness 必须位于 0..1");
+    fail(diagnostic, error::invalid_argument, "/metallic", "metallic 与 roughness 必须位于 0..1");
     return diagnostic.result;
   }
 
-  if (parse_pbr_extensions(root, out_source, diagnostic) != result::success) {
+  if (parse_pbr_extensions(root, out_source, diagnostic) != error::success) {
     return diagnostic.result;
   }
   if (!parse_material_state(root, out_source.parameters)) {
-    fail(diagnostic, result::invalid_argument, "/sampling", "材质状态或逐槽采样设置无效");
+    fail(diagnostic, error::invalid_argument, "/sampling", "材质状态或逐槽采样设置无效");
     return diagnostic.result;
   }
-  return result::success;
+  return error::success;
 }
-
 }
 }
 namespace gneiss::engine {
-result decode_material(std::span<const std::byte> bytes, material_description& output,
-                       meta::serialization_diagnostic& diagnostic) noexcept try {
+error decode_material(std::span<const std::byte> bytes, material_description& output,
+                      meta::serialization_diagnostic& diagnostic) noexcept try {
   diagnostic = {};
   std::vector<std::byte> owned(bytes.begin(), bytes.end());
   asset_diagnostic asset_error;
@@ -211,17 +209,17 @@ result decode_material(std::span<const std::byte> bytes, material_description& o
   const auto status = parse_material(owned, pending, asset_error);
   diagnostic = {asset_error.byte_offset, std::move(asset_error.path),
                 std::move(asset_error.message)};
-  if (status == result::success)
+  if (status == error::success)
     output = std::move(pending);
   return status;
 } catch (const std::bad_alloc&) {
-  return result::out_of_memory;
+  return error::out_of_memory;
 } catch (...) {
-  return result::internal;
+  return error::internal;
 }
 
-result encode_material(const material_description& object, std::vector<std::byte>& output,
-                       meta::serialization_diagnostic& diagnostic) noexcept try {
+error encode_material(const material_description& object, std::vector<std::byte>& output,
+                      meta::serialization_diagnostic& diagnostic) noexcept try {
   diagnostic = {};
   const auto& p = object.parameters;
   // JSON 不接受非有限数值；其余范围复用同一解析器校验，避免维护第二套格式规则。
@@ -234,22 +232,22 @@ result encode_material(const material_description& object, std::vector<std::byte
     finite = finite && std::isfinite(number);
   if (!finite || p.alpha_mode > material_alpha_mode::blend) {
     diagnostic.message = "材质包含非有限数值或未知透明模式";
-    return result::invalid_argument;
+    return error::invalid_argument;
   }
   for (const auto& uri : object.texture_uris) {
     if (uri.find('\0') != std::string::npos) {
       diagnostic.message = "纹理 URI 不得包含空字符";
-      return result::invalid_argument;
+      return error::invalid_argument;
     }
   }
   using doc_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
   doc_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
   if (!document)
-    return result::out_of_memory;
+    return error::out_of_memory;
   auto* doc = document.get();
   auto* root = yyjson_mut_obj(doc);
   if (!root)
-    return result::out_of_memory;
+    return error::out_of_memory;
   yyjson_mut_doc_set_root(doc, root);
   const auto put = [&](const char* key, yyjson_mut_val* value) {
     if (!value || !yyjson_mut_obj_add_val(doc, root, key, value))
@@ -285,11 +283,11 @@ result encode_material(const material_description& object, std::vector<std::byte
   put("alpha_cutoff", yyjson_mut_real(doc, p.alpha_cutoff));
   auto* sampling = yyjson_mut_arr(doc);
   if (!sampling)
-    return result::out_of_memory;
+    return error::out_of_memory;
   for (const auto& item : p.sampling) {
     if (!valid_sampling(item)) {
       diagnostic.path = "/sampling";
-      return result::invalid_argument;
+      return error::invalid_argument;
     }
     auto* entry = yyjson_mut_obj(doc);
     if (!entry || !yyjson_mut_arr_append(sampling, entry) ||
@@ -304,7 +302,7 @@ result encode_material(const material_description& object, std::vector<std::byte
                                  static_cast<std::uint32_t>(item.address_u)) ||
         !yyjson_mut_obj_add_uint(doc, entry, "address_v",
                                  static_cast<std::uint32_t>(item.address_v)))
-      return result::out_of_memory;
+      return error::out_of_memory;
   }
   put("sampling", sampling);
   std::size_t size{};
@@ -313,8 +311,8 @@ result encode_material(const material_description& object, std::vector<std::byte
   text_ptr text(yyjson_mut_write_opts(doc, YYJSON_WRITE_NOFLAG, nullptr, &size, &error),
                 &std::free);
   if (!text)
-    return error.code == YYJSON_WRITE_ERROR_MEMORY_ALLOCATION ? result::out_of_memory
-                                                              : result::invalid_argument;
+    return error.code == YYJSON_WRITE_ERROR_MEMORY_ALLOCATION ? error::out_of_memory
+                                                              : error::invalid_argument;
   std::vector<std::byte> pending(size);
   std::memcpy(pending.data(), text.get(), size);
   material_description checked;
@@ -322,11 +320,11 @@ result encode_material(const material_description& object, std::vector<std::byte
   if (status.failed())
     return status;
   output = std::move(pending);
-  return result::success;
+  return error::success;
 } catch (const std::bad_alloc&) {
-  return result::out_of_memory;
+  return error::out_of_memory;
 } catch (...) {
-  return result::internal;
+  return error::internal;
 }
 
 }

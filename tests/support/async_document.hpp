@@ -4,11 +4,11 @@
 #include "async_application.hpp"
 #include "documents/scene_document.hpp"
 namespace gneiss::test_support {
-inline engine::result open_document(editor::scene_document& document, runtime::application& app,
-                                    engine::world* world, std::string_view uri,
-                                    engine::task_scheduler* tasks = nullptr) {
+inline engine::error open_document(editor::scene_document& document, runtime::application& app,
+                                   engine::world* world, std::string_view uri,
+                                   engine::task_scheduler* tasks = nullptr) {
   if (world != app.native_world())
-    return engine::result::invalid_argument;
+    return engine::error::invalid_argument;
   scene_instance_id instance;
   auto status = load_scene(app, uri, &instance, tasks);
   if (status.failed())

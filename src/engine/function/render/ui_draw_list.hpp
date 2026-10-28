@@ -6,7 +6,7 @@
 
 #include "engine/function/render/render_resource_data.hpp"
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/function/render/draw_types.hpp"
 
 #include <span>
@@ -28,7 +28,7 @@ struct ui_draw_view {
 
 class ui_draw_list final {
 public:
-  [[nodiscard]] result replace(const ui_draw_view& desc, const render_service& resources) noexcept;
+  [[nodiscard]] error replace(const ui_draw_view& desc, const render_service& resources) noexcept;
   void clear() noexcept;
 
   [[nodiscard]] float display_width() const noexcept { return display_width_; }

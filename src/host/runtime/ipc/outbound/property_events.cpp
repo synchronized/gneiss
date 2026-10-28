@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "runtime_ipc_outbound.hpp"
 
 #include "ipc_property_protocol.hpp"
 
 namespace gneiss::host {
 
-gneiss::engine::result
+gneiss::engine::error
 make_property_write_result_event(const ipc_property_write_result& response,
                                  std::uint32_t request_id,
                                  gneiss::engine::ipc_envelope& output) noexcept {

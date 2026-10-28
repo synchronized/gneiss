@@ -10,7 +10,7 @@
 World 不再登记全局 RID 表，不提供借用 RID 或 world_service 转发接口。
 工厂仅分配节点与实体校验所需的唯一所属域，域编号不会复用。
 
-World 及其实体只能在创建线程访问；跨线程操作返回 `result::invalid_state`。
+World 及其实体只能在创建线程访问；跨线程操作返回 `error::invalid_state`。
 内部直接借用 world&；Application 的 native_world() 返回活动对象的借用指针。
 场景切换或关闭后必须重新获取，禁止解引用旧指针；借用者必须在 World 销毁前清理。
 反射组件入口也直接接收 world&，不再按句柄查回对象。
@@ -26,7 +26,7 @@ World 及其实体只能在创建线程访问；跨线程操作返回 `result::i
 - 实体 ID 不能持久化为场景对象身份。
 
 `world::entity_is_alive` 对已销毁或其他 World 的实体返回成功并将结果设为 0；需要执行销毁、
-读写组件等操作时，这类实体返回 `result::invalid_handle`。
+读写组件等操作时，这类实体返回 `error::invalid_handle`。
 
 
 ## ECS 与 System

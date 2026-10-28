@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include <cstdint>
 #include <string_view>
 
@@ -16,7 +16,7 @@ struct message_view final {
   std::string_view source{};
   std::string_view category{};
   std::string_view message{};
-  engine::result result{engine::result::success};
+  engine::error result{engine::error::success};
 };
 
 /** 所有文本只在回调期间有效，接收方不得保留视图。 */

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "ipc_envelope.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -52,25 +52,25 @@ void write_u32(std::uint8_t* destination, std::uint32_t value) noexcept {
 
 namespace gneiss::engine {
 
-result validate_ipc_envelope(const ipc_envelope& envelope) noexcept {
+error validate_ipc_envelope(const ipc_envelope& envelope) noexcept {
   if (envelope.protocol_major != ipc_v2_protocol_major ||
       envelope.protocol_minor > ipc_v2_protocol_minor ||
       static_cast<std::uint16_t>(envelope.domain) == 0U || envelope.operation == 0U ||
       !is_known_kind(envelope.kind) || envelope.payload.size() > ipc_envelope_max_payload_size ||
       envelope.payload.size() > std::numeric_limits<std::uint32_t>::max()) {
-    return result::invalid_argument;
+    return error::invalid_argument;
   }
   if ((envelope.kind == ipc_message_kind::event && envelope.request_id != 0U) ||
       (envelope.kind != ipc_message_kind::event && envelope.request_id == 0U)) {
-    return result::invalid_argument;
+    return error::invalid_argument;
   }
-  return result::success;
+  return error::success;
 }
 
-result encode_ipc_envelope(const ipc_envelope& envelope,
-                           std::vector<std::uint8_t>& output) noexcept {
-  if (validate_ipc_envelope(envelope) != result::success) {
-    return result::invalid_argument;
+error encode_ipc_envelope(const ipc_envelope& envelope,
+                          std::vector<std::uint8_t>& output) noexcept {
+  if (validate_ipc_envelope(envelope) != error::success) {
+    return error::invalid_argument;
   }
   try {
     std::vector<std::uint8_t> encoded(ipc_envelope_header_size + envelope.payload.size());
@@ -85,27 +85,27 @@ result encode_ipc_envelope(const ipc_envelope& envelope,
     write_u32(encoded.data() + 20U, static_cast<std::uint32_t>(envelope.payload.size()));
     std::ranges::copy(envelope.payload, encoded.begin() + ipc_envelope_header_size);
     output = std::move(encoded);
-    return result::success;
+    return error::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return error::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return error::internal;
   }
 }
 
-result ipc_envelope_decoder::append(std::span<const std::uint8_t> bytes,
-                                    std::vector<ipc_envelope>& output) noexcept {
+error ipc_envelope_decoder::append(std::span<const std::uint8_t> bytes,
+                                   std::vector<ipc_envelope>& output) noexcept {
   if (has_failed_) {
-    return result::invalid_state;
+    return error::invalid_state;
   }
   if (bytes.empty()) {
-    return result::success;
+    return error::success;
   }
   if (bytes.size() > max_decoder_buffer_size ||
       buffer_.size() > max_decoder_buffer_size - bytes.size()) {
     has_failed_ = true;
     buffer_.clear();
-    return result::invalid_argument;
+    return error::invalid_argument;
   }
   try {
     buffer_.insert(buffer_.end(), bytes.begin(), bytes.end());
@@ -115,13 +115,13 @@ result ipc_envelope_decoder::append(std::span<const std::uint8_t> bytes,
       if (read_u32(header) != envelope_magic || read_u16(header + 14U) != 0U) {
         has_failed_ = true;
         buffer_.clear();
-        return result::invalid_argument;
+        return error::invalid_argument;
       }
       const auto payload_size = static_cast<std::size_t>(read_u32(header + 20U));
       if (payload_size > ipc_envelope_max_payload_size) {
         has_failed_ = true;
         buffer_.clear();
-        return result::invalid_argument;
+        return error::invalid_argument;
       }
       const auto envelope_size = ipc_envelope_header_size + payload_size;
       if (buffer_.size() - offset < envelope_size) {
@@ -136,10 +136,10 @@ result ipc_envelope_decoder::append(std::span<const std::uint8_t> bytes,
       decoded.kind = static_cast<ipc_message_kind>(read_u16(header + 12U));
       decoded.request_id = read_u32(header + 16U);
       decoded.payload.assign(header + ipc_envelope_header_size, header + envelope_size);
-      if (validate_ipc_envelope(decoded) != result::success) {
+      if (validate_ipc_envelope(decoded) != error::success) {
         has_failed_ = true;
         buffer_.clear();
-        return result::invalid_argument;
+        return error::invalid_argument;
       }
       output.push_back(std::move(decoded));
       offset += envelope_size;
@@ -147,15 +147,15 @@ result ipc_envelope_decoder::append(std::span<const std::uint8_t> bytes,
     if (offset != 0U) {
       buffer_.erase(buffer_.begin(), buffer_.begin() + static_cast<std::ptrdiff_t>(offset));
     }
-    return result::success;
+    return error::success;
   } catch (const std::bad_alloc&) {
     has_failed_ = true;
     buffer_.clear();
-    return result::out_of_memory;
+    return error::out_of_memory;
   } catch (...) {
     has_failed_ = true;
     buffer_.clear();
-    return result::internal;
+    return error::internal;
   }
 }
 

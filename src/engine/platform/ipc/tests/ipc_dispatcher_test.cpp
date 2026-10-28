@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "ipc_dispatcher.hpp"
 
 #include <array>
@@ -11,11 +11,10 @@ namespace {
 
 struct handler_state final {
   std::size_t call_count = 0U;
-  gneiss::engine::result result = gneiss::engine::result::success;
+  gneiss::engine::error result = gneiss::engine::error::success;
 };
 
-gneiss::engine::result handle(void* context,
-                              const gneiss::engine::ipc_envelope& envelope) noexcept {
+gneiss::engine::error handle(void* context, const gneiss::engine::ipc_envelope& envelope) noexcept {
   (void)envelope;
   auto& state = *static_cast<handler_state*>(context);
   ++state.call_count;
@@ -47,9 +46,9 @@ gneiss::engine::result handle(void* context,
       .handler_context = &state,
   };
   gneiss::engine::ipc_domain_registry registry;
-  if (registry.register_domain(descriptor) != gneiss::engine::result::success ||
+  if (registry.register_domain(descriptor) != gneiss::engine::error::success ||
       registry.size() != 1U ||
-      registry.register_domain(descriptor) != gneiss::engine::result::invalid_state) {
+      registry.register_domain(descriptor) != gneiss::engine::error::invalid_state) {
     return false;
   }
   auto invalid_operations = operations;
@@ -57,14 +56,14 @@ gneiss::engine::result handle(void* context,
   auto invalid = descriptor;
   invalid.domain = gneiss::engine::ipc_domain::property;
   invalid.operations = invalid_operations;
-  if (registry.register_domain(invalid) != gneiss::engine::result::invalid_argument) {
+  if (registry.register_domain(invalid) != gneiss::engine::error::invalid_argument) {
     return false;
   }
   constexpr std::array duplicate_operations{
       gneiss::engine::ipc_operation_descriptor{.operation = 1U, .editor_to_runtime_kinds = 1U},
       gneiss::engine::ipc_operation_descriptor{.operation = 1U, .editor_to_runtime_kinds = 1U}};
   invalid.operations = duplicate_operations;
-  if (registry.register_domain(invalid) != gneiss::engine::result::invalid_argument) {
+  if (registry.register_domain(invalid) != gneiss::engine::error::invalid_argument) {
     return false;
   }
   registry.clear();
@@ -85,7 +84,7 @@ gneiss::engine::result handle(void* context,
                                 .max_payload_size = 2U,
                                 .operations = operations,
                                 .handler = handle,
-                                .handler_context = &state}) != gneiss::engine::result::success) {
+                                .handler_context = &state}) != gneiss::engine::error::success) {
     return false;
   }
   const gneiss::engine::ipc_dispatcher dispatcher(registry);
@@ -145,10 +144,10 @@ gneiss::engine::result handle(void* context,
   if (!dispatcher.dispatch(envelope, context).accepted() || state.call_count != 1U) {
     return false;
   }
-  state.result = gneiss::engine::result::not_ready;
+  state.result = gneiss::engine::error::not_ready;
   const auto failed = dispatcher.dispatch(envelope, context);
   return failed.rejection == gneiss::engine::ipc_dispatch_rejection::handler_failed &&
-         failed.handler_result == gneiss::engine::result::not_ready && state.call_count == 2U;
+         failed.handler_result == gneiss::engine::error::not_ready && state.call_count == 2U;
 }
 
 [[nodiscard]] bool test_session_and_unknown_domain() {
@@ -166,7 +165,7 @@ gneiss::engine::result handle(void* context,
                                 .max_payload_size = 16U,
                                 .operations = operations,
                                 .handler = handle,
-                                .handler_context = &state}) != gneiss::engine::result::success) {
+                                .handler_context = &state}) != gneiss::engine::error::success) {
     return false;
   }
   const gneiss::engine::ipc_dispatcher dispatcher(registry);

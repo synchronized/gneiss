@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "editor_ipc_router.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <utility>
 
@@ -10,29 +10,29 @@ namespace gneiss::host {
 
 editor_ipc_router::editor_ipc_router() noexcept {
   is_ready_ = router_.bind(gneiss::engine::ipc_domain::session, decode_runtime_session_event) ==
-                  gneiss::engine::result::success &&
+                  gneiss::engine::error::success &&
               router_.bind(gneiss::engine::ipc_domain::control, decode_runtime_control_event) ==
-                  gneiss::engine::result::success &&
+                  gneiss::engine::error::success &&
               router_.bind(gneiss::engine::ipc_domain::log, decode_runtime_log_event) ==
-                  gneiss::engine::result::success &&
+                  gneiss::engine::error::success &&
               router_.bind(gneiss::engine::ipc_domain::inspection,
-                           decode_runtime_inspection_event) == gneiss::engine::result::success &&
+                           decode_runtime_inspection_event) == gneiss::engine::error::success &&
               router_.bind(gneiss::engine::ipc_domain::statistics,
-                           decode_runtime_statistics_event) == gneiss::engine::result::success &&
+                           decode_runtime_statistics_event) == gneiss::engine::error::success &&
               router_.bind(gneiss::engine::ipc_domain::property, decode_runtime_property_event) ==
-                  gneiss::engine::result::success &&
+                  gneiss::engine::error::success &&
               router_.bind(gneiss::engine::ipc_domain::asset, decode_runtime_asset_event) ==
-                  gneiss::engine::result::success &&
+                  gneiss::engine::error::success &&
               router_.bind(gneiss::engine::ipc_domain::scene, decode_runtime_scene_event) ==
-                  gneiss::engine::result::success;
+                  gneiss::engine::error::success;
 }
 
-gneiss::engine::result editor_ipc_router::dispatch(
+gneiss::engine::error editor_ipc_router::dispatch(
     const gneiss::engine::ipc_envelope& envelope, bool is_authenticated,
     const std::vector<gneiss::engine::ipc_domain_capability>& negotiated_domains,
     runtime_ipc_event& output) noexcept {
   if (!is_ready_) {
-    return gneiss::engine::result::invalid_state;
+    return gneiss::engine::error::invalid_state;
   }
   const gneiss::engine::ipc_dispatch_context context{.remote_role =
                                                          gneiss::engine::ipc_peer_role::runtime,
@@ -42,10 +42,10 @@ gneiss::engine::result editor_ipc_router::dispatch(
   if (!routed.accepted()) {
     return routed.outcome.rejection == gneiss::engine::ipc_dispatch_rejection::handler_failed
                ? routed.outcome.handler_result
-               : gneiss::engine::result::invalid_argument;
+               : gneiss::engine::error::invalid_argument;
   }
   output = std::move(*routed.message);
-  return gneiss::engine::result::success;
+  return gneiss::engine::error::success;
 }
 
 bool editor_ipc_router::is_ready() const noexcept { return is_ready_; }

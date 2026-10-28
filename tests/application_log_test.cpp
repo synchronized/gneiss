@@ -17,8 +17,8 @@ struct capture_state {
   std::condition_variable changed;
   std::uint64_t count{}, previous_sequence{};
   std::string source, category, message;
-  result operation = result::success;
-  result reentrant_result = result::success;
+  error operation = error::success;
+  error reentrant_result = error::success;
   gneiss::runtime::application* application{};
   bool check_reentrancy = true;
   std::atomic<bool> callback_active = false;
@@ -69,7 +69,7 @@ int main() {
     if (!state.changed.wait_for(lock, std::chrono::seconds(2), [&] { return state.count >= 1; }))
       return 3;
     if (state.source != "application" || state.category != "game" || state.message != "ready" ||
-        state.reentrant_result != result::invalid_state)
+        state.reentrant_result != error::invalid_state)
       return 4;
   }
   constexpr std::uint32_t thread_count = 4, messages_per_thread = 16;
@@ -103,11 +103,11 @@ int main() {
   config = {};
   if (gneiss::runtime::application::create(config, application).failed() ||
       application->submit_log({.category = "test", .message = "ready"}).failed() ||
-      application->submit_log({}) != result::invalid_argument ||
+      application->submit_log({}) != error::invalid_argument ||
       application->submit_log({.severity = static_cast<level>(0xffffffffU), .category = "test"}) !=
-          result::invalid_argument ||
+          error::invalid_argument ||
       application->submit_log({.category = "test", .message = "\xC0\x80"}) !=
-          result::invalid_argument ||
+          error::invalid_argument ||
       application->shutdown().failed())
     return 8;
   application.reset();
@@ -130,20 +130,20 @@ int main() {
   config.callbacks.log = [&](const event_view& event) { capture(event, owned_capture); };
   if (gneiss::runtime::application::create(config, application).failed())
     return 10;
-  result submitted;
+  error submitted;
   std::thread worker([&] {
     const std::string transient = "owned worker";
     submitted = application->submit_log({.severity = level::warning,
                                          .category = "cpp",
                                          .message = transient,
-                                         .result = result::not_ready});
+                                         .result = error::not_ready});
   });
   worker.join();
   if (submitted.failed() || application->shutdown().failed())
     return 11;
   application.reset();
   if (owned_capture.count != 1 || owned_capture.message != "owned worker" ||
-      owned_capture.category != "cpp" || owned_capture.operation != result::not_ready ||
+      owned_capture.category != "cpp" || owned_capture.operation != error::not_ready ||
       owned_capture.callback_active || owned_capture.was_concurrent)
     return 12;
 

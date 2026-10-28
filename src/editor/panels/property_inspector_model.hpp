@@ -5,8 +5,8 @@
 #define GNEISS_APPS_EDITOR_PROPERTY_INSPECTOR_MODEL_H_
 
 #include "engine/core/entity_id.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/meta/registry.hpp"
-#include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
 
@@ -40,23 +40,23 @@ public:
   property_inspector_model(property_inspector_model&&) noexcept = default;
   property_inspector_model& operator=(property_inspector_model&&) noexcept = default;
 
-  [[nodiscard]] gneiss::engine::result initialize() noexcept;
+  [[nodiscard]] gneiss::engine::error initialize() noexcept;
   void clear() noexcept;
 
   /** 刷新实体的已注册组件；实体不存在时清空旧快照。 */
-  [[nodiscard]] gneiss::engine::result refresh(gneiss::engine::world* world,
-                                               entity_id entity) noexcept;
+  [[nodiscard]] gneiss::engine::error refresh(gneiss::engine::world* world,
+                                              entity_id entity) noexcept;
 
   /** 通过 World 组件属性入口写入属性；失败时保留运行时值和当前快照。 */
-  [[nodiscard]] gneiss::engine::result set_value(gneiss::engine::guid type_id,
-                                                 gneiss::engine::meta::property_id field_id,
-                                                 const gneiss::engine::value& value) noexcept;
+  [[nodiscard]] gneiss::engine::error set_value(gneiss::engine::guid type_id,
+                                                gneiss::engine::meta::property_id field_id,
+                                                const gneiss::engine::value& value) noexcept;
 
   /** 按稳定实体 ID 写入属性，供撤销/重做在选择变化后复用。 */
-  [[nodiscard]] gneiss::engine::result set_value(gneiss::engine::world* world, entity_id entity,
-                                                 gneiss::engine::guid type_id,
-                                                 gneiss::engine::meta::property_id field_id,
-                                                 const gneiss::engine::value& value) noexcept;
+  [[nodiscard]] gneiss::engine::error set_value(gneiss::engine::world* world, entity_id entity,
+                                                gneiss::engine::guid type_id,
+                                                gneiss::engine::meta::property_id field_id,
+                                                const gneiss::engine::value& value) noexcept;
 
   [[nodiscard]] const std::vector<inspector_component>& components() const noexcept {
     return components_;

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
@@ -18,13 +18,12 @@ namespace gneiss::runtime {
  */
 class GNEISS_API prefab_preparation final {
 public:
-  static gneiss::engine::result create(runtime::application& application,
-                                       gneiss::engine::task_executor& executor,
-                                       std::string_view uri,
-                                       std::unique_ptr<prefab_preparation>& output) noexcept;
+  static gneiss::engine::error create(runtime::application& application,
+                                      gneiss::engine::task_executor& executor, std::string_view uri,
+                                      std::unique_ptr<prefab_preparation>& output) noexcept;
   ~prefab_preparation();
   void cancel();
-  gneiss::engine::result poll(gneiss::engine::prepared_scene_description& output, bool& complete);
+  gneiss::engine::error poll(gneiss::engine::prepared_scene_description& output, bool& complete);
 
 private:
   struct state;

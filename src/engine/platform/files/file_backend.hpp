@@ -15,7 +15,7 @@ namespace gneiss::engine::files {
 class backend_stream {
 public:
   virtual ~backend_stream() = default;
-  virtual result read_next(std::size_t maximum_bytes, files::callback<block>) = 0;
+  virtual error read_next(std::size_t maximum_bytes, files::callback<block>) = 0;
   virtual void close() noexcept = 0;
 };
 
@@ -26,25 +26,23 @@ public:
 class backend {
 public:
   virtual ~backend() = default;
-  virtual result open_stream(std::string_view, files::callback<std::shared_ptr<backend_stream>>) {
-    return result::unsupported;
+  virtual error open_stream(std::string_view, files::callback<std::shared_ptr<backend_stream>>) {
+    return error::unsupported;
   }
-  virtual result read(std::string_view, read_options, files::callback<files::bytes>) {
-    return result::unsupported;
+  virtual error read(std::string_view, read_options, files::callback<files::bytes>) {
+    return error::unsupported;
   }
-  virtual result read_range(std::string_view, range, files::callback<files::bytes>) {
-    return result::unsupported;
+  virtual error read_range(std::string_view, range, files::callback<files::bytes>) {
+    return error::unsupported;
   }
-  virtual result write(std::string_view, files::bytes, write_options, completion_callback) {
-    return result::unsupported;
+  virtual error write(std::string_view, files::bytes, write_options, completion_callback) {
+    return error::unsupported;
   }
-  virtual result stat(std::string_view, files::callback<files::info>) {
-    return result::unsupported;
+  virtual error stat(std::string_view, files::callback<files::info>) { return error::unsupported; }
+  virtual error list(std::string_view, list_options, files::callback<directory_page>) {
+    return error::unsupported;
   }
-  virtual result list(std::string_view, list_options, files::callback<directory_page>) {
-    return result::unsupported;
-  }
-  virtual result flush(completion_callback) { return result::unsupported; }
+  virtual error flush(completion_callback) { return error::unsupported; }
   /** 仅适配已有轮询式后端；不得同步读取文件或调用用户回调。 */
   virtual void poll() noexcept {}
 };

@@ -4,7 +4,7 @@
 #ifndef GNEISS_SRC_IPC_IPC_ENVELOPE_HPP_
 #define GNEISS_SRC_IPC_IPC_ENVELOPE_HPP_
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -48,17 +48,17 @@ struct ipc_envelope final {
 };
 
 /** 校验信封结构与请求关联约束，不解析域内负载。 */
-[[nodiscard]] result validate_ipc_envelope(const ipc_envelope& envelope) noexcept;
+[[nodiscard]] error validate_ipc_envelope(const ipc_envelope& envelope) noexcept;
 
 /** 将信封编码为固定网络字节序；成功时完整替换 output。 */
-[[nodiscard]] result encode_ipc_envelope(const ipc_envelope& envelope,
-                                         std::vector<std::uint8_t>& output) noexcept;
+[[nodiscard]] error encode_ipc_envelope(const ipc_envelope& envelope,
+                                        std::vector<std::uint8_t>& output) noexcept;
 
 /** 有界增量 IPC v2 信封解码器；结构失败后必须 reset() 才能继续使用。 */
 class ipc_envelope_decoder final {
 public:
-  [[nodiscard]] result append(std::span<const std::uint8_t> bytes,
-                              std::vector<ipc_envelope>& output) noexcept;
+  [[nodiscard]] error append(std::span<const std::uint8_t> bytes,
+                             std::vector<ipc_envelope>& output) noexcept;
   void reset() noexcept;
   [[nodiscard]] bool has_failed() const noexcept;
   [[nodiscard]] std::size_t buffered_size() const noexcept;

@@ -6,6 +6,6 @@
 当前不提供公共对象 SDK 或游戏模块 C API。Engine、Runtime、Editor 和工具直接使用 src 原生接口。
 内部头不安装、不承诺兼容。公共 `include` 目录已删除，需要对外接口时再按实际需求设计。
 
-实体和场景节点 ID、反射共享值使用原生定义；操作结果使用 `gneiss::engine::result`。
+实体和场景节点 ID、反射共享值使用原生定义；操作结果使用 `gneiss::engine::error` 或 `result<T>`。
 Runtime 不再装载游戏 DLL。客户 system 注册与脚本接入尚未设计。
 迁移状态见 [撤销模块计划](../plans/PLAN-051-remove-game-module.md)。

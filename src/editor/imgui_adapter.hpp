@@ -4,9 +4,9 @@
 #ifndef GNEISS_APPS_EDITOR_IMGUI_ADAPTER_H_
 #define GNEISS_APPS_EDITOR_IMGUI_ADAPTER_H_
 
+#include "engine/core/error.hpp"
 #include "engine/core/frame_time.hpp"
 #include "engine/core/input/input_types.hpp"
-#include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/draw_types.hpp"
 
@@ -29,11 +29,11 @@ public:
   imgui_adapter(const imgui_adapter&) = delete;
   imgui_adapter& operator=(const imgui_adapter&) = delete;
 
-  [[nodiscard]] gneiss::engine::result initialize(runtime::application& application);
+  [[nodiscard]] gneiss::engine::error initialize(runtime::application& application);
   void shutdown(runtime::application& application) noexcept;
-  [[nodiscard]] gneiss::engine::result begin_frame(runtime::application& application,
-                                                   const gneiss::engine::frame_time& time);
-  [[nodiscard]] gneiss::engine::result submit(runtime::application& application);
+  [[nodiscard]] gneiss::engine::error begin_frame(runtime::application& application,
+                                                  const gneiss::engine::frame_time& time);
+  [[nodiscard]] gneiss::engine::error submit(runtime::application& application);
 
 private:
   void process_input(const gneiss::engine::input_event& event);

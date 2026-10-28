@@ -28,17 +28,17 @@ int main() try {
     auto status = editor::begin_author_file_save(*files, std::move(change), receipt);
     if (status.ok()) {
       if (receipt->complete)
-        return engine::result::internal; // 业务完成不得内联。
+        return engine::error::internal; // 业务完成不得内联。
       status = test_support::await_file(*files, receipt);
     }
     return status;
   };
   if (save({"source.prefab.json", {}, "one"}).failed() ||
-      save({"source.prefab.json", {}, "clobber"}) != engine::result::invalid_state ||
+      save({"source.prefab.json", {}, "clobber"}) != engine::error::invalid_state ||
       read(root / "source.prefab.json") != "one" ||
       save({"source.prefab.json", "one", "two"}).failed() ||
-      save({"source.prefab.json", "one", "stale"}) != engine::result::invalid_state ||
-      save({"source.prefab.json", "two", {}}) != engine::result::invalid_argument ||
+      save({"source.prefab.json", "one", "stale"}) != engine::error::invalid_state ||
+      save({"source.prefab.json", "two", {}}) != engine::error::invalid_argument ||
       read(root / "source.prefab.json") != "two")
     return 2;
   std::filesystem::create_directory(root / "directory");
@@ -68,7 +68,7 @@ int main() try {
     return 7;
   document.close(); // 回调不访问已经关闭的文档。
   if (test_support::await_file(*files, receipt).failed() ||
-      document.accept_save(*receipt) != engine::result::invalid_state)
+      document.accept_save(*receipt) != engine::error::invalid_state)
     return 8;
   files.reset();
   app.reset();

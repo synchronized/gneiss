@@ -3,7 +3,7 @@
 
 #include "../support/async_application.hpp"
 #include "../support/async_scene_reload.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_instances.hpp"
@@ -53,23 +53,22 @@ int main() try {
   gneiss::scene_node_id old_child;
   gneiss::entity_id camera_entity_before;
   constexpr std::string_view uri = "asset://scenes/triangle.scene.json";
-  if (gneiss::runtime::application::create(config, application) !=
-          gneiss::engine::result::success ||
+  if (gneiss::runtime::application::create(config, application) != gneiss::engine::error::success ||
       gneiss::test_support::load_scene(*application, uri, &scene, &scheduler) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       application->scenes()->find_node(scene, camera_uuid, camera_before) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       application->scenes()->find_node(scene, old_child_uuid, old_child) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       application->native_world()->node_get_entity(camera_before, camera_entity_before) !=
-          gneiss::engine::result::success) {
+          gneiss::engine::error::success) {
     return 1;
   }
 
   const auto retired_child = old_child;
   write_scene(scene_path, "{}");
   if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, uri, false) !=
-      gneiss::engine::result::success) {
+      gneiss::engine::error::success) {
     return 2;
   }
   gneiss::scene_node_id camera_after;
@@ -77,18 +76,18 @@ int main() try {
   gneiss::entity_id camera_entity_after;
   std::uint64_t count = 0U;
   if (application->scenes()->find_node(scene, camera_uuid, camera_after) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       camera_after != camera_before ||
       application->native_world()->node_get_entity(camera_after, camera_entity_after) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       camera_entity_after != camera_entity_before ||
       application->scenes()->find_node(scene, new_child_uuid, new_child) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       application->scenes()->find_node(scene, old_child_uuid, old_child) !=
-          gneiss::engine::result::not_found ||
+          gneiss::engine::error::not_found ||
       application->native_world()->node_get_parent(retired_child, camera_after) !=
-          gneiss::engine::result::invalid_handle ||
-      application->scenes()->get_node_count(scene, &count) != gneiss::engine::result::success ||
+          gneiss::engine::error::invalid_handle ||
+      application->scenes()->get_node_count(scene, &count) != gneiss::engine::error::success ||
       count != 2U) {
     return 3;
   }
@@ -97,17 +96,17 @@ int main() try {
       scene_path,
       R"({"mesh_renderer":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/triangle.material.json"}})");
   if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, uri, false) !=
-          gneiss::engine::result::not_found ||
+          gneiss::engine::error::not_found ||
       application->scenes()->find_node(scene, camera_uuid, camera_after) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       camera_after != camera_before ||
       application->scenes()->find_node(scene, new_child_uuid, new_child) !=
-          gneiss::engine::result::success) {
+          gneiss::engine::error::success) {
     return 4;
   }
 
-  const bool destroyed = application->scenes()->unload(scene) == gneiss::engine::result::success &&
-                         application->shutdown() == gneiss::engine::result::success;
+  const bool destroyed = application->scenes()->unload(scene) == gneiss::engine::error::success &&
+                         application->shutdown() == gneiss::engine::error::success;
   std::filesystem::remove_all(root);
   return destroyed ? 0 : 5;
 } catch (...) {

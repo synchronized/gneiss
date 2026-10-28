@@ -14,24 +14,24 @@ class resource_load_group final {
 public:
   explicit resource_load_group(engine::resource_service& service) : service_(service) {}
   engine::texture_prepare_profile profile() const noexcept { return service_.profile(); }
-  engine::result
+  engine::error
   submit_assets(std::span<const engine::asset_source> sources, std::uint64_t session,
                 std::uint64_t revision, std::uint64_t& request, bool reload = true,
                 std::size_t limit = engine::resource_service::maximum_prepared_bytes) {
-    using engine::result;
+    using engine::error;
     request = 0;
     if (stopping_)
-      return result::invalid_state;
+      return error::invalid_state;
     if (busy())
-      return result::not_ready;
+      return error::not_ready;
     if (sources.empty() || sources.size() > 256 || session == 0 || revision == 0 || limit == 0)
-      return result::invalid_argument;
+      return error::invalid_argument;
     std::set<std::string> unique;
     for (const auto& source : sources)
       if (engine::validate_uri(source.uri).failed() || !unique.insert(source.uri).second ||
           (source.type != engine::asset_type::mesh && source.type != engine::asset_type::texture &&
            source.type != engine::asset_type::material))
-        return result::invalid_argument;
+        return error::invalid_argument;
     runtime::asset_load_completion next;
     for (const auto& source : sources)
       next.results.push_back({.source = source});
@@ -39,7 +39,7 @@ public:
     next.session = session;
     next.revision = revision;
     next.profile = profile();
-    next.result = result::success;
+    next.result = error::success;
     next.state = runtime::asset_load_state::preparing;
     completion_ = std::move(next);
     cursor_ = 0;
@@ -47,24 +47,26 @@ public:
     limit_ = limit;
     started_ = std::chrono::steady_clock::now();
     request = completion_->request;
-    return result::success;
+    return error::success;
   }
   void advance() {
-    using engine::result;
+    using engine::error;
     service_.advance();
     if (!completion_ || completion_->state != runtime::asset_load_state::preparing)
       return;
     auto& completion = *completion_;
     auto& item = completion.results[cursor_];
     if (!current_) {
-      const auto status = service_.load(item.source, current_, reload_,
-                                        std::min(limit_, std::size_t{64U * 1024U * 1024U}));
-      if (status.failed())
-        item.result = status;
+      auto loaded =
+          service_.load(item.source, reload_, std::min(limit_, std::size_t{64U * 1024U * 1024U}));
+      if (!loaded)
+        item.result = loaded.error();
+      else
+        current_ = std::move(*loaded);
     }
     if (current_) {
       item.result = current_.status();
-      if (item.result == result::not_ready)
+      if (item.result == error::not_ready)
         return;
       const auto diagnostic = current_.diagnostic();
       if (item.result.failed()) {
@@ -102,10 +104,10 @@ public:
       return false;
     current_.cancel();
     completion_->state = runtime::asset_load_state::cancelled;
-    completion_->result = engine::result::invalid_state;
+    completion_->result = engine::error::invalid_state;
     for (auto& item : completion_->results)
-      if (item.result == engine::result::not_ready)
-        item.result = engine::result::invalid_state;
+      if (item.result == engine::error::not_ready)
+        item.result = engine::error::invalid_state;
     return true;
   }
   bool progress(runtime::asset_load_progress& output) const {

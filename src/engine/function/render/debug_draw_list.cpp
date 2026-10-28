@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/render/debug_draw_list.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -11,10 +11,10 @@
 
 namespace gneiss::engine {
 
-result debug_draw_list::replace(std::span<const debug_line> lines) noexcept {
+error debug_draw_list::replace(std::span<const debug_line> lines) noexcept {
   constexpr std::uint32_t maximum_lines = 1024U * 1024U;
   if (lines.size() > maximum_lines) {
-    return result::invalid_argument;
+    return error::invalid_argument;
   }
   for (const auto& line : lines) {
     if (!std::isfinite(line.width) || line.width <= 0.0F ||
@@ -22,7 +22,7 @@ result debug_draw_list::replace(std::span<const debug_line> lines) noexcept {
                              [](float value) { return std::isfinite(value); }) ||
         !std::ranges::all_of(math::components(line.end),
                              [](float value) { return std::isfinite(value); })) {
-      return result::invalid_argument;
+      return error::invalid_argument;
     }
   }
   try {
@@ -31,11 +31,11 @@ result debug_draw_list::replace(std::span<const debug_line> lines) noexcept {
       pending.assign(lines.begin(), lines.end());
     }
     lines_ = std::move(pending);
-    return result::success;
+    return error::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return error::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return error::internal;
   }
 }
 

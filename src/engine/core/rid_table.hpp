@@ -4,7 +4,7 @@
 #ifndef GNEISS_CORE_RID_TABLE_HPP_
 #define GNEISS_CORE_RID_TABLE_HPP_
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 
 #include <cstddef>
@@ -74,9 +74,9 @@ public:
   rid_table& operator=(rid_table&&) = delete;
 
   template <typename Value>
-  [[nodiscard]] result create(resource_type type, Value&& value, Identifier* out_rid) noexcept {
+  [[nodiscard]] error create(resource_type type, Value&& value, Identifier* out_rid) noexcept {
     if (out_rid == nullptr || domain_ == 0U || type == resource_type::invalid) {
-      return result::invalid_argument;
+      return error::invalid_argument;
     }
     *out_rid = Identifier{};
 
@@ -89,7 +89,7 @@ public:
       }
       if (index == slots_.size()) {
         if (slots_.size() >= detail::slot_mask) {
-          return result::out_of_memory;
+          return error::out_of_memory;
         }
         slots_.emplace_back();
       }
@@ -99,11 +99,11 @@ public:
       slot.type = type;
       *out_rid = Identifier{
           detail::encode_rid({static_cast<std::uint32_t>(index), slot.generation, type, domain_})};
-      return result::success;
+      return error::success;
     } catch (const std::bad_alloc&) {
-      return result::out_of_memory;
+      return error::out_of_memory;
     } catch (...) {
-      return result::internal;
+      return error::internal;
     }
   }
 
@@ -123,10 +123,10 @@ public:
     return &*slots_[parts.slot].value;
   }
 
-  [[nodiscard]] result destroy(Identifier value, resource_type expected_type) noexcept {
+  [[nodiscard]] error destroy(Identifier value, resource_type expected_type) noexcept {
     const auto parts = detail::decode_rid(raw(value));
     if (!is_valid(parts, expected_type)) {
-      return result::invalid_handle;
+      return error::invalid_handle;
     }
 
     auto& slot = slots_[parts.slot];
@@ -138,7 +138,7 @@ public:
     } else {
       ++slot.generation;
     }
-    return result::success;
+    return error::success;
   }
 
   /** 仅遍历存活且类型匹配的值；回调不得创建或销毁本表槽位。 */

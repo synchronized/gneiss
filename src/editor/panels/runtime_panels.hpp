@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "runtime_property_edits.hpp"
 #include "runtime_scene_mirror.hpp"
 
@@ -22,10 +22,10 @@ struct runtime_inspector_actions final {
   bool editable = false;
   bool can_apply_to_author = false;
   const runtime_property_edit* (*find_edit)(void*, const runtime_property_key&) = nullptr;
-  gneiss::engine::result (*write_property)(void*, const runtime_property_key&, std::uint64_t,
-                                           runtime_property_value) = nullptr;
+  gneiss::engine::error (*write_property)(void*, const runtime_property_key&, std::uint64_t,
+                                          runtime_property_value) = nullptr;
   void (*apply_to_author)(void*, const runtime_scene_node&) = nullptr;
-  void (*report_result)(void*, gneiss::engine::result) = nullptr;
+  void (*report_result)(void*, gneiss::engine::error) = nullptr;
 };
 
 /** 返回镜像中借用的选择节点；镜像更新后必须重新查询。 */

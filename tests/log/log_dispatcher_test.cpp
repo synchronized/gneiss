@@ -72,14 +72,14 @@ bool verify_failure_and_shutdown() {
       ++calls;
       valid = valid && event.message.context == 9U && event.thread_id != 0U &&
               event.timestamp_ns != 0U && event.sequence == calls &&
-              active->submit({.category = "nested"}) == gneiss::engine::result::invalid_state;
+              active->submit({.category = "nested"}) == gneiss::engine::error::invalid_state;
       if (calls == 1U) {
         throw std::runtime_error("测试回调异常隔离");
       }
     });
     active = &dispatcher;
-    if (dispatcher.submit({.context = 9U, .category = "test"}) != gneiss::engine::result::success ||
-        dispatcher.submit({.context = 9U, .category = "test"}) != gneiss::engine::result::success) {
+    if (dispatcher.submit({.context = 9U, .category = "test"}) != gneiss::engine::error::success ||
+        dispatcher.submit({.context = 9U, .category = "test"}) != gneiss::engine::error::success) {
       return false;
     }
     // 不主动 flush，验证析构排空队列且异常不会阻止后续投递。
@@ -95,17 +95,17 @@ bool verify_validation_and_concurrency() {
       [&](const event_view& event) {
         ++received;
         valid = valid && event.sequence == received && event.message.severity == level::debug &&
-                event.message.result == gneiss::engine::result::not_found &&
+                event.message.result == gneiss::engine::error::not_found &&
                 event.message.message == "parallel";
       },
       512U);
   if (dispatcher.submit({.severity = static_cast<level>(0), .category = "test"}) !=
-          gneiss::engine::result::invalid_argument ||
+          gneiss::engine::error::invalid_argument ||
       dispatcher.submit({.severity = static_cast<level>(7), .category = "test"}) !=
-          gneiss::engine::result::invalid_argument ||
-      dispatcher.submit({.category = ""}) != gneiss::engine::result::invalid_argument ||
+          gneiss::engine::error::invalid_argument ||
+      dispatcher.submit({.category = ""}) != gneiss::engine::error::invalid_argument ||
       dispatcher.submit({.category = "test", .message = "\xff"}) !=
-          gneiss::engine::result::invalid_argument) {
+          gneiss::engine::error::invalid_argument) {
     return false;
   }
   std::atomic<bool> accepted{true};
@@ -118,8 +118,8 @@ bool verify_validation_and_concurrency() {
                   .severity = level::debug,
                   .category = "test",
                   .message = "parallel",
-                  .result = gneiss::engine::result::not_found,
-              }) != gneiss::engine::result::success) {
+                  .result = gneiss::engine::error::not_found,
+              }) != gneiss::engine::error::success) {
             accepted.store(false);
           }
         }
@@ -146,7 +146,7 @@ int main() try {
       .category = "test",
       .message = payload,
   };
-  if (dispatcher.submit(message) != gneiss::engine::result::success) {
+  if (dispatcher.submit(message) != gneiss::engine::error::success) {
     return 1;
   }
   {
@@ -157,7 +157,7 @@ int main() try {
     }
   }
   for (std::uint32_t index = 0U; index < 8U; ++index) {
-    if (dispatcher.submit(message) != gneiss::engine::result::success) {
+    if (dispatcher.submit(message) != gneiss::engine::error::success) {
       return 3;
     }
   }

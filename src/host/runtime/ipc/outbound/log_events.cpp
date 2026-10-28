@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "runtime_ipc_outbound.hpp"
 
 #include "ipc_log_protocol.hpp"
@@ -13,18 +13,17 @@
 
 namespace gneiss::host {
 
-gneiss::engine::result make_log_event(const gneiss::engine::event_view& event,
-                                      gneiss::engine::ipc_envelope& output) noexcept {
+gneiss::engine::error make_log_event(const gneiss::engine::event_view& event,
+                                     gneiss::engine::ipc_envelope& output) noexcept {
   try {
     std::string encoded_event;
     const auto operation = gneiss::host::encode_runtime_log_event(event, encoded_event);
-    return operation == gneiss::engine::result::success
-               ? encode_ipc_log_event(encoded_event, output)
-               : operation;
+    return operation == gneiss::engine::error::success ? encode_ipc_log_event(encoded_event, output)
+                                                       : operation;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return gneiss::engine::error::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return gneiss::engine::error::internal;
   }
 }
 

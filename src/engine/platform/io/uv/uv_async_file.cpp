@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "uv_async_file.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -64,14 +64,14 @@ struct reservation {
 };
 struct receipt {
   std::atomic_bool ready = false;
-  engine::result status = engine::result::not_ready;
+  engine::error status = engine::error::not_ready;
   std::mutex mutex;
   std::condition_variable changed;
-  void publish(engine::result value) noexcept {
+  void publish(engine::error value) noexcept {
     {
       const std::scoped_lock lock(mutex);
       // 已完成的底层失败不能继续伪装为尚未就绪。
-      status = value == engine::result::not_ready ? engine::result::io : value;
+      status = value == engine::error::not_ready ? engine::error::io : value;
       ready.store(true, std::memory_order_release);
     }
     changed.notify_all();
@@ -91,7 +91,7 @@ struct file {
   bool close_started{};
   std::size_t active_reads{};
   receipt close_receipt;
-  engine::result close_status = engine::result::success;
+  engine::error close_status = engine::error::success;
   void read_finished() noexcept {
     const std::scoped_lock lock(mutex);
     --active_reads;
@@ -119,7 +119,7 @@ struct reading : receipt {
   std::vector<std::byte> bytes;
   std::uint64_t offset{};
   std::size_t consumed{};
-  void finish(engine::result value) noexcept {
+  void finish(engine::error value) noexcept {
     source->state_->read_finished();
     source.reset();
     publish(value);
@@ -145,12 +145,12 @@ struct reading : receipt {
     const auto count = request->result;
     uv_fs_req_cleanup(request);
     if (count <= 0 || std::cmp_greater(count, self->bytes.size() - self->consumed)) {
-      self->finish(count < 0 ? from_uv_status(static_cast<int>(count)) : engine::result::io);
+      self->finish(count < 0 ? from_uv_status(static_cast<int>(count)) : engine::error::io);
       return;
     }
     self->consumed += static_cast<std::size_t>(count);
     if (self->consumed == self->bytes.size()) {
-      self->finish(engine::result::success);
+      self->finish(engine::error::success);
     } else {
       self->submit();
     }
@@ -170,7 +170,7 @@ void file::dispatch(uv_async_t* handle) noexcept {
   for (auto& read : pending) {
     read->lifetime = read;
     if (read->bytes.empty()) {
-      read->finish(engine::result::success);
+      read->finish(engine::error::success);
     } else {
       read->submit();
     }
@@ -193,8 +193,8 @@ struct opening : receipt {
   reservation reserved;
   std::shared_ptr<uv_async_file> output;
   int descriptor = -1;
-  engine::result failure = engine::result::internal;
-  void fail(engine::result value) noexcept {
+  engine::error failure = engine::error::internal;
+  void fail(engine::error value) noexcept {
     failure = value;
     if (descriptor < 0) {
       publish(value);
@@ -223,7 +223,7 @@ struct opening : receipt {
     uv_fs_req_cleanup(request);
     if (code < 0 || (info.st_mode & S_IFMT) != S_IFREG) {
       self->fail(code < 0 ? from_uv_status(static_cast<int>(code))
-                          : engine::result::invalid_argument);
+                          : engine::error::invalid_argument);
       return;
     }
     self->deliver(info.st_size);
@@ -246,12 +246,12 @@ struct opening : receipt {
       auto* opened_file = state.get();
       opened_file->lifetime = std::move(state);
       output = std::move(source);
-      publish(engine::result::success);
+      publish(engine::error::success);
       lifetime.reset();
     } catch (const std::bad_alloc&) {
-      fail(engine::result::out_of_memory);
+      fail(engine::error::out_of_memory);
     } catch (...) {
-      fail(engine::result::internal);
+      fail(engine::error::internal);
     }
   }
   static void opened(uv_fs_t* request) noexcept {
@@ -277,15 +277,15 @@ struct opening : receipt {
 uv_file_open_operation::uv_file_open_operation(std::shared_ptr<file_detail::opening> state) noexcept
     : state_(std::move(state)) {}
 uv_file_open_operation::~uv_file_open_operation() = default;
-engine::result uv_file_open_operation::poll(std::shared_ptr<uv_async_file>& output) noexcept {
+engine::error uv_file_open_operation::poll(std::shared_ptr<uv_async_file>& output) noexcept {
   output.reset();
   if (delivered_) {
-    return engine::result::invalid_state;
+    return engine::error::invalid_state;
   }
   if (!state_->ready.load(std::memory_order_acquire)) {
-    return engine::result::not_ready;
+    return engine::error::not_ready;
   }
-  if (state_->status == engine::result::success) {
+  if (state_->status == engine::error::success) {
     output = std::move(state_->output);
     delivered_ = true;
   }
@@ -294,21 +294,21 @@ engine::result uv_file_open_operation::poll(std::shared_ptr<uv_async_file>& outp
 uv_file_read_operation::uv_file_read_operation(std::shared_ptr<file_detail::reading> state) noexcept
     : state_(std::move(state)) {}
 uv_file_read_operation::~uv_file_read_operation() = default;
-engine::result uv_file_read_operation::poll(std::span<const std::byte>& output) noexcept {
+engine::error uv_file_read_operation::poll(std::span<const std::byte>& output) noexcept {
   output = {};
   if (!state_->ready.load(std::memory_order_acquire)) {
-    return engine::result::not_ready;
+    return engine::error::not_ready;
   }
-  if (state_->status == engine::result::success) {
+  if (state_->status == engine::error::success) {
     output = state_->bytes;
   }
   return state_->status;
 }
-engine::result uv_file_read_operation::wait_for(std::chrono::milliseconds timeout,
-                                                std::span<const std::byte>& output) noexcept {
+engine::error uv_file_read_operation::wait_for(std::chrono::milliseconds timeout,
+                                               std::span<const std::byte>& output) noexcept {
   output = {};
   if (timeout < std::chrono::milliseconds::zero()) {
-    return engine::result::invalid_argument;
+    return engine::error::invalid_argument;
   }
   try {
     std::unique_lock lock(state_->mutex);
@@ -316,7 +316,7 @@ engine::result uv_file_read_operation::wait_for(std::chrono::milliseconds timeou
                              [this] { return state_->ready.load(std::memory_order_acquire); });
     return poll(output);
   } catch (...) {
-    return engine::result::internal;
+    return engine::error::internal;
   }
 }
 uv_async_file::uv_async_file(std::shared_ptr<file_detail::file> state) noexcept
@@ -329,17 +329,17 @@ void uv_async_file::begin_close() const noexcept {
     (void)uv_async_send(&state_->wakeup);
   }
 }
-engine::result uv_async_file::poll_close() const noexcept {
+engine::error uv_async_file::poll_close() const noexcept {
   return state_->close_receipt.ready.load(std::memory_order_acquire) ? state_->close_receipt.status
-                                                                     : engine::result::not_ready;
+                                                                     : engine::error::not_ready;
 }
 std::uint64_t uv_async_file::size() const noexcept { return state_->size; }
-engine::result uv_async_file::read_at(std::uint64_t offset,
-                                      std::span<std::byte> output) const noexcept {
+engine::error uv_async_file::read_at(std::uint64_t offset,
+                                     std::span<std::byte> output) const noexcept {
   {
     const std::scoped_lock lock(state_->mutex);
     if (state_->released)
-      return engine::result::invalid_state;
+      return engine::error::invalid_state;
     ++state_->active_reads;
   }
   // 关闭等待计数归零，不持锁等待同步系统调用，避免阻塞发起关闭的线程。
@@ -351,7 +351,7 @@ engine::result uv_async_file::read_at(std::uint64_t offset,
       offset > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
       output.size() >
           static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) - offset) {
-    return engine::result::invalid_argument;
+    return engine::error::invalid_argument;
   }
   while (!output.empty()) {
     const auto count = static_cast<unsigned int>(
@@ -366,26 +366,26 @@ engine::result uv_async_file::read_at(std::uint64_t offset,
       return from_uv_status(code);
     }
     if (consumed <= 0 || std::cmp_greater(consumed, count)) {
-      return engine::result::io;
+      return engine::error::io;
     }
     offset += static_cast<std::uint64_t>(consumed);
     output = output.subspan(static_cast<std::size_t>(consumed));
   }
-  return engine::result::success;
+  return engine::error::success;
 }
-engine::result
+engine::error
 uv_async_file::begin_read(std::uint64_t offset, std::size_t count,
                           std::unique_ptr<uv_file_read_operation>& output) const noexcept {
   output.reset();
   if (count > state_->capacity->maximum_bytes || offset > size() || count > size() - offset ||
       offset > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
       count > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) - offset) {
-    return engine::result::invalid_argument;
+    return engine::error::invalid_argument;
   }
   try {
     auto read = std::make_shared<file_detail::reading>();
     if (!read->reserved.acquire(state_->capacity, count)) {
-      return engine::result::not_ready;
+      return engine::error::not_ready;
     }
     read->bytes.resize(count);
     read->offset = offset;
@@ -393,7 +393,7 @@ uv_async_file::begin_read(std::uint64_t offset, std::size_t count,
     auto operation = std::make_unique<uv_file_read_operation>(read);
     const std::scoped_lock lock(state_->mutex);
     if (state_->released)
-      return engine::result::invalid_state;
+      return engine::error::invalid_state;
     state_->queued.push_back(read);
     const auto code = uv_async_send(&state_->wakeup);
     if (code < 0) {
@@ -402,27 +402,27 @@ uv_async_file::begin_read(std::uint64_t offset, std::size_t count,
     }
     ++state_->active_reads;
     output = std::move(operation);
-    return engine::result::success;
+    return engine::error::success;
   } catch (const std::bad_alloc&) {
-    return engine::result::out_of_memory;
+    return engine::error::out_of_memory;
   } catch (...) {
-    return engine::result::internal;
+    return engine::error::internal;
   }
 }
 uv_file_io::uv_file_io(uv_loop_executor& executor, uv_file_limits limits)
     : executor_(executor), budget_(std::make_shared<file_detail::budget>(limits)) {}
 
-engine::result
+engine::error
 uv_file_io::begin_open(std::string_view path,
                        std::unique_ptr<uv_file_open_operation>& output) const noexcept {
   output.reset();
   if (path.empty() || path.find('\0') != std::string_view::npos) {
-    return engine::result::invalid_argument;
+    return engine::error::invalid_argument;
   }
   try {
     auto pending = std::make_shared<file_detail::opening>();
     if (!pending->reserved.acquire(budget_, 0U)) {
-      return engine::result::not_ready;
+      return engine::error::not_ready;
     }
     pending->path = path;
     auto operation = std::make_unique<uv_file_open_operation>(pending);
@@ -437,14 +437,14 @@ uv_file_io::begin_open(std::string_view path,
         pending->fail(from_uv_status(code));
       }
     });
-    if (started == engine::result::success) {
+    if (started == engine::error::success) {
       output = std::move(operation);
     }
     return started;
   } catch (const std::bad_alloc&) {
-    return engine::result::out_of_memory;
+    return engine::error::out_of_memory;
   } catch (...) {
-    return engine::result::internal;
+    return engine::error::internal;
   }
 }
 } // namespace gneiss::engine

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "log_dispatcher.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "log.hpp"
 
 #include <chrono>
@@ -51,12 +51,12 @@ log_dispatcher::~log_dispatcher() noexcept {
   }
 }
 
-engine::result log_dispatcher::submit(const message_view& message) noexcept {
+engine::error log_dispatcher::submit(const message_view& message) noexcept {
   if (is_in_log_callback) {
-    return engine::result::invalid_state;
+    return engine::error::invalid_state;
   }
   if (validate_message(message).failed()) {
-    return engine::result::invalid_argument;
+    return engine::error::invalid_argument;
   }
   try {
     owned_event event;
@@ -71,21 +71,21 @@ engine::result log_dispatcher::submit(const message_view& message) noexcept {
     {
       const std::scoped_lock lock(mutex_);
       if (is_stopping_) {
-        return engine::result::invalid_state;
+        return engine::error::invalid_state;
       }
       if (queue_.size() >= capacity_) {
         ++dropped_count_;
-        return engine::result::success;
+        return engine::error::success;
       }
       event.sequence = next_sequence_++;
       queue_.push_back(std::move(event));
     }
     ready_.notify_one();
-    return engine::result::success;
+    return engine::error::success;
   } catch (const std::bad_alloc&) {
-    return engine::result::out_of_memory;
+    return engine::error::out_of_memory;
   } catch (...) {
-    return engine::result::internal;
+    return engine::error::internal;
   }
 }
 
@@ -158,7 +158,7 @@ log_dispatcher::owned_event log_dispatcher::make_drop_event(std::uint64_t count)
     event.source = "engine.log";
     event.category = "backpressure";
     event.message = "日志队列已满，丢弃 " + std::to_string(count) + " 个事件";
-    event.result = engine::result::not_ready;
+    event.result = engine::error::not_ready;
   } catch (...) {
     event.source.clear();
     event.category.clear();

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_application.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_service.hpp"
@@ -58,16 +58,16 @@ void run(gneiss::engine::execution_mode mode) {
   const auto root = files.root.string();
   runtime::application_configuration desc;
   desc.asset_root = root;
-  check(runtime::application::create(desc, app) == gneiss::engine::result::success);
+  check(runtime::application::create(desc, app) == gneiss::engine::error::success);
   // 原生取消入口在无服务和无在途请求时返回未就绪。
-  check(app->cancel_assets() == gneiss::engine::result::not_ready);
-  check(app->attach_task_executor(scheduler) == gneiss::engine::result::success);
-  check(app->cancel_assets() == gneiss::engine::result::not_ready);
-  check(app->attach_task_executor(scheduler) == gneiss::engine::result::invalid_state);
+  check(app->cancel_assets() == gneiss::engine::error::not_ready);
+  check(app->attach_task_executor(scheduler) == gneiss::engine::error::success);
+  check(app->cancel_assets() == gneiss::engine::error::not_ready);
+  check(app->attach_task_executor(scheduler) == gneiss::engine::error::invalid_state);
   const std::array uris{gneiss::engine::asset_source{.uri = "asset://a.texture.json",
                                                      .type = gneiss::engine::asset_type::texture}};
   std::uint64_t request{};
-  check(app->request_assets(uris, 2U, 1U, request, false) == gneiss::engine::result::success);
+  check(app->request_assets(uris, 2U, 1U, request, false) == gneiss::engine::error::success);
   gneiss::runtime::asset_load_completion completion;
   bool ready{};
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -75,11 +75,11 @@ void run(gneiss::engine::execution_mode mode) {
     if (mode == gneiss::engine::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
-    check(app->poll_assets(completion, ready) == gneiss::engine::result::success);
+    check(app->poll_assets(completion, ready) == gneiss::engine::error::success);
     check(std::chrono::steady_clock::now() < deadline);
     std::this_thread::yield();
   }
-  check(completion.result == gneiss::engine::result::success && completion.request == request &&
+  check(completion.result == gneiss::engine::error::success && completion.request == request &&
         completion.assets.size() == 1U &&
         gneiss::engine::asset_kind(completion.assets.front()) ==
             gneiss::engine::asset_type::texture);
@@ -90,7 +90,7 @@ void run(gneiss::engine::execution_mode mode) {
       if (mode == gneiss::engine::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
-      check(app->poll_assets(completion, completed) == gneiss::engine::result::success);
+      check(app->poll_assets(completion, completed) == gneiss::engine::error::success);
       check(std::chrono::steady_clock::now() < limit);
       std::this_thread::yield();
     }
@@ -108,44 +108,42 @@ void run(gneiss::engine::execution_mode mode) {
       << R"({"format":"gneiss.scene","version":4,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://m.mesh","material":"asset://m.material"}}},{"uuid":"00000000-0000-4000-8000-000000000003","parent":null,"transform":{"translation":[2,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://m.mesh","material":"asset://m.material"}}}],"prefab_instances":[]})";
   constexpr std::string_view scene_uri = "asset://s.scene";
   gneiss::scene_instance_id scene{};
-  check(gneiss::engine::result{gneiss::test_support::load_scene(
-            *app, scene_uri, &scene, &scheduler)} == gneiss::engine::result::success);
+  check(gneiss::engine::error{gneiss::test_support::load_scene(
+            *app, scene_uri, &scene, &scheduler)} == gneiss::engine::error::success);
   const auto capture = [&](std::uint64_t index) {
     gneiss::engine::scene_node_view info;
-    check(gneiss::engine::result{app->scenes()->get_node_info(scene, index, info)} ==
-          gneiss::engine::result::success);
+    check(gneiss::engine::error{app->scenes()->get_node_info(scene, index, info)} ==
+          gneiss::engine::error::success);
     gneiss::engine::scene_instances::mesh_binding value;
-    check(app->capture_mesh_binding(scene, info.node, value) == gneiss::engine::result::success);
+    check(app->capture_mesh_binding(scene, info.node, value) == gneiss::engine::error::success);
     return value;
   };
   const auto initial = capture(0);
   check(initial.material == capture(1).material);
   write_material(true);
-  check(app->request_assets(uris, 2U, 3U, request, true) == gneiss::engine::result::success);
+  check(app->request_assets(uris, 2U, 3U, request, true) == gneiss::engine::error::success);
   wait();
   // 只请求纹理不重读材质，场景使用者保持稳定资源引用。
-  check(completion.result == gneiss::engine::result::success && completion.assets.size() == 1U);
+  check(completion.result == gneiss::engine::error::success && completion.assets.size() == 1U);
   const gneiss::engine::asset_source material_source{.uri = "asset://m.material",
                                                      .type = gneiss::engine::asset_type::material};
   gneiss::engine::render_asset_ref selected_before;
-  check(app->query_ready_asset(material_source, selected_before) ==
-        gneiss::engine::result::success);
+  check(app->query_ready_asset(material_source, selected_before) == gneiss::engine::error::success);
   write_material(false);
   check(app->prepare_edit_assets({&material_source, 1}, 31U, request) ==
-        gneiss::engine::result::success);
+        gneiss::engine::error::success);
   wait();
-  check(completion.result == gneiss::engine::result::success);
+  check(completion.result == gneiss::engine::error::success);
   gneiss::engine::render_asset_ref selected_after;
-  check(app->query_ready_asset(material_source, selected_after) ==
-            gneiss::engine::result::success &&
+  check(app->query_ready_asset(material_source, selected_after) == gneiss::engine::error::success &&
         selected_before == selected_after);
   // 恢复后续重载用例的输入；这里不修改场景使用者。
   write_material(true);
   const auto updated = capture(0);
   check(updated.material == capture(1).material && updated.material == initial.material);
-  check(app->request_assets(uris, 2U, 4U, request, true) == gneiss::engine::result::success);
+  check(app->request_assets(uris, 2U, 4U, request, true) == gneiss::engine::error::success);
   wait();
-  check(completion.result == gneiss::engine::result::success);
+  check(completion.result == gneiss::engine::error::success);
   // 只改变纹理负载不替换材质身份；两个使用者继续持有同一资源。
   check(gneiss::engine::encode_texture_ktx2(
             {.transfer = gneiss::engine::texture_transfer::srgb,
@@ -158,52 +156,52 @@ void run(gneiss::engine::execution_mode mode) {
     stream.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
   }
-  check(app->request_assets(uris, 2U, 40U, request, true) == gneiss::engine::result::success);
+  check(app->request_assets(uris, 2U, 40U, request, true) == gneiss::engine::error::success);
   wait();
-  check(completion.result == gneiss::engine::result::success);
+  check(completion.result == gneiss::engine::error::success);
   const auto textured = capture(0);
   check(textured.material == capture(1).material && textured.material == updated.material);
   std::ofstream(files.root / "m.material") << "broken";
-  check(app->request_assets(uris, 2U, 5U, request, true) == gneiss::engine::result::success);
+  check(app->request_assets(uris, 2U, 5U, request, true) == gneiss::engine::error::success);
   wait();
-  check(completion.result == gneiss::engine::result::success && completion.assets.size() == 1U);
+  check(completion.result == gneiss::engine::error::success && completion.assets.size() == 1U);
   check(capture(0).material == textured.material && capture(1).material == textured.material);
   write_material(false);
-  check(app->request_assets(uris, 2U, 6U, request, true) == gneiss::engine::result::success);
-  check(app->cancel_assets() == gneiss::engine::result::success);
+  check(app->request_assets(uris, 2U, 6U, request, true) == gneiss::engine::error::success);
+  check(app->cancel_assets() == gneiss::engine::error::success);
   wait();
   check(completion.state == gneiss::runtime::asset_load_state::cancelled &&
         completion.assets.empty());
   // 上传期间 ECS 改绑不妨碍资源更新，也不能被重载覆盖。
   gneiss::engine::scene_node_view node;
-  check(gneiss::engine::result{app->scenes()->get_node_info(scene, 0U, node)} ==
-        gneiss::engine::result::success);
+  check(gneiss::engine::error{app->scenes()->get_node_info(scene, 0U, node)} ==
+        gneiss::engine::error::success);
   const auto world = app->native_world();
-  check(app->request_assets(uris, 2U, 7U, request, true) == gneiss::engine::result::success);
+  check(app->request_assets(uris, 2U, 7U, request, true) == gneiss::engine::error::success);
   gneiss::engine::mesh_renderer external;
   check(app->resources().reserve_mesh(external.mesh).ok());
   check(app->resources().reserve_material(external.material).ok());
-  check(gneiss::engine::result{app->native_world()->entity_set_mesh_renderer(
-            node.entity, external)} == gneiss::engine::result::success);
+  check(gneiss::engine::error{app->native_world()->entity_set_mesh_renderer(
+            node.entity, external)} == gneiss::engine::error::success);
   wait();
-  check(completion.result == gneiss::engine::result::success &&
+  check(completion.result == gneiss::engine::error::success &&
         completion.state == gneiss::runtime::asset_load_state::applied &&
         completion.assets.size() == 1U);
   const std::array unchanged{
       gneiss::engine::mesh_renderer_replacement{.entity = node.entity,
                                                 .expected = {external.mesh, external.material},
                                                 .replacement = {external.mesh, external.material}}};
-  check(world->replace_mesh_renderers(unchanged) == gneiss::engine::result::success);
+  check(world->replace_mesh_renderers(unchanged) == gneiss::engine::error::success);
   // 卸载冲突使用者后可重试；完成后释放租约，Application 仍可正常关闭。
-  check(gneiss::engine::result{app->scenes()->unload(scene)} == gneiss::engine::result::success);
-  check(gneiss::engine::result{gneiss::test_support::load_scene(
-            *app, scene_uri, &scene, &scheduler)} == gneiss::engine::result::success);
-  check(app->request_assets(uris, 2U, 8U, request, true) == gneiss::engine::result::success);
+  check(gneiss::engine::error{app->scenes()->unload(scene)} == gneiss::engine::error::success);
+  check(gneiss::engine::error{gneiss::test_support::load_scene(
+            *app, scene_uri, &scene, &scheduler)} == gneiss::engine::error::success);
+  check(app->request_assets(uris, 2U, 8U, request, true) == gneiss::engine::error::success);
   wait();
-  check(completion.result == gneiss::engine::result::success);
+  check(completion.result == gneiss::engine::error::success);
   completion = {}; // 所有租约必须先于 Application 销毁。
-  check(app->request_assets(uris, 2U, 2U, request, true) == gneiss::engine::result::success);
-  check(app->cancel_assets() == gneiss::engine::result::success);
+  check(app->request_assets(uris, 2U, 2U, request, true) == gneiss::engine::error::success);
+  check(app->cancel_assets() == gneiss::engine::error::success);
   // app 析构完成取消与作用域回收；注入的宿主池仍然有效。
 }
 }

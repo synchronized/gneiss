@@ -19,7 +19,7 @@ struct read_stream::state : std::enable_shared_from_this<state> {
     if (source)
       source->close();
   }
-  result next(files::callback<block> callback) {
+  error next(files::callback<block> callback) {
     const auto status = files->read_stream_source(
         uri, source, block_bytes,
         [weak = weak_from_this(), callback = std::move(callback)](completion<block> value) mutable {
@@ -34,7 +34,7 @@ struct read_stream::state : std::enable_shared_from_this<state> {
                (!value.data.eof && value.data.bytes.empty()) ||
                value.data.bytes.size() >
                    std::numeric_limits<std::uint64_t>::max() - current->offset))
-            value.status = result::io;
+            value.status = error::io;
           if (value.status.failed()) {
             value.data = {};
             current->ended = true;
@@ -65,13 +65,13 @@ read_stream::~read_stream() {
   if (state_->pending)
     (void)state_->files->cancel(state_->request);
 }
-result read_stream::cancel() noexcept {
+error read_stream::cancel() noexcept {
   auto& s = *state_;
   if (s.size)
-    return s.pending ? s.files->cancel(s.request) : result::invalid_state;
+    return s.pending ? s.files->cancel(s.request) : error::invalid_state;
   if (s.ended)
-    return result::invalid_state;
-  const auto status = s.pending ? s.files->cancel(s.request) : result::success;
+    return error::invalid_state;
+  const auto status = s.pending ? s.files->cancel(s.request) : error::success;
   if (status.ok()) {
     s.ended = true;
     if (s.source)
@@ -79,7 +79,7 @@ result read_stream::cancel() noexcept {
   }
   return status;
 }
-result read_stream::read_sequential(files::callback<block> callback) noexcept try {
+error read_stream::read_sequential(files::callback<block> callback) noexcept try {
   auto& s = *state_;
   if (s.source)
     return s.next(std::move(callback));
@@ -100,11 +100,11 @@ result read_stream::read_sequential(files::callback<block> callback) noexcept tr
           return;
         }
         current->source = std::move(opened.data);
-        result submitted;
+        error submitted;
         try {
           submitted = current->next(callback);
         } catch (...) {
-          submitted = result::out_of_memory;
+          submitted = error::out_of_memory;
         }
         if (submitted.failed())
           callback({submitted, {}});
@@ -113,16 +113,16 @@ result read_stream::read_sequential(files::callback<block> callback) noexcept tr
   s.pending = status.ok();
   return status;
 } catch (...) {
-  return result::out_of_memory;
+  return error::out_of_memory;
 }
-result read_stream::read_next(files::callback<block> callback) noexcept try {
+error read_stream::read_next(files::callback<block> callback) noexcept try {
   auto& s = *state_;
   if (!callback)
-    return result::invalid_argument;
+    return error::invalid_argument;
   if (s.ended)
-    return result::invalid_state;
+    return error::invalid_state;
   if (s.pending)
-    return result::not_ready;
+    return error::not_ready;
   if (!s.size)
     return read_sequential(std::move(callback));
   const auto length =
@@ -138,22 +138,22 @@ result read_stream::read_next(files::callback<block> callback) noexcept try {
         current->pending = false;
         current->request = {};
         if (value.status.ok() && value.data.size() != length)
-          value.status = result::io;
+          value.status = error::io;
         if (value.status.failed()) {
           callback({value.status, {}});
           return;
         }
         current->offset = offset + length;
         current->ended = current->offset == *current->size;
-        callback({result::success, {std::move(value.data), offset, current->ended}});
+        callback({error::success, {std::move(value.data), offset, current->ended}});
       },
       s.request);
   if (status.ok())
     s.pending = true;
   return status;
 } catch (const std::bad_alloc&) {
-  return result::out_of_memory;
+  return error::out_of_memory;
 } catch (...) {
-  return result::internal;
+  return error::internal;
 }
 }

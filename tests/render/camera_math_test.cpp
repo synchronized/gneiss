@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/error.hpp"
 #include "engine/core/math/camera.hpp"
-#include "engine/core/result.hpp"
 
 #include <array>
 #include <cmath>
@@ -25,7 +25,7 @@ int main() {
   matrix4 view;
   gneiss::engine::math::transform transform = {};
   transform.translation[2] = 2.0F;
-  if (view_matrix_rh(transform, view) != gneiss::engine::result::success) {
+  if (view_matrix_rh(transform, view) != gneiss::engine::error::success) {
     return 1;
   }
   const auto translated_origin = view * vector4{0.0F, 0.0F, 0.0F, 1.0F};
@@ -40,7 +40,7 @@ int main() {
   transform.scale[0] = 8.0F;
   transform.scale[1] = 9.0F;
   transform.scale[2] = 10.0F;
-  if (view_matrix_rh(transform, view) != gneiss::engine::result::success) {
+  if (view_matrix_rh(transform, view) != gneiss::engine::error::success) {
     return 3;
   }
   const auto camera_forward_point = view * vector4{-2.0F, 0.0F, 0.0F, 1.0F};
@@ -54,7 +54,7 @@ int main() {
   camera.near = 0.1F;
   camera.far = 100.0F;
   matrix4 projection;
-  if (perspective_rh_zo(camera, 2.0F, projection) != gneiss::engine::result::success) {
+  if (perspective_rh_zo(camera, 2.0F, projection) != gneiss::engine::error::success) {
     return 5;
   }
   const auto near_point = projection * vector4{0.0F, 0.0F, -camera.near, 1.0F};
@@ -74,13 +74,12 @@ int main() {
   transform.rotation[1] = 0.0F;
   transform.rotation[2] = 0.0F;
   transform.rotation[3] = 0.0F;
-  if (view_matrix_rh(transform, view) != gneiss::engine::result::invalid_argument ||
-      perspective_rh_zo(camera, 0.0F, projection) != gneiss::engine::result::invalid_argument ||
+  if (view_matrix_rh(transform, view) != gneiss::engine::error::invalid_argument ||
+      perspective_rh_zo(camera, 0.0F, projection) != gneiss::engine::error::invalid_argument ||
       view != previous_view || projection != previous_projection) {
     return 7;
   }
   camera.far = std::numeric_limits<float>::infinity();
-  return perspective_rh_zo(camera, 1.0F, projection) == gneiss::engine::result::invalid_argument
-             ? 0
-             : 8;
+  return perspective_rh_zo(camera, 1.0F, projection) == gneiss::engine::error::invalid_argument ? 0
+                                                                                                : 8;
 }

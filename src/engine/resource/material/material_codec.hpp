@@ -6,10 +6,8 @@
 namespace gneiss::engine {
 
 /** 仅读写材质 JSON v5；旧版本返回 unsupported，不保留原文本排版。失败保持输出。 */
-[[nodiscard]] GNEISS_API result decode_material(std::span<const std::byte>, material_description&,
-                                                meta::serialization_diagnostic&) noexcept;
-[[nodiscard]] GNEISS_API result encode_material(const material_description&,
-                                                std::vector<std::byte>&,
-                                                meta::serialization_diagnostic&) noexcept;
-
+[[nodiscard]] GNEISS_API error decode_material(std::span<const std::byte>, material_description&,
+                                               meta::serialization_diagnostic&) noexcept;
+[[nodiscard]] GNEISS_API error encode_material(const material_description&, std::vector<std::byte>&,
+                                               meta::serialization_diagnostic&) noexcept;
 }

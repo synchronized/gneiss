@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "runtime_log.hpp"
 
 #include <filesystem>
@@ -25,7 +25,7 @@ int main() {
                     .source = source,
                     .category = category,
                     .message = message,
-                    .result = gneiss::engine::result::not_ready},
+                    .result = gneiss::engine::error::not_ready},
         .sequence = 7U,
         .timestamp_ns = 42U,
         .thread_id = 3U,

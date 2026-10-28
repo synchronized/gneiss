@@ -5,7 +5,7 @@
 #define GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_ROUTER_H_
 
 #include "editor_ipc_event.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include "ipc_protocol_domains.hpp"
 #include "ipc_router.hpp"
@@ -22,7 +22,7 @@ public:
   editor_ipc_router(const editor_ipc_router&) = delete;
   editor_ipc_router& operator=(const editor_ipc_router&) = delete;
 
-  [[nodiscard]] gneiss::engine::result
+  [[nodiscard]] gneiss::engine::error
   dispatch(const gneiss::engine::ipc_envelope& envelope, bool is_authenticated,
            const std::vector<gneiss::engine::ipc_domain_capability>& negotiated_domains,
            runtime_ipc_event& output) noexcept;

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/scene/scene_load_preparation.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 
 #include <algorithm>
@@ -11,17 +11,17 @@
 namespace gneiss::engine {
 namespace {
 
-engine::result order_nodes(const std::vector<object_description>& objects,
-                           std::vector<std::size_t>& order, std::size_t maximum_depth,
-                           const std::function<bool()>& cancelled,
-                           std::size_t* out_depth = nullptr) {
+engine::error order_nodes(const std::vector<object_description>& objects,
+                          std::vector<std::size_t>& order, std::size_t maximum_depth,
+                          const std::function<bool()>& cancelled,
+                          std::size_t* out_depth = nullptr) {
   if (out_depth != nullptr) {
     *out_depth = 0U;
   }
   std::unordered_map<std::string_view, std::size_t> indices;
   for (std::size_t index = 0; index < objects.size(); ++index) {
     if (!indices.emplace(objects[index].uuid, index).second) {
-      return engine::result::invalid_argument;
+      return engine::error::invalid_argument;
     }
   }
   std::vector<std::vector<std::size_t>> children(objects.size());
@@ -33,18 +33,18 @@ engine::result order_nodes(const std::vector<object_description>& objects,
     } else {
       const auto parent = indices.find(*parent_uuid);
       if (parent == indices.end()) {
-        return engine::result::invalid_argument;
+        return engine::error::invalid_argument;
       }
       children[parent->second].push_back(index);
     }
   }
   for (std::size_t cursor = 0; cursor < order.size(); ++cursor) {
     if (cancelled && cancelled()) {
-      return engine::result::invalid_state;
+      return engine::error::invalid_state;
     }
     const auto index = order[cursor];
     if (depths[index] > maximum_depth) {
-      return engine::result::invalid_argument;
+      return engine::error::invalid_argument;
     }
     if (out_depth != nullptr) {
       *out_depth = std::max(*out_depth, depths[index]);
@@ -54,8 +54,7 @@ engine::result order_nodes(const std::vector<object_description>& objects,
       order.push_back(child);
     }
   }
-  return order.size() == objects.size() ? engine::result::success
-                                        : engine::result::invalid_argument;
+  return order.size() == objects.size() ? engine::error::success : engine::error::invalid_argument;
 }
 
 class preparation final {
@@ -67,11 +66,11 @@ public:
   std::map<std::string, engine::asset_type> dependencies;
   std::map<std::string, std::size_t> scene_depths;
 
-  engine::result collect(const std::vector<object_description>& objects) {
+  engine::error collect(const std::vector<object_description>& objects) {
     using engine::asset_type;
     for (const auto& object : objects) {
       if (cancelled && cancelled()) {
-        return engine::result::invalid_state;
+        return engine::error::invalid_state;
       }
       if (!object.mesh_renderer) {
         continue;
@@ -88,40 +87,40 @@ public:
            }) {
         const auto [entry, added] = dependencies.emplace(asset.uri, asset.type);
         if ((!added && entry->second != asset.type) || dependencies.size() > limits.dependencies) {
-          return engine::result::invalid_argument;
+          return engine::error::invalid_argument;
         }
       }
     }
-    return engine::result::success;
+    return engine::error::success;
   }
 
-  engine::result add_prefab(const prefab_instance_description& instance) {
-    auto result = engine::result::success;
+  engine::error add_prefab(const prefab_instance_description& instance) {
+    auto result = engine::error::success;
     auto found = candidate.prefabs.find(instance.prefab_uri);
     if (found == candidate.prefabs.end()) {
       if (candidate.prefabs.size() == limits.dependencies) {
-        return engine::result::invalid_argument;
+        return engine::error::invalid_argument;
       }
       const auto input = inputs.prefabs.find(instance.prefab_uri);
       if (input == inputs.prefabs.end() || !input->second)
-        return result::not_found;
+        return error::not_found;
       prepared_prefab_description prefab;
       prefab.resource = input->second;
       const auto bytes = prefab.resource->author_json.size();
       if (bytes > limits.source_bytes - candidate.source_bytes)
-        return result::invalid_argument;
+        return error::invalid_argument;
       candidate.source_bytes += bytes;
-      if (result == engine::result::success && prefab.resource->objects.size() > limits.nodes) {
-        return engine::result::invalid_argument;
+      if (result == engine::error::success && prefab.resource->objects.size() > limits.nodes) {
+        return engine::error::invalid_argument;
       }
-      if (result == engine::result::success) {
+      if (result == engine::error::success) {
         result = order_nodes(prefab.resource->objects, prefab.parent_first, limits.hierarchy_depth,
                              cancelled, &prefab.maximum_depth);
       }
-      if (result == engine::result::success) {
+      if (result == engine::error::success) {
         result = collect(prefab.resource->objects);
       }
-      if (result != engine::result::success) {
+      if (result != engine::error::success) {
         return result;
       }
       found = candidate.prefabs.emplace(instance.prefab_uri, std::move(prefab)).first;
@@ -129,35 +128,35 @@ public:
     const auto parent_depth = instance.parent_uuid ? scene_depths.at(*instance.parent_uuid) : 0U;
     if (parent_depth >= limits.hierarchy_depth ||
         found->second.maximum_depth > limits.hierarchy_depth - parent_depth - 1U) {
-      return engine::result::invalid_argument;
+      return engine::error::invalid_argument;
     }
     // 每个 Prefab 实例还有一个容器节点，共享描述不等于共享实例。
     const auto count = found->second.resource->objects.size();
     if (count >= limits.nodes - candidate.instance_nodes) {
-      return engine::result::invalid_argument;
+      return engine::error::invalid_argument;
     }
     candidate.instance_nodes += count + 1U;
-    return engine::result::success;
+    return engine::error::success;
   }
 
-  engine::result run() {
+  engine::error run() {
     if (!inputs.scene)
-      return result::invalid_argument;
+      return error::invalid_argument;
     candidate.description = *inputs.scene;
     candidate.source_bytes = candidate.description.author_json.size();
     if (candidate.source_bytes > limits.source_bytes)
-      return result::invalid_argument;
-    auto result = engine::result::success;
+      return error::invalid_argument;
+    auto result = engine::error::success;
     candidate.instance_nodes = candidate.description.objects.size();
     if (candidate.instance_nodes > limits.nodes) {
-      return engine::result::invalid_argument;
+      return engine::error::invalid_argument;
     }
     result = order_nodes(candidate.description.objects, candidate.parent_first,
                          limits.hierarchy_depth, cancelled);
-    if (result == engine::result::success) {
+    if (result == engine::error::success) {
       result = collect(candidate.description.objects);
     }
-    if (result != engine::result::success) {
+    if (result != engine::error::success) {
       return result;
     }
     for (const auto index : candidate.parent_first) {
@@ -167,30 +166,30 @@ public:
     }
     for (const auto& instance : candidate.description.prefab_instances) {
       result = add_prefab(instance);
-      if (result != engine::result::success) {
+      if (result != engine::error::success) {
         return result;
       }
     }
     return finish();
   }
 
-  engine::result finish() {
+  engine::error finish() {
     if (cancelled && cancelled()) {
-      return engine::result::invalid_state;
+      return engine::error::invalid_state;
     }
     for (const auto& [asset_uri, type] : dependencies) {
       candidate.assets.push_back({.uri = asset_uri, .type = type});
     }
-    return engine::result::success;
+    return engine::error::success;
   }
 };
 
 } // namespace
 
-result prepare_loaded_scene(const scene_description_inputs& inputs, std::string_view prefab_uri,
-                            prepared_scene_description& output, scene_diagnostic& diagnostic,
-                            const std::function<bool()>& cancelled,
-                            scene_prepare_limits limits) noexcept try {
+error prepare_loaded_scene(const scene_description_inputs& inputs, std::string_view prefab_uri,
+                           prepared_scene_description& output, scene_diagnostic& diagnostic,
+                           const std::function<bool()>& cancelled,
+                           scene_prepare_limits limits) noexcept try {
   output = {};
   diagnostic = {};
   preparation work{.inputs = inputs,
@@ -199,27 +198,27 @@ result prepare_loaded_scene(const scene_description_inputs& inputs, std::string_
                    .candidate = {},
                    .dependencies = {},
                    .scene_depths = {}};
-  auto status = result::success;
+  auto status = error::success;
   if (cancelled && cancelled())
-    status = result::invalid_state;
+    status = error::invalid_state;
   else if (prefab_uri.empty())
     status = work.run();
   else {
     prefab_instance_description instance;
     instance.prefab_uri = prefab_uri;
     status = work.add_prefab(instance);
-    if (status == result::success)
+    if (status == error::success)
       status = work.finish();
   }
-  if (status == result::success)
+  if (status == error::success)
     output = std::move(work.candidate);
   diagnostic.result = status;
   return status;
 } catch (const std::bad_alloc&) {
-  diagnostic.result = result::out_of_memory;
+  diagnostic.result = error::out_of_memory;
   return diagnostic.result;
 } catch (...) {
-  diagnostic.result = result::internal;
+  diagnostic.result = error::internal;
   return diagnostic.result;
 }
 
@@ -245,27 +244,28 @@ scene_description_request::scene_description_request(asset_manager& assets, std:
                                            .inputs = {},
                                            .uris = {}})) {}
 scene_description_request::~scene_description_request() = default;
-result scene_description_request::advance(scene_description_inputs& output,
-                                          scene_diagnostic& diagnostic) {
+error scene_description_request::advance(scene_description_inputs& output,
+                                         scene_diagnostic& diagnostic) {
   auto& s = *state_;
   meta::serialization_diagnostic decoded;
-  const auto fail = [&](result status) {
+  const auto fail = [&](error status) {
     diagnostic = {status, decoded.byte_offset, std::move(decoded.path), std::move(decoded.message)};
     return status;
   };
   if (!s.started) {
-    auto status = result::success;
-    if (s.prefab)
+    if (s.prefab) {
       s.uris.push_back(s.uri);
-    else
-      status = s.assets.load(s.uri, s.scene, true);
-    if (status.failed())
-      return fail(status);
+    } else {
+      auto loaded = s.assets.load<scene_description>(s.uri, true);
+      if (!loaded)
+        return fail(loaded.error());
+      s.scene = std::move(*loaded);
+    }
     s.started = true;
   }
   if (s.scene) {
     const auto status = s.scene.take(s.inputs.scene, &decoded);
-    if (status != result::success)
+    if (status != error::success)
       return fail(status);
     s.bytes = s.inputs.scene->author_json.size();
     for (const auto& instance : s.inputs.scene->prefab_instances)
@@ -273,28 +273,29 @@ result scene_description_request::advance(scene_description_inputs& output,
         s.uris.push_back(instance.prefab_uri);
   }
   if (s.bytes > s.limits.source_bytes || s.uris.size() > s.limits.dependencies)
-    return fail(result::invalid_argument);
+    return fail(error::invalid_argument);
   if (s.cursor < s.uris.size()) {
     const auto& uri = s.uris[s.cursor];
     if (!s.current) {
-      const auto status = s.assets.load(uri, s.current, true);
-      if (status.failed())
-        return fail(status);
+      auto loaded = s.assets.load<prefab_description>(uri, true);
+      if (!loaded)
+        return fail(loaded.error());
+      s.current = std::move(*loaded);
     }
     asset_ref<const prefab_description> value;
     const auto status = s.current.take(value, &decoded);
-    if (status != result::success)
+    if (status != error::success)
       return fail(status);
     if (value->author_json.size() > s.limits.source_bytes - s.bytes)
-      return fail(result::invalid_argument);
+      return fail(error::invalid_argument);
     s.bytes += value->author_json.size();
     s.inputs.prefabs.emplace(uri, std::move(value));
     ++s.cursor;
     if (s.cursor < s.uris.size())
-      return result::not_ready;
+      return error::not_ready;
   }
   output = std::move(s.inputs);
   diagnostic = {};
-  return result::success;
+  return error::success;
 }
 } // namespace gneiss::engine

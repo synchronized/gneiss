@@ -220,3 +220,19 @@ Windows Clang Debug 编译通过，30 项相关测试全部通过。新增直接
 - 完整 Windows Clang Debug 编译、33 项相关短测试通过。新增查询不读取文件、命中/未命中、
   类型不符和停止后清空输出、来源身份错误不修改旧纹理，以及回调提前写对象后的递归保护覆盖。
 - 未运行大场景、GPU 图像验证、其他平台或远端 CI。三类请求仍按各自所有权语义保留。
+
+## 值结果与错误状态分离（2026-10-29）
+
+- 原状态类迁移到 core/error.hpp，错误码数值和默认 unknown 不变；全仓原生调用改用 error。
+  删除状态布尔转换，调用方显式使用 ok()/failed()。
+- core/result.hpp 提供 result<T, E = error>，成功值与错误互斥；支持仅移动和不可默认构造的 T。
+  result<void> 供泛型使用；轻量状态不携带动态字符串。
+- asset_manager 的 load/find_loaded/store 与一次性网格、纹理加载入口直接返回值结果；
+  resource_service 的 find/load/create_* 同步迁移 Runtime、Scene、编辑器和测试调用方。
+- 内存网格/纹理解码及材质采用返回 result<decoded_asset, asset_diagnostic>，保留详细错误位置。
+  不改变缓存、取消、依赖和 CPU/GPU 完成边界。底层就地写入、请求领取及其他领域 out 接口未机械迁移。
+- `cmake --build --preset windows-clang-debug -j6` 完整构建通过，43 项相关短测试通过（13.07 秒）。
+  覆盖结果类型的成功/失败、仅移动对象与析构、详细诊断，以及资源、文件服务、场景、编辑器和分层检查。
+- `git diff --check` 通过。未运行大场景、GPU 图像验证、浏览器/其他平台构建及远端 CI。
+
+当前接口约定见 [Core 值结果](../reference/core.md#错误状态与值结果)与[资产入口](../reference/assets.md#值返回入口)。

@@ -28,18 +28,18 @@ gizmo_matrix build_gizmo_view_matrix(const engine::math::transform& camera) noex
     return {};
   return engine::math::matrix_to_array(output);
 }
-engine::result transform_to_gizmo_matrix(const engine::math::transform& value,
-                                         gizmo_matrix& output) noexcept {
+engine::error transform_to_gizmo_matrix(const engine::math::transform& value,
+                                        gizmo_matrix& output) noexcept {
   if (!engine::math::is_valid_transform(value) || !positive_scale(value))
-    return engine::result::unsupported;
+    return engine::error::unsupported;
   output = engine::math::matrix_to_array(engine::math::model_matrix(value));
-  return engine::result::success;
+  return engine::error::success;
 }
-engine::result gizmo_matrix_to_transform(const gizmo_matrix& value,
-                                         engine::math::transform& output) noexcept {
+engine::error gizmo_matrix_to_transform(const gizmo_matrix& value,
+                                        engine::math::transform& output) noexcept {
   if (!std::ranges::all_of(value, [](float v) { return std::isfinite(v); }) ||
       std::abs(value[15] - 1.0F) > 1.0e-4F || value[3] != 0 || value[7] != 0 || value[11] != 0)
-    return engine::result::invalid_argument;
+    return engine::error::invalid_argument;
   const auto matrix = engine::math::matrix_from_array(value);
   engine::math::transform pending;
   pending.translation = engine::math::vector3{matrix[3]};
@@ -47,33 +47,33 @@ engine::result gizmo_matrix_to_transform(const gizmo_matrix& value,
   for (glm::length_t column = 0; column < 3; ++column) {
     pending.scale[column] = glm::length(rotation[column]);
     if (pending.scale[column] < 1.0e-6F)
-      return engine::result::unsupported;
+      return engine::error::unsupported;
     rotation[column] /= pending.scale[column];
   }
   if (glm::determinant(rotation) <= 0 ||
       std::max({std::abs(glm::dot(rotation[0], rotation[1])),
                 std::abs(glm::dot(rotation[0], rotation[2])),
                 std::abs(glm::dot(rotation[1], rotation[2]))}) > 1.0e-3F)
-    return engine::result::unsupported;
+    return engine::error::unsupported;
   pending.rotation = glm::normalize(glm::quat_cast(rotation));
   output = pending;
-  return engine::result::success;
+  return engine::error::success;
 }
-engine::result world_to_local_transform(const engine::math::transform* parent,
-                                        const engine::math::transform& world,
-                                        engine::math::transform& output) noexcept {
+engine::error world_to_local_transform(const engine::math::transform* parent,
+                                       const engine::math::transform& world,
+                                       engine::math::transform& output) noexcept {
   if (!engine::math::is_valid_transform(world) ||
       (parent && !engine::math::is_valid_transform(*parent)))
-    return engine::result::invalid_argument;
+    return engine::error::invalid_argument;
   if (!positive_scale(world) || (parent && !positive_scale(*parent)))
-    return engine::result::unsupported;
+    return engine::error::unsupported;
   if (!parent) {
     output = world;
-    return engine::result::success;
+    return engine::error::success;
   }
   const auto inverse = glm::conjugate(parent->rotation);
   output = {(inverse * (world.translation - parent->translation)) / parent->scale,
             glm::normalize(inverse * world.rotation), world.scale / parent->scale};
-  return engine::result::success;
+  return engine::error::success;
 }
 }

@@ -4,7 +4,7 @@
 #include "async_document.hpp"
 #include "commands/editor_asset_edit.hpp"
 namespace gneiss::test_support {
-inline engine::result
+inline engine::error
 create_mesh_document(runtime::application& app, editor::scene_document& doc, std::string_view name,
                      std::string_view mesh, std::string_view material, scene_node_id& output,
                      editor::editor_command_history* retained_history = nullptr) {
@@ -20,7 +20,7 @@ create_mesh_document(runtime::application& app, editor::scene_document& doc, std
     app.advance_scene_load();
     edit.advance(app, doc, history);
     if (std::chrono::steady_clock::now() >= deadline)
-      return engine::result::internal;
+      return engine::error::internal;
     std::this_thread::yield();
   }
   status = edit.operation();

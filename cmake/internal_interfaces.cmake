@@ -9,6 +9,7 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/math/transform.hpp
   engine/core/math/types.hpp
   engine/core/export.hpp
+  engine/core/error.hpp
   engine/core/result.hpp
   engine/core/version.hpp
   engine/core/log/log_types.hpp
@@ -63,6 +64,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/math/transform.hpp
   engine/core/math/types.hpp
   engine/core/export.hpp
+  engine/core/error.hpp
   engine/core/result.hpp
   engine/core/input/input_types.hpp
   engine/core/log/log_dispatcher.hpp
@@ -121,6 +123,7 @@ gneiss_internal_headers(gneiss_tooling_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/math/transform.hpp
   engine/core/math/types.hpp
   engine/core/export.hpp
+  engine/core/error.hpp
   engine/core/result.hpp
   engine/resource/mesh/mesh_binary.hpp
   engine/resource/texture/texture_description.hpp

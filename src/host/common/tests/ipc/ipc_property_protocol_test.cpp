@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "ipc_property_protocol.hpp"
 
 #include <array>
@@ -33,10 +33,10 @@ bool round_trip_value(const gneiss::host::ipc_property_value& value) {
   std::vector<std::uint8_t> payload;
   gneiss::host::ipc_property_write decoded;
   return gneiss::host::encode_ipc_property_write(source, payload) ==
-             gneiss::engine::result::success &&
+             gneiss::engine::error::success &&
          std::string(payload.begin(), payload.end()).find("command_id") == std::string::npos &&
          gneiss::host::decode_ipc_property_write(payload, decoded) ==
-             gneiss::engine::result::success &&
+             gneiss::engine::error::success &&
          decoded.session_id == source.session_id && decoded.command_id == 0U &&
          decoded.object == source.object && decoded.type_id == source.type_id &&
          decoded.field_id == source.field_id &&
@@ -76,10 +76,10 @@ bool test_results() {
   std::vector<std::uint8_t> payload;
   gneiss::host::ipc_property_write_result decoded;
   if (gneiss::host::encode_ipc_property_write_result(success, payload) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       std::string(payload.begin(), payload.end()).find("command_id") != std::string::npos ||
       gneiss::host::decode_ipc_property_write_result(payload, decoded) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       decoded.session_id != success.session_id || decoded.command_id != 0U || decoded.code != 0 ||
       decoded.revision != success.revision || decoded.message != success.message ||
       decoded.canonical_value.payload != success.canonical_value.payload) {
@@ -94,9 +94,9 @@ bool test_results() {
                                                          .canonical_value = {}};
   decoded = {};
   return gneiss::host::encode_ipc_property_write_result(rejected, payload) ==
-             gneiss::engine::result::success &&
+             gneiss::engine::error::success &&
          gneiss::host::decode_ipc_property_write_result(payload, decoded) ==
-             gneiss::engine::result::success &&
+             gneiss::engine::error::success &&
          decoded.code == rejected.code && decoded.revision == rejected.revision &&
          std::holds_alternative<std::monostate>(decoded.canonical_value.payload);
 }
@@ -105,7 +105,7 @@ bool test_invalid_messages() {
   gneiss::host::ipc_property_write invalid;
   std::vector<std::uint8_t> payload;
   if (gneiss::host::encode_ipc_property_write(invalid, payload) !=
-      gneiss::engine::result::invalid_argument) {
+      gneiss::engine::error::invalid_argument) {
     return false;
   }
 
@@ -117,19 +117,19 @@ bool test_invalid_messages() {
              .expected_revision = 1U,
              .value = {std::numeric_limits<float>::infinity()}};
   if (gneiss::host::encode_ipc_property_write(invalid, payload) !=
-      gneiss::engine::result::invalid_argument) {
+      gneiss::engine::error::invalid_argument) {
     return false;
   }
 
   payload = {'{', '}'};
   gneiss::host::ipc_property_write decoded;
   if (gneiss::host::decode_ipc_property_write(payload, decoded) !=
-      gneiss::engine::result::invalid_argument) {
+      gneiss::engine::error::invalid_argument) {
     return false;
   }
   payload = {'{'};
   if (gneiss::host::decode_ipc_property_write(payload, decoded) !=
-      gneiss::engine::result::invalid_argument) {
+      gneiss::engine::error::invalid_argument) {
     return false;
   }
   return true;

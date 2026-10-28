@@ -3,8 +3,8 @@
 
 #pragma once
 
+#include "engine/core/error.hpp"
 #include "engine/core/log/log_types.hpp"
-#include "engine/core/result.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -20,7 +20,7 @@ public:
   runtime_log(const runtime_log&) = delete;
   runtime_log& operator=(const runtime_log&) = delete;
 
-  void write(std::string_view level, std::string_view stage, gneiss::engine::result operation,
+  void write(std::string_view level, std::string_view stage, gneiss::engine::error operation,
              std::string_view message, std::string_view context = {}) noexcept;
   void write(const gneiss::engine::event_view& event) noexcept;
 

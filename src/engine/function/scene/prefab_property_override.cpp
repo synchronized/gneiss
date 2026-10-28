@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/scene/prefab_property_override.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -110,37 +110,37 @@ void normalize_zero(gneiss::engine::value& value) noexcept {
 
 namespace gneiss::engine {
 
-result validate_prefab_property_override(const meta::registry_ref& registry,
-                                         const prefab_property_override& value) noexcept try {
+error validate_prefab_property_override(const meta::registry_ref& registry,
+                                        const prefab_property_override& value) noexcept try {
   if (!engine::is_valid_prefab_author_address(value.key.node) || !value.key.type_id ||
       !value.key.field_id.is_valid() || !valid_value(value.value)) {
-    return result::invalid_argument;
+    return error::invalid_argument;
   }
   meta::property_info field;
   const auto found =
       meta::describe_property(registry, value.key.type_id, value.key.field_id, field);
   if (found.failed()) {
-    return static_cast<result>(found);
+    return static_cast<error>(found);
   }
   if (field.kind != value.value.kind() ||
       !has_flags(field.capabilities, meta::property_capabilities::writable)) {
-    return result::invalid_argument;
+    return error::invalid_argument;
   }
-  return result::success;
+  return error::success;
 } catch (...) {
-  return result::internal;
+  return error::internal;
 }
 
-result set_prefab_property_override(const meta::registry_ref& registry,
-                                    std::vector<prefab_property_override>& overrides,
-                                    prefab_property_override candidate,
-                                    engine::value source_value) noexcept {
+error set_prefab_property_override(const meta::registry_ref& registry,
+                                   std::vector<prefab_property_override>& overrides,
+                                   prefab_property_override candidate,
+                                   engine::value source_value) noexcept {
   auto operation = validate_prefab_property_override(registry, candidate);
-  if (operation != result::success) {
+  if (operation != error::success) {
     return operation;
   }
   if (!valid_value(source_value) || source_value.kind() != candidate.value.kind()) {
-    return result::invalid_argument;
+    return error::invalid_argument;
   }
   normalize_zero(candidate.value);
   normalize_zero(source_value);
@@ -150,7 +150,7 @@ result set_prefab_property_override(const meta::registry_ref& registry,
       if (found != overrides.end()) {
         overrides.erase(found);
       }
-      return result::success;
+      return error::success;
     }
     if (found != overrides.end()) {
       found->value = std::move(candidate.value);
@@ -160,11 +160,11 @@ result set_prefab_property_override(const meta::registry_ref& registry,
         return engine::prefab_property_override_key_less(left.key, right.key);
       });
     }
-    return result::success;
+    return error::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return error::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return error::internal;
   }
 }
 

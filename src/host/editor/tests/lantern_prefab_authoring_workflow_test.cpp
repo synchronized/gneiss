@@ -4,14 +4,14 @@
 #include "../../../../tests/support/async_application.hpp"
 #include "../../../../tests/support/async_editor_save.hpp"
 #include "commands/prefab_authoring.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "runtime/application.hpp"
 
+#include "engine/core/error.hpp"
 #include "engine/core/math/transform.hpp"
-#include "engine/core/result.hpp"
 
 #include <array>
 #include <chrono>
@@ -77,7 +77,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
       .instance_uuid = pillar_instance_uuid};
   std::vector<gneiss::editor::author_document_change> create_changes;
   if (gneiss::editor::prepare_create_prefab(editing.content(), create_request, create_changes) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       !editing.apply(create_changes, true) || !editing.counts(6U, 17U)) {
     return 2;
   }
@@ -90,7 +90,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   gneiss::editor::apply_prefab_author_plan apply_plan;
   if (gneiss::editor::prepare_apply_prefab(editing.content(), read_text(lantern_prefab_file),
                                            apply_request,
-                                           apply_plan) != gneiss::engine::result::success ||
+                                           apply_plan) != gneiss::engine::error::success ||
       apply_plan.affected_instance_uuids.size() != 3U || !editing.apply(apply_plan.changes, true) ||
       !editing.counts(6U, 17U)) {
     return 3;
@@ -117,7 +117,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   std::vector<gneiss::editor::author_document_change> unpack_changes;
   if (gneiss::editor::prepare_unpack_prefab(editing.content(), read_text(lantern_prefab_file),
                                             unpack_request,
-                                            unpack_changes) != gneiss::engine::result::success ||
+                                            unpack_changes) != gneiss::engine::error::success ||
       !editing.apply(unpack_changes, false) || !editing.counts(11U, 12U)) {
     return 4;
   }

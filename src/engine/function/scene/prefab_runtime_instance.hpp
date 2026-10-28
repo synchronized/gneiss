@@ -4,8 +4,8 @@
 #ifndef GNEISS_SCENE_PREFAB_RUNTIME_INSTANCE_HPP_
 #define GNEISS_SCENE_PREFAB_RUNTIME_INSTANCE_HPP_
 
+#include "engine/core/error.hpp"
 #include "engine/core/meta/registry.hpp"
-#include "engine/core/result.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
@@ -23,7 +23,7 @@ namespace gneiss::engine {
 class prefab_runtime_instance final {
 public:
   /** 只修改私有描述，失败保持 output 不变；不读文件、不创建实体、不发送通知。 */
-  [[nodiscard]] static result
+  [[nodiscard]] static error
   prepare_description(const prefab_description& source, const meta::registry_ref& registry,
                       std::string_view instance_uuid,
                       std::span<const prefab_property_override> overrides,
@@ -43,7 +43,7 @@ public:
   prefab_runtime_instance(const prefab_runtime_instance&) = delete;
   prefab_runtime_instance& operator=(const prefab_runtime_instance&) = delete;
 
-  [[nodiscard]] static result
+  [[nodiscard]] static error
   create(world& native_world, resource_service& loader, prefab_asset_ref prefab,
          const meta::registry_ref& registry, std::string_view instance_uuid, scene_node_id parent,
          const math::transform& root_transform,
@@ -58,25 +58,25 @@ public:
   [[nodiscard]] const object_description*
   find_source_object(std::string_view source_node_uuid) const noexcept;
   [[nodiscard]] std::size_t node_count() const noexcept { return nodes_.size(); }
-  [[nodiscard]] result get_node_info(std::size_t index, node_info& out_info) const noexcept;
+  [[nodiscard]] error get_node_info(std::size_t index, node_info& out_info) const noexcept;
   /** 验证候选来源、覆盖与资源是否可提交，不修改 World。 */
-  [[nodiscard]] result validate_reload(const prefab_asset_ref& candidate,
-                                       const meta::registry_ref& registry,
-                                       const std::vector<prefab_property_override>& overrides);
+  [[nodiscard]] error validate_reload(const prefab_asset_ref& candidate,
+                                      const meta::registry_ref& registry,
+                                      const std::vector<prefab_property_override>& overrides);
   /** 保持实例根与匹配来源节点身份，提交已经验证的来源修订。 */
-  [[nodiscard]] result reload(prefab_asset_ref candidate, const meta::registry_ref& registry,
-                              const std::vector<prefab_property_override>& overrides);
+  [[nodiscard]] error reload(prefab_asset_ref candidate, const meta::registry_ref& registry,
+                             const std::vector<prefab_property_override>& overrides);
 
   /** 同步构造的内部步骤；节点直接可见，资源由调用方传入，失败由实例析构清理。 */
-  [[nodiscard]] result create_root(scene_node_id parent, const math::transform& transform);
-  [[nodiscard]] result create_node(std::size_t index, scene_node_id parent, engine::mesh mesh,
-                                   engine::material material);
-  [[nodiscard]] result apply_override(const meta::registry_ref& registry,
-                                      const prefab_property_override& value) noexcept;
+  [[nodiscard]] error create_root(scene_node_id parent, const math::transform& transform);
+  [[nodiscard]] error create_node(std::size_t index, scene_node_id parent, engine::mesh mesh,
+                                  engine::material material);
+  [[nodiscard]] error apply_override(const meta::registry_ref& registry,
+                                     const prefab_property_override& value) noexcept;
 
 private:
   friend class scene_instance;
-  [[nodiscard]] result commit_node(std::size_t index, scene_node_id parent);
+  [[nodiscard]] error commit_node(std::size_t index, scene_node_id parent);
   struct runtime_node final {
     prefab_author_address address;
     std::string name;
@@ -89,12 +89,11 @@ private:
   };
 
   void rollback() noexcept;
-  [[nodiscard]] result stage_assets(const prefab_description& description);
-  [[nodiscard]] result commit(const prefab_description& description, scene_node_id parent,
-                              const math::transform& root_transform);
-  [[nodiscard]] result
-  apply_overrides(const meta::registry_ref& registry,
-                  std::span<const prefab_property_override> overrides) noexcept;
+  [[nodiscard]] error stage_assets(const prefab_description& description);
+  [[nodiscard]] error commit(const prefab_description& description, scene_node_id parent,
+                             const math::transform& root_transform);
+  [[nodiscard]] error apply_overrides(const meta::registry_ref& registry,
+                                      std::span<const prefab_property_override> overrides) noexcept;
 
   world& native_world_;
   resource_service& loader_;

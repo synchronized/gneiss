@@ -7,7 +7,7 @@ enum class asset_load_state : std::uint8_t { preparing, applied, failed, cancell
 /** 请求中每项资源的结果；未生效项的 result 表示停止处理的原因，不表示旧内容失效。 */
 struct asset_load_result {
   engine::asset_source source;
-  engine::result result{engine::result::not_ready};
+  engine::error result{engine::error::not_ready};
   bool applied{};
 };
 struct asset_load_completion {
@@ -15,7 +15,7 @@ struct asset_load_completion {
   std::uint64_t session{};
   std::uint64_t revision{};
   asset_load_state state{asset_load_state::failed};
-  engine::result result{engine::result::internal};
+  engine::error result{engine::error::internal};
   std::string message{};
   /** 解析错误位置；文件读取失败时 path 为请求 URI。 */
   std::string path;

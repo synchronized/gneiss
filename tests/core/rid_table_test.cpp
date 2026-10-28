@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid_table.hpp"
 
 #include <cstdint>
@@ -22,7 +22,7 @@ int main() {
   table second{2};
   gneiss::engine::rid original = gneiss::engine::null_rid;
   if (first.create(resource_type::test_resource, test_resource{42}, &original) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       original == gneiss::engine::null_rid) {
     return 1;
   }
@@ -35,23 +35,23 @@ int main() {
   if (resource == nullptr || resource->value != 42 || first.live_count() != 1U) {
     return 3;
   }
-  if (first.destroy(original, resource_type::test_resource) != gneiss::engine::result::success ||
+  if (first.destroy(original, resource_type::test_resource) != gneiss::engine::error::success ||
       first.destroy(original, resource_type::test_resource) !=
-          gneiss::engine::result::invalid_handle ||
+          gneiss::engine::error::invalid_handle ||
       first.get(original, resource_type::test_resource) != nullptr || first.live_count() != 0U) {
     return 4;
   }
 
   gneiss::engine::rid replacement = gneiss::engine::null_rid;
   if (first.create(resource_type::test_resource, test_resource{7}, &replacement) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       replacement == original || first.get(original, resource_type::test_resource) != nullptr) {
     return 5;
   }
   if (first.create(resource_type::invalid, test_resource{}, &original) !=
-          gneiss::engine::result::invalid_argument ||
+          gneiss::engine::error::invalid_argument ||
       first.create(resource_type::test_resource, test_resource{}, nullptr) !=
-          gneiss::engine::result::invalid_argument) {
+          gneiss::engine::error::invalid_argument) {
     return 6;
   }
   return 0;

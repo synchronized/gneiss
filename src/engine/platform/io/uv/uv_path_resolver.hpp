@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <atomic>
 #include <cstddef>
@@ -21,7 +21,7 @@ public:
   ~uv_path_operation();
   uv_path_operation(const uv_path_operation&) = delete;
   uv_path_operation& operator=(const uv_path_operation&) = delete;
-  [[nodiscard]] result poll(std::string& output) noexcept;
+  [[nodiscard]] error poll(std::string& output) noexcept;
 
 private:
   friend class uv_path_resolver;
@@ -37,8 +37,8 @@ private:
 class uv_path_resolver final {
 public:
   explicit uv_path_resolver(uv_loop_executor& executor, std::size_t capacity = 64U);
-  [[nodiscard]] result begin(std::string_view path,
-                             std::unique_ptr<uv_path_operation>& output) const noexcept;
+  [[nodiscard]] error begin(std::string_view path,
+                            std::unique_ptr<uv_path_operation>& output) const noexcept;
 
 private:
   uv_loop_executor& executor_;

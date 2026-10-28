@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/resource/asset_types.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
@@ -52,16 +52,16 @@ public:
   scene_description_request(asset_manager&, std::string uri, bool prefab,
                             scene_prepare_limits limits = {});
   ~scene_description_request();
-  result advance(scene_description_inputs&, scene_diagnostic&);
+  error advance(scene_description_inputs&, scene_diagnostic&);
 
 private:
   struct state;
   std::unique_ptr<state> state_;
 };
 /** 纯 CPU 排序和依赖收集；prefab_uri 非空表示仅准备一个 Prefab。 */
-[[nodiscard]] GNEISS_API result prepare_loaded_scene(const scene_description_inputs&,
-                                                     std::string_view prefab_uri,
-                                                     prepared_scene_description&, scene_diagnostic&,
-                                                     const std::function<bool()>& cancelled,
-                                                     scene_prepare_limits limits = {}) noexcept;
+[[nodiscard]] GNEISS_API error prepare_loaded_scene(const scene_description_inputs&,
+                                                    std::string_view prefab_uri,
+                                                    prepared_scene_description&, scene_diagnostic&,
+                                                    const std::function<bool()>& cancelled,
+                                                    scene_prepare_limits limits = {}) noexcept;
 } // namespace gneiss::engine

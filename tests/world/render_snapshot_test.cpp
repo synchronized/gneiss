@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/detail/resource_service_impl.hpp"
@@ -16,20 +16,20 @@ int run_host_tests() {
     return 20;
   }
   gneiss::engine::view_camera view;
-  if (application->set_view_camera(&view) != gneiss::engine::result::success) {
+  if (application->set_view_camera(&view) != gneiss::engine::error::success) {
     return 21;
   }
   view.camera.near = -1.0F;
-  if (application->set_view_camera(&view) != gneiss::engine::result::invalid_argument) {
+  if (application->set_view_camera(&view) != gneiss::engine::error::invalid_argument) {
     return 22;
   }
-  gneiss::engine::result foreign_result = gneiss::engine::result::success;
+  gneiss::engine::error foreign_result = gneiss::engine::error::success;
   std::thread foreign([&] { foreign_result = application->set_view_camera(nullptr); });
   foreign.join();
-  if (foreign_result != gneiss::engine::result::invalid_state ||
-      application->set_view_camera(nullptr) != gneiss::engine::result::success ||
-      application->shutdown() != gneiss::engine::result::success ||
-      application->set_view_camera(nullptr) != gneiss::engine::result::invalid_state) {
+  if (foreign_result != gneiss::engine::error::invalid_state ||
+      application->set_view_camera(nullptr) != gneiss::engine::error::success ||
+      application->shutdown() != gneiss::engine::error::success ||
+      application->set_view_camera(nullptr) != gneiss::engine::error::invalid_state) {
     return 23;
   }
   return 0;
@@ -57,21 +57,21 @@ int run_tests() {
   mesh_transform.translation[0] = 2.0F;
 
   if (world.scene().create(gneiss::null_scene_node_id, camera_entity, &camera_node) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       world.scene().create(gneiss::null_scene_node_id, mesh_entity, &mesh_node) !=
-          gneiss::engine::result::success ||
-      world.scene().set_local(mesh_node, mesh_transform) != gneiss::engine::result::success) {
+          gneiss::engine::error::success ||
+      world.scene().set_local(mesh_node, mesh_transform) != gneiss::engine::error::success) {
     return 1;
   }
   world.emplace<gneiss::engine::camera_component>(camera_entity, camera);
-  if (world.set_active_camera(camera_entity) != gneiss::engine::result::success) {
+  if (world.set_active_camera(camera_entity) != gneiss::engine::error::success) {
     return 2;
   }
   world.emplace<gneiss::engine::mesh_renderer_component>(mesh_entity, renderer);
 
   gneiss::engine::render_snapshot snapshot;
   if (gneiss::engine::build_render_snapshot(world, 1280U, 720U, snapshot) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       !snapshot.has_camera || snapshot.instances.size() != 1U ||
       snapshot.camera.viewport_width != 1280U || snapshot.camera.viewport_height != 720U ||
       gneiss::engine::math::matrix_elements(snapshot.camera.view)[15] != 1.0F ||
@@ -84,7 +84,7 @@ int run_tests() {
   gneiss::engine::view_camera editor_view;
   editor_view.transform.translation[0] = 17.0F;
   if (gneiss::engine::build_render_snapshot(world, 800U, 600U, snapshot, &editor_view) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       !snapshot.has_camera || snapshot.camera.transform.translation[0] != 17.0F ||
       world.active_camera() != camera_entity || snapshot.instances.size() != 1U) {
     return 6;
@@ -93,7 +93,7 @@ int run_tests() {
   auto invalid_view = editor_view;
   invalid_view.camera.near = -1.0F;
   if (gneiss::engine::build_render_snapshot(world, 800U, 600U, snapshot, &invalid_view) !=
-          gneiss::engine::result::invalid_argument ||
+          gneiss::engine::error::invalid_argument ||
       snapshot.camera.transform.translation[0] != 17.0F) {
     return 7;
   }
@@ -109,12 +109,12 @@ int run_tests() {
     return 5;
   if (!world.destroy_entity(camera_entity) ||
       gneiss::engine::build_render_snapshot(world, 1280U, 720U, snapshot) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       snapshot.has_camera || world.active_camera() != UINT64_C(0)) {
     return 4;
   }
   if (gneiss::engine::build_render_snapshot(world, 640U, 480U, snapshot, &editor_view) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       !snapshot.has_camera || snapshot.camera.transform.translation[0] != 17.0F ||
       snapshot.camera.viewport_width != 640U || world.active_camera() != UINT64_C(0)) {
     return 8;

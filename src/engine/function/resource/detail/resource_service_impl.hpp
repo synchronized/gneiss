@@ -23,7 +23,7 @@ public:
   void close() noexcept;
 
   template <typename T> std::shared_ptr<T> make(rid handle);
-  template <typename Ref, typename Create> result create(Ref& output, Create create_rid) noexcept;
+  template <typename Ref, typename Create> error create(Ref& output, Create create_rid) noexcept;
   render_service& render_;
   resource_retirement_queue retirement_;
   // 仅索引本服务创建的对象；查询只锁定既有控制块，不接管外部 RID。
@@ -40,12 +40,12 @@ public:
   void advance(resource_service&);
   void stop_loading() noexcept;
   /** 创建新的渲染身份并返回唯一拥有者；失败输出为空，不接管外部 RID。 */
-  result reserve_mesh(mesh& output) noexcept;
-  result reserve_texture(texture& output) noexcept;
-  result reserve_material(material& output) noexcept;
-  result create_mesh(const mesh_view& desc, mesh& output) noexcept;
-  result create_material(const material_parameters& parameters, std::array<texture, 5> dependencies,
-                         material& output) noexcept;
+  error reserve_mesh(mesh& output) noexcept;
+  error reserve_texture(texture& output) noexcept;
+  error reserve_material(material& output) noexcept;
+  error create_mesh(const mesh_view& desc, mesh& output) noexcept;
+  error create_material(const material_parameters& parameters, std::array<texture, 5> dependencies,
+                        material& output) noexcept;
   mesh find_mesh(rid handle) const noexcept;
   material find_material(rid handle) const noexcept;
   /** 仅查询现有纹理引用；UI 等借用 RID 的调用方不得创建拥有者。 */
@@ -55,13 +55,13 @@ public:
   bool update_texture(const texture& target, std::shared_ptr<const texture_data> data) noexcept;
   bool update_material(const material& target, std::shared_ptr<const material_data> data,
                        std::array<texture, 5> dependencies) noexcept;
-  result create_texture(const texture_view& desc, texture& output) noexcept;
-  static result adopt(resource_service&, mesh_data, const mesh&,
-                      std::span<const asset_data_source> = {}) noexcept;
-  static result adopt(resource_service&, texture_data, const texture&,
-                      std::span<const asset_data_source> = {}) noexcept;
-  static result adopt(resource_service&, const material_description&, const material&,
-                      std::array<texture, 5>) noexcept;
-  static result validate_sources(resource_service&, std::span<const asset_data_source>) noexcept;
+  error create_texture(const texture_view& desc, texture& output) noexcept;
+  static error adopt(resource_service&, mesh_data, const mesh&,
+                     std::span<const asset_data_source> = {}) noexcept;
+  static error adopt(resource_service&, texture_data, const texture&,
+                     std::span<const asset_data_source> = {}) noexcept;
+  static error adopt(resource_service&, const material_description&, const material&,
+                     std::array<texture, 5>) noexcept;
+  static error validate_sources(resource_service&, std::span<const asset_data_source>) noexcept;
 };
 } // namespace gneiss::engine

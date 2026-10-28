@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/core/result.hpp"
 #include "engine/function/resource/resource_request.hpp"
 #include <memory>
 namespace gneiss::engine {
@@ -28,49 +29,49 @@ public:
   /** 借用 CPU 加载器；不转移所有权，服务停止不关闭该加载器。 */
   asset_manager& assets() const noexcept { return assets_; }
   /** 绑定渲染服务；Render 必须覆盖本服务的运行与关闭阶段。 */
-  result attach_render(render_service& render, texture_prepare_profile profile = {});
+  error attach_render(render_service& render, texture_prepare_profile profile = {});
   /** 配置 CPU 加载；首次配置后保留执行器与 profile，停止后拒绝重新装配。 */
-  result configure_loading(task_executor& executor, texture_prepare_profile profile = {},
-                           std::shared_ptr<progress_notification> notification = {});
+  error configure_loading(task_executor& executor, texture_prepare_profile profile = {},
+                          std::shared_ptr<progress_notification> notification = {});
   static constexpr std::size_t maximum_prepared_bytes = 256U * 1024U * 1024U;
-  result reserve_asset(const asset_source&, render_asset_ref&) noexcept;
-  /** 只查找 CPU 内容已就绪的缓存，不读取文件、不等待 GPU；失败清空输出。 */
-  result find(const asset_source&, render_asset_ref&, texture_prepare_profile = {}) const noexcept;
-  template <class T>
-  result find(std::string_view uri, asset_ref<const T>& output) const noexcept try {
-    output.reset();
-    render_asset_ref entry;
-    const auto status = find({std::string(uri), kind<T>()}, entry, profile());
-    if (status.ok())
-      output = asset_cast<T>(entry);
-    return status;
+  error reserve_asset(const asset_source&, render_asset_ref&) noexcept;
+  /** 只查找 CPU 内容已就绪的缓存，不读取文件、不等待 GPU。 */
+  result<render_asset_ref> find(const asset_source&, texture_prepare_profile = {}) const noexcept;
+  template <class T> result<asset_ref<const T>> find(std::string_view uri) const noexcept try {
+    auto found = find({std::string(uri), kind<T>()}, profile());
+    if (!found)
+      return found.error();
+    return asset_cast<T>(*found);
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return error::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return error::internal;
   }
   bool owns(const mesh&) const noexcept;
   bool owns(const texture&) const noexcept;
   bool owns(const material&) const noexcept;
   bool owns(const render_asset_ref&) const noexcept;
-  /** 所属线程创建程序化资源并返回强引用；失败清空输出，不接管外部 RID。 */
-  result create_texture(const texture_view&, texture&) noexcept;
-  result create_mesh(const mesh_view&, mesh&) noexcept;
-  result create_material(const material_parameters&, std::array<texture, 5>, material&) noexcept;
-  result reserve_texture(texture&) noexcept;
-  result reserve_mesh(mesh&) noexcept;
-  result reserve_material(material&) noexcept;
+  /** 所属线程创建程序化资源并返回强引用；失败返回错误，不接管外部 RID。 */
+  result<texture> create_texture(const texture_view&) noexcept;
+  result<mesh> create_mesh(const mesh_view&) noexcept;
+  result<material> create_material(const material_parameters&, std::array<texture, 5>) noexcept;
+  error reserve_texture(texture&) noexcept;
+  error reserve_mesh(mesh&) noexcept;
+  error reserve_material(material&) noexcept;
   /** 仅锁定本管理器已创建的对象；未知或已释放 RID 返回空。 */
   texture find_texture(rid) const noexcept;
   mesh find_mesh(rid) const noexcept;
   material find_material(rid) const noexcept;
   /** 单资源异步加载；默认复用缓存，同身份的在途请求共享工作（包括 reload）。
-   * 输入在返回前复制；失败不替换 output。每项独立完成，不等待 GPU。 */
-  result load(const asset_source&, resource_request& output, bool reload = false,
-              std::size_t limit = 64U * 1024U * 1024U);
-  template <class T>
-  result load(std::string_view uri, resource_request& output, bool reload = false) {
-    return load({std::string(uri), kind<T>()}, output, reload);
+   * 输入在返回前复制；提交失败返回错误。每项独立完成，不等待 GPU。 */
+  result<resource_request> load(const asset_source&, bool reload = false,
+                                std::size_t limit = 64U * 1024U * 1024U);
+  template <class T> result<resource_request> load(std::string_view uri, bool reload = false) try {
+    return load({std::string(uri), kind<T>()}, reload);
+  } catch (const std::bad_alloc&) {
+    return error::out_of_memory;
+  } catch (...) {
+    return error::internal;
   }
 
   texture_prepare_profile profile() const noexcept;
@@ -86,7 +87,7 @@ private:
     else
       return asset_type::material;
   }
-  result identify(std::string_view, std::uint32_t, asset_identity&) const noexcept;
+  error identify(std::string_view, std::uint32_t, asset_identity&) const noexcept;
   asset_manager& assets_;
   bool render_stopping_{};
   std::unique_ptr<implementation> impl_;

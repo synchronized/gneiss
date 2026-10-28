@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "viewport/transform_gizmo_math.hpp"
 
 #include <imgui.h>
@@ -35,7 +35,7 @@ bool replay(float scale, ImGuizmo::OPERATION operation) {
   gneiss::editor::gizmo_matrix model{};
   const gneiss::engine::math::transform identity{};
   if (gneiss::editor::transform_to_gizmo_matrix(identity, model) !=
-      gneiss::engine::result::success) {
+      gneiss::engine::error::success) {
     return false;
   }
   const auto initial = model;
@@ -81,7 +81,7 @@ bool replay(float scale, ImGuizmo::OPERATION operation) {
   const auto released = !ImGuizmo::IsUsing();
   gneiss::engine::math::transform result{};
   const auto valid =
-      gneiss::editor::gizmo_matrix_to_transform(model, result) == gneiss::engine::result::success;
+      gneiss::editor::gizmo_matrix_to_transform(model, result) == gneiss::engine::error::success;
   const auto success = found && captured && changed && released && valid && initial != model;
   if (!valid) {
     for (const auto value : model) {

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "child_process.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 namespace gneiss::engine {
 
@@ -14,10 +14,8 @@ struct child_process::implementation final {
 child_process::child_process() : implementation_(std::make_unique<implementation>()) {}
 child_process::~child_process() = default;
 
-result child_process::start(const child_process_start_info&) noexcept {
-  return result::unsupported;
-}
-result child_process::terminate() noexcept { return result::not_ready; }
+error child_process::start(const child_process_start_info&) noexcept { return error::unsupported; }
+error child_process::terminate() noexcept { return error::not_ready; }
 void child_process::update() noexcept {}
 bool child_process::is_running() const noexcept { return false; }
 bool child_process::has_started() const noexcept { return false; }

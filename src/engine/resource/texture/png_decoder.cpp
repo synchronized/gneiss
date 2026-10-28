@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/resource/texture/png_decoder.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <spng.h>
 
@@ -25,31 +25,31 @@ void clear_image(decoded_png& image) noexcept {
   image.pixels.clear();
 }
 
-engine::result fail(int error, std::string& message) noexcept {
+engine::error fail(int error, std::string& message) noexcept {
   try {
     const char* text = spng_strerror(error);
     message = text != nullptr ? text : "PNG 解码失败";
   } catch (...) {
     message.clear();
-    return engine::result::out_of_memory;
+    return engine::error::out_of_memory;
   }
-  return error == SPNG_EMEM ? engine::result::out_of_memory : engine::result::invalid_argument;
+  return error == SPNG_EMEM ? engine::error::out_of_memory : engine::error::invalid_argument;
 }
 
 } // namespace
 
-engine::result decode_png(const std::vector<std::byte>& bytes, decoded_png& out_image,
-                          std::string& out_message, std::size_t byte_limit) noexcept {
+engine::error decode_png(const std::vector<std::byte>& bytes, decoded_png& out_image,
+                         std::string& out_message, std::size_t byte_limit) noexcept {
   clear_image(out_image);
   out_message.clear();
   try {
     if (bytes.empty()) {
       out_message = "PNG 数据为空";
-      return engine::result::invalid_argument;
+      return engine::error::invalid_argument;
     }
     context_ptr context(spng_ctx_new(0), &spng_ctx_free);
     if (!context) {
-      return engine::result::out_of_memory;
+      return engine::error::out_of_memory;
     }
     int result = spng_set_image_limits(context.get(), maximum_dimension, maximum_dimension);
     if (result == 0) {
@@ -69,11 +69,11 @@ engine::result decode_png(const std::vector<std::byte>& bytes, decoded_png& out_
     if (decoded_size == 0U || decoded_size > maximum_decoded_bytes ||
         decoded_size != static_cast<std::size_t>(header.width) * header.height * 4U) {
       out_message = "PNG 解码尺寸超出限制";
-      return engine::result::invalid_argument;
+      return engine::error::invalid_argument;
     }
     if (decoded_size > byte_limit) {
       out_message = "PNG 解码数据超过候选剩余内存预算";
-      return engine::result::out_of_memory;
+      return engine::error::out_of_memory;
     }
     out_image.width = header.width;
     out_image.height = header.height;
@@ -84,13 +84,13 @@ engine::result decode_png(const std::vector<std::byte>& bytes, decoded_png& out_
       clear_image(out_image);
       return fail(result, out_message);
     }
-    return engine::result::success;
+    return engine::error::success;
   } catch (const std::bad_alloc&) {
     clear_image(out_image);
-    return engine::result::out_of_memory;
+    return engine::error::out_of_memory;
   } catch (...) {
     clear_image(out_image);
-    return engine::result::internal;
+    return engine::error::internal;
   }
 }
 

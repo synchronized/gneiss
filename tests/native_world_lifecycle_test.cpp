@@ -8,53 +8,53 @@ int main(void) {
 
   gneiss::engine::world_owner second;
 
-  if (gneiss::engine::create_native(first) != gneiss::engine::result::success ||
-      gneiss::engine::create_native(second) != gneiss::engine::result::success) {
+  if (gneiss::engine::create_native(first) != gneiss::engine::error::success ||
+      gneiss::engine::create_native(second) != gneiss::engine::error::success) {
     return 1;
   }
 
   gneiss::entity_id entity = gneiss::entity_id{};
-  if (first->entity_create(entity) != gneiss::engine::result::success ||
+  if (first->entity_create(entity) != gneiss::engine::error::success ||
       entity == gneiss::entity_id{}) {
     return 2;
   }
   bool is_alive = false;
   uint64_t count = 0;
-  if (first->entity_is_alive(entity, is_alive) != gneiss::engine::result::success ||
-      is_alive != 1U || first->entity_count(count) != gneiss::engine::result::success ||
+  if (first->entity_is_alive(entity, is_alive) != gneiss::engine::error::success ||
+      is_alive != 1U || first->entity_count(count) != gneiss::engine::error::success ||
       count != 1U) {
     return 3;
   }
   gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   gneiss::engine::math::camera_settings queried_camera{1.04719755F, 0.1F, 1000.0F};
   gneiss::entity_id active_camera = gneiss::entity_id{};
-  if (first->get_active_camera(active_camera) != gneiss::engine::result::not_ready ||
+  if (first->get_active_camera(active_camera) != gneiss::engine::error::not_ready ||
       active_camera != gneiss::entity_id{} ||
-      first->entity_configure_camera(entity, camera) != gneiss::engine::result::success ||
-      first->entity_get_camera(entity, queried_camera) != gneiss::engine::result::success ||
+      first->entity_configure_camera(entity, camera) != gneiss::engine::error::success ||
+      first->entity_get_camera(entity, queried_camera) != gneiss::engine::error::success ||
       queried_camera.near != camera.near ||
-      second->set_active_camera(entity) != gneiss::engine::result::invalid_handle ||
-      first->set_active_camera(entity) != gneiss::engine::result::success ||
-      first->get_active_camera(active_camera) != gneiss::engine::result::success ||
+      second->set_active_camera(entity) != gneiss::engine::error::invalid_handle ||
+      first->set_active_camera(entity) != gneiss::engine::error::success ||
+      first->get_active_camera(active_camera) != gneiss::engine::error::success ||
       active_camera != entity) {
     return 4;
   }
-  if (first->entity_remove_camera(entity) != gneiss::engine::result::success ||
-      first->entity_remove_camera(entity) != gneiss::engine::result::not_found ||
-      first->get_active_camera(active_camera) != gneiss::engine::result::not_ready ||
-      first->set_active_camera(entity) != gneiss::engine::result::not_ready ||
-      first->entity_configure_camera(entity, camera) != gneiss::engine::result::success ||
-      first->set_active_camera(entity) != gneiss::engine::result::success) {
+  if (first->entity_remove_camera(entity) != gneiss::engine::error::success ||
+      first->entity_remove_camera(entity) != gneiss::engine::error::not_found ||
+      first->get_active_camera(active_camera) != gneiss::engine::error::not_ready ||
+      first->set_active_camera(entity) != gneiss::engine::error::not_ready ||
+      first->entity_configure_camera(entity, camera) != gneiss::engine::error::success ||
+      first->set_active_camera(entity) != gneiss::engine::error::success) {
     return 5;
   }
-  if (second->entity_destroy(entity) != gneiss::engine::result::invalid_handle ||
-      first->entity_destroy(entity) != gneiss::engine::result::success ||
-      first->entity_destroy(entity) != gneiss::engine::result::invalid_handle) {
+  if (second->entity_destroy(entity) != gneiss::engine::error::invalid_handle ||
+      first->entity_destroy(entity) != gneiss::engine::error::success ||
+      first->entity_destroy(entity) != gneiss::engine::error::invalid_handle) {
     return 6;
   }
-  if (first->entity_is_alive(entity, is_alive) != gneiss::engine::result::success ||
+  if (first->entity_is_alive(entity, is_alive) != gneiss::engine::error::success ||
       is_alive != 0U ||
-      first->get_active_camera(active_camera) != gneiss::engine::result::not_ready) {
+      first->get_active_camera(active_camera) != gneiss::engine::error::not_ready) {
     return 7;
   }
   first.reset();

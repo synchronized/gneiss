@@ -66,9 +66,9 @@ bool gneiss::engine::valid_text(std::string_view category, std::string_view mess
   return !category.empty() && is_valid_utf8(category) && is_valid_utf8(message);
 }
 
-gneiss::engine::result gneiss::engine::validate_message(const message_view& message) noexcept {
+gneiss::engine::error gneiss::engine::validate_message(const message_view& message) noexcept {
   return message.severity >= level::trace && message.severity <= level::fatal &&
                  valid_text(message.category, message.message)
-             ? result::success
-             : result::invalid_argument;
+             ? error::success
+             : error::invalid_argument;
 }

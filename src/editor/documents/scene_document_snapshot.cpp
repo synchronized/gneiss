@@ -5,10 +5,10 @@
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "runtime/application.hpp"
 namespace gneiss::editor {
-engine::result capture_scene_document(runtime::application& app, const scene_document& document,
-                                      scene_document_snapshot& output) noexcept try {
+engine::error capture_scene_document(runtime::application& app, const scene_document& document,
+                                     scene_document_snapshot& output) noexcept try {
   if (!document.is_open() || !app.is_owner_thread() || !app.accepts_requests())
-    return engine::result::invalid_state;
+    return engine::error::invalid_state;
   scene_document_snapshot next;
   next.uri = document.uri();
   const auto status =
@@ -16,16 +16,16 @@ engine::result capture_scene_document(runtime::application& app, const scene_doc
   if (status.failed())
     return status;
   output = std::move(next);
-  return engine::result::success;
+  return engine::error::success;
 } catch (const std::bad_alloc&) {
-  return engine::result::out_of_memory;
+  return engine::error::out_of_memory;
 } catch (...) {
-  return engine::result::internal;
+  return engine::error::internal;
 }
 
-engine::result prepare_scene_document(const scene_document_snapshot& before,
-                                      std::span<const author_document_change> changes,
-                                      scene_document_snapshot& output) noexcept try {
+engine::error prepare_scene_document(const scene_document_snapshot& before,
+                                     std::span<const author_document_change> changes,
+                                     scene_document_snapshot& output) noexcept try {
   auto scene = std::make_shared<engine::scene_description>(before.description.description);
   engine::scene_description_inputs inputs;
   for (const auto& [uri, prefab] : before.description.prefabs)
@@ -44,7 +44,7 @@ engine::result prepare_scene_document(const scene_document_snapshot& before,
     const auto uri = "asset://" + change.path;
     if (uri == before.uri) {
       if (!change.replacement)
-        return engine::result::invalid_argument;
+        return engine::error::invalid_argument;
       const auto status = decode(*change.replacement, *scene);
       if (status.failed())
         return status;
@@ -69,22 +69,22 @@ engine::result prepare_scene_document(const scene_document_snapshot& before,
   for (const auto& asset : next.description.assets) {
     const auto found = before.assets.find(asset.uri);
     if (found == before.assets.end() || engine::asset_kind(found->second) != asset.type)
-      return engine::result::not_ready;
+      return engine::error::not_ready;
     next.assets.emplace(asset.uri, found->second);
   }
   output = std::move(next);
-  return engine::result::success;
+  return engine::error::success;
 } catch (const std::bad_alloc&) {
-  return engine::result::out_of_memory;
+  return engine::error::out_of_memory;
 } catch (...) {
-  return engine::result::internal;
+  return engine::error::internal;
 }
 
-engine::result restore_scene_document(runtime::application& app, scene_document& document,
-                                      const scene_document_snapshot& snapshot) noexcept try {
+engine::error restore_scene_document(runtime::application& app, scene_document& document,
+                                     const scene_document_snapshot& snapshot) noexcept try {
   if (!app.is_owner_thread() || !app.accepts_requests() || !document.is_open() ||
       document.uri() != snapshot.uri)
-    return engine::result::invalid_state;
+    return engine::error::invalid_state;
   scene_instance_id instance;
   auto status = app.scenes()->instantiate_prepared(snapshot.description, snapshot.assets, instance);
   if (status.failed())
@@ -94,8 +94,8 @@ engine::result restore_scene_document(runtime::application& app, scene_document&
     (void)app.scenes()->unload(instance);
   return status;
 } catch (const std::bad_alloc&) {
-  return engine::result::out_of_memory;
+  return engine::error::out_of_memory;
 } catch (...) {
-  return engine::result::internal;
+  return engine::error::internal;
 }
 }

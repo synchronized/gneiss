@@ -4,8 +4,8 @@
 #ifndef GNEISS_APPS_RUNTIME_RUNTIME_PROPERTY_EDITOR_H_
 #define GNEISS_APPS_RUNTIME_RUNTIME_PROPERTY_EDITOR_H_
 
+#include "engine/core/error.hpp"
 #include "engine/core/meta/registry.hpp"
-#include "engine/core/result.hpp"
 #include "ipc_property_protocol.hpp"
 #include "runtime_scene_inspection.hpp"
 
@@ -27,11 +27,11 @@ public:
   runtime_property_editor(const runtime_property_editor&) = delete;
   runtime_property_editor& operator=(const runtime_property_editor&) = delete;
 
-  [[nodiscard]] gneiss::engine::result initialize(gneiss::engine::world& world,
-                                                  runtime_scene_inspection& inspection,
-                                                  std::uint64_t session_id) noexcept;
-  [[nodiscard]] gneiss::engine::result execute(const ipc_property_write& command,
-                                               ipc_property_write_result& output) noexcept;
+  [[nodiscard]] gneiss::engine::error initialize(gneiss::engine::world& world,
+                                                 runtime_scene_inspection& inspection,
+                                                 std::uint64_t session_id) noexcept;
+  [[nodiscard]] gneiss::engine::error execute(const ipc_property_write& command,
+                                              ipc_property_write_result& output) noexcept;
   void reset() noexcept;
 
 private:

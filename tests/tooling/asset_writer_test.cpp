@@ -76,13 +76,13 @@ int main() { // NOLINT(bugprone-exception-escape)
   std::uint64_t entity_count = 0;
   constexpr std::string_view scene_uri = "asset://scenes/scene.scene.json";
   if (gneiss::runtime::application::create(description, application) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       gneiss::test_support::load_scene(*application, scene_uri, &scene) !=
-          gneiss::engine::result::success ||
-      application->native_world()->entity_count(entity_count) != gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
+      application->native_world()->entity_count(entity_count) != gneiss::engine::error::success ||
       entity_count != 1U ||
-      application->scenes()->unload(scene) != gneiss::engine::result::success ||
-      application->shutdown() != gneiss::engine::result::success) {
+      application->scenes()->unload(scene) != gneiss::engine::error::success ||
+      application->shutdown() != gneiss::engine::error::success) {
     return 6;
   }
 
@@ -101,13 +101,13 @@ int main() { // NOLINT(bugprone-exception-escape)
   scene = gneiss::scene_instance_id{};
   entity_count = 0;
   if (gneiss::runtime::application::create(description, application) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       gneiss::test_support::load_scene(*application, scene_uri, &scene) !=
-          gneiss::engine::result::success ||
-      application->native_world()->entity_count(entity_count) != gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
+      application->native_world()->entity_count(entity_count) != gneiss::engine::error::success ||
       entity_count != 3U ||
-      application->scenes()->unload(scene) != gneiss::engine::result::success ||
-      application->shutdown() != gneiss::engine::result::success) {
+      application->scenes()->unload(scene) != gneiss::engine::error::success ||
+      application->shutdown() != gneiss::engine::error::success) {
     return 8;
   }
   const auto pbr = gneiss::tooling::inspect_gltf(std::filesystem::path{GNEISS_TEST_GLTF_ROOT} /

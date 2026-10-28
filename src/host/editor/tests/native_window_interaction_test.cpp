@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "imgui_adapter.hpp"
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
 #include "asset_background_worker.hpp"
@@ -48,29 +48,29 @@ BOOL CALLBACK find_window(HWND window, LPARAM data) {
   return TRUE;
 }
 
-gneiss::engine::result update(const gneiss::engine::frame_time* time, void* data) {
+gneiss::engine::error update(const gneiss::engine::frame_time* time, void* data) {
   auto& value = *static_cast<state*>(data);
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
   if (!value.assets->status().active ||
       value.camera.update({.delta_seconds = 0.016F, .dolly = 0.01F}) !=
-          gneiss::engine::result::success) {
-    return gneiss::engine::result::invalid_state;
+          gneiss::engine::error::success) {
+    return gneiss::engine::error::invalid_state;
   }
 #endif
   RECT client{};
   if (GetClientRect(value.window, &client) == 0) {
-    return gneiss::engine::result::internal;
+    return gneiss::engine::error::internal;
   }
   std::uint32_t width = 0U;
   std::uint32_t height = 0U;
   auto operation = value.application->get_window_size(width, height);
-  if (operation != gneiss::engine::result::success ||
+  if (operation != gneiss::engine::error::success ||
       width != static_cast<std::uint32_t>(client.right) ||
       height != static_cast<std::uint32_t>(client.bottom)) {
-    return gneiss::engine::result::invalid_state;
+    return gneiss::engine::error::invalid_state;
   }
   operation = value.ui.begin_frame(*value.application, *time);
-  if (operation != gneiss::engine::result::success) {
+  if (operation != gneiss::engine::error::success) {
     return operation;
   }
   const auto& io = ImGui::GetIO();
@@ -94,7 +94,7 @@ gneiss::engine::result update(const gneiss::engine::frame_time* time, void* data
   ImGui::End();
   operation = value.ui.submit(*value.application);
   ++value.frames;
-  return aligned ? operation : gneiss::engine::result::invalid_state;
+  return aligned ? operation : gneiss::engine::error::invalid_state;
 }
 
 } // namespace
@@ -142,29 +142,28 @@ int main() {
     return update(&time, &value);
   };
   std::shared_ptr<gneiss::runtime::application> application;
-  if (gneiss::runtime::application::create(config, application) !=
-      gneiss::engine::result::success) {
+  if (gneiss::runtime::application::create(config, application) != gneiss::engine::error::success) {
     return 1;
   }
   value.application = application.get();
   (void)EnumWindows(find_window, reinterpret_cast<LPARAM>(&value.window));
   if (value.window == nullptr ||
-      value.ui.initialize(*application) != gneiss::engine::result::success) {
+      value.ui.initialize(*application) != gneiss::engine::error::success) {
     return 2;
   }
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
-  if (value.camera.initialize() != gneiss::engine::result::success) {
+  if (value.camera.initialize() != gneiss::engine::error::success) {
     return 5;
   }
 #endif
-  gneiss::engine::result foreign_result{};
+  gneiss::engine::error foreign_result{};
   std::thread foreign([&] { foreign_result = value.ui.begin_frame(*application, {}); });
   foreign.join();
-  if (foreign_result != gneiss::engine::result::invalid_state)
+  if (foreign_result != gneiss::engine::error::invalid_state)
     return 6;
   // 使用窗口自己的 DPI 上下文查询物理客户区，避免测试进程受到 DPI 虚拟化影响。
   const auto previous = SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(value.window));
-  const auto run = [&] { return application->run(3U) == gneiss::engine::result::success; };
+  const auto run = [&] { return application->run(3U) == gneiss::engine::error::success; };
   bool success = run();
   for (int index = 0; index < 18 && success; ++index) {
     success = SetWindowPos(value.window, nullptr, -3000, -3000, 640 + (index * 19),

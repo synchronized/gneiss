@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "ipc_inspection_protocol.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <yyjson.h>
 
@@ -192,12 +192,12 @@ bool parse_node(yyjson_val* change, gneiss::host::ipc_inspection_node& output) {
 
 namespace gneiss::host {
 
-gneiss::engine::result encode_ipc_inspection_batch(const ipc_inspection_batch& batch,
-                                                   std::vector<std::uint8_t>& output) noexcept {
+gneiss::engine::error encode_ipc_inspection_batch(const ipc_inspection_batch& batch,
+                                                  std::vector<std::uint8_t>& output) noexcept {
   if (batch.stamp.session_id == 0U || batch.stamp.sequence == 0U ||
       batch.changes.size() > max_changes || batch.chunk_count == 0U ||
       batch.chunk_count > max_chunks || batch.chunk_index >= batch.chunk_count) {
-    return gneiss::engine::result::invalid_argument;
+    return gneiss::engine::error::invalid_argument;
   }
   try {
     mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
@@ -207,11 +207,11 @@ gneiss::engine::result encode_ipc_inspection_batch(const ipc_inspection_batch& b
         !yyjson_mut_obj_add_uint(document.get(), root, "session_id", batch.stamp.session_id) ||
         !yyjson_mut_obj_add_uint(document.get(), root, "sequence", batch.stamp.sequence) ||
         !yyjson_mut_obj_add_bool(document.get(), root, "full", batch.is_full)) {
-      return gneiss::engine::result::out_of_memory;
+      return gneiss::engine::error::out_of_memory;
     }
     if (!yyjson_mut_obj_add_uint(document.get(), root, "chunk_index", batch.chunk_index) ||
         !yyjson_mut_obj_add_uint(document.get(), root, "chunk_count", batch.chunk_count)) {
-      return gneiss::engine::result::out_of_memory;
+      return gneiss::engine::error::out_of_memory;
     }
     for (const auto& change : batch.changes) {
       auto* object = yyjson_mut_obj(document.get());
@@ -230,39 +230,39 @@ gneiss::engine::result encode_ipc_inspection_batch(const ipc_inspection_batch& b
             change.node.material_uri.size() > max_string_size ||
             !valid_camera(change.node.camera) || !add_node(document.get(), object, change.node))) ||
           !yyjson_mut_arr_add_val(changes, object)) {
-        return gneiss::engine::result::invalid_argument;
+        return gneiss::engine::error::invalid_argument;
       }
     }
     if (!yyjson_mut_obj_add_val(document.get(), root, "changes", changes)) {
-      return gneiss::engine::result::out_of_memory;
+      return gneiss::engine::error::out_of_memory;
     }
     yyjson_mut_doc_set_root(document.get(), root);
     std::size_t length = 0U;
     std::unique_ptr<char, decltype(&std::free)> json(
         yyjson_mut_write(document.get(), YYJSON_WRITE_NOFLAG, &length), &std::free);
     if (!json) {
-      return gneiss::engine::result::out_of_memory;
+      return gneiss::engine::error::out_of_memory;
     }
     if (length > max_json_size) {
-      return gneiss::engine::result::invalid_argument;
+      return gneiss::engine::error::invalid_argument;
     }
     std::vector<std::uint8_t> encoded(reinterpret_cast<const std::uint8_t*>(json.get()),
                                       reinterpret_cast<const std::uint8_t*>(json.get()) + length);
     output = std::move(encoded);
-    return gneiss::engine::result::success;
+    return gneiss::engine::error::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return gneiss::engine::error::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return gneiss::engine::error::internal;
   }
 }
 
-gneiss::engine::result
+gneiss::engine::error
 encode_ipc_inspection_batch_chunks(const ipc_inspection_batch& batch,
                                    std::vector<std::vector<std::uint8_t>>& output) noexcept {
   if (batch.stamp.session_id == 0U || batch.stamp.sequence == 0U ||
       batch.changes.size() > max_changes) {
-    return gneiss::engine::result::invalid_argument;
+    return gneiss::engine::error::invalid_argument;
   }
   try {
     std::vector<ipc_inspection_batch> chunks(1U);
@@ -273,17 +273,17 @@ encode_ipc_inspection_batch_chunks(const ipc_inspection_batch& batch,
       current.changes.push_back(change);
       current.chunk_count = max_outgoing_chunks;
       std::vector<std::uint8_t> probe;
-      if (encode_ipc_inspection_batch(current, probe) == gneiss::engine::result::success) {
+      if (encode_ipc_inspection_batch(current, probe) == gneiss::engine::error::success) {
         continue;
       }
       current.changes.pop_back();
       if (current.changes.empty() || chunks.size() >= max_outgoing_chunks) {
-        return gneiss::engine::result::out_of_memory;
+        return gneiss::engine::error::out_of_memory;
       }
       chunks.push_back({.stamp = batch.stamp, .is_full = batch.is_full, .changes = {change}});
       chunks.back().chunk_count = max_outgoing_chunks;
-      if (encode_ipc_inspection_batch(chunks.back(), probe) != gneiss::engine::result::success) {
-        return gneiss::engine::result::out_of_memory;
+      if (encode_ipc_inspection_batch(chunks.back(), probe) != gneiss::engine::error::success) {
+        return gneiss::engine::error::out_of_memory;
       }
     }
     std::vector<std::vector<std::uint8_t>> payloads;
@@ -293,24 +293,24 @@ encode_ipc_inspection_batch_chunks(const ipc_inspection_batch& batch,
       chunks[index].chunk_count = static_cast<std::uint32_t>(chunks.size());
       std::vector<std::uint8_t> payload;
       const auto encoded = encode_ipc_inspection_batch(chunks[index], payload);
-      if (encoded != gneiss::engine::result::success) {
+      if (encoded != gneiss::engine::error::success) {
         return encoded;
       }
       payloads.push_back(std::move(payload));
     }
     output = std::move(payloads);
-    return gneiss::engine::result::success;
+    return gneiss::engine::error::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return gneiss::engine::error::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return gneiss::engine::error::internal;
   }
 }
 
-gneiss::engine::result decode_ipc_inspection_batch(std::span<const std::uint8_t> payload,
-                                                   ipc_inspection_batch& output) noexcept {
+gneiss::engine::error decode_ipc_inspection_batch(std::span<const std::uint8_t> payload,
+                                                  ipc_inspection_batch& output) noexcept {
   if (payload.size() > max_json_size) {
-    return gneiss::engine::result::invalid_argument;
+    return gneiss::engine::error::invalid_argument;
   }
   try {
     document_ptr document(yyjson_read(reinterpret_cast<const char*>(payload.data()), payload.size(),
@@ -329,7 +329,7 @@ gneiss::engine::result decode_ipc_inspection_batch(std::span<const std::uint8_t>
         yyjson_get_uint(chunk_count) > max_chunks ||
         yyjson_get_uint(chunk_index) >= yyjson_get_uint(chunk_count) || !yyjson_is_arr(changes) ||
         yyjson_arr_size(changes) > max_changes) {
-      return gneiss::engine::result::invalid_argument;
+      return gneiss::engine::error::invalid_argument;
     }
     ipc_inspection_batch pending;
     pending.stamp = {yyjson_get_uint(session), yyjson_get_uint(sequence)};
@@ -345,27 +345,27 @@ gneiss::engine::result decode_ipc_inspection_batch(std::span<const std::uint8_t>
       ipc_inspection_change change;
       if (!yyjson_is_str(operation) || !parse_id(value, "id", false, change.id) ||
           !seen.emplace(change.id.value, change.id.generation).second) {
-        return gneiss::engine::result::invalid_argument;
+        return gneiss::engine::error::invalid_argument;
       }
       const std::string_view name(yyjson_get_str(operation), yyjson_get_len(operation));
       if (name == "upsert") {
         change.type = ipc_inspection_change_type::upsert;
         if (!parse_node(value, change.node) || change.node.id != change.id) {
-          return gneiss::engine::result::invalid_argument;
+          return gneiss::engine::error::invalid_argument;
         }
       } else if (name == "remove") {
         change.type = ipc_inspection_change_type::remove;
       } else {
-        return gneiss::engine::result::invalid_argument;
+        return gneiss::engine::error::invalid_argument;
       }
       pending.changes.push_back(std::move(change));
     }
     output = std::move(pending);
-    return gneiss::engine::result::success;
+    return gneiss::engine::error::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return gneiss::engine::error::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return gneiss::engine::error::internal;
   }
 }
 
@@ -394,12 +394,12 @@ constexpr std::array inspection_operations{
 
 } // namespace
 
-gneiss::engine::result
+gneiss::engine::error
 encode_ipc_inspection_batch_v2(const ipc_inspection_batch& batch,
                                std::vector<gneiss::engine::ipc_envelope>& output) noexcept {
   std::vector<std::vector<std::uint8_t>> payloads;
   auto operation = encode_ipc_inspection_batch_chunks(batch, payloads);
-  if (operation != gneiss::engine::result::success) {
+  if (operation != gneiss::engine::error::success) {
     return operation;
   }
   try {
@@ -414,44 +414,44 @@ encode_ipc_inspection_batch_v2(const ipc_inspection_batch& batch,
            .payload = std::move(payload)});
     }
     output = std::move(encoded);
-    return gneiss::engine::result::success;
+    return gneiss::engine::error::success;
   } catch (const std::bad_alloc&) {
-    return gneiss::engine::result::out_of_memory;
+    return gneiss::engine::error::out_of_memory;
   } catch (...) {
-    return gneiss::engine::result::internal;
+    return gneiss::engine::error::internal;
   }
 }
 
-gneiss::engine::result decode_ipc_inspection_batch_v2(const gneiss::engine::ipc_envelope& envelope,
-                                                      ipc_inspection_batch& output) noexcept {
+gneiss::engine::error decode_ipc_inspection_batch_v2(const gneiss::engine::ipc_envelope& envelope,
+                                                     ipc_inspection_batch& output) noexcept {
   if (!matches_inspection(envelope, ipc_inspection_operation::snapshot,
                           gneiss::engine::ipc_message_kind::event) ||
       envelope.request_id != 0U) {
-    return gneiss::engine::result::invalid_argument;
+    return gneiss::engine::error::invalid_argument;
   }
   return decode_ipc_inspection_batch(envelope.payload, output);
 }
 
-gneiss::engine::result encode_ipc_inspection_resync(std::uint32_t request_id,
-                                                    gneiss::engine::ipc_envelope& output) noexcept {
+gneiss::engine::error encode_ipc_inspection_resync(std::uint32_t request_id,
+                                                   gneiss::engine::ipc_envelope& output) noexcept {
   if (request_id == 0U) {
-    return gneiss::engine::result::invalid_argument;
+    return gneiss::engine::error::invalid_argument;
   }
   output = {.domain = gneiss::engine::ipc_domain::inspection,
             .operation = static_cast<std::uint16_t>(ipc_inspection_operation::resync),
             .kind = gneiss::engine::ipc_message_kind::request,
             .request_id = request_id,
             .payload = {}};
-  return gneiss::engine::result::success;
+  return gneiss::engine::error::success;
 }
 
-gneiss::engine::result
+gneiss::engine::error
 decode_ipc_inspection_resync(const gneiss::engine::ipc_envelope& envelope) noexcept {
   return matches_inspection(envelope, ipc_inspection_operation::resync,
                             gneiss::engine::ipc_message_kind::request) &&
                  envelope.request_id != 0U && envelope.payload.empty()
-             ? gneiss::engine::result::success
-             : gneiss::engine::result::invalid_argument;
+             ? gneiss::engine::error::success
+             : gneiss::engine::error::invalid_argument;
 }
 
 std::span<const gneiss::engine::ipc_operation_descriptor> ipc_inspection_operations() noexcept {

@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_RUNTIME_PROCESS_H_
 #define GNEISS_APPS_EDITOR_RUNTIME_PROCESS_H_
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "runtime_launch.hpp"
 
 #include "console_model.hpp"
@@ -46,7 +46,7 @@ struct runtime_asset_reload_status final {
   runtime_asset_reload_state state{runtime_asset_reload_state::idle};
   std::uint64_t revision = 0U;
   std::string message;
-  gneiss::engine::result publish_result = gneiss::engine::result::success;
+  gneiss::engine::error publish_result = gneiss::engine::error::success;
   bool can_cancel = false;
   std::uint32_t completed_assets = 0U;
   std::uint32_t total_assets = 0U;
@@ -61,24 +61,24 @@ public:
   runtime_process(const runtime_process&) = delete;
   runtime_process& operator=(const runtime_process&) = delete;
 
-  [[nodiscard]] gneiss::engine::result
+  [[nodiscard]] gneiss::engine::error
   start(const std::filesystem::path& executable,
         const gneiss::editor::runtime_launch_request& request) noexcept;
-  [[nodiscard]] gneiss::engine::result request_stop() noexcept;
-  [[nodiscard]] gneiss::engine::result request_pause() noexcept;
-  [[nodiscard]] gneiss::engine::result request_resume() noexcept;
-  [[nodiscard]] gneiss::engine::result
+  [[nodiscard]] gneiss::engine::error request_stop() noexcept;
+  [[nodiscard]] gneiss::engine::error request_pause() noexcept;
+  [[nodiscard]] gneiss::engine::error request_resume() noexcept;
+  [[nodiscard]] gneiss::engine::error
   request_property_write(gneiss::editor::runtime_property_key key, std::uint64_t expected_revision,
                          ipc_property_value value) noexcept;
   /** 发布已提交的派生资产；Runtime 未连接时保留到下次全量重同步。 */
-  [[nodiscard]] gneiss::engine::result
+  [[nodiscard]] gneiss::engine::error
   publish_asset_revision(std::span<const std::string> output_uris) noexcept;
   /** 失败后全量同步已知资产；执行中或未连接时返回 not_ready。 */
-  [[nodiscard]] gneiss::engine::result cancel_asset_reload() noexcept;
-  [[nodiscard]] gneiss::engine::result retry_asset_reload() noexcept;
-  [[nodiscard]] gneiss::engine::result load_scene(std::string_view uri) noexcept;
-  [[nodiscard]] gneiss::engine::result cancel_scene_load() noexcept;
-  [[nodiscard]] gneiss::engine::result retry_scene_load() noexcept;
+  [[nodiscard]] gneiss::engine::error cancel_asset_reload() noexcept;
+  [[nodiscard]] gneiss::engine::error retry_asset_reload() noexcept;
+  [[nodiscard]] gneiss::engine::error load_scene(std::string_view uri) noexcept;
+  [[nodiscard]] gneiss::engine::error cancel_scene_load() noexcept;
+  [[nodiscard]] gneiss::engine::error retry_scene_load() noexcept;
   [[nodiscard]] bool supports_scene_loading() const noexcept;
   [[nodiscard]] const ipc_scene_progress& scene_load_status() const noexcept;
   void update() noexcept;
@@ -98,7 +98,7 @@ public:
   [[nodiscard]] bool supports_property_editing() const noexcept;
   [[nodiscard]] const runtime_asset_reload_status& asset_reload_status() const noexcept;
   [[nodiscard]] const std::filesystem::path& log_file() const noexcept;
-  [[nodiscard]] gneiss::engine::result last_result() const noexcept;
+  [[nodiscard]] gneiss::engine::error last_result() const noexcept;
   void clear_output() noexcept;
 
 private:

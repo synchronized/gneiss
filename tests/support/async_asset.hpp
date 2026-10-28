@@ -5,6 +5,7 @@
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "memory_file_fixture.hpp"
+#include "value_result.hpp"
 #include <chrono>
 #include <stdexcept>
 namespace gneiss::test_support {
@@ -14,17 +15,17 @@ inline engine::task_scheduler& asset_tasks() {
 }
 // 仅测试宿主驱动异步回调；生产代码不提供等待包装。
 template <class T>
-engine::result load_asset(engine::asset_manager& assets, std::string_view uri,
-                          engine::asset_ref<const T>& output, bool reload = false,
-                          engine::meta::serialization_diagnostic* diagnostic = nullptr) {
+engine::error load_asset(engine::asset_manager& assets, std::string_view uri,
+                         engine::asset_ref<const T>& output, bool reload = false,
+                         engine::meta::serialization_diagnostic* diagnostic = nullptr) {
   auto& tasks = asset_tasks();
   assets.attach_task_executor(tasks);
   engine::asset_request<T> request;
-  auto status = assets.load(uri, request, reload);
+  auto status = gneiss::test_support::assign_value(assets.load<T>(uri, reload), request);
   if (status.failed())
     return status;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  while ((status = request.take(output, diagnostic)) == engine::result::not_ready) {
+  while ((status = request.take(output, diagnostic)) == engine::error::not_ready) {
     (void)tasks.run_ready();
     (void)assets.async_files()->dispatch_completions(64);
     assets.advance();

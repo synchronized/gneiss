@@ -17,35 +17,35 @@ void check(bool value, const char* message) {
     throw std::runtime_error(message);
 }
 void pump(gneiss::engine::files::service& service, std::size_t budget = 64) {
-  check(service.dispatch_completions(budget) == result::success, "dispatch");
+  check(service.dispatch_completions(budget) == error::success, "dispatch");
 }
 void seed(gneiss::engine::files::memory_backend& backend, std::string_view path,
           unsigned char value) {
   bool completed = false;
   check(backend.write(path, {std::byte{value}}, {},
-                      [&](result status) {
-                        check(status == result::success, "seed completed");
+                      [&](error status) {
+                        check(status == error::success, "seed completed");
                         completed = true;
-                      }) == result::success &&
+                      }) == error::success &&
             completed,
         "seed");
 }
 class controlled_backend final : public gneiss::engine::files::backend {
 public:
   gneiss::engine::files::callback<gneiss::engine::files::bytes> completion;
-  result immediate{result::success};
+  error immediate{error::success};
   std::size_t reads{};
-  result read(std::string_view, gneiss::engine::files::read_options,
-              gneiss::engine::files::callback<gneiss::engine::files::bytes> callback) override {
+  error read(std::string_view, gneiss::engine::files::read_options,
+             gneiss::engine::files::callback<gneiss::engine::files::bytes> callback) override {
     ++reads;
-    if (immediate != result::success)
+    if (immediate != error::success)
       return immediate;
     completion = std::move(callback);
-    return result::success;
+    return error::success;
   }
   void complete() {
     auto callback = std::move(completion);
-    callback({result::success, {std::byte{7}}});
+    callback({error::success, {std::byte{7}}});
   }
 };
 
@@ -58,37 +58,37 @@ void memory_and_routes() {
   seed(*memory, "same", 4);
   seed(*special, "same", 9);
   gneiss::engine::files::service service;
-  check(service.mount({"asset://", {memory, lower}, {}}) == result::success, "read mount");
-  check(service.mount({"asset://special/", {special}, {}}) == result::success, "long mount");
-  check(service.mount({"user://", {memory}, memory}) == result::success, "write mount");
-  check(service.mount({"user://", {memory}, {}}) == result::invalid_state, "duplicate mount");
-  check(service.mount({"asset://../", {memory}, {}}) == result::invalid_argument, "invalid mount");
+  check(service.mount({"asset://", {memory, lower}, {}}) == error::success, "read mount");
+  check(service.mount({"asset://special/", {special}, {}}) == error::success, "long mount");
+  check(service.mount({"user://", {memory}, memory}) == error::success, "write mount");
+  check(service.mount({"user://", {memory}, {}}) == error::invalid_state, "duplicate mount");
+  check(service.mount({"asset://../", {memory}, {}}) == error::invalid_argument, "invalid mount");
   gneiss::engine::files::request_id request;
   unsigned called = 0;
   check(service.read(
             "asset://only", {16},
             [&](auto completed) {
-              check(completed.status == result::success &&
+              check(completed.status == error::success &&
                         completed.data == gneiss::engine::files::bytes{std::byte{2}},
                     "fallback bytes");
               ++called;
             },
-            request) == result::success &&
+            request) == error::success &&
             called == 0,
         "deferred submission");
   pump(service);
   check(called == 0, "fallback deferred");
   pump(service);
   check(called == 1, "fallback complete");
-  check(service.cancel(request) == result::invalid_handle, "retired request");
-  check(service.mount({"other://", {memory}, {}}) == result::invalid_state, "frozen mounts");
+  check(service.cancel(request) == error::invalid_handle, "retired request");
+  check(service.mount({"other://", {memory}, {}}) == error::invalid_state, "frozen mounts");
   check(service.read(
             "asset://special/same", {16},
             [&](auto completed) {
               check(completed.data == gneiss::engine::files::bytes{std::byte{9}}, "longest prefix");
               ++called;
             },
-            request) == result::success,
+            request) == error::success,
         "long read");
   check(service.read(
             "asset://same", {16},
@@ -97,7 +97,7 @@ void memory_and_routes() {
                     "overlay priority");
               ++called;
             },
-            request) == result::success,
+            request) == error::success,
         "overlay read");
   pump(service, 1);
   check(called == 2, "callback budget");
@@ -107,18 +107,18 @@ void memory_and_routes() {
        {"asset://../same", "asset://a//b", "asset://%2e%2e/same", "asset://a\\b"}) {
     request = {999};
     check(service.read(
-              invalid, {16}, [](auto) {}, request) == result::invalid_argument &&
+              invalid, {16}, [](auto) {}, request) == error::invalid_argument &&
               request.value == 0,
           "invalid path");
   }
   bool written = false;
   check(service.write(
             "user://dir/a", {std::byte{5}, std::byte{6}}, {},
-            [&](result status) {
-              check(status == result::success, "write result");
+            [&](error status) {
+              check(status == error::success, "write result");
               written = true;
             },
-            request) == result::success &&
+            request) == error::success &&
             !written,
         "write deferred");
   pump(service);
@@ -126,51 +126,51 @@ void memory_and_routes() {
   check(service.read_range(
             "user://dir/a", {1, 1},
             [](auto completed) {
-              check(completed.status == result::success &&
+              check(completed.status == error::success &&
                         completed.data == gneiss::engine::files::bytes{std::byte{6}},
                     "range");
             },
-            request) == result::success,
+            request) == error::success,
         "range submit");
   check(service.read_range(
             "user://dir/a", {2, 0},
             [](auto completed) {
-              check(completed.status == result::success && completed.data.empty(), "empty EOF");
+              check(completed.status == error::success && completed.data.empty(), "empty EOF");
             },
-            request) == result::success,
+            request) == error::success,
         "EOF submit");
   check(service.read_range(
             "user://dir/a", {2, 1},
             [](auto completed) {
-              check(completed.status == result::invalid_argument && completed.data.empty(),
+              check(completed.status == error::invalid_argument && completed.data.empty(),
                     "range boundary");
             },
-            request) == result::success,
+            request) == error::success,
         "boundary submit");
   check(service.read(
             "user://dir/a", {1},
             [](auto completed) {
-              check(completed.status == result::invalid_argument && completed.data.empty(),
+              check(completed.status == error::invalid_argument && completed.data.empty(),
                     "size limit");
             },
-            request) == result::success,
+            request) == error::success,
         "limit submit");
   check(service.stat(
             "user://dir/a",
             [](auto completed) {
-              check(completed.status == result::success && completed.data.size == 2, "file size");
+              check(completed.status == error::success && completed.data.size == 2, "file size");
             },
-            request) == result::success,
+            request) == error::success,
         "stat submit");
   check(service.stat(
             "user://dir/",
             [](auto completed) {
-              check(completed.status == result::success &&
+              check(completed.status == error::success &&
                         completed.data.kind == gneiss::engine::files::kind::directory &&
                         !completed.data.size,
                     "directory info");
             },
-            request) == result::success,
+            request) == error::success,
         "directory stat");
   pump(service);
   seed(*memory, "dir/b", 7);
@@ -178,43 +178,42 @@ void memory_and_routes() {
   check(service.list(
             "user://dir/", {1, {}},
             [&](auto completed) {
-              check(completed.status == result::success && completed.data.entries.size() == 1 &&
+              check(completed.status == error::success && completed.data.entries.size() == 1 &&
                         completed.data.entries[0].name == "a",
                     "first page");
               cursor = completed.data.next_cursor;
             },
-            request) == result::success,
+            request) == error::success,
         "list submit");
   pump(service);
   check(!cursor.empty(), "next cursor");
   check(service.list(
             "user://dir/", {1, cursor},
             [](auto completed) {
-              check(completed.status == result::success && completed.data.entries.size() == 1 &&
+              check(completed.status == error::success && completed.data.entries.size() == 1 &&
                         completed.data.entries[0].name == "b" && completed.data.next_cursor.empty(),
                     "last page");
             },
-            request) == result::success,
+            request) == error::success,
         "next page submit");
   check(service.write(
             "user://dir/a", {}, {gneiss::engine::files::write_mode::create_new},
-            [](result status) { check(status == result::invalid_state, "create new collision"); },
-            request) == result::success,
+            [](error status) { check(status == error::invalid_state, "create new collision"); },
+            request) == error::success,
         "create new submit");
   check(service.flush(
-            "user://",
-            [](result status) { check(status == result::unsupported, "volatile flush"); },
-            request) == result::success,
+            "user://", [](error status) { check(status == error::unsupported, "volatile flush"); },
+            request) == error::success,
         "flush submit");
   check(service.write(
-            "asset://same", {}, {}, [](result) {}, request) == result::unsupported,
+            "asset://same", {}, {}, [](error) {}, request) == error::unsupported,
         "readonly");
   pump(service);
   bool closed = false;
-  check(service.shutdown([&](result status) {
-    check(status == result::success, "shutdown");
+  check(service.shutdown([&](error status) {
+    check(status == error::success, "shutdown");
     closed = true;
-  }) == result::success &&
+  }) == error::success &&
             !closed,
         "deferred shutdown");
   pump(service);
@@ -227,18 +226,18 @@ void pagination_and_reentry() {
   seed(*lower, "dir/a-x", 1);
   seed(*lower, "dir/a/child", 2);
   gneiss::engine::files::service service;
-  check(service.mount({"asset://", {upper, lower}, {}}) == result::success, "paged overlay");
+  check(service.mount({"asset://", {upper, lower}, {}}) == error::success, "paged overlay");
   gneiss::engine::files::request_id id;
   std::string cursor;
   check(service.list(
             "asset://dir/", {1, {}},
             [&](auto completed) {
-              check(completed.status == result::success && completed.data.entries.size() == 1 &&
+              check(completed.status == error::success && completed.data.entries.size() == 1 &&
                         completed.data.entries[0].name == "a",
                     "child order differs from path order");
               cursor = completed.data.next_cursor;
             },
-            id) == result::success,
+            id) == error::success,
         "page fallback submit");
   pump(service);
   pump(service);
@@ -248,34 +247,34 @@ void pagination_and_reentry() {
   check(service.list(
             "asset://dir/", {1, cursor},
             [&](auto completed) {
-              check(completed.status == result::success && completed.data.entries.size() == 1 &&
+              check(completed.status == error::success && completed.data.entries.size() == 1 &&
                         completed.data.entries[0].name == "a-x",
                     "cursor pins original backend");
               second = true;
             },
-            id) == result::success,
+            id) == error::success,
         "pinned continuation");
   pump(service);
   check(second, "continued page");
   check(service.list(
-            "asset://other/", {1, cursor}, [](auto) {}, id) == result::invalid_argument,
+            "asset://other/", {1, cursor}, [](auto) {}, id) == error::invalid_argument,
         "cursor cannot cross paths");
   unsigned calls = 0;
   check(service.read(
             "asset://dir/new", {16},
             [&](auto completed) {
-              check(completed.status == result::success, "outer callback");
+              check(completed.status == error::success, "outer callback");
               ++calls;
               check(service.read(
                         "asset://dir/new", {16},
                         [&](auto inner) {
-                          check(inner.status == result::success, "inner callback");
+                          check(inner.status == error::success, "inner callback");
                           ++calls;
                         },
-                        id) == result::success,
+                        id) == error::success,
                     "submit from callback");
             },
-            id) == result::success,
+            id) == error::success,
         "outer submit");
   pump(service);
   check(calls == 1, "new callback deferred to next dispatch");
@@ -283,7 +282,7 @@ void pagination_and_reentry() {
   check(calls == 2, "new callback delivered");
   for (const std::string& invalid : {std::string("asset://a\n"), std::string("asset://a\xFF")}) {
     check(service.read(
-              invalid, {16}, [](auto) {}, id) == result::invalid_argument,
+              invalid, {16}, [](auto) {}, id) == error::invalid_argument,
           "UTF8 and control validation");
   }
 }
@@ -294,7 +293,7 @@ void byte_budget() {
   check(service.mount({"asset://", {backend}, {}}).ok(), "budget mount");
   gneiss::engine::files::request_id first, rejected;
   check(service.read(
-            "asset://a", {17}, [](auto) {}, rejected) == result::invalid_argument &&
+            "asset://a", {17}, [](auto) {}, rejected) == error::invalid_argument &&
             rejected.value == 0,
         "request exceeds total budget");
   bool delivered{};
@@ -312,18 +311,18 @@ void byte_budget() {
             .ok(),
         "budget reservation");
   check(service.read(
-            "asset://b", {1}, [](auto) {}, rejected) == result::not_ready &&
+            "asset://b", {1}, [](auto) {}, rejected) == error::not_ready &&
             backend->reads == 1,
         "inflight budget prevents submission");
   backend->complete();
   check(service.read(
-            "asset://b", {1}, [](auto) {}, rejected) == result::not_ready,
+            "asset://b", {1}, [](auto) {}, rejected) == error::not_ready,
         "completed bytes remain reserved until delivery");
   pump(service);
   check(delivered && backend->reads == 2, "delivery admits next read");
   check(service.cancel(first).ok(), "cancel budget request");
   check(service.read(
-            "asset://b", {1}, [](auto) {}, rejected) == result::not_ready,
+            "asset://b", {1}, [](auto) {}, rejected) == error::not_ready,
         "cancel waits for backend before releasing budget");
   backend->complete();
   pump(service);
@@ -351,7 +350,7 @@ void stream_blocks() {
     ++calls;
   };
   check(stream.read_next(next).ok() && calls == 0, "stream defers callback");
-  check(stream.read_next(next) == result::not_ready, "one inflight block");
+  check(stream.read_next(next) == error::not_ready, "one inflight block");
   pump(*service);
   check(calls == 1 && !eof, "first block");
   pump(*service);
@@ -361,7 +360,7 @@ void stream_blocks() {
   check(stream.read_next(next).ok(), "last block");
   pump(*service);
   check(calls == 3 && eof && output == bytes, "stream complete");
-  check(stream.read_next(next) == result::invalid_state, "EOF terminal");
+  check(stream.read_next(next) == error::invalid_state, "EOF terminal");
   check(memory->write("empty", {}, {}, [](auto) {}).ok(), "empty seed");
   gneiss::engine::files::read_stream empty(service, "asset://empty", 0, 2);
   bool empty_done{};
@@ -387,34 +386,34 @@ void lifetime() {
   auto backend = std::make_shared<controlled_backend>();
   gneiss::engine::files::service service({1, 64});
   gneiss::engine::files::service other;
-  check(service.mount({"asset://", {backend}, {}}) == result::success, "delayed mount");
+  check(service.mount({"asset://", {backend}, {}}) == error::success, "delayed mount");
   gneiss::engine::files::request_id id, rejected;
   bool called = false, closed = false;
   check(service.read(
             "asset://a", {16},
             [&](auto completed) {
-              check(completed.status == result::cancelled && completed.data.empty(),
+              check(completed.status == error::cancelled && completed.data.empty(),
                     "cancel result");
               called = true;
-              check(service.dispatch_completions(1) == result::invalid_state, "reentrant dispatch");
+              check(service.dispatch_completions(1) == error::invalid_state, "reentrant dispatch");
             },
-            id) == result::success,
+            id) == error::success,
         "delayed submit");
   check(service.read(
-            "asset://b", {16}, [](auto) {}, rejected) == result::not_ready &&
+            "asset://b", {16}, [](auto) {}, rejected) == error::not_ready &&
             rejected.value == 0,
         "capacity");
-  check(other.cancel(id) == result::invalid_handle, "cross service");
-  check(service.cancel(id) == result::success, "cancel pending");
-  check(service.shutdown([&](result status) {
-    check(status == result::success && called, "close ordering");
+  check(other.cancel(id) == error::invalid_handle, "cross service");
+  check(service.cancel(id) == error::success, "cancel pending");
+  check(service.shutdown([&](error status) {
+    check(status == error::success && called, "close ordering");
     closed = true;
-  }) == result::success,
+  }) == error::success,
         "shutdown pending");
   pump(service);
   check(!called && !closed, "wait actual cleanup");
   check(service.read(
-            "asset://b", {16}, [](auto) {}, rejected) == result::invalid_state,
+            "asset://b", {16}, [](auto) {}, rejected) == error::invalid_state,
         "closed submit");
   backend->complete();
   pump(service, 1);
@@ -424,23 +423,23 @@ void lifetime() {
 
   auto failure = std::make_shared<controlled_backend>();
   auto fallback = std::make_shared<controlled_backend>();
-  failure->immediate = result::io;
+  failure->immediate = error::io;
   gneiss::engine::files::service errors;
-  check(errors.mount({"asset://", {failure, fallback}, {}}) == result::success, "error mount");
+  check(errors.mount({"asset://", {failure, fallback}, {}}) == error::success, "error mount");
   check(errors.read(
             "asset://a", {16},
-            [](auto completed) { check(completed.status == result::io, "io preserved"); },
-            id) == result::success,
+            [](auto completed) { check(completed.status == error::io, "io preserved"); },
+            id) == error::success,
         "error submit");
   pump(errors);
   check(fallback->reads == 0, "no IO fallback");
-  failure->immediate = result::unsupported;
+  failure->immediate = error::unsupported;
   check(errors.read(
             "asset://a", {16},
             [](auto completed) {
-              check(completed.status == result::unsupported, "unsupported preserved");
+              check(completed.status == error::unsupported, "unsupported preserved");
             },
-            id) == result::success,
+            id) == error::success,
         "unsupported submit");
   pump(errors);
   check(fallback->reads == 0, "no unsupported fallback");
@@ -448,20 +447,20 @@ void lifetime() {
 #if GNEISS_TEST_TASK_THREADS && !defined(__EMSCRIPTEN__)
   auto threaded = std::make_shared<controlled_backend>();
   gneiss::engine::files::service threaded_service;
-  check(threaded_service.mount({"asset://", {threaded}, {}}) == result::success, "thread mount");
+  check(threaded_service.mount({"asset://", {threaded}, {}}) == error::success, "thread mount");
   const auto owner = std::this_thread::get_id();
   bool delivered = false;
   check(threaded_service.read(
             "asset://a", {16},
             [&](auto completed) {
-              check(completed.status == result::success && std::this_thread::get_id() == owner,
+              check(completed.status == error::success && std::this_thread::get_id() == owner,
                     "owner callback");
               delivered = true;
             },
-            id) == result::success,
+            id) == error::success,
         "thread submit");
   std::thread worker([&] {
-    check(threaded_service.dispatch_completions(1) == result::invalid_state, "wrong thread");
+    check(threaded_service.dispatch_completions(1) == error::invalid_state, "wrong thread");
     threaded->complete();
   });
   worker.join();
@@ -474,14 +473,14 @@ void lifetime() {
   {
     auto abandoned = std::make_shared<controlled_backend>();
     gneiss::engine::files::service dying;
-    check(dying.mount({"asset://", {abandoned}, {}}) == result::success, "abandon mount");
+    check(dying.mount({"asset://", {abandoned}, {}}) == error::success, "abandon mount");
     check(dying.read(
               "asset://a", {16}, [](auto) { check(false, "destroyed owner callback"); }, id) ==
-              result::success,
+              error::success,
           "abandon submit");
     late = std::move(abandoned->completion);
   }
-  late({result::success, {}});
+  late({error::success, {}});
 }
 class controlled_stream final : public gneiss::engine::files::backend_stream {
 public:
@@ -489,27 +488,27 @@ public:
   std::size_t reads{};
   std::uint64_t offset{};
   bool closed{};
-  result read_next(std::size_t maximum,
-                   gneiss::engine::files::callback<gneiss::engine::files::block> done) override {
+  error read_next(std::size_t maximum,
+                  gneiss::engine::files::callback<gneiss::engine::files::block> done) override {
     check(maximum == 8, "stream block bound");
     if (closed)
-      return result::invalid_state;
+      return error::invalid_state;
     if (callback)
-      return result::not_ready;
+      return error::not_ready;
     ++reads;
     callback = std::move(done);
-    return result::success;
+    return error::success;
   }
   void complete(std::size_t count, bool eof = false) {
     auto done = std::move(callback);
     const auto begin = offset;
     offset += count;
-    done({result::success, {gneiss::engine::files::bytes(count, std::byte{7}), begin, eof}});
+    done({error::success, {gneiss::engine::files::bytes(count, std::byte{7}), begin, eof}});
   }
   void close() noexcept override {
     closed = true;
     if (auto done = std::move(callback))
-      done({result::cancelled, {}});
+      done({error::cancelled, {}});
   }
 };
 class streaming_backend final : public gneiss::engine::files::backend {
@@ -518,19 +517,19 @@ public:
   unsigned opens{};
   bool missing{}, deferred{};
   gneiss::engine::files::callback<std::shared_ptr<gneiss::engine::files::backend_stream>> opening;
-  result open_stream(
+  error open_stream(
       std::string_view,
       gneiss::engine::files::callback<std::shared_ptr<gneiss::engine::files::backend_stream>> done)
       override {
     ++opens;
     if (missing)
-      return result::not_found;
+      return error::not_found;
     stream = std::make_shared<controlled_stream>();
     if (deferred)
       opening = std::move(done);
     else
-      done({result::success, stream});
-    return result::success;
+      done({error::success, stream});
+    return error::success;
   }
 };
 void sequential_streams() {
@@ -554,10 +553,10 @@ void sequential_streams() {
   for (int i = 0; i < 3; ++i)
     pump(*files);
   check(missing->opens == 1 && backend->opens == 1 && backend->stream->reads == 1, "open fallback");
-  check(stream->read_next([](auto) {}) == result::not_ready, "one block in flight");
+  check(stream->read_next([](auto) {}) == error::not_ready, "one block in flight");
   gneiss::engine::files::request_id request;
   check(files->read(
-            "asset://other", {1}, [](auto) {}, request) == result::not_ready,
+            "asset://other", {1}, [](auto) {}, request) == error::not_ready,
         "JS and Wasm block budgets reserved");
   backend->stream->complete(3);
   check(received == 0, "backend completion is deferred");
@@ -577,30 +576,29 @@ void sequential_streams() {
   backend->stream->complete(0, true);
   pump(*files);
   check(received == 2 && backend->stream->closed &&
-            stream->read_next([](auto) {}) == result::invalid_state,
+            stream->read_next([](auto) {}) == error::invalid_state,
         "EOF closes source");
   stream = std::make_unique<gneiss::engine::files::read_stream>(files, "asset://cancel",
                                                                 std::nullopt, 8);
-  result cancelled;
+  error cancelled;
   check(stream->read_next([&](auto value) { cancelled = value.status; }).ok(),
         "cancel stream open");
   for (int i = 0; i < 3; ++i)
     pump(*files);
-  check(stream->cancel().ok() && backend->stream->closed && cancelled == result::unknown,
+  check(stream->cancel().ok() && backend->stream->closed && cancelled == error::unknown,
         "cancel aborts source");
   pump(*files);
-  check(cancelled == result::cancelled, "cancel delivered once");
+  check(cancelled == error::cancelled, "cancel delivered once");
   stream = std::make_unique<gneiss::engine::files::read_stream>(files, "asset://invalid",
                                                                 std::nullopt, 8);
-  result oversized;
+  error oversized;
   check(stream->read_next([&](auto value) { oversized = value.status; }).ok(),
         "invalid stream open");
   for (int i = 0; i < 3; ++i)
     pump(*files);
   backend->stream->complete(9);
   pump(*files);
-  check(oversized == result::io && backend->stream->closed,
-        "backend block violation closes source");
+  check(oversized == error::io && backend->stream->closed, "backend block violation closes source");
   stream = std::make_unique<gneiss::engine::files::read_stream>(files, "asset://destroy",
                                                                 std::nullopt, 8);
   check(
@@ -623,22 +621,22 @@ void sequential_streams() {
   backend->deferred = true;
   stream = std::make_unique<gneiss::engine::files::read_stream>(files, "asset://late-cancel",
                                                                 std::nullopt, 8);
-  result late_status;
+  error late_status;
   check(stream->read_next([&](auto value) { late_status = value.status; }).ok(), "deferred open");
   pump(*files);
   check(stream->cancel().ok(), "cancel pending open");
   auto late_source = backend->stream;
   auto opened = std::move(backend->opening);
-  opened({result::success, late_source});
+  opened({error::success, late_source});
   pump(*files);
-  check(late_status == result::cancelled && late_source->closed && late_source->reads == 0,
+  check(late_status == error::cancelled && late_source->closed && late_source->reads == 0,
         "cancelled opening closes retained source without reading");
   backend->deferred = false;
   stream =
       std::make_unique<gneiss::engine::files::read_stream>(files, "asset://close", std::nullopt, 8);
   check(stream
             ->read_next([](auto value) {
-              check(value.status == result::cancelled, "shutdown cancels stream");
+              check(value.status == error::cancelled, "shutdown cancels stream");
             })
             .ok(),
         "close stream open");
@@ -663,7 +661,7 @@ void source_identity() {
   auto first = std::make_unique<gneiss::engine::files::service>();
   auto second = std::make_unique<gneiss::engine::files::service>();
   std::shared_ptr<const gneiss::engine::files::source_domain> original, independent, nested;
-  check(first->resolve_source("asset://item", original) == result::not_found && !original,
+  check(first->resolve_source("asset://item", original) == error::not_found && !original,
         "unmounted identity");
   check(first->mount({"asset://", {backend}, {}}).ok(), "first identity mount");
   check(second->mount({"asset://", {backend}, {}}).ok(), "independent identity mount");
@@ -673,7 +671,7 @@ void source_identity() {
   check(second->mount({"asset://nested/", {backend}, {}, original}).ok(), "explicit shared domain");
   check(second->resolve_source("asset://nested/item", nested).ok() && nested == original,
         "longest prefix source");
-  check(first->resolve_source("asset://../invalid", nested) == result::invalid_argument && !nested,
+  check(first->resolve_source("asset://../invalid", nested) == error::invalid_argument && !nested,
         "invalid identity clears output");
   std::weak_ptr<const gneiss::engine::files::source_domain> lifetime = original;
   first.reset();

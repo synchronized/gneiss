@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "panels/author_property_panel.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include "editor_theme.hpp"
 #include "viewport/editor_rotation_math.hpp"
@@ -15,11 +15,11 @@ namespace gneiss::editor {
 namespace {
 
 bool draw_property(const inspector_component& component, const inspector_property& property,
-                   std::uint64_t& edit_serial, gneiss::engine::result& error,
+                   std::uint64_t& edit_serial, gneiss::engine::error& error,
                    const author_property_actions& actions) {
   auto value = property.value;
   if (value.kind() != property.kind) {
-    error = gneiss::engine::result::invalid_argument;
+    error = gneiss::engine::error::invalid_argument;
     return false;
   }
   const auto writable =
@@ -45,7 +45,7 @@ bool draw_property(const inspector_component& component, const inspector_propert
     std::array<float, 3> euler{};
     error = gneiss::editor::quaternion_to_euler_degrees(
         std::get<gneiss::engine::math::quaternion>(value.payload), euler);
-    if (error != gneiss::engine::result::success) {
+    if (error != gneiss::engine::error::success) {
       break;
     }
     changed = ImGui::DragFloat3(property.name.c_str(), euler.data(), 0.25F, 0.0F, 0.0F, "%.1f°");
@@ -68,7 +68,7 @@ bool draw_property(const inspector_component& component, const inspector_propert
   if (!changed) {
     return false;
   }
-  if (error != gneiss::engine::result::success) {
+  if (error != gneiss::engine::error::success) {
     return false;
   }
   error = actions.write(actions.context, component, property, value, edit_serial);
@@ -78,7 +78,7 @@ bool draw_property(const inspector_component& component, const inspector_propert
 } // namespace
 
 void draw_author_properties(std::span<const inspector_component> components,
-                            std::uint64_t& edit_serial, gneiss::engine::result& error,
+                            std::uint64_t& edit_serial, gneiss::engine::error& error,
                             const author_property_actions& actions) {
   for (const auto& component : components) {
     if (!ImGui::CollapsingHeader(component.name.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -88,7 +88,7 @@ void draw_author_properties(std::span<const inspector_component> components,
       (void)draw_property(component, property, edit_serial, error, actions);
     }
   }
-  if (error != gneiss::engine::result::success) {
+  if (error != gneiss::engine::error::success) {
     const auto message = error.message();
     ImGui::TextColored(gneiss::editor::theme_error_color(), "%.*s",
                        static_cast<int>(message.size()), message.data());

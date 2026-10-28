@@ -2,13 +2,13 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "commands/author_property_edit.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 
+#include "engine/core/error.hpp"
 #include "engine/core/meta/type.hpp"
-#include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 
 #include <algorithm>
@@ -25,7 +25,7 @@ int main() try {
   scene_node_id first;
   scene_node_id second;
   gneiss::runtime::application_configuration desc;
-  if (gneiss::engine::result{gneiss::runtime::application::create(desc, app)}.failed() ||
+  if (gneiss::engine::error{gneiss::runtime::application::create(desc, app)}.failed() ||
       (world_handle = app->native_world()) == nullptr ||
       session.create_empty(*app, world_handle).failed() ||
       session.create_node("first", {}, first).failed() ||
@@ -40,7 +40,7 @@ int main() try {
   const auto is_x = [&](float expected) {
     gneiss::engine::math::transform local{};
     return app->native_world()->entity_get_local_transform(entity, local) ==
-               gneiss::engine::result::success &&
+               gneiss::engine::error::success &&
            std::abs(local.translation[0] - expected) < 0.0001F;
   };
   const auto edit_x = [&](float next, editor_command_history& target, std::uint64_t serial) {
@@ -48,7 +48,7 @@ int main() try {
     const auto found = std::ranges::find(
         component.properties, gneiss::engine::transform_translation_field, &inspector_property::id);
     if (found == component.properties.end()) {
-      return gneiss::engine::result{gneiss::engine::result::not_found};
+      return gneiss::engine::error{gneiss::engine::error::not_found};
     }
     auto value = found->value;
     std::get<gneiss::engine::math::vector3>(value.payload).x = next;
@@ -72,7 +72,7 @@ int main() try {
     return 5;
   }
   editor_command_history no_capacity{0U};
-  if (edit_x(8.0F, no_capacity, 3U) != gneiss::engine::result::invalid_argument || !is_x(6.0F) ||
+  if (edit_x(8.0F, no_capacity, 3U) != gneiss::engine::error::invalid_argument || !is_x(6.0F) ||
       no_capacity.can_undo()) {
     return 6;
   }
@@ -85,13 +85,13 @@ int main() try {
   auto invalid = scale->value;
   std::get<gneiss::engine::math::vector3>(invalid.payload).x = 0.0F;
   if (edit_author_property(session, history, inspector, world_handle, component, *scale, invalid,
-                           4U) != gneiss::engine::result::invalid_argument ||
+                           4U) != gneiss::engine::error::invalid_argument ||
       history.size() != 2U) {
     return 8;
   }
   scene_subtree_snapshot removed;
   if (session.destroy_subtree(first, removed).failed() ||
-      history.undo() != gneiss::engine::result::not_found || !history.can_undo()) {
+      history.undo() != gneiss::engine::error::not_found || !history.can_undo()) {
     return 9;
   }
   history.clear();

@@ -12,32 +12,32 @@
 namespace gneiss::engine::meta {
 /** 成功才替换输出；对象必须与模板类型相符，未知类型不隐式注册。 */
 template <class T>
-[[nodiscard]] result serialize(const registry_ref& registry, const T& object,
-                               std::vector<std::byte>& output,
-                               serialization_diagnostic& diagnostic) noexcept {
+[[nodiscard]] error serialize(const registry_ref& registry, const T& object,
+                              std::vector<std::byte>& output,
+                              serialization_diagnostic& diagnostic) noexcept {
   diagnostic = {};
   serialization_binding binding;
   auto status = find_serialization(registry, runtime_type_of<T>(), binding);
   if (status.failed())
     return status;
   if (!binding.encode)
-    return result::unsupported;
+    return error::unsupported;
   try {
     std::vector<std::byte> pending;
     status = binding.encode(&object, pending, diagnostic);
-    if (status == result::success)
+    if (status == error::success)
       output = std::move(pending);
     return status;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return error::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return error::internal;
   }
 }
 /** 解码到临时值；成功后无异常移动赋值，拒绝把半成品写入既有对象。 */
 template <class T>
-[[nodiscard]] result deserialize(const registry_ref& registry, std::span<const std::byte> bytes,
-                                 T& output, serialization_diagnostic& diagnostic) noexcept {
+[[nodiscard]] error deserialize(const registry_ref& registry, std::span<const std::byte> bytes,
+                                T& output, serialization_diagnostic& diagnostic) noexcept {
   static_assert(std::is_nothrow_move_assignable_v<T>);
   diagnostic = {};
   serialization_binding binding;
@@ -45,17 +45,17 @@ template <class T>
   if (status.failed())
     return status;
   if (!binding.decode)
-    return result::unsupported;
+    return error::unsupported;
   try {
     T pending{};
     status = binding.decode(bytes, &pending, diagnostic);
-    if (status == result::success)
+    if (status == error::success)
       output = std::move(pending);
     return status;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return error::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return error::internal;
   }
 }
 }

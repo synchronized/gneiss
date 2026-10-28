@@ -28,7 +28,7 @@ namespace gneiss::engine::detail {
     (void)value;
     const auto name = json_string(key);
     if (std::ranges::find(fields, name) == fields.end()) {
-      fail(diagnostic, engine::result::invalid_argument, "/" + std::string(name), "未知字段");
+      fail(diagnostic, engine::error::invalid_argument, "/" + std::string(name), "未知字段");
       return false;
     }
   }
@@ -40,23 +40,22 @@ namespace gneiss::engine::detail {
                                           std::uint64_t maximum_version, std::uint64_t& out_version,
                                           asset_diagnostic& diagnostic) {
   if (!yyjson_is_obj(root) || !has_only_fields(root, fields, diagnostic)) {
-    if (diagnostic.result == engine::result::success) {
-      fail(diagnostic, engine::result::invalid_argument, "", "资产根必须是对象");
+    if (diagnostic.result == engine::error::success) {
+      fail(diagnostic, engine::error::invalid_argument, "", "资产根必须是对象");
     }
     return false;
   }
   yyjson_val* format = yyjson_obj_get(root, "format");
   if (!yyjson_is_str(format) || json_string(format) != expected_format) {
-    fail(diagnostic, engine::result::invalid_argument, "/format", "资产格式标识错误");
+    fail(diagnostic, engine::error::invalid_argument, "/format", "资产格式标识错误");
     return false;
   }
   yyjson_val* version = yyjson_obj_get(root, "version");
   if (!yyjson_is_uint(version) || yyjson_get_uint(version) == 0U ||
       yyjson_get_uint(version) > maximum_version) {
     fail(diagnostic,
-         yyjson_is_uint(version) && yyjson_get_uint(version) > 1U
-             ? engine::result::unsupported
-             : engine::result::invalid_argument,
+         yyjson_is_uint(version) && yyjson_get_uint(version) > 1U ? engine::error::unsupported
+                                                                  : engine::error::invalid_argument,
          "/version", "不支持的资产版本");
     return false;
   }
@@ -69,7 +68,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
 [[nodiscard]] inline document_ptr parse_document(const std::vector<std::byte>& bytes,
                                                  asset_diagnostic& diagnostic) {
   if (bytes.empty()) {
-    fail(diagnostic, engine::result::invalid_argument, "", "资产文档为空");
+    fail(diagnostic, engine::error::invalid_argument, "", "资产文档为空");
     return {nullptr, &yyjson_doc_free};
   }
   yyjson_read_err error{};
@@ -78,7 +77,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
                        YYJSON_READ_NOFLAG, nullptr, &error),
       &yyjson_doc_free);
   if (!document) {
-    fail(diagnostic, engine::result::invalid_argument, "",
+    fail(diagnostic, engine::error::invalid_argument, "",
          error.msg != nullptr ? error.msg : "JSON 语法错误", error.pos);
   }
   return {document.release(), &yyjson_doc_free};

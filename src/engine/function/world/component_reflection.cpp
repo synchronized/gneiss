@@ -11,7 +11,7 @@ namespace {
 using namespace gneiss::engine;
 template <auto Member> auto get_transform(const math::transform& object) { return object.*Member; }
 template <auto Member, class Property>
-result set_transform(math::transform& object, const Property& value) {
+error set_transform(math::transform& object, const Property& value) {
   auto updated = object;
   updated.*Member = value;
   float norm = 0;
@@ -23,24 +23,24 @@ result set_transform(math::transform& object, const Property& value) {
       !std::ranges::all_of(math::components(updated.scale), [](float item) {
         return std::isfinite(item) && std::abs(item) >= 1.0e-6F;
       }))
-    return result::invalid_argument;
+    return error::invalid_argument;
   object = updated;
-  return result::success;
+  return error::success;
 }
 template <auto Member> float get_camera(const camera_properties& object) {
   return object.settings.*Member;
 }
 template <auto Member, bool IsFov = false>
-result set_camera(camera_properties& object, const float& scalar) {
+error set_camera(camera_properties& object, const float& scalar) {
   if (!std::isfinite(scalar) || scalar <= 0 || (IsFov && scalar >= std::numbers::pi_v<float>))
-    return result::invalid_argument;
+    return error::invalid_argument;
   // near/far 联合约束仍在 World 提交或全部 Prefab 覆盖完成后验证。
   object.settings.*Member = scalar;
-  return result::success;
+  return error::success;
 }
 }
 
-gneiss::engine::result
+gneiss::engine::error
 gneiss::engine::register_reflection(const gneiss::engine::meta::registry_ref& registry) {
   auto operation = gneiss::engine::meta::type_builder<math::transform>{registry}
                        .property<&get_transform<&math::transform::translation>,
@@ -68,16 +68,16 @@ gneiss::engine::register_reflection(const gneiss::engine::meta::registry_ref& re
 }
 
 namespace gneiss::engine {
-result create_property_registry(meta::registry_ref& output) noexcept {
+error create_property_registry(meta::registry_ref& output) noexcept {
   meta::registry_ref pending;
   auto operation = meta::create_registry(pending);
-  if (operation == result::success) {
+  if (operation == error::success) {
     operation = register_reflection(pending);
   }
-  if (operation == result::success) {
+  if (operation == error::success) {
     operation = meta::freeze(pending);
   }
-  if (operation == result::success) {
+  if (operation == error::success) {
     output = std::move(pending);
   }
   return operation;
@@ -90,8 +90,8 @@ namespace gneiss::engine {
 namespace {
 /** World 接口负责线程与实体校验；反射只修改副本，成功后才提交。 */
 template <class Access>
-result access_component(world& world, std::uint64_t entity, guid type, bool write,
-                        Access&& access) noexcept {
+error access_component(world& world, std::uint64_t entity, guid type, bool write,
+                       Access&& access) noexcept {
   if (type == transform_component_type) {
     math::transform value;
     auto operation = world.entity_get_local_transform(entity_id{entity}, value);
@@ -109,7 +109,7 @@ result access_component(world& world, std::uint64_t entity, guid type, bool writ
       return operation;
     entity_id active{};
     operation = world.get_active_camera(active);
-    if (operation.failed() && operation != result::not_ready)
+    if (operation.failed() && operation != error::not_ready)
       return operation;
     value.is_primary = active.get() == entity;
     operation = access(&value);
@@ -117,23 +117,23 @@ result access_component(world& world, std::uint64_t entity, guid type, bool writ
                ? operation
                : world.entity_configure_camera(entity_id{entity}, value.settings);
   }
-  return result::unsupported;
+  return error::unsupported;
 }
 }
-result read_component_property(const meta::registry_ref& registry, world& world,
-                               std::uint64_t entity, guid type, meta::property_id field,
-                               engine::value& value) noexcept {
+error read_component_property(const meta::registry_ref& registry, world& world,
+                              std::uint64_t entity, guid type, meta::property_id field,
+                              engine::value& value) noexcept {
   if (!registry)
-    return result::invalid_handle;
+    return error::invalid_handle;
   return access_component(world, entity, type, false, [&](auto* object) {
     return read_property(registry, type, field, object, value);
   });
 }
-result write_component_property(const meta::registry_ref& registry, world& world,
-                                std::uint64_t entity, guid type, meta::property_id field,
-                                const engine::value& value) noexcept {
+error write_component_property(const meta::registry_ref& registry, world& world,
+                               std::uint64_t entity, guid type, meta::property_id field,
+                               const engine::value& value) noexcept {
   if (!registry)
-    return result::invalid_handle;
+    return error::invalid_handle;
   return access_component(world, entity, type, true, [&](auto* object) {
     return write_property(registry, type, field, object, value);
   });

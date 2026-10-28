@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "package_archive.hpp"
 #include "project_workspace.hpp"
 
@@ -31,7 +31,7 @@ int main() try {
   gneiss::host::editor_project project;
   const auto create_result = gneiss::host::create_editor_project(
       project_root, GNEISS_EDITOR_TEST_TEMPLATE, "Sample Project", project);
-  if (create_result != gneiss::engine::result::success) {
+  if (create_result != gneiss::engine::error::success) {
     std::cerr << "create failed: " << create_result.message() << " root=" << project_root
               << " template=" << GNEISS_EDITOR_TEST_TEMPLATE << '\n';
     return 1;
@@ -56,7 +56,7 @@ int main() try {
   std::ofstream(project_root / "assets" / "textures" / "test.texture.json")
       << R"({"format":"gneiss.texture","version":2,"source":"asset://textures/test.png","color_space":"srgb","usage":"default"})";
   if (gneiss::host::create_editor_project(project_root, "Duplicate", project) !=
-      gneiss::engine::result::invalid_state) {
+      gneiss::engine::error::invalid_state) {
     return 9;
   }
 #if defined(_WIN32)
@@ -90,7 +90,7 @@ int main() try {
   gneiss::host::project_export_report export_report;
   const auto export_result =
       gneiss::host::export_editor_project(project, export_options, export_report);
-  if (export_result != gneiss::engine::result::success) {
+  if (export_result != gneiss::engine::error::success) {
     std::cerr << "export failed: " << export_result.message() << '\n';
     return 7;
   }
@@ -110,7 +110,7 @@ int main() try {
       std::filesystem::exists(package_root / "CMakeLists.txt") ||
       progress_count != export_report.asset_source_count || export_report.asset_built_count == 0U ||
       gneiss::host::export_editor_project(project, runtime_root / runtime_name, package_root) !=
-          gneiss::engine::result::invalid_state) {
+          gneiss::engine::error::invalid_state) {
     return 7;
   }
   std::ifstream cooked_texture_description(
@@ -128,7 +128,7 @@ int main() try {
                     .output_root = second_package,
                     .profile = gneiss::host::project_build_profile::debug,
                     .create_zip = true,
-                    .asset_progress = {}}) != gneiss::engine::result::success) {
+                    .asset_progress = {}}) != gneiss::engine::error::success) {
     return 10;
   }
   std::ifstream first_zip(root / "package-a.zip", std::ios::binary);
@@ -149,27 +149,27 @@ int main() try {
           std::string::npos) {
     return 11;
   }
-  if (gneiss::host::verify_package_manifest(package_root) != gneiss::engine::result::success) {
+  if (gneiss::host::verify_package_manifest(package_root) != gneiss::engine::error::success) {
     return 12;
   }
   std::ofstream(package_root / "bin" / runtime_name, std::ios::binary | std::ios::trunc)
       << "tampered runtime";
   if (gneiss::host::verify_package_manifest(package_root) !=
-      gneiss::engine::result::dependency_failed) {
+      gneiss::engine::error::dependency_failed) {
     return 13;
   }
   if (gneiss::host::remember_recent_project(state_file, project) !=
-      gneiss::engine::result::success) {
+      gneiss::engine::error::success) {
     return 2;
   }
   std::vector<gneiss::host::editor_project> recent;
-  if (gneiss::host::load_recent_projects(state_file, recent) != gneiss::engine::result::success ||
+  if (gneiss::host::load_recent_projects(state_file, recent) != gneiss::engine::error::success ||
       recent.size() != 1U || recent.front().project_root != project.project_root) {
     return 3;
   }
   if (gneiss::host::remember_recent_project(state_file, project) !=
-          gneiss::engine::result::success ||
-      gneiss::host::load_recent_projects(state_file, recent) != gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
+      gneiss::host::load_recent_projects(state_file, recent) != gneiss::engine::error::success ||
       recent.size() != 1U) {
     return 4;
   }
@@ -181,13 +181,13 @@ int main() try {
     return 20;
   const auto failed_save = remember_recent_project(state_file, project);
   CloseHandle(held);
-  if (failed_save != gneiss::engine::result::io ||
+  if (failed_save != gneiss::engine::error::io ||
       load_recent_projects(state_file, recent).failed() || recent.size() != 1U ||
       std::filesystem::exists(state_file.string() + ".tmp"))
     return 21;
 #endif
   std::filesystem::remove_all(project_root);
-  if (gneiss::host::load_recent_projects(state_file, recent) != gneiss::engine::result::success ||
+  if (gneiss::host::load_recent_projects(state_file, recent) != gneiss::engine::error::success ||
       !recent.empty()) {
     return 5;
   }

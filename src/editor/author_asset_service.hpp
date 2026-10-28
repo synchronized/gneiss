@@ -4,7 +4,7 @@
 #pragma once
 
 #include "author_asset_monitor.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/platform/files/file_service.hpp"
 
@@ -19,18 +19,18 @@ public:
   explicit author_asset_service(gneiss::engine::task_scheduler& scheduler);
   ~author_asset_service();
   /// 注入包含 asset:// 挂载的服务；内容上限 16 MiB，宿主持续分发到 stopped。
-  [[nodiscard]] gneiss::engine::result
+  [[nodiscard]] gneiss::engine::error
   initialize(std::shared_ptr<gneiss::engine::files::service> files);
   [[nodiscard]] author_asset_change observe(const std::filesystem::path& path, bool dirty);
   /// 内容必须是已成功保存的原始字节；后台计算基线，不重新读取磁盘冒充自身保存。
-  [[nodiscard]] gneiss::engine::result acknowledge(std::string_view uri, std::string content);
+  [[nodiscard]] gneiss::engine::error acknowledge(std::string_view uri, std::string content);
   void request_rescan();
-  [[nodiscard]] gneiss::engine::result poll_rescan(std::vector<std::filesystem::path>& output,
-                                                   std::size_t budget = 8U);
+  [[nodiscard]] gneiss::engine::error poll_rescan(std::vector<std::filesystem::path>& output,
+                                                  std::size_t budget = 8U);
   [[nodiscard]] bool is_rescanning() const;
-  [[nodiscard]] gneiss::engine::result rescan_result() const;
+  [[nodiscard]] gneiss::engine::error rescan_result() const;
   void mark_applied(std::string_view uri);
-  void mark_failed(std::string_view uri, gneiss::engine::result operation);
+  void mark_failed(std::string_view uri, gneiss::engine::error operation);
   [[nodiscard]] const author_asset_change& status() const;
   void request_stop();
   [[nodiscard]] bool stopped() const;

@@ -7,20 +7,20 @@
 #include <type_traits>
 
 int main() {
-  using gneiss::engine::result;
+  using gneiss::engine::error;
   constexpr gneiss::engine::message_view message{.severity = gneiss::engine::level::warning,
                                                  .category = "game",
                                                  .message = "状态变化",
-                                                 .result = result::not_ready};
+                                                 .result = error::not_ready};
   static_assert(message.severity == gneiss::engine::level::warning);
-  static_assert(message.result == result::not_ready);
+  static_assert(message.result == error::not_ready);
   static_assert(message.category == "game");
   if (gneiss::engine::validate_message(message).failed()) {
     return 1;
   }
   gneiss::engine::message_view value{};
-  if (value.severity != gneiss::engine::level::info || value.result != result::success ||
-      gneiss::engine::validate_message(value) != result::invalid_argument) {
+  if (value.severity != gneiss::engine::level::info || value.result != error::success ||
+      gneiss::engine::validate_message(value) != error::invalid_argument) {
     return 2;
   }
   value.category = "test";
@@ -28,12 +28,12 @@ int main() {
     return 3;
   }
   value.severity = static_cast<gneiss::engine::level>(0xffffffffU);
-  if (gneiss::engine::validate_message(value) != result::invalid_argument) {
+  if (gneiss::engine::validate_message(value) != error::invalid_argument) {
     return 4;
   }
   value.severity = gneiss::engine::level::info;
   value.message = "\xC0\x80";
-  if (gneiss::engine::validate_message(value) != result::invalid_argument) {
+  if (gneiss::engine::validate_message(value) != error::invalid_argument) {
     return 5;
   }
   value.message = "有效文本";

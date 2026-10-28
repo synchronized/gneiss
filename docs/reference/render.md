@@ -8,7 +8,7 @@
 Mesh、Material 和 Texture 的 CPU 内容表由 Application 的 `render_service` 私有实现拥有。
 调用方通过 `application::render()` 使用 RID 接口，不能借用资源表。
 运行身份、元信息与材质依赖由 Application 的 `asset_manager` 维护，通过 `application::assets()` 借用。
-程序化纹理使用 `assets.create_texture(texture_view, texture&)`；网格与材质使用对应的创建接口。
+程序化纹理使用 `resources.create_texture(texture_view)`，返回 `result<texture>`；网格与材质使用对应的创建接口。
 `reserve_mesh/texture/material(ref&)` 预留新资源，`create_mesh/texture` 创建有内容的资源，
 `create_material(parameters, textures, material&)` 显式传入纹理强引用。成功输出拥有者，失败输出为空。
 不存在外部 RID 接管入口；不同管理器不能接管彼此的资源。
@@ -42,7 +42,7 @@ Material 可选引用 Texture RID；Granit 后端按 RID 建立 GPU 镜像并通
 
 所有 Render RID 只能交还给创建它们的 Application；RID 校验资源类型、generation 和 Service
 domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
-`result::invalid_handle`。销毁 RID 后，帧包或调用方已有的强引用仍可维持 CPU 数据，
+`error::invalid_handle`。销毁 RID 后，帧包或调用方已有的强引用仍可维持 CPU 数据，
 直到最后一个引用释放；该保留数据继续占用服务内存额度。
 
 ## 运行资源身份与销毁
@@ -107,7 +107,7 @@ Application 关闭及资源表析构时排空队列并关闭端点、失效全�
 `world::entity_set_mesh_renderer` 设置 Mesh Renderer 组件。组件持有 Mesh 与 Material 强引用，
 执行正常的 C++ 构造、复制和析构，不保存 Granit 类型。实体必须关联 Scene Node 才会获得世界 Transform 并
 进入渲染快照。资源已销毁或来自其他 Application 时，帧提交返回
-`result::invalid_handle`。
+`error::invalid_handle`。
 
 ## 当前渲染路径
 

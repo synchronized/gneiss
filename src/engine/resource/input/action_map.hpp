@@ -4,8 +4,8 @@
 #ifndef GNEISS_ASSET_ACTION_MAP_HPP_
 #define GNEISS_ASSET_ACTION_MAP_HPP_
 
+#include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
-#include "engine/core/result.hpp"
 
 #include <cstdint>
 #include <span>
@@ -43,7 +43,7 @@ struct action_map final {
 };
 
 /** 原生构造与 JSON 加载共享语义约束；不改变输入映射。 */
-[[nodiscard]] result validate_action_map(const action_map& map) noexcept;
+[[nodiscard]] error validate_action_map(const action_map& map) noexcept;
 
 } // namespace gneiss::engine
 

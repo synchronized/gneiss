@@ -16,39 +16,39 @@ int main(void) {
   gneiss::engine::math::transform world_transform;
   gneiss::entity_id attached = gneiss::entity_id{};
 
-  if (gneiss::engine::create_native(world) != gneiss::engine::result::success ||
-      world->entity_create(entity) != gneiss::engine::result::success ||
+  if (gneiss::engine::create_native(world) != gneiss::engine::error::success ||
+      world->entity_create(entity) != gneiss::engine::error::success ||
       world->node_create(gneiss::scene_node_id{}, gneiss::entity_id{}, root) !=
-          gneiss::engine::result::success ||
-      world->node_create(root, entity, child) != gneiss::engine::result::success) {
+          gneiss::engine::error::success ||
+      world->node_create(root, entity, child) != gneiss::engine::error::success) {
     return 1;
   }
 
-  if (world->node_create(root, entity, duplicate) != gneiss::engine::result::invalid_state) {
+  if (world->node_create(root, entity, duplicate) != gneiss::engine::error::invalid_state) {
     return 2;
   }
 
   root_transform.translation[0] = 2.0F;
   child_transform.translation[1] = 3.0F;
-  if (world->node_set_local_transform(root, root_transform) != gneiss::engine::result::success ||
-      world->node_set_local_transform(child, child_transform) != gneiss::engine::result::success ||
-      world->node_get_parent(child, parent) != gneiss::engine::result::success || parent != root ||
-      world->node_get_parent(root, parent) != gneiss::engine::result::success ||
+  if (world->node_set_local_transform(root, root_transform) != gneiss::engine::error::success ||
+      world->node_set_local_transform(child, child_transform) != gneiss::engine::error::success ||
+      world->node_get_parent(child, parent) != gneiss::engine::error::success || parent != root ||
+      world->node_get_parent(root, parent) != gneiss::engine::error::success ||
       parent != gneiss::scene_node_id{} ||
-      world->node_get_world_transform(child, world_transform) != gneiss::engine::result::success ||
+      world->node_get_world_transform(child, world_transform) != gneiss::engine::error::success ||
       world_transform.translation[0] != 2.0F || world_transform.translation[1] != 3.0F) {
     return 3;
   }
 
-  if (world->node_reparent(root, child) != gneiss::engine::result::invalid_argument ||
-      world->entity_destroy(entity) != gneiss::engine::result::success ||
-      world->node_get_entity(child, attached) != gneiss::engine::result::success ||
+  if (world->node_reparent(root, child) != gneiss::engine::error::invalid_argument ||
+      world->entity_destroy(entity) != gneiss::engine::error::success ||
+      world->node_get_entity(child, attached) != gneiss::engine::error::success ||
       attached != gneiss::entity_id{}) {
     return 4;
   }
 
-  if (world->node_destroy(root) != gneiss::engine::result::success ||
-      world->node_destroy(child) != gneiss::engine::result::invalid_handle) {
+  if (world->node_destroy(root) != gneiss::engine::error::success ||
+      world->node_destroy(child) != gneiss::engine::error::invalid_handle) {
     return 5;
   }
   return 0;

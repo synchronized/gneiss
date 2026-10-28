@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "ipc_control_protocol.hpp"
 #include "ipc_router.hpp"
 
@@ -19,28 +19,28 @@ struct operation_context final {
   std::uint32_t request_id = 0U;
 };
 
-gneiss::engine::result decode_control(const gneiss::engine::ipc_envelope& envelope,
-                                      routed_message& output) noexcept {
+gneiss::engine::error decode_control(const gneiss::engine::ipc_envelope& envelope,
+                                     routed_message& output) noexcept {
   return gneiss::host::decode_ipc_control_request(envelope, output.operation);
 }
 
-gneiss::engine::result handle_pause(const gneiss::engine::ipc_envelope& envelope,
-                                    operation_context& context) noexcept {
+gneiss::engine::error handle_pause(const gneiss::engine::ipc_envelope& envelope,
+                                   operation_context& context) noexcept {
   context.request_id = envelope.request_id;
-  return gneiss::engine::result::success;
+  return gneiss::engine::error::success;
 }
 
 bool test_binding_and_dispatch() {
   gneiss::host::ipc_router<routed_message> router;
   if (router.bind(gneiss::engine::ipc_domain::control, decode_control) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       router.bind(gneiss::engine::ipc_domain::control, decode_control) !=
-          gneiss::engine::result::invalid_argument) {
+          gneiss::engine::error::invalid_argument) {
     return false;
   }
   gneiss::engine::ipc_envelope envelope;
   if (gneiss::host::encode_ipc_control_request(gneiss::host::ipc_control_operation::pause, 7U,
-                                               envelope) != gneiss::engine::result::success) {
+                                               envelope) != gneiss::engine::error::success) {
     return false;
   }
   constexpr std::array domains{gneiss::engine::ipc_domain_capability{
@@ -66,15 +66,15 @@ bool test_operation_binding_and_dispatch() {
   gneiss::host::ipc_operation_router<operation_context> router;
   if (router.bind(gneiss::engine::ipc_domain::control,
                   static_cast<std::uint16_t>(gneiss::host::ipc_control_operation::pause),
-                  handle_pause) != gneiss::engine::result::success ||
+                  handle_pause) != gneiss::engine::error::success ||
       router.bind(gneiss::engine::ipc_domain::control,
                   static_cast<std::uint16_t>(gneiss::host::ipc_control_operation::pause),
-                  handle_pause) != gneiss::engine::result::invalid_argument) {
+                  handle_pause) != gneiss::engine::error::invalid_argument) {
     return false;
   }
   gneiss::engine::ipc_envelope envelope;
   if (gneiss::host::encode_ipc_control_request(gneiss::host::ipc_control_operation::pause, 27U,
-                                               envelope) != gneiss::engine::result::success) {
+                                               envelope) != gneiss::engine::error::success) {
     return false;
   }
   constexpr std::array domains{gneiss::engine::ipc_domain_capability{

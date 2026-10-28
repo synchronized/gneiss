@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
@@ -20,8 +20,7 @@ public:
   scene_domain(const scene_domain&) = delete;
   scene_domain& operator=(const scene_domain&) = delete;
   /** 全部初始化成功后发布；失败保持空域，可重试。重复初始化拒绝且保持原状态。 */
-  [[nodiscard]] gneiss::engine::result
-  initialize(gneiss::engine::resource_service& render) noexcept;
+  [[nodiscard]] gneiss::engine::error initialize(gneiss::engine::resource_service& render) noexcept;
   [[nodiscard]] gneiss::engine::world* native_world() const noexcept { return world_owner_.get(); }
   /** 借用实例集合；初始化前为空，有效期不超过本域。 */
   [[nodiscard]] gneiss::engine::scene_instances* scenes() const noexcept { return scenes_.get(); }

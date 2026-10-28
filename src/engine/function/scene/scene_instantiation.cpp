@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_instances.hpp"
@@ -11,12 +11,12 @@
 #include <unordered_map>
 
 namespace gneiss::engine {
-engine::result scene_instances::instantiate_prepared(prepared_scene_description prepared,
-                                                     const asset_bindings& assets,
-                                                     scene_instance_id& output) noexcept {
+engine::error scene_instances::instantiate_prepared(prepared_scene_description prepared,
+                                                    const asset_bindings& assets,
+                                                    scene_instance_id& output) noexcept {
   output = {};
   if (!is_valid()) {
-    return engine::result::invalid_argument;
+    return engine::error::invalid_argument;
   }
   try {
     const auto find_asset = [&](std::string_view uri) {
@@ -25,7 +25,7 @@ engine::result scene_instances::instantiate_prepared(prepared_scene_description 
     };
     for (const auto& [uri, source] : prepared.prefabs) {
       if (!source.resource)
-        return result::invalid_argument;
+        return error::invalid_argument;
     }
     auto instance = std::make_unique<scene_instance>(native_world_, loader_, registry_);
     instance->initialize_staged(std::move(prepared.description));
@@ -41,7 +41,7 @@ engine::result scene_instances::instantiate_prepared(prepared_scene_description 
           asset_cast<material_resource>(source.mesh_renderer
                                             ? find_asset(source.mesh_renderer->material_uri)
                                             : engine::render_asset_ref{}));
-      if (result != engine::result::success) {
+      if (result != engine::error::success) {
         return result;
       }
       nodes.emplace(source.uuid, instance->staged_node(index));
@@ -56,7 +56,7 @@ engine::result scene_instances::instantiate_prepared(prepared_scene_description 
       transform.scale = source.scale;
       auto result = prefab->create_root(
           source.parent_uuid ? nodes.at(*source.parent_uuid) : null_scene_node_id, transform);
-      if (result != engine::result::success) {
+      if (result != engine::error::success) {
         return result;
       }
       std::unordered_map<std::string, scene_node_id> prefab_nodes;
@@ -70,19 +70,19 @@ engine::result scene_instances::instantiate_prepared(prepared_scene_description 
             asset_cast<material_resource>(node.mesh_renderer
                                               ? find_asset(node.mesh_renderer->material_uri)
                                               : engine::render_asset_ref{}));
-        if (result != engine::result::success) {
+        if (result != engine::error::success) {
           return result;
         }
         prefab_runtime_instance::node_info info;
         result = prefab->get_node_info(index, info);
-        if (result != engine::result::success) {
+        if (result != engine::error::success) {
           return result;
         }
         prefab_nodes.emplace(node.uuid, info.node);
       }
       for (const auto& override_value : source.overrides) {
         result = prefab->apply_override(registry_, override_value);
-        if (result != engine::result::success) {
+        if (result != engine::error::success) {
           return result;
         }
       }
@@ -90,17 +90,17 @@ engine::result scene_instances::instantiate_prepared(prepared_scene_description 
     }
     return instances_.create(resource_type::scene_instance, std::move(instance), &output);
   } catch (const std::bad_alloc&) {
-    return engine::result::out_of_memory;
+    return engine::error::out_of_memory;
   } catch (...) {
-    return engine::result::internal;
+    return engine::error::internal;
   }
 }
-result scene_instances::capture_prepared(scene_instance_id instance,
-                                         prepared_scene_description& description,
-                                         asset_bindings& assets) const noexcept try {
+error scene_instances::capture_prepared(scene_instance_id instance,
+                                        prepared_scene_description& description,
+                                        asset_bindings& assets) const noexcept try {
   const auto* value = instances_.get(instance, resource_type::scene_instance);
   if (!value || !*value)
-    return result::invalid_handle;
+    return error::invalid_handle;
   auto scene = std::make_shared<scene_description>();
   auto status = (*value)->capture_description(*scene);
   if (status.failed())
@@ -123,18 +123,27 @@ result scene_instances::capture_prepared(scene_instance_id instance,
   asset_bindings bindings;
   for (const auto& source : prepared.assets) {
     render_asset_ref resource;
-    status = loader_.find(source, resource);
+    status = engine::error::success;
+    {
+      auto loaded = loader_.find(source);
+      if (loaded)
+        resource = std::move(*loaded);
+      else {
+        resource = {};
+        status = loaded.error();
+      }
+    };
     if (status.failed())
       return status;
     bindings.emplace(source.uri, std::move(resource));
   }
   description = std::move(prepared);
   assets = std::move(bindings);
-  return result::success;
+  return error::success;
 } catch (const std::bad_alloc&) {
-  return result::out_of_memory;
+  return error::out_of_memory;
 } catch (...) {
-  return result::internal;
+  return error::internal;
 }
 
 } // namespace gneiss::engine

@@ -3,7 +3,8 @@
 
 #include "../support/memory_file_fixture.hpp"
 #include "../support/prepare_render.hpp"
-#include "engine/core/result.hpp"
+#include "../support/value_result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/asset_manager.hpp"
@@ -33,23 +34,23 @@ struct memory_files final : gneiss::test_support::memory_file_fixture {
   std::map<std::string, std::vector<std::byte>> files;
   mutable std::thread::id reader;
   std::shared_ptr<std::atomic_size_t> bytes_read = std::make_shared<std::atomic_size_t>();
-  gneiss::engine::result read(std::string_view path,
-                              std::vector<std::byte>& bytes) const noexcept override {
+  gneiss::engine::error read(std::string_view path,
+                             std::vector<std::byte>& bytes) const noexcept override {
     return read_bounded(path, SIZE_MAX, bytes);
   }
-  gneiss::engine::result read_bounded(std::string_view path, std::size_t limit,
-                                      std::vector<std::byte>& bytes) const noexcept override {
+  gneiss::engine::error read_bounded(std::string_view path, std::size_t limit,
+                                     std::vector<std::byte>& bytes) const noexcept override {
     reader = std::this_thread::get_id();
     const auto found = files.find(std::string(path));
     if (found == files.end()) {
-      return gneiss::engine::result::not_found;
+      return gneiss::engine::error::not_found;
     }
     if (found->second.size() > limit) {
-      return gneiss::engine::result::invalid_argument;
+      return gneiss::engine::error::invalid_argument;
     }
     bytes = found->second;
     bytes_read->fetch_add(bytes.size(), std::memory_order_relaxed);
-    return gneiss::engine::result::success;
+    return gneiss::engine::error::success;
   }
   void text(std::string path, std::string_view text) {
     auto& bytes = files[std::move(path)];
@@ -74,15 +75,15 @@ public:
   std::string path;
   gneiss::engine::files::callback<gneiss::engine::files::bytes> callback;
   std::size_t reads{};
-  result read(std::string_view requested, gneiss::engine::files::read_options,
-              gneiss::engine::files::callback<gneiss::engine::files::bytes> completed) override {
+  error read(std::string_view requested, gneiss::engine::files::read_options,
+             gneiss::engine::files::callback<gneiss::engine::files::bytes> completed) override {
     check(!callback);
     path = requested;
     callback = std::move(completed);
     ++reads;
-    return result::success;
+    return error::success;
   }
-  void complete(gneiss::engine::files::bytes bytes, result status = result::success) {
+  void complete(gneiss::engine::files::bytes bytes, error status = error::success) {
     auto completed = std::move(callback);
     check(static_cast<bool>(completed));
     completed({.status = status, .data = std::move(bytes)});
@@ -99,21 +100,21 @@ void prepared_source_revisions() {
       "material",
       R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[1,1,1,1],"base_color_texture":"asset://texture"})");
   gneiss::test_support::fixture_files files;
-  check(files.mount("asset://", source) == gneiss::engine::result::success);
+  check(files.mount("asset://", source) == gneiss::engine::error::success);
   const std::array requests{asset_source{"asset://material", asset_type::material}};
   asset_manager owner(gneiss::test_support::test_files(files));
   prepared_batch before;
   prepared_batch after;
   asset_diagnostic diagnostic;
   check(gneiss::test_support::prepare_render_for_test(owner, files, requests, before, diagnostic,
-                                                      {}) == gneiss::engine::result::success);
+                                                      {}) == gneiss::engine::error::success);
   prepared_batch repeated;
   check(gneiss::test_support::prepare_render_for_test(owner, files, requests, repeated, diagnostic,
-                                                      {}) == gneiss::engine::result::success);
+                                                      {}) == gneiss::engine::error::success);
   source->pixel(std::byte{20});
   source->files["payload/image.ktx2"] = source->files.at("image.ktx2");
   check(gneiss::test_support::prepare_render_for_test(owner, files, requests, after, diagnostic,
-                                                      {}) == gneiss::engine::result::success);
+                                                      {}) == gneiss::engine::error::success);
   check(before.assets.size() == 2U && after.assets.size() == 2U);
   for (std::size_t index = 0; index < before.assets.size(); ++index) {
     const auto& old_asset = before.assets[index];
@@ -129,7 +130,7 @@ void prepared_source_revisions() {
       asset_identity expected;
       check(files.identify("asset://payload/image.ktx2",
                            static_cast<std::uint32_t>(asset_type::texture),
-                           expected) == gneiss::engine::result::success);
+                           expected) == gneiss::engine::error::success);
       check(payload.identity == expected && payload.identity == old_asset.sources.back().identity);
       check(payload.bytes == source->files.at("image.ktx2").size());
       check(payload.digest == gneiss::engine::sha256(source->files.at("image.ktx2")));
@@ -147,14 +148,14 @@ void mesh_data_lifetime() {
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[1,0],[0,1]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
   source->text("mesh", text);
   gneiss::test_support::fixture_files files;
-  check(files.mount("asset://", source) == gneiss::engine::result::success);
+  check(files.mount("asset://", source) == gneiss::engine::error::success);
   const std::array requests{asset_source{"asset://mesh", asset_type::mesh}};
   auto prepare = [&](const gneiss::test_support::fixture_files& vfs) {
     prepared_batch batch;
     asset_diagnostic diagnostic;
     asset_manager owner(gneiss::test_support::test_files(vfs));
     check(gneiss::test_support::prepare_render_for_test(owner, vfs, requests, batch, diagnostic,
-                                                        {}) == gneiss::engine::result::success);
+                                                        {}) == gneiss::engine::error::success);
     return batch;
   };
   auto first = prepare(files);
@@ -165,10 +166,10 @@ void mesh_data_lifetime() {
   render_service resources;
   gneiss::engine::resource_service::implementation resources_factory{resources};
   gneiss::engine::rid rid{};
-  check(resources.create_prepared_mesh(mesh, &rid) == gneiss::engine::result::success);
+  check(resources.create_prepared_mesh(mesh, &rid) == gneiss::engine::error::success);
   check(resources.share_mesh(rid) == mesh);
   auto frame = resources.share_mesh(rid);
-  check(resources.destroy_mesh(rid) == gneiss::engine::result::success &&
+  check(resources.destroy_mesh(rid) == gneiss::engine::error::success &&
         !resources.share_mesh(rid));
   std::weak_ptr<const mesh_data> lifetime = mesh;
   first = {};
@@ -180,7 +181,7 @@ void mesh_data_lifetime() {
 void independent_resource_identity() {
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", std::make_shared<memory_files>()) ==
-        gneiss::engine::result::success);
+        gneiss::engine::error::success);
   render_service resources;
   gneiss::engine::resource_service::implementation resources_factory{resources};
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
@@ -191,23 +192,23 @@ void independent_resource_identity() {
   const asset_source source_a{"asset://a", asset_type::material};
   const asset_source source_b{"asset://b", asset_type::material};
   render_asset_ref a, b;
-  check(loader.reserve_asset(source_a, a) == gneiss::engine::result::success);
-  check(loader.reserve_asset(source_b, b) == gneiss::engine::result::success);
+  check(loader.reserve_asset(source_a, a) == gneiss::engine::error::success);
+  check(loader.reserve_asset(source_b, b) == gneiss::engine::error::success);
   gneiss::test_support::fixture_files different;
   check(different.mount("asset://", std::make_shared<memory_files>()) ==
-        gneiss::engine::result::success);
+        gneiss::engine::error::success);
   asset_manager isolated_owner(gneiss::test_support::test_files(different));
   gneiss::engine::resource_service isolated{isolated_owner};
   if (isolated.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   render_asset_ref conflict;
-  check(isolated.reserve_asset(source_a, conflict) == gneiss::engine::result::success &&
+  check(isolated.reserve_asset(source_a, conflict) == gneiss::engine::error::success &&
         conflict != a && gneiss::engine::asset_rid(conflict) != gneiss::engine::asset_rid(a));
   check(!isolated.owns(a));
   auto& shared = loader;
   if (shared.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
-  check(shared.reserve_asset(source_a, conflict) == gneiss::engine::result::success &&
+  check(shared.reserve_asset(source_a, conflict) == gneiss::engine::error::success &&
         gneiss::engine::asset_rid(conflict) == gneiss::engine::asset_rid(a));
 
   const auto adopt = [&](const auto& source, auto& target) {
@@ -222,20 +223,17 @@ void independent_resource_identity() {
   const auto retained = resources.share_material(asset_rid(a));
   decoded_asset invalid;
   invalid.uri = source_a.uri;
-  check(gneiss::test_support::adopt_render_for_test(loader, invalid, a) ==
-        result::invalid_argument);
+  check(gneiss::test_support::adopt_render_for_test(loader, invalid, a) == error::invalid_argument);
   invalid.content = asset_ref<const material_description>{};
-  check(gneiss::test_support::adopt_render_for_test(loader, invalid, a) ==
-        result::invalid_argument);
+  check(gneiss::test_support::adopt_render_for_test(loader, invalid, a) == error::invalid_argument);
   invalid.content = texture_data{};
-  check(gneiss::test_support::adopt_render_for_test(loader, invalid, a) ==
-        result::invalid_argument);
+  check(gneiss::test_support::adopt_render_for_test(loader, invalid, a) == error::invalid_argument);
   check(resources.share_material(asset_rid(a)) == retained);
 }
 void reserved_material_lifetime() {
   auto source = std::make_shared<memory_files>();
   gneiss::test_support::fixture_files files;
-  check(files.mount("asset://", source) == gneiss::engine::result::success);
+  check(files.mount("asset://", source) == gneiss::engine::error::success);
   render_service resources;
   gneiss::engine::resource_service::implementation resources_factory{resources};
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
@@ -245,18 +243,18 @@ void reserved_material_lifetime() {
     throw std::runtime_error("资源管理器渲染绑定失败");
   const asset_source request{"asset://material", asset_type::material};
   render_asset_ref target;
-  check(loader.reserve_asset(request, target) == gneiss::engine::result::success);
+  check(loader.reserve_asset(request, target) == gneiss::engine::error::success);
   const auto rid = gneiss::engine::asset_rid(target);
   decoded_asset prepared;
   prepared.uri = request.uri;
   prepared.content =
       asset_ref<const material_description>{std::make_shared<const material_description>()};
-  check(resources.material_status(rid) == result::not_ready);
+  check(resources.material_status(rid) == error::not_ready);
   check(gneiss::test_support::adopt_render_for_test(loader, std::move(prepared), target).ok());
-  check(resources.material_status(rid) == gneiss::engine::result::success);
+  check(resources.material_status(rid) == gneiss::engine::error::success);
   target = {};
   loader.collect_unused();
-  check(resources.material_status(rid) == gneiss::engine::result::invalid_handle);
+  check(resources.material_status(rid) == gneiss::engine::error::invalid_handle);
 }
 void cpu_loading(execution_mode mode) {
   task_scheduler scheduler({.mode = mode});
@@ -292,31 +290,39 @@ void cpu_loading(execution_mode mode) {
       advance();
     }
   };
-  check(loader.load<texture_resource>("asset://texture", request).ok());
+  check(gneiss::test_support::take_value(loader.load<texture_resource>("asset://texture"), request)
+            .ok());
   auto target = request.resource();
   resource_request duplicate;
-  check(loader.load<texture_resource>("asset://texture", duplicate).ok());
+  check(
+      gneiss::test_support::take_value(loader.load<texture_resource>("asset://texture"), duplicate)
+          .ok());
   check(duplicate.resource() == target);
   until([&] { return bool(backend->callback); });
-  check(resources.texture_status(asset_rid(target)) == result::not_ready);
+  check(resources.texture_status(asset_rid(target)) == error::not_ready);
   request.cancel(); // 另一个调用方仍在等待，不取消共享工作。
   backend->complete(fixture.files.at("texture"));
   until([&] { return bool(backend->callback); });
   check(backend->path == "image.ktx2");
   backend->complete(fixture.files.at("image.ktx2"));
-  until([&] { return duplicate.status() != result::not_ready; });
+  until([&] { return duplicate.status() != error::not_ready; });
   check(duplicate.status().ok());
   const auto previous = resources.share_texture(asset_rid(target));
   check(previous && previous->levels.front().pixels.front() == std::byte{42});
   const auto reads = backend->reads;
-  check(loader.load<texture_resource>("asset://texture", request).ok());
+  check(gneiss::test_support::take_value(loader.load<texture_resource>("asset://texture"), request)
+            .ok());
   check(request.status().ok() && backend->reads == reads);
-  check(loader.load<texture_resource>("asset://texture", request, true).ok());
+  check(gneiss::test_support::take_value(loader.load<texture_resource>("asset://texture", true),
+                                         request)
+            .ok());
   until([&] { return bool(backend->callback); });
-  backend->complete({}, result::io);
-  until([&] { return request.status() != result::not_ready; });
-  check(request.status() == result::io && resources.share_texture(asset_rid(target)) == previous);
-  check(loader.load<texture_resource>("asset://texture", request, true).ok());
+  backend->complete({}, error::io);
+  until([&] { return request.status() != error::not_ready; });
+  check(request.status() == error::io && resources.share_texture(asset_rid(target)) == previous);
+  check(gneiss::test_support::take_value(loader.load<texture_resource>("asset://texture", true),
+                                         request)
+            .ok());
   until([&] { return bool(backend->callback); });
   request.cancel();
   advance();
@@ -329,74 +335,88 @@ void cpu_loading(execution_mode mode) {
   fixture.text(
       "material",
       R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[1,1,1,1],"base_color_texture":"asset://texture"})");
-  check(loader.load<material_resource>("asset://material", request).ok());
+  check(
+      gneiss::test_support::take_value(loader.load<material_resource>("asset://material"), request)
+          .ok());
   until([&] {
     if (backend->callback)
       backend->complete(fixture.files.at(backend->path));
-    return request.status() != result::not_ready;
+    return request.status() != error::not_ready;
   });
   check(request.status().ok());
   check(request.get<material_resource>()->textures()[0] == asset_cast<texture_resource>(target));
-  check(loader.load({"asset://mesh", asset_type::mesh}, request, true, 1).ok());
+  check(gneiss::test_support::take_value(loader.load({"asset://mesh", asset_type::mesh}, true, 1),
+                                         request)
+            .ok());
   until([&] {
     if (backend->callback)
       backend->complete(fixture.files.at(backend->path));
-    return request.status() != result::not_ready;
+    return request.status() != error::not_ready;
   });
   check(request.status().failed());
-  check(loader.load<texture_resource>("asset://texture", request, true).ok());
+  check(gneiss::test_support::take_value(loader.load<texture_resource>("asset://texture", true),
+                                         request)
+            .ok());
   loader.request_stop();
-  check(loader.stopped() && request.status() == result::invalid_state);
+  check(loader.stopped() && request.status() == error::invalid_state);
   check(!manager.stopped());
   if (backend->callback)
     backend->complete({});
   advance();
   texture rejected;
-  check(loader.reserve_texture(rejected) == result::invalid_state && !rejected);
-  check(loader.configure_loading(scheduler) == result::invalid_state);
-  check(loader.load<texture_resource>("asset://texture", request) == result::invalid_state);
+  check(loader.reserve_texture(rejected) == error::invalid_state && !rejected);
+  check(loader.configure_loading(scheduler) == error::invalid_state);
+  check(gneiss::test_support::take_value(loader.load<texture_resource>("asset://texture"),
+                                         request) == error::invalid_state);
   // 资源服务停止后仍能直接加载 CPU 内容，结果移动领取且不写入长期缓存。
   manager.collect_unused();
   const auto cached = manager.cache().size();
   asset_data_request<mesh_data> mesh_request;
-  check(manager.load_mesh_data("asset://mesh", mesh_request).ok());
+  check(gneiss::test_support::assign_value(manager.load_mesh_data("asset://mesh"), mesh_request)
+            .ok());
   mesh_data mesh_content;
   asset_data_metrics metrics;
-  result loaded{result::not_ready};
+  error loaded{error::not_ready};
   until([&] {
     if (backend->callback)
       backend->complete(fixture.files.at(backend->path));
     loaded = mesh_request.take(mesh_content, nullptr, &metrics);
-    return loaded != result::not_ready;
+    return loaded != error::not_ready;
   });
   check(loaded.ok() && mesh_content.vertices.size() == 3U && !mesh_request);
   check(metrics.sources.size() == 1U && metrics.bytes == mesh_content.data_bytes());
-  check(mesh_request.take(mesh_content) == result::invalid_state);
+  check(mesh_request.take(mesh_content) == error::invalid_state);
   check(manager.cache().size() == cached);
   asset_ref<const mesh_data> absent_mesh;
-  check(manager.find_loaded("asset://mesh", absent_mesh) == result::not_found);
+  check(gneiss::test_support::assign_value(manager.find_loaded<mesh_data>("asset://mesh"),
+                                           absent_mesh) == error::not_found);
 
   asset_data_request<texture_data> texture_request;
-  check(manager.load_texture_data("asset://texture", {}, texture_request).ok());
+  check(gneiss::test_support::assign_value(manager.load_texture_data("asset://texture", {}),
+                                           texture_request)
+            .ok());
   texture_data texture_content;
   until([&] {
     if (backend->callback)
       backend->complete(fixture.files.at(backend->path));
     loaded = texture_request.take(texture_content, nullptr, &metrics);
-    return loaded != result::not_ready;
+    return loaded != error::not_ready;
   });
   check(loaded.ok() && texture_content.levels.front().pixels.front() == std::byte{42});
   check(metrics.sources.size() == 2U &&
         metrics.sources.back().identity.uri == "asset://image.ktx2");
   check(manager.cache().size() == cached);
 
-  check(manager.load_texture_data("asset://texture", {}, texture_request).ok());
+  check(gneiss::test_support::assign_value(manager.load_texture_data("asset://texture", {}),
+                                           texture_request)
+            .ok());
   until([&] { return bool(backend->callback); });
   manager.request_stop();
-  check(texture_request.take(texture_content) == result::invalid_state);
+  check(texture_request.take(texture_content) == error::invalid_state);
   backend->complete(fixture.files.at("texture"));
   until([&] { return manager.stopped(); });
-  check(manager.load_mesh_data("asset://mesh", mesh_request) == result::invalid_state);
+  check(gneiss::test_support::assign_value(manager.load_mesh_data("asset://mesh"), mesh_request) ==
+        error::invalid_state);
 }
 void independent_loads(execution_mode mode) {
   task_scheduler scheduler({.mode = mode});
@@ -426,19 +446,25 @@ void independent_loads(execution_mode mode) {
   check(service.configure_loading(scheduler).ok());
   material found;
   const auto reads_before_find = source->bytes_read->load();
-  check(service.find<material_resource>("asset://a", found) == result::not_found && !found);
+  check(gneiss::test_support::take_value(service.find<material_resource>("asset://a"), found) ==
+            error::not_found &&
+        !found);
   check(source->bytes_read->load() == reads_before_find);
   resource_request first, second, joined, bad, dependent;
-  check(service.load<material_resource>("asset://a", first).ok());
-  check(service.load<material_resource>("asset://b", second).ok());
-  check(service.load<material_resource>("asset://a", joined, true).ok());
+  check(gneiss::test_support::take_value(service.load<material_resource>("asset://a"), first).ok());
+  check(
+      gneiss::test_support::take_value(service.load<material_resource>("asset://b"), second).ok());
+  check(gneiss::test_support::take_value(service.load<material_resource>("asset://a", true), joined)
+            .ok());
   check(first.resource() == joined.resource());
   first.cancel();
-  check(service.load<material_resource>("asset://bad", bad).ok());
-  check(service.load<material_resource>("asset://dependent", dependent).ok());
+  check(gneiss::test_support::take_value(service.load<material_resource>("asset://bad"), bad).ok());
+  check(gneiss::test_support::take_value(service.load<material_resource>("asset://dependent"),
+                                         dependent)
+            .ok());
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-  while (joined.status() == result::not_ready || second.status() == result::not_ready ||
-         bad.status() == result::not_ready || dependent.status() == result::not_ready) {
+  while (joined.status() == error::not_ready || second.status() == error::not_ready ||
+         bad.status() == error::not_ready || dependent.status() == error::not_ready) {
     check(std::chrono::steady_clock::now() < deadline);
     (void)scheduler.run_ready();
     check(manager.async_files()->dispatch_completions(64).ok());
@@ -450,15 +476,18 @@ void independent_loads(execution_mode mode) {
   check(bad.status().failed() && bad.diagnostic().path == "asset://absent");
   check(bool(dependent.get<material_resource>()->textures()[0]));
   const auto bytes = source->bytes_read->load();
-  check(service.load<material_resource>("asset://a", first).ok());
+  check(gneiss::test_support::take_value(service.load<material_resource>("asset://a"), first).ok());
   check(first.status().ok() && first.resource() == joined.resource());
   check(source->bytes_read->load() == bytes);
-  check(service.find<material_resource>("asset://a", found).ok());
+  check(gneiss::test_support::take_value(service.find<material_resource>("asset://a"), found).ok());
   check(found == first.get<material_resource>());
   texture wrong_type = dependent.get<material_resource>()->textures()[0];
-  check(service.find<texture_resource>("asset://a", wrong_type) == result::not_found &&
+  check(gneiss::test_support::take_value(service.find<texture_resource>("asset://a"), wrong_type) ==
+            error::not_found &&
         !wrong_type);
-  check(service.find<material_resource>("asset://missing", found) == result::not_found && !found);
+  check(gneiss::test_support::take_value(service.find<material_resource>("asset://missing"),
+                                         found) == error::not_found &&
+        !found);
   check(source->bytes_read->load() == bytes);
   const auto image = dependent.get<material_resource>()->textures()[0];
   const auto retained = render.share_texture(resource_handle(image));
@@ -466,11 +495,13 @@ void independent_loads(execution_mode mode) {
   stale[0].identity.uri = "asset://image.ktx2";
   stale[0].identity.type = static_cast<std::uint32_t>(asset_type::texture);
   check(resource_service::implementation::adopt(service, texture_data{}, image, stale) ==
-        result::invalid_argument);
+        error::invalid_argument);
   check(render.share_texture(resource_handle(image)) == retained);
   found = first.get<material_resource>();
   service.request_stop();
-  check(service.find<material_resource>("asset://a", found) == result::invalid_state && !found);
+  check(gneiss::test_support::take_value(service.find<material_resource>("asset://a"), found) ==
+            error::invalid_state &&
+        !found);
 }
 
 } // namespace

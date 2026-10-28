@@ -5,7 +5,7 @@
 
 #include "asset_browser_model.hpp"
 #include "asset_reimport_queue.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <memory>
 #include <string>
@@ -24,7 +24,7 @@ struct asset_worker_status {
   bool rescanning{};
   std::size_t pending{};
   std::size_t dropped{};
-  gneiss::engine::result rescan_result{gneiss::engine::result::success};
+  gneiss::engine::error rescan_result{gneiss::engine::error::success};
   std::string stage;
   std::filesystem::path source;
   std::string error;
@@ -44,7 +44,7 @@ public:
   asset_background_worker& operator=(const asset_background_worker&) = delete;
 
   void start(std::filesystem::path project, std::filesystem::path assets);
-  [[nodiscard]] gneiss::engine::result notify(const std::filesystem::path& relative);
+  [[nodiscard]] gneiss::engine::error notify(const std::filesystem::path& relative);
   [[nodiscard]] bool import_asset(const std::filesystem::path& source, bool external = false);
   void request_rescan();
   void request_refresh();
@@ -53,7 +53,7 @@ public:
   void set_paused(bool paused);
   [[nodiscard]] asset_worker_status status() const;
   [[nodiscard]] bool is_rescanning() const;
-  [[nodiscard]] gneiss::engine::result rescan_result() const;
+  [[nodiscard]] gneiss::engine::error rescan_result() const;
   [[nodiscard]] std::size_t dropped_candidate_count() const;
   std::size_t poll_events(std::vector<asset_reimport_event>& events);
   bool poll_browser(asset_browser_model& browser, asset_browser_result& result);

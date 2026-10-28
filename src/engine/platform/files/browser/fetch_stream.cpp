@@ -13,20 +13,20 @@ void gneiss_fetch_stream_close(int);
 }
 namespace gneiss::engine::files {
 namespace {
-result translate(int status) {
+error translate(int status) {
   switch (status) {
   case 0:
-    return result::success;
+    return error::success;
   case 2:
-    return result::not_found;
+    return error::not_found;
   case 3:
-    return result::unsupported;
+    return error::unsupported;
   case 4:
-    return result::cancelled;
+    return error::cancelled;
   case 5:
-    return result::out_of_memory;
+    return error::out_of_memory;
   default:
-    return result::io;
+    return error::io;
   }
 }
 class fetch_stream final : public backend_stream,
@@ -53,7 +53,7 @@ public:
     auto result = translate(status);
     if (result.ok() && (count > pending->bytes.size() || (!count && !eof) ||
                         count > std::numeric_limits<std::uint64_t>::max() - self.offset))
-      result = result::io;
+      result = error::io;
     if (result.failed()) {
       self.close();
       pending->callback({result, {}});
@@ -64,23 +64,23 @@ public:
     self.offset += count;
     if (eof)
       self.close();
-    pending->callback({result::success, {std::move(pending->bytes), offset, eof != 0}});
+    pending->callback({error::success, {std::move(pending->bytes), offset, eof != 0}});
   }
-  result read_next(std::size_t maximum_bytes, files::callback<block> callback) override {
+  error read_next(std::size_t maximum_bytes, files::callback<block> callback) override {
     if (!emscripten_is_main_runtime_thread())
-      return result::invalid_state;
+      return error::invalid_state;
     if (!callback || !maximum_bytes)
-      return result::invalid_argument;
+      return error::invalid_argument;
     if (ended || !handle)
-      return result::invalid_state;
+      return error::invalid_state;
     if (busy)
-      return result::not_ready;
+      return error::not_ready;
     auto pending = std::make_unique<reading>(
         reading{shared_from_this(), files::bytes(maximum_bytes), std::move(callback)});
     auto* data = pending->bytes.data();
     busy = true;
     gneiss_fetch_stream_read(handle, data, maximum_bytes, pending.release(), received);
-    return result::success;
+    return error::success;
   }
 };
 struct opening {
@@ -97,15 +97,15 @@ struct opening {
   }
 };
 }
-result open_fetch_stream(std::string url,
-                         files::callback<std::shared_ptr<backend_stream>> callback) {
+error open_fetch_stream(std::string url,
+                        files::callback<std::shared_ptr<backend_stream>> callback) {
   if (!emscripten_is_main_runtime_thread())
-    return result::invalid_state;
+    return error::invalid_state;
   if (!callback)
-    return result::invalid_argument;
+    return error::invalid_argument;
   auto pending = std::make_unique<opening>();
   pending->callback = std::move(callback);
   gneiss_fetch_stream_open(url.c_str(), pending.release(), opening::opened);
-  return result::success;
+  return error::success;
 }
 }

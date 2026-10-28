@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/error.hpp"
 #include "engine/core/meta/registry.hpp"
-#include "engine/core/result.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/scene/prefab_runtime_instance.hpp"
 #include "engine/function/scene/scene_instances.hpp"
@@ -30,54 +30,54 @@ public:
   void rollback() noexcept;
   /** 仅用于不可见候选 World，分阶段入口不执行文件读取。 */
   void initialize_staged(scene_description candidate);
-  [[nodiscard]] result create_staged_node(std::size_t index, scene_node_id parent,
-                                          engine::mesh mesh, engine::material material);
+  [[nodiscard]] error create_staged_node(std::size_t index, scene_node_id parent, engine::mesh mesh,
+                                         engine::material material);
 
   [[nodiscard]] scene_node_id find_node(std::string_view uuid) const noexcept;
-  [[nodiscard]] result capture_description(scene_description& output) const;
-  [[nodiscard]] result serialize(std::string& out_json) const;
-  [[nodiscard]] result get_node_info(std::uint64_t index, scene_node_view& out_info,
-                                     node_query_detail detail) const;
+  [[nodiscard]] error capture_description(scene_description& output) const;
+  [[nodiscard]] error serialize(std::string& out_json) const;
+  [[nodiscard]] error get_node_info(std::uint64_t index, scene_node_view& out_info,
+                                    node_query_detail detail) const;
   [[nodiscard]] std::uint64_t get_prefab_node_count() const noexcept;
-  [[nodiscard]] result get_prefab_node_info(std::uint64_t index, prefab_node_view& out_info) const;
-  [[nodiscard]] result set_prefab_instance_name(scene_node_id root, std::string_view name);
-  [[nodiscard]] result set_prefab_source_transform(scene_node_id node,
-                                                   const math::transform& transform);
-  [[nodiscard]] result destroy_prefab_instance(scene_node_id root) noexcept;
-  [[nodiscard]] result create_node(const node_creation& desc, scene_node_id* out_node);
-  [[nodiscard]] result set_node_name(scene_node_id node, std::string_view name);
-  [[nodiscard]] result reparent_node(scene_node_id node, scene_node_id parent);
-  [[nodiscard]] result capture_subtree(scene_node_id root, std::string& out_snapshot) const;
-  [[nodiscard]] result restore_subtree(std::string_view snapshot, scene_node_id parent,
-                                       std::span<const uuid_mapping> mappings,
-                                       scene_node_id* out_root,
-                                       std::span<const scene_mesh_binding> bindings);
-  [[nodiscard]] result destroy_subtree(scene_node_id root);
-  [[nodiscard]] result create_mesh_renderer_node(const mesh_renderer_node_creation& desc,
-                                                 scene_node_id* out_node,
-                                                 const scene_mesh_binding* prepared = nullptr);
-  [[nodiscard]] result set_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
-                                         std::string_view material_uri);
-  [[nodiscard]] result set_camera(scene_node_id node, const camera_description& desc);
-  [[nodiscard]] result remove_camera(scene_node_id node);
-  [[nodiscard]] result remove_mesh_renderer(scene_node_id node);
-  [[nodiscard]] result destroy_node(scene_node_id node);
+  [[nodiscard]] error get_prefab_node_info(std::uint64_t index, prefab_node_view& out_info) const;
+  [[nodiscard]] error set_prefab_instance_name(scene_node_id root, std::string_view name);
+  [[nodiscard]] error set_prefab_source_transform(scene_node_id node,
+                                                  const math::transform& transform);
+  [[nodiscard]] error destroy_prefab_instance(scene_node_id root) noexcept;
+  [[nodiscard]] error create_node(const node_creation& desc, scene_node_id* out_node);
+  [[nodiscard]] error set_node_name(scene_node_id node, std::string_view name);
+  [[nodiscard]] error reparent_node(scene_node_id node, scene_node_id parent);
+  [[nodiscard]] error capture_subtree(scene_node_id root, std::string& out_snapshot) const;
+  [[nodiscard]] error restore_subtree(std::string_view snapshot, scene_node_id parent,
+                                      std::span<const uuid_mapping> mappings,
+                                      scene_node_id* out_root,
+                                      std::span<const scene_mesh_binding> bindings);
+  [[nodiscard]] error destroy_subtree(scene_node_id root);
+  [[nodiscard]] error create_mesh_renderer_node(const mesh_renderer_node_creation& desc,
+                                                scene_node_id* out_node,
+                                                const scene_mesh_binding* prepared = nullptr);
+  [[nodiscard]] error set_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
+                                        std::string_view material_uri);
+  [[nodiscard]] error set_camera(scene_node_id node, const camera_description& desc);
+  [[nodiscard]] error remove_camera(scene_node_id node);
+  [[nodiscard]] error remove_mesh_renderer(scene_node_id node);
+  [[nodiscard]] error destroy_node(scene_node_id node);
   /** 事务式替换普通场景节点；当前不接受 Prefab 实例容器变化。 */
-  [[nodiscard]] result reload(scene_description candidate);
+  [[nodiscard]] error reload(scene_description candidate);
   /** 将指定 Prefab URI 的新修订应用到当前 Scene 内全部同源实例。 */
-  [[nodiscard]] result reload_prefab(std::string_view uri, prefab_asset_ref candidate);
+  [[nodiscard]] error reload_prefab(std::string_view uri, prefab_asset_ref candidate);
 
   /** 单场景 Prefab 实例操作；服务已校验线程与句柄，不修改 Prefab 源资源。 */
-  [[nodiscard]] result capture_prefab_instance_header(std::string_view uuid,
-                                                      prefab_instance_description& author,
-                                                      prefab_asset_ref& source) const noexcept;
-  [[nodiscard]] result capture_prefab_instance_binding(std::string_view uuid, std::size_t index,
-                                                       scene_mesh_binding& output) const noexcept;
-  [[nodiscard]] result instantiate_prefab_ready(const prefab_instance_description& author,
-                                                prefab_asset_ref prefab,
-                                                std::span<const scene_mesh_binding> bindings,
-                                                bool replacing, scene_node_id& output) noexcept;
-  [[nodiscard]] result remove_prefab_instance(std::string_view uuid) noexcept;
+  [[nodiscard]] error capture_prefab_instance_header(std::string_view uuid,
+                                                     prefab_instance_description& author,
+                                                     prefab_asset_ref& source) const noexcept;
+  [[nodiscard]] error capture_prefab_instance_binding(std::string_view uuid, std::size_t index,
+                                                      scene_mesh_binding& output) const noexcept;
+  [[nodiscard]] error instantiate_prefab_ready(const prefab_instance_description& author,
+                                               prefab_asset_ref prefab,
+                                               std::span<const scene_mesh_binding> bindings,
+                                               bool replacing, scene_node_id& output) noexcept;
+  [[nodiscard]] error remove_prefab_instance(std::string_view uuid) noexcept;
 
   /** 私有批量替换事务，只能在所属线程同一次无重入调用内准备和提交。
    * Scene 和节点存储必须存活且保持稳定；放弃事务不修改绑定。 */
@@ -85,10 +85,10 @@ public:
    * 不去重、不发布资源，也不改变场景；服务负责跨实例去重和失败输出保留。 */
 
   /** 调用方服务已验证所属线程和租约归属；实例负责作者数据与 ECS 同步提交。 */
-  [[nodiscard]] result capture_mesh_binding(scene_node_id node,
-                                            scene_mesh_binding& output) const noexcept;
-  [[nodiscard]] result replace_mesh_binding(scene_node_id node, const scene_mesh_binding& expected,
-                                            const scene_mesh_binding& replacement) noexcept;
+  [[nodiscard]] error capture_mesh_binding(scene_node_id node,
+                                           scene_mesh_binding& output) const noexcept;
+  [[nodiscard]] error replace_mesh_binding(scene_node_id node, const scene_mesh_binding& expected,
+                                           const scene_mesh_binding& replacement) noexcept;
   [[nodiscard]] bool contains_editable_node(scene_node_id node) const noexcept;
   [[nodiscard]] std::uint64_t node_count() const noexcept { return objects_.size(); }
 

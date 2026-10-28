@@ -4,7 +4,7 @@
 #ifndef GNEISS_CORE_SERVICE_REGISTRY_HPP_
 #define GNEISS_CORE_SERVICE_REGISTRY_HPP_
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -32,7 +32,7 @@ public:
 
   [[nodiscard]] virtual service_kind kind() const noexcept = 0;
   [[nodiscard]] virtual std::span<const service_kind> dependencies() const noexcept = 0;
-  [[nodiscard]] virtual result initialize() noexcept = 0;
+  [[nodiscard]] virtual error initialize() noexcept = 0;
   virtual void shutdown() noexcept = 0;
   [[nodiscard]] virtual std::size_t live_resource_count() const noexcept = 0;
 };
@@ -48,8 +48,8 @@ public:
   service_registry(service_registry&&) = delete;
   service_registry& operator=(service_registry&&) = delete;
 
-  [[nodiscard]] result add(std::unique_ptr<service> value) noexcept;
-  [[nodiscard]] result initialize() noexcept;
+  [[nodiscard]] error add(std::unique_ptr<service> value) noexcept;
+  [[nodiscard]] error initialize() noexcept;
   [[nodiscard]] std::size_t shutdown() noexcept;
 
   [[nodiscard]] bool is_initialized(service_kind kind) const noexcept;

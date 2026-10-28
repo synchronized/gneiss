@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include <cstdint>
 #include <string_view>
 namespace gneiss::engine {
@@ -12,7 +12,7 @@ enum class category : std::uint32_t { application = 1, asset, input, backend };
 struct diagnostic_view {
   severity level{severity::error};
   category source{category::application};
-  engine::result result{engine::result::success};
+  engine::error result{engine::error::success};
   std::string_view module;
   std::string_view message;
 };

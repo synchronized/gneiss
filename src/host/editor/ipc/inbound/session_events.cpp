@@ -2,14 +2,14 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "editor_ipc_event.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include "event_decode.hpp"
 
 namespace gneiss::host {
 
-gneiss::engine::result decode_runtime_session_event(const gneiss::engine::ipc_envelope& envelope,
-                                                    runtime_ipc_event& output) noexcept {
+gneiss::engine::error decode_runtime_session_event(const gneiss::engine::ipc_envelope& envelope,
+                                                   runtime_ipc_event& output) noexcept {
   if (envelope.operation == static_cast<std::uint16_t>(ipc_session_operation::hello)) {
     return gneiss::host::detail::decode_value<runtime_hello_event>(
         envelope, output, [&](auto& value) { return decode_ipc_session_hello(envelope, value); });
@@ -28,7 +28,7 @@ gneiss::engine::result decode_runtime_session_event(const gneiss::engine::ipc_en
         envelope, output,
         [&](auto& value) { return decode_ipc_session_shutdown(envelope, value); });
   }
-  return gneiss::engine::result::unsupported;
+  return gneiss::engine::error::unsupported;
 }
 
 } // namespace gneiss::host

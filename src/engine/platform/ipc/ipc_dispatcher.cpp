@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "ipc_dispatcher.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <algorithm>
 #include <new>
@@ -19,7 +19,7 @@ constexpr gneiss::engine::ipc_message_kind_mask known_kind_mask =
 
 namespace gneiss::engine {
 
-result ipc_domain_registry::register_domain(const ipc_domain_descriptor& descriptor) noexcept {
+error ipc_domain_registry::register_domain(const ipc_domain_descriptor& descriptor) noexcept {
   if (static_cast<std::uint16_t>(descriptor.domain) == 0U || descriptor.version == 0U ||
       descriptor.max_payload_size == 0U ||
       descriptor.max_payload_size > ipc_envelope_max_payload_size ||
@@ -29,17 +29,17 @@ result ipc_domain_registry::register_domain(const ipc_domain_descriptor& descrip
         const auto kinds = operation.editor_to_runtime_kinds | operation.runtime_to_editor_kinds;
         return operation.operation == 0U || kinds == 0U || (kinds & ~known_kind_mask) != 0U;
       })) {
-    return result::invalid_argument;
+    return error::invalid_argument;
   }
   if (find(descriptor.domain) != nullptr) {
-    return result::invalid_state;
+    return error::invalid_state;
   }
   for (std::size_t index = 0U; index < descriptor.operations.size(); ++index) {
     const auto operation = descriptor.operations[index].operation;
     if (std::ranges::any_of(
             descriptor.operations.subspan(index + 1U),
             [operation](const auto& candidate) { return candidate.operation == operation; })) {
-      return result::invalid_argument;
+      return error::invalid_argument;
     }
   }
   try {
@@ -52,11 +52,11 @@ result ipc_domain_registry::register_domain(const ipc_domain_descriptor& descrip
         .handler = descriptor.handler,
         .handler_context = descriptor.handler_context};
     domains_.push_back(std::move(registered));
-    return result::success;
+    return error::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return error::out_of_memory;
   } catch (...) {
-    return result::internal;
+    return error::internal;
   }
 }
 
@@ -75,7 +75,7 @@ ipc_dispatcher::ipc_dispatcher(const ipc_domain_registry& registry) noexcept
 
 ipc_dispatch_outcome ipc_dispatcher::dispatch(const ipc_envelope& envelope,
                                               const ipc_dispatch_context& context) const noexcept {
-  if (validate_ipc_envelope(envelope) != result::success) {
+  if (validate_ipc_envelope(envelope) != error::success) {
     return {.rejection = ipc_dispatch_rejection::invalid_envelope};
   }
   const auto* domain = registry_->find(envelope.domain);
@@ -113,7 +113,7 @@ ipc_dispatch_outcome ipc_dispatcher::dispatch(const ipc_envelope& envelope,
     return {.rejection = ipc_dispatch_rejection::wrong_kind};
   }
   const auto handled = domain->handler(domain->handler_context, envelope);
-  if (handled != result::success) {
+  if (handled != error::success) {
     return {.rejection = ipc_dispatch_rejection::handler_failed, .handler_result = handled};
   }
   return {};

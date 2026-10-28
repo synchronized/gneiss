@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/scope_exit.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
@@ -36,17 +36,17 @@ struct sample_state {
   std::size_t frame_time_count = 0U;
 };
 
-void report_failure(std::string_view stage, gneiss::engine::result result) {
+void report_failure(std::string_view stage, gneiss::engine::error result) {
   std::fprintf(stderr, "稳定运行时样例失败：阶段=%.*s，结果=%d，消息=%.*s\n",
                static_cast<int>(stage.size()), stage.data(), result.code(),
                static_cast<int>(result.message().size()), result.message().data());
 }
 
-gneiss::engine::result update_sample(gneiss::runtime::application& application,
-                                     const gneiss::engine::frame_time& time,
-                                     void* user_data) noexcept {
+gneiss::engine::error update_sample(gneiss::runtime::application& application,
+                                    const gneiss::engine::frame_time& time,
+                                    void* user_data) noexcept {
   if (user_data == nullptr) {
-    return gneiss::engine::result::invalid_argument;
+    return gneiss::engine::error::invalid_argument;
   }
 
   auto* state = static_cast<sample_state*>(user_data);
@@ -73,7 +73,7 @@ gneiss::engine::result update_sample(gneiss::runtime::application& application,
   }
   if (quit.pressed) {
     application.request_exit();
-    return gneiss::engine::result::success;
+    return gneiss::engine::error::success;
   }
 
   constexpr double nanoseconds_per_second = 1'000'000'000.0;
@@ -138,7 +138,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   config.callbacks.update = [&](const auto& time) {
     (void)scheduler.run_ready();
     if (!can_update)
-      return gneiss::engine::result::success;
+      return gneiss::engine::error::success;
     return update_sample(*native_application, time, &state);
   };
   example::scope_exit close{[&] {
@@ -160,7 +160,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   gneiss::scene_instance_id scene{};
   gneiss::runtime::scene_load_completion completion;
   // 启动阶段继续处理窗口事件和文件完成；不调用同步场景加载。
-  while (!scene || native_application->action_map_status() == gneiss::engine::result::not_ready) {
+  while (!scene || native_application->action_map_status() == gneiss::engine::error::not_ready) {
     (void)scheduler.run_ready();
     if (native_application->run(1).failed())
       return 2;
@@ -187,20 +187,20 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   }};
   const auto scene_ready = clock::now();
   auto result = native_application->action_map_status();
-  if (result != gneiss::engine::result::success) {
+  if (result != gneiss::engine::error::success) {
     report_failure("加载输入映射", result);
     return 4;
   }
   result = native_application->find_action("move_horizontal", state.orbit);
-  if (result == gneiss::engine::result::success) {
+  if (result == gneiss::engine::error::success) {
     result = native_application->find_action("quit", state.quit);
   }
-  if (result != gneiss::engine::result::success) {
+  if (result != gneiss::engine::error::success) {
     report_failure("查找输入动作", result);
     return 5;
   }
   result = native_application->scenes()->find_node(scene, camera_uuid, state.camera_node);
-  if (result != gneiss::engine::result::success) {
+  if (result != gneiss::engine::error::success) {
     report_failure("查找 Camera", result);
     return 6;
   }
@@ -213,18 +213,18 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
     frame_count = measure_warmup_frames + measure_sample_frames;
   }
   result = native_application->run(frame_count);
-  if (result != gneiss::engine::result::success) {
+  if (result != gneiss::engine::error::success) {
     report_failure("运行主循环", result);
     return 7;
   }
   const auto run_finished = clock::now();
   result = ([&] {
     auto status = native_application->scenes()->unload(scene);
-    if (status == gneiss::engine::result::success)
+    if (status == gneiss::engine::error::success)
       scene = {};
-    return gneiss::engine::result{status};
+    return gneiss::engine::error{status};
   })();
-  if (result != gneiss::engine::result::success) {
+  if (result != gneiss::engine::error::success) {
     report_failure("卸载场景", result);
     return 8;
   }
@@ -238,7 +238,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   const auto application_destroyed = clock::now();
   if (measure) {
     if (state.frame_time_count != measure_sample_frames) {
-      report_failure("采集稳定帧", gneiss::engine::result::internal);
+      report_failure("采集稳定帧", gneiss::engine::error::internal);
       return 9;
     }
     const auto [minimum, maximum] = std::ranges::minmax_element(state.frame_times_ms);

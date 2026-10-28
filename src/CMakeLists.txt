@@ -72,6 +72,7 @@ target_sources(
     engine/core/value.hpp
     engine/core/traits/type_name.hpp
     engine/core/traits/type_identity.hpp
+    engine/core/error.hpp
     engine/core/result.hpp
     engine/core/version.hpp
 
@@ -84,7 +85,7 @@ target_sources(
     engine/core/type_id.cpp
     engine/core/type_id.hpp
     engine/core/detail/canonical_type_name.hpp
-    engine/core/result.cpp
+    engine/core/error.cpp
     engine/core/version.cpp
     engine/function/input/input_service.cpp
     engine/core/input/input_types.hpp

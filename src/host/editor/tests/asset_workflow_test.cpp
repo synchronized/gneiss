@@ -6,7 +6,7 @@
 #include "../../../../tests/support/async_mesh_edit.hpp"
 #include "asset_reimport_queue.hpp"
 #include "documents/scene_document.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
 #include "package_archive.hpp"
@@ -14,8 +14,8 @@
 #include "runtime/application.hpp"
 #include "runtime_process.hpp"
 
+#include "engine/core/error.hpp"
 #include "engine/core/math/transform.hpp"
-#include "engine/core/result.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -64,7 +64,7 @@ int main() try {
   };
   editor_project project;
   if (create_editor_project(temporary.root / "project", GNEISS_TEST_TEMPLATE, "Asset Workflow",
-                            project) != gneiss::engine::result::success) {
+                            project) != gneiss::engine::error::success) {
     return 1;
   }
   const auto imported =
@@ -89,15 +89,15 @@ int main() try {
   gneiss::engine::world* world{};
   scene_document session;
   scene_node_id node;
-  if (gneiss::engine::result{gneiss::runtime::application::create(desc, app)} !=
-          gneiss::engine::result::success ||
+  if (gneiss::engine::error{gneiss::runtime::application::create(desc, app)} !=
+          gneiss::engine::error::success ||
       (world = app->native_world()) == nullptr ||
       gneiss::test_support::open_document(session, *app, world, project.startup_scene) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       gneiss::test_support::create_mesh_document(*app, session, "Imported", *mesh, *material,
-                                                 node) != gneiss::engine::result::success ||
+                                                 node) != gneiss::engine::error::success ||
       gneiss::test_support::save_document(session, project.asset_root) !=
-          gneiss::engine::result::success) {
+          gneiss::engine::error::success) {
     return 5;
   }
   session.close();
@@ -118,7 +118,7 @@ int main() try {
     return code;
   };
   if (runtime.start(GNEISS_TEST_RUNTIME, {project.project_root}) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       !wait_for(runtime, [&] {
         return runtime.control_state() == runtime_control_state::running &&
                runtime.scene_load_status().phase == ipc_scene_phase::applied;
@@ -154,12 +154,12 @@ int main() try {
       events, [](const auto& event) { return event.state == asset_reimport_state::succeeded; });
   if (succeeded == events.end() ||
       runtime.publish_asset_revision(succeeded->import.import.output_uris) !=
-          gneiss::engine::result::success ||
+          gneiss::engine::error::success ||
       !wait_for(runtime,
                 [&] {
                   return runtime.asset_reload_status().state == runtime_asset_reload_state::applied;
                 }) ||
-      runtime.request_stop() != gneiss::engine::result::success ||
+      runtime.request_stop() != gneiss::engine::error::success ||
       !wait_for(runtime, [&] { return !runtime.is_running(); })) {
     return fail(9);
   }
@@ -171,18 +171,18 @@ int main() try {
                                 .profile = gneiss::host::project_build_profile::debug,
                                 .create_zip = false,
                                 .asset_progress = {},
-                            }) != gneiss::engine::result::success ||
-      verify_package_manifest(package) != gneiss::engine::result::success) {
+                            }) != gneiss::engine::error::success ||
+      verify_package_manifest(package) != gneiss::engine::error::success) {
     return fail(10);
   }
   if (runtime.start(package / "bin" / std::filesystem::path(GNEISS_TEST_RUNTIME).filename(),
-                    {package}) != gneiss::engine::result::success ||
+                    {package}) != gneiss::engine::error::success ||
       !wait_for(runtime,
                 [&] {
                   return runtime.control_state() == runtime_control_state::running &&
                          runtime.scene_load_status().phase == ipc_scene_phase::applied;
                 }) ||
-      runtime.request_stop() != gneiss::engine::result::success ||
+      runtime.request_stop() != gneiss::engine::error::success ||
       !wait_for(runtime, [&] { return !runtime.is_running(); }) || runtime.exit_code() != 0) {
     return fail(11);
   }

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "ipc_scene_protocol.hpp"
 #include "runtime/loading/scene_load_types.hpp"
 
@@ -19,25 +19,25 @@ class runtime_scene_loader {
 public:
   explicit runtime_scene_loader(::gneiss::runtime::application& application)
       : application_(application) {}
-  [[nodiscard]] gneiss::engine::result request(ipc_scene_request source, std::uint32_t request_id);
-  [[nodiscard]] gneiss::engine::result cancel(const ipc_scene_request& source);
-  [[nodiscard]] gneiss::engine::result advance();
-  std::function<gneiss::engine::result()> before_activate;
-  std::function<gneiss::engine::result(const ::gneiss::runtime::scene_load_completion&)>
+  [[nodiscard]] gneiss::engine::error request(ipc_scene_request source, std::uint32_t request_id);
+  [[nodiscard]] gneiss::engine::error cancel(const ipc_scene_request& source);
+  [[nodiscard]] gneiss::engine::error advance();
+  std::function<gneiss::engine::error()> before_activate;
+  std::function<gneiss::engine::error(const ::gneiss::runtime::scene_load_completion&)>
       after_activate;
   [[nodiscard]] bool busy() const noexcept { return active_; }
   [[nodiscard]] const ipc_scene_progress& progress() const noexcept { return progress_; }
   [[nodiscard]] std::uint32_t request_id() const noexcept { return request_id_; }
-  [[nodiscard]] gneiss::engine::result last_result() const noexcept { return result_; }
+  [[nodiscard]] gneiss::engine::error last_result() const noexcept { return result_; }
 
 private:
-  gneiss::engine::result activate(::gneiss::runtime::scene_load_completion& completion);
+  gneiss::engine::error activate(::gneiss::runtime::scene_load_completion& completion);
   // 借用宿主对象；协调器必须先于 Application 析构。
   ::gneiss::runtime::application& application_;
   std::uint64_t request_{};
   std::uint32_t request_id_{};
   bool active_{};
-  gneiss::engine::result result_{gneiss::engine::result::success};
+  gneiss::engine::error result_{gneiss::engine::error::success};
   ipc_scene_progress progress_;
 };
 } // namespace gneiss::host

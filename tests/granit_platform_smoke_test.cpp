@@ -6,6 +6,7 @@
 #include "engine/function/world/world.hpp"
 #include "engine/resource/texture/texture_view.hpp"
 #include "runtime/application.hpp"
+#include "support/value_result.hpp"
 #include <memory>
 
 #ifdef _WIN32
@@ -26,9 +27,9 @@ struct smoke_context final {
   bool received_key{};
 };
 
-native::result submit_ui(gneiss::runtime::application& application, smoke_context& context) {
+native::error submit_ui(gneiss::runtime::application& application, smoke_context& context) {
   native::input_event event;
-  while (application.poll_input(event) == native::result::success) {
+  while (application.poll_input(event) == native::error::success) {
     // USB HID 物理键编号：A 为 4。
     if (event.type == native::event_type::key && event.data.key.physical_key == 4U &&
         event.data.key.action == native::key_action::pressed) {
@@ -59,7 +60,7 @@ native::result submit_ui(gneiss::runtime::application& application, smoke_contex
                                                 .color_rgba8 = UINT32_C(0xff60a5fa),
                                                 .width = 2.0F,
                                                 .depth_test = true}};
-  if (result == native::result::success) {
+  if (result == native::error::success) {
     result = application.submit_debug_draw_list(lines);
   }
   return result;
@@ -104,7 +105,9 @@ int main() {
   native::rid mesh{}, material{}, plain_material{}, texture{};
   native::mesh mesh_owner;
   native::material material_owner, plain_material_owner;
-  if (resources_factory.create_texture(texture_desc, context.texture).failed()) {
+  if (gneiss::test_support::take_value(resources_factory.create_texture(texture_desc),
+                                       context.texture)
+          .failed()) {
     std::fprintf(stderr, "测试 Texture 创建失败\n");
     return 2;
   }
@@ -118,7 +121,7 @@ int main() {
   }
 #endif
   // 先验证没有相机和场景物体的 UI 帧，再验证常规场景及资源更新。
-  if (application->run(2) != native::result::success) {
+  if (application->run(2) != native::error::success) {
     std::fprintf(stderr, "纯 UI 帧运行失败\n");
     return 10;
   }
@@ -128,8 +131,10 @@ int main() {
     return 11;
   }
 #endif
-  if (resources_factory.create_mesh(mesh_desc, mesh_owner).failed() ||
-      resources_factory.create_material(material_desc.parameters, {}, plain_material_owner)
+  if (gneiss::test_support::take_value(resources_factory.create_mesh(mesh_desc), mesh_owner)
+          .failed() ||
+      gneiss::test_support::take_value(
+          resources_factory.create_material(material_desc.parameters, {}), plain_material_owner)
           .failed()) {
     std::fprintf(stderr, "测试基础资源创建失败\n");
     return 2;
@@ -137,7 +142,9 @@ int main() {
   mesh = resource_handle(mesh_owner);
   plain_material = resource_handle(plain_material_owner);
   material_desc.base_color_texture = texture;
-  if (resources_factory.create_material(material_desc.parameters, {context.texture}, material_owner)
+  if (gneiss::test_support::take_value(
+          resources_factory.create_material(material_desc.parameters, {context.texture}),
+          material_owner)
           .failed()) {
     std::fprintf(stderr, "测试资源创建失败\n");
     return 2;
@@ -175,13 +182,14 @@ int main() {
     return 3;
   }
   auto run_result = application->run(2);
-  if (run_result != native::result::success) {
+  if (run_result != native::error::success) {
     std::fprintf(stderr, "Application 运行失败：%d\n", run_result.code());
     return 4;
   }
   native::rid replacement_mesh{};
   if (resources.destroy_mesh(mesh).failed() ||
-      resources_factory.create_mesh(mesh_desc, mesh_owner).failed()) {
+      gneiss::test_support::take_value(resources_factory.create_mesh(mesh_desc), mesh_owner)
+          .failed()) {
     return 5;
   }
   replacement_mesh = resource_handle(mesh_owner);

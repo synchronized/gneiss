@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "dynamic_library.hpp"
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 
 #include <dlfcn.h>
 
@@ -10,25 +10,25 @@ namespace gneiss::engine {
 
 dynamic_library::~dynamic_library() { close(); }
 
-result dynamic_library::open(const std::filesystem::path& path) noexcept {
+error dynamic_library::open(const std::filesystem::path& path) noexcept {
   if (handle_ != nullptr || path.empty()) {
-    return result::invalid_state;
+    return error::invalid_state;
   }
   std::error_code error;
   if (!std::filesystem::is_regular_file(path, error)) {
-    return result::not_found;
+    return error::not_found;
   }
   handle_ = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
-  return handle_ != nullptr ? result::success : result::dependency_failed;
+  return handle_ != nullptr ? error::success : error::dependency_failed;
 }
 
-result dynamic_library::find_symbol(const char* name, void** out_symbol) const noexcept {
+error dynamic_library::find_symbol(const char* name, void** out_symbol) const noexcept {
   if (handle_ == nullptr || name == nullptr || name[0] == '\0' || out_symbol == nullptr) {
-    return result::invalid_argument;
+    return error::invalid_argument;
   }
   dlerror();
   *out_symbol = dlsym(handle_, name);
-  return dlerror() == nullptr && *out_symbol != nullptr ? result::success : result::not_found;
+  return dlerror() == nullptr && *out_symbol != nullptr ? error::success : error::not_found;
 }
 
 void dynamic_library::close() noexcept {

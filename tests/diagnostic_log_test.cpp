@@ -19,7 +19,7 @@ struct capture_state final {
   std::condition_variable changed;
   std::string source;
   std::string category;
-  gneiss::engine::result result;
+  gneiss::engine::error result;
 };
 
 } // namespace
@@ -27,9 +27,9 @@ struct capture_state final {
 int main() {
   capture_state state;
   gneiss::runtime::application_configuration config;
-  config.callbacks.update = [](const auto&) { return gneiss::engine::result::internal; };
+  config.callbacks.update = [](const auto&) { return gneiss::engine::error::internal; };
   config.callbacks.diagnostic = [&](const gneiss::engine::diagnostic_view& diagnostic) {
-    if (diagnostic.result == gneiss::engine::result::internal) {
+    if (diagnostic.result == gneiss::engine::error::internal) {
       ++state.diagnostic_count;
     }
   };
@@ -45,7 +45,7 @@ int main() {
   };
   std::shared_ptr<gneiss::runtime::application> application;
   if (gneiss::runtime::application::create(config, application).failed() ||
-      application->run(1U) != gneiss::engine::result::internal || state.diagnostic_count != 1U) {
+      application->run(1U) != gneiss::engine::error::internal || state.diagnostic_count != 1U) {
     return 1;
   }
   {
@@ -53,7 +53,7 @@ int main() {
     if (!state.changed.wait_for(lock, std::chrono::seconds(2),
                                 [&state] { return state.log_count == 1U; }) ||
         state.source != "application" || state.category != "application" ||
-        state.result != gneiss::engine::result::internal) {
+        state.result != gneiss::engine::error::internal) {
       return 2;
     }
   }

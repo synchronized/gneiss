@@ -6,9 +6,9 @@
 
 #include "ipc_dispatcher.hpp"
 
+#include "engine/core/error.hpp"
 #include "engine/core/math/camera.hpp"
 #include "engine/core/math/transform.hpp"
-#include "engine/core/result.hpp"
 
 #include <cstdint>
 #include <span>
@@ -66,30 +66,30 @@ struct ipc_inspection_batch final {
 };
 
 /** 将有界检查批次编码为 JSON 载荷。 */
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 encode_ipc_inspection_batch(const ipc_inspection_batch& batch,
                             std::vector<std::uint8_t>& output) noexcept;
 
 /** 按协议负载上限把一个逻辑批次编码为有界分片。 */
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 encode_ipc_inspection_batch_chunks(const ipc_inspection_batch& batch,
                                    std::vector<std::vector<std::uint8_t>>& output) noexcept;
 
 /** 解码并验证 JSON 载荷，不验证镜像中的父子引用。 */
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 decode_ipc_inspection_batch(std::span<const std::uint8_t> payload,
                             ipc_inspection_batch& output) noexcept;
 
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 encode_ipc_inspection_batch_v2(const ipc_inspection_batch& batch,
                                std::vector<gneiss::engine::ipc_envelope>& output) noexcept;
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 decode_ipc_inspection_batch_v2(const gneiss::engine::ipc_envelope& envelope,
                                ipc_inspection_batch& output) noexcept;
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 encode_ipc_inspection_resync(std::uint32_t request_id,
                              gneiss::engine::ipc_envelope& output) noexcept;
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 decode_ipc_inspection_resync(const gneiss::engine::ipc_envelope& envelope) noexcept;
 [[nodiscard]] std::span<const gneiss::engine::ipc_operation_descriptor>
 ipc_inspection_operations() noexcept;

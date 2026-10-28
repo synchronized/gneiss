@@ -8,10 +8,10 @@ namespace gneiss::engine::files {
 class fetch_backend final : public backend {
 public:
   explicit fetch_backend(std::string base_url);
-  result open_stream(std::string_view, files::callback<std::shared_ptr<backend_stream>>) override;
-  result read(std::string_view, read_options, files::callback<files::bytes>) override;
-  result read_range(std::string_view, range, files::callback<files::bytes>) override;
-  result stat(std::string_view, files::callback<files::info>) override;
+  error open_stream(std::string_view, files::callback<std::shared_ptr<backend_stream>>) override;
+  error read(std::string_view, read_options, files::callback<files::bytes>) override;
+  error read_range(std::string_view, range, files::callback<files::bytes>) override;
+  error stat(std::string_view, files::callback<files::info>) override;
 
 private:
   std::string base_url_;

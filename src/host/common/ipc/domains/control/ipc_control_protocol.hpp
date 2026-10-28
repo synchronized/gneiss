@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_COMMON_IPC_DOMAINS_CONTROL_IPC_CONTROL_PROTOCOL_H_
 #define GNEISS_APPS_COMMON_IPC_DOMAINS_CONTROL_IPC_CONTROL_PROTOCOL_H_
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "ipc_dispatcher.hpp"
 
 #include <cstddef>
@@ -33,18 +33,18 @@ enum class ipc_control_state : std::uint8_t {
   stopping = 5U,
 };
 
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 encode_ipc_control_ready(gneiss::engine::ipc_envelope& output) noexcept;
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 encode_ipc_control_state(ipc_control_state state, gneiss::engine::ipc_envelope& output) noexcept;
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 decode_ipc_control_state(const gneiss::engine::ipc_envelope& envelope,
                          ipc_control_state& output) noexcept;
 
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 encode_ipc_control_request(ipc_control_operation operation, std::uint32_t request_id,
                            gneiss::engine::ipc_envelope& output) noexcept;
-[[nodiscard]] gneiss::engine::result
+[[nodiscard]] gneiss::engine::error
 decode_ipc_control_request(const gneiss::engine::ipc_envelope& envelope,
                            ipc_control_operation& output) noexcept;
 

@@ -12,7 +12,7 @@
 `poll_input`、`find_action`、`get_action_state` 拒绝非所属线程和已关闭对象，返回 `invalid_state`；
 键盘/指针快照引用只在所属线程、Application 有效期间使用。不再安装 C++ 包装头。
 Application 使用 Granit 平台时，会在每次业务更新回调前完成窗口事件采集，并形成当前帧键盘和
-指针快照。核心无窗口模式下快照保持为空，事件查询返回 `result::not_ready`。
+指针快照。核心无窗口模式下快照保持为空，事件查询返回 `error::not_ready`。
 
 原始事件通过 `application::poll_input` 顺序读取，包含逻辑窗口 ID、单调时钟时间戳以及键盘、
 UTF-8 文本或指针负载。物理键值采用 USB HID Keyboard/Keypad usage；指针坐标是窗口内容区逻辑
@@ -25,7 +25,7 @@ UTF-8 文本或指针负载。物理键值采用 USB HID Keyboard/Keypad usage�
 - 键盘和指针查询返回引擎快照的借用引用，不暴露后端内存；不要跨帧保存引用。
 - 焦点丢失会清空按键、指针按钮和窗口内状态，避免保持状态卡住。
 - 首版队列固定容纳 256 条事件；溢出时清空保持状态并令 Application 本帧返回
-  `result::invalid_state`，不会静默丢弃释放事件。
+  `error::invalid_state`，不会静默丢弃释放事件。
 - 关闭后事件和动作查询返回 `invalid_state`；对象销毁后不得再访问借用指针。
 
 Granit 的类型、句柄和枚举只存在于 `src/engine/platform/window_service.cpp`，不属于 Gneiss 公共 ABI。版本化动作

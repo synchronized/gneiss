@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/resource/texture/texture_view.hpp"
 
@@ -19,13 +19,13 @@ bool verify_borrowed_inputs() {
   gneiss::engine::mesh_view mesh_source;
   mesh_source.vertices = vertices;
   gneiss::engine::rid mesh{};
-  if (resources.create_mesh(mesh_source, &mesh) != gneiss::engine::result::success) {
+  if (resources.create_mesh(mesh_source, &mesh) != gneiss::engine::error::success) {
     return false;
   }
   vertices[0].position.x = 42.0F;
   auto retained_mesh = resources.share_mesh(mesh);
   if (retained_mesh->vertices[0].position.x != 0.0F ||
-      resources.destroy_mesh(mesh) != gneiss::engine::result::success ||
+      resources.destroy_mesh(mesh) != gneiss::engine::error::success ||
       retained_mesh->vertices.size() != 3U) {
     return false;
   }
@@ -33,13 +33,13 @@ bool verify_borrowed_inputs() {
   gneiss::engine::mesh_data owned;
   owned.vertices.resize(3);
   const auto* storage = owned.vertices.data();
-  if (resources.create_mesh(std::move(owned), &mesh) != gneiss::engine::result::success ||
+  if (resources.create_mesh(std::move(owned), &mesh) != gneiss::engine::error::success ||
       resources.get_mesh(mesh)->vertices.data() != storage ||
-      resources.destroy_mesh(mesh) != gneiss::engine::result::success)
+      resources.destroy_mesh(mesh) != gneiss::engine::error::success)
     return false;
   owned.vertices.resize(3);
   owned.vertices[0].position.x = std::numeric_limits<float>::infinity();
-  if (resources.create_mesh(std::move(owned), &mesh) != gneiss::engine::result::invalid_argument)
+  if (resources.create_mesh(std::move(owned), &mesh) != gneiss::engine::error::invalid_argument)
     return false;
   std::array<std::uint8_t, 4> pixels{1U, 2U, 3U, 4U};
   texture_view texture_source;
@@ -48,19 +48,19 @@ bool verify_borrowed_inputs() {
   texture_source.row_stride_bytes = 4U;
   texture_source.pixels = pixels;
   gneiss::engine::rid texture{};
-  if (resources.create_texture(texture_source, &texture) != gneiss::engine::result::success) {
+  if (resources.create_texture(texture_source, &texture) != gneiss::engine::error::success) {
     return false;
   }
   pixels[0] = 9U;
   auto retained_texture = resources.share_texture(texture);
   if (retained_texture->levels[0].pixels[0] != std::byte{1} ||
-      resources.destroy_texture(texture) != gneiss::engine::result::success ||
+      resources.destroy_texture(texture) != gneiss::engine::error::success ||
       retained_texture->levels[0].pixels.size() != 4U) {
     return false;
   }
   const std::array<math::vector3, 1> invalid_normals{};
   mesh_source.normals = invalid_normals;
-  return resources.create_mesh(mesh_source, &mesh) == result::invalid_argument;
+  return resources.create_mesh(mesh_source, &mesh) == error::invalid_argument;
 }
 
 bool verify_shared_budget() {
@@ -73,8 +73,8 @@ bool verify_shared_budget() {
   desc.row_stride_bytes = 8U;
   desc.pixels = pixels;
   gneiss::engine::rid active{}, candidate{}, rejected{};
-  if (resources.create_texture(desc, &active) != gneiss::engine::result::success ||
-      resources.create_texture(desc, &candidate) != gneiss::engine::result::success) {
+  if (resources.create_texture(desc, &active) != gneiss::engine::error::success ||
+      resources.create_texture(desc, &candidate) != gneiss::engine::error::success) {
     return false;
   }
   auto frame = resources.share_texture(active);
@@ -83,12 +83,12 @@ bool verify_shared_budget() {
   if (!resources.replace_texture(candidate, prepared) ||
       resources.memory_usage().logical_bytes != 32U ||
       resources.memory_usage().cpu_data_bytes != 32U ||
-      resources.destroy_texture(active) != gneiss::engine::result::success ||
+      resources.destroy_texture(active) != gneiss::engine::error::success ||
       resources.available_memory_bytes() != 0U) {
     return false;
   }
   rejected = 123U;
-  if (resources.create_texture(desc, &rejected) != gneiss::engine::result::out_of_memory ||
+  if (resources.create_texture(desc, &rejected) != gneiss::engine::error::out_of_memory ||
       rejected != 0U || resources.share_texture(candidate) != prepared) {
     return false;
   }
@@ -106,7 +106,7 @@ bool verify_shared_budget() {
   // 被替换对象仍被 prepared 持有，必须继续计费。
   prepared.reset();
   return resources.available_memory_bytes() == 16U &&
-         resources.create_texture(desc, &rejected) == gneiss::engine::result::success &&
+         resources.create_texture(desc, &rejected) == gneiss::engine::error::success &&
          resources.share_texture(candidate) == replacement;
 }
 } // namespace
@@ -132,47 +132,47 @@ int main() {
   constexpr std::array<std::uint32_t, 3> indices{0U, 1U, 2U};
   mesh_desc.indices = indices;
   gneiss::engine::rid mesh = 0;
-  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::result::success ||
+  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::error::success ||
       resources.get_mesh(mesh)->normals.size() != normals.size() ||
       !std::ranges::equal(resources.get_mesh(mesh)->indices, indices) ||
-      resources.destroy_mesh(mesh) != gneiss::engine::result::success) {
+      resources.destroy_mesh(mesh) != gneiss::engine::error::success) {
     return 10;
   }
   std::array tangents{gneiss::engine::math::vector4{1, 0, 0, 1},
                       gneiss::engine::math::vector4{1, 0, 0, -1},
                       gneiss::engine::math::vector4{1, 0, 0, 1}};
   mesh_desc.tangents = tangents;
-  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::result::success ||
+  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::error::success ||
       resources.get_mesh(mesh)->tangents[1].w != -1.0F ||
-      resources.destroy_mesh(mesh) != gneiss::engine::result::success)
+      resources.destroy_mesh(mesh) != gneiss::engine::error::success)
     return 18;
   tangents[0].w = 0.0F;
-  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::result::invalid_argument)
+  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::error::invalid_argument)
     return 19;
   tangents[0] = {0, 0, 1, 1};
-  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::result::invalid_argument)
+  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::error::invalid_argument)
     return 21;
   mesh_desc.tangents = {};
   auto tiled_vertices = vertices;
   tiled_vertices[0].uv.x = -42469.96875F;
   tiled_vertices[1].uv.y = 22.5F;
   mesh_desc.vertices = tiled_vertices;
-  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::result::success ||
+  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::error::success ||
       resources.get_mesh(mesh)->vertices[0].uv.x != tiled_vertices[0].uv.x ||
       resources.get_mesh(mesh)->vertices[1].uv.y != tiled_vertices[1].uv.y ||
-      resources.destroy_mesh(mesh) != gneiss::engine::result::success) {
+      resources.destroy_mesh(mesh) != gneiss::engine::error::success) {
     return 16;
   }
   for (const auto invalid :
        {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()}) {
     tiled_vertices[0].uv.x = invalid;
-    if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::result::invalid_argument ||
+    if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::error::invalid_argument ||
         resources.live_resource_count() != 0U) {
       return 17;
     }
     tiled_vertices[0].uv.x = 0.0F;
     tiled_vertices[0].uv.y = invalid;
-    if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::result::invalid_argument ||
+    if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::error::invalid_argument ||
         resources.live_resource_count() != 0U) {
       return 18;
     }
@@ -182,17 +182,17 @@ int main() {
   auto invalid_normals = normals;
   invalid_normals[0].z = 2.0F;
   mesh_desc.normals = invalid_normals;
-  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::result::invalid_argument) {
+  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::error::invalid_argument) {
     return 11;
   }
   mesh_desc.normals = normals;
   mesh_desc.indices = std::span{indices}.first(2);
-  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::result::invalid_argument) {
+  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::error::invalid_argument) {
     return 13;
   }
   constexpr std::array<std::uint32_t, 3> invalid_indices{0U, 1U, 3U};
   mesh_desc.indices = invalid_indices;
-  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::result::invalid_argument) {
+  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::error::invalid_argument) {
     return 14;
   }
   mesh_desc.indices = indices;
@@ -201,16 +201,16 @@ int main() {
       {{1, 0, 0, 1}, {0, 1, 0, 0.5F}, {0, 0, 1, 0}}};
   mesh_desc.uv1 = uv1;
   mesh_desc.colors = colors;
-  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::result::success ||
+  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::error::success ||
       resources.get_mesh(mesh)->uv1.size() != 3U || resources.get_mesh(mesh)->colors[1].a != 0.5F ||
-      resources.destroy_mesh(mesh) != gneiss::engine::result::success)
+      resources.destroy_mesh(mesh) != gneiss::engine::error::success)
     return 19;
   mesh_desc.uv1 = std::span{uv1}.first(2);
-  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::result::invalid_argument)
+  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::error::invalid_argument)
     return 20;
   mesh_desc.uv1 = uv1;
   colors[0].r = -1.0F;
-  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::result::invalid_argument)
+  if (resources.create_mesh(mesh_desc, &mesh) != gneiss::engine::error::invalid_argument)
     return 21;
   const std::array<std::uint8_t, 20> source{1,  2,  3, 4,  5,  6,  7,  8,  90, 91,
                                             92, 93, 9, 10, 11, 12, 13, 14, 15, 16};
@@ -221,7 +221,7 @@ int main() {
   desc.pixels = source;
 
   gneiss::engine::rid texture = 0;
-  if (resources.create_texture(desc, &texture) != gneiss::engine::result::success || texture == 0 ||
+  if (resources.create_texture(desc, &texture) != gneiss::engine::error::success || texture == 0 ||
       resources.live_resource_count() != 1U) {
     return 1;
   }
@@ -236,15 +236,15 @@ int main() {
       stored->levels.size() != 1U || !std::ranges::equal(stored->levels.front().pixels, expected)) {
     return 2;
   }
-  if (resources.destroy_texture(texture) != gneiss::engine::result::success ||
-      resources.destroy_texture(texture) != gneiss::engine::result::invalid_handle ||
+  if (resources.destroy_texture(texture) != gneiss::engine::error::success ||
+      resources.destroy_texture(texture) != gneiss::engine::error::invalid_handle ||
       resources.get_texture(texture) != nullptr || resources.live_resource_count() != 0U) {
     return 3;
   }
 
   desc.pixels = std::span{source}.first(19);
   texture = 0;
-  if (resources.create_texture(desc, &texture) != gneiss::engine::result::invalid_argument ||
+  if (resources.create_texture(desc, &texture) != gneiss::engine::error::invalid_argument ||
       texture != 0) {
     return 4;
   }

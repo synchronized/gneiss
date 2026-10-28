@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/result.hpp"
+#include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"
@@ -97,38 +97,38 @@ struct response_context {
   gneiss::engine::task_scheduler scheduler{{.workers = 1U}};
   gneiss::engine::task_scope scope = scheduler.make_scope();
 };
-gneiss::engine::result advance_scene(gneiss::runtime::application& app, response_context& state) {
+gneiss::engine::error advance_scene(gneiss::runtime::application& app, response_context& state) {
   using namespace gneiss::runtime;
   if (state.scene_ready) {
-    return gneiss::engine::result::success;
+    return gneiss::engine::error::success;
   }
   scene_load_completion completion;
   bool terminal{};
   auto result = app.poll_scene(completion, terminal);
-  if (result != gneiss::engine::result::success || terminal) {
-    return result != gneiss::engine::result::success ? result : completion.result;
+  if (result != gneiss::engine::error::success || terminal) {
+    return result != gneiss::engine::error::success ? result : completion.result;
   }
   scene_load_progress progress;
   bool active{};
   active = app.scene_progress(progress);
-  if (result == gneiss::engine::result::success && active &&
+  if (result == gneiss::engine::error::success && active &&
       progress.phase == scene_load_phase::ready) {
     result = app.activate_scene(state.scene_request, completion);
-    if (result == gneiss::engine::result::success) {
-      result = gneiss::engine::result{app.scenes()->get_node_count(completion.scene, &state.nodes)};
+    if (result == gneiss::engine::error::success) {
+      result = gneiss::engine::error{app.scenes()->get_node_count(completion.scene, &state.nodes)};
       scene_retirement_statistics retirement;
-      if (result == gneiss::engine::result::success) {
+      if (result == gneiss::engine::error::success) {
         retirement = app.scene_retirement();
         state.resources = retirement.live_resources;
       }
-      state.scene_ready = result == gneiss::engine::result::success;
+      state.scene_ready = result == gneiss::engine::error::success;
     }
   }
   return result;
 }
 
-gneiss::engine::result advance_scene_observed(gneiss::runtime::application& app,
-                                              response_context& state) {
+gneiss::engine::error advance_scene_observed(gneiss::runtime::application& app,
+                                             response_context& state) {
   if (!state.trace) {
     return advance_scene(app, state);
   }
@@ -149,14 +149,14 @@ gneiss::engine::result advance_scene_observed(gneiss::runtime::application& app,
   return result;
 }
 
-gneiss::engine::result native_update(gneiss::runtime::application& app,
-                                     response_context& state) try {
+gneiss::engine::error native_update(gneiss::runtime::application& app,
+                                    response_context& state) try {
   if (state.stall && state.sent.load() == 1U && state.keys.load() == 0U) {
     std::this_thread::sleep_for(50ms);
     state.stall = false;
   }
   gneiss::engine::input_event event;
-  while (gneiss::engine::result{app.poll_input(event)} == gneiss::engine::result::success) {
+  while (gneiss::engine::error{app.poll_input(event)} == gneiss::engine::error::success) {
     if (event.type == gneiss::engine::event_type::key &&
         event.data.key.physical_key == 4U /* USB HID A */ &&
         event.data.key.action == gneiss::engine::key_action::pressed) {
@@ -194,17 +194,17 @@ gneiss::engine::result native_update(gneiss::runtime::application& app,
     state.received.notify_all();
   }
   const auto scene_result = advance_scene_observed(app, state);
-  if (scene_result != gneiss::engine::result::success) {
+  if (scene_result != gneiss::engine::error::success) {
     return scene_result;
   }
   if (state.failed || clock_type::now() > state.deadline) {
     state.failed = true;
     app.request_exit();
-    return gneiss::engine::result::success;
+    return gneiss::engine::error::success;
   }
-  return gneiss::engine::result::success;
+  return gneiss::engine::error::success;
 } catch (...) {
-  return gneiss::engine::result::internal;
+  return gneiss::engine::error::internal;
 }
 bool close_requested(response_context& state) {
   state.close_ms = static_cast<double>(now_ns() - state.close_sent.load()) / 1e6;
@@ -305,12 +305,12 @@ int main(int argc, char** argv) try {
   desc.callbacks.update = [&](const auto&) { return native_update(*app, state); };
   desc.callbacks.close_requested = [&]() { return close_requested(state); };
   if (gneiss::runtime::application::create(desc, app).failed() ||
-      app->attach_task_executor(state.scheduler) != gneiss::engine::result::success) {
+      app->attach_task_executor(state.scheduler) != gneiss::engine::error::success) {
     return 1;
   }
   if (!asset_root.empty() &&
       app->request_scene("asset://scenes/scene.scene.json", 1U, 1U, state.scene_request) !=
-          gneiss::engine::result::success) {
+          gneiss::engine::error::success) {
     return 1;
   }
   auto* const window = FindWindowA(nullptr, title.c_str());
@@ -318,7 +318,7 @@ int main(int argc, char** argv) try {
     return 2;
   }
   std::jthread sender([&] { send_probes(state, window); });
-  const auto result = gneiss::engine::result{app->run(0U)};
+  const auto result = gneiss::engine::error{app->run(0U)};
   {
     std::scoped_lock lock(state.mutex);
     state.stopped = true;
@@ -328,7 +328,7 @@ int main(int argc, char** argv) try {
   const double key_max = percentile(state.key_ms, 1.0);
   const double task_max = percentile(state.task_ms, 1.0);
   const bool passed =
-      result == gneiss::engine::result::success && !state.failed && state.keys >= 64U &&
+      result == gneiss::engine::error::success && !state.failed && state.keys >= 64U &&
       state.tasks == state.keys && state.scene_ready && state.close_ms > 0.0 &&
       (inject_stall
            ? key_max >= 40.0
