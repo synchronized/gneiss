@@ -8,6 +8,12 @@ Render 的 `reserve_mesh/texture/material()` 与 `create_*` 系列返回 `result
 `prepare_mesh/material/texture_data()` 返回 `result<shared_ptr<const ..._data>>`，
 只准备和登记 CPU 数据，不等待 GPU 上传。资源服务内部创建链同样使用值返回。
 
+`prepare_frame_packet_storage(packet)` 原位复用帧存储并返回 `result<bool>`：true 表示可继续构建，
+false 表示本轮跳过，失败结果表示执行错误。`render_service::submit(packet, policy)` 及执行器的
+`submit_frame/submit_command` 返回 `result<uint64_t>`，成功值是回执序号；调用方不等待 GPU 完成。
+底层 `rid_table::create(type, value)` 返回 `result<Identifier>`，句柄的 generation、类型与所属域校验不变。
+关闭流程仍通过 error 和统计参数同时报告错误及资源统计，失败时统计信息也必须保留。
+
 ## 资源生命周期
 
 Mesh、Material 和 Texture 的 CPU 内容表由 Application 的 `render_service` 私有实现拥有。

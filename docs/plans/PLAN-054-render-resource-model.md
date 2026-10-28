@@ -426,3 +426,15 @@ Windows Clang Debug 编译及 30 项相关测试通过，见[统一加载验收�
 底层 rid_table 原位槽位构造，以及帧提交统计、World/Scene/Meta 等其他领域接口继续单独核查。
 
 验收：Windows Clang Debug 完整编译及 43 项相关短测试通过。见[缓存与 Render 迁移记录](../records/2026-10-28-render-resource-boundary.md#缓存与-render-创建链值返回2026-10-29)。
+
+
+## RID 表与帧序号值返回（2026-10-29）
+
+- [x] rid_table::create 返回 result<Identifier>，删除 Render 临时输出转换函数。
+- [x] 帧准备返回 result<bool>；提交帧和命令返回 result<uint64_t>，不使用输出序号参数。
+- [x] 迁移 Runtime 读取回执、初始化、环境更新和关闭的提交调用方。
+- [x] 完整编译与相关短测试，覆盖构造失败、句柄生命周期、队列拒绝与必需帧策略。
+
+shutdown 的失败结果仍需伴随资源统计，暂保留该双输出契约；完成队列、World/Scene/Meta 的其他接口继续核查。
+
+验收：Windows Clang Debug 完整编译、45 项相关短测试通过；见[RID 与帧迁移记录](../records/2026-10-28-render-resource-boundary.md#rid-表与帧序号值返回2026-10-29)。

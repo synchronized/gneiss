@@ -648,12 +648,11 @@ gneiss::engine::error application::capture_frame(std::uint32_t width, std::uint3
     }
     auto image = std::make_shared<gneiss::engine::frame_image>();
     packet.readback = image;
-    std::uint64_t sequence{};
-    result = storage_->render_service_->submit(
-        std::move(packet), gneiss::engine::render_frame_policy::required, &sequence);
-    if (result != gneiss::engine::error::success) {
-      return result;
-    }
+    auto submitted = storage_->render_service_->submit(
+        std::move(packet), gneiss::engine::render_frame_policy::required);
+    if (!submitted)
+      return submitted.error();
+    const auto sequence = *submitted;
     result = storage_->render_service_->finish_frames();
     if (result != gneiss::engine::error::success) {
       return result;
@@ -682,14 +681,14 @@ gneiss::engine::error application::render_frame() noexcept {
     return gneiss::engine::error::success;
   }
   gneiss::engine::render_frame_packet packet;
-  bool should_prepare = false;
   const auto storage_result =
       gneiss::engine::measure(gneiss::engine::loop_stage::frame_storage, [&]() noexcept {
-        return storage_->render_service_->prepare_frame_packet_storage(packet, should_prepare);
+        return storage_->render_service_->prepare_frame_packet_storage(packet);
       });
-  if (storage_result != gneiss::engine::error::success || !should_prepare) {
-    return storage_result;
-  }
+  if (!storage_result)
+    return storage_result.error();
+  if (!*storage_result)
+    return gneiss::engine::error::success;
   gneiss::engine::render_snapshot snapshot;
   const auto snapshot_result =
       gneiss::engine::measure(gneiss::engine::loop_stage::render_snapshot, [&]() noexcept {
@@ -715,14 +714,14 @@ gneiss::engine::error application::render_frame() noexcept {
       gneiss::engine::measure(gneiss::engine::loop_stage::frame_submit, [&]() noexcept {
         return storage_->render_service_->submit(std::move(packet));
       });
-  if (submit_result != gneiss::engine::error::success && requested_recreate) {
+  if (!submit_result && requested_recreate) {
     window.needs_recreate = true;
   }
   // 成功推进队列后先继续排空本地可做工作，队列繁忙且无进展时才等待。
-  if (submit_result == gneiss::engine::error::success && storage_->loop_notification_) {
+  if (submit_result && storage_->loop_notification_) {
     storage_->loop_notification_->notify();
   }
-  return submit_result;
+  return submit_result ? gneiss::engine::error::success : submit_result.error();
 }
 
 gneiss::engine::error application::get_window_size(std::uint32_t& out_width,

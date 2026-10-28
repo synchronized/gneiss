@@ -4,8 +4,8 @@
 #ifndef GNEISS_RENDER_RENDER_EXECUTOR_HPP_
 #define GNEISS_RENDER_RENDER_EXECUTOR_HPP_
 
-#include "engine/core/error.hpp"
 #include "engine/core/progress_notification.hpp"
+#include "engine/core/result.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_statistics.hpp"
 
@@ -111,14 +111,14 @@ public:
 
   [[nodiscard]] error initialize(render_frame_callback callback,
                                  std::size_t maximum_pending_frames = 3U) noexcept;
-  [[nodiscard]] error
-  submit_frame(render_frame_packet packet, std::uint64_t& out_sequence,
+  [[nodiscard]] result<std::uint64_t>
+  submit_frame(render_frame_packet packet,
                render_frame_policy policy = render_frame_policy::replaceable) noexcept;
   /** resumable 命令返回 NOT_READY 时保留同一序号排到队尾，后续帧和命令可先执行。
    * 回调须自行保存进度并最终返回终态；flush/stop 会等它结束，不强制销毁在途资源。
    * once 的 NOT_READY 仍是一次完成结果。 */
-  [[nodiscard]] error
-  submit_command(render_command_callback command, std::uint64_t& out_sequence,
+  [[nodiscard]] result<std::uint64_t>
+  submit_command(render_command_callback command,
                  render_command_policy policy = render_command_policy::once) noexcept;
   [[nodiscard]] bool try_take_frame_completion(render_frame_completion& output) noexcept;
   [[nodiscard]] bool try_take_command_completion(render_command_completion& output) noexcept;

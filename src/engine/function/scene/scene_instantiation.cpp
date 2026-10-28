@@ -88,7 +88,11 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
       }
       instance->append_staged_prefab(std::move(prefab));
     }
-    return instances_.create(resource_type::scene_instance, std::move(instance), &output);
+    auto created = instances_.create(resource_type::scene_instance, std::move(instance));
+    if (!created)
+      return created.error();
+    output = *created;
+    return error::success;
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
   } catch (...) {

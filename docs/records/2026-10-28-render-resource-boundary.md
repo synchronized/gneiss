@@ -263,3 +263,17 @@ Windows Clang Debug 编译通过，30 项相关测试全部通过。新增直接
   改为直接检查失败结果且保留旧资源及预算断言后，该项复测通过。全部相关测试已通过。
 - git diff --check 通过；未运行大场景、GPU 图像验证、其他平台或远端 CI。
 - 尚未迁移底层 rid_table 的槽位构造接口、帧操作输出及 World/Scene/Meta 等其他领域接口。
+
+## RID 表与帧序号值返回（2026-10-29）
+
+- rid_table::create 直接返回 result<Identifier>，Render 删除临时 allocate_resource 转换函数。
+  Scene 实例表调用方同步取值；场景上层尚未迁移的创建接口仍保留自身输出参数。
+- 帧准备返回 result<bool>，packet 是原位复用存储；跳过构建与失败是不同结果。
+- Render 帧提交、执行器帧提交与命令提交返回 result<uint64_t>，Runtime、初始化、环境更新与关闭调用方同步迁移。
+  序号仍对应异步回执；提交成功不代表 GPU 执行完成。
+- RID 测试直接验证值返回、类型/所属表/generation 校验、重复销毁、关闭拒绝创建，
+  并新增对象构造抛异常后无存活槽位且可继续创建的覆盖。
+- Windows Clang Debug 完整构建通过；45 项相关短测试全部通过（12.43 秒），包括 render_executor 与 rid_table；
+  git diff --check 通过。未运行大场景、GPU 图像验证、其他平台或远端 CI。
+- shutdown 失败时仍需保留资源统计，因此未机械转换为 result<stats>；
+  完成队列、World/Scene/Meta 等其他接口尚待继续核查。

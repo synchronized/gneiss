@@ -67,11 +67,10 @@ public:
   [[nodiscard]] error shutdown(render_device_stats& stats) noexcept;
   [[nodiscard]] error finish_frames() noexcept;
   void set_completion_notification(std::shared_ptr<progress_notification> notification) noexcept;
-  [[nodiscard]] error prepare_frame_packet_storage(render_frame_packet& packet,
-                                                   bool& out_should_prepare) noexcept;
-  [[nodiscard]] error submit(render_frame_packet packet,
-                             render_frame_policy policy = render_frame_policy::replaceable,
-                             std::uint64_t* out_sequence = nullptr) noexcept;
+  [[nodiscard]] result<bool> prepare_frame_packet_storage(render_frame_packet& packet) noexcept;
+  [[nodiscard]] result<std::uint64_t>
+  submit(render_frame_packet packet,
+         render_frame_policy policy = render_frame_policy::replaceable) noexcept;
   [[nodiscard]] bool try_take_required_completion(render_frame_completion& completion) noexcept;
   [[nodiscard]] render_queue_stats query_performance_stats() const noexcept;
   /** initialize 完成后读取；设备重建后重新获取。 */

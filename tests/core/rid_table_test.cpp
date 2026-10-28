@@ -5,6 +5,7 @@
 #include "engine/core/rid_table.hpp"
 
 #include <cstdint>
+#include <stdexcept>
 
 namespace {
 
@@ -12,6 +13,12 @@ struct test_resource {
   std::int32_t value;
 };
 
+struct fallible_resource {
+  explicit fallible_resource(int value) {
+    if (value == 0)
+      throw std::runtime_error("构造失败");
+  }
+};
 } // namespace
 
 int main() {
@@ -20,12 +27,10 @@ int main() {
 
   table first{1};
   table second{2};
-  gneiss::engine::rid original = gneiss::engine::null_rid;
-  if (first.create(resource_type::test_resource, test_resource{42}, &original) !=
-          gneiss::engine::error::success ||
-      original == gneiss::engine::null_rid) {
+  auto created = first.create(resource_type::test_resource, test_resource{42});
+  if (!created || *created == gneiss::engine::null_rid)
     return 1;
-  }
+  const auto original = *created;
   if (first.get(gneiss::engine::null_rid, resource_type::test_resource) != nullptr ||
       first.get(original, resource_type::mesh) != nullptr ||
       second.get(original, resource_type::test_resource) != nullptr) {
@@ -42,17 +47,22 @@ int main() {
     return 4;
   }
 
-  gneiss::engine::rid replacement = gneiss::engine::null_rid;
-  if (first.create(resource_type::test_resource, test_resource{7}, &replacement) !=
-          gneiss::engine::error::success ||
-      replacement == original || first.get(original, resource_type::test_resource) != nullptr) {
+  auto replacement = first.create(resource_type::test_resource, test_resource{7});
+  if (!replacement || *replacement == original || first.get(original, resource_type::test_resource))
     return 5;
-  }
-  if (first.create(resource_type::invalid, test_resource{}, &original) !=
-          gneiss::engine::error::invalid_argument ||
-      first.create(resource_type::test_resource, test_resource{}, nullptr) !=
-          gneiss::engine::error::invalid_argument) {
+  auto invalid = first.create(resource_type::invalid, test_resource{});
+  if (invalid || invalid.error() != gneiss::engine::error::invalid_argument)
     return 6;
-  }
+  first.close();
+  auto closed = first.create(resource_type::test_resource, test_resource{});
+  if (closed || closed.error() != gneiss::engine::error::invalid_argument)
+    return 7;
+  gneiss::engine::rid_table<fallible_resource> fallible{3};
+  auto failed = fallible.create(resource_type::test_resource, 0);
+  if (failed || failed.error() != gneiss::engine::error::internal || fallible.live_count() != 0)
+    return 8;
+  auto recovered = fallible.create(resource_type::test_resource, 1);
+  if (!recovered || fallible.live_count() != 1)
+    return 9;
   return 0;
 }

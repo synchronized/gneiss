@@ -4,7 +4,7 @@
 #ifndef GNEISS_CORE_RID_TABLE_HPP_
 #define GNEISS_CORE_RID_TABLE_HPP_
 
-#include "engine/core/error.hpp"
+#include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 
 #include <cstddef>
@@ -74,11 +74,10 @@ public:
   rid_table& operator=(rid_table&&) = delete;
 
   template <typename Value>
-  [[nodiscard]] error create(resource_type type, Value&& value, Identifier* out_rid) noexcept {
-    if (out_rid == nullptr || domain_ == 0U || type == resource_type::invalid) {
+  [[nodiscard]] result<Identifier> create(resource_type type, Value&& value) noexcept {
+    if (domain_ == 0U || type == resource_type::invalid) {
       return error::invalid_argument;
     }
-    *out_rid = Identifier{};
 
     try {
       std::size_t index = 0;
@@ -97,9 +96,8 @@ public:
       auto& slot = slots_[index];
       slot.value.emplace(std::forward<Value>(value));
       slot.type = type;
-      *out_rid = Identifier{
+      return Identifier{
           detail::encode_rid({static_cast<std::uint32_t>(index), slot.generation, type, domain_})};
-      return error::success;
     } catch (const std::bad_alloc&) {
       return error::out_of_memory;
     } catch (...) {

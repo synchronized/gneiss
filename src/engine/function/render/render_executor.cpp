@@ -240,9 +240,8 @@ engine::error threaded_render_executor::initialize(render_frame_callback callbac
   }
 }
 
-engine::error threaded_render_executor::submit_frame(render_frame_packet packet,
-                                                     std::uint64_t& out_sequence,
-                                                     render_frame_policy policy) noexcept {
+result<std::uint64_t> threaded_render_executor::submit_frame(render_frame_packet packet,
+                                                             render_frame_policy policy) noexcept {
   if (!state_) {
     return engine::error::not_ready;
   }
@@ -275,14 +274,14 @@ engine::error threaded_render_executor::submit_frame(render_frame_packet packet,
       state_->completed_frames.push_back(std::move(dropped_completion));
       ++state_->stats.replaced_frames;
     }
-    out_sequence = state_->next_sequence++;
-    packet.sequence = out_sequence;
+    const auto sequence = state_->next_sequence++;
+    packet.sequence = sequence;
     ++state_->stats.submitted_frames;
     if (policy == render_frame_policy::required) {
       ++state_->stats.submitted_required_frames;
     }
     state_->pending.push_back({.kind = state::task_kind::frame,
-                               .sequence = out_sequence,
+                               .sequence = sequence,
                                .frame_policy = policy,
                                .packet = std::move(packet),
                                .command = {},
@@ -290,7 +289,7 @@ engine::error threaded_render_executor::submit_frame(render_frame_packet packet,
     state_->stats.pending_high_watermark =
         std::max(state_->stats.pending_high_watermark, state_->pending.size());
     state_->work_ready.notify_one();
-    return engine::error::success;
+    return sequence;
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
   } catch (...) {
@@ -298,9 +297,9 @@ engine::error threaded_render_executor::submit_frame(render_frame_packet packet,
   }
 }
 
-engine::error threaded_render_executor::submit_command(render_command_callback command,
-                                                       std::uint64_t& out_sequence,
-                                                       render_command_policy policy) noexcept {
+result<std::uint64_t>
+threaded_render_executor::submit_command(render_command_callback command,
+                                         render_command_policy policy) noexcept {
   if (!state_) {
     return engine::error::not_ready;
   }
@@ -314,10 +313,10 @@ engine::error threaded_render_executor::submit_command(render_command_callback c
       ++state_->stats.rejected_commands;
       return engine::error::not_ready;
     }
-    out_sequence = state_->next_sequence++;
+    const auto sequence = state_->next_sequence++;
     ++state_->stats.submitted_commands;
     state_->pending.push_back({.kind = state::task_kind::command,
-                               .sequence = out_sequence,
+                               .sequence = sequence,
                                .frame_policy = render_frame_policy::replaceable,
                                .packet = {},
                                .command = std::move(command),
@@ -326,7 +325,7 @@ engine::error threaded_render_executor::submit_command(render_command_callback c
     state_->stats.pending_high_watermark =
         std::max(state_->stats.pending_high_watermark, state_->pending.size());
     state_->work_ready.notify_one();
-    return engine::error::success;
+    return sequence;
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
   } catch (...) {

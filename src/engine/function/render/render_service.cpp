@@ -62,11 +62,10 @@ public:
   void set_completion_notification(std::shared_ptr<progress_notification> notification) noexcept {
     executor_.set_completion_notification(std::move(notification));
   }
-  [[nodiscard]] engine::error prepare_frame_packet_storage(render_frame_packet& packet,
-                                                           bool& out_should_prepare) noexcept;
-  [[nodiscard]] engine::error submit(render_frame_packet packet,
-                                     render_frame_policy policy = render_frame_policy::replaceable,
-                                     std::uint64_t* out_sequence = nullptr) noexcept;
+  [[nodiscard]] result<bool> prepare_frame_packet_storage(render_frame_packet& packet) noexcept;
+  [[nodiscard]] result<std::uint64_t>
+  submit(render_frame_packet packet,
+         render_frame_policy policy = render_frame_policy::replaceable) noexcept;
   [[nodiscard]] bool try_take_required_completion(render_frame_completion& completion) noexcept;
   [[nodiscard]] render_queue_stats query_performance_stats() const noexcept;
   /** 仅在 initialize 完成后由宿主读取；设备重建必须重新发布。 */
@@ -856,7 +855,6 @@ engine::error render_service::implementation::initialize(
   }
 
   engine::error initialize_result = engine::error::unknown;
-  std::uint64_t sequence{};
   const auto submit_result = executor_.submit_command(
       [this, window, environment_asset, environment_intensity, environment_rotation_radians,
        &initialize_result](const render_command_reporter& reporter) {
@@ -865,27 +863,25 @@ engine::error render_service::implementation::initialize(
                                            environment_rotation_radians);
         reporter.report(render_command_stage::uploading, 1U, 1U);
         return initialize_result;
-      },
-      sequence);
-  if (submit_result == engine::error::success) {
+      });
+  if (submit_result.ok()) {
     static_cast<void>(executor_.flush());
   }
 
   render_command_completion completion;
   const auto has_completion = executor_.try_take_command_completion(completion);
-  if (submit_result != engine::error::success || !has_completion ||
-      completion.sequence != sequence || completion.status != engine::error::success) {
+  if (!submit_result || !has_completion || completion.sequence != *submit_result ||
+      completion.status != engine::error::success) {
     granit::renderer_resource_stats ignored{};
-    std::uint64_t cleanup_sequence{};
-    if (executor_.submit_command(
-            [this, &ignored](const render_command_reporter&) { return shutdown_gpu(ignored); },
-            cleanup_sequence) == engine::error::success) {
+    if (executor_
+            .submit_command(
+                [this, &ignored](const render_command_reporter&) { return shutdown_gpu(ignored); })
+            .ok()) {
       static_cast<void>(executor_.flush());
     }
     executor_.stop();
-    return submit_result != engine::error::success
-               ? submit_result
-               : (has_completion ? completion.status : engine::error::internal);
+    return !submit_result ? submit_result.error()
+                          : (has_completion ? completion.status : engine::error::internal);
   }
   return initialize_result;
 }
@@ -895,8 +891,7 @@ error render_service::implementation::request_environment(
     try {
   if (!bytes || bytes->empty() || !std::isfinite(intensity) || !std::isfinite(rotation))
     return error::invalid_argument;
-  std::uint64_t sequence{};
-  return executor_.submit_command(
+  auto submitted = executor_.submit_command(
       [this, bytes = std::move(bytes), intensity, rotation](const render_command_reporter&) {
         // 与帧提交在同一执行器串行；在途 GPU 引用由 Granit 保活。
         (void)environment_.reset();
@@ -916,8 +911,8 @@ error render_service::implementation::request_environment(
           environment_rotation_radians_ = rotation;
         }
         return map_result(status);
-      },
-      sequence);
+      });
+  return submitted ? error::success : submitted.error();
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -954,42 +949,35 @@ engine::error render_service::implementation::collect_completions() noexcept {
   return engine::error::success;
 }
 
-engine::error
-render_service::implementation::prepare_frame_packet_storage(render_frame_packet& packet,
-                                                             bool& out_should_prepare) noexcept {
+result<bool>
+render_service::implementation::prepare_frame_packet_storage(render_frame_packet& packet) noexcept {
   const auto completion_result = collect_completions();
   if (completion_result != engine::error::success) {
     return completion_result;
   }
   // 交互帧只预备一帧：低帧率时积压三份旧相机快照会把输入延迟放大到数百毫秒。
   // 保留一份等待帧与正在执行的帧重叠；队列满时继续处理输入，空位出现后再捕获最新状态。
-  out_should_prepare = executor_.query_stats().pending_frames < 1U;
-  if (!out_should_prepare) {
+  const bool should_prepare = executor_.query_stats().pending_frames < 1U;
+  if (!should_prepare) {
     executor_.record_skipped_frame_build();
-    return engine::error::success;
+    return false;
   }
   if (!recycled_frame_packets_.empty()) {
     packet = std::move(recycled_frame_packets_.back());
     recycled_frame_packets_.pop_back();
   }
-  return engine::error::success;
+  return true;
 }
 
-engine::error render_service::implementation::submit(render_frame_packet packet,
-                                                     render_frame_policy policy,
-                                                     std::uint64_t* out_sequence) noexcept {
+result<std::uint64_t> render_service::implementation::submit(render_frame_packet packet,
+                                                             render_frame_policy policy) noexcept {
   const auto completion_result = collect_completions();
   if (completion_result != engine::error::success) {
     return completion_result;
   }
   packet.window.needs_recreate = packet.window.needs_recreate || pending_recreate_;
   pending_recreate_ = false;
-  std::uint64_t sequence{};
-  const auto result = executor_.submit_frame(std::move(packet), sequence, policy);
-  if (result == engine::error::success && out_sequence != nullptr) {
-    *out_sequence = sequence;
-  }
-  return result;
+  return executor_.submit_frame(std::move(packet), policy);
 }
 
 bool render_service::implementation::try_take_required_completion(
@@ -1030,16 +1018,14 @@ render_service::implementation::shutdown(granit::renderer_resource_stats& stats)
   static_cast<void>(executor_.flush());
   const auto frame_result = collect_completions();
 
-  std::uint64_t sequence{};
-  const auto submit_result = executor_.submit_command(
-      [this, &stats](const render_command_reporter& reporter) {
+  const auto submit_result =
+      executor_.submit_command([this, &stats](const render_command_reporter& reporter) {
         reporter.report(render_command_stage::uploading, 0U, 1U);
         const auto result = shutdown_gpu(stats);
         reporter.report(render_command_stage::uploading, 1U, 1U);
         return result;
-      },
-      sequence);
-  if (submit_result == engine::error::success) {
+      });
+  if (submit_result.ok()) {
     static_cast<void>(executor_.flush());
   }
   render_command_completion completion;
@@ -1050,10 +1036,10 @@ render_service::implementation::shutdown(granit::renderer_resource_stats& stats)
   if (frame_result != engine::error::success) {
     return frame_result;
   }
-  if (submit_result != engine::error::success) {
-    return submit_result;
+  if (!submit_result) {
+    return submit_result.error();
   }
-  if (!has_completion || completion.sequence != sequence) {
+  if (!has_completion || completion.sequence != *submit_result) {
     return engine::error::internal;
   }
   return completion.status;
@@ -1679,13 +1665,12 @@ void render_service::set_completion_notification(
     std::shared_ptr<progress_notification> notification) noexcept {
   impl_->set_completion_notification(std::move(notification));
 }
-error render_service::prepare_frame_packet_storage(render_frame_packet& packet,
-                                                   bool& out_should_prepare) noexcept {
-  return impl_->prepare_frame_packet_storage(packet, out_should_prepare);
+result<bool> render_service::prepare_frame_packet_storage(render_frame_packet& packet) noexcept {
+  return impl_->prepare_frame_packet_storage(packet);
 }
-error render_service::submit(render_frame_packet packet, render_frame_policy policy,
-                             std::uint64_t* out_sequence) noexcept {
-  return impl_->submit(std::move(packet), policy, out_sequence);
+result<std::uint64_t> render_service::submit(render_frame_packet packet,
+                                             render_frame_policy policy) noexcept {
+  return impl_->submit(std::move(packet), policy);
 }
 bool render_service::try_take_required_completion(render_frame_completion& completion) noexcept {
   return impl_->try_take_required_completion(completion);

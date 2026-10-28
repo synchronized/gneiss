@@ -1525,7 +1525,11 @@ engine::error scene_instances::create_empty(std::string_view scene_uuid,
     }
     auto instance = std::make_unique<scene_instance>(native_world_, loader_, registry_);
     instance->initialize_staged(std::move(description));
-    return instances_.create(resource_type::scene_instance, std::move(instance), out_instance);
+    auto created = instances_.create(resource_type::scene_instance, std::move(instance));
+    if (!created)
+      return created.error();
+    *out_instance = *created;
+    return error::success;
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
   } catch (...) {

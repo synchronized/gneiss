@@ -17,15 +17,6 @@
 namespace gneiss::engine {
 namespace {
 
-template <class Table, class Data>
-result<rid> allocate_resource(Table& table, resource_type type, Data data) {
-  rid handle{};
-  const auto status = table.create(type, std::move(data), &handle);
-  if (status.failed())
-    return status;
-  return handle;
-}
-
 constexpr std::uint32_t maximum_texture_dimension = 16384U;
 constexpr std::uint64_t maximum_texture_bytes = UINT64_C(256) * 1024U * 1024U;
 
@@ -72,12 +63,10 @@ void render_service::close_resources() noexcept {
 }
 
 result<rid> render_service::reserve_mesh() noexcept {
-  return allocate_resource(storage_->meshes_, resource_type::mesh,
-                           std::shared_ptr<const mesh_data>{});
+  return storage_->meshes_.create(resource_type::mesh, std::shared_ptr<const mesh_data>{});
 }
 result<rid> render_service::reserve_texture() noexcept {
-  return allocate_resource(storage_->textures_, resource_type::texture,
-                           std::shared_ptr<const texture_data>{});
+  return storage_->textures_.create(resource_type::texture, std::shared_ptr<const texture_data>{});
 }
 engine::error render_service::mesh_status(rid mesh) const noexcept {
   const auto* slot = storage_->meshes_.get(mesh, resource_type::mesh);
@@ -85,8 +74,8 @@ engine::error render_service::mesh_status(rid mesh) const noexcept {
                : (slot->data ? engine::error::success : engine::error::not_ready);
 }
 result<rid> render_service::reserve_material() noexcept {
-  return allocate_resource(storage_->materials_, resource_type::material,
-                           std::shared_ptr<const material_data>{});
+  return storage_->materials_.create(resource_type::material,
+                                     std::shared_ptr<const material_data>{});
 }
 engine::error render_service::material_status(rid material) const noexcept {
   const auto* slot = storage_->materials_.get(material, resource_type::material);
@@ -217,8 +206,8 @@ result<rid> render_service::create_mesh(const mesh_view& desc) noexcept {
         .uv1 = {uv1.begin(), uv1.end()},
         .colors = {colors.begin(), colors.end()},
     };
-    return allocate_resource(
-        storage_->meshes_, resource_type::mesh,
+    return storage_->meshes_.create(
+        resource_type::mesh,
         track(std::make_shared<const mesh_data>(std::move(resource)), storage_->mesh_history_));
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
@@ -250,8 +239,8 @@ result<rid> render_service::create_prepared_mesh(mesh_data resource) noexcept {
     return engine::error::invalid_argument;
   }
   try {
-    return allocate_resource(
-        storage_->meshes_, resource_type::mesh,
+    return storage_->meshes_.create(
+        resource_type::mesh,
         track(std::make_shared<const mesh_data>(std::move(resource)), storage_->mesh_history_));
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
@@ -265,8 +254,8 @@ render_service::create_prepared_mesh(std::shared_ptr<const mesh_data> resource) 
     return engine::error::invalid_argument;
   }
   try {
-    return allocate_resource(storage_->meshes_, resource_type::mesh,
-                             track(std::move(resource), storage_->mesh_history_));
+    return storage_->meshes_.create(resource_type::mesh,
+                                    track(std::move(resource), storage_->mesh_history_));
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
   } catch (...) {
@@ -352,7 +341,7 @@ result<rid> render_service::create_material(const material_data& value) noexcept
   auto data = prepare_material_data(value);
   if (!data)
     return data.error();
-  return allocate_resource(storage_->materials_, resource_type::material, std::move(*data));
+  return storage_->materials_.create(resource_type::material, std::move(*data));
 }
 
 engine::error render_service::destroy_material(rid material) noexcept {
@@ -449,7 +438,7 @@ result<rid> render_service::create_texture(texture_data resource) noexcept {
   auto data = prepare_texture_data(std::move(resource));
   if (!data)
     return data.error();
-  return allocate_resource(storage_->textures_, resource_type::texture, std::move(*data));
+  return storage_->textures_.create(resource_type::texture, std::move(*data));
 }
 
 result<rid> render_service::create_packaged_texture(texture_data resource) noexcept {
@@ -458,7 +447,7 @@ result<rid> render_service::create_packaged_texture(texture_data resource) noexc
   auto data = prepare_texture_data(std::move(resource));
   if (!data)
     return data.error();
-  return allocate_resource(storage_->textures_, resource_type::texture, std::move(*data));
+  return storage_->textures_.create(resource_type::texture, std::move(*data));
 }
 
 engine::error render_service::destroy_texture(rid texture) noexcept {
