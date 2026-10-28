@@ -129,3 +129,15 @@ Windows Clang Debug 编译通过，30 项相关测试全部通过。新增检查
 
 未运行大场景、GPU 图像验证、跨平台或静态库矩阵、远端 CI；未修改 Granit。
 本轮没有增加动态类型擦除注册、流送或新的加载协议。
+
+## 类型明确的解码输入
+
+asset_load_batch 的 cpu_result 使用私有 decode_input，互斥保存 mesh_decode_input、
+texture_decode_input 或 material_decode_input。纹理描述、两段输入字节、设备能力及解析标记
+只存在于纹理分支；材质只保存已解码描述引用。CPU 任务通过 visit 分派，各次读取写入对应分支。
+公共 URI、来源摘要、预算、诊断和完成状态仍由任务维护，批次推进及取消语义保持原样。
+本轮未改造纹理输出布局、整体阶段枚举或文件后端。
+
+Windows Clang Debug 编译通过，11 项相关测试全部通过，覆盖解码准备、加载、材质依赖、
+协作式与线程池执行、读取失败、取消后延迟回调、Scene/Prefab 以及 Core/World 边界。
+改动行格式化及 git diff --check 通过。未运行独立 clang-tidy、大场景、GPU 图像验证或远端 CI。

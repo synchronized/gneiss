@@ -15,19 +15,34 @@
 #include <algorithm>
 #include <set>
 #include <stdexcept>
+#include <type_traits>
+#include <variant>
 
 namespace gneiss::engine {
+namespace {
+struct mesh_decode_input {
+  files::bytes bytes;
+};
+struct texture_decode_input {
+  texture_description description;
+  files::bytes description_bytes, payload_bytes;
+  texture_prepare_profile profile;
+  bool parse_description{true}, needs_payload{};
+};
+struct material_decode_input {
+  asset_ref<const material_description> description;
+};
+using decode_input =
+    std::variant<std::monostate, mesh_decode_input, texture_decode_input, material_decode_input>;
+} // namespace
 struct asset_load_batch::pending {
   struct cpu_result {
     prepared_batch batch;
-    asset_ref<const material_description> material;
+    decode_input input;
     asset_source source;
-    texture_description description;
-    engine::files::bytes description_bytes, payload_bytes;
     std::vector<prepared_source> inputs;
-    texture_prepare_profile profile;
     std::size_t limit{};
-    bool reading{}, parse_description{}, needs_payload{};
+    bool reading{};
     bool complete{};
     engine::result result{engine::result::success};
     std::string message;
@@ -193,45 +208,44 @@ submit_result asset_load_batch::submit_preparation(pending& value) {
           return task_outcome{.state = task_state::cancelled};
         }
         asset_diagnostic diagnostic;
-        if (cpu->parse_description) {
-          cpu->result = detail::parse_texture(cpu->description_bytes, cpu->description, diagnostic);
-          cpu->parse_description = false;
-          cpu->needs_payload = cpu->result.ok();
-          cpu->complete = cpu->result.failed();
-        } else {
-          if (!cpu->inputs.empty()) {
-            cpu->inputs.front().bytes = cpu->description_bytes.size();
-            cpu->inputs.front().digest = sha256(cpu->description_bytes);
-          }
-          if (cpu->inputs.size() > 1U) {
-            cpu->inputs.back().bytes = cpu->payload_bytes.size();
-            cpu->inputs.back().digest = sha256(cpu->payload_bytes);
-          }
-          decoded_asset prepared;
-          switch (cpu->source.type) {
-          case asset_type::mesh:
-            cpu->result = decode_mesh_asset(cpu->source.uri, cpu->description_bytes, prepared,
-                                            diagnostic, cpu->limit);
-            break;
-          case asset_type::texture:
-            cpu->result =
-                decode_texture_asset(cpu->source.uri, cpu->description, cpu->payload_bytes,
-                                     prepared, diagnostic, cpu->limit, cpu->profile);
-            break;
-          case asset_type::material:
-            cpu->result = adopt_material_asset(cpu->source.uri, cpu->material, prepared, diagnostic,
-                                               cpu->limit, sizeof(material_data));
-            break;
-          case asset_type::invalid:
-            cpu->result = result::invalid_argument;
-            break;
-          }
-          if (cpu->result.ok()) {
-            prepared.sources = std::move(cpu->inputs);
-            cpu->batch.bytes = prepared.bytes;
-            cpu->batch.assets.push_back(std::move(prepared));
-          }
-          cpu->complete = true;
+        decoded_asset prepared;
+        cpu->result = std::visit(
+            [&](auto& input) -> result {
+              using T = std::decay_t<decltype(input)>;
+              const auto record_source = [&](std::size_t index, const files::bytes& bytes) {
+                cpu->inputs[index].bytes = bytes.size();
+                cpu->inputs[index].digest = sha256(bytes);
+              };
+              cpu->complete = true;
+              if constexpr (std::is_same_v<T, mesh_decode_input>) {
+                record_source(0U, input.bytes);
+                return decode_mesh_asset(cpu->source.uri, input.bytes, prepared, diagnostic,
+                                         cpu->limit);
+              } else if constexpr (std::is_same_v<T, texture_decode_input>) {
+                if (input.parse_description) {
+                  const auto status =
+                      detail::parse_texture(input.description_bytes, input.description, diagnostic);
+                  input.parse_description = false;
+                  input.needs_payload = status.ok();
+                  cpu->complete = status.failed();
+                  return status;
+                }
+                record_source(0U, input.description_bytes);
+                record_source(1U, input.payload_bytes);
+                return decode_texture_asset(cpu->source.uri, input.description, input.payload_bytes,
+                                            prepared, diagnostic, cpu->limit, input.profile);
+              } else if constexpr (std::is_same_v<T, material_decode_input>) {
+                return adopt_material_asset(cpu->source.uri, input.description, prepared,
+                                            diagnostic, cpu->limit, sizeof(material_data));
+              } else {
+                return result::invalid_argument;
+              }
+            },
+            cpu->input);
+        if (cpu->complete && cpu->result.ok()) {
+          prepared.sources = std::move(cpu->inputs);
+          cpu->batch.bytes = prepared.bytes;
+          cpu->batch.assets.push_back(std::move(prepared));
         }
         cpu->message = std::move(diagnostic.message);
         cpu->path = std::move(diagnostic.path);
@@ -386,9 +400,9 @@ bool asset_load_batch::start_item(pending& value) {
   }
   value.cpu = std::make_shared<pending::cpu_result>();
   value.cpu->source = source;
-  value.cpu->profile = profile_;
   value.cpu->limit = std::min(maximum_bytes, value.limit - value.completion.prepared_bytes);
   if (source.type == asset_type::material) {
+    value.cpu->input.emplace<material_decode_input>();
     const auto status = assets_.load(source.uri, value.material_request, value.reload);
     if (status.failed()) {
       finish_item(status, false);
@@ -396,7 +410,10 @@ bool asset_load_batch::start_item(pending& value) {
     }
     return true;
   }
-  value.cpu->parse_description = source.type == asset_type::texture;
+  if (source.type == asset_type::texture)
+    value.cpu->input.emplace<texture_decode_input>().profile = profile_;
+  else
+    value.cpu->input.emplace<mesh_decode_input>();
   value.files = assets_.async_files();
   const auto status = start_read(value, source.uri, false);
   if (status.failed()) {
@@ -413,7 +430,11 @@ result asset_load_batch::start_read(pending& value, std::string_view uri, bool p
       assets_.identify(uri, static_cast<std::uint32_t>(value.cpu->source.type), input.identity);
   if (identified.failed())
     return identified;
-  const auto used = payload ? value.cpu->description_bytes.size() : 0U;
+  const auto* texture = std::get_if<texture_decode_input>(&value.cpu->input);
+  if ((payload && !texture) ||
+      (!texture && !std::holds_alternative<mesh_decode_input>(value.cpu->input)))
+    return result::invalid_argument;
+  const auto used = payload ? texture->description_bytes.size() : 0U;
   if (used >= value.cpu->limit)
     return result::out_of_memory;
   value.cpu->inputs.push_back(std::move(input));
@@ -426,10 +447,12 @@ result asset_load_batch::start_read(pending& value, std::string_view uri, bool p
           cpu->reading = false;
           cpu->result = completed.status;
           cpu->complete = completed.status.failed();
-          if (payload)
-            cpu->payload_bytes = std::move(completed.data);
-          else
-            cpu->description_bytes = std::move(completed.data);
+          if (auto* texture = std::get_if<texture_decode_input>(&cpu->input)) {
+            auto& bytes = payload ? texture->payload_bytes : texture->description_bytes;
+            bytes = std::move(completed.data);
+          } else {
+            std::get<mesh_decode_input>(cpu->input).bytes = std::move(completed.data);
+          }
         }
       },
       value.read_request);
@@ -483,9 +506,10 @@ void asset_load_batch::advance_impl() {
   if (value.cpu->reading)
     return;
   value.read_request = {};
-  if (value.cpu->needs_payload) {
-    value.cpu->needs_payload = false;
-    const auto status = start_read(value, value.cpu->description.uri, true);
+  if (auto* texture = std::get_if<texture_decode_input>(&value.cpu->input);
+      texture && texture->needs_payload) {
+    texture->needs_payload = false;
+    const auto status = start_read(value, texture->description.uri, true);
     if (status.failed())
       finish_item(status, false);
     return;
@@ -503,7 +527,7 @@ void asset_load_batch::advance_impl() {
       finish_item(status, false);
       return;
     }
-    value.cpu->material = std::move(description);
+    std::get<material_decode_input>(value.cpu->input).description = std::move(description);
   }
   if (!value.cpu->complete) {
     const auto accepted = submit_preparation(value);
