@@ -36,7 +36,8 @@ domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
 
 ## 运行资源身份与销毁
 
-`render_resource.hpp` 定义 `mesh_resource`、`texture_resource`、`material_resource`，
+`engine/resource` 下各资源目录的 `mesh_resource.hpp`、`texture_resource.hpp`、
+`material_resource.hpp` 分别定义同名运行对象，
 分别使用 `mesh`、`texture`、`material`（`asset_ref<const T>`）持有。
 它们与 CPU 负载 `mesh_data`、`texture_data`、`material_data` 是不同类型；
 当前 Loader 的混合请求仍返回缓存条目，`entry::as<T>()` 检查类型并取得同一对象的强引用。
@@ -49,6 +50,7 @@ Mesh/Texture 的 `metadata()` 在 CPU 内容采用后可读；未加载时为空
 
 三类运行对象只能经资源销毁队列构造。最后一个强引用释放只将预分配节点入队，
 所属线程在 Application 资产推进、Loader 缓存清理及关闭时消费；不在队列锁内执行析构。
+队列先释放 Render RID，再析构 CPU 资源对象；资源析构自身不调用 Render。
 材质析构释放纹理强引用产生的后续节点会继续排空。纯 CPU 数据仍使用普通 RAII。
 Application 关闭及资源表析构时排空队列并关闭端点、失效全部槽位；关闭后仍存活的外部引用只销毁无服务依赖的外壳，
 不会调用旧服务。GPU 对象继续由 Render 执行器管理，CPU 销毁队列不替代 GPU 完成同步。

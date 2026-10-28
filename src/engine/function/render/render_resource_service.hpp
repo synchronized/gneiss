@@ -7,16 +7,18 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/rid_table.hpp"
-#include "engine/function/render/render_resource.hpp"
 #include "engine/function/render/render_resource_data.hpp"
 #include "engine/function/render/resource_retirement_queue.hpp"
 #include "engine/function/render/texture_view.hpp"
+#include "engine/resource/material/material_resource.hpp"
+#include "engine/resource/mesh/mesh_resource.hpp"
 
 #include "engine/core/export.hpp"
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <type_traits>
 #include <vector>
 
 namespace gneiss::engine {
@@ -104,8 +106,18 @@ private:
       retirement_ = std::make_unique<resource_retirement_queue>(this);
     return retirement_->make<T>(
         [](T& value, void* owner) noexcept {
-          // 关闭后只析构 CPU 外壳，禁止访问已销毁的服务。
-          value.resources_ = static_cast<render_resource_service*>(owner);
+          // Render 在所属线程释放 RID；资源对象自身只析构 CPU 状态与依赖。
+          // 关闭后的 owner 为空，不再访问服务或失效的资源表。
+          auto* resources = static_cast<render_resource_service*>(owner);
+          if (resources && value.rid_ != null_rid) {
+            if constexpr (std::is_same_v<T, mesh_resource>)
+              (void)resources->destroy_mesh(value.rid_);
+            else if constexpr (std::is_same_v<T, texture_resource>)
+              (void)resources->destroy_texture(value.rid_);
+            else if constexpr (std::is_same_v<T, material_resource>)
+              (void)resources->destroy_material(value.rid_);
+          }
+          value.resources_ = nullptr;
         },
         std::forward<Args>(args)...);
   }

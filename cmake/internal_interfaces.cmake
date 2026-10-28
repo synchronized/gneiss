@@ -83,7 +83,9 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/render/render_asset_preparation.hpp
   engine/function/render/render_executor.hpp
   engine/function/render/render_frame_packet.hpp
-  engine/function/render/render_resource.hpp
+  engine/resource/mesh/mesh_resource.hpp
+  engine/resource/texture/texture_resource.hpp
+  engine/resource/material/material_resource.hpp
   engine/function/render/render_resource_data.hpp
   engine/function/render/render_resource_service.hpp
   engine/function/render/render_snapshot.hpp

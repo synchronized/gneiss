@@ -946,6 +946,37 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
       return 32;
   }
   retained.reset();
+  // 工作线程最后释放材质与网格，由所属线程释放 RID 并级联释放纹理。
+  {
+    using namespace gneiss::engine;
+    render_resource_service local;
+    rid mesh_handle{}, texture_handle{}, material_handle{};
+    if (local.reserve_mesh(&mesh_handle).failed() ||
+        local.reserve_texture(&texture_handle).failed())
+      return 60;
+    auto mesh_ref = local.reference_mesh(mesh_handle);
+    auto texture_ref = local.reference_texture(texture_handle);
+    gneiss::engine::material_data material_data_value;
+    material_data_value.base_color_texture = texture_handle;
+    if (local.create_material(material_data_value, &material_handle).failed())
+      return 61;
+    auto material_ref = local.reference_material(material_handle);
+    if (!mesh_ref || !texture_ref || !material_ref || material_ref->textures()[0] != texture_ref)
+      return 62;
+    texture_ref.reset();
+    std::thread worker(
+        [mesh_ref = std::move(mesh_ref), material_ref = std::move(material_ref)]() mutable {
+          mesh_ref.reset();
+          material_ref.reset();
+        });
+    worker.join();
+    if (local.live_resource_count() != 3U || local.drain_retired_resources() != 3U ||
+        local.live_resource_count() != 0U ||
+        local.mesh_status(mesh_handle) != result::invalid_handle ||
+        local.texture_status(texture_handle) != result::invalid_handle ||
+        local.material_status(material_handle) != result::invalid_handle)
+      return 63;
+  }
   // 显式关闭也立即失效旧句柄；晚释放在任意线程不再访问资源表。
   {
     gneiss::engine::render_resource_service closing;

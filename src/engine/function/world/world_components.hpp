@@ -4,7 +4,8 @@
 #pragma once
 
 #include "engine/core/math/camera.hpp"
-#include "engine/function/render/render_resource.hpp"
+#include "engine/resource/material/material_resource.hpp"
+#include "engine/resource/mesh/mesh_resource.hpp"
 
 namespace gneiss::engine {
 /** 相机参数为纯数据；活动相机只由 World 的实体 ID 决定。 */

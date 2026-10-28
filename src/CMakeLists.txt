@@ -102,8 +102,12 @@ target_sources(
     engine/core/log/log_dispatcher.cpp
     engine/core/log/log_dispatcher.hpp
     engine/core/log/log_types.hpp
-    engine/function/render/render_resource.cpp
-    engine/function/render/render_resource.hpp
+    engine/resource/mesh/mesh_resource.cpp
+    engine/resource/texture/texture_resource.cpp
+    engine/resource/material/material_resource.cpp
+    engine/resource/mesh/mesh_resource.hpp
+    engine/resource/texture/texture_resource.hpp
+    engine/resource/material/material_resource.hpp
     engine/function/render/render_resource_service.cpp
     engine/function/render/render_resource_service.hpp
     engine/function/render/texture_view.hpp
