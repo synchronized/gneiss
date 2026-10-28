@@ -17,7 +17,9 @@ bool pending_resources() {
   using namespace gneiss::engine;
   using gneiss::engine::rid;
   render_service resources;
+  gneiss::engine::render_resource_factory resources_factory{resources};
   render_service foreign;
+  gneiss::engine::render_resource_factory foreign_factory{foreign};
   rid mesh{}, texture{}, material{};
   rid cancelled{};
   if (resources.reserve_mesh(nullptr) != gneiss::engine::result::invalid_argument ||
@@ -40,6 +42,7 @@ bool pending_resources() {
       foreign.mesh_status(mesh) != gneiss::engine::result::invalid_handle) {
     return false;
   }
+  auto texture_ref = reference_texture(resources_factory, texture);
   material_data description;
   description.base_color_texture = mesh;
   if (resources.create_material(description, &material) !=
@@ -51,9 +54,10 @@ bool pending_resources() {
     return false;
   }
   render_snapshot scene;
-  scene.instances.push_back({.mesh = gneiss::engine::reference_mesh(resources, mesh),
-                             .material = gneiss::engine::reference_material(resources, material),
-                             .transform = {}});
+  scene.instances.push_back(
+      {.mesh = gneiss::engine::reference_mesh(resources_factory, mesh),
+       .material = gneiss::engine::reference_material(resources_factory, material),
+       .transform = {}});
   rid pending_material{};
   if (resources.reserve_material(&pending_material) != gneiss::engine::result::success ||
       resources.material_status(pending_material) != gneiss::engine::result::not_ready ||
@@ -63,7 +67,7 @@ bool pending_resources() {
   }
   auto pending_scene = scene;
   pending_scene.instances.front().material =
-      gneiss::engine::reference_material(resources, pending_material);
+      gneiss::engine::reference_material(resources_factory, pending_material);
   render_frame_packet fallback;
   if (capture_render_frame_packet({}, pending_scene, resources, {}, {}, fallback) !=
           gneiss::engine::result::success ||
@@ -150,6 +154,7 @@ int main() {
   }
   using namespace gneiss::engine;
   render_service resources;
+  gneiss::engine::render_resource_factory resources_factory{resources};
   std::vector<std::uint8_t> pixels(64U * 64U * 4U, 1U);
   gneiss::engine::texture_view texture_desc;
   texture_desc.width = 64U;
@@ -172,6 +177,8 @@ int main() {
     return 2;
   }
 
+  auto texture_ref = reference_texture(resources_factory, texture);
+  std::array<gneiss::engine::texture, 4> pbr_refs;
   material_data material_desc;
   material_desc.base_color_texture = texture;
   std::array<gneiss::engine::rid, 4> pbr_textures{};
@@ -179,6 +186,8 @@ int main() {
     if (resources.create_texture(texture_desc, &handle) != gneiss::engine::result::success)
       return 8;
   }
+  for (std::size_t i = 0; i < pbr_refs.size(); ++i)
+    pbr_refs[i] = reference_texture(resources_factory, pbr_textures[i]);
   material_desc.metallic_roughness_texture = pbr_textures[0];
   material_desc.normal_texture = pbr_textures[1];
   material_desc.occlusion_texture = pbr_textures[2];
@@ -190,9 +199,10 @@ int main() {
 
   gneiss::engine::render_snapshot scene;
   scene.has_camera = true;
-  scene.instances.push_back({.mesh = gneiss::engine::reference_mesh(resources, mesh),
-                             .material = gneiss::engine::reference_material(resources, material),
-                             .transform = {}});
+  scene.instances.push_back(
+      {.mesh = gneiss::engine::reference_mesh(resources_factory, mesh),
+       .material = gneiss::engine::reference_material(resources_factory, material),
+       .transform = {}});
   debug_draw_list debug;
   const std::array lines{gneiss::engine::debug_line{.start = {0.0F, 0.0F, 0.0F},
                                                     .end = {1.0F, 0.0F, 0.0F},

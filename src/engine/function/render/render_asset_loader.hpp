@@ -9,6 +9,7 @@
 #include "engine/function/render/render_resource_data.hpp"
 #include "engine/resource/material/material_resource.hpp"
 #include "engine/resource/mesh/mesh_resource.hpp"
+#include "engine/resource/render_resource_factory.hpp"
 #include "engine/resource/resource_cache.hpp"
 
 #include "engine/core/result.hpp"
@@ -104,7 +105,7 @@ public:
   [[nodiscard]] bool owns(const texture& value) const noexcept;
   [[nodiscard]] bool owns(const material& value) const noexcept;
   [[nodiscard]] bool owns(const render_asset_ref& lease) const noexcept;
-  render_asset_loader(asset_manager& assets, render_service& resources) noexcept;
+  render_asset_loader(asset_manager& assets, render_resource_factory& factory) noexcept;
 
   [[nodiscard]] asset_manager& assets() const noexcept { return assets_; }
 
@@ -129,6 +130,7 @@ private:
   texture_prepare_profile default_profile_{};
   resource_cache& cache_;
   render_service& resources_;
+  render_resource_factory& factory_;
 };
 
 } // namespace gneiss::engine

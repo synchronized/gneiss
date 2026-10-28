@@ -14,7 +14,6 @@
 
 namespace gneiss::engine {
 class log_dispatcher;
-class resource_bindings;
 struct render_memory_usage {
   std::uint64_t logical_bytes{};
   std::uint64_t cpu_data_bytes{};
@@ -80,7 +79,6 @@ public:
 
   /** 仅关闭 CPU 资源入口；设备关闭由 shutdown 完成。所属线程调用。 */
   void close_resources() noexcept;
-  std::size_t drain_retired_resources() noexcept;
   /** 所属线程查询；跟踪共享对象，包含仍被旧帧持有的已销毁 RID 数据，不强持有对象。 */
   [[nodiscard]] render_memory_usage memory_usage() const noexcept;
   [[nodiscard]] std::uint64_t available_memory_bytes() const noexcept;
@@ -133,14 +131,12 @@ public:
   [[nodiscard]] std::size_t live_resource_count() const noexcept;
 
 private:
-  friend class resource_bindings;
   struct resource_storage;
   template <typename Resource>
   std::shared_ptr<const Resource> track(std::shared_ptr<const Resource> resource,
                                         std::vector<std::weak_ptr<const Resource>>& history);
-  // 后端先析构，再关闭资源引用端点，最后释放 CPU 表。
+  // 后端先析构，再释放 CPU 内容表；上层资源端点由宿主提前关闭。
   std::unique_ptr<resource_storage> storage_;
-  std::unique_ptr<resource_bindings> bindings_;
   struct implementation;
   std::unique_ptr<implementation> impl_;
 };

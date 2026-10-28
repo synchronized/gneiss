@@ -24,7 +24,7 @@ struct texture_metadata {
   texture_color_space color_space{};
 };
 
-/** 稳定运行身份，与 texture_data 的 CPU 内容寿命分离。由 Render 创建并延迟析构。 */
+/** 稳定运行身份，与 texture_data 的 CPU 内容寿命分离。由资源工厂创建并延迟析构。 */
 class GNEISS_API texture_resource final {
 public:
   [[nodiscard]] const asset_identity& source() const noexcept { return identity_; }

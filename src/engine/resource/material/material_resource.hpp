@@ -16,7 +16,7 @@ namespace detail {
 struct material_resource_access;
 }
 
-/** 稳定运行身份，与 material_data 的 CPU 内容寿命分离。由 Render 创建并延迟析构。 */
+/** 稳定运行身份，与 material_data 的 CPU 内容寿命分离。由资源工厂创建并延迟析构。 */
 class GNEISS_API material_resource final {
 public:
   [[nodiscard]] const asset_identity& source() const noexcept { return identity_; }

@@ -5,17 +5,45 @@
 #include "engine/core/result.hpp"
 #include "engine/resource/material/material_resource.hpp"
 #include "engine/resource/mesh/mesh_resource.hpp"
-#include "engine/resource/texture/texture_resource.hpp"
 #include "engine/resource/texture/texture_view.hpp"
+#include <memory>
 namespace gneiss::engine {
 class render_service;
-/** 所属线程取得 RID 的唯一资源引用；无效 RID 返回空，分配失败抛出 bad_alloc。 */
-[[nodiscard]] GNEISS_API mesh reference_mesh(render_service& render, rid handle);
-/** 所属线程取得 RID 的唯一资源引用；无效 RID 返回空，分配失败抛出 bad_alloc。 */
-[[nodiscard]] GNEISS_API texture reference_texture(render_service& render, rid handle);
-/** 所属线程取得 RID 的唯一资源引用；无效 RID 返回空，分配失败抛出 bad_alloc。 */
-[[nodiscard]] GNEISS_API material reference_material(render_service& render, rid handle);
-/** 程序化纹理入口；复制像素，成功后由强引用负责销毁。 */
-[[nodiscard]] GNEISS_API result create_texture(render_service& render, const texture_view& desc,
-                                               texture& output) noexcept;
+struct mesh_data;
+struct texture_data;
+struct material_data;
+/** 资源层装配上下文；宿主须在 Render 之前关闭/销毁，所有操作限所属线程。
+ * 管理强引用的唯一包装和销毁队列，不管理 URI 缓存或 GPU 对象。 */
+class GNEISS_API render_resource_factory final {
+public:
+  explicit render_resource_factory(render_service& render);
+  ~render_resource_factory();
+  render_resource_factory(const render_resource_factory&) = delete;
+  render_resource_factory& operator=(const render_resource_factory&) = delete;
+  [[nodiscard]] render_service& render() const noexcept;
+  /** 迁移入口：接管调用方创建的 RID；同一工厂复用包装，不允许跨工厂重复接管。 */
+  mesh reference_mesh(rid handle);
+  texture reference_texture(rid handle);
+  material reference_material(rid handle);
+  /** 仅查询现有纹理引用；UI 等借用 RID 的调用方不得创建拥有者。 */
+  texture find_texture(rid handle) const noexcept;
+  /** 提交 CPU 内容后更新上层对象，不等待 GPU；材质依赖由调用方显式提供。 */
+  bool update_mesh(const mesh& target, std::shared_ptr<const mesh_data> data) noexcept;
+  bool update_texture(const texture& target, std::shared_ptr<const texture_data> data) noexcept;
+  bool update_material(const material& target, std::shared_ptr<const material_data> data,
+                       std::array<texture, 5> dependencies) noexcept;
+  result create_texture(const texture_view& desc, texture& output) noexcept;
+  std::size_t drain() noexcept;
+  /** 先排空并断开删除器端点，再销毁仍被引用的 RID；晚释放只析构 CPU 外壳。 */
+  void close() noexcept;
+
+private:
+  struct implementation;
+  std::unique_ptr<implementation> impl_;
+};
+[[nodiscard]] GNEISS_API mesh reference_mesh(render_resource_factory& factory, rid handle);
+[[nodiscard]] GNEISS_API texture reference_texture(render_resource_factory& factory, rid handle);
+[[nodiscard]] GNEISS_API material reference_material(render_resource_factory& factory, rid handle);
+[[nodiscard]] GNEISS_API result create_texture(render_resource_factory& factory,
+                                               const texture_view& desc, texture& output) noexcept;
 } // namespace gneiss::engine

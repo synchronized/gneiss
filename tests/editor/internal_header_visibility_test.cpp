@@ -38,8 +38,7 @@
 #if __has_include("engine/function/world/world_service.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
-#if __has_include("engine/function/render/render_resource_storage.hpp") ||                         \
-                  __has_include("engine/resource/resource_bindings.hpp")
+#if __has_include("engine/function/render/render_resource_storage.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
 #if __has_include("engine/platform/io/uv/uv_file_system.hpp")

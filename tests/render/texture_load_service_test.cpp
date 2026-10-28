@@ -10,6 +10,7 @@
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/material/material_codec.hpp"
+#include "engine/resource/render_resource_factory.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
 #include <algorithm>
 
@@ -158,6 +159,7 @@ void mesh_data_lifetime() {
   auto mesh = std::make_shared<const mesh_data>(std::move(first.assets.front().mesh));
   check(mesh->vertices.data() == vertices);
   render_service resources;
+  gneiss::engine::render_resource_factory resources_factory{resources};
   gneiss::engine::rid rid{};
   check(resources.create_prepared_mesh(mesh, &rid) == gneiss::engine::result::success);
   check(resources.share_mesh(rid) == mesh);
@@ -176,9 +178,10 @@ void independent_update_sequences() {
   check(files.mount("asset://", std::make_shared<memory_files>()) ==
         gneiss::engine::result::success);
   render_service resources;
+  gneiss::engine::render_resource_factory resources_factory{resources};
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   [[maybe_unused]] auto& cache = asset_owner.cache();
-  render_asset_loader loader(asset_owner, resources);
+  render_asset_loader loader(asset_owner, resources_factory);
   const render_asset_reload source_a{"asset://a", render_asset_type::material};
   const render_asset_reload source_b{"asset://b", render_asset_type::material};
   render_asset_ref a, b;
@@ -188,12 +191,12 @@ void independent_update_sequences() {
   check(different.mount("asset://", std::make_shared<memory_files>()) ==
         gneiss::engine::result::success);
   asset_manager isolated_owner(gneiss::test_support::test_files(different));
-  render_asset_loader isolated(isolated_owner, resources);
+  render_asset_loader isolated(isolated_owner, resources_factory);
   render_asset_ref conflict;
   check(isolated.reserve_asset(source_a, conflict) == gneiss::engine::result::success &&
         conflict != a && gneiss::engine::asset_rid(conflict) != gneiss::engine::asset_rid(a));
   check(!isolated.owns(a));
-  render_asset_loader shared(asset_owner, resources);
+  render_asset_loader shared(asset_owner, resources_factory);
   check(shared.reserve_asset(source_a, conflict) == gneiss::engine::result::success &&
         gneiss::engine::asset_rid(conflict) == gneiss::engine::asset_rid(a));
 
@@ -226,9 +229,10 @@ void reserved_material_lifetime() {
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == gneiss::engine::result::success);
   render_service resources;
+  gneiss::engine::render_resource_factory resources_factory{resources};
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   [[maybe_unused]] auto& cache = asset_owner.cache();
-  render_asset_loader loader(asset_owner, resources);
+  render_asset_loader loader(asset_owner, resources_factory);
   const render_asset_reload request{"asset://material", render_asset_type::material};
   render_asset_ref target;
   check(loader.reserve_asset(request, target) == gneiss::engine::result::success);
@@ -254,8 +258,9 @@ void cpu_loading(execution_mode mode) {
           .max_file_bytes = texture_load_service::maximum_bytes});
   check(files->mount({.prefix = "asset://", .readers = {backend}, .writer = {}}).ok());
   render_service resources;
+  gneiss::engine::render_resource_factory resources_factory{resources};
   asset_manager manager(gneiss::test_support::test_files(files));
-  render_asset_loader loader(manager, resources);
+  render_asset_loader loader(manager, resources_factory);
   texture_load_service service(scheduler, loader);
   memory_files fixture;
   fixture.pixel(std::byte{42});

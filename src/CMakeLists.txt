@@ -110,8 +110,7 @@ target_sources(
     engine/resource/material/material_resource.hpp
     engine/function/render/render_service_resources.cpp
     engine/function/render/render_resource_storage.hpp
-    engine/resource/resource_bindings.cpp
-    engine/resource/resource_bindings.hpp
+    engine/resource/render_resource_factory.cpp
     engine/resource/render_resource_factory.hpp
     engine/resource/mesh/detail/mesh_resource_access.hpp
     engine/resource/texture/detail/texture_resource_access.hpp

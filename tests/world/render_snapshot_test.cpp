@@ -37,6 +37,7 @@ int run_host_tests() {
 
 int run_tests() {
   gneiss::engine::render_service resources;
+  gneiss::engine::render_resource_factory resources_factory{resources};
   gneiss::engine::rid mesh_id{}, material_id{};
   if (resources.reserve_mesh(&mesh_id).failed() ||
       resources.reserve_material(&material_id).failed())
@@ -48,8 +49,8 @@ int run_tests() {
   gneiss::scene_node_id mesh_node = gneiss::null_scene_node_id;
   const gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   gneiss::engine::mesh_renderer renderer{
-      .mesh = gneiss::engine::reference_mesh(resources, mesh_id),
-      .material = gneiss::engine::reference_material(resources, material_id)};
+      .mesh = gneiss::engine::reference_mesh(resources_factory, mesh_id),
+      .material = gneiss::engine::reference_material(resources_factory, material_id)};
   gneiss::engine::math::transform mesh_transform = gneiss::engine::math::transform{};
   mesh_transform.translation[0] = 2.0F;
 
@@ -120,14 +121,14 @@ int run_tests() {
   renderer = {};
   if (!world.destroy_entity(mesh_entity) || !world.destroy_entity(added_mesh))
     return 31;
-  if (resources.drain_retired_resources() != 0U || snapshot.instances.empty())
+  if (resources_factory.drain() != 0U || snapshot.instances.empty())
     return 32;
   std::thread release([&] { snapshot = {}; });
   release.join();
-  if (gneiss::engine::reference_mesh(resources, mesh_id) ||
-      gneiss::engine::reference_material(resources, material_id))
+  if (gneiss::engine::reference_mesh(resources_factory, mesh_id) ||
+      gneiss::engine::reference_material(resources_factory, material_id))
     return 33;
-  if (resources.drain_retired_resources() != 2U || resources.live_resource_count() != 0U)
+  if (resources_factory.drain() != 2U || resources.live_resource_count() != 0U)
     return 34;
   return 0;
 }

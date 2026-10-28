@@ -4,7 +4,6 @@
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_resource_storage.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/resource/resource_bindings.hpp"
 
 #include "engine/resource/mesh/mesh_data.hpp"
 
@@ -57,13 +56,11 @@ render_service::resource_storage::resource_storage(std::uint64_t memory_limit)
 
 bool render_service::is_valid() const noexcept { return storage_->domain_ != 0U; }
 void render_service::close_resources() noexcept {
-  bindings_->close();
   storage_->meshes_.close();
   storage_->materials_.close();
   storage_->textures_.close();
   storage_->domain_ = 0U;
 }
-std::size_t render_service::drain_retired_resources() noexcept { return bindings_->drain(); }
 
 engine::result render_service::reserve_mesh(rid* output) noexcept {
   return storage_->meshes_.create(resource_type::mesh, std::shared_ptr<const mesh_data>{}, output);
@@ -277,7 +274,6 @@ bool render_service::replace_mesh(rid rid, std::shared_ptr<const mesh_data> data
   }
   try {
     slot->data = track(std::move(data), storage_->mesh_history_);
-    bindings_->update_mesh(rid, *slot->data);
   } catch (...) {
     return false;
   }
@@ -289,11 +285,7 @@ bool render_service::replace_material(rid rid, std::shared_ptr<const material_da
     return false;
   }
   try {
-    std::array<texture, 5> dependencies;
-    if (!bindings_->prepare_material(rid, *data, dependencies))
-      return false;
     slot->data = track(std::move(data), storage_->material_history_);
-    bindings_->update_material(rid, *slot->data, std::move(dependencies));
   } catch (...) {
     return false;
   }
@@ -302,8 +294,6 @@ bool render_service::replace_material(rid rid, std::shared_ptr<const material_da
 
 engine::result render_service::destroy_mesh(rid mesh) noexcept {
   const auto status = storage_->meshes_.destroy(mesh, resource_type::mesh);
-  if (status.ok())
-    bindings_->forget_mesh(mesh);
   return status;
 }
 
@@ -371,8 +361,6 @@ engine::result render_service::create_material(const material_data& value, rid* 
 
 engine::result render_service::destroy_material(rid material) noexcept {
   const auto status = storage_->materials_.destroy(material, resource_type::material);
-  if (status.ok())
-    bindings_->forget_material(material);
   return status;
 }
 
@@ -487,8 +475,6 @@ engine::result render_service::create_packaged_texture(texture_data resource,
 
 engine::result render_service::destroy_texture(rid texture) noexcept {
   const auto status = storage_->textures_.destroy(texture, resource_type::texture);
-  if (status.ok())
-    bindings_->forget_texture(texture);
   return status;
 }
 
@@ -500,7 +486,6 @@ bool render_service::replace_texture(rid texture,
   }
   try {
     slot->data = track(std::move(prepared), storage_->texture_history_);
-    bindings_->update_texture(texture, *slot->data);
   } catch (...) {
     return false;
   }

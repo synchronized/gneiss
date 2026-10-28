@@ -53,11 +53,12 @@ void render_asset_loader::release_unused() noexcept {
   // 析构材质才会释放其纹理依赖，消费后重新扫描统一缓存。
   do {
     cache_.release_unused();
-  } while (resources_.drain_retired_resources() != 0U);
+  } while (factory_.drain() != 0U);
 }
 
-render_asset_loader::render_asset_loader(asset_manager& assets, render_service& resources) noexcept
-    : assets_(assets), cache_(assets.cache()), resources_(resources) {}
+render_asset_loader::render_asset_loader(asset_manager& assets,
+                                         render_resource_factory& factory) noexcept
+    : assets_(assets), cache_(assets.cache()), resources_(factory.render()), factory_(factory) {}
 
 render_asset_type asset_kind(const render_asset_ref& asset) noexcept {
   if (asset) {
@@ -251,7 +252,11 @@ engine::result render_asset_loader::reserve_asset(const render_asset_reload& sou
             result = resources_.reserve_mesh(&handle);
             if (result.ok()) {
               try {
-                auto value = gneiss::engine::reference_mesh(resources_, handle);
+                auto value = gneiss::engine::reference_mesh(factory_, handle);
+                if (!value) {
+                  (void)resources_.destroy_mesh(handle);
+                  return engine::result::invalid_state;
+                }
                 detail::mesh_resource_access::set_source(*value, identity);
                 resource = value.shared();
               } catch (...) {
@@ -266,7 +271,11 @@ engine::result render_asset_loader::reserve_asset(const render_asset_reload& sou
             result = resources_.reserve_texture(&handle);
             if (result.ok()) {
               try {
-                auto value = gneiss::engine::reference_texture(resources_, handle);
+                auto value = gneiss::engine::reference_texture(factory_, handle);
+                if (!value) {
+                  (void)resources_.destroy_texture(handle);
+                  return engine::result::invalid_state;
+                }
                 detail::texture_resource_access::set_source(*value, identity);
                 resource = value.shared();
               } catch (...) {
@@ -281,7 +290,11 @@ engine::result render_asset_loader::reserve_asset(const render_asset_reload& sou
             result = resources_.reserve_material(&handle);
             if (result.ok()) {
               try {
-                auto value = gneiss::engine::reference_material(resources_, handle);
+                auto value = gneiss::engine::reference_material(factory_, handle);
+                if (!value) {
+                  (void)resources_.destroy_material(handle);
+                  return engine::result::invalid_state;
+                }
                 detail::material_resource_access::set_source(*value, identity);
                 resource = value.shared();
               } catch (...) {
@@ -389,19 +402,21 @@ engine::result render_asset_loader::apply_update(asset_update& upload) noexcept 
   if (!owns(upload.target) || update_sequence(upload.target) != upload.sequence) {
     return engine::result::invalid_state;
   }
-  const auto rid = asset_rid(upload.target);
   if (upload.data.mesh) {
-    return resources_.replace_mesh(rid, upload.data.mesh) ? engine::result::success
-                                                          : engine::result::out_of_memory;
+    return factory_.update_mesh(asset_cast<mesh_resource>(upload.target), upload.data.mesh)
+               ? engine::result::success
+               : engine::result::out_of_memory;
   }
   if (upload.data.texture) {
-    return resources_.replace_texture(rid, upload.data.texture) ? engine::result::success
-                                                                : engine::result::out_of_memory;
+    return factory_.update_texture(asset_cast<texture_resource>(upload.target), upload.data.texture)
+               ? engine::result::success
+               : engine::result::out_of_memory;
   }
   if (!upload.data.material) {
     return engine::result::invalid_argument;
   }
-  if (!resources_.replace_material(rid, upload.data.material)) {
+  if (!factory_.update_material(asset_cast<material_resource>(upload.target), upload.data.material,
+                                upload.dependencies)) {
     return engine::result::out_of_memory;
   }
   return engine::result::success;

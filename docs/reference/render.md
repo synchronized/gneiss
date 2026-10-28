@@ -7,9 +7,13 @@
 
 Mesh、Material 和 Texture 的 CPU 内容表由 Application 的 `render_service` 私有实现拥有。
 调用方通过 `application::render()` 使用 RID 接口，不能借用资源表。
-运行身份、元信息与材质依赖由资源层维护，强引用入口为 `reference_mesh/texture/material(render, rid)`；
-程序化纹理可用 `create_texture(render, texture_view, texture&)` 直接取得强引用。
-这些装配函数声明在 `engine/resource/render_resource_factory.hpp`；资源对象头不再声明 Render 服务类型。
+运行身份、元信息与材质依赖由 Application 的 `render_resource_factory` 维护，
+通过 `application::resource_factory()` 借用，程序化纹理使用 `create_texture(factory, texture_view, texture&)`。
+迁移期 `reference_mesh/texture/material(factory, rid)` 接管调用方创建的 RID，同一工厂复用同一包装，
+每个 Render 只装配一个工厂，不得重复接管；普通文件加载继续使用统一 URI 缓存。
+接管既有材质 RID 时，其纹理必须已有强引用；缺失时返回空，不隐式接管纹理。
+UI 使用 `factory.find_texture(rid)` 仅查询已有引用，缺失返回空，不隐式建立资源拥有者。
+这些接口声明在 `engine/resource/render_resource_factory.hpp`；资源对象头不声明 Render 服务类型。
 原生 `render_service::create_mesh(mesh_view, ...)` 会在调用
 期间复制顶点、可选法线、切线、UV1、顶点色及可选 UInt32 索引；调用返回后，调用方可以立即释放源数据。Mesh 至少需要
 三个有限值顶点。索引非空时数量必须至少为三个且为三的倍数，所有索引必须小于顶点数；索引为空时
@@ -136,8 +140,12 @@ GPU 失败不改变已经成功的 CPU 加载结果。UI 首次纹理未上传�
 ## 渲染服务对象边界
 
 Application 拥有 `engine::render_service`，用于设备初始化、帧/上传提交、完成回收及关闭。
-RID 表位于私有 `resource_storage`，仅保存渲染内容；资源层的 `resource_bindings` 接管原表的
-弱引用身份关联、元信息更新、材质依赖及销毁队列，不增加 URI 缓存。两者由服务生命周期统一关闭。
+RID 表位于私有 `resource_storage`，仅保存渲染内容。资源工厂独立持有弱引用身份关联和销毁队列。
+Loader 通过工厂更新资源：先提交 Render CPU 内容，成功后更新上层元信息和显式传入的纹理强引用。
+Render 不查找或修改上层资源；直接调用 RID 更新接口只改变渲染端数据。
+宿主每帧消费工厂销毁队列；关闭时先停止加载和释放场景/缓存，再关闭工厂，最后关闭 Render。
+工厂关闭会释放仍被上层引用的 RID 并断开删除器端点，残留引用晚释放只析构 CPU 外壳。
+独立使用时 Render 必须覆盖工厂的生命周期；不再由 Render 自动关闭上层资源端点。
 Application、Loader、UI 和帧构建使用 `render_service` 的 RID 操作及只读数据查询。
 仅构造服务和操作 CPU 资源不会初始化 GPU；无窗口路径调用 shutdown 可关闭资源，重复关闭成功。
 `render_service.hpp` 不包含 Granit 头文件，也不暴露 Granit 类型；后端状态放在 `.cpp` 的 PImpl 中。

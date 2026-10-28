@@ -155,10 +155,12 @@ void run_pending_resources() {
   auto native = app;
   check(native != nullptr);
   auto& resources = native->render();
+  auto& resources_factory = native->resource_factory();
   gneiss::engine::rid mesh{};
   gneiss::engine::rid texture{};
   check(resources.reserve_mesh(&mesh) == gneiss::engine::result::success);
   check(resources.reserve_texture(&texture) == gneiss::engine::result::success);
+  auto texture_ref = gneiss::engine::reference_texture(resources_factory, texture);
   gneiss::engine::material_data material_desc;
   material_desc.parameters.color[0] = material_desc.parameters.color[1] =
       material_desc.parameters.color[2] = 0.0F;
@@ -173,8 +175,8 @@ void run_pending_resources() {
         gneiss::engine::result::success);
   check(gneiss::has_flags(info.component_flags, gneiss::scene_node_components::mesh_renderer));
   const gneiss::engine::mesh_renderer binding{
-      .mesh = gneiss::engine::reference_mesh(resources, mesh),
-      .material = gneiss::engine::reference_material(resources, material)};
+      .mesh = gneiss::engine::reference_mesh(resources_factory, mesh),
+      .material = gneiss::engine::reference_material(resources_factory, material)};
   check(gneiss::engine::result{native->native_world()->entity_set_mesh_renderer(
             info.entity, binding)} == gneiss::engine::result::success);
   const auto pixel = [&] {

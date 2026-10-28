@@ -82,6 +82,7 @@ int main() {
     return 1;
   }
   auto& resources = application->render();
+  auto& resources_factory = application->resource_factory();
   constexpr std::array vertices{
       native::mesh_vertex{.position = {-0.6F, -0.5F, 0.0F}, .uv = {0.0F, 0.0F}},
       native::mesh_vertex{.position = {0.6F, -0.5F, 0.0F}, .uv = {1.0F, 0.0F}},
@@ -104,7 +105,7 @@ int main() {
     std::fprintf(stderr, "测试 Texture 创建失败\n");
     return 2;
   }
-  context.texture = gneiss::engine::reference_texture(resources, texture);
+  context.texture = gneiss::engine::reference_texture(resources_factory, texture);
 #ifdef _WIN32
   // 投递真实窗口消息，验证显式事件泵送及原生输入事件传递。
   const auto window = FindWindowW(nullptr, L"Gneiss Granit Platform Smoke Test");
@@ -138,12 +139,12 @@ int main() {
   entity_id camera_entity{}, mesh_entity{}, plain_mesh_entity{};
   scene_node_id camera_node{}, mesh_node{}, plain_mesh_node{};
   const native::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  native::mesh_renderer mesh_renderer{.mesh = gneiss::engine::reference_mesh(resources, mesh),
-                                      .material =
-                                          gneiss::engine::reference_material(resources, material)};
+  native::mesh_renderer mesh_renderer{
+      .mesh = gneiss::engine::reference_mesh(resources_factory, mesh),
+      .material = gneiss::engine::reference_material(resources_factory, material)};
   native::mesh_renderer plain_mesh_renderer{
-      .mesh = gneiss::engine::reference_mesh(resources, mesh),
-      .material = gneiss::engine::reference_material(resources, plain_material)};
+      .mesh = gneiss::engine::reference_mesh(resources_factory, mesh),
+      .material = gneiss::engine::reference_material(resources_factory, plain_material)};
   native::math::transform camera_transform;
   camera_transform.translation[2] = 2.0F;
   native::math::transform near_transform;
@@ -176,8 +177,8 @@ int main() {
       resources.create_mesh(mesh_desc, &replacement_mesh).failed()) {
     return 5;
   }
-  mesh_renderer.mesh = gneiss::engine::reference_mesh(resources, replacement_mesh);
-  plain_mesh_renderer.mesh = gneiss::engine::reference_mesh(resources, replacement_mesh);
+  mesh_renderer.mesh = gneiss::engine::reference_mesh(resources_factory, replacement_mesh);
+  plain_mesh_renderer.mesh = gneiss::engine::reference_mesh(resources_factory, replacement_mesh);
   if (world.entity_set_mesh_renderer(mesh_entity, mesh_renderer).failed() ||
       world.entity_set_mesh_renderer(plain_mesh_entity, plain_mesh_renderer).failed()) {
     return 6;

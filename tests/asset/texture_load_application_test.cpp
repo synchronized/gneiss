@@ -184,8 +184,8 @@ void run(gneiss::engine::execution_mode mode) {
   check(app->render().reserve_mesh(&external_mesh).ok());
   check(app->render().reserve_material(&external_material).ok());
   const gneiss::engine::mesh_renderer external{
-      gneiss::engine::reference_mesh(app->render(), external_mesh),
-      gneiss::engine::reference_material(app->render(), external_material)};
+      gneiss::engine::reference_mesh(app->resource_factory(), external_mesh),
+      gneiss::engine::reference_material(app->resource_factory(), external_material)};
   check(gneiss::engine::result{app->native_world()->entity_set_mesh_renderer(
             node.entity, external)} == gneiss::engine::result::success);
   wait();

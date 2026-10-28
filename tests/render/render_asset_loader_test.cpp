@@ -277,6 +277,7 @@ void selected_variants() {
   const std::array requests{
       render_asset_reload{.uri = "asset://t.texture.json", .type = render_asset_type::texture}};
   render_service resources;
+  gneiss::engine::render_resource_factory resources_factory{resources};
   auto& scheduler = gneiss::test_support::render_tasks();
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   asset_owner.attach_task_executor(scheduler);
@@ -289,7 +290,7 @@ void selected_variants() {
   const auto* prepared_payload = batch.assets.front().texture.payload.data();
   const auto* prepared_manifest = batch.assets.front().texture.manifest.data();
 
-  render_asset_loader loader(asset_owner, resources);
+  render_asset_loader loader(asset_owner, resources_factory);
   std::array<render_asset_loader::asset_update, 1> candidate;
   require(loader.prepare_update(std::move(batch.assets.front()), candidate.front()) ==
           gneiss::engine::result::success);
@@ -393,6 +394,7 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
     return true;
   };
   render_service resources;
+  gneiss::engine::render_resource_factory resources_factory{resources};
   auto& scheduler = gneiss::test_support::render_tasks();
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   asset_owner.attach_task_executor(scheduler);
@@ -400,7 +402,7 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
   auto decoder = std::make_shared<counting_material_decoder>();
   if (asset_owner.register_decoder(decoder).failed())
     return false;
-  render_asset_loader loader(asset_owner, resources);
+  render_asset_loader loader(asset_owner, resources_factory);
   asset_diagnostic diagnostic;
   render_asset_ref loaded;
   if (gneiss::test_support::load_render(loader, gneiss::engine::render_asset_type::material,
@@ -526,13 +528,14 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
 
   gneiss::test_support::fixture_files file_system;
   gneiss::engine::render_service resources;
+  gneiss::engine::render_resource_factory resources_factory{resources};
   if (file_system.mount("asset://", memory).failed())
     return 1;
   auto& scheduler = gneiss::test_support::render_tasks();
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(file_system));
   asset_owner.attach_task_executor(scheduler);
   [[maybe_unused]] auto& cache = asset_owner.cache();
-  gneiss::engine::render_asset_loader loader(asset_owner, resources);
+  gneiss::engine::render_asset_loader loader(asset_owner, resources_factory);
 
   {
     auto parameter_files = std::make_shared<memory_file_system>();
@@ -652,7 +655,8 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   // 同一资产管理器/来源下，归属只由 RID domain/type/generation 判定。
   {
     gneiss::engine::render_service other_render;
-    gneiss::engine::render_asset_loader other_loader(asset_owner, other_render);
+    gneiss::engine::render_resource_factory other_render_factory{other_render};
+    gneiss::engine::render_asset_loader other_loader(asset_owner, other_render_factory);
     const auto mesh_ref = first_mesh->as<gneiss::engine::mesh_resource>();
     const auto texture_ref = first_texture->as<gneiss::engine::texture_resource>();
     const auto material_ref = material->as<gneiss::engine::material_resource>();
@@ -938,7 +942,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   gneiss::engine::render_asset_ref retained;
   {
     gneiss::engine::asset_manager temporary_assets(gneiss::test_support::test_files(file_system));
-    gneiss::engine::render_asset_loader temporary_loader(temporary_assets, resources);
+    gneiss::engine::render_asset_loader temporary_loader(temporary_assets, resources_factory);
     if (gneiss::test_support::load_render(temporary_loader, gneiss::engine::render_asset_type::mesh,
                                           "asset://models/triangle.mesh.json", retained,
                                           diagnostic) != gneiss::engine::result::success)
@@ -947,14 +951,16 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   const auto retained_rid = gneiss::engine::asset_rid(retained);
   retained.reset();
   if (resources.mesh_status(retained_rid) != gneiss::engine::result::success ||
-      resources.drain_retired_resources() != 1U ||
+      resources_factory.drain() != 1U ||
       resources.mesh_status(retained_rid) != gneiss::engine::result::invalid_handle)
     return 31;
   // 服务先销毁时外部引用只能释放 CPU 外壳，不再解引用服务裸指针。
   {
     gneiss::engine::render_service temporary_resources;
+    gneiss::engine::render_resource_factory temporary_resources_factory{temporary_resources};
     gneiss::engine::asset_manager temporary_assets(gneiss::test_support::test_files(file_system));
-    gneiss::engine::render_asset_loader temporary_loader(temporary_assets, temporary_resources);
+    gneiss::engine::render_asset_loader temporary_loader(temporary_assets,
+                                                         temporary_resources_factory);
     if (gneiss::test_support::load_render(temporary_loader, gneiss::engine::render_asset_type::mesh,
                                           "asset://models/triangle.mesh.json", retained,
                                           diagnostic) != gneiss::engine::result::success)
@@ -965,17 +971,18 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   {
     using namespace gneiss::engine;
     render_service local;
+    gneiss::engine::render_resource_factory local_factory{local};
     rid mesh_handle{}, texture_handle{}, material_handle{};
     if (local.reserve_mesh(&mesh_handle).failed() ||
         local.reserve_texture(&texture_handle).failed())
       return 60;
-    auto mesh_ref = gneiss::engine::reference_mesh(local, mesh_handle);
-    auto texture_ref = gneiss::engine::reference_texture(local, texture_handle);
+    auto mesh_ref = gneiss::engine::reference_mesh(local_factory, mesh_handle);
+    auto texture_ref = gneiss::engine::reference_texture(local_factory, texture_handle);
     gneiss::engine::material_data material_data_value;
     material_data_value.base_color_texture = texture_handle;
     if (local.create_material(material_data_value, &material_handle).failed())
       return 61;
-    auto material_ref = gneiss::engine::reference_material(local, material_handle);
+    auto material_ref = gneiss::engine::reference_material(local_factory, material_handle);
     if (!mesh_ref || !texture_ref || !material_ref || material_ref->textures()[0] != texture_ref)
       return 62;
     texture_ref.reset();
@@ -985,10 +992,10 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
           material_ref.reset();
         });
     worker.join();
-    if (gneiss::engine::reference_mesh(local, mesh_handle) ||
-        gneiss::engine::reference_material(local, material_handle))
+    if (gneiss::engine::reference_mesh(local_factory, mesh_handle) ||
+        gneiss::engine::reference_material(local_factory, material_handle))
       return 65;
-    if (local.live_resource_count() != 3U || local.drain_retired_resources() != 3U ||
+    if (local.live_resource_count() != 3U || local_factory.drain() != 3U ||
         local.live_resource_count() != 0U ||
         local.mesh_status(mesh_handle) != result::invalid_handle ||
         local.texture_status(texture_handle) != result::invalid_handle ||
@@ -998,20 +1005,22 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   // 显式关闭也立即失效旧句柄；晚释放在任意线程不再访问资源表。
   {
     gneiss::engine::render_service closing;
+    gneiss::engine::render_resource_factory closing_factory{closing};
     gneiss::engine::rid handle{};
     if (closing.reserve_mesh(&handle).failed())
       return 38;
-    auto reference = gneiss::engine::reference_mesh(closing, handle);
+    auto reference = gneiss::engine::reference_mesh(closing_factory, handle);
+    closing_factory.close();
     gneiss::engine::render_device_stats stats{};
     if (closing.texture_profile().generation != 0U || closing.shutdown(stats).failed() ||
         stats.total_live_count != 0U || closing.shutdown(stats).failed())
       return 64;
     if (closing.is_valid() || closing.live_resource_count() ||
-        gneiss::engine::reference_mesh(closing, handle))
+        gneiss::engine::reference_mesh(closing_factory, handle))
       return 39;
     std::thread late([resource = std::move(reference)]() mutable { resource.reset(); });
     late.join();
-    if (closing.drain_retired_resources() != 0U)
+    if (closing_factory.drain() != 0U)
       return 40;
   }
   return 0;

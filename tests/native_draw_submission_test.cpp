@@ -100,7 +100,7 @@ int main() {
   if (app->render().create_texture(texture, &handle).failed()) {
     return 2;
   }
-  context.texture = gneiss::engine::reference_texture(app->render(), handle);
+  context.texture = gneiss::engine::reference_texture(app->resource_factory(), handle);
   if (app->submit_debug_draw_list({}) != gneiss::engine::result::invalid_state ||
       app->submit_ui_draw_list({}) != gneiss::engine::result::invalid_state) {
     return 3;

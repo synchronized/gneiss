@@ -270,3 +270,18 @@ Windows Clang Debug 全量构建、无 Granit Engine 构建、完整 CTest 190/1
 - [O3DE 材质资产与运行实例](https://docs.o3de.org/docs/atom-guide/look-dev/materials/material-system/)
 
 外部 master/development 文档可能变化，仅作为设计依据，不作为 Gneiss 当前功能承诺。
+
+## 资源工厂与渲染服务解耦补充
+
+已确认：Render 不拥有资源工厂，不回调上层对象；Application 分别持有二者。
+本轮范围是纠正创建、更新和关闭的调用方向，不增加流送、内容版本或事务。
+
+- [x] 删除 resource_bindings，资源工厂独立持有包装与销毁端点。
+- [x] Loader 更新显式传入材质依赖，Render 不再从 RID 重建资源引用。
+- [x] UI 只查询已有纹理；明确工厂先关闭、Render 后关闭及晚释放行为。
+- [x] 编译并验证元信息更新、错误依赖拒绝、跨服务、跨线程及关闭边界。
+
+迁移期显式接管既有 RID 的入口和弱引用索引暂保留；普通文件加载的 URI 缓存不变。
+完全撤销接管入口需要同步调整程序化资源调用方，不是 Render 反向依赖的保留理由。
+
+本轮 Windows Clang Debug 编译与 18 项相关测试通过；详见[边界验收补充](../records/2026-10-28-render-resource-boundary.md)。

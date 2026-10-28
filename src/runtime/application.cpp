@@ -57,6 +57,7 @@ struct application::storage {
   runtime::application_configuration config_;
   std::unique_ptr<gneiss::engine::render_service> render_service_ =
       std::make_unique<gneiss::engine::render_service>();
+  engine::render_resource_factory resource_factory_{*render_service_};
   gneiss::engine::ui_draw_list ui_draw_list_;
   gneiss::engine::debug_draw_list debug_draw_list_;
   std::optional<gneiss::engine::view_camera> view_camera_;
@@ -383,7 +384,7 @@ gneiss::engine::result application::initialize() noexcept {
   try {
     storage_->asset_manager_ = std::make_unique<gneiss::engine::asset_manager>(storage_->files_);
     storage_->render_assets_ = std::make_unique<gneiss::engine::render_asset_loader>(
-        *storage_->asset_manager_, *storage_->render_service_);
+        *storage_->asset_manager_, storage_->resource_factory_);
     const auto result =
         storage_->scene_service_.initialize(*storage_->asset_manager_, *storage_->render_assets_);
     if (result != gneiss::engine::result::success) {
@@ -961,6 +962,7 @@ gneiss::engine::result application::shutdown() noexcept {
     }
     storage_->platform_initialized_ = false;
   }
+  storage_->resource_factory_.close();
   if (storage_->window_service_ != nullptr) {
     const auto render_stats = storage_->render_service_->query_performance_stats();
     gneiss::engine::render_device_stats stats;
@@ -1283,7 +1285,7 @@ gneiss::engine::result application::advance_resource_io() {
 void application::advance_scene_load() {
   if (advance_resource_io().failed())
     return;
-  (void)storage_->render_service_->drain_retired_resources();
+  (void)storage_->resource_factory_.drain();
   storage_->scene_service_.advance();
   report_visual_completion();
 }
@@ -1321,6 +1323,10 @@ bool application::accepts_requests() const noexcept {
 
 gneiss::engine::world* application::native_world() const noexcept {
   return storage_->scene_service_.native_world();
+}
+
+engine::render_resource_factory& application::resource_factory() noexcept {
+  return storage_->resource_factory_;
 }
 
 gneiss::engine::render_service& application::render() noexcept {

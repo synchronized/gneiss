@@ -13,6 +13,7 @@
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include "engine/resource/asset_manager.hpp"
+#include "engine/resource/render_resource_factory.hpp"
 #include "engine/resource/resource_cache.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 
@@ -193,13 +194,14 @@ int main() try {
 
   gneiss::test_support::fixture_files file_system;
   gneiss::engine::render_service resources;
+  gneiss::engine::render_resource_factory resources_factory{resources};
   if (file_system.mount("asset://prefabs/", std::make_shared<memory_file_system>()) !=
       gneiss::engine::result::success) {
     return 3;
   }
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(file_system));
   [[maybe_unused]] auto& cache = asset_owner.cache();
-  gneiss::engine::render_asset_loader render_loader(asset_owner, resources);
+  gneiss::engine::render_asset_loader render_loader(asset_owner, resources_factory);
   auto& prefab_loader = asset_owner;
   gneiss::engine::prefab_asset_ref first_lease;
   gneiss::engine::prefab_asset_ref second_lease;

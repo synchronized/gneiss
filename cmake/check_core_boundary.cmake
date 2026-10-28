@@ -16,7 +16,7 @@ endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
   if(content MATCHES "engine/resource/(mesh|texture|material)/detail/[a-z_]+_resource_access[.]hpp" AND
-      NOT source MATCHES "/src/engine/(resource/((mesh|texture|material)/[a-z_]+_resource|resource_bindings)|function/render/render_asset_loader)[.]cpp$")
+      NOT source MATCHES "/src/engine/(resource/((mesh|texture|material)/[a-z_]+_resource|render_resource_factory)|function/render/render_asset_loader)[.]cpp$")
     message(FATAL_ERROR "资源私有访问器不得泄漏到普通调用方：${source}")
   endif()
 
@@ -24,9 +24,9 @@ foreach(source IN LISTS sources)
       NOT source MATCHES "/src/engine/function/render/(render_service|render_service_resources)[.]cpp$")
     message(FATAL_ERROR "Render 私有 RID 表不得泄漏到调用方：${source}")
   endif()
-  if(content MATCHES "engine/resource/resource_bindings[.]hpp" AND
-      NOT source MATCHES "/src/engine/(resource/resource_bindings|function/render/(render_service|render_service_resources))[.]cpp$")
-    message(FATAL_ERROR "资源身份关联只能由资源装配与 Render 生命周期实现访问：${source}")
+  if(source MATCHES "/src/engine/function/render/render_service(_resources)?[.](cpp|hpp)$" AND
+      content MATCHES "resource_bindings|render_resource_factory|resource_retirement_queue|resource_access")
+    message(FATAL_ERROR "Render 服务不得反向管理上层资源对象：${source}")
   endif()
 
   if(content MATCHES "#[ \t]*include[ \t]*[<\"]caors/|::caors::")
@@ -196,7 +196,7 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "Render 不得反向包含 World / Scene / Application：${source}")
   endif()
   set(resource_dependencies "${content}")
-  if(source MATCHES "/src/engine/resource/resource_bindings[.]cpp$")
+  if(source MATCHES "/src/engine/resource/render_resource_factory[.]cpp$")
     string(REPLACE "engine/function/render/render_service.hpp" "allowed_render_service_api"
       resource_dependencies "${resource_dependencies}")
   endif()

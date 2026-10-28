@@ -666,7 +666,7 @@ foreach(header IN ITEMS engine/resource/texture/texture_ktx2.hpp engine/resource
 endforeach()
 
 # Render 只开放服务接口，不开放 RID 表与引用关联实现。
-foreach(header IN ITEMS "engine/function/render/render_resource_storage.hpp" "engine/resource/resource_bindings.hpp"
+foreach(header IN ITEMS "engine/function/render/render_resource_storage.hpp"
     "engine/resource/texture/detail/texture_resource_access.hpp"
     "engine/resource/mesh/detail/mesh_resource_access.hpp"
     "engine/resource/material/detail/material_resource_access.hpp")
@@ -679,3 +679,17 @@ foreach(header IN ITEMS "engine/function/render/render_resource_storage.hpp" "en
   endif()
 endforeach()
 file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "// 已清理私有头探针\n")
+
+# Render 服务不得重新接管上层资源或销毁队列。
+foreach(header IN ITEMS "engine/resource/render_resource_factory.hpp"
+    "engine/resource/resource_retirement_queue.hpp"
+    "engine/resource/texture/detail/texture_resource_access.hpp")
+  file(WRITE "${fixture}/src/engine/function/render/render_service_resources.cpp" "#include <${header}>\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "边界检查未拒绝 Render 反向包含 ${header}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/function/render/render_service_resources.cpp" "// 已清理反向依赖探针\n")

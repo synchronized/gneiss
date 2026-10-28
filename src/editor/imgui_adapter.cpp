@@ -235,7 +235,7 @@ gneiss::engine::result imgui_adapter::initialize(runtime::application& applicati
   texture_desc.row_stride_bytes = texture_desc.width * 4U;
   texture_desc.pixels = premultiplied;
   const auto result =
-      gneiss::engine::create_texture(application.render(), texture_desc, font_texture_);
+      gneiss::engine::create_texture(application.resource_factory(), texture_desc, font_texture_);
   if (result.failed())
     return result;
   io.Fonts->SetTexID(static_cast<ImTextureID>(gneiss::engine::resource_handle(font_texture_)));
@@ -375,7 +375,7 @@ gneiss::engine::result imgui_adapter::submit(runtime::application& application) 
       }
       const auto texture = static_cast<gneiss::engine::rid>(command.GetTexID());
       gneiss::engine::ui_draw_command converted{};
-      converted.texture = gneiss::engine::reference_texture(application.render(), texture);
+      converted.texture = application.resource_factory().find_texture(texture);
       converted.clip_min[0] = command.ClipRect.x - draw_data->DisplayPos.x;
       converted.clip_min[1] = command.ClipRect.y - draw_data->DisplayPos.y;
       converted.clip_max[0] = command.ClipRect.z - draw_data->DisplayPos.x;

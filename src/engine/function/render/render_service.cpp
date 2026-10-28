@@ -13,7 +13,6 @@
 #include "engine/function/render/render_resource_storage.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/platform/native_window_info.hpp"
-#include "engine/resource/resource_bindings.hpp"
 #include <array>
 #include <atomic>
 #include <deque>
@@ -1605,7 +1604,6 @@ render_service::implementation::execute_frame(render_frame_packet& packet,
 
 render_service::render_service(std::uint64_t memory_limit)
     : storage_(std::make_unique<resource_storage>(memory_limit)),
-      bindings_(std::make_unique<resource_bindings>(*this)),
       impl_(std::make_unique<implementation>()) {}
 render_service::~render_service() {
   impl_.reset();
