@@ -44,17 +44,4 @@ struct material_data {
   }
 };
 
-struct texture_data {
-  std::uint32_t width;
-  std::uint32_t height;
-  texture_format format;
-  texture_color_space color_space;
-  std::vector<texture_mip> levels;
-  std::vector<std::byte> manifest;
-  std::vector<std::byte> payload;
-  /** profile 非零时 payload 从选中变体起点开始，不含其他变体。 */
-  texture_prepare_profile profile{};
-  std::uint32_t selected_variant{UINT32_MAX};
-};
-
 } // namespace gneiss::engine

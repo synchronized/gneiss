@@ -240,7 +240,7 @@ void selected_variants() {
                                            .sampled_transfer_formats = {true, true, true, true}};
   const texture_prepare_profile fallback{.generation = 2U,
                                          .sampled_transfer_formats = {true, true, false, false}};
-  gneiss::engine::prepared_texture_data texture;
+  gneiss::engine::texture_data texture;
   asset_diagnostic diagnostic;
   const auto limit = built.manifest().size() + bc.size();
   require(gneiss::test_support::decode_texture_fixture(
@@ -602,7 +602,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   // 同步与任务准备共用解析；准备阶段不得触碰缓存或 RID。
   const auto before_resources = resources.live_resource_count();
   const auto before_cache = cache.size();
-  gneiss::engine::prepared_texture_data prepared;
+  gneiss::engine::texture_data prepared;
   for (const auto* uri :
        {"asset://textures/white.texture.json", "asset://textures/linear.texture.json",
         "asset://textures/packaged.texture.json"}) {

@@ -53,7 +53,7 @@ struct prepared_asset {
   /** 描述在首位，纹理负载在其后；材质的资产依赖仍由 texture_uris 表示。 */
   std::vector<prepared_source> sources;
   mesh_data mesh;
-  prepared_texture_data texture{};
+  texture_data texture{};
   material_parameters material{};
   std::array<std::string, 5> texture_uris;
   std::size_t bytes{};

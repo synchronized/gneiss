@@ -29,7 +29,7 @@ SceneService 已删除不再使用的 VFS 副本。
 | scene_description | 对象、Prefab 实例列表、UUID、源版本和 author_json | 已注册专用读写，保留格式及未知字段能力 |
 | prefab_description | 对象、依赖列表、UUID、源版本和 author_json | 已接入统一加载，保留单根约束和依赖校验 |
 | mesh_data | 拥有顶点、索引及可选属性数组 | 保留专用二进制 codec，不逐顶点装入 value |
-| prepared_texture_data | 解码/准备数据、设备配置、选中变体及 payload_source | 准备结果不是完整持久化描述，不将整个对象序列化 |
+| texture_data | 解码、加载与渲染共用的 CPU 数据，包含 Mip 或容器负载、设备配置与选中变体 | 不是完整持久化描述，不将整个对象序列化 |
 | mesh_view | 借用数组视图 | 不作为独立持久化资源 |
 | RID、asset_ref、GPU/World 对象 | 运行期身份与所有权 | 不保存地址、控制块、GPU 句柄；依赖在文件中表达为 URI/稳定身份 |
 

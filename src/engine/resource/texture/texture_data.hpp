@@ -8,7 +8,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <vector>
 
 namespace gneiss::engine {
@@ -27,8 +26,9 @@ struct texture_prepare_profile {
   bool operator==(const texture_prepare_profile&) const = default;
 };
 
-/** 准备阶段拥有的 CPU 数据；没有上传回执或已发布资源引用。 */
-struct prepared_texture_data {
+/** 解码、加载与渲染共用的 CPU 纹理数据；不含 GPU 对象或上传状态。
+ * 准备任务拥有可变数据，完成后移动给资源服务；渲染后端共享不可变引用。 */
+struct texture_data {
   std::uint32_t width;
   std::uint32_t height;
   texture_format format;

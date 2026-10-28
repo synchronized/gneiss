@@ -62,8 +62,8 @@ namespace gneiss::engine::detail {
 }
 
 result decode_texture_payload(const texture_description& source,
-                              const std::vector<std::byte>& image_bytes,
-                              prepared_texture_data& output, asset_diagnostic& out_diagnostic,
+                              const std::vector<std::byte>& image_bytes, texture_data& output,
+                              asset_diagnostic& out_diagnostic,
                               [[maybe_unused]] std::size_t input_limit, std::size_t output_limit,
                               texture_prepare_profile profile) noexcept {
   output = {};

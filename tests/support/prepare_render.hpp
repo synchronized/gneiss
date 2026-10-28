@@ -56,7 +56,7 @@ inline result decode_fixture(const gneiss::test_support::fixture_files& files,
   return result::success;
 }
 inline result decode_texture_fixture(const gneiss::test_support::fixture_files& files,
-                                     std::string_view uri, prepared_texture_data& output,
+                                     std::string_view uri, texture_data& output,
                                      asset_diagnostic& diagnostic, std::size_t input_limit,
                                      std::size_t output_limit = 256U * 1024U * 1024U,
                                      texture_prepare_profile profile = {}) {

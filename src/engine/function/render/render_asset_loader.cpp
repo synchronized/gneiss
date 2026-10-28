@@ -27,22 +27,6 @@ namespace {
 
 using namespace gneiss::engine;
 
-// CPU 负载由资源表保留；在途上传另持有不可变数据引用。
-[[nodiscard]] gneiss::engine::texture_data
-make_texture_data(gneiss::engine::prepared_texture_data prepared) noexcept {
-  return {
-      .width = prepared.width,
-      .height = prepared.height,
-      .format = prepared.format,
-      .color_space = prepared.color_space,
-      .levels = std::move(prepared.levels),
-      .manifest = std::move(prepared.manifest),
-      .payload = std::move(prepared.payload),
-      .profile = prepared.profile,
-      .selected_variant = prepared.selected_variant,
-  };
-}
-
 gneiss::engine::type_id cache_type(gneiss::engine::render_asset_type type) noexcept {
   using gneiss::engine::render_asset_type;
   switch (type) {
@@ -369,8 +353,7 @@ engine::result render_asset_loader::prepare_update(prepared_render_asset prepare
         std::make_shared<const mesh_data>(std::move(prepared.mesh)), upload.data.mesh);
     break;
   case render_asset_type::texture: {
-    auto texture = make_texture_data(std::move(prepared.texture));
-    result = resources_.prepare_texture_data(std::move(texture), upload.data.texture);
+    result = resources_.prepare_texture_data(std::move(prepared.texture), upload.data.texture);
     break;
   }
   case render_asset_type::material:
