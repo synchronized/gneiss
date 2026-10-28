@@ -2,8 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/resource/render_resource_factory.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/resource/texture/texture_view.hpp"
 #include "runtime/application.hpp"
 #include <memory>
 
@@ -82,7 +83,7 @@ int main() {
     return 1;
   }
   auto& resources = application->render();
-  auto& resources_factory = application->resource_factory();
+  auto& resources_factory = application->assets();
   constexpr std::array vertices{
       native::mesh_vertex{.position = {-0.6F, -0.5F, 0.0F}, .uv = {0.0F, 0.0F}},
       native::mesh_vertex{.position = {0.6F, -0.5F, 0.0F}, .uv = {1.0F, 0.0F}},

@@ -4,14 +4,16 @@
 #include "../support/async_application.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/resource/render_resource_factory.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
 #include "engine/resource/texture/texture_binary.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
+#include "engine/resource/texture/texture_view.hpp"
 #include "runtime/application.hpp"
 #include <array>
 #include <chrono>
@@ -155,7 +157,7 @@ void run_pending_resources() {
   auto native = app;
   check(native != nullptr);
   auto& resources = native->render();
-  auto& resources_factory = native->resource_factory();
+  auto& resources_factory = native->assets();
   gneiss::engine::mesh mesh_ref;
   gneiss::engine::texture texture_ref;
   check(resources_factory.reserve_mesh(mesh_ref) == gneiss::engine::result::success);

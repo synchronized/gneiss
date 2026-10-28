@@ -3,7 +3,8 @@
 
 #include "imgui_adapter.hpp"
 #include "engine/core/result.hpp"
-#include "engine/function/resource/render_resource_factory.hpp"
+#include "engine/function/resource/asset_manager.hpp"
+#include "engine/resource/texture/texture_view.hpp"
 #include "runtime/application.hpp"
 
 #include "editor_theme.hpp"
@@ -234,8 +235,7 @@ gneiss::engine::result imgui_adapter::initialize(runtime::application& applicati
   texture_desc.height = static_cast<std::uint32_t>(atlas_height);
   texture_desc.row_stride_bytes = texture_desc.width * 4U;
   texture_desc.pixels = premultiplied;
-  const auto result =
-      gneiss::engine::create_texture(application.resource_factory(), texture_desc, font_texture_);
+  const auto result = application.assets().create_texture(texture_desc, font_texture_);
   if (result.failed())
     return result;
   io.Fonts->SetTexID(static_cast<ImTextureID>(gneiss::engine::resource_handle(font_texture_)));
@@ -375,7 +375,7 @@ gneiss::engine::result imgui_adapter::submit(runtime::application& application) 
       }
       const auto texture = static_cast<gneiss::engine::rid>(command.GetTexID());
       gneiss::engine::ui_draw_command converted{};
-      converted.texture = application.resource_factory().find_texture(texture);
+      converted.texture = application.assets().find_texture(texture);
       converted.clip_min[0] = command.ClipRect.x - draw_data->DisplayPos.x;
       converted.clip_min[1] = command.ClipRect.y - draw_data->DisplayPos.y;
       converted.clip_max[0] = command.ClipRect.z - draw_data->DisplayPos.x;

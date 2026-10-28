@@ -4,15 +4,16 @@
 #include "../support/memory_file_fixture.hpp"
 #include "../support/prepare_render.hpp"
 #include "engine/core/result.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/render/texture_load_service.hpp"
-#include "engine/function/resource/render_resource_factory.hpp"
+#include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/resource/detail/render_resource_factory.hpp"
 #include "engine/platform/files/file_backend.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "engine/resource/asset_manager.hpp"
 #include "engine/resource/material/material_codec.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
 #include <algorithm>
+#include <stdexcept>
 
 #include <atomic>
 #include <cstdio>
@@ -181,7 +182,9 @@ void independent_update_sequences() {
   gneiss::engine::render_resource_factory resources_factory{resources};
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   [[maybe_unused]] auto& cache = asset_owner.cache();
-  render_asset_loader loader(asset_owner, resources_factory);
+  auto& loader = asset_owner;
+  if (loader.attach_render(resources).failed())
+    throw std::runtime_error("资源管理器渲染绑定失败");
   const render_asset_reload source_a{"asset://a", render_asset_type::material};
   const render_asset_reload source_b{"asset://b", render_asset_type::material};
   render_asset_ref a, b;
@@ -191,12 +194,16 @@ void independent_update_sequences() {
   check(different.mount("asset://", std::make_shared<memory_files>()) ==
         gneiss::engine::result::success);
   asset_manager isolated_owner(gneiss::test_support::test_files(different));
-  render_asset_loader isolated(isolated_owner, resources_factory);
+  auto& isolated = isolated_owner;
+  if (isolated.attach_render(resources).failed())
+    throw std::runtime_error("资源管理器渲染绑定失败");
   render_asset_ref conflict;
   check(isolated.reserve_asset(source_a, conflict) == gneiss::engine::result::success &&
         conflict != a && gneiss::engine::asset_rid(conflict) != gneiss::engine::asset_rid(a));
   check(!isolated.owns(a));
-  render_asset_loader shared(asset_owner, resources_factory);
+  auto& shared = asset_owner;
+  if (shared.attach_render(resources).failed())
+    throw std::runtime_error("资源管理器渲染绑定失败");
   check(shared.reserve_asset(source_a, conflict) == gneiss::engine::result::success &&
         gneiss::engine::asset_rid(conflict) == gneiss::engine::asset_rid(a));
 
@@ -205,7 +212,7 @@ void independent_update_sequences() {
     prepared.source = source;
     return loader.prepare_update(std::move(prepared), output, target, sequence);
   };
-  std::array<render_asset_loader::asset_update, 1> first, unrelated, late, latest;
+  std::array<asset_manager::asset_update, 1> first, unrelated, late, latest;
   const auto first_sequence = loader.next_update_sequence();
   check(stage(source_a, a, first_sequence, first.front()) == gneiss::engine::result::success);
   check(stage(source_b, b, loader.next_update_sequence(), unrelated.front()) ==
@@ -232,14 +239,16 @@ void reserved_material_lifetime() {
   gneiss::engine::render_resource_factory resources_factory{resources};
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(files));
   [[maybe_unused]] auto& cache = asset_owner.cache();
-  render_asset_loader loader(asset_owner, resources_factory);
+  auto& loader = asset_owner;
+  if (loader.attach_render(resources).failed())
+    throw std::runtime_error("资源管理器渲染绑定失败");
   const render_asset_reload request{"asset://material", render_asset_type::material};
   render_asset_ref target;
   check(loader.reserve_asset(request, target) == gneiss::engine::result::success);
   const auto rid = gneiss::engine::asset_rid(target);
   prepared_render_asset prepared;
   prepared.source = request;
-  std::array<render_asset_loader::asset_update, 1> candidates;
+  std::array<asset_manager::asset_update, 1> candidates;
   check(loader.prepare_update(std::move(prepared), candidates.front(), target) ==
         gneiss::engine::result::success);
   check(resources.material_status(rid) == gneiss::engine::result::not_ready);
@@ -255,13 +264,16 @@ void cpu_loading(execution_mode mode) {
   auto backend = std::make_shared<delayed_backend>();
   auto files =
       std::make_shared<gneiss::engine::files::service>(gneiss::engine::files::service_options{
-          .max_file_bytes = texture_load_service::maximum_bytes});
+          .max_file_bytes = asset_manager::maximum_prepared_bytes});
   check(files->mount({.prefix = "asset://", .readers = {backend}, .writer = {}}).ok());
   render_service resources;
   gneiss::engine::render_resource_factory resources_factory{resources};
   asset_manager manager(gneiss::test_support::test_files(files));
-  render_asset_loader loader(manager, resources_factory);
-  texture_load_service service(scheduler, loader);
+  auto& loader = manager;
+  if (loader.attach_render(resources).failed())
+    throw std::runtime_error("资源管理器渲染绑定失败");
+  check(manager.configure_loading(scheduler).ok());
+  auto& service = manager;
   memory_files fixture;
   fixture.pixel(std::byte{42});
   fixture.text(
@@ -274,7 +286,6 @@ void cpu_loading(execution_mode mode) {
     (void)scheduler.run_ready();
     check(files->dispatch_completions(64).ok());
     manager.advance_resources();
-    service.advance();
     std::this_thread::yield();
   };
   auto until = [&](auto predicate) {
@@ -357,6 +368,12 @@ void cpu_loading(execution_mode mode) {
     return service.take(completed);
   });
   check(completed.result.failed() && resources.share_mesh(asset_rid(mesh_target)) == adopted_mesh);
+  manager.request_stop_resources();
+  until([&] { return manager.resources_stopped(); });
+  texture rejected;
+  check(manager.reserve_texture(rejected) == result::invalid_state && !rejected);
+  check(manager.configure_loading(scheduler) == result::invalid_state);
+  check(service.submit(uris, 1U, 8U, request) == result::invalid_state && request == 0U);
 }
 } // namespace
 int main() try {

@@ -76,7 +76,7 @@ add_executable(gneiss_asset_material_test material_description_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/resource/material/material_codec.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_asset_preparation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/asset_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp"

@@ -7,7 +7,7 @@
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/scene_types.hpp"
-#include "engine/function/render/render_asset_loader.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 
 #include "engine/function/world/world.hpp"
@@ -36,7 +36,7 @@ public:
     scene_node_id parent = null_scene_node_id;
   };
 
-  prefab_runtime_instance(world& native_world, render_asset_loader& loader, prefab_asset_ref prefab,
+  prefab_runtime_instance(world& native_world, asset_manager& loader, prefab_asset_ref prefab,
                           std::string instance_uuid) noexcept;
   ~prefab_runtime_instance() noexcept;
 
@@ -44,7 +44,7 @@ public:
   prefab_runtime_instance& operator=(const prefab_runtime_instance&) = delete;
 
   [[nodiscard]] static result
-  create(world& native_world, render_asset_loader& loader, prefab_asset_ref prefab,
+  create(world& native_world, asset_manager& loader, prefab_asset_ref prefab,
          const meta::registry_ref& registry, std::string_view instance_uuid, scene_node_id parent,
          const math::transform& root_transform,
          const std::vector<prefab_property_override>& overrides,
@@ -97,7 +97,7 @@ private:
                   std::span<const prefab_property_override> overrides) noexcept;
 
   world& native_world_;
-  render_asset_loader& loader_;
+  asset_manager& loader_;
   prefab_asset_ref prefab_;
   std::string instance_uuid_;
   std::uint64_t root_entity_ = UINT64_C(0);

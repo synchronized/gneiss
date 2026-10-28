@@ -33,6 +33,11 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/platform/files/file_types.hpp
   engine/resource/asset_identity.hpp
   engine/resource/asset_diagnostic.hpp
+  engine/resource/asset_decoder.hpp
+  engine/resource/asset_request.hpp
+  engine/function/resource/asset_manager.hpp
+  engine/function/resource/asset_types.hpp
+  engine/function/resource/asset_load_types.hpp
   engine/resource/scene/scene_codec.hpp
   engine/resource/scene/prefab_codec.hpp
   engine/resource/asset_uri.hpp
@@ -79,19 +84,16 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/math/camera.hpp
   engine/function/render/debug_draw_list.hpp
   engine/function/render/draw_types.hpp
-  engine/function/render/render_asset_loader.hpp
-  engine/function/render/render_asset_preparation.hpp
+  engine/function/resource/asset_preparation.hpp
   engine/function/render/render_executor.hpp
   engine/function/render/render_frame_packet.hpp
   engine/resource/mesh/mesh_resource.hpp
-  engine/function/resource/render_resource_factory.hpp
   engine/resource/texture/texture_resource.hpp
   engine/resource/material/material_resource.hpp
   engine/function/render/render_service.hpp
   engine/function/render/render_resource_data.hpp
   engine/function/render/render_snapshot.hpp
   engine/function/render/render_statistics.hpp
-  engine/function/render/texture_load_service.hpp
   engine/resource/texture/texture_view.hpp
   engine/function/render/ui_draw_list.hpp
   engine/resource/scene/prefab_property_data.hpp

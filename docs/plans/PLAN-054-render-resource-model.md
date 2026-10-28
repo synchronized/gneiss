@@ -254,7 +254,7 @@ Windows Clang Debug 全量构建、无 Granit Engine 构建、完整 CTest 190/1
 
 ## 风险与实施前需落实的细节
 
-- 收拢服务不能形成 asset_manager → Render 的底层反向依赖，类型加载器仍由功能层装配。
+- asset_manager 迁到功能层后通过 Render 服务接口装配；底层资源值与编解码器不得反向依赖功能层。
 - 队列节点布局、每帧消费点、帧保活载体和实际 GPU 完成点实施时核对；不得重复建设现有 GPU 完成机制。
 - 本轮默认保留 CPU 恢复数据，不提前实施 discard_after_upload；避免迁移同时破坏设备恢复。
 - 文件重读可能得到修改后的内容，阶段三需定义恢复采用最新文件还是固定导入产物，不能暗中重建来源版本协议。
@@ -294,3 +294,17 @@ Windows Clang Debug 全量构建、无 Granit Engine 构建、完整 CTest 190/1
 - [x] 将资源工厂迁入 `engine/function/resource`，保留 Application 分别拥有工厂与 Render。
 - [x] 更新包含路径、构建与原生接口清单，删除 Resource 依赖功能层的例外。
 - [x] Windows Clang Debug 编译及 6 项相关测试通过，覆盖模块边界、头文件可见性、Loader 与 UI。
+
+## 统一资产加载入口
+
+已确认：功能层 asset_manager 统一加载、缓存、创建和回收入口；render_service 管理 RID 渲染内容与 GPU。
+类型解码与异步状态允许作为私有实现保留，不再要求宿主分别装配 Loader、Factory 和加载 Service。
+
+- [x] 将 asset_manager 迁到功能层，资产加载实现移出 function/render。
+- [x] 由管理器拥有资源创建及异步加载状态，统一推进和停止入口。
+- [x] Runtime、Scene、Editor 改用管理器；普通 CPU 资源和渲染资源共用资产入口。
+- [x] 编译并验证加载、缓存复用、取消、资源回收和关闭边界。
+
+不新增流送、事务、跨资源原子发布或 GPU 就绪等待。
+
+本轮 Windows Clang Debug 编译及 29 项相关测试通过；验收范围与限制见[记录](../records/2026-10-28-render-resource-boundary.md#统一资产管理入口)。

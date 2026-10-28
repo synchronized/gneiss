@@ -4,7 +4,7 @@
 #include "engine/core/result.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/resource/render_resource_factory.hpp"
+#include "engine/function/resource/detail/render_resource_factory.hpp"
 
 #include <array>
 #include <cstddef>
@@ -19,7 +19,7 @@ bool pending_resources() {
   render_service resources;
   gneiss::engine::render_resource_factory resources_factory{resources};
   render_service foreign;
-  gneiss::engine::render_resource_factory foreign_factory{foreign};
+
   rid mesh{}, texture{}, material{};
   rid cancelled{};
   if (resources.reserve_mesh(nullptr) != gneiss::engine::result::invalid_argument ||

@@ -16,8 +16,13 @@ endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
   if(content MATCHES "engine/resource/(mesh|texture|material)/detail/[a-z_]+_resource_access[.]hpp" AND
-      NOT source MATCHES "/src/engine/(resource/(mesh|texture|material)/[a-z_]+_resource|function/(resource/render_resource_factory|render/render_asset_loader))[.]cpp$")
+      NOT source MATCHES "/src/engine/(resource/(mesh|texture|material)/[a-z_]+_resource|function/resource/detail/(render_resource_factory|render_asset_loader))[.]cpp$")
     message(FATAL_ERROR "资源私有访问器不得泄漏到普通调用方：${source}")
+  endif()
+
+  if(content MATCHES "engine/function/resource/detail/" AND
+      NOT source MATCHES "/src/engine/function/resource/(detail/|asset_manager[^/]*[.]cpp$)")
+    message(FATAL_ERROR "资产加载私有实现不得泄漏到普通调用方：${source}")
   endif()
 
   if(content MATCHES "engine/function/render/render_resource_storage[.]hpp" AND
@@ -88,18 +93,13 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "CPU 版本缓存不得依赖文件后端或加载器适配：${source}")
   endif()
 
-  if(source MATCHES "/src/engine/resource/asset_manager[.](cpp|hpp)$" AND
-      content MATCHES "texture_load_service|texture_upload_backend|texture_load_completion|engine::render_asset_(loader|ref)|engine/function/render/")
-    message(FATAL_ERROR "资产管理器不得依赖渲染模块、上传通道或完成协议：${source}")
-  endif()
-
   if(source MATCHES "/src/engine/resource/scene/(scene_description|prefab_description|prefab_property_data)[.](cpp|hpp)$" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"]engine/core/meta/(registration|registry|serialization)[.]hpp")
     message(FATAL_ERROR "场景资产描述不得依赖运行时 Registry：${source}")
   endif()
 
   if(source MATCHES "/src/engine/function/input/" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"](caors/|engine/platform/|engine/resource/(backend/|vfs/|asset_manager))")
+      content MATCHES "#[ \t]*include[ \t]*[<\"](caors/|engine/platform/|engine/function/resource/asset_manager|engine/resource/(backend/|vfs/|asset_manager))")
     message(FATAL_ERROR "输入服务不得依赖资源管理器、文件后端或 CAORS：${source}")
   endif()
 
@@ -176,7 +176,7 @@ foreach(source IN LISTS sources)
   if(source MATCHES "/src/(engine|runtime)/api/")
     continue()
   endif()
-  if(source MATCHES "(/src/engine/resource/(mesh/mesh_decoder|texture/texture_decoder|material/material_codec)|/src/(engine/function/)?render/(render_asset_preparation|render_resource_data))\\.(cpp|hpp)$" AND
+  if(source MATCHES "(/src/engine/resource/(mesh/mesh_decoder|texture/texture_decoder|material/material_codec)|/src/engine/function/(resource/asset_preparation|render/render_resource_data))\\.(cpp|hpp)$" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|render_service)\\.(h|hpp)|engine/(resource/resource_cache|core/rid_table)\\.hpp)[>\"]")
     message(FATAL_ERROR "CPU 准备与值类型不得包含资源发布、缓存或 RID 表：${source}")
   endif()

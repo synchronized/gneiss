@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/render/texture_load_service.hpp"
+#include "engine/function/resource/detail/texture_load_service.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/diagnostics/task_submission.hpp"
 #include "engine/core/result.hpp"
+#include "engine/function/render/render_resource_data.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "engine/resource/asset_manager.hpp"
 #include "engine/resource/asset_uri.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
@@ -41,7 +42,7 @@ struct texture_load_service::pending {
       (void)files->cancel(read_request);
   }
   asset_request<material_description> material_request;
-  render_asset_loader::asset_update item;
+  asset_manager::asset_update item;
   std::vector<render_asset_ref> targets;
   texture_load_completion completion;
   task_handle task;
@@ -57,7 +58,7 @@ struct texture_load_service::pending {
   std::chrono::steady_clock::time_point started{std::chrono::steady_clock::now()};
 };
 
-texture_load_service::texture_load_service(task_executor& executor, render_asset_loader& loader,
+texture_load_service::texture_load_service(task_executor& executor, asset_manager& loader,
                                            texture_prepare_profile profile,
                                            std::shared_ptr<progress_notification> notification)
     : executor_(executor), scope_(executor.make_scope()), loader_(loader), profile_(profile),
@@ -69,7 +70,7 @@ texture_load_service::texture_load_service(task_executor& executor, render_asset
     throw std::invalid_argument("资产服务执行器无效");
   }
   try {
-    loader_.assets().attach_task_executor(executor_);
+    loader_.attach_task_executor(executor_);
   } catch (...) {
     (void)executor_.close_scope(scope_);
     throw;
@@ -369,7 +370,7 @@ bool texture_load_service::start_item(pending& value) {
   value.cpu->profile = profile_;
   value.cpu->limit = std::min(maximum_bytes, value.limit - value.completion.prepared_bytes);
   if (source.type == render_asset_type::material) {
-    const auto status = loader_.assets().load(source.uri, value.material_request, value.reload);
+    const auto status = loader_.load(source.uri, value.material_request, value.reload);
     if (status.failed()) {
       finish_item(status, false);
       return false;
@@ -377,7 +378,7 @@ bool texture_load_service::start_item(pending& value) {
     return true;
   }
   value.cpu->parse_description = source.type == render_asset_type::texture;
-  value.files = loader_.assets().async_files();
+  value.files = loader_.async_files();
   const auto status = start_read(value, source.uri, false);
   if (status.failed()) {
     finish_item(status, false);
@@ -389,8 +390,8 @@ result texture_load_service::start_read(pending& value, std::string_view uri, bo
   if (!value.files)
     return result::invalid_state;
   prepared_source input;
-  const auto identified = loader_.assets().identify(
-      uri, static_cast<std::uint32_t>(value.cpu->source.type), input.identity);
+  const auto identified =
+      loader_.identify(uri, static_cast<std::uint32_t>(value.cpu->source.type), input.identity);
   if (identified.failed())
     return identified;
   const auto used = payload ? value.cpu->description_bytes.size() : 0U;

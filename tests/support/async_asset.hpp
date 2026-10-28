@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "engine/resource/asset_manager.hpp"
 #include "memory_file_fixture.hpp"
 #include <chrono>
 #include <stdexcept>

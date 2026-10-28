@@ -2,36 +2,34 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "async_asset.hpp"
-#include "engine/function/render/texture_load_service.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "engine/resource/asset_manager.hpp"
 #include <chrono>
 #include <stdexcept>
 namespace gneiss::test_support {
 inline engine::task_scheduler& render_tasks() { return asset_tasks(); }
-inline engine::result load_render(engine::render_asset_loader& loader,
-                                  engine::render_asset_type type, std::string_view uri,
-                                  engine::render_asset_ref& output,
+inline engine::result load_render(engine::asset_manager& loader, engine::render_asset_type type,
+                                  std::string_view uri, engine::render_asset_ref& output,
                                   engine::asset_diagnostic& diagnostic) {
   auto status = loader.acquire_asset(type, uri, output, diagnostic);
   if (status != engine::result::not_found)
     return status;
   auto& tasks = render_tasks();
-  loader.assets().attach_task_executor(tasks);
-  engine::texture_load_service service(tasks, loader);
+  status = loader.configure_loading(tasks);
+  if (status.failed())
+    return status;
   const engine::render_asset_reload source{std::string(uri), type};
   std::uint64_t request{};
-  status = service.submit_assets(std::span(&source, 1), 1, 1, request, false);
+  status = loader.submit_assets(std::span(&source, 1), 1, 1, request, false);
   if (status.failed())
     return status;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   for (;;) {
     (void)tasks.run_ready();
-    (void)loader.assets().async_files()->dispatch_completions(64);
-    loader.assets().advance_resources();
-    service.advance();
+    (void)loader.async_files()->dispatch_completions(64);
+    loader.advance_resources();
     engine::texture_load_completion completion;
-    if (service.take(completion)) {
+    if (loader.take(completion)) {
       diagnostic = {completion.result, completion.byte_offset, std::move(completion.path),
                     std::move(completion.message)};
       if (completion.result.failed()) {

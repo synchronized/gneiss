@@ -7,8 +7,8 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/render/render_service.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
-#include "engine/resource/asset_manager.hpp"
 #include "runtime/loading/scene_service.hpp"
 
 #include "engine/resource/asset_uri.hpp"
@@ -54,23 +54,23 @@ void scene_service::request_stop() {
   reload_.reset();
   visual_queue_.clear();
   visual_completion_.reset();
-  if (textures_)
-    textures_->request_stop();
+  if (loading_assets())
+    loading_assets()->request_stop();
   if (pending_)
     pending_->cancelled = true;
   if (executor_)
     executor_->cancel_scope(scope_);
 }
 bool scene_service::stopped() const noexcept {
-  return stopping_ && !executor_ && !textures_ && !active_ && !retired_;
+  return stopping_ && !executor_ && !loading_assets() && !active_ && !retired_;
 }
 void scene_service::advance_stop() {
   if (stopped())
     return;
-  if (textures_)
-    textures_->advance();
+  if (loading_assets())
+    loading_assets()->advance();
   advance_load();
-  if ((textures_ && !textures_->stopped()) || (executor_ && !executor_->idle(scope_)))
+  if ((loading_assets() && !loading_assets()->stopped()) || (executor_ && !executor_->idle(scope_)))
     return;
   // 两个 CPU scope 已静止，沿用销毁顺序，此时不会等待后台任务。
   shutdown();
@@ -115,7 +115,7 @@ gneiss::engine::result scene_service::request_scene(std::string_view uri, std::u
   visual_queue_.clear();
   visual_cursor_ = 0U;
   if (visual_pending_) {
-    (void)textures_->cancel_unpublished();
+    (void)loading_assets()->cancel_unpublished();
   }
   return gneiss::engine::result::success;
 }
@@ -158,7 +158,7 @@ void scene_service::finish(gneiss::engine::result result, scene_load_phase phase
   auto completion = std::move(pending_->result);
   const auto cleanup_started = clock_type::now();
   pending_.reset();
-  render_assets_->release_unused();
+  asset_owner_->release_unused();
   asset_owner_->collect_unused();
   // 候选分项保留结束前的诊断值，Application/上传账本必须在请求销毁后采样。
   sample_budget(completion.progress);
@@ -303,7 +303,7 @@ void scene_service::advance_load_impl() {
       return;
     }
     value.candidate = std::make_unique<scene_domain>();
-    const auto initialized = value.candidate->initialize(*render_assets_);
+    const auto initialized = value.candidate->initialize(*asset_owner_);
     if (initialized != gneiss::engine::result::success) {
       finish(initialized, scene_load_phase::failed);
       return;
@@ -327,7 +327,7 @@ void scene_service::advance_load_impl() {
     for (; value.cursor < end; ++value.cursor) {
       const auto& source = value.requested[value.cursor];
       gneiss::engine::render_asset_ref lease;
-      const auto reserved = render_assets_->reserve_asset(source, lease);
+      const auto reserved = asset_owner_->reserve_asset(source, lease);
       if (reserved != gneiss::engine::result::success) {
         finish(reserved, scene_load_phase::failed, "场景资源引用无效");
         return;

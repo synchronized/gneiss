@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/result.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"
 #include "runtime/application.hpp"

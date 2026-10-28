@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "engine/resource/asset_manager.hpp"
 #include <chrono>
 namespace gneiss::test_support {
 inline engine::result

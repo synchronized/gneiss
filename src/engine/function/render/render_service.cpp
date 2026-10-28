@@ -7,7 +7,6 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/render/backend/granit/pbr_shader_resolver.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
-#include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_resource_storage.hpp"

@@ -4,6 +4,7 @@
 #include "../support/async_application.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"

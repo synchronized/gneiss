@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "async_asset.hpp"
-#include "engine/function/render/render_asset_preparation.hpp"
 #include "engine/function/render/render_resource_data.hpp"
+#include "engine/function/resource/asset_preparation.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
 #include <algorithm>

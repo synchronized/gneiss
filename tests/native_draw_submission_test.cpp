@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/resource/render_resource_factory.hpp"
+#include "engine/function/resource/asset_manager.hpp"
+#include "engine/resource/texture/texture_view.hpp"
 #include "runtime/application.hpp"
 
 #include <array>
@@ -96,7 +97,7 @@ int main() {
   const std::array<std::uint8_t, 4> pixels{255, 255, 255, 255};
   const gneiss::engine::texture_view texture{
       .width = 1, .height = 1, .row_stride_bytes = 4, .pixels = pixels};
-  if (app->resource_factory().create_texture(texture, context.texture).failed()) {
+  if (app->assets().create_texture(texture, context.texture).failed()) {
     return 2;
   }
   if (app->submit_debug_draw_list({}) != gneiss::engine::result::invalid_state ||

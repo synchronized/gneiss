@@ -35,12 +35,11 @@ engine::result scene_instances::instantiate_prepared(prepared_scene_description 
       const auto& source = instance->source().objects.at(index);
       const auto result = instance->create_staged_node(
           index, source.parent_uuid ? nodes.at(*source.parent_uuid) : null_scene_node_id,
-          render_asset_loader::mesh_ref(source.mesh_renderer
-                                            ? find_asset(source.mesh_renderer->mesh_uri)
-                                            : engine::render_asset_ref{}),
-          render_asset_loader::material_ref(source.mesh_renderer
-                                                ? find_asset(source.mesh_renderer->material_uri)
-                                                : engine::render_asset_ref{}));
+          asset_manager::mesh_ref(source.mesh_renderer ? find_asset(source.mesh_renderer->mesh_uri)
+                                                       : engine::render_asset_ref{}),
+          asset_manager::material_ref(source.mesh_renderer
+                                          ? find_asset(source.mesh_renderer->material_uri)
+                                          : engine::render_asset_ref{}));
       if (result != engine::result::success) {
         return result;
       }
@@ -65,12 +64,11 @@ engine::result scene_instances::instantiate_prepared(prepared_scene_description 
         const auto& node = lease.get()->objects.at(index);
         result = prefab->create_node(
             index, node.parent_uuid ? prefab_nodes.at(*node.parent_uuid) : prefab->root(),
-            render_asset_loader::mesh_ref(node.mesh_renderer
-                                              ? find_asset(node.mesh_renderer->mesh_uri)
-                                              : engine::render_asset_ref{}),
-            render_asset_loader::material_ref(node.mesh_renderer
-                                                  ? find_asset(node.mesh_renderer->material_uri)
-                                                  : engine::render_asset_ref{}));
+            asset_manager::mesh_ref(node.mesh_renderer ? find_asset(node.mesh_renderer->mesh_uri)
+                                                       : engine::render_asset_ref{}),
+            asset_manager::material_ref(node.mesh_renderer
+                                            ? find_asset(node.mesh_renderer->material_uri)
+                                            : engine::render_asset_ref{}));
         if (result != engine::result::success) {
           return result;
         }

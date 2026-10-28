@@ -3,6 +3,7 @@
 
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "runtime/application.hpp"
 

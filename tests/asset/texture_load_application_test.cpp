@@ -4,8 +4,8 @@
 #include "../support/async_application.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/resource/render_resource_factory.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
 
@@ -181,8 +181,8 @@ void run(gneiss::engine::execution_mode mode) {
   const auto world = app->native_world();
   check(app->request_assets(uris, 2U, 7U, request, true) == gneiss::engine::result::success);
   gneiss::engine::mesh_renderer external;
-  check(app->resource_factory().reserve_mesh(external.mesh).ok());
-  check(app->resource_factory().reserve_material(external.material).ok());
+  check(app->assets().reserve_mesh(external.mesh).ok());
+  check(app->assets().reserve_material(external.material).ok());
   check(gneiss::engine::result{app->native_world()->entity_set_mesh_renderer(
             node.entity, external)} == gneiss::engine::result::success);
   wait();

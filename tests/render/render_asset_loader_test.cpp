@@ -5,12 +5,12 @@
 #include "../support/memory_file_fixture.hpp"
 #include "../support/prepare_render.hpp"
 #include "engine/core/result.hpp"
-#include "engine/function/render/render_asset_loader.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/render/texture_load_service.hpp"
-#include "engine/function/resource/render_resource_factory.hpp"
+#include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/resource/detail/render_resource_factory.hpp"
+#include "engine/function/resource/detail/texture_load_service.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "engine/resource/asset_manager.hpp"
 #include "engine/resource/material/material_codec.hpp"
 #include "engine/resource/mesh/mesh_binary.hpp"
 #include "engine/resource/resource_cache.hpp"
@@ -36,7 +36,7 @@
 namespace {
 
 gneiss::engine::result
-reload_assets_for_test(gneiss::engine::render_asset_loader& loader,
+reload_assets_for_test(gneiss::engine::asset_manager& loader,
                        gneiss::engine::task_scheduler& scheduler,
                        std::span<const gneiss::engine::render_asset_reload> sources,
                        gneiss::engine::asset_diagnostic& diagnostic) {
@@ -49,8 +49,8 @@ reload_assets_for_test(gneiss::engine::render_asset_loader& loader,
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   for (;;) {
     (void)scheduler.run_ready();
-    (void)loader.assets().async_files()->dispatch_completions(64);
-    loader.assets().advance_resources();
+    (void)loader.async_files()->dispatch_completions(64);
+    loader.advance_resources();
     service.advance();
     texture_load_completion completion;
     if (service.take(completion)) {
@@ -153,7 +153,7 @@ void add_indexed_mesh(memory_file_system& memory) {
                        std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size()));
 }
 
-[[nodiscard]] bool indexed_mesh_is_preserved(gneiss::engine::render_asset_loader& loader,
+[[nodiscard]] bool indexed_mesh_is_preserved(gneiss::engine::asset_manager& loader,
                                              const gneiss::engine::render_service& resources) {
   gneiss::engine::render_asset_ref mesh;
   gneiss::engine::asset_diagnostic diagnostic;
@@ -290,8 +290,10 @@ void selected_variants() {
   const auto* prepared_payload = batch.assets.front().texture.payload.data();
   const auto* prepared_manifest = batch.assets.front().texture.manifest.data();
 
-  render_asset_loader loader(asset_owner, resources_factory);
-  std::array<render_asset_loader::asset_update, 1> candidate;
+  auto& loader = asset_owner;
+  if (loader.attach_render(resources).failed())
+    throw std::runtime_error("资源管理器渲染绑定失败");
+  std::array<asset_manager::asset_update, 1> candidate;
   require(loader.prepare_update(std::move(batch.assets.front()), candidate.front()) ==
           gneiss::engine::result::success);
   const auto old_frame = candidate.front().data.texture;
@@ -337,7 +339,7 @@ void selected_variants() {
   prepared_render_asset single_prepared;
   single_prepared.source = {"asset://single.texture.json", render_asset_type::texture};
   single_prepared.texture = std::move(texture);
-  std::array<render_asset_loader::asset_update, 1> single;
+  std::array<asset_manager::asset_update, 1> single;
   require(loader.prepare_update(std::move(single_prepared), single.front()) ==
           gneiss::engine::result::success);
   require(single.front().data.texture->payload.data() == single_payload &&
@@ -402,7 +404,9 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
   auto decoder = std::make_shared<counting_material_decoder>();
   if (asset_owner.register_decoder(decoder).failed())
     return false;
-  render_asset_loader loader(asset_owner, resources_factory);
+  auto& loader = asset_owner;
+  if (loader.attach_render(resources).failed())
+    throw std::runtime_error("资源管理器渲染绑定失败");
   asset_diagnostic diagnostic;
   render_asset_ref loaded;
   if (gneiss::test_support::load_render(loader, gneiss::engine::render_asset_type::material,
@@ -425,14 +429,14 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
       batch.assets.back().material.color != math::vector4{0.25F, 0.5F, 0.75F, 0.5F}) {
     return false;
   }
-  render_asset_loader::asset_update missing;
+  asset_manager::asset_update missing;
   if (loader.prepare_update(batch.assets.back(), missing) != gneiss::engine::result::success ||
       resources.live_resource_count() != before) {
     return false;
   }
-  std::vector<render_asset_loader::asset_update> candidates;
+  std::vector<asset_manager::asset_update> candidates;
   for (auto& prepared : batch.assets) {
-    render_asset_loader::asset_update candidate;
+    asset_manager::asset_update candidate;
     if (loader.prepare_update(std::move(prepared), candidate) != gneiss::engine::result::success) {
       return false;
     }
@@ -535,7 +539,9 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(file_system));
   asset_owner.attach_task_executor(scheduler);
   [[maybe_unused]] auto& cache = asset_owner.cache();
-  gneiss::engine::render_asset_loader loader(asset_owner, resources_factory);
+  auto& loader = asset_owner;
+  if (loader.attach_render(resources).failed())
+    throw std::runtime_error("资源管理器渲染绑定失败");
 
   {
     auto parameter_files = std::make_shared<memory_file_system>();
@@ -655,8 +661,10 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   // 同一资产管理器/来源下，归属只由 RID domain/type/generation 判定。
   {
     gneiss::engine::render_service other_render;
-    gneiss::engine::render_resource_factory other_render_factory{other_render};
-    gneiss::engine::render_asset_loader other_loader(asset_owner, other_render_factory);
+
+    gneiss::engine::asset_manager other_loader(asset_owner.async_files());
+    if (other_loader.attach_render(other_render).failed())
+      throw std::runtime_error("资源管理器渲染绑定失败");
     const auto mesh_ref = first_mesh->as<gneiss::engine::mesh_resource>();
     const auto texture_ref = first_texture->as<gneiss::engine::texture_resource>();
     const auto material_ref = material->as<gneiss::engine::material_resource>();
@@ -938,11 +946,13 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   if (cache.size() != 0U || resources.live_resource_count() != 0U)
     return 36;
 
-  // 缓存已经销毁但调用方仍持有资源：最后释放先排队，再由所属线程撤销 RID。
+  // 管理器销毁时关闭私有工厂；外部引用晚释放只析构 CPU 外壳。
   gneiss::engine::render_asset_ref retained;
   {
     gneiss::engine::asset_manager temporary_assets(gneiss::test_support::test_files(file_system));
-    gneiss::engine::render_asset_loader temporary_loader(temporary_assets, resources_factory);
+    auto& temporary_loader = temporary_assets;
+    if (temporary_loader.attach_render(resources).failed())
+      throw std::runtime_error("资源管理器渲染绑定失败");
     if (gneiss::test_support::load_render(temporary_loader, gneiss::engine::render_asset_type::mesh,
                                           "asset://models/triangle.mesh.json", retained,
                                           diagnostic) != gneiss::engine::result::success)
@@ -950,17 +960,16 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   }
   const auto retained_rid = gneiss::engine::asset_rid(retained);
   retained.reset();
-  if (resources.mesh_status(retained_rid) != gneiss::engine::result::success ||
-      resources_factory.drain() != 1U ||
-      resources.mesh_status(retained_rid) != gneiss::engine::result::invalid_handle)
+  if (resources.mesh_status(retained_rid) != gneiss::engine::result::invalid_handle)
     return 31;
   // 服务先销毁时外部引用只能释放 CPU 外壳，不再解引用服务裸指针。
   {
     gneiss::engine::render_service temporary_resources;
-    gneiss::engine::render_resource_factory temporary_resources_factory{temporary_resources};
+
     gneiss::engine::asset_manager temporary_assets(gneiss::test_support::test_files(file_system));
-    gneiss::engine::render_asset_loader temporary_loader(temporary_assets,
-                                                         temporary_resources_factory);
+    auto& temporary_loader = temporary_assets;
+    if (temporary_loader.attach_render(temporary_resources).failed())
+      throw std::runtime_error("资源管理器渲染绑定失败");
     if (gneiss::test_support::load_render(temporary_loader, gneiss::engine::render_asset_type::mesh,
                                           "asset://models/triangle.mesh.json", retained,
                                           diagnostic) != gneiss::engine::result::success)

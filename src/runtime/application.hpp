@@ -8,16 +8,14 @@
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
-#include "engine/function/resource/render_resource_factory.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/input/action_map.hpp"
 
 #include "engine/core/log/log_dispatcher.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
-#include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_snapshot.hpp"
 #include "engine/function/render/render_statistics.hpp"
-#include "engine/function/render/texture_load_service.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
@@ -128,8 +126,6 @@ public:
   /** 借用活动 World；场景切换或关闭后必须重新获取，禁止解引用旧指针。 */
   [[nodiscard]] gneiss::engine::world* native_world() const noexcept;
   [[nodiscard]] gneiss::engine::render_service& render() noexcept;
-  /** 借用应用资源装配上下文；仅所属线程使用。 */
-  [[nodiscard]] gneiss::engine::render_resource_factory& resource_factory() noexcept;
   /** 借用应用级资产管理器；仅所属线程使用，有效期不超过 Application。 */
   [[nodiscard]] gneiss::engine::asset_manager& assets() noexcept;
   /** 共享宿主文件服务；由 Application 分发和关闭，消费者只提交/取消自己的请求。 */
@@ -172,7 +168,7 @@ private:
   [[nodiscard]] std::uint64_t now_ns() const;
   [[nodiscard]] gneiss::engine::result poll_events(bool& out_should_close) noexcept;
   [[nodiscard]] gneiss::engine::result render_frame() noexcept;
-  [[nodiscard]] gneiss::engine::texture_load_service* texture_service() noexcept;
+  [[nodiscard]] gneiss::engine::asset_manager* loading_assets() noexcept;
   struct storage;
   std::unique_ptr<storage> storage_;
 };

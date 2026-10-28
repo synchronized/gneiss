@@ -5,51 +5,14 @@
 
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/render/render_asset_loader.hpp"
+#include "engine/function/resource/asset_load_types.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 
 #include <deque>
 #include <optional>
 #include <thread>
 
 namespace gneiss::engine {
-
-enum class texture_load_state : std::uint8_t { preparing, applied, failed, cancelled };
-/** 请求中每项资源的结果；未生效项的 result 表示停止处理的原因，不表示旧内容失效。 */
-struct asset_load_result {
-  render_asset_reload source;
-  engine::result result{engine::result::not_ready};
-  bool applied{};
-};
-struct texture_load_completion {
-  std::uint64_t request{};
-  std::uint64_t session{};
-  std::uint64_t revision{};
-  texture_load_state state{texture_load_state::failed};
-  engine::result result{engine::result::internal};
-  std::string message{};
-  /** 解析错误位置；文件读取失败时 path 为请求 URI。 */
-  std::string path;
-  std::size_t byte_offset{};
-  std::vector<render_asset_ref> assets;
-  /** 包含显式请求及已发现依赖；取消/失败也保留已成功项，元数据不延长资源寿命。 */
-  std::vector<asset_load_result> results;
-  /** 本次准备使用的设备能力。 */
-  texture_prepare_profile profile{};
-  double prepare_ms{};
-  double queue_ms{};
-  double commit_ms{};
-  /** 本请求累计成功解码的字节估算，不是同时驻留内存。 */
-  std::size_t prepared_bytes{};
-};
-struct asset_load_progress {
-  std::uint64_t request{};
-  std::uint64_t session{};
-  std::uint64_t revision{};
-  texture_load_state state{texture_load_state::preparing};
-  std::size_t completed_assets{};
-  std::size_t total_assets{};
-  bool can_cancel{};
-};
 
 /** 主线程加载编排；文件服务读取字节，任务只解码已有内存数据。
  * 宿主统一分发文件完成；CPU 内容在所属线程采用，GPU 上传由 Render 独立安排。
@@ -60,7 +23,7 @@ public:
   static constexpr std::size_t maximum_assets = 256U;
   static constexpr std::size_t maximum_prepared_bytes = 256U * 1024U * 1024U;
   static constexpr std::size_t maximum_bytes = 64U * 1024U * 1024U;
-  texture_load_service(task_executor& executor, render_asset_loader& loader,
+  texture_load_service(task_executor& executor, asset_manager& loader,
                        texture_prepare_profile profile = {},
                        std::shared_ptr<progress_notification> notification = {});
   ~texture_load_service();
@@ -101,7 +64,7 @@ private:
   void finish(engine::result result, texture_load_state state);
   task_executor& executor_;
   task_scope scope_;
-  render_asset_loader& loader_;
+  asset_manager& loader_;
   texture_prepare_profile profile_;
   std::shared_ptr<progress_notification> notification_;
   std::unique_ptr<pending> pending_;

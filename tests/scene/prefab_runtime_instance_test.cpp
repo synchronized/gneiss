@@ -6,16 +6,15 @@
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/resource/render_resource_factory.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/scene/prefab_runtime_instance.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
-#include "engine/resource/asset_manager.hpp"
 #include "engine/resource/resource_cache.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
+#include <stdexcept>
 
 #include <array>
 #include <cstddef>
@@ -93,8 +92,8 @@ public:
 
 bool check_failed_camera_prefab(
     gneiss::engine::world& native_world, const gneiss::engine::meta::registry_ref& registry,
-    gneiss::engine::render_asset_loader& render_loader,
-    gneiss::engine::asset_manager& prefab_loader, const gneiss::engine::prefab_description& source,
+    gneiss::engine::asset_manager& render_loader, gneiss::engine::asset_manager& prefab_loader,
+    const gneiss::engine::prefab_description& source,
     const std::vector<gneiss::engine::prefab_property_override>& invalid_overrides) {
   auto description = source;
   description.objects[0].camera = {.vertical_field_of_view_radians = 1.0F,
@@ -153,7 +152,7 @@ bool check_failed_camera_prefab(
          count == 6U;
 }
 
-bool check_visible_prefab(gneiss::engine::world& world, gneiss::engine::render_asset_loader& loader,
+bool check_visible_prefab(gneiss::engine::world& world, gneiss::engine::asset_manager& loader,
                           gneiss::engine::prefab_asset_ref source, gneiss::scene_node_id parent) {
   std::uint64_t before{}, during{}, after{};
   if (world.entity_count(before).failed())
@@ -194,14 +193,16 @@ int main() try {
 
   gneiss::test_support::fixture_files file_system;
   gneiss::engine::render_service resources;
-  gneiss::engine::render_resource_factory resources_factory{resources};
+
   if (file_system.mount("asset://prefabs/", std::make_shared<memory_file_system>()) !=
       gneiss::engine::result::success) {
     return 3;
   }
   gneiss::engine::asset_manager asset_owner(gneiss::test_support::test_files(file_system));
   [[maybe_unused]] auto& cache = asset_owner.cache();
-  gneiss::engine::render_asset_loader render_loader(asset_owner, resources_factory);
+  auto& render_loader = asset_owner;
+  if (render_loader.attach_render(resources).failed())
+    throw std::runtime_error("资源管理器渲染绑定失败");
   auto& prefab_loader = asset_owner;
   gneiss::engine::prefab_asset_ref first_lease;
   gneiss::engine::prefab_asset_ref second_lease;

@@ -59,7 +59,7 @@ apply_camera(gneiss::engine::world& native_world, std::uint64_t entity,
 
 namespace gneiss::engine {
 
-prefab_runtime_instance::prefab_runtime_instance(world& native_world, render_asset_loader& loader,
+prefab_runtime_instance::prefab_runtime_instance(world& native_world, asset_manager& loader,
                                                  prefab_asset_ref prefab,
                                                  std::string instance_uuid) noexcept
     : native_world_(native_world), loader_(loader), prefab_(std::move(prefab)),
@@ -93,7 +93,7 @@ prefab_runtime_instance::validate_reload(const prefab_asset_ref& candidate,
       const auto status =
           loader_.acquire_cached({source.mesh_renderer->mesh_uri, render_asset_type::mesh}, cached);
       if (status.ok())
-        meshes[index] = render_asset_loader::mesh_ref(cached);
+        meshes[index] = asset_manager::mesh_ref(cached);
       return status;
     }();
     if (result == engine::result::success) {
@@ -102,7 +102,7 @@ prefab_runtime_instance::validate_reload(const prefab_asset_ref& candidate,
         const auto status = loader_.acquire_cached(
             {source.mesh_renderer->material_uri, render_asset_type::material}, cached);
         if (status.ok())
-          materials[index] = render_asset_loader::material_ref(cached);
+          materials[index] = asset_manager::material_ref(cached);
         return status;
       }();
     }
@@ -166,7 +166,7 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
         const auto status = loader_.acquire_cached(
             {source.mesh_renderer->mesh_uri, render_asset_type::mesh}, cached);
         if (status.ok())
-          target.mesh = render_asset_loader::mesh_ref(cached);
+          target.mesh = asset_manager::mesh_ref(cached);
         return status;
       }();
       if (result == engine::result::success) {
@@ -175,7 +175,7 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
           const auto status = loader_.acquire_cached(
               {source.mesh_renderer->material_uri, render_asset_type::material}, cached);
           if (status.ok())
-            target.material = render_asset_loader::material_ref(cached);
+            target.material = asset_manager::material_ref(cached);
           return status;
         }();
       }
@@ -380,11 +380,12 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
   return engine::result::success;
 }
 
-engine::result prefab_runtime_instance::create(
-    world& native_world, render_asset_loader& loader, prefab_asset_ref prefab,
-    const meta::registry_ref& registry, std::string_view instance_uuid, scene_node_id parent,
-    const math::transform& root_transform, const std::vector<prefab_property_override>& overrides,
-    std::unique_ptr<prefab_runtime_instance>& out_instance) noexcept {
+engine::result
+prefab_runtime_instance::create(world& native_world, asset_manager& loader, prefab_asset_ref prefab,
+                                const meta::registry_ref& registry, std::string_view instance_uuid,
+                                scene_node_id parent, const math::transform& root_transform,
+                                const std::vector<prefab_property_override>& overrides,
+                                std::unique_ptr<prefab_runtime_instance>& out_instance) noexcept {
   out_instance.reset();
   if (!registry || !prefab || prefab.get()->objects.empty()) {
     return engine::result::invalid_argument;

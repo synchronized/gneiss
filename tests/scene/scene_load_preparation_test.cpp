@@ -6,9 +6,9 @@
 #include "../support/memory_file_fixture.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/platform/files/file_service.hpp"
-#include "engine/resource/asset_manager.hpp"
 #include "engine/resource/scene/prefab_codec.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
 

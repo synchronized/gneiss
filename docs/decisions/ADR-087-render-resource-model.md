@@ -19,8 +19,8 @@ render_resource_service 与 render_service 中。流送尚未开始，需要先�
 上层运行对象保存稳定身份、轻量元信息和依赖，Render 私有实现管理 RID 对应的后端记录。
 可保存的 description 与上传用 data 分开；不是每类资源都必须增加对称类型层级。
 
-asset_manager 继续管理统一来源/URI/类型索引、加载调度和缓存，不依赖 Render 后端。
-功能层 Loader 负责加载装配，通过 render_service 的 RID 接口操作私有 CPU 内容表。
+功能层 asset_manager 管理统一来源/URI/类型索引、加载调度和缓存，不依赖 Render 后端实现。
+其私有加载实现通过 render_service 的 RID 接口操作渲染内容表。
 ECS 和上层帧输入允许持有引擎资源强引用，内部 RID 留在 Render 边界；
 ECS 必须支持非平凡组件生命周期，序列化仍使用资源标识。场景节点仍通过实体关联组件，
 不直接持有服务或第三方后端对象。替代原“ECS 仅纯值或 RID”的限制。
@@ -43,13 +43,13 @@ Render 保留上传完成、失败、暂存数据和后端可用性管理。
 资源头不包含 Render 实现；资源自身析构不调用 Render，RID 释放由延迟销毁队列负责。
 长期目标是 `engine/function/render` 只保留渲染实现及服务边界，上层资源通过
 `render_service` 的 RID 接口创建、更新和销毁渲染端记录。普通业务不改回 RID 所有权。
-`engine/function/resource/render_resource_factory.cpp` 在功能层协调资源对象与 Render RID 接口，
-不归入渲染服务内部。资源值、编解码器与 asset_manager 不得依赖功能层，不再保留工厂例外。Application 显式拥有资源工厂和 Render，
+`engine/function/resource/detail/render_resource_factory.cpp` 在功能层协调资源对象与 Render RID 接口，
+不归入渲染服务内部。资源值与编解码器不得反向依赖功能层。Application 拥有 asset_manager 和 Render，管理器内部拥有资源工厂，
 工厂管理资源包装及销毁队列，且必须先于 Render 关闭和析构；Render 不拥有工厂、不回调上层对象。
 更新方向固定为功能层准备资源依赖 → Render 接受 CPU 数据 → 工厂更新资源元信息和强引用。
 材质更新直接使用 Loader 已取得的纹理强引用，不由 Render 从 RID 重建依赖。
 Render 私有表只保存 RID 对应内容；不新增 URI 缓存或重复控制块。
-宿主允许包含服务和工厂接口，但不能包含 RID 表或资源私有访问器；边界检查覆盖这些限制。
+宿主允许包含管理器和服务接口，但不能包含工厂、加载实现、RID 表或资源私有访问器；边界检查覆盖这些限制。
 工厂只为自身新建 RID 构造资源对象，不提供外部 RID 接管入口；共享通过复制 asset_ref 完成。
 RID 查询仅锁定本工厂已有弱引用。材质创建和更新均显式传入纹理强引用，不重建拥有者。
 关闭时先排空队列，只销毁仍有效的记录；已失效 RID 不再重复提交销毁请求。
@@ -68,3 +68,10 @@ RID 查询仅锁定本工厂已有弱引用。材质创建和更新均显式传�
 - 立即引入完整流送和持久化渲染场景：覆盖面大，但当前需求不足，增加未验证的状态与协议。
 
 实施步骤、验收和待落实细节以 [PLAN-054](../plans/PLAN-054-render-resource-model.md) 为唯一来源。
+
+## 统一功能层资产管理入口
+
+asset_manager 迁到 engine/function/resource，拥有运行资源创建和加载编排的私有实现。
+Application 只装配资产管理器与渲染服务；Scene 借用管理器，不再拥有视觉资源加载服务。
+文件服务和执行器仍由宿主提供，GPU 上传继续独立于 CPU 加载完成。
+资源值、格式编解码与缓存基础设施保留 engine/resource，不反向依赖功能层。

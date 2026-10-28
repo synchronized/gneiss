@@ -6,6 +6,7 @@
 #include "documents/editor_scene_loader.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 #include <chrono>
@@ -13,7 +14,6 @@
 #include <thread>
 
 #include "engine/core/math/transform.hpp"
-#include "engine/core/result.hpp"
 
 #include <stdexcept>
 #include <string>

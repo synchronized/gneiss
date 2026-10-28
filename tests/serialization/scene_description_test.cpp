@@ -5,7 +5,7 @@
 #include "../support/memory_file_fixture.hpp"
 #include "engine/core/meta/serialization.hpp"
 #include "engine/core/result.hpp"
-#include "engine/resource/asset_manager.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
 #include "engine/resource/scene/scene_description.hpp"

@@ -71,3 +71,24 @@ Windows Clang Debug 全量编译及 18 项相关测试通过，改动行格式�
 Windows Clang Debug 全量编译通过；Core 正反边界、World 边界、内部头可见性、Render Loader 与
 UI 绘制列表共 6 项测试通过。改动行格式检查和 git diff --check 通过。
 未运行大场景、GPU 图像验证、跨平台矩阵或远端 CI。
+
+## 统一资产管理入口
+
+asset_manager 迁到 engine/function/resource，拥有私有资源工厂、类型加载装配和异步批次状态。
+Application 删除独立 Factory、Loader 成员；Scene 不再拥有 TextureLoadService，只借用管理器。
+运行资源加载文件移出 function/render，位于 function/resource/detail；宿主头清单和边界反例
+禁止直接访问这些私有实现。Render 继续仅通过 RID 管理渲染内容，不反向持有资源强引用。
+程序化资源创建与 UI 纹理保活改用 application.assets()；原 URI/来源域/类型缓存仍只有一份。
+
+CPU 描述继续使用 load<T>，运行资源批次使用 submit_assets/take，共用同一管理器和文件服务。
+本次不增加模板转接队列，不将 CPU 采用成功改为 GPU 就绪。私有解码、依赖准备和销毁实现仍保留。
+关闭时拒绝新资源创建与批次，管理器析构关闭资源工厂；残留强引用只保活 CPU 外壳，不再保活 RID。
+测试同步更新这一所有权边界，并验证延迟文件读取、缓存复用、纹理依赖、取消和停止后拒绝新请求。
+
+Windows Clang Debug 全量编译通过，29 项相关测试通过，涵盖 CPU 资产管理、运行资源加载、
+材质依赖、Scene/Prefab、Application、编辑器资产编辑、销毁队列、模块边界及私有头可见性。
+加载测试分别使用协作式和线程池执行器；管理器销毁后晚释放、跨线程最终释放及重复销毁检查通过。
+改动行格式化及 git diff --check 通过。
+
+未运行大场景、GPU 图像验证、跨平台/静态库矩阵或远端 CI；未修改 Granit。
+当前仍为完整 CPU 负载加载，流送、GPU 驻留控制和统一模板化运行资源请求不属于本轮交付。

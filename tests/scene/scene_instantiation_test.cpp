@@ -9,10 +9,10 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/function/render/render_service.hpp"
-#include "engine/function/resource/render_resource_factory.hpp"
+#include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/resource/detail/render_resource_factory.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/resource/asset_manager.hpp"
 #include "runtime/loading/scene_domain.hpp"
 #include <algorithm>
 #include <thread>
@@ -82,7 +82,9 @@ void unified_resource_index() {
   gneiss::engine::render_service resources;
   gneiss::engine::render_resource_factory resources_factory{resources};
   asset_manager assets(gneiss::test_support::test_files(files));
-  gneiss::engine::render_asset_loader render(assets, resources_factory);
+  auto& render = assets;
+  if (render.attach_render(resources).failed())
+    throw std::runtime_error("资源管理器渲染绑定失败");
   check(assets.register_decoder(std::make_shared<text_loader>()) == result::success);
   asset_ref<const std::string> cpu;
   check(gneiss::test_support::load_asset(assets, "asset://same", cpu) == result::success);
@@ -129,8 +131,12 @@ void run() {
   gneiss::engine::asset_manager active_assets(gneiss::test_support::test_files(vfs));
   active_assets.attach_task_executor(executor);
   gneiss::engine::asset_manager candidate_assets(gneiss::test_support::test_files(vfs));
-  gneiss::engine::render_asset_loader active_render(active_assets, resources_factory);
-  gneiss::engine::render_asset_loader candidate_render(candidate_assets, resources_factory);
+  auto& active_render = active_assets;
+  if (active_render.attach_render(resources).failed())
+    throw std::runtime_error("资源管理器渲染绑定失败");
+  auto& candidate_render = candidate_assets;
+  if (candidate_render.attach_render(resources).failed())
+    throw std::runtime_error("资源管理器渲染绑定失败");
   {
     gneiss::engine::render_asset_ref first, second;
     gneiss::engine::asset_diagnostic diagnostic;
@@ -156,9 +162,11 @@ void run() {
     gneiss::engine::render_asset_ref invalid;
     check(!active_render.owns(invalid));
     gneiss::engine::render_service foreign_resources;
-    gneiss::engine::render_resource_factory foreign_resources_factory{foreign_resources};
+
     gneiss::engine::asset_manager foreign_owner(gneiss::test_support::test_files(vfs));
-    gneiss::engine::render_asset_loader foreign_assets(foreign_owner, foreign_resources_factory);
+    auto& foreign_assets = foreign_owner;
+    if (foreign_assets.attach_render(foreign_resources).failed())
+      throw std::runtime_error("资源管理器渲染绑定失败");
     gneiss::engine::render_asset_ref foreign_mesh;
     check(gneiss::test_support::load_render(foreign_assets, gneiss::engine::render_asset_type::mesh,
                                             "asset://m.mesh", foreign_mesh,
@@ -225,9 +233,9 @@ void run() {
   check(gneiss::test_support::prepare_render_for_test(candidate_assets, vfs, requests, batch,
                                                       diagnostic,
                                                       {}) == gneiss::engine::result::success);
-  std::vector<gneiss::engine::render_asset_loader::asset_update> staged;
+  std::vector<gneiss::engine::asset_manager::asset_update> staged;
   for (auto& asset : batch.assets) {
-    gneiss::engine::render_asset_loader::asset_update value;
+    gneiss::engine::asset_manager::asset_update value;
     check(candidate_render.prepare_update(std::move(asset), value) ==
           gneiss::engine::result::success);
     staged.push_back(std::move(value));
@@ -239,13 +247,12 @@ void run() {
   for (const auto& value : staged) {
     bindings.emplace(std::string(gneiss::engine::asset_uri(value.target)), value.target);
   }
-  auto material =
-      gneiss::engine::render_asset_loader::material_ref(bindings.at("asset://m.material"));
+  auto material = gneiss::engine::asset_manager::material_ref(bindings.at("asset://m.material"));
   const auto mesh_rid = gneiss::engine::asset_rid(bindings.at("asset://m.mesh"));
   check(material && gneiss::engine::asset_rid(material) != gneiss::engine::asset_rid(old_material));
   check(resources.get_material(gneiss::engine::asset_rid(material))->parameters.color[1] == 1.0F);
-  check(!gneiss::engine::render_asset_loader::mesh_ref(bindings.at("asset://m.material")));
-  check(!gneiss::engine::render_asset_loader::material_ref(bindings.at("asset://m.mesh")));
+  check(!gneiss::engine::asset_manager::mesh_ref(bindings.at("asset://m.material")));
+  check(!gneiss::engine::asset_manager::material_ref(bindings.at("asset://m.mesh")));
   gneiss::engine::render_asset_ref uncached;
   check(candidate_render.acquire_cached(requests.front(), uncached) ==
         gneiss::engine::result::success);
@@ -358,8 +365,8 @@ void run() {
   check(candidate->scenes()->get_prefab_node_info(new_scene, 1U, prefab_node) ==
         gneiss::engine::result::success);
   const gneiss::engine::mesh_renderer expected{
-      .mesh = resources_factory.find_mesh(mesh_rid),
-      .material = resources_factory.find_material(selected_material)};
+      .mesh = candidate_render.find_mesh(mesh_rid),
+      .material = candidate_render.find_material(selected_material)};
   const std::array unchanged{gneiss::engine::mesh_renderer_replacement{
       .entity = ordinary.entity, .expected = expected, .replacement = expected}};
   const auto edit_reads = files->reads;
@@ -383,7 +390,7 @@ void run() {
                                                "asset://other.material") ==
         gneiss::engine::result::success);
   const gneiss::engine::mesh_renderer edited{
-      .mesh = resources_factory.find_mesh(mesh_rid),
+      .mesh = candidate_render.find_mesh(mesh_rid),
       .material = edited_material->as<gneiss::engine::material_resource>()};
   const std::array material_only{gneiss::engine::mesh_renderer_replacement{
       .entity = ordinary.entity, .expected = edited, .replacement = edited}};

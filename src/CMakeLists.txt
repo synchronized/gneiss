@@ -28,8 +28,9 @@ target_sources(
   PRIVATE
     engine/resource/asset_ref.hpp
     engine/resource/resource_retirement_queue.hpp
-    engine/resource/asset_manager.hpp
-    engine/resource/asset_manager.cpp
+    engine/function/resource/asset_manager.hpp
+    engine/function/resource/asset_manager.cpp
+    engine/function/resource/asset_manager_render.cpp
     engine/platform/files/file_read_stream.cpp
     engine/platform/files/file_service.cpp
     engine/platform/files/memory_file_backend.cpp
@@ -56,8 +57,8 @@ target_sources(
     engine/resource/texture/texture_ktx2.hpp
     engine/resource/texture/texture_binary.cpp
     engine/resource/texture/texture_binary.hpp
-    engine/function/render/texture_load_service.cpp
-    engine/function/render/texture_load_service.hpp
+    engine/function/resource/detail/texture_load_service.cpp
+    engine/function/resource/detail/texture_load_service.hpp
     engine/resource/resource_cache.cpp
     engine/resource/resource_cache.hpp
     engine/core/service_registry.cpp
@@ -110,8 +111,8 @@ target_sources(
     engine/resource/material/material_resource.hpp
     engine/function/render/render_service_resources.cpp
     engine/function/render/render_resource_storage.hpp
-    engine/function/resource/render_resource_factory.cpp
-    engine/function/resource/render_resource_factory.hpp
+    engine/function/resource/detail/render_resource_factory.cpp
+    engine/function/resource/detail/render_resource_factory.hpp
     engine/resource/mesh/detail/mesh_resource_access.hpp
     engine/resource/texture/detail/texture_resource_access.hpp
     engine/resource/material/detail/material_resource_access.hpp
@@ -121,9 +122,9 @@ target_sources(
     engine/function/render/debug_draw_list.hpp
     engine/function/render/ui_draw_list.cpp
     engine/function/render/ui_draw_list.hpp
-    engine/function/render/render_asset_loader.cpp
-    engine/function/render/render_asset_preparation.cpp
-    engine/function/render/render_asset_loader.hpp
+    engine/function/resource/detail/render_asset_loader.cpp
+    engine/function/resource/asset_preparation.cpp
+    engine/function/resource/detail/render_asset_loader.hpp
     engine/resource/texture/png_decoder.cpp
     engine/resource/texture/png_decoder.hpp
     engine/core/math/transform.cpp

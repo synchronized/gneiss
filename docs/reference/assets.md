@@ -41,7 +41,7 @@ HTTP(S) 地址使用 Fetch URL 基址。借用目录不会在后端销毁时被�
 | --- | --- | --- |
 | `asset_manager::find_loaded<T>`、`asset_request<T>::take` | `asset_ref<const T>`，直接访问 CPU 描述 | 成功重载替换当前缓存，旧引用继续保活旧数据 |
 | Prefab 描述 | `prefab_asset_ref`，即 `asset_ref<const prefab_description>` | 别名引用保活缓存条目；重载不会修改旧描述 |
-| Render Loader、场景绑定、编辑器历史 | `mesh`、`material`、`texture` 强引用；混合批次另用缓存条目 | CPU 内容采用即完成，资源身份保持稳定，GPU 更新由 Render 独立处理 |
+| 资产管理器、场景绑定、编辑器历史 | `mesh`、`material`、`texture` 强引用；混合批次另用缓存条目 | CPU 内容采用即完成，资源身份保持稳定，GPU 更新由 Render 独立处理 |
 
 渲染引用通过 `asset_rid`、`asset_kind`、`asset_uri` 访问 RID、类型和 URI；空引用分别返回
 零 RID、invalid 类型和空 URI。场景绑定校验所属服务及来源域，ECS 保存类型化资源强引用。
@@ -50,10 +50,10 @@ HTTP(S) 地址使用 Fetch URL 基址。借用目录不会在后端销毁时被�
 类型化运行对象分别定义在 `resource/mesh/mesh_resource.hpp`、
 `resource/texture/texture_resource.hpp` 和 `resource/material/material_resource.hpp`。
 上层包含所需资源头，保存 `mesh`、`texture`、`material` 强引用；材质持有纹理强引用。
-资源对象析构只处理 CPU 状态与依赖，不调用 Render。Render 的延迟销毁队列先在所属线程
+资源对象析构只处理 CPU 状态与依赖，不调用 Render。管理器的延迟销毁队列先在所属线程
 释放 RID，再析构资源对象；服务关闭后的晚释放只析构 CPU 对象。
 CPU 数据表位于 `render_service` 私有实现，Loader 与宿主通过其 RID 接口操作。
-资源层负责强引用创建、元信息及材质依赖，详见 [Render 资源与服务边界](render.md)。
+功能层资产管理器负责强引用创建、元信息及材质依赖，详见 [Render 资源与服务边界](render.md)。
 
 
 `asset_manager` 唯一持有 `resource_cache::entries_`，统一按「来源域 + URI + C++ 类型」索引。
@@ -137,6 +137,17 @@ metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 
 ## 普通资源读取与解码
 
+管理器位于 `engine/function/resource`。宿主构造管理器后用 `attach_render(render_service&)` 绑定
+渲染服务，再用 `configure_loading(executor, profile, notification)` 装配异步加载。
+纯 CPU 使用者只需 `attach_task_executor`，不要求 Render。
+Scene/Editor 借用管理器，不再独立创建 Loader、Factory 或 TextureLoadService。
+`load<T>` 保留 CPU 描述解码契约；带纹理依赖的网格、材质和纹理使用 `submit_assets` 批次接口，
+通过 `take(texture_load_completion&)` 领取结果。两种请求共用管理器、文件服务和资源索引，
+本次没有将批次结果另包成一套模板请求队列。
+宿主统一调用 `advance_resources`（`advance` 为同义入口）；
+关闭调用 `request_stop_resources` 并推进至 `resources_stopped`，最后销毁管理器，再关闭 Render。
+内部加载文件位于 `detail/`，不向宿主开放。资源数据及格式编解码仍位于 `engine/resource`。
+
 asset_manager 的 load 请求通过 files::service 读取有界字节；完成回调交付字节后只提交一次
 asset-decode 任务。等待文件期间不轮询 CPU 任务，不再使用 asset_source。
 普通类型解码器只消费字节。宿主先分发文件完成，再由 advance_resources 推进解码结果登记。
@@ -157,9 +168,9 @@ asset_manager 仅接受 shared_ptr<files::service>。`find_loaded<T>` 只查询�
 反射读取默认上限为 64 MiB，可通过构造参数指定；类型声明 `maximum_source_bytes` 时取两者较小值。
 ActionMap 限制为 1 MiB，解析器也检查此上限；显式 decoder 使用自己的上限。
 
-材质描述通过 `load<material_description>` 加载，Render Loader 借用同一个 asset_manager。
+功能层 `asset_manager` 同时拥有 CPU 描述加载与运行资源加载编排。材质描述通过 `load<material_description>` 加载。
 加载编排层在所属线程领取描述，工作线程只处理只读数据和纹理依赖，不访问管理器。
-运行时 texture_load_service 的网格和纹理通过 manager.async_files() 使用同一文件服务，
+管理器内部的网格和纹理加载使用 async_files() 返回的同一文件服务，
 通过 manager.identify() 解析来源域。CPU 描述与渲染资源以不同类型键保存在同一索引中。
 网格完成有界整读后提交一次纯内存解码；纹理先读取描述并解析依赖 URI，再读取完整负载，
 随后解码。CPU 任务不推进文件请求，也不采用同步文件回退。材质领取描述后也使用纯内存准备入口。

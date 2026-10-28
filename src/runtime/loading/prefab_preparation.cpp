@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "runtime/loading/prefab_preparation.hpp"
 #include "engine/core/result.hpp"
-#include "engine/resource/asset_manager.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "runtime/application.hpp"
 
 namespace gneiss::runtime {

@@ -3,10 +3,11 @@
 #ifndef GNEISS_ENGINE_ASSET_MANAGER_HPP_
 #define GNEISS_ENGINE_ASSET_MANAGER_HPP_
 
-#include "asset_decoder.hpp"
-#include "asset_request.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
+#include "engine/function/resource/asset_load_types.hpp"
+#include "engine/resource/asset_decoder.hpp"
+#include "engine/resource/asset_request.hpp"
 #include "engine/resource/input/action_map.hpp"
 #include "engine/resource/resource_cache.hpp"
 #include <memory>
@@ -14,6 +15,10 @@
 
 namespace gneiss::engine {
 class task_executor;
+class render_service;
+class progress_notification;
+struct mesh_view;
+struct texture_view;
 namespace files {
 class service;
 }
@@ -22,7 +27,7 @@ class service;
 namespace gneiss::engine {
 /** 应用级资产管理器。拥有统一资源索引，不拥有 World 或编辑状态。
  * 所属线程使用；请求通道、场景及外部租约须按各自契约释放。
- * 功能层装配类型加载器；底层 asset 模块不依赖 Scene/Render。 */
+ * 功能层统一拥有加载编排与资源包装；底层资源值不依赖本管理器。 */
 class GNEISS_API asset_manager final {
 public:
   /** 注入同线程文件服务；宿主驱动文件完成分发，advance_resources 只推进 CPU 解码和资源结果。
@@ -107,7 +112,74 @@ public:
   /** 功能层 Loader 借用唯一资源索引；所属线程使用，不转移缓存所有权。 */
   [[nodiscard]] resource_cache& cache() noexcept { return cache_; }
 
+  /** 绑定渲染服务；必须覆盖管理器寿命。纯 CPU 使用者无需调用。 */
+  result attach_render(render_service& render, texture_prepare_profile profile = {});
+  /** 装配批次加载器；首次配置后保留执行器与 profile，停止后拒绝重新装配。 */
+  result configure_loading(task_executor& executor, texture_prepare_profile profile = {},
+                           std::shared_ptr<progress_notification> notification = {});
+  using asset_update = render_asset_update;
+  static constexpr std::size_t maximum_prepared_bytes = 256U * 1024U * 1024U;
+  result reserve_asset(const render_asset_reload&, render_asset_ref&) noexcept;
+  result acquire_cached(const render_asset_reload&, render_asset_ref&,
+                        texture_prepare_profile = {}) const noexcept;
+  result acquire_asset(render_asset_type, std::string_view, render_asset_ref&,
+                       asset_diagnostic&) noexcept;
+  result acquire_mesh(std::string_view, mesh&, asset_diagnostic&) noexcept;
+  result acquire_texture(std::string_view, texture&, asset_diagnostic&) noexcept;
+  result acquire_material(std::string_view, material&, asset_diagnostic&) noexcept;
+  static mesh mesh_ref(const render_asset_ref& value) noexcept {
+    return asset_cast<mesh_resource>(value);
+  }
+  static material material_ref(const render_asset_ref& value) noexcept {
+    return asset_cast<material_resource>(value);
+  }
+  bool owns(const mesh&) const noexcept;
+  bool owns(const texture&) const noexcept;
+  bool owns(const material&) const noexcept;
+  bool owns(const render_asset_ref&) const noexcept;
+  /** 所属线程创建程序化资源并返回强引用；失败清空输出，不接管外部 RID。 */
+  result create_texture(const texture_view&, texture&) noexcept;
+  result create_mesh(const mesh_view&, mesh&) noexcept;
+  result create_material(const material_parameters&, std::array<texture, 5>, material&) noexcept;
+  result reserve_texture(texture&) noexcept;
+  result reserve_mesh(mesh&) noexcept;
+  result reserve_material(material&) noexcept;
+  /** 仅锁定本管理器已创建的对象；未知或已释放 RID 返回空。 */
+  texture find_texture(rid) const noexcept;
+  mesh find_mesh(rid) const noexcept;
+  material find_material(rid) const noexcept;
+  /** 同一时刻接受一个批次；take 领取 CPU 内容采用结果，不等待 GPU。
+   * 输入在提交时复制；执行器和 Render 必须覆盖管理器的运行与关闭阶段。 */
+  result submit_assets(std::span<const render_asset_reload> sources, std::uint64_t session,
+                       std::uint64_t revision, std::uint64_t& request, bool reload = true,
+                       std::size_t limit = maximum_prepared_bytes);
+  result submit(std::span<const std::string>, std::uint64_t, std::uint64_t, std::uint64_t&,
+                bool reload = true);
+  bool progress(asset_load_progress&) const;
+  bool take(texture_load_completion&);
+  bool busy() const noexcept;
+  bool cancel();
+  bool cancel_unpublished();
+  texture_prepare_profile profile() const noexcept;
+  void set_default_profile(texture_prepare_profile profile) noexcept;
+  std::span<const render_asset_ref> requested_assets() const;
+  void advance();
+  /** 仅停止视觉资源批次；完整关闭使用 request_stop_resources。 */
+  void request_stop();
+  bool stopped() const;
+  void release_unused() noexcept;
+  std::uint64_t next_update_sequence() noexcept;
+  bool claim_update(const render_asset_ref&, std::uint64_t) noexcept;
+  result prepare_update(prepared_render_asset, asset_update&, const render_asset_ref& = {},
+                        std::uint64_t = 0) noexcept;
+  result apply_update(asset_update&) noexcept;
+
 private:
+  bool render_stopping_{};
+  struct render_state;
+  std::unique_ptr<render_state> render_state_;
+  void advance_render();
+  void stop_render() noexcept;
   using decoder_factory = result (*)(const meta::registry_ref&, std::size_t,
                                      std::shared_ptr<const asset_decoder>&);
   [[nodiscard]] result resolve_decoder(type_id, decoder_factory,

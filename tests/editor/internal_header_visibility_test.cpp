@@ -23,7 +23,10 @@
 #if __has_include("runtime/loading/scene_domain.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
-#if __has_include("engine/resource/asset_manager.hpp")
+#if __has_include("engine/function/resource/detail/render_asset_loader.hpp") ||                    \
+                  __has_include(                                                                   \
+                      "engine/function/resource/detail/render_resource_factory.hpp") ||            \
+                      __has_include("engine/function/resource/detail/texture_load_service.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
 #if __has_include("runtime/loading/scene_service.hpp")
@@ -75,6 +78,11 @@ template <typename T>
 concept exposes_asset_loader = requires(T& value) { value.asset_loader(); };
 static_assert(!exposes_texture_service<gneiss::runtime::application>);
 static_assert(!exposes_asset_loader<gneiss::runtime::application>);
+template <typename T>
+concept exposes_resource_factory = requires(T& value) { value.resource_factory(); };
+static_assert(!exposes_resource_factory<gneiss::runtime::application>);
+static_assert(std::is_same_v<decltype(std::declval<gneiss::runtime::application&>().assets()),
+                             gneiss::engine::asset_manager&>);
 // Render 服务是允许的 RID 边界，具体资源表和引用关联仍不可见。
 #include "engine/function/render/render_service.hpp"
 template <typename T>

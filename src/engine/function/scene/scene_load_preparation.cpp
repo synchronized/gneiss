@@ -3,7 +3,7 @@
 
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/core/result.hpp"
-#include "engine/resource/asset_manager.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 
 #include <algorithm>
 #include <unordered_map>

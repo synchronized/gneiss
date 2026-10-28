@@ -5,8 +5,8 @@
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/resource/asset_manager.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -16,18 +16,16 @@
 
 namespace gneiss::runtime {
 
-gneiss::engine::result scene_service::initialize(gneiss::engine::asset_manager& assets,
-                                                 gneiss::engine::render_asset_loader& render) {
+gneiss::engine::result scene_service::initialize(gneiss::engine::asset_manager& assets) {
   if (active_ || stopping_) {
     return gneiss::engine::result::invalid_state;
   }
   auto next = std::make_unique<scene_domain>();
-  const auto result = next->initialize(render);
+  const auto result = next->initialize(assets);
   if (result != gneiss::engine::result::success) {
     return result;
   }
   asset_owner_ = &assets;
-  render_assets_ = &render;
   active_ = std::move(next);
   return gneiss::engine::result::success;
 }
@@ -36,12 +34,13 @@ gneiss::engine::result scene_service::attach_executor(
     gneiss::engine::task_executor& executor, gneiss::engine::render_service& resources,
     gneiss::engine::texture_prepare_profile profile,
     std::shared_ptr<gneiss::engine::progress_notification> notification) {
-  if (textures_ || !active_) {
+  if (loading_assets() || !active_) {
     return gneiss::engine::result::invalid_state;
   }
   // 先构造可失败依赖，再发布装配状态，失败时不留下半装配服务。
-  auto textures = std::make_unique<gneiss::engine::texture_load_service>(executor, *render_assets_,
-                                                                         profile, notification);
+  const auto configured = asset_owner_->configure_loading(executor, profile, notification);
+  if (configured.failed())
+    return configured;
   const auto scope = executor.make_scope();
   if (scope.id == 0U) {
     return gneiss::engine::result::invalid_state;
@@ -50,8 +49,7 @@ gneiss::engine::result scene_service::attach_executor(
   scope_ = scope;
   resources_ = &resources;
   notification_ = std::move(notification);
-  render_assets_->set_default_profile(profile);
-  textures_ = std::move(textures);
+  loading_attached_ = true;
   return gneiss::engine::result::success;
 }
 
@@ -76,13 +74,13 @@ void scene_service::advance() {
 }
 
 void scene_service::advance_visuals() {
-  if (!textures_ || visual_completion_) {
+  if (!loading_assets() || visual_completion_) {
     return;
   }
   if (visual_pending_) {
-    textures_->advance();
+    loading_assets()->advance();
     gneiss::engine::texture_load_completion completion;
-    if (!textures_->take(completion)) {
+    if (!loading_assets()->take(completion)) {
       return;
     }
     visual_pending_ = false;
@@ -96,8 +94,8 @@ void scene_service::advance_visuals() {
   }
   std::uint64_t request{};
   const auto submitted =
-      textures_->submit_assets(std::span(visual_queue_).subspan(visual_cursor_, 1U),
-                               visual_session_, visual_revision_, request, false);
+      loading_assets()->submit_assets(std::span(visual_queue_).subspan(visual_cursor_, 1U),
+                                      visual_session_, visual_revision_, request, false);
   if (submitted == gneiss::engine::result::not_ready) {
     return;
   }
@@ -128,19 +126,18 @@ void scene_service::shutdown() noexcept {
   visual_pending_ = false;
   reload_.reset();
   stop_load();
-  textures_.reset();
+  loading_attached_ = false;
   retired_.reset();
   active_.reset();
   if (asset_owner_ != nullptr) {
     asset_owner_->collect_unused();
   }
   asset_owner_ = nullptr;
-  render_assets_ = nullptr;
 }
 
 bool scene_service::can_start_load() const noexcept {
-  return !stopping_ && !reload_ && !retired_ && textures_ &&
-         (!textures_->busy() || visual_pending_);
+  return !stopping_ && !reload_ && !retired_ && loading_assets() &&
+         (!loading_assets()->busy() || visual_pending_);
 }
 bool scene_service::loading() const noexcept {
   return pending_ != nullptr || completed_.has_value();
@@ -157,7 +154,9 @@ gneiss::engine::world* scene_service::native_world() const noexcept {
 gneiss::engine::scene_instances* scene_service::scenes() noexcept {
   return active_ ? active_->scenes() : nullptr;
 }
-gneiss::engine::texture_load_service* scene_service::textures() noexcept { return textures_.get(); }
+gneiss::engine::asset_manager* scene_service::loading_assets() const noexcept {
+  return loading_attached_ ? asset_owner_ : nullptr;
+}
 gneiss::engine::result
 scene_service::request_assets(std::span<const gneiss::engine::render_asset_reload> sources,
                               std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
@@ -165,29 +164,29 @@ scene_service::request_assets(std::span<const gneiss::engine::render_asset_reloa
   request = 0U;
   if (stopping_)
     return gneiss::engine::result::invalid_state;
-  if (!textures_ || reload_ || loading() || visual_loading() || textures_->busy()) {
+  if (!loading_assets() || reload_ || loading() || visual_loading() || loading_assets()->busy()) {
     return gneiss::engine::result::not_ready;
   }
-  return textures_->submit_assets(sources, session, revision, request, reload);
+  return loading_assets()->submit_assets(sources, session, revision, request, reload);
 }
 
 gneiss::engine::result
 scene_service::poll_assets(gneiss::engine::texture_load_completion& completion, bool& ready) {
   ready = false;
-  if (!textures_ || reload_ || visual_loading()) {
+  if (!loading_assets() || reload_ || visual_loading()) {
     return gneiss::engine::result::not_ready;
   }
-  textures_->advance();
-  ready = textures_->take(completion);
+  loading_assets()->advance();
+  ready = loading_assets()->take(completion);
   return gneiss::engine::result::success;
 }
 
 engine::result scene_service::request_reload(scene_instance_id instance, std::string_view uri,
                                              bool prefab) {
   check_owner();
-  if (stopping_ || !active_ || !textures_ || !asset_owner_)
+  if (stopping_ || !active_ || !loading_assets() || !asset_owner_)
     return engine::result::invalid_state;
-  if (reload_ || loading() || visual_loading() || textures_->busy() || retired_)
+  if (reload_ || loading() || visual_loading() || loading_assets()->busy() || retired_)
     return engine::result::not_ready;
   std::uint64_t count{};
   const auto valid = scenes()->get_node_count(instance, &count);
@@ -223,9 +222,9 @@ void scene_service::advance_reload() try {
     }
   }
   if (value.asset_pending) {
-    textures_->advance();
+    loading_assets()->advance();
     engine::texture_load_completion completion;
-    if (!textures_->take(completion))
+    if (!loading_assets()->take(completion))
       return;
     value.asset_pending = false;
     if (completion.result.failed()) {
@@ -238,7 +237,7 @@ void scene_service::advance_reload() try {
   }
   if (value.cursor < value.prepared.assets.size()) {
     std::uint64_t request{};
-    const auto status = textures_->submit_assets(
+    const auto status = loading_assets()->submit_assets(
         std::span(value.prepared.assets).subspan(value.cursor, 1), 1, 1, request, false);
     if (status.ok())
       value.asset_pending = true;

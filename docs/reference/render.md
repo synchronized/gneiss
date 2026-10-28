@@ -7,17 +7,17 @@
 
 Mesh、Material 和 Texture 的 CPU 内容表由 Application 的 `render_service` 私有实现拥有。
 调用方通过 `application::render()` 使用 RID 接口，不能借用资源表。
-运行身份、元信息与材质依赖由 Application 的 `render_resource_factory` 维护，
-通过 `application::resource_factory()` 借用，程序化纹理使用 `create_texture(factory, texture_view, texture&)`。
-工厂 `reserve_mesh/texture/material(ref&)` 预留新资源，`create_mesh/texture` 创建有内容的资源，
-`create_material(parameters, textures, material&)` 显式传入纹理强引用。成功后输出拥有者，失败输出为空。
-不存在外部 RID 接管入口；多个工厂即使共用 Render，也各自创建不同的 RID，不能接管彼此的资源。
-`find_mesh/texture/material(rid)` 只返回本工厂已有对象的引用，未知或已释放对象返回空。
-普通文件加载仍通过统一 URI 缓存复用对象。上层提取的 RID 仅用于借用，不得手动销毁资源拥有的 RID。
+运行身份、元信息与材质依赖由 Application 的 `asset_manager` 维护，通过 `application::assets()` 借用。
+程序化纹理使用 `assets.create_texture(texture_view, texture&)`；网格与材质使用对应的创建接口。
+`reserve_mesh/texture/material(ref&)` 预留新资源，`create_mesh/texture` 创建有内容的资源，
+`create_material(parameters, textures, material&)` 显式传入纹理强引用。成功输出拥有者，失败输出为空。
+不存在外部 RID 接管入口；不同管理器不能接管彼此的资源。
+`find_mesh/texture/material(rid)` 只返回本管理器已有对象的引用，未知或已释放对象返回空。
+普通文件加载通过同一个管理器的 URI 缓存复用对象。上层提取的 RID 仅用于借用，不得手动销毁资源拥有的 RID。
 底层 Render 的裸 RID 创建/销毁接口保留，调用方须自行配对，不能混入强引用所有权。
-UI 使用 `factory.find_texture(rid)` 仅查询已有引用，缺失返回空，不隐式建立资源拥有者。
-工厂位于功能层，协调资源对象与渲染服务；资源目录只保留资源类型及基础设施。
-这些接口声明在 `engine/function/resource/render_resource_factory.hpp`；资源对象头不声明 Render 服务类型。
+UI 使用 `assets.find_texture(rid)` 保活已有纹理，不隐式建立资源拥有者。
+管理器位于 `engine/function/resource/asset_manager.hpp`；加载状态、资源工厂及销毁队列属于其私有实现。
+宿主先停止资产加载并销毁管理器，再关闭 Render；资源对象头不声明 Render 服务类型。
 原生 `render_service::create_mesh(mesh_view, ...)` 会在调用
 期间复制顶点、可选法线、切线、UV1、顶点色及可选 UInt32 索引；调用返回后，调用方可以立即释放源数据。Mesh 至少需要
 三个有限值顶点。索引非空时数量必须至少为三个且为三的倍数，所有索引必须小于顶点数；索引为空时

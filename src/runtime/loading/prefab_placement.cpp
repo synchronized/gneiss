@@ -110,8 +110,8 @@ gneiss::engine::result prefab_placement::apply(application& app, scene_instance_
     for (std::size_t i = 0; i < bindings.size(); ++i) {
       const auto& object = snapshot.prefab.get()->objects[i];
       if (object.mesh_renderer)
-        bindings[i] = {render_asset_loader::mesh_ref(find(object.mesh_renderer->mesh_uri)),
-                       render_asset_loader::material_ref(find(object.mesh_renderer->material_uri))};
+        bindings[i] = {asset_manager::mesh_ref(find(object.mesh_renderer->mesh_uri)),
+                       asset_manager::material_ref(find(object.mesh_renderer->material_uri))};
     }
   }
   return app.scenes()->instantiate_prefab_ready(scene, snapshot.author, snapshot.prefab, bindings,
