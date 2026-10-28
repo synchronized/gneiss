@@ -91,7 +91,7 @@ void prepared_source_revisions() {
   source->files["payload/image.ktx2"] = source->files.at("image.ktx2");
   source->text(
       "texture",
-      R"({"format":"gneiss.texture","version":1,"source":"asset://payload/image.ktx2","color_space":"srgb"})");
+      R"({"format":"gneiss.texture","version":2,"source":"asset://payload/image.ktx2","color_space":"srgb","usage":"default"})");
   source->text(
       "material",
       R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[1,1,1,1],"base_color_texture":"asset://texture"})");
@@ -261,7 +261,7 @@ void cpu_loading(execution_mode mode) {
   fixture.pixel(std::byte{42});
   fixture.text(
       "texture",
-      R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})");
+      R"({"format":"gneiss.texture","version":2,"source":"asset://image.ktx2","color_space":"srgb","usage":"default"})");
   const std::array<std::string, 1> uris{"asset://texture"};
   std::uint64_t request{};
   texture_load_completion completed;

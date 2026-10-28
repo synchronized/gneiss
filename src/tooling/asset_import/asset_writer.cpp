@@ -309,12 +309,10 @@ write_report write_assets_in_place(const import_ir& data,
                     static_cast<std::streamsize>(data.images[index].bytes.size()));
         std::ofstream texture(output_directory / "textures" / (base + ".texture.json"),
                               std::ios::binary | std::ios::trunc);
-        texture << "{\n  \"format\": \"gneiss.texture\",\n  \"version\": "
-                << (variant == 2U ? 2 : 1) << ",\n  \"source\": \"" << asset_uri_prefix
-                << "textures/" << base << ".png\",\n  \"color_space\": \""
-                << (variant == 0U ? "srgb" : "linear") << '"';
-        if (variant == 2U)
-          texture << ",\n  \"usage\": \"normal\"";
+        texture << "{\n  \"format\": \"gneiss.texture\",\n  \"version\": " << 2
+                << ",\n  \"source\": \"" << asset_uri_prefix << "textures/" << base
+                << ".png\",\n  \"color_space\": \"" << (variant == 0U ? "srgb" : "linear") << '"';
+        texture << ",\n  \"usage\": \"" << (variant == 2U ? "normal" : "default") << '"';
         texture << "\n}\n";
         if (!image.good() || !texture.good())
           return {.success = false, .diagnostic = "写出 Texture 失败"};

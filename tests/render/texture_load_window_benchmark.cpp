@@ -98,7 +98,7 @@ gneiss::engine::result native_update(runtime::application& app, context& state) 
     if (!state.model) {
       std::ofstream stream(state.root / "textures/test.texture.json");
       stream
-          << R"({"format":"gneiss.texture","version":1,"source":"asset://textures/after.png","color_space":"srgb"})";
+          << R"({"format":"gneiss.texture","version":2,"source":"asset://textures/after.png","color_space":"srgb","usage":"default"})";
     }
     state.requested = true;
     const std::array uris{

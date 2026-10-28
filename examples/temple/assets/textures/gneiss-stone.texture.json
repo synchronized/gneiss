@@ -1,6 +1,7 @@
 {
   "format": "gneiss.texture",
-  "version": 1,
+  "version": 2,
   "source": "asset://textures/gneiss-stone.png",
-  "color_space": "srgb"
+  "color_space": "srgb",
+  "usage": "default"
 }

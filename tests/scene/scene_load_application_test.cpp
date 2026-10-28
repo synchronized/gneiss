@@ -448,7 +448,7 @@ void shared_texture_versions(gneiss::engine::execution_mode mode) {
                  static_cast<std::streamsize>(bytes.size()));
   }
   std::ofstream(files.root / "texture.json")
-      << R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})";
+      << R"({"format":"gneiss.texture","version":2,"source":"asset://image.ktx2","color_space":"srgb","usage":"default"})";
   for (const auto* name : {"material.json", "other.json"}) {
     std::ofstream(files.root / name)
         << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[1,1,1,1],"base_color_texture":"asset://texture.json"})";

@@ -44,18 +44,13 @@ bool read_budget(yyjson_val* budget, ipc_scene_budget& parsed) {
     return false;
   }
   parsed.available_bytes = yyjson_get_uint(yyjson_obj_get(budget, "available_bytes"));
-  if (auto* cleanup = yyjson_obj_get(budget, "cleanup_complete")) {
-    if (!yyjson_is_bool(cleanup)) {
-      return false;
-    }
-    parsed.cleanup_complete = yyjson_get_bool(cleanup);
+  auto* cleanup = yyjson_obj_get(budget, "cleanup_complete");
+  auto* pending = yyjson_obj_get(budget, "cleanup_pending");
+  if (!yyjson_is_bool(cleanup) || !yyjson_is_bool(pending)) {
+    return false;
   }
-  if (auto* pending = yyjson_obj_get(budget, "cleanup_pending")) {
-    if (!yyjson_is_bool(pending)) {
-      return false;
-    }
-    parsed.cleanup_pending = yyjson_get_bool(pending);
-  }
+  parsed.cleanup_complete = yyjson_get_bool(cleanup);
+  parsed.cleanup_pending = yyjson_get_bool(pending);
   if (parsed.cleanup_complete && parsed.cleanup_pending) {
     return false;
   }

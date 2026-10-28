@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/render/render_asset_preparation.hpp"
 #include "engine/resource/material/material_description.hpp"
+#include "engine/resource/texture/texture_decoder.hpp"
 #include <cstring>
 #include <limits>
 #include <stdexcept>
@@ -79,10 +80,28 @@ int main() try {
   check(output.texture_uris[0] == "asset://texture");
   // 解码不递归加载依赖；不存在的纹理只作为 URI 返回给加载编排层。
   const auto texture = bytes(
-      R"({"format":"gneiss.texture","version":1,"source":"asset://image.png","color_space":"srgb"})");
+      R"({"format":"gneiss.texture","version":2,"source":"asset://image.png","color_space":"srgb","usage":"default"})");
   check(decode_loaded_asset({"asset://texture", asset_type::texture}, texture, "asset://wrong.png",
                             {}, output, diagnostic, 65536, {}) == result::invalid_argument);
   check(diagnostic.path == "/source");
+  texture_description parsed;
+  for (const auto version : {1, 3}) {
+    const auto text = std::string{R"({"format":"gneiss.texture","version":)"} +
+                      std::to_string(version) +
+                      R"(,"source":"asset://a.png","color_space":"srgb","usage":"default"})";
+    check(detail::parse_texture(bytes(text), parsed, diagnostic) == result::unsupported);
+    check(diagnostic.path == "/version");
+  }
+  for (const auto usage : {std::string_view{}, std::string_view{",\"usage\":\"unknown\""},
+                           std::string_view{",\"usage\":\"normal\""}}) {
+    diagnostic = {};
+    const auto text =
+        std::string{
+            R"({"format":"gneiss.texture","version":2,"source":"asset://a.png","color_space":"srgb")"} +
+        std::string{usage} + "}";
+    check(detail::parse_texture(bytes(text), parsed, diagnostic) == result::invalid_argument);
+    check(diagnostic.path == "/usage");
+  }
   return 0;
 } catch (...) {
   return 1;

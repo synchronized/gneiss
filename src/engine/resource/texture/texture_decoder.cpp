@@ -17,22 +17,16 @@ namespace gneiss::engine::detail {
     return diagnostic.result;
   }
   yyjson_val* root = yyjson_doc_get_root(document.get());
-  constexpr std::array v1_fields{
-      std::string_view{"format"},
-      std::string_view{"version"},
-      std::string_view{"source"},
-      std::string_view{"color_space"},
-  };
-  constexpr std::array v2_fields{
+  constexpr std::array fields{
       std::string_view{"format"},      std::string_view{"version"}, std::string_view{"source"},
       std::string_view{"color_space"}, std::string_view{"usage"},
   };
-  auto* const requested = yyjson_obj_get(root, "version");
-  const auto fields = yyjson_is_uint(requested) && yyjson_get_uint(requested) == 2U
-                          ? std::span<const std::string_view>{v2_fields}
-                          : std::span<const std::string_view>{v1_fields};
   std::uint64_t version = 0;
   if (!validate_header(root, "gneiss.texture", fields, 2U, version, diagnostic)) {
+    return diagnostic.result;
+  }
+  if (version != 2U) {
+    fail(diagnostic, engine::result::unsupported, "/version", "纹理描述仅支持版本 2");
     return diagnostic.result;
   }
   yyjson_val* source = yyjson_obj_get(root, "source");
@@ -55,14 +49,13 @@ namespace gneiss::engine::detail {
     fail(diagnostic, engine::result::invalid_argument, "/color_space", "只支持 srgb 或 linear");
     return diagnostic.result;
   }
-  if (version == 2U) {
-    auto* const usage = yyjson_obj_get(root, "usage");
-    if (!yyjson_is_str(usage) || json_string(usage) != "normal" ||
-        out_source.color_space != texture_color_space::linear) {
-      fail(diagnostic, engine::result::invalid_argument, "/usage",
-           "Texture v2 当前只支持 linear 法线用途");
-      return diagnostic.result;
-    }
+  auto* const usage = yyjson_obj_get(root, "usage");
+  if (!yyjson_is_str(usage) ||
+      (json_string(usage) != "default" && json_string(usage) != "normal") ||
+      (json_string(usage) == "normal" && out_source.color_space != texture_color_space::linear)) {
+    fail(diagnostic, engine::result::invalid_argument, "/usage",
+         "纹理用途必须是 default 或 normal，法线纹理必须使用 linear");
+    return diagnostic.result;
   }
   out_source.uri.assign(json_string(source));
   return engine::result::success;

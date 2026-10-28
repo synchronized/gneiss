@@ -194,11 +194,10 @@ int main() try {
                              std::ios::binary | std::ios::trunc);
   project_file << R"({
   "format": "gneiss.project",
-  "version": 1,
+  "version": 5,
   "name": "Invalid Runtime Project",
   "asset_root": "assets",
-  "startup_scene": "asset://scenes/missing.scene.json"
-})";
+  "startup_scene": "asset://scenes/missing.scene.json","asset_build":{"retain":[]}})";
   project_file.close();
   if (error || !project_file) {
     return 2;
@@ -349,7 +348,7 @@ int main() try {
   {
     std::ofstream stream(texture_root / "test.texture.json");
     stream
-        << R"({"format":"gneiss.texture","version":1,"source":"asset://textures/test.png","color_space":"srgb"})";
+        << R"({"format":"gneiss.texture","version":2,"source":"asset://textures/test.png","color_space":"srgb","usage":"default"})";
   }
   {
     std::ofstream stream(material_path);

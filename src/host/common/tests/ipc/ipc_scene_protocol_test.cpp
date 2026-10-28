@@ -120,19 +120,16 @@ void run() {
           decoded.budget->application_cpu_data_bytes == 4U &&
           decoded.budget->available_bytes == 5U && decoded.budget->cleanup_complete);
     const std::string encoded(envelope.payload.begin(), envelope.payload.end());
-    auto legacy = encoded;
-    const auto cleanup_offset = legacy.find(",\"cleanup_complete\":true");
-    check(cleanup_offset != std::string::npos);
-    legacy.erase(cleanup_offset, std::string_view{",\"cleanup_complete\":true"}.size());
-    envelope.payload.assign(legacy.begin(), legacy.end());
-    check(decode_ipc_scene_progress(envelope, decoded) == gneiss::engine::result::success &&
-          decoded.budget && !decoded.budget->cleanup_complete);
-    const auto pending_offset = legacy.find(",\"cleanup_pending\":false");
-    check(pending_offset != std::string::npos);
-    legacy.erase(pending_offset, std::string_view{",\"cleanup_pending\":false"}.size());
-    envelope.payload.assign(legacy.begin(), legacy.end());
-    check(decode_ipc_scene_progress(envelope, decoded) == gneiss::engine::result::success &&
-          decoded.budget && !decoded.budget->cleanup_complete && !decoded.budget->cleanup_pending);
+    for (const auto field : {std::string_view{",\"cleanup_complete\":true"},
+                             std::string_view{",\"cleanup_pending\":false"}}) {
+      auto missing = encoded;
+      const auto offset = missing.find(field);
+      check(offset != std::string::npos);
+      missing.erase(offset, field.size());
+      envelope.payload.assign(missing.begin(), missing.end());
+      check(decode_ipc_scene_progress(envelope, decoded) ==
+            gneiss::engine::result::invalid_argument);
+    }
     for (const auto* replacement : {"true", "0", "null"}) {
       auto malformed = encoded;
       const auto offset = malformed.find("\"cleanup_pending\":false");
@@ -144,12 +141,13 @@ void run() {
     }
     for (const auto* replacement : {"0", "null", "\"true\""}) {
       auto malformed = encoded;
-      malformed.replace(cleanup_offset + std::string_view{",\"cleanup_complete\":"}.size(), 4U,
-                        replacement);
+      malformed.replace(encoded.find(",\"cleanup_complete\":true") +
+                            std::string_view{",\"cleanup_complete\":"}.size(),
+                        4U, replacement);
       envelope.payload.assign(malformed.begin(), malformed.end());
       check(decode_ipc_scene_progress(envelope, decoded) ==
             gneiss::engine::result::invalid_argument);
-      check(decoded.budget && !decoded.budget->cleanup_complete);
+      check(decoded.budget && decoded.budget->cleanup_complete);
     }
     for (const auto* replacement : {"-1", "1.5", "null", "18446744073709551616"}) {
       auto malformed = encoded;

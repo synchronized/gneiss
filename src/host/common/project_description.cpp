@@ -235,7 +235,7 @@ gneiss::engine::result load_project_description(const std::filesystem::path& pro
                   project_file);
     }
     const auto format_version = yyjson_get_uint(version);
-    if (format_version < 1U || format_version > 5U) {
+    if (format_version != 5U) {
       return fail(report, project_load_stage::schema, gneiss::engine::result::unsupported,
                   project_file);
     }
@@ -264,7 +264,7 @@ gneiss::engine::result load_project_description(const std::filesystem::path& pro
 
     auto* environment = yyjson_obj_get(root, "environment");
     if (environment != nullptr) {
-      if (format_version < 3U || !yyjson_is_obj(environment) ||
+      if (!yyjson_is_obj(environment) ||
           !read_optional_string(environment, "asset", pending.environment.asset) ||
           !read_number(environment, "intensity", pending.environment.intensity) ||
           !read_number(environment, "rotation_degrees", pending.environment.rotation_degrees) ||
@@ -278,9 +278,8 @@ gneiss::engine::result load_project_description(const std::filesystem::path& pro
     }
 
     auto* asset_build = yyjson_obj_get(root, "asset_build");
-    if ((format_version >= 5U && !yyjson_is_obj(asset_build)) ||
-        (asset_build != nullptr && (format_version < 5U || !yyjson_is_obj(asset_build) ||
-                                    !read_retained_assets(asset_build, pending.retained_assets)))) {
+    if (!yyjson_is_obj(asset_build) ||
+        !read_retained_assets(asset_build, pending.retained_assets)) {
       return fail(report, project_load_stage::asset_build, gneiss::engine::result::invalid_argument,
                   project_file);
     }

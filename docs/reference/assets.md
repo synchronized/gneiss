@@ -97,13 +97,13 @@ Runtime 的 `scene` 域消息可携带内部 `budget` 对象。容量字段为�
 `application_cpu_data_bytes`、`available_bytes`。
 候选为已完成 CPU 批次统计，Application 为资源账本；均不是进程 RSS 或实际显存。
 
-可选布尔字段 `cleanup_complete` 只有在失败/取消请求的内部请求与暂存状态清理后才为 true。
+预算对象中的必填布尔字段 `cleanup_complete` 只有在失败/取消请求的内部请求与暂存状态清理后才为 true。
 此时候选分项保留回收前的诊断值，Application 重新采样回收后的账本。
 活动场景、共享缓存和旧渲染帧仍可合法持有资源；该字段不表示整个 Application 已清空。
 成功激活将候选转移给活动场景，不使用这个标记表示释放。
-旧消息省略该字段按 false（未确认）处理；错误类型被拒绝，既有 IPC 域版本不变。
+预算对象缺少该字段或字段类型错误时拒绝消息，既有 IPC 域版本不变。
 
-`cleanup_pending` 同样是可选布尔字段，缺省 false，不能与 `cleanup_complete` 同时为 true。
+`cleanup_pending` 同样是必填布尔字段，不能与 `cleanup_complete` 同时为 true。
 Runtime 的清理补报为事件，不重复发送请求响应；Editor 仅更新同一取消请求的预算。
 生命周期依据见 [ADR-058](../decisions/ADR-058-scene-cancellation-cleanup.md)。
 

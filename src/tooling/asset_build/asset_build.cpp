@@ -323,10 +323,10 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
       yyjson_is_str(usage_value) && std::string_view{yyjson_get_str(usage_value)} == "normal";
   const bool valid = yyjson_is_str(source_value) && yyjson_is_str(format_value) &&
                      std::string_view{yyjson_get_str(format_value)} == "gneiss.texture" &&
-                     yyjson_is_uint(version_value) && (version == 1U || version == 2U) &&
-                     (color == "linear" || color == "srgb") &&
-                     ((version == 1U && usage_value == nullptr) ||
-                      (version == 2U && normal_map && color == "linear"));
+                     yyjson_is_uint(version_value) && version == 2U &&
+                     (color == "linear" || color == "srgb") && yyjson_is_str(usage_value) &&
+                     (std::string_view{yyjson_get_str(usage_value)} == "default" ||
+                      (normal_map && color == "linear"));
   if (valid) {
     const std::string_view uri{yyjson_get_str(source_value), yyjson_get_len(source_value)};
     constexpr std::string_view prefix = "asset://";
@@ -386,7 +386,7 @@ const processor_description* processor_registry::find(std::string_view path) con
 processor_registry make_default_registry() {
   processor_registry registry;
   static_cast<void>(registry.register_processor(
-      {.id = "gneiss.texture", .version = 5U, .suffixes = {".png", ".jpg", ".jpeg", ".ktx2"}}));
+      {.id = "gneiss.texture", .version = 6U, .suffixes = {".png", ".jpg", ".jpeg", ".ktx2"}}));
   static_cast<void>(registry.register_processor(
       {.id = "gneiss.mesh", .version = 3U, .suffixes = {".gneiss-mesh", ".mesh.json"}}));
   static_cast<void>(registry.register_processor(

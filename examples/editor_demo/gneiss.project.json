@@ -1,7 +1,10 @@
 {
   "format": "gneiss.project",
-  "version": 1,
+  "version": 5,
   "name": "Gneiss Editor Demo",
   "asset_root": "assets",
-  "startup_scene": "asset://scenes/main.scene.json"
+  "startup_scene": "asset://scenes/main.scene.json",
+  "asset_build": {
+    "retain": []
+  }
 }

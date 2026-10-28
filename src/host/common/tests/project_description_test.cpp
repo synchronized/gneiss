@@ -22,12 +22,11 @@ namespace {
 
 [[nodiscard]] std::string project_json(std::string_view asset_root, std::string_view startup_scene,
                                        std::string_view extra_fields = {}) {
-  return "{\n  \"format\": \"gneiss.project\",\n  \"version\": " +
-         std::string(extra_fields.empty() ? "1" : "2") +
+  return "{\n  \"format\": \"gneiss.project\",\n  \"version\": " + std::string{"5"} +
          ",\n  "
          "\"name\": \"Test Project\",\n  \"asset_root\": \"" +
          std::string(asset_root) + "\",\n  \"startup_scene\": \"" + std::string(startup_scene) +
-         "\"" + std::string(extra_fields) + "\n}\n";
+         "\",\"asset_build\":{\"retain\":[]}" + std::string(extra_fields) + "\n}\n";
 }
 
 } // namespace
@@ -59,7 +58,7 @@ int main() try {
   if (!write_text(root / "assets" / "input" / "default.input-map.json", "{}") ||
       !write_text(
           root / "gneiss.project.json",
-          R"({"format":"gneiss.project","version":2,"name":"Test Project","asset_root":"assets","startup_scene":"asset://scenes/main.scene.json","input_map":"asset://input/default.input-map.json"})") ||
+          R"({"format":"gneiss.project","version":5,"name":"Test Project","asset_root":"assets","startup_scene":"asset://scenes/main.scene.json","input_map":"asset://input/default.input-map.json","asset_build":{"retain":[]}})") ||
       gneiss::host::load_project_description(root, project, report).failed() ||
       project.input_map != "asset://input/default.input-map.json")
     return 3;
@@ -67,7 +66,7 @@ int main() try {
   if (!write_text(root / "assets" / "studio.gneiss-environment", "fixture") ||
       !write_text(
           root / "gneiss.project.json",
-          R"({"format":"gneiss.project","version":3,"name":"Test Project","asset_root":"assets","startup_scene":"asset://scenes/main.scene.json","environment":{"asset":"asset://studio.gneiss-environment","intensity":0.75,"rotation_degrees":30}})") ||
+          R"({"format":"gneiss.project","version":5,"name":"Test Project","asset_root":"assets","startup_scene":"asset://scenes/main.scene.json","environment":{"asset":"asset://studio.gneiss-environment","intensity":0.75,"rotation_degrees":30},"asset_build":{"retain":[]}})") ||
       gneiss::host::load_project_description(root, project, report) !=
           gneiss::engine::result::success ||
       project.environment.asset != "asset://studio.gneiss-environment" ||
@@ -130,12 +129,23 @@ int main() try {
       report.context.filename() != "gneiss.project.json") {
     return 9;
   }
-  if (!write_text(root / "gneiss.project.json",
-                  R"({"format":"gneiss.project","version":2,"game_module":{}})") ||
+  if (!write_text(
+          root / "gneiss.project.json",
+          R"({"format":"gneiss.project","version":5,"game_module":{},"asset_build":{"retain":[]}})") ||
       gneiss::host::load_project_description(root, project, report) !=
           gneiss::engine::result::unsupported ||
       report.stage != gneiss::host::project_load_stage::schema)
     return 10;
+  for (const auto version : {1, 2, 3, 4, 6}) {
+    auto rejected = project_json("assets", "asset://scenes/main.scene.json");
+    const auto offset = rejected.find("\"version\": 5");
+    rejected.replace(offset, 12, "\"version\": " + std::to_string(version));
+    const auto previous = project.name;
+    if (!write_text(root / "gneiss.project.json", rejected) ||
+        load_project_description(root, project, report) != gneiss::engine::result::unsupported ||
+        report.stage != project_load_stage::schema || project.name != previous)
+      return 11;
+  }
   std::filesystem::remove_all(root);
   return 0;
 } catch (...) {

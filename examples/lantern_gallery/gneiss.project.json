@@ -1,6 +1,6 @@
 {
   "format": "gneiss.project",
-  "version": 3,
+  "version": 5,
   "name": "Gneiss Lantern Gallery",
   "asset_root": "assets",
   "startup_scene": "asset://scenes/gallery.scene.json",
@@ -8,5 +8,8 @@
   "environment": {
     "intensity": 0.85,
     "rotation_degrees": 20.0
+  },
+  "asset_build": {
+    "retain": []
   }
 }

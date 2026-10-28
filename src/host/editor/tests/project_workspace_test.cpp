@@ -54,7 +54,7 @@ int main() try {
   authored_texture.write(reinterpret_cast<const char*>(png), sizeof(png));
   authored_texture.close();
   std::ofstream(project_root / "assets" / "textures" / "test.texture.json")
-      << R"({"format":"gneiss.texture","version":1,"source":"asset://textures/test.png","color_space":"srgb"})";
+      << R"({"format":"gneiss.texture","version":2,"source":"asset://textures/test.png","color_space":"srgb","usage":"default"})";
   if (gneiss::host::create_editor_project(project_root, "Duplicate", project) !=
       gneiss::engine::result::invalid_state) {
     return 9;

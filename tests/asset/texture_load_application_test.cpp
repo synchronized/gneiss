@@ -37,7 +37,7 @@ void run(gneiss::engine::execution_mode mode) {
   using namespace gneiss;
   fixture files;
   std::ofstream(files.root / "a.texture.json")
-      << R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})";
+      << R"({"format":"gneiss.texture","version":2,"source":"asset://image.ktx2","color_space":"srgb","usage":"default"})";
   std::vector<std::byte> bytes;
   std::string diagnostic;
   check(gneiss::engine::encode_texture_ktx2(

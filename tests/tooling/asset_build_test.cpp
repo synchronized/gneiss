@@ -166,9 +166,9 @@ int main() {
 
   const auto pbr_source = root / "pbr-source";
   const std::string color_desc =
-      R"({"format":"gneiss.texture","version":1,"source":"asset://color.png","color_space":"srgb"})";
+      R"({"format":"gneiss.texture","version":2,"source":"asset://color.png","color_space":"srgb","usage":"default"})";
   const std::string data_desc =
-      R"({"format":"gneiss.texture","version":1,"source":"asset://data.png","color_space":"linear"})";
+      R"({"format":"gneiss.texture","version":2,"source":"asset://data.png","color_space":"linear","usage":"default"})";
   const std::string normal_desc =
       R"({"format":"gneiss.texture","version":2,"source":"asset://normal.png","color_space":"linear","usage":"normal"})";
   if (!write(pbr_source / "color.png", png_fixture('p')) ||
@@ -202,7 +202,7 @@ int main() {
   const auto* old_normal = find_output(pbr_first, "normal.gneiss-texture");
   if (!write(
           pbr_source / "normal.texture.json",
-          R"({"format":"gneiss.texture","version":1,"source":"asset://normal.png","color_space":"linear"})")) {
+          R"({"format":"gneiss.texture","version":2,"source":"asset://normal.png","color_space":"linear","usage":"default"})")) {
     return 11;
   }
   pbr_request.output_root = root / "pbr-changed";

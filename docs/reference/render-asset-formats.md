@@ -112,9 +112,10 @@ GPU 使用统一包含 UV1/Color 的布局与对应标准变体；缺失顶点�
 ```json
 {
   "format": "gneiss.texture",
-  "version": 1,
+  "version": 2,
   "source": "asset://textures/white.png",
-  "color_space": "srgb"
+  "color_space": "srgb",
+  "usage": "default"
 }
 ```
 
@@ -122,7 +123,10 @@ GPU 使用统一包含 UV1/Color 的布局与对应标准变体；缺失顶点�
 不从 PNG 元数据推断。资产构建会生成直到 1×1 的完整 Mip 链，再确定性转换为同名
 `.gneiss-texture` 并重写运行资产中的 URI。相同图像不能由多个 Texture 描述同时声明为不同颜色空间。
 
-Texture v2 在 v1 基础上要求 `usage: "normal"` 和 `color_space: "linear"`，用于声明法线 Mip。
+纹理描述仅接受 v2；旧版本返回 `unsupported`。`usage` 必填：普通纹理使用 `default`，
+法线纹理使用 `normal` 且要求 `color_space: "linear"`，用于生成法线 Mip。
+旧 v1 描述应迁到 v2 并补齐 `usage: "default"`。导入器版本提升至 4，纹理处理器版本提升至 6，
+已有导入结果需重新导入并重新 Cook，避免复用旧描述和构建缓存。
 Cook 对 sRGB 颜色先解码至线性光域再过滤；线性数据直接过滤；法线按向量过滤并归一化，
 相消时回退为 +Z。Alpha 始终线性过滤，奇数尺寸使用面积权重覆盖边缘像素。
 glTF 同图跨颜色/数据/法线用途时生成独立派生路径，MR 与 AO 共用 linear 变体，

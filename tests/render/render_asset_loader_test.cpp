@@ -233,7 +233,7 @@ void selected_variants() {
   memory->files["t.gneiss-texture"] =
       std::string(reinterpret_cast<const char*>(binary.data()), binary.size());
   memory->files["t.texture.json"] =
-      R"({"format":"gneiss.texture","version":1,"source":"asset://t.gneiss-texture","color_space":"srgb"})";
+      R"({"format":"gneiss.texture","version":2,"source":"asset://t.gneiss-texture","color_space":"srgb","usage":"default"})";
   gneiss::test_support::fixture_files files;
   require(files.mount("asset://", memory) == gneiss::engine::result::success);
   const texture_prepare_profile compressed{.generation = 1U,
@@ -479,10 +479,10 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   memory->files.emplace("textures/white.png", png_data);
   memory->files.emplace(
       "textures/white.texture.json",
-      R"({"format":"gneiss.texture","version":1,"source":"asset://textures/white.png","color_space":"srgb"})");
+      R"({"format":"gneiss.texture","version":2,"source":"asset://textures/white.png","color_space":"srgb","usage":"default"})");
   memory->files.emplace(
       "textures/missing.texture.json",
-      R"({"format":"gneiss.texture","version":1,"source":"asset://textures/missing.png","color_space":"linear"})");
+      R"({"format":"gneiss.texture","version":2,"source":"asset://textures/missing.png","color_space":"linear","usage":"default"})");
   gneiss::engine::texture_ktx2 ktx_source{
       .transfer = gneiss::engine::texture_transfer::linear,
       .levels = {
@@ -499,7 +499,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
       std::string(reinterpret_cast<const char*>(ktx_bytes.data()), ktx_bytes.size()));
   memory->files.emplace(
       "textures/linear.texture.json",
-      R"({"format":"gneiss.texture","version":1,"source":"asset://textures/linear.ktx2","color_space":"linear"})");
+      R"({"format":"gneiss.texture","version":2,"source":"asset://textures/linear.ktx2","color_space":"linear","usage":"default"})");
   const auto packaged_bytes = make_runtime_texture();
   if (packaged_bytes.empty()) {
     return 26;
@@ -509,7 +509,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
       std::string(reinterpret_cast<const char*>(packaged_bytes.data()), packaged_bytes.size()));
   memory->files.emplace(
       "textures/packaged.texture.json",
-      R"({"format":"gneiss.texture","version":1,"source":"asset://textures/packaged.gneiss-texture","color_space":"srgb"})");
+      R"({"format":"gneiss.texture","version":2,"source":"asset://textures/packaged.gneiss-texture","color_space":"srgb","usage":"default"})");
   memory->files.emplace(
       "models/textured.mesh.json",
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.5,-0.5,0],[0.5,-0.5,0],[0,0.5,0]],"uvs":[[0,0],[1,0],[0.5,1]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})");

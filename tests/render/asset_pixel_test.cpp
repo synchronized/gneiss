@@ -37,7 +37,7 @@ struct fixture {
   explicit fixture(bool pbr = false) {
     std::filesystem::create_directories(root);
     std::ofstream(root / "t.texture.json")
-        << R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})";
+        << R"({"format":"gneiss.texture","version":2,"source":"asset://image.ktx2","color_space":"srgb","usage":"default"})";
     std::ofstream(root / "m.material.json")
         << R"({"format":"gneiss.material","version":5,"color":[1,1,1,1],"base_color_texture":"asset://t.texture.json","metallic":0,"roughness":1})";
     if (pbr) {
@@ -309,7 +309,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
                                                 diagnostic) ==
           gneiss::engine::texture_binary_result::success);
     std::ofstream(files.root / "t.texture.json")
-        << R"({"format":"gneiss.texture","version":1,"source":"asset://image.gneiss-texture","color_space":"srgb"})";
+        << R"({"format":"gneiss.texture","version":2,"source":"asset://image.gneiss-texture","color_space":"srgb","usage":"default"})";
   }
   {
     std::ofstream stream(files.root / (packaged ? "image.gneiss-texture" : "image.ktx2"),
@@ -381,7 +381,7 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
                                        bool reflected = false) {
   fixture files;
   std::ofstream(files.root / "t.texture.json")
-      << R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"linear"})";
+      << R"({"format":"gneiss.texture","version":2,"source":"asset://image.ktx2","color_space":"linear","usage":"default"})";
   std::ofstream(files.root / "m.material.json")
       << R"({"format":"gneiss.material","version":5,"color":[0.5,0.5,0.5,1],"base_color_texture":null,"metallic":1,"roughness":1,")"
       << slot << R"(":"asset://t.texture.json","emissive":[)"
@@ -697,7 +697,7 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
   // 材质引入未显式请求的新依赖，网格同时缩小；一次发布后像素颜色和覆盖范围都必须改变。
   files.color(std::byte{20}, std::byte{240});
   std::ofstream(files.root / "new.texture.json")
-      << R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})";
+      << R"({"format":"gneiss.texture","version":2,"source":"asset://image.ktx2","color_space":"srgb","usage":"default"})";
   std::ofstream(files.root / "m.material.json")
       << R"({"format":"gneiss.material","version":5,"color":[1,1,1,1],"base_color_texture":"asset://new.texture.json","metallic":0,"roughness":1})";
   std::ofstream(files.root / "g.mesh.json")
