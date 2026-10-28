@@ -237,20 +237,21 @@ void run() {
   gneiss::engine::scene_instances::asset_bindings bindings;
   for (auto& asset : batch.assets) {
     gneiss::engine::render_asset_ref target;
-    check(gneiss::engine::resource_service::implementation::adopt(candidate_render,
-                                                                  std::move(asset), target)
+    check(gneiss::test_support::adopt_render_for_test(candidate_render, std::move(asset), target)
               .ok());
     bindings.emplace(std::string(gneiss::engine::asset_uri(target)), target);
   }
-  auto material = gneiss::engine::resource_service::material_ref(bindings.at("asset://m.material"));
+  auto material = gneiss::engine::asset_cast<gneiss::engine::material_resource>(
+      bindings.at("asset://m.material"));
   const auto mesh_rid = gneiss::engine::asset_rid(bindings.at("asset://m.mesh"));
   check(material && gneiss::engine::asset_rid(material) != gneiss::engine::asset_rid(old_material));
   check(resources.get_material(gneiss::engine::asset_rid(material))->parameters.color[1] == 1.0F);
-  check(!gneiss::engine::resource_service::mesh_ref(bindings.at("asset://m.material")));
-  check(!gneiss::engine::resource_service::material_ref(bindings.at("asset://m.mesh")));
+  check(!gneiss::engine::asset_cast<gneiss::engine::mesh_resource>(
+      bindings.at("asset://m.material")));
+  check(!gneiss::engine::asset_cast<gneiss::engine::material_resource>(
+      bindings.at("asset://m.mesh")));
   gneiss::engine::render_asset_ref uncached;
-  check(candidate_render.acquire_cached(requests.front(), uncached) ==
-        gneiss::engine::result::success);
+  check(candidate_render.find(requests.front(), uncached) == gneiss::engine::result::success);
   // 绑定复用稳定资源；另一个 URI 的蓝色材质不影响它。
   files->files["blue.material"] =
       R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,0,1,1]})";
@@ -350,8 +351,7 @@ void run() {
   check(resources.get_material(selected_material) != nullptr &&
         resources.get_material(selected_material)->parameters.color[1] == 1.0F);
   gneiss::engine::render_asset_ref next_version;
-  check(candidate_render.acquire_cached(requests.back(), next_version) ==
-        gneiss::engine::result::success);
+  check(candidate_render.find(requests.back(), next_version) == gneiss::engine::result::success);
   gneiss::engine::scene_node_view ordinary;
   gneiss::engine::prefab_node_view prefab_node;
   check(candidate->scenes()->get_node_info(new_scene, 0U, ordinary) ==

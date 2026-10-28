@@ -116,12 +116,13 @@ int main() try {
       cache.size() != 1U)
     return 8;
   const auto recursive = [&](std::shared_ptr<const void>& output) {
+    // 回调提前写入对象仍未完成创建，不能绕过同键递归保护。
+    output = std::make_shared<int>(7);
     decltype(first) nested;
     if (cache.load("asset://recursive", gneiss::engine::runtime_type_of<int>(), loader, nested) !=
         gneiss::engine::result::invalid_state)
       return gneiss::engine::result::internal;
     cache.release_unused(); // 加载中的条目必须由当前调用保活。
-    output = std::make_shared<int>(7);
     return gneiss::engine::result::success;
   };
   if (cache.load("asset://recursive", gneiss::engine::runtime_type_of<int>(), recursive, first) !=

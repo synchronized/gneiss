@@ -12,7 +12,7 @@ inline engine::task_scheduler& render_tasks() { return asset_tasks(); }
 inline engine::result load_render(engine::resource_service& loader, engine::asset_type type,
                                   std::string_view uri, engine::render_asset_ref& output,
                                   engine::asset_diagnostic& diagnostic) {
-  auto status = loader.acquire_asset(type, uri, output, diagnostic);
+  auto status = loader.find({std::string(uri), type}, output);
   if (status != engine::result::not_found)
     return status;
   auto& tasks = render_tasks();
@@ -40,7 +40,7 @@ inline engine::result load_render(engine::resource_service& loader, engine::asse
         loader.collect_unused();
         return completion.result;
       }
-      return loader.acquire_asset(type, uri, output, diagnostic);
+      return loader.find({std::string(uri), type}, output);
     }
     if (std::chrono::steady_clock::now() > deadline)
       throw std::runtime_error("异步渲染资产测试超时");

@@ -35,12 +35,12 @@ engine::result scene_instances::instantiate_prepared(prepared_scene_description 
       const auto& source = instance->source().objects.at(index);
       const auto result = instance->create_staged_node(
           index, source.parent_uuid ? nodes.at(*source.parent_uuid) : null_scene_node_id,
-          resource_service::mesh_ref(source.mesh_renderer
-                                         ? find_asset(source.mesh_renderer->mesh_uri)
-                                         : engine::render_asset_ref{}),
-          resource_service::material_ref(source.mesh_renderer
-                                             ? find_asset(source.mesh_renderer->material_uri)
-                                             : engine::render_asset_ref{}));
+          asset_cast<mesh_resource>(source.mesh_renderer
+                                        ? find_asset(source.mesh_renderer->mesh_uri)
+                                        : engine::render_asset_ref{}),
+          asset_cast<material_resource>(source.mesh_renderer
+                                            ? find_asset(source.mesh_renderer->material_uri)
+                                            : engine::render_asset_ref{}));
       if (result != engine::result::success) {
         return result;
       }
@@ -65,11 +65,11 @@ engine::result scene_instances::instantiate_prepared(prepared_scene_description 
         const auto& node = lease.get()->objects.at(index);
         result = prefab->create_node(
             index, node.parent_uuid ? prefab_nodes.at(*node.parent_uuid) : prefab->root(),
-            resource_service::mesh_ref(node.mesh_renderer ? find_asset(node.mesh_renderer->mesh_uri)
-                                                          : engine::render_asset_ref{}),
-            resource_service::material_ref(node.mesh_renderer
-                                               ? find_asset(node.mesh_renderer->material_uri)
-                                               : engine::render_asset_ref{}));
+            asset_cast<mesh_resource>(node.mesh_renderer ? find_asset(node.mesh_renderer->mesh_uri)
+                                                         : engine::render_asset_ref{}),
+            asset_cast<material_resource>(node.mesh_renderer
+                                              ? find_asset(node.mesh_renderer->material_uri)
+                                              : engine::render_asset_ref{}));
         if (result != engine::result::success) {
           return result;
         }
@@ -123,7 +123,7 @@ result scene_instances::capture_prepared(scene_instance_id instance,
   asset_bindings bindings;
   for (const auto& source : prepared.assets) {
     render_asset_ref resource;
-    status = loader_.acquire_cached(source, resource);
+    status = loader_.find(source, resource);
     if (status.failed())
       return status;
     bindings.emplace(source.uri, std::move(resource));

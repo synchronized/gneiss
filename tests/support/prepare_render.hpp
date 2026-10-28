@@ -4,6 +4,7 @@
 #include "async_asset.hpp"
 #include "engine/function/render/render_resource_data.hpp"
 #include "engine/function/resource/detail/asset_decode.hpp"
+#include "engine/function/resource/detail/resource_service_impl.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
 #include <algorithm>
@@ -18,6 +19,48 @@ struct prepared_batch {
 }
 namespace gneiss::test_support {
 using namespace gneiss::engine;
+inline result adopt_render_for_test(resource_service& service, decoded_asset decoded,
+                                    render_asset_ref& target) {
+  const auto kind = decoded.kind();
+  if (kind == asset_type::invalid)
+    return result::invalid_argument;
+  if (!target) {
+    const auto status = service.reserve_asset({decoded.uri, kind}, target);
+    if (status.failed())
+      return status;
+  }
+  if (asset_kind(target) != kind || asset_uri(target) != decoded.uri)
+    return result::invalid_argument;
+  return std::visit(
+      [&](auto& data) -> result {
+        using T = std::decay_t<decltype(data)>;
+        if constexpr (std::is_same_v<T, mesh_data>)
+          return resource_service::implementation::adopt(
+              service, std::move(data), asset_cast<mesh_resource>(target), decoded.sources);
+        else if constexpr (std::is_same_v<T, texture_data>)
+          return resource_service::implementation::adopt(
+              service, std::move(data), asset_cast<texture_resource>(target), decoded.sources);
+        else if constexpr (std::is_same_v<T, asset_ref<const material_description>>) {
+          if (!data)
+            return result::invalid_argument;
+          std::array<texture, 5> dependencies;
+          for (std::size_t slot = 0; slot < dependencies.size(); ++slot) {
+            if (data->texture_uris[slot].empty())
+              continue;
+            render_asset_ref entry;
+            const auto status =
+                service.reserve_asset({data->texture_uris[slot], asset_type::texture}, entry);
+            if (status.failed())
+              return status;
+            dependencies[slot] = asset_cast<texture_resource>(entry);
+          }
+          return resource_service::implementation::adopt(
+              service, *data, asset_cast<material_resource>(target), std::move(dependencies));
+        } else
+          return result::invalid_argument;
+      },
+      decoded.content);
+}
 // 仅组织内存测试夹具；生产解码器只消费字节，不负责读取与递归依赖。
 inline result decode_fixture(const gneiss::test_support::fixture_files& files,
                              const asset_source& source, decoded_asset& output,

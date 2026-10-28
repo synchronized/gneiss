@@ -26,9 +26,9 @@ engine::result resource_cache::load(std::string_view uri, type_id type, const lo
     const key identity{source, std::string(uri), type};
     auto found = entries_.find(identity);
     if (found != entries_.end()) {
-      if (found->second->state == resource_state::loading)
+      if (found->second->is_loading)
         return result::invalid_state;
-      if (!reload && found->second->state == resource_state::ready) {
+      if (!reload) {
         out_entry = found->second;
         return result::success;
       }
@@ -37,7 +37,6 @@ engine::result resource_cache::load(std::string_view uri, type_id type, const lo
     value->uri = uri;
     value->source = std::move(source);
     value->type = type;
-    value->state = resource_state::loading;
     // 加载期间保活旧值并阻止同键递归；失败（包括异常）恢复原条目。
     const auto previous = found == entries_.end() ? asset_ref<const entry>{} : found->second;
     entries_.insert_or_assign(identity, asset_ref<const entry>{value});
@@ -59,7 +58,7 @@ engine::result resource_cache::load(std::string_view uri, type_id type, const lo
         entries_.erase(found);
       return status;
     }
-    value->state = resource_state::ready;
+    value->is_loading = false;
     out_entry = asset_ref<const entry>{std::move(value)};
     return result::success;
   } catch (const std::bad_alloc&) {

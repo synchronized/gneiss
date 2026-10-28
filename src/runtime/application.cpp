@@ -513,7 +513,7 @@ gneiss::engine::result application::begin_action_map(std::string_view uri) noexc
     return gneiss::engine::result::not_ready;
   storage_->input_application_.cancel();
   gneiss::engine::asset_request<gneiss::engine::action_map> request;
-  const auto started = storage_->asset_manager_->request_input(uri, request);
+  const auto started = storage_->asset_manager_->load(uri, request, true);
   return started == gneiss::engine::result::success
              ? storage_->input_application_.begin(std::move(request))
              : started;
@@ -1102,9 +1102,9 @@ application::query_ready_asset(const gneiss::engine::asset_source& source,
     return valid;
   }
   auto* service = loading_assets();
-  const auto result =
-      service ? storage_->resource_service_->acquire_cached(source, output, service->profile())
-              : gneiss::engine::result::not_ready;
+  const auto result = service
+                          ? storage_->resource_service_->find(source, output, service->profile())
+                          : gneiss::engine::result::not_ready;
   return result == gneiss::engine::result::not_found ? gneiss::engine::result::not_ready : result;
 }
 

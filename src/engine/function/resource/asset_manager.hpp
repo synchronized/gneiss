@@ -10,7 +10,6 @@
 #include "engine/resource/asset_decoder.hpp"
 #include "engine/resource/asset_identity.hpp"
 #include "engine/resource/asset_request.hpp"
-#include "engine/resource/input/action_map.hpp"
 #include "engine/resource/mesh/mesh_data.hpp"
 #include "engine/resource/texture/texture_data.hpp"
 #include <memory>
@@ -47,8 +46,6 @@ public:
   ~asset_manager();
   /** 借用宿主解码执行器；文件 I/O 由服务后端执行，不创建独立线程池。 */
   void attach_task_executor(engine::task_executor& executor);
-  [[nodiscard]] engine::result request_input(std::string_view uri,
-                                             asset_request<action_map>& output) noexcept;
   /** 宿主每次先分发文件完成，再推进本管理器；不驱动文件或其他服务回调。 */
   void advance();
   /** 请求停止：立即拒绝新加载、终止观察者并取消 I/O/CPU 任务，不等待任务退出。

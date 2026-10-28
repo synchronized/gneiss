@@ -358,7 +358,7 @@ result asset_manager::request(type_id type, std::string_view uri, bool reload,
     return result::success;
   }
   const auto cached = cache_.observe(uri, type, domain).lock();
-  if (!reload && cached && cached->state == engine::resource_state::ready) {
+  if (!reload && cached && !cached->is_loading) {
     auto ready = std::make_shared<detail::asset_state>();
     ready->status = result::success;
     ready->value = std::shared_ptr<const void>(cached, cached->resource.get());
@@ -480,7 +480,7 @@ result asset_manager::find_loaded_erased(type_id type, std::string_view uri,
   if (status.failed())
     return status;
   const auto entry = cache_.observe(uri, type, std::move(source)).lock();
-  if (!entry || entry->state != engine::resource_state::ready || !entry->resource)
+  if (!entry || entry->is_loading || !entry->resource)
     return result::not_found;
   output = entry->resource;
   return result::success;
@@ -490,10 +490,6 @@ result asset_manager::find_loaded_erased(type_id type, std::string_view uri,
   return result::internal;
 }
 
-result asset_manager::request_input(std::string_view uri,
-                                    asset_request<action_map>& output) noexcept {
-  return load(uri, output, true);
-}
 void asset_manager::advance() {
   auto& state = *resource_state_;
   if (state.stopped) {

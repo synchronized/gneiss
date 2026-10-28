@@ -485,12 +485,11 @@ bool resource_service::owns(const render_asset_ref& lease) const noexcept {
   }
 }
 
-engine::result resource_service::acquire_cached(const asset_source& source,
-                                                render_asset_ref& output,
-                                                texture_prepare_profile profile) const noexcept {
+engine::result resource_service::find(const asset_source& source, render_asset_ref& output,
+                                      texture_prepare_profile profile) const noexcept {
+  output = {};
   if (!impl_ || render_stopping_)
     return result::invalid_state;
-  output = {};
   try {
     std::shared_ptr<const files::source_domain> domain;
     asset_identity identity;
@@ -502,8 +501,7 @@ engine::result resource_service::acquire_cached(const asset_source& source,
     if (!current) {
       return engine::result::not_found;
     }
-    if (current->type != cache_type(source.type) ||
-        current->state != engine::resource_state::ready) {
+    if (current->type != cache_type(source.type) || current->is_loading) {
       return engine::result::invalid_argument;
     }
     render_asset_ref target;
@@ -554,9 +552,9 @@ engine::result resource_service::acquire_cached(const asset_source& source,
 
 engine::result resource_service::reserve_asset(const asset_source& source,
                                                render_asset_ref& output) noexcept {
+  output = {};
   if (!impl_ || render_stopping_)
     return result::invalid_state;
-  output = {};
   try {
     if (engine::validate_uri(source.uri) != engine::result::success) {
       return engine::result::invalid_argument;
@@ -616,86 +614,88 @@ engine::result resource_service::reserve_asset(const asset_source& source,
   }
 }
 
-result resource_service::implementation::adopt(resource_service& assets, decoded_asset decoded,
-                                               render_asset_ref& target) noexcept try {
-  if (!assets.impl_ || assets.render_stopping_)
-    return result::invalid_state;
-  const auto kind = decoded.kind();
-  if (kind == asset_type::invalid)
-    return result::invalid_argument;
-  if (const auto* material = std::get_if<asset_ref<const material_description>>(&decoded.content);
-      material && !*material)
-    return result::invalid_argument;
-  if (!target) {
-    const auto status = assets.reserve_asset({decoded.uri, kind}, target);
-    if (status.failed())
-      return status;
-  }
-  if (asset_kind(target) != kind || asset_uri(target) != decoded.uri || !assets.owns(target))
-    return result::invalid_argument;
-  for (const auto& input : decoded.sources) {
+result resource_service::implementation::validate_sources(
+    resource_service& assets, std::span<const asset_data_source> sources) noexcept {
+  for (const auto& input : sources) {
     asset_identity identity;
     if (assets.identify(input.identity.uri, input.identity.type, identity).failed() ||
         identity != input.identity)
       return result::invalid_argument;
   }
-  return std::visit(
-      [&](auto& content) -> result {
-        using T = std::decay_t<decltype(content)>;
-        bool adopted{};
-        if constexpr (std::is_same_v<T, mesh_data>) {
-          std::shared_ptr<const mesh_data> data;
-          const auto status = assets.impl_->render().prepare_mesh_data(
-              std::make_shared<const mesh_data>(std::move(content)), data);
-          if (status.failed())
-            return status;
-          adopted = assets.impl_->update_mesh(asset_cast<mesh_resource>(target), std::move(data));
-        } else if constexpr (std::is_same_v<T, texture_data>) {
-          std::shared_ptr<const texture_data> data;
-          const auto status = assets.impl_->render().prepare_texture_data(std::move(content), data);
-          if (status.failed())
-            return status;
-          adopted =
-              assets.impl_->update_texture(asset_cast<texture_resource>(target), std::move(data));
-        } else if constexpr (std::is_same_v<T, asset_ref<const material_description>>) {
-          material_data value{.parameters = content->parameters};
-          std::array<texture, 5> dependencies;
-          for (std::size_t slot = 0; slot < content->texture_uris.size(); ++slot) {
-            const auto& uri = content->texture_uris[slot];
-            if (uri.empty())
-              continue;
-            render_asset_ref dependency;
-            const auto status = assets.reserve_asset({uri, asset_type::texture}, dependency);
-            if (status.failed())
-              return status;
-            dependencies[slot] = asset_cast<texture_resource>(dependency);
-            value.set_texture(slot, asset_rid(dependency));
-          }
-          std::shared_ptr<const material_data> data;
-          const auto status = assets.impl_->render().prepare_material_data(value, data);
-          if (status.failed())
-            return status;
-          adopted = assets.impl_->update_material(asset_cast<material_resource>(target),
-                                                  std::move(data), std::move(dependencies));
-        } else
-          return result::invalid_argument;
-        return adopted ? result::success : result::out_of_memory;
-      },
-      decoded.content);
+  return result::success;
+}
+result resource_service::implementation::adopt(resource_service& assets, mesh_data content,
+                                               const mesh& target,
+                                               std::span<const asset_data_source> sources) noexcept
+    try {
+  if (!assets.impl_ || assets.render_stopping_)
+    return result::invalid_state;
+  if (!assets.owns(target))
+    return result::invalid_argument;
+  const auto valid = validate_sources(assets, sources);
+  if (valid.failed())
+    return valid;
+  std::shared_ptr<const mesh_data> data;
+  const auto status = assets.impl_->render().prepare_mesh_data(
+      std::make_shared<const mesh_data>(std::move(content)), data);
+  if (status.failed())
+    return status;
+  return assets.impl_->update_mesh(target, std::move(data)) ? result::success
+                                                            : result::out_of_memory;
 } catch (const std::bad_alloc&) {
   return result::out_of_memory;
 } catch (...) {
   return result::internal;
 }
-
-result resource_service::acquire_mesh(std::string_view uri, engine::mesh& output,
-                                      asset_diagnostic& diagnostic) noexcept {
-  if (!impl_ || render_stopping_)
+result resource_service::implementation::adopt(resource_service& assets, texture_data content,
+                                               const texture& target,
+                                               std::span<const asset_data_source> sources) noexcept
+    try {
+  if (!assets.impl_ || assets.render_stopping_)
     return result::invalid_state;
-  render_asset_ref entry;
-  const auto status = acquire_asset(asset_type::mesh, uri, entry, diagnostic);
-  output = asset_cast<mesh_resource>(entry);
-  return status;
+  if (!assets.owns(target))
+    return result::invalid_argument;
+  const auto valid = validate_sources(assets, sources);
+  if (valid.failed())
+    return valid;
+  std::shared_ptr<const texture_data> data;
+  const auto status = assets.impl_->render().prepare_texture_data(std::move(content), data);
+  if (status.failed())
+    return status;
+  return assets.impl_->update_texture(target, std::move(data)) ? result::success
+                                                               : result::out_of_memory;
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
+}
+result resource_service::implementation::adopt(resource_service& assets,
+                                               const material_description& description,
+                                               const material& target,
+                                               std::array<texture, 5> dependencies) noexcept try {
+  if (!assets.impl_ || assets.render_stopping_)
+    return result::invalid_state;
+  if (!assets.owns(target))
+    return result::invalid_argument;
+  material_data value{.parameters = description.parameters};
+  for (std::size_t slot = 0; slot < dependencies.size(); ++slot) {
+    if (!description.texture_uris[slot].empty() &&
+        (!assets.owns(dependencies[slot]) ||
+         asset_uri(dependencies[slot]) != description.texture_uris[slot]))
+      return result::invalid_argument;
+    value.set_texture(slot, resource_handle(dependencies[slot]));
+  }
+  std::shared_ptr<const material_data> data;
+  const auto status = assets.impl_->render().prepare_material_data(value, data);
+  if (status.failed())
+    return status;
+  return assets.impl_->update_material(target, std::move(data), std::move(dependencies))
+             ? result::success
+             : result::out_of_memory;
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
 }
 
 bool resource_service::owns(const engine::mesh& value) const noexcept {
@@ -709,16 +709,6 @@ bool resource_service::owns(const engine::mesh& value) const noexcept {
          identity == value->source();
 }
 
-result resource_service::acquire_texture(std::string_view uri, engine::texture& output,
-                                         asset_diagnostic& diagnostic) noexcept {
-  if (!impl_ || render_stopping_)
-    return result::invalid_state;
-  render_asset_ref entry;
-  const auto status = acquire_asset(asset_type::texture, uri, entry, diagnostic);
-  output = asset_cast<texture_resource>(entry);
-  return status;
-}
-
 bool resource_service::owns(const engine::texture& value) const noexcept {
   if (!impl_)
     return false;
@@ -728,16 +718,6 @@ bool resource_service::owns(const engine::texture& value) const noexcept {
   return identify(value->source().uri, static_cast<std::uint32_t>(asset_type::texture), identity)
              .ok() &&
          identity == value->source();
-}
-
-result resource_service::acquire_material(std::string_view uri, engine::material& output,
-                                          asset_diagnostic& diagnostic) noexcept {
-  if (!impl_ || render_stopping_)
-    return result::invalid_state;
-  render_asset_ref entry;
-  const auto status = acquire_asset(asset_type::material, uri, entry, diagnostic);
-  output = asset_cast<material_resource>(entry);
-  return status;
 }
 
 bool resource_service::owns(const engine::material& value) const noexcept {
@@ -751,18 +731,4 @@ bool resource_service::owns(const engine::material& value) const noexcept {
          identity == value->source();
 }
 
-result resource_service::acquire_asset(asset_type type, std::string_view uri,
-                                       render_asset_ref& output,
-                                       asset_diagnostic& diagnostic) noexcept try {
-  if (!impl_ || render_stopping_)
-    return result::invalid_state;
-  output = {};
-  diagnostic = {};
-  const asset_source source{std::string(uri), type};
-  return acquire_cached(source, output, impl_->default_profile);
-} catch (const std::bad_alloc&) {
-  return result::out_of_memory;
-} catch (...) {
-  return result::internal;
-}
 } // namespace gneiss::engine

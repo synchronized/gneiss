@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/resource/detail/asset_decode.hpp"
 #include "engine/function/resource/resource_service.hpp"
+#include "engine/resource/material/material_description.hpp"
 #include "engine/resource/resource_retirement_queue.hpp"
 #include "engine/resource/texture/texture_view.hpp"
 #include <unordered_map>
@@ -56,6 +56,12 @@ public:
   bool update_material(const material& target, std::shared_ptr<const material_data> data,
                        std::array<texture, 5> dependencies) noexcept;
   result create_texture(const texture_view& desc, texture& output) noexcept;
-  static result adopt(resource_service&, decoded_asset, render_asset_ref&) noexcept;
+  static result adopt(resource_service&, mesh_data, const mesh&,
+                      std::span<const asset_data_source> = {}) noexcept;
+  static result adopt(resource_service&, texture_data, const texture&,
+                      std::span<const asset_data_source> = {}) noexcept;
+  static result adopt(resource_service&, const material_description&, const material&,
+                      std::array<texture, 5>) noexcept;
+  static result validate_sources(resource_service&, std::span<const asset_data_source>) noexcept;
 };
 } // namespace gneiss::engine

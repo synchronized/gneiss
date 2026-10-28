@@ -90,19 +90,18 @@ prefab_runtime_instance::validate_reload(const prefab_asset_ref& candidate,
     }
     result = [&] {
       render_asset_ref cached;
-      const auto status =
-          loader_.acquire_cached({source.mesh_renderer->mesh_uri, asset_type::mesh}, cached);
+      const auto status = loader_.find({source.mesh_renderer->mesh_uri, asset_type::mesh}, cached);
       if (status.ok())
-        meshes[index] = resource_service::mesh_ref(cached);
+        meshes[index] = asset_cast<mesh_resource>(cached);
       return status;
     }();
     if (result == engine::result::success) {
       result = [&] {
         render_asset_ref cached;
-        const auto status = loader_.acquire_cached(
-            {source.mesh_renderer->material_uri, asset_type::material}, cached);
+        const auto status =
+            loader_.find({source.mesh_renderer->material_uri, asset_type::material}, cached);
         if (status.ok())
-          materials[index] = resource_service::material_ref(cached);
+          materials[index] = asset_cast<material_resource>(cached);
         return status;
       }();
     }
@@ -164,18 +163,18 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
       result = [&] {
         render_asset_ref cached;
         const auto status =
-            loader_.acquire_cached({source.mesh_renderer->mesh_uri, asset_type::mesh}, cached);
+            loader_.find({source.mesh_renderer->mesh_uri, asset_type::mesh}, cached);
         if (status.ok())
-          target.mesh = resource_service::mesh_ref(cached);
+          target.mesh = asset_cast<mesh_resource>(cached);
         return status;
       }();
       if (result == engine::result::success) {
         result = [&] {
           render_asset_ref cached;
-          const auto status = loader_.acquire_cached(
-              {source.mesh_renderer->material_uri, asset_type::material}, cached);
+          const auto status =
+              loader_.find({source.mesh_renderer->material_uri, asset_type::material}, cached);
           if (status.ok())
-            target.material = resource_service::material_ref(cached);
+            target.material = asset_cast<material_resource>(cached);
           return status;
         }();
       }
@@ -544,11 +543,11 @@ engine::result prefab_runtime_instance::stage_assets(const prefab_description& d
     target.address = {instance_uuid_, source.uuid};
     target.name = source.name;
     if (source.mesh_renderer) {
-      asset_diagnostic diagnostic;
-      auto result = loader_.acquire_mesh(source.mesh_renderer->mesh_uri, target.mesh, diagnostic);
+
+      auto result = loader_.find<mesh_resource>(source.mesh_renderer->mesh_uri, target.mesh);
       if (result == engine::result::success) {
-        result = loader_.acquire_material(source.mesh_renderer->material_uri, target.material,
-                                          diagnostic);
+        result =
+            loader_.find<material_resource>(source.mesh_renderer->material_uri, target.material);
       }
       if (result != engine::result::success) {
         return result;

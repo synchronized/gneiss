@@ -376,3 +376,12 @@ Windows Clang Debug 编译及 30 项相关测试通过，见[统一加载验收�
 
 验收见[单资源加载记录](../records/2026-10-28-render-resource-boundary.md#单资源加载替代基础批次)。
 不新增流送、GPU 完成等待或批次事务。
+
+## 资源接口与采用路径收敛
+
+- [x] 缓存查询统一为 find<T>(uri, output)，混合资源使用同名非模板重载。
+- [x] 删除 mesh_ref/material_ref，统一使用 asset_cast<T>。
+- [x] 删除 request_input 包装，调用方通过 load<action_map>(..., true) 显式选择重载。
+- [x] 网格和纹理领取 CPU 数据后直接采用；材质直接复用请求持有的纹理依赖，不重新查询登记。
+- [x] 缓存删除无用状态和失败字段，保留 is_loading 防止同键递归；异步结果仍属于请求。
+- [x] Windows Clang Debug 完整编译及 33 项相关短测试通过。

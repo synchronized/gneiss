@@ -21,8 +21,6 @@
 
 namespace gneiss::engine {
 
-enum class resource_state : std::uint8_t { unloaded, loading, ready, failed };
-
 class resource_cache final {
 public:
   using key = std::tuple<std::shared_ptr<const files::source_domain>, std::string, type_id>;
@@ -33,8 +31,7 @@ public:
     std::string uri;
     std::shared_ptr<const files::source_domain> source;
     type_id type{engine::runtime_type_of<void>()};
-    resource_state state = resource_state::unloaded;
-    result failure = result::success;
+    bool is_loading{true}; // 仅在同步创建回调期间阻止同键递归。
     std::shared_ptr<const void> resource;
     /** 验证类型后共享运行对象的原控制块，不把缓存条目暴露给类型化使用者。 */
     template <typename T> [[nodiscard]] asset_ref<const T> as() const noexcept {

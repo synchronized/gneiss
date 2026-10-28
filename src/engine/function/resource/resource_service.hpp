@@ -34,17 +34,20 @@ public:
                            std::shared_ptr<progress_notification> notification = {});
   static constexpr std::size_t maximum_prepared_bytes = 256U * 1024U * 1024U;
   result reserve_asset(const asset_source&, render_asset_ref&) noexcept;
-  result acquire_cached(const asset_source&, render_asset_ref&,
-                        texture_prepare_profile = {}) const noexcept;
-  result acquire_asset(asset_type, std::string_view, render_asset_ref&, asset_diagnostic&) noexcept;
-  result acquire_mesh(std::string_view, mesh&, asset_diagnostic&) noexcept;
-  result acquire_texture(std::string_view, texture&, asset_diagnostic&) noexcept;
-  result acquire_material(std::string_view, material&, asset_diagnostic&) noexcept;
-  static mesh mesh_ref(const render_asset_ref& value) noexcept {
-    return asset_cast<mesh_resource>(value);
-  }
-  static material material_ref(const render_asset_ref& value) noexcept {
-    return asset_cast<material_resource>(value);
+  /** 只查找 CPU 内容已就绪的缓存，不读取文件、不等待 GPU；失败清空输出。 */
+  result find(const asset_source&, render_asset_ref&, texture_prepare_profile = {}) const noexcept;
+  template <class T>
+  result find(std::string_view uri, asset_ref<const T>& output) const noexcept try {
+    output.reset();
+    render_asset_ref entry;
+    const auto status = find({std::string(uri), kind<T>()}, entry, profile());
+    if (status.ok())
+      output = asset_cast<T>(entry);
+    return status;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
   }
   bool owns(const mesh&) const noexcept;
   bool owns(const texture&) const noexcept;
@@ -67,16 +70,22 @@ public:
               std::size_t limit = 64U * 1024U * 1024U);
   template <class T>
   result load(std::string_view uri, resource_request& output, bool reload = false) {
-    static_assert(std::is_same_v<T, mesh_resource> || std::is_same_v<T, texture_resource> ||
-                  std::is_same_v<T, material_resource>);
-    constexpr auto type = std::is_same_v<T, mesh_resource>      ? asset_type::mesh
-                          : std::is_same_v<T, texture_resource> ? asset_type::texture
-                                                                : asset_type::material;
-    return load({std::string(uri), type}, output, reload);
+    return load({std::string(uri), kind<T>()}, output, reload);
   }
+
   texture_prepare_profile profile() const noexcept;
 
 private:
+  template <class T> static constexpr asset_type kind() {
+    static_assert(std::is_same_v<T, mesh_resource> || std::is_same_v<T, texture_resource> ||
+                  std::is_same_v<T, material_resource>);
+    if constexpr (std::is_same_v<T, mesh_resource>)
+      return asset_type::mesh;
+    else if constexpr (std::is_same_v<T, texture_resource>)
+      return asset_type::texture;
+    else
+      return asset_type::material;
+  }
   result identify(std::string_view, std::uint32_t, asset_identity&) const noexcept;
   asset_manager& assets_;
   bool render_stopping_{};

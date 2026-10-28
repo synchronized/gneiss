@@ -215,18 +215,21 @@ void independent_resource_identity() {
     decoded.uri = source.uri;
     decoded.content =
         asset_ref<const material_description>{std::make_shared<const material_description>()};
-    return resource_service::implementation::adopt(loader, std::move(decoded), target);
+    return gneiss::test_support::adopt_render_for_test(loader, std::move(decoded), target);
   };
   check(adopt(source_a, a).ok());
   check(adopt(source_b, b).ok());
   const auto retained = resources.share_material(asset_rid(a));
   decoded_asset invalid;
   invalid.uri = source_a.uri;
-  check(resource_service::implementation::adopt(loader, invalid, a) == result::invalid_argument);
+  check(gneiss::test_support::adopt_render_for_test(loader, invalid, a) ==
+        result::invalid_argument);
   invalid.content = asset_ref<const material_description>{};
-  check(resource_service::implementation::adopt(loader, invalid, a) == result::invalid_argument);
+  check(gneiss::test_support::adopt_render_for_test(loader, invalid, a) ==
+        result::invalid_argument);
   invalid.content = texture_data{};
-  check(resource_service::implementation::adopt(loader, invalid, a) == result::invalid_argument);
+  check(gneiss::test_support::adopt_render_for_test(loader, invalid, a) ==
+        result::invalid_argument);
   check(resources.share_material(asset_rid(a)) == retained);
 }
 void reserved_material_lifetime() {
@@ -249,7 +252,7 @@ void reserved_material_lifetime() {
   prepared.content =
       asset_ref<const material_description>{std::make_shared<const material_description>()};
   check(resources.material_status(rid) == result::not_ready);
-  check(resource_service::implementation::adopt(loader, std::move(prepared), target).ok());
+  check(gneiss::test_support::adopt_render_for_test(loader, std::move(prepared), target).ok());
   check(resources.material_status(rid) == gneiss::engine::result::success);
   target = {};
   loader.collect_unused();
@@ -421,6 +424,10 @@ void independent_loads(execution_mode mode) {
   resource_service service(manager);
   check(service.attach_render(render).ok());
   check(service.configure_loading(scheduler).ok());
+  material found;
+  const auto reads_before_find = source->bytes_read->load();
+  check(service.find<material_resource>("asset://a", found) == result::not_found && !found);
+  check(source->bytes_read->load() == reads_before_find);
   resource_request first, second, joined, bad, dependent;
   check(service.load<material_resource>("asset://a", first).ok());
   check(service.load<material_resource>("asset://b", second).ok());
@@ -446,6 +453,24 @@ void independent_loads(execution_mode mode) {
   check(service.load<material_resource>("asset://a", first).ok());
   check(first.status().ok() && first.resource() == joined.resource());
   check(source->bytes_read->load() == bytes);
+  check(service.find<material_resource>("asset://a", found).ok());
+  check(found == first.get<material_resource>());
+  texture wrong_type = dependent.get<material_resource>()->textures()[0];
+  check(service.find<texture_resource>("asset://a", wrong_type) == result::not_found &&
+        !wrong_type);
+  check(service.find<material_resource>("asset://missing", found) == result::not_found && !found);
+  check(source->bytes_read->load() == bytes);
+  const auto image = dependent.get<material_resource>()->textures()[0];
+  const auto retained = render.share_texture(resource_handle(image));
+  std::array<asset_data_source, 1> stale;
+  stale[0].identity.uri = "asset://image.ktx2";
+  stale[0].identity.type = static_cast<std::uint32_t>(asset_type::texture);
+  check(resource_service::implementation::adopt(service, texture_data{}, image, stale) ==
+        result::invalid_argument);
+  check(render.share_texture(resource_handle(image)) == retained);
+  found = first.get<material_resource>();
+  service.request_stop();
+  check(service.find<material_resource>("asset://a", found) == result::invalid_state && !found);
 }
 
 } // namespace

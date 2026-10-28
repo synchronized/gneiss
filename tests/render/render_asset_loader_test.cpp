@@ -299,9 +299,9 @@ void selected_variants() {
   if (loader.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   render_asset_ref candidate;
-  require(
-      resource_service::implementation::adopt(loader, std::move(batch.assets.front()), candidate)
-          .ok());
+  require(gneiss::test_support::adopt_render_for_test(loader, std::move(batch.assets.front()),
+                                                      candidate)
+              .ok());
   const auto old_frame = resources.share_texture(asset_rid(candidate));
   require(old_frame->payload.data() == prepared_payload &&
           old_frame->manifest.data() == prepared_manifest && old_frame->profile == compressed &&
@@ -313,10 +313,8 @@ void selected_variants() {
   require(old_frame->payload == payload_before && old_frame->payload.size() == bc.size());
   memory->files["t.gneiss-texture"][payload_offset] ^= 1;
   render_asset_ref lease;
-  require(loader.acquire_cached(requests.front(), lease, compressed) ==
-          gneiss::engine::result::success);
-  require(loader.acquire_cached(requests.front(), lease, fallback) ==
-              gneiss::engine::result::not_found &&
+  require(loader.find(requests.front(), lease, compressed) == gneiss::engine::result::success);
+  require(loader.find(requests.front(), lease, fallback) == gneiss::engine::result::not_found &&
           !lease);
   require(gneiss::test_support::prepare_render_for_test(
               asset_owner, files, requests, batch, diagnostic, [] { return true; }, 1U, limit,
@@ -345,7 +343,8 @@ void selected_variants() {
   single_prepared.uri = "asset://single.texture.json";
   single_prepared.content = std::move(texture);
   render_asset_ref single;
-  require(resource_service::implementation::adopt(loader, std::move(single_prepared), single).ok());
+  require(
+      gneiss::test_support::adopt_render_for_test(loader, std::move(single_prepared), single).ok());
   const auto single_data = resources.share_texture(asset_rid(single));
   require(single_data->payload.data() == single_payload && single_data->profile == compressed &&
           single_data->selected_variant == 0U);
@@ -436,7 +435,7 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
   std::vector<render_asset_ref> retained;
   for (auto& prepared : batch.assets) {
     render_asset_ref target;
-    if (resource_service::implementation::adopt(loader, std::move(prepared), target).failed())
+    if (gneiss::test_support::adopt_render_for_test(loader, std::move(prepared), target).failed())
       return false;
     retained.push_back(std::move(target));
   }
@@ -444,9 +443,7 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
     return false;
   const auto decode_count = decoder->calls;
   render_asset_ref cached;
-  if (loader
-          .acquire_asset(asset_type::material, "asset://parameters.material.json", cached,
-                         diagnostic)
+  if (loader.find({std::string("asset://parameters.material.json"), asset_type::material}, cached)
           .failed() ||
       decoder->calls != decode_count || cached != loaded)
     return false;
@@ -551,8 +548,9 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   gneiss::engine::render_asset_ref absent;
   gneiss::engine::asset_diagnostic absent_diagnostic;
   const auto reads_before_query = memory->read_count;
-  if (loader.acquire_asset(gneiss::engine::asset_type::mesh, "asset://models/triangle.mesh.json",
-                           absent, absent_diagnostic) != gneiss::engine::result::not_found ||
+  if (loader.find(
+          {std::string("asset://models/triangle.mesh.json"), gneiss::engine::asset_type::mesh},
+          absent) != gneiss::engine::result::not_found ||
       absent || memory->read_count != reads_before_query || cache.size() != 0U)
     return 41;
   gneiss::engine::render_asset_ref first_mesh;
@@ -917,7 +915,8 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   if (!typed_mesh || typed_entry->as<gneiss::engine::texture_resource>())
     return 34;
   gneiss::engine::mesh directly_loaded;
-  if (loader.acquire_mesh("asset://models/triangle.mesh.json", directly_loaded, diagnostic)
+  if (loader
+          .find<gneiss::engine::mesh_resource>("asset://models/triangle.mesh.json", directly_loaded)
           .failed() ||
       directly_loaded != typed_mesh || !directly_loaded->metadata() ||
       directly_loaded->source().uri != "asset://models/triangle.mesh.json")

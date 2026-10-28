@@ -152,6 +152,8 @@ metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 Scene/Editor 通过 resource_service 创建、查询和加载运行资源，通过 asset_manager 加载描述。
 asset_manager 的 `load<T>` 保留 CPU 描述解码契约；resource_service 的
 `load<texture_resource>(uri, request)` 等接口返回 `resource_request`。
+缓存查询统一为 `find<T>(uri, output)`，混合类型使用 `find(asset_source, entry, profile)`；
+不读取文件、不等待 GPU，失败清空输出。类型化查询使用服务配置的纹理 profile。
 所属线程通过 `status()` 查询，`get<texture_resource>()` 获取强引用；成功表示 CPU 内容与依赖已采用。
 两者共享文件服务与执行器，各自持有缓存。
 同身份在途请求（含 reload）共享一次加载；请求复制共享观察权，cancel 仅释放当前观察权。
@@ -167,6 +169,10 @@ Application 提供 `assets()` 和 `resources()`；宿主分发文件完成后分
 CPU 描述类型仍由 load<T> 的 C++ 类型确定。
 `resource_loading.cpp` 保存服务私有的单资源请求状态，`asset_decode` 只解码已有字节。
 `resource_service_impl` 定义服务私有实现；创建、RID 包装、延迟销毁和内容采用均属于服务。
+网格、纹理从一次性 CPU 请求领取后直接传给对应采用函数，不再重新组装 decoded_asset。
+来源身份检查仍在采用前执行；材质在依赖完成后直接传递已经持有的纹理强引用。
+缓存条目只有同步创建期间的 is_loading 保护，不维护异步加载状态或失败副本。
+ActionMap 使用通用 load<action_map>；需要重新读文件的调用方显式传 reload=true。
 没有独立批次加载器、资源工厂或 prepare/apply 更新记录，也不在资源对象上保存更新序号。
 Runtime 的 `resource_load_group` 仅为场景与编辑器串行组合单资源请求、汇总显式请求结果；
 它不读文件、不解析依赖、不创建后端资源，且不占用资源服务的全局加载槽位。

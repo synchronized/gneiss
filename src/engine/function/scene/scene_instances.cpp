@@ -230,18 +230,18 @@ engine::result scene_instance::reload(scene_description candidate) {
       result = [&] {
         render_asset_ref cached;
         const auto status =
-            loader_.acquire_cached({source.mesh_renderer->mesh_uri, asset_type::mesh}, cached);
+            loader_.find({source.mesh_renderer->mesh_uri, asset_type::mesh}, cached);
         if (status.ok())
-          target.mesh = resource_service::mesh_ref(cached);
+          target.mesh = asset_cast<mesh_resource>(cached);
         return status;
       }();
       if (result == engine::result::success) {
         result = [&] {
           render_asset_ref cached;
-          const auto status = loader_.acquire_cached(
-              {source.mesh_renderer->material_uri, asset_type::material}, cached);
+          const auto status =
+              loader_.find({source.mesh_renderer->material_uri, asset_type::material}, cached);
           if (status.ok())
-            target.material = resource_service::material_ref(cached);
+            target.material = asset_cast<material_resource>(cached);
           return status;
         }();
       }
@@ -986,14 +986,13 @@ engine::result scene_instance::restore_subtree(std::string_view snapshot, scene_
           target.material = found->material;
         } else {
           render_asset_ref cached;
-          result =
-              loader_.acquire_cached({author.mesh_renderer->mesh_uri, asset_type::mesh}, cached);
+          result = loader_.find({author.mesh_renderer->mesh_uri, asset_type::mesh}, cached);
           if (result.ok()) {
-            target.mesh = resource_service::mesh_ref(cached);
-            result = loader_.acquire_cached(
-                {author.mesh_renderer->material_uri, asset_type::material}, cached);
+            target.mesh = asset_cast<mesh_resource>(cached);
+            result =
+                loader_.find({author.mesh_renderer->material_uri, asset_type::material}, cached);
             if (result.ok())
-              target.material = resource_service::material_ref(cached);
+              target.material = asset_cast<material_resource>(cached);
           }
         }
         if (result != engine::result::success) {
@@ -1177,15 +1176,15 @@ engine::result scene_instance::create_mesh_renderer_node(const mesh_renderer_nod
     description_.objects.reserve(description_.objects.size() + 1U);
     object target{};
     target.uuid = author.uuid;
-    asset_diagnostic diagnostic;
+
     auto result = engine::result::success;
     if (prepared) {
       target.mesh = prepared->mesh;
       target.material = prepared->material;
     } else {
-      result = loader_.acquire_mesh(mesh_uri, target.mesh, diagnostic);
+      result = loader_.find<mesh_resource>(mesh_uri, target.mesh);
       if (result == engine::result::success) {
-        result = loader_.acquire_material(material_uri, target.material, diagnostic);
+        result = loader_.find<material_resource>(material_uri, target.material);
       }
     }
     if (result != engine::result::success) {
@@ -1225,13 +1224,13 @@ engine::result scene_instance::set_mesh_renderer(scene_node_id node, std::string
     auto mesh = engine::asset_uri(found->mesh) == mesh_uri ? found->mesh : engine::mesh{};
     auto material =
         engine::asset_uri(found->material) == material_uri ? found->material : engine::material{};
-    asset_diagnostic diagnostic;
+
     auto result = engine::result::success;
     if (!mesh) {
-      result = loader_.acquire_mesh(mesh_uri, mesh, diagnostic);
+      result = loader_.find<mesh_resource>(mesh_uri, mesh);
     }
     if (result == engine::result::success && !material) {
-      result = loader_.acquire_material(material_uri, material, diagnostic);
+      result = loader_.find<material_resource>(material_uri, material);
     }
     if (result != engine::result::success) {
       return result;

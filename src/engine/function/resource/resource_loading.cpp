@@ -13,11 +13,10 @@ struct resource_service::implementation::pending_load {
   std::variant<asset_data_request<mesh_data>, asset_data_request<texture_data>,
                asset_request<material_description>>
       cpu;
-  decoded_asset decoded;
+  asset_ref<const material_description> description;
   std::array<resource_request, 5> dependencies;
   std::size_t dependency_cursor{};
   std::size_t limit{};
-  bool decoded_ready{};
 };
 result resource_service::load(const asset_source& source, resource_request& output, bool reload,
                               std::size_t limit) try {
@@ -39,14 +38,13 @@ result resource_service::load(const asset_source& source, resource_request& outp
   }
   auto state = std::make_shared<detail::resource_load_state>();
   state->target = target;
-  if (!reload && acquire_cached(source, target, profile()).ok()) {
+  if (!reload && find(source, target, profile()).ok()) {
     state->status = result::success;
     output.state_ = std::move(state);
     return result::success;
   }
   auto work = std::make_shared<implementation::pending_load>();
   work->state = state;
-  work->decoded.uri = source.uri;
   work->limit = limit;
   result status;
   switch (source.type) {
@@ -90,7 +88,7 @@ void resource_service::implementation::advance(resource_service& service) {
     if (work->state.use_count() == 1 || state.status != result::not_ready)
       continue;
     try {
-      if (!work->decoded_ready) {
+      if (!work->description) {
         meta::serialization_diagnostic diagnostic;
         const auto status = std::visit(
             [&](auto& request) -> result {
@@ -98,25 +96,33 @@ void resource_service::implementation::advance(resource_service& service) {
               if constexpr (std::is_same_v<T, asset_data_request<mesh_data>>) {
                 mesh_data data;
                 const auto status = request.take(data, &diagnostic, &state.metrics);
-                if (status.ok())
-                  work->decoded.content = std::move(data);
-                return status;
+                if (status.failed())
+                  return status;
+                return adopt(service, std::move(data), asset_cast<mesh_resource>(state.target),
+                             state.metrics.sources);
               } else if constexpr (std::is_same_v<T, asset_data_request<texture_data>>) {
                 texture_data data;
                 const auto status = request.take(data, &diagnostic, &state.metrics);
-                if (status.ok())
-                  work->decoded.content = std::move(data);
-                return status;
+                if (status.failed())
+                  return status;
+                return adopt(service, std::move(data), asset_cast<texture_resource>(state.target),
+                             state.metrics.sources);
               } else {
                 asset_ref<const material_description> description;
                 const auto status = request.take(description, &diagnostic);
                 if (status.failed())
                   return status;
-                const auto adopted =
-                    adopt_material_asset(work->decoded.uri, std::move(description), work->decoded,
-                                         state.diagnostic, work->limit, sizeof(material_data));
-                state.metrics.bytes = work->decoded.bytes;
-                return adopted;
+                auto bytes = sizeof(material_data);
+                if (bytes > work->limit)
+                  return result::out_of_memory;
+                for (const auto& uri : description->texture_uris) {
+                  if (uri.size() > work->limit - bytes)
+                    return result::out_of_memory;
+                  bytes += uri.size();
+                }
+                state.metrics.bytes = bytes;
+                work->description = std::move(description);
+                return result::success;
               }
             },
             work->cpu);
@@ -129,14 +135,15 @@ void resource_service::implementation::advance(resource_service& service) {
                                 std::move(diagnostic.message)};
           continue;
         }
-        work->decoded.sources = state.metrics.sources;
-        work->decoded_ready = true;
+        if (!work->description) {
+          state.status = result::success;
+          continue;
+        }
       }
-      if (const auto* material =
-              std::get_if<asset_ref<const material_description>>(&work->decoded.content)) {
+      {
         // 材质拥有依赖观察权；取消外部纹理请求不会取消仍被材质等待的工作。
-        while (work->dependency_cursor < (*material)->texture_uris.size()) {
-          const auto& uri = (*material)->texture_uris[work->dependency_cursor];
+        while (work->dependency_cursor < work->description->texture_uris.size()) {
+          const auto& uri = work->description->texture_uris[work->dependency_cursor];
           if (uri.empty()) {
             ++work->dependency_cursor;
             continue;
@@ -161,10 +168,14 @@ void resource_service::implementation::advance(resource_service& service) {
         }
         if (state.status.failed() && state.status != result::not_ready)
           continue;
-        if (work->dependency_cursor < (*material)->texture_uris.size())
+        if (work->dependency_cursor < work->description->texture_uris.size())
           continue;
       }
-      state.status = adopt(service, std::move(work->decoded), state.target);
+      std::array<texture, 5> dependencies;
+      for (std::size_t slot = 0; slot < dependencies.size(); ++slot)
+        dependencies[slot] = work->dependencies[slot].get<texture_resource>();
+      state.status = adopt(service, *work->description, asset_cast<material_resource>(state.target),
+                           std::move(dependencies));
     } catch (const std::bad_alloc&) {
       state.status = result::out_of_memory;
     } catch (...) {

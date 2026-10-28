@@ -22,7 +22,7 @@ gneiss::engine::result load_map_for_test(gneiss::engine::asset_manager& assets,
                                          gneiss::engine::task_scheduler& executor,
                                          std::string_view uri, gneiss::engine::action_map& output) {
   gneiss::engine::asset_request<gneiss::engine::action_map> request;
-  auto status = assets.request_input(uri, request);
+  auto status = assets.load(uri, request, true);
   if (status.failed())
     return status;
   gneiss::engine::asset_ref<const gneiss::engine::action_map> value;
@@ -153,7 +153,7 @@ int main() {
   asset_manager asynchronous(gneiss::test_support::test_files(files));
   asynchronous.attach_task_executor(executor);
   asset_request<action_map> request;
-  if (asynchronous.request_input("asset://input/map", request).failed())
+  if (asynchronous.load("asset://input/map", request, true).failed())
     return 14;
   auto status = result::not_ready;
   for (unsigned i = 0; i != 32 && status == result::not_ready; ++i) {
@@ -166,7 +166,7 @@ int main() {
     return 16;
   previous = shared;
   backend->first = backend->second = invalid_scale;
-  if (asynchronous.request_input("asset://input/map", request).failed())
+  if (asynchronous.load("asset://input/map", request, true).failed())
     return 17;
   status = result::not_ready;
   for (unsigned i = 0; i != 32 && status == result::not_ready; ++i) {
@@ -179,7 +179,7 @@ int main() {
     return 18;
   // 异步读取在打开来源后检查字节上限，不再依赖旧 read_bounded 的参数传递。
   backend->first = backend->second = std::string(maximum_action_map_bytes + 1, ' ');
-  if (asynchronous.request_input("asset://input/oversized", request).failed())
+  if (asynchronous.load("asset://input/oversized", request, true).failed())
     return 24;
   status = result::not_ready;
   for (unsigned i = 0; i < 32 && status == result::not_ready; ++i) {
