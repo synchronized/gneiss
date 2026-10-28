@@ -4,7 +4,6 @@
 #include "engine/resource/texture/texture_resource.hpp"
 
 namespace gneiss::engine {
-texture_resource::texture_resource(render_service& owner, rid value) noexcept
-    : resources_(&owner), rid_(value) {}
+texture_resource::texture_resource(rid value) noexcept : rid_(value) {}
 texture_resource::~texture_resource() = default;
 } // namespace gneiss::engine

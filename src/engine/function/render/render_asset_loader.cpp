@@ -93,17 +93,11 @@ bool render_asset_loader::owns(const render_asset_ref& lease) const noexcept {
   }
   switch (asset_kind(lease)) {
   case render_asset_type::mesh:
-    return std::static_pointer_cast<const mesh_resource>(lease->resource)->resources_ ==
-               &resources_ &&
-           resources_.mesh_status(asset_rid(lease)) != engine::result::invalid_handle;
+    return resources_.mesh_status(asset_rid(lease)) != engine::result::invalid_handle;
   case render_asset_type::material:
-    return std::static_pointer_cast<const material_resource>(lease->resource)->resources_ ==
-               &resources_ &&
-           resources_.material_status(asset_rid(lease)) != engine::result::invalid_handle;
+    return resources_.material_status(asset_rid(lease)) != engine::result::invalid_handle;
   case render_asset_type::texture:
-    return std::static_pointer_cast<const texture_resource>(lease->resource)->resources_ ==
-               &resources_ &&
-           resources_.texture_status(asset_rid(lease)) != engine::result::invalid_handle;
+    return resources_.texture_status(asset_rid(lease)) != engine::result::invalid_handle;
   default:
     return false;
   }
@@ -401,8 +395,7 @@ result render_asset_loader::acquire_mesh(std::string_view uri, engine::mesh& out
   return status;
 }
 bool render_asset_loader::owns(const engine::mesh& value) const noexcept {
-  if (!value || value->resources_ != &resources_ ||
-      resources_.mesh_status(resource_handle(value)) == result::invalid_handle)
+  if (!value || resources_.mesh_status(resource_handle(value)) == result::invalid_handle)
     return false;
   asset_identity identity;
   return assets_
@@ -419,8 +412,7 @@ result render_asset_loader::acquire_texture(std::string_view uri, engine::textur
   return status;
 }
 bool render_asset_loader::owns(const engine::texture& value) const noexcept {
-  if (!value || value->resources_ != &resources_ ||
-      resources_.texture_status(resource_handle(value)) == result::invalid_handle)
+  if (!value || resources_.texture_status(resource_handle(value)) == result::invalid_handle)
     return false;
   asset_identity identity;
   return assets_
@@ -437,8 +429,7 @@ result render_asset_loader::acquire_material(std::string_view uri, engine::mater
   return status;
 }
 bool render_asset_loader::owns(const engine::material& value) const noexcept {
-  if (!value || value->resources_ != &resources_ ||
-      resources_.material_status(resource_handle(value)) == result::invalid_handle)
+  if (!value || resources_.material_status(resource_handle(value)) == result::invalid_handle)
     return false;
   asset_identity identity;
   return assets_

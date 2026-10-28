@@ -36,12 +36,11 @@ public:
 
 private:
   friend class resource_retirement_queue;
-  mesh_resource(render_service& owner, rid value) noexcept;
+  mesh_resource(rid value) noexcept;
   friend rid resource_handle(const asset_ref<const mesh_resource>&) noexcept;
   friend class render_asset_loader;
   friend class resource_bindings;
   friend rid asset_rid(const asset_ref<const resource_cache::entry>&) noexcept;
-  render_service* resources_;
   rid rid_;
   mutable asset_identity identity_;
   mutable std::uint64_t update_sequence_{};

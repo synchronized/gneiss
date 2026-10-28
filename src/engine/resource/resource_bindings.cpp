@@ -20,9 +20,8 @@ template <typename T> std::shared_ptr<T> resource_bindings::make(rid handle) {
           else if constexpr (std::is_same_v<T, material_resource>)
             (void)render->destroy_material(value.rid_);
         }
-        value.resources_ = nullptr;
       },
-      render_, handle);
+      handle);
 }
 void resource_bindings::close() noexcept {
   retirement_.close();

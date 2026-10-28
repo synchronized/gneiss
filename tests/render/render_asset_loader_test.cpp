@@ -648,6 +648,21 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     return 7;
   }
 
+  // 同一资产管理器/来源下，归属只由 RID domain/type/generation 判定。
+  {
+    gneiss::engine::render_service other_render;
+    gneiss::engine::render_asset_loader other_loader(asset_owner, other_render);
+    const auto mesh_ref = first_mesh->as<gneiss::engine::mesh_resource>();
+    const auto texture_ref = first_texture->as<gneiss::engine::texture_resource>();
+    const auto material_ref = material->as<gneiss::engine::material_resource>();
+    if (!loader.owns(first_mesh) || !loader.owns(first_texture) || !loader.owns(material) ||
+        !loader.owns(mesh_ref) || !loader.owns(texture_ref) || !loader.owns(material_ref) ||
+        other_loader.owns(first_mesh) || other_loader.owns(first_texture) ||
+        other_loader.owns(material) || other_loader.owns(mesh_ref) ||
+        other_loader.owns(texture_ref) || other_loader.owns(material_ref))
+      return 66;
+  }
+
   gneiss::engine::render_asset_ref missing_texture;
   if (gneiss::test_support::load_render(loader, gneiss::engine::render_asset_type::texture,
                                         "asset://textures/missing.texture.json", missing_texture,

@@ -30,13 +30,11 @@ public:
 
 private:
   friend class resource_retirement_queue;
-  material_resource(render_service& owner, rid value,
-                    std::array<texture, 5> dependencies = {}) noexcept;
+  material_resource(rid value, std::array<texture, 5> dependencies = {}) noexcept;
   friend rid resource_handle(const asset_ref<const material_resource>&) noexcept;
   friend class render_asset_loader;
   friend class resource_bindings;
   friend rid asset_rid(const asset_ref<const resource_cache::entry>&) noexcept;
-  render_service* resources_;
   rid rid_;
   mutable asset_identity identity_;
   mutable std::uint64_t update_sequence_{};
