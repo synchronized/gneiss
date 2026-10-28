@@ -99,8 +99,9 @@ void unified_resource_index() {
                 std::make_shared<const gneiss::engine::prefab_description>(std::move(description))),
             prefab) == error::success);
   gneiss::engine::render_asset_ref material;
-  check(render.reserve_asset({"asset://same", gneiss::engine::asset_type::material}, material) ==
-        error::success);
+  check(gneiss::test_support::take_value(
+            render.reserve_asset({"asset://same", gneiss::engine::asset_type::material}),
+            material) == error::success);
   assets.collect_unused();
   check(assets.cache().size() == 2U && render.cache().size() == 1U && *cpu == "cpu" &&
         resources.live_resource_count() == 1U);

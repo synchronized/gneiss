@@ -401,3 +401,16 @@ Windows Clang Debug 编译及 30 项相关测试通过，见[统一加载验收�
 - [x] Windows Clang Debug 完整编译、43 项相关短测试及 diff 检查通过。
 
 验收见[值结果迁移记录](../records/2026-10-28-render-resource-boundary.md#值结果与错误状态分离2026-10-29)。
+
+
+## 资源领取与身份入口值返回（2026-10-29）
+
+继续迁移产生单一结果的公开资源接口，保留底层原位写入接口：
+
+- [x] asset_request::take 返回只读引用或 asset_diagnostic；等待与失败不消费请求，成功后失效。
+- [x] asset_data_request::take 一次返回内容与读取统计；诊断放在失败分支。
+- [x] resource_service::reserve_*、asset_manager/resource_service::identify 返回值结果。
+- [x] 迁移场景、输入映射与资源采用调用链，核查重复领取、诊断、生命周期和失败路径。
+- [x] 完整编译与相关短测试；不运行大场景、GPU 验证或远端 CI。
+
+验收：Windows Clang Debug 完整编译、43 项相关短测试通过；见[资源领取迁移记录](../records/2026-10-28-render-resource-boundary.md#资源领取与身份入口值返回2026-10-29)。

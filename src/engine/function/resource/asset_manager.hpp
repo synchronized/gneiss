@@ -109,8 +109,8 @@ public:
   /** 借用同线程异步文件服务；停止后为空。 */
   [[nodiscard]] std::shared_ptr<engine::files::service> async_files() const noexcept;
   /** 解析统一来源身份，不执行文件 I/O。 */
-  [[nodiscard]] error identify(std::string_view uri, std::uint32_t type,
-                               asset_identity& output) const noexcept;
+  [[nodiscard]] result<asset_identity> identify(std::string_view uri,
+                                                std::uint32_t type) const noexcept;
   /** 所属线程回收无外部引用且无在途任务的缓存；不强制卸载活跃资源。 */
   void collect_unused() noexcept;
   /** 内部加载流程借用唯一资源索引；所属线程使用，不转移缓存所有权。 */

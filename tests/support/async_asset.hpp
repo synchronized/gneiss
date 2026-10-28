@@ -25,7 +25,8 @@ engine::error load_asset(engine::asset_manager& assets, std::string_view uri,
   if (status.failed())
     return status;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  while ((status = request.take(output, diagnostic)) == engine::error::not_ready) {
+  while ((status = gneiss::test_support::take_request(request, output, diagnostic)) ==
+         engine::error::not_ready) {
     (void)tasks.run_ready();
     (void)assets.async_files()->dispatch_completions(64);
     assets.advance();

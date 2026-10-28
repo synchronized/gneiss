@@ -236,3 +236,16 @@ Windows Clang Debug 编译通过，30 项相关测试全部通过。新增直接
 - `git diff --check` 通过。未运行大场景、GPU 图像验证、浏览器/其他平台构建及远端 CI。
 
 当前接口约定见 [Core 值结果](../reference/core.md#错误状态与值结果)与[资产入口](../reference/assets.md#值返回入口)。
+
+## 资源领取与身份入口值返回（2026-10-29）
+
+- asset_request::take() 返回资源强引用或 asset_diagnostic；asset_data_request::take()
+  返回 asset_data<T>（内容及同次读取统计）或诊断，不再拆成多个输出参数。
+- 等待和失败保留请求；成功消费一次，重复领取返回 invalid_state。返回值独立保活内容。
+- resource_service 的公开 reserve_asset/reserve_mesh/reserve_texture/reserve_material，
+  以及 asset_manager/resource_service 的 identify 改为值返回；Scene、Runtime 与资源采用调用方同步迁移。
+- 新增直接检查空请求、等待、详细失败诊断、成功消费、重复领取与强引用保活的用例；
+  一次性网格测试直接领取内容和统计，身份查询覆盖成功及失败。
+- `cmake --build --preset windows-clang-debug -j6` 完整构建通过；43 项相关短测试通过（12.27 秒）；
+  `git diff --check` 通过。未运行大场景、GPU 图像验证、其他平台构建或远端 CI。
+- 私有缓存/Render RID 操作与其他领域的 out 接口仍按原契约保留，本记录不表示全引擎接口迁移完成。

@@ -34,7 +34,7 @@ public:
   error configure_loading(task_executor& executor, texture_prepare_profile profile = {},
                           std::shared_ptr<progress_notification> notification = {});
   static constexpr std::size_t maximum_prepared_bytes = 256U * 1024U * 1024U;
-  error reserve_asset(const asset_source&, render_asset_ref&) noexcept;
+  result<render_asset_ref> reserve_asset(const asset_source&) noexcept;
   /** 只查找 CPU 内容已就绪的缓存，不读取文件、不等待 GPU。 */
   result<render_asset_ref> find(const asset_source&, texture_prepare_profile = {}) const noexcept;
   template <class T> result<asset_ref<const T>> find(std::string_view uri) const noexcept try {
@@ -55,9 +55,9 @@ public:
   result<texture> create_texture(const texture_view&) noexcept;
   result<mesh> create_mesh(const mesh_view&) noexcept;
   result<material> create_material(const material_parameters&, std::array<texture, 5>) noexcept;
-  error reserve_texture(texture&) noexcept;
-  error reserve_mesh(mesh&) noexcept;
-  error reserve_material(material&) noexcept;
+  result<texture> reserve_texture() noexcept;
+  result<mesh> reserve_mesh() noexcept;
+  result<material> reserve_material() noexcept;
   /** 仅锁定本管理器已创建的对象；未知或已释放 RID 返回空。 */
   texture find_texture(rid) const noexcept;
   mesh find_mesh(rid) const noexcept;
@@ -87,7 +87,7 @@ private:
     else
       return asset_type::material;
   }
-  error identify(std::string_view, std::uint32_t, asset_identity&) const noexcept;
+  result<asset_identity> identify(std::string_view, std::uint32_t) const noexcept;
   asset_manager& assets_;
   bool render_stopping_{};
   std::unique_ptr<implementation> impl_;

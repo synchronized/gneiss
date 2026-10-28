@@ -25,10 +25,10 @@ result<resource_request> resource_service::load(const asset_source& source, bool
     return error::invalid_state;
   if (limit == 0 || limit > maximum_prepared_bytes)
     return error::invalid_argument;
-  render_asset_ref target;
-  const auto reserved = reserve_asset(source, target);
-  if (reserved.failed())
-    return reserved;
+  auto reserved = reserve_asset(source);
+  if (!reserved)
+    return reserved.error();
+  auto target = std::move(*reserved);
   // 同一身份只允许一个实际工作；重载不制造并行版本或抢占已有请求。
   for (const auto& pending : impl_->pending) {
     if (pending->state->target == target && pending->state.use_count() > 1 &&
@@ -100,25 +100,23 @@ void resource_service::implementation::advance(resource_service& service) {
         const auto status = std::visit(
             [&](auto& request) -> error {
               using T = std::decay_t<decltype(request)>;
+              auto loaded = request.take();
+              if (!loaded) {
+                auto failure = std::move(loaded).error();
+                diagnostic = {failure.byte_offset, std::move(failure.path),
+                              std::move(failure.message)};
+                return failure.result;
+              }
               if constexpr (std::is_same_v<T, asset_data_request<mesh_data>>) {
-                mesh_data data;
-                const auto status = request.take(data, &diagnostic, &state.metrics);
-                if (status.failed())
-                  return status;
-                return adopt(service, std::move(data), asset_cast<mesh_resource>(state.target),
-                             state.metrics.sources);
+                state.metrics = std::move(loaded->metrics);
+                return adopt(service, std::move(loaded->data),
+                             asset_cast<mesh_resource>(state.target), state.metrics.sources);
               } else if constexpr (std::is_same_v<T, asset_data_request<texture_data>>) {
-                texture_data data;
-                const auto status = request.take(data, &diagnostic, &state.metrics);
-                if (status.failed())
-                  return status;
-                return adopt(service, std::move(data), asset_cast<texture_resource>(state.target),
-                             state.metrics.sources);
+                state.metrics = std::move(loaded->metrics);
+                return adopt(service, std::move(loaded->data),
+                             asset_cast<texture_resource>(state.target), state.metrics.sources);
               } else {
-                asset_ref<const material_description> description;
-                const auto status = request.take(description, &diagnostic);
-                if (status.failed())
-                  return status;
+                auto description = std::move(*loaded);
                 auto bytes = sizeof(material_data);
                 if (bytes > work->limit)
                   return error::out_of_memory;

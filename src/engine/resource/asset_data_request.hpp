@@ -20,6 +20,11 @@ struct asset_data_metrics {
   double decode_ms{};
   double queue_ms{};
 };
+/** 一次领取的数据及其读取统计，随同一个结果转移所有权。 */
+template <class T> struct asset_data {
+  T data;
+  asset_data_metrics metrics;
+};
 namespace detail {
 template <class T> struct asset_data_state : asset_state {
   std::optional<T> data;
@@ -37,27 +42,24 @@ public:
   asset_data_request& operator=(const asset_data_request&) = delete;
   explicit operator bool() const noexcept { return bool(state_); }
   void cancel() noexcept { state_.reset(); }
-  error take(T& output, meta::serialization_diagnostic* diagnostic = nullptr,
-             asset_data_metrics* metrics = nullptr) noexcept try {
+  /** 非阻塞领取内容和统计；成功消费请求，失败保留请求及详细诊断。 */
+  [[nodiscard]] result<asset_data<T>, asset_diagnostic> take() noexcept try {
     if (!state_)
-      return error::invalid_state;
+      return asset_diagnostic{error::invalid_state, 0, {}, {}};
     auto state = state_;
     const std::scoped_lock lock(state->mutex);
-    if (diagnostic)
-      *diagnostic = state->diagnostic;
     if (state->status.failed())
-      return state->status;
+      return asset_diagnostic{state->status, state->diagnostic.byte_offset, state->diagnostic.path,
+                              state->diagnostic.message};
     if (!state->data)
-      return error::internal;
-    output = std::move(*state->data);
-    if (metrics)
-      *metrics = std::move(state->metrics);
+      return asset_diagnostic{error::internal, 0, {}, {}};
+    asset_data<T> value{std::move(*state->data), std::move(state->metrics)};
     state_.reset();
-    return error::success;
+    return value;
   } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
+    return asset_diagnostic{error::out_of_memory, 0, {}, {}};
   } catch (...) {
-    return error::internal;
+    return asset_diagnostic{error::internal, 0, {}, {}};
   }
 
 private:

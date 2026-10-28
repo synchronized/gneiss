@@ -247,9 +247,8 @@ scene_description_request::~scene_description_request() = default;
 error scene_description_request::advance(scene_description_inputs& output,
                                          scene_diagnostic& diagnostic) {
   auto& s = *state_;
-  meta::serialization_diagnostic decoded;
   const auto fail = [&](error status) {
-    diagnostic = {status, decoded.byte_offset, std::move(decoded.path), std::move(decoded.message)};
+    diagnostic = {status, 0, {}, {}};
     return status;
   };
   if (!s.started) {
@@ -264,9 +263,14 @@ error scene_description_request::advance(scene_description_inputs& output,
     s.started = true;
   }
   if (s.scene) {
-    const auto status = s.scene.take(s.inputs.scene, &decoded);
-    if (status != error::success)
-      return fail(status);
+    auto loaded = s.scene.take();
+    if (!loaded) {
+      auto failure = std::move(loaded).error();
+      diagnostic = {failure.result, failure.byte_offset, std::move(failure.path),
+                    std::move(failure.message)};
+      return diagnostic.result;
+    }
+    s.inputs.scene = std::move(*loaded);
     s.bytes = s.inputs.scene->author_json.size();
     for (const auto& instance : s.inputs.scene->prefab_instances)
       if (std::ranges::find(s.uris, instance.prefab_uri) == s.uris.end())
@@ -282,10 +286,14 @@ error scene_description_request::advance(scene_description_inputs& output,
         return fail(loaded.error());
       s.current = std::move(*loaded);
     }
-    asset_ref<const prefab_description> value;
-    const auto status = s.current.take(value, &decoded);
-    if (status != error::success)
-      return fail(status);
+    auto loaded = s.current.take();
+    if (!loaded) {
+      auto failure = std::move(loaded).error();
+      diagnostic = {failure.result, failure.byte_offset, std::move(failure.path),
+                    std::move(failure.message)};
+      return diagnostic.result;
+    }
+    auto value = std::move(*loaded);
     if (value->author_json.size() > s.limits.source_bytes - s.bytes)
       return fail(error::invalid_argument);
     s.bytes += value->author_json.size();

@@ -15,6 +15,15 @@
 返回 `result<resource_request>`，`create_mesh/create_texture/create_material` 返回对应资源引用的 result。
 内存资产解码返回 `result<decoded_asset, asset_diagnostic>`。判断与取值规则见 [Core](core.md#错误状态与值结果)。
 
+`asset_request<T>::take()` 返回 `result<asset_ref<const T>, asset_diagnostic>`；
+`asset_data_request<T>::take()` 返回 `result<asset_data<T>, asset_diagnostic>`，其中 `data` 是 CPU 内容，
+`metrics` 是同次读取统计。两者均不等待：not_ready 和其他失败不消费请求，成功后请求失效，
+重复领取返回 invalid_state。返回的内容或引用独立拥有资源，取消请求不会使已领取值失效。
+
+`resource_service::reserve_mesh/texture/material()` 返回对应资源引用的 result，
+`reserve_asset(source)` 返回 `result<render_asset_ref>`；它们只预留资源身份，不代表内容已加载。
+`asset_manager::identify(uri, type)` 返回 `result<asset_identity>`，只解析来源身份，不读取资源内容。
+
 ## URI 规则
 
 现有资产加载入口当前只支持规范形式的 `asset://` URI，例如：
@@ -200,7 +209,7 @@ asset_manager 仅接受 shared_ptr<files::service>。`find_loaded<T>` 只查询�
 
 加载优先使用显式 decoder；未注册时，按 type_id 查找冻结 Registry 中的 decode。
 没有解码能力时在读取前返回 unsupported；显式解码失败不再回退。适配器在临时对象上解码，
-成功才进入缓存，失败保留既有缓存资源。`asset_request::take` 的可选 diagnostic 参数返回 codec 的路径、消息和字节位置。
+成功才进入缓存，失败保留既有缓存资源。`asset_request::take()` 返回的失败结果携带 codec 的路径、消息和字节位置。
 
 首次有效加载进入解码器选择后冻结显式注册，后续反射适配不改变 codec 选择。
 管理器持有 Registry；默认使用共享的内置资源 Registry，目前包含材质、Scene、Prefab codec 和 ActionMap 解码器。

@@ -161,8 +161,10 @@ void run_pending_resources() {
   auto& resources_factory = native->resources();
   gneiss::engine::mesh mesh_ref;
   gneiss::engine::texture texture_ref;
-  check(resources_factory.reserve_mesh(mesh_ref) == gneiss::engine::error::success);
-  check(resources_factory.reserve_texture(texture_ref) == gneiss::engine::error::success);
+  check(gneiss::test_support::take_value(resources_factory.reserve_mesh(), mesh_ref) ==
+        gneiss::engine::error::success);
+  check(gneiss::test_support::take_value(resources_factory.reserve_texture(), texture_ref) ==
+        gneiss::engine::error::success);
   const auto mesh = resource_handle(mesh_ref);
   const auto texture = resource_handle(texture_ref);
   gneiss::engine::material_data material_desc;

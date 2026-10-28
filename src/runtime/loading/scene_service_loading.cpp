@@ -324,13 +324,12 @@ void scene_service::advance_load_impl() {
     const auto end = std::min(value.cursor + 64U, value.requested.size());
     for (; value.cursor < end; ++value.cursor) {
       const auto& source = value.requested[value.cursor];
-      gneiss::engine::render_asset_ref lease;
-      const auto reserved = asset_owner_->reserve_asset(source, lease);
-      if (reserved != gneiss::engine::error::success) {
-        finish(reserved, scene_load_phase::failed, "场景资源引用无效");
+      auto reserved = asset_owner_->reserve_asset(source);
+      if (!reserved) {
+        finish(reserved.error(), scene_load_phase::failed, "场景资源引用无效");
         return;
       }
-      value.bindings.emplace(source.uri, std::move(lease));
+      value.bindings.emplace(source.uri, std::move(*reserved));
     }
     progress.completed = value.cursor;
     return;

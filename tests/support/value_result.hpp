@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/result.hpp"
+#include "engine/resource/asset_data_request.hpp"
 namespace gneiss::test_support {
 template <class T> engine::error take_value(engine::result<T> value, T& output) {
   if (!value) {
@@ -25,6 +26,31 @@ engine::error assign_decoded(engine::result<T, E> value, T& output, E& diagnosti
     return diagnostic.result;
   }
   output = std::move(*value);
+  return engine::error::success;
+}
+
+template <class R, class T>
+engine::error take_request(R& request, T& output,
+                           engine::meta::serialization_diagnostic* diagnostic = nullptr,
+                           engine::asset_data_metrics* metrics = nullptr) {
+  auto value = request.take();
+  if (!value) {
+    auto failure = std::move(value).error();
+    if (diagnostic)
+      *diagnostic = {failure.byte_offset, std::move(failure.path), std::move(failure.message)};
+    return failure.result;
+  }
+  if (diagnostic)
+    *diagnostic = {};
+  if constexpr (requires {
+                  value->data;
+                  value->metrics;
+                }) {
+    output = std::move(value->data);
+    if (metrics)
+      *metrics = std::move(value->metrics);
+  } else
+    output = std::move(*value);
   return engine::error::success;
 }
 }

@@ -27,14 +27,13 @@ gneiss::engine::error action_map_application::begin(
 gneiss::engine::error action_map_application::poll(gneiss::engine::input_service& target) noexcept {
   if (state_ != action_map_apply_state::loading)
     return result_;
-  gneiss::engine::asset_request<gneiss::engine::action_map>::reference asset;
-  const auto loaded = request_ ? request_.take(asset) : gneiss::engine::error::invalid_state;
-  if (loaded == gneiss::engine::error::not_ready)
+  auto loaded = request_.take();
+  if (!loaded && loaded.error().result == gneiss::engine::error::not_ready)
     return gneiss::engine::error::not_ready;
-  result_ = loaded;
-  if (loaded == gneiss::engine::error::success) {
+  result_ = loaded ? gneiss::engine::error::success : loaded.error().result;
+  if (loaded) {
     try {
-      auto map = *asset;
+      auto map = **loaded;
       result_ = target.replace_action_map(std::move(map));
     } catch (const std::bad_alloc&) {
       result_ = gneiss::engine::error::out_of_memory;

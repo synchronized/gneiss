@@ -26,7 +26,8 @@ inline error adopt_render_for_test(resource_service& service, decoded_asset deco
   if (kind == asset_type::invalid)
     return error::invalid_argument;
   if (!target) {
-    const auto status = service.reserve_asset({decoded.uri, kind}, target);
+    const auto status =
+        gneiss::test_support::take_value(service.reserve_asset({decoded.uri, kind}), target);
     if (status.failed())
       return status;
   }
@@ -49,8 +50,8 @@ inline error adopt_render_for_test(resource_service& service, decoded_asset deco
             if (data->texture_uris[slot].empty())
               continue;
             render_asset_ref entry;
-            const auto status =
-                service.reserve_asset({data->texture_uris[slot], asset_type::texture}, entry);
+            const auto status = gneiss::test_support::take_value(
+                service.reserve_asset({data->texture_uris[slot], asset_type::texture}), entry);
             if (status.failed())
               return status;
             dependencies[slot] = asset_cast<texture_resource>(entry);

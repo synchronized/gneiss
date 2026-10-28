@@ -234,9 +234,8 @@ struct asset_manager::resource_state {
 std::shared_ptr<engine::files::service> asset_manager::async_files() const noexcept {
   return resource_state_->files;
 }
-error asset_manager::identify(std::string_view uri, std::uint32_t type,
-                              asset_identity& output) const noexcept {
-  output = {};
+result<asset_identity> asset_manager::identify(std::string_view uri,
+                                               std::uint32_t type) const noexcept {
   if (!resource_state_->files || type == 0U)
     return error::invalid_state;
   try {
@@ -244,8 +243,7 @@ error asset_manager::identify(std::string_view uri, std::uint32_t type,
     const auto status = resource_state_->files->resolve_source(uri, domain);
     if (status.failed())
       return status;
-    output = {.source = std::move(domain), .uri = std::string(uri), .type = type};
-    return error::success;
+    return asset_identity{.source = std::move(domain), .uri = std::string(uri), .type = type};
   } catch (...) {
     return error::out_of_memory;
   }

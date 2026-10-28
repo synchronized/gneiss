@@ -3,9 +3,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "asset_diagnostic.hpp"
 #include "asset_ref.hpp"
-#include "engine/core/error.hpp"
 #include "engine/core/meta/serialization_types.hpp"
+#include "engine/core/result.hpp"
 #include <memory>
 #include <mutex>
 #include <utility>
@@ -35,25 +36,24 @@ public:
   asset_request& operator=(asset_request&&) noexcept = default;
   [[nodiscard]] explicit operator bool() const noexcept { return state_ != nullptr; }
   void cancel() noexcept { state_.reset(); }
-  [[nodiscard]] error take(reference& output,
-                           meta::serialization_diagnostic* diagnostic = nullptr) noexcept try {
+  /** 非阻塞领取；not_ready 保留请求，成功后请求失效。失败携带解析诊断。 */
+  [[nodiscard]] result<reference, asset_diagnostic> take() noexcept try {
     if (!state_)
-      return error::invalid_state;
+      return asset_diagnostic{error::invalid_state, 0, {}, {}};
     auto state = state_;
     const std::scoped_lock lock(state->mutex);
-    if (diagnostic)
-      *diagnostic = state->diagnostic;
     if (state->status != error::success)
-      return state->status;
+      return asset_diagnostic{state->status, state->diagnostic.byte_offset, state->diagnostic.path,
+                              state->diagnostic.message};
     if (!state->value)
-      return error::internal;
-    output = reference{std::static_pointer_cast<const T>(state->value)};
+      return asset_diagnostic{error::internal, 0, {}, {}};
+    auto value = reference{std::static_pointer_cast<const T>(state->value)};
     state_.reset();
-    return error::success;
+    return value;
   } catch (const std::bad_alloc&) {
-    return error::out_of_memory;
+    return asset_diagnostic{error::out_of_memory, 0, {}, {}};
   } catch (...) {
-    return error::internal;
+    return asset_diagnostic{error::internal, 0, {}, {}};
   }
 
 private:

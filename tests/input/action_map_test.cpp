@@ -31,7 +31,7 @@ gneiss::engine::error load_map_for_test(gneiss::engine::asset_manager& assets,
   for (unsigned i = 0; i < 32; ++i) {
     advance_assets_for_test(assets);
     (void)executor.run_ready();
-    status = request.take(value);
+    status = gneiss::test_support::take_request(request, value);
     if (status != gneiss::engine::error::not_ready) {
       if (status.ok())
         output = *value;
@@ -163,7 +163,7 @@ int main() {
     if (executor.run_ready().status != drive_status::success)
       return 15;
     advance_assets_for_test(asynchronous);
-    status = request.take(shared, &diagnostic);
+    status = gneiss::test_support::take_request(request, shared, &diagnostic);
   }
   if (status.failed() || shared->actions.front().name != "move")
     return 16;
@@ -177,7 +177,7 @@ int main() {
   for (unsigned i = 0; i != 32 && status == error::not_ready; ++i) {
     (void)executor.run_ready();
     advance_assets_for_test(asynchronous);
-    status = request.take(shared, &diagnostic);
+    status = gneiss::test_support::take_request(request, shared, &diagnostic);
   }
   if (status != error::invalid_argument || shared != previous ||
       diagnostic.path != "/actions/0/bindings/0")
@@ -192,7 +192,7 @@ int main() {
   for (unsigned i = 0; i < 32 && status == error::not_ready; ++i) {
     (void)executor.run_ready();
     advance_assets_for_test(asynchronous);
-    status = request.take(shared);
+    status = gneiss::test_support::take_request(request, shared);
   }
   if (status != error::invalid_argument || shared != previous)
     return 25;

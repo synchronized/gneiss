@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_application.hpp"
+#include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
@@ -179,8 +180,9 @@ void run(gneiss::engine::execution_mode mode) {
   const auto world = app->native_world();
   check(app->request_assets(uris, 2U, 7U, request, true) == gneiss::engine::error::success);
   gneiss::engine::mesh_renderer external;
-  check(app->resources().reserve_mesh(external.mesh).ok());
-  check(app->resources().reserve_material(external.material).ok());
+  check(gneiss::test_support::take_value(app->resources().reserve_mesh(), external.mesh).ok());
+  check(gneiss::test_support::take_value(app->resources().reserve_material(), external.material)
+            .ok());
   check(gneiss::engine::error{app->native_world()->entity_set_mesh_renderer(
             node.entity, external)} == gneiss::engine::error::success);
   wait();
