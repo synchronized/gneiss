@@ -18,16 +18,14 @@ namespace gneiss::engine {
 
 /** 验证作者键、值、字段存在性、类型和可写能力。Registry 必须已经冻结。 */
 [[nodiscard]] error
-validate_prefab_property_override(const meta::registry_ref& registry,
-                                  const prefab_property_override& value) noexcept;
+validate_prefab_property_override(const prefab_property_override& value) noexcept;
 
 /**
  * 写入或移除一条稀疏覆盖。
  *
  * candidate 与 source_value 规范化后相等时删除对应记录，否则按稳定键更新并确定性排序。
  */
-[[nodiscard]] error set_prefab_property_override(const meta::registry_ref& registry,
-                                                 std::vector<prefab_property_override>& overrides,
+[[nodiscard]] error set_prefab_property_override(std::vector<prefab_property_override>& overrides,
                                                  prefab_property_override candidate,
                                                  engine::value source_value) noexcept;
 

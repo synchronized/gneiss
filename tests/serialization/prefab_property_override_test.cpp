@@ -4,6 +4,7 @@
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world_reflection.hpp"
@@ -32,20 +33,17 @@ make_translation(gneiss::engine::guid source_node, gneiss::engine::math::vector3
 } // namespace
 
 int main() {
-  gneiss::engine::meta::registry_ref registry;
-  if (gneiss::test_support::assign_value(gneiss::engine::create_property_registry(), registry)
-          .failed())
+  if (gneiss::engine::initialize_meta().failed())
     return 1;
 
   std::vector<gneiss::engine::prefab_property_override> overrides;
   const gneiss::engine::value source{.payload = gneiss::engine::math::vector3{0.0F, 0.0F, 0.0F}};
   auto second = make_translation(source_b, {2.0F, 0.0F, 0.0F});
   auto first = make_translation(source_a, {1.0F, 0.0F, 0.0F});
-  if (gneiss::engine::validate_prefab_property_override(registry, first) !=
+  if (gneiss::engine::validate_prefab_property_override(first) != gneiss::engine::error::success ||
+      gneiss::engine::set_prefab_property_override(overrides, second, source) !=
           gneiss::engine::error::success ||
-      gneiss::engine::set_prefab_property_override(registry, overrides, second, source) !=
-          gneiss::engine::error::success ||
-      gneiss::engine::set_prefab_property_override(registry, overrides, first, source) !=
+      gneiss::engine::set_prefab_property_override(overrides, first, source) !=
           gneiss::engine::error::success ||
       overrides.size() != 2U || overrides[0].key.source_node_uuid != source_a ||
       overrides[1].key.source_node_uuid != source_b) {
@@ -53,7 +51,7 @@ int main() {
   }
 
   auto updated = make_translation(source_a, {3.0F, 0.0F, 0.0F});
-  if (gneiss::engine::set_prefab_property_override(registry, overrides, updated, source) !=
+  if (gneiss::engine::set_prefab_property_override(overrides, updated, source) !=
           gneiss::engine::error::success ||
       overrides.size() != 2U ||
       std::get<gneiss::engine::math::vector3>(overrides[0].value.payload)[0] != 3.0F) {
@@ -61,7 +59,7 @@ int main() {
   }
 
   auto restored = make_translation(source_a, {-0.0F, 0.0F, 0.0F});
-  if (gneiss::engine::set_prefab_property_override(registry, overrides, restored, source) !=
+  if (gneiss::engine::set_prefab_property_override(overrides, restored, source) !=
           gneiss::engine::error::success ||
       overrides.size() != 1U || overrides[0].key.source_node_uuid != source_b) {
     return 4;
@@ -72,11 +70,11 @@ int main() {
   auto invalid_address = make_translation({}, {1.0F, 0.0F, 0.0F});
   auto non_finite =
       make_translation(source_a, {std::numeric_limits<float>::quiet_NaN(), 0.0F, 0.0F});
-  if (gneiss::engine::validate_prefab_property_override(registry, wrong_type) !=
+  if (gneiss::engine::validate_prefab_property_override(wrong_type) !=
           gneiss::engine::error::invalid_argument ||
-      gneiss::engine::validate_prefab_property_override(registry, invalid_address) !=
+      gneiss::engine::validate_prefab_property_override(invalid_address) !=
           gneiss::engine::error::invalid_argument ||
-      gneiss::engine::validate_prefab_property_override(registry, non_finite) !=
+      gneiss::engine::validate_prefab_property_override(non_finite) !=
           gneiss::engine::error::invalid_argument) {
     return 5;
   }
@@ -86,14 +84,14 @@ int main() {
               .type_guid = gneiss::engine::camera_component_type,
               .property_id = gneiss::engine::meta::property_id{4}},
       .value = {.payload = true}};
-  if (gneiss::engine::validate_prefab_property_override(registry, read_only) !=
+  if (gneiss::engine::validate_prefab_property_override(read_only) !=
       gneiss::engine::error::invalid_argument) {
     return 6;
   }
 
   auto missing = make_translation(source_a, {1.0F, 0.0F, 0.0F});
   missing.key.property_id = gneiss::engine::meta::property_id{999};
-  if (gneiss::engine::validate_prefab_property_override(registry, missing) !=
+  if (gneiss::engine::validate_prefab_property_override(missing) !=
       gneiss::engine::error::not_found) {
     return 7;
   }

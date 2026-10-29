@@ -107,9 +107,8 @@ engine::error apply_mesh_renderer(world& native_world, staged_object& object,
 
 } // namespace
 
-scene_instance::scene_instance(world& native_world, resource_service& loader,
-                               const meta::registry_ref& registry) noexcept
-    : native_world_(native_world), loader_(loader), registry_(registry) {}
+scene_instance::scene_instance(world& native_world, resource_service& loader) noexcept
+    : native_world_(native_world), loader_(loader) {}
 
 scene_instance::~scene_instance() noexcept { rollback(); }
 
@@ -469,7 +468,7 @@ engine::error scene_instance::reload_prefab(std::string_view uri, prefab_asset_r
 
   auto result = engine::error::success;
   for (const auto index : affected) {
-    result = prefab_instances_[index]->validate_reload(candidate, registry_,
+    result = prefab_instances_[index]->validate_reload(candidate,
                                                        prefab_author(index).prefab->overrides);
     if (result != engine::error::success) {
       return result;
@@ -483,7 +482,7 @@ engine::error scene_instance::reload_prefab(std::string_view uri, prefab_asset_r
     for (const auto& node : prefab.nodes_)
       if (node.node != prefab.root())
         previous.push_back(node.node);
-    result = prefab.reload(candidate, registry_, prefab_author(index).prefab->overrides);
+    result = prefab.reload(candidate, prefab_author(index).prefab->overrides);
     if (result.ok()) {
       std::erase_if(objects_, [&](const auto& object) {
         return std::ranges::find(previous, object.node) != previous.end();
@@ -665,8 +664,8 @@ engine::error scene_instance::set_prefab_source_transform(scene_node_id node,
                                      engine::value{.payload = source->transform.rotation},
                                      engine::value{.payload = source->transform.scale}};
       for (std::size_t field_index = 0U; field_index < candidates.size(); ++field_index) {
-        const auto result = set_prefab_property_override(
-            registry_, pending, candidates[field_index], source_values[field_index]);
+        const auto result = set_prefab_property_override(pending, candidates[field_index],
+                                                         source_values[field_index]);
         if (result != engine::error::success) {
           return result;
         }
@@ -869,7 +868,7 @@ engine::error scene_instance::restore_subtree(const scene_subtree_snapshot& snap
     remap.emplace(source.uuid, std::move(target));
   }
   // 临时成员集合只负责本次创建失败的清理，不注册第二个场景实例。
-  scene_instance staged(native_world_, loader_, registry_);
+  scene_instance staged(native_world_, loader_);
   staged.description_.uuid = description_.uuid;
   entity_id old_camera;
   (void)native_world_.get_active_camera(old_camera);
@@ -1329,10 +1328,7 @@ engine::error scene_instance::serialize(std::string& out_json) const {
 
 scene_instances::scene_instances(world& native_world, resource_service& loader) noexcept
     : native_world_(native_world), loader_(loader), domain_(allocate_domain()),
-      instances_(domain_) {
-  if (auto created = engine::meta::default_registry())
-    registry_ = std::move(*created);
-}
+      instances_(domain_) {}
 
 scene_instances::~scene_instances() noexcept = default;
 
@@ -1373,7 +1369,7 @@ engine::error scene_instances::create_empty(gneiss::engine::guid scene_uuid,
     if (!parsed)
       return parsed.error().error;
     auto description = std::move(*parsed);
-    auto instance = std::make_unique<scene_instance>(native_world_, loader_, registry_);
+    auto instance = std::make_unique<scene_instance>(native_world_, loader_);
     instance->initialize_staged(std::move(description));
     auto created = instances_.create(resource_type::scene_instance, std::move(instance));
     if (!created)

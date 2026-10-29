@@ -46,9 +46,9 @@ int main() {
                                            output, diagnostic) != e::error::invalid_handle ||
       output.size() != 1)
     return 1;
-  if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), registry)
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::default_registry(), registry)
           .failed() ||
-      e::register_material_reflection(registry).failed())
+      e::register_material_reflection().failed())
     return 2;
   if (gneiss::test_support::assign_decoded(gneiss::engine::meta::serialize(registry, material),
                                            output, diagnostic) != e::error::not_ready)
@@ -67,7 +67,12 @@ int main() {
           .commit()
           .failed())
     return 5;
-  if (e::register_material_reflection(registry) != e::error::invalid_argument ||
+  if (e::meta::type_builder<move_only>{}
+          .serialization<nullptr, &decode_move_only>()
+          .commit()
+          .failed())
+    return 24;
+  if (e::register_material_reflection() != e::error::invalid_argument ||
       gneiss::engine::meta::freeze(registry).failed())
     return 6;
   gneiss::engine::meta::serialization_binding binding;
@@ -135,7 +140,7 @@ int main() {
           restored, diagnostic) != e::error::invalid_argument ||
       restored.parameters.color[0] != 0.25F)
     return 15;
-  if (e::register_material_reflection(registry) != e::error::invalid_state)
+  if (e::register_material_reflection() != e::error::invalid_state)
     return 16;
   gneiss::engine::meta::registry_ref no_codec;
   if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), no_codec)
@@ -162,7 +167,7 @@ int main() {
   if (rejected || rejected.error().error != e::error::invalid_argument ||
       rejected.error().byte_offset != 3 || rejected.error().path != "/number")
     return 21;
-  auto decoder = e::detail::make_reflected_decoder<move_only>(*owned_registry, 64);
+  auto decoder = e::detail::make_reflected_decoder<move_only>(64);
   if (!decoder)
     return 22;
   auto decoded = (*decoder)->decode({std::byte{42}});

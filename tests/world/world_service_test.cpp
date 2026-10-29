@@ -7,6 +7,7 @@
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
@@ -184,23 +185,20 @@ int main() {
     return 6;
   }
   gneiss::engine::error wrong_thread{};
-  gneiss::engine::meta::registry_ref reflection;
-  if (gneiss::test_support::assign_value(gneiss::engine::create_property_registry(), reflection)
-          .failed())
+  if (gneiss::engine::initialize_meta().failed())
     return 14;
   gneiss::engine::math::transform candidate_transform;
   gneiss::engine::value proposed;
   proposed.payload = gneiss::engine::math::vector3{2, 3, 4};
-  if (gneiss::engine::meta::write_property(reflection, service::transform_property_type(),
-                                           gneiss::engine::transform_translation_field,
-                                           &candidate_transform,
-                                           proposed) != gneiss::engine::error::success ||
+  if (gneiss::engine::meta::write_property(
+          service::transform_property_type(), gneiss::engine::transform_translation_field,
+          &candidate_transform, proposed) != gneiss::engine::error::success ||
       candidate_transform.translation[0] != 2) {
     return 15;
   }
   proposed.payload = gneiss::engine::math::vector3{0, 1, 1};
   if (gneiss::engine::meta::write_property(
-          reflection, service::transform_property_type(), gneiss::engine::transform_scale_field,
+          service::transform_property_type(), gneiss::engine::transform_scale_field,
           &candidate_transform, proposed) != gneiss::engine::error::invalid_argument ||
       candidate_transform.scale[0] != 1) {
     return 16;
@@ -208,13 +206,13 @@ int main() {
   service::camera_properties candidate_camera{{1, 10, 20}, false};
   proposed.payload = 30.0F;
   if (gneiss::engine::meta::write_property(
-          reflection, service::camera_property_type(), gneiss::engine::camera_near_plane_field,
+          service::camera_property_type(), gneiss::engine::camera_near_plane_field,
           &candidate_camera, proposed) != gneiss::engine::error::success) {
     return 17;
   }
   proposed.payload = 40.0F;
   if (gneiss::engine::meta::write_property(
-          reflection, service::camera_property_type(), gneiss::engine::camera_far_plane_field,
+          service::camera_property_type(), gneiss::engine::camera_far_plane_field,
           &candidate_camera, proposed) != gneiss::engine::error::success ||
       candidate_camera.settings.near != 30 || candidate_camera.settings.far != 40) {
     return 18;

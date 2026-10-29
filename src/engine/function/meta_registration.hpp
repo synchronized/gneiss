@@ -8,7 +8,7 @@ namespace gneiss::engine {
  * 无 callback 的重复调用返回首次结果；启动后新增 callback 返回 invalid_state。
  * 失败结果保留至进程退出，不冻结半成品。初始化期间不得并行注册或手动冻结默认表。
  * 独立 registry 不受影响；应用关闭不会清空默认表。 */
-using meta_registration_callback = error (*)(const meta::registry_ref&);
+using meta_registration_callback = error (*)();
 [[nodiscard]] GNEISS_API error
 initialize_meta(meta_registration_callback callback = nullptr) noexcept;
 }

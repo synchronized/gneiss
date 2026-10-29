@@ -45,12 +45,12 @@ struct camera_restore_guard {
 
 gneiss::engine::error
 create_prefab_binding(world& native_world, resource_service& loader, prefab_asset_ref prefab,
-                      const meta::registry_ref& registry, gneiss::engine::guid instance_uuid,
-                      scene_node_id parent, const math::transform& root_transform,
+                      gneiss::engine::guid instance_uuid, scene_node_id parent,
+                      const math::transform& root_transform,
                       const std::vector<prefab_property_override>& overrides,
                       std::unique_ptr<prefab_binding>& out_instance) noexcept {
   out_instance.reset();
-  if (!registry || !prefab || prefab.get()->objects.empty()) {
+  if (!prefab || prefab.get()->objects.empty()) {
     return engine::error::invalid_argument;
   }
   try {
@@ -102,7 +102,7 @@ create_prefab_binding(world& native_world, resource_service& loader, prefab_asse
     if (result == engine::error::success) {
       result = error::success;
       for (const auto& value : overrides) {
-        result = instance->apply_override(registry, value);
+        result = instance->apply_override(value);
         if (result.failed())
           break;
       }
@@ -187,7 +187,6 @@ public:
 };
 
 bool check_explicit_root(gneiss::engine::world& world, gneiss::engine::resource_service& loader,
-                         const gneiss::engine::meta::registry_ref& registry,
                          const gneiss::engine::prefab_description& original) {
   namespace e = gneiss::engine;
   auto data = original;
@@ -196,7 +195,7 @@ bool check_explicit_root(gneiss::engine::world& world, gneiss::engine::resource_
   std::reverse(data.objects.begin(), data.objects.end());
   e::prefab_asset_ref source{std::make_shared<const e::prefab_description>(data)};
   std::unique_ptr<e::prefab_binding> instance;
-  if (create_prefab_binding(world, loader, source, registry,
+  if (create_prefab_binding(world, loader, source,
                             *e::guid::parse("20000000-0000-4000-8000-000000000099"), {}, {}, {},
                             instance)
           .failed())
@@ -207,7 +206,7 @@ bool check_explicit_root(gneiss::engine::world& world, gneiss::engine::resource_
     return false;
   std::reverse(data.objects.begin(), data.objects.end());
   e::prefab_asset_ref reordered{std::make_shared<const e::prefab_description>(data)};
-  if (instance->reload(reordered, registry, {}).failed() || instance->root() != root ||
+  if (instance->reload(reordered, {}).failed() || instance->root() != root ||
       instance->find_node(data.root_uuid) != root)
     return false;
   const auto child = data.objects.back().uuid;
@@ -215,14 +214,13 @@ bool check_explicit_root(gneiss::engine::world& world, gneiss::engine::resource_
   data.objects.back().parent_uuid.reset();
   data.root_uuid = child;
   e::prefab_asset_ref changed{std::make_shared<const e::prefab_description>(data)};
-  return instance->validate_reload(changed, registry, {}) == e::error::unsupported &&
+  return instance->validate_reload(changed, {}) == e::error::unsupported &&
          instance->root() == root && instance->find_node(original.root_uuid) == root;
 }
 
 bool check_failed_camera_prefab(
-    gneiss::engine::world& native_world, const gneiss::engine::meta::registry_ref& registry,
-    gneiss::engine::resource_service& render_loader, gneiss::engine::asset_manager& prefab_loader,
-    const gneiss::engine::prefab_description& source,
+    gneiss::engine::world& native_world, gneiss::engine::resource_service& render_loader,
+    gneiss::engine::asset_manager& prefab_loader, const gneiss::engine::prefab_description& source,
     const std::vector<gneiss::engine::prefab_property_override>& invalid_overrides) {
   auto description = source;
   description.objects[0].components.set(
@@ -249,7 +247,7 @@ bool check_failed_camera_prefab(
   const gneiss::engine::math::transform transform = {};
   std::unique_ptr<gneiss::engine::prefab_binding> candidate;
   const auto operation =
-      create_prefab_binding(native_world, render_loader, lease, registry,
+      create_prefab_binding(native_world, render_loader, lease,
                             *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000005"),
                             gneiss::null_scene_node_id, transform, invalid_overrides, candidate);
   std::uint64_t active{};
@@ -269,7 +267,7 @@ bool check_failed_camera_prefab(
     return false;
   }
   // 原本没有相机时，失败候选也不能留下活动相机或实体。
-  return create_prefab_binding(native_world, render_loader, lease, registry,
+  return create_prefab_binding(native_world, render_loader, lease,
                                *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000005"),
                                gneiss::null_scene_node_id, transform, invalid_overrides,
                                candidate) == gneiss::engine::error::not_found &&
@@ -324,9 +322,7 @@ int main() try {
     return 1;
   }
   auto& native_world = *world_owner;
-  gneiss::engine::meta::registry_ref registry;
-  if (gneiss::test_support::assign_value(gneiss::engine::create_property_registry(), registry)
-          .failed())
+  if (gneiss::engine::initialize_meta().failed())
     return 2;
 
   gneiss::test_support::fixture_files file_system;
@@ -351,7 +347,7 @@ int main() try {
     return 4;
   }
 
-  if (!check_explicit_root(native_world, render_loader, registry, *first_lease))
+  if (!check_explicit_root(native_world, render_loader, *first_lease))
     return 96;
 
   gneiss::engine::math::transform first_transform = {};
@@ -370,11 +366,11 @@ int main() try {
               .property_id = gneiss::engine::transform_translation_field},
       .value = {.payload = gneiss::engine::math::vector3{3.0F, 0.0F, 0.0F}},
   }};
-  if (create_prefab_binding(native_world, render_loader, std::move(first_lease), registry,
+  if (create_prefab_binding(native_world, render_loader, std::move(first_lease),
                             *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000001"),
                             gneiss::null_scene_node_id, first_transform, first_overrides,
                             first) != gneiss::engine::error::success ||
-      create_prefab_binding(native_world, render_loader, std::move(second_lease), registry,
+      create_prefab_binding(native_world, render_loader, std::move(second_lease),
                             *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000002"),
                             gneiss::null_scene_node_id, second_transform, no_overrides,
                             second) != gneiss::engine::error::success ||
@@ -382,15 +378,14 @@ int main() try {
     return 5;
   }
   gneiss::engine::prefab_description projected;
-  if (gneiss::engine::prepare_prefab_description(*first->prefab_lease().get(), registry,
-                                                 first_overrides,
+  if (gneiss::engine::prepare_prefab_description(*first->prefab_lease().get(), first_overrides,
                                                  projected) != gneiss::engine::error::success ||
       projected.objects[1].transform.translation[0] != 3 ||
       first->prefab_lease().get()->objects[0].transform.translation[0] != 1) {
     return 14;
   }
   // 相同的相对覆盖可以用于另一实例，不携带实例身份。
-  if (second->reload(second->prefab_lease(), registry, first_overrides).failed())
+  if (second->reload(second->prefab_lease(), first_overrides).failed())
     return 15;
 
   const auto first_source_root =
@@ -424,7 +419,7 @@ int main() try {
   auto root_override = first_overrides.front();
   root_override.key.source_node_uuid =
       *gneiss::engine::guid::parse("10000000-0000-4000-8000-000000000002");
-  if (first->apply_override(registry, root_override) != gneiss::engine::error::invalid_argument)
+  if (first->apply_override(root_override) != gneiss::engine::error::invalid_argument)
     return 24;
   auto revision = std::make_shared<gneiss::engine::prefab_description>(*first->prefab_lease());
   revision->objects[0].name = "New source name";
@@ -435,8 +430,7 @@ int main() try {
                              {*gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000001"),
                               "Instance name"})
           .failed() ||
-      first->reload(gneiss::engine::prefab_asset_ref{revision}, registry, first_overrides)
-          .failed() ||
+      first->reload(gneiss::engine::prefab_asset_ref{revision}, first_overrides).failed() ||
       native_world.node_get_local_transform(first->root(), actual_root).failed() ||
       actual_root.translation != first_transform.translation ||
       actual_root.rotation != first_transform.rotation ||
@@ -459,12 +453,11 @@ int main() try {
   if (!check_visible_prefab(native_world, render_loader, first->prefab_lease(), first->root())) {
     return 17;
   }
-  if (!check_failed_camera_prefab(native_world, registry, render_loader, prefab_loader,
+  if (!check_failed_camera_prefab(native_world, render_loader, prefab_loader,
                                   *first->prefab_lease().get(), invalid_overrides)) {
     return 16;
   }
   if (create_prefab_binding(native_world, render_loader, std::move(invalid_override_lease),
-                            registry,
                             *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000005"),
                             gneiss::null_scene_node_id, first_transform, invalid_overrides,
                             failed) != gneiss::engine::error::not_found ||
@@ -482,7 +475,7 @@ int main() try {
   }
   gneiss::engine::math::transform invalid_transform = {};
   invalid_transform.scale[1] = 0.0F;
-  if (create_prefab_binding(native_world, render_loader, std::move(failure_lease), registry,
+  if (create_prefab_binding(native_world, render_loader, std::move(failure_lease),
                             *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000003"),
                             gneiss::null_scene_node_id, invalid_transform, no_overrides,
                             failed) != gneiss::engine::error::invalid_argument ||
@@ -498,7 +491,7 @@ int main() try {
                                        broken_lease) != gneiss::engine::error::success) {
     return 9;
   }
-  if (create_prefab_binding(native_world, render_loader, std::move(broken_lease), registry,
+  if (create_prefab_binding(native_world, render_loader, std::move(broken_lease),
                             *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000004"),
                             gneiss::null_scene_node_id, first_transform, no_overrides,
                             failed) != gneiss::engine::error::not_found ||

@@ -893,10 +893,7 @@ engine::error scene_document::encode_scene(std::string& output) const noexcept t
       with_scene([&](auto& service) { return service.capture_description(scene_, description); });
   if (status.failed())
     return status;
-  auto registry = engine::meta::default_registry();
-  if (!registry)
-    return registry.error();
-  auto encoded = engine::meta::serialize(*registry, description);
+  auto encoded = engine::meta::serialize(description);
   if (!encoded)
     return encoded.error().error;
   output.assign(reinterpret_cast<const char*>(encoded->data()), encoded->size());

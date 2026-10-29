@@ -63,7 +63,7 @@ public:
   }
 
 private:
-  gneiss::engine::meta::registry_ref registry_;
+  bool initialized_ = false;
   gneiss::engine::world* world_{};
   entity_id entity_{};
   std::vector<inspector_component> components_;

@@ -49,7 +49,7 @@ private:
   gneiss::engine::world* world_ = nullptr;
   runtime_scene_inspection* inspection_ = nullptr;
   std::uint64_t session_id_ = 0U;
-  gneiss::engine::meta::registry_ref registry_;
+  bool initialized_ = false;
   std::map<property_key, std::uint64_t> revisions_;
 };
 

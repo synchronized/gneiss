@@ -15,15 +15,12 @@
 
 namespace gneiss::editor {
 gneiss::engine::error property_inspector_model::initialize() noexcept {
-  auto created = gneiss::engine::meta::default_registry();
-  if (!created)
-    return created.error();
-  auto frozen = gneiss::engine::meta::is_frozen(*created);
+  auto frozen = gneiss::engine::meta::is_frozen();
   if (!frozen)
     return frozen.error();
   if (!*frozen)
     return gneiss::engine::error::not_ready;
-  registry_ = std::move(*created);
+  initialized_ = true;
   return gneiss::engine::error::success;
 }
 
@@ -35,7 +32,7 @@ void property_inspector_model::clear() noexcept {
 
 gneiss::engine::error property_inspector_model::refresh(gneiss::engine::world* world_handle,
                                                         entity_id entity) noexcept {
-  if (!registry_ || world_handle == nullptr || !entity.is_valid()) {
+  if (!initialized_ || world_handle == nullptr || !entity.is_valid()) {
     clear();
     return gneiss::engine::error::invalid_argument;
   }
@@ -46,7 +43,7 @@ gneiss::engine::error property_inspector_model::refresh(gneiss::engine::world* w
         gneiss::engine::camera_property_type(),
     };
     for (const auto type_id : reflected_component_types) {
-      auto type = gneiss::engine::meta::describe_type(registry_, type_id);
+      auto type = gneiss::engine::meta::describe_type(type_id);
       if (!type) {
         clear();
         return type.error();
@@ -61,8 +58,8 @@ gneiss::engine::error property_inspector_model::refresh(gneiss::engine::world* w
       for (std::uint32_t index = 0; index < type->properties.size(); ++index) {
         const auto& field = type->properties[index];
         gneiss::engine::value value;
-        auto operation = gneiss::engine::read_component_property(
-            registry_, *world_handle, entity.get(), type->guid, field.id, value);
+        auto operation = gneiss::engine::read_component_property(*world_handle, entity.get(),
+                                                                 type->guid, field.id, value);
         if (operation == gneiss::engine::error::not_found) {
           component_missing = true;
           break;
@@ -98,7 +95,7 @@ gneiss::engine::error
 property_inspector_model::set_value(gneiss::engine::guid type_id,
                                     gneiss::engine::meta::property_id field_id,
                                     const gneiss::engine::value& value) noexcept {
-  if (!registry_ || world_ == nullptr || entity_.get() == UINT64_C(0)) {
+  if (!initialized_ || world_ == nullptr || entity_.get() == UINT64_C(0)) {
     return gneiss::engine::error::invalid_state;
   }
   auto component = std::ranges::find_if(
@@ -113,12 +110,12 @@ property_inspector_model::set_value(gneiss::engine::guid type_id,
   if (!has_flags(property->capabilities, gneiss::engine::meta::property_capabilities::writable)) {
     return gneiss::engine::error::unsupported;
   }
-  const auto operation = gneiss::engine::write_component_property(registry_, *world_, entity_.get(),
-                                                                  type_id, field_id, value);
+  const auto operation =
+      gneiss::engine::write_component_property(*world_, entity_.get(), type_id, field_id, value);
   if (operation == gneiss::engine::error::success) {
     gneiss::engine::value refreshed;
     const auto read_operation = gneiss::engine::read_component_property(
-        registry_, *world_, entity_.get(), type_id, field_id, refreshed);
+        *world_, entity_.get(), type_id, field_id, refreshed);
     if (read_operation != gneiss::engine::error::success) {
       return read_operation;
     }
@@ -130,11 +127,11 @@ property_inspector_model::set_value(gneiss::engine::guid type_id,
 gneiss::engine::error property_inspector_model::set_value(
     gneiss::engine::world* world_handle, entity_id entity, gneiss::engine::guid type_id,
     gneiss::engine::meta::property_id field_id, const gneiss::engine::value& value) noexcept {
-  if (!registry_ || world_handle == nullptr || !entity.is_valid()) {
+  if (!initialized_ || world_handle == nullptr || !entity.is_valid()) {
     return gneiss::engine::error::invalid_argument;
   }
-  const auto operation = gneiss::engine::write_component_property(
-      registry_, *world_handle, entity.get(), type_id, field_id, value);
+  const auto operation = gneiss::engine::write_component_property(*world_handle, entity.get(),
+                                                                  type_id, field_id, value);
   if (operation != gneiss::engine::error::success || world_handle != world_ ||
       entity.get() != entity_.get()) {
     return operation;

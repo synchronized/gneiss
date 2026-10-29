@@ -23,7 +23,7 @@
 
 namespace gneiss::test_support {
 struct asset_value {
-  static constexpr auto type_guid = gneiss::engine::material_description::type_guid;
+  static constexpr auto type_guid = gneiss::engine::guid::from_bytes({0x98, 1});
   static constexpr std::string_view type_name = "test_asset";
   char byte{};
 };
@@ -42,6 +42,9 @@ void check(bool ok, const char* message) {
     throw std::runtime_error(message);
 }
 using value = gneiss::test_support::asset_value;
+struct unreflected_value {
+  char byte{};
+};
 class memory_files final : public gneiss::test_support::memory_file_fixture {
 public:
   mutable unsigned reads{};
@@ -220,15 +223,7 @@ void injected_file_service() {
         "shared service shutdown");
   check(files->dispatch_completions(64).ok() && closed, "shared service drained");
 }
-void decoder_selection() {
-  auto& executor = gneiss::test_support::asset_tasks();
-  auto source = std::make_shared<memory_files>();
-  gneiss::test_support::fixture_files files;
-  check(files.mount("asset://", source) == error::success, "decoder mount");
-  gneiss::engine::meta::registry_ref registry;
-  check(gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), registry) ==
-            error::success,
-        "decoder registry");
+error register_test_assets() {
   gneiss::engine::meta::serialization_binding codec;
   codec.decode = [](const meta::registry_ref&, std::span<const std::byte> bytes)
       -> result<std::shared_ptr<void>, meta::serialization_diagnostic> {
@@ -236,19 +231,22 @@ void decoder_selection() {
       return meta::serialization_diagnostic{7U, "/value", "invalid value", error::invalid_argument};
     return std::shared_ptr<void>{std::make_shared<value>(value{'r'})};
   };
-  check(register_type<value>(registry, {.guid = material_description::type_guid,
-                                        .schema_version = 1U,
-                                        .name = "test_asset",
-                                        .serialization = codec}) == error::success,
-        "reflection decoder registration");
-  check(freeze(registry) == error::success, "freeze decoder registry");
-  asset_manager reflected(gneiss::test_support::test_files(files), registry);
-  registry.reset();
+  return meta::register_type<value>({.guid = guid::from_bytes({0x98, 1}),
+                                     .schema_version = 1U,
+                                     .name = "test_asset",
+                                     .serialization = codec});
+}
+void decoder_selection() {
+  auto& executor = gneiss::test_support::asset_tasks();
+  auto source = std::make_shared<memory_files>();
+  gneiss::test_support::fixture_files files;
+  check(files.mount("asset://", source) == error::success, "decoder mount");
+  asset_manager reflected(gneiss::test_support::test_files(files));
   asset_ref<const value> output;
   check(gneiss::test_support::load_asset(reflected, "asset://value", output, true) ==
                 error::success &&
             output->byte == 'r',
-        "reflection fallback retains registry");
+        "reflection fallback uses default registry");
   const auto cached_reads = source->reads;
   auto cached_output = output;
   check(gneiss::test_support::load_asset(reflected, "asset://value", output) == error::success &&
@@ -307,16 +305,7 @@ void decoder_selection() {
         "async diagnostic and unchanged output");
   source->byte = 'a';
   // 同一个类型同时具备反射与显式解码器时，只采用显式函数。
-  check(gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), registry) ==
-            error::success,
-        "override registry");
-  check(register_type<value>(registry, {.guid = material_description::type_guid,
-                                        .schema_version = 1U,
-                                        .name = "test_asset",
-                                        .serialization = codec}) == error::success,
-        "override reflection");
-  check(freeze(registry) == error::success, "override freeze");
-  asset_manager explicit_assets(gneiss::test_support::test_files(files), registry);
+  asset_manager explicit_assets(gneiss::test_support::test_files(files));
   check(explicit_assets.register_decoder<value>(&explicit_decode, 8) == error::success,
         "typed decoder");
   check(explicit_assets.register_decoder<value>(&explicit_decode, 8) == error::invalid_argument,
@@ -333,16 +322,24 @@ void decoder_selection() {
         "explicit failure does not fall back");
   asset_manager unknown(gneiss::test_support::test_files(files));
   const auto reads = source->reads;
-  check(gneiss::test_support::load_asset(unknown, "asset://unknown", output) ==
+  asset_ref<const unreflected_value> unknown_output;
+  check(gneiss::test_support::load_asset(unknown, "asset://unknown", unknown_output) ==
                 error::unsupported &&
             source->reads == reads,
         "missing decoder fails before IO");
   asset_manager native(gneiss::test_support::test_files(files));
-  check(native.register_decoder<value>(&explicit_decode, 8) == error::success,
+  check(native.register_decoder<unreflected_value>(
+            +[](std::span<const std::byte>)
+                -> result<unreflected_value, meta::serialization_diagnostic> {
+              return unreflected_value{'x'};
+            },
+            8) == error::success,
         "unreflected decoder registration");
   source->byte = 'a';
-  check(gneiss::test_support::load_asset(native, "asset://native", output) == error::success &&
-            output->byte == 'x',
+  asset_ref<const unreflected_value> native_output;
+  check(gneiss::test_support::load_asset(native, "asset://native", native_output) ==
+                error::success &&
+            native_output->byte == 'x',
         "unreflected type loads");
   material_description description;
   description.parameters.metallic = 0.25F;
@@ -356,7 +353,7 @@ void decoder_selection() {
                 error::success &&
             material->parameters.metallic == 0.25F,
         "builtin material reflection load");
-  asset_manager limited(gneiss::test_support::test_files(files), {}, 1);
+  asset_manager limited(gneiss::test_support::test_files(files), 1);
   auto saved = material;
   check(gneiss::test_support::load_asset(limited, "asset://material", material) ==
                 error::invalid_argument &&
@@ -838,7 +835,7 @@ void request_value_contract() {
 }
 
 int main() {
-  if (gneiss::engine::initialize_meta().failed())
+  if (gneiss::engine::initialize_meta(register_test_assets).failed())
     return 99;
   try {
     request_value_contract();

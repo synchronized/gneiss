@@ -121,13 +121,11 @@ void run(gneiss::engine::execution_mode mode) {
   const auto original_name = changed_description.objects.front().name;
   changed_description.objects.front().name = "Snapshot edit";
   std::string replacement;
-  engine::meta::registry_ref registry;
-  check(gneiss::test_support::assign_value(engine::meta::default_registry(), registry).ok());
   const auto encode = [&] {
     std::vector<std::byte> bytes;
     engine::meta::serialization_diagnostic diagnostic;
     const auto status = gneiss::test_support::assign_decoded(
-        engine::meta::serialize(registry, changed_description), bytes, diagnostic);
+        engine::meta::serialize(changed_description), bytes, diagnostic);
     replacement.assign(reinterpret_cast<const char*>(bytes.data()), bytes.size());
     return status;
   };

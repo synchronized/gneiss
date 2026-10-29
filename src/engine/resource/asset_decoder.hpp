@@ -29,9 +29,8 @@ using asset_decode_function =
 namespace detail {
 template <class T> class typed_asset_decoder final : public asset_decoder {
 public:
-  typed_asset_decoder(asset_decode_function<T> function, std::size_t limit,
-                      meta::registry_ref registry = {})
-      : function_(function), limit_(limit), registry_(std::move(registry)) {}
+  typed_asset_decoder(asset_decode_function<T> function, std::size_t limit)
+      : function_(function), limit_(limit) {}
   type_id target_type() const noexcept override { return runtime_type_of<T>(); }
   std::size_t maximum_bytes() const noexcept override { return limit_; }
   result<std::shared_ptr<const void>, meta::serialization_diagnostic>
@@ -42,7 +41,7 @@ public:
         return std::move(decoded).error();
       return std::shared_ptr<const void>{std::make_shared<T>(std::move(*decoded))};
     }
-    auto decoded = meta::deserialize_object(registry_, runtime_type_of<T>(), bytes);
+    auto decoded = meta::deserialize_object(runtime_type_of<T>(), bytes);
     if (!decoded)
       return std::move(decoded).error();
     if (!*decoded)
@@ -57,14 +56,10 @@ public:
 private:
   asset_decode_function<T> function_{};
   std::size_t limit_{};
-  meta::registry_ref registry_;
 };
 template <class T>
-result<std::shared_ptr<const asset_decoder>>
-make_reflected_decoder(const meta::registry_ref& registry, std::size_t limit) {
-  if (!registry)
-    return error::unsupported;
-  auto binding = find_serialization(registry, runtime_type_of<T>());
+result<std::shared_ptr<const asset_decoder>> make_reflected_decoder(std::size_t limit) {
+  auto binding = meta::find_serialization(runtime_type_of<T>());
   if (!binding)
     return binding.error() == error::not_found ? error::unsupported : binding.error();
   if (!binding->decode && !binding->reflected_json)
@@ -73,7 +68,7 @@ make_reflected_decoder(const meta::registry_ref& registry, std::size_t limit) {
     if constexpr (requires { T::maximum_source_bytes; })
       limit = std::min(limit, static_cast<std::size_t>(T::maximum_source_bytes));
     return std::shared_ptr<const asset_decoder>{
-        std::make_shared<typed_asset_decoder<T>>(nullptr, limit, registry)};
+        std::make_shared<typed_asset_decoder<T>>(nullptr, limit)};
   } else {
     return error::unsupported;
   }

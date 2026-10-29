@@ -603,3 +603,4 @@
 - [PLAN-067：反射容器视图与 JSON](plans/PLAN-067-meta-containers.md)
 - [反射容器视图](reference/reflection-containers.md)
 - [资源描述复用反射 JSON](plans/PLAN-068-resource-reflected-json.md)
+- [PLAN-069：业务反射入口统一默认注册表](plans/PLAN-069-default-meta-entrypoints.md)

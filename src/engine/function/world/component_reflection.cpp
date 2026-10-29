@@ -46,10 +46,9 @@ gneiss::engine::error validate_transform_value(const gneiss::engine::math::trans
                                                          : gneiss::engine::error::invalid_argument;
 }
 }
-gneiss::engine::error
-gneiss::engine::register_reflection(const gneiss::engine::meta::registry_ref& registry) {
+gneiss::engine::error gneiss::engine::register_reflection() {
   auto operation =
-      gneiss::engine::meta::type_builder<math::transform>{registry}
+      gneiss::engine::meta::type_builder<math::transform>{}
           .property<&get_transform<&math::transform::translation>,
                     &set_transform<&math::transform::translation, math::vector3>>(
               transform_translation_field, "translation", meta::property_flags::required)
@@ -64,7 +63,7 @@ gneiss::engine::register_reflection(const gneiss::engine::meta::registry_ref& re
           .commit();
   if (operation.failed())
     return operation;
-  return gneiss::engine::meta::type_builder<camera_properties>{registry}
+  return gneiss::engine::meta::type_builder<camera_properties>{}
       .property<&get_camera<&math::camera_settings::fov>,
                 &set_camera<&math::camera_settings::fov, true>>(camera_vertical_field_of_view_field,
                                                                 "vertical_field_of_view_radians")
@@ -77,19 +76,6 @@ gneiss::engine::register_reflection(const gneiss::engine::meta::registry_ref& re
 }
 
 namespace gneiss::engine {
-result<meta::registry_ref> create_property_registry() noexcept {
-  auto pending = meta::create_registry();
-  if (!pending)
-    return pending.error();
-  auto status = register_reflection(*pending);
-  if (status.failed())
-    return status;
-  status = meta::freeze(*pending);
-  if (status.failed())
-    return status;
-  return std::move(*pending);
-}
-
 guid transform_property_type() noexcept { return transform_component_type; }
 guid camera_property_type() noexcept { return camera_component_type; }
 } // namespace gneiss::engine
@@ -128,26 +114,20 @@ error access_component(world& world, std::uint64_t entity, guid type, bool write
   return error::unsupported;
 }
 }
-error read_component_property(const meta::registry_ref& registry, world& world,
-                              std::uint64_t entity, guid type, meta::property_id field,
-                              engine::value& value) noexcept {
-  if (!registry)
-    return error::invalid_handle;
+error read_component_property(world& world, std::uint64_t entity, guid type,
+                              meta::property_id field, engine::value& value) noexcept {
   return access_component(world, entity, type, false, [&](auto* object) {
-    auto read = read_property(registry, type, field, object);
+    auto read = meta::read_property(type, field, object);
     if (!read)
       return read.error();
     value = std::move(*read);
     return error::success;
   });
 }
-error write_component_property(const meta::registry_ref& registry, world& world,
-                               std::uint64_t entity, guid type, meta::property_id field,
-                               const engine::value& value) noexcept {
-  if (!registry)
-    return error::invalid_handle;
+error write_component_property(world& world, std::uint64_t entity, guid type,
+                               meta::property_id field, const engine::value& value) noexcept {
   return access_component(world, entity, type, true, [&](auto* object) {
-    return write_property(registry, type, field, object, value);
+    return meta::write_property(type, field, object, value);
   });
 }
 }

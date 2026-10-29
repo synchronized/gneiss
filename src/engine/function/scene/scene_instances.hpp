@@ -72,7 +72,8 @@ public:
   ~scene_instances() noexcept;
 
   [[nodiscard]] bool is_valid() const noexcept {
-    return domain_ != 0U && static_cast<bool>(registry_);
+    const auto frozen = meta::is_frozen();
+    return domain_ != 0U && frozen && *frozen;
   }
   /** 应用已经加载的描述；调用方先准备渲染依赖，保持现有节点身份。 */
   [[nodiscard]] error reload_loaded(scene_instance_id instance,
@@ -135,7 +136,6 @@ private:
   using instance_ptr = std::unique_ptr<scene_instance>;
   world& native_world_;
   resource_service& loader_;
-  meta::registry_ref registry_;
   std::uint16_t domain_;
   rid_table<instance_ptr, scene_instance_id> instances_;
 };

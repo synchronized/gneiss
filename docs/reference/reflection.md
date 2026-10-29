@@ -63,7 +63,7 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 类型具有静态身份时可这样注册：
 
 ```cpp
-return gneiss::engine::meta::type_builder<camera_properties>{registry}
+return gneiss::engine::meta::type_builder<camera_properties>{}
     .schema_version(1)
     .readonly<&camera_properties::is_primary>(camera_is_primary_field, "is_primary")
     .commit();
@@ -115,7 +115,7 @@ setter 应先校验再修改，Core 不回滚第三方回调已经产生的副�
 ## 内建组件与生命周期
 
 `register_reflection` 为未冻结 Registry 注册 Transform 和 Camera；重复调用返回 `invalid_argument`。
-`create_property_registry` 为隔离测试创建已注册且冻结的独立组件 Registry；生产模块共享默认表。
+World 属性注册和读写统一使用默认表，不再提供独立组件注册表工厂。
 稳定身份使用 `transform_component_type`、`camera_component_type` 或对应原生查询函数。
 
 `world_reflection.hpp` 提供 `read_component_property`、`write_component_property`：显式接收 `world&`、
@@ -155,9 +155,9 @@ Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `
 输入大小限制由文件读取入口控制，反射不负责 I/O、缓存、任务或 GPU 上传。
 
 资源层 `register_material_reflection` 显式登记 material_description 的稳定身份及
-`gneiss.material` codec；显式 registry 重载只修改传入的表，无参重载使用默认表。
+`gneiss.material` codec；业务资源注册入口统一使用默认表。
 默认启动已集中调用，无需资源消费者重复注册。
-材质未展开数组等字段，只登记整体编解码能力；实际格式见[材质格式](render-asset-formats.md#material)。
+材质直接注册 parameters、texture_uris 及嵌套字段，格式包装器只处理格式头；实际格式见[材质格式](render-asset-formats.md#material)。
 
 ## 反射 JSON 与对象校验
 
@@ -167,7 +167,7 @@ Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `
 
 ```cpp
 // math::camera_settings 已独立注册 fov / near / far 和参数校验。
-meta::type_builder<camera_description>{registry}
+meta::type_builder<camera_description>{}
     .property<&camera_description::settings>(
         meta::property_id{1}, "settings", meta::property_flags::required)
     .property<&camera_description::is_primary>(
@@ -196,15 +196,15 @@ null 不等于缺失。只读属性不输出，也不从输入写入；read_only
 类型擦除入口 `serialize_object(registry, type_id, object)` /
 `deserialize_object(registry, type_id, bytes)` 与模板入口共用分派；对象指针必须匹配类型。
 不要直接调用查询到的 codec 函数指针来绕过校验或反射回退。
-实现使用传入的冻结 Registry，不改用默认表；CPU 资源解码适配器持有该表直到适配器销毁。
-注册表不持有适配器，不形成循环引用。组件描述仍使用引擎默认表。
+Meta 核心的显式重载使用传入的冻结 Registry；无参重载使用默认表。
+业务资源、组件描述及 CPU 解码适配器统一使用默认表，不再保存或接收注册表引用。
 
 Camera / MeshRenderer 的字段已改为反射注册并标记必填，仅保留透视参数和资产 URI 的业务校验，
 Scene / Prefab 的结构编解码继续使用专用实现。
 
 ## 注册表创建与状态查询
 
-`create_property_registry()` 返回隔离使用的 `result<registry_ref>`，仅含已注册并冻结的 World 属性。
+隔离测试可用 Meta 核心 `create_registry()` 创建空表，自行注册测试类型。
 `is_frozen(registry)` 返回 `result<bool>`，`type_count(registry)` 返回 `result<std::uint32_t>`；
 无效注册表返回 invalid_handle，未冻结注册表的类型数量查询返回 not_ready。
 成功的 false 或零数量不代表操作失败。
@@ -227,7 +227,7 @@ getter 失败、异常或返回不匹配／无效值时仅返回错误，不交�
 显式 registry 重载保持原行为。
 
 `engine/function/meta_registration.hpp` 的 `engine::initialize_meta(callback = nullptr)` 在启动阶段
-串行登记内置 World 属性、资源 codec、项目类型，再冻结。callback 接收同一 registry，
+串行登记内置 World 属性、资源 codec、项目类型，再冻结。callback 不带参数，
 可直接使用默认 builder。需要自定义类型的宿主在首次 `application::create` 前调用带 callback 的入口；
 application 自动调用无参入口，重复无参调用返回首次结果。独立工具应显式完成初始化。
 初始化期间不得并行修改或手动冻结默认表，callback 不得重入初始化函数。
@@ -324,7 +324,7 @@ Scene/Prefab 的组件动态分派和 Prefab 覆盖使用专门 codec；编辑�
 同时启用反射 JSON 和自定义 codec 后，格式包装器可调用 serialize_reflected/deserialize_reflected
 跳过本类型自定义函数、直接读写注册字段；嵌套 codec 和业务校验仍生效，不是绕过校验的入口。
 材质文件包装仅处理 format/version，直接读写 v6 原生描述，不再创建文件数据副本类型。
-无 registry 的材质入口使用已初始化并冻结的默认表；独立表需 register_material_reflection 后 freeze。
+材质、Scene/Prefab 及其嵌套组件使用已初始化并冻结的默认表；业务注册入口不接受独立表。
 
 原生窄整数和枚举通过现有 int64/uint64 标量访问，写入先检查原生底层范围；
 枚举定义域由所属类型 validate 校验。它们的属性 GUID 表示规范化后的整数存储类型。

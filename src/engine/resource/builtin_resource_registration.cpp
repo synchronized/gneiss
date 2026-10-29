@@ -7,8 +7,8 @@
 #include "engine/resource/scene/prefab_codec.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
 namespace gneiss::engine {
-error register_scene_reflection(const meta::registry_ref& registry) noexcept {
-  return meta::type_builder<scene_description>{registry}
+error register_scene_reflection() noexcept {
+  return meta::type_builder<scene_description>{}
       .property<&scene_description::uuid>(meta::property_id{1}, "scene_uuid",
                                           meta::property_flags::required)
       .property<&scene_description::objects>(meta::property_id{2}, "objects",
@@ -17,8 +17,8 @@ error register_scene_reflection(const meta::registry_ref& registry) noexcept {
       .serialization<&encode_scene, &decode_scene>()
       .commit();
 }
-error register_prefab_reflection(const meta::registry_ref& registry) noexcept {
-  return meta::type_builder<prefab_description>{registry}
+error register_prefab_reflection() noexcept {
+  return meta::type_builder<prefab_description>{}
       .property<&prefab_description::uuid>(meta::property_id{1}, "prefab_uuid",
                                            meta::property_flags::required)
       .property<&prefab_description::root_uuid>(meta::property_id{2}, "root_uuid",
@@ -29,9 +29,7 @@ error register_prefab_reflection(const meta::registry_ref& registry) noexcept {
       .serialization<&encode_prefab, &decode_prefab>()
       .commit();
 }
-error register_action_map_reflection(const meta::registry_ref& registry) noexcept {
-  return meta::type_builder<action_map>{registry}
-      .serialization<nullptr, &decode_action_map>()
-      .commit();
+error register_action_map_reflection() noexcept {
+  return meta::type_builder<action_map>{}.serialization<nullptr, &decode_action_map>().commit();
 }
 }

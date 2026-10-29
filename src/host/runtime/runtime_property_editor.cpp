@@ -78,13 +78,10 @@ runtime_property_editor::~runtime_property_editor() { reset(); }
 gneiss::engine::error runtime_property_editor::initialize(gneiss::engine::world& world,
                                                           runtime_scene_inspection& inspection,
                                                           std::uint64_t session_id) noexcept {
-  if (session_id == 0U || registry_ != nullptr) {
+  if (session_id == 0U || initialized_) {
     return gneiss::engine::error::invalid_argument;
   }
-  auto registry = gneiss::engine::meta::default_registry();
-  if (!registry)
-    return registry.error();
-  auto frozen = gneiss::engine::meta::is_frozen(*registry);
+  auto frozen = gneiss::engine::meta::is_frozen();
   if (!frozen)
     return frozen.error();
   if (!*frozen)
@@ -92,12 +89,12 @@ gneiss::engine::error runtime_property_editor::initialize(gneiss::engine::world&
   world_ = &world;
   inspection_ = &inspection;
   session_id_ = session_id;
-  registry_ = std::move(*registry);
+  initialized_ = true;
   return gneiss::engine::error::success;
 }
 
 void runtime_property_editor::reset() noexcept {
-  registry_.reset();
+  initialized_ = false;
   world_ = nullptr;
   inspection_ = nullptr;
   session_id_ = 0U;
@@ -106,7 +103,7 @@ void runtime_property_editor::reset() noexcept {
 
 gneiss::engine::error runtime_property_editor::execute(const ipc_property_write& command,
                                                        ipc_property_write_result& output) noexcept {
-  if (!registry_ || inspection_ == nullptr || command.command_id == 0U) {
+  if (!initialized_ || inspection_ == nullptr || command.command_id == 0U) {
     return gneiss::engine::error::invalid_state;
   }
   ipc_property_write_result response{.session_id = session_id_,
@@ -144,7 +141,7 @@ gneiss::engine::error runtime_property_editor::execute(const ipc_property_write&
 
   const gneiss::engine::guid property_type{gneiss::engine::guid::from_bytes(key.type_id)};
   const gneiss::engine::meta::property_id property_field{command.field_id};
-  auto description = gneiss::engine::meta::describe_type(registry_, property_type);
+  auto description = gneiss::engine::meta::describe_type(property_type);
   if (!description) {
     response.code = description.error().code();
     response.message = "属性不存在或不可写";
@@ -171,11 +168,11 @@ gneiss::engine::error runtime_property_editor::execute(const ipc_property_write&
   gneiss::engine::value value;
   operation = to_native_value(command.value, value);
   if (operation.ok()) {
-    operation = gneiss::engine::write_component_property(registry_, *world_, entity, property_type,
+    operation = gneiss::engine::write_component_property(*world_, entity, property_type,
                                                          property_field, value);
     if (operation.ok()) {
       gneiss::engine::value canonical;
-      operation = gneiss::engine::read_component_property(registry_, *world_, entity, property_type,
+      operation = gneiss::engine::read_component_property(*world_, entity, property_type,
                                                           property_field, canonical);
       if (operation.ok()) {
         operation = from_native_value(canonical, response.canonical_value);

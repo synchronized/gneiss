@@ -81,4 +81,50 @@ deserialize(std::span<const std::byte> bytes) noexcept {
     return serialization_diagnostic{.error = registry.error()};
   return deserialize<T>(*registry, bytes);
 }
+/** 使用默认注册表的类型擦除与字段遍历入口；不隐式注册或冻结。 */
+[[nodiscard]] inline result<std::vector<std::byte>, serialization_diagnostic>
+serialize_object(type_id type, const void* object) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return serialization_diagnostic{.error = registry.error()};
+  return serialize_object(*registry, type, object);
+}
+[[nodiscard]] inline result<std::shared_ptr<void>, serialization_diagnostic>
+deserialize_object(type_id type, std::span<const std::byte> bytes) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return serialization_diagnostic{.error = registry.error()};
+  return deserialize_object(*registry, type, bytes);
+}
+[[nodiscard]] inline result<std::vector<std::byte>, serialization_diagnostic>
+serialize_reflected_object(type_id type, const void* object) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return serialization_diagnostic{.error = registry.error()};
+  return serialize_reflected_object(*registry, type, object);
+}
+[[nodiscard]] inline result<std::shared_ptr<void>, serialization_diagnostic>
+deserialize_reflected_object(type_id type, std::span<const std::byte> bytes) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return serialization_diagnostic{.error = registry.error()};
+  return deserialize_reflected_object(*registry, type, bytes);
+}
+template <class T>
+[[nodiscard]] result<std::vector<std::byte>, serialization_diagnostic>
+serialize_reflected(const T& object) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return serialization_diagnostic{.error = registry.error()};
+  return serialize_reflected(*registry, object);
+}
+template <class T>
+[[nodiscard]] result<T, serialization_diagnostic>
+deserialize_reflected(std::span<const std::byte> bytes) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return serialization_diagnostic{.error = registry.error()};
+  return deserialize_reflected<T>(*registry, bytes);
+}
+
 }

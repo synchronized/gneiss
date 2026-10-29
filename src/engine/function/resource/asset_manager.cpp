@@ -138,7 +138,6 @@ struct asset_manager::resource_state {
   task_executor* executor{};
   task_scope scope{};
   bool frozen{}, stopped{};
-  meta::registry_ref registry;
   std::size_t fallback_limit{};
   std::map<type_id, std::shared_ptr<const asset_decoder>> decoders;
   std::map<key, entry> requests;
@@ -265,24 +264,14 @@ result<asset_identity> asset_manager::identify(std::string_view uri,
 }
 
 asset_manager::asset_manager(std::shared_ptr<engine::files::service> files,
-                             meta::registry_ref registry, std::size_t fallback_limit)
+                             std::size_t fallback_limit)
     : resource_state_(std::make_unique<resource_state>()) {
   if (!files)
     throw std::invalid_argument("文件服务不能为空");
   resource_state_->files = std::move(files);
-  if (!registry) {
-    auto created = meta::default_registry();
-    if (!created) {
-      if (created.error() == error::out_of_memory)
-        throw std::bad_alloc{};
-      throw std::runtime_error("无法获取默认反射注册表");
-    }
-    registry = std::move(*created);
-  }
-  auto frozen = is_frozen(registry);
+  auto frozen = meta::is_frozen();
   if (fallback_limit == 0 || !frozen || !*frozen)
     throw std::invalid_argument("资源 Registry 必须冻结，输入上限必须非零");
-  resource_state_->registry = std::move(registry);
   resource_state_->fallback_limit = fallback_limit;
 }
 error asset_manager::store_erased(type_id type, std::string_view uri,
@@ -347,7 +336,7 @@ error asset_manager::resolve_decoder(type_id type, decoder_factory fallback,
     output = found->second;
     return error::success;
   }
-  auto decoded = fallback(state.registry, state.fallback_limit);
+  auto decoded = fallback(state.fallback_limit);
   if (!decoded)
     return decoded.error();
   output = std::move(*decoded);

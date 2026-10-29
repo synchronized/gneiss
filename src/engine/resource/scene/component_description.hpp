@@ -21,15 +21,12 @@ public:
   }
   [[nodiscard]] static result<component_description, meta::serialization_diagnostic>
   decode(engine::guid guid, std::span<const std::byte> bytes) noexcept try {
-    auto registry = meta::default_registry();
-    if (!registry)
-      return meta::serialization_diagnostic{.error = registry.error()};
-    auto type = meta::describe_type(*registry, guid);
+    auto type = meta::describe_type(guid);
     if (!type)
       return meta::serialization_diagnostic{.error = type.error()};
     if (!type->type_id)
       return meta::serialization_diagnostic{.error = error::unsupported};
-    auto object = meta::deserialize_object(*registry, type->type_id, bytes);
+    auto object = meta::deserialize_object(type->type_id, bytes);
     if (!object)
       return std::move(object).error();
     if (!*object)
@@ -47,10 +44,7 @@ public:
       return meta::serialization_diagnostic{.error = type.error()};
     if (type->type_id != type_)
       return meta::serialization_diagnostic{.error = error::invalid_argument};
-    auto registry = meta::default_registry();
-    if (!registry)
-      return meta::serialization_diagnostic{.error = registry.error()};
-    return meta::serialize_object(*registry, type_, object_.get());
+    return meta::serialize_object(type_, object_.get());
   } catch (const std::bad_alloc&) {
     return meta::serialization_diagnostic{.error = error::out_of_memory};
   } catch (...) {

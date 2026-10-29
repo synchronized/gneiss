@@ -64,15 +64,11 @@ bool target_for(gneiss::runtime::application& app, gneiss::scene_instance_id sce
 int main() try {
   if (gneiss::engine::initialize_meta().failed())
     return 99;
-  auto created_registry = gneiss::engine::meta::default_registry();
-  if (!created_registry)
-    return 1;
-  auto registry = std::move(*created_registry);
-  auto count = gneiss::engine::meta::type_count(registry);
+  auto count = gneiss::engine::meta::type_count();
   if (!count)
     return 1;
   for (std::uint32_t i = 0; i < *count; ++i) {
-    auto type = gneiss::engine::meta::describe_type_at(registry, i);
+    auto type = gneiss::engine::meta::describe_type_at(i);
     if (!type)
       return 1;
     std::printf("类型 %.*s\n", static_cast<int>(type->name.size()), type->name.data());
@@ -97,13 +93,13 @@ int main() try {
   if (!target_for(*app, scene, target))
     return 3;
   gneiss::engine::value value{.payload = gneiss::engine::math::vector3{2, 1, 4}};
-  if (gneiss::engine::write_component_property(registry, *app->native_world(), target.get(),
+  if (gneiss::engine::write_component_property(*app->native_world(), target.get(),
                                                gneiss::engine::transform_property_type(),
                                                gneiss::engine::meta::property_id{1}, value)
           .failed())
     return 3;
   value.payload = 0.25F;
-  if (gneiss::engine::write_component_property(registry, *app->native_world(), target.get(),
+  if (gneiss::engine::write_component_property(*app->native_world(), target.get(),
                                                gneiss::engine::camera_property_type(),
                                                gneiss::engine::meta::property_id{2}, value)
           .failed())
@@ -130,14 +126,14 @@ int main() try {
   if (!open_scene(scheduler, output_root.generic_string(), app, scene) ||
       !target_for(*app, scene, target))
     return 6;
-  if (gneiss::engine::read_component_property(registry, *app->native_world(), target.get(),
+  if (gneiss::engine::read_component_property(*app->native_world(), target.get(),
                                               gneiss::engine::transform_property_type(),
                                               gneiss::engine::meta::property_id{1}, value)
           .failed() ||
       value.kind() != gneiss::engine::value_kind::vec3 ||
       std::abs(std::get<gneiss::engine::math::vector3>(value.payload).x - 2) > 0.0001F)
     return 6;
-  if (gneiss::engine::read_component_property(registry, *app->native_world(), target.get(),
+  if (gneiss::engine::read_component_property(*app->native_world(), target.get(),
                                               gneiss::engine::camera_property_type(),
                                               gneiss::engine::meta::property_id{2}, value)
           .failed() ||

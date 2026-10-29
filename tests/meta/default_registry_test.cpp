@@ -20,18 +20,15 @@ struct sample {
   float speed = 1;
 };
 static int calls = 0;
-e::error register_project(const m::registry_ref& registry) {
+e::error register_project() {
   ++calls;
-  auto shared = m::default_registry();
-  if (!shared || *shared != registry)
-    return e::error::internal;
   // 内置类型已注册但尚未冻结；查询不得提前冻结。
   if (m::type_count().error() != e::error::not_ready)
     return e::error::internal;
   return m::type_builder<sample>{}.property<&sample::speed>(m::property_id{1}, "speed").commit();
 }
-e::error fail_registration(const m::registry_ref&) { return e::error::unsupported; }
-e::error throw_registration(const m::registry_ref&) { throw std::runtime_error("注册失败"); }
+e::error fail_registration() { return e::error::unsupported; }
+e::error throw_registration() { throw std::runtime_error("注册失败"); }
 int main(int argc, char** argv) {
   auto initial = m::default_registry();
   if (!initial || !m::is_frozen() || *m::is_frozen() ||

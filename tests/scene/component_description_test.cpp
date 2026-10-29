@@ -7,6 +7,11 @@
 #include "engine/resource/scene/scene_codec.hpp"
 #include <string>
 namespace e = gneiss::engine;
+struct reflected_description {
+  inline static constexpr std::string_view type_name = "reflected_component";
+  inline static constexpr e::guid type_guid = e::guid::from_bytes({21, 1, 2, 4});
+  float speed = 1;
+};
 std::size_t decode_calls = 0;
 struct custom_description {
   inline static constexpr std::string_view type_name = "test_component";
@@ -42,12 +47,36 @@ std::string entry(e::guid type, std::string_view content) {
          std::string(content) + "}";
 }
 int main() try {
-  if (e::initialize_meta([](const e::meta::registry_ref&) {
+  if (e::initialize_meta([]() {
+        auto status = e::meta::type_builder<reflected_description>{}
+                          .property<&reflected_description::speed>(e::meta::property_id{1}, "speed")
+                          .serialization()
+                          .commit();
+        if (status.failed())
+          return status;
         return e::meta::type_builder<custom_description>{}
             .serialization<&encode, &decode>()
             .commit();
       }).failed())
     return 1;
+  // 项目组件只注册字段，不写 codec；Scene/Prefab 的 GUID 分派共用默认表。
+  const auto reflected = entry(reflected_description::type_guid, R"({"speed":3})");
+  auto reflected_scene = e::decode_scene(bytes(scene("[" + reflected + "]")));
+  if (!reflected_scene ||
+      reflected_scene->objects.front().components.get<reflected_description>()->speed != 3)
+    return 30;
+  e::prefab_description reflected_prefab;
+  reflected_prefab.author_json = R"({"objects":[]})";
+  reflected_prefab.uuid = reflected_scene->uuid;
+  reflected_prefab.objects = reflected_scene->objects;
+  reflected_prefab.root_uuid = reflected_prefab.objects.front().uuid;
+  auto reflected_prefab_bytes = e::encode_prefab(reflected_prefab);
+  if (!reflected_prefab_bytes)
+    return 31;
+  auto restored_prefab = e::decode_prefab(*reflected_prefab_bytes);
+  if (!restored_prefab ||
+      restored_prefab->objects.front().components.get<reflected_description>()->speed != 3)
+    return 32;
   const auto custom = entry(custom_description::type_guid, R"({"enabled":true})");
   auto parsed = e::decode_scene(bytes(scene("[" + custom + "]")));
   if (!parsed || parsed->objects.front().components.size() != 1 ||

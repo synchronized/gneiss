@@ -93,8 +93,7 @@ error scene_instance::instantiate_prefab_ready(const object_description& author,
   }
   auto record = author;
   prefab_description effective;
-  auto status =
-      prepare_prefab_description(*prefab.get(), registry_, author.prefab->overrides, effective);
+  auto status = prepare_prefab_description(*prefab.get(), author.prefab->overrides, effective);
   if (status.failed())
     return status;
   structural_diff order;

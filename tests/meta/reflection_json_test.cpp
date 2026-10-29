@@ -142,17 +142,15 @@ int main() try {
   auto escaped = m::deserialize<sample>(*other, bytes(R"({"enabled":true,"a/b~c":2})"));
   if (escaped || escaped.error().path != "/a~1b~0c")
     return 15;
-  // CPU 资源入口也走同一反射分派，并持有显式注册表的生命周期。
-  auto loader = e::detail::make_reflected_decoder<sample>(*other, 4096);
-  if (!loader)
+  // CPU 资源入口统一使用默认表；独立表不再由解码适配器持有。
+  auto shared = m::default_registry();
+  if (!shared || register_sample(*shared).failed() || m::freeze().failed())
     return 16;
+  auto loader = e::detail::make_reflected_decoder<sample>(4096);
   auto weak = std::weak_ptr<e::meta::type_registry_state>(*other);
   other->reset();
-  if (weak.expired() || !(*loader)->decode(*encoded))
+  if (!weak.expired() || !loader || !(*loader)->decode(*encoded))
     return 17;
-  loader->reset();
-  if (!weak.expired())
-    return 21;
   auto task = std::async(std::launch::async, [&] {
     return static_cast<bool>(m::deserialize<sample>(registry, *encoded));
   });

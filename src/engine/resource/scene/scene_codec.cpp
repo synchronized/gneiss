@@ -494,10 +494,7 @@ make_components(yyjson_mut_doc* document, const gneiss::engine::component_descri
 gneiss::engine::error write_object_fields(yyjson_mut_doc* doc, yyjson_mut_val* target,
                                           const gneiss::engine::object_description& source) {
   using namespace gneiss::engine;
-  auto registry = meta::default_registry();
-  if (!registry)
-    return registry.error();
-  auto encoded = meta::serialize_reflected(*registry, source);
+  auto encoded = meta::serialize_reflected(source);
   if (!encoded)
     return encoded.error().error;
   std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> parsed(
@@ -618,8 +615,8 @@ using gneiss::engine::object_description;
 using gneiss::engine::result;
 namespace meta = gneiss::engine::meta;
 result<object_description, meta::serialization_diagnostic>
-decode_object(const meta::registry_ref& registry, std::span<const std::byte> bytes) {
-  auto object = meta::deserialize_reflected<object_description>(registry, bytes);
+decode_object(std::span<const std::byte> bytes) {
+  auto object = meta::deserialize_reflected<object_description>(bytes);
   if (!object)
     return std::move(object).error();
   std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> doc(
@@ -636,8 +633,8 @@ decode_object(const meta::registry_ref& registry, std::span<const std::byte> byt
   return std::move(*object);
 }
 result<std::vector<std::byte>, meta::serialization_diagnostic>
-encode_object(const meta::registry_ref& registry, const object_description& source) {
-  auto fields = meta::serialize_reflected(registry, source);
+encode_object(const object_description& source) {
+  auto fields = meta::serialize_reflected(source);
   if (!fields)
     return std::move(fields).error();
   std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> parsed(
@@ -747,19 +744,16 @@ detail::parse_object_document(std::string_view json, bool prefab) noexcept {
       fail(out_diagnostic, engine::error::invalid_argument, "/objects", "objects 必须是数组");
       return out_diagnostic;
     }
-    auto registry = meta::default_registry();
-    if (!registry)
-      return scene_diagnostic{.error = registry.error()};
     auto decoded =
         [&]() -> result<std::vector<object_description>, meta::serialization_diagnostic> {
       const auto bytes = std::as_bytes(std::span{json.data(), json.size()});
       if (prefab) {
-        auto fields = meta::deserialize_reflected<prefab_description>(*registry, bytes);
+        auto fields = meta::deserialize_reflected<prefab_description>(bytes);
         if (!fields)
           return std::move(fields).error();
         return std::move(fields->objects);
       }
-      auto fields = meta::deserialize_reflected<scene_description>(*registry, bytes);
+      auto fields = meta::deserialize_reflected<scene_description>(bytes);
       if (!fields)
         return std::move(fields).error();
       return std::move(fields->objects);
@@ -1019,10 +1013,10 @@ meta::serialization_diagnostic check_mesh_renderer(const mesh_renderer_descripti
           diagnostic.error};
 }
 }
-error register_component_descriptions(const meta::registry_ref& registry) noexcept {
+error register_component_descriptions() noexcept {
   constexpr auto required = meta::property_flags::required;
   auto status =
-      meta::type_builder<object_description>{registry}
+      meta::type_builder<object_description>{}
           .property<&object_description::uuid>(meta::property_id{1}, "uuid", required)
           .property<&object_description::name>(meta::property_id{2}, "name")
           .property<&object_description::parent_uuid>(meta::property_id{3}, "parent", required)
@@ -1032,7 +1026,7 @@ error register_component_descriptions(const meta::registry_ref& registry) noexce
           .commit();
   if (status.failed())
     return status;
-  status = meta::type_builder<math::camera_settings>{registry}
+  status = meta::type_builder<math::camera_settings>{}
                .property<&math::camera_settings::fov>(meta::property_id{1}, "fov", required)
                .property<&math::camera_settings::near>(meta::property_id{2}, "near", required)
                .property<&math::camera_settings::far>(meta::property_id{3}, "far", required)
@@ -1042,14 +1036,14 @@ error register_component_descriptions(const meta::registry_ref& registry) noexce
   if (status.failed())
     return status;
   status =
-      meta::type_builder<camera_description>{registry}
+      meta::type_builder<camera_description>{}
           .property<&camera_description::settings>(meta::property_id{1}, "settings", required)
           .property<&camera_description::is_primary>(meta::property_id{4}, "is_primary", required)
           .serialization()
           .commit();
   if (status.failed())
     return status;
-  return meta::type_builder<mesh_renderer_description>{registry}
+  return meta::type_builder<mesh_renderer_description>{}
       .property<&mesh_renderer_description::mesh_uri>(meta::property_id{1}, "mesh", required)
       .property<&mesh_renderer_description::material_uri>(meta::property_id{2}, "material",
                                                           required)

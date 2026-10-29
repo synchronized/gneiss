@@ -23,7 +23,6 @@ namespace gneiss::engine {
 
 /** 只修改私有描述，失败保持 output 不变；不读文件、不创建实体、不发送通知。 */
 [[nodiscard]] error prepare_prefab_description(const prefab_description& source,
-                                               const meta::registry_ref& registry,
                                                std::span<const prefab_property_override> overrides,
                                                prefab_description& output) noexcept;
 
@@ -55,10 +54,9 @@ public:
   [[nodiscard]] error get_node_info(std::size_t index, node_info& out_info) const noexcept;
   /** 验证候选来源、覆盖与资源是否可提交，不修改 World。 */
   [[nodiscard]] error validate_reload(const prefab_asset_ref& candidate,
-                                      const meta::registry_ref& registry,
                                       const std::vector<prefab_property_override>& overrides);
   /** 保持实例根与匹配来源节点身份，提交已经验证的来源修订。 */
-  [[nodiscard]] error reload(prefab_asset_ref candidate, const meta::registry_ref& registry,
+  [[nodiscard]] error reload(prefab_asset_ref candidate,
                              const std::vector<prefab_property_override>& overrides);
 
   /** 同步构造的内部步骤；节点直接可见，资源由调用方传入，失败由调用方的子树守卫清理。 */
@@ -66,8 +64,7 @@ public:
   [[nodiscard]] error create_node(std::size_t index, const object_description& source,
                                   scene_node_id parent, engine::mesh mesh,
                                   engine::material material);
-  [[nodiscard]] error apply_override(const meta::registry_ref& registry,
-                                     const prefab_property_override& value) noexcept;
+  [[nodiscard]] error apply_override(const prefab_property_override& value) noexcept;
 
 private:
   friend class scene_instance;
@@ -77,8 +74,7 @@ private:
     bool creation_attempted{};
   };
 
-  [[nodiscard]] error apply_overrides(const meta::registry_ref& registry,
-                                      std::span<const prefab_property_override> overrides) noexcept;
+  [[nodiscard]] error apply_overrides(std::span<const prefab_property_override> overrides) noexcept;
 
   world& native_world_;
   resource_service& loader_;

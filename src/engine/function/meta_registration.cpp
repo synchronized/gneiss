@@ -18,24 +18,21 @@ error initialize_meta(meta_registration_callback callback) noexcept try {
   // 包含 callback 异常在内的失败必须留下明确终态，不允许后续调用误报成功。
   status = error::internal;
   try {
-    auto registry = meta::default_registry();
-    if (!registry)
-      return status = registry.error();
-    status = register_reflection(*registry);
+    status = register_reflection();
     if (status.ok())
-      status = register_component_descriptions(*registry);
+      status = register_component_descriptions();
     if (status.ok())
-      status = register_material_reflection(*registry);
+      status = register_material_reflection();
     if (status.ok())
-      status = register_action_map_reflection(*registry);
+      status = register_action_map_reflection();
     if (status.ok())
-      status = register_scene_reflection(*registry);
+      status = register_scene_reflection();
     if (status.ok())
-      status = register_prefab_reflection(*registry);
+      status = register_prefab_reflection();
     if (status.ok() && callback)
-      status = callback(*registry);
+      status = callback();
     if (status.ok())
-      status = meta::freeze(*registry);
+      status = meta::freeze();
   } catch (const std::bad_alloc&) {
     status = error::out_of_memory;
   } catch (...) {

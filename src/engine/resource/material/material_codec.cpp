@@ -49,8 +49,7 @@ result<std::vector<std::byte>, diagnostic> write_json(yyjson_mut_doc* doc) {
   const auto bytes = std::as_bytes(std::span{text.get(), length});
   return std::vector<std::byte>(bytes.begin(), bytes.end());
 }
-result<material_description, diagnostic> decode(const meta::registry_ref& registry,
-                                                std::span<const std::byte> bytes) {
+result<material_description, diagnostic> decode(std::span<const std::byte> bytes) {
   yyjson_read_err err{};
   document doc(yyjson_read_opts(reinterpret_cast<char*>(const_cast<std::byte*>(bytes.data())),
                                 bytes.size(), 0, nullptr, &err),
@@ -91,11 +90,10 @@ result<material_description, diagnostic> decode(const meta::registry_ref& regist
   auto content = write_json(fields.get());
   if (!content)
     return std::move(content).error();
-  return meta::deserialize_reflected<material_description>(registry, *content);
+  return meta::deserialize_reflected<material_description>(*content);
 }
-result<std::vector<std::byte>, diagnostic> encode(const meta::registry_ref& registry,
-                                                  const material_description& object) {
-  auto fields = meta::serialize_reflected(registry, object);
+result<std::vector<std::byte>, diagnostic> encode(const material_description& object) {
+  auto fields = meta::serialize_reflected(object);
   if (!fields)
     return std::move(fields).error();
   document doc(yyjson_read(reinterpret_cast<const char*>(fields->data()), fields->size(), 0),
@@ -112,8 +110,8 @@ result<std::vector<std::byte>, diagnostic> encode(const meta::registry_ref& regi
   return write_json(output.get());
 }
 }
-error register_material_reflection(const meta::registry_ref& registry) noexcept {
-  auto status = meta::type_builder<texture_sampling>{registry}
+error register_material_reflection() noexcept {
+  auto status = meta::type_builder<texture_sampling>{}
                     .property<&texture_sampling::uv_set>(meta::property_id{1}, "uv_set")
                     .property<&texture_sampling::mag_filter>(meta::property_id{2}, "mag_filter")
                     .property<&texture_sampling::min_filter>(meta::property_id{3}, "min_filter")
@@ -125,7 +123,7 @@ error register_material_reflection(const meta::registry_ref& registry) noexcept 
                     .commit();
   if (status.failed())
     return status;
-  status = meta::type_builder<material_parameters>{registry}
+  status = meta::type_builder<material_parameters>{}
                .property<&material_parameters::color>(meta::property_id{1}, "color")
                .property<&material_parameters::metallic>(meta::property_id{2}, "metallic")
                .property<&material_parameters::roughness>(meta::property_id{3}, "roughness")
@@ -142,7 +140,7 @@ error register_material_reflection(const meta::registry_ref& registry) noexcept 
                .commit();
   if (status.failed())
     return status;
-  return meta::type_builder<material_description>{registry}
+  return meta::type_builder<material_description>{}
       .schema_version(6)
       .property<&material_description::parameters>(meta::property_id{1}, "parameters",
                                                    meta::property_flags::required)

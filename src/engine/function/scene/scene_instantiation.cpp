@@ -27,7 +27,7 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
       if (!source.resource)
         return error::invalid_argument;
     }
-    auto instance = std::make_unique<scene_instance>(native_world_, loader_, registry_);
+    auto instance = std::make_unique<scene_instance>(native_world_, loader_);
     instance->initialize_staged(std::move(prepared.description));
     std::unordered_map<guid, scene_node_id, guid_hash> nodes;
     nodes.reserve(instance->source().objects.size());
@@ -91,7 +91,7 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
         prefab_nodes.emplace(node.uuid, info.node);
       }
       for (const auto& override_value : source.prefab->overrides) {
-        result = prefab->apply_override(registry_, override_value);
+        result = prefab->apply_override(override_value);
         if (result != engine::error::success) {
           return result;
         }

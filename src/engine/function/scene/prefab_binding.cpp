@@ -45,7 +45,6 @@ prefab_binding::prefab_binding(world& native_world, resource_service& loader,
 
 engine::error
 prefab_binding::validate_reload(const prefab_asset_ref& candidate,
-                                const meta::registry_ref& registry,
                                 const std::vector<prefab_property_override>& overrides) {
   if (!candidate || !prefab_ || candidate.get()->uuid != prefab_.get()->uuid ||
       candidate.get()->objects.empty()) {
@@ -114,7 +113,7 @@ prefab_binding::validate_reload(const prefab_asset_ref& candidate,
 
   const auto camera_type = engine::camera_component_type;
   for (const auto& override_value : overrides) {
-    result = validate_prefab_property_override(registry, override_value);
+    result = validate_prefab_property_override(override_value);
     const auto source = std::ranges::find(
         candidate.get()->objects, override_value.key.source_node_uuid, &object_description::uuid);
     if (result != engine::error::success || source == candidate.get()->objects.end()) {
@@ -131,10 +130,10 @@ prefab_binding::validate_reload(const prefab_asset_ref& candidate,
   return engine::error::success;
 }
 
-engine::error prefab_binding::reload(prefab_asset_ref candidate, const meta::registry_ref& registry,
+engine::error prefab_binding::reload(prefab_asset_ref candidate,
                                      const std::vector<prefab_property_override>& overrides) {
 
-  auto result = validate_reload(candidate, registry, overrides);
+  auto result = validate_reload(candidate, overrides);
   if (result != engine::error::success) {
     return result;
   }
@@ -386,7 +385,7 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate, const meta::reg
     members[index].node = staged[index].node;
   auto previous_nodes = std::move(nodes_);
   nodes_ = std::move(members);
-  result = apply_overrides(registry, overrides);
+  result = apply_overrides(overrides);
   if (result != engine::error::success) {
     nodes_ = std::move(previous_nodes);
     rollback_updates();
@@ -412,15 +411,13 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate, const meta::reg
 }
 
 namespace {
-engine::error apply_candidate_object(const meta::registry_ref& state,
-                                     const prefab_property_override& value,
+engine::error apply_candidate_object(const prefab_property_override& value,
                                      const engine::value& native, object_description& object) {
   auto result = engine::error::success;
   const auto is_type = [&](guid type) { return value.key.type_guid == type; };
   if (is_type(transform_component_type)) {
     auto transform = object.transform;
-    result =
-        meta::write_property(state, value.key.type_guid, value.key.property_id, &transform, native);
+    result = meta::write_property(value.key.type_guid, value.key.property_id, &transform, native);
     if (result != engine::error::success) {
       return result;
     }
@@ -433,8 +430,7 @@ engine::error apply_candidate_object(const meta::registry_ref& state,
     camera_properties properties;
     auto& settings = properties.settings;
     settings = camera.settings;
-    result = meta::write_property(state, value.key.type_guid, value.key.property_id, &properties,
-                                  native);
+    result = meta::write_property(value.key.type_guid, value.key.property_id, &properties, native);
     if (result != engine::error::success) {
       return result;
     }
@@ -449,16 +445,11 @@ engine::error apply_candidate_object(const meta::registry_ref& state,
 }
 
 engine::error prepare_prefab_description(const prefab_description& source,
-                                         const meta::registry_ref& registry,
                                          std::span<const prefab_property_override> overrides,
                                          prefab_description& output) noexcept try {
   auto candidate = source;
-  const auto state = registry;
-  if (!state) {
-    return engine::error::invalid_handle;
-  }
   for (const auto& value : overrides) {
-    const auto validation = validate_prefab_property_override(registry, value);
+    const auto validation = validate_prefab_property_override(value);
     if (validation != engine::error::success) {
       return validation;
     }
@@ -469,7 +460,7 @@ engine::error prepare_prefab_description(const prefab_description& source,
     }
     if (found->uuid == candidate.root_uuid && value.key.type_guid == transform_component_type)
       return error::invalid_argument;
-    const auto result = apply_candidate_object(state, value, value.value, *found);
+    const auto result = apply_candidate_object(value, value.value, *found);
     if (result != engine::error::success) {
       return result;
     }
@@ -490,10 +481,9 @@ engine::error prepare_prefab_description(const prefab_description& source,
 }
 
 engine::error
-prefab_binding::apply_overrides(const meta::registry_ref& registry,
-                                std::span<const prefab_property_override> overrides) noexcept try {
+prefab_binding::apply_overrides(std::span<const prefab_property_override> overrides) noexcept try {
   for (const auto& override_value : overrides) {
-    const auto validation = validate_prefab_property_override(registry, override_value);
+    const auto validation = validate_prefab_property_override(override_value);
     if (validation != engine::error::success) {
       return validation;
     }
@@ -506,7 +496,7 @@ prefab_binding::apply_overrides(const meta::registry_ref& registry,
     if (found->node == root_node_ && override_value.key.type_guid == transform_component_type)
       return error::invalid_argument;
     const auto result = engine::write_component_property(
-        registry, native_world_, scene_object_entity(native_world_, found->node),
+        native_world_, scene_object_entity(native_world_, found->node),
         override_value.key.type_guid, override_value.key.property_id, override_value.value);
     if (result != engine::error::success) {
       return result;
@@ -569,9 +559,8 @@ engine::error prefab_binding::create_node(std::size_t index, const object_descri
   return error::success;
 }
 
-engine::error prefab_binding::apply_override(const meta::registry_ref& registry,
-                                             const prefab_property_override& value) noexcept {
-  return apply_overrides(registry, std::span(&value, 1U));
+engine::error prefab_binding::apply_override(const prefab_property_override& value) noexcept {
+  return apply_overrides(std::span(&value, 1U));
 }
 
 scene_node_id prefab_binding::find_node(gneiss::engine::guid source_node_uuid) const noexcept {
