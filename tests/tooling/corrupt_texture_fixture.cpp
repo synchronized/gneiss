@@ -27,22 +27,19 @@ int main(int argc, char** argv) { // NOLINT(bugprone-exception-escape)
     return 1;
   }
   input.close();
-  gneiss::engine::texture_binary_view binary;
-  std::string diagnostic;
-  if (gneiss::engine::decode_texture_binary(bytes, binary, diagnostic) !=
-          gneiss::engine::texture_binary_result::success ||
-      binary.payload.empty()) {
+  auto binary = gneiss::engine::decode_texture_binary(bytes);
+  if (!binary || binary->payload.empty()) {
     return 1;
   }
   granit::texture_asset_info info;
-  if (granit::inspect_texture_asset(binary.manifest, info).failed()) {
+  if (granit::inspect_texture_asset(binary->manifest, info).failed()) {
     return 1;
   }
   for (const auto& variant : info.variants) {
-    if (variant.payload_offset >= binary.payload.size()) {
+    if (variant.payload_offset >= binary->payload.size()) {
       return 1;
     }
-    bytes[static_cast<std::size_t>(binary.payload.data() - bytes.data()) +
+    bytes[static_cast<std::size_t>(binary->payload.data() - bytes.data()) +
           static_cast<std::size_t>(variant.payload_offset)] ^= std::byte{1U};
   }
   std::ofstream output(argv[1], std::ios::binary);

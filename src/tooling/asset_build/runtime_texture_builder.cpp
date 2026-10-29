@@ -142,11 +142,14 @@ runtime_texture_build_result build_runtime_texture(const gneiss::engine::texture
       return fail(runtime_texture_build_result::encode_failed,
                   "Granit Texture Asset Manifest 构建失败", diagnostic);
     }
-    if (gneiss::engine::encode_texture_binary(built.manifest(), built.payload(), output,
-                                              diagnostic) !=
-        gneiss::engine::texture_binary_result::success) {
-      return runtime_texture_build_result::encode_failed;
+    auto encoded = gneiss::engine::encode_texture_binary(built.manifest(), built.payload());
+    if (!encoded) {
+      diagnostic = std::move(encoded.error().message);
+      return encoded.error().error == gneiss::engine::texture_binary_error::out_of_memory
+                 ? runtime_texture_build_result::out_of_memory
+                 : runtime_texture_build_result::encode_failed;
     }
+    output = std::move(*encoded);
     return runtime_texture_build_result::success;
   } catch (const std::bad_alloc&) {
     output.clear();

@@ -73,16 +73,18 @@ error decode_texture_payload(const texture_description& source,
     [[maybe_unused]] const bool selected =
         profile.generation != 0U && std::string_view(source.uri).ends_with(".gneiss-texture");
     if (std::string_view(source.uri).ends_with(".gneiss-texture")) {
-      texture_binary_view binary;
-      std::string decode_message;
-      if (engine::decode_texture_binary(image_bytes, binary, decode_message) !=
-          texture_binary_result::success) {
-        fail(out_diagnostic, engine::error::invalid_argument, "/source",
+      auto binary = engine::decode_texture_binary(image_bytes);
+      if (!binary) {
+        const auto& decode_message = binary.error().message;
+        const auto status = binary.error().error == texture_binary_error::out_of_memory
+                                ? engine::error::out_of_memory
+                                : engine::error::invalid_argument;
+        fail(out_diagnostic, status, "/source",
              decode_message.empty() ? "运行纹理封装检查失败" : decode_message);
-        return engine::error::invalid_argument;
+        return status;
       }
       granit::texture_asset_info info;
-      if (granit::inspect_texture_asset(binary.manifest, info) != granit::result::success ||
+      if (granit::inspect_texture_asset(binary->manifest, info) != granit::result::success ||
           info.dimension != granit::texture_dimension::two_dimensional || info.depth != 1U ||
           info.array_layers != 1U) {
         fail(out_diagnostic, engine::error::invalid_argument, "/source",
@@ -96,7 +98,7 @@ error decode_texture_payload(const texture_description& source,
                     : variant.format == granit::texture_format::bc7_rgba_unorm ||
                           variant.format == granit::texture_format::rgba8_unorm;
       };
-      const auto payload_size = binary.payload.size();
+      const auto payload_size = binary->payload.size();
       const auto payload_in_bounds = [payload_size](const auto& variant) {
         return variant.payload_offset <= payload_size &&
                variant.payload_size <= payload_size - variant.payload_offset;
@@ -119,10 +121,10 @@ error decode_texture_payload(const texture_description& source,
           .format = texture_format::rgba8_unorm,
           .color_space = source.color_space,
           .levels = {},
-          .manifest = std::vector<std::byte>(binary.manifest.begin(), binary.manifest.end()),
+          .manifest = std::vector<std::byte>(binary->manifest.begin(), binary->manifest.end()),
           .payload = selected
                          ? std::vector<std::byte>{}
-                         : std::vector<std::byte>(binary.payload.begin(), binary.payload.end()),
+                         : std::vector<std::byte>(binary->payload.begin(), binary->payload.end()),
       };
       if (selected) {
         constexpr std::array formats{
@@ -152,7 +154,7 @@ error decode_texture_payload(const texture_description& source,
             return engine::error::out_of_memory;
           }
           output.payload.resize(static_cast<std::size_t>(variant.payload_size));
-          const auto selected_bytes = binary.payload.subspan(
+          const auto selected_bytes = binary->payload.subspan(
               static_cast<std::size_t>(variant.payload_offset), output.payload.size());
           std::copy(selected_bytes.begin(), selected_bytes.end(), output.payload.begin());
           if (result == engine::error::success &&

@@ -26,15 +26,13 @@ constexpr std::uint16_t header_size = 64U;
   return (value + 15U) & ~UINT64_C(15);
 }
 
-[[nodiscard]] texture_binary_result fail(texture_binary_result result, std::string_view message,
-                                         std::string& diagnostic) noexcept {
+[[nodiscard]] texture_binary_diagnostic fail(texture_binary_error error,
+                                             std::string_view message) noexcept {
   try {
-    diagnostic.assign(message);
+    return {error, std::string{message}};
   } catch (...) {
-    diagnostic.clear();
-    return texture_binary_result::out_of_memory;
+    return {texture_binary_error::out_of_memory, {}};
   }
-  return result;
 }
 
 } // namespace
@@ -43,27 +41,24 @@ bool is_texture_binary(std::span<const std::byte> bytes) noexcept {
   return bytes.size() >= magic.size() && std::ranges::equal(bytes.first(magic.size()), magic);
 }
 
-texture_binary_result encode_texture_binary(std::span<const std::byte> manifest,
-                                            std::span<const std::byte> payload,
-                                            std::vector<std::byte>& output,
-                                            std::string& diagnostic) noexcept {
-  output.clear();
-  diagnostic.clear();
+result<std::vector<std::byte>, texture_binary_diagnostic>
+encode_texture_binary(std::span<const std::byte> manifest,
+                      std::span<const std::byte> payload) noexcept {
   if (manifest.empty() || payload.empty()) {
-    return fail(texture_binary_result::invalid_argument, "运行纹理 Manifest 或 Payload 为空",
-                diagnostic);
+    return fail(texture_binary_error::invalid_argument, "运行纹理 Manifest 或 Payload 为空");
   }
   const auto manifest_offset = static_cast<std::uint64_t>(header_size);
   if (manifest.size() > std::numeric_limits<std::uint64_t>::max() - manifest_offset - 15U) {
-    return fail(texture_binary_result::invalid_argument, "运行纹理 Manifest 尺寸溢出", diagnostic);
+    return fail(texture_binary_error::invalid_argument, "运行纹理 Manifest 尺寸溢出");
   }
   const auto payload_offset = align_16(manifest_offset + manifest.size());
   if (payload_offset < manifest.size() ||
       payload.size() > std::numeric_limits<std::uint64_t>::max() - payload_offset ||
       payload_offset + payload.size() > std::numeric_limits<std::size_t>::max()) {
-    return fail(texture_binary_result::invalid_argument, "运行纹理尺寸溢出", diagnostic);
+    return fail(texture_binary_error::invalid_argument, "运行纹理尺寸溢出");
   }
   try {
+    std::vector<std::byte> output;
     const auto file_size = payload_offset + payload.size();
     output.reserve(static_cast<std::size_t>(file_size));
     binary_writer writer{output};
@@ -80,29 +75,23 @@ texture_binary_result encode_texture_binary(std::span<const std::byte> manifest,
     writer.write_bytes(manifest);
     writer.write_zeros(static_cast<std::size_t>(payload_offset) - writer.position());
     writer.write_bytes(payload);
-    return texture_binary_result::success;
+    return output;
   } catch (const std::bad_alloc&) {
-    output.clear();
-    return fail(texture_binary_result::out_of_memory, "运行纹理编码内存不足", diagnostic);
+    return fail(texture_binary_error::out_of_memory, "运行纹理编码内存不足");
   } catch (...) {
-    output.clear();
-    return fail(texture_binary_result::invalid_argument, "运行纹理编码失败", diagnostic);
+    return fail(texture_binary_error::invalid_argument, "运行纹理编码失败");
   }
 }
 
-texture_binary_result decode_texture_binary_header(std::span<const std::byte> bytes,
-                                                   std::uint64_t source_size,
-                                                   texture_binary_layout& output,
-                                                   std::string& diagnostic) noexcept {
-  output = {};
-  diagnostic.clear();
+result<texture_binary_layout, texture_binary_diagnostic>
+decode_texture_binary_header(std::span<const std::byte> bytes, std::uint64_t source_size) noexcept {
   const binary_reader reader{bytes};
   // 各读取位置由下面的 Header、表及数据区边界检查保证有效。
   if (bytes.size() < header_size || !is_texture_binary(bytes)) {
-    return fail(texture_binary_result::invalid_container, "运行纹理 Header 无效或截断", diagnostic);
+    return fail(texture_binary_error::invalid_container, "运行纹理 Header 无效或截断");
   }
   if (*reader.read_at_le<std::uint16_t>(8U) != schema) {
-    return fail(texture_binary_result::unsupported_version, "不支持的运行纹理版本", diagnostic);
+    return fail(texture_binary_error::unsupported_version, "不支持的运行纹理版本");
   }
   const auto stored_header_size = *reader.read_at_le<std::uint16_t>(10U);
   const auto flags = *reader.read_at_le<std::uint32_t>(12U);
@@ -120,37 +109,29 @@ texture_binary_result decode_texture_binary_header(std::span<const std::byte> by
       manifest_end_overflows || payload_offset != align_16(manifest_offset + manifest_size) ||
       file_size != source_size || payload_offset > file_size ||
       payload_size != file_size - payload_offset) {
-    return fail(texture_binary_result::invalid_container, "运行纹理布局或边界无效", diagnostic);
+    return fail(texture_binary_error::invalid_container, "运行纹理布局或边界无效");
   }
-  output = {
+  return texture_binary_layout{
       .manifest_offset = manifest_offset,
       .manifest_size = manifest_size,
       .payload_offset = payload_offset,
       .payload_size = payload_size,
   };
-  return texture_binary_result::success;
 }
 
-texture_binary_result decode_texture_binary(std::span<const std::byte> bytes,
-                                            texture_binary_view& output,
-                                            std::string& diagnostic) noexcept {
-  output = {};
-  texture_binary_layout layout;
-  const auto status = decode_texture_binary_header(bytes, bytes.size(), layout, diagnostic);
-  if (status != texture_binary_result::success) {
-    return status;
-  }
-  const auto [manifest_offset, manifest_size, payload_offset, payload_size] = layout;
+result<texture_binary_view, texture_binary_diagnostic>
+decode_texture_binary(std::span<const std::byte> bytes) noexcept {
+  auto layout = decode_texture_binary_header(bytes, bytes.size());
+  if (!layout)
+    return std::move(layout.error());
+  const auto [manifest_offset, manifest_size, payload_offset, payload_size] = *layout;
   for (auto offset = manifest_offset + manifest_size; offset < payload_offset; ++offset) {
-    if (bytes[static_cast<std::size_t>(offset)] != std::byte{}) {
-      return fail(texture_binary_result::invalid_container, "运行纹理对齐填充非零", diagnostic);
-    }
+    if (bytes[static_cast<std::size_t>(offset)] != std::byte{})
+      return fail(texture_binary_error::invalid_container, "运行纹理对齐填充非零");
   }
-  output.manifest = bytes.subspan(static_cast<std::size_t>(manifest_offset),
-                                  static_cast<std::size_t>(manifest_size));
-  output.payload = bytes.subspan(static_cast<std::size_t>(payload_offset),
-                                 static_cast<std::size_t>(payload_size));
-  return texture_binary_result::success;
+  return texture_binary_view{.manifest = bytes.subspan(static_cast<std::size_t>(manifest_offset),
+                                                       static_cast<std::size_t>(manifest_size)),
+                             .payload = bytes.subspan(static_cast<std::size_t>(payload_offset),
+                                                      static_cast<std::size_t>(payload_size))};
 }
-
 } // namespace gneiss::engine

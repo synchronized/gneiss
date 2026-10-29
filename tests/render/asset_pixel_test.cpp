@@ -317,9 +317,9 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     granit::texture_asset_info info;
     check(granit::inspect_texture_asset(built.manifest(), info) == granit::result::success);
     check(info.variants.size() == 2U && info.variants[1].payload_offset > 0U);
-    check(gneiss::engine::encode_texture_binary(built.manifest(), built.payload(), bytes,
-                                                diagnostic) ==
-          gneiss::engine::texture_binary_result::success);
+    auto encoded = gneiss::engine::encode_texture_binary(built.manifest(), built.payload());
+    check(encoded.ok());
+    bytes = std::move(*encoded);
     std::ofstream(files.root / "t.texture.json")
         << R"({"format":"gneiss.texture","version":2,"source":"asset://image.gneiss-texture","color_space":"srgb","usage":"default"})";
   }

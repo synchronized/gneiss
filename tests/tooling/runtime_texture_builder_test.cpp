@@ -30,18 +30,17 @@ int main() { // NOLINT(bugprone-exception-escape)
       gneiss::tooling::runtime_texture_build_result::success) {
     return 1;
   }
-  gneiss::engine::texture_binary_view binary;
-  if (gneiss::engine::decode_texture_binary(encoded, binary, diagnostic) !=
-      gneiss::engine::texture_binary_result::success) {
+  auto binary = gneiss::engine::decode_texture_binary(encoded);
+  if (!binary) {
     return 2;
   }
   granit::texture_asset_info info;
-  if (granit::inspect_texture_asset(binary.manifest, info) != granit::result::success ||
+  if (granit::inspect_texture_asset(binary->manifest, info) != granit::result::success ||
       info.width != 2U || info.height != 2U || info.mip_levels != 2U ||
       info.variants.size() != 2U || info.subresources.size() != 4U ||
       info.variants[0].format != granit::texture_format::bc7_rgba_srgb ||
       info.variants[1].format != granit::texture_format::rgba8_srgb ||
-      info.variants[1].payload_offset != 32U || binary.payload.size() != 52U) {
+      info.variants[1].payload_offset != 32U || binary->payload.size() != 52U) {
     return 3;
   }
   auto repeated = encoded;
@@ -55,7 +54,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   // 两个变体都必须验摘要，不能只检查设备优选的 BC7。
   for (const auto& variant : info.variants) {
     auto damaged = encoded;
-    const auto payload_offset = static_cast<std::size_t>(binary.payload.data() - encoded.data());
+    const auto payload_offset = static_cast<std::size_t>(binary->payload.data() - encoded.data());
     damaged[payload_offset + static_cast<std::size_t>(variant.payload_offset)] ^= std::byte{1U};
     if (gneiss::tooling::inspect_runtime_texture(damaged, summary, diagnostic) ||
         !summary.empty() || diagnostic.find("SHA-256") == std::string::npos) {

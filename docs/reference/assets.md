@@ -276,3 +276,12 @@ World、场景实例及编辑会话仍由场景服务管理，不进入资源缓
 或通过 `collect_unused()` 回收。已持有的 CPU 引用可继续存活。Application 关闭时先停止资源任务，
 再关闭场景服务并释放场景/渲染加载器及 manager，最后关闭后端与 I/O 执行器。
 外部渲染引用仍必须遵守渲染服务生命周期，不能照搬 CPU 引用跨管理器存活的规则。
+
+## 纹理二进制容器结果
+
+`encode_texture_binary` 返回 `result<std::vector<std::byte>, texture_binary_diagnostic>`，
+`decode_texture_binary_header` 返回布局结果，`decode_texture_binary` 返回视图结果。
+三个接口均无数据或诊断输出参数。`texture_binary_diagnostic` 包含 `texture_binary_error error`
+及自有 `std::string message`；成功由 result 的值分支表示，错误枚举没有 success 成员。
+诊断文本分配失败返回 out_of_memory 和空消息；编码失败不返回部分字节。
+解码视图仍借用输入字节，不能超过输入存储的生命周期。64 字节 Header 与封装布局不变。

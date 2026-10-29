@@ -188,14 +188,10 @@ void add_indexed_mesh(memory_file_system& memory) {
   const auto [status, built] = granit::asset_tools::texture::build({.variants = variants});
   if (status != granit::result::success)
     return {};
-  std::vector<std::byte> output;
-  std::string diagnostic;
-  if (gneiss::engine::encode_texture_binary(built.manifest(), built.payload(), output,
-                                            diagnostic) !=
-      gneiss::engine::texture_binary_result::success) {
+  auto output = gneiss::engine::encode_texture_binary(built.manifest(), built.payload());
+  if (!output)
     return {};
-  }
-  return output;
+  return std::move(*output);
 }
 
 void selected_variants() {
@@ -227,11 +223,9 @@ void selected_variants() {
   const auto [status, built] =
       granit::asset_tools::texture::build({.width = 4U, .height = 4U, .variants = variants});
   require(status == granit::result::success);
-  std::vector<std::byte> binary;
-  std::string message;
-  require(
-      gneiss::engine::encode_texture_binary(built.manifest(), built.payload(), binary, message) ==
-      gneiss::engine::texture_binary_result::success);
+  auto encoded = gneiss::engine::encode_texture_binary(built.manifest(), built.payload());
+  require(encoded.ok());
+  auto binary = std::move(*encoded);
   auto memory = std::make_shared<memory_file_system>();
   memory->files["t.gneiss-texture"] =
       std::string(reinterpret_cast<const char*>(binary.data()), binary.size());
