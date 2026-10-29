@@ -28,9 +28,9 @@ struct prefab_author_address final {
 
 /** 单个 Prefab 实例字段覆盖的稳定作者键。 */
 struct prefab_property_override_key final {
-  prefab_author_address node;
-  guid type_id{};
-  meta::property_id field_id{};
+  std::string source_node_uuid;
+  guid type_guid{};
+  meta::property_id property_id{};
 
   [[nodiscard]] bool operator==(const prefab_property_override_key& other) const noexcept;
 };

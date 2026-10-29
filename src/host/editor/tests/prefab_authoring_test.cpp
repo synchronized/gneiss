@@ -34,23 +34,8 @@ constexpr std::string_view sibling_uuid = "10000000-0000-4000-8000-000000000003"
 constexpr std::string_view prefab_uuid = "20000000-0000-4000-8000-000000000001";
 constexpr std::string_view instance_uuid = "30000000-0000-4000-8000-000000000001";
 
-constexpr std::string_view scene_json = R"({
-  "format":"gneiss.scene","version":5,
-  "scene_uuid":"00000000-0000-4000-8000-000000000001",
-  "unknown_scene":"preserved",
-  "objects":[
-    {"uuid":"10000000-0000-4000-8000-000000000001","name":"Lamp","parent":null,
-     "transform":{"translation":[2,3,4],"rotation":[0,0,0,1],"scale":[2,2,2]},
-     "components":{},"unknown_object":7},
-    {"uuid":"10000000-0000-4000-8000-000000000002","name":"Shade",
-     "parent":"10000000-0000-4000-8000-000000000001",
-     "transform":{"translation":[0,1,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
-     "components":{}},
-    {"uuid":"10000000-0000-4000-8000-000000000003","name":"Floor","parent":null,
-     "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
-     "components":{}}
-  ],"prefab_instances":[]
-})";
+constexpr std::string_view scene_json =
+    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","unknown_scene":"preserved","objects":[{"uuid":"10000000-0000-4000-8000-000000000001","name":"Lamp","parent":null,"transform":{"translation":[2,3,4],"rotation":[0,0,0,1],"scale":[2,2,2]},"components":{},"unknown_object":7},{"uuid":"10000000-0000-4000-8000-000000000002","name":"Shade","parent":"10000000-0000-4000-8000-000000000001","transform":{"translation":[0,1,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{}},{"uuid":"10000000-0000-4000-8000-000000000003","name":"Floor","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{}}]})";
 
 constexpr std::string_view apply_prefab_json = R"({
   "format":"gneiss.prefab","version":1,
@@ -66,24 +51,8 @@ constexpr std::string_view apply_prefab_json = R"({
   ]
 })";
 
-constexpr std::string_view apply_scene_json = R"({
-  "format":"gneiss.scene","version":5,
-  "scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[],
-  "prefab_instances":[
-    {"instance_uuid":"30000000-0000-4000-8000-000000000001","name":"First","parent":null,
-     "prefab":"asset://prefabs/lamp.prefab.json",
-     "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
-     "overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002",
-       "type_id":"69644f20b2d24e488c7491f4f952ec2d","field_id":1,
-       "value":{"kind":"vec3","value":[7,8,9]}}]},
-    {"instance_uuid":"30000000-0000-4000-8000-000000000002","name":"Second","parent":null,
-     "prefab":"asset://prefabs/lamp.prefab.json",
-     "transform":{"translation":[4,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
-     "overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002",
-       "type_id":"69644f20b2d24e488c7491f4f952ec2d","field_id":3,
-       "value":{"kind":"vec3","value":[3,3,3]}}]}
-  ],"unknown_scene":9
-})";
+constexpr std::string_view apply_scene_json =
+    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"name":"First","parent":null,"prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","type_guid":"69644f20b2d24e488c7491f4f952ec2d","property_id":1,"value":{"kind":"vec3","value":[7,8,9]}}]},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"uuid":"30000000-0000-4000-8000-000000000001"},{"name":"Second","parent":null,"prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","type_guid":"69644f20b2d24e488c7491f4f952ec2d","property_id":3,"value":{"kind":"vec3","value":[3,3,3]}}]},"transform":{"translation":[4,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"uuid":"30000000-0000-4000-8000-000000000002"}],"unknown_scene":9})";
 
 struct document_deleter final {
   void operator()(yyjson_doc* document) const noexcept { yyjson_doc_free(document); }
@@ -129,11 +98,11 @@ verify_documents(const std::vector<gneiss::editor::author_document_change>& chan
       yyjson_obj_get(yyjson_obj_get(source_root, "transform"), "translation");
   auto* scene_root = scene_document ? yyjson_doc_get_root(scene_document.get()) : nullptr;
   auto* scene_objects = yyjson_obj_get(scene_root, "objects");
-  auto* instances = yyjson_obj_get(scene_root, "prefab_instances");
-  auto* instance = yyjson_arr_get(instances, 0U);
+  auto* instances = yyjson_obj_get(scene_root, "objects");
+  auto* instance = yyjson_arr_get(instances, 1U);
   auto* instance_translation = yyjson_obj_get(yyjson_obj_get(instance, "transform"), "translation");
-  return yyjson_arr_size(prefab_objects) == 2U && yyjson_arr_size(scene_objects) == 1U &&
-         yyjson_arr_size(instances) == 1U &&
+  return yyjson_arr_size(prefab_objects) == 2U && yyjson_arr_size(scene_objects) == 2U &&
+         yyjson_arr_size(instances) == 2U &&
          yyjson_get_num(yyjson_arr_get(source_translation, 0U)) == 0.0 &&
          yyjson_get_num(yyjson_arr_get(instance_translation, 0U)) == 2.0 &&
          yyjson_obj_get(source_root, "unknown_object") != nullptr &&
@@ -159,9 +128,11 @@ verify_documents(const std::vector<gneiss::editor::author_document_change>& chan
   auto* source = yyjson_arr_get(yyjson_obj_get(prefab_root, "objects"), 1U);
   auto* translation = yyjson_obj_get(yyjson_obj_get(source, "transform"), "translation");
   auto* scene_root = scene_document ? yyjson_doc_get_root(scene_document.get()) : nullptr;
-  auto* instances = yyjson_obj_get(scene_root, "prefab_instances");
-  auto* first_overrides = yyjson_obj_get(yyjson_arr_get(instances, 0U), "overrides");
-  auto* second_overrides = yyjson_obj_get(yyjson_arr_get(instances, 1U), "overrides");
+  auto* instances = yyjson_obj_get(scene_root, "objects");
+  auto* first_overrides =
+      yyjson_obj_get(yyjson_obj_get(yyjson_arr_get(instances, 0U), "prefab"), "overrides");
+  auto* second_overrides =
+      yyjson_obj_get(yyjson_obj_get(yyjson_arr_get(instances, 1U), "prefab"), "overrides");
   return yyjson_get_num(yyjson_arr_get(translation, 0U)) == 7.0 &&
          yyjson_arr_size(first_overrides) == 0U && yyjson_arr_size(second_overrides) == 1U &&
          yyjson_obj_get(source, "unknown_source") != nullptr &&
@@ -178,14 +149,15 @@ verify_unpack_change(const std::vector<gneiss::editor::author_document_change>& 
       yyjson_read(scene->replacement->data(), scene->replacement->size(), YYJSON_READ_NOFLAG)};
   auto* root = document ? yyjson_doc_get_root(document.get()) : nullptr;
   auto* objects = yyjson_obj_get(root, "objects");
-  auto* instances = yyjson_obj_get(root, "prefab_instances");
-  auto* unpacked_root = yyjson_arr_get(objects, 0U);
-  auto* source_root = yyjson_arr_get(objects, 0U);
-  auto* source_child = yyjson_arr_get(objects, 1U);
+
+  auto* unpacked_root = yyjson_arr_get(objects, 1U);
+  auto* source_root = yyjson_arr_get(objects, 1U);
+  auto* source_child = yyjson_arr_get(objects, 2U);
   auto* const source_root_parent = yyjson_obj_get(source_root, "parent");
   auto* const source_child_parent = yyjson_obj_get(source_child, "parent");
   auto* translation = yyjson_obj_get(yyjson_obj_get(source_child, "transform"), "translation");
-  return yyjson_arr_size(objects) == 2U && yyjson_arr_size(instances) == 1U &&
+  return yyjson_arr_size(objects) == 3U &&
+         yyjson_obj_get(yyjson_arr_get(objects, 0U), "prefab") != nullptr &&
          std::string_view{yyjson_get_str(yyjson_obj_get(unpacked_root, "uuid"))} ==
              "50000000-0000-4000-8000-000000000002" &&
          yyjson_is_null(source_root_parent) &&
@@ -200,9 +172,9 @@ verify_unpack_change(const std::vector<gneiss::editor::author_document_change>& 
 create_rejections_are_valid(const gneiss::editor::create_prefab_author_request& request,
                             std::vector<gneiss::editor::author_document_change>& changes) {
   auto nested_scene = std::string(scene_json);
-  nested_scene.replace(
-      nested_scene.rfind("[]"), 2U,
-      R"([{"instance_uuid":"40000000-0000-4000-8000-000000000001","name":"Nested","parent":"10000000-0000-4000-8000-000000000002","prefab":"asset://prefabs/other.prefab.json","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"overrides":[]}])");
+  nested_scene.insert(
+      nested_scene.rfind(']'),
+      R"(,{"uuid":"40000000-0000-4000-8000-000000000001","name":"Nested","parent":"10000000-0000-4000-8000-000000000002","prefab":{"uri":"asset://prefabs/other.prefab.json","overrides":[]},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}})");
   if (gneiss::editor::prepare_create_prefab(nested_scene, request, changes) !=
           gneiss::engine::error::unsupported ||
       !changes.empty()) {
@@ -330,6 +302,24 @@ int main() try {
       read_text(root / "prefabs" / "lamp.prefab.json") != apply_prefab_json ||
       !editing.restore(editing.after) || !editing.counts(2U, 2U))
     return 12;
+  // 解包改变根 UUID 时，自有子对象必须跟随新根，不能留下悬空父引用。
+  auto attached_scene = std::string(apply_scene_json);
+  attached_scene.insert(
+      attached_scene.rfind(']'),
+      R"(,{"uuid":"60000000-0000-4000-8000-000000000001","name":"Own child","parent":"30000000-0000-4000-8000-000000000001","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{}})");
+  if (gneiss::editor::prepare_unpack_prefab(attached_scene, apply_prefab_json, unpack_request,
+                                            unpack_changes)
+          .failed())
+    return 14;
+  const auto& attached_output = *unpack_changes.front().replacement;
+  document_ptr attached_document{yyjson_read(attached_output.data(), attached_output.size(), 0)};
+  auto* attached_objects = yyjson_obj_get(yyjson_doc_get_root(attached_document.get()), "objects");
+  auto* attached_child = yyjson_arr_get(attached_objects, 1U);
+  auto* attached_parent = yyjson_obj_get(attached_child, "parent");
+  if (!yyjson_is_str(attached_parent) ||
+      std::string_view(yyjson_get_str(attached_parent)) != mappings[0].target_node_uuid)
+    return 14;
+
   auto invalid_unpack = unpack_request;
   auto duplicate_mappings = mappings;
   duplicate_mappings[1].target_node_uuid = mappings[0].target_node_uuid;

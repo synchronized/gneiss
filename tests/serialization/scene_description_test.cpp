@@ -20,34 +20,11 @@
 
 namespace {
 
-constexpr std::string_view valid_scene = R"({
-  "format":"gneiss.scene","version":5,
-  "scene_uuid":"00000000-0000-4000-8000-000000000001",
-  "objects":[
-    {"uuid":"00000000-0000-4000-8000-000000000002","parent":null,
-     "transform":{"translation":[0,1,2],"rotation":[0,0,0,1],"scale":[1,1,1]},
-     "components":{"camera":{"vertical_field_of_view_radians":1.0,"near_plane":0.1,"far_plane":100,"is_primary":true}}},
-    {"uuid":"00000000-0000-4000-8000-000000000003","parent":"00000000-0000-4000-8000-000000000002",
-     "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
-     "components":{"mesh_renderer":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material"}}}
-  ],"prefab_instances":[],"unknown":true
-})";
+constexpr std::string_view valid_scene =
+    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,1,2],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"camera":{"vertical_field_of_view_radians":1.0,"near_plane":0.1,"far_plane":100,"is_primary":true}}},{"uuid":"00000000-0000-4000-8000-000000000003","parent":"00000000-0000-4000-8000-000000000002","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material"}}}],"unknown":true})";
 
-constexpr std::string_view prefab_scene = R"({
-  "format":"gneiss.scene","version":5,
-  "scene_uuid":"00000000-0000-4000-8000-000000000001",
-  "objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,
-    "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{}}],
-  "prefab_instances":[{
-    "instance_uuid":"00000000-0000-4000-8000-000000000010","name":"Lamp",
-    "parent":"00000000-0000-4000-8000-000000000002",
-    "prefab":"asset://prefabs/lamp.prefab.json",
-    "transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[2,2,2]},
-    "overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002",
-      "type_id":"69644f20b2d24e488c7491f4f952ec2d","field_id":1,
-      "value":{"kind":"vec3","value":[4,5,6]}}],"unknown":true
-  }]
-})";
+constexpr std::string_view prefab_scene =
+    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{}},{"name":"Lamp","parent":"00000000-0000-4000-8000-000000000002","prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","type_guid":"69644f20b2d24e488c7491f4f952ec2d","property_id":1,"value":{"kind":"vec3","value":[4,5,6]}}]},"transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[2,2,2]},"unknown":true,"uuid":"00000000-0000-4000-8000-000000000010"}]})";
 
 [[nodiscard]] std::string replace_once(std::string text, std::string_view source,
                                        std::string_view replacement) {
@@ -162,6 +139,11 @@ int main() try {
     return 1;
   }
 
+  const auto legacy_array =
+      replace_once(std::string(valid_scene), "{", R"({"prefab_instances":[],)");
+  if (!fails_with(legacy_array, gneiss::engine::error::invalid_argument, "/prefab_instances"))
+    return 95;
+
   const auto future = replace_once(std::string(valid_scene), "\"version\":5", "\"version\":6");
   const auto old = replace_once(std::string(valid_scene), "\"version\":5", "\"version\":4");
   const auto duplicate =
@@ -193,11 +175,9 @@ int main() try {
 
   if (gneiss::test_support::assign_decoded(gneiss::engine::parse_scene_description(prefab_scene),
                                            scene, diagnostic) != gneiss::engine::error::success ||
-      scene.prefab_instances.size() != 1U || scene.prefab_instances[0].overrides.size() != 1U ||
-      scene.prefab_instances[0].overrides[0].key.node.instance_uuid !=
-          scene.prefab_instances[0].instance_uuid ||
+      scene.objects.size() != 2U || scene.objects[1].prefab->overrides.size() != 1U ||
       std::get<gneiss::engine::math::vector3>(
-          scene.prefab_instances[0].overrides[0].value.payload)[0] != 4.0F ||
+          scene.objects[1].prefab->overrides[0].value.payload)[0] != 4.0F ||
       gneiss::test_support::assign_value(gneiss::engine::serialize_scene_description(scene),
                                          serialized) != gneiss::engine::error::success ||
       serialized.find(R"("kind":"vec3")") == std::string::npos ||
@@ -207,17 +187,17 @@ int main() try {
 
   const auto duplicate_override = replace_once(
       std::string(prefab_scene), R"("overrides":[{)",
-      R"("overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","type_id":"69644f20b2d24e488c7491f4f952ec2d","field_id":1,"value":{"kind":"vec3","value":[7,8,9]}},{)");
+      R"("overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","type_guid":"69644f20b2d24e488c7491f4f952ec2d","property_id":1,"value":{"kind":"vec3","value":[7,8,9]}},{)");
   const auto bad_type = replace_once(std::string(prefab_scene), "69644f20b2d24e488c7491f4f952ec2d",
                                      "69644F20b2d24e488c7491f4f952ec2d");
   const auto bad_value =
       replace_once(std::string(prefab_scene), R"("value":[4,5,6])", R"("value":[4,5])");
   if (!fails_with(duplicate_override, gneiss::engine::error::invalid_argument,
-                  "/prefab_instances/0/overrides") ||
+                  "/objects/1/prefab/overrides") ||
       !fails_with(bad_type, gneiss::engine::error::invalid_argument,
-                  "/prefab_instances/0/overrides/0/type_id") ||
+                  "/objects/1/prefab/overrides/0/type_guid") ||
       !fails_with(bad_value, gneiss::engine::error::invalid_argument,
-                  "/prefab_instances/0/overrides/0/value")) {
+                  "/objects/1/prefab/overrides/0/value")) {
     return 4;
   }
 
@@ -244,12 +224,12 @@ int main() try {
     if (gneiss::test_support::assign_decoded(gneiss::engine::parse_scene_description(serialized),
                                              roundtrip, diagnostic)
             .failed() ||
-        roundtrip.prefab_instances[0].overrides[0].value !=
-            scene.prefab_instances[0].overrides[0].value)
+        roundtrip.objects[1].prefab->overrides[0].value !=
+            scene.objects[1].prefab->overrides[0].value)
       return 5;
     if (value.find("quaternion") != std::string_view::npos) {
       const auto& q = std::get<gneiss::engine::math::quaternion>(
-          roundtrip.prefab_instances[0].overrides[0].value.payload);
+          roundtrip.objects[1].prefab->overrides[0].value.payload);
       if (q.x != 0.1F || q.y != 0.2F || q.z != 0.3F || q.w != 0.9F)
         return 5;
     }

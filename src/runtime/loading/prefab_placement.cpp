@@ -58,12 +58,10 @@ gneiss::engine::error prefab_placement::capture_step(
   return gneiss::engine::error::internal;
 }
 
-gneiss::engine::error
-prefab_placement::freeze(runtime::application& application,
-                         gneiss::engine::prepared_prefab_description prepared,
-                         gneiss::engine::prefab_instance_description author,
-                         std::vector<gneiss::engine::render_asset_ref> assets,
-                         std::shared_ptr<const prefab_placement_snapshot>& output) noexcept try {
+gneiss::engine::error prefab_placement::freeze(
+    runtime::application& application, gneiss::engine::prepared_prefab_description prepared,
+    gneiss::engine::object_description author, std::vector<gneiss::engine::render_asset_ref> assets,
+    std::shared_ptr<const prefab_placement_snapshot>& output) noexcept try {
   auto* host = &application;
   const auto validation = host->is_owner_thread() && host->accepts_requests()
                               ? gneiss::engine::error::success
@@ -97,7 +95,7 @@ gneiss::engine::error prefab_placement::apply(application& app, scene_instance_i
     return error::invalid_state;
   if (removing)
     return replacing ? error::invalid_argument
-                     : app.scenes()->remove_prefab_instance(scene, snapshot.author.instance_uuid);
+                     : app.scenes()->remove_prefab_instance(scene, snapshot.author.uuid);
   if (!snapshot.prefab)
     return error::invalid_argument;
   auto bindings = snapshot.bindings;

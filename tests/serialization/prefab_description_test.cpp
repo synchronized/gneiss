@@ -175,6 +175,11 @@ bool prepared_description_contract() {
 }
 
 int main() try {
+  const auto nested = replace_once(std::string(valid_prefab), R"("components":{})",
+                                   R"("prefab":{"uri":"asset://nested.prefab","overrides":[]})");
+  const auto parsed_nested = gneiss::engine::parse_prefab_description(nested);
+  if (parsed_nested || parsed_nested.error().error != gneiss::engine::error::unsupported)
+    return 95;
   // 反射 codec 保留未知字段；解码失败不覆盖旧对象。
   {
     namespace e = gneiss::engine;

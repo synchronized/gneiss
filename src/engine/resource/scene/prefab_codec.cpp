@@ -51,14 +51,11 @@ convert_author_envelope(std::string_view json, std::string_view identifier, bool
   }
   (void)yyjson_mut_obj_remove_key(root, "format");
   (void)yyjson_mut_obj_remove_key(root, to_scene ? "prefab_uuid" : "scene_uuid");
-  (void)yyjson_mut_obj_remove_key(root, "prefab_instances");
   const auto* format = to_scene ? "gneiss.scene" : "gneiss.prefab";
   const auto* identifier_key = to_scene ? "scene_uuid" : "prefab_uuid";
   if (!yyjson_mut_obj_add_str(mutable_document.get(), root, "format", format) ||
       !yyjson_mut_obj_add_strncpy(mutable_document.get(), root, identifier_key, identifier.data(),
-                                  identifier.size()) ||
-      (to_scene &&
-       yyjson_mut_obj_add_arr(mutable_document.get(), root, "prefab_instances") == nullptr)) {
+                                  identifier.size())) {
     return gneiss::engine::error::out_of_memory;
   }
   std::size_t length = 0U;
@@ -133,7 +130,7 @@ parse_prefab_description(std::string_view json) noexcept try {
   scene_json.append(prefab_uuid);
   scene_json += R"(","objects":)";
   scene_json.append(objects_json.get(), objects_length);
-  scene_json += ",\"prefab_instances\":[]}";
+  scene_json += "}";
 
   auto parsed = parse_scene_description(scene_json);
   if (!parsed)
@@ -141,6 +138,10 @@ parse_prefab_description(std::string_view json) noexcept try {
   auto scene = std::move(*parsed);
   std::size_t root_count = 0;
   for (const auto& object : scene.objects) {
+    if (object.prefab) {
+      fail(out_diagnostic, engine::error::unsupported, "/objects", "暂不支持嵌套 Prefab 引用");
+      return out_diagnostic;
+    }
     root_count += object.parent_uuid ? 0U : 1U;
   }
   if (root_count != 1U) {

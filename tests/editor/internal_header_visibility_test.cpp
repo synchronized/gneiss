@@ -66,9 +66,9 @@ static_assert(std::is_same_v<decltype(gneiss::engine::mesh_renderer_node_creatio
                              gneiss::scene_node_id>);
 static_assert(
     std::is_same_v<decltype(gneiss::engine::mesh_renderer_replacement::entity), gneiss::entity_id>);
-static_assert(std::is_same_v<decltype(gneiss::engine::prefab_property_override_key::type_id),
+static_assert(std::is_same_v<decltype(gneiss::engine::prefab_property_override_key::type_guid),
                              gneiss::engine::guid>);
-static_assert(std::is_same_v<decltype(gneiss::engine::prefab_property_override_key::field_id),
+static_assert(std::is_same_v<decltype(gneiss::engine::prefab_property_override_key::property_id),
                              gneiss::engine::meta::property_id>);
 template <typename T>
 concept exposes_texture_service = requires(T& value) { value.texture_service(); };

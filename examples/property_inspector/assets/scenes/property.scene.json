@@ -7,9 +7,22 @@
       "uuid": "37cff772-2e8d-4bc7-9ed2-f94435926d4e",
       "parent": null,
       "transform": {
-        "translation": [0, 0, 3],
-        "rotation": [0, 0, 0, 1],
-        "scale": [1, 1, 1]
+        "translation": [
+          0,
+          0,
+          3
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
       },
       "components": {
         "camera": {
@@ -20,6 +33,5 @@
         }
       }
     }
-  ],
-  "prefab_instances": []
+  ]
 }

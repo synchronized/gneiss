@@ -7,6 +7,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/resource/scene/scene_codec.hpp"
 #include "runtime/application.hpp"
 
 #include <cstdint>
@@ -96,7 +97,7 @@ int main() try {
       gneiss::engine::error::success) {
     return 3;
   }
-  create_desc.parent = prefab_root.node;
+  create_desc.parent = prefab_source.node;
   if (gneiss::test_support::create_prefab(*application, scene, create_desc, created_root) !=
           gneiss::engine::error::invalid_handle ||
       created_root != gneiss::null_scene_node_id) {
@@ -135,6 +136,18 @@ int main() try {
           gneiss::engine::error::success) {
     return 4;
   }
+  gneiss::scene_node_id attached;
+  gneiss::engine::node_creation child{
+      .uuid = "30000000-0000-4000-8000-000000000014", .name = "Own child", .parent = created_root};
+  if (application->scenes()->create_node(scene, child, attached).failed())
+    return 12;
+  std::string with_child;
+  if (application->scenes()->serialize(scene, with_child).failed())
+    return 12;
+  auto decoded_child = gneiss::engine::decode_scene(std::as_bytes(std::span(with_child)));
+  if (!decoded_child || decoded_child->objects.size() != 4U ||
+      decoded_child->objects.back().parent_uuid != created_uuid)
+    return 12;
   const auto stale_root = created_root;
   gneiss::entity_id stale_entity;
   if (gneiss::test_support::refresh_prefab(*application, scene, created_uuid, created_root) !=
@@ -144,6 +157,11 @@ int main() try {
           gneiss::engine::error::invalid_handle) {
     return 4;
   }
+  gneiss::scene_node_id attached_parent;
+  if (application->native_world()->node_get_parent(attached, attached_parent).failed() ||
+      attached_parent != created_root ||
+      application->scenes()->destroy_node(scene, attached).failed())
+    return 12;
   if (application->scenes()->destroy_prefab_instance(scene, prefab_root.node) !=
           gneiss::engine::error::success ||
       gneiss::test_support::prefab_node_count(*application->scenes(), scene, &prefab_node_count) !=

@@ -39,6 +39,11 @@ struct mesh_renderer_description final {
   std::string material_uri;
 };
 
+struct prefab_reference_description final {
+  std::string uri;
+  std::vector<prefab_property_override> overrides;
+};
+
 struct object_description final {
   std::string uuid;
   std::string name;
@@ -48,17 +53,7 @@ struct object_description final {
   math::vector3 scale{};
   std::optional<camera_description> camera;
   std::optional<mesh_renderer_description> mesh_renderer;
-};
-
-struct prefab_instance_description final {
-  std::string instance_uuid;
-  std::string name;
-  std::optional<std::string> parent_uuid;
-  std::string prefab_uri;
-  math::vector3 translation{};
-  math::quaternion rotation{0.0F, 0.0F, 0.0F, 0.0F};
-  math::vector3 scale{};
-  std::vector<prefab_property_override> overrides;
+  std::optional<prefab_reference_description> prefab{};
 };
 
 struct scene_description final {
@@ -70,7 +65,6 @@ struct scene_description final {
   std::uint32_t source_schema_version = 0;
   std::string uuid;
   std::vector<object_description> objects;
-  std::vector<prefab_instance_description> prefab_instances;
   std::string author_json;
 };
 

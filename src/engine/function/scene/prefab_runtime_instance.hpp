@@ -26,7 +26,6 @@ public:
   /** 只修改私有描述，失败保持 output 不变；不读文件、不创建实体、不发送通知。 */
   [[nodiscard]] static error
   prepare_description(const prefab_description& source, const meta::registry_ref& registry,
-                      std::string_view instance_uuid,
                       std::span<const prefab_property_override> overrides,
                       prefab_description& output) noexcept;
   struct node_info final {

@@ -35,7 +35,7 @@ struct fixture {
     std::ofstream(root / "material.json")
         << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,0,0,1]})";
     std::ofstream(root / "scene.json")
-        << R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[],"prefab_instances":[]})";
+        << R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[]})";
     std::ofstream prefab(root / "prefab.json");
     prefab
         << R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"30000000-0000-4000-8000-000000000001","objects":[)";
@@ -80,8 +80,8 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   check(test_support::create_prefab_document(*app, session, "Second", "asset://prefab.json", {},
                                              second, &scheduler) == gneiss::engine::error::success);
   const auto first_uuid = session.prefab_nodes()[0].instance_uuid;
-  const auto second_uuid = session.prefab_nodes()[150].instance_uuid;
-  const auto source_uuid = session.prefab_nodes()[1].source_node_uuid;
+  const auto second_uuid = session.prefab_nodes()[1].instance_uuid;
+  const auto source_uuid = session.prefab_nodes()[2].source_node_uuid;
   const auto old_selected = session.find_prefab_source(first_uuid, source_uuid)->node;
   auto transform = session.find_prefab_source(first_uuid, source_uuid)->local_transform;
   transform.translation[0] = 17.0F;
@@ -176,7 +176,7 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,0,0,1]})";
   // 第二个实例覆盖失效：第一个替换保留，第二个旧实例删除，镜像反映部分结果。
-  const auto removed_uuid = session.prefab_nodes()[2U].source_node_uuid;
+  const std::string removed_uuid = "30000000-0000-4000-8000-000000000003";
   const auto second_node = session.find_prefab_source(second_uuid, removed_uuid)->node;
   const auto original = session.find_prefab_source(second_uuid, removed_uuid)->local_transform;
   auto changed = original;

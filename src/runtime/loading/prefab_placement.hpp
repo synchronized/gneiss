@@ -14,7 +14,7 @@ class application;
 namespace gneiss::runtime {
 /** 历史持有的不可变来源与实际资产租约，不保存隐藏实例。 */
 struct prefab_placement_snapshot {
-  gneiss::engine::prefab_instance_description author;
+  gneiss::engine::object_description author;
   gneiss::engine::prefab_asset_ref prefab;
   std::vector<std::size_t> order;
   std::vector<gneiss::engine::scene_mesh_binding> bindings;
@@ -29,7 +29,7 @@ public:
                                             bool& complete) noexcept;
   static gneiss::engine::error
   freeze(runtime::application& application, gneiss::engine::prepared_prefab_description prepared,
-         gneiss::engine::prefab_instance_description author,
+         gneiss::engine::object_description author,
          std::vector<gneiss::engine::render_asset_ref> assets,
          std::shared_ptr<const prefab_placement_snapshot>& output) noexcept;
   /** 同步创建或删除；替换不保留旧运行实例，output 失败置空。 */

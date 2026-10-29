@@ -64,11 +64,11 @@ public:
 
   /** 单场景 Prefab 实例操作；服务已校验线程与句柄，不修改 Prefab 源资源。 */
   [[nodiscard]] error capture_prefab_instance_header(std::string_view uuid,
-                                                     prefab_instance_description& author,
+                                                     object_description& author,
                                                      prefab_asset_ref& source) const noexcept;
   [[nodiscard]] error capture_prefab_instance_binding(std::string_view uuid, std::size_t index,
                                                       scene_mesh_binding& output) const noexcept;
-  [[nodiscard]] error instantiate_prefab_ready(const prefab_instance_description& author,
+  [[nodiscard]] error instantiate_prefab_ready(const object_description& author,
                                                prefab_asset_ref prefab,
                                                std::span<const scene_mesh_binding> bindings,
                                                bool replacing, scene_node_id& output) noexcept;
@@ -95,11 +95,13 @@ public:
 
 private:
   friend class scene_instances;
+  [[nodiscard]] std::vector<object>::iterator find_authored_node(scene_node_id node);
   [[nodiscard]] std::vector<object>::iterator find_ordinary_node(scene_node_id node);
   [[nodiscard]] std::vector<object>::const_iterator find_ordinary_node(scene_node_id node) const;
   [[nodiscard]] std::optional<prefab_origin_view> prefab_origin(scene_node_id node) const;
-  void erase_prefab_members(const prefab_runtime_instance& prefab) noexcept;
   void append_prefab_members(const prefab_runtime_instance& prefab);
+  object_description& prefab_author(std::size_t index);
+  const object_description& prefab_author(std::size_t index) const;
 
   std::vector<object> objects_;
   std::vector<std::unique_ptr<prefab_runtime_instance>> prefab_instances_;

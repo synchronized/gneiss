@@ -27,6 +27,7 @@
 #include <limits>
 #include <map>
 #include <new>
+#include <ranges>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -83,27 +84,28 @@ error commit_object(world& native_world, const object_description& source, stage
   return error::success;
 }
 
-[[nodiscard]] bool equal_prefab_instances(const prefab_instance_description& left,
-                                          const prefab_instance_description& right) noexcept {
-  if (left.instance_uuid != right.instance_uuid || left.name != right.name ||
-      left.parent_uuid != right.parent_uuid || left.prefab_uri != right.prefab_uri ||
-      left.translation != right.translation || left.rotation != right.rotation ||
-      left.scale != right.scale || left.overrides.size() != right.overrides.size()) {
+[[nodiscard]] bool equal_prefab_instances(const object_description& left,
+                                          const object_description& right) noexcept {
+  if (left.uuid != right.uuid || left.name != right.name || left.parent_uuid != right.parent_uuid ||
+      left.prefab->uri != right.prefab->uri || left.translation != right.translation ||
+      left.rotation != right.rotation || left.scale != right.scale ||
+      left.prefab->overrides.size() != right.prefab->overrides.size()) {
     return false;
   }
-  for (std::size_t index = 0U; index < left.overrides.size(); ++index) {
-    if (!(left.overrides[index].key == right.overrides[index].key) ||
-        !(left.overrides[index].value == right.overrides[index].value)) {
+  for (std::size_t index = 0U; index < left.prefab->overrides.size(); ++index) {
+    if (!(left.prefab->overrides[index].key == right.prefab->overrides[index].key) ||
+        !(left.prefab->overrides[index].value == right.prefab->overrides[index].value)) {
       return false;
     }
   }
   return true;
 }
 
-[[nodiscard]] bool equal_prefab_container(const scene_description& left,
-                                          const scene_description& right) noexcept {
-  return left.prefab_instances.size() == right.prefab_instances.size() &&
-         std::ranges::equal(left.prefab_instances, right.prefab_instances, equal_prefab_instances);
+[[nodiscard]] bool equal_prefab_references(const scene_description& left,
+                                           const scene_description& right) noexcept {
+  const auto filter =
+      std::views::filter([](const auto& object) { return object.prefab.has_value(); });
+  return std::ranges::equal(left.objects | filter, right.objects | filter, equal_prefab_instances);
 }
 
 engine::error apply_camera(world& native_world, std::uint64_t entity,
@@ -136,32 +138,48 @@ scene_instance::scene_instance(world& native_world, resource_service& loader,
 scene_instance::~scene_instance() noexcept { rollback(); }
 
 std::vector<scene_instance::object>::iterator
-scene_instance::find_ordinary_node(scene_node_id node) {
+scene_instance::find_authored_node(scene_node_id node) {
   auto end = objects_.begin() + static_cast<std::ptrdiff_t>(description_.objects.size());
   const auto found =
       std::find_if(objects_.begin(), end, [node](const auto& value) { return value.node == node; });
   return found == end ? objects_.end() : found;
+}
+std::vector<scene_instance::object>::iterator
+scene_instance::find_ordinary_node(scene_node_id node) {
+  auto end = objects_.begin() + static_cast<std::ptrdiff_t>(description_.objects.size());
+  const auto found =
+      std::find_if(objects_.begin(), end, [node](const auto& value) { return value.node == node; });
+  return found == end ||
+                 description_.objects[static_cast<std::size_t>(found - objects_.begin())].prefab
+             ? objects_.end()
+             : found;
 }
 std::vector<scene_instance::object>::const_iterator
 scene_instance::find_ordinary_node(scene_node_id node) const {
   auto end = objects_.begin() + static_cast<std::ptrdiff_t>(description_.objects.size());
   const auto found =
       std::find_if(objects_.begin(), end, [node](const auto& value) { return value.node == node; });
-  return found == end ? objects_.end() : found;
+  return found == end ||
+                 description_.objects[static_cast<std::size_t>(found - objects_.begin())].prefab
+             ? objects_.end()
+             : found;
+}
+object_description& scene_instance::prefab_author(std::size_t index) {
+  return *std::ranges::find(description_.objects, prefab_instances_.at(index)->instance_uuid_,
+                            &object_description::uuid);
+}
+const object_description& scene_instance::prefab_author(std::size_t index) const {
+  return *std::ranges::find(description_.objects, prefab_instances_.at(index)->instance_uuid_,
+                            &object_description::uuid);
 }
 void scene_instance::append_prefab_members(const prefab_runtime_instance& prefab) {
   objects_.reserve(objects_.size() + prefab.nodes_.size() + 1U);
-  objects_.push_back({prefab.root()});
+  const auto author =
+      std::ranges::find(description_.objects, prefab.instance_uuid_, &object_description::uuid);
+  objects_.at(static_cast<std::size_t>(author - description_.objects.begin())).node = prefab.root();
   for (const auto& source : prefab.nodes_)
     if (source.node != prefab.root())
       objects_.push_back({source.node});
-}
-void scene_instance::erase_prefab_members(const prefab_runtime_instance& prefab) noexcept {
-  std::erase_if(objects_, [&](const auto& value) {
-    return value.node == prefab.root() ||
-           std::ranges::any_of(prefab.nodes_,
-                               [&](const auto& source) { return value.node == source.node; });
-  });
 }
 void scene_instance::append_staged_prefab(std::unique_ptr<prefab_runtime_instance> candidate) {
   prefab_instances_.reserve(prefab_instances_.size() + 1U);
@@ -172,7 +190,7 @@ void scene_instance::append_staged_prefab(std::unique_ptr<prefab_runtime_instanc
 void scene_instance::initialize_staged(scene_description candidate) {
   description_ = std::move(candidate);
   objects_.resize(description_.objects.size());
-  prefab_instances_.reserve(description_.prefab_instances.size());
+  prefab_instances_.reserve(description_.objects.size());
 }
 
 engine::error scene_instance::create_staged_node(std::size_t index, scene_node_id parent,
@@ -205,14 +223,11 @@ scene_node_id scene_instance::find_node(std::string_view uuid) const noexcept {
   for (std::size_t index = 0; index < description_.objects.size(); ++index)
     if (scene_object_identity(native_world_, objects_[index].node).uuid == uuid)
       return objects_[index].node;
-  for (const auto& prefab : prefab_instances_)
-    if (prefab->instance_uuid_ == uuid)
-      return prefab->root();
   return {};
 }
 
 engine::error scene_instance::reload(scene_description candidate) {
-  if (candidate.uuid != description_.uuid || !equal_prefab_container(description_, candidate)) {
+  if (candidate.uuid != description_.uuid || !equal_prefab_references(description_, candidate)) {
     return engine::error::invalid_argument;
   }
 
@@ -462,9 +477,9 @@ engine::error scene_instance::reload(scene_description candidate) {
 
 engine::error scene_instance::reload_prefab(std::string_view uri, prefab_asset_ref candidate) {
   std::vector<std::size_t> affected;
-  affected.reserve(description_.prefab_instances.size());
-  for (std::size_t index = 0U; index < description_.prefab_instances.size(); ++index) {
-    if (description_.prefab_instances[index].prefab_uri == uri) {
+  affected.reserve(prefab_instances_.size());
+  for (std::size_t index = 0U; index < prefab_instances_.size(); ++index) {
+    if (prefab_author(index).prefab->uri == uri) {
       affected.push_back(index);
     }
   }
@@ -474,8 +489,8 @@ engine::error scene_instance::reload_prefab(std::string_view uri, prefab_asset_r
 
   auto result = engine::error::success;
   for (const auto index : affected) {
-    result = prefab_instances_[index]->validate_reload(
-        candidate, registry_, description_.prefab_instances[index].overrides);
+    result = prefab_instances_[index]->validate_reload(candidate, registry_,
+                                                       prefab_author(index).prefab->overrides);
     if (result != engine::error::success) {
       return result;
     }
@@ -485,10 +500,10 @@ engine::error scene_instance::reload_prefab(std::string_view uri, prefab_asset_r
     auto& prefab = *prefab_instances_[index];
     std::vector<scene_node_id> previous;
     previous.reserve(prefab.nodes_.size() + 1U);
-    previous.push_back(prefab.root());
     for (const auto& node : prefab.nodes_)
-      previous.push_back(node.node);
-    result = prefab.reload(candidate, registry_, description_.prefab_instances[index].overrides);
+      if (node.node != prefab.root())
+        previous.push_back(node.node);
+    result = prefab.reload(candidate, registry_, prefab_author(index).prefab->overrides);
     if (result.ok()) {
       std::erase_if(objects_, [&](const auto& object) {
         return std::ranges::find(previous, object.node) != previous.end();
@@ -558,10 +573,10 @@ engine::error scene_instance::get_node_info(std::uint64_t index, scene_node_view
 std::optional<prefab_origin_view> scene_instance::prefab_origin(scene_node_id node) const {
   for (std::size_t index = 0; index < prefab_instances_.size(); ++index) {
     const auto& runtime = *prefab_instances_[index];
-    const auto& author = description_.prefab_instances[index];
+    const auto& author = prefab_author(index);
     prefab_origin_view origin;
-    origin.instance_uuid = author.instance_uuid;
-    origin.prefab_uri = author.prefab_uri;
+    origin.instance_uuid = author.uuid;
+    origin.prefab_uri = author.prefab->uri;
     const auto found =
         std::ranges::find(runtime.nodes_, node, &prefab_runtime_instance::runtime_node::node);
     if (found == runtime.nodes_.end())
@@ -571,15 +586,15 @@ std::optional<prefab_origin_view> scene_instance::prefab_origin(scene_node_id no
     origin.source_node_uuid = found->address.source_node_uuid;
     if (const auto* source = runtime.find_source_object(origin.source_node_uuid))
       origin.source_local_transform = to_transform(*source);
-    for (const auto& value : author.overrides) {
-      if (value.key.node.source_node_uuid != origin.source_node_uuid ||
-          value.key.type_id != transform_component_type)
+    for (const auto& value : author.prefab->overrides) {
+      if (value.key.source_node_uuid != origin.source_node_uuid ||
+          value.key.type_guid != transform_component_type)
         continue;
-      if (value.key.field_id == transform_translation_field)
+      if (value.key.property_id == transform_translation_field)
         origin.flags |= scene_prefab_flags::translation_overridden;
-      if (value.key.field_id == transform_rotation_field)
+      if (value.key.property_id == transform_rotation_field)
         origin.flags |= scene_prefab_flags::rotation_overridden;
-      if (value.key.field_id == transform_scale_field)
+      if (value.key.property_id == transform_scale_field)
         origin.flags |= scene_prefab_flags::scale_overridden;
     }
     return origin;
@@ -589,7 +604,7 @@ std::optional<prefab_origin_view> scene_instance::prefab_origin(scene_node_id no
 
 engine::error scene_instances::capture_prefab_header(scene_instance_id instance,
                                                      std::string_view uuid,
-                                                     prefab_instance_description& author,
+                                                     object_description& author,
                                                      prefab_asset_ref& source) const noexcept {
   if (!native_world_.is_owner_thread()) {
     return engine::error::invalid_state;
@@ -615,7 +630,7 @@ engine::error scene_instances::capture_prefab_binding(scene_instance_id instance
 }
 
 error scene_instances::instantiate_prefab_ready(scene_instance_id instance,
-                                                const prefab_instance_description& author,
+                                                const object_description& author,
                                                 prefab_asset_ref prefab,
                                                 std::span<const scene_mesh_binding> bindings,
                                                 bool replacing, scene_node_id& output) noexcept {
@@ -646,8 +661,7 @@ engine::error scene_instance::set_prefab_instance_name(scene_node_id root, std::
     auto status = native_world_.node_set_identity(root, {(*found)->instance_uuid_, prepared});
     if (status.failed())
       return status;
-    description_.prefab_instances[static_cast<std::size_t>(found - prefab_instances_.begin())]
-        .name.swap(prepared);
+    prefab_author(static_cast<std::size_t>(found - prefab_instances_.begin())).name.swap(prepared);
     return engine::error::success;
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
@@ -671,20 +685,23 @@ engine::error scene_instance::set_prefab_source_transform(scene_node_id node,
       if (source == nullptr) {
         return engine::error::invalid_state;
       }
-      auto pending = description_.prefab_instances[index].overrides;
+      auto pending = prefab_author(index).prefab->overrides;
       const auto type_id = engine::transform_component_type;
-      const std::array candidates{
-          engine::prefab_property_override{.key = {.node = *info.address,
-                                                   .type_id = type_id,
-                                                   .field_id = transform_translation_field},
-                                           .value = {.payload = transform.translation}},
-          engine::prefab_property_override{.key = {.node = *info.address,
-                                                   .type_id = type_id,
-                                                   .field_id = transform_rotation_field},
-                                           .value = {.payload = transform.rotation}},
-          engine::prefab_property_override{
-              .key = {.node = *info.address, .type_id = type_id, .field_id = transform_scale_field},
-              .value = {.payload = transform.scale}}};
+      const std::array candidates{engine::prefab_property_override{
+                                      .key = {.source_node_uuid = info.address->source_node_uuid,
+                                              .type_guid = type_id,
+                                              .property_id = transform_translation_field},
+                                      .value = {.payload = transform.translation}},
+                                  engine::prefab_property_override{
+                                      .key = {.source_node_uuid = info.address->source_node_uuid,
+                                              .type_guid = type_id,
+                                              .property_id = transform_rotation_field},
+                                      .value = {.payload = transform.rotation}},
+                                  engine::prefab_property_override{
+                                      .key = {.source_node_uuid = info.address->source_node_uuid,
+                                              .type_guid = type_id,
+                                              .property_id = transform_scale_field},
+                                      .value = {.payload = transform.scale}}};
       const std::array source_values{engine::value{.payload = source->translation},
                                      engine::value{.payload = source->rotation},
                                      engine::value{.payload = source->scale}};
@@ -700,7 +717,7 @@ engine::error scene_instance::set_prefab_source_transform(scene_node_id node,
       if (result != engine::error::success) {
         return result;
       }
-      description_.prefab_instances[index].overrides.swap(pending);
+      prefab_author(index).prefab->overrides.swap(pending);
       return engine::error::success;
     }
   }
@@ -723,7 +740,7 @@ engine::error scene_instance::create_node(const node_creation& desc, scene_node_
   }
   std::optional<std::string> parent_uuid;
   if (desc.parent != null_scene_node_id) {
-    const auto parent = find_ordinary_node(desc.parent);
+    const auto parent = find_authored_node(desc.parent);
     if (parent == objects_.end()) {
       return engine::error::invalid_handle;
     }
@@ -790,14 +807,14 @@ engine::error scene_instance::set_node_name(scene_node_id node, std::string_view
 }
 
 engine::error scene_instance::reparent_node(scene_node_id node, scene_node_id parent) {
-  const auto found = find_ordinary_node(node);
+  const auto found = find_authored_node(node);
   if (found == objects_.end()) {
     return engine::error::invalid_handle;
   }
   std::optional<std::string> parent_uuid;
   try {
     if (parent != null_scene_node_id) {
-      const auto parent_object = find_ordinary_node(parent);
+      const auto parent_object = find_authored_node(parent);
       if (parent_object == objects_.end()) {
         return engine::error::invalid_handle;
       }
@@ -847,13 +864,13 @@ engine::error scene_instance::capture_subtree(scene_node_id root, std::string& o
       return engine::error::unsupported;
     }
     // 当前子树恢复只处理普通作者节点；不能生成会遗漏 Prefab 的撤销快照。
-    if (std::ranges::any_of(current.prefab_instances, [&included](const auto& instance) {
-          return instance.parent_uuid && included.contains(*instance.parent_uuid);
+    if (std::ranges::any_of(current.objects, [&included](const auto& instance) {
+          return instance.prefab && included.contains(instance.uuid);
         })) {
       return engine::error::unsupported;
     }
     // 场景其他位置的 Prefab 不属于本次快照，保留它们会产生快照外父引用。
-    current.prefab_instances.clear();
+    std::erase_if(current.objects, [](const auto& object) { return object.prefab.has_value(); });
     std::erase_if(current.objects, [&included](const auto& candidate) {
       return !included.contains(candidate.uuid);
     });
@@ -867,7 +884,7 @@ engine::error scene_instance::capture_subtree(scene_node_id root, std::string& o
     }
     current.author_json =
         std::string{"{\"format\":\"gneiss.scene\",\"version\":5,\"scene_uuid\":\""} + current.uuid +
-        "\",\"objects\":[],\"prefab_instances\":[]}";
+        "\",\"objects\":[]}";
     auto decoded_result = engine::serialize_scene_description(current);
     if (!decoded_result) {
       return decoded_result.error();
@@ -892,7 +909,8 @@ engine::error scene_instance::restore_subtree(std::string_view snapshot, scene_n
   if (subtree.objects.empty())
     return engine::error::invalid_argument;
   auto result = engine::error::success;
-  if (!subtree.prefab_instances.empty()) {
+  if (std::ranges::any_of(subtree.objects,
+                          [](const auto& object) { return object.prefab.has_value(); })) {
     return engine::error::unsupported;
   }
   if (subtree.objects.size() > scene_subtree_max_nodes) {
@@ -900,7 +918,7 @@ engine::error scene_instance::restore_subtree(std::string_view snapshot, scene_n
   }
   std::optional<std::string> external_parent_uuid;
   if (parent != null_scene_node_id) {
-    const auto found = find_ordinary_node(parent);
+    const auto found = find_authored_node(parent);
     if (found == objects_.end()) {
       return engine::error::invalid_handle;
     }
@@ -1121,8 +1139,6 @@ engine::error scene_instance::destroy_subtree(scene_node_id root) {
       description_.objects.erase(description_.objects.begin() + static_cast<std::ptrdiff_t>(*it));
     for (auto it = prefabs.rbegin(); it != prefabs.rend(); ++it) {
       prefab_instances_.erase(prefab_instances_.begin() + static_cast<std::ptrdiff_t>(*it));
-      description_.prefab_instances.erase(description_.prefab_instances.begin() +
-                                          static_cast<std::ptrdiff_t>(*it));
     }
     loader_.collect_unused();
     return error::success;
@@ -1150,7 +1166,7 @@ engine::error scene_instance::create_mesh_renderer_node(const mesh_renderer_node
   }
   std::optional<std::string> parent_uuid;
   if (desc.parent != null_scene_node_id) {
-    const auto parent = find_ordinary_node(desc.parent);
+    const auto parent = find_authored_node(desc.parent);
     if (parent == objects_.end()) {
       return engine::error::invalid_handle;
     }
@@ -1357,12 +1373,8 @@ engine::error scene_instance::destroy_node(scene_node_id node) {
   }
   const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
   const auto& uuid = description_.objects[index].uuid;
-  if (std::ranges::any_of(description_.objects,
-                          [&uuid](const auto& candidate) {
-                            return candidate.parent_uuid && *candidate.parent_uuid == uuid;
-                          }) ||
-      std::ranges::any_of(description_.prefab_instances, [&uuid](const auto& instance) {
-        return instance.parent_uuid && *instance.parent_uuid == uuid;
+  if (std::ranges::any_of(description_.objects, [&uuid](const auto& candidate) {
+        return candidate.parent_uuid && *candidate.parent_uuid == uuid;
       })) {
     return engine::error::invalid_state;
   }
@@ -1404,6 +1416,16 @@ engine::error scene_instance::capture_description(scene_description& output) con
         return parent_identity.error();
       author.parent_uuid = parent_identity->uuid;
     }
+    if (author.prefab) {
+      math::transform transform;
+      const auto status = native_world_.node_get_local_transform(runtime.node, transform);
+      if (status.failed())
+        return status;
+      author.translation = transform.translation;
+      author.rotation = transform.rotation;
+      author.scale = transform.scale;
+      continue;
+    }
     auto renderer = native_world_.node_mesh_renderer(runtime.node);
     if (renderer)
       author.mesh_renderer = mesh_renderer_description{std::string(asset_uri(renderer->mesh)),
@@ -1432,32 +1454,6 @@ engine::error scene_instance::capture_description(scene_description& output) con
       author.camera.reset();
     else
       return result;
-  }
-  if (prefab_instances_.size() != current.prefab_instances.size()) {
-    return engine::error::invalid_state;
-  }
-  for (std::size_t index = 0; index < prefab_instances_.size(); ++index) {
-    auto& author = current.prefab_instances[index];
-    auto identity = native_world_.node_identity(prefab_instances_[index]->root());
-    if (!identity)
-      return identity.error();
-    author.name = identity->name;
-    scene_node_id parent;
-    auto status = native_world_.node_get_parent(prefab_instances_[index]->root(), parent);
-    if (status.failed())
-      return status;
-    author.parent_uuid.reset();
-    if (parent)
-      author.parent_uuid = scene_object_identity(native_world_, parent).uuid;
-    math::transform transform = {};
-    const auto result = native_world_.node_get_local_transform(
-        gneiss::scene_node_id{prefab_instances_[index]->root()}, transform);
-    if (result != engine::error::success) {
-      return result;
-    }
-    author.translation = transform.translation;
-    author.rotation = transform.rotation;
-    author.scale = transform.scale;
   }
   output = std::move(current);
   return error::success;
@@ -1517,8 +1513,7 @@ engine::error scene_instances::create_empty(std::string_view scene_uuid,
   *out_instance = {};
   try {
     const std::string json = std::string{"{\"format\":\"gneiss.scene\",\"version\":5,"} +
-                             "\"scene_uuid\":\"" + std::string{scene_uuid} +
-                             "\",\"objects\":[],\"prefab_instances\":[]}";
+                             "\"scene_uuid\":\"" + std::string{scene_uuid} + "\",\"objects\":[]}";
     auto parsed = engine::parse_scene_description(json);
     if (!parsed)
       return parsed.error().error;

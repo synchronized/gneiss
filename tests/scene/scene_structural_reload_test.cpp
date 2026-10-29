@@ -30,7 +30,7 @@ void write_scene(const std::filesystem::path& path, std::string_view child_compo
       std::string{new_child_uuid} + R"(","name":"New Child","parent":")" +
       std::string{camera_uuid} +
       R"(","transform":{"translation":[1.0,2.0,3.0],"rotation":[0.0,0.0,0.0,1.0],"scale":[1.0,1.0,1.0]},"components":)" +
-      std::string{child_components} + R"(}],"prefab_instances":[]})";
+      std::string{child_components} + R"(}]})";
   std::ofstream stream(path, std::ios::binary | std::ios::trunc);
   stream.write(json.data(), static_cast<std::streamsize>(json.size()));
 }

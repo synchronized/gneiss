@@ -48,7 +48,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
   require(!prefab.empty(), "Prefab 测试数据缺失");
   std::ofstream scene(root / "assets/main.scene.json");
   scene
-      << R"({"format":"gneiss.scene","version":5,"scene_uuid":"40000000-0000-4000-8000-000000000001","objects":[],"prefab_instances":[)";
+      << R"({"format":"gneiss.scene","version":5,"scene_uuid":"40000000-0000-4000-8000-000000000001","objects":[)";
   constexpr std::size_t count = 64U;
   for (std::size_t index = 0; index < count; ++index) {
     std::ofstream(root / "assets" / ("item-" + std::to_string(index) + ".prefab.json")) << prefab;
@@ -57,13 +57,13 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
     if (index != 0U) {
       scene << ',';
     }
-    scene << "{\"instance_uuid\":\"" << id
+    scene << "{\"uuid\":\"" << id
           << "\",\"name\":\"item\",\"parent\":null,"
-             "\"prefab\":\"asset://item-"
+             "\"prefab\":{\"uri\":\"asset://item-"
           << index
           << ".prefab.json\","
              "\"transform\":{\"translation\":[0,0,0],\"rotation\":[0,0,0,1],"
-             "\"scale\":[1,1,1]},\"overrides\":[]}";
+             "\"scale\":[1,1,1]}}";
   }
   scene << "]}";
   scene.close();

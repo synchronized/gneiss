@@ -5,16 +5,16 @@
 namespace gneiss::test_support {
 // 测试驱动异步准备；最终实例化只使用已准备描述与引用。
 inline engine::error instantiate_prefab(runtime::application& app, scene_instance_id scene,
-                                        const engine::prefab_instance_description& author,
+                                        const engine::object_description& author,
                                         scene_node_id& root, bool replacing = false,
                                         engine::task_scheduler* tasks = nullptr) {
   root = {};
   engine::prepared_scene_description prepared;
   engine::scene_instances::asset_bindings assets;
-  auto status = prepare_scene(app, author.prefab_uri, prepared, assets, tasks, true);
+  auto status = prepare_scene(app, author.prefab->uri, prepared, assets, tasks, true);
   if (status.failed())
     return status;
-  auto source = prepared.prefabs.at(author.prefab_uri).resource;
+  auto source = prepared.prefabs.at(author.prefab->uri).resource;
   std::vector<engine::scene_mesh_binding> bindings(source->objects.size());
   for (std::size_t i = 0; i < bindings.size(); ++i) {
     const auto& object = source->objects[i];
@@ -31,10 +31,11 @@ inline engine::error create_prefab(runtime::application& app, scene_instance_id 
                                    const engine::prefab_creation& creation, scene_node_id& root,
                                    engine::task_scheduler* tasks = nullptr) {
   root = {};
-  engine::prefab_instance_description author;
-  author.instance_uuid = creation.instance_uuid;
+  engine::object_description author;
+  author.prefab.emplace();
+  author.uuid = creation.instance_uuid;
   author.name = creation.name;
-  author.prefab_uri = creation.prefab_uri;
+  author.prefab->uri = creation.prefab_uri;
   author.translation = creation.local_transform.translation;
   author.rotation = creation.local_transform.rotation;
   author.scale = creation.local_transform.scale;
@@ -60,7 +61,7 @@ inline engine::error create_prefab(runtime::application& app, scene_instance_id 
 }
 inline engine::error refresh_prefab(runtime::application& app, scene_instance_id scene,
                                     std::string_view uuid, scene_node_id& root) {
-  engine::prefab_instance_description author;
+  engine::object_description author;
   engine::prefab_asset_ref source;
   auto status = app.scenes()->capture_prefab_header(scene, uuid, author, source);
   if (status.failed())

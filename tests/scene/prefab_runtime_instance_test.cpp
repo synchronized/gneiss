@@ -232,10 +232,9 @@ int main() try {
   std::unique_ptr<gneiss::engine::prefab_runtime_instance> second;
   const std::vector<gneiss::engine::prefab_property_override> no_overrides;
   const std::vector<gneiss::engine::prefab_property_override> first_overrides{{
-      .key = {.node = {.instance_uuid = "20000000-0000-4000-8000-000000000001",
-                       .source_node_uuid = "10000000-0000-4000-8000-000000000003"},
-              .type_id = gneiss::engine::transform_component_type,
-              .field_id = gneiss::engine::transform_translation_field},
+      .key = {.source_node_uuid = "10000000-0000-4000-8000-000000000003",
+              .type_guid = gneiss::engine::transform_component_type,
+              .property_id = gneiss::engine::transform_translation_field},
       .value = {.payload = gneiss::engine::math::vector3{3.0F, 0.0F, 0.0F}},
   }};
   if (gneiss::engine::prefab_runtime_instance::create(
@@ -251,18 +250,15 @@ int main() try {
   }
   gneiss::engine::prefab_description projected;
   if (gneiss::engine::prefab_runtime_instance::prepare_description(
-          *first->prefab_lease().get(), registry, "20000000-0000-4000-8000-000000000001",
-          first_overrides, projected) != gneiss::engine::error::success ||
+          *first->prefab_lease().get(), registry, first_overrides, projected) !=
+          gneiss::engine::error::success ||
       projected.objects[1].translation[0] != 3 ||
       first->prefab_lease().get()->objects[0].translation[0] != 1) {
     return 14;
   }
-  if (gneiss::engine::prefab_runtime_instance::prepare_description(
-          *first->prefab_lease().get(), registry, "20000000-0000-4000-8000-000000000002",
-          first_overrides, projected) != gneiss::engine::error::invalid_argument ||
-      projected.objects[1].translation[0] != 3) {
+  // 相同的相对覆盖可以用于另一实例，不携带实例身份。
+  if (second->reload(second->prefab_lease(), registry, first_overrides).failed())
     return 15;
-  }
 
   const auto first_source_root = first->find_node("10000000-0000-4000-8000-000000000002");
   const auto second_source_root = second->find_node("10000000-0000-4000-8000-000000000002");
@@ -291,7 +287,7 @@ int main() try {
       actual_root.scale != first_transform.scale)
     return 23;
   auto root_override = first_overrides.front();
-  root_override.key.node.source_node_uuid = "10000000-0000-4000-8000-000000000002";
+  root_override.key.source_node_uuid = "10000000-0000-4000-8000-000000000002";
   if (first->apply_override(registry, root_override) != gneiss::engine::error::invalid_argument)
     return 24;
   auto revision = std::make_shared<gneiss::engine::prefab_description>(*first->prefab_lease());
@@ -316,10 +312,9 @@ int main() try {
     return 7;
   }
   const std::vector<gneiss::engine::prefab_property_override> invalid_overrides{{
-      .key = {.node = {.instance_uuid = "20000000-0000-4000-8000-000000000005",
-                       .source_node_uuid = "10000000-0000-4000-8000-000000000099"},
-              .type_id = gneiss::engine::transform_component_type,
-              .field_id = gneiss::engine::transform_translation_field},
+      .key = {.source_node_uuid = "10000000-0000-4000-8000-000000000099",
+              .type_guid = gneiss::engine::transform_component_type,
+              .property_id = gneiss::engine::transform_translation_field},
       .value = {.payload = gneiss::engine::math::vector3{3.0F, 0.0F, 0.0F}},
   }};
   std::unique_ptr<gneiss::engine::prefab_runtime_instance> failed;

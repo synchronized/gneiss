@@ -2,18 +2,32 @@
   "format": "gneiss.scene",
   "version": 5,
   "scene_uuid": "30000000-0000-4000-8000-000000000020",
-  "objects": [],
-  "prefab_instances": [
+  "objects": [
     {
-      "instance_uuid": "30000000-0000-4000-8000-000000000021",
       "parent": null,
-      "prefab": "asset://prefabs/missing.prefab.json",
-      "transform": {
-        "translation": [0, 0, 0],
-        "rotation": [0, 0, 0, 1],
-        "scale": [1, 1, 1]
+      "prefab": {
+        "uri": "asset://prefabs/missing.prefab.json",
+        "overrides": []
       },
-      "overrides": []
+      "transform": {
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "uuid": "30000000-0000-4000-8000-000000000021"
     }
   ]
 }

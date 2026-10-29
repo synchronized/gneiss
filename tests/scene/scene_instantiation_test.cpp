@@ -120,7 +120,7 @@ void run() {
   auto files = std::make_shared<memory_files>();
   files->files["s.scene"] =
       R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[)" +
-      std::string(object) + R"(],"prefab_instances":[]})";
+      std::string(object) + R"(]})";
   files->files["p.prefab"] =
       R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"00000000-0000-4000-8000-000000000003","objects":[)" +
       std::string(object) + "]}";
@@ -216,10 +216,9 @@ void run() {
   check(old_pixels && old_pixels->parameters.color[0] == 1.0F);
   files->files["m.material"] =
       R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,1,0,1]})";
-  const auto empty_instances = files->files["s.scene"].find("\"prefab_instances\":[]");
-  files->files["s.scene"].replace(
-      empty_instances, 21U,
-      R"("prefab_instances":[{"instance_uuid":"00000000-0000-4000-8000-000000000004","prefab":"asset://p.prefab","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"overrides":[]}])");
+  files->files["s.scene"].insert(
+      files->files["s.scene"].size() - 2U,
+      R"(,{"uuid":"00000000-0000-4000-8000-000000000004","prefab":{"uri":"asset://p.prefab","overrides":[]},"parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}})");
   gneiss::engine::prepared_scene_description prepared;
   gneiss::engine::scene_diagnostic scene_error;
   check(gneiss::test_support::prepare_scene_for_test(active_assets, executor, false,
@@ -287,17 +286,16 @@ void run() {
   // 同步创建不读文件；替换失败删除旧实例并清理新建残留。
   {
     gneiss::engine::prefab_asset_ref source;
-    gneiss::engine::prefab_instance_description author;
+    gneiss::engine::object_description author;
     check(candidate->scenes()
               ->capture_prefab_header(new_scene, "00000000-0000-4000-8000-000000000004", author,
                                       source)
               .ok());
     std::vector<gneiss::engine::scene_mesh_binding> bindings(source.get()->objects.size());
     for (std::size_t i = 0; i < bindings.size(); ++i)
-      check(candidate->scenes()
-                ->capture_prefab_binding(new_scene, author.instance_uuid, i, bindings[i])
-                .ok());
-    author.instance_uuid = "00000000-0000-4000-8000-000000000077";
+      check(
+          candidate->scenes()->capture_prefab_binding(new_scene, author.uuid, i, bindings[i]).ok());
+    author.uuid = "00000000-0000-4000-8000-000000000077";
     const auto reads_before = files->reads;
     std::uint64_t baseline{};
     check(gneiss::test_support::assign_value(candidate->native_world()->entity_count(), baseline)
@@ -337,7 +335,7 @@ void run() {
     check(
         gneiss::test_support::assign_value(candidate->native_world()->entity_count(), count).ok() &&
         count == baseline);
-    check(candidate->scenes()->remove_prefab_instance(new_scene, author.instance_uuid) ==
+    check(candidate->scenes()->remove_prefab_instance(new_scene, author.uuid) ==
           gneiss::engine::error::not_found);
     check(files->reads == reads_before);
   }

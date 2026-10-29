@@ -562,8 +562,8 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
             if (captured.failed())
               return captured;
             structural_ignored =
-                std::ranges::none_of(description.prefab_instances, [&](const auto& instance) {
-                  return instance.prefab_uri == first.uri;
+                std::ranges::none_of(description.objects, [&](const auto& instance) {
+                  return instance.prefab && instance.prefab->uri == first.uri;
                 });
           }
           // 先准备可分配的回执，再提交请求，避免接受后因分配失败丢失观察状态。

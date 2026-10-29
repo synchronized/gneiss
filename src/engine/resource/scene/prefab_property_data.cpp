@@ -36,24 +36,21 @@ bool is_valid_prefab_author_address(const prefab_author_address& address) noexce
 
 bool prefab_property_override_key_less(const prefab_property_override_key& left,
                                        const prefab_property_override_key& right) noexcept {
-  if (left.node.instance_uuid != right.node.instance_uuid) {
-    return left.node.instance_uuid < right.node.instance_uuid;
+  if (left.source_node_uuid != right.source_node_uuid) {
+    return left.source_node_uuid < right.source_node_uuid;
   }
-  if (left.node.source_node_uuid != right.node.source_node_uuid) {
-    return left.node.source_node_uuid < right.node.source_node_uuid;
-  }
-  if (!std::ranges::equal(left.type_id.bytes(), right.type_id.bytes())) {
+  if (!std::ranges::equal(left.type_guid.bytes(), right.type_guid.bytes())) {
     return std::lexicographical_compare(
-        std::begin(left.type_id.bytes()), std::end(left.type_id.bytes()),
-        std::begin(right.type_id.bytes()), std::end(right.type_id.bytes()));
+        std::begin(left.type_guid.bytes()), std::end(left.type_guid.bytes()),
+        std::begin(right.type_guid.bytes()), std::end(right.type_guid.bytes()));
   }
-  return left.field_id.get() < right.field_id.get();
+  return left.property_id.get() < right.property_id.get();
 }
 
 bool prefab_property_override_key::operator==(
     const prefab_property_override_key& other) const noexcept {
-  return node == other.node && field_id == other.field_id &&
-         std::ranges::equal(type_id.bytes(), other.type_id.bytes());
+  return source_node_uuid == other.source_node_uuid && property_id == other.property_id &&
+         std::ranges::equal(type_guid.bytes(), other.type_guid.bytes());
 }
 
 } // namespace gneiss::engine

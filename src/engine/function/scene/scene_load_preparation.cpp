@@ -94,14 +94,14 @@ public:
     return engine::error::success;
   }
 
-  engine::error add_prefab(const prefab_instance_description& instance) {
+  engine::error add_prefab(const object_description& instance) {
     auto result = engine::error::success;
-    auto found = candidate.prefabs.find(instance.prefab_uri);
+    auto found = candidate.prefabs.find(instance.prefab->uri);
     if (found == candidate.prefabs.end()) {
       if (candidate.prefabs.size() == limits.dependencies) {
         return engine::error::invalid_argument;
       }
-      const auto input = inputs.prefabs.find(instance.prefab_uri);
+      const auto input = inputs.prefabs.find(instance.prefab->uri);
       if (input == inputs.prefabs.end() || !input->second)
         return error::not_found;
       prepared_prefab_description prefab;
@@ -123,7 +123,7 @@ public:
       if (result != engine::error::success) {
         return result;
       }
-      found = candidate.prefabs.emplace(instance.prefab_uri, std::move(prefab)).first;
+      found = candidate.prefabs.emplace(instance.prefab->uri, std::move(prefab)).first;
     }
     const auto parent_depth = instance.parent_uuid ? scene_depths.at(*instance.parent_uuid) : 0U;
     if (parent_depth >= limits.hierarchy_depth ||
@@ -164,7 +164,10 @@ public:
       scene_depths.emplace(object.uuid,
                            object.parent_uuid ? scene_depths.at(*object.parent_uuid) + 1U : 1U);
     }
-    for (const auto& instance : candidate.description.prefab_instances) {
+    for (const auto& instance : candidate.description.objects) {
+      if (!instance.prefab)
+        continue;
+      --candidate.instance_nodes;
       result = add_prefab(instance);
       if (result != engine::error::success) {
         return result;
@@ -204,8 +207,9 @@ error prepare_loaded_scene(const scene_description_inputs& inputs, std::string_v
   else if (prefab_uri.empty())
     status = work.run();
   else {
-    prefab_instance_description instance;
-    instance.prefab_uri = prefab_uri;
+    object_description instance;
+    instance.prefab.emplace();
+    instance.prefab->uri = prefab_uri;
     status = work.add_prefab(instance);
     if (status == error::success)
       status = work.finish();
@@ -272,9 +276,9 @@ error scene_description_request::advance(scene_description_inputs& output,
     }
     s.inputs.scene = std::move(*loaded);
     s.bytes = s.inputs.scene->author_json.size();
-    for (const auto& instance : s.inputs.scene->prefab_instances)
-      if (std::ranges::find(s.uris, instance.prefab_uri) == s.uris.end())
-        s.uris.push_back(instance.prefab_uri);
+    for (const auto& instance : s.inputs.scene->objects)
+      if (instance.prefab && std::ranges::find(s.uris, instance.prefab->uri) == s.uris.end())
+        s.uris.push_back(instance.prefab->uri);
   }
   if (s.bytes > s.limits.source_bytes || s.uris.size() > s.limits.dependencies)
     return fail(error::invalid_argument);

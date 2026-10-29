@@ -215,6 +215,10 @@ template <std::size_t Size>
   return true;
 }
 
+[[nodiscard]] bool parse_prefab_reference(yyjson_val* value, std::size_t index,
+                                          gneiss::engine::prefab_reference_description& output,
+                                          scene_diagnostic& diagnostic);
+
 [[nodiscard]] bool parse_object(yyjson_val* value, std::size_t index,
                                 gneiss::engine::object_description& output,
                                 scene_diagnostic& diagnostic) {
@@ -257,10 +261,20 @@ template <std::size_t Size>
          "parent 必须是 UUID 或 null");
     return false;
   }
-  return parse_transform(yyjson_obj_get(value, "transform"), path + "/transform", output,
-                         diagnostic) &&
-         parse_components(yyjson_obj_get(value, "components"), path + "/components", output,
-                          diagnostic);
+  if (!parse_transform(yyjson_obj_get(value, "transform"), path + "/transform", output, diagnostic))
+    return false;
+  auto* prefab = yyjson_obj_get(value, "prefab");
+  auto* components = yyjson_obj_get(value, "components");
+  if (prefab) {
+    if (components && (!yyjson_is_obj(components) || yyjson_obj_size(components) != 0)) {
+      fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/components",
+           "Prefab 引用与独立组件不能同时定义");
+      return false;
+    }
+    output.prefab.emplace();
+    return parse_prefab_reference(prefab, index, *output.prefab, diagnostic);
+  }
+  return parse_components(components, path + "/components", output, diagnostic);
 }
 
 [[nodiscard]] int hex_value(char value) noexcept {
@@ -363,10 +377,10 @@ template <class T>
 }
 
 [[nodiscard]] bool parse_prefab_override(yyjson_val* value, std::size_t instance_index,
-                                         std::size_t override_index, std::string_view instance_uuid,
+                                         std::size_t override_index,
                                          gneiss::engine::prefab_property_override& output,
                                          scene_diagnostic& diagnostic) {
-  const auto path = "/prefab_instances/" + std::to_string(instance_index) + "/overrides/" +
+  const auto path = "/objects/" + std::to_string(instance_index) + "/prefab/overrides/" +
                     std::to_string(override_index);
   if (!yyjson_is_obj(value)) {
     fail(diagnostic, gneiss::engine::error::invalid_argument, path, "覆盖必须是对象");
@@ -382,15 +396,15 @@ template <class T>
     return false;
   }
   gneiss::engine::guid type_id{};
-  if (!parse_type_id(yyjson_obj_get(value, "type_id"), type_id)) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/type_id",
+  if (!parse_type_id(yyjson_obj_get(value, "type_guid"), type_id)) {
+    fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/type_guid",
          "Type ID 必须是非零的 32 位小写十六进制");
     return false;
   }
-  auto* field = yyjson_obj_get(value, "field_id");
+  auto* field = yyjson_obj_get(value, "property_id");
   if (!yyjson_is_uint(field) || yyjson_get_uint(field) == 0U ||
       yyjson_get_uint(field) > std::numeric_limits<std::uint32_t>::max()) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/field_id",
+    fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/property_id",
          "Field ID 必须是非零 uint32");
     return false;
   }
@@ -402,13 +416,9 @@ template <class T>
   output = {
       .key =
           {
-              .node =
-                  {
-                      .instance_uuid = std::string(instance_uuid),
-                      .source_node_uuid = std::move(source_node_uuid),
-                  },
-              .type_id = type_id,
-              .field_id = gneiss::engine::meta::property_id{static_cast<std::uint32_t>(
+              .source_node_uuid = std::move(source_node_uuid),
+              .type_guid = type_id,
+              .property_id = gneiss::engine::meta::property_id{static_cast<std::uint32_t>(
                   yyjson_get_uint(field))},
           },
       .value = std::move(parsed_value),
@@ -416,57 +426,15 @@ template <class T>
   return true;
 }
 
-[[nodiscard]] bool parse_prefab_instance(yyjson_val* value, std::size_t index,
-                                         gneiss::engine::prefab_instance_description& output,
-                                         scene_diagnostic& diagnostic) {
-  const std::string path = "/prefab_instances/" + std::to_string(index);
-  if (!yyjson_is_obj(value) ||
-      !read_required_string(value, "instance_uuid", path, output.instance_uuid, diagnostic) ||
-      !is_canonical_uuid(output.instance_uuid)) {
-    if (diagnostic.error == gneiss::engine::error::success) {
-      fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/instance_uuid",
-           "实例 UUID 必须是小写规范形式");
-    }
+[[nodiscard]] bool parse_prefab_reference(yyjson_val* value, std::size_t index,
+                                          gneiss::engine::prefab_reference_description& output,
+                                          scene_diagnostic& diagnostic) {
+  const auto path = "/objects/" + std::to_string(index) + "/prefab";
+  if (!yyjson_is_obj(value) || !read_required_string(value, "uri", path, output.uri, diagnostic) ||
+      gneiss::engine::validate_uri(output.uri) != gneiss::engine::error::success) {
+    fail(diagnostic, gneiss::engine::error::invalid_argument, path, "Prefab 来源必须包含规范 URI");
     return false;
   }
-  if (!read_required_string(value, "prefab", path, output.prefab_uri, diagnostic) ||
-      gneiss::engine::validate_uri(output.prefab_uri) != gneiss::engine::error::success) {
-    if (diagnostic.error == gneiss::engine::error::success) {
-      fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/prefab",
-           "Prefab URI 无效");
-    }
-    return false;
-  }
-  if (yyjson_val* name = yyjson_obj_get(value, "name"); name != nullptr) {
-    if (!yyjson_is_str(name)) {
-      fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/name",
-           "name 必须是字符串");
-      return false;
-    }
-    output.name = std::string(json_string(name));
-  }
-  yyjson_val* parent = yyjson_obj_get(value, "parent");
-  if (yyjson_is_str(parent)) {
-    const auto parent_uuid = json_string(parent);
-    if (!is_canonical_uuid(parent_uuid)) {
-      fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/parent",
-           "父 UUID 格式错误");
-      return false;
-    }
-    output.parent_uuid = std::string(parent_uuid);
-  } else if (!yyjson_is_null(parent)) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/parent",
-         "parent 必须是普通对象 UUID 或 null");
-    return false;
-  }
-  gneiss::engine::object_description transform;
-  if (!parse_transform(yyjson_obj_get(value, "transform"), path + "/transform", transform,
-                       diagnostic)) {
-    return false;
-  }
-  output.translation = transform.translation;
-  output.rotation = transform.rotation;
-  output.scale = transform.scale;
   auto* overrides = yyjson_obj_get(value, "overrides");
   if (!yyjson_is_arr(overrides)) {
     fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/overrides",
@@ -479,8 +447,8 @@ template <class T>
   yyjson_val* override_value = nullptr;
   yyjson_arr_foreach(overrides, override_index, override_maximum, override_value) {
     output.overrides.emplace_back();
-    if (!parse_prefab_override(override_value, index, override_index, output.instance_uuid,
-                               output.overrides.back(), diagnostic)) {
+    if (!parse_prefab_override(override_value, index, override_index, output.overrides.back(),
+                               diagnostic)) {
       return false;
     }
   }
@@ -508,15 +476,6 @@ template <class T>
       return false;
     }
   }
-  for (std::size_t index = 0; index < scene.prefab_instances.size(); ++index) {
-    const auto& instance = scene.prefab_instances[index];
-    if (!indexes.emplace(instance.instance_uuid, scene.objects.size() + index).second) {
-      fail(diagnostic, gneiss::engine::error::invalid_argument,
-           "/prefab_instances/" + std::to_string(index) + "/instance_uuid",
-           "Prefab 实例 UUID 与场景作者身份重复");
-      return false;
-    }
-  }
   for (std::size_t index = 0; index < scene.objects.size(); ++index) {
     const auto& parent = scene.objects[index].parent_uuid;
     if (parent) {
@@ -524,18 +483,6 @@ template <class T>
       if (found == indexes.end() || found->second >= scene.objects.size()) {
         fail(diagnostic, gneiss::engine::error::invalid_argument,
              "/objects/" + std::to_string(index) + "/parent", "父级必须是普通场景对象");
-        return false;
-      }
-    }
-  }
-  for (std::size_t index = 0; index < scene.prefab_instances.size(); ++index) {
-    const auto& parent = scene.prefab_instances[index].parent_uuid;
-    if (parent) {
-      const auto found = indexes.find(*parent);
-      if (found == indexes.end() || found->second >= scene.objects.size()) {
-        fail(diagnostic, gneiss::engine::error::invalid_argument,
-             "/prefab_instances/" + std::to_string(index) + "/parent",
-             "Prefab 实例父级必须是普通场景对象");
         return false;
       }
     }
@@ -713,50 +660,21 @@ make_prefab_overrides(yyjson_mut_doc* document,
   }
   for (const auto& source : overrides) {
     auto* object = yyjson_mut_obj(document);
-    const auto type_text = type_id_text(source.key.type_id);
+    const auto type_text = type_id_text(source.key.type_guid);
     auto* value = make_override_value(document, source.value);
     if (object == nullptr || value == nullptr ||
         !yyjson_mut_obj_add_strncpy(document, object, "source_node_uuid",
-                                    source.key.node.source_node_uuid.data(),
-                                    source.key.node.source_node_uuid.size()) ||
-        !yyjson_mut_obj_add_strncpy(document, object, "type_id", type_text.data(),
+                                    source.key.source_node_uuid.data(),
+                                    source.key.source_node_uuid.size()) ||
+        !yyjson_mut_obj_add_strncpy(document, object, "type_guid", type_text.data(),
                                     type_text.size()) ||
-        !yyjson_mut_obj_add_uint(document, object, "field_id", source.key.field_id.get()) ||
+        !yyjson_mut_obj_add_uint(document, object, "property_id", source.key.property_id.get()) ||
         !yyjson_mut_obj_add_val(document, object, "value", value) ||
         !yyjson_mut_arr_add_val(array, object)) {
       return nullptr;
     }
   }
   return array;
-}
-
-[[nodiscard]] yyjson_mut_val*
-make_author_prefab_instance(yyjson_mut_doc* document,
-                            const gneiss::engine::prefab_instance_description& source) {
-  auto* instance = yyjson_mut_obj(document);
-  auto* transform = yyjson_mut_obj(document);
-  if (instance == nullptr || transform == nullptr ||
-      !yyjson_mut_obj_add_strncpy(document, instance, "instance_uuid", source.instance_uuid.data(),
-                                  source.instance_uuid.size()) ||
-      !yyjson_mut_obj_add_strncpy(document, instance, "prefab", source.prefab_uri.data(),
-                                  source.prefab_uri.size()) ||
-      (!source.name.empty() &&
-       !yyjson_mut_obj_add_strncpy(document, instance, "name", source.name.data(),
-                                   source.name.size())) ||
-      !put_value(document, instance, "parent",
-                 source.parent_uuid ? yyjson_mut_strncpy(document, source.parent_uuid->data(),
-                                                         source.parent_uuid->size())
-                                    : yyjson_mut_null(document)) ||
-      !put_value(document, transform, "translation",
-                 make_float_array(document, source.translation)) ||
-      !put_value(document, transform, "rotation", make_float_array(document, source.rotation)) ||
-      !put_value(document, transform, "scale", make_float_array(document, source.scale)) ||
-      !put_value(document, instance, "transform", transform) ||
-      !put_value(document, instance, "overrides",
-                 make_prefab_overrides(document, source.overrides))) {
-    return nullptr;
-  }
-  return instance;
 }
 
 } // namespace
@@ -826,22 +744,10 @@ parse_current_scene_description(std::string_view json) noexcept {
         return out_diagnostic;
       }
     }
-    yyjson_val* prefab_instances = yyjson_obj_get(root, "prefab_instances");
-    if (!yyjson_is_arr(prefab_instances)) {
+    if (yyjson_obj_get(root, "prefab_instances")) {
       fail(out_diagnostic, engine::error::invalid_argument, "/prefab_instances",
-           "prefab_instances 必须是数组");
+           "独立 Prefab 实例数组已移除，请使用 objects[].prefab");
       return out_diagnostic;
-    }
-    parsed.prefab_instances.reserve(yyjson_arr_size(prefab_instances));
-    index = 0;
-    maximum = 0;
-    yyjson_val* prefab_instance = nullptr;
-    yyjson_arr_foreach(prefab_instances, index, maximum, prefab_instance) {
-      parsed.prefab_instances.emplace_back();
-      if (!parse_prefab_instance(prefab_instance, index, parsed.prefab_instances.back(),
-                                 out_diagnostic)) {
-        return out_diagnostic;
-      }
     }
     if (!validate_hierarchy(parsed, out_diagnostic)) {
       return out_diagnostic;
@@ -957,8 +863,7 @@ result<std::string> serialize_scene_description(const scene_description& scene) 
     return document ? engine::error::out_of_memory : engine::error::invalid_state;
   }
   yyjson_mut_val* root = yyjson_mut_doc_get_root(mutable_document.get());
-  if (!yyjson_mut_is_arr(yyjson_mut_obj_get(root, "objects")) ||
-      !yyjson_mut_is_arr(yyjson_mut_obj_get(root, "prefab_instances")))
+  if (!yyjson_mut_is_arr(yyjson_mut_obj_get(root, "objects")))
     return engine::error::invalid_state;
   // 按稳定身份保留扩展字段，不能按旧数组下标绑定删除或重排后的对象。
   const auto align_members = [&](const char* key, const char* identity, const auto& members,
@@ -1018,9 +923,38 @@ result<std::string> serialize_scene_description(const scene_description& scene) 
                                              source.name.size()))) {
       return engine::error::out_of_memory;
     }
+    if (source.prefab) {
+      if (source.camera || source.mesh_renderer)
+        return engine::error::invalid_argument;
+      auto* prefab = yyjson_mut_obj_get(object, "prefab");
+      if (!prefab)
+        prefab = yyjson_mut_obj(mutable_document.get());
+      if (!yyjson_mut_is_obj(prefab) ||
+          !put_value(mutable_document.get(), prefab, "uri",
+                     yyjson_mut_strncpy(mutable_document.get(), source.prefab->uri.data(),
+                                        source.prefab->uri.size())) ||
+          !put_value(mutable_document.get(), prefab, "overrides",
+                     make_prefab_overrides(mutable_document.get(), source.prefab->overrides)) ||
+          !put_value(mutable_document.get(), object, "prefab", prefab))
+        return engine::error::out_of_memory;
+      (void)yyjson_mut_obj_remove_key(object, "components");
+      continue;
+    }
+    (void)yyjson_mut_obj_remove_key(object, "prefab");
+    auto* components = yyjson_mut_obj_get(object, "components");
+    if (!components) {
+      components = yyjson_mut_obj(mutable_document.get());
+      if (!put_value(mutable_document.get(), object, "components", components))
+        return engine::error::out_of_memory;
+    }
     if (source.camera) {
       yyjson_mut_val* camera =
           yyjson_mut_obj_get(yyjson_mut_obj_get(object, "components"), "camera");
+      if (!camera) {
+        camera = yyjson_mut_obj(mutable_document.get());
+        if (!put_value(mutable_document.get(), components, "camera", camera))
+          return engine::error::out_of_memory;
+      }
       if (!put_value(mutable_document.get(), camera, "vertical_field_of_view_radians",
                      yyjson_mut_real(mutable_document.get(),
                                      source.camera->vertical_field_of_view_radians)) ||
@@ -1058,47 +992,6 @@ result<std::string> serialize_scene_description(const scene_description& scene) 
     } else {
       yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
       (void)yyjson_mut_obj_remove_key(components, "mesh_renderer");
-    }
-  }
-  auto* prefab_instances = align_members(
-      "prefab_instances", "instance_uuid", scene.prefab_instances,
-      [](const auto& value) { return std::string_view(value.instance_uuid); },
-      make_author_prefab_instance);
-  if (!prefab_instances)
-    return engine::error::out_of_memory;
-  for (std::size_t index = 0; index < scene.prefab_instances.size(); ++index) {
-    const auto& source = scene.prefab_instances[index];
-    yyjson_mut_val* instance = yyjson_mut_arr_get(prefab_instances, index);
-    yyjson_mut_val* transform = yyjson_mut_obj_get(instance, "transform");
-    if (!put_value(mutable_document.get(), instance, "instance_uuid",
-                   yyjson_mut_strncpy(mutable_document.get(), source.instance_uuid.data(),
-                                      source.instance_uuid.size())) ||
-        !put_value(mutable_document.get(), instance, "prefab",
-                   yyjson_mut_strncpy(mutable_document.get(), source.prefab_uri.data(),
-                                      source.prefab_uri.size())) ||
-        !put_value(mutable_document.get(), instance, "parent",
-                   source.parent_uuid
-                       ? yyjson_mut_strncpy(mutable_document.get(), source.parent_uuid->data(),
-                                            source.parent_uuid->size())
-                       : yyjson_mut_null(mutable_document.get())) ||
-        !put_value(mutable_document.get(), transform, "translation",
-                   make_float_array(mutable_document.get(), source.translation)) ||
-        !put_value(mutable_document.get(), transform, "rotation",
-                   make_float_array(mutable_document.get(), source.rotation)) ||
-        !put_value(mutable_document.get(), transform, "scale",
-                   make_float_array(mutable_document.get(), source.scale))) {
-      return engine::error::out_of_memory;
-    }
-    if (source.name.empty()) {
-      (void)yyjson_mut_obj_remove_key(instance, "name");
-    } else if (!put_value(mutable_document.get(), instance, "name",
-                          yyjson_mut_strncpy(mutable_document.get(), source.name.data(),
-                                             source.name.size()))) {
-      return engine::error::out_of_memory;
-    }
-    if (!put_value(mutable_document.get(), instance, "overrides",
-                   make_prefab_overrides(mutable_document.get(), source.overrides))) {
-      return engine::error::out_of_memory;
     }
   }
   std::size_t output_length = 0;

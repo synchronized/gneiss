@@ -64,9 +64,9 @@ constexpr std::string_view scene_prefix = R"({"format":"gneiss.scene","version":
 "scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[)";
 
 std::string instance(std::string_view id) {
-  return R"({"instance_uuid":"00000000-0000-4000-8000-00000000000)" + std::string(id) +
-         R"(","prefab":"asset://p.prefab","parent":null,
-"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"overrides":[]})";
+  return R"({"uuid":"00000000-0000-4000-8000-00000000000)" + std::string(id) +
+         R"(","prefab":{"uri":"asset://p.prefab","overrides":[]},"parent":null,
+"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}})";
 }
 
 unsigned scene_decodes{}, prefab_decodes{};
@@ -82,9 +82,8 @@ custom_prefab(std::span<const std::byte> bytes) {
 }
 void run() {
   auto memory = std::make_shared<memory_files>();
-  memory->files["main.scene"] = std::string(scene_prefix) + std::string(object) +
-                                R"(],"prefab_instances":[)" + instance("3") + "," + instance("4") +
-                                "]}";
+  memory->files["main.scene"] = std::string(scene_prefix) + std::string(object) + "," +
+                                instance("3") + "," + instance("4") + "]}";
   memory->files["p.prefab"] =
       R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"00000000-0000-4000-8000-000000000005","objects":[)" +
       std::string(object) + "]}";
@@ -109,7 +108,8 @@ void run() {
   };
   check(prepare() == gneiss::engine::error::success);
   check(output.prefabs.size() == 1U && output.assets.size() == 2U && output.instance_nodes == 3U);
-  check(memory->reads["p.prefab"] == 1U && output.parent_first == std::vector<std::size_t>{0U});
+  check(memory->reads["p.prefab"] == 1U &&
+        output.parent_first == std::vector<std::size_t>({0U, 1U, 2U}));
   const auto bytes = output.description.author_json.size() +
                      output.prefabs.begin()->second.resource->author_json.size();
   check(output.source_bytes == bytes);
@@ -165,14 +165,13 @@ void run() {
   child.replace(child.find("000000000002"), 12U, "000000000003");
   child.replace(child.find("null"), 4U, "\"00000000-0000-4000-8000-000000000002\"");
   memory->files["main.scene"] =
-      std::string(scene_prefix) + child + "," + std::string(object) + R"(],"prefab_instances":[]})";
+      std::string(scene_prefix) + child + "," + std::string(object) + R"(]})";
   check(prepare() == gneiss::engine::error::success &&
         output.parent_first == std::vector<std::size_t>({1U, 0U}));
   check(prepare({.hierarchy_depth = 1U}) == gneiss::engine::error::invalid_argument);
   auto parent = std::string(object);
   parent.replace(parent.find("null"), 4U, "\"00000000-0000-4000-8000-000000000003\"");
-  memory->files["main.scene"] =
-      std::string(scene_prefix) + child + "," + parent + R"(],"prefab_instances":[]})";
+  memory->files["main.scene"] = std::string(scene_prefix) + child + "," + parent + R"(]})";
   check(prepare() == gneiss::engine::error::invalid_argument && output.parent_first.empty());
 }
 } // namespace

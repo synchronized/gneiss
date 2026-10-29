@@ -134,19 +134,15 @@ prefab_runtime_instance::validate_reload(const prefab_asset_ref& candidate,
 
   const auto camera_type = engine::camera_component_type;
   for (const auto& override_value : overrides) {
-    if (override_value.key.node.instance_uuid != instance_uuid_) {
-      return engine::error::invalid_argument;
-    }
     result = validate_prefab_property_override(registry, override_value);
-    const auto source =
-        std::ranges::find(candidate.get()->objects, override_value.key.node.source_node_uuid,
-                          &object_description::uuid);
+    const auto source = std::ranges::find(
+        candidate.get()->objects, override_value.key.source_node_uuid, &object_description::uuid);
     if (result != engine::error::success || source == candidate.get()->objects.end()) {
       return result == engine::error::success ? engine::error::not_found : result;
     }
-    if (!source->parent_uuid && override_value.key.type_id == transform_component_type)
+    if (!source->parent_uuid && override_value.key.type_guid == transform_component_type)
       return error::invalid_argument;
-    if (override_value.key.type_id == camera_type && !source->camera) {
+    if (override_value.key.type_guid == camera_type && !source->camera) {
       return engine::error::invalid_state;
     }
   }
@@ -507,10 +503,11 @@ engine::error apply_candidate_object(const meta::registry_ref& state,
                                      const prefab_property_override& value,
                                      const engine::value& native, object_description& object) {
   auto result = engine::error::success;
-  const auto is_type = [&](guid type) { return value.key.type_id == type; };
+  const auto is_type = [&](guid type) { return value.key.type_guid == type; };
   if (is_type(transform_component_type)) {
     auto transform = to_transform(object);
-    result = meta::write_property(state, value.key.type_id, value.key.field_id, &transform, native);
+    result =
+        meta::write_property(state, value.key.type_guid, value.key.property_id, &transform, native);
     if (result != engine::error::success) {
       return result;
     }
@@ -529,8 +526,8 @@ engine::error apply_candidate_object(const meta::registry_ref& state,
         .near = camera.near_plane,
         .far = camera.far_plane,
     };
-    result =
-        meta::write_property(state, value.key.type_id, value.key.field_id, &properties, native);
+    result = meta::write_property(state, value.key.type_guid, value.key.property_id, &properties,
+                                  native);
     if (result != engine::error::success) {
       return result;
     }
@@ -547,27 +544,23 @@ engine::error apply_candidate_object(const meta::registry_ref& state,
 
 engine::error prefab_runtime_instance::prepare_description(
     const prefab_description& source, const meta::registry_ref& registry,
-    std::string_view instance_uuid, std::span<const prefab_property_override> overrides,
-    prefab_description& output) noexcept try {
+    std::span<const prefab_property_override> overrides, prefab_description& output) noexcept try {
   auto candidate = source;
   const auto state = registry;
   if (!state) {
     return engine::error::invalid_handle;
   }
   for (const auto& value : overrides) {
-    if (value.key.node.instance_uuid != instance_uuid) {
-      return engine::error::invalid_argument;
-    }
     const auto validation = validate_prefab_property_override(registry, value);
     if (validation != engine::error::success) {
       return validation;
     }
-    auto found = std::ranges::find(candidate.objects, value.key.node.source_node_uuid,
-                                   &object_description::uuid);
+    auto found =
+        std::ranges::find(candidate.objects, value.key.source_node_uuid, &object_description::uuid);
     if (found == candidate.objects.end()) {
       return engine::error::not_found;
     }
-    if (!found->parent_uuid && value.key.type_id == transform_component_type)
+    if (!found->parent_uuid && value.key.type_guid == transform_component_type)
       return error::invalid_argument;
     const auto result = apply_candidate_object(state, value, value.value, *found);
     if (result != engine::error::success) {
@@ -591,24 +584,21 @@ engine::error prefab_runtime_instance::apply_overrides(
     const meta::registry_ref& registry,
     std::span<const prefab_property_override> overrides) noexcept try {
   for (const auto& override_value : overrides) {
-    if (override_value.key.node.instance_uuid != instance_uuid_) {
-      return engine::error::invalid_argument;
-    }
     const auto validation = validate_prefab_property_override(registry, override_value);
     if (validation != engine::error::success) {
       return validation;
     }
     const auto found = std::ranges::find(
-        nodes_, override_value.key.node.source_node_uuid,
+        nodes_, override_value.key.source_node_uuid,
         [](const runtime_node& node) { return std::string_view(node.address.source_node_uuid); });
     if (found == nodes_.end()) {
       return engine::error::not_found;
     }
-    if (found->node == root_node_ && override_value.key.type_id == transform_component_type)
+    if (found->node == root_node_ && override_value.key.type_guid == transform_component_type)
       return error::invalid_argument;
     const auto result = engine::write_component_property(
         registry, native_world_, scene_object_entity(native_world_, found->node),
-        override_value.key.type_id, override_value.key.field_id, override_value.value);
+        override_value.key.type_guid, override_value.key.property_id, override_value.value);
     if (result != engine::error::success) {
       return result;
     }

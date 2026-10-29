@@ -45,7 +45,7 @@ public:
                                        asset_bindings& assets) const noexcept;
   /** 同步实例化；替换先移除旧实例，失败只清理本次新建节点，不恢复旧实例。 */
   [[nodiscard]] error instantiate_prefab_ready(scene_instance_id instance,
-                                               const prefab_instance_description& author,
+                                               const object_description& author,
                                                prefab_asset_ref prefab,
                                                std::span<const scene_mesh_binding> bindings,
                                                bool replacing, scene_node_id& output) noexcept;
@@ -94,7 +94,7 @@ public:
                 node_query_detail detail = node_query_detail::components) const noexcept;
   /** 捕获实际实例版本与作者覆盖，不读文件；所有输出仅在成功时替换。 */
   [[nodiscard]] error capture_prefab_header(scene_instance_id instance, std::string_view uuid,
-                                            prefab_instance_description& author,
+                                            object_description& author,
                                             prefab_asset_ref& source) const noexcept;
   /** 按来源索引捕获实际资源租约，允许调用方分帧构建历史快照。 */
   [[nodiscard]] error capture_prefab_binding(scene_instance_id instance, std::string_view uuid,

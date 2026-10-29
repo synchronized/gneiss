@@ -204,7 +204,7 @@ void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t pr
       stream << "}}" << (++emitted == total_count ? "\n" : ",\n");
     }
   }
-  stream << "  ],\n  \"prefab_instances\": []\n}\n";
+  stream << "  ]\n}\n";
   return stream.good();
 }
 
