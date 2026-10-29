@@ -35,7 +35,8 @@ void fail(gneiss::engine::scene_diagnostic& diagnostic, gneiss::engine::error re
 }
 
 [[nodiscard]] gneiss::engine::result<std::string>
-convert_author_envelope(std::string_view json, std::string_view identifier, bool to_scene) {
+convert_author_envelope(std::string_view json, std::string_view identifier,
+                        gneiss::engine::guid root_uuid, bool to_scene) {
   using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
   document_ptr document(yyjson_read(json.data(), json.size(), YYJSON_READ_NOFLAG),
                         &yyjson_doc_free);
@@ -51,6 +52,13 @@ convert_author_envelope(std::string_view json, std::string_view identifier, bool
   }
   (void)yyjson_mut_obj_remove_key(root, "format");
   (void)yyjson_mut_obj_remove_key(root, to_scene ? "prefab_uuid" : "scene_uuid");
+  (void)yyjson_mut_obj_remove_key(root, "root_uuid");
+  if (!to_scene) {
+    const auto text = root_uuid.string();
+    if (!yyjson_mut_obj_add_strncpy(mutable_document.get(), root, "root_uuid", text.data(),
+                                    text.size()))
+      return gneiss::engine::error::out_of_memory;
+  }
   const auto* format = to_scene ? "gneiss.scene" : "gneiss.prefab";
   const auto* identifier_key = to_scene ? "scene_uuid" : "prefab_uuid";
   if (!yyjson_mut_obj_add_str(mutable_document.get(), root, "format", format) ||
@@ -112,6 +120,16 @@ parse_prefab_description(std::string_view json) noexcept try {
          "prefab_uuid 必须是规范的小写 UUID");
     return out_diagnostic;
   }
+  auto* root_id = yyjson_obj_get(root, "root_uuid");
+  const auto root_uuid = yyjson_is_str(root_id)
+                             ? guid::parse({yyjson_get_str(root_id), yyjson_get_len(root_id)})
+                             : std::nullopt;
+  if (!root_uuid || !*root_uuid ||
+      !is_canonical_prefab_uuid({yyjson_get_str(root_id), yyjson_get_len(root_id)})) {
+    fail(out_diagnostic, engine::error::invalid_argument, "/root_uuid",
+         "root_uuid 必须是非零的规范小写 UUID");
+    return out_diagnostic;
+  }
   if (!yyjson_is_arr(objects)) {
     fail(out_diagnostic, engine::error::invalid_argument, "/objects", "objects 必须是数组");
     return out_diagnostic;
@@ -150,6 +168,14 @@ parse_prefab_description(std::string_view json) noexcept try {
     return out_diagnostic;
   }
 
+  const auto root_object = std::ranges::find(scene.objects, *root_uuid, &object_description::uuid);
+  if (root_object == scene.objects.end() || root_object->parent_uuid) {
+    fail(out_diagnostic, engine::error::invalid_argument, "/root_uuid",
+         "root_uuid 必须指向唯一无父对象");
+    return out_diagnostic;
+  }
+  // Scene 校验已拒绝重复 UUID、缺失父节点和环；唯一根保证所有对象可达。
+  out_prefab.root_uuid = *root_uuid;
   out_prefab.source_schema_version = 1U;
   out_prefab.uuid = scene.uuid;
   out_prefab.objects = std::move(scene.objects);
@@ -184,14 +210,21 @@ result<std::string> serialize_prefab_description(const prefab_description& prefa
   scene.source_schema_version = 5U;
   scene.uuid = prefab.uuid;
   scene.objects = prefab.objects;
-  auto envelope = convert_author_envelope(prefab.author_json, prefab.uuid.string(), true);
+  auto envelope =
+      convert_author_envelope(prefab.author_json, prefab.uuid.string(), prefab.root_uuid, true);
   if (!envelope)
     return envelope.error();
   scene.author_json = std::move(*envelope);
   auto scene_json = serialize_scene_description(scene);
   if (!scene_json)
     return scene_json.error();
-  return convert_author_envelope(*scene_json, prefab.uuid.string(), false);
+  auto output = convert_author_envelope(*scene_json, prefab.uuid.string(), prefab.root_uuid, false);
+  if (!output)
+    return output.error();
+  auto checked = parse_prefab_description(*output);
+  if (!checked)
+    return checked.error().error;
+  return output;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {

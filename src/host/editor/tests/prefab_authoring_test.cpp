@@ -45,7 +45,7 @@ constexpr std::string_view scene_json =
 
 constexpr std::string_view apply_prefab_json = R"({
   "format":"gneiss.prefab","version":1,
-  "prefab_uuid":"20000000-0000-4000-8000-000000000001",
+  "prefab_uuid":"20000000-0000-4000-8000-000000000001","root_uuid":"10000000-0000-4000-8000-000000000001",
   "objects":[
     {"uuid":"10000000-0000-4000-8000-000000000001","name":"Lamp","parent":null,
      "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},

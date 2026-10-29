@@ -200,6 +200,7 @@ collect_subtree(yyjson_val* objects, gneiss::engine::guid root_uuid,
       !yyjson_mut_obj_put(prefab_envelope, yyjson_mut_strcpy(document.get(), "version"),
                           yyjson_mut_uint(document.get(), 1U)) ||
       !put_uuid(document.get(), prefab_envelope, "prefab_uuid", request.prefab_uuid) ||
+      !put_uuid(document.get(), prefab_envelope, "root_uuid", request.root_uuid) ||
       !yyjson_mut_obj_add_val(document.get(), prefab_envelope, "objects", prefab_objects)) {
     return gneiss::engine::error::out_of_memory;
   }
@@ -410,7 +411,9 @@ make_unpacked_scene(yyjson_doc* scene_source, const unpack_prefab_author_request
   auto* projected_root = projected_prefab ? yyjson_doc_get_root(projected_prefab.get()) : nullptr;
   auto* source_objects =
       yyjson_is_obj(projected_root) ? yyjson_obj_get(projected_root, "objects") : nullptr;
-  if (!yyjson_is_arr(source_objects)) {
+  const auto root_uuid = uuid_member(projected_root, "root_uuid");
+  if (!yyjson_is_arr(source_objects) || !root_uuid ||
+      !contains_uuid(source_objects, "uuid", *root_uuid)) {
     return gneiss::engine::error::invalid_argument;
   }
 
@@ -433,13 +436,17 @@ make_unpacked_scene(yyjson_doc* scene_source, const unpack_prefab_author_request
       return gneiss::engine::error::invalid_argument;
     }
     auto* source_parent = yyjson_obj_get(source_object, "parent");
-    if (yyjson_is_str(source_parent)) {
+    if (*source_uuid != *root_uuid) {
+      if (!yyjson_is_str(source_parent))
+        return gneiss::engine::error::invalid_argument;
       const auto parent_uuid =
           mapped_uuid(request.node_mappings,
                       uuid_member(source_object, "parent").value_or(gneiss::engine::guid{}));
       if (!parent_uuid || !put_uuid(document.get(), object, "parent", *parent_uuid))
         return gneiss::engine::error::invalid_argument;
     } else {
+      if (!yyjson_is_null(source_parent))
+        return gneiss::engine::error::invalid_argument;
       // 普通自有子对象继续跟随解包后的根身份。
       for (std::size_t child_index = 0; child_index < yyjson_mut_arr_size(objects); ++child_index) {
         auto* child = yyjson_mut_arr_get(objects, child_index);

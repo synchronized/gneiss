@@ -98,6 +98,7 @@ int main() try {
   prefab_text.replace(prefab_text.find("gneiss.scene"), 12, "gneiss.prefab");
   prefab_text.replace(prefab_text.find("scene_uuid"), 10, "prefab_uuid");
   prefab_text.replace(prefab_text.find("\"version\":5"), 11, "\"version\":1");
+  prefab_text.insert(1, R"("root_uuid":"00000000-0000-4000-8000-000000000002",)");
   auto prefab = e::decode_prefab(bytes(prefab_text));
   if (!prefab || prefab->objects.front().components.size() != 2)
     return 13;

@@ -124,7 +124,7 @@ create_prefab_binding(world& native_world, resource_service& loader, prefab_asse
 constexpr std::string_view prefab_json = R"({
   "format":"gneiss.prefab",
   "version":1,
-  "prefab_uuid":"10000000-0000-4000-8000-000000000001",
+  "prefab_uuid":"10000000-0000-4000-8000-000000000001","root_uuid":"10000000-0000-4000-8000-000000000002",
   "objects":[
     {
       "uuid":"10000000-0000-4000-8000-000000000002",
@@ -144,7 +144,7 @@ constexpr std::string_view prefab_json = R"({
 constexpr std::string_view broken_prefab_json = R"({
   "format":"gneiss.prefab",
   "version":1,
-  "prefab_uuid":"10000000-0000-4000-8000-000000000011",
+  "prefab_uuid":"10000000-0000-4000-8000-000000000011","root_uuid":"10000000-0000-4000-8000-000000000012",
   "objects":[{
     "uuid":"10000000-0000-4000-8000-000000000012",
     "parent":null,
@@ -185,6 +185,39 @@ public:
     }
   }
 };
+
+bool check_explicit_root(gneiss::engine::world& world, gneiss::engine::resource_service& loader,
+                         const gneiss::engine::meta::registry_ref& registry,
+                         const gneiss::engine::prefab_description& original) {
+  namespace e = gneiss::engine;
+  auto data = original;
+  for (auto& object : data.objects)
+    object.components = {};
+  std::reverse(data.objects.begin(), data.objects.end());
+  e::prefab_asset_ref source{std::make_shared<const e::prefab_description>(data)};
+  std::unique_ptr<e::prefab_binding> instance;
+  if (create_prefab_binding(world, loader, source, registry,
+                            *e::guid::parse("20000000-0000-4000-8000-000000000099"), {}, {}, {},
+                            instance)
+          .failed())
+    return false;
+  e::scene_subtree_guard cleanup(world, instance->root());
+  const auto root = instance->root();
+  if (instance->find_node(data.root_uuid) != root)
+    return false;
+  std::reverse(data.objects.begin(), data.objects.end());
+  e::prefab_asset_ref reordered{std::make_shared<const e::prefab_description>(data)};
+  if (instance->reload(reordered, registry, {}).failed() || instance->root() != root ||
+      instance->find_node(data.root_uuid) != root)
+    return false;
+  const auto child = data.objects.back().uuid;
+  data.objects.front().parent_uuid = child;
+  data.objects.back().parent_uuid.reset();
+  data.root_uuid = child;
+  e::prefab_asset_ref changed{std::make_shared<const e::prefab_description>(data)};
+  return instance->validate_reload(changed, registry, {}) == e::error::unsupported &&
+         instance->root() == root && instance->find_node(original.root_uuid) == root;
+}
 
 bool check_failed_camera_prefab(
     gneiss::engine::world& native_world, const gneiss::engine::meta::registry_ref& registry,
@@ -320,6 +353,9 @@ int main() try {
                                        second_lease) != gneiss::engine::error::success) {
     return 4;
   }
+
+  if (!check_explicit_root(native_world, render_loader, registry, *first_lease))
+    return 96;
 
   gneiss::engine::math::transform first_transform = {};
   first_transform.translation[0] = 10.0F;

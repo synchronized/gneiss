@@ -39,7 +39,7 @@ struct fixture {
         << R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[]})";
     std::ofstream prefab(root / "prefab.json");
     prefab
-        << R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"30000000-0000-4000-8000-000000000001","objects":[)";
+        << R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"30000000-0000-4000-8000-000000000001","root_uuid":"30000000-0000-4000-8000-000000000151","objects":[)";
     for (unsigned i = 0; i < 150U; ++i) {
       char uuid[37]{};
       std::snprintf(uuid, sizeof(uuid), "30000000-0000-4000-8000-%012u", i + 2U);

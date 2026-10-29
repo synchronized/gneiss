@@ -50,12 +50,12 @@ prefab_binding::validate_reload(const prefab_asset_ref& candidate,
       candidate.get()->objects.empty()) {
     return engine::error::invalid_argument;
   }
-  const auto root = std::ranges::find_if(candidate->objects,
-                                         [](const auto& value) { return !value.parent_uuid; });
-  if (root == candidate->objects.end() ||
+  const auto root =
+      std::ranges::find(candidate->objects, candidate->root_uuid, &object_description::uuid);
+  if (!candidate->root_uuid || root == candidate->objects.end() || root->parent_uuid ||
       std::ranges::count_if(candidate->objects,
                             [](const auto& value) { return !value.parent_uuid; }) != 1 ||
-      find_node(root->uuid) != root_node_)
+      candidate->root_uuid != prefab_->root_uuid || find_node(candidate->root_uuid) != root_node_)
     return error::unsupported;
   structural_diff diff;
   auto result = build_structural_diff(prefab_.get()->objects, candidate.get()->objects, diff);
@@ -121,7 +121,8 @@ prefab_binding::validate_reload(const prefab_asset_ref& candidate,
     if (result != engine::error::success || source == candidate.get()->objects.end()) {
       return result == engine::error::success ? engine::error::not_found : result;
     }
-    if (!source->parent_uuid && override_value.key.type_guid == transform_component_type)
+    if (source->uuid == candidate->root_uuid &&
+        override_value.key.type_guid == transform_component_type)
       return error::invalid_argument;
     if (override_value.key.type_guid == camera_type &&
         !source->components.template get<camera_description>()) {
@@ -475,7 +476,7 @@ engine::error prepare_prefab_description(const prefab_description& source,
     if (found == candidate.objects.end()) {
       return engine::error::not_found;
     }
-    if (!found->parent_uuid && value.key.type_guid == transform_component_type)
+    if (found->uuid == candidate.root_uuid && value.key.type_guid == transform_component_type)
       return error::invalid_argument;
     const auto result = apply_candidate_object(state, value, value.value, *found);
     if (result != engine::error::success) {
@@ -529,11 +530,14 @@ engine::error prefab_binding::create_root(scene_node_id parent, const math::tran
   if (!prefab_ || root_node_ || !nodes_.empty())
     return error::invalid_state;
   const auto& objects = prefab_->objects;
-  const auto root =
-      std::ranges::find_if(objects, [](const auto& value) { return !value.parent_uuid; });
-  if (root == objects.end() ||
+  const auto root = std::ranges::find(objects, prefab_->root_uuid, &object_description::uuid);
+  if (!prefab_->root_uuid || root == objects.end() || root->parent_uuid ||
       std::ranges::count_if(objects, [](const auto& value) { return !value.parent_uuid; }) != 1)
     return error::invalid_argument;
+  structural_diff validated;
+  const auto status = build_structural_diff({}, objects, validated);
+  if (status.failed())
+    return status;
   nodes_.resize(objects.size());
   auto& member = nodes_[static_cast<std::size_t>(root - objects.begin())];
   member.address = {instance_uuid_, root->uuid};
@@ -560,7 +564,7 @@ engine::error prefab_binding::create_node(std::size_t index, const object_descri
       return error::invalid_argument;
   }
   target.creation_attempted = true;
-  if (!source.parent_uuid) {
+  if (source.uuid == prefab_->root_uuid) {
     if (target.node != root_node_)
       return error::invalid_state;
     return configure_scene_object(native_world_, root_node_, source, {mesh, material});

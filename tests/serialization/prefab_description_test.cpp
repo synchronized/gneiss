@@ -27,7 +27,7 @@ namespace {
 constexpr std::string_view valid_prefab = R"({
   "format":"gneiss.prefab",
   "version":1,
-  "prefab_uuid":"10000000-0000-4000-8000-000000000001",
+  "prefab_uuid":"10000000-0000-4000-8000-000000000001","root_uuid":"10000000-0000-4000-8000-000000000002",
   "objects":[
     {
       "uuid":"10000000-0000-4000-8000-000000000002",
@@ -176,6 +176,56 @@ bool prepared_description_contract() {
   return cache.size() == 0U && first.get()->objects[0].transform.translation[0] == 1.0F;
 }
 
+bool explicit_root_contract() {
+  namespace e = gneiss::engine;
+  auto parsed = e::parse_prefab_description(valid_prefab);
+  if (!parsed || parsed->root_uuid != parsed->objects.front().uuid)
+    return false;
+  const auto root = parsed->root_uuid;
+  const auto child = parsed->objects.back().uuid;
+  std::swap(parsed->objects[0], parsed->objects[1]);
+  auto text = e::serialize_prefab_description(*parsed);
+  if (!text)
+    return false;
+  auto restored = e::parse_prefab_description(*text);
+  if (!restored || restored->root_uuid != root || restored->objects[0].uuid != child)
+    return false;
+  // 根选择写回文件，不能保留 author_json 中的旧 root_uuid。
+  parsed->root_uuid = child;
+  parsed->objects[0].parent_uuid.reset();
+  parsed->objects[1].parent_uuid = child;
+  text = e::serialize_prefab_description(*parsed);
+  if (!text)
+    return false;
+  restored = e::parse_prefab_description(*text);
+  if (!restored || restored->root_uuid != child)
+    return false;
+  parsed->root_uuid = root; // 有父节点的对象不能被指定为根。
+  if (e::serialize_prefab_description(*parsed))
+    return false;
+  for (const auto invalid :
+       {"00000000-0000-0000-0000-000000000000", "10000000-0000-4000-8000-000000000099",
+        "10000000-0000-4000-8000-000000000003", "INVALID"}) {
+    auto broken = replace_once(std::string(valid_prefab),
+                               R"("root_uuid":"10000000-0000-4000-8000-000000000002")",
+                               std::string(R"("root_uuid":")") + invalid + "\"");
+    if (e::parse_prefab_description(broken))
+      return false;
+  }
+  auto missing = replace_once(std::string(valid_prefab),
+                              R"("root_uuid":"10000000-0000-4000-8000-000000000002",)", "");
+  if (e::parse_prefab_description(missing))
+    return false;
+  const auto cycle = replace_once(std::string(valid_prefab), R"("parent":null)",
+                                  R"("parent":"10000000-0000-4000-8000-000000000003")");
+  if (e::parse_prefab_description(cycle))
+    return false;
+  const auto duplicate =
+      replace_once(std::string(valid_prefab), R"("uuid":"10000000-0000-4000-8000-000000000003")",
+                   R"("uuid":"10000000-0000-4000-8000-000000000002")");
+  return !e::parse_prefab_description(duplicate);
+}
+
 int main() try {
   if (gneiss::engine::initialize_meta().failed())
     return 99;
@@ -232,6 +282,8 @@ int main() try {
       return 94;
   }
 
+  if (!explicit_root_contract())
+    return 95;
   if (!prepared_description_contract()) {
     return 9;
   }

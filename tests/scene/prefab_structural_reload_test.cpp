@@ -33,7 +33,7 @@ void write_prefab(const std::filesystem::path& path, gneiss::engine::guid root_u
                   bool add_child) {
   std::string json =
       std::string{
-          R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"30000000-0000-4000-8000-000000000001","objects":[{"uuid":"30000000-0000-4000-8000-000000000004","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"uuid":")"} +
+          R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"30000000-0000-4000-8000-000000000001","root_uuid":"30000000-0000-4000-8000-000000000004","objects":[{"uuid":"30000000-0000-4000-8000-000000000004","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"uuid":")"} +
       root_uuid.string() +
       R"(","name":"Reloaded Root","parent":"30000000-0000-4000-8000-000000000004","transform":{"translation":[2,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]})";
   if (add_child) {

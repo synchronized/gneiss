@@ -86,7 +86,7 @@ void run() {
   memory->files["main.scene"] = std::string(scene_prefix) + std::string(object) + "," +
                                 instance("3") + "," + instance("4") + "]}";
   memory->files["p.prefab"] =
-      R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"00000000-0000-4000-8000-000000000005","objects":[)" +
+      R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"00000000-0000-4000-8000-000000000005","root_uuid":"00000000-0000-4000-8000-000000000002","objects":[)" +
       std::string(object) + "]}";
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", memory) == gneiss::engine::error::success);

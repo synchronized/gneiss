@@ -24,7 +24,9 @@ struct prefab_description final {
                                 0x3a, 0x9e, 0x6b, 0x70, 0x12})};
   inline static constexpr std::size_t maximum_source_bytes = 16U * 1024U * 1024U;
   std::uint32_t source_schema_version = 0;
-  gneiss::engine::guid uuid;
+  guid uuid;
+  /** 对象树入口；必须指向唯一无父对象。 */
+  guid root_uuid;
   std::vector<object_description> objects;
   std::vector<std::string> dependencies;
   std::string author_json;

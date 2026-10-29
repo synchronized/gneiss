@@ -121,6 +121,13 @@ public:
         result = order_nodes(prefab.resource->objects, prefab.parent_first, limits.hierarchy_depth,
                              cancelled, &prefab.maximum_depth);
       }
+      if (result == engine::error::success &&
+          (!prefab.resource->root_uuid || prefab.parent_first.empty() ||
+           prefab.resource->objects[prefab.parent_first.front()].uuid !=
+               prefab.resource->root_uuid ||
+           std::ranges::count_if(prefab.resource->objects,
+                                 [](const auto& o) { return !o.parent_uuid; }) != 1))
+        return error::invalid_argument;
       if (result == engine::error::success) {
         result = collect(prefab.resource->objects);
       }
