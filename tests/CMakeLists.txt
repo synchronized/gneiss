@@ -1009,6 +1009,15 @@ gneiss_target_compile_warnings(gneiss_reflection_json_test)
 gneiss_target_output_directories(gneiss_reflection_json_test)
 add_test(NAME gneiss.reflection-json COMMAND gneiss_reflection_json_test)
 
+add_executable(gneiss_meta_instance_test meta/instance_test.cpp)
+target_include_directories(gneiss_meta_instance_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_meta_instance_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_meta_instance_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_meta_instance_test)
+gneiss_target_output_directories(gneiss_meta_instance_test)
+add_test(NAME gneiss.meta-instance COMMAND gneiss_meta_instance_test)
+
+
 
 # 仅编译接口，不链接后端，也不执行 GPU 测试。
 add_library(gneiss_render_service_header_check OBJECT render/render_service_header_check.cpp)

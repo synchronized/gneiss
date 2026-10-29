@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/serialization.hpp"
+#include "engine/core/meta/instance.hpp"
 #include <cmath>
 #include <cstdlib>
 #include <limits>
@@ -195,28 +196,36 @@ result<yyjson_mut_val*, serialization_diagnostic> encode_members(const registry_
                                                                  type_id id, const void* object,
                                                                  yyjson_mut_doc* doc,
                                                                  std::size_t depth) {
-  auto type = describe_type(registry, id);
-  if (!type)
-    return failure(type.error());
+  auto view = instance::from_object(registry, id, object);
+  if (!view)
+    return failure(view.error());
+  auto properties = view->properties();
+  if (!properties)
+    return failure(properties.error());
   auto* root = yyjson_mut_obj(doc);
   if (!root)
     return failure(error::out_of_memory);
-  for (const auto& property : type->properties) {
+  for (const auto& property : *properties) {
     if (has_flags(property.flags, property_flags::read_only))
       continue;
     const auto path = field_path(property.name);
     auto encoded = [&]() -> result<yyjson_mut_val*, serialization_diagnostic> {
       if (property.object_type) {
-        auto accessor = find_object_property(registry, type->guid, property.id);
-        if (!accessor)
-          return failure(accessor.error(), path);
-        auto nested = encode_nested(registry, property.object_type, accessor->object_getter(object),
-                                    doc, depth + 1);
+        auto child = view->property(property.id);
+        if (!child)
+          return failure(child.error(), path);
+        auto address = child->object_data();
+        if (!address)
+          return failure(address.error(), path);
+        auto nested = encode_nested(registry, child->type_id(), *address, doc, depth + 1);
         if (!nested)
           return prefix(std::move(nested).error(), path);
         return *nested;
       }
-      auto data = read_property(registry, type->guid, property.id, object);
+      auto child = view->property(property.id);
+      if (!child)
+        return failure(child.error(), path);
+      auto data = child->read_value();
       if (!data)
         return failure(data.error(), path);
       return write_value(doc, *data, path);
@@ -261,19 +270,22 @@ serialization_diagnostic validate_defaults(const registry_ref& registry, type_id
   }
   if (!binding->reflected_json)
     return {};
-  auto type = describe_type(registry, id);
-  if (!type)
-    return failure(type.error());
-  for (const auto& property : type->properties) {
+  auto view = instance::from_object(registry, id, object);
+  if (!view)
+    return failure(view.error());
+  auto properties = view->properties();
+  if (!properties)
+    return failure(properties.error());
+  for (const auto& property : *properties) {
     if (!property.object_type || has_flags(property.flags, property_flags::read_only))
       continue;
-    auto accessor = find_object_property(registry, type->guid, property.id);
-    if (!accessor)
-      return failure(accessor.error(), field_path(property.name));
-    const auto* nested = accessor->object_getter(object);
-    if (!nested)
-      return failure(error::internal, field_path(property.name));
-    auto status = validate_defaults(registry, property.object_type, nested, depth + 1);
+    auto child = view->property(property.id);
+    if (!child)
+      return failure(child.error(), field_path(property.name));
+    auto address = child->object_data();
+    if (!address)
+      return failure(address.error(), field_path(property.name));
+    auto status = validate_defaults(registry, child->type_id(), *address, depth + 1);
     if (status.error.failed())
       return prefix(std::move(status), field_path(property.name));
   }
@@ -281,14 +293,13 @@ serialization_diagnostic validate_defaults(const registry_ref& registry, type_id
 }
 serialization_diagnostic decode_members(const registry_ref&, type_id, void*, yyjson_val*,
                                         std::size_t);
-serialization_diagnostic decode_nested(const registry_ref& registry,
-                                       const property_binding& accessor, void* parent,
+serialization_diagnostic decode_nested(const registry_ref& registry, const mutable_instance& target,
                                        yyjson_val* input, std::size_t depth) {
   if (depth > 64)
     return failure(error::invalid_argument, "", "嵌套对象超过深度限制");
   if (!yyjson_is_obj(input))
     return failure(error::invalid_argument, "", "嵌套值必须是 JSON 对象");
-  auto binding = find_serialization(registry, accessor.object_type);
+  auto binding = find_serialization(registry, target.as_const().type_id());
   if (!binding)
     return failure(binding.error());
   if (binding->decode) {
@@ -306,24 +317,28 @@ serialization_diagnostic decode_nested(const registry_ref& registry,
       if (status.error.failed())
         return status;
     }
-    accessor.object_assign(parent, value->get());
-    return {};
+    const auto assigned = target.assign_object(target.as_const().type_id(), value->get());
+    return assigned.failed() ? failure(assigned) : serialization_diagnostic{};
   }
   if (!binding->reflected_json)
     return failure(error::unsupported);
-  auto* object = accessor.object_mutator(parent);
-  if (!object)
-    return failure(error::internal);
-  auto status = decode_members(registry, accessor.object_type, object, input, depth);
+  auto address = target.object_data();
+  if (!address)
+    return failure(address.error());
+  auto* object = *address;
+  auto status = decode_members(registry, target.as_const().type_id(), object, input, depth);
   if (status.error.failed())
     return status;
   return binding->validate ? binding->validate(object) : serialization_diagnostic{};
 }
 serialization_diagnostic decode_members(const registry_ref& registry, type_id id, void* object,
                                         yyjson_val* root, std::size_t depth) {
-  auto type = describe_type(registry, id);
-  if (!type)
-    return failure(type.error());
+  auto view = mutable_instance::from_object(registry, id, object);
+  if (!view)
+    return failure(view.error());
+  auto properties = view->as_const().properties();
+  if (!properties)
+    return failure(properties.error());
   if (!yyjson_is_obj(root))
     return failure(error::invalid_argument, "", "根值必须是 JSON 对象");
   std::unordered_set<std::string_view> names;
@@ -333,7 +348,7 @@ serialization_diagnostic decode_members(const registry_ref& registry, type_id id
     if (!names.insert(name).second)
       return failure(error::invalid_argument, field_path(name), "重复属性名");
   }
-  for (const auto& property : type->properties) {
+  for (const auto& property : *properties) {
     if (has_flags(property.flags, property_flags::read_only))
       continue;
     auto* input = yyjson_obj_getn(root, property.name.data(), property.name.size());
@@ -342,30 +357,33 @@ serialization_diagnostic decode_members(const registry_ref& registry, type_id id
       if (has_flags(property.flags, property_flags::required))
         return failure(error::invalid_argument, path, "缺少必填属性");
       if (property.object_type) {
-        auto accessor = find_object_property(registry, type->guid, property.id);
-        if (!accessor)
-          return failure(accessor.error(), path);
-        const auto* nested = accessor->object_getter(object);
-        if (!nested)
-          return failure(error::internal, path);
-        auto status = validate_defaults(registry, property.object_type, nested, depth + 1);
+        auto child = view->as_const().property(property.id);
+        if (!child)
+          return failure(child.error(), path);
+        auto address = child->object_data();
+        if (!address)
+          return failure(address.error(), path);
+        auto status = validate_defaults(registry, child->type_id(), *address, depth + 1);
         if (status.error.failed())
           return prefix(std::move(status), path);
       }
       continue;
     }
     if (property.object_type) {
-      auto accessor = find_object_property(registry, type->guid, property.id);
-      if (!accessor)
-        return failure(accessor.error(), path);
-      auto status = decode_nested(registry, *accessor, object, input, depth + 1);
+      auto child = view->property(property.id);
+      if (!child)
+        return failure(child.error(), path);
+      auto status = decode_nested(registry, *child, input, depth + 1);
       if (status.error.failed())
         return prefix(std::move(status), path);
     } else {
       auto decoded = read_value(input, property.kind, path);
       if (!decoded)
         return std::move(decoded).error();
-      const auto status = write_property(registry, type->guid, property.id, object, *decoded);
+      auto child = view->property(property.id);
+      if (!child)
+        return failure(child.error(), path);
+      const auto status = child->write_value(*decoded);
       if (status.failed())
         return failure(status, path);
     }

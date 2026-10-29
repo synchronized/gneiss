@@ -130,6 +130,8 @@ target_sources(
     engine/core/math/camera.cpp
     engine/core/math/camera.hpp
     engine/function/render/render_snapshot.hpp
+    engine/core/meta/instance.cpp
+    engine/core/meta/instance.hpp
     engine/core/meta/registry.cpp
     engine/core/meta/serialization.cpp
     engine/core/meta/serialization.hpp

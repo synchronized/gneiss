@@ -269,3 +269,42 @@ Camera 直接绑定 settings 和 is_primary，文件内容为：
 
 未发布的原扁平相机描述不再读取；仓库资产与生成脚本同步更新。
 World 运行期属性与 IPC 仍保留既有名称，这些协议不等于资产文件中的嵌套结构。
+
+## 实例视图
+
+`meta/instance.hpp` 提供只读 `instance` 和可写 `mutable_instance`，不新增对象所有者或注册表。
+根视图通过 `from(registry, object)` 创建，也可省略 registry 使用默认表；仅接受实际对象的左值，
+不接受临时对象。根类型必须已登记，注册表必须冻结。
+
+```cpp
+auto root = meta::instance::from(registry, camera);
+if (!root) return root.error();
+auto settings = root->property("settings");
+if (!settings) return settings.error();
+auto near = settings->property("near");
+if (!near) return near.error();
+auto snapshot = near->read_value(); // result<value>，拥有读取结果
+```
+
+`property(name)` 和 `property(property_id)` 返回同一种视图。对象支持 `properties()` 枚举，
+基础属性支持 `read_value()`；`kind()` 区分 invalid、scalar、object，`scalar_kind()` 区分基础值类别。
+`guid()` 返回稳定类型身份，`type_id()` 当前仅为对象视图提供非零运行期类型身份。
+未实现 optional、sequence、associative 的遍历接口，不返回这些类别。
+
+基础属性视图保存父对象和属性位置，读取时调用原 getter，返回自有 value。
+即使 getter 返回临时字符串，也不会借用该临时值；已经读取的快照不随父对象变化。
+再次 read_value 则读取父对象当前值。基础属性的 object_data 返回 unsupported。
+对象视图的 object_data 返回借用的对象地址，不复制嵌套对象。
+
+`mutable_instance::from` 只接受可写左值；`as_const()` 转为只读视图，不提供反向转换。
+可写 property 拒绝只读/无 setter 的属性，通过 write_value 执行原 setter 的校验与错误语义。
+只读属性仍可通过 as_const().property 读取。单字段编辑不自动执行整对象跨字段校验，业务方应在
+完成编辑后执行对应验证。嵌套自定义 codec 的整体赋值通过 assign_object 接入，先校验类型 ID，
+成功后移动源内容；该接口不提供失败回滚，不应用于承诺原子编辑的业务对象。
+
+视图持有 Registry 以维持元数据寿命，但不持有根对象。父对象销毁、移动或内部地址失效后，
+相关视图不可再使用。子视图不依赖根视图变量自身的寿命。共享视图不意味着目标对象线程安全，
+修改与读取仍需调用方同步。from_object 是内部类型擦除入口，调用方必须保证实际对象匹配类型 ID。
+
+现有反射 JSON 的属性枚举、基础值读写、嵌套遍历和子 codec 赋值均通过实例视图完成。
+底层 find_object_property 仍用于实现成员地址访问；序列化器不再直接操作这些回调。
