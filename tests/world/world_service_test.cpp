@@ -20,6 +20,59 @@ static_assert(!std::is_convertible_v<gneiss::scene_instance_id, gneiss::engine::
 static_assert(!std::is_convertible_v<gneiss::scene_node_id, gneiss::scene_instance_id>);
 
 namespace {
+bool scene_object_storage() {
+  using namespace gneiss;
+  using namespace gneiss::engine;
+  auto created = create_native();
+  auto other = create_native();
+  if (!created || !other)
+    return false;
+  auto& owner = **created;
+  auto root = owner.object_create({}, {"root", "父节点"}, {});
+  if (!root)
+    return false;
+  auto child = owner.object_create(*root, {"child", "子节点"}, {});
+  if (!child)
+    return false;
+  entity_id child_entity;
+  if (owner.node_get_entity(*child, child_entity).failed())
+    return false;
+  auto identity = owner.node_identity(*child);
+  if (!identity || identity->uuid != "child" || identity->name != "子节点")
+    return false;
+  if (owner.node_set_identity(*child, {"child", "新名称"}).failed())
+    return false;
+  auto renamed = owner.node_identity(*child);
+  if (!renamed || renamed->name != "新名称")
+    return false;
+  if (owner.node_mesh_renderer(*child).error() != error::not_found)
+    return false;
+  math::transform invalid;
+  invalid.scale.x = 0;
+  auto failed = owner.object_create(*root, {"failed", "失败"}, invalid);
+  auto count = owner.entity_count();
+  if (failed || !count || *count != 2)
+    return false;
+  if ((*other)->object_destroy(*root) != error::invalid_handle)
+    return false;
+  error foreign;
+  std::thread worker([&] { foreign = owner.object_destroy(*root); });
+  worker.join();
+  if (foreign != error::invalid_state)
+    return false;
+  if (owner.object_destroy(*root).failed())
+    return false;
+  count = owner.entity_count();
+  auto alive = owner.entity_is_alive(child_entity);
+  if (!count || *count != 0 || !alive || *alive)
+    return false;
+  if (owner.node_identity(*child).error() != error::invalid_handle ||
+      owner.object_destroy(*root) != error::invalid_handle)
+    return false;
+  auto replacement = owner.object_create({}, {"new", "新节点"}, {});
+  return replacement && *replacement != *root && *replacement != *child;
+}
+
 bool native_operations() {
   using namespace gneiss;
   gneiss::engine::world_owner owner;
@@ -77,6 +130,8 @@ bool native_operations() {
 }
 
 int main() {
+  if (!scene_object_storage())
+    return 21;
   if (!native_operations())
     return 20;
   namespace service = gneiss::engine;

@@ -10,6 +10,7 @@
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 
+#include "engine/function/scene/scene_object.hpp"
 #include "engine/function/world/world.hpp"
 
 #include <memory>
@@ -51,7 +52,9 @@ public:
          std::unique_ptr<prefab_runtime_instance>& out_instance) noexcept;
 
   [[nodiscard]] scene_node_id root() const noexcept { return root_node_; }
-  [[nodiscard]] std::uint64_t root_entity() const noexcept { return root_entity_; }
+  [[nodiscard]] std::uint64_t root_entity() const noexcept {
+    return scene_object_entity(native_world_, root_node_);
+  }
   [[nodiscard]] prefab_asset_ref prefab_lease() const noexcept { return prefab_; }
   [[nodiscard]] scene_node_id find_node(std::string_view source_node_uuid) const noexcept;
   [[nodiscard]] std::uint64_t find_entity(std::string_view source_node_uuid) const noexcept;
@@ -76,22 +79,13 @@ public:
 
 private:
   friend class scene_instance;
-  [[nodiscard]] error commit_node(std::size_t index, scene_node_id parent);
   struct runtime_node final {
     prefab_author_address address;
-    std::string name;
-    std::uint64_t entity = UINT64_C(0);
     scene_node_id node = null_scene_node_id;
-    scene_node_id parent = null_scene_node_id;
-    engine::mesh mesh;
-    engine::material material;
     bool creation_attempted{};
   };
 
   void rollback() noexcept;
-  [[nodiscard]] error stage_assets(const prefab_description& description);
-  [[nodiscard]] error commit(const prefab_description& description, scene_node_id parent,
-                             const math::transform& root_transform);
   [[nodiscard]] error apply_overrides(const meta::registry_ref& registry,
                                       std::span<const prefab_property_override> overrides) noexcept;
 
@@ -99,7 +93,6 @@ private:
   resource_service& loader_;
   prefab_asset_ref prefab_;
   std::string instance_uuid_;
-  std::uint64_t root_entity_ = UINT64_C(0);
   scene_node_id root_node_ = null_scene_node_id;
   std::vector<runtime_node> nodes_;
   std::optional<prefab_description> prepared_;

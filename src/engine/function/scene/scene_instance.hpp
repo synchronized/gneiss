@@ -19,12 +19,9 @@ public:
   scene_instance(const scene_instance&) = delete;
   scene_instance& operator=(const scene_instance&) = delete;
 
+  /** 只记录场景成员；身份在节点中，组件资源在 ECS 中。 */
   struct object final {
-    std::string uuid;
-    std::uint64_t entity = UINT64_C(0);
     scene_node_id node = null_scene_node_id;
-    engine::mesh mesh;
-    engine::material material;
   };
 
   void rollback() noexcept;

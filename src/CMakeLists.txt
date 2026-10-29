@@ -144,6 +144,7 @@ target_sources(
     engine/core/meta/serialization_types.hpp
     engine/core/meta/registry.hpp
     engine/function/scene/scene_tree.cpp
+    engine/function/scene/scene_object.hpp
     engine/function/scene/scene_tree.hpp
     engine/function/scene/scene_instantiation.cpp
     engine/function/scene/scene_load_preparation.cpp

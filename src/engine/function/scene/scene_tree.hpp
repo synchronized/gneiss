@@ -10,6 +10,8 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <vector>
 
 namespace gneiss::engine {
@@ -30,10 +32,14 @@ public:
                                            const math::transform& transform) noexcept;
   [[nodiscard]] std::uint64_t get_entity(scene_node_id node) const noexcept;
   [[nodiscard]] scene_node_id get_parent(scene_node_id node) const noexcept;
+  [[nodiscard]] error set_identity(scene_node_id node, scene_node_identity identity) noexcept;
+  [[nodiscard]] result<scene_node_identity_view> identity(scene_node_id node) const noexcept;
+  [[nodiscard]] const std::vector<scene_node_id>* children(scene_node_id node) const noexcept;
   void detach_entity(std::uint64_t entity) noexcept;
 
 private:
   struct node {
+    scene_node_identity identity;
     scene_node_id parent = null_scene_node_id;
     std::vector<scene_node_id> children;
     std::uint64_t entity = UINT64_C(0);

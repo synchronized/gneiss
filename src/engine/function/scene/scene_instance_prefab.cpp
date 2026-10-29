@@ -51,10 +51,12 @@ error scene_instance::capture_prefab_instance_binding(std::string_view uuid, std
     return error::not_found;
   }
   const auto& node = (*found)->nodes_[index];
-  output = {
-      .mesh = node.mesh,
-      .material = node.material,
-  };
+  auto renderer = native_world_.node_mesh_renderer(node.node);
+  if (!renderer) {
+    output = {};
+    return renderer.error() == error::not_found ? error::success : renderer.error();
+  }
+  output = {.mesh = renderer->mesh, .material = renderer->material};
   return error::success;
 }
 
@@ -96,6 +98,9 @@ error scene_instance::instantiate_prefab_ready(const prefab_instance_description
                                                            std::move(prefab), author.instance_uuid);
   runtime->prepared_ = std::move(effective);
   status = runtime->create_root(parent, {author.translation, author.rotation, author.scale});
+  if (status.failed())
+    return status;
+  status = native_world_.node_set_identity(runtime->root(), {author.instance_uuid, author.name});
   if (status.failed())
     return status;
   for (const auto& entry : order.added) {

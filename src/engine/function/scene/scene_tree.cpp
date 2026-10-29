@@ -50,6 +50,24 @@ const scene_tree::slot* scene_tree::find(scene_node_id id) const noexcept {
   return &slots_[index];
 }
 
+error scene_tree::set_identity(scene_node_id id, scene_node_identity identity) noexcept {
+  auto* target = find(id);
+  if (!target)
+    return error::invalid_handle;
+  target->value->identity = std::move(identity);
+  return error::success;
+}
+result<scene_node_identity_view> scene_tree::identity(scene_node_id id) const noexcept {
+  const auto* target = find(id);
+  if (!target)
+    return error::invalid_handle;
+  return scene_node_identity_view{target->value->identity.uuid, target->value->identity.name};
+}
+const std::vector<scene_node_id>* scene_tree::children(scene_node_id id) const noexcept {
+  const auto* target = find(id);
+  return target ? &target->value->children : nullptr;
+}
+
 result<scene_node_id> scene_tree::create(scene_node_id parent, std::uint64_t entity) noexcept {
   if (parent != null_scene_node_id) {
     const auto* value = find(parent);

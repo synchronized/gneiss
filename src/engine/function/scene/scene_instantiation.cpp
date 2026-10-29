@@ -59,6 +59,9 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
       if (result != engine::error::success) {
         return result;
       }
+      result = native_world_.node_set_identity(prefab->root(), {source.instance_uuid, source.name});
+      if (result.failed())
+        return result;
       std::unordered_map<std::string, scene_node_id> prefab_nodes;
       prefab_nodes.reserve(lease.get()->objects.size());
       for (const auto index : prepared.prefabs.at(source.prefab_uri).parent_first) {

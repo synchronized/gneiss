@@ -88,3 +88,5 @@ Reference 和实现为准。
 - [ADR-088：Prefab 直接实例化与非原子替换](ADR-088-prefab-direct-instantiation.md)
 
 - [ADR-089：固定 Granit 后端依赖](ADR-089-required-granit-backend.md)
+
+- [ADR-090：场景对象运行时状态收敛](ADR-090-scene-object-storage.md)

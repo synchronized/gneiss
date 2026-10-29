@@ -341,3 +341,15 @@ CPU 网格的法线、切线、附加 UV 和颜色直接使用 `math::vector3/4/
 二进制网格中间数据也使用统一数学向量，局部边界用 `math::aabb3` 表示。
 AABB 的默认值是原点退化盒；包含和相交均包含边界，无效边界使查询返回 false。
 网格编码仍从顶点重算包围盒，并以固定偏移逐分量读写；二进制格式只读写 v3，详见[资产格式](../reference/render-asset-formats.md#mesh-binary-v3)。
+
+## 场景对象运行时状态
+
+`scene_tree` 节点保存 UUID、名称、父子关系、局部变换和关联实体 ID。
+ECS 保存相机、网格渲染组件及 mesh/material 强引用；普通 `scene_instance` 的成员记录仅保存节点 ID。
+Prefab 记录额外保存实例根、来源描述和来源节点映射，不保存实体、父节点、名称或资源绑定副本。
+
+普通对象与 Prefab 使用 `scene_object.hpp` 的共用创建入口，World 统一创建节点与实体，失败不留下部分对象；
+`world::object_destroy` 递归释放子树关联实体与节点。底层 `node_destroy` 仍只操作树，不能替代对象销毁。
+资源查询从 ECS 获取，保存从当前节点和组件捕获；文件描述独立保留，重载回滚使用操作内的临时快照。
+节点名称与 UUID 的借用视图在元数据修改或节点销毁后失效；来源 UUID 在不同 Prefab 实例间可重复。
+决策见 [ADR-090](../decisions/ADR-090-scene-object-storage.md)。

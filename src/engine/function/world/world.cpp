@@ -23,6 +23,64 @@ namespace gneiss::engine {
 world::world(std::uint32_t domain) : state_(std::make_unique<world_state>(domain)) {}
 world::~world() noexcept = default;
 bool world::is_owner_thread() const noexcept { return state_->is_owner_thread(); }
+result<scene_node_id> world::object_create(scene_node_id parent, scene_node_identity identity,
+                                           const math::transform& transform) noexcept {
+  entity_id entity;
+  auto status = entity_create(entity);
+  if (status.failed())
+    return status;
+  scene_node_id node;
+  status = node_create(parent, entity, node);
+  if (status.ok())
+    status = node_set_local_transform(node, transform);
+  if (status.ok())
+    status = node_set_identity(node, std::move(identity));
+  if (status.failed()) {
+    (void)entity_destroy(entity);
+    if (node)
+      (void)node_destroy(node);
+    return status;
+  }
+  return node;
+}
+error world::object_destroy(scene_node_id node) noexcept {
+  if (!is_owner_thread())
+    return error::invalid_state;
+  const auto* children = state_->scene().children(node);
+  if (!children)
+    return error::invalid_handle;
+  while (!children->empty()) {
+    const auto status = object_destroy(children->back());
+    if (status.failed())
+      return status;
+  }
+  const auto entity = state_->scene().get_entity(node);
+  if (entity != 0)
+    (void)state_->destroy_entity(entity);
+  return state_->scene().destroy(node);
+}
+error world::node_set_identity(scene_node_id node, scene_node_identity identity) noexcept {
+  if (!is_owner_thread())
+    return error::invalid_state;
+  return state_->scene().set_identity(node, std::move(identity));
+}
+result<scene_node_identity_view> world::node_identity(scene_node_id node) const noexcept {
+  if (!is_owner_thread())
+    return error::invalid_state;
+  return state_->scene().identity(node);
+}
+result<mesh_renderer> world::node_mesh_renderer(scene_node_id node) noexcept {
+  if (!is_owner_thread())
+    return error::invalid_state;
+  if (!state_->scene().get_local(node))
+    return error::invalid_handle;
+  const auto entity = state_->scene().get_entity(node);
+  const auto* component = state_->get<mesh_renderer_component>(entity);
+  if (!component)
+    return error::not_found;
+  return component->value;
+}
+
 engine::error world::entity_create(entity_id& out_entity_value) noexcept {
   std::uint64_t out_entity = out_entity_value.get();
   const auto operation_result = [&]() -> engine::error {

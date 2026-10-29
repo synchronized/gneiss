@@ -42,6 +42,16 @@ public:
   [[nodiscard]] error entity_set_mesh_renderer(entity_id entity,
                                                const mesh_renderer& renderer) noexcept;
   [[nodiscard]] error entity_remove_mesh_renderer(entity_id entity) noexcept;
+  /** 创建节点与关联实体；失败不留下部分对象。限所属线程。 */
+  [[nodiscard]] result<scene_node_id> object_create(scene_node_id parent,
+                                                    scene_node_identity identity,
+                                                    const math::transform& transform) noexcept;
+  /** 销毁整棵子树及关联实体，释放 ECS 组件引用。 */
+  [[nodiscard]] error object_destroy(scene_node_id node) noexcept;
+  [[nodiscard]] error node_set_identity(scene_node_id node, scene_node_identity identity) noexcept;
+  /** 借用名称与身份，仅在节点存活且元数据未修改期间有效。 */
+  [[nodiscard]] result<scene_node_identity_view> node_identity(scene_node_id node) const noexcept;
+  [[nodiscard]] result<mesh_renderer> node_mesh_renderer(scene_node_id node) noexcept;
   [[nodiscard]] error node_create(scene_node_id parent, entity_id entity,
                                   scene_node_id& out_node) noexcept;
   [[nodiscard]] error node_destroy(scene_node_id node) noexcept;

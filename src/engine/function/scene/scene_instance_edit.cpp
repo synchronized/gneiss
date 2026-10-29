@@ -3,6 +3,7 @@
 
 #include "engine/core/error.hpp"
 #include "engine/function/scene/scene_instance.hpp"
+#include "engine/function/scene/scene_object.hpp"
 #include <algorithm>
 #include <array>
 #include <new>
@@ -15,10 +16,10 @@ error scene_instance::capture_mesh_binding(scene_node_id node,
   if (found == objects_.end()) {
     return error::invalid_handle;
   }
-  output = {
-      .mesh = found->mesh,
-      .material = found->material,
-  };
+  auto renderer = native_world_.node_mesh_renderer(node);
+  if (!renderer)
+    return renderer.error() == error::not_found ? error::success : renderer.error();
+  output = {.mesh = renderer->mesh, .material = renderer->material};
   return error::success;
 }
 
@@ -46,7 +47,7 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
   };
   const std::array changes{
       engine::mesh_renderer_replacement{
-          .entity = entity_id{found->entity},
+          .entity = entity_id{scene_object_entity(native_world_, found->node)},
           .expected = {.mesh = expected.mesh, .material = expected.material},
           .replacement = {.mesh = replacement.mesh, .material = replacement.material},
       },
@@ -55,7 +56,8 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
   auto changed = error::success;
   if (!expected.mesh && !expected.material && !description_.objects[index].mesh_renderer) {
     changed = native_world_.entity_set_mesh_renderer(
-        entity_id{found->entity}, {.mesh = replacement.mesh, .material = replacement.material});
+        entity_id{scene_object_entity(native_world_, found->node)},
+        {.mesh = replacement.mesh, .material = replacement.material});
   } else {
     changed = native_world_.replace_mesh_renderers(changes);
   }
@@ -63,8 +65,6 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
     return changed;
   }
   description_.objects[index].mesh_renderer = std::move(author);
-  found->mesh = replacement.mesh;
-  found->material = replacement.material;
   return error::success;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;

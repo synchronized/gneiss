@@ -161,7 +161,15 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
     return result;
   }
 
-  std::vector<runtime_node> staged;
+  struct staged_node {
+    prefab_author_address address;
+    std::string name;
+    std::uint64_t entity{};
+    scene_node_id node{};
+    engine::mesh mesh;
+    engine::material material;
+  };
+  std::vector<staged_node> staged;
   staged.reserve(candidate.get()->objects.size());
   std::unordered_map<std::string_view, std::size_t> old_indices;
   old_indices.reserve(nodes_.size());
@@ -169,11 +177,11 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
     old_indices.emplace(nodes_[index].address.source_node_uuid, index);
   }
   for (const auto& source : candidate.get()->objects) {
-    runtime_node target;
+    staged_node target;
     target.address = {instance_uuid_, source.uuid};
     target.name = source.name;
     if (const auto previous = old_indices.find(source.uuid); previous != old_indices.end()) {
-      target.entity = nodes_[previous->second].entity;
+      target.entity = scene_object_entity(native_world_, nodes_[previous->second].node);
       target.node = nodes_[previous->second].node;
     }
     if (source.mesh_renderer) {
@@ -218,6 +226,14 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
     staged.push_back(std::move(target));
   }
 
+  std::vector<runtime_node> members;
+  members.reserve(staged.size());
+  std::vector<scene_node_identity> identities;
+  identities.reserve(staged.size());
+  for (const auto& value : staged) {
+    members.push_back({value.address, value.node, true});
+    identities.push_back({value.address.source_node_uuid, value.name});
+  }
   std::unordered_map<std::string_view, scene_node_id> runtime_nodes;
   runtime_nodes.reserve(staged.size());
   for (const auto& target : staged) {
@@ -234,11 +250,8 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
   const auto rollback_additions = [&]() noexcept {
     for (auto iterator = additions.rbegin(); iterator != additions.rend(); ++iterator) {
       auto& target = staged[*iterator];
-      if (target.entity != UINT64_C(0)) {
-        (void)native_world_.entity_destroy(gneiss::entity_id{target.entity});
-      }
-      if (target.node != null_scene_node_id) {
-        (void)native_world_.node_destroy(gneiss::scene_node_id{target.node});
+      if (target.node) {
+        (void)native_world_.object_destroy(target.node);
       }
     }
     if (active_camera_before != UINT64_C(0)) {
@@ -249,32 +262,17 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
     const auto& source = candidate.get()->objects[addition.new_index];
     auto& target = staged[addition.new_index];
     const auto parent = source.parent_uuid ? runtime_nodes.at(*source.parent_uuid) : root_node_;
-    result = engine::write_identifier<entity_id>(target.entity, [&](auto& native_output) {
-      return native_world_.entity_create(native_output);
-    });
-    if (result == engine::error::success) {
-      result = native_world_.node_create(gneiss::scene_node_id{parent},
-                                         gneiss::entity_id{target.entity}, target.node);
-    }
-    const auto transform = to_transform(source);
-    if (result == engine::error::success) {
-      result =
-          native_world_.node_set_local_transform(gneiss::scene_node_id{target.node}, transform);
-    }
-    if (result == engine::error::success) {
-      result = apply_camera(native_world_, target.entity, source.camera);
-    }
-    if (result == engine::error::success && source.mesh_renderer) {
-      const mesh_renderer renderer{.mesh = target.mesh, .material = target.material};
-      result = native_world_.entity_set_mesh_renderer(gneiss::entity_id{target.entity}, renderer);
+    auto created =
+        create_scene_object(native_world_, source, parent, {target.mesh, target.material});
+    result = created ? error::success : created.error();
+    if (created) {
+      target.node = *created;
+      target.entity = scene_object_entity(native_world_, target.node);
     }
 
     if (result != engine::error::success) {
-      if (target.entity != UINT64_C(0)) {
-        (void)native_world_.entity_destroy(gneiss::entity_id{target.entity});
-      }
-      if (target.node != null_scene_node_id) {
-        (void)native_world_.node_destroy(gneiss::scene_node_id{target.node});
+      if (target.node) {
+        (void)native_world_.object_destroy(target.node);
       }
       rollback_additions();
       return result;
@@ -290,6 +288,7 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
     scene_node_id parent = null_scene_node_id;
     math::transform transform = {};
     std::optional<engine::camera_description> camera;
+    mesh_renderer renderer;
   };
   std::vector<update_snapshot> applied;
   applied.reserve(diff.updated.size());
@@ -311,9 +310,8 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
       if (has_change(snapshot.changes, structural_change::mesh_renderer)) {
         const auto& old_source = prefab_.get()->objects[snapshot.old_index];
         if (old_source.mesh_renderer) {
-          const mesh_renderer renderer{.mesh = nodes_[snapshot.old_index].mesh,
-                                       .material = nodes_[snapshot.old_index].material};
-          (void)native_world_.entity_set_mesh_renderer(gneiss::entity_id{target.entity}, renderer);
+          (void)native_world_.entity_set_mesh_renderer(gneiss::entity_id{target.entity},
+                                                       snapshot.renderer);
         } else {
           (void)native_world_.entity_remove_mesh_renderer(gneiss::entity_id{target.entity});
         }
@@ -357,6 +355,14 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
       rollback_additions();
       return result;
     }
+    auto old_renderer = native_world_.node_mesh_renderer(target.node);
+    if (old_renderer)
+      snapshot.renderer = *old_renderer;
+    else if (old_renderer.error() != error::not_found) {
+      rollback_updates();
+      rollback_additions();
+      return old_renderer.error();
+    }
     applied.push_back(snapshot);
     const auto& source = candidate.get()->objects[update.new_index];
     if (has_change(update.changes, structural_change::parent)) {
@@ -389,11 +395,12 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
     }
   }
 
+  for (std::size_t index = 0; index < staged.size(); ++index)
+    members[index].node = staged[index].node;
   auto previous_nodes = std::move(nodes_);
-  nodes_ = std::move(staged);
+  nodes_ = std::move(members);
   result = apply_overrides(registry, overrides);
   if (result != engine::error::success) {
-    staged = std::move(nodes_);
     nodes_ = std::move(previous_nodes);
     rollback_updates();
     rollback_additions();
@@ -401,11 +408,17 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
   }
   for (const auto& removal : diff.removed) {
     const auto& target = previous_nodes[removal.old_index];
-    (void)native_world_.entity_destroy(gneiss::entity_id{target.entity});
-    (void)native_world_.node_destroy(gneiss::scene_node_id{target.node});
+    (void)native_world_.object_destroy(target.node);
+  }
+  for (std::size_t index = 0; index < nodes_.size(); ++index) {
+    result = native_world_.node_set_identity(nodes_[index].node, std::move(identities[index]));
+    if (result.failed())
+      return result;
   }
   prefab_ = std::move(candidate);
   prepared_.reset();
+  applied.clear();
+  staged.clear();
   loader_.collect_unused();
   return engine::error::success;
 }
@@ -435,9 +448,32 @@ engine::error prefab_runtime_instance::create(
     camera_restore_guard camera_guard{.native_world = native_world, .previous = previous_camera};
     auto instance = std::make_unique<prefab_runtime_instance>(
         native_world, loader, std::move(prefab), std::string(instance_uuid));
-    auto result = instance->stage_assets(*instance->prefab_.get());
-    if (result == engine::error::success) {
-      result = instance->commit(*instance->prefab_.get(), parent, root_transform);
+    const auto& source = *instance->prefab_.get();
+    structural_diff order;
+    auto result = build_structural_diff({}, source.objects, order);
+    if (result.failed())
+      return result;
+    result = instance->create_root(parent, root_transform);
+    if (result.failed())
+      return result;
+    for (const auto& addition : order.added) {
+      const auto& object = source.objects[addition.new_index];
+      mesh_renderer renderer;
+      if (object.mesh_renderer) {
+        auto mesh = loader.find<mesh_resource>(object.mesh_renderer->mesh_uri);
+        if (!mesh)
+          return mesh.error();
+        auto material = loader.find<material_resource>(object.mesh_renderer->material_uri);
+        if (!material)
+          return material.error();
+        renderer = {*mesh, *material};
+      }
+      const auto node_parent =
+          object.parent_uuid ? instance->find_node(*object.parent_uuid) : instance->root();
+      result =
+          instance->create_node(addition.new_index, node_parent, renderer.mesh, renderer.material);
+      if (result.failed())
+        return result;
     }
     if (result == engine::error::success) {
       result = instance->apply_overrides(registry, overrides);
@@ -556,8 +592,8 @@ engine::error prefab_runtime_instance::apply_overrides(
       return engine::error::not_found;
     }
     const auto result = engine::write_component_property(
-        registry, native_world_, found->entity, override_value.key.type_id,
-        override_value.key.field_id, override_value.value);
+        registry, native_world_, scene_object_entity(native_world_, found->node),
+        override_value.key.type_id, override_value.key.field_id, override_value.value);
     if (result != engine::error::success) {
       return result;
     }
@@ -567,174 +603,36 @@ engine::error prefab_runtime_instance::apply_overrides(
   return engine::error::internal;
 }
 
-engine::error prefab_runtime_instance::stage_assets(const prefab_description& description) {
-  nodes_.reserve(description.objects.size());
-  for (const auto& source : description.objects) {
-    runtime_node target{};
-    target.address = {instance_uuid_, source.uuid};
-    target.name = source.name;
-    if (source.mesh_renderer) {
-
-      auto result = engine::error::success;
-      {
-        auto loaded = loader_.find<mesh_resource>(source.mesh_renderer->mesh_uri);
-        if (loaded)
-          target.mesh = std::move(*loaded);
-        else {
-          target.mesh = {};
-          result = loaded.error();
-        }
-      };
-      if (result == engine::error::success) {
-        result = engine::error::success;
-        {
-          auto loaded = loader_.find<material_resource>(source.mesh_renderer->material_uri);
-          if (loaded)
-            target.material = std::move(*loaded);
-          else {
-            target.material = {};
-            result = loaded.error();
-          }
-        };
-      }
-      if (result != engine::error::success) {
-        return result;
-      }
-    }
-    nodes_.push_back(std::move(target));
-  }
-  return engine::error::success;
-}
-
-engine::error prefab_runtime_instance::commit(const prefab_description& description,
-                                              scene_node_id parent,
-                                              const math::transform& root_transform) {
-  auto result = engine::write_identifier<entity_id>(root_entity_, [&](auto& native_output) {
-    return native_world_.entity_create(native_output);
-  });
-  if (result == engine::error::success) {
-    result = native_world_.node_create(gneiss::scene_node_id{parent},
-                                       gneiss::entity_id{root_entity_}, root_node_);
-  }
-  if (result == engine::error::success) {
-    result =
-        native_world_.node_set_local_transform(gneiss::scene_node_id{root_node_}, root_transform);
-  }
-  if (result != engine::error::success) {
-    return result;
-  }
-
-  std::unordered_map<std::string_view, scene_node_id> committed_nodes;
-  committed_nodes.reserve(description.objects.size());
-  std::vector<bool> committed(description.objects.size());
-  std::size_t committed_count = 0;
-  while (committed_count < description.objects.size()) {
-    bool made_progress = false;
-    for (std::size_t index = 0; index < description.objects.size(); ++index) {
-      if (committed[index]) {
-        continue;
-      }
-      const auto& source = description.objects[index];
-      auto parent_node = root_node_;
-      if (source.parent_uuid) {
-        const auto found = committed_nodes.find(*source.parent_uuid);
-        if (found == committed_nodes.end()) {
-          continue;
-        }
-        parent_node = found->second;
-      }
-      result = commit_node(index, parent_node);
-      if (result != engine::error::success) {
-        return result;
-      }
-      committed_nodes.emplace(source.uuid, nodes_[index].node);
-      committed[index] = true;
-      ++committed_count;
-      made_progress = true;
-    }
-    if (!made_progress) {
-      return engine::error::internal;
-    }
-  }
-  return engine::error::success;
-}
-
-engine::error prefab_runtime_instance::commit_node(std::size_t index, scene_node_id parent) {
-  const auto& source = prepared_ ? prepared_->objects[index] : prefab_.get()->objects[index];
-  auto& target = nodes_[index];
-  target.parent = parent;
-
-  auto result = engine::write_identifier<entity_id>(target.entity, [&](auto& native_output) {
-    return native_world_.entity_create(native_output);
-  });
-  if (result == engine::error::success) {
-    result = native_world_.node_create(gneiss::scene_node_id{parent},
-                                       gneiss::entity_id{target.entity}, target.node);
-  }
-  const auto transform = to_transform(source);
-  if (result == engine::error::success) {
-    result = native_world_.node_set_local_transform(gneiss::scene_node_id{target.node}, transform);
-  }
-  if (result == engine::error::success && source.camera) {
-    const math::camera_settings camera{.fov = source.camera->vertical_field_of_view_radians,
-                                       .near = source.camera->near_plane,
-                                       .far = source.camera->far_plane};
-    result = native_world_.entity_configure_camera(gneiss::entity_id{target.entity}, camera);
-    if (result == engine::error::success && source.camera->is_primary) {
-      result = native_world_.set_active_camera(gneiss::entity_id{target.entity});
-    }
-  }
-  if (result == engine::error::success && source.mesh_renderer) {
-    const mesh_renderer renderer{.mesh = target.mesh, .material = target.material};
-    result = native_world_.entity_set_mesh_renderer(gneiss::entity_id{target.entity}, renderer);
-  }
-  return result;
-}
-
 engine::error prefab_runtime_instance::create_root(scene_node_id parent,
                                                    const math::transform& transform) {
-  if (!prefab_ || root_node_ != null_scene_node_id || !nodes_.empty()) {
-    return engine::error::invalid_state;
-  }
-  nodes_.resize(prefab_.get()->objects.size());
-  auto result = engine::write_identifier<entity_id>(root_entity_, [&](auto& native_output) {
-    return native_world_.entity_create(native_output);
-  });
-  if (result == engine::error::success) {
-    result = native_world_.node_create(gneiss::scene_node_id{parent},
-                                       gneiss::entity_id{root_entity_}, root_node_);
-  }
-  if (result == engine::error::success) {
-    result = native_world_.node_set_local_transform(gneiss::scene_node_id{root_node_}, transform);
-  }
-  return result;
+  if (!prefab_ || root_node_ || !nodes_.empty())
+    return error::invalid_state;
+  nodes_.resize(prefab_->objects.size());
+  auto created = native_world_.object_create(parent, {instance_uuid_, {}}, transform);
+  if (!created)
+    return created.error();
+  root_node_ = *created;
+  return error::success;
 }
-
 engine::error prefab_runtime_instance::create_node(std::size_t index, scene_node_id parent,
                                                    engine::mesh mesh, engine::material material) {
-  if (!root_node_ || !prefab_ || index >= nodes_.size() || nodes_[index].entity != UINT64_C(0) ||
-      nodes_[index].creation_attempted) {
-    return engine::error::invalid_state;
-  }
-  const auto& source = prefab_.get()->objects[index];
+  if (!root_node_ || !prefab_ || index >= nodes_.size() || nodes_[index].creation_attempted)
+    return error::invalid_state;
+  const auto& source = prepared_ ? prepared_->objects[index] : prefab_->objects[index];
   auto& target = nodes_[index];
   target.address = {instance_uuid_, source.uuid};
-  target.name = source.name;
   if (source.mesh_renderer) {
-    if (!mesh || !material) {
-      return engine::error::not_ready;
-    }
-    if (engine::asset_kind(mesh) != asset_type::mesh ||
-        engine::asset_kind(material) != asset_type::material || !loader_.owns(mesh) ||
-        !loader_.owns(material)) {
-      return engine::error::invalid_argument;
-    }
-    target.mesh = std::move(mesh);
-    target.material = std::move(material);
+    if (!mesh || !material)
+      return error::not_ready;
+    if (!loader_.owns(mesh) || !loader_.owns(material))
+      return error::invalid_argument;
   }
-  // 防止重复尝试已经部分创建的节点；失败由实例析构统一回收。
   target.creation_attempted = true;
-  return commit_node(index, parent);
+  auto created = create_scene_object(native_world_, source, parent, {mesh, material});
+  if (!created)
+    return created.error();
+  target.node = *created;
+  return error::success;
 }
 
 engine::error
@@ -744,26 +642,11 @@ prefab_runtime_instance::apply_override(const meta::registry_ref& registry,
 }
 
 void prefab_runtime_instance::rollback() noexcept {
-
-  for (auto iterator = nodes_.rbegin(); iterator != nodes_.rend(); ++iterator) {
-    if (iterator->entity != UINT64_C(0)) {
-      (void)native_world_.entity_destroy(gneiss::entity_id{iterator->entity});
-    }
-    if (iterator->node != null_scene_node_id) {
-      (void)native_world_.node_destroy(gneiss::scene_node_id{iterator->node});
-    }
-    iterator->mesh = {};
-    iterator->material = {};
-  }
+  // 根节点的统一销毁同时释放子树和 ECS 组件，无需第二份实体列表。
+  if (root_node_)
+    (void)native_world_.object_destroy(root_node_);
+  root_node_ = {};
   nodes_.clear();
-  if (root_entity_ != UINT64_C(0)) {
-    (void)native_world_.entity_destroy(gneiss::entity_id{root_entity_});
-    root_entity_ = UINT64_C(0);
-  }
-  if (root_node_ != null_scene_node_id) {
-    (void)native_world_.node_destroy(gneiss::scene_node_id{root_node_});
-    root_node_ = null_scene_node_id;
-  }
   prefab_ = {};
   loader_.collect_unused();
 }
@@ -780,7 +663,7 @@ prefab_runtime_instance::find_entity(std::string_view source_node_uuid) const no
   const auto found = std::ranges::find(nodes_, source_node_uuid, [](const runtime_node& node) {
     return std::string_view(node.address.source_node_uuid);
   });
-  return found == nodes_.end() ? UINT64_C(0) : found->entity;
+  return found == nodes_.end() ? UINT64_C(0) : scene_object_entity(native_world_, found->node);
 }
 
 const object_description*
@@ -797,14 +680,14 @@ engine::error prefab_runtime_instance::get_node_info(std::size_t index,
     return engine::error::not_found;
   }
   const auto& source = nodes_[index];
-  scene_node_id parent = source.parent;
+  scene_node_id parent{};
   const auto result = native_world_.node_get_parent(gneiss::scene_node_id{source.node}, parent);
   if (result != engine::error::success) {
     return result;
   }
   out_info = {.address = &source.address,
-              .name = source.name,
-              .entity = source.entity,
+              .name = scene_object_identity(native_world_, source.node).name,
+              .entity = scene_object_entity(native_world_, source.node),
               .node = source.node,
               .parent = parent};
   return engine::error::success;

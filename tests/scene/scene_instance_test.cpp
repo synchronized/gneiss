@@ -109,6 +109,18 @@ int main() try {
       triangle_info.name != "Created Mesh") {
     return 4;
   }
+  // 直接修改 ECS 后，场景绑定查询必须立即反映组件状态，不能读取实例列表副本。
+  {
+    auto renderer = application->native_world()->node_mesh_renderer(created_node);
+    gneiss::entity_id entity;
+    gneiss::engine::scene_mesh_binding binding;
+    if (!renderer || application->native_world()->node_get_entity(created_node, entity).failed() ||
+        application->native_world()->entity_remove_mesh_renderer(entity).failed() ||
+        application->scenes()->capture_mesh_binding(scene, created_node, binding).failed() ||
+        binding.mesh || binding.material ||
+        application->native_world()->entity_set_mesh_renderer(entity, *renderer).failed())
+      return 40;
+  }
   gneiss::engine::camera_description author_camera{1.04719755F, 0.2F, 1000.0F, false};
   author_camera.near_plane = -1.0F;
   if (application->scenes()->set_camera(scene, created_node, author_camera) !=
@@ -247,11 +259,14 @@ int main() try {
           gneiss::engine::error::success ||
       application->native_world()->entity_configure_camera(camera_entity, camera) !=
           gneiss::engine::error::success ||
+      application->native_world()
+          ->node_set_identity(camera_node, {std::string(camera_uuid), "Runtime Camera"})
+          .failed() ||
       application->scenes()->serialize(scene, json) != gneiss::engine::error::success ||
       json.empty()) {
     return 7;
   }
-  if (json.find(R"("name":"Camera")") == std::string::npos ||
+  if (json.find(R"("name":"Runtime Camera")") == std::string::npos ||
       json.find(R"("translation":[5.0,0.0,0.0])") == std::string::npos ||
       json.find(R"("near_plane":0.25)") == std::string::npos ||
       json.find(created_uuid) == std::string::npos ||
