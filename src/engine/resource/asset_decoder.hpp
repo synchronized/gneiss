@@ -31,8 +31,8 @@ namespace detail {
 template <class T> class typed_asset_decoder final : public asset_decoder {
 public:
   typed_asset_decoder(asset_decode_function<T> function, std::size_t limit,
-                      meta::registry_ref registry = {}, meta::serialization_binding binding = {})
-      : function_(function), limit_(limit), registry_(std::move(registry)), binding_(binding) {}
+                      meta::serialization_binding binding = {})
+      : function_(function), limit_(limit), binding_(binding) {}
   type_id target_type() const noexcept override { return runtime_type_of<T>(); }
   std::size_t maximum_bytes() const noexcept override { return limit_; }
   error decode(const std::vector<std::byte>& bytes, std::shared_ptr<const void>& output,
@@ -48,7 +48,6 @@ public:
 private:
   asset_decode_function<T> function_{};
   std::size_t limit_{};
-  meta::registry_ref registry_;
   meta::serialization_binding binding_{};
 };
 template <class T>
@@ -64,7 +63,7 @@ error make_reflected_decoder(const meta::registry_ref& registry, std::size_t lim
   if constexpr (std::is_default_constructible_v<T> && !std::is_const_v<T>) {
     if constexpr (requires { T::maximum_source_bytes; })
       limit = std::min(limit, static_cast<std::size_t>(T::maximum_source_bytes));
-    output = std::make_shared<typed_asset_decoder<T>>(nullptr, limit, registry, *binding);
+    output = std::make_shared<typed_asset_decoder<T>>(nullptr, limit, *binding);
     return error::success;
   } else {
     return error::unsupported;
