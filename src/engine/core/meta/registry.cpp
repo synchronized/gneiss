@@ -3,6 +3,7 @@
 
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/meta/detail/type_access.hpp"
 
 #include <algorithm>
 #include <array>
@@ -107,9 +108,11 @@ using property_accessor = property_binding;
 bool valid_binding(const property_binding& binding) noexcept {
   if (binding.object_type)
     return binding.kind == value_kind::invalid && !binding.getter && !binding.setter &&
-           binding.object_getter && binding.object_mutator && binding.object_assign;
+           binding.object_getter &&
+           (static_cast<bool>(binding.object_mutator) == static_cast<bool>(binding.object_assign));
   return is_valid_property_kind(binding.kind) && (binding.getter || binding.setter) &&
-         !binding.object_getter && !binding.object_mutator && !binding.object_assign;
+         !binding.object_getter && !binding.object_mutator && !binding.object_assign &&
+         !binding.access;
 }
 
 struct property_record {
@@ -130,7 +133,7 @@ struct type_record {
 };
 
 [[nodiscard]] bool validate_property(const property_definition& property) noexcept {
-  return property.id.is_valid() && static_cast<bool>(property.type_guid) &&
+  return property.id.is_valid() &&
          !has_flags(property.flags, property_flags::read_only | property_flags::required) &&
          (static_cast<std::uint32_t>(property.flags) &
           ~static_cast<std::uint32_t>(property_flags::read_only | property_flags::required)) ==
@@ -172,7 +175,11 @@ struct type_record {
                           ((property.accessor.setter || property.accessor.object_mutator)
                                ? property_capabilities::writable
                                : property_capabilities::none),
-          .object_type = property.accessor.object_type};
+          .object_type = property.accessor.object_type,
+          .category = property.accessor.access        ? property.accessor.access->kind
+                      : property.accessor.object_type ? type_kind::object
+                      : property.accessor.kind != value_kind::invalid ? type_kind::scalar
+                                                                      : type_kind::invalid};
 }
 
 [[nodiscard]] type_info describe_record(const type_record& record) {
@@ -189,12 +196,22 @@ struct type_record {
 
 } // namespace
 
+bool valid_scalar(const value& input) noexcept { return is_valid_property_value(input); }
+
 class type_registry_state final {
 public:
   [[nodiscard]] error register_type(const type_definition& desc,
                                     std::span<const property_binding> bindings = {}) noexcept {
     if (!validate_type(desc)) {
       return error::invalid_argument;
+    }
+    for (std::size_t i = 0; i < desc.properties.size(); ++i) {
+      if (!desc.properties[i].type_guid &&
+          (bindings.size() != desc.properties.size() || !bindings[i].access ||
+           (bindings[i].access->kind != type_kind::sequence &&
+            bindings[i].access->kind != type_kind::associative &&
+            bindings[i].access->kind != type_kind::optional)))
+        return error::invalid_argument;
     }
     if (!bindings.empty()) {
       if (bindings.size() != desc.properties.size())
@@ -281,7 +298,8 @@ public:
                        current.object_type == requested.object_type &&
                        current.object_getter == requested.object_getter &&
                        current.object_mutator == requested.object_mutator &&
-                       current.object_assign == requested.object_assign
+                       current.object_assign == requested.object_assign &&
+                       current.access == requested.access
                    ? error::success
                    : error::invalid_argument;
       }
@@ -302,6 +320,25 @@ public:
         for (const auto& property : type->properties) {
           if (!property.accessor.object_type)
             continue;
+          if (property.accessor.access) {
+            const auto* access = property.accessor.access;
+            if (access->id != property.accessor.object_type || access->guid != property.type_guid)
+              return error::invalid_argument;
+            std::size_t depth = 0;
+            while (access->element) {
+              if (++depth > 64)
+                return error::invalid_argument;
+              access = &access->element();
+            }
+            if (access->kind != type_kind::object)
+              continue;
+            const auto leaf = by_cpp_type_.find(access->id);
+            if (leaf == by_cpp_type_.end())
+              return error::not_found;
+            if (leaf->second->guid != access->guid)
+              return error::invalid_argument;
+            continue;
+          }
           const auto found = by_cpp_type_.find(property.accessor.object_type);
           if (found == by_cpp_type_.end())
             return error::not_found;

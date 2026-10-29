@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/core/meta/detail/type_access.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/traits/type_identity.hpp"
 #include <functional>
@@ -37,17 +38,6 @@ template <class T>
   if (!registry)
     return registry.error();
   return register_type<T>(*registry, definition, bindings);
-}
-namespace detail {
-template <class T, std::size_t Index = 1> constexpr value_kind reflected_value_kind() {
-  if constexpr (Index == std::variant_size_v<value::storage_type>) {
-    return value_kind::invalid;
-  } else if constexpr (std::is_same_v<T, std::variant_alternative_t<Index, value::storage_type>>) {
-    return static_cast<value_kind>(Index);
-  } else {
-    return reflected_value_kind<T, Index + 1>();
-  }
-}
 }
 /** 注册期间拥有字段名称；不持有实例。需外部同步，commit 后不可复用。
  * 访问器只在调用期间借用对象，setter 须先校验再修改，失败保持原对象。
@@ -96,7 +86,8 @@ public:
                [](void* object, void* value) {
                  std::invoke(Member, *static_cast<object_type*>(object)) =
                      std::move(*static_cast<property_type*>(value));
-               }});
+               },
+           .access = &detail::access_of<property_type>()});
     } else
       return add<property_type>(id, name, flags,
                                 {.kind = detail::reflected_value_kind<property_type>(),
@@ -237,6 +228,11 @@ private:
     if (committed_ || status_.failed())
       return *this;
     try {
+      if (has_flags(flags, property_flags::read_only)) {
+        binding.setter = nullptr;
+        binding.object_mutator = nullptr;
+        binding.object_assign = nullptr;
+      }
       entries_.push_back({id, std::string(name), type_identity<Property>::guid(), flags, binding});
     } catch (const std::bad_alloc&) {
       status_ = error::out_of_memory;

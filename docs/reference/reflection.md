@@ -178,7 +178,7 @@ meta::type_builder<camera_description>{registry}
 
 属性名直接作为 JSON 字段名，支持 bool、int64、uint64、float、double、string、guid、
 vector3、quaternion；数学值按分量数组保存，GUID 使用规范小写带连字符文本。
-属性的稳定身份由 `type_identity` 提供。支持独立注册的嵌套值对象；暂不自动支持容器、optional 和指针图。
+属性的稳定身份由 `type_identity` 提供。支持独立注册的嵌套值对象及[容器视图](reflection-containers.md)列出的容器；不支持指针图。
 沿用已有属性访问边界：整数严格校验范围，浮点必须有限，字符串为无 NUL 的合法 UTF-8，
 GUID 值不能为 nil。四元数的归一化等业务约束由类型校验器决定。
 
@@ -249,7 +249,7 @@ application 自动调用无参入口，重复无参调用返回首次结果。�
 `find_object_property` 查询借用成员访问器；地址仅在父对象存活且地址稳定时有效。
 可写访问用于解码中的临时对象，禁止与父对象的其他写操作并发。
 普通 `read_property/write_property` 不对嵌套对象作字节复制，返回 unsupported。
-自动成员绑定要求值对象可移动赋值；本阶段不提供嵌套 getter/setter 或只读对象绑定。
+自动成员绑定要求值对象可移动赋值；不提供嵌套 getter/setter；直接成员可标记 read_only。
 
 反射 JSON 对同一文档递归读写，根深度为零，最多允许 64 层嵌套成员；超限返回 invalid_argument。
 子类型自定义 codec 按方向优先，但必须使用 JSON 对象内容；二进制 codec 不适合作为嵌套 JSON 属性。
@@ -287,9 +287,9 @@ auto snapshot = near->read_value(); // result<value>，拥有读取结果
 ```
 
 `property(name)` 和 `property(property_id)` 返回同一种视图。对象支持 `properties()` 枚举，
-基础属性支持 `read_value()`；`kind()` 区分 invalid、scalar、object，`scalar_kind()` 区分基础值类别。
-`guid()` 返回稳定类型身份，`type_id()` 当前仅为对象视图提供非零运行期类型身份。
-未实现 optional、sequence、associative 的遍历接口，不返回这些类别。
+基础属性支持 `read_value()`；`kind()` 区分 invalid、scalar、object、sequence、associative、optional；
+`scalar_kind()` 区分基础值类别。`guid()` 返回静态稳定身份，容器通常为空；
+`type_id()` 为对象、容器和容器元素提供运行期身份，普通标量属性仍通过 value_kind/GUID 标识。
 
 基础属性视图保存父对象和属性位置，读取时调用原 getter，返回自有 value。
 即使 getter 返回临时字符串，也不会借用该临时值；已经读取的快照不随父对象变化。
@@ -308,3 +308,5 @@ auto snapshot = near->read_value(); // result<value>，拥有读取结果
 
 现有反射 JSON 的属性枚举、基础值读写、嵌套遍历和子 codec 赋值均通过实例视图完成。
 底层 find_object_property 仍用于实现成员地址访问；序列化器不再直接操作这些回调。
+
+容器注册、访问与 JSON 规则见[反射容器视图](reflection-containers.md)。

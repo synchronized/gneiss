@@ -600,3 +600,5 @@
 - [描述类型的反射 JSON 序列化](plans/PLAN-064-reflected-json.md)
 - [嵌套值对象反射](plans/PLAN-065-nested-reflection.md)
 - [统一 Meta 实例视图](plans/PLAN-066-meta-instance.md)
+- [PLAN-067：反射容器视图与 JSON](plans/PLAN-067-meta-containers.md)
+- [反射容器视图](reference/reflection-containers.md)

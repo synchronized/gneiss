@@ -11,6 +11,10 @@
 #include <string_view>
 
 namespace gneiss::engine::meta {
+enum class type_kind { invalid, scalar, object, sequence, associative, optional };
+namespace detail {
+struct type_access;
+}
 /** 类型内部的字段身份，零无效。 */
 class property_id final {
 public:
@@ -60,7 +64,8 @@ struct property_info {
   std::string_view name{};
   value_kind kind = value_kind::invalid;
   property_capabilities capabilities = property_capabilities::none;
-  engine::type_id object_type{}; // 非零表示嵌套值对象，不属于 value_kind。
+  engine::type_id object_type{}; // 非零表示借用成员的运行期类型。
+  type_kind category = type_kind::invalid;
 };
 /** 回调借用实际类型的对象指针；调用方保证对象存活、类型正确和线程访问合法。
  * setter 必须先校验再修改，失败保持对象；注册表不复制对象或回滚任意回调副作用。
@@ -76,5 +81,6 @@ struct property_binding {
   void* (*object_mutator)(void*){};
   /** 自定义子类型解码成功后，将独立值移入父对象成员。 */
   void (*object_assign)(void*, void*){};
+  const detail::type_access* access{}; // 静态只读操作表，不持有对象。
 };
 } // namespace gneiss::engine::meta

@@ -59,7 +59,8 @@ result<instance> instance::property(property_id id) const noexcept try {
     if (!output.data_)
       return error::internal;
     output.cpp_type_ = info->object_type;
-    output.kind_ = type_kind::object;
+    output.kind_ = binding->access ? binding->access->kind : type_kind::object;
+    output.access_ = binding->access;
   } else {
     if (info->kind == value_kind::invalid)
       return error::unsupported;
@@ -72,12 +73,22 @@ result<instance> instance::property(property_id id) const noexcept try {
 } catch (...) {
   return error::internal;
 }
-result<value> instance::read_value() const noexcept {
+result<value> instance::read_value() const noexcept try {
   if (kind_ == type_kind::invalid)
     return error::invalid_state;
   if (kind_ != type_kind::scalar)
     return error::unsupported;
+  if (access_ && access_->read) {
+    auto output = access_->read(data_);
+    if (output.kind() != scalar_kind_ || !valid_scalar(output))
+      return error::internal;
+    return output;
+  }
   return read_property(registry_, parent_type_, property_, parent_);
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
 }
 result<const void*> instance::object_data() const noexcept {
   if (kind_ == type_kind::invalid)
@@ -133,12 +144,22 @@ result<mutable_instance> mutable_instance::property(property_id id) const noexce
 } catch (...) {
   return error::internal;
 }
-error mutable_instance::write_value(const value& input) const noexcept {
+error mutable_instance::write_value(const value& input) const noexcept try {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
   if (kind() != type_kind::scalar)
     return error::unsupported;
+  if (view_.access_ && view_.access_->write) {
+    if (input.kind() != view_.scalar_kind_ || !valid_scalar(input))
+      return error::invalid_argument;
+    view_.access_->write(data_, input);
+    return error::success;
+  }
   return write_property(view_.registry_, view_.parent_type_, view_.property_, parent_, input);
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
 }
 result<void*> mutable_instance::object_data() const noexcept {
   if (kind() == type_kind::invalid)
@@ -150,12 +171,18 @@ result<void*> mutable_instance::object_data() const noexcept {
 error mutable_instance::assign_object(engine::type_id id, void* source) const noexcept try {
   if (kind() == type_kind::invalid)
     return error::invalid_state;
-  if (kind() != type_kind::object || !parent_)
+  if (kind() != type_kind::object)
     return error::unsupported;
   if (!source || id != view_.cpp_type_)
     return error::invalid_argument;
   if (source == data_)
     return error::success;
+  if (view_.access_ && view_.access_->assign) {
+    view_.access_->assign(data_, source);
+    return error::success;
+  }
+  if (!parent_)
+    return error::unsupported;
   auto binding = find_object_property(view_.registry_, view_.parent_type_, view_.property_);
   if (!binding)
     return binding.error();
@@ -167,5 +194,80 @@ error mutable_instance::assign_object(engine::type_id id, void* source) const no
   return error::out_of_memory;
 } catch (...) {
   return error::internal;
+}
+
+result<instance> instance::from_access(registry_ref registry, const detail::type_access& access,
+                                       const void* data) noexcept {
+  if (!data)
+    return error::invalid_argument;
+  instance out;
+  if (access.kind == type_kind::object) {
+    auto object = from_object(registry, access.id, data);
+    if (!object)
+      return object.error();
+    out = std::move(*object);
+  } else {
+    out.registry_ = std::move(registry);
+    out.data_ = data;
+    out.type_ = access.guid;
+    out.cpp_type_ = access.id;
+    out.kind_ = access.kind;
+    out.scalar_kind_ = access.scalar;
+  }
+  out.access_ = &access;
+  return out;
+}
+result<mutable_instance> mutable_instance::from_access(registry_ref registry,
+                                                       const detail::type_access& access,
+                                                       void* data) noexcept {
+  auto view = instance::from_access(std::move(registry), access, data);
+  if (!view)
+    return view.error();
+  mutable_instance out;
+  out.view_ = std::move(*view);
+  out.data_ = data;
+  return out;
+}
+result<sequence_view> instance::as_sequence() const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (kind() != type_kind::sequence)
+    return error::unsupported;
+  return sequence_view{*this};
+}
+result<mutable_sequence_view> mutable_instance::as_sequence() const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (kind() != type_kind::sequence)
+    return error::unsupported;
+  return mutable_sequence_view{*this};
+}
+result<associative_view> instance::as_associative() const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (kind() != type_kind::associative)
+    return error::unsupported;
+  return associative_view{*this};
+}
+result<mutable_associative_view> mutable_instance::as_associative() const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (kind() != type_kind::associative)
+    return error::unsupported;
+  return mutable_associative_view{*this};
+}
+result<optional_view> instance::as_optional() const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (kind() != type_kind::optional)
+    return error::unsupported;
+  return optional_view{*this};
+}
+result<mutable_optional_view> mutable_instance::as_optional() const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (kind() != type_kind::optional)
+    return error::unsupported;
+  return mutable_optional_view{*this};
 }
 }
