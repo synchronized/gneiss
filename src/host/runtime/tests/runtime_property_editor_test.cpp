@@ -3,6 +3,7 @@
 
 #include "../../../../tests/support/value_result.hpp"
 #include "engine/core/error.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime_property_editor.hpp"
@@ -125,4 +126,8 @@ bool test_rejections() {
 
 } // namespace
 
-int main() { return test_write_and_revision() && test_rejections() ? 0 : 1; }
+int main() {
+  if (gneiss::engine::initialize_meta().failed())
+    return 99;
+  return test_write_and_revision() && test_rejections() ? 0 : 1;
+}

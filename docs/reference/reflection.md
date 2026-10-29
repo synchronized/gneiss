@@ -115,7 +115,7 @@ setter 应先校验再修改，Core 不回滚第三方回调已经产生的副�
 ## 内建组件与生命周期
 
 `register_reflection` 为未冻结 Registry 注册 Transform 和 Camera；重复调用返回 `invalid_argument`。
-`create_property_registry` 直接创建已注册且冻结的内建 Registry。
+`create_property_registry` 为隔离测试创建已注册且冻结的独立组件 Registry；生产模块共享默认表。
 稳定身份使用 `transform_component_type`、`camera_component_type` 或对应原生查询函数。
 
 `world_reflection.hpp` 提供 `read_component_property`、`write_component_property`：显式接收 `world&`、
@@ -128,7 +128,8 @@ Transform 的反射对象为 `transform`；Camera 为 World 层的 `camera_prope
 Camera GUID 和字段编号不变，C++ 模板查询使用 `describe_type<camera_properties>`。
 Transform 字段为平移、旋转、缩放；Camera 字段为视场角、近裁剪面、远裁剪面与只读活动状态。
 
-Registry 使用原生共享引用管理，最后一个引用释放时销毁，不经全局句柄表。
+Registry 使用原生共享引用管理，不经全局句柄表。独立表在最后一个引用释放时销毁；
+默认表由引擎模块持有至进程退出，不随应用关闭清空。
 场景服务和场景实例持有引用，Prefab 操作在调用期间借用。
 元数据与回调上下文的使用必须在相应所有者销毁前结束；Registry 不拥有回调上下文。
 
@@ -154,12 +155,13 @@ Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `
 输入大小限制由文件读取入口控制，反射不负责 I/O、缓存、任务或 GPU 上传。
 
 资源层 `register_material_reflection` 显式登记 material_description 的稳定身份及
-`gneiss.material` codec；不会隐式修改组件属性 Registry。资源消费者在冻结前调用该入口。
+`gneiss.material` codec；显式 registry 重载只修改传入的表，无参重载使用默认表。
+默认启动已集中调用，无需资源消费者重复注册。
 材质未展开数组等字段，只登记整体编解码能力；实际格式见[材质格式](render-asset-formats.md#material)。
 
 ## 注册表创建与状态查询
 
-`create_property_registry()` 返回已注册 World 属性并冻结的 `result<registry_ref>`。
+`create_property_registry()` 返回隔离使用的 `result<registry_ref>`，仅含已注册并冻结的 World 属性。
 `is_frozen(registry)` 返回 `result<bool>`，`type_count(registry)` 返回 `result<std::uint32_t>`；
 无效注册表返回 invalid_handle，未冻结注册表的类型数量查询返回 not_ready。
 成功的 false 或零数量不代表操作失败。
@@ -172,3 +174,21 @@ Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `
 `read_property` 返回 `result<value>`；成功快照拥有字符串等数据，可在 Registry 释放后使用。
 getter 失败、异常或返回不匹配／无效值时仅返回错误，不交付部分属性快照。
 写属性仍返回 error；编解码回调和序列化模板的输出接口尚未迁移。
+
+## 默认注册表与启动
+
+`meta::default_registry()` 返回进程共享的 `result<registry_ref>`，只创建表，不登记内置类型、不冻结。
+定义位于 engine 编译单元；各模块应链接同一引擎，不能把引擎静态复制到多个动态库后期待共享状态。
+未冻结时查询返回 `not_ready`。`meta::type_builder<T>{}`、`register_type<T>(definition)`、
+`describe_type<T>()`、属性访问和 `serialize(object)` / `deserialize<T>(bytes)` 使用默认表；
+显式 registry 重载保持原行为。
+
+`engine/function/meta_registration.hpp` 的 `engine::initialize_meta(callback = nullptr)` 在启动阶段
+串行登记内置 World 属性、资源 codec、项目类型，再冻结。callback 接收同一 registry，
+可直接使用默认 builder。需要自定义类型的宿主在首次 `application::create` 前调用带 callback 的入口；
+application 自动调用无参入口，重复无参调用返回首次结果。独立工具应显式完成初始化。
+初始化期间不得并行修改或手动冻结默认表，callback 不得重入初始化函数。
+
+首次注册失败或异常会保留失败结果，表不冻结；后续无参调用返回原错误，应修复后重新启动进程。
+已启动后再提供 callback 返回 `invalid_state`。不支持运行期扩充、重置默认表或插件热卸载。
+独立 registry 仍可通过 `create_registry()` 创建并按原接口注册、冻结，不受默认表状态影响。

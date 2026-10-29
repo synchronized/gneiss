@@ -43,4 +43,21 @@ deserialize(const registry_ref& registry, std::span<const std::byte> bytes) noex
 } catch (...) {
   return serialization_diagnostic{.error = error::internal};
 }
+/** 使用默认注册表，不隐式注册或冻结。 */
+template <class T>
+[[nodiscard]] result<std::vector<std::byte>, serialization_diagnostic>
+serialize(const T& object) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return serialization_diagnostic{.error = registry.error()};
+  return serialize(*registry, object);
+}
+template <class T>
+[[nodiscard]] result<T, serialization_diagnostic>
+deserialize(std::span<const std::byte> bytes) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return serialization_diagnostic{.error = registry.error()};
+  return deserialize<T>(*registry, bytes);
+}
 }

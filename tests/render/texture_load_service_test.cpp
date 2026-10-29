@@ -7,6 +7,7 @@
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/resource/detail/resource_service_impl.hpp"
@@ -525,6 +526,8 @@ void independent_loads(execution_mode mode) {
 
 } // namespace
 int main() try {
+  if (gneiss::engine::initialize_meta().failed())
+    return 99;
   prepared_source_revisions();
   mesh_data_lifetime();
   independent_resource_identity();

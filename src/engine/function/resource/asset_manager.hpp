@@ -39,7 +39,8 @@ public:
   load_texture_data(std::string_view uri, texture_prepare_profile profile,
                     std::size_t maximum_bytes = 64U * 1024U * 1024U) noexcept;
   /** 注入同线程文件服务；宿主驱动文件完成分发，advance 只推进 CPU 解码和资源结果。
-   * 不提供同步文件读取；缓存查询使用 find_loaded，服务可由宿主共享持有。 */
+   * 不提供同步文件读取；缓存查询使用 find_loaded，服务可由宿主共享持有。
+   * registry 为空时使用默认表，宿主须先 initialize_meta；显式表也必须冻结。 */
   explicit asset_manager(std::shared_ptr<engine::files::service> files,
                          meta::registry_ref registry = {},
                          std::size_t fallback_limit = 64U * 1024U * 1024U);

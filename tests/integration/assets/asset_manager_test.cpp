@@ -8,6 +8,7 @@
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/platform/files/file_backend.hpp"
 #include "engine/platform/files/file_service.hpp"
@@ -837,6 +838,8 @@ void request_value_contract() {
 }
 
 int main() {
+  if (gneiss::engine::initialize_meta().failed())
+    return 99;
   try {
     request_value_contract();
     injected_file_service();

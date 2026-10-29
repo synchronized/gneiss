@@ -5,12 +5,12 @@
 #include "asset_manager.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/meta/registry.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/function/resource/detail/asset_decode.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/asset_uri.hpp"
-#include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/texture/texture_decoder.hpp"
 #include <algorithm>
 #include <atomic>
@@ -271,11 +271,11 @@ asset_manager::asset_manager(std::shared_ptr<engine::files::service> files,
     throw std::invalid_argument("文件服务不能为空");
   resource_state_->files = std::move(files);
   if (!registry) {
-    auto created = builtin_resource_registry();
+    auto created = meta::default_registry();
     if (!created) {
       if (created.error() == error::out_of_memory)
         throw std::bad_alloc{};
-      throw std::runtime_error("无法创建资源反射注册表");
+      throw std::runtime_error("无法获取默认反射注册表");
     }
     registry = std::move(*created);
   }

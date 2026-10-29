@@ -7,6 +7,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "runtime/application.hpp"
 
@@ -205,6 +206,8 @@ create_rejections_are_valid(const gneiss::editor::create_prefab_author_request& 
 } // namespace
 
 int main() try {
+  if (gneiss::engine::initialize_meta().failed())
+    return 99;
   const gneiss::editor::create_prefab_author_request request{
       .scene_path = "scenes/main.scene.json",
       .prefab_path = "prefabs/lamp.prefab.json",

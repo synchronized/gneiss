@@ -9,6 +9,12 @@
 
 namespace gneiss::engine {
 [[nodiscard]] GNEISS_API error register_reflection(const meta::registry_ref& registry);
+[[nodiscard]] inline error register_reflection() {
+  auto registry = meta::default_registry();
+  if (!registry)
+    return registry.error();
+  return register_reflection(*registry);
+}
 /** World 层相机属性快照；活动状态只读，不持有 World 或组件地址。 */
 struct camera_properties {
   inline static constexpr std::string_view type_name = "camera";
@@ -17,7 +23,7 @@ struct camera_properties {
   bool is_primary{};
 };
 
-/** 返回冻结的内置组件注册表；组件读写入口验证 World 实体有效性和所属线程。 */
+/** 创建独立、冻结的内置组件注册表（隔离测试使用）；组件读写入口验证 World 实体有效性和所属线程。 */
 [[nodiscard]] GNEISS_API result<meta::registry_ref> create_property_registry() noexcept;
 [[nodiscard]] GNEISS_API guid transform_property_type() noexcept;
 [[nodiscard]] GNEISS_API guid camera_property_type() noexcept;

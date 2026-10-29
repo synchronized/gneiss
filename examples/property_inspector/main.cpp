@@ -4,6 +4,7 @@
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
@@ -60,7 +61,9 @@ bool target_for(gneiss::runtime::application& app, gneiss::scene_instance_id sce
 }
 }
 int main() try {
-  auto created_registry = gneiss::engine::create_property_registry();
+  if (gneiss::engine::initialize_meta().failed())
+    return 99;
+  auto created_registry = gneiss::engine::meta::default_registry();
   if (!created_registry)
     return 1;
   auto registry = std::move(*created_registry);

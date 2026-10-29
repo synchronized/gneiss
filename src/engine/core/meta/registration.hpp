@@ -30,6 +30,14 @@ template <class T>
   definition.type_id = id;
   return register_type(registry, definition, bindings);
 }
+template <class T>
+[[nodiscard]] error register_type(type_definition definition,
+                                  std::span<const property_binding> bindings = {}) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return register_type<T>(*registry, definition, bindings);
+}
 namespace detail {
 template <class T, std::size_t Index = 1> constexpr value_kind reflected_value_kind() {
   if constexpr (Index == std::variant_size_v<value::storage_type>) {
@@ -57,6 +65,13 @@ template <class T> class type_builder {
   };
 
 public:
+  type_builder() noexcept {
+    auto registry = default_registry();
+    if (registry)
+      registry_ = std::move(*registry);
+    else
+      status_ = registry.error();
+  }
   explicit type_builder(registry_ref registry) noexcept : registry_(std::move(registry)) {}
   type_builder& schema_version(std::uint32_t version) noexcept {
     version_ = version;

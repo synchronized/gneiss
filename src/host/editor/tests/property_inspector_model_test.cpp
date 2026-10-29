@@ -4,6 +4,7 @@
 #include "../../../../tests/support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
 #include "panels/property_inspector_model.hpp"
@@ -22,6 +23,8 @@ namespace {
 } // namespace
 
 int main() {
+  if (gneiss::engine::initialize_meta().failed())
+    return 99;
   gneiss::engine::world_owner owner;
 
   gneiss::entity_id entity;

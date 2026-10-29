@@ -6,6 +6,7 @@
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
@@ -69,6 +70,8 @@ public:
 }
 
 int main() {
+  if (gneiss::engine::initialize_meta().failed())
+    return 99;
   gneiss::engine::action_map map;
   constexpr auto valid =
       R"({"format":"gneiss.input-map","version":1,"actions":[{"name":"move","bindings":[{"key":4,"scale":-1.0},{"key":7,"scale":1.0}]}]})";
@@ -129,7 +132,7 @@ int main() {
   // 异步打开来源后检查读取上限，不调用旧 read_bounded。
   gneiss::engine::meta::registry_ref registry;
   gneiss::engine::meta::serialization_binding codec;
-  if (gneiss::test_support::assign_value(builtin_resource_registry(), registry).failed() ||
+  if (gneiss::test_support::assign_value(meta::default_registry(), registry).failed() ||
       gneiss::test_support::assign_value(
           find_serialization(registry, runtime_type_of<action_map>()), codec)
           .failed() ||

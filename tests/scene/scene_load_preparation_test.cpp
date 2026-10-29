@@ -7,6 +7,7 @@
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/platform/files/file_service.hpp"
@@ -177,6 +178,8 @@ void run() {
 } // namespace
 
 int main() try {
+  if (gneiss::engine::initialize_meta().failed())
+    return 99;
   run();
   return 0;
 } catch (const std::exception& error) {

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/scene_document_snapshot.hpp"
+#include "engine/core/meta/registry.hpp"
 #include "engine/core/meta/serialization.hpp"
-#include "engine/resource/builtin_resource_registration.hpp"
 #include "runtime/application.hpp"
 namespace gneiss::editor {
 engine::error capture_scene_document(runtime::application& app, const scene_document& document,
@@ -30,7 +30,7 @@ engine::error prepare_scene_document(const scene_document_snapshot& before,
   engine::scene_description_inputs inputs;
   for (const auto& [uri, prefab] : before.description.prefabs)
     inputs.prefabs.emplace(uri, prefab.resource);
-  auto registry = engine::builtin_resource_registry();
+  auto registry = engine::meta::default_registry();
   if (!registry)
     return registry.error();
   const auto decode = [&](const std::string& json, auto& output) {

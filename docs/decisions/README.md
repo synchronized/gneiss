@@ -92,3 +92,4 @@ Reference 和实现为准。
 - [ADR-090：场景对象运行时状态收敛](ADR-090-scene-object-storage.md)
 
 - [ADR-091：Prefab 作为普通对象的来源元数据](ADR-091-prefab-object-metadata.md)
+- [ADR-092：共享默认 Meta 注册表](ADR-092-default-meta-registry.md)

@@ -500,6 +500,15 @@ private:
   bool is_frozen_ = false;
 };
 
+result<registry_ref> default_registry() noexcept try {
+  static const registry_ref registry = std::make_shared<type_registry_state>();
+  return registry;
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+
 result<registry_ref> create_registry() noexcept {
   try {
     return std::make_shared<type_registry_state>();

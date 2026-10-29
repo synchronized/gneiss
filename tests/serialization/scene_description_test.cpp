@@ -6,6 +6,7 @@
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/serialization.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
@@ -78,11 +79,13 @@ private:
 } // namespace
 
 int main() try {
+  if (gneiss::engine::initialize_meta().failed())
+    return 99;
   // 反射 codec 保留未知字段；解码失败不覆盖旧对象。
   {
     namespace e = gneiss::engine;
     gneiss::engine::meta::registry_ref registry;
-    if (gneiss::test_support::assign_value(e::builtin_resource_registry(), registry).failed())
+    if (gneiss::test_support::assign_value(e::meta::default_registry(), registry).failed())
       return 90;
     auto text = std::string(valid_scene);
     text.insert(1, R"("codec_unknown":{"keep":7},)");

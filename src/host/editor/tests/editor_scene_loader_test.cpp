@@ -7,6 +7,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/meta/serialization.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"
@@ -121,7 +122,7 @@ void run(gneiss::engine::execution_mode mode) {
   changed_description.objects.front().name = "Snapshot edit";
   std::string replacement;
   engine::meta::registry_ref registry;
-  check(gneiss::test_support::assign_value(engine::builtin_resource_registry(), registry).ok());
+  check(gneiss::test_support::assign_value(engine::meta::default_registry(), registry).ok());
   const auto encode = [&] {
     std::vector<std::byte> bytes;
     engine::meta::serialization_diagnostic diagnostic;
@@ -164,6 +165,8 @@ void run(gneiss::engine::execution_mode mode) {
 } // namespace
 
 int main() try {
+  if (gneiss::engine::initialize_meta().failed())
+    return 99;
   run(gneiss::engine::execution_mode::thread_pool);
   run(gneiss::engine::execution_mode::cooperative);
   return 0;

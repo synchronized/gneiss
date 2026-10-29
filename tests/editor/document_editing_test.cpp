@@ -8,6 +8,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/meta/serialization.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "runtime/application.hpp"
@@ -58,7 +59,7 @@ bool save_codec_contract(gneiss::runtime::application& application) {
     return false;
   gneiss::engine::meta::registry_ref registry;
   gneiss::engine::meta::serialization_diagnostic diagnostic;
-  if (gneiss::test_support::assign_value(e::builtin_resource_registry(), registry).failed() ||
+  if (gneiss::test_support::assign_value(e::meta::default_registry(), registry).failed() ||
       gneiss::test_support::assign_decoded(
           gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(snapshot)>>(
               registry, std::as_bytes(std::span{saved.data(), saved.size()})),
@@ -125,6 +126,8 @@ private:
 };
 }
 int main() try {
+  if (gneiss::engine::initialize_meta().failed())
+    return 99;
   std::shared_ptr<gneiss::runtime::application> application;
   if (gneiss::runtime::application::create({}, application) != gneiss::engine::error::success)
     return 1;

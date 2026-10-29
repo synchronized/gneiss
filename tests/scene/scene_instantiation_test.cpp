@@ -10,6 +10,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/type_id.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/resource/detail/resource_service_impl.hpp"
@@ -489,6 +490,8 @@ void run() {
 } // namespace
 
 int main() try {
+  if (gneiss::engine::initialize_meta().failed())
+    return 99;
   unified_resource_index();
   run();
   return 0;

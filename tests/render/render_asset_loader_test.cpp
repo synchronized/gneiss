@@ -8,6 +8,7 @@
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/resource/detail/resource_service_impl.hpp"
@@ -457,6 +458,8 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
 } // namespace
 
 int main() try { // NOLINT(readability-function-cognitive-complexity)：集成测试按返回码定位阶段。
+  if (gneiss::engine::initialize_meta().failed())
+    return 99;
   selected_variants();
   static constexpr std::array<std::uint8_t, 68> png_bytes = {
       0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48,

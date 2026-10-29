@@ -7,6 +7,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/resource/resource_cache.hpp"
@@ -278,6 +279,8 @@ bool check_visible_prefab(gneiss::engine::world& world, gneiss::engine::resource
 } // namespace
 
 int main() try {
+  if (gneiss::engine::initialize_meta().failed())
+    return 99;
 
   gneiss::engine::world_owner world_owner;
   if (gneiss::test_support::assign_value(gneiss::engine::create_native(), world_owner) !=

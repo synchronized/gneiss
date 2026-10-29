@@ -13,6 +13,8 @@ class type_registry_state;
 using registry_ref = std::shared_ptr<type_registry_state>;
 /** 创建独立注册表，成功结果持有共享所有者。 */
 [[nodiscard]] GNEISS_API result<registry_ref> create_registry() noexcept;
+/** 进程共享的默认注册表；仅创建，不自动注册或冻结，由引擎模块持有至退出。 */
+[[nodiscard]] GNEISS_API result<registry_ref> default_registry() noexcept;
 /** 深拷贝元数据；重复 GUID 或非空运行期 ID 返回 invalid_argument，冻结后禁止注册。 */
 [[nodiscard]] GNEISS_API error register_type(const registry_ref& state,
                                              const type_definition& desc) noexcept;
@@ -54,4 +56,92 @@ describe_property(const registry_ref& registry, engine::guid type, property_id p
 [[nodiscard]] GNEISS_API error write_property(const registry_ref& registry, engine::guid type,
                                               property_id property, void* object,
                                               const value& value) noexcept;
+
+/** 以下重载使用默认注册表；错误与显式 registry 接口一致，不隐式冻结。 */
+[[nodiscard]] inline error register_type(const type_definition& desc) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return register_type(*registry, desc);
+}
+[[nodiscard]] inline error register_type(const type_definition& desc,
+                                         std::span<const property_binding> bindings) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return register_type(*registry, desc, bindings);
+}
+[[nodiscard]] inline error bind_property(guid type, property_id property,
+                                         const property_binding& binding) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return bind_property(*registry, type, property, binding);
+}
+[[nodiscard]] inline error freeze() noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return freeze(*registry);
+}
+[[nodiscard]] inline result<bool> is_frozen() noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return is_frozen(*registry);
+}
+[[nodiscard]] inline result<serialization_binding> find_serialization(type_id type) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return find_serialization(*registry, type);
+}
+[[nodiscard]] inline result<std::uint32_t> type_count() noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return type_count(*registry);
+}
+[[nodiscard]] inline result<type_info> describe_type_at(std::uint32_t index) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return describe_type_at(*registry, index);
+}
+[[nodiscard]] inline result<type_info> describe_type(guid type) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return describe_type(*registry, type);
+}
+[[nodiscard]] inline result<type_info> describe_type(type_id type) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return describe_type(*registry, type);
+}
+[[nodiscard]] inline result<property_info> describe_property(guid type,
+                                                             property_id property) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return describe_property(*registry, type, property);
+}
+[[nodiscard]] inline result<value> read_property(guid type, property_id property,
+                                                 const void* object) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return read_property(*registry, type, property, object);
+}
+[[nodiscard]] inline error write_property(guid type, property_id property, void* object,
+                                          const value& input) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return write_property(*registry, type, property, object, input);
+}
+template <class T> [[nodiscard]] result<type_info> describe_type() noexcept {
+  return describe_type(runtime_type_of<T>());
+}
 } // namespace gneiss::engine::meta

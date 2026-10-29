@@ -1353,7 +1353,7 @@ engine::error scene_instance::serialize(std::string& out_json) const {
 scene_instances::scene_instances(world& native_world, resource_service& loader) noexcept
     : native_world_(native_world), loader_(loader), domain_(allocate_domain()),
       instances_(domain_) {
-  if (auto created = engine::create_property_registry())
+  if (auto created = engine::meta::default_registry())
     registry_ = std::move(*created);
 }
 

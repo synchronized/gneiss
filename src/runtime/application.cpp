@@ -9,6 +9,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/input/input_service.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/asset_manager.hpp"
@@ -167,6 +168,9 @@ gneiss::engine::error application::create(const runtime::application_configurati
     return gneiss::engine::error::invalid_argument;
   }
   try {
+    const auto meta_status = gneiss::engine::initialize_meta();
+    if (meta_status.failed())
+      return meta_status;
     auto instance = std::shared_ptr<application>(new application(config));
     const auto result = instance->initialize();
     if (result != gneiss::engine::error::success) {

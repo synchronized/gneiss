@@ -78,9 +78,14 @@ gneiss::engine::error runtime_property_editor::initialize(gneiss::engine::world&
   if (session_id == 0U || registry_ != nullptr) {
     return gneiss::engine::error::invalid_argument;
   }
-  auto registry = gneiss::engine::create_property_registry();
+  auto registry = gneiss::engine::meta::default_registry();
   if (!registry)
     return registry.error();
+  auto frozen = gneiss::engine::meta::is_frozen(*registry);
+  if (!frozen)
+    return frozen.error();
+  if (!*frozen)
+    return gneiss::engine::error::not_ready;
   world_ = &world;
   inspection_ = &inspection;
   session_id_ = session_id;

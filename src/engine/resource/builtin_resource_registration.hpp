@@ -10,6 +10,28 @@ namespace gneiss::engine {
 [[nodiscard]] GNEISS_API error register_prefab_reflection(const meta::registry_ref&) noexcept;
 [[nodiscard]] GNEISS_API error register_action_map_reflection(const meta::registry_ref&) noexcept;
 
-/** 共享的只读内置资源 Registry，登记材质、输入映射、Scene 与 Prefab codec；失败仅返回诊断。 */
-[[nodiscard]] GNEISS_API result<meta::registry_ref> builtin_resource_registry() noexcept;
+[[nodiscard]] inline error register_material_reflection() noexcept {
+  auto registry = meta::default_registry();
+  if (!registry)
+    return registry.error();
+  return register_material_reflection(*registry);
+}
+[[nodiscard]] inline error register_scene_reflection() noexcept {
+  auto registry = meta::default_registry();
+  if (!registry)
+    return registry.error();
+  return register_scene_reflection(*registry);
+}
+[[nodiscard]] inline error register_prefab_reflection() noexcept {
+  auto registry = meta::default_registry();
+  if (!registry)
+    return registry.error();
+  return register_prefab_reflection(*registry);
+}
+[[nodiscard]] inline error register_action_map_reflection() noexcept {
+  auto registry = meta::default_registry();
+  if (!registry)
+    return registry.error();
+  return register_action_map_reflection(*registry);
+}
 }

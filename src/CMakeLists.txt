@@ -132,6 +132,8 @@ target_sources(
     engine/function/render/render_snapshot.hpp
     engine/core/meta/registry.cpp
     engine/core/meta/serialization.hpp
+    engine/function/meta_registration.cpp
+    engine/function/meta_registration.hpp
     engine/resource/builtin_resource_registration.cpp
     engine/resource/builtin_resource_registration.hpp
     engine/resource/asset_decoder.hpp

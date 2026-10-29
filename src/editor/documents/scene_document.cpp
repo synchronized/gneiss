@@ -3,11 +3,11 @@
 
 #include "documents/scene_document.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/meta/registry.hpp"
 #include "engine/core/meta/serialization.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
-#include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
 #include "runtime/application.hpp"
 
@@ -903,7 +903,7 @@ engine::error scene_document::encode_scene(std::string& output) const noexcept t
       with_scene([&](auto& service) { return service.capture_description(scene_, description); });
   if (status.failed())
     return status;
-  auto registry = engine::builtin_resource_registry();
+  auto registry = engine::meta::default_registry();
   if (!registry)
     return registry.error();
   auto encoded = engine::meta::serialize(*registry, description);

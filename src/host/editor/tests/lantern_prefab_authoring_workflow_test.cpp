@@ -7,6 +7,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "runtime/application.hpp"
 
@@ -54,6 +55,8 @@ struct temporary_project final {
 } // namespace
 
 int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回失败码。
+  if (gneiss::engine::initialize_meta().failed())
+    return 99;
   const auto suffix = std::chrono::steady_clock::now().time_since_epoch().count();
   const auto project_root = std::filesystem::temp_directory_path() /
                             ("gneiss-lantern-prefab-authoring-" + std::to_string(suffix));

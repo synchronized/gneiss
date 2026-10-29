@@ -7,6 +7,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/meta/serialization.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/resource/resource_cache.hpp"
 #include "engine/function/scene/scene_tree.hpp"
@@ -175,6 +176,8 @@ bool prepared_description_contract() {
 }
 
 int main() try {
+  if (gneiss::engine::initialize_meta().failed())
+    return 99;
   const auto nested = replace_once(std::string(valid_prefab), R"("components":{})",
                                    R"("prefab":{"uri":"asset://nested.prefab","overrides":[]})");
   const auto parsed_nested = gneiss::engine::parse_prefab_description(nested);
@@ -184,7 +187,7 @@ int main() try {
   {
     namespace e = gneiss::engine;
     gneiss::engine::meta::registry_ref registry;
-    if (gneiss::test_support::assign_value(e::builtin_resource_registry(), registry).failed())
+    if (gneiss::test_support::assign_value(e::meta::default_registry(), registry).failed())
       return 90;
     auto text = std::string(valid_prefab);
     text.insert(1, R"("codec_unknown":{"keep":7},)");

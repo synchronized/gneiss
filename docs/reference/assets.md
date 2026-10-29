@@ -214,7 +214,8 @@ asset_manager 仅接受 shared_ptr<files::service>。`find_loaded<T>` 只查询�
 成功才进入缓存，失败保留既有缓存资源。`asset_request::take()` 返回的失败结果携带 codec 的路径、消息和字节位置。
 
 首次有效加载进入解码器选择后冻结显式注册，后续反射适配不改变 codec 选择。
-管理器持有 Registry；默认使用共享的内置资源 Registry，目前包含材质、Scene、Prefab codec 和 ActionMap 解码器。
+管理器持有 Registry；默认使用进程共享的 Meta Registry，宿主须先完成
+[默认注册表初始化](reflection.md#默认注册表与启动)。内置类型包含 World 属性以及材质、Scene、Prefab codec 和 ActionMap 解码器。
 构造时也可传入已冻结的自定义 Registry，未冻结或零输入上限抛出 invalid_argument。
 反射读取默认上限为 64 MiB，可通过构造参数指定；类型声明 `maximum_source_bytes` 时取两者较小值。
 ActionMap 限制为 1 MiB，解析器也检查此上限；显式 decoder 使用自己的上限。
