@@ -48,13 +48,13 @@ void print_usage() {
 
 int process_binary_mesh(std::string_view command, const std::filesystem::path& path) {
   const auto bytes = read_file(path);
-  gneiss::engine::mesh_binary_data data;
-  gneiss::engine::mesh_binary_diagnostic diagnostic;
-  if (gneiss::engine::decode_mesh_binary(bytes, data, diagnostic) !=
-      gneiss::engine::mesh_binary_result::success) {
+  auto decoded = gneiss::engine::decode_mesh_binary(bytes);
+  if (!decoded) {
+    const auto& diagnostic = decoded.error();
     std::cerr << diagnostic.message << "（字节 " << diagnostic.byte_offset << "）\n";
     return 1;
   }
+  const auto& data = *decoded;
   if (command == "inspect") {
     std::cout << "Mesh Binary v1 顶点=" << data.vertices.size() << " 索引=" << data.indices.size()
               << " 三角形=" << data.indices.size() / 3U << " 字节=" << bytes.size() << '\n';

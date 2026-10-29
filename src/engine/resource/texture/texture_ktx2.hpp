@@ -6,6 +6,7 @@
 
 #include "engine/resource/texture/texture_data.hpp"
 
+#include "engine/core/result.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -21,23 +22,25 @@ struct texture_ktx2 final {
   std::vector<texture_mip> levels;
 };
 
-enum class texture_ktx2_result : std::uint8_t {
-  success,
+enum class texture_ktx2_error : std::uint8_t {
   invalid_argument,
   invalid_container,
   unsupported_container,
   out_of_memory,
 };
 
+struct texture_ktx2_diagnostic {
+  texture_ktx2_error error{texture_ktx2_error::invalid_argument};
+  std::string message;
+};
+
 /** 将二维 RGBA8 完整 Mip 链写为无超级压缩 KTX2。 */
-[[nodiscard]] texture_ktx2_result encode_texture_ktx2(const texture_ktx2& texture,
-                                                      std::vector<std::byte>& output,
-                                                      std::string& diagnostic) noexcept;
+[[nodiscard]] result<std::vector<std::byte>, texture_ktx2_diagnostic>
+encode_texture_ktx2(const texture_ktx2& texture) noexcept;
 
 /** 解析 Gneiss 支持的二维 RGBA8 KTX2，并复制所有 Mip 数据。 */
-[[nodiscard]] texture_ktx2_result decode_texture_ktx2(std::span<const std::byte> bytes,
-                                                      texture_ktx2& output,
-                                                      std::string& diagnostic) noexcept;
+[[nodiscard]] result<texture_ktx2, texture_ktx2_diagnostic>
+decode_texture_ktx2(std::span<const std::byte> bytes) noexcept;
 
 } // namespace gneiss::engine
 

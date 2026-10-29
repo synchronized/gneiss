@@ -28,9 +28,9 @@ gneiss::engine::error action_map_application::poll(gneiss::engine::input_service
   if (state_ != action_map_apply_state::loading)
     return result_;
   auto loaded = request_.take();
-  if (!loaded && loaded.error().result == gneiss::engine::error::not_ready)
+  if (!loaded && loaded.error().error == gneiss::engine::error::not_ready)
     return gneiss::engine::error::not_ready;
-  result_ = loaded ? gneiss::engine::error::success : loaded.error().result;
+  result_ = loaded ? gneiss::engine::error::success : loaded.error().error;
   if (loaded) {
     try {
       auto map = **loaded;

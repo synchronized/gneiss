@@ -37,18 +37,17 @@ result<decoded_asset, asset_diagnostic> decode_mesh_asset(std::string_view uri,
                                                           std::size_t maximum_bytes) {
   asset_diagnostic diagnostic;
   const auto failure = [&](error code) {
-    diagnostic.result = code;
+    diagnostic.error = code;
     if (diagnostic.path.empty())
       diagnostic.path = uri;
     return std::move(diagnostic);
   };
-  mesh_data mesh;
-  auto status = is_mesh_binary(bytes)
-                    ? parse_binary_mesh(bytes, mesh.vertices, mesh.normals, mesh.indices,
-                                        mesh.tangents, mesh.uv1, mesh.colors, diagnostic)
-                    : parse_mesh(bytes, mesh.vertices, mesh.normals, diagnostic);
-  if (status.failed())
-    return failure(status);
+  auto parsed = is_mesh_binary(bytes) ? parse_binary_mesh(bytes) : parse_mesh(bytes);
+  if (!parsed) {
+    diagnostic = std::move(parsed).error();
+    return failure(diagnostic.error);
+  }
+  auto mesh = std::move(*parsed);
   if (invalid_prepared_mesh(mesh))
     return failure(error::invalid_argument);
   const auto size = mesh.data_bytes();
@@ -64,18 +63,19 @@ result<decoded_asset, asset_diagnostic> decode_texture_asset(std::string_view ur
                                                              texture_prepare_profile profile) {
   asset_diagnostic diagnostic;
   const auto failure = [&](error code) {
-    diagnostic.result = code;
+    diagnostic.error = code;
     if (diagnostic.path.empty())
       diagnostic.path = uri;
     return std::move(diagnostic);
   };
   if (payload.size() > maximum_bytes)
     return failure(error::invalid_argument);
-  texture_data texture;
-  const auto status = decode_texture_payload(description, payload, texture, diagnostic,
-                                             maximum_bytes, maximum_bytes, profile);
-  if (status.failed())
-    return failure(status);
+  auto parsed = decode_texture_payload(description, payload, maximum_bytes, maximum_bytes, profile);
+  if (!parsed) {
+    diagnostic = std::move(parsed).error();
+    return failure(diagnostic.error);
+  }
+  auto texture = std::move(*parsed);
   auto size = texture.manifest.size() + texture.payload.size();
   for (const auto& level : texture.levels)
     size += level.pixels.size();
@@ -89,7 +89,7 @@ adopt_material_asset(std::string_view uri, asset_ref<const material_description>
                      std::size_t maximum_bytes, std::size_t material_bytes) {
   asset_diagnostic diagnostic;
   const auto failure = [&](error code) {
-    diagnostic.result = code;
+    diagnostic.error = code;
     if (diagnostic.path.empty())
       diagnostic.path = uri;
     return std::move(diagnostic);

@@ -143,10 +143,7 @@ struct source_node final {
   }
   if (node.processor->id == "gneiss.mesh" && extension == ".gneiss-mesh") {
     const auto bytes = read_bytes(node.absolute_path);
-    gneiss::engine::mesh_binary_data output;
-    gneiss::engine::mesh_binary_diagnostic diagnostic;
-    return gneiss::engine::decode_mesh_binary(bytes, output, diagnostic) ==
-           gneiss::engine::mesh_binary_result::success;
+    return gneiss::engine::decode_mesh_binary(bytes).ok();
   }
   if ((node.processor->id == "gneiss.mesh" || node.processor->id == "gneiss.material" ||
        node.processor->id == "gneiss.document") &&
@@ -231,10 +228,12 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
 [[nodiscard]] bool cook_png(const source_node& node, std::vector<std::byte>& output,
                             std::string& diagnostic) {
   const auto bytes = read_bytes(node.absolute_path);
-  gneiss::engine::decoded_png decoded;
-  if (gneiss::engine::decode_png(bytes, decoded, diagnostic) != gneiss::engine::error::success) {
+  auto image = gneiss::engine::decode_png(bytes);
+  if (!image) {
+    diagnostic = std::move(image).error().message;
     return false;
   }
+  auto decoded = std::move(*image);
   gneiss::engine::texture_ktx2 texture{
       .transfer = node.texture_transfer.value_or(gneiss::engine::texture_transfer::srgb),
       .levels = {

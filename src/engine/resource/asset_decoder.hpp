@@ -18,15 +18,14 @@ public:
   virtual ~asset_decoder() = default;
   [[nodiscard]] virtual type_id target_type() const noexcept = 0;
   [[nodiscard]] virtual std::size_t maximum_bytes() const noexcept = 0;
-  [[nodiscard]] virtual engine::error decode(const std::vector<std::byte>& bytes,
-                                             std::shared_ptr<const void>& output,
-                                             meta::serialization_diagnostic& diagnostic) const = 0;
+  [[nodiscard]] virtual result<std::shared_ptr<const void>, meta::serialization_diagnostic>
+  decode(const std::vector<std::byte>& bytes) const = 0;
 };
 
 /** 有类型解码函数；失败对象由适配器丢弃，可并发处理不同输入。 */
 template <class T>
-using asset_decode_function = error (*)(std::span<const std::byte>, T&,
-                                        meta::serialization_diagnostic&);
+using asset_decode_function =
+    result<T, meta::serialization_diagnostic> (*)(std::span<const std::byte>);
 namespace detail {
 template <class T> class typed_asset_decoder final : public asset_decoder {
 public:
@@ -35,14 +34,24 @@ public:
       : function_(function), limit_(limit), binding_(binding) {}
   type_id target_type() const noexcept override { return runtime_type_of<T>(); }
   std::size_t maximum_bytes() const noexcept override { return limit_; }
-  error decode(const std::vector<std::byte>& bytes, std::shared_ptr<const void>& output,
-               meta::serialization_diagnostic& diagnostic) const override {
-    auto pending = std::make_shared<T>();
-    const auto status = function_ ? function_(bytes, *pending, diagnostic)
-                                  : binding_.decode(bytes, pending.get(), diagnostic);
-    if (status == error::success)
-      output = std::move(pending);
-    return status;
+  result<std::shared_ptr<const void>, meta::serialization_diagnostic>
+  decode(const std::vector<std::byte>& bytes) const override try {
+    if (function_) {
+      auto decoded = function_(bytes);
+      if (!decoded)
+        return std::move(decoded).error();
+      return std::shared_ptr<const void>{std::make_shared<T>(std::move(*decoded))};
+    }
+    auto decoded = binding_.decode(bytes);
+    if (!decoded)
+      return std::move(decoded).error();
+    if (!*decoded)
+      return meta::serialization_diagnostic{.error = error::internal};
+    return std::shared_ptr<const void>{std::move(*decoded)};
+  } catch (const std::bad_alloc&) {
+    return meta::serialization_diagnostic{.error = error::out_of_memory};
+  } catch (...) {
+    return meta::serialization_diagnostic{.error = error::internal};
   }
 
 private:
@@ -51,8 +60,8 @@ private:
   meta::serialization_binding binding_{};
 };
 template <class T>
-error make_reflected_decoder(const meta::registry_ref& registry, std::size_t limit,
-                             std::shared_ptr<const asset_decoder>& output) {
+result<std::shared_ptr<const asset_decoder>>
+make_reflected_decoder(const meta::registry_ref& registry, std::size_t limit) {
   if (!registry)
     return error::unsupported;
   auto binding = find_serialization(registry, runtime_type_of<T>());
@@ -60,11 +69,11 @@ error make_reflected_decoder(const meta::registry_ref& registry, std::size_t lim
     return binding.error() == error::not_found ? error::unsupported : binding.error();
   if (!binding->decode)
     return error::unsupported;
-  if constexpr (std::is_default_constructible_v<T> && !std::is_const_v<T>) {
+  if constexpr (std::is_move_constructible_v<T> && !std::is_const_v<T>) {
     if constexpr (requires { T::maximum_source_bytes; })
       limit = std::min(limit, static_cast<std::size_t>(T::maximum_source_bytes));
-    output = std::make_shared<typed_asset_decoder<T>>(nullptr, limit, *binding);
-    return error::success;
+    return std::shared_ptr<const asset_decoder>{
+        std::make_shared<typed_asset_decoder<T>>(nullptr, limit, *binding)};
   } else {
     return error::unsupported;
   }

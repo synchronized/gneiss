@@ -8,7 +8,8 @@
 #include "engine/resource/scene/scene_codec.hpp"
 #include <mutex>
 namespace gneiss::engine {
-error builtin_resource_registry(meta::registry_ref& output) noexcept try {
+result<meta::registry_ref> builtin_resource_registry() noexcept try {
+
   static std::mutex mutex;
   static meta::registry_ref registry;
   const std::scoped_lock lock(mutex);
@@ -32,8 +33,8 @@ error builtin_resource_registry(meta::registry_ref& output) noexcept try {
       return status;
     registry = std::move(pending);
   }
-  output = registry;
-  return error::success;
+  return registry;
+
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {

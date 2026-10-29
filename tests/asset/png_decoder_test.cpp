@@ -13,13 +13,17 @@
 #include <vector>
 
 namespace {
-thread_local bool fail_allocations{};
+enum class allocation_target { none, pixel_buffer, diagnostic_text };
+thread_local allocation_target fail_allocations{};
 thread_local std::size_t allocation_failures{};
 }
 
-// 仅本测试进程在选定调用期间持续拒绝标准分配，不改变解码器接口或第三方分配策略。
+// 针对 1×1 RGBA 像素与超出 SSO 的诊断文本持续拒绝分配。
+// MSVC Debug 的字符串／vector 代理可在 noexcept 构造或移动中分配，
+// 不能用“所有 new 失败”模拟这两个可恢复边界；这里保留代理分配与迭代器检查。
 void* operator new(std::size_t size) {
-  if (fail_allocations) {
+  if ((fail_allocations == allocation_target::pixel_buffer && size == 4U) ||
+      (fail_allocations == allocation_target::diagnostic_text && size >= 32U)) {
     ++allocation_failures;
     throw std::bad_alloc{};
   }
@@ -47,59 +51,38 @@ int main() {
   for (const auto value : png) {
     bytes.push_back(static_cast<std::byte>(value));
   }
-  gneiss::engine::decoded_png image;
-  std::string message;
-  if (gneiss::engine::decode_png(bytes, image, message) != gneiss::engine::error::success ||
-      image.width != 1U || image.height != 1U || image.pixels.size() != 4U || !message.empty()) {
+  using namespace gneiss::engine;
+  auto image = decode_png(bytes);
+  if (!image || image->width != 1U || image->height != 1U || image->pixels.size() != 4U)
     return 1;
-  }
-  if (gneiss::engine::decode_png(bytes, image, message, 3U) !=
-          gneiss::engine::error::out_of_memory ||
-      image.width != 0U || !image.pixels.empty() || message.empty()) {
+  auto limited = decode_png(bytes, 3U);
+  if (limited || limited.error().error != error::out_of_memory || limited.error().message.empty())
     return 3;
-  }
-  if (gneiss::engine::decode_png(bytes, image, message, 4U) != gneiss::engine::error::success ||
-      image.pixels.size() != 4U) {
+  auto exact = decode_png(bytes, 4U);
+  if (!exact || exact->pixels.size() != 4U)
     return 4;
-  }
-  gneiss::engine::decoded_png allocation_image;
-  std::string allocation_message;
   allocation_failures = 0U;
-  fail_allocations = true;
-  const auto allocation_result =
-      gneiss::engine::decode_png(bytes, allocation_image, allocation_message);
-  fail_allocations = false;
-  const bool pixel_failure_injected = allocation_failures != 0U;
-  if (!pixel_failure_injected || allocation_result != gneiss::engine::error::out_of_memory ||
-      allocation_image.width != 0U || allocation_image.height != 0U ||
-      !allocation_image.pixels.empty()) {
+  fail_allocations = allocation_target::pixel_buffer;
+  auto allocation_result = decode_png(bytes);
+  fail_allocations = allocation_target::none;
+  if (!allocation_failures || allocation_result ||
+      allocation_result.error().error != error::out_of_memory)
     return 5;
-  }
-
   const std::vector<std::byte> empty_bytes;
   allocation_failures = 0U;
-  fail_allocations = true;
-  const auto empty_result =
-      gneiss::engine::decode_png(empty_bytes, allocation_image, allocation_message);
-  // 部分标准库的短字符串存储可容纳整条诊断，此时没有分配可失败。
-  fail_allocations = false;
-  const bool message_failure_injected = allocation_failures != 0U;
-  const auto expected = message_failure_injected ? gneiss::engine::error::out_of_memory
-                                                 : gneiss::engine::error::invalid_argument;
-  if (empty_result != expected || allocation_image.width != 0U || allocation_image.height != 0U ||
-      !allocation_image.pixels.empty()) {
+  fail_allocations = allocation_target::diagnostic_text;
+  auto empty_result = decode_png(empty_bytes);
+  fail_allocations = allocation_target::none;
+  const auto expected = allocation_failures ? error::out_of_memory : error::invalid_argument;
+  if (empty_result || empty_result.error().error != expected)
     return 6;
-  }
-  if (gneiss::engine::decode_png(empty_bytes, allocation_image, allocation_message) !=
-          gneiss::engine::error::invalid_argument ||
-      allocation_message.empty()) {
+  auto empty = decode_png(empty_bytes);
+  if (empty || empty.error().error != error::invalid_argument || empty.error().message.empty())
     return 7;
-  }
   bytes.resize(16);
-  if (gneiss::engine::decode_png(bytes, image, message) !=
-          gneiss::engine::error::invalid_argument ||
-      image.width != 0U || image.height != 0U || !image.pixels.empty() || message.empty()) {
+  auto truncated = decode_png(bytes);
+  if (truncated || truncated.error().error != error::invalid_argument ||
+      truncated.error().message.empty())
     return 2;
-  }
   return 0;
 }

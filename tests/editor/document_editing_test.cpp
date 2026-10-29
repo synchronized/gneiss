@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_editor_save.hpp"
+#include "../support/value_result.hpp"
 #include "documents/document_editing.hpp"
 #include "documents/editor_scene_loader.hpp"
 #include "engine/core/error.hpp"
@@ -57,9 +58,11 @@ bool save_codec_contract(gneiss::runtime::application& application) {
     return false;
   gneiss::engine::meta::registry_ref registry;
   gneiss::engine::meta::serialization_diagnostic diagnostic;
-  if (e::builtin_resource_registry(registry).failed() ||
-      gneiss::engine::meta::deserialize(
-          registry, std::as_bytes(std::span{saved.data(), saved.size()}), snapshot, diagnostic)
+  if (gneiss::test_support::assign_value(e::builtin_resource_registry(), registry).failed() ||
+      gneiss::test_support::assign_decoded(
+          gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(snapshot)>>(
+              registry, std::as_bytes(std::span{saved.data(), saved.size()})),
+          snapshot, diagnostic)
           .failed() ||
       snapshot.objects.size() != 1 || snapshot.objects.front().name != "保存节点" ||
       snapshot.objects.front().translation != local.translation)

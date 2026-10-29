@@ -70,7 +70,14 @@ struct asset_manager::resource_state {
         const auto& uri = std::get<1>(identity);
         if (auto* texture = std::get_if<texture_decode_input>(&input.input)) {
           if (!texture->payload) {
-            status = detail::parse_texture(bytes, texture->description, error);
+            auto status_value = detail::parse_texture(bytes);
+            status = gneiss::engine::error::success;
+            if (!status_value) {
+              error = std::move(status_value).error();
+              status = error.error;
+            } else {
+              texture->description = std::move(*status_value);
+            }
             texture->input_bytes = bytes.size();
             texture->next_read = status.ok();
           } else {
@@ -81,7 +88,7 @@ struct asset_manager::resource_state {
               status = engine::error::success;
             } else {
               error = std::move(decoded).error();
-              status = error.result;
+              status = error.error;
             }
           }
         } else {
@@ -91,17 +98,25 @@ struct asset_manager::resource_state {
             status = engine::error::success;
           } else {
             error = std::move(decoded).error();
-            status = error.result;
+            status = error.error;
           }
         }
-        diagnostic = {error.byte_offset, std::move(error.path), std::move(error.message)};
+        diagnostic = {error.byte_offset, std::move(error.path), std::move(error.message),
+                      error.error};
         input.milliseconds +=
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started)
                 .count();
         files::bytes{}.swap(bytes);
         return;
       }
-      status = loader->decode(bytes, value, diagnostic);
+      auto decoded = loader->decode(bytes);
+      if (decoded) {
+        value = std::move(*decoded);
+        status = error::success;
+      } else {
+        diagnostic = std::move(decoded).error();
+        status = diagnostic.error;
+      }
       // 解码任务只有一次终态；not_ready 不能变成永久挂起的资产请求。
       if (status == error::not_ready || (status == error::success && !value))
         status = error::internal;
@@ -152,7 +167,7 @@ struct asset_manager::resource_state {
           if (auto operation = weak.lock()) {
             operation->status = completed.status;
             if (completed.status.failed())
-              operation->diagnostic = {0, path, "文件读取失败"};
+              operation->diagnostic = {0, path, "文件读取失败", completed.status};
             operation->bytes = std::move(completed.data);
             operation->read_complete = true;
           }
@@ -256,11 +271,13 @@ asset_manager::asset_manager(std::shared_ptr<engine::files::service> files,
     throw std::invalid_argument("文件服务不能为空");
   resource_state_->files = std::move(files);
   if (!registry) {
-    const auto status = builtin_resource_registry(registry);
-    if (status == error::out_of_memory)
-      throw std::bad_alloc{};
-    if (status.failed())
+    auto created = builtin_resource_registry();
+    if (!created) {
+      if (created.error() == error::out_of_memory)
+        throw std::bad_alloc{};
       throw std::runtime_error("无法创建资源反射注册表");
+    }
+    registry = std::move(*created);
   }
   auto frozen = is_frozen(registry);
   if (fallback_limit == 0 || !frozen || !*frozen)
@@ -330,10 +347,12 @@ error asset_manager::resolve_decoder(type_id type, decoder_factory fallback,
     output = found->second;
     return error::success;
   }
-  const auto status = fallback(state.registry, state.fallback_limit, output);
-  if (status == error::success)
-    state.decoders.emplace(type, output);
-  return status;
+  auto decoded = fallback(state.registry, state.fallback_limit);
+  if (!decoded)
+    return decoded.error();
+  output = std::move(*decoded);
+  state.decoders.emplace(type, output);
+  return error::success;
 }
 
 error asset_manager::request(type_id type, std::string_view uri, bool reload,

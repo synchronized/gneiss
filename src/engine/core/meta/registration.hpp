@@ -126,14 +126,17 @@ public:
       return *this;
     }
     if constexpr (Encode != nullptr)
-      codec_.encode = [](const void* object, std::vector<std::byte>& output,
-                         serialization_diagnostic& diagnostic) -> error {
-        return std::invoke(Encode, *static_cast<const object_type*>(object), output, diagnostic);
+      codec_.encode =
+          [](const void* object) -> result<std::vector<std::byte>, serialization_diagnostic> {
+        return std::invoke(Encode, *static_cast<const object_type*>(object));
       };
     if constexpr (Decode != nullptr)
-      codec_.decode = [](std::span<const std::byte> bytes, void* object,
-                         serialization_diagnostic& diagnostic) -> error {
-        return std::invoke(Decode, bytes, *static_cast<object_type*>(object), diagnostic);
+      codec_.decode = [](std::span<const std::byte> bytes)
+          -> result<std::shared_ptr<void>, serialization_diagnostic> {
+        auto decoded = std::invoke(Decode, bytes);
+        if (!decoded)
+          return std::move(decoded).error();
+        return std::shared_ptr<void>{std::make_shared<object_type>(std::move(*decoded))};
       };
     return *this;
   }

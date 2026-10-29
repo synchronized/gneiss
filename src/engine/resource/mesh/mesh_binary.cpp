@@ -27,14 +27,15 @@ constexpr std::uint16_t header_size = 80;
 constexpr std::uint16_t index_size = 4;
 constexpr std::uint64_t vertex_offset = header_size;
 
-void fail(mesh_binary_diagnostic& diagnostic, mesh_binary_result result, std::size_t offset,
+void fail(mesh_binary_diagnostic& diagnostic, mesh_binary_error result, std::size_t offset,
           std::string_view message) noexcept {
-  diagnostic.result = result;
+  diagnostic.error = result;
   diagnostic.byte_offset = offset;
   try {
     diagnostic.message = message;
   } catch (...) {
     diagnostic.message.clear();
+    diagnostic.error = mesh_binary_error::out_of_memory;
   }
 }
 
@@ -69,16 +70,16 @@ bool is_mesh_binary(std::span<const std::byte> bytes) noexcept {
   return bytes.size() >= magic.size() && std::ranges::equal(bytes.first(magic.size()), magic);
 }
 
-mesh_binary_result encode_mesh_binary(const mesh_binary_data& data, std::vector<std::byte>& output,
-                                      mesh_binary_diagnostic& diagnostic) noexcept {
-  output.clear();
-  diagnostic = {};
+result<std::vector<std::byte>, mesh_binary_diagnostic>
+encode_mesh_binary(const mesh_binary_data& data) noexcept try {
+  std::vector<std::byte> output;
+  mesh_binary_diagnostic diagnostic;
   try {
     if (data.vertices.empty() || data.vertices.size() > std::numeric_limits<std::uint32_t>::max() ||
         data.indices.size() < 3U || data.indices.size() % 3U != 0U ||
         data.indices.size() > std::numeric_limits<std::uint32_t>::max()) {
-      fail(diagnostic, mesh_binary_result::invalid_data, 0, "Mesh 数量超出范围或不是三角形列表");
-      return diagnostic.result;
+      fail(diagnostic, mesh_binary_error::invalid_data, 0, "Mesh 数量超出范围或不是三角形列表");
+      return diagnostic;
     }
     const std::uint32_t flags = (data.uv1.empty() ? 0U : 1U) | (data.colors.empty() ? 0U : 2U);
     if ((!data.uv1.empty() && data.uv1.size() != data.vertices.size()) ||
@@ -91,32 +92,32 @@ mesh_binary_result encode_mesh_binary(const mesh_binary_data& data, std::vector<
             return std::isfinite(v) && v >= 0.0F && v <= 1.0F;
           });
         })) {
-      fail(diagnostic, mesh_binary_result::invalid_data, 0, "UV1/顶点色数量或数值无效");
-      return diagnostic.result;
+      fail(diagnostic, mesh_binary_error::invalid_data, 0, "UV1/顶点色数量或数值无效");
+      return diagnostic;
     }
     if (data.tangents.size() != data.vertices.size()) {
-      fail(diagnostic, mesh_binary_result::invalid_data, 0, "v3 必须提供与顶点数量一致的完整切线");
-      return diagnostic.result;
+      fail(diagnostic, mesh_binary_error::invalid_data, 0, "v3 必须提供与顶点数量一致的完整切线");
+      return diagnostic;
     }
     for (std::size_t index = 0; index < data.tangents.size(); ++index) {
       if (!valid_mesh_tangent(data.tangents[index], data.vertices[index].normal)) {
-        fail(diagnostic, mesh_binary_result::invalid_data, 0,
+        fail(diagnostic, mesh_binary_error::invalid_data, 0,
              "切线必须是与法线正交的单位向量，手性为正负一");
-        return diagnostic.result;
+        return diagnostic;
       }
     }
     math::aabb3 bounds{data.vertices.front().position, data.vertices.front().position};
     for (const auto& vertex : data.vertices) {
       if (!finite(vertex) || !valid_normal(vertex.normal)) {
-        fail(diagnostic, mesh_binary_result::invalid_data, 0, "Mesh 顶点包含无效数值或非单位法线");
-        return diagnostic.result;
+        fail(diagnostic, mesh_binary_error::invalid_data, 0, "Mesh 顶点包含无效数值或非单位法线");
+        return diagnostic;
       }
       bounds = bounds.expanded(vertex.position);
     }
     for (const auto index : data.indices) {
       if (index >= data.vertices.size()) {
-        fail(diagnostic, mesh_binary_result::invalid_data, 0, "Mesh 索引超出顶点范围");
-        return diagnostic.result;
+        fail(diagnostic, mesh_binary_error::invalid_data, 0, "Mesh 索引超出顶点范围");
+        return diagnostic;
       }
     }
     const auto vertex_bytes = static_cast<std::uint64_t>(data.vertices.size()) * vertex_stride;
@@ -169,34 +170,34 @@ mesh_binary_result encode_mesh_binary(const mesh_binary_data& data, std::vector<
     for (const auto index : data.indices) {
       writer.write_le(index);
     }
-    return mesh_binary_result::success;
+    return output;
   } catch (const std::bad_alloc&) {
-    output.clear();
-    fail(diagnostic, mesh_binary_result::invalid_data, 0, "内存不足");
-    return diagnostic.result;
+    fail(diagnostic, mesh_binary_error::out_of_memory, 0, "内存不足");
+    return diagnostic;
   } catch (...) {
-    output.clear();
-    fail(diagnostic, mesh_binary_result::invalid_data, 0, "Mesh 编码内部错误");
-    return diagnostic.result;
+    fail(diagnostic, mesh_binary_error::invalid_data, 0, "Mesh 编码内部错误");
+    return diagnostic;
   }
+} catch (...) {
+  return mesh_binary_diagnostic{mesh_binary_error::out_of_memory, 0, {}};
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): 校验顺序与二进制布局一致。
-mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_binary_data& output,
-                                      mesh_binary_diagnostic& diagnostic) noexcept {
-  output = {};
-  diagnostic = {};
+result<mesh_binary_data, mesh_binary_diagnostic>
+decode_mesh_binary(std::span<const std::byte> bytes) noexcept try {
+  mesh_binary_data output;
+  mesh_binary_diagnostic diagnostic;
   try {
     const binary_reader reader{bytes};
     // 各读取位置由下面的 Header、表及数据区边界检查保证有效。
     if (bytes.size() < header_size || !is_mesh_binary(bytes)) {
-      fail(diagnostic, mesh_binary_result::invalid_data, 0, "Mesh Binary Header 无效或截断");
-      return diagnostic.result;
+      fail(diagnostic, mesh_binary_error::invalid_data, 0, "Mesh Binary Header 无效或截断");
+      return diagnostic;
     }
     const auto version = *reader.read_at_le<std::uint16_t>(4);
     if (version != format_version) {
-      fail(diagnostic, mesh_binary_result::unsupported_version, 4, "不支持的 Mesh Binary 版本");
-      return diagnostic.result;
+      fail(diagnostic, mesh_binary_error::unsupported_version, 4, "不支持的 Mesh Binary 版本");
+      return diagnostic;
     }
     const auto stored_header_size = *reader.read_at_le<std::uint16_t>(6);
     const auto flags = *reader.read_at_le<std::uint32_t>(8);
@@ -217,17 +218,17 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
         stored_index_offset !=
             align_16(stored_vertex_offset +
                      (static_cast<std::uint64_t>(vertex_count) * vertex_stride))) {
-      fail(diagnostic, mesh_binary_result::invalid_data, 6, "Mesh Binary 布局、数量或边界无效");
-      return diagnostic.result;
+      fail(diagnostic, mesh_binary_error::invalid_data, 6, "Mesh Binary 布局、数量或边界无效");
+      return diagnostic;
     }
     for (std::size_t axis = 0; axis < 3U; ++axis) {
       output.bounds.min[axis] = *reader.read_f32_at_le(48U + (axis * 4U));
       output.bounds.max[axis] = *reader.read_f32_at_le(60U + (axis * 4U));
       if (!std::isfinite(output.bounds.min[axis]) || !std::isfinite(output.bounds.max[axis]) ||
           output.bounds.min[axis] > output.bounds.max[axis]) {
-        fail(diagnostic, mesh_binary_result::invalid_data, 48U + (axis * 4U),
+        fail(diagnostic, mesh_binary_error::invalid_data, 48U + (axis * 4U),
              "Mesh Binary 包围盒无效");
-        return diagnostic.result;
+        return diagnostic;
       }
     }
     output.vertices.resize(vertex_count);
@@ -251,8 +252,8 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
           tangent[component] = *reader.read_f32_at_le(offset + 32U + component * 4U);
         }
         if (!valid_mesh_tangent(tangent, vertex.normal)) {
-          fail(diagnostic, mesh_binary_result::invalid_data, offset + 32U, "Mesh Binary 切线无效");
-          return diagnostic.result;
+          fail(diagnostic, mesh_binary_error::invalid_data, offset + 32U, "Mesh Binary 切线无效");
+          return diagnostic;
         }
       }
       {
@@ -265,8 +266,8 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
             !std::ranges::all_of(math::components(color), [](float v) {
               return std::isfinite(v) && v >= 0.0F && v <= 1.0F;
             })) {
-          fail(diagnostic, mesh_binary_result::invalid_data, offset + 48U, "UV1/顶点色无效");
-          return diagnostic.result;
+          fail(diagnostic, mesh_binary_error::invalid_data, offset + 48U, "UV1/顶点色无效");
+          return diagnostic;
         }
         if (!output.uv1.empty())
           output.uv1[index] = uv;
@@ -274,9 +275,9 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
           output.colors[index] = color;
       }
       if (!finite(vertex) || !valid_normal(vertex.normal)) {
-        fail(diagnostic, mesh_binary_result::invalid_data, offset,
+        fail(diagnostic, mesh_binary_error::invalid_data, offset,
              "Mesh Binary 顶点包含无效数值或非单位法线");
-        return diagnostic.result;
+        return diagnostic;
       }
     }
     auto calculated_min = output.vertices.front().position;
@@ -288,28 +289,28 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
       }
     }
     if (calculated_min != output.bounds.min || calculated_max != output.bounds.max) {
-      fail(diagnostic, mesh_binary_result::invalid_data, 48, "Mesh Binary 包围盒与顶点不一致");
-      return diagnostic.result;
+      fail(diagnostic, mesh_binary_error::invalid_data, 48, "Mesh Binary 包围盒与顶点不一致");
+      return diagnostic;
     }
     output.indices.resize(index_count);
     for (std::size_t index = 0; index < index_count; ++index) {
       const auto offset = static_cast<std::size_t>(stored_index_offset) + (index * index_size);
       output.indices[index] = *reader.read_at_le<std::uint32_t>(offset);
       if (output.indices[index] >= vertex_count) {
-        fail(diagnostic, mesh_binary_result::invalid_data, offset, "Mesh Binary 索引超出顶点范围");
-        return diagnostic.result;
+        fail(diagnostic, mesh_binary_error::invalid_data, offset, "Mesh Binary 索引超出顶点范围");
+        return diagnostic;
       }
     }
-    return mesh_binary_result::success;
+    return output;
   } catch (const std::bad_alloc&) {
-    output = {};
-    fail(diagnostic, mesh_binary_result::invalid_data, 0, "内存不足");
-    return diagnostic.result;
+    fail(diagnostic, mesh_binary_error::out_of_memory, 0, "内存不足");
+    return diagnostic;
   } catch (...) {
-    output = {};
-    fail(diagnostic, mesh_binary_result::invalid_data, 0, "Mesh 解码内部错误");
-    return diagnostic.result;
+    fail(diagnostic, mesh_binary_error::invalid_data, 0, "Mesh 解码内部错误");
+    return diagnostic;
   }
+} catch (...) {
+  return mesh_binary_diagnostic{mesh_binary_error::out_of_memory, 0, {}};
 }
 
 std::string dump_mesh_binary_json(const mesh_binary_data& data) {

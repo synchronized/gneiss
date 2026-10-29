@@ -31,13 +31,13 @@ constexpr char hex_digits[] = "0123456789abcdef";
 
 void fail(scene_diagnostic& diagnostic, gneiss::engine::error result, std::string_view path,
           std::string_view message, std::size_t byte_offset = 0) noexcept {
-  diagnostic.result = result;
+  diagnostic.error = result;
   diagnostic.byte_offset = byte_offset;
   try {
     diagnostic.path = path;
     diagnostic.message = message;
   } catch (...) {
-    diagnostic.result = gneiss::engine::error::out_of_memory;
+    diagnostic.error = gneiss::engine::error::out_of_memory;
     diagnostic.path.clear();
     diagnostic.message.clear();
   }
@@ -123,7 +123,7 @@ template <std::size_t Size>
                         diagnostic) ||
       !read_float_array(value, "scale", path, gneiss::engine::math::components(output.scale),
                         diagnostic)) {
-    if (diagnostic.result == gneiss::engine::error::success) {
+    if (diagnostic.error == gneiss::engine::error::success) {
       fail(diagnostic, gneiss::engine::error::invalid_argument, path, "transform 必须是对象");
     }
     return false;
@@ -150,7 +150,7 @@ template <std::size_t Size>
                   output.vertical_field_of_view_radians, diagnostic) ||
       !read_float(value, "near_plane", path, output.near_plane, diagnostic) ||
       !read_float(value, "far_plane", path, output.far_plane, diagnostic)) {
-    if (diagnostic.result == gneiss::engine::error::success) {
+    if (diagnostic.error == gneiss::engine::error::success) {
       fail(diagnostic, gneiss::engine::error::invalid_argument, path, "camera 必须是对象");
     }
     return false;
@@ -177,7 +177,7 @@ template <std::size_t Size>
   if (!yyjson_is_obj(value) ||
       !read_required_string(value, "mesh", path, output.mesh_uri, diagnostic) ||
       !read_required_string(value, "material", path, output.material_uri, diagnostic)) {
-    if (diagnostic.result == gneiss::engine::error::success) {
+    if (diagnostic.error == gneiss::engine::error::success) {
       fail(diagnostic, gneiss::engine::error::invalid_argument, path, "mesh_renderer 必须是对象");
     }
     return false;
@@ -194,7 +194,7 @@ template <std::size_t Size>
                                     gneiss::engine::object_description& output,
                                     scene_diagnostic& diagnostic) {
   if (!yyjson_is_obj(value)) {
-    if (diagnostic.result == gneiss::engine::error::success) {
+    if (diagnostic.error == gneiss::engine::error::success) {
       fail(diagnostic, gneiss::engine::error::invalid_argument, path, "components 必须是对象");
     }
     return false;
@@ -221,7 +221,7 @@ template <std::size_t Size>
   const std::string path = "/objects/" + std::to_string(index);
   if (!yyjson_is_obj(value) ||
       !read_required_string(value, "uuid", path, output.uuid, diagnostic)) {
-    if (diagnostic.result == gneiss::engine::error::success) {
+    if (diagnostic.error == gneiss::engine::error::success) {
       fail(diagnostic, gneiss::engine::error::invalid_argument, path, "对象描述类型错误");
     }
     return false;
@@ -375,7 +375,7 @@ template <class T>
   std::string source_node_uuid;
   if (!read_required_string(value, "source_node_uuid", path, source_node_uuid, diagnostic) ||
       !is_canonical_uuid(source_node_uuid)) {
-    if (diagnostic.result == gneiss::engine::error::success) {
+    if (diagnostic.error == gneiss::engine::error::success) {
       fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/source_node_uuid",
            "源节点 UUID 必须是小写规范形式");
     }
@@ -423,7 +423,7 @@ template <class T>
   if (!yyjson_is_obj(value) ||
       !read_required_string(value, "instance_uuid", path, output.instance_uuid, diagnostic) ||
       !is_canonical_uuid(output.instance_uuid)) {
-    if (diagnostic.result == gneiss::engine::error::success) {
+    if (diagnostic.error == gneiss::engine::error::success) {
       fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/instance_uuid",
            "实例 UUID 必须是小写规范形式");
     }
@@ -431,7 +431,7 @@ template <class T>
   }
   if (!read_required_string(value, "prefab", path, output.prefab_uri, diagnostic) ||
       gneiss::engine::validate_uri(output.prefab_uri) != gneiss::engine::error::success) {
-    if (diagnostic.result == gneiss::engine::error::success) {
+    if (diagnostic.error == gneiss::engine::error::success) {
       fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/prefab",
            "Prefab URI 无效");
     }
@@ -764,14 +764,13 @@ make_author_prefab_instance(yyjson_mut_doc* document,
 namespace gneiss::engine {
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): 顺序校验保持 Schema 错误优先级明确。
-engine::error parse_current_scene_description(std::string_view json, scene_description& out_scene,
-                                              scene_diagnostic& out_diagnostic) noexcept {
-  out_scene = {};
-  out_diagnostic = {};
+result<scene_description, scene_diagnostic>
+parse_current_scene_description(std::string_view json) noexcept {
+  scene_diagnostic out_diagnostic;
   try {
     if (json.empty()) {
       fail(out_diagnostic, engine::error::invalid_argument, "", "场景文档为空");
-      return out_diagnostic.result;
+      return out_diagnostic;
     }
     yyjson_read_err error{};
     using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
@@ -781,19 +780,19 @@ engine::error parse_current_scene_description(std::string_view json, scene_descr
     if (!document) {
       fail(out_diagnostic, engine::error::invalid_argument, "",
            error.msg != nullptr ? error.msg : "JSON 语法错误", error.pos);
-      return out_diagnostic.result;
+      return out_diagnostic;
     }
     yyjson_val* root = yyjson_doc_get_root(document.get());
     if (!yyjson_is_obj(root)) {
-      if (out_diagnostic.result == engine::error::success) {
+      if (out_diagnostic.error == engine::error::success) {
         fail(out_diagnostic, engine::error::invalid_argument, "", "场景根必须是对象");
       }
-      return out_diagnostic.result;
+      return out_diagnostic;
     }
     yyjson_val* format = yyjson_obj_get(root, "format");
     if (!yyjson_is_str(format) || json_string(format) != scene_format) {
       fail(out_diagnostic, engine::error::invalid_argument, "/format", "场景格式标识错误");
-      return out_diagnostic.result;
+      return out_diagnostic;
     }
     yyjson_val* version = yyjson_obj_get(root, "version");
     if (!yyjson_is_uint(version) || yyjson_get_uint(version) != schema_version) {
@@ -802,20 +801,20 @@ engine::error parse_current_scene_description(std::string_view json, scene_descr
                ? engine::error::unsupported
                : engine::error::invalid_argument,
            "/version", "不支持的场景 Schema 版本");
-      return out_diagnostic.result;
+      return out_diagnostic;
     }
     scene_description parsed;
     if (!read_required_string(root, "scene_uuid", "", parsed.uuid, out_diagnostic) ||
         !is_canonical_uuid(parsed.uuid)) {
-      if (out_diagnostic.result == engine::error::success) {
+      if (out_diagnostic.error == engine::error::success) {
         fail(out_diagnostic, engine::error::invalid_argument, "/scene_uuid", "场景 UUID 格式错误");
       }
-      return out_diagnostic.result;
+      return out_diagnostic;
     }
     yyjson_val* objects = yyjson_obj_get(root, "objects");
     if (!yyjson_is_arr(objects)) {
       fail(out_diagnostic, engine::error::invalid_argument, "/objects", "objects 必须是数组");
-      return out_diagnostic.result;
+      return out_diagnostic;
     }
     parsed.objects.reserve(yyjson_arr_size(objects));
     std::size_t index = 0;
@@ -824,14 +823,14 @@ engine::error parse_current_scene_description(std::string_view json, scene_descr
     yyjson_arr_foreach(objects, index, maximum, object) {
       parsed.objects.emplace_back();
       if (!parse_object(object, index, parsed.objects.back(), out_diagnostic)) {
-        return out_diagnostic.result;
+        return out_diagnostic;
       }
     }
     yyjson_val* prefab_instances = yyjson_obj_get(root, "prefab_instances");
     if (!yyjson_is_arr(prefab_instances)) {
       fail(out_diagnostic, engine::error::invalid_argument, "/prefab_instances",
            "prefab_instances 必须是数组");
-      return out_diagnostic.result;
+      return out_diagnostic;
     }
     parsed.prefab_instances.reserve(yyjson_arr_size(prefab_instances));
     index = 0;
@@ -841,26 +840,25 @@ engine::error parse_current_scene_description(std::string_view json, scene_descr
       parsed.prefab_instances.emplace_back();
       if (!parse_prefab_instance(prefab_instance, index, parsed.prefab_instances.back(),
                                  out_diagnostic)) {
-        return out_diagnostic.result;
+        return out_diagnostic;
       }
     }
     if (!validate_hierarchy(parsed, out_diagnostic)) {
-      return out_diagnostic.result;
+      return out_diagnostic;
     }
-    out_scene = std::move(parsed);
-    return engine::error::success;
+    return parsed;
   } catch (const std::bad_alloc&) {
     fail(out_diagnostic, engine::error::out_of_memory, "", "内存不足");
-    return out_diagnostic.result;
+    return out_diagnostic;
   } catch (...) {
     fail(out_diagnostic, engine::error::internal, "", "场景解析内部错误");
-    return out_diagnostic.result;
+    return out_diagnostic;
   }
 }
 
-[[nodiscard]] engine::error prepare_scene_json(std::string_view json, std::string& out_json,
-                                               scene_diagnostic& diagnostic) noexcept {
-  out_json.clear();
+[[nodiscard]] result<std::string, scene_diagnostic>
+prepare_scene_json(std::string_view json) noexcept {
+  scene_diagnostic diagnostic;
   try {
     yyjson_read_err error{};
     using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
@@ -870,31 +868,31 @@ engine::error parse_current_scene_description(std::string_view json, scene_descr
     if (!document) {
       fail(diagnostic, engine::error::invalid_argument, "",
            error.msg != nullptr ? error.msg : "JSON 语法错误", error.pos);
-      return diagnostic.result;
+      return diagnostic;
     }
     yyjson_val* root = yyjson_doc_get_root(document.get());
     if (!yyjson_is_obj(root)) {
       fail(diagnostic, engine::error::invalid_argument, "", "场景根必须是对象");
-      return diagnostic.result;
+      return diagnostic;
     }
     yyjson_val* format = yyjson_obj_get(root, "format");
     if (!yyjson_is_str(format) || json_string(format) != scene_format) {
       fail(diagnostic, engine::error::invalid_argument, "/format", "场景格式标识错误");
-      return diagnostic.result;
+      return diagnostic;
     }
     yyjson_val* version = yyjson_obj_get(root, "version");
     if (!yyjson_is_uint(version)) {
       fail(diagnostic, engine::error::invalid_argument, "/version", "场景 Schema 版本必须是整数");
-      return diagnostic.result;
+      return diagnostic;
     }
     const auto source_version = yyjson_get_uint(version);
     if (source_version > schema_version) {
       fail(diagnostic, engine::error::unsupported, "/version", "场景 Schema 来自未来版本");
-      return diagnostic.result;
+      return diagnostic;
     }
     if (source_version != schema_version) {
       fail(diagnostic, engine::error::invalid_argument, "/version", "不支持旧版场景 Schema");
-      return diagnostic.result;
+      return diagnostic;
     }
 
     using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
@@ -902,7 +900,7 @@ engine::error parse_current_scene_description(std::string_view json, scene_descr
                                           &yyjson_mut_doc_free);
     if (!mutable_document) {
       fail(diagnostic, engine::error::out_of_memory, "", "无法复制场景作者文档");
-      return diagnostic.result;
+      return diagnostic;
     }
     std::size_t output_length = 0;
     using text_ptr = std::unique_ptr<char, decltype(&std::free)>;
@@ -910,252 +908,233 @@ engine::error parse_current_scene_description(std::string_view json, scene_descr
                     &std::free);
     if (!output) {
       fail(diagnostic, engine::error::out_of_memory, "", "无法复制场景作者文档");
-      return diagnostic.result;
+      return diagnostic;
     }
-    out_json.assign(output.get(), output_length);
-    return engine::error::success;
+    return std::string(output.get(), output_length);
   } catch (const std::bad_alloc&) {
     fail(diagnostic, engine::error::out_of_memory, "", "内存不足");
-    return diagnostic.result;
+    return diagnostic;
   } catch (...) {
     fail(diagnostic, engine::error::internal, "", "场景作者文档复制失败");
-    return diagnostic.result;
+    return diagnostic;
   }
 }
 
-engine::error parse_scene_description(std::string_view json, scene_description& out_scene,
-                                      scene_diagnostic& out_diagnostic) noexcept {
-  out_scene = {};
-  out_diagnostic = {};
-  std::string current_json;
-  auto result = prepare_scene_json(json, current_json, out_diagnostic);
-  if (result != engine::error::success) {
-    return result;
-  }
-  scene_description parsed;
-  result = parse_current_scene_description(current_json, parsed, out_diagnostic);
-  if (result != engine::error::success) {
-    return result;
-  }
-  try {
-    parsed.source_schema_version = static_cast<std::uint32_t>(schema_version);
-    parsed.author_json = std::move(current_json);
-    out_scene = std::move(parsed);
-    return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    out_scene = {};
-    fail(out_diagnostic, engine::error::out_of_memory, "", "内存不足");
-    return out_diagnostic.result;
-  } catch (...) {
-    out_scene = {};
-    fail(out_diagnostic, engine::error::internal, "", "场景作者文档复制失败");
-    return out_diagnostic.result;
-  }
+result<scene_description, scene_diagnostic> parse_scene_description(std::string_view json) noexcept
+    try {
+  auto current_json = prepare_scene_json(json);
+  if (!current_json)
+    return std::move(current_json).error();
+  auto parsed = parse_current_scene_description(*current_json);
+  if (!parsed)
+    return std::move(parsed).error();
+  parsed->source_schema_version = static_cast<std::uint32_t>(schema_version);
+  parsed->author_json = std::move(*current_json);
+  return std::move(*parsed);
+} catch (const std::bad_alloc&) {
+  return scene_diagnostic{.error = error::out_of_memory};
+} catch (...) {
+  return scene_diagnostic{.error = error::internal};
 }
 
-engine::error serialize_scene_description(const scene_description& scene,
-                                          std::string& out_json) noexcept {
+result<std::string> serialize_scene_description(const scene_description& scene) noexcept try {
+  std::string out_json;
+
   if (scene.author_json.empty()) {
     return engine::error::invalid_state;
   }
-  try {
-    yyjson_read_err error{};
-    using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
-    document_ptr document(yyjson_read_opts(const_cast<char*>(scene.author_json.data()),
-                                           scene.author_json.size(), YYJSON_READ_NOFLAG, nullptr,
-                                           &error),
-                          &yyjson_doc_free);
-    using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
-    mutable_document_ptr mutable_document(
-        document ? yyjson_doc_mut_copy(document.get(), nullptr) : nullptr, &yyjson_mut_doc_free);
-    if (!mutable_document) {
-      return document ? engine::error::out_of_memory : engine::error::invalid_state;
-    }
-    yyjson_mut_val* root = yyjson_mut_doc_get_root(mutable_document.get());
-    yyjson_mut_val* objects = yyjson_mut_obj_get(root, "objects");
-    if (!yyjson_mut_is_arr(objects) || yyjson_mut_arr_size(objects) > scene.objects.size()) {
-      return engine::error::invalid_state;
-    }
-    for (std::size_t index = yyjson_mut_arr_size(objects); index < scene.objects.size(); ++index) {
-      auto* object = make_author_object(mutable_document.get(), scene.objects[index]);
-      if (object == nullptr || !yyjson_mut_arr_add_val(objects, object)) {
-        return engine::error::out_of_memory;
-      }
-    }
-    for (std::size_t index = 0; index < scene.objects.size(); ++index) {
-      const auto& source = scene.objects[index];
-      yyjson_mut_val* object = yyjson_mut_arr_get(objects, index);
-      yyjson_mut_val* transform = yyjson_mut_obj_get(object, "transform");
-      if (!put_value(
-              mutable_document.get(), object, "uuid",
-              yyjson_mut_strncpy(mutable_document.get(), source.uuid.data(), source.uuid.size())) ||
-          !put_value(mutable_document.get(), object, "parent",
-                     source.parent_uuid
-                         ? yyjson_mut_strncpy(mutable_document.get(), source.parent_uuid->data(),
-                                              source.parent_uuid->size())
-                         : yyjson_mut_null(mutable_document.get())) ||
-          !put_value(mutable_document.get(), transform, "translation",
-                     make_float_array(mutable_document.get(), source.translation)) ||
-          !put_value(mutable_document.get(), transform, "rotation",
-                     make_float_array(mutable_document.get(), source.rotation)) ||
-          !put_value(mutable_document.get(), transform, "scale",
-                     make_float_array(mutable_document.get(), source.scale))) {
-        return engine::error::out_of_memory;
-      }
-      if (source.name.empty()) {
-        (void)yyjson_mut_obj_remove_key(object, "name");
-      } else if (!put_value(mutable_document.get(), object, "name",
-                            yyjson_mut_strncpy(mutable_document.get(), source.name.data(),
-                                               source.name.size()))) {
-        return engine::error::out_of_memory;
-      }
-      if (source.camera) {
-        yyjson_mut_val* camera =
-            yyjson_mut_obj_get(yyjson_mut_obj_get(object, "components"), "camera");
-        if (!put_value(mutable_document.get(), camera, "vertical_field_of_view_radians",
-                       yyjson_mut_real(mutable_document.get(),
-                                       source.camera->vertical_field_of_view_radians)) ||
-            !put_value(mutable_document.get(), camera, "near_plane",
-                       yyjson_mut_real(mutable_document.get(), source.camera->near_plane)) ||
-            !put_value(mutable_document.get(), camera, "far_plane",
-                       yyjson_mut_real(mutable_document.get(), source.camera->far_plane)) ||
-            !put_value(mutable_document.get(), camera, "is_primary",
-                       yyjson_mut_bool(mutable_document.get(), source.camera->is_primary))) {
-          return engine::error::out_of_memory;
-        }
-      } else {
-        yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
-        (void)yyjson_mut_obj_remove_key(components, "camera");
-      }
-      if (source.mesh_renderer) {
-        yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
-        yyjson_mut_val* renderer = yyjson_mut_obj_get(components, "mesh_renderer");
-        if (renderer == nullptr) {
-          renderer = yyjson_mut_obj(mutable_document.get());
-          if (!put_value(mutable_document.get(), components, "mesh_renderer", renderer)) {
-            return engine::error::out_of_memory;
-          }
-        }
-        if (!put_value(mutable_document.get(), renderer, "mesh",
-                       yyjson_mut_strncpy(mutable_document.get(),
-                                          source.mesh_renderer->mesh_uri.data(),
-                                          source.mesh_renderer->mesh_uri.size())) ||
-            !put_value(mutable_document.get(), renderer, "material",
-                       yyjson_mut_strncpy(mutable_document.get(),
-                                          source.mesh_renderer->material_uri.data(),
-                                          source.mesh_renderer->material_uri.size()))) {
-          return engine::error::out_of_memory;
-        }
-      } else {
-        yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
-        (void)yyjson_mut_obj_remove_key(components, "mesh_renderer");
-      }
-    }
-    yyjson_mut_val* prefab_instances = yyjson_mut_obj_get(root, "prefab_instances");
-    if (!yyjson_mut_is_arr(prefab_instances) ||
-        yyjson_mut_arr_size(prefab_instances) > scene.prefab_instances.size()) {
-      return engine::error::invalid_state;
-    }
-    for (std::size_t index = yyjson_mut_arr_size(prefab_instances);
-         index < scene.prefab_instances.size(); ++index) {
-      auto* instance =
-          make_author_prefab_instance(mutable_document.get(), scene.prefab_instances[index]);
-      if (instance == nullptr || !yyjson_mut_arr_add_val(prefab_instances, instance)) {
-        return engine::error::out_of_memory;
-      }
-    }
-    for (std::size_t index = 0; index < scene.prefab_instances.size(); ++index) {
-      const auto& source = scene.prefab_instances[index];
-      yyjson_mut_val* instance = yyjson_mut_arr_get(prefab_instances, index);
-      yyjson_mut_val* transform = yyjson_mut_obj_get(instance, "transform");
-      if (!put_value(mutable_document.get(), instance, "instance_uuid",
-                     yyjson_mut_strncpy(mutable_document.get(), source.instance_uuid.data(),
-                                        source.instance_uuid.size())) ||
-          !put_value(mutable_document.get(), instance, "prefab",
-                     yyjson_mut_strncpy(mutable_document.get(), source.prefab_uri.data(),
-                                        source.prefab_uri.size())) ||
-          !put_value(mutable_document.get(), instance, "parent",
-                     source.parent_uuid
-                         ? yyjson_mut_strncpy(mutable_document.get(), source.parent_uuid->data(),
-                                              source.parent_uuid->size())
-                         : yyjson_mut_null(mutable_document.get())) ||
-          !put_value(mutable_document.get(), transform, "translation",
-                     make_float_array(mutable_document.get(), source.translation)) ||
-          !put_value(mutable_document.get(), transform, "rotation",
-                     make_float_array(mutable_document.get(), source.rotation)) ||
-          !put_value(mutable_document.get(), transform, "scale",
-                     make_float_array(mutable_document.get(), source.scale))) {
-        return engine::error::out_of_memory;
-      }
-      if (source.name.empty()) {
-        (void)yyjson_mut_obj_remove_key(instance, "name");
-      } else if (!put_value(mutable_document.get(), instance, "name",
-                            yyjson_mut_strncpy(mutable_document.get(), source.name.data(),
-                                               source.name.size()))) {
-        return engine::error::out_of_memory;
-      }
-      if (!put_value(mutable_document.get(), instance, "overrides",
-                     make_prefab_overrides(mutable_document.get(), source.overrides))) {
-        return engine::error::out_of_memory;
-      }
-    }
-    std::size_t output_length = 0;
-    using text_ptr = std::unique_ptr<char, decltype(&std::free)>;
-    text_ptr output(yyjson_mut_write(mutable_document.get(), YYJSON_WRITE_NOFLAG, &output_length),
-                    &std::free);
-    if (!output) {
+
+  yyjson_read_err error{};
+  using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
+  document_ptr document(yyjson_read_opts(const_cast<char*>(scene.author_json.data()),
+                                         scene.author_json.size(), YYJSON_READ_NOFLAG, nullptr,
+                                         &error),
+                        &yyjson_doc_free);
+  using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
+  mutable_document_ptr mutable_document(
+      document ? yyjson_doc_mut_copy(document.get(), nullptr) : nullptr, &yyjson_mut_doc_free);
+  if (!mutable_document) {
+    return document ? engine::error::out_of_memory : engine::error::invalid_state;
+  }
+  yyjson_mut_val* root = yyjson_mut_doc_get_root(mutable_document.get());
+  yyjson_mut_val* objects = yyjson_mut_obj_get(root, "objects");
+  if (!yyjson_mut_is_arr(objects) || yyjson_mut_arr_size(objects) > scene.objects.size()) {
+    return engine::error::invalid_state;
+  }
+  for (std::size_t index = yyjson_mut_arr_size(objects); index < scene.objects.size(); ++index) {
+    auto* object = make_author_object(mutable_document.get(), scene.objects[index]);
+    if (object == nullptr || !yyjson_mut_arr_add_val(objects, object)) {
       return engine::error::out_of_memory;
     }
-    out_json.assign(output.get(), output_length);
-    return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
+  for (std::size_t index = 0; index < scene.objects.size(); ++index) {
+    const auto& source = scene.objects[index];
+    yyjson_mut_val* object = yyjson_mut_arr_get(objects, index);
+    yyjson_mut_val* transform = yyjson_mut_obj_get(object, "transform");
+    if (!put_value(
+            mutable_document.get(), object, "uuid",
+            yyjson_mut_strncpy(mutable_document.get(), source.uuid.data(), source.uuid.size())) ||
+        !put_value(mutable_document.get(), object, "parent",
+                   source.parent_uuid
+                       ? yyjson_mut_strncpy(mutable_document.get(), source.parent_uuid->data(),
+                                            source.parent_uuid->size())
+                       : yyjson_mut_null(mutable_document.get())) ||
+        !put_value(mutable_document.get(), transform, "translation",
+                   make_float_array(mutable_document.get(), source.translation)) ||
+        !put_value(mutable_document.get(), transform, "rotation",
+                   make_float_array(mutable_document.get(), source.rotation)) ||
+        !put_value(mutable_document.get(), transform, "scale",
+                   make_float_array(mutable_document.get(), source.scale))) {
+      return engine::error::out_of_memory;
+    }
+    if (source.name.empty()) {
+      (void)yyjson_mut_obj_remove_key(object, "name");
+    } else if (!put_value(mutable_document.get(), object, "name",
+                          yyjson_mut_strncpy(mutable_document.get(), source.name.data(),
+                                             source.name.size()))) {
+      return engine::error::out_of_memory;
+    }
+    if (source.camera) {
+      yyjson_mut_val* camera =
+          yyjson_mut_obj_get(yyjson_mut_obj_get(object, "components"), "camera");
+      if (!put_value(mutable_document.get(), camera, "vertical_field_of_view_radians",
+                     yyjson_mut_real(mutable_document.get(),
+                                     source.camera->vertical_field_of_view_radians)) ||
+          !put_value(mutable_document.get(), camera, "near_plane",
+                     yyjson_mut_real(mutable_document.get(), source.camera->near_plane)) ||
+          !put_value(mutable_document.get(), camera, "far_plane",
+                     yyjson_mut_real(mutable_document.get(), source.camera->far_plane)) ||
+          !put_value(mutable_document.get(), camera, "is_primary",
+                     yyjson_mut_bool(mutable_document.get(), source.camera->is_primary))) {
+        return engine::error::out_of_memory;
+      }
+    } else {
+      yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
+      (void)yyjson_mut_obj_remove_key(components, "camera");
+    }
+    if (source.mesh_renderer) {
+      yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
+      yyjson_mut_val* renderer = yyjson_mut_obj_get(components, "mesh_renderer");
+      if (renderer == nullptr) {
+        renderer = yyjson_mut_obj(mutable_document.get());
+        if (!put_value(mutable_document.get(), components, "mesh_renderer", renderer)) {
+          return engine::error::out_of_memory;
+        }
+      }
+      if (!put_value(mutable_document.get(), renderer, "mesh",
+                     yyjson_mut_strncpy(mutable_document.get(),
+                                        source.mesh_renderer->mesh_uri.data(),
+                                        source.mesh_renderer->mesh_uri.size())) ||
+          !put_value(mutable_document.get(), renderer, "material",
+                     yyjson_mut_strncpy(mutable_document.get(),
+                                        source.mesh_renderer->material_uri.data(),
+                                        source.mesh_renderer->material_uri.size()))) {
+        return engine::error::out_of_memory;
+      }
+    } else {
+      yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
+      (void)yyjson_mut_obj_remove_key(components, "mesh_renderer");
+    }
+  }
+  yyjson_mut_val* prefab_instances = yyjson_mut_obj_get(root, "prefab_instances");
+  if (!yyjson_mut_is_arr(prefab_instances) ||
+      yyjson_mut_arr_size(prefab_instances) > scene.prefab_instances.size()) {
+    return engine::error::invalid_state;
+  }
+  for (std::size_t index = yyjson_mut_arr_size(prefab_instances);
+       index < scene.prefab_instances.size(); ++index) {
+    auto* instance =
+        make_author_prefab_instance(mutable_document.get(), scene.prefab_instances[index]);
+    if (instance == nullptr || !yyjson_mut_arr_add_val(prefab_instances, instance)) {
+      return engine::error::out_of_memory;
+    }
+  }
+  for (std::size_t index = 0; index < scene.prefab_instances.size(); ++index) {
+    const auto& source = scene.prefab_instances[index];
+    yyjson_mut_val* instance = yyjson_mut_arr_get(prefab_instances, index);
+    yyjson_mut_val* transform = yyjson_mut_obj_get(instance, "transform");
+    if (!put_value(mutable_document.get(), instance, "instance_uuid",
+                   yyjson_mut_strncpy(mutable_document.get(), source.instance_uuid.data(),
+                                      source.instance_uuid.size())) ||
+        !put_value(mutable_document.get(), instance, "prefab",
+                   yyjson_mut_strncpy(mutable_document.get(), source.prefab_uri.data(),
+                                      source.prefab_uri.size())) ||
+        !put_value(mutable_document.get(), instance, "parent",
+                   source.parent_uuid
+                       ? yyjson_mut_strncpy(mutable_document.get(), source.parent_uuid->data(),
+                                            source.parent_uuid->size())
+                       : yyjson_mut_null(mutable_document.get())) ||
+        !put_value(mutable_document.get(), transform, "translation",
+                   make_float_array(mutable_document.get(), source.translation)) ||
+        !put_value(mutable_document.get(), transform, "rotation",
+                   make_float_array(mutable_document.get(), source.rotation)) ||
+        !put_value(mutable_document.get(), transform, "scale",
+                   make_float_array(mutable_document.get(), source.scale))) {
+      return engine::error::out_of_memory;
+    }
+    if (source.name.empty()) {
+      (void)yyjson_mut_obj_remove_key(instance, "name");
+    } else if (!put_value(mutable_document.get(), instance, "name",
+                          yyjson_mut_strncpy(mutable_document.get(), source.name.data(),
+                                             source.name.size()))) {
+      return engine::error::out_of_memory;
+    }
+    if (!put_value(mutable_document.get(), instance, "overrides",
+                   make_prefab_overrides(mutable_document.get(), source.overrides))) {
+      return engine::error::out_of_memory;
+    }
+  }
+  std::size_t output_length = 0;
+  using text_ptr = std::unique_ptr<char, decltype(&std::free)>;
+  text_ptr output(yyjson_mut_write(mutable_document.get(), YYJSON_WRITE_NOFLAG, &output_length),
+                  &std::free);
+  if (!output) {
+    return engine::error::out_of_memory;
+  }
+  out_json.assign(output.get(), output_length);
+  return out_json;
+
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
 }
 
 } // namespace gneiss::engine
 
 namespace gneiss::engine {
-error decode_scene(std::span<const std::byte> bytes, scene_description& output,
-                   meta::serialization_diagnostic& diagnostic) noexcept try {
-  diagnostic = {};
-  if (bytes.size() > scene_description::maximum_source_bytes) {
-    diagnostic.message = "资源描述超过单文件大小上限";
-    return error::invalid_argument;
+result<scene_description, meta::serialization_diagnostic>
+decode_scene(std::span<const std::byte> bytes) noexcept try {
+  if (bytes.size() > scene_description::maximum_source_bytes)
+    return meta::serialization_diagnostic{.message = "资源描述超过单文件大小上限",
+                                          .error = error::invalid_argument};
+  auto decoded =
+      parse_scene_description({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
+  if (!decoded) {
+    auto failure = std::move(decoded).error();
+    return meta::serialization_diagnostic{failure.byte_offset, std::move(failure.path),
+                                          std::move(failure.message), failure.error};
   }
-  scene_description pending;
-  scene_diagnostic detail;
-  auto status = parse_scene_description({reinterpret_cast<const char*>(bytes.data()), bytes.size()},
-                                        pending, detail);
-  diagnostic = {detail.byte_offset, std::move(detail.path), std::move(detail.message)};
-  if (status == error::success)
-    output = std::move(pending);
-  return status;
+  return std::move(*decoded);
 } catch (const std::bad_alloc&) {
-  return error::out_of_memory;
+  return meta::serialization_diagnostic{.error = error::out_of_memory};
 } catch (...) {
-  return error::internal;
+  return meta::serialization_diagnostic{.error = error::internal};
 }
-error encode_scene(const scene_description& object, std::vector<std::byte>& output,
-                   meta::serialization_diagnostic& diagnostic) noexcept try {
-  diagnostic = {};
-  std::string text;
-  auto status = serialize_scene_description(object, text);
-  if (status.failed())
-    return status;
-  std::vector<std::byte> pending(text.size());
-  std::memcpy(pending.data(), text.data(), text.size());
-  scene_description checked;
-  status = decode_scene(pending, checked, diagnostic);
-  if (status == error::success)
-    output = std::move(pending);
-  return status;
+result<std::vector<std::byte>, meta::serialization_diagnostic>
+encode_scene(const scene_description& object) noexcept try {
+  auto text = serialize_scene_description(object);
+  if (!text)
+    return meta::serialization_diagnostic{.error = text.error()};
+  std::vector<std::byte> bytes(text->size());
+  std::memcpy(bytes.data(), text->data(), text->size());
+  auto checked = decode_scene(bytes);
+  if (!checked)
+    return std::move(checked).error();
+  return bytes;
 } catch (const std::bad_alloc&) {
-  return error::out_of_memory;
+  return meta::serialization_diagnostic{.error = error::out_of_memory};
 } catch (...) {
-  return error::internal;
+  return meta::serialization_diagnostic{.error = error::internal};
 }
-
 }

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_application.hpp"
+#include "../support/codec_result.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
@@ -61,12 +62,13 @@ struct fixture {
   void color(std::byte red, std::byte blue) {
     std::vector<std::byte> bytes;
     std::string message;
-    check(gneiss::engine::encode_texture_ktx2(
-              {.transfer = gneiss::engine::texture_transfer::srgb,
-               .levels = {{.width = 1U,
-                           .height = 1U,
-                           .pixels = {red, std::byte{20}, blue, std::byte{255}}}}},
-              bytes, message) == gneiss::engine::texture_ktx2_result::success);
+    check(gneiss::test_support::take_codec(
+              gneiss::engine::encode_texture_ktx2(
+                  {.transfer = gneiss::engine::texture_transfer::srgb,
+                   .levels = {{.width = 1U,
+                               .height = 1U,
+                               .pixels = {red, std::byte{20}, blue, std::byte{255}}}}}),
+              bytes, message) == std::nullopt);
     std::ofstream stream(root / "image.ktx2", std::ios::binary);
     stream.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
@@ -273,8 +275,8 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
   }
   std::vector<std::byte> bytes;
   std::string diagnostic;
-  check(gneiss::engine::encode_texture_ktx2(texture, bytes, diagnostic) ==
-        gneiss::engine::texture_ktx2_result::success);
+  check(gneiss::test_support::take_codec(gneiss::engine::encode_texture_ktx2(texture), bytes,
+                                         diagnostic) == std::nullopt);
   if (packaged) {
     std::vector<std::byte> payload;
     std::vector<granit::asset_tools::texture::subresource_info> subresources;
@@ -405,8 +407,8 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
                                         .tangents = {{1, 0, 0, 1}, {1, 0, 0, 1}, {1, 0, 0, 1}}};
   std::vector<std::byte> bytes;
   gneiss::engine::mesh_binary_diagnostic mesh_diagnostic;
-  check(gneiss::engine::encode_mesh_binary(mesh, bytes, mesh_diagnostic) ==
-        gneiss::engine::mesh_binary_result::success);
+  check(gneiss::test_support::take_codec(gneiss::engine::encode_mesh_binary(mesh), bytes,
+                                         mesh_diagnostic) == std::nullopt);
   {
     std::ofstream stream(files.root / "g.gneiss-mesh", std::ios::binary);
     stream.write(reinterpret_cast<const char*>(bytes.data()),
@@ -424,10 +426,11 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
     std::ofstream(files.root / "s.scene.json") << scene;
   }
   std::string diagnostic;
-  check(gneiss::engine::encode_texture_ktx2(
-            {.transfer = gneiss::engine::texture_transfer::linear,
-             .levels = {{.width = 1U, .height = 1U, .pixels = {pixel.begin(), pixel.end()}}}},
-            bytes, diagnostic) == gneiss::engine::texture_ktx2_result::success);
+  check(gneiss::test_support::take_codec(
+            gneiss::engine::encode_texture_ktx2(
+                {.transfer = gneiss::engine::texture_transfer::linear,
+                 .levels = {{.width = 1U, .height = 1U, .pixels = {pixel.begin(), pixel.end()}}}}),
+            bytes, diagnostic) == std::nullopt);
   {
     std::ofstream stream(files.root / "image.ktx2", std::ios::binary);
     stream.write(reinterpret_cast<const char*>(bytes.data()),
@@ -500,8 +503,8 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   mesh.colors.assign(3, {test.color[0], test.color[1], test.color[2], test.color[3]});
   std::vector<std::byte> bytes;
   gneiss::engine::mesh_binary_diagnostic diagnostic;
-  check(gneiss::engine::encode_mesh_binary(mesh, bytes, diagnostic) ==
-        gneiss::engine::mesh_binary_result::success);
+  check(gneiss::test_support::take_codec(gneiss::engine::encode_mesh_binary(mesh), bytes,
+                                         diagnostic) == std::nullopt);
   {
     std::ofstream output(files.root / "g.mesh.json", std::ios::binary);
     output.write(reinterpret_cast<const char*>(bytes.data()),
@@ -509,16 +512,18 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   }
   std::string message;
   check(
-      gneiss::engine::encode_texture_ktx2(
-          {.transfer = gneiss::engine::texture_transfer::srgb,
-           .levels = {{.width = 2,
-                       .height = 1,
-                       .pixels = {std::byte{255}, std::byte{0}, std::byte{0}, std::byte{255},
-                                  std::byte{0}, std::byte{0}, std::byte{255}, std::byte{255}}},
-                      {.width = 1,
-                       .height = 1,
-                       .pixels = {std::byte{188}, std::byte{0}, std::byte{188}, std::byte{255}}}}},
-          bytes, message) == gneiss::engine::texture_ktx2_result::success);
+      gneiss::test_support::take_codec(
+          gneiss::engine::encode_texture_ktx2(
+              {.transfer = gneiss::engine::texture_transfer::srgb,
+               .levels = {{.width = 2,
+                           .height = 1,
+                           .pixels = {std::byte{255}, std::byte{0}, std::byte{0}, std::byte{255},
+                                      std::byte{0}, std::byte{0}, std::byte{255}, std::byte{255}}},
+                          {.width = 1,
+                           .height = 1,
+                           .pixels = {std::byte{188}, std::byte{0}, std::byte{188},
+                                      std::byte{255}}}}}),
+          bytes, message) == std::nullopt);
   {
     std::ofstream output(files.root / "image.ktx2", std::ios::binary);
     output.write(reinterpret_cast<const char*>(bytes.data()),

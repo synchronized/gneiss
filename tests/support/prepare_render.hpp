@@ -75,7 +75,7 @@ inline error decode_fixture(const gneiss::test_support::fixture_files& files,
   std::string payload_uri;
   texture_description parsed;
   if (source.type == asset_type::texture) {
-    status = detail::parse_texture(description, parsed, diagnostic);
+    status = assign_decoded(detail::parse_texture(description), parsed, diagnostic);
     if (status.failed())
       return status;
     payload_uri = parsed.uri;

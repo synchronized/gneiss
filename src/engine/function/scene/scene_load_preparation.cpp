@@ -212,14 +212,14 @@ error prepare_loaded_scene(const scene_description_inputs& inputs, std::string_v
   }
   if (status == error::success)
     output = std::move(work.candidate);
-  diagnostic.result = status;
+  diagnostic.error = status;
   return status;
 } catch (const std::bad_alloc&) {
-  diagnostic.result = error::out_of_memory;
-  return diagnostic.result;
+  diagnostic.error = error::out_of_memory;
+  return diagnostic.error;
 } catch (...) {
-  diagnostic.result = error::internal;
-  return diagnostic.result;
+  diagnostic.error = error::internal;
+  return diagnostic.error;
 }
 
 struct scene_description_request::state {
@@ -266,9 +266,9 @@ error scene_description_request::advance(scene_description_inputs& output,
     auto loaded = s.scene.take();
     if (!loaded) {
       auto failure = std::move(loaded).error();
-      diagnostic = {failure.result, failure.byte_offset, std::move(failure.path),
+      diagnostic = {failure.error, failure.byte_offset, std::move(failure.path),
                     std::move(failure.message)};
-      return diagnostic.result;
+      return diagnostic.error;
     }
     s.inputs.scene = std::move(*loaded);
     s.bytes = s.inputs.scene->author_json.size();
@@ -289,9 +289,9 @@ error scene_description_request::advance(scene_description_inputs& output,
     auto loaded = s.current.take();
     if (!loaded) {
       auto failure = std::move(loaded).error();
-      diagnostic = {failure.result, failure.byte_offset, std::move(failure.path),
+      diagnostic = {failure.error, failure.byte_offset, std::move(failure.path),
                     std::move(failure.message)};
-      return diagnostic.result;
+      return diagnostic.error;
     }
     auto value = std::move(*loaded);
     if (value->author_json.size() > s.limits.source_bytes - s.bytes)

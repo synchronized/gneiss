@@ -332,7 +332,8 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 资源头文件按实际使用边界收敛：`texture_description.hpp` 集中纹理枚举、采样参数和来源描述，
 `mesh_data.hpp` 集中网格数据与切线校验。各 codec 仅依赖序列化值类型，
 `register_*_reflection` 的声明统一位于 `builtin_resource_registration.hpp`。
-材质字节解码统一使用 `decode_material`，采用 `serialization_diagnostic`，失败保持原输出。
+材质字节解码统一使用 `decode_material`，返回 `result<material_description, serialization_diagnostic>`；
+成功值与失败诊断互斥，详见[类型编解码](../reference/reflection.md#类型编解码)。
 
 CPU 网格的法线、切线、附加 UV 和颜色直接使用 `math::vector3/4/2/4`；
 `mesh_vertex` 组合 `position` 与 `uv`。文件 codec 仍逐分量读写，渲染实现转换到独立 GPU 顶点布局。

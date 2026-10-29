@@ -72,7 +72,8 @@ int main() {
   gneiss::engine::action_map map;
   constexpr auto valid =
       R"({"format":"gneiss.input-map","version":1,"actions":[{"name":"move","bindings":[{"key":4,"scale":-1.0},{"key":7,"scale":1.0}]}]})";
-  if (gneiss::engine::parse_action_map(valid, map) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_decoded(gneiss::engine::parse_action_map(valid), map) !=
+          gneiss::engine::error::success ||
       map.actions.size() != 1U || map.actions[0].bindings.size() != 2U) {
     return 1;
   }
@@ -83,10 +84,11 @@ int main() {
       R"({"format":"gneiss.input-map","version":1,"actions":[{"name":"move","bindings":[{"key":256,"scale":1}]}]})";
   constexpr auto invalid_scale =
       R"({"format":"gneiss.input-map","version":1,"actions":[{"name":"move","bindings":[{"key":4,"scale":0}]}]})";
-  if (gneiss::engine::parse_action_map(duplicate, map) != gneiss::engine::error::invalid_argument ||
-      gneiss::engine::parse_action_map(unknown_key, map) !=
+  if (gneiss::test_support::assign_decoded(gneiss::engine::parse_action_map(duplicate), map) !=
           gneiss::engine::error::invalid_argument ||
-      gneiss::engine::parse_action_map(invalid_scale, map) !=
+      gneiss::test_support::assign_decoded(gneiss::engine::parse_action_map(unknown_key), map) !=
+          gneiss::engine::error::invalid_argument ||
+      gneiss::test_support::assign_decoded(gneiss::engine::parse_action_map(invalid_scale), map) !=
           gneiss::engine::error::invalid_argument ||
       map.actions[0].bindings.size() != original_size) {
     return 2;
@@ -127,7 +129,7 @@ int main() {
   // 异步打开来源后检查读取上限，不调用旧 read_bounded。
   gneiss::engine::meta::registry_ref registry;
   gneiss::engine::meta::serialization_binding codec;
-  if (builtin_resource_registry(registry).failed() ||
+  if (gneiss::test_support::assign_value(builtin_resource_registry(), registry).failed() ||
       gneiss::test_support::assign_value(
           find_serialization(registry, runtime_type_of<action_map>()), codec)
           .failed() ||
@@ -135,11 +137,14 @@ int main() {
     return 9;
   gneiss::engine::meta::serialization_diagnostic diagnostic;
   std::vector<std::byte> encoded{std::byte{42}};
-  if (serialize(registry, map, encoded, diagnostic) != error::unsupported ||
+  if (gneiss::test_support::assign_decoded(serialize(registry, map), encoded, diagnostic) !=
+          error::unsupported ||
       encoded != std::vector{std::byte{42}})
     return 10;
   const auto invalid = std::as_bytes(std::span{invalid_scale, std::strlen(invalid_scale)});
-  if (deserialize(registry, invalid, map, diagnostic) != error::invalid_argument ||
+  if (gneiss::test_support::assign_decoded(
+          deserialize<std::remove_cvref_t<decltype(map)>>(registry, invalid), map, diagnostic) !=
+          error::invalid_argument ||
       diagnostic.path != "/actions/0/bindings/0" || diagnostic.message.empty() ||
       map.actions.front().name != "move")
     return 11;
@@ -201,10 +206,11 @@ int main() {
   backend->first = backend->second = invalid_scale;
   asset_manager custom(gneiss::test_support::test_files(files));
   custom.attach_task_executor(executor);
-  const auto override_decode = +[](std::span<const std::byte>, action_map& output,
-                                   gneiss::engine::meta::serialization_diagnostic&) -> error {
+  const auto override_decode =
+      +[](std::span<const std::byte>) -> result<action_map, meta::serialization_diagnostic> {
+    action_map output;
     output.actions = {{.name = "override", .bindings = {{.physical_key = 4, .scale = 1.0F}}}};
-    return error::success;
+    return output;
   };
   if (custom.register_decoder<action_map>(override_decode, maximum_action_map_bytes).failed() ||
       load_map_for_test(custom, executor, "asset://input/map", map).failed() ||

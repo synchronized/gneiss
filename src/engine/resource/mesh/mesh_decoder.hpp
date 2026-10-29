@@ -2,17 +2,12 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/result.hpp"
 #include "engine/resource/asset_diagnostic.hpp"
 #include "engine/resource/mesh/mesh_data.hpp"
 namespace gneiss::engine::detail {
-[[nodiscard]] error parse_mesh(const std::vector<std::byte>& bytes,
-                               std::vector<mesh_vertex>& out_vertices,
-                               std::vector<math::vector3>& out_normals,
-                               asset_diagnostic& diagnostic);
+[[nodiscard]] result<mesh_data, asset_diagnostic> parse_mesh(const std::vector<std::byte>& bytes);
 
-[[nodiscard]] error
-parse_binary_mesh(const std::vector<std::byte>& bytes, std::vector<mesh_vertex>& out_vertices,
-                  std::vector<math::vector3>& out_normals, std::vector<std::uint32_t>& out_indices,
-                  std::vector<math::vector4>& out_tangents, std::vector<math::vector2>& out_uv1,
-                  std::vector<math::vector4>& out_colors, asset_diagnostic& diagnostic);
+[[nodiscard]] result<mesh_data, asset_diagnostic>
+parse_binary_mesh(const std::vector<std::byte>& bytes);
 }

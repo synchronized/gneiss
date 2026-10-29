@@ -40,7 +40,7 @@ namespace gneiss::engine::detail {
                                           std::uint64_t maximum_version, std::uint64_t& out_version,
                                           asset_diagnostic& diagnostic) {
   if (!yyjson_is_obj(root) || !has_only_fields(root, fields, diagnostic)) {
-    if (diagnostic.result == engine::error::success) {
+    if (diagnostic.error == engine::error::success) {
       fail(diagnostic, engine::error::invalid_argument, "", "资产根必须是对象");
     }
     return false;
@@ -65,11 +65,12 @@ namespace gneiss::engine::detail {
 
 using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
 
-[[nodiscard]] inline document_ptr parse_document(const std::vector<std::byte>& bytes,
-                                                 asset_diagnostic& diagnostic) {
+[[nodiscard]] inline result<document_ptr, asset_diagnostic>
+parse_document(const std::vector<std::byte>& bytes) {
+  asset_diagnostic diagnostic;
   if (bytes.empty()) {
     fail(diagnostic, engine::error::invalid_argument, "", "资产文档为空");
-    return {nullptr, &yyjson_doc_free};
+    return diagnostic;
   }
   yyjson_read_err error{};
   document_ptr document(
@@ -77,10 +78,13 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
                        YYJSON_READ_NOFLAG, nullptr, &error),
       &yyjson_doc_free);
   if (!document) {
-    fail(diagnostic, engine::error::invalid_argument, "",
-         error.msg != nullptr ? error.msg : "JSON 语法错误", error.pos);
+    fail(diagnostic,
+         error.code == YYJSON_READ_ERROR_MEMORY_ALLOCATION ? engine::error::out_of_memory
+                                                           : engine::error::invalid_argument,
+         "", error.msg != nullptr ? error.msg : "JSON 语法错误", error.pos);
+    return diagnostic;
   }
-  return {document.release(), &yyjson_doc_free};
+  return document;
 }
 
 [[nodiscard]] inline bool read_float(yyjson_val* value, float& output) {

@@ -58,25 +58,22 @@ constexpr std::array<std::byte, 92U> linear_dfd = {
   return offset <= size && length <= size - static_cast<std::size_t>(offset);
 }
 
-[[nodiscard]] texture_ktx2_result fail(texture_ktx2_result result, std::string message,
-                                       std::string& diagnostic) noexcept {
+[[nodiscard]] texture_ktx2_diagnostic fail(texture_ktx2_error error,
+                                           std::string_view message) noexcept {
   try {
-    diagnostic = std::move(message);
+    return {error, std::string{message}};
   } catch (...) {
-    diagnostic.clear();
-    return texture_ktx2_result::out_of_memory;
+    return {texture_ktx2_error::out_of_memory, {}};
   }
-  return result;
 }
 
 } // namespace
 
-texture_ktx2_result encode_texture_ktx2(const texture_ktx2& texture, std::vector<std::byte>& output,
-                                        std::string& diagnostic) noexcept {
-  output.clear();
-  diagnostic.clear();
+result<std::vector<std::byte>, texture_ktx2_diagnostic>
+encode_texture_ktx2(const texture_ktx2& texture) noexcept try {
+  std::vector<std::byte> output;
   if (texture.levels.empty() || texture.levels.size() > 32U) {
-    return fail(texture_ktx2_result::invalid_argument, "KTX2 Mip 数量无效", diagnostic);
+    return fail(texture_ktx2_error::invalid_argument, "KTX2 Mip 数量无效");
   }
   std::uint32_t width = texture.levels.front().width;
   std::uint32_t height = texture.levels.front().height;
@@ -84,7 +81,7 @@ texture_ktx2_result encode_texture_ktx2(const texture_ktx2& texture, std::vector
     const auto expected = static_cast<std::uint64_t>(width) * height * 4U;
     if (width == 0U || height == 0U || expected != level.pixels.size() || level.width != width ||
         level.height != height) {
-      return fail(texture_ktx2_result::invalid_argument, "KTX2 Mip 尺寸或字节数无效", diagnostic);
+      return fail(texture_ktx2_error::invalid_argument, "KTX2 Mip 尺寸或字节数无效");
     }
     width = std::max(1U, width / 2U);
     height = std::max(1U, height / 2U);
@@ -122,25 +119,24 @@ texture_ktx2_result encode_texture_ktx2(const texture_ktx2& texture, std::vector
     for (const auto& level : texture.levels) {
       writer.write_bytes(level.pixels);
     }
-    return texture_ktx2_result::success;
+    return output;
   } catch (const std::bad_alloc&) {
-    output.clear();
-    return fail(texture_ktx2_result::out_of_memory, "KTX2 编码内存不足", diagnostic);
+    return fail(texture_ktx2_error::out_of_memory, "KTX2 编码内存不足");
   } catch (...) {
-    output.clear();
-    return fail(texture_ktx2_result::invalid_argument, "KTX2 编码失败", diagnostic);
+    return fail(texture_ktx2_error::invalid_argument, "KTX2 编码失败");
   }
+} catch (...) {
+  return texture_ktx2_diagnostic{texture_ktx2_error::out_of_memory, {}};
 }
 
-texture_ktx2_result decode_texture_ktx2(std::span<const std::byte> bytes, texture_ktx2& output,
-                                        std::string& diagnostic) noexcept {
-  output = {};
-  diagnostic.clear();
+result<texture_ktx2, texture_ktx2_diagnostic>
+decode_texture_ktx2(std::span<const std::byte> bytes) noexcept try {
+  texture_ktx2 output;
   const binary_reader reader{bytes};
   // 各读取位置由下面的 Header、表及数据区边界检查保证有效。
   if (bytes.size() < header_size ||
       !std::equal(identifier.begin(), identifier.end(), bytes.begin())) {
-    return fail(texture_ktx2_result::invalid_container, "KTX2 标识或文件长度无效", diagnostic);
+    return fail(texture_ktx2_error::invalid_container, "KTX2 标识或文件长度无效");
   }
   const auto format = *reader.read_at_le<std::uint32_t>(12U);
   const auto width = *reader.read_at_le<std::uint32_t>(20U);
@@ -154,8 +150,7 @@ texture_ktx2_result decode_texture_ktx2(std::span<const std::byte> bytes, textur
   const auto dfd_length = *reader.read_at_le<std::uint32_t>(52U);
   if ((format != rgba8_unorm && format != rgba8_srgb) || depth != 0U || layers != 0U ||
       faces != 1U || supercompression != 0U) {
-    return fail(texture_ktx2_result::unsupported_container, "KTX2 格式、维度或压缩方案不受支持",
-                diagnostic);
+    return fail(texture_ktx2_error::unsupported_container, "KTX2 格式、维度或压缩方案不受支持");
   }
   std::uint32_t expected_levels = 1U;
   for (auto size = std::max(width, height); size > 1U; size /= 2U) {
@@ -165,11 +160,11 @@ texture_ktx2_result decode_texture_ktx2(std::span<const std::byte> bytes, textur
       dfd_length < linear_dfd.size() || !valid_range(dfd_offset, dfd_length, bytes.size()) ||
       *reader.read_at_le<std::uint32_t>(dfd_offset) > dfd_length ||
       bytes.size() < header_size + static_cast<std::size_t>(levels) * level_entry_size) {
-    return fail(texture_ktx2_result::invalid_container, "KTX2 维度或 Mip 数量无效", diagnostic);
+    return fail(texture_ktx2_error::invalid_container, "KTX2 维度或 Mip 数量无效");
   }
   const auto transfer = std::to_integer<std::uint8_t>(bytes[dfd_offset + 14U]);
   if ((format == rgba8_srgb && transfer != 2U) || (format == rgba8_unorm && transfer != 1U)) {
-    return fail(texture_ktx2_result::invalid_container, "KTX2 格式与传递函数不一致", diagnostic);
+    return fail(texture_ktx2_error::invalid_container, "KTX2 格式与传递函数不一致");
   }
   try {
     output.transfer = format == rgba8_srgb ? texture_transfer::srgb : texture_transfer::linear;
@@ -184,9 +179,7 @@ texture_ktx2_result decode_texture_ktx2(std::span<const std::byte> bytes, textur
       const auto expected = static_cast<std::uint64_t>(level_width) * level_height * 4U;
       if (length != expected || unpacked != expected ||
           !valid_range(offset, length, bytes.size())) {
-        output = {};
-        return fail(texture_ktx2_result::invalid_container, "KTX2 Mip 数据范围或长度无效",
-                    diagnostic);
+        return fail(texture_ktx2_error::invalid_container, "KTX2 Mip 数据范围或长度无效");
       }
       const auto begin = bytes.begin() + static_cast<std::ptrdiff_t>(offset);
       output.levels.push_back({.width = level_width,
@@ -195,14 +188,14 @@ texture_ktx2_result decode_texture_ktx2(std::span<const std::byte> bytes, textur
       level_width = std::max(1U, level_width / 2U);
       level_height = std::max(1U, level_height / 2U);
     }
-    return texture_ktx2_result::success;
+    return output;
   } catch (const std::bad_alloc&) {
-    output = {};
-    return fail(texture_ktx2_result::out_of_memory, "KTX2 解码内存不足", diagnostic);
+    return fail(texture_ktx2_error::out_of_memory, "KTX2 解码内存不足");
   } catch (...) {
-    output = {};
-    return fail(texture_ktx2_result::invalid_container, "KTX2 解码失败", diagnostic);
+    return fail(texture_ktx2_error::invalid_container, "KTX2 解码失败");
   }
+} catch (...) {
+  return texture_ktx2_diagnostic{texture_ktx2_error::out_of_memory, {}};
 }
 
 } // namespace gneiss::engine

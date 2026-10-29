@@ -104,8 +104,8 @@ void resource_service::implementation::advance(resource_service& service) {
               if (!loaded) {
                 auto failure = std::move(loaded).error();
                 diagnostic = {failure.byte_offset, std::move(failure.path),
-                              std::move(failure.message)};
-                return failure.result;
+                              std::move(failure.message), failure.error};
+                return failure.error;
               }
               if constexpr (std::is_same_v<T, asset_data_request<mesh_data>>) {
                 state.metrics = std::move(loaded->metrics);

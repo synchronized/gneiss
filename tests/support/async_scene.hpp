@@ -19,12 +19,12 @@ prepare_scene_for_test(engine::asset_manager& assets, engine::task_scheduler& ex
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   for (;;) {
     if (cancelled && cancelled())
-      return diagnostic.result = engine::error::invalid_state;
+      return diagnostic.error = engine::error::invalid_state;
     if (std::chrono::steady_clock::now() >= deadline)
-      return diagnostic.result = engine::error::internal;
+      return diagnostic.error = engine::error::internal;
     const auto dispatch = assets.async_files()->dispatch_completions(64);
     if (dispatch.failed())
-      return diagnostic.result = dispatch;
+      return diagnostic.error = dispatch;
     assets.advance();
     (void)executor.run_ready();
     const auto status = request.advance(inputs, diagnostic);

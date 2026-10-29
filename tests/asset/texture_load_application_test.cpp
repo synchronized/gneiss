@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_application.hpp"
+#include "../support/codec_result.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
@@ -43,12 +44,13 @@ void run(gneiss::engine::execution_mode mode) {
       << R"({"format":"gneiss.texture","version":2,"source":"asset://image.ktx2","color_space":"srgb","usage":"default"})";
   std::vector<std::byte> bytes;
   std::string diagnostic;
-  check(gneiss::engine::encode_texture_ktx2(
-            {.transfer = gneiss::engine::texture_transfer::srgb,
-             .levels = {{.width = 1U,
-                         .height = 1U,
-                         .pixels = std::vector<std::byte>(4U, std::byte{255})}}},
-            bytes, diagnostic) == gneiss::engine::texture_ktx2_result::success);
+  check(gneiss::test_support::take_codec(
+            gneiss::engine::encode_texture_ktx2(
+                {.transfer = gneiss::engine::texture_transfer::srgb,
+                 .levels = {{.width = 1U,
+                             .height = 1U,
+                             .pixels = std::vector<std::byte>(4U, std::byte{255})}}}),
+            bytes, diagnostic) == std::nullopt);
   {
     std::ofstream stream(files.root / "image.ktx2", std::ios::binary);
     stream.write(reinterpret_cast<const char*>(bytes.data()),
@@ -146,12 +148,14 @@ void run(gneiss::engine::execution_mode mode) {
   wait();
   check(completion.result == gneiss::engine::error::success);
   // 只改变纹理负载不替换材质身份；两个使用者继续持有同一资源。
-  check(gneiss::engine::encode_texture_ktx2(
-            {.transfer = gneiss::engine::texture_transfer::srgb,
-             .levels = {{.width = 1U,
-                         .height = 1U,
-                         .pixels = {std::byte{0}, std::byte{255}, std::byte{0}, std::byte{255}}}}},
-            bytes, diagnostic) == gneiss::engine::texture_ktx2_result::success);
+  check(gneiss::test_support::take_codec(
+            gneiss::engine::encode_texture_ktx2(
+                {.transfer = gneiss::engine::texture_transfer::srgb,
+                 .levels = {{.width = 1U,
+                             .height = 1U,
+                             .pixels = {std::byte{0}, std::byte{255}, std::byte{0},
+                                        std::byte{255}}}}}),
+            bytes, diagnostic) == std::nullopt);
   {
     std::ofstream stream(files.root / "image.ktx2", std::ios::binary | std::ios::trunc);
     stream.write(reinterpret_cast<const char*>(bytes.data()),

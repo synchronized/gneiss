@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/codec_result.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/identifier_conversion.hpp"
@@ -45,8 +46,8 @@ struct fixture {
     mesh.colors.assign(3, {1, 1, 1, 1});
     std::vector<std::byte> bytes;
     gneiss::engine::mesh_binary_diagnostic diagnostic;
-    check(gneiss::engine::encode_mesh_binary(mesh, bytes, diagnostic) ==
-          gneiss::engine::mesh_binary_result::success);
+    check(gneiss::test_support::take_codec(gneiss::engine::encode_mesh_binary(mesh), bytes,
+                                           diagnostic) == std::nullopt);
     std::ofstream output(root / "mesh.json", std::ios::binary);
     output.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
@@ -440,8 +441,8 @@ void shared_texture_versions(gneiss::engine::execution_mode mode) {
   fixture files;
   std::vector<std::byte> bytes;
   std::string diagnostic;
-  check(gneiss::engine::encode_texture_ktx2(
-            {
+  check(gneiss::test_support::take_codec(
+            gneiss::engine::encode_texture_ktx2({
                 .transfer = gneiss::engine::texture_transfer::srgb,
                 .levels =
                     {
@@ -451,8 +452,8 @@ void shared_texture_versions(gneiss::engine::execution_mode mode) {
                             .pixels = std::vector<std::byte>(4U, std::byte{255}),
                         },
                     },
-            },
-            bytes, diagnostic) == gneiss::engine::texture_ktx2_result::success);
+            }),
+            bytes, diagnostic) == std::nullopt);
   {
     std::ofstream output(files.root / "image.ktx2", std::ios::binary);
     output.write(reinterpret_cast<const char*>(bytes.data()),

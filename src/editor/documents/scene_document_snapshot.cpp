@@ -30,14 +30,17 @@ engine::error prepare_scene_document(const scene_document_snapshot& before,
   engine::scene_description_inputs inputs;
   for (const auto& [uri, prefab] : before.description.prefabs)
     inputs.prefabs.emplace(uri, prefab.resource);
-  engine::meta::registry_ref registry;
-  const auto registered = engine::builtin_resource_registry(registry);
-  if (registered.failed())
-    return registered;
-  engine::meta::serialization_diagnostic decoded;
+  auto registry = engine::builtin_resource_registry();
+  if (!registry)
+    return registry.error();
   const auto decode = [&](const std::string& json, auto& output) {
-    return engine::meta::deserialize(registry, std::as_bytes(std::span(json.data(), json.size())),
-                                     output, decoded);
+    auto decoded_result = engine::meta::deserialize<std::remove_cvref_t<decltype(output)>>(
+        *registry, std::as_bytes(std::span(json.data(), json.size())));
+    if (!decoded_result) {
+      return decoded_result.error().error;
+    }
+    output = std::move(*decoded_result);
+    return gneiss::engine::error::success;
   };
   engine::scene_diagnostic diagnostic;
   for (const auto& change : changes) {

@@ -70,11 +70,10 @@ void unified_resource_index() {
       return gneiss::engine::runtime_type_of<std::string>();
     }
     std::size_t maximum_bytes() const noexcept override { return 64U; }
-    error decode(const std::vector<std::byte>& bytes, std::shared_ptr<const void>& output,
-                 gneiss::engine::meta::serialization_diagnostic&) const override {
-      output = std::make_shared<const std::string>(reinterpret_cast<const char*>(bytes.data()),
-                                                   bytes.size());
-      return error::success;
+    result<std::shared_ptr<const void>, meta::serialization_diagnostic>
+    decode(const std::vector<std::byte>& bytes) const override {
+      return std::shared_ptr<const void>{
+          std::make_shared<std::string>(reinterpret_cast<const char*>(bytes.data()), bytes.size())};
     }
   };
   auto source = std::make_shared<memory_files>();

@@ -4,6 +4,7 @@
 #include "../support/async_asset.hpp"
 #include "../support/async_scene.hpp"
 #include "../support/memory_file_fixture.hpp"
+#include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/resource/asset_manager.hpp"
@@ -69,15 +70,15 @@ std::string instance(std::string_view id) {
 }
 
 unsigned scene_decodes{}, prefab_decodes{};
-error custom_scene(std::span<const std::byte> bytes, scene_description& value,
-                   gneiss::engine::meta::serialization_diagnostic& diagnostic) {
+result<scene_description, meta::serialization_diagnostic>
+custom_scene(std::span<const std::byte> bytes) {
   ++scene_decodes;
-  return decode_scene(bytes, value, diagnostic);
+  return decode_scene(bytes);
 }
-error custom_prefab(std::span<const std::byte> bytes, prefab_description& value,
-                    gneiss::engine::meta::serialization_diagnostic& diagnostic) {
+result<prefab_description, meta::serialization_diagnostic>
+custom_prefab(std::span<const std::byte> bytes) {
   ++prefab_decodes;
-  return decode_prefab(bytes, value, diagnostic);
+  return decode_prefab(bytes);
 }
 void run() {
   auto memory = std::make_shared<memory_files>();

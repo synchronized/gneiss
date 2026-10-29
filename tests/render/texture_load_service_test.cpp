@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/codec_result.hpp"
 #include "../support/memory_file_fixture.hpp"
 #include "../support/prepare_render.hpp"
 #include "../support/value_result.hpp"
@@ -61,12 +62,13 @@ struct memory_files final : gneiss::test_support::memory_file_fixture {
   }
   void pixel(std::byte red) {
     std::string diagnostic;
-    check(encode_texture_ktx2(
-              {.transfer = texture_transfer::srgb,
-               .levels = {{.width = 1U,
-                           .height = 1U,
-                           .pixels = {red, std::byte{}, std::byte{}, std::byte{255}}}}},
-              files["image.ktx2"], diagnostic) == texture_ktx2_result::success);
+    check(gneiss::test_support::take_codec(
+              encode_texture_ktx2(
+                  {.transfer = texture_transfer::srgb,
+                   .levels = {{.width = 1U,
+                               .height = 1U,
+                               .pixels = {red, std::byte{}, std::byte{}, std::byte{255}}}}}),
+              files["image.ktx2"], diagnostic) == std::nullopt);
   }
 };
 // 人工延迟后端只接受回调；用于验证文件等待与 CPU 调度完全分离。
@@ -390,7 +392,7 @@ void cpu_loading(execution_mode mode) {
       backend->complete(fixture.files.at(backend->path));
     auto received = mesh_request.take();
     if (!received) {
-      loaded = received.error().result;
+      loaded = received.error().error;
       return loaded != error::not_ready;
     }
     mesh_content = std::move(received->data);

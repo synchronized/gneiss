@@ -21,10 +21,10 @@
 namespace gneiss::engine {
 
 struct scene_diagnostic final {
-  engine::error result = engine::error::success;
+  engine::error error = engine::error::success;
   std::size_t byte_offset = 0;
-  std::string path;
-  std::string message;
+  std::string path{};
+  std::string message{};
 };
 
 struct camera_description final {

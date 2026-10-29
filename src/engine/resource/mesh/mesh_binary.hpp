@@ -5,6 +5,7 @@
 #define GNEISS_ASSET_MESH_BINARY_HPP_
 
 #include "engine/core/math/aabb3.hpp"
+#include "engine/core/result.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -30,21 +31,19 @@ struct mesh_binary_data final {
   std::vector<math::vector4> colors{};
 };
 
-enum class mesh_binary_result : std::uint8_t { success, invalid_data, unsupported_version };
+enum class mesh_binary_error : std::uint8_t { invalid_data, unsupported_version, out_of_memory };
 
 struct mesh_binary_diagnostic final {
-  mesh_binary_result result = mesh_binary_result::success;
+  mesh_binary_error error = mesh_binary_error::invalid_data;
   std::size_t byte_offset{};
   std::string message;
 };
 
 [[nodiscard]] bool is_mesh_binary(std::span<const std::byte> bytes) noexcept;
-[[nodiscard]] mesh_binary_result encode_mesh_binary(const mesh_binary_data& data,
-                                                    std::vector<std::byte>& output,
-                                                    mesh_binary_diagnostic& diagnostic) noexcept;
-[[nodiscard]] mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes,
-                                                    mesh_binary_data& output,
-                                                    mesh_binary_diagnostic& diagnostic) noexcept;
+[[nodiscard]] result<std::vector<std::byte>, mesh_binary_diagnostic>
+encode_mesh_binary(const mesh_binary_data& data) noexcept;
+[[nodiscard]] result<mesh_binary_data, mesh_binary_diagnostic>
+decode_mesh_binary(std::span<const std::byte> bytes) noexcept;
 [[nodiscard]] std::string dump_mesh_binary_json(const mesh_binary_data& data);
 
 } // namespace gneiss::engine

@@ -3,17 +3,18 @@
 
 #pragma once
 #include "engine/core/meta/serialization_types.hpp"
+#include "engine/core/result.hpp"
 #include "scene_description.hpp"
 namespace gneiss::engine {
-[[nodiscard]] error parse_scene_description(std::string_view json, scene_description& out_scene,
-                                            scene_diagnostic& out_diagnostic) noexcept;
+[[nodiscard]] result<scene_description, scene_diagnostic>
+parse_scene_description(std::string_view json) noexcept;
 
 /** 输出当前 Schema 作者 JSON；保留受支持文档中的未知字段。 */
-[[nodiscard]] error serialize_scene_description(const scene_description& scene,
-                                                std::string& out_json) noexcept;
+[[nodiscard]] result<std::string>
+serialize_scene_description(const scene_description& scene) noexcept;
 
-[[nodiscard]] GNEISS_API error decode_scene(std::span<const std::byte>, scene_description&,
-                                            meta::serialization_diagnostic&) noexcept;
-[[nodiscard]] GNEISS_API error encode_scene(const scene_description&, std::vector<std::byte>&,
-                                            meta::serialization_diagnostic&) noexcept;
+[[nodiscard]] GNEISS_API result<scene_description, meta::serialization_diagnostic>
+    decode_scene(std::span<const std::byte>) noexcept;
+[[nodiscard]] GNEISS_API result<std::vector<std::byte>, meta::serialization_diagnostic>
+encode_scene(const scene_description&) noexcept;
 }

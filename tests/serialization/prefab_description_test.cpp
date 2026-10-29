@@ -109,8 +109,9 @@ bool prepared_description_contract() {
   constexpr std::string_view uri = "asset://prefabs/lamp.prefab.json";
   gneiss::engine::prefab_description description;
   gneiss::engine::scene_diagnostic diagnostic;
-  if (gneiss::engine::parse_prefab_description(valid_prefab, description, diagnostic) !=
-      gneiss::engine::error::success) {
+  if (gneiss::test_support::assign_decoded(gneiss::engine::parse_prefab_description(valid_prefab),
+                                           description,
+                                           diagnostic) != gneiss::engine::error::success) {
     return false;
   }
   gneiss::engine::prefab_asset_ref legacy;
@@ -178,7 +179,7 @@ int main() try {
   {
     namespace e = gneiss::engine;
     gneiss::engine::meta::registry_ref registry;
-    if (e::builtin_resource_registry(registry).failed())
+    if (gneiss::test_support::assign_value(e::builtin_resource_registry(), registry).failed())
       return 90;
     auto text = std::string(valid_prefab);
     text.insert(1, R"("codec_unknown":{"keep":7},)");
@@ -186,24 +187,38 @@ int main() try {
     e::prefab_description value;
     gneiss::engine::meta::serialization_diagnostic detail;
     std::vector<std::byte> encoded;
-    if (gneiss::engine::meta::deserialize(registry, source, value, detail).failed() ||
-        gneiss::engine::meta::serialize(registry, value, encoded, detail).failed())
+    if (gneiss::test_support::assign_decoded(
+            gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(value)>>(registry,
+                                                                                    source),
+            value, detail)
+            .failed() ||
+        gneiss::test_support::assign_decoded(gneiss::engine::meta::serialize(registry, value),
+                                             encoded, detail)
+            .failed())
       return 91;
     e::prefab_description restored;
-    if (gneiss::engine::meta::deserialize(registry, encoded, restored, detail).failed() ||
+    if (gneiss::test_support::assign_decoded(
+            gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(restored)>>(registry,
+                                                                                       encoded),
+            restored, detail)
+            .failed() ||
         restored.objects.size() != value.objects.size() ||
         restored.author_json.find("codec_unknown") == std::string::npos)
       return 92;
     const auto saved = restored.author_json;
     const std::string broken = "{";
-    if (gneiss::engine::meta::deserialize(
-            registry, std::as_bytes(std::span{broken.data(), broken.size()}), restored, detail)
+    if (gneiss::test_support::assign_decoded(
+            gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(restored)>>(
+                registry, std::as_bytes(std::span{broken.data(), broken.size()})),
+            restored, detail)
             .ok() ||
         restored.author_json != saved)
       return 93;
     std::vector<std::byte> oversized(e::prefab_description::maximum_source_bytes + 1U);
-    if (gneiss::engine::meta::deserialize(registry, oversized, restored, detail) !=
-            e::error::invalid_argument ||
+    if (gneiss::test_support::assign_decoded(
+            gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(restored)>>(registry,
+                                                                                       oversized),
+            restored, detail) != e::error::invalid_argument ||
         restored.author_json != saved)
       return 94;
   }
@@ -213,8 +228,8 @@ int main() try {
   }
   gneiss::engine::prefab_description prefab;
   gneiss::engine::scene_diagnostic diagnostic;
-  if (gneiss::engine::parse_prefab_description(valid_prefab, prefab, diagnostic) !=
-          gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_decoded(gneiss::engine::parse_prefab_description(valid_prefab),
+                                           prefab, diagnostic) != gneiss::engine::error::success ||
       prefab.source_schema_version != 1U || prefab.objects.size() != 2U ||
       prefab.objects[1].parent_uuid != prefab.objects[0].uuid || prefab.dependencies.size() != 2U ||
       prefab.dependencies[0] != "asset://materials/lantern.material" ||
@@ -226,18 +241,20 @@ int main() try {
   gneiss::engine::prefab_description round_trip;
   const auto author_with_unknown = replace_once(std::string(valid_prefab), R"("version":1,)",
                                                 R"("version":1,"editor_unknown":{"kept":true},)");
-  if (gneiss::engine::parse_prefab_description(author_with_unknown, prefab, diagnostic) !=
+  if (gneiss::test_support::assign_decoded(
+          gneiss::engine::parse_prefab_description(author_with_unknown), prefab, diagnostic) !=
       gneiss::engine::error::success) {
     return 7;
   }
   prefab.objects[1].name = "Serialized Child";
-  if (gneiss::engine::serialize_prefab_description(prefab, serialized) !=
-          gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(gneiss::engine::serialize_prefab_description(prefab),
+                                         serialized) != gneiss::engine::error::success ||
       serialized.find("Serialized Child") == std::string::npos ||
       serialized.find("editor_unknown") == std::string::npos ||
       serialized.find("prefab_instances") != std::string::npos ||
-      gneiss::engine::parse_prefab_description(serialized, round_trip, diagnostic) !=
-          gneiss::engine::error::success ||
+      gneiss::test_support::assign_decoded(gneiss::engine::parse_prefab_description(serialized),
+                                           round_trip,
+                                           diagnostic) != gneiss::engine::error::success ||
       round_trip.objects[1].name != "Serialized Child") {
     return 8;
   }
@@ -255,15 +272,15 @@ int main() try {
   const auto multiple_roots =
       replace_once(std::string(valid_prefab), R"("parent":"10000000-0000-4000-8000-000000000002")",
                    R"("parent":null)");
-  if (gneiss::engine::parse_prefab_description(multiple_roots, prefab, diagnostic) !=
-          gneiss::engine::error::invalid_argument ||
-      diagnostic.path != "/objects" || !prefab.objects.empty()) {
+  auto rejected = gneiss::engine::parse_prefab_description(multiple_roots);
+  if (rejected || rejected.error().error != gneiss::engine::error::invalid_argument ||
+      rejected.error().path != "/objects") {
     return 3;
   }
 
   const auto future = replace_once(std::string(valid_prefab), "\"version\":1", "\"version\":2");
-  if (gneiss::engine::parse_prefab_description(future, prefab, diagnostic) !=
-          gneiss::engine::error::unsupported ||
+  if (gneiss::test_support::assign_decoded(gneiss::engine::parse_prefab_description(future), prefab,
+                                           diagnostic) != gneiss::engine::error::unsupported ||
       diagnostic.path != "/version") {
     return 4;
   }

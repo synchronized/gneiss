@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_render.hpp"
+#include "../support/codec_result.hpp"
 #include "../support/memory_file_fixture.hpp"
 #include "../support/prepare_render.hpp"
 #include "../support/value_result.hpp"
@@ -72,15 +73,15 @@ public:
     return gneiss::engine::runtime_type_of<gneiss::engine::material_description>();
   }
   std::size_t maximum_bytes() const noexcept override { return 64U * 1024U; }
-  gneiss::engine::error
-  decode(const std::vector<std::byte>& bytes, std::shared_ptr<const void>& output,
-         gneiss::engine::meta::serialization_diagnostic& diagnostic) const override {
+  gneiss::engine::result<std::shared_ptr<const void>,
+                         gneiss::engine::meta::serialization_diagnostic>
+  decode(const std::vector<std::byte>& bytes) const override {
     ++calls;
-    auto value = std::make_shared<gneiss::engine::material_description>();
-    auto status = gneiss::engine::decode_material(bytes, *value, diagnostic);
-    if (status == gneiss::engine::error::success)
-      output = std::move(value);
-    return status;
+    auto decoded = gneiss::engine::decode_material(bytes);
+    if (!decoded)
+      return std::move(decoded).error();
+    return std::shared_ptr<const void>{
+        std::make_shared<gneiss::engine::material_description>(std::move(*decoded))};
   }
 };
 
@@ -148,8 +149,8 @@ void add_indexed_mesh(memory_file_system& memory) {
   data.tangents.assign(data.vertices.size(), {1, 0, 0, 1});
   std::vector<std::byte> bytes;
   gneiss::engine::mesh_binary_diagnostic diagnostic;
-  if (gneiss::engine::encode_mesh_binary(data, bytes, diagnostic) !=
-      gneiss::engine::mesh_binary_result::success) {
+  if (gneiss::test_support::take_codec(gneiss::engine::encode_mesh_binary(data), bytes,
+                                       diagnostic) != std::nullopt) {
     throw std::runtime_error{"无法创建索引 Mesh 测试数据"};
   }
   memory.files.emplace("models/indexed.gneiss-mesh",
@@ -254,7 +255,7 @@ void selected_variants() {
               files, "asset://t.texture.json", texture, diagnostic, binary.size(), limit,
               fallback) == gneiss::engine::error::out_of_memory &&
           texture.payload.empty());
-  require(diagnostic.result == gneiss::engine::error::out_of_memory);
+  require(diagnostic.error == gneiss::engine::error::out_of_memory);
   require(gneiss::test_support::decode_texture_fixture(
               files, "asset://t.texture.json", texture, diagnostic, binary.size(), limit,
               {.generation = 3U}) == gneiss::engine::error::unsupported &&
@@ -486,8 +487,8 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
           {.width = 1U, .height = 1U, .pixels = std::vector<std::byte>(4U, std::byte{0x20})}}};
   std::vector<std::byte> ktx_bytes;
   std::string ktx_diagnostic;
-  if (gneiss::engine::encode_texture_ktx2(ktx_source, ktx_bytes, ktx_diagnostic) !=
-      gneiss::engine::texture_ktx2_result::success) {
+  if (gneiss::test_support::take_codec(gneiss::engine::encode_texture_ktx2(ktx_source), ktx_bytes,
+                                       ktx_diagnostic) != std::nullopt) {
     return 24;
   }
   memory->files.emplace(

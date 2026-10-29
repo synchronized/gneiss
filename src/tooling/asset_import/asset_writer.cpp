@@ -56,18 +56,16 @@ void configure(std::ostream& stream) {
          .texcoord = {source.texcoord[0], source.texcoord[1]},
          .normal = {source.normal[0], source.normal[1], source.normal[2]}});
   }
-  std::vector<std::byte> bytes;
-  gneiss::engine::mesh_binary_diagnostic diagnostic;
-  if (gneiss::engine::encode_mesh_binary(data, bytes, diagnostic) !=
-      gneiss::engine::mesh_binary_result::success) {
+  auto bytes = gneiss::engine::encode_mesh_binary(data);
+  if (!bytes) {
     return false;
   }
   std::ofstream stream(path, std::ios::binary | std::ios::trunc);
   if (!stream) {
     return false;
   }
-  stream.write(reinterpret_cast<const char*>(bytes.data()),
-               static_cast<std::streamsize>(bytes.size()));
+  stream.write(reinterpret_cast<const char*>(bytes->data()),
+               static_cast<std::streamsize>(bytes->size()));
   return stream.good();
 }
 

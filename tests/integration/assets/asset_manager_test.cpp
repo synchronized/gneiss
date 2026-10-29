@@ -76,20 +76,19 @@ public:
     return gneiss::engine::runtime_type_of<value>();
   }
   std::size_t maximum_bytes() const noexcept override { return 8; }
-  gneiss::engine::error decode(const std::vector<std::byte>& bytes,
-                               std::shared_ptr<const void>& output,
-                               gneiss::engine::meta::serialization_diagnostic&) const override {
+  result<std::shared_ptr<const void>, meta::serialization_diagnostic>
+  decode(const std::vector<std::byte>& bytes) const override {
     ++decodes;
     if (bytes.empty() || bytes[0] == std::byte{'!'})
-      return gneiss::engine::error::invalid_argument;
-    output = std::make_shared<const value>(value{static_cast<char>(bytes[0])});
-    return gneiss::engine::error::success;
+      return meta::serialization_diagnostic{.error = error::invalid_argument};
+    return std::shared_ptr<const void>{
+        std::make_shared<const value>(value{static_cast<char>(bytes[0])})};
   }
 };
-error explicit_decode(std::span<const std::byte> bytes, value& output,
-                      gneiss::engine::meta::serialization_diagnostic&) {
-  output.byte = 'x';
-  return bytes.front() == std::byte{'!'} ? error::invalid_argument : error::success;
+result<value, meta::serialization_diagnostic> explicit_decode(std::span<const std::byte> bytes) {
+  if (bytes.front() == std::byte{'!'})
+    return meta::serialization_diagnostic{.error = error::invalid_argument};
+  return value{'x'};
 }
 class delayed_files final : public gneiss::engine::files::backend {
 public:
@@ -230,12 +229,11 @@ void decoder_selection() {
             error::success,
         "decoder registry");
   gneiss::engine::meta::serialization_binding codec;
-  codec.decode = [](std::span<const std::byte> bytes, void* object,
-                    gneiss::engine::meta::serialization_diagnostic& diagnostic) {
+  codec.decode = [](std::span<const std::byte> bytes)
+      -> result<std::shared_ptr<void>, meta::serialization_diagnostic> {
     if (bytes.front() == std::byte{'?'})
-      diagnostic = {7U, "/value", "invalid value"};
-    static_cast<value*>(object)->byte = 'r';
-    return bytes.front() == std::byte{'?'} ? error::invalid_argument : error::success;
+      return meta::serialization_diagnostic{7U, "/value", "invalid value", error::invalid_argument};
+    return std::shared_ptr<void>{std::make_shared<value>(value{'r'})};
   };
   check(register_type<value>(registry, {.guid = material_description::type_guid,
                                         .schema_version = 1U,
@@ -348,7 +346,8 @@ void decoder_selection() {
   material_description description;
   description.parameters.metallic = 0.25F;
   gneiss::engine::meta::serialization_diagnostic diagnostic;
-  check(encode_material(description, source->contents, diagnostic) == error::success,
+  check(gneiss::test_support::assign_decoded(encode_material(description), source->contents,
+                                             diagnostic) == error::success,
         "material fixture");
   asset_manager material_assets(gneiss::test_support::test_files(files));
   asset_ref<const material_description> material;
@@ -751,13 +750,12 @@ void nonblocking_decode_shutdown() {
     mutable std::atomic_bool entered{}, released{};
     type_id target_type() const noexcept override { return runtime_type_of<value>(); }
     std::size_t maximum_bytes() const noexcept override { return 8; }
-    error decode(const std::vector<std::byte>&, std::shared_ptr<const void>& output,
-                 meta::serialization_diagnostic&) const override {
+    result<std::shared_ptr<const void>, meta::serialization_diagnostic>
+    decode(const std::vector<std::byte>&) const override {
       entered.store(true, std::memory_order_release);
       while (!released.load(std::memory_order_acquire))
         std::this_thread::yield();
-      output = std::make_shared<const value>(value{'z'});
-      return error::success;
+      return std::shared_ptr<const void>{std::make_shared<const value>(value{'z'})};
     }
   };
   task_scheduler executor({.workers = 1, .mode = execution_mode::thread_pool});
@@ -815,16 +813,16 @@ void request_value_contract() {
   using namespace gneiss::engine;
   asset_request<int> empty;
   auto absent = empty.take();
-  check(!absent && absent.error().result == error::invalid_state, "empty take");
+  check(!absent && absent.error().error == error::invalid_state, "empty take");
   auto state = std::make_shared<detail::asset_state>();
   asset_request<int> request(state);
   auto pending = request.take();
-  check(!pending && pending.error().result == error::not_ready && bool(request),
+  check(!pending && pending.error().error == error::not_ready && bool(request),
         "pending keeps request");
   state->status = error::invalid_argument;
   state->diagnostic = {17, "/value", "无效整数"};
   auto failed = request.take();
-  check(!failed && failed.error().result == error::invalid_argument &&
+  check(!failed && failed.error().error == error::invalid_argument &&
             failed.error().byte_offset == 17 && failed.error().path == "/value" &&
             failed.error().message == "无效整数" && bool(request),
         "diagnostic belongs to failed result");
@@ -833,7 +831,7 @@ void request_value_contract() {
   auto loaded = request.take();
   check(loaded && **loaded == 42 && !request, "successful take consumes request");
   auto again = request.take();
-  check(!again && again.error().result == error::invalid_state, "repeat take fails");
+  check(!again && again.error().error == error::invalid_state, "repeat take fails");
   state.reset();
   check(**loaded == 42, "returned value owns resource");
 }

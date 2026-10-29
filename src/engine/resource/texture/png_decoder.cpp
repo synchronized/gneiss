@@ -38,60 +38,67 @@ engine::error fail(int error, std::string& message) noexcept {
 
 } // namespace
 
-engine::error decode_png(const std::vector<std::byte>& bytes, decoded_png& out_image,
-                         std::string& out_message, std::size_t byte_limit) noexcept {
+result<decoded_png, asset_diagnostic> decode_png(const std::vector<std::byte>& bytes,
+                                                 std::size_t byte_limit) noexcept try {
+  decoded_png out_image;
+  asset_diagnostic diagnostic;
+  auto& out_message = diagnostic.message;
+  const auto failure = [&](error status) {
+    if (diagnostic.error.ok())
+      diagnostic.error = status;
+    return std::move(diagnostic);
+  };
+
   clear_image(out_image);
   out_message.clear();
-  try {
-    if (bytes.empty()) {
-      out_message = "PNG 数据为空";
-      return engine::error::invalid_argument;
-    }
-    context_ptr context(spng_ctx_new(0), &spng_ctx_free);
-    if (!context) {
-      return engine::error::out_of_memory;
-    }
-    int result = spng_set_image_limits(context.get(), maximum_dimension, maximum_dimension);
-    if (result == 0) {
-      result = spng_set_png_buffer(context.get(), bytes.data(), bytes.size());
-    }
-    spng_ihdr header{};
-    if (result == 0) {
-      result = spng_get_ihdr(context.get(), &header);
-    }
-    std::size_t decoded_size = 0;
-    if (result == 0) {
-      result = spng_decoded_image_size(context.get(), SPNG_FMT_RGBA8, &decoded_size);
-    }
-    if (result != 0) {
-      return fail(result, out_message);
-    }
-    if (decoded_size == 0U || decoded_size > maximum_decoded_bytes ||
-        decoded_size != static_cast<std::size_t>(header.width) * header.height * 4U) {
-      out_message = "PNG 解码尺寸超出限制";
-      return engine::error::invalid_argument;
-    }
-    if (decoded_size > byte_limit) {
-      out_message = "PNG 解码数据超过候选剩余内存预算";
-      return engine::error::out_of_memory;
-    }
-    out_image.width = header.width;
-    out_image.height = header.height;
-    out_image.pixels.resize(decoded_size);
-    result = spng_decode_image(context.get(), out_image.pixels.data(), out_image.pixels.size(),
-                               SPNG_FMT_RGBA8, SPNG_DECODE_TRNS);
-    if (result != 0) {
-      clear_image(out_image);
-      return fail(result, out_message);
-    }
-    return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    clear_image(out_image);
-    return engine::error::out_of_memory;
-  } catch (...) {
-    clear_image(out_image);
-    return engine::error::internal;
+
+  if (bytes.empty()) {
+    out_message = "PNG 数据为空";
+    return failure(engine::error::invalid_argument);
   }
+  context_ptr context(spng_ctx_new(0), &spng_ctx_free);
+  if (!context) {
+    return failure(engine::error::out_of_memory);
+  }
+  int result = spng_set_image_limits(context.get(), maximum_dimension, maximum_dimension);
+  if (result == 0) {
+    result = spng_set_png_buffer(context.get(), bytes.data(), bytes.size());
+  }
+  spng_ihdr header{};
+  if (result == 0) {
+    result = spng_get_ihdr(context.get(), &header);
+  }
+  std::size_t decoded_size = 0;
+  if (result == 0) {
+    result = spng_decoded_image_size(context.get(), SPNG_FMT_RGBA8, &decoded_size);
+  }
+  if (result != 0) {
+    return failure(fail(result, out_message));
+  }
+  if (decoded_size == 0U || decoded_size > maximum_decoded_bytes ||
+      decoded_size != static_cast<std::size_t>(header.width) * header.height * 4U) {
+    out_message = "PNG 解码尺寸超出限制";
+    return failure(engine::error::invalid_argument);
+  }
+  if (decoded_size > byte_limit) {
+    out_message = "PNG 解码数据超过候选剩余内存预算";
+    return failure(engine::error::out_of_memory);
+  }
+  out_image.width = header.width;
+  out_image.height = header.height;
+  out_image.pixels.resize(decoded_size);
+  result = spng_decode_image(context.get(), out_image.pixels.data(), out_image.pixels.size(),
+                             SPNG_FMT_RGBA8, SPNG_DECODE_TRNS);
+  if (result != 0) {
+    clear_image(out_image);
+    return failure(fail(result, out_message));
+  }
+  return out_image;
+
+} catch (const std::bad_alloc&) {
+  return asset_diagnostic{.error = error::out_of_memory};
+} catch (...) {
+  return asset_diagnostic{.error = error::internal};
 }
 
 } // namespace gneiss::engine

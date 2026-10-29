@@ -144,9 +144,11 @@ Registry 使用原生共享引用管理，最后一个引用释放时销毁，�
 每个类型当前只登记一组编解码函数，文件格式标识及版本由 codec 自行校验，不提供任意 capability 或对象工厂。
 
 `find_serialization` 按运行期 type_id 查询冻结 Registry 中的函数表，不登记重复的格式名称。
-`serialize<T>` 在临时字节数组上调用 codec，成功才替换输出；`deserialize<T>` 默认构造临时 T，
-成功后无异常移动赋值。T 必须满足相应构造和赋值约束。失败保持输出；bad_alloc 转为
-out_of_memory，其余异常转为 internal。诊断在调用开始清空，失败时可携带路径、字节偏移和消息。
+`serialize<T>` 返回 `result<vector<byte>, serialization_diagnostic>`，`deserialize<T>` 返回
+`result<T, serialization_diagnostic>`。成功结果拥有值，失败结果仅携带错误码、路径、字节偏移和消息。
+`serialization_diagnostic.error` 保存错误码；bad_alloc 转为 out_of_memory，其余异常转为 internal。
+Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `shared_ptr<void>`，
+模板接口按已登记的运行期类型 ID 找到回调后移出具体对象，不要求默认构造或移动赋值。
 未冻结返回 not_ready，未知类型返回 not_found，缺少方向返回 unsupported，空 Registry 返回 invalid_handle。
 回调在 Registry 锁外执行，要求可并发处理不同对象；对象与输入只在调用期间借用。
 输入大小限制由文件读取入口控制，反射不负责 I/O、缓存、任务或 GPU 上传。

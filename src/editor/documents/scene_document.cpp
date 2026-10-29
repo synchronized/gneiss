@@ -1001,16 +1001,14 @@ engine::error scene_document::encode_scene(std::string& output) const noexcept t
       with_scene([&](auto& service) { return service.capture_description(scene_, description); });
   if (status.failed())
     return status;
-  engine::meta::registry_ref registry;
-  status = engine::builtin_resource_registry(registry);
-  if (status.failed())
-    return status;
-  gneiss::engine::files::bytes encoded;
-  engine::meta::serialization_diagnostic diagnostic;
-  status = engine::meta::serialize(registry, description, encoded, diagnostic);
-  if (status.ok())
-    output.assign(reinterpret_cast<const char*>(encoded.data()), encoded.size());
-  return status;
+  auto registry = engine::builtin_resource_registry();
+  if (!registry)
+    return registry.error();
+  auto encoded = engine::meta::serialize(*registry, description);
+  if (!encoded)
+    return encoded.error().error;
+  output.assign(reinterpret_cast<const char*>(encoded->data()), encoded->size());
+  return engine::error::success;
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
 } catch (...) {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/codec_result.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
 
 #include <algorithm>
@@ -29,13 +30,16 @@ int main() {
   std::vector<std::byte> first;
   std::vector<std::byte> second;
   std::string diagnostic;
-  if (encode_texture_ktx2(source, first, diagnostic) != texture_ktx2_result::success ||
-      encode_texture_ktx2(source, second, diagnostic) != texture_ktx2_result::success ||
+  if (gneiss::test_support::take_codec(encode_texture_ktx2(source), first, diagnostic) !=
+          std::nullopt ||
+      gneiss::test_support::take_codec(encode_texture_ktx2(source), second, diagnostic) !=
+          std::nullopt ||
       first != second || !diagnostic.empty()) {
     return 1;
   }
   texture_ktx2 decoded;
-  if (decode_texture_ktx2(first, decoded, diagnostic) != texture_ktx2_result::success ||
+  if (gneiss::test_support::take_codec(decode_texture_ktx2(first), decoded, diagnostic) !=
+          std::nullopt ||
       decoded.transfer != texture_transfer::srgb || decoded.levels.size() != 3U ||
       decoded.levels[1U].width != 1U || decoded.levels[1U].height != 2U ||
       decoded.levels[2U].pixels != source.levels[2U].pixels) {
@@ -44,20 +48,20 @@ int main() {
 
   auto invalid_format = first;
   write_u32(invalid_format, 12U, 0U);
-  if (decode_texture_ktx2(invalid_format, decoded, diagnostic) !=
-      texture_ktx2_result::unsupported_container) {
+  if (gneiss::test_support::take_codec(decode_texture_ktx2(invalid_format), decoded, diagnostic) !=
+      texture_ktx2_error::unsupported_container) {
     return 3;
   }
   auto compressed = first;
   write_u32(compressed, 44U, 2U);
-  if (decode_texture_ktx2(compressed, decoded, diagnostic) !=
-      texture_ktx2_result::unsupported_container) {
+  if (gneiss::test_support::take_codec(decode_texture_ktx2(compressed), decoded, diagnostic) !=
+      texture_ktx2_error::unsupported_container) {
     return 4;
   }
   auto truncated = first;
   truncated.pop_back();
-  if (decode_texture_ktx2(truncated, decoded, diagnostic) !=
-      texture_ktx2_result::invalid_container) {
+  if (gneiss::test_support::take_codec(decode_texture_ktx2(truncated), decoded, diagnostic) !=
+      texture_ktx2_error::invalid_container) {
     return 5;
   }
   return 0;

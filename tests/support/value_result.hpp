@@ -23,12 +23,19 @@ template <class T, class E>
 engine::error assign_decoded(engine::result<T, E> value, T& output, E& diagnostic) {
   if (!value) {
     diagnostic = std::move(value).error();
-    return diagnostic.result;
+    return diagnostic.error;
   }
+  diagnostic = {};
   output = std::move(*value);
   return engine::error::success;
 }
 
+template <class T, class E> engine::error assign_decoded(engine::result<T, E> value, T& output) {
+  if (!value)
+    return value.error().error;
+  output = std::move(*value);
+  return engine::error::success;
+}
 template <class R, class T>
 engine::error take_request(R& request, T& output,
                            engine::meta::serialization_diagnostic* diagnostic = nullptr,
@@ -37,8 +44,9 @@ engine::error take_request(R& request, T& output,
   if (!value) {
     auto failure = std::move(value).error();
     if (diagnostic)
-      *diagnostic = {failure.byte_offset, std::move(failure.path), std::move(failure.message)};
-    return failure.result;
+      *diagnostic = {failure.byte_offset, std::move(failure.path), std::move(failure.message),
+                     failure.error};
+    return failure.error;
   }
   if (diagnostic)
     *diagnostic = {};

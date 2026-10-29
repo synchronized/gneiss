@@ -120,8 +120,8 @@ private:
   error request_data(std::string_view, bool, texture_prepare_profile, std::size_t,
                      std::shared_ptr<detail::asset_state>,
                      std::function<void(decoded_asset&&, double, double)>) noexcept;
-  using decoder_factory = error (*)(const meta::registry_ref&, std::size_t,
-                                    std::shared_ptr<const asset_decoder>&);
+  using decoder_factory =
+      result<std::shared_ptr<const asset_decoder>> (*)(const meta::registry_ref&, std::size_t);
   [[nodiscard]] error resolve_decoder(type_id, decoder_factory,
                                       std::shared_ptr<const asset_decoder>&);
   [[nodiscard]] engine::error request(type_id type, std::string_view uri, bool reload,

@@ -847,12 +847,10 @@ engine::error scene_instance::capture_subtree(scene_node_id root, std::string& o
     if (result != engine::error::success) {
       return result;
     }
-    scene_description current;
-    scene_diagnostic diagnostic;
-    result = engine::parse_scene_description(current_json, current, diagnostic);
-    if (result != engine::error::success) {
-      return result;
-    }
+    auto parsed = engine::parse_scene_description(current_json);
+    if (!parsed)
+      return parsed.error().error;
+    auto current = std::move(*parsed);
     std::unordered_set<std::string> included{found->uuid};
     bool changed = true;
     while (changed) {
@@ -889,7 +887,12 @@ engine::error scene_instance::capture_subtree(scene_node_id root, std::string& o
     current.author_json =
         std::string{"{\"format\":\"gneiss.scene\",\"version\":4,\"scene_uuid\":\""} + current.uuid +
         "\",\"objects\":[],\"prefab_instances\":[]}";
-    return engine::serialize_scene_description(current, out_snapshot);
+    auto decoded_result = engine::serialize_scene_description(current);
+    if (!decoded_result) {
+      return decoded_result.error();
+    }
+    out_snapshot = std::move(*decoded_result);
+    return gneiss::engine::error::success;
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
   } catch (...) {
@@ -901,12 +904,13 @@ engine::error scene_instance::restore_subtree(std::string_view snapshot, scene_n
                                               std::span<const uuid_mapping> mappings,
                                               scene_node_id* out_root,
                                               std::span<const scene_mesh_binding> bindings) {
-  scene_description subtree;
-  scene_diagnostic diagnostic;
-  auto result = engine::parse_scene_description(snapshot, subtree, diagnostic);
-  if (result != engine::error::success || subtree.objects.empty()) {
-    return result == engine::error::success ? engine::error::invalid_argument : result;
-  }
+  auto parsed = engine::parse_scene_description(snapshot);
+  if (!parsed)
+    return parsed.error().error;
+  auto subtree = std::move(*parsed);
+  if (subtree.objects.empty())
+    return engine::error::invalid_argument;
+  auto result = engine::error::success;
   if (!subtree.prefab_instances.empty()) {
     return engine::error::unsupported;
   }
@@ -1472,7 +1476,14 @@ engine::error scene_instance::capture_description(scene_description& output) con
 engine::error scene_instance::serialize(std::string& out_json) const {
   scene_description current;
   const auto status = capture_description(current);
-  return status.ok() ? serialize_scene_description(current, out_json) : status;
+  if (status.failed())
+    return status;
+  auto decoded_result = serialize_scene_description(current);
+  if (!decoded_result) {
+    return decoded_result.error();
+  }
+  out_json = std::move(*decoded_result);
+  return gneiss::engine::error::success;
 }
 
 scene_instances::scene_instances(world& native_world, resource_service& loader) noexcept
@@ -1518,12 +1529,10 @@ engine::error scene_instances::create_empty(std::string_view scene_uuid,
     const std::string json = std::string{"{\"format\":\"gneiss.scene\",\"version\":4,"} +
                              "\"scene_uuid\":\"" + std::string{scene_uuid} +
                              "\",\"objects\":[],\"prefab_instances\":[]}";
-    scene_description description;
-    scene_diagnostic diagnostic;
-    const auto result = engine::parse_scene_description(json, description, diagnostic);
-    if (result != engine::error::success) {
-      return result;
-    }
+    auto parsed = engine::parse_scene_description(json);
+    if (!parsed)
+      return parsed.error().error;
+    auto description = std::move(*parsed);
     auto instance = std::make_unique<scene_instance>(native_world_, loader_, registry_);
     instance->initialize_staged(std::move(description));
     auto created = instances_.create(resource_type::scene_instance, std::move(instance));
