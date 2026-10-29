@@ -90,3 +90,5 @@ Reference 和实现为准。
 - [ADR-089：固定 Granit 后端依赖](ADR-089-required-granit-backend.md)
 
 - [ADR-090：场景对象运行时状态收敛](ADR-090-scene-object-storage.md)
+
+- [ADR-091：Prefab 作为普通对象的来源元数据](ADR-091-prefab-object-metadata.md)

@@ -90,6 +90,7 @@
 - [渲染资源对象模型与生命周期收敛](plans/PLAN-054-render-resource-model.md)
 - [删除 Prefab 发布组与隐藏候选](plans/PLAN-055-prefab-direct-instantiation.md)
 - [场景对象运行时状态收敛](plans/PLAN-057-scene-object-storage.md)
+- [对象与 Prefab 来源关系统一（计划）](plans/PLAN-058-prefab-object-metadata.md)
 
 - [移除 CAORS、采用 Granit 示例资产管理模型：迁移与八项问题分析](plans/PLAN-051-asset-manager-replacement.md)
 - [统一资源强引用与生命周期规则](plans/PLAN-051-asset-references.md)
