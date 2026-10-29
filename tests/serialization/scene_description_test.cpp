@@ -15,6 +15,7 @@
 
 #include <array>
 #include <cstddef>
+#include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -44,6 +45,59 @@ constexpr std::string_view prefab_scene =
   return gneiss::test_support::assign_decoded(gneiss::engine::parse_scene_description(json), scene,
                                               diagnostic) == expected &&
          diagnostic.error == expected && diagnostic.path == path && scene.objects.empty();
+}
+
+bool save_validation_contract() {
+  namespace e = gneiss::engine;
+  auto parsed = e::parse_scene_description(valid_scene);
+  auto prefab = e::parse_scene_description(prefab_scene);
+  if (!parsed || !prefab)
+    return false;
+  const auto rejects = [&](auto change) {
+    auto candidate = *parsed;
+    change(candidate);
+    auto text = e::serialize_scene_description(candidate);
+    auto bytes = e::encode_scene(candidate);
+    return !text && text.error() == e::error::invalid_argument && !bytes &&
+           bytes.error().error == e::error::invalid_argument;
+  };
+  if (!rejects([](auto& scene) { scene.objects[0].parent_uuid = scene.objects[1].uuid; }) ||
+      !rejects([](auto& scene) { scene.objects[1].uuid = scene.objects[0].uuid; }) ||
+      !rejects([](auto& scene) {
+        scene.objects[0].transform.translation.x = std::numeric_limits<float>::infinity();
+      }) ||
+      !rejects([](auto& scene) { scene.objects[0].transform.rotation.w = 2.0F; }) ||
+      !rejects([](auto& scene) { scene.objects[0].transform.scale.y = 0.0F; }) ||
+      !rejects([](auto& scene) {
+        scene.objects[0].components.template update<e::camera_description>(
+            [](auto& camera) { camera.near_plane = camera.far_plane; });
+      }) ||
+      !rejects([](auto& scene) {
+        scene.objects[1].components.template update<e::mesh_renderer_description>(
+            [](auto& mesh) { mesh.mesh_uri = "bad"; });
+      }))
+    return false;
+  const auto rejects_override = [&](auto change) {
+    auto candidate = *prefab;
+    change(*candidate.objects[1].prefab);
+    auto encoded = e::encode_scene(candidate);
+    return !encoded && encoded.error().error == e::error::invalid_argument;
+  };
+  if (!rejects_override([](auto& reference) { reference.uri = "bad"; }) ||
+      !rejects_override(
+          [](auto& reference) { reference.overrides.push_back(reference.overrides.front()); }) ||
+      !rejects_override([](auto& reference) { reference.overrides[0].key.type_guid = {}; }) ||
+      !rejects_override([](auto& reference) { reference.overrides[0].key.property_id = {}; }) ||
+      !rejects_override([](auto& reference) {
+        reference.overrides[0].value.payload = std::numeric_limits<double>::quiet_NaN();
+      }) ||
+      !rejects_override(
+          [](auto& reference) { reference.overrides[0].value.payload = std::monostate{}; }))
+    return false;
+  // Scene 仍允许多根，不因 Prefab 的唯一根约束变成只能保存一棵树。
+  parsed->objects[1].parent_uuid.reset();
+  auto forest = e::encode_scene(*parsed);
+  return forest && static_cast<bool>(e::decode_scene(*forest));
 }
 
 bool guid_identity_contract() {
@@ -133,6 +187,8 @@ private:
 int main() try {
   if (gneiss::engine::initialize_meta().failed())
     return 99;
+  if (!save_validation_contract())
+    return 11;
   if (!guid_identity_contract())
     return 98;
   // 反射 codec 保留未知字段；解码失败不覆盖旧对象。

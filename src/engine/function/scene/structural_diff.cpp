@@ -4,6 +4,7 @@
 #include "engine/function/scene/structural_diff.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/scene/scene_object.hpp"
+#include "engine/resource/scene/object_hierarchy.hpp"
 
 #include <algorithm>
 #include <functional>
@@ -47,45 +48,11 @@ build_index(const std::vector<gneiss::engine::object_description>& objects, obje
     if (status.failed())
       return status;
   }
-  output.reserve(objects.size());
-  depths.assign(objects.size(), 0U);
-  for (std::size_t index = 0U; index < objects.size(); ++index) {
-    if (objects[index].uuid.is_nil() || !output.emplace(objects[index].uuid, index).second) {
-      return gneiss::engine::error::invalid_argument;
-    }
-  }
-
-  enum class visit_state : std::uint8_t { unseen, visiting, complete };
-  std::vector<visit_state> states(objects.size(), visit_state::unseen);
-  const std::function<gneiss::engine::error(std::size_t)> visit =
-      [&](std::size_t index) -> gneiss::engine::error {
-    if (states[index] == visit_state::complete) {
-      return gneiss::engine::error::success;
-    }
-    if (states[index] == visit_state::visiting) {
-      return gneiss::engine::error::invalid_argument;
-    }
-    states[index] = visit_state::visiting;
-    if (objects[index].parent_uuid) {
-      const auto parent = output.find(*objects[index].parent_uuid);
-      if (parent == output.end() || parent->second == index) {
-        return gneiss::engine::error::invalid_argument;
-      }
-      const auto result = visit(parent->second);
-      if (result != gneiss::engine::error::success) {
-        return result;
-      }
-      depths[index] = depths[parent->second] + 1U;
-    }
-    states[index] = visit_state::complete;
-    return gneiss::engine::error::success;
-  };
-  for (std::size_t index = 0U; index < objects.size(); ++index) {
-    const auto result = visit(index);
-    if (result != gneiss::engine::error::success) {
-      return result;
-    }
-  }
+  auto hierarchy = gneiss::engine::inspect_object_hierarchy(objects);
+  if (!hierarchy)
+    return hierarchy.error().error;
+  output = std::move(hierarchy->indices);
+  depths = std::move(hierarchy->depths);
   return gneiss::engine::error::success;
 }
 

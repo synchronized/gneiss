@@ -4,6 +4,7 @@
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/resource/asset_manager.hpp"
+#include "engine/resource/scene/object_hierarchy.hpp"
 
 #include <algorithm>
 #include <unordered_map>
@@ -13,48 +14,18 @@ namespace {
 
 engine::error order_nodes(const std::vector<object_description>& objects,
                           std::vector<std::size_t>& order, std::size_t maximum_depth,
-                          const std::function<bool()>& cancelled,
-                          std::size_t* out_depth = nullptr) {
-  if (out_depth != nullptr) {
-    *out_depth = 0U;
+                          const std::function<bool()>& cancelled, std::size_t* out_depth = nullptr,
+                          std::optional<guid> root = std::nullopt) {
+  auto hierarchy = inspect_object_hierarchy(objects, root, maximum_depth, cancelled);
+  if (!hierarchy)
+    return hierarchy.error().error;
+  if (out_depth) {
+    *out_depth = 0;
+    for (auto depth : hierarchy->depths)
+      *out_depth = std::max(*out_depth, depth + 1);
   }
-  std::unordered_map<guid, std::size_t, guid_hash> indices;
-  for (std::size_t index = 0; index < objects.size(); ++index) {
-    if (!indices.emplace(objects[index].uuid, index).second) {
-      return engine::error::invalid_argument;
-    }
-  }
-  std::vector<std::vector<std::size_t>> children(objects.size());
-  std::vector<std::size_t> depths(objects.size(), 1U);
-  for (std::size_t index = 0; index < objects.size(); ++index) {
-    const auto& parent_uuid = objects[index].parent_uuid;
-    if (!parent_uuid) {
-      order.push_back(index);
-    } else {
-      const auto parent = indices.find(*parent_uuid);
-      if (parent == indices.end()) {
-        return engine::error::invalid_argument;
-      }
-      children[parent->second].push_back(index);
-    }
-  }
-  for (std::size_t cursor = 0; cursor < order.size(); ++cursor) {
-    if (cancelled && cancelled()) {
-      return engine::error::invalid_state;
-    }
-    const auto index = order[cursor];
-    if (depths[index] > maximum_depth) {
-      return engine::error::invalid_argument;
-    }
-    if (out_depth != nullptr) {
-      *out_depth = std::max(*out_depth, depths[index]);
-    }
-    for (const auto child : children[index]) {
-      depths[child] = depths[index] + 1U;
-      order.push_back(child);
-    }
-  }
-  return order.size() == objects.size() ? engine::error::success : engine::error::invalid_argument;
+  order = std::move(hierarchy->parent_first);
+  return error::success;
 }
 
 class preparation final {
@@ -119,15 +90,8 @@ public:
       }
       if (result == engine::error::success) {
         result = order_nodes(prefab.resource->objects, prefab.parent_first, limits.hierarchy_depth,
-                             cancelled, &prefab.maximum_depth);
+                             cancelled, &prefab.maximum_depth, prefab.resource->root_uuid);
       }
-      if (result == engine::error::success &&
-          (!prefab.resource->root_uuid || prefab.parent_first.empty() ||
-           prefab.resource->objects[prefab.parent_first.front()].uuid !=
-               prefab.resource->root_uuid ||
-           std::ranges::count_if(prefab.resource->objects,
-                                 [](const auto& o) { return !o.parent_uuid; }) != 1))
-        return error::invalid_argument;
       if (result == engine::error::success) {
         result = collect(prefab.resource->objects);
       }

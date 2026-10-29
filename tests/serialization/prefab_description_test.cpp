@@ -226,6 +226,24 @@ bool explicit_root_contract() {
   return !e::parse_prefab_description(duplicate);
 }
 
+bool save_tree_contract() {
+  namespace e = gneiss::engine;
+  auto parsed = e::parse_prefab_description(valid_prefab);
+  if (!parsed)
+    return false;
+  const auto rejects = [&](auto change) {
+    auto candidate = *parsed;
+    change(candidate);
+    auto encoded = e::encode_prefab(candidate);
+    return !encoded && encoded.error().error == e::error::invalid_argument;
+  };
+  return rejects([](auto& prefab) { prefab.root_uuid = {}; }) &&
+         rejects([](auto& prefab) { prefab.objects[1].parent_uuid.reset(); }) &&
+         rejects([](auto& prefab) { prefab.objects[1].parent_uuid = prefab.objects[1].uuid; }) &&
+         rejects([](auto& prefab) { prefab.objects[1].parent_uuid = prefab.uuid; }) &&
+         rejects([](auto& prefab) { prefab.objects[1].uuid = prefab.objects[0].uuid; });
+}
+
 int main() try {
   if (gneiss::engine::initialize_meta().failed())
     return 99;
@@ -282,6 +300,8 @@ int main() try {
       return 94;
   }
 
+  if (!save_tree_contract())
+    return 96;
   if (!explicit_root_contract())
     return 95;
   if (!prepared_description_contract()) {

@@ -7,6 +7,7 @@
 #include "engine/resource/scene/scene_codec.hpp"
 #include <string>
 namespace e = gneiss::engine;
+std::size_t decode_calls = 0;
 struct custom_description {
   inline static constexpr std::string_view type_name = "test_component";
   inline static constexpr e::guid type_guid = e::guid::from_bytes({21, 1, 2, 3});
@@ -22,6 +23,7 @@ encode(const custom_description& value) {
 }
 e::result<custom_description, e::meta::serialization_diagnostic>
 decode(std::span<const std::byte> value) {
+  ++decode_calls;
   std::string_view text{reinterpret_cast<const char*>(value.data()), value.size()};
   if (text == R"({"enabled":true})")
     return custom_description{true};
@@ -58,7 +60,11 @@ int main() try {
   if (!parsed->objects.front().components.get<custom_description>()->enabled)
     return 3;
   // false 编码省略 enabled，保存不能把原始 true 字段合并回来。
+  const auto scene_decodes = decode_calls;
   auto encoded = e::encode_scene(copy);
+  // 保存只调用编码器，不能通过反向解码产生新的组件对象或副作用。
+  if (decode_calls != scene_decodes)
+    return 15;
   auto roundtrip =
       encoded ? e::decode_scene(*encoded)
               : e::result<e::scene_description, e::meta::serialization_diagnostic>{encoded.error()};
@@ -102,7 +108,10 @@ int main() try {
   auto prefab = e::decode_prefab(bytes(prefab_text));
   if (!prefab || prefab->objects.front().components.size() != 2)
     return 13;
+  const auto prefab_decodes = decode_calls;
   auto prefab_bytes = e::encode_prefab(*prefab);
+  if (decode_calls != prefab_decodes)
+    return 16;
   if (!prefab_bytes || !e::decode_prefab(*prefab_bytes))
     return 14;
   return 0;

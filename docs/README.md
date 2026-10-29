@@ -596,3 +596,4 @@
 - [类型化组件描述列表](plans/PLAN-060-component-descriptions.md)
 - [对象身份统一为 guid](plans/PLAN-061-guid-object-identity.md)
 - [Prefab 显式根对象](plans/PLAN-062-prefab-explicit-root.md)
+- [Scene / Prefab 对象树校验与编解码收敛](plans/PLAN-063-scene-prefab-codec.md)

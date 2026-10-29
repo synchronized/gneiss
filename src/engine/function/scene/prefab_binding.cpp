@@ -5,6 +5,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
+#include "engine/resource/scene/object_hierarchy.hpp"
 
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/meta/registration.hpp"
@@ -13,6 +14,7 @@
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
 
+#include "engine/function/scene/scene_object.hpp"
 #include "engine/function/scene/structural_diff.hpp"
 
 #include <algorithm>
@@ -50,12 +52,10 @@ prefab_binding::validate_reload(const prefab_asset_ref& candidate,
       candidate.get()->objects.empty()) {
     return engine::error::invalid_argument;
   }
-  const auto root =
-      std::ranges::find(candidate->objects, candidate->root_uuid, &object_description::uuid);
-  if (!candidate->root_uuid || root == candidate->objects.end() || root->parent_uuid ||
-      std::ranges::count_if(candidate->objects,
-                            [](const auto& value) { return !value.parent_uuid; }) != 1 ||
-      candidate->root_uuid != prefab_->root_uuid || find_node(candidate->root_uuid) != root_node_)
+  auto hierarchy = inspect_object_hierarchy(candidate->objects, candidate->root_uuid);
+  if (!hierarchy)
+    return hierarchy.error().error;
+  if (candidate->root_uuid != prefab_->root_uuid || find_node(candidate->root_uuid) != root_node_)
     return error::unsupported;
   structural_diff diff;
   auto result = build_structural_diff(prefab_.get()->objects, candidate.get()->objects, diff);
@@ -530,17 +530,19 @@ engine::error prefab_binding::create_root(scene_node_id parent, const math::tran
   if (!prefab_ || root_node_ || !nodes_.empty())
     return error::invalid_state;
   const auto& objects = prefab_->objects;
-  const auto root = std::ranges::find(objects, prefab_->root_uuid, &object_description::uuid);
-  if (!prefab_->root_uuid || root == objects.end() || root->parent_uuid ||
-      std::ranges::count_if(objects, [](const auto& value) { return !value.parent_uuid; }) != 1)
-    return error::invalid_argument;
-  structural_diff validated;
-  const auto status = build_structural_diff({}, objects, validated);
-  if (status.failed())
-    return status;
+  auto hierarchy = inspect_object_hierarchy(objects, prefab_->root_uuid);
+  if (!hierarchy)
+    return hierarchy.error().error;
+  for (const auto& object : objects) {
+    const auto status = validate_scene_components(object);
+    if (status.failed())
+      return status;
+  }
+  const auto root_index = hierarchy->indices.at(prefab_->root_uuid);
+  const auto& root = objects[root_index];
   nodes_.resize(objects.size());
-  auto& member = nodes_[static_cast<std::size_t>(root - objects.begin())];
-  member.address = {instance_uuid_, root->uuid};
+  auto& member = nodes_[root_index];
+  member.address = {instance_uuid_, root.uuid};
   auto created = native_world_.object_create(parent, {instance_uuid_, {}}, transform);
   if (!created)
     return created.error();

@@ -4,7 +4,10 @@
 #include "engine/resource/scene/scene_codec.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/resource/scene/detail/description_codec.hpp"
+#include "engine/resource/scene/object_hierarchy.hpp"
 #include <cstring>
+#include <set>
 
 #include "engine/resource/asset_uri.hpp"
 
@@ -134,6 +137,30 @@ template <std::size_t Size>
   return true;
 }
 
+[[nodiscard]] bool validate_transform(const gneiss::engine::math::transform& output,
+                                      std::string_view path, scene_diagnostic& diagnostic) {
+  const auto finite = [](const auto& values) {
+    return std::ranges::all_of(gneiss::engine::math::components(values),
+                               [](float value) { return std::isfinite(value); });
+  };
+  if (!finite(output.translation) || !finite(output.rotation) || !finite(output.scale)) {
+    fail(diagnostic, gneiss::engine::error::invalid_argument, path, "变换分量必须为有限值");
+    return false;
+  }
+  const double rotation_length =
+      std::sqrt(std::inner_product(gneiss::engine::math::components(output.rotation).begin(),
+                                   gneiss::engine::math::components(output.rotation).end(),
+                                   gneiss::engine::math::components(output.rotation).begin(), 0.0));
+  if (std::abs(rotation_length - 1.0) > 1.0e-4 ||
+      std::ranges::any_of(gneiss::engine::math::components(output.scale),
+                          [](float value) { return std::abs(value) < 1.0e-6F; })) {
+    fail(diagnostic, gneiss::engine::error::invalid_argument, path,
+         "旋转必须归一化且缩放分量不能为零");
+    return false;
+  }
+  return true;
+}
+
 [[nodiscard]] bool parse_transform(yyjson_val* value, std::string_view path,
                                    gneiss::engine::math::transform& output,
                                    scene_diagnostic& diagnostic) {
@@ -149,15 +176,16 @@ template <std::size_t Size>
     }
     return false;
   }
-  const double rotation_length =
-      std::sqrt(std::inner_product(gneiss::engine::math::components(output.rotation).begin(),
-                                   gneiss::engine::math::components(output.rotation).end(),
-                                   gneiss::engine::math::components(output.rotation).begin(), 0.0));
-  if (std::abs(rotation_length - 1.0) > 1.0e-4 ||
-      std::ranges::any_of(gneiss::engine::math::components(output.scale),
-                          [](float value) { return std::abs(value) < 1.0e-6F; })) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, path,
-         "旋转必须归一化且缩放分量不能为零");
+  return validate_transform(output, path, diagnostic);
+}
+
+[[nodiscard]] bool validate_camera(const gneiss::engine::camera_description& output,
+                                   std::string_view path, scene_diagnostic& diagnostic) {
+  if (!std::isfinite(output.vertical_field_of_view_radians) || !std::isfinite(output.near_plane) ||
+      !std::isfinite(output.far_plane) || output.vertical_field_of_view_radians <= 0.0F ||
+      output.vertical_field_of_view_radians >= std::numbers::pi_v<float> ||
+      output.near_plane <= 0.0F || output.far_plane <= output.near_plane) {
+    fail(diagnostic, gneiss::engine::error::invalid_argument, path, "相机透视参数范围错误");
     return false;
   }
   return true;
@@ -183,10 +211,14 @@ template <std::size_t Size>
     return false;
   }
   output.is_primary = yyjson_get_bool(primary);
-  if (output.vertical_field_of_view_radians <= 0.0F ||
-      output.vertical_field_of_view_radians >= std::numbers::pi_v<float> ||
-      output.near_plane <= 0.0F || output.far_plane <= output.near_plane) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, path, "相机透视参数范围错误");
+  return validate_camera(output, path, diagnostic);
+}
+
+[[nodiscard]] bool validate_mesh_renderer(const gneiss::engine::mesh_renderer_description& output,
+                                          std::string_view path, scene_diagnostic& diagnostic) {
+  if (gneiss::engine::validate_uri(output.mesh_uri) != gneiss::engine::error::success ||
+      gneiss::engine::validate_uri(output.material_uri) != gneiss::engine::error::success) {
+    fail(diagnostic, gneiss::engine::error::invalid_argument, path, "资源引用必须是规范 asset URI");
     return false;
   }
   return true;
@@ -203,12 +235,7 @@ template <std::size_t Size>
     }
     return false;
   }
-  if (gneiss::engine::validate_uri(output.mesh_uri) != gneiss::engine::error::success ||
-      gneiss::engine::validate_uri(output.material_uri) != gneiss::engine::error::success) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, path, "资源引用必须是规范 asset URI");
-    return false;
-  }
-  return true;
+  return validate_mesh_renderer(output, path, diagnostic);
 }
 
 [[nodiscard]] bool parse_components(yyjson_val* value, std::string_view path,
@@ -508,29 +535,15 @@ template <class T>
   return true;
 }
 
-[[nodiscard]] bool validate_hierarchy(const gneiss::engine::scene_description& scene,
+[[nodiscard]] bool validate_hierarchy(std::span<const gneiss::engine::object_description> objects,
+                                      std::optional<gneiss::engine::guid> root,
                                       scene_diagnostic& diagnostic) {
-  std::unordered_map<gneiss::engine::guid, std::size_t, gneiss::engine::guid_hash> indexes;
-  indexes.reserve(scene.objects.size());
-  for (std::size_t index = 0; index < scene.objects.size(); ++index) {
-    if (!indexes.emplace(scene.objects[index].uuid, index).second) {
-      fail(diagnostic, gneiss::engine::error::invalid_argument,
-           "/objects/" + std::to_string(index) + "/uuid", "对象 UUID 重复");
-      return false;
-    }
+  auto inspected = gneiss::engine::inspect_object_hierarchy(objects, root);
+  if (!inspected) {
+    diagnostic = std::move(inspected).error();
+    return false;
   }
-  for (std::size_t index = 0; index < scene.objects.size(); ++index) {
-    const auto& parent = scene.objects[index].parent_uuid;
-    if (parent) {
-      const auto found = indexes.find(*parent);
-      if (found == indexes.end() || found->second >= scene.objects.size()) {
-        fail(diagnostic, gneiss::engine::error::invalid_argument,
-             "/objects/" + std::to_string(index) + "/parent", "父级必须是普通场景对象");
-        return false;
-      }
-    }
-  }
-  const auto primary_camera_count = std::ranges::count_if(scene.objects, [](const auto& object) {
+  const auto primary_camera_count = std::ranges::count_if(objects, [](const auto& object) {
     auto* camera = object.components.template get<gneiss::engine::camera_description>();
     return camera && camera->is_primary;
   });
@@ -539,31 +552,10 @@ template <class T>
          "场景最多只能包含一个主相机");
     return false;
   }
-  std::vector<std::uint8_t> colors(scene.objects.size());
-  for (std::size_t start = 0; start < scene.objects.size(); ++start) {
-    std::size_t current = start;
-    while (colors[current] == 0U) {
-      colors[current] = 1U;
-      const auto& parent = scene.objects[current].parent_uuid;
-      if (!parent) {
-        break;
-      }
-      current = indexes.at(*parent);
-    }
-    if (colors[current] == 1U && scene.objects[current].parent_uuid) {
-      fail(diagnostic, gneiss::engine::error::invalid_argument,
-           "/objects/" + std::to_string(current) + "/parent", "对象层级形成循环");
-      return false;
-    }
-    current = start;
-    while (colors[current] == 1U) {
-      colors[current] = 2U;
-      const auto& parent = scene.objects[current].parent_uuid;
-      if (!parent) {
-        break;
-      }
-      current = indexes.at(*parent);
-    }
+  if (root &&
+      std::ranges::any_of(objects, [](const auto& object) { return object.prefab.has_value(); })) {
+    fail(diagnostic, gneiss::engine::error::unsupported, "/objects", "暂不支持嵌套 Prefab 引用");
+    return false;
   }
   return true;
 }
@@ -737,8 +729,11 @@ make_prefab_overrides(yyjson_mut_doc* document,
 namespace gneiss::engine {
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): 顺序校验保持 Schema 错误优先级明确。
-result<scene_description, scene_diagnostic>
-parse_current_scene_description(std::string_view json) noexcept {
+result<detail::decoded_object_document, scene_diagnostic>
+detail::parse_object_document(std::string_view json, bool prefab) noexcept {
+  const auto format_name = prefab ? "gneiss.prefab" : scene_format;
+  const auto version_number = prefab ? 1U : schema_version;
+  const auto* uuid_key = prefab ? "prefab_uuid" : "scene_uuid";
   scene_diagnostic out_diagnostic;
   try {
     if (json.empty()) {
@@ -763,25 +758,35 @@ parse_current_scene_description(std::string_view json) noexcept {
       return out_diagnostic;
     }
     yyjson_val* format = yyjson_obj_get(root, "format");
-    if (!yyjson_is_str(format) || json_string(format) != scene_format) {
+    if (!yyjson_is_str(format) || json_string(format) != format_name) {
       fail(out_diagnostic, engine::error::invalid_argument, "/format", "场景格式标识错误");
       return out_diagnostic;
     }
     yyjson_val* version = yyjson_obj_get(root, "version");
-    if (!yyjson_is_uint(version) || yyjson_get_uint(version) != schema_version) {
+    if (!yyjson_is_uint(version) || yyjson_get_uint(version) != version_number) {
       fail(out_diagnostic,
-           yyjson_is_uint(version) && yyjson_get_uint(version) > schema_version
+           yyjson_is_uint(version) && yyjson_get_uint(version) > version_number
                ? engine::error::unsupported
                : engine::error::invalid_argument,
            "/version", "不支持的场景 Schema 版本");
       return out_diagnostic;
     }
-    scene_description parsed;
-    if (!read_required_guid(root, "scene_uuid", "", parsed.uuid, out_diagnostic) || !parsed.uuid) {
+    decoded_object_document parsed;
+    if (!read_required_guid(root, uuid_key, "", parsed.uuid, out_diagnostic) || !parsed.uuid) {
       if (out_diagnostic.error == engine::error::success) {
-        fail(out_diagnostic, engine::error::invalid_argument, "/scene_uuid", "场景 UUID 格式错误");
+        fail(out_diagnostic, engine::error::invalid_argument, std::string("/") + uuid_key,
+             "资源 UUID 格式错误");
       }
       return out_diagnostic;
+    }
+    if (prefab) {
+      guid root_id;
+      if (!read_required_guid(root, "root_uuid", "", root_id, out_diagnostic) || !root_id) {
+        if (out_diagnostic.error == engine::error::success)
+          fail(out_diagnostic, engine::error::invalid_argument, "/root_uuid", "根 UUID 不能为零");
+        return out_diagnostic;
+      }
+      parsed.root_uuid = root_id;
     }
     yyjson_val* objects = yyjson_obj_get(root, "objects");
     if (!yyjson_is_arr(objects)) {
@@ -803,7 +808,7 @@ parse_current_scene_description(std::string_view json) noexcept {
            "独立 Prefab 实例数组已移除，请使用 objects[].prefab");
       return out_diagnostic;
     }
-    if (!validate_hierarchy(parsed, out_diagnostic)) {
+    if (!validate_hierarchy(parsed.objects, parsed.root_uuid, out_diagnostic)) {
       return out_diagnostic;
     }
     return parsed;
@@ -816,108 +821,80 @@ parse_current_scene_description(std::string_view json) noexcept {
   }
 }
 
-[[nodiscard]] result<std::string, scene_diagnostic>
-prepare_scene_json(std::string_view json) noexcept {
-  scene_diagnostic diagnostic;
-  try {
-    yyjson_read_err error{};
-    using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
-    document_ptr document(yyjson_read_opts(const_cast<char*>(json.data()), json.size(),
-                                           YYJSON_READ_NOFLAG, nullptr, &error),
-                          &yyjson_doc_free);
-    if (!document) {
-      fail(diagnostic, engine::error::invalid_argument, "",
-           error.msg != nullptr ? error.msg : "JSON 语法错误", error.pos);
-      return diagnostic;
-    }
-    yyjson_val* root = yyjson_doc_get_root(document.get());
-    if (!yyjson_is_obj(root)) {
-      fail(diagnostic, engine::error::invalid_argument, "", "场景根必须是对象");
-      return diagnostic;
-    }
-    yyjson_val* format = yyjson_obj_get(root, "format");
-    if (!yyjson_is_str(format) || json_string(format) != scene_format) {
-      fail(diagnostic, engine::error::invalid_argument, "/format", "场景格式标识错误");
-      return diagnostic;
-    }
-    yyjson_val* version = yyjson_obj_get(root, "version");
-    if (!yyjson_is_uint(version)) {
-      fail(diagnostic, engine::error::invalid_argument, "/version", "场景 Schema 版本必须是整数");
-      return diagnostic;
-    }
-    const auto source_version = yyjson_get_uint(version);
-    if (source_version > schema_version) {
-      fail(diagnostic, engine::error::unsupported, "/version", "场景 Schema 来自未来版本");
-      return diagnostic;
-    }
-    if (source_version != schema_version) {
-      fail(diagnostic, engine::error::invalid_argument, "/version", "不支持旧版场景 Schema");
-      return diagnostic;
-    }
-
-    using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
-    mutable_document_ptr mutable_document(yyjson_doc_mut_copy(document.get(), nullptr),
-                                          &yyjson_mut_doc_free);
-    if (!mutable_document) {
-      fail(diagnostic, engine::error::out_of_memory, "", "无法复制场景作者文档");
-      return diagnostic;
-    }
-    std::size_t output_length = 0;
-    using text_ptr = std::unique_ptr<char, decltype(&std::free)>;
-    text_ptr output(yyjson_mut_write(mutable_document.get(), YYJSON_WRITE_NOFLAG, &output_length),
-                    &std::free);
-    if (!output) {
-      fail(diagnostic, engine::error::out_of_memory, "", "无法复制场景作者文档");
-      return diagnostic;
-    }
-    return std::string(output.get(), output_length);
-  } catch (const std::bad_alloc&) {
-    fail(diagnostic, engine::error::out_of_memory, "", "内存不足");
-    return diagnostic;
-  } catch (...) {
-    fail(diagnostic, engine::error::internal, "", "场景作者文档复制失败");
-    return diagnostic;
-  }
-}
-
 result<scene_description, scene_diagnostic> parse_scene_description(std::string_view json) noexcept
     try {
-  auto current_json = prepare_scene_json(json);
-  if (!current_json)
-    return std::move(current_json).error();
-  auto parsed = parse_current_scene_description(*current_json);
+  auto parsed = detail::parse_object_document(json, false);
   if (!parsed)
     return std::move(parsed).error();
-  parsed->source_schema_version = static_cast<std::uint32_t>(schema_version);
-  parsed->author_json = std::move(*current_json);
-  return std::move(*parsed);
+  scene_description scene;
+  scene.source_schema_version = static_cast<std::uint32_t>(schema_version);
+  scene.uuid = parsed->uuid;
+  scene.objects = std::move(parsed->objects);
+  scene.author_json = json;
+  return scene;
 } catch (const std::bad_alloc&) {
   return scene_diagnostic{.error = error::out_of_memory};
 } catch (...) {
   return scene_diagnostic{.error = error::internal};
 }
 
-result<std::string> serialize_scene_description(const scene_description& scene) noexcept try {
+result<std::string> serialize_scene_description(const scene_description& scene) noexcept {
+  return detail::serialize_object_document(scene.uuid, std::nullopt, scene.objects,
+                                           scene.author_json);
+}
+
+result<std::string>
+detail::serialize_object_document(guid uuid, std::optional<guid> root_uuid,
+                                  std::span<const object_description> object_list,
+                                  std::string_view author_json) noexcept try {
   std::string out_json;
-  if (!scene.uuid)
+  if (!uuid)
     return engine::error::invalid_argument;
-  for (const auto& object : scene.objects) {
-    if (!object.uuid || (object.parent_uuid && !*object.parent_uuid))
-      return engine::error::invalid_argument;
-    if (object.prefab)
-      for (const auto& entry : object.prefab->overrides)
-        if (!entry.key.source_node_uuid)
-          return engine::error::invalid_argument;
+  scene_diagnostic diagnostic;
+  if (!validate_hierarchy(object_list, root_uuid, diagnostic))
+    return diagnostic.error;
+  for (const auto& object : object_list) {
+    if (!validate_transform(object.transform, "/objects/transform", diagnostic))
+      return diagnostic.error;
+    if (!object.prefab)
+      continue;
+    if (validate_uri(object.prefab->uri).failed() || !object.components.empty())
+      return error::invalid_argument;
+    std::set<prefab_property_override_key, decltype(&prefab_property_override_key_less)> keys(
+        &prefab_property_override_key_less);
+    for (const auto& entry : object.prefab->overrides) {
+      if (!entry.key.source_node_uuid || !entry.key.type_guid ||
+          !entry.key.property_id.is_valid() || !keys.insert(entry.key).second)
+        return error::invalid_argument;
+      const bool valid = std::visit(
+          [](const auto& item) {
+            using T = std::decay_t<decltype(item)>;
+            if constexpr (std::is_same_v<T, std::monostate>)
+              return false;
+            else if constexpr (std::is_same_v<T, guid>)
+              return !item.is_nil();
+            else if constexpr (std::is_floating_point_v<T>)
+              return std::isfinite(item);
+            else if constexpr (std::is_same_v<T, math::vector3> ||
+                               std::is_same_v<T, math::quaternion>)
+              return std::ranges::all_of(math::components(item),
+                                         [](float value) { return std::isfinite(value); });
+            else
+              return true;
+          },
+          entry.value.payload);
+      if (!valid)
+        return error::invalid_argument;
+    }
   }
-  if (scene.author_json.empty()) {
+  if (author_json.empty()) {
     return engine::error::invalid_state;
   }
 
   yyjson_read_err error{};
   using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
-  document_ptr document(yyjson_read_opts(const_cast<char*>(scene.author_json.data()),
-                                         scene.author_json.size(), YYJSON_READ_NOFLAG, nullptr,
-                                         &error),
+  document_ptr document(yyjson_read_opts(const_cast<char*>(author_json.data()), author_json.size(),
+                                         YYJSON_READ_NOFLAG, nullptr, &error),
                         &yyjson_doc_free);
   using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
   mutable_document_ptr mutable_document(
@@ -928,9 +905,18 @@ result<std::string> serialize_scene_description(const scene_description& scene) 
   yyjson_mut_val* root = yyjson_mut_doc_get_root(mutable_document.get());
   if (!yyjson_mut_is_arr(yyjson_mut_obj_get(root, "objects")))
     return engine::error::invalid_state;
-  if (!put_value(mutable_document.get(), root, "scene_uuid",
-                 make_uuid(mutable_document.get(), scene.uuid)))
+  if (!put_value(mutable_document.get(), root, root_uuid ? "prefab_uuid" : "scene_uuid",
+                 make_uuid(mutable_document.get(), uuid)))
     return engine::error::out_of_memory;
+  if (!put_value(
+          mutable_document.get(), root, "format",
+          yyjson_mut_str(mutable_document.get(), root_uuid ? "gneiss.prefab" : "gneiss.scene")) ||
+      !put_value(mutable_document.get(), root, "version",
+                 yyjson_mut_uint(mutable_document.get(), root_uuid ? 1U : schema_version)) ||
+      (root_uuid && !put_value(mutable_document.get(), root, "root_uuid",
+                               make_uuid(mutable_document.get(), *root_uuid))))
+    return engine::error::out_of_memory;
+  (void)yyjson_mut_obj_remove_key(root, "prefab_instances");
   // 按稳定身份保留扩展字段，不能按旧数组下标绑定删除或重排后的对象。
   const auto align_members = [&](const char* key, const char* identity, const auto& members,
                                  auto get_identity, auto create) -> yyjson_mut_val* {
@@ -959,12 +945,12 @@ result<std::string> serialize_scene_description(const scene_description& scene) 
     return put_value(mutable_document.get(), root, key, aligned) ? aligned : nullptr;
   };
   auto* objects = align_members(
-      "objects", "uuid", scene.objects, [](const auto& value) { return value.uuid; },
+      "objects", "uuid", object_list, [](const auto& value) { return value.uuid; },
       make_author_object);
   if (!objects)
     return engine::error::out_of_memory;
-  for (std::size_t index = 0; index < scene.objects.size(); ++index) {
-    const auto& source = scene.objects[index];
+  for (std::size_t index = 0; index < object_list.size(); ++index) {
+    const auto& source = object_list[index];
     yyjson_mut_val* object = yyjson_mut_arr_get(objects, index);
     yyjson_mut_val* transform = yyjson_mut_obj_get(object, "transform");
     if (!put_value(mutable_document.get(), object, "uuid",
@@ -1054,11 +1040,11 @@ encode_scene(const scene_description& object) noexcept try {
   auto text = serialize_scene_description(object);
   if (!text)
     return meta::serialization_diagnostic{.error = text.error()};
+  if (text->size() > scene_description::maximum_source_bytes)
+    return meta::serialization_diagnostic{.message = "资源描述超过单文件大小上限",
+                                          .error = error::invalid_argument};
   std::vector<std::byte> bytes(text->size());
   std::memcpy(bytes.data(), text->data(), text->size());
-  auto checked = decode_scene(bytes);
-  if (!checked)
-    return std::move(checked).error();
   return bytes;
 } catch (const std::bad_alloc&) {
   return meta::serialization_diagnostic{.error = error::out_of_memory};
@@ -1095,6 +1081,17 @@ decode_component(std::span<const std::byte> bytes) noexcept try {
 template <class T>
 result<std::vector<std::byte>, meta::serialization_diagnostic>
 encode_component(const T& value) noexcept try {
+  scene_diagnostic diagnostic;
+  const auto valid = [&] {
+    if constexpr (std::is_same_v<T, camera_description>)
+      return validate_camera(value, "", diagnostic);
+    else
+      return validate_mesh_renderer(value, "", diagnostic);
+  }();
+  if (!valid)
+    return meta::serialization_diagnostic{diagnostic.byte_offset, std::move(diagnostic.path),
+                                          std::move(diagnostic.message), diagnostic.error};
+
   std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> doc(yyjson_mut_doc_new(nullptr),
                                                                       &yyjson_mut_doc_free);
   if (!doc)
@@ -1122,15 +1119,6 @@ encode_component(const T& value) noexcept try {
   if (!text)
     return meta::serialization_diagnostic{.error = error::out_of_memory};
   auto bytes = std::as_bytes(std::span{text.get(), size});
-  if constexpr (std::is_same_v<T, camera_description>) {
-    auto valid = decode_component<T, parse_camera>(bytes);
-    if (!valid)
-      return std::move(valid).error();
-  } else {
-    auto valid = decode_component<T, parse_mesh_renderer>(bytes);
-    if (!valid)
-      return std::move(valid).error();
-  }
   return std::vector<std::byte>(bytes.begin(), bytes.end());
 } catch (const std::bad_alloc&) {
   return meta::serialization_diagnostic{.error = error::out_of_memory};
