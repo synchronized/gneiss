@@ -2840,7 +2840,8 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
             }
           }
         } else {
-          gneiss::engine::camera_description camera{1.04719755F, 0.1F, 1000.0F, false};
+          gneiss::engine::camera_description camera{.settings = {1.04719755F, 0.1F, 1000.0F},
+                                                    .is_primary = false};
           state.history_error = state.editing.document().set_camera(selected->node, camera);
           if (state.history_error == gneiss::engine::error::success) {
             state.history_error = state.editing.history().record(

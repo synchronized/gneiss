@@ -91,8 +91,7 @@ engine::error apply_camera(world& native_world, std::uint64_t entity,
     const auto result = native_world.entity_remove_camera(gneiss::entity_id{entity});
     return result == engine::error::not_found ? engine::error::success : result;
   }
-  const math::camera_settings value{camera->vertical_field_of_view_radians, camera->near_plane,
-                                    camera->far_plane};
+  const auto& value = camera->settings;
   return native_world.entity_set_camera(gneiss::entity_id{entity}, value, camera->is_primary);
 }
 
@@ -384,10 +383,7 @@ engine::error scene_instance::reload(scene_description candidate) {
                                    return native_world_.get_active_camera(native_output);
                                  }) == engine::error::success &&
                              active == target.entity;
-        snapshot.camera = engine::camera_description{.vertical_field_of_view_radians = camera.fov,
-                                                     .near_plane = camera.near,
-                                                     .far_plane = camera.far,
-                                                     .is_primary = primary};
+        snapshot.camera = engine::camera_description{.settings = camera, .is_primary = primary};
       } else if (camera_result != engine::error::not_found) {
         result = camera_result;
       }
@@ -544,7 +540,7 @@ engine::error scene_instance::get_node_info(std::uint64_t index, scene_node_view
     if (result.ok()) {
       entity_id active;
       const bool primary = native_world_.get_active_camera(active).ok() && active.get() == entity;
-      out_info.camera = camera_description{camera.fov, camera.near, camera.far, primary};
+      out_info.camera = camera_description{camera, primary};
       out_info.component_flags |= scene_node_components::camera;
       if (primary)
         out_info.component_flags |= scene_node_components::primary_camera;
@@ -1187,8 +1183,7 @@ engine::error scene_instance::set_camera(scene_node_id node,
   }
   pending[index].components.set(desc);
   const auto result = native_world_.entity_configure_camera(
-      gneiss::entity_id{scene_object_entity(native_world_, found->node)},
-      {.fov = desc.vertical_field_of_view_radians, .near = desc.near_plane, .far = desc.far_plane});
+      gneiss::entity_id{scene_object_entity(native_world_, found->node)}, desc.settings);
   if (result != engine::error::success) {
     return result;
   }
@@ -1308,9 +1303,8 @@ engine::error scene_instance::capture_description(scene_description& output) con
     result = native_world_.entity_get_camera(
         entity_id{scene_object_entity(native_world_, runtime.node)}, camera);
     if (result.ok()) {
-      author.components.set(
-          camera_description{camera.fov, camera.near, camera.far,
-                             scene_object_entity(native_world_, runtime.node) == active_camera});
+      author.components.set(camera_description{
+          camera, scene_object_entity(native_world_, runtime.node) == active_camera});
     } else if (result == error::not_found)
       author.components.erase<camera_description>();
     else

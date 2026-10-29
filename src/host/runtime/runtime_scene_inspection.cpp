@@ -40,9 +40,7 @@ gneiss::engine::math::camera_settings
 inspection_camera(const std::optional<gneiss::engine::camera_description>& camera) noexcept {
   gneiss::engine::math::camera_settings output{1.04719755F, 0.1F, 1000.0F};
   if (camera) {
-    output.fov = camera->vertical_field_of_view_radians;
-    output.near = camera->near_plane;
-    output.far = camera->far_plane;
+    output = camera->settings;
   }
   return output;
 }

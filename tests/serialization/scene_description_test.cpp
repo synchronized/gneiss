@@ -70,7 +70,7 @@ bool save_validation_contract() {
       !rejects([](auto& scene) { scene.objects[0].transform.scale.y = 0.0F; }) ||
       !rejects([](auto& scene) {
         scene.objects[0].components.template update<e::camera_description>(
-            [](auto& camera) { camera.near_plane = camera.far_plane; });
+            [](auto& camera) { camera.settings.near = camera.settings.far; });
       }) ||
       !rejects([](auto& scene) {
         scene.objects[1].components.template update<e::mesh_renderer_description>(

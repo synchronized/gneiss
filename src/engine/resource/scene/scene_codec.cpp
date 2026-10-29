@@ -167,10 +167,10 @@ template <std::size_t Size>
 
 [[nodiscard]] bool validate_camera(const gneiss::engine::camera_description& output,
                                    std::string_view path, scene_diagnostic& diagnostic) {
-  if (!std::isfinite(output.vertical_field_of_view_radians) || !std::isfinite(output.near_plane) ||
-      !std::isfinite(output.far_plane) || output.vertical_field_of_view_radians <= 0.0F ||
-      output.vertical_field_of_view_radians >= std::numbers::pi_v<float> ||
-      output.near_plane <= 0.0F || output.far_plane <= output.near_plane) {
+  if (!std::isfinite(output.settings.fov) || !std::isfinite(output.settings.near) ||
+      !std::isfinite(output.settings.far) || output.settings.fov <= 0.0F ||
+      output.settings.fov >= std::numbers::pi_v<float> || output.settings.near <= 0.0F ||
+      output.settings.far <= output.settings.near) {
     fail(diagnostic, gneiss::engine::error::invalid_argument, path, "相机透视参数范围错误");
     return false;
   }
@@ -1004,6 +1004,12 @@ encode_scene(const scene_description& object) noexcept try {
 
 namespace gneiss::engine {
 namespace {
+template <auto Member> float camera_setting(const camera_description& camera) noexcept {
+  return camera.settings.*Member;
+}
+template <auto Member> void set_camera_setting(camera_description& camera, float value) noexcept {
+  camera.settings.*Member = value;
+}
 meta::serialization_diagnostic check_camera(const camera_description& value) {
   scene_diagnostic diagnostic;
   (void)validate_camera(value, "", diagnostic);
@@ -1021,10 +1027,15 @@ error register_component_descriptions(const meta::registry_ref& registry) noexce
   constexpr auto required = meta::property_flags::required;
   auto status =
       meta::type_builder<camera_description>{registry}
-          .property<&camera_description::vertical_field_of_view_radians>(
+          .property<&camera_setting<&math::camera_settings::fov>,
+                    &set_camera_setting<&math::camera_settings::fov>>(
               meta::property_id{1}, "vertical_field_of_view_radians", required)
-          .property<&camera_description::near_plane>(meta::property_id{2}, "near_plane", required)
-          .property<&camera_description::far_plane>(meta::property_id{3}, "far_plane", required)
+          .property<&camera_setting<&math::camera_settings::near>,
+                    &set_camera_setting<&math::camera_settings::near>>(meta::property_id{2},
+                                                                       "near_plane", required)
+          .property<&camera_setting<&math::camera_settings::far>,
+                    &set_camera_setting<&math::camera_settings::far>>(meta::property_id{3},
+                                                                      "far_plane", required)
           .property<&camera_description::is_primary>(meta::property_id{4}, "is_primary", required)
           .serialization()
           .validate<&check_camera>()

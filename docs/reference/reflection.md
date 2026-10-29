@@ -237,3 +237,10 @@ application 自动调用无参入口，重复无参调用返回首次结果。�
 
 `type_info::type_id` 提供已注册 C++ 类型的进程内身份，供 GUID 分派后进行类型检查；不会持久化。
 默认启动也注册 Camera、MeshRenderer 的描述类型与 codec，文件协议见[场景格式](scene-format.md)。
+
+相机描述的 C++ 数据为 `camera_description { math::camera_settings settings; bool is_primary; }`。
+投影参数在描述、World 和渲染调用之间直接传递，不再维护逐字段转换。
+Camera 描述通过 getter/setter 反射绑定 `settings.fov/near/far`，文件字段继续使用
+`vertical_field_of_view_radians`、`near_plane`、`far_plane`；属性 ID、GUID 和必填规则不变。
+Builder 的成员绑定和 getter/setter 绑定均支持传入属性标志。
+这是对子成员的扁平属性绑定，尚未引入通用嵌套对象 JSON 反射。

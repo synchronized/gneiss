@@ -51,10 +51,7 @@ inline error configure_scene_object(world& owner, scene_node_id node,
   auto status = error::success;
   if (source.components.template get<camera_description>()) {
     status = owner.entity_configure_camera(
-        entity,
-        {source.components.template get<camera_description>()->vertical_field_of_view_radians,
-         source.components.template get<camera_description>()->near_plane,
-         source.components.template get<camera_description>()->far_plane});
+        entity, source.components.template get<camera_description>()->settings);
     if (status.ok() && source.components.template get<camera_description>()->is_primary)
       status = owner.set_active_camera(entity);
   }

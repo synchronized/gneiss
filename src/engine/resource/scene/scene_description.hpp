@@ -10,6 +10,7 @@
 #include "engine/resource/scene/component_description.hpp"
 #include "engine/resource/scene/prefab_property_data.hpp"
 
+#include "engine/core/math/camera.hpp"
 #include "engine/core/math/transform.hpp"
 #include <array>
 #include <cstddef>
@@ -33,9 +34,7 @@ struct camera_description final {
   inline static constexpr engine::guid type_guid =
       engine::guid::from_bytes({0x11, 0xa0, 0x21, 0x7a, 0x2e, 0xab, 0x4f, 0x61, 0x80, 0x11, 0x4a,
                                 0x63, 0xa2, 0x6e, 0x01, 0x01});
-  float vertical_field_of_view_radians = 0.0F;
-  float near_plane = 0.0F;
-  float far_plane = 0.0F;
+  math::camera_settings settings{};
   bool is_primary = false;
 };
 

@@ -95,6 +95,24 @@ int main() try {
   auto supported = e::decode_scene(bytes(scene("[" + camera + "]")));
   if (!supported)
     return 11;
+  const auto* description = supported->objects.front().components.get<e::camera_description>();
+  if (!description || description->settings.fov != 1.0F || description->settings.near != 0.1F ||
+      description->settings.far != 100.0F)
+    return 17;
+  supported->objects.front().components.update<e::camera_description>([](auto& value) {
+    value.settings = {0.8F, 0.2F, 250.0F};
+    value.is_primary = true;
+  });
+  auto camera_bytes = e::encode_scene(*supported);
+  if (!camera_bytes)
+    return 18;
+  auto camera_roundtrip = e::decode_scene(*camera_bytes);
+  if (!camera_roundtrip)
+    return 19;
+  const auto* restored = camera_roundtrip->objects.front().components.get<e::camera_description>();
+  if (!restored || restored->settings.fov != 0.8F || restored->settings.near != 0.2F ||
+      restored->settings.far != 250.0F || !restored->is_primary)
+    return 20;
   auto node = e::create_scene_object(**owner, supported->objects.front(), {}, {});
   if (!node)
     return 12;

@@ -26,9 +26,10 @@ using object_index =
   if ((left != nullptr) != (right != nullptr)) {
     return false;
   }
-  return !left || (left->vertical_field_of_view_radians == right->vertical_field_of_view_radians &&
-                   left->near_plane == right->near_plane && left->far_plane == right->far_plane &&
-                   left->is_primary == right->is_primary);
+  return !left ||
+         (left->settings.fov == right->settings.fov &&
+          left->settings.near == right->settings.near &&
+          left->settings.far == right->settings.far && left->is_primary == right->is_primary);
 }
 
 [[nodiscard]] bool

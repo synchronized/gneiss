@@ -96,11 +96,12 @@ public:
                                }});
   }
   template <auto Getter, auto Setter>
-  type_builder& property(property_id id, std::string_view name) noexcept {
+  type_builder& property(property_id id, std::string_view name,
+                         property_flags flags = property_flags::none) noexcept {
     using property_type =
         std::remove_cvref_t<std::invoke_result_t<decltype(Getter), const object_type&>>;
     return add<property_type>(
-        id, name, property_flags::none,
+        id, name, flags,
         {.kind = detail::reflected_value_kind<property_type>(),
          .getter = [](void*, const void* object, value& output) -> error {
            output.payload = std::invoke(Getter, *static_cast<const object_type*>(object));

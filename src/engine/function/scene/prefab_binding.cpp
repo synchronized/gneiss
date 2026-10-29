@@ -30,8 +30,7 @@ gneiss::engine::error apply_camera(gneiss::engine::world& native_world, std::uin
     const auto result = native_world.entity_remove_camera(gneiss::entity_id{entity});
     return result == gneiss::engine::error::not_found ? gneiss::engine::error::success : result;
   }
-  const gneiss::engine::math::camera_settings value{camera->vertical_field_of_view_radians,
-                                                    camera->near_plane, camera->far_plane};
+  const auto& value = camera->settings;
   return native_world.entity_set_camera(gneiss::entity_id{entity}, value, camera->is_primary);
 }
 
@@ -327,9 +326,7 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate, const meta::reg
       if (camera_result == engine::error::success) {
         std::uint64_t active = UINT64_C(0);
         snapshot.camera = engine::camera_description{
-            .vertical_field_of_view_radians = camera.fov,
-            .near_plane = camera.near,
-            .far_plane = camera.far,
+            .settings = camera,
             .is_primary = engine::write_identifier<entity_id>(
                               active,
                               [&](auto& native_output) {
@@ -435,19 +432,13 @@ engine::error apply_candidate_object(const meta::registry_ref& state,
     auto camera = *object.components.template get<camera_description>();
     camera_properties properties;
     auto& settings = properties.settings;
-    settings = {
-        .fov = camera.vertical_field_of_view_radians,
-        .near = camera.near_plane,
-        .far = camera.far_plane,
-    };
+    settings = camera.settings;
     result = meta::write_property(state, value.key.type_guid, value.key.property_id, &properties,
                                   native);
     if (result != engine::error::success) {
       return result;
     }
-    camera.vertical_field_of_view_radians = settings.fov;
-    camera.near_plane = settings.near;
-    camera.far_plane = settings.far;
+    camera.settings = settings;
     object.components.set(camera);
   } else {
     // 当前对象格式只存储这些组件，不能将其他类型解释为同一候选内存布局。
@@ -485,8 +476,8 @@ engine::error prepare_prefab_description(const prefab_description& source,
   }
   for (const auto& object : candidate.objects) {
     if (object.components.template get<camera_description>() &&
-        object.components.template get<camera_description>()->near_plane >=
-            object.components.template get<camera_description>()->far_plane) {
+        object.components.template get<camera_description>()->settings.near >=
+            object.components.template get<camera_description>()->settings.far) {
       return engine::error::invalid_argument;
     }
   }
