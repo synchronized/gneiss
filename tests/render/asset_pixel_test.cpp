@@ -45,10 +45,10 @@ struct fixture {
     std::ofstream(root / "t.texture.json")
         << R"({"format":"gneiss.texture","version":2,"source":"asset://image.ktx2","color_space":"srgb","usage":"default"})";
     std::ofstream(root / "m.material.json")
-        << R"({"format":"gneiss.material","version":5,"color":[1,1,1,1],"base_color_texture":"asset://t.texture.json","metallic":0,"roughness":1})";
+        << R"({"format":"gneiss.material","version":6,"parameters":{"color":[1,1,1,1],"metallic":0,"roughness":1},"texture_uris":["asset://t.texture.json","","","",""]})";
     if (pbr) {
       std::ofstream(root / "m.material.json")
-          << R"({"format":"gneiss.material","version":5,"color":[0,0,0,1],"base_color_texture":null,"metallic":0,"roughness":1,"emissive":[1,1,1],"emissive_texture":"asset://t.texture.json"})";
+          << R"({"format":"gneiss.material","version":6,"parameters":{"color":[0,0,0,1],"metallic":0,"roughness":1,"emissive":[1,1,1]},"texture_uris":["","","","","asset://t.texture.json"]})";
     }
     std::ofstream(root / "g.mesh.json")
         << R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.8,-0.7,0],[0.8,-0.7,0],[0,0.8,0]],"uvs":[[0,0],[1,0],[0.5,1]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
@@ -396,10 +396,19 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
   fixture files;
   std::ofstream(files.root / "t.texture.json")
       << R"({"format":"gneiss.texture","version":2,"source":"asset://image.ktx2","color_space":"linear","usage":"default"})";
-  std::ofstream(files.root / "m.material.json")
-      << R"({"format":"gneiss.material","version":5,"color":[0.5,0.5,0.5,1],"base_color_texture":null,"metallic":1,"roughness":1,")"
-      << slot << R"(":"asset://t.texture.json","emissive":[)"
-      << (slot == "emissive_texture" ? "1,1,1" : "0,0,0") << "]}";
+  std::ofstream material(files.root / "m.material.json");
+  material
+      << R"({"format":"gneiss.material","version":6,"parameters":{"color":[0.5,0.5,0.5,1],"metallic":1,"roughness":1,"emissive":[)"
+      << (slot == "emissive_texture" ? "1,1,1" : "0,0,0") << R"(]},"texture_uris":[)";
+  constexpr std::array slots{"base_color_texture", "metallic_roughness_texture", "normal_texture",
+                             "occlusion_texture", "emissive_texture"};
+  for (std::size_t i = 0; i < slots.size(); ++i) {
+    if (i)
+      material << ',';
+    material << (slot == slots[i] ? R"("asset://t.texture.json")" : R"("")");
+  }
+  material << "]}";
+  material.close();
   gneiss::engine::mesh_binary_data mesh{.vertices = {{{-0.8F, -0.7F, 0.0F}, {0, 0}, {0, 0, 1}},
                                                      {{0.8F, -0.7F, 0.0F}, {1, 0}, {0, 0, 1}},
                                                      {{0.0F, 0.8F, 0.0F}, {0.5F, 1}, {0, 0, 1}}},
@@ -480,17 +489,19 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
       test.back, test.double_sided, test.uv_set, test.wrap, test.layers, test.receiver);
   fixture files;
   std::ofstream material(files.root / "m.material.json");
-  material
-      << R"({"format":"gneiss.material","version":5,"color":[1,1,1,)" << test.alpha
-      << R"(],"base_color_texture":"asset://t.texture.json","metallic":0,"roughness":1,"alpha_mode":")"
-      << test.mode << R"(","alpha_cutoff":)" << test.cutoff << R"(,"double_sided":)"
-      << (test.double_sided ? "true" : "false") << R"(,"sampling":[)";
+  material << R"({"format":"gneiss.material","version":6,"parameters":{"color":[1,1,1,)"
+           << test.alpha << R"(],"metallic":0,"roughness":1,"alpha_mode":)"
+           << (test.mode == "MASK"    ? 1
+               : test.mode == "BLEND" ? 2
+                                      : 0)
+           << R"(,"alpha_cutoff":)" << test.cutoff << R"(,"double_sided":)"
+           << (test.double_sided ? "true" : "false") << R"(,"sampling":[)";
   for (unsigned i = 0; i < 5; ++i) {
     material << (i == 0 ? "" : ",") << R"({"uv_set":)" << (i == 0 ? test.uv_set : 0)
              << R"(,"mag_filter":0,"min_filter":0,"mip_filter":0,"address_u":)" << test.wrap
              << R"(,"address_v":0})";
   }
-  material << "]}";
+  material << R"(]},"texture_uris":["asset://t.texture.json","","","",""]})";
   material.close();
   gneiss::engine::mesh_binary_data mesh;
   mesh.vertices = {{{-0.8F, -0.7F, 0}, {1.25F, 0.5F}, {0, 0, 1}},
@@ -531,10 +542,10 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   }
   if (test.layers || test.receiver) {
     std::ofstream(files.root / "blue.material.json")
-        << R"({"format":"gneiss.material","version":5,"color":[0,0,1,)"
+        << R"({"format":"gneiss.material","version":6,"parameters":{"color":[0,0,1,)"
         << (test.foreground || test.receiver ? "1" : "0.5")
-        << R"(],"base_color_texture":null,"metallic":0,"roughness":1,"alpha_mode":")"
-        << (test.foreground || test.receiver ? "OPAQUE" : "BLEND") << "\"}";
+        << R"(],"metallic":0,"roughness":1,"alpha_mode":)"
+        << (test.foreground || test.receiver ? 0 : 2) << R"(},"texture_uris":["","","","",""]})";
     std::ifstream input(files.root / "s.scene.json");
     std::string scene_text{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
     input.close();
@@ -714,7 +725,7 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
   std::ofstream(files.root / "new.texture.json")
       << R"({"format":"gneiss.texture","version":2,"source":"asset://image.ktx2","color_space":"srgb","usage":"default"})";
   std::ofstream(files.root / "m.material.json")
-      << R"({"format":"gneiss.material","version":5,"color":[1,1,1,1],"base_color_texture":"asset://new.texture.json","metallic":0,"roughness":1})";
+      << R"({"format":"gneiss.material","version":6,"parameters":{"color":[1,1,1,1],"metallic":0,"roughness":1},"texture_uris":["asset://new.texture.json","","","",""]})";
   std::ofstream(files.root / "g.mesh.json")
       << R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.3,-0.3,0],[0.3,-0.3,0],[0,0.3,0]],"uvs":[[0,0],[1,0],[0.5,1]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
   check(reload(true) == gneiss::engine::error::success);
@@ -733,7 +744,7 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
   check(coverage(mixed) > 0U && coverage(mixed) < coverage(after) / 2U);
   // 准备阶段遇到损坏网格时，本批尚未进入采用，已有画面保持不变。
   std::ofstream(files.root / "m.material.json")
-      << R"({"format":"gneiss.material","version":5,"color":[1,0,0,1],"metallic":0,"roughness":1})";
+      << R"({"format":"gneiss.material","version":6,"parameters":{"color":[1,0,0,1],"metallic":0,"roughness":1},"texture_uris":["","","","",""]})";
   std::ofstream(files.root / "g.mesh.json") << "broken";
   check(reload(true) != gneiss::engine::error::success);
   check(capture().pixels == mixed.pixels);

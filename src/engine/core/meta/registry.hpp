@@ -8,9 +8,6 @@
 #include <memory>
 
 namespace gneiss::engine::meta {
-class type_registry_state;
-/** 原生注册表共享所有者；最后一个引用释放时销毁，借用元数据不得超过该生命周期。 */
-using registry_ref = std::shared_ptr<type_registry_state>;
 /** 创建独立注册表，成功结果持有共享所有者。 */
 [[nodiscard]] GNEISS_API result<registry_ref> create_registry() noexcept;
 /** 进程共享的默认注册表；仅创建，不自动注册或冻结，由引擎模块持有至退出。 */

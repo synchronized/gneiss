@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/serialization.hpp"
 #include "engine/core/meta/instance.hpp"
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <limits>
@@ -84,6 +85,7 @@ result<value, serialization_diagnostic> read_value(yyjson_val* input, value_kind
     }
     break;
   case value_kind::vec3:
+  case value_kind::vec4:
   case value_kind::quaternion: {
     const std::size_t count = kind == value_kind::vec3 ? 3U : 4U;
     if (!yyjson_is_arr(input) || yyjson_arr_size(input) != count)
@@ -100,6 +102,8 @@ result<value, serialization_diagnostic> read_value(yyjson_val* input, value_kind
     }
     if (kind == value_kind::vec3)
       output.payload = math::vector3{components[0], components[1], components[2]};
+    else if (kind == value_kind::vec4)
+      output.payload = math::vector4{components[0], components[1], components[2], components[3]};
     else
       output.payload = numbers;
     return output;
@@ -175,7 +179,7 @@ result<yyjson_mut_val*, serialization_diagnostic> encode_nested(const registry_r
       return status;
   }
   if (binding->encode) {
-    auto encoded = binding->encode(object);
+    auto encoded = binding->encode(registry, object);
     if (!encoded)
       return std::move(encoded).error();
     std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> parsed(
@@ -430,7 +434,7 @@ serialization_diagnostic decode_nested(const registry_ref& registry, const mutab
     std::unique_ptr<char, decltype(&std::free)> text(yyjson_val_write(input, 0, &size), &std::free);
     if (!text)
       return failure(error::out_of_memory);
-    auto value = binding->decode(std::as_bytes(std::span{text.get(), size}));
+    auto value = binding->decode(registry, std::as_bytes(std::span{text.get(), size}));
     if (!value)
       return std::move(value).error();
     if (!*value)
@@ -487,10 +491,12 @@ serialization_diagnostic decode_view(const registry_ref& registry, const mutable
     auto v = view.as_sequence();
     if (!v)
       return failure(v.error());
-    auto status = v->resize(0);
-    if (status.failed())
-      return failure(status);
-    status = v->resize(yyjson_arr_size(input));
+    if (v->is_resizable()) {
+      auto status = v->resize(0);
+      if (status.failed())
+        return failure(status);
+    }
+    auto status = v->resize(yyjson_arr_size(input));
     if (status.failed())
       return failure(status);
     std::size_t i = 0;
@@ -542,10 +548,16 @@ serialization_diagnostic decode_members(const registry_ref& registry, type_id id
     return failure(properties.error());
   if (!yyjson_is_obj(root))
     return failure(error::invalid_argument, "", "根值必须是 JSON 对象");
+  auto codec = find_serialization(registry, id);
+  if (!codec)
+    return failure(codec.error());
   std::unordered_set<std::string_view> names;
   auto it = yyjson_obj_iter_with(root);
   while (auto* key = yyjson_obj_iter_next(&it)) {
     const std::string_view name{yyjson_get_str(key), yyjson_get_len(key)};
+    if (codec->reject_unknown_fields &&
+        std::ranges::none_of(*properties, [&](const auto& p) { return p.name == name; }))
+      return failure(error::invalid_argument, field_path(name), "未知字段");
     if (!names.insert(name).second)
       return failure(error::invalid_argument, field_path(name), "重复属性名");
   }
@@ -611,7 +623,7 @@ serialize_object(const registry_ref& registry, type_id id, const void* object) n
       return status;
   }
   if (binding->encode)
-    return binding->encode(object);
+    return binding->encode(registry, object);
   if (binding->reflected_json)
     return encode_json(registry, id, object);
   return failure(error::unsupported);
@@ -628,7 +640,7 @@ deserialize_object(const registry_ref& registry, type_id id,
   if (!binding)
     return failure(binding.error());
   auto decoded =
-      binding->decode ? binding->decode(bytes)
+      binding->decode ? binding->decode(registry, bytes)
       : binding->reflected_json
           ? decode_json(registry, id, *binding, bytes)
           : result<std::shared_ptr<void>, serialization_diagnostic>{failure(error::unsupported)};
@@ -636,6 +648,49 @@ deserialize_object(const registry_ref& registry, type_id id,
     return std::move(decoded).error();
   if (!*decoded)
     return failure(error::internal);
+  if (binding->validate) {
+    auto status = binding->validate(decoded->get());
+    if (status.error.failed())
+      return status;
+  }
+  return std::move(*decoded);
+} catch (const std::bad_alloc&) {
+  return failure(error::out_of_memory);
+} catch (...) {
+  return failure(error::internal);
+}
+result<std::vector<std::byte>, serialization_diagnostic>
+serialize_reflected_object(const registry_ref& registry, type_id id, const void* object) noexcept
+    try {
+  auto binding = find_serialization(registry, id);
+  if (!binding)
+    return failure(binding.error());
+  if (!binding->reflected_json)
+    return failure(error::unsupported);
+  if (!object)
+    return failure(error::invalid_argument);
+  if (binding->validate) {
+    auto status = binding->validate(object);
+    if (status.error.failed())
+      return status;
+  }
+  return encode_json(registry, id, object);
+} catch (const std::bad_alloc&) {
+  return failure(error::out_of_memory);
+} catch (...) {
+  return failure(error::internal);
+}
+result<std::shared_ptr<void>, serialization_diagnostic>
+deserialize_reflected_object(const registry_ref& registry, type_id id,
+                             std::span<const std::byte> bytes) noexcept try {
+  auto binding = find_serialization(registry, id);
+  if (!binding)
+    return failure(binding.error());
+  if (!binding->reflected_json)
+    return failure(error::unsupported);
+  auto decoded = decode_json(registry, id, *binding, bytes);
+  if (!decoded)
+    return std::move(decoded).error();
   if (binding->validate) {
     auto status = binding->validate(decoded->get());
     if (status.error.failed())

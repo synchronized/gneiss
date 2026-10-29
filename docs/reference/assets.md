@@ -149,7 +149,7 @@ Runtime 的清理补报为事件，不重复发送请求响应；Editor 仅更�
 
 `material_description` 是唯一的 CPU 材质描述，包含 `material_parameters parameters` 和
 五槽纹理 URI；解析结果直接使用此类型，不再增加单字段文档包装。
-材质仅读写 v5，字段及默认值见 [Render 资产格式](render-asset-formats.md)。
+材质仅读写 v6，字段及默认值见 [Render 资产格式](render-asset-formats.md)。
 `material_resource` 是稳定运行对象，保存 `material_parameters` 和五槽 `texture` 强引用，
 通过只读 `parameters()`、`textures()` 查询；它不再持有描述对象或纹理缓存条目。
 后端 CPU 快照 `material_data` 保存同结构参数及纹理 RID。参数默认白色、不透明、

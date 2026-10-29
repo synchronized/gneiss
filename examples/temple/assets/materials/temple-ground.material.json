@@ -1,13 +1,21 @@
 {
   "format": "gneiss.material",
-  "version": 5,
-  "metallic": 0,
-  "roughness": 1,
-  "color": [
-    0.72,
-    0.82,
-    0.68,
-    1.0
-  ],
-  "base_color_texture": "asset://textures/moss-ground.texture.json"
+  "version": 6,
+  "parameters": {
+    "metallic": 0,
+    "roughness": 1,
+    "color": [
+      0.72,
+      0.82,
+      0.68,
+      1.0
+    ]
+  },
+  "texture_uris": [
+    "asset://textures/moss-ground.texture.json",
+    "",
+    "",
+    "",
+    ""
+  ]
 }

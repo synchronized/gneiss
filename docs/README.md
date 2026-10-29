@@ -602,3 +602,4 @@
 - [统一 Meta 实例视图](plans/PLAN-066-meta-instance.md)
 - [PLAN-067：反射容器视图与 JSON](plans/PLAN-067-meta-containers.md)
 - [反射容器视图](reference/reflection-containers.md)
+- [资源描述复用反射 JSON](plans/PLAN-068-resource-reflected-json.md)

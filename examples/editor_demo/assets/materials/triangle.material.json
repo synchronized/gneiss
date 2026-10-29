@@ -1,13 +1,21 @@
 {
   "format": "gneiss.material",
-  "version": 5,
-  "metallic": 0,
-  "roughness": 1,
-  "base_color_texture": null,
-  "color": [
-    0.95,
-    0.35,
-    0.12,
-    1.0
+  "version": 6,
+  "parameters": {
+    "metallic": 0,
+    "roughness": 1,
+    "color": [
+      0.95,
+      0.35,
+      0.12,
+      1.0
+    ]
+  },
+  "texture_uris": [
+    "",
+    "",
+    "",
+    "",
+    ""
   ]
 }

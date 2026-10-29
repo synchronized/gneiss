@@ -1,339 +1,163 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "material_codec.hpp"
-#include "engine/resource/detail/asset_json.hpp"
+#include "engine/core/meta/registration.hpp"
+#include "engine/core/meta/serialization.hpp"
+#include "engine/resource/builtin_resource_registration.hpp"
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
-#include <cstring>
-#include <memory>
-#include <new>
 #include <yyjson.h>
-
 namespace gneiss::engine {
 namespace {
-using namespace detail;
-[[nodiscard]] error parse_pbr_extensions(yyjson_val* root, material_description& out_source,
-                                         asset_diagnostic& diagnostic) {
-  constexpr std::array names{
-      "base_color_texture", "metallic_roughness_texture", "normal_texture",
-      "occlusion_texture",  "emissive_texture",
-  };
-  for (std::size_t slot = 1; slot < names.size(); ++slot) {
-    auto* texture = yyjson_obj_get(root, names[slot]);
-    if (texture == nullptr || yyjson_is_null(texture)) {
-      continue;
-    }
-    if (!yyjson_is_str(texture) || yyjson_get_len(texture) == 0U) {
-      fail(diagnostic, error::invalid_argument, std::string{"/"} + names[slot],
-           "Texture 必须是非空 URI 或 null");
-      return diagnostic.error;
-    }
-    out_source.texture_uris[slot].assign(json_string(texture));
-  }
-  auto* normal_scale = yyjson_obj_get(root, "normal_scale");
-  auto* strength = yyjson_obj_get(root, "occlusion_strength");
-  if ((normal_scale != nullptr && !read_float(normal_scale, out_source.parameters.normal_scale)) ||
-      (strength != nullptr && (!read_float(strength, out_source.parameters.occlusion_strength) ||
-                               out_source.parameters.occlusion_strength < 0.0F ||
-                               out_source.parameters.occlusion_strength > 1.0F))) {
-    fail(diagnostic, error::invalid_argument, "/normal_scale",
-         "法线缩放必须有限，AO 强度必须位于 0..1");
-    return diagnostic.error;
-  }
-  if (auto* emissive = yyjson_obj_get(root, "emissive")) {
-    if (!yyjson_is_arr(emissive) || yyjson_arr_size(emissive) != 3U) {
-      fail(diagnostic, error::invalid_argument, "/emissive", "自发光必须包含三个分量");
-      return diagnostic.error;
-    }
-    for (std::size_t i = 0; i < 3U; ++i) {
-      if (!read_float(yyjson_arr_get(emissive, i), out_source.parameters.emissive[i]) ||
-          out_source.parameters.emissive[i] < 0.0F || out_source.parameters.emissive[i] > 1.0F) {
-        fail(diagnostic, error::invalid_argument, "/emissive", "自发光分量必须位于 0..1");
-        return diagnostic.error;
-      }
-    }
-  }
-  return error::success;
+using diagnostic = meta::serialization_diagnostic;
+using document = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
+using mutable_document = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
+diagnostic invalid(std::string path, std::string message = {}) {
+  return {.path = std::move(path), .message = std::move(message), .error = error::invalid_argument};
 }
-
-[[nodiscard]] bool parse_material_sampling(yyjson_val* root, material_parameters& state) {
-  if (auto* sampling = yyjson_obj_get(root, "sampling")) {
-    if (!yyjson_is_arr(sampling) || yyjson_arr_size(sampling) != 5U) {
-      return false;
-    }
-    constexpr std::array names{
-        "uv_set", "mag_filter", "min_filter", "mip_filter", "address_u", "address_v",
-    };
-    constexpr std::array limits{1U, 1U, 1U, 2U, 2U, 2U};
-    for (std::size_t slot = 0; slot < 5U; ++slot) {
-      auto* item = yyjson_arr_get(sampling, slot);
-      if (!yyjson_is_obj(item) || yyjson_obj_size(item) != names.size()) {
-        return false;
-      }
-      auto& sample = state.sampling[slot];
-      std::array<std::uint32_t, 6> fields{};
-      for (std::size_t field = 0; field < names.size(); ++field) {
-        auto* value = yyjson_obj_get(item, names[field]);
-        if (!yyjson_is_uint(value) || yyjson_get_uint(value) > limits[field]) {
-          return false;
-        }
-        fields[field] = static_cast<std::uint32_t>(yyjson_get_uint(value));
-      }
-      sample = {fields[0],
-                static_cast<texture_filter>(fields[1]),
-                static_cast<texture_filter>(fields[2]),
-                static_cast<texture_mip_filter>(fields[3]),
-                static_cast<texture_address>(fields[4]),
-                static_cast<texture_address>(fields[5])};
-    }
-  }
-  return true;
+diagnostic validate_sampling(const texture_sampling& v) {
+  return valid_sampling(v) ? diagnostic{} : invalid("", "采样值越界");
 }
-
-[[nodiscard]] bool parse_material_state(yyjson_val* root, material_parameters& state) {
-  if (auto* mode = yyjson_obj_get(root, "alpha_mode")) {
-    if (!yyjson_is_str(mode)) {
-      return false;
-    }
-    const auto name = json_string(mode);
-    if (name == "OPAQUE") {
-      state.alpha_mode = material_alpha_mode::opaque;
-    } else if (name == "MASK") {
-      state.alpha_mode = material_alpha_mode::mask;
-    } else if (name == "BLEND") {
-      state.alpha_mode = material_alpha_mode::blend;
-    } else {
-      return false;
-    }
-  }
-  if (auto* sided = yyjson_obj_get(root, "double_sided")) {
-    if (!yyjson_is_bool(sided)) {
-      return false;
-    }
-    state.double_sided = yyjson_get_bool(sided);
-  }
-  if (auto* cutoff = yyjson_obj_get(root, "alpha_cutoff");
-      cutoff && (!read_float(cutoff, state.alpha_cutoff) || state.alpha_cutoff < 0.0F)) {
-    return false;
-  }
-
-  return parse_material_sampling(root, state);
+diagnostic validate_parameters(const material_parameters& v) {
+  const auto unit = [](float n) { return std::isfinite(n) && n >= 0 && n <= 1; };
+  for (std::size_t i = 0; i < 4; ++i)
+    if (!unit(v.color[i]))
+      return invalid("/color/" + std::to_string(i));
+  if (!unit(v.metallic))
+    return invalid("/metallic");
+  if (!unit(v.roughness))
+    return invalid("/roughness");
+  if (!unit(v.occlusion_strength))
+    return invalid("/occlusion_strength");
+  if (!std::isfinite(v.normal_scale))
+    return invalid("/normal_scale");
+  for (float n : math::components(v.emissive))
+    if (!unit(n))
+      return invalid("/emissive");
+  if (!std::isfinite(v.alpha_cutoff) || v.alpha_cutoff < 0)
+    return invalid("/alpha_cutoff");
+  if (v.alpha_mode > material_alpha_mode::blend)
+    return invalid("/alpha_mode");
+  return {};
 }
-
-[[nodiscard]] result<material_description, asset_diagnostic>
-parse_material(const std::vector<std::byte>& bytes) {
-  material_description out_source;
-  asset_diagnostic diagnostic;
-  auto parsed_document = parse_document(bytes);
-  if (!parsed_document) {
-    diagnostic = std::move(parsed_document).error();
-    return diagnostic;
-  }
-  auto document = std::move(*parsed_document);
-  yyjson_val* root = yyjson_doc_get_root(document.get());
-  constexpr std::array fields{
-      std::string_view{"format"},
-      std::string_view{"version"},
-      std::string_view{"color"},
-      std::string_view{"base_color_texture"},
-      std::string_view{"metallic"},
-      std::string_view{"roughness"},
-      std::string_view{"metallic_roughness_texture"},
-      std::string_view{"normal_texture"},
-      std::string_view{"occlusion_texture"},
-      std::string_view{"emissive_texture"},
-      std::string_view{"normal_scale"},
-      std::string_view{"occlusion_strength"},
-      std::string_view{"emissive"},
-      std::string_view{"alpha_mode"},
-      std::string_view{"double_sided"},
-      std::string_view{"alpha_cutoff"},
-      std::string_view{"sampling"},
-  };
-  std::uint64_t version{};
-  if (!validate_header(root, "gneiss.material", fields, 5U, version, diagnostic))
-    return diagnostic;
-  if (version != 5U) {
-    fail(diagnostic, error::unsupported, "/version", "材质仅支持版本 5");
-    return diagnostic;
-  }
-  yyjson_val* color = yyjson_obj_get(root, "color");
-  if (!yyjson_is_arr(color) ||
-      yyjson_arr_size(color) != math::components(out_source.parameters.color).size()) {
-    fail(diagnostic, error::invalid_argument, "/color", "颜色必须包含四个分量");
-    return diagnostic;
-  }
-  for (std::size_t index = 0; index < math::components(out_source.parameters.color).size();
-       ++index) {
-    if (!read_float(yyjson_arr_get(color, index), out_source.parameters.color[index]) ||
-        out_source.parameters.color[index] < 0.0F || out_source.parameters.color[index] > 1.0F) {
-      fail(diagnostic, error::invalid_argument, "/color/" + std::to_string(index),
-           "颜色分量必须位于 0..1");
-      return diagnostic;
-    }
-  }
-  {
-    yyjson_val* texture = yyjson_obj_get(root, "base_color_texture");
-    if (yyjson_is_null(texture)) {
-      out_source.texture_uris[0].clear();
-    } else if (!yyjson_is_str(texture) || yyjson_get_len(texture) == 0U) {
-      fail(diagnostic, error::invalid_argument, "/base_color_texture",
-           "base-color Texture 必须是非空 URI");
-      return diagnostic;
-    } else {
-      out_source.texture_uris[0].assign(json_string(texture));
-    }
-  }
-  if (!read_float(yyjson_obj_get(root, "metallic"), out_source.parameters.metallic) ||
-      out_source.parameters.metallic < 0.0F || out_source.parameters.metallic > 1.0F ||
-      !read_float(yyjson_obj_get(root, "roughness"), out_source.parameters.roughness) ||
-      out_source.parameters.roughness < 0.0F || out_source.parameters.roughness > 1.0F) {
-    fail(diagnostic, error::invalid_argument, "/metallic", "metallic 与 roughness 必须位于 0..1");
-    return diagnostic;
-  }
-
-  if (parse_pbr_extensions(root, out_source, diagnostic) != error::success) {
-    return diagnostic;
-  }
-  if (!parse_material_state(root, out_source.parameters)) {
-    fail(diagnostic, error::invalid_argument, "/sampling", "材质状态或逐槽采样设置无效");
-    return diagnostic;
-  }
-  return out_source;
-}
-}
-}
-namespace gneiss::engine {
-result<material_description, meta::serialization_diagnostic>
-decode_material(std::span<const std::byte> bytes) noexcept try {
-  std::vector<std::byte> owned(bytes.begin(), bytes.end());
-  auto decoded = parse_material(owned);
-  if (!decoded) {
-    auto failure = std::move(decoded).error();
-    return meta::serialization_diagnostic{failure.byte_offset, std::move(failure.path),
-                                          std::move(failure.message), failure.error};
-  }
-  return std::move(*decoded);
-} catch (const std::bad_alloc&) {
-  return meta::serialization_diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return meta::serialization_diagnostic{.error = error::internal};
-}
-
-result<std::vector<std::byte>, meta::serialization_diagnostic>
-encode_material(const material_description& object) noexcept try {
-  std::vector<std::byte> output;
-  meta::serialization_diagnostic diagnostic;
-  const auto failure = [&](error status) {
-    if (diagnostic.error.ok())
-      diagnostic.error = status;
-    return std::move(diagnostic);
-  };
-
-  const auto& p = object.parameters;
-  // JSON 不接受非有限数值；其余范围复用同一解析器校验，避免维护第二套格式规则。
-  bool finite = std::isfinite(p.metallic) && std::isfinite(p.roughness) &&
-                std::isfinite(p.normal_scale) && std::isfinite(p.occlusion_strength) &&
-                std::isfinite(p.alpha_cutoff);
-  for (float number : math::components(p.color))
-    finite = finite && std::isfinite(number);
-  for (float number : math::components(p.emissive))
-    finite = finite && std::isfinite(number);
-  if (!finite || p.alpha_mode > material_alpha_mode::blend) {
-    diagnostic.message = "材质包含非有限数值或未知透明模式";
-    return failure(error::invalid_argument);
-  }
-  for (const auto& uri : object.texture_uris) {
-    if (uri.find('\0') != std::string::npos) {
-      diagnostic.message = "纹理 URI 不得包含空字符";
-      return failure(error::invalid_argument);
-    }
-  }
-  using doc_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
-  doc_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
-  if (!document)
-    return failure(error::out_of_memory);
-  auto* doc = document.get();
-  auto* root = yyjson_mut_obj(doc);
-  if (!root)
-    return failure(error::out_of_memory);
-  yyjson_mut_doc_set_root(doc, root);
-  const auto put = [&](const char* key, yyjson_mut_val* value) {
-    if (!value || !yyjson_mut_obj_add_val(doc, root, key, value))
-      throw std::bad_alloc{};
-  };
-  const auto floats = [&](const auto& values) {
-    auto* array = yyjson_mut_arr(doc);
-    if (!array)
-      throw std::bad_alloc{};
-    for (float value : values)
-      if (!yyjson_mut_arr_add_real(doc, array, value))
-        throw std::bad_alloc{};
-    return array;
-  };
-  put("format", yyjson_mut_str(doc, "gneiss.material"));
-  put("version", yyjson_mut_uint(doc, 5));
-  put("color", floats(math::components(p.color)));
-  put("metallic", yyjson_mut_real(doc, p.metallic));
-  put("roughness", yyjson_mut_real(doc, p.roughness));
-  put("normal_scale", yyjson_mut_real(doc, p.normal_scale));
-  put("occlusion_strength", yyjson_mut_real(doc, p.occlusion_strength));
-  put("emissive", floats(math::components(p.emissive)));
-  constexpr std::array slots{"base_color_texture", "metallic_roughness_texture", "normal_texture",
-                             "occlusion_texture", "emissive_texture"};
-  for (std::size_t slot = 0; slot < slots.size(); ++slot) {
-    const auto& uri = object.texture_uris[slot];
-    put(slots[slot],
-        uri.empty() ? yyjson_mut_null(doc) : yyjson_mut_strncpy(doc, uri.data(), uri.size()));
-  }
-  constexpr std::array modes{"OPAQUE", "MASK", "BLEND"};
-  put("alpha_mode", yyjson_mut_str(doc, modes[static_cast<std::size_t>(p.alpha_mode)]));
-  put("double_sided", yyjson_mut_bool(doc, p.double_sided));
-  put("alpha_cutoff", yyjson_mut_real(doc, p.alpha_cutoff));
-  auto* sampling = yyjson_mut_arr(doc);
-  if (!sampling)
-    return failure(error::out_of_memory);
-  for (const auto& item : p.sampling) {
-    if (!valid_sampling(item)) {
-      diagnostic.path = "/sampling";
-      return failure(error::invalid_argument);
-    }
-    auto* entry = yyjson_mut_obj(doc);
-    if (!entry || !yyjson_mut_arr_append(sampling, entry) ||
-        !yyjson_mut_obj_add_uint(doc, entry, "uv_set", item.uv_set) ||
-        !yyjson_mut_obj_add_uint(doc, entry, "mag_filter",
-                                 static_cast<std::uint32_t>(item.mag_filter)) ||
-        !yyjson_mut_obj_add_uint(doc, entry, "min_filter",
-                                 static_cast<std::uint32_t>(item.min_filter)) ||
-        !yyjson_mut_obj_add_uint(doc, entry, "mip_filter",
-                                 static_cast<std::uint32_t>(item.mip_filter)) ||
-        !yyjson_mut_obj_add_uint(doc, entry, "address_u",
-                                 static_cast<std::uint32_t>(item.address_u)) ||
-        !yyjson_mut_obj_add_uint(doc, entry, "address_v",
-                                 static_cast<std::uint32_t>(item.address_v)))
-      return failure(error::out_of_memory);
-  }
-  put("sampling", sampling);
-  std::size_t size{};
-  yyjson_write_err error{};
-  using text_ptr = std::unique_ptr<char, decltype(&std::free)>;
-  text_ptr text(yyjson_mut_write_opts(doc, YYJSON_WRITE_NOFLAG, nullptr, &size, &error),
-                &std::free);
+result<std::vector<std::byte>, diagnostic> write_json(yyjson_mut_doc* doc) {
+  std::size_t length{};
+  std::unique_ptr<char, decltype(&std::free)> text(yyjson_mut_write(doc, 0, &length), &std::free);
   if (!text)
-    return failure(error.code == YYJSON_WRITE_ERROR_MEMORY_ALLOCATION ? error::out_of_memory
-                                                                      : error::invalid_argument);
-  std::vector<std::byte> pending(size);
-  std::memcpy(pending.data(), text.get(), size);
-  auto checked = decode_material(pending);
-  if (!checked)
-    return std::move(checked).error();
-  output = std::move(pending);
-  return output;
-
-} catch (const std::bad_alloc&) {
-  return meta::serialization_diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return meta::serialization_diagnostic{.error = error::internal};
+    return diagnostic{.error = error::out_of_memory};
+  const auto bytes = std::as_bytes(std::span{text.get(), length});
+  return std::vector<std::byte>(bytes.begin(), bytes.end());
 }
-
+result<material_description, diagnostic> decode(const meta::registry_ref& registry,
+                                                std::span<const std::byte> bytes) {
+  yyjson_read_err err{};
+  document doc(yyjson_read_opts(reinterpret_cast<char*>(const_cast<std::byte*>(bytes.data())),
+                                bytes.size(), 0, nullptr, &err),
+               &yyjson_doc_free);
+  if (!doc)
+    return diagnostic{err.pos, "", err.msg ? err.msg : "JSON 语法错误",
+                      err.code == YYJSON_READ_ERROR_MEMORY_ALLOCATION ? error::out_of_memory
+                                                                      : error::invalid_argument};
+  auto* root = yyjson_doc_get_root(doc.get());
+  if (!yyjson_is_obj(root))
+    return invalid("", "材质根必须是对象");
+  auto* format = yyjson_obj_get(root, "format");
+  auto* version = yyjson_obj_get(root, "version");
+  if (!yyjson_is_str(format) ||
+      std::string_view(yyjson_get_str(format), yyjson_get_len(format)) != "gneiss.material")
+    return invalid("/format", "资产格式标识错误");
+  if (!yyjson_is_uint(version) || yyjson_get_uint(version) != 6)
+    return diagnostic{.path = "/version",
+                      .message = "材质仅支持版本 6",
+                      .error = yyjson_is_uint(version) && yyjson_get_uint(version)
+                                   ? error::unsupported
+                                   : error::invalid_argument};
+  std::size_t formats = 0, versions = 0;
+  auto it = yyjson_obj_iter_with(root);
+  while (auto* key = yyjson_obj_iter_next(&it)) {
+    const std::string_view name(yyjson_get_str(key), yyjson_get_len(key));
+    formats += name == "format";
+    versions += name == "version";
+  }
+  if (formats != 1 || versions != 1)
+    return invalid("", "重复格式头");
+  mutable_document fields(yyjson_doc_mut_copy(doc.get(), nullptr), &yyjson_mut_doc_free);
+  if (!fields)
+    return diagnostic{.error = error::out_of_memory};
+  auto* fields_root = yyjson_mut_doc_get_root(fields.get());
+  (void)yyjson_mut_obj_remove_key(fields_root, "format");
+  (void)yyjson_mut_obj_remove_key(fields_root, "version");
+  auto content = write_json(fields.get());
+  if (!content)
+    return std::move(content).error();
+  return meta::deserialize_reflected<material_description>(registry, *content);
+}
+result<std::vector<std::byte>, diagnostic> encode(const meta::registry_ref& registry,
+                                                  const material_description& object) {
+  auto fields = meta::serialize_reflected(registry, object);
+  if (!fields)
+    return std::move(fields).error();
+  document doc(yyjson_read(reinterpret_cast<const char*>(fields->data()), fields->size(), 0),
+               &yyjson_doc_free);
+  if (!doc)
+    return diagnostic{.error = error::out_of_memory};
+  mutable_document output(yyjson_doc_mut_copy(doc.get(), nullptr), &yyjson_mut_doc_free);
+  if (!output)
+    return diagnostic{.error = error::out_of_memory};
+  auto* root = yyjson_mut_doc_get_root(output.get());
+  if (!yyjson_mut_obj_add_str(output.get(), root, "format", "gneiss.material") ||
+      !yyjson_mut_obj_add_uint(output.get(), root, "version", 6))
+    return diagnostic{.error = error::out_of_memory};
+  return write_json(output.get());
+}
+}
+error register_material_reflection(const meta::registry_ref& registry) noexcept {
+  auto status = meta::type_builder<texture_sampling>{registry}
+                    .property<&texture_sampling::uv_set>(meta::property_id{1}, "uv_set")
+                    .property<&texture_sampling::mag_filter>(meta::property_id{2}, "mag_filter")
+                    .property<&texture_sampling::min_filter>(meta::property_id{3}, "min_filter")
+                    .property<&texture_sampling::mip_filter>(meta::property_id{4}, "mip_filter")
+                    .property<&texture_sampling::address_u>(meta::property_id{5}, "address_u")
+                    .property<&texture_sampling::address_v>(meta::property_id{6}, "address_v")
+                    .serialization(true)
+                    .validate<&validate_sampling>()
+                    .commit();
+  if (status.failed())
+    return status;
+  status = meta::type_builder<material_parameters>{registry}
+               .property<&material_parameters::color>(meta::property_id{1}, "color")
+               .property<&material_parameters::metallic>(meta::property_id{2}, "metallic")
+               .property<&material_parameters::roughness>(meta::property_id{3}, "roughness")
+               .property<&material_parameters::normal_scale>(meta::property_id{4}, "normal_scale")
+               .property<&material_parameters::occlusion_strength>(meta::property_id{5},
+                                                                   "occlusion_strength")
+               .property<&material_parameters::emissive>(meta::property_id{6}, "emissive")
+               .property<&material_parameters::alpha_mode>(meta::property_id{7}, "alpha_mode")
+               .property<&material_parameters::double_sided>(meta::property_id{8}, "double_sided")
+               .property<&material_parameters::alpha_cutoff>(meta::property_id{9}, "alpha_cutoff")
+               .property<&material_parameters::sampling>(meta::property_id{10}, "sampling")
+               .serialization(true)
+               .validate<&validate_parameters>()
+               .commit();
+  if (status.failed())
+    return status;
+  return meta::type_builder<material_description>{registry}
+      .schema_version(6)
+      .property<&material_description::parameters>(meta::property_id{1}, "parameters",
+                                                   meta::property_flags::required)
+      .property<&material_description::texture_uris>(meta::property_id{2}, "texture_uris",
+                                                     meta::property_flags::required)
+      .serialization(true)
+      .serialization<&encode, &decode>()
+      .commit();
+}
+result<material_description, diagnostic>
+decode_material(std::span<const std::byte> bytes) noexcept {
+  return meta::deserialize<material_description>(bytes);
+}
+result<std::vector<std::byte>, diagnostic>
+encode_material(const material_description& object) noexcept {
+  return meta::serialize(object);
+}
 }

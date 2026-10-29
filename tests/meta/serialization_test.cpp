@@ -119,7 +119,7 @@ int main() {
                                            output, diagnostic) != e::error::invalid_argument ||
       output != saved)
     return 13;
-  for (unsigned version : {1U, 2U, 3U, 4U, 6U}) {
+  for (unsigned version : {1U, 2U, 3U, 4U, 5U, 7U}) {
     const auto text = std::string{R"({"format":"gneiss.material","version":)"} +
                       std::to_string(version) + R"(,"color":[1,1,1,1]})";
     if (gneiss::test_support::assign_decoded(

@@ -129,7 +129,7 @@ void run() {
   files->files["m.mesh"] =
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[0,0],[0,0]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})";
   files->files["m.material"] =
-      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,0,0,1]})";
+      R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[1,0,0,1]},"texture_uris":["","","","",""]})";
   gneiss::test_support::fixture_files vfs;
   check(vfs.mount("asset://", files) == gneiss::engine::error::success);
   gneiss::engine::render_service resources;
@@ -217,7 +217,7 @@ void run() {
   auto old_pixels = resources.share_material(gneiss::engine::asset_rid(old_material));
   check(old_pixels && old_pixels->parameters.color[0] == 1.0F);
   files->files["m.material"] =
-      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,1,0,1]})";
+      R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,1,0,1]},"texture_uris":["","","","",""]})";
   files->files["s.scene"].insert(
       files->files["s.scene"].size() - 2U,
       R"(,{"uuid":"00000000-0000-4000-8000-000000000004","prefab":{"uri":"asset://p.prefab","overrides":[]},"parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}})");
@@ -258,7 +258,7 @@ void run() {
         gneiss::engine::error::success);
   // 绑定复用稳定资源；另一个 URI 的蓝色材质不影响它。
   files->files["blue.material"] =
-      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,0,1,1]})";
+      R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,0,1,1]},"texture_uris":["","","","",""]})";
   gneiss::engine::render_asset_ref unrelated;
   check(gneiss::test_support::load_render(candidate_render, gneiss::engine::asset_type::material,
                                           "asset://blue.material", unrelated,

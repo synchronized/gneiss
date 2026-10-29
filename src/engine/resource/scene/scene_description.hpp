@@ -53,6 +53,8 @@ struct prefab_reference_description final {
 };
 
 struct object_description final {
+  static constexpr std::string_view type_name = "object_description";
+  static constexpr guid type_guid = guid::from_bytes({0x97, 4});
   gneiss::engine::guid uuid;
   std::string name;
   std::optional<gneiss::engine::guid> parent_uuid;

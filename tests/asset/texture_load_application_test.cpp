@@ -102,9 +102,9 @@ void run(gneiss::engine::execution_mode mode) {
       << R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[0,0],[0,0]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})";
   const auto write_material = [&](bool green) {
     std::ofstream(files.root / "m.material")
-        << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":)"
+        << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":)"
         << (green ? "[0,1,0,1]" : "[1,0,0,1]")
-        << R"(,"base_color_texture":"asset://a.texture.json"})";
+        << R"(},"texture_uris":["asset://a.texture.json","","","",""]})";
   };
   write_material(false);
   std::ofstream(files.root / "s.scene")

@@ -7,7 +7,7 @@
 
 | C++ 类型 | kind / 访问入口 | JSON |
 | --- | --- | --- |
-| `std::vector<T>`（排除 bool） | sequence / as_sequence() | 数组 |
+| `std::vector<T>`（排除 bool）和 `std::array<T, N>` | sequence / as_sequence() | 数组 |
 | `std::map<std::string, T>`、`std::unordered_map<std::string, T>` | associative / as_associative() | 对象 |
 | `std::optional<T>` | optional / as_optional() | 内容或 null |
 
@@ -21,7 +21,8 @@
 递归对象（如 vector<Node>）只检查叶子身份，不在冻结阶段展开无限对象树。
 
 只读和可写容器都支持 size；顺序视图通过 at(index) 返回元素实例，越界返回 not_found。
-可写顺序视图提供 resize，保留原有前缀、新元素默认构造，缩小时销毁尾部。
+可写顺序视图提供 resize。vector 保留原有前缀、新元素默认构造，缩小时销毁尾部。
+array 的 is_resizable() 为 false，resize 仅接受原长度；JSON 长度必须恰好为 N，包含 N=0。
 关联视图通过 keys() 获取排序后的自有键列表，通过 find(key) 获取值实例；键不可通过视图修改。
 可写关联视图提供 insert、erase、clear，insert 已存在键时保留原值。optional 提供 has_value/get；
 可写版本提供 ensure/reset，ensure 保留已有值，reset 销毁内部对象。

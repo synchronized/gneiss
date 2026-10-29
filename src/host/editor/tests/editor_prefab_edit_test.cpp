@@ -34,7 +34,7 @@ struct fixture {
     std::ofstream(root / "mesh.json")
         << R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[0,0],[0,0]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})";
     std::ofstream(root / "material.json")
-        << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,0,0,1]})";
+        << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[1,0,0,1]},"texture_uris":["","","","",""]})";
     std::ofstream(root / "scene.json")
         << R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[]})";
     std::ofstream prefab(root / "prefab.json");
@@ -175,7 +175,7 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   std::ofstream(files.root / "mesh.json")
       << R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[0,0],[0,0]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})";
   std::ofstream(files.root / "material.json")
-      << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,0,0,1]})";
+      << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[1,0,0,1]},"texture_uris":["","","","",""]})";
   // 第二个实例覆盖失效：第一个替换保留，第二个旧实例删除，镜像反映部分结果。
   const gneiss::engine::guid removed_uuid =
       *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000003");

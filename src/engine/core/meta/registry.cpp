@@ -76,7 +76,7 @@ namespace {
 }
 
 [[nodiscard]] bool is_valid_property_kind(value_kind kind) noexcept {
-  return kind >= value_kind::boolean && kind <= value_kind::quaternion;
+  return kind >= value_kind::boolean && kind <= value_kind::vec4;
 }
 
 [[nodiscard]] bool is_valid_property_value(const value& value) noexcept {
@@ -95,7 +95,8 @@ namespace {
           return static_cast<bool>(item);
         else if constexpr (std::is_same_v<type, math::vector3>)
           return std::isfinite(item.x) && std::isfinite(item.y) && std::isfinite(item.z);
-        else if constexpr (std::is_same_v<type, math::quaternion>)
+        else if constexpr (std::is_same_v<type, math::quaternion> ||
+                           std::is_same_v<type, math::vector4>)
           return std::isfinite(item.x) && std::isfinite(item.y) && std::isfinite(item.z) &&
                  std::isfinite(item.w);
         else

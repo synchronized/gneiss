@@ -21,6 +21,7 @@ enum class value_kind : std::uint32_t {
   type_guid = 7,
   vec3 = 8,
   quaternion = 9,
+  vec4 = 10,
 };
 /** 拥有数据的通用值；复制字符串后不依赖源对象。不承载任意 C++ 对象或借用指针。
  * 字符串构造和复制可能抛出分配异常，调用方在结果码边界转换错误。
@@ -28,7 +29,7 @@ enum class value_kind : std::uint32_t {
 struct value {
   using storage_type =
       std::variant<std::monostate, bool, std::int64_t, std::uint64_t, float, double, std::string,
-                   engine::guid, math::vector3, math::quaternion>;
+                   engine::guid, math::vector3, math::quaternion, math::vector4>;
   storage_type payload;
   /** 按类型及分量精确比较；不执行浮点容差或旋转等价比较。 */
   [[nodiscard]] bool operator==(const value&) const = default;

@@ -32,8 +32,9 @@ def fixture(root):
     def write(path, value):
         (root / path).write_text(json.dumps(value), encoding="utf-8")
     write("materials/test.material.json", {
-        "format": "gneiss.material", "version": 5, "color": [1, 1, 1, 1],
-        "base_color_texture": "asset://textures/test.texture.json", "metallic": 0, "roughness": 1})
+        "format": "gneiss.material", "version": 6,
+        "parameters": {"color": [1, 1, 1, 1], "metallic": 0, "roughness": 1},
+        "texture_uris": ["asset://textures/test.texture.json", "", "", "", ""]})
     write("models/test.mesh.json", {
         "format": "gneiss.mesh", "version": 3, "topology": "triangle_list",
         "vertices": [[-.8, -.7, 0], [.8, -.7, 0], [0, .8, 0]],

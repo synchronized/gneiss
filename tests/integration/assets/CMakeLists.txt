@@ -72,6 +72,10 @@ if(NOT GNEISS_TASK_THREADS OR EMSCRIPTEN)
 endif()
 # 材质描述与保活契约只链接 codec 和 CPU 准备实现，不链接 Engine 或创建渲染资源。
 add_executable(gneiss_asset_material_test material_description_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/engine/core/type_id.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/meta/registry.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/meta/instance.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/meta/serialization.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/guid.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/material/material_codec.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"

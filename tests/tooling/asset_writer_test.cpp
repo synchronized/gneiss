@@ -4,6 +4,7 @@
 #include "../support/async_application.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/resource/material/material_codec.hpp"
 #include "tooling/asset_import/asset_writer.hpp"
 #include "tooling/asset_import/gltf_importer.hpp"
 
@@ -136,13 +137,15 @@ int main() { // NOLINT(bugprone-exception-escape)
     return 10;
   }
   const auto material_file = read_file(pbr_output / "materials/material-0.material.json");
-  for (const auto* field :
-       {"metallic_roughness_texture", "normal_texture", "occlusion_texture", "emissive_texture",
-        "image-0-normal.texture.json", "image-0-linear.texture.json"}) {
-    if (material_file.find(field) == std::string::npos) {
-      return 11;
-    }
-  }
+  auto decoded_material = gneiss::engine::decode_material(
+      std::as_bytes(std::span{material_file.data(), material_file.size()}));
+  if (!decoded_material ||
+      decoded_material->texture_uris[1].find("image-0-linear.texture.json") == std::string::npos ||
+      decoded_material->texture_uris[2].find("image-0-normal.texture.json") == std::string::npos ||
+      decoded_material->texture_uris[3].empty() || decoded_material->texture_uris[4].empty() ||
+      decoded_material->parameters.normal_scale != -0.5F ||
+      decoded_material->parameters.occlusion_strength != 0.25F)
+    return 11;
   std::filesystem::remove_all(root);
   return 0;
 }

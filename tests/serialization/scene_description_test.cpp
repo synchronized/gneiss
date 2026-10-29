@@ -15,6 +15,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdio>
 #include <limits>
 #include <memory>
 #include <string>
@@ -42,9 +43,14 @@ constexpr std::string_view prefab_scene =
                               std::string_view path) {
   gneiss::engine::scene_description scene;
   gneiss::engine::scene_diagnostic diagnostic;
-  return gneiss::test_support::assign_decoded(gneiss::engine::parse_scene_description(json), scene,
-                                              diagnostic) == expected &&
-         diagnostic.error == expected && diagnostic.path == path && scene.objects.empty();
+  const auto status = gneiss::test_support::assign_decoded(
+      gneiss::engine::parse_scene_description(json), scene, diagnostic);
+  const bool matched = status == expected && diagnostic.error == expected &&
+                       diagnostic.path == path && scene.objects.empty();
+  if (!matched)
+    std::fprintf(stderr, "expected path %.*s, actual %s\n", static_cast<int>(path.size()),
+                 path.data(), diagnostic.path.c_str());
+  return matched;
 }
 
 bool save_validation_contract() {
@@ -290,9 +296,10 @@ int main() try {
       !fails_with(cycle, gneiss::engine::error::invalid_argument, "/objects/0/parent") ||
       !fails_with(invalid_uri, gneiss::engine::error::invalid_argument,
                   "/objects/1/components/0/$content") ||
-      !fails_with(invalid_scale, gneiss::engine::error::invalid_argument, "/objects/0/transform") ||
+      !fails_with(invalid_scale, gneiss::engine::error::invalid_argument,
+                  "/objects/0/transform/scale") ||
       !fails_with(invalid_rotation, gneiss::engine::error::invalid_argument,
-                  "/objects/0/transform")) {
+                  "/objects/0/transform/rotation")) {
     return 2;
   }
 

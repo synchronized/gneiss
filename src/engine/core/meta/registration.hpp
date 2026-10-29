@@ -92,13 +92,16 @@ public:
       return add<property_type>(id, name, flags,
                                 {.kind = detail::reflected_value_kind<property_type>(),
                                  .getter = [](void*, const void* object, value& output) -> error {
-                                   output.payload = std::invoke(
-                                       Member, *static_cast<const object_type*>(object));
+                                   output = detail::scalar_value(std::invoke(
+                                       Member, *static_cast<const object_type*>(object)));
                                    return error::success;
                                  },
                                  .setter = [](void*, void* object, const value& input) -> error {
+                                   auto decoded = detail::scalar_cast<property_type>(input);
+                                   if (!decoded)
+                                     return decoded.error();
                                    std::invoke(Member, *static_cast<object_type*>(object)) =
-                                       std::get<property_type>(input.payload);
+                                       std::move(*decoded);
                                    return error::success;
                                  }});
   }
@@ -111,18 +114,20 @@ public:
         id, name, flags,
         {.kind = detail::reflected_value_kind<property_type>(),
          .getter = [](void*, const void* object, value& output) -> error {
-           output.payload = std::invoke(Getter, *static_cast<const object_type*>(object));
+           output =
+               detail::scalar_value(std::invoke(Getter, *static_cast<const object_type*>(object)));
            return error::success;
          },
          .setter = [](void*, void* object, const value& input) -> error {
+           auto decoded = detail::scalar_cast<property_type>(input);
+           if (!decoded)
+             return decoded.error();
            if constexpr (std::is_void_v<std::invoke_result_t<decltype(Setter), object_type&,
                                                              const property_type&>>) {
-             std::invoke(Setter, *static_cast<object_type*>(object),
-                         std::get<property_type>(input.payload));
+             std::invoke(Setter, *static_cast<object_type*>(object), *decoded);
              return error::success;
            } else {
-             return std::invoke(Setter, *static_cast<object_type*>(object),
-                                std::get<property_type>(input.payload));
+             return std::invoke(Setter, *static_cast<object_type*>(object), *decoded);
            }
          }});
   }
@@ -132,13 +137,13 @@ public:
     return add<property_type>(id, name, property_flags::read_only,
                               {.kind = detail::reflected_value_kind<property_type>(),
                                .getter = [](void*, const void* object, value& output) -> error {
-                                 output.payload =
-                                     std::invoke(Getter, *static_cast<const object_type*>(object));
+                                 output = detail::scalar_value(
+                                     std::invoke(Getter, *static_cast<const object_type*>(object)));
                                  return error::success;
                                }});
   }
   /** 启用反射 JSON；缺失的非必填字段保留默认值，只读字段不持久化。 */
-  type_builder& serialization() noexcept {
+  type_builder& serialization(bool reject_unknown_fields = false) noexcept {
     static_assert(std::is_default_constructible_v<object_type>);
     if (committed_ || status_.failed())
       return *this;
@@ -147,6 +152,7 @@ public:
       return *this;
     }
     codec_.reflected_json = true;
+    codec_.reject_unknown_fields = reject_unknown_fields;
     codec_.construct = []() -> std::shared_ptr<void> { return std::make_shared<object_type>(); };
     return *this;
   }
@@ -182,13 +188,24 @@ public:
     }
     if constexpr (Encode != nullptr)
       codec_.encode =
-          [](const void* object) -> result<std::vector<std::byte>, serialization_diagnostic> {
-        return std::invoke(Encode, *static_cast<const object_type*>(object));
+          [](const registry_ref& registry,
+             const void* object) -> result<std::vector<std::byte>, serialization_diagnostic> {
+        if constexpr (std::is_invocable_v<decltype(Encode), const registry_ref&,
+                                          const object_type&>)
+          return std::invoke(Encode, registry, *static_cast<const object_type*>(object));
+        else
+          return std::invoke(Encode, *static_cast<const object_type*>(object));
       };
     if constexpr (Decode != nullptr)
-      codec_.decode = [](std::span<const std::byte> bytes)
+      codec_.decode = [](const registry_ref& registry, std::span<const std::byte> bytes)
           -> result<std::shared_ptr<void>, serialization_diagnostic> {
-        auto decoded = std::invoke(Decode, bytes);
+        auto decoded = [&] {
+          if constexpr (std::is_invocable_v<decltype(Decode), const registry_ref&,
+                                            std::span<const std::byte>>)
+            return std::invoke(Decode, registry, bytes);
+          else
+            return std::invoke(Decode, bytes);
+        }();
         if (!decoded)
           return std::move(decoded).error();
         return std::shared_ptr<void>{std::make_shared<object_type>(std::move(*decoded))};
@@ -233,7 +250,8 @@ private:
         binding.object_mutator = nullptr;
         binding.object_assign = nullptr;
       }
-      entries_.push_back({id, std::string(name), type_identity<Property>::guid(), flags, binding});
+      entries_.push_back({id, std::string(name),
+                          type_identity<detail::scalar_storage<Property>>::guid(), flags, binding});
     } catch (const std::bad_alloc&) {
       status_ = error::out_of_memory;
     } catch (...) {

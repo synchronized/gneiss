@@ -67,30 +67,36 @@ UV 允许负数和大于 1 的平铺坐标，不截断或取模；采样寻址�
 
 ## Material
 
-仅读写 `gneiss.material` v5，建议扩展名为 `.material.json`。v1–v4 和未知版本拒绝加载。
+仅读写 `gneiss.material` v6，建议扩展名为 `.material.json`。v1–v5 和未知版本拒绝加载。
+格式头独立保留，其余字段直接对应 `material_description` 的持久化成员：
 
 ```json
 {
   "format": "gneiss.material",
-  "version": 5,
-  "color": [1.0, 1.0, 1.0, 1.0],
-  "base_color_texture": null,
-  "metallic": 0.0,
-  "roughness": 1.0
+  "version": 6,
+  "parameters": {
+    "color": [1.0, 1.0, 1.0, 1.0],
+    "metallic": 0.0,
+    "roughness": 1.0,
+    "alpha_mode": 0
+  },
+  "texture_uris": ["", "", "", "", ""]
 }
 ```
 
-`color` 是线性 RGBA，各分量位于 0..1；`metallic` 与 `roughness` 必需且位于 0..1。
-`base_color_texture` 必需，为非空 URI 或 null。其余四槽 `metallic_roughness_texture`、
-`normal_texture`、`occlusion_texture`、`emissive_texture` 可以省略或为 null。
-可选参数包括 `normal_scale`（默认 1，有限值）、`occlusion_strength`（默认 1，0..1）、
-`emissive`（默认 `[0,0,0]`，线性 RGB 各分量 0..1）、`alpha_mode`（默认 `OPAQUE`，
-另支持 `MASK`、`BLEND`）、`double_sided`（默认 false）、`alpha_cutoff`（默认 0.5，有限非负）。
+`parameters` 与 `texture_uris` 必需，未知字段和重复字段拒绝。parameters 的成员可省略，
+保留 C++ 默认值。`color` 默认白色，为线性 RGBA，各分量位于 0..1；metallic 默认 0，
+roughness 默认 1，均位于 0..1。texture_uris 必须是五项字符串数组，顺序为
+base color、MR、normal、AO、emissive；空字符串表示没有纹理，不能使用 null。
+参数还包括 `normal_scale`（默认 1，有限值）、`occlusion_strength`（默认 1，0..1）、
+`emissive`（默认 `[0,0,0]`，线性 RGB 各分量 0..1）、`alpha_mode`（整数 0 opaque、1 mask、2 blend，默认 0）、
+`double_sided`（默认 false）、`alpha_cutoff`（默认 0.5，有限非负）。
+所有枚举保存为整数，超过底层整数范围或未定义的枚举值均拒绝。
 MR 的 G/B 通道分别保存粗糙度/金属度，AO 使用 R；基础颜色和自发光纹理使用 sRGB，其余使用 linear。
 作者材质只保存参数和 URI，不保存 RID 或后端对象。运行期材质及帧快照保留纹理依赖。
 
-`sampling` 省略时五槽均使用 UV0、linear、trilinear、repeat；提供时必须为五项数组，顺序为
-base color、MR、normal、AO、emissive，每项要求以下六个整数：
+`parameters.sampling` 省略时五槽均使用 UV0、linear、trilinear、repeat；提供时必须为五项数组，顺序为
+base color、MR、normal、AO、emissive，每项提供以下六个整数；缺失成员保留对应默认值：
 
 | 字段 | 值 |
 | --- | --- |
@@ -99,7 +105,7 @@ base color、MR、normal、AO、emissive，每项要求以下六个整数：
 | `mip_filter` | 0 禁用 Mip、1 nearest、2 linear |
 | `address_u` / `address_v` | 0 repeat、1 clamp、2 mirror |
 
-glTF 导入输出 v5，保留五类纹理、逐槽 UV/采样、Alpha 模式、双面及 COLOR_0。
+glTF 导入输出 v6，保留五类纹理、逐槽 UV/采样、Alpha 模式、双面及 COLOR_0。
 UV2 及以上显式拒绝；法线缺切线时按其所用 UV 集生成。透明由 Granit 在每 View 的不透明阶段后
 进行对象级排序；不保证相交三角形的精确透明顺序，不包含折射/OIT。
 GPU 使用统一包含 UV1/Color 的布局与对应标准变体；缺失顶点色补白色，基础颜色与 Alpha 各乘一次。

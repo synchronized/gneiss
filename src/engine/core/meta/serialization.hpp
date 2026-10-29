@@ -14,6 +14,31 @@ serialize_object(const registry_ref&, type_id, const void*) noexcept;
 GNEISS_API result<std::shared_ptr<void>, serialization_diagnostic>
 deserialize_object(const registry_ref&, type_id, std::span<const std::byte>) noexcept;
 
+/** 格式包装器使用：只遍历注册字段，跳过本类型自定义 codec，保留嵌套 codec 和校验。
+ * 类型必须显式启用 reflected_json。 */
+GNEISS_API result<std::vector<std::byte>, serialization_diagnostic>
+serialize_reflected_object(const registry_ref&, type_id, const void*) noexcept;
+GNEISS_API result<std::shared_ptr<void>, serialization_diagnostic>
+deserialize_reflected_object(const registry_ref&, type_id, std::span<const std::byte>) noexcept;
+template <class T>
+result<std::vector<std::byte>, serialization_diagnostic>
+serialize_reflected(const registry_ref& registry, const T& object) noexcept {
+  return serialize_reflected_object(registry, runtime_type_of<T>(), &object);
+}
+template <class T>
+result<T, serialization_diagnostic> deserialize_reflected(const registry_ref& registry,
+                                                          std::span<const std::byte> bytes) noexcept
+    try {
+  auto decoded = deserialize_reflected_object(registry, runtime_type_of<T>(), bytes);
+  if (!decoded)
+    return std::move(decoded).error();
+  return std::move(*std::static_pointer_cast<T>(*decoded));
+} catch (const std::bad_alloc&) {
+  return serialization_diagnostic{.error = error::out_of_memory};
+} catch (...) {
+  return serialization_diagnostic{.error = error::internal};
+}
+
 /** 返回编码后的字节；未知类型不隐式注册。 */
 template <class T>
 [[nodiscard]] result<std::vector<std::byte>, serialization_diagnostic>

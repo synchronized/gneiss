@@ -166,10 +166,17 @@ public:
   {
     return at(0);
   }
+  [[nodiscard]] bool is_resizable() const noexcept
+    requires(Kind == type_kind::sequence)
+  {
+    return readonly().access_->resize != nullptr;
+  }
   [[nodiscard]] error resize(std::size_t count) const noexcept
     requires(Mutable && Kind == type_kind::sequence)
   try {
     auto v = readonly();
+    if (!v.access_->resize)
+      return count == v.access_->size(v.data_) ? error::success : error::invalid_argument;
     v.access_->resize(target_.data_, count);
     return error::success;
   } catch (const std::bad_alloc&) {

@@ -2,8 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/meta/property.hpp"
+#include "engine/core/result.hpp"
 #include "engine/core/traits/type_identity.hpp"
 #include <algorithm>
+#include <array>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -21,7 +24,7 @@ struct type_access {
   engine::guid guid{};
   const type_access& (*element)(){};
   value (*read)(const void*){};
-  void (*write)(void*, const value&){};
+  error (*write)(void*, const value&){};
   void (*assign)(void*, void*){};
   std::size_t (*size)(const void*){};
   const void* (*at)(const void*, std::size_t){};
@@ -34,10 +37,37 @@ struct type_access {
   bool (*erase)(void*, std::string_view){};
   void (*clear)(void*){};
 };
+template <class T, bool = std::is_enum_v<T>> struct integer_base {
+  using type = T;
+};
+template <class T> struct integer_base<T, true> {
+  using type = std::underlying_type_t<T>;
+};
+template <class T> using integer_base_t = typename integer_base<T>::type;
+// 整数/枚举借用现有 64 位标量；写入前检查原生底层宽度，枚举定义域由业务校验。
+template <class T>
+using scalar_storage = std::conditional_t<
+    std::is_integral_v<integer_base_t<T>> && !std::is_same_v<T, bool>,
+    std::conditional_t<std::is_signed_v<integer_base_t<T>>, std::int64_t, std::uint64_t>, T>;
+template <class T> value scalar_value(const T& input) {
+  return value{static_cast<scalar_storage<T>>(input)};
+}
+template <class T> result<T> scalar_cast(const value& input) {
+  const auto* v = std::get_if<scalar_storage<T>>(&input.payload);
+  if (!v)
+    return error::invalid_argument;
+  if constexpr (std::is_integral_v<integer_base_t<T>> && !std::is_same_v<T, bool>) {
+    using Base = integer_base_t<T>;
+    if (*v < std::numeric_limits<Base>::lowest() || *v > std::numeric_limits<Base>::max())
+      return error::invalid_argument;
+  }
+  return static_cast<T>(*v);
+}
 template <class T, std::size_t Index = 1> constexpr value_kind reflected_value_kind() {
   if constexpr (Index == std::variant_size_v<value::storage_type>)
     return value_kind::invalid;
-  else if constexpr (std::is_same_v<T, std::variant_alternative_t<Index, value::storage_type>>)
+  else if constexpr (std::is_same_v<scalar_storage<T>,
+                                    std::variant_alternative_t<Index, value::storage_type>>)
     return static_cast<value_kind>(Index);
   else
     return reflected_value_kind<T, Index + 1>();
@@ -46,6 +76,10 @@ template <class T> struct container_traits {
   static constexpr type_kind kind = type_kind::object;
 };
 template <class T, class A> struct container_traits<std::vector<T, A>> {
+  static constexpr type_kind kind = type_kind::sequence;
+  using element = T;
+};
+template <class T, std::size_t N> struct container_traits<std::array<T, N>> {
   static constexpr type_kind kind = type_kind::sequence;
   using element = T;
 };
@@ -66,7 +100,7 @@ template <class T> const type_access& access_of() {
   static const type_access table = [] {
     type_access a;
     a.id = runtime_type_of<T>();
-    a.guid = type_identity<T>::guid();
+    a.guid = type_identity<scalar_storage<T>>::guid();
     a.scalar = reflected_value_kind<T>();
     a.kind = a.scalar != value_kind::invalid ? type_kind::scalar : container_traits<T>::kind;
     if constexpr (std::is_move_assignable_v<T>)
@@ -74,15 +108,22 @@ template <class T> const type_access& access_of() {
         *static_cast<T*>(target) = std::move(*static_cast<T*>(source));
       };
     if constexpr (reflected_value_kind<T>() != value_kind::invalid) {
-      a.read = [](const void* p) { return value{*static_cast<const T*>(p)}; };
-      a.write = [](void* p, const value& v) { *static_cast<T*>(p) = std::get<T>(v.payload); };
+      a.read = [](const void* p) { return scalar_value(*static_cast<const T*>(p)); };
+      a.write = [](void* p, const value& v) -> error {
+        auto decoded = scalar_cast<T>(v);
+        if (!decoded)
+          return decoded.error();
+        *static_cast<T*>(p) = std::move(*decoded);
+        return error::success;
+      };
     } else if constexpr (container_traits<T>::kind != type_kind::object) {
       using E = typename container_traits<T>::element;
       static_assert(std::is_default_constructible_v<E>,
                     "Container elements require default construction");
       a.element = &access_of<E>;
       if constexpr (container_traits<T>::kind == type_kind::sequence) {
-        static_assert(!std::is_same_v<E, bool>, "vector<bool> proxy references are not supported");
+        static_assert(std::is_lvalue_reference_v<decltype(std::declval<T&>()[0])>,
+                      "Proxy references are not supported");
         a.size = [](const void* p) { return static_cast<const T*>(p)->size(); };
         a.at = [](const void* p, std::size_t i) -> const void* {
           return std::addressof((*static_cast<const T*>(p))[i]);
@@ -90,7 +131,8 @@ template <class T> const type_access& access_of() {
         a.at_mut = [](void* p, std::size_t i) -> void* {
           return std::addressof((*static_cast<T*>(p))[i]);
         };
-        a.resize = [](void* p, std::size_t n) { static_cast<T*>(p)->resize(n); };
+        if constexpr (requires(T& v) { v.resize(std::size_t{}); })
+          a.resize = [](void* p, std::size_t n) { static_cast<T*>(p)->resize(n); };
       } else if constexpr (container_traits<T>::kind == type_kind::optional) {
         static_assert(container_traits<E>::kind != type_kind::optional,
                       "Direct nested optional has ambiguous JSON null representation");

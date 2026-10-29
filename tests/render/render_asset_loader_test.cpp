@@ -354,12 +354,7 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
                                   memory_file_system& memory) {
   using namespace gneiss::engine;
   std::string json =
-      R"({"format":"gneiss.material","version":5,"color":[0.25,0.5,0.75,0.5],"metallic":0.25,"roughness":0.75,"normal_scale":0.5,"occlusion_strength":0.25,"emissive":[0.25,0.5,0.75],"alpha_mode":"MASK","alpha_cutoff":0.25,"double_sided":true,)";
-  constexpr std::array names{"base_color_texture", "metallic_roughness_texture", "normal_texture",
-                             "occlusion_texture", "emissive_texture"};
-  for (const auto* name : names) {
-    json += "\"" + std::string(name) + "\":\"asset://textures/white.texture.json\",";
-  }
+      R"({"format":"gneiss.material","version":6,"parameters":{"color":[0.25,0.5,0.75,0.5],"metallic":0.25,"roughness":0.75,"normal_scale":0.5,"occlusion_strength":0.25,"emissive":[0.25,0.5,0.75],"alpha_mode":1,"alpha_cutoff":0.25,"double_sided":true,)";
   json += "\"sampling\":[";
   for (unsigned slot = 0; slot < 5U; ++slot) {
     if (slot != 0U) {
@@ -369,7 +364,8 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
             ",\"mag_filter\":0,\"min_filter\":1,\"mip_filter\":2,\"address_u\":" +
             std::to_string(slot % 3U) + ",\"address_v\":1}";
   }
-  json += "]}";
+  json +=
+      R"(]},"texture_uris":["asset://textures/white.texture.json","asset://textures/white.texture.json","asset://textures/white.texture.json","asset://textures/white.texture.json","asset://textures/white.texture.json"]})";
   memory.files["parameters.material.json"] = json;
   const auto matches = [](const material_data* value) {
     if (value == nullptr || value->parameters.color[0] != 0.25F ||
@@ -473,7 +469,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.5,-0.5,0],[0.5,-0.5,0],[0,0.5,0]],"uvs":[[0,0],[0,0],[0,0]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})");
   memory->files.emplace(
       "materials/default.material.json",
-      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0.25,0.5,0.75,1]})");
+      R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0.25,0.5,0.75,1]},"texture_uris":["","","","",""]})");
   memory->files.emplace("models/broken.mesh.json", "{");
   const std::string png_data(reinterpret_cast<const char*>(png_bytes.data()), png_bytes.size());
   memory->files.emplace("textures/white.png", png_data);
@@ -521,7 +517,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.5,-0.5,0],[0.5,-0.5,0],[0,0.5,0]],"uvs":[[0,0],[1,0],[0.5,1]],"normals":[[0,0,2],[0,0,1],[0,0,1]]})");
   memory->files.emplace(
       "materials/textured.material.json",
-      R"({"format":"gneiss.material","version":5,"color":[1,0.5,0.25,1],"base_color_texture":"asset://textures/white.texture.json","metallic":0.25,"roughness":0.75})");
+      R"({"format":"gneiss.material","version":6,"parameters":{"color":[1,0.5,0.25,1],"metallic":0.25,"roughness":0.75},"texture_uris":["asset://textures/white.texture.json","","","",""]})");
   add_indexed_mesh(*memory);
 
   gneiss::test_support::fixture_files file_system;
@@ -783,7 +779,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   memory->files["models/textured.mesh.json"] =
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-1,-1,0],[1,-1,0],[0,1,0]],"uvs":[[0,0],[1,0],[0.5,1]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})";
   memory->files["materials/textured.material.json"] =
-      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[0.2,0.4,0.6,1],"base_color_texture":"asset://textures/white.texture.json"})";
+      R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0.2,0.4,0.6,1]},"texture_uris":["asset://textures/white.texture.json","","","",""]})";
   const std::array reloads{
       gneiss::engine::asset_source{.uri = "asset://models/textured.mesh.json",
                                    .type = gneiss::engine::asset_type::mesh},

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/value_result.hpp"
+#include "engine/core/meta/instance.hpp"
 #include "engine/function/resource/detail/asset_decode.hpp"
+#include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/material/material_codec.hpp"
 #include <cstdio>
 #include <cstring>
@@ -19,9 +21,51 @@ std::vector<std::byte> bytes(std::string_view text) {
   std::memcpy(value.data(), text.data(), text.size());
   return value;
 }
+void native_material_contract() {
+  auto input = bytes(
+      R"({"format":"gneiss.material","version":6,"parameters":{},"texture_uris":["","","","",""]})");
+  auto material = decode_material(input);
+  check(material.ok());
+  auto root = meta::mutable_instance::from(*material);
+  check(root.ok());
+  auto parameters = root->property("parameters");
+  check(parameters.ok());
+  auto color = parameters->property("color");
+  check(color && color->read_value()->kind() == value_kind::vec4);
+  check(color->write_value(value{math::vector4{0.2F, 0.4F, 0.6F, 1}}).ok());
+  auto sampling = parameters->property("sampling")->as_sequence();
+  check(sampling && !sampling->is_resizable() && *sampling->size() == 5);
+  check(sampling->resize(4) == error::invalid_argument && sampling->resize(5).ok());
+  auto uv = sampling->at(0)->property("uv_set");
+  check(uv.ok());
+  check(uv->write_value(value{std::uint64_t{1} << 32}) == error::invalid_argument);
+  check(material->parameters.sampling[0].uv_set == 0);
+  auto encoded = encode_material(*material);
+  check(encoded.ok());
+  auto restored = decode_material(*encoded);
+  check(restored && restored->parameters.color == material->parameters.color);
+  const std::string text(reinterpret_cast<const char*>(encoded->data()), encoded->size());
+  check(text.find("\"parameters\"") != std::string::npos &&
+        text.find("base_color_texture") == std::string::npos);
+  for (
+      const auto malformed :
+      {R"({"format":"gneiss.material","version":5,"parameters":{},"texture_uris":["","","","",""]})",
+       R"({"format":"gneiss.material","version":6,"parameters":{},"texture_uris":[""]})",
+       R"({"format":"gneiss.material","version":6,"parameters":{"sampling":[{}]},"texture_uris":["","","","",""]})",
+       R"({"format":"gneiss.material","version":6,"parameters":{"alpha_mode":3},"texture_uris":["","","","",""]})",
+       R"({"format":"gneiss.material","version":6,"parameters":{"alpha_mode":4294967296},"texture_uris":["","","","",""]})",
+       R"({"format":"gneiss.material","version":6,"parameters":{"sampling":[{"uv_set":4294967296},{},{},{},{}]},"texture_uris":["","","","",""]})",
+       R"({"format":"gneiss.material","version":6,"parameters":{"color":[1,1,1]},"texture_uris":["","","","",""]})",
+       R"({"format":"gneiss.material","version":6,"parameters":{"unknown":1},"texture_uris":["","","","",""]})",
+       R"({"format":"gneiss.material","version":6,"parameters":{},"parameters":{},"texture_uris":["","","","",""]})"})
+    check(!decode_material(bytes(malformed)));
+  auto length_error = decode_material(
+      bytes(R"({"format":"gneiss.material","version":6,"parameters":{},"texture_uris":[]})"));
+  check(!length_error && length_error.error().path == "/texture_uris");
+}
 void run(std::size_t limit) {
   std::string text =
-      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,0,0,1]})";
+      R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[1,0,0,1]},"texture_uris":["","","","",""]})";
   text.resize(limit, ' ');
   auto old = std::make_shared<material_description>();
   asset_diagnostic diagnostic;
@@ -29,7 +73,7 @@ void run(std::size_t limit) {
   auto input = bytes(text);
   check(gneiss::test_support::assign_decoded(decode_material(input), *old, codec_diagnostic).ok());
   input = bytes(
-      R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[0,1,0,1],"base_color_texture":"asset://missing"})");
+      R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,1,0,1]},"texture_uris":["asset://missing","","","",""]})");
   auto current = std::make_shared<material_description>();
   check(gneiss::test_support::assign_decoded(decode_material(input), *current, codec_diagnostic)
             .ok());
@@ -67,6 +111,9 @@ void run(std::size_t limit) {
 }
 }
 int main() try {
+  check(register_material_reflection().ok());
+  check(meta::freeze().ok());
+  native_material_contract();
   run(1024U * 1024U);
   run(2U * 1024U * 1024U);
   return 0;

@@ -40,19 +40,28 @@ error set_camera(camera_properties& object, const float& scalar) {
 }
 }
 
+namespace {
+gneiss::engine::error validate_transform_value(const gneiss::engine::math::transform& value) {
+  return gneiss::engine::math::is_valid_transform(value) ? gneiss::engine::error::success
+                                                         : gneiss::engine::error::invalid_argument;
+}
+}
 gneiss::engine::error
 gneiss::engine::register_reflection(const gneiss::engine::meta::registry_ref& registry) {
-  auto operation = gneiss::engine::meta::type_builder<math::transform>{registry}
-                       .property<&get_transform<&math::transform::translation>,
-                                 &set_transform<&math::transform::translation, math::vector3>>(
-                           transform_translation_field, "translation")
-                       .property<&get_transform<&math::transform::rotation>,
-                                 &set_transform<&math::transform::rotation, math::quaternion>>(
-                           transform_rotation_field, "rotation")
-                       .property<&get_transform<&math::transform::scale>,
-                                 &set_transform<&math::transform::scale, math::vector3>>(
-                           transform_scale_field, "scale")
-                       .commit();
+  auto operation =
+      gneiss::engine::meta::type_builder<math::transform>{registry}
+          .property<&get_transform<&math::transform::translation>,
+                    &set_transform<&math::transform::translation, math::vector3>>(
+              transform_translation_field, "translation", meta::property_flags::required)
+          .property<&get_transform<&math::transform::rotation>,
+                    &set_transform<&math::transform::rotation, math::quaternion>>(
+              transform_rotation_field, "rotation", meta::property_flags::required)
+          .property<&get_transform<&math::transform::scale>,
+                    &set_transform<&math::transform::scale, math::vector3>>(
+              transform_scale_field, "scale", meta::property_flags::required)
+          .serialization()
+          .validate<&validate_transform_value>()
+          .commit();
   if (operation.failed())
     return operation;
   return gneiss::engine::meta::type_builder<camera_properties>{registry}

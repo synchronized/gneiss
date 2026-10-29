@@ -152,8 +152,7 @@ error mutable_instance::write_value(const value& input) const noexcept try {
   if (view_.access_ && view_.access_->write) {
     if (input.kind() != view_.scalar_kind_ || !valid_scalar(input))
       return error::invalid_argument;
-    view_.access_->write(data_, input);
-    return error::success;
+    return view_.access_->write(data_, input);
   }
   return write_property(view_.registry_, view_.parent_type_, view_.property_, parent_, input);
 } catch (const std::bad_alloc&) {

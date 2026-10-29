@@ -177,7 +177,7 @@ meta::type_builder<camera_description>{registry}
 ```
 
 属性名直接作为 JSON 字段名，支持 bool、int64、uint64、float、double、string、guid、
-vector3、quaternion；数学值按分量数组保存，GUID 使用规范小写带连字符文本。
+vector3、vector4、quaternion；数学值按分量数组保存，GUID 使用规范小写带连字符文本。
 属性的稳定身份由 `type_identity` 提供。支持独立注册的嵌套值对象及[容器视图](reflection-containers.md)列出的容器；不支持指针图。
 沿用已有属性访问边界：整数严格校验范围，浮点必须有限，字符串为无 NUL 的合法 UTF-8，
 GUID 值不能为 nil。四元数的归一化等业务约束由类型校验器决定。
@@ -310,3 +310,22 @@ auto snapshot = near->read_value(); // result<value>，拥有读取结果
 底层 find_object_property 仍用于实现成员地址访问；序列化器不再直接操作这些回调。
 
 容器注册、访问与 JSON 规则见[反射容器视图](reflection-containers.md)。
+
+
+## 原生描述与文件包装
+
+材质的 parameters、texture_uris 以及 Scene/Prefab 的普通对象字段直接注册原生成员。
+source_schema_version、author_json、dependencies 等运行状态不注册为持久化字段。
+Scene/Prefab 的组件动态分派和 Prefab 覆盖使用专门 codec；编辑器保存继续按 UUID 对齐旧对象，
+保留未知字段。Scene 的 parent 键仍映射原生 parent_uuid，不因本次内部迁移改变现有场景格式。
+
+`serialization(true)` 启用严格字段检查；默认 false 保留忽略未知字段行为，两者都拒绝重复键。
+自定义 codec 可接收首参数 `const registry_ref&`，收到当前调用表；不接收该参数的简单函数仍可注册。
+同时启用反射 JSON 和自定义 codec 后，格式包装器可调用 serialize_reflected/deserialize_reflected
+跳过本类型自定义函数、直接读写注册字段；嵌套 codec 和业务校验仍生效，不是绕过校验的入口。
+材质文件包装仅处理 format/version，直接读写 v6 原生描述，不再创建文件数据副本类型。
+无 registry 的材质入口使用已初始化并冻结的默认表；独立表需 register_material_reflection 后 freeze。
+
+原生窄整数和枚举通过现有 int64/uint64 标量访问，写入先检查原生底层范围；
+枚举定义域由所属类型 validate 校验。它们的属性 GUID 表示规范化后的整数存储类型。
+vector4 使用独立 vec4 标量身份和四分量 JSON 数组；旧 IPC 的四元数类型不承载 vector4。

@@ -6,6 +6,7 @@
 #include "engine/core/meta/registration.hpp"
 #include "engine/resource/scene/detail/description_codec.hpp"
 #include "engine/resource/scene/object_hierarchy.hpp"
+#include "engine/resource/scene/prefab_description.hpp"
 #include <cstring>
 #include <set>
 
@@ -100,29 +101,6 @@ yyjson_mut_val* make_uuid(yyjson_mut_doc* doc, gneiss::engine::guid value) {
   return yyjson_mut_strncpy(doc, text.data(), text.size());
 }
 
-template <std::size_t Size>
-[[nodiscard]] bool read_float_array(yyjson_val* object, const char* name, std::string_view path,
-                                    std::span<float, Size> output, scene_diagnostic& diagnostic) {
-  yyjson_val* array = yyjson_obj_get(object, name);
-  const std::string field_path = std::string(path) + "/" + name;
-  if (!yyjson_is_arr(array) || yyjson_arr_size(array) != Size) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, field_path, "数组长度或类型错误");
-    return false;
-  }
-  for (std::size_t index = 0; index < Size; ++index) {
-    yyjson_val* value = yyjson_arr_get(array, index);
-    const double number = yyjson_get_num(value);
-    if (!yyjson_is_num(value) || !std::isfinite(number) ||
-        std::abs(number) > std::numeric_limits<float>::max()) {
-      fail(diagnostic, gneiss::engine::error::invalid_argument,
-           field_path + "/" + std::to_string(index), "数值必须是有限 float");
-      return false;
-    }
-    output[index] = static_cast<float>(number);
-  }
-  return true;
-}
-
 [[nodiscard]] bool validate_transform(const gneiss::engine::math::transform& output,
                                       std::string_view path, scene_diagnostic& diagnostic) {
   const auto finite = [](const auto& values) {
@@ -145,24 +123,6 @@ template <std::size_t Size>
     return false;
   }
   return true;
-}
-
-[[nodiscard]] bool parse_transform(yyjson_val* value, std::string_view path,
-                                   gneiss::engine::math::transform& output,
-                                   scene_diagnostic& diagnostic) {
-  if (!yyjson_is_obj(value) ||
-      !read_float_array(value, "translation", path,
-                        gneiss::engine::math::components(output.translation), diagnostic) ||
-      !read_float_array(value, "rotation", path, gneiss::engine::math::components(output.rotation),
-                        diagnostic) ||
-      !read_float_array(value, "scale", path, gneiss::engine::math::components(output.scale),
-                        diagnostic)) {
-    if (diagnostic.error == gneiss::engine::error::success) {
-      fail(diagnostic, gneiss::engine::error::invalid_argument, path, "transform 必须是对象");
-    }
-    return false;
-  }
-  return validate_transform(output, path, diagnostic);
 }
 
 [[nodiscard]] bool validate_camera(const gneiss::engine::math::camera_settings& output,
@@ -241,46 +201,6 @@ template <std::size_t Size>
                                 gneiss::engine::object_description& output,
                                 scene_diagnostic& diagnostic) {
   const std::string path = "/objects/" + std::to_string(index);
-  if (!yyjson_is_obj(value) || !read_required_guid(value, "uuid", path, output.uuid, diagnostic)) {
-    if (diagnostic.error == gneiss::engine::error::success) {
-      fail(diagnostic, gneiss::engine::error::invalid_argument, path, "对象描述类型错误");
-    }
-    return false;
-  }
-  if (!output.uuid) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/uuid",
-         "UUID 必须是小写规范形式");
-    return false;
-  }
-  if (yyjson_val* name = yyjson_obj_get(value, "name"); name != nullptr) {
-    if (!yyjson_is_str(name)) {
-      fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/name",
-           "name 必须是字符串");
-      return false;
-    }
-    output.name = std::string(json_string(name));
-  }
-  yyjson_val* parent = yyjson_obj_get(value, "parent");
-  if (parent == nullptr) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/parent", "缺少 parent 字段");
-    return false;
-  }
-  if (yyjson_is_str(parent)) {
-    const auto parent_uuid = json_string(parent);
-    if (!is_canonical_uuid(parent_uuid) || !*gneiss::engine::guid::parse(parent_uuid)) {
-      fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/parent",
-           "父 UUID 格式错误");
-      return false;
-    }
-    output.parent_uuid = *gneiss::engine::guid::parse(parent_uuid);
-  } else if (!yyjson_is_null(parent)) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/parent",
-         "parent 必须是 UUID 或 null");
-    return false;
-  }
-  if (!parse_transform(yyjson_obj_get(value, "transform"), path + "/transform", output.transform,
-                       diagnostic))
-    return false;
   auto* prefab = yyjson_obj_get(value, "prefab");
   auto* components = yyjson_obj_get(value, "components");
   if (prefab) {
@@ -566,29 +486,49 @@ make_components(yyjson_mut_doc* document, const gneiss::engine::component_descri
   return array;
 }
 
-[[nodiscard]] yyjson_mut_val* make_author_object(yyjson_mut_doc* document,
-                                                 const gneiss::engine::object_description& source) {
-  auto* object = yyjson_mut_obj(document);
-  auto* transform = yyjson_mut_obj(document);
-  auto* components = yyjson_mut_arr(document);
-  if (object == nullptr || transform == nullptr || components == nullptr ||
-      !yyjson_mut_obj_add_val(document, object, "uuid", make_uuid(document, source.uuid)) ||
-      (!source.name.empty() &&
-       !yyjson_mut_obj_add_strncpy(document, object, "name", source.name.data(),
-                                   source.name.size())) ||
-      !put_value(document, object, "parent",
-                 source.parent_uuid ? make_uuid(document, *source.parent_uuid)
-                                    : yyjson_mut_null(document)) ||
-      !put_value(document, transform, "translation",
-                 make_float_array(document, source.transform.translation)) ||
-      !put_value(document, transform, "rotation",
-                 make_float_array(document, source.transform.rotation)) ||
-      !put_value(document, transform, "scale",
-                 make_float_array(document, source.transform.scale)) ||
-      !put_value(document, object, "transform", transform)) {
-    return nullptr;
+[[nodiscard]] yyjson_mut_val* make_author_object(yyjson_mut_doc* doc,
+                                                 const gneiss::engine::object_description&) {
+  return yyjson_mut_obj(doc);
+}
+// 覆盖注册字段但保留对象和 transform 内的未知扩展字段。
+gneiss::engine::error write_object_fields(yyjson_mut_doc* doc, yyjson_mut_val* target,
+                                          const gneiss::engine::object_description& source) {
+  using namespace gneiss::engine;
+  auto registry = meta::default_registry();
+  if (!registry)
+    return registry.error();
+  auto encoded = meta::serialize_reflected(*registry, source);
+  if (!encoded)
+    return encoded.error().error;
+  std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> parsed(
+      yyjson_read(reinterpret_cast<const char*>(encoded->data()), encoded->size(), 0),
+      &yyjson_doc_free);
+  if (!parsed)
+    return error::out_of_memory;
+  auto it = yyjson_obj_iter_with(yyjson_doc_get_root(parsed.get()));
+  while (auto* key = yyjson_obj_iter_next(&it)) {
+    auto* value = yyjson_obj_iter_get_val(key);
+    const auto* name = yyjson_get_str(key);
+    if (json_string(key) == "transform") {
+      auto* transform = yyjson_mut_obj_get(target, name);
+      if (!transform) {
+        transform = yyjson_mut_obj(doc);
+        if (!put_value(doc, target, name, transform))
+          return error::out_of_memory;
+      }
+      if (!yyjson_mut_is_obj(transform))
+        return error::invalid_state;
+      auto fields = yyjson_obj_iter_with(value);
+      while (auto* field = yyjson_obj_iter_next(&fields))
+        if (!put_value(doc, transform, yyjson_get_str(field),
+                       yyjson_val_mut_copy(doc, yyjson_obj_iter_get_val(field))))
+          return error::out_of_memory;
+    } else if (!put_value(doc, target, name, yyjson_val_mut_copy(doc, value)))
+      return error::out_of_memory;
   }
-  return put_value(document, object, "components", components) ? object : nullptr;
+  if (source.name.empty())
+    (void)yyjson_mut_obj_remove_key(target, "name");
+  return error::success;
 }
 
 [[nodiscard]] std::string type_id_text(gneiss::engine::guid id) {
@@ -638,10 +578,11 @@ make_components(yyjson_mut_doc* document, const gneiss::engine::component_descri
         } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector3>) {
           return yyjson_mut_obj_add_str(document, object, "kind", "vec3") &&
                  put_value(document, object, "value", make_float_array(document, payload));
-        } else {
+        } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::quaternion>) {
           return yyjson_mut_obj_add_str(document, object, "kind", "quaternion") &&
                  put_value(document, object, "value", make_float_array(document, payload));
-        }
+        } else
+          return false;
       },
       source.payload);
   return added ? object : nullptr;
@@ -670,6 +611,71 @@ make_prefab_overrides(yyjson_mut_doc* document,
     }
   }
   return array;
+}
+
+using gneiss::engine::error;
+using gneiss::engine::object_description;
+using gneiss::engine::result;
+namespace meta = gneiss::engine::meta;
+result<object_description, meta::serialization_diagnostic>
+decode_object(const meta::registry_ref& registry, std::span<const std::byte> bytes) {
+  auto object = meta::deserialize_reflected<object_description>(registry, bytes);
+  if (!object)
+    return std::move(object).error();
+  std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> doc(
+      yyjson_read(reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0), &yyjson_doc_free);
+  if (!doc)
+    return meta::serialization_diagnostic{.error = error::out_of_memory};
+  scene_diagnostic diagnostic;
+  if (!parse_object(yyjson_doc_get_root(doc.get()), 0, *object, diagnostic)) {
+    if (diagnostic.path.starts_with("/objects/0"))
+      diagnostic.path.erase(0, 10);
+    return meta::serialization_diagnostic{diagnostic.byte_offset, std::move(diagnostic.path),
+                                          std::move(diagnostic.message), diagnostic.error};
+  }
+  return std::move(*object);
+}
+result<std::vector<std::byte>, meta::serialization_diagnostic>
+encode_object(const meta::registry_ref& registry, const object_description& source) {
+  auto fields = meta::serialize_reflected(registry, source);
+  if (!fields)
+    return std::move(fields).error();
+  std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> parsed(
+      yyjson_read(reinterpret_cast<const char*>(fields->data()), fields->size(), 0),
+      &yyjson_doc_free);
+  if (!parsed)
+    return meta::serialization_diagnostic{.error = error::out_of_memory};
+  std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> doc(
+      yyjson_doc_mut_copy(parsed.get(), nullptr), &yyjson_mut_doc_free);
+  if (!doc)
+    return meta::serialization_diagnostic{.error = error::out_of_memory};
+  auto* root = yyjson_mut_doc_get_root(doc.get());
+  if (source.prefab) {
+    if (!source.components.empty())
+      return meta::serialization_diagnostic{.error = error::invalid_argument};
+    auto* reference = yyjson_mut_obj(doc.get());
+    if (!reference ||
+        !put_value(
+            doc.get(), reference, "uri",
+            yyjson_mut_strncpy(doc.get(), source.prefab->uri.data(), source.prefab->uri.size())) ||
+        !put_value(doc.get(), reference, "overrides",
+                   make_prefab_overrides(doc.get(), source.prefab->overrides)) ||
+        !put_value(doc.get(), root, "prefab", reference))
+      return meta::serialization_diagnostic{.error = error::out_of_memory};
+  } else {
+    auto components = make_components(doc.get(), source.components);
+    if (!components)
+      return meta::serialization_diagnostic{.error = components.error()};
+    if (!put_value(doc.get(), root, "components", *components))
+      return meta::serialization_diagnostic{.error = error::out_of_memory};
+  }
+  std::size_t length{};
+  std::unique_ptr<char, decltype(&std::free)> text(yyjson_mut_write(doc.get(), 0, &length),
+                                                   &std::free);
+  if (!text)
+    return meta::serialization_diagnostic{.error = error::out_of_memory};
+  const auto bytes = std::as_bytes(std::span{text.get(), length});
+  return std::vector<std::byte>(bytes.begin(), bytes.end());
 }
 
 } // namespace
@@ -741,16 +747,31 @@ detail::parse_object_document(std::string_view json, bool prefab) noexcept {
       fail(out_diagnostic, engine::error::invalid_argument, "/objects", "objects 必须是数组");
       return out_diagnostic;
     }
-    parsed.objects.reserve(yyjson_arr_size(objects));
-    std::size_t index = 0;
-    std::size_t maximum = 0;
-    yyjson_val* object = nullptr;
-    yyjson_arr_foreach(objects, index, maximum, object) {
-      parsed.objects.emplace_back();
-      if (!parse_object(object, index, parsed.objects.back(), out_diagnostic)) {
-        return out_diagnostic;
+    auto registry = meta::default_registry();
+    if (!registry)
+      return scene_diagnostic{.error = registry.error()};
+    auto decoded =
+        [&]() -> result<std::vector<object_description>, meta::serialization_diagnostic> {
+      const auto bytes = std::as_bytes(std::span{json.data(), json.size()});
+      if (prefab) {
+        auto fields = meta::deserialize_reflected<prefab_description>(*registry, bytes);
+        if (!fields)
+          return std::move(fields).error();
+        return std::move(fields->objects);
       }
+      auto fields = meta::deserialize_reflected<scene_description>(*registry, bytes);
+      if (!fields)
+        return std::move(fields).error();
+      return std::move(fields->objects);
+    }();
+    if (!decoded) {
+      auto d = std::move(decoded).error();
+      return scene_diagnostic{.error = d.error,
+                              .byte_offset = d.byte_offset,
+                              .path = std::move(d.path),
+                              .message = std::move(d.message)};
     }
+    parsed.objects = std::move(*decoded);
     if (yyjson_obj_get(root, "prefab_instances")) {
       fail(out_diagnostic, engine::error::invalid_argument, "/prefab_instances",
            "独立 Prefab 实例数组已移除，请使用 objects[].prefab");
@@ -900,27 +921,9 @@ detail::serialize_object_document(guid uuid, std::optional<guid> root_uuid,
   for (std::size_t index = 0; index < object_list.size(); ++index) {
     const auto& source = object_list[index];
     yyjson_mut_val* object = yyjson_mut_arr_get(objects, index);
-    yyjson_mut_val* transform = yyjson_mut_obj_get(object, "transform");
-    if (!put_value(mutable_document.get(), object, "uuid",
-                   make_uuid(mutable_document.get(), source.uuid)) ||
-        !put_value(mutable_document.get(), object, "parent",
-                   source.parent_uuid ? make_uuid(mutable_document.get(), *source.parent_uuid)
-                                      : yyjson_mut_null(mutable_document.get())) ||
-        !put_value(mutable_document.get(), transform, "translation",
-                   make_float_array(mutable_document.get(), source.transform.translation)) ||
-        !put_value(mutable_document.get(), transform, "rotation",
-                   make_float_array(mutable_document.get(), source.transform.rotation)) ||
-        !put_value(mutable_document.get(), transform, "scale",
-                   make_float_array(mutable_document.get(), source.transform.scale))) {
-      return engine::error::out_of_memory;
-    }
-    if (source.name.empty()) {
-      (void)yyjson_mut_obj_remove_key(object, "name");
-    } else if (!put_value(mutable_document.get(), object, "name",
-                          yyjson_mut_strncpy(mutable_document.get(), source.name.data(),
-                                             source.name.size()))) {
-      return engine::error::out_of_memory;
-    }
+    const auto status = write_object_fields(mutable_document.get(), object, source);
+    if (status.failed())
+      return status;
     if (source.prefab) {
       if (!source.components.empty())
         return engine::error::invalid_argument;
@@ -1018,13 +1021,24 @@ meta::serialization_diagnostic check_mesh_renderer(const mesh_renderer_descripti
 }
 error register_component_descriptions(const meta::registry_ref& registry) noexcept {
   constexpr auto required = meta::property_flags::required;
-  auto status = meta::type_builder<math::camera_settings>{registry}
-                    .property<&math::camera_settings::fov>(meta::property_id{1}, "fov", required)
-                    .property<&math::camera_settings::near>(meta::property_id{2}, "near", required)
-                    .property<&math::camera_settings::far>(meta::property_id{3}, "far", required)
-                    .serialization()
-                    .validate<&check_camera>()
-                    .commit();
+  auto status =
+      meta::type_builder<object_description>{registry}
+          .property<&object_description::uuid>(meta::property_id{1}, "uuid", required)
+          .property<&object_description::name>(meta::property_id{2}, "name")
+          .property<&object_description::parent_uuid>(meta::property_id{3}, "parent", required)
+          .property<&object_description::transform>(meta::property_id{4}, "transform", required)
+          .serialization()
+          .serialization<&encode_object, &decode_object>()
+          .commit();
+  if (status.failed())
+    return status;
+  status = meta::type_builder<math::camera_settings>{registry}
+               .property<&math::camera_settings::fov>(meta::property_id{1}, "fov", required)
+               .property<&math::camera_settings::near>(meta::property_id{2}, "near", required)
+               .property<&math::camera_settings::far>(meta::property_id{3}, "far", required)
+               .serialization()
+               .validate<&check_camera>()
+               .commit();
   if (status.failed())
     return status;
   status =

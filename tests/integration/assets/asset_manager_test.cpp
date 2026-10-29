@@ -230,7 +230,7 @@ void decoder_selection() {
             error::success,
         "decoder registry");
   gneiss::engine::meta::serialization_binding codec;
-  codec.decode = [](std::span<const std::byte> bytes)
+  codec.decode = [](const meta::registry_ref&, std::span<const std::byte> bytes)
       -> result<std::shared_ptr<void>, meta::serialization_diagnostic> {
     if (bytes.front() == std::byte{'?'})
       return meta::serialization_diagnostic{7U, "/value", "invalid value", error::invalid_argument};

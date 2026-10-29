@@ -2,8 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/guid.hpp"
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 namespace gneiss::engine {
 /** 逻辑像素描述；压缩容器的实际 GPU 格式仍由所选变体描述。 */
@@ -13,6 +15,8 @@ enum class texture_filter : std::uint32_t { nearest, linear };
 enum class texture_mip_filter : std::uint32_t { none, nearest, linear };
 enum class texture_address : std::uint32_t { repeat, clamp, mirror };
 struct texture_sampling {
+  static constexpr std::string_view type_name = "texture_sampling";
+  static constexpr guid type_guid = guid::from_bytes({0x97, 3});
   std::uint32_t uv_set{};
   texture_filter mag_filter{texture_filter::linear};
   texture_filter min_filter{texture_filter::linear};

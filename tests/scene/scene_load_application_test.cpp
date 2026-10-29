@@ -54,7 +54,7 @@ struct fixture {
                  static_cast<std::streamsize>(bytes.size()));
     output.close();
     std::ofstream(root / "material.json")
-        << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,0,0,1]})";
+        << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[1,0,0,1]},"texture_uris":["","","","",""]})";
     std::ofstream(root / "scene.json")
         << R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://mesh.json","material":"asset://material.json"}}]}]})";
   }
@@ -134,7 +134,7 @@ void visual_failure(gneiss::engine::execution_mode mode) {
   check(app->scenes()->get_node_count(completion.scene, &nodes) == gneiss::engine::error::success &&
         nodes == 1U);
   std::ofstream(files.root / "material.json")
-      << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,1,0,1]})";
+      << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,1,0,1]},"texture_uris":["","","","",""]})";
   const std::array sources{
       gneiss::engine::asset_source{"asset://material.json", gneiss::engine::asset_type::material}};
   check(app->request_assets(sources, 1U, 2U, request, true) == gneiss::engine::error::success);
@@ -281,7 +281,7 @@ void run(gneiss::engine::execution_mode mode) {
             gneiss::engine::error::success &&
         count == 1U);
   std::ofstream(files.root / "material.json")
-      << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,1,0,1]})";
+      << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,1,0,1]},"texture_uris":["","","","",""]})";
   check(app->request_scene(uri, 1U, 4U, request) == gneiss::engine::error::success);
   (void)await_phase(scene_load_phase::ready);
   check(app->activate_scene(request, completion) == gneiss::engine::error::success);
@@ -406,7 +406,7 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
         count == 1U);
   // 更新完成后保持稳定资源引用；取消场景切换不撤回已更新的共享资源。
   std::ofstream(files.root / "material.json")
-      << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,1,0,1]})";
+      << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,1,0,1]},"texture_uris":["","","","",""]})";
   (void)prepare();
   check(selected(gneiss::engine::asset_type::material, "asset://material.json") == material);
   check(app->cancel_scene(request) == gneiss::engine::error::success);
@@ -466,7 +466,7 @@ void shared_texture_versions(gneiss::engine::execution_mode mode) {
       << R"({"format":"gneiss.texture","version":2,"source":"asset://image.ktx2","color_space":"srgb","usage":"default"})";
   for (const auto* name : {"material.json", "other.json"}) {
     std::ofstream(files.root / name)
-        << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"color":[1,1,1,1],"base_color_texture":"asset://texture.json"})";
+        << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[1,1,1,1]},"texture_uris":["asset://texture.json","","","",""]})";
   }
   std::ofstream(files.root / "scene.json")
       << R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[)"
