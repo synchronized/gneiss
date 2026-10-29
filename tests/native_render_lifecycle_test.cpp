@@ -17,6 +17,9 @@ int main() try {
     return 1;
   auto& resources = first->render();
   auto& other = second->render();
+  auto completion = resources.try_take_required_completion();
+  if (!completion || completion->has_value())
+    return 30;
   const std::array vertices{native::mesh_vertex{{-0.5F, -0.5F, 0.0F}, {0.0F, 0.0F}},
                             native::mesh_vertex{{0.5F, -0.5F, 0.0F}, {1.0F, 0.0F}},
                             native::mesh_vertex{{0.0F, 0.5F, 0.0F}, {0.5F, 1.0F}}};

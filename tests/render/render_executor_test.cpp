@@ -41,8 +41,8 @@ bool resumable_command_allows_frames(gneiss::engine::error terminal) {
   }
   lifetime.reset();
   const bool began = started->wait(observed, std::chrono::seconds(2));
-  render_command_completion premature;
-  const bool no_completion = !executor.try_take_command_completion(premature);
+  std::optional<render_command_completion> premature;
+  const bool no_completion = !(premature = executor.try_take_command_completion());
   const bool alive = !retained.expired();
   std::uint64_t frame{};
   const auto submitted = gneiss::test_support::assign_value(
@@ -51,18 +51,18 @@ bool resumable_command_allows_frames(gneiss::engine::error terminal) {
     frame_executed.store(true);
   }
   const auto flushed = executor.flush();
-  render_command_completion completion;
-  const bool completed = executor.try_take_command_completion(completion);
-  render_frame_completion drawn;
-  const bool rendered = executor.try_take_frame_completion(drawn);
+  std::optional<render_command_completion> completion;
+  const bool completed = (completion = executor.try_take_command_completion()).has_value();
+  std::optional<render_frame_completion> drawn;
+  const bool rendered = (drawn = executor.try_take_frame_completion()).has_value();
   const auto stats = executor.query_stats();
   executor.stop();
   return began && no_completion && alive && submitted == gneiss::engine::error::success &&
-         flushed == gneiss::engine::error::success && completed && completion.sequence == command &&
-         completion.status == terminal && rendered && drawn.sequence == frame &&
-         drawn.status == gneiss::engine::error::success && stats.submitted_commands == 1U &&
-         stats.executed_commands == 1U && retained.expired() &&
-         !executor.try_take_command_completion(completion);
+         flushed == gneiss::engine::error::success && completed &&
+         completion->sequence == command && completion->status == terminal && rendered &&
+         drawn->sequence == frame && drawn->status == gneiss::engine::error::success &&
+         stats.submitted_commands == 1U && stats.executed_commands == 1U && retained.expired() &&
+         !(completion = executor.try_take_command_completion());
 }
 } // namespace
 
@@ -72,6 +72,10 @@ int main() {
     return 24;
   }
   using namespace gneiss::engine;
+  threaded_render_executor empty_executor;
+  if (empty_executor.try_take_frame_completion() || empty_executor.try_take_command_completion() ||
+      empty_executor.query_command_status())
+    return 25;
   render_frame_packet inline_packet;
   inline_packet.window.width = 7U;
   inline_render_executor inline_executor(
@@ -160,9 +164,9 @@ int main() {
   }
 
   std::vector<render_frame_completion> completions;
-  render_frame_completion completion;
-  while (executor.try_take_frame_completion(completion)) {
-    completions.push_back(completion);
+  std::optional<render_frame_completion> completion;
+  while ((completion = executor.try_take_frame_completion())) {
+    completions.push_back(std::move(*completion));
   }
   const auto stats = executor.query_stats();
   if (executed != std::vector<std::uint32_t>{1U, 3U} || completions.size() != 3U ||
@@ -216,11 +220,11 @@ int main() {
     std::unique_lock lock(mutex);
     ready.wait(lock, [&] { return command_started; });
   }
-  render_command_status command_status;
-  if (!executor.query_command_status(command_status) || !command_status.active ||
-      command_status.sequence != command_sequence ||
-      command_status.progress.stage != render_command_stage::uploading ||
-      command_status.progress.completed_work != 4U) {
+  std::optional<render_command_status> command_status;
+  if (!(command_status = executor.query_command_status()) || !command_status->active ||
+      command_status->sequence != command_sequence ||
+      command_status->progress.stage != render_command_stage::uploading ||
+      command_status->progress.completed_work != 4U) {
     return 9;
   }
   {
@@ -231,15 +235,15 @@ int main() {
   if (executor.flush() != gneiss::engine::error::success) {
     return 10;
   }
-  render_command_completion command_completion;
-  if (!executor.try_take_command_completion(command_completion) ||
-      command_completion.sequence != command_sequence ||
-      command_completion.status != gneiss::engine::error::success ||
-      command_completion.progress.stage != render_command_stage::completed ||
-      command_completion.progress.completed_work != 4U ||
-      !executor.query_command_status(command_status) || command_status.active ||
-      command_status.sequence != command_sequence ||
-      command_status.progress.stage != render_command_stage::completed) {
+  std::optional<render_command_completion> command_completion;
+  if (!(command_completion = executor.try_take_command_completion()) ||
+      command_completion->sequence != command_sequence ||
+      command_completion->status != gneiss::engine::error::success ||
+      command_completion->progress.stage != render_command_stage::completed ||
+      command_completion->progress.completed_work != 4U ||
+      !(command_status = executor.query_command_status()) || command_status->active ||
+      command_status->sequence != command_sequence ||
+      command_status->progress.stage != render_command_stage::completed) {
     return 11;
   }
   std::uint64_t failed_sequence = 0U;
@@ -250,17 +254,17 @@ int main() {
           }),
           failed_sequence) != gneiss::engine::error::success ||
       executor.flush() != gneiss::engine::error::success ||
-      !executor.try_take_command_completion(command_completion) ||
-      command_completion.sequence != failed_sequence ||
-      command_completion.status != gneiss::engine::error::invalid_state ||
-      command_completion.progress.completed_work != 1U ||
-      command_completion.progress.total_work != 3U || !executor.is_running()) {
+      !(command_completion = executor.try_take_command_completion()) ||
+      command_completion->sequence != failed_sequence ||
+      command_completion->status != gneiss::engine::error::invalid_state ||
+      command_completion->progress.completed_work != 1U ||
+      command_completion->progress.total_work != 3U || !executor.is_running()) {
     return 12;
   }
   executor.record_skipped_frame_build();
   const auto final_stats = executor.query_stats();
   if (final_stats.submitted_commands != 2U || final_stats.executed_commands != 2U ||
-      final_stats.rejected_commands != 0U || command_completion.progress.total_work != 3U) {
+      final_stats.rejected_commands != 0U || command_completion->progress.total_work != 3U) {
     return 13;
   }
   if (final_stats.skipped_frame_builds != 1U) {
@@ -349,10 +353,10 @@ int main() {
       !signal->wait(observed, std::chrono::seconds(2))) {
     return 22;
   }
-  render_command_completion notified;
-  if (!required_executor.try_take_command_completion(notified) ||
-      notified.sequence != notified_sequence ||
-      notified.status != gneiss::engine::error::internal) {
+  std::optional<render_command_completion> notified;
+  if (!(notified = required_executor.try_take_command_completion()) ||
+      notified->sequence != notified_sequence ||
+      notified->status != gneiss::engine::error::internal) {
     return 23;
   }
   required_executor.stop();
@@ -369,9 +373,9 @@ int main() {
       once_executor.flush() != gneiss::engine::error::success) {
     return 25;
   }
-  render_command_completion once;
-  if (!once_executor.try_take_command_completion(once) || calls != 1U ||
-      once.status != gneiss::engine::error::not_ready || once.sequence != once_sequence) {
+  std::optional<render_command_completion> once;
+  if (!(once = once_executor.try_take_command_completion()) || calls != 1U ||
+      once->status != gneiss::engine::error::not_ready || once->sequence != once_sequence) {
     return 26;
   }
   return 0;

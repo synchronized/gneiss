@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <utility>
 
 namespace gneiss::engine {
@@ -120,9 +121,10 @@ public:
   [[nodiscard]] result<std::uint64_t>
   submit_command(render_command_callback command,
                  render_command_policy policy = render_command_policy::once) noexcept;
-  [[nodiscard]] bool try_take_frame_completion(render_frame_completion& output) noexcept;
-  [[nodiscard]] bool try_take_command_completion(render_command_completion& output) noexcept;
-  [[nodiscard]] bool query_command_status(render_command_status& output) const noexcept;
+  /** 线程安全领取；空队列返回空值，执行错误保存在完成记录的 status 中。 */
+  [[nodiscard]] std::optional<render_frame_completion> try_take_frame_completion() noexcept;
+  [[nodiscard]] std::optional<render_command_completion> try_take_command_completion() noexcept;
+  [[nodiscard]] std::optional<render_command_status> query_command_status() const noexcept;
   [[nodiscard]] render_queue_stats query_stats() const noexcept;
   void record_skipped_frame_build() noexcept;
   void set_completion_notification(std::shared_ptr<progress_notification> notification) noexcept;

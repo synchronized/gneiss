@@ -657,9 +657,11 @@ gneiss::engine::error application::capture_frame(std::uint32_t width, std::uint3
     if (result != gneiss::engine::error::success) {
       return result;
     }
-    gneiss::engine::render_frame_completion completed;
-    if (!storage_->render_service_->try_take_required_completion(completed) ||
-        completed.sequence != sequence || completed.status != gneiss::engine::error::success) {
+    auto completed = storage_->render_service_->try_take_required_completion();
+    if (!completed)
+      return completed.error();
+    if (!*completed || (*completed)->sequence != sequence ||
+        (*completed)->status != gneiss::engine::error::success) {
       return gneiss::engine::error::internal;
     }
     output = std::move(*image);

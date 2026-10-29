@@ -66,7 +66,8 @@ public:
   [[nodiscard]] result<std::uint64_t>
   submit(render_frame_packet packet,
          render_frame_policy policy = render_frame_policy::replaceable) noexcept;
-  [[nodiscard]] bool try_take_required_completion(render_frame_completion& completion) noexcept;
+  [[nodiscard]] result<std::optional<render_frame_completion>>
+  try_take_required_completion() noexcept;
   [[nodiscard]] render_queue_stats query_performance_stats() const noexcept;
   /** 仅在 initialize 完成后由宿主读取；设备重建必须重新发布。 */
   [[nodiscard]] texture_prepare_profile texture_profile() const noexcept {
@@ -868,10 +869,9 @@ engine::error render_service::implementation::initialize(
     static_cast<void>(executor_.flush());
   }
 
-  render_command_completion completion;
-  const auto has_completion = executor_.try_take_command_completion(completion);
-  if (!submit_result || !has_completion || completion.sequence != *submit_result ||
-      completion.status != engine::error::success) {
+  auto completion = executor_.try_take_command_completion();
+  if (!submit_result || !completion || completion->sequence != *submit_result ||
+      completion->status != engine::error::success) {
     granit::renderer_resource_stats ignored{};
     if (executor_
             .submit_command(
@@ -881,7 +881,7 @@ engine::error render_service::implementation::initialize(
     }
     executor_.stop();
     return !submit_result ? submit_result.error()
-                          : (has_completion ? completion.status : engine::error::internal);
+                          : (completion ? completion->status : engine::error::internal);
   }
   return initialize_result;
 }
@@ -920,30 +920,28 @@ error render_service::implementation::request_environment(
 }
 
 engine::error render_service::implementation::collect_completions() noexcept {
-  render_command_completion command;
-  while (executor_.try_take_command_completion(command)) {
-    if (command.status.failed())
-      return command.status;
+  while (auto command = executor_.try_take_command_completion()) {
+    if (command->status.failed())
+      return command->status;
   }
-  render_frame_completion completion;
-  while (executor_.try_take_frame_completion(completion)) {
+  while (auto completion = executor_.try_take_frame_completion()) {
     if (recycled_frame_packets_.size() < 3U) {
-      recycled_frame_packets_.push_back(std::move(completion.reusable_packet));
+      recycled_frame_packets_.push_back(std::move(completion->reusable_packet));
     }
-    if (completion.policy == render_frame_policy::required) {
-      required_frame_completions_.push_back({.sequence = completion.sequence,
-                                             .status = completion.status,
-                                             .execution = completion.execution,
-                                             .dropped = completion.dropped,
-                                             .policy = completion.policy,
+    if (completion->policy == render_frame_policy::required) {
+      required_frame_completions_.push_back({.sequence = completion->sequence,
+                                             .status = completion->status,
+                                             .execution = completion->execution,
+                                             .dropped = completion->dropped,
+                                             .policy = completion->policy,
                                              .reusable_packet = {}});
     }
-    if (completion.dropped) {
+    if (completion->dropped) {
       continue;
     }
-    pending_recreate_ = pending_recreate_ || completion.execution.needs_recreate;
-    if (completion.status != engine::error::success) {
-      return completion.status;
+    pending_recreate_ = pending_recreate_ || completion->execution.needs_recreate;
+    if (completion->status != engine::error::success) {
+      return completion->status;
     }
   }
   return engine::error::success;
@@ -980,14 +978,16 @@ result<std::uint64_t> render_service::implementation::submit(render_frame_packet
   return executor_.submit_frame(std::move(packet), policy);
 }
 
-bool render_service::implementation::try_take_required_completion(
-    render_frame_completion& completion) noexcept {
-  if (collect_completions() != engine::error::success || required_frame_completions_.empty()) {
-    return false;
-  }
-  completion = std::move(required_frame_completions_.front());
+result<std::optional<render_frame_completion>>
+render_service::implementation::try_take_required_completion() noexcept {
+  const auto status = collect_completions();
+  if (status.failed())
+    return status;
+  if (required_frame_completions_.empty())
+    return std::optional<render_frame_completion>{};
+  auto completion = std::move(required_frame_completions_.front());
   required_frame_completions_.pop_front();
-  return true;
+  return std::optional<render_frame_completion>{std::move(completion)};
 }
 
 render_queue_stats render_service::implementation::query_performance_stats() const noexcept {
@@ -1028,8 +1028,7 @@ render_service::implementation::shutdown(granit::renderer_resource_stats& stats)
   if (submit_result.ok()) {
     static_cast<void>(executor_.flush());
   }
-  render_command_completion completion;
-  const auto has_completion = executor_.try_take_command_completion(completion);
+  auto completion = executor_.try_take_command_completion();
   executor_.stop();
   recycled_frame_packets_.clear();
   required_frame_completions_.clear();
@@ -1039,10 +1038,10 @@ render_service::implementation::shutdown(granit::renderer_resource_stats& stats)
   if (!submit_result) {
     return submit_result.error();
   }
-  if (!has_completion || completion.sequence != *submit_result) {
+  if (!completion || completion->sequence != *submit_result) {
     return engine::error::internal;
   }
-  return completion.status;
+  return completion->status;
 }
 
 engine::error render_service::implementation::initialize_gpu(
@@ -1672,8 +1671,9 @@ result<std::uint64_t> render_service::submit(render_frame_packet packet,
                                              render_frame_policy policy) noexcept {
   return impl_->submit(std::move(packet), policy);
 }
-bool render_service::try_take_required_completion(render_frame_completion& completion) noexcept {
-  return impl_->try_take_required_completion(completion);
+result<std::optional<render_frame_completion>>
+render_service::try_take_required_completion() noexcept {
+  return impl_->try_take_required_completion();
 }
 render_queue_stats render_service::query_performance_stats() const noexcept {
   return impl_->query_performance_stats();

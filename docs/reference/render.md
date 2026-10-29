@@ -168,3 +168,11 @@ Application、Loader、UI 和帧构建使用 `render_service` 的 RID 操作及�
 
 服务不可复制或移动；GPU 工作仍由原有渲染执行器调度。宿主必须在关闭平台前调用 shutdown，
 借用的日志队列应覆盖服务关闭过程。当前仍只有 Granit 实现，PImpl 不代表已经支持运行时切换后端。
+
+## 完成结果领取
+
+执行器的 `try_take_frame_completion()`、`try_take_command_completion()` 返回 `std::optional`，
+空值表示尚无可领取记录；领取成功移出队列。执行失败仍返回包含序号、统计和 `status` 的记录。
+`query_command_status()` 返回可选的状态快照，不消费完成记录。
+服务的 `try_take_required_completion()` 返回 `result<std::optional<render_frame_completion>>`：
+失败表示收集过程出错，成功的空值表示暂无必需帧，成功的非空值表示领取到记录。

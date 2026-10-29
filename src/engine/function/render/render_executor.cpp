@@ -333,43 +333,44 @@ threaded_render_executor::submit_command(render_command_callback command,
   }
 }
 
-bool threaded_render_executor::try_take_frame_completion(render_frame_completion& output) noexcept {
+std::optional<render_frame_completion>
+threaded_render_executor::try_take_frame_completion() noexcept {
   if (!state_) {
-    return false;
+    return std::nullopt;
   }
   std::lock_guard lock(state_->mutex);
   if (state_->completed_frames.empty()) {
-    return false;
+    return std::nullopt;
   }
-  output = std::move(state_->completed_frames.front());
+  auto output = std::move(state_->completed_frames.front());
   state_->completed_frames.pop_front();
-  return true;
+  return output;
 }
 
-bool threaded_render_executor::try_take_command_completion(
-    render_command_completion& output) noexcept {
+std::optional<render_command_completion>
+threaded_render_executor::try_take_command_completion() noexcept {
   if (!state_) {
-    return false;
+    return std::nullopt;
   }
   std::lock_guard lock(state_->mutex);
   if (state_->completed_commands.empty()) {
-    return false;
+    return std::nullopt;
   }
-  output = std::move(state_->completed_commands.front());
+  auto output = std::move(state_->completed_commands.front());
   state_->completed_commands.pop_front();
-  return true;
+  return output;
 }
 
-bool threaded_render_executor::query_command_status(render_command_status& output) const noexcept {
+std::optional<render_command_status>
+threaded_render_executor::query_command_status() const noexcept {
   if (!state_) {
-    return false;
+    return std::nullopt;
   }
   std::lock_guard lock(state_->mutex);
   if (!state_->has_command_status) {
-    return false;
+    return std::nullopt;
   }
-  output = state_->command_status;
-  return true;
+  return state_->command_status;
 }
 
 render_queue_stats threaded_render_executor::query_stats() const noexcept {

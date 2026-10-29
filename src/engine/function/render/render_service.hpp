@@ -9,6 +9,7 @@
 #include "engine/platform/native_window_info.hpp"
 #include "engine/resource/texture/texture_view.hpp"
 #include <memory>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -71,7 +72,9 @@ public:
   [[nodiscard]] result<std::uint64_t>
   submit(render_frame_packet packet,
          render_frame_policy policy = render_frame_policy::replaceable) noexcept;
-  [[nodiscard]] bool try_take_required_completion(render_frame_completion& completion) noexcept;
+  /** 领取必需帧完成记录；空值表示暂无记录，失败表示收集完成结果时出错。 */
+  [[nodiscard]] result<std::optional<render_frame_completion>>
+  try_take_required_completion() noexcept;
   [[nodiscard]] render_queue_stats query_performance_stats() const noexcept;
   /** initialize 完成后读取；设备重建后重新获取。 */
   [[nodiscard]] texture_prepare_profile texture_profile() const noexcept;

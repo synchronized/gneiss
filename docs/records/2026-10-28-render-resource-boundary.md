@@ -277,3 +277,12 @@ Windows Clang Debug 编译通过，30 项相关测试全部通过。新增直接
   git diff --check 通过。未运行大场景、GPU 图像验证、其他平台或远端 CI。
 - shutdown 失败时仍需保留资源统计，因此未机械转换为 result<stats>；
   完成队列、World/Scene/Meta 等其他接口尚待继续核查。
+
+## 完成队列值返回（2026-10-29）
+
+执行器帧/命令完成领取及命令状态查询已移除输出参数，使用 optional 值返回。
+Render 必需帧领取使用 result<optional<render_frame_completion>>，Runtime 传播收集错误。
+保留失败任务完成记录中的序号、进度和统计；新增空执行器和无窗口服务的空结果检查。
+
+验证：Windows Clang Debug 完整构建、45 项相关短测试通过（13.06 秒）；git diff --check 通过。
+未运行大场景、GPU 图像验证、浏览器构建或远端 CI。其余领域接口及失败附带统计的接口尚未全部迁移。

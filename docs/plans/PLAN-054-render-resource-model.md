@@ -438,3 +438,11 @@ Windows Clang Debug 编译及 30 项相关测试通过，见[统一加载验收�
 shutdown 的失败结果仍需伴随资源统计，暂保留该双输出契约；完成队列、World/Scene/Meta 的其他接口继续核查。
 
 验收：Windows Clang Debug 完整编译、45 项相关短测试通过；见[RID 与帧迁移记录](../records/2026-10-28-render-resource-boundary.md#rid-表与帧序号值返回2026-10-29)。
+
+## 完成队列值返回（2026-10-29）
+
+- [x] 执行器完成记录与命令状态改为 optional 值返回，保留失败任务的统计。
+- [x] Render 必需帧领取区分收集错误与空队列，Runtime 同步接入。
+- [x] 迁移队列测试并补充未初始化执行器、无窗口服务的空结果检查。
+
+其余 World/Scene/Meta 值输出接口及失败时仍需返回统计的接口继续核查。
