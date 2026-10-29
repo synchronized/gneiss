@@ -78,15 +78,13 @@ gneiss::engine::error runtime_property_editor::initialize(gneiss::engine::world&
   if (session_id == 0U || registry_ != nullptr) {
     return gneiss::engine::error::invalid_argument;
   }
-  gneiss::engine::meta::registry_ref registry;
-  const auto operation = gneiss::engine::create_property_registry(registry);
-  if (operation.failed()) {
-    return operation;
-  }
+  auto registry = gneiss::engine::create_property_registry();
+  if (!registry)
+    return registry.error();
   world_ = &world;
   inspection_ = &inspection;
   session_id_ = session_id;
-  registry_ = std::move(registry);
+  registry_ = std::move(*registry);
   return gneiss::engine::error::success;
 }
 

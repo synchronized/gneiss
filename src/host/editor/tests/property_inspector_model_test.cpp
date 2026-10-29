@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../../tests/support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/component_identity.hpp"
@@ -28,7 +29,8 @@ int main() {
   gneiss::scene_node_id entity_node;
   gneiss::scene_node_id transform_only_node;
   gneiss::editor::property_inspector_model inspector;
-  if (gneiss::engine::create_native(owner) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(gneiss::engine::create_native(), owner) !=
+          gneiss::engine::error::success ||
       owner->entity_create(entity) != gneiss::engine::error::success ||
       owner->entity_create(transform_only) != gneiss::engine::error::success ||
       inspector.initialize() != gneiss::engine::error::success) {

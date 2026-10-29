@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_application.hpp"
+#include "../support/value_result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
@@ -50,7 +51,8 @@ int main() try {
       gneiss::test_support::load_scene(*application, scene_uri, &scene) !=
           gneiss::engine::error::success ||
       scene == gneiss::scene_instance_id{} ||
-      application->native_world()->entity_count(entity_count) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(application->native_world()->entity_count(),
+                                         entity_count) != gneiss::engine::error::success ||
       entity_count != 2U ||
       application->scenes()->find_node(scene, triangle_uuid, triangle) !=
           gneiss::engine::error::success ||
@@ -98,7 +100,8 @@ int main() try {
       created_node == gneiss::null_scene_node_id ||
       application->scenes()->get_node_count(scene, &node_count) != gneiss::engine::error::success ||
       node_count != 3U ||
-      application->native_world()->entity_count(entity_count) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(application->native_world()->entity_count(),
+                                         entity_count) != gneiss::engine::error::success ||
       entity_count != 3U ||
       application->scenes()->get_node_info(scene, 2U, triangle_info) !=
           gneiss::engine::error::success ||
@@ -267,7 +270,8 @@ int main() try {
           gneiss::engine::error::invalid_handle ||
       application->scenes()->get_node_count(scene, &node_count) != gneiss::engine::error::success ||
       node_count != 2U ||
-      application->native_world()->entity_count(entity_count) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(application->native_world()->entity_count(),
+                                         entity_count) != gneiss::engine::error::success ||
       entity_count != 2U) {
     return 9;
   }
@@ -290,7 +294,8 @@ int main() try {
   if (second_application->scenes()->unload(scene) != gneiss::engine::error::invalid_handle ||
       application->scenes()->unload(scene) != gneiss::engine::error::success ||
       application->scenes()->unload(scene) != gneiss::engine::error::invalid_handle ||
-      application->native_world()->entity_count(entity_count) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(application->native_world()->entity_count(),
+                                         entity_count) != gneiss::engine::error::success ||
       entity_count != 0U) {
     return 10;
   }
@@ -311,8 +316,8 @@ int main() try {
       failing_application->scenes()->create_empty(empty_uuid, &scene) !=
           gneiss::engine::error::success ||
       failing_application->scenes()->unload(scene) != gneiss::engine::error::success ||
-      failing_application->native_world()->entity_count(entity_count) !=
-          gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(failing_application->native_world()->entity_count(),
+                                         entity_count) != gneiss::engine::error::success ||
       entity_count != 0U || failing_application->shutdown() != gneiss::engine::error::success) {
     return 12;
   }

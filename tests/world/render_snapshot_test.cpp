@@ -57,9 +57,11 @@ int run_tests() {
   gneiss::engine::math::transform mesh_transform = gneiss::engine::math::transform{};
   mesh_transform.translation[0] = 2.0F;
 
-  if (world.scene().create(gneiss::null_scene_node_id, camera_entity, &camera_node) !=
+  if (gneiss::test_support::assign_value(
+          world.scene().create(gneiss::null_scene_node_id, camera_entity), camera_node) !=
           gneiss::engine::error::success ||
-      world.scene().create(gneiss::null_scene_node_id, mesh_entity, &mesh_node) !=
+      gneiss::test_support::assign_value(
+          world.scene().create(gneiss::null_scene_node_id, mesh_entity), mesh_node) !=
           gneiss::engine::error::success ||
       world.scene().set_local(mesh_node, mesh_transform) != gneiss::engine::error::success) {
     return 1;
@@ -101,7 +103,8 @@ int run_tests() {
   const auto added_mesh = world.create_entity();
   world.emplace<gneiss::engine::mesh_renderer_component>(added_mesh, renderer);
   gneiss::scene_node_id added_node;
-  if (world.scene().create({}, added_mesh, &added_node).failed() ||
+  if (gneiss::test_support::assign_value(world.scene().create({}, added_mesh), added_node)
+          .failed() ||
       world.scene().get_local(added_node) == nullptr ||
       world.scene().get_local_for_entity(added_mesh) == nullptr ||
       gneiss::engine::build_render_snapshot(world, 1280U, 720U, snapshot).failed() ||

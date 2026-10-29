@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "../support/value_result.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/meta/serialization.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
@@ -34,7 +35,8 @@ int main() {
           e::error::invalid_handle ||
       output.size() != 1)
     return 1;
-  if (gneiss::engine::meta::create_registry(registry).failed() ||
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), registry)
+          .failed() ||
       e::register_material_reflection(registry).failed())
     return 2;
   if (gneiss::engine::meta::serialize(registry, material, output, diagnostic) !=
@@ -112,7 +114,8 @@ int main() {
   if (e::register_material_reflection(registry) != e::error::invalid_state)
     return 16;
   gneiss::engine::meta::registry_ref no_codec;
-  if (gneiss::engine::meta::create_registry(no_codec).failed() ||
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), no_codec)
+          .failed() ||
       gneiss::engine::meta::type_builder<probe>{no_codec}.commit().failed() ||
       gneiss::engine::meta::freeze(no_codec).failed())
     return 17;

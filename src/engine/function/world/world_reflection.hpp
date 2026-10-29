@@ -17,8 +17,8 @@ struct camera_properties {
   bool is_primary{};
 };
 
-/** 创建冻结的内置组件注册表；失败保持输出，组件读写入口验证 World 实体有效性和所属线程。 */
-[[nodiscard]] GNEISS_API error create_property_registry(meta::registry_ref&) noexcept;
+/** 返回冻结的内置组件注册表；组件读写入口验证 World 实体有效性和所属线程。 */
+[[nodiscard]] GNEISS_API result<meta::registry_ref> create_property_registry() noexcept;
 [[nodiscard]] GNEISS_API guid transform_property_type() noexcept;
 [[nodiscard]] GNEISS_API guid camera_property_type() noexcept;
 /** 在 World 所属线程定位内建组件；读出副本后访问，写入成功才提交。不会保留对象指针。

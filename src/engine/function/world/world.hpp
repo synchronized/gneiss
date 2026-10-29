@@ -3,7 +3,7 @@
 
 #pragma once
 #include "engine/core/entity_id.hpp"
-#include "engine/core/error.hpp"
+#include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/render/render_snapshot.hpp"
@@ -26,8 +26,8 @@ public:
   [[nodiscard]] bool is_owner_thread() const noexcept;
   [[nodiscard]] error entity_create(entity_id& out_entity) noexcept;
   [[nodiscard]] error entity_destroy(entity_id entity) noexcept;
-  [[nodiscard]] error entity_is_alive(entity_id entity, bool& out_is_alive) noexcept;
-  [[nodiscard]] error entity_count(uint64_t& out_count) noexcept;
+  [[nodiscard]] result<bool> entity_is_alive(entity_id entity) noexcept;
+  [[nodiscard]] result<std::uint64_t> entity_count() noexcept;
   [[nodiscard]] error entity_set_camera(entity_id entity, const math::camera_settings& camera,
                                         bool primary) noexcept;
   [[nodiscard]] error entity_configure_camera(entity_id entity,
@@ -76,6 +76,6 @@ struct GNEISS_API world_deleter {
   void operator()(engine::world* state) const noexcept;
 };
 using world_owner = std::unique_ptr<engine::world, world_deleter>;
-/** 场景域独占拥有 World；所属线程析构。失败不替换 owner。 */
-[[nodiscard]] GNEISS_API error create_native(world_owner& owner) noexcept;
+/** 创建独立 World 的拥有者；必须在所属线程析构。 */
+[[nodiscard]] GNEISS_API result<world_owner> create_native() noexcept;
 }

@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include "engine/core/error.hpp"
 #include "engine/core/meta/type.hpp"
+#include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
 #include <memory>
 
@@ -11,8 +11,8 @@ namespace gneiss::engine::meta {
 class type_registry_state;
 /** 原生注册表共享所有者；最后一个引用释放时销毁，借用元数据不得超过该生命周期。 */
 using registry_ref = std::shared_ptr<type_registry_state>;
-/** 创建注册表共享所有者；失败保持原输出。 */
-[[nodiscard]] GNEISS_API error create_registry(registry_ref& output) noexcept;
+/** 创建独立注册表，成功结果持有共享所有者。 */
+[[nodiscard]] GNEISS_API result<registry_ref> create_registry() noexcept;
 /** 深拷贝元数据；重复 GUID 或非空运行期 ID 返回 invalid_argument，冻结后禁止注册。 */
 [[nodiscard]] GNEISS_API error register_type(const registry_ref& state,
                                              const type_definition& desc) noexcept;
@@ -23,13 +23,12 @@ using registry_ref = std::shared_ptr<type_registry_state>;
 [[nodiscard]] GNEISS_API error register_type(const registry_ref&, const type_definition&,
                                              std::span<const property_binding>) noexcept;
 [[nodiscard]] GNEISS_API error freeze(const registry_ref& state) noexcept;
-[[nodiscard]] GNEISS_API error is_frozen(const registry_ref& state, bool& output) noexcept;
+[[nodiscard]] GNEISS_API result<bool> is_frozen(const registry_ref& state) noexcept;
 /** 冻结后查询函数表；失败保持输出，未登记能力返回 unsupported。 */
 [[nodiscard]] GNEISS_API error find_serialization(const registry_ref&, type_id,
                                                   serialization_binding&) noexcept;
-/** 冻结后返回类型数量；失败保持输出。 */
-[[nodiscard]] GNEISS_API error type_count(const registry_ref& registry,
-                                          std::uint32_t& output) noexcept;
+/** 冻结后返回类型数量；未冻结返回 not_ready。 */
+[[nodiscard]] GNEISS_API result<std::uint32_t> type_count(const registry_ref& registry) noexcept;
 /** 按稳定 GUID 字节顺序枚举冻结元数据，名称借用 Registry；失败保持输出。 */
 [[nodiscard]] GNEISS_API error describe_type_at(const registry_ref& registry, std::uint32_t index,
                                                 type_info& output) noexcept;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/meta/registration.hpp"
@@ -22,7 +23,8 @@ namespace {
 bool native_operations() {
   using namespace gneiss;
   gneiss::engine::world_owner owner;
-  if (gneiss::engine::create_native(owner) != gneiss::engine::error::success)
+  if (gneiss::test_support::assign_value(gneiss::engine::create_native(), owner) !=
+      gneiss::engine::error::success)
     return false;
   entity_id entity{};
   scene_node_id node{};
@@ -31,8 +33,12 @@ bool native_operations() {
   if (owner->entity_create(entity) != gneiss::engine::error::success ||
       owner->node_create(gneiss::scene_node_id{0}, gneiss::entity_id{entity}, node) !=
           gneiss::engine::error::success ||
-      owner->entity_is_alive(gneiss::entity_id{entity}, alive) != gneiss::engine::error::success ||
-      !alive || owner->entity_count(count) != gneiss::engine::error::success || count != 1)
+      gneiss::test_support::assign_value(owner->entity_is_alive(gneiss::entity_id{entity}),
+                                         alive) != gneiss::engine::error::success ||
+      !alive ||
+      gneiss::test_support::assign_value(owner->entity_count(), count) !=
+          gneiss::engine::error::success ||
+      count != 1)
     return false;
   gneiss::engine::math::transform local;
   local.translation = {2, 3, 4};
@@ -60,7 +66,8 @@ bool native_operations() {
   std::thread worker([&] { foreign = owner->entity_destroy(gneiss::entity_id{entity}); });
   worker.join();
   if (foreign != gneiss::engine::error::invalid_state ||
-      owner->entity_is_alive(gneiss::entity_id{entity}, alive) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(owner->entity_is_alive(gneiss::entity_id{entity}),
+                                         alive) != gneiss::engine::error::success ||
       !alive)
     return false;
   owner.reset();
@@ -74,7 +81,8 @@ int main() {
     return 20;
   namespace service = gneiss::engine;
   gneiss::engine::world_owner world{};
-  if (gneiss::engine::create_native(world) != gneiss::engine::error::success) {
+  if (gneiss::test_support::assign_value(gneiss::engine::create_native(), world) !=
+      gneiss::engine::error::success) {
     return 1;
   }
   std::uint64_t entity{};
@@ -84,7 +92,9 @@ int main() {
     return 2;
   }
   std::uint64_t count{};
-  if (world->entity_count(count) != gneiss::engine::error::success || count != 1U) {
+  if (gneiss::test_support::assign_value(world->entity_count(), count) !=
+          gneiss::engine::error::success ||
+      count != 1U) {
     return 3;
   }
   gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
@@ -108,7 +118,8 @@ int main() {
   }
   gneiss::engine::error wrong_thread{};
   gneiss::engine::meta::registry_ref reflection;
-  if (gneiss::engine::create_property_registry(reflection).failed())
+  if (gneiss::test_support::assign_value(gneiss::engine::create_property_registry(), reflection)
+          .failed())
     return 14;
   gneiss::engine::math::transform candidate_transform;
   gneiss::engine::value proposed;
@@ -143,15 +154,18 @@ int main() {
   }
   // 借用只在拥有者存活期使用；移动拥有者不改变对象地址。
   service::world_owner native;
-  if (service::create_native(native).failed())
+  if (gneiss::test_support::assign_value(service::create_native(), native).failed())
     return 14;
   const auto* original = native.get();
-  if (service::create_native(native) != service::error::invalid_state || native.get() != original)
+  auto independent = service::create_native();
+  if (!independent || independent->get() == original || native.get() != original)
     return 15;
   service::world_owner moved = std::move(native);
-  if (native || moved.get() != original || moved->entity_count(count).failed())
+  if (native || moved.get() != original ||
+      gneiss::test_support::assign_value(moved->entity_count(), count).failed())
     return 16;
-  std::thread worker([&] { wrong_thread = moved->entity_count(count); });
+  std::thread worker(
+      [&] { wrong_thread = gneiss::test_support::assign_value(moved->entity_count(), count); });
   worker.join();
   if (wrong_thread != service::error::invalid_state)
     return 17;

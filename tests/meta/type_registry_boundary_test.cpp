@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registration.hpp"
 
@@ -53,7 +54,8 @@ bool native_values() {
             return gneiss::engine::error::success;
           },
       .user_data = nullptr};
-  if (gneiss::engine::meta::create_registry(registry) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), registry) !=
+          gneiss::engine::error::success ||
       gneiss::engine::meta::register_type(
           registry, {.guid = id, .schema_version = 1, .name = "sample", .properties = fields}) !=
           gneiss::engine::error::success ||
@@ -160,15 +162,19 @@ int main() try {
   namespace reflection = gneiss::engine;
   // 原生对象不依赖公共句柄表；最后一个内部所有者释放后必须销毁。
   gneiss::engine::meta::registry_ref native;
-  if (gneiss::engine::meta::create_registry(native) != gneiss::engine::error::success || !native) {
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), native) !=
+          gneiss::engine::error::success ||
+      !native) {
     return 20;
   }
   const std::weak_ptr native_lifetime = native;
   std::uint32_t native_count = 99;
-  if (gneiss::engine::meta::type_count(native, native_count) != gneiss::engine::error::not_ready ||
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::type_count(native), native_count) !=
+          gneiss::engine::error::not_ready ||
       native_count != 99 ||
       gneiss::engine::meta::freeze(native) != gneiss::engine::error::success ||
-      gneiss::engine::meta::type_count(native, native_count) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(gneiss::engine::meta::type_count(native), native_count) !=
+          gneiss::engine::error::success ||
       native_count != 0) {
     return 21;
   }
@@ -178,7 +184,7 @@ int main() try {
     return 22;
   }
   gneiss::engine::meta::registry_ref state;
-  if (gneiss::engine::meta::create_registry(state).failed())
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), state).failed())
     return 1;
   const gneiss::engine::guid type_id{gneiss::engine::guid::from_bytes({1})};
   std::string name = "sample";
@@ -277,7 +283,9 @@ int main() try {
   }
   gneiss::engine::error query{};
   std::uint32_t count{};
-  std::thread worker([&] { query = gneiss::engine::meta::type_count(state, count); });
+  std::thread worker([&] {
+    query = gneiss::test_support::assign_value(gneiss::engine::meta::type_count(state), count);
+  });
   worker.join();
   if (query != gneiss::engine::error::success || count != 1U) {
     return 6;
@@ -286,7 +294,9 @@ int main() try {
   const std::weak_ptr lifetime = state;
   auto retained = state;
   state.reset();
-  if (lifetime.expired() || gneiss::engine::meta::type_count(retained, count).failed())
+  if (lifetime.expired() ||
+      gneiss::test_support::assign_value(gneiss::engine::meta::type_count(retained), count)
+          .failed())
     return 7;
   retained.reset();
   return lifetime.expired() ? 0 : 8;

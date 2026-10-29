@@ -406,7 +406,11 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
     auto operation =
         context.application->scenes()->get_node_count(context.scene, &scene_node_count);
     if (operation == gneiss::engine::error::success) {
-      operation = context.application->native_world()->entity_count(entity_count);
+      auto count = context.application->native_world()->entity_count();
+      if (!count)
+        operation = count.error();
+      else
+        entity_count = *count;
     }
     if (operation != gneiss::engine::error::success) {
       context.ipc_failure = operation;

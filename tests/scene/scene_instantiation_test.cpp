@@ -277,7 +277,8 @@ void run() {
         gneiss::engine::error::success);
   check(new_scene != gneiss::scene_instance_id{});
   std::uint64_t unchanged_count{};
-  check(gneiss::engine::error{active->native_world()->entity_count(unchanged_count)} ==
+  check(gneiss::engine::error{gneiss::test_support::assign_value(
+            active->native_world()->entity_count(), unchanged_count)} ==
             gneiss::engine::error::success &&
         unchanged_count == 1U);
   check(resources.get_material(gneiss::engine::asset_rid(old_material))->parameters.color[0] ==
@@ -299,7 +300,8 @@ void run() {
     author.instance_uuid = "00000000-0000-4000-8000-000000000077";
     const auto reads_before = files->reads;
     std::uint64_t baseline{};
-    check(candidate->native_world()->entity_count(baseline).ok());
+    check(gneiss::test_support::assign_value(candidate->native_world()->entity_count(), baseline)
+              .ok());
     gneiss::scene_node_id root;
     gneiss::engine::error foreign;
     std::thread worker([&] {
@@ -332,7 +334,9 @@ void run() {
     check(!root && candidate->native_world()->node_get_local_transform(replaced_root, queried) ==
                        gneiss::engine::error::invalid_handle);
     std::uint64_t count{};
-    check(candidate->native_world()->entity_count(count).ok() && count == baseline);
+    check(
+        gneiss::test_support::assign_value(candidate->native_world()->entity_count(), count).ok() &&
+        count == baseline);
     check(candidate->scenes()->remove_prefab_instance(new_scene, author.instance_uuid) ==
           gneiss::engine::error::not_found);
     check(files->reads == reads_before);
@@ -453,8 +457,8 @@ void run() {
   check(files->reads == snapshot_reads);
   active.swap(candidate);
   std::uint64_t count{};
-  check(gneiss::engine::error{active->native_world()->entity_count(count)} ==
-            gneiss::engine::error::success &&
+  check(gneiss::engine::error{gneiss::test_support::assign_value(
+            active->native_world()->entity_count(), count)} == gneiss::engine::error::success &&
         count == 3U);
   check(active->scenes()->get_node_count(old_scene, &count) ==
         gneiss::engine::error::invalid_handle);
@@ -477,11 +481,11 @@ void run() {
         gneiss::engine::error::not_ready);
   check(failed_instance == gneiss::scene_instance_id{});
   check(files->reads == failure_reads);
-  check(gneiss::engine::error{candidate->native_world()->entity_count(count)} ==
-            gneiss::engine::error::success &&
+  check(gneiss::engine::error{gneiss::test_support::assign_value(
+            candidate->native_world()->entity_count(), count)} == gneiss::engine::error::success &&
         count == 0U);
-  check(gneiss::engine::error{active->native_world()->entity_count(count)} ==
-            gneiss::engine::error::success &&
+  check(gneiss::engine::error{gneiss::test_support::assign_value(
+            active->native_world()->entity_count(), count)} == gneiss::engine::error::success &&
         count == 3U);
 }
 } // namespace

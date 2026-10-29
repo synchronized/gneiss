@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/system_scheduler.hpp"
@@ -91,10 +92,11 @@ int run_tests() {
     return 6;
   gneiss::scene_node_id parent{}, child{};
   auto& tree = first.scene();
-  if (tree.create({}, replacement, &parent).failed() ||
-      tree.create(parent, visible, &child).failed() || tree.get_entity(child) != visible ||
-      tree.destroy(parent).failed() || tree.get_local(child) != nullptr ||
-      !first.destroy_entity(visible) || first.destroy_entity(visible) || first.entity_count() != 1U)
+  if (gneiss::test_support::assign_value(tree.create({}, replacement), parent).failed() ||
+      gneiss::test_support::assign_value(tree.create(parent, visible), child).failed() ||
+      tree.get_entity(child) != visible || tree.destroy(parent).failed() ||
+      tree.get_local(child) != nullptr || !first.destroy_entity(visible) ||
+      first.destroy_entity(visible) || first.entity_count() != 1U)
     return 7;
   return 0;
 }

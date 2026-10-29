@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/value_result.hpp"
 #include "engine/core/meta/registration.hpp"
 #include <array>
 #include <cmath>
@@ -70,7 +71,8 @@ int main() try {
                                                 gneiss::engine::meta::property_flags::none,
                                                 "malformed"}};
   gneiss::engine::meta::registry_ref registry;
-  if (gneiss::engine::meta::create_registry(registry).failed() ||
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), registry)
+          .failed() ||
       gneiss::engine::meta::register_type(registry, {camera_type, {}, 1, "camera", fields})
           .failed())
     return 1;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/rid.hpp"
@@ -226,7 +227,9 @@ void run(gneiss::engine::execution_mode mode) {
   gneiss::engine::world* observed{};
   check((observed = app->native_world()) != nullptr && observed == old_world);
   std::uint64_t count{};
-  check(old_world->entity_count(count) == gneiss::engine::error::success && count == 1U);
+  check(gneiss::test_support::assign_value(old_world->entity_count(), count) ==
+            gneiss::engine::error::success &&
+        count == 1U);
   scene_load_completion completion;
   check(app->activate_scene(first + 100U, completion) == gneiss::engine::error::not_ready);
   check(app->activate_scene(first, completion) == gneiss::engine::error::success);
@@ -235,13 +238,15 @@ void run(gneiss::engine::execution_mode mode) {
   check((observed = app->native_world()) != nullptr && observed != old_world);
   check(app->cancel_scene(first) == gneiss::engine::error::not_ready);
   // 激活后的旧域由 session 延迟退役，期间不能接收下一次打开。
-  check(old_world->entity_count(count) == gneiss::engine::error::success && count == 1U);
+  check(gneiss::test_support::assign_value(old_world->entity_count(), count) ==
+            gneiss::engine::error::success &&
+        count == 1U);
   check(app->request_scene(uri, 1U, 2U, rejected) == gneiss::engine::error::not_ready &&
         rejected == 0U);
   (void)drive();
   // 旧域已销毁，native_world() 的借用指针不能再解引用。
   old_world = nullptr;
-  check(app->native_world()->entity_count(count).ok());
+  check(gneiss::test_support::assign_value(app->native_world()->entity_count(), count).ok());
 
   // ready 阶段仍可取消，不改写活动域；迟到请求身份不能取消后续请求。
   check(app->request_scene(uri, 1U, 2U, request) == gneiss::engine::error::success);
@@ -261,7 +266,7 @@ void run(gneiss::engine::execution_mode mode) {
   (void)await_phase(scene_load_phase::ready);
   check(app->cancel_scene(request).ok());
   check(drive().first);
-  check(observed->entity_count(count).ok() && count == 1U);
+  check(gneiss::test_support::assign_value(observed->entity_count(), count).ok() && count == 1U);
 
   // 视觉来源损坏不阻止结构 ready；取消仍保持旧 World。
   std::ofstream(files.root / "material.json") << "broken";
@@ -269,7 +274,9 @@ void run(gneiss::engine::execution_mode mode) {
   (void)await_phase(scene_load_phase::ready);
   check(app->cancel_scene(request) == gneiss::engine::error::success);
   check(drive().first);
-  check(observed->entity_count(count) == gneiss::engine::error::success && count == 1U);
+  check(gneiss::test_support::assign_value(observed->entity_count(), count) ==
+            gneiss::engine::error::success &&
+        count == 1U);
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,1,0,1]})";
   check(app->request_scene(uri, 1U, 4U, request) == gneiss::engine::error::success);
@@ -295,7 +302,9 @@ void run(gneiss::engine::execution_mode mode) {
         stopped = true;
       }
     }
-    check(stopped && observed->entity_count(count) == gneiss::engine::error::success &&
+    check(stopped &&
+          gneiss::test_support::assign_value(observed->entity_count(), count) ==
+              gneiss::engine::error::success &&
           count == 1U);
   }
   // 无渲染依赖的空场景不需要采用批次，也必须正常激活。
@@ -307,7 +316,9 @@ void run(gneiss::engine::execution_mode mode) {
   check(app->activate_scene(request, completion) == gneiss::engine::error::success);
   (void)drive();
   check((observed = app->native_world()) != nullptr);
-  check(observed->entity_count(count) == gneiss::engine::error::success && count == 0U);
+  check(gneiss::test_support::assign_value(observed->entity_count(), count) ==
+            gneiss::engine::error::success &&
+        count == 0U);
   check(app->request_scene(uri, 1U, 7U, request) == gneiss::engine::error::success);
   app.reset();
   check(scheduler.stats().retained == 0U);
@@ -380,12 +391,15 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   gneiss::engine::world* new_world{};
   check((new_world = app->native_world()) != nullptr && old_world != new_world);
   std::uint64_t count{};
-  check(old_world->entity_count(count) == gneiss::engine::error::success);
+  check(gneiss::test_support::assign_value(old_world->entity_count(), count) ==
+        gneiss::engine::error::success);
   check(!poll());
   // 旧域已销毁，native_world() 的借用指针不能再解引用。
   old_world = nullptr;
-  check(app->native_world()->entity_count(count).ok());
-  check(new_world->entity_count(count) == gneiss::engine::error::success && count == 1U);
+  check(gneiss::test_support::assign_value(app->native_world()->entity_count(), count).ok());
+  check(gneiss::test_support::assign_value(new_world->entity_count(), count) ==
+            gneiss::engine::error::success &&
+        count == 1U);
   // 更新完成后保持稳定资源引用；取消场景切换不撤回已更新的共享资源。
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[0,1,0,1]})";

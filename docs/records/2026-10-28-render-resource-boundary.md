@@ -286,3 +286,16 @@ Render 必需帧领取使用 result<optional<render_frame_completion>>，Runtime
 
 验证：Windows Clang Debug 完整构建、45 项相关短测试通过（13.06 秒）；git diff --check 通过。
 未运行大场景、GPU 图像验证、浏览器构建或远端 CI。其余领域接口及失败附带统计的接口尚未全部迁移。
+
+## World／Scene／Meta 基础值接口（2026-10-29）
+
+迁移 10 个基础入口：World、Meta、组件注册表的创建；World 实体数量与存活查询；
+Scene Tree 创建及两种世界变换查询；Meta 冻结状态与类型数量查询。
+所有者工厂不再接收已有变量；World 每次创建独立所属域，所属线程析构与跨线程拒绝不变。
+Runtime、编辑器、内置资源注册与属性检查示例同步使用新接口。
+
+新增直接结果断言区分成功的 false／零、未冻结与无效注册表；既有用例继续验证所属线程、
+跨 World 句柄、所有者移动、层级变换、反射生命周期及场景加载。
+Windows Clang Debug 完整构建、41 项相关短测试通过（11.94 秒），git diff --check 通过。
+未运行大场景、GPU 图像验证、浏览器构建或远端 CI。
+World 节点／组件值查询、Scene 实例与捕获、Meta 描述／读取／序列化等接口仍待迁移。

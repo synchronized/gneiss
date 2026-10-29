@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/world/component_identity.hpp"
@@ -32,7 +33,8 @@ make_translation(const char* instance, gneiss::engine::math::vector3 value) {
 
 int main() {
   gneiss::engine::meta::registry_ref registry;
-  if (gneiss::engine::create_property_registry(registry).failed())
+  if (gneiss::test_support::assign_value(gneiss::engine::create_property_registry(), registry)
+          .failed())
     return 1;
 
   std::vector<gneiss::engine::prefab_property_override> overrides;

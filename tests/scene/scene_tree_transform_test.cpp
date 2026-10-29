@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_tree.hpp"
@@ -75,10 +76,14 @@ int run_tests() {
   gneiss::scene_node_id grandchild{};
   gneiss::scene_node_id other_root{};
   constexpr std::uint64_t entity = 42;
-  if (tree.create({}, {}, &root) != gneiss::engine::error::success ||
-      tree.create(root, {}, &child) != gneiss::engine::error::success ||
-      tree.create(child, entity, &grandchild) != gneiss::engine::error::success ||
-      tree.create({}, {}, &other_root) != gneiss::engine::error::success) {
+  if (gneiss::test_support::assign_value(tree.create({}, {}), root) !=
+          gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(tree.create(root, {}), child) !=
+          gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(tree.create(child, entity), grandchild) !=
+          gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(tree.create({}, {}), other_root) !=
+          gneiss::engine::error::success) {
     return 1;
   }
 
@@ -113,7 +118,8 @@ int run_tests() {
   const auto expected =
       reference_combine(root_transform, reference_combine(child_transform, grandchild_transform));
   gneiss::engine::math::transform actual = gneiss::engine::math::transform{};
-  if (tree.get_world(grandchild, &actual) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(tree.get_world(grandchild), actual) !=
+          gneiss::engine::error::success ||
       !approximately_equal(actual, expected) || tree.get_entity(grandchild) != entity) {
     return 3;
   }
@@ -124,7 +130,8 @@ int run_tests() {
   other_transform.rotation[3] = half_sqrt_two;
   if (tree.set_local(other_root, other_transform) != gneiss::engine::error::success ||
       tree.reparent(grandchild, other_root) != gneiss::engine::error::success ||
-      tree.get_world(grandchild, &actual) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(tree.get_world(grandchild), actual) !=
+          gneiss::engine::error::success ||
       !approximately_equal(actual, reference_combine(other_transform, grandchild_transform)) ||
       tree.get_entity(grandchild) != entity) {
     return 4;
@@ -143,7 +150,8 @@ int run_tests() {
   invalid = grandchild_transform;
   invalid.rotation[3] = 2.0F;
   if (tree.set_local(grandchild, invalid) != gneiss::engine::error::invalid_argument ||
-      tree.get_world(grandchild, &actual) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(tree.get_world(grandchild), actual) !=
+          gneiss::engine::error::success ||
       !approximately_equal(actual, reference_combine(other_transform, grandchild_transform))) {
     return 7;
   }

@@ -60,13 +60,14 @@ bool target_for(gneiss::runtime::application& app, gneiss::scene_instance_id sce
 }
 }
 int main() try {
-  gneiss::engine::meta::registry_ref registry;
-  if (gneiss::engine::create_property_registry(registry).failed())
+  auto created_registry = gneiss::engine::create_property_registry();
+  if (!created_registry)
     return 1;
-  std::uint32_t count{};
-  if (gneiss::engine::meta::type_count(registry, count).failed())
+  auto registry = std::move(*created_registry);
+  auto count = gneiss::engine::meta::type_count(registry);
+  if (!count)
     return 1;
-  for (std::uint32_t i = 0; i < count; ++i) {
+  for (std::uint32_t i = 0; i < *count; ++i) {
     gneiss::engine::meta::type_info type;
     if (gneiss::engine::meta::describe_type_at(registry, i, type).failed())
       return 1;

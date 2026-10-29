@@ -262,8 +262,8 @@ asset_manager::asset_manager(std::shared_ptr<engine::files::service> files,
     if (status.failed())
       throw std::runtime_error("无法创建资源反射注册表");
   }
-  bool frozen{};
-  if (fallback_limit == 0 || is_frozen(registry, frozen).failed() || !frozen)
+  auto frozen = is_frozen(registry);
+  if (fallback_limit == 0 || !frozen || !*frozen)
     throw std::invalid_argument("资源 Registry 必须冻结，输入上限必须非零");
   resource_state_->registry = std::move(registry);
   resource_state_->fallback_limit = fallback_limit;

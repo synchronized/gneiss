@@ -15,7 +15,11 @@
 
 namespace gneiss::editor {
 gneiss::engine::error property_inspector_model::initialize() noexcept {
-  return gneiss::engine::create_property_registry(registry_);
+  auto created = gneiss::engine::create_property_registry();
+  if (!created)
+    return created.error();
+  registry_ = std::move(*created);
+  return gneiss::engine::error::success;
 }
 
 void property_inspector_model::clear() noexcept {

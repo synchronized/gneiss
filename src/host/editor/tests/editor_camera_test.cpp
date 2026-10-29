@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../../tests/support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/world/world.hpp"
 #include "viewport/editor_camera.hpp"
@@ -23,7 +24,8 @@ int main() {
 
   gneiss::editor::editor_camera camera;
   gneiss::entity_id active_camera = gneiss::entity_id{};
-  if (gneiss::engine::create_native(owner) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(gneiss::engine::create_native(), owner) !=
+          gneiss::engine::error::success ||
       camera.initialize() != gneiss::engine::error::success || !camera.is_valid() ||
       gneiss::engine::error{owner->get_active_camera(active_camera)} !=
           gneiss::engine::error::not_ready ||
@@ -31,7 +33,8 @@ int main() {
     return 1;
   }
   std::uint64_t entity_count{};
-  if (gneiss::engine::error{owner->entity_count(entity_count)} != gneiss::engine::error::success ||
+  if (gneiss::engine::error{gneiss::test_support::assign_value(
+          owner->entity_count(), entity_count)} != gneiss::engine::error::success ||
       entity_count != 0U) {
     return 8;
   }

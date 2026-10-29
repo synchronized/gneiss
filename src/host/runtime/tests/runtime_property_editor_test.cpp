@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../../tests/support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
@@ -30,7 +31,8 @@ namespace {
 bool test_write_and_revision() {
   gneiss::engine::world_owner owner;
 
-  GNEISS_TEST_CHECK(gneiss::engine::create_native(owner) == gneiss::engine::error::success);
+  GNEISS_TEST_CHECK(gneiss::test_support::assign_value(gneiss::engine::create_native(), owner) ==
+                    gneiss::engine::error::success);
   gneiss::entity_id entity;
   GNEISS_TEST_CHECK(owner->entity_create(entity) == gneiss::engine::error::success);
   gneiss::scene_node_id scene_node;
@@ -97,7 +99,8 @@ bool test_write_and_revision() {
 bool test_rejections() {
   gneiss::engine::world_owner owner;
 
-  GNEISS_TEST_CHECK(gneiss::engine::create_native(owner) == gneiss::engine::error::success);
+  GNEISS_TEST_CHECK(gneiss::test_support::assign_value(gneiss::engine::create_native(), owner) ==
+                    gneiss::engine::error::success);
   gneiss::host::runtime_scene_inspection inspection(9U);
   gneiss::host::runtime_property_editor editor;
   GNEISS_TEST_CHECK(editor.initialize(*owner, inspection, 9U) == gneiss::engine::error::success);

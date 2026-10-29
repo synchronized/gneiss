@@ -2,17 +2,24 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/world/world.hpp"
+#include "support/value_result.hpp"
 
 int main(void) {
   gneiss::engine::world_owner first;
 
   gneiss::engine::world_owner second;
 
-  if (gneiss::engine::create_native(first) != gneiss::engine::error::success ||
-      gneiss::engine::create_native(second) != gneiss::engine::error::success) {
+  if (gneiss::test_support::assign_value(gneiss::engine::create_native(), first) !=
+          gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(gneiss::engine::create_native(), second) !=
+          gneiss::engine::error::success) {
     return 1;
   }
 
+  auto empty_count = first->entity_count();
+  auto missing = first->entity_is_alive({});
+  if (!empty_count || *empty_count != 0U || !missing || *missing)
+    return 30;
   gneiss::entity_id entity = gneiss::entity_id{};
   if (first->entity_create(entity) != gneiss::engine::error::success ||
       entity == gneiss::entity_id{}) {
@@ -20,8 +27,11 @@ int main(void) {
   }
   bool is_alive = false;
   uint64_t count = 0;
-  if (first->entity_is_alive(entity, is_alive) != gneiss::engine::error::success ||
-      is_alive != 1U || first->entity_count(count) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(first->entity_is_alive(entity), is_alive) !=
+          gneiss::engine::error::success ||
+      is_alive != 1U ||
+      gneiss::test_support::assign_value(first->entity_count(), count) !=
+          gneiss::engine::error::success ||
       count != 1U) {
     return 3;
   }
@@ -52,7 +62,8 @@ int main(void) {
       first->entity_destroy(entity) != gneiss::engine::error::invalid_handle) {
     return 6;
   }
-  if (first->entity_is_alive(entity, is_alive) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(first->entity_is_alive(entity), is_alive) !=
+          gneiss::engine::error::success ||
       is_alive != 0U ||
       first->get_active_camera(active_camera) != gneiss::engine::error::not_ready) {
     return 7;

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_application.hpp"
+#include "../support/value_result.hpp"
 #include "engine/core/rid.hpp"
 #include "tooling/asset_import/asset_writer.hpp"
 #include "tooling/asset_import/gltf_importer.hpp"
@@ -79,7 +80,8 @@ int main() { // NOLINT(bugprone-exception-escape)
           gneiss::engine::error::success ||
       gneiss::test_support::load_scene(*application, scene_uri, &scene) !=
           gneiss::engine::error::success ||
-      application->native_world()->entity_count(entity_count) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(application->native_world()->entity_count(),
+                                         entity_count) != gneiss::engine::error::success ||
       entity_count != 1U ||
       application->scenes()->unload(scene) != gneiss::engine::error::success ||
       application->shutdown() != gneiss::engine::error::success) {
@@ -104,7 +106,8 @@ int main() { // NOLINT(bugprone-exception-escape)
           gneiss::engine::error::success ||
       gneiss::test_support::load_scene(*application, scene_uri, &scene) !=
           gneiss::engine::error::success ||
-      application->native_world()->entity_count(entity_count) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(application->native_world()->entity_count(),
+                                         entity_count) != gneiss::engine::error::success ||
       entity_count != 3U ||
       application->scenes()->unload(scene) != gneiss::engine::error::success ||
       application->shutdown() != gneiss::engine::error::success) {

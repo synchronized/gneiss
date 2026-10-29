@@ -13,17 +13,15 @@ gneiss::engine::error scene_domain::initialize(gneiss::engine::resource_service&
   if (world_owner_) {
     return gneiss::engine::error::invalid_state;
   }
-  gneiss::engine::world_owner next_world;
-  const auto result = gneiss::engine::create_native(next_world);
-  if (result != gneiss::engine::error::success) {
-    return result;
-  }
+  auto next_world = gneiss::engine::create_native();
+  if (!next_world)
+    return next_world.error();
   try {
-    auto next_scenes = std::make_unique<gneiss::engine::scene_instances>(*next_world, render);
+    auto next_scenes = std::make_unique<gneiss::engine::scene_instances>(**next_world, render);
     if (!next_scenes->is_valid()) {
       return gneiss::engine::error::out_of_memory;
     }
-    world_owner_ = std::move(next_world);
+    world_owner_ = std::move(*next_world);
     scenes_ = std::move(next_scenes);
     return gneiss::engine::error::success;
   } catch (const std::bad_alloc&) {

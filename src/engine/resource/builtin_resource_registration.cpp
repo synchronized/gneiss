@@ -13,8 +13,11 @@ error builtin_resource_registry(meta::registry_ref& output) noexcept try {
   static meta::registry_ref registry;
   const std::scoped_lock lock(mutex);
   if (!registry) {
-    meta::registry_ref pending;
-    auto status = create_registry(pending);
+    auto created = meta::create_registry();
+    if (!created)
+      return created.error();
+    auto pending = std::move(*created);
+    auto status = error::success;
     if (status == error::success)
       status = register_material_reflection(pending);
     if (status == error::success)

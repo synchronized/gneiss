@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/world/world.hpp"
+#include "support/value_result.hpp"
 
 int main(void) {
   gneiss::engine::world_owner world;
@@ -16,7 +17,8 @@ int main(void) {
   gneiss::engine::math::transform world_transform;
   gneiss::entity_id attached = gneiss::entity_id{};
 
-  if (gneiss::engine::create_native(world) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(gneiss::engine::create_native(), world) !=
+          gneiss::engine::error::success ||
       world->entity_create(entity) != gneiss::engine::error::success ||
       world->node_create(gneiss::scene_node_id{}, gneiss::entity_id{}, root) !=
           gneiss::engine::error::success ||

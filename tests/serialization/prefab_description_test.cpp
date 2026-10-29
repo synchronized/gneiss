@@ -277,15 +277,17 @@ int main() try {
   instance_transform.scale[0] = 2.0F;
   gneiss::engine::math::transform source_transform = gneiss::engine::math::transform{};
   source_transform.translation[0] = 3.0F;
-  if (tree.create(gneiss::null_scene_node_id, UINT64_C(0), &instance_root) !=
+  if (gneiss::test_support::assign_value(tree.create(gneiss::null_scene_node_id, UINT64_C(0)),
+                                         instance_root) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(tree.create(instance_root, UINT64_C(0)), source_root) !=
           gneiss::engine::error::success ||
-      tree.create(instance_root, UINT64_C(0), &source_root) != gneiss::engine::error::success ||
       tree.set_local(instance_root, instance_transform) != gneiss::engine::error::success ||
       tree.set_local(source_root, source_transform) != gneiss::engine::error::success) {
     return 5;
   }
   gneiss::engine::math::transform world = gneiss::engine::math::transform{};
-  if (tree.get_world(source_root, &world) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(tree.get_world(source_root), world) !=
+          gneiss::engine::error::success ||
       world.translation[0] != 16.0F || world.scale[0] != 2.0F) {
     return 6;
   }

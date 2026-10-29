@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "../support/value_result.hpp"
 #include "engine/core/meta/registration.hpp"
 namespace e = gneiss::engine;
 struct sample {
@@ -17,7 +18,8 @@ struct sample {
 };
 int main() {
   gneiss::engine::meta::registry_ref registry;
-  if (gneiss::engine::meta::create_registry(registry).failed())
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), registry)
+          .failed())
     return 1;
   if (e::type_identity<const sample&>::guid() != sample::type_guid ||
       e::type_identity<sample>::name() != "sample" ||

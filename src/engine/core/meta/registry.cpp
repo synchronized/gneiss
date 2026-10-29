@@ -369,24 +369,22 @@ public:
     }
   }
 
-  [[nodiscard]] error is_frozen(bool& output) const noexcept {
+  [[nodiscard]] result<bool> is_frozen() const noexcept {
     try {
       std::shared_lock lock(mutex_);
-      output = is_frozen_;
-      return error::success;
+      return is_frozen_;
     } catch (...) {
       return error::internal;
     }
   }
 
-  [[nodiscard]] error type_count(std::uint32_t& output) const noexcept {
+  [[nodiscard]] result<std::uint32_t> type_count() const noexcept {
     try {
       std::shared_lock lock(mutex_);
       if (!is_frozen_) {
         return error::not_ready;
       }
-      output = static_cast<std::uint32_t>(types_.size());
-      return error::success;
+      return static_cast<std::uint32_t>(types_.size());
     } catch (...) {
       return error::internal;
     }
@@ -516,10 +514,9 @@ private:
   bool is_frozen_ = false;
 };
 
-error create_registry(registry_ref& output) noexcept {
+result<registry_ref> create_registry() noexcept {
   try {
-    output = std::make_shared<type_registry_state>();
-    return error::success;
+    return std::make_shared<type_registry_state>();
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
   } catch (...) {
@@ -541,11 +538,11 @@ error bind_property(const registry_ref& state, guid type_id, property_id propert
 error freeze(const registry_ref& state) noexcept {
   return state ? state->freeze() : error::invalid_handle;
 }
-error is_frozen(const registry_ref& state, bool& output) noexcept {
-  return state ? state->is_frozen(output) : error::invalid_handle;
+result<bool> is_frozen(const registry_ref& state) noexcept {
+  return state ? state->is_frozen() : error::invalid_handle;
 }
-error type_count(const registry_ref& state, std::uint32_t& output) noexcept {
-  return state ? state->type_count(output) : error::invalid_handle;
+result<std::uint32_t> type_count(const registry_ref& state) noexcept {
+  return state ? state->type_count() : error::invalid_handle;
 }
 error describe_type(const registry_ref& registry, guid id, type_info& output) noexcept {
   return registry ? registry->describe_type(id, output) : error::invalid_handle;

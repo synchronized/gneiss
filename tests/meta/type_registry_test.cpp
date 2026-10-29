@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "../support/value_result.hpp"
 #include "engine/core/meta/registration.hpp"
 #include <array>
 #include <cstdint>
@@ -13,7 +14,8 @@ bool typed_registration() {
   namespace e = gneiss::engine;
   using e::error;
   gneiss::engine::meta::registry_ref registry;
-  if (gneiss::engine::meta::create_registry(registry).failed())
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), registry)
+          .failed())
     return false;
   const e::guid object_guid{e::guid::from_bytes({0x30})};
   const e::guid other_guid{e::guid::from_bytes({0x10})};
@@ -47,7 +49,9 @@ bool typed_registration() {
       gneiss::engine::meta::freeze(registry).failed())
     return false;
   std::uint32_t count = 0;
-  if (gneiss::engine::meta::type_count(registry, count).failed() || count != 3 ||
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::type_count(registry), count)
+          .failed() ||
+      count != 3 ||
       gneiss::engine::meta::describe_type<const reflected_object&>(registry, info).failed() ||
       info.guid != object_guid ||
       gneiss::engine::meta::describe_type(registry, object_guid, info).failed() ||
@@ -85,6 +89,17 @@ bool typed_registration() {
 }
 
 int main() {
+  auto empty = gneiss::engine::meta::create_registry();
+  if (!empty)
+    return 30;
+  auto unfrozen = gneiss::engine::meta::is_frozen(*empty);
+  auto unavailable = gneiss::engine::meta::type_count(*empty);
+  auto invalid_registry = gneiss::engine::meta::is_frozen({});
+  if (!unfrozen || *unfrozen || unavailable ||
+      unavailable.error() != gneiss::engine::error::not_ready || invalid_registry ||
+      invalid_registry.error() != gneiss::engine::error::invalid_handle)
+    return 31;
+
   if (!typed_registration())
     return 20;
   namespace engine = gneiss::engine;
@@ -100,10 +115,14 @@ int main() {
   gneiss::engine::meta::registry_ref registry;
   bool frozen = true;
   std::uint32_t count = 99;
-  if (gneiss::engine::meta::create_registry(registry).failed() ||
-      gneiss::engine::meta::is_frozen(registry, frozen).failed() || frozen ||
-      gneiss::engine::meta::type_count(registry, count) != error::not_ready || count != 99 ||
-      gneiss::engine::meta::register_type(registry, object).failed() ||
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), registry)
+          .failed() ||
+      gneiss::test_support::assign_value(gneiss::engine::meta::is_frozen(registry), frozen)
+          .failed() ||
+      frozen ||
+      gneiss::test_support::assign_value(gneiss::engine::meta::type_count(registry), count) !=
+          error::not_ready ||
+      count != 99 || gneiss::engine::meta::register_type(registry, object).failed() ||
       gneiss::engine::meta::register_type(registry, scalar).failed() ||
       gneiss::engine::meta::register_type(registry, object) != error::invalid_argument)
     return 1;
@@ -143,9 +162,12 @@ int main() {
           .failed() ||
       gneiss::engine::meta::freeze(registry).failed() ||
       gneiss::engine::meta::freeze(registry).failed() ||
-      gneiss::engine::meta::is_frozen(registry, frozen).failed() || !frozen ||
-      gneiss::engine::meta::register_type(registry, object) != error::invalid_state ||
-      gneiss::engine::meta::type_count(registry, count).failed() || count != 2)
+      gneiss::test_support::assign_value(gneiss::engine::meta::is_frozen(registry), frozen)
+          .failed() ||
+      !frozen || gneiss::engine::meta::register_type(registry, object) != error::invalid_state ||
+      gneiss::test_support::assign_value(gneiss::engine::meta::type_count(registry), count)
+          .failed() ||
+      count != 2)
     return 6;
   gneiss::engine::meta::type_info info;
   gneiss::engine::meta::property_info metadata;
@@ -182,7 +204,8 @@ int main() {
   const std::weak_ptr lifetime = registry;
   registry.reset();
   return lifetime.expired() &&
-                 gneiss::engine::meta::type_count(registry, count) == error::invalid_handle
+                 gneiss::test_support::assign_value(gneiss::engine::meta::type_count(registry),
+                                                    count) == error::invalid_handle
              ? 0
              : 11;
 }

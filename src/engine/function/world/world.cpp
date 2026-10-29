@@ -59,9 +59,8 @@ engine::error world::entity_destroy(entity_id entity_value) noexcept {
     return engine::error::internal;
   }
 }
-engine::error world::entity_is_alive(entity_id entity_value, bool& out_is_alive) noexcept {
+result<bool> world::entity_is_alive(entity_id entity_value) noexcept {
   std::uint64_t entity = entity_value.get();
-  out_is_alive = false;
   try {
     auto* state = state_.get();
     const auto thread_result =
@@ -69,14 +68,12 @@ engine::error world::entity_is_alive(entity_id entity_value, bool& out_is_alive)
     if (thread_result != engine::error::success) {
       return thread_result;
     }
-    out_is_alive = state->is_alive(entity);
-    return engine::error::success;
+    return state->is_alive(entity);
   } catch (...) {
     return engine::error::internal;
   }
 }
-engine::error world::entity_count(uint64_t& out_count) noexcept {
-  out_count = 0;
+result<std::uint64_t> world::entity_count() noexcept {
   try {
     auto* state = state_.get();
     const auto thread_result =
@@ -84,8 +81,7 @@ engine::error world::entity_count(uint64_t& out_count) noexcept {
     if (thread_result != engine::error::success) {
       return thread_result;
     }
-    out_count = static_cast<uint64_t>(state->entity_count());
-    return engine::error::success;
+    return static_cast<std::uint64_t>(state->entity_count());
   } catch (...) {
     return engine::error::internal;
   }
@@ -303,7 +299,11 @@ engine::error world::node_create(scene_node_id parent_value, entity_id entity_va
       if (entity != UINT64_C(0) && !state->is_alive(entity)) {
         return engine::error::invalid_handle;
       }
-      return state->scene().create(parent, entity, &out_node);
+      auto created = state->scene().create(parent, entity);
+      if (!created)
+        return created.error();
+      out_node = *created;
+      return error::success;
     } catch (...) {
       return engine::error::internal;
     }
@@ -377,11 +377,11 @@ engine::error world::node_get_world_transform(scene_node_id node_value,
         (is_owner_thread() ? engine::error::success : engine::error::invalid_state);
     if (thread_result != engine::error::success)
       return thread_result;
-    math::transform value;
-    const auto result = state->scene().get_world(node, &value);
-    if (result == engine::error::success)
-      out_transform = value;
-    return result;
+    auto value = state->scene().get_world(node);
+    if (!value)
+      return value.error();
+    out_transform = *value;
+    return error::success;
   } catch (...) {
     return engine::error::internal;
   }

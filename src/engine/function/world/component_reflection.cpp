@@ -68,20 +68,19 @@ gneiss::engine::register_reflection(const gneiss::engine::meta::registry_ref& re
 }
 
 namespace gneiss::engine {
-error create_property_registry(meta::registry_ref& output) noexcept {
-  meta::registry_ref pending;
-  auto operation = meta::create_registry(pending);
-  if (operation == error::success) {
-    operation = register_reflection(pending);
-  }
-  if (operation == error::success) {
-    operation = meta::freeze(pending);
-  }
-  if (operation == error::success) {
-    output = std::move(pending);
-  }
-  return operation;
+result<meta::registry_ref> create_property_registry() noexcept {
+  auto pending = meta::create_registry();
+  if (!pending)
+    return pending.error();
+  auto status = register_reflection(*pending);
+  if (status.failed())
+    return status;
+  status = meta::freeze(*pending);
+  if (status.failed())
+    return status;
+  return std::move(*pending);
 }
+
 guid transform_property_type() noexcept { return transform_component_type; }
 guid camera_property_type() noexcept { return camera_component_type; }
 } // namespace gneiss::engine

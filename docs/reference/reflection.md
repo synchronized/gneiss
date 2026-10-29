@@ -42,7 +42,7 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 `property_definition.type_guid` 表示字段值的语义类型，无需事先注册该类型。
 `property_flags::read_only` 禁止为字段绑定 setter。
 
-`create_registry` 创建 `registry_ref` 所有者；`register_type` 深拷贝名称和字段描述。
+`create_registry()` 返回 `result<registry_ref>` 所有者；`register_type` 深拷贝名称和字段描述。
 类型自身的稳定身份为 `type_definition.guid`、`type_info.guid`；注册输入另有可选的运行期 `type_id`。
 重复 GUID 或重复非空运行期 ID 的注册返回 `error::invalid_argument`，不覆盖已有记录。
 注册名称不得为空或包含内嵌空字符，必须是合法 UTF-8；重复字段编号或名称也会被拒绝。
@@ -154,3 +154,10 @@ out_of_memory，其余异常转为 internal。诊断在调用开始清空，失�
 资源层 `register_material_reflection` 显式登记 material_description 的稳定身份及
 `gneiss.material` codec；不会隐式修改组件属性 Registry。资源消费者在冻结前调用该入口。
 材质未展开数组等字段，只登记整体编解码能力；实际格式见[材质格式](render-asset-formats.md#material)。
+
+## 注册表创建与状态查询
+
+`create_property_registry()` 返回已注册 World 属性并冻结的 `result<registry_ref>`。
+`is_frozen(registry)` 返回 `result<bool>`，`type_count(registry)` 返回 `result<std::uint32_t>`；
+无效注册表返回 invalid_handle，未冻结注册表的类型数量查询返回 not_ready。
+成功的 false 或零数量不代表操作失败。

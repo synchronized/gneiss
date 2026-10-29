@@ -45,3 +45,10 @@ Scene Tree 是层级 Transform 的唯一权威存储：
 顶点中烘焙。重挂接不会尝试反求局部 Transform，也不承诺保持世界 Transform。
 
 当前实现按查询即时计算世界 Transform；脏标记缓存应在真实性能数据证明必要后再加入。
+
+## 内部 Scene Tree 值接口
+
+`scene_tree::create(parent, entity)` 返回 `result<scene_node_id>`；
+`get_world(node)` 和 `get_world_for_entity(entity)` 返回 `result<math::transform>`。
+创建不再接收输出指针，失败不产生节点 ID；变换查询返回副本，失效节点返回 invalid_handle，
+非零实体未关联节点返回 not_ready。World 外层接口按其声明保留线程校验。

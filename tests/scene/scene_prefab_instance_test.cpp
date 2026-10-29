@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_prefab.hpp"
+#include "../support/value_result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
@@ -24,7 +25,8 @@ int main() try {
           gneiss::engine::error::success ||
       gneiss::test_support::load_scene(*application, scene_uri, &scene) !=
           gneiss::engine::error::success ||
-      application->native_world()->entity_count(entity_count) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(application->native_world()->entity_count(),
+                                         entity_count) != gneiss::engine::error::success ||
       entity_count != 3U) {
     return 1;
   }
@@ -104,7 +106,8 @@ int main() try {
   if (gneiss::test_support::create_prefab(*application, scene, create_desc, created_root) !=
           gneiss::engine::error::not_found ||
       created_root != gneiss::null_scene_node_id ||
-      application->native_world()->entity_count(entity_count) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(application->native_world()->entity_count(),
+                                         entity_count) != gneiss::engine::error::success ||
       entity_count != 3U) {
     return 3;
   }
@@ -116,7 +119,8 @@ int main() try {
       application->scenes()->get_prefab_node_count(scene, &prefab_node_count) !=
           gneiss::engine::error::success ||
       prefab_node_count != 4U ||
-      application->native_world()->entity_count(entity_count) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(application->native_world()->entity_count(),
+                                         entity_count) != gneiss::engine::error::success ||
       entity_count != 5U) {
     return 3;
   }
@@ -154,7 +158,8 @@ int main() try {
     return 6;
   }
   if (application->scenes()->unload(scene) != gneiss::engine::error::success ||
-      application->native_world()->entity_count(entity_count) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(application->native_world()->entity_count(),
+                                         entity_count) != gneiss::engine::error::success ||
       entity_count != 0U) {
     return 7;
   }
@@ -162,7 +167,8 @@ int main() try {
   if (gneiss::test_support::load_scene(*application, missing_scene_uri, &scene) !=
           gneiss::engine::error::not_found ||
       scene != gneiss::scene_instance_id{} ||
-      application->native_world()->entity_count(entity_count) != gneiss::engine::error::success ||
+      gneiss::test_support::assign_value(application->native_world()->entity_count(),
+                                         entity_count) != gneiss::engine::error::success ||
       entity_count != 0U) {
     return 8;
   }

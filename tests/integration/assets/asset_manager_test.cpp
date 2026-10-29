@@ -226,7 +226,9 @@ void decoder_selection() {
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", source) == error::success, "decoder mount");
   gneiss::engine::meta::registry_ref registry;
-  check(create_registry(registry) == error::success, "decoder registry");
+  check(gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), registry) ==
+            error::success,
+        "decoder registry");
   gneiss::engine::meta::serialization_binding codec;
   codec.decode = [](std::span<const std::byte> bytes, void* object,
                     gneiss::engine::meta::serialization_diagnostic& diagnostic) {
@@ -306,7 +308,9 @@ void decoder_selection() {
         "async diagnostic and unchanged output");
   source->byte = 'a';
   // 同一个类型同时具备反射与显式解码器时，只采用显式函数。
-  check(create_registry(registry) == error::success, "override registry");
+  check(gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), registry) ==
+            error::success,
+        "override registry");
   check(register_type<value>(registry, {.guid = material_description::type_guid,
                                         .schema_version = 1U,
                                         .name = "test_asset",

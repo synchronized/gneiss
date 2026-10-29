@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../../../../tests/support/async_prefab_edit.hpp"
+#include "../../../../tests/support/value_result.hpp"
 #include "commands/editor_prefab_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
@@ -197,7 +198,8 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   check(session.find_prefab_source(first_uuid, removed_uuid) == nullptr);
   check(session.prefab_nodes().size() == 150U && session.is_dirty());
   std::uint64_t count{};
-  check(app->native_world()->entity_count(count).ok() && count == 150U);
+  check(gneiss::test_support::assign_value(app->native_world()->entity_count(), count).ok() &&
+        count == 150U);
   gneiss::engine::math::transform invalidated;
   check(app->native_world()->node_get_local_transform(second_node, invalidated) ==
         gneiss::engine::error::invalid_handle);
@@ -287,14 +289,14 @@ void run(gneiss::engine::execution_mode mode) {
   }
   check(edit.active());
   std::uint64_t entity_count{};
-  check(gneiss::engine::error{app->native_world()->entity_count(entity_count)} ==
-            gneiss::engine::error::success &&
+  check(gneiss::engine::error{gneiss::test_support::assign_value(
+            app->native_world()->entity_count(), entity_count)} == gneiss::engine::error::success &&
         entity_count == 0U);
   edit.cancel();
   drive();
   check(!edit.visible() && session.prefab_nodes().empty() && history.size() == 0U);
-  check(gneiss::engine::error{app->native_world()->entity_count(entity_count)} ==
-            gneiss::engine::error::success &&
+  check(gneiss::engine::error{gneiss::test_support::assign_value(
+            app->native_world()->entity_count(), entity_count)} == gneiss::engine::error::success &&
         entity_count == 0U);
   edit.dismiss();
   check(request() == gneiss::engine::error::success && edit.active());

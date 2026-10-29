@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../../tests/support/value_result.hpp"
 #include "documents/editor_scene_loader.hpp"
 #include "documents/scene_document_snapshot.hpp"
 #include "engine/core/error.hpp"
@@ -102,7 +103,7 @@ void run(gneiss::engine::execution_mode mode) {
   tick();
   std::uint64_t count{};
   // current 是旧域的借用指针，域销毁后不能再解引用。
-  check(world->entity_count(count).ok());
+  check(gneiss::test_support::assign_value(world->entity_count(), count).ok());
   check(loader.request(*app, editing, "asset://scenes/prefab.scene.json") ==
         gneiss::engine::error::success);
   drain();

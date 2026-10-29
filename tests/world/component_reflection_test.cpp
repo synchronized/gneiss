@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "../support/value_result.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
@@ -14,12 +15,15 @@ int main() {
   engine::world_owner first, second;
   gneiss::entity_id entity, missing;
   gneiss::scene_node_id node;
-  if (gneiss::engine::meta::create_registry(registry).failed() ||
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), registry)
+          .failed() ||
       engine::register_reflection(registry).failed() ||
       engine::register_reflection(registry) != engine::error::invalid_argument ||
-      gneiss::engine::meta::freeze(registry).failed() || engine::create_native(first).failed() ||
-      engine::create_native(second).failed() || first->entity_create(entity).failed() ||
-      first->entity_create(missing).failed() || first->node_create({}, entity, node).failed())
+      gneiss::engine::meta::freeze(registry).failed() ||
+      gneiss::test_support::assign_value(engine::create_native(), first).failed() ||
+      gneiss::test_support::assign_value(engine::create_native(), second).failed() ||
+      first->entity_create(entity).failed() || first->entity_create(missing).failed() ||
+      first->node_create({}, entity, node).failed())
     return 1;
   const auto transform_type = engine::transform_property_type();
   const auto camera_type = engine::camera_property_type();
