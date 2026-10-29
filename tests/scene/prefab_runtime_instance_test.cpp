@@ -349,8 +349,8 @@ int main() try {
   if (gneiss::engine::prepare_prefab_description(*first->prefab_lease().get(), registry,
                                                  first_overrides,
                                                  projected) != gneiss::engine::error::success ||
-      projected.objects[1].translation[0] != 3 ||
-      first->prefab_lease().get()->objects[0].translation[0] != 1) {
+      projected.objects[1].transform.translation[0] != 3 ||
+      first->prefab_lease().get()->objects[0].transform.translation[0] != 1) {
     return 14;
   }
   // 相同的相对覆盖可以用于另一实例，不携带实例身份。
@@ -389,8 +389,8 @@ int main() try {
     return 24;
   auto revision = std::make_shared<gneiss::engine::prefab_description>(*first->prefab_lease());
   revision->objects[0].name = "New source name";
-  revision->objects[0].translation = {50.0F, 60.0F, 70.0F};
-  revision->objects[0].scale = {7.0F, 8.0F, 9.0F};
+  revision->objects[0].transform.translation = {50.0F, 60.0F, 70.0F};
+  revision->objects[0].transform.scale = {7.0F, 8.0F, 9.0F};
   if (native_world
           .node_set_identity(first->root(),
                              {"20000000-0000-4000-8000-000000000001", "Instance name"})

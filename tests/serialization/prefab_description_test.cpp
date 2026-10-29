@@ -132,13 +132,13 @@ bool prepared_description_contract() {
     return false;
   }
   // 替换当前描述，不改写已实例化场景持有的旧描述。
-  description.objects[0].translation[0] = 37.0F;
+  description.objects[0].transform.translation[0] = 37.0F;
   if (gneiss::test_support::assign_value(
           assets.store<gneiss::engine::prefab_description>(
               uri, std::make_shared<const gneiss::engine::prefab_description>(description)),
           changed) != gneiss::engine::error::success ||
-      changed.get() == first.get() || changed.get()->objects[0].translation[0] != 37.0F ||
-      first.get()->objects[0].translation[0] != 1.0F ||
+      changed.get() == first.get() || changed.get()->objects[0].transform.translation[0] != 37.0F ||
+      first.get()->objects[0].transform.translation[0] != 1.0F ||
       gneiss::test_support::assign_value(
           other_assets.store<gneiss::engine::prefab_description>(
               uri, std::make_shared<const gneiss::engine::prefab_description>(description)),
@@ -172,7 +172,7 @@ bool prepared_description_contract() {
   ordinary = {};
   legacy = {};
   cache.release_unused();
-  return cache.size() == 0U && first.get()->objects[0].translation[0] == 1.0F;
+  return cache.size() == 0U && first.get()->objects[0].transform.translation[0] == 1.0F;
 }
 
 int main() try {

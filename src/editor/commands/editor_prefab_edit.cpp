@@ -336,8 +336,6 @@ gneiss::engine::error editor_prefab_edit::request(runtime::application& applicat
   }
   next->author.name = name;
   next->author.prefab->uri = uri;
-  next->author.rotation[3] = 1.0F;
-  next->author.scale = {1.0F, 1.0F, 1.0F};
   if (parent.is_valid()) {
     const auto found = std::ranges::find(session.nodes(), parent, &scene_node_record::node);
     if (found == session.nodes().end()) {

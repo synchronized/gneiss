@@ -66,7 +66,7 @@ bool save_codec_contract(gneiss::runtime::application& application) {
           snapshot, diagnostic)
           .failed() ||
       snapshot.objects.size() != 1 || snapshot.objects.front().name != "保存节点" ||
-      snapshot.objects.front().translation != local.translation)
+      snapshot.objects.front().transform.translation != local.translation)
     return false;
   // codec 拒绝超限内容时不写文件，不改变 URI、脏状态或调用者的保存结果。
   if (document.rename_node(node, std::string(e::scene_description::maximum_source_bytes, 'x'))

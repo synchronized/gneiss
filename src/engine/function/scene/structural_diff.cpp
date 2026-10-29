@@ -99,8 +99,9 @@ compare_objects(const gneiss::engine::object_description& old_object,
   if (old_object.parent_uuid != new_object.parent_uuid) {
     changes = changes | structural_change::parent;
   }
-  if (old_object.translation != new_object.translation ||
-      old_object.rotation != new_object.rotation || old_object.scale != new_object.scale) {
+  if (old_object.transform.translation != new_object.transform.translation ||
+      old_object.transform.rotation != new_object.transform.rotation ||
+      old_object.transform.scale != new_object.transform.scale) {
     changes = changes | structural_change::transform;
   }
   if (!equal_camera(old_object.components.template get<gneiss::engine::camera_description>(),

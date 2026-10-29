@@ -18,9 +18,7 @@ gneiss::engine::object_description object(std::string uuid,
   return {.uuid = std::move(uuid),
           .name = "节点",
           .parent_uuid = std::move(parent),
-          .translation = {},
-          .rotation = gneiss::engine::math::quaternion_xyzw(0.0F, 0.0F, 0.0F, 1.0F),
-          .scale = {1.0F, 1.0F, 1.0F},
+          .transform = {},
           .components = {}};
 }
 
@@ -48,7 +46,7 @@ bool test_updates() {
   auto current = previous;
   current.name = "新名称";
   current.parent_uuid = "new-parent";
-  current.translation[0] = 2.0F;
+  current.transform.translation[0] = 2.0F;
   current.components.erase<gneiss::engine::camera_description>();
   current.components.set(gneiss::engine::mesh_renderer_description{
       .mesh_uri = "asset://mesh", .material_uri = "asset://material"});

@@ -10,7 +10,7 @@
 #include "engine/resource/scene/component_description.hpp"
 #include "engine/resource/scene/prefab_property_data.hpp"
 
-#include "engine/core/math/types.hpp"
+#include "engine/core/math/transform.hpp"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -57,9 +57,8 @@ struct object_description final {
   std::string uuid;
   std::string name;
   std::optional<std::string> parent_uuid;
-  math::vector3 translation{};
-  math::quaternion rotation{0.0F, 0.0F, 0.0F, 0.0F};
-  math::vector3 scale{};
+  /** 相对父对象的局部变换；默认单位变换。 */
+  math::transform transform{};
   component_descriptions components;
   std::optional<prefab_reference_description> prefab{};
 };

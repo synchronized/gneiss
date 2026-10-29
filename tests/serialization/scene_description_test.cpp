@@ -160,6 +160,15 @@ int main() try {
                                   R"("parent":"00000000-0000-4000-8000-000000000003")");
   const auto invalid_uri = replace_once(std::string(valid_scene), "asset://models/triangle.mesh",
                                         "asset://models/../triangle.mesh");
+  // 单位变换默认值不允许掩盖文件中缺失的必填分量。
+  for (const auto field :
+       {R"("translation":[0,1,2],)", R"("rotation":[0,0,0,1],)", R"(,"scale":[1,1,1])"}) {
+    auto missing = replace_once(std::string(valid_scene), field, "");
+    auto parsed = gneiss::engine::parse_scene_description(missing);
+    if (parsed || parsed.error().error != gneiss::engine::error::invalid_argument ||
+        !parsed.error().path.starts_with("/objects/0/transform/"))
+      return 96;
+  }
   const auto invalid_scale =
       replace_once(std::string(valid_scene), R"("scale":[1,1,1])", R"("scale":[1,0,1])");
   const auto invalid_rotation =

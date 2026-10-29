@@ -326,7 +326,7 @@ void run() {
           gneiss::engine::error::invalid_handle);
     const auto replaced_root = root;
     // 根变换非法使创建在旧实例已删除后失败。
-    author.scale = {0, 1, 1};
+    author.transform.scale = {0, 1, 1};
     check(candidate->scenes()
               ->instantiate_prefab_ready(new_scene, author, source, bindings, true, root)
               .failed());

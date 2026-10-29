@@ -41,14 +41,6 @@ std::uint16_t allocate_domain() noexcept {
                                                             : UINT16_C(0);
 }
 
-math::transform to_transform(const object_description& object) noexcept {
-  math::transform value{};
-  value.translation = object.translation;
-  value.rotation = object.rotation;
-  value.scale = object.scale;
-  return value;
-}
-
 [[nodiscard]] bool is_canonical_uuid(std::string_view value) noexcept {
   if (value.size() != 36U) {
     return false;
@@ -87,8 +79,10 @@ error commit_object(world& native_world, const object_description& source, stage
 [[nodiscard]] bool equal_prefab_instances(const object_description& left,
                                           const object_description& right) noexcept {
   if (left.uuid != right.uuid || left.name != right.name || left.parent_uuid != right.parent_uuid ||
-      left.prefab->uri != right.prefab->uri || left.translation != right.translation ||
-      left.rotation != right.rotation || left.scale != right.scale ||
+      left.prefab->uri != right.prefab->uri ||
+      left.transform.translation != right.transform.translation ||
+      left.transform.rotation != right.transform.rotation ||
+      left.transform.scale != right.transform.scale ||
       left.prefab->overrides.size() != right.prefab->overrides.size()) {
     return false;
   }
@@ -438,9 +432,8 @@ engine::error scene_instance::reload(scene_description candidate) {
     }
     if (result == engine::error::success &&
         has_change(update.changes, structural_change::transform)) {
-      const auto transform = to_transform(source);
-      result =
-          native_world_.node_set_local_transform(gneiss::scene_node_id{target.node}, transform);
+      result = native_world_.node_set_local_transform(gneiss::scene_node_id{target.node},
+                                                      source.transform);
     }
     if (result == engine::error::success && has_change(update.changes, structural_change::camera)) {
       result = apply_camera(native_world_, target.entity,
@@ -592,7 +585,7 @@ std::optional<prefab_origin_view> scene_instance::prefab_origin(scene_node_id no
                                           : scene_prefab_flags::source_read_only;
     origin.source_node_uuid = found->address.source_node_uuid;
     if (const auto* source = runtime.find_source_object(origin.source_node_uuid))
-      origin.source_local_transform = to_transform(*source);
+      origin.source_local_transform = source->transform;
     for (const auto& value : author.prefab->overrides) {
       if (value.key.source_node_uuid != origin.source_node_uuid ||
           value.key.type_guid != transform_component_type)
@@ -689,9 +682,9 @@ engine::error scene_instance::set_prefab_source_transform(scene_node_id node,
                                               .type_guid = type_id,
                                               .property_id = transform_scale_field},
                                       .value = {.payload = transform.scale}}};
-      const std::array source_values{engine::value{.payload = source->translation},
-                                     engine::value{.payload = source->rotation},
-                                     engine::value{.payload = source->scale}};
+      const std::array source_values{engine::value{.payload = source->transform.translation},
+                                     engine::value{.payload = source->transform.rotation},
+                                     engine::value{.payload = source->transform.scale}};
       for (std::size_t field_index = 0U; field_index < candidates.size(); ++field_index) {
         const auto result = set_prefab_property_override(
             registry_, pending, candidates[field_index], source_values[field_index]);
@@ -729,13 +722,8 @@ engine::error scene_instance::create_node(const node_creation& desc, scene_node_
     object_description author{.uuid = std::string(uuid),
                               .name = std::string(name),
                               .parent_uuid = std::move(parent_uuid),
-                              .translation = {},
-                              .rotation = {},
-                              .scale = {},
+                              .transform = desc.local_transform,
                               .components = {}};
-    author.translation = desc.local_transform.translation;
-    author.rotation = desc.local_transform.rotation;
-    author.scale = desc.local_transform.scale;
     objects_.reserve(objects_.size() + 1U);
     description_.objects.reserve(description_.objects.size() + 1U);
     staged_object target{.uuid = author.uuid,
@@ -1074,9 +1062,7 @@ engine::error scene_instance::create_mesh_renderer_node(const mesh_renderer_node
         .uuid = std::string(uuid),
         .name = std::string(name),
         .parent_uuid = std::move(parent_uuid),
-        .translation = {},
-        .rotation = math::quaternion_xyzw(0.0F, 0.0F, 0.0F, 1.0F),
-        .scale = {1.0F, 1.0F, 1.0F},
+        .transform = {},
         .components = {engine::mesh_renderer_description{
             .mesh_uri = std::string(mesh_uri), .material_uri = std::string(material_uri)}}};
     objects_.reserve(objects_.size() + 1U);
@@ -1316,9 +1302,7 @@ engine::error scene_instance::capture_description(scene_description& output) con
       const auto status = native_world_.node_get_local_transform(runtime.node, transform);
       if (status.failed())
         return status;
-      author.translation = transform.translation;
-      author.rotation = transform.rotation;
-      author.scale = transform.scale;
+      author.transform = transform;
       continue;
     }
     auto renderer = native_world_.node_mesh_renderer(runtime.node);
@@ -1335,9 +1319,7 @@ engine::error scene_instance::capture_description(scene_description& output) con
     if (result != engine::error::success) {
       return result;
     }
-    author.translation = transform.translation;
-    author.rotation = transform.rotation;
-    author.scale = transform.scale;
+    author.transform = transform;
     math::camera_settings camera;
     result = native_world_.entity_get_camera(
         entity_id{scene_object_entity(native_world_, runtime.node)}, camera);

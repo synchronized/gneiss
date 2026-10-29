@@ -36,9 +36,7 @@ inline engine::error create_prefab(runtime::application& app, scene_instance_id 
   author.uuid = creation.instance_uuid;
   author.name = creation.name;
   author.prefab->uri = creation.prefab_uri;
-  author.translation = creation.local_transform.translation;
-  author.rotation = creation.local_transform.rotation;
-  author.scale = creation.local_transform.scale;
+  author.transform = creation.local_transform;
   if (creation.parent) {
     std::uint64_t count{};
     auto status = app.scenes()->get_node_count(scene, &count);

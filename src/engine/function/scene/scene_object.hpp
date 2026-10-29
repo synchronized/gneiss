@@ -66,8 +66,7 @@ inline error configure_scene_object(world& owner, scene_node_id node,
 inline result<scene_node_id> create_scene_object(world& owner, const object_description& source,
                                                  scene_node_id parent,
                                                  const mesh_renderer& renderer) {
-  auto created = owner.object_create(parent, {source.uuid, source.name},
-                                     {source.translation, source.rotation, source.scale});
+  auto created = owner.object_create(parent, {source.uuid, source.name}, source.transform);
   if (!created)
     return created.error();
   const auto status = configure_scene_object(owner, *created, source, renderer);

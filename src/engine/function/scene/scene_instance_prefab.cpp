@@ -27,9 +27,7 @@ error scene_instance::capture_prefab_instance_header(std::string_view uuid,
   if (queried != error::success) {
     return queried;
   }
-  copy.translation = transform.translation;
-  copy.rotation = transform.rotation;
-  copy.scale = transform.scale;
+  copy.transform = transform;
   source = prefab_instances_[index]->prefab_lease();
   author = std::move(copy);
   return error::success;
@@ -107,7 +105,7 @@ error scene_instance::instantiate_prefab_ready(const object_description& author,
   prefab_instances_.reserve(prefab_instances_.size() + 1U);
   auto runtime =
       std::make_unique<prefab_binding>(native_world_, loader_, std::move(prefab), author.uuid);
-  status = runtime->create_root(parent, {author.translation, author.rotation, author.scale});
+  status = runtime->create_root(parent, author.transform);
   if (status.failed())
     return status;
   scene_subtree_guard guard(native_world_, runtime->root());

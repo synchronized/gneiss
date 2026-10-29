@@ -54,12 +54,9 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
       }
       const auto lease = prepared.prefabs.at(source.prefab->uri).resource;
       auto prefab = std::make_unique<prefab_binding>(native_world_, loader_, lease, source.uuid);
-      math::transform transform{};
-      transform.translation = source.translation;
-      transform.rotation = source.rotation;
-      transform.scale = source.scale;
-      auto result = prefab->create_root(
-          source.parent_uuid ? nodes.at(*source.parent_uuid) : null_scene_node_id, transform);
+      auto result = prefab->create_root(source.parent_uuid ? nodes.at(*source.parent_uuid)
+                                                           : null_scene_node_id,
+                                        source.transform);
       if (result != engine::error::success) {
         return result;
       }

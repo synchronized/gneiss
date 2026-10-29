@@ -115,7 +115,7 @@ template <std::size_t Size>
 }
 
 [[nodiscard]] bool parse_transform(yyjson_val* value, std::string_view path,
-                                   gneiss::engine::object_description& output,
+                                   gneiss::engine::math::transform& output,
                                    scene_diagnostic& diagnostic) {
   if (!yyjson_is_obj(value) ||
       !read_float_array(value, "translation", path,
@@ -284,7 +284,8 @@ template <std::size_t Size>
          "parent 必须是 UUID 或 null");
     return false;
   }
-  if (!parse_transform(yyjson_obj_get(value, "transform"), path + "/transform", output, diagnostic))
+  if (!parse_transform(yyjson_obj_get(value, "transform"), path + "/transform", output.transform,
+                       diagnostic))
     return false;
   auto* prefab = yyjson_obj_get(value, "prefab");
   auto* components = yyjson_obj_get(value, "components");
@@ -622,9 +623,11 @@ make_components(yyjson_mut_doc* document, const gneiss::engine::component_descri
                                                          source.parent_uuid->size())
                                     : yyjson_mut_null(document)) ||
       !put_value(document, transform, "translation",
-                 make_float_array(document, source.translation)) ||
-      !put_value(document, transform, "rotation", make_float_array(document, source.rotation)) ||
-      !put_value(document, transform, "scale", make_float_array(document, source.scale)) ||
+                 make_float_array(document, source.transform.translation)) ||
+      !put_value(document, transform, "rotation",
+                 make_float_array(document, source.transform.rotation)) ||
+      !put_value(document, transform, "scale",
+                 make_float_array(document, source.transform.scale)) ||
       !put_value(document, object, "transform", transform)) {
     return nullptr;
   }
@@ -944,11 +947,11 @@ result<std::string> serialize_scene_description(const scene_description& scene) 
                                             source.parent_uuid->size())
                        : yyjson_mut_null(mutable_document.get())) ||
         !put_value(mutable_document.get(), transform, "translation",
-                   make_float_array(mutable_document.get(), source.translation)) ||
+                   make_float_array(mutable_document.get(), source.transform.translation)) ||
         !put_value(mutable_document.get(), transform, "rotation",
-                   make_float_array(mutable_document.get(), source.rotation)) ||
+                   make_float_array(mutable_document.get(), source.transform.rotation)) ||
         !put_value(mutable_document.get(), transform, "scale",
-                   make_float_array(mutable_document.get(), source.scale))) {
+                   make_float_array(mutable_document.get(), source.transform.scale))) {
       return engine::error::out_of_memory;
     }
     if (source.name.empty()) {

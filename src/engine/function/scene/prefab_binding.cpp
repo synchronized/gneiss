@@ -22,15 +22,6 @@
 
 namespace {
 
-gneiss::engine::math::transform
-to_transform(const gneiss::engine::object_description& object) noexcept {
-  gneiss::engine::math::transform value{};
-  value.translation = object.translation;
-  value.rotation = object.rotation;
-  value.scale = object.scale;
-  return value;
-}
-
 gneiss::engine::error apply_camera(gneiss::engine::world& native_world, std::uint64_t entity,
                                    const gneiss::engine::camera_description* camera) noexcept {
   if (!camera) {
@@ -370,9 +361,8 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate, const meta::reg
     }
     if (result == engine::error::success && target.node != root_node_ &&
         has_change(update.changes, structural_change::transform)) {
-      const auto transform = to_transform(source);
-      result =
-          native_world_.node_set_local_transform(gneiss::scene_node_id{target.node}, transform);
+      result = native_world_.node_set_local_transform(gneiss::scene_node_id{target.node},
+                                                      source.transform);
     }
     if (result == engine::error::success && has_change(update.changes, structural_change::camera)) {
       result = apply_camera(native_world_, target.entity,
@@ -430,15 +420,13 @@ engine::error apply_candidate_object(const meta::registry_ref& state,
   auto result = engine::error::success;
   const auto is_type = [&](guid type) { return value.key.type_guid == type; };
   if (is_type(transform_component_type)) {
-    auto transform = to_transform(object);
+    auto transform = object.transform;
     result =
         meta::write_property(state, value.key.type_guid, value.key.property_id, &transform, native);
     if (result != engine::error::success) {
       return result;
     }
-    object.translation = transform.translation;
-    object.rotation = transform.rotation;
-    object.scale = transform.scale;
+    object.transform = transform;
   } else if (is_type(engine::camera_component_type)) {
     if (!object.components.template get<camera_description>()) {
       return engine::error::not_found;
