@@ -172,12 +172,12 @@ int main() try {
       gneiss::engine::error::success) {
     return 29;
   }
-  std::string subtree_snapshot;
+  gneiss::engine::scene_subtree_snapshot subtree_snapshot;
   const auto old_generic_node = generic_node;
   const auto old_triangle_node = triangle;
   if (application->scenes()->capture_subtree(scene, generic_node, subtree_snapshot) !=
           gneiss::engine::error::success ||
-      subtree_snapshot.empty() ||
+      subtree_snapshot.description.objects.empty() ||
       application->scenes()->destroy_subtree(scene, generic_node) !=
           gneiss::engine::error::success) {
     return 15;
@@ -211,11 +211,9 @@ int main() try {
     return 16;
   }
   auto missing_asset_snapshot = subtree_snapshot;
-  const auto mesh_position = missing_asset_snapshot.find(mesh_uri);
-  if (mesh_position == std::string::npos) {
-    return 25;
-  }
-  missing_asset_snapshot.replace(mesh_position, mesh_uri.size(), missing_mesh_uri);
+  for (auto& object : missing_asset_snapshot.description.objects)
+    if (object.mesh_renderer)
+      object.mesh_renderer->mesh_uri = missing_mesh_uri;
   if (application->scenes()->restore_subtree(scene, missing_asset_snapshot, camera_node,
                                              std::span{mappings}.first(2U),
                                              copied_root) != gneiss::engine::error::not_found ||

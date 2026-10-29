@@ -2227,21 +2227,43 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
       }
       const auto* prefab_selected = state.editing.document().selected_prefab_node();
       if (prefab_selected != nullptr && prefab_selected->is_instance_root) {
+        const auto selected_copy = *prefab_selected;
+        prefab_selected = &selected_copy;
         const auto source_uuid = prefab_selected->instance_uuid;
         if (ImGui::Button("Duplicate Prefab")) {
-          auto parent = gneiss::scene_node_id{};
-          if (prefab_selected->parent.is_valid()) {
-            const auto found =
-                std::ranges::find(state.editing.document().nodes(), prefab_selected->parent,
-                                  &gneiss::editor::scene_node_record::node);
-            if (found != state.editing.document().nodes().end()) {
-              parent = found->node;
+          const auto original = *prefab_selected;
+          gneiss::scene_node_id duplicate;
+          state.history_error =
+              state.editing.document().duplicate_subtree(original.node, original.parent, duplicate);
+          if (state.history_error.ok()) {
+            auto snapshot = std::make_shared<gneiss::engine::scene_subtree_snapshot>();
+            state.history_error = state.application->scenes()->capture_subtree(
+                state.editing.document().scene_handle(), duplicate, *snapshot);
+            if (state.history_error.ok()) {
+              state.history_error = state.editing.history().record(
+                  {.label = "复制子树",
+                   .undo =
+                       [&state, snapshot] {
+                         gneiss::scene_node_id root;
+                         auto status = state.application->scenes()->find_node(
+                             state.editing.document().scene_handle(), snapshot->root_uuid, root);
+                         if (status.failed())
+                           return status;
+                         gneiss::editor::scene_subtree_snapshot discarded;
+                         return state.editing.document().destroy_subtree(root, discarded);
+                       },
+                   .redo =
+                       [&state, snapshot] {
+                         gneiss::scene_node_id root;
+                         return state.editing.document().restore_subtree(*snapshot, root);
+                       },
+                   .merge_key = {}});
+            }
+            if (state.history_error.failed()) {
+              gneiss::editor::scene_subtree_snapshot discarded;
+              (void)state.editing.document().destroy_subtree(duplicate, discarded);
             }
           }
-          state.history_error = state.editing.prefabs().request(
-              *state.application, state.task_scheduler, state.editing.document(),
-              state.editing.history(), prefab_selected->display_name, prefab_selected->prefab_uri,
-              parent);
         }
         ImGui::SameLine();
         if (ImGui::Button("Delete Prefab")) {

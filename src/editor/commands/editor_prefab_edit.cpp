@@ -11,14 +11,14 @@
 
 namespace gneiss::editor {
 namespace {
+using engine::scene_subtree_snapshot;
 using runtime::prefab_placement;
-using runtime::prefab_placement_snapshot;
-using prefab_snapshots = std::vector<std::shared_ptr<const prefab_placement_snapshot>>;
+using prefab_snapshots = std::vector<std::shared_ptr<const scene_subtree_snapshot>>;
 class prefab_history_operation : public editor_history_operation {
 public:
   prefab_history_operation(runtime::application& application, scene_document& session,
                            scene_instance_id scene,
-                           std::shared_ptr<const prefab_placement_snapshot> snapshot, bool removing)
+                           std::shared_ptr<const scene_subtree_snapshot> snapshot, bool removing)
       : prefab_history_operation(application, session, scene, prefab_snapshots{std::move(snapshot)},
                                  removing, false) {}
   prefab_history_operation(runtime::application& application, scene_document& session,
@@ -121,7 +121,7 @@ class prefab_command final : public editor_command {
 public:
   prefab_command(runtime::application& application, scene_document& session,
                  gneiss::scene_instance_id scene,
-                 std::shared_ptr<const prefab_placement_snapshot> snapshot, bool removal = false)
+                 std::shared_ptr<const scene_subtree_snapshot> snapshot, bool removal = false)
       : application_(application), scene_(scene), session_(session), snapshot_(std::move(snapshot)),
         removal_(removal) {}
   [[nodiscard]] std::string_view label() const noexcept override {
@@ -148,7 +148,7 @@ private:
   runtime::application& application_;
   gneiss::scene_instance_id scene_{};
   scene_document& session_;
-  std::shared_ptr<const prefab_placement_snapshot> snapshot_;
+  std::shared_ptr<const scene_subtree_snapshot> snapshot_;
   bool removal_{};
 };
 }
@@ -165,7 +165,7 @@ struct editor_prefab_edit::state {
   gneiss::runtime::asset_load_completion completion;
   std::unique_ptr<editor_command> command;
   std::unique_ptr<editor_history_operation> operation;
-  std::shared_ptr<prefab_placement_snapshot> captured;
+  std::shared_ptr<scene_subtree_snapshot> captured;
   bool removing{}, refreshing{};
   std::vector<std::string> refresh_targets;
   prefab_snapshots before, after;
@@ -196,27 +196,30 @@ struct editor_prefab_edit::state {
   void prepare_refresh() {
 
     if (before.size() < refresh_targets.size()) {
-      bool complete{};
-      status = prefab_placement::capture_step(application, refresh_targets[before.size()], scene,
-                                              captured, complete);
+      status =
+          prefab_placement::capture(application, refresh_targets[before.size()], scene, captured);
       if (status.failed()) {
         finish();
         return;
       }
-      if (complete) {
-        before.push_back(std::move(captured));
-      }
+      before.push_back(std::move(captured));
       return;
     }
     if (after.size() < before.size()) {
-      std::shared_ptr<const prefab_placement_snapshot> snapshot;
-      status = prefab_placement::freeze(application, prepared.prefabs.at(author.prefab->uri),
-                                        before[after.size()]->author, assets, snapshot);
+      std::shared_ptr<const scene_subtree_snapshot> snapshot;
+      status = prefab_placement::freeze(
+          application, prepared.prefabs.at(author.prefab->uri),
+          *std::ranges::find(before[after.size()]->description.objects,
+                             before[after.size()]->root_uuid, &engine::object_description::uuid),
+          assets, snapshot);
       if (status.failed()) {
         finish();
         return;
       }
-      after.push_back(std::move(snapshot));
+      // 刷新只更换模板来源，自有子对象由现有实例化入口保留。
+      auto adjusted = std::make_shared<scene_subtree_snapshot>(*snapshot);
+      adjusted->parent_uuid = before[after.size()]->parent_uuid;
+      after.push_back(std::move(adjusted));
       return;
     }
     status = history->prepare_record();
@@ -467,14 +470,10 @@ void editor_prefab_edit::advance() {
       value.prepare_refresh();
       return;
     }
-    std::shared_ptr<const prefab_placement_snapshot> snapshot;
+    std::shared_ptr<const scene_subtree_snapshot> snapshot;
     if (value.removing) {
-      bool complete{};
-      value.status = prefab_placement::capture_step(value.application, value.target_uuid,
-                                                    value.scene, value.captured, complete);
-      if (value.status.ok() && !complete) {
-        return;
-      }
+      value.status = prefab_placement::capture(value.application, value.target_uuid, value.scene,
+                                               value.captured);
       snapshot = value.captured;
     } else {
       value.status = prefab_placement::freeze(

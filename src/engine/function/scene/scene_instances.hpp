@@ -12,6 +12,7 @@
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
 #include "engine/function/scene/scene_query.hpp"
+#include "engine/function/scene/scene_subtree_snapshot.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 
@@ -110,12 +111,12 @@ public:
   [[nodiscard]] error reparent_node(scene_instance_id instance, scene_node_id node,
                                     scene_node_id parent) noexcept;
   [[nodiscard]] error capture_subtree(scene_instance_id instance, scene_node_id root,
-                                      std::string& out_snapshot) const noexcept;
-  /** 只消费内存 JSON 和资源引用；缺失引用仅查询缓存，不读取文件。 */
-  [[nodiscard]] error restore_subtree(scene_instance_id instance, std::string_view snapshot,
-                                      scene_node_id parent, std::span<const uuid_mapping> mappings,
-                                      scene_node_id& out_root,
-                                      std::span<const scene_mesh_binding> bindings = {}) noexcept;
+                                      scene_subtree_snapshot& out_snapshot) const noexcept;
+  /** 只消费内存描述和资源强引用；失败回收本次创建的节点，不读取文件。 */
+  [[nodiscard]] error restore_subtree(scene_instance_id instance,
+                                      const scene_subtree_snapshot& snapshot, scene_node_id parent,
+                                      std::span<const uuid_mapping> mappings,
+                                      scene_node_id& out_root) noexcept;
   /** 删除整棵自有子树或 Prefab 实例，统一清理节点、实体和来源关系。 */
   [[nodiscard]] error destroy_subtree(scene_instance_id instance, scene_node_id root) noexcept;
   [[nodiscard]] error create_mesh_renderer_node(scene_instance_id instance,

@@ -464,154 +464,71 @@ gneiss::engine::error scene_document::reparent_node(scene_node_id node,
   return refreshed;
 }
 
-engine::error
-scene_document::capture_subtree_bindings(scene_node_id root,
-                                         std::vector<engine::scene_mesh_binding>& output) const {
-  for (const auto& candidate : nodes_) {
-    if (candidate.mesh_uri.empty())
-      continue;
-    auto current = candidate.node;
-    while (current.is_valid()) {
-      if (current == root) {
-        engine::scene_mesh_binding binding;
-        const auto status = application_->capture_mesh_binding(scene_, candidate.node, binding);
-        if (status.failed())
-          return status;
-        output.push_back(std::move(binding));
-        break;
-      }
-      const auto ancestor = std::ranges::find(nodes_, current, &scene_node_record::node);
-      current = ancestor == nodes_.end() ? scene_node_id{} : ancestor->parent;
-    }
-  }
-  return engine::error::success;
+engine::error scene_document::destroy_subtree(scene_node_id node,
+                                              scene_subtree_snapshot& output) noexcept try {
+  scene_subtree_snapshot snapshot;
+  auto status =
+      with_scene([&](auto& service) { return service.capture_subtree(scene_, node, snapshot); });
+  if (status.failed())
+    return status;
+  status = with_scene([&](auto& service) { return service.destroy_subtree(scene_, node); });
+  if (status.failed())
+    return status;
+  output = std::move(snapshot);
+  selection_ = {};
+  is_dirty_ = true;
+  return refresh_nodes();
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
 }
 
-gneiss::engine::error
-scene_document::destroy_subtree(scene_node_id node, scene_subtree_snapshot& out_snapshot) noexcept {
-  if (!is_open() || !node.is_valid()) {
-    return gneiss::engine::error::invalid_argument;
-  }
-  const auto found = std::ranges::find(nodes_, node, &scene_node_record::node);
-  if (found == nodes_.end()) {
-    return gneiss::engine::error::not_found;
-  }
-  try {
-    scene_subtree_snapshot snapshot{
-        .json = {}, .parent_uuid = {}, .root_uuid = found->uuid, .resources = {}};
-    if (found->parent.is_valid()) {
-      const auto parent = std::ranges::find(nodes_, found->parent, &scene_node_record::node);
-      if (parent == nodes_.end()) {
-        return gneiss::engine::error::invalid_state;
-      }
-      snapshot.parent_uuid = parent->uuid;
-    }
-    auto operation = with_scene([&](auto& service) {
-      return service.capture_subtree(scene_, gneiss::scene_node_id{node}, snapshot.json);
-    });
-    if (operation != gneiss::engine::error::success) {
-      return operation;
-    }
-    operation = capture_subtree_bindings(node, snapshot.resources);
-    if (operation.failed())
-      return operation;
-    operation = with_scene([&](auto& service) {
-      return service.destroy_subtree(scene_, gneiss::scene_node_id{node});
-    });
-    if (operation == gneiss::engine::error::success) {
-      selection_ = {};
-      operation = refresh_nodes();
-    }
-    if (operation == gneiss::engine::error::success) {
-      out_snapshot = std::move(snapshot);
-      is_dirty_ = true;
-    }
-    return operation;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
-  }
-}
-
-gneiss::engine::error scene_document::restore_subtree(const scene_subtree_snapshot& snapshot,
-                                                      scene_node_id& out_node) noexcept {
+engine::error scene_document::restore_subtree(const scene_subtree_snapshot& snapshot,
+                                              scene_node_id& output) noexcept {
   scene_node_id parent;
   if (!snapshot.parent_uuid.empty()) {
-    const auto* record = find_node(snapshot.parent_uuid);
-    if (record == nullptr) {
-      return gneiss::engine::error::not_found;
-    }
-    parent = record->node;
+    const auto status = with_scene(
+        [&](auto& service) { return service.find_node(scene_, snapshot.parent_uuid, parent); });
+    if (status.failed())
+      return status;
   }
-  const auto operation = with_node(out_node, [&](auto& service, auto& output) {
-    return service.restore_subtree(scene_, snapshot.json, gneiss::scene_node_id{parent}, {}, output,
-                                   snapshot.resources);
+  const auto status = with_node(output, [&](auto& service, auto& node) {
+    return service.restore_subtree(scene_, snapshot, parent, {}, node);
   });
-  if (operation != gneiss::engine::error::success) {
-    return operation;
-  }
-  selection_ = out_node;
-  const auto refreshed = refresh_nodes();
-  if (refreshed == gneiss::engine::error::success) {
-    is_dirty_ = true;
-  }
-  return refreshed;
+  if (status.failed())
+    return status;
+  selection_ = output;
+  is_dirty_ = true;
+  return refresh_nodes();
 }
 
-gneiss::engine::error scene_document::duplicate_subtree(scene_node_id node, scene_node_id parent,
-                                                        scene_node_id& out_node) noexcept {
-  if (!is_open() || !node.is_valid()) {
-    return gneiss::engine::error::invalid_argument;
-  }
-  try {
-    std::string snapshot;
-    auto operation = with_scene([&](auto& service) {
-      return service.capture_subtree(scene_, gneiss::scene_node_id{node}, snapshot);
-    });
-    if (operation != gneiss::engine::error::success) {
-      return operation;
-    }
-    std::vector<engine::scene_mesh_binding> bindings;
-    operation = capture_subtree_bindings(node, bindings);
-    if (operation.failed())
-      return operation;
-    std::vector<std::string> sources;
-    std::vector<std::string> targets;
-    for (const auto& candidate : nodes_) {
-      auto current = candidate.node;
-      while (current.is_valid()) {
-        if (current == node) {
-          sources.push_back(candidate.uuid);
-          targets.push_back(make_uuid_value());
-          break;
-        }
-        const auto ancestor = std::ranges::find(nodes_, current, &scene_node_record::node);
-        current = ancestor == nodes_.end() ? scene_node_id{} : ancestor->parent;
-      }
-    }
-    std::vector<gneiss::engine::uuid_mapping> mappings;
-    mappings.reserve(sources.size());
-    for (std::size_t index = 0; index < sources.size(); ++index) {
-      mappings.push_back({.source_uuid = sources[index], .target_uuid = targets[index]});
-    }
-    operation = with_node(out_node, [&](auto& service, auto& output) {
-      return service.restore_subtree(scene_, snapshot, gneiss::scene_node_id{parent}, mappings,
-                                     output, bindings);
-    });
-    if (operation == gneiss::engine::error::success) {
-      selection_ = out_node;
-      operation = refresh_nodes();
-    }
-    if (operation == gneiss::engine::error::success) {
-      is_dirty_ = true;
-    }
-    return operation;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
-  }
+engine::error scene_document::duplicate_subtree(scene_node_id node, scene_node_id parent,
+                                                scene_node_id& output) noexcept try {
+  scene_subtree_snapshot snapshot;
+  auto status =
+      with_scene([&](auto& service) { return service.capture_subtree(scene_, node, snapshot); });
+  if (status.failed())
+    return status;
+  std::vector<std::string> targets;
+  targets.reserve(snapshot.description.objects.size());
+  for (std::size_t i = 0; i < snapshot.description.objects.size(); ++i)
+    targets.push_back(make_uuid_value());
+  std::vector<engine::uuid_mapping> mappings;
+  for (std::size_t i = 0; i < targets.size(); ++i)
+    mappings.push_back({snapshot.description.objects[i].uuid, targets[i]});
+  status = with_node(output, [&](auto& service, auto& result) {
+    return service.restore_subtree(scene_, snapshot, parent, mappings, result);
+  });
+  if (status.failed())
+    return status;
+  selection_ = output;
+  is_dirty_ = true;
+  return refresh_nodes();
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
 }
 
 gneiss::engine::error

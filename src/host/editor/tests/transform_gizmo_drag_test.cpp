@@ -210,7 +210,7 @@ int main() try {
                 const auto operation = session.restore_subtree(snapshot, restored);
                 if (operation != gneiss::engine::error::success) {
                   std::printf("restore result=%d snapshot=%s\n", (operation).code(),
-                              snapshot.json.c_str());
+                              snapshot.root_uuid.c_str());
                 }
                 return operation;
               },

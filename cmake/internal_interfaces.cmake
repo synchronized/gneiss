@@ -104,6 +104,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/scene/prefab_description.hpp
   engine/function/scene/prefab_property_override.hpp
   engine/function/scene/scene_creation.hpp
+  engine/function/scene/scene_subtree_snapshot.hpp
   engine/function/scene/scene_mesh_binding.hpp
   engine/resource/scene/scene_description.hpp
   engine/function/scene/scene_instances.hpp

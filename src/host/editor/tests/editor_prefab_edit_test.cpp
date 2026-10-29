@@ -346,12 +346,19 @@ void run(gneiss::engine::execution_mode mode) {
   check(session.create_node("Own child", root_node, own_child).ok());
   check(edit.request_remove(*app, session, deletion_history, root_node).ok());
   drive();
-  check(edit.operation() == gneiss::engine::error::unsupported && deletion_history.size() == 0U &&
-        session.find_prefab_root(uuid)->node == root_node);
+  check(edit.operation().ok() && deletion_history.size() == 1U && session.prefab_nodes().empty());
+  check(deletion_history.undo() == gneiss::engine::error::not_ready);
+  while (deletion_history.is_pending())
+    check(deletion_history.advance_pending().ok());
+  root_node = session.find_prefab_root(uuid)->node;
+  check(session.nodes().size() == 1U);
+  const auto restored_child = session.nodes().front().node;
   scene_node_id retained_parent;
-  check(world->node_get_parent(own_child, retained_parent).ok() && retained_parent == root_node);
-  check(app->scenes()->destroy_node(session.scene_handle(), own_child).ok());
+  check(world->node_get_parent(restored_child, retained_parent).ok() &&
+        retained_parent == root_node && restored_child != own_child);
+  check(app->scenes()->destroy_node(session.scene_handle(), restored_child).ok());
   check(session.synchronize_nodes().ok());
+  deletion_history.clear();
 
   check(edit.request_remove(*app, session, deletion_history, root_node) ==
         gneiss::engine::error::success);
@@ -421,8 +428,89 @@ void run(gneiss::engine::execution_mode mode) {
   check(edit.operation() == gneiss::engine::error::invalid_state && history.size() == 0U);
   edit.dismiss();
 }
+void run_mixed_subtree() {
+  fixture files;
+  engine::task_scheduler scheduler({.workers = 1U, .mode = engine::execution_mode::cooperative});
+  std::shared_ptr<runtime::application> app;
+  runtime::application_configuration config;
+  const auto path = files.root.string();
+  config.asset_root = path;
+  check(runtime::application::create(config, app).ok());
+  check(app->attach_task_executor(scheduler).ok());
+  editor::scene_document document;
+  check(test_support::open_document(document, *app, app->native_world(), "asset://scene.json",
+                                    &scheduler)
+            .ok());
+  scene_node_id parent, first, second, child;
+  check(document.create_node("Parent", {}, parent).ok());
+  check(test_support::create_prefab_document(*app, document, "First", "asset://prefab.json", parent,
+                                             first, &scheduler)
+            .ok());
+  check(test_support::create_prefab_document(*app, document, "Second", "asset://prefab.json",
+                                             parent, second, &scheduler)
+            .ok());
+  check(document.create_node("Own child", first, child).ok());
+  const auto first_uuid =
+      std::ranges::find(document.prefab_nodes(), first, &editor::prefab_node_record::node)
+          ->instance_uuid;
+  const auto source = std::ranges::find_if(document.prefab_nodes(), [&](const auto& node) {
+    return node.instance_uuid == first_uuid && !node.is_instance_root;
+  });
+  check(source != document.prefab_nodes().end());
+  auto modified = source->local_transform;
+  modified.translation[0] = 31;
+  const auto source_uuid = source->source_node_uuid;
+  check(document.set_local_transform(source->node, modified).ok());
+  editor::scene_subtree_snapshot snapshot;
+  check(document.destroy_subtree(parent, snapshot).ok());
+  check(snapshot.description.objects.size() == 4U && snapshot.resources.size() == 2U);
+  std::ofstream(files.root / "prefab.json") << "broken";
+  std::ofstream(files.root / "mesh.json") << "broken";
+  std::ofstream(files.root / "material.json") << "broken";
+  // 来源已失效，恢复和复制仍只使用快照保活的实际资源版本。
+  scene_node_id restored;
+  auto invalid = snapshot;
+  invalid.resources.erase(first_uuid);
+  check(document.restore_subtree(invalid, restored) == engine::error::not_found);
+  check(!restored && *app->native_world()->entity_count() == 0U);
+  check(document.restore_subtree(snapshot, restored).ok() && restored != parent);
+  check(document.find_prefab_source(first_uuid, source_uuid)->local_transform.translation[0] == 31);
+  const auto new_first = document.find_prefab_root(first_uuid)->node;
+  const auto own = std::ranges::find(document.nodes(), std::string("Own child"),
+                                     &editor::scene_node_record::display_name);
+  check(own != document.nodes().end() && own->parent == new_first && own->node != child);
+  scene_node_id copy;
+  check(document.duplicate_subtree(restored, {}, copy).ok() && copy != restored);
+  engine::scene_subtree_snapshot copied;
+  check(app->scenes()->capture_subtree(document.scene_handle(), copy, copied).ok());
+  check(copied.description.objects.size() == 4U && copied.resources.size() == 2U);
+  const auto copied_first = std::ranges::find(copied.description.objects, std::string("First"),
+                                              &engine::object_description::name);
+  const auto copied_child = std::ranges::find(copied.description.objects, std::string("Own child"),
+                                              &engine::object_description::name);
+  check(copied_first != copied.description.objects.end() &&
+        copied_child != copied.description.objects.end());
+  check(copied_child->parent_uuid == copied_first->uuid);
+  const auto* copied_source = document.find_prefab_source(copied_first->uuid, source_uuid);
+  check(copied_source && copied_source->local_transform.translation[0] == 31);
+  auto independent = copied_source->local_transform;
+  independent.translation[0] = 42;
+  check(document.set_local_transform(copied_source->node, independent).ok());
+  check(document.find_prefab_source(first_uuid, source_uuid)->local_transform.translation[0] == 31);
+
+  for (const auto& object : copied.description.objects)
+    check(std::ranges::find(snapshot.description.objects, object.uuid,
+                            &engine::object_description::uuid) ==
+          snapshot.description.objects.end());
+  check(*app->native_world()->entity_count() == 604U);
+  check(document.restore_subtree(snapshot, parent) == engine::error::invalid_argument);
+  check(*app->native_world()->entity_count() == 604U);
+  document.close();
+  check(app->shutdown().ok());
+}
 }
 int main() try {
+  run_mixed_subtree();
   run_refresh(gneiss::engine::execution_mode::cooperative);
   run_refresh(gneiss::engine::execution_mode::thread_pool);
   run(gneiss::engine::execution_mode::cooperative);

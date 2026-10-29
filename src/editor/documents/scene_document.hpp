@@ -9,7 +9,7 @@
 #include "engine/core/math/transform.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
-#include "engine/function/scene/scene_mesh_binding.hpp"
+#include "engine/function/scene/scene_subtree_snapshot.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
@@ -72,13 +72,7 @@ struct scene_node_snapshot final {
   std::string material_uri;
 };
 
-struct scene_subtree_snapshot final {
-  std::string json;
-  std::string parent_uuid;
-  std::string root_uuid;
-  // 历史记录保活资源，删除后撤销无需重新加载。
-  std::vector<engine::scene_mesh_binding> resources;
-};
+using engine::scene_subtree_snapshot;
 
 /** 单个场景的编辑文档：保存 URI、选择、脏状态和节点查询快照。
  * 借用 Application，绑定一个运行时场景实例；close 负责卸载该实例。
@@ -194,8 +188,6 @@ public:
 
 private:
   engine::error encode_scene(std::string& output) const noexcept;
-  engine::error capture_subtree_bindings(scene_node_id root,
-                                         std::vector<engine::scene_mesh_binding>& output) const;
   template <class F> gneiss::engine::error with_scene(F&& action) const noexcept;
   template <class F>
   gneiss::engine::error with_node(scene_node_id& output, F&& action) const noexcept;

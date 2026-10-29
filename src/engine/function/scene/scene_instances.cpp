@@ -801,268 +801,187 @@ engine::error scene_instance::reparent_node(scene_node_id node, scene_node_id pa
   }
 }
 
-engine::error scene_instance::capture_subtree(scene_node_id root, std::string& out_snapshot) const {
-  const auto found = find_ordinary_node(root);
-  if (found == objects_.end()) {
-    return engine::error::invalid_handle;
+engine::error scene_instance::capture_subtree(scene_node_id root,
+                                              scene_subtree_snapshot& output) const {
+  if (!native_world_.is_owner_thread())
+    return error::invalid_state;
+  const auto root_member = std::ranges::find(objects_, root, &object::node);
+  const auto index = static_cast<std::size_t>(root_member - objects_.begin());
+  if (index >= description_.objects.size())
+    return error::invalid_handle;
+  scene_subtree_snapshot snapshot;
+  auto status = capture_description(snapshot.description);
+  if (status.failed())
+    return status;
+  snapshot.root_uuid = snapshot.description.objects[index].uuid;
+  snapshot.parent_uuid = snapshot.description.objects[index].parent_uuid.value_or("");
+  std::unordered_set<std::string> included{snapshot.root_uuid};
+  bool changed = true;
+  while (changed) {
+    changed = false;
+    for (const auto& object : snapshot.description.objects)
+      if (object.parent_uuid && included.contains(*object.parent_uuid))
+        changed |= included.emplace(object.uuid).second;
   }
-  try {
-    std::string current_json;
-    auto result = serialize(current_json);
-    if (result != engine::error::success) {
-      return result;
-    }
-    auto parsed = engine::parse_scene_description(current_json);
-    if (!parsed)
-      return parsed.error().error;
-    auto current = std::move(*parsed);
-    std::unordered_set<std::string> included{
-        std::string(scene_object_identity(native_world_, found->node).uuid)};
-    bool changed = true;
-    while (changed) {
-      changed = false;
-      for (const auto& candidate : current.objects) {
-        if (candidate.parent_uuid && included.contains(*candidate.parent_uuid) &&
-            included.emplace(candidate.uuid).second) {
-          changed = true;
-        }
+  if (included.size() > scene_subtree_max_nodes)
+    return error::unsupported;
+  std::erase_if(snapshot.description.objects,
+                [&](const auto& value) { return !included.contains(value.uuid); });
+  for (auto& author : snapshot.description.objects) {
+    if (author.uuid == snapshot.root_uuid)
+      author.parent_uuid.reset();
+    if (author.prefab) {
+      auto& resources = snapshot.resources[author.uuid];
+      const auto binding = std::ranges::find_if(prefab_instances_, [&](const auto& value) {
+        return value->instance_uuid_ == author.uuid;
+      });
+      if (binding == prefab_instances_.end())
+        return error::invalid_state;
+      resources.prefab = (*binding)->prefab_lease();
+      resources.source_nodes.resize((*binding)->node_count());
+      for (std::size_t i = 0; i < resources.source_nodes.size(); ++i) {
+        status = capture_prefab_instance_binding(author.uuid, i, resources.source_nodes[i]);
+        if (status.failed())
+          return status;
       }
+    } else if (author.mesh_renderer) {
+      const auto renderer = native_world_.node_mesh_renderer(find_node(author.uuid));
+      if (!renderer)
+        return renderer.error();
+      snapshot.resources[author.uuid].renderer = {renderer->mesh, renderer->material};
     }
-    if (included.size() > scene_subtree_max_nodes) {
-      return engine::error::unsupported;
-    }
-    // 当前子树恢复只处理普通作者节点；不能生成会遗漏 Prefab 的撤销快照。
-    if (std::ranges::any_of(current.objects, [&included](const auto& instance) {
-          return instance.prefab && included.contains(instance.uuid);
-        })) {
-      return engine::error::unsupported;
-    }
-    // 场景其他位置的 Prefab 不属于本次快照，保留它们会产生快照外父引用。
-    std::erase_if(current.objects, [](const auto& object) { return object.prefab.has_value(); });
-    std::erase_if(current.objects, [&included](const auto& candidate) {
-      return !included.contains(candidate.uuid);
-    });
-    // 子树快照必须能独立解析；外部父节点由 restore_subtree 的 parent 参数提供。
-    // 保留该引用会让删除子节点后的 Undo 在解析阶段因父节点不在快照内而失败。
-    for (auto& candidate : current.objects) {
-      if (candidate.uuid == scene_object_identity(native_world_, found->node).uuid) {
-        candidate.parent_uuid.reset();
-        break;
-      }
-    }
-    current.author_json =
-        std::string{"{\"format\":\"gneiss.scene\",\"version\":5,\"scene_uuid\":\""} + current.uuid +
-        "\",\"objects\":[]}";
-    auto decoded_result = engine::serialize_scene_description(current);
-    if (!decoded_result) {
-      return decoded_result.error();
-    }
-    out_snapshot = std::move(*decoded_result);
-    return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
   }
+  // 裁掉原始 JSON 中快照之外的对象，同时保留本子树的扩展字段。
+  auto encoded = serialize_scene_description(snapshot.description);
+  if (!encoded)
+    return encoded.error();
+  snapshot.description.author_json = std::move(*encoded);
+  output = std::move(snapshot);
+  return error::success;
 }
 
-engine::error scene_instance::restore_subtree(std::string_view snapshot, scene_node_id parent,
+engine::error scene_instance::restore_subtree(const scene_subtree_snapshot& snapshot,
+                                              scene_node_id parent,
                                               std::span<const uuid_mapping> mappings,
-                                              scene_node_id* out_root,
-                                              std::span<const scene_mesh_binding> bindings) {
-  auto parsed = engine::parse_scene_description(snapshot);
-  if (!parsed)
-    return parsed.error().error;
-  auto subtree = std::move(*parsed);
-  if (subtree.objects.empty())
-    return engine::error::invalid_argument;
-  auto result = engine::error::success;
-  if (std::ranges::any_of(subtree.objects,
-                          [](const auto& object) { return object.prefab.has_value(); })) {
-    return engine::error::unsupported;
+                                              scene_node_id* output) {
+  *output = {};
+  if (!native_world_.is_owner_thread())
+    return error::invalid_state;
+  if (parent && find_authored_node(parent) == objects_.end())
+    return error::invalid_handle;
+  auto subtree = snapshot.description;
+  if (subtree.objects.empty() || subtree.objects.size() > scene_subtree_max_nodes)
+    return error::invalid_argument;
+  structural_diff order;
+  auto status = build_structural_diff({}, subtree.objects, order);
+  if (status.failed())
+    return status;
+  const auto root =
+      std::ranges::find(subtree.objects, snapshot.root_uuid, &object_description::uuid);
+  if (root == subtree.objects.end() || root->parent_uuid ||
+      std::ranges::count_if(subtree.objects, [](const auto& o) { return !o.parent_uuid; }) != 1)
+    return error::invalid_argument;
+  std::map<std::string, std::string, std::less<>> remap;
+  std::unordered_set<std::string> targets;
+  if (!mappings.empty() && mappings.size() != subtree.objects.size())
+    return error::invalid_argument;
+  for (const auto& source : subtree.objects) {
+    const auto mapping = std::ranges::find(mappings, source.uuid, &uuid_mapping::source_uuid);
+    if (!mappings.empty() && mapping == mappings.end())
+      return error::invalid_argument;
+    auto target = mappings.empty() ? source.uuid : std::string(mapping->target_uuid);
+    if (!is_canonical_uuid(target) || find_node(target) || !targets.emplace(target).second)
+      return error::invalid_argument;
+    remap.emplace(source.uuid, std::move(target));
   }
-  if (subtree.objects.size() > scene_subtree_max_nodes) {
-    return engine::error::unsupported;
-  }
-  std::optional<std::string> external_parent_uuid;
-  if (parent != null_scene_node_id) {
-    const auto found = find_authored_node(parent);
-    if (found == objects_.end()) {
-      return engine::error::invalid_handle;
+  // 临时成员集合只负责本次创建失败的清理，不注册第二个场景实例。
+  scene_instance staged(native_world_, loader_, registry_);
+  staged.description_.uuid = description_.uuid;
+  entity_id old_camera;
+  (void)native_world_.get_active_camera(old_camera);
+  struct camera_guard {
+    world& owner;
+    entity_id previous;
+    bool committed{};
+    ~camera_guard() {
+      if (!committed && previous.is_valid())
+        (void)owner.set_active_camera(previous);
     }
-    external_parent_uuid = scene_object_identity(native_world_, found->node).uuid;
-  }
-  try {
-    std::unordered_set<std::string> source_uuids;
-    source_uuids.reserve(subtree.objects.size());
-    for (const auto& author : subtree.objects) {
-      source_uuids.emplace(author.uuid);
-    }
-    auto root = subtree.objects.end();
-    for (auto iterator = subtree.objects.begin(); iterator != subtree.objects.end(); ++iterator) {
-      if (!iterator->parent_uuid || !source_uuids.contains(*iterator->parent_uuid)) {
-        if (root != subtree.objects.end()) {
-          return engine::error::invalid_argument;
-        }
-        root = iterator;
-      }
-    }
-    if (root == subtree.objects.end()) {
-      return engine::error::invalid_argument;
-    }
-    const auto source_root_uuid = root->uuid;
-    std::unordered_map<std::string, std::string> uuid_map;
-    if (!mappings.empty()) {
-      if (mappings.size() != subtree.objects.size()) {
-        return engine::error::invalid_argument;
-      }
-      uuid_map.reserve(mappings.size());
-      std::unordered_set<std::string> targets;
-      targets.reserve(mappings.size());
-      for (const auto& mapping : mappings) {
-        const std::string source(mapping.source_uuid);
-        const std::string target(mapping.target_uuid);
-        if (!source_uuids.contains(source) || !is_canonical_uuid(target) ||
-            find_node(target) != null_scene_node_id || !uuid_map.emplace(source, target).second ||
-            !targets.emplace(target).second) {
-          return engine::error::invalid_argument;
-        }
-      }
+  } camera{native_world_, old_camera};
+  for (const auto& entry : order.added) {
+    const auto& original = subtree.objects[entry.new_index];
+    auto author = original;
+    author.uuid = remap.at(original.uuid);
+    if (author.parent_uuid)
+      author.parent_uuid = remap.at(*author.parent_uuid);
+    if (!mappings.empty() && author.camera)
+      author.camera->is_primary = false;
+    const auto asset = snapshot.resources.find(original.uuid);
+    const auto node_parent =
+        author.parent_uuid ? staged.find_node(*author.parent_uuid) : scene_node_id{};
+    if (author.prefab) {
+      if (asset == snapshot.resources.end() || !asset->second.prefab)
+        return error::not_found;
+      scene_node_id created;
+      status = staged.instantiate_prefab_ready(author, asset->second.prefab,
+                                               asset->second.source_nodes, false, created);
     } else {
-      for (const auto& author : subtree.objects) {
-        if (find_node(author.uuid) != null_scene_node_id) {
-          return engine::error::invalid_argument;
-        }
-      }
-    }
-    for (auto& author : subtree.objects) {
-      const auto old_uuid = author.uuid;
-      if (!uuid_map.empty()) {
-        author.uuid = uuid_map.at(old_uuid);
-        if (author.camera) {
-          author.camera->is_primary = false;
-        }
-      }
-      if (old_uuid == source_root_uuid) {
-        author.parent_uuid = external_parent_uuid;
-      } else if (author.parent_uuid && !uuid_map.empty()) {
-        author.parent_uuid = uuid_map.at(*author.parent_uuid);
-      }
-    }
-
-    std::vector<staged_object> staged;
-    staged.reserve(subtree.objects.size());
-    for (const auto& author : subtree.objects) {
-      staged_object target{.uuid = author.uuid,
-                           .entity = UINT64_C(0),
-                           .node = null_scene_node_id,
-                           .mesh = {},
-                           .material = {}};
+      scene_mesh_binding resources;
       if (author.mesh_renderer) {
-        const auto found = std::ranges::find_if(bindings, [&](const auto& binding) {
-          return asset_uri(binding.mesh) == author.mesh_renderer->mesh_uri &&
-                 asset_uri(binding.material) == author.mesh_renderer->material_uri;
-        });
-        if (found != bindings.end()) {
-          if (!loader_.owns(found->mesh) || !loader_.owns(found->material))
-            return error::invalid_handle;
-          target.mesh = found->mesh;
-          target.material = found->material;
-        } else {
-          render_asset_ref cached;
-          result = engine::error::success;
-          {
-            auto loaded = loader_.find({author.mesh_renderer->mesh_uri, asset_type::mesh});
-            if (loaded)
-              cached = std::move(*loaded);
-            else {
-              cached = {};
-              result = loaded.error();
-            }
-          };
-          if (result.ok()) {
-            target.mesh = asset_cast<mesh_resource>(cached);
-            result = engine::error::success;
-            {
-              auto loaded =
-                  loader_.find({author.mesh_renderer->material_uri, asset_type::material});
-              if (loaded)
-                cached = std::move(*loaded);
-              else {
-                cached = {};
-                result = loaded.error();
-              }
-            };
-            if (result.ok())
-              target.material = asset_cast<material_resource>(cached);
-          }
-        }
-        if (result != engine::error::success) {
-          return result;
-        }
+        if (asset == snapshot.resources.end())
+          return error::not_found;
+        resources = asset->second.renderer;
+        if (asset_uri(resources.mesh) != author.mesh_renderer->mesh_uri ||
+            asset_uri(resources.material) != author.mesh_renderer->material_uri)
+          return error::not_found;
+        if (!loader_.owns(resources.mesh) || !loader_.owns(resources.material))
+          return error::invalid_handle;
       }
-      staged.push_back(std::move(target));
+      // 先扩容，保证创建成功后登记成员不会因分配失败遗漏节点。
+      staged.objects_.reserve(staged.objects_.size() + 1);
+      staged.description_.objects.reserve(staged.description_.objects.size() + 1);
+      auto created = create_scene_object(native_world_, author, node_parent,
+                                         {resources.mesh, resources.material});
+      if (!created)
+        return created.error();
+      staged.objects_.insert(staged.objects_.begin() +
+                                 static_cast<std::ptrdiff_t>(staged.description_.objects.size()),
+                             {*created});
+      staged.description_.objects.push_back(std::move(author));
+      status = error::success;
     }
-    objects_.reserve(objects_.size() + staged.size());
-    description_.objects.reserve(description_.objects.size() + subtree.objects.size());
-    std::unordered_map<std::string_view, scene_node_id> committed_nodes;
-    committed_nodes.reserve(staged.size());
-    std::vector<bool> committed(staged.size());
-    std::size_t committed_count = 0;
-    while (committed_count < staged.size()) {
-      bool made_progress = false;
-      for (std::size_t index = 0; index < staged.size(); ++index) {
-        if (committed[index]) {
-          continue;
-        }
-        const auto& author = subtree.objects[index];
-        scene_node_id runtime_parent = null_scene_node_id;
-        if (author.parent_uuid) {
-          if (external_parent_uuid && *author.parent_uuid == *external_parent_uuid) {
-            runtime_parent = parent;
-          } else {
-            const auto found_parent = committed_nodes.find(*author.parent_uuid);
-            if (found_parent == committed_nodes.end()) {
-              continue;
-            }
-            runtime_parent = found_parent->second;
-          }
-        }
-        result = commit_object(native_world_, author, staged[index], runtime_parent);
-        if (result != engine::error::success) {
-          for (auto& value : staged) {
-            if (value.node) {
-              (void)native_world_.object_destroy(value.node);
-            }
-          }
-          loader_.collect_unused();
-          return result;
-        }
-        committed_nodes.emplace(staged[index].uuid, staged[index].node);
-        committed[index] = true;
-        ++committed_count;
-        made_progress = true;
-      }
-      if (!made_progress) {
-        return engine::error::invalid_argument;
-      }
-    }
-    const auto restored_root_uuid =
-        uuid_map.empty() ? source_root_uuid : uuid_map.at(source_root_uuid);
-    *out_root = committed_nodes.at(restored_root_uuid);
-    auto position = objects_.begin() + static_cast<std::ptrdiff_t>(description_.objects.size());
-    for (auto& value : staged) {
-      position = objects_.insert(position, {value.node}) + 1;
-    }
-    for (auto& author : subtree.objects) {
-      description_.objects.push_back(std::move(author));
-    }
-    return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
+    if (status.failed())
+      return status;
   }
+  const auto created_root = staged.find_node(remap.at(snapshot.root_uuid));
+  auto& root_author = *std::ranges::find(staged.description_.objects, remap.at(snapshot.root_uuid),
+                                         &object_description::uuid);
+  root_author.parent_uuid =
+      parent ? std::optional<std::string>(scene_object_identity(native_world_, parent).uuid)
+             : std::nullopt;
+  // 合并前完成分配，提交后临时集合放弃节点所有权。
+  objects_.reserve(objects_.size() + staged.objects_.size());
+  description_.objects.reserve(description_.objects.size() + staged.description_.objects.size());
+  prefab_instances_.reserve(prefab_instances_.size() + staged.prefab_instances_.size());
+  status = native_world_.node_reparent(created_root, parent);
+  if (status.failed())
+    return status;
+  const auto explicit_count = staged.description_.objects.size();
+  objects_.insert(objects_.begin() + static_cast<std::ptrdiff_t>(description_.objects.size()),
+                  staged.objects_.begin(),
+                  staged.objects_.begin() + static_cast<std::ptrdiff_t>(explicit_count));
+  objects_.insert(objects_.end(),
+                  staged.objects_.begin() + static_cast<std::ptrdiff_t>(explicit_count),
+                  staged.objects_.end());
+  for (auto& author : staged.description_.objects)
+    description_.objects.push_back(std::move(author));
+  for (auto& binding : staged.prefab_instances_)
+    prefab_instances_.push_back(std::move(binding));
+  staged.objects_.clear();
+  staged.prefab_instances_.clear();
+  camera.committed = true;
+  *output = created_root;
+  return error::success;
 }
 
 engine::error scene_instance::destroy_subtree(scene_node_id root) {
@@ -1632,8 +1551,9 @@ engine::error scene_instances::reparent_node(scene_instance_id instance, scene_n
   }
 }
 
-engine::error scene_instances::capture_subtree(scene_instance_id instance, scene_node_id root_value,
-                                               std::string& out_snapshot) const noexcept {
+engine::error
+scene_instances::capture_subtree(scene_instance_id instance, scene_node_id root_value,
+                                 scene_subtree_snapshot& out_snapshot) const noexcept {
   auto root = root_value;
   try {
     const auto* value = instances_.get(instance, resource_type::scene_instance);
@@ -1644,11 +1564,11 @@ engine::error scene_instances::capture_subtree(scene_instance_id instance, scene
   }
 }
 
-engine::error
-scene_instances::restore_subtree(scene_instance_id instance, std::string_view snapshot,
-                                 scene_node_id parent_value, std::span<const uuid_mapping> mappings,
-                                 scene_node_id& out_root_value,
-                                 std::span<const scene_mesh_binding> bindings) noexcept {
+engine::error scene_instances::restore_subtree(scene_instance_id instance,
+                                               const scene_subtree_snapshot& snapshot,
+                                               scene_node_id parent_value,
+                                               std::span<const uuid_mapping> mappings,
+                                               scene_node_id& out_root_value) noexcept {
   auto parent = parent_value;
   auto out_root_storage = out_root_value;
   auto* out_root = &out_root_storage;
@@ -1661,7 +1581,7 @@ scene_instances::restore_subtree(scene_instance_id instance, std::string_view sn
       auto* value = instances_.get(instance, resource_type::scene_instance);
       return value == nullptr || *value == nullptr
                  ? engine::error::invalid_handle
-                 : (*value)->restore_subtree(snapshot, parent, mappings, out_root, bindings);
+                 : (*value)->restore_subtree(snapshot, parent, mappings, out_root);
     } catch (...) {
       return engine::error::internal;
     }

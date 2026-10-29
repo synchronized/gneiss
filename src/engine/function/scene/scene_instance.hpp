@@ -40,11 +40,11 @@ public:
   [[nodiscard]] error create_node(const node_creation& desc, scene_node_id* out_node);
   [[nodiscard]] error set_node_name(scene_node_id node, std::string_view name);
   [[nodiscard]] error reparent_node(scene_node_id node, scene_node_id parent);
-  [[nodiscard]] error capture_subtree(scene_node_id root, std::string& out_snapshot) const;
-  [[nodiscard]] error restore_subtree(std::string_view snapshot, scene_node_id parent,
+  [[nodiscard]] error capture_subtree(scene_node_id root,
+                                      scene_subtree_snapshot& out_snapshot) const;
+  [[nodiscard]] error restore_subtree(const scene_subtree_snapshot& snapshot, scene_node_id parent,
                                       std::span<const uuid_mapping> mappings,
-                                      scene_node_id* out_root,
-                                      std::span<const scene_mesh_binding> bindings);
+                                      scene_node_id* out_root);
   [[nodiscard]] error destroy_subtree(scene_node_id root);
   [[nodiscard]] error create_mesh_renderer_node(const mesh_renderer_node_creation& desc,
                                                 scene_node_id* out_node,
