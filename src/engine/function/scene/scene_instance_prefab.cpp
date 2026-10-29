@@ -95,8 +95,8 @@ error scene_instance::instantiate_prefab_ready(const object_description& author,
   }
   auto record = author;
   prefab_description effective;
-  auto status = prefab_runtime_instance::prepare_description(*prefab.get(), registry_,
-                                                             author.prefab->overrides, effective);
+  auto status =
+      prepare_prefab_description(*prefab.get(), registry_, author.prefab->overrides, effective);
   if (status.failed())
     return status;
   structural_diff order;
@@ -105,9 +105,8 @@ error scene_instance::instantiate_prefab_ready(const object_description& author,
     return status;
   description_.objects.reserve(description_.objects.size() + 1U);
   prefab_instances_.reserve(prefab_instances_.size() + 1U);
-  auto runtime = std::make_unique<prefab_runtime_instance>(native_world_, loader_,
-                                                           std::move(prefab), author.uuid);
-  runtime->prepared_ = std::move(effective);
+  auto runtime =
+      std::make_unique<prefab_binding>(native_world_, loader_, std::move(prefab), author.uuid);
   status = runtime->create_root(parent, {author.translation, author.rotation, author.scale});
   if (status.failed())
     return status;
@@ -117,15 +116,14 @@ error scene_instance::instantiate_prefab_ready(const object_description& author,
     return status;
   for (const auto& entry : order.added) {
     const auto index = entry.new_index;
-    const auto& source = runtime->prepared_->objects[index];
+    const auto& source = effective.objects[index];
     const auto node_parent =
         source.parent_uuid ? runtime->find_node(*source.parent_uuid) : runtime->root();
-    status =
-        runtime->create_node(index, node_parent, bindings[index].mesh, bindings[index].material);
+    status = runtime->create_node(index, source, node_parent, bindings[index].mesh,
+                                  bindings[index].material);
     if (status.failed())
       return status;
   }
-  runtime->prepared_.reset();
   const auto root = runtime->root();
   objects_.reserve(objects_.size() + runtime->node_count() + 1U);
   objects_.insert(objects_.begin() + static_cast<std::ptrdiff_t>(description_.objects.size()),

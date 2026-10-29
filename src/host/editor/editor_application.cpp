@@ -2696,10 +2696,9 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
           if (ImGui::Button("Apply")) {
             const auto next = std::string{state.rename_buffer.data()};
             const auto* current = state.editing.document().find_prefab_root(state.rename_uuid);
-            state.history_error =
-                current == nullptr
-                    ? gneiss::engine::error::not_found
-                    : state.editing.document().rename_prefab_instance(current->node, next);
+            state.history_error = current == nullptr
+                                      ? gneiss::engine::error::not_found
+                                      : state.editing.document().rename_node(current->node, next);
             if (state.history_error == gneiss::engine::error::success) {
               const auto uuid = state.rename_uuid;
               const auto previous = state.rename_previous;
@@ -2708,16 +2707,16 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
                    .undo =
                        [&state, uuid, previous] {
                          const auto* node = state.editing.document().find_prefab_root(uuid);
-                         return node == nullptr ? gneiss::engine::error::not_found
-                                                : state.editing.document().rename_prefab_instance(
-                                                      node->node, previous);
+                         return node == nullptr
+                                    ? gneiss::engine::error::not_found
+                                    : state.editing.document().rename_node(node->node, previous);
                        },
                    .redo =
                        [&state, uuid, next] {
                          const auto* node = state.editing.document().find_prefab_root(uuid);
-                         return node == nullptr ? gneiss::engine::error::not_found
-                                                : state.editing.document().rename_prefab_instance(
-                                                      node->node, next);
+                         return node == nullptr
+                                    ? gneiss::engine::error::not_found
+                                    : state.editing.document().rename_node(node->node, next);
                        },
                    .merge_key = {}});
             }

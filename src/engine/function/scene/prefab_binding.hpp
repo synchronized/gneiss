@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_SCENE_PREFAB_RUNTIME_INSTANCE_HPP_
-#define GNEISS_SCENE_PREFAB_RUNTIME_INSTANCE_HPP_
+#ifndef GNEISS_SCENE_PREFAB_BINDING_HPP_
+#define GNEISS_SCENE_PREFAB_BINDING_HPP_
 
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registry.hpp"
@@ -20,14 +20,17 @@
 
 namespace gneiss::engine {
 
-/** Prefab 来源关系与映射。节点由所属场景统一拥有，析构不会销毁节点。 */
-class prefab_runtime_instance final {
+/** 只修改私有描述，失败保持 output 不变；不读文件、不创建实体、不发送通知。 */
+[[nodiscard]] error prepare_prefab_description(const prefab_description& source,
+                                               const meta::registry_ref& registry,
+                                               std::span<const prefab_property_override> overrides,
+                                               prefab_description& output) noexcept;
+
+/** 场景私有的 Prefab 来源绑定及映射操作，不是独立场景对象。
+ * 只持有来源资源；World、资源服务和节点均为借用。构造准备数据由调用方持有，
+ * 创建失败由调用方回收节点；销毁绑定本身只释放来源引用。 */
+class prefab_binding final {
 public:
-  /** 只修改私有描述，失败保持 output 不变；不读文件、不创建实体、不发送通知。 */
-  [[nodiscard]] static error
-  prepare_description(const prefab_description& source, const meta::registry_ref& registry,
-                      std::span<const prefab_property_override> overrides,
-                      prefab_description& output) noexcept;
   struct node_info final {
     const prefab_author_address* address = nullptr;
     std::string_view name;
@@ -36,27 +39,16 @@ public:
     scene_node_id parent = null_scene_node_id;
   };
 
-  prefab_runtime_instance(world& native_world, resource_service& loader, prefab_asset_ref prefab,
-                          std::string instance_uuid) noexcept;
-  ~prefab_runtime_instance() noexcept = default;
+  prefab_binding(world& native_world, resource_service& loader, prefab_asset_ref prefab,
+                 std::string instance_uuid) noexcept;
+  ~prefab_binding() noexcept = default;
 
-  prefab_runtime_instance(const prefab_runtime_instance&) = delete;
-  prefab_runtime_instance& operator=(const prefab_runtime_instance&) = delete;
-
-  [[nodiscard]] static error
-  create(world& native_world, resource_service& loader, prefab_asset_ref prefab,
-         const meta::registry_ref& registry, std::string_view instance_uuid, scene_node_id parent,
-         const math::transform& root_transform,
-         const std::vector<prefab_property_override>& overrides,
-         std::unique_ptr<prefab_runtime_instance>& out_instance) noexcept;
+  prefab_binding(const prefab_binding&) = delete;
+  prefab_binding& operator=(const prefab_binding&) = delete;
 
   [[nodiscard]] scene_node_id root() const noexcept { return root_node_; }
-  [[nodiscard]] std::uint64_t root_entity() const noexcept {
-    return scene_object_entity(native_world_, root_node_);
-  }
   [[nodiscard]] prefab_asset_ref prefab_lease() const noexcept { return prefab_; }
   [[nodiscard]] scene_node_id find_node(std::string_view source_node_uuid) const noexcept;
-  [[nodiscard]] std::uint64_t find_entity(std::string_view source_node_uuid) const noexcept;
   [[nodiscard]] const object_description*
   find_source_object(std::string_view source_node_uuid) const noexcept;
   [[nodiscard]] std::size_t node_count() const noexcept { return nodes_.size(); }
@@ -69,9 +61,10 @@ public:
   [[nodiscard]] error reload(prefab_asset_ref candidate, const meta::registry_ref& registry,
                              const std::vector<prefab_property_override>& overrides);
 
-  /** 同步构造的内部步骤；节点直接可见，资源由调用方传入，失败由实例析构清理。 */
+  /** 同步构造的内部步骤；节点直接可见，资源由调用方传入，失败由调用方的子树守卫清理。 */
   [[nodiscard]] error create_root(scene_node_id parent, const math::transform& transform);
-  [[nodiscard]] error create_node(std::size_t index, scene_node_id parent, engine::mesh mesh,
+  [[nodiscard]] error create_node(std::size_t index, const object_description& source,
+                                  scene_node_id parent, engine::mesh mesh,
                                   engine::material material);
   [[nodiscard]] error apply_override(const meta::registry_ref& registry,
                                      const prefab_property_override& value) noexcept;
@@ -93,7 +86,6 @@ private:
   std::string instance_uuid_;
   scene_node_id root_node_ = null_scene_node_id;
   std::vector<runtime_node> nodes_;
-  std::optional<prefab_description> prepared_;
 };
 
 } // namespace gneiss::engine

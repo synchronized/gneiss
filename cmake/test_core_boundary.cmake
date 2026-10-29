@@ -442,7 +442,7 @@ foreach(content IN ITEMS "gneiss_transform value;" "auto value = GNEISS_TRANSFOR
 endforeach()
 file(WRITE "${fixture}/src/engine/function/scene/scene_tree.hpp" "")
 
-foreach(name IN ITEMS scene_query.hpp scene_creation.hpp scene_instances.cpp prefab_runtime_instance.cpp)
+foreach(name IN ITEMS scene_query.hpp scene_creation.hpp scene_instances.cpp prefab_binding.cpp)
   file(WRITE "${fixture}/src/engine/function/scene/${name}" "gneiss_transform value;\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"

@@ -11,7 +11,8 @@
 
 World 拥有场景树和 ECS；场景实例记录自己的全部节点并负责统一删除。
 ECS 组件持有 mesh/material 等引擎资源强引用，不保存第三方后端对象。
-Prefab 来源记录只持有模板资源与来源 UUID 到实际节点的非拥有映射，不在析构时销毁节点。
+`prefab_binding` 保存模板资源与来源 UUID 到实际节点的非拥有映射，借用 World 和资源服务。
+它不在析构时销毁节点，也不保留创建期间的有效描述副本；投影由无状态的 `prepare_prefab_description` 处理。
 
 ## 加载阶段
 
@@ -45,13 +46,15 @@ Prefab 来源记录只持有模板资源与来源 UUID 到实际节点的非拥�
 
 `set_node_name` 支持普通对象与实例根。`reparent_node` 支持显式对象，普通自有对象可挂在实例根下，
 不能挂到模板内部节点。模板内部结构暂不提供增删或重排覆盖。
+`destroy_node` 对所有显式对象统一要求没有实际子节点；完整删除使用 `destroy_subtree`，不按 Prefab 类型切换删除语义。
 普通组件编辑接口仍限制为自有对象；来源 Transform 编辑通过 `set_prefab_source_transform` 验证并记录稀疏覆盖。
 恢复来源默认值时移除对应覆盖。直接修改 World 组件不会自动形成持久化覆盖。
 
 `capture_description` 采集显式对象，`serialize` 编码为当前格式；来源生成节点不重复输出。
 未知 JSON 扩展字段按对象 UUID 对齐保留，不按旧数组下标绑定。
 `capture_subtree`、`restore_subtree` 处理普通自有子树；含模板引用的子树快照仍返回 `unsupported`，
-Prefab 编辑使用专用来源快照。`destroy_subtree` 则统一删除整棵子树，包括来源关系与 ECS 组件。
+Prefab 编辑使用专用来源快照。该快照尚不包含实例根下的自有子对象，因此可撤销删除在提交前检查
+这些子对象并返回 `unsupported`，不执行不完整的删除；放置命令的撤销同样执行该检查。`destroy_subtree` 则统一删除整棵子树，包括来源关系与 ECS 组件。
 
 ## 来源重载与显式刷新
 

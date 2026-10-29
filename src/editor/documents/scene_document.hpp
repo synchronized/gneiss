@@ -135,8 +135,6 @@ public:
   [[nodiscard]] gneiss::engine::error validate_selection() noexcept;
   [[nodiscard]] gneiss::engine::error create_node(std::string_view name, scene_node_id parent,
                                                   scene_node_id& out_node) noexcept;
-  [[nodiscard]] gneiss::engine::error rename_prefab_instance(scene_node_id root,
-                                                             std::string_view name) noexcept;
   [[nodiscard]] gneiss::engine::error rename_node(scene_node_id node,
                                                   std::string_view name) noexcept;
   [[nodiscard]] gneiss::engine::error reparent_node(scene_node_id node,

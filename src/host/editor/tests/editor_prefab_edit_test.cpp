@@ -341,7 +341,18 @@ void run(gneiss::engine::execution_mode mode) {
   auto root_local = session.find_prefab_root(uuid)->local_transform;
   root_local.translation[1] = 7.0F;
   check(session.set_local_transform(root_node, root_local) == gneiss::engine::error::success);
-  check(session.rename_prefab_instance(root_node, "Renamed") == gneiss::engine::error::success);
+  check(session.rename_node(root_node, "Renamed") == gneiss::engine::error::success);
+  scene_node_id own_child;
+  check(session.create_node("Own child", root_node, own_child).ok());
+  check(edit.request_remove(*app, session, deletion_history, root_node).ok());
+  drive();
+  check(edit.operation() == gneiss::engine::error::unsupported && deletion_history.size() == 0U &&
+        session.find_prefab_root(uuid)->node == root_node);
+  scene_node_id retained_parent;
+  check(world->node_get_parent(own_child, retained_parent).ok() && retained_parent == root_node);
+  check(app->scenes()->destroy_node(session.scene_handle(), own_child).ok());
+  check(session.synchronize_nodes().ok());
+
   check(edit.request_remove(*app, session, deletion_history, root_node) ==
         gneiss::engine::error::success);
   step();

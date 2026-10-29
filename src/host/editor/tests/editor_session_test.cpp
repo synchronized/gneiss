@@ -185,7 +185,7 @@ int main() try {
       session.prefab_nodes().size() != 4U || !session.selected_prefab_node())
     return 11;
   prefab_root = session.selected_prefab_node()->node;
-  if (session.rename_prefab_instance(prefab_root, "Restored Lamp").failed())
+  if (session.rename_node(prefab_root, "Restored Lamp").failed())
     return 11;
   auto moved = session.selected_prefab_node()->local_transform;
   moved.translation[1] = 3.0F;

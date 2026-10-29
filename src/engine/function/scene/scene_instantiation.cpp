@@ -49,8 +49,7 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
         continue;
       }
       const auto lease = prepared.prefabs.at(source.prefab->uri).resource;
-      auto prefab =
-          std::make_unique<prefab_runtime_instance>(native_world_, loader_, lease, source.uuid);
+      auto prefab = std::make_unique<prefab_binding>(native_world_, loader_, lease, source.uuid);
       math::transform transform{};
       transform.translation = source.translation;
       transform.rotation = source.rotation;
@@ -69,7 +68,7 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
       for (const auto index : prepared.prefabs.at(source.prefab->uri).parent_first) {
         const auto& node = lease.get()->objects.at(index);
         result = prefab->create_node(
-            index, node.parent_uuid ? prefab_nodes.at(*node.parent_uuid) : prefab->root(),
+            index, node, node.parent_uuid ? prefab_nodes.at(*node.parent_uuid) : prefab->root(),
             asset_cast<mesh_resource>(node.mesh_renderer ? find_asset(node.mesh_renderer->mesh_uri)
                                                          : engine::render_asset_ref{}),
             asset_cast<material_resource>(node.mesh_renderer
@@ -78,7 +77,7 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
         if (result != engine::error::success) {
           return result;
         }
-        prefab_runtime_instance::node_info info;
+        prefab_binding::node_info info;
         result = prefab->get_node_info(index, info);
         if (result != engine::error::success) {
           return result;

@@ -100,14 +100,11 @@ public:
   [[nodiscard]] error capture_prefab_binding(scene_instance_id instance, std::string_view uuid,
                                              std::size_t index,
                                              mesh_binding& output) const noexcept;
-  [[nodiscard]] error set_prefab_instance_name(scene_instance_id instance, scene_node_id root,
-                                               std::string_view name) noexcept;
   [[nodiscard]] error set_prefab_source_transform(scene_instance_id instance, scene_node_id node,
                                                   const math::transform& transform) noexcept;
-  [[nodiscard]] error destroy_prefab_instance(scene_instance_id instance,
-                                              scene_node_id root) noexcept;
   [[nodiscard]] error create_node(scene_instance_id instance, const node_creation& desc,
                                   scene_node_id& out_node) noexcept;
+  /** 修改显式对象名称，普通对象与 Prefab 根共用；来源内部节点不支持独立重命名。 */
   [[nodiscard]] error set_node_name(scene_instance_id instance, scene_node_id node,
                                     std::string_view name) noexcept;
   [[nodiscard]] error reparent_node(scene_instance_id instance, scene_node_id node,
@@ -119,6 +116,7 @@ public:
                                       scene_node_id parent, std::span<const uuid_mapping> mappings,
                                       scene_node_id& out_root,
                                       std::span<const scene_mesh_binding> bindings = {}) noexcept;
+  /** 删除整棵自有子树或 Prefab 实例，统一清理节点、实体和来源关系。 */
   [[nodiscard]] error destroy_subtree(scene_instance_id instance, scene_node_id root) noexcept;
   [[nodiscard]] error create_mesh_renderer_node(scene_instance_id instance,
                                                 const mesh_renderer_node_creation& desc,
@@ -130,6 +128,7 @@ public:
                                  const camera_description& desc) noexcept;
   [[nodiscard]] error remove_camera(scene_instance_id instance, scene_node_id node) noexcept;
   [[nodiscard]] error remove_mesh_renderer(scene_instance_id instance, scene_node_id node) noexcept;
+  /** 只删除无实际子节点的显式对象；存在子节点返回 invalid_state。 */
   [[nodiscard]] error destroy_node(scene_instance_id instance, scene_node_id node) noexcept;
 
 private:

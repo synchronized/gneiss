@@ -56,6 +56,13 @@ int main() try {
     return 2;
   }
 
+  // 名称与删除入口按操作语义区分，不按 Prefab 类型区分。
+  if (application->scenes()->destroy_node(scene, prefab_root.node) !=
+          gneiss::engine::error::invalid_state ||
+      application->scenes()->set_node_name(scene, prefab_source.node, "Forbidden") !=
+          gneiss::engine::error::invalid_handle)
+    return 13;
+
   gneiss::engine::math::transform source_transform;
   source_transform.translation[0] = 1.0F;
   if (application->scenes()->set_prefab_source_transform(
@@ -130,7 +137,7 @@ int main() try {
   constexpr std::string_view renamed = "Renamed Lamp";
   gneiss::engine::math::transform moved;
   moved.translation[0] = 4.0F;
-  if (application->scenes()->set_prefab_instance_name(scene, created_root, renamed) !=
+  if (application->scenes()->set_node_name(scene, created_root, renamed) !=
           gneiss::engine::error::success ||
       application->native_world()->node_set_local_transform(created_root, moved) !=
           gneiss::engine::error::success) {
@@ -162,7 +169,7 @@ int main() try {
       attached_parent != created_root ||
       application->scenes()->destroy_node(scene, attached).failed())
     return 12;
-  if (application->scenes()->destroy_prefab_instance(scene, prefab_root.node) !=
+  if (application->scenes()->destroy_subtree(scene, prefab_root.node) !=
           gneiss::engine::error::success ||
       gneiss::test_support::prefab_node_count(*application->scenes(), scene, &prefab_node_count) !=
           gneiss::engine::error::success ||

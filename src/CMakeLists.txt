@@ -156,8 +156,8 @@ target_sources(
     engine/resource/scene/prefab_property_data.cpp
     engine/function/scene/prefab_property_override.cpp
     engine/function/scene/prefab_property_override.hpp
-    engine/function/scene/prefab_runtime_instance.cpp
-    engine/function/scene/prefab_runtime_instance.hpp
+    engine/function/scene/prefab_binding.cpp
+    engine/function/scene/prefab_binding.hpp
     engine/function/scene/scene_instance.hpp
     engine/function/scene/scene_instances.cpp
     engine/function/scene/scene_instance_edit.cpp

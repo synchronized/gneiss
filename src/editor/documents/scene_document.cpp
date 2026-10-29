@@ -424,21 +424,6 @@ gneiss::engine::error scene_document::create_node(std::string_view name, scene_n
   }
 }
 
-gneiss::engine::error scene_document::rename_prefab_instance(scene_node_id root,
-                                                             std::string_view name) noexcept {
-  const auto operation = with_scene([&](auto& service) {
-    return service.set_prefab_instance_name(scene_, gneiss::scene_node_id{root}, name);
-  });
-  if (operation != gneiss::engine::error::success) {
-    return operation;
-  }
-  const auto refreshed = refresh_nodes();
-  if (refreshed == gneiss::engine::error::success) {
-    is_dirty_ = true;
-  }
-  return refreshed;
-}
-
 gneiss::engine::error scene_document::rename_node(scene_node_id node,
                                                   std::string_view name) noexcept {
   if (application_ && !application_->is_owner_thread()) {

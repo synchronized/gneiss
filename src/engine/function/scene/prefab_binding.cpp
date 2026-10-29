@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/scene/prefab_runtime_instance.hpp"
+#include "engine/function/scene/prefab_binding.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
@@ -21,18 +21,6 @@
 #include <unordered_map>
 
 namespace {
-
-// 必须先于候选实例构造，保证候选释放后再恢复原相机；异常路径同样适用。
-struct camera_restore_guard {
-  gneiss::engine::world& native_world;
-  std::uint64_t previous;
-  bool committed{};
-  ~camera_restore_guard() {
-    if (!committed && previous != UINT64_C(0)) {
-      (void)native_world.set_active_camera(gneiss::entity_id{previous});
-    }
-  }
-};
 
 gneiss::engine::math::transform
 to_transform(const gneiss::engine::object_description& object) noexcept {
@@ -59,16 +47,15 @@ apply_camera(gneiss::engine::world& native_world, std::uint64_t entity,
 
 namespace gneiss::engine {
 
-prefab_runtime_instance::prefab_runtime_instance(world& native_world, resource_service& loader,
-                                                 prefab_asset_ref prefab,
-                                                 std::string instance_uuid) noexcept
+prefab_binding::prefab_binding(world& native_world, resource_service& loader,
+                               prefab_asset_ref prefab, std::string instance_uuid) noexcept
     : native_world_(native_world), loader_(loader), prefab_(std::move(prefab)),
       instance_uuid_(std::move(instance_uuid)) {}
 
 engine::error
-prefab_runtime_instance::validate_reload(const prefab_asset_ref& candidate,
-                                         const meta::registry_ref& registry,
-                                         const std::vector<prefab_property_override>& overrides) {
+prefab_binding::validate_reload(const prefab_asset_ref& candidate,
+                                const meta::registry_ref& registry,
+                                const std::vector<prefab_property_override>& overrides) {
   if (!candidate || !prefab_ || candidate.get()->uuid != prefab_.get()->uuid ||
       candidate.get()->objects.empty()) {
     return engine::error::invalid_argument;
@@ -149,9 +136,8 @@ prefab_runtime_instance::validate_reload(const prefab_asset_ref& candidate,
   return engine::error::success;
 }
 
-engine::error
-prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry_ref& registry,
-                                const std::vector<prefab_property_override>& overrides) {
+engine::error prefab_binding::reload(prefab_asset_ref candidate, const meta::registry_ref& registry,
+                                     const std::vector<prefab_property_override>& overrides) {
 
   auto result = validate_reload(candidate, registry, overrides);
   if (result != engine::error::success) {
@@ -421,81 +407,10 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
       return result;
   }
   prefab_ = std::move(candidate);
-  prepared_.reset();
   applied.clear();
   staged.clear();
   loader_.collect_unused();
   return engine::error::success;
-}
-
-engine::error prefab_runtime_instance::create(
-    world& native_world, resource_service& loader, prefab_asset_ref prefab,
-    const meta::registry_ref& registry, std::string_view instance_uuid, scene_node_id parent,
-    const math::transform& root_transform, const std::vector<prefab_property_override>& overrides,
-    std::unique_ptr<prefab_runtime_instance>& out_instance) noexcept {
-  out_instance.reset();
-  if (!registry || !prefab || prefab.get()->objects.empty()) {
-    return engine::error::invalid_argument;
-  }
-  try {
-    if (!engine::is_valid_prefab_author_address(
-            {std::string(instance_uuid), prefab.get()->objects[0].uuid})) {
-      return engine::error::invalid_argument;
-    }
-    std::uint64_t previous_camera = UINT64_C(0);
-    const auto camera_query =
-        engine::write_identifier<entity_id>(previous_camera, [&](auto& native_output) {
-          return native_world.get_active_camera(native_output);
-        });
-    if (camera_query != engine::error::success && camera_query != engine::error::not_ready) {
-      return camera_query;
-    }
-    camera_restore_guard camera_guard{.native_world = native_world, .previous = previous_camera};
-    auto instance = std::make_unique<prefab_runtime_instance>(
-        native_world, loader, std::move(prefab), std::string(instance_uuid));
-    const auto& source = *instance->prefab_.get();
-    structural_diff order;
-    auto result = build_structural_diff({}, source.objects, order);
-    if (result.failed())
-      return result;
-    result = instance->create_root(parent, root_transform);
-    if (result.failed())
-      return result;
-    scene_subtree_guard guard(native_world, instance->root());
-    for (const auto& addition : order.added) {
-      const auto& object = source.objects[addition.new_index];
-      mesh_renderer renderer;
-      if (object.mesh_renderer) {
-        auto mesh = loader.find<mesh_resource>(object.mesh_renderer->mesh_uri);
-        if (!mesh)
-          return mesh.error();
-        auto material = loader.find<material_resource>(object.mesh_renderer->material_uri);
-        if (!material)
-          return material.error();
-        renderer = {*mesh, *material};
-      }
-      const auto node_parent =
-          object.parent_uuid ? instance->find_node(*object.parent_uuid) : instance->root();
-      result =
-          instance->create_node(addition.new_index, node_parent, renderer.mesh, renderer.material);
-      if (result.failed())
-        return result;
-    }
-    if (result == engine::error::success) {
-      result = instance->apply_overrides(registry, overrides);
-    }
-    if (result != engine::error::success) {
-      return result;
-    }
-    out_instance = std::move(instance);
-    guard.release();
-    camera_guard.committed = true;
-    return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  } catch (...) {
-    return engine::error::internal;
-  }
 }
 
 namespace {
@@ -542,9 +457,10 @@ engine::error apply_candidate_object(const meta::registry_ref& state,
 }
 }
 
-engine::error prefab_runtime_instance::prepare_description(
-    const prefab_description& source, const meta::registry_ref& registry,
-    std::span<const prefab_property_override> overrides, prefab_description& output) noexcept try {
+engine::error prepare_prefab_description(const prefab_description& source,
+                                         const meta::registry_ref& registry,
+                                         std::span<const prefab_property_override> overrides,
+                                         prefab_description& output) noexcept try {
   auto candidate = source;
   const auto state = registry;
   if (!state) {
@@ -580,9 +496,9 @@ engine::error prefab_runtime_instance::prepare_description(
   return engine::error::internal;
 }
 
-engine::error prefab_runtime_instance::apply_overrides(
-    const meta::registry_ref& registry,
-    std::span<const prefab_property_override> overrides) noexcept try {
+engine::error
+prefab_binding::apply_overrides(const meta::registry_ref& registry,
+                                std::span<const prefab_property_override> overrides) noexcept try {
   for (const auto& override_value : overrides) {
     const auto validation = validate_prefab_property_override(registry, override_value);
     if (validation != engine::error::success) {
@@ -608,11 +524,10 @@ engine::error prefab_runtime_instance::apply_overrides(
   return engine::error::internal;
 }
 
-engine::error prefab_runtime_instance::create_root(scene_node_id parent,
-                                                   const math::transform& transform) {
+engine::error prefab_binding::create_root(scene_node_id parent, const math::transform& transform) {
   if (!prefab_ || root_node_ || !nodes_.empty())
     return error::invalid_state;
-  const auto& objects = prepared_ ? prepared_->objects : prefab_->objects;
+  const auto& objects = prefab_->objects;
   const auto root =
       std::ranges::find_if(objects, [](const auto& value) { return !value.parent_uuid; });
   if (root == objects.end() ||
@@ -628,11 +543,13 @@ engine::error prefab_runtime_instance::create_root(scene_node_id parent,
   member.node = root_node_;
   return error::success;
 }
-engine::error prefab_runtime_instance::create_node(std::size_t index, scene_node_id parent,
-                                                   engine::mesh mesh, engine::material material) {
+engine::error prefab_binding::create_node(std::size_t index, const object_description& source,
+                                          scene_node_id parent, engine::mesh mesh,
+                                          engine::material material) {
   if (!root_node_ || !prefab_ || index >= nodes_.size() || nodes_[index].creation_attempted)
     return error::invalid_state;
-  const auto& source = prepared_ ? prepared_->objects[index] : prefab_->objects[index];
+  if (source.uuid != prefab_->objects[index].uuid)
+    return error::invalid_argument;
   auto& target = nodes_[index];
   target.address = {instance_uuid_, source.uuid};
   if (source.mesh_renderer) {
@@ -654,36 +571,26 @@ engine::error prefab_runtime_instance::create_node(std::size_t index, scene_node
   return error::success;
 }
 
-engine::error
-prefab_runtime_instance::apply_override(const meta::registry_ref& registry,
-                                        const prefab_property_override& value) noexcept {
+engine::error prefab_binding::apply_override(const meta::registry_ref& registry,
+                                             const prefab_property_override& value) noexcept {
   return apply_overrides(registry, std::span(&value, 1U));
 }
 
-scene_node_id prefab_runtime_instance::find_node(std::string_view source_node_uuid) const noexcept {
+scene_node_id prefab_binding::find_node(std::string_view source_node_uuid) const noexcept {
   const auto found = std::ranges::find(nodes_, source_node_uuid, [](const runtime_node& node) {
     return std::string_view(node.address.source_node_uuid);
   });
   return found == nodes_.end() ? null_scene_node_id : found->node;
 }
 
-std::uint64_t
-prefab_runtime_instance::find_entity(std::string_view source_node_uuid) const noexcept {
-  const auto found = std::ranges::find(nodes_, source_node_uuid, [](const runtime_node& node) {
-    return std::string_view(node.address.source_node_uuid);
-  });
-  return found == nodes_.end() ? UINT64_C(0) : scene_object_entity(native_world_, found->node);
-}
-
 const object_description*
-prefab_runtime_instance::find_source_object(std::string_view source_node_uuid) const noexcept {
+prefab_binding::find_source_object(std::string_view source_node_uuid) const noexcept {
   const auto& objects = prefab_.get()->objects;
   const auto found = std::ranges::find(objects, source_node_uuid, &object_description::uuid);
   return found == objects.end() ? nullptr : &*found;
 }
 
-engine::error prefab_runtime_instance::get_node_info(std::size_t index,
-                                                     node_info& out_info) const noexcept {
+engine::error prefab_binding::get_node_info(std::size_t index, node_info& out_info) const noexcept {
   out_info = {};
   if (index >= nodes_.size()) {
     return engine::error::not_found;

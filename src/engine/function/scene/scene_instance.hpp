@@ -5,7 +5,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/scene_types.hpp"
-#include "engine/function/scene/prefab_runtime_instance.hpp"
+#include "engine/function/scene/prefab_binding.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include <map>
 
@@ -35,10 +35,8 @@ public:
   [[nodiscard]] error serialize(std::string& out_json) const;
   [[nodiscard]] error get_node_info(std::uint64_t index, scene_node_view& out_info,
                                     node_query_detail detail) const;
-  [[nodiscard]] error set_prefab_instance_name(scene_node_id root, std::string_view name);
   [[nodiscard]] error set_prefab_source_transform(scene_node_id node,
                                                   const math::transform& transform);
-  [[nodiscard]] error destroy_prefab_instance(scene_node_id root) noexcept;
   [[nodiscard]] error create_node(const node_creation& desc, scene_node_id* out_node);
   [[nodiscard]] error set_node_name(scene_node_id node, std::string_view name);
   [[nodiscard]] error reparent_node(scene_node_id node, scene_node_id parent);
@@ -91,7 +89,7 @@ public:
   [[nodiscard]] scene_node_id staged_node(std::size_t index) const {
     return objects_.at(index).node;
   }
-  void append_staged_prefab(std::unique_ptr<prefab_runtime_instance> candidate);
+  void append_staged_prefab(std::unique_ptr<prefab_binding> candidate);
 
 private:
   friend class scene_instances;
@@ -99,12 +97,12 @@ private:
   [[nodiscard]] std::vector<object>::iterator find_ordinary_node(scene_node_id node);
   [[nodiscard]] std::vector<object>::const_iterator find_ordinary_node(scene_node_id node) const;
   [[nodiscard]] std::optional<prefab_origin_view> prefab_origin(scene_node_id node) const;
-  void append_prefab_members(const prefab_runtime_instance& prefab);
+  void append_prefab_members(const prefab_binding& prefab);
   object_description& prefab_author(std::size_t index);
   const object_description& prefab_author(std::size_t index) const;
 
   std::vector<object> objects_;
-  std::vector<std::unique_ptr<prefab_runtime_instance>> prefab_instances_;
+  std::vector<std::unique_ptr<prefab_binding>> prefab_instances_;
   scene_description description_;
 
   world& native_world_;

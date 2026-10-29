@@ -93,9 +93,19 @@ gneiss::engine::error prefab_placement::apply(application& app, scene_instance_i
   output = {};
   if (!app.is_owner_thread() || !app.accepts_requests() || !app.scenes())
     return error::invalid_state;
-  if (removing)
-    return replacing ? error::invalid_argument
-                     : app.scenes()->remove_prefab_instance(scene, snapshot.author.uuid);
+  if (removing) {
+    if (replacing)
+      return error::invalid_argument;
+    // 当前快照只覆盖模板节点；拒绝删除无法由该历史完整恢复的自有子对象。
+    scene_description current;
+    const auto captured = app.scenes()->capture_description(scene, current);
+    if (captured.failed())
+      return captured;
+    for (const auto& object : current.objects)
+      if (object.parent_uuid == snapshot.author.uuid)
+        return error::unsupported;
+    return app.scenes()->remove_prefab_instance(scene, snapshot.author.uuid);
+  }
   if (!snapshot.prefab)
     return error::invalid_argument;
   auto bindings = snapshot.bindings;

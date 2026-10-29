@@ -46,7 +46,7 @@
 #error "宿主获得了未授权的内部实现头"
 #endif
 #if __has_include("engine/function/scene/scene_instance.hpp") ||                                   \
-                  __has_include("engine/function/scene/prefab_runtime_instance.hpp")
+                  __has_include("engine/function/scene/prefab_binding.hpp")
 #error "宿主获得了场景实例的私有实现头"
 #endif
 #include "engine/resource/scene/prefab_description.hpp"
