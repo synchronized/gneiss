@@ -109,8 +109,10 @@ int main() try {
                                           field_of_view) != error::invalid_state)
     return 2;
   gneiss::engine::meta::property_info info;
-  if (gneiss::engine::meta::describe_property(registry, camera_type,
-                                              gneiss::engine::meta::property_id{1}, info)
+  if (gneiss::test_support::assign_value(
+          gneiss::engine::meta::describe_property(registry, camera_type,
+                                                  gneiss::engine::meta::property_id{1}),
+          info)
           .failed() ||
       info.kind != gneiss::engine::value_kind::float32 ||
       info.capabilities != (gneiss::engine::meta::property_capabilities::readable |
@@ -120,8 +122,10 @@ int main() try {
   camera_fixture another;
   another.field_of_view = 45.0F;
   gneiss::engine::value independent;
-  if (gneiss::engine::meta::read_property(
-          registry, camera_type, gneiss::engine::meta::property_id{1}, &another, independent)
+  if (gneiss::test_support::assign_value(
+          gneiss::engine::meta::read_property(registry, camera_type,
+                                              gneiss::engine::meta::property_id{1}, &another),
+          independent)
           .failed() ||
       std::get<float>(independent.payload) != 45.0F)
     return 14;
@@ -130,14 +134,17 @@ int main() try {
           registry, camera_type, gneiss::engine::meta::property_id{1}, &another, independent)
           .failed() ||
       another.field_of_view != 75.0F || fixture.field_of_view != 60.0F ||
-      gneiss::engine::meta::read_property(registry, camera_type,
-                                          gneiss::engine::meta::property_id{1}, nullptr,
-                                          independent) != error::invalid_argument)
+      gneiss::test_support::assign_value(
+          gneiss::engine::meta::read_property(registry, camera_type,
+                                              gneiss::engine::meta::property_id{1}, nullptr),
+          independent) != error::invalid_argument)
     return 15;
   auto* const target = &fixture;
   gneiss::engine::value value;
-  if (gneiss::engine::meta::read_property(registry, camera_type,
-                                          gneiss::engine::meta::property_id{1}, target, value)
+  if (gneiss::test_support::assign_value(
+          gneiss::engine::meta::read_property(registry, camera_type,
+                                              gneiss::engine::meta::property_id{1}, target),
+          value)
           .failed() ||
       value.kind() != gneiss::engine::value_kind::float32 ||
       std::abs(std::get<float>(value.payload) - 60) > 0.001F)
@@ -164,28 +171,33 @@ int main() try {
                                            gneiss::engine::meta::property_id{1}, target,
                                            value) != error::invalid_argument)
     return 8;
-  if (gneiss::engine::meta::read_property(registry, camera_type,
-                                          gneiss::engine::meta::property_id{2}, target, value)
+  if (gneiss::test_support::assign_value(
+          gneiss::engine::meta::read_property(registry, camera_type,
+                                              gneiss::engine::meta::property_id{2}, target),
+          value)
           .failed() ||
       value.kind() != gneiss::engine::value_kind::string ||
       std::get<std::string>(value.payload).size() != 9 ||
       gneiss::engine::meta::write_property(registry, camera_type,
                                            gneiss::engine::meta::property_id{2}, target,
                                            value) != error::unsupported ||
-      gneiss::engine::meta::read_property(registry, camera_type,
-                                          gneiss::engine::meta::property_id{3}, target,
-                                          value) != error::unsupported ||
-      gneiss::engine::meta::read_property(registry, camera_type,
-                                          gneiss::engine::meta::property_id{4}, target,
-                                          value) != error::internal ||
+      gneiss::test_support::assign_value(
+          gneiss::engine::meta::read_property(registry, camera_type,
+                                              gneiss::engine::meta::property_id{3}, target),
+          value) != error::unsupported ||
+      gneiss::test_support::assign_value(
+          gneiss::engine::meta::read_property(registry, camera_type,
+                                              gneiss::engine::meta::property_id{4}, target),
+          value) != error::internal ||
       value.kind() != gneiss::engine::value_kind::string ||
       std::get<std::string>(value.payload) != "主相机")
     return 9;
   // 回调抛异常转换为内部错误；读取保留原输出，setter 不修改目标。
   fixture.fail_get = true;
-  if (gneiss::engine::meta::read_property(registry, camera_type,
-                                          gneiss::engine::meta::property_id{1}, target,
-                                          value) != error::internal ||
+  if (gneiss::test_support::assign_value(
+          gneiss::engine::meta::read_property(registry, camera_type,
+                                              gneiss::engine::meta::property_id{1}, target),
+          value) != error::internal ||
       value.kind() != gneiss::engine::value_kind::string ||
       std::get<std::string>(value.payload) != "主相机")
     return 10;
@@ -198,23 +210,25 @@ int main() try {
       std::abs(fixture.field_of_view - 90) > 0.001F)
     return 11;
   // 原生快照拥有文本，不依赖 getter 后续返回值及 Registry 生命周期。
-  gneiss::engine::value snapshot;
-  if (gneiss::engine::meta::read_property(registry, camera_type,
-                                          gneiss::engine::meta::property_id{2}, target, snapshot)
-          .failed())
+  auto snapshot = gneiss::engine::meta::read_property(registry, camera_type,
+                                                      gneiss::engine::meta::property_id{2}, target);
+  if (!snapshot)
     return 12;
   fixture.label = "changed";
-  if (gneiss::engine::meta::read_property(registry, camera_type,
-                                          gneiss::engine::meta::property_id{2}, target, value)
+  if (gneiss::test_support::assign_value(
+          gneiss::engine::meta::read_property(registry, camera_type,
+                                              gneiss::engine::meta::property_id{2}, target),
+          value)
           .failed() ||
-      std::get<std::string>(snapshot.payload) != "主相机" ||
+      std::get<std::string>(snapshot->payload) != "主相机" ||
       std::get<std::string>(value.payload) != "changed")
     return 13;
   fixture.fail_allocate = true;
   gneiss::engine::value preserved{std::string{"preserved"}};
-  if (gneiss::engine::meta::read_property(registry, camera_type,
-                                          gneiss::engine::meta::property_id{1}, target,
-                                          preserved) != error::out_of_memory ||
+  if (gneiss::test_support::assign_value(
+          gneiss::engine::meta::read_property(registry, camera_type,
+                                              gneiss::engine::meta::property_id{1}, target),
+          preserved) != error::out_of_memory ||
       std::get<std::string>(preserved.payload) != "preserved")
     return 16;
   value.payload = 120.0F;
@@ -226,10 +240,11 @@ int main() try {
   const std::weak_ptr lifetime = registry;
   registry.reset();
   return lifetime.expired() &&
-                 gneiss::engine::meta::read_property(registry, camera_type,
-                                                     gneiss::engine::meta::property_id{1}, target,
-                                                     value) == error::invalid_handle &&
-                 std::get<std::string>(snapshot.payload) == "主相机"
+                 gneiss::test_support::assign_value(
+                     gneiss::engine::meta::read_property(
+                         registry, camera_type, gneiss::engine::meta::property_id{1}, target),
+                     value) == error::invalid_handle &&
+                 std::get<std::string>(snapshot->payload) == "主相机"
              ? 0
              : 14;
 } catch (...) {

@@ -47,8 +47,10 @@ int main() {
     return 5;
   sample object;
   e::value output;
-  if (gneiss::engine::meta::read_property(registry, sample::type_guid,
-                                          gneiss::engine::meta::property_id{1}, &object, output)
+  if (gneiss::test_support::assign_value(
+          gneiss::engine::meta::read_property(registry, sample::type_guid,
+                                              gneiss::engine::meta::property_id{1}, &object),
+          output)
           .failed() ||
       std::get<float>(output.payload) != 1)
     return 6;

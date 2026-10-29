@@ -23,7 +23,9 @@ bool typed_registration() {
   const gneiss::engine::meta::type_definition definition{
       .guid = object_guid, .schema_version = 1, .name = "Object", .properties = {}};
   gneiss::engine::meta::type_info info{.guid = data_guid};
-  if (gneiss::engine::meta::describe_type<reflected_object>(registry, info) != error::not_ready ||
+  if (gneiss::test_support::assign_value(
+          gneiss::engine::meta::describe_type<reflected_object>(registry), info) !=
+          error::not_ready ||
       info.guid != data_guid ||
       gneiss::engine::meta::register_type<reflected_object>(registry, definition).failed())
     return false;
@@ -52,17 +54,27 @@ bool typed_registration() {
   if (gneiss::test_support::assign_value(gneiss::engine::meta::type_count(registry), count)
           .failed() ||
       count != 3 ||
-      gneiss::engine::meta::describe_type<const reflected_object&>(registry, info).failed() ||
+      gneiss::test_support::assign_value(
+          gneiss::engine::meta::describe_type<const reflected_object&>(registry), info)
+          .failed() ||
       info.guid != object_guid ||
-      gneiss::engine::meta::describe_type(registry, object_guid, info).failed() ||
+      gneiss::test_support::assign_value(gneiss::engine::meta::describe_type(registry, object_guid),
+                                         info)
+          .failed() ||
       info.name != "Object" ||
-      gneiss::engine::meta::describe_type<other_object>(registry, info).failed() ||
+      gneiss::test_support::assign_value(
+          gneiss::engine::meta::describe_type<other_object>(registry), info)
+          .failed() ||
       info.guid != other_guid ||
-      gneiss::engine::meta::describe_type_at(registry, 1, info).failed() || info.guid != data_guid)
+      gneiss::test_support::assign_value(gneiss::engine::meta::describe_type_at(registry, 1), info)
+          .failed() ||
+      info.guid != data_guid)
     return false;
-  if (gneiss::engine::meta::describe_type(registry, e::type_id{}, info) != error::not_found ||
+  if (gneiss::test_support::assign_value(
+          gneiss::engine::meta::describe_type(registry, e::type_id{}), info) != error::not_found ||
       info.guid != data_guid ||
-      gneiss::engine::meta::describe_type<double>(registry, info) != error::not_found ||
+      gneiss::test_support::assign_value(gneiss::engine::meta::describe_type<double>(registry),
+                                         info) != error::not_found ||
       info.guid != data_guid ||
       gneiss::engine::meta::register_type<reflected_object>(registry, definition) !=
           error::invalid_state)
@@ -72,7 +84,8 @@ bool typed_registration() {
   for (std::size_t i = 0; i < readers.size(); ++i) {
     readers[i] = std::thread([&, i] {
       gneiss::engine::meta::type_info metadata;
-      queried[i] = gneiss::engine::meta::describe_type<reflected_object>(registry, metadata) ==
+      queried[i] = gneiss::test_support::assign_value(
+                       gneiss::engine::meta::describe_type<reflected_object>(registry), metadata) ==
                        error::success &&
                    metadata.guid == object_guid;
     });
@@ -83,7 +96,8 @@ bool typed_registration() {
     if (!success)
       return false;
   registry.reset();
-  return gneiss::engine::meta::describe_type<reflected_object>(registry, info) ==
+  return gneiss::test_support::assign_value(
+             gneiss::engine::meta::describe_type<reflected_object>(registry), info) ==
              error::invalid_handle &&
          info.guid == data_guid;
 }
@@ -171,21 +185,29 @@ int main() {
     return 6;
   gneiss::engine::meta::type_info info;
   gneiss::engine::meta::property_info metadata;
-  if (gneiss::engine::meta::describe_type_at(registry, 0, info).failed() ||
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::describe_type_at(registry, 0), info)
+          .failed() ||
       info.guid != scalar_type ||
-      gneiss::engine::meta::describe_type(registry, object_type, info).failed() ||
+      gneiss::test_support::assign_value(gneiss::engine::meta::describe_type(registry, object_type),
+                                         info)
+          .failed() ||
       info.name != "Object" || info.schema_version != 1 || info.properties.size() != 1 ||
-      gneiss::engine::meta::describe_property(registry, object_type,
-                                              gneiss::engine::meta::property_id{1}, metadata)
+      gneiss::test_support::assign_value(
+          gneiss::engine::meta::describe_property(registry, object_type,
+                                                  gneiss::engine::meta::property_id{1}),
+          metadata)
           .failed() ||
       metadata.name != "value" ||
-      gneiss::engine::meta::describe_property(registry, object_type,
-                                              gneiss::engine::meta::property_id{2},
-                                              metadata) != error::not_found)
+      gneiss::test_support::assign_value(
+          gneiss::engine::meta::describe_property(registry, object_type,
+                                                  gneiss::engine::meta::property_id{2}),
+          metadata) != error::not_found)
     return 7;
   gneiss::engine::value value;
-  if (gneiss::engine::meta::read_property(registry, object_type,
-                                          gneiss::engine::meta::property_id{1}, &stored, value)
+  if (gneiss::test_support::assign_value(
+          gneiss::engine::meta::read_property(registry, object_type,
+                                              gneiss::engine::meta::property_id{1}, &stored),
+          value)
           .failed() ||
       std::get<std::int64_t>(value.payload) != 2)
     return 8;

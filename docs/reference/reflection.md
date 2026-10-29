@@ -92,7 +92,7 @@ return gneiss::engine::meta::type_builder<camera_properties>{registry}
 模板去除顶层 cv/ref；注册 `void` 或传入不匹配的非空 `type_id` 返回 `invalid_argument`。
 不对应 C++ 类型的描述保留空 `type_id`，仍可按 GUID 查询。运行期 ID 不进入文件或 IPC。
 `property_definition` 的编号和标志分别使用 `property_id` 与 `property_flags`；`bind_property` 接收强类型字段编号。
-查询失败保持输出；未冻结返回 `not_ready`，未知身份或越界索引返回 `not_found`，空引用返回
+查询以 result 返回值或错误；未冻结返回 `not_ready`，未知身份或越界索引返回 `not_found`，空引用返回
 `invalid_handle`。类型查询输出拥有字段数组，名称借用 Registry，不能超过 Registry 生命周期。
 
 原生属性值支持布尔、int64、uint64、float、double、UTF-8 字符串、稳定 GUID、三维向量和四元数。
@@ -101,11 +101,11 @@ return gneiss::engine::meta::type_builder<camera_properties>{registry}
 
 回调、read/write 及组件接口统一使用 [engine::value](value.md)。
 getter 输出 `value&`，字符串复制进值；setter 接收 `const value&`，不保留输入引用。
-不再存在借用值和拥有值之间的转换。`read_property` 使用临时值，失败保持原输出，成功后移动结果；
+不再存在借用值和拥有值之间的转换。`read_property` 返回 `result<value>`，成功快照拥有数据，失败不交付部分值；
 `write_property` 直接传递同一份 const 值。
 
 未绑定字段或缺少对应方向的访问器返回 `unsupported`。getter 抛异常或返回非法类别/值时返回
-`internal`，`read_property` 保持原输出。setter 异常也转换为 `internal`；getter/setter 的分配异常转换为 `out_of_memory`。
+`internal`，`read_property` 不交付属性快照。setter 异常也转换为 `internal`；getter/setter 的分配异常转换为 `out_of_memory`。
 基础 getter 接收 `const void* object`，setter 接收 `void* object`。对象仅在调用期间借用，Registry
 不复制、不持有对象，也不解释 World/Entity 标识。调用方必须保证对象实际类型、寿命及线程访问合法。
 空对象返回 `invalid_argument`；不支持运行期校验任意 void* 的实际类型。
@@ -161,3 +161,12 @@ out_of_memory，其余异常转为 internal。诊断在调用开始清空，失�
 `is_frozen(registry)` 返回 `result<bool>`，`type_count(registry)` 返回 `result<std::uint32_t>`；
 无效注册表返回 invalid_handle，未冻结注册表的类型数量查询返回 not_ready。
 成功的 false 或零数量不代表操作失败。
+
+## 元数据与属性值查询
+
+`describe_type`（GUID、type_id、模板）、`describe_type_at` 返回 `result<type_info>`；
+`describe_property` 返回 `result<property_info>`，`find_serialization` 返回 `result<serialization_binding>`。
+描述内的名称仍借用冻结 Registry，其有效期不超过 Registry 的生命周期。
+`read_property` 返回 `result<value>`；成功快照拥有字符串等数据，可在 Registry 释放后使用。
+getter 失败、异常或返回不匹配／无效值时仅返回错误，不交付部分属性快照。
+写属性仍返回 error；编解码回调和序列化模板的输出接口尚未迁移。

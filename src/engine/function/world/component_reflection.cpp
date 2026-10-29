@@ -125,7 +125,11 @@ error read_component_property(const meta::registry_ref& registry, world& world,
   if (!registry)
     return error::invalid_handle;
   return access_component(world, entity, type, false, [&](auto* object) {
-    return read_property(registry, type, field, object, value);
+    auto read = read_property(registry, type, field, object);
+    if (!read)
+      return read.error();
+    value = std::move(*read);
+    return error::success;
   });
 }
 error write_component_property(const meta::registry_ref& registry, world& world,

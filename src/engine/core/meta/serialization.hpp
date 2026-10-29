@@ -16,15 +16,14 @@ template <class T>
                               std::vector<std::byte>& output,
                               serialization_diagnostic& diagnostic) noexcept {
   diagnostic = {};
-  serialization_binding binding;
-  auto status = find_serialization(registry, runtime_type_of<T>(), binding);
-  if (status.failed())
-    return status;
-  if (!binding.encode)
+  auto binding = find_serialization(registry, runtime_type_of<T>());
+  if (!binding)
+    return binding.error();
+  if (!binding->encode)
     return error::unsupported;
   try {
     std::vector<std::byte> pending;
-    status = binding.encode(&object, pending, diagnostic);
+    auto status = binding->encode(&object, pending, diagnostic);
     if (status == error::success)
       output = std::move(pending);
     return status;
@@ -40,15 +39,14 @@ template <class T>
                                 T& output, serialization_diagnostic& diagnostic) noexcept {
   static_assert(std::is_nothrow_move_assignable_v<T>);
   diagnostic = {};
-  serialization_binding binding;
-  auto status = find_serialization(registry, runtime_type_of<T>(), binding);
-  if (status.failed())
-    return status;
-  if (!binding.decode)
+  auto binding = find_serialization(registry, runtime_type_of<T>());
+  if (!binding)
+    return binding.error();
+  if (!binding->decode)
     return error::unsupported;
   try {
     T pending{};
-    status = binding.decode(bytes, &pending, diagnostic);
+    auto status = binding->decode(bytes, &pending, diagnostic);
     if (status == error::success)
       output = std::move(pending);
     return status;

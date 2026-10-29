@@ -68,11 +68,11 @@ int main() try {
   if (!count)
     return 1;
   for (std::uint32_t i = 0; i < *count; ++i) {
-    gneiss::engine::meta::type_info type;
-    if (gneiss::engine::meta::describe_type_at(registry, i, type).failed())
+    auto type = gneiss::engine::meta::describe_type_at(registry, i);
+    if (!type)
       return 1;
-    std::printf("类型 %.*s\n", static_cast<int>(type.name.size()), type.name.data());
-    for (const auto& field : type.properties)
+    std::printf("类型 %.*s\n", static_cast<int>(type->name.size()), type->name.data());
+    for (const auto& field : type->properties)
       std::printf("  字段 %u: %.*s\n", field.id.get(), static_cast<int>(field.name.size()),
                   field.name.data());
   }

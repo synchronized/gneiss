@@ -136,18 +136,20 @@ gneiss::engine::error runtime_property_editor::execute(const ipc_property_write&
 
   const gneiss::engine::guid property_type{gneiss::engine::guid::from_bytes(key.type_id)};
   const gneiss::engine::meta::property_id property_field{command.field_id};
-  gneiss::engine::meta::type_info description;
-  operation = gneiss::engine::meta::describe_type(registry_, property_type, description);
-  const auto field = std::ranges::find(description.properties, property_field,
+  auto description = gneiss::engine::meta::describe_type(registry_, property_type);
+  if (!description) {
+    response.code = description.error().code();
+    response.message = "属性不存在或不可写";
+    output = std::move(response);
+    return gneiss::engine::error::success;
+  }
+  const auto field = std::ranges::find(description->properties, property_field,
                                        &gneiss::engine::meta::property_info::id);
-  if (operation.failed() || field == description.properties.end() ||
+  if (field == description->properties.end() ||
       !has_flags(field->capabilities, gneiss::engine::meta::property_capabilities::writable)) {
-    response.code = field == description.properties.end()
+    response.code = field == description->properties.end()
                         ? gneiss::engine::error::not_found.code()
                         : gneiss::engine::error::unsupported.code();
-    if (operation.failed()) {
-      response.code = operation.code();
-    }
     response.message = "属性不存在或不可写";
     output = std::move(response);
     return gneiss::engine::error::success;

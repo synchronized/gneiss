@@ -116,14 +116,11 @@ error validate_prefab_property_override(const meta::registry_ref& registry,
       !value.key.field_id.is_valid() || !valid_value(value.value)) {
     return error::invalid_argument;
   }
-  meta::property_info field;
-  const auto found =
-      meta::describe_property(registry, value.key.type_id, value.key.field_id, field);
-  if (found.failed()) {
-    return static_cast<error>(found);
-  }
-  if (field.kind != value.value.kind() ||
-      !has_flags(field.capabilities, meta::property_capabilities::writable)) {
+  auto field = meta::describe_property(registry, value.key.type_id, value.key.field_id);
+  if (!field)
+    return field.error();
+  if (field->kind != value.value.kind() ||
+      !has_flags(field->capabilities, meta::property_capabilities::writable)) {
     return error::invalid_argument;
   }
   return error::success;

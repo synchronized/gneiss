@@ -60,7 +60,8 @@ int main() {
       gneiss::engine::meta::freeze(registry).failed())
     return 6;
   gneiss::engine::meta::serialization_binding binding;
-  if (gneiss::engine::meta::find_serialization(registry, e::runtime_type_of<probe>(), binding)
+  if (gneiss::test_support::assign_value(
+          gneiss::engine::meta::find_serialization(registry, e::runtime_type_of<probe>()), binding)
           .failed() ||
       !binding.encode || !binding.decode)
     return 7;

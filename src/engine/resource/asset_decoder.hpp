@@ -56,18 +56,15 @@ error make_reflected_decoder(const meta::registry_ref& registry, std::size_t lim
                              std::shared_ptr<const asset_decoder>& output) {
   if (!registry)
     return error::unsupported;
-  meta::serialization_binding binding;
-  const auto status = find_serialization(registry, runtime_type_of<T>(), binding);
-  if (status == error::not_found)
-    return error::unsupported;
-  if (status.failed())
-    return status;
-  if (!binding.decode)
+  auto binding = find_serialization(registry, runtime_type_of<T>());
+  if (!binding)
+    return binding.error() == error::not_found ? error::unsupported : binding.error();
+  if (!binding->decode)
     return error::unsupported;
   if constexpr (std::is_default_constructible_v<T> && !std::is_const_v<T>) {
     if constexpr (requires { T::maximum_source_bytes; })
       limit = std::min(limit, static_cast<std::size_t>(T::maximum_source_bytes));
-    output = std::make_shared<typed_asset_decoder<T>>(nullptr, limit, registry, binding);
+    output = std::make_shared<typed_asset_decoder<T>>(nullptr, limit, registry, *binding);
     return error::success;
   } else {
     return error::unsupported;

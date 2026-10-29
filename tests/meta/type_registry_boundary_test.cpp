@@ -65,45 +65,56 @@ bool native_values() {
   }
   gneiss::engine::meta::property_info field{.id = gneiss::engine::meta::property_id{99},
                                             .name = "旧字段"};
-  if (gneiss::engine::meta::describe_property(registry, native_id,
-                                              gneiss::engine::meta::property_id{1},
-                                              field) != gneiss::engine::error::not_ready ||
+  if (gneiss::test_support::assign_value(
+          gneiss::engine::meta::describe_property(registry, native_id,
+                                                  gneiss::engine::meta::property_id{1}),
+          field) != gneiss::engine::error::not_ready ||
       field.name != "旧字段") {
     return false;
   }
   gneiss::engine::value snapshot{.payload = std::string{"旧输出"}};
-  if (gneiss::engine::meta::read_property(registry, native_id, gneiss::engine::meta::property_id{1},
-                                          &text, snapshot) != gneiss::engine::error::not_ready ||
+  if (gneiss::test_support::assign_value(
+          gneiss::engine::meta::read_property(registry, native_id,
+                                              gneiss::engine::meta::property_id{1}, &text),
+          snapshot) != gneiss::engine::error::not_ready ||
       std::get<std::string>(snapshot.payload) != "旧输出" ||
       gneiss::engine::meta::freeze(registry) != gneiss::engine::error::success) {
     return false;
   }
-  if (gneiss::engine::meta::read_property(registry, native_id, gneiss::engine::meta::property_id{1},
-                                          &text, snapshot)
+  if (gneiss::test_support::assign_value(
+          gneiss::engine::meta::read_property(registry, native_id,
+                                              gneiss::engine::meta::property_id{1}, &text),
+          snapshot)
           .failed()) {
     return false;
   }
-  if (gneiss::engine::meta::describe_property(registry, native_id,
-                                              gneiss::engine::meta::property_id{1}, field)
+  if (gneiss::test_support::assign_value(
+          gneiss::engine::meta::describe_property(registry, native_id,
+                                                  gneiss::engine::meta::property_id{1}),
+          field)
           .failed() ||
       field.name != "text" || field.id != gneiss::engine::meta::property_id{1} ||
       field.kind != gneiss::engine::value_kind::string ||
       !gneiss::engine::meta::has_flags(field.capabilities,
                                        gneiss::engine::meta::property_capabilities::writable) ||
-      gneiss::engine::meta::describe_property(registry, native_id,
-                                              gneiss::engine::meta::property_id{99},
-                                              field) != gneiss::engine::error::not_found ||
+      gneiss::test_support::assign_value(
+          gneiss::engine::meta::describe_property(registry, native_id,
+                                                  gneiss::engine::meta::property_id{99}),
+          field) != gneiss::engine::error::not_found ||
       field.name != "text" ||
-      gneiss::engine::meta::describe_property({}, native_id, gneiss::engine::meta::property_id{1},
-                                              field) != gneiss::engine::error::invalid_handle ||
+      gneiss::test_support::assign_value(gneiss::engine::meta::describe_property(
+                                             {}, native_id, gneiss::engine::meta::property_id{1}),
+                                         field) != gneiss::engine::error::invalid_handle ||
       field.name != "text") {
     return false;
   }
   gneiss::engine::error foreign;
   std::thread reader([&] {
     gneiss::engine::meta::property_info borrowed;
-    foreign = gneiss::engine::meta::describe_property(
-        registry, native_id, gneiss::engine::meta::property_id{1}, borrowed);
+    foreign = gneiss::test_support::assign_value(
+        gneiss::engine::meta::describe_property(registry, native_id,
+                                                gneiss::engine::meta::property_id{1}),
+        borrowed);
   });
   reader.join();
   if (foreign.failed()) {
@@ -126,31 +137,37 @@ bool native_values() {
     return false;
   }
   gneiss::engine::meta::type_info metadata;
-  if (gneiss::engine::meta::describe_type(registry, native_id, metadata).failed() ||
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::describe_type(registry, native_id),
+                                         metadata)
+          .failed() ||
       metadata.properties.size() != 1 ||
       metadata.properties[0].kind != gneiss::engine::value_kind::string ||
       metadata.guid != native_id || metadata.properties[0].type_guid != native_id ||
-      gneiss::engine::meta::describe_type(registry, gneiss::engine::guid{}, metadata) !=
+      gneiss::test_support::assign_value(
+          gneiss::engine::meta::describe_type(registry, gneiss::engine::guid{}), metadata) !=
           gneiss::engine::error::not_found ||
       metadata.guid != native_id || metadata.properties.size() != 1 ||
-      gneiss::engine::meta::describe_type({}, native_id, metadata) !=
-          gneiss::engine::error::invalid_handle ||
+      gneiss::test_support::assign_value(gneiss::engine::meta::describe_type({}, native_id),
+                                         metadata) != gneiss::engine::error::invalid_handle ||
       metadata.guid != native_id || metadata.properties.size() != 1) {
     return false;
   }
-  if (gneiss::engine::meta::describe_type_at(registry, 0, metadata).failed() ||
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::describe_type_at(registry, 0),
+                                         metadata)
+          .failed() ||
       metadata.guid != native_id || metadata.properties.size() != 1 ||
-      gneiss::engine::meta::describe_type_at(registry, 1, metadata) !=
-          gneiss::engine::error::not_found ||
+      gneiss::test_support::assign_value(gneiss::engine::meta::describe_type_at(registry, 1),
+                                         metadata) != gneiss::engine::error::not_found ||
       metadata.guid != native_id ||
-      gneiss::engine::meta::describe_type_at({}, 0, metadata) !=
+      gneiss::test_support::assign_value(gneiss::engine::meta::describe_type_at({}, 0), metadata) !=
           gneiss::engine::error::invalid_handle ||
       metadata.guid != native_id)
     return false;
   registry.reset();
-  return gneiss::engine::meta::read_property(registry, native_id,
-                                             gneiss::engine::meta::property_id{1}, &text,
-                                             snapshot) == gneiss::engine::error::invalid_handle &&
+  return gneiss::test_support::assign_value(
+             gneiss::engine::meta::read_property(registry, native_id,
+                                                 gneiss::engine::meta::property_id{1}, &text),
+             snapshot) == gneiss::engine::error::invalid_handle &&
          std::get<std::string>(snapshot.payload) == "初始文本";
 }
 } // namespace
@@ -235,7 +252,8 @@ int main() try {
     return 3;
   }
   gneiss::engine::meta::type_info info;
-  if (gneiss::engine::meta::describe_type(state, type_id, info) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(gneiss::engine::meta::describe_type(state, type_id),
+                                         info) != gneiss::engine::error::success ||
       info.name != "sample" || info.properties.size() != 2U) {
     return 4;
   }
@@ -276,8 +294,10 @@ int main() try {
     return 15;
   }
   gneiss::engine::value value;
-  if (gneiss::engine::meta::read_property(state, type_id, gneiss::engine::meta::property_id{1U},
-                                          &candidate, value) != gneiss::engine::error::internal ||
+  if (gneiss::test_support::assign_value(
+          gneiss::engine::meta::read_property(state, type_id, gneiss::engine::meta::property_id{1U},
+                                              &candidate),
+          value) != gneiss::engine::error::internal ||
       value.kind() != gneiss::engine::value_kind::invalid) {
     return 5;
   }

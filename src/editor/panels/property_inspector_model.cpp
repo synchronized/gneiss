@@ -41,24 +41,23 @@ gneiss::engine::error property_inspector_model::refresh(gneiss::engine::world* w
         gneiss::engine::camera_property_type(),
     };
     for (const auto type_id : reflected_component_types) {
-      gneiss::engine::meta::type_info type{};
-      auto operation = gneiss::engine::meta::describe_type(registry_, type_id, type);
-      if (operation != gneiss::engine::error::success) {
+      auto type = gneiss::engine::meta::describe_type(registry_, type_id);
+      if (!type) {
         clear();
-        return operation;
+        return type.error();
       }
       inspector_component component{
-          .type_id = type.guid,
-          .name = std::string(type.name),
+          .type_id = type->guid,
+          .name = std::string(type->name),
           .properties = {},
       };
       bool component_missing = false;
-      component.properties.reserve(type.properties.size());
-      for (std::uint32_t index = 0; index < type.properties.size(); ++index) {
-        const auto& field = type.properties[index];
+      component.properties.reserve(type->properties.size());
+      for (std::uint32_t index = 0; index < type->properties.size(); ++index) {
+        const auto& field = type->properties[index];
         gneiss::engine::value value;
-        operation = gneiss::engine::read_component_property(registry_, *world_handle, entity.get(),
-                                                            type.guid, field.id, value);
+        auto operation = gneiss::engine::read_component_property(
+            registry_, *world_handle, entity.get(), type->guid, field.id, value);
         if (operation == gneiss::engine::error::not_found) {
           component_missing = true;
           break;

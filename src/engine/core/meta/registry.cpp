@@ -308,38 +308,32 @@ public:
     }
   }
 
-  [[nodiscard]] error get_property(guid type_id, std::uint32_t property_id, const void* object,
-                                   value& output) const noexcept {
+  [[nodiscard]] result<value> get_property(guid type_id, std::uint32_t property_id,
+                                           const void* object) const noexcept {
     if (!object)
       return error::invalid_argument;
-    property_accessor accessor;
-    const auto lookup = find_accessor(type_id, property_id, accessor);
-    if (lookup != error::success) {
-      return lookup;
-    }
-    if (accessor.getter == nullptr) {
+    auto accessor = find_accessor(type_id, property_id);
+    if (!accessor)
+      return accessor.error();
+    if (accessor->getter == nullptr) {
       return error::unsupported;
     }
-    output = value{};
+    value output;
     error result = error::internal;
     try {
-      result = accessor.getter(accessor.user_data, object, output);
+      result = accessor->getter(accessor->user_data, object, output);
     } catch (const std::bad_alloc&) {
-      output = value{};
       return error::out_of_memory;
     } catch (...) {
-      output = value{};
       return error::internal;
     }
     if (result != error::success) {
-      output = value{};
       return result;
     }
-    if (output.kind() != accessor.kind || !is_valid_property_value(output)) {
-      output = value{};
+    if (output.kind() != accessor->kind || !is_valid_property_value(output)) {
       return error::internal;
     }
-    return error::success;
+    return output;
   }
 
   [[nodiscard]] error set_property(guid type_id, std::uint32_t property_id, void* object,
@@ -349,19 +343,17 @@ public:
     }
     if (!object)
       return error::invalid_argument;
-    property_accessor accessor;
-    const auto lookup = find_accessor(type_id, property_id, accessor);
-    if (lookup != error::success) {
-      return lookup;
-    }
-    if (accessor.setter == nullptr) {
+    auto accessor = find_accessor(type_id, property_id);
+    if (!accessor)
+      return accessor.error();
+    if (accessor->setter == nullptr) {
       return error::unsupported;
     }
-    if (value.kind() != accessor.kind) {
+    if (value.kind() != accessor->kind) {
       return error::invalid_argument;
     }
     try {
-      return accessor.setter(accessor.user_data, object, value);
+      return accessor->setter(accessor->user_data, object, value);
     } catch (const std::bad_alloc&) {
       return error::out_of_memory;
     } catch (...) {
@@ -390,52 +382,49 @@ public:
     }
   }
 
-  [[nodiscard]] error describe_type(guid id, type_info& output) const noexcept try {
+  [[nodiscard]] result<type_info> describe_type(guid id) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
       return error::not_ready;
     const auto* record = find_type_unlocked(id);
     if (!record)
       return error::not_found;
-    output = describe_record(*record);
-    return error::success;
+    return describe_record(*record);
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
   } catch (...) {
     return error::internal;
   }
 
-  [[nodiscard]] error describe_type(engine::type_id id, type_info& output) const noexcept try {
+  [[nodiscard]] result<type_info> describe_type(engine::type_id id) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
       return error::not_ready;
     const auto found = by_cpp_type_.find(id);
     if (found == by_cpp_type_.end())
       return error::not_found;
-    output = describe_record(*found->second);
-    return error::success;
+    return describe_record(*found->second);
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
   } catch (...) {
     return error::internal;
   }
 
-  [[nodiscard]] error describe_type_at(std::uint32_t index, type_info& output) const noexcept try {
+  [[nodiscard]] result<type_info> describe_type_at(std::uint32_t index) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
       return error::not_ready;
     if (index >= types_.size())
       return error::not_found;
-    output = describe_record(*types_[index]);
-    return error::success;
+    return describe_record(*types_[index]);
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
   } catch (...) {
     return error::internal;
   }
 
-  [[nodiscard]] error describe_property(guid id, property_id property,
-                                        property_info& output) const noexcept try {
+  [[nodiscard]] result<property_info> describe_property(guid id,
+                                                        property_id property) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
       return error::not_ready;
@@ -445,13 +434,12 @@ public:
     const auto found = std::ranges::find(record->properties, property.get(), &property_record::id);
     if (found == record->properties.end())
       return error::not_found;
-    output = describe_record(*found);
-    return error::success;
+    return describe_record(*found);
   } catch (...) {
     return error::internal;
   }
 
-  error find_serialization(engine::type_id id, serialization_binding& output) const noexcept try {
+  result<serialization_binding> find_serialization(engine::type_id id) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
       return error::not_ready;
@@ -461,15 +449,14 @@ public:
     const auto& codec = found->second->serialization;
     if (!codec.encode && !codec.decode)
       return error::unsupported;
-    output = codec;
-    return error::success;
+    return codec;
   } catch (...) {
     return error::internal;
   }
 
 private:
-  [[nodiscard]] error find_accessor(guid type_id, std::uint32_t property_id,
-                                    property_accessor& output) const noexcept {
+  [[nodiscard]] result<property_accessor> find_accessor(guid type_id,
+                                                        std::uint32_t property_id) const noexcept {
     try {
       std::shared_lock lock(mutex_);
       if (!is_frozen_) {
@@ -489,8 +476,7 @@ private:
       if (found->accessor.kind == value_kind::invalid) {
         return error::unsupported;
       }
-      output = found->accessor;
-      return error::success;
+      return found->accessor;
     } catch (...) {
       return error::internal;
     }
@@ -544,38 +530,32 @@ result<bool> is_frozen(const registry_ref& state) noexcept {
 result<std::uint32_t> type_count(const registry_ref& state) noexcept {
   return state ? state->type_count() : error::invalid_handle;
 }
-error describe_type(const registry_ref& registry, guid id, type_info& output) noexcept {
-  return registry ? registry->describe_type(id, output) : error::invalid_handle;
+result<type_info> describe_type(const registry_ref& registry, guid id) noexcept {
+  return registry ? registry->describe_type(id) : error::invalid_handle;
 }
-error describe_type(const registry_ref& registry, engine::type_id id, type_info& output) noexcept {
-  return registry ? registry->describe_type(id, output) : error::invalid_handle;
+result<type_info> describe_type(const registry_ref& registry, engine::type_id id) noexcept {
+  return registry ? registry->describe_type(id) : error::invalid_handle;
 }
-error describe_type_at(const registry_ref& registry, std::uint32_t index,
-                       type_info& output) noexcept {
-  return registry ? registry->describe_type_at(index, output) : error::invalid_handle;
+result<type_info> describe_type_at(const registry_ref& registry, std::uint32_t index) noexcept {
+  return registry ? registry->describe_type_at(index) : error::invalid_handle;
 }
-error describe_property(const registry_ref& registry, guid type, property_id property,
-                        property_info& output) noexcept {
-  return registry ? registry->describe_property(type, property, output) : error::invalid_handle;
+result<property_info> describe_property(const registry_ref& registry, guid type,
+                                        property_id property) noexcept {
+  return registry ? registry->describe_property(type, property) : error::invalid_handle;
 }
 
-error read_property(const registry_ref& registry, guid type, property_id property,
-                    const void* object, value& output) noexcept {
-  value pending;
-  const auto operation = (registry ? registry->get_property(type, property.get(), object, pending)
-                                   : error::invalid_handle);
-  if (operation.failed())
-    return operation;
-  output = std::move(pending);
-  return error::success;
+result<value> read_property(const registry_ref& registry, guid type, property_id property,
+                            const void* object) noexcept {
+  return registry ? registry->get_property(type, property.get(), object) : error::invalid_handle;
 }
+
 error write_property(const registry_ref& registry, guid type, property_id property, void* object,
                      const value& input) noexcept {
   return registry ? registry->set_property(type, property.get(), object, input)
                   : error::invalid_handle;
 }
-error find_serialization(const registry_ref& registry, type_id id,
-                         serialization_binding& output) noexcept {
-  return registry ? registry->find_serialization(id, output) : error::invalid_handle;
+result<serialization_binding> find_serialization(const registry_ref& registry,
+                                                 type_id id) noexcept {
+  return registry ? registry->find_serialization(id) : error::invalid_handle;
 }
 }

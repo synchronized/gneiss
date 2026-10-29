@@ -28,13 +28,21 @@ int main() {
   const auto transform_type = engine::transform_property_type();
   const auto camera_type = engine::camera_property_type();
   gneiss::engine::meta::type_info info;
-  if (gneiss::engine::meta::describe_type(registry, transform_type, info).failed() ||
+  if (gneiss::test_support::assign_value(
+          gneiss::engine::meta::describe_type(registry, transform_type), info)
+          .failed() ||
       info.properties.size() != 3 ||
-      gneiss::engine::meta::describe_type(registry, camera_type, info).failed() ||
+      gneiss::test_support::assign_value(gneiss::engine::meta::describe_type(registry, camera_type),
+                                         info)
+          .failed() ||
       info.properties.size() != 4 ||
-      gneiss::engine::meta::describe_type<engine::math::transform>(registry, info).failed() ||
+      gneiss::test_support::assign_value(
+          gneiss::engine::meta::describe_type<engine::math::transform>(registry), info)
+          .failed() ||
       info.guid != transform_type ||
-      gneiss::engine::meta::describe_type<engine::camera_properties>(registry, info).failed() ||
+      gneiss::test_support::assign_value(
+          gneiss::engine::meta::describe_type<engine::camera_properties>(registry), info)
+          .failed() ||
       info.guid != camera_type)
     return 2;
   gneiss::engine::value value;

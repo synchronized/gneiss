@@ -128,7 +128,9 @@ int main() {
   gneiss::engine::meta::registry_ref registry;
   gneiss::engine::meta::serialization_binding codec;
   if (builtin_resource_registry(registry).failed() ||
-      find_serialization(registry, runtime_type_of<action_map>(), codec).failed() ||
+      gneiss::test_support::assign_value(
+          find_serialization(registry, runtime_type_of<action_map>()), codec)
+          .failed() ||
       !codec.decode || codec.encode)
     return 9;
   gneiss::engine::meta::serialization_diagnostic diagnostic;
