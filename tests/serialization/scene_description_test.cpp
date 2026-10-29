@@ -197,6 +197,19 @@ int main() try {
     return 11;
   if (!guid_identity_contract())
     return 98;
+  {
+    auto fresh = gneiss::engine::parse_scene_description(valid_scene);
+    if (!fresh)
+      return 40;
+    fresh->author_json.clear();
+    auto bytes = gneiss::engine::encode_scene(*fresh);
+    if (!bytes)
+      return 41;
+    auto restored = gneiss::engine::decode_scene(*bytes);
+    if (!restored || restored->uuid != fresh->uuid ||
+        restored->objects.size() != fresh->objects.size())
+      return 42;
+  }
   // 反射 codec 保留未知字段；解码失败不覆盖旧对象。
   {
     namespace e = gneiss::engine;

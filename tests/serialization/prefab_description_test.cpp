@@ -340,6 +340,19 @@ int main() try {
     return 8;
   }
 
+  // 新建描述不依赖原文件；非法根节点仍须拒绝保存。
+  auto fresh = prefab;
+  fresh.author_json.clear();
+  auto fresh_bytes = gneiss::engine::encode_prefab(fresh);
+  if (!fresh_bytes)
+    return 40;
+  auto fresh_copy = gneiss::engine::decode_prefab(*fresh_bytes);
+  if (!fresh_copy || fresh_copy->root_uuid != fresh.root_uuid ||
+      fresh_copy->objects.size() != fresh.objects.size())
+    return 41;
+  fresh.root_uuid = {};
+  if (gneiss::engine::encode_prefab(fresh))
+    return 42;
   const gneiss::engine::prefab_author_address address{
       .instance_uuid = *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000001"),
       .source_node_uuid = prefab.objects[1].uuid};

@@ -64,8 +64,9 @@ while (host.poll_input(event).ok()) {
 
 `action_map` 直接作为共享的只读 CPU 描述，使用 `asset_ref<const action_map>` 和
 `asset_request<action_map>`；不再包裹 action_map_asset。内置 Registry 登记 input-map v1
-解码能力，普通加载采用 asset_manager 的显式 decoder 优先、反射兜底规则。
-当前没有编码器，反射 serialize 返回 unsupported；不得将解码能力视为保存支持。
+编解码能力，普通加载采用 asset_manager 的显式 decoder 优先、反射兜底规则。
+`encode_action_map` 和反射 `serialize` 可生成 v1 文件；普通字段直接绑定原生描述，
+编码与解码均执行业务校验并限制为 1 MiB。入口要求默认注册表已初始化。
 
 通用 load/load_sync 默认复用缓存；Application 的显式加载与异步重载仍重新读取。
 加载和解析不修改输入服务，成功后由 Application 在所属线程复制描述并调用 replace_action_map。

@@ -159,3 +159,9 @@ World 保持不变。旧顶层 `prefab_instances` 也被明确拒绝，不作为
 解析/编码前由宿主完成 `initialize_meta`。文件解析只生成 CPU 描述，不创建 World 或 GPU 对象。
 场景功能层解析资产依赖并安装运行时组件；Meta 不依赖 World。
 未发布格式直接迁移为数组，不再接受旧的 components 对象形式。
+
+## 新建描述保存
+
+Scene/Prefab 的 `author_json` 可以为空，此时从原生描述生成完整文件。若有原始 JSON，
+保存继续按对象 UUID 合并并保留未知字段；损坏的非空原始 JSON 仍报错，不静默丢弃。
+两条路径共用对象层级、根节点、变换、组件和 Prefab 覆盖校验。

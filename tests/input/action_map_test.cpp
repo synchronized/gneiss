@@ -129,24 +129,45 @@ int main() {
       backend->reads != 1 || map.actions[0].name != "move")
     return 7;
   using namespace gneiss::engine;
-  // 异步打开来源后检查读取上限，不调用旧 read_bounded。
-  gneiss::engine::meta::registry_ref registry;
-  gneiss::engine::meta::serialization_binding codec;
-  if (gneiss::test_support::assign_value(meta::default_registry(), registry).failed() ||
-      gneiss::test_support::assign_value(
-          find_serialization(registry, runtime_type_of<action_map>()), codec)
-          .failed() ||
-      !codec.decode || codec.encode)
+  // 编码、解码与资源加载共用默认表；字段保持 input-map v1 布局。
+  auto codec = meta::find_serialization(runtime_type_of<action_map>());
+  if (!codec || !codec->decode || !codec->encode)
     return 9;
-  gneiss::engine::meta::serialization_diagnostic diagnostic;
-  std::vector<std::byte> encoded{std::byte{42}};
-  if (gneiss::test_support::assign_decoded(serialize(registry, map), encoded, diagnostic) !=
-          error::unsupported ||
-      encoded != std::vector{std::byte{42}})
+  meta::serialization_diagnostic diagnostic;
+  auto saved_bytes = encode_action_map(map);
+  if (!saved_bytes)
     return 10;
+  auto roundtrip = decode_action_map(*saved_bytes);
+  if (!roundtrip || roundtrip->actions.front().name != "move" ||
+      roundtrip->actions.front().bindings.front().physical_key != 4 ||
+      roundtrip->actions.front().bindings.front().scale != -1)
+    return 20;
+  auto bad_map = map;
+  bad_map.actions.push_back(bad_map.actions.front());
+  if (encode_action_map(bad_map))
+    return 21;
+  bad_map = map;
+  bad_map.actions.front().bindings.front().scale = 0;
+  if (encode_action_map(bad_map))
+    return 22;
+  bad_map = map;
+  bad_map.actions.front().name.assign(maximum_action_map_bytes, 'x');
+  if (encode_action_map(bad_map))
+    return 23;
+  for (const std::string_view body :
+       {R"({"name":"move","bindings":[{"key":4294967296,"scale":1}]})",
+        R"({"name":"move","bindings":[{"key":4,"key":7,"scale":1}]})",
+        R"({"name":"move","bindings":[{"key":4,"scale":1,"unknown":1}]})",
+        R"({"name":"move","bindings":[]})", R"({"name":"move"})"}) {
+    const std::string malformed =
+        std::string(R"({"format":"gneiss.input-map","version":1,"actions":[)") + std::string(body) +
+        "]}";
+    if (parse_action_map(malformed))
+      return 24;
+  }
   const auto invalid = std::as_bytes(std::span{invalid_scale, std::strlen(invalid_scale)});
   if (gneiss::test_support::assign_decoded(
-          deserialize<std::remove_cvref_t<decltype(map)>>(registry, invalid), map, diagnostic) !=
+          meta::deserialize<std::remove_cvref_t<decltype(map)>>(invalid), map, diagnostic) !=
           error::invalid_argument ||
       diagnostic.path != "/actions/0/bindings/0" || diagnostic.message.empty() ||
       map.actions.front().name != "move")

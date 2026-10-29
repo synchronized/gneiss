@@ -34,8 +34,6 @@ parse_prefab_description(std::string_view json) noexcept try {
 }
 
 result<std::string> serialize_prefab_description(const prefab_description& prefab) noexcept {
-  if (prefab.author_json.empty() || !prefab.uuid)
-    return error::invalid_state;
   return detail::serialize_object_document(prefab.uuid, prefab.root_uuid, prefab.objects,
                                            prefab.author_json);
 }

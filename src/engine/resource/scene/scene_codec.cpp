@@ -850,9 +850,9 @@ detail::serialize_object_document(guid uuid, std::optional<guid> root_uuid,
         return error::invalid_argument;
     }
   }
-  if (author_json.empty()) {
-    return engine::error::invalid_state;
-  }
+  // 新建描述没有原文件；从空对象列表开始，已有文件继续走未知字段合并。
+  if (author_json.empty())
+    author_json = R"({"objects":[]})";
 
   yyjson_read_err error{};
   using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;

@@ -8,7 +8,10 @@ namespace gneiss::engine {
 [[nodiscard]] result<action_map, meta::serialization_diagnostic>
 parse_action_map(std::string_view json) noexcept;
 
-/** 解码 input-map v1；限制 1 MiB，失败仅返回诊断，暂不提供编码能力。 */
+/** 解码 input-map v1；限制 1 MiB，使用已初始化的默认注册表，失败仅返回诊断。 */
 [[nodiscard]] GNEISS_API result<action_map, meta::serialization_diagnostic>
     decode_action_map(std::span<const std::byte>) noexcept;
+/** 编码 input-map v1；校验原生描述并限制输出为 1 MiB。 */
+[[nodiscard]] GNEISS_API result<std::vector<std::byte>, meta::serialization_diagnostic>
+encode_action_map(const action_map&) noexcept;
 }

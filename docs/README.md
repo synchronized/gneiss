@@ -604,3 +604,4 @@
 - [反射容器视图](reference/reflection-containers.md)
 - [资源描述复用反射 JSON](plans/PLAN-068-resource-reflected-json.md)
 - [PLAN-069：业务反射入口统一默认注册表](plans/PLAN-069-default-meta-entrypoints.md)
+- [PLAN-070：ActionMap 反射编解码与新建描述保存](plans/PLAN-070-action-map-and-new-description-save.md)

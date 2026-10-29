@@ -29,7 +29,4 @@ error register_prefab_reflection() noexcept {
       .serialization<&encode_prefab, &decode_prefab>()
       .commit();
 }
-error register_action_map_reflection() noexcept {
-  return meta::type_builder<action_map>{}.serialization<nullptr, &decode_action_map>().commit();
-}
 }

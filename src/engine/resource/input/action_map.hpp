@@ -20,11 +20,15 @@ struct serialization_diagnostic;
 namespace gneiss::engine {
 
 struct action_binding final {
+  inline static constexpr std::string_view type_name = "action_binding";
+  inline static constexpr guid type_guid = guid::from_bytes({0x97, 5});
   std::uint32_t physical_key{};
   float scale{};
 };
 
 struct action_definition final {
+  inline static constexpr std::string_view type_name = "action_definition";
+  inline static constexpr guid type_guid = guid::from_bytes({0x97, 6});
   std::string name;
   std::vector<action_binding> bindings;
 };

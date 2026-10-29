@@ -66,7 +66,6 @@ int main() try {
       reflected_scene->objects.front().components.get<reflected_description>()->speed != 3)
     return 30;
   e::prefab_description reflected_prefab;
-  reflected_prefab.author_json = R"({"objects":[]})";
   reflected_prefab.uuid = reflected_scene->uuid;
   reflected_prefab.objects = reflected_scene->objects;
   reflected_prefab.root_uuid = reflected_prefab.objects.front().uuid;

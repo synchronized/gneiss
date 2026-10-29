@@ -1,137 +1,128 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "action_map_codec.hpp"
-#include "engine/core/error.hpp"
+#include "engine/core/meta/registration.hpp"
 #include "engine/core/meta/serialization.hpp"
-#include "engine/resource/input/action_map.hpp"
-
-#include <yyjson.h>
-
+#include "engine/resource/builtin_resource_registration.hpp"
+#include <algorithm>
 #include <cmath>
-#include <cstring>
-#include <memory>
-#include <new>
-#include <unordered_set>
-
+#include <cstdlib>
+#include <yyjson.h>
+namespace gneiss::engine {
 namespace {
-
-using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
-
-[[nodiscard]] std::string_view string_value(yyjson_val* value) {
-  return {yyjson_get_str(value), yyjson_get_len(value)};
+using diagnostic = meta::serialization_diagnostic;
+using document = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
+using mutable_document = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
+diagnostic invalid(std::string path, std::string message = {}) {
+  return {.path = std::move(path), .message = std::move(message), .error = error::invalid_argument};
 }
-
-[[nodiscard]] bool has_exact_fields(yyjson_val* object, std::initializer_list<const char*> fields) {
-  if (!yyjson_is_obj(object) || yyjson_obj_size(object) != fields.size()) {
-    return false;
-  }
-  for (const auto* field : fields) {
-    if (yyjson_obj_get(object, field) == nullptr) {
-      return false;
-    }
-  }
-  return true;
+diagnostic validate_binding(const action_binding& binding) {
+  if (binding.physical_key == 0 || binding.physical_key >= 256 || !std::isfinite(binding.scale) ||
+      binding.scale == 0 || binding.scale < -1 || binding.scale > 1)
+    return invalid("", "按键或 scale 超出有效范围");
+  return {};
 }
-
-} // namespace
-
-namespace gneiss::engine {
-
-result<action_map, meta::serialization_diagnostic> parse_action_map(std::string_view json) noexcept
-    try {
-
-  std::string path;
-  const auto reject = [&](std::string_view message, std::size_t offset = 0U) {
-    return meta::serialization_diagnostic{offset, path, std::string(message),
-                                          error::invalid_argument};
-  };
-  if (json.size() > maximum_action_map_bytes)
-    return reject("输入映射超过 1 MiB 上限");
-  yyjson_read_err error{};
-  document_ptr document(yyjson_read_opts(const_cast<char*>(json.data()), json.size(),
-                                         YYJSON_READ_NOFLAG, nullptr, &error),
-                        &yyjson_doc_free);
-  if (document == nullptr) {
-    if (error.code == YYJSON_READ_ERROR_MEMORY_ALLOCATION)
-      return meta::serialization_diagnostic{.error = error::out_of_memory};
-    return reject("输入映射 JSON 无效", error.pos);
-  }
-  yyjson_val* root = yyjson_doc_get_root(document.get());
-  if (!has_exact_fields(root, {"format", "version", "actions"})) {
-    return reject("输入映射字段或取值无效");
-  }
-  yyjson_val* format = yyjson_obj_get(root, "format");
-  yyjson_val* version = yyjson_obj_get(root, "version");
-  yyjson_val* actions = yyjson_obj_get(root, "actions");
-  if (!yyjson_is_str(format) || string_value(format) != "gneiss.input-map" ||
-      !yyjson_is_uint(version) || yyjson_get_uint(version) != 1U || !yyjson_is_arr(actions)) {
-    return reject("输入映射字段或取值无效");
-  }
-
-  path = "/actions";
-  action_map candidate;
-  std::unordered_set<std::string> names;
-  std::size_t action_index = 0;
-  std::size_t action_count = 0;
-  yyjson_val* action_value = nullptr;
-  yyjson_arr_foreach(actions, action_index, action_count, action_value) {
-    path = "/actions/" + std::to_string(action_index);
-    if (!has_exact_fields(action_value, {"name", "bindings"})) {
-      return reject("输入映射字段或取值无效");
-    }
-    yyjson_val* name = yyjson_obj_get(action_value, "name");
-    yyjson_val* bindings = yyjson_obj_get(action_value, "bindings");
-    if (!yyjson_is_str(name) || yyjson_get_len(name) == 0U || !yyjson_is_arr(bindings) ||
-        yyjson_arr_size(bindings) == 0U) {
-      return reject("输入映射字段或取值无效");
-    }
-    action_definition action{.name = std::string(string_value(name)), .bindings = {}};
-    path = "/actions/" + std::to_string(action_index) + "/name";
-    if (!names.insert(action.name).second) {
-      return reject("输入映射字段或取值无效");
-    }
-    std::size_t binding_index = 0;
-    std::size_t binding_count = 0;
-    yyjson_val* binding_value = nullptr;
-    yyjson_arr_foreach(bindings, binding_index, binding_count, binding_value) {
-      path =
-          "/actions/" + std::to_string(action_index) + "/bindings/" + std::to_string(binding_index);
-      if (!has_exact_fields(binding_value, {"key", "scale"})) {
-        return reject("输入映射字段或取值无效");
-      }
-      yyjson_val* key = yyjson_obj_get(binding_value, "key");
-      yyjson_val* scale = yyjson_obj_get(binding_value, "scale");
-      const auto key_value = yyjson_get_uint(key);
-      const auto scale_value = yyjson_get_real(scale);
-      if (!yyjson_is_uint(key) || key_value == 0U || key_value >= 256U || !yyjson_is_num(scale) ||
-          !std::isfinite(scale_value) || scale_value < -1.0 || scale_value > 1.0 ||
-          scale_value == 0.0) {
-        return reject("输入映射字段或取值无效");
-      }
-      action.bindings.push_back({.physical_key = static_cast<std::uint32_t>(key_value),
-                                 .scale = static_cast<float>(scale_value)});
-    }
-    candidate.actions.push_back(std::move(action));
-  }
-  if (candidate.actions.empty()) {
-    return reject("输入映射字段或取值无效");
-  }
-  if (const auto valid = validate_action_map(candidate); valid.failed()) {
-    return reject("输入映射语义校验失败");
-  }
-  return candidate;
-
-} catch (const std::bad_alloc&) {
-  return meta::serialization_diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return meta::serialization_diagnostic{.error = error::internal};
+result<std::vector<std::byte>, diagnostic> write_json(yyjson_mut_doc* doc) {
+  std::size_t length{};
+  std::unique_ptr<char, decltype(&std::free)> text(yyjson_mut_write(doc, 0, &length), &std::free);
+  if (!text)
+    return diagnostic{.error = error::out_of_memory};
+  const auto bytes = std::as_bytes(std::span{text.get(), length});
+  if (length > maximum_action_map_bytes)
+    return invalid("", "输入映射超过 1 MiB 上限");
+  return std::vector<std::byte>(bytes.begin(), bytes.end());
 }
-
-} // namespace gneiss::engine
-
-namespace gneiss::engine {
-result<action_map, meta::serialization_diagnostic>
-decode_action_map(std::span<const std::byte> bytes) noexcept {
-  return parse_action_map({reinterpret_cast<const char*>(bytes.data()), bytes.size()});
+result<action_map, diagnostic> decode(std::span<const std::byte> bytes) {
+  if (bytes.size() > maximum_action_map_bytes)
+    return invalid("", "输入映射超过 1 MiB 上限");
+  yyjson_read_err err{};
+  document doc(yyjson_read_opts(reinterpret_cast<char*>(const_cast<std::byte*>(bytes.data())),
+                                bytes.size(), 0, nullptr, &err),
+               &yyjson_doc_free);
+  if (!doc)
+    return diagnostic{err.pos, "", err.msg ? err.msg : "JSON 语法错误",
+                      err.code == YYJSON_READ_ERROR_MEMORY_ALLOCATION ? error::out_of_memory
+                                                                      : error::invalid_argument};
+  auto* root = yyjson_doc_get_root(doc.get());
+  if (!yyjson_is_obj(root))
+    return invalid("", "输入映射根必须是对象");
+  auto* format = yyjson_obj_get(root, "format");
+  auto* version = yyjson_obj_get(root, "version");
+  if (!yyjson_is_str(format) ||
+      std::string_view(yyjson_get_str(format), yyjson_get_len(format)) != "gneiss.input-map")
+    return invalid("/format", "资产格式标识错误");
+  if (!yyjson_is_uint(version) || yyjson_get_uint(version) != 1)
+    return invalid("/version", "输入映射仅支持版本 1");
+  std::size_t formats = 0, versions = 0;
+  auto it = yyjson_obj_iter_with(root);
+  while (auto* key = yyjson_obj_iter_next(&it)) {
+    const std::string_view name(yyjson_get_str(key), yyjson_get_len(key));
+    formats += name == "format";
+    versions += name == "version";
+  }
+  if (formats != 1 || versions != 1)
+    return invalid("", "重复格式头");
+  mutable_document fields(yyjson_doc_mut_copy(doc.get(), nullptr), &yyjson_mut_doc_free);
+  if (!fields)
+    return diagnostic{.error = error::out_of_memory};
+  auto* fields_root = yyjson_mut_doc_get_root(fields.get());
+  (void)yyjson_mut_obj_remove_key(fields_root, "format");
+  (void)yyjson_mut_obj_remove_key(fields_root, "version");
+  auto content = write_json(fields.get());
+  if (!content)
+    return std::move(content).error();
+  return meta::deserialize_reflected<action_map>(*content);
+}
+result<std::vector<std::byte>, diagnostic> encode(const action_map& object) {
+  auto fields = meta::serialize_reflected(object);
+  if (!fields)
+    return std::move(fields).error();
+  document doc(yyjson_read(reinterpret_cast<const char*>(fields->data()), fields->size(), 0),
+               &yyjson_doc_free);
+  if (!doc)
+    return diagnostic{.error = error::out_of_memory};
+  mutable_document output(yyjson_doc_mut_copy(doc.get(), nullptr), &yyjson_mut_doc_free);
+  if (!output)
+    return diagnostic{.error = error::out_of_memory};
+  auto* root = yyjson_mut_doc_get_root(output.get());
+  if (!yyjson_mut_obj_add_str(output.get(), root, "format", "gneiss.input-map") ||
+      !yyjson_mut_obj_add_uint(output.get(), root, "version", 1))
+    return diagnostic{.error = error::out_of_memory};
+  return write_json(output.get());
+}
+}
+error register_action_map_reflection() noexcept {
+  constexpr auto required = meta::property_flags::required;
+  auto status = meta::type_builder<action_binding>{}
+                    .property<&action_binding::physical_key>(meta::property_id{1}, "key", required)
+                    .property<&action_binding::scale>(meta::property_id{2}, "scale", required)
+                    .serialization(true)
+                    .validate<&validate_binding>()
+                    .commit();
+  if (status.failed())
+    return status;
+  status = meta::type_builder<action_definition>{}
+               .property<&action_definition::name>(meta::property_id{1}, "name", required)
+               .property<&action_definition::bindings>(meta::property_id{2}, "bindings", required)
+               .serialization(true)
+               .commit();
+  if (status.failed())
+    return status;
+  return meta::type_builder<action_map>{}
+      .schema_version(1)
+      .property<&action_map::actions>(meta::property_id{1}, "actions", required)
+      .serialization(true)
+      .serialization<&encode, &decode>()
+      .validate<&validate_action_map>()
+      .commit();
+}
+result<action_map, diagnostic> parse_action_map(std::string_view json) noexcept {
+  return decode_action_map(std::as_bytes(std::span{json.data(), json.size()}));
+}
+result<action_map, diagnostic> decode_action_map(std::span<const std::byte> bytes) noexcept {
+  return meta::deserialize<action_map>(bytes);
+}
+result<std::vector<std::byte>, diagnostic> encode_action_map(const action_map& object) noexcept {
+  return meta::serialize(object);
 }
 }
