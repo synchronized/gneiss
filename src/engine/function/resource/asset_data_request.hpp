@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "asset_identity.hpp"
 #include "asset_request.hpp"
 #include "engine/core/sha256.hpp"
+#include "engine/resource/asset_identity.hpp"
 #include <optional>
 #include <vector>
 namespace gneiss::engine {

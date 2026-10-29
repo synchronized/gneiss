@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/function/resource/asset_data_request.hpp"
 #include "engine/function/resource/asset_types.hpp"
-#include "engine/resource/asset_data_request.hpp"
 namespace gneiss::engine {
 namespace detail {
 struct resource_load_state {

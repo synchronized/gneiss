@@ -5,11 +5,11 @@
 
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
+#include "engine/function/resource/asset_data_request.hpp"
+#include "engine/function/resource/asset_request.hpp"
 #include "engine/function/resource/resource_cache.hpp"
-#include "engine/resource/asset_data_request.hpp"
 #include "engine/resource/asset_decoder.hpp"
 #include "engine/resource/asset_identity.hpp"
-#include "engine/resource/asset_request.hpp"
 #include "engine/resource/mesh/mesh_data.hpp"
 #include "engine/resource/texture/texture_data.hpp"
 #include <memory>

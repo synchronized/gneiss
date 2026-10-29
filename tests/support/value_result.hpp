@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/result.hpp"
-#include "engine/resource/asset_data_request.hpp"
+#include "engine/function/resource/asset_data_request.hpp"
 namespace gneiss::test_support {
 template <class T> engine::error take_value(engine::result<T> value, T& output) {
   if (!value) {

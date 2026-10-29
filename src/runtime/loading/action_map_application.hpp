@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/error.hpp"
-#include "engine/resource/asset_request.hpp"
+#include "engine/function/resource/asset_request.hpp"
 #include "engine/resource/input/action_map.hpp"
 namespace gneiss::engine {
 class input_service;

@@ -3,10 +3,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include "asset_diagnostic.hpp"
-#include "asset_ref.hpp"
 #include "engine/core/meta/serialization_types.hpp"
 #include "engine/core/result.hpp"
+#include "engine/resource/asset_diagnostic.hpp"
+#include "engine/resource/asset_ref.hpp"
 #include <memory>
 #include <mutex>
 #include <utility>
