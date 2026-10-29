@@ -597,3 +597,4 @@
 - [对象身份统一为 guid](plans/PLAN-061-guid-object-identity.md)
 - [Prefab 显式根对象](plans/PLAN-062-prefab-explicit-root.md)
 - [Scene / Prefab 对象树校验与编解码收敛](plans/PLAN-063-scene-prefab-codec.md)
+- [描述类型的反射 JSON 序列化](plans/PLAN-064-reflected-json.md)

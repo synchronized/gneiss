@@ -129,8 +129,10 @@ struct type_record {
 
 [[nodiscard]] bool validate_property(const property_definition& property) noexcept {
   return property.id.is_valid() && static_cast<bool>(property.type_guid) &&
+         !has_flags(property.flags, property_flags::read_only | property_flags::required) &&
          (static_cast<std::uint32_t>(property.flags) &
-          ~static_cast<std::uint32_t>(property_flags::read_only)) == 0U &&
+          ~static_cast<std::uint32_t>(property_flags::read_only | property_flags::required)) ==
+             0U &&
          !property.name.empty() &&
          property.name.size() <= std::numeric_limits<std::uint32_t>::max() &&
          is_valid_name(property.name);
@@ -195,7 +197,7 @@ public:
       for (std::size_t i = 0; i < bindings.size(); ++i) {
         const auto& binding = bindings[i];
         if (!is_valid_property_kind(binding.kind) || (!binding.getter && !binding.setter) ||
-            (desc.properties[i].flags == property_flags::read_only && binding.setter))
+            (has_flags(desc.properties[i].flags, property_flags::read_only) && binding.setter))
           return error::invalid_argument;
       }
     }
@@ -448,7 +450,7 @@ public:
     if (found == by_cpp_type_.end())
       return error::not_found;
     const auto& codec = found->second->serialization;
-    if (!codec.encode && !codec.decode)
+    if (!codec.encode && !codec.decode && !codec.reflected_json)
       return error::unsupported;
     return codec;
   } catch (...) {

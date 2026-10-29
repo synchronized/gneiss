@@ -77,10 +77,12 @@ public:
     version_ = version;
     return *this;
   }
-  template <auto Member> type_builder& property(property_id id, std::string_view name) noexcept {
+  template <auto Member>
+  type_builder& property(property_id id, std::string_view name,
+                         property_flags flags = property_flags::none) noexcept {
     static_assert(std::is_member_object_pointer_v<decltype(Member)>);
     using property_type = std::remove_cvref_t<std::invoke_result_t<decltype(Member), object_type&>>;
-    return add<property_type>(id, name, property_flags::none,
+    return add<property_type>(id, name, flags,
                               {.kind = detail::reflected_value_kind<property_type>(),
                                .getter = [](void*, const void* object, value& output) -> error {
                                  output.payload =
@@ -126,6 +128,36 @@ public:
                                      std::invoke(Getter, *static_cast<const object_type*>(object));
                                  return error::success;
                                }});
+  }
+  /** 启用反射 JSON；缺失的非必填字段保留默认值，只读字段不持久化。 */
+  type_builder& serialization() noexcept {
+    static_assert(std::is_default_constructible_v<object_type>);
+    if (committed_ || status_.failed())
+      return *this;
+    if (codec_.reflected_json) {
+      status_ = error::invalid_argument;
+      return *this;
+    }
+    codec_.reflected_json = true;
+    codec_.construct = []() -> std::shared_ptr<void> { return std::make_shared<object_type>(); };
+    return *this;
+  }
+  /** 校验返回 error 或 serialization_diagnostic；不修改对象。 */
+  template <auto Validate> type_builder& validate() noexcept {
+    if (committed_ || status_.failed())
+      return *this;
+    if (codec_.validate) {
+      status_ = error::invalid_argument;
+      return *this;
+    }
+    codec_.validate = [](const void* object) -> serialization_diagnostic {
+      auto status = std::invoke(Validate, *static_cast<const object_type*>(object));
+      if constexpr (std::is_same_v<decltype(status), error>)
+        return {.error = status};
+      else
+        return status;
+    };
+    return *this;
   }
   /** Encode/Decode 是有类型函数，允许 nullptr 表示缺少该方向。文件格式由 codec 自行校验。 */
   template <auto Encode, auto Decode> type_builder& serialization() noexcept {

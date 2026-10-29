@@ -29,12 +29,7 @@ public:
       return meta::serialization_diagnostic{.error = type.error()};
     if (!type->type_id)
       return meta::serialization_diagnostic{.error = error::unsupported};
-    auto codec = meta::find_serialization(*registry, type->type_id);
-    if (!codec)
-      return meta::serialization_diagnostic{.error = codec.error()};
-    if (!codec->decode)
-      return meta::serialization_diagnostic{.error = error::unsupported};
-    auto object = codec->decode(bytes);
+    auto object = meta::deserialize_object(*registry, type->type_id, bytes);
     if (!object)
       return std::move(object).error();
     if (!*object)
@@ -52,12 +47,10 @@ public:
       return meta::serialization_diagnostic{.error = type.error()};
     if (type->type_id != type_)
       return meta::serialization_diagnostic{.error = error::invalid_argument};
-    auto codec = meta::find_serialization(type_);
-    if (!codec)
-      return meta::serialization_diagnostic{.error = codec.error()};
-    if (!codec->encode)
-      return meta::serialization_diagnostic{.error = error::unsupported};
-    return codec->encode(object_.get());
+    auto registry = meta::default_registry();
+    if (!registry)
+      return meta::serialization_diagnostic{.error = registry.error()};
+    return meta::serialize_object(*registry, type_, object_.get());
   } catch (const std::bad_alloc&) {
     return meta::serialization_diagnostic{.error = error::out_of_memory};
   } catch (...) {

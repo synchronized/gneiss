@@ -131,6 +131,7 @@ target_sources(
     engine/core/math/camera.hpp
     engine/function/render/render_snapshot.hpp
     engine/core/meta/registry.cpp
+    engine/core/meta/serialization.cpp
     engine/core/meta/serialization.hpp
     engine/function/meta_registration.cpp
     engine/function/meta_registration.hpp

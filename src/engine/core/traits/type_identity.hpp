@@ -9,6 +9,8 @@
 #include "engine/core/math/types.hpp"
 #include "engine/core/traits/type_name.hpp"
 
+#include <cstdint>
+#include <string>
 #include <string_view>
 #include <type_traits>
 
@@ -74,6 +76,42 @@ template <> struct type_identity<bool> {
   static constexpr engine::guid guid() noexcept {
     return engine::guid::from_bytes({0xc2, 0xaf, 0x2a, 0xd1, 0xa6, 0x25, 0x48, 0x42, 0xb4, 0xdd,
                                      0x74, 0xe9, 0x77, 0x06, 0x7e, 0x35});
+  }
+};
+
+template <> struct type_identity<std::int64_t> {
+  static constexpr std::string_view name() noexcept { return "int64"; }
+  static constexpr engine::guid guid() noexcept {
+    return engine::guid::from_bytes({0x81, 0x3f, 0x73, 0xd9, 0x20, 0x5e, 0x42, 0xf2, 0x93, 0x3b,
+                                     0xc3, 0xef, 0xb0, 0x90, 0xca, 0xf1});
+  }
+};
+template <> struct type_identity<std::uint64_t> {
+  static constexpr std::string_view name() noexcept { return "uint64"; }
+  static constexpr engine::guid guid() noexcept {
+    return engine::guid::from_bytes({0x2e, 0xc2, 0x37, 0xdb, 0x7d, 0xe3, 0x41, 0xdc, 0xa0, 0x77,
+                                     0x1e, 0x5d, 0xac, 0x89, 0x18, 0x1c});
+  }
+};
+template <> struct type_identity<double> {
+  static constexpr std::string_view name() noexcept { return "double"; }
+  static constexpr engine::guid guid() noexcept {
+    return engine::guid::from_bytes({0xbb, 0x42, 0xb8, 0x6e, 0x4a, 0x80, 0x46, 0x95, 0x99, 0x78,
+                                     0x14, 0xd6, 0x2c, 0xee, 0xb2, 0x17});
+  }
+};
+template <> struct type_identity<std::string> {
+  static constexpr std::string_view name() noexcept { return "string"; }
+  static constexpr engine::guid guid() noexcept {
+    return engine::guid::from_bytes({0x60, 0x54, 0x29, 0x78, 0xc4, 0x90, 0x4a, 0xb5, 0x83, 0x50,
+                                     0xa9, 0x01, 0xec, 0xc9, 0x8e, 0xa8});
+  }
+};
+template <> struct type_identity<engine::guid> {
+  static constexpr std::string_view name() noexcept { return "guid"; }
+  static constexpr engine::guid guid() noexcept {
+    return engine::guid::from_bytes({0x5f, 0x7a, 0xd2, 0x9c, 0x1a, 0xa6, 0x43, 0x4f, 0x9e, 0xc8,
+                                     0x80, 0xec, 0xdf, 0x59, 0xe1, 0x82});
   }
 };
 

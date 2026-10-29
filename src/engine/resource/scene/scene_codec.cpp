@@ -123,20 +123,6 @@ template <std::size_t Size>
   return true;
 }
 
-[[nodiscard]] bool read_float(yyjson_val* object, const char* name, std::string_view path,
-                              float& output, scene_diagnostic& diagnostic) {
-  yyjson_val* value = yyjson_obj_get(object, name);
-  const double number = yyjson_get_num(value);
-  if (!yyjson_is_num(value) || !std::isfinite(number) ||
-      std::abs(number) > std::numeric_limits<float>::max()) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, std::string(path) + "/" + name,
-         "数值必须是有限 float");
-    return false;
-  }
-  output = static_cast<float>(number);
-  return true;
-}
-
 [[nodiscard]] bool validate_transform(const gneiss::engine::math::transform& output,
                                       std::string_view path, scene_diagnostic& diagnostic) {
   const auto finite = [](const auto& values) {
@@ -191,29 +177,6 @@ template <std::size_t Size>
   return true;
 }
 
-[[nodiscard]] bool parse_camera(yyjson_val* value, std::string_view path,
-                                gneiss::engine::camera_description& output,
-                                scene_diagnostic& diagnostic) {
-  if (!yyjson_is_obj(value) ||
-      !read_float(value, "vertical_field_of_view_radians", path,
-                  output.vertical_field_of_view_radians, diagnostic) ||
-      !read_float(value, "near_plane", path, output.near_plane, diagnostic) ||
-      !read_float(value, "far_plane", path, output.far_plane, diagnostic)) {
-    if (diagnostic.error == gneiss::engine::error::success) {
-      fail(diagnostic, gneiss::engine::error::invalid_argument, path, "camera 必须是对象");
-    }
-    return false;
-  }
-  yyjson_val* primary = yyjson_obj_get(value, "is_primary");
-  if (!yyjson_is_bool(primary)) {
-    fail(diagnostic, gneiss::engine::error::invalid_argument, std::string(path) + "/is_primary",
-         "is_primary 必须是布尔值");
-    return false;
-  }
-  output.is_primary = yyjson_get_bool(primary);
-  return validate_camera(output, path, diagnostic);
-}
-
 [[nodiscard]] bool validate_mesh_renderer(const gneiss::engine::mesh_renderer_description& output,
                                           std::string_view path, scene_diagnostic& diagnostic) {
   if (gneiss::engine::validate_uri(output.mesh_uri) != gneiss::engine::error::success ||
@@ -222,20 +185,6 @@ template <std::size_t Size>
     return false;
   }
   return true;
-}
-
-[[nodiscard]] bool parse_mesh_renderer(yyjson_val* value, std::string_view path,
-                                       gneiss::engine::mesh_renderer_description& output,
-                                       scene_diagnostic& diagnostic) {
-  if (!yyjson_is_obj(value) ||
-      !read_required_string(value, "mesh", path, output.mesh_uri, diagnostic) ||
-      !read_required_string(value, "material", path, output.material_uri, diagnostic)) {
-    if (diagnostic.error == gneiss::engine::error::success) {
-      fail(diagnostic, gneiss::engine::error::invalid_argument, path, "mesh_renderer 必须是对象");
-    }
-    return false;
-  }
-  return validate_mesh_renderer(output, path, diagnostic);
 }
 
 [[nodiscard]] bool parse_components(yyjson_val* value, std::string_view path,
@@ -1055,87 +1004,39 @@ encode_scene(const scene_description& object) noexcept try {
 
 namespace gneiss::engine {
 namespace {
-template <class T, auto Parse>
-result<T, meta::serialization_diagnostic>
-decode_component(std::span<const std::byte> bytes) noexcept try {
-  yyjson_read_err err{};
-  std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> document(
-      yyjson_read_opts(reinterpret_cast<char*>(const_cast<std::byte*>(bytes.data())), bytes.size(),
-                       0, nullptr, &err),
-      &yyjson_doc_free);
-  if (!document)
-    return meta::serialization_diagnostic{err.pos, "", "组件 JSON 语法错误",
-                                          error::invalid_argument};
-  T value;
+meta::serialization_diagnostic check_camera(const camera_description& value) {
   scene_diagnostic diagnostic;
-  if (!Parse(yyjson_doc_get_root(document.get()), "", value, diagnostic))
-    return meta::serialization_diagnostic{diagnostic.byte_offset, std::move(diagnostic.path),
-                                          std::move(diagnostic.message), diagnostic.error};
-  return value;
-} catch (const std::bad_alloc&) {
-  return meta::serialization_diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return meta::serialization_diagnostic{.error = error::internal};
+  (void)validate_camera(value, "", diagnostic);
+  return {diagnostic.byte_offset, std::move(diagnostic.path), std::move(diagnostic.message),
+          diagnostic.error};
 }
-
-template <class T>
-result<std::vector<std::byte>, meta::serialization_diagnostic>
-encode_component(const T& value) noexcept try {
+meta::serialization_diagnostic check_mesh_renderer(const mesh_renderer_description& value) {
   scene_diagnostic diagnostic;
-  const auto valid = [&] {
-    if constexpr (std::is_same_v<T, camera_description>)
-      return validate_camera(value, "", diagnostic);
-    else
-      return validate_mesh_renderer(value, "", diagnostic);
-  }();
-  if (!valid)
-    return meta::serialization_diagnostic{diagnostic.byte_offset, std::move(diagnostic.path),
-                                          std::move(diagnostic.message), diagnostic.error};
-
-  std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> doc(yyjson_mut_doc_new(nullptr),
-                                                                      &yyjson_mut_doc_free);
-  if (!doc)
-    return meta::serialization_diagnostic{.error = error::out_of_memory};
-  auto* root = yyjson_mut_obj(doc.get());
-  yyjson_mut_doc_set_root(doc.get(), root);
-  bool ok = root != nullptr;
-  if constexpr (std::is_same_v<T, camera_description>) {
-    ok = ok &&
-         yyjson_mut_obj_add_real(doc.get(), root, "vertical_field_of_view_radians",
-                                 value.vertical_field_of_view_radians) &&
-         yyjson_mut_obj_add_real(doc.get(), root, "near_plane", value.near_plane) &&
-         yyjson_mut_obj_add_real(doc.get(), root, "far_plane", value.far_plane) &&
-         yyjson_mut_obj_add_bool(doc.get(), root, "is_primary", value.is_primary);
-  } else {
-    ok = ok &&
-         yyjson_mut_obj_add_strncpy(doc.get(), root, "mesh", value.mesh_uri.data(),
-                                    value.mesh_uri.size()) &&
-         yyjson_mut_obj_add_strncpy(doc.get(), root, "material", value.material_uri.data(),
-                                    value.material_uri.size());
-  }
-  std::size_t size{};
-  std::unique_ptr<char, decltype(&std::free)> text(
-      ok ? yyjson_mut_write(doc.get(), 0, &size) : nullptr, &std::free);
-  if (!text)
-    return meta::serialization_diagnostic{.error = error::out_of_memory};
-  auto bytes = std::as_bytes(std::span{text.get(), size});
-  return std::vector<std::byte>(bytes.begin(), bytes.end());
-} catch (const std::bad_alloc&) {
-  return meta::serialization_diagnostic{.error = error::out_of_memory};
-} catch (...) {
-  return meta::serialization_diagnostic{.error = error::internal};
+  (void)validate_mesh_renderer(value, "", diagnostic);
+  return {diagnostic.byte_offset, std::move(diagnostic.path), std::move(diagnostic.message),
+          diagnostic.error};
 }
 }
 error register_component_descriptions(const meta::registry_ref& registry) noexcept {
-  auto status = meta::type_builder<camera_description>{registry}
-                    .serialization<&encode_component<camera_description>,
-                                   &decode_component<camera_description, parse_camera>>()
-                    .commit();
+  constexpr auto required = meta::property_flags::required;
+  auto status =
+      meta::type_builder<camera_description>{registry}
+          .property<&camera_description::vertical_field_of_view_radians>(
+              meta::property_id{1}, "vertical_field_of_view_radians", required)
+          .property<&camera_description::near_plane>(meta::property_id{2}, "near_plane", required)
+          .property<&camera_description::far_plane>(meta::property_id{3}, "far_plane", required)
+          .property<&camera_description::is_primary>(meta::property_id{4}, "is_primary", required)
+          .serialization()
+          .validate<&check_camera>()
+          .commit();
   if (status.failed())
     return status;
   return meta::type_builder<mesh_renderer_description>{registry}
-      .serialization<&encode_component<mesh_renderer_description>,
-                     &decode_component<mesh_renderer_description, parse_mesh_renderer>>()
+      .property<&mesh_renderer_description::mesh_uri>(meta::property_id{1}, "mesh", required)
+      .property<&mesh_renderer_description::material_uri>(meta::property_id{2}, "material",
+                                                          required)
+      .serialization()
+      .validate<&check_mesh_renderer>()
       .commit();
 }
 }

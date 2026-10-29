@@ -10,7 +10,7 @@
 旧 `reflection.h`、C 属性值布局和转换头已删除；Editor/Runtime 属性命令直接持有原生 `guid`。
 IPC 仍使用既有 32 位十六进制字符串编码 GUID，不传输原生对象布局。
 
-当前支持类型、字段和显式属性访问器，内建 Transform 与 Camera 已接入；不提供对象构造、
+当前支持类型、字段和显式属性访问器，内建 Transform 与 Camera 已接入；仅在反射 JSON 解码内部默认构造临时对象，不提供通用对象创建服务、
 继承、注销、解冻、描述替换或动态模块卸载。
 
 ## 身份与注册
@@ -142,7 +142,7 @@ Registry 使用原生共享引用管理，不经全局句柄表。独立表在�
 `serialization_diagnostic`。能力与类型、字段一起登记到同一 Registry，不依赖资源层。
 `type_builder<T>::serialization<Encode, Decode>()` 推导类型适配；任一函数可为 nullptr，
 但至少具备一个方向。同一 builder 不允许重复设置。
-每个类型当前只登记一组编解码函数，文件格式标识及版本由 codec 自行校验，不提供任意 capability 或对象工厂。
+每个类型当前只登记一组编解码函数，自定义文件格式标识及版本由 codec 自行校验，不提供任意 capability 或通用对象工厂。
 
 `find_serialization` 按运行期 type_id 查询冻结 Registry 中的函数表，不登记重复的格式名称。
 `serialize<T>` 返回 `result<vector<byte>, serialization_diagnostic>`，`deserialize<T>` 返回
@@ -159,6 +159,48 @@ Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `
 默认启动已集中调用，无需资源消费者重复注册。
 材质未展开数组等字段，只登记整体编解码能力；实际格式见[材质格式](render-asset-formats.md#material)。
 
+## 反射 JSON 与对象校验
+
+`type_builder<T>.serialization()` 显式启用通用 JSON 对象读写，要求 T 可默认构造。
+已登记的自定义 encode/decode 按方向优先；只有缺少该方向函数时才回退到反射 JSON。
+同一 Builder 可各调用一次自定义和反射注册，两者顺序不限；未启用反射的类型保持原行为。
+
+```cpp
+meta::type_builder<camera_description>{registry}
+    .property<&camera_description::near_plane>(
+        meta::property_id{2}, "near_plane", meta::property_flags::required)
+    // 其他属性同样注册。
+    .serialization()
+    .validate<&check_camera>()
+    .commit();
+```
+
+属性名直接作为 JSON 字段名，支持 bool、int64、uint64、float、double、string、guid、
+vector3、quaternion；数学值按分量数组保存，GUID 使用规范小写带连字符文本。
+属性的稳定身份由 `type_identity` 提供。暂不支持嵌套对象、容器和 optional。
+沿用已有属性访问边界：整数严格校验范围，浮点必须有限，字符串为无 NUL 的合法 UTF-8，
+GUID 值不能为 nil。四元数的归一化等业务约束由类型校验器决定。
+
+缺失普通字段保留 T 的默认值；`property_flags::required` 字段缺失返回 invalid_argument。
+null 不等于缺失。只读属性不输出，也不从输入写入；read_only 与 required 不能组合。
+未知字段忽略，重复 JSON 键拒绝；普通类型不会自动保留未知字段。
+字段错误路径使用 JSON Pointer 转义，语法错误提供字节偏移。
+沿用属性访问语义：getter 返回非法值为 internal，输入值非法为 invalid_argument。
+
+`.validate<Fn>()` 接受返回 error 或 serialization_diagnostic 的只读校验函数。
+成功诊断的 error 为 success。编码前、解码填充结束后各校验一次，适用于自定义 codec 与反射 JSON。
+解码在独立临时对象中写属性，失败析构临时对象；访问器不得产生需要回滚的外部副作用。
+校验器和 codec 异常在分派边界转换为 out_of_memory 或 internal。
+
+类型擦除入口 `serialize_object(registry, type_id, object)` /
+`deserialize_object(registry, type_id, bytes)` 与模板入口共用分派；对象指针必须匹配类型。
+不要直接调用查询到的 codec 函数指针来绕过校验或反射回退。
+实现使用传入的冻结 Registry，不改用默认表；CPU 资源解码适配器持有该表直到适配器销毁。
+注册表不持有适配器，不形成循环引用。组件描述仍使用引擎默认表。
+
+Camera / MeshRenderer 的字段已改为反射注册并标记必填，仅保留透视参数和资产 URI 的业务校验，
+Scene / Prefab 的结构编解码继续使用专用实现。
+
 ## 注册表创建与状态查询
 
 `create_property_registry()` 返回隔离使用的 `result<registry_ref>`，仅含已注册并冻结的 World 属性。
@@ -173,7 +215,7 @@ Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `
 描述内的名称仍借用冻结 Registry，其有效期不超过 Registry 的生命周期。
 `read_property` 返回 `result<value>`；成功快照拥有字符串等数据，可在 Registry 释放后使用。
 getter 失败、异常或返回不匹配／无效值时仅返回错误，不交付部分属性快照。
-写属性仍返回 error；编解码回调和序列化模板的输出接口尚未迁移。
+写属性仍返回 error；编解码与序列化模板返回 result。
 
 ## 默认注册表与启动
 
