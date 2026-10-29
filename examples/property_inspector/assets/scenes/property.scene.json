@@ -28,9 +28,7 @@
         {
           "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101",
           "$content": {
-            "vertical_field_of_view_radians": 1.0471976,
-            "near_plane": 0.1,
-            "far_plane": 100,
+            "settings": {"fov": 1.0471976, "near": 0.1, "far": 100},
             "is_primary": true
           }
         }

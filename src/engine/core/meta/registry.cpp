@@ -103,12 +103,14 @@ namespace {
       value.payload);
 }
 
-struct property_accessor {
-  value_kind kind = value_kind::invalid;
-  decltype(property_binding::getter) getter;
-  decltype(property_binding::setter) setter;
-  void* user_data = nullptr;
-};
+using property_accessor = property_binding;
+bool valid_binding(const property_binding& binding) noexcept {
+  if (binding.object_type)
+    return binding.kind == value_kind::invalid && !binding.getter && !binding.setter &&
+           binding.object_getter && binding.object_mutator && binding.object_assign;
+  return is_valid_property_kind(binding.kind) && (binding.getter || binding.setter) &&
+         !binding.object_getter && !binding.object_mutator && !binding.object_assign;
+}
 
 struct property_record {
   std::uint32_t id = 0U;
@@ -164,10 +166,13 @@ struct type_record {
           .flags = static_cast<property_flags>(property.flags),
           .name = property.name,
           .kind = property.accessor.kind,
-          .capabilities = (property.accessor.getter ? property_capabilities::readable
-                                                    : property_capabilities::none) |
-                          (property.accessor.setter ? property_capabilities::writable
-                                                    : property_capabilities::none)};
+          .capabilities = ((property.accessor.getter || property.accessor.object_getter)
+                               ? property_capabilities::readable
+                               : property_capabilities::none) |
+                          ((property.accessor.setter || property.accessor.object_mutator)
+                               ? property_capabilities::writable
+                               : property_capabilities::none),
+          .object_type = property.accessor.object_type};
 }
 
 [[nodiscard]] type_info describe_record(const type_record& record) {
@@ -196,8 +201,9 @@ public:
         return error::invalid_argument;
       for (std::size_t i = 0; i < bindings.size(); ++i) {
         const auto& binding = bindings[i];
-        if (!is_valid_property_kind(binding.kind) || (!binding.getter && !binding.setter) ||
-            (has_flags(desc.properties[i].flags, property_flags::read_only) && binding.setter))
+        if (!valid_binding(binding) ||
+            (has_flags(desc.properties[i].flags, property_flags::read_only) &&
+             (binding.setter || binding.object_mutator)))
           return error::invalid_argument;
       }
     }
@@ -226,8 +232,7 @@ public:
       }
       for (std::size_t i = 0; i < bindings.size(); ++i) {
         const auto& binding = bindings[i];
-        record->properties[i].accessor = {binding.kind, binding.getter, binding.setter,
-                                          binding.user_data};
+        record->properties[i].accessor = binding;
       }
       // 先预留所有者数组容量，索引插入成功后移动所有权不再分配；失败不会留下半条记录。
       types_.reserve(types_.size() + 1);
@@ -244,7 +249,7 @@ public:
 
   [[nodiscard]] error bind_property(guid type_id, std::uint32_t property_id,
                                     const property_binding& desc) noexcept {
-    if (!is_valid_property_kind(desc.kind) || (desc.getter == nullptr && desc.setter == nullptr)) {
+    if (!valid_binding(desc)) {
       return error::invalid_argument;
     }
     try {
@@ -264,21 +269,19 @@ public:
         return error::not_found;
       }
       if ((found->flags & static_cast<std::uint32_t>(property_flags::read_only)) != 0U &&
-          (desc.setter != nullptr)) {
+          (desc.setter != nullptr || desc.object_mutator != nullptr)) {
         return error::invalid_argument;
       }
-      const property_accessor requested{
-          .kind = desc.kind,
-          .getter = desc.getter,
-          .setter = desc.setter,
-
-          .user_data = desc.user_data,
-      };
-      if (found->accessor.kind != value_kind::invalid) {
+      const auto& requested = desc;
+      if (found->accessor.kind != value_kind::invalid || found->accessor.object_type) {
         const auto& current = found->accessor;
         return current.kind == requested.kind && current.getter == requested.getter &&
                        current.setter == requested.setter &&
-                       current.user_data == requested.user_data
+                       current.user_data == requested.user_data &&
+                       current.object_type == requested.object_type &&
+                       current.object_getter == requested.object_getter &&
+                       current.object_mutator == requested.object_mutator &&
+                       current.object_assign == requested.object_assign
                    ? error::success
                    : error::invalid_argument;
       }
@@ -294,6 +297,17 @@ public:
       std::unique_lock lock(mutex_);
       if (is_frozen_) {
         return error::success;
+      }
+      for (const auto& type : types_) {
+        for (const auto& property : type->properties) {
+          if (!property.accessor.object_type)
+            continue;
+          const auto found = by_cpp_type_.find(property.accessor.object_type);
+          if (found == by_cpp_type_.end())
+            return error::not_found;
+          if (found->second->guid != property.type_guid)
+            return error::invalid_argument;
+        }
       }
       std::ranges::sort(types_, [](const auto& left, const auto& right) {
         return left->guid.bytes() < right->guid.bytes();
@@ -457,6 +471,15 @@ public:
     return error::internal;
   }
 
+  result<property_binding> find_object_property(guid type, property_id id) const noexcept {
+    auto binding = find_accessor(type, id.get());
+    if (!binding)
+      return binding.error();
+    if (!binding->object_type)
+      return error::unsupported;
+    return *binding;
+  }
+
 private:
   [[nodiscard]] result<property_accessor> find_accessor(guid type_id,
                                                         std::uint32_t property_id) const noexcept {
@@ -476,7 +499,7 @@ private:
       if (found == type->properties.end()) {
         return error::not_found;
       }
-      if (found->accessor.kind == value_kind::invalid) {
+      if (found->accessor.kind == value_kind::invalid && !found->accessor.object_type) {
         return error::unsupported;
       }
       return found->accessor;
@@ -569,5 +592,13 @@ error write_property(const registry_ref& registry, guid type, property_id proper
 result<serialization_binding> find_serialization(const registry_ref& registry,
                                                  type_id id) noexcept {
   return registry ? registry->find_serialization(id) : error::invalid_handle;
+}
+}
+
+namespace gneiss::engine::meta {
+result<property_binding> find_object_property(const registry_ref& registry, guid type,
+                                              property_id id) noexcept {
+  return registry ? registry->find_object_property(type, id)
+                  : result<property_binding>{error::invalid_handle};
 }
 }

@@ -28,8 +28,7 @@ def main():
     import_ms = (time.monotonic() - start) * 1000
     camera = {"uuid": "00000000-0000-4000-8000-000000000002", "parent": None,
               "transform": {"translation": [0, 0, 2], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1]},
-              "components": [{"$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101", "$content": {"vertical_field_of_view_radians": 1.04719755,
-                                         "near_plane": .1, "far_plane": 100, "is_primary": True}}]}
+              "components": [{"$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101", "$content": {"settings": {"fov": 1.04719755, "near": .1, "far": 100}, "is_primary": True}}]}
     objects = [camera]
     for index, mesh in enumerate(sorted((root / "models").glob("*.gneiss-mesh"))):
         objects.append({"uuid": f"00000000-0000-4000-8000-{index+3:012d}", "parent": None,

@@ -6,6 +6,7 @@
 #define GNEISS_ENGINE_TYPE_IDENTITY_HPP_
 
 #include "engine/core/guid.hpp"
+#include "engine/core/math/camera.hpp"
 #include "engine/core/math/types.hpp"
 #include "engine/core/traits/type_name.hpp"
 
@@ -112,6 +113,14 @@ template <> struct type_identity<engine::guid> {
   static constexpr engine::guid guid() noexcept {
     return engine::guid::from_bytes({0x5f, 0x7a, 0xd2, 0x9c, 0x1a, 0xa6, 0x43, 0x4f, 0x9e, 0xc8,
                                      0x80, 0xec, 0xdf, 0x59, 0xe1, 0x82});
+  }
+};
+
+template <> struct type_identity<math::camera_settings> {
+  static constexpr std::string_view name() noexcept { return "camera_settings"; }
+  static constexpr engine::guid guid() noexcept {
+    return engine::guid::from_bytes({0x9b, 0x43, 0x2c, 0x67, 0x04, 0x3e, 0x4a, 0xf8, 0x96, 0x14,
+                                     0x24, 0x4f, 0x92, 0xc5, 0x77, 0x81});
   }
 };
 

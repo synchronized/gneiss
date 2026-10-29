@@ -89,9 +89,25 @@ int main() try {
   auto unsupported = e::create_scene_object(**owner, parsed->objects.front(), {}, {});
   if (unsupported || unsupported.error() != e::error::unsupported)
     return 10;
-  const auto camera = entry(
-      e::camera_description::type_guid,
-      R"({"vertical_field_of_view_radians":1,"near_plane":0.1,"far_plane":100,"is_primary":false})");
+  // 未发布的旧扁平 Camera 格式不再接受。
+  auto old_camera = e::decode_scene(bytes(scene(
+      "[" +
+      entry(
+          e::camera_description::type_guid,
+          R"({"vertical_field_of_view_radians":1,"near_plane":0.1,"far_plane":100,"is_primary":false})") +
+      "]")));
+  if (old_camera || old_camera.error().path != "/objects/0/components/0/$content/settings")
+    return 21;
+  auto bad_camera = e::decode_scene(
+      bytes(scene("[" +
+                  entry(e::camera_description::type_guid,
+                        R"({"settings":{"fov":1,"near":"bad","far":100},"is_primary":false})") +
+                  "]")));
+  if (bad_camera || bad_camera.error().path != "/objects/0/components/0/$content/settings/near")
+    return 22;
+  const auto camera =
+      entry(e::camera_description::type_guid,
+            R"({"settings": {"fov": 1, "near": 0.1, "far": 100},"is_primary":false})");
   auto supported = e::decode_scene(bytes(scene("[" + camera + "]")));
   if (!supported)
     return 11;

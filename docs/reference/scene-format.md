@@ -99,8 +99,8 @@
   `11a0217a-2eab-4f61-8011-4a63a26e0102`。它们与运行时组件 GUID 分离，进程内 type_id 不写入文件。
 - 当前运行时只安装 Camera、MeshRenderer。其他已注册 codec 的描述可读写，实例化返回 unsupported。
   组件数组顺序不表示身份；Prefab 属性覆盖仍按来源节点、运行时组件类型和属性 ID 定位。
-- Camera 要求 `vertical_field_of_view_radians` 位于 `(0, π)`、`near_plane > 0`、
-  `far_plane > near_plane` 和布尔 `is_primary`；一个场景最多有一个主相机。
+- Camera 要求 `settings` 对象中 `fov` 位于 `(0, π)`、`near > 0`、
+  `far > near`，以及外层布尔 `is_primary`；一个场景最多有一个主相机。
 - Mesh Renderer 的 `mesh` 与 `material` 必须是规范 `asset://` URI。
 - `objects` 是唯一对象列表。对象可通过 `prefab: {uri, overrides}` 引用模板；`uri` 必须是规范资产
   URI，`overrides` 必须是数组。此时组件来自模板，拒绝同时提供非空 `components`。
@@ -116,7 +116,8 @@
   `$content` 由对应 codec 完整输出，不与旧内容合并，避免已删除或省略的字段重新出现；
   需要保留内容扩展字段的类型须由自身 codec 读写这些字段。
 
-保存时直接校验内存中的对象层级、变换、Prefab 引用和覆盖；Camera / MeshRenderer 使用反射字段读写和独立类型校验器，字段仍为必填。
+保存时直接校验内存中的对象层级、变换、Prefab 引用和覆盖；Camera / MeshRenderer 使用反射字段读写；相机参数由独立注册的 camera_settings 校验，
+settings、其三个参数及 is_primary 均必填。
 自定义组件编码器负责其业务合法性，保存不会再次调用组件解码器验证输出。
 组件编码结果仍必须是合法 JSON 对象，才能拼装为 `$content`。Scene / Prefab 的对象编解码
 共用实现，Scene 允许多根森林，Prefab 按显式根要求单树。

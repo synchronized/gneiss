@@ -57,6 +57,10 @@ describe_property(const registry_ref& registry, engine::guid type, property_id p
                                               property_id property, void* object,
                                               const value& value) noexcept;
 
+/** 查询嵌套成员访问器；地址借用和线程约束与父对象一致，非对象属性返回 unsupported。 */
+GNEISS_API result<property_binding> find_object_property(const registry_ref&, guid,
+                                                         property_id) noexcept;
+
 /** 以下重载使用默认注册表；错误与显式 registry 接口一致，不隐式冻结。 */
 [[nodiscard]] inline error register_type(const type_definition& desc) noexcept {
   auto registry = default_registry();

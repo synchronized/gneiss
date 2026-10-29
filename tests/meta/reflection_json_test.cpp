@@ -61,7 +61,10 @@ e::result<std::vector<std::byte>, m::serialization_diagnostic> custom_encode(con
 e::result<sample, m::serialization_diagnostic> custom_decode(std::span<const std::byte>) {
   return sample{};
 }
+bool nested_json_contract();
 int main() try {
+  if (!nested_json_contract())
+    return 25;
   auto created = m::create_registry();
   if (!created)
     return 1;

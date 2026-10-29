@@ -4,6 +4,7 @@
 #pragma once
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
+#include "engine/core/type_id.hpp"
 #include "engine/core/value.hpp"
 #include <concepts>
 #include <cstdint>
@@ -59,6 +60,7 @@ struct property_info {
   std::string_view name{};
   value_kind kind = value_kind::invalid;
   property_capabilities capabilities = property_capabilities::none;
+  engine::type_id object_type{}; // 非零表示嵌套值对象，不属于 value_kind。
 };
 /** 回调借用实际类型的对象指针；调用方保证对象存活、类型正确和线程访问合法。
  * setter 必须先校验再修改，失败保持对象；注册表不复制对象或回滚任意回调副作用。
@@ -68,5 +70,11 @@ struct property_binding {
   error (*getter)(void*, const void*, value&) = nullptr;
   error (*setter)(void*, void*, const value&) = nullptr;
   void* user_data{};
+  engine::type_id object_type{};
+  /** 借用成员地址，仅在父对象存活且地址稳定时有效；可写访问用于解码临时对象。 */
+  const void* (*object_getter)(const void*){};
+  void* (*object_mutator)(void*){};
+  /** 自定义子类型解码成功后，将独立值移入父对象成员。 */
+  void (*object_assign)(void*, void*){};
 };
 } // namespace gneiss::engine::meta

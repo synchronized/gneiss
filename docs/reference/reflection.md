@@ -166,18 +166,19 @@ Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `
 同一 Builder 可各调用一次自定义和反射注册，两者顺序不限；未启用反射的类型保持原行为。
 
 ```cpp
+// math::camera_settings 已独立注册 fov / near / far 和参数校验。
 meta::type_builder<camera_description>{registry}
-    .property<&camera_description::near_plane>(
-        meta::property_id{2}, "near_plane", meta::property_flags::required)
-    // 其他属性同样注册。
+    .property<&camera_description::settings>(
+        meta::property_id{1}, "settings", meta::property_flags::required)
+    .property<&camera_description::is_primary>(
+        meta::property_id{4}, "is_primary", meta::property_flags::required)
     .serialization()
-    .validate<&check_camera>()
     .commit();
 ```
 
 属性名直接作为 JSON 字段名，支持 bool、int64、uint64、float、double、string、guid、
 vector3、quaternion；数学值按分量数组保存，GUID 使用规范小写带连字符文本。
-属性的稳定身份由 `type_identity` 提供。暂不支持嵌套对象、容器和 optional。
+属性的稳定身份由 `type_identity` 提供。支持独立注册的嵌套值对象；暂不自动支持容器、optional 和指针图。
 沿用已有属性访问边界：整数严格校验范围，浮点必须有限，字符串为无 NUL 的合法 UTF-8，
 GUID 值不能为 nil。四元数的归一化等业务约束由类型校验器决定。
 
@@ -238,9 +239,33 @@ application 自动调用无参入口，重复无参调用返回首次结果。�
 `type_info::type_id` 提供已注册 C++ 类型的进程内身份，供 GUID 分派后进行类型检查；不会持久化。
 默认启动也注册 Camera、MeshRenderer 的描述类型与 codec，文件协议见[场景格式](scene-format.md)。
 
+## 嵌套值对象
+
+成员绑定 `.property<&T::member>()` 可指向独立注册的 C++ 值对象。
+`property_info.object_type` 为成员的运行期类型 ID，`type_guid` 为其稳定身份，
+`kind` 为 invalid；它不占用通用 value 的新类别。冻结时检查子类型已登记且两种身份匹配，
+缺失子类型返回 not_found，身份不匹配返回 invalid_argument。登记顺序不限。
+
+`find_object_property` 查询借用成员访问器；地址仅在父对象存活且地址稳定时有效。
+可写访问用于解码中的临时对象，禁止与父对象的其他写操作并发。
+普通 `read_property/write_property` 不对嵌套对象作字节复制，返回 unsupported。
+自动成员绑定要求值对象可移动赋值；本阶段不提供嵌套 getter/setter 或只读对象绑定。
+
+反射 JSON 对同一文档递归读写，根深度为零，最多允许 64 层嵌套成员；超限返回 invalid_argument。
+子类型自定义 codec 按方向优先，但必须使用 JSON 对象内容；二进制 codec 不适合作为嵌套 JSON 属性。
+自定义解码返回独立子对象，验证后移入父成员；反射解码直接填充临时父对象中的成员。
+
+缺失非必填对象时保留父对象的成员默认值，并执行子类型校验；提供对象时，子类型的必填字段规则生效。
+子类型校验失败的路径包含完整父路径，如 `/settings/near`；子 codec 的片段字节偏移不冒充整份文档偏移。
+任一步失败均释放临时父对象，调用方不会接收到半成品。访问器和校验器不得依赖外部回滚。
+
 相机描述的 C++ 数据为 `camera_description { math::camera_settings settings; bool is_primary; }`。
-投影参数在描述、World 和渲染调用之间直接传递，不再维护逐字段转换。
-Camera 描述通过 getter/setter 反射绑定 `settings.fov/near/far`，文件字段继续使用
-`vertical_field_of_view_radians`、`near_plane`、`far_plane`；属性 ID、GUID 和必填规则不变。
-Builder 的成员绑定和 getter/setter 绑定均支持传入属性标志。
-这是对子成员的扁平属性绑定，尚未引入通用嵌套对象 JSON 反射。
+`camera_settings` 的身份通过外部 traits 定义，参数注册和校验与相机组件一起安装，数学类型本身不依赖 Meta。
+Camera 直接绑定 settings 和 is_primary，文件内容为：
+
+```json
+{"settings":{"fov":1.0,"near":0.1,"far":100.0},"is_primary":false}
+```
+
+未发布的原扁平相机描述不再读取；仓库资产与生成脚本同步更新。
+World 运行期属性与 IPC 仍保留既有名称，这些协议不等于资产文件中的嵌套结构。

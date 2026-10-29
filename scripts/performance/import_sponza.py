@@ -54,8 +54,7 @@ def main():
     camera = next(n for n in scene["objects"] if n["uuid"] == camera_uuid)
     projection = source["cameras"][0]["perspective"]
     camera["components"].append({"$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101", "$content": {
-        "vertical_field_of_view_radians": projection["yfov"], "near_plane": projection["znear"],
-        "far_plane": projection["zfar"], "is_primary": True,
+        "settings": {"fov": projection["yfov"], "near": projection["znear"], "far": projection["zfar"]}, "is_primary": True,
     }})
     scene_path.write_text(json.dumps(scene, indent=2) + "\n", encoding="utf-8")
     shutil.copyfile(source_root / LICENSE, output / "credits_license.txt")

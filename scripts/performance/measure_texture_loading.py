@@ -44,8 +44,7 @@ def fixture(root):
         "objects": [
             {"uuid": "00000000-0000-4000-8000-000000000002", "name": "Camera", "parent": None,
              "transform": {"translation": [0, 0, 2], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1]},
-             "components": [{"$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101", "$content": {"vertical_field_of_view_radians": 1.04719755,
-                                        "near_plane": .1, "far_plane": 100, "is_primary": True}}]},
+             "components": [{"$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101", "$content": {"settings": {"fov": 1.04719755, "near": .1, "far": 100}, "is_primary": True}}]},
             {"uuid": "00000000-0000-4000-8000-000000000003", "name": "Triangle", "parent": None,
              "transform": {"translation": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1]},
              "components": [{"$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102", "$content": {"mesh": "asset://models/test.mesh.json",

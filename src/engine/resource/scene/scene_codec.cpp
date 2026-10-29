@@ -165,12 +165,11 @@ template <std::size_t Size>
   return validate_transform(output, path, diagnostic);
 }
 
-[[nodiscard]] bool validate_camera(const gneiss::engine::camera_description& output,
+[[nodiscard]] bool validate_camera(const gneiss::engine::math::camera_settings& output,
                                    std::string_view path, scene_diagnostic& diagnostic) {
-  if (!std::isfinite(output.settings.fov) || !std::isfinite(output.settings.near) ||
-      !std::isfinite(output.settings.far) || output.settings.fov <= 0.0F ||
-      output.settings.fov >= std::numbers::pi_v<float> || output.settings.near <= 0.0F ||
-      output.settings.far <= output.settings.near) {
+  if (!std::isfinite(output.fov) || !std::isfinite(output.near) || !std::isfinite(output.far) ||
+      output.fov <= 0.0F || output.fov >= std::numbers::pi_v<float> || output.near <= 0.0F ||
+      output.far <= output.near) {
     fail(diagnostic, gneiss::engine::error::invalid_argument, path, "相机透视参数范围错误");
     return false;
   }
@@ -1004,13 +1003,7 @@ encode_scene(const scene_description& object) noexcept try {
 
 namespace gneiss::engine {
 namespace {
-template <auto Member> float camera_setting(const camera_description& camera) noexcept {
-  return camera.settings.*Member;
-}
-template <auto Member> void set_camera_setting(camera_description& camera, float value) noexcept {
-  camera.settings.*Member = value;
-}
-meta::serialization_diagnostic check_camera(const camera_description& value) {
+meta::serialization_diagnostic check_camera(const math::camera_settings& value) {
   scene_diagnostic diagnostic;
   (void)validate_camera(value, "", diagnostic);
   return {diagnostic.byte_offset, std::move(diagnostic.path), std::move(diagnostic.message),
@@ -1025,20 +1018,20 @@ meta::serialization_diagnostic check_mesh_renderer(const mesh_renderer_descripti
 }
 error register_component_descriptions(const meta::registry_ref& registry) noexcept {
   constexpr auto required = meta::property_flags::required;
-  auto status =
+  auto status = meta::type_builder<math::camera_settings>{registry}
+                    .property<&math::camera_settings::fov>(meta::property_id{1}, "fov", required)
+                    .property<&math::camera_settings::near>(meta::property_id{2}, "near", required)
+                    .property<&math::camera_settings::far>(meta::property_id{3}, "far", required)
+                    .serialization()
+                    .validate<&check_camera>()
+                    .commit();
+  if (status.failed())
+    return status;
+  status =
       meta::type_builder<camera_description>{registry}
-          .property<&camera_setting<&math::camera_settings::fov>,
-                    &set_camera_setting<&math::camera_settings::fov>>(
-              meta::property_id{1}, "vertical_field_of_view_radians", required)
-          .property<&camera_setting<&math::camera_settings::near>,
-                    &set_camera_setting<&math::camera_settings::near>>(meta::property_id{2},
-                                                                       "near_plane", required)
-          .property<&camera_setting<&math::camera_settings::far>,
-                    &set_camera_setting<&math::camera_settings::far>>(meta::property_id{3},
-                                                                      "far_plane", required)
+          .property<&camera_description::settings>(meta::property_id{1}, "settings", required)
           .property<&camera_description::is_primary>(meta::property_id{4}, "is_primary", required)
           .serialization()
-          .validate<&check_camera>()
           .commit();
   if (status.failed())
     return status;

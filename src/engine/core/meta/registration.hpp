@@ -41,8 +41,6 @@ template <class T>
 namespace detail {
 template <class T, std::size_t Index = 1> constexpr value_kind reflected_value_kind() {
   if constexpr (Index == std::variant_size_v<value::storage_type>) {
-    static_assert(Index != std::variant_size_v<value::storage_type>,
-                  "Unsupported property value type");
     return value_kind::invalid;
   } else if constexpr (std::is_same_v<T, std::variant_alternative_t<Index, value::storage_type>>) {
     return static_cast<value_kind>(Index);
@@ -82,18 +80,36 @@ public:
                          property_flags flags = property_flags::none) noexcept {
     static_assert(std::is_member_object_pointer_v<decltype(Member)>);
     using property_type = std::remove_cvref_t<std::invoke_result_t<decltype(Member), object_type&>>;
-    return add<property_type>(id, name, flags,
-                              {.kind = detail::reflected_value_kind<property_type>(),
-                               .getter = [](void*, const void* object, value& output) -> error {
-                                 output.payload =
-                                     std::invoke(Member, *static_cast<const object_type*>(object));
-                                 return error::success;
-                               },
-                               .setter = [](void*, void* object, const value& input) -> error {
-                                 std::invoke(Member, *static_cast<object_type*>(object)) =
-                                     std::get<property_type>(input.payload);
-                                 return error::success;
-                               }});
+    if constexpr (detail::reflected_value_kind<property_type>() == value_kind::invalid) {
+      static_assert(std::is_class_v<property_type> && std::is_move_assignable_v<property_type>,
+                    "Nested properties must be assignable value objects");
+      return add<property_type>(
+          id, name, flags,
+          {.object_type = runtime_type_of<property_type>(),
+           .object_getter = [](const void* object) -> const void* {
+             return std::addressof(std::invoke(Member, *static_cast<const object_type*>(object)));
+           },
+           .object_mutator = [](void* object) -> void* {
+             return std::addressof(std::invoke(Member, *static_cast<object_type*>(object)));
+           },
+           .object_assign =
+               [](void* object, void* value) {
+                 std::invoke(Member, *static_cast<object_type*>(object)) =
+                     std::move(*static_cast<property_type*>(value));
+               }});
+    } else
+      return add<property_type>(id, name, flags,
+                                {.kind = detail::reflected_value_kind<property_type>(),
+                                 .getter = [](void*, const void* object, value& output) -> error {
+                                   output.payload = std::invoke(
+                                       Member, *static_cast<const object_type*>(object));
+                                   return error::success;
+                                 },
+                                 .setter = [](void*, void* object, const value& input) -> error {
+                                   std::invoke(Member, *static_cast<object_type*>(object)) =
+                                       std::get<property_type>(input.payload);
+                                   return error::success;
+                                 }});
   }
   template <auto Getter, auto Setter>
   type_builder& property(property_id id, std::string_view name,

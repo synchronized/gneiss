@@ -275,7 +275,7 @@ int main() try {
   }
   if (json.find(R"("name":"Runtime Camera")") == std::string::npos ||
       json.find(R"("translation":[5.0,0.0,0.0])") == std::string::npos ||
-      json.find(R"("near_plane":0.25)") == std::string::npos ||
+      json.find(R"("near":0.25)") == std::string::npos ||
       json.find(created_uuid.string()) == std::string::npos ||
       json.find(R"("name":"Created Mesh")") == std::string::npos ||
       json.find(generic_uuid.string()) == std::string::npos ||

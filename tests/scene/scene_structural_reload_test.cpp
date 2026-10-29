@@ -31,7 +31,7 @@ void write_scene(const std::filesystem::path& path, std::string_view child_compo
   const std::string json =
       std::string{R"({"format":"gneiss.scene","version":5,"scene_uuid":")"} + scene_uuid.string() +
       R"(","objects":[{"uuid":")" + camera_uuid.string() +
-      R"(","name":"Main Camera","parent":null,"transform":{"translation":[4.0,0.0,2.0],"rotation":[0.0,0.0,0.0,1.0],"scale":[1.0,1.0,1.0]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"vertical_field_of_view_radians":1.0,"near_plane":0.2,"far_plane":500.0,"is_primary":true}}]},{"uuid":")" +
+      R"(","name":"Main Camera","parent":null,"transform":{"translation":[4.0,0.0,2.0],"rotation":[0.0,0.0,0.0,1.0],"scale":[1.0,1.0,1.0]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"settings": {"fov": 1.0, "near": 0.2, "far": 500.0},"is_primary":true}}]},{"uuid":")" +
       new_child_uuid.string() + R"(","name":"New Child","parent":")" + camera_uuid.string() +
       R"(","transform":{"translation":[1.0,2.0,3.0],"rotation":[0.0,0.0,0.0,1.0],"scale":[1.0,1.0,1.0]},"components":)" +
       std::string{child_components} + R"(}]})";
