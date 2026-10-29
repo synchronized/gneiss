@@ -4,7 +4,7 @@
 
 ## 状态
 
-已接受；尚未实现。实施与验收的权威来源为 [PLAN-058](../plans/PLAN-058-prefab-object-metadata.md)。
+已接受；运行时成员及直接来源根已实施，描述合并仍在进行。实施与验收的权威来源为 [PLAN-058](../plans/PLAN-058-prefab-object-metadata.md)。
 
 ## 背景
 

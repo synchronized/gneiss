@@ -127,15 +127,15 @@ public:
     }
     const auto parent_depth = instance.parent_uuid ? scene_depths.at(*instance.parent_uuid) : 0U;
     if (parent_depth >= limits.hierarchy_depth ||
-        found->second.maximum_depth > limits.hierarchy_depth - parent_depth - 1U) {
+        found->second.maximum_depth > limits.hierarchy_depth - parent_depth) {
       return engine::error::invalid_argument;
     }
-    // 每个 Prefab 实例还有一个容器节点，共享描述不等于共享实例。
+    // 来源根直接作为实例根，共享描述不等于共享实例。
     const auto count = found->second.resource->objects.size();
-    if (count >= limits.nodes - candidate.instance_nodes) {
+    if (count > limits.nodes - candidate.instance_nodes) {
       return engine::error::invalid_argument;
     }
-    candidate.instance_nodes += count + 1U;
+    candidate.instance_nodes += count;
     return engine::error::success;
   }
 

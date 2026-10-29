@@ -136,7 +136,7 @@ bool check_failed_camera_prefab(
       active == previous &&
       gneiss::engine::error{gneiss::test_support::assign_value(
           native_world.entity_count(), count)} == gneiss::engine::error::success &&
-      count == 7U;
+      count == 5U;
   if (gneiss::engine::error{native_world.entity_destroy(gneiss::entity_id{previous})} !=
           gneiss::engine::error::success ||
       !preserved) {
@@ -153,7 +153,7 @@ bool check_failed_camera_prefab(
              gneiss::engine::error::not_ready &&
          gneiss::engine::error{gneiss::test_support::assign_value(
              native_world.entity_count(), count)} == gneiss::engine::error::success &&
-         count == 6U;
+         count == 4U;
 }
 
 bool check_visible_prefab(gneiss::engine::world& world, gneiss::engine::resource_service& loader,
@@ -172,7 +172,7 @@ bool check_visible_prefab(gneiss::engine::world& world, gneiss::engine::resource
     gneiss::engine::math::transform transform;
     if (world.node_get_local_transform(created, transform).failed() ||
         gneiss::test_support::assign_value(world.entity_count(), during).failed() ||
-        during != before + 2U)
+        during != before + 1U)
       return false;
     // 关系对象不拥有节点；测试调用方显式负责删除。
     if (world.object_destroy(created).failed())
@@ -224,6 +224,8 @@ int main() try {
 
   gneiss::engine::math::transform first_transform = {};
   first_transform.translation[0] = 10.0F;
+  first_transform.scale = {2.0F, 3.0F, 4.0F};
+  first_transform.rotation = gneiss::engine::math::quaternion{0.70710678F, 0.0F, 0.70710678F, 0.0F};
   gneiss::engine::math::transform second_transform = {};
   second_transform.translation[0] = -5.0F;
   std::unique_ptr<gneiss::engine::prefab_runtime_instance> first;
@@ -231,7 +233,7 @@ int main() try {
   const std::vector<gneiss::engine::prefab_property_override> no_overrides;
   const std::vector<gneiss::engine::prefab_property_override> first_overrides{{
       .key = {.node = {.instance_uuid = "20000000-0000-4000-8000-000000000001",
-                       .source_node_uuid = "10000000-0000-4000-8000-000000000002"},
+                       .source_node_uuid = "10000000-0000-4000-8000-000000000003"},
               .type_id = gneiss::engine::transform_component_type,
               .field_id = gneiss::engine::transform_translation_field},
       .value = {.payload = gneiss::engine::math::vector3{3.0F, 0.0F, 0.0F}},
@@ -251,14 +253,14 @@ int main() try {
   if (gneiss::engine::prefab_runtime_instance::prepare_description(
           *first->prefab_lease().get(), registry, "20000000-0000-4000-8000-000000000001",
           first_overrides, projected) != gneiss::engine::error::success ||
-      projected.objects[0].translation[0] != 3 ||
+      projected.objects[1].translation[0] != 3 ||
       first->prefab_lease().get()->objects[0].translation[0] != 1) {
     return 14;
   }
   if (gneiss::engine::prefab_runtime_instance::prepare_description(
           *first->prefab_lease().get(), registry, "20000000-0000-4000-8000-000000000002",
           first_overrides, projected) != gneiss::engine::error::invalid_argument ||
-      projected.objects[0].translation[0] != 3) {
+      projected.objects[1].translation[0] != 3) {
     return 15;
   }
 
@@ -267,19 +269,47 @@ int main() try {
   gneiss::engine::math::transform first_world = {};
   gneiss::engine::math::transform second_world = {};
   std::uint64_t entity_count = 0;
-  if (first_source_root == gneiss::null_scene_node_id ||
+  if (first_source_root != first->root() || second_source_root != second->root() ||
+      first_source_root == gneiss::null_scene_node_id ||
       second_source_root == gneiss::null_scene_node_id || first_source_root == second_source_root ||
       native_world.node_get_world_transform(gneiss::scene_node_id{first_source_root},
                                             first_world) != gneiss::engine::error::success ||
       native_world.node_get_world_transform(gneiss::scene_node_id{second_source_root},
                                             second_world) != gneiss::engine::error::success ||
-      first_world.translation[0] != 13.0F || second_world.translation[0] != -4.0F ||
+      first_world.translation[0] != 10.0F || second_world.translation[0] != -5.0F ||
       gneiss::engine::error{gneiss::test_support::assign_value(
           native_world.entity_count(), entity_count)} != gneiss::engine::error::success ||
-      entity_count != 6U) {
+      entity_count != 4U) {
     return 6;
   }
 
+  // 实例根直接映射来源根；外层 TRS 不与来源根相乘，来源重载不得覆盖实例值。
+  gneiss::engine::math::transform actual_root;
+  if (native_world.node_get_local_transform(first->root(), actual_root).failed() ||
+      actual_root.translation != first_transform.translation ||
+      actual_root.rotation != first_transform.rotation ||
+      actual_root.scale != first_transform.scale)
+    return 23;
+  auto root_override = first_overrides.front();
+  root_override.key.node.source_node_uuid = "10000000-0000-4000-8000-000000000002";
+  if (first->apply_override(registry, root_override) != gneiss::engine::error::invalid_argument)
+    return 24;
+  auto revision = std::make_shared<gneiss::engine::prefab_description>(*first->prefab_lease());
+  revision->objects[0].name = "New source name";
+  revision->objects[0].translation = {50.0F, 60.0F, 70.0F};
+  revision->objects[0].scale = {7.0F, 8.0F, 9.0F};
+  if (native_world
+          .node_set_identity(first->root(),
+                             {"20000000-0000-4000-8000-000000000001", "Instance name"})
+          .failed() ||
+      first->reload(gneiss::engine::prefab_asset_ref{revision}, registry, first_overrides)
+          .failed() ||
+      native_world.node_get_local_transform(first->root(), actual_root).failed() ||
+      actual_root.translation != first_transform.translation ||
+      actual_root.rotation != first_transform.rotation ||
+      actual_root.scale != first_transform.scale ||
+      gneiss::engine::scene_object_identity(native_world, first->root()).name != "Instance name")
+    return 25;
   gneiss::engine::prefab_asset_ref invalid_override_lease;
   if (gneiss::test_support::load_asset(prefab_loader, "asset://prefabs/lamp.prefab.json",
                                        invalid_override_lease) != gneiss::engine::error::success) {
@@ -307,7 +337,7 @@ int main() try {
       failed ||
       gneiss::engine::error{gneiss::test_support::assign_value(
           native_world.entity_count(), entity_count)} != gneiss::engine::error::success ||
-      entity_count != 6U) {
+      entity_count != 4U) {
     return 7;
   }
 
@@ -325,7 +355,7 @@ int main() try {
       failed ||
       gneiss::engine::error{gneiss::test_support::assign_value(
           native_world.entity_count(), entity_count)} != gneiss::engine::error::success ||
-      entity_count != 6U) {
+      entity_count != 4U) {
     return 8;
   }
 
@@ -341,7 +371,7 @@ int main() try {
       failed ||
       gneiss::engine::error{gneiss::test_support::assign_value(
           native_world.entity_count(), entity_count)} != gneiss::engine::error::success ||
-      entity_count != 6U) {
+      entity_count != 4U) {
     return 10;
   }
 
@@ -350,7 +380,7 @@ int main() try {
   first.reset();
   if (gneiss::engine::error{gneiss::test_support::assign_value(
           native_world.entity_count(), entity_count)} != gneiss::engine::error::success ||
-      entity_count != 3U ||
+      entity_count != 2U ||
       native_world.node_get_world_transform(gneiss::scene_node_id{first_source_root},
                                             first_world) != gneiss::engine::error::invalid_handle ||
       native_world.node_get_world_transform(gneiss::scene_node_id{second_source_root},
@@ -362,7 +392,7 @@ int main() try {
   second.reset();
   if (gneiss::test_support::assign_value(native_world.entity_count(), entity_count) !=
           gneiss::engine::error::success ||
-      entity_count != 3U)
+      entity_count != 2U)
     return 21;
   if (native_world.object_destroy(second_root).failed())
     return 22;

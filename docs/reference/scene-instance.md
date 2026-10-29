@@ -13,6 +13,10 @@ Prefab 刷新记录使用 `gneiss::prefab_refresh_token`，它只在所属场景
 
 World 由场景域独占拥有，实例集合和实例借用 `world&`，析构时先清理实例再销毁 World。
 
+场景统一持有全部实际节点，`get_node_info` 的可选 `prefab` 字段描述来源关系；
+根同样有来源 UUID。来源记录不拥有节点，析构不销毁节点。根及子树由场景统一清理。
+实例根变换使用外层值，详细规则见[场景格式](scene-format.md#prefab-根语义)。
+
 ## 加载阶段
 
 `engine::scene_instances::load` 由所属 Application 的原生场景服务接收规范场景 URI，在 Application 创建线程同步执行：
@@ -20,7 +24,7 @@ World 由场景域独占拥有，实例集合和实例借用 `world&`，析构�
 1. 通过 asset_manager 加载并校验场景描述；普通加载复用缓存，显式重载重新读取。
 2. 获取场景引用的全部 Mesh 与 Material 缓存租约。
 3. 父节点优先创建 Entity 和 Scene Node，再设置 Transform 与组件。
-4. 获取场景声明的 Prefab，并在实例根下创建各自独立的源节点 Runtime 投影。
+4. 获取场景声明的 Prefab，来源根直接作为实例根，创建独立的来源子节点及组件。
 5. 全部成功后才发布非零场景实例句柄。
 
 解析或资产阶段不会修改 World。提交阶段任一步失败都会逆序销毁本次创建的实体、节点和资产引用，

@@ -25,7 +25,7 @@ namespace {
 
 using gneiss::engine::scene_diagnostic;
 
-constexpr std::uint64_t schema_version = 4;
+constexpr std::uint64_t schema_version = 5;
 constexpr std::string_view scene_format = "gneiss.scene";
 constexpr char hex_digits[] = "0123456789abcdef";
 

@@ -27,9 +27,9 @@ constexpr std::string_view second_instance_uuid = "30000000-0000-4000-8000-00000
 void write_prefab(const std::filesystem::path& path, std::string_view root_uuid, bool add_child) {
   std::string json =
       std::string{
-          R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"30000000-0000-4000-8000-000000000001","objects":[{"uuid":")"} +
+          R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"30000000-0000-4000-8000-000000000001","objects":[{"uuid":"30000000-0000-4000-8000-000000000004","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{}},{"uuid":")"} +
       std::string{root_uuid} +
-      R"(","name":"Reloaded Root","parent":null,"transform":{"translation":[2,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{}})";
+      R"(","name":"Reloaded Root","parent":"30000000-0000-4000-8000-000000000004","transform":{"translation":[2,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{}})";
   if (add_child) {
     json +=
         std::string{R"(,{"uuid":")"} + std::string{source_child_uuid} +

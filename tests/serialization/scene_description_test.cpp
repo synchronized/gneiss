@@ -21,7 +21,7 @@
 namespace {
 
 constexpr std::string_view valid_scene = R"({
-  "format":"gneiss.scene","version":4,
+  "format":"gneiss.scene","version":5,
   "scene_uuid":"00000000-0000-4000-8000-000000000001",
   "objects":[
     {"uuid":"00000000-0000-4000-8000-000000000002","parent":null,
@@ -34,7 +34,7 @@ constexpr std::string_view valid_scene = R"({
 })";
 
 constexpr std::string_view prefab_scene = R"({
-  "format":"gneiss.scene","version":4,
+  "format":"gneiss.scene","version":5,
   "scene_uuid":"00000000-0000-4000-8000-000000000001",
   "objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,
     "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{}}],
@@ -154,7 +154,7 @@ int main() try {
   std::string serialized;
   if (gneiss::test_support::assign_decoded(gneiss::engine::parse_scene_description(valid_scene),
                                            scene, diagnostic) != gneiss::engine::error::success ||
-      scene.source_schema_version != 4U || scene.objects.size() != 2U || !scene.objects[0].camera ||
+      scene.source_schema_version != 5U || scene.objects.size() != 2U || !scene.objects[0].camera ||
       !scene.objects[1].mesh_renderer ||
       gneiss::test_support::assign_value(gneiss::engine::serialize_scene_description(scene),
                                          serialized) != gneiss::engine::error::success ||
@@ -162,8 +162,8 @@ int main() try {
     return 1;
   }
 
-  const auto future = replace_once(std::string(valid_scene), "\"version\":4", "\"version\":5");
-  const auto old = replace_once(std::string(valid_scene), "\"version\":4", "\"version\":3");
+  const auto future = replace_once(std::string(valid_scene), "\"version\":5", "\"version\":6");
+  const auto old = replace_once(std::string(valid_scene), "\"version\":5", "\"version\":4");
   const auto duplicate =
       replace_once(std::string(valid_scene), "00000000-0000-4000-8000-000000000003",
                    "00000000-0000-4000-8000-000000000002");

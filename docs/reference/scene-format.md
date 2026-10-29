@@ -1,10 +1,10 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 Gneiss contributors -->
 
-# 场景文件格式 v4
+# 场景文件格式 v5
 
-场景使用严格 UTF-8 JSON，格式标识为 `gneiss.scene`，当前 Schema 版本为 `4`，建议文件扩展名为
-`.scene.json`。公共场景实例接口通过 VFS 加载该格式，具体生命周期见
+场景使用严格 UTF-8 JSON，格式标识为 `gneiss.scene`，当前 Schema 版本为 `5`，建议文件扩展名为
+`.scene.json`。场景加载入口通过异步文件服务读取该格式，具体生命周期见
 [场景加载、实例与卸载](scene-instance.md)。
 
 ## 最小结构
@@ -12,7 +12,7 @@
 ```json
 {
   "format": "gneiss.scene",
-  "version": 4,
+  "version": 5,
   "scene_uuid": "00000000-0000-4000-8000-000000000001",
   "objects": [
     {
@@ -75,15 +75,23 @@
   `type_id`、`vec3` 和 `quaternion`。同一实例内的完整覆盖键不能重复。
 - 对象 UUID 与 Prefab 实例 UUID 共用场景作者身份空间，不能重复。Prefab 展开后的源节点、Entity
   ID、Scene Node ID 和 RID 均不写入场景文件。
-- 除 `name` 外，v4 的所有已列字段均为必需字段。当前受支持版本中的未知字段不会参与运行时
+- 除 `name` 外，v5 的所有已列字段均为必需字段。当前受支持版本中的未知字段不会参与运行时
   实例化，但会保留在作者 JSON 中，并在 `serialize_scene_description` 重新输出时保持其值和层级。
 
 解析成功只产生中间描述，不修改 World。语法错误诊断使用 UTF-8 文档的零起始字节偏移，字段错误
 使用类似 `/objects/0/transform` 的 JSON 路径。未来版本返回 `GNEISS_ERROR_UNSUPPORTED`。
 
+## Prefab 根语义
+
+来源根直接对应实例对象，不再自动创建空容器节点。根的名称、父节点和局部 TRS 使用实例字段，
+不与模板根变换叠乘。根组件仍来自模板；来源子节点保留模板局部变换与合法覆盖。
+根 Transform 覆盖被拒绝，整体变换直接修改实例字段。来源重载保留根节点身份和实例值；
+更换来源根 UUID 需要显式重新实例化，当前原地重载返回 `unsupported`。
+解包直接生成来源对象数量的普通节点，来源根采用实例名称、父节点和变换，不生成额外父节点。
+
 ## 版本兼容
 
-项目尚未对场景 Schema 作出外部兼容承诺。当前只接受 v4：旧版本返回
+项目尚未对场景 Schema 作出外部兼容承诺。当前只接受 v5：旧版本返回
 `GNEISS_ERROR_INVALID_ARGUMENT`，未来版本返回 `GNEISS_ERROR_UNSUPPORTED`。仓库内作者场景、示例
 和测试随格式直接升级，不维护尚无真实消费者的迁移链。解析或校验失败时场景实例化尚未开始，现有
 World 保持不变。

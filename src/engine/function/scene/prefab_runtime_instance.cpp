@@ -73,6 +73,13 @@ prefab_runtime_instance::validate_reload(const prefab_asset_ref& candidate,
       candidate.get()->objects.empty()) {
     return engine::error::invalid_argument;
   }
+  const auto root = std::ranges::find_if(candidate->objects,
+                                         [](const auto& value) { return !value.parent_uuid; });
+  if (root == candidate->objects.end() ||
+      std::ranges::count_if(candidate->objects,
+                            [](const auto& value) { return !value.parent_uuid; }) != 1 ||
+      find_node(root->uuid) != root_node_)
+    return error::unsupported;
   structural_diff diff;
   auto result = build_structural_diff(prefab_.get()->objects, candidate.get()->objects, diff);
   if (result != engine::error::success) {
@@ -137,6 +144,8 @@ prefab_runtime_instance::validate_reload(const prefab_asset_ref& candidate,
     if (result != engine::error::success || source == candidate.get()->objects.end()) {
       return result == engine::error::success ? engine::error::not_found : result;
     }
+    if (!source->parent_uuid && override_value.key.type_id == transform_component_type)
+      return error::invalid_argument;
     if (override_value.key.type_id == camera_type && !source->camera) {
       return engine::error::invalid_state;
     }
@@ -363,12 +372,12 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
     }
     applied.push_back(snapshot);
     const auto& source = candidate.get()->objects[update.new_index];
-    if (has_change(update.changes, structural_change::parent)) {
+    if (target.node != root_node_ && has_change(update.changes, structural_change::parent)) {
       const auto parent = source.parent_uuid ? runtime_nodes.at(*source.parent_uuid) : root_node_;
       result = native_world_.node_reparent(gneiss::scene_node_id{target.node},
                                            gneiss::scene_node_id{parent});
     }
-    if (result == engine::error::success &&
+    if (result == engine::error::success && target.node != root_node_ &&
         has_change(update.changes, structural_change::transform)) {
       const auto transform = to_transform(source);
       result =
@@ -409,6 +418,8 @@ prefab_runtime_instance::reload(prefab_asset_ref candidate, const meta::registry
     (void)native_world_.object_destroy(target.node);
   }
   for (std::size_t index = 0; index < nodes_.size(); ++index) {
+    if (nodes_[index].node == root_node_)
+      continue;
     result = native_world_.node_set_identity(nodes_[index].node, std::move(identities[index]));
     if (result.failed())
       return result;
@@ -556,6 +567,8 @@ engine::error prefab_runtime_instance::prepare_description(
     if (found == candidate.objects.end()) {
       return engine::error::not_found;
     }
+    if (!found->parent_uuid && value.key.type_id == transform_component_type)
+      return error::invalid_argument;
     const auto result = apply_candidate_object(state, value, value.value, *found);
     if (result != engine::error::success) {
       return result;
@@ -591,6 +604,8 @@ engine::error prefab_runtime_instance::apply_overrides(
     if (found == nodes_.end()) {
       return engine::error::not_found;
     }
+    if (found->node == root_node_ && override_value.key.type_id == transform_component_type)
+      return error::invalid_argument;
     const auto result = engine::write_component_property(
         registry, native_world_, scene_object_entity(native_world_, found->node),
         override_value.key.type_id, override_value.key.field_id, override_value.value);
@@ -607,11 +622,20 @@ engine::error prefab_runtime_instance::create_root(scene_node_id parent,
                                                    const math::transform& transform) {
   if (!prefab_ || root_node_ || !nodes_.empty())
     return error::invalid_state;
-  nodes_.resize(prefab_->objects.size());
+  const auto& objects = prepared_ ? prepared_->objects : prefab_->objects;
+  const auto root =
+      std::ranges::find_if(objects, [](const auto& value) { return !value.parent_uuid; });
+  if (root == objects.end() ||
+      std::ranges::count_if(objects, [](const auto& value) { return !value.parent_uuid; }) != 1)
+    return error::invalid_argument;
+  nodes_.resize(objects.size());
+  auto& member = nodes_[static_cast<std::size_t>(root - objects.begin())];
+  member.address = {instance_uuid_, root->uuid};
   auto created = native_world_.object_create(parent, {instance_uuid_, {}}, transform);
   if (!created)
     return created.error();
   root_node_ = *created;
+  member.node = root_node_;
   return error::success;
 }
 engine::error prefab_runtime_instance::create_node(std::size_t index, scene_node_id parent,
@@ -628,6 +652,11 @@ engine::error prefab_runtime_instance::create_node(std::size_t index, scene_node
       return error::invalid_argument;
   }
   target.creation_attempted = true;
+  if (!source.parent_uuid) {
+    if (target.node != root_node_)
+      return error::invalid_state;
+    return configure_scene_object(native_world_, root_node_, source, {mesh, material});
+  }
   auto created = create_scene_object(native_world_, source, parent, {mesh, material});
   if (!created)
     return created.error();

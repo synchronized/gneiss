@@ -706,8 +706,7 @@ const prefab_node_record*
 scene_document::find_prefab_source(std::string_view instance_uuid,
                                    std::string_view source_uuid) const noexcept {
   const auto found = std::ranges::find_if(prefab_nodes_, [&](const auto& node) {
-    return !node.is_instance_root && node.instance_uuid == instance_uuid &&
-           node.source_node_uuid == source_uuid;
+    return node.instance_uuid == instance_uuid && node.source_node_uuid == source_uuid;
   });
   return found == prefab_nodes_.end() ? nullptr : &*found;
 }

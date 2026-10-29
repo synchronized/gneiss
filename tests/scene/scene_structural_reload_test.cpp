@@ -24,7 +24,7 @@ constexpr std::string_view new_child_uuid = "00000000-0000-4000-8000-00000000000
 
 void write_scene(const std::filesystem::path& path, std::string_view child_components) {
   const std::string json =
-      std::string{R"({"format":"gneiss.scene","version":4,"scene_uuid":")"} +
+      std::string{R"({"format":"gneiss.scene","version":5,"scene_uuid":")"} +
       std::string{scene_uuid} + R"(","objects":[{"uuid":")" + std::string{camera_uuid} +
       R"(","name":"Main Camera","parent":null,"transform":{"translation":[4.0,0.0,2.0],"rotation":[0.0,0.0,0.0,1.0],"scale":[1.0,1.0,1.0]},"components":{"camera":{"vertical_field_of_view_radians":1.0,"near_plane":0.2,"far_plane":500.0,"is_primary":true}}},{"uuid":")" +
       std::string{new_child_uuid} + R"(","name":"New Child","parent":")" +

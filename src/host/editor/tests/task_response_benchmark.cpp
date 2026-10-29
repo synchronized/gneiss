@@ -48,7 +48,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
   require(!prefab.empty(), "Prefab 测试数据缺失");
   std::ofstream scene(root / "assets/main.scene.json");
   scene
-      << R"({"format":"gneiss.scene","version":4,"scene_uuid":"40000000-0000-4000-8000-000000000001","objects":[],"prefab_instances":[)";
+      << R"({"format":"gneiss.scene","version":5,"scene_uuid":"40000000-0000-4000-8000-000000000001","objects":[],"prefab_instances":[)";
   constexpr std::size_t count = 64U;
   for (std::size_t index = 0; index < count; ++index) {
     std::ofstream(root / "assets" / ("item-" + std::to_string(index) + ".prefab.json")) << prefab;

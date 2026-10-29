@@ -575,25 +575,24 @@ unpack_selected_prefab(editor_state& state, std::string_view instance_uuid,
   auto operation = current_author_scene(state, scene);
   author_asset_document prefab{prefab_uri.substr(8), std::move(*source_content)};
   std::string unpacked_root_uuid;
-  if (operation == gneiss::engine::error::success) {
-    operation = gneiss::editor::make_editor_uuid(unpacked_root_uuid);
-  }
   std::vector<std::string> target_uuids;
   std::vector<gneiss::editor::unpack_prefab_uuid_mapping> mappings;
   if (operation == gneiss::engine::error::success) {
     const auto count =
         std::ranges::count_if(state.editing.document().prefab_nodes(), [&](const auto& node) {
-          return !node.is_instance_root && node.instance_uuid == instance_uuid;
+          return node.instance_uuid == instance_uuid;
         });
     target_uuids.reserve(static_cast<std::size_t>(count));
     mappings.reserve(static_cast<std::size_t>(count));
     for (const auto& node : state.editing.document().prefab_nodes()) {
-      if (!node.is_instance_root && node.instance_uuid == instance_uuid) {
+      if (node.instance_uuid == instance_uuid) {
         target_uuids.emplace_back();
         operation = gneiss::editor::make_editor_uuid(target_uuids.back());
         if (operation != gneiss::engine::error::success) {
           break;
         }
+        if (node.is_instance_root)
+          unpacked_root_uuid = target_uuids.back();
         mappings.push_back(
             {.source_node_uuid = node.source_node_uuid, .target_node_uuid = target_uuids.back()});
       }
@@ -605,7 +604,6 @@ unpack_selected_prefab(editor_state& state, std::string_view instance_uuid,
                                                       {.scene_path = scene.relative_path,
                                                        .prefab_uri = prefab_uri,
                                                        .instance_uuid = instance_uuid,
-                                                       .instance_root_uuid = unpacked_root_uuid,
                                                        .node_mappings = mappings},
                                                       changes);
   }

@@ -119,7 +119,7 @@ void unified_resource_index() {
 void run() {
   auto files = std::make_shared<memory_files>();
   files->files["s.scene"] =
-      R"({"format":"gneiss.scene","version":4,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[)" +
+      R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[)" +
       std::string(object) + R"(],"prefab_instances":[]})";
   files->files["p.prefab"] =
       R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"00000000-0000-4000-8000-000000000003","objects":[)" +
@@ -364,7 +364,7 @@ void run() {
   gneiss::engine::scene_node_view prefab_node;
   check(candidate->scenes()->get_node_info(new_scene, 0U, ordinary) ==
         gneiss::engine::error::success);
-  check(gneiss::test_support::prefab_node_info(*candidate->scenes(), new_scene, 1U, prefab_node) ==
+  check(gneiss::test_support::prefab_node_info(*candidate->scenes(), new_scene, 0U, prefab_node) ==
         gneiss::engine::error::success);
   const gneiss::engine::mesh_renderer expected{
       .mesh = candidate_render.find_mesh(mesh_rid),
@@ -459,11 +459,11 @@ void run() {
   std::uint64_t count{};
   check(gneiss::engine::error{gneiss::test_support::assign_value(
             active->native_world()->entity_count(), count)} == gneiss::engine::error::success &&
-        count == 3U);
+        count == 2U);
   check(active->scenes()->get_node_count(old_scene, &count) ==
         gneiss::engine::error::invalid_handle);
   check(active->scenes()->get_node_count(new_scene, &count) == gneiss::engine::error::success &&
-        count == 3U);
+        count == 2U);
   old_material = {};
   candidate.reset();
   // 旧域已析构；此前借用的 World 指针不再可访问。
@@ -486,7 +486,7 @@ void run() {
         count == 0U);
   check(gneiss::engine::error{gneiss::test_support::assign_value(
             active->native_world()->entity_count(), count)} == gneiss::engine::error::success &&
-        count == 3U);
+        count == 2U);
 }
 } // namespace
 

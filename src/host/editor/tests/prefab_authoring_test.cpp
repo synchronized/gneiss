@@ -35,7 +35,7 @@ constexpr std::string_view prefab_uuid = "20000000-0000-4000-8000-000000000001";
 constexpr std::string_view instance_uuid = "30000000-0000-4000-8000-000000000001";
 
 constexpr std::string_view scene_json = R"({
-  "format":"gneiss.scene","version":4,
+  "format":"gneiss.scene","version":5,
   "scene_uuid":"00000000-0000-4000-8000-000000000001",
   "unknown_scene":"preserved",
   "objects":[
@@ -67,7 +67,7 @@ constexpr std::string_view apply_prefab_json = R"({
 })";
 
 constexpr std::string_view apply_scene_json = R"({
-  "format":"gneiss.scene","version":4,
+  "format":"gneiss.scene","version":5,
   "scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[],
   "prefab_instances":[
     {"instance_uuid":"30000000-0000-4000-8000-000000000001","name":"First","parent":null,
@@ -180,16 +180,15 @@ verify_unpack_change(const std::vector<gneiss::editor::author_document_change>& 
   auto* objects = yyjson_obj_get(root, "objects");
   auto* instances = yyjson_obj_get(root, "prefab_instances");
   auto* unpacked_root = yyjson_arr_get(objects, 0U);
-  auto* source_root = yyjson_arr_get(objects, 1U);
-  auto* source_child = yyjson_arr_get(objects, 2U);
+  auto* source_root = yyjson_arr_get(objects, 0U);
+  auto* source_child = yyjson_arr_get(objects, 1U);
   auto* const source_root_parent = yyjson_obj_get(source_root, "parent");
   auto* const source_child_parent = yyjson_obj_get(source_child, "parent");
   auto* translation = yyjson_obj_get(yyjson_obj_get(source_child, "transform"), "translation");
-  return yyjson_arr_size(objects) == 3U && yyjson_arr_size(instances) == 1U &&
+  return yyjson_arr_size(objects) == 2U && yyjson_arr_size(instances) == 1U &&
          std::string_view{yyjson_get_str(yyjson_obj_get(unpacked_root, "uuid"))} ==
-             "50000000-0000-4000-8000-000000000001" &&
-         std::string_view{yyjson_get_str(source_root_parent)} ==
-             "50000000-0000-4000-8000-000000000001" &&
+             "50000000-0000-4000-8000-000000000002" &&
+         yyjson_is_null(source_root_parent) &&
          std::string_view{yyjson_get_str(source_child_parent)} ==
              "50000000-0000-4000-8000-000000000002" &&
          yyjson_get_num(yyjson_arr_get(translation, 0U)) == 7.0 &&
@@ -258,13 +257,13 @@ int main() try {
       !editing.open(root, "asset://scenes/main.scene.json") || !editing.apply(changes, true) ||
       read_text(root / "scenes" / "main.scene.json") != scene_json ||
       read_text(root / "prefabs" / "lamp.prefab.json") != *changes[0].replacement ||
-      !editing.counts(1U, 3U))
+      !editing.counts(1U, 2U))
     return 2;
   const auto created_source = read_text(root / "prefabs" / "lamp.prefab.json");
   if (!editing.restore(editing.before) || !editing.counts(3U, 0U) ||
       read_text(root / "prefabs" / "lamp.prefab.json") != created_source ||
       read_text(root / "scenes" / "main.scene.json") != scene_json ||
-      !editing.restore(editing.after) || !editing.counts(1U, 3U))
+      !editing.restore(editing.after) || !editing.counts(1U, 2U))
     return 3;
   editing.document.close();
   editing.application.reset();
@@ -287,7 +286,7 @@ int main() try {
       !editing.open(root, "asset://scenes/main.scene.json") ||
       !editing.apply(apply_plan.changes, true) ||
       read_text(root / "scenes" / "main.scene.json") != apply_scene_json ||
-      !editing.counts(0U, 6U)) {
+      !editing.counts(0U, 4U)) {
     return 8;
   }
   auto empty_overrides = std::string(apply_scene_json);
@@ -315,7 +314,6 @@ int main() try {
       .scene_path = "scenes/main.scene.json",
       .prefab_uri = "asset://prefabs/lamp.prefab.json",
       .instance_uuid = instance_uuid,
-      .instance_root_uuid = "50000000-0000-4000-8000-000000000001",
       .node_mappings = mappings};
   std::vector<gneiss::editor::author_document_change> unpack_changes;
   if (gneiss::editor::prepare_unpack_prefab(apply_scene_json, apply_prefab_json, unpack_request,
@@ -324,16 +322,18 @@ int main() try {
       !write_text(root / "scenes" / "main.scene.json", apply_scene_json) ||
       !write_text(root / "prefabs" / "lamp.prefab.json", apply_prefab_json) ||
       !editing.open(root, "asset://scenes/main.scene.json") ||
-      !editing.apply(unpack_changes, false) || !editing.counts(3U, 3U)) {
+      !editing.apply(unpack_changes, false) || !editing.counts(2U, 2U)) {
     return 11;
   }
-  if (!editing.restore(editing.before) || !editing.counts(0U, 6U) ||
+  if (!editing.restore(editing.before) || !editing.counts(0U, 4U) ||
       read_text(root / "scenes" / "main.scene.json") != apply_scene_json ||
       read_text(root / "prefabs" / "lamp.prefab.json") != apply_prefab_json ||
-      !editing.restore(editing.after) || !editing.counts(3U, 3U))
+      !editing.restore(editing.after) || !editing.counts(2U, 2U))
     return 12;
   auto invalid_unpack = unpack_request;
-  invalid_unpack.instance_root_uuid = mappings[0].target_node_uuid;
+  auto duplicate_mappings = mappings;
+  duplicate_mappings[1].target_node_uuid = mappings[0].target_node_uuid;
+  invalid_unpack.node_mappings = duplicate_mappings;
   if (gneiss::editor::prepare_unpack_prefab(apply_scene_json, apply_prefab_json, invalid_unpack,
                                             unpack_changes) !=
           gneiss::engine::error::invalid_argument ||

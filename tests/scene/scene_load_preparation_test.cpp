@@ -60,7 +60,7 @@ struct memory_files final : gneiss::test_support::memory_file_fixture {
 constexpr std::string_view object = R"({"uuid":"00000000-0000-4000-8000-000000000002",
 "parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
 "components":{"mesh_renderer":{"mesh":"asset://m.mesh","material":"asset://m.material"}}})";
-constexpr std::string_view scene_prefix = R"({"format":"gneiss.scene","version":4,
+constexpr std::string_view scene_prefix = R"({"format":"gneiss.scene","version":5,
 "scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[)";
 
 std::string instance(std::string_view id) {
@@ -108,7 +108,7 @@ void run() {
         assets, executor, false, "asset://main.scene", output, diagnostic, cancel, limits);
   };
   check(prepare() == gneiss::engine::error::success);
-  check(output.prefabs.size() == 1U && output.assets.size() == 2U && output.instance_nodes == 5U);
+  check(output.prefabs.size() == 1U && output.assets.size() == 2U && output.instance_nodes == 3U);
   check(memory->reads["p.prefab"] == 1U && output.parent_first == std::vector<std::size_t>{0U});
   const auto bytes = output.description.author_json.size() +
                      output.prefabs.begin()->second.resource->author_json.size();
@@ -139,18 +139,18 @@ void run() {
   check(gneiss::test_support::prepare_scene_for_test(assets, executor, true, "asset://p.prefab",
                                                      output, diagnostic,
                                                      {}) == gneiss::engine::error::success);
-  check(output.prefabs.size() == 1U && output.instance_nodes == 2U && output.assets.size() == 2U);
+  check(output.prefabs.size() == 1U && output.instance_nodes == 1U && output.assets.size() == 2U);
   check(output.description.objects.empty());
   check(gneiss::test_support::prepare_scene_for_test(assets, executor, true, "asset://p.prefab",
                                                      output, diagnostic, [] { return true; }) ==
         gneiss::engine::error::invalid_state);
   check(output.prefabs.empty() && output.assets.empty());
-  check(prepare({.source_bytes = bytes, .nodes = 5U}) == gneiss::engine::error::success);
+  check(prepare({.source_bytes = bytes, .nodes = 3U}) == gneiss::engine::error::success);
   check(prepare({.source_bytes = bytes - 1U}) == gneiss::engine::error::invalid_argument);
   check(output.description.objects.empty() && output.prefabs.empty() && output.assets.empty());
-  check(prepare({.nodes = 4U}) == gneiss::engine::error::invalid_argument);
+  check(prepare({.nodes = 2U}) == gneiss::engine::error::invalid_argument);
   check(prepare({.dependencies = 1U}) == gneiss::engine::error::invalid_argument);
-  check(prepare({.hierarchy_depth = 1U}) == gneiss::engine::error::invalid_argument);
+  check(prepare({.hierarchy_depth = 1U}) == gneiss::engine::error::success);
   check(prepare({.hierarchy_depth = 0U}) == gneiss::engine::error::invalid_argument);
   check(prepare({}, [] { return true; }) == gneiss::engine::error::invalid_state);
   memory->reads.clear();

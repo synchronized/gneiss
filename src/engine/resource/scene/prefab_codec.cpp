@@ -129,7 +129,7 @@ parse_prefab_description(std::string_view json) noexcept try {
     return out_diagnostic;
   }
   const std::string_view prefab_uuid{yyjson_get_str(uuid), yyjson_get_len(uuid)};
-  std::string scene_json = R"({"format":"gneiss.scene","version":4,"scene_uuid":")";
+  std::string scene_json = R"({"format":"gneiss.scene","version":5,"scene_uuid":")";
   scene_json.append(prefab_uuid);
   scene_json += R"(","objects":)";
   scene_json.append(objects_json.get(), objects_length);
@@ -177,7 +177,7 @@ result<std::string> serialize_prefab_description(const prefab_description& prefa
   }
 
   scene_description scene;
-  scene.source_schema_version = 4U;
+  scene.source_schema_version = 5U;
   scene.uuid = prefab.uuid;
   scene.objects = prefab.objects;
   auto envelope = convert_author_envelope(prefab.author_json, prefab.uuid, true);

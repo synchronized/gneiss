@@ -156,7 +156,7 @@ bool test_capture_prefab_scene() {
   const bool valid =
       capture == gneiss::engine::error::success && snapshot.changes.size() == 3U &&
       snapshot.changes[1].node.prefab_instance_uuid == "30000000-0000-4000-8000-000000000012" &&
-      snapshot.changes[1].node.prefab_source_node_uuid.empty() &&
+      snapshot.changes[1].node.prefab_source_node_uuid == "30000000-0000-4000-8000-000000000004" &&
       snapshot.changes[2].node.prefab_source_node_uuid == "30000000-0000-4000-8000-000000000002" &&
       snapshot.changes[2].node.parent == snapshot.changes[1].node.id;
   auto native = application;

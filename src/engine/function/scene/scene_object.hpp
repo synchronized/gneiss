@@ -32,15 +32,11 @@ inline scene_node_identity_view scene_object_identity(world& owner, scene_node_i
   auto value = owner.node_identity(node);
   return value ? *value : scene_node_identity_view{};
 }
-/** 普通对象与 Prefab 共用实例化路径，输入资源仅在组件内长期持有。 */
-inline result<scene_node_id> create_scene_object(world& owner, const object_description& source,
-                                                 scene_node_id parent,
-                                                 const mesh_renderer& renderer) {
-  auto created = owner.object_create(parent, {source.uuid, source.name},
-                                     {source.translation, source.rotation, source.scale});
-  if (!created)
-    return created.error();
-  const entity_id entity{scene_object_entity(owner, *created)};
+/** 将已解析组件安装到节点；创建失败的回收由调用者负责。 */
+inline error configure_scene_object(world& owner, scene_node_id node,
+                                    const object_description& source,
+                                    const mesh_renderer& renderer) {
+  const entity_id entity{scene_object_entity(owner, node)};
   auto status = error::success;
   if (source.camera) {
     status = owner.entity_configure_camera(entity,
@@ -51,6 +47,17 @@ inline result<scene_node_id> create_scene_object(world& owner, const object_desc
   }
   if (status.ok() && source.mesh_renderer)
     status = owner.entity_set_mesh_renderer(entity, renderer);
+  return status;
+}
+/** 普通对象与 Prefab 共用实例化路径，输入资源仅在组件内长期持有。 */
+inline result<scene_node_id> create_scene_object(world& owner, const object_description& source,
+                                                 scene_node_id parent,
+                                                 const mesh_renderer& renderer) {
+  auto created = owner.object_create(parent, {source.uuid, source.name},
+                                     {source.translation, source.rotation, source.scale});
+  if (!created)
+    return created.error();
+  const auto status = configure_scene_object(owner, *created, source, renderer);
   if (status.failed()) {
     (void)owner.object_destroy(*created);
     return status;

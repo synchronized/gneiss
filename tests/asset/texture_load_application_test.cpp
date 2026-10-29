@@ -108,7 +108,7 @@ void run(gneiss::engine::execution_mode mode) {
   };
   write_material(false);
   std::ofstream(files.root / "s.scene")
-      << R"({"format":"gneiss.scene","version":4,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://m.mesh","material":"asset://m.material"}}},{"uuid":"00000000-0000-4000-8000-000000000003","parent":null,"transform":{"translation":[2,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://m.mesh","material":"asset://m.material"}}}],"prefab_instances":[]})";
+      << R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://m.mesh","material":"asset://m.material"}}},{"uuid":"00000000-0000-4000-8000-000000000003","parent":null,"transform":{"translation":[2,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://m.mesh","material":"asset://m.material"}}}],"prefab_instances":[]})";
   constexpr std::string_view scene_uri = "asset://s.scene";
   gneiss::scene_instance_id scene{};
   check(gneiss::engine::error{gneiss::test_support::load_scene(

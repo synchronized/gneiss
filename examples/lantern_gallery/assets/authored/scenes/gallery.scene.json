@@ -1,6 +1,6 @@
 {
   "format": "gneiss.scene",
-  "version": 4,
+  "version": 5,
   "scene_uuid": "20000000-0000-4000-8000-000000000000",
   "objects": [
     {"uuid":"20000000-0000-4000-8000-000000000040","parent":null,"name":"Lantern Pivot","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{}},

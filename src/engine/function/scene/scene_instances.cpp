@@ -153,7 +153,8 @@ void scene_instance::append_prefab_members(const prefab_runtime_instance& prefab
   objects_.reserve(objects_.size() + prefab.nodes_.size() + 1U);
   objects_.push_back({prefab.root()});
   for (const auto& source : prefab.nodes_)
-    objects_.push_back({source.node});
+    if (source.node != prefab.root())
+      objects_.push_back({source.node});
 }
 void scene_instance::erase_prefab_members(const prefab_runtime_instance& prefab) noexcept {
   std::erase_if(objects_, [&](const auto& value) {
@@ -561,15 +562,12 @@ std::optional<prefab_origin_view> scene_instance::prefab_origin(scene_node_id no
     prefab_origin_view origin;
     origin.instance_uuid = author.instance_uuid;
     origin.prefab_uri = author.prefab_uri;
-    if (runtime.root() == node) {
-      origin.flags = scene_prefab_flags::instance_root;
-      return origin;
-    }
     const auto found =
         std::ranges::find(runtime.nodes_, node, &prefab_runtime_instance::runtime_node::node);
     if (found == runtime.nodes_.end())
       continue;
-    origin.flags = scene_prefab_flags::source_read_only;
+    origin.flags = runtime.root() == node ? scene_prefab_flags::instance_root
+                                          : scene_prefab_flags::source_read_only;
     origin.source_node_uuid = found->address.source_node_uuid;
     if (const auto* source = runtime.find_source_object(origin.source_node_uuid))
       origin.source_local_transform = to_transform(*source);
@@ -662,6 +660,8 @@ engine::error scene_instance::set_prefab_source_transform(scene_node_id node,
                                                           const math::transform& transform) {
   for (std::size_t index = 0U; index < prefab_instances_.size(); ++index) {
     auto& runtime = *prefab_instances_[index];
+    if (runtime.root() == node)
+      return error::invalid_argument;
     prefab_runtime_instance::node_info info;
     for (std::size_t node_index = 0U; node_index < runtime.node_count(); ++node_index) {
       if (runtime.get_node_info(node_index, info) != engine::error::success || info.node != node) {
@@ -866,7 +866,7 @@ engine::error scene_instance::capture_subtree(scene_node_id root, std::string& o
       }
     }
     current.author_json =
-        std::string{"{\"format\":\"gneiss.scene\",\"version\":4,\"scene_uuid\":\""} + current.uuid +
+        std::string{"{\"format\":\"gneiss.scene\",\"version\":5,\"scene_uuid\":\""} + current.uuid +
         "\",\"objects\":[],\"prefab_instances\":[]}";
     auto decoded_result = engine::serialize_scene_description(current);
     if (!decoded_result) {
@@ -1516,7 +1516,7 @@ engine::error scene_instances::create_empty(std::string_view scene_uuid,
   }
   *out_instance = {};
   try {
-    const std::string json = std::string{"{\"format\":\"gneiss.scene\",\"version\":4,"} +
+    const std::string json = std::string{"{\"format\":\"gneiss.scene\",\"version\":5,"} +
                              "\"scene_uuid\":\"" + std::string{scene_uuid} +
                              "\",\"objects\":[],\"prefab_instances\":[]}";
     auto parsed = engine::parse_scene_description(json);

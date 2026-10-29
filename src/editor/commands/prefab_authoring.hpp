@@ -44,7 +44,6 @@ struct unpack_prefab_author_request final {
   std::string_view scene_path;
   std::string_view prefab_uri;
   std::string_view instance_uuid;
-  std::string_view instance_root_uuid;
   std::span<const unpack_prefab_uuid_mapping> node_mappings;
 };
 
