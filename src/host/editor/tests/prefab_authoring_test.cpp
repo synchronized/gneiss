@@ -36,7 +36,7 @@ constexpr std::string_view prefab_uuid = "20000000-0000-4000-8000-000000000001";
 constexpr std::string_view instance_uuid = "30000000-0000-4000-8000-000000000001";
 
 constexpr std::string_view scene_json =
-    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","unknown_scene":"preserved","objects":[{"uuid":"10000000-0000-4000-8000-000000000001","name":"Lamp","parent":null,"transform":{"translation":[2,3,4],"rotation":[0,0,0,1],"scale":[2,2,2]},"components":{},"unknown_object":7},{"uuid":"10000000-0000-4000-8000-000000000002","name":"Shade","parent":"10000000-0000-4000-8000-000000000001","transform":{"translation":[0,1,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{}},{"uuid":"10000000-0000-4000-8000-000000000003","name":"Floor","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{}}]})";
+    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","unknown_scene":"preserved","objects":[{"uuid":"10000000-0000-4000-8000-000000000001","name":"Lamp","parent":null,"transform":{"translation":[2,3,4],"rotation":[0,0,0,1],"scale":[2,2,2]},"components":[],"unknown_object":7},{"uuid":"10000000-0000-4000-8000-000000000002","name":"Shade","parent":"10000000-0000-4000-8000-000000000001","transform":{"translation":[0,1,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"uuid":"10000000-0000-4000-8000-000000000003","name":"Floor","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]}]})";
 
 constexpr std::string_view apply_prefab_json = R"({
   "format":"gneiss.prefab","version":1,
@@ -44,11 +44,11 @@ constexpr std::string_view apply_prefab_json = R"({
   "objects":[
     {"uuid":"10000000-0000-4000-8000-000000000001","name":"Lamp","parent":null,
      "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
-     "components":{}},
+     "components":[]},
     {"uuid":"10000000-0000-4000-8000-000000000002","name":"Shade",
      "parent":"10000000-0000-4000-8000-000000000001",
      "transform":{"translation":[0,1,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
-     "components":{},"unknown_source":true}
+     "components":[],"unknown_source":true}
   ]
 })";
 
@@ -309,7 +309,7 @@ int main() try {
   auto attached_scene = std::string(apply_scene_json);
   attached_scene.insert(
       attached_scene.rfind(']'),
-      R"(,{"uuid":"60000000-0000-4000-8000-000000000001","name":"Own child","parent":"30000000-0000-4000-8000-000000000001","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{}})");
+      R"(,{"uuid":"60000000-0000-4000-8000-000000000001","name":"Own child","parent":"30000000-0000-4000-8000-000000000001","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]})");
   if (gneiss::editor::prepare_unpack_prefab(attached_scene, apply_prefab_json, unpack_request,
                                             unpack_changes)
           .failed())

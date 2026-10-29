@@ -64,7 +64,7 @@ error scene_instance::instantiate_prefab_ready(const object_description& author,
                                                std::span<const scene_mesh_binding> bindings,
                                                bool replacing, scene_node_id& output) noexcept try {
   output = {};
-  if (!author.prefab || author.camera || author.mesh_renderer || !prefab ||
+  if (!author.prefab || !author.components.empty() || !prefab ||
       bindings.size() != prefab.get()->objects.size() || !is_canonical_prefab_uuid(author.uuid) ||
       (!replacing && find_node(author.uuid)))
     return error::invalid_argument;

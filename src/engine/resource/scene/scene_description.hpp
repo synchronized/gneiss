@@ -7,6 +7,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 
+#include "engine/resource/scene/component_description.hpp"
 #include "engine/resource/scene/prefab_property_data.hpp"
 
 #include "engine/core/math/types.hpp"
@@ -28,6 +29,10 @@ struct scene_diagnostic final {
 };
 
 struct camera_description final {
+  inline static constexpr std::string_view type_name = "camera_description";
+  inline static constexpr engine::guid type_guid =
+      engine::guid::from_bytes({0x11, 0xa0, 0x21, 0x7a, 0x2e, 0xab, 0x4f, 0x61, 0x80, 0x11, 0x4a,
+                                0x63, 0xa2, 0x6e, 0x01, 0x01});
   float vertical_field_of_view_radians = 0.0F;
   float near_plane = 0.0F;
   float far_plane = 0.0F;
@@ -35,6 +40,10 @@ struct camera_description final {
 };
 
 struct mesh_renderer_description final {
+  inline static constexpr std::string_view type_name = "mesh_renderer_description";
+  inline static constexpr engine::guid type_guid =
+      engine::guid::from_bytes({0x11, 0xa0, 0x21, 0x7a, 0x2e, 0xab, 0x4f, 0x61, 0x80, 0x11, 0x4a,
+                                0x63, 0xa2, 0x6e, 0x01, 0x02});
   std::string mesh_uri;
   std::string material_uri;
 };
@@ -51,8 +60,7 @@ struct object_description final {
   math::vector3 translation{};
   math::quaternion rotation{0.0F, 0.0F, 0.0F, 0.0F};
   math::vector3 scale{};
-  std::optional<camera_description> camera;
-  std::optional<mesh_renderer_description> mesh_renderer;
+  component_descriptions components;
   std::optional<prefab_reference_description> prefab{};
 };
 

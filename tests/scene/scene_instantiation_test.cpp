@@ -61,7 +61,7 @@ struct memory_files final : gneiss::test_support::memory_file_fixture {
 constexpr std::string_view object =
     R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":null,
 "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
-"components":{"mesh_renderer":{"mesh":"asset://m.mesh","material":"asset://m.material"}}})";
+"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://m.mesh","material":"asset://m.material"}}]})";
 
 void unified_resource_index() {
   using namespace gneiss::engine;

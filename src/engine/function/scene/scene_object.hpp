@@ -32,20 +32,33 @@ inline scene_node_identity_view scene_object_identity(world& owner, scene_node_i
   auto value = owner.node_identity(node);
   return value ? *value : scene_node_identity_view{};
 }
+/** 当前运行时只安装这两类描述；已注册的其他描述不得被静默忽略。 */
+inline error validate_scene_components(const object_description& source) noexcept {
+  for (const auto& value : source.components) {
+    if (!value.get<camera_description>() && !value.get<mesh_renderer_description>())
+      return error::unsupported;
+  }
+  return source.prefab && !source.components.empty() ? error::invalid_argument : error::success;
+}
 /** 将已解析组件安装到节点；创建失败的回收由调用者负责。 */
 inline error configure_scene_object(world& owner, scene_node_id node,
                                     const object_description& source,
                                     const mesh_renderer& renderer) {
+  const auto validation = validate_scene_components(source);
+  if (validation.failed())
+    return validation;
   const entity_id entity{scene_object_entity(owner, node)};
   auto status = error::success;
-  if (source.camera) {
-    status = owner.entity_configure_camera(entity,
-                                           {source.camera->vertical_field_of_view_radians,
-                                            source.camera->near_plane, source.camera->far_plane});
-    if (status.ok() && source.camera->is_primary)
+  if (source.components.template get<camera_description>()) {
+    status = owner.entity_configure_camera(
+        entity,
+        {source.components.template get<camera_description>()->vertical_field_of_view_radians,
+         source.components.template get<camera_description>()->near_plane,
+         source.components.template get<camera_description>()->far_plane});
+    if (status.ok() && source.components.template get<camera_description>()->is_primary)
       status = owner.set_active_camera(entity);
   }
-  if (status.ok() && source.mesh_renderer)
+  if (status.ok() && source.components.template get<mesh_renderer_description>())
     status = owner.entity_set_mesh_renderer(entity, renderer);
   return status;
 }

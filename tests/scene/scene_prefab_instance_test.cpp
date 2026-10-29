@@ -5,6 +5,7 @@
 #include "../support/prefab_query.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
@@ -16,6 +17,8 @@
 #include <string_view>
 
 int main() try {
+  if (gneiss::engine::initialize_meta().failed())
+    return 99;
   constexpr std::string_view asset_root = GNEISS_TEST_ASSET_ROOT;
   constexpr std::string_view scene_uri = "asset://scenes/prefab.scene.json";
   constexpr std::string_view missing_scene_uri = "asset://scenes/missing-prefab.scene.json";

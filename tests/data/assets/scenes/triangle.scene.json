@@ -25,14 +25,17 @@
           1.0
         ]
       },
-      "components": {
-        "camera": {
-          "vertical_field_of_view_radians": 1.04719755,
-          "near_plane": 0.1,
-          "far_plane": 1000.0,
-          "is_primary": true
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101",
+          "$content": {
+            "vertical_field_of_view_radians": 1.04719755,
+            "near_plane": 0.1,
+            "far_plane": 1000.0,
+            "is_primary": true
+          }
         }
-      }
+      ]
     },
     {
       "uuid": "00000000-0000-4000-8000-000000000003",
@@ -55,12 +58,15 @@
           1.0
         ]
       },
-      "components": {
-        "mesh_renderer": {
-          "mesh": "asset://models/triangle.mesh.json",
-          "material": "asset://materials/triangle.material.json"
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/triangle.mesh.json",
+            "material": "asset://materials/triangle.material.json"
+          }
         }
-      }
+      ]
     }
   ]
 }

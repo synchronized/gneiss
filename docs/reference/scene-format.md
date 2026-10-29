@@ -37,12 +37,7 @@
           1
         ]
       },
-      "components": {
-        "mesh_renderer": {
-          "mesh": "asset://models/triangle.mesh",
-          "material": "asset://materials/default.material"
-        }
-      }
+      "components": [{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material"}}]
     },
     {
       "name": "Lamp Instance",
@@ -96,7 +91,12 @@
 - `parent` 必须是现有对象 UUID 或 `null`；层级不能形成循环。
 - 向量与四元数只接受有限、可表示为 float 的 JSON 数字。
 - rotation 顺序为 `(x, y, z, w)` 且必须归一化；scale 的每个分量不能为零。
-- `components` 可以为空对象；只允许 `camera` 与 `mesh_renderer`。
+- `components` 是数组，可为空。每项包含 `$type_guid`（描述类型的规范 GUID）和 `$content`（JSON 对象）。
+  根据默认 Meta 注册表查找对应 codec；同一对象同一 GUID 最多一项，未知类型和重复类型报错。
+- 内置 Camera 描述 GUID 为 `11a0217a-2eab-4f61-8011-4a63a26e0101`，MeshRenderer 描述 GUID 为
+  `11a0217a-2eab-4f61-8011-4a63a26e0102`。它们与运行时组件 GUID 分离，进程内 type_id 不写入文件。
+- 当前运行时只安装 Camera、MeshRenderer。其他已注册 codec 的描述可读写，实例化返回 unsupported。
+  组件数组顺序不表示身份；Prefab 属性覆盖仍按来源节点、运行时组件类型和属性 ID 定位。
 - Camera 要求 `vertical_field_of_view_radians` 位于 `(0, π)`、`near_plane > 0`、
   `far_plane > near_plane` 和布尔 `is_primary`；一个场景最多有一个主相机。
 - Mesh Renderer 的 `mesh` 与 `material` 必须是规范 `asset://` URI。
@@ -110,7 +110,9 @@
 - Prefab 实例身份就是引用对象的 UUID，覆盖键不重复携带实例身份。Prefab 展开后的源节点、Entity
   ID、Scene Node ID 和 RID 均不写入场景文件。
 - 普通对象需要 `components`，模板引用对象需要 `prefab`；`name` 可选。当前受支持版本中的未知字段不会参与运行时
-  实例化，但会保留在作者 JSON 中，并在 `serialize_scene_description` 重新输出时保持其值和层级。
+  实例化；对象和组件外壳的扩展字段保留在作者 JSON 中，重新输出时按 UUID/GUID 对齐。
+  `$content` 由对应 codec 完整输出，不与旧内容合并，避免已删除或省略的字段重新出现；
+  需要保留内容扩展字段的类型须由自身 codec 读写这些字段。
 
 解析成功只产生中间描述，不修改 World。语法错误诊断使用 UTF-8 文档的零起始字节偏移，字段错误
 使用类似 `/objects/0/transform` 的 JSON 路径。未来版本返回 `GNEISS_ERROR_UNSUPPORTED`。
@@ -129,3 +131,14 @@
 `GNEISS_ERROR_INVALID_ARGUMENT`，未来版本返回 `GNEISS_ERROR_UNSUPPORTED`。仓库内作者场景、示例
 和测试随格式直接升级，不维护尚无真实消费者的迁移链。解析或校验失败时场景实例化尚未开始，现有
 World 保持不变。旧顶层 `prefab_instances` 也被明确拒绝，不作为扩展字段忽略。
+
+## 内存描述与初始化
+
+`object_description::components` 使用 `component_descriptions`，内部保存不可变的类型化描述条目。
+`get<T>()` 借用只读指针，错误类型返回 nullptr；`set(T)` 替换对应类型，`erase<T>()` 删除，
+`update<T>(callback)` 在副本上修改后替换。借用指针不得跨对应条目替换或列表销毁。
+复制列表共享不可变内容；修改副本不改变模板、其他实例或编辑器撤销快照。
+
+解析/编码前由宿主完成 `initialize_meta`。文件解析只生成 CPU 描述，不创建 World 或 GPU 对象。
+场景功能层解析资产依赖并安装运行时组件；Meta 不依赖 World。
+未发布格式直接迁移为数组，不再接受旧的 components 对象形式。

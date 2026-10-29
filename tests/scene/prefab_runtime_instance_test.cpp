@@ -80,11 +80,14 @@ create_prefab_binding(world& native_world, resource_service& loader, prefab_asse
     for (const auto& addition : order.added) {
       const auto& object = source.objects[addition.new_index];
       mesh_renderer renderer;
-      if (object.mesh_renderer) {
-        auto mesh = loader.find<mesh_resource>(object.mesh_renderer->mesh_uri);
+      if (object.components.template get<gneiss::engine::mesh_renderer_description>()) {
+        auto mesh = loader.find<mesh_resource>(
+            object.components.template get<gneiss::engine::mesh_renderer_description>()->mesh_uri);
         if (!mesh)
           return mesh.error();
-        auto material = loader.find<material_resource>(object.mesh_renderer->material_uri);
+        auto material = loader.find<material_resource>(
+            object.components.template get<gneiss::engine::mesh_renderer_description>()
+                ->material_uri);
         if (!material)
           return material.error();
         renderer = {*mesh, *material};
@@ -127,13 +130,13 @@ constexpr std::string_view prefab_json = R"({
       "uuid":"10000000-0000-4000-8000-000000000002",
       "parent":null,
       "transform":{"translation":[1,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
-      "components":{}
+      "components":[]
     },
     {
       "uuid":"10000000-0000-4000-8000-000000000003",
       "parent":"10000000-0000-4000-8000-000000000002",
       "transform":{"translation":[0,2,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
-      "components":{}
+      "components":[]
     }
   ]
 })";
@@ -146,7 +149,7 @@ constexpr std::string_view broken_prefab_json = R"({
     "uuid":"10000000-0000-4000-8000-000000000012",
     "parent":null,
     "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
-    "components":{"mesh_renderer":{"mesh":"asset://missing.mesh","material":"asset://missing.material"}}
+    "components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://missing.mesh","material":"asset://missing.material"}}]
   }]
 })";
 
@@ -189,10 +192,11 @@ bool check_failed_camera_prefab(
     const gneiss::engine::prefab_description& source,
     const std::vector<gneiss::engine::prefab_property_override>& invalid_overrides) {
   auto description = source;
-  description.objects[0].camera = {.vertical_field_of_view_radians = 1.0F,
-                                   .near_plane = 0.1F,
-                                   .far_plane = 100.0F,
-                                   .is_primary = true};
+  description.objects[0].components.set(
+      gneiss::engine::camera_description{.vertical_field_of_view_radians = 1.0F,
+                                         .near_plane = 0.1F,
+                                         .far_plane = 100.0F,
+                                         .is_primary = true});
   gneiss::engine::prefab_asset_ref lease;
   if (gneiss::test_support::assign_value(
           prefab_loader.store<gneiss::engine::prefab_description>(

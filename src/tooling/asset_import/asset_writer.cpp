@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "tooling/asset_import/asset_writer.hpp"
+#include "engine/resource/scene/scene_description.hpp"
 
 #include "engine/resource/mesh/mesh_binary.hpp"
 
@@ -137,9 +138,18 @@ void write_transform(std::ostream& stream, const gneiss::engine::math::vector3& 
 
 void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t primitive_index,
                     const import_ir_primitive& primitive, std::string_view asset_uri_prefix) {
-  stream << R"("mesh_renderer": {"mesh": ")" << asset_uri_prefix << "models/"
+  stream << R"({"$type_guid": ")";
+  // 仅使用 constexpr 身份值；离线 SDK 不依赖引擎 DLL 的注册表或 GUID 函数。
+  constexpr auto bytes = gneiss::engine::mesh_renderer_description::type_guid.bytes();
+  constexpr char hex[] = "0123456789abcdef";
+  for (std::size_t index = 0; index < bytes.size(); ++index) {
+    if (index == 4 || index == 6 || index == 8 || index == 10)
+      stream << '-';
+    stream << hex[bytes[index] >> 4] << hex[bytes[index] & 15];
+  }
+  stream << R"(", "$content": {"mesh": ")" << asset_uri_prefix << "models/"
          << mesh_name(mesh_index, primitive_index) << R"(", "material": ")" << asset_uri_prefix
-         << "materials/" << material_name(primitive) << R"("})";
+         << "materials/" << material_name(primitive) << R"("}})";
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): 输出顺序直接对应稳定 Scene Schema。
@@ -177,12 +187,12 @@ void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t pr
     }
     stream << ", ";
     write_transform(stream, node.translation, node.rotation, node.scale);
-    stream << R"(, "components": {)";
+    stream << R"(, "components": [)";
     if (node.mesh_index && data.meshes[*node.mesh_index].primitives.size() == 1U) {
       write_renderer(stream, *node.mesh_index, 0U, data.meshes[*node.mesh_index].primitives[0],
                      asset_uri_prefix);
     }
-    stream << "}}" << (++emitted == total_count ? "\n" : ",\n");
+    stream << "]}" << (++emitted == total_count ? "\n" : ",\n");
   }
   std::size_t synthetic_index = 0;
   const gneiss::engine::math::vector3 identity_translation{};
@@ -198,10 +208,10 @@ void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t pr
       stream << R"(    {"uuid": ")" << uuid_for(data.nodes.size() + synthetic_index++)
              << R"(", "parent": ")" << uuid_for(node_index) << R"(", )";
       write_transform(stream, identity_translation, identity_rotation, identity_scale);
-      stream << R"(, "components": {)";
+      stream << R"(, "components": [)";
       write_renderer(stream, *node.mesh_index, primitive_index, primitives[primitive_index],
                      asset_uri_prefix);
-      stream << "}}" << (++emitted == total_count ? "\n" : ",\n");
+      stream << "]}" << (++emitted == total_count ? "\n" : ",\n");
     }
   }
   stream << "  ]\n}\n";

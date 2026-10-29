@@ -212,8 +212,9 @@ int main() try {
   }
   auto missing_asset_snapshot = subtree_snapshot;
   for (auto& object : missing_asset_snapshot.description.objects)
-    if (object.mesh_renderer)
-      object.mesh_renderer->mesh_uri = missing_mesh_uri;
+    if (object.components.template get<gneiss::engine::mesh_renderer_description>())
+      object.components.update<gneiss::engine::mesh_renderer_description>(
+          [&](auto& value) { value.mesh_uri = missing_mesh_uri; });
   if (application->scenes()->restore_subtree(scene, missing_asset_snapshot, camera_node,
                                              std::span{mappings}.first(2U),
                                              copied_root) != gneiss::engine::error::not_found ||

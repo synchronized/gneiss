@@ -6,6 +6,7 @@
 #include "engine/core/result.hpp"
 #include "scene_description.hpp"
 namespace gneiss::engine {
+[[nodiscard]] error register_component_descriptions(const meta::registry_ref&) noexcept;
 [[nodiscard]] result<scene_description, scene_diagnostic>
 parse_scene_description(std::string_view json) noexcept;
 

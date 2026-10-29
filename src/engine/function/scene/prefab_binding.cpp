@@ -31,9 +31,8 @@ to_transform(const gneiss::engine::object_description& object) noexcept {
   return value;
 }
 
-gneiss::engine::error
-apply_camera(gneiss::engine::world& native_world, std::uint64_t entity,
-             const std::optional<gneiss::engine::camera_description>& camera) noexcept {
+gneiss::engine::error apply_camera(gneiss::engine::world& native_world, std::uint64_t entity,
+                                   const gneiss::engine::camera_description* camera) noexcept {
   if (!camera) {
     const auto result = native_world.entity_remove_camera(gneiss::entity_id{entity});
     return result == gneiss::engine::error::not_found ? gneiss::engine::error::success : result;
@@ -77,14 +76,16 @@ prefab_binding::validate_reload(const prefab_asset_ref& candidate,
   std::vector<engine::material> materials(candidate.get()->objects.size());
   for (std::size_t index = 0U; index < candidate.get()->objects.size(); ++index) {
     const auto& source = candidate.get()->objects[index];
-    if (!source.mesh_renderer) {
+    if (!source.components.template get<mesh_renderer_description>()) {
       continue;
     }
     result = [&] {
       render_asset_ref cached;
       auto status = engine::error::success;
       {
-        auto loaded = loader_.find({source.mesh_renderer->mesh_uri, asset_type::mesh});
+        auto loaded =
+            loader_.find({source.components.template get<mesh_renderer_description>()->mesh_uri,
+                          asset_type::mesh});
         if (loaded)
           cached = std::move(*loaded);
         else {
@@ -101,7 +102,9 @@ prefab_binding::validate_reload(const prefab_asset_ref& candidate,
         render_asset_ref cached;
         auto status = engine::error::success;
         {
-          auto loaded = loader_.find({source.mesh_renderer->material_uri, asset_type::material});
+          auto loaded = loader_.find(
+              {source.components.template get<mesh_renderer_description>()->material_uri,
+               asset_type::material});
           if (loaded)
             cached = std::move(*loaded);
           else {
@@ -129,7 +132,8 @@ prefab_binding::validate_reload(const prefab_asset_ref& candidate,
     }
     if (!source->parent_uuid && override_value.key.type_guid == transform_component_type)
       return error::invalid_argument;
-    if (override_value.key.type_guid == camera_type && !source->camera) {
+    if (override_value.key.type_guid == camera_type &&
+        !source->components.template get<camera_description>()) {
       return engine::error::invalid_state;
     }
   }
@@ -173,12 +177,14 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate, const meta::reg
       target.entity = scene_object_entity(native_world_, nodes_[previous->second].node);
       target.node = nodes_[previous->second].node;
     }
-    if (source.mesh_renderer) {
+    if (source.components.template get<mesh_renderer_description>()) {
       result = [&] {
         render_asset_ref cached;
         auto status = engine::error::success;
         {
-          auto loaded = loader_.find({source.mesh_renderer->mesh_uri, asset_type::mesh});
+          auto loaded =
+              loader_.find({source.components.template get<mesh_renderer_description>()->mesh_uri,
+                            asset_type::mesh});
           if (loaded)
             cached = std::move(*loaded);
           else {
@@ -195,7 +201,9 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate, const meta::reg
           render_asset_ref cached;
           auto status = engine::error::success;
           {
-            auto loaded = loader_.find({source.mesh_renderer->material_uri, asset_type::material});
+            auto loaded = loader_.find(
+                {source.components.template get<mesh_renderer_description>()->material_uri,
+                 asset_type::material});
             if (loaded)
               cached = std::move(*loaded);
             else {
@@ -294,11 +302,12 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate, const meta::reg
                                                      snapshot.transform);
       }
       if (has_change(snapshot.changes, structural_change::camera)) {
-        (void)apply_camera(native_world_, target.entity, snapshot.camera);
+        (void)apply_camera(native_world_, target.entity,
+                           snapshot.camera ? &*snapshot.camera : nullptr);
       }
       if (has_change(snapshot.changes, structural_change::mesh_renderer)) {
         const auto& old_source = prefab_.get()->objects[snapshot.old_index];
-        if (old_source.mesh_renderer) {
+        if (old_source.components.template get<mesh_renderer_description>()) {
           (void)native_world_.entity_set_mesh_renderer(gneiss::entity_id{target.entity},
                                                        snapshot.renderer);
         } else {
@@ -366,11 +375,12 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate, const meta::reg
           native_world_.node_set_local_transform(gneiss::scene_node_id{target.node}, transform);
     }
     if (result == engine::error::success && has_change(update.changes, structural_change::camera)) {
-      result = apply_camera(native_world_, target.entity, source.camera);
+      result = apply_camera(native_world_, target.entity,
+                            source.components.template get<camera_description>());
     }
     if (result == engine::error::success &&
         has_change(update.changes, structural_change::mesh_renderer)) {
-      if (source.mesh_renderer) {
+      if (source.components.template get<mesh_renderer_description>()) {
         const mesh_renderer renderer{.mesh = target.mesh, .material = target.material};
         result = native_world_.entity_set_mesh_renderer(gneiss::entity_id{target.entity}, renderer);
       } else {
@@ -430,10 +440,10 @@ engine::error apply_candidate_object(const meta::registry_ref& state,
     object.rotation = transform.rotation;
     object.scale = transform.scale;
   } else if (is_type(engine::camera_component_type)) {
-    if (!object.camera) {
+    if (!object.components.template get<camera_description>()) {
       return engine::error::not_found;
     }
-    auto& camera = *object.camera;
+    auto camera = *object.components.template get<camera_description>();
     camera_properties properties;
     auto& settings = properties.settings;
     settings = {
@@ -449,6 +459,7 @@ engine::error apply_candidate_object(const meta::registry_ref& state,
     camera.vertical_field_of_view_radians = settings.fov;
     camera.near_plane = settings.near;
     camera.far_plane = settings.far;
+    object.components.set(camera);
   } else {
     // 当前对象格式只存储这些组件，不能将其他类型解释为同一候选内存布局。
     return engine::error::unsupported;
@@ -484,7 +495,9 @@ engine::error prepare_prefab_description(const prefab_description& source,
     }
   }
   for (const auto& object : candidate.objects) {
-    if (object.camera && object.camera->near_plane >= object.camera->far_plane) {
+    if (object.components.template get<camera_description>() &&
+        object.components.template get<camera_description>()->near_plane >=
+            object.components.template get<camera_description>()->far_plane) {
       return engine::error::invalid_argument;
     }
   }
@@ -552,7 +565,7 @@ engine::error prefab_binding::create_node(std::size_t index, const object_descri
     return error::invalid_argument;
   auto& target = nodes_[index];
   target.address = {instance_uuid_, source.uuid};
-  if (source.mesh_renderer) {
+  if (source.components.template get<mesh_renderer_description>()) {
     if (!mesh || !material)
       return error::not_ready;
     if (!loader_.owns(mesh) || !loader_.owns(material))

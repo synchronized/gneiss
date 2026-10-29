@@ -53,8 +53,11 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
       },
   };
   const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
+  auto pending = description_.objects[index].components;
+  pending.set(std::move(author));
   auto changed = error::success;
-  if (!expected.mesh && !expected.material && !description_.objects[index].mesh_renderer) {
+  if (!expected.mesh && !expected.material &&
+      !description_.objects[index].components.template get<mesh_renderer_description>()) {
     changed = native_world_.entity_set_mesh_renderer(
         entity_id{scene_object_entity(native_world_, found->node)},
         {.mesh = replacement.mesh, .material = replacement.material});
@@ -64,7 +67,7 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
   if (changed != error::success) {
     return changed;
   }
-  description_.objects[index].mesh_renderer = std::move(author);
+  description_.objects[index].components = std::move(pending);
   return error::success;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;

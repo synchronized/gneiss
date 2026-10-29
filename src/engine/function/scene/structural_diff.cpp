@@ -3,6 +3,7 @@
 
 #include "engine/function/scene/structural_diff.hpp"
 #include "engine/core/error.hpp"
+#include "engine/function/scene/scene_object.hpp"
 
 #include <algorithm>
 #include <functional>
@@ -18,10 +19,9 @@ using gneiss::engine::mesh_renderer_description;
 using gneiss::engine::object_description;
 using object_index = std::unordered_map<std::string_view, std::size_t>;
 
-[[nodiscard]] bool
-equal_camera(const std::optional<gneiss::engine::camera_description>& left,
-             const std::optional<gneiss::engine::camera_description>& right) noexcept {
-  if (left.has_value() != right.has_value()) {
+[[nodiscard]] bool equal_camera(const gneiss::engine::camera_description* left,
+                                const gneiss::engine::camera_description* right) noexcept {
+  if ((left != nullptr) != (right != nullptr)) {
     return false;
   }
   return !left || (left->vertical_field_of_view_radians == right->vertical_field_of_view_radians &&
@@ -29,10 +29,10 @@ equal_camera(const std::optional<gneiss::engine::camera_description>& left,
                    left->is_primary == right->is_primary);
 }
 
-[[nodiscard]] bool equal_mesh_renderer(
-    const std::optional<gneiss::engine::mesh_renderer_description>& left,
-    const std::optional<gneiss::engine::mesh_renderer_description>& right) noexcept {
-  if (left.has_value() != right.has_value()) {
+[[nodiscard]] bool
+equal_mesh_renderer(const gneiss::engine::mesh_renderer_description* left,
+                    const gneiss::engine::mesh_renderer_description* right) noexcept {
+  if ((left != nullptr) != (right != nullptr)) {
     return false;
   }
   return !left || (left->mesh_uri == right->mesh_uri && left->material_uri == right->material_uri);
@@ -41,6 +41,11 @@ equal_camera(const std::optional<gneiss::engine::camera_description>& left,
 [[nodiscard]] gneiss::engine::error
 build_index(const std::vector<gneiss::engine::object_description>& objects, object_index& output,
             std::vector<std::size_t>& depths) {
+  for (const auto& object : objects) {
+    const auto status = gneiss::engine::validate_scene_components(object);
+    if (status.failed())
+      return status;
+  }
   output.reserve(objects.size());
   depths.assign(objects.size(), 0U);
   for (std::size_t index = 0U; index < objects.size(); ++index) {
@@ -98,10 +103,13 @@ compare_objects(const gneiss::engine::object_description& old_object,
       old_object.rotation != new_object.rotation || old_object.scale != new_object.scale) {
     changes = changes | structural_change::transform;
   }
-  if (!equal_camera(old_object.camera, new_object.camera)) {
+  if (!equal_camera(old_object.components.template get<gneiss::engine::camera_description>(),
+                    new_object.components.template get<gneiss::engine::camera_description>())) {
     changes = changes | structural_change::camera;
   }
-  if (!equal_mesh_renderer(old_object.mesh_renderer, new_object.mesh_renderer)) {
+  if (!equal_mesh_renderer(
+          old_object.components.template get<gneiss::engine::mesh_renderer_description>(),
+          new_object.components.template get<gneiss::engine::mesh_renderer_description>())) {
     changes = changes | structural_change::mesh_renderer;
   }
   return changes;

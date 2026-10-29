@@ -24,14 +24,17 @@
           1
         ]
       },
-      "components": {
-        "camera": {
-          "vertical_field_of_view_radians": 1.04719755,
-          "near_plane": 0.1,
-          "far_plane": 100,
-          "is_primary": true
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101",
+          "$content": {
+            "vertical_field_of_view_radians": 1.04719755,
+            "near_plane": 0.1,
+            "far_plane": 100,
+            "is_primary": true
+          }
         }
-      }
+      ]
     },
     {
       "uuid": "10000000-0000-4000-8000-000000000003",
@@ -54,12 +57,15 @@
           8
         ]
       },
-      "components": {
-        "mesh_renderer": {
-          "mesh": "asset://models/temple-box.mesh.json",
-          "material": "asset://materials/temple-ground.material.json"
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/temple-box.mesh.json",
+            "material": "asset://materials/temple-ground.material.json"
+          }
         }
-      }
+      ]
     },
     {
       "uuid": "10000000-0000-4000-8000-000000000004",
@@ -82,12 +88,15 @@
           0.7
         ]
       },
-      "components": {
-        "mesh_renderer": {
-          "mesh": "asset://models/temple-box.mesh.json",
-          "material": "asset://materials/temple-stone.material.json"
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/temple-box.mesh.json",
+            "material": "asset://materials/temple-stone.material.json"
+          }
         }
-      }
+      ]
     },
     {
       "uuid": "10000000-0000-4000-8000-000000000005",
@@ -110,12 +119,15 @@
           0.7
         ]
       },
-      "components": {
-        "mesh_renderer": {
-          "mesh": "asset://models/temple-box.mesh.json",
-          "material": "asset://materials/temple-stone.material.json"
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/temple-box.mesh.json",
+            "material": "asset://materials/temple-stone.material.json"
+          }
         }
-      }
+      ]
     },
     {
       "uuid": "10000000-0000-4000-8000-000000000006",
@@ -138,12 +150,15 @@
           0.9
         ]
       },
-      "components": {
-        "mesh_renderer": {
-          "mesh": "asset://models/temple-box.mesh.json",
-          "material": "asset://materials/temple-stone.material.json"
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/temple-box.mesh.json",
+            "material": "asset://materials/temple-stone.material.json"
+          }
         }
-      }
+      ]
     },
     {
       "uuid": "10000000-0000-4000-8000-000000000007",
@@ -166,12 +181,15 @@
           1.6
         ]
       },
-      "components": {
-        "mesh_renderer": {
-          "mesh": "asset://models/temple-box.mesh.json",
-          "material": "asset://materials/temple-moss.material.json"
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/temple-box.mesh.json",
+            "material": "asset://materials/temple-moss.material.json"
+          }
         }
-      }
+      ]
     },
     {
       "uuid": "10000000-0000-4000-8000-000000000008",
@@ -194,12 +212,15 @@
           0.12
         ]
       },
-      "components": {
-        "mesh_renderer": {
-          "mesh": "asset://models/temple-box.mesh.json",
-          "material": "asset://materials/temple-rune.material.json"
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/temple-box.mesh.json",
+            "material": "asset://materials/temple-rune.material.json"
+          }
         }
-      }
+      ]
     },
     {
       "uuid": "10000000-0000-4000-8000-000000000009",
@@ -222,12 +243,15 @@
           0.8
         ]
       },
-      "components": {
-        "mesh_renderer": {
-          "mesh": "asset://models/temple-box.mesh.json",
-          "material": "asset://materials/temple-stone.material.json"
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/temple-box.mesh.json",
+            "material": "asset://materials/temple-stone.material.json"
+          }
         }
-      }
+      ]
     },
     {
       "uuid": "10000000-0000-4000-8000-00000000000a",
@@ -250,12 +274,15 @@
           0.9
         ]
       },
-      "components": {
-        "mesh_renderer": {
-          "mesh": "asset://models/temple-box.mesh.json",
-          "material": "asset://materials/temple-untextured.material.json"
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/temple-box.mesh.json",
+            "material": "asset://materials/temple-untextured.material.json"
+          }
         }
-      }
+      ]
     }
   ]
 }

@@ -24,12 +24,15 @@
           1
         ]
       },
-      "components": {
-        "mesh_renderer": {
-          "mesh": "asset://models/missing.mesh.json",
-          "material": "asset://materials/missing.material.json"
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/missing.mesh.json",
+            "material": "asset://materials/missing.material.json"
+          }
         }
-      }
+      ]
     }
   ]
 }

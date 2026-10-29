@@ -151,6 +151,7 @@ target_sources(
     engine/function/scene/scene_instantiation.cpp
     engine/function/scene/scene_load_preparation.cpp
     engine/function/scene/scene_load_preparation.hpp
+    engine/resource/scene/component_description.hpp
     engine/resource/scene/scene_description.hpp
     engine/function/scene/scene_subtree_snapshot.hpp
     engine/function/scene/scene_creation.hpp

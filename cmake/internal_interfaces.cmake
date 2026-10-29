@@ -41,6 +41,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/resource/resource_request.hpp
   engine/function/resource/resource_service.hpp
   engine/function/resource/asset_types.hpp
+  engine/resource/scene/component_description.hpp
   engine/resource/scene/scene_codec.hpp
   engine/resource/scene/prefab_codec.hpp
   engine/resource/asset_uri.hpp

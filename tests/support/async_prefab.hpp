@@ -18,12 +18,12 @@ inline engine::error instantiate_prefab(runtime::application& app, scene_instanc
   std::vector<engine::scene_mesh_binding> bindings(source->objects.size());
   for (std::size_t i = 0; i < bindings.size(); ++i) {
     const auto& object = source->objects[i];
-    if (!object.mesh_renderer)
+    if (!object.components.get<engine::mesh_renderer_description>())
       continue;
-    bindings[i] = {
-        engine::asset_cast<engine::mesh_resource>(assets.at(object.mesh_renderer->mesh_uri)),
-        engine::asset_cast<engine::material_resource>(
-            assets.at(object.mesh_renderer->material_uri))};
+    bindings[i] = {engine::asset_cast<engine::mesh_resource>(assets.at(
+                       object.components.get<engine::mesh_renderer_description>()->mesh_uri)),
+                   engine::asset_cast<engine::material_resource>(assets.at(
+                       object.components.get<engine::mesh_renderer_description>()->material_uri))};
   }
   return app.scenes()->instantiate_prefab_ready(scene, author, source, bindings, replacing, root);
 }

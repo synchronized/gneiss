@@ -192,3 +192,6 @@ application 自动调用无参入口，重复无参调用返回首次结果。�
 首次注册失败或异常会保留失败结果，表不冻结；后续无参调用返回原错误，应修复后重新启动进程。
 已启动后再提供 callback 返回 `invalid_state`。不支持运行期扩充、重置默认表或插件热卸载。
 独立 registry 仍可通过 `create_registry()` 创建并按原接口注册、冻结，不受默认表状态影响。
+
+`type_info::type_id` 提供已注册 C++ 类型的进程内身份，供 GUID 分派后进行类型检查；不会持久化。
+默认启动也注册 Camera、MeshRenderer 的描述类型与 codec，文件协议见[场景格式](scene-format.md)。

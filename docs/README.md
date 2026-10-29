@@ -593,3 +593,4 @@
 
 
 - [场景对象身份迁移实施记录](records/scene-object-identities-2026-10-26.md)
+- [类型化组件描述列表](plans/PLAN-060-component-descriptions.md)

@@ -143,8 +143,8 @@ void run(gneiss::engine::execution_mode mode) {
   check(session.nodes().front().display_name == original_name &&
         session.prefab_nodes().size() == 2U);
   // 引入未准备依赖时失败，保留输出与当前实例，不触发加载。
-  changed_description.objects.front().mesh_renderer = engine::mesh_renderer_description{
-      .mesh_uri = "asset://missing.mesh.json", .material_uri = "asset://missing.material.json"};
+  changed_description.objects.front().components.set(engine::mesh_renderer_description{
+      .mesh_uri = "asset://missing.mesh.json", .material_uri = "asset://missing.material.json"});
   check(encode().ok());
   const editor::author_document_change missing{
       .path = "scenes/prefab.scene.json", .baseline = {}, .replacement = replacement};

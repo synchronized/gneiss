@@ -25,7 +25,7 @@
           1
         ]
       },
-      "components": {}
+      "components": []
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000001",
@@ -49,14 +49,17 @@
           1
         ]
       },
-      "components": {
-        "camera": {
-          "vertical_field_of_view_radians": 1.04719755,
-          "near_plane": 0.1,
-          "far_plane": 100,
-          "is_primary": true
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101",
+          "$content": {
+            "vertical_field_of_view_radians": 1.04719755,
+            "near_plane": 0.1,
+            "far_plane": 100,
+            "is_primary": true
+          }
         }
-      }
+      ]
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000002",
@@ -80,12 +83,15 @@
           7
         ]
       },
-      "components": {
-        "mesh_renderer": {
-          "mesh": "asset://models/gallery-box.mesh.json",
-          "material": "asset://materials/gallery-stone.material.json"
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/gallery-box.mesh.json",
+            "material": "asset://materials/gallery-stone.material.json"
+          }
         }
-      }
+      ]
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000003",
@@ -109,12 +115,15 @@
           0.55
         ]
       },
-      "components": {
-        "mesh_renderer": {
-          "mesh": "asset://models/gallery-box.mesh.json",
-          "material": "asset://materials/gallery-stone.material.json"
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/gallery-box.mesh.json",
+            "material": "asset://materials/gallery-stone.material.json"
+          }
         }
-      }
+      ]
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000004",
@@ -138,12 +147,15 @@
           0.55
         ]
       },
-      "components": {
-        "mesh_renderer": {
-          "mesh": "asset://models/gallery-box.mesh.json",
-          "material": "asset://materials/gallery-stone.material.json"
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/gallery-box.mesh.json",
+            "material": "asset://materials/gallery-stone.material.json"
+          }
         }
-      }
+      ]
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000005",
@@ -167,12 +179,15 @@
           0.55
         ]
       },
-      "components": {
-        "mesh_renderer": {
-          "mesh": "asset://models/gallery-box.mesh.json",
-          "material": "asset://materials/gallery-stone.material.json"
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/gallery-box.mesh.json",
+            "material": "asset://materials/gallery-stone.material.json"
+          }
         }
-      }
+      ]
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000006",
@@ -196,12 +211,15 @@
           0.55
         ]
       },
-      "components": {
-        "mesh_renderer": {
-          "mesh": "asset://models/gallery-box.mesh.json",
-          "material": "asset://materials/gallery-stone.material.json"
+      "components": [
+        {
+          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
+          "$content": {
+            "mesh": "asset://models/gallery-box.mesh.json",
+            "material": "asset://materials/gallery-stone.material.json"
+          }
         }
-      }
+      ]
     },
     {
       "parent": "20000000-0000-4000-8000-000000000040",

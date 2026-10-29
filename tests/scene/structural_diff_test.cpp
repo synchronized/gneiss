@@ -21,8 +21,7 @@ gneiss::engine::object_description object(std::string uuid,
           .translation = {},
           .rotation = gneiss::engine::math::quaternion_xyzw(0.0F, 0.0F, 0.0F, 1.0F),
           .scale = {1.0F, 1.0F, 1.0F},
-          .camera = std::nullopt,
-          .mesh_renderer = std::nullopt};
+          .components = {}};
 }
 
 bool test_ordering() {
@@ -42,17 +41,17 @@ bool test_updates() {
   using namespace gneiss::engine;
   auto previous = object("node", "old-parent");
   previous.name = "旧名称";
-  previous.camera = gneiss::engine::camera_description{.vertical_field_of_view_radians = 1.0F,
-                                                       .near_plane = 0.1F,
-                                                       .far_plane = 10.0F,
-                                                       .is_primary = false};
+  previous.components.set(gneiss::engine::camera_description{.vertical_field_of_view_radians = 1.0F,
+                                                             .near_plane = 0.1F,
+                                                             .far_plane = 10.0F,
+                                                             .is_primary = false});
   auto current = previous;
   current.name = "新名称";
   current.parent_uuid = "new-parent";
   current.translation[0] = 2.0F;
-  current.camera.reset();
-  current.mesh_renderer = gneiss::engine::mesh_renderer_description{
-      .mesh_uri = "asset://mesh", .material_uri = "asset://material"};
+  current.components.erase<gneiss::engine::camera_description>();
+  current.components.set(gneiss::engine::mesh_renderer_description{
+      .mesh_uri = "asset://mesh", .material_uri = "asset://material"});
   const std::vector old_objects{object("old-parent"), object("new-parent"), previous};
   const std::vector new_objects{object("new-parent"), object("old-parent"), current};
   structural_diff difference;

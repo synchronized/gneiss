@@ -65,10 +65,12 @@ gneiss::engine::error prefab_placement::freeze(
   };
   for (std::size_t i = 0; i < binding.source_nodes.size(); ++i) {
     const auto& object = binding.prefab->objects[i];
-    if (object.mesh_renderer)
+    if (object.components.get<engine::mesh_renderer_description>())
       binding.source_nodes[i] = {
-          engine::asset_cast<engine::mesh_resource>(find(object.mesh_renderer->mesh_uri)),
-          engine::asset_cast<engine::material_resource>(find(object.mesh_renderer->material_uri))};
+          engine::asset_cast<engine::mesh_resource>(
+              find(object.components.get<engine::mesh_renderer_description>()->mesh_uri)),
+          engine::asset_cast<engine::material_resource>(
+              find(object.components.get<engine::mesh_renderer_description>()->material_uri))};
   }
   output = std::move(value);
   return gneiss::engine::error::success;

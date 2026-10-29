@@ -3,6 +3,7 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
+#include "engine/resource/scene/scene_codec.hpp"
 #include <mutex>
 #include <new>
 namespace gneiss::engine {
@@ -21,6 +22,8 @@ error initialize_meta(meta_registration_callback callback) noexcept try {
     if (!registry)
       return status = registry.error();
     status = register_reflection(*registry);
+    if (status.ok())
+      status = register_component_descriptions(*registry);
     if (status.ok())
       status = register_material_reflection(*registry);
     if (status.ok())

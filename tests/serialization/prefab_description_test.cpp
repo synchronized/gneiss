@@ -33,14 +33,14 @@ constexpr std::string_view valid_prefab = R"({
       "name":"Prefab Root",
       "parent":null,
       "transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[1,1,1]},
-      "components":{"mesh_renderer":{"mesh":"asset://models/lantern.mesh","material":"asset://materials/lantern.material"}}
+      "components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/lantern.mesh","material":"asset://materials/lantern.material"}}]
     },
     {
       "uuid":"10000000-0000-4000-8000-000000000003",
       "name":"Child",
       "parent":"10000000-0000-4000-8000-000000000002",
       "transform":{"translation":[0,1,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
-      "components":{}
+      "components":[]
     }
   ]
 })";
@@ -178,7 +178,7 @@ bool prepared_description_contract() {
 int main() try {
   if (gneiss::engine::initialize_meta().failed())
     return 99;
-  const auto nested = replace_once(std::string(valid_prefab), R"("components":{})",
+  const auto nested = replace_once(std::string(valid_prefab), R"("components":[])",
                                    R"("prefab":{"uri":"asset://nested.prefab","overrides":[]})");
   const auto parsed_nested = gneiss::engine::parse_prefab_description(nested);
   if (parsed_nested || parsed_nested.error().error != gneiss::engine::error::unsupported)

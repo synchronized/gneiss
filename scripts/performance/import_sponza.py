@@ -46,17 +46,17 @@ def main():
     scene = json.loads(scene_path.read_text(encoding="utf-8"))
     expected_renderers = sum(len(source["meshes"][n["mesh"]]["primitives"])
                              for n in source["nodes"] if "mesh" in n)
-    actual_renderers = sum("mesh_renderer" in n["components"] for n in scene["objects"])
+    actual_renderers = sum(any(c["$type_guid"] == "11a0217a-2eab-4f61-8011-4a63a26e0102" for c in n["components"]) for n in scene["objects"])
     if actual_renderers != expected_renderers:
         raise RuntimeError(f"实例数量不一致：{actual_renderers} != {expected_renderers}")
     camera_index = next(i for i, n in enumerate(source["nodes"]) if n.get("camera") == 0)
     camera_uuid = f"00000000-0000-4000-8000-{camera_index + 1:012x}"
     camera = next(n for n in scene["objects"] if n["uuid"] == camera_uuid)
     projection = source["cameras"][0]["perspective"]
-    camera["components"]["camera"] = {
+    camera["components"].append({"$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101", "$content": {
         "vertical_field_of_view_radians": projection["yfov"], "near_plane": projection["znear"],
         "far_plane": projection["zfar"], "is_primary": True,
-    }
+    }})
     scene_path.write_text(json.dumps(scene, indent=2) + "\n", encoding="utf-8")
     shutil.copyfile(source_root / LICENSE, output / "credits_license.txt")
     report = {"profile": audit["profile"], "archive_sha256": audit["archive_sha256"],

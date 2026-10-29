@@ -170,6 +170,7 @@ struct type_record {
 
 [[nodiscard]] type_info describe_record(const type_record& record) {
   type_info pending{.guid = record.guid,
+                    .type_id = record.type_id,
                     .schema_version = record.schema_version,
                     .name = record.name,
                     .properties = {}};

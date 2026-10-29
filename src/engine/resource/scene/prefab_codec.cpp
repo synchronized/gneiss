@@ -154,9 +154,12 @@ parse_prefab_description(std::string_view json) noexcept try {
   out_prefab.uuid = prefab_uuid;
   out_prefab.objects = std::move(scene.objects);
   for (const auto& object : out_prefab.objects) {
-    if (object.mesh_renderer) {
-      out_prefab.dependencies.push_back(object.mesh_renderer->mesh_uri);
-      out_prefab.dependencies.push_back(object.mesh_renderer->material_uri);
+    if (object.components.template get<gneiss::engine::mesh_renderer_description>()) {
+      out_prefab.dependencies.push_back(
+          object.components.template get<gneiss::engine::mesh_renderer_description>()->mesh_uri);
+      out_prefab.dependencies.push_back(
+          object.components.template get<gneiss::engine::mesh_renderer_description>()
+              ->material_uri);
     }
   }
   std::ranges::sort(out_prefab.dependencies);

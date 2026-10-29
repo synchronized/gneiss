@@ -109,7 +109,7 @@ error commit_object(world& native_world, const object_description& source, stage
 }
 
 engine::error apply_camera(world& native_world, std::uint64_t entity,
-                           const std::optional<engine::camera_description>& camera) noexcept {
+                           const gneiss::engine::camera_description* camera) noexcept {
   if (!camera) {
     const auto result = native_world.entity_remove_camera(gneiss::entity_id{entity});
     return result == engine::error::not_found ? engine::error::success : result;
@@ -198,7 +198,7 @@ engine::error scene_instance::create_staged_node(std::size_t index, scene_node_i
   if (index >= objects_.size() || objects_[index].node)
     return error::invalid_state;
   const auto& source = description_.objects[index];
-  if (source.mesh_renderer) {
+  if (source.components.template get<mesh_renderer_description>()) {
     if (!mesh || !material)
       return error::not_ready;
     if (!loader_.owns(mesh) || !loader_.owns(material))
@@ -251,12 +251,14 @@ engine::error scene_instance::reload(scene_description candidate) {
       target.entity = scene_object_entity(native_world_, objects_[previous->second].node);
       target.node = objects_[previous->second].node;
     }
-    if (source.mesh_renderer) {
+    if (source.components.template get<mesh_renderer_description>()) {
       result = [&] {
         render_asset_ref cached;
         auto status = engine::error::success;
         {
-          auto loaded = loader_.find({source.mesh_renderer->mesh_uri, asset_type::mesh});
+          auto loaded =
+              loader_.find({source.components.template get<mesh_renderer_description>()->mesh_uri,
+                            asset_type::mesh});
           if (loaded)
             cached = std::move(*loaded);
           else {
@@ -273,7 +275,9 @@ engine::error scene_instance::reload(scene_description candidate) {
           render_asset_ref cached;
           auto status = engine::error::success;
           {
-            auto loaded = loader_.find({source.mesh_renderer->material_uri, asset_type::material});
+            auto loaded = loader_.find(
+                {source.components.template get<mesh_renderer_description>()->material_uri,
+                 asset_type::material});
             if (loaded)
               cached = std::move(*loaded);
             else {
@@ -367,7 +371,8 @@ engine::error scene_instance::reload(scene_description candidate) {
                                                      snapshot.transform);
       }
       if (has_change(snapshot.changes, structural_change::camera)) {
-        (void)apply_camera(native_world_, target.entity, snapshot.camera);
+        (void)apply_camera(native_world_, target.entity,
+                           snapshot.camera ? &*snapshot.camera : nullptr);
       }
       if (has_change(snapshot.changes, structural_change::mesh_renderer)) {
         if (snapshot.renderer.mesh) {
@@ -438,11 +443,14 @@ engine::error scene_instance::reload(scene_description candidate) {
           native_world_.node_set_local_transform(gneiss::scene_node_id{target.node}, transform);
     }
     if (result == engine::error::success && has_change(update.changes, structural_change::camera)) {
-      result = apply_camera(native_world_, target.entity, source.camera);
+      result = apply_camera(native_world_, target.entity,
+                            source.components.template get<camera_description>());
     }
     if (result == engine::error::success &&
         has_change(update.changes, structural_change::mesh_renderer)) {
-      result = apply_mesh_renderer(native_world_, target, source.mesh_renderer.has_value());
+      result = apply_mesh_renderer(native_world_, target,
+                                   source.components.template get<mesh_renderer_description>() !=
+                                       nullptr);
     }
     if (result != engine::error::success) {
       rollback_updates();
@@ -724,8 +732,7 @@ engine::error scene_instance::create_node(const node_creation& desc, scene_node_
                               .translation = {},
                               .rotation = {},
                               .scale = {},
-                              .camera = std::nullopt,
-                              .mesh_renderer = std::nullopt};
+                              .components = {}};
     author.translation = desc.local_transform.translation;
     author.rotation = desc.local_transform.rotation;
     author.scale = desc.local_transform.scale;
@@ -844,7 +851,7 @@ engine::error scene_instance::capture_subtree(scene_node_id root,
         if (status.failed())
           return status;
       }
-    } else if (author.mesh_renderer) {
+    } else if (author.components.template get<mesh_renderer_description>()) {
       const auto renderer = native_world_.node_mesh_renderer(find_node(author.uuid));
       if (!renderer)
         return renderer.error();
@@ -914,8 +921,8 @@ engine::error scene_instance::restore_subtree(const scene_subtree_snapshot& snap
     author.uuid = remap.at(original.uuid);
     if (author.parent_uuid)
       author.parent_uuid = remap.at(*author.parent_uuid);
-    if (!mappings.empty() && author.camera)
-      author.camera->is_primary = false;
+    if (!mappings.empty() && author.components.template get<camera_description>())
+      author.components.update<camera_description>([&](auto& value) { value.is_primary = false; });
     const auto asset = snapshot.resources.find(original.uuid);
     const auto node_parent =
         author.parent_uuid ? staged.find_node(*author.parent_uuid) : scene_node_id{};
@@ -927,12 +934,14 @@ engine::error scene_instance::restore_subtree(const scene_subtree_snapshot& snap
                                                asset->second.source_nodes, false, created);
     } else {
       scene_mesh_binding resources;
-      if (author.mesh_renderer) {
+      if (author.components.template get<mesh_renderer_description>()) {
         if (asset == snapshot.resources.end())
           return error::not_found;
         resources = asset->second.renderer;
-        if (asset_uri(resources.mesh) != author.mesh_renderer->mesh_uri ||
-            asset_uri(resources.material) != author.mesh_renderer->material_uri)
+        if (asset_uri(resources.mesh) !=
+                author.components.template get<mesh_renderer_description>()->mesh_uri ||
+            asset_uri(resources.material) !=
+                author.components.template get<mesh_renderer_description>()->material_uri)
           return error::not_found;
         if (!loader_.owns(resources.mesh) || !loader_.owns(resources.material))
           return error::invalid_handle;
@@ -1068,9 +1077,8 @@ engine::error scene_instance::create_mesh_renderer_node(const mesh_renderer_node
         .translation = {},
         .rotation = math::quaternion_xyzw(0.0F, 0.0F, 0.0F, 1.0F),
         .scale = {1.0F, 1.0F, 1.0F},
-        .camera = std::nullopt,
-        .mesh_renderer = engine::mesh_renderer_description{
-            .mesh_uri = std::string(mesh_uri), .material_uri = std::string(material_uri)}};
+        .components = {engine::mesh_renderer_description{
+            .mesh_uri = std::string(mesh_uri), .material_uri = std::string(material_uri)}}};
     objects_.reserve(objects_.size() + 1U);
     description_.objects.reserve(description_.objects.size() + 1U);
     staged_object target{};
@@ -1172,14 +1180,16 @@ engine::error scene_instance::set_mesh_renderer(scene_node_id node, std::string_
     if (result != engine::error::success) {
       return result;
     }
+    const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
+    auto pending = description_.objects[index].components;
+    pending.set(std::move(author));
     const engine::mesh_renderer renderer{.mesh = mesh, .material = material};
     result = native_world_.entity_set_mesh_renderer(
         gneiss::entity_id{scene_object_entity(native_world_, found->node)}, renderer);
     if (result != engine::error::success) {
       return result;
     }
-    const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
-    description_.objects[index].mesh_renderer = std::move(author);
+    description_.objects[index].components = std::move(pending);
     loader_.collect_unused();
     return engine::error::success;
   } catch (const std::bad_alloc&) {
@@ -1190,11 +1200,22 @@ engine::error scene_instance::set_mesh_renderer(scene_node_id node, std::string_
 }
 
 engine::error scene_instance::set_camera(scene_node_id node,
-                                         const engine::camera_description& desc) {
+                                         const engine::camera_description& desc) try {
   const auto found = find_ordinary_node(node);
   if (found == objects_.end()) {
     return engine::error::invalid_handle;
   }
+  auto pending = description_.objects;
+  const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
+  if (desc.is_primary) {
+    for (auto& author : pending) {
+      if (author.components.template get<camera_description>()) {
+        author.components.update<camera_description>(
+            [&](auto& value) { value.is_primary = false; });
+      }
+    }
+  }
+  pending[index].components.set(desc);
   const auto result = native_world_.entity_configure_camera(
       gneiss::entity_id{scene_object_entity(native_world_, found->node)},
       {.fov = desc.vertical_field_of_view_radians, .near = desc.near_plane, .far = desc.far_plane});
@@ -1208,16 +1229,12 @@ engine::error scene_instance::set_camera(scene_node_id node,
       return active_result;
     }
   }
-  const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
-  if (desc.is_primary) {
-    for (auto& author : description_.objects) {
-      if (author.camera) {
-        author.camera->is_primary = false;
-      }
-    }
-  }
-  description_.objects[index].camera = desc;
+  description_.objects = std::move(pending);
   return engine::error::success;
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
 }
 
 engine::error scene_instance::remove_camera(scene_node_id node) {
@@ -1229,7 +1246,7 @@ engine::error scene_instance::remove_camera(scene_node_id node) {
   const auto result = native_world_.entity_remove_camera(
       gneiss::entity_id{scene_object_entity(native_world_, found->node)});
   if (result == engine::error::success) {
-    description_.objects[index].camera.reset();
+    description_.objects[index].components.erase<camera_description>();
   }
   return result;
 }
@@ -1245,7 +1262,7 @@ engine::error scene_instance::remove_mesh_renderer(scene_node_id node) {
   if (result != engine::error::success) {
     return result;
   }
-  description_.objects[index].mesh_renderer.reset();
+  description_.objects[index].components.erase<mesh_renderer_description>();
   loader_.collect_unused();
   return engine::error::success;
 }
@@ -1306,10 +1323,10 @@ engine::error scene_instance::capture_description(scene_description& output) con
     }
     auto renderer = native_world_.node_mesh_renderer(runtime.node);
     if (renderer)
-      author.mesh_renderer = mesh_renderer_description{std::string(asset_uri(renderer->mesh)),
-                                                       std::string(asset_uri(renderer->material))};
+      author.components.set(mesh_renderer_description{std::string(asset_uri(renderer->mesh)),
+                                                      std::string(asset_uri(renderer->material))});
     else if (renderer.error() == error::not_found)
-      author.mesh_renderer.reset();
+      author.components.erase<mesh_renderer_description>();
     else
       return renderer.error();
     math::transform transform = {};
@@ -1325,11 +1342,11 @@ engine::error scene_instance::capture_description(scene_description& output) con
     result = native_world_.entity_get_camera(
         entity_id{scene_object_entity(native_world_, runtime.node)}, camera);
     if (result.ok()) {
-      author.camera =
+      author.components.set(
           camera_description{camera.fov, camera.near, camera.far,
-                             scene_object_entity(native_world_, runtime.node) == active_camera};
+                             scene_object_entity(native_world_, runtime.node) == active_camera});
     } else if (result == error::not_found)
-      author.camera.reset();
+      author.components.erase<camera_description>();
     else
       return result;
   }

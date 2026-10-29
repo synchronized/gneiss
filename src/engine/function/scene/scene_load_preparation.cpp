@@ -69,19 +69,23 @@ public:
   engine::error collect(const std::vector<object_description>& objects) {
     using engine::asset_type;
     for (const auto& object : objects) {
+      for (const auto& component : object.components) {
+        if (!component.get<camera_description>() && !component.get<mesh_renderer_description>())
+          return error::unsupported;
+      }
       if (cancelled && cancelled()) {
         return engine::error::invalid_state;
       }
-      if (!object.mesh_renderer) {
+      if (!object.components.template get<mesh_renderer_description>()) {
         continue;
       }
       for (const auto& asset : {
                engine::asset_source{
-                   .uri = object.mesh_renderer->mesh_uri,
+                   .uri = object.components.template get<mesh_renderer_description>()->mesh_uri,
                    .type = asset_type::mesh,
                },
                engine::asset_source{
-                   .uri = object.mesh_renderer->material_uri,
+                   .uri = object.components.template get<mesh_renderer_description>()->material_uri,
                    .type = asset_type::material,
                },
            }) {

@@ -26,7 +26,7 @@ void write_scene(const std::filesystem::path& path, std::string_view child_compo
   const std::string json =
       std::string{R"({"format":"gneiss.scene","version":5,"scene_uuid":")"} +
       std::string{scene_uuid} + R"(","objects":[{"uuid":")" + std::string{camera_uuid} +
-      R"(","name":"Main Camera","parent":null,"transform":{"translation":[4.0,0.0,2.0],"rotation":[0.0,0.0,0.0,1.0],"scale":[1.0,1.0,1.0]},"components":{"camera":{"vertical_field_of_view_radians":1.0,"near_plane":0.2,"far_plane":500.0,"is_primary":true}}},{"uuid":")" +
+      R"(","name":"Main Camera","parent":null,"transform":{"translation":[4.0,0.0,2.0],"rotation":[0.0,0.0,0.0,1.0],"scale":[1.0,1.0,1.0]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"vertical_field_of_view_radians":1.0,"near_plane":0.2,"far_plane":500.0,"is_primary":true}}]},{"uuid":")" +
       std::string{new_child_uuid} + R"(","name":"New Child","parent":")" +
       std::string{camera_uuid} +
       R"(","transform":{"translation":[1.0,2.0,3.0],"rotation":[0.0,0.0,0.0,1.0],"scale":[1.0,1.0,1.0]},"components":)" +
@@ -66,7 +66,7 @@ int main() try {
   }
 
   const auto retired_child = old_child;
-  write_scene(scene_path, "{}");
+  write_scene(scene_path, "[]");
   if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, uri, false) !=
       gneiss::engine::error::success) {
     return 2;
@@ -94,7 +94,7 @@ int main() try {
 
   write_scene(
       scene_path,
-      R"({"mesh_renderer":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/triangle.material.json"}})");
+      R"([{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/triangle.material.json"}}])");
   if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, uri, false) !=
           gneiss::engine::error::not_found ||
       application->scenes()->find_node(scene, camera_uuid, camera_after) !=

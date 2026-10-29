@@ -22,10 +22,10 @@
 namespace {
 
 constexpr std::string_view valid_scene =
-    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,1,2],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"camera":{"vertical_field_of_view_radians":1.0,"near_plane":0.1,"far_plane":100,"is_primary":true}}},{"uuid":"00000000-0000-4000-8000-000000000003","parent":"00000000-0000-4000-8000-000000000002","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material"}}}],"unknown":true})";
+    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,1,2],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"vertical_field_of_view_radians":1.0,"near_plane":0.1,"far_plane":100,"is_primary":true}}]},{"uuid":"00000000-0000-4000-8000-000000000003","parent":"00000000-0000-4000-8000-000000000002","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material"}}]}],"unknown":true})";
 
 constexpr std::string_view prefab_scene =
-    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{}},{"name":"Lamp","parent":"00000000-0000-4000-8000-000000000002","prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","type_guid":"69644f20b2d24e488c7491f4f952ec2d","property_id":1,"value":{"kind":"vec3","value":[4,5,6]}}]},"transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[2,2,2]},"unknown":true,"uuid":"00000000-0000-4000-8000-000000000010"}]})";
+    R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"name":"Lamp","parent":"00000000-0000-4000-8000-000000000002","prefab":{"uri":"asset://prefabs/lamp.prefab.json","overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","type_guid":"69644f20b2d24e488c7491f4f952ec2d","property_id":1,"value":{"kind":"vec3","value":[4,5,6]}}]},"transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[2,2,2]},"unknown":true,"uuid":"00000000-0000-4000-8000-000000000010"}]})";
 
 [[nodiscard]] std::string replace_once(std::string text, std::string_view source,
                                        std::string_view replacement) {
@@ -134,8 +134,9 @@ int main() try {
   std::string serialized;
   if (gneiss::test_support::assign_decoded(gneiss::engine::parse_scene_description(valid_scene),
                                            scene, diagnostic) != gneiss::engine::error::success ||
-      scene.source_schema_version != 5U || scene.objects.size() != 2U || !scene.objects[0].camera ||
-      !scene.objects[1].mesh_renderer ||
+      scene.source_schema_version != 5U || scene.objects.size() != 2U ||
+      !scene.objects[0].components.template get<gneiss::engine::camera_description>() ||
+      !scene.objects[1].components.template get<gneiss::engine::mesh_renderer_description>() ||
       gneiss::test_support::assign_value(gneiss::engine::serialize_scene_description(scene),
                                          serialized) != gneiss::engine::error::success ||
       serialized.find(R"("unknown":true)") == std::string::npos) {
@@ -169,7 +170,7 @@ int main() try {
       !fails_with(missing_parent, gneiss::engine::error::invalid_argument, "/objects/1/parent") ||
       !fails_with(cycle, gneiss::engine::error::invalid_argument, "/objects/0/parent") ||
       !fails_with(invalid_uri, gneiss::engine::error::invalid_argument,
-                  "/objects/1/components/mesh_renderer") ||
+                  "/objects/1/components/0/$content") ||
       !fails_with(invalid_scale, gneiss::engine::error::invalid_argument, "/objects/0/transform") ||
       !fails_with(invalid_rotation, gneiss::engine::error::invalid_argument,
                   "/objects/0/transform")) {

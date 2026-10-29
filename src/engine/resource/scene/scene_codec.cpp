@@ -3,6 +3,7 @@
 
 #include "engine/resource/scene/scene_codec.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/meta/registration.hpp"
 #include <cstring>
 
 #include "engine/resource/asset_uri.hpp"
@@ -193,24 +194,46 @@ template <std::size_t Size>
 [[nodiscard]] bool parse_components(yyjson_val* value, std::string_view path,
                                     gneiss::engine::object_description& output,
                                     scene_diagnostic& diagnostic) {
-  if (!yyjson_is_obj(value)) {
-    if (diagnostic.error == gneiss::engine::error::success) {
-      fail(diagnostic, gneiss::engine::error::invalid_argument, path, "components 必须是对象");
-    }
+  using namespace gneiss::engine;
+  if (!yyjson_is_arr(value)) {
+    fail(diagnostic, error::invalid_argument, path, "components 必须是数组");
     return false;
   }
-  if (yyjson_val* camera = yyjson_obj_get(value, "camera"); camera != nullptr) {
-    output.camera.emplace();
-    if (!parse_camera(camera, std::string(path) + "/camera", *output.camera, diagnostic)) {
+  std::size_t index, count;
+  yyjson_val* entry;
+  yyjson_arr_foreach(value, index, count, entry) {
+    const auto location = std::string(path) + "/" + std::to_string(index);
+    auto* type = yyjson_obj_get(entry, "$type_guid");
+    auto* content = yyjson_obj_get(entry, "$content");
+    auto id = yyjson_is_str(type) ? guid::parse(json_string(type)) : std::nullopt;
+    if (!yyjson_is_obj(entry) || !id || !*id || !is_canonical_uuid(json_string(type))) {
+      fail(diagnostic, error::invalid_argument, location + "/$type_guid",
+           "组件类型必须是规范 GUID");
       return false;
     }
-  }
-  if (yyjson_val* renderer = yyjson_obj_get(value, "mesh_renderer"); renderer != nullptr) {
-    output.mesh_renderer.emplace();
-    if (!parse_mesh_renderer(renderer, std::string(path) + "/mesh_renderer", *output.mesh_renderer,
-                             diagnostic)) {
+    if (output.components.find(*id)) {
+      fail(diagnostic, error::invalid_argument, location + "/$type_guid", "重复组件描述类型");
       return false;
     }
+    if (!yyjson_is_obj(content)) {
+      fail(diagnostic, error::invalid_argument, location + "/$content", "组件内容必须是对象");
+      return false;
+    }
+    std::size_t length{};
+    std::unique_ptr<char, decltype(&std::free)> text(yyjson_val_write(content, 0, &length),
+                                                     &std::free);
+    if (!text) {
+      fail(diagnostic, error::out_of_memory, location, "组件内容分配失败");
+      return false;
+    }
+    auto decoded = component_description::decode(*id, std::as_bytes(std::span{text.get(), length}));
+    if (!decoded) {
+      fail(diagnostic, decoded.error().error, location + "/$content" + decoded.error().path,
+           decoded.error().message.empty() ? "组件类型未注册或内容无法解码"
+                                           : decoded.error().message);
+      return false;
+    }
+    output.components.set(std::move(*decoded));
   }
   return true;
 }
@@ -266,7 +289,7 @@ template <std::size_t Size>
   auto* prefab = yyjson_obj_get(value, "prefab");
   auto* components = yyjson_obj_get(value, "components");
   if (prefab) {
-    if (components && (!yyjson_is_obj(components) || yyjson_obj_size(components) != 0)) {
+    if (components && (!yyjson_is_arr(components) || yyjson_arr_size(components) != 0)) {
       fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/components",
            "Prefab 引用与独立组件不能同时定义");
       return false;
@@ -487,8 +510,10 @@ template <class T>
       }
     }
   }
-  const auto primary_camera_count = std::ranges::count_if(
-      scene.objects, [](const auto& object) { return object.camera && object.camera->is_primary; });
+  const auto primary_camera_count = std::ranges::count_if(scene.objects, [](const auto& object) {
+    auto* camera = object.components.template get<gneiss::engine::camera_description>();
+    return camera && camera->is_primary;
+  });
   if (primary_camera_count > 1) {
     fail(diagnostic, gneiss::engine::error::invalid_argument, "/objects",
          "场景最多只能包含一个主相机");
@@ -545,11 +570,47 @@ template <class Values>
          yyjson_mut_obj_put(object, yyjson_mut_strcpy(document, name), value);
 }
 
+[[nodiscard]] gneiss::engine::result<yyjson_mut_val*>
+make_components(yyjson_mut_doc* document, const gneiss::engine::component_descriptions& values,
+                yyjson_mut_val* previous = nullptr) {
+  auto* array = yyjson_mut_arr(document);
+  if (!array)
+    return gneiss::engine::error::out_of_memory;
+  for (const auto& value : values) {
+    auto encoded = value.encode();
+    if (!encoded)
+      return encoded.error().error;
+    std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> decoded(
+        yyjson_read(reinterpret_cast<const char*>(encoded->data()), encoded->size(), 0),
+        &yyjson_doc_free);
+    if (!decoded || !yyjson_is_obj(yyjson_doc_get_root(decoded.get())))
+      return gneiss::engine::error::invalid_argument;
+    const auto type = value.guid().string();
+    auto* entry = yyjson_mut_obj(document);
+    if (yyjson_mut_is_arr(previous)) {
+      auto it = yyjson_mut_arr_iter_with(previous);
+      while (auto* old = yyjson_mut_arr_iter_next(&it)) {
+        auto* old_type = yyjson_mut_obj_get(old, "$type_guid");
+        if (yyjson_mut_is_str(old_type) && type == yyjson_mut_get_str(old_type)) {
+          entry = yyjson_mut_val_mut_copy(document, old);
+          break;
+        }
+      }
+    }
+    // 内容完全由 codec 输出；不能合并旧字段，否则省略的默认值或删除的字段会复活。
+    auto* content = yyjson_val_mut_copy(document, yyjson_doc_get_root(decoded.get()));
+    if (!put_value(document, entry, "$type_guid", yyjson_mut_strcpy(document, type.c_str())) ||
+        !put_value(document, entry, "$content", content) || !yyjson_mut_arr_add_val(array, entry))
+      return gneiss::engine::error::out_of_memory;
+  }
+  return array;
+}
+
 [[nodiscard]] yyjson_mut_val* make_author_object(yyjson_mut_doc* document,
                                                  const gneiss::engine::object_description& source) {
   auto* object = yyjson_mut_obj(document);
   auto* transform = yyjson_mut_obj(document);
-  auto* components = yyjson_mut_obj(document);
+  auto* components = yyjson_mut_arr(document);
   if (object == nullptr || transform == nullptr || components == nullptr ||
       !yyjson_mut_obj_add_strncpy(document, object, "uuid", source.uuid.data(),
                                   source.uuid.size()) ||
@@ -566,31 +627,6 @@ template <class Values>
       !put_value(document, transform, "scale", make_float_array(document, source.scale)) ||
       !put_value(document, object, "transform", transform)) {
     return nullptr;
-  }
-  if (source.mesh_renderer) {
-    auto* renderer = yyjson_mut_obj(document);
-    if (renderer == nullptr ||
-        !yyjson_mut_obj_add_strncpy(document, renderer, "mesh",
-                                    source.mesh_renderer->mesh_uri.data(),
-                                    source.mesh_renderer->mesh_uri.size()) ||
-        !yyjson_mut_obj_add_strncpy(document, renderer, "material",
-                                    source.mesh_renderer->material_uri.data(),
-                                    source.mesh_renderer->material_uri.size()) ||
-        !put_value(document, components, "mesh_renderer", renderer)) {
-      return nullptr;
-    }
-  }
-  if (source.camera) {
-    auto* camera = yyjson_mut_obj(document);
-    if (camera == nullptr ||
-        !yyjson_mut_obj_add_real(document, camera, "vertical_field_of_view_radians",
-                                 source.camera->vertical_field_of_view_radians) ||
-        !yyjson_mut_obj_add_real(document, camera, "near_plane", source.camera->near_plane) ||
-        !yyjson_mut_obj_add_real(document, camera, "far_plane", source.camera->far_plane) ||
-        !yyjson_mut_obj_add_bool(document, camera, "is_primary", source.camera->is_primary) ||
-        !put_value(document, components, "camera", camera)) {
-      return nullptr;
-    }
   }
   return put_value(document, object, "components", components) ? object : nullptr;
 }
@@ -845,7 +881,6 @@ result<scene_description, scene_diagnostic> parse_scene_description(std::string_
 
 result<std::string> serialize_scene_description(const scene_description& scene) noexcept try {
   std::string out_json;
-
   if (scene.author_json.empty()) {
     return engine::error::invalid_state;
   }
@@ -924,7 +959,7 @@ result<std::string> serialize_scene_description(const scene_description& scene) 
       return engine::error::out_of_memory;
     }
     if (source.prefab) {
-      if (source.camera || source.mesh_renderer)
+      if (!source.components.empty())
         return engine::error::invalid_argument;
       auto* prefab = yyjson_mut_obj_get(object, "prefab");
       if (!prefab)
@@ -941,58 +976,12 @@ result<std::string> serialize_scene_description(const scene_description& scene) 
       continue;
     }
     (void)yyjson_mut_obj_remove_key(object, "prefab");
-    auto* components = yyjson_mut_obj_get(object, "components");
-    if (!components) {
-      components = yyjson_mut_obj(mutable_document.get());
-      if (!put_value(mutable_document.get(), object, "components", components))
-        return engine::error::out_of_memory;
-    }
-    if (source.camera) {
-      yyjson_mut_val* camera =
-          yyjson_mut_obj_get(yyjson_mut_obj_get(object, "components"), "camera");
-      if (!camera) {
-        camera = yyjson_mut_obj(mutable_document.get());
-        if (!put_value(mutable_document.get(), components, "camera", camera))
-          return engine::error::out_of_memory;
-      }
-      if (!put_value(mutable_document.get(), camera, "vertical_field_of_view_radians",
-                     yyjson_mut_real(mutable_document.get(),
-                                     source.camera->vertical_field_of_view_radians)) ||
-          !put_value(mutable_document.get(), camera, "near_plane",
-                     yyjson_mut_real(mutable_document.get(), source.camera->near_plane)) ||
-          !put_value(mutable_document.get(), camera, "far_plane",
-                     yyjson_mut_real(mutable_document.get(), source.camera->far_plane)) ||
-          !put_value(mutable_document.get(), camera, "is_primary",
-                     yyjson_mut_bool(mutable_document.get(), source.camera->is_primary))) {
-        return engine::error::out_of_memory;
-      }
-    } else {
-      yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
-      (void)yyjson_mut_obj_remove_key(components, "camera");
-    }
-    if (source.mesh_renderer) {
-      yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
-      yyjson_mut_val* renderer = yyjson_mut_obj_get(components, "mesh_renderer");
-      if (renderer == nullptr) {
-        renderer = yyjson_mut_obj(mutable_document.get());
-        if (!put_value(mutable_document.get(), components, "mesh_renderer", renderer)) {
-          return engine::error::out_of_memory;
-        }
-      }
-      if (!put_value(mutable_document.get(), renderer, "mesh",
-                     yyjson_mut_strncpy(mutable_document.get(),
-                                        source.mesh_renderer->mesh_uri.data(),
-                                        source.mesh_renderer->mesh_uri.size())) ||
-          !put_value(mutable_document.get(), renderer, "material",
-                     yyjson_mut_strncpy(mutable_document.get(),
-                                        source.mesh_renderer->material_uri.data(),
-                                        source.mesh_renderer->material_uri.size()))) {
-        return engine::error::out_of_memory;
-      }
-    } else {
-      yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
-      (void)yyjson_mut_obj_remove_key(components, "mesh_renderer");
-    }
+    auto* previous = yyjson_mut_obj_get(object, "components");
+    auto components = make_components(mutable_document.get(), source.components, previous);
+    if (!components)
+      return components.error();
+    if (!put_value(mutable_document.get(), object, "components", *components))
+      return engine::error::out_of_memory;
   }
   std::size_t output_length = 0;
   using text_ptr = std::unique_ptr<char, decltype(&std::free)>;
@@ -1046,5 +1035,90 @@ encode_scene(const scene_description& object) noexcept try {
   return meta::serialization_diagnostic{.error = error::out_of_memory};
 } catch (...) {
   return meta::serialization_diagnostic{.error = error::internal};
+}
+}
+
+namespace gneiss::engine {
+namespace {
+template <class T, auto Parse>
+result<T, meta::serialization_diagnostic>
+decode_component(std::span<const std::byte> bytes) noexcept try {
+  yyjson_read_err err{};
+  std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> document(
+      yyjson_read_opts(reinterpret_cast<char*>(const_cast<std::byte*>(bytes.data())), bytes.size(),
+                       0, nullptr, &err),
+      &yyjson_doc_free);
+  if (!document)
+    return meta::serialization_diagnostic{err.pos, "", "组件 JSON 语法错误",
+                                          error::invalid_argument};
+  T value;
+  scene_diagnostic diagnostic;
+  if (!Parse(yyjson_doc_get_root(document.get()), "", value, diagnostic))
+    return meta::serialization_diagnostic{diagnostic.byte_offset, std::move(diagnostic.path),
+                                          std::move(diagnostic.message), diagnostic.error};
+  return value;
+} catch (const std::bad_alloc&) {
+  return meta::serialization_diagnostic{.error = error::out_of_memory};
+} catch (...) {
+  return meta::serialization_diagnostic{.error = error::internal};
+}
+
+template <class T>
+result<std::vector<std::byte>, meta::serialization_diagnostic>
+encode_component(const T& value) noexcept try {
+  std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> doc(yyjson_mut_doc_new(nullptr),
+                                                                      &yyjson_mut_doc_free);
+  if (!doc)
+    return meta::serialization_diagnostic{.error = error::out_of_memory};
+  auto* root = yyjson_mut_obj(doc.get());
+  yyjson_mut_doc_set_root(doc.get(), root);
+  bool ok = root != nullptr;
+  if constexpr (std::is_same_v<T, camera_description>) {
+    ok = ok &&
+         yyjson_mut_obj_add_real(doc.get(), root, "vertical_field_of_view_radians",
+                                 value.vertical_field_of_view_radians) &&
+         yyjson_mut_obj_add_real(doc.get(), root, "near_plane", value.near_plane) &&
+         yyjson_mut_obj_add_real(doc.get(), root, "far_plane", value.far_plane) &&
+         yyjson_mut_obj_add_bool(doc.get(), root, "is_primary", value.is_primary);
+  } else {
+    ok = ok &&
+         yyjson_mut_obj_add_strncpy(doc.get(), root, "mesh", value.mesh_uri.data(),
+                                    value.mesh_uri.size()) &&
+         yyjson_mut_obj_add_strncpy(doc.get(), root, "material", value.material_uri.data(),
+                                    value.material_uri.size());
+  }
+  std::size_t size{};
+  std::unique_ptr<char, decltype(&std::free)> text(
+      ok ? yyjson_mut_write(doc.get(), 0, &size) : nullptr, &std::free);
+  if (!text)
+    return meta::serialization_diagnostic{.error = error::out_of_memory};
+  auto bytes = std::as_bytes(std::span{text.get(), size});
+  if constexpr (std::is_same_v<T, camera_description>) {
+    auto valid = decode_component<T, parse_camera>(bytes);
+    if (!valid)
+      return std::move(valid).error();
+  } else {
+    auto valid = decode_component<T, parse_mesh_renderer>(bytes);
+    if (!valid)
+      return std::move(valid).error();
+  }
+  return std::vector<std::byte>(bytes.begin(), bytes.end());
+} catch (const std::bad_alloc&) {
+  return meta::serialization_diagnostic{.error = error::out_of_memory};
+} catch (...) {
+  return meta::serialization_diagnostic{.error = error::internal};
+}
+}
+error register_component_descriptions(const meta::registry_ref& registry) noexcept {
+  auto status = meta::type_builder<camera_description>{registry}
+                    .serialization<&encode_component<camera_description>,
+                                   &decode_component<camera_description, parse_camera>>()
+                    .commit();
+  if (status.failed())
+    return status;
+  return meta::type_builder<mesh_renderer_description>{registry}
+      .serialization<&encode_component<mesh_renderer_description>,
+                     &decode_component<mesh_renderer_description, parse_mesh_renderer>>()
+      .commit();
 }
 }
