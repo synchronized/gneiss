@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/scope_exit.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
@@ -19,7 +20,7 @@
 #include <string_view>
 namespace {
 constexpr std::string_view scene_uri = "asset://scenes/property.scene.json";
-constexpr std::string_view camera_uuid = "37cff772-2e8d-4bc7-9ed2-f94435926d4e";
+const auto camera_uuid = *gneiss::engine::guid::parse("37cff772-2e8d-4bc7-9ed2-f94435926d4e");
 bool open_scene(gneiss::engine::task_scheduler& scheduler, std::string_view root,
                 std::shared_ptr<gneiss::runtime::application>& app,
                 gneiss::scene_instance_id& scene) {

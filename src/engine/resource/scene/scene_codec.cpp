@@ -77,6 +77,26 @@ void fail(scene_diagnostic& diagnostic, gneiss::engine::error result, std::strin
   return true;
 }
 
+[[nodiscard]] bool read_required_guid(yyjson_val* object, const char* name, std::string_view path,
+                                      gneiss::engine::guid& output, scene_diagnostic& diagnostic) {
+  std::string text;
+  if (!read_required_string(object, name, path, text, diagnostic))
+    return false;
+  const auto parsed = gneiss::engine::guid::parse(text);
+  if (!is_canonical_uuid(text) || !parsed || !*parsed) {
+    fail(diagnostic, gneiss::engine::error::invalid_argument, std::string(path) + "/" + name,
+         "UUID 必须是非零的规范小写形式");
+    return false;
+  }
+  output = *parsed;
+  return true;
+}
+
+yyjson_mut_val* make_uuid(yyjson_mut_doc* doc, gneiss::engine::guid value) {
+  const auto text = value.string();
+  return yyjson_mut_strncpy(doc, text.data(), text.size());
+}
+
 template <std::size_t Size>
 [[nodiscard]] bool read_float_array(yyjson_val* object, const char* name, std::string_view path,
                                     std::span<float, Size> output, scene_diagnostic& diagnostic) {
@@ -246,14 +266,13 @@ template <std::size_t Size>
                                 gneiss::engine::object_description& output,
                                 scene_diagnostic& diagnostic) {
   const std::string path = "/objects/" + std::to_string(index);
-  if (!yyjson_is_obj(value) ||
-      !read_required_string(value, "uuid", path, output.uuid, diagnostic)) {
+  if (!yyjson_is_obj(value) || !read_required_guid(value, "uuid", path, output.uuid, diagnostic)) {
     if (diagnostic.error == gneiss::engine::error::success) {
       fail(diagnostic, gneiss::engine::error::invalid_argument, path, "对象描述类型错误");
     }
     return false;
   }
-  if (!is_canonical_uuid(output.uuid)) {
+  if (!output.uuid) {
     fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/uuid",
          "UUID 必须是小写规范形式");
     return false;
@@ -273,12 +292,12 @@ template <std::size_t Size>
   }
   if (yyjson_is_str(parent)) {
     const auto parent_uuid = json_string(parent);
-    if (!is_canonical_uuid(parent_uuid)) {
+    if (!is_canonical_uuid(parent_uuid) || !*gneiss::engine::guid::parse(parent_uuid)) {
       fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/parent",
            "父 UUID 格式错误");
       return false;
     }
-    output.parent_uuid = std::string(parent_uuid);
+    output.parent_uuid = *gneiss::engine::guid::parse(parent_uuid);
   } else if (!yyjson_is_null(parent)) {
     fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/parent",
          "parent 必须是 UUID 或 null");
@@ -410,9 +429,9 @@ template <class T>
     fail(diagnostic, gneiss::engine::error::invalid_argument, path, "覆盖必须是对象");
     return false;
   }
-  std::string source_node_uuid;
-  if (!read_required_string(value, "source_node_uuid", path, source_node_uuid, diagnostic) ||
-      !is_canonical_uuid(source_node_uuid)) {
+  gneiss::engine::guid source_node_uuid;
+  if (!read_required_guid(value, "source_node_uuid", path, source_node_uuid, diagnostic) ||
+      !source_node_uuid) {
     if (diagnostic.error == gneiss::engine::error::success) {
       fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/source_node_uuid",
            "源节点 UUID 必须是小写规范形式");
@@ -491,7 +510,7 @@ template <class T>
 
 [[nodiscard]] bool validate_hierarchy(const gneiss::engine::scene_description& scene,
                                       scene_diagnostic& diagnostic) {
-  std::unordered_map<std::string_view, std::size_t> indexes;
+  std::unordered_map<gneiss::engine::guid, std::size_t, gneiss::engine::guid_hash> indexes;
   indexes.reserve(scene.objects.size());
   for (std::size_t index = 0; index < scene.objects.size(); ++index) {
     if (!indexes.emplace(scene.objects[index].uuid, index).second) {
@@ -613,14 +632,12 @@ make_components(yyjson_mut_doc* document, const gneiss::engine::component_descri
   auto* transform = yyjson_mut_obj(document);
   auto* components = yyjson_mut_arr(document);
   if (object == nullptr || transform == nullptr || components == nullptr ||
-      !yyjson_mut_obj_add_strncpy(document, object, "uuid", source.uuid.data(),
-                                  source.uuid.size()) ||
+      !yyjson_mut_obj_add_val(document, object, "uuid", make_uuid(document, source.uuid)) ||
       (!source.name.empty() &&
        !yyjson_mut_obj_add_strncpy(document, object, "name", source.name.data(),
                                    source.name.size())) ||
       !put_value(document, object, "parent",
-                 source.parent_uuid ? yyjson_mut_strncpy(document, source.parent_uuid->data(),
-                                                         source.parent_uuid->size())
+                 source.parent_uuid ? make_uuid(document, *source.parent_uuid)
                                     : yyjson_mut_null(document)) ||
       !put_value(document, transform, "translation",
                  make_float_array(document, source.transform.translation)) ||
@@ -702,9 +719,8 @@ make_prefab_overrides(yyjson_mut_doc* document,
     const auto type_text = type_id_text(source.key.type_guid);
     auto* value = make_override_value(document, source.value);
     if (object == nullptr || value == nullptr ||
-        !yyjson_mut_obj_add_strncpy(document, object, "source_node_uuid",
-                                    source.key.source_node_uuid.data(),
-                                    source.key.source_node_uuid.size()) ||
+        !yyjson_mut_obj_add_val(document, object, "source_node_uuid",
+                                make_uuid(document, source.key.source_node_uuid)) ||
         !yyjson_mut_obj_add_strncpy(document, object, "type_guid", type_text.data(),
                                     type_text.size()) ||
         !yyjson_mut_obj_add_uint(document, object, "property_id", source.key.property_id.get()) ||
@@ -761,8 +777,7 @@ parse_current_scene_description(std::string_view json) noexcept {
       return out_diagnostic;
     }
     scene_description parsed;
-    if (!read_required_string(root, "scene_uuid", "", parsed.uuid, out_diagnostic) ||
-        !is_canonical_uuid(parsed.uuid)) {
+    if (!read_required_guid(root, "scene_uuid", "", parsed.uuid, out_diagnostic) || !parsed.uuid) {
       if (out_diagnostic.error == engine::error::success) {
         fail(out_diagnostic, engine::error::invalid_argument, "/scene_uuid", "场景 UUID 格式错误");
       }
@@ -884,6 +899,16 @@ result<scene_description, scene_diagnostic> parse_scene_description(std::string_
 
 result<std::string> serialize_scene_description(const scene_description& scene) noexcept try {
   std::string out_json;
+  if (!scene.uuid)
+    return engine::error::invalid_argument;
+  for (const auto& object : scene.objects) {
+    if (!object.uuid || (object.parent_uuid && !*object.parent_uuid))
+      return engine::error::invalid_argument;
+    if (object.prefab)
+      for (const auto& entry : object.prefab->overrides)
+        if (!entry.key.source_node_uuid)
+          return engine::error::invalid_argument;
+  }
   if (scene.author_json.empty()) {
     return engine::error::invalid_state;
   }
@@ -903,18 +928,22 @@ result<std::string> serialize_scene_description(const scene_description& scene) 
   yyjson_mut_val* root = yyjson_mut_doc_get_root(mutable_document.get());
   if (!yyjson_mut_is_arr(yyjson_mut_obj_get(root, "objects")))
     return engine::error::invalid_state;
+  if (!put_value(mutable_document.get(), root, "scene_uuid",
+                 make_uuid(mutable_document.get(), scene.uuid)))
+    return engine::error::out_of_memory;
   // 按稳定身份保留扩展字段，不能按旧数组下标绑定删除或重排后的对象。
   const auto align_members = [&](const char* key, const char* identity, const auto& members,
                                  auto get_identity, auto create) -> yyjson_mut_val* {
     auto* previous = yyjson_mut_obj_get(root, key);
     if (!yyjson_mut_is_arr(previous))
       return nullptr;
-    std::unordered_map<std::string_view, yyjson_mut_val*> originals;
+    std::unordered_map<guid, yyjson_mut_val*, guid_hash> originals;
     auto iterator = yyjson_mut_arr_iter_with(previous);
     while (auto* entry = yyjson_mut_arr_iter_next(&iterator)) {
       auto* id = yyjson_mut_obj_get(entry, identity);
       if (yyjson_mut_is_str(id))
-        originals.emplace(std::string_view(yyjson_mut_get_str(id), yyjson_mut_get_len(id)), entry);
+        if (auto parsed = guid::parse({yyjson_mut_get_str(id), yyjson_mut_get_len(id)}))
+          originals.emplace(*parsed, entry);
     }
     auto* aligned = yyjson_mut_arr(mutable_document.get());
     if (!aligned)
@@ -930,22 +959,19 @@ result<std::string> serialize_scene_description(const scene_description& scene) 
     return put_value(mutable_document.get(), root, key, aligned) ? aligned : nullptr;
   };
   auto* objects = align_members(
-      "objects", "uuid", scene.objects,
-      [](const auto& value) { return std::string_view(value.uuid); }, make_author_object);
+      "objects", "uuid", scene.objects, [](const auto& value) { return value.uuid; },
+      make_author_object);
   if (!objects)
     return engine::error::out_of_memory;
   for (std::size_t index = 0; index < scene.objects.size(); ++index) {
     const auto& source = scene.objects[index];
     yyjson_mut_val* object = yyjson_mut_arr_get(objects, index);
     yyjson_mut_val* transform = yyjson_mut_obj_get(object, "transform");
-    if (!put_value(
-            mutable_document.get(), object, "uuid",
-            yyjson_mut_strncpy(mutable_document.get(), source.uuid.data(), source.uuid.size())) ||
+    if (!put_value(mutable_document.get(), object, "uuid",
+                   make_uuid(mutable_document.get(), source.uuid)) ||
         !put_value(mutable_document.get(), object, "parent",
-                   source.parent_uuid
-                       ? yyjson_mut_strncpy(mutable_document.get(), source.parent_uuid->data(),
-                                            source.parent_uuid->size())
-                       : yyjson_mut_null(mutable_document.get())) ||
+                   source.parent_uuid ? make_uuid(mutable_document.get(), *source.parent_uuid)
+                                      : yyjson_mut_null(mutable_document.get())) ||
         !put_value(mutable_document.get(), transform, "translation",
                    make_float_array(mutable_document.get(), source.transform.translation)) ||
         !put_value(mutable_document.get(), transform, "rotation",

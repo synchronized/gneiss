@@ -6,6 +6,7 @@
 #include "commands/editor_command_history.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "viewport/transform_gizmo_math.hpp"
 
 namespace gneiss::editor {
@@ -27,9 +28,9 @@ public:
 private:
   scene_node_id node_;
   scene_node_id parent_;
-  std::string uuid_;
-  std::string instance_uuid_;
-  std::string source_uuid_;
+  gneiss::engine::guid uuid_;
+  gneiss::engine::guid instance_uuid_;
+  gneiss::engine::guid source_uuid_;
   gneiss::engine::math::transform before_ = {};
   bool was_dirty_ = false;
 };

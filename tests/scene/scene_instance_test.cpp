@@ -3,6 +3,7 @@
 
 #include "../support/async_application.hpp"
 #include "../support/value_result.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
@@ -31,12 +32,18 @@ int main() try {
   constexpr std::string_view scene_uri = "asset://scenes/triangle.scene.json";
   constexpr std::string_view missing_uri = "asset://scenes/missing-asset.scene.json";
   constexpr std::string_view corrupt_uri = "asset://scenes/corrupt.scene.json";
-  constexpr std::string_view triangle_uuid = "00000000-0000-4000-8000-000000000003";
-  constexpr std::string_view camera_uuid = "00000000-0000-4000-8000-000000000002";
-  constexpr std::string_view created_uuid = "00000000-0000-4000-8000-000000000004";
-  constexpr std::string_view generic_uuid = "00000000-0000-4000-8000-000000000005";
-  constexpr std::string_view copied_generic_uuid = "00000000-0000-4000-8000-000000000006";
-  constexpr std::string_view copied_triangle_uuid = "00000000-0000-4000-8000-000000000007";
+  const gneiss::engine::guid triangle_uuid =
+      *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000003");
+  const gneiss::engine::guid camera_uuid =
+      *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000002");
+  const gneiss::engine::guid created_uuid =
+      *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000004");
+  const gneiss::engine::guid generic_uuid =
+      *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000005");
+  const gneiss::engine::guid copied_generic_uuid =
+      *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000006");
+  const gneiss::engine::guid copied_triangle_uuid =
+      *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000007");
   constexpr std::string_view mesh_uri = "asset://models/triangle.mesh.json";
   constexpr std::string_view material_uri = "asset://materials/triangle.material.json";
   constexpr std::string_view missing_mesh_uri = "asset://models/missing.mesh.json";
@@ -259,7 +266,7 @@ int main() try {
       application->native_world()->entity_configure_camera(camera_entity, camera) !=
           gneiss::engine::error::success ||
       application->native_world()
-          ->node_set_identity(camera_node, {std::string(camera_uuid), "Runtime Camera"})
+          ->node_set_identity(camera_node, {camera_uuid, "Runtime Camera"})
           .failed() ||
       application->scenes()->serialize(scene, json) != gneiss::engine::error::success ||
       json.empty()) {
@@ -268,9 +275,9 @@ int main() try {
   if (json.find(R"("name":"Runtime Camera")") == std::string::npos ||
       json.find(R"("translation":[5.0,0.0,0.0])") == std::string::npos ||
       json.find(R"("near_plane":0.25)") == std::string::npos ||
-      json.find(created_uuid) == std::string::npos ||
+      json.find(created_uuid.string()) == std::string::npos ||
       json.find(R"("name":"Created Mesh")") == std::string::npos ||
-      json.find(generic_uuid) == std::string::npos ||
+      json.find(generic_uuid.string()) == std::string::npos ||
       json.find(R"("name":"Group")") == std::string::npos ||
       second_application->scenes()->serialize(scene, json) !=
           gneiss::engine::error::invalid_handle) {
@@ -289,10 +296,11 @@ int main() try {
       entity_count != 2U) {
     return 9;
   }
-  constexpr std::string_view empty_uuid = "00000000-0000-4000-8000-000000000099";
+  const gneiss::engine::guid empty_uuid =
+      *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000099");
   gneiss::scene_instance_id empty_scene = gneiss::scene_instance_id{};
   std::uint64_t empty_count = 1U;
-  if (application->scenes()->create_empty("invalid", &empty_scene) !=
+  if (application->scenes()->create_empty({}, &empty_scene) !=
           gneiss::engine::error::invalid_argument ||
       empty_scene != gneiss::scene_instance_id{} ||
       application->scenes()->create_empty(empty_uuid, &empty_scene) !=

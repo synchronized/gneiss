@@ -8,6 +8,7 @@
 #include "../support/prepare_render.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/type_id.hpp"
 #include "engine/function/meta_registration.hpp"
@@ -289,14 +290,15 @@ void run() {
     gneiss::engine::prefab_asset_ref source;
     gneiss::engine::object_description author;
     check(candidate->scenes()
-              ->capture_prefab_header(new_scene, "00000000-0000-4000-8000-000000000004", author,
-                                      source)
+              ->capture_prefab_header(
+                  new_scene, *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000004"),
+                  author, source)
               .ok());
     std::vector<gneiss::engine::scene_mesh_binding> bindings(source.get()->objects.size());
     for (std::size_t i = 0; i < bindings.size(); ++i)
       check(
           candidate->scenes()->capture_prefab_binding(new_scene, author.uuid, i, bindings[i]).ok());
-    author.uuid = "00000000-0000-4000-8000-000000000077";
+    author.uuid = *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000077");
     const auto reads_before = files->reads;
     std::uint64_t baseline{};
     check(gneiss::test_support::assign_value(candidate->native_world()->entity_count(), baseline)
@@ -430,7 +432,7 @@ void run() {
     check(candidate->scenes()->replace_mesh_binding(new_scene, ordinary.node, after, before) ==
           gneiss::engine::error::success);
     const gneiss::engine::mesh_renderer_node_creation creation{
-        .uuid = "00000000-0000-4000-8000-000000000099",
+        .uuid = *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000099"),
         .name = "prepared",
         .parent = {},
         .mesh_uri = gneiss::engine::asset_uri(before.mesh),

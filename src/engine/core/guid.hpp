@@ -8,6 +8,7 @@
 #include "engine/core/export.hpp"
 
 #include <array>
+#include <compare>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -45,6 +46,9 @@ public:
   friend constexpr bool operator!=(const guid& lhs, const guid& rhs) noexcept {
     return !(lhs == rhs);
   }
+
+  /** 按标准 UUID 字节顺序比较，供确定性排序使用。 */
+  friend constexpr auto operator<=>(const guid&, const guid&) noexcept = default;
 
 private:
   byte_array bytes_{};

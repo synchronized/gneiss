@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/scene/scene_instances.hpp"
@@ -16,7 +17,8 @@ class GNEISS_API prefab_placement final {
 public:
   /** 同步捕获整棵子树及资源引用，不读取文件。 */
   static gneiss::engine::error
-  capture(runtime::application& application, std::string_view uuid, gneiss::scene_instance_id scene,
+  capture(runtime::application& application, gneiss::engine::guid uuid,
+          gneiss::scene_instance_id scene,
           std::shared_ptr<engine::scene_subtree_snapshot>& snapshot) noexcept;
   static gneiss::engine::error
   freeze(runtime::application& application, gneiss::engine::prepared_prefab_description prepared,

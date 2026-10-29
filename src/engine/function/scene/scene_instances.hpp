@@ -5,6 +5,7 @@
 #define GNEISS_SCENE_SCENE_INSTANCES_HPP_
 
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/rid_table.hpp"
 #include "engine/core/scene_types.hpp"
@@ -50,8 +51,7 @@ public:
                                                prefab_asset_ref prefab,
                                                std::span<const scene_mesh_binding> bindings,
                                                bool replacing, scene_node_id& output) noexcept;
-  [[nodiscard]] error remove_prefab_instance(scene_instance_id instance,
-                                             std::string_view uuid) noexcept;
+  [[nodiscard]] error remove_prefab_instance(scene_instance_id instance, guid uuid) noexcept;
   /** 创建仅消费已就绪租约，不加载；失败不留下节点。 */
   [[nodiscard]] error create_mesh_renderer_node_ready(scene_instance_id instance,
                                                       const mesh_renderer_node_creation& desc,
@@ -79,10 +79,9 @@ public:
                                     scene_description description) noexcept;
   [[nodiscard]] error reload_prefab_loaded(scene_instance_id instance, std::string_view uri,
                                            prefab_asset_ref candidate) noexcept;
-  [[nodiscard]] error create_empty(std::string_view scene_uuid,
-                                   scene_instance_id* out_instance) noexcept;
+  [[nodiscard]] error create_empty(guid scene_uuid, scene_instance_id* out_instance) noexcept;
   [[nodiscard]] error unload(scene_instance_id instance) noexcept;
-  [[nodiscard]] error find_node(scene_instance_id instance, std::string_view uuid,
+  [[nodiscard]] error find_node(scene_instance_id instance, guid uuid,
                                 scene_node_id& out_node) const noexcept;
   /** 采集当前作者描述及运行期变换；成功才替换输出，不编码或读取文件。 */
   [[nodiscard]] error capture_description(scene_instance_id instance,
@@ -94,11 +93,11 @@ public:
   get_node_info(scene_instance_id instance, std::uint64_t index, scene_node_view& out_info,
                 node_query_detail detail = node_query_detail::components) const noexcept;
   /** 捕获实际实例版本与作者覆盖，不读文件；所有输出仅在成功时替换。 */
-  [[nodiscard]] error capture_prefab_header(scene_instance_id instance, std::string_view uuid,
+  [[nodiscard]] error capture_prefab_header(scene_instance_id instance, guid uuid,
                                             object_description& author,
                                             prefab_asset_ref& source) const noexcept;
   /** 按来源索引捕获实际资源租约，允许调用方分帧构建历史快照。 */
-  [[nodiscard]] error capture_prefab_binding(scene_instance_id instance, std::string_view uuid,
+  [[nodiscard]] error capture_prefab_binding(scene_instance_id instance, guid uuid,
                                              std::size_t index,
                                              mesh_binding& output) const noexcept;
   [[nodiscard]] error set_prefab_source_transform(scene_instance_id instance, scene_node_id node,

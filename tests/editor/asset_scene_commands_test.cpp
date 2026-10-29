@@ -5,6 +5,7 @@
 #include "commands/editor_prefab_edit.hpp"
 #include "documents/editor_scene_loader.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/world/world.hpp"
@@ -67,7 +68,7 @@ int main() try {
     return operation.operation();
   };
   const auto replace_mesh_assets = [&](scene_document& document, editor_command_history& commands,
-                                       std::string_view uuid, mesh_asset_reference refs) {
+                                       gneiss::engine::guid uuid, mesh_asset_reference refs) {
     editor_asset_edit operation;
     auto status = operation.request(*app, document, commands, uuid, refs);
     if (status.failed())
@@ -117,9 +118,9 @@ int main() try {
           {.mesh_uri = mesh, .material_uri = "asset://materials/missing.material.json"})
           .ok() ||
       history.size() != 1U || session.find_node(uuid)->material_uri != material ||
-      replace_mesh_assets(session, history, "missing",
-                          {.mesh_uri = mesh, .material_uri = material}) !=
-          gneiss::engine::error::not_found) {
+      replace_mesh_assets(
+          session, history, *gneiss::engine::guid::parse("ffffffff-ffff-4fff-8fff-ffffffffffff"),
+          {.mesh_uri = mesh, .material_uri = material}) != gneiss::engine::error::not_found) {
     return 4;
   }
   if (replace_mesh_assets(session, history, uuid, {.mesh_uri = mesh, .material_uri = material})

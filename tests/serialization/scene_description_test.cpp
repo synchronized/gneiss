@@ -5,6 +5,7 @@
 #include "../support/memory_file_fixture.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/meta/serialization.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
@@ -45,6 +46,57 @@ constexpr std::string_view prefab_scene =
          diagnostic.error == expected && diagnostic.path == path && scene.objects.empty();
 }
 
+bool guid_identity_contract() {
+  namespace e = gneiss::engine;
+  auto parsed = e::parse_scene_description(valid_scene);
+  if (!parsed || parsed->objects[0].parent_uuid ||
+      parsed->objects[1].parent_uuid != parsed->objects[0].uuid)
+    return false;
+  const auto original = *parsed;
+  // 内存身份修改必须反映到文件；不沿用 author_json 中的旧场景 UUID。
+  parsed->uuid = *e::guid::parse("abcdef01-2345-4678-9abc-def012345678");
+  auto encoded = e::serialize_scene_description(*parsed);
+  if (!encoded)
+    return false;
+  auto restored = e::parse_scene_description(*encoded);
+  if (!restored || restored->uuid != parsed->uuid ||
+      restored->objects[1].parent_uuid != parsed->objects[0].uuid)
+    return false;
+  parsed->objects[0].parent_uuid = e::guid{};
+  if (e::serialize_scene_description(*parsed))
+    return false;
+  *parsed = original;
+  parsed->objects[0].uuid = {};
+  if (e::serialize_scene_description(*parsed))
+    return false;
+  *parsed = original;
+  parsed->uuid = {};
+  if (e::serialize_scene_description(*parsed))
+    return false;
+  for (const auto malformed :
+       {"00000000-0000-0000-0000-000000000000", "ABCDEF01-2345-4678-9ABC-DEF012345678",
+        "abcdef01234546789abcdef012345678", "invalid"}) {
+    const auto text =
+        replace_once(std::string(valid_scene), "00000000-0000-4000-8000-000000000002", malformed);
+    if (!fails_with(text, e::error::invalid_argument, "/objects/0/uuid"))
+      return false;
+  }
+  const auto nil_parent =
+      replace_once(std::string(valid_scene), R"("parent":"00000000-0000-4000-8000-000000000002")",
+                   R"("parent":"00000000-0000-0000-0000-000000000000")");
+  if (!fails_with(nil_parent, e::error::invalid_argument, "/objects/1/parent"))
+    return false;
+  const auto nil_source =
+      replace_once(std::string(prefab_scene), "10000000-0000-4000-8000-000000000002",
+                   "00000000-0000-0000-0000-000000000000");
+  if (e::parse_scene_description(nil_source))
+    return false;
+  const auto low = *e::guid::parse("00ffffff-ffff-4fff-8fff-ffffffffffff");
+  const auto high = *e::guid::parse("01000000-0000-4000-8000-000000000000");
+  return low < high && low.string() < high.string() &&
+         e::guid_hash{}(low) == e::guid_hash{}(*e::guid::parse(low.string()));
+}
+
 class memory_file_system final : public gneiss::test_support::memory_file_fixture {
 public:
   explicit memory_file_system(std::string content) : content_(std::move(content)) {}
@@ -81,6 +133,8 @@ private:
 int main() try {
   if (gneiss::engine::initialize_meta().failed())
     return 99;
+  if (!guid_identity_contract())
+    return 98;
   // 反射 codec 保留未知字段；解码失败不覆盖旧对象。
   {
     namespace e = gneiss::engine;

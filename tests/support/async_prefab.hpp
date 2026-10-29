@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "async_application.hpp"
+#include "engine/core/guid.hpp"
 namespace gneiss::test_support {
 // 测试驱动异步准备；最终实例化只使用已准备描述与引用。
 inline engine::error instantiate_prefab(runtime::application& app, scene_instance_id scene,
@@ -58,7 +59,7 @@ inline engine::error create_prefab(runtime::application& app, scene_instance_id 
   return instantiate_prefab(app, scene, author, root, false, tasks);
 }
 inline engine::error refresh_prefab(runtime::application& app, scene_instance_id scene,
-                                    std::string_view uuid, scene_node_id& root) {
+                                    gneiss::engine::guid uuid, scene_node_id& root) {
   engine::object_description author;
   engine::prefab_asset_ref source;
   auto status = app.scenes()->capture_prefab_header(scene, uuid, author, source);

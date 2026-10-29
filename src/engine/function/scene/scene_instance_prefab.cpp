@@ -12,7 +12,7 @@
 #include <utility>
 
 namespace gneiss::engine {
-error scene_instance::capture_prefab_instance_header(std::string_view uuid,
+error scene_instance::capture_prefab_instance_header(gneiss::engine::guid uuid,
                                                      object_description& author,
                                                      prefab_asset_ref& source) const noexcept try {
   const auto found = std::ranges::find_if(
@@ -37,7 +37,7 @@ error scene_instance::capture_prefab_instance_header(std::string_view uuid,
   return error::internal;
 }
 
-error scene_instance::capture_prefab_instance_binding(std::string_view uuid, std::size_t index,
+error scene_instance::capture_prefab_instance_binding(gneiss::engine::guid uuid, std::size_t index,
                                                       scene_mesh_binding& output) const noexcept {
   const auto found = std::ranges::find_if(
       prefab_instances_, [&](const auto& value) { return value->instance_uuid_ == uuid; });
@@ -63,7 +63,7 @@ error scene_instance::instantiate_prefab_ready(const object_description& author,
                                                bool replacing, scene_node_id& output) noexcept try {
   output = {};
   if (!author.prefab || !author.components.empty() || !prefab ||
-      bindings.size() != prefab.get()->objects.size() || !is_canonical_prefab_uuid(author.uuid) ||
+      bindings.size() != prefab.get()->objects.size() || !author.uuid ||
       (!replacing && find_node(author.uuid)))
     return error::invalid_argument;
   const auto previous = std::ranges::find_if(
@@ -142,7 +142,7 @@ error scene_instance::instantiate_prefab_ready(const object_description& author,
   return error::internal;
 }
 
-error scene_instance::remove_prefab_instance(std::string_view uuid) noexcept {
+error scene_instance::remove_prefab_instance(gneiss::engine::guid uuid) noexcept {
   const auto found = std::ranges::find_if(
       prefab_instances_, [&](const auto& value) { return value->instance_uuid_ == uuid; });
   if (found == prefab_instances_.end())

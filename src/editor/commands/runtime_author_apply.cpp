@@ -11,14 +11,15 @@
 namespace {
 
 gneiss::scene_node_id resolve_author_node(gneiss::editor::scene_document& session,
-                                          std::string_view uuid, std::string_view instance_uuid,
-                                          std::string_view source_uuid) noexcept {
-  if (instance_uuid.empty()) {
+                                          gneiss::engine::guid uuid,
+                                          gneiss::engine::guid instance_uuid,
+                                          gneiss::engine::guid source_uuid) noexcept {
+  if (instance_uuid.is_nil()) {
     const auto* node = session.find_node(uuid);
     return node == nullptr ? gneiss::scene_node_id{} : node->node;
   }
-  const auto* node = source_uuid.empty() ? session.find_prefab_root(instance_uuid)
-                                         : session.find_prefab_source(instance_uuid, source_uuid);
+  const auto* node = source_uuid.is_nil() ? session.find_prefab_root(instance_uuid)
+                                          : session.find_prefab_source(instance_uuid, source_uuid);
   return node == nullptr ? gneiss::scene_node_id{} : node->node;
 }
 
@@ -29,27 +30,27 @@ namespace gneiss::editor {
 gneiss::engine::error
 apply_runtime_transform_to_author(scene_document& session, editor_command_history& history,
                                   const runtime_author_transform& runtime_node) noexcept try {
-  if (runtime_node.uuid.empty()) {
+  if (runtime_node.uuid.is_nil()) {
     return gneiss::engine::error::invalid_argument;
   }
-  const auto has_prefab_identity = !runtime_node.prefab_instance_uuid.empty();
-  if (!has_prefab_identity && !runtime_node.prefab_source_node_uuid.empty()) {
+  const auto has_prefab_identity = !runtime_node.prefab_instance_uuid.is_nil();
+  if (!has_prefab_identity && !runtime_node.prefab_source_node_uuid.is_nil()) {
     return gneiss::engine::error::invalid_argument;
   }
   const auto* author_node = has_prefab_identity ? nullptr : session.find_node(runtime_node.uuid);
   const auto* prefab_node =
       !has_prefab_identity
           ? nullptr
-          : (runtime_node.prefab_source_node_uuid.empty()
+          : (runtime_node.prefab_source_node_uuid.is_nil()
                  ? session.find_prefab_root(runtime_node.prefab_instance_uuid)
                  : session.find_prefab_source(runtime_node.prefab_instance_uuid,
                                               runtime_node.prefab_source_node_uuid));
   if (author_node == nullptr && prefab_node == nullptr) {
     return gneiss::engine::error::not_found;
   }
-  const std::string uuid(runtime_node.uuid);
-  const std::string instance_uuid(runtime_node.prefab_instance_uuid);
-  const std::string source_uuid(runtime_node.prefab_source_node_uuid);
+  const gneiss::engine::guid uuid(runtime_node.uuid);
+  const gneiss::engine::guid instance_uuid(runtime_node.prefab_instance_uuid);
+  const gneiss::engine::guid source_uuid(runtime_node.prefab_source_node_uuid);
   const auto before =
       author_node != nullptr ? author_node->local_transform : prefab_node->local_transform;
   const auto after = runtime_node.local_transform;

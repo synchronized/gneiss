@@ -29,9 +29,9 @@ gneiss::engine::error transform_gizmo_drag::begin(scene_document& session) noexc
     return gneiss::engine::error::not_ready;
   }
   try {
-    uuid_ = node != nullptr ? node->uuid : std::string{};
-    instance_uuid_ = node == nullptr ? prefab->instance_uuid : std::string{};
-    source_uuid_ = node == nullptr ? prefab->source_node_uuid : std::string{};
+    uuid_ = node != nullptr ? node->uuid : engine::guid{};
+    instance_uuid_ = node == nullptr ? prefab->instance_uuid : engine::guid{};
+    source_uuid_ = node == nullptr ? prefab->source_node_uuid : engine::guid{};
     parent_ = node != nullptr ? node->parent : prefab->parent;
     before_ = node != nullptr ? node->local_transform : prefab->local_transform;
     was_dirty_ = session.is_dirty();
@@ -68,9 +68,9 @@ gneiss::engine::error transform_gizmo_drag::finish(scene_document& session,
   }
   const auto original_node = node_;
   node_ = {};
-  const auto* node = uuid_.empty() ? nullptr : session.find_node(uuid_);
+  const auto* node = uuid_.is_nil() ? nullptr : session.find_node(uuid_);
   const auto* prefab =
-      source_uuid_.empty() ? nullptr : session.find_prefab_source(instance_uuid_, source_uuid_);
+      source_uuid_.is_nil() ? nullptr : session.find_prefab_source(instance_uuid_, source_uuid_);
   // 场景已被替换或节点已删除时，不能向复用 UUID 的新对象提交旧拖动。
   if ((node == nullptr || node->node != original_node) &&
       (prefab == nullptr || prefab->node != original_node)) {
@@ -84,9 +84,9 @@ gneiss::engine::error transform_gizmo_drag::finish(scene_document& session,
   try {
     const auto resolve = [&session, uuid = uuid_, instance = instance_uuid_,
                           source = source_uuid_](const gneiss::engine::math::transform& value) {
-      const auto* target = uuid.empty() ? nullptr : session.find_node(uuid);
+      const auto* target = uuid.is_nil() ? nullptr : session.find_node(uuid);
       const auto* prefab_target =
-          source.empty() ? nullptr : session.find_prefab_source(instance, source);
+          source.is_nil() ? nullptr : session.find_prefab_source(instance, source);
       if (target != nullptr) {
         return session.set_local_transform(target->node, value);
       }

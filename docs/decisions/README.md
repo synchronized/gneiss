@@ -94,3 +94,4 @@ Reference 和实现为准。
 - [ADR-091：Prefab 作为普通对象的来源元数据](ADR-091-prefab-object-metadata.md)
 - [ADR-092：共享默认 Meta 注册表](ADR-092-default-meta-registry.md)
 - [ADR-093：场景与 Prefab 使用类型化组件描述列表](ADR-093-component-descriptions.md)
+- [ADR-094：内存对象身份使用 guid](ADR-094-guid-object-identity.md)

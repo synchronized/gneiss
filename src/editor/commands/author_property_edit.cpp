@@ -16,7 +16,7 @@ namespace gneiss::editor {
 namespace {
 gneiss::engine::error write_author_property(scene_document& session,
                                             property_inspector_model& inspector,
-                                            gneiss::engine::world* world, std::string_view uuid,
+                                            gneiss::engine::world* world, gneiss::engine::guid uuid,
                                             gneiss::engine::guid type_id,
                                             gneiss::engine::meta::property_id field_id,
                                             const gneiss::engine::value& value) noexcept {
@@ -45,7 +45,7 @@ edit_author_property(scene_document& session, editor_command_history& history,
   const auto type_id = component.type_id;
   const auto field_id = property.id;
   const auto previous = property.value;
-  std::string merge_key = "property:" + uuid;
+  std::string merge_key = "property:" + uuid.string();
   merge_key.append(reinterpret_cast<const char*>(type_id.bytes().data()), sizeof(type_id.bytes()));
   const auto field_number = field_id.get();
   merge_key.append(reinterpret_cast<const char*>(&field_number), sizeof(field_number));

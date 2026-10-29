@@ -29,7 +29,7 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
     }
     auto instance = std::make_unique<scene_instance>(native_world_, loader_, registry_);
     instance->initialize_staged(std::move(prepared.description));
-    std::unordered_map<std::string, scene_node_id> nodes;
+    std::unordered_map<guid, scene_node_id, guid_hash> nodes;
     nodes.reserve(instance->source().objects.size());
     for (const auto index : prepared.parent_first) {
       const auto& source = instance->source().objects.at(index);
@@ -64,7 +64,7 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
       result = native_world_.node_set_identity(prefab->root(), {source.uuid, source.name});
       if (result.failed())
         return result;
-      std::unordered_map<std::string, scene_node_id> prefab_nodes;
+      std::unordered_map<guid, scene_node_id, guid_hash> prefab_nodes;
       prefab_nodes.reserve(lease.get()->objects.size());
       for (const auto index : prepared.prefabs.at(source.prefab->uri).parent_first) {
         const auto& node = lease.get()->objects.at(index);

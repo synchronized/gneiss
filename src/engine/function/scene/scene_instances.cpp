@@ -41,26 +41,9 @@ std::uint16_t allocate_domain() noexcept {
                                                             : UINT16_C(0);
 }
 
-[[nodiscard]] bool is_canonical_uuid(std::string_view value) noexcept {
-  if (value.size() != 36U) {
-    return false;
-  }
-  for (std::size_t index = 0; index < value.size(); ++index) {
-    if (index == 8U || index == 13U || index == 18U || index == 23U) {
-      if (value[index] != '-') {
-        return false;
-      }
-    } else if ((value[index] < '0' || value[index] > '9') &&
-               (value[index] < 'a' || value[index] > 'f')) {
-      return false;
-    }
-  }
-  return true;
-}
-
 // 创建与重载操作的临时输入；不会进入场景成员列表。
 struct staged_object {
-  std::string uuid;
+  gneiss::engine::guid uuid;
   std::uint64_t entity{};
   scene_node_id node{};
   engine::mesh mesh;
@@ -213,7 +196,7 @@ void scene_instance::rollback() noexcept {
   prefab_instances_.clear();
   loader_.collect_unused();
 }
-scene_node_id scene_instance::find_node(std::string_view uuid) const noexcept {
+scene_node_id scene_instance::find_node(gneiss::engine::guid uuid) const noexcept {
   for (std::size_t index = 0; index < description_.objects.size(); ++index)
     if (scene_object_identity(native_world_, objects_[index].node).uuid == uuid)
       return objects_[index].node;
@@ -233,7 +216,7 @@ engine::error scene_instance::reload(scene_description candidate) {
 
   std::vector<staged_object> staged;
   staged.reserve(candidate.objects.size());
-  std::unordered_map<std::string_view, std::size_t> old_indices;
+  std::unordered_map<guid, std::size_t, guid_hash> old_indices;
   old_indices.reserve(objects_.size());
   for (std::size_t index = 0U; index < description_.objects.size(); ++index) {
     old_indices.emplace(scene_object_identity(native_world_, objects_[index].node).uuid, index);
@@ -297,7 +280,7 @@ engine::error scene_instance::reload(scene_description candidate) {
   identities.reserve(candidate.objects.size());
   for (const auto& source : candidate.objects)
     identities.push_back({source.uuid, source.name});
-  std::unordered_map<std::string_view, scene_node_id> nodes;
+  std::unordered_map<guid, scene_node_id, guid_hash> nodes;
   nodes.reserve(staged.size());
   for (const auto& target : staged) {
     if (target.node != null_scene_node_id) {
@@ -603,7 +586,7 @@ std::optional<prefab_origin_view> scene_instance::prefab_origin(scene_node_id no
 }
 
 engine::error scene_instances::capture_prefab_header(scene_instance_id instance,
-                                                     std::string_view uuid,
+                                                     gneiss::engine::guid uuid,
                                                      object_description& author,
                                                      prefab_asset_ref& source) const noexcept {
   if (!native_world_.is_owner_thread()) {
@@ -617,7 +600,7 @@ engine::error scene_instances::capture_prefab_header(scene_instance_id instance,
 }
 
 engine::error scene_instances::capture_prefab_binding(scene_instance_id instance,
-                                                      std::string_view uuid, std::size_t index,
+                                                      gneiss::engine::guid uuid, std::size_t index,
                                                       mesh_binding& output) const noexcept {
   if (!native_world_.is_owner_thread()) {
     return engine::error::invalid_state;
@@ -643,7 +626,7 @@ error scene_instances::instantiate_prefab_ready(scene_instance_id instance,
                                                              replacing, output);
 }
 error scene_instances::remove_prefab_instance(scene_instance_id instance,
-                                              std::string_view uuid) noexcept {
+                                              gneiss::engine::guid uuid) noexcept {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
   auto* slot = instances_.get(instance, resource_type::scene_instance);
@@ -707,10 +690,10 @@ engine::error scene_instance::set_prefab_source_transform(scene_node_id node,
 engine::error scene_instance::create_node(const node_creation& desc, scene_node_id* out_node) {
   const auto uuid = desc.uuid;
   const auto name = desc.name;
-  if (!is_canonical_uuid(uuid) || find_node(uuid) != null_scene_node_id) {
+  if (!uuid || find_node(uuid) != null_scene_node_id) {
     return engine::error::invalid_argument;
   }
-  std::optional<std::string> parent_uuid;
+  std::optional<gneiss::engine::guid> parent_uuid;
   if (desc.parent != null_scene_node_id) {
     const auto parent = find_authored_node(desc.parent);
     if (parent == objects_.end()) {
@@ -719,7 +702,7 @@ engine::error scene_instance::create_node(const node_creation& desc, scene_node_
     parent_uuid = scene_object_identity(native_world_, parent->node).uuid;
   }
   try {
-    object_description author{.uuid = std::string(uuid),
+    object_description author{.uuid = uuid,
                               .name = std::string(name),
                               .parent_uuid = std::move(parent_uuid),
                               .transform = desc.local_transform,
@@ -774,7 +757,7 @@ engine::error scene_instance::reparent_node(scene_node_id node, scene_node_id pa
   if (found == objects_.end()) {
     return engine::error::invalid_handle;
   }
-  std::optional<std::string> parent_uuid;
+  std::optional<gneiss::engine::guid> parent_uuid;
   try {
     if (parent != null_scene_node_id) {
       const auto parent_object = find_authored_node(parent);
@@ -809,8 +792,8 @@ engine::error scene_instance::capture_subtree(scene_node_id root,
   if (status.failed())
     return status;
   snapshot.root_uuid = snapshot.description.objects[index].uuid;
-  snapshot.parent_uuid = snapshot.description.objects[index].parent_uuid.value_or("");
-  std::unordered_set<std::string> included{snapshot.root_uuid};
+  snapshot.parent_uuid = snapshot.description.objects[index].parent_uuid.value_or(guid{});
+  std::unordered_set<guid, guid_hash> included{snapshot.root_uuid};
   bool changed = true;
   while (changed) {
     changed = false;
@@ -876,16 +859,16 @@ engine::error scene_instance::restore_subtree(const scene_subtree_snapshot& snap
   if (root == subtree.objects.end() || root->parent_uuid ||
       std::ranges::count_if(subtree.objects, [](const auto& o) { return !o.parent_uuid; }) != 1)
     return error::invalid_argument;
-  std::map<std::string, std::string, std::less<>> remap;
-  std::unordered_set<std::string> targets;
+  std::map<guid, guid> remap;
+  std::unordered_set<guid, guid_hash> targets;
   if (!mappings.empty() && mappings.size() != subtree.objects.size())
     return error::invalid_argument;
   for (const auto& source : subtree.objects) {
     const auto mapping = std::ranges::find(mappings, source.uuid, &uuid_mapping::source_uuid);
     if (!mappings.empty() && mapping == mappings.end())
       return error::invalid_argument;
-    auto target = mappings.empty() ? source.uuid : std::string(mapping->target_uuid);
-    if (!is_canonical_uuid(target) || find_node(target) || !targets.emplace(target).second)
+    auto target = mappings.empty() ? source.uuid : mapping->target_uuid;
+    if (!target || find_node(target) || !targets.emplace(target).second)
       return error::invalid_argument;
     remap.emplace(source.uuid, std::move(target));
   }
@@ -954,8 +937,9 @@ engine::error scene_instance::restore_subtree(const scene_subtree_snapshot& snap
   auto& root_author = *std::ranges::find(staged.description_.objects, remap.at(snapshot.root_uuid),
                                          &object_description::uuid);
   root_author.parent_uuid =
-      parent ? std::optional<std::string>(scene_object_identity(native_world_, parent).uuid)
-             : std::nullopt;
+      parent
+          ? std::optional<gneiss::engine::guid>(scene_object_identity(native_world_, parent).uuid)
+          : std::nullopt;
   // 合并前完成分配，提交后临时集合放弃节点所有权。
   objects_.reserve(objects_.size() + staged.objects_.size());
   description_.objects.reserve(description_.objects.size() + staged.description_.objects.size());
@@ -1045,10 +1029,10 @@ engine::error scene_instance::create_mesh_renderer_node(const mesh_renderer_node
   const auto name = desc.name;
   const auto mesh_uri = desc.mesh_uri;
   const auto material_uri = desc.material_uri;
-  if (!is_canonical_uuid(uuid) || find_node(uuid) != null_scene_node_id) {
+  if (!uuid || find_node(uuid) != null_scene_node_id) {
     return engine::error::invalid_argument;
   }
-  std::optional<std::string> parent_uuid;
+  std::optional<gneiss::engine::guid> parent_uuid;
   if (desc.parent != null_scene_node_id) {
     const auto parent = find_authored_node(desc.parent);
     if (parent == objects_.end()) {
@@ -1059,7 +1043,7 @@ engine::error scene_instance::create_mesh_renderer_node(const mesh_renderer_node
 
   try {
     object_description author{
-        .uuid = std::string(uuid),
+        .uuid = uuid,
         .name = std::string(name),
         .parent_uuid = std::move(parent_uuid),
         .transform = {},
@@ -1382,7 +1366,7 @@ engine::error scene_instances::reload_prefab_loaded(scene_instance_id instance,
   return error::internal;
 }
 
-engine::error scene_instances::create_empty(std::string_view scene_uuid,
+engine::error scene_instances::create_empty(gneiss::engine::guid scene_uuid,
                                             scene_instance_id* out_instance) noexcept {
   if (out_instance == nullptr || !is_valid()) {
     return engine::error::invalid_argument;
@@ -1390,7 +1374,7 @@ engine::error scene_instances::create_empty(std::string_view scene_uuid,
   *out_instance = {};
   try {
     const std::string json = std::string{"{\"format\":\"gneiss.scene\",\"version\":5,"} +
-                             "\"scene_uuid\":\"" + std::string{scene_uuid} + "\",\"objects\":[]}";
+                             "\"scene_uuid\":\"" + scene_uuid.string() + "\",\"objects\":[]}";
     auto parsed = engine::parse_scene_description(json);
     if (!parsed)
       return parsed.error().error;
@@ -1443,7 +1427,7 @@ engine::error scene_instances::unload(scene_instance_id instance) noexcept {
   return instances_.destroy(instance, resource_type::scene_instance);
 }
 
-engine::error scene_instances::find_node(scene_instance_id instance, std::string_view uuid,
+engine::error scene_instances::find_node(scene_instance_id instance, gneiss::engine::guid uuid,
                                          scene_node_id& out_node_value) const noexcept {
   auto out_node_storage = out_node_value;
   auto* out_node = &out_node_storage;

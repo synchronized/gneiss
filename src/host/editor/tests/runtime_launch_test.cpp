@@ -5,6 +5,7 @@
 #include "../../../../tests/support/async_editor_save.hpp"
 #include "commands/runtime_author_apply.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
 #include "project_workspace.hpp"
@@ -84,7 +85,7 @@ int main() try {
   if (created_author == nullptr) {
     return 6;
   }
-  const std::string author_uuid = created_author->uuid;
+  const gneiss::engine::guid author_uuid = created_author->uuid;
   gneiss::editor::runtime_author_transform runtime_snapshot;
   runtime_snapshot.uuid = author_uuid;
   runtime_snapshot.local_transform = created_author->local_transform;
@@ -108,7 +109,7 @@ int main() try {
   }
   author_session.clear_dirty();
   gneiss::editor::runtime_author_transform unmapped;
-  unmapped.uuid = "runtime-only";
+  unmapped.uuid = *gneiss::engine::guid::parse("cc520326-13d2-5754-85c7-d4dbcd1dcd97");
   if (gneiss::editor::apply_runtime_transform_to_author(author_session, history, unmapped) !=
       gneiss::engine::error::not_found) {
     return 6;

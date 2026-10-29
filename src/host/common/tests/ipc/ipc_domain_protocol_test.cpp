@@ -81,6 +81,43 @@ namespace {
          resync.request_id == 9U && resync.kind == gneiss::engine::ipc_message_kind::request;
 }
 
+[[nodiscard]] bool test_inspection_guid_boundary() {
+  using gneiss::engine::guid;
+  const auto id = *guid::parse("abcdef01-2345-4678-9abc-def012345678");
+  ipc_inspection_batch batch{.stamp = {1U, 1U}, .is_full = true, .changes = {}};
+  auto& change = batch.changes.emplace_back();
+  change.id = change.node.id = {1U, 1U};
+  change.node.uuid = id;
+  std::vector<std::uint8_t> bytes;
+  ipc_inspection_batch decoded;
+  if (encode_ipc_inspection_batch(batch, bytes).failed() ||
+      decode_ipc_inspection_batch(bytes, decoded).failed() || decoded.changes.size() != 1U ||
+      decoded.changes[0].node.uuid != id || decoded.changes[0].node.prefab_instance_uuid)
+    return false;
+  const std::string text(bytes.begin(), bytes.end());
+  if (text.find(id.string()) == std::string::npos)
+    return false;
+  for (const auto malformed : {"ABCDEF01-2345-4678-9ABC-DEF012345678",
+                               "00000000-0000-0000-0000-000000000000", "invalid"}) {
+    auto broken = text;
+    broken.replace(broken.find(id.string()), 36U, malformed);
+    std::vector<std::uint8_t> payload(broken.begin(), broken.end());
+    if (decode_ipc_inspection_batch(payload, decoded).ok() || decoded.changes[0].node.uuid != id)
+      return false;
+  }
+  batch.changes[0].node.prefab_instance_uuid = id;
+  batch.changes[0].node.prefab_source_node_uuid = id;
+  if (encode_ipc_inspection_batch(batch, bytes).failed() ||
+      decode_ipc_inspection_batch(bytes, decoded).failed() ||
+      decoded.changes[0].node.prefab_source_node_uuid != id)
+    return false;
+  batch.changes[0].node.prefab_instance_uuid = {};
+  if (encode_ipc_inspection_batch(batch, bytes).ok())
+    return false;
+  batch.changes[0].node.uuid = {};
+  return encode_ipc_inspection_batch(batch, bytes).failed();
+}
+
 [[nodiscard]] bool test_property_request_and_response() {
   const gneiss::host::ipc_property_write command{.session_id = 9U,
                                                  .command_id = 21U,
@@ -140,8 +177,8 @@ namespace {
 
 int main() {
   try {
-    return test_log_and_statistics() && test_inspection() && test_property_request_and_response() &&
-                   test_rules_and_rejections()
+    return test_log_and_statistics() && test_inspection() && test_inspection_guid_boundary() &&
+                   test_property_request_and_response() && test_rules_and_rejections()
                ? 0
                : 1;
   } catch (...) {

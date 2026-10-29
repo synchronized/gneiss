@@ -151,7 +151,7 @@ parse_prefab_description(std::string_view json) noexcept try {
   }
 
   out_prefab.source_schema_version = 1U;
-  out_prefab.uuid = prefab_uuid;
+  out_prefab.uuid = scene.uuid;
   out_prefab.objects = std::move(scene.objects);
   for (const auto& object : out_prefab.objects) {
     if (object.components.template get<gneiss::engine::mesh_renderer_description>()) {
@@ -176,7 +176,7 @@ parse_prefab_description(std::string_view json) noexcept try {
 
 result<std::string> serialize_prefab_description(const prefab_description& prefab) noexcept try {
 
-  if (prefab.author_json.empty() || prefab.uuid.empty()) {
+  if (prefab.author_json.empty() || prefab.uuid.is_nil()) {
     return engine::error::invalid_state;
   }
 
@@ -184,14 +184,14 @@ result<std::string> serialize_prefab_description(const prefab_description& prefa
   scene.source_schema_version = 5U;
   scene.uuid = prefab.uuid;
   scene.objects = prefab.objects;
-  auto envelope = convert_author_envelope(prefab.author_json, prefab.uuid, true);
+  auto envelope = convert_author_envelope(prefab.author_json, prefab.uuid.string(), true);
   if (!envelope)
     return envelope.error();
   scene.author_json = std::move(*envelope);
   auto scene_json = serialize_scene_description(scene);
   if (!scene_json)
     return scene_json.error();
-  return convert_author_envelope(*scene_json, prefab.uuid, false);
+  return convert_author_envelope(*scene_json, prefab.uuid.string(), false);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {

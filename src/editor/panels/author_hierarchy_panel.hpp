@@ -4,6 +4,7 @@
 #pragma once
 
 #include "documents/scene_document.hpp"
+#include "engine/core/guid.hpp"
 
 #include <span>
 #include <string>
@@ -32,8 +33,8 @@ struct author_hierarchy_view final {
 struct author_hierarchy_request final {
   author_hierarchy_action action = author_hierarchy_action::none;
   scene_node_id node;
-  std::string uuid;
-  std::string parent_uuid;
+  gneiss::engine::guid uuid;
+  gneiss::engine::guid parent_uuid;
 };
 
 [[nodiscard]] author_hierarchy_request draw_author_hierarchy(const author_hierarchy_view& view);

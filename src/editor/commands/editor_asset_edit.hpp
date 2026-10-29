@@ -4,6 +4,7 @@
 #include "commands/editor_command_history.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/resource/asset_types.hpp"
@@ -24,11 +25,11 @@ public:
                                     editor_command_history& history, std::string_view name,
                                     mesh_asset_reference assets);
   gneiss::engine::error request(runtime::application& application, scene_document& session,
-                                editor_command_history& history, std::string_view uuid,
+                                editor_command_history& history, gneiss::engine::guid uuid,
                                 mesh_asset_reference assets);
   /** 移除组件并把资源强引用保存在历史中；撤销不加载文件。 */
   gneiss::engine::error request_remove(runtime::application& application, scene_document& session,
-                                       editor_command_history& history, std::string_view uuid);
+                                       editor_command_history& history, gneiss::engine::guid uuid);
   void advance(runtime::application& application, scene_document& session,
                editor_command_history& history);
   void cancel(runtime::application& application);
@@ -44,8 +45,9 @@ public:
 
 private:
   gneiss::engine::error request_impl(runtime::application& application, scene_document& session,
-                                     editor_command_history& history, std::string_view target,
-                                     mesh_asset_reference assets, bool creating);
+                                     editor_command_history& history, engine::guid target,
+                                     std::string_view name, mesh_asset_reference assets,
+                                     bool creating);
   gneiss::engine::error commit_add(runtime::application& application, scene_document& session,
                                    editor_command_history& history);
   scene_node_snapshot snapshot_;

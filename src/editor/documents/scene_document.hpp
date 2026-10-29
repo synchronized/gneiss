@@ -6,6 +6,7 @@
 
 #include "engine/core/entity_id.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
@@ -33,13 +34,13 @@ namespace gneiss::editor {
                                                    std::string& output) noexcept;
 
 /** 生成符合场景 Schema 的随机 UUID。 */
-[[nodiscard]] gneiss::engine::error make_editor_uuid(std::string& output) noexcept;
+[[nodiscard]] gneiss::engine::error make_editor_uuid(engine::guid& output) noexcept;
 
 struct scene_node_record final {
   scene_node_id node;
   scene_node_id parent;
   entity_id entity;
-  std::string uuid;
+  gneiss::engine::guid uuid;
   std::string display_name;
   std::string mesh_uri;
   std::string material_uri;
@@ -53,8 +54,8 @@ struct prefab_node_record final {
   scene_node_id node;
   scene_node_id parent;
   entity_id entity;
-  std::string instance_uuid;
-  std::string source_node_uuid;
+  gneiss::engine::guid instance_uuid;
+  gneiss::engine::guid source_node_uuid;
   std::string display_name;
   std::string prefab_uri;
   gneiss::engine::math::transform local_transform = {};
@@ -65,8 +66,8 @@ struct prefab_node_record final {
 };
 
 struct scene_node_snapshot final {
-  std::string uuid;
-  std::string parent_uuid;
+  gneiss::engine::guid uuid;
+  gneiss::engine::guid parent_uuid;
   std::string display_name;
   std::string mesh_uri;
   std::string material_uri;
@@ -94,7 +95,7 @@ public:
                                             std::string_view uri) noexcept;
   [[nodiscard]] gneiss::engine::error create_empty(runtime::application& application,
                                                    gneiss::engine::world* world,
-                                                   std::string_view scene_uuid) noexcept;
+                                                   gneiss::engine::guid scene_uuid) noexcept;
   [[nodiscard]] gneiss::engine::error create_empty(runtime::application& application,
                                                    gneiss::engine::world* world) noexcept;
   void close() noexcept;
@@ -120,10 +121,11 @@ public:
   [[nodiscard]] const scene_node_record* selected_node() const noexcept;
   [[nodiscard]] const prefab_node_record* selected_prefab_node() const noexcept;
   [[nodiscard]] const prefab_node_record*
-  find_prefab_root(std::string_view instance_uuid) const noexcept;
+  find_prefab_root(gneiss::engine::guid instance_uuid) const noexcept;
   [[nodiscard]] const prefab_node_record*
-  find_prefab_source(std::string_view instance_uuid, std::string_view source_uuid) const noexcept;
-  [[nodiscard]] const scene_node_record* find_node(std::string_view uuid) const noexcept;
+  find_prefab_source(gneiss::engine::guid instance_uuid,
+                     gneiss::engine::guid source_uuid) const noexcept;
+  [[nodiscard]] const scene_node_record* find_node(gneiss::engine::guid uuid) const noexcept;
 
   [[nodiscard]] gneiss::engine::error select(scene_node_id node) noexcept;
   [[nodiscard]] gneiss::engine::error validate_selection() noexcept;

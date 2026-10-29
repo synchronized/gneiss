@@ -5,6 +5,7 @@
 #include "../support/memory_file_fixture.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/meta/serialization.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/meta_registration.hpp"
@@ -267,11 +268,11 @@ int main() try {
     return 8;
   }
 
-  const gneiss::engine::prefab_author_address address{.instance_uuid =
-                                                          "20000000-0000-4000-8000-000000000001",
-                                                      .source_node_uuid = prefab.objects[1].uuid};
+  const gneiss::engine::prefab_author_address address{
+      .instance_uuid = *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000001"),
+      .source_node_uuid = prefab.objects[1].uuid};
   const gneiss::engine::prefab_author_address different_instance{
-      .instance_uuid = "20000000-0000-4000-8000-000000000002",
+      .instance_uuid = *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000002"),
       .source_node_uuid = prefab.objects[1].uuid};
   if (!gneiss::engine::is_valid_prefab_author_address(address) || address == different_instance) {
     return 2;

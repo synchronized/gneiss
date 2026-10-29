@@ -38,7 +38,7 @@ gneiss::engine::error apply_camera(gneiss::engine::world& native_world, std::uin
 namespace gneiss::engine {
 
 prefab_binding::prefab_binding(world& native_world, resource_service& loader,
-                               prefab_asset_ref prefab, std::string instance_uuid) noexcept
+                               prefab_asset_ref prefab, gneiss::engine::guid instance_uuid) noexcept
     : native_world_(native_world), loader_(loader), prefab_(std::move(prefab)),
       instance_uuid_(std::move(instance_uuid)) {}
 
@@ -155,7 +155,7 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate, const meta::reg
   };
   std::vector<staged_node> staged;
   staged.reserve(candidate.get()->objects.size());
-  std::unordered_map<std::string_view, std::size_t> old_indices;
+  std::unordered_map<guid, std::size_t, guid_hash> old_indices;
   old_indices.reserve(nodes_.size());
   for (std::size_t index = 0U; index < nodes_.size(); ++index) {
     old_indices.emplace(nodes_[index].address.source_node_uuid, index);
@@ -222,7 +222,7 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate, const meta::reg
     members.push_back({value.address, value.node, true});
     identities.push_back({value.address.source_node_uuid, value.name});
   }
-  std::unordered_map<std::string_view, scene_node_id> runtime_nodes;
+  std::unordered_map<guid, scene_node_id, guid_hash> runtime_nodes;
   runtime_nodes.reserve(staged.size());
   for (const auto& target : staged) {
     if (target.node != null_scene_node_id) {
@@ -505,9 +505,9 @@ prefab_binding::apply_overrides(const meta::registry_ref& registry,
     if (validation != engine::error::success) {
       return validation;
     }
-    const auto found = std::ranges::find(
-        nodes_, override_value.key.source_node_uuid,
-        [](const runtime_node& node) { return std::string_view(node.address.source_node_uuid); });
+    const auto found =
+        std::ranges::find(nodes_, override_value.key.source_node_uuid,
+                          [](const runtime_node& node) { return node.address.source_node_uuid; });
     if (found == nodes_.end()) {
       return engine::error::not_found;
     }
@@ -577,15 +577,15 @@ engine::error prefab_binding::apply_override(const meta::registry_ref& registry,
   return apply_overrides(registry, std::span(&value, 1U));
 }
 
-scene_node_id prefab_binding::find_node(std::string_view source_node_uuid) const noexcept {
+scene_node_id prefab_binding::find_node(gneiss::engine::guid source_node_uuid) const noexcept {
   const auto found = std::ranges::find(nodes_, source_node_uuid, [](const runtime_node& node) {
-    return std::string_view(node.address.source_node_uuid);
+    return node.address.source_node_uuid;
   });
   return found == nodes_.end() ? null_scene_node_id : found->node;
 }
 
 const object_description*
-prefab_binding::find_source_object(std::string_view source_node_uuid) const noexcept {
+prefab_binding::find_source_object(gneiss::engine::guid source_node_uuid) const noexcept {
   const auto& objects = prefab_.get()->objects;
   const auto found = std::ranges::find(objects, source_node_uuid, &object_description::uuid);
   return found == objects.end() ? nullptr : &*found;

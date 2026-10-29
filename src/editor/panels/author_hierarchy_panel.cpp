@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "panels/author_hierarchy_panel.hpp"
+#include <cstring>
 
 #include <imgui.h>
 
@@ -9,6 +10,11 @@
 
 namespace gneiss::editor {
 namespace {
+engine::guid payload_uuid(const void* data) noexcept {
+  engine::guid result;
+  std::memcpy(&result, data, sizeof(result));
+  return result;
+}
 
 void draw_prefab_node(const author_hierarchy_view& view, author_hierarchy_request& request,
                       const prefab_node_record& node) {
@@ -23,8 +29,8 @@ void draw_prefab_node(const author_hierarchy_view& view, author_hierarchy_reques
   if (view.selection == node.node) {
     flags |= ImGuiTreeNodeFlags_Selected;
   }
-  ImGui::PushID(node.instance_uuid.c_str());
-  ImGui::PushID(node.source_node_uuid.c_str());
+  ImGui::PushID(node.instance_uuid.string().c_str());
+  ImGui::PushID(node.source_node_uuid.string().c_str());
   const auto label = node.is_instance_root ? std::string{"[Prefab] "} + node.display_name
                                            : node.display_name + " (read-only)";
   if (node.is_read_only) {
@@ -121,7 +127,7 @@ void draw_scene_node(const author_hierarchy_view& view, author_hierarchy_request
   if (view.selection == node.node) {
     flags |= ImGuiTreeNodeFlags_Selected;
   }
-  ImGui::PushID(node.uuid.c_str());
+  ImGui::PushID(node.uuid.string().c_str());
   const auto is_open = ImGui::TreeNodeEx(node.display_name.c_str(), flags);
   if (ImGui::IsItemClicked()) {
     request = {
@@ -133,21 +139,18 @@ void draw_scene_node(const author_hierarchy_view& view, author_hierarchy_request
   }
   draw_node_menu(view, request, node);
   if (ImGui::BeginDragDropSource()) {
-    ImGui::SetDragDropPayload("GNEISS_SCENE_NODE_UUID", node.uuid.data(), node.uuid.size());
+    ImGui::SetDragDropPayload("GNEISS_SCENE_NODE_UUID", &node.uuid, sizeof(node.uuid));
     ImGui::TextUnformatted(node.display_name.c_str());
     ImGui::EndDragDropSource();
   }
   if (ImGui::BeginDragDropTarget()) {
     if (const auto* payload = ImGui::AcceptDragDropPayload("GNEISS_SCENE_NODE_UUID");
-        payload != nullptr && payload->Data != nullptr && payload->DataSize > 0) {
+        payload != nullptr && payload->Data != nullptr &&
+        payload->DataSize == sizeof(engine::guid)) {
       request = {
           .action = author_hierarchy_action::reparent,
           .node = {},
-          .uuid =
-              {
-                  static_cast<const char*>(payload->Data),
-                  static_cast<std::size_t>(payload->DataSize),
-              },
+          .uuid = payload_uuid(payload->Data),
           .parent_uuid = target_uuid,
       };
     }
@@ -187,15 +190,12 @@ author_hierarchy_request draw_author_hierarchy(const author_hierarchy_view& view
   ImGui::Selectable("Drop here to move to root", false);
   if (ImGui::BeginDragDropTarget()) {
     if (const auto* payload = ImGui::AcceptDragDropPayload("GNEISS_SCENE_NODE_UUID");
-        payload != nullptr && payload->Data != nullptr && payload->DataSize > 0) {
+        payload != nullptr && payload->Data != nullptr &&
+        payload->DataSize == sizeof(engine::guid)) {
       request = {
           .action = author_hierarchy_action::reparent,
           .node = {},
-          .uuid =
-              {
-                  static_cast<const char*>(payload->Data),
-                  static_cast<std::size_t>(payload->DataSize),
-              },
+          .uuid = payload_uuid(payload->Data),
           .parent_uuid = {},
       };
     }

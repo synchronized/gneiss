@@ -54,9 +54,9 @@ struct prefab_reference_description final {
 };
 
 struct object_description final {
-  std::string uuid;
+  gneiss::engine::guid uuid;
   std::string name;
-  std::optional<std::string> parent_uuid;
+  std::optional<gneiss::engine::guid> parent_uuid;
   /** 相对父对象的局部变换；默认单位变换。 */
   math::transform transform{};
   component_descriptions components;
@@ -70,7 +70,7 @@ struct scene_description final {
                                 0x3a, 0x9e, 0x6b, 0x70, 0x11})};
   inline static constexpr std::size_t maximum_source_bytes = 16U * 1024U * 1024U;
   std::uint32_t source_schema_version = 0;
-  std::string uuid;
+  gneiss::engine::guid uuid;
   std::vector<object_description> objects;
   std::string author_json;
 };

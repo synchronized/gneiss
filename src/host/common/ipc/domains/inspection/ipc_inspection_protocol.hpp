@@ -4,6 +4,7 @@
 #ifndef GNEISS_APPS_COMMON_IPC_DOMAINS_INSPECTION_IPC_INSPECTION_PROTOCOL_H_
 #define GNEISS_APPS_COMMON_IPC_DOMAINS_INSPECTION_IPC_INSPECTION_PROTOCOL_H_
 
+#include "engine/core/guid.hpp"
 #include "ipc_dispatcher.hpp"
 
 #include "engine/core/error.hpp"
@@ -40,9 +41,9 @@ enum class ipc_inspection_change_type : std::uint8_t { upsert, remove };
 struct ipc_inspection_node final {
   ipc_runtime_object_id id;
   ipc_runtime_object_id parent;
-  std::string uuid;
-  std::string prefab_instance_uuid;
-  std::string prefab_source_node_uuid;
+  engine::guid uuid;
+  engine::guid prefab_instance_uuid;
+  engine::guid prefab_source_node_uuid;
   std::string name;
   gneiss::engine::math::transform local_transform;
   std::uint32_t component_flags = 0U;

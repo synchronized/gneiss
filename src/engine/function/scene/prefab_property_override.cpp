@@ -112,8 +112,8 @@ namespace gneiss::engine {
 
 error validate_prefab_property_override(const meta::registry_ref& registry,
                                         const prefab_property_override& value) noexcept try {
-  if (!engine::is_canonical_prefab_uuid(value.key.source_node_uuid) || !value.key.type_guid ||
-      !value.key.property_id.is_valid() || !valid_value(value.value)) {
+  if (!value.key.source_node_uuid || !value.key.type_guid || !value.key.property_id.is_valid() ||
+      !valid_value(value.value)) {
     return error::invalid_argument;
   }
   auto field = meta::describe_property(registry, value.key.type_guid, value.key.property_id);

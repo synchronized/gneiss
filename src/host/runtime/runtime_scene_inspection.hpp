@@ -5,6 +5,7 @@
 #define GNEISS_APPS_RUNTIME_RUNTIME_SCENE_INSPECTION_H_
 
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/math/camera.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/core/rid.hpp"
@@ -13,6 +14,7 @@
 
 #include "engine/core/rid.hpp"
 
+#include <array>
 #include <cstdint>
 #include <map>
 #include <span>
@@ -32,9 +34,9 @@ struct runtime_scene_source_node final {
   std::uint64_t native_node = 0U;
   std::uint64_t native_parent = 0U;
   std::uint64_t native_entity = UINT64_C(0);
-  std::string uuid;
-  std::string prefab_instance_uuid;
-  std::string prefab_source_node_uuid;
+  gneiss::engine::guid uuid;
+  gneiss::engine::guid prefab_instance_uuid;
+  gneiss::engine::guid prefab_source_node_uuid;
   std::string name;
   gneiss::engine::math::transform local_transform;
   std::uint32_t component_flags = 0U;
@@ -68,7 +70,7 @@ private:
   std::uint64_t session_id_ = 0U;
   std::uint64_t next_sequence_ = 1U;
   std::uint64_t next_object_value_ = 1U;
-  std::map<std::string, ipc_runtime_object_id, std::less<>> identities_;
+  std::map<std::array<engine::guid, 3>, ipc_runtime_object_id> identities_;
   std::map<std::uint64_t, std::uint32_t> generations_;
   std::vector<std::uint64_t> free_values_;
   std::map<std::uint64_t, runtime_scene_snapshot_node> previous_;

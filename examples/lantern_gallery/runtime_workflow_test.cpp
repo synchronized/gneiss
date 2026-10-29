@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/guid.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "runtime_process.hpp"
 
@@ -110,8 +111,8 @@ const gneiss::editor::runtime_scene_node* root_node(const gneiss::host::runtime_
 }
 
 const gneiss::editor::runtime_scene_node*
-prefab_source(const gneiss::host::runtime_process& process, std::string_view instance_uuid,
-              std::string_view source_uuid) {
+prefab_source(const gneiss::host::runtime_process& process, gneiss::engine::guid instance_uuid,
+              gneiss::engine::guid source_uuid) {
   const auto& nodes = process.scene_mirror().nodes();
   const auto found = std::ranges::find_if(nodes, [&](const auto& node) {
     return node.prefab_instance_uuid == instance_uuid &&
@@ -233,29 +234,38 @@ int main() try {
       })) {
     std::fprintf(stderr, "未在时限内收到首个 Runtime 场景与进度快照\n");
     for (const auto& node : process.scene_mirror().nodes()) {
-      std::fprintf(stderr, "node=%s instance=%s source=%s\n", node.uuid.c_str(),
-                   node.prefab_instance_uuid.c_str(), node.prefab_source_node_uuid.c_str());
+      std::fprintf(stderr, "node=%s instance=%s source=%s\n", node.uuid.string().c_str(),
+                   node.prefab_instance_uuid.string().c_str(),
+                   node.prefab_source_node_uuid.string().c_str());
     }
     return report_failure(process, 2);
   }
   const auto initial_rotation = *root_rotation(process);
   if (!pump_until(process, 3s, [&] {
-        return prefab_source(process, "20000000-0000-4000-8000-000000000010",
-                             "21000000-0000-4000-8000-000000000002") != nullptr &&
-               prefab_source(process, "20000000-0000-4000-8000-000000000020",
-                             "21000000-0000-4000-8000-000000000003") != nullptr &&
-               prefab_source(process, "20000000-0000-4000-8000-000000000030",
-                             "21000000-0000-4000-8000-000000000004") != nullptr;
+        return prefab_source(
+                   process, *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000010"),
+                   *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000002")) !=
+                   nullptr &&
+               prefab_source(
+                   process, *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000020"),
+                   *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000003")) !=
+                   nullptr &&
+               prefab_source(
+                   process, *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000030"),
+                   *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000004")) != nullptr;
       })) {
     std::fprintf(stderr, "未在时限内收到三个 Prefab 来源节点\n");
     return report_failure(process, 2);
   }
-  const auto* left_body = prefab_source(process, "20000000-0000-4000-8000-000000000010",
-                                        "21000000-0000-4000-8000-000000000002");
-  const auto* center_frame = prefab_source(process, "20000000-0000-4000-8000-000000000020",
-                                           "21000000-0000-4000-8000-000000000003");
-  const auto* right_glass = prefab_source(process, "20000000-0000-4000-8000-000000000030",
-                                          "21000000-0000-4000-8000-000000000004");
+  const auto* left_body =
+      prefab_source(process, *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000010"),
+                    *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000002"));
+  const auto* center_frame =
+      prefab_source(process, *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000020"),
+                    *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000003"));
+  const auto* right_glass =
+      prefab_source(process, *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000030"),
+                    *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000004"));
   if (left_body == nullptr || center_frame == nullptr || right_glass == nullptr ||
       left_body->local_transform.translation[0] != -5.0F ||
       center_frame->local_transform.scale[0] != 1.15F ||
@@ -296,8 +306,9 @@ int main() try {
   if (process.publish_asset_revision(prefab_revision) != gneiss::engine::error::success ||
       !wait_for_asset_state(process, gneiss::host::runtime_asset_reload_state::applied) ||
       !pump_until(process, 3s, [&] {
-        const auto* glass = prefab_source(process, "20000000-0000-4000-8000-000000000030",
-                                          "21000000-0000-4000-8000-000000000004");
+        const auto* glass = prefab_source(
+            process, *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000030"),
+            *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000004"));
         return glass != nullptr && glass->name == "Lantern Glass Reloaded" &&
                glass->id == glass_identity && glass->local_transform.translation[1] == 20.0F;
       })) {
@@ -308,8 +319,9 @@ int main() try {
       !wait_for_asset_state(process, gneiss::host::runtime_asset_reload_state::failed)) {
     return report_failure(process, 2);
   }
-  const auto* preserved_glass = prefab_source(process, "20000000-0000-4000-8000-000000000030",
-                                              "21000000-0000-4000-8000-000000000004");
+  const auto* preserved_glass =
+      prefab_source(process, *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000030"),
+                    *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000004"));
   if (preserved_glass == nullptr || preserved_glass->name != "Lantern Glass Reloaded" ||
       preserved_glass->id != glass_identity || !write_text(prefab_path, valid_prefab) ||
       process.publish_asset_revision(prefab_revision) != gneiss::engine::error::success ||

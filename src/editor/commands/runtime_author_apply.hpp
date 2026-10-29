@@ -7,15 +7,16 @@
 #include "commands/editor_command_history.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include <string_view>
 
 namespace gneiss::editor {
 
 /** 调用期间借用身份字符串；成功记录的撤销命令持有自己的副本。 */
 struct runtime_author_transform final {
-  std::string_view uuid;
-  std::string_view prefab_instance_uuid;
-  std::string_view prefab_source_node_uuid;
+  gneiss::engine::guid uuid;
+  gneiss::engine::guid prefab_instance_uuid;
+  gneiss::engine::guid prefab_source_node_uuid;
   gneiss::engine::math::transform local_transform = {};
 };
 

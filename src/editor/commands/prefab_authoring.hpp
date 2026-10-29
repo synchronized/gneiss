@@ -6,6 +6,7 @@
 
 #include "commands/author_document_change.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 
 #include <span>
 #include <string>
@@ -18,32 +19,32 @@ struct create_prefab_author_request final {
   std::string_view scene_path;
   std::string_view prefab_path;
   std::string_view prefab_uri;
-  std::string_view root_uuid;
-  std::string_view prefab_uuid;
-  std::string_view instance_uuid;
+  gneiss::engine::guid root_uuid;
+  gneiss::engine::guid prefab_uuid;
+  gneiss::engine::guid instance_uuid;
 };
 
 struct apply_prefab_author_request final {
   std::string_view scene_path;
   std::string_view prefab_path;
   std::string_view prefab_uri;
-  std::string_view instance_uuid;
+  gneiss::engine::guid instance_uuid;
 };
 
 struct apply_prefab_author_plan final {
   std::vector<author_document_change> changes;
-  std::vector<std::string> affected_instance_uuids;
+  std::vector<engine::guid> affected_instance_uuids;
 };
 
 struct unpack_prefab_uuid_mapping final {
-  std::string_view source_node_uuid;
-  std::string_view target_node_uuid;
+  gneiss::engine::guid source_node_uuid;
+  gneiss::engine::guid target_node_uuid;
 };
 
 struct unpack_prefab_author_request final {
   std::string_view scene_path;
   std::string_view prefab_uri;
-  std::string_view instance_uuid;
+  gneiss::engine::guid instance_uuid;
   std::span<const unpack_prefab_uuid_mapping> node_mappings;
 };
 

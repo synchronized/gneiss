@@ -28,8 +28,8 @@ void draw_runtime_scene_node(const runtime_scene_mirror& mirror, runtime_scene_s
   if (selection.session == mirror.session_id() && selection.object == node.id) {
     flags |= ImGuiTreeNodeFlags_Selected;
   }
-  ImGui::PushID(node.uuid.c_str());
-  const auto& label = node.name.empty() ? node.uuid : node.name;
+  ImGui::PushID(node.uuid.string().c_str());
+  const auto& label = node.name.empty() ? node.uuid.string() : node.name;
   const auto is_open = ImGui::TreeNodeEx(label.c_str(), flags);
   if (ImGui::IsItemClicked()) {
     selection.object = node.id;
@@ -105,8 +105,8 @@ void draw_runtime_hierarchy(const runtime_scene_mirror& mirror,
 
 void draw_runtime_inspector(const runtime_scene_node& node,
                             const runtime_inspector_actions& actions) {
-  ImGui::Text("Name: %s", node.name.empty() ? node.uuid.c_str() : node.name.c_str());
-  ImGui::Text("UUID: %s", node.uuid.c_str());
+  ImGui::Text("Name: %s", node.name.empty() ? node.uuid.string().c_str() : node.name.c_str());
+  ImGui::Text("UUID: %s", node.uuid.string().c_str());
   const auto editable = actions.editable;
   ImGui::TextDisabled(editable ? "Runtime 实时属性" : "Runtime 只读（未协商属性编辑能力）");
   const auto can_apply = actions.can_apply_to_author;

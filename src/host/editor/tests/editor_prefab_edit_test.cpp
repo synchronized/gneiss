@@ -4,6 +4,7 @@
 #include "../../../../tests/support/value_result.hpp"
 #include "commands/editor_prefab_edit.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
@@ -176,7 +177,8 @@ void run_refresh(gneiss::engine::execution_mode mode) {
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":5,"metallic":0,"roughness":1,"base_color_texture":null,"color":[1,0,0,1]})";
   // 第二个实例覆盖失效：第一个替换保留，第二个旧实例删除，镜像反映部分结果。
-  const std::string removed_uuid = "30000000-0000-4000-8000-000000000003";
+  const gneiss::engine::guid removed_uuid =
+      *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000003");
   const auto second_node = session.find_prefab_source(second_uuid, removed_uuid)->node;
   const auto original = session.find_prefab_source(second_uuid, removed_uuid)->local_transform;
   auto changed = original;

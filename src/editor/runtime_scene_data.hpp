@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/guid.hpp"
 #include "runtime_object_id.hpp"
 
 #include "engine/core/error.hpp"
@@ -49,9 +50,9 @@ enum class runtime_scene_change_type : std::uint8_t { upsert, remove };
 struct runtime_scene_node final {
   runtime_object_id id;
   runtime_object_id parent;
-  std::string uuid;
-  std::string prefab_instance_uuid;
-  std::string prefab_source_node_uuid;
+  gneiss::engine::guid uuid;
+  gneiss::engine::guid prefab_instance_uuid;
+  gneiss::engine::guid prefab_source_node_uuid;
   std::string name;
   gneiss::engine::math::transform local_transform;
   std::uint32_t component_flags = 0U;

@@ -5,6 +5,7 @@
 #define GNEISS_SCENE_PREFAB_BINDING_HPP_
 
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/resource/resource_service.hpp"
@@ -40,7 +41,7 @@ public:
   };
 
   prefab_binding(world& native_world, resource_service& loader, prefab_asset_ref prefab,
-                 std::string instance_uuid) noexcept;
+                 guid instance_uuid) noexcept;
   ~prefab_binding() noexcept = default;
 
   prefab_binding(const prefab_binding&) = delete;
@@ -48,9 +49,8 @@ public:
 
   [[nodiscard]] scene_node_id root() const noexcept { return root_node_; }
   [[nodiscard]] prefab_asset_ref prefab_lease() const noexcept { return prefab_; }
-  [[nodiscard]] scene_node_id find_node(std::string_view source_node_uuid) const noexcept;
-  [[nodiscard]] const object_description*
-  find_source_object(std::string_view source_node_uuid) const noexcept;
+  [[nodiscard]] scene_node_id find_node(guid source_node_uuid) const noexcept;
+  [[nodiscard]] const object_description* find_source_object(guid source_node_uuid) const noexcept;
   [[nodiscard]] std::size_t node_count() const noexcept { return nodes_.size(); }
   [[nodiscard]] error get_node_info(std::size_t index, node_info& out_info) const noexcept;
   /** 验证候选来源、覆盖与资源是否可提交，不修改 World。 */
@@ -83,7 +83,7 @@ private:
   world& native_world_;
   resource_service& loader_;
   prefab_asset_ref prefab_;
-  std::string instance_uuid_;
+  guid instance_uuid_;
   scene_node_id root_node_ = null_scene_node_id;
   std::vector<runtime_node> nodes_;
 };

@@ -3,6 +3,7 @@
 
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/rid.hpp"
@@ -28,19 +29,27 @@ bool scene_object_storage() {
   if (!created || !other)
     return false;
   auto& owner = **created;
-  auto root = owner.object_create({}, {"root", "父节点"}, {});
+  auto root = owner.object_create(
+      {}, {*gneiss::engine::guid::parse("21470280-22a3-5087-9443-62d27dfc4bbf"), "父节点"}, {});
   if (!root)
     return false;
-  auto child = owner.object_create(*root, {"child", "子节点"}, {});
+  auto child = owner.object_create(
+      *root, {*gneiss::engine::guid::parse("0552e973-b75c-5936-a81b-c56bcd7688d5"), "子节点"}, {});
   if (!child)
     return false;
   entity_id child_entity;
   if (owner.node_get_entity(*child, child_entity).failed())
     return false;
   auto identity = owner.node_identity(*child);
-  if (!identity || identity->uuid != "child" || identity->name != "子节点")
+  if (!identity ||
+      identity->uuid != *gneiss::engine::guid::parse("0552e973-b75c-5936-a81b-c56bcd7688d5") ||
+      identity->name != "子节点")
     return false;
-  if (owner.node_set_identity(*child, {"child", "新名称"}).failed())
+  if (owner
+          .node_set_identity(
+              *child,
+              {*gneiss::engine::guid::parse("0552e973-b75c-5936-a81b-c56bcd7688d5"), "新名称"})
+          .failed())
     return false;
   auto renamed = owner.node_identity(*child);
   if (!renamed || renamed->name != "新名称")
@@ -49,7 +58,9 @@ bool scene_object_storage() {
     return false;
   math::transform invalid;
   invalid.scale.x = 0;
-  auto failed = owner.object_create(*root, {"failed", "失败"}, invalid);
+  auto failed = owner.object_create(
+      *root, {*gneiss::engine::guid::parse("342f4c19-af04-52d3-b51c-4df4993ca453"), "失败"},
+      invalid);
   auto count = owner.entity_count();
   if (failed || !count || *count != 2)
     return false;
@@ -69,7 +80,8 @@ bool scene_object_storage() {
   if (owner.node_identity(*child).error() != error::invalid_handle ||
       owner.object_destroy(*root) != error::invalid_handle)
     return false;
-  auto replacement = owner.object_create({}, {"new", "新节点"}, {});
+  auto replacement = owner.object_create(
+      {}, {*gneiss::engine::guid::parse("fa89a95a-8e13-5e11-a128-bc6a7dc564fb"), "新节点"}, {});
   return replacement && *replacement != *root && *replacement != *child;
 }
 

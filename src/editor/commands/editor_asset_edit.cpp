@@ -90,7 +90,7 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
 engine::error editor_asset_edit::request_remove(runtime::application& application,
                                                 scene_document& session,
                                                 editor_command_history& history,
-                                                std::string_view uuid) try {
+                                                gneiss::engine::guid uuid) try {
   if (active_ || history.is_pending())
     return engine::error::not_ready;
   const auto* node = session.find_node(uuid);
@@ -107,7 +107,7 @@ engine::error editor_asset_edit::request_remove(runtime::application& applicatio
   status = history.execute({
       .label = "移除 Mesh Renderer",
       .undo =
-          [&application, &session, scene, uuid = std::string(uuid), binding] {
+          [&application, &session, scene, uuid = uuid, binding] {
             if (session.scene_handle() != scene)
               return engine::error::invalid_state;
             const auto* current = session.find_node(uuid);
@@ -120,7 +120,7 @@ engine::error editor_asset_edit::request_remove(runtime::application& applicatio
                                                 });
           },
       .redo =
-          [&session, scene, uuid = std::string(uuid)] {
+          [&session, scene, uuid = uuid] {
             if (session.scene_handle() != scene)
               return engine::error::invalid_state;
             const auto* current = session.find_node(uuid);
@@ -140,21 +140,20 @@ engine::error editor_asset_edit::request_remove(runtime::application& applicatio
 gneiss::engine::error editor_asset_edit::request(runtime::application& application,
                                                  scene_document& session,
                                                  editor_command_history& history,
-                                                 std::string_view uuid,
+                                                 gneiss::engine::guid uuid,
                                                  mesh_asset_reference assets) {
-  return request_impl(application, session, history, uuid, assets, false);
+  return request_impl(application, session, history, uuid, {}, assets, false);
 }
 gneiss::engine::error editor_asset_edit::request_add(runtime::application& application,
                                                      scene_document& session,
                                                      editor_command_history& history,
                                                      std::string_view name,
                                                      mesh_asset_reference assets) {
-  return request_impl(application, session, history, name, assets, true);
+  return request_impl(application, session, history, {}, name, assets, true);
 }
-gneiss::engine::error
-editor_asset_edit::request_impl(runtime::application& application, scene_document& session,
-                                editor_command_history& history, std::string_view target,
-                                mesh_asset_reference assets, bool creating) try {
+gneiss::engine::error editor_asset_edit::request_impl(
+    runtime::application& application, scene_document& session, editor_command_history& history,
+    engine::guid target, std::string_view name, mesh_asset_reference assets, bool creating) try {
   if (active_) {
     return gneiss::engine::error::not_ready;
   }
@@ -170,7 +169,7 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
     if (generated.failed()) {
       return generated;
     }
-    snapshot_.display_name = target.empty() ? snapshot_.uuid : std::string{target};
+    snapshot_.display_name = name.empty() ? snapshot_.uuid.string() : std::string{name};
     snapshot_.mesh_uri = assets.mesh_uri;
     snapshot_.material_uri = assets.material_uri;
   } else {

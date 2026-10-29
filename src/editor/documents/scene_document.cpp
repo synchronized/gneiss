@@ -18,10 +18,8 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
-#include <iomanip>
 #include <new>
 #include <random>
-#include <sstream>
 #include <system_error>
 #include <utility>
 
@@ -39,7 +37,7 @@ namespace {
   return true;
 }
 
-[[nodiscard]] std::string make_uuid_value() {
+[[nodiscard]] gneiss::engine::guid make_uuid_value() {
   std::array<std::uint8_t, 16> bytes{};
   std::random_device random;
   for (auto& byte : bytes) {
@@ -47,20 +45,12 @@ namespace {
   }
   bytes[6] = static_cast<std::uint8_t>((bytes[6] & 0x0fU) | 0x40U);
   bytes[8] = static_cast<std::uint8_t>((bytes[8] & 0x3fU) | 0x80U);
-  std::ostringstream output;
-  output << std::hex << std::setfill('0');
-  for (std::size_t index = 0; index < bytes.size(); ++index) {
-    if (index == 4U || index == 6U || index == 8U || index == 10U) {
-      output << '-';
-    }
-    output << std::setw(2) << static_cast<unsigned int>(bytes[index]);
-  }
-  return output.str();
+  return engine::guid::from_bytes(bytes);
 }
 
 } // namespace
 
-gneiss::engine::error make_editor_uuid(std::string& output) noexcept {
+gneiss::engine::error make_editor_uuid(engine::guid& output) noexcept {
   try {
     output = make_uuid_value();
     return gneiss::engine::error::success;
@@ -175,10 +165,10 @@ gneiss::engine::error scene_document::adopt(runtime::application& application,
 
 gneiss::engine::error scene_document::create_empty(runtime::application& application,
                                                    gneiss::engine::world* world,
-                                                   std::string_view scene_uuid) noexcept {
+                                                   gneiss::engine::guid scene_uuid) noexcept {
   if (!application.is_owner_thread() || !application.accepts_requests())
     return gneiss::engine::error::invalid_state;
-  if (world != application.native_world() || scene_uuid.empty())
+  if (world != application.native_world() || scene_uuid.is_nil())
     return gneiss::engine::error::invalid_argument;
   scene_instance_id pending{};
   const auto created = application.scenes()->create_empty(scene_uuid, &pending);
@@ -238,10 +228,8 @@ gneiss::engine::error scene_document::refresh_nodes() noexcept {
         return operation;
       }
       if (info.prefab) {
-        const std::string instance_uuid{info.prefab->instance_uuid};
-        const std::string source_uuid = info.prefab->source_node_uuid.empty()
-                                            ? std::string{}
-                                            : std::string{info.prefab->source_node_uuid};
+        const gneiss::engine::guid instance_uuid{info.prefab->instance_uuid};
+        const auto source_uuid = info.prefab->source_node_uuid;
         const bool is_root = has_flags(info.prefab->flags, scene_prefab_flags::instance_root);
         prefab_records.push_back(
             {.node = scene_node_id{info.node},
@@ -249,7 +237,7 @@ gneiss::engine::error scene_document::refresh_nodes() noexcept {
              .entity = entity_id{info.entity},
              .instance_uuid = instance_uuid,
              .source_node_uuid = source_uuid,
-             .display_name = info.name.empty() ? (is_root ? instance_uuid : source_uuid)
+             .display_name = info.name.empty() ? (is_root ? instance_uuid : source_uuid).string()
                                                : std::string{info.name},
              .prefab_uri = std::string{info.prefab->prefab_uri},
              .local_transform = {info.local_transform.translation, info.local_transform.rotation,
@@ -266,13 +254,13 @@ gneiss::engine::error scene_document::refresh_nodes() noexcept {
              .is_read_only = has_flags(info.prefab->flags, scene_prefab_flags::source_read_only)});
         continue;
       }
-      std::string uuid{info.uuid};
+      gneiss::engine::guid uuid{info.uuid};
       records.push_back(
           {.node = scene_node_id{info.node},
            .parent = scene_node_id{info.parent},
            .entity = entity_id{info.entity},
            .uuid = uuid,
-           .display_name = info.name.empty() ? std::move(uuid) : std::string{info.name},
+           .display_name = info.name.empty() ? uuid.string() : std::string{info.name},
            .mesh_uri = info.mesh_uri.empty() ? std::string{} : std::string{info.mesh_uri},
            .material_uri =
                info.material_uri.empty() ? std::string{} : std::string{info.material_uri},
@@ -487,7 +475,7 @@ engine::error scene_document::destroy_subtree(scene_node_id node,
 engine::error scene_document::restore_subtree(const scene_subtree_snapshot& snapshot,
                                               scene_node_id& output) noexcept {
   scene_node_id parent;
-  if (!snapshot.parent_uuid.empty()) {
+  if (!snapshot.parent_uuid.is_nil()) {
     const auto status = with_scene(
         [&](auto& service) { return service.find_node(scene_, snapshot.parent_uuid, parent); });
     if (status.failed())
@@ -510,7 +498,7 @@ engine::error scene_document::duplicate_subtree(scene_node_id node, scene_node_i
       with_scene([&](auto& service) { return service.capture_subtree(scene_, node, snapshot); });
   if (status.failed())
     return status;
-  std::vector<std::string> targets;
+  std::vector<engine::guid> targets;
   targets.reserve(snapshot.description.objects.size());
   for (std::size_t i = 0; i < snapshot.description.objects.size(); ++i)
     targets.push_back(make_uuid_value());
@@ -597,7 +585,7 @@ const prefab_node_record* scene_document::selected_prefab_node() const noexcept 
 }
 
 const prefab_node_record*
-scene_document::find_prefab_root(std::string_view instance_uuid) const noexcept {
+scene_document::find_prefab_root(gneiss::engine::guid instance_uuid) const noexcept {
   const auto found = std::ranges::find_if(prefab_nodes_, [instance_uuid](const auto& node) {
     return node.is_instance_root && node.instance_uuid == instance_uuid;
   });
@@ -605,15 +593,15 @@ scene_document::find_prefab_root(std::string_view instance_uuid) const noexcept 
 }
 
 const prefab_node_record*
-scene_document::find_prefab_source(std::string_view instance_uuid,
-                                   std::string_view source_uuid) const noexcept {
+scene_document::find_prefab_source(gneiss::engine::guid instance_uuid,
+                                   gneiss::engine::guid source_uuid) const noexcept {
   const auto found = std::ranges::find_if(prefab_nodes_, [&](const auto& node) {
     return node.instance_uuid == instance_uuid && node.source_node_uuid == source_uuid;
   });
   return found == prefab_nodes_.end() ? nullptr : &*found;
 }
 
-const scene_node_record* scene_document::find_node(std::string_view uuid) const noexcept {
+const scene_node_record* scene_document::find_node(gneiss::engine::guid uuid) const noexcept {
   const auto found = std::ranges::find(nodes_, uuid, &scene_node_record::uuid);
   return found == nodes_.end() ? nullptr : &*found;
 }
@@ -655,12 +643,13 @@ gneiss::engine::error scene_document::create_mesh_renderer_node(std::string_view
   }
   try {
     const auto uuid = make_uuid_value();
-    return create_mesh_renderer_node({.uuid = uuid,
-                                      .parent_uuid = {},
-                                      .display_name = name.empty() ? uuid : std::string{name},
-                                      .mesh_uri = std::string{mesh_uri},
-                                      .material_uri = std::string{material_uri}},
-                                     out_node);
+    return create_mesh_renderer_node(
+        {.uuid = uuid,
+         .parent_uuid = {},
+         .display_name = name.empty() ? uuid.string() : std::string{name},
+         .mesh_uri = std::string{mesh_uri},
+         .material_uri = std::string{material_uri}},
+        out_node);
   } catch (const std::bad_alloc&) {
     return gneiss::engine::error::out_of_memory;
   } catch (...) {
@@ -670,13 +659,13 @@ gneiss::engine::error scene_document::create_mesh_renderer_node(std::string_view
 
 gneiss::engine::error scene_document::create_mesh_renderer_node(const scene_node_snapshot& snapshot,
                                                                 scene_node_id& out_node) noexcept {
-  if (!is_open() || snapshot.uuid.empty() || snapshot.mesh_uri.empty() ||
+  if (!is_open() || snapshot.uuid.is_nil() || snapshot.mesh_uri.empty() ||
       snapshot.material_uri.empty()) {
     return gneiss::engine::error::invalid_argument;
   }
   try {
     scene_node_id parent;
-    if (!snapshot.parent_uuid.empty()) {
+    if (!snapshot.parent_uuid.is_nil()) {
       const auto* parent_record = find_node(snapshot.parent_uuid);
       if (parent_record == nullptr) {
         return gneiss::engine::error::not_found;
@@ -718,14 +707,14 @@ gneiss::engine::error scene_document::create_mesh_renderer_node(const scene_node
     if (operation != gneiss::engine::error::success) {
       return operation;
     }
-    nodes_.push_back(
-        {.node = scene_node_id{info.node},
-         .parent = scene_node_id{info.parent},
-         .entity = entity_id{info.entity},
-         .uuid = snapshot.uuid,
-         .display_name = snapshot.display_name.empty() ? snapshot.uuid : snapshot.display_name,
-         .mesh_uri = snapshot.mesh_uri,
-         .material_uri = snapshot.material_uri});
+    nodes_.push_back({.node = scene_node_id{info.node},
+                      .parent = scene_node_id{info.parent},
+                      .entity = entity_id{info.entity},
+                      .uuid = snapshot.uuid,
+                      .display_name = snapshot.display_name.empty() ? snapshot.uuid.string()
+                                                                    : snapshot.display_name,
+                      .mesh_uri = snapshot.mesh_uri,
+                      .material_uri = snapshot.material_uri});
     selection_ = out_node;
     is_dirty_ = true;
     return gneiss::engine::error::success;
@@ -741,11 +730,11 @@ gneiss::engine::error scene_document::commit_mesh_node(
     const std::function<gneiss::engine::error(scene_node_id, scene_node_id&)>& create,
     scene_node_id& output) noexcept try {
   output = {};
-  if (!is_open() || !create || snapshot.uuid.empty() || find_node(snapshot.uuid) != nullptr) {
+  if (!is_open() || !create || snapshot.uuid.is_nil() || find_node(snapshot.uuid) != nullptr) {
     return gneiss::engine::error::invalid_argument;
   }
   scene_node_id parent;
-  if (!snapshot.parent_uuid.empty()) {
+  if (!snapshot.parent_uuid.is_nil()) {
     const auto* record = find_node(snapshot.parent_uuid);
     if (record == nullptr) {
       return gneiss::engine::error::not_found;
@@ -757,7 +746,8 @@ gneiss::engine::error scene_document::commit_mesh_node(
       .parent = parent,
       .entity = {},
       .uuid = snapshot.uuid,
-      .display_name = snapshot.display_name.empty() ? snapshot.uuid : snapshot.display_name,
+      .display_name =
+          snapshot.display_name.empty() ? snapshot.uuid.string() : snapshot.display_name,
       .mesh_uri = snapshot.mesh_uri,
       .material_uri = snapshot.material_uri,
   };

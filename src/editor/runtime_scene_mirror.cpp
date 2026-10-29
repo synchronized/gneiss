@@ -5,6 +5,7 @@
 #include "engine/core/error.hpp"
 
 #include <algorithm>
+#include <array>
 #include <limits>
 #include <new>
 #include <set>
@@ -12,18 +13,18 @@
 
 namespace {
 
-std::string author_key(const gneiss::editor::runtime_scene_node& node) {
-  if (node.prefab_instance_uuid.empty()) {
-    return "node:" + node.uuid;
+std::array<gneiss::engine::guid, 3> author_key(const gneiss::editor::runtime_scene_node& node) {
+  if (node.prefab_instance_uuid.is_nil()) {
+    return {node.uuid, {}, {}};
   }
-  return "prefab:" + node.prefab_instance_uuid + ":" + node.prefab_source_node_uuid;
+  return {gneiss::engine::guid{}, node.prefab_instance_uuid, node.prefab_source_node_uuid};
 }
 
 bool valid_graph(const std::map<std::uint64_t, gneiss::editor::runtime_scene_node>& nodes) {
-  std::set<std::string, std::less<>> author_keys;
+  std::set<std::array<gneiss::engine::guid, 3>> author_keys;
   for (const auto& [value, node] : nodes) {
-    if (!node.id.is_valid() || node.id.value != value || node.uuid.empty() ||
-        (!node.prefab_source_node_uuid.empty() && node.prefab_instance_uuid.empty()) ||
+    if (!node.id.is_valid() || node.id.value != value || node.uuid.is_nil() ||
+        (!node.prefab_source_node_uuid.is_nil() && node.prefab_instance_uuid.is_nil()) ||
         !author_keys.insert(author_key(node)).second) {
       return false;
     }

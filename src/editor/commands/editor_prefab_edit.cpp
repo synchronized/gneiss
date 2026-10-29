@@ -34,7 +34,7 @@ public:
     finished_ = true;
     if (cancelled_ || session_.scene_handle() != scene_)
       return error::invalid_state;
-    std::string selected_instance, selected_source;
+    engine::guid selected_instance, selected_source;
     if (const auto* selected = session_.selected_prefab_node()) {
       selected_instance = selected->instance_uuid;
       selected_source = selected->source_node_uuid;
@@ -52,7 +52,7 @@ public:
     const auto refreshed = session_.synchronize_nodes();
     if (refreshed.failed())
       return refreshed;
-    if (replacing_ && !selected_instance.empty()) {
+    if (replacing_ && !selected_instance.is_nil()) {
       const auto* selected = session_.find_prefab_source(selected_instance, selected_source);
       if (!selected)
         selected = session_.find_prefab_root(selected_instance);
@@ -167,9 +167,9 @@ struct editor_prefab_edit::state {
   std::unique_ptr<editor_history_operation> operation;
   std::shared_ptr<scene_subtree_snapshot> captured;
   bool removing{}, refreshing{};
-  std::vector<std::string> refresh_targets;
+  std::vector<engine::guid> refresh_targets;
   prefab_snapshots before, after;
-  std::string target_uuid;
+  gneiss::engine::guid target_uuid;
   std::uint64_t request{};
   bool asset_pending{}, cancelled{}, active{}, visible{};
   gneiss::engine::error status{gneiss::engine::error::success};

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "runtime_log_adapter.hpp"
 #include "runtime_process.hpp"
@@ -42,9 +43,11 @@ bool test_scene_adapter() {
     change.id = {41U, 42U};
     change.node.id = change.id;
     change.node.parent = {43U, 44U};
-    change.node.uuid = "node-uuid";
-    change.node.prefab_instance_uuid = "instance-uuid";
-    change.node.prefab_source_node_uuid = "source-uuid";
+    change.node.uuid = *gneiss::engine::guid::parse("966c5e1d-5c70-56c7-bdd2-20d127371719");
+    change.node.prefab_instance_uuid =
+        *gneiss::engine::guid::parse("4a17145a-60eb-5fbd-874f-3b2656ced92f");
+    change.node.prefab_source_node_uuid =
+        *gneiss::engine::guid::parse("6e84ea5f-f59e-52d7-8b4f-f0488bb637c6");
     change.node.name = std::string(512U, 's');
     change.node.local_transform.translation[1] = 7.0F;
     change.node.component_flags = 3U;
@@ -67,11 +70,14 @@ bool test_scene_adapter() {
   const auto& node = change.node;
   if (change.type != gneiss::editor::runtime_scene_change_type::upsert || change.id.value != 41U ||
       change.id.generation != 42U || node.id != change.id || node.parent.value != 43U ||
-      node.parent.generation != 44U || node.uuid != "node-uuid" ||
-      node.prefab_instance_uuid != "instance-uuid" ||
-      node.prefab_source_node_uuid != "source-uuid" || node.name != std::string(512U, 's') ||
-      node.local_transform.translation[1] != 7.0F || node.component_flags != 3U ||
-      node.camera.near != 0.75F || node.mesh_uri != "asset://mesh" ||
+      node.parent.generation != 44U ||
+      node.uuid != *gneiss::engine::guid::parse("966c5e1d-5c70-56c7-bdd2-20d127371719") ||
+      node.prefab_instance_uuid !=
+          *gneiss::engine::guid::parse("4a17145a-60eb-5fbd-874f-3b2656ced92f") ||
+      node.prefab_source_node_uuid !=
+          *gneiss::engine::guid::parse("6e84ea5f-f59e-52d7-8b4f-f0488bb637c6") ||
+      node.name != std::string(512U, 's') || node.local_transform.translation[1] != 7.0F ||
+      node.component_flags != 3U || node.camera.near != 0.75F || node.mesh_uri != "asset://mesh" ||
       node.material_uri != "asset://material" ||
       output.changes[1].type != gneiss::editor::runtime_scene_change_type::remove ||
       output.changes[1].id.value != 51U || output.changes[1].id.generation != 52U) {

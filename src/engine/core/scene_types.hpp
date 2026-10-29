@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/guid.hpp"
 #include <compare>
 #include <concepts>
 #include <cstdint>
@@ -79,11 +80,11 @@ inline constexpr std::uint64_t scene_subtree_max_nodes = 4096;
 
 namespace gneiss::engine {
 struct scene_node_identity final {
-  std::string uuid;
+  guid uuid;
   std::string name;
 };
 struct scene_node_identity_view final {
-  std::string_view uuid;
+  guid uuid;
   std::string_view name;
 };
 }

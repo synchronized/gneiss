@@ -3,6 +3,7 @@
 
 #pragma once
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/scene/prefab_binding.hpp"
@@ -30,7 +31,7 @@ public:
   [[nodiscard]] error create_staged_node(std::size_t index, scene_node_id parent, engine::mesh mesh,
                                          engine::material material);
 
-  [[nodiscard]] scene_node_id find_node(std::string_view uuid) const noexcept;
+  [[nodiscard]] scene_node_id find_node(guid uuid) const noexcept;
   [[nodiscard]] error capture_description(scene_description& output) const;
   [[nodiscard]] error serialize(std::string& out_json) const;
   [[nodiscard]] error get_node_info(std::uint64_t index, scene_node_view& out_info,
@@ -61,16 +62,15 @@ public:
   [[nodiscard]] error reload_prefab(std::string_view uri, prefab_asset_ref candidate);
 
   /** 单场景 Prefab 实例操作；服务已校验线程与句柄，不修改 Prefab 源资源。 */
-  [[nodiscard]] error capture_prefab_instance_header(std::string_view uuid,
-                                                     object_description& author,
+  [[nodiscard]] error capture_prefab_instance_header(guid uuid, object_description& author,
                                                      prefab_asset_ref& source) const noexcept;
-  [[nodiscard]] error capture_prefab_instance_binding(std::string_view uuid, std::size_t index,
+  [[nodiscard]] error capture_prefab_instance_binding(guid uuid, std::size_t index,
                                                       scene_mesh_binding& output) const noexcept;
   [[nodiscard]] error instantiate_prefab_ready(const object_description& author,
                                                prefab_asset_ref prefab,
                                                std::span<const scene_mesh_binding> bindings,
                                                bool replacing, scene_node_id& output) noexcept;
-  [[nodiscard]] error remove_prefab_instance(std::string_view uuid) noexcept;
+  [[nodiscard]] error remove_prefab_instance(guid uuid) noexcept;
 
   /** 私有批量替换事务，只能在所属线程同一次无重入调用内准备和提交。
    * Scene 和节点存储必须存活且保持稳定；放弃事务不修改绑定。 */

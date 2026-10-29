@@ -30,8 +30,7 @@ bool is_canonical_prefab_uuid(std::string_view value) noexcept {
 }
 
 bool is_valid_prefab_author_address(const prefab_author_address& address) noexcept {
-  return is_canonical_prefab_uuid(address.instance_uuid) &&
-         is_canonical_prefab_uuid(address.source_node_uuid);
+  return !address.instance_uuid.is_nil() && !address.source_node_uuid.is_nil();
 }
 
 bool prefab_property_override_key_less(const prefab_property_override_key& left,

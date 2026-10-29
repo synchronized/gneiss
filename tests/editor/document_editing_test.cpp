@@ -6,6 +6,7 @@
 #include "documents/document_editing.hpp"
 #include "documents/editor_scene_loader.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/meta/serialization.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/meta_registration.hpp"
@@ -29,10 +30,11 @@ struct save_directory {
 };
 bool save_codec_contract(gneiss::runtime::application& application) {
   namespace e = gneiss::engine;
-  std::string uuid;
+  gneiss::engine::guid uuid;
   if (gneiss::editor::make_editor_uuid(uuid).failed())
     return false;
-  save_directory directory{std::filesystem::temp_directory_path() / ("gneiss-save-" + uuid)};
+  save_directory directory{std::filesystem::temp_directory_path() /
+                           ("gneiss-save-" + uuid.string())};
   if (!std::filesystem::create_directory(directory.path))
     return false;
   gneiss::editor::scene_document document;
@@ -46,10 +48,10 @@ bool save_codec_contract(gneiss::runtime::application& application) {
   if (document.set_local_transform(node, local).failed())
     return false;
   e::scene_description snapshot;
-  snapshot.uuid = "保留输出";
+  snapshot.uuid = *gneiss::engine::guid::parse("c2df6015-0d50-5e09-a7d1-14d5b9c0232e");
   if (application.scenes()->capture_description(gneiss::scene_instance_id{}, snapshot) !=
           e::error::invalid_handle ||
-      snapshot.uuid != "保留输出")
+      snapshot.uuid != *gneiss::engine::guid::parse("c2df6015-0d50-5e09-a7d1-14d5b9c0232e"))
     return false;
   std::string saved;
   if (gneiss::test_support::save_document(document, directory.path, &saved,

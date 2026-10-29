@@ -5,6 +5,7 @@
 #define GNEISS_SCENE_STRUCTURAL_DIFF_HPP_
 
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 
 #include <cstddef>
@@ -35,19 +36,19 @@ enum class structural_change : std::uint32_t {
 }
 
 struct structural_node_add final {
-  std::string uuid;
+  guid uuid;
   std::size_t new_index = 0U;
   std::size_t depth = 0U;
 };
 
 struct structural_node_remove final {
-  std::string uuid;
+  guid uuid;
   std::size_t old_index = 0U;
   std::size_t depth = 0U;
 };
 
 struct structural_node_update final {
-  std::string uuid;
+  guid uuid;
   std::size_t old_index = 0U;
   std::size_t new_index = 0U;
   structural_change changes{structural_change::none};

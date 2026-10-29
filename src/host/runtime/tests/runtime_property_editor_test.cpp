@@ -3,6 +3,7 @@
 
 #include "../../../../tests/support/value_result.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
@@ -47,7 +48,7 @@ bool test_write_and_revision() {
       {.native_node = 1U,
        .native_parent = 0U,
        .native_entity = entity.get(),
-       .uuid = "root",
+       .uuid = *gneiss::engine::guid::parse("21470280-22a3-5087-9443-62d27dfc4bbf"),
        .prefab_instance_uuid = {},
        .prefab_source_node_uuid = {},
        .name = "Root",

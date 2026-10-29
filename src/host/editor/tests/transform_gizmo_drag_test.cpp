@@ -3,6 +3,7 @@
 
 #include "../../../../tests/support/async_document.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -210,7 +211,7 @@ int main() try {
                 const auto operation = session.restore_subtree(snapshot, restored);
                 if (operation != gneiss::engine::error::success) {
                   std::printf("restore result=%d snapshot=%s\n", (operation).code(),
-                              snapshot.root_uuid.c_str());
+                              snapshot.root_uuid.string().c_str());
                 }
                 return operation;
               },

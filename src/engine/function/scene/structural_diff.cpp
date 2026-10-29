@@ -17,7 +17,8 @@ namespace {
 using gneiss::engine::camera_description;
 using gneiss::engine::mesh_renderer_description;
 using gneiss::engine::object_description;
-using object_index = std::unordered_map<std::string_view, std::size_t>;
+using object_index =
+    std::unordered_map<gneiss::engine::guid, std::size_t, gneiss::engine::guid_hash>;
 
 [[nodiscard]] bool equal_camera(const gneiss::engine::camera_description* left,
                                 const gneiss::engine::camera_description* right) noexcept {
@@ -49,7 +50,7 @@ build_index(const std::vector<gneiss::engine::object_description>& objects, obje
   output.reserve(objects.size());
   depths.assign(objects.size(), 0U);
   for (std::size_t index = 0U; index < objects.size(); ++index) {
-    if (objects[index].uuid.empty() || !output.emplace(objects[index].uuid, index).second) {
+    if (objects[index].uuid.is_nil() || !output.emplace(objects[index].uuid, index).second) {
       return gneiss::engine::error::invalid_argument;
     }
   }

@@ -47,11 +47,12 @@ inspection_camera(const std::optional<gneiss::engine::camera_description>& camer
   return output;
 }
 
-std::string author_key(const gneiss::host::runtime_scene_source_node& node) {
-  if (node.prefab_instance_uuid.empty()) {
-    return "node:" + node.uuid;
+std::array<gneiss::engine::guid, 3>
+author_key(const gneiss::host::runtime_scene_source_node& node) {
+  if (node.prefab_instance_uuid.is_nil()) {
+    return {node.uuid, {}, {}};
   }
-  return "prefab:" + node.prefab_instance_uuid + ":" + node.prefab_source_node_uuid;
+  return {gneiss::engine::guid{}, node.prefab_instance_uuid, node.prefab_source_node_uuid};
 }
 
 } // namespace
@@ -80,14 +81,11 @@ runtime_scene_inspection::capture(std::span<const runtime_scene_source_node> nod
     return gneiss::engine::error::invalid_argument;
   }
   try {
-    std::set<std::string, std::less<>> author_keys;
+    std::set<std::array<gneiss::engine::guid, 3>> author_keys;
     std::set<std::uint64_t> native_nodes;
     for (const auto& node : nodes) {
-      if (node.native_node == 0U || node.uuid.empty() ||
-          node.uuid.size() > runtime_inspection_max_string_size ||
-          node.prefab_instance_uuid.size() > runtime_inspection_max_string_size ||
-          node.prefab_source_node_uuid.size() > runtime_inspection_max_string_size ||
-          (!node.prefab_source_node_uuid.empty() && node.prefab_instance_uuid.empty()) ||
+      if (node.native_node == 0U || node.uuid.is_nil() ||
+          (!node.prefab_source_node_uuid.is_nil() && node.prefab_instance_uuid.is_nil()) ||
           node.name.size() > runtime_inspection_max_string_size ||
           node.mesh_uri.size() > runtime_inspection_max_string_size ||
           node.material_uri.size() > runtime_inspection_max_string_size ||
@@ -241,15 +239,11 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
       if (operation != gneiss::engine::error::success) {
         return operation;
       }
-      if (info.uuid.size() > runtime_inspection_max_string_size ||
-          info.name.size() > runtime_inspection_max_string_size ||
+      if (info.name.size() > runtime_inspection_max_string_size ||
           info.mesh_uri.size() > runtime_inspection_max_string_size ||
           info.material_uri.size() > runtime_inspection_max_string_size)
         return gneiss::engine::error::invalid_argument;
-      if (info.prefab &&
-          (info.prefab->instance_uuid.empty() ||
-           info.prefab->instance_uuid.size() > runtime_inspection_max_string_size ||
-           info.prefab->source_node_uuid.size() > runtime_inspection_max_string_size))
+      if (info.prefab && (info.prefab->instance_uuid.is_nil()))
         return gneiss::engine::error::invalid_argument;
       auto runtime_transform = info.local_transform;
       operation =
@@ -260,11 +254,11 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
       nodes.push_back({.native_node = info.node.get(),
                        .native_parent = info.parent.get(),
                        .native_entity = info.entity.get(),
-                       .uuid = std::string{info.uuid},
+                       .uuid = info.uuid,
                        .prefab_instance_uuid =
-                           info.prefab ? std::string(info.prefab->instance_uuid) : std::string{},
+                           info.prefab ? info.prefab->instance_uuid : gneiss::engine::guid{},
                        .prefab_source_node_uuid =
-                           info.prefab ? std::string(info.prefab->source_node_uuid) : std::string{},
+                           info.prefab ? info.prefab->source_node_uuid : gneiss::engine::guid{},
                        .name = std::string{info.name},
                        .local_transform = runtime_transform,
                        .component_flags = static_cast<std::uint32_t>(info.component_flags),

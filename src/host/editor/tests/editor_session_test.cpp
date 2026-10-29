@@ -5,6 +5,7 @@
 #include "commands/runtime_author_apply.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/world/component_identity.hpp"
@@ -22,9 +23,9 @@ static gneiss::engine::error
 apply_temporary_transform(gneiss::editor::scene_document& session,
                           gneiss::editor::editor_command_history& history,
                           const gneiss::editor::runtime_author_transform& input) {
-  const std::string uuid(input.uuid);
-  const std::string instance(input.prefab_instance_uuid);
-  const std::string source(input.prefab_source_node_uuid);
+  const gneiss::engine::guid uuid(input.uuid);
+  const gneiss::engine::guid instance(input.prefab_instance_uuid);
+  const gneiss::engine::guid source(input.prefab_source_node_uuid);
   return gneiss::editor::apply_runtime_transform_to_author(
       session, history, {uuid, instance, source, input.local_transform});
 }
@@ -45,7 +46,7 @@ int main() try {
           gneiss::engine::error::success ||
       !session.is_open() || session.is_dirty() || session.uri() != scene_uri ||
       session.nodes().size() != 2U || session.nodes()[0].display_name != "Camera" ||
-      session.nodes()[1].display_name != session.nodes()[1].uuid ||
+      session.nodes()[1].display_name != session.nodes()[1].uuid.string() ||
       session.nodes()[1].parent != session.nodes()[0].node) {
     return 1;
   }
@@ -135,8 +136,8 @@ int main() try {
     return 8;
   }
   const auto* prefab_source = session.selected_prefab_node();
-  const std::string source_uuid = prefab_source->source_node_uuid;
-  const std::string instance_uuid = prefab_source->instance_uuid;
+  const gneiss::engine::guid source_uuid = prefab_source->source_node_uuid;
+  const gneiss::engine::guid instance_uuid = prefab_source->instance_uuid;
   gneiss::editor::runtime_author_transform runtime_source;
   runtime_source.uuid = source_uuid;
   runtime_source.prefab_instance_uuid = instance_uuid;
@@ -158,7 +159,8 @@ int main() try {
   auto invalid_runtime_source = runtime_source;
   invalid_runtime_source.prefab_instance_uuid = {};
   auto stale_runtime_source = runtime_source;
-  stale_runtime_source.prefab_instance_uuid = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+  stale_runtime_source.prefab_instance_uuid =
+      *gneiss::engine::guid::parse("ffffffff-ffff-4fff-8fff-ffffffffffff");
   if (gneiss::editor::apply_runtime_transform_to_author(session, history, invalid_runtime_source) !=
           gneiss::engine::error::invalid_argument ||
       gneiss::editor::apply_runtime_transform_to_author(session, history, stale_runtime_source) !=

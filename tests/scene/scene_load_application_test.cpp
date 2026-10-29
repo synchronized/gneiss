@@ -4,6 +4,7 @@
 #include "../support/codec_result.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
@@ -113,8 +114,9 @@ void visual_failure(gneiss::engine::execution_mode mode) {
   scene_load_completion completion;
   check(app->activate_scene(request, completion) == gneiss::engine::error::success);
   scene_node_id node;
-  check(app->scenes()->find_node(completion.scene, "00000000-0000-4000-8000-000000000002", node) ==
-        gneiss::engine::error::success);
+  check(app->scenes()->find_node(
+            completion.scene, *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000002"),
+            node) == gneiss::engine::error::success);
   gneiss::engine::scene_mesh_binding binding;
   check(app->capture_mesh_binding(completion.scene, node, binding) ==
         gneiss::engine::error::success);
@@ -365,7 +367,8 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
     return lease;
   };
   auto binding = [&] {
-    constexpr std::string_view uuid = "00000000-0000-4000-8000-000000000002";
+    const gneiss::engine::guid uuid =
+        *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000002");
     gneiss::scene_node_id node{};
     check(app->scenes()->find_node(completion.scene, uuid, node) == gneiss::engine::error::success);
     gneiss::engine::scene_instances::mesh_binding value;

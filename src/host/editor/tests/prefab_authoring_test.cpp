@@ -5,6 +5,7 @@
 #include "../../../../tests/support/async_editor_save.hpp"
 #include "commands/prefab_authoring.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/meta_registration.hpp"
@@ -30,10 +31,14 @@ using namespace gneiss;
 
 namespace {
 
-constexpr std::string_view root_uuid = "10000000-0000-4000-8000-000000000001";
-constexpr std::string_view sibling_uuid = "10000000-0000-4000-8000-000000000003";
-constexpr std::string_view prefab_uuid = "20000000-0000-4000-8000-000000000001";
-constexpr std::string_view instance_uuid = "30000000-0000-4000-8000-000000000001";
+const gneiss::engine::guid root_uuid =
+    *gneiss::engine::guid::parse("10000000-0000-4000-8000-000000000001");
+const gneiss::engine::guid sibling_uuid =
+    *gneiss::engine::guid::parse("10000000-0000-4000-8000-000000000003");
+const gneiss::engine::guid prefab_uuid =
+    *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000001");
+const gneiss::engine::guid instance_uuid =
+    *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000001");
 
 constexpr std::string_view scene_json =
     R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","unknown_scene":"preserved","objects":[{"uuid":"10000000-0000-4000-8000-000000000001","name":"Lamp","parent":null,"transform":{"translation":[2,3,4],"rotation":[0,0,0,1],"scale":[2,2,2]},"components":[],"unknown_object":7},{"uuid":"10000000-0000-4000-8000-000000000002","name":"Shade","parent":"10000000-0000-4000-8000-000000000001","transform":{"translation":[0,1,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"uuid":"10000000-0000-4000-8000-000000000003","name":"Floor","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]}]})";
@@ -183,7 +188,7 @@ create_rejections_are_valid(const gneiss::editor::create_prefab_author_request& 
   }
 
   auto missing = request;
-  missing.root_uuid = "50000000-0000-4000-8000-000000000001";
+  missing.root_uuid = *gneiss::engine::guid::parse("50000000-0000-4000-8000-000000000001");
   if (gneiss::editor::prepare_create_prefab(scene_json, missing, changes) !=
           gneiss::engine::error::not_found ||
       !changes.empty()) {
@@ -279,12 +284,14 @@ int main() try {
 
   editing.document.close();
   editing.application.reset();
-  const std::array mappings{gneiss::editor::unpack_prefab_uuid_mapping{
-                                .source_node_uuid = root_uuid,
-                                .target_node_uuid = "50000000-0000-4000-8000-000000000002"},
-                            gneiss::editor::unpack_prefab_uuid_mapping{
-                                .source_node_uuid = "10000000-0000-4000-8000-000000000002",
-                                .target_node_uuid = "50000000-0000-4000-8000-000000000003"}};
+  const std::array mappings{
+      gneiss::editor::unpack_prefab_uuid_mapping{
+          .source_node_uuid = root_uuid,
+          .target_node_uuid = *gneiss::engine::guid::parse("50000000-0000-4000-8000-000000000002")},
+      gneiss::editor::unpack_prefab_uuid_mapping{
+          .source_node_uuid = *gneiss::engine::guid::parse("10000000-0000-4000-8000-000000000002"),
+          .target_node_uuid =
+              *gneiss::engine::guid::parse("50000000-0000-4000-8000-000000000003")}};
   const gneiss::editor::unpack_prefab_author_request unpack_request{
       .scene_path = "scenes/main.scene.json",
       .prefab_uri = "asset://prefabs/lamp.prefab.json",
@@ -320,7 +327,7 @@ int main() try {
   auto* attached_child = yyjson_arr_get(attached_objects, 1U);
   auto* attached_parent = yyjson_obj_get(attached_child, "parent");
   if (!yyjson_is_str(attached_parent) ||
-      std::string_view(yyjson_get_str(attached_parent)) != mappings[0].target_node_uuid)
+      std::string_view(yyjson_get_str(attached_parent)) != mappings[0].target_node_uuid.string())
     return 14;
 
   auto invalid_unpack = unpack_request;

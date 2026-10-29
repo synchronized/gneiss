@@ -3,6 +3,7 @@
 
 #include "../support/scope_exit.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
@@ -65,7 +66,7 @@ int run_example(int argc, char** argv) {
   constexpr std::string_view title = "Gneiss Stone Temple";
   constexpr std::string_view scene_uri = "asset://scenes/temple.scene.json";
   constexpr std::string_view input_map_uri = "asset://input/default.input-map.json";
-  constexpr std::string_view camera_uuid = "10000000-0000-4000-8000-000000000002";
+  const auto camera_uuid = *gneiss::engine::guid::parse("10000000-0000-4000-8000-000000000002");
   std::error_code path_error;
   const auto executable = std::filesystem::absolute(argv[0], path_error);
   const auto installed_asset_root =

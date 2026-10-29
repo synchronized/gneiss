@@ -4,6 +4,7 @@
 #include "../support/async_prefab.hpp"
 #include "../support/prefab_query.hpp"
 #include "../support/value_result.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
@@ -53,8 +54,10 @@ int main() try {
       (prefab_source.prefab->flags & gneiss::scene_prefab_flags::translation_overridden) ==
           gneiss::scene_prefab_flags::none ||
       prefab_source.parent != prefab_root.node ||
-      prefab_root.prefab->instance_uuid != "30000000-0000-4000-8000-000000000012" ||
-      prefab_source.prefab->source_node_uuid != "30000000-0000-4000-8000-000000000002" ||
+      prefab_root.prefab->instance_uuid !=
+          *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000012") ||
+      prefab_source.prefab->source_node_uuid !=
+          *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000002") ||
       prefab_source.local_transform.translation[0] != 3.0F) {
     return 2;
   }
@@ -94,8 +97,10 @@ int main() try {
   }
 
   gneiss::scene_node_id anchor;
-  constexpr std::string_view anchor_uuid = "30000000-0000-4000-8000-000000000011";
-  constexpr std::string_view created_uuid = "30000000-0000-4000-8000-000000000013";
+  const gneiss::engine::guid anchor_uuid =
+      *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000011");
+  const gneiss::engine::guid created_uuid =
+      *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000013");
   constexpr std::string_view prefab_uri = "asset://prefabs/test.prefab.json";
   constexpr std::string_view created_name = "Second Lamp";
   gneiss::engine::prefab_creation create_desc;
@@ -148,7 +153,9 @@ int main() try {
   }
   gneiss::scene_node_id attached;
   gneiss::engine::node_creation child{
-      .uuid = "30000000-0000-4000-8000-000000000014", .name = "Own child", .parent = created_root};
+      .uuid = *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000014"),
+      .name = "Own child",
+      .parent = created_root};
   if (application->scenes()->create_node(scene, child, attached).failed())
     return 12;
   std::string with_child;
@@ -183,7 +190,8 @@ int main() try {
   std::string json;
   if (application->scenes()->serialize(scene, json) != gneiss::engine::error::success ||
       json.empty() || json.find("asset://prefabs/test.prefab.json") == std::string::npos ||
-      json.find(created_uuid) == std::string::npos || json.find(renamed) == std::string::npos ||
+      json.find(created_uuid.string()) == std::string::npos ||
+      json.find(renamed) == std::string::npos ||
       json.find("30000000-0000-4000-8000-000000000002") != std::string::npos) {
     return 6;
   }
@@ -227,7 +235,7 @@ int main() try {
     std::fprintf(stderr, "子树生命周期检查 8 失败\n");
     return 10;
   }
-  if (json.find(created_uuid) != std::string::npos) {
+  if (json.find(created_uuid.string()) != std::string::npos) {
     std::fprintf(stderr, "子树生命周期检查 9 失败\n");
     return 10;
   }

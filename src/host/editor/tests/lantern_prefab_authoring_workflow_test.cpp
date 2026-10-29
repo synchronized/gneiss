@@ -5,6 +5,7 @@
 #include "../../../../tests/support/async_editor_save.hpp"
 #include "commands/prefab_authoring.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/meta_registration.hpp"
@@ -32,11 +33,16 @@ constexpr std::string_view scene_path = "scenes/gallery.scene.json";
 constexpr std::string_view scene_uri = "asset://scenes/gallery.scene.json";
 constexpr std::string_view lantern_prefab_path = "prefabs/lantern.prefab.json";
 constexpr std::string_view lantern_prefab_uri = "asset://prefabs/lantern.prefab.json";
-constexpr std::string_view pillar_uuid = "20000000-0000-4000-8000-000000000003";
-constexpr std::string_view pillar_prefab_uuid = "22000000-0000-4000-8000-000000000000";
-constexpr std::string_view pillar_instance_uuid = "22000000-0000-4000-8000-000000000001";
-constexpr std::string_view left_instance_uuid = "20000000-0000-4000-8000-000000000010";
-constexpr std::string_view center_instance_uuid = "20000000-0000-4000-8000-000000000020";
+const gneiss::engine::guid pillar_uuid =
+    *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000003");
+const gneiss::engine::guid pillar_prefab_uuid =
+    *gneiss::engine::guid::parse("22000000-0000-4000-8000-000000000000");
+const gneiss::engine::guid pillar_instance_uuid =
+    *gneiss::engine::guid::parse("22000000-0000-4000-8000-000000000001");
+const gneiss::engine::guid left_instance_uuid =
+    *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000010");
+const gneiss::engine::guid center_instance_uuid =
+    *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000020");
 
 struct temporary_project final {
   std::filesystem::path root;
@@ -99,18 +105,20 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
     return 3;
   }
 
-  constexpr std::array mappings{gneiss::editor::unpack_prefab_uuid_mapping{
-                                    .source_node_uuid = "21000000-0000-4000-8000-000000000001",
-                                    .target_node_uuid = "23000000-0000-4000-8000-000000000001"},
-                                gneiss::editor::unpack_prefab_uuid_mapping{
-                                    .source_node_uuid = "21000000-0000-4000-8000-000000000002",
-                                    .target_node_uuid = "23000000-0000-4000-8000-000000000002"},
-                                gneiss::editor::unpack_prefab_uuid_mapping{
-                                    .source_node_uuid = "21000000-0000-4000-8000-000000000003",
-                                    .target_node_uuid = "23000000-0000-4000-8000-000000000003"},
-                                gneiss::editor::unpack_prefab_uuid_mapping{
-                                    .source_node_uuid = "21000000-0000-4000-8000-000000000004",
-                                    .target_node_uuid = "23000000-0000-4000-8000-000000000004"}};
+  const std::array mappings{
+      gneiss::editor::unpack_prefab_uuid_mapping{
+          .source_node_uuid = *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000001"),
+          .target_node_uuid = *gneiss::engine::guid::parse("23000000-0000-4000-8000-000000000001")},
+      gneiss::editor::unpack_prefab_uuid_mapping{
+          .source_node_uuid = *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000002"),
+          .target_node_uuid = *gneiss::engine::guid::parse("23000000-0000-4000-8000-000000000002")},
+      gneiss::editor::unpack_prefab_uuid_mapping{
+          .source_node_uuid = *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000003"),
+          .target_node_uuid = *gneiss::engine::guid::parse("23000000-0000-4000-8000-000000000003")},
+      gneiss::editor::unpack_prefab_uuid_mapping{
+          .source_node_uuid = *gneiss::engine::guid::parse("21000000-0000-4000-8000-000000000004"),
+          .target_node_uuid =
+              *gneiss::engine::guid::parse("23000000-0000-4000-8000-000000000004")}};
   const gneiss::editor::unpack_prefab_author_request unpack_request{
       .scene_path = scene_path,
       .prefab_uri = lantern_prefab_uri,

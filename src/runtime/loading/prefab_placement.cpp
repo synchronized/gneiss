@@ -11,7 +11,7 @@
 
 namespace gneiss::runtime {
 gneiss::engine::error
-prefab_placement::capture(runtime::application& application, std::string_view uuid,
+prefab_placement::capture(runtime::application& application, gneiss::engine::guid uuid,
                           gneiss::scene_instance_id scene,
                           std::shared_ptr<engine::scene_subtree_snapshot>& snapshot) noexcept try {
   auto* host = &application;
@@ -52,7 +52,7 @@ gneiss::engine::error prefab_placement::freeze(
   if (!prepared.resource || !author.prefab)
     return engine::error::invalid_argument;
   value->root_uuid = author.uuid;
-  value->parent_uuid = author.parent_uuid.value_or("");
+  value->parent_uuid = author.parent_uuid.value_or(gneiss::engine::guid{});
   author.parent_uuid.reset();
   value->description.objects.push_back(std::move(author));
   auto& binding = value->resources[value->root_uuid];
@@ -114,13 +114,13 @@ gneiss::engine::error prefab_placement::apply(application& app, scene_instance_i
     if (root == snapshot.description.objects.end() || resources == snapshot.resources.end())
       return error::invalid_argument;
     auto author = *root;
-    if (!snapshot.parent_uuid.empty())
+    if (!snapshot.parent_uuid.is_nil())
       author.parent_uuid = snapshot.parent_uuid;
     return app.scenes()->instantiate_prefab_ready(scene, author, resources->second.prefab,
                                                   resources->second.source_nodes, true, output);
   }
   scene_node_id parent;
-  if (!snapshot.parent_uuid.empty()) {
+  if (!snapshot.parent_uuid.is_nil()) {
     const auto status = app.scenes()->find_node(scene, snapshot.parent_uuid, parent);
     if (status.failed())
       return status;

@@ -86,7 +86,9 @@
 
 ## 字段规则
 
-- UUID 必须使用 36 字符的小写规范形式；对象 UUID 在场景内唯一。
+- UUID 必须使用非零的 36 字符小写规范形式；对象 UUID 在场景内唯一。
+  内存中的场景、对象、Prefab 来源及覆盖键使用 `engine::guid`；`object_description::parent_uuid`
+  使用 `std::optional<guid>`，`nullopt` 表示根，不能用 nil GUID 代替根。JSON 仍使用字符串和 `null`。
 - `name` 是可选 UTF-8 显示名称；缺失或为空时，工具可回退显示 UUID。
 - `parent` 必须是现有对象 UUID 或 `null`；层级不能形成循环。
 - 向量与四元数只接受有限、可表示为 float 的 JSON 数字。

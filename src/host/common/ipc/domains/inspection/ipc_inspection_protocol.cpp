@@ -87,19 +87,36 @@ bool valid_camera(const gneiss::engine::math::camera_settings& camera) noexcept 
   return std::isfinite(camera.fov) && std::isfinite(camera.near) && std::isfinite(camera.far);
 }
 
+bool add_uuid(yyjson_mut_doc* doc, yyjson_mut_val* object, const char* name,
+              gneiss::engine::guid id) {
+  const auto text = id ? id.string() : std::string{};
+  return yyjson_mut_obj_add_strncpy(doc, object, name, text.data(), text.size());
+}
+
+bool parse_uuid(yyjson_val* value, bool optional, gneiss::engine::guid& output) {
+  if (!yyjson_is_str(value))
+    return false;
+  const std::string_view text{yyjson_get_str(value), yyjson_get_len(value)};
+  if (optional && text.empty()) {
+    output = {};
+    return true;
+  }
+  const auto parsed = gneiss::engine::guid::parse(text);
+  if (!parsed || !*parsed || parsed->string() != text)
+    return false;
+  output = *parsed;
+  return true;
+}
+
 bool add_node(yyjson_mut_doc* document, yyjson_mut_val* change,
-              const gneiss::host::ipc_inspection_node& node) noexcept {
+              const gneiss::host::ipc_inspection_node& node) {
   auto* value = yyjson_mut_obj(document);
   auto* camera = yyjson_mut_obj(document);
   return value != nullptr && add_id(document, value, "id", node.id) &&
          add_id(document, value, "parent", node.parent) &&
-         yyjson_mut_obj_add_strncpy(document, value, "uuid", node.uuid.data(), node.uuid.size()) &&
-         yyjson_mut_obj_add_strncpy(document, value, "prefab_instance_uuid",
-                                    node.prefab_instance_uuid.data(),
-                                    node.prefab_instance_uuid.size()) &&
-         yyjson_mut_obj_add_strncpy(document, value, "prefab_source_node_uuid",
-                                    node.prefab_source_node_uuid.data(),
-                                    node.prefab_source_node_uuid.size()) &&
+         add_uuid(document, value, "uuid", node.uuid) &&
+         add_uuid(document, value, "prefab_instance_uuid", node.prefab_instance_uuid) &&
+         add_uuid(document, value, "prefab_source_node_uuid", node.prefab_source_node_uuid) &&
          yyjson_mut_obj_add_strncpy(document, value, "name", node.name.data(), node.name.size()) &&
          add_float_array(document, value, "translation",
                          gneiss::engine::math::components(node.local_transform.translation).data(),
@@ -162,11 +179,11 @@ bool parse_node(yyjson_val* change, gneiss::host::ipc_inspection_node& output) {
                          3U)) {
     return false;
   }
-  output.uuid.assign(yyjson_get_str(uuid), yyjson_get_len(uuid));
-  output.prefab_instance_uuid.assign(yyjson_get_str(prefab_instance_uuid),
-                                     yyjson_get_len(prefab_instance_uuid));
-  output.prefab_source_node_uuid.assign(yyjson_get_str(prefab_source_node_uuid),
-                                        yyjson_get_len(prefab_source_node_uuid));
+  if (!parse_uuid(uuid, false, output.uuid) ||
+      !parse_uuid(prefab_instance_uuid, true, output.prefab_instance_uuid) ||
+      !parse_uuid(prefab_source_node_uuid, true, output.prefab_source_node_uuid) ||
+      (output.prefab_source_node_uuid && !output.prefab_instance_uuid))
+    return false;
   output.name.assign(yyjson_get_str(name), yyjson_get_len(name));
   output.component_flags = static_cast<std::uint32_t>(yyjson_get_uint(flags));
   const auto fov = yyjson_get_real(field_of_view);
@@ -221,10 +238,8 @@ gneiss::engine::error encode_ipc_inspection_batch(const ipc_inspection_batch& ba
           !yyjson_mut_obj_add_str(document.get(), object, "operation", operation) ||
           !add_id(document.get(), object, "id", change.id) ||
           (change.type == ipc_inspection_change_type::upsert &&
-           (change.node.id != change.id || change.node.uuid.empty() ||
-            change.node.uuid.size() > max_string_size ||
-            change.node.prefab_instance_uuid.size() > max_string_size ||
-            change.node.prefab_source_node_uuid.size() > max_string_size ||
+           (change.node.id != change.id || change.node.uuid.is_nil() ||
+            (change.node.prefab_source_node_uuid && !change.node.prefab_instance_uuid) ||
             change.node.name.size() > max_string_size ||
             change.node.mesh_uri.size() > max_string_size ||
             change.node.material_uri.size() > max_string_size ||

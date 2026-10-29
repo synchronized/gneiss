@@ -3,6 +3,7 @@
 
 #include "../../../../tests/support/async_application.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "runtime_scene_inspection.hpp"
@@ -18,7 +19,7 @@
 namespace {
 
 gneiss::host::runtime_scene_source_node make_node(std::uint64_t node, std::uint64_t parent,
-                                                  std::string uuid, std::string name) {
+                                                  gneiss::engine::guid uuid, std::string name) {
   return {.native_node = node,
           .native_parent = parent,
           .native_entity = node,
@@ -36,8 +37,11 @@ gneiss::host::runtime_scene_source_node make_node(std::uint64_t node, std::uint6
 bool test_full_and_incremental_snapshot() {
   using namespace gneiss::host;
   runtime_scene_inspection inspection(77U);
-  std::vector<runtime_scene_source_node> nodes{make_node(10U, 0U, "root", "Root"),
-                                               make_node(20U, 10U, "child", "Child")};
+  std::vector<runtime_scene_source_node> nodes{
+      make_node(10U, 0U, *gneiss::engine::guid::parse("21470280-22a3-5087-9443-62d27dfc4bbf"),
+                "Root"),
+      make_node(20U, 10U, *gneiss::engine::guid::parse("0552e973-b75c-5936-a81b-c56bcd7688d5"),
+                "Child")};
   runtime_scene_snapshot snapshot;
   if (inspection.capture(nodes, false, snapshot) != gneiss::engine::error::success ||
       !snapshot.is_full || snapshot.stamp.session_id != 77U || snapshot.stamp.sequence != 1U ||
@@ -77,7 +81,9 @@ bool test_full_and_incremental_snapshot() {
       snapshot.changes[0].id != old_child_id) {
     return false;
   }
-  nodes.push_back(make_node(30U, 10U, "replacement", "Replacement"));
+  nodes.push_back(make_node(30U, 10U,
+                            *gneiss::engine::guid::parse("34c70a8f-c340-5fb3-9a78-64e4fd396cf0"),
+                            "Replacement"));
   if (inspection.capture(nodes, false, snapshot) != gneiss::engine::error::success ||
       snapshot.changes.size() != 1U || snapshot.changes[0].id.value != old_child_id.value ||
       snapshot.changes[0].id.generation != old_child_id.generation + 1U ||
@@ -92,21 +98,25 @@ bool test_validation_and_reset() {
   using namespace gneiss::host;
   runtime_scene_inspection invalid(0U);
   runtime_scene_snapshot snapshot;
-  std::vector<runtime_scene_source_node> nodes{make_node(1U, 0U, "node", "Node")};
+  std::vector<runtime_scene_source_node> nodes{make_node(
+      1U, 0U, *gneiss::engine::guid::parse("f75c07c9-9e51-51b7-8dab-cffc2bf231c9"), "Node")};
   if (invalid.capture(nodes, false, snapshot) != gneiss::engine::error::invalid_argument) {
     return false;
   }
   runtime_scene_inspection inspection(1U);
-  nodes.push_back(make_node(1U, 0U, "duplicate-native", "Duplicate"));
+  nodes.push_back(make_node(
+      1U, 0U, *gneiss::engine::guid::parse("1b6731aa-61df-5a06-beca-f74909e7a766"), "Duplicate"));
   if (inspection.capture(nodes, false, snapshot) != gneiss::engine::error::invalid_argument) {
     return false;
   }
-  nodes = {make_node(1U, 99U, "orphan", "Orphan")};
+  nodes = {make_node(1U, 99U, *gneiss::engine::guid::parse("96eadd94-e998-5d37-9d62-c408d137eb09"),
+                     "Orphan")};
   if (inspection.capture(nodes, false, snapshot) != gneiss::engine::error::invalid_argument) {
     return false;
   }
   inspection.reset(2U);
-  nodes = {make_node(1U, 0U, "node", "Node")};
+  nodes = {make_node(1U, 0U, *gneiss::engine::guid::parse("f75c07c9-9e51-51b7-8dab-cffc2bf231c9"),
+                     "Node")};
   return inspection.capture(nodes, false, snapshot) == gneiss::engine::error::success &&
          snapshot.stamp.session_id == 2U && snapshot.stamp.sequence == 1U && snapshot.is_full;
 }
@@ -123,18 +133,25 @@ bool test_empty_scene_is_stable() {
 bool test_prefab_composite_identity() {
   using namespace gneiss::host;
   runtime_scene_inspection inspection(4U);
-  auto first = make_node(1U, 0U, "source", "First");
-  first.prefab_instance_uuid = "instance-a";
-  first.prefab_source_node_uuid = "source";
-  auto second = make_node(2U, 0U, "source", "Second");
-  second.prefab_instance_uuid = "instance-b";
-  second.prefab_source_node_uuid = "source";
+  auto first = make_node(
+      1U, 0U, *gneiss::engine::guid::parse("117a1bb4-e8b7-5da7-b737-9d7cf00fff3c"), "First");
+  first.prefab_instance_uuid = *gneiss::engine::guid::parse("6693b403-d7fb-5b73-ab3a-da0bbe718045");
+  first.prefab_source_node_uuid =
+      *gneiss::engine::guid::parse("117a1bb4-e8b7-5da7-b737-9d7cf00fff3c");
+  auto second = make_node(
+      2U, 0U, *gneiss::engine::guid::parse("117a1bb4-e8b7-5da7-b737-9d7cf00fff3c"), "Second");
+  second.prefab_instance_uuid =
+      *gneiss::engine::guid::parse("940a392c-a4eb-55a6-a13d-682e4ff6290b");
+  second.prefab_source_node_uuid =
+      *gneiss::engine::guid::parse("117a1bb4-e8b7-5da7-b737-9d7cf00fff3c");
   const std::vector<runtime_scene_source_node> nodes{first, second};
   runtime_scene_snapshot snapshot;
   return inspection.capture(nodes, false, snapshot) == gneiss::engine::error::success &&
          snapshot.changes.size() == 2U && snapshot.changes[0].id != snapshot.changes[1].id &&
-         snapshot.changes[0].node.prefab_instance_uuid == "instance-a" &&
-         snapshot.changes[1].node.prefab_instance_uuid == "instance-b";
+         snapshot.changes[0].node.prefab_instance_uuid ==
+             *gneiss::engine::guid::parse("6693b403-d7fb-5b73-ab3a-da0bbe718045") &&
+         snapshot.changes[1].node.prefab_instance_uuid ==
+             *gneiss::engine::guid::parse("940a392c-a4eb-55a6-a13d-682e4ff6290b");
 }
 
 bool test_capture_prefab_scene() {
@@ -153,12 +170,14 @@ bool test_capture_prefab_scene() {
   gneiss::host::runtime_scene_inspection inspection(5U);
   gneiss::host::runtime_scene_snapshot snapshot;
   const auto capture = inspection.capture_scene(*application, scene, false, snapshot);
-  const bool valid =
-      capture == gneiss::engine::error::success && snapshot.changes.size() == 3U &&
-      snapshot.changes[1].node.prefab_instance_uuid == "30000000-0000-4000-8000-000000000012" &&
-      snapshot.changes[1].node.prefab_source_node_uuid == "30000000-0000-4000-8000-000000000004" &&
-      snapshot.changes[2].node.prefab_source_node_uuid == "30000000-0000-4000-8000-000000000002" &&
-      snapshot.changes[2].node.parent == snapshot.changes[1].node.id;
+  const bool valid = capture == gneiss::engine::error::success && snapshot.changes.size() == 3U &&
+                     snapshot.changes[1].node.prefab_instance_uuid ==
+                         *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000012") &&
+                     snapshot.changes[1].node.prefab_source_node_uuid ==
+                         *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000004") &&
+                     snapshot.changes[2].node.prefab_source_node_uuid ==
+                         *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000002") &&
+                     snapshot.changes[2].node.parent == snapshot.changes[1].node.id;
   auto native = application;
   auto foreign = gneiss::engine::error::success;
   const auto changes = snapshot.changes.size();

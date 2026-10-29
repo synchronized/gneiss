@@ -18,7 +18,7 @@ engine::error order_nodes(const std::vector<object_description>& objects,
   if (out_depth != nullptr) {
     *out_depth = 0U;
   }
-  std::unordered_map<std::string_view, std::size_t> indices;
+  std::unordered_map<guid, std::size_t, guid_hash> indices;
   for (std::size_t index = 0; index < objects.size(); ++index) {
     if (!indices.emplace(objects[index].uuid, index).second) {
       return engine::error::invalid_argument;
@@ -64,7 +64,7 @@ public:
   scene_prepare_limits limits;
   prepared_scene_description candidate;
   std::map<std::string, engine::asset_type> dependencies;
-  std::map<std::string, std::size_t> scene_depths;
+  std::map<guid, std::size_t> scene_depths;
 
   engine::error collect(const std::vector<object_description>& objects) {
     using engine::asset_type;

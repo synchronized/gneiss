@@ -10,6 +10,7 @@
 #include "documents/scene_document.hpp"
 #include "editor_project.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/world/world.hpp"
@@ -147,13 +148,14 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
     return 8;
   }
   constexpr std::string_view prefab_uri = "asset://prefabs/lantern.prefab.json";
-  constexpr std::array instance_uuids{std::string_view{"20000000-0000-4000-8000-000000000010"},
-                                      std::string_view{"20000000-0000-4000-8000-000000000020"},
-                                      std::string_view{"20000000-0000-4000-8000-000000000030"}};
+  const std::array instance_uuids{
+      *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000010"),
+      *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000020"),
+      *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000030")};
   if (session.nodes().size() != 7U || session.prefab_nodes().size() != 15U ||
       count_prefab_name(session, "Lantern Glass") != 3U ||
       std::ranges::any_of(session.nodes(), [](const auto& current) {
-        return current.display_name.empty() || current.display_name == current.uuid;
+        return current.display_name.empty() || current.display_name == current.uuid.string();
       })) {
     return 9;
   }

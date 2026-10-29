@@ -4,6 +4,7 @@
 #include "../support/async_application.hpp"
 #include "../support/async_scene_reload.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_instances.hpp"
@@ -17,18 +18,21 @@
 
 namespace {
 
-constexpr std::string_view scene_uuid = "00000000-0000-4000-8000-000000000001";
-constexpr std::string_view camera_uuid = "00000000-0000-4000-8000-000000000002";
-constexpr std::string_view old_child_uuid = "00000000-0000-4000-8000-000000000003";
-constexpr std::string_view new_child_uuid = "00000000-0000-4000-8000-000000000004";
+const gneiss::engine::guid scene_uuid =
+    *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000001");
+const gneiss::engine::guid camera_uuid =
+    *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000002");
+const gneiss::engine::guid old_child_uuid =
+    *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000003");
+const gneiss::engine::guid new_child_uuid =
+    *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000004");
 
 void write_scene(const std::filesystem::path& path, std::string_view child_components) {
   const std::string json =
-      std::string{R"({"format":"gneiss.scene","version":5,"scene_uuid":")"} +
-      std::string{scene_uuid} + R"(","objects":[{"uuid":")" + std::string{camera_uuid} +
+      std::string{R"({"format":"gneiss.scene","version":5,"scene_uuid":")"} + scene_uuid.string() +
+      R"(","objects":[{"uuid":")" + camera_uuid.string() +
       R"(","name":"Main Camera","parent":null,"transform":{"translation":[4.0,0.0,2.0],"rotation":[0.0,0.0,0.0,1.0],"scale":[1.0,1.0,1.0]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"vertical_field_of_view_radians":1.0,"near_plane":0.2,"far_plane":500.0,"is_primary":true}}]},{"uuid":")" +
-      std::string{new_child_uuid} + R"(","name":"New Child","parent":")" +
-      std::string{camera_uuid} +
+      new_child_uuid.string() + R"(","name":"New Child","parent":")" + camera_uuid.string() +
       R"(","transform":{"translation":[1.0,2.0,3.0],"rotation":[0.0,0.0,0.0,1.0],"scale":[1.0,1.0,1.0]},"components":)" +
       std::string{child_components} + R"(}]})";
   std::ofstream stream(path, std::ios::binary | std::ios::trunc);

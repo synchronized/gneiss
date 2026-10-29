@@ -28,25 +28,6 @@ struct document_deleter final {
 using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
 using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
 
-[[nodiscard]] bool is_canonical_uuid(std::string_view value) noexcept {
-  if (value.size() != 36U || value[8] != '-' || value[13] != '-' || value[18] != '-' ||
-      value[23] != '-' || value[14] != '4' ||
-      (value[19] != '8' && value[19] != '9' && value[19] != 'a' && value[19] != 'b')) {
-    return false;
-  }
-  for (std::size_t index = 0U; index < value.size(); ++index) {
-    if (index == 8U || index == 13U || index == 18U || index == 23U) {
-      continue;
-    }
-    const bool is_digit = value[index] >= '0' && value[index] <= '9';
-    const bool is_lower_hex = value[index] >= 'a' && value[index] <= 'f';
-    if (!is_digit && !is_lower_hex) {
-      return false;
-    }
-  }
-  return true;
-}
-
 [[nodiscard]] std::optional<std::string_view> string_member(yyjson_val* object,
                                                             const char* name) noexcept {
   auto* value = yyjson_obj_get(object, name);
@@ -56,10 +37,21 @@ using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mu
   return std::string_view{yyjson_get_str(value), yyjson_get_len(value)};
 }
 
+[[nodiscard]] std::optional<gneiss::engine::guid> uuid_member(yyjson_val* object,
+                                                              const char* name) {
+  auto text = string_member(object, name);
+  if (!text)
+    return std::nullopt;
+  auto id = gneiss::engine::guid::parse(*text);
+  if (!id || !*id || std::ranges::any_of(*text, [](char c) { return c >= 'A' && c <= 'F'; }))
+    return std::nullopt;
+  return id;
+}
+
 [[nodiscard]] bool contains_uuid(yyjson_val* values, const char* member,
-                                 std::string_view target) noexcept {
+                                 gneiss::engine::guid target) noexcept {
   for (std::size_t index = 0U; index < yyjson_arr_size(values); ++index) {
-    const auto uuid = string_member(yyjson_arr_get(values, index), member);
+    const auto uuid = uuid_member(yyjson_arr_get(values, index), member);
     if (uuid && *uuid == target) {
       return true;
     }
@@ -71,6 +63,11 @@ using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mu
                               std::string_view value) noexcept {
   return yyjson_mut_obj_put(object, yyjson_mut_strcpy(document, name),
                             yyjson_mut_strncpy(document, value.data(), value.size()));
+}
+
+[[nodiscard]] bool put_uuid(yyjson_mut_doc* document, yyjson_mut_val* object, const char* name,
+                            gneiss::engine::guid value) {
+  return put_string(document, object, name, value.string());
 }
 
 [[nodiscard]] yyjson_mut_val* make_identity_transform(yyjson_mut_doc* document) noexcept {
@@ -118,13 +115,14 @@ using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mu
   return gneiss::engine::error::success;
 }
 
-[[nodiscard]] gneiss::engine::error collect_subtree(yyjson_val* objects, std::string_view root_uuid,
-                                                    std::unordered_set<std::string>& included,
-                                                    yyjson_val*& root_object) {
+[[nodiscard]] gneiss::engine::error
+collect_subtree(yyjson_val* objects, gneiss::engine::guid root_uuid,
+                std::unordered_set<gneiss::engine::guid, gneiss::engine::guid_hash>& included,
+                yyjson_val*& root_object) {
   const auto count = yyjson_arr_size(objects);
   for (std::size_t index = 0U; index < count; ++index) {
     auto* object = yyjson_arr_get(objects, index);
-    const auto uuid = string_member(object, "uuid");
+    const auto uuid = uuid_member(object, "uuid");
     if (!uuid) {
       return gneiss::engine::error::invalid_argument;
     }
@@ -145,10 +143,9 @@ using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mu
     for (std::size_t index = 0U; index < count; ++index) {
       auto* object = yyjson_arr_get(objects, index);
       auto* parent = yyjson_obj_get(object, "parent");
-      const auto uuid = string_member(object, "uuid");
+      const auto uuid = uuid_member(object, "uuid");
       if (uuid && yyjson_is_str(parent) &&
-          included.contains(std::string{yyjson_get_str(parent),
-                                        static_cast<std::size_t>(yyjson_get_len(parent))}) &&
+          included.contains(uuid_member(object, "parent").value_or(gneiss::engine::guid{})) &&
           included.emplace(*uuid).second) {
         changed = true;
       }
@@ -157,21 +154,23 @@ using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mu
   return gneiss::engine::error::success;
 }
 
-[[nodiscard]] bool contains_nested_prefab(yyjson_val* objects,
-                                          const std::unordered_set<std::string>& included) {
+[[nodiscard]] bool contains_nested_prefab(
+    yyjson_val* objects,
+    const std::unordered_set<gneiss::engine::guid, gneiss::engine::guid_hash>& included) {
   std::size_t index{}, maximum{};
   yyjson_val* object{};
   yyjson_arr_foreach(objects, index, maximum, object) {
-    const auto uuid = string_member(object, "uuid");
-    if (uuid && included.contains(std::string(*uuid)) && yyjson_obj_get(object, "prefab"))
+    const auto uuid = uuid_member(object, "uuid");
+    if (uuid && included.contains(*uuid) && yyjson_obj_get(object, "prefab"))
       return true;
   }
   return false;
 }
 
-[[nodiscard]] gneiss::engine::error
-make_prefab_document(yyjson_doc* source, const std::unordered_set<std::string>& included,
-                     const create_prefab_author_request& request, std::string& output) {
+[[nodiscard]] gneiss::engine::error make_prefab_document(
+    yyjson_doc* source,
+    const std::unordered_set<gneiss::engine::guid, gneiss::engine::guid_hash>& included,
+    const create_prefab_author_request& request, std::string& output) {
   mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
   auto* prefab_envelope = document ? yyjson_mut_obj(document.get()) : nullptr;
   auto* prefab_objects = document ? yyjson_mut_arr(document.get()) : nullptr;
@@ -180,8 +179,8 @@ make_prefab_document(yyjson_doc* source, const std::unordered_set<std::string>& 
   yyjson_mut_val* prefab_root = nullptr;
   for (std::size_t index = 0U; index < yyjson_arr_size(source_objects); ++index) {
     auto* source_object = yyjson_arr_get(source_objects, index);
-    const auto uuid = string_member(source_object, "uuid");
-    if (!uuid || !included.contains(std::string{*uuid})) {
+    const auto uuid = uuid_member(source_object, "uuid");
+    if (!uuid || !included.contains(*uuid)) {
       continue;
     }
     auto* object = yyjson_val_mut_copy(document.get(), source_object);
@@ -200,7 +199,7 @@ make_prefab_document(yyjson_doc* source, const std::unordered_set<std::string>& 
       !put_string(document.get(), prefab_envelope, "format", "gneiss.prefab") ||
       !yyjson_mut_obj_put(prefab_envelope, yyjson_mut_strcpy(document.get(), "version"),
                           yyjson_mut_uint(document.get(), 1U)) ||
-      !put_string(document.get(), prefab_envelope, "prefab_uuid", request.prefab_uuid) ||
+      !put_uuid(document.get(), prefab_envelope, "prefab_uuid", request.prefab_uuid) ||
       !yyjson_mut_obj_add_val(document.get(), prefab_envelope, "objects", prefab_objects)) {
     return gneiss::engine::error::out_of_memory;
   }
@@ -208,10 +207,10 @@ make_prefab_document(yyjson_doc* source, const std::unordered_set<std::string>& 
   return write_document(document.get(), output);
 }
 
-[[nodiscard]] gneiss::engine::error
-make_scene_document(yyjson_doc* source, const std::unordered_set<std::string>& included,
-                    yyjson_val* source_root, const create_prefab_author_request& request,
-                    std::string& output) {
+[[nodiscard]] gneiss::engine::error make_scene_document(
+    yyjson_doc* source,
+    const std::unordered_set<gneiss::engine::guid, gneiss::engine::guid_hash>& included,
+    yyjson_val* source_root, const create_prefab_author_request& request, std::string& output) {
   mutable_document_ptr document(yyjson_doc_mut_copy(source, nullptr), &yyjson_mut_doc_free);
   auto* root = document ? yyjson_mut_doc_get_root(document.get()) : nullptr;
   auto* objects = yyjson_mut_is_obj(root) ? yyjson_mut_obj_get(root, "objects") : nullptr;
@@ -223,8 +222,9 @@ make_scene_document(yyjson_doc* source, const std::unordered_set<std::string>& i
     auto* object = yyjson_mut_arr_get(objects, index - 1U);
     auto* uuid = yyjson_mut_obj_get(object, "uuid");
     if (yyjson_mut_is_str(uuid) &&
-        included.contains(std::string{yyjson_mut_get_str(uuid),
-                                      static_cast<std::size_t>(yyjson_mut_get_len(uuid))})) {
+        included.contains(
+            gneiss::engine::guid::parse({yyjson_mut_get_str(uuid), yyjson_mut_get_len(uuid)})
+                .value_or(gneiss::engine::guid{}))) {
       (void)yyjson_mut_arr_remove(objects, index - 1U);
     }
   }
@@ -232,13 +232,14 @@ make_scene_document(yyjson_doc* source, const std::unordered_set<std::string>& i
   auto* instance = yyjson_mut_obj(document.get());
   auto* source_parent = yyjson_obj_get(source_root, "parent");
   auto* source_transform = yyjson_obj_get(source_root, "transform");
-  const auto name = string_member(source_root, "name").value_or(request.root_uuid);
+  const auto fallback_name = request.root_uuid.string();
+  const auto name = string_member(source_root, "name").value_or(fallback_name);
   auto* parent = yyjson_val_mut_copy(document.get(), source_parent);
   auto* transform = yyjson_val_mut_copy(document.get(), source_transform);
   auto* overrides = yyjson_mut_arr(document.get());
   auto* reference = yyjson_mut_obj(document.get());
   if (instance == nullptr || parent == nullptr || transform == nullptr || overrides == nullptr ||
-      !put_string(document.get(), instance, "uuid", request.instance_uuid) ||
+      !put_uuid(document.get(), instance, "uuid", request.instance_uuid) ||
       !put_string(document.get(), instance, "name", name) ||
       !yyjson_mut_obj_add_val(document.get(), instance, "parent", parent) ||
       !put_string(document.get(), reference, "uri", request.prefab_uri) ||
@@ -254,14 +255,14 @@ make_scene_document(yyjson_doc* source, const std::unordered_set<std::string>& i
 constexpr std::string_view transform_type_id = "69644f20b2d24e488c7491f4f952ec2d";
 
 struct transform_override final {
-  std::string_view source_uuid;
+  gneiss::engine::guid source_uuid;
   std::string_view field_name;
   yyjson_val* value = nullptr;
 };
 
 [[nodiscard]] std::optional<transform_override>
 read_transform_override(yyjson_val* override_value) noexcept {
-  const auto source_uuid = string_member(override_value, "source_node_uuid");
+  const auto source_uuid = uuid_member(override_value, "source_node_uuid");
   const auto type_id = string_member(override_value, "type_guid");
   auto* field_id = yyjson_obj_get(override_value, "property_id");
   auto* wrapped_value = yyjson_obj_get(override_value, "value");
@@ -300,12 +301,13 @@ read_transform_override(yyjson_val* override_value) noexcept {
 }
 
 [[nodiscard]] yyjson_mut_val* find_mutable_by_uuid(yyjson_mut_val* values, const char* member,
-                                                   std::string_view uuid) noexcept {
+                                                   gneiss::engine::guid uuid) noexcept {
   for (std::size_t index = 0U; index < yyjson_mut_arr_size(values); ++index) {
     auto* candidate = yyjson_mut_arr_get(values, index);
     auto* value = yyjson_mut_obj_get(candidate, member);
     if (yyjson_mut_is_str(value) &&
-        std::string_view{yyjson_mut_get_str(value), yyjson_mut_get_len(value)} == uuid) {
+        gneiss::engine::guid::parse({yyjson_mut_get_str(value), yyjson_mut_get_len(value)}) ==
+            uuid) {
       return candidate;
     }
   }
@@ -345,7 +347,7 @@ apply_overrides_to_prefab(yyjson_doc* prefab_source, yyjson_val* overrides, std:
 }
 
 [[nodiscard]] gneiss::engine::error clear_instance_overrides(yyjson_doc* scene_source,
-                                                             std::string_view instance_uuid,
+                                                             gneiss::engine::guid instance_uuid,
                                                              std::string& output) {
   mutable_document_ptr document(yyjson_doc_mut_copy(scene_source, nullptr), &yyjson_mut_doc_free);
   auto* root = document ? yyjson_mut_doc_get_root(document.get()) : nullptr;
@@ -363,13 +365,13 @@ apply_overrides_to_prefab(yyjson_doc* prefab_source, yyjson_val* overrides, std:
   return write_document(document.get(), output);
 }
 
-[[nodiscard]] std::optional<std::string_view>
+[[nodiscard]] std::optional<gneiss::engine::guid>
 mapped_uuid(std::span<const unpack_prefab_uuid_mapping> mappings,
-            std::string_view source_uuid) noexcept {
+            gneiss::engine::guid source_uuid) noexcept {
   const auto found =
       std::ranges::find(mappings, source_uuid, &unpack_prefab_uuid_mapping::source_node_uuid);
   return found == mappings.end() ? std::nullopt
-                                 : std::optional<std::string_view>{found->target_node_uuid};
+                                 : std::optional<gneiss::engine::guid>{found->target_node_uuid};
 }
 
 [[nodiscard]] bool unpack_ids_are_valid(yyjson_val* scene_objects, yyjson_val* scene_instances,
@@ -378,11 +380,10 @@ mapped_uuid(std::span<const unpack_prefab_uuid_mapping> mappings,
   if (request.node_mappings.size() != yyjson_arr_size(prefab_objects)) {
     return false;
   }
-  std::unordered_set<std::string> sources;
-  std::unordered_set<std::string> targets;
+  std::unordered_set<gneiss::engine::guid, gneiss::engine::guid_hash> sources;
+  std::unordered_set<gneiss::engine::guid, gneiss::engine::guid_hash> targets;
   for (const auto& mapping : request.node_mappings) {
-    if (!is_canonical_uuid(mapping.source_node_uuid) ||
-        !is_canonical_uuid(mapping.target_node_uuid) ||
+    if (!mapping.source_node_uuid || !mapping.target_node_uuid ||
         !sources.emplace(mapping.source_node_uuid).second ||
         !targets.emplace(mapping.target_node_uuid).second ||
         !contains_uuid(prefab_objects, "uuid", mapping.source_node_uuid) ||
@@ -423,19 +424,20 @@ make_unpacked_scene(yyjson_doc* scene_source, const unpack_prefab_author_request
     return gneiss::engine::error::invalid_argument;
   for (std::size_t index = 0U; index < yyjson_arr_size(source_objects); ++index) {
     auto* source_object = yyjson_arr_get(source_objects, index);
-    const auto source_uuid = string_member(source_object, "uuid");
+    const auto source_uuid = uuid_member(source_object, "uuid");
     const auto target_uuid =
         source_uuid ? mapped_uuid(request.node_mappings, *source_uuid) : std::nullopt;
     auto* object = yyjson_val_mut_copy(document.get(), source_object);
     if (!target_uuid || object == nullptr ||
-        !put_string(document.get(), object, "uuid", *target_uuid)) {
+        !put_uuid(document.get(), object, "uuid", *target_uuid)) {
       return gneiss::engine::error::invalid_argument;
     }
     auto* source_parent = yyjson_obj_get(source_object, "parent");
     if (yyjson_is_str(source_parent)) {
-      const auto parent_uuid = mapped_uuid(
-          request.node_mappings, {yyjson_get_str(source_parent), yyjson_get_len(source_parent)});
-      if (!parent_uuid || !put_string(document.get(), object, "parent", *parent_uuid))
+      const auto parent_uuid =
+          mapped_uuid(request.node_mappings,
+                      uuid_member(source_object, "parent").value_or(gneiss::engine::guid{}));
+      if (!parent_uuid || !put_uuid(document.get(), object, "parent", *parent_uuid))
         return gneiss::engine::error::invalid_argument;
     } else {
       // 普通自有子对象继续跟随解包后的根身份。
@@ -443,9 +445,10 @@ make_unpacked_scene(yyjson_doc* scene_source, const unpack_prefab_author_request
         auto* child = yyjson_mut_arr_get(objects, child_index);
         auto* child_parent = yyjson_mut_obj_get(child, "parent");
         if (yyjson_mut_is_str(child_parent) &&
-            std::string_view(yyjson_mut_get_str(child_parent), yyjson_mut_get_len(child_parent)) ==
+            gneiss::engine::guid::parse(
+                {yyjson_mut_get_str(child_parent), yyjson_mut_get_len(child_parent)}) ==
                 request.instance_uuid &&
-            !put_string(document.get(), child, "parent", *target_uuid))
+            !put_uuid(document.get(), child, "parent", *target_uuid))
           return gneiss::engine::error::out_of_memory;
       }
       // 来源根直接解包成实例对象，保留源组件及扩展字段，采用外层身份字段。
@@ -453,7 +456,7 @@ make_unpacked_scene(yyjson_doc* scene_source, const unpack_prefab_author_request
       auto* transform = yyjson_val_mut_copy(document.get(), yyjson_obj_get(instance, "transform"));
       if (!parent || !transform ||
           !put_string(document.get(), object, "name",
-                      string_member(instance, "name").value_or(*target_uuid)) ||
+                      string_member(instance, "name").value_or(target_uuid->string())) ||
           !yyjson_mut_obj_put(object, yyjson_mut_strcpy(document.get(), "parent"), parent) ||
           !yyjson_mut_obj_put(object, yyjson_mut_strcpy(document.get(), "transform"), transform))
         return gneiss::engine::error::out_of_memory;
@@ -472,8 +475,8 @@ prepare_create_prefab(std::string_view scene_json, const create_prefab_author_re
                       std::vector<author_document_change>& out_changes) noexcept {
   out_changes.clear();
   if (scene_json.empty() || request.scene_path.empty() || request.prefab_path.empty() ||
-      request.scene_path == request.prefab_path || !is_canonical_uuid(request.root_uuid) ||
-      !is_canonical_uuid(request.prefab_uuid) || !is_canonical_uuid(request.instance_uuid) ||
+      request.scene_path == request.prefab_path || !request.root_uuid || !request.prefab_uuid ||
+      !request.instance_uuid ||
       gneiss::engine::validate_uri(request.prefab_uri) != gneiss::engine::error::success) {
     return gneiss::engine::error::invalid_argument;
   }
@@ -497,7 +500,7 @@ prepare_create_prefab(std::string_view scene_json, const create_prefab_author_re
         contains_uuid(instances, "uuid", request.instance_uuid)) {
       return gneiss::engine::error::invalid_argument;
     }
-    std::unordered_set<std::string> included;
+    std::unordered_set<gneiss::engine::guid, gneiss::engine::guid_hash> included;
     yyjson_val* source_root = nullptr;
     auto operation = collect_subtree(objects, request.root_uuid, included, source_root);
     if (operation != gneiss::engine::error::success ||
@@ -541,7 +544,7 @@ gneiss::engine::error prepare_apply_prefab(std::string_view scene_json,
   out_plan = {};
   if (scene_json.empty() || prefab_json.empty() || request.scene_path.empty() ||
       request.prefab_path.empty() || request.scene_path == request.prefab_path ||
-      !is_canonical_uuid(request.instance_uuid) ||
+      !request.instance_uuid ||
       gneiss::engine::validate_uri(request.prefab_uri) != gneiss::engine::error::success) {
     return gneiss::engine::error::invalid_argument;
   }
@@ -560,10 +563,10 @@ gneiss::engine::error prepare_apply_prefab(std::string_view scene_json,
       return gneiss::engine::error::invalid_argument;
     }
     yyjson_val* target = nullptr;
-    std::vector<std::string> affected;
+    std::vector<gneiss::engine::guid> affected;
     for (std::size_t index = 0U; index < yyjson_arr_size(instances); ++index) {
       auto* instance = yyjson_arr_get(instances, index);
-      const auto uuid = string_member(instance, "uuid");
+      const auto uuid = uuid_member(instance, "uuid");
       const auto uri = string_member(yyjson_obj_get(instance, "prefab"), "uri");
       if (uuid && uri && *uri == request.prefab_uri) {
         affected.emplace_back(*uuid);
@@ -615,7 +618,7 @@ prepare_unpack_prefab(std::string_view scene_json, std::string_view prefab_json,
                       std::vector<author_document_change>& out_changes) noexcept {
   out_changes.clear();
   if (scene_json.empty() || prefab_json.empty() || request.scene_path.empty() ||
-      !is_canonical_uuid(request.instance_uuid) || request.node_mappings.empty() ||
+      !request.instance_uuid || request.node_mappings.empty() ||
       gneiss::engine::validate_uri(request.prefab_uri) != gneiss::engine::error::success) {
     return gneiss::engine::error::invalid_argument;
   }
@@ -636,7 +639,7 @@ prepare_unpack_prefab(std::string_view scene_json, std::string_view prefab_json,
     std::size_t target_index = 0U;
     for (std::size_t index = 0U; index < yyjson_arr_size(instances); ++index) {
       auto* candidate = yyjson_arr_get(instances, index);
-      const auto uuid = string_member(candidate, "uuid");
+      const auto uuid = uuid_member(candidate, "uuid");
       const auto uri = string_member(yyjson_obj_get(candidate, "prefab"), "uri");
       if (uuid && uri && *uuid == request.instance_uuid && *uri == request.prefab_uri) {
         target = candidate;

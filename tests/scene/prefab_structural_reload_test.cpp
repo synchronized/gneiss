@@ -5,6 +5,7 @@
 #include "../support/async_scene_reload.hpp"
 #include "../support/prefab_query.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_instances.hpp"
@@ -19,21 +20,26 @@
 namespace {
 
 constexpr std::string_view prefab_uri = "asset://prefabs/test.prefab.json";
-constexpr std::string_view source_root_uuid = "30000000-0000-4000-8000-000000000002";
-constexpr std::string_view source_child_uuid = "30000000-0000-4000-8000-000000000003";
-constexpr std::string_view first_instance_uuid = "30000000-0000-4000-8000-000000000012";
-constexpr std::string_view second_instance_uuid = "30000000-0000-4000-8000-000000000013";
+const gneiss::engine::guid source_root_uuid =
+    *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000002");
+const gneiss::engine::guid source_child_uuid =
+    *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000003");
+const gneiss::engine::guid first_instance_uuid =
+    *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000012");
+const gneiss::engine::guid second_instance_uuid =
+    *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000013");
 
-void write_prefab(const std::filesystem::path& path, std::string_view root_uuid, bool add_child) {
+void write_prefab(const std::filesystem::path& path, gneiss::engine::guid root_uuid,
+                  bool add_child) {
   std::string json =
       std::string{
           R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"30000000-0000-4000-8000-000000000001","objects":[{"uuid":"30000000-0000-4000-8000-000000000004","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"uuid":")"} +
-      std::string{root_uuid} +
+      root_uuid.string() +
       R"(","name":"Reloaded Root","parent":"30000000-0000-4000-8000-000000000004","transform":{"translation":[2,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]})";
   if (add_child) {
     json +=
-        std::string{R"(,{"uuid":")"} + std::string{source_child_uuid} +
-        R"(","name":"Reloaded Child","parent":")" + std::string{root_uuid} +
+        std::string{R"(,{"uuid":")"} + source_child_uuid.string() +
+        R"(","name":"Reloaded Child","parent":")" + root_uuid.string() +
         R"(","transform":{"translation":[0,1,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]})";
   }
   json += "]}";
@@ -42,8 +48,9 @@ void write_prefab(const std::filesystem::path& path, std::string_view root_uuid,
 }
 
 gneiss::engine::error find_source(const std::shared_ptr<gneiss::runtime::application>& application,
-                                  gneiss::scene_instance_id scene, std::string_view instance_uuid,
-                                  std::string_view source_uuid,
+                                  gneiss::scene_instance_id scene,
+                                  gneiss::engine::guid instance_uuid,
+                                  gneiss::engine::guid source_uuid,
                                   gneiss::engine::scene_node_view& output) {
   std::uint64_t count = 0U;
   auto result = gneiss::engine::error{
@@ -53,7 +60,7 @@ gneiss::engine::error find_source(const std::shared_ptr<gneiss::runtime::applica
     output = {};
     result = gneiss::engine::error{
         gneiss::test_support::prefab_node_info(*application->scenes(), scene, index, output)};
-    if (result == gneiss::engine::error::success && !output.prefab->source_node_uuid.empty() &&
+    if (result == gneiss::engine::error::success && !output.prefab->source_node_uuid.is_nil() &&
         output.prefab->instance_uuid == instance_uuid &&
         output.prefab->source_node_uuid == source_uuid) {
       return gneiss::engine::error::success;
@@ -128,7 +135,8 @@ int main() try {
     return 5;
   }
 
-  constexpr std::string_view replacement_root_uuid = "30000000-0000-4000-8000-000000000099";
+  const gneiss::engine::guid replacement_root_uuid =
+      *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000099");
   write_prefab(prefab_path, replacement_root_uuid, false);
   if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, prefab_uri,
                                                   true) != gneiss::engine::error::not_found ||

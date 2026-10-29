@@ -6,6 +6,7 @@
 #include "../../../../tests/support/async_mesh_edit.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
 
@@ -26,7 +27,8 @@ using namespace gneiss;
 namespace {
 
 constexpr std::string_view scene_uri = "asset://scenes/triangle.scene.json";
-constexpr std::string_view camera_uuid = "00000000-0000-4000-8000-000000000002";
+const gneiss::engine::guid camera_uuid =
+    *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000002");
 constexpr std::string_view mesh_uri = "asset://models/triangle.mesh.json";
 constexpr std::string_view material_uri = "asset://materials/triangle.material.json";
 
@@ -152,7 +154,8 @@ int main() try {
   }
   const auto saved = read_text(scene_path);
   if (saved.find("\"editor_test_unknown\":42") == std::string::npos ||
-      saved.find(created_uuid) == std::string::npos || saved.find(mesh_uri) == std::string::npos) {
+      saved.find(created_uuid.string()) == std::string::npos ||
+      saved.find(mesh_uri) == std::string::npos) {
     return 8;
   }
 
@@ -168,7 +171,8 @@ int main() try {
       read_text(scene_path) != saved) {
     return 10;
   }
-  constexpr std::string_view new_scene_uuid = "00000000-0000-4000-8000-000000000099";
+  const gneiss::engine::guid new_scene_uuid =
+      *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000099");
   constexpr std::string_view new_scene_uri = "asset://scenes/new.scene.json";
   std::string converted_uri;
   if (gneiss::editor::make_asset_uri(root, root / "scenes" / "new.scene.json", converted_uri) !=
@@ -189,7 +193,8 @@ int main() try {
       session.is_dirty() || session.uri() != new_scene_uri ||
       gneiss::test_support::save_document(session, root, nullptr, new_scene_uri) !=
           gneiss::engine::error::invalid_state ||
-      read_text(root / "scenes" / "new.scene.json").find(new_scene_uuid) == std::string::npos) {
+      read_text(root / "scenes" / "new.scene.json").find(new_scene_uuid.string()) ==
+          std::string::npos) {
     return 17;
   }
   session.close();
