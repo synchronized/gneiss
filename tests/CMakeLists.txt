@@ -1029,3 +1029,10 @@ foreach(test IN ITEMS gneiss_action_map_test gneiss_scene_description_test gneis
     gneiss_texture_load_service_test gneiss_render_asset_loader_test)
   target_link_libraries(${test} PRIVATE)
 endforeach()
+
+add_executable(gneiss_binary_io_test core/binary_io_test.cpp)
+target_include_directories(gneiss_binary_io_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_features(gneiss_binary_io_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_binary_io_test)
+gneiss_target_output_directories(gneiss_binary_io_test)
+add_test(NAME gneiss.binary_io COMMAND gneiss_binary_io_test)

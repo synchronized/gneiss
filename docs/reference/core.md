@@ -102,3 +102,15 @@ auto request = std::move(*loaded);
 四维齐次坐标运算直接使用 `matrix * vector4`。编辑器 Gizmo 复用 Core 的相机函数，
 在适配边界转换成外部数组；非法相机参数延续返回零数组的编辑器约定。
 底层继续使用 GLM，不另外实现 add/subtract/multiply 或修改 normalize 的既有语义。
+
+## 内存二进制读写
+
+`binary_writer.hpp` 的 `binary_writer` 借用 `std::vector<std::byte>`，追加小端无符号整数、
+32 位浮点数、字节区间及零填充。容器仍归调用方所有；输入区间不得引用输出容器存储。
+分配异常由 codec 捕获，不承诺多次写入的事务性。
+`binary_reader.hpp` 的 `binary_reader` 借用只读 span，顺序读取维护游标，按偏移读取不改变游标。
+读取返回 result，越界为 invalid_argument；失败不推进游标，范围检查避免加法溢出。
+返回的字节 span 不拥有数据，不能超过源存储生命周期。浮点读写保留位模式，有限性由 codec 校验。
+
+两者均为无 I/O、无线程同步的内存工具。纹理容器、Mesh Binary 和 KTX2 使用它们共享字节读写，
+magic、schema、对齐规则和数据区合法性仍由各 codec 负责，文件格式不变。

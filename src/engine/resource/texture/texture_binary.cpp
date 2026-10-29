@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/resource/texture/texture_binary.hpp"
+#include "engine/core/binary_reader.hpp"
+#include "engine/core/binary_writer.hpp"
 
 #include <algorithm>
 #include <array>
@@ -19,32 +21,6 @@ constexpr std::array<std::byte, 8U> magic = {
 };
 constexpr std::uint16_t schema = 1U;
 constexpr std::uint16_t header_size = 64U;
-
-void append_u16(std::vector<std::byte>& output, std::uint16_t value) {
-  output.push_back(static_cast<std::byte>(value & 0xffU));
-  output.push_back(static_cast<std::byte>((static_cast<std::uint32_t>(value) >> 8U) & 0xffU));
-}
-
-void append_u32(std::vector<std::byte>& output, std::uint32_t value) {
-  for (std::uint32_t shift = 0U; shift < 32U; shift += 8U) {
-    output.push_back(static_cast<std::byte>((value >> shift) & 0xffU));
-  }
-}
-
-void append_u64(std::vector<std::byte>& output, std::uint64_t value) {
-  append_u32(output, static_cast<std::uint32_t>(value));
-  append_u32(output, static_cast<std::uint32_t>(value >> 32U));
-}
-
-template <typename Integer>
-[[nodiscard]] Integer read_integer(std::span<const std::byte> bytes, std::size_t offset) noexcept {
-  std::uint64_t value{};
-  for (std::size_t index = 0U; index < sizeof(Integer); ++index) {
-    value |= static_cast<std::uint64_t>(std::to_integer<std::uint8_t>(bytes[offset + index]))
-             << (index * 8U);
-  }
-  return static_cast<Integer>(value);
-}
 
 [[nodiscard]] std::uint64_t align_16(std::uint64_t value) noexcept {
   return (value + 15U) & ~UINT64_C(15);
@@ -90,19 +66,20 @@ texture_binary_result encode_texture_binary(std::span<const std::byte> manifest,
   try {
     const auto file_size = payload_offset + payload.size();
     output.reserve(static_cast<std::size_t>(file_size));
-    output.insert(output.end(), magic.begin(), magic.end());
-    append_u16(output, schema);
-    append_u16(output, header_size);
-    append_u32(output, 0U);
-    append_u64(output, manifest_offset);
-    append_u64(output, manifest.size());
-    append_u64(output, payload_offset);
-    append_u64(output, payload.size());
-    append_u64(output, file_size);
-    append_u64(output, 0U);
-    output.insert(output.end(), manifest.begin(), manifest.end());
-    output.resize(static_cast<std::size_t>(payload_offset), std::byte{});
-    output.insert(output.end(), payload.begin(), payload.end());
+    binary_writer writer{output};
+    writer.write_bytes(magic);
+    writer.write_u16_le(schema);
+    writer.write_u16_le(header_size);
+    writer.write_u32_le(0U);
+    writer.write_u64_le(manifest_offset);
+    writer.write_u64_le(manifest.size());
+    writer.write_u64_le(payload_offset);
+    writer.write_u64_le(payload.size());
+    writer.write_u64_le(file_size);
+    writer.write_u64_le(0U);
+    writer.write_bytes(manifest);
+    writer.write_zeros(static_cast<std::size_t>(payload_offset) - writer.position());
+    writer.write_bytes(payload);
     return texture_binary_result::success;
   } catch (const std::bad_alloc&) {
     output.clear();
@@ -119,20 +96,22 @@ texture_binary_result decode_texture_binary_header(std::span<const std::byte> by
                                                    std::string& diagnostic) noexcept {
   output = {};
   diagnostic.clear();
+  const binary_reader reader{bytes};
+  // 各读取位置由下面的 Header、表及数据区边界检查保证有效。
   if (bytes.size() < header_size || !is_texture_binary(bytes)) {
     return fail(texture_binary_result::invalid_container, "运行纹理 Header 无效或截断", diagnostic);
   }
-  if (read_integer<std::uint16_t>(bytes, 8U) != schema) {
+  if (*reader.read_at_le<std::uint16_t>(8U) != schema) {
     return fail(texture_binary_result::unsupported_version, "不支持的运行纹理版本", diagnostic);
   }
-  const auto stored_header_size = read_integer<std::uint16_t>(bytes, 10U);
-  const auto flags = read_integer<std::uint32_t>(bytes, 12U);
-  const auto manifest_offset = read_integer<std::uint64_t>(bytes, 16U);
-  const auto manifest_size = read_integer<std::uint64_t>(bytes, 24U);
-  const auto payload_offset = read_integer<std::uint64_t>(bytes, 32U);
-  const auto payload_size = read_integer<std::uint64_t>(bytes, 40U);
-  const auto file_size = read_integer<std::uint64_t>(bytes, 48U);
-  const auto reserved = read_integer<std::uint64_t>(bytes, 56U);
+  const auto stored_header_size = *reader.read_at_le<std::uint16_t>(10U);
+  const auto flags = *reader.read_at_le<std::uint32_t>(12U);
+  const auto manifest_offset = *reader.read_at_le<std::uint64_t>(16U);
+  const auto manifest_size = *reader.read_at_le<std::uint64_t>(24U);
+  const auto payload_offset = *reader.read_at_le<std::uint64_t>(32U);
+  const auto payload_size = *reader.read_at_le<std::uint64_t>(40U);
+  const auto file_size = *reader.read_at_le<std::uint64_t>(48U);
+  const auto reserved = *reader.read_at_le<std::uint64_t>(56U);
   const auto manifest_end_overflows =
       manifest_offset > std::numeric_limits<std::uint64_t>::max() - 15U ||
       manifest_size > std::numeric_limits<std::uint64_t>::max() - manifest_offset - 15U;

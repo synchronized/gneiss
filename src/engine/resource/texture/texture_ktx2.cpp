@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/resource/texture/texture_ktx2.hpp"
+#include "engine/core/binary_reader.hpp"
+#include "engine/core/binary_writer.hpp"
 
 #include <algorithm>
 #include <array>
@@ -51,33 +53,6 @@ constexpr std::array<std::byte, 92U> linear_dfd = {
   return value;
 }
 
-void append_u32(std::vector<std::byte>& bytes, std::uint32_t value) {
-  for (std::uint32_t shift = 0; shift < 32U; shift += 8U) {
-    bytes.push_back(static_cast<std::byte>((value >> shift) & 0xFFU));
-  }
-}
-
-void append_u64(std::vector<std::byte>& bytes, std::uint64_t value) {
-  append_u32(bytes, static_cast<std::uint32_t>(value));
-  append_u32(bytes, static_cast<std::uint32_t>(value >> 32U));
-}
-
-[[nodiscard]] std::uint32_t read_u32(std::span<const std::byte> bytes,
-                                     std::size_t offset) noexcept {
-  std::uint32_t value{};
-  for (std::uint32_t index = 0; index < 4U; ++index) {
-    value |= static_cast<std::uint32_t>(std::to_integer<std::uint8_t>(bytes[offset + index]))
-             << (index * 8U);
-  }
-  return value;
-}
-
-[[nodiscard]] std::uint64_t read_u64(std::span<const std::byte> bytes,
-                                     std::size_t offset) noexcept {
-  return static_cast<std::uint64_t>(read_u32(bytes, offset)) |
-         (static_cast<std::uint64_t>(read_u32(bytes, offset + 4U)) << 32U);
-}
-
 [[nodiscard]] bool valid_range(std::uint64_t offset, std::uint64_t length,
                                std::size_t size) noexcept {
   return offset <= size && length <= size - static_cast<std::size_t>(offset);
@@ -119,32 +94,33 @@ texture_ktx2_result encode_texture_ktx2(const texture_ktx2& texture, std::vector
     const auto dfd_offset = header_size + index_size;
     auto data_offset = dfd_offset + linear_dfd.size();
     output.reserve(data_offset + texture.levels.front().pixels.size() * 2U);
-    output.insert(output.end(), identifier.begin(), identifier.end());
-    append_u32(output, texture.transfer == texture_transfer::srgb ? rgba8_srgb : rgba8_unorm);
-    append_u32(output, 1U);
-    append_u32(output, texture.levels.front().width);
-    append_u32(output, texture.levels.front().height);
-    append_u32(output, 0U);
-    append_u32(output, 0U);
-    append_u32(output, 1U);
-    append_u32(output, static_cast<std::uint32_t>(texture.levels.size()));
-    append_u32(output, 0U);
-    append_u32(output, static_cast<std::uint32_t>(dfd_offset));
-    append_u32(output, static_cast<std::uint32_t>(linear_dfd.size()));
-    append_u32(output, 0U);
-    append_u32(output, 0U);
-    append_u64(output, 0U);
-    append_u64(output, 0U);
+    binary_writer writer{output};
+    writer.write_bytes(identifier);
+    writer.write_u32_le(texture.transfer == texture_transfer::srgb ? rgba8_srgb : rgba8_unorm);
+    writer.write_u32_le(1U);
+    writer.write_u32_le(texture.levels.front().width);
+    writer.write_u32_le(texture.levels.front().height);
+    writer.write_u32_le(0U);
+    writer.write_u32_le(0U);
+    writer.write_u32_le(1U);
+    writer.write_u32_le(static_cast<std::uint32_t>(texture.levels.size()));
+    writer.write_u32_le(0U);
+    writer.write_u32_le(static_cast<std::uint32_t>(dfd_offset));
+    writer.write_u32_le(static_cast<std::uint32_t>(linear_dfd.size()));
+    writer.write_u32_le(0U);
+    writer.write_u32_le(0U);
+    writer.write_u64_le(0U);
+    writer.write_u64_le(0U);
     for (const auto& level : texture.levels) {
-      append_u64(output, data_offset);
-      append_u64(output, level.pixels.size());
-      append_u64(output, level.pixels.size());
+      writer.write_u64_le(data_offset);
+      writer.write_u64_le(level.pixels.size());
+      writer.write_u64_le(level.pixels.size());
       data_offset += level.pixels.size();
     }
     const auto descriptor = dfd(texture.transfer);
-    output.insert(output.end(), descriptor.begin(), descriptor.end());
+    writer.write_bytes(descriptor);
     for (const auto& level : texture.levels) {
-      output.insert(output.end(), level.pixels.begin(), level.pixels.end());
+      writer.write_bytes(level.pixels);
     }
     return texture_ktx2_result::success;
   } catch (const std::bad_alloc&) {
@@ -160,20 +136,22 @@ texture_ktx2_result decode_texture_ktx2(std::span<const std::byte> bytes, textur
                                         std::string& diagnostic) noexcept {
   output = {};
   diagnostic.clear();
+  const binary_reader reader{bytes};
+  // 各读取位置由下面的 Header、表及数据区边界检查保证有效。
   if (bytes.size() < header_size ||
       !std::equal(identifier.begin(), identifier.end(), bytes.begin())) {
     return fail(texture_ktx2_result::invalid_container, "KTX2 标识或文件长度无效", diagnostic);
   }
-  const auto format = read_u32(bytes, 12U);
-  const auto width = read_u32(bytes, 20U);
-  const auto height = read_u32(bytes, 24U);
-  const auto depth = read_u32(bytes, 28U);
-  const auto layers = read_u32(bytes, 32U);
-  const auto faces = read_u32(bytes, 36U);
-  const auto levels = read_u32(bytes, 40U);
-  const auto supercompression = read_u32(bytes, 44U);
-  const auto dfd_offset = read_u32(bytes, 48U);
-  const auto dfd_length = read_u32(bytes, 52U);
+  const auto format = *reader.read_at_le<std::uint32_t>(12U);
+  const auto width = *reader.read_at_le<std::uint32_t>(20U);
+  const auto height = *reader.read_at_le<std::uint32_t>(24U);
+  const auto depth = *reader.read_at_le<std::uint32_t>(28U);
+  const auto layers = *reader.read_at_le<std::uint32_t>(32U);
+  const auto faces = *reader.read_at_le<std::uint32_t>(36U);
+  const auto levels = *reader.read_at_le<std::uint32_t>(40U);
+  const auto supercompression = *reader.read_at_le<std::uint32_t>(44U);
+  const auto dfd_offset = *reader.read_at_le<std::uint32_t>(48U);
+  const auto dfd_length = *reader.read_at_le<std::uint32_t>(52U);
   if ((format != rgba8_unorm && format != rgba8_srgb) || depth != 0U || layers != 0U ||
       faces != 1U || supercompression != 0U) {
     return fail(texture_ktx2_result::unsupported_container, "KTX2 格式、维度或压缩方案不受支持",
@@ -185,7 +163,7 @@ texture_ktx2_result decode_texture_ktx2(std::span<const std::byte> bytes, textur
   }
   if (width == 0U || height == 0U || levels == 0U || levels > 32U || levels != expected_levels ||
       dfd_length < linear_dfd.size() || !valid_range(dfd_offset, dfd_length, bytes.size()) ||
-      read_u32(bytes, dfd_offset) > dfd_length ||
+      *reader.read_at_le<std::uint32_t>(dfd_offset) > dfd_length ||
       bytes.size() < header_size + static_cast<std::size_t>(levels) * level_entry_size) {
     return fail(texture_ktx2_result::invalid_container, "KTX2 维度或 Mip 数量无效", diagnostic);
   }
@@ -200,9 +178,9 @@ texture_ktx2_result decode_texture_ktx2(std::span<const std::byte> bytes, textur
     auto level_height = height;
     for (std::uint32_t level = 0U; level < levels; ++level) {
       const auto entry = header_size + static_cast<std::size_t>(level) * level_entry_size;
-      const auto offset = read_u64(bytes, entry);
-      const auto length = read_u64(bytes, entry + 8U);
-      const auto unpacked = read_u64(bytes, entry + 16U);
+      const auto offset = *reader.read_at_le<std::uint64_t>(entry);
+      const auto length = *reader.read_at_le<std::uint64_t>(entry + 8U);
+      const auto unpacked = *reader.read_at_le<std::uint64_t>(entry + 16U);
       const auto expected = static_cast<std::uint64_t>(level_width) * level_height * 4U;
       if (length != expected || unpacked != expected ||
           !valid_range(offset, length, bytes.size())) {

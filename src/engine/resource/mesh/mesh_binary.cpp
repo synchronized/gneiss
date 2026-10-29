@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/resource/mesh/mesh_binary.hpp"
+#include "engine/core/binary_reader.hpp"
+#include "engine/core/binary_writer.hpp"
 #include "engine/resource/mesh/mesh_data.hpp"
 
 #include <algorithm>
@@ -38,30 +40,6 @@ void fail(mesh_binary_diagnostic& diagnostic, mesh_binary_result result, std::si
 
 [[nodiscard]] std::uint64_t align_16(std::uint64_t value) noexcept {
   return (value + 15U) & ~UINT64_C(15);
-}
-
-template <typename Integer> void append_integer(std::vector<std::byte>& output, Integer value) {
-  for (std::size_t index = 0; index < sizeof(Integer); ++index) {
-    output.push_back(static_cast<std::byte>((value >> (index * 8U)) & 0xffU));
-  }
-}
-
-void append_float(std::vector<std::byte>& output, float value) {
-  append_integer(output, std::bit_cast<std::uint32_t>(value));
-}
-
-template <typename Integer>
-[[nodiscard]] Integer read_integer(std::span<const std::byte> bytes, std::size_t offset) noexcept {
-  Integer value{};
-  for (std::size_t index = 0; index < sizeof(Integer); ++index) {
-    value |= static_cast<Integer>(std::to_integer<std::uint8_t>(bytes[offset + index]))
-             << (index * 8U);
-  }
-  return value;
-}
-
-[[nodiscard]] float read_float(std::span<const std::byte> bytes, std::size_t offset) noexcept {
-  return std::bit_cast<float>(read_integer<std::uint32_t>(bytes, offset));
 }
 
 [[nodiscard]] bool finite(const mesh_binary_vertex& vertex) noexcept {
@@ -146,49 +124,50 @@ mesh_binary_result encode_mesh_binary(const mesh_binary_data& data, std::vector<
     const auto file_size =
         indices_offset + (static_cast<std::uint64_t>(data.indices.size()) * index_size);
     output.reserve(static_cast<std::size_t>(file_size));
-    output.insert(output.end(), magic.begin(), magic.end());
-    append_integer(output, format_version);
-    append_integer(output, header_size);
-    append_integer(output, flags);
-    append_integer(output, static_cast<std::uint32_t>(data.vertices.size()));
-    append_integer(output, static_cast<std::uint32_t>(data.indices.size()));
-    append_integer(output, vertex_stride);
-    append_integer(output, index_size);
-    append_integer(output, vertex_offset);
-    append_integer(output, indices_offset);
-    append_integer(output, file_size);
+    binary_writer writer{output};
+    writer.write_bytes(magic);
+    writer.write_le(format_version);
+    writer.write_le(header_size);
+    writer.write_le(flags);
+    writer.write_le(static_cast<std::uint32_t>(data.vertices.size()));
+    writer.write_le(static_cast<std::uint32_t>(data.indices.size()));
+    writer.write_le(vertex_stride);
+    writer.write_le(index_size);
+    writer.write_le(vertex_offset);
+    writer.write_le(indices_offset);
+    writer.write_le(file_size);
     for (const auto value : math::components(bounds.min)) {
-      append_float(output, value);
+      writer.write_f32_le(value);
     }
     for (const auto value : math::components(bounds.max)) {
-      append_float(output, value);
+      writer.write_f32_le(value);
     }
-    append_integer(output, UINT64_C(0));
+    writer.write_le(UINT64_C(0));
     for (std::size_t index = 0; index < data.vertices.size(); ++index) {
       const auto& vertex = data.vertices[index];
       for (const auto value : math::components(vertex.position)) {
-        append_float(output, value);
+        writer.write_f32_le(value);
       }
       for (const auto value : math::components(vertex.texcoord)) {
-        append_float(output, value);
+        writer.write_f32_le(value);
       }
       for (const auto value : math::components(vertex.normal)) {
-        append_float(output, value);
+        writer.write_f32_le(value);
       }
       for (const auto value : math::components(data.tangents[index]))
-        append_float(output, value);
+        writer.write_f32_le(value);
       {
         const auto uv = data.uv1.empty() ? math::vector2{} : data.uv1[index];
         const auto color = data.colors.empty() ? math::vector4{1, 1, 1, 1} : data.colors[index];
         for (const auto value : math::components(uv))
-          append_float(output, value);
+          writer.write_f32_le(value);
         for (const auto value : math::components(color))
-          append_float(output, value);
+          writer.write_f32_le(value);
       }
     }
-    output.resize(static_cast<std::size_t>(indices_offset), std::byte{});
+    writer.write_zeros(static_cast<std::size_t>(indices_offset) - writer.position());
     for (const auto index : data.indices) {
-      append_integer(output, index);
+      writer.write_le(index);
     }
     return mesh_binary_result::success;
   } catch (const std::bad_alloc&) {
@@ -208,25 +187,27 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
   output = {};
   diagnostic = {};
   try {
+    const binary_reader reader{bytes};
+    // 各读取位置由下面的 Header、表及数据区边界检查保证有效。
     if (bytes.size() < header_size || !is_mesh_binary(bytes)) {
       fail(diagnostic, mesh_binary_result::invalid_data, 0, "Mesh Binary Header 无效或截断");
       return diagnostic.result;
     }
-    const auto version = read_integer<std::uint16_t>(bytes, 4);
+    const auto version = *reader.read_at_le<std::uint16_t>(4);
     if (version != format_version) {
       fail(diagnostic, mesh_binary_result::unsupported_version, 4, "不支持的 Mesh Binary 版本");
       return diagnostic.result;
     }
-    const auto stored_header_size = read_integer<std::uint16_t>(bytes, 6);
-    const auto flags = read_integer<std::uint32_t>(bytes, 8);
-    const auto vertex_count = read_integer<std::uint32_t>(bytes, 12);
-    const auto index_count = read_integer<std::uint32_t>(bytes, 16);
-    const auto stored_vertex_stride = read_integer<std::uint16_t>(bytes, 20);
-    const auto stored_index_size = read_integer<std::uint16_t>(bytes, 22);
-    const auto stored_vertex_offset = read_integer<std::uint64_t>(bytes, 24);
-    const auto stored_index_offset = read_integer<std::uint64_t>(bytes, 32);
-    const auto stored_file_size = read_integer<std::uint64_t>(bytes, 40);
-    const auto reserved = read_integer<std::uint64_t>(bytes, 72);
+    const auto stored_header_size = *reader.read_at_le<std::uint16_t>(6);
+    const auto flags = *reader.read_at_le<std::uint32_t>(8);
+    const auto vertex_count = *reader.read_at_le<std::uint32_t>(12);
+    const auto index_count = *reader.read_at_le<std::uint32_t>(16);
+    const auto stored_vertex_stride = *reader.read_at_le<std::uint16_t>(20);
+    const auto stored_index_size = *reader.read_at_le<std::uint16_t>(22);
+    const auto stored_vertex_offset = *reader.read_at_le<std::uint64_t>(24);
+    const auto stored_index_offset = *reader.read_at_le<std::uint64_t>(32);
+    const auto stored_file_size = *reader.read_at_le<std::uint64_t>(40);
+    const auto reserved = *reader.read_at_le<std::uint64_t>(72);
     if (stored_header_size != header_size || flags > 3U || stored_vertex_stride != vertex_stride ||
         stored_index_size != index_size || stored_vertex_offset != vertex_offset ||
         reserved != 0U || stored_file_size != bytes.size() || vertex_count == 0U ||
@@ -240,8 +221,8 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
       return diagnostic.result;
     }
     for (std::size_t axis = 0; axis < 3U; ++axis) {
-      output.bounds.min[axis] = read_float(bytes, 48U + (axis * 4U));
-      output.bounds.max[axis] = read_float(bytes, 60U + (axis * 4U));
+      output.bounds.min[axis] = *reader.read_f32_at_le(48U + (axis * 4U));
+      output.bounds.max[axis] = *reader.read_f32_at_le(60U + (axis * 4U));
       if (!std::isfinite(output.bounds.min[axis]) || !std::isfinite(output.bounds.max[axis]) ||
           output.bounds.min[axis] > output.bounds.max[axis]) {
         fail(diagnostic, mesh_binary_result::invalid_data, 48U + (axis * 4U),
@@ -259,15 +240,15 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
       const auto offset = static_cast<std::size_t>(stored_vertex_offset) + (index * vertex_stride);
       auto& vertex = output.vertices[index];
       for (std::size_t component = 0; component < 3U; ++component) {
-        vertex.position[component] = read_float(bytes, offset + (component * 4U));
-        vertex.normal[component] = read_float(bytes, offset + 20U + (component * 4U));
+        vertex.position[component] = *reader.read_f32_at_le(offset + (component * 4U));
+        vertex.normal[component] = *reader.read_f32_at_le(offset + 20U + (component * 4U));
       }
-      vertex.texcoord[0] = read_float(bytes, offset + 12U);
-      vertex.texcoord[1] = read_float(bytes, offset + 16U);
+      vertex.texcoord[0] = *reader.read_f32_at_le(offset + 12U);
+      vertex.texcoord[1] = *reader.read_f32_at_le(offset + 16U);
       {
         auto& tangent = output.tangents[index];
         for (std::size_t component = 0; component < 4U; ++component) {
-          tangent[component] = read_float(bytes, offset + 32U + component * 4U);
+          tangent[component] = *reader.read_f32_at_le(offset + 32U + component * 4U);
         }
         if (!valid_mesh_tangent(tangent, vertex.normal)) {
           fail(diagnostic, mesh_binary_result::invalid_data, offset + 32U, "Mesh Binary 切线无效");
@@ -275,10 +256,11 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
         }
       }
       {
-        math::vector2 uv{read_float(bytes, offset + 48U), read_float(bytes, offset + 52U)};
+        math::vector2 uv{*reader.read_f32_at_le(offset + 48U),
+                         *reader.read_f32_at_le(offset + 52U)};
         math::vector4 color{};
         for (std::size_t component = 0; component < 4U; ++component)
-          color[component] = read_float(bytes, offset + 56U + component * 4U);
+          color[component] = *reader.read_f32_at_le(offset + 56U + component * 4U);
         if (!std::isfinite(uv[0]) || !std::isfinite(uv[1]) ||
             !std::ranges::all_of(math::components(color), [](float v) {
               return std::isfinite(v) && v >= 0.0F && v <= 1.0F;
@@ -312,7 +294,7 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
     output.indices.resize(index_count);
     for (std::size_t index = 0; index < index_count; ++index) {
       const auto offset = static_cast<std::size_t>(stored_index_offset) + (index * index_size);
-      output.indices[index] = read_integer<std::uint32_t>(bytes, offset);
+      output.indices[index] = *reader.read_at_le<std::uint32_t>(offset);
       if (output.indices[index] >= vertex_count) {
         fail(diagnostic, mesh_binary_result::invalid_data, offset, "Mesh Binary 索引超出顶点范围");
         return diagnostic.result;
