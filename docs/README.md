@@ -34,6 +34,7 @@
 - [从 0.10.0 迁移到 0.11.0](guides/migrating-0.10-to-0.11.md)
 - [C/C++ 代码风格与语言标准](guides/coding-style.md)
 - [在 Editor 中导入资产](guides/editor-assets.md)
+- [编辑材质参数](guides/material-editor.md)
 - [Editor 选择、变换与窗口交互](guides/editor-interaction.md)
 - [宿主任务调度与异步纹理加载](guides/task-scheduling.md)
 
@@ -605,3 +606,4 @@
 - [资源描述复用反射 JSON](plans/PLAN-068-resource-reflected-json.md)
 - [PLAN-069：业务反射入口统一默认注册表](plans/PLAN-069-default-meta-entrypoints.md)
 - [PLAN-070：ActionMap 反射编解码与新建描述保存](plans/PLAN-070-action-map-and-new-description-save.md)
+- [PLAN-071：材质反射编辑闭环](plans/PLAN-071-material-editor.md)

@@ -38,6 +38,7 @@ enum class asset_browser_action {
   add_mesh,
   add_prefab,
   apply_to_node,
+  edit_material,
 };
 
 /** 绘制结束后由宿主执行，拥有当时的选择身份；不借用模型条目。 */
@@ -125,6 +126,7 @@ struct asset_browser_view final {
   bool can_add_mesh = false;
   bool can_add_prefab = false;
   bool can_apply = false;
+  bool can_edit_material = false;
   bool scene_edit_attempted = false;
   gneiss::engine::error scene_edit_result = gneiss::engine::error::success;
 };

@@ -27,6 +27,7 @@
 #include "panels/author_property_panel.hpp"
 #include "panels/console_panel.hpp"
 #include "panels/document_action_panel.hpp"
+#include "panels/material_editor_panel.hpp"
 #include "panels/property_inspector_model.hpp"
 #include "panels/runtime_panels.hpp"
 #include "project_manager.hpp"
@@ -112,6 +113,10 @@ struct editor_state {
   std::chrono::steady_clock::time_point smoke_started{std::chrono::steady_clock::now()};
   gneiss::editor::document_editing editing;
   gneiss::editor::property_inspector_model inspector;
+  gneiss::editor::material_editor_model material_editor;
+  bool material_editor_visible = false;
+  std::uint64_t material_edit_serial = 0;
+  gneiss::engine::error material_edit_status = gneiss::engine::error::success;
   gneiss::engine::world* world = nullptr;
   gneiss::entity_id inspected_entity;
   gneiss::editor::runtime_scene_selection runtime_selection;
@@ -745,6 +750,12 @@ void request_runtime_launch(editor_state& state) noexcept {
 }
 
 void begin_editor_exit(editor_state& state) {
+  state.material_editor.advance();
+  if (state.material_editor.saving() || state.material_editor.is_dirty()) {
+    state.material_editor_visible = true;
+    state.material_edit_status = gneiss::engine::error::invalid_state;
+    return;
+  }
   if (state.closing)
     return;
   state.closing = true;
@@ -936,6 +947,29 @@ void execute_asset_browser_request(editor_state& state,
     }
   };
   switch (request.action) {
+  case action::edit_material:
+    if (entry != state.assets.entries().end() && is_material_asset(*entry) &&
+        entry->kind == gneiss::editor::asset_browser_kind::authored_asset &&
+        !state.material_editor.is_dirty() && !state.material_editor.saving() &&
+        !state.pending_file_operation) {
+      state.material_editor_visible = true;
+      const auto uri = entry->asset_uri;
+      state.material_edit_status =
+          read_author_asset(state, uri, [&state, uri](std::string content) {
+            state.material_edit_status = state.material_editor.open(uri, std::move(content));
+            return state.material_edit_status;
+          });
+      if (state.pending_file_operation) {
+        auto operation = std::move(state.pending_file_operation);
+        state.pending_file_operation = [&state, operation = std::move(operation)](auto& status) {
+          const bool complete = operation(status);
+          if (complete)
+            state.material_edit_status = status;
+          return complete;
+        };
+      }
+    }
+    break;
   case action::none:
     break;
   case action::restart_source_watch: {
@@ -1152,6 +1186,9 @@ void draw_asset_browser(editor_state& state) {
   if (selected != state.assets.entries().end()) {
     view.can_add_mesh = is_mesh_asset(*selected) &&
                         find_material_for_mesh(state.assets.entries(), *selected) != nullptr;
+    view.can_edit_material = selected->kind == gneiss::editor::asset_browser_kind::authored_asset &&
+                             is_material_asset(*selected) && !state.material_editor.is_dirty() &&
+                             !state.material_editor.saving() && !state.pending_file_operation;
     view.can_add_prefab = selected->kind == gneiss::editor::asset_browser_kind::authored_asset &&
                           is_prefab_asset(*selected);
     view.can_apply =
@@ -1871,14 +1908,18 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
       return submit_editor_ui(state);
     }
     gneiss::editor::begin_editor_workspace();
+    bool material_focus = false;
+    gneiss::editor::draw_material_editor(state.material_editor, *state.application->async_files(),
+                                         state.material_editor_visible, state.material_edit_serial,
+                                         state.material_edit_status, material_focus);
     const auto& io = ImGui::GetIO();
-    if (io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_N, false)) {
+    if (!material_focus && io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_N, false)) {
       request_document_action(state, gneiss::editor::document_action::new_scene);
     }
-    if (io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_O, false)) {
+    if (!material_focus && io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_O, false)) {
       request_document_action(state, gneiss::editor::document_action::open_scene);
     }
-    if (io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
+    if (!material_focus && io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
       state.save_result = save_document_as(state);
       state.save_attempted = state.save_result != gneiss::engine::error::not_ready;
     }
@@ -1999,7 +2040,7 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
         });
     if (state.pending_file_operation)
       return submit_editor_ui(state);
-    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
+    if (!material_focus && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
       state.history_error = io.KeyShift ? redo_editor_command(state) : undo_editor_command(state);
     }
     if (state.editing.history().is_pending() || state.pending_file_operation) {
@@ -2473,8 +2514,9 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
     ImGui::EndDisabled();
     const auto save_requested =
         state.editing.document().is_open() &&
-        (save_button_pressed || (ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeyShift &&
-                                 ImGui::IsKeyPressed(ImGuiKey_S, false)));
+        (save_button_pressed ||
+         (!material_focus && ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeyShift &&
+          ImGui::IsKeyPressed(ImGuiKey_S, false)));
     ImGui::SameLine();
     if (!state.editing.document().is_open()) {
       ImGui::TextDisabled("No scene");
@@ -2921,6 +2963,12 @@ uint8_t handle_close_requested(void* user_data) noexcept {
   auto& state = *static_cast<editor_state*>(user_data);
   if (state.closing)
     return 0U;
+  state.material_editor.advance();
+  if (state.material_editor.is_dirty() || state.material_editor.saving()) {
+    state.material_editor_visible = true;
+    state.material_edit_status = gneiss::engine::error::invalid_state;
+    return 0U;
+  }
   if (state.pending_file_operation) {
     state.document_actions.defer(gneiss::editor::document_action::exit_editor);
     return 0U;

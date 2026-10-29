@@ -46,6 +46,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/scene/prefab_codec.hpp
   engine/resource/asset_uri.hpp
   engine/resource/material/material_description.hpp
+  engine/resource/material/material_codec.hpp
   engine/resource/mesh/mesh_data.hpp
   engine/resource/asset_ref.hpp
   engine/resource/resource_retirement_queue.hpp
@@ -70,6 +71,8 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/input/input_types.hpp
   engine/core/log/log_dispatcher.hpp
   engine/core/progress_notification.hpp
+  engine/core/meta/instance.hpp
+  engine/core/meta/detail/type_access.hpp
   engine/core/meta/serialization.hpp
   engine/function/meta_registration.hpp
   engine/resource/builtin_resource_registration.hpp

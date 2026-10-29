@@ -9,6 +9,8 @@ add_library(
   panels/author_hierarchy_panel.hpp
   panels/author_property_panel.cpp
   panels/author_property_panel.hpp
+  panels/material_editor_panel.cpp
+  panels/material_editor_panel.hpp
   panels/document_action_panel.cpp
   panels/document_action_panel.hpp
   panels/console_panel.cpp
@@ -84,6 +86,8 @@ add_library(
   commands/prefab_authoring.hpp
   panels/property_inspector_model.cpp
   panels/property_inspector_model.hpp
+  panels/material_editor_model.cpp
+  panels/material_editor_model.hpp
   commands/editor_command_history.cpp
   commands/editor_command_history.hpp
   viewport/editor_camera.cpp

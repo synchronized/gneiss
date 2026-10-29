@@ -254,6 +254,8 @@ asset_browser_request draw_asset_browser_panel(asset_browser_model& model, ImGui
   button("Add Prefab", asset_browser_action::add_prefab, view.can_add_prefab);
   ImGui::SameLine();
   button("Apply to Node", asset_browser_action::apply_to_node, view.can_apply);
+  ImGui::SameLine();
+  button("Edit Material", asset_browser_action::edit_material, view.can_edit_material);
   if (view.scene_edit_attempted && view.scene_edit_result != gneiss::engine::error::success) {
     error_text("Scene edit failed", view.scene_edit_result);
   }
