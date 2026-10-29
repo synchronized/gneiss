@@ -92,10 +92,6 @@ public:
   [[nodiscard]] error
   get_node_info(scene_instance_id instance, std::uint64_t index, scene_node_view& out_info,
                 node_query_detail detail = node_query_detail::components) const noexcept;
-  [[nodiscard]] error get_prefab_node_count(scene_instance_id instance,
-                                            std::uint64_t* out_count) const noexcept;
-  [[nodiscard]] error get_prefab_node_info(scene_instance_id instance, std::uint64_t index,
-                                           prefab_node_view& out_info) const noexcept;
   /** 捕获实际实例版本与作者覆盖，不读文件；所有输出仅在成功时替换。 */
   [[nodiscard]] error capture_prefab_header(scene_instance_id instance, std::string_view uuid,
                                             prefab_instance_description& author,

@@ -4,6 +4,7 @@
 #include "../support/async_render.hpp"
 #include "../support/async_scene.hpp"
 #include "../support/memory_file_fixture.hpp"
+#include "../support/prefab_query.hpp"
 #include "../support/prepare_render.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
@@ -360,10 +361,10 @@ void run() {
   check(gneiss::test_support::take_value(candidate_render.find(requests.back()), next_version) ==
         gneiss::engine::error::success);
   gneiss::engine::scene_node_view ordinary;
-  gneiss::engine::prefab_node_view prefab_node;
+  gneiss::engine::scene_node_view prefab_node;
   check(candidate->scenes()->get_node_info(new_scene, 0U, ordinary) ==
         gneiss::engine::error::success);
-  check(candidate->scenes()->get_prefab_node_info(new_scene, 1U, prefab_node) ==
+  check(gneiss::test_support::prefab_node_info(*candidate->scenes(), new_scene, 1U, prefab_node) ==
         gneiss::engine::error::success);
   const gneiss::engine::mesh_renderer expected{
       .mesh = candidate_render.find_mesh(mesh_rid),
@@ -462,7 +463,7 @@ void run() {
   check(active->scenes()->get_node_count(old_scene, &count) ==
         gneiss::engine::error::invalid_handle);
   check(active->scenes()->get_node_count(new_scene, &count) == gneiss::engine::error::success &&
-        count == 1U);
+        count == 3U);
   old_material = {};
   candidate.reset();
   // 旧域已析构；此前借用的 World 指针不再可访问。

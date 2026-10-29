@@ -59,6 +59,7 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
       if (result != engine::error::success) {
         return result;
       }
+      scene_subtree_guard guard(native_world_, prefab->root());
       result = native_world_.node_set_identity(prefab->root(), {source.instance_uuid, source.name});
       if (result.failed())
         return result;
@@ -90,6 +91,7 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
         }
       }
       instance->append_staged_prefab(std::move(prefab));
+      guard.release();
     }
     auto created = instances_.create(resource_type::scene_instance, std::move(instance));
     if (!created)

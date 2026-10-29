@@ -66,7 +66,8 @@ error scene_instance::instantiate_prefab_ready(const prefab_instance_description
                                                bool replacing, scene_node_id& output) noexcept try {
   output = {};
   if (!prefab || bindings.size() != prefab.get()->objects.size() ||
-      !is_canonical_prefab_uuid(author.instance_uuid) || find_node(author.instance_uuid))
+      !is_canonical_prefab_uuid(author.instance_uuid) ||
+      (!replacing && find_node(author.instance_uuid)))
     return error::invalid_argument;
   const auto previous = std::ranges::find_if(prefab_instances_, [&](const auto& value) {
     return value->instance_uuid_ == author.instance_uuid;
@@ -74,7 +75,7 @@ error scene_instance::instantiate_prefab_ready(const prefab_instance_description
   if (replacing ? previous == prefab_instances_.end() : previous != prefab_instances_.end())
     return error::invalid_argument;
   const auto parent = author.parent_uuid ? find_node(*author.parent_uuid) : scene_node_id{};
-  if (author.parent_uuid && !parent)
+  if (author.parent_uuid && (!parent || !contains_editable_node(parent)))
     return error::invalid_handle;
   // 基础输入校验完成后直接移除旧实例，不保留运行时副本。
   if (replacing) {
@@ -100,6 +101,7 @@ error scene_instance::instantiate_prefab_ready(const prefab_instance_description
   status = runtime->create_root(parent, {author.translation, author.rotation, author.scale});
   if (status.failed())
     return status;
+  scene_subtree_guard guard(native_world_, runtime->root());
   status = native_world_.node_set_identity(runtime->root(), {author.instance_uuid, author.name});
   if (status.failed())
     return status;
@@ -115,8 +117,10 @@ error scene_instance::instantiate_prefab_ready(const prefab_instance_description
   }
   runtime->prepared_.reset();
   const auto root = runtime->root();
+  objects_.reserve(objects_.size() + runtime->node_count() + 1U);
   description_.prefab_instances.push_back(std::move(record));
-  prefab_instances_.push_back(std::move(runtime));
+  append_staged_prefab(std::move(runtime));
+  guard.release();
   output = root;
   return error::success;
 } catch (const std::bad_alloc&) {
@@ -131,6 +135,10 @@ error scene_instance::remove_prefab_instance(std::string_view uuid) noexcept {
   if (found == prefab_instances_.end())
     return error::not_found;
   const auto index = static_cast<std::size_t>(found - prefab_instances_.begin());
+  const auto status = native_world_.object_destroy((*found)->root());
+  if (status.failed())
+    return status;
+  erase_prefab_members(**found);
   prefab_instances_.erase(found);
   description_.prefab_instances.erase(description_.prefab_instances.begin() +
                                       static_cast<std::ptrdiff_t>(index));

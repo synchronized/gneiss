@@ -228,12 +228,43 @@ gneiss::engine::error scene_document::refresh_nodes() noexcept {
     }
     std::vector<scene_node_record> records;
     records.reserve(static_cast<std::size_t>(count));
+    std::vector<prefab_node_record> prefab_records;
+    prefab_records.reserve(static_cast<std::size_t>(count));
     for (std::uint64_t index = 0; index < count; ++index) {
       gneiss::engine::scene_node_view info{};
       operation =
           with_scene([&](auto& service) { return service.get_node_info(scene_, index, info); });
       if (operation != gneiss::engine::error::success) {
         return operation;
+      }
+      if (info.prefab) {
+        const std::string instance_uuid{info.prefab->instance_uuid};
+        const std::string source_uuid = info.prefab->source_node_uuid.empty()
+                                            ? std::string{}
+                                            : std::string{info.prefab->source_node_uuid};
+        const bool is_root = has_flags(info.prefab->flags, scene_prefab_flags::instance_root);
+        prefab_records.push_back(
+            {.node = scene_node_id{info.node},
+             .parent = scene_node_id{info.parent},
+             .entity = entity_id{info.entity},
+             .instance_uuid = instance_uuid,
+             .source_node_uuid = source_uuid,
+             .display_name = info.name.empty() ? (is_root ? instance_uuid : source_uuid)
+                                               : std::string{info.name},
+             .prefab_uri = std::string{info.prefab->prefab_uri},
+             .local_transform = {info.local_transform.translation, info.local_transform.rotation,
+                                 info.local_transform.scale},
+             .source_local_transform = {info.prefab->source_local_transform.translation,
+                                        info.prefab->source_local_transform.rotation,
+                                        info.prefab->source_local_transform.scale},
+             .override_flags =
+                 static_cast<std::uint32_t>(info.prefab->flags) &
+                 (static_cast<std::uint32_t>(scene_prefab_flags::translation_overridden) |
+                  static_cast<std::uint32_t>(scene_prefab_flags::rotation_overridden) |
+                  static_cast<std::uint32_t>(scene_prefab_flags::scale_overridden)),
+             .is_instance_root = is_root,
+             .is_read_only = has_flags(info.prefab->flags, scene_prefab_flags::source_read_only)});
+        continue;
       }
       std::string uuid{info.uuid};
       records.push_back(
@@ -251,47 +282,6 @@ gneiss::engine::error scene_document::refresh_nodes() noexcept {
            .camera = info.camera.value_or(gneiss::engine::camera_description{}),
            .is_primary_camera =
                has_flags(info.component_flags, scene_node_components::primary_camera)});
-    }
-    std::uint64_t prefab_count = 0;
-    operation = with_scene(
-        [&](auto& service) { return service.get_prefab_node_count(scene_, &prefab_count); });
-    if (operation != gneiss::engine::error::success) {
-      return operation;
-    }
-    std::vector<prefab_node_record> prefab_records;
-    prefab_records.reserve(static_cast<std::size_t>(prefab_count));
-    for (std::uint64_t index = 0; index < prefab_count; ++index) {
-      gneiss::engine::prefab_node_view info{};
-      operation = with_scene(
-          [&](auto& service) { return service.get_prefab_node_info(scene_, index, info); });
-      if (operation != gneiss::engine::error::success) {
-        return operation;
-      }
-      const std::string instance_uuid{info.instance_uuid};
-      const std::string source_uuid =
-          info.source_node_uuid.empty() ? std::string{} : std::string{info.source_node_uuid};
-      const bool is_root = has_flags(info.flags, scene_prefab_flags::instance_root);
-      prefab_records.push_back(
-          {.node = scene_node_id{info.node},
-           .parent = scene_node_id{info.parent},
-           .entity = entity_id{info.entity},
-           .instance_uuid = instance_uuid,
-           .source_node_uuid = source_uuid,
-           .display_name =
-               info.name.empty() ? (is_root ? instance_uuid : source_uuid) : std::string{info.name},
-           .prefab_uri = std::string{info.prefab_uri},
-           .local_transform = {info.local_transform.translation, info.local_transform.rotation,
-                               info.local_transform.scale},
-           .source_local_transform = {info.source_local_transform.translation,
-                                      info.source_local_transform.rotation,
-                                      info.source_local_transform.scale},
-           .override_flags =
-               static_cast<std::uint32_t>(info.flags) &
-               (static_cast<std::uint32_t>(scene_prefab_flags::translation_overridden) |
-                static_cast<std::uint32_t>(scene_prefab_flags::rotation_overridden) |
-                static_cast<std::uint32_t>(scene_prefab_flags::scale_overridden)),
-           .is_instance_root = is_root,
-           .is_read_only = has_flags(info.flags, scene_prefab_flags::source_read_only)});
     }
     nodes_.swap(records);
     prefab_nodes_.swap(prefab_records);
@@ -809,9 +799,20 @@ gneiss::engine::error scene_document::create_mesh_renderer_node(const scene_node
     std::uint64_t count = 0;
     gneiss::engine::scene_node_view info{};
     operation = with_scene([&](auto& service) { return service.get_node_count(scene_, &count); });
-    if (operation == gneiss::engine::error::success && count > 0U) {
-      operation = with_scene(
-          [&](auto& service) { return service.get_node_info(scene_, count - 1U, info); });
+    if (operation.ok()) {
+      operation = gneiss::engine::error::not_found;
+      for (std::uint64_t index = 0; index < count; ++index) {
+        const auto queried =
+            with_scene([&](auto& service) { return service.get_node_info(scene_, index, info); });
+        if (queried.failed()) {
+          operation = queried;
+          break;
+        }
+        if (info.node == out_node) {
+          operation = gneiss::engine::error::success;
+          break;
+        }
+      }
     }
     if (operation != gneiss::engine::error::success) {
       return operation;

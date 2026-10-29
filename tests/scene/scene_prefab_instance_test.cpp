@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_prefab.hpp"
+#include "../support/prefab_query.hpp"
 #include "../support/value_result.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
@@ -9,6 +10,7 @@
 #include "runtime/application.hpp"
 
 #include <cstdint>
+#include <cstdio>
 #include <string>
 #include <string_view>
 
@@ -32,23 +34,23 @@ int main() try {
   }
 
   std::uint64_t prefab_node_count = 0;
-  gneiss::engine::prefab_node_view prefab_root;
-  gneiss::engine::prefab_node_view prefab_source;
-  if (application->scenes()->get_prefab_node_count(scene, &prefab_node_count) !=
+  gneiss::engine::scene_node_view prefab_root;
+  gneiss::engine::scene_node_view prefab_source;
+  if (gneiss::test_support::prefab_node_count(*application->scenes(), scene, &prefab_node_count) !=
           gneiss::engine::error::success ||
       prefab_node_count != 2U ||
-      application->scenes()->get_prefab_node_info(scene, 0U, prefab_root) !=
+      gneiss::test_support::prefab_node_info(*application->scenes(), scene, 0U, prefab_root) !=
           gneiss::engine::error::success ||
-      application->scenes()->get_prefab_node_info(scene, 1U, prefab_source) !=
+      gneiss::test_support::prefab_node_info(*application->scenes(), scene, 1U, prefab_source) !=
           gneiss::engine::error::success ||
-      prefab_root.flags != gneiss::scene_prefab_flags::instance_root ||
-      (prefab_source.flags & gneiss::scene_prefab_flags::source_read_only) ==
+      prefab_root.prefab->flags != gneiss::scene_prefab_flags::instance_root ||
+      (prefab_source.prefab->flags & gneiss::scene_prefab_flags::source_read_only) ==
           gneiss::scene_prefab_flags::none ||
-      (prefab_source.flags & gneiss::scene_prefab_flags::translation_overridden) ==
+      (prefab_source.prefab->flags & gneiss::scene_prefab_flags::translation_overridden) ==
           gneiss::scene_prefab_flags::none ||
       prefab_source.parent != prefab_root.node ||
-      prefab_root.instance_uuid != "30000000-0000-4000-8000-000000000012" ||
-      prefab_source.source_node_uuid != "30000000-0000-4000-8000-000000000002" ||
+      prefab_root.prefab->instance_uuid != "30000000-0000-4000-8000-000000000012" ||
+      prefab_source.prefab->source_node_uuid != "30000000-0000-4000-8000-000000000002" ||
       prefab_source.local_transform.translation[0] != 3.0F) {
     return 2;
   }
@@ -71,10 +73,10 @@ int main() try {
   }
 
   const auto stale_loaded_root = prefab_root.node;
-  if (gneiss::test_support::refresh_prefab(*application, scene, prefab_root.instance_uuid,
+  if (gneiss::test_support::refresh_prefab(*application, scene, prefab_root.prefab->instance_uuid,
                                            prefab_root.node) != gneiss::engine::error::success ||
       prefab_root.node == gneiss::null_scene_node_id || prefab_root.node == stale_loaded_root ||
-      application->scenes()->get_prefab_node_info(scene, 1U, prefab_source) !=
+      gneiss::test_support::prefab_node_info(*application->scenes(), scene, 1U, prefab_source) !=
           gneiss::engine::error::success ||
       prefab_source.local_transform.translation[0] != 4.0F) {
     return 2;
@@ -116,7 +118,7 @@ int main() try {
   if (gneiss::test_support::create_prefab(*application, scene, create_desc, created_root) !=
           gneiss::engine::error::success ||
       created_root == gneiss::null_scene_node_id ||
-      application->scenes()->get_prefab_node_count(scene, &prefab_node_count) !=
+      gneiss::test_support::prefab_node_count(*application->scenes(), scene, &prefab_node_count) !=
           gneiss::engine::error::success ||
       prefab_node_count != 4U ||
       gneiss::test_support::assign_value(application->native_world()->entity_count(),
@@ -144,7 +146,7 @@ int main() try {
   }
   if (application->scenes()->destroy_prefab_instance(scene, prefab_root.node) !=
           gneiss::engine::error::success ||
-      application->scenes()->get_prefab_node_count(scene, &prefab_node_count) !=
+      gneiss::test_support::prefab_node_count(*application->scenes(), scene, &prefab_node_count) !=
           gneiss::engine::error::success ||
       prefab_node_count != 2U) {
     return 4;
@@ -156,6 +158,59 @@ int main() try {
       json.find(created_uuid) == std::string::npos || json.find(renamed) == std::string::npos ||
       json.find("30000000-0000-4000-8000-000000000002") != std::string::npos) {
     return 6;
+  }
+  // 统一枚举包含普通父节点及 Prefab 全部节点；删除父节点同时清理来源关系。
+  std::uint64_t node_count{};
+  if (application->scenes()->get_node_count(scene, &node_count) != gneiss::engine::error::success) {
+    std::fprintf(stderr, "子树生命周期检查 0 失败\n");
+    return 10;
+  }
+  if (node_count != 3U) {
+    std::fprintf(stderr, "子树生命周期检查 1 失败\n");
+    return 10;
+  }
+  if (application->scenes()->destroy_subtree(scene, anchor) != gneiss::engine::error::success) {
+    std::fprintf(stderr, "子树生命周期检查 2 失败\n");
+    return 10;
+  }
+  if (application->scenes()->get_node_count(scene, &node_count) != gneiss::engine::error::success) {
+    std::fprintf(stderr, "子树生命周期检查 3 失败\n");
+    return 10;
+  }
+  if (node_count != 0U) {
+    std::fprintf(stderr, "子树生命周期检查 4 失败\n");
+    return 10;
+  }
+  if (gneiss::test_support::prefab_node_count(*application->scenes(), scene, &prefab_node_count) !=
+      gneiss::engine::error::success) {
+    std::fprintf(stderr, "子树生命周期检查 5 失败\n");
+    return 10;
+  }
+  if (prefab_node_count != 0U) {
+    std::fprintf(stderr, "子树生命周期检查 6 失败\n");
+    return 10;
+  }
+  if (application->native_world()->node_get_entity(created_root, stale_entity) !=
+      gneiss::engine::error::invalid_handle) {
+    std::fprintf(stderr, "子树生命周期检查 7 失败\n");
+    return 10;
+  }
+  if (application->scenes()->serialize(scene, json) != gneiss::engine::error::success) {
+    std::fprintf(stderr, "子树生命周期检查 8 失败\n");
+    return 10;
+  }
+  if (json.find(created_uuid) != std::string::npos) {
+    std::fprintf(stderr, "子树生命周期检查 9 失败\n");
+    return 10;
+  }
+  if (gneiss::test_support::assign_value(application->native_world()->entity_count(),
+                                         entity_count) != gneiss::engine::error::success) {
+    std::fprintf(stderr, "子树生命周期检查 10 失败\n");
+    return 10;
+  }
+  if (entity_count != 0U) {
+    std::fprintf(stderr, "子树生命周期检查 11 失败\n");
+    return 10;
   }
   if (application->scenes()->unload(scene) != gneiss::engine::error::success ||
       gneiss::test_support::assign_value(application->native_world()->entity_count(),

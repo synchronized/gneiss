@@ -231,18 +231,10 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
   if (count > runtime_inspection_max_nodes) {
     return gneiss::engine::error::out_of_memory;
   }
-  std::uint64_t prefab_count = 0U;
-  operation = application.scenes()->get_prefab_node_count(scene, &prefab_count);
-  if (operation != gneiss::engine::error::success) {
-    return operation;
-  }
-  if (prefab_count > runtime_inspection_max_nodes - count) {
-    return gneiss::engine::error::out_of_memory;
-  }
   auto& world = *application.native_world();
   try {
     std::vector<runtime_scene_source_node> nodes;
-    nodes.reserve(static_cast<std::size_t>(count + prefab_count));
+    nodes.reserve(static_cast<std::size_t>(count));
     for (std::uint64_t index = 0U; index < count; ++index) {
       gneiss::engine::scene_node_view info;
       operation = application.scenes()->get_node_info(scene, index, info);
@@ -254,6 +246,11 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
           info.mesh_uri.size() > runtime_inspection_max_string_size ||
           info.material_uri.size() > runtime_inspection_max_string_size)
         return gneiss::engine::error::invalid_argument;
+      if (info.prefab &&
+          (info.prefab->instance_uuid.empty() ||
+           info.prefab->instance_uuid.size() > runtime_inspection_max_string_size ||
+           info.prefab->source_node_uuid.size() > runtime_inspection_max_string_size))
+        return gneiss::engine::error::invalid_argument;
       auto runtime_transform = info.local_transform;
       operation =
           world.entity_get_local_transform(gneiss::entity_id{info.entity.get()}, runtime_transform);
@@ -264,46 +261,16 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
                        .native_parent = info.parent.get(),
                        .native_entity = info.entity.get(),
                        .uuid = std::string{info.uuid},
-                       .prefab_instance_uuid = {},
-                       .prefab_source_node_uuid = {},
+                       .prefab_instance_uuid =
+                           info.prefab ? std::string(info.prefab->instance_uuid) : std::string{},
+                       .prefab_source_node_uuid =
+                           info.prefab ? std::string(info.prefab->source_node_uuid) : std::string{},
                        .name = std::string{info.name},
                        .local_transform = runtime_transform,
                        .component_flags = static_cast<std::uint32_t>(info.component_flags),
                        .camera = inspection_camera(info.camera),
                        .mesh_uri = std::string{info.mesh_uri},
                        .material_uri = std::string{info.material_uri}});
-    }
-    for (std::uint64_t index = 0U; index < prefab_count; ++index) {
-      gneiss::engine::prefab_node_view info;
-      operation = application.scenes()->get_prefab_node_info(scene, index, info);
-      if (operation != gneiss::engine::error::success) {
-        return operation;
-      }
-      if (info.instance_uuid.empty() ||
-          info.instance_uuid.size() > runtime_inspection_max_string_size ||
-          info.source_node_uuid.size() > runtime_inspection_max_string_size ||
-          info.name.size() > runtime_inspection_max_string_size)
-        return gneiss::engine::error::invalid_argument;
-      const auto instance_uuid = std::string{info.instance_uuid};
-      const auto source_uuid = std::string{info.source_node_uuid};
-      auto runtime_transform = info.local_transform;
-      operation =
-          world.entity_get_local_transform(gneiss::entity_id{info.entity.get()}, runtime_transform);
-      if (operation != gneiss::engine::error::success) {
-        return operation;
-      }
-      nodes.push_back({.native_node = info.node.get(),
-                       .native_parent = info.parent.get(),
-                       .native_entity = info.entity.get(),
-                       .uuid = source_uuid.empty() ? instance_uuid : source_uuid,
-                       .prefab_instance_uuid = instance_uuid,
-                       .prefab_source_node_uuid = source_uuid,
-                       .name = std::string{info.name},
-                       .local_transform = runtime_transform,
-                       .component_flags = 0U,
-                       .camera = {1.04719755F, 0.1F, 1000.0F},
-                       .mesh_uri = {},
-                       .material_uri = {}});
     }
     return capture(nodes, force_full, output);
   } catch (const std::bad_alloc&) {

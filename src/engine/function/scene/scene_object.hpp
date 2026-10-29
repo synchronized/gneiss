@@ -5,6 +5,23 @@
 #include "engine/resource/scene/scene_description.hpp"
 
 namespace gneiss::engine {
+/** 仅用于创建过程；移交场景前的失败路径回收整棵子树。 */
+class scene_subtree_guard final {
+public:
+  scene_subtree_guard(world& owner, scene_node_id root) noexcept : owner_(owner), root_(root) {}
+  ~scene_subtree_guard() {
+    if (root_)
+      (void)owner_.object_destroy(root_);
+  }
+  scene_subtree_guard(const scene_subtree_guard&) = delete;
+  scene_subtree_guard& operator=(const scene_subtree_guard&) = delete;
+  void release() noexcept { root_ = {}; }
+
+private:
+  world& owner_;
+  scene_node_id root_;
+};
+
 /** 已验证场景成员的实体查询；无效节点返回零，不缓存实体身份。 */
 inline std::uint64_t scene_object_entity(world& owner, scene_node_id node) noexcept {
   entity_id entity;

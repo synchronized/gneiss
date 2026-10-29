@@ -3,6 +3,7 @@
 
 #include "../support/async_prefab.hpp"
 #include "../support/async_scene_reload.hpp"
+#include "../support/prefab_query.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
@@ -43,16 +44,18 @@ void write_prefab(const std::filesystem::path& path, std::string_view root_uuid,
 gneiss::engine::error find_source(const std::shared_ptr<gneiss::runtime::application>& application,
                                   gneiss::scene_instance_id scene, std::string_view instance_uuid,
                                   std::string_view source_uuid,
-                                  gneiss::engine::prefab_node_view& output) {
+                                  gneiss::engine::scene_node_view& output) {
   std::uint64_t count = 0U;
-  auto result = gneiss::engine::error{application->scenes()->get_prefab_node_count(scene, &count)};
+  auto result = gneiss::engine::error{
+      gneiss::test_support::prefab_node_count(*application->scenes(), scene, &count)};
   for (std::uint64_t index = 0U; result == gneiss::engine::error::success && index < count;
        ++index) {
     output = {};
-    result =
-        gneiss::engine::error{application->scenes()->get_prefab_node_info(scene, index, output)};
-    if (result == gneiss::engine::error::success && !output.source_node_uuid.empty() &&
-        output.instance_uuid == instance_uuid && output.source_node_uuid == source_uuid) {
+    result = gneiss::engine::error{
+        gneiss::test_support::prefab_node_info(*application->scenes(), scene, index, output)};
+    if (result == gneiss::engine::error::success && !output.prefab->source_node_uuid.empty() &&
+        output.prefab->instance_uuid == instance_uuid &&
+        output.prefab->source_node_uuid == source_uuid) {
       return gneiss::engine::error::success;
     }
   }
@@ -87,8 +90,8 @@ int main() try {
     return 2;
   }
 
-  gneiss::engine::prefab_node_view first_before;
-  gneiss::engine::prefab_node_view second_before;
+  gneiss::engine::scene_node_view first_before;
+  gneiss::engine::scene_node_view second_before;
   if (find_source(application, scene, first_instance_uuid, source_root_uuid, first_before) !=
           gneiss::engine::error::success ||
       find_source(application, scene, second_instance_uuid, source_root_uuid, second_before) !=
@@ -102,9 +105,9 @@ int main() try {
                                                   true) != gneiss::engine::error::success) {
     return 4;
   }
-  gneiss::engine::prefab_node_view first_after;
-  gneiss::engine::prefab_node_view second_after;
-  gneiss::engine::prefab_node_view child;
+  gneiss::engine::scene_node_view first_after;
+  gneiss::engine::scene_node_view second_after;
+  gneiss::engine::scene_node_view child;
   std::uint64_t count = 0U;
   if (find_source(application, scene, first_instance_uuid, source_root_uuid, first_after) !=
           gneiss::engine::error::success ||
@@ -119,7 +122,7 @@ int main() try {
           gneiss::engine::error::success ||
       find_source(application, scene, second_instance_uuid, source_child_uuid, child) !=
           gneiss::engine::error::success ||
-      application->scenes()->get_prefab_node_count(scene, &count) !=
+      gneiss::test_support::prefab_node_count(*application->scenes(), scene, &count) !=
           gneiss::engine::error::success ||
       count != 6U) {
     return 5;

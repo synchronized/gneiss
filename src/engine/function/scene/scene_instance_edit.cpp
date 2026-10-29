@@ -40,7 +40,7 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
   if (current.mesh != expected.mesh || current.material != expected.material) {
     return error::invalid_state;
   }
-  const auto found = std::ranges::find(objects_, node, &scene_instance::object::node);
+  const auto found = find_ordinary_node(node);
   mesh_renderer_description author{
       .mesh_uri = std::string(engine::asset_uri(replacement.mesh)),
       .material_uri = std::string(engine::asset_uri(replacement.material)),
@@ -73,6 +73,6 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
 }
 
 bool scene_instance::contains_editable_node(scene_node_id node) const noexcept {
-  return std::ranges::find(objects_, node, &object::node) != objects_.end();
+  return find_ordinary_node(node) != objects_.end();
 }
 } // namespace gneiss::engine

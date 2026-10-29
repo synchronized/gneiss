@@ -957,16 +957,40 @@ result<std::string> serialize_scene_description(const scene_description& scene) 
     return document ? engine::error::out_of_memory : engine::error::invalid_state;
   }
   yyjson_mut_val* root = yyjson_mut_doc_get_root(mutable_document.get());
-  yyjson_mut_val* objects = yyjson_mut_obj_get(root, "objects");
-  if (!yyjson_mut_is_arr(objects) || yyjson_mut_arr_size(objects) > scene.objects.size()) {
+  if (!yyjson_mut_is_arr(yyjson_mut_obj_get(root, "objects")) ||
+      !yyjson_mut_is_arr(yyjson_mut_obj_get(root, "prefab_instances")))
     return engine::error::invalid_state;
-  }
-  for (std::size_t index = yyjson_mut_arr_size(objects); index < scene.objects.size(); ++index) {
-    auto* object = make_author_object(mutable_document.get(), scene.objects[index]);
-    if (object == nullptr || !yyjson_mut_arr_add_val(objects, object)) {
-      return engine::error::out_of_memory;
+  // 按稳定身份保留扩展字段，不能按旧数组下标绑定删除或重排后的对象。
+  const auto align_members = [&](const char* key, const char* identity, const auto& members,
+                                 auto get_identity, auto create) -> yyjson_mut_val* {
+    auto* previous = yyjson_mut_obj_get(root, key);
+    if (!yyjson_mut_is_arr(previous))
+      return nullptr;
+    std::unordered_map<std::string_view, yyjson_mut_val*> originals;
+    auto iterator = yyjson_mut_arr_iter_with(previous);
+    while (auto* entry = yyjson_mut_arr_iter_next(&iterator)) {
+      auto* id = yyjson_mut_obj_get(entry, identity);
+      if (yyjson_mut_is_str(id))
+        originals.emplace(std::string_view(yyjson_mut_get_str(id), yyjson_mut_get_len(id)), entry);
     }
-  }
+    auto* aligned = yyjson_mut_arr(mutable_document.get());
+    if (!aligned)
+      return nullptr;
+    for (const auto& member : members) {
+      const auto found = originals.find(get_identity(member));
+      auto* entry = found == originals.end()
+                        ? create(mutable_document.get(), member)
+                        : yyjson_mut_val_mut_copy(mutable_document.get(), found->second);
+      if (!entry || !yyjson_mut_arr_add_val(aligned, entry))
+        return nullptr;
+    }
+    return put_value(mutable_document.get(), root, key, aligned) ? aligned : nullptr;
+  };
+  auto* objects = align_members(
+      "objects", "uuid", scene.objects,
+      [](const auto& value) { return std::string_view(value.uuid); }, make_author_object);
+  if (!objects)
+    return engine::error::out_of_memory;
   for (std::size_t index = 0; index < scene.objects.size(); ++index) {
     const auto& source = scene.objects[index];
     yyjson_mut_val* object = yyjson_mut_arr_get(objects, index);
@@ -1036,19 +1060,12 @@ result<std::string> serialize_scene_description(const scene_description& scene) 
       (void)yyjson_mut_obj_remove_key(components, "mesh_renderer");
     }
   }
-  yyjson_mut_val* prefab_instances = yyjson_mut_obj_get(root, "prefab_instances");
-  if (!yyjson_mut_is_arr(prefab_instances) ||
-      yyjson_mut_arr_size(prefab_instances) > scene.prefab_instances.size()) {
-    return engine::error::invalid_state;
-  }
-  for (std::size_t index = yyjson_mut_arr_size(prefab_instances);
-       index < scene.prefab_instances.size(); ++index) {
-    auto* instance =
-        make_author_prefab_instance(mutable_document.get(), scene.prefab_instances[index]);
-    if (instance == nullptr || !yyjson_mut_arr_add_val(prefab_instances, instance)) {
-      return engine::error::out_of_memory;
-    }
-  }
+  auto* prefab_instances = align_members(
+      "prefab_instances", "instance_uuid", scene.prefab_instances,
+      [](const auto& value) { return std::string_view(value.instance_uuid); },
+      make_author_prefab_instance);
+  if (!prefab_instances)
+    return engine::error::out_of_memory;
   for (std::size_t index = 0; index < scene.prefab_instances.size(); ++index) {
     const auto& source = scene.prefab_instances[index];
     yyjson_mut_val* instance = yyjson_mut_arr_get(prefab_instances, index);

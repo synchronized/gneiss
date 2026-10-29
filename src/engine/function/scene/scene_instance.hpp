@@ -35,8 +35,6 @@ public:
   [[nodiscard]] error serialize(std::string& out_json) const;
   [[nodiscard]] error get_node_info(std::uint64_t index, scene_node_view& out_info,
                                     node_query_detail detail) const;
-  [[nodiscard]] std::uint64_t get_prefab_node_count() const noexcept;
-  [[nodiscard]] error get_prefab_node_info(std::uint64_t index, prefab_node_view& out_info) const;
   [[nodiscard]] error set_prefab_instance_name(scene_node_id root, std::string_view name);
   [[nodiscard]] error set_prefab_source_transform(scene_node_id node,
                                                   const math::transform& transform);
@@ -97,6 +95,12 @@ public:
 
 private:
   friend class scene_instances;
+  [[nodiscard]] std::vector<object>::iterator find_ordinary_node(scene_node_id node);
+  [[nodiscard]] std::vector<object>::const_iterator find_ordinary_node(scene_node_id node) const;
+  [[nodiscard]] std::optional<prefab_origin_view> prefab_origin(scene_node_id node) const;
+  void erase_prefab_members(const prefab_runtime_instance& prefab) noexcept;
+  void append_prefab_members(const prefab_runtime_instance& prefab);
+
   std::vector<object> objects_;
   std::vector<std::unique_ptr<prefab_runtime_instance>> prefab_instances_;
   scene_description description_;

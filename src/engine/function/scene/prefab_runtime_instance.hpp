@@ -20,7 +20,7 @@
 
 namespace gneiss::engine {
 
-/** 一份已提交到 World 的 Prefab Runtime 投影；析构时释放全部节点、实体和资产租约。 */
+/** Prefab 来源关系与映射。节点由所属场景统一拥有，析构不会销毁节点。 */
 class prefab_runtime_instance final {
 public:
   /** 只修改私有描述，失败保持 output 不变；不读文件、不创建实体、不发送通知。 */
@@ -39,7 +39,7 @@ public:
 
   prefab_runtime_instance(world& native_world, resource_service& loader, prefab_asset_ref prefab,
                           std::string instance_uuid) noexcept;
-  ~prefab_runtime_instance() noexcept;
+  ~prefab_runtime_instance() noexcept = default;
 
   prefab_runtime_instance(const prefab_runtime_instance&) = delete;
   prefab_runtime_instance& operator=(const prefab_runtime_instance&) = delete;
@@ -85,7 +85,6 @@ private:
     bool creation_attempted{};
   };
 
-  void rollback() noexcept;
   [[nodiscard]] error apply_overrides(const meta::registry_ref& registry,
                                       std::span<const prefab_property_override> overrides) noexcept;
 

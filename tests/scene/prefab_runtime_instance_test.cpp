@@ -174,7 +174,9 @@ bool check_visible_prefab(gneiss::engine::world& world, gneiss::engine::resource
         gneiss::test_support::assign_value(world.entity_count(), during).failed() ||
         during != before + 2U)
       return false;
-    // 部分创建直接可见；放弃时由实例拥有者回收，不依赖隐藏组。
+    // 关系对象不拥有节点；测试调用方显式负责删除。
+    if (world.object_destroy(created).failed())
+      return false;
   }
   gneiss::engine::math::transform transform;
   return gneiss::test_support::assign_value(world.entity_count(), after).ok() && after == before &&
@@ -343,6 +345,8 @@ int main() try {
     return 10;
   }
 
+  if (native_world.object_destroy(first->root()).failed())
+    return 20;
   first.reset();
   if (gneiss::engine::error{gneiss::test_support::assign_value(
           native_world.entity_count(), entity_count)} != gneiss::engine::error::success ||
@@ -353,7 +357,15 @@ int main() try {
                                             second_world) != gneiss::engine::error::success) {
     return 11;
   }
+  // 来源记录不是节点所有者，析构后实体仍由场景／World 管理。
+  const auto second_root = second->root();
   second.reset();
+  if (gneiss::test_support::assign_value(native_world.entity_count(), entity_count) !=
+          gneiss::engine::error::success ||
+      entity_count != 3U)
+    return 21;
+  if (native_world.object_destroy(second_root).failed())
+    return 22;
   if (gneiss::engine::error{gneiss::test_support::assign_value(
           native_world.entity_count(), entity_count)} != gneiss::engine::error::success ||
       entity_count != 0U) {

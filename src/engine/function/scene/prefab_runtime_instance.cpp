@@ -65,8 +65,6 @@ prefab_runtime_instance::prefab_runtime_instance(world& native_world, resource_s
     : native_world_(native_world), loader_(loader), prefab_(std::move(prefab)),
       instance_uuid_(std::move(instance_uuid)) {}
 
-prefab_runtime_instance::~prefab_runtime_instance() noexcept { rollback(); }
-
 engine::error
 prefab_runtime_instance::validate_reload(const prefab_asset_ref& candidate,
                                          const meta::registry_ref& registry,
@@ -456,6 +454,7 @@ engine::error prefab_runtime_instance::create(
     result = instance->create_root(parent, root_transform);
     if (result.failed())
       return result;
+    scene_subtree_guard guard(native_world, instance->root());
     for (const auto& addition : order.added) {
       const auto& object = source.objects[addition.new_index];
       mesh_renderer renderer;
@@ -482,6 +481,7 @@ engine::error prefab_runtime_instance::create(
       return result;
     }
     out_instance = std::move(instance);
+    guard.release();
     camera_guard.committed = true;
     return engine::error::success;
   } catch (const std::bad_alloc&) {
@@ -639,16 +639,6 @@ engine::error
 prefab_runtime_instance::apply_override(const meta::registry_ref& registry,
                                         const prefab_property_override& value) noexcept {
   return apply_overrides(registry, std::span(&value, 1U));
-}
-
-void prefab_runtime_instance::rollback() noexcept {
-  // 根节点的统一销毁同时释放子树和 ECS 组件，无需第二份实体列表。
-  if (root_node_)
-    (void)native_world_.object_destroy(root_node_);
-  root_node_ = {};
-  nodes_.clear();
-  prefab_ = {};
-  loader_.collect_unused();
 }
 
 scene_node_id prefab_runtime_instance::find_node(std::string_view source_node_uuid) const noexcept {
