@@ -155,8 +155,9 @@ int main() try {
   gneiss::engine::node_creation child{
       .uuid = *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000014"),
       .name = "Own child",
-      .parent = created_root};
-  if (application->scenes()->create_node(scene, child, attached).failed())
+      .parent = {}};
+  if (application->scenes()->create_node(scene, child, attached).failed() ||
+      application->scenes()->reparent_node(scene, attached, created_root).failed())
     return 12;
   std::string with_child;
   if (application->scenes()->serialize(scene, with_child).failed())

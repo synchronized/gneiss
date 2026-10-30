@@ -21,6 +21,23 @@ error scene_instance::capture_prefab_instance_header(gneiss::engine::guid uuid,
     return error::not_found;
   const auto index = static_cast<std::size_t>(found - prefab_instances_.begin());
   auto copy = prefab_author(index);
+  const auto root = prefab_instances_[index]->root();
+  auto identity = native_world_.node_identity(root);
+  if (!identity)
+    return identity.error();
+  copy.uuid = identity->uuid;
+  copy.name = identity->name;
+  scene_node_id parent;
+  const auto parent_status = native_world_.node_get_parent(root, parent);
+  if (parent_status.failed())
+    return parent_status;
+  copy.parent_uuid.reset();
+  if (parent) {
+    auto parent_identity = native_world_.node_identity(parent);
+    if (!parent_identity)
+      return parent_identity.error();
+    copy.parent_uuid = parent_identity->uuid;
+  }
   math::transform transform{};
   const auto queried = native_world_.node_get_local_transform(
       gneiss::scene_node_id{prefab_instances_[index]->root()}, transform);
@@ -76,9 +93,14 @@ error scene_instance::instantiate_prefab_ready(const object_description& author,
   // 自有子对象不属于模板；刷新时保留其身份和局部变换。
   std::vector<scene_node_id> attached;
   if (replacing) {
-    for (std::size_t index = 0; index < description_.objects.size(); ++index)
-      if (description_.objects[index].parent_uuid == author.uuid)
+    for (std::size_t index = 0; index < description_.objects.size(); ++index) {
+      scene_node_id actual_parent;
+      const auto status = native_world_.node_get_parent(objects_[index].node, actual_parent);
+      if (status.failed())
+        return status;
+      if (actual_parent == (*previous)->root())
         attached.push_back(objects_[index].node);
+    }
     for (const auto node : attached) {
       const auto detached = reparent_node(node, parent);
       if (detached.failed())

@@ -95,3 +95,5 @@ Reference 和实现为准。
 - [ADR-092：共享默认 Meta 注册表](ADR-092-default-meta-registry.md)
 - [ADR-093：场景与 Prefab 使用类型化组件描述列表](ADR-093-component-descriptions.md)
 - [ADR-094：内存对象身份使用 guid](ADR-094-guid-object-identity.md)
+
+- [ADR-095：场景当前状态以编辑 World 为准](ADR-095-scene-data-authority.md)

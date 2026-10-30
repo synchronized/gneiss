@@ -202,12 +202,16 @@ scene_node_id scene_instance::find_node(gneiss::engine::guid uuid) const noexcep
 }
 
 engine::error scene_instance::reload(scene_description candidate) {
-  if (candidate.uuid != description_.uuid || !equal_prefab_references(description_, candidate)) {
+  scene_description current;
+  auto captured = capture_description(current);
+  if (captured.failed())
+    return captured;
+  if (candidate.uuid != current.uuid || !equal_prefab_references(current, candidate)) {
     return engine::error::invalid_argument;
   }
 
   structural_diff diff;
-  auto result = build_structural_diff(description_.objects, candidate.objects, diff);
+  auto result = build_structural_diff(current.objects, candidate.objects, diff);
   if (result != engine::error::success) {
     return result;
   }
@@ -733,17 +737,13 @@ engine::error scene_instance::set_node_name(scene_node_id node, std::string_view
   if (found == objects_.end()) {
     return engine::error::invalid_handle;
   }
+  auto identity = native_world_.node_identity(node);
+  if (!identity)
+    return identity.error();
   try {
-    std::string author_name(name);
-    const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
-    auto changed =
-        native_world_.node_set_identity(node, {description_.objects[index].uuid, author_name});
-    if (changed.failed())
-      return changed;
-    description_.objects[index].name.swap(author_name);
-    return engine::error::success;
+    return native_world_.node_set_identity(node, {identity->uuid, std::string(name)});
   } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
+    return error::out_of_memory;
   }
 }
 
@@ -752,26 +752,9 @@ engine::error scene_instance::reparent_node(scene_node_id node, scene_node_id pa
   if (found == objects_.end()) {
     return engine::error::invalid_handle;
   }
-  std::optional<gneiss::engine::guid> parent_uuid;
-  try {
-    if (parent != null_scene_node_id) {
-      const auto parent_object = find_authored_node(parent);
-      if (parent_object == objects_.end()) {
-        return engine::error::invalid_handle;
-      }
-      parent_uuid = scene_object_identity(native_world_, parent_object->node).uuid;
-    }
-    const auto result =
-        native_world_.node_reparent(gneiss::scene_node_id{node}, gneiss::scene_node_id{parent});
-    if (result != engine::error::success) {
-      return result;
-    }
-    const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
-    description_.objects[index].parent_uuid.swap(parent_uuid);
-    return engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return engine::error::out_of_memory;
-  }
+  if (parent && find_authored_node(parent) == objects_.end())
+    return error::invalid_handle;
+  return native_world_.node_reparent(node, parent);
 }
 
 engine::error scene_instance::capture_subtree(scene_node_id root,
@@ -1206,17 +1189,6 @@ engine::error scene_instance::set_camera(scene_node_id node,
   if (found == objects_.end()) {
     return engine::error::invalid_handle;
   }
-  auto pending = description_.objects;
-  const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
-  if (desc.is_primary) {
-    for (auto& author : pending) {
-      if (author.components.template get<camera_description>()) {
-        author.components.update<camera_description>(
-            [&](auto& value) { value.is_primary = false; });
-      }
-    }
-  }
-  pending[index].components.set(desc);
   const auto result = native_world_.entity_configure_camera(
       gneiss::entity_id{scene_object_entity(native_world_, found->node)}, desc.settings);
   if (result != engine::error::success) {
@@ -1229,7 +1201,6 @@ engine::error scene_instance::set_camera(scene_node_id node,
       return active_result;
     }
   }
-  description_.objects = std::move(pending);
   return engine::error::success;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
@@ -1242,13 +1213,8 @@ engine::error scene_instance::remove_camera(scene_node_id node) {
   if (found == objects_.end()) {
     return engine::error::invalid_handle;
   }
-  const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
-  const auto result = native_world_.entity_remove_camera(
+  return native_world_.entity_remove_camera(
       gneiss::entity_id{scene_object_entity(native_world_, found->node)});
-  if (result == engine::error::success) {
-    description_.objects[index].components.erase<camera_description>();
-  }
-  return result;
 }
 
 engine::error scene_instance::remove_mesh_renderer(scene_node_id node) {

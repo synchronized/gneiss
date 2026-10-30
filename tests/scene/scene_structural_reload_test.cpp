@@ -69,6 +69,26 @@ int main() try {
     return 1;
   }
 
+  // 直接修改 World 后重载同一文件，差异必须基于当前对象而非加载时描述。
+  if (application->native_world()
+          ->node_set_identity(camera_before, {camera_uuid, "Edited"})
+          .failed() ||
+      application->native_world()->entity_remove_camera(camera_entity_before).failed() ||
+      application->native_world()->node_reparent(old_child, {}).failed() ||
+      gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, uri, false)
+          .failed())
+    return 20;
+  auto restored_identity = application->native_world()->node_identity(camera_before);
+  gneiss::engine::math::camera_settings restored_camera;
+  gneiss::scene_node_id restored_parent;
+  if (!restored_identity || restored_identity->name != "Camera" ||
+      application->native_world()
+          ->entity_get_camera(camera_entity_before, restored_camera)
+          .failed() ||
+      application->native_world()->node_get_parent(old_child, restored_parent).failed() ||
+      restored_parent != camera_before)
+    return 21;
+
   const auto retired_child = old_child;
   write_scene(scene_path, "[]");
   if (gneiss::test_support::reload_scene_for_test(*application, scheduler, scene, uri, false) !=
