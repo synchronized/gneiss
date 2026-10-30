@@ -36,7 +36,8 @@ struct prefab_property_override_key final {
   /** 首属性之后的对象字段/序列下标；空表示直接标量属性。 */
   meta::property_path path{};
 
-  [[nodiscard]] bool operator==(const prefab_property_override_key& other) const noexcept;
+  [[nodiscard]] GNEISS_API bool
+  operator==(const prefab_property_override_key& other) const noexcept;
 };
 
 struct prefab_property_override final {

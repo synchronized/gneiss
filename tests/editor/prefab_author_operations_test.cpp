@@ -69,6 +69,37 @@ int main() try {
   scene.objects.push_back(own);
   const auto prefab_json = text(*e::encode_prefab(source));
   const auto scene_json = text(*e::encode_scene(scene));
+  auto entries = ed::describe_prefab_overrides(*first.prefab, source);
+  check(entries && entries->size() == 3);
+  check((*entries)[0].label.find("acceleration") != std::string::npos);
+  const auto decode_changes = [](const auto& changes) {
+    const auto& json = *changes.front().replacement;
+    return e::decode_scene(std::as_bytes(std::span{json.data(), json.size()}));
+  };
+  auto restore_all = ed::prepare_restore_prefab(scene_json, "scenes/main.scene.json", first.uuid);
+  check(restore_all && restore_all->size() == 1);
+  auto restored = decode_changes(*restore_all);
+  check(restored && restored->objects[0].prefab->overrides.empty() &&
+        restored->objects[0].prefab->component_overrides.empty());
+  check(restored->objects[0].name == first.name &&
+        restored->objects[0].transform.translation.x == 8);
+  check(restored->objects[2].parent_uuid == first.uuid);
+  for (const auto& entry : *entries) {
+    auto single =
+        ed::prepare_restore_prefab(scene_json, "scenes/main.scene.json", first.uuid, &entry);
+    check(bool(single));
+    auto decoded = decode_changes(*single);
+    check(decoded && decoded->objects[0].prefab->overrides.size() == (entry.component ? 1U : 0U));
+    check(decoded->objects[0].prefab->component_overrides.size() == (entry.component ? 1U : 2U));
+    check(ed::prepare_restore_prefab(*single->front().replacement, "scenes/main.scene.json",
+                                     first.uuid, &entry)
+              .error() == e::error::not_found);
+  }
+  check(ed::prepare_restore_prefab(*restore_all->front().replacement, "scenes/main.scene.json",
+                                   first.uuid)
+            .error() == e::error::not_ready);
+  check(ed::prepare_restore_prefab(scene_json, "scenes/main.scene.json", id(90)).error() ==
+        e::error::not_found);
   ed::apply_prefab_author_request apply{.scene_path = "scenes/main.scene.json",
                                         .prefab_path = "prefabs/source.prefab.json",
                                         .prefab_uri = first.prefab->uri,
@@ -149,6 +180,21 @@ int main() try {
   check(editing.open(directory, "asset://scenes/main.scene.json"));
   ed::scene_document_snapshot before, after;
   check(ed::capture_scene_document(*editing.application, editing.document, before).ok());
+  // 缺少来源网格时仅返回依赖清单；默认快照准备仍拒绝，现有场景不变。
+  auto needs_assets = before;
+  auto mesh_source = std::make_shared<e::prefab_description>(source);
+  mesh_source->objects[0].components.set(e::mesh_renderer_description{
+      "asset://meshes/missing.gneiss-mesh", "asset://materials/missing.material.json"});
+  needs_assets.description.prefabs.at(first.prefab->uri).resource =
+      e::prefab_asset_ref{mesh_source};
+  ed::scene_document_snapshot missing_snapshot;
+  check(ed::prepare_scene_document(needs_assets, *restore_all, missing_snapshot) ==
+        e::error::not_ready);
+  std::vector<e::asset_source> missing_assets;
+  check(ed::prepare_scene_document(needs_assets, *restore_all, missing_snapshot, &missing_assets)
+            .ok());
+  check(missing_assets.size() == 2 && missing_snapshot.assets.empty());
+  check(editing.document.find_prefab_root(first.uuid));
   check(ed::prepare_scene_document(before, changes, after).ok());
   ed::editor_command_history history;
   check(history
@@ -180,6 +226,46 @@ int main() try {
   auto* loaded_child = editing.document.find_node(id(9));
   check(loaded_child);
   check(!editing.document.components(loaded_child->node)->get<e::camera_description>());
+  editing.document.close();
+  editing.application.reset();
+  // 整个实例恢复复用场景快照，撤销保留覆盖，重做及保存恢复来源组件。
+  write(directory / "scenes/main.scene.json", scene_json);
+  check(editing.open(directory, "asset://scenes/main.scene.json"));
+  check(ed::capture_scene_document(*editing.application, editing.document, before).ok());
+  check(ed::prepare_scene_document(before, *restore_all, after).ok());
+  check(history
+            .execute({.label = "恢复实例覆盖",
+                      .undo =
+                          [&] {
+                            return ed::restore_scene_document(*editing.application,
+                                                              editing.document, before);
+                          },
+                      .redo =
+                          [&] {
+                            return ed::restore_scene_document(*editing.application,
+                                                              editing.document, after);
+                          },
+                      .merge_key = {}})
+            .ok());
+  const auto root_movement = [&] {
+    return editing.document.components(editing.document.find_prefab_root(first.uuid)->node)
+               ->get<movement_description>() != nullptr;
+  };
+  check(!root_movement());
+  check(history.undo().ok() && root_movement());
+  check(history.redo().ok() && !root_movement());
+  check(save_document(editing.document, directory).ok());
+  check(history.clear().ok());
+  editing.document.close();
+  editing.application.reset();
+  check(editing.open(directory, "asset://scenes/main.scene.json"));
+  check(!root_movement());
+  auto* restored_child = editing.document.find_prefab_source(first.uuid, child.uuid);
+  check(restored_child);
+  auto restored_components = editing.document.components(restored_child->node);
+  check(restored_components->get<e::camera_description>());
+  check(restored_components->get<movement_description>()->settings.acceleration ==
+        movement_description{}.settings.acceleration);
   editing.document.close();
   editing.application.reset();
   // Apply 独立保存来源；父场景仅变更内存，正常保存后重新加载两实例。

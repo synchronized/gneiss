@@ -3,6 +3,7 @@
 
 #include "commands/prefab_authoring.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/meta/registry.hpp"
 
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/resource/asset_uri.hpp"
@@ -499,6 +500,103 @@ engine::error prepare_unpack_prefab(std::string_view scene_json, std::string_vie
   return engine::error::out_of_memory;
 } catch (...) {
   out_changes.clear();
+  return engine::error::internal;
+}
+
+engine::result<std::vector<prefab_override_entry>>
+describe_prefab_overrides(const engine::prefab_reference_description& reference,
+                          const engine::prefab_description& source) noexcept try {
+  using namespace engine;
+  std::vector<prefab_override_entry> entries;
+  const auto label = [&](const prefab_property_override_key& key) {
+    auto object =
+        std::ranges::find(source.objects, key.source_node_uuid, &object_description::uuid);
+    std::string text =
+        object == source.objects.end() ? key.source_node_uuid.string() : object->name;
+    auto type = meta::describe_type(key.type_guid);
+    text += " / " + (type ? std::string(type->name) : key.type_guid.string());
+    if (!key.property_id.is_valid())
+      return text;
+    auto property = meta::describe_property(key.type_guid, key.property_id);
+    text +=
+        " / " + (property ? std::string(property->name) : std::to_string(key.property_id.get()));
+    auto current = property ? property->type : meta::type{};
+    for (const auto& step : key.path) {
+      if (auto* id = std::get_if<meta::property_id>(&step)) {
+        auto fields = current.properties();
+        if (fields) {
+          auto found = std::ranges::find(*fields, *id, &meta::property_info::id);
+          if (found != fields->end()) {
+            text += "." + std::string(found->name);
+            current = found->type;
+            continue;
+          }
+        }
+        text += "." + std::to_string(id->get());
+        current = {};
+      } else {
+        text += "[" + std::to_string(std::get<std::size_t>(step)) + "]";
+        auto element = current.element_type();
+        current = element ? *element : meta::type{};
+      }
+    }
+    return text;
+  };
+  for (const auto& change : reference.overrides)
+    entries.push_back({.key = change.key, .label = label(change.key)});
+  for (const auto& change : reference.component_overrides) {
+    prefab_property_override_key key{.source_node_uuid = change.source_node_uuid,
+                                     .type_guid = change.type_guid};
+    entries.push_back(
+        {.key = key, .component = true, .added = change.added.has_value(), .label = label(key)});
+  }
+  return entries;
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
+}
+
+engine::result<std::vector<author_document_change>>
+prepare_restore_prefab(std::string_view scene_json, std::string_view scene_path,
+                       engine::guid instance, const prefab_override_entry* entry) noexcept try {
+  using namespace engine;
+  if (scene_path.empty() || !instance)
+    return error::invalid_argument;
+  auto scene = decode_scene(std::as_bytes(std::span{scene_json.data(), scene_json.size()}));
+  if (!scene)
+    return scene.error().error;
+  auto object = std::ranges::find(scene->objects, instance, &object_description::uuid);
+  if (object == scene->objects.end() || !object->prefab)
+    return error::not_found;
+  auto& reference = *object->prefab;
+  if (!entry) {
+    if (reference.overrides.empty() && reference.component_overrides.empty())
+      return error::not_ready;
+    reference.overrides.clear();
+    reference.component_overrides.clear();
+  } else if (entry->component) {
+    auto removed = std::erase_if(reference.component_overrides, [&](const auto& item) {
+      return item.source_node_uuid == entry->key.source_node_uuid &&
+             item.type_guid == entry->key.type_guid;
+    });
+    if (!removed)
+      return error::not_found;
+  } else {
+    auto removed = std::erase_if(reference.overrides,
+                                 [&](const auto& item) { return item.key == entry->key; });
+    if (!removed)
+      return error::not_found;
+  }
+  auto encoded = encode_scene(*scene);
+  if (!encoded)
+    return encoded.error().error;
+  return std::vector<author_document_change>{{.path = std::string(scene_path),
+                                              .baseline = std::string(scene_json),
+                                              .replacement = json_text(*encoded)}};
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
   return engine::error::internal;
 }
 

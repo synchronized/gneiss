@@ -618,4 +618,5 @@
 
 - [Prefab 组件结构覆盖计划](plans/PLAN-086-prefab-component-overrides.md)
 - [统一 Prefab Apply 与 Unpack](plans/PLAN-087-prefab-apply-unpack.md)
+- [Prefab 覆盖查看与恢复](plans/PLAN-088-prefab-override-inspector.md)
 - [Prefab 组件结构覆盖决策](decisions/ADR-097-prefab-component-overrides.md)

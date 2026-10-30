@@ -459,17 +459,67 @@ record_author_documents(editor_state& state, std::string label,
                         std::vector<gneiss::editor::author_document_change> changes,
                         const author_selection& undo_selection,
                         const author_selection& redo_selection, bool save_source = false,
-                        bool history_boundary = false) {
+                        bool history_boundary = false, bool load_missing = false) {
   if (state.editing.history().is_pending())
     return gneiss::engine::error::not_ready;
   auto before = std::make_shared<gneiss::editor::scene_document_snapshot>();
   auto after = std::make_shared<gneiss::editor::scene_document_snapshot>();
   auto status =
       gneiss::editor::capture_scene_document(*state.application, state.editing.document(), *before);
+  std::vector<gneiss::engine::asset_source> missing;
   if (status.ok())
-    status = gneiss::editor::prepare_scene_document(*before, changes, *after);
+    status = gneiss::editor::prepare_scene_document(*before, changes, *after,
+                                                    load_missing ? &missing : nullptr);
   if (status.failed())
     return status;
+  if (!missing.empty()) {
+    if (save_source || state.pending_file_operation)
+      return gneiss::engine::error::invalid_state;
+    std::vector<gneiss::engine::resource_request> requests;
+    for (const auto& asset : missing) {
+      auto request = state.application->resources().load(asset);
+      if (!request)
+        return request.error();
+      requests.push_back(std::move(*request));
+    }
+    const auto scene = state.editing.document().scene_handle();
+    std::string baseline;
+    status = state.application->scenes()->serialize(scene, baseline);
+    if (status.failed())
+      return status;
+    state.file_operation_saves_scene = false;
+    state.pending_file_operation = [&state, before, after, requests = std::move(requests),
+                                    missing = std::move(missing), baseline = std::move(baseline),
+                                    scene, label = std::move(label), undo_selection,
+                                    redo_selection](gneiss::engine::error& value) {
+      for (std::size_t i = 0; i < requests.size(); ++i) {
+        value = requests[i].status();
+        if (value == gneiss::engine::error::not_ready)
+          return false;
+        if (value.failed())
+          return true;
+        after->assets.insert_or_assign(missing[i].uri, requests[i].resource());
+      }
+      if (state.editing.document().scene_handle() != scene) {
+        value = gneiss::engine::error::invalid_state;
+        return true;
+      }
+      std::string current;
+      value = state.application->scenes()->serialize(scene, current);
+      if (value.failed())
+        return true;
+      if (current != baseline) {
+        value = gneiss::engine::error::invalid_state;
+        return true;
+      }
+      value = adopt_author_documents(state, label, before, after, undo_selection, redo_selection,
+                                     false);
+      if (value.ok())
+        state.prefab_author_diagnostic = {};
+      return true;
+    };
+    return gneiss::engine::error::not_ready;
+  }
   if (save_source) {
     // 规划器只允许一个来源；父场景变更仅用于准备内存快照。
     const gneiss::editor::author_document_change* source = nullptr;
@@ -520,6 +570,123 @@ record_author_documents(editor_state& state, std::string label,
   output.relative_path = std::string_view(uri).substr(8);
   return state.application->scenes()->serialize(state.editing.document().scene_handle(),
                                                 output.content);
+}
+
+void draw_prefab_overrides(editor_state& state) {
+  using namespace gneiss::engine;
+  using namespace gneiss::editor;
+  const auto* selected = state.editing.document().selected_prefab_node();
+  if (!selected)
+    return;
+  const auto instance = selected->instance_uuid;
+  const auto selected_source = selected->source_node_uuid;
+  object_description author;
+  prefab_asset_ref source;
+  if (state.application->scenes()
+          ->capture_prefab_header(state.editing.document().scene_handle(), instance, author, source)
+          .failed() ||
+      !author.prefab || !source)
+    return;
+  auto entries = describe_prefab_overrides(*author.prefab, *source);
+  if (!entries) {
+    state.inspector_error = entries.error();
+    return;
+  }
+  if (!ImGui::CollapsingHeader("Instance Overrides", ImGuiTreeNodeFlags_DefaultOpen))
+    return;
+  std::optional<prefab_override_entry> restore;
+  ImGui::BeginDisabled(entries->empty() || state.runtime.is_busy() ||
+                       state.editing.history().is_pending() || state.editing.assets().active() ||
+                       static_cast<bool>(state.pending_file_operation));
+  const bool restore_all = ImGui::Button("Restore All Overrides");
+  int index = 0;
+  for (const auto& entry : *entries) {
+    ImGui::PushID(index++);
+    ImGui::TextWrapped("%s: %s", entry.component ? (entry.added ? "Added" : "Removed") : "Modified",
+                       entry.label.c_str());
+    const auto* node =
+        state.editing.document().find_prefab_source(instance, entry.key.source_node_uuid);
+    ImGui::BeginDisabled(!node);
+    if (ImGui::SmallButton("Locate") && node)
+      (void)state.editing.document().select(node->node);
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Restore"))
+      restore = entry;
+    ImGui::PopID();
+  }
+  ImGui::EndDisabled();
+  if (restore_all || restore) {
+    author_scene_document scene;
+    auto status = current_author_scene(state, scene);
+    if (status.ok()) {
+      auto changes = prepare_restore_prefab(scene.content, scene.relative_path, instance,
+                                            restore_all ? nullptr : &*restore);
+      const author_selection selection{.kind = author_selection_kind::prefab_source,
+                                       .primary_uuid = instance,
+                                       .source_uuid = selected_source};
+      status = changes ? record_author_documents(state, "恢复 Prefab 覆盖", std::move(*changes),
+                                                 selection, selection)
+                       : changes.error();
+    }
+    state.history_error = status;
+    if (status.ok())
+      state.prefab_author_diagnostic = {};
+  }
+}
+
+void draw_prefab_conflict(editor_state& state) {
+  using namespace gneiss::engine;
+  const auto& diagnostic = state.prefab_author_diagnostic;
+  if (diagnostic.path.empty())
+    return;
+  ImGui::TextWrapped("%s", diagnostic.message.c_str());
+  ImGui::TextWrapped("%s", diagnostic.path.c_str());
+  const auto read_id = [&](std::string_view marker) {
+    const auto offset = diagnostic.path.find(marker);
+    return offset == std::string::npos
+               ? std::optional<guid>{}
+               : guid::parse(std::string_view(diagnostic.path).substr(offset + marker.size(), 36));
+  };
+  const auto instance = read_id("/instances/");
+  const auto object = read_id("/objects/");
+  const auto type = read_id("/components/");
+  if (!instance || !object || !type)
+    return;
+  object_description author;
+  prefab_asset_ref source;
+  if (state.application->scenes()
+          ->capture_prefab_header(state.editing.document().scene_handle(), *instance, author,
+                                  source)
+          .ok() &&
+      source && author.prefab) {
+    ImGui::Text("Instance: %s", author.name.c_str());
+    auto entries = gneiss::editor::describe_prefab_overrides(*author.prefab, *source);
+    if (entries)
+      for (const auto& entry : *entries) {
+        std::string path = "/instances/" + instance->string() + "/objects/" +
+                           entry.key.source_node_uuid.string() + "/components/" +
+                           entry.key.type_guid.string();
+        if (!entry.component) {
+          path += "/properties/" + std::to_string(entry.key.property_id.get());
+          for (const auto& step : entry.key.path)
+            path += std::holds_alternative<meta::property_id>(step)
+                        ? "/properties/" + std::to_string(std::get<meta::property_id>(step).get())
+                        : "/indices/" + std::to_string(std::get<std::size_t>(step));
+        }
+        if (path == diagnostic.path) {
+          ImGui::TextWrapped("%s", entry.label.c_str());
+          break;
+        }
+      }
+  }
+  const auto* node = state.editing.document().find_prefab_source(*instance, *object);
+  if (!node)
+    node = state.editing.document().find_prefab_root(*instance);
+  ImGui::BeginDisabled(!node);
+  if (ImGui::Button("Locate Prefab Conflict") && node)
+    (void)state.editing.document().select(node->node);
+  ImGui::EndDisabled();
 }
 
 bool has_prefab_overrides(editor_state& state, gneiss::engine::guid instance) {
@@ -2534,7 +2701,8 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
                            state.prefab_path_buffer.size());
           break;
         case prefab_author_action::apply:
-          ImGui::TextUnformatted("Apply this instance's Transform overrides to the shared source?");
+          ImGui::TextUnformatted(
+              "Apply all component and property overrides to the shared source?");
           ImGui::TextDisabled(
               "Saves the shared source and clears undo history. The scene remains unsaved.");
           break;
@@ -2708,10 +2876,6 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
         ImGui::Text("Source UUID: %s", prefab->source_node_uuid.string().c_str());
       }
       ImGui::Text("Prefab: %s", prefab->prefab_uri.c_str());
-      if (!state.prefab_author_diagnostic.path.empty()) {
-        ImGui::TextWrapped("%s", state.prefab_author_diagnostic.message.c_str());
-        ImGui::TextWrapped("%s", state.prefab_author_diagnostic.path.c_str());
-      }
       ImGui::Text("Entity: %llu", static_cast<unsigned long long>(prefab->entity.get()));
       {
         ImGui::BeginDisabled(!has_prefab_overrides(state, prefab->instance_uuid) ||
@@ -2853,6 +3017,11 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
     if (!gneiss::editor::selected_runtime_node(state.runtime.scene_mirror(),
                                                state.runtime_selection))
       draw_component_descriptions(state);
+    if (!gneiss::editor::selected_runtime_node(state.runtime.scene_mirror(),
+                                               state.runtime_selection)) {
+      draw_prefab_overrides(state);
+      draw_prefab_conflict(state);
+    }
     ImGui::End();
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
     draw_asset_browser(state);

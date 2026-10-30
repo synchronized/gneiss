@@ -25,7 +25,11 @@ engine::error capture_scene_document(runtime::application& app, const scene_docu
 
 engine::error prepare_scene_document(const scene_document_snapshot& before,
                                      std::span<const author_document_change> changes,
-                                     scene_document_snapshot& output) noexcept try {
+                                     scene_document_snapshot& output,
+                                     std::vector<engine::asset_source>* missing) noexcept try {
+  if (missing)
+    missing->clear();
+  std::vector<engine::asset_source> pending;
   auto scene = std::make_shared<engine::scene_description>(before.description.description);
   engine::scene_description_inputs inputs;
   for (const auto& [uri, prefab] : before.description.prefabs)
@@ -68,11 +72,17 @@ engine::error prepare_scene_document(const scene_document_snapshot& before,
     return status;
   for (const auto& asset : next.description.assets) {
     const auto found = before.assets.find(asset.uri);
-    if (found == before.assets.end() || engine::asset_kind(found->second) != asset.type)
-      return engine::error::not_ready;
+    if (found == before.assets.end() || engine::asset_kind(found->second) != asset.type) {
+      if (!missing)
+        return engine::error::not_ready;
+      pending.push_back(asset);
+      continue;
+    }
     next.assets.emplace(asset.uri, found->second);
   }
   output = std::move(next);
+  if (missing)
+    *missing = std::move(pending);
   return engine::error::success;
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;

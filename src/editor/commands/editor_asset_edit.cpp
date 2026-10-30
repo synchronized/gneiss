@@ -80,6 +80,9 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
   }
   if (locate(session, target_) != node_)
     return engine::error::invalid_state;
+  // 重复设置相同资源不创建历史；恢复仍需清除覆盖记录，不能据资源相等跳过。
+  if (!restoring_ && previous_.mesh == next_.mesh && previous_.material == next_.material)
+    return engine::error::success;
   if (prefab_before_) {
     engine::scene_mesh_binding current;
     auto captured = application.capture_mesh_binding(scene_, node_, current);

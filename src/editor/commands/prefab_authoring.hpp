@@ -7,6 +7,7 @@
 #include "commands/author_document_change.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
+#include "engine/resource/scene/prefab_description.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 
 #include <span>
@@ -48,6 +49,22 @@ struct unpack_prefab_author_request final {
   gneiss::engine::guid instance_uuid;
   std::span<const unpack_prefab_uuid_mapping> node_mappings;
 };
+
+/** 临时显示项；key 使用来源对象/组件/属性身份，不使用列表下标。 */
+struct prefab_override_entry {
+  engine::prefab_property_override_key key;
+  bool component = false;
+  bool added = false;
+  std::string label;
+};
+[[nodiscard]] engine::result<std::vector<prefab_override_entry>>
+describe_prefab_overrides(const engine::prefab_reference_description&,
+                          const engine::prefab_description&) noexcept;
+/** 空 entry 恢复整个实例；不写来源，生成父场景内存变更供快照历史使用。 */
+[[nodiscard]] engine::result<std::vector<author_document_change>>
+prepare_restore_prefab(std::string_view scene_json, std::string_view scene_path,
+                       engine::guid instance,
+                       const prefab_override_entry* entry = nullptr) noexcept;
 
 /**
  * 将普通场景子树转换为 Prefab 来源和场景实例两项作者文档变更。
