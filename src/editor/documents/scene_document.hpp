@@ -188,6 +188,9 @@ public:
   components(scene_node_id node) const noexcept;
   [[nodiscard]] engine::error
   set_component_description(scene_node_id node, const engine::component_description&) noexcept;
+  [[nodiscard]] engine::error
+  add_component_description(scene_node_id, const engine::component_description&) noexcept;
+  [[nodiscard]] engine::error remove_component_description(scene_node_id, engine::guid) noexcept;
   void mark_dirty() noexcept { is_dirty_ = true; }
   void clear_dirty() noexcept { is_dirty_ = false; }
 

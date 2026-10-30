@@ -1518,6 +1518,25 @@ engine::error scene_instances::validate_editable_node(scene_instance_id instance
                                                                : engine::error::invalid_handle;
 }
 
+error scene_instances::add_component_description(
+    scene_instance_id instance, scene_node_id node,
+    const component_description& description) noexcept {
+  if (!native_world_.is_owner_thread())
+    return error::invalid_state;
+  auto* value = instances_.get(instance, resource_type::scene_instance);
+  if (!value || !*value)
+    return error::invalid_handle;
+  return (*value)->add_component_description(node, description);
+}
+error scene_instances::remove_component_description(scene_instance_id instance, scene_node_id node,
+                                                    guid type) noexcept {
+  if (!native_world_.is_owner_thread())
+    return error::invalid_state;
+  auto* value = instances_.get(instance, resource_type::scene_instance);
+  if (!value || !*value)
+    return error::invalid_handle;
+  return (*value)->remove_component_description(node, type);
+}
 error scene_instances::set_component_description(
     scene_instance_id instance, scene_node_id node,
     const component_description& description) noexcept {

@@ -53,6 +53,10 @@ public:
                                                 const scene_mesh_binding* prepared = nullptr);
   [[nodiscard]] error set_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
                                         std::string_view material_uri);
+  /** 普通持久化对象增删组件；不接受 Prefab 来源节点。资源必须已准备。 */
+  [[nodiscard]] error add_component_description(scene_node_id node,
+                                                const component_description& value) noexcept;
+  [[nodiscard]] error remove_component_description(scene_node_id node, guid type) noexcept;
   /** 替换已有组件；Prefab 同时更新稀疏覆盖，不支持新增或移除。 */
   [[nodiscard]] error set_component_description(scene_node_id node,
                                                 const component_description& value) noexcept;

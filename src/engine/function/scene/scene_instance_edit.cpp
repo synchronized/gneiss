@@ -75,6 +75,21 @@ error collect_component_overrides(meta::instance source, meta::instance candidat
   return set_prefab_property_override(output, {std::move(key), *after}, *before);
 }
 }
+error scene_instance::add_component_description(scene_node_id node,
+                                                const component_description& value) noexcept {
+  if (!contains_editable_node(node))
+    return error::invalid_handle;
+  if (find_ordinary_node(node) == objects_.end())
+    return error::unsupported;
+  return add_component({native_world_, node, {}, &loader_}, value);
+}
+error scene_instance::remove_component_description(scene_node_id node, guid type) noexcept {
+  if (!contains_editable_node(node))
+    return error::invalid_handle;
+  if (find_ordinary_node(node) == objects_.end())
+    return error::unsupported;
+  return remove_component({native_world_, node, {}, &loader_}, type);
+}
 error scene_instance::set_component_description(scene_node_id node,
                                                 const component_description& value) noexcept try {
   if (!contains_editable_node(node))

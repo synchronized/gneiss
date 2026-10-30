@@ -123,3 +123,18 @@ Editor Document 的节点列表只是界面查询缓存。保存与完整子树�
 `unload` 删除场景全部节点及实体并释放来源引用；场景 ID 立即失效，重复卸载返回句柄错误。
 运行时先清理场景实例，再销毁其借用的 World 和资源服务。
 GPU 资源实际回收遵守资源服务及渲染后端的延迟销毁规则，不由场景直接释放后端句柄。
+
+## 普通对象组件增删
+
+`component_editor_types()` 提供注册组件的添加/删除能力，显示名称来自 Meta。
+组件通过显式 `create_default` 工厂提供有效默认描述，`removable` 选择是否允许交互删除；
+不会自动把 `T{}` 当作有效组件。相机提供默认描述，网格仍需用户选择资源。
+
+`add_component_description` 只向普通持久对象添加缺失组件，重复添加返回 `invalid_state`；
+`remove_component_description` 删除缺失组件返回 `not_found`。两者拒绝 Prefab 根及来源节点，
+不生成结构覆盖。已有组件替换仍使用 `set_component_description`。
+
+编辑器无资源依赖的组件增删通过稳定 UUID 重新定位目标，撤销保存删除前的描述，重新安装实际 ECS 组件。
+历史删除前比较目标与记录，拒绝删除历史之外已修改的组件。网格增删沿用资产命令，历史保留实际资源强引用，
+不通过 URI 重新加载来恢复旧资源。新资源组件需要相应资产命令，通用同步增删历史不会接管资源准备。
+实施记录见 [PLAN-085](../plans/PLAN-085-component-lifecycle-editor.md)。

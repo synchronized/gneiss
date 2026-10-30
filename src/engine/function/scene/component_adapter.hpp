@@ -32,6 +32,8 @@ struct component_adapter {
                                               const std::function<error(meta::mutable_instance)>&)>
       modify;
   std::function<std::vector<asset_source>(const component_description&)> dependencies;
+  std::function<result<component_description>()> create_default;
+  bool removable = false;
 };
 /** 启动期注册；重复 GUID 拒绝，首次查询后冻结。纯描述回调须支持并发只读调用。 */
 GNEISS_API error register_scene_component(component_adapter adapter) noexcept;
@@ -44,6 +46,9 @@ template <class T> struct component_operations {
   error (*edit)(T&, guid, meta::property_id, const value&){};
   std::vector<asset_source> (*dependencies)(const T&){};
   guid property_type = type_identity<T>::guid();
+  /** 显式选择加入编辑器；不自动假定 T{} 是可安装的描述。 */
+  result<T> (*create_default)(){};
+  bool removable = false;
 };
 template <class T> component_adapter make_component_adapter(component_operations<T> ops) {
   if (!ops.validate || !ops.install || !ops.capture || !ops.remove || !ops.equal)
@@ -107,7 +112,21 @@ template <class T> component_adapter make_component_adapter(component_operations
               [ops](const component_description& value) {
                 return ops.dependencies ? ops.dependencies(*value.get<T>())
                                         : std::vector<asset_source>{};
-              }};
+              },
+          .create_default =
+              ops.create_default
+                  ? std::function<
+                        result<component_description>()>{[ops]() -> result<component_description> {
+                      auto source = ops.create_default();
+                      if (!source)
+                        return source.error();
+                      auto status = ops.validate(*source);
+                      if (status.failed())
+                        return status;
+                      return component_description{std::move(*source)};
+                    }}
+                  : std::function<result<component_description>()>{},
+          .removable = ops.removable};
 }
 template <class T> error register_scene_component(component_operations<T> ops) noexcept try {
   return register_scene_component(make_component_adapter(ops));
@@ -119,6 +138,17 @@ template <class T> error register_scene_component(component_operations<T> ops) n
 GNEISS_API result<component_description>
 modify_component(const component_description&,
                  const std::function<error(meta::mutable_instance)>&) noexcept;
+struct component_editor_info {
+  guid type;
+  bool addable = false;
+  bool removable = false;
+};
+/** 返回冻结注册表的自有摘要；显示名称仍从 Meta 查询。 */
+GNEISS_API result<std::vector<component_editor_info>> component_editor_types() noexcept;
+GNEISS_API result<component_description> default_component_description(guid type) noexcept;
+/** 只处理单个组件；重复添加返回 invalid_state，缺失删除返回 not_found。 */
+GNEISS_API error add_component(component_context, const component_description&) noexcept;
+GNEISS_API error remove_component(component_context, guid type) noexcept;
 GNEISS_API error validate_components(const component_descriptions&) noexcept;
 GNEISS_API result<component_descriptions> capture_components(world&, scene_node_id) noexcept;
 GNEISS_API error install_components(component_context, const component_descriptions&) noexcept;

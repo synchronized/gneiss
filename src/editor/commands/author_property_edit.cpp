@@ -87,6 +87,80 @@ engine::error edit_description(editor_command_history& history,
                         : std::string{}});
 }
 }
+namespace {
+engine::error component_lifecycle(scene_document& document, editor_command_history& history,
+                                  engine::guid object, engine::guid type, bool adding) {
+  using namespace engine;
+  const auto* node = document.find_node(object);
+  if (!node)
+    return error::not_found;
+  auto source = [&]() -> result<component_description> {
+    if (adding)
+      return default_component_description(type);
+    auto current = document.components(node->node);
+    if (!current)
+      return current.error();
+    auto* found = current->find(type);
+    return found ? result<component_description>{*found}
+                 : result<component_description>{error::not_found};
+  }();
+  if (!source)
+    return source.error();
+  auto choices = component_editor_types();
+  if (!choices)
+    return choices.error();
+  bool removable = false;
+  for (const auto& choice : *choices)
+    if (choice.type == type)
+      removable = choice.removable;
+  if (!removable)
+    return error::unsupported;
+  auto dependencies = component_dependencies({*source});
+  if (!dependencies)
+    return dependencies.error();
+  // 描述无法保留旧的渲染资源实例；有资源依赖的操作走资产历史。
+  if (!dependencies->empty())
+    return error::unsupported;
+  auto add = [&document, object, value = *source]() -> error {
+    const auto* target = document.find_node(object);
+    return target ? document.add_component_description(target->node, value) : error::not_found;
+  };
+  auto remove = [&document, object, value = *source]() -> error {
+    const auto* target = document.find_node(object);
+    if (!target)
+      return error::not_found;
+    auto current = document.components(target->node);
+    if (!current)
+      return current.error();
+    auto* found = current->find(value.guid());
+    if (!found)
+      return error::not_found;
+    if (!equal_components({*found}, {value}))
+      return error::invalid_state;
+    return document.remove_component_description(target->node, value.guid());
+  };
+  if (adding)
+    return history.execute({.label = "添加组件", .undo = remove, .redo = add, .merge_key = {}});
+  return history.execute({.label = "移除组件", .undo = add, .redo = remove, .merge_key = {}});
+}
+}
+engine::error add_component_description(scene_document& document, editor_command_history& history,
+                                        engine::guid object, engine::guid type) noexcept try {
+  return component_lifecycle(document, history, object, type, true);
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
+}
+engine::error remove_component_description(scene_document& document,
+                                           editor_command_history& history, engine::guid object,
+                                           engine::guid type) noexcept try {
+  return component_lifecycle(document, history, object, type, false);
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
+}
 engine::error edit_component_description(scene_document& document, editor_command_history& history,
                                          engine::world& world,
                                          const component_edit_target& identity,

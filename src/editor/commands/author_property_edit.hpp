@@ -16,6 +16,13 @@ struct component_edit_target {
   engine::guid object_uuid{}, instance_uuid{}, source_uuid{};
   engine::guid component_type{};
 };
+/** 普通对象的组件增删历史；资源组件仍使用异步资产命令。 */
+[[nodiscard]] engine::error add_component_description(scene_document&, editor_command_history&,
+                                                      engine::guid object,
+                                                      engine::guid type) noexcept;
+[[nodiscard]] engine::error remove_component_description(scene_document&, editor_command_history&,
+                                                         engine::guid object,
+                                                         engine::guid type) noexcept;
 /** 支持已注册运行组件；资源 URI 交给异步资产命令，主相机状态保持只读。
  * 复制候选并校验，历史按稳定身份重新定位，不借用成员指针。
  * document/world 须存活至历史清空；调用限所属线程。 */

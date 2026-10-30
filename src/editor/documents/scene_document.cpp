@@ -529,6 +529,25 @@ scene_document::components(scene_node_id node) const noexcept {
   return engine::capture_components(*world_, node);
 }
 engine::error
+scene_document::add_component_description(scene_node_id node,
+                                          const engine::component_description& value) noexcept {
+  auto status = with_scene(
+      [&](auto& service) { return service.add_component_description(scene_, node, value); });
+  if (status.failed())
+    return status;
+  is_dirty_ = true;
+  return refresh_nodes();
+}
+engine::error scene_document::remove_component_description(scene_node_id node,
+                                                           engine::guid type) noexcept {
+  auto status = with_scene(
+      [&](auto& service) { return service.remove_component_description(scene_, node, type); });
+  if (status.failed())
+    return status;
+  is_dirty_ = true;
+  return refresh_nodes();
+}
+engine::error
 scene_document::set_component_description(scene_node_id node,
                                           const engine::component_description& value) noexcept {
   auto status = with_scene(

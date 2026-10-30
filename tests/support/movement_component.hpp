@@ -63,7 +63,9 @@ inline e::component_operations<movement_description> operations() {
           [](e::world& w, gneiss::scene_node_id n) {
             return state(w).remove<movement_component>(entity(w, n));
           },
-      .equal = [](const movement_description& a, const movement_description& b) { return a == b; }};
+      .equal = [](const movement_description& a, const movement_description& b) { return a == b; },
+      .create_default = []() -> e::result<movement_description> { return movement_description{}; },
+      .removable = true};
 }
 
 inline e::error register_movement_meta() {

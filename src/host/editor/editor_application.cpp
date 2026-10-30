@@ -21,6 +21,7 @@
 #include "editor_project.hpp"
 #include "editor_theme.hpp"
 #include "editor_ui.hpp"
+#include "engine/function/scene/component_adapter.hpp"
 #include "imgui_adapter.hpp"
 #include "native_dialog.hpp"
 #include "panels/author_hierarchy_panel.hpp"
@@ -2736,69 +2737,43 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
       ImGui::Text("Entity: %llu", static_cast<unsigned long long>(selected->entity.get()));
       ImGui::Separator();
       const auto uuid = selected->uuid;
-      const auto has_camera =
-          (selected->component_flags &
-           static_cast<std::uint32_t>(gneiss::scene_node_components::camera)) != 0U;
       const auto has_mesh =
           (selected->component_flags &
            static_cast<std::uint32_t>(gneiss::scene_node_components::mesh_renderer)) != 0U;
-      if (ImGui::Button(has_camera ? "Remove Camera" : "Add Camera")) {
-        if (has_camera) {
-          auto previous = selected->camera;
-          previous.is_primary = selected->is_primary_camera;
-          state.history_error = state.editing.document().remove_camera(selected->node);
-          if (state.history_error == gneiss::engine::error::success) {
-            state.history_error = state.editing.history().record(
-                {.label = "移除 Camera",
-                 .undo =
-                     [&state, uuid, previous] {
-                       const auto* node = state.editing.document().find_node(uuid);
-                       return node == nullptr
-                                  ? gneiss::engine::error::not_found
-                                  : state.editing.document().set_camera(node->node, previous);
-                     },
-                 .redo =
-                     [&state, uuid] {
-                       const auto* node = state.editing.document().find_node(uuid);
-                       return node == nullptr ? gneiss::engine::error::not_found
-                                              : state.editing.document().remove_camera(node->node);
-                     },
-                 .merge_key = {}});
-            if (state.history_error != gneiss::engine::error::success) {
-              if (const auto* node = state.editing.document().find_node(uuid); node != nullptr) {
-                (void)state.editing.document().set_camera(node->node, previous);
-              }
+      auto current = state.editing.document().components(selected->node);
+      auto choices = gneiss::engine::component_editor_types();
+      ImGui::BeginDisabled(state.editing.assets().active() || state.editing.history().is_pending());
+      if (ImGui::Button("Components"))
+        ImGui::OpenPopup("component_lifecycle");
+      if (ImGui::BeginPopup("component_lifecycle")) {
+        if (current && choices) {
+          for (const auto& choice : *choices) {
+            // 网格需要选择资产并保留资源引用，使用下面的异步资产入口。
+            if (choice.type == gneiss::engine::mesh_renderer_description::type_guid)
+              continue;
+            const bool exists = current->find(choice.type) != nullptr;
+            if (exists ? !choice.removable : !choice.addable || !choice.removable)
+              continue;
+            auto type = gneiss::engine::meta::describe_type(choice.type);
+            if (!type)
+              continue;
+            const auto label = std::string(exists ? "Remove " : "Add ") + std::string(type->name) +
+                               "##" + choice.type.string();
+            if (ImGui::MenuItem(label.c_str())) {
+              state.history_error =
+                  exists ? gneiss::editor::remove_component_description(
+                               state.editing.document(), state.editing.history(), uuid, choice.type)
+                         : gneiss::editor::add_component_description(state.editing.document(),
+                                                                     state.editing.history(), uuid,
+                                                                     choice.type);
+              break;
             }
           }
-        } else {
-          gneiss::engine::camera_description camera{.settings = {1.04719755F, 0.1F, 1000.0F},
-                                                    .is_primary = false};
-          state.history_error = state.editing.document().set_camera(selected->node, camera);
-          if (state.history_error == gneiss::engine::error::success) {
-            state.history_error = state.editing.history().record(
-                {.label = "添加 Camera",
-                 .undo =
-                     [&state, uuid] {
-                       const auto* node = state.editing.document().find_node(uuid);
-                       return node == nullptr ? gneiss::engine::error::not_found
-                                              : state.editing.document().remove_camera(node->node);
-                     },
-                 .redo =
-                     [&state, uuid, camera] {
-                       const auto* node = state.editing.document().find_node(uuid);
-                       return node == nullptr
-                                  ? gneiss::engine::error::not_found
-                                  : state.editing.document().set_camera(node->node, camera);
-                     },
-                 .merge_key = {}});
-            if (state.history_error != gneiss::engine::error::success) {
-              if (const auto* node = state.editing.document().find_node(uuid); node != nullptr) {
-                (void)state.editing.document().remove_camera(node->node);
-              }
-            }
-          }
-        }
+        } else
+          state.inspector_error = !current ? current.error() : choices.error();
+        ImGui::EndPopup();
       }
+      ImGui::EndDisabled();
       ImGui::SameLine();
       ImGui::BeginDisabled(!has_mesh);
       const auto remove_mesh_requested = ImGui::Button("Remove Mesh Renderer");
