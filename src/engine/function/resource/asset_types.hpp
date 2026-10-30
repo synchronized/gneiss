@@ -6,6 +6,7 @@
 #include "engine/resource/material/material_resource.hpp"
 #include "engine/resource/mesh/mesh_resource.hpp"
 #include "engine/resource/texture/texture_data.hpp"
+#include <concepts>
 namespace gneiss::engine {
 enum class asset_type : std::uint32_t { invalid = 0U, mesh = 1U, material = 2U, texture = 3U };
 struct asset_source final {
@@ -25,26 +26,33 @@ template <typename T>
   return asset ? std::string_view(asset->uri) : std::string_view{};
 }
 
-inline std::string_view asset_uri(const mesh& value) noexcept {
+/** 资源分类属于加载层，不让资源对象反向依赖 asset_type。 */
+template <typename T> struct resource_traits {};
+template <> struct resource_traits<mesh_resource> {
+  static constexpr asset_type kind = asset_type::mesh;
+};
+template <> struct resource_traits<texture_resource> {
+  static constexpr asset_type kind = asset_type::texture;
+};
+template <> struct resource_traits<material_resource> {
+  static constexpr asset_type kind = asset_type::material;
+};
+template <typename T>
+concept render_resource = requires {
+  { resource_traits<T>::kind } -> std::convertible_to<asset_type>;
+};
+
+template <render_resource T>
+[[nodiscard]] inline std::string_view asset_uri(const asset_ref<const T>& value) noexcept {
   return value ? std::string_view(value->source().uri) : std::string_view{};
 }
-inline rid asset_rid(const mesh& value) noexcept { return resource_handle(value); }
-inline asset_type asset_kind(const mesh& value) noexcept {
-  return value ? asset_type::mesh : asset_type::invalid;
+template <render_resource T>
+[[nodiscard]] inline rid asset_rid(const asset_ref<const T>& value) noexcept {
+  return resource_handle(value);
 }
-inline std::string_view asset_uri(const texture& value) noexcept {
-  return value ? std::string_view(value->source().uri) : std::string_view{};
-}
-inline rid asset_rid(const texture& value) noexcept { return resource_handle(value); }
-inline asset_type asset_kind(const texture& value) noexcept {
-  return value ? asset_type::texture : asset_type::invalid;
-}
-inline std::string_view asset_uri(const material& value) noexcept {
-  return value ? std::string_view(value->source().uri) : std::string_view{};
-}
-inline rid asset_rid(const material& value) noexcept { return resource_handle(value); }
-inline asset_type asset_kind(const material& value) noexcept {
-  return value ? asset_type::material : asset_type::invalid;
+template <render_resource T>
+[[nodiscard]] inline asset_type asset_kind(const asset_ref<const T>& value) noexcept {
+  return value ? resource_traits<T>::kind : asset_type::invalid;
 }
 
 } // namespace gneiss::engine
