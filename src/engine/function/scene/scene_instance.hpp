@@ -54,6 +54,10 @@ public:
   [[nodiscard]] error set_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
                                         std::string_view material_uri);
   /** 普通持久化对象增删组件；不接受 Prefab 来源节点。资源必须已准备。 */
+  [[nodiscard]] result<prefab_component_state> capture_component_override(scene_node_id node,
+                                                                          guid type) noexcept;
+  [[nodiscard]] error set_component_override(scene_node_id node, guid type,
+                                             const prefab_component_state& state) noexcept;
   [[nodiscard]] error add_component_description(scene_node_id node,
                                                 const component_description& value) noexcept;
   [[nodiscard]] error remove_component_description(scene_node_id node, guid type) noexcept;
@@ -67,7 +71,8 @@ public:
   /** 事务式替换普通场景节点；当前不接受 Prefab 实例容器变化。 */
   [[nodiscard]] error reload(scene_description candidate);
   /** 将指定 Prefab URI 的新修订应用到当前 Scene 内全部同源实例。 */
-  [[nodiscard]] error reload_prefab(std::string_view uri, prefab_asset_ref candidate);
+  [[nodiscard]] error reload_prefab(std::string_view uri, prefab_asset_ref candidate,
+                                    scene_diagnostic* diagnostic);
 
   /** 单场景 Prefab 实例操作；服务已校验线程与句柄，不修改 Prefab 源资源。 */
   [[nodiscard]] error capture_prefab_instance_header(guid uuid, object_description& author,

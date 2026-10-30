@@ -528,6 +528,25 @@ scene_document::components(scene_node_id node) const noexcept {
     return status;
   return engine::capture_components(*world_, node);
 }
+engine::result<engine::prefab_component_state>
+scene_document::capture_component_override(scene_node_id node, engine::guid type) noexcept {
+  engine::result<engine::prefab_component_state> result{engine::error::invalid_state};
+  auto status = with_scene([&](auto& service) {
+    result = service.capture_component_override(scene_, node, type);
+    return result ? engine::error{engine::error::success} : result.error();
+  });
+  return status.ok() ? std::move(result) : engine::result<engine::prefab_component_state>{status};
+}
+engine::error
+scene_document::set_component_override(scene_node_id node, engine::guid type,
+                                       const engine::prefab_component_state& state) noexcept {
+  auto status = with_scene(
+      [&](auto& service) { return service.set_component_override(scene_, node, type, state); });
+  if (status.failed())
+    return status;
+  is_dirty_ = true;
+  return refresh_nodes();
+}
 engine::error
 scene_document::add_component_description(scene_node_id node,
                                           const engine::component_description& value) noexcept {

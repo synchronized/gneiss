@@ -47,9 +47,16 @@ struct mesh_renderer_description final {
   std::string material_uri;
 };
 
+/** 无 added 表示移除来源组件；有值表示实例新增组件。 */
+struct prefab_component_override final {
+  guid source_node_uuid;
+  guid type_guid;
+  std::optional<component_description> added{};
+};
 struct prefab_reference_description final {
   std::string uri;
   std::vector<prefab_property_override> overrides;
+  std::vector<prefab_component_override> component_overrides{};
 };
 
 struct object_description final {

@@ -22,6 +22,11 @@ namespace gneiss::engine {
                                                std::span<const prefab_property_override> overrides,
                                                prefab_description& output) noexcept;
 
+/** 应用结构与属性覆盖；诊断按来源 UUID、类型 GUID 和属性路径定位。 */
+[[nodiscard]] GNEISS_API error
+prepare_prefab_reference(const prefab_description&, const prefab_reference_description&,
+                         prefab_description&, scene_diagnostic* diagnostic = nullptr) noexcept;
+
 /** 验证作者键、值、字段存在性、类型和可写能力。Registry 必须已经冻结。 */
 [[nodiscard]] error
 validate_prefab_property_override(const prefab_property_override& value) noexcept;
@@ -31,9 +36,9 @@ validate_prefab_property_override(const prefab_property_override& value) noexcep
  *
  * candidate 与 source_value 规范化后相等时删除对应记录，否则按稳定键更新并确定性排序。
  */
-[[nodiscard]] error set_prefab_property_override(std::vector<prefab_property_override>& overrides,
-                                                 prefab_property_override candidate,
-                                                 engine::value source_value) noexcept;
+[[nodiscard]] GNEISS_API error set_prefab_property_override(
+    std::vector<prefab_property_override>& overrides, prefab_property_override candidate,
+    engine::value source_value) noexcept;
 
 } // namespace gneiss::engine
 

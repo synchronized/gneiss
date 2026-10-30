@@ -436,6 +436,59 @@ template <class T>
          "覆盖作者键重复");
     return false;
   }
+  auto* structural = yyjson_obj_get(value, "component_overrides");
+  if (structural && !yyjson_is_arr(structural)) {
+    fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/component_overrides",
+         "组件覆盖必须是数组");
+    return false;
+  }
+  std::size_t si, sc;
+  yyjson_val* item;
+  yyjson_arr_foreach(structural, si, sc, item) {
+    using namespace gneiss::engine;
+    const auto location = path + "/component_overrides/" + std::to_string(si);
+    auto* object = yyjson_obj_get(item, "source_node_uuid");
+    auto* type = yyjson_obj_get(item, "$type_guid");
+    auto id = yyjson_is_str(object) ? guid::parse(json_string(object)) : std::nullopt;
+    auto tid = yyjson_is_str(type) ? guid::parse(json_string(type)) : std::nullopt;
+    if (!id || !*id || !tid || !*tid || !is_canonical_uuid(json_string(object)) ||
+        !is_canonical_uuid(json_string(type))) {
+      fail(diagnostic, error::invalid_argument, location, "组件覆盖身份无效");
+      return false;
+    }
+    if (std::ranges::any_of(
+            output.component_overrides,
+            [&](const auto& v) { return v.source_node_uuid == *id && v.type_guid == *tid; }) ||
+        std::ranges::any_of(output.overrides, [&](const auto& v) {
+          return v.key.source_node_uuid == *id && v.key.type_guid == *tid;
+        })) {
+      fail(diagnostic, error::invalid_argument, location, "组件覆盖重复或与属性覆盖矛盾");
+      return false;
+    }
+    prefab_component_override change{.source_node_uuid = *id, .type_guid = *tid};
+    if (auto* content = yyjson_obj_get(item, "$content")) {
+      if (!yyjson_is_obj(content)) {
+        fail(diagnostic, error::invalid_argument, location, "新增组件内容必须为对象");
+        return false;
+      }
+      std::size_t length{};
+      std::unique_ptr<char, decltype(&std::free)> text(yyjson_val_write(content, 0, &length),
+                                                       &std::free);
+      if (!text) {
+        fail(diagnostic, error::out_of_memory, location, "分配失败");
+        return false;
+      }
+      auto decoded =
+          component_description::decode(*tid, std::as_bytes(std::span{text.get(), length}));
+      if (!decoded) {
+        fail(diagnostic, decoded.error().error, location + decoded.error().path,
+             "新增组件解码失败");
+        return false;
+      }
+      change.added = std::move(*decoded);
+    }
+    output.component_overrides.push_back(std::move(change));
+  }
   return true;
 }
 
@@ -507,6 +560,44 @@ make_components(yyjson_mut_doc* document, const gneiss::engine::component_descri
     if (!put_value(document, entry, "$type_guid", yyjson_mut_strcpy(document, type.c_str())) ||
         !put_value(document, entry, "$content", content) || !yyjson_mut_arr_add_val(array, entry))
       return gneiss::engine::error::out_of_memory;
+  }
+  return array;
+}
+
+[[nodiscard]] gneiss::engine::result<yyjson_mut_val*>
+make_component_overrides(yyjson_mut_doc* document,
+                         const gneiss::engine::prefab_reference_description& reference) {
+  using namespace gneiss::engine;
+  auto* array = yyjson_mut_arr(document);
+  if (!array)
+    return error::out_of_memory;
+  std::vector<std::pair<guid, guid>> keys;
+  for (const auto& value : reference.component_overrides) {
+    auto key = std::pair{value.source_node_uuid, value.type_guid};
+    if (!key.first || !key.second || std::ranges::find(keys, key) != keys.end() ||
+        std::ranges::any_of(reference.overrides, [&](const auto& v) {
+          return v.key.source_node_uuid == key.first && v.key.type_guid == key.second;
+        }))
+      return error::invalid_argument;
+    keys.push_back(key);
+    yyjson_mut_val* entry{};
+    if (value.added) {
+      if (value.added->guid() != value.type_guid)
+        return error::invalid_argument;
+      auto encoded = make_components(document, {*value.added});
+      if (!encoded)
+        return encoded.error();
+      entry = yyjson_mut_arr_remove_first(*encoded);
+    } else {
+      entry = yyjson_mut_obj(document);
+      if (!put_value(document, entry, "$type_guid",
+                     yyjson_mut_strcpy(document, value.type_guid.string().c_str())))
+        return error::out_of_memory;
+    }
+    if (!put_value(document, entry, "source_node_uuid",
+                   yyjson_mut_strcpy(document, value.source_node_uuid.string().c_str())) ||
+        !yyjson_mut_arr_add_val(array, entry))
+      return error::out_of_memory;
   }
   return array;
 }
@@ -678,6 +769,9 @@ encode_object(const object_description& source) {
   if (source.prefab) {
     if (!source.components.empty())
       return meta::serialization_diagnostic{.error = error::invalid_argument};
+    auto changes = make_component_overrides(doc.get(), *source.prefab);
+    if (!changes)
+      return meta::serialization_diagnostic{.error = changes.error()};
     auto* reference = yyjson_mut_obj(doc.get());
     if (!reference ||
         !put_value(
@@ -685,6 +779,7 @@ encode_object(const object_description& source) {
             yyjson_mut_strncpy(doc.get(), source.prefab->uri.data(), source.prefab->uri.size())) ||
         !put_value(doc.get(), reference, "overrides",
                    make_prefab_overrides(doc.get(), source.prefab->overrides)) ||
+        !put_value(doc.get(), reference, "component_overrides", *changes) ||
         !put_value(doc.get(), root, "prefab", reference))
       return meta::serialization_diagnostic{.error = error::out_of_memory};
   } else {
@@ -915,6 +1010,9 @@ detail::serialize_object_document(guid uuid, std::optional<guid> root_uuid,
     if (source.prefab) {
       if (!source.components.empty())
         return engine::error::invalid_argument;
+      auto changes = make_component_overrides(mutable_document.get(), *source.prefab);
+      if (!changes)
+        return changes.error();
       auto* prefab = yyjson_mut_obj_get(object, "prefab");
       if (!prefab)
         prefab = yyjson_mut_obj(mutable_document.get());
@@ -924,6 +1022,7 @@ detail::serialize_object_document(guid uuid, std::optional<guid> root_uuid,
                                         source.prefab->uri.size())) ||
           !put_value(mutable_document.get(), prefab, "overrides",
                      make_prefab_overrides(mutable_document.get(), source.prefab->overrides)) ||
+          !put_value(mutable_document.get(), prefab, "component_overrides", *changes) ||
           !put_value(mutable_document.get(), object, "prefab", prefab))
         return engine::error::out_of_memory;
       (void)yyjson_mut_obj_remove_key(object, "components");

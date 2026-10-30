@@ -29,9 +29,9 @@ prefab_binding::prefab_binding(world& native_world, resource_service& loader,
     : native_world_(native_world), loader_(loader), prefab_(std::move(prefab)),
       instance_uuid_(std::move(instance_uuid)) {}
 
-engine::error
-prefab_binding::validate_reload(const prefab_asset_ref& candidate,
-                                const std::vector<prefab_property_override>& overrides) {
+engine::error prefab_binding::validate_reload(const prefab_asset_ref& candidate,
+                                              const prefab_reference_description& reference,
+                                              scene_diagnostic* diagnostic) {
   if (!candidate || !prefab_ || candidate.get()->uuid != prefab_.get()->uuid ||
       candidate.get()->objects.empty()) {
     return engine::error::invalid_argument;
@@ -48,7 +48,7 @@ prefab_binding::validate_reload(const prefab_asset_ref& candidate,
   }
 
   prefab_description effective;
-  result = prepare_prefab_description(*candidate, overrides, effective);
+  result = prepare_prefab_reference(*candidate, reference, effective, diagnostic);
   if (result.failed())
     return result;
   for (const auto& object : effective.objects) {
@@ -65,14 +65,14 @@ prefab_binding::validate_reload(const prefab_asset_ref& candidate,
 }
 
 engine::error prefab_binding::reload(prefab_asset_ref candidate,
-                                     const std::vector<prefab_property_override>& overrides) {
+                                     const prefab_reference_description& reference) {
 
-  auto result = validate_reload(candidate, overrides);
+  auto result = validate_reload(candidate, reference);
   if (result != engine::error::success) {
     return result;
   }
   prefab_description effective;
-  result = prepare_prefab_description(*candidate, overrides, effective);
+  result = prepare_prefab_reference(*candidate, reference, effective);
   if (result.failed())
     return result;
   auto current = *prefab_;

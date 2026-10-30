@@ -10,6 +10,7 @@
 #include "engine/core/math/transform.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_subtree_snapshot.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/platform/files/file_service.hpp"
@@ -191,6 +192,11 @@ public:
   [[nodiscard]] engine::error
   add_component_description(scene_node_id, const engine::component_description&) noexcept;
   [[nodiscard]] engine::error remove_component_description(scene_node_id, engine::guid) noexcept;
+  [[nodiscard]] engine::result<engine::prefab_component_state>
+      capture_component_override(scene_node_id, engine::guid) noexcept;
+  [[nodiscard]] engine::error
+  set_component_override(scene_node_id, engine::guid,
+                         const engine::prefab_component_state&) noexcept;
   void mark_dirty() noexcept { is_dirty_ = true; }
   void clear_dirty() noexcept { is_dirty_ = false; }
 

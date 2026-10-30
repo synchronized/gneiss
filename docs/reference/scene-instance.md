@@ -82,13 +82,13 @@ Editor Document 的节点列表只是界面查询缓存。保存与完整子树�
 
 
 `object_description` 只有一份身份、名称、父关系和变换；可选 `prefab` 保存 URI 与相对覆盖。
-没有独立的实例描述数组。根名称与变换采用外层对象值，根组件来自模板。
+没有独立的实例描述数组。根名称与变换采用外层对象值，根组件来自模板与实例覆盖。
 具体格式与校验见[场景格式](scene-format.md)。
 
 `set_node_name` 支持普通对象与实例根。`reparent_node` 支持显式对象，普通自有对象可挂在实例根下，
 不能挂到模板内部节点。模板内部结构暂不提供增删或重排覆盖。
 `destroy_node` 对所有显式对象统一要求没有实际子节点；完整删除使用 `destroy_subtree`，不按 Prefab 类型切换删除语义。
-普通组件编辑接口仍限制为自有对象；来源 Transform 编辑通过 `set_prefab_source_transform` 验证并记录稀疏覆盖。
+组件编辑经 Scene 分别修改普通对象数据或来源覆盖；来源 Transform 编辑通过 `set_prefab_source_transform` 验证并记录稀疏覆盖。
 恢复来源默认值时移除对应覆盖。直接修改 World 组件不会自动形成持久化覆盖。
 
 `capture_description` 采集显式对象，`serialize` 编码为当前格式；来源生成节点不重复输出。
@@ -130,11 +130,19 @@ GPU 资源实际回收遵守资源服务及渲染后端的延迟销毁规则，�
 组件通过显式 `create_default` 工厂提供有效默认描述，`removable` 选择是否允许交互删除；
 不会自动把 `T{}` 当作有效组件。相机提供默认描述，网格仍需用户选择资源。
 
-`add_component_description` 只向普通持久对象添加缺失组件，重复添加返回 `invalid_state`；
-`remove_component_description` 删除缺失组件返回 `not_found`。两者拒绝 Prefab 根及来源节点，
-不生成结构覆盖。已有组件替换仍使用 `set_component_description`。
+`add_component_description` 向对象添加缺失组件，重复添加返回 `invalid_state`；
+`remove_component_description` 删除缺失组件返回 `not_found`。Prefab 根及来源节点写入组件结构覆盖，
+格式及冲突规则见[场景格式](scene-format.md#prefab-组件结构覆盖)。已有组件替换仍使用 `set_component_description`。
 
 编辑器无资源依赖的组件增删通过稳定 UUID 重新定位目标，撤销保存删除前的描述，重新安装实际 ECS 组件。
 历史删除前比较目标与记录，拒绝删除历史之外已修改的组件。网格增删沿用资产命令，历史保留实际资源强引用，
 不通过 URI 重新加载来恢复旧资源。新资源组件需要相应资产命令，通用同步增删历史不会接管资源准备。
 实施记录见 [PLAN-085](../plans/PLAN-085-component-lifecycle-editor.md)。
+
+
+Prefab 组件历史使用 `capture_component_override` / `set_component_override` 保存、恢复单个组件覆盖，
+包含网格资源强引用。面板支持组件添加、移除及 Restore Source；网格恢复来源先通过资产入口异步准备资源。
+同步 Scene 接口不读取文件；资源缺失返回未就绪，调用方准备成功后再提交。
+来源重载先验证受影响实例的完整覆盖，冲突不修改实例及其记录；`reload_prefab_loaded` 可输出路径诊断。
+诊断包含来源对象 UUID、组件 GUID 和失效属性路径。
+现有文件级 Apply/Unpack 仍仅支持其原有 Transform 覆盖，含结构覆盖返回 `unsupported`，不静默遗漏。

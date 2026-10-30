@@ -298,6 +298,17 @@ int main() try {
       .instance_uuid = instance_uuid,
       .node_mappings = mappings};
   std::vector<gneiss::editor::author_document_change> unpack_changes;
+  auto structural = std::string(apply_scene_json);
+  structural.insert(
+      structural.find(R"("overrides":)"),
+      R"("component_overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","$type_guid":"11a0217a-2eab-4f61-8011-4aa26e010101"}],)");
+  if (gneiss::editor::prepare_apply_prefab(structural, apply_prefab_json, apply_request,
+                                           apply_plan) != gneiss::engine::error::unsupported ||
+      !apply_plan.changes.empty() ||
+      gneiss::editor::prepare_unpack_prefab(structural, apply_prefab_json, unpack_request,
+                                            unpack_changes) != gneiss::engine::error::unsupported ||
+      !unpack_changes.empty())
+    return 30;
   if (gneiss::editor::prepare_unpack_prefab(apply_scene_json, apply_prefab_json, unpack_request,
                                             unpack_changes) != gneiss::engine::error::success ||
       !verify_unpack_change(unpack_changes) ||

@@ -169,6 +169,100 @@ engine::error apply_candidate_object(const prefab_property_override& value,
 }
 }
 
+error prepare_prefab_reference(const prefab_description& source,
+                               const prefab_reference_description& reference,
+                               prefab_description& output, scene_diagnostic* diagnostic) noexcept
+    try {
+  if (diagnostic)
+    *diagnostic = {};
+  const auto fail = [&](error status, guid object, guid type, std::string suffix,
+                        const char* message) {
+    if (diagnostic)
+      *diagnostic = {.error = status,
+                     .path =
+                         "/objects/" + object.string() + "/components/" + type.string() + suffix,
+                     .message = message};
+    return status;
+  };
+  auto candidate = source;
+  std::vector<std::pair<guid, guid>> keys;
+  auto types = component_editor_types();
+  if (!types)
+    return types.error();
+  for (const auto& change : reference.component_overrides) {
+    auto key = std::pair{change.source_node_uuid, change.type_guid};
+    if (!key.first || !key.second || std::ranges::find(keys, key) != keys.end())
+      return fail(error::invalid_argument, key.first, key.second, {}, "组件覆盖键无效或重复");
+    if (std::ranges::none_of(*types, [&](const auto& type) { return type.type == key.second; }))
+      return fail(error::unsupported, key.first, key.second, {}, "组件类型没有运行适配器");
+    keys.push_back(key);
+    auto target = std::ranges::find(candidate.objects, key.first, &object_description::uuid);
+    if (target == candidate.objects.end())
+      return fail(error::not_found, key.first, key.second, {}, "覆盖目标对象已不存在");
+    if (std::ranges::any_of(reference.overrides, [&](const auto& v) {
+          return v.key.source_node_uuid == key.first &&
+                 (v.key.type_guid == key.second || (key.second == camera_description::type_guid &&
+                                                    v.key.type_guid == camera_component_type));
+        }))
+      return fail(error::invalid_argument, key.first, key.second, {}, "结构覆盖与属性覆盖矛盾");
+    if (change.added) {
+      if (change.added->guid() != key.second)
+        return fail(error::invalid_argument, key.first, key.second, {}, "新增描述类型不匹配");
+      if (target->components.find(key.second))
+        return fail(error::invalid_state, key.first, key.second, {},
+                    "来源已存在实例新增的同类型组件");
+      target->components.set(*change.added);
+    } else
+      target->components.erase(key.second);
+  }
+  // 提前定位每条属性覆盖；成组应用仍在下一步统一校验跨字段约束。
+  std::vector<prefab_property_override_key> property_keys;
+  for (const auto& entry : reference.overrides) {
+    const auto& key = entry.key;
+    if (std::ranges::find(property_keys, key) != property_keys.end())
+      return fail(error::invalid_argument, key.source_node_uuid, key.type_guid, {},
+                  "属性覆盖键重复");
+    property_keys.push_back(key);
+    std::string path = "/properties/" + std::to_string(key.property_id.get());
+    for (const auto& step : key.path)
+      path += std::holds_alternative<meta::property_id>(step)
+                  ? "/properties/" + std::to_string(std::get<meta::property_id>(step).get())
+                  : "/indices/" + std::to_string(std::get<std::size_t>(step));
+    auto object =
+        std::ranges::find(candidate.objects, key.source_node_uuid, &object_description::uuid);
+    auto status = validate_prefab_property_override(entry);
+    if (status.failed() || object == candidate.objects.end())
+      return fail(status.failed() ? status : error{error::not_found}, key.source_node_uuid,
+                  key.type_guid, path, "属性覆盖目标不存在或类型不匹配");
+    if (key.type_guid != transform_component_type) {
+      auto* component = object->components.find(key.type_guid);
+      // 兼容内建相机属性身份，具体编辑由适配器负责。
+      if (!component && key.type_guid == camera_component_type)
+        component = object->components.find(camera_description::type_guid);
+      if (!component)
+        return fail(error::not_found, key.source_node_uuid, key.type_guid, path,
+                    "属性覆盖对应的来源组件已不存在");
+      if (key.type_guid == component->guid()) {
+        auto root = component->view();
+        auto first = root ? root->property(key.property_id) : result<meta::instance>{root.error()};
+        auto leaf =
+            first ? meta::resolve_path(*first, key.path) : result<meta::instance>{first.error()};
+        if (!leaf)
+          return fail(leaf.error(), key.source_node_uuid, key.type_guid, path,
+                      "属性覆盖路径已失效");
+      }
+    }
+  }
+  auto status = prepare_prefab_description(candidate, reference.overrides, output);
+  if (status.failed() && diagnostic)
+    *diagnostic = {.error = status, .message = "Prefab 覆盖后的组件校验失败"};
+  return status;
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+
 engine::error prepare_prefab_description(const prefab_description& source,
                                          std::span<const prefab_property_override> overrides,
                                          prefab_description& output) noexcept try {

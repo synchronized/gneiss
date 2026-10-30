@@ -385,7 +385,7 @@ int main() try {
     return 14;
   }
   // 相同的相对覆盖可以用于另一实例，不携带实例身份。
-  if (second->reload(second->prefab_lease(), first_overrides).failed())
+  if (second->reload(second->prefab_lease(), {.uri = {}, .overrides = first_overrides}).failed())
     return 15;
 
   const auto first_source_root =
@@ -430,7 +430,10 @@ int main() try {
                              {*gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000001"),
                               "Instance name"})
           .failed() ||
-      first->reload(gneiss::engine::prefab_asset_ref{revision}, first_overrides).failed() ||
+      first
+          ->reload(gneiss::engine::prefab_asset_ref{revision},
+                   {.uri = {}, .overrides = first_overrides})
+          .failed() ||
       native_world.node_get_local_transform(first->root(), actual_root).failed() ||
       actual_root.translation != first_transform.translation ||
       actual_root.rotation != first_transform.rotation ||

@@ -161,6 +161,57 @@ engine::error remove_component_description(scene_document& document,
 } catch (...) {
   return engine::error::internal;
 }
+engine::error edit_prefab_component_structure(scene_document& document,
+                                              editor_command_history& history,
+                                              const component_edit_target& identity,
+                                              prefab_component_action action) noexcept try {
+  using namespace engine;
+  if (!identity.instance_uuid || !identity.source_uuid)
+    return error::invalid_argument;
+  auto location = locate_component(document, identity);
+  if (!location)
+    return location.error();
+  auto before = document.capture_component_override(location->first, identity.component_type);
+  if (!before)
+    return before.error();
+  auto components = document.components(location->first);
+  if (!components)
+    return components.error();
+  const auto* component = components->find(identity.component_type);
+  prefab_component_state after;
+  if (action == prefab_component_action::add) {
+    if (component)
+      return error::invalid_state;
+    auto value = default_component_description(identity.component_type);
+    if (!value)
+      return value.error();
+    auto dependencies = component_dependencies({*value});
+    if (!dependencies)
+      return dependencies.error();
+    if (!dependencies->empty())
+      return error::unsupported;
+    after.added = std::move(*value);
+  } else if (action == prefab_component_action::remove) {
+    if (!component)
+      return error::not_found;
+    after.removed = !before->added;
+  }
+  auto apply = [&document, identity](const prefab_component_state& state) {
+    auto target = locate_component(document, identity);
+    return target ? document.set_component_override(target->first, identity.component_type, state)
+                  : target.error();
+  };
+  return history.execute({.label = action == prefab_component_action::add      ? "添加实例组件"
+                                   : action == prefab_component_action::remove ? "移除实例组件"
+                                                                               : "恢复来源组件",
+                          .undo = [apply, value = *before] { return apply(value); },
+                          .redo = [apply, after] { return apply(after); },
+                          .merge_key = {}});
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
+}
 engine::error edit_component_description(scene_document& document, editor_command_history& history,
                                          engine::world& world,
                                          const component_edit_target& identity,

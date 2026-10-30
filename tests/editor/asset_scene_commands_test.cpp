@@ -195,6 +195,54 @@ int main() try {
       app->capture_mesh_binding(session.scene_handle(), restored, after).failed() ||
       before.mesh != after.mesh || before.material != after.material)
     return 11;
+  // Prefab 来源网格移除保留实际资源；历史清空后恢复来源走异步准备。
+  auto mesh_prefab = std::make_shared<engine::prefab_description>();
+  mesh_prefab->uuid = engine::guid::from_bytes({88, 1});
+  mesh_prefab->root_uuid = engine::guid::from_bytes({88, 2});
+  engine::object_description mesh_root;
+  mesh_root.uuid = mesh_prefab->root_uuid;
+  mesh_root.components.set(engine::mesh_renderer_description{mesh, material});
+  mesh_prefab->objects.push_back(mesh_root);
+  engine::object_description mesh_instance;
+  mesh_instance.uuid = engine::guid::from_bytes({88, 3});
+  mesh_instance.prefab.emplace();
+  mesh_instance.prefab->uri = "asset://prefabs/memory.prefab.json";
+  scene_node_id mesh_node;
+  const std::array mesh_bindings{before};
+  if (app->scenes()
+          ->instantiate_prefab_ready(session.scene_handle(), mesh_instance,
+                                     engine::prefab_asset_ref{mesh_prefab}, mesh_bindings, false,
+                                     mesh_node)
+          .failed() ||
+      session.synchronize_nodes().failed())
+    return 20;
+  component_edit_target mesh_target{.instance_uuid = mesh_instance.uuid,
+                                    .source_uuid = mesh_root.uuid,
+                                    .component_type = engine::mesh_renderer_description::type_guid};
+  if (edit_prefab_component_structure(session, history, mesh_target,
+                                      prefab_component_action::remove)
+          .failed() ||
+      history.undo().failed())
+    return 21;
+  engine::scene_mesh_binding restored_source;
+  if (app->capture_mesh_binding(session.scene_handle(), mesh_node, restored_source).failed() ||
+      restored_source.mesh != before.mesh || restored_source.material != before.material)
+    return 22;
+  if (history.redo().failed() || history.clear().failed())
+    return 23;
+  editor_asset_edit restore_source;
+  if (restore_source.request_restore_source(*app, session, history, mesh_target).failed())
+    return 24;
+  wait([&] { return restore_source.active(); },
+       [&] { restore_source.advance(*app, session, history); });
+  if (restore_source.operation().failed() ||
+      session.capture_component_override(mesh_node, mesh_target.component_type)->removed ||
+      !session.components(mesh_node)->find(mesh_target.component_type))
+    return 25;
+  if (history.undo().failed() || session.components(mesh_node)->find(mesh_target.component_type) ||
+      history.redo().failed())
+    return 26;
+  history.clear();
   session.close();
   return 0;
 } catch (...) {

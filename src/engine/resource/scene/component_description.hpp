@@ -102,6 +102,9 @@ public:
     set(component_description(std::move(copy)));
     return true;
   }
+  void erase(guid type) {
+    std::erase_if(values_, [type](const auto& v) { return v.guid() == type; });
+  }
   template <class T> void erase() {
     std::erase_if(values_, [](const auto& v) { return v.guid() == type_identity<T>::guid(); });
   }

@@ -4,7 +4,9 @@
 #include "engine/core/error.hpp"
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/serialization.hpp"
+#include "engine/function/scene/prefab_property_override.hpp"
 #include "runtime/application.hpp"
+#include <algorithm>
 
 namespace gneiss::editor {
 namespace {
@@ -78,6 +80,60 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
   }
   if (locate(session, target_) != node_)
     return engine::error::invalid_state;
+  if (prefab_before_) {
+    engine::scene_mesh_binding current;
+    auto captured = application.capture_mesh_binding(scene_, node_, current);
+    if (captured.failed())
+      return captured;
+    if (current.mesh != previous_.mesh || current.material != previous_.material)
+      return engine::error::invalid_state;
+    engine::prefab_component_state after;
+    after.resources = next_;
+    if (!restoring_) {
+      engine::object_description author;
+      engine::prefab_asset_ref source;
+      auto status = application.scenes()->capture_prefab_header(scene_, target_.instance_uuid,
+                                                                author, source);
+      if (status.failed())
+        return status;
+      auto object = std::ranges::find(source->objects, target_.source_uuid,
+                                      &engine::object_description::uuid);
+      if (object == source->objects.end())
+        return engine::error::not_found;
+      const auto* original = object->components.get<engine::mesh_renderer_description>();
+      engine::mesh_renderer_description description{mesh_, material_};
+      if (!original)
+        after.added = engine::component_description{description};
+      else {
+        const std::array values{description.mesh_uri, description.material_uri};
+        const std::array originals{original->mesh_uri, original->material_uri};
+        for (std::size_t i = 0; i < values.size(); ++i) {
+          status = engine::set_prefab_property_override(
+              after.properties,
+              {.key = {.source_node_uuid = target_.source_uuid,
+                       .type_guid = engine::mesh_renderer_description::type_guid,
+                       .property_id = engine::meta::property_id{static_cast<std::uint32_t>(i + 1)}},
+               .value = engine::value{values[i]}},
+              engine::value{originals[i]});
+          if (status.failed())
+            return status;
+        }
+      }
+    }
+    auto apply = [&session, scene = scene_,
+                  target = target_](const engine::prefab_component_state& value) {
+      if (session.scene_handle() != scene)
+        return engine::error{engine::error::invalid_state};
+      auto node = locate(session, target);
+      return node ? session.set_component_override(
+                        node, engine::mesh_renderer_description::type_guid, value)
+                  : engine::error{engine::error::not_found};
+    };
+    return history.execute({.label = restoring_ ? "恢复来源网格组件" : "修改实例网格组件",
+                            .undo = [apply, before = *prefab_before_] { return apply(before); },
+                            .redo = [apply, after] { return apply(after); },
+                            .merge_key = {}});
+  }
   if (previous_.mesh == next_.mesh && previous_.material == next_.material)
     return engine::error::success;
   const auto apply = [&application, &session, scene = scene_, target = target_](
@@ -203,6 +259,33 @@ engine::error editor_asset_edit::request_property(runtime::application& app,
 } catch (...) {
   return engine::error::internal;
 }
+engine::error editor_asset_edit::request_restore_source(runtime::application& app,
+                                                        scene_document& document,
+                                                        editor_command_history& history,
+                                                        const component_edit_target& target) try {
+  if (!target.instance_uuid)
+    return engine::error::invalid_argument;
+  engine::object_description author;
+  engine::prefab_asset_ref source;
+  auto status = app.scenes()->capture_prefab_header(document.scene_handle(), target.instance_uuid,
+                                                    author, source);
+  if (status.failed())
+    return status;
+  auto object =
+      std::ranges::find(source->objects, target.source_uuid, &engine::object_description::uuid);
+  if (object == source->objects.end())
+    return engine::error::not_found;
+  auto* mesh = object->components.get<engine::mesh_renderer_description>();
+  if (!mesh)
+    return edit_prefab_component_structure(document, history, target,
+                                           prefab_component_action::restore_source);
+  return request_impl(app, document, history, target, {}, {mesh->mesh_uri, mesh->material_uri},
+                      false, true);
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
+}
 gneiss::engine::error editor_asset_edit::request_add(runtime::application& application,
                                                      scene_document& session,
                                                      editor_command_history& history,
@@ -214,7 +297,7 @@ gneiss::engine::error
 editor_asset_edit::request_impl(runtime::application& application, scene_document& session,
                                 editor_command_history& history,
                                 const component_edit_target& target, std::string_view name,
-                                mesh_asset_reference assets, bool creating) try {
+                                mesh_asset_reference assets, bool creating, bool restoring) try {
   if (active_ || history.is_pending()) {
     return gneiss::engine::error::not_ready;
   }
@@ -222,6 +305,7 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
     return gneiss::engine::error::invalid_state;
   }
   creating_ = creating;
+  restoring_ = restoring;
   snapshot_ = {};
   scene_ = session.scene_handle();
   node_ = {};
@@ -244,6 +328,7 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
   material_ = assets.material_uri;
   previous_ = {};
   next_ = {};
+  prefab_before_.reset();
   progress_ = {};
   cancelled_ = false;
   visible_ = false;
@@ -252,7 +337,14 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
   if (operation_.failed()) {
     return operation_;
   }
-  if (!creating_ && (!previous_.mesh || !previous_.material)) {
+  if (target.instance_uuid) {
+    auto captured =
+        session.capture_component_override(node_, engine::mesh_renderer_description::type_guid);
+    if (!captured)
+      return operation_ = captured.error();
+    prefab_before_ = std::move(*captured);
+  }
+  if (!creating_ && !target.instance_uuid && (!previous_.mesh || !previous_.material)) {
     previous_ = {};
     return operation_ = gneiss::engine::error::invalid_state;
   }
@@ -279,12 +371,14 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
   if (operation_.failed()) {
     previous_ = {};
     next_ = {};
+    prefab_before_.reset();
     return operation_;
   }
   if (missing.empty()) {
     operation_ = commit(application, session, history);
     previous_ = {};
     next_ = {};
+    prefab_before_.reset();
     return operation_;
   }
   operation_ = application.prepare_edit_assets(missing, ++revision_, request_);
@@ -293,15 +387,18 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
   if (!active_) {
     previous_ = {};
     next_ = {};
+    prefab_before_.reset();
   }
   return operation_;
 } catch (const std::bad_alloc&) {
   previous_ = {};
   next_ = {};
+  prefab_before_.reset();
   return operation_ = gneiss::engine::error::out_of_memory;
 } catch (...) {
   previous_ = {};
   next_ = {};
+  prefab_before_.reset();
   return operation_ = gneiss::engine::error::internal;
 }
 
@@ -342,6 +439,7 @@ void editor_asset_edit::advance(runtime::application& application, scene_documen
   visible_ = operation_.failed() && !cancelled_;
   previous_ = {};
   next_ = {};
+  prefab_before_.reset();
   completion = {};
   (void)application.collect_unused_edit_assets();
 }

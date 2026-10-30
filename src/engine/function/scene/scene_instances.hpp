@@ -28,6 +28,13 @@
 
 namespace gneiss::engine {
 
+/** 单个 Prefab 组件的编辑快照；历史持有资源强引用，描述不是运行时权威副本。 */
+struct prefab_component_state {
+  std::optional<component_description> added{};
+  bool removed = false;
+  std::vector<prefab_property_override> properties{};
+  scene_mesh_binding resources{};
+};
 class scene_instance;
 struct prepared_scene_description;
 
@@ -79,7 +86,8 @@ public:
   [[nodiscard]] error reload_loaded(scene_instance_id instance,
                                     scene_description description) noexcept;
   [[nodiscard]] error reload_prefab_loaded(scene_instance_id instance, std::string_view uri,
-                                           prefab_asset_ref candidate) noexcept;
+                                           prefab_asset_ref candidate,
+                                           scene_diagnostic* diagnostic = nullptr) noexcept;
   [[nodiscard]] error create_empty(guid scene_uuid, scene_instance_id* out_instance) noexcept;
   [[nodiscard]] error unload(scene_instance_id instance) noexcept;
   [[nodiscard]] error find_node(scene_instance_id instance, guid uuid,
@@ -125,7 +133,13 @@ public:
   [[nodiscard]] error set_mesh_renderer(scene_instance_id instance, scene_node_id node,
                                         std::string_view mesh_uri,
                                         std::string_view material_uri) noexcept;
-  /** 普通持久化对象增删组件；不接受 Prefab 来源节点。资源必须已准备。 */
+  /** 单个来源组件的覆盖快照；包含撤销需要的实际资源引用，调用限所属线程。 */
+  [[nodiscard]] result<prefab_component_state>
+  capture_component_override(scene_instance_id instance, scene_node_id node, guid type) noexcept;
+  [[nodiscard]] error set_component_override(scene_instance_id instance, scene_node_id node,
+                                             guid type,
+                                             const prefab_component_state& state) noexcept;
+  /** 普通对象修改 ECS；Prefab 节点写结构覆盖。资源必须已经准备。 */
   [[nodiscard]] error add_component_description(scene_instance_id instance, scene_node_id node,
                                                 const component_description& value) noexcept;
   [[nodiscard]] error remove_component_description(scene_instance_id instance, scene_node_id node,

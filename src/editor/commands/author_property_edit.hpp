@@ -16,6 +16,11 @@ struct component_edit_target {
   engine::guid object_uuid{}, instance_uuid{}, source_uuid{};
   engine::guid component_type{};
 };
+enum class prefab_component_action { add, remove, restore_source };
+[[nodiscard]] engine::error edit_prefab_component_structure(scene_document&,
+                                                            editor_command_history&,
+                                                            const component_edit_target&,
+                                                            prefab_component_action) noexcept;
 /** 普通对象的组件增删历史；资源组件仍使用异步资产命令。 */
 [[nodiscard]] engine::error add_component_description(scene_document&, editor_command_history&,
                                                       engine::guid object,

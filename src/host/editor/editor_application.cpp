@@ -981,6 +981,50 @@ void draw_component_descriptions(editor_state& state) {
     state.inspector_error = components.error();
     return;
   }
+  if (identity.instance_uuid) {
+    auto types = component_editor_types();
+    ImGui::BeginDisabled(state.editing.assets().active() || state.editing.history().is_pending());
+    if (ImGui::Button("Components"))
+      ImGui::OpenPopup("prefab_components");
+    if (ImGui::BeginPopup("prefab_components")) {
+      if (types)
+        for (const auto& type : *types) {
+          auto metadata = meta::describe_type(type.type);
+          auto change = state.editing.document().capture_component_override(node_id, type.type);
+          if (!metadata || !change)
+            continue;
+          const bool exists = components->find(type.type) != nullptr;
+          const bool from_source = source_object && source_object->components.find(type.type);
+          identity.component_type = type.type;
+          ImGui::PushID(type.type.string().c_str());
+          const std::string name(metadata->name);
+          bool acted = false;
+          auto invoke = [&](prefab_component_action action) {
+            state.history_error =
+                action == prefab_component_action::restore_source &&
+                        identity.component_type == mesh_renderer_description::type_guid
+                    ? state.editing.assets().request_restore_source(
+                          *state.application, state.editing.document(), state.editing.history(),
+                          identity)
+                    : edit_prefab_component_structure(state.editing.document(),
+                                                      state.editing.history(), identity, action);
+            acted = true;
+          };
+          if (exists && type.removable && ImGui::MenuItem(("Remove " + name).c_str()))
+            invoke(prefab_component_action::remove);
+          if (!exists && !from_source && type.addable && ImGui::MenuItem(("Add " + name).c_str()))
+            invoke(prefab_component_action::add);
+          if ((change->removed || change->added || !change->properties.empty()) &&
+              ImGui::MenuItem(("Restore Source: " + name).c_str()))
+            invoke(prefab_component_action::restore_source);
+          ImGui::PopID();
+          if (acted)
+            break;
+        }
+      ImGui::EndPopup();
+    }
+    ImGui::EndDisabled();
+  }
   for (const auto& component : *components) {
     identity.component_type = component.guid();
     auto view = component.view();

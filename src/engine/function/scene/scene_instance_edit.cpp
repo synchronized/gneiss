@@ -5,6 +5,7 @@
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_object.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include <algorithm>
 #include <array>
 #include <new>
@@ -75,19 +76,137 @@ error collect_component_overrides(meta::instance source, meta::instance candidat
   return set_prefab_property_override(output, {std::move(key), *after}, *before);
 }
 }
+result<prefab_component_state> scene_instance::capture_component_override(scene_node_id node,
+                                                                          guid type) noexcept try {
+  if (!contains_editable_node(node))
+    return error::invalid_handle;
+  for (auto& prefab : prefab_instances_)
+    for (const auto& member : prefab->nodes_) {
+      if (member.node != node)
+        continue;
+      prefab_component_state state;
+      const auto source = member.address.source_node_uuid;
+      for (const auto& change : prefab->reference_.component_overrides)
+        if (change.source_node_uuid == source && change.type_guid == type) {
+          state.added = change.added;
+          state.removed = !change.added;
+        }
+      for (const auto& change : prefab->reference_.overrides)
+        if (change.key.source_node_uuid == source &&
+            (change.key.type_guid == type || (type == camera_description::type_guid &&
+                                              change.key.type_guid == camera_component_type)))
+          state.properties.push_back(change);
+      if (type == mesh_renderer_description::type_guid) {
+        auto status = capture_mesh_binding(node, state.resources);
+        if (status.failed())
+          return status;
+      }
+      return state;
+    }
+  return error::unsupported;
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+error scene_instance::set_component_override(scene_node_id node, guid type,
+                                             const prefab_component_state& state) noexcept try {
+  if (!contains_editable_node(node))
+    return error::invalid_handle;
+  if ((state.added && state.removed) ||
+      ((state.added || state.removed) && !state.properties.empty()) ||
+      (state.added && state.added->guid() != type))
+    return error::invalid_argument;
+  for (auto& prefab : prefab_instances_)
+    for (const auto& member : prefab->nodes_) {
+      if (member.node != node)
+        continue;
+      const auto source = member.address.source_node_uuid;
+      auto pending = prefab->reference_;
+      std::erase_if(pending.component_overrides, [&](const auto& v) {
+        return v.source_node_uuid == source && v.type_guid == type;
+      });
+      std::erase_if(pending.overrides, [&](const auto& v) {
+        return v.key.source_node_uuid == source &&
+               (v.key.type_guid == type || (type == camera_description::type_guid &&
+                                            v.key.type_guid == camera_component_type));
+      });
+      if (state.added || state.removed)
+        pending.component_overrides.push_back({source, type, state.added});
+      for (const auto& value : state.properties) {
+        if (value.key.source_node_uuid != source ||
+            (value.key.type_guid != type && !(type == camera_description::type_guid &&
+                                              value.key.type_guid == camera_component_type)))
+          return error::invalid_argument;
+        pending.overrides.push_back(value);
+      }
+      prefab_description effective;
+      auto status = prepare_prefab_reference(*prefab->prefab_, pending, effective);
+      if (status.failed())
+        return status;
+      auto target = std::ranges::find(effective.objects, source, &object_description::uuid);
+      if (target == effective.objects.end())
+        return error::not_found;
+      const auto* value = target->components.find(type);
+      if (value) {
+        mesh_renderer renderer{state.resources.mesh, state.resources.material};
+        if (type == mesh_renderer_description::type_guid) {
+          if (!renderer.mesh || !renderer.material) {
+            auto ready = resolve_component_renderer({*value}, loader_);
+            if (!ready)
+              return ready.error();
+            renderer = *ready;
+          }
+          if (!loader_.owns(renderer.mesh) || !loader_.owns(renderer.material))
+            return error::invalid_argument;
+        }
+        status = install_components({native_world_, node, renderer, &loader_}, {*value});
+      } else {
+        auto current = capture_components(native_world_, node);
+        if (!current)
+          return current.error();
+        status = current->find(type) ? remove_component({native_world_, node}, type)
+                                     : error{error::success};
+      }
+      if (status.failed())
+        return status;
+      prefab->reference_ = std::move(pending);
+      return error::success;
+    }
+  return error::unsupported;
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
 error scene_instance::add_component_description(scene_node_id node,
                                                 const component_description& value) noexcept {
   if (!contains_editable_node(node))
     return error::invalid_handle;
-  if (find_ordinary_node(node) == objects_.end())
-    return error::unsupported;
+  if (find_ordinary_node(node) == objects_.end()) {
+    auto current = capture_components(native_world_, node);
+    if (!current)
+      return current.error();
+    if (current->find(value.guid()))
+      return error::invalid_state;
+    return set_component_override(node, value.guid(), {.added = value});
+  }
   return add_component({native_world_, node, {}, &loader_}, value);
 }
 error scene_instance::remove_component_description(scene_node_id node, guid type) noexcept {
   if (!contains_editable_node(node))
     return error::invalid_handle;
-  if (find_ordinary_node(node) == objects_.end())
-    return error::unsupported;
+  if (find_ordinary_node(node) == objects_.end()) {
+    auto current = capture_components(native_world_, node);
+    if (!current)
+      return current.error();
+    if (!current->find(type))
+      return error::not_found;
+    auto state = capture_component_override(node, type);
+    if (!state)
+      return state.error();
+    return set_component_override(node, type, {.removed = !state->added});
+  }
   return remove_component({native_world_, node, {}, &loader_}, type);
 }
 error scene_instance::set_component_description(scene_node_id node,
@@ -110,8 +229,15 @@ error scene_instance::set_component_description(scene_node_id node,
         continue;
       const auto* object = prefab->find_source_object(member.address.source_node_uuid);
       const auto* source = object ? object->components.find(value.guid()) : nullptr;
-      if (!source)
-        return error::not_found;
+      if (!source) {
+        auto state = capture_component_override(node, value.guid());
+        if (!state)
+          return state.error();
+        if (!state->added)
+          return error::not_found;
+        state->added = value;
+        return set_component_override(node, value.guid(), *state);
+      }
       auto before = source->view(), after = value.view();
       if (!before)
         return before.error();

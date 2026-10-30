@@ -99,3 +99,5 @@ Reference 和实现为准。
 - [ADR-095：场景当前状态以编辑 World 为准](ADR-095-scene-data-authority.md)
 
 - [ADR-096：Function 层注册描述与运行组件的转换](ADR-096-scene-component-adapters.md)
+
+- [ADR-097：Prefab 组件结构覆盖与冲突边界](ADR-097-prefab-component-overrides.md)

@@ -50,10 +50,11 @@ public:
   [[nodiscard]] error get_node_info(std::size_t index, node_info& out_info) const noexcept;
   /** 验证候选来源、覆盖与资源是否可提交，不修改 World。 */
   [[nodiscard]] error validate_reload(const prefab_asset_ref& candidate,
-                                      const std::vector<prefab_property_override>& overrides);
+                                      const prefab_reference_description& reference,
+                                      scene_diagnostic* diagnostic = nullptr);
   /** 保持实例根与匹配来源节点身份，提交已经验证的来源修订。 */
   [[nodiscard]] error reload(prefab_asset_ref candidate,
-                             const std::vector<prefab_property_override>& overrides);
+                             const prefab_reference_description& reference);
 
   /** 同步构造的内部步骤；节点直接可见，资源由调用方传入，失败由调用方的子树守卫清理。 */
   [[nodiscard]] error create_root(scene_node_id parent, const math::transform& transform);

@@ -33,6 +33,7 @@ engine::error order_nodes(const std::vector<object_description>& objects,
 class preparation final {
 public:
   const scene_description_inputs& inputs;
+  scene_diagnostic* diagnostic{};
   const std::function<bool()>& cancelled;
   scene_prepare_limits limits;
   prepared_scene_description candidate;
@@ -81,10 +82,10 @@ public:
       }
       found = candidate.prefabs.emplace(instance.prefab->uri, std::move(prefab)).first;
     }
-    if (!instance.prefab->overrides.empty()) {
+    if (!instance.prefab->overrides.empty() || !instance.prefab->component_overrides.empty()) {
       prefab_description effective;
-      result = prepare_prefab_description(*found->second.resource, instance.prefab->overrides,
-                                          effective);
+      result = prepare_prefab_reference(*found->second.resource, *instance.prefab, effective,
+                                        diagnostic);
       if (result.failed())
         return result;
       result = collect(effective.objects);
@@ -161,6 +162,7 @@ error prepare_loaded_scene(const scene_description_inputs& inputs, std::string_v
   output = {};
   diagnostic = {};
   preparation work{.inputs = inputs,
+                   .diagnostic = &diagnostic,
                    .cancelled = cancelled,
                    .limits = limits,
                    .candidate = {},

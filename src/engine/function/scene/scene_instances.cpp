@@ -61,7 +61,7 @@ error commit_object(world& native_world, const object_description& source, stage
 }
 
 [[nodiscard]] bool equal_prefab_instances(const object_description& left,
-                                          const object_description& right) noexcept {
+                                          const object_description& right) {
   if (left.uuid != right.uuid || left.name != right.name || left.parent_uuid != right.parent_uuid ||
       left.prefab->uri != right.prefab->uri ||
       left.transform.translation != right.transform.translation ||
@@ -69,6 +69,17 @@ error commit_object(world& native_world, const object_description& source, stage
       left.transform.scale != right.transform.scale ||
       left.prefab->overrides.size() != right.prefab->overrides.size()) {
     return false;
+  }
+  if (left.prefab->component_overrides.size() != right.prefab->component_overrides.size())
+    return false;
+  for (std::size_t i = 0; i < left.prefab->component_overrides.size(); ++i) {
+    const auto& a = left.prefab->component_overrides[i];
+    const auto& b = right.prefab->component_overrides[i];
+    if (a.source_node_uuid != b.source_node_uuid || a.type_guid != b.type_guid ||
+        bool(a.added) != bool(b.added))
+      return false;
+    if (a.added && !equal_components({*a.added}, {*b.added}))
+      return false;
   }
   for (std::size_t index = 0U; index < left.prefab->overrides.size(); ++index) {
     if (!(left.prefab->overrides[index].key == right.prefab->overrides[index].key) ||
@@ -80,7 +91,7 @@ error commit_object(world& native_world, const object_description& source, stage
 }
 
 [[nodiscard]] bool equal_prefab_references(const scene_description& left,
-                                           const scene_description& right) noexcept {
+                                           const scene_description& right) {
   const auto filter =
       std::views::filter([](const auto& object) { return object.prefab.has_value(); });
   return std::ranges::equal(left.objects | filter, right.objects | filter, equal_prefab_instances);
@@ -365,7 +376,8 @@ engine::error scene_instance::reload(scene_description candidate) {
   return engine::error::success;
 }
 
-engine::error scene_instance::reload_prefab(std::string_view uri, prefab_asset_ref candidate) {
+engine::error scene_instance::reload_prefab(std::string_view uri, prefab_asset_ref candidate,
+                                            scene_diagnostic* diagnostic) {
   std::vector<std::size_t> affected;
   affected.reserve(prefab_instances_.size());
   for (std::size_t index = 0U; index < prefab_instances_.size(); ++index) {
@@ -380,7 +392,7 @@ engine::error scene_instance::reload_prefab(std::string_view uri, prefab_asset_r
   auto result = engine::error::success;
   for (const auto index : affected) {
     result =
-        prefab_instances_[index]->validate_reload(candidate, prefab_reference(index).overrides);
+        prefab_instances_[index]->validate_reload(candidate, prefab_reference(index), diagnostic);
     if (result != engine::error::success) {
       return result;
     }
@@ -393,7 +405,7 @@ engine::error scene_instance::reload_prefab(std::string_view uri, prefab_asset_r
     for (const auto& node : prefab.nodes_)
       if (node.node != prefab.root())
         previous.push_back(node.node);
-    result = prefab.reload(candidate, prefab_reference(index).overrides);
+    result = prefab.reload(candidate, prefab_reference(index));
     if (result.ok()) {
       std::erase_if(objects_, [&](const auto& object) {
         return std::ranges::find(previous, object.node) != previous.end();
@@ -1027,7 +1039,7 @@ engine::error scene_instance::set_camera(scene_node_id node,
       const auto* source = runtime.find_source_object(info.address->source_node_uuid);
       const auto* camera = source ? source->components.get<camera_description>() : nullptr;
       if (!camera)
-        return error::not_found;
+        return set_component_description(node, component_description{desc});
       entity_id active;
       auto status = native_world_.get_active_camera(active);
       if (status.failed() && status != error::not_ready)
@@ -1184,11 +1196,16 @@ engine::error scene_instances::reload_loaded(scene_instance_id instance,
 
 engine::error scene_instances::reload_prefab_loaded(scene_instance_id instance,
                                                     std::string_view uri,
-                                                    prefab_asset_ref candidate) noexcept try {
+                                                    prefab_asset_ref candidate,
+                                                    scene_diagnostic* diagnostic) noexcept try {
+  if (diagnostic)
+    *diagnostic = {};
+  if (!native_world_.is_owner_thread())
+    return error::invalid_state;
   if (!candidate)
     return error::invalid_argument;
   auto* value = instances_.get(instance, resource_type::scene_instance);
-  return value && *value ? (*value)->reload_prefab(uri, std::move(candidate))
+  return value && *value ? (*value)->reload_prefab(uri, std::move(candidate), diagnostic)
                          : error::invalid_handle;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
@@ -1518,6 +1535,26 @@ engine::error scene_instances::validate_editable_node(scene_instance_id instance
                                                                : engine::error::invalid_handle;
 }
 
+result<prefab_component_state>
+scene_instances::capture_component_override(scene_instance_id instance, scene_node_id node,
+                                            guid type) noexcept {
+  if (!native_world_.is_owner_thread())
+    return error::invalid_state;
+  auto* value = instances_.get(instance, resource_type::scene_instance);
+  if (!value || !*value)
+    return error::invalid_handle;
+  return (*value)->capture_component_override(node, type);
+}
+error scene_instances::set_component_override(scene_instance_id instance, scene_node_id node,
+                                              guid type,
+                                              const prefab_component_state& state) noexcept {
+  if (!native_world_.is_owner_thread())
+    return error::invalid_state;
+  auto* value = instances_.get(instance, resource_type::scene_instance);
+  if (!value || !*value)
+    return error::invalid_handle;
+  return (*value)->set_component_override(node, type, state);
+}
 error scene_instances::add_component_description(
     scene_instance_id instance, scene_node_id node,
     const component_description& description) noexcept {

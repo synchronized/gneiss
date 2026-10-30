@@ -400,6 +400,9 @@ mapped_uuid(std::span<const unpack_prefab_uuid_mapping> mappings,
 make_unpacked_scene(yyjson_doc* scene_source, const unpack_prefab_author_request& request,
                     yyjson_doc* prefab_source, yyjson_val* instance, std::size_t instance_index,
                     std::string& output) {
+  if (yyjson_arr_size(yyjson_obj_get(yyjson_obj_get(instance, "prefab"), "component_overrides")) !=
+      0)
+    return gneiss::engine::error::unsupported;
   auto* overrides = yyjson_obj_get(yyjson_obj_get(instance, "prefab"), "overrides");
   std::string projected_prefab_json;
   auto operation = apply_overrides_to_prefab(prefab_source, overrides, projected_prefab_json);
@@ -587,6 +590,9 @@ gneiss::engine::error prepare_apply_prefab(std::string_view scene_json,
     if (target == nullptr || !yyjson_is_arr(overrides)) {
       return gneiss::engine::error::not_found;
     }
+    if (yyjson_arr_size(yyjson_obj_get(yyjson_obj_get(target, "prefab"), "component_overrides")) !=
+        0)
+      return gneiss::engine::error::unsupported;
     if (yyjson_arr_size(overrides) == 0U) {
       return gneiss::engine::error::not_ready;
     }

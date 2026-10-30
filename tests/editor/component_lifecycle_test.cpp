@@ -111,7 +111,7 @@ int main() try {
             .ok());
   check(history.undo().ok());
   check(document.components(node)->get<e::camera_description>() != nullptr);
-  // Prefab 根和子节点不能通过通用增删接口绕开结构覆盖边界。
+  // Prefab 根和子节点的结构编辑现在产生显式覆盖。
   auto prefab = std::make_shared<e::prefab_description>();
   prefab->uuid = e::guid::from_bytes({86, 1});
   prefab->root_uuid = e::guid::from_bytes({86, 2});
@@ -136,14 +136,15 @@ int main() try {
   check(document.synchronize_nodes().ok());
   check(document.add_component_description(
             prefab_node, *e::default_component_description(e::camera_description::type_guid)) ==
-        e::error::unsupported);
-  check(document.remove_component_description(prefab_node, type) == e::error::unsupported);
+        e::error::success);
+  check(document.remove_component_description(prefab_node, type) == e::error::success);
   const auto* child_node = document.find_prefab_source(reference.uuid, child.uuid);
   check(child_node != nullptr);
-  check(document.remove_component_description(child_node->node, type) == e::error::unsupported);
+  const auto child_handle = child_node->node;
+  check(document.remove_component_description(child_handle, type) == e::error::success);
   check(document.add_component_description(
-            child_node->node, *e::default_component_description(
-                                  e::camera_description::type_guid)) == e::error::unsupported);
+            child_handle, *e::default_component_description(e::camera_description::type_guid)) ==
+        e::error::success);
   check(history.clear().ok());
   lifetime = current()->lifetime;
   check(app->scenes()->unload(document.scene_handle()).ok() && lifetime.expired());

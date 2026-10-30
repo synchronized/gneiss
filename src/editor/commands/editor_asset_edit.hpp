@@ -30,6 +30,9 @@ public:
   /** 普通节点及 Prefab 来源节点共用异步入口；目标按稳定作者身份重新定位。 */
   engine::error request(runtime::application&, scene_document&, editor_command_history&,
                         const component_edit_target&, mesh_asset_reference);
+  /** 异步准备来源网格资源后清除实例组件覆盖。 */
+  engine::error request_restore_source(runtime::application&, scene_document&,
+                                       editor_command_history&, const component_edit_target&);
   /** 反射 URI 属性编辑，先校验描述，再复用资源替换请求。 */
   engine::error request_property(runtime::application&, scene_document&, editor_command_history&,
                                  const component_edit_target&, const property_edit&);
@@ -53,11 +56,13 @@ private:
   gneiss::engine::error request_impl(runtime::application& application, scene_document& session,
                                      editor_command_history& history,
                                      const component_edit_target& target, std::string_view name,
-                                     mesh_asset_reference assets, bool creating);
+                                     mesh_asset_reference assets, bool creating,
+                                     bool restoring = false);
   gneiss::engine::error commit_add(runtime::application& application, scene_document& session,
                                    editor_command_history& history);
   mesh_node_creation snapshot_;
-  bool creating_{};
+  bool creating_{}, restoring_{};
+  std::optional<engine::prefab_component_state> prefab_before_{};
   gneiss::engine::error commit(runtime::application& application, scene_document& session,
                                editor_command_history& history);
   gneiss::engine::scene_mesh_binding previous_, next_;

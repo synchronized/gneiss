@@ -46,8 +46,7 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
       }
       const auto lease = prepared.prefabs.at(source.prefab->uri).resource;
       prefab_description effective;
-      auto prepared_status =
-          prepare_prefab_description(*lease, source.prefab->overrides, effective);
+      auto prepared_status = prepare_prefab_reference(*lease, *source.prefab, effective);
       if (prepared_status.failed())
         return prepared_status;
       auto prefab = std::make_unique<prefab_binding>(native_world_, loader_, lease, source.uuid);
