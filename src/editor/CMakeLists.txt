@@ -7,8 +7,6 @@ add_library(
   viewport/transform_gizmo_view.hpp
   panels/author_hierarchy_panel.cpp
   panels/author_hierarchy_panel.hpp
-  panels/author_property_panel.cpp
-  panels/author_property_panel.hpp
   panels/reflected_property_editor.cpp
   panels/reflected_property_editor.hpp
   panels/property_path.hpp
@@ -87,8 +85,6 @@ add_library(
   commands/author_file_save.hpp
   commands/prefab_authoring.cpp
   commands/prefab_authoring.hpp
-  panels/property_inspector_model.cpp
-  panels/property_inspector_model.hpp
   panels/material_editor_model.cpp
   panels/material_editor_model.hpp
   commands/editor_command_history.cpp

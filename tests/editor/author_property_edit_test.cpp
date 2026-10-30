@@ -88,6 +88,13 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
   root.name = "camera";
   root.components.set(e::camera_description{.settings = {1.0F, 0.1F, 100.0F}});
   source->objects.push_back(root);
+  e::object_description child;
+  if (ed::make_editor_uuid(child.uuid).failed())
+    return 52;
+  child.name = "child";
+  child.parent_uuid = source->root_uuid;
+  child.transform.translation.x = 1;
+  source->objects.push_back(child);
   e::object_description author;
   if (ed::make_editor_uuid(author.uuid).failed())
     return 38;
@@ -95,7 +102,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
   author.prefab.emplace();
   author.prefab->uri = "asset://camera.prefab.json";
   gneiss::scene_node_id prefab_root;
-  const std::array<e::scene_mesh_binding, 1> bindings{};
+  const std::array<e::scene_mesh_binding, 2> bindings{};
   if (app.scenes()
           ->instantiate_prefab_ready(session.scene_handle(), author, e::prefab_asset_ref{source},
                                      bindings, false, prefab_root)
@@ -135,6 +142,45 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
   if (overrides(snapshot()) != 1 || prefab_history.undo().failed() || overrides(snapshot()) != 0 ||
       prefab_history.redo().failed() || overrides(snapshot()) != 1)
     return 42;
+  ed::component_edit_target root_transform{.instance_uuid = author.uuid,
+                                           .source_uuid = source->root_uuid,
+                                           .component_type = e::transform_component_type};
+  auto child_transform = root_transform;
+  child_transform.source_uuid = child.uuid;
+  ed::editor_command_history root_history, child_history;
+  ed::property_edit translation{.path = {e::transform_translation_field},
+                                .data = e::value{e::math::vector3{5, 0, 0}}};
+  if (ed::edit_component_description(session, root_history, world, root_transform, translation, 10)
+          .failed() ||
+      overrides(snapshot()) != 1 || root_history.undo().failed() || root_history.redo().failed())
+    return 53;
+  translation.data = e::value{e::math::vector3{3, 0, 0}};
+  if (ed::edit_component_description(session, child_history, world, child_transform, translation,
+                                     11)
+          .failed())
+    return 54;
+  translation.data = e::value{e::math::vector3{6, 0, 0}};
+  if (ed::edit_component_description(session, child_history, world, child_transform, translation,
+                                     11)
+          .failed() ||
+      child_history.size() != 1 || overrides(snapshot()) != 2 ||
+      session.select(ordinary).failed() || child_history.undo().failed() ||
+      overrides(snapshot()) != 1 || child_history.redo().failed() ||
+      source->objects[1].transform.translation.x != 1)
+    return 55;
+  ed::property_edit bad_scale{.path = {e::transform_scale_field},
+                              .data = e::value{e::math::vector3{0, 1, 1}}};
+  if (ed::edit_component_description(session, child_history, world, child_transform, bad_scale,
+                                     12) != e::error::invalid_argument ||
+      child_history.size() != 1 || overrides(snapshot()) != 2)
+    return 56;
+  ed::property_edit restore{.path = {},
+                            .object_type = e::runtime_type_of<e::math::transform>(),
+                            .object = std::make_shared<e::math::transform>(child.transform)};
+  if (ed::edit_component_description(session, child_history, world, child_transform, restore, 0)
+          .failed() ||
+      overrides(snapshot()) != 1 || child_history.undo().failed() || overrides(snapshot()) != 2)
+    return 57;
   auto saved = snapshot();
   // 保存后的描述重新准备和实例化，普通组件与 Prefab 差异均必须恢复。
   e::scene_description_inputs inputs;
@@ -148,7 +194,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
   gneiss::scene_instance_id loaded;
   if (app.scenes()->instantiate_prepared(std::move(prepared), {}, loaded).failed())
     return 44;
-  bool found_ordinary = false, found_prefab = false;
+  bool found_ordinary = false, found_prefab = false, found_child = false;
   std::uint64_t count{};
   if (app.scenes()->get_node_count(loaded, &count).failed())
     return 45;
@@ -157,13 +203,17 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
     if (app.scenes()->get_node_info(loaded, i, node).failed())
       return 46;
     if (node.prefab && node.prefab->instance_uuid == author.uuid) {
-      found_prefab = read(node.entity).fov == 1.3F;
+      if (node.prefab->source_node_uuid == source->root_uuid)
+        found_prefab = read(node.entity).fov == 1.3F && node.local_transform.translation.x == 5;
+      else if (node.prefab->source_node_uuid == child.uuid)
+        found_child = node.local_transform.translation.x == 6;
     } else if (node.uuid == ordinary_uuid) {
       const auto camera = read(node.entity);
-      found_ordinary = camera.near == 200.0F && camera.far == 400.0F;
+      found_ordinary =
+          camera.near == 200.0F && camera.far == 400.0F && node.local_transform.translation.x == 6;
     }
   }
-  if (app.scenes()->unload(loaded).failed() || !found_ordinary || !found_prefab)
+  if (app.scenes()->unload(loaded).failed() || !found_ordinary || !found_prefab || !found_child)
     return 47;
   // 移除后不把旧历史应用到另一个节点。
   if (app.scenes()->remove_prefab_instance(session.scene_handle(), author.uuid).failed() ||
@@ -179,7 +229,6 @@ int main() try {
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::engine::world* world_handle = nullptr;
   scene_document session;
-  property_inspector_model inspector;
   editor_command_history history;
   scene_node_id first;
   scene_node_id second;
@@ -188,14 +237,10 @@ int main() try {
       (world_handle = app->native_world()) == nullptr ||
       session.create_empty(*app, world_handle).failed() ||
       session.create_node("first", {}, first).failed() ||
-      session.create_node("second", {}, second).failed() || session.select(first).failed() ||
-      inspector.initialize().failed()) {
+      session.create_node("second", {}, second).failed() || session.select(first).failed()) {
     return 1;
   }
   const auto entity = session.selected_node()->entity;
-  if (inspector.refresh(world_handle, entity).failed()) {
-    return 2;
-  }
   const auto is_x = [&](float expected) {
     gneiss::engine::math::transform local{};
     return app->native_world()->entity_get_local_transform(entity, local) ==
@@ -203,16 +248,11 @@ int main() try {
            std::abs(local.translation[0] - expected) < 0.0001F;
   };
   const auto edit_x = [&](float next, editor_command_history& target, std::uint64_t serial) {
-    const auto& component = inspector.components().front();
-    const auto found = std::ranges::find(
-        component.properties, gneiss::engine::transform_translation_field, &inspector_property::id);
-    if (found == component.properties.end()) {
-      return gneiss::engine::error{gneiss::engine::error::not_found};
-    }
-    auto value = found->value;
-    std::get<gneiss::engine::math::vector3>(value.payload).x = next;
-    return edit_author_property(session, target, inspector, world_handle, component, *found, value,
-                                serial);
+    component_edit_target identity{.object_uuid = session.selected_node()->uuid,
+                                   .component_type = gneiss::engine::transform_component_type};
+    property_edit edit{.path = {gneiss::engine::transform_translation_field},
+                       .data = gneiss::engine::value{gneiss::engine::math::vector3{next, 0, 0}}};
+    return edit_component_description(session, target, *world_handle, identity, edit, serial);
   };
   // 同一次拖拽合并，新的交互形成独立历史；临时输入不被命令借用。
   if (edit_x(2.0F, history, 1U).failed() || edit_x(4.0F, history, 1U).failed() ||
@@ -221,13 +261,12 @@ int main() try {
     return 3;
   }
   // 选择改变后，撤销/重做必须仍定位原作者 UUID。
-  if (session.select(second).failed() ||
-      inspector.refresh(world_handle, session.selected_node()->entity).failed() ||
-      history.undo().failed() || !is_x(4.0F) || history.undo().failed() || !is_x(0.0F) ||
-      history.redo().failed() || !is_x(4.0F) || history.redo().failed() || !is_x(6.0F)) {
+  if (session.select(second).failed() || history.undo().failed() || !is_x(4.0F) ||
+      history.undo().failed() || !is_x(0.0F) || history.redo().failed() || !is_x(4.0F) ||
+      history.redo().failed() || !is_x(6.0F)) {
     return 4;
   }
-  if (session.select(first).failed() || inspector.refresh(world_handle, entity).failed()) {
+  if (session.select(first).failed()) {
     return 5;
   }
   editor_command_history no_capacity{0U};
@@ -235,16 +274,12 @@ int main() try {
       no_capacity.can_undo()) {
     return 6;
   }
-  const auto& component = inspector.components().front();
-  const auto scale = std::ranges::find(component.properties, gneiss::engine::transform_scale_field,
-                                       &inspector_property::id);
-  if (scale == component.properties.end()) {
-    return 7;
-  }
-  auto invalid = scale->value;
-  std::get<gneiss::engine::math::vector3>(invalid.payload).x = 0.0F;
-  if (edit_author_property(session, history, inspector, world_handle, component, *scale, invalid,
-                           4U) != gneiss::engine::error::invalid_argument ||
+  component_edit_target identity{.object_uuid = session.selected_node()->uuid,
+                                 .component_type = gneiss::engine::transform_component_type};
+  property_edit invalid{.path = {gneiss::engine::transform_scale_field},
+                        .data = gneiss::engine::value{gneiss::engine::math::vector3{0, 1, 1}}};
+  if (edit_component_description(session, history, *world_handle, identity, invalid, 4) !=
+          gneiss::engine::error::invalid_argument ||
       history.size() != 2U) {
     return 8;
   }

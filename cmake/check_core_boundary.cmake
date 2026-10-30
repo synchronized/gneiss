@@ -155,7 +155,7 @@ foreach(source IN LISTS sources)
       content MATCHES "sdk::|gneiss_type_registry_[a-z_]+[(]")
     message(FATAL_ERROR "编辑器内部不得使用 SDK 所有者或绕回 Registry C ABI：${source}")
   endif()
-  if(source MATCHES "/src/editor/(panels/property_inspector_model|commands/author_property_edit|panels/author_property_panel|viewport/editor_rotation_math)[.](cpp|hpp)$" AND
+  if(source MATCHES "/src/editor/(commands/author_property_edit|panels/reflected_property_editor|viewport/editor_rotation_math)[.](cpp|hpp)$" AND
       content MATCHES "gneiss_property_|GNEISS_PROPERTY_|engine/core/meta/registration[.]hpp|[.][.]/engine/")
     message(FATAL_ERROR "编辑属性链不得泄漏 C 属性布局或绕过模块契约：${source}")
   endif()

@@ -3,7 +3,6 @@
 
 #include "engine/function/meta_registration.hpp"
 #include "engine/resource/scene/scene_description.hpp"
-#include "panels/author_property_panel.hpp"
 #include "panels/reflected_property_editor.hpp"
 
 #include <imgui.h>
@@ -18,28 +17,13 @@ int main() try {
   auto camera_view = gneiss::engine::meta::instance::from(camera);
   if (!camera_view)
     return 7;
-  inspector_component component;
-  component.name = "Transform";
-  inspector_property property;
-  property.id = gneiss::engine::meta::property_id{1U};
-  property.name = "Rotation";
-  property.kind = gneiss::engine::value_kind::quaternion;
-  property.capabilities = gneiss::engine::meta::property_capabilities::writable;
-  property.value.payload = gneiss::engine::math::quaternion_xyzw(0.0F, 0.0F, 0.0F, 1.0F);
-  component.properties.push_back(property);
-  std::array components{component};
-  unsigned writes = 0U;
-  std::uint64_t serial = 0U;
+  gneiss::engine::math::transform transform;
+  auto transform_view = gneiss::engine::meta::instance::from(transform);
+  if (!transform_view)
+    return 8;
+  unsigned writes = 0;
+  std::uint64_t serial = 0;
   gneiss::engine::error error = gneiss::engine::error::success;
-  const author_property_actions actions{
-      .context = &writes,
-      .write =
-          [](void* context, const inspector_component&, const inspector_property&,
-             const gneiss::engine::value&, std::uint64_t) {
-            ++*static_cast<unsigned*>(context);
-            return gneiss::engine::error{gneiss::engine::error::success};
-          },
-  };
   ImGui::CreateContext();
   auto& io = ImGui::GetIO();
   io.IniFilename = nullptr;
@@ -53,7 +37,8 @@ int main() try {
     ImGui::NewFrame();
     ImGui::SetNextWindowSize({800.0F, 500.0F});
     ImGui::Begin("Inspector");
-    draw_author_properties(components, serial, error, actions);
+    if (draw_reflected_properties(*transform_view, "Transform", serial, error))
+      ++writes;
     const std::array readonly{gneiss::engine::meta::property_id{4}};
     if (draw_reflected_properties(*camera_view, "Camera", serial, error, readonly))
       ++writes;
@@ -63,7 +48,7 @@ int main() try {
   draw();
   const bool valid = error.ok() && ImGui::GetDrawData()->TotalVtxCount > 0;
   // 非法四元数只报告错误，不调用写入或变更模型；不需要原生窗口。
-  std::get<gneiss::engine::math::quaternion>(components[0].properties[0].value.payload).w = 0.0F;
+  transform.rotation.w = 0.0F;
   draw();
   const bool invalid = error == gneiss::engine::error::invalid_argument;
   ImGui::DestroyContext();

@@ -613,3 +613,5 @@
 
 - [编辑 Camera 组件描述](guides/component-editor.md)
 - [PLAN-074：Camera 描述编辑闭环](plans/PLAN-074-camera-description-editor.md)
+
+- [PLAN-075：统一 Transform 属性编辑](plans/PLAN-075-transform-description-editor.md)

@@ -24,11 +24,9 @@
 #include "imgui_adapter.hpp"
 #include "native_dialog.hpp"
 #include "panels/author_hierarchy_panel.hpp"
-#include "panels/author_property_panel.hpp"
 #include "panels/console_panel.hpp"
 #include "panels/document_action_panel.hpp"
 #include "panels/material_editor_panel.hpp"
-#include "panels/property_inspector_model.hpp"
 #include "panels/reflected_property_editor.hpp"
 #include "panels/runtime_panels.hpp"
 #include "project_manager.hpp"
@@ -113,13 +111,11 @@ struct editor_state {
   std::chrono::steady_clock::time_point smoke_scene_started{};
   std::chrono::steady_clock::time_point smoke_started{std::chrono::steady_clock::now()};
   gneiss::editor::document_editing editing;
-  gneiss::editor::property_inspector_model inspector;
   gneiss::editor::material_editor_model material_editor;
   bool material_editor_visible = false;
   std::uint64_t material_edit_serial = 0;
   gneiss::engine::error material_edit_status = gneiss::engine::error::success;
   gneiss::engine::world* world = nullptr;
-  gneiss::entity_id inspected_entity;
   gneiss::editor::runtime_scene_selection runtime_selection;
   gneiss::engine::error inspector_error = gneiss::engine::error::success;
   gneiss::engine::error history_error = gneiss::engine::error::success;
@@ -799,8 +795,6 @@ gneiss::engine::error perform_document_action(editor_state& state,
   if (operation == gneiss::engine::error::success &&
       action == gneiss::editor::document_action::new_scene) {
     state.editing.history().clear();
-    state.inspector.clear();
-    state.inspected_entity = {};
   }
   return operation;
 }
@@ -916,39 +910,44 @@ make_runtime_inspector_actions(editor_state& state,
               }};
 }
 
-void draw_reflected_properties(editor_state& state) {
-  gneiss::editor::draw_author_properties(
-      state.inspector.components(), state.property_edit_serial, state.inspector_error,
-      {
-          .context = &state,
-          .write =
-              [](void* context, const gneiss::editor::inspector_component& component,
-                 const gneiss::editor::inspector_property& property,
-                 const gneiss::engine::value& value, std::uint64_t serial) {
-                auto& editor = *static_cast<editor_state*>(context);
-                return gneiss::editor::edit_author_property(
-                    editor.editing.document(), editor.editing.history(), editor.inspector,
-                    editor.world, component, property, value, serial);
-              },
-      },
-      false);
-}
-
-void draw_camera_description(editor_state& state) {
+void draw_component_descriptions(editor_state& state) {
   using namespace gneiss;
   using namespace gneiss::engine;
   using namespace gneiss::editor;
   component_edit_target identity;
   entity_id entity;
+  scene_node_id node_id;
   if (const auto* node = state.editing.document().selected_prefab_node()) {
     identity.instance_uuid = node->instance_uuid;
     identity.source_uuid = node->source_node_uuid;
     entity = node->entity;
+    node_id = node->node;
   } else if (const auto* node = state.editing.document().selected_node()) {
     identity.object_uuid = node->uuid;
     entity = node->entity;
+    node_id = node->node;
   } else
     return;
+  identity.component_type = transform_component_type;
+  math::transform transform;
+  auto transform_status = state.world->node_get_local_transform(node_id, transform);
+  if (transform_status.failed()) {
+    state.inspector_error = transform_status;
+    return;
+  }
+  auto transform_view = meta::instance::from(transform);
+  if (!transform_view) {
+    state.inspector_error = transform_view.error();
+    return;
+  }
+  auto transform_edit = gneiss::editor::draw_reflected_properties(
+      *transform_view, "Transform", state.property_edit_serial, state.inspector_error);
+  if (transform_edit)
+    state.inspector_error =
+        edit_component_description(state.editing.document(), state.editing.history(), *state.world,
+                                   identity, *transform_edit, state.property_edit_serial);
+  if (state.inspector_error.failed())
+    ImGui::TextWrapped("%s", state.inspector_error.message().data());
   identity.component_type = camera_description::type_guid;
   camera_description description;
   auto status = state.world->entity_get_camera(entity, description.settings);
@@ -1535,8 +1534,6 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
     }
 #endif
     if (scene_changed) {
-      state.inspector.clear();
-      state.inspected_entity = {};
       state.gizmo_drag = {};
       state.gizmo_wait_release = false;
       gneiss::editor::reset_transform_gizmo();
@@ -2587,15 +2584,11 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
     if (const auto* runtime_selected = gneiss::editor::selected_runtime_node(
             state.runtime.scene_mirror(), state.runtime_selection);
         runtime_selected != nullptr) {
-      state.inspector.clear();
-      state.inspected_entity = {};
       state.inspector_error = gneiss::engine::error::success;
       gneiss::editor::draw_runtime_inspector(
           *runtime_selected, make_runtime_inspector_actions(state, *runtime_selected));
     } else if (const auto* prefab = state.editing.document().selected_prefab_node();
                prefab != nullptr) {
-      state.inspector.clear();
-      state.inspected_entity = {};
       state.inspector_error = gneiss::engine::error::success;
       ImGui::TextUnformatted(prefab->is_instance_root ? "Prefab Instance" : "Prefab Source Node");
       ImGui::Text("Name: %s", prefab->display_name.c_str());
@@ -2639,58 +2632,6 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
                             prefab->source_local_transform.scale[1],
                             prefab->source_local_transform.scale[2]);
         ImGui::Separator();
-        auto edited = prefab->local_transform;
-        const auto previous = prefab->local_transform;
-        std::array<float, 3> rotation{};
-        const gneiss::engine::math::quaternion quaternion = gneiss::engine::math::quaternion_xyzw(
-            edited.rotation[0], edited.rotation[1], edited.rotation[2], edited.rotation[3]);
-        (void)gneiss::editor::quaternion_to_euler_degrees(quaternion, rotation);
-        bool changed = ImGui::DragFloat3(
-            "Translation", gneiss::engine::math::components(edited.translation).data(), 0.05F);
-        if (ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°")) {
-          gneiss::engine::math::quaternion converted{};
-          if (gneiss::editor::euler_degrees_to_quaternion(rotation, converted) ==
-              gneiss::engine::error::success) {
-            edited.rotation[0] = converted.x;
-            edited.rotation[1] = converted.y;
-            edited.rotation[2] = converted.z;
-            edited.rotation[3] = converted.w;
-            changed = true;
-          }
-        }
-        changed = ImGui::DragFloat3("Scale", gneiss::engine::math::components(edited.scale).data(),
-                                    0.05F) ||
-                  changed;
-        if (changed) {
-          const auto* current =
-              state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-          state.history_error =
-              current == nullptr
-                  ? gneiss::engine::error::not_found
-                  : state.editing.document().set_local_transform(current->node, edited);
-          if (state.history_error == gneiss::engine::error::success) {
-            state.history_error = state.editing.history().record(
-                {.label = "变换 Prefab 来源节点",
-                 .undo =
-                     [&state, instance_uuid, source_uuid, previous] {
-                       const auto* node =
-                           state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-                       return node == nullptr ? gneiss::engine::error::not_found
-                                              : state.editing.document().set_local_transform(
-                                                    node->node, previous);
-                     },
-                 .redo =
-                     [&state, instance_uuid, source_uuid, edited] {
-                       const auto* node =
-                           state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-                       return node == nullptr ? gneiss::engine::error::not_found
-                                              : state.editing.document().set_local_transform(
-                                                    node->node, edited);
-                     },
-                 .merge_key = "prefab-source-transform:" + instance_uuid.string() + ":" +
-                              source_uuid.string()});
-          }
-        }
         const auto restore_field = [&](const char* label, std::uint32_t flag,
                                        std::uint32_t field_id) {
           ImGui::BeginDisabled((prefab->override_flags & flag) == 0U);
@@ -2699,44 +2640,18 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
           if (!requested) {
             return;
           }
-          const auto* current =
-              state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-          gneiss::engine::math::transform restored_previous{};
-          state.history_error = current == nullptr
-                                    ? gneiss::engine::error::not_found
-                                    : state.editing.document().restore_prefab_transform_field(
-                                          current->node, field_id, restored_previous);
-          current = state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-          if (state.history_error != gneiss::engine::error::success || current == nullptr) {
-            return;
-          }
-          const auto restored = current->local_transform;
-          state.history_error = state.editing.history().record(
-              {.label = "恢复 Prefab 来源字段",
-               .undo =
-                   [&state, instance_uuid, source_uuid, restored_previous] {
-                     const auto* node =
-                         state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-                     return node == nullptr ? gneiss::engine::error::not_found
-                                            : state.editing.document().set_local_transform(
-                                                  node->node, restored_previous);
-                   },
-               .redo =
-                   [&state, instance_uuid, source_uuid, restored] {
-                     const auto* node =
-                         state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-                     return node == nullptr ? gneiss::engine::error::not_found
-                                            : state.editing.document().set_local_transform(
-                                                  node->node, restored);
-                   },
-               .merge_key = {}});
-          if (state.history_error != gneiss::engine::error::success) {
-            if (const auto* node =
-                    state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-                node != nullptr) {
-              (void)state.editing.document().set_local_transform(node->node, restored_previous);
-            }
-          }
+          using namespace gneiss::engine;
+          const auto identity =
+              gneiss::editor::component_edit_target{.instance_uuid = instance_uuid,
+                                                    .source_uuid = source_uuid,
+                                                    .component_type = transform_component_type};
+          auto value = meta::read_property(transform_component_type, meta::property_id{field_id},
+                                           &prefab->source_local_transform);
+          state.history_error =
+              value ? gneiss::editor::edit_component_description(
+                          state.editing.document(), state.editing.history(), *state.world, identity,
+                          {.path = {meta::property_id{field_id}}, .data = std::move(*value)}, 0)
+                    : value.error();
         };
         restore_field(
             "Restore Translation",
@@ -2756,40 +2671,17 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
         ImGui::BeginDisabled(!has_override);
         const bool restore_all = ImGui::Button("Restore All Transform");
         ImGui::EndDisabled();
-        if (restore_all) {
-          gneiss::engine::math::transform all_previous{};
-          state.history_error =
-              state.editing.document().restore_prefab_transform(current->node, all_previous);
-          current = state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-          if (state.history_error == gneiss::engine::error::success && current != nullptr) {
-            const auto restored = current->local_transform;
-            state.history_error = state.editing.history().record(
-                {.label = "恢复 Prefab 来源变换",
-                 .undo =
-                     [&state, instance_uuid, source_uuid, all_previous] {
-                       const auto* node =
-                           state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-                       return node == nullptr ? gneiss::engine::error::not_found
-                                              : state.editing.document().set_local_transform(
-                                                    node->node, all_previous);
-                     },
-                 .redo =
-                     [&state, instance_uuid, source_uuid, restored] {
-                       const auto* node =
-                           state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-                       return node == nullptr ? gneiss::engine::error::not_found
-                                              : state.editing.document().set_local_transform(
-                                                    node->node, restored);
-                     },
-                 .merge_key = {}});
-            if (state.history_error != gneiss::engine::error::success) {
-              if (const auto* node =
-                      state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-                  node != nullptr) {
-                (void)state.editing.document().set_local_transform(node->node, all_previous);
-              }
-            }
-          }
+        if (restore_all && current) {
+          using namespace gneiss::engine;
+          state.history_error = gneiss::editor::edit_component_description(
+              state.editing.document(), state.editing.history(), *state.world,
+              {.instance_uuid = instance_uuid,
+               .source_uuid = source_uuid,
+               .component_type = transform_component_type},
+              {.path = {},
+               .object_type = runtime_type_of<math::transform>(),
+               .object = std::make_shared<math::transform>(current->source_local_transform)},
+              0);
         }
       } else {
         const auto instance_uuid = prefab->instance_uuid;
@@ -2835,61 +2727,9 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
           }
           ImGui::EndPopup();
         }
-        auto edited = prefab->local_transform;
-        std::array<float, 3> rotation{};
-        const gneiss::engine::math::quaternion quaternion = gneiss::engine::math::quaternion_xyzw(
-            edited.rotation[0], edited.rotation[1], edited.rotation[2], edited.rotation[3]);
-        (void)gneiss::editor::quaternion_to_euler_degrees(quaternion, rotation);
-        const auto previous = prefab->local_transform;
-        bool changed = ImGui::DragFloat3(
-            "Translation", gneiss::engine::math::components(edited.translation).data(), 0.05F);
-        if (ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°")) {
-          gneiss::engine::math::quaternion converted{};
-          if (gneiss::editor::euler_degrees_to_quaternion(rotation, converted) ==
-              gneiss::engine::error::success) {
-            edited.rotation[0] = converted.x;
-            edited.rotation[1] = converted.y;
-            edited.rotation[2] = converted.z;
-            edited.rotation[3] = converted.w;
-            changed = true;
-          }
-        }
-        changed = ImGui::DragFloat3("Scale", gneiss::engine::math::components(edited.scale).data(),
-                                    0.05F) ||
-                  changed;
-        if (changed) {
-          const auto* current = state.editing.document().find_prefab_root(instance_uuid);
-          state.history_error =
-              current == nullptr
-                  ? gneiss::engine::error::not_found
-                  : state.editing.document().set_local_transform(current->node, edited);
-          if (state.history_error == gneiss::engine::error::success) {
-            state.history_error = state.editing.history().record(
-                {.label = "变换 Prefab 实例",
-                 .undo =
-                     [&state, instance_uuid, previous] {
-                       const auto* node = state.editing.document().find_prefab_root(instance_uuid);
-                       return node == nullptr ? gneiss::engine::error::not_found
-                                              : state.editing.document().set_local_transform(
-                                                    node->node, previous);
-                     },
-                 .redo =
-                     [&state, instance_uuid, edited] {
-                       const auto* node = state.editing.document().find_prefab_root(instance_uuid);
-                       return node == nullptr ? gneiss::engine::error::not_found
-                                              : state.editing.document().set_local_transform(
-                                                    node->node, edited);
-                     },
-                 .merge_key = "prefab-transform:" + instance_uuid.string()});
-          }
-        }
       }
     } else if (const auto* selected = state.editing.document().selected_node();
                selected != nullptr) {
-      if (state.inspected_entity != selected->entity) {
-        state.inspector_error = state.inspector.refresh(state.world, selected->entity);
-        state.inspected_entity = selected->entity;
-      }
       ImGui::Text("Name: %s", selected->display_name.c_str());
       ImGui::Text("UUID: %s", selected->uuid.string().c_str());
       ImGui::Text("Entity: %llu", static_cast<unsigned long long>(selected->entity.get()));
@@ -2901,7 +2741,6 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
       const auto has_mesh =
           (selected->component_flags &
            static_cast<std::uint32_t>(gneiss::scene_node_components::mesh_renderer)) != 0U;
-      bool components_changed = false;
       if (ImGui::Button(has_camera ? "Remove Camera" : "Add Camera")) {
         if (has_camera) {
           auto previous = selected->camera;
@@ -2958,8 +2797,6 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
             }
           }
         }
-        state.inspected_entity = {};
-        components_changed = state.history_error == gneiss::engine::error::success;
       }
       ImGui::SameLine();
       ImGui::BeginDisabled(!has_mesh);
@@ -2968,25 +2805,18 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
       if (remove_mesh_requested) {
         state.history_error = state.editing.assets().request_remove(
             *state.application, state.editing.document(), state.editing.history(), uuid);
-        state.inspected_entity = {};
-        components_changed = state.history_error == gneiss::engine::error::success;
       }
       if (!has_mesh) {
         ImGui::TextDisabled("Select a mesh in Asset Browser to add Mesh Renderer");
       }
       ImGui::Separator();
-      if (!components_changed) {
-        draw_reflected_properties(state);
-      }
     } else {
-      state.inspector.clear();
-      state.inspected_entity = {};
       state.inspector_error = gneiss::engine::error::success;
       ImGui::TextUnformatted("No node is selected");
     }
     if (!gneiss::editor::selected_runtime_node(state.runtime.scene_mirror(),
                                                state.runtime_selection))
-      draw_camera_description(state);
+      draw_component_descriptions(state);
     ImGui::End();
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
     draw_asset_browser(state);
@@ -3163,10 +2993,8 @@ int run_editor(int argc, char** argv) {
                    static_cast<int>(message.size()), message.data());
     }
   }
-  operation = state.inspector.initialize();
-  if (operation == gneiss::engine::error::success) {
-    state.world = application->native_world();
-  }
+  state.world = application->native_world();
+  operation = state.world ? gneiss::engine::error::success : gneiss::engine::error::invalid_state;
   if (operation != gneiss::engine::error::success) {
     report_startup_failure("Editor World/Inspector 初始化", operation);
   } else {

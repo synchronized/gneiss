@@ -49,7 +49,7 @@ Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、�
 控制台面板由 `console_panel.hpp/.cpp` 绘制，借用日志模型及进程展示值；清空请求通过宿主同步回调执行。
 作者层级树由 `author_hierarchy_panel.hpp/.cpp` 读取节点快照，拖拽和菜单请求在整棵树绘制后处理，
 避免递归期间刷新节点数组。
-作者属性 Inspector 由 `author_property_panel.hpp/.cpp` 绘制，属性写入与撤销事务归
+作者属性 Inspector 由 `reflected_property_editor.hpp/.cpp` 绘制，属性写入与撤销事务归
 `author_property_edit.hpp/.cpp` 所在的会话目标；Host 只提供同步连接，不把应用状态交给 UI 实现。
 Runtime 层级树和属性面板由 `runtime_panels.hpp/.cpp` 绘制，只读取 Editor 模型；
 Host 在每次绘制时提供同步属性提交、回写作者场景与结果报告回调，协议值只在宿主边界适配。
@@ -179,7 +179,7 @@ Engine 公共接口统一位于 `include/gneiss/engine/`，基础类型位于其
 | Scene 私有实例 | `src/engine/function/scene/scene_instance.hpp` | 维护节点、作者描述及所使用资源版本的租约，不向宿主提供头文件 |
 | Prefab 实例操作 | `src/engine/function/scene/scene_instances.hpp` | 消费已准备资源同步创建；直接删除和替换，不使用隐藏候选或发布组；见 [ADR-088](../decisions/ADR-088-prefab-direct-instantiation.md) |
 | 作者文档 | `src/editor/documents/scene_document.hpp` | 借用 Application、拥有文档的场景实例 ID；关闭时卸载，不能晚于 Application 销毁 |
-| 反射属性编辑 | `src/editor/panels/property_inspector_model.hpp`、`src/host/runtime/runtime_property_editor.hpp` | 直接持有同一内部 Registry 实现；字段回调仍使用已定义的目标协议 |
+| 反射属性编辑 | `src/editor/commands/author_property_edit.hpp`、`src/host/runtime/runtime_property_editor.hpp` | 作者面板使用默认 Meta 的借用视图与稳定属性路径；运行时调试保持 World 属性协议 |
 | 外部调用 | `src/engine/api/`、`include/gneiss/engine/` | C 适配转换参数并委托，公共 C++ 头仅提供值类型与转换 |
 
 Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真实 ABI 边界保留借用桥。
