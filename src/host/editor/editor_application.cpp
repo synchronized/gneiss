@@ -120,6 +120,7 @@ struct editor_state {
   gneiss::editor::runtime_scene_selection runtime_selection;
   gneiss::engine::error inspector_error = gneiss::engine::error::success;
   gneiss::engine::error history_error = gneiss::engine::error::success;
+  gneiss::engine::scene_diagnostic prefab_author_diagnostic;
   gneiss::engine::error prefab_author_result = gneiss::engine::error::success;
   bool prefab_author_attempted = false;
   bool prefab_author_busy = false;
@@ -521,12 +522,22 @@ record_author_documents(editor_state& state, std::string label,
                                                 output.content);
 }
 
+bool has_prefab_overrides(editor_state& state, gneiss::engine::guid instance) {
+  gneiss::engine::object_description author;
+  gneiss::engine::prefab_asset_ref source;
+  const auto status = state.application->scenes()->capture_prefab_header(
+      state.editing.document().scene_handle(), instance, author, source);
+  return status.ok() && author.prefab &&
+         (!author.prefab->overrides.empty() || !author.prefab->component_overrides.empty());
+}
+
 [[nodiscard]] gneiss::engine::error
 apply_selected_prefab(editor_state& state, gneiss::engine::guid instance_uuid,
                       gneiss::engine::guid source_uuid,
                       std::optional<std::string> source_content = {}) {
   const auto* selected = state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-  if (selected == nullptr || selected->override_flags == 0U || state.runtime.is_busy()) {
+  if (selected == nullptr || !has_prefab_overrides(state, instance_uuid) ||
+      state.runtime.is_busy()) {
     return gneiss::engine::error::invalid_state;
   }
   if (!source_content) {
@@ -547,7 +558,7 @@ apply_selected_prefab(editor_state& state, gneiss::engine::guid instance_uuid,
                                                       .prefab_path = prefab.relative_path,
                                                       .prefab_uri = selected->prefab_uri,
                                                       .instance_uuid = instance_uuid},
-                                                     plan);
+                                                     plan, &state.prefab_author_diagnostic);
   }
   if (operation == gneiss::engine::error::success) {
     const author_selection selection{.kind = author_selection_kind::prefab_source,
@@ -607,7 +618,7 @@ unpack_selected_prefab(editor_state& state, gneiss::engine::guid instance_uuid,
                                                        .prefab_uri = prefab_uri,
                                                        .instance_uuid = instance_uuid,
                                                        .node_mappings = mappings},
-                                                      changes);
+                                                      changes, &state.prefab_author_diagnostic);
   }
   if (operation == gneiss::engine::error::success) {
     operation = record_author_documents(state, "解包 Prefab 实例", std::move(changes),
@@ -2697,9 +2708,14 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
         ImGui::Text("Source UUID: %s", prefab->source_node_uuid.string().c_str());
       }
       ImGui::Text("Prefab: %s", prefab->prefab_uri.c_str());
+      if (!state.prefab_author_diagnostic.path.empty()) {
+        ImGui::TextWrapped("%s", state.prefab_author_diagnostic.message.c_str());
+        ImGui::TextWrapped("%s", state.prefab_author_diagnostic.path.c_str());
+      }
       ImGui::Text("Entity: %llu", static_cast<unsigned long long>(prefab->entity.get()));
-      if (!prefab->is_instance_root) {
-        ImGui::BeginDisabled(prefab->override_flags == 0U || state.runtime.is_busy());
+      {
+        ImGui::BeginDisabled(!has_prefab_overrides(state, prefab->instance_uuid) ||
+                             state.runtime.is_busy());
         if (ImGui::Button("Apply Overrides to Prefab...")) {
           state.pending_prefab_author_action = prefab_author_action::apply;
           state.pending_prefab_instance_uuid = prefab->instance_uuid;

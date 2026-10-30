@@ -617,4 +617,5 @@
 - [PLAN-075：统一 Transform 属性编辑](plans/PLAN-075-transform-description-editor.md)
 
 - [Prefab 组件结构覆盖计划](plans/PLAN-086-prefab-component-overrides.md)
+- [统一 Prefab Apply 与 Unpack](plans/PLAN-087-prefab-apply-unpack.md)
 - [Prefab 组件结构覆盖决策](decisions/ADR-097-prefab-component-overrides.md)

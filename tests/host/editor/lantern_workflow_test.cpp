@@ -152,7 +152,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
       *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000010"),
       *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000020"),
       *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000030")};
-  if (session.nodes().size() != 7U || session.prefab_nodes().size() != 15U ||
+  if (session.nodes().size() != 7U || session.prefab_nodes().size() != 12U ||
       count_prefab_name(session, "Lantern Glass") != 3U ||
       std::ranges::any_of(session.nodes(), [](const auto& current) {
         return current.display_name.empty() || current.display_name == current.uuid.string();
@@ -227,7 +227,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   gneiss::editor::scene_document reloaded;
   if (gneiss::test_support::open_document(reloaded, *application, world, project.startup_scene) !=
           gneiss::engine::error::success ||
-      reloaded.find_node(snapshot.uuid) == nullptr || reloaded.prefab_nodes().size() != 15U ||
+      reloaded.find_node(snapshot.uuid) == nullptr || reloaded.prefab_nodes().size() != 12U ||
       count_prefab_name(reloaded, "Lantern Glass Updated") != 3U) {
     return 12;
   }

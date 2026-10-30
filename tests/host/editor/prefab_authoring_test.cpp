@@ -141,8 +141,8 @@ verify_documents(const std::vector<gneiss::editor::author_document_change>& chan
       yyjson_obj_get(yyjson_obj_get(yyjson_arr_get(instances, 1U), "prefab"), "overrides");
   return yyjson_get_num(yyjson_arr_get(translation, 0U)) == 7.0 &&
          yyjson_arr_size(first_overrides) == 0U && yyjson_arr_size(second_overrides) == 1U &&
-         yyjson_obj_get(source, "unknown_source") != nullptr &&
-         yyjson_obj_get(scene_root, "unknown_scene") != nullptr;
+         yyjson_obj_get(source, "unknown_source") == nullptr &&
+         yyjson_obj_get(scene_root, "unknown_scene") == nullptr;
 }
 
 [[nodiscard]] bool
@@ -170,8 +170,8 @@ verify_unpack_change(const std::vector<gneiss::editor::author_document_change>& 
          std::string_view{yyjson_get_str(source_child_parent)} ==
              "50000000-0000-4000-8000-000000000002" &&
          yyjson_get_num(yyjson_arr_get(translation, 0U)) == 7.0 &&
-         yyjson_obj_get(source_child, "unknown_source") != nullptr &&
-         yyjson_obj_get(root, "unknown_scene") != nullptr;
+         yyjson_obj_get(source_child, "unknown_source") == nullptr &&
+         yyjson_obj_get(root, "unknown_scene") == nullptr;
 }
 
 [[nodiscard]] bool
@@ -301,13 +301,14 @@ int main() try {
   auto structural = std::string(apply_scene_json);
   structural.insert(
       structural.find(R"("overrides":)"),
-      R"("component_overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","$type_guid":"11a0217a-2eab-4f61-8011-4aa26e010101"}],)");
-  if (gneiss::editor::prepare_apply_prefab(structural, apply_prefab_json, apply_request,
-                                           apply_plan) != gneiss::engine::error::unsupported ||
-      !apply_plan.changes.empty() ||
+      R"("component_overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002","$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101"}],)");
+  if (gneiss::editor::prepare_apply_prefab(structural, apply_prefab_json, apply_request, apply_plan)
+          .failed() ||
+      apply_plan.changes.size() != 2 ||
       gneiss::editor::prepare_unpack_prefab(structural, apply_prefab_json, unpack_request,
-                                            unpack_changes) != gneiss::engine::error::unsupported ||
-      !unpack_changes.empty())
+                                            unpack_changes)
+          .failed() ||
+      unpack_changes.size() != 1)
     return 30;
   if (gneiss::editor::prepare_unpack_prefab(apply_scene_json, apply_prefab_json, unpack_request,
                                             unpack_changes) != gneiss::engine::error::success ||

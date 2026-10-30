@@ -145,4 +145,10 @@ Prefab 组件历史使用 `capture_component_override` / `set_component_override
 同步 Scene 接口不读取文件；资源缺失返回未就绪，调用方准备成功后再提交。
 来源重载先验证受影响实例的完整覆盖，冲突不修改实例及其记录；`reload_prefab_loaded` 可输出路径诊断。
 诊断包含来源对象 UUID、组件 GUID 和失效属性路径。
-现有文件级 Apply/Unpack 仍仅支持其原有 Transform 覆盖，含结构覆盖返回 `unsupported`，不静默遗漏。
+Apply/Unpack 与实例化、Reload 统一通过 `prepare_prefab_reference` 生成有效描述，支持组件增删和属性覆盖。
+Apply 在生成文件写入计划前，使用新的来源描述检查当前编辑场景所有同源实例；其他实例的覆盖保持不变，
+冲突诊断包含实例 UUID 和来源对象、组件及属性路径。检查不扫描项目其他场景。来源保存成功后清空普通撤销历史，
+不提供磁盘撤销或多文件事务。
+Unpack 将有效描述物化为普通对象，移除来源关联，使用新的 UUID 并映射父子关系；保留实例根的名称、变换、
+父关系和自有子对象。支持快照撤销/重做，场景在后续保存时落盘。
+两种操作均使用类型化 codec 保存，未识别的 JSON 字段不会保留。实施见 [PLAN-087](../plans/PLAN-087-prefab-apply-unpack.md)。

@@ -7,6 +7,7 @@
 #include "commands/author_document_change.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
+#include "engine/resource/scene/scene_description.hpp"
 
 #include <span>
 #include <string>
@@ -57,17 +58,18 @@ struct unpack_prefab_author_request final {
 prepare_create_prefab(std::string_view scene_json, const create_prefab_author_request& request,
                       std::vector<author_document_change>& out_changes) noexcept;
 
-/** 把指定实例已有的 Transform 字段覆盖应用到 Prefab 来源，并清除该实例的已提交覆盖。 */
+/** 应用完整组件/属性覆盖并检查当前场景全部同源实例；只生成计划，不写文件。 */
 [[nodiscard]] gneiss::engine::error
 prepare_apply_prefab(std::string_view scene_json, std::string_view prefab_json,
-                     const apply_prefab_author_request& request,
-                     apply_prefab_author_plan& out_plan) noexcept;
+                     const apply_prefab_author_request& request, apply_prefab_author_plan& out_plan,
+                     engine::scene_diagnostic* diagnostic = nullptr) noexcept;
 
 /** 将指定 Prefab 实例的当前可见投影物化为拥有新 UUID 的普通场景子树。 */
 [[nodiscard]] gneiss::engine::error
 prepare_unpack_prefab(std::string_view scene_json, std::string_view prefab_json,
                       const unpack_prefab_author_request& request,
-                      std::vector<author_document_change>& out_changes) noexcept;
+                      std::vector<author_document_change>& out_changes,
+                      engine::scene_diagnostic* diagnostic = nullptr) noexcept;
 
 } // namespace gneiss::editor
 
