@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/error.hpp"
+#include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_object.hpp"
 #include <algorithm>
@@ -40,7 +41,45 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
   if (current.mesh != expected.mesh || current.material != expected.material) {
     return error::invalid_state;
   }
+  // 实例资源引用保存为稀疏覆盖，只有绑定成功后才更新作者数据。
+  for (std::size_t index = 0; index < prefab_instances_.size(); ++index) {
+    auto& prefab = *prefab_instances_[index];
+    for (const auto& member : prefab.nodes_) {
+      if (member.node != node)
+        continue;
+      const auto* source = prefab.find_source_object(member.address.source_node_uuid);
+      const auto* renderer = source ? source->components.get<mesh_renderer_description>() : nullptr;
+      if (!renderer)
+        return error::not_found;
+      auto pending = prefab_author(index).prefab->overrides;
+      const std::array originals{renderer->mesh_uri, renderer->material_uri};
+      const std::array replacements{std::string(asset_uri(replacement.mesh)),
+                                    std::string(asset_uri(replacement.material))};
+      for (std::size_t i = 0; i < originals.size(); ++i) {
+        auto status = set_prefab_property_override(
+            pending,
+            {.key = {.source_node_uuid = member.address.source_node_uuid,
+                     .type_guid = mesh_renderer_description::type_guid,
+                     .property_id = meta::property_id{static_cast<std::uint32_t>(i + 1)}},
+             .value = engine::value{replacements[i]}},
+            engine::value{originals[i]});
+        if (status.failed())
+          return status;
+      }
+      const std::array changes{mesh_renderer_replacement{
+          .entity = entity_id{scene_object_entity(native_world_, node)},
+          .expected = {.mesh = expected.mesh, .material = expected.material},
+          .replacement = {.mesh = replacement.mesh, .material = replacement.material}}};
+      auto status = native_world_.replace_mesh_renderers(changes);
+      if (status.failed())
+        return status;
+      prefab_author(index).prefab->overrides.swap(pending);
+      return error::success;
+    }
+  }
   const auto found = find_ordinary_node(node);
+  if (found == objects_.end())
+    return error::invalid_handle;
   mesh_renderer_description author{
       .mesh_uri = std::string(engine::asset_uri(replacement.mesh)),
       .material_uri = std::string(engine::asset_uri(replacement.material)),
@@ -76,6 +115,6 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
 }
 
 bool scene_instance::contains_editable_node(scene_node_id node) const noexcept {
-  return find_ordinary_node(node) != objects_.end();
+  return std::ranges::find(objects_, node, &object::node) != objects_.end();
 }
 } // namespace gneiss::engine

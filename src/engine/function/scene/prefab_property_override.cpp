@@ -3,6 +3,9 @@
 
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/meta/serialization.hpp"
+#include "engine/function/scene/scene_object.hpp"
+#include "engine/function/world/world_reflection.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -161,6 +164,93 @@ error set_prefab_property_override(std::vector<prefab_property_override>& overri
   } catch (...) {
     return error::internal;
   }
+}
+
+namespace {
+engine::error apply_candidate_object(const prefab_property_override& value,
+                                     const engine::value& native, object_description& object) {
+  auto result = engine::error::success;
+  const auto is_type = [&](guid type) { return value.key.type_guid == type; };
+  if (is_type(transform_component_type)) {
+    auto transform = object.transform;
+    result = meta::write_property(value.key.type_guid, value.key.property_id, &transform, native);
+    if (result != engine::error::success) {
+      return result;
+    }
+    object.transform = transform;
+  } else if (is_type(engine::camera_component_type)) {
+    if (!object.components.template get<camera_description>()) {
+      return engine::error::not_found;
+    }
+    auto camera = *object.components.template get<camera_description>();
+    camera_properties properties;
+    auto& settings = properties.settings;
+    settings = camera.settings;
+    result = meta::write_property(value.key.type_guid, value.key.property_id, &properties, native);
+    if (result != engine::error::success) {
+      return result;
+    }
+    camera.settings = settings;
+    object.components.set(camera);
+  } else if (is_type(mesh_renderer_description::type_guid)) {
+    const auto* source = object.components.get<mesh_renderer_description>();
+    if (!source)
+      return error::not_found;
+    auto renderer = *source;
+    result = meta::write_property(value.key.type_guid, value.key.property_id, &renderer, native);
+    if (result.failed())
+      return result;
+    object.components.set(std::move(renderer));
+  } else {
+    // 当前对象格式只存储这些组件，不能将其他类型解释为同一候选内存布局。
+    return engine::error::unsupported;
+  }
+  return engine::error::success;
+}
+}
+
+engine::error prepare_prefab_description(const prefab_description& source,
+                                         std::span<const prefab_property_override> overrides,
+                                         prefab_description& output) noexcept try {
+  auto candidate = source;
+  for (const auto& value : overrides) {
+    const auto validation = validate_prefab_property_override(value);
+    if (validation != engine::error::success) {
+      return validation;
+    }
+    auto found =
+        std::ranges::find(candidate.objects, value.key.source_node_uuid, &object_description::uuid);
+    if (found == candidate.objects.end()) {
+      return engine::error::not_found;
+    }
+    if (found->uuid == candidate.root_uuid && value.key.type_guid == transform_component_type)
+      return error::invalid_argument;
+    const auto result = apply_candidate_object(value, value.value, *found);
+    if (result != engine::error::success) {
+      return result;
+    }
+  }
+  for (const auto& object : candidate.objects) {
+    auto status = validate_scene_components(object);
+    if (status.failed())
+      return status;
+    if (const auto* renderer = object.components.get<mesh_renderer_description>()) {
+      auto validated = meta::serialize(*renderer);
+      if (!validated)
+        return validated.error().error;
+    }
+    if (object.components.template get<camera_description>() &&
+        object.components.template get<camera_description>()->settings.near >=
+            object.components.template get<camera_description>()->settings.far) {
+      return engine::error::invalid_argument;
+    }
+  }
+  output = std::move(candidate);
+  return engine::error::success;
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
 }
 
 } // namespace gneiss::engine

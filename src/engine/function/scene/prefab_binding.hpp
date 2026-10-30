@@ -9,6 +9,7 @@
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/resource/resource_service.hpp"
+#include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 
 #include "engine/function/scene/scene_object.hpp"
@@ -20,11 +21,6 @@
 #include <vector>
 
 namespace gneiss::engine {
-
-/** 只修改私有描述，失败保持 output 不变；不读文件、不创建实体、不发送通知。 */
-[[nodiscard]] error prepare_prefab_description(const prefab_description& source,
-                                               std::span<const prefab_property_override> overrides,
-                                               prefab_description& output) noexcept;
 
 /** 场景私有的 Prefab 来源绑定及映射操作，不是独立场景对象。
  * 只持有来源资源；World、资源服务和节点均为借用。构造准备数据由调用方持有，

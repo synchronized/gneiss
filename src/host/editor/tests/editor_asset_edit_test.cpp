@@ -4,10 +4,13 @@
 #include "commands/editor_asset_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/math/transform.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
+#include "runtime/loading/prefab_placement.hpp"
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -72,8 +75,10 @@ void run(gneiss::engine::execution_mode mode) {
     }
   };
   const auto request = [&](std::string_view material) {
-    return edit.request(*app, session, history, uuid,
-                        {.mesh_uri = "asset://mesh.json", .material_uri = material});
+    return edit.request_property(
+        *app, session, history,
+        {.object_uuid = uuid, .component_type = engine::mesh_renderer_description::type_guid},
+        {.path = {engine::meta::property_id{2}}, .data = engine::value{std::string(material)}});
   };
   const auto binding = [&] {
     gneiss::engine::scene_instances::mesh_binding value;
@@ -188,10 +193,187 @@ void run(gneiss::engine::execution_mode mode) {
         gneiss::engine::error::not_ready);
   session.close();
 }
+void prefab_edits(engine::execution_mode mode) {
+  namespace e = engine;
+  fixture files;
+  e::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  std::shared_ptr<runtime::application> app;
+  runtime::application_configuration config;
+  const auto root_path = files.root.string();
+  config.asset_root = root_path;
+  check(runtime::application::create(config, app).ok());
+  check(app->attach_task_executor(scheduler).ok());
+  const auto uuid = [](unsigned n) {
+    e::guid::byte_array bytes{};
+    bytes[15] = static_cast<std::uint8_t>(n);
+    return e::guid{bytes};
+  };
+  const auto write = [&](const char* name, const auto& value) {
+    auto encoded = e::meta::serialize(value);
+    check(bool(encoded));
+    std::ofstream file(files.root / name, std::ios::binary);
+    file.write(reinterpret_cast<const char*>(encoded->data()),
+               static_cast<std::streamsize>(encoded->size()));
+  };
+  e::prefab_description prefab;
+  prefab.uuid = uuid(1);
+  prefab.root_uuid = uuid(2);
+  e::object_description source;
+  source.uuid = prefab.root_uuid;
+  source.name = "root";
+  source.components.set(e::mesh_renderer_description{"asset://mesh.json", "asset://a.json"});
+  prefab.objects.push_back(source);
+  source.uuid = uuid(3);
+  source.parent_uuid = prefab.root_uuid;
+  source.name = "child";
+  prefab.objects.push_back(source);
+  write("prefab.json", prefab);
+  e::scene_description scene;
+  scene.uuid = uuid(4);
+  e::object_description author;
+  author.uuid = uuid(5);
+  author.name = "first";
+  author.prefab.emplace();
+  author.prefab->uri = "asset://prefab.json";
+  scene.objects.push_back(author);
+  author.uuid = uuid(6);
+  author.name = "second";
+  scene.objects.push_back(author);
+  write("prefab-scene.json", scene);
+  editor::scene_document document;
+  editor::editor_command_history history;
+  editor::editor_asset_edit edit;
+  check(test_support::open_document(document, *app, app->native_world(),
+                                    "asset://prefab-scene.json", &scheduler)
+            .ok());
+  const editor::component_edit_target child{.instance_uuid = uuid(5),
+                                            .source_uuid = uuid(3),
+                                            .component_type =
+                                                e::mesh_renderer_description::type_guid};
+  auto root = child;
+  root.source_uuid = prefab.root_uuid;
+  const auto binding = [&](const editor::component_edit_target& target) {
+    e::scene_mesh_binding result;
+    const auto* node = document.find_prefab_source(target.instance_uuid, target.source_uuid);
+    check(node != nullptr);
+    check(app->capture_mesh_binding(document.scene_handle(), node->node, result).ok());
+    return result;
+  };
+  const auto drive = [&] {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    while (edit.active()) {
+      if (mode == e::execution_mode::cooperative)
+        (void)scheduler.run_ready();
+      edit.advance(*app, document, history);
+      check(std::chrono::steady_clock::now() < deadline);
+      std::this_thread::yield();
+    }
+  };
+  const auto request = [&](const auto& target, std::string uri) {
+    return edit.request_property(*app, document, history, target,
+                                 {.path = {e::meta::property_id{2}}, .data = e::value{uri}});
+  };
+  const auto capture = [&] {
+    e::scene_description current;
+    check(app->scenes()->capture_description(document.scene_handle(), current).ok());
+    return current;
+  };
+  const auto overrides = [&] {
+    const auto current = capture();
+    const auto found = std::ranges::find(current.objects, uuid(5), &e::object_description::uuid);
+    check(found != current.objects.end() && found->prefab.has_value());
+    return found->prefab->overrides.size();
+  };
+  const auto before = binding(child);
+  check(request(child, "").failed() && !edit.active() && history.size() == 0);
+  check(request(child, "asset://b.json").ok() && edit.active());
+  check(binding(child).material == before.material && history.size() == 0);
+  drive();
+  check(edit.operation().ok() && history.size() == 1);
+  const auto changed = binding(child);
+  check(changed.material != before.material);
+  check(overrides() == 1);
+  auto second = child;
+  second.instance_uuid = uuid(6);
+  check(binding(second).material == before.material);
+  check(document.select(document.find_prefab_source(second.instance_uuid, second.source_uuid)->node)
+            .ok());
+  check(history.undo().ok() && binding(child).material == before.material);
+  check(overrides() == 0);
+  check(history.redo().ok() && binding(child).material == changed.material);
+  check(request(root, "asset://b.json").ok() && !edit.active());
+  check(overrides() == 2);
+  const auto count = history.size();
+  check(request(root, "asset://b.json").ok() && history.size() == count);
+  check(request(child, "asset://missing.json").ok());
+  drive();
+  check(edit.operation().failed() && history.size() == count &&
+        binding(child).material == changed.material);
+  edit.dismiss();
+  std::shared_ptr<e::scene_subtree_snapshot> captured;
+  check(runtime::prefab_placement::capture(*app, uuid(5), document.scene_handle(), captured).ok());
+  const auto captured_author = captured->description.objects.front();
+  const auto captured_source = captured->resources.at(uuid(5)).prefab;
+  check(captured_source->objects[1].components.get<e::mesh_renderer_description>()->material_uri ==
+        "asset://a.json");
+  // 来源刷新快照必须持有覆盖资源，撤销/重做不依赖文件或弱缓存。
+  std::shared_ptr<const e::scene_subtree_snapshot> frozen;
+  e::prepared_prefab_description prepared;
+  prepared.resource = captured_source;
+  check(runtime::prefab_placement::freeze(*app, prepared, captured_author, {}, frozen).ok());
+  check(frozen->resources.at(uuid(5)).source_nodes[1].material == changed.material);
+  scene_node_id replaced;
+  check(runtime::prefab_placement::apply(*app, document.scene_handle(), *frozen, false, true,
+                                         replaced)
+            .ok());
+  check(document.synchronize_nodes().ok());
+  check(binding(child).material == changed.material);
+  check(history.undo().ok() && binding(root).material == before.material);
+  check(history.redo().ok() && binding(root).material == changed.material);
+  // 网格 URI 与材质 URI 走同一属性请求，加载完成前继续使用原网格。
+  std::filesystem::copy_file(files.root / "mesh.json", files.root / "mesh2.json");
+  check(edit.request_property(*app, document, history, child,
+                              {.path = {e::meta::property_id{1}},
+                               .data = e::value{std::string("asset://mesh2.json")}})
+            .ok());
+  check(edit.active() && binding(child).mesh == before.mesh);
+  drive();
+  check(edit.operation().ok() && e::asset_uri(binding(child).mesh) == "asset://mesh2.json");
+  // 文件保存后通过实际异步场景加载链重建；两实例的差异必须保留。
+  write("saved.json", capture());
+  std::shared_ptr<runtime::application> reopened_app;
+  check(runtime::application::create(config, reopened_app).ok());
+  check(reopened_app->attach_task_executor(scheduler).ok());
+  editor::scene_document reopened;
+  check(test_support::open_document(reopened, *reopened_app, reopened_app->native_world(),
+                                    "asset://saved.json", &scheduler)
+            .ok());
+  e::scene_mesh_binding loaded;
+  const auto* loaded_child = reopened.find_prefab_source(uuid(5), uuid(3));
+  check(loaded_child != nullptr);
+  check(
+      reopened_app->capture_mesh_binding(reopened.scene_handle(), loaded_child->node, loaded).ok());
+  check(e::asset_uri(loaded.material) == "asset://b.json");
+  check(e::asset_uri(loaded.mesh) == "asset://mesh2.json");
+  const auto* loaded_second = reopened.find_prefab_source(uuid(6), uuid(3));
+  check(loaded_second != nullptr);
+  check(reopened_app->capture_mesh_binding(reopened.scene_handle(), loaded_second->node, loaded)
+            .ok());
+  check(e::asset_uri(loaded.material) == "asset://a.json");
+  check(history.undo().ok() && binding(child).mesh == before.mesh);
+  check(request(child, "asset://a.json").ok());
+  check(overrides() == 1);
+  check(history.undo().ok() && binding(child).material == changed.material);
+  history.clear();
+  reopened.close();
+  document.close();
+}
 }
 int main() try {
   run(gneiss::engine::execution_mode::cooperative);
   run(gneiss::engine::execution_mode::thread_pool);
+  prefab_edits(gneiss::engine::execution_mode::cooperative);
+  prefab_edits(gneiss::engine::execution_mode::thread_pool);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

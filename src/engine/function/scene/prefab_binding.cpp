@@ -111,6 +111,21 @@ prefab_binding::validate_reload(const prefab_asset_ref& candidate,
     }
   }
 
+  prefab_description effective;
+  result = prepare_prefab_description(*candidate, overrides, effective);
+  if (result.failed())
+    return result;
+  for (const auto& object : effective.objects) {
+    const auto* renderer = object.components.get<mesh_renderer_description>();
+    if (!renderer)
+      continue;
+    auto mesh = loader_.find({renderer->mesh_uri, asset_type::mesh});
+    if (!mesh)
+      return mesh.error();
+    auto material = loader_.find({renderer->material_uri, asset_type::material});
+    if (!material)
+      return material.error();
+  }
   const auto camera_type = engine::camera_component_type;
   for (const auto& override_value : overrides) {
     result = validate_prefab_property_override(override_value);
@@ -410,76 +425,6 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
   return engine::error::success;
 }
 
-namespace {
-engine::error apply_candidate_object(const prefab_property_override& value,
-                                     const engine::value& native, object_description& object) {
-  auto result = engine::error::success;
-  const auto is_type = [&](guid type) { return value.key.type_guid == type; };
-  if (is_type(transform_component_type)) {
-    auto transform = object.transform;
-    result = meta::write_property(value.key.type_guid, value.key.property_id, &transform, native);
-    if (result != engine::error::success) {
-      return result;
-    }
-    object.transform = transform;
-  } else if (is_type(engine::camera_component_type)) {
-    if (!object.components.template get<camera_description>()) {
-      return engine::error::not_found;
-    }
-    auto camera = *object.components.template get<camera_description>();
-    camera_properties properties;
-    auto& settings = properties.settings;
-    settings = camera.settings;
-    result = meta::write_property(value.key.type_guid, value.key.property_id, &properties, native);
-    if (result != engine::error::success) {
-      return result;
-    }
-    camera.settings = settings;
-    object.components.set(camera);
-  } else {
-    // 当前对象格式只存储这些组件，不能将其他类型解释为同一候选内存布局。
-    return engine::error::unsupported;
-  }
-  return engine::error::success;
-}
-}
-
-engine::error prepare_prefab_description(const prefab_description& source,
-                                         std::span<const prefab_property_override> overrides,
-                                         prefab_description& output) noexcept try {
-  auto candidate = source;
-  for (const auto& value : overrides) {
-    const auto validation = validate_prefab_property_override(value);
-    if (validation != engine::error::success) {
-      return validation;
-    }
-    auto found =
-        std::ranges::find(candidate.objects, value.key.source_node_uuid, &object_description::uuid);
-    if (found == candidate.objects.end()) {
-      return engine::error::not_found;
-    }
-    if (found->uuid == candidate.root_uuid && value.key.type_guid == transform_component_type)
-      return error::invalid_argument;
-    const auto result = apply_candidate_object(value, value.value, *found);
-    if (result != engine::error::success) {
-      return result;
-    }
-  }
-  for (const auto& object : candidate.objects) {
-    if (object.components.template get<camera_description>() &&
-        object.components.template get<camera_description>()->settings.near >=
-            object.components.template get<camera_description>()->settings.far) {
-      return engine::error::invalid_argument;
-    }
-  }
-  output = std::move(candidate);
-  return engine::error::success;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
-}
-
 engine::error
 prefab_binding::apply_overrides(std::span<const prefab_property_override> overrides) noexcept try {
   for (const auto& override_value : overrides) {
@@ -495,6 +440,31 @@ prefab_binding::apply_overrides(std::span<const prefab_property_override> overri
     }
     if (found->node == root_node_ && override_value.key.type_guid == transform_component_type)
       return error::invalid_argument;
+    if (override_value.key.type_guid == mesh_renderer_description::type_guid) {
+      auto current = native_world_.node_mesh_renderer(found->node);
+      if (!current)
+        return current.error();
+      mesh_renderer_description renderer{std::string(asset_uri(current->mesh)),
+                                         std::string(asset_uri(current->material))};
+      auto status =
+          meta::write_property(override_value.key.type_guid, override_value.key.property_id,
+                               &renderer, override_value.value);
+      if (status.failed())
+        return status;
+      auto mesh = loader_.find({renderer.mesh_uri, asset_type::mesh});
+      if (!mesh)
+        return mesh.error();
+      auto material = loader_.find({renderer.material_uri, asset_type::material});
+      if (!material)
+        return material.error();
+      status = native_world_.entity_set_mesh_renderer(
+          entity_id{scene_object_entity(native_world_, found->node)},
+          {.mesh = asset_cast<mesh_resource>(*mesh),
+           .material = asset_cast<material_resource>(*material)});
+      if (status.failed())
+        return status;
+      continue;
+    }
     const auto result = engine::write_component_property(
         native_world_, scene_object_entity(native_world_, found->node),
         override_value.key.type_guid, override_value.key.property_id, override_value.value);

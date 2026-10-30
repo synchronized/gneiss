@@ -21,6 +21,10 @@ int main() try {
   auto transform_view = gneiss::engine::meta::instance::from(transform);
   if (!transform_view)
     return 8;
+  gneiss::engine::mesh_renderer_description mesh{"asset://mesh.json", "asset://material.json"};
+  auto mesh_view = gneiss::engine::meta::instance::from(mesh);
+  if (!mesh_view)
+    return 9;
   unsigned writes = 0;
   std::uint64_t serial = 0;
   gneiss::engine::error error = gneiss::engine::error::success;
@@ -41,6 +45,8 @@ int main() try {
       ++writes;
     const std::array readonly{gneiss::engine::meta::property_id{4}};
     if (draw_reflected_properties(*camera_view, "Camera", serial, error, readonly))
+      ++writes;
+    if (draw_reflected_properties(*mesh_view, "Mesh Renderer", serial, error))
       ++writes;
     ImGui::End();
     ImGui::Render();

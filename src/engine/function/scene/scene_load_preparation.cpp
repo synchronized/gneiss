@@ -4,6 +4,7 @@
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/resource/scene/object_hierarchy.hpp"
 
 #include <algorithm>
@@ -92,14 +93,23 @@ public:
         result = order_nodes(prefab.resource->objects, prefab.parent_first, limits.hierarchy_depth,
                              cancelled, &prefab.maximum_depth, prefab.resource->root_uuid);
       }
-      if (result == engine::error::success) {
-        result = collect(prefab.resource->objects);
-      }
       if (result != engine::error::success) {
         return result;
       }
       found = candidate.prefabs.emplace(instance.prefab->uri, std::move(prefab)).first;
     }
+    if (!instance.prefab->overrides.empty()) {
+      prefab_description effective;
+      result = prepare_prefab_description(*found->second.resource, instance.prefab->overrides,
+                                          effective);
+      if (result.failed())
+        return result;
+      result = collect(effective.objects);
+    } else {
+      result = collect(found->second.resource->objects);
+    }
+    if (result.failed())
+      return result;
     const auto parent_depth = instance.parent_uuid ? scene_depths.at(*instance.parent_uuid) : 0U;
     if (parent_depth >= limits.hierarchy_depth ||
         found->second.maximum_depth > limits.hierarchy_depth - parent_depth) {

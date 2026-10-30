@@ -2,9 +2,22 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "commands/editor_asset_edit.hpp"
 #include "engine/core/error.hpp"
+#include "engine/core/meta/instance.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include "runtime/application.hpp"
 
 namespace gneiss::editor {
+namespace {
+scene_node_id locate(scene_document& document, const component_edit_target& target) {
+  if (target.instance_uuid) {
+    const auto* node = document.find_prefab_source(target.instance_uuid, target.source_uuid);
+    return node ? node->node : scene_node_id{};
+  }
+  const auto* node = document.find_node(target.object_uuid);
+  return node ? node->node : scene_node_id{};
+}
+}
+
 gneiss::engine::error editor_asset_edit::commit_add(runtime::application& application,
                                                     scene_document& session,
                                                     editor_command_history& history) {
@@ -64,11 +77,18 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
       session.clear_dirty();
     return operation;
   }
-  const auto apply = [&application, &session, scene = scene_, node = node_](
+  if (locate(session, target_) != node_)
+    return engine::error::invalid_state;
+  if (previous_.mesh == next_.mesh && previous_.material == next_.material)
+    return engine::error::success;
+  const auto apply = [&application, &session, scene = scene_, target = target_](
                          const auto& expected, const auto& replacement) -> gneiss::engine::error {
     if (session.scene_handle() != scene) {
       return gneiss::engine::error::invalid_state;
     }
+    const auto node = locate(session, target);
+    if (!node)
+      return engine::error::not_found;
     return session.commit_mesh_renderer(
         node, gneiss::engine::asset_uri(replacement.mesh),
         gneiss::engine::asset_uri(replacement.material),
@@ -142,7 +162,47 @@ gneiss::engine::error editor_asset_edit::request(runtime::application& applicati
                                                  editor_command_history& history,
                                                  gneiss::engine::guid uuid,
                                                  mesh_asset_reference assets) {
-  return request_impl(application, session, history, uuid, {}, assets, false);
+  return request_impl(application, session, history, {.object_uuid = uuid}, {}, assets, false);
+}
+engine::error editor_asset_edit::request(runtime::application& app, scene_document& document,
+                                         editor_command_history& history,
+                                         const component_edit_target& target,
+                                         mesh_asset_reference assets) {
+  return request_impl(app, document, history, target, {}, assets, false);
+}
+engine::error editor_asset_edit::request_property(runtime::application& app,
+                                                  scene_document& document,
+                                                  editor_command_history& history,
+                                                  const component_edit_target& target,
+                                                  const property_edit& edit) try {
+  using namespace engine;
+  if (active_ || history.is_pending())
+    return error::not_ready;
+  if (target.component_type != mesh_renderer_description::type_guid || edit.object ||
+      edit.path.size() != 1 || !std::holds_alternative<meta::property_id>(edit.path.front()))
+    return error::invalid_argument;
+  scene_mesh_binding binding;
+  auto status =
+      app.capture_mesh_binding(document.scene_handle(), locate(document, target), binding);
+  if (status.failed())
+    return status;
+  if (!binding.mesh || !binding.material)
+    return error::not_found;
+  mesh_renderer_description description{std::string(asset_uri(binding.mesh)),
+                                        std::string(asset_uri(binding.material))};
+  status =
+      meta::write_property(mesh_renderer_description::type_guid,
+                           std::get<meta::property_id>(edit.path.front()), &description, edit.data);
+  if (status.failed())
+    return status;
+  auto valid = meta::serialize(description);
+  if (!valid)
+    return valid.error().error;
+  return request(app, document, history, target, {description.mesh_uri, description.material_uri});
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
 }
 gneiss::engine::error editor_asset_edit::request_add(runtime::application& application,
                                                      scene_document& session,
@@ -151,10 +211,12 @@ gneiss::engine::error editor_asset_edit::request_add(runtime::application& appli
                                                      mesh_asset_reference assets) {
   return request_impl(application, session, history, {}, name, assets, true);
 }
-gneiss::engine::error editor_asset_edit::request_impl(
-    runtime::application& application, scene_document& session, editor_command_history& history,
-    engine::guid target, std::string_view name, mesh_asset_reference assets, bool creating) try {
-  if (active_) {
+gneiss::engine::error
+editor_asset_edit::request_impl(runtime::application& application, scene_document& session,
+                                editor_command_history& history,
+                                const component_edit_target& target, std::string_view name,
+                                mesh_asset_reference assets, bool creating) try {
+  if (active_ || history.is_pending()) {
     return gneiss::engine::error::not_ready;
   }
   if (!session.is_open()) {
@@ -164,6 +226,7 @@ gneiss::engine::error editor_asset_edit::request_impl(
   snapshot_ = {};
   scene_ = session.scene_handle();
   node_ = {};
+  target_ = target;
   if (creating_) {
     const auto generated = make_editor_uuid(snapshot_.uuid);
     if (generated.failed()) {
@@ -173,11 +236,10 @@ gneiss::engine::error editor_asset_edit::request_impl(
     snapshot_.mesh_uri = assets.mesh_uri;
     snapshot_.material_uri = assets.material_uri;
   } else {
-    const auto* node = session.find_node(target);
-    if (node == nullptr) {
+    node_ = locate(session, target);
+    if (!node_) {
       return gneiss::engine::error::not_found;
     }
-    node_ = node->node;
   }
   mesh_ = assets.mesh_uri;
   material_ = assets.material_uri;

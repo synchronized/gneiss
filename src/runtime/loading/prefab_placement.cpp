@@ -51,6 +51,25 @@ gneiss::engine::error prefab_placement::freeze(
   auto value = std::make_shared<engine::scene_subtree_snapshot>();
   if (!prepared.resource || !author.prefab)
     return engine::error::invalid_argument;
+  // 快照冻结只确定资源引用；完整覆盖校验留在各实例应用阶段，保留逐实例刷新语义。
+  auto effective = *prepared.resource;
+  for (auto& object : effective.objects) {
+    const auto* original = object.components.get<engine::mesh_renderer_description>();
+    if (!original)
+      continue;
+    auto renderer = *original;
+    for (const auto& override : author.prefab->overrides) {
+      if (override.key.source_node_uuid != object.uuid ||
+          override.key.type_guid != engine::mesh_renderer_description::type_guid)
+        continue;
+      const auto status = engine::meta::write_property(
+          override.key.type_guid, override.key.property_id, &renderer, override.value);
+      if (status.failed())
+        return status;
+    }
+    object.components.set(std::move(renderer));
+  }
+  auto status = engine::error::success;
   value->root_uuid = author.uuid;
   value->parent_uuid = author.parent_uuid.value_or(gneiss::engine::guid{});
   author.parent_uuid.reset();
@@ -58,19 +77,31 @@ gneiss::engine::error prefab_placement::freeze(
   auto& binding = value->resources[value->root_uuid];
   binding.prefab = std::move(prepared.resource);
   binding.source_nodes.resize(binding.prefab->objects.size());
-  const auto find = [&](std::string_view uri) {
-    const auto entry = std::ranges::find_if(
-        assets, [&](const auto& asset) { return engine::asset_uri(asset) == uri; });
-    return entry == assets.end() ? engine::render_asset_ref{} : *entry;
+  const auto find = [&](std::string_view uri, engine::asset_type type,
+                        engine::render_asset_ref& result) {
+    const auto entry = std::ranges::find_if(assets, [&](const auto& asset) {
+      return engine::asset_uri(asset) == uri && engine::asset_kind(asset) == type;
+    });
+    if (entry != assets.end()) {
+      result = *entry;
+      return engine::error::success;
+    }
+    // 刷新来源时，实例覆盖仍引用当前已加载资源；快照必须强持有它们。
+    return application.query_ready_asset({std::string(uri), type}, result);
   };
   for (std::size_t i = 0; i < binding.source_nodes.size(); ++i) {
-    const auto& object = binding.prefab->objects[i];
-    if (object.components.get<engine::mesh_renderer_description>())
-      binding.source_nodes[i] = {
-          engine::asset_cast<engine::mesh_resource>(
-              find(object.components.get<engine::mesh_renderer_description>()->mesh_uri)),
-          engine::asset_cast<engine::material_resource>(
-              find(object.components.get<engine::mesh_renderer_description>()->material_uri))};
+    const auto* renderer = effective.objects[i].components.get<engine::mesh_renderer_description>();
+    if (!renderer)
+      continue;
+    engine::render_asset_ref mesh, material;
+    status = find(renderer->mesh_uri, engine::asset_type::mesh, mesh);
+    if (status.failed())
+      return status;
+    status = find(renderer->material_uri, engine::asset_type::material, material);
+    if (status.failed())
+      return status;
+    binding.source_nodes[i] = {engine::asset_cast<engine::mesh_resource>(mesh),
+                               engine::asset_cast<engine::material_resource>(material)};
   }
   output = std::move(value);
   return gneiss::engine::error::success;

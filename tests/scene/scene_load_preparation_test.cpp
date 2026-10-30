@@ -14,6 +14,7 @@
 #include "engine/resource/scene/prefab_codec.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <map>
 #include <source_location>
@@ -129,6 +130,29 @@ void run() {
   check(prepare_loaded_scene(inputs, {}, output, diagnostic, {}).ok());
   check(memory->reads == reads &&
         output.prefabs.at("asset://p.prefab").resource == inputs.prefabs.at("asset://p.prefab"));
+  // 只收集每个实例最终生效的资源；全被覆盖的来源材质不再是加载依赖。
+  auto overridden = std::make_shared<scene_description>(*inputs.scene);
+  std::erase_if(overridden->objects, [](const auto& node) { return !node.prefab; });
+  const auto source_uuid = inputs.prefabs.at("asset://p.prefab")->root_uuid;
+  for (auto& node : overridden->objects) {
+    node.prefab->overrides.push_back({.key = {.source_node_uuid = source_uuid,
+                                              .type_guid = mesh_renderer_description::type_guid,
+                                              .property_id = meta::property_id{2}},
+                                      .value = value{std::string("asset://override.material")}});
+  }
+  auto overridden_inputs = inputs;
+  overridden_inputs.scene = asset_ref<const scene_description>{overridden};
+  check(prepare_loaded_scene(overridden_inputs, {}, output, diagnostic, {}).ok());
+  check(output.assets.size() == 2);
+  check(std::ranges::none_of(output.assets,
+                             [](const auto& asset) { return asset.uri == "asset://m.material"; }));
+  check(std::ranges::any_of(
+      output.assets, [](const auto& asset) { return asset.uri == "asset://override.material"; }));
+  // URI 非法时，在创建实体或开始资源加载前拒绝。
+  overridden->objects.front().prefab->overrides.front().value = value{std::string{}};
+  check(prepare_loaded_scene(overridden_inputs, {}, output, diagnostic, {}).failed());
+  check(output.assets.empty());
+  check(prepare_loaded_scene(inputs, {}, output, diagnostic, {}).ok());
   asset_ref<const prefab_description> newer;
   check(gneiss::test_support::load_asset(assets, "asset://p.prefab", newer, true).ok());
   check(newer != output.prefabs.at("asset://p.prefab").resource);

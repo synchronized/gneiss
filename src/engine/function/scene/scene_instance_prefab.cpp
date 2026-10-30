@@ -116,8 +116,22 @@ error scene_instance::instantiate_prefab_ready(const object_description& author,
     const auto& source = effective.objects[index];
     const auto node_parent =
         source.parent_uuid ? runtime->find_node(*source.parent_uuid) : runtime->root();
-    status = runtime->create_node(index, source, node_parent, bindings[index].mesh,
-                                  bindings[index].material);
+    auto binding = bindings[index];
+    if (const auto* renderer = source.components.get<mesh_renderer_description>()) {
+      if (asset_uri(binding.mesh) != renderer->mesh_uri) {
+        auto ready = loader_.find({renderer->mesh_uri, asset_type::mesh});
+        if (!ready)
+          return ready.error();
+        binding.mesh = asset_cast<mesh_resource>(*ready);
+      }
+      if (asset_uri(binding.material) != renderer->material_uri) {
+        auto ready = loader_.find({renderer->material_uri, asset_type::material});
+        if (!ready)
+          return ready.error();
+        binding.material = asset_cast<material_resource>(*ready);
+      }
+    }
+    status = runtime->create_node(index, source, node_parent, binding.mesh, binding.material);
     if (status.failed())
       return status;
   }

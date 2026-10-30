@@ -6,6 +6,7 @@
 
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registry.hpp"
+#include "engine/resource/scene/prefab_description.hpp"
 #include "engine/resource/scene/prefab_property_data.hpp"
 
 #include <array>
@@ -15,6 +16,11 @@
 #include <vector>
 
 namespace gneiss::engine {
+
+/** 只修改私有描述，失败保持 output 不变；不读文件、不创建实体、不发送通知。 */
+[[nodiscard]] error prepare_prefab_description(const prefab_description& source,
+                                               std::span<const prefab_property_override> overrides,
+                                               prefab_description& output) noexcept;
 
 /** 验证作者键、值、字段存在性、类型和可写能力。Registry 必须已经冻结。 */
 [[nodiscard]] error

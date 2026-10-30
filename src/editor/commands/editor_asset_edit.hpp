@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "commands/editor_command_history.hpp"
+#include "commands/author_property_edit.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
@@ -27,6 +27,12 @@ public:
   gneiss::engine::error request(runtime::application& application, scene_document& session,
                                 editor_command_history& history, gneiss::engine::guid uuid,
                                 mesh_asset_reference assets);
+  /** 普通节点及 Prefab 来源节点共用异步入口；目标按稳定作者身份重新定位。 */
+  engine::error request(runtime::application&, scene_document&, editor_command_history&,
+                        const component_edit_target&, mesh_asset_reference);
+  /** 反射 URI 属性编辑，先校验描述，再复用资源替换请求。 */
+  engine::error request_property(runtime::application&, scene_document&, editor_command_history&,
+                                 const component_edit_target&, const property_edit&);
   /** 移除组件并把资源强引用保存在历史中；撤销不加载文件。 */
   gneiss::engine::error request_remove(runtime::application& application, scene_document& session,
                                        editor_command_history& history, gneiss::engine::guid uuid);
@@ -45,9 +51,9 @@ public:
 
 private:
   gneiss::engine::error request_impl(runtime::application& application, scene_document& session,
-                                     editor_command_history& history, engine::guid target,
-                                     std::string_view name, mesh_asset_reference assets,
-                                     bool creating);
+                                     editor_command_history& history,
+                                     const component_edit_target& target, std::string_view name,
+                                     mesh_asset_reference assets, bool creating);
   gneiss::engine::error commit_add(runtime::application& application, scene_document& session,
                                    editor_command_history& history);
   scene_node_snapshot snapshot_;
@@ -57,6 +63,7 @@ private:
   gneiss::engine::scene_mesh_binding previous_, next_;
   gneiss::scene_instance_id scene_{};
   scene_node_id node_;
+  component_edit_target target_;
   std::string mesh_, material_;
   std::uint64_t revision_{}, request_{};
   gneiss::runtime::asset_load_progress progress_;

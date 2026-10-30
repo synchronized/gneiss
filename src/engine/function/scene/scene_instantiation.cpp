@@ -53,6 +53,11 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
         continue;
       }
       const auto lease = prepared.prefabs.at(source.prefab->uri).resource;
+      prefab_description effective;
+      auto prepared_status =
+          prepare_prefab_description(*lease, source.prefab->overrides, effective);
+      if (prepared_status.failed())
+        return prepared_status;
       auto prefab = std::make_unique<prefab_binding>(native_world_, loader_, lease, source.uuid);
       auto result = prefab->create_root(source.parent_uuid ? nodes.at(*source.parent_uuid)
                                                            : null_scene_node_id,
@@ -67,7 +72,7 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
       std::unordered_map<guid, scene_node_id, guid_hash> prefab_nodes;
       prefab_nodes.reserve(lease.get()->objects.size());
       for (const auto index : prepared.prefabs.at(source.prefab->uri).parent_first) {
-        const auto& node = lease.get()->objects.at(index);
+        const auto& node = effective.objects.at(index);
         result = prefab->create_node(
             index, node, node.parent_uuid ? prefab_nodes.at(*node.parent_uuid) : prefab->root(),
             asset_cast<mesh_resource>(
@@ -89,12 +94,6 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
           return result;
         }
         prefab_nodes.emplace(node.uuid, info.node);
-      }
-      for (const auto& override_value : source.prefab->overrides) {
-        result = prefab->apply_override(override_value);
-        if (result != engine::error::success) {
-          return result;
-        }
       }
       nodes.emplace(source.uuid, prefab->root());
       instance->append_staged_prefab(std::move(prefab));

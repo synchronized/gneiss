@@ -868,7 +868,13 @@ gneiss::engine::error scene_document::commit_mesh_renderer(
   }
   const auto found = std::ranges::find(nodes_, node, &scene_node_record::node);
   if (found == nodes_.end()) {
-    return gneiss::engine::error::not_found;
+    const auto prefab = std::ranges::find(prefab_nodes_, node, &prefab_node_record::node);
+    if (prefab == prefab_nodes_.end())
+      return engine::error::not_found;
+    const auto status = commit();
+    if (status.ok())
+      is_dirty_ = true;
+    return status;
   }
   std::string mesh{mesh_uri};
   std::string material{material_uri};

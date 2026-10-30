@@ -61,11 +61,11 @@ public:
   [[nodiscard]] error capture_mesh_binding(scene_instance_id instance, scene_node_id node,
                                            mesh_binding& output) const noexcept;
   /** 仅提交资源引用；expected 为空时恢复已移除组件，不加载资产。
-   * 替换既有组件时校验旧引用及 ECS，失败保留原描述和资源。 */
+   * 替换既有组件时校验旧引用及 ECS，失败保留原描述和资源。Prefab 只更新实例 URI 覆盖。 */
   [[nodiscard]] error replace_mesh_binding(scene_instance_id instance, scene_node_id node,
                                            const mesh_binding& expected,
                                            const mesh_binding& replacement) noexcept;
-  /** 验证普通作者节点归属，不接受 Prefab 的只读来源节点。 */
+  /** 验证普通作者节点或 Prefab 来源节点归属；组件增删仍受各接口限制。 */
   [[nodiscard]] error validate_editable_node(scene_instance_id instance,
                                              scene_node_id node) const noexcept;
   scene_instances(world& native_world, resource_service& loader) noexcept;

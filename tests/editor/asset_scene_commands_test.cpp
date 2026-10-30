@@ -125,7 +125,7 @@ int main() try {
   }
   if (replace_mesh_assets(session, history, uuid, {.mesh_uri = mesh, .material_uri = material})
           .failed() ||
-      history.size() != 2U || run_history(true).failed() || run_history(false).failed()) {
+      history.size() != 1U || run_history(true).failed() || run_history(false).failed()) {
     return 5;
   }
   const auto add_temporary_prefab = [&] {
@@ -162,8 +162,9 @@ int main() try {
                  session.prefab_nodes().size(), prefabs, session.is_dirty());
     return 8;
   }
+  // 相同资源是无操作，不消耗历史容量，也不把文档标脏。
   if (replace_mesh_assets(session, full, uuid, {.mesh_uri = mesh, .material_uri = material}) !=
-          gneiss::engine::error::invalid_argument ||
+          gneiss::engine::error::success ||
       session.is_dirty() || session.find_node(uuid)->material_uri != material) {
     return 9;
   }

@@ -948,6 +948,28 @@ void draw_component_descriptions(editor_state& state) {
                                    identity, *transform_edit, state.property_edit_serial);
   if (state.inspector_error.failed())
     ImGui::TextWrapped("%s", state.inspector_error.message().data());
+  auto renderer = state.world->node_mesh_renderer(node_id);
+  if (renderer) {
+    identity.component_type = mesh_renderer_description::type_guid;
+    mesh_renderer_description mesh_description{std::string(asset_uri(renderer->mesh)),
+                                               std::string(asset_uri(renderer->material))};
+    auto mesh_view = meta::instance::from(mesh_description);
+    if (mesh_view) {
+      ImGui::BeginDisabled(state.editing.assets().active() || state.editing.history().is_pending());
+      auto mesh_edit = gneiss::editor::draw_reflected_properties(
+          *mesh_view, "Mesh Renderer", state.property_edit_serial, state.inspector_error);
+      if (mesh_edit)
+        state.inspector_error =
+            state.editing.assets().request_property(*state.application, state.editing.document(),
+                                                    state.editing.history(), identity, *mesh_edit);
+      ImGui::EndDisabled();
+    } else
+      state.inspector_error = mesh_view.error();
+    if (state.inspector_error.failed())
+      ImGui::TextWrapped("%s", state.inspector_error.message().data());
+  } else if (renderer.error() != error::not_found) {
+    state.inspector_error = renderer.error();
+  }
   identity.component_type = camera_description::type_guid;
   camera_description description;
   auto status = state.world->entity_get_camera(entity, description.settings);
@@ -1117,17 +1139,21 @@ void execute_asset_browser_request(editor_state& state,
     }
     break;
   case action::apply_to_node: {
-    const auto* node = state.editing.document().selected_node();
-    if (node != nullptr && entry != state.assets.entries().end()) {
-      const auto mesh = is_mesh_asset(*entry) && !node->material_uri.empty();
-      const auto material = is_material_asset(*entry) && !node->mesh_uri.empty();
-      if (mesh || material) {
-        state.asset_scene_result = state.editing.assets().request(
-            *state.application, state.editing.document(), state.editing.history(), node->uuid,
-            {.mesh_uri = mesh ? entry->asset_uri : node->mesh_uri,
-             .material_uri = material ? entry->asset_uri : node->material_uri});
-        state.asset_scene_attempted = true;
-      }
+    gneiss::editor::component_edit_target target;
+    target.component_type = gneiss::engine::mesh_renderer_description::type_guid;
+    if (const auto* node = state.editing.document().selected_prefab_node()) {
+      target.instance_uuid = node->instance_uuid;
+      target.source_uuid = node->source_node_uuid;
+    } else if (const auto* node = state.editing.document().selected_node())
+      target.object_uuid = node->uuid;
+    if ((target.object_uuid || target.instance_uuid) && entry != state.assets.entries().end() &&
+        (is_mesh_asset(*entry) || is_material_asset(*entry))) {
+      gneiss::editor::property_edit edit;
+      edit.path.emplace_back(gneiss::engine::meta::property_id{is_mesh_asset(*entry) ? 1U : 2U});
+      edit.data = gneiss::engine::value{entry->asset_uri};
+      state.asset_scene_result = state.editing.assets().request_property(
+          *state.application, state.editing.document(), state.editing.history(), target, edit);
+      state.asset_scene_attempted = true;
     }
     break;
   }
@@ -1230,7 +1256,13 @@ void draw_asset_browser(editor_state& state) {
   }
   view.author_uri = change.uri;
   view.author_message = change.message;
-  const auto* node = state.editing.document().selected_node();
+  gneiss::scene_node_id selected_node;
+  if (const auto* node = state.editing.document().selected_prefab_node())
+    selected_node = node->node;
+  else if (const auto* node = state.editing.document().selected_node())
+    selected_node = node->node;
+  const bool has_renderer =
+      selected_node && state.world->node_mesh_renderer(selected_node).has_value();
   if (selected != state.assets.entries().end()) {
     view.can_add_mesh = is_mesh_asset(*selected) &&
                         find_material_for_mesh(state.assets.entries(), *selected) != nullptr;
@@ -1239,9 +1271,9 @@ void draw_asset_browser(editor_state& state) {
                              !state.material_editor.saving() && !state.pending_file_operation;
     view.can_add_prefab = selected->kind == gneiss::editor::asset_browser_kind::authored_asset &&
                           is_prefab_asset(*selected);
-    view.can_apply =
-        node != nullptr && ((!node->material_uri.empty() && is_mesh_asset(*selected)) ||
-                            (!node->mesh_uri.empty() && is_material_asset(*selected)));
+    view.can_apply = has_renderer && !state.editing.assets().active() &&
+                     !state.editing.history().is_pending() &&
+                     (is_mesh_asset(*selected) || is_material_asset(*selected));
   }
   view.scene_edit_attempted = state.asset_scene_attempted;
   view.scene_edit_result = state.asset_scene_result;
