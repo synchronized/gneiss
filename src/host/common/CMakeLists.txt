@@ -62,14 +62,14 @@ gneiss_target_compile_warnings(gneiss_app_ipc_protocol)
 gneiss_target_output_directories(gneiss_app_ipc_protocol)
 
 if(BUILD_TESTING)
-  add_executable(gneiss_ipc_scene_protocol_test tests/ipc/ipc_scene_protocol_test.cpp)
+  add_executable(gneiss_ipc_scene_protocol_test "${PROJECT_SOURCE_DIR}/tests/host/common/ipc/ipc_scene_protocol_test.cpp")
   target_link_libraries(gneiss_ipc_scene_protocol_test PRIVATE gneiss_app_ipc_protocol)
   gneiss_target_compile_warnings(gneiss_ipc_scene_protocol_test)
   gneiss_target_output_directories(gneiss_ipc_scene_protocol_test)
   add_test(NAME gneiss.app.ipc-scene-protocol COMMAND gneiss_ipc_scene_protocol_test)
   add_executable(
     gneiss_app_project_description_test
-    tests/project_description_test.cpp
+    "${PROJECT_SOURCE_DIR}/tests/host/common/project_description_test.cpp"
   )
   target_link_libraries(gneiss_app_project_description_test PRIVATE gneiss_app_project)
   target_compile_definitions(
@@ -82,38 +82,38 @@ if(BUILD_TESTING)
 
   add_executable(
     gneiss_app_runtime_log_protocol_test
-    tests/runtime_log_protocol_test.cpp
+    "${PROJECT_SOURCE_DIR}/tests/host/common/runtime_log_protocol_test.cpp"
   )
   target_link_libraries(gneiss_app_runtime_log_protocol_test PRIVATE gneiss_app_project)
   gneiss_target_compile_warnings(gneiss_app_runtime_log_protocol_test)
   gneiss_target_output_directories(gneiss_app_runtime_log_protocol_test)
   add_test(NAME gneiss.app.runtime-log-protocol COMMAND gneiss_app_runtime_log_protocol_test)
 
-  add_executable(gneiss_ipc_router_test tests/ipc/ipc_router_test.cpp)
+  add_executable(gneiss_ipc_router_test "${PROJECT_SOURCE_DIR}/tests/host/common/ipc/ipc_router_test.cpp")
   target_link_libraries(gneiss_ipc_router_test PRIVATE gneiss_app_ipc_protocol)
   gneiss_target_compile_warnings(gneiss_ipc_router_test)
   gneiss_target_output_directories(gneiss_ipc_router_test)
   add_test(NAME gneiss.app.ipc-router COMMAND gneiss_ipc_router_test)
 
-  add_executable(gneiss_ipc_session_protocol_test tests/ipc/ipc_session_protocol_test.cpp)
+  add_executable(gneiss_ipc_session_protocol_test "${PROJECT_SOURCE_DIR}/tests/host/common/ipc/ipc_session_protocol_test.cpp")
   target_link_libraries(gneiss_ipc_session_protocol_test PRIVATE gneiss_app_ipc_protocol)
   gneiss_target_compile_warnings(gneiss_ipc_session_protocol_test)
   gneiss_target_output_directories(gneiss_ipc_session_protocol_test)
   add_test(NAME gneiss.app.ipc-session-protocol COMMAND gneiss_ipc_session_protocol_test)
 
-  add_executable(gneiss_ipc_control_protocol_test tests/ipc/ipc_control_protocol_test.cpp)
+  add_executable(gneiss_ipc_control_protocol_test "${PROJECT_SOURCE_DIR}/tests/host/common/ipc/ipc_control_protocol_test.cpp")
   target_link_libraries(gneiss_ipc_control_protocol_test PRIVATE gneiss_app_ipc_protocol)
   gneiss_target_compile_warnings(gneiss_ipc_control_protocol_test)
   gneiss_target_output_directories(gneiss_ipc_control_protocol_test)
   add_test(NAME gneiss.app.ipc-control-protocol COMMAND gneiss_ipc_control_protocol_test)
 
-  add_executable(gneiss_ipc_domain_protocol_test tests/ipc/ipc_domain_protocol_test.cpp)
+  add_executable(gneiss_ipc_domain_protocol_test "${PROJECT_SOURCE_DIR}/tests/host/common/ipc/ipc_domain_protocol_test.cpp")
   target_link_libraries(gneiss_ipc_domain_protocol_test PRIVATE gneiss_app_ipc_protocol)
   gneiss_target_compile_warnings(gneiss_ipc_domain_protocol_test)
   gneiss_target_output_directories(gneiss_ipc_domain_protocol_test)
   add_test(NAME gneiss.app.ipc-domain-protocol COMMAND gneiss_ipc_domain_protocol_test)
 
-  add_executable(gneiss_ipc_protocol_domains_test tests/ipc/ipc_protocol_domains_test.cpp)
+  add_executable(gneiss_ipc_protocol_domains_test "${PROJECT_SOURCE_DIR}/tests/host/common/ipc/ipc_protocol_domains_test.cpp")
   target_link_libraries(gneiss_ipc_protocol_domains_test PRIVATE gneiss_app_ipc_protocol)
   gneiss_target_compile_warnings(gneiss_ipc_protocol_domains_test)
   gneiss_target_output_directories(gneiss_ipc_protocol_domains_test)
@@ -121,7 +121,7 @@ if(BUILD_TESTING)
 
   add_executable(
     gneiss_ipc_property_protocol_test
-    tests/ipc/ipc_property_protocol_test.cpp
+    "${PROJECT_SOURCE_DIR}/tests/host/common/ipc/ipc_property_protocol_test.cpp"
   )
   target_link_libraries(gneiss_ipc_property_protocol_test PRIVATE gneiss_app_ipc_protocol)
   gneiss_target_compile_warnings(gneiss_ipc_property_protocol_test)
@@ -130,7 +130,7 @@ if(BUILD_TESTING)
     NAME gneiss.app.ipc-property-protocol
     COMMAND gneiss_ipc_property_protocol_test
   )
-  add_executable(gneiss_ipc_asset_protocol_test tests/ipc/ipc_asset_protocol_test.cpp)
+  add_executable(gneiss_ipc_asset_protocol_test "${PROJECT_SOURCE_DIR}/tests/host/common/ipc/ipc_asset_protocol_test.cpp")
   target_link_libraries(gneiss_ipc_asset_protocol_test PRIVATE gneiss_app_ipc_protocol)
   gneiss_target_compile_warnings(gneiss_ipc_asset_protocol_test)
   gneiss_target_output_directories(gneiss_ipc_asset_protocol_test)

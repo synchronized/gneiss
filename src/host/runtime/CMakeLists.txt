@@ -56,14 +56,14 @@ gneiss_target_compile_warnings(gneiss_runtime)
 gneiss_target_output_directories(gneiss_runtime)
 
 if(BUILD_TESTING)
-  add_executable(gneiss_runtime_ipc_session_test tests/runtime_ipc_session_test.cpp)
+  add_executable(gneiss_runtime_ipc_session_test "${PROJECT_SOURCE_DIR}/tests/host/runtime/runtime_ipc_session_test.cpp")
   target_link_libraries(gneiss_runtime_ipc_session_test PRIVATE gneiss_runtime_ipc)
   target_compile_features(gneiss_runtime_ipc_session_test PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_runtime_ipc_session_test)
   gneiss_target_output_directories(gneiss_runtime_ipc_session_test)
   add_test(NAME gneiss.runtime.ipc-session COMMAND gneiss_runtime_ipc_session_test)
 
-  add_executable(gneiss_runtime_ipc_command_test tests/runtime_ipc_command_test.cpp)
+  add_executable(gneiss_runtime_ipc_command_test "${PROJECT_SOURCE_DIR}/tests/host/runtime/runtime_ipc_command_test.cpp")
   target_link_libraries(gneiss_runtime_ipc_command_test PRIVATE gneiss_runtime_ipc)
   target_compile_features(gneiss_runtime_ipc_command_test PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_runtime_ipc_command_test)
@@ -71,7 +71,7 @@ if(BUILD_TESTING)
   add_test(NAME gneiss.runtime.ipc-command COMMAND gneiss_runtime_ipc_command_test)
 
   add_executable(
-    gneiss_runtime_scene_inspection_test tests/runtime_scene_inspection_test.cpp
+    gneiss_runtime_scene_inspection_test "${PROJECT_SOURCE_DIR}/tests/host/runtime/runtime_scene_inspection_test.cpp"
   )
   target_link_libraries(gneiss_runtime_scene_inspection_test PRIVATE gneiss_runtime_ipc)
   target_include_directories(gneiss_runtime_scene_inspection_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -86,21 +86,21 @@ if(BUILD_TESTING)
     NAME gneiss.runtime.scene-inspection COMMAND gneiss_runtime_scene_inspection_test
   )
 
-  add_executable(gneiss_runtime_property_editor_test tests/runtime_property_editor_test.cpp)
+  add_executable(gneiss_runtime_property_editor_test "${PROJECT_SOURCE_DIR}/tests/host/runtime/runtime_property_editor_test.cpp")
   target_link_libraries(gneiss_runtime_property_editor_test PRIVATE gneiss_runtime_ipc)
   target_compile_features(gneiss_runtime_property_editor_test PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_runtime_property_editor_test)
   gneiss_target_output_directories(gneiss_runtime_property_editor_test)
   add_test(NAME gneiss.runtime.property-editor COMMAND gneiss_runtime_property_editor_test)
 
-  add_executable(gneiss_runtime_asset_reloader_test tests/runtime_asset_reloader_test.cpp)
+  add_executable(gneiss_runtime_asset_reloader_test "${PROJECT_SOURCE_DIR}/tests/host/runtime/runtime_asset_reloader_test.cpp")
   target_link_libraries(gneiss_runtime_asset_reloader_test PRIVATE gneiss_runtime_ipc)
   target_compile_features(gneiss_runtime_asset_reloader_test PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_runtime_asset_reloader_test)
   gneiss_target_output_directories(gneiss_runtime_asset_reloader_test)
   add_test(NAME gneiss.runtime.asset-reloader COMMAND gneiss_runtime_asset_reloader_test)
 
-  add_executable(gneiss_runtime_log_test tests/runtime_log_test.cpp runtime_log.cpp runtime_log.hpp)
+  add_executable(gneiss_runtime_log_test "${PROJECT_SOURCE_DIR}/tests/host/runtime/runtime_log_test.cpp" runtime_log.cpp runtime_log.hpp)
   target_include_directories(gneiss_runtime_log_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
   target_link_libraries(gneiss_runtime_log_test PRIVATE gneiss_app_project gneiss::engine)
   target_compile_features(gneiss_runtime_log_test PRIVATE cxx_std_20)
@@ -119,7 +119,7 @@ if(BUILD_TESTING)
       "${CMAKE_COMMAND}" -DGNEISS_RUNTIME=$<TARGET_FILE:gneiss_runtime>
       -DMISSING_PROJECT=${PROJECT_BINARY_DIR}/missing-runtime-project
       -DRUNTIME_TEST_DIR=${PROJECT_BINARY_DIR}/runtime-log-test -P
-      "${CMAKE_CURRENT_SOURCE_DIR}/tests/startup_diagnostic_test.cmake"
+      "${PROJECT_SOURCE_DIR}/tests/host/runtime/startup_diagnostic_test.cmake"
   )
   if(GNEISS_BUILD_EXAMPLES)
     add_test(
@@ -137,7 +137,7 @@ if(BUILD_TESTING)
       NAME gneiss.runtime.stop-protocol
       COMMAND
         powershell -NoProfile -ExecutionPolicy Bypass -File
-        "${CMAKE_CURRENT_SOURCE_DIR}/tests/stop_protocol_test.ps1"
+        "${PROJECT_SOURCE_DIR}/tests/host/runtime/stop_protocol_test.ps1"
         -Runtime $<TARGET_FILE:gneiss_runtime>
         -Project "${PROJECT_SOURCE_DIR}/examples/editor_demo"
         -TestRoot "${PROJECT_BINARY_DIR}/runtime-stop-protocol-test"
@@ -158,7 +158,7 @@ if(BUILD_TESTING)
       -DSOURCE_PROJECT=${PROJECT_SOURCE_DIR}/examples/editor_demo
       -DINPUT_MAP=${PROJECT_SOURCE_DIR}/examples/temple/assets/input/default.input-map.json
       -DTEST_PARENT=${PROJECT_BINARY_DIR}
-      -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/async_input_startup_test.cmake")
+      -P "${PROJECT_SOURCE_DIR}/tests/host/runtime/async_input_startup_test.cmake")
   set_tests_properties(gneiss.runtime.async-input-startup PROPERTIES TIMEOUT 60)
 endif()
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../../../tests/support/async_prefab_edit.hpp"
+#include "../../support/async_prefab_edit.hpp"
 #include "commands/runtime_author_apply.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/error.hpp"

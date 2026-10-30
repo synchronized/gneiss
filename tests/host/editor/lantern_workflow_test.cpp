@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../../../tests/support/async_editor_save.hpp"
-#include "../../../../tests/support/async_mesh_edit.hpp"
-#include "../../../../tests/support/async_prefab_edit.hpp"
+#include "../../support/async_editor_save.hpp"
+#include "../../support/async_mesh_edit.hpp"
+#include "../../support/async_prefab_edit.hpp"
 #include "asset_browser_model.hpp"
 #include "asset_import_controller.hpp"
 #include "commands/editor_command_history.hpp"

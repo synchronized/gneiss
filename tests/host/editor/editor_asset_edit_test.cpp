@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "../../../../tests/support/async_document.hpp"
+#include "../../support/async_document.hpp"
 #include "commands/editor_asset_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/math/transform.hpp"

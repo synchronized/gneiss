@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../../../tests/support/value_result.hpp"
+#include "../../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/world/world.hpp"
 #include "viewport/editor_camera.hpp"

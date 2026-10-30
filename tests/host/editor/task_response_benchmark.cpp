@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../../../tests/support/async_document.hpp"
+#include "../../support/async_document.hpp"
 #include "asset_background_worker.hpp"
 #include "author_asset_service.hpp"
 #include "documents/scene_document.hpp"

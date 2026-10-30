@@ -601,3 +601,12 @@ Mesh 先读取和解析，再移动数组到共享对象；材质保留来源身
 这些共享对象用于减少解析数据复制；运行时资源引用跟随最新成功内容，不提供固定版本采用。
 Asset Manager 不拥有 GPU、World 或编辑历史。剩余简化事项见
 [资产管理替换计划](../plans/PLAN-051-asset-manager-replacement.md)。
+
+## 测试源码目录
+
+测试源码、脚本及专用夹具统一存放在根目录 `tests/`，`src/` 下不再放置 tests 子目录。
+宿主测试分为 `tests/host/common`、`tests/host/editor` 和 `tests/host/runtime`；
+IPC 与 libuv 测试分别位于 `tests/platform/ipc` 和 `tests/platform/io/uv`。
+
+测试目标仍由对应模块的 CMake 文件按既有条件声明，依赖和编译权限保持在模块边界内。
+目录迁移不改变目标名、CTest 名称或测试运行命令。

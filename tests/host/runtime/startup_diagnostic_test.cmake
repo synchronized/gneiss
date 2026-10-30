@@ -37,10 +37,11 @@ file(
   WRITE "${missing_scene_project}/gneiss.project.json"
   [=[{
   "format": "gneiss.project",
-  "version": 1,
+  "version": 5,
   "name": "Missing Scene",
   "asset_root": "assets",
-  "startup_scene": "asset://scenes/missing.scene.json"
+  "startup_scene": "asset://scenes/missing.scene.json",
+  "asset_build": { "retain": [] }
 }
 ]=]
 )

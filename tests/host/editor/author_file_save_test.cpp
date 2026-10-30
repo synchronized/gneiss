@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "../../../../tests/support/async_editor_save.hpp"
+#include "../../support/async_editor_save.hpp"
 #include <fstream>
 #include <iterator>
 namespace {
