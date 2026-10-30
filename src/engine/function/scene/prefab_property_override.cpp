@@ -138,32 +138,8 @@ engine::error apply_candidate_object(const prefab_property_override& value,
       return result;
     }
     object.transform = transform;
-  } else if (is_type(engine::camera_component_type)) {
-    if (!object.components.template get<camera_description>()) {
-      return engine::error::not_found;
-    }
-    auto camera = *object.components.template get<camera_description>();
-    camera_properties properties;
-    auto& settings = properties.settings;
-    settings = camera.settings;
-    result = meta::write_property(value.key.type_guid, value.key.property_id, &properties, native);
-    if (result != engine::error::success) {
-      return result;
-    }
-    camera.settings = settings;
-    object.components.set(camera);
-  } else if (is_type(mesh_renderer_description::type_guid)) {
-    const auto* source = object.components.get<mesh_renderer_description>();
-    if (!source)
-      return error::not_found;
-    auto renderer = *source;
-    result = meta::write_property(value.key.type_guid, value.key.property_id, &renderer, native);
-    if (result.failed())
-      return result;
-    object.components.set(std::move(renderer));
   } else {
-    // 当前对象格式只存储这些组件，不能将其他类型解释为同一候选内存布局。
-    return engine::error::unsupported;
+    return edit_component(object.components, value.key.type_guid, value.key.property_id, native);
   }
   return engine::error::success;
 }
@@ -194,16 +170,6 @@ engine::error prepare_prefab_description(const prefab_description& source,
     auto status = validate_scene_components(object);
     if (status.failed())
       return status;
-    if (const auto* renderer = object.components.get<mesh_renderer_description>()) {
-      auto validated = meta::serialize(*renderer);
-      if (!validated)
-        return validated.error().error;
-    }
-    if (object.components.template get<camera_description>() &&
-        object.components.template get<camera_description>()->settings.near >=
-            object.components.template get<camera_description>()->settings.far) {
-      return engine::error::invalid_argument;
-    }
   }
   output = std::move(candidate);
   return engine::error::success;

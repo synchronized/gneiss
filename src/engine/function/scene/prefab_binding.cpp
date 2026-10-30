@@ -22,20 +22,6 @@
 #include <type_traits>
 #include <unordered_map>
 
-namespace {
-
-gneiss::engine::error apply_camera(gneiss::engine::world& native_world, std::uint64_t entity,
-                                   const gneiss::engine::camera_description* camera) noexcept {
-  if (!camera) {
-    const auto result = native_world.entity_remove_camera(gneiss::entity_id{entity});
-    return result == gneiss::engine::error::not_found ? gneiss::engine::error::success : result;
-  }
-  const auto& value = camera->settings;
-  return native_world.entity_set_camera(gneiss::entity_id{entity}, value, camera->is_primary);
-}
-
-} // namespace
-
 namespace gneiss::engine {
 
 prefab_binding::prefab_binding(world& native_world, resource_service& loader,
@@ -61,85 +47,18 @@ prefab_binding::validate_reload(const prefab_asset_ref& candidate,
     return result;
   }
 
-  std::vector<engine::mesh> meshes(candidate.get()->objects.size());
-  std::vector<engine::material> materials(candidate.get()->objects.size());
-  for (std::size_t index = 0U; index < candidate.get()->objects.size(); ++index) {
-    const auto& source = candidate.get()->objects[index];
-    if (!source.components.template get<mesh_renderer_description>()) {
-      continue;
-    }
-    result = [&] {
-      render_asset_ref cached;
-      auto status = engine::error::success;
-      {
-        auto loaded =
-            loader_.find({source.components.template get<mesh_renderer_description>()->mesh_uri,
-                          asset_type::mesh});
-        if (loaded)
-          cached = std::move(*loaded);
-        else {
-          cached = {};
-          status = loaded.error();
-        }
-      };
-      if (status.ok())
-        meshes[index] = asset_cast<mesh_resource>(cached);
-      return status;
-    }();
-    if (result == engine::error::success) {
-      result = [&] {
-        render_asset_ref cached;
-        auto status = engine::error::success;
-        {
-          auto loaded = loader_.find(
-              {source.components.template get<mesh_renderer_description>()->material_uri,
-               asset_type::material});
-          if (loaded)
-            cached = std::move(*loaded);
-          else {
-            cached = {};
-            status = loaded.error();
-          }
-        };
-        if (status.ok())
-          materials[index] = asset_cast<material_resource>(cached);
-        return status;
-      }();
-    }
-    if (result != engine::error::success) {
-      return result;
-    }
-  }
-
   prefab_description effective;
   result = prepare_prefab_description(*candidate, overrides, effective);
   if (result.failed())
     return result;
   for (const auto& object : effective.objects) {
-    const auto* renderer = object.components.get<mesh_renderer_description>();
-    if (!renderer)
-      continue;
-    auto mesh = loader_.find({renderer->mesh_uri, asset_type::mesh});
-    if (!mesh)
-      return mesh.error();
-    auto material = loader_.find({renderer->material_uri, asset_type::material});
-    if (!material)
-      return material.error();
-  }
-  const auto camera_type = engine::camera_component_type;
-  for (const auto& override_value : overrides) {
-    result = validate_prefab_property_override(override_value);
-    const auto source = std::ranges::find(
-        candidate.get()->objects, override_value.key.source_node_uuid, &object_description::uuid);
-    if (result != engine::error::success || source == candidate.get()->objects.end()) {
-      return result == engine::error::success ? engine::error::not_found : result;
-    }
-    if (source->uuid == candidate->root_uuid &&
-        override_value.key.type_guid == transform_component_type)
-      return error::invalid_argument;
-    if (override_value.key.type_guid == camera_type &&
-        !source->components.template get<camera_description>()) {
-      return engine::error::invalid_state;
+    auto dependencies = component_dependencies(object.components);
+    if (!dependencies)
+      return dependencies.error();
+    for (const auto& source : *dependencies) {
+      auto ready = loader_.find(source);
+      if (!ready)
+        return ready.error();
     }
   }
   return engine::error::success;
@@ -152,12 +71,24 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
   if (result != engine::error::success) {
     return result;
   }
-  structural_diff diff;
-
-  result = build_structural_diff(prefab_.get()->objects, candidate.get()->objects, diff);
-  if (result != engine::error::success) {
+  prefab_description effective;
+  result = prepare_prefab_description(*candidate, overrides, effective);
+  if (result.failed())
     return result;
+  auto current = *prefab_;
+  for (auto& object : current.objects) {
+    auto captured = capture_components(native_world_, find_node(object.uuid));
+    if (!captured)
+      return captured.error();
+    object.components = std::move(*captured);
+    result = native_world_.node_get_local_transform(find_node(object.uuid), object.transform);
+    if (result.failed())
+      return result;
   }
+  structural_diff diff;
+  result = build_structural_diff(current.objects, effective.objects, diff);
+  if (result.failed())
+    return result;
 
   struct staged_node {
     prefab_author_address address;
@@ -168,13 +99,13 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
     engine::material material;
   };
   std::vector<staged_node> staged;
-  staged.reserve(candidate.get()->objects.size());
+  staged.reserve(effective.objects.size());
   std::unordered_map<guid, std::size_t, guid_hash> old_indices;
   old_indices.reserve(nodes_.size());
   for (std::size_t index = 0U; index < nodes_.size(); ++index) {
     old_indices.emplace(nodes_[index].address.source_node_uuid, index);
   }
-  for (const auto& source : candidate.get()->objects) {
+  for (const auto& source : effective.objects) {
     staged_node target;
     target.address = {instance_uuid_, source.uuid};
     target.name = source.name;
@@ -182,49 +113,11 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
       target.entity = scene_object_entity(native_world_, nodes_[previous->second].node);
       target.node = nodes_[previous->second].node;
     }
-    if (source.components.template get<mesh_renderer_description>()) {
-      result = [&] {
-        render_asset_ref cached;
-        auto status = engine::error::success;
-        {
-          auto loaded =
-              loader_.find({source.components.template get<mesh_renderer_description>()->mesh_uri,
-                            asset_type::mesh});
-          if (loaded)
-            cached = std::move(*loaded);
-          else {
-            cached = {};
-            status = loaded.error();
-          }
-        };
-        if (status.ok())
-          target.mesh = asset_cast<mesh_resource>(cached);
-        return status;
-      }();
-      if (result == engine::error::success) {
-        result = [&] {
-          render_asset_ref cached;
-          auto status = engine::error::success;
-          {
-            auto loaded = loader_.find(
-                {source.components.template get<mesh_renderer_description>()->material_uri,
-                 asset_type::material});
-            if (loaded)
-              cached = std::move(*loaded);
-            else {
-              cached = {};
-              status = loaded.error();
-            }
-          };
-          if (status.ok())
-            target.material = asset_cast<material_resource>(cached);
-          return status;
-        }();
-      }
-      if (result != engine::error::success) {
-        return result;
-      }
-    }
+    auto renderer = resolve_component_renderer(source.components, loader_);
+    if (!renderer)
+      return renderer.error();
+    target.mesh = renderer->mesh;
+    target.material = renderer->material;
     staged.push_back(std::move(target));
   }
 
@@ -261,11 +154,11 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
     }
   };
   for (const auto& addition : diff.added) {
-    const auto& source = candidate.get()->objects[addition.new_index];
+    const auto& source = effective.objects[addition.new_index];
     auto& target = staged[addition.new_index];
     const auto parent = source.parent_uuid ? runtime_nodes.at(*source.parent_uuid) : root_node_;
-    auto created =
-        create_scene_object(native_world_, source, parent, {target.mesh, target.material});
+    auto created = create_scene_object(native_world_, source, parent,
+                                       {target.mesh, target.material}, &loader_);
     result = created ? error::success : created.error();
     if (created) {
       target.node = *created;
@@ -289,7 +182,7 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
     structural_change changes{};
     scene_node_id parent = null_scene_node_id;
     math::transform transform = {};
-    std::optional<engine::camera_description> camera;
+    component_descriptions components;
     mesh_renderer renderer;
   };
   std::vector<update_snapshot> applied;
@@ -306,19 +199,9 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
         (void)native_world_.node_set_local_transform(gneiss::scene_node_id{target.node},
                                                      snapshot.transform);
       }
-      if (has_change(snapshot.changes, structural_change::camera)) {
-        (void)apply_camera(native_world_, target.entity,
-                           snapshot.camera ? &*snapshot.camera : nullptr);
-      }
-      if (has_change(snapshot.changes, structural_change::mesh_renderer)) {
-        const auto& old_source = prefab_.get()->objects[snapshot.old_index];
-        if (old_source.components.template get<mesh_renderer_description>()) {
-          (void)native_world_.entity_set_mesh_renderer(gneiss::entity_id{target.entity},
-                                                       snapshot.renderer);
-        } else {
-          (void)native_world_.entity_remove_mesh_renderer(gneiss::entity_id{target.entity});
-        }
-      }
+      if (has_change(snapshot.changes, structural_change::components))
+        (void)replace_components({native_world_, target.node, snapshot.renderer, &loader_},
+                                 snapshot.components);
     }
   };
 
@@ -333,23 +216,13 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
       result = native_world_.node_get_local_transform(gneiss::scene_node_id{target.node},
                                                       snapshot.transform);
     }
-    if (result == engine::error::success && has_change(update.changes, structural_change::camera)) {
-      math::camera_settings camera;
-      const auto camera_result =
-          native_world_.entity_get_camera(gneiss::entity_id{target.entity}, camera);
-      if (camera_result == engine::error::success) {
-        std::uint64_t active = UINT64_C(0);
-        snapshot.camera = engine::camera_description{
-            .settings = camera,
-            .is_primary = engine::write_identifier<entity_id>(
-                              active,
-                              [&](auto& native_output) {
-                                return native_world_.get_active_camera(native_output);
-                              }) == engine::error::success &&
-                          active == target.entity};
-      } else if (camera_result != engine::error::not_found) {
-        result = camera_result;
-      }
+    if (result == engine::error::success &&
+        has_change(update.changes, structural_change::components)) {
+      auto captured = capture_components(native_world_, target.node);
+      if (captured)
+        snapshot.components = std::move(*captured);
+      else
+        result = captured.error();
     }
     if (result != engine::error::success) {
       rollback_updates();
@@ -364,8 +237,8 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
       rollback_additions();
       return old_renderer.error();
     }
-    applied.push_back(snapshot);
-    const auto& source = candidate.get()->objects[update.new_index];
+    applied.push_back(std::move(snapshot));
+    const auto& source = effective.objects[update.new_index];
     if (target.node != root_node_ && has_change(update.changes, structural_change::parent)) {
       const auto parent = source.parent_uuid ? runtime_nodes.at(*source.parent_uuid) : root_node_;
       result = native_world_.node_reparent(gneiss::scene_node_id{target.node},
@@ -376,19 +249,11 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
       result = native_world_.node_set_local_transform(gneiss::scene_node_id{target.node},
                                                       source.transform);
     }
-    if (result == engine::error::success && has_change(update.changes, structural_change::camera)) {
-      result = apply_camera(native_world_, target.entity,
-                            source.components.template get<camera_description>());
-    }
     if (result == engine::error::success &&
-        has_change(update.changes, structural_change::mesh_renderer)) {
-      if (source.components.template get<mesh_renderer_description>()) {
-        const mesh_renderer renderer{.mesh = target.mesh, .material = target.material};
-        result = native_world_.entity_set_mesh_renderer(gneiss::entity_id{target.entity}, renderer);
-      } else {
-        result = native_world_.entity_remove_mesh_renderer(gneiss::entity_id{target.entity});
-      }
-    }
+        has_change(update.changes, structural_change::components))
+      result =
+          replace_components({native_world_, target.node, {target.mesh, target.material}, &loader_},
+                             source.components);
     if (result != engine::error::success) {
       rollback_updates();
       rollback_additions();
@@ -400,13 +265,6 @@ engine::error prefab_binding::reload(prefab_asset_ref candidate,
     members[index].node = staged[index].node;
   auto previous_nodes = std::move(nodes_);
   nodes_ = std::move(members);
-  result = apply_overrides(overrides);
-  if (result != engine::error::success) {
-    nodes_ = std::move(previous_nodes);
-    rollback_updates();
-    rollback_additions();
-    return result;
-  }
   for (const auto& removal : diff.removed) {
     const auto& target = previous_nodes[removal.old_index];
     (void)native_world_.object_destroy(target.node);
@@ -440,34 +298,15 @@ prefab_binding::apply_overrides(std::span<const prefab_property_override> overri
     }
     if (found->node == root_node_ && override_value.key.type_guid == transform_component_type)
       return error::invalid_argument;
-    if (override_value.key.type_guid == mesh_renderer_description::type_guid) {
-      auto current = native_world_.node_mesh_renderer(found->node);
-      if (!current)
-        return current.error();
-      mesh_renderer_description renderer{std::string(asset_uri(current->mesh)),
-                                         std::string(asset_uri(current->material))};
-      auto status =
-          meta::write_property(override_value.key.type_guid, override_value.key.property_id,
-                               &renderer, override_value.value);
-      if (status.failed())
-        return status;
-      auto mesh = loader_.find({renderer.mesh_uri, asset_type::mesh});
-      if (!mesh)
-        return mesh.error();
-      auto material = loader_.find({renderer.material_uri, asset_type::material});
-      if (!material)
-        return material.error();
-      status = native_world_.entity_set_mesh_renderer(
-          entity_id{scene_object_entity(native_world_, found->node)},
-          {.mesh = asset_cast<mesh_resource>(*mesh),
-           .material = asset_cast<material_resource>(*material)});
-      if (status.failed())
-        return status;
-      continue;
-    }
-    const auto result = engine::write_component_property(
-        native_world_, scene_object_entity(native_world_, found->node),
-        override_value.key.type_guid, override_value.key.property_id, override_value.value);
+    const auto result =
+        override_value.key.type_guid == transform_component_type
+            ? engine::write_component_property(native_world_,
+                                               scene_object_entity(native_world_, found->node),
+                                               override_value.key.type_guid,
+                                               override_value.key.property_id, override_value.value)
+            : edit_runtime_component({native_world_, found->node, {}, &loader_},
+                                     override_value.key.type_guid, override_value.key.property_id,
+                                     override_value.value);
     if (result != engine::error::success) {
       return result;
     }
@@ -510,19 +349,14 @@ engine::error prefab_binding::create_node(std::size_t index, const object_descri
     return error::invalid_argument;
   auto& target = nodes_[index];
   target.address = {instance_uuid_, source.uuid};
-  if (source.components.template get<mesh_renderer_description>()) {
-    if (!mesh || !material)
-      return error::not_ready;
-    if (!loader_.owns(mesh) || !loader_.owns(material))
-      return error::invalid_argument;
-  }
+
   target.creation_attempted = true;
   if (source.uuid == prefab_->root_uuid) {
     if (target.node != root_node_)
       return error::invalid_state;
-    return configure_scene_object(native_world_, root_node_, source, {mesh, material});
+    return configure_scene_object(native_world_, root_node_, source, {mesh, material}, &loader_);
   }
-  auto created = create_scene_object(native_world_, source, parent, {mesh, material});
+  auto created = create_scene_object(native_world_, source, parent, {mesh, material}, &loader_);
   if (!created)
     return created.error();
   target.node = *created;

@@ -94,6 +94,14 @@ public:
     return !is_alive(entity) ? nullptr : registry_.try_get<Component>(native);
   }
 
+  template <class Component> error remove(std::uint64_t entity) {
+    if (!is_owner_thread())
+      return error::invalid_state;
+    if (!is_alive(entity))
+      return error::invalid_handle;
+    return registry_.remove<Component>(decode(entity)) ? error::success : error::not_found;
+  }
+
   [[nodiscard]] error set_active_camera(std::uint64_t entity) noexcept {
     if (!is_alive(entity)) {
       return error::invalid_handle;

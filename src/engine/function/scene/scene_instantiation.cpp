@@ -34,18 +34,10 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
     for (const auto index : prepared.parent_first) {
       const auto& source = prepared.description.objects.at(index);
       if (!source.prefab) {
+        const auto renderer = prepared_component_renderer(source.components, find_asset);
         const auto result = instance->create_staged_node(
             index, source, source.parent_uuid ? nodes.at(*source.parent_uuid) : null_scene_node_id,
-            asset_cast<mesh_resource>(
-                source.components.template get<mesh_renderer_description>()
-                    ? find_asset(
-                          source.components.template get<mesh_renderer_description>()->mesh_uri)
-                    : engine::render_asset_ref{}),
-            asset_cast<material_resource>(
-                source.components.template get<mesh_renderer_description>()
-                    ? find_asset(
-                          source.components.template get<mesh_renderer_description>()->material_uri)
-                    : engine::render_asset_ref{}));
+            renderer.mesh, renderer.material);
         if (result != engine::error::success) {
           return result;
         }
@@ -73,18 +65,10 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
       prefab_nodes.reserve(lease.get()->objects.size());
       for (const auto index : prepared.prefabs.at(source.prefab->uri).parent_first) {
         const auto& node = effective.objects.at(index);
+        const auto renderer = prepared_component_renderer(node.components, find_asset);
         result = prefab->create_node(
             index, node, node.parent_uuid ? prefab_nodes.at(*node.parent_uuid) : prefab->root(),
-            asset_cast<mesh_resource>(
-                node.components.template get<mesh_renderer_description>()
-                    ? find_asset(
-                          node.components.template get<mesh_renderer_description>()->mesh_uri)
-                    : engine::render_asset_ref{}),
-            asset_cast<material_resource>(
-                node.components.template get<mesh_renderer_description>()
-                    ? find_asset(
-                          node.components.template get<mesh_renderer_description>()->material_uri)
-                    : engine::render_asset_ref{}));
+            renderer.mesh, renderer.material);
         if (result != engine::error::success) {
           return result;
         }

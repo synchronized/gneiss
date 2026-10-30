@@ -42,8 +42,21 @@ ECS 组件持有 mesh/material 等引擎资源强引用，不保存第三方后�
 
 World 的节点身份、层级、局部变换与 ECS 组件是当前状态的权威来源。
 `scene_instance` 只长期保存场景 UUID、成员标记和 Prefab 绑定，不维护完整 `scene_description`。
-描述仅用于加载输入、捕获输出和撤销快照；安装/捕获由 `scene_object.hpp` 中配对的操作处理，
-当前支持相机与网格渲染组件，新增组件需要同时扩展两个方向。
+描述仅用于加载输入、捕获输出和撤销快照。`scene_object.hpp` 委托 Function/Scene 的
+`component_adapter.hpp` 按描述 GUID 安装与捕获组件，内建适配相机与网格渲染组件。
+扩展组件注册 `component_operations<T>`，提供验证、安装、捕获、删除、比较操作；
+属性覆盖默认使用 Meta，资源依赖枚举默认为空。Meta 仍只负责描述数据的反射与编码。
+
+注册须在首次组件查询之前完成；重复 GUID 返回 `invalid_argument`，冻结后注册返回
+`invalid_state`，缺少适配的描述返回 `unsupported`，不会在实例化或保存时静默丢弃。
+运行组件回调只在 World 所属线程调用；验证、比较、描述编辑与依赖枚举须可并发调用。
+安装不得读取文件或阻塞等待，失败不得改变目标组件，并须能用捕获描述恢复旧值。
+
+实际组件仍存入 World 唯一 ECS。需要直接访问 ECS 的适配实现使用内部
+`world_component_access.hpp`，其借用指针只在所属线程及 World 生存期有效；
+普通 Scene/资源接口不暴露 EnTT。节点销毁依靠 ECS 正常析构组件，不另建组件副本表。
+通用扩展的完整示例见 `tests/scene/component_adapter_test.cpp`；编辑器专用组件面板
+仍需单独接入，注册运行组件不会自动生成专用面板。
 
 保存只收集显式登记的持久化成员；Prefab 展开子节点通过源引用与覆盖表达。
 直接在 World 创建、挂到场景下的临时对象不会自动写入文件。持久化成员若被底层挂到
@@ -85,7 +98,7 @@ Editor Document 的节点列表只是界面查询缓存。保存与完整子树�
 ## 来源重载与显式刷新
 
 `reload_loaded` 应用已加载场景描述；当前要求 Prefab 引用声明保持一致，来源变更另走
-`reload_prefab_loaded`。来源重载按 UUID 匹配节点，保留匹配节点身份、实例根值和合法覆盖。
+`reload_prefab_loaded`。来源重载按 UUID 匹配节点，组件差异以当前 ECS 捕获值为准，目标值来自新描述及覆盖；保留匹配节点身份、实例根值和合法覆盖。
 原地重载不允许更换模板根 UUID；失去目标的覆盖返回错误，不静默绑定到其他节点。
 
 显式刷新通过 `prefab_placement` 准备来源快照，再调用 `instantiate_prefab_ready` 替换。

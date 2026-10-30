@@ -97,3 +97,5 @@ Reference 和实现为准。
 - [ADR-094：内存对象身份使用 guid](ADR-094-guid-object-identity.md)
 
 - [ADR-095：场景当前状态以编辑 World 为准](ADR-095-scene-data-authority.md)
+
+- [ADR-096：Function 层注册描述与运行组件的转换](ADR-096-scene-component-adapters.md)

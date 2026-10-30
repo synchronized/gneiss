@@ -5,6 +5,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/world/render_snapshot.hpp"
+#include "engine/function/world/world_component_access.hpp"
 #include "engine/function/world/world_state.hpp"
 #include <cmath>
 #include <numbers>
@@ -20,6 +21,11 @@ bool is_valid_camera(float vertical_field_of_view_radians, float near_plane,
 
 }
 namespace gneiss::engine {
+result<world_state*> detail::world_component_access::get(world& owner) noexcept {
+  if (!owner.is_owner_thread())
+    return error::invalid_state;
+  return owner.state_.get();
+}
 world::world(std::uint32_t domain) : state_(std::make_unique<world_state>(domain)) {}
 world::~world() noexcept = default;
 bool world::is_owner_thread() const noexcept { return state_->is_owner_thread(); }

@@ -15,31 +15,8 @@
 
 namespace {
 
-using gneiss::engine::camera_description;
-using gneiss::engine::mesh_renderer_description;
-using gneiss::engine::object_description;
 using object_index =
     std::unordered_map<gneiss::engine::guid, std::size_t, gneiss::engine::guid_hash>;
-
-[[nodiscard]] bool equal_camera(const gneiss::engine::camera_description* left,
-                                const gneiss::engine::camera_description* right) noexcept {
-  if ((left != nullptr) != (right != nullptr)) {
-    return false;
-  }
-  return !left ||
-         (left->settings.fov == right->settings.fov &&
-          left->settings.near == right->settings.near &&
-          left->settings.far == right->settings.far && left->is_primary == right->is_primary);
-}
-
-[[nodiscard]] bool
-equal_mesh_renderer(const gneiss::engine::mesh_renderer_description* left,
-                    const gneiss::engine::mesh_renderer_description* right) noexcept {
-  if ((left != nullptr) != (right != nullptr)) {
-    return false;
-  }
-  return !left || (left->mesh_uri == right->mesh_uri && left->material_uri == right->material_uri);
-}
 
 [[nodiscard]] gneiss::engine::error
 build_index(const std::vector<gneiss::engine::object_description>& objects, object_index& output,
@@ -73,15 +50,8 @@ compare_objects(const gneiss::engine::object_description& old_object,
       old_object.transform.scale != new_object.transform.scale) {
     changes = changes | structural_change::transform;
   }
-  if (!equal_camera(old_object.components.template get<gneiss::engine::camera_description>(),
-                    new_object.components.template get<gneiss::engine::camera_description>())) {
-    changes = changes | structural_change::camera;
-  }
-  if (!equal_mesh_renderer(
-          old_object.components.template get<gneiss::engine::mesh_renderer_description>(),
-          new_object.components.template get<gneiss::engine::mesh_renderer_description>())) {
-    changes = changes | structural_change::mesh_renderer;
-  }
+  if (!gneiss::engine::equal_components(old_object.components, new_object.components))
+    changes = changes | structural_change::components;
   return changes;
 }
 

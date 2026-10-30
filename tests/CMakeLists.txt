@@ -1101,3 +1101,12 @@ target_compile_features(gneiss_utf8_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_utf8_test)
 gneiss_target_output_directories(gneiss_utf8_test)
 add_test(NAME gneiss.utf8 COMMAND gneiss_utf8_test)
+
+# 扩展适配器访问内部 ECS；普通 Scene 接口不传播 EnTT。
+add_executable(gneiss_component_adapter_test scene/component_adapter_test.cpp)
+target_include_directories(gneiss_component_adapter_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_component_adapter_test PRIVATE gneiss::engine EnTT::EnTT)
+target_compile_features(gneiss_component_adapter_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_component_adapter_test)
+gneiss_target_output_directories(gneiss_component_adapter_test)
+add_test(NAME gneiss.component-adapter COMMAND gneiss_component_adapter_test)

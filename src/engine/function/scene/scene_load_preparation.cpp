@@ -4,6 +4,7 @@
 #include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/resource/scene/object_hierarchy.hpp"
 
@@ -41,26 +42,12 @@ public:
   engine::error collect(const std::vector<object_description>& objects) {
     using engine::asset_type;
     for (const auto& object : objects) {
-      for (const auto& component : object.components) {
-        if (!component.get<camera_description>() && !component.get<mesh_renderer_description>())
-          return error::unsupported;
-      }
-      if (cancelled && cancelled()) {
-        return engine::error::invalid_state;
-      }
-      if (!object.components.template get<mesh_renderer_description>()) {
-        continue;
-      }
-      for (const auto& asset : {
-               engine::asset_source{
-                   .uri = object.components.template get<mesh_renderer_description>()->mesh_uri,
-                   .type = asset_type::mesh,
-               },
-               engine::asset_source{
-                   .uri = object.components.template get<mesh_renderer_description>()->material_uri,
-                   .type = asset_type::material,
-               },
-           }) {
+      if (cancelled && cancelled())
+        return error::invalid_state;
+      auto sources = component_dependencies(object.components);
+      if (!sources)
+        return sources.error();
+      for (const auto& asset : *sources) {
         const auto [entry, added] = dependencies.emplace(asset.uri, asset.type);
         if ((!added && entry->second != asset.type) || dependencies.size() > limits.dependencies) {
           return engine::error::invalid_argument;

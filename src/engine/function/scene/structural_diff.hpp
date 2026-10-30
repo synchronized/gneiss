@@ -20,8 +20,7 @@ enum class structural_change : std::uint32_t {
   name = 1U << 0U,
   parent = 1U << 1U,
   transform = 1U << 2U,
-  camera = 1U << 3U,
-  mesh_renderer = 1U << 4U,
+  components = 1U << 3U,
 };
 
 [[nodiscard]] constexpr structural_change operator|(structural_change left,

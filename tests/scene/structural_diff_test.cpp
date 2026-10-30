@@ -79,8 +79,7 @@ bool test_updates() {
   return has_change(changes, structural_change::name) &&
          has_change(changes, structural_change::parent) &&
          has_change(changes, structural_change::transform) &&
-         has_change(changes, structural_change::camera) &&
-         has_change(changes, structural_change::mesh_renderer);
+         has_change(changes, structural_change::components);
 }
 
 bool test_invalid_inputs() {

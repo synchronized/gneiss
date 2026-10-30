@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/resource/asset_types.hpp"
+#include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 
@@ -58,67 +58,36 @@ inline result<object_description> capture_scene_object(world& owner, scene_node_
     return status;
   if (!components)
     return output;
-  auto renderer = owner.node_mesh_renderer(node);
-  if (renderer) {
-    // Scene 接受的资源必须可持久化；缺失身份不能静默写成空 URI。
-    const auto mesh_uri = asset_uri(renderer->mesh);
-    const auto material_uri = asset_uri(renderer->material);
-    if (mesh_uri.empty() || material_uri.empty())
-      return error::invalid_state;
-    output.components.set(
-        mesh_renderer_description{std::string(mesh_uri), std::string(material_uri)});
-  } else if (renderer.error() != error::not_found) {
-    return renderer.error();
-  }
-  const entity_id entity{scene_object_entity(owner, node)};
-  math::camera_settings camera;
-  status = owner.entity_get_camera(entity, camera);
-  if (status.ok()) {
-    entity_id active;
-    auto active_status = owner.get_active_camera(active);
-    if (active_status.failed() && active_status != error::not_ready)
-      return active_status;
-    output.components.set(camera_description{camera, active_status.ok() && active == entity});
-  } else if (status != error::not_found) {
-    return status;
-  }
+  auto captured = capture_components(owner, node);
+  if (!captured)
+    return captured.error();
+  output.components = std::move(*captured);
   return output;
 }
-/** 当前运行时只安装这两类描述；已注册的其他描述不得被静默忽略。 */
+/** 未注册适配器的描述不得被静默忽略。 */
 inline error validate_scene_components(const object_description& source) noexcept {
-  for (const auto& value : source.components) {
-    if (!value.get<camera_description>() && !value.get<mesh_renderer_description>())
-      return error::unsupported;
-  }
-  return source.prefab && !source.components.empty() ? error::invalid_argument : error::success;
+  if (source.prefab && !source.components.empty())
+    return error::invalid_argument;
+  return validate_components(source.components);
 }
 /** 将已解析组件安装到节点；创建失败的回收由调用者负责。 */
 inline error configure_scene_object(world& owner, scene_node_id node,
-                                    const object_description& source,
-                                    const mesh_renderer& renderer) {
+                                    const object_description& source, const mesh_renderer& renderer,
+                                    resource_service* resources = nullptr) {
   const auto validation = validate_scene_components(source);
   if (validation.failed())
     return validation;
-  const entity_id entity{scene_object_entity(owner, node)};
-  auto status = error::success;
-  if (source.components.template get<camera_description>()) {
-    status = owner.entity_configure_camera(
-        entity, source.components.template get<camera_description>()->settings);
-    if (status.ok() && source.components.template get<camera_description>()->is_primary)
-      status = owner.set_active_camera(entity);
-  }
-  if (status.ok() && source.components.template get<mesh_renderer_description>())
-    status = owner.entity_set_mesh_renderer(entity, renderer);
-  return status;
+  return install_components({owner, node, renderer, resources}, source.components);
 }
 /** 普通对象与 Prefab 共用实例化路径，输入资源仅在组件内长期持有。 */
 inline result<scene_node_id> create_scene_object(world& owner, const object_description& source,
                                                  scene_node_id parent,
-                                                 const mesh_renderer& renderer) {
+                                                 const mesh_renderer& renderer,
+                                                 resource_service* resources = nullptr) {
   auto created = owner.object_create(parent, {source.uuid, source.name}, source.transform);
   if (!created)
     return created.error();
-  const auto status = configure_scene_object(owner, *created, source, renderer);
+  const auto status = configure_scene_object(owner, *created, source, renderer, resources);
   if (status.failed()) {
     (void)owner.object_destroy(*created);
     return status;

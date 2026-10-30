@@ -14,6 +14,9 @@
 namespace gneiss::engine {
 class world_state;
 struct world_factory;
+namespace detail {
+struct world_component_access;
+}
 }
 namespace gneiss::engine {
 /** 原生 World 操作入口；拥有唯一 ECS/场景树状态，全部访问限所属线程。
@@ -75,6 +78,7 @@ public:
 
 private:
   friend struct engine::world_factory;
+  friend struct detail::world_component_access;
   explicit world(std::uint32_t domain);
   std::unique_ptr<engine::world_state> state_;
 };
