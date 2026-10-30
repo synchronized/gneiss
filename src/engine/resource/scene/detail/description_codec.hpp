@@ -14,6 +14,5 @@ struct decoded_object_document {
 result<decoded_object_document, scene_diagnostic> parse_object_document(std::string_view json,
                                                                         bool prefab) noexcept;
 result<std::string> serialize_object_document(guid uuid, std::optional<guid> root_uuid,
-                                              std::span<const object_description> objects,
-                                              std::string_view author_json) noexcept;
+                                              std::span<const object_description> objects) noexcept;
 }

@@ -14,7 +14,7 @@
 namespace gneiss::engine {
 
 struct scene_prepare_limits {
-  // 累计保留的作者 JSON 字节数；单文件读取上限由 codec 规定。
+  // 累计读取的源文件字节数；单文件读取上限由 codec 规定。
   std::size_t source_bytes{16U * 1024U * 1024U};
   std::size_t nodes{65536U};
   std::size_t dependencies{65536U};
@@ -29,19 +29,20 @@ struct prepared_prefab_description {
 
 /** 工作者自有的准备结果；持有不可变 Prefab 引用，不含 World 或后端资源。
  * Prefab v1 不支持嵌套实例；渲染依赖的材质/纹理闭包由资产准备阶段解析。
- * source_bytes 只计解析后保留的作者 JSON；解析后的字符串与索引另占内存。 */
+ * source_bytes 是加载统计，不代表解析后内存用量。 */
 struct prepared_scene_description {
   scene_description description;
   std::vector<std::size_t> parent_first;
   std::map<std::string, prepared_prefab_description> prefabs;
   std::vector<asset_source> assets;
   std::size_t instance_nodes{};
-  // 累计保留的作者 JSON 字节数；单文件读取上限由 codec 规定。
+  // 累计读取的源文件字节数；单文件读取上限由 codec 规定。
   std::size_t source_bytes{};
 };
 
 /** 所属线程取得的不可变输入；工作线程不读取文件或访问 manager。 */
 struct scene_description_inputs {
+  std::size_t source_bytes{}; // 文件加载请求统计；纯内存构造的输入为零。
   asset_ref<const scene_description> scene;
   std::map<std::string, asset_ref<const prefab_description>> prefabs;
 };

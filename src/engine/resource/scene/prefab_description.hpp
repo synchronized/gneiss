@@ -29,7 +29,6 @@ struct prefab_description final {
   guid root_uuid;
   std::vector<object_description> objects;
   std::vector<std::string> dependencies;
-  std::string author_json;
 };
 
 /** 共享只读来源描述；实例的覆写数据另行持有。 */

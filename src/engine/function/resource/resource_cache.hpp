@@ -33,6 +33,7 @@ public:
     type_id type{engine::runtime_type_of<void>()};
     bool is_loading{true}; // 仅在同步创建回调期间阻止同键递归。
     std::shared_ptr<const void> resource;
+    std::size_t source_bytes{}; // CPU 文件加载统计；程序创建的对象默认为零。
     /** 验证类型后共享运行对象的原控制块，不把缓存条目暴露给类型化使用者。 */
     template <typename T> [[nodiscard]] asset_ref<const T> as() const noexcept {
       return type == runtime_type_of<T>()
@@ -47,7 +48,8 @@ public:
    * 回调仅在需要加载时执行；同键递归加载返回 invalid_state。 */
   [[nodiscard]] result<asset_ref<const entry>>
   load(std::string_view uri, type_id type, const loader& decode,
-       std::shared_ptr<const files::source_domain> source = {}, bool reload = false) noexcept;
+       std::shared_ptr<const files::source_domain> source = {}, bool reload = false,
+       std::size_t source_bytes = 0) noexcept;
   void release_unused() noexcept;
   /** 只观察当前身份，不触发加载；返回的弱引用不会阻止卸载。 */
   [[nodiscard]] std::weak_ptr<const entry>

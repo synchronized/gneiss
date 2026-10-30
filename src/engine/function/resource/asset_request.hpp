@@ -19,6 +19,7 @@ struct asset_state {
   error status{error::not_ready};
   std::shared_ptr<const void> value;
   meta::serialization_diagnostic diagnostic;
+  std::size_t source_bytes{};
 };
 }
 /** 内部移动请求；取消仅放弃本观察者，成功领取一次只读结果。
@@ -36,6 +37,8 @@ public:
   asset_request& operator=(asset_request&&) noexcept = default;
   [[nodiscard]] explicit operator bool() const noexcept { return state_ != nullptr; }
   void cancel() noexcept { state_.reset(); }
+  /** 最近一次成功领取的源文件字节数；尚未成功领取时为零，成功后可在请求失效时查询。 */
+  [[nodiscard]] std::size_t source_bytes() const noexcept { return source_bytes_; }
   /** 非阻塞领取；not_ready 保留请求，成功后请求失效。失败携带解析诊断。 */
   [[nodiscard]] result<reference, asset_diagnostic> take() noexcept try {
     if (!state_)
@@ -48,6 +51,7 @@ public:
     if (!state->value)
       return asset_diagnostic{error::internal, 0, {}, {}};
     auto value = reference{std::static_pointer_cast<const T>(state->value)};
+    source_bytes_ = state->source_bytes;
     state_.reset();
     return value;
   } catch (const std::bad_alloc&) {
@@ -58,5 +62,6 @@ public:
 
 private:
   std::shared_ptr<detail::asset_state> state_;
+  std::size_t source_bytes_{};
 };
 }

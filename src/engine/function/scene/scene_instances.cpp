@@ -824,11 +824,6 @@ engine::error scene_instance::capture_subtree(scene_node_id root,
       snapshot.resources[author.uuid].renderer = {renderer->mesh, renderer->material};
     }
   }
-  // 裁掉原始 JSON 中快照之外的对象，同时保留本子树的扩展字段。
-  auto encoded = serialize_scene_description(snapshot.description);
-  if (!encoded)
-    return encoded.error();
-  snapshot.description.author_json = std::move(*encoded);
   output = std::move(snapshot);
   return error::success;
 }

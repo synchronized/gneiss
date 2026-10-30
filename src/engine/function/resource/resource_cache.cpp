@@ -16,7 +16,8 @@ namespace gneiss::engine {
 
 result<asset_ref<const resource_cache::entry>>
 resource_cache::load(std::string_view uri, type_id type, const loader& decode,
-                     std::shared_ptr<const files::source_domain> source, bool reload) noexcept {
+                     std::shared_ptr<const files::source_domain> source, bool reload,
+                     std::size_t source_bytes) noexcept {
   using engine::error;
   if (type == engine::runtime_type_of<void>() || !decode || validate_uri(uri) != error::success)
     return error::invalid_argument;
@@ -34,6 +35,7 @@ resource_cache::load(std::string_view uri, type_id type, const loader& decode,
     value->uri = uri;
     value->source = std::move(source);
     value->type = type;
+    value->source_bytes = source_bytes;
     // 加载期间保活旧值并阻止同键递归；失败（包括异常）恢复原条目。
     const auto previous = found == entries_.end() ? asset_ref<const entry>{} : found->second;
     entries_.insert_or_assign(identity, asset_ref<const entry>{value});

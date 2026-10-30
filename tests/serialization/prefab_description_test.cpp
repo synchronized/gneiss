@@ -190,7 +190,7 @@ bool explicit_root_contract() {
   auto restored = e::parse_prefab_description(*text);
   if (!restored || restored->root_uuid != root || restored->objects[0].uuid != child)
     return false;
-  // 根选择写回文件，不能保留 author_json 中的旧 root_uuid。
+  // 根选择写回文件，不能保留 输入文件中的旧 root_uuid。
   parsed->root_uuid = child;
   parsed->objects[0].parent_uuid.reset();
   parsed->objects[1].parent_uuid = child;
@@ -252,7 +252,7 @@ int main() try {
   const auto parsed_nested = gneiss::engine::parse_prefab_description(nested);
   if (parsed_nested || parsed_nested.error().error != gneiss::engine::error::unsupported)
     return 95;
-  // 反射 codec 保留未知字段；解码失败不覆盖旧对象。
+  // 反射 codec 忽略未知字段；解码失败不覆盖旧对象。
   {
     namespace e = gneiss::engine;
     gneiss::engine::meta::registry_ref registry;
@@ -280,23 +280,24 @@ int main() try {
             restored, detail)
             .failed() ||
         restored.objects.size() != value.objects.size() ||
-        restored.author_json.find("codec_unknown") == std::string::npos)
+        (*gneiss::engine::serialize_prefab_description(restored)).find("codec_unknown") !=
+            std::string::npos)
       return 92;
-    const auto saved = restored.author_json;
+    const auto saved = (*gneiss::engine::serialize_prefab_description(restored));
     const std::string broken = "{";
     if (gneiss::test_support::assign_decoded(
             gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(restored)>>(
                 registry, std::as_bytes(std::span{broken.data(), broken.size()})),
             restored, detail)
             .ok() ||
-        restored.author_json != saved)
+        (*gneiss::engine::serialize_prefab_description(restored)) != saved)
       return 93;
     std::vector<std::byte> oversized(e::prefab_description::maximum_source_bytes + 1U);
     if (gneiss::test_support::assign_decoded(
             gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(restored)>>(registry,
                                                                                        oversized),
             restored, detail) != e::error::invalid_argument ||
-        restored.author_json != saved)
+        (*gneiss::engine::serialize_prefab_description(restored)) != saved)
       return 94;
   }
 
@@ -314,8 +315,7 @@ int main() try {
       prefab.source_schema_version != 1U || prefab.objects.size() != 2U ||
       prefab.objects[1].parent_uuid != prefab.objects[0].uuid || prefab.dependencies.size() != 2U ||
       prefab.dependencies[0] != "asset://materials/lantern.material" ||
-      prefab.dependencies[1] != "asset://models/lantern.mesh" ||
-      prefab.author_json != valid_prefab) {
+      prefab.dependencies[1] != "asset://models/lantern.mesh") {
     return 1;
   }
   std::string serialized;
@@ -331,7 +331,7 @@ int main() try {
   if (gneiss::test_support::assign_value(gneiss::engine::serialize_prefab_description(prefab),
                                          serialized) != gneiss::engine::error::success ||
       serialized.find("Serialized Child") == std::string::npos ||
-      serialized.find("editor_unknown") == std::string::npos ||
+      serialized.find("editor_unknown") != std::string::npos ||
       serialized.find("prefab_instances") != std::string::npos ||
       gneiss::test_support::assign_decoded(gneiss::engine::parse_prefab_description(serialized),
                                            round_trip,
@@ -342,7 +342,6 @@ int main() try {
 
   // 新建描述不依赖原文件；非法根节点仍须拒绝保存。
   auto fresh = prefab;
-  fresh.author_json.clear();
   auto fresh_bytes = gneiss::engine::encode_prefab(fresh);
   if (!fresh_bytes)
     return 40;

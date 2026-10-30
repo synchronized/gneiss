@@ -16,7 +16,6 @@ parse_prefab_description(std::string_view json) noexcept try {
   prefab.root_uuid = *parsed->root_uuid;
   prefab.source_schema_version = 1U;
   prefab.objects = std::move(parsed->objects);
-  prefab.author_json = json;
   for (const auto& object : prefab.objects) {
     if (const auto* mesh = object.components.get<mesh_renderer_description>()) {
       prefab.dependencies.push_back(mesh->mesh_uri);
@@ -34,8 +33,7 @@ parse_prefab_description(std::string_view json) noexcept try {
 }
 
 result<std::string> serialize_prefab_description(const prefab_description& prefab) noexcept {
-  return detail::serialize_object_document(prefab.uuid, prefab.root_uuid, prefab.objects,
-                                           prefab.author_json);
+  return detail::serialize_object_document(prefab.uuid, prefab.root_uuid, prefab.objects);
 }
 }
 namespace gneiss::engine {

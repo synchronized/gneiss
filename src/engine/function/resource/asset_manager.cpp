@@ -50,6 +50,7 @@ struct asset_manager::resource_state {
     task_handle task;
     double queue_ms{};
     engine::files::bytes bytes;
+    std::size_t source_bytes{};
     bool reading{true}, read_complete{};
     std::shared_ptr<const void> value;
     meta::serialization_diagnostic diagnostic;
@@ -109,6 +110,7 @@ struct asset_manager::resource_state {
         files::bytes{}.swap(bytes);
         return;
       }
+      source_bytes = bytes.size();
       auto decoded = loader->decode(bytes);
       if (decoded) {
         value = std::move(*decoded);
@@ -375,6 +377,7 @@ error asset_manager::request(type_id type, std::string_view uri, bool reload,
   if (!reload && cached && !cached->is_loading) {
     auto ready = std::make_shared<detail::asset_state>();
     ready->status = error::success;
+    ready->source_bytes = cached->source_bytes;
     ready->value = std::shared_ptr<const void>(cached, cached->resource.get());
     output = std::move(ready);
     return error::success;
@@ -609,7 +612,7 @@ void asset_manager::advance() {
         const auto& [domain, uri, type] = work->identity;
         auto cached = cache_.load(
             uri, type, [&]() -> result<std::shared_ptr<const void>> { return work->value; }, domain,
-            true);
+            true, work->source_bytes);
         work->status = cached ? error::success : cached.error();
         if (cached)
           work->value = std::shared_ptr<const void>(cached->shared(), (*cached)->resource.get());
@@ -620,6 +623,7 @@ void asset_manager::advance() {
       work->observer->status = work->status;
       work->observer->diagnostic = std::move(work->diagnostic);
       if (work->status == error::success) {
+        work->observer->source_bytes = work->source_bytes;
         work->observer->value = std::move(work->value);
       }
     }

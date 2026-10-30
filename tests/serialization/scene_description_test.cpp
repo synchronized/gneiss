@@ -129,7 +129,7 @@ bool guid_identity_contract() {
       parsed->objects[1].parent_uuid != parsed->objects[0].uuid)
     return false;
   const auto original = *parsed;
-  // 内存身份修改必须反映到文件；不沿用 author_json 中的旧场景 UUID。
+  // 内存身份修改必须反映到文件；不沿用 输入文件中的旧场景 UUID。
   parsed->uuid = *e::guid::parse("abcdef01-2345-4678-9abc-def012345678");
   auto encoded = e::serialize_scene_description(*parsed);
   if (!encoded)
@@ -217,7 +217,6 @@ int main() try {
     auto fresh = gneiss::engine::parse_scene_description(valid_scene);
     if (!fresh)
       return 40;
-    fresh->author_json.clear();
     auto bytes = gneiss::engine::encode_scene(*fresh);
     if (!bytes)
       return 41;
@@ -226,7 +225,7 @@ int main() try {
         restored->objects.size() != fresh->objects.size())
       return 42;
   }
-  // 反射 codec 保留未知字段；解码失败不覆盖旧对象。
+  // 反射 codec 忽略未知字段；解码失败不覆盖旧对象。
   {
     namespace e = gneiss::engine;
     gneiss::engine::meta::registry_ref registry;
@@ -254,23 +253,24 @@ int main() try {
             restored, detail)
             .failed() ||
         restored.objects.size() != value.objects.size() ||
-        restored.author_json.find("codec_unknown") == std::string::npos)
+        (*gneiss::engine::serialize_scene_description(restored)).find("codec_unknown") !=
+            std::string::npos)
       return 92;
-    const auto saved = restored.author_json;
+    const auto saved = (*gneiss::engine::serialize_scene_description(restored));
     const std::string broken = "{";
     if (gneiss::test_support::assign_decoded(
             gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(restored)>>(
                 registry, std::as_bytes(std::span{broken.data(), broken.size()})),
             restored, detail)
             .ok() ||
-        restored.author_json != saved)
+        (*gneiss::engine::serialize_scene_description(restored)) != saved)
       return 93;
     std::vector<std::byte> oversized(e::scene_description::maximum_source_bytes + 1U);
     if (gneiss::test_support::assign_decoded(
             gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(restored)>>(registry,
                                                                                        oversized),
             restored, detail) != e::error::invalid_argument ||
-        restored.author_json != saved)
+        (*gneiss::engine::serialize_scene_description(restored)) != saved)
       return 94;
   }
 
@@ -284,7 +284,7 @@ int main() try {
       !scene.objects[1].components.template get<gneiss::engine::mesh_renderer_description>() ||
       gneiss::test_support::assign_value(gneiss::engine::serialize_scene_description(scene),
                                          serialized) != gneiss::engine::error::success ||
-      serialized.find(R"("unknown":true)") == std::string::npos) {
+      serialized.find(R"("unknown":true)") != std::string::npos) {
     return 1;
   }
 
@@ -340,7 +340,7 @@ int main() try {
       gneiss::test_support::assign_value(gneiss::engine::serialize_scene_description(scene),
                                          serialized) != gneiss::engine::error::success ||
       serialized.find(R"("kind":"vec3")") == std::string::npos ||
-      serialized.find(R"("unknown":true)") == std::string::npos) {
+      serialized.find(R"("unknown":true)") != std::string::npos) {
     return 3;
   }
 

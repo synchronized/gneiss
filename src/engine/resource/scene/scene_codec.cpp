@@ -461,8 +461,7 @@ template <class Values>
 }
 
 [[nodiscard]] gneiss::engine::result<yyjson_mut_val*>
-make_components(yyjson_mut_doc* document, const gneiss::engine::component_descriptions& values,
-                yyjson_mut_val* previous = nullptr) {
+make_components(yyjson_mut_doc* document, const gneiss::engine::component_descriptions& values) {
   auto* array = yyjson_mut_arr(document);
   if (!array)
     return gneiss::engine::error::out_of_memory;
@@ -477,16 +476,6 @@ make_components(yyjson_mut_doc* document, const gneiss::engine::component_descri
       return gneiss::engine::error::invalid_argument;
     const auto type = value.guid().string();
     auto* entry = yyjson_mut_obj(document);
-    if (yyjson_mut_is_arr(previous)) {
-      auto it = yyjson_mut_arr_iter_with(previous);
-      while (auto* old = yyjson_mut_arr_iter_next(&it)) {
-        auto* old_type = yyjson_mut_obj_get(old, "$type_guid");
-        if (yyjson_mut_is_str(old_type) && type == yyjson_mut_get_str(old_type)) {
-          entry = yyjson_mut_val_mut_copy(document, old);
-          break;
-        }
-      }
-    }
     // 内容完全由 codec 输出；不能合并旧字段，否则省略的默认值或删除的字段会复活。
     auto* content = yyjson_val_mut_copy(document, yyjson_doc_get_root(decoded.get()));
     if (!put_value(document, entry, "$type_guid", yyjson_mut_strcpy(document, type.c_str())) ||
@@ -496,11 +485,7 @@ make_components(yyjson_mut_doc* document, const gneiss::engine::component_descri
   return array;
 }
 
-[[nodiscard]] yyjson_mut_val* make_author_object(yyjson_mut_doc* doc,
-                                                 const gneiss::engine::object_description&) {
-  return yyjson_mut_obj(doc);
-}
-// 覆盖注册字段但保留对象和 transform 内的未知扩展字段。
+// 从当前描述生成已注册字段。
 gneiss::engine::error write_object_fields(yyjson_mut_doc* doc, yyjson_mut_val* target,
                                           const gneiss::engine::object_description& source) {
   using namespace gneiss::engine;
@@ -516,21 +501,7 @@ gneiss::engine::error write_object_fields(yyjson_mut_doc* doc, yyjson_mut_val* t
   while (auto* key = yyjson_obj_iter_next(&it)) {
     auto* value = yyjson_obj_iter_get_val(key);
     const auto* name = yyjson_get_str(key);
-    if (json_string(key) == "transform") {
-      auto* transform = yyjson_mut_obj_get(target, name);
-      if (!transform) {
-        transform = yyjson_mut_obj(doc);
-        if (!put_value(doc, target, name, transform))
-          return error::out_of_memory;
-      }
-      if (!yyjson_mut_is_obj(transform))
-        return error::invalid_state;
-      auto fields = yyjson_obj_iter_with(value);
-      while (auto* field = yyjson_obj_iter_next(&fields))
-        if (!put_value(doc, transform, yyjson_get_str(field),
-                       yyjson_val_mut_copy(doc, yyjson_obj_iter_get_val(field))))
-          return error::out_of_memory;
-    } else if (!put_value(doc, target, name, yyjson_val_mut_copy(doc, value)))
+    if (!put_value(doc, target, name, yyjson_val_mut_copy(doc, value)))
       return error::out_of_memory;
   }
   if (source.name.empty())
@@ -809,7 +780,6 @@ result<scene_description, scene_diagnostic> parse_scene_description(std::string_
   scene.source_schema_version = static_cast<std::uint32_t>(schema_version);
   scene.uuid = parsed->uuid;
   scene.objects = std::move(parsed->objects);
-  scene.author_json = json;
   return scene;
 } catch (const std::bad_alloc&) {
   return scene_diagnostic{.error = error::out_of_memory};
@@ -818,14 +788,12 @@ result<scene_description, scene_diagnostic> parse_scene_description(std::string_
 }
 
 result<std::string> serialize_scene_description(const scene_description& scene) noexcept {
-  return detail::serialize_object_document(scene.uuid, std::nullopt, scene.objects,
-                                           scene.author_json);
+  return detail::serialize_object_document(scene.uuid, std::nullopt, scene.objects);
 }
 
 result<std::string>
 detail::serialize_object_document(guid uuid, std::optional<guid> root_uuid,
-                                  std::span<const object_description> object_list,
-                                  std::string_view author_json) noexcept try {
+                                  std::span<const object_description> object_list) noexcept try {
   std::string out_json;
   if (!uuid)
     return engine::error::invalid_argument;
@@ -868,24 +836,14 @@ detail::serialize_object_document(guid uuid, std::optional<guid> root_uuid,
         return error::invalid_argument;
     }
   }
-  // 新建描述没有原文件；从空对象列表开始，已有文件继续走未知字段合并。
-  if (author_json.empty())
-    author_json = R"({"objects":[]})";
-
-  yyjson_read_err error{};
-  using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
-  document_ptr document(yyjson_read_opts(const_cast<char*>(author_json.data()), author_json.size(),
-                                         YYJSON_READ_NOFLAG, nullptr, &error),
-                        &yyjson_doc_free);
   using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
-  mutable_document_ptr mutable_document(
-      document ? yyjson_doc_mut_copy(document.get(), nullptr) : nullptr, &yyjson_mut_doc_free);
-  if (!mutable_document) {
-    return document ? engine::error::out_of_memory : engine::error::invalid_state;
-  }
-  yyjson_mut_val* root = yyjson_mut_doc_get_root(mutable_document.get());
-  if (!yyjson_mut_is_arr(yyjson_mut_obj_get(root, "objects")))
-    return engine::error::invalid_state;
+  mutable_document_ptr mutable_document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
+  if (!mutable_document)
+    return error::out_of_memory;
+  auto* root = yyjson_mut_obj(mutable_document.get());
+  if (!root)
+    return error::out_of_memory;
+  yyjson_mut_doc_set_root(mutable_document.get(), root);
   if (!put_value(mutable_document.get(), root, root_uuid ? "prefab_uuid" : "scene_uuid",
                  make_uuid(mutable_document.get(), uuid)))
     return engine::error::out_of_memory;
@@ -897,42 +855,13 @@ detail::serialize_object_document(guid uuid, std::optional<guid> root_uuid,
       (root_uuid && !put_value(mutable_document.get(), root, "root_uuid",
                                make_uuid(mutable_document.get(), *root_uuid))))
     return engine::error::out_of_memory;
-  (void)yyjson_mut_obj_remove_key(root, "prefab_instances");
-  // 按稳定身份保留扩展字段，不能按旧数组下标绑定删除或重排后的对象。
-  const auto align_members = [&](const char* key, const char* identity, const auto& members,
-                                 auto get_identity, auto create) -> yyjson_mut_val* {
-    auto* previous = yyjson_mut_obj_get(root, key);
-    if (!yyjson_mut_is_arr(previous))
-      return nullptr;
-    std::unordered_map<guid, yyjson_mut_val*, guid_hash> originals;
-    auto iterator = yyjson_mut_arr_iter_with(previous);
-    while (auto* entry = yyjson_mut_arr_iter_next(&iterator)) {
-      auto* id = yyjson_mut_obj_get(entry, identity);
-      if (yyjson_mut_is_str(id))
-        if (auto parsed = guid::parse({yyjson_mut_get_str(id), yyjson_mut_get_len(id)}))
-          originals.emplace(*parsed, entry);
-    }
-    auto* aligned = yyjson_mut_arr(mutable_document.get());
-    if (!aligned)
-      return nullptr;
-    for (const auto& member : members) {
-      const auto found = originals.find(get_identity(member));
-      auto* entry = found == originals.end()
-                        ? create(mutable_document.get(), member)
-                        : yyjson_mut_val_mut_copy(mutable_document.get(), found->second);
-      if (!entry || !yyjson_mut_arr_add_val(aligned, entry))
-        return nullptr;
-    }
-    return put_value(mutable_document.get(), root, key, aligned) ? aligned : nullptr;
-  };
-  auto* objects = align_members(
-      "objects", "uuid", object_list, [](const auto& value) { return value.uuid; },
-      make_author_object);
-  if (!objects)
-    return engine::error::out_of_memory;
-  for (std::size_t index = 0; index < object_list.size(); ++index) {
-    const auto& source = object_list[index];
-    yyjson_mut_val* object = yyjson_mut_arr_get(objects, index);
+  auto* objects = yyjson_mut_arr(mutable_document.get());
+  if (!put_value(mutable_document.get(), root, "objects", objects))
+    return error::out_of_memory;
+  for (const auto& source : object_list) {
+    auto* object = yyjson_mut_obj(mutable_document.get());
+    if (!object || !yyjson_mut_arr_add_val(objects, object))
+      return error::out_of_memory;
     const auto status = write_object_fields(mutable_document.get(), object, source);
     if (status.failed())
       return status;
@@ -954,8 +883,7 @@ detail::serialize_object_document(guid uuid, std::optional<guid> root_uuid,
       continue;
     }
     (void)yyjson_mut_obj_remove_key(object, "prefab");
-    auto* previous = yyjson_mut_obj_get(object, "components");
-    auto components = make_components(mutable_document.get(), source.components, previous);
+    auto components = make_components(mutable_document.get(), source.components);
     if (!components)
       return components.error();
     if (!put_value(mutable_document.get(), object, "components", *components))

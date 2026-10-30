@@ -73,7 +73,6 @@ struct scene_description final {
   std::uint32_t source_schema_version = 0;
   gneiss::engine::guid uuid;
   std::vector<object_description> objects;
-  std::string author_json;
 };
 
 } // namespace gneiss::engine

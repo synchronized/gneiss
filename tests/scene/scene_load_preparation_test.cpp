@@ -112,9 +112,12 @@ void run() {
   check(output.prefabs.size() == 1U && output.assets.size() == 2U && output.instance_nodes == 3U);
   check(memory->reads["p.prefab"] == 1U &&
         output.parent_first == std::vector<std::size_t>({0U, 1U, 2U}));
-  const auto bytes = output.description.author_json.size() +
-                     output.prefabs.begin()->second.resource->author_json.size();
+  const auto bytes = memory->files.at("main.scene").size() + memory->files.at("p.prefab").size();
   check(output.source_bytes == bytes);
+  auto cached_request = assets.load<scene_description>("asset://main.scene");
+  check(bool(cached_request));
+  auto cached_scene = cached_request->take();
+  check(bool(cached_scene) && cached_request->source_bytes() == memory->files.at("main.scene").size());
   check(scene_decodes == 1U && prefab_decodes == 1U);
   scene_description_request request(assets, "asset://main.scene", false);
   scene_description_inputs inputs;

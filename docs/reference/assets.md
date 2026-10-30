@@ -246,15 +246,16 @@ texture_description 表示现有纹理 JSON 的运行时视图；尺寸、变体
 ### Scene 与 Prefab 描述
 
 `scene_description` 和 `prefab_description` 通过同一 manager 同步或后台加载，默认 Registry
-注册现有格式的双向 codec；保留未知字段、层级及 Prefab 单根校验。每文件默认限制为 16 MiB，
+注册现有格式的双向 codec；保留层级及 Prefab 单根校验，未知扩展字段不保留。每文件默认限制为 16 MiB，
 显式 decoder 可以指定自己的上限。直接 parse/serialize 函数仍用于编辑器的内存文本操作。
 Prefab 直接使用 `load<prefab_description>`；
 显式重载使用 `reload=true`，不再保留专用 Prefab Loader 或转发接口。
 
 场景所属线程用 `scene_description_request` 取得场景及去重后的 Prefab 引用；工作线程只做
-层级排序、依赖收集与准备预算检查。`scene_prepare_limits::source_bytes` 统计累计保留的
-`author_json` 字节，不是所有解析对象的内存，也不是自定义 decoder 的原始输入字节总量。
-默认 codec 保留原文；单文件输入限制仍由 manager 的有界读取保证。
+层级排序、依赖收集与准备预算检查。`scene_prepare_limits::source_bytes` 统计累计源文件
+输入字节，不代表解析对象的内存。请求成功 take 后可查询 source_bytes()，缓存命中保留该统计；
+场景加载输入传递累计值，纯内存构造的输入为零。描述不保留源文本，单文件输入限制仍由
+manager 的有界读取保证。保存行为见[场景格式](scene-format.md)。
 
 普通同步加载复用描述缓存；显式重载与后台打开场景/准备 Prefab 会重新加载。
 准备结果只持有取得的 Prefab 引用、父节点优先索引和最大深度，不复制完整描述。

@@ -82,10 +82,6 @@ public:
         return error::not_found;
       prepared_prefab_description prefab;
       prefab.resource = input->second;
-      const auto bytes = prefab.resource->author_json.size();
-      if (bytes > limits.source_bytes - candidate.source_bytes)
-        return error::invalid_argument;
-      candidate.source_bytes += bytes;
       if (result == engine::error::success && prefab.resource->objects.size() > limits.nodes) {
         return engine::error::invalid_argument;
       }
@@ -128,9 +124,6 @@ public:
     if (!inputs.scene)
       return error::invalid_argument;
     candidate.description = *inputs.scene;
-    candidate.source_bytes = candidate.description.author_json.size();
-    if (candidate.source_bytes > limits.source_bytes)
-      return error::invalid_argument;
     auto result = engine::error::success;
     candidate.instance_nodes = candidate.description.objects.size();
     if (candidate.instance_nodes > limits.nodes) {
@@ -186,8 +179,11 @@ error prepare_loaded_scene(const scene_description_inputs& inputs, std::string_v
                    .candidate = {},
                    .dependencies = {},
                    .scene_depths = {}};
+  work.candidate.source_bytes = inputs.source_bytes;
   auto status = error::success;
-  if (cancelled && cancelled())
+  if (inputs.source_bytes > limits.source_bytes)
+    status = error::invalid_argument;
+  else if (cancelled && cancelled())
     status = error::invalid_state;
   else if (prefab_uri.empty())
     status = work.run();
@@ -260,7 +256,7 @@ error scene_description_request::advance(scene_description_inputs& output,
       return diagnostic.error;
     }
     s.inputs.scene = std::move(*loaded);
-    s.bytes = s.inputs.scene->author_json.size();
+    s.bytes = s.scene.source_bytes();
     for (const auto& instance : s.inputs.scene->objects)
       if (instance.prefab && std::ranges::find(s.uris, instance.prefab->uri) == s.uris.end())
         s.uris.push_back(instance.prefab->uri);
@@ -283,14 +279,15 @@ error scene_description_request::advance(scene_description_inputs& output,
       return diagnostic.error;
     }
     auto value = std::move(*loaded);
-    if (value->author_json.size() > s.limits.source_bytes - s.bytes)
+    if (s.current.source_bytes() > s.limits.source_bytes - s.bytes)
       return fail(error::invalid_argument);
-    s.bytes += value->author_json.size();
+    s.bytes += s.current.source_bytes();
     s.inputs.prefabs.emplace(uri, std::move(value));
     ++s.cursor;
     if (s.cursor < s.uris.size())
       return error::not_ready;
   }
+  s.inputs.source_bytes = s.bytes;
   output = std::move(s.inputs);
   diagnostic = {};
   return error::success;
