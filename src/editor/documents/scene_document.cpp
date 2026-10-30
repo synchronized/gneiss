@@ -6,6 +6,7 @@
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/meta/serialization.hpp"
 #include "engine/core/scene_types.hpp"
+#include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
@@ -517,6 +518,25 @@ engine::error scene_document::duplicate_subtree(scene_node_id node, scene_node_i
   return engine::error::out_of_memory;
 } catch (...) {
   return engine::error::internal;
+}
+
+engine::result<engine::component_descriptions>
+scene_document::components(scene_node_id node) const noexcept {
+  auto status =
+      with_scene([&](auto& service) { return service.validate_editable_node(scene_, node); });
+  if (status.failed())
+    return status;
+  return engine::capture_components(*world_, node);
+}
+engine::error
+scene_document::set_component_description(scene_node_id node,
+                                          const engine::component_description& value) noexcept {
+  auto status = with_scene(
+      [&](auto& service) { return service.set_component_description(scene_, node, value); });
+  if (status.failed())
+    return status;
+  is_dirty_ = true;
+  return refresh_nodes();
 }
 
 gneiss::engine::error

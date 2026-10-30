@@ -43,13 +43,23 @@ bool prefab_property_override_key_less(const prefab_property_override_key& left,
         std::begin(left.type_guid.bytes()), std::end(left.type_guid.bytes()),
         std::begin(right.type_guid.bytes()), std::end(right.type_guid.bytes()));
   }
-  return left.property_id.get() < right.property_id.get();
+  if (left.property_id != right.property_id)
+    return left.property_id.get() < right.property_id.get();
+  return std::lexicographical_compare(
+      left.path.begin(), left.path.end(), right.path.begin(), right.path.end(),
+      [](const auto& a, const auto& b) {
+        if (a.index() != b.index())
+          return a.index() < b.index();
+        if (const auto* property = std::get_if<meta::property_id>(&a))
+          return property->get() < std::get<meta::property_id>(b).get();
+        return std::get<std::size_t>(a) < std::get<std::size_t>(b);
+      });
 }
 
 bool prefab_property_override_key::operator==(
     const prefab_property_override_key& other) const noexcept {
   return source_node_uuid == other.source_node_uuid && property_id == other.property_id &&
-         std::ranges::equal(type_guid.bytes(), other.type_guid.bytes());
+         path == other.path && std::ranges::equal(type_guid.bytes(), other.type_guid.bytes());
 }
 
 } // namespace gneiss::engine

@@ -3,6 +3,7 @@
 
 #pragma once
 #include "engine/core/guid.hpp"
+#include "engine/core/meta/property_path.hpp"
 #include "engine/core/meta/type.hpp"
 #include "engine/core/value.hpp"
 #include <cstdint>
@@ -32,6 +33,8 @@ struct prefab_property_override_key final {
   gneiss::engine::guid source_node_uuid;
   guid type_guid{};
   meta::property_id property_id{};
+  /** 首属性之后的对象字段/序列下标；空表示直接标量属性。 */
+  meta::property_path path{};
 
   [[nodiscard]] bool operator==(const prefab_property_override_key& other) const noexcept;
 };

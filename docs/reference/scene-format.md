@@ -109,6 +109,10 @@
 - 每项覆盖以来源节点 UUID、32 字符小写十六进制 `type_guid` 和非零 uint32 `property_id` 定位字段。`value`
   使用显式 `kind` 与值；当前类别为 `bool`、`int64`、`uint64`、`float32`、`float64`、`string`、
   `type_id`、`vec3` 和 `quaternion`。同一实例内的完整覆盖键不能重复。
+- 覆盖可带 `path` 后缀数组，继续定位首个 `property_id` 下的嵌套字段或序列元素；
+  每步为 `{"property_id": 1}` 或 `{"index": 0}`，下标为非负整数，后缀最多 64 步。
+  缺省或空数组表示直接属性，后缀属于完整覆盖键。实例化时校验字段类型与下标范围；
+  不通过覆盖改变序列长度。相互约束的字段覆盖合并后才执行组件校验。
 - Prefab 实例身份就是引用对象的 UUID，覆盖键不重复携带实例身份。Prefab 展开后的源节点、Entity
   ID、Scene Node ID 和 RID 均不写入场景文件。
 - 普通对象需要 `components`，模板引用对象需要 `prefab`；`name` 可选。当前受支持版本中的未知字段不会参与运行时

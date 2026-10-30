@@ -55,8 +55,18 @@ World 的节点身份、层级、局部变换与 ECS 组件是当前状态的权
 实际组件仍存入 World 唯一 ECS。需要直接访问 ECS 的适配实现使用内部
 `world_component_access.hpp`，其借用指针只在所属线程及 World 生存期有效；
 普通 Scene/资源接口不暴露 EnTT。节点销毁依靠 ECS 正常析构组件，不另建组件副本表。
-通用扩展的完整示例见 `tests/scene/component_adapter_test.cpp`；编辑器专用组件面板
-仍需单独接入，注册运行组件不会自动生成专用面板。
+通用扩展示例见 `tests/support/movement_component.hpp`。编辑器通过
+`scene_document::components` 捕获实际组件，用只读 `component_description::view()` 和
+`meta::type` 绘制通用属性控件；视图不超过描述寿命，不借用 ECS 成员地址。
+
+通用组件编辑在适配器的自有副本上修改并校验，再调用 Scene 的 `set_component_description`。
+普通对象写入实际 ECS；Prefab 来源对象同时更新与模板相比的稀疏叶属性覆盖，恢复来源会移除覆盖。
+历史保存描述快照，通过对象 UUID 或实例/来源 UUID 重新定位，支持撤销、重做和连续修改合并。
+节点/组件不存在时返回错误，不重建组件。Transform、主相机只读规则和资源 URI 异步加载继续使用
+现有语义；通用注册不等于新增组件、删除组件或容器结构编辑能力。
+
+当前通用面板支持已有反射控件的对象、序列元素和标量（含枚举）。Prefab 覆盖不支持改变序列长度、
+关联容器或 optional 状态；不支持的修改在提交前拒绝。多字段覆盖在同一副本上应用后才验证整体。
 
 保存只收集显式登记的持久化成员；Prefab 展开子节点通过源引用与覆盖表达。
 直接在 World 创建、挂到场景下的临时对象不会自动写入文件。持久化成员若被底层挂到

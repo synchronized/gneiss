@@ -161,7 +161,7 @@ error valid_target(component_context& context) {
 }
 error register_scene_component(component_adapter adapter) noexcept try {
   if (!adapter.type || !adapter.property_type || !adapter.validate || !adapter.install ||
-      !adapter.capture || !adapter.remove || !adapter.equal || !adapter.edit ||
+      !adapter.modify || !adapter.capture || !adapter.remove || !adapter.equal || !adapter.edit ||
       !adapter.dependencies)
     return error::invalid_argument;
   auto& state = registry();
@@ -174,6 +174,20 @@ error register_scene_component(component_adapter adapter) noexcept try {
       return error::invalid_argument;
   state.values.push_back(std::move(adapter));
   return error::success;
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+result<component_description>
+modify_component(const component_description& source,
+                 const std::function<error(meta::mutable_instance)>& change) noexcept try {
+  const auto* adapter = find(source.guid());
+  if (!adapter)
+    return error::unsupported;
+  if (!change)
+    return error::invalid_argument;
+  return adapter->modify(source, change);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {

@@ -298,6 +298,32 @@ prefab_binding::apply_overrides(std::span<const prefab_property_override> overri
     }
     if (found->node == root_node_ && override_value.key.type_guid == transform_component_type)
       return error::invalid_argument;
+    if (!override_value.key.path.empty()) {
+      auto captured = capture_components(native_world_, found->node);
+      if (!captured)
+        return captured.error();
+      const auto* source = captured->find(override_value.key.type_guid);
+      if (!source)
+        return error::not_found;
+      auto changed = modify_component(*source, [&](meta::mutable_instance root) -> error {
+        auto field = root.property(override_value.key.property_id);
+        if (!field)
+          return field.error();
+        auto target = meta::resolve_path(*field, override_value.key.path);
+        return target ? target->write_value(override_value.value) : target.error();
+      });
+      if (!changed)
+        return changed.error();
+      auto renderer = native_world_.node_mesh_renderer(found->node);
+      if (!renderer && renderer.error() != error::not_found)
+        return renderer.error();
+      auto status = install_components(
+          {native_world_, found->node, renderer ? *renderer : mesh_renderer{}, &loader_},
+          {*changed});
+      if (status.failed())
+        return status;
+      continue;
+    }
     const auto result =
         override_value.key.type_guid == transform_component_type
             ? engine::write_component_property(native_world_,

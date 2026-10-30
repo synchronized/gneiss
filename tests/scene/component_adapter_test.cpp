@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "../support/movement_component.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
@@ -19,51 +20,10 @@ void check(bool value, std::source_location location = std::source_location::cur
   if (!value)
     throw std::runtime_error("组件适配测试失败，行=" + std::to_string(location.line()));
 }
-struct movement_description {
-  inline static constexpr std::string_view type_name = "test_movement";
-  inline static constexpr e::guid type_guid = e::guid::from_bytes({84, 1});
-  float speed = 1;
-};
-struct movement_component {
-  movement_description data;
-  std::shared_ptr<int> lifetime = std::make_shared<int>(0);
-};
+using namespace gneiss::test_support;
 struct unknown_description {
   inline static constexpr e::guid type_guid = e::guid::from_bytes({84, 2});
 };
-e::world_state& state(e::world& world) {
-  auto access = e::detail::world_component_access::get(world);
-  check(access.has_value());
-  return **access;
-}
-std::uint64_t entity(e::world& world, gneiss::scene_node_id node) {
-  gneiss::entity_id value;
-  check(world.node_get_entity(node, value).ok());
-  return value.get();
-}
-e::component_operations<movement_description> operations() {
-  return {.validate = [](const movement_description& d) -> e::error {
-            return d.speed >= 0 ? e::error::success : e::error::invalid_argument;
-          },
-          .install = [](e::component_context& c, const movement_description& d) -> e::error {
-            // 模拟运行期安装失败，验证已应用的其他对象能恢复。
-            if (d.speed == 13)
-              return e::error::invalid_state;
-            state(c.owner).emplace_or_replace<movement_component>(entity(c.owner, c.node), d);
-            return e::error::success;
-          },
-          .capture = [](e::world& w,
-                        gneiss::scene_node_id n) -> e::result<std::optional<movement_description>> {
-            auto* value = state(w).get<movement_component>(entity(w, n));
-            return value ? std::optional{value->data} : std::nullopt;
-          },
-          .remove =
-              [](e::world& w, gneiss::scene_node_id n) {
-                return state(w).remove<movement_component>(entity(w, n));
-              },
-          .equal = [](const movement_description& a,
-                      const movement_description& b) { return a.speed == b.speed; }};
-}
 e::prepared_scene_description prepare(e::scene_description scene, e::prefab_asset_ref prefab = {}) {
   e::scene_description_inputs input;
   input.scene = e::asset_ref<const e::scene_description>{
@@ -78,12 +38,7 @@ e::prepared_scene_description prepare(e::scene_description scene, e::prefab_asse
 }
 }
 int main() try {
-  check(e::initialize_meta([] {
-          return e::meta::type_builder<movement_description>{}
-              .property<&movement_description::speed>(e::meta::property_id{1}, "speed")
-              .serialization()
-              .commit();
-        }).ok());
+  check(e::initialize_meta(register_movement_meta).ok());
   check(e::register_scene_component(e::component_adapter{}) == e::error::invalid_argument);
   check(e::register_scene_component(operations()).ok());
   check(e::register_scene_component(operations()) == e::error::invalid_argument);

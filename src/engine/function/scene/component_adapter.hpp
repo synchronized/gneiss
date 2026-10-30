@@ -28,6 +28,9 @@ struct component_adapter {
   std::function<result<component_description>(const component_description&, guid, meta::property_id,
                                               const value&)>
       edit;
+  std::function<result<component_description>(const component_description&,
+                                              const std::function<error(meta::mutable_instance)>&)>
+      modify;
   std::function<std::vector<asset_source>(const component_description&)> dependencies;
 };
 /** 启动期注册；重复 GUID 拒绝，首次查询后冻结。纯描述回调须支持并发只读调用。 */
@@ -84,6 +87,22 @@ template <class T> component_adapter make_component_adapter(component_operations
               return status;
             return component_description{std::move(copy)};
           },
+          .modify = [ops](const component_description& source,
+                          const std::function<error(meta::mutable_instance)>& change)
+              -> result<component_description> {
+            if (!source.get<T>())
+              return error::invalid_argument;
+            auto copy = *source.get<T>();
+            auto view = meta::mutable_instance::from(copy);
+            if (!view)
+              return view.error();
+            auto status = change(*view);
+            if (status.ok())
+              status = ops.validate(copy);
+            if (status.failed())
+              return status;
+            return component_description{std::move(copy)};
+          },
           .dependencies =
               [ops](const component_description& value) {
                 return ops.dependencies ? ops.dependencies(*value.get<T>())
@@ -97,6 +116,9 @@ template <class T> error register_scene_component(component_operations<T> ops) n
 } catch (...) {
   return error::internal;
 }
+GNEISS_API result<component_description>
+modify_component(const component_description&,
+                 const std::function<error(meta::mutable_instance)>&) noexcept;
 GNEISS_API error validate_components(const component_descriptions&) noexcept;
 GNEISS_API result<component_descriptions> capture_components(world&, scene_node_id) noexcept;
 GNEISS_API error install_components(component_context, const component_descriptions&) noexcept;

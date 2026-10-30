@@ -102,8 +102,17 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
             }
             path.emplace_back(i);
             ImGui::PushID(static_cast<int>(i));
+            std::optional<meta::instance> original;
+            if (source) {
+              auto sequence_source = source->as_sequence();
+              if (sequence_source) {
+                auto value = sequence_source->at(i);
+                if (value)
+                  original = *value;
+              }
+            }
             draw_value(*child, "[" + std::to_string(i) + "]", path, pending, serial, status,
-                       readonly);
+                       readonly, original ? &*original : nullptr);
             ImGui::PopID();
             path.pop_back();
           }

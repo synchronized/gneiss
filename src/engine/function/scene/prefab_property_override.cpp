@@ -81,10 +81,32 @@ error validate_prefab_property_override(const prefab_property_override& value) n
   auto field = meta::describe_property(value.key.type_guid, value.key.property_id);
   if (!field)
     return field.error();
-  if (field->type.scalar_kind() != value.value.kind() ||
-      !has_flags(field->capabilities, meta::property_capabilities::writable)) {
+  if (!has_flags(field->capabilities, meta::property_capabilities::writable) ||
+      value.key.path.size() > 64)
     return error::invalid_argument;
+  auto type = field->type;
+  for (const auto& step : value.key.path) {
+    if (const auto* property = std::get_if<meta::property_id>(&step)) {
+      auto properties = type.properties();
+      if (!properties)
+        return properties.error();
+      auto found = std::ranges::find(*properties, *property, &meta::property_info::id);
+      if (found == properties->end())
+        return error::not_found;
+      if (!has_flags(found->capabilities, meta::property_capabilities::writable))
+        return error::invalid_argument;
+      type = found->type;
+    } else {
+      if (type.kind() != meta::type_kind::sequence)
+        return error::invalid_argument;
+      auto element = type.element_type();
+      if (!element)
+        return element.error();
+      type = *element;
+    }
   }
+  if (type.scalar_kind() != value.value.kind())
+    return error::invalid_argument;
   return error::success;
 } catch (...) {
   return error::internal;
@@ -139,6 +161,8 @@ engine::error apply_candidate_object(const prefab_property_override& value,
     }
     object.transform = transform;
   } else {
+    if (!value.key.path.empty())
+      return error::unsupported;
     return edit_component(object.components, value.key.type_guid, value.key.property_id, native);
   }
   return engine::error::success;
@@ -161,12 +185,41 @@ engine::error prepare_prefab_description(const prefab_description& source,
     }
     if (found->uuid == candidate.root_uuid && value.key.type_guid == transform_component_type)
       return error::invalid_argument;
+    // 描述类型的全部叶覆盖在同一副本中应用，再检查跨字段约束。
+    if (found->components.find(value.key.type_guid))
+      continue;
     const auto result = apply_candidate_object(value, value.value, *found);
     if (result != engine::error::success) {
       return result;
     }
   }
-  for (const auto& object : candidate.objects) {
+  for (auto& object : candidate.objects) {
+    for (const auto& component : object.components) {
+      const auto matches = [&](const prefab_property_override& entry) {
+        return entry.key.source_node_uuid == object.uuid && entry.key.type_guid == component.guid();
+      };
+      if (!std::ranges::any_of(overrides, matches))
+        continue;
+      auto changed = modify_component(component, [&](meta::mutable_instance root) -> error {
+        for (const auto& entry : overrides) {
+          if (!matches(entry))
+            continue;
+          auto first = root.property(entry.key.property_id);
+          if (!first)
+            return first.error();
+          auto target = meta::resolve_path(*first, entry.key.path);
+          if (!target)
+            return target.error();
+          auto status = target->write_value(entry.value);
+          if (status.failed())
+            return status;
+        }
+        return error::success;
+      });
+      if (!changed)
+        return changed.error();
+      object.components.set(std::move(*changed));
+    }
     auto status = validate_scene_components(object);
     if (status.failed())
       return status;

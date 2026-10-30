@@ -184,6 +184,10 @@ public:
   [[nodiscard]] engine::error accept_save(const save_receipt& receipt) noexcept;
   /** 场景直接修改后重建视图；失败清空缓存，避免继续暴露失效节点。 */
   [[nodiscard]] gneiss::engine::error synchronize_nodes() noexcept;
+  [[nodiscard]] engine::result<engine::component_descriptions>
+  components(scene_node_id node) const noexcept;
+  [[nodiscard]] engine::error
+  set_component_description(scene_node_id node, const engine::component_description&) noexcept;
   void mark_dirty() noexcept { is_dirty_ = true; }
   void clear_dirty() noexcept { is_dirty_ = false; }
 

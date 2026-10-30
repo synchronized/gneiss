@@ -72,6 +72,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/input/input_types.hpp
   engine/core/log/log_dispatcher.hpp
   engine/core/progress_notification.hpp
+  engine/core/meta/property_path.hpp
   engine/core/meta/instance.hpp
   engine/core/meta/detail/type_access.hpp
   engine/core/meta/serialization.hpp

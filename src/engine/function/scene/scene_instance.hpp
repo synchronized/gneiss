@@ -53,6 +53,9 @@ public:
                                                 const scene_mesh_binding* prepared = nullptr);
   [[nodiscard]] error set_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
                                         std::string_view material_uri);
+  /** 替换已有组件；Prefab 同时更新稀疏覆盖，不支持新增或移除。 */
+  [[nodiscard]] error set_component_description(scene_node_id node,
+                                                const component_description& value) noexcept;
   [[nodiscard]] error set_camera(scene_node_id node, const camera_description& desc);
   [[nodiscard]] error remove_camera(scene_node_id node);
   [[nodiscard]] error remove_mesh_renderer(scene_node_id node);

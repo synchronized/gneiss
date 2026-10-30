@@ -371,6 +371,32 @@ template <class T>
           },
       .value = std::move(parsed_value),
   };
+  if (auto* steps = yyjson_obj_get(value, "path")) {
+    if (!yyjson_is_arr(steps) || yyjson_arr_size(steps) > 64) {
+      fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/path", "覆盖路径无效");
+      return false;
+    }
+    size_t i, count;
+    yyjson_val* step;
+    yyjson_arr_foreach(steps, i, count, step) {
+      auto* property = yyjson_obj_get(step, "property_id");
+      auto* index = yyjson_obj_get(step, "index");
+      if (!yyjson_is_obj(step) || yyjson_obj_size(step) != 1 ||
+          (property && (!yyjson_is_uint(property) || !yyjson_get_uint(property) ||
+                        yyjson_get_uint(property) > UINT32_MAX)) ||
+          (index && (!yyjson_is_uint(index) || yyjson_get_uint(index) > SIZE_MAX)) ||
+          (!property && !index)) {
+        fail(diagnostic, gneiss::engine::error::invalid_argument, path + "/path",
+             "路径步骤必须是 property_id 或 index");
+        return false;
+      }
+      if (property)
+        output.key.path.emplace_back(gneiss::engine::meta::property_id{
+            static_cast<std::uint32_t>(yyjson_get_uint(property))});
+      else
+        output.key.path.emplace_back(static_cast<std::size_t>(yyjson_get_uint(index)));
+    }
+  }
   return true;
 }
 
@@ -593,6 +619,21 @@ make_prefab_overrides(yyjson_mut_doc* document,
         !yyjson_mut_arr_add_val(array, object)) {
       return nullptr;
     }
+    if (!source.key.path.empty()) {
+      auto* steps = yyjson_mut_arr(document);
+      if (!steps || !yyjson_mut_obj_add_val(document, object, "path", steps))
+        return nullptr;
+      for (const auto& step : source.key.path) {
+        auto* entry = yyjson_mut_obj(document);
+        if (!entry || !yyjson_mut_arr_add_val(steps, entry))
+          return nullptr;
+        if (const auto* property = std::get_if<gneiss::engine::meta::property_id>(&step)) {
+          if (!yyjson_mut_obj_add_uint(document, entry, "property_id", property->get()))
+            return nullptr;
+        } else if (!yyjson_mut_obj_add_uint(document, entry, "index", std::get<std::size_t>(step)))
+          return nullptr;
+      }
+    }
   }
   return array;
 }
@@ -813,6 +854,12 @@ detail::serialize_object_document(guid uuid, std::optional<guid> root_uuid,
       if (!entry.key.source_node_uuid || !entry.key.type_guid ||
           !entry.key.property_id.is_valid() || !keys.insert(entry.key).second)
         return error::invalid_argument;
+      if (entry.key.path.size() > 64)
+        return error::invalid_argument;
+      for (const auto& step : entry.key.path)
+        if (const auto* property = std::get_if<meta::property_id>(&step);
+            property && !property->is_valid())
+          return error::invalid_argument;
       const bool valid = std::visit(
           [](const auto& item) {
             using T = std::decay_t<decltype(item)>;

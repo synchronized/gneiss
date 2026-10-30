@@ -915,16 +915,13 @@ void draw_component_descriptions(editor_state& state) {
   using namespace gneiss::engine;
   using namespace gneiss::editor;
   component_edit_target identity;
-  entity_id entity;
   scene_node_id node_id;
   if (const auto* node = state.editing.document().selected_prefab_node()) {
     identity.instance_uuid = node->instance_uuid;
     identity.source_uuid = node->source_node_uuid;
-    entity = node->entity;
     node_id = node->node;
   } else if (const auto* node = state.editing.document().selected_node()) {
     identity.object_uuid = node->uuid;
-    entity = node->entity;
     node_id = node->node;
   } else
     return;
@@ -978,64 +975,54 @@ void draw_component_descriptions(editor_state& state) {
                                    identity, *transform_edit, state.property_edit_serial);
   if (state.inspector_error.failed())
     ImGui::TextWrapped("%s", state.inspector_error.message().data());
-  auto renderer = state.world->node_mesh_renderer(node_id);
-  if (renderer) {
-    identity.component_type = mesh_renderer_description::type_guid;
-    mesh_renderer_description mesh_description{std::string(asset_uri(renderer->mesh)),
-                                               std::string(asset_uri(renderer->material))};
-    auto mesh_view = meta::instance::from(mesh_description);
-    if (mesh_view) {
-      ImGui::BeginDisabled(state.editing.assets().active() || state.editing.history().is_pending());
-      auto original = source_view(
-          source_object ? source_object->components.get<mesh_renderer_description>() : nullptr);
-      auto mesh_edit = gneiss::editor::draw_reflected_properties(
-          *mesh_view, "Mesh Renderer", state.property_edit_serial, state.inspector_error, {},
-          original ? &*original : nullptr);
-      if (mesh_edit)
-        state.inspector_error =
-            state.editing.assets().request_property(*state.application, state.editing.document(),
-                                                    state.editing.history(), identity, *mesh_edit);
-      ImGui::EndDisabled();
-    } else
-      state.inspector_error = mesh_view.error();
+  auto components = state.editing.document().components(node_id);
+  if (!components) {
+    state.inspector_error = components.error();
+    return;
+  }
+  for (const auto& component : *components) {
+    identity.component_type = component.guid();
+    auto view = component.view();
+    auto type = meta::describe_type(component.guid());
+    if (!view || !type) {
+      state.inspector_error = !view ? view.error() : type.error();
+      continue;
+    }
+    std::optional<meta::instance> original;
+    if (source_object) {
+      if (const auto* source = source_object->components.find(component.guid())) {
+        auto source_view = source->view();
+        if (source_view)
+          original = *source_view;
+        else
+          state.inspector_error = source_view.error();
+      }
+    }
+    const bool asset = component.guid() == mesh_renderer_description::type_guid;
+    const std::array camera_readonly{meta::property_id{4}};
+    const std::span<const meta::property_id> readonly =
+        component.guid() == camera_description::type_guid
+            ? std::span<const meta::property_id>{camera_readonly}
+            : std::span<const meta::property_id>{};
+    ImGui::PushID(component.guid().string().c_str());
+    ImGui::BeginDisabled(state.editing.assets().active() || state.editing.history().is_pending());
+    auto edit = gneiss::editor::draw_reflected_properties(
+        *view, std::string(type->name).c_str(), state.property_edit_serial, state.inspector_error,
+        readonly, original ? &*original : nullptr);
+    if (edit) {
+      state.inspector_error =
+          asset ? state.editing.assets().request_property(*state.application,
+                                                          state.editing.document(),
+                                                          state.editing.history(), identity, *edit)
+                : edit_component_description(state.editing.document(), state.editing.history(),
+                                             *state.world, identity, *edit,
+                                             state.property_edit_serial);
+    }
+    ImGui::EndDisabled();
+    ImGui::PopID();
     if (state.inspector_error.failed())
       ImGui::TextWrapped("%s", state.inspector_error.message().data());
-  } else if (renderer.error() != error::not_found) {
-    state.inspector_error = renderer.error();
   }
-  identity.component_type = camera_description::type_guid;
-  camera_description description;
-  auto status = state.world->entity_get_camera(entity, description.settings);
-  if (status == error::not_found)
-    return;
-  if (status.failed()) {
-    state.inspector_error = status;
-    return;
-  }
-  entity_id active;
-  status = state.world->get_active_camera(active);
-  if (status.failed() && status != error::not_ready) {
-    state.inspector_error = status;
-    return;
-  }
-  description.is_primary = active == entity;
-  auto view = meta::instance::from(description);
-  if (!view) {
-    state.inspector_error = view.error();
-    return;
-  }
-  const std::array readonly{meta::property_id{4}};
-  auto camera_source =
-      source_view(source_object ? source_object->components.get<camera_description>() : nullptr);
-  auto edit = gneiss::editor::draw_reflected_properties(*view, "Camera", state.property_edit_serial,
-                                                        state.inspector_error, readonly,
-                                                        camera_source ? &*camera_source : nullptr);
-  if (edit)
-    state.inspector_error =
-        edit_component_description(state.editing.document(), state.editing.history(), *state.world,
-                                   identity, *edit, state.property_edit_serial);
-  if (state.inspector_error.failed())
-    ImGui::TextWrapped("%s", state.inspector_error.message().data());
 }
 
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)

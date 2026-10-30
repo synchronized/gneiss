@@ -9,6 +9,7 @@
 
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/serialization.hpp"
+#include "engine/function/scene/component_adapter.hpp"
 #include <memory>
 #include <new>
 #include <string>
@@ -108,8 +109,56 @@ engine::error edit_component_description(scene_document& document, editor_comman
     };
     return edit_description(history, identity, edit, serial, before, apply);
   }
-  if (identity.component_type != camera_description::type_guid)
-    return error::unsupported;
+  if (identity.component_type != camera_description::type_guid) {
+    // 资源 URI 需要异步准备，不由同步属性命令偷偷加载。
+    if (identity.component_type == mesh_renderer_description::type_guid)
+      return error::unsupported;
+    auto components = document.components(location->first);
+    if (!components)
+      return components.error();
+    const auto* current = components->find(identity.component_type);
+    if (!current)
+      return error::not_found;
+    auto before = *current;
+    auto changed = modify_component(before, [&](meta::mutable_instance root) -> error {
+      auto target = meta::resolve_path(root, edit.path);
+      if (!target)
+        return target.error();
+      if (!edit.object)
+        return target->write_value(edit.data);
+      auto registry = meta::default_registry();
+      if (!registry)
+        return registry.error();
+      auto source = meta::instance::from_object(*registry, edit.object_type, edit.object.get());
+      return source ? target->assign(*source) : source.error();
+    });
+    if (!changed)
+      return changed.error();
+    auto original = before.encode(), next = changed->encode();
+    if (!original)
+      return original.error().error;
+    if (!next)
+      return next.error().error;
+    if (*original == *next)
+      return error::success;
+    const auto apply = [&document, identity](const component_description& value) {
+      auto node = locate_component(document, identity);
+      return node ? document.set_component_description(node->first, value) : node.error();
+    };
+    std::string key = identity.component_type.string() + identity.object_uuid.string() +
+                      identity.instance_uuid.string() + identity.source_uuid.string();
+    for (const auto& step : edit.path) {
+      if (const auto* field = std::get_if<meta::property_id>(&step))
+        key += "/p" + std::to_string(field->get());
+      else
+        key += "/i" + std::to_string(std::get<std::size_t>(step));
+    }
+    return history.execute(
+        {.label = "修改组件属性",
+         .undo = [apply, before] { return apply(before); },
+         .redo = [apply, after = std::move(*changed)] { return apply(after); },
+         .merge_key = serial && !edit.object ? key + ":" + std::to_string(serial) : std::string{}});
+  }
   if (edit.path.empty() || !std::holds_alternative<meta::property_id>(edit.path.front()) ||
       std::get<meta::property_id>(edit.path.front()) != meta::property_id{1})
     return error::unsupported;

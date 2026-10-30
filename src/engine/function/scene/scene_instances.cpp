@@ -1518,6 +1518,16 @@ engine::error scene_instances::validate_editable_node(scene_instance_id instance
                                                                : engine::error::invalid_handle;
 }
 
+error scene_instances::set_component_description(
+    scene_instance_id instance, scene_node_id node,
+    const component_description& description) noexcept {
+  if (!native_world_.is_owner_thread())
+    return error::invalid_state;
+  auto* value = instances_.get(instance, resource_type::scene_instance);
+  if (!value || !*value)
+    return error::invalid_handle;
+  return (*value)->set_component_description(node, description);
+}
 engine::error scene_instances::set_camera(scene_instance_id instance, scene_node_id node_value,
                                           const engine::camera_description& desc) noexcept {
   auto node = node_value;

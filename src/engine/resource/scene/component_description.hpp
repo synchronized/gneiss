@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/serialization.hpp"
 #include "engine/core/traits/type_identity.hpp"
 #include <algorithm>
@@ -49,6 +50,14 @@ public:
     return meta::serialization_diagnostic{.error = error::out_of_memory};
   } catch (...) {
     return meta::serialization_diagnostic{.error = error::internal};
+  }
+
+  /** 只读借用；视图不能超过本描述及其共享内容的寿命。 */
+  result<meta::instance> view() const noexcept {
+    auto registry = meta::default_registry();
+    if (!registry)
+      return registry.error();
+    return meta::instance::from_object(*registry, type_, object_.get());
   }
 
 private:
