@@ -28,14 +28,14 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
         return error::invalid_argument;
     }
     auto instance = std::make_unique<scene_instance>(native_world_, loader_);
-    instance->initialize_staged(std::move(prepared.description));
+    instance->initialize_staged(prepared.description.uuid, prepared.description.objects.size());
     std::unordered_map<guid, scene_node_id, guid_hash> nodes;
-    nodes.reserve(instance->source().objects.size());
+    nodes.reserve(prepared.description.objects.size());
     for (const auto index : prepared.parent_first) {
-      const auto& source = instance->source().objects.at(index);
+      const auto& source = prepared.description.objects.at(index);
       if (!source.prefab) {
         const auto result = instance->create_staged_node(
-            index, source.parent_uuid ? nodes.at(*source.parent_uuid) : null_scene_node_id,
+            index, source, source.parent_uuid ? nodes.at(*source.parent_uuid) : null_scene_node_id,
             asset_cast<mesh_resource>(
                 source.components.template get<mesh_renderer_description>()
                     ? find_asset(
@@ -96,7 +96,7 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
         prefab_nodes.emplace(node.uuid, info.node);
       }
       nodes.emplace(source.uuid, prefab->root());
-      instance->append_staged_prefab(std::move(prefab));
+      instance->append_staged_prefab(std::move(prefab), *source.prefab, index);
       guard.release();
     }
     auto created = instances_.create(resource_type::scene_instance, std::move(instance));

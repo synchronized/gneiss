@@ -209,11 +209,11 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
     return 10;
   }
   const auto* created = session.selected_node();
-  const gneiss::editor::scene_node_snapshot snapshot{.uuid = created->uuid,
-                                                     .parent_uuid = {},
-                                                     .display_name = created->display_name,
-                                                     .mesh_uri = created->mesh_uri,
-                                                     .material_uri = created->material_uri};
+  const gneiss::editor::mesh_node_creation snapshot{.uuid = created->uuid,
+                                                    .parent_uuid = {},
+                                                    .display_name = created->display_name,
+                                                    .mesh_uri = created->mesh_uri,
+                                                    .material_uri = created->material_uri};
   if (history.undo() != gneiss::engine::error::success ||
       session.find_node(snapshot.uuid) != nullptr ||
       history.redo() != gneiss::engine::error::success ||

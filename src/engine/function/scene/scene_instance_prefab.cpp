@@ -20,31 +20,11 @@ error scene_instance::capture_prefab_instance_header(gneiss::engine::guid uuid,
   if (found == prefab_instances_.end())
     return error::not_found;
   const auto index = static_cast<std::size_t>(found - prefab_instances_.begin());
-  auto copy = prefab_author(index);
-  const auto root = prefab_instances_[index]->root();
-  auto identity = native_world_.node_identity(root);
-  if (!identity)
-    return identity.error();
-  copy.uuid = identity->uuid;
-  copy.name = identity->name;
-  scene_node_id parent;
-  const auto parent_status = native_world_.node_get_parent(root, parent);
-  if (parent_status.failed())
-    return parent_status;
-  copy.parent_uuid.reset();
-  if (parent) {
-    auto parent_identity = native_world_.node_identity(parent);
-    if (!parent_identity)
-      return parent_identity.error();
-    copy.parent_uuid = parent_identity->uuid;
-  }
-  math::transform transform{};
-  const auto queried = native_world_.node_get_local_transform(
-      gneiss::scene_node_id{prefab_instances_[index]->root()}, transform);
-  if (queried != error::success) {
-    return queried;
-  }
-  copy.transform = transform;
+  auto captured = capture_scene_object(native_world_, (*found)->root(), false);
+  if (!captured)
+    return captured.error();
+  auto copy = std::move(*captured);
+  copy.prefab = (*found)->reference_;
   source = prefab_instances_[index]->prefab_lease();
   author = std::move(copy);
   return error::success;
@@ -93,7 +73,9 @@ error scene_instance::instantiate_prefab_ready(const object_description& author,
   // 自有子对象不属于模板；刷新时保留其身份和局部变换。
   std::vector<scene_node_id> attached;
   if (replacing) {
-    for (std::size_t index = 0; index < description_.objects.size(); ++index) {
+    for (std::size_t index = 0; index < objects_.size(); ++index) {
+      if (!objects_[index].persistent)
+        continue;
       scene_node_id actual_parent;
       const auto status = native_world_.node_get_parent(objects_[index].node, actual_parent);
       if (status.failed())
@@ -113,7 +95,7 @@ error scene_instance::instantiate_prefab_ready(const object_description& author,
     if (removed.failed())
       return removed;
   }
-  auto record = author;
+  auto reference = *author.prefab;
   prefab_description effective;
   auto status = prepare_prefab_description(*prefab.get(), author.prefab->overrides, effective);
   if (status.failed())
@@ -122,7 +104,6 @@ error scene_instance::instantiate_prefab_ready(const object_description& author,
   status = build_structural_diff({}, effective.objects, order);
   if (status.failed())
     return status;
-  description_.objects.reserve(description_.objects.size() + 1U);
   prefab_instances_.reserve(prefab_instances_.size() + 1U);
   auto runtime =
       std::make_unique<prefab_binding>(native_world_, loader_, std::move(prefab), author.uuid);
@@ -159,10 +140,9 @@ error scene_instance::instantiate_prefab_ready(const object_description& author,
   }
   const auto root = runtime->root();
   objects_.reserve(objects_.size() + runtime->node_count() + 1U);
-  objects_.insert(objects_.begin() + static_cast<std::ptrdiff_t>(description_.objects.size()),
-                  {root});
-  description_.objects.push_back(std::move(record));
-  append_staged_prefab(std::move(runtime));
+  const auto member_index = objects_.size();
+  objects_.push_back({root});
+  append_staged_prefab(std::move(runtime), std::move(reference), member_index);
   guard.release();
   for (const auto node : attached) {
     const auto restored = reparent_node(node, root);

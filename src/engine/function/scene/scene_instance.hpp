@@ -22,12 +22,14 @@ public:
   /** 只记录场景成员；身份在节点中，组件资源在 ECS 中。 */
   struct object final {
     scene_node_id node = null_scene_node_id;
+    bool persistent = true; // Prefab 展开成员仅在运行时枚举，不重复保存。
   };
 
   void rollback() noexcept;
-  /** 仅用于不可见候选 World，分阶段入口不执行文件读取。 */
-  void initialize_staged(scene_description candidate);
-  [[nodiscard]] error create_staged_node(std::size_t index, scene_node_id parent, engine::mesh mesh,
+  /** 同步创建期间预留成员槽位；不保存加载描述、不执行文件读取。 */
+  void initialize_staged(guid uuid, std::size_t count = 0);
+  [[nodiscard]] error create_staged_node(std::size_t index, const object_description& source,
+                                         scene_node_id parent, engine::mesh mesh,
                                          engine::material material);
 
   [[nodiscard]] scene_node_id find_node(guid uuid) const noexcept;
@@ -71,12 +73,7 @@ public:
                                                bool replacing, scene_node_id& output) noexcept;
   [[nodiscard]] error remove_prefab_instance(guid uuid) noexcept;
 
-  /** 私有批量替换事务，只能在所属线程同一次无重入调用内准备和提交。
-   * Scene 和节点存储必须存活且保持稳定；放弃事务不修改绑定。 */
-  /** 所属线程收集普通节点与 Prefab 的资源引用；追加至事务临时数组，分配失败向调用者传播。
-   * 不去重、不发布资源，也不改变场景；服务负责跨实例去重和失败输出保留。 */
-
-  /** 调用方服务已验证所属线程和租约归属；实例负责作者数据与 ECS 同步提交。 */
+  /** 捕获当前 ECS 引用；替换普通组件只写 World，Prefab 同时维护显式覆盖。 */
   [[nodiscard]] error capture_mesh_binding(scene_node_id node,
                                            scene_mesh_binding& output) const noexcept;
   [[nodiscard]] error replace_mesh_binding(scene_node_id node, const scene_mesh_binding& expected,
@@ -84,11 +81,11 @@ public:
   [[nodiscard]] bool contains_editable_node(scene_node_id node) const noexcept;
   [[nodiscard]] std::uint64_t node_count() const noexcept { return objects_.size(); }
 
-  [[nodiscard]] const scene_description& source() const noexcept { return description_; }
   [[nodiscard]] scene_node_id staged_node(std::size_t index) const {
     return objects_.at(index).node;
   }
-  void append_staged_prefab(std::unique_ptr<prefab_binding> candidate);
+  void append_staged_prefab(std::unique_ptr<prefab_binding> candidate,
+                            prefab_reference_description reference, std::size_t index);
 
 private:
   friend class scene_instances;
@@ -97,12 +94,12 @@ private:
   [[nodiscard]] std::vector<object>::const_iterator find_ordinary_node(scene_node_id node) const;
   [[nodiscard]] std::optional<prefab_origin_view> prefab_origin(scene_node_id node) const;
   void append_prefab_members(const prefab_binding& prefab);
-  object_description& prefab_author(std::size_t index);
-  const object_description& prefab_author(std::size_t index) const;
+  prefab_reference_description& prefab_reference(std::size_t index);
+  const prefab_reference_description& prefab_reference(std::size_t index) const;
 
   std::vector<object> objects_;
   std::vector<std::unique_ptr<prefab_binding>> prefab_instances_;
-  scene_description description_;
+  guid uuid_;
 
   world& native_world_;
   resource_service& loader_;

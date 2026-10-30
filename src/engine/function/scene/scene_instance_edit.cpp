@@ -51,7 +51,7 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
       const auto* renderer = source ? source->components.get<mesh_renderer_description>() : nullptr;
       if (!renderer)
         return error::not_found;
-      auto pending = prefab_author(index).prefab->overrides;
+      auto pending = prefab_reference(index).overrides;
       const std::array originals{renderer->mesh_uri, renderer->material_uri};
       const std::array replacements{std::string(asset_uri(replacement.mesh)),
                                     std::string(asset_uri(replacement.material))};
@@ -73,17 +73,13 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
       auto status = native_world_.replace_mesh_renderers(changes);
       if (status.failed())
         return status;
-      prefab_author(index).prefab->overrides.swap(pending);
+      prefab_reference(index).overrides.swap(pending);
       return error::success;
     }
   }
   const auto found = find_ordinary_node(node);
   if (found == objects_.end())
     return error::invalid_handle;
-  mesh_renderer_description author{
-      .mesh_uri = std::string(engine::asset_uri(replacement.mesh)),
-      .material_uri = std::string(engine::asset_uri(replacement.material)),
-  };
   const std::array changes{
       engine::mesh_renderer_replacement{
           .entity = entity_id{scene_object_entity(native_world_, found->node)},
@@ -91,12 +87,11 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
           .replacement = {.mesh = replacement.mesh, .material = replacement.material},
       },
   };
-  const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
-  auto pending = description_.objects[index].components;
-  pending.set(std::move(author));
+  auto existing = native_world_.node_mesh_renderer(node);
+  if (!existing && existing.error() != error::not_found)
+    return existing.error();
   auto changed = error::success;
-  if (!expected.mesh && !expected.material &&
-      !description_.objects[index].components.template get<mesh_renderer_description>()) {
+  if (!existing) {
     changed = native_world_.entity_set_mesh_renderer(
         entity_id{scene_object_entity(native_world_, found->node)},
         {.mesh = replacement.mesh, .material = replacement.material});
@@ -106,7 +101,6 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
   if (changed != error::success) {
     return changed;
   }
-  description_.objects[index].components = std::move(pending);
   return error::success;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;

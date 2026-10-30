@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/function/resource/asset_types.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 
@@ -31,6 +32,57 @@ inline std::uint64_t scene_object_entity(world& owner, scene_node_id node) noexc
 inline scene_node_identity_view scene_object_identity(world& owner, scene_node_id node) noexcept {
   auto value = owner.node_identity(node);
   return value ? *value : scene_node_identity_view{};
+}
+/** 从 World 捕获持久化字段，与 configure_scene_object 支持的组件对称。
+ * 不保存派生矩阵或后端句柄；Prefab 根只捕获身份、层级与变换。 */
+inline result<object_description> capture_scene_object(world& owner, scene_node_id node,
+                                                       bool components = true) {
+  object_description output;
+  auto identity = owner.node_identity(node);
+  if (!identity)
+    return identity.error();
+  output.uuid = identity->uuid;
+  output.name = identity->name;
+  scene_node_id parent;
+  auto status = owner.node_get_parent(node, parent);
+  if (status.failed())
+    return status;
+  if (parent) {
+    auto identity = owner.node_identity(parent);
+    if (!identity)
+      return identity.error();
+    output.parent_uuid = identity->uuid;
+  }
+  status = owner.node_get_local_transform(node, output.transform);
+  if (status.failed())
+    return status;
+  if (!components)
+    return output;
+  auto renderer = owner.node_mesh_renderer(node);
+  if (renderer) {
+    // Scene 接受的资源必须可持久化；缺失身份不能静默写成空 URI。
+    const auto mesh_uri = asset_uri(renderer->mesh);
+    const auto material_uri = asset_uri(renderer->material);
+    if (mesh_uri.empty() || material_uri.empty())
+      return error::invalid_state;
+    output.components.set(
+        mesh_renderer_description{std::string(mesh_uri), std::string(material_uri)});
+  } else if (renderer.error() != error::not_found) {
+    return renderer.error();
+  }
+  const entity_id entity{scene_object_entity(owner, node)};
+  math::camera_settings camera;
+  status = owner.entity_get_camera(entity, camera);
+  if (status.ok()) {
+    entity_id active;
+    auto active_status = owner.get_active_camera(active);
+    if (active_status.failed() && active_status != error::not_ready)
+      return active_status;
+    output.components.set(camera_description{camera, active_status.ok() && active == entity});
+  } else if (status != error::not_found) {
+    return status;
+  }
+  return output;
 }
 /** 当前运行时只安装这两类描述；已注册的其他描述不得被静默忽略。 */
 inline error validate_scene_components(const object_description& source) noexcept {

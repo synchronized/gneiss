@@ -76,6 +76,7 @@ private:
   resource_service& loader_;
   prefab_asset_ref prefab_;
   guid instance_uuid_;
+  prefab_reference_description reference_; // 实例来源与覆盖的唯一可变记录。
   scene_node_id root_node_ = null_scene_node_id;
   std::vector<runtime_node> nodes_;
 };

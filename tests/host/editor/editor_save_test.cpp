@@ -141,11 +141,17 @@ int main() try {
     return 15;
   }
   created_node = session.find_node(created_uuid)->node;
-  gneiss::editor::scene_node_snapshot snapshot;
-  if (session.destroy_node(created_node, snapshot) != gneiss::engine::error::success ||
+  // UI 查询记录故意不刷新；撤销快照必须读取 World 当前值。
+  if (application->native_world()
+          ->node_set_identity(created_node, {created_uuid, "Live snapshot"})
+          .failed())
+    return 20;
+  gneiss::editor::scene_subtree_snapshot snapshot;
+  if (session.destroy_subtree(created_node, snapshot) != gneiss::engine::error::success ||
+      snapshot.description.objects.size() != 1U ||
+      snapshot.description.objects.front().name != "Live snapshot" ||
       session.find_node(created_uuid) != nullptr || session.nodes().size() != 4U ||
-      session.restore_mesh_renderer_node(snapshot, created_node) !=
-          gneiss::engine::error::success ||
+      session.restore_subtree(snapshot, created_node) != gneiss::engine::error::success ||
       session.find_node(created_uuid) == nullptr || session.nodes().size() != 5U) {
     return 6;
   }
@@ -154,7 +160,7 @@ int main() try {
     return 7;
   }
   const auto saved = read_text(scene_path);
-  if (saved.find("\"editor_test_unknown\":42") == std::string::npos ||
+  if (saved.find("\"editor_test_unknown\":42") != std::string::npos ||
       saved.find(created_uuid.string()) == std::string::npos ||
       saved.find(mesh_uri) == std::string::npos) {
     return 8;

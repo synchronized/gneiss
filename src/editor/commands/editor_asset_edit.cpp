@@ -32,8 +32,7 @@ gneiss::engine::error editor_asset_edit::commit_add(runtime::application& applic
             if (node == nullptr) {
               return gneiss::engine::error{gneiss::engine::error::not_found};
             }
-            scene_node_snapshot discarded;
-            return session.destroy_node(node->node, discarded);
+            return session.destroy_node(node->node);
           },
       .redo =
           [&application, &session, scene = scene_, snapshot = snapshot_, leases = next_] {

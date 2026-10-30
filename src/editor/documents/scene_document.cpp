@@ -657,7 +657,7 @@ gneiss::engine::error scene_document::create_mesh_renderer_node(std::string_view
   }
 }
 
-gneiss::engine::error scene_document::create_mesh_renderer_node(const scene_node_snapshot& snapshot,
+gneiss::engine::error scene_document::create_mesh_renderer_node(const mesh_node_creation& snapshot,
                                                                 scene_node_id& out_node) noexcept {
   if (!is_open() || snapshot.uuid.is_nil() || snapshot.mesh_uri.empty() ||
       snapshot.material_uri.empty()) {
@@ -726,7 +726,7 @@ gneiss::engine::error scene_document::create_mesh_renderer_node(const scene_node
 }
 
 gneiss::engine::error scene_document::commit_mesh_node(
-    const scene_node_snapshot& snapshot,
+    const mesh_node_creation& snapshot,
     const std::function<gneiss::engine::error(scene_node_id, scene_node_id&)>& create,
     scene_node_id& output) noexcept try {
   output = {};
@@ -776,58 +776,17 @@ gneiss::engine::error scene_document::commit_mesh_node(
   return gneiss::engine::error::internal;
 }
 
-gneiss::engine::error
-scene_document::restore_mesh_renderer_node(const scene_node_snapshot& snapshot,
-                                           scene_node_id& out_node) noexcept {
-  return create_mesh_renderer_node(snapshot, out_node);
-}
-
-gneiss::engine::error scene_document::destroy_node(scene_node_id node,
-                                                   scene_node_snapshot& out_snapshot) noexcept {
-  if (!is_open() || !node.is_valid()) {
-    return gneiss::engine::error::invalid_argument;
-  }
-  const auto found = std::ranges::find(nodes_, node, &scene_node_record::node);
-  if (found == nodes_.end()) {
-    return gneiss::engine::error::not_found;
-  }
-  if (found->mesh_uri.empty() || found->material_uri.empty()) {
-    return gneiss::engine::error::unsupported;
-  }
-  if (std::ranges::any_of(nodes_,
-                          [node](const auto& candidate) { return candidate.parent == node; })) {
-    return gneiss::engine::error::invalid_state;
-  }
-  try {
-    scene_node_snapshot snapshot{.uuid = found->uuid,
-                                 .parent_uuid = {},
-                                 .display_name = found->display_name,
-                                 .mesh_uri = found->mesh_uri,
-                                 .material_uri = found->material_uri};
-    if (found->parent.is_valid()) {
-      const auto parent = std::ranges::find(nodes_, found->parent, &scene_node_record::node);
-      if (parent == nodes_.end()) {
-        return gneiss::engine::error::invalid_state;
-      }
-      snapshot.parent_uuid = parent->uuid;
-    }
-    const auto operation = with_scene(
-        [&](auto& service) { return service.destroy_node(scene_, gneiss::scene_node_id{node}); });
-    if (operation != gneiss::engine::error::success) {
-      return operation;
-    }
-    nodes_.erase(found);
-    if (selection_ == node) {
-      selection_ = {};
-    }
-    out_snapshot = std::move(snapshot);
-    is_dirty_ = true;
-    return gneiss::engine::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::engine::error::out_of_memory;
-  } catch (...) {
-    return gneiss::engine::error::internal;
-  }
+gneiss::engine::error scene_document::destroy_node(scene_node_id node) noexcept {
+  if (!is_open() || !node.is_valid())
+    return engine::error::invalid_argument;
+  // 删除由场景验证，界面缓存不作为可撤销数据源；完整撤销使用子树快照。
+  const auto status = with_scene([&](auto& service) { return service.destroy_node(scene_, node); });
+  if (status.failed())
+    return status;
+  if (selection_ == node)
+    selection_ = {};
+  is_dirty_ = true;
+  return refresh_nodes();
 }
 
 gneiss::engine::error scene_document::set_mesh_renderer(scene_node_id node,

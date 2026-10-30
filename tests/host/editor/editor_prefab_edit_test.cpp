@@ -9,6 +9,7 @@
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -80,9 +81,20 @@ void run_refresh(gneiss::engine::execution_mode mode) {
                                              first, &scheduler) == gneiss::engine::error::success);
   check(test_support::create_prefab_document(*app, session, "Second", "asset://prefab.json", {},
                                              second, &scheduler) == gneiss::engine::error::success);
-  const auto first_uuid = session.prefab_nodes()[0].instance_uuid;
-  const auto second_uuid = session.prefab_nodes()[1].instance_uuid;
-  const auto source_uuid = session.prefab_nodes()[2].source_node_uuid;
+  // 成员允许交错，不能假设所有实例根排列在展开成员之前。
+  const auto first_record =
+      std::ranges::find(session.prefab_nodes(), first, &editor::prefab_node_record::node);
+  const auto second_record =
+      std::ranges::find(session.prefab_nodes(), second, &editor::prefab_node_record::node);
+  check(first_record != session.prefab_nodes().end() &&
+        second_record != session.prefab_nodes().end());
+  const auto first_uuid = first_record->instance_uuid;
+  const auto second_uuid = second_record->instance_uuid;
+  const auto source_record = std::ranges::find_if(session.prefab_nodes(), [&](const auto& record) {
+    return record.instance_uuid == first_uuid && !record.is_instance_root;
+  });
+  check(source_record != session.prefab_nodes().end());
+  const auto source_uuid = source_record->source_node_uuid;
   const auto old_selected = session.find_prefab_source(first_uuid, source_uuid)->node;
   auto transform = session.find_prefab_source(first_uuid, source_uuid)->local_transform;
   transform.translation[0] = 17.0F;

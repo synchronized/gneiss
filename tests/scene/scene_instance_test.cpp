@@ -95,6 +95,53 @@ int main() try {
       gneiss::engine::error::invalid_handle) {
     return 3;
   }
+  // 失败的资源选择不提交；原来的持久化 URI 和组件必须完整保留。
+  std::string accepted_scene;
+  std::string after_failed_edit;
+  if (application->scenes()->serialize(scene, accepted_scene).failed() ||
+      application->scenes()
+          ->set_mesh_renderer(scene, triangle, missing_mesh_uri, material_uri)
+          .ok() ||
+      application->scenes()->serialize(scene, after_failed_edit).failed() ||
+      accepted_scene != after_failed_edit)
+    return 30;
+
+  // 挂在保存节点下的临时对象不自动成为保存成员；子树快照也不包含它。
+  const auto temporary_uuid = gneiss::engine::guid::from_bytes({91, 82, 1});
+  auto temporary =
+      application->native_world()->object_create(camera_node, {temporary_uuid, "Temporary"}, {});
+  if (!temporary)
+    return 31;
+  gneiss::engine::scene_subtree_snapshot persistent_snapshot;
+  if (application->scenes()->serialize(scene, after_failed_edit).failed() ||
+      after_failed_edit != accepted_scene ||
+      application->scenes()->capture_subtree(scene, camera_node, persistent_snapshot).failed())
+    return 32;
+  for (const auto& object : persistent_snapshot.description.objects)
+    if (object.uuid == temporary_uuid)
+      return 33;
+  // 持久化对象若被底层直接挂到临时父对象，保存应拒绝悬空引用且不改输出。
+  if (application->native_world()->node_reparent(triangle, *temporary).failed() ||
+      application->scenes()->serialize(scene, after_failed_edit) !=
+          gneiss::engine::error::invalid_state ||
+      after_failed_edit != accepted_scene ||
+      application->native_world()->node_reparent(triangle, camera_node).failed() ||
+      application->native_world()->object_destroy(*temporary).failed())
+    return 34;
+
+  // 同一源文件的运行实例属于另一个 World，修改它不能影响编辑场景保存。
+  gneiss::scene_instance_id play_scene;
+  gneiss::scene_node_id play_camera;
+  if (gneiss::test_support::load_scene(*second_application, scene_uri, &play_scene).failed() ||
+      second_application->scenes()->find_node(play_scene, camera_uuid, play_camera).failed() ||
+      second_application->scenes()
+          ->set_node_name(play_scene, play_camera, "Play Camera")
+          .failed() ||
+      application->scenes()->serialize(scene, after_failed_edit).failed() ||
+      after_failed_edit != accepted_scene ||
+      second_application->scenes()->unload(play_scene).failed())
+    return 35;
+
   gneiss::engine::mesh_renderer_node_creation create_desc;
   create_desc.parent = camera_node;
   create_desc.uuid = created_uuid;

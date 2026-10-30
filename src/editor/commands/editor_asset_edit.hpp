@@ -56,7 +56,7 @@ private:
                                      mesh_asset_reference assets, bool creating);
   gneiss::engine::error commit_add(runtime::application& application, scene_document& session,
                                    editor_command_history& history);
-  scene_node_snapshot snapshot_;
+  mesh_node_creation snapshot_;
   bool creating_{};
   gneiss::engine::error commit(runtime::application& application, scene_document& session,
                                editor_command_history& history);
