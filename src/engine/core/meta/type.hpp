@@ -23,7 +23,7 @@ public:
   [[nodiscard]] value_kind scalar_kind() const noexcept { return scalar_; }
   [[nodiscard]] result<std::span<const enum_entry>> enum_entries() const noexcept;
   [[nodiscard]] result<std::vector<property_info>> properties() const noexcept;
-  /** sequence/optional 返回元素类型，associative 返回映射值类型。 */
+  /** sequence/optional/reference 返回元素或静态目标类型，associative 返回映射值类型。 */
   [[nodiscard]] result<type> element_type() const noexcept;
 
 private:

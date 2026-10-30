@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/registration.hpp"
+#include "engine/core/meta/serialization.hpp"
 #include <future>
 namespace e = gneiss::engine;
 namespace m = e::meta;
@@ -167,7 +168,80 @@ bool type_queries() {
   registry = e::error::not_found;
   return !weak.expired() && typed->properties()->size() == 2;
 }
+struct reference_target {
+  static constexpr std::string_view type_name = "reference_target";
+  static constexpr e::guid type_guid = e::guid::from_bytes({94, 20});
+  int number = 7;
+};
+struct reference_owner {
+  static constexpr std::string_view type_name = "reference_owner";
+  static constexpr e::guid type_guid = e::guid::from_bytes({94, 21});
+  e::ref<reference_target> target;
+  e::ref<const reference_target> readonly;
+};
+bool reference_properties() {
+  auto made = m::create_registry();
+  if (!made)
+    return false;
+  auto registry = *made;
+  if (m::type_builder<reference_target>{registry}
+          .property<&reference_target::number>(m::property_id{1}, "number")
+          .commit()
+          .failed() ||
+      m::type_builder<reference_owner>{registry}
+          .property<&reference_owner::target>(m::property_id{1}, "target")
+          .property<&reference_owner::readonly>(m::property_id{2}, "readonly")
+          .serialization()
+          .commit()
+          .failed() ||
+      m::freeze(registry).failed())
+    return false;
+  reference_owner owner;
+  auto root = m::mutable_instance::from(registry, owner);
+  if (!root)
+    return false;
+  auto field = root->property("target");
+  if (!field || field->kind() != m::type_kind::reference ||
+      field->dereference().error() != e::error::not_found ||
+      field->read_value().error() != e::error::unsupported)
+    return false;
+  auto target_type = field->type().element_type();
+  if (!target_type || target_type->id() != e::runtime_type_of<reference_target>())
+    return false;
+  auto target = e::make_ref<reference_target>();
+  auto source = m::instance::from(registry, target);
+  if (!source || field->assign(*source).failed() || owner.target.get() != target.get())
+    return false;
+  auto pointed = field->dereference();
+  if (!pointed)
+    return false;
+  auto number = pointed->property("number");
+  if (!number || number->write_value(e::value{std::int64_t{42}}).failed() || target->number != 42)
+    return false;
+  owner.readonly = target;
+  auto readonly = root->property("readonly");
+  if (!readonly || readonly->dereference().error() != e::error::unsupported ||
+      !readonly->as_const().dereference() ||
+      field->assign(readonly->as_const()) != e::error::invalid_argument)
+    return false;
+  // 未声明引用持久化规则时显式失败，不能把引用展开或丢弃为空对象。
+  auto encoded = m::serialize(registry, owner);
+  if (encoded || encoded.error().error != e::error::unsupported)
+    return false;
+  const std::string input = R"({"target":null,"readonly":null})";
+  auto decoded = m::deserialize<reference_owner>(
+      registry, std::as_bytes(std::span{input.data(), input.size()}));
+  if (decoded || decoded.error().error != e::error::unsupported)
+    return false;
+  if (field->reset_reference().failed() || owner.target || !owner.readonly || target->number != 42)
+    return false;
+  if (field->dereference().error() != e::error::not_found)
+    return false;
+  return readonly->reset_reference().ok() && !owner.readonly;
+}
 int main() try {
+  if (!reference_properties())
+    return 40;
   if (!type_queries())
     return 31;
   if (!enum_registration())

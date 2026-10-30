@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/meta/property.hpp"
+#include "engine/core/ref.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/traits/type_identity.hpp"
 #include <algorithm>
@@ -77,6 +78,10 @@ template <class T, std::size_t Index = 1> constexpr value_kind reflected_value_k
 template <class T> struct container_traits {
   static constexpr type_kind kind = type_kind::object;
 };
+template <class T> struct container_traits<ref<T>> {
+  static constexpr type_kind kind = type_kind::reference;
+  using element = T;
+};
 template <class T, class A> struct container_traits<std::vector<T, A>> {
   static constexpr type_kind kind = type_kind::sequence;
   using element = T;
@@ -123,6 +128,16 @@ template <class T> const type_access& access_of() {
         *static_cast<T*>(p) = std::move(*decoded);
         return error::success;
       };
+    } else if constexpr (container_traits<T>::kind == type_kind::reference) {
+      using E = typename container_traits<T>::element;
+      static_assert(!std::is_void_v<E>, "Reflected references require a concrete target type");
+      a.element = &access_of<std::remove_const_t<E>>;
+      a.at = [](const void* p, std::size_t) -> const void* {
+        return static_cast<const T*>(p)->get();
+      };
+      if constexpr (!std::is_const_v<E>)
+        a.at_mut = [](void* p, std::size_t) -> void* { return static_cast<T*>(p)->get(); };
+      a.clear = [](void* p) { static_cast<T*>(p)->reset(); };
     } else if constexpr (container_traits<T>::kind != type_kind::object) {
       using E = typename container_traits<T>::element;
       static_assert(std::is_default_constructible_v<E>,

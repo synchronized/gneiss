@@ -624,3 +624,5 @@
 - [Prefab 组件结构覆盖决策](decisions/ADR-097-prefab-component-overrides.md)
 
 - [PLAN-091：对象强引用入口统一](plans/PLAN-091-object-reference-ownership.md)
+
+- [反射引用属性访问](plans/PLAN-092-reflection-reference-properties.md)

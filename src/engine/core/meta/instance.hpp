@@ -47,6 +47,8 @@ public:
   [[nodiscard]] result<sequence_view> as_sequence() const noexcept;
   [[nodiscard]] result<associative_view> as_associative() const noexcept;
   [[nodiscard]] result<optional_view> as_optional() const noexcept;
+  /** 引用目标借用视图；空引用返回 not_found。重置/替换引用后须重新获取。 */
+  [[nodiscard]] result<instance> dereference() const noexcept;
   [[nodiscard]] result<std::vector<property_info>> properties() const noexcept;
   [[nodiscard]] result<instance> property(property_id id) const noexcept;
   [[nodiscard]] result<instance> property(std::string_view name) const noexcept;
@@ -94,6 +96,10 @@ public:
   [[nodiscard]] result<mutable_sequence_view> as_sequence() const noexcept;
   [[nodiscard]] result<mutable_associative_view> as_associative() const noexcept;
   [[nodiscard]] result<mutable_optional_view> as_optional() const noexcept;
+  /** ref<const T> 不允许可写解引用；可通过 as_const 获取只读目标。 */
+  [[nodiscard]] result<mutable_instance> dereference() const noexcept;
+  /** 仅重置此引用，不修改其他拥有者；最后一次释放遵循原删除器。 */
+  [[nodiscard]] error reset_reference() const noexcept;
   [[nodiscard]] instance as_const() const noexcept { return view_; }
   [[nodiscard]] type_kind kind() const noexcept { return view_.kind(); }
   [[nodiscard]] result<mutable_instance> property(property_id id) const noexcept;
@@ -102,7 +108,7 @@ public:
   [[nodiscard]] result<value> read_value() const noexcept { return view_.read_value(); }
   [[nodiscard]] error write_value(const value& input) const noexcept;
   [[nodiscard]] result<void*> object_data() const noexcept;
-  /** 同类型复制赋值；不提供回滚或业务校验，调用方应修改候选副本。 */
+  /** 同类型对象或引用复制赋值；引用共享原控制块，不复制目标。不提供回滚或业务校验，调用方应修改候选副本。 */
   [[nodiscard]] error assign(const instance& source) const noexcept;
   /** 解码专用移动赋值；source 类型须匹配，成功后其内容已移出。 */
   [[nodiscard]] error assign_object(engine::type_id id, void* source) const noexcept;

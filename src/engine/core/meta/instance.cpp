@@ -201,7 +201,7 @@ result<void*> mutable_instance::object_data() const noexcept {
 error mutable_instance::assign(const instance& source) const noexcept try {
   if (kind() == type_kind::invalid || source.kind() == type_kind::invalid)
     return error::invalid_state;
-  if (kind() != type_kind::object || source.kind() != type_kind::object)
+  if ((kind() != type_kind::object && kind() != type_kind::reference) || source.kind() != kind())
     return error::unsupported;
   if (view_.cpp_type_ != source.cpp_type_)
     return error::invalid_argument;
@@ -317,4 +317,33 @@ result<mutable_optional_view> mutable_instance::as_optional() const noexcept {
     return error::unsupported;
   return mutable_optional_view{*this};
 }
+result<instance> instance::dereference() const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (kind() != type_kind::reference || !access_ || !access_->at)
+    return error::unsupported;
+  const auto* target = access_->at(data_, 0);
+  if (!target)
+    return error::not_found;
+  return from_access(registry_, access_->element(), target);
+}
+result<mutable_instance> mutable_instance::dereference() const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (kind() != type_kind::reference || !view_.access_ || !view_.access_->at_mut)
+    return error::unsupported;
+  auto* target = view_.access_->at_mut(data_, 0);
+  if (!target)
+    return error::not_found;
+  return from_access(view_.registry_, view_.access_->element(), target);
+}
+error mutable_instance::reset_reference() const noexcept {
+  if (kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (kind() != type_kind::reference || !view_.access_ || !view_.access_->clear)
+    return error::unsupported;
+  view_.access_->clear(data_);
+  return error::success;
+}
+
 }

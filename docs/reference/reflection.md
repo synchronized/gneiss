@@ -388,3 +388,20 @@ kind/category/object_type/enum_type/choices/type_guid。属性保留 id、name�
 这不改变字段持久化规则，也不代表通用 `ref<T>` 属性已经支持自动编解码。
 资源标识、场景 GUID 和内嵌组件描述仍按各自已有格式处理。设计边界见
 [ADR-098](../decisions/ADR-098-object-reference-ownership.md)。
+
+### 引用属性访问
+
+注册 `ref<T>` 成员后，`property.type.kind()` 为 `type_kind::reference`，
+`element_type()` 返回静态目标类型；目标对象类型仍需注册。ref<void> 不支持字段反射。
+
+通过 `instance::dereference()` 获取只读借用目标；`mutable_instance::dereference()`
+仅对 ref<T> 的可写目标有效，ref<const T> 返回 unsupported，可通过 as_const 读取。
+空引用返回 not_found；引用不是标量，read_value 返回 unsupported。
+
+`mutable_instance::assign(source)` 对完全相同的 ref 类型共享控制块，不复制目标；
+不同目标类型（包括 const 差异）返回 invalid_argument，不隐式推断派生转换。
+`reset_reference()` 释放当前引用，不影响其他强引用；视图不会自动延长目标寿命，
+重置/替换后应重新获取目标视图。修改目标会被所有共享拥有者观察到，不提供写时复制。
+
+默认反射 JSON 对引用属性返回 unsupported，包含空引用在内；业务须明确身份解析或
+内嵌对象规则后提供自定义 codec。Inspector 暂不提供引用目标选择或共享目标递归编辑。

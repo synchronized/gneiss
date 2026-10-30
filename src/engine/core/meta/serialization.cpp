@@ -204,6 +204,8 @@ result<yyjson_mut_val*, serialization_diagnostic> encode_view(const registry_ref
                                                               yyjson_mut_doc* doc,
                                                               std::size_t depth) {
   const auto value_type = view.type();
+  if (value_type.kind() == type_kind::reference)
+    return failure(error::unsupported, "", "引用属性需要显式持久化规则");
   if (depth > 64 && value_type.kind() != type_kind::scalar)
     return failure(error::invalid_argument, "", "嵌套值超过深度限制");
   if (value_type.kind() == type_kind::scalar) {
@@ -332,6 +334,8 @@ serialization_diagnostic validate_defaults(const registry_ref&, type_id, const v
 serialization_diagnostic validate_view(const registry_ref& registry, const instance& view,
                                        std::size_t depth) {
   const auto value_type = view.type();
+  if (value_type.kind() == type_kind::reference)
+    return failure(error::unsupported, "", "引用属性需要显式持久化规则");
   if (depth > 64 && value_type.kind() != type_kind::scalar)
     return failure(error::invalid_argument, "", "嵌套值超过深度限制");
   if (value_type.kind() == type_kind::object) {
@@ -467,6 +471,8 @@ serialization_diagnostic decode_nested(const registry_ref& registry, const mutab
 serialization_diagnostic decode_view(const registry_ref& registry, const mutable_instance& view,
                                      yyjson_val* input, std::size_t depth) {
   const auto value_type = view.type();
+  if (value_type.kind() == type_kind::reference)
+    return failure(error::unsupported, "", "引用属性需要显式持久化规则");
   if (depth > 64 && value_type.kind() != type_kind::scalar)
     return failure(error::invalid_argument, "", "嵌套值超过深度限制");
   if (value_type.kind() == type_kind::object)

@@ -232,7 +232,8 @@ public:
           (bindings.size() != desc.properties.size() || !bindings[i].access ||
            (bindings[i].access->kind != type_kind::sequence &&
             bindings[i].access->kind != type_kind::associative &&
-            bindings[i].access->kind != type_kind::optional)))
+            bindings[i].access->kind != type_kind::optional &&
+            bindings[i].access->kind != type_kind::reference)))
         return error::invalid_argument;
     }
     if (!bindings.empty()) {
