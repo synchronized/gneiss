@@ -928,6 +928,35 @@ void draw_component_descriptions(editor_state& state) {
     node_id = node->node;
   } else
     return;
+  prefab_asset_ref source_asset;
+  const object_description* source_object = nullptr;
+  bool source_transform = false;
+  if (identity.instance_uuid) {
+    object_description author;
+    const auto captured = state.application->scenes()->capture_prefab_header(
+        state.editing.document().scene_handle(), identity.instance_uuid, author, source_asset);
+    if (captured.failed()) {
+      state.inspector_error = captured;
+      return;
+    }
+    const auto found =
+        std::ranges::find(source_asset->objects, identity.source_uuid, &object_description::uuid);
+    if (found != source_asset->objects.end()) {
+      source_object = &*found;
+      source_transform = identity.source_uuid != source_asset->root_uuid;
+    }
+  }
+  const auto source_view = [&](const auto* value) -> std::optional<meta::instance> {
+    if (!value)
+      return {};
+    auto view = meta::instance::from(*value);
+    if (!view) {
+      state.inspector_error = view.error();
+      return {};
+    }
+    return *view;
+  };
+  auto transform_source = source_view(source_transform ? &source_object->transform : nullptr);
   identity.component_type = transform_component_type;
   math::transform transform;
   auto transform_status = state.world->node_get_local_transform(node_id, transform);
@@ -941,7 +970,8 @@ void draw_component_descriptions(editor_state& state) {
     return;
   }
   auto transform_edit = gneiss::editor::draw_reflected_properties(
-      *transform_view, "Transform", state.property_edit_serial, state.inspector_error);
+      *transform_view, "Transform", state.property_edit_serial, state.inspector_error, {},
+      transform_source ? &*transform_source : nullptr);
   if (transform_edit)
     state.inspector_error =
         edit_component_description(state.editing.document(), state.editing.history(), *state.world,
@@ -956,8 +986,11 @@ void draw_component_descriptions(editor_state& state) {
     auto mesh_view = meta::instance::from(mesh_description);
     if (mesh_view) {
       ImGui::BeginDisabled(state.editing.assets().active() || state.editing.history().is_pending());
+      auto original = source_view(
+          source_object ? source_object->components.get<mesh_renderer_description>() : nullptr);
       auto mesh_edit = gneiss::editor::draw_reflected_properties(
-          *mesh_view, "Mesh Renderer", state.property_edit_serial, state.inspector_error);
+          *mesh_view, "Mesh Renderer", state.property_edit_serial, state.inspector_error, {},
+          original ? &*original : nullptr);
       if (mesh_edit)
         state.inspector_error =
             state.editing.assets().request_property(*state.application, state.editing.document(),
@@ -992,8 +1025,11 @@ void draw_component_descriptions(editor_state& state) {
     return;
   }
   const std::array readonly{meta::property_id{4}};
+  auto camera_source =
+      source_view(source_object ? source_object->components.get<camera_description>() : nullptr);
   auto edit = gneiss::editor::draw_reflected_properties(*view, "Camera", state.property_edit_serial,
-                                                        state.inspector_error, readonly);
+                                                        state.inspector_error, readonly,
+                                                        camera_source ? &*camera_source : nullptr);
   if (edit)
     state.inspector_error =
         edit_component_description(state.editing.document(), state.editing.history(), *state.world,
@@ -2643,60 +2679,6 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
       if (prefab->is_read_only) {
         const auto instance_uuid = prefab->instance_uuid;
         const auto source_uuid = prefab->source_node_uuid;
-        const auto status = [&](const char* label, std::uint32_t flag) {
-          ImGui::Text("%s: %s", label,
-                      (prefab->override_flags & flag) != 0U ? "Overridden" : "Inherited");
-        };
-        status("Translation",
-               static_cast<std::uint32_t>(gneiss::scene_prefab_flags::translation_overridden));
-        status("Rotation",
-               static_cast<std::uint32_t>(gneiss::scene_prefab_flags::rotation_overridden));
-        status("Scale", static_cast<std::uint32_t>(gneiss::scene_prefab_flags::scale_overridden));
-        ImGui::TextDisabled("Source T: %.3f, %.3f, %.3f",
-                            prefab->source_local_transform.translation[0],
-                            prefab->source_local_transform.translation[1],
-                            prefab->source_local_transform.translation[2]);
-        ImGui::TextDisabled(
-            "Source R: %.3f, %.3f, %.3f, %.3f", prefab->source_local_transform.rotation[0],
-            prefab->source_local_transform.rotation[1], prefab->source_local_transform.rotation[2],
-            prefab->source_local_transform.rotation[3]);
-        ImGui::TextDisabled("Source S: %.3f, %.3f, %.3f", prefab->source_local_transform.scale[0],
-                            prefab->source_local_transform.scale[1],
-                            prefab->source_local_transform.scale[2]);
-        ImGui::Separator();
-        const auto restore_field = [&](const char* label, std::uint32_t flag,
-                                       std::uint32_t field_id) {
-          ImGui::BeginDisabled((prefab->override_flags & flag) == 0U);
-          const bool requested = ImGui::Button(label);
-          ImGui::EndDisabled();
-          if (!requested) {
-            return;
-          }
-          using namespace gneiss::engine;
-          const auto identity =
-              gneiss::editor::component_edit_target{.instance_uuid = instance_uuid,
-                                                    .source_uuid = source_uuid,
-                                                    .component_type = transform_component_type};
-          auto value = meta::read_property(transform_component_type, meta::property_id{field_id},
-                                           &prefab->source_local_transform);
-          state.history_error =
-              value ? gneiss::editor::edit_component_description(
-                          state.editing.document(), state.editing.history(), *state.world, identity,
-                          {.path = {meta::property_id{field_id}}, .data = std::move(*value)}, 0)
-                    : value.error();
-        };
-        restore_field(
-            "Restore Translation",
-            static_cast<std::uint32_t>(gneiss::scene_prefab_flags::translation_overridden),
-            gneiss::engine::transform_translation_field.get());
-        ImGui::SameLine();
-        restore_field("Restore Rotation",
-                      static_cast<std::uint32_t>(gneiss::scene_prefab_flags::rotation_overridden),
-                      gneiss::engine::transform_rotation_field.get());
-        ImGui::SameLine();
-        restore_field("Restore Scale",
-                      static_cast<std::uint32_t>(gneiss::scene_prefab_flags::scale_overridden),
-                      gneiss::engine::transform_scale_field.get());
         const auto* current =
             state.editing.document().find_prefab_source(instance_uuid, source_uuid);
         const bool has_override = current != nullptr && current->override_flags != 0U;

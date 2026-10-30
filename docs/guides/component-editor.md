@@ -16,7 +16,7 @@ settings 标题的右键菜单可以复制和粘贴相同类型的对象。
 恢复某字段的来源值后，对应覆盖会自动删除。保存后重新加载保留这些差异。
 
 Transform 和 Camera 共用反射树、候选校验及属性路径历史。Transform 的 translation/scale 为三分量控件，rotation 以欧拉角显示并转换回四元数。
-普通节点与 Prefab 根节点修改自身局部变换；Prefab 来源子节点修改生成覆盖。来源子节点的 Restore Translation/Rotation/Scale 和 Restore All Transform 同样走统一历史入口。
+普通节点与 Prefab 根节点修改自身局部变换；Prefab 来源子节点修改生成覆盖。来源子节点的逐字段 Restore Source 和 Restore All Transform 同样走统一历史入口。
 
 连续拖动同一字段合并为一次历史；不同对象、字段或新的拖动分开记录。切换选择后撤销仍定位原对象；非法零缩放不会提交。
 Prefab 来源节点不支持在此新增或删除 Camera 或 MeshRenderer。
@@ -38,3 +38,14 @@ mesh/material 为资源 URI，修改后按 Enter 提交。也可以在 Asset Bro
 保存重开后恢复覆盖资源。资源替换历史及 Prefab 刷新快照强持有资源，撤销不重新读取文件。
 
 本入口不自动导入源模型，不支持在 Prefab 来源节点新增或删除组件，也不表示 GPU 上传进度。
+
+## Prefab 来源提示与恢复
+
+Prefab 的 Transform、Camera、MeshRenderer 可写标量字段显示 `Inherited` 或 `Overridden`。
+与当前实例来源修订不同的字段旁提供 `Restore Source`；点击后走普通属性编辑入口，支持撤销。
+网格和材质恢复需要加载资源时仍异步准备，失败保留原绑定。来源快照取自实例当前持有的 Prefab，
+不会为了绘制面板重新读取文件。
+
+实例根 Transform 是场景中的实例位置，不作为模板字段覆盖显示；Camera 的 is_primary 只读，
+不提供恢复按钮。来源子节点保留 `Restore All Transform`，整组恢复为一次历史操作。
+逐字段恢复仍校验完整描述，例如相机 near/far 必须保持合法组合；不合法时报告错误并保持现值。

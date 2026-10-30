@@ -6,6 +6,7 @@
 #include "panels/reflected_property_editor.hpp"
 
 #include <imgui.h>
+#include <imgui_internal.h>
 
 #include <array>
 
@@ -53,6 +54,59 @@ int main() try {
   };
   draw();
   const bool valid = error.ok() && ImGui::GetDrawData()->TotalVtxCount > 0;
+  // 模拟点击实际面板的最后一个恢复按钮，验证独立值、路径及不直接写对象。
+  const auto restore = [&](auto current, auto source, gneiss::engine::meta::property_id property,
+                           gneiss::engine::value expected) {
+    auto current_view = gneiss::engine::meta::instance::from(current);
+    auto source_view = gneiss::engine::meta::instance::from(source);
+    if (!current_view || !source_view)
+      return false;
+    std::optional<property_edit> requested;
+    ImVec2 button;
+    const auto frame = [&] {
+      ImGui::NewFrame();
+      ImGui::SetNextWindowPos({0, 0});
+      ImGui::SetNextWindowSize({1000, 700});
+      ImGui::Begin("Restore test");
+      auto edit =
+          draw_reflected_properties(*current_view, "Component", serial, error, {}, &*source_view);
+      if (edit)
+        requested = std::move(edit);
+      button = GImGui->LastItemData.Rect.GetCenter();
+      ImGui::End();
+      ImGui::Render();
+    };
+    frame();
+    frame();
+    io.AddMousePosEvent(button.x, button.y);
+    io.AddMouseButtonEvent(0, true);
+    frame();
+    io.AddMouseButtonEvent(0, false);
+    frame();
+    auto unchanged = current_view->property(property);
+    auto original = source_view->property(property);
+    if (!unchanged || !original)
+      return false;
+    auto actual = unchanged->read_value();
+    return requested && requested->path == property_path{property} &&
+           requested->data.payload == expected.payload && actual &&
+           actual->payload != expected.payload;
+  };
+  namespace e = gneiss::engine;
+  auto changed_transform = transform;
+  changed_transform.scale = {2, 2, 2};
+  if (!restore(changed_transform, transform, e::meta::property_id{3}, e::value{transform.scale}))
+    return 10;
+  auto changed_camera = camera.settings;
+  changed_camera.far = 200;
+  if (!restore(changed_camera, camera.settings, e::meta::property_id{3},
+               e::value{camera.settings.far}))
+    return 11;
+  auto changed_mesh = mesh;
+  changed_mesh.material_uri = "asset://changed.json";
+  if (!restore(changed_mesh, mesh, e::meta::property_id{2}, e::value{mesh.material_uri}))
+    return 12;
+  serial = 0;
   // 非法四元数只报告错误，不调用写入或变更模型；不需要原生窗口。
   transform.rotation.w = 0.0F;
   draw();
