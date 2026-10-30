@@ -76,6 +76,19 @@ int main() try {
     const auto& json = *changes.front().replacement;
     return e::decode_scene(std::as_bytes(std::span{json.data(), json.size()}));
   };
+  auto restore_component =
+      ed::prepare_restore_prefab_component(scene_json, "scenes/main.scene.json", first.uuid,
+                                           child.uuid, movement_description::type_guid);
+  check(bool(restore_component));
+  auto component_restored = decode_changes(*restore_component);
+  check(component_restored && component_restored->objects[0].prefab->overrides.empty() &&
+        component_restored->objects[0].prefab->component_overrides.size() == 2);
+  auto restore_added = ed::prepare_restore_prefab_component(
+      scene_json, "scenes/main.scene.json", first.uuid, root.uuid, movement_description::type_guid);
+  check(bool(restore_added));
+  auto added_restored = decode_changes(*restore_added);
+  check(added_restored && added_restored->objects[0].prefab->overrides.size() == 1 &&
+        added_restored->objects[0].prefab->component_overrides.size() == 1);
   auto restore_all = ed::prepare_restore_prefab(scene_json, "scenes/main.scene.json", first.uuid);
   check(restore_all && restore_all->size() == 1);
   auto restored = decode_changes(*restore_all);

@@ -108,4 +108,104 @@ engine::error restore_scene_document(runtime::application& app, scene_document& 
 } catch (...) {
   return engine::error::internal;
 }
+engine::error scene_document_edit::finish(engine::error status) noexcept {
+  requests_.clear();
+  missing_.clear();
+  before_.reset();
+  after_.reset();
+  selection_ = {};
+  baseline_.clear();
+  return status_ = status;
+}
+void scene_document_edit::cancel() noexcept {
+  if (status_ == engine::error::not_ready)
+    (void)finish(engine::error::cancelled);
+}
+engine::error scene_document_edit::begin(runtime::application& app, scene_document& document,
+                                         std::span<const author_document_change> changes,
+                                         std::string label,
+                                         std::function<void(bool)> selection) noexcept try {
+  using engine::error;
+  if (status_ == error::not_ready)
+    return error::not_ready;
+  (void)finish(error::invalid_state);
+  before_ = std::make_shared<scene_document_snapshot>();
+  after_ = std::make_shared<scene_document_snapshot>();
+  auto status = capture_scene_document(app, document, *before_);
+  if (status.failed())
+    return finish(status);
+  status = prepare_scene_document(*before_, changes, *after_, &missing_);
+  if (status.failed())
+    return finish(status);
+  scene_ = document.scene_handle();
+  status = app.scenes()->serialize(scene_, baseline_);
+  if (status.failed())
+    return finish(status);
+  for (const auto& asset : missing_) {
+    auto request = app.resources().load(asset);
+    if (!request)
+      return finish(request.error());
+    requests_.push_back(std::move(*request));
+  }
+  application_ = &app;
+  document_ = &document;
+  label_ = std::move(label);
+  selection_ = std::move(selection);
+  status_ = error::not_ready;
+  return error::success;
+} catch (const std::bad_alloc&) {
+  return finish(engine::error::out_of_memory);
+} catch (...) {
+  return finish(engine::error::internal);
+}
+engine::error scene_document_edit::advance(runtime::application& app, scene_document& document,
+                                           editor_command_history& history) noexcept try {
+  using engine::error;
+  if (status_ != error::not_ready)
+    return status_;
+  if (&app != application_ || &document != document_ || !app.is_owner_thread() ||
+      !app.accepts_requests() || !document.is_open() || document.scene_handle() != scene_)
+    return finish(error::invalid_state);
+  std::string current;
+  auto status = app.scenes()->serialize(scene_, current);
+  if (status.failed())
+    return finish(status);
+  if (current != baseline_ || history.is_pending())
+    return finish(error::invalid_state);
+  bool waiting = false;
+  for (std::size_t i = 0; i < requests_.size(); ++i) {
+    status = requests_[i].status();
+    if (status == error::not_ready) {
+      waiting = true;
+      continue;
+    }
+    if (status.failed())
+      return finish(status);
+    after_->assets.insert_or_assign(missing_[i].uri, requests_[i].resource());
+  }
+  if (waiting)
+    return error::not_ready;
+  const auto apply = [&app, &document, selection = selection_](
+                         const std::shared_ptr<scene_document_snapshot>& snapshot, bool undo) {
+    auto result = restore_scene_document(app, document, *snapshot);
+    if (result.ok()) {
+      document.mark_dirty();
+      if (selection)
+        selection(undo);
+    }
+    return result;
+  };
+  const bool was_dirty = document.is_dirty();
+  status = history.execute({.label = label_,
+                            .undo = [apply, before = before_] { return apply(before, true); },
+                            .redo = [apply, after = after_] { return apply(after, false); },
+                            .merge_key = {}});
+  if (status.failed() && !was_dirty)
+    document.clear_dirty();
+  return finish(status);
+} catch (const std::bad_alloc&) {
+  return finish(engine::error::out_of_memory);
+} catch (...) {
+  return finish(engine::error::internal);
+}
 }

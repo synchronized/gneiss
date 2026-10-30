@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "commands/editor_asset_edit.hpp"
+#include "commands/prefab_authoring.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/serialization.hpp"
@@ -80,8 +81,8 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
   }
   if (locate(session, target_) != node_)
     return engine::error::invalid_state;
-  // 重复设置相同资源不创建历史；恢复仍需清除覆盖记录，不能据资源相等跳过。
-  if (!restoring_ && previous_.mesh == next_.mesh && previous_.material == next_.material)
+  // 重复设置相同资源不创建历史；来源恢复走文档操作入口。
+  if (previous_.mesh == next_.mesh && previous_.material == next_.material)
     return engine::error::success;
   if (prefab_before_) {
     engine::scene_mesh_binding current;
@@ -92,7 +93,7 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
       return engine::error::invalid_state;
     engine::prefab_component_state after;
     after.resources = next_;
-    if (!restoring_) {
+    {
       engine::object_description author;
       engine::prefab_asset_ref source;
       auto status = application.scenes()->capture_prefab_header(scene_, target_.instance_uuid,
@@ -132,7 +133,7 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
                         node, engine::mesh_renderer_description::type_guid, value)
                   : engine::error{engine::error::not_found};
     };
-    return history.execute({.label = restoring_ ? "恢复来源网格组件" : "修改实例网格组件",
+    return history.execute({.label = "修改实例网格组件",
                             .undo = [apply, before = *prefab_before_] { return apply(before); },
                             .redo = [apply, after] { return apply(after); },
                             .merge_key = {}});
@@ -266,24 +267,29 @@ engine::error editor_asset_edit::request_restore_source(runtime::application& ap
                                                         scene_document& document,
                                                         editor_command_history& history,
                                                         const component_edit_target& target) try {
-  if (!target.instance_uuid)
+  if (active_ || history.is_pending())
+    return engine::error::not_ready;
+  if (!target.instance_uuid || !document.uri().starts_with("asset://"))
     return engine::error::invalid_argument;
-  engine::object_description author;
-  engine::prefab_asset_ref source;
-  auto status = app.scenes()->capture_prefab_header(document.scene_handle(), target.instance_uuid,
-                                                    author, source);
+  std::string json;
+  auto status = app.scenes()->serialize(document.scene_handle(), json);
   if (status.failed())
     return status;
-  auto object =
-      std::ranges::find(source->objects, target.source_uuid, &engine::object_description::uuid);
-  if (object == source->objects.end())
-    return engine::error::not_found;
-  auto* mesh = object->components.get<engine::mesh_renderer_description>();
-  if (!mesh)
-    return edit_prefab_component_structure(document, history, target,
-                                           prefab_component_action::restore_source);
-  return request_impl(app, document, history, target, {}, {mesh->mesh_uri, mesh->material_uri},
-                      false, true);
+  auto changes =
+      prepare_restore_prefab_component(json, document.uri().substr(8), target.instance_uuid,
+                                       target.source_uuid, target.component_type);
+  if (!changes)
+    return changes.error();
+  restore_ = std::make_shared<scene_document_edit>();
+  status = restore_->begin(app, document, *changes, "恢复来源组件");
+  if (status.failed()) {
+    restore_.reset();
+    return status;
+  }
+  active_ = visible_ = true;
+  cancelled_ = false;
+  operation_ = engine::error::not_ready;
+  return engine::error::success;
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
 } catch (...) {
@@ -300,7 +306,7 @@ gneiss::engine::error
 editor_asset_edit::request_impl(runtime::application& application, scene_document& session,
                                 editor_command_history& history,
                                 const component_edit_target& target, std::string_view name,
-                                mesh_asset_reference assets, bool creating, bool restoring) try {
+                                mesh_asset_reference assets, bool creating) try {
   if (active_ || history.is_pending()) {
     return gneiss::engine::error::not_ready;
   }
@@ -308,7 +314,6 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
     return gneiss::engine::error::invalid_state;
   }
   creating_ = creating;
-  restoring_ = restoring;
   snapshot_ = {};
   scene_ = session.scene_handle();
   node_ = {};
@@ -410,6 +415,16 @@ void editor_asset_edit::advance(runtime::application& application, scene_documen
   if (!active_) {
     return;
   }
+  if (restore_) {
+    application.advance_scene_load();
+    operation_ = restore_->advance(application, session, history);
+    if (operation_ == engine::error::not_ready)
+      return;
+    restore_.reset();
+    active_ = false;
+    visible_ = operation_.failed() && !cancelled_;
+    return;
+  }
   (void)application.asset_progress(progress_);
   gneiss::runtime::asset_load_completion completion;
   bool ready{};
@@ -451,6 +466,10 @@ void editor_asset_edit::cancel(runtime::application& application) {
     return;
   }
   cancelled_ = true;
+  if (restore_) {
+    restore_->cancel();
+    return;
+  }
   // 上传已开始时继续推进至安全终态，回执到达后丢弃候选，不提交编辑。
   (void)application.cancel_assets();
 }

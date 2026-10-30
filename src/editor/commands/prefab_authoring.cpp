@@ -4,6 +4,7 @@
 #include "commands/prefab_authoring.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registry.hpp"
+#include "engine/function/world/component_identity.hpp"
 
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/resource/asset_uri.hpp"
@@ -558,8 +559,9 @@ describe_prefab_overrides(const engine::prefab_reference_description& reference,
 }
 
 engine::result<std::vector<author_document_change>>
-prepare_restore_prefab(std::string_view scene_json, std::string_view scene_path,
-                       engine::guid instance, const prefab_override_entry* entry) noexcept try {
+prepare_restore_prefab_impl(std::string_view scene_json, std::string_view scene_path,
+                            engine::guid instance, const prefab_override_entry* entry,
+                            bool whole_component) noexcept try {
   using namespace engine;
   if (scene_path.empty() || !instance)
     return error::invalid_argument;
@@ -580,6 +582,13 @@ prepare_restore_prefab(std::string_view scene_json, std::string_view scene_path,
       return item.source_node_uuid == entry->key.source_node_uuid &&
              item.type_guid == entry->key.type_guid;
     });
+    if (whole_component)
+      removed += std::erase_if(reference.overrides, [&](const auto& item) {
+        return item.key.source_node_uuid == entry->key.source_node_uuid &&
+               (item.key.type_guid == entry->key.type_guid ||
+                (entry->key.type_guid == camera_description::type_guid &&
+                 item.key.type_guid == camera_component_type));
+      });
     if (!removed)
       return error::not_found;
   } else {
@@ -598,6 +607,22 @@ prepare_restore_prefab(std::string_view scene_json, std::string_view scene_path,
   return engine::error::out_of_memory;
 } catch (...) {
   return engine::error::internal;
+}
+
+engine::result<std::vector<author_document_change>>
+prepare_restore_prefab(std::string_view json, std::string_view path, engine::guid instance,
+                       const prefab_override_entry* entry) noexcept {
+  return prepare_restore_prefab_impl(json, path, instance, entry, false);
+}
+engine::result<std::vector<author_document_change>>
+prepare_restore_prefab_component(std::string_view json, std::string_view path,
+                                 engine::guid instance, engine::guid object,
+                                 engine::guid component) noexcept {
+  if (!object || !component)
+    return engine::error::invalid_argument;
+  prefab_override_entry entry{
+      .key = {.source_node_uuid = object, .type_guid = component}, .component = true, .label = {}};
+  return prepare_restore_prefab_impl(json, path, instance, &entry, true);
 }
 
 } // namespace gneiss::editor

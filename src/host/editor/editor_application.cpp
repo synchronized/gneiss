@@ -462,64 +462,35 @@ record_author_documents(editor_state& state, std::string label,
                         bool history_boundary = false, bool load_missing = false) {
   if (state.editing.history().is_pending())
     return gneiss::engine::error::not_ready;
+  if (load_missing) {
+    if (save_source || state.pending_file_operation)
+      return gneiss::engine::error::invalid_state;
+    auto operation = std::make_shared<gneiss::editor::scene_document_edit>();
+    auto status =
+        operation->begin(*state.application, state.editing.document(), changes, std::move(label),
+                         [&state, undo_selection, redo_selection](bool undo) {
+                           restore_author_selection(state, undo ? undo_selection : redo_selection);
+                         });
+    if (status.failed())
+      return status;
+    state.file_operation_saves_scene = false;
+    state.pending_file_operation = [&state, operation](gneiss::engine::error& value) {
+      value =
+          operation->advance(*state.application, state.editing.document(), state.editing.history());
+      if (value.ok())
+        state.prefab_author_diagnostic = {};
+      return value != gneiss::engine::error::not_ready;
+    };
+    return gneiss::engine::error::not_ready;
+  }
   auto before = std::make_shared<gneiss::editor::scene_document_snapshot>();
   auto after = std::make_shared<gneiss::editor::scene_document_snapshot>();
   auto status =
       gneiss::editor::capture_scene_document(*state.application, state.editing.document(), *before);
-  std::vector<gneiss::engine::asset_source> missing;
   if (status.ok())
-    status = gneiss::editor::prepare_scene_document(*before, changes, *after,
-                                                    load_missing ? &missing : nullptr);
+    status = gneiss::editor::prepare_scene_document(*before, changes, *after);
   if (status.failed())
     return status;
-  if (!missing.empty()) {
-    if (save_source || state.pending_file_operation)
-      return gneiss::engine::error::invalid_state;
-    std::vector<gneiss::engine::resource_request> requests;
-    for (const auto& asset : missing) {
-      auto request = state.application->resources().load(asset);
-      if (!request)
-        return request.error();
-      requests.push_back(std::move(*request));
-    }
-    const auto scene = state.editing.document().scene_handle();
-    std::string baseline;
-    status = state.application->scenes()->serialize(scene, baseline);
-    if (status.failed())
-      return status;
-    state.file_operation_saves_scene = false;
-    state.pending_file_operation = [&state, before, after, requests = std::move(requests),
-                                    missing = std::move(missing), baseline = std::move(baseline),
-                                    scene, label = std::move(label), undo_selection,
-                                    redo_selection](gneiss::engine::error& value) {
-      for (std::size_t i = 0; i < requests.size(); ++i) {
-        value = requests[i].status();
-        if (value == gneiss::engine::error::not_ready)
-          return false;
-        if (value.failed())
-          return true;
-        after->assets.insert_or_assign(missing[i].uri, requests[i].resource());
-      }
-      if (state.editing.document().scene_handle() != scene) {
-        value = gneiss::engine::error::invalid_state;
-        return true;
-      }
-      std::string current;
-      value = state.application->scenes()->serialize(scene, current);
-      if (value.failed())
-        return true;
-      if (current != baseline) {
-        value = gneiss::engine::error::invalid_state;
-        return true;
-      }
-      value = adopt_author_documents(state, label, before, after, undo_selection, redo_selection,
-                                     false);
-      if (value.ok())
-        state.prefab_author_diagnostic = {};
-      return true;
-    };
-    return gneiss::engine::error::not_ready;
-  }
   if (save_source) {
     // 规划器只允许一个来源；父场景变更仅用于准备内存快照。
     const gneiss::editor::author_document_change* source = nullptr;
@@ -570,6 +541,24 @@ record_author_documents(editor_state& state, std::string label,
   output.relative_path = std::string_view(uri).substr(8);
   return state.application->scenes()->serialize(state.editing.document().scene_handle(),
                                                 output.content);
+}
+
+gneiss::engine::error restore_prefab_component(editor_state& state, gneiss::engine::guid instance,
+                                               gneiss::engine::guid source,
+                                               gneiss::engine::guid component) {
+  author_scene_document scene;
+  auto status = current_author_scene(state, scene);
+  if (status.failed())
+    return status;
+  auto changes = gneiss::editor::prepare_restore_prefab_component(
+      scene.content, scene.relative_path, instance, source, component);
+  if (!changes)
+    return changes.error();
+  const author_selection selection{.kind = author_selection_kind::prefab_source,
+                                   .primary_uuid = instance,
+                                   .source_uuid = source};
+  return record_author_documents(state, "恢复来源组件", std::move(*changes), selection, selection,
+                                 false, false, true);
 }
 
 void draw_prefab_overrides(editor_state& state) {
@@ -1179,11 +1168,9 @@ void draw_component_descriptions(editor_state& state) {
           bool acted = false;
           auto invoke = [&](prefab_component_action action) {
             state.history_error =
-                action == prefab_component_action::restore_source &&
-                        identity.component_type == mesh_renderer_description::type_guid
-                    ? state.editing.assets().request_restore_source(
-                          *state.application, state.editing.document(), state.editing.history(),
-                          identity)
+                action == prefab_component_action::restore_source
+                    ? restore_prefab_component(state, identity.instance_uuid, identity.source_uuid,
+                                               identity.component_type)
                     : edit_prefab_component_structure(state.editing.document(),
                                                       state.editing.history(), identity, action);
             acted = true;
@@ -2899,15 +2886,8 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
         ImGui::EndDisabled();
         if (restore_all && current) {
           using namespace gneiss::engine;
-          state.history_error = gneiss::editor::edit_component_description(
-              state.editing.document(), state.editing.history(), *state.world,
-              {.instance_uuid = instance_uuid,
-               .source_uuid = source_uuid,
-               .component_type = transform_component_type},
-              {.path = {},
-               .object_type = runtime_type_of<math::transform>(),
-               .object = std::make_shared<math::transform>(current->source_local_transform)},
-              0);
+          state.history_error =
+              restore_prefab_component(state, instance_uuid, source_uuid, transform_component_type);
         }
       } else {
         const auto instance_uuid = prefab->instance_uuid;

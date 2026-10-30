@@ -3,6 +3,7 @@
 #pragma once
 #include "commands/author_property_edit.hpp"
 #include "documents/scene_document.hpp"
+#include "documents/scene_document_snapshot.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
@@ -56,12 +57,12 @@ private:
   gneiss::engine::error request_impl(runtime::application& application, scene_document& session,
                                      editor_command_history& history,
                                      const component_edit_target& target, std::string_view name,
-                                     mesh_asset_reference assets, bool creating,
-                                     bool restoring = false);
+                                     mesh_asset_reference assets, bool creating);
   gneiss::engine::error commit_add(runtime::application& application, scene_document& session,
                                    editor_command_history& history);
   mesh_node_creation snapshot_;
-  bool creating_{}, restoring_{};
+  bool creating_{};
+  std::shared_ptr<scene_document_edit> restore_;
   std::optional<engine::prefab_component_state> prefab_before_{};
   gneiss::engine::error commit(runtime::application& application, scene_document& session,
                                editor_command_history& history);

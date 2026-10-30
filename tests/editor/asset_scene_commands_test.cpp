@@ -235,11 +235,24 @@ int main() try {
     return 24;
   wait([&] { return restore_source.active(); },
        [&] { restore_source.advance(*app, session, history); });
-  if (restore_source.operation().failed() ||
-      session.capture_component_override(mesh_node, mesh_target.component_type)->removed ||
-      !session.components(mesh_node)->find(mesh_target.component_type))
+  // 文档恢复会重建实例；历史重放后必须按作者身份重新取节点句柄。
+  const auto restored_node = [&] {
+    const auto* node =
+        session.find_prefab_source(mesh_target.instance_uuid, mesh_target.source_uuid);
+    return node ? node->node : scene_node_id{};
+  };
+  if (restore_source.operation().failed())
     return 25;
-  if (history.undo().failed() || session.components(mesh_node)->find(mesh_target.component_type) ||
+  auto restored_state =
+      session.capture_component_override(restored_node(), mesh_target.component_type);
+  auto restored_components = session.components(restored_node());
+  if (!restored_state || !restored_components || restored_state->removed ||
+      !restored_components->find(mesh_target.component_type))
+    return 25;
+  if (history.undo().failed())
+    return 26;
+  restored_components = session.components(restored_node());
+  if (!restored_components || restored_components->find(mesh_target.component_type) ||
       history.redo().failed())
     return 26;
   history.clear();

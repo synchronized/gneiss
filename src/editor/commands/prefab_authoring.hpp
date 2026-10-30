@@ -66,6 +66,12 @@ prepare_restore_prefab(std::string_view scene_json, std::string_view scene_path,
                        engine::guid instance,
                        const prefab_override_entry* entry = nullptr) noexcept;
 
+/** 恢复一个来源组件的全部结构和属性覆盖；Transform 使用相同入口。 */
+[[nodiscard]] engine::result<std::vector<author_document_change>>
+prepare_restore_prefab_component(std::string_view scene_json, std::string_view scene_path,
+                                 engine::guid instance, engine::guid source_object,
+                                 engine::guid component) noexcept;
+
 /**
  * 将普通场景子树转换为 Prefab 来源和场景实例两项作者文档变更。
  *
