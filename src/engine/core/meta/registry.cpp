@@ -4,6 +4,7 @@
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/detail/type_access.hpp"
+#include "engine/core/utf8.hpp"
 
 #include <algorithm>
 #include <array>
@@ -55,54 +56,8 @@ struct type_factory {
 
 namespace {
 
-[[nodiscard]] bool consume_utf8_sequence(std::string_view text, std::size_t& index) noexcept {
-  const auto first = static_cast<unsigned char>(text[index]);
-  std::size_t count = 0;
-  std::uint32_t value = 0;
-  if (first >= 0xC2U && first <= 0xDFU) {
-    count = 1;
-    value = first & 0x1FU;
-  } else if (first >= 0xE0U && first <= 0xEFU) {
-    count = 2;
-    value = first & 0x0FU;
-  } else if (first >= 0xF0U && first <= 0xF4U) {
-    count = 3;
-    value = first & 0x07U;
-  } else {
-    return false;
-  }
-  if (index + count >= text.size()) {
-    return false;
-  }
-  for (std::size_t offset = 1; offset <= count; ++offset) {
-    const auto next = static_cast<unsigned char>(text[index + offset]);
-    if ((next & 0xC0U) != 0x80U) {
-      return false;
-    }
-    value = (value << 6U) | (next & 0x3FU);
-  }
-  if ((count == 2U && value < 0x800U) || (count == 3U && value < 0x10000U) || value > 0x10FFFFU ||
-      (value >= 0xD800U && value <= 0xDFFFU)) {
-    return false;
-  }
-  index += count + 1U;
-  return true;
-}
-
 [[nodiscard]] bool is_valid_name(std::string_view text) noexcept {
-  std::size_t index = 0;
-  while (index < text.size()) {
-    const auto first = static_cast<unsigned char>(text[index]);
-    if (first == 0U) {
-      return false;
-    }
-    if (first < 0x80U) {
-      ++index;
-    } else if (!consume_utf8_sequence(text, index)) {
-      return false;
-    }
-  }
-  return true;
+  return text.find('\0') == std::string_view::npos && utf8::is_valid(text);
 }
 
 [[nodiscard]] bool is_valid_property_kind(value_kind kind) noexcept {

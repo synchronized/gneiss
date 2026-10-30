@@ -234,3 +234,11 @@ docs/                   项目文档
 Meta 是上述平铺规则的明确例外：反射描述、注册、查询和编解码接口位于
 `gneiss::engine::meta`，避免通用名称与业务模块冲突。基础值类型和 traits 定制点仍在
 `gneiss::engine`；不为旧 Meta 限定名保留兼容别名。
+
+## UTF-8 校验复用
+
+通用 UTF-8 编码校验使用 `engine/core/utf8.hpp` 中的
+`gneiss::engine::utf8::is_valid(std::string_view)`，不分配内存，不依赖平台。
+空串和嵌入 NUL 均是合法编码；路径禁用控制字符、名称或 Prefab 字符串禁用 NUL 等规则
+由对应调用层另行校验。不要在各模块重复实现字节序列解析。
+原生文件路径转换及平台字符转换仍属于路径/平台适配，不加入 Core 编码校验工具。

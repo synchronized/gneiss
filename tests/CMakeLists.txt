@@ -1093,3 +1093,11 @@ if(TARGET gneiss_editor_ui)
   gneiss_target_output_directories(gneiss_material_editor_test)
   add_test(NAME gneiss.editor.material-editor COMMAND gneiss_material_editor_test)
 endif()
+
+# 通用 UTF-8 编码边界，不依赖平台或引擎服务。
+add_executable(gneiss_utf8_test core/utf8_test.cpp)
+target_link_libraries(gneiss_utf8_test PRIVATE gneiss_value_interface)
+target_compile_features(gneiss_utf8_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_utf8_test)
+gneiss_target_output_directories(gneiss_utf8_test)
+add_test(NAME gneiss.utf8 COMMAND gneiss_utf8_test)

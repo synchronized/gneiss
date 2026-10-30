@@ -15,6 +15,7 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/log/log_types.hpp
   engine/core/guid.hpp
   engine/core/value.hpp
+  engine/core/utf8.hpp
 
   engine/core/math/camera.hpp
   engine/core/entity_id.hpp

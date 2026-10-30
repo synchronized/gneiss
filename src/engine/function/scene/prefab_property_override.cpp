@@ -4,6 +4,7 @@
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/serialization.hpp"
+#include "engine/core/utf8.hpp"
 #include "engine/function/scene/scene_object.hpp"
 #include "engine/function/world/world_reflection.hpp"
 
@@ -16,51 +17,6 @@
 namespace {
 
 using namespace gneiss::engine;
-
-[[nodiscard]] bool valid_utf8(std::string_view text) noexcept {
-  std::size_t index = 0U;
-  while (index < text.size()) {
-    const auto first = static_cast<unsigned char>(text[index]);
-    if (first == 0U) {
-      return false;
-    }
-    if (first < 0x80U) {
-      ++index;
-      continue;
-    }
-    std::size_t continuation_count = 0U;
-    std::uint32_t code_point = 0U;
-    if (first >= 0xC2U && first <= 0xDFU) {
-      continuation_count = 1U;
-      code_point = first & 0x1FU;
-    } else if (first >= 0xE0U && first <= 0xEFU) {
-      continuation_count = 2U;
-      code_point = first & 0x0FU;
-    } else if (first >= 0xF0U && first <= 0xF4U) {
-      continuation_count = 3U;
-      code_point = first & 0x07U;
-    } else {
-      return false;
-    }
-    if (index + continuation_count >= text.size()) {
-      return false;
-    }
-    for (std::size_t offset = 1U; offset <= continuation_count; ++offset) {
-      const auto next = static_cast<unsigned char>(text[index + offset]);
-      if ((next & 0xC0U) != 0x80U) {
-        return false;
-      }
-      code_point = (code_point << 6U) | (next & 0x3FU);
-    }
-    if ((continuation_count == 2U && code_point < 0x800U) ||
-        (continuation_count == 3U && code_point < 0x10000U) || code_point > 0x10FFFFU ||
-        (code_point >= 0xD800U && code_point <= 0xDFFFU)) {
-      return false;
-    }
-    index += continuation_count + 1U;
-  }
-  return true;
-}
 
 [[nodiscard]] bool valid_value(const gneiss::engine::value& value) noexcept {
   if (value.payload.valueless_by_exception()) {
@@ -75,7 +31,7 @@ using namespace gneiss::engine;
                              std::is_same_v<value_type, double>) {
           return std::isfinite(payload);
         } else if constexpr (std::is_same_v<value_type, std::string>) {
-          return valid_utf8(payload);
+          return payload.find('\0') == std::string_view::npos && utf8::is_valid(payload);
         } else if constexpr (std::is_same_v<value_type, gneiss::engine::guid>) {
           return static_cast<bool>(payload);
         } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector2> ||
