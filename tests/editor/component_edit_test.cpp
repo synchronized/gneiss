@@ -16,6 +16,7 @@ namespace ed = gneiss::editor;
 using namespace gneiss::test_support;
 using p = e::meta::property_id;
 namespace {
+int editor_preparations{};
 void check(bool ok, std::source_location at = std::source_location::current()) {
   if (!ok)
     throw std::runtime_error("组件编辑测试失败，行=" + std::to_string(at.line()));
@@ -23,7 +24,13 @@ void check(bool ok, std::source_location at = std::source_location::current()) {
 }
 int main() try {
   check(e::initialize_meta(register_movement_meta).ok());
-  check(e::register_scene_component(operations()).ok());
+  auto ops = operations();
+  ops.prepare_editor = [](e::world&, gneiss::scene_node_id,
+                          const movement_description& value) -> e::result<movement_description> {
+    ++editor_preparations;
+    return value;
+  };
+  check(e::register_scene_component(ops).ok());
   std::shared_ptr<gneiss::runtime::application> app;
   check(gneiss::runtime::application::create({}, app).ok());
   auto& world = *app->native_world();
@@ -57,6 +64,7 @@ int main() try {
   check(history.size() == 1 && read().speed == 4 && document.is_dirty());
   check(history.undo().ok() && read().speed == 1);
   check(history.redo().ok() && read().speed == 4);
+  check(editor_preparations >= 4);
   check(apply({.path = {p{2}}, .data = e::value{std::int64_t{1}}}).ok());
   check(read().mode == movement_mode::run);
   check(apply({.path = {p{3}, p{1}}, .data = e::value{6.0F}}).ok());

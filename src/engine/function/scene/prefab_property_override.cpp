@@ -201,8 +201,7 @@ error prepare_prefab_reference(const prefab_description& source,
       return fail(error::not_found, key.first, key.second, {}, "覆盖目标对象已不存在");
     if (std::ranges::any_of(reference.overrides, [&](const auto& v) {
           return v.key.source_node_uuid == key.first &&
-                 (v.key.type_guid == key.second || (key.second == camera_description::type_guid &&
-                                                    v.key.type_guid == camera_component_type));
+                 component_description_type(v.key.type_guid) == key.second;
         }))
       return fail(error::invalid_argument, key.first, key.second, {}, "结构覆盖与属性覆盖矛盾");
     if (change.added) {
@@ -235,10 +234,7 @@ error prepare_prefab_reference(const prefab_description& source,
       return fail(status.failed() ? status : error{error::not_found}, key.source_node_uuid,
                   key.type_guid, path, "属性覆盖目标不存在或类型不匹配");
     if (key.type_guid != transform_component_type) {
-      auto* component = object->components.find(key.type_guid);
-      // 兼容内建相机属性身份，具体编辑由适配器负责。
-      if (!component && key.type_guid == camera_component_type)
-        component = object->components.find(camera_description::type_guid);
+      auto* component = object->components.find(component_description_type(key.type_guid));
       if (!component)
         return fail(error::not_found, key.source_node_uuid, key.type_guid, path,
                     "属性覆盖对应的来源组件已不存在");

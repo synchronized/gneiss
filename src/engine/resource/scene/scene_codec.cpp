@@ -1130,7 +1130,8 @@ error register_component_descriptions() noexcept {
   status =
       meta::type_builder<camera_description>{}
           .property<&camera_description::settings>(meta::property_id{1}, "settings", required)
-          .property<&camera_description::is_primary>(meta::property_id{4}, "is_primary", required)
+          .property<&camera_description::is_primary>(
+              meta::property_id{4}, "is_primary", required | meta::property_flags::editor_read_only)
           .serialization()
           .commit();
   if (status.failed())

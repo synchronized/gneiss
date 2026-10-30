@@ -23,7 +23,9 @@ error collect_component_overrides(meta::instance source, meta::instance candidat
     if (!properties)
       return properties.error();
     for (const auto& property : *properties) {
-      if (!meta::has_flags(property.capabilities, meta::property_capabilities::writable))
+      // 派生运行状态仍可保存，但不因普通组件编辑生成实例属性覆盖。
+      if (!meta::has_flags(property.capabilities, meta::property_capabilities::writable) ||
+          meta::has_flags(property.flags, meta::property_flags::editor_read_only))
         continue;
       auto left = source.property(property.id), right = candidate.property(property.id);
       if (!left)
@@ -93,8 +95,7 @@ result<prefab_component_state> scene_instance::capture_component_override(scene_
         }
       for (const auto& change : prefab->reference_.overrides)
         if (change.key.source_node_uuid == source &&
-            (change.key.type_guid == type || (type == camera_description::type_guid &&
-                                              change.key.type_guid == camera_component_type)))
+            component_description_type(change.key.type_guid) == type)
           state.properties.push_back(change);
       if (type == mesh_renderer_description::type_guid) {
         auto status = capture_mesh_binding(node, state.resources);
@@ -128,15 +129,13 @@ error scene_instance::set_component_override(scene_node_id node, guid type,
       });
       std::erase_if(pending.overrides, [&](const auto& v) {
         return v.key.source_node_uuid == source &&
-               (v.key.type_guid == type || (type == camera_description::type_guid &&
-                                            v.key.type_guid == camera_component_type));
+               component_description_type(v.key.type_guid) == type;
       });
       if (state.added || state.removed)
         pending.component_overrides.push_back({source, type, state.added});
       for (const auto& value : state.properties) {
         if (value.key.source_node_uuid != source ||
-            (value.key.type_guid != type && !(type == camera_description::type_guid &&
-                                              value.key.type_guid == camera_component_type)))
+            component_description_type(value.key.type_guid) != type)
           return error::invalid_argument;
         pending.overrides.push_back(value);
       }
@@ -246,7 +245,7 @@ error scene_instance::set_component_description(scene_node_id node,
       auto pending = prefab->reference_.overrides;
       std::erase_if(pending, [&](const auto& v) {
         return v.key.source_node_uuid == member.address.source_node_uuid &&
-               v.key.type_guid == value.guid();
+               component_description_type(v.key.type_guid) == value.guid();
       });
       auto status = collect_component_overrides(
           *before, *after,

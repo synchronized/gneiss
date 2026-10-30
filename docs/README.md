@@ -620,4 +620,5 @@
 - [统一 Prefab Apply 与 Unpack](plans/PLAN-087-prefab-apply-unpack.md)
 - [Prefab 覆盖查看与恢复](plans/PLAN-088-prefab-override-inspector.md)
 - [异步恢复操作与入口收敛](plans/PLAN-089-prefab-restore-operation.md)
+- [组件身份与编辑策略收敛](plans/PLAN-090-component-editor-policy.md)
 - [Prefab 组件结构覆盖决策](decisions/ADR-097-prefab-component-overrides.md)

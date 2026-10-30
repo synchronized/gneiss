@@ -71,6 +71,7 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
           const bool writable =
               !(path.size() == 1 && std::ranges::find(readonly, property.id) != readonly.end()) &&
               !meta::has_flags(property.flags, meta::property_flags::read_only) &&
+              !meta::has_flags(property.flags, meta::property_flags::editor_read_only) &&
               meta::has_flags(property.capabilities, meta::property_capabilities::writable);
           ImGui::BeginDisabled(!writable);
           std::optional<meta::instance> original;

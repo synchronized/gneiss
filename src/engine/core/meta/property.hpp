@@ -32,7 +32,12 @@ private:
 };
 inline constexpr property_id null_property_id{};
 // NOLINTNEXTLINE(performance-enum-size): 保留完整 ABI 标志位。
-enum class property_flags : std::uint32_t { none = 0, read_only = 1, required = 2 };
+enum class property_flags : std::uint32_t {
+  none = 0,
+  read_only = 1,
+  required = 2,
+  editor_read_only = 4
+};
 // NOLINTNEXTLINE(performance-enum-size): 保留完整 ABI 标志位。
 enum class property_capabilities : std::uint32_t { none = 0, readable = 1, writable = 2 };
 template <typename T>

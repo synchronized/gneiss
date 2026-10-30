@@ -234,10 +234,12 @@ engine::error edit_component_description(scene_document& document, editor_comman
     };
     return edit_description(history, identity, edit, serial, before, apply);
   }
-  if (identity.component_type != camera_description::type_guid) {
-    // 资源 URI 需要异步准备，不由同步属性命令偷偷加载。
-    if (identity.component_type == mesh_renderer_description::type_guid)
-      return error::unsupported;
+  auto policy = component_editor(identity.component_type);
+  if (!policy)
+    return policy.error();
+  if (policy->route != component_editor_route::reflected)
+    return error::unsupported;
+  {
     auto components = document.components(location->first);
     if (!components)
       return components.error();
@@ -245,6 +247,27 @@ engine::error edit_component_description(scene_document& document, editor_comman
     if (!current)
       return error::not_found;
     auto before = *current;
+    auto type = meta::find_type(identity.component_type);
+    if (!type)
+      return type.error();
+    for (const auto& step : edit.path) {
+      if (const auto* id = std::get_if<meta::property_id>(&step)) {
+        auto fields = type->properties();
+        if (!fields)
+          return fields.error();
+        auto field = std::ranges::find(*fields, *id, &meta::property_info::id);
+        if (field == fields->end())
+          return error::not_found;
+        if (has_flags(field->flags, meta::property_flags::editor_read_only) ||
+            has_flags(field->flags, meta::property_flags::read_only))
+          return error::unsupported;
+        type = field->type;
+      } else {
+        type = type->element_type();
+        if (!type)
+          return type.error();
+      }
+    }
     auto changed = modify_component(before, [&](meta::mutable_instance root) -> error {
       auto target = meta::resolve_path(root, edit.path);
       if (!target)
@@ -266,9 +289,13 @@ engine::error edit_component_description(scene_document& document, editor_comman
       return next.error().error;
     if (*original == *next)
       return error::success;
-    const auto apply = [&document, identity](const component_description& value) {
+    const auto apply = [&document, &world, identity](const component_description& value) {
       auto node = locate_component(document, identity);
-      return node ? document.set_component_description(node->first, value) : node.error();
+      if (!node)
+        return node.error();
+      auto prepared = prepare_component_editor_value(world, node->first, value);
+      return prepared ? document.set_component_description(node->first, *prepared)
+                      : prepared.error();
     };
     std::string key = identity.component_type.string() + identity.object_uuid.string() +
                       identity.instance_uuid.string() + identity.source_uuid.string();
@@ -284,31 +311,6 @@ engine::error edit_component_description(scene_document& document, editor_comman
          .redo = [apply, after = std::move(*changed)] { return apply(after); },
          .merge_key = serial && !edit.object ? key + ":" + std::to_string(serial) : std::string{}});
   }
-  if (edit.path.empty() || !std::holds_alternative<meta::property_id>(edit.path.front()) ||
-      std::get<meta::property_id>(edit.path.front()) != meta::property_id{1})
-    return error::unsupported;
-  camera_description before;
-  auto status = world.entity_get_camera(location->second, before.settings);
-  if (status.failed())
-    return status;
-  entity_id active;
-  status = world.get_active_camera(active);
-  if (status.failed() && status != error::not_ready)
-    return status;
-  before.is_primary = active == location->second;
-  const auto apply = [&document, &world, identity](const camera_description& value) {
-    auto location = locate_component(document, identity);
-    if (!location)
-      return location.error();
-    entity_id active;
-    auto status = world.get_active_camera(active);
-    if (status.failed() && status != error::not_ready)
-      return status;
-    auto next = value;
-    next.is_primary = active == location->second;
-    return document.set_camera(location->first, next);
-  };
-  return edit_description(history, identity, edit, serial, before, apply);
 } catch (const std::bad_alloc&) {
   return engine::error::out_of_memory;
 } catch (...) {

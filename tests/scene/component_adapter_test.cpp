@@ -7,6 +7,7 @@
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
+#include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world_component_access.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
@@ -40,8 +41,31 @@ e::prepared_scene_description prepare(e::scene_description scene, e::prefab_asse
 int main() try {
   check(e::initialize_meta(register_movement_meta).ok());
   check(e::register_scene_component(e::component_adapter{}) == e::error::invalid_argument);
-  check(e::register_scene_component(operations()).ok());
+  auto custom = operations();
+  const auto alias = e::guid::from_bytes({84, 99});
+  custom.property_type = alias;
+  check(e::register_scene_component(custom).ok());
   check(e::register_scene_component(operations()) == e::error::invalid_argument);
+  check(e::component_description_type(alias) == movement_description::type_guid);
+  check(e::component_description_type(movement_description::type_guid) ==
+        movement_description::type_guid);
+  check(e::component_description_type(e::camera_component_type) ==
+        e::camera_description::type_guid);
+  check(e::component_description_type(unknown_description::type_guid) ==
+        unknown_description::type_guid);
+  check(e::component_editor(movement_description::type_guid)->route ==
+        e::component_editor_route::reflected);
+  check(e::component_editor(e::mesh_renderer_description::type_guid)->route ==
+        e::component_editor_route::mesh_assets);
+  const auto primary =
+      e::meta::describe_property(e::camera_description::type_guid, e::meta::property_id{4});
+  check(primary && e::meta::has_flags(primary->flags, e::meta::property_flags::editor_read_only));
+  check(!e::meta::has_flags(primary->flags, e::meta::property_flags::read_only));
+  e::camera_description camera{.settings = {1, 0.1F, 100}, .is_primary = true};
+  auto saved_camera = e::meta::serialize(camera);
+  check(saved_camera.has_value());
+  auto loaded_camera = e::meta::deserialize<e::camera_description>(*saved_camera);
+  check(loaded_camera && loaded_camera->is_primary);
   auto owner = e::create_native();
   check(owner.has_value());
   auto& world = **owner;

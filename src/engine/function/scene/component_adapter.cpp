@@ -124,7 +124,18 @@ struct adapter_registry {
          .create_default = []() -> result<camera_description> {
            return camera_description{.settings = {std::numbers::pi_v<float> / 3, 0.1F, 1000.0F}};
          },
-         .removable = true}));
+         .removable = true,
+         .prepare_editor = [](world& owner, scene_node_id node,
+                              const camera_description& value) -> result<camera_description> {
+           auto current = camera_capture(owner, node);
+           if (!current)
+             return current.error();
+           if (!*current)
+             return error::not_found;
+           auto next = value;
+           next.is_primary = (**current).is_primary;
+           return next;
+         }}));
     values.push_back(make_component_adapter<mesh_renderer_description>(
         {.validate = mesh_valid,
          .install = mesh_install,
@@ -140,7 +151,8 @@ struct adapter_registry {
                return std::vector<asset_source>{{value.mesh_uri, asset_type::mesh},
                                                 {value.material_uri, asset_type::material}};
              },
-         .removable = true}));
+         .removable = true,
+         .editor_route = component_editor_route::mesh_assets}));
   }
 };
 adapter_registry& registry() {
@@ -201,8 +213,37 @@ modify_component(const component_description& source,
 result<std::vector<component_editor_info>> component_editor_types() noexcept try {
   std::vector<component_editor_info> output;
   for (const auto& adapter : adapters())
-    output.push_back({adapter.type, bool(adapter.create_default), adapter.removable});
+    output.push_back(
+        {adapter.type, bool(adapter.create_default), adapter.removable, adapter.editor_route});
   return output;
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+guid component_description_type(guid type) noexcept {
+  const auto* adapter = find(type, true);
+  return adapter ? adapter->type : type;
+}
+result<component_editor_info> component_editor(guid type) noexcept {
+  const auto* adapter = find(type);
+  if (!adapter)
+    return error::not_found;
+  return component_editor_info{adapter->type, bool(adapter->create_default), adapter->removable,
+                               adapter->editor_route};
+}
+result<component_description>
+prepare_component_editor_value(world& owner, scene_node_id node,
+                               const component_description& value) noexcept try {
+  const auto* adapter = find(value.guid());
+  if (!adapter)
+    return error::not_found;
+  auto prepared = adapter->prepare_editor ? adapter->prepare_editor(owner, node, value)
+                                          : result<component_description>{value};
+  if (!prepared)
+    return prepared.error();
+  auto status = adapter->validate(*prepared);
+  return status.ok() ? std::move(prepared) : result<component_description>{status};
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {

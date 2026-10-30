@@ -1208,17 +1208,17 @@ void draw_component_descriptions(editor_state& state) {
           state.inspector_error = source_view.error();
       }
     }
-    const bool asset = component.guid() == mesh_renderer_description::type_guid;
-    const std::array camera_readonly{meta::property_id{4}};
-    const std::span<const meta::property_id> readonly =
-        component.guid() == camera_description::type_guid
-            ? std::span<const meta::property_id>{camera_readonly}
-            : std::span<const meta::property_id>{};
+    auto editor = component_editor(component.guid());
+    if (!editor) {
+      state.inspector_error = editor.error();
+      continue;
+    }
+    const bool asset = editor->route == component_editor_route::mesh_assets;
     ImGui::PushID(component.guid().string().c_str());
     ImGui::BeginDisabled(state.editing.assets().active() || state.editing.history().is_pending());
     auto edit = gneiss::editor::draw_reflected_properties(
         *view, std::string(type->name).c_str(), state.property_edit_serial, state.inspector_error,
-        readonly, original ? &*original : nullptr);
+        {}, original ? &*original : nullptr);
     if (edit) {
       state.inspector_error =
           asset ? state.editing.assets().request_property(*state.application,
@@ -2953,7 +2953,7 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
         if (current && choices) {
           for (const auto& choice : *choices) {
             // 网格需要选择资产并保留资源引用，使用下面的异步资产入口。
-            if (choice.type == gneiss::engine::mesh_renderer_description::type_guid)
+            if (choice.route == gneiss::engine::component_editor_route::mesh_assets)
               continue;
             const bool exists = current->find(choice.type) != nullptr;
             if (exists ? !choice.removable : !choice.addable || !choice.removable)

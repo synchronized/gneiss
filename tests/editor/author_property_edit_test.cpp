@@ -86,7 +86,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
   e::object_description root;
   root.uuid = source->root_uuid;
   root.name = "camera";
-  root.components.set(e::camera_description{.settings = {1.0F, 0.1F, 100.0F}});
+  root.components.set(e::camera_description{.settings = {1.0F, 0.1F, 100.0F}, .is_primary = true});
   source->objects.push_back(root);
   e::object_description child;
   if (ed::make_editor_uuid(child.uuid).failed())
@@ -116,6 +116,10 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
   if (!prefab_node)
     return 40;
   auto prefab_entity = prefab_node->entity;
+  // 来源标记主相机，但运行时已切到别处；编辑 fov 不应生成 is_primary 覆盖。
+  if (session.set_camera(other_camera, {.settings = {1.0F, 0.1F, 100.0F}, .is_primary = true})
+          .failed())
+    return 60;
   ed::editor_command_history prefab_history;
   edit = {.path = {p{1}, p{1}}, .data = e::value{1.3F}};
   if (ed::edit_component_description(session, prefab_history, world, prefab_target, edit, 5)

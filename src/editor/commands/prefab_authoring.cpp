@@ -4,7 +4,7 @@
 #include "commands/prefab_authoring.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registry.hpp"
-#include "engine/function/world/component_identity.hpp"
+#include "engine/function/scene/component_adapter.hpp"
 
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/resource/asset_uri.hpp"
@@ -585,9 +585,7 @@ prepare_restore_prefab_impl(std::string_view scene_json, std::string_view scene_
     if (whole_component)
       removed += std::erase_if(reference.overrides, [&](const auto& item) {
         return item.key.source_node_uuid == entry->key.source_node_uuid &&
-               (item.key.type_guid == entry->key.type_guid ||
-                (entry->key.type_guid == camera_description::type_guid &&
-                 item.key.type_guid == camera_component_type));
+               component_description_type(item.key.type_guid) == entry->key.type_guid;
       });
     if (!removed)
       return error::not_found;

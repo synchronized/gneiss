@@ -8,6 +8,8 @@
 #include <optional>
 namespace gneiss::engine {
 class resource_service;
+/** 当前支持的编辑入口；资源绑定操作由编辑器异步资产命令执行。 */
+enum class component_editor_route { reflected, mesh_assets };
 /** 借用所属线程 World 和已准备的资源；回调不得保留上下文。 */
 struct component_context {
   world& owner;
@@ -34,6 +36,10 @@ struct component_adapter {
   std::function<std::vector<asset_source>(const component_description&)> dependencies;
   std::function<result<component_description>()> create_default;
   bool removable = false;
+  component_editor_route editor_route = component_editor_route::reflected;
+  /** 编辑采用/历史重放前保留运行状态；普通安装和加载不调用此策略。 */
+  std::function<result<component_description>(world&, scene_node_id, const component_description&)>
+      prepare_editor;
 };
 /** 启动期注册；重复 GUID 拒绝，首次查询后冻结。纯描述回调须支持并发只读调用。 */
 GNEISS_API error register_scene_component(component_adapter adapter) noexcept;
@@ -49,6 +55,8 @@ template <class T> struct component_operations {
   /** 显式选择加入编辑器；不自动假定 T{} 是可安装的描述。 */
   result<T> (*create_default)(){};
   bool removable = false;
+  component_editor_route editor_route = component_editor_route::reflected;
+  result<T> (*prepare_editor)(world&, scene_node_id, const T&){};
 };
 template <class T> component_adapter make_component_adapter(component_operations<T> ops) {
   if (!ops.validate || !ops.install || !ops.capture || !ops.remove || !ops.equal)
@@ -126,7 +134,20 @@ template <class T> component_adapter make_component_adapter(component_operations
                       return component_description{std::move(*source)};
                     }}
                   : std::function<result<component_description>()>{},
-          .removable = ops.removable};
+          .removable = ops.removable,
+          .editor_route = ops.editor_route,
+          .prepare_editor =
+              [ops](world& owner, scene_node_id node,
+                    const component_description& value) -> result<component_description> {
+            if (!value.get<T>())
+              return error::invalid_argument;
+            if (!ops.prepare_editor)
+              return value;
+            auto prepared = ops.prepare_editor(owner, node, *value.get<T>());
+            return prepared
+                       ? result<component_description>{component_description{std::move(*prepared)}}
+                       : result<component_description>{prepared.error()};
+          }};
 }
 template <class T> error register_scene_component(component_operations<T> ops) noexcept try {
   return register_scene_component(make_component_adapter(ops));
@@ -142,7 +163,13 @@ struct component_editor_info {
   guid type;
   bool addable = false;
   bool removable = false;
+  component_editor_route route = component_editor_route::reflected;
 };
+/** 未注册身份原样返回；已注册运行属性身份统一映射到描述身份。 */
+GNEISS_API guid component_description_type(guid property_type) noexcept;
+GNEISS_API result<component_editor_info> component_editor(guid type) noexcept;
+GNEISS_API result<component_description>
+prepare_component_editor_value(world&, scene_node_id, const component_description&) noexcept;
 /** 返回冻结注册表的自有摘要；显示名称仍从 Meta 查询。 */
 GNEISS_API result<std::vector<component_editor_info>> component_editor_types() noexcept;
 GNEISS_API result<component_description> default_component_description(guid type) noexcept;
