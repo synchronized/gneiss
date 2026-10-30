@@ -99,16 +99,16 @@ int main() try {
           "replace array object");
     check(model.discard().ok(), "restore fixture");
     auto metadata = e::meta::describe_type(e::runtime_type_of<e::material_parameters>());
-    check(bool(metadata) && metadata->properties[6].choices.size() == 3 &&
-              metadata->properties[6].choices[2].name == "blend",
+    check(bool(metadata) && metadata->properties[6].type.enum_entries()->size() == 3 &&
+              (*metadata->properties[6].type.enum_entries())[2].name == "blend",
           "owned enum metadata");
     auto sampling_type = e::meta::describe_type(e::runtime_type_of<e::texture_sampling>());
     check(bool(sampling_type) &&
-              sampling_type->properties[1].enum_type == e::runtime_type_of<e::texture_filter>() &&
-              sampling_type->properties[1].choices.data() ==
-                  sampling_type->properties[2].choices.data() &&
-              sampling_type->properties[4].choices.data() ==
-                  sampling_type->properties[5].choices.data(),
+              sampling_type->properties[1].type.id() == e::runtime_type_of<e::texture_filter>() &&
+              sampling_type->properties[1].type.enum_entries()->data() ==
+                  sampling_type->properties[2].type.enum_entries()->data() &&
+              sampling_type->properties[4].type.enum_entries()->data() ==
+                  sampling_type->properties[5].type.enum_entries()->data(),
           "shared enum options");
   }
   const auto initial = model.description().parameters.roughness;

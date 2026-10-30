@@ -286,6 +286,7 @@ private:
     if (committed_ || status_.failed())
       return *this;
     try {
+      binding.access = &detail::access_of<Property>();
       if constexpr (std::is_enum_v<Property>)
         binding.enum_type = runtime_type_of<Property>();
       if (has_flags(flags, property_flags::read_only)) {

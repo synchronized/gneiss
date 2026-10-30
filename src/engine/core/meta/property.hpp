@@ -65,19 +65,7 @@ struct enum_entry {
   value data;
   bool operator==(const enum_entry&) const = default;
 };
-/** 名称与显示项由冻结 Registry 借出，有效期不超过 Registry。 */
-struct property_info {
-  property_id id{};
-  engine::guid type_guid{};
-  property_flags flags = property_flags::none;
-  std::string_view name{};
-  value_kind kind = value_kind::invalid;
-  property_capabilities capabilities = property_capabilities::none;
-  engine::type_id object_type{}; // 非零表示借用成员的运行期类型。
-  type_kind category = type_kind::invalid;
-  engine::type_id enum_type{};
-  std::span<const enum_entry> choices{};
-};
+struct property_info;
 /** 回调借用实际类型的对象指针；调用方保证对象存活、类型正确和线程访问合法。
  * setter 必须先校验再修改，失败保持对象；注册表不复制对象或回滚任意回调副作用。
  * 上下文和对象借用；getter 输出拥有数据的 value，setter 只在调用期间借用输入 value。 */

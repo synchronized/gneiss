@@ -203,20 +203,21 @@ result<yyjson_mut_val*, serialization_diagnostic> encode_view(const registry_ref
                                                               const instance& view,
                                                               yyjson_mut_doc* doc,
                                                               std::size_t depth) {
-  if (depth > 64 && view.kind() != type_kind::scalar)
+  const auto value_type = view.type();
+  if (depth > 64 && value_type.kind() != type_kind::scalar)
     return failure(error::invalid_argument, "", "嵌套值超过深度限制");
-  if (view.kind() == type_kind::scalar) {
+  if (value_type.kind() == type_kind::scalar) {
     auto v = view.read_value();
     return v ? write_value(doc, *v, "")
              : result<yyjson_mut_val*, serialization_diagnostic>{failure(v.error())};
   }
-  if (view.kind() == type_kind::object) {
+  if (value_type.kind() == type_kind::object) {
     auto p = view.object_data();
     if (!p)
       return failure(p.error());
-    return encode_nested(registry, view.type_id(), *p, doc, depth);
+    return encode_nested(registry, value_type.id(), *p, doc, depth);
   }
-  if (view.kind() == type_kind::optional) {
+  if (value_type.kind() == type_kind::optional) {
     auto v = view.as_optional();
     if (!v)
       return failure(v.error());
@@ -233,7 +234,7 @@ result<yyjson_mut_val*, serialization_diagnostic> encode_view(const registry_ref
       return failure(child.error());
     return encode_view(registry, *child, doc, depth + 1);
   }
-  if (view.kind() == type_kind::sequence) {
+  if (value_type.kind() == type_kind::sequence) {
     auto v = view.as_sequence();
     if (!v)
       return failure(v.error());
@@ -255,7 +256,7 @@ result<yyjson_mut_val*, serialization_diagnostic> encode_view(const registry_ref
     }
     return output;
   }
-  if (view.kind() == type_kind::associative) {
+  if (value_type.kind() == type_kind::associative) {
     auto v = view.as_associative();
     if (!v)
       return failure(v.error());
@@ -330,19 +331,20 @@ encode_json(const registry_ref& registry, type_id id, const void* object) {
 serialization_diagnostic validate_defaults(const registry_ref&, type_id, const void*, std::size_t);
 serialization_diagnostic validate_view(const registry_ref& registry, const instance& view,
                                        std::size_t depth) {
-  if (depth > 64 && view.kind() != type_kind::scalar)
+  const auto value_type = view.type();
+  if (depth > 64 && value_type.kind() != type_kind::scalar)
     return failure(error::invalid_argument, "", "嵌套值超过深度限制");
-  if (view.kind() == type_kind::object) {
+  if (value_type.kind() == type_kind::object) {
     auto p = view.object_data();
     if (!p)
       return failure(p.error());
-    return validate_defaults(registry, view.type_id(), *p, depth);
+    return validate_defaults(registry, value_type.id(), *p, depth);
   }
-  if (view.kind() == type_kind::scalar) {
+  if (value_type.kind() == type_kind::scalar) {
     auto v = view.read_value();
     return v ? serialization_diagnostic{} : failure(v.error());
   }
-  if (view.kind() == type_kind::optional) {
+  if (value_type.kind() == type_kind::optional) {
     auto v = view.as_optional();
     if (!v)
       return failure(v.error());
@@ -356,7 +358,7 @@ serialization_diagnostic validate_view(const registry_ref& registry, const insta
       return failure(child.error());
     return validate_view(registry, *child, depth + 1);
   }
-  if (view.kind() == type_kind::sequence) {
+  if (value_type.kind() == type_kind::sequence) {
     auto v = view.as_sequence();
     if (!v)
       return failure(v.error());
@@ -410,7 +412,8 @@ serialization_diagnostic validate_defaults(const registry_ref& registry, type_id
   if (!properties)
     return failure(properties.error());
   for (const auto& property : *properties) {
-    if (!property.object_type || has_flags(property.flags, property_flags::read_only))
+    if (property.type.kind() == type_kind::scalar ||
+        has_flags(property.flags, property_flags::read_only))
       continue;
     auto child = view->property(property.id);
     if (!child)
@@ -429,7 +432,7 @@ serialization_diagnostic decode_nested(const registry_ref& registry, const mutab
     return failure(error::invalid_argument, "", "嵌套对象超过深度限制");
   if (!yyjson_is_obj(input))
     return failure(error::invalid_argument, "", "嵌套值必须是 JSON 对象");
-  auto binding = find_serialization(registry, target.as_const().type_id());
+  auto binding = find_serialization(registry, target.type().id());
   if (!binding)
     return failure(binding.error());
   if (binding->decode) {
@@ -447,7 +450,7 @@ serialization_diagnostic decode_nested(const registry_ref& registry, const mutab
       if (status.error.failed())
         return status;
     }
-    const auto assigned = target.assign_object(target.as_const().type_id(), value->get());
+    const auto assigned = target.assign_object(target.type().id(), value->get());
     return assigned.failed() ? failure(assigned) : serialization_diagnostic{};
   }
   if (!binding->reflected_json)
@@ -456,25 +459,26 @@ serialization_diagnostic decode_nested(const registry_ref& registry, const mutab
   if (!address)
     return failure(address.error());
   auto* object = *address;
-  auto status = decode_members(registry, target.as_const().type_id(), object, input, depth);
+  auto status = decode_members(registry, target.type().id(), object, input, depth);
   if (status.error.failed())
     return status;
   return binding->validate ? binding->validate(object) : serialization_diagnostic{};
 }
 serialization_diagnostic decode_view(const registry_ref& registry, const mutable_instance& view,
                                      yyjson_val* input, std::size_t depth) {
-  if (depth > 64 && view.kind() != type_kind::scalar)
+  const auto value_type = view.type();
+  if (depth > 64 && value_type.kind() != type_kind::scalar)
     return failure(error::invalid_argument, "", "嵌套值超过深度限制");
-  if (view.kind() == type_kind::object)
+  if (value_type.kind() == type_kind::object)
     return decode_nested(registry, view, input, depth);
-  if (view.kind() == type_kind::scalar) {
-    auto decoded = read_value(input, view.as_const().scalar_kind(), "");
+  if (value_type.kind() == type_kind::scalar) {
+    auto decoded = read_value(input, value_type.scalar_kind(), "");
     if (!decoded)
       return std::move(decoded).error();
     auto status = view.write_value(*decoded);
     return status.failed() ? failure(status) : serialization_diagnostic{};
   }
-  if (view.kind() == type_kind::optional) {
+  if (value_type.kind() == type_kind::optional) {
     auto v = view.as_optional();
     if (!v)
       return failure(v.error());
@@ -488,7 +492,7 @@ serialization_diagnostic decode_view(const registry_ref& registry, const mutable
       return failure(child.error());
     return decode_view(registry, *child, input, depth + 1);
   }
-  if (view.kind() == type_kind::sequence) {
+  if (value_type.kind() == type_kind::sequence) {
     if (!yyjson_is_arr(input))
       return failure(error::invalid_argument, "", "序列必须是 JSON 数组");
     auto v = view.as_sequence();
@@ -515,7 +519,7 @@ serialization_diagnostic decode_view(const registry_ref& registry, const mutable
     }
     return {};
   }
-  if (view.kind() == type_kind::associative) {
+  if (value_type.kind() == type_kind::associative) {
     if (!yyjson_is_obj(input))
       return failure(error::invalid_argument, "", "关联容器必须是 JSON 对象");
     auto v = view.as_associative();
@@ -572,7 +576,7 @@ serialization_diagnostic decode_members(const registry_ref& registry, type_id id
     if (!input) {
       if (has_flags(property.flags, property_flags::required))
         return failure(error::invalid_argument, path, "缺少必填属性");
-      if (property.object_type) {
+      if (property.type.kind() != type_kind::scalar) {
         auto child = view->as_const().property(property.id);
         if (!child)
           return failure(child.error(), path);

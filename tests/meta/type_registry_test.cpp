@@ -225,6 +225,10 @@ int main() {
     return 10;
   const std::weak_ptr lifetime = registry;
   registry.reset();
+  if (lifetime.expired() || metadata.name != "value")
+    return 12;
+  metadata = {};
+  info = {};
   return lifetime.expired() &&
                  gneiss::test_support::assign_value(gneiss::engine::meta::type_count(registry),
                                                     count) == error::invalid_handle

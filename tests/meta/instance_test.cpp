@@ -46,11 +46,12 @@ bool enum_registration() {
       m::freeze(registry).failed())
     return false;
   auto type = m::describe_type<enum_object>(registry);
-  if (!type || type->properties[0].enum_type != e::runtime_type_of<mode>() ||
-      type->properties[0].choices.size() != 2 ||
-      type->properties[0].choices.data() != type->properties[1].choices.data() ||
-      type->properties[0].choices[0].name != "First" ||
-      std::get<std::int64_t>(type->properties[0].choices[0].data.payload) != -1)
+  if (!type || type->properties[0].type.id() != e::runtime_type_of<mode>() ||
+      type->properties[0].type.enum_entries()->size() != 2 ||
+      type->properties[0].type.enum_entries()->data() !=
+          type->properties[1].type.enum_entries()->data() ||
+      (*type->properties[0].type.enum_entries())[0].name != "First" ||
+      std::get<std::int64_t>((*type->properties[0].type.enum_entries())[0].data.payload) != -1)
     return false;
   if (unknown_view->type().enum_entries().error() != e::error::not_found)
     return false;
@@ -112,7 +113,63 @@ static_assert(can_borrow<object&> && can_borrow<const object&>);
 static_assert(!can_borrow<object> && !can_borrow<const object>);
 static_assert(can_mutate<object&> && !can_mutate<const object&> && !can_mutate<object>);
 static_assert(!std::is_constructible_v<m::mutable_instance, m::instance>);
+struct query_model {
+  static constexpr std::string_view type_name = "query_model";
+  static constexpr e::guid type_guid = e::guid::from_bytes({94, 4});
+  std::vector<mode> modes;
+  std::int8_t count{};
+};
+bool type_queries() {
+  auto registry = m::create_registry();
+  if (!registry || m::type_of<float>(*registry).error() != e::error::not_ready ||
+      m::find_type(*registry, query_model::type_guid).error() != e::error::not_ready)
+    return false;
+  if (m::enum_builder<mode>{*registry}.value("first", mode::first).commit().failed() ||
+      m::type_builder<query_model>{*registry}
+          .property<&query_model::modes>(m::property_id{1}, "modes")
+          .property<&query_model::count>(m::property_id{2}, "count")
+          .commit()
+          .failed() ||
+      m::freeze(*registry).failed())
+    return false;
+  if (m::freeze().failed())
+    return false;
+  auto default_float = m::type_of<float>();
+  if (!default_float || !m::find_type(e::runtime_type_of<float>()) ||
+      !m::find_type(default_float->guid()))
+    return false;
+  auto typed = m::type_of<const query_model&>(*registry);
+  auto by_id = m::find_type(*registry, e::runtime_type_of<query_model>());
+  auto by_guid = m::find_type(*registry, query_model::type_guid);
+  if (!typed || !by_id || !by_guid || typed->guid() != by_id->guid() ||
+      typed->id() != by_guid->id())
+    return false;
+  auto props = typed->properties();
+  if (!props || props->size() != 2 || (*props)[0].type.kind() != m::type_kind::sequence ||
+      (*props)[1].type.id() != e::runtime_type_of<std::int8_t>())
+    return false;
+  auto sequence = m::find_type(*registry, e::runtime_type_of<std::vector<mode>>());
+  auto element = sequence ? sequence->element_type() : e::result<m::type>{sequence.error()};
+  auto enumeration = m::find_type(*registry, e::runtime_type_of<mode>());
+  if (!element || !element->is_enum() || !enumeration ||
+      element->enum_entries()->data() != enumeration->enum_entries()->data())
+    return false;
+  auto scalar = m::type_of<float>(*registry);
+  if (!scalar || !m::find_type(*registry, scalar->guid()) ||
+      m::type_of<settings>(*registry).error() != e::error::not_found ||
+      m::find_type(*registry, e::runtime_type_of<settings>()).error() != e::error::not_found ||
+      m::find_type(*registry, e::guid{}).error() != e::error::not_found ||
+      m::find_type(m::registry_ref{}, e::runtime_type_of<float>()).error() !=
+          e::error::invalid_handle)
+    return false;
+  // 类型视图保活注册表，但不要求对象实例存活。
+  std::weak_ptr<m::type_registry_state> weak = *registry;
+  registry = e::error::not_found;
+  return !weak.expired() && typed->properties()->size() == 2;
+}
 int main() try {
+  if (!type_queries())
+    return 31;
   if (!enum_registration())
     return 30;
   auto created = m::create_registry();
@@ -242,8 +299,12 @@ int main() try {
   if (weak.expired() || std::get<float>(speed->read_value()->payload) != 9)
     return 23;
   *speed = {};
-  if (!weak.expired())
+  if (weak.expired())
     return 24;
+  // 属性快照中的类型也持有注册表，清空后最后一个元数据所有者才释放。
+  entries->clear();
+  if (!weak.expired())
+    return 32;
   return 0;
 } catch (...) {
   return 99;

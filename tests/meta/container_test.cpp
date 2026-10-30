@@ -100,7 +100,7 @@ int main() try {
   auto root = m::mutable_instance::from(*r, source);
   CHECK(root);
   auto info = m::describe_property(*r, tree::type_guid, m::property_id{1});
-  CHECK(info && info->category == m::type_kind::sequence && !info->type_guid);
+  CHECK(info && info->type.kind() == m::type_kind::sequence && !info->type.guid());
   auto items = root->property("items");
   CHECK(items);
   CHECK(items->read_value().error() == e::error::unsupported);

@@ -125,7 +125,7 @@ error validate_prefab_property_override(const prefab_property_override& value) n
   auto field = meta::describe_property(value.key.type_guid, value.key.property_id);
   if (!field)
     return field.error();
-  if (field->kind != value.value.kind() ||
+  if (field->type.scalar_kind() != value.value.kind() ||
       !has_flags(field->capabilities, meta::property_capabilities::writable)) {
     return error::invalid_argument;
   }

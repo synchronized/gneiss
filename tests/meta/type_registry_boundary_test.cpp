@@ -94,7 +94,7 @@ bool native_values() {
           field)
           .failed() ||
       field.name != "text" || field.id != gneiss::engine::meta::property_id{1} ||
-      field.kind != gneiss::engine::value_kind::string ||
+      field.type.scalar_kind() != gneiss::engine::value_kind::string ||
       !gneiss::engine::meta::has_flags(field.capabilities,
                                        gneiss::engine::meta::property_capabilities::writable) ||
       gneiss::test_support::assign_value(
@@ -141,8 +141,8 @@ bool native_values() {
                                          metadata)
           .failed() ||
       metadata.properties.size() != 1 ||
-      metadata.properties[0].kind != gneiss::engine::value_kind::string ||
-      metadata.guid != native_id || metadata.properties[0].type_guid != native_id ||
+      metadata.properties[0].type.scalar_kind() != gneiss::engine::value_kind::string ||
+      metadata.guid != native_id || metadata.properties[0].type.guid() != native_id ||
       gneiss::test_support::assign_value(
           gneiss::engine::meta::describe_type(registry, gneiss::engine::guid{}), metadata) !=
           gneiss::engine::error::not_found ||
@@ -319,6 +319,9 @@ int main() try {
           .failed())
     return 7;
   retained.reset();
+  if (lifetime.expired() || info.name != "sample")
+    return 16;
+  info = {};
   return lifetime.expired() ? 0 : 8;
 } catch (...) {
   return 10;

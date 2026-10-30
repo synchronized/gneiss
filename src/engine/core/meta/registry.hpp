@@ -2,12 +2,22 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/meta/detail/type_access.hpp"
 #include "engine/core/meta/type.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
 #include <memory>
 
 namespace gneiss::engine::meta {
+/** 查询冻结注册表；未登记对象/枚举返回 not_found，基础值不需重复登记。 */
+GNEISS_API result<meta::type> find_type(const registry_ref&, engine::type_id) noexcept;
+GNEISS_API result<meta::type> find_type(const registry_ref&, engine::guid) noexcept;
+namespace detail {
+GNEISS_API result<meta::type> resolve_type(const registry_ref&, const type_access&) noexcept;
+}
+template <class T> result<meta::type> type_of(const registry_ref& registry) noexcept {
+  return detail::resolve_type(registry, detail::access_of<std::remove_cvref_t<T>>());
+}
 /** 深拷贝枚举显示项；同一 C++ 类型只登记一次，冻结后禁止修改。 */
 [[nodiscard]] GNEISS_API error register_enum(const registry_ref&, engine::type_id, value_kind,
                                              std::span<const enum_entry>) noexcept;
@@ -64,6 +74,24 @@ describe_property(const registry_ref& registry, engine::guid type, property_id p
 GNEISS_API result<property_binding> find_object_property(const registry_ref&, guid,
                                                          property_id) noexcept;
 
+template <class T> result<meta::type> type_of() noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return type_of<T>(*registry);
+}
+inline result<meta::type> find_type(engine::type_id id) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return find_type(*registry, id);
+}
+inline result<meta::type> find_type(engine::guid id) noexcept {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return find_type(*registry, id);
+}
 /** 以下重载使用默认注册表；错误与显式 registry 接口一致，不隐式冻结。 */
 [[nodiscard]] inline error register_type(const type_definition& desc) noexcept {
   auto registry = default_registry();

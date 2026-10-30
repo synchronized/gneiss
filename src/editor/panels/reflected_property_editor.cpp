@@ -18,13 +18,16 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
                 std::optional<property_edit>& pending, std::uint64_t& serial, error& status,
                 std::span<const meta::property_id> readonly = {},
                 const meta::instance* source = nullptr) {
-  if (view.kind() == meta::type_kind::object || view.kind() == meta::type_kind::sequence) {
+  const auto value_type = view.type();
+  if (value_type.kind() == meta::type_kind::object ||
+      value_type.kind() == meta::type_kind::sequence) {
     const bool expanded = ImGui::TreeNodeEx(name.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
-    if (view.kind() == meta::type_kind::object && !path.empty() && ImGui::BeginPopupContextItem()) {
-      const auto prefix = "gneiss-object:" + view.guid().string() + "\n";
+    if (value_type.kind() == meta::type_kind::object && !path.empty() &&
+        ImGui::BeginPopupContextItem()) {
+      const auto prefix = "gneiss-object:" + value_type.guid().string() + "\n";
       if (ImGui::MenuItem("Copy Object")) {
         auto address = view.object_data();
-        auto bytes = address ? meta::serialize_object(view.type_id(), *address)
+        auto bytes = address ? meta::serialize_object(value_type.id(), *address)
                              : result<std::vector<std::byte>, meta::serialization_diagnostic>{
                                    meta::serialization_diagnostic{.error = address.error()}};
         if (bytes) {
@@ -41,18 +44,18 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
       if (paste || reset) {
         const auto content = reset ? std::string_view{"{}"} : text.substr(prefix.size());
         auto decoded = meta::deserialize_object(
-            view.type_id(), std::as_bytes(std::span{content.data(), content.size()}));
+            value_type.id(), std::as_bytes(std::span{content.data(), content.size()}));
         if (!decoded)
           status = decoded.error().error;
         else
           pending = property_edit{
-              .path = path, .object_type = view.type_id(), .object = std::move(*decoded)};
+              .path = path, .object_type = value_type.id(), .object = std::move(*decoded)};
       }
       ImGui::EndPopup();
     }
     if (!expanded)
       return;
-    if (view.kind() == meta::type_kind::object) {
+    if (value_type.kind() == meta::type_kind::object) {
       auto properties = view.properties();
       if (!properties)
         status = properties.error();
@@ -163,7 +166,7 @@ bool draw_property_value(const char* name, value& data, const meta::type& type,
       ImGui::EndCombo();
     }
   } else
-    switch (data.kind()) {
+    switch (type.scalar_kind()) {
     case value_kind::boolean:
       changed = ImGui::Checkbox(name, &std::get<bool>(data.payload));
       break;
@@ -220,7 +223,7 @@ std::optional<property_edit> draw_reflected_properties(const meta::instance& vie
                                                        std::uint64_t& serial, error& status,
                                                        std::span<const meta::property_id> readonly,
                                                        const meta::instance* source) {
-  if (source && source->type_id() != view.type_id()) {
+  if (source && source->type().id() != view.type().id()) {
     status = error::invalid_argument;
     return {};
   }

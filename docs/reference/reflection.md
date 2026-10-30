@@ -242,8 +242,8 @@ application 自动调用无参入口，重复无参调用返回首次结果。�
 ## 嵌套值对象
 
 成员绑定 `.property<&T::member>()` 可指向独立注册的 C++ 值对象。
-`property_info.object_type` 为成员的运行期类型 ID，`type_guid` 为其稳定身份，
-`kind` 为 invalid；它不占用通用 value 的新类别。冻结时检查子类型已登记且两种身份匹配，
+`property_info.type.id()` 为成员的运行期类型 ID，`type.guid()` 为其稳定身份，
+`type.kind()` 为 object；它不占用通用 value 的新类别。冻结时检查子类型已登记且两种身份匹配，
 缺失子类型返回 not_found，身份不匹配返回 invalid_argument。登记顺序不限。
 
 `find_object_property` 查询借用成员访问器；地址仅在父对象存活且地址稳定时有效。
@@ -356,4 +356,21 @@ not_found，非枚举返回 unsupported，默认无效视图返回 invalid_state
 
 属性面板的 `draw_property_value` 接收类型视图和 value，检查存储类别匹配后从类型查询
 枚举选项。枚举容器元素也走此路径；注册表无需为每个属性复制枚举列表。
-现有 type_info 快照和 property_info 兼容字段暂时保留；类型视图不新增注册表。
+保留 type_info 快照；property_info 的声明类型统一由 `type` 字段提供，不再重复保存
+kind/category/object_type/enum_type/choices/type_guid。属性保留 id、name、flags 和 capabilities。
+属性类型持有原注册表，不新增注册表或循环所有权。
+
+### 不依赖实例的类型查询
+
+包含 `registry.hpp` 后可以调用 `meta::type_of<T>()`、`meta::find_type(type_id)` 和
+`meta::find_type(guid)`；每个入口也支持显式 registry_ref。查询要求注册表冻结，
+未冻结返回 not_ready，空注册表返回 invalid_handle，零或未知身份返回 not_found。
+
+内建标量复用 value 的静态类型集合，无需注册。C++ 对象和枚举必须在当前注册表登记；
+模板查询规范化 const/ref，并检查容器叶子类型。按 ID 查询可发现已注册属性引用的容器
+及其嵌套元素；查询不会把任意容器隐式加入全局表。容器没有独立稳定 GUID，枚举仍使用
+运行期身份；GUID 查询不把枚举当成其底层整数。窄整数的 ID 保留 C++ 类型身份，其 GUID
+沿用现有整数存储类别，因此 GUID 查询返回规范的 64 位承载类型。
+
+面板和 JSON 序列化通过类型视图判断结构和标量类别；具体读写仍由 instance 完成。
+包含自定义 getter/setter 的属性不会因新增类型操作表而绕过访问器。

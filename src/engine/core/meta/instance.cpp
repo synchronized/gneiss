@@ -26,7 +26,7 @@ result<std::vector<property_info>> type::properties() const noexcept {
     return error::invalid_state;
   if (kind_ != type_kind::object)
     return error::unsupported;
-  auto info = describe_type(registry_, id_);
+  auto info = id_ ? describe_type(registry_, id_) : describe_type(registry_, guid_);
   if (!info)
     return info.error();
   return std::move(info->properties);
@@ -36,16 +36,7 @@ result<type> type::element_type() const noexcept {
     return error::invalid_state;
   if (!access_ || !access_->element)
     return error::unsupported;
-  const auto& access = access_->element();
-  type out;
-  out.registry_ = registry_;
-  out.access_ = &access;
-  out.id_ = access.id;
-  out.guid_ = access.guid;
-  out.kind_ = access.kind;
-  out.scalar_ = access.scalar;
-  out.enumeration_ = access.enumeration;
-  return out;
+  return detail::resolve_type(registry_, access_->element());
 }
 
 result<instance> instance::from_object(registry_ref registry, engine::type_id id,
@@ -64,14 +55,7 @@ result<instance> instance::from_object(registry_ref registry, engine::type_id id
   return output;
 }
 result<std::vector<property_info>> instance::properties() const noexcept {
-  if (kind_ == type_kind::invalid)
-    return error::invalid_state;
-  if (kind_ != type_kind::object)
-    return error::unsupported;
-  auto type = describe_type(registry_, cpp_type_);
-  if (!type)
-    return type.error();
-  return std::move(type->properties);
+  return type().properties();
 }
 result<instance> instance::property(std::string_view name) const noexcept {
   auto entries = properties();
@@ -93,10 +77,10 @@ result<instance> instance::property(property_id id) const noexcept try {
   output.parent_ = data_;
   output.parent_type_ = type_;
   output.property_ = id;
-  output.type_ = info->type_guid;
-  output.cpp_type_ = info->enum_type;
-  output.enumeration_ = bool(info->enum_type);
-  if (info->object_type) {
+  output.type_ = info->type.guid();
+  output.cpp_type_ = info->type.id();
+  output.enumeration_ = info->type.is_enum();
+  if (info->type.kind() != type_kind::scalar && info->type.kind() != type_kind::invalid) {
     auto binding = find_object_property(registry_, type_, id);
     if (!binding)
       return binding.error();
@@ -105,14 +89,14 @@ result<instance> instance::property(property_id id) const noexcept try {
     output.data_ = binding->object_getter(data_);
     if (!output.data_)
       return error::internal;
-    output.cpp_type_ = info->object_type;
+    output.cpp_type_ = info->type.id();
     output.kind_ = binding->access ? binding->access->kind : type_kind::object;
     output.access_ = binding->access;
   } else {
-    if (info->kind == value_kind::invalid)
+    if (info->type.scalar_kind() == value_kind::invalid)
       return error::unsupported;
     output.kind_ = type_kind::scalar;
-    output.scalar_kind_ = info->kind;
+    output.scalar_kind_ = info->type.scalar_kind();
   }
   return output;
 } catch (const std::bad_alloc&) {
@@ -174,7 +158,7 @@ result<mutable_instance> mutable_instance::property(property_id id) const noexce
   mutable_instance output;
   output.parent_ = data_;
   output.view_ = std::move(*child);
-  if (info->object_type) {
+  if (info->type.kind() != type_kind::scalar && info->type.kind() != type_kind::invalid) {
     auto binding = find_object_property(view_.registry_, view_.type_, id);
     if (!binding)
       return binding.error();
