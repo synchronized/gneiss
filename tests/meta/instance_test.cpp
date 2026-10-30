@@ -39,6 +39,11 @@ int main() try {
   if (!created)
     return 1;
   auto registry = *created;
+  if (m::type_builder<settings>{registry}
+          .property<&settings::speed>(m::property_id{1}, "speed")
+          .choices({{"invalid", e::value{std::uint64_t{0}}}})
+          .commit() != e::error::invalid_argument)
+    return 29;
   object source;
   if (m::instance::from(registry, source).error() != e::error::not_ready)
     return 2;
@@ -50,6 +55,8 @@ int main() try {
           .property<&object::config>(m::property_id{1}, "config")
           .property<&object::get_label, &object::set_label>(m::property_id{2}, "label")
           .readonly<&object::readonly>(m::property_id{3}, "computed")
+          .property<&object::config>(m::property_id{4}, "readonly_config",
+                                     m::property_flags::read_only)
           .commit()
           .failed() ||
       m::freeze(registry).failed())
@@ -59,7 +66,7 @@ int main() try {
       root->type_id() != e::runtime_type_of<object>())
     return 4;
   auto entries = root->properties();
-  if (!entries || entries->size() != 3)
+  if (!entries || entries->size() != 4)
     return 5;
   auto config = root->property("config");
   if (!config || config->guid() != settings::type_guid || config->kind() != m::type_kind::object)
@@ -90,6 +97,8 @@ int main() try {
     return 12;
   if (writable->property("computed").error() != e::error::unsupported)
     return 13;
+  if (writable->property("readonly_config").error() != e::error::unsupported)
+    return 28;
   auto computed = writable->as_const().property("computed");
   if (!computed || std::get<float>(computed->read_value()->payload) != 6)
     return 14;
@@ -116,6 +125,24 @@ int main() try {
   if (m::instance{}.read_value().error() != e::error::invalid_state ||
       m::mutable_instance{}.write_value(e::value{1.0F}) != e::error::invalid_state)
     return 20;
+  {
+    settings other{7};
+    auto borrowed = m::instance::from(registry, other);
+    if (!borrowed || editable_config->assign(*borrowed).failed() || source.config.speed != 7 ||
+        other.speed != 7 || editable_config->assign(*root) != e::error::invalid_argument ||
+        editable_speed->assign(*borrowed) != e::error::unsupported ||
+        m::mutable_instance{}.assign(*borrowed) != e::error::invalid_state)
+      return 25;
+    object copy;
+    auto destination = m::mutable_instance::from(registry, copy);
+    if (!destination || destination->assign(*root).failed() || copy.label != source.label ||
+        destination->assign(destination->as_const()).failed())
+      return 26;
+    copy.label = "independent";
+    if (source.label == copy.label)
+      return 27;
+    source.config.speed = 9;
+  }
   // 同步只读访问；视图没有创建或拥有 source。
   auto task = std::async(std::launch::async,
                          [speed] { return std::get<float>(speed->read_value()->payload); });

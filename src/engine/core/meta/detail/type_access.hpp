@@ -26,6 +26,7 @@ struct type_access {
   value (*read)(const void*){};
   error (*write)(void*, const value&){};
   void (*assign)(void*, void*){};
+  void (*copy_assign)(void*, const void*){};
   std::size_t (*size)(const void*){};
   const void* (*at)(const void*, std::size_t){};
   void* (*at_mut)(void*, std::size_t){};
@@ -103,6 +104,10 @@ template <class T> const type_access& access_of() {
     a.guid = type_identity<scalar_storage<T>>::guid();
     a.scalar = reflected_value_kind<T>();
     a.kind = a.scalar != value_kind::invalid ? type_kind::scalar : container_traits<T>::kind;
+    if constexpr (std::is_copy_assignable_v<T>)
+      a.copy_assign = [](void* target, const void* source) {
+        *static_cast<T*>(target) = *static_cast<const T*>(source);
+      };
     if constexpr (std::is_move_assignable_v<T>)
       a.assign = [](void* target, void* source) {
         *static_cast<T*>(target) = std::move(*static_cast<T*>(source));

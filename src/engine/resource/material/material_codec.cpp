@@ -111,16 +111,28 @@ result<std::vector<std::byte>, diagnostic> encode(const material_description& ob
 }
 }
 error register_material_reflection() noexcept {
-  auto status = meta::type_builder<texture_sampling>{}
-                    .property<&texture_sampling::uv_set>(meta::property_id{1}, "uv_set")
-                    .property<&texture_sampling::mag_filter>(meta::property_id{2}, "mag_filter")
-                    .property<&texture_sampling::min_filter>(meta::property_id{3}, "min_filter")
-                    .property<&texture_sampling::mip_filter>(meta::property_id{4}, "mip_filter")
-                    .property<&texture_sampling::address_u>(meta::property_id{5}, "address_u")
-                    .property<&texture_sampling::address_v>(meta::property_id{6}, "address_v")
-                    .serialization(true)
-                    .validate<&validate_sampling>()
-                    .commit();
+  auto status =
+      meta::type_builder<texture_sampling>{}
+          .property<&texture_sampling::uv_set>(meta::property_id{1}, "uv_set")
+          .property<&texture_sampling::mag_filter>(meta::property_id{2}, "mag_filter")
+          .choices({{"nearest", value{std::uint64_t{0}}}, {"linear", value{std::uint64_t{1}}}})
+          .property<&texture_sampling::min_filter>(meta::property_id{3}, "min_filter")
+          .choices({{"nearest", value{std::uint64_t{0}}}, {"linear", value{std::uint64_t{1}}}})
+          .property<&texture_sampling::mip_filter>(meta::property_id{4}, "mip_filter")
+          .choices({{"none", value{std::uint64_t{0}}},
+                    {"nearest", value{std::uint64_t{1}}},
+                    {"linear", value{std::uint64_t{2}}}})
+          .property<&texture_sampling::address_u>(meta::property_id{5}, "address_u")
+          .choices({{"repeat", value{std::uint64_t{0}}},
+                    {"clamp", value{std::uint64_t{1}}},
+                    {"mirror", value{std::uint64_t{2}}}})
+          .property<&texture_sampling::address_v>(meta::property_id{6}, "address_v")
+          .choices({{"repeat", value{std::uint64_t{0}}},
+                    {"clamp", value{std::uint64_t{1}}},
+                    {"mirror", value{std::uint64_t{2}}}})
+          .serialization(true)
+          .validate<&validate_sampling>()
+          .commit();
   if (status.failed())
     return status;
   status = meta::type_builder<material_parameters>{}
@@ -132,6 +144,9 @@ error register_material_reflection() noexcept {
                                                                    "occlusion_strength")
                .property<&material_parameters::emissive>(meta::property_id{6}, "emissive")
                .property<&material_parameters::alpha_mode>(meta::property_id{7}, "alpha_mode")
+               .choices({{"opaque", value{std::uint64_t{0}}},
+                         {"mask", value{std::uint64_t{1}}},
+                         {"blend", value{std::uint64_t{2}}}})
                .property<&material_parameters::double_sided>(meta::property_id{8}, "double_sided")
                .property<&material_parameters::alpha_cutoff>(meta::property_id{9}, "alpha_cutoff")
                .property<&material_parameters::sampling>(meta::property_id{10}, "sampling")

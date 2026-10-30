@@ -142,6 +142,30 @@ public:
                                  return error::success;
                                }});
   }
+  /** 为上一属性设置可选显示项；只影响呈现，业务校验仍由类型负责。 */
+  type_builder& choices(std::initializer_list<enum_entry> items) noexcept {
+    if (committed_ || status_.failed())
+      return *this;
+    try {
+      if (entries_.empty()) {
+        status_ = error::invalid_state;
+        return *this;
+      }
+      for (const auto& item : items) {
+        if (item.name.empty() || item.data.kind() != entries_.back().binding.kind ||
+            (item.data.kind() != value_kind::int64 && item.data.kind() != value_kind::uint64)) {
+          status_ = error::invalid_argument;
+          return *this;
+        }
+      }
+      entries_.back().binding.choices.assign(items);
+    } catch (const std::bad_alloc&) {
+      status_ = error::out_of_memory;
+    } catch (...) {
+      status_ = error::internal;
+    }
+    return *this;
+  }
   /** 启用反射 JSON；缺失的非必填字段保留默认值，只读字段不持久化。 */
   type_builder& serialization(bool reject_unknown_fields = false) noexcept {
     static_assert(std::is_default_constructible_v<object_type>);

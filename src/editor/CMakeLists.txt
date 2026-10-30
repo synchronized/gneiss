@@ -9,6 +9,9 @@ add_library(
   panels/author_hierarchy_panel.hpp
   panels/author_property_panel.cpp
   panels/author_property_panel.hpp
+  panels/reflected_property_editor.cpp
+  panels/reflected_property_editor.hpp
+  panels/property_path.hpp
   panels/material_editor_panel.cpp
   panels/material_editor_panel.hpp
   panels/document_action_panel.cpp

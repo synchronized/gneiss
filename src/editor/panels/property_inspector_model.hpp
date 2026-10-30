@@ -22,6 +22,7 @@ struct inspector_property final {
   gneiss::engine::meta::property_capabilities capabilities =
       gneiss::engine::meta::property_capabilities::none;
   gneiss::engine::value value{};
+  std::vector<engine::meta::enum_entry> choices{};
 };
 
 struct inspector_component final {

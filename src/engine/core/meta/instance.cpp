@@ -167,6 +167,23 @@ result<void*> mutable_instance::object_data() const noexcept {
     return error::unsupported;
   return data_;
 }
+error mutable_instance::assign(const instance& source) const noexcept try {
+  if (kind() == type_kind::invalid || source.kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (kind() != type_kind::object || source.kind() != type_kind::object)
+    return error::unsupported;
+  if (view_.cpp_type_ != source.cpp_type_)
+    return error::invalid_argument;
+  if (!view_.access_ || !view_.access_->copy_assign)
+    return error::unsupported;
+  if (data_ != source.data_)
+    view_.access_->copy_assign(data_, source.data_);
+  return error::success;
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
 error mutable_instance::assign_object(engine::type_id id, void* source) const noexcept try {
   if (kind() == type_kind::invalid)
     return error::invalid_state;

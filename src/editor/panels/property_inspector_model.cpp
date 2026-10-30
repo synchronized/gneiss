@@ -74,6 +74,7 @@ gneiss::engine::error property_inspector_model::refresh(gneiss::engine::world* w
             .kind = field.kind,
             .capabilities = field.capabilities,
             .value = std::move(value),
+            .choices = {field.choices.begin(), field.choices.end()},
         });
       }
       if (!component_missing) {

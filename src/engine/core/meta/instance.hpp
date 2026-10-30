@@ -25,7 +25,7 @@ public:
                                       const void* object) noexcept;
   template <class T>
   static result<instance> from(const registry_ref& registry, T& object) noexcept {
-    return from_object(registry, runtime_type_of<std::remove_cv_t<T>>(), std::addressof(object));
+    return from_access(registry, detail::access_of<std::remove_cv_t<T>>(), std::addressof(object));
   }
   template <class T> static result<instance> from(T& object) noexcept {
     auto registry = default_registry();
@@ -79,7 +79,7 @@ public:
   template <class T>
     requires(!std::is_const_v<T>)
   static result<mutable_instance> from(const registry_ref& registry, T& object) noexcept {
-    return from_object(registry, runtime_type_of<T>(), std::addressof(object));
+    return from_access(registry, detail::access_of<T>(), std::addressof(object));
   }
   template <class T>
     requires(!std::is_const_v<T>)
@@ -99,7 +99,9 @@ public:
   [[nodiscard]] result<value> read_value() const noexcept { return view_.read_value(); }
   [[nodiscard]] error write_value(const value& input) const noexcept;
   [[nodiscard]] result<void*> object_data() const noexcept;
-  /** 仅嵌套对象成员支持整体赋值；source 必须指向 id 类型的可移动值，成功后其内容已移出。 */
+  /** 同类型复制赋值；不提供回滚或业务校验，调用方应修改候选副本。 */
+  [[nodiscard]] error assign(const instance& source) const noexcept;
+  /** 解码专用移动赋值；source 类型须匹配，成功后其内容已移出。 */
   [[nodiscard]] error assign_object(engine::type_id id, void* source) const noexcept;
 
 private:

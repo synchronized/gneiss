@@ -107,6 +107,15 @@ namespace {
 
 using property_accessor = property_binding;
 bool valid_binding(const property_binding& binding) noexcept {
+  for (std::size_t i = 0; i < binding.choices.size(); ++i) {
+    const auto& item = binding.choices[i];
+    if (!is_valid_name(item.name) || item.data.kind() != binding.kind ||
+        (binding.kind != value_kind::int64 && binding.kind != value_kind::uint64))
+      return false;
+    for (std::size_t j = 0; j < i; ++j)
+      if (binding.choices[j].name == item.name || binding.choices[j].data == item.data)
+        return false;
+  }
   if (binding.object_type)
     return binding.kind == value_kind::invalid && !binding.getter && !binding.setter &&
            binding.object_getter &&
@@ -180,7 +189,8 @@ struct type_record {
           .category = property.accessor.access        ? property.accessor.access->kind
                       : property.accessor.object_type ? type_kind::object
                       : property.accessor.kind != value_kind::invalid ? type_kind::scalar
-                                                                      : type_kind::invalid};
+                                                                      : type_kind::invalid,
+          .choices = property.accessor.choices};
 }
 
 [[nodiscard]] type_info describe_record(const type_record& record) {
@@ -300,7 +310,7 @@ public:
                        current.object_getter == requested.object_getter &&
                        current.object_mutator == requested.object_mutator &&
                        current.object_assign == requested.object_assign &&
-                       current.access == requested.access
+                       current.access == requested.access && current.choices == requested.choices
                    ? error::success
                    : error::invalid_argument;
       }
@@ -509,13 +519,17 @@ public:
     return error::internal;
   }
 
-  result<property_binding> find_object_property(guid type, property_id id) const noexcept {
+  result<property_binding> find_object_property(guid type, property_id id) const noexcept try {
     auto binding = find_accessor(type, id.get());
     if (!binding)
       return binding.error();
     if (!binding->object_type)
       return error::unsupported;
     return *binding;
+  } catch (const std::bad_alloc&) {
+    return error::out_of_memory;
+  } catch (...) {
+    return error::internal;
   }
 
 private:

@@ -8,7 +8,10 @@
 #include "engine/core/value.hpp"
 #include <concepts>
 #include <cstdint>
+#include <span>
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace gneiss::engine::meta {
 enum class type_kind { invalid, scalar, object, sequence, associative, optional };
@@ -56,7 +59,13 @@ struct property_definition {
   property_flags flags = property_flags::none;
   std::string_view name{};
 };
-/** 名称由冻结 Registry 借出，有效期不超过 Registry。 */
+/** 自有枚举显示项，注册时复制；不改变类型的业务校验规则。 */
+struct enum_entry {
+  std::string name;
+  value data;
+  bool operator==(const enum_entry&) const = default;
+};
+/** 名称与显示项由冻结 Registry 借出，有效期不超过 Registry。 */
 struct property_info {
   property_id id{};
   engine::guid type_guid{};
@@ -66,6 +75,7 @@ struct property_info {
   property_capabilities capabilities = property_capabilities::none;
   engine::type_id object_type{}; // 非零表示借用成员的运行期类型。
   type_kind category = type_kind::invalid;
+  std::span<const enum_entry> choices{};
 };
 /** 回调借用实际类型的对象指针；调用方保证对象存活、类型正确和线程访问合法。
  * setter 必须先校验再修改，失败保持对象；注册表不复制对象或回滚任意回调副作用。
@@ -81,6 +91,7 @@ struct property_binding {
   void* (*object_mutator)(void*){};
   /** 自定义子类型解码成功后，将独立值移入父对象成员。 */
   void (*object_assign)(void*, void*){};
+  std::vector<enum_entry> choices{};
   const detail::type_access* access{}; // 静态只读操作表，不持有对象。
 };
 } // namespace gneiss::engine::meta

@@ -607,3 +607,4 @@
 - [PLAN-069：业务反射入口统一默认注册表](plans/PLAN-069-default-meta-entrypoints.md)
 - [PLAN-070：ActionMap 反射编解码与新建描述保存](plans/PLAN-070-action-map-and-new-description-save.md)
 - [PLAN-071：材质反射编辑闭环](plans/PLAN-071-material-editor.md)
+- [PLAN-072：共用属性面板与对象替换](plans/PLAN-072-reflected-property-editor.md)

@@ -34,7 +34,16 @@ error material_editor_model::open(std::string uri, std::string content) noexcept
   return error::internal;
 }
 error material_editor_model::set_value(const material_property_path& path, const value& input,
-                                       std::uint64_t serial) noexcept try {
+                                       std::uint64_t serial) noexcept {
+  return apply(path, &input, nullptr, serial);
+}
+error material_editor_model::replace_object(const property_path& path,
+                                            const meta::instance& source) noexcept {
+  return apply(path, nullptr, &source, 0);
+}
+error material_editor_model::apply(const property_path& path, const value* input,
+                                   const meta::instance* source, std::uint64_t serial) noexcept
+    try {
   if (!current_ || path.empty())
     return error::invalid_argument;
   auto candidate = current_->description;
@@ -57,7 +66,7 @@ error material_editor_model::set_value(const material_property_path& path, const
     if (!target)
       return target.error();
   }
-  auto status = target->write_value(input);
+  auto status = source ? target->assign(*source) : target->write_value(*input);
   if (status.failed())
     return status;
   for (const auto& uri : candidate.texture_uris)

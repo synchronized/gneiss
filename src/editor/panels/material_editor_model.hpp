@@ -5,10 +5,9 @@
 #include "commands/editor_command_history.hpp"
 #include "engine/core/meta/instance.hpp"
 #include "engine/resource/material/material_description.hpp"
-#include <variant>
+#include "panels/property_path.hpp"
 namespace gneiss::editor {
-using material_property_step = std::variant<engine::meta::property_id, std::size_t>;
-using material_property_path = std::vector<material_property_step>;
+using material_property_path = property_path;
 /** 单个材质文件的主线程编辑状态；只拥有描述和快照，不修改资源缓存或 GPU。
  * 历史只保存描述快照；异步回调只持有文件回执。对象不可复制或移动。 */
 class material_editor_model final {
@@ -19,6 +18,7 @@ public:
   engine::error open(std::string uri, std::string content) noexcept;
   engine::error set_value(const material_property_path&, const engine::value&,
                           std::uint64_t edit_serial = 0) noexcept;
+  engine::error replace_object(const property_path&, const engine::meta::instance&) noexcept;
   engine::error undo() noexcept { return history_.undo(); }
   engine::error redo() noexcept { return history_.redo(); }
   bool can_undo() const noexcept { return history_.can_undo(); }
@@ -36,6 +36,8 @@ public:
   const engine::material_description& description() const noexcept { return current_->description; }
 
 private:
+  engine::error apply(const property_path&, const engine::value*, const engine::meta::instance*,
+                      std::uint64_t) noexcept;
   struct snapshot {
     engine::material_description description;
     std::string encoded;
