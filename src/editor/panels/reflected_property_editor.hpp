@@ -5,9 +5,8 @@
 #include "panels/property_path.hpp"
 #include <optional>
 namespace gneiss::editor {
-bool draw_property_value(const char* name, engine::value&,
-                         std::span<const engine::meta::enum_entry>, std::uint64_t& serial,
-                         engine::error&);
+bool draw_property_value(const char* name, engine::value&, const engine::meta::type&,
+                         std::uint64_t& serial, engine::error&);
 /** source 为同类型来源快照，仅在本次绘制借用；恢复返回独立值，不直接修改对象。
  * 只为可写标量字段提供来源提示与恢复，调用者仍负责校验、历史及异步加载。 */
 std::optional<property_edit>

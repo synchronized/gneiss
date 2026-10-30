@@ -76,7 +76,7 @@ namespace {
 }
 
 [[nodiscard]] bool is_valid_property_kind(value_kind kind) noexcept {
-  return kind >= value_kind::boolean && kind <= value_kind::vec4;
+  return kind >= value_kind::boolean && kind <= value_kind::vec2;
 }
 
 [[nodiscard]] bool is_valid_property_value(const value& value) noexcept {
@@ -93,6 +93,8 @@ namespace {
           return is_valid_name(item);
         else if constexpr (std::is_same_v<type, guid>)
           return static_cast<bool>(item);
+        else if constexpr (std::is_same_v<type, math::vector2>)
+          return std::isfinite(item.x) && std::isfinite(item.y);
         else if constexpr (std::is_same_v<type, math::vector3>)
           return std::isfinite(item.x) && std::isfinite(item.y) && std::isfinite(item.z);
         else if constexpr (std::is_same_v<type, math::quaternion> ||
@@ -477,6 +479,17 @@ public:
     }
   }
 
+  result<std::span<const enum_entry>> enum_entries(engine::type_id id) const noexcept try {
+    std::shared_lock lock(mutex_);
+    if (!is_frozen_)
+      return error::not_ready;
+    const auto found = enums_.find(id);
+    if (found == enums_.end())
+      return error::not_found;
+    return std::span<const enum_entry>{found->second.entries};
+  } catch (...) {
+    return error::internal;
+  }
   [[nodiscard]] result<type_info> describe_type(guid id) const noexcept try {
     std::shared_lock lock(mutex_);
     if (!is_frozen_)
@@ -630,6 +643,11 @@ result<registry_ref> create_registry() noexcept {
   } catch (...) {
     return error::internal;
   }
+}
+result<std::span<const enum_entry>> enum_entries(const registry_ref& state,
+                                                 engine::type_id id) noexcept {
+  return state ? state->enum_entries(id)
+               : result<std::span<const enum_entry>>{error::invalid_handle};
 }
 error register_enum(const registry_ref& state, engine::type_id id, value_kind kind,
                     std::span<const enum_entry> entries) noexcept {

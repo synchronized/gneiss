@@ -58,6 +58,13 @@ template <> struct type_identity<math::vector3> {
                                      0x93, 0xf8, 0x94, 0x6e, 0x82, 0xcb});
   }
 };
+template <> struct type_identity<math::vector2> {
+  static constexpr std::string_view name() noexcept { return "vec2"; }
+  static constexpr engine::guid guid() noexcept {
+    return engine::guid::from_bytes({0x1e, 0x1a, 0x6e, 0xaf, 0xf3, 0x85, 0x40, 0x9c, 0xb3, 0x65,
+                                     0xd9, 0x8b, 0xe4, 0x5f, 0x47, 0xd4});
+  }
+};
 template <> struct type_identity<math::vector4> {
   static constexpr std::string_view name() noexcept { return "vec4"; }
   static constexpr engine::guid guid() noexcept { return engine::guid::from_bytes({0x97, 1}); }

@@ -78,7 +78,9 @@ using namespace gneiss::engine;
           return valid_utf8(payload);
         } else if constexpr (std::is_same_v<value_type, gneiss::engine::guid>) {
           return static_cast<bool>(payload);
-        } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector3> ||
+        } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector2> ||
+                             std::is_same_v<value_type, gneiss::engine::math::vector4> ||
+                             std::is_same_v<value_type, gneiss::engine::math::vector3> ||
                              std::is_same_v<value_type, gneiss::engine::math::quaternion>) {
           return std::ranges::all_of(gneiss::engine::math::components(payload),
                                      [](float item) { return std::isfinite(item); });
@@ -97,7 +99,9 @@ void normalize_zero(gneiss::engine::value& value) noexcept {
           if (payload == 0) {
             payload = 0;
           }
-        } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector3> ||
+        } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector2> ||
+                             std::is_same_v<value_type, gneiss::engine::math::vector4> ||
+                             std::is_same_v<value_type, gneiss::engine::math::vector3> ||
                              std::is_same_v<value_type, gneiss::engine::math::quaternion>) {
           for (auto& item : gneiss::engine::math::components(payload)) {
             if (item == 0.0F) {

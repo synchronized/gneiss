@@ -16,6 +16,11 @@ bool enum_registration() {
   if (!made)
     return false;
   const auto& registry = *made;
+  enum class unknown_mode { value };
+  unknown_mode unknown{};
+  auto unknown_view = m::instance::from(registry, unknown);
+  if (!unknown_view || unknown_view->type().enum_entries().error() != e::error::not_ready)
+    return false;
   if (m::type_builder<enum_object>{registry}
           .property<&enum_object::left>(m::property_id{1}, "left")
           .property<&enum_object::right>(m::property_id{2}, "right")
@@ -47,13 +52,31 @@ bool enum_registration() {
       type->properties[0].choices[0].name != "First" ||
       std::get<std::int64_t>(type->properties[0].choices[0].data.payload) != -1)
     return false;
+  if (unknown_view->type().enum_entries().error() != e::error::not_found)
+    return false;
+  std::vector<mode> modes{mode::first};
+  auto sequence = m::instance::from(registry, modes);
+  if (!sequence || sequence->type().is_enum())
+    return false;
+  auto element_type = sequence->type().element_type();
+  if (!element_type || !element_type->is_enum() || element_type->id() != e::runtime_type_of<mode>())
+    return false;
+  auto entries = element_type->enum_entries();
+  auto elements = sequence->as_sequence();
+  if (!entries || entries->size() != 2 || !elements)
+    return false;
+  auto element = elements->at(0);
+  if (!element || !element->type().is_enum() || !element->type().enum_entries())
+    return false;
+  if (m::type{}.enum_entries().error() != e::error::invalid_state)
+    return false;
   enum_object object;
   auto view = m::mutable_instance::from(registry, object);
   if (!view)
     return false;
   auto field = view->property("left");
-  if (!field || field->write_value(e::value{std::int64_t{2}}).failed() ||
-      object.left != mode::second ||
+  if (!field || !field->type().is_enum() || !field->type().enum_entries() ||
+      field->write_value(e::value{std::int64_t{2}}).failed() || object.left != mode::second ||
       field->write_value(e::value{std::int64_t{128}}) != e::error::invalid_argument ||
       object.left != mode::second)
     return false;

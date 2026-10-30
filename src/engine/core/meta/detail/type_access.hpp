@@ -20,6 +20,7 @@ namespace detail {
 struct type_access {
   type_kind kind = type_kind::invalid;
   value_kind scalar = value_kind::invalid;
+  bool enumeration = false;
   engine::type_id id{};
   engine::guid guid{};
   const type_access& (*element)(){};
@@ -101,6 +102,7 @@ template <class T> const type_access& access_of() {
   static const type_access table = [] {
     type_access a;
     a.id = runtime_type_of<T>();
+    a.enumeration = std::is_enum_v<T>;
     a.guid = type_identity<scalar_storage<T>>::guid();
     a.scalar = reflected_value_kind<T>();
     a.kind = a.scalar != value_kind::invalid ? type_kind::scalar : container_traits<T>::kind;

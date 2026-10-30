@@ -9,6 +9,30 @@
 #include <vector>
 
 namespace gneiss::engine::meta {
+/** 只读类型视图；持有注册表，不持有对象。借出的元数据不得超过本视图寿命。 */
+class GNEISS_API type {
+public:
+  type() = default;
+  [[nodiscard]] type_kind kind() const noexcept { return kind_; }
+  [[nodiscard]] bool is_enum() const noexcept { return enumeration_; }
+  [[nodiscard]] engine::type_id id() const noexcept { return id_; }
+  [[nodiscard]] engine::guid guid() const noexcept { return enumeration_ ? engine::guid{} : guid_; }
+  [[nodiscard]] value_kind scalar_kind() const noexcept { return scalar_; }
+  [[nodiscard]] result<std::span<const enum_entry>> enum_entries() const noexcept;
+  [[nodiscard]] result<std::vector<property_info>> properties() const noexcept;
+  /** sequence/optional 返回元素类型，associative 返回映射值类型。 */
+  [[nodiscard]] result<type> element_type() const noexcept;
+
+private:
+  friend class instance;
+  registry_ref registry_;
+  const detail::type_access* access_{};
+  engine::type_id id_{};
+  engine::guid guid_{};
+  type_kind kind_ = type_kind::invalid;
+  value_kind scalar_ = value_kind::invalid;
+  bool enumeration_ = false;
+};
 struct type_definition {
   engine::guid guid{};
   /** 可空；非空时必须与 guid 一一对应，不持久化。 */

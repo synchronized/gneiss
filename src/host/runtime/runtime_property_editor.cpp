@@ -48,8 +48,9 @@ gneiss::engine::error from_native_value(const gneiss::engine::value& source,
         using T = std::decay_t<decltype(payload)>;
         if constexpr (std::is_same_v<T, std::monostate>) {
           return gneiss::engine::error::unsupported;
-        } else if constexpr (std::is_same_v<T, gneiss::engine::math::vector4>) {
-          // 当前 IPC 的四分量类型表示旋转，不能把颜色冒充四元数。
+        } else if constexpr (std::is_same_v<T, gneiss::engine::math::vector4> ||
+                             std::is_same_v<T, gneiss::engine::math::vector2>) {
+          // 当前 IPC 未定义二维向量，四分量只表示旋转；不能误用现有载荷。
           return gneiss::engine::error::unsupported;
         } else if constexpr (std::is_same_v<T, gneiss::engine::guid>) {
           output.payload = payload.bytes();

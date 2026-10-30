@@ -100,6 +100,22 @@ bool save_validation_contract() {
       !rejects_override(
           [](auto& reference) { reference.overrides[0].value.payload = std::monostate{}; }))
     return false;
+  for (const e::value& vector :
+       {e::value{e::math::vector2{1, 2}}, e::value{e::math::vector4{1, 2, 3, 4}}}) {
+    auto candidate = *prefab;
+    candidate.objects[1].prefab->overrides[0].value = vector;
+    auto encoded = e::encode_scene(candidate);
+    if (!encoded)
+      return false;
+    auto decoded = e::decode_scene(*encoded);
+    if (!decoded || decoded->objects[1].prefab->overrides[0].value != vector)
+      return false;
+  }
+  if (!rejects_override([](auto& reference) {
+        reference.overrides[0].value =
+            e::value{e::math::vector2{1, std::numeric_limits<float>::infinity()}};
+      }))
+    return false;
   // Scene 仍允许多根，不因 Prefab 的唯一根约束变成只能保存一棵树。
   parsed->objects[1].parent_uuid.reset();
   auto forest = e::encode_scene(*parsed);

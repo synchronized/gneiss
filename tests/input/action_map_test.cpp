@@ -10,6 +10,7 @@
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
+#include "engine/resource/detail/reflected_asset_codec.hpp"
 #include "engine/resource/input/action_map.hpp"
 #include "engine/resource/input/action_map_codec.hpp"
 #include <cstring>
@@ -137,11 +138,30 @@ int main() {
   auto saved_bytes = encode_action_map(map);
   if (!saved_bytes)
     return 10;
+  const detail::reflected_asset_format exact{"gneiss.input-map", 1, saved_bytes->size(),
+                                             error::invalid_argument};
+  auto short_limit = exact;
+  --short_limit.maximum_bytes;
+  if (!detail::encode_reflected_asset(map, exact) ||
+      !detail::decode_reflected_asset<action_map>(*saved_bytes, exact) ||
+      detail::encode_reflected_asset(map, short_limit) ||
+      detail::decode_reflected_asset<action_map>(*saved_bytes, short_limit))
+    return 31;
   auto roundtrip = decode_action_map(*saved_bytes);
   if (!roundtrip || roundtrip->actions.front().name != "move" ||
       roundtrip->actions.front().bindings.front().physical_key != 4 ||
       roundtrip->actions.front().bindings.front().scale != -1)
     return 20;
+  for (const auto malformed :
+       {R"({"format":"gneiss.input-map","format":"gneiss.input-map","version":1,"actions":[]})",
+        R"({"format":"gneiss.input-map","version":1,"version":1,"actions":[]})",
+        R"({"format":"wrong","version":1,"actions":[]})",
+        R"({"format":"gneiss.input-map","version":2,"actions":[]})",
+        R"({"format":"gneiss.input-map","version":"1","actions":[]})"}) {
+    auto result = parse_action_map(malformed);
+    if (result || result.error().error != error::invalid_argument)
+      return 30;
+  }
   auto bad_map = map;
   bad_map.actions.push_back(bad_map.actions.front());
   if (encode_action_map(bad_map))

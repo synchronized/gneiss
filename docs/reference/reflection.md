@@ -177,7 +177,7 @@ meta::type_builder<camera_description>{}
 ```
 
 属性名直接作为 JSON 字段名，支持 bool、int64、uint64、float、double、string、guid、
-vector3、vector4、quaternion；数学值按分量数组保存，GUID 使用规范小写带连字符文本。
+vector2、vector3、vector4、quaternion；数学值按分量数组保存，GUID 使用规范小写带连字符文本。
 属性的稳定身份由 `type_identity` 提供。支持独立注册的嵌套值对象及[容器视图](reflection-containers.md)列出的容器；不支持指针图。
 沿用已有属性访问边界：整数严格校验范围，浮点必须有限，字符串为无 NUL 的合法 UTF-8，
 GUID 值不能为 nil。四元数的归一化等业务约束由类型校验器决定。
@@ -329,3 +329,31 @@ Scene/Prefab 的组件动态分派和 Prefab 覆盖使用专门 codec；编辑�
 原生窄整数和枚举通过现有 int64/uint64 标量访问，写入先检查原生底层范围；
 枚举定义域由所属类型 validate 校验。它们的属性 GUID 表示规范化后的整数存储类型。
 vector4 使用独立 vec4 标量身份和四分量 JSON 数组；旧 IPC 的四元数类型不承载 vector4。
+
+### 资源文件外层包装
+
+Material 与 Action Map 使用 resource/detail/reflected_asset_codec.hpp 共用格式包装：
+验证唯一的 format/version、对象根与配置的字节上限，内容交给反射字段序列化。
+编码拒绝反射字段占用 format/version 名称，并在添加格式头后检查完整输出大小。
+Material 保持版本 6，非零未知版本返回 unsupported；Action Map 保持版本 1 与 1 MiB 上限，
+版本不符返回 invalid_argument。业务字段校验仍由各类型的 validate 完成。
+
+vector2 使用独立 vec2 身份及 `[x,y]` 数组，严格检查两个有限 float 分量。
+已有 value_kind 编号不变，vec2 追加于末尾。Prefab 覆盖格式支持 vec2/vec4 的独立 kind，
+不把四分量向量解释成四元数。旧 Runtime IPC 尚无 vec2/vec4 表示，明确返回 unsupported。
+
+## 类型视图
+
+`meta::instance::type()`（包括可写实例）返回轻量 `meta::type`。视图持有原注册表，
+不拥有业务对象；`kind()` 查询结构类别，`scalar_kind()` 查询 value 的承载类别，
+`is_enum()` 区分 C++ 枚举与整数，`id()` 保留枚举自己的运行期类型身份。
+枚举尚无独立稳定 GUID 注册入口，因此类型视图的枚举 `guid()` 为空，不冒用整数 GUID。
+
+`enum_entries()` 从冻结注册表借用同一份枚举项；未冻结返回 not_ready，未注册返回
+not_found，非枚举返回 unsupported，默认无效视图返回 invalid_state。借用结果不得超过
+类型视图或注册表的生命周期。`properties()` 返回对象属性快照；`element_type()` 返回
+序列/optional 元素类型，关联容器返回映射值类型。
+
+属性面板的 `draw_property_value` 接收类型视图和 value，检查存储类别匹配后从类型查询
+枚举选项。枚举容器元素也走此路径；注册表无需为每个属性复制枚举列表。
+现有 type_info 快照和 property_info 兼容字段暂时保留；类型视图不新增注册表。

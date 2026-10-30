@@ -16,7 +16,6 @@ int resize_text(ImGuiInputTextCallbackData* data) {
 }
 void draw_value(const meta::instance& view, const std::string& name, property_path& path,
                 std::optional<property_edit>& pending, std::uint64_t& serial, error& status,
-                std::span<const meta::enum_entry> choices = {},
                 std::span<const meta::property_id> readonly = {},
                 const meta::instance* source = nullptr) {
   if (view.kind() == meta::type_kind::object || view.kind() == meta::type_kind::sequence) {
@@ -77,8 +76,8 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
             if (member)
               original = *member;
           }
-          draw_value(*child, std::string(property.name), path, pending, serial, status,
-                     property.choices, readonly, original ? &*original : nullptr);
+          draw_value(*child, std::string(property.name), path, pending, serial, status, readonly,
+                     original ? &*original : nullptr);
           ImGui::EndDisabled();
           ImGui::PopID();
           path.pop_back();
@@ -100,7 +99,7 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
             }
             path.emplace_back(i);
             ImGui::PushID(static_cast<int>(i));
-            draw_value(*child, "[" + std::to_string(i) + "]", path, pending, serial, status, {},
+            draw_value(*child, "[" + std::to_string(i) + "]", path, pending, serial, status,
                        readonly);
             ImGui::PopID();
             path.pop_back();
@@ -117,7 +116,7 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
   }
   auto original = source ? source->read_value() : result<value>{error::not_found};
   const bool overridden = original && original->payload != data->payload;
-  if (draw_property_value(name.c_str(), *data, choices, serial, status))
+  if (draw_property_value(name.c_str(), *data, view.type(), serial, status))
     pending = property_edit{.path = path, .data = std::move(*data)};
   if (original) {
     ImGui::SameLine();
@@ -132,8 +131,21 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
   }
 }
 }
-bool draw_property_value(const char* name, value& data, std::span<const meta::enum_entry> choices,
+bool draw_property_value(const char* name, value& data, const meta::type& type,
                          std::uint64_t& serial, error& status) {
+  if (type.kind() != meta::type_kind::scalar || type.scalar_kind() != data.kind()) {
+    status = error::invalid_argument;
+    return false;
+  }
+  std::span<const meta::enum_entry> choices;
+  if (type.is_enum()) {
+    auto entries = type.enum_entries();
+    if (!entries) {
+      status = entries.error();
+      return false;
+    }
+    choices = *entries;
+  }
   bool changed = false;
   error operation = error::success;
   if (!choices.empty()) {
@@ -157,6 +169,9 @@ bool draw_property_value(const char* name, value& data, std::span<const meta::en
       break;
     case value_kind::float32:
       changed = ImGui::DragFloat(name, &std::get<float>(data.payload), 0.01F);
+      break;
+    case value_kind::vec2:
+      changed = ImGui::DragFloat2(name, &std::get<math::vector2>(data.payload).x, 0.01F);
       break;
     case value_kind::vec3:
       changed = ImGui::DragFloat3(name, &std::get<math::vector3>(data.payload).x, 0.01F);
@@ -211,7 +226,7 @@ std::optional<property_edit> draw_reflected_properties(const meta::instance& vie
   }
   std::optional<property_edit> edit;
   property_path path;
-  draw_value(view, name, path, edit, serial, status, {}, readonly, source);
+  draw_value(view, name, path, edit, serial, status, readonly, source);
   return edit;
 }
 }

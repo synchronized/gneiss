@@ -295,6 +295,16 @@ template <class T>
       return false;
     }
     parsed.payload = id;
+  } else if (kind == "vec2") {
+    gneiss::engine::math::vector2 numbers{};
+    if (!parse_override_float_array(value, numbers))
+      return false;
+    parsed.payload = numbers;
+  } else if (kind == "vec4") {
+    gneiss::engine::math::vector4 numbers{};
+    if (!parse_override_float_array(value, numbers))
+      return false;
+    parsed.payload = numbers;
   } else if (kind == "vec3") {
     gneiss::engine::math::vector3 numbers{};
     if (!parse_override_float_array(value, numbers)) {
@@ -572,6 +582,12 @@ gneiss::engine::error write_object_fields(yyjson_mut_doc* doc, yyjson_mut_val* t
           const auto text = type_id_text(id);
           return yyjson_mut_obj_add_str(document, object, "kind", "type_id") &&
                  yyjson_mut_obj_add_strncpy(document, object, "value", text.data(), text.size());
+        } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector2>) {
+          return yyjson_mut_obj_add_str(document, object, "kind", "vec2") &&
+                 put_value(document, object, "value", make_float_array(document, payload));
+        } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector4>) {
+          return yyjson_mut_obj_add_str(document, object, "kind", "vec4") &&
+                 put_value(document, object, "value", make_float_array(document, payload));
         } else if constexpr (std::is_same_v<value_type, gneiss::engine::math::vector3>) {
           return yyjson_mut_obj_add_str(document, object, "kind", "vec3") &&
                  put_value(document, object, "value", make_float_array(document, payload));
@@ -838,7 +854,9 @@ detail::serialize_object_document(guid uuid, std::optional<guid> root_uuid,
               return !item.is_nil();
             else if constexpr (std::is_floating_point_v<T>)
               return std::isfinite(item);
-            else if constexpr (std::is_same_v<T, math::vector3> ||
+            else if constexpr (std::is_same_v<T, math::vector2> ||
+                               std::is_same_v<T, math::vector4> ||
+                               std::is_same_v<T, math::vector3> ||
                                std::is_same_v<T, math::quaternion>)
               return std::ranges::all_of(math::components(item),
                                          [](float value) { return std::isfinite(value); });

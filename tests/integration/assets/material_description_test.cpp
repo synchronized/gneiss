@@ -59,6 +59,16 @@ void native_material_contract() {
        R"({"format":"gneiss.material","version":6,"parameters":{"unknown":1},"texture_uris":["","","","",""]})",
        R"({"format":"gneiss.material","version":6,"parameters":{},"parameters":{},"texture_uris":["","","","",""]})"})
     check(!decode_material(bytes(malformed)));
+  for (
+      const auto malformed :
+      {R"({"format":"gneiss.material","format":"gneiss.material","version":6,"parameters":{},"texture_uris":["","","","",""]})",
+       R"({"format":"gneiss.material","version":6,"version":6,"parameters":{},"texture_uris":["","","","",""]})",
+       R"({"format":"other","version":6})", R"({"format":"gneiss.material","version":0})",
+       R"({"format":"gneiss.material","version":"6"})", R"([])"})
+    check(!decode_material(bytes(malformed)));
+  auto obsolete = decode_material(bytes(R"({"format":"gneiss.material","version":5})"));
+  check(!obsolete && obsolete.error().error == error::unsupported &&
+        obsolete.error().path == "/version");
   auto length_error = decode_material(
       bytes(R"({"format":"gneiss.material","version":6,"parameters":{},"texture_uris":[]})"));
   check(!length_error && length_error.error().path == "/texture_uris");

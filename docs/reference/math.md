@@ -27,9 +27,9 @@ Gizmo 保持正缩放、无剪切的限制。
 
 ## 反射与数据边界
 
-反射属性直接使用 `engine::math::vector3` 和 `engine::math::quaternion`，不提供属性专用数学别名；
-现有反射属性种类及稳定 GUID 不变。
-这次不增加 vector2、vector4 或矩阵的反射字段种类。
+反射属性直接使用 `engine::math::vector2/vector3/vector4` 和 `engine::math::quaternion`，
+不提供属性专用数学别名。向量按分量数组序列化；矩阵尚未提供内建反射值支持。
+具体边界见 [反射](reflection.md)。
 
 Scene、导入节点、运行时 Transform、渲染矩阵和编辑器计算使用统一数学类型。
 Prefab 属性持久化载荷、IPC、网格/材质格式、GPU 数据和 ImGuizmo 接口仍保留各自的数组格式。

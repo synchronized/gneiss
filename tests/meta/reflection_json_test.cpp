@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "engine/core/meta/instance.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/meta/serialization.hpp"
 #include "engine/resource/asset_decoder.hpp"
@@ -18,6 +19,7 @@ struct sample {
   double precise = 2;
   std::string name = "默认";
   e::guid identity{};
+  e::math::vector2 uv{0.25F, 0.75F};
   e::math::vector3 position{1, 2, 3};
   e::math::quaternion rotation{1, 0, 0, 0};
   float computed() const { return speed * 2; }
@@ -41,6 +43,7 @@ e::error register_sample(const m::registry_ref& registry, std::string_view name 
       .property<&sample::identity>(m::property_id{7}, "identity")
       .property<&sample::position>(m::property_id{8}, "position")
       .property<&sample::rotation>(m::property_id{9}, "rotation")
+      .property<&sample::uv>(m::property_id{11}, "uv")
       .readonly<&sample::computed>(m::property_id{10}, "computed")
       .serialization()
       .validate<&validate_sample>()
@@ -97,7 +100,7 @@ int main() try {
   if (!decoded || decoded->signed_number != original.signed_number ||
       decoded->unsigned_number != original.unsigned_number || decoded->name != original.name ||
       decoded->identity != original.identity || decoded->position != original.position ||
-      decoded->rotation != original.rotation)
+      decoded->rotation != original.rotation || decoded->uv != original.uv)
     return 7;
   auto defaults =
       m::deserialize<sample>(registry, bytes(R"({"enabled":false,"unknown":1,"computed":99})"));
@@ -118,6 +121,24 @@ int main() try {
       !fails(R"({"enabled":true,"position":[1,2]})", "/position") ||
       !fails(R"({"enabled":true,"identity":"bad"})", "/identity"))
     return 9;
+  if (!fails(R"({"enabled":true,"uv":[1]})", "/uv") ||
+      !fails(R"({"enabled":true,"uv":[1,2,3]})", "/uv") ||
+      !fails(R"({"enabled":true,"uv":[1,1e100]})", "/uv/1") ||
+      !fails(R"({"enabled":true,"uv":[1,"bad"]})", "/uv/1"))
+    return 31;
+  auto view = m::mutable_instance::from(registry, original);
+  if (!view)
+    return 32;
+  auto uv = view->property(m::property_id{11});
+  if (!uv || uv->read_value()->kind() != e::value_kind::vec2 ||
+      uv->write_value(e::value{e::math::vector2{2, 3}}).failed() || original.uv.x != 2 ||
+      uv->write_value(e::value{e::math::vector3{2, 3, 4}}).ok())
+    return 33;
+  original.uv.y = std::numeric_limits<float>::infinity();
+  auto invalid_uv = m::serialize(registry, original);
+  if (invalid_uv || invalid_uv.error().path != "/uv")
+    return 34;
+  original.uv = {0.25F, 0.75F};
   original.speed = std::numeric_limits<float>::infinity();
   auto invalid = m::serialize(registry, original);
   // getter 产生非法属性值沿用 Meta 的 internal 语义，并保留字段位置。

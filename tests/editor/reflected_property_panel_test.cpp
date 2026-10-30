@@ -106,6 +106,31 @@ int main() try {
   changed_mesh.material_uri = "asset://changed.json";
   if (!restore(changed_mesh, mesh, e::meta::property_id{2}, e::value{mesh.material_uri}))
     return 12;
+  ImGui::NewFrame();
+  ImGui::Begin("Vector2");
+  enum class choice { first, second };
+  auto registry = e::meta::create_registry();
+  const std::array entries{e::meta::enum_entry{"First", e::value{std::int64_t{0}}},
+                           e::meta::enum_entry{"Second", e::value{std::int64_t{1}}}};
+  if (!registry ||
+      e::meta::register_enum(*registry, e::runtime_type_of<choice>(), e::value_kind::int64, entries)
+          .failed() ||
+      e::meta::freeze(*registry).failed())
+    return 15;
+  std::vector<choice> choices{choice::second};
+  auto choices_view = e::meta::instance::from(*registry, choices);
+  if (!choices_view || draw_reflected_properties(*choices_view, "Enum elements", serial, error) ||
+      !error.ok())
+    return 16;
+  e::value uv{e::math::vector2{0.25F, 0.75F}};
+  auto uv_view = e::meta::instance::from(std::get<e::math::vector2>(uv.payload));
+  if (!uv_view)
+    return 14;
+  if (draw_property_value("UV", uv, uv_view->type(), serial, error) || !error.ok() ||
+      uv.kind() != e::value_kind::vec2)
+    return 13;
+  ImGui::End();
+  ImGui::Render();
   serial = 0;
   // 非法四元数只报告错误，不调用写入或变更模型；不需要原生窗口。
   transform.rotation.w = 0.0F;

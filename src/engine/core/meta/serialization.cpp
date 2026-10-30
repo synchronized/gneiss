@@ -84,10 +84,11 @@ result<value, serialization_diagnostic> read_value(yyjson_val* input, value_kind
       }
     }
     break;
+  case value_kind::vec2:
   case value_kind::vec3:
   case value_kind::vec4:
   case value_kind::quaternion: {
-    const std::size_t count = kind == value_kind::vec3 ? 3U : 4U;
+    const std::size_t count = kind == value_kind::vec2 ? 2U : kind == value_kind::vec3 ? 3U : 4U;
     if (!yyjson_is_arr(input) || yyjson_arr_size(input) != count)
       break;
     math::quaternion numbers{};
@@ -100,7 +101,9 @@ result<value, serialization_diagnostic> read_value(yyjson_val* input, value_kind
                        "分量必须为有限 float");
       components[i] = static_cast<float>(yyjson_get_num(item));
     }
-    if (kind == value_kind::vec3)
+    if (kind == value_kind::vec2)
+      output.payload = math::vector2{components[0], components[1]};
+    else if (kind == value_kind::vec3)
       output.payload = math::vector3{components[0], components[1], components[2]};
     else if (kind == value_kind::vec4)
       output.payload = math::vector4{components[0], components[1], components[2], components[3]};

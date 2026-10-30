@@ -39,6 +39,7 @@ public:
   template <class T>
     requires(!std::is_lvalue_reference_v<T>)
   static result<instance> from(T&&) = delete;
+  [[nodiscard]] meta::type type() const noexcept;
   [[nodiscard]] type_kind kind() const noexcept { return kind_; }
   [[nodiscard]] value_kind scalar_kind() const noexcept { return scalar_kind_; }
   [[nodiscard]] engine::guid guid() const noexcept { return type_; }
@@ -62,6 +63,7 @@ private:
   registry_ref registry_;
   engine::guid type_{};
   engine::type_id cpp_type_{};
+  bool enumeration_ = false;
   type_kind kind_ = type_kind::invalid;
   value_kind scalar_kind_ = value_kind::invalid;
   const void* data_{};
@@ -96,6 +98,7 @@ public:
   [[nodiscard]] type_kind kind() const noexcept { return view_.kind(); }
   [[nodiscard]] result<mutable_instance> property(property_id id) const noexcept;
   [[nodiscard]] result<mutable_instance> property(std::string_view name) const noexcept;
+  [[nodiscard]] meta::type type() const noexcept { return view_.type(); }
   [[nodiscard]] result<value> read_value() const noexcept { return view_.read_value(); }
   [[nodiscard]] error write_value(const value& input) const noexcept;
   [[nodiscard]] result<void*> object_data() const noexcept;

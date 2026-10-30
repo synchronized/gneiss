@@ -3,6 +3,51 @@
 #include "engine/core/meta/instance.hpp"
 #include <algorithm>
 namespace gneiss::engine::meta {
+meta::type instance::type() const noexcept {
+  meta::type out;
+  out.registry_ = registry_;
+  out.access_ = access_;
+  out.id_ = cpp_type_;
+  out.guid_ = type_;
+  out.kind_ = kind_;
+  out.scalar_ = scalar_kind_;
+  out.enumeration_ = enumeration_ || (access_ && access_->enumeration);
+  return out;
+}
+result<std::span<const enum_entry>> type::enum_entries() const noexcept {
+  if (kind_ == type_kind::invalid)
+    return error::invalid_state;
+  if (!is_enum())
+    return error::unsupported;
+  return meta::enum_entries(registry_, id_);
+}
+result<std::vector<property_info>> type::properties() const noexcept {
+  if (kind_ == type_kind::invalid)
+    return error::invalid_state;
+  if (kind_ != type_kind::object)
+    return error::unsupported;
+  auto info = describe_type(registry_, id_);
+  if (!info)
+    return info.error();
+  return std::move(info->properties);
+}
+result<type> type::element_type() const noexcept {
+  if (kind_ == type_kind::invalid)
+    return error::invalid_state;
+  if (!access_ || !access_->element)
+    return error::unsupported;
+  const auto& access = access_->element();
+  type out;
+  out.registry_ = registry_;
+  out.access_ = &access;
+  out.id_ = access.id;
+  out.guid_ = access.guid;
+  out.kind_ = access.kind;
+  out.scalar_ = access.scalar;
+  out.enumeration_ = access.enumeration;
+  return out;
+}
+
 result<instance> instance::from_object(registry_ref registry, engine::type_id id,
                                        const void* object) noexcept {
   if (!object)
@@ -49,6 +94,8 @@ result<instance> instance::property(property_id id) const noexcept try {
   output.parent_type_ = type_;
   output.property_ = id;
   output.type_ = info->type_guid;
+  output.cpp_type_ = info->enum_type;
+  output.enumeration_ = bool(info->enum_type);
   if (info->object_type) {
     auto binding = find_object_property(registry_, type_, id);
     if (!binding)
