@@ -102,6 +102,14 @@ int main() try {
     check(bool(metadata) && metadata->properties[6].choices.size() == 3 &&
               metadata->properties[6].choices[2].name == "blend",
           "owned enum metadata");
+    auto sampling_type = e::meta::describe_type(e::runtime_type_of<e::texture_sampling>());
+    check(bool(sampling_type) &&
+              sampling_type->properties[1].enum_type == e::runtime_type_of<e::texture_filter>() &&
+              sampling_type->properties[1].choices.data() ==
+                  sampling_type->properties[2].choices.data() &&
+              sampling_type->properties[4].choices.data() ==
+                  sampling_type->properties[5].choices.data(),
+          "shared enum options");
   }
   const auto initial = model.description().parameters.roughness;
   check(model.set_value(rough, e::value{0.2F}, 7).ok() &&

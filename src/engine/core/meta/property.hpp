@@ -75,6 +75,7 @@ struct property_info {
   property_capabilities capabilities = property_capabilities::none;
   engine::type_id object_type{}; // 非零表示借用成员的运行期类型。
   type_kind category = type_kind::invalid;
+  engine::type_id enum_type{};
   std::span<const enum_entry> choices{};
 };
 /** 回调借用实际类型的对象指针；调用方保证对象存活、类型正确和线程访问合法。
@@ -91,7 +92,7 @@ struct property_binding {
   void* (*object_mutator)(void*){};
   /** 自定义子类型解码成功后，将独立值移入父对象成员。 */
   void (*object_assign)(void*, void*){};
-  std::vector<enum_entry> choices{};
+  engine::type_id enum_type{};
   const detail::type_access* access{}; // 静态只读操作表，不持有对象。
 };
 } // namespace gneiss::engine::meta

@@ -2,7 +2,7 @@
 <!-- Copyright (c) 2026 Gneiss contributors -->
 # PLAN-072：共用属性面板与对象替换
 
-状态：已完成。
+状态：已完成。枚举注册后续由 [PLAN-073](PLAN-073-cpp-enum-registration.md) 改为类型级注册。
 
 目标：共用属性控件及对象/固定数组遍历；材质与对象 Inspector 复用控件；可选枚举名称；同类型对象复制赋值；材质嵌套对象复制、粘贴、恢复默认值。
 

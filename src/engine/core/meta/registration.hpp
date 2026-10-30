@@ -39,6 +39,47 @@ template <class T>
     return registry.error();
   return register_type<T>(*registry, definition, bindings);
 }
+/** C++ 枚举的类型安全注册；只保存显示项，不自动约束枚举业务值域。 */
+template <class E>
+  requires std::is_enum_v<E>
+class enum_builder {
+public:
+  enum_builder() noexcept {
+    auto registry = default_registry();
+    if (registry)
+      registry_ = std::move(*registry);
+    else
+      status_ = registry.error();
+  }
+  explicit enum_builder(registry_ref registry) noexcept : registry_(std::move(registry)) {}
+  enum_builder& value(std::string_view name, E input) noexcept {
+    if (committed_ || status_.failed())
+      return *this;
+    try {
+      entries_.push_back({std::string(name), detail::scalar_value(input)});
+    } catch (const std::bad_alloc&) {
+      status_ = error::out_of_memory;
+    } catch (...) {
+      status_ = error::internal;
+    }
+    return *this;
+  }
+  error commit() noexcept {
+    if (committed_)
+      return error::invalid_state;
+    committed_ = true;
+    if (status_.failed())
+      return status_;
+    return register_enum(registry_, runtime_type_of<E>(), detail::reflected_value_kind<E>(),
+                         entries_);
+  }
+
+private:
+  registry_ref registry_;
+  std::vector<enum_entry> entries_;
+  error status_ = error::success;
+  bool committed_ = false;
+};
 /** 注册期间拥有字段名称；不持有实例。需外部同步，commit 后不可复用。
  * 访问器只在调用期间借用对象，setter 须先校验再修改，失败保持原对象。
  * 分配错误记录为结果码，commit 失败不在 Registry 留下类型。 */
@@ -141,30 +182,6 @@ public:
                                      std::invoke(Getter, *static_cast<const object_type*>(object)));
                                  return error::success;
                                }});
-  }
-  /** 为上一属性设置可选显示项；只影响呈现，业务校验仍由类型负责。 */
-  type_builder& choices(std::initializer_list<enum_entry> items) noexcept {
-    if (committed_ || status_.failed())
-      return *this;
-    try {
-      if (entries_.empty()) {
-        status_ = error::invalid_state;
-        return *this;
-      }
-      for (const auto& item : items) {
-        if (item.name.empty() || item.data.kind() != entries_.back().binding.kind ||
-            (item.data.kind() != value_kind::int64 && item.data.kind() != value_kind::uint64)) {
-          status_ = error::invalid_argument;
-          return *this;
-        }
-      }
-      entries_.back().binding.choices.assign(items);
-    } catch (const std::bad_alloc&) {
-      status_ = error::out_of_memory;
-    } catch (...) {
-      status_ = error::internal;
-    }
-    return *this;
   }
   /** 启用反射 JSON；缺失的非必填字段保留默认值，只读字段不持久化。 */
   type_builder& serialization(bool reject_unknown_fields = false) noexcept {
@@ -269,6 +286,8 @@ private:
     if (committed_ || status_.failed())
       return *this;
     try {
+      if constexpr (std::is_enum_v<Property>)
+        binding.enum_type = runtime_type_of<Property>();
       if (has_flags(flags, property_flags::read_only)) {
         binding.setter = nullptr;
         binding.object_mutator = nullptr;

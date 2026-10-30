@@ -31,3 +31,16 @@ Material Editor 按反射字段展开 parameters、sampling 和 texture_uris。
 可先保留所需修改内容，再丢弃并从 Asset Browser 重新打开最新文件。
 当前编辑只作用于描述副本，不直接修改资产缓存，也不提供实时 GPU 预览。
 文件落盘后的资源更新沿用宿主已有的文件监听流程。
+
+枚举下拉框由 C++ 枚举类型的反射注册提供。例如：
+
+```cpp
+meta::enum_builder<material_alpha_mode>{}
+    .value("opaque", material_alpha_mode::opaque)
+    .value("mask", material_alpha_mode::mask)
+    .value("blend", material_alpha_mode::blend)
+    .commit();
+```
+
+属性仅使用普通 `.property<&material_parameters::alpha_mode>(...)` 注册，无需重复列出选项。
+相同枚举类型共享显示项；未注册选项时使用整数控件。显示项不代替材质业务校验，文件仍保存整数。

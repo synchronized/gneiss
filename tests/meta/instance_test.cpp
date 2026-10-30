@@ -5,6 +5,61 @@
 #include <future>
 namespace e = gneiss::engine;
 namespace m = e::meta;
+enum class mode : std::int8_t { first = -1, second = 2 };
+struct enum_object {
+  static constexpr std::string_view type_name = "enum_object";
+  static constexpr e::guid type_guid = e::guid::from_bytes({94, 3});
+  mode left = mode::first, right = mode::second;
+};
+bool enum_registration() {
+  auto made = m::create_registry();
+  if (!made)
+    return false;
+  const auto& registry = *made;
+  if (m::type_builder<enum_object>{registry}
+          .property<&enum_object::left>(m::property_id{1}, "left")
+          .property<&enum_object::right>(m::property_id{2}, "right")
+          .commit()
+          .failed())
+    return false;
+  if (m::enum_builder<mode>{registry}
+              .value("same", mode::first)
+              .value("same", mode::second)
+              .commit() != e::error::invalid_argument ||
+      m::enum_builder<mode>{registry}
+              .value("one", mode::first)
+              .value("alias", mode::first)
+              .commit() != e::error::invalid_argument)
+    return false;
+  m::enum_builder<mode> builder{registry};
+  std::string label = "First";
+  builder.value(label, mode::first).value("Second", mode::second);
+  label = "changed";
+  if (builder.commit().failed() || builder.commit() != e::error::invalid_state ||
+      m::enum_builder<mode>{registry}.value("duplicate", mode::first).commit() !=
+          e::error::invalid_argument ||
+      m::freeze(registry).failed())
+    return false;
+  auto type = m::describe_type<enum_object>(registry);
+  if (!type || type->properties[0].enum_type != e::runtime_type_of<mode>() ||
+      type->properties[0].choices.size() != 2 ||
+      type->properties[0].choices.data() != type->properties[1].choices.data() ||
+      type->properties[0].choices[0].name != "First" ||
+      std::get<std::int64_t>(type->properties[0].choices[0].data.payload) != -1)
+    return false;
+  enum_object object;
+  auto view = m::mutable_instance::from(registry, object);
+  if (!view)
+    return false;
+  auto field = view->property("left");
+  if (!field || field->write_value(e::value{std::int64_t{2}}).failed() ||
+      object.left != mode::second ||
+      field->write_value(e::value{std::int64_t{128}}) != e::error::invalid_argument ||
+      object.left != mode::second)
+    return false;
+  return m::enum_builder<mode>{registry}.value("late", mode::first).commit() ==
+         e::error::invalid_state;
+}
 struct settings {
   static constexpr std::string_view type_name = "instance_settings";
   static constexpr e::guid type_guid = e::guid::from_bytes({94, 1});
@@ -35,15 +90,12 @@ static_assert(!can_borrow<object> && !can_borrow<const object>);
 static_assert(can_mutate<object&> && !can_mutate<const object&> && !can_mutate<object>);
 static_assert(!std::is_constructible_v<m::mutable_instance, m::instance>);
 int main() try {
+  if (!enum_registration())
+    return 30;
   auto created = m::create_registry();
   if (!created)
     return 1;
   auto registry = *created;
-  if (m::type_builder<settings>{registry}
-          .property<&settings::speed>(m::property_id{1}, "speed")
-          .choices({{"invalid", e::value{std::uint64_t{0}}}})
-          .commit() != e::error::invalid_argument)
-    return 29;
   object source;
   if (m::instance::from(registry, source).error() != e::error::not_ready)
     return 2;

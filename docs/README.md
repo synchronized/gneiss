@@ -608,3 +608,5 @@
 - [PLAN-070：ActionMap 反射编解码与新建描述保存](plans/PLAN-070-action-map-and-new-description-save.md)
 - [PLAN-071：材质反射编辑闭环](plans/PLAN-071-material-editor.md)
 - [PLAN-072：共用属性面板与对象替换](plans/PLAN-072-reflected-property-editor.md)
+
+- [PLAN-073：C++ 枚举类型注册](plans/PLAN-073-cpp-enum-registration.md)

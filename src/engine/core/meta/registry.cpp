@@ -107,15 +107,8 @@ namespace {
 
 using property_accessor = property_binding;
 bool valid_binding(const property_binding& binding) noexcept {
-  for (std::size_t i = 0; i < binding.choices.size(); ++i) {
-    const auto& item = binding.choices[i];
-    if (!is_valid_name(item.name) || item.data.kind() != binding.kind ||
-        (binding.kind != value_kind::int64 && binding.kind != value_kind::uint64))
-      return false;
-    for (std::size_t j = 0; j < i; ++j)
-      if (binding.choices[j].name == item.name || binding.choices[j].data == item.data)
-        return false;
-  }
+  if (binding.enum_type && binding.kind != value_kind::int64 && binding.kind != value_kind::uint64)
+    return false;
   if (binding.object_type)
     return binding.kind == value_kind::invalid && !binding.getter && !binding.setter &&
            binding.object_getter &&
@@ -131,6 +124,7 @@ struct property_record {
   std::uint32_t flags = 0;
   std::string name;
   property_accessor accessor{};
+  std::span<const enum_entry> choices{};
 };
 
 struct type_record {
@@ -190,7 +184,8 @@ struct type_record {
                       : property.accessor.object_type ? type_kind::object
                       : property.accessor.kind != value_kind::invalid ? type_kind::scalar
                                                                       : type_kind::invalid,
-          .choices = property.accessor.choices};
+          .enum_type = property.accessor.enum_type,
+          .choices = property.choices};
 }
 
 [[nodiscard]] type_info describe_record(const type_record& record) {
@@ -211,6 +206,30 @@ bool valid_scalar(const value& input) noexcept { return is_valid_property_value(
 
 class type_registry_state final {
 public:
+  error register_enum(engine::type_id id, value_kind kind,
+                      std::span<const enum_entry> entries) noexcept try {
+    if (!id || entries.empty() || (kind != value_kind::int64 && kind != value_kind::uint64))
+      return error::invalid_argument;
+    for (std::size_t i = 0; i < entries.size(); ++i) {
+      if (!is_valid_name(entries[i].name) || entries[i].data.kind() != kind)
+        return error::invalid_argument;
+      for (std::size_t j = 0; j < i; ++j)
+        if (entries[j].name == entries[i].name || entries[j].data == entries[i].data)
+          return error::invalid_argument;
+    }
+    std::unique_lock lock(mutex_);
+    if (is_frozen_)
+      return error::invalid_state;
+    if (enums_.contains(id))
+      return error::invalid_argument;
+    enums_.emplace(id, enum_record{kind, {entries.begin(), entries.end()}});
+    return error::success;
+  } catch (const std::bad_alloc&) {
+    return error::out_of_memory;
+  } catch (...) {
+    return error::internal;
+  }
+
   [[nodiscard]] error register_type(const type_definition& desc,
                                     std::span<const property_binding> bindings = {}) noexcept {
     if (!validate_type(desc)) {
@@ -310,7 +329,8 @@ public:
                        current.object_getter == requested.object_getter &&
                        current.object_mutator == requested.object_mutator &&
                        current.object_assign == requested.object_assign &&
-                       current.access == requested.access && current.choices == requested.choices
+                       current.access == requested.access &&
+                       current.enum_type == requested.enum_type
                    ? error::success
                    : error::invalid_argument;
       }
@@ -355,6 +375,16 @@ public:
             return error::not_found;
           if (found->second->guid != property.type_guid)
             return error::invalid_argument;
+        }
+      }
+      for (auto& type : types_) {
+        for (auto& property : type->properties) {
+          const auto found = enums_.find(property.accessor.enum_type);
+          if (found == enums_.end())
+            continue;
+          if (found->second.kind != property.accessor.kind)
+            return error::invalid_argument;
+          property.choices = found->second.entries;
         }
       }
       std::ranges::sort(types_, [](const auto& left, const auto& right) {
@@ -575,6 +605,11 @@ private:
   mutable std::shared_mutex mutex_;
   std::vector<std::unique_ptr<type_record>> types_;
   std::map<engine::type_id, type_record*> by_cpp_type_;
+  struct enum_record {
+    value_kind kind;
+    std::vector<enum_entry> entries;
+  };
+  std::map<engine::type_id, enum_record> enums_;
   bool is_frozen_ = false;
 };
 
@@ -595,6 +630,10 @@ result<registry_ref> create_registry() noexcept {
   } catch (...) {
     return error::internal;
   }
+}
+error register_enum(const registry_ref& state, engine::type_id id, value_kind kind,
+                    std::span<const enum_entry> entries) noexcept {
+  return state ? state->register_enum(id, kind, entries) : error::invalid_handle;
 }
 error register_type(const registry_ref& state, const type_definition& desc) noexcept {
   return state ? state->register_type(desc) : error::invalid_handle;
