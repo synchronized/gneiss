@@ -166,7 +166,7 @@ int main() try {
   // 同时恢复嵌套对象多个叶字段，仍通过同一命令和稀疏覆盖。
   check(apply({.path = {p{3}},
                .object_type = e::runtime_type_of<movement_settings>(),
-               .object = std::make_shared<movement_settings>()})
+               .object = gneiss::engine::make_ref<movement_settings>()})
             .ok());
   check(read().settings.acceleration == 1 && override_count() == 1);
   check(history.undo().ok() && read().settings.acceleration == 7);
@@ -175,13 +175,13 @@ int main() try {
   replacement.samples.push_back(3);
   check(apply({.path = {},
                .object_type = e::runtime_type_of<movement_description>(),
-               .object = std::make_shared<movement_description>(replacement)}) ==
+               .object = gneiss::engine::make_ref<movement_description>(replacement)}) ==
         e::error::unsupported);
   check(read().samples.size() == 2);
   // 两个相互约束的字段必须整体覆盖，不能按路径顺序提前校验中间态。
   check(apply({.path = {p{3}},
                .object_type = e::runtime_type_of<movement_settings>(),
-               .object = std::make_shared<movement_settings>(movement_settings{20, 30})})
+               .object = gneiss::engine::make_ref<movement_settings>(movement_settings{20, 30})})
             .ok());
   auto invalid = snapshot();
   auto invalid_prefab = std::ranges::find_if(

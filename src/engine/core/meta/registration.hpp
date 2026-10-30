@@ -194,7 +194,7 @@ public:
     }
     codec_.reflected_json = true;
     codec_.reject_unknown_fields = reject_unknown_fields;
-    codec_.construct = []() -> std::shared_ptr<void> { return std::make_shared<object_type>(); };
+    codec_.construct = []() -> ref<void> { return make_ref<object_type>(); };
     return *this;
   }
   /** 校验返回 error 或 serialization_diagnostic；不修改对象。 */
@@ -238,8 +238,9 @@ public:
           return std::invoke(Encode, *static_cast<const object_type*>(object));
       };
     if constexpr (Decode != nullptr)
-      codec_.decode = [](const registry_ref& registry, std::span<const std::byte> bytes)
-          -> result<std::shared_ptr<void>, serialization_diagnostic> {
+      codec_.decode =
+          [](const registry_ref& registry,
+             std::span<const std::byte> bytes) -> result<ref<void>, serialization_diagnostic> {
         auto decoded = [&] {
           if constexpr (std::is_invocable_v<decltype(Decode), const registry_ref&,
                                             std::span<const std::byte>>)
@@ -249,7 +250,7 @@ public:
         }();
         if (!decoded)
           return std::move(decoded).error();
-        return std::shared_ptr<void>{std::make_shared<object_type>(std::move(*decoded))};
+        return ref<void>{std::make_shared<object_type>(std::move(*decoded))};
       };
     return *this;
   }

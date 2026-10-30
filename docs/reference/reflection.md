@@ -148,7 +148,7 @@ Registry 使用原生共享引用管理，不经全局句柄表。独立表在�
 `serialize<T>` 返回 `result<vector<byte>, serialization_diagnostic>`，`deserialize<T>` 返回
 `result<T, serialization_diagnostic>`。成功结果拥有值，失败结果仅携带错误码、路径、字节偏移和消息。
 `serialization_diagnostic.error` 保存错误码；bad_alloc 转为 out_of_memory，其余异常转为 internal。
-Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `shared_ptr<void>`，
+Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `result<ref<void>, serialization_diagnostic>`，
 模板接口按已登记的运行期类型 ID 找到回调后移出具体对象，不要求默认构造或移动赋值。
 未冻结返回 not_ready，未知类型返回 not_found，缺少方向返回 unsupported，空 Registry 返回 invalid_handle。
 回调在 Registry 锁外执行，要求可并发处理不同对象；对象与输入只在调用期间借用。
@@ -374,3 +374,17 @@ kind/category/object_type/enum_type/choices/type_guid。属性保留 id、name�
 
 面板和 JSON 序列化通过类型视图判断结构和标量类别；具体读写仍由 instance 完成。
 包含自定义 getter/setter 的属性不会因新增类型操作表而绕过访问器。
+
+## 对象所有权
+
+`engine/core/ref.hpp` 提供 `ref<T>` 与 `make_ref<T>`，不要求类型继承共同基类。
+资源层 `asset_ref<T>` 是它的语义别名。反射解码对象、组件描述的不可变内容以及编辑器
+整对象编辑载荷共用该拥有者；复制保留同一控制块，转换为 const/void 不改变删除器。
+
+`make_ref` 创建普通 CPU 对象；需要线程限定销毁的资源继续使用资源工厂的自定义删除器。
+`get()` 和 `meta::instance` 是借用入口，调用方须保留拥有者，不能由借用指针重新创建所有权。
+共享引用不保证对象数据线程安全，引用环须由弱引用或对象 ID 打破。
+
+这不改变字段持久化规则，也不代表通用 `ref<T>` 属性已经支持自动编解码。
+资源标识、场景 GUID 和内嵌组件描述仍按各自已有格式处理。设计边界见
+[ADR-098](../decisions/ADR-098-object-reference-ownership.md)。

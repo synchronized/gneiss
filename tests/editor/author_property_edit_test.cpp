@@ -57,13 +57,13 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
   edit.path = {p{1}};
   edit.object_type = e::runtime_type_of<e::math::camera_settings>();
   edit.object =
-      std::make_shared<e::math::camera_settings>(e::math::camera_settings{1.2F, 200.0F, 400.0F});
+      e::make_ref<e::math::camera_settings>(e::math::camera_settings{1.2F, 200.0F, 400.0F});
   if (ed::edit_component_description(session, history, world, target, edit, 4).failed() ||
       read(ordinary_entity).far != 400.0F)
     return 36;
 
   edit.object_type = e::runtime_type_of<e::camera_description>();
-  edit.object = std::make_shared<e::camera_description>();
+  edit.object = gneiss::engine::make_ref<e::camera_description>();
   if (ed::edit_component_description(session, history, world, target, edit, 4) !=
           e::error::invalid_argument ||
       read(ordinary_entity).far != 400.0F)
@@ -180,7 +180,8 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
     return 56;
   ed::property_edit restore{.path = {},
                             .object_type = e::runtime_type_of<e::math::transform>(),
-                            .object = std::make_shared<e::math::transform>(child.transform)};
+                            .object =
+                                gneiss::engine::make_ref<e::math::transform>(child.transform)};
   if (ed::edit_component_description(session, child_history, world, child_transform, restore, 0)
           .failed() ||
       overrides(snapshot()) != 1 || child_history.undo().failed() || overrides(snapshot()) != 2)

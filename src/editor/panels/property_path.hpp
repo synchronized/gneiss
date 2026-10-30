@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/core/meta/property_path.hpp"
-#include <memory>
+#include "engine/core/ref.hpp"
 #include <variant>
 namespace gneiss::editor {
 using engine::meta::property_path;
@@ -12,6 +12,6 @@ struct property_edit {
   property_path path;
   engine::value data{};
   engine::type_id object_type{};
-  std::shared_ptr<void> object{};
+  engine::ref<void> object{};
 };
 }

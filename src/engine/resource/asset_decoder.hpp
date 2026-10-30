@@ -46,7 +46,7 @@ public:
       return std::move(decoded).error();
     if (!*decoded)
       return meta::serialization_diagnostic{.error = error::internal};
-    return std::shared_ptr<const void>{std::move(*decoded)};
+    return std::shared_ptr<const void>{decoded->shared()};
   } catch (const std::bad_alloc&) {
     return meta::serialization_diagnostic{.error = error::out_of_memory};
   } catch (...) {

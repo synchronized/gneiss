@@ -101,3 +101,5 @@ Reference 和实现为准。
 - [ADR-096：Function 层注册描述与运行组件的转换](ADR-096-scene-component-adapters.md)
 
 - [ADR-097：Prefab 组件结构覆盖与冲突边界](ADR-097-prefab-component-overrides.md)
+
+- [ADR-098：共享对象引用统一到 Core](ADR-098-object-reference-ownership.md)

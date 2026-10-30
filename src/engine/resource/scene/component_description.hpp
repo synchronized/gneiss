@@ -15,7 +15,7 @@ public:
     requires(!std::is_same_v<std::remove_cvref_t<T>, component_description>)
   component_description(T object)
       : guid_(type_identity<T>::guid()), type_(runtime_type_of<T>()),
-        object_(std::make_shared<const T>(std::move(object))) {}
+        object_(make_ref<const T>(std::move(object))) {}
   [[nodiscard]] engine::guid guid() const noexcept { return guid_; }
   template <class T> [[nodiscard]] const T* get() const noexcept {
     return type_ == runtime_type_of<T>() ? static_cast<const T*>(object_.get()) : nullptr;
@@ -61,11 +61,11 @@ public:
   }
 
 private:
-  component_description(engine::guid guid, engine::type_id type, std::shared_ptr<const void> object)
+  component_description(engine::guid guid, engine::type_id type, ref<const void> object)
       : guid_(guid), type_(type), object_(std::move(object)) {}
   engine::guid guid_;
   engine::type_id type_;
-  std::shared_ptr<const void> object_;
+  ref<const void> object_;
 };
 /** 每个描述类型至多一项；set 替换整项，复制列表后修改不会影响原列表。 */
 class component_descriptions final {

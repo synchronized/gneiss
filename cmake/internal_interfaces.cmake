@@ -10,6 +10,7 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/math/types.hpp
   engine/core/export.hpp
   engine/core/error.hpp
+  engine/core/ref.hpp
   engine/core/result.hpp
   engine/core/version.hpp
   engine/core/log/log_types.hpp

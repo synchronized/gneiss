@@ -225,11 +225,12 @@ void injected_file_service() {
 }
 error register_test_assets() {
   gneiss::engine::meta::serialization_binding codec;
-  codec.decode = [](const meta::registry_ref&, std::span<const std::byte> bytes)
-      -> result<std::shared_ptr<void>, meta::serialization_diagnostic> {
+  codec.decode =
+      [](const meta::registry_ref&,
+         std::span<const std::byte> bytes) -> result<ref<void>, meta::serialization_diagnostic> {
     if (bytes.front() == std::byte{'?'})
       return meta::serialization_diagnostic{7U, "/value", "invalid value", error::invalid_argument};
-    return std::shared_ptr<void>{std::make_shared<value>(value{'r'})};
+    return ref<void>{std::make_shared<value>(value{'r'})};
   };
   return meta::register_type<value>({.guid = guid::from_bytes({0x98, 1}),
                                      .schema_version = 1U,

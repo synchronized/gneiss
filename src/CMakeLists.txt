@@ -73,6 +73,7 @@ target_sources(
     engine/core/traits/type_name.hpp
     engine/core/traits/type_identity.hpp
     engine/core/error.hpp
+    engine/core/ref.hpp
     engine/core/result.hpp
     engine/core/version.hpp
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/resource/asset_ref.hpp"
 #include "engine/resource/resource_retirement_queue.hpp"
 
 #include <atomic>
@@ -34,6 +35,38 @@ void finalize(resource& value, void* owner) noexcept {
 } // namespace
 
 int main() {
+  using namespace gneiss::engine;
+  static_assert(std::is_same_v<asset_ref<resource>, ref<resource>>);
+  static_assert(!std::is_constructible_v<ref<resource>, resource*>);
+  static_assert(!std::is_constructible_v<ref<resource>, ref<const resource>>);
+  // 类型擦除、借用别名和跨线程释放共用原控制块及删除器。
+  {
+    counters tracked;
+    resource_retirement_queue retirement(&tracked);
+    ref<resource> owner{retirement.make<resource>(finalize, tracked)};
+    std::weak_ptr<resource> weak = owner.shared();
+    ref<const void> erased = owner;
+    auto alias = owner.alias(&owner->counts);
+    owner.reset();
+    erased.reset();
+    if (weak.expired() || tracked.destroyed != 0U)
+      return 12;
+    std::jthread release([last = std::move(alias)]() mutable { last.reset(); });
+    release.join();
+    if (!weak.expired() || tracked.destroyed != 0U || retirement.drain() != 1U ||
+        tracked.destroyed != 1U || tracked.wrong_thread)
+      return 13;
+  }
+  {
+    auto original = make_ref<int>(42);
+    ref<const int> moved = std::move(original);
+    if (original || !moved || *moved != 42 || moved.use_count() != 1)
+      return 14;
+    ref<void> empty;
+    if (empty || empty.alias(static_cast<int*>(nullptr)))
+      return 15;
+  }
+
   counters counts;
   resource_retirement_queue queue(&counts);
   // 工厂构造失败不能留下待销毁节点；队列随后仍可正常使用。

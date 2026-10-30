@@ -622,3 +622,5 @@
 - [异步恢复操作与入口收敛](plans/PLAN-089-prefab-restore-operation.md)
 - [组件身份与编辑策略收敛](plans/PLAN-090-component-editor-policy.md)
 - [Prefab 组件结构覆盖决策](decisions/ADR-097-prefab-component-overrides.md)
+
+- [PLAN-091：对象强引用入口统一](plans/PLAN-091-object-reference-ownership.md)

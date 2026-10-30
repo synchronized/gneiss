@@ -595,9 +595,9 @@ serialization_diagnostic decode_members(const registry_ref& registry, type_id id
   }
   return {};
 }
-result<std::shared_ptr<void>, serialization_diagnostic>
-decode_json(const registry_ref& registry, type_id id, const serialization_binding& binding,
-            std::span<const std::byte> bytes) {
+result<ref<void>, serialization_diagnostic> decode_json(const registry_ref& registry, type_id id,
+                                                        const serialization_binding& binding,
+                                                        std::span<const std::byte> bytes) {
   if (!binding.construct)
     return failure(error::unsupported);
   yyjson_read_err diagnostic{};
@@ -640,17 +640,16 @@ serialize_object(const registry_ref& registry, type_id id, const void* object) n
   return failure(error::internal);
 }
 
-result<std::shared_ptr<void>, serialization_diagnostic>
+result<ref<void>, serialization_diagnostic>
 deserialize_object(const registry_ref& registry, type_id id,
                    std::span<const std::byte> bytes) noexcept try {
   auto binding = find_serialization(registry, id);
   if (!binding)
     return failure(binding.error());
-  auto decoded =
-      binding->decode ? binding->decode(registry, bytes)
-      : binding->reflected_json
-          ? decode_json(registry, id, *binding, bytes)
-          : result<std::shared_ptr<void>, serialization_diagnostic>{failure(error::unsupported)};
+  auto decoded = binding->decode ? binding->decode(registry, bytes)
+                 : binding->reflected_json
+                     ? decode_json(registry, id, *binding, bytes)
+                     : result<ref<void>, serialization_diagnostic>{failure(error::unsupported)};
   if (!decoded)
     return std::move(decoded).error();
   if (!*decoded)
@@ -687,7 +686,7 @@ serialize_reflected_object(const registry_ref& registry, type_id id, const void*
 } catch (...) {
   return failure(error::internal);
 }
-result<std::shared_ptr<void>, serialization_diagnostic>
+result<ref<void>, serialization_diagnostic>
 deserialize_reflected_object(const registry_ref& registry, type_id id,
                              std::span<const std::byte> bytes) noexcept try {
   auto binding = find_serialization(registry, id);

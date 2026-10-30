@@ -11,14 +11,14 @@ namespace gneiss::engine::meta {
 /** 类型擦除入口；调用方保证对象类型。反射访问始终使用传入的冻结注册表。 */
 GNEISS_API result<std::vector<std::byte>, serialization_diagnostic>
 serialize_object(const registry_ref&, type_id, const void*) noexcept;
-GNEISS_API result<std::shared_ptr<void>, serialization_diagnostic>
+GNEISS_API result<ref<void>, serialization_diagnostic>
 deserialize_object(const registry_ref&, type_id, std::span<const std::byte>) noexcept;
 
 /** 格式包装器使用：只遍历注册字段，跳过本类型自定义 codec，保留嵌套 codec 和校验。
  * 类型必须显式启用 reflected_json。 */
 GNEISS_API result<std::vector<std::byte>, serialization_diagnostic>
 serialize_reflected_object(const registry_ref&, type_id, const void*) noexcept;
-GNEISS_API result<std::shared_ptr<void>, serialization_diagnostic>
+GNEISS_API result<ref<void>, serialization_diagnostic>
 deserialize_reflected_object(const registry_ref&, type_id, std::span<const std::byte>) noexcept;
 template <class T>
 result<std::vector<std::byte>, serialization_diagnostic>
@@ -32,7 +32,7 @@ result<T, serialization_diagnostic> deserialize_reflected(const registry_ref& re
   auto decoded = deserialize_reflected_object(registry, runtime_type_of<T>(), bytes);
   if (!decoded)
     return std::move(decoded).error();
-  return std::move(*std::static_pointer_cast<T>(*decoded));
+  return std::move(*static_cast<T*>(decoded->get()));
 } catch (const std::bad_alloc&) {
   return serialization_diagnostic{.error = error::out_of_memory};
 } catch (...) {
@@ -58,7 +58,7 @@ deserialize(const registry_ref& registry, std::span<const std::byte> bytes) noex
     return std::move(decoded).error();
   if (!*decoded)
     return serialization_diagnostic{.error = error::internal};
-  return std::move(*std::static_pointer_cast<T>(*decoded));
+  return std::move(*static_cast<T*>(decoded->get()));
 } catch (const std::bad_alloc&) {
   return serialization_diagnostic{.error = error::out_of_memory};
 } catch (...) {
@@ -89,7 +89,7 @@ serialize_object(type_id type, const void* object) noexcept {
     return serialization_diagnostic{.error = registry.error()};
   return serialize_object(*registry, type, object);
 }
-[[nodiscard]] inline result<std::shared_ptr<void>, serialization_diagnostic>
+[[nodiscard]] inline result<ref<void>, serialization_diagnostic>
 deserialize_object(type_id type, std::span<const std::byte> bytes) noexcept {
   auto registry = default_registry();
   if (!registry)
@@ -103,7 +103,7 @@ serialize_reflected_object(type_id type, const void* object) noexcept {
     return serialization_diagnostic{.error = registry.error()};
   return serialize_reflected_object(*registry, type, object);
 }
-[[nodiscard]] inline result<std::shared_ptr<void>, serialization_diagnostic>
+[[nodiscard]] inline result<ref<void>, serialization_diagnostic>
 deserialize_reflected_object(type_id type, std::span<const std::byte> bytes) noexcept {
   auto registry = default_registry();
   if (!registry)

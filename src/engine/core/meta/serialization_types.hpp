@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/ref.hpp"
 #include "engine/core/result.hpp"
 #include <cstddef>
 #include <memory>
@@ -27,12 +28,12 @@ struct serialization_binding {
   /** 显式启用反射 JSON；自定义函数按方向优先。 */
   bool reflected_json = false;
   bool reject_unknown_fields = false;
-  std::shared_ptr<void> (*construct)(){};
+  ref<void> (*construct)(){};
   /** error == success 表示通过；在编码前和解码完成后执行。 */
   serialization_diagnostic (*validate)(const void*){};
   result<std::vector<std::byte>, serialization_diagnostic> (*encode)(const registry_ref&,
                                                                      const void*){};
-  result<std::shared_ptr<void>, serialization_diagnostic> (*decode)(const registry_ref&,
-                                                                    std::span<const std::byte>){};
+  result<ref<void>, serialization_diagnostic> (*decode)(const registry_ref&,
+                                                        std::span<const std::byte>){};
 };
 } // namespace gneiss::engine::meta

@@ -167,6 +167,19 @@ int main() {
   if (rejected || rejected.error().error != e::error::invalid_argument ||
       rejected.error().byte_offset != 3 || rejected.error().path != "/number")
     return 21;
+  // 反射创建的拥有者可共享/擦除为 const；借用视图不承担所有权。
+  auto shared_object =
+      e::meta::deserialize_object(*owned_registry, e::runtime_type_of<move_only>(), bytes("A"));
+  if (!shared_object || !*shared_object)
+    return 24;
+  std::weak_ptr<void> weak_object = shared_object->shared();
+  e::ref<const void> kept = *shared_object;
+  shared_object->reset();
+  if (weak_object.expired() || !kept)
+    return 25;
+  kept.reset();
+  if (!weak_object.expired())
+    return 26;
   auto decoder = e::detail::make_reflected_decoder<move_only>(64);
   if (!decoder)
     return 22;
