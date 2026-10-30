@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/function/meta_registration.hpp"
+#include "engine/resource/scene/scene_description.hpp"
 #include "panels/author_property_panel.hpp"
+#include "panels/reflected_property_editor.hpp"
 
 #include <imgui.h>
 
@@ -9,6 +12,12 @@
 
 int main() try {
   using namespace gneiss::editor;
+  if (gneiss::engine::initialize_meta().failed())
+    return 6;
+  gneiss::engine::camera_description camera{.settings = {1.0F, 0.1F, 100.0F}};
+  auto camera_view = gneiss::engine::meta::instance::from(camera);
+  if (!camera_view)
+    return 7;
   inspector_component component;
   component.name = "Transform";
   inspector_property property;
@@ -45,6 +54,9 @@ int main() try {
     ImGui::SetNextWindowSize({800.0F, 500.0F});
     ImGui::Begin("Inspector");
     draw_author_properties(components, serial, error, actions);
+    const std::array readonly{gneiss::engine::meta::property_id{4}};
+    if (draw_reflected_properties(*camera_view, "Camera", serial, error, readonly))
+      ++writes;
     ImGui::End();
     ImGui::Render();
   };

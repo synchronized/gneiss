@@ -16,7 +16,8 @@ int resize_text(ImGuiInputTextCallbackData* data) {
 }
 void draw_value(const meta::instance& view, const std::string& name, property_path& path,
                 std::optional<property_edit>& pending, std::uint64_t& serial, error& status,
-                std::span<const meta::enum_entry> choices = {}) {
+                std::span<const meta::enum_entry> choices = {},
+                std::span<const meta::property_id> readonly = {}) {
   if (view.kind() == meta::type_kind::object || view.kind() == meta::type_kind::sequence) {
     const bool expanded = ImGui::TreeNodeEx(name.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
     if (view.kind() == meta::type_kind::object && !path.empty() && ImGui::BeginPopupContextItem()) {
@@ -65,11 +66,12 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
           path.emplace_back(property.id);
           ImGui::PushID(static_cast<int>(property.id.get()));
           const bool writable =
+              !(path.size() == 1 && std::ranges::find(readonly, property.id) != readonly.end()) &&
               !meta::has_flags(property.flags, meta::property_flags::read_only) &&
               meta::has_flags(property.capabilities, meta::property_capabilities::writable);
           ImGui::BeginDisabled(!writable);
           draw_value(*child, std::string(property.name), path, pending, serial, status,
-                     property.choices);
+                     property.choices, readonly);
           ImGui::EndDisabled();
           ImGui::PopID();
           path.pop_back();
@@ -91,7 +93,8 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
             }
             path.emplace_back(i);
             ImGui::PushID(static_cast<int>(i));
-            draw_value(*child, "[" + std::to_string(i) + "]", path, pending, serial, status);
+            draw_value(*child, "[" + std::to_string(i) + "]", path, pending, serial, status, {},
+                       readonly);
             ImGui::PopID();
             path.pop_back();
           }
@@ -108,7 +111,6 @@ void draw_value(const meta::instance& view, const std::string& name, property_pa
   if (draw_property_value(name.c_str(), *data, choices, serial, status))
     pending = property_edit{.path = path, .data = std::move(*data)};
 }
-
 }
 bool draw_property_value(const char* name, value& data, std::span<const meta::enum_entry> choices,
                          std::uint64_t& serial, error& status) {
@@ -179,11 +181,12 @@ bool draw_property_value(const char* name, value& data, std::span<const meta::en
   return changed && operation.ok();
 }
 
-std::optional<property_edit> draw_reflected_properties(const meta::instance& view, const char* name,
-                                                       std::uint64_t& serial, error& status) {
+std::optional<property_edit>
+draw_reflected_properties(const meta::instance& view, const char* name, std::uint64_t& serial,
+                          error& status, std::span<const meta::property_id> readonly) {
   std::optional<property_edit> edit;
   property_path path;
-  draw_value(view, name, path, edit, serial, status);
+  draw_value(view, name, path, edit, serial, status, {}, readonly);
   return edit;
 }
 }

@@ -3,6 +3,7 @@
 
 #include "panels/author_property_panel.hpp"
 #include "engine/core/error.hpp"
+#include "engine/function/world/component_identity.hpp"
 
 #include "editor_theme.hpp"
 #include "panels/reflected_property_editor.hpp"
@@ -42,8 +43,10 @@ bool draw_property(const inspector_component& component, const inspector_propert
 
 void draw_author_properties(std::span<const inspector_component> components,
                             std::uint64_t& edit_serial, gneiss::engine::error& error,
-                            const author_property_actions& actions) {
+                            const author_property_actions& actions, bool include_camera) {
   for (const auto& component : components) {
+    if (!include_camera && component.type_id == engine::camera_component_type)
+      continue;
     if (!ImGui::CollapsingHeader(component.name.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
       continue;
     }

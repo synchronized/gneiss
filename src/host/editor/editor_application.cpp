@@ -29,6 +29,7 @@
 #include "panels/document_action_panel.hpp"
 #include "panels/material_editor_panel.hpp"
 #include "panels/property_inspector_model.hpp"
+#include "panels/reflected_property_editor.hpp"
 #include "panels/runtime_panels.hpp"
 #include "project_manager.hpp"
 #include "project_workspace.hpp"
@@ -929,7 +930,55 @@ void draw_reflected_properties(editor_state& state) {
                     editor.editing.document(), editor.editing.history(), editor.inspector,
                     editor.world, component, property, value, serial);
               },
-      });
+      },
+      false);
+}
+
+void draw_camera_description(editor_state& state) {
+  using namespace gneiss;
+  using namespace gneiss::engine;
+  using namespace gneiss::editor;
+  component_edit_target identity;
+  entity_id entity;
+  if (const auto* node = state.editing.document().selected_prefab_node()) {
+    identity.instance_uuid = node->instance_uuid;
+    identity.source_uuid = node->source_node_uuid;
+    entity = node->entity;
+  } else if (const auto* node = state.editing.document().selected_node()) {
+    identity.object_uuid = node->uuid;
+    entity = node->entity;
+  } else
+    return;
+  identity.component_type = camera_description::type_guid;
+  camera_description description;
+  auto status = state.world->entity_get_camera(entity, description.settings);
+  if (status == error::not_found)
+    return;
+  if (status.failed()) {
+    state.inspector_error = status;
+    return;
+  }
+  entity_id active;
+  status = state.world->get_active_camera(active);
+  if (status.failed() && status != error::not_ready) {
+    state.inspector_error = status;
+    return;
+  }
+  description.is_primary = active == entity;
+  auto view = meta::instance::from(description);
+  if (!view) {
+    state.inspector_error = view.error();
+    return;
+  }
+  const std::array readonly{meta::property_id{4}};
+  auto edit = gneiss::editor::draw_reflected_properties(*view, "Camera", state.property_edit_serial,
+                                                        state.inspector_error, readonly);
+  if (edit)
+    state.inspector_error =
+        edit_component_description(state.editing.document(), state.editing.history(), *state.world,
+                                   identity, *edit, state.property_edit_serial);
+  if (state.inspector_error.failed())
+    ImGui::TextWrapped("%s", state.inspector_error.message().data());
 }
 
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
@@ -2935,6 +2984,9 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
       state.inspector_error = gneiss::engine::error::success;
       ImGui::TextUnformatted("No node is selected");
     }
+    if (!gneiss::editor::selected_runtime_node(state.runtime.scene_mirror(),
+                                               state.runtime_selection))
+      draw_camera_description(state);
     ImGui::End();
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
     draw_asset_browser(state);

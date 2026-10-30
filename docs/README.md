@@ -610,3 +610,6 @@
 - [PLAN-072：共用属性面板与对象替换](plans/PLAN-072-reflected-property-editor.md)
 
 - [PLAN-073：C++ 枚举类型注册](plans/PLAN-073-cpp-enum-registration.md)
+
+- [编辑 Camera 组件描述](guides/component-editor.md)
+- [PLAN-074：Camera 描述编辑闭环](plans/PLAN-074-camera-description-editor.md)

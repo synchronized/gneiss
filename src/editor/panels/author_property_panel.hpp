@@ -20,6 +20,6 @@ struct author_property_actions final {
 
 void draw_author_properties(std::span<const inspector_component> components,
                             std::uint64_t& edit_serial, gneiss::engine::error& error,
-                            const author_property_actions& actions);
+                            const author_property_actions& actions, bool include_camera = true);
 
 } // namespace gneiss::editor

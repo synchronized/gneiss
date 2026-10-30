@@ -3,6 +3,8 @@
 
 #include "commands/author_property_edit.hpp"
 #include "engine/core/error.hpp"
+#include "engine/function/scene/scene_instances.hpp"
+#include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -13,6 +15,163 @@
 
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
+
+namespace {
+int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_document& session,
+                 gneiss::scene_node_id ordinary) {
+  namespace e = gneiss::engine;
+  namespace ed = gneiss::editor;
+  using p = e::meta::property_id;
+  auto& world = *app.native_world();
+  const auto ordinary_uuid = session.selected_node()->uuid;
+  if (session.set_camera(ordinary, {.settings = {1.0F, 0.1F, 100.0F}}).failed())
+    return 31;
+  ed::editor_command_history history;
+  ed::component_edit_target target{.object_uuid = ordinary_uuid,
+                                   .component_type = e::camera_description::type_guid};
+  ed::property_edit edit{.path = {p{1}, p{2}}, .data = e::value{2.0F}};
+  if (ed::edit_component_description(session, history, world, target, edit, 1).failed())
+    return 32;
+  auto read = [&](gneiss::entity_id entity) {
+    e::math::camera_settings camera;
+    if (world.entity_get_camera(entity, camera).failed())
+      throw std::runtime_error("read camera");
+    return camera;
+  };
+  auto ordinary_entity = session.find_node(ordinary_uuid)->entity;
+  if (read(ordinary_entity).near != 2.0F || history.undo().failed() ||
+      read(ordinary_entity).near != 0.1F || history.redo().failed())
+    return 33;
+  edit.data = e::value{200.0F};
+  if (ed::edit_component_description(session, history, world, target, edit, 2) !=
+          e::error::invalid_argument ||
+      read(ordinary_entity).near != 2.0F || history.size() != 1)
+    return 34;
+  edit.path = {p{4}};
+  edit.data = e::value{true};
+  if (ed::edit_component_description(session, history, world, target, edit, 3) !=
+      e::error::unsupported)
+    return 35;
+  // 整体替换允许 near/far 一起改变，不产生无效的中间相机。
+  edit.path = {p{1}};
+  edit.object_type = e::runtime_type_of<e::math::camera_settings>();
+  edit.object =
+      std::make_shared<e::math::camera_settings>(e::math::camera_settings{1.2F, 200.0F, 400.0F});
+  if (ed::edit_component_description(session, history, world, target, edit, 4).failed() ||
+      read(ordinary_entity).far != 400.0F)
+    return 36;
+
+  edit.object_type = e::runtime_type_of<e::camera_description>();
+  edit.object = std::make_shared<e::camera_description>();
+  if (ed::edit_component_description(session, history, world, target, edit, 4) !=
+          e::error::invalid_argument ||
+      read(ordinary_entity).far != 400.0F)
+    return 49;
+  gneiss::scene_node_id other_camera;
+  if (session.create_node("active", {}, other_camera).failed() ||
+      session.set_camera(other_camera, {.settings = {1.0F, 0.1F, 100.0F}, .is_primary = true})
+          .failed())
+    return 50;
+  gneiss::entity_id active_before, active_after;
+  if (world.get_active_camera(active_before).failed() || history.undo().failed() ||
+      history.redo().failed() || world.get_active_camera(active_after).failed() ||
+      active_before != active_after)
+    return 51;
+  auto source = std::make_shared<e::prefab_description>();
+  source->source_schema_version = 1;
+  if (ed::make_editor_uuid(source->uuid).failed() ||
+      ed::make_editor_uuid(source->root_uuid).failed())
+    return 37;
+  e::object_description root;
+  root.uuid = source->root_uuid;
+  root.name = "camera";
+  root.components.set(e::camera_description{.settings = {1.0F, 0.1F, 100.0F}});
+  source->objects.push_back(root);
+  e::object_description author;
+  if (ed::make_editor_uuid(author.uuid).failed())
+    return 38;
+  author.name = "instance";
+  author.prefab.emplace();
+  author.prefab->uri = "asset://camera.prefab.json";
+  gneiss::scene_node_id prefab_root;
+  const std::array<e::scene_mesh_binding, 1> bindings{};
+  if (app.scenes()
+          ->instantiate_prefab_ready(session.scene_handle(), author, e::prefab_asset_ref{source},
+                                     bindings, false, prefab_root)
+          .failed() ||
+      session.synchronize_nodes().failed())
+    return 39;
+  ed::component_edit_target prefab_target{.instance_uuid = author.uuid,
+                                          .source_uuid = source->root_uuid,
+                                          .component_type = e::camera_description::type_guid};
+  const auto* prefab_node = session.find_prefab_source(author.uuid, source->root_uuid);
+  if (!prefab_node)
+    return 40;
+  auto prefab_entity = prefab_node->entity;
+  ed::editor_command_history prefab_history;
+  edit = {.path = {p{1}, p{1}}, .data = e::value{1.3F}};
+  if (ed::edit_component_description(session, prefab_history, world, prefab_target, edit, 5)
+          .failed() ||
+      read(prefab_entity).fov != 1.3F ||
+      source->objects[0].components.get<e::camera_description>()->settings.fov != 1.0F)
+    return 41;
+  auto snapshot = [&]() {
+    std::string json;
+    if (app.scenes()->serialize(session.scene_handle(), json).failed())
+      throw std::runtime_error("serialize");
+    auto decoded = e::meta::deserialize<e::scene_description>(
+        std::as_bytes(std::span{json.data(), json.size()}));
+    if (!decoded)
+      throw std::runtime_error("parse");
+    return std::move(*decoded);
+  };
+  auto overrides = [&](const e::scene_description& scene) -> std::size_t {
+    for (const auto& object : scene.objects)
+      if (object.uuid == author.uuid)
+        return object.prefab->overrides.size();
+    throw std::runtime_error("missing prefab");
+  };
+  if (overrides(snapshot()) != 1 || prefab_history.undo().failed() || overrides(snapshot()) != 0 ||
+      prefab_history.redo().failed() || overrides(snapshot()) != 1)
+    return 42;
+  auto saved = snapshot();
+  // 保存后的描述重新准备和实例化，普通组件与 Prefab 差异均必须恢复。
+  e::scene_description_inputs inputs;
+  inputs.scene =
+      e::asset_ref<const e::scene_description>{std::make_shared<e::scene_description>(saved)};
+  inputs.prefabs.emplace(author.prefab->uri, e::prefab_asset_ref{source});
+  e::prepared_scene_description prepared;
+  e::scene_diagnostic diagnostic;
+  if (e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).failed())
+    return 43;
+  gneiss::scene_instance_id loaded;
+  if (app.scenes()->instantiate_prepared(std::move(prepared), {}, loaded).failed())
+    return 44;
+  bool found_ordinary = false, found_prefab = false;
+  std::uint64_t count{};
+  if (app.scenes()->get_node_count(loaded, &count).failed())
+    return 45;
+  for (std::uint64_t i = 0; i < count; ++i) {
+    e::scene_node_view node;
+    if (app.scenes()->get_node_info(loaded, i, node).failed())
+      return 46;
+    if (node.prefab && node.prefab->instance_uuid == author.uuid) {
+      found_prefab = read(node.entity).fov == 1.3F;
+    } else if (node.uuid == ordinary_uuid) {
+      const auto camera = read(node.entity);
+      found_ordinary = camera.near == 200.0F && camera.far == 400.0F;
+    }
+  }
+  if (app.scenes()->unload(loaded).failed() || !found_ordinary || !found_prefab)
+    return 47;
+  // 移除后不把旧历史应用到另一个节点。
+  if (app.scenes()->remove_prefab_instance(session.scene_handle(), author.uuid).failed() ||
+      session.synchronize_nodes().failed() || prefab_history.undo() != e::error::not_found)
+    return 48;
+  return 0;
+}
+}
 
 int main() try {
   using namespace gneiss;
@@ -89,6 +248,8 @@ int main() try {
       history.size() != 2U) {
     return 8;
   }
+  if (const auto status = camera_edits(*app, session, first); status != 0)
+    return status;
   scene_subtree_snapshot removed;
   if (session.destroy_subtree(first, removed).failed() ||
       history.undo() != gneiss::engine::error::not_found || !history.can_undo()) {

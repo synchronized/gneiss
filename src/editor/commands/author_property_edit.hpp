@@ -9,8 +9,21 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/world/world.hpp"
 #include "panels/property_inspector_model.hpp"
+#include "panels/property_path.hpp"
 
 namespace gneiss::editor {
+/** 稳定作者身份；普通节点使用 object_uuid，Prefab 使用 instance/source 二元身份。 */
+struct component_edit_target {
+  engine::guid object_uuid{}, instance_uuid{}, source_uuid{};
+  engine::guid component_type{};
+};
+/** 当前支持 Camera；只读主相机状态不能通过属性操作改变。
+ * 复制候选并校验，历史按稳定身份重新定位，不借用成员指针。
+ * document/world 须存活至历史清空；调用限所属线程。 */
+[[nodiscard]] engine::error edit_component_description(scene_document&, editor_command_history&,
+                                                       engine::world&, const component_edit_target&,
+                                                       const property_edit&,
+                                                       std::uint64_t serial) noexcept;
 
 /** 编辑当前作者节点并记录撤销命令；仅限 Editor 主线程。
  * inspector 必须已刷新为当前选择，组件和属性必须来自该快照。

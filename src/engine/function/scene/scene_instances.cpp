@@ -1166,6 +1166,47 @@ engine::error scene_instance::set_mesh_renderer(scene_node_id node, std::string_
 
 engine::error scene_instance::set_camera(scene_node_id node,
                                          const engine::camera_description& desc) try {
+  // Prefab 的相机参数只写实例覆盖，不修改共享来源描述或活动相机。
+  for (std::size_t index = 0; index < prefab_instances_.size(); ++index) {
+    auto& runtime = *prefab_instances_[index];
+    for (std::size_t n = 0; n < runtime.node_count(); ++n) {
+      prefab_binding::node_info info;
+      if (runtime.get_node_info(n, info).failed() || info.node != node)
+        continue;
+      const auto* source = runtime.find_source_object(info.address->source_node_uuid);
+      const auto* camera = source ? source->components.get<camera_description>() : nullptr;
+      if (!camera)
+        return error::not_found;
+      entity_id active;
+      auto status = native_world_.get_active_camera(active);
+      if (status.failed() && status != error::not_ready)
+        return status;
+      const auto entity = entity_id{scene_object_entity(native_world_, node)};
+      if (desc.is_primary != (active == entity))
+        return error::unsupported;
+      auto pending = prefab_author(index).prefab->overrides;
+      const std::array fields{camera_vertical_field_of_view_field, camera_near_plane_field,
+                              camera_far_plane_field};
+      const std::array values{desc.settings.fov, desc.settings.near, desc.settings.far};
+      const std::array originals{camera->settings.fov, camera->settings.near, camera->settings.far};
+      for (std::size_t i = 0; i < fields.size(); ++i) {
+        status = set_prefab_property_override(
+            pending,
+            {.key = {.source_node_uuid = info.address->source_node_uuid,
+                     .type_guid = camera_component_type,
+                     .property_id = fields[i]},
+             .value = engine::value{values[i]}},
+            engine::value{originals[i]});
+        if (status.failed())
+          return status;
+      }
+      status = native_world_.entity_configure_camera(entity, desc.settings);
+      if (status.failed())
+        return status;
+      prefab_author(index).prefab->overrides.swap(pending);
+      return error::success;
+    }
+  }
   const auto found = find_ordinary_node(node);
   if (found == objects_.end()) {
     return engine::error::invalid_handle;
