@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <string>

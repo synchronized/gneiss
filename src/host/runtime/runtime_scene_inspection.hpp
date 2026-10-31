@@ -9,7 +9,7 @@
 #include "engine/core/math/camera.hpp"
 #include "engine/core/math/transform.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/resource/scene/component_description.hpp"
 #include "ipc_inspection_protocol.hpp"
 

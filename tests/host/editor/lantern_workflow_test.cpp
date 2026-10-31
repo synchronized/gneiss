@@ -12,7 +12,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 

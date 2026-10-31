@@ -8,7 +8,7 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/rid_table.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"

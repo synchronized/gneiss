@@ -3,7 +3,7 @@
 
 #include "panels/runtime_panels.hpp"
 #include "engine/core/error.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "panels/reflected_property_editor.hpp"
 

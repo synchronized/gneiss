@@ -4,7 +4,6 @@
 #pragma once
 #include "engine/core/guid.hpp"
 #include <compare>
-#include <concepts>
 #include <cstdint>
 #include <string>
 #include <string_view>

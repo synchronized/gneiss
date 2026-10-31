@@ -6,7 +6,7 @@
 
 #include "engine/core/math/transform.hpp"
 #include "engine/core/result.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 
 #include <cstdint>
 #include <memory>

@@ -3,7 +3,7 @@
 
 #include "engine/function/scene/prefab_binding.hpp"
 #include "engine/core/error.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/resource/scene/object_hierarchy.hpp"
 

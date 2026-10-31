@@ -3,7 +3,7 @@
 
 #include "runtime_application.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 
 #include "engine/core/error.hpp"

@@ -7,7 +7,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/log/log.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/input/input_service.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_executor.hpp"

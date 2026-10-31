@@ -4,7 +4,7 @@
 #pragma once
 #include "engine/core/entity_id.hpp"
 #include "engine/core/math/transform.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/world_components.hpp"
 
 namespace gneiss::engine {

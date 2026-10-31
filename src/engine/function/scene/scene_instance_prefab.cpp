@@ -3,7 +3,7 @@
 
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/structural_diff.hpp"
 #include <algorithm>

@@ -7,7 +7,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/meta/registry.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "engine/resource/scene/prefab_description.hpp"

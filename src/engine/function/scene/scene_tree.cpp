@@ -3,7 +3,7 @@
 
 #include "engine/function/scene/scene_tree.hpp"
 #include "engine/core/error.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 
 #include "engine/core/math/transform.hpp"
 #include <algorithm>

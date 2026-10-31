@@ -82,7 +82,7 @@ target_sources(
     engine/core/meta/type.hpp
     engine/function/world/component_identity.hpp
 
-    engine/core/scene_types.hpp
+    engine/function/scene/scene_types.hpp
     engine/core/type_id.cpp
     engine/core/type_id.hpp
     engine/core/detail/canonical_type_name.hpp

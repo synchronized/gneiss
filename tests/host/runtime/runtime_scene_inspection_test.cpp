@@ -6,7 +6,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "runtime_property_editor.hpp"
 #include "runtime_scene_inspection.hpp"

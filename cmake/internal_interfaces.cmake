@@ -27,7 +27,7 @@ gneiss_internal_headers(gneiss_value_interface "${PROJECT_SOURCE_DIR}/src"
   engine/core/detail/canonical_type_name.hpp
   engine/function/world/component_identity.hpp
 
-  engine/core/scene_types.hpp
+  engine/function/scene/scene_types.hpp
 )
 
 # 同源码宿主允许使用的引擎契约及其值类型闭包；不得添加后端、注册表实现或场景域存储。

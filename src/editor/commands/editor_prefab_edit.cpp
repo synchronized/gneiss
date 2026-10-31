@@ -3,7 +3,7 @@
 #include "commands/editor_prefab_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "runtime/application.hpp"
 #include "runtime/loading/prefab_placement.hpp"
 #include "runtime/loading/prefab_preparation.hpp"

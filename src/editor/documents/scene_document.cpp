@@ -5,7 +5,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/meta/serialization.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"

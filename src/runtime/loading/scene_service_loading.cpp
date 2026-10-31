@@ -5,7 +5,7 @@
 #include "engine/core/diagnostics/task_submission.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"

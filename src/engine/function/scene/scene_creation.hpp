@@ -5,7 +5,7 @@
 #include "engine/core/guid.hpp"
 #include "engine/core/math/transform.hpp"
 
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 
 #include <string_view>
 

@@ -8,7 +8,7 @@
 #include "engine/resource/scene/scene_description.hpp"
 
 #include "engine/core/entity_id.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 
 #include "engine/resource/scene/prefab_property_data.hpp"
 #include <optional>

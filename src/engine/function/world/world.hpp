@@ -5,7 +5,7 @@
 #include "engine/core/entity_id.hpp"
 #include "engine/core/result.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/render/render_snapshot.hpp"
 #include "engine/function/world/world_types.hpp"
 #include <memory>

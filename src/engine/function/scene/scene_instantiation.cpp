@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/error.hpp"
-#include "engine/core/scene_types.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
