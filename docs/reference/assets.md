@@ -20,10 +20,9 @@
 成功后通过请求的 `metrics()` 查询来源快照、解码字节估算、解码与队列耗时，
 `source_bytes()` 返回读取字节总数。已领取引用不受取消或管理器关闭影响。
 
-`load<T>(uri, asset_load_options)` 可指定 reload、maximum_bytes、texture_profile 和缓存策略。
+`load<T>(uri, asset_load_options)` 可指定 reload、maximum_bytes、texture_profile。
 `find_loaded<T>` 与 `store<T>` 也支持相同 options；查询和采用须匹配加载参数。
-无 options 的重载对 mesh_data/texture_data 默认使用 weak，其余类型使用 retain；
-显式 options 则以传入的 cache 为准（默认 retain）。内置网格/纹理使用专用 Loader，
+所有类型统一使用弱缓存，无缓存策略参数。内置网格/纹理使用专用 Loader，
 不能用单缓冲区 register_decoder 覆盖；其他类型先用注册解码器，否则使用反射解码。
 
 `resource_service::reserve_mesh/texture/material()` 返回对应资源引用的 result，
@@ -84,7 +83,7 @@ CPU 数据表位于 `render_service` 私有实现，Loader 与宿主通过其 RI
 `resource_cache` 位于 `engine/function/resource/resource_cache.hpp`，与资产管理器同属功能层。
 `asset_manager` 持有 CPU 数据缓存，`resource_service` 持有运行资源缓存；
 两者复用 `resource_cache` 实现。CPU 缓存按「来源域 + URI + C++ 类型 + 加载参数」索引，
-加载参数包含字节上限、完整纹理 profile 和缓存策略；reload 不参与身份。
+加载参数包含字节上限和完整纹理 profile ；reload 不参与身份。
 运行资源沿用来源域、URI 和类型索引，不重复登记同一运行对象。
 通用 CPU 数据及 Prefab 属于加载器缓存，渲染资产属于资源服务缓存；同 URI 的不同类型或来源各自独立。
 类型键使用 `engine::type_id`，由同一 Engine 按规范 C++ 类型名集中分配，
@@ -101,14 +100,16 @@ CPU 解码由注入的执行器运行，完成结果在所属线程通过同一�
 
 请求取消只放弃当前观察者，不使其他引用失效。
 
-retain 缓存持有强引用，在所属线程调用 `collect_unused()` / `release_unused()` 回收无使用者条目。
-weak 缓存只保存弱引用；请求结果和 Render 共享数据的别名引用共同保活条目，
-最后一个引用释放后查询立即失效，collect_unused 清理过期索引。
+CPU 数据缓存与运行资源缓存均只保存弱引用，不延长对象寿命。
+请求结果、类型化资源引用和 Render 共享数据共同保活相应缓存条目；
+最后一个引用释放后查询立即失效，collect_unused / release_unused 仅清理过期索引。
+运行资源实际析构仍通过所属线程销毁队列完成，排队期间不会恢复弱缓存命中。
 Application 可分别调用两个对象回收；场景运行资源通过资源服务回收。
 CPU 缓存回收保留在途请求索引；CPU 重载任务暂时持有旧条目，
 避免回收与失败重载叠加导致旧内容提前消失。
 已完成但尚未领取的请求也保活结果。关闭通用管理器不使已领取的 CPU 描述引用失效。
-失败不永久缓存，重载失败保留当前成功数据；输出参数的失败行为以具体接口契约为准。
+失败不永久缓存，重载失败不替换仍被使用者持有的旧数据；
+若旧数据已无使用者，重载任务结束后也会释放，不额外保留失败回退缓存。输出参数的失败行为以具体接口契约为准。
 
 引用计数并不提供资源数据的线程安全。CPU 数据可按只读契约共享。运行渲染资源的最后释放可在
 任意线程发生，删除器仅入队，由所属线程析构；服务关闭后走 detached 路径。

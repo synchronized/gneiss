@@ -29,7 +29,7 @@ public:
   resource_cache() = default;
   resource_cache(const resource_cache&) = delete;
   resource_cache& operator=(const resource_cache&) = delete;
-  struct entry final {
+  struct entry final : std::enable_shared_from_this<entry> {
     std::string uri;
     std::shared_ptr<const files::source_domain> source;
     type_id type{engine::runtime_type_of<void>()};
@@ -37,11 +37,13 @@ public:
     std::shared_ptr<const void> resource;
     asset_data_metrics metrics;
     std::size_t source_bytes{}; // CPU 文件加载统计；程序创建的对象默认为零。
-    /** 验证类型后共享运行对象的原控制块，不把缓存条目暴露给类型化使用者。 */
+    /** 类型化引用保活条目与资源，保证只持有类型化引用时也能命中弱索引。 */
     template <typename T> [[nodiscard]] asset_ref<const T> as() const noexcept {
-      return type == runtime_type_of<T>()
-                 ? asset_ref<const T>{std::static_pointer_cast<const T>(resource)}
-                 : asset_ref<const T>{};
+      auto owner = weak_from_this().lock();
+      if (type != runtime_type_of<T>() || !owner)
+        return {};
+      return asset_ref<const T>{
+          std::shared_ptr<const T>(std::move(owner), static_cast<const T*>(resource.get()))};
     }
   };
 
@@ -53,7 +55,6 @@ public:
   load(std::string_view uri, type_id type, const loader& decode,
        std::shared_ptr<const files::source_domain> source = {}, bool reload = false,
        std::size_t source_bytes = 0, std::string parameters = {},
-       asset_cache_policy policy = asset_cache_policy::retain,
        asset_data_metrics metrics = {}) noexcept;
   void release_unused() noexcept;
   /** 只观察当前身份，不触发加载；返回的弱引用不会阻止卸载。 */
@@ -64,14 +65,7 @@ public:
   [[nodiscard]] std::size_t size() const noexcept { return entries_.size(); }
 
 private:
-  struct slot {
-    asset_ref<const entry> retained;
-    std::weak_ptr<const entry> weak;
-    asset_ref<const entry> lock() const {
-      return retained ? retained : asset_ref<const entry>{weak.lock()};
-    }
-  };
-  std::map<key, slot> entries_;
+  std::map<key, std::weak_ptr<const entry>> entries_;
 };
 
 } // namespace gneiss::engine

@@ -412,6 +412,8 @@ void cache_collection() {
         "external reference prevents collection");
   held.reset();
   copy.reset();
+  check(assets.find_loaded<value>("asset://value").error() == gneiss::engine::error::not_found,
+        "weak CPU cache expires before collection");
   assets.collect_unused();
   check(assets.cache().size() == 0U, "CPU entry collected after last reference");
   source->byte = 'b';
@@ -457,14 +459,20 @@ void cache_collection() {
   }
   check(reload_status == gneiss::engine::error::invalid_argument,
         "reload fails without replacement");
+  check(assets.find_loaded<value>("asset://value").error() == gneiss::engine::error::not_found,
+        "failed reload does not retain an otherwise unowned old value");
   request.cancel();
+  source->byte = 'b';
+  check(gneiss::test_support::load_asset(assets, "asset://value", copy) ==
+            gneiss::engine::error::success,
+        "reload after weak value expired");
   check(
       gneiss::test_support::assign_value(
           assets.load<typename std::remove_cvref_t<decltype(request)>::value_type>("asset://value"),
           request) == gneiss::engine::error::success &&
           gneiss::test_support::take_request(request, copy) == gneiss::engine::error::success &&
           copy->byte == 'b',
-      "failed reload retains cached content through collection");
+      "newly loaded content is reused while owned");
   assets.stop();
   check(copy->byte == 'b', "reference survives manager stop");
 }

@@ -30,3 +30,14 @@ resource_service 将共享 CPU 数据直接交给 Render；纹理准备不复制
 不提供公共多阶段插件注册；普通类型继续支持显式解码器和反射回退。
 弱缓存最后一个引用释放后，下次加载需要重新读取；Render 仍持有数据时可复用缓存。
 本次只完成 PLAN-094，不代表引用持久化 PLAN-093 的其他工作已经完成。
+
+## 后续简化：统一弱缓存
+
+按用户要求删除 asset_cache_policy，CPU 与运行资源缓存都使用弱索引。
+类型化运行资源引用保活缓存条目，避免仍有使用者时重新创建同 URI 对象。
+collect_unused 仅清理过期键并消费运行资源销毁队列；不再控制 CPU 对象释放时机。
+失败重载结束后，无使用者的旧数据同样释放。
+
+Windows Clang Debug 编译通过；上述 10 项及 prefab_description、scene-instantiation
+共 12 项 CPU 测试通过。增加未调用 collect_unused 时弱索引立即失效的断言，
+验证普通 CPU 数据与类型化缓存引用。未运行 GPU、大场景、浏览器或远端 CI。

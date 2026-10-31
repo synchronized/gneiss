@@ -30,7 +30,6 @@ struct asset_manager::resource_state {
     key identity;
     std::uint64_t generation;
     std::shared_ptr<detail::asset_load_task> loader;
-    asset_cache_policy policy = asset_cache_policy::retain;
     std::shared_ptr<detail::asset_state> observer{std::make_shared<detail::asset_state>()};
     engine::files::request_id read_request;
     task_handle task;
@@ -231,7 +230,7 @@ error asset_manager::store_erased(type_id type, std::string_view uri,
   auto& request = state.requests[{domain, std::string(uri), type, parameters}];
   auto stored = cache_.load(
       uri, type, [&]() -> result<std::shared_ptr<const void>> { return value; }, domain, true, 0,
-      parameters, options.cache);
+      parameters);
   if (!stored)
     return stored.error();
   state.frozen = true;
@@ -338,7 +337,6 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
   auto work =
       std::make_shared<resource_state::operation>(key, entry.generation + 1, std::move(*task));
   work->previous = cached;
-  work->policy = options.cache;
   state.active.push_back(work);
   try {
     const auto submitted = state.read(work, uri, work->loader->limit);
@@ -464,7 +462,7 @@ void asset_manager::advance() {
         const auto& [domain, uri, type, parameters] = work->identity;
         auto cached = cache_.load(
             uri, type, [&]() -> result<std::shared_ptr<const void>> { return work->value; }, domain,
-            true, work->source_bytes, parameters, work->policy, work->loader->metrics);
+            true, work->source_bytes, parameters, work->loader->metrics);
         work->status = cached ? error::success : cached.error();
         if (cached)
           work->value = std::shared_ptr<const void>(cached->shared(), (*cached)->resource.get());

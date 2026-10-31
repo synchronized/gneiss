@@ -49,18 +49,15 @@ result<resource_request> resource_service::load(const asset_source& source, bool
   work->limit = limit;
   switch (source.type) {
   case asset_type::mesh: {
-    auto loaded = assets_.load<mesh_data>(
-        source.uri, {.reload = reload, .maximum_bytes = limit, .cache = asset_cache_policy::weak});
+    auto loaded = assets_.load<mesh_data>(source.uri, {.reload = reload, .maximum_bytes = limit});
     if (!loaded)
       return loaded.error();
     work->cpu = std::move(*loaded);
     break;
   }
   case asset_type::texture: {
-    auto loaded = assets_.load<texture_data>(source.uri, {.reload = reload,
-                                                          .maximum_bytes = limit,
-                                                          .texture_profile = profile(),
-                                                          .cache = asset_cache_policy::weak});
+    auto loaded = assets_.load<texture_data>(
+        source.uri, {.reload = reload, .maximum_bytes = limit, .texture_profile = profile()});
     if (!loaded)
       return loaded.error();
     work->cpu = std::move(*loaded);

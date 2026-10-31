@@ -84,7 +84,7 @@ int main() try {
                 .lock()
                 .get() != a.get())
       return 7;
-    auto held = a.alias(static_cast<const int*>(a->resource.get()));
+    auto held = a->as<int>();
     a.reset();
     b.reset();
     c.reset();
@@ -93,6 +93,8 @@ int main() try {
     if (index.size() != 1U || *held != 42)
       return 7;
     held.reset();
+    if (!index.observe("asset://same", runtime_type_of<int>(), source_a).expired())
+      return 13;
     index.release_unused();
     if (index.size() != 0U)
       return 7;

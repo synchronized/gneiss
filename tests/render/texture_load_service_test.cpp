@@ -448,7 +448,7 @@ void cpu_loading(execution_mode mode) {
   check(manager.cache().size() == cached + 1U);
 
   {
-    asset_load_options variant{.cache = asset_cache_policy::weak};
+    asset_load_options variant;
     variant.texture_profile.sampled_transfer_formats[0] = true;
     const auto before_reads = backend->reads;
     auto different = manager.load<texture_data>("asset://cpu_texture", variant);

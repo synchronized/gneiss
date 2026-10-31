@@ -20,21 +20,17 @@ struct asset_data_metrics {
   double decode_ms{};
   double queue_ms{};
 };
-/** CPU 缓存保留策略；weak 不延长结果寿命。 */
-enum class asset_cache_policy { retain, weak };
 struct asset_load_options {
   bool reload = false;
   std::size_t maximum_bytes = 64U * 1024U * 1024U;
   texture_prepare_profile texture_profile{};
-  asset_cache_policy cache = asset_cache_policy::retain;
 };
 /** 完整参数编码用于比较身份，不使用可能冲突的摘要。默认对象加载保持空变体键。 */
 inline std::string asset_load_parameters(const asset_load_options& options) {
   if (options.texture_profile == texture_prepare_profile{} &&
-      options.maximum_bytes == 64U * 1024U * 1024U && options.cache == asset_cache_policy::retain)
+      options.maximum_bytes == 64U * 1024U * 1024U)
     return {};
   auto key = std::to_string(options.maximum_bytes) + ":" +
-             std::to_string(static_cast<int>(options.cache)) + ":" +
              std::to_string(options.texture_profile.generation);
   for (bool format : options.texture_profile.sampled_transfer_formats)
     key += format ? ":1" : ":0";

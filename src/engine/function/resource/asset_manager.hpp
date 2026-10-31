@@ -84,8 +84,6 @@ public:
   template <typename T>
   [[nodiscard]] result<asset_request<T>> load(std::string_view uri, bool reload = false) noexcept {
     asset_load_options options{.reload = reload};
-    if constexpr (std::is_same_v<T, mesh_data> || std::is_same_v<T, texture_data>)
-      options.cache = asset_cache_policy::weak;
     return load<T>(uri, options);
   }
   /** 只查询已完成缓存，不读取文件或提交任务；未命中返回 not_found。 */
@@ -101,8 +99,6 @@ public:
   template <class T>
   [[nodiscard]] result<asset_ref<const T>> find_loaded(std::string_view uri) const noexcept {
     asset_load_options options;
-    if constexpr (std::is_same_v<T, mesh_data> || std::is_same_v<T, texture_data>)
-      options.cache = asset_cache_policy::weak;
     return find_loaded<T>(uri, options);
   }
   /** 所属线程采用已经构造的数据；成功后较早异步请求不能覆盖缓存。 */
@@ -119,8 +115,6 @@ public:
   [[nodiscard]] result<asset_ref<const T>> store(std::string_view uri,
                                                  std::shared_ptr<const T> value) noexcept {
     asset_load_options options;
-    if constexpr (std::is_same_v<T, mesh_data> || std::is_same_v<T, texture_data>)
-      options.cache = asset_cache_policy::weak;
     return store<T>(uri, std::move(value), options);
   }
   asset_manager(const asset_manager&) = delete;
