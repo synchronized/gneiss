@@ -3,6 +3,7 @@
 #include "../support/value_result.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/meta/serialization.hpp"
+#include "engine/function/world/world_reflection.hpp"
 #include "engine/resource/asset_decoder.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/material/material_codec.hpp"
@@ -48,7 +49,7 @@ int main() {
     return 1;
   if (gneiss::test_support::assign_value(gneiss::engine::meta::default_registry(), registry)
           .failed() ||
-      e::register_material_reflection().failed())
+      e::register_reflection().failed() || e::register_builtin_resource_types().failed())
     return 2;
   if (gneiss::test_support::assign_decoded(gneiss::engine::meta::serialize(registry, material),
                                            output, diagnostic) != e::error::not_ready)
@@ -72,7 +73,7 @@ int main() {
           .commit()
           .failed())
     return 24;
-  if (e::register_material_reflection() != e::error::invalid_argument ||
+  if (e::register_builtin_resource_types() != e::error::invalid_argument ||
       gneiss::engine::meta::freeze(registry).failed())
     return 6;
   gneiss::engine::meta::serialization_binding binding;
@@ -140,7 +141,7 @@ int main() {
           restored, diagnostic) != e::error::invalid_argument ||
       restored.parameters.color[0] != 0.25F)
     return 15;
-  if (e::register_material_reflection() != e::error::invalid_state)
+  if (e::register_builtin_resource_types() != e::error::invalid_state)
     return 16;
   gneiss::engine::meta::registry_ref no_codec;
   if (gneiss::test_support::assign_value(gneiss::engine::meta::create_registry(), no_codec)

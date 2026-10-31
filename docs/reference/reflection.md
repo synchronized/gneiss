@@ -154,9 +154,11 @@ Builder 接收返回上述结果的 C++ codec；擦除后的解码回调返回 `
 回调在 Registry 锁外执行，要求可并发处理不同对象；对象与输入只在调用期间借用。
 输入大小限制由文件读取入口控制，反射不负责 I/O、缓存、任务或 GPU 上传。
 
-资源层 `register_material_reflection` 显式登记 material_description 的稳定身份及
-`gneiss.material` codec；业务资源注册入口统一使用默认表。
-默认启动已集中调用，无需资源消费者重复注册。
+资源层 `register_builtin_resource_types()` 统一登记材质、采样参数与枚举、ActionMap、Scene、Prefab
+的类型及 codec，统一使用默认表。注册集中在 `resource/builtin_resource_registration.cpp`；
+codec 文件只提供编解码入口。首次失败立即返回，不回滚已注册内容；重复注册失败。
+组件描述随资源入口一起登记。冻结前先登记 World 基础值；默认 initialize_meta 已按依赖顺序集中调用，
+无需资源消费者重复注册。
 材质直接注册 parameters、texture_uris 及嵌套字段，格式包装器只处理格式头；实际格式见[材质格式](render-asset-formats.md#material)。
 
 ## 反射 JSON 与对象校验

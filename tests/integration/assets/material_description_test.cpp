@@ -3,6 +3,7 @@
 #include "../../support/value_result.hpp"
 #include "engine/core/meta/instance.hpp"
 #include "engine/function/resource/detail/asset_decode.hpp"
+#include "engine/function/world/world_reflection.hpp"
 #include "engine/resource/builtin_resource_registration.hpp"
 #include "engine/resource/material/material_codec.hpp"
 #include <cstdio>
@@ -121,7 +122,8 @@ void run(std::size_t limit) {
 }
 }
 int main() try {
-  check(register_material_reflection().ok());
+  check(register_reflection().ok());
+  check(register_builtin_resource_types().ok());
   check(meta::freeze().ok());
   native_material_contract();
   run(1024U * 1024U);

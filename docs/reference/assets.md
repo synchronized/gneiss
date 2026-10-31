@@ -168,7 +168,7 @@ Runtime 的清理补报为事件，不重复发送请求响应；Editor 仅更�
 后端 CPU 快照 `material_data` 保存同结构参数及纹理 RID。参数默认白色、不透明、
 metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 运行期数据由渲染服务管理；后端 `material_mirror` 持有 Granit 对象。
-描述不包含 RID、GPU 对象或编辑会话状态。可通过 register_material_reflection 显式登记编解码能力，
+描述不包含 RID、GPU 对象或编辑会话状态。可通过 register_builtin_resource_types 显式登记编解码能力，
 接口见[反射参考](reflection.md#类型编解码)。
 
 资源领域命名按职责区分：`*_description` 表示可持久化的描述，`*_parameters`/`*_settings`

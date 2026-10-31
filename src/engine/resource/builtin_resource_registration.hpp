@@ -4,9 +4,8 @@
 #include "engine/core/meta/registry.hpp"
 #include "engine/core/result.hpp"
 namespace gneiss::engine {
-/** 在未冻结的默认 Registry 登记对应资源身份与 codec；不创建运行时资源。 */
-[[nodiscard]] GNEISS_API error register_material_reflection() noexcept;
-[[nodiscard]] GNEISS_API error register_scene_reflection() noexcept;
-[[nodiscard]] GNEISS_API error register_prefab_reflection() noexcept;
-[[nodiscard]] GNEISS_API error register_action_map_reflection() noexcept;
+/** 在未冻结的默认 Registry 按依赖顺序登记内置资源类型与 codec。
+ * 冻结前须由宿主先注册 World 基础值；initialize_meta 已按此顺序装配。
+ * 首个失败立即返回，不回滚已注册类型；重复调用或冻结后调用失败。不创建运行资源。 */
+[[nodiscard]] GNEISS_API error register_builtin_resource_types() noexcept;
 }
