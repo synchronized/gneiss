@@ -626,3 +626,5 @@
 - [PLAN-091：对象强引用入口统一](plans/PLAN-091-object-reference-ownership.md)
 
 - [反射引用属性访问](plans/PLAN-092-reflection-reference-properties.md)
+
+- [引用持久化与编辑器共享操作](plans/PLAN-093-reference-persistence.md)

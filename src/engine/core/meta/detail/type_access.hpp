@@ -39,6 +39,8 @@ struct type_access {
   void* (*insert)(void*, std::string_view){};
   bool (*erase)(void*, std::string_view){};
   void (*clear)(void*){};
+  ref<const void> (*reference_get)(const void*){};
+  void (*reference_set)(void*, const ref<void>&){};
 };
 template <class T, bool = std::is_enum_v<T>> struct integer_base {
   using type = T;
@@ -132,6 +134,10 @@ template <class T> const type_access& access_of() {
       using E = typename container_traits<T>::element;
       static_assert(!std::is_void_v<E>, "Reflected references require a concrete target type");
       a.element = &access_of<std::remove_const_t<E>>;
+      a.reference_get = [](const void* p) -> ref<const void> { return *static_cast<const T*>(p); };
+      a.reference_set = [](void* p, const ref<void>& value) {
+        *static_cast<T*>(p) = value.template alias<E>(static_cast<E*>(value.get()));
+      };
       a.at = [](const void* p, std::size_t) -> const void* {
         return static_cast<const T*>(p)->get();
       };

@@ -49,6 +49,8 @@ public:
   [[nodiscard]] result<optional_view> as_optional() const noexcept;
   /** 引用目标借用视图；空引用返回 not_found。重置/替换引用后须重新获取。 */
   [[nodiscard]] result<instance> dereference() const noexcept;
+  /** 序列化保活入口；只复制现有控制块，目标类型由 type().element_type() 描述。 */
+  [[nodiscard]] result<ref<const void>> reference_owner() const noexcept;
   [[nodiscard]] result<std::vector<property_info>> properties() const noexcept;
   [[nodiscard]] result<instance> property(property_id id) const noexcept;
   [[nodiscard]] result<instance> property(std::string_view name) const noexcept;
@@ -100,6 +102,8 @@ public:
   [[nodiscard]] result<mutable_instance> dereference() const noexcept;
   /** 仅重置此引用，不修改其他拥有者；最后一次释放遵循原删除器。 */
   [[nodiscard]] error reset_reference() const noexcept;
+  /** 解码入口；调用方保证 owner 的真实类型匹配 id，不接受动态派生转换。 */
+  [[nodiscard]] error assign_reference(engine::type_id id, const ref<void>& owner) const noexcept;
   [[nodiscard]] instance as_const() const noexcept { return view_; }
   [[nodiscard]] type_kind kind() const noexcept { return view_.kind(); }
   [[nodiscard]] result<mutable_instance> property(property_id id) const noexcept;

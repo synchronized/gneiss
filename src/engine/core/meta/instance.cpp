@@ -346,4 +346,19 @@ error mutable_instance::reset_reference() const noexcept {
   return error::success;
 }
 
+result<ref<const void>> instance::reference_owner() const noexcept {
+  if (kind() != type_kind::reference || !access_ || !access_->reference_get)
+    return error::unsupported;
+  return access_->reference_get(data_);
+}
+error mutable_instance::assign_reference(engine::type_id id,
+                                         const ref<void>& owner) const noexcept {
+  if (kind() != type_kind::reference || !view_.access_ || !view_.access_->reference_set)
+    return error::unsupported;
+  if (view_.access_->element().id != id)
+    return error::invalid_argument;
+  view_.access_->reference_set(data_, owner);
+  return error::success;
+}
+
 }

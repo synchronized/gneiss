@@ -169,9 +169,15 @@ bool type_queries() {
   return !weak.expired() && typed->properties()->size() == 2;
 }
 struct reference_target {
+  inline static int alive = 0;
+  reference_target() { ++alive; }
+  ~reference_target() { --alive; }
+  reference_target(const reference_target&) = delete;
+  reference_target& operator=(const reference_target&) = delete;
   static constexpr std::string_view type_name = "reference_target";
   static constexpr e::guid type_guid = e::guid::from_bytes({94, 20});
   int number = 7;
+  e::ref<reference_target> next;
 };
 struct reference_owner {
   static constexpr std::string_view type_name = "reference_owner";
@@ -186,6 +192,8 @@ bool reference_properties() {
   auto registry = *made;
   if (m::type_builder<reference_target>{registry}
           .property<&reference_target::number>(m::property_id{1}, "number")
+          .property<&reference_target::next>(m::property_id{2}, "next")
+          .serialization()
           .commit()
           .failed() ||
       m::type_builder<reference_owner>{registry}
@@ -224,14 +232,49 @@ bool reference_properties() {
       !readonly->as_const().dereference() ||
       field->assign(readonly->as_const()) != e::error::invalid_argument)
     return false;
-  // 未声明引用持久化规则时显式失败，不能把引用展开或丢弃为空对象。
+  // 文件内共享恢复为同一对象；再次加载产生独立对象图。
   auto encoded = m::serialize(registry, owner);
-  if (encoded || encoded.error().error != e::error::unsupported)
+  if (!encoded)
+    return false;
+  auto restored = m::deserialize<reference_owner>(registry, *encoded);
+  auto independent = m::deserialize<reference_owner>(registry, *encoded);
+  if (!restored || !independent || !restored->target ||
+      restored->target.get() != restored->readonly.get() || restored->target->number != 42 ||
+      restored->target.get() == independent->target.get())
+    return false;
+  target->next = target;
+  auto cycle = m::serialize(registry, owner);
+  target->next.reset();
+  if (cycle || cycle.error().error != e::error::invalid_argument)
+    return false;
+  const auto bad = [&](std::string input) {
+    const auto before = reference_target::alive;
+    auto result = m::deserialize<reference_owner>(
+        registry, std::as_bytes(std::span{input.data(), input.size()}));
+    return !result && reference_target::alive == before;
+  };
+  if (!bad(R"({"target":{"$ref":"missing"}})") ||
+      !bad(R"({"$root":{},"$objects":{"1":{},"1":{}}})") ||
+      !bad(R"({"$root":{},"$objects":{"1":{}}})"))
+    return false;
+  std::string wrong_type(reinterpret_cast<const char*>(encoded->data()), encoded->size());
+  auto type_pos = wrong_type.find(reference_target::type_guid.string());
+  if (type_pos == std::string::npos)
+    return false;
+  wrong_type.replace(type_pos, 36, reference_owner::type_guid.string());
+  if (!bad(wrong_type))
+    return false;
+  std::string cycle_json(reinterpret_cast<const char*>(encoded->data()), encoded->size());
+  auto pos = cycle_json.find("\"next\":null");
+  if (pos == std::string::npos)
+    return false;
+  cycle_json.replace(pos, 11, "\"next\":{\"$ref\":\"1\"}");
+  if (!bad(cycle_json))
     return false;
   const std::string input = R"({"target":null,"readonly":null})";
   auto decoded = m::deserialize<reference_owner>(
       registry, std::as_bytes(std::span{input.data(), input.size()}));
-  if (decoded || decoded.error().error != e::error::unsupported)
+  if (!decoded || decoded->target || decoded->readonly)
     return false;
   if (field->reset_reference().failed() || owner.target || !owner.readonly || target->number != 42)
     return false;
