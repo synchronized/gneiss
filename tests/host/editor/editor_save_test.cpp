@@ -112,12 +112,12 @@ int main() try {
   gneiss::engine::camera_description author_camera{.settings = {1.04719755F, 0.1F, 1000.0F},
                                                    .is_primary = false};
   if (session.set_camera(empty_child, author_camera) != gneiss::engine::error::success ||
-      (session.find_node(child_uuid)->component_flags &
-       static_cast<std::uint32_t>(gneiss::scene_node_components::camera)) == 0U ||
+      session.find_node(child_uuid)->components.get<gneiss::engine::camera_description>() ==
+          nullptr ||
       session.remove_camera(session.find_node(child_uuid)->node) !=
           gneiss::engine::error::success ||
-      (session.find_node(child_uuid)->component_flags &
-       static_cast<std::uint32_t>(gneiss::scene_node_components::camera)) != 0U ||
+      session.find_node(child_uuid)->components.get<gneiss::engine::camera_description>() !=
+          nullptr ||
       session.remove_mesh_renderer(session.find_node(created_uuid)->node) !=
           gneiss::engine::error::success ||
       session.set_mesh_renderer(session.find_node(created_uuid)->node, mesh_uri, material_uri) !=

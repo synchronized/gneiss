@@ -156,7 +156,8 @@ error scene_instance::set_component_override(scene_node_id node, guid type,
               return ready.error();
             renderer = *ready;
           }
-          if (!loader_.owns(renderer.mesh) || !loader_.owns(renderer.material))
+          if ((renderer.mesh && !loader_.owns(renderer.mesh)) ||
+              (renderer.material && !loader_.owns(renderer.material)))
             return error::invalid_argument;
         }
         status = install_components({native_world_, node, renderer, &loader_}, {*value});
@@ -284,9 +285,8 @@ error scene_instance::capture_mesh_binding(scene_node_id node,
 error scene_instance::replace_mesh_binding(scene_node_id node_value,
                                            const scene_mesh_binding& expected,
                                            const scene_mesh_binding& replacement) noexcept try {
-  if (engine::asset_kind(replacement.mesh) != asset_type::mesh ||
-      engine::asset_kind(replacement.material) != asset_type::material ||
-      !loader_.owns(replacement.mesh) || !loader_.owns(replacement.material)) {
+  if ((replacement.mesh && !loader_.owns(replacement.mesh)) ||
+      (replacement.material && !loader_.owns(replacement.material))) {
     return error::invalid_argument;
   }
   const auto node = node_value;

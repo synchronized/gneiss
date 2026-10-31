@@ -54,6 +54,8 @@ error build_render_snapshot(world_state& world, std::uint32_t viewport_width,
     }
     world.each<mesh_renderer_component>(
         [&](entt::entity native_entity, const mesh_renderer_component& component) {
+          if (!component.value.mesh || !component.value.material)
+            return;
           const auto entity = world.encode_entity(native_entity);
           if (auto transform = world.scene().get_world_for_entity(entity)) {
             snapshot.instances.push_back({.mesh = component.value.mesh,

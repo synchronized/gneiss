@@ -83,10 +83,6 @@ bool parse_float_array(yyjson_val* object, const char* key, float* output,
   return true;
 }
 
-bool valid_camera(const gneiss::engine::math::camera_settings& camera) noexcept {
-  return std::isfinite(camera.fov) && std::isfinite(camera.near) && std::isfinite(camera.far);
-}
-
 bool add_uuid(yyjson_mut_doc* doc, yyjson_mut_val* object, const char* name,
               gneiss::engine::guid id) {
   const auto text = id ? id.string() : std::string{};
@@ -108,10 +104,61 @@ bool parse_uuid(yyjson_val* value, bool optional, gneiss::engine::guid& output) 
   return true;
 }
 
+// IPC 仅包装组件身份，字段编解码由已有反射序列化负责。
+bool add_components(yyjson_mut_doc* doc, yyjson_mut_val* node,
+                    const gneiss::engine::component_descriptions& components) {
+  auto* array = yyjson_mut_arr(doc);
+  if (!array)
+    return false;
+  for (const auto& component : components) {
+    auto bytes = component.encode();
+    if (!bytes)
+      return false;
+    document_ptr parsed(yyjson_read(reinterpret_cast<const char*>(bytes->data()), bytes->size(), 0),
+                        &yyjson_doc_free);
+    if (!parsed || !yyjson_is_obj(yyjson_doc_get_root(parsed.get())))
+      return false;
+    auto* entry = yyjson_mut_obj(doc);
+    auto* content = yyjson_val_mut_copy(doc, yyjson_doc_get_root(parsed.get()));
+    if (!entry || !content || !add_uuid(doc, entry, "$type_guid", component.guid()) ||
+        !yyjson_mut_obj_add_val(doc, entry, "$content", content) ||
+        !yyjson_mut_arr_add_val(array, entry))
+      return false;
+  }
+  return yyjson_mut_obj_add_val(doc, node, "components", array);
+}
+bool parse_components(yyjson_val* node, gneiss::engine::component_descriptions& output) {
+  auto* array = yyjson_obj_get(node, "components");
+  if (!yyjson_is_arr(array))
+    return false;
+  gneiss::engine::component_descriptions result;
+  for (std::size_t i = 0; i < yyjson_arr_size(array); ++i) {
+    auto* entry = yyjson_arr_get(array, i);
+    if (!yyjson_is_obj(entry))
+      return false;
+    gneiss::engine::guid type;
+    auto* content = yyjson_obj_get(entry, "$content");
+    if (!parse_uuid(yyjson_obj_get(entry, "$type_guid"), false, type) || !yyjson_is_obj(content) ||
+        result.find(type))
+      return false;
+    std::size_t length{};
+    std::unique_ptr<char, decltype(&std::free)> text(yyjson_val_write(content, 0, &length),
+                                                     &std::free);
+    if (!text)
+      return false;
+    auto decoded = gneiss::engine::component_description::decode(
+        type, std::as_bytes(std::span{text.get(), length}));
+    if (!decoded)
+      return false;
+    result.set(std::move(*decoded));
+  }
+  output = std::move(result);
+  return true;
+}
+
 bool add_node(yyjson_mut_doc* document, yyjson_mut_val* change,
               const gneiss::host::ipc_inspection_node& node) {
   auto* value = yyjson_mut_obj(document);
-  auto* camera = yyjson_mut_obj(document);
   return value != nullptr && add_id(document, value, "id", node.id) &&
          add_id(document, value, "parent", node.parent) &&
          add_uuid(document, value, "uuid", node.uuid) &&
@@ -126,17 +173,7 @@ bool add_node(yyjson_mut_doc* document, yyjson_mut_val* change,
                          4U) &&
          add_float_array(document, value, "scale",
                          gneiss::engine::math::components(node.local_transform.scale).data(), 3U) &&
-         yyjson_mut_obj_add_uint(document, value, "component_flags", node.component_flags) &&
-         camera != nullptr &&
-         yyjson_mut_obj_add_real(document, camera, "vertical_field_of_view_radians",
-                                 node.camera.fov) &&
-         yyjson_mut_obj_add_real(document, camera, "near_plane", node.camera.near) &&
-         yyjson_mut_obj_add_real(document, camera, "far_plane", node.camera.far) &&
-         yyjson_mut_obj_add_val(document, value, "camera", camera) &&
-         yyjson_mut_obj_add_strncpy(document, value, "mesh_uri", node.mesh_uri.data(),
-                                    node.mesh_uri.size()) &&
-         yyjson_mut_obj_add_strncpy(document, value, "material_uri", node.material_uri.data(),
-                                    node.material_uri.size()) &&
+         add_components(document, value, node.components) &&
          yyjson_mut_obj_add_val(document, change, "node", value);
 }
 
@@ -148,26 +185,14 @@ bool parse_node(yyjson_val* change, gneiss::host::ipc_inspection_node& output) {
   auto* prefab_source_node_uuid =
       yyjson_is_obj(node) ? yyjson_obj_get(node, "prefab_source_node_uuid") : nullptr;
   auto* name = yyjson_is_obj(node) ? yyjson_obj_get(node, "name") : nullptr;
-  auto* flags = yyjson_is_obj(node) ? yyjson_obj_get(node, "component_flags") : nullptr;
-  auto* camera = yyjson_is_obj(node) ? yyjson_obj_get(node, "camera") : nullptr;
-  auto* field_of_view =
-      yyjson_is_obj(camera) ? yyjson_obj_get(camera, "vertical_field_of_view_radians") : nullptr;
-  auto* near_plane = yyjson_is_obj(camera) ? yyjson_obj_get(camera, "near_plane") : nullptr;
-  auto* far_plane = yyjson_is_obj(camera) ? yyjson_obj_get(camera, "far_plane") : nullptr;
-  auto* mesh_uri = yyjson_is_obj(node) ? yyjson_obj_get(node, "mesh_uri") : nullptr;
-  auto* material_uri = yyjson_is_obj(node) ? yyjson_obj_get(node, "material_uri") : nullptr;
   if (!yyjson_is_str(uuid) || yyjson_get_len(uuid) == 0U ||
       yyjson_get_len(uuid) > max_string_size || !yyjson_is_str(name) ||
       !yyjson_is_str(prefab_instance_uuid) ||
       yyjson_get_len(prefab_instance_uuid) > max_string_size ||
       !yyjson_is_str(prefab_source_node_uuid) ||
       yyjson_get_len(prefab_source_node_uuid) > max_string_size ||
-      yyjson_get_len(name) > max_string_size || !yyjson_is_uint(flags) ||
-      yyjson_get_uint(flags) > std::numeric_limits<std::uint32_t>::max() ||
-      !yyjson_is_num(field_of_view) || !yyjson_is_num(near_plane) || !yyjson_is_num(far_plane) ||
-      !yyjson_is_str(mesh_uri) || yyjson_get_len(mesh_uri) > max_string_size ||
-      !yyjson_is_str(material_uri) || yyjson_get_len(material_uri) > max_string_size ||
-      !parse_id(node, "id", false, output.id) || !parse_id(node, "parent", true, output.parent) ||
+      yyjson_get_len(name) > max_string_size || !parse_id(node, "id", false, output.id) ||
+      !parse_id(node, "parent", true, output.parent) ||
       !parse_float_array(
           node, "translation",
           gneiss::engine::math::components(output.local_transform.translation).data(), 3U) ||
@@ -185,24 +210,7 @@ bool parse_node(yyjson_val* change, gneiss::host::ipc_inspection_node& output) {
       (output.prefab_source_node_uuid && !output.prefab_instance_uuid))
     return false;
   output.name.assign(yyjson_get_str(name), yyjson_get_len(name));
-  output.component_flags = static_cast<std::uint32_t>(yyjson_get_uint(flags));
-  const auto fov = yyjson_get_real(field_of_view);
-  const auto near_value = yyjson_get_real(near_plane);
-  const auto far_value = yyjson_get_real(far_plane);
-  if (!std::isfinite(fov) || !std::isfinite(near_value) || !std::isfinite(far_value) ||
-      fov < -std::numeric_limits<float>::max() || fov > std::numeric_limits<float>::max() ||
-      near_value < -std::numeric_limits<float>::max() ||
-      near_value > std::numeric_limits<float>::max() ||
-      far_value < -std::numeric_limits<float>::max() ||
-      far_value > std::numeric_limits<float>::max()) {
-    return false;
-  }
-  output.camera.fov = static_cast<float>(fov);
-  output.camera.near = static_cast<float>(near_value);
-  output.camera.far = static_cast<float>(far_value);
-  output.mesh_uri.assign(yyjson_get_str(mesh_uri), yyjson_get_len(mesh_uri));
-  output.material_uri.assign(yyjson_get_str(material_uri), yyjson_get_len(material_uri));
-  return true;
+  return parse_components(node, output.components);
 }
 
 } // namespace
@@ -241,9 +249,7 @@ gneiss::engine::error encode_ipc_inspection_batch(const ipc_inspection_batch& ba
            (change.node.id != change.id || change.node.uuid.is_nil() ||
             (change.node.prefab_source_node_uuid && !change.node.prefab_instance_uuid) ||
             change.node.name.size() > max_string_size ||
-            change.node.mesh_uri.size() > max_string_size ||
-            change.node.material_uri.size() > max_string_size ||
-            !valid_camera(change.node.camera) || !add_node(document.get(), object, change.node))) ||
+            !add_node(document.get(), object, change.node))) ||
           !yyjson_mut_arr_add_val(changes, object)) {
         return gneiss::engine::error::invalid_argument;
       }

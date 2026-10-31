@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engine/core/guid.hpp"
+#include "engine/resource/scene/component_description.hpp"
 #include "runtime_object_id.hpp"
 
 #include "engine/core/error.hpp"
@@ -55,10 +56,7 @@ struct runtime_scene_node final {
   gneiss::engine::guid prefab_source_node_uuid;
   std::string name;
   gneiss::engine::math::transform local_transform;
-  std::uint32_t component_flags = 0U;
-  gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  std::string mesh_uri;
-  std::string material_uri;
+  gneiss::engine::component_descriptions components{};
 };
 
 struct runtime_scene_change final {

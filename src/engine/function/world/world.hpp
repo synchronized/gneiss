@@ -54,6 +54,7 @@ public:
   [[nodiscard]] error node_set_identity(scene_node_id node, scene_node_identity identity) noexcept;
   /** 借用名称与身份，仅在节点存活且元数据未修改期间有效。 */
   [[nodiscard]] result<scene_node_identity_view> node_identity(scene_node_id node) const noexcept;
+  [[nodiscard]] result<scene_node_id> entity_node(entity_id entity) const noexcept;
   [[nodiscard]] result<mesh_renderer> node_mesh_renderer(scene_node_id node) noexcept;
   [[nodiscard]] error node_create(scene_node_id parent, entity_id entity,
                                   scene_node_id& out_node) noexcept;

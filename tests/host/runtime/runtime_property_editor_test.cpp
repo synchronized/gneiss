@@ -53,10 +53,7 @@ bool test_write_and_revision() {
        .prefab_source_node_uuid = {},
        .name = "Root",
        .local_transform = {},
-       .component_flags = 0U,
-       .camera = {1.04719755F, 0.1F, 1000.0F},
-       .mesh_uri = {},
-       .material_uri = {}}};
+       .components = {}}};
   gneiss::host::runtime_scene_snapshot snapshot;
   GNEISS_TEST_CHECK(inspection.capture(nodes, false, snapshot) == gneiss::engine::error::success);
 

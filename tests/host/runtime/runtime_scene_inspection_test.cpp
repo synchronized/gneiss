@@ -2,10 +2,13 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../support/async_application.hpp"
+#include "../../support/movement_component.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
+#include "engine/function/meta_registration.hpp"
+#include "runtime_property_editor.hpp"
 #include "runtime_scene_inspection.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"
@@ -28,10 +31,7 @@ gneiss::host::runtime_scene_source_node make_node(std::uint64_t node, std::uint6
           .prefab_source_node_uuid = {},
           .name = std::move(name),
           .local_transform = {},
-          .component_flags = 0U,
-          .camera = {1.04719755F, 0.1F, 1000.0F},
-          .mesh_uri = {},
-          .material_uri = {}};
+          .components = {}};
 }
 
 bool test_full_and_incremental_snapshot() {
@@ -58,19 +58,25 @@ bool test_full_and_incremental_snapshot() {
 
   nodes[1].name = "Renamed";
   nodes[1].local_transform.translation[0] = 2.0F;
-  nodes[1].component_flags =
-      static_cast<std::uint32_t>(gneiss::scene_node_components::camera) |
-      static_cast<std::uint32_t>(gneiss::scene_node_components::mesh_renderer);
-  nodes[1].camera.near = 0.25F;
-  nodes[1].mesh_uri = "asset:///meshes/child.gneiss-mesh";
-  nodes[1].material_uri = "asset:///materials/child.material.json";
+  nodes[1].components = {
+      gneiss::engine::camera_description{{1.04719755F, 0.25F, 1000.0F}},
+      gneiss::engine::mesh_renderer_description{"asset:///meshes/child.gneiss-mesh",
+                                                "asset:///materials/child.material.json"}};
   if (inspection.capture(nodes, false, snapshot) != gneiss::engine::error::success ||
       snapshot.is_full || snapshot.stamp.sequence != 2U || snapshot.changes.size() != 1U ||
       snapshot.changes[0].type != runtime_scene_change_type::upsert ||
       snapshot.changes[0].id != old_child_id || snapshot.changes[0].node.name != "Renamed" ||
-      snapshot.changes[0].node.camera.near != 0.25F ||
-      snapshot.changes[0].node.mesh_uri != nodes[1].mesh_uri ||
-      snapshot.changes[0].node.material_uri != nodes[1].material_uri) {
+      snapshot.changes[0]
+              .node.components.get<gneiss::engine::camera_description>()
+              ->settings.near != 0.25F ||
+      snapshot.changes[0]
+              .node.components.get<gneiss::engine::mesh_renderer_description>()
+              ->mesh_uri !=
+          nodes[1].components.get<gneiss::engine::mesh_renderer_description>()->mesh_uri ||
+      snapshot.changes[0]
+              .node.components.get<gneiss::engine::mesh_renderer_description>()
+              ->material_uri !=
+          nodes[1].components.get<gneiss::engine::mesh_renderer_description>()->material_uri) {
     return false;
   }
 
@@ -192,9 +198,90 @@ bool test_capture_prefab_scene() {
   return valid && unloaded && destroyed;
 }
 
+bool test_registered_component_inspection() {
+  namespace e = gneiss::engine;
+  using namespace gneiss::test_support;
+  auto owner = e::create_native();
+  if (!owner)
+    return false;
+  auto& world = **owner;
+  auto node = world.object_create({}, {e::guid::from_bytes({7}), "Custom"}, {});
+  if (!node || e::install_components({world, *node},
+                                     {movement_description{3}, e::mesh_renderer_description{}})
+                   .failed())
+    return false;
+  auto components = e::capture_components(world, *node);
+  if (!components || components->size() != 2 || !components->get<e::mesh_renderer_description>())
+    return false;
+  auto dependencies = e::component_dependencies(*components);
+  if (!dependencies || !dependencies->empty())
+    return false;
+  gneiss::host::runtime_scene_inspection inspection(83);
+  auto source = make_node(node->get(), 0, e::guid::from_bytes({7}), "Custom");
+  source.native_entity = entity(world, *node);
+  source.components = *components;
+  gneiss::host::ipc_inspection_batch batch;
+  if (inspection.capture(std::span{&source, 1}, true, batch).failed())
+    return false;
+  std::vector<std::uint8_t> bytes;
+  if (gneiss::host::encode_ipc_inspection_batch(batch, bytes).failed())
+    return false;
+  gneiss::host::ipc_inspection_batch decoded;
+  if (gneiss::host::decode_ipc_inspection_batch(bytes, decoded).failed())
+    return false;
+  // 未注册类型必须拒绝，失败不替换已有完整快照。
+  auto invalid = bytes;
+  std::string json(invalid.begin(), invalid.end());
+  const auto position = json.find(movement_description::type_guid.string());
+  if (position == std::string::npos)
+    return false;
+  json.replace(position, 36, "ffffffff-ffff-ffff-ffff-ffffffffffff");
+  invalid.assign(json.begin(), json.end());
+  if (gneiss::host::decode_ipc_inspection_batch(invalid, decoded).ok())
+    return false;
+  const auto& received = decoded.changes.front().node.components;
+  if (!received.get<movement_description>() || received.get<movement_description>()->speed != 3 ||
+      !received.get<e::mesh_renderer_description>() ||
+      !received.get<e::mesh_renderer_description>()->mesh_uri.empty())
+    return false;
+  auto reflected = received.find(movement_description::type_guid)->view();
+  if (!reflected || !reflected->property("speed"))
+    return false;
+  gneiss::host::runtime_property_editor editor;
+  if (editor.initialize(world, inspection, 83).failed())
+    return false;
+  gneiss::host::ipc_property_write command{.session_id = 83,
+                                           .command_id = 1,
+                                           .object = batch.changes.front().id,
+                                           .type_id = movement_description::type_guid,
+                                           .field_id = 1,
+                                           .expected_revision = 1,
+                                           .value = {6.0F}};
+  gneiss::host::ipc_property_write_result response;
+  if (editor.execute(command, response).failed() || response.code != e::error::success.code() ||
+      state(world).get<movement_component>(source.native_entity)->data.speed != 6)
+    return false;
+  command.command_id = 2;
+  command.expected_revision = 2;
+  command.value = {-1.0F};
+  if (editor.execute(command, response).failed() ||
+      response.code != e::error::invalid_argument.code() ||
+      state(world).get<movement_component>(source.native_entity)->data.speed != 6)
+    return false;
+  if (e::remove_component({world, *node}, e::mesh_renderer_description::type_guid).failed())
+    return false;
+  components = e::capture_components(world, *node);
+  return components && !components->get<e::mesh_renderer_description>();
+}
+
 } // namespace
 
 int main() {
+  if (gneiss::engine::initialize_meta(gneiss::test_support::register_movement_meta).failed() ||
+      gneiss::engine::register_scene_component(gneiss::test_support::operations()).failed())
+    return 99;
+  if (!test_registered_component_inspection())
+    return 98;
   return test_full_and_incremental_snapshot() && test_validation_and_reset() &&
                  test_empty_scene_is_stable() && test_prefab_composite_identity() &&
                  test_capture_prefab_scene()

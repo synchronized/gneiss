@@ -43,12 +43,8 @@ struct scene_node_record final {
   entity_id entity;
   gneiss::engine::guid uuid;
   std::string display_name;
-  std::string mesh_uri;
-  std::string material_uri;
   gneiss::engine::math::transform local_transform = {};
-  std::uint32_t component_flags = 0U;
-  gneiss::engine::camera_description camera{};
-  bool is_primary_camera = false;
+  engine::component_descriptions components{};
 };
 
 struct prefab_node_record final {

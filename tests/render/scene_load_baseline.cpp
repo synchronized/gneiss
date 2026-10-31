@@ -195,7 +195,7 @@ int main(int argc, char** argv) try {
           gneiss::engine::error::success) {
         return 11;
       }
-      if (gneiss::has_flags(node.component_flags, gneiss::scene_node_components::camera)) {
+      if (node.components.get<gneiss::engine::camera_description>() != nullptr) {
         camera = node;
         break;
       }

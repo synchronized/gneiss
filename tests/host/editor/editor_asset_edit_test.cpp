@@ -89,21 +89,34 @@ void run(gneiss::engine::execution_mode mode) {
   const auto initial_binding = binding();
   check(request("asset://b.json") == gneiss::engine::error::success && edit.active() &&
         edit.visible());
-  check(history.size() == 0U && session.nodes().front().material_uri == "asset://a.json");
+  check(history.size() == 0U &&
+        session.nodes()
+                .front()
+                .components.get<gneiss::engine::mesh_renderer_description>()
+                ->material_uri == "asset://a.json");
   check(request("asset://b.json") == gneiss::engine::error::not_ready);
   drive();
   check(edit.operation() == gneiss::engine::error::success && !edit.visible() &&
         history.size() == 1U);
-  check(session.nodes().front().material_uri == "asset://b.json");
+  check(session.nodes()
+            .front()
+            .components.get<gneiss::engine::mesh_renderer_description>()
+            ->material_uri == "asset://b.json");
   const auto changed_binding = binding();
   check(initial_binding.material != changed_binding.material);
   std::ofstream(files.root / "a.json") << "broken";
   std::ofstream(files.root / "b.json") << "broken";
   check(history.undo() == gneiss::engine::error::success &&
-        session.nodes().front().material_uri == "asset://a.json");
+        session.nodes()
+                .front()
+                .components.get<gneiss::engine::mesh_renderer_description>()
+                ->material_uri == "asset://a.json");
   check(binding().material == initial_binding.material);
   check(history.redo() == gneiss::engine::error::success &&
-        session.nodes().front().material_uri == "asset://b.json");
+        session.nodes()
+                .front()
+                .components.get<gneiss::engine::mesh_renderer_description>()
+                ->material_uri == "asset://b.json");
   check(binding().material == changed_binding.material);
   // 新材质准备期间撤销前一次编辑；迟到结果不得覆盖撤销后的确切版本。
   std::ofstream(files.root / "c.json")
@@ -123,7 +136,10 @@ void run(gneiss::engine::execution_mode mode) {
   check(request("asset://missing.json") == gneiss::engine::error::success);
   drive();
   check(edit.operation().failed() && history.size() == count &&
-        session.nodes().front().material_uri == "asset://b.json");
+        session.nodes()
+                .front()
+                .components.get<gneiss::engine::mesh_renderer_description>()
+                ->material_uri == "asset://b.json");
   edit.dismiss();
   check(request("asset://missing.json") == gneiss::engine::error::success);
   edit.cancel(*app);
@@ -285,7 +301,11 @@ void prefab_edits(engine::execution_mode mode) {
     return found->prefab->overrides.size();
   };
   const auto before = binding(child);
-  check(request(child, "").failed() && !edit.active() && history.size() == 0);
+  check(request(child, "").ok() && !edit.active() && !binding(child).material);
+  check(history.undo().ok() && binding(child).material == before.material);
+  check(history.redo().ok() && !binding(child).material);
+  check(history.undo().ok() && binding(child).material == before.material);
+  history.clear();
   check(request(child, "asset://b.json").ok() && edit.active());
   check(binding(child).material == before.material && history.size() == 0);
   drive();

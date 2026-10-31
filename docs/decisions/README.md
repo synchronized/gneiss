@@ -107,3 +107,5 @@ Reference 和实现为准。
 - [ADR-099：统一 CPU 加载协议与缓存生命周期](ADR-099-unified-cpu-loading.md)
 
 - [ADR-100：加载保护边界](ADR-100-loading-limits.md)
+
+- [ADR-101：通用组件检查](ADR-101-component-inspection.md)

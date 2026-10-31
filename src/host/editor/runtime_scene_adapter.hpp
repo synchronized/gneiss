@@ -47,10 +47,7 @@ to_runtime_scene_batch(ipc_inspection_batch&& input,
                     .prefab_source_node_uuid = std::move(node.prefab_source_node_uuid),
                     .name = std::move(node.name),
                     .local_transform = node.local_transform,
-                    .component_flags = node.component_flags,
-                    .camera = node.camera,
-                    .mesh_uri = std::move(node.mesh_uri),
-                    .material_uri = std::move(node.material_uri)}});
+                    .components = std::move(node.components)}});
     }
     output = std::move(converted);
     return gneiss::engine::error::success;

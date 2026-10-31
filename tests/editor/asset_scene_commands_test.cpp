@@ -117,7 +117,10 @@ int main() try {
           session, history, uuid,
           {.mesh_uri = mesh, .material_uri = "asset://materials/missing.material.json"})
           .ok() ||
-      history.size() != 1U || session.find_node(uuid)->material_uri != material ||
+      history.size() != 1U ||
+      session.find_node(uuid)
+              ->components.get<gneiss::engine::mesh_renderer_description>()
+              ->material_uri != material ||
       replace_mesh_assets(
           session, history, *gneiss::engine::guid::parse("ffffffff-ffff-4fff-8fff-ffffffffffff"),
           {.mesh_uri = mesh, .material_uri = material}) != gneiss::engine::error::not_found) {
@@ -165,7 +168,10 @@ int main() try {
   // 相同资源是无操作，不消耗历史容量，也不把文档标脏。
   if (replace_mesh_assets(session, full, uuid, {.mesh_uri = mesh, .material_uri = material}) !=
           gneiss::engine::error::success ||
-      session.is_dirty() || session.find_node(uuid)->material_uri != material) {
+      session.is_dirty() ||
+      session.find_node(uuid)
+              ->components.get<gneiss::engine::mesh_renderer_description>()
+              ->material_uri != material) {
     return 9;
   }
   editor_asset_edit removal;
@@ -174,12 +180,14 @@ int main() try {
                                 removed_binding)
           .failed() ||
       removal.request_remove(*app, session, history, uuid).failed() ||
-      !session.find_node(uuid)->mesh_uri.empty() || run_history(true).failed() ||
+      session.find_node(uuid)->components.get<gneiss::engine::mesh_renderer_description>() !=
+          nullptr ||
+      run_history(true).failed() ||
       app->capture_mesh_binding(session.scene_handle(), session.find_node(uuid)->node,
                                 restored_binding)
           .failed() ||
-      (session.find_node(uuid)->component_flags &
-       static_cast<std::uint32_t>(scene_node_components::mesh_renderer)) == 0U ||
+      session.find_node(uuid)->components.get<gneiss::engine::mesh_renderer_description>() ==
+          nullptr ||
       removed_binding.mesh != restored_binding.mesh ||
       removed_binding.material != restored_binding.material || run_history(false).failed() ||
       run_history(true).failed())

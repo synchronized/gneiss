@@ -78,6 +78,7 @@ int main() try {
   e::object_description first;
   first.uuid = e::guid::from_bytes({2});
   first.components.set(movement_description{2});
+  first.components.set(e::mesh_renderer_description{});
   source.objects.push_back(first);
   auto second = first;
   second.uuid = e::guid::from_bytes({3});
@@ -94,6 +95,10 @@ int main() try {
   check(scenes.instantiate_prepared(std::move(prepared), {}, instance).ok());
   gneiss::scene_node_id node;
   check(scenes.find_node(instance, first.uuid, node).ok());
+  e::scene_node_view queried;
+  check(scenes.get_node_info(instance, 0, queried).ok());
+  check(queried.components.get<movement_description>() &&
+        queried.components.get<movement_description>()->speed == 2);
   auto id = entity(world, node);
   auto* component = state(world).get<movement_component>(id);
   check(component && component->data.speed == 2);

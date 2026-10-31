@@ -17,7 +17,7 @@
 
 namespace gneiss::engine {
 
-enum class node_query_detail { identity, assets, components };
+enum class node_query_detail { identity, components };
 
 /** Prefab 来源关系；不重复节点、实体或运行时变换。 */
 struct prefab_origin_view {
@@ -37,18 +37,16 @@ struct prefab_origin_view {
   }
 };
 
-/** 字符串借用到下次场景修改或销毁；查询不延长场景寿命。 */
+/** 名称与 Prefab 来源借用到下次场景修改或销毁；组件集合是自有只读快照。
+ * 查询不延长场景寿命。 */
 struct scene_node_view {
   scene_node_id node{};
   scene_node_id parent{};
   entity_id entity{};
   guid uuid;
   std::string_view name;
-  std::string_view mesh_uri;
-  std::string_view material_uri;
   math::transform local_transform = {};
-  scene_node_components component_flags{};
-  std::optional<camera_description> camera;
+  component_descriptions components{};
   std::optional<prefab_origin_view> prefab;
 };
 

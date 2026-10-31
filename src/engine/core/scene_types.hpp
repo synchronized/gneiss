@@ -38,31 +38,6 @@ public:
 private:
   std::uint64_t value_{};
 };
-
-// NOLINTNEXTLINE(performance-enum-size): 保留完整标志位宽度。
-enum class scene_node_components : std::uint32_t {
-  none = 0,
-  camera = 1,
-  mesh_renderer = 2,
-  primary_camera = 4,
-};
-template <typename T>
-concept scene_flags = std::same_as<T, scene_node_components>;
-template <scene_flags T> [[nodiscard]] constexpr T operator|(T left, T right) noexcept {
-  return static_cast<T>(static_cast<std::uint32_t>(left) | static_cast<std::uint32_t>(right));
-}
-template <scene_flags T> [[nodiscard]] constexpr T operator&(T left, T right) noexcept {
-  return static_cast<T>(static_cast<std::uint32_t>(left) & static_cast<std::uint32_t>(right));
-}
-template <scene_flags T> constexpr T& operator|=(T& left, T right) noexcept {
-  left = left | right;
-  return left;
-}
-
-template <scene_flags T> [[nodiscard]] constexpr bool has_flags(T value, T flags) noexcept {
-  return (value & flags) == flags;
-}
-
 }
 
 namespace gneiss::engine {

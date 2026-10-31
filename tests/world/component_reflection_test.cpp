@@ -3,8 +3,10 @@
 #include "../support/value_result.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/core/rid.hpp"
+#include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
+#include "engine/resource/builtin_resource_registration.hpp"
 #include <cmath>
 #include <thread>
 
@@ -19,6 +21,7 @@ int main() {
           .failed() ||
       engine::register_reflection().failed() ||
       engine::register_reflection() != engine::error::invalid_argument ||
+      engine::register_builtin_resource_types().failed() ||
       gneiss::engine::meta::freeze(registry).failed() ||
       gneiss::test_support::assign_value(engine::create_native(), first).failed() ||
       gneiss::test_support::assign_value(engine::create_native(), second).failed() ||

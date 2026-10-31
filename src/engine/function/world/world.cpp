@@ -75,6 +75,13 @@ result<scene_node_identity_view> world::node_identity(scene_node_id node) const 
     return error::invalid_state;
   return state_->scene().identity(node);
 }
+result<scene_node_id> world::entity_node(entity_id entity) const noexcept {
+  if (!is_owner_thread())
+    return error::invalid_state;
+  if (!state_->is_alive(entity.get()))
+    return error::invalid_handle;
+  return state_->scene().node_for_entity(entity.get());
+}
 result<mesh_renderer> world::node_mesh_renderer(scene_node_id node) noexcept {
   if (!is_owner_thread())
     return error::invalid_state;
@@ -281,8 +288,7 @@ world::replace_mesh_renderers(std::span<const mesh_renderer_replacement> replace
     }
     std::unordered_set<std::uint64_t> entities;
     for (const auto& change : replacements) {
-      if (!entities.insert(change.entity.get()).second || !change.replacement.mesh ||
-          !change.replacement.material) {
+      if (!entities.insert(change.entity.get()).second) {
         return engine::error::invalid_argument;
       }
       if (!state->is_alive(change.entity.get())) {
@@ -310,9 +316,6 @@ world::replace_mesh_renderers(std::span<const mesh_renderer_replacement> replace
 engine::error world::entity_set_mesh_renderer(entity_id entity_value,
                                               const mesh_renderer& renderer) noexcept {
   std::uint64_t entity = entity_value.get();
-  if (!renderer.mesh || !renderer.material) {
-    return engine::error::invalid_argument;
-  }
 
   try {
     auto* state = state_.get();

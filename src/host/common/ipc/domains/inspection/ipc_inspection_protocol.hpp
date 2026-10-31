@@ -5,6 +5,7 @@
 #define GNEISS_APPS_COMMON_IPC_DOMAINS_INSPECTION_IPC_INSPECTION_PROTOCOL_H_
 
 #include "engine/core/guid.hpp"
+#include "engine/resource/scene/component_description.hpp"
 #include "ipc_dispatcher.hpp"
 
 #include "engine/core/error.hpp"
@@ -18,7 +19,7 @@
 
 namespace gneiss::host {
 
-inline constexpr std::uint16_t ipc_inspection_domain_version = 1U;
+inline constexpr std::uint16_t ipc_inspection_domain_version = 2U;
 enum class ipc_inspection_operation : std::uint16_t { snapshot = 1U, resync = 2U };
 
 /** 单次 Runtime 会话内的对象标识；跨会话或 generation 不同时不得复用。 */
@@ -46,10 +47,7 @@ struct ipc_inspection_node final {
   engine::guid prefab_source_node_uuid;
   std::string name;
   gneiss::engine::math::transform local_transform;
-  std::uint32_t component_flags = 0U;
-  gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  std::string mesh_uri;
-  std::string material_uri;
+  gneiss::engine::component_descriptions components{};
 };
 
 struct ipc_inspection_change final {

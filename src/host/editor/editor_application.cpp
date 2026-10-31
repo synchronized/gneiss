@@ -2943,8 +2943,7 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
       ImGui::Separator();
       const auto uuid = selected->uuid;
       const auto has_mesh =
-          (selected->component_flags &
-           static_cast<std::uint32_t>(gneiss::scene_node_components::mesh_renderer)) != 0U;
+          selected->components.get<gneiss::engine::mesh_renderer_description>() != nullptr;
       auto current = state.editing.document().components(selected->node);
       auto choices = gneiss::engine::component_editor_types();
       ImGui::BeginDisabled(state.editing.assets().active() || state.editing.history().is_pending());

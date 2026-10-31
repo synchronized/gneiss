@@ -138,8 +138,10 @@ yyjson_mut_val* make_uuid(yyjson_mut_doc* doc, gneiss::engine::guid value) {
 
 [[nodiscard]] bool validate_mesh_renderer(const gneiss::engine::mesh_renderer_description& output,
                                           std::string_view path, scene_diagnostic& diagnostic) {
-  if (gneiss::engine::validate_uri(output.mesh_uri) != gneiss::engine::error::success ||
-      gneiss::engine::validate_uri(output.material_uri) != gneiss::engine::error::success) {
+  if ((!output.mesh_uri.empty() &&
+       gneiss::engine::validate_uri(output.mesh_uri) != gneiss::engine::error::success) ||
+      (!output.material_uri.empty() &&
+       gneiss::engine::validate_uri(output.material_uri) != gneiss::engine::error::success)) {
     fail(diagnostic, gneiss::engine::error::invalid_argument, path, "资源引用必须是规范 asset URI");
     return false;
   }

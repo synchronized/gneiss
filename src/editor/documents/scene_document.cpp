@@ -259,15 +259,9 @@ gneiss::engine::error scene_document::refresh_nodes() noexcept {
            .entity = entity_id{info.entity},
            .uuid = uuid,
            .display_name = info.name.empty() ? uuid.string() : std::string{info.name},
-           .mesh_uri = info.mesh_uri.empty() ? std::string{} : std::string{info.mesh_uri},
-           .material_uri =
-               info.material_uri.empty() ? std::string{} : std::string{info.material_uri},
            .local_transform = {info.local_transform.translation, info.local_transform.rotation,
                                info.local_transform.scale},
-           .component_flags = static_cast<std::uint32_t>(info.component_flags),
-           .camera = info.camera.value_or(gneiss::engine::camera_description{}),
-           .is_primary_camera =
-               has_flags(info.component_flags, scene_node_components::primary_camera)});
+           .components = std::move(info.components)});
     }
     nodes_.swap(records);
     prefab_nodes_.swap(prefab_records);
@@ -757,8 +751,7 @@ gneiss::engine::error scene_document::create_mesh_renderer_node(const mesh_node_
                       .uuid = snapshot.uuid,
                       .display_name = snapshot.display_name.empty() ? snapshot.uuid.string()
                                                                     : snapshot.display_name,
-                      .mesh_uri = snapshot.mesh_uri,
-                      .material_uri = snapshot.material_uri});
+                      .components = std::move(info.components)});
     selection_ = out_node;
     is_dirty_ = true;
     return gneiss::engine::error::success;
@@ -792,8 +785,7 @@ gneiss::engine::error scene_document::commit_mesh_node(
       .uuid = snapshot.uuid,
       .display_name =
           snapshot.display_name.empty() ? snapshot.uuid.string() : snapshot.display_name,
-      .mesh_uri = snapshot.mesh_uri,
-      .material_uri = snapshot.material_uri,
+      .components = {engine::mesh_renderer_description{snapshot.mesh_uri, snapshot.material_uri}},
   };
   nodes_.reserve(nodes_.size() + 1U);
   auto operation = create(parent, output);
@@ -836,7 +828,7 @@ gneiss::engine::error scene_document::destroy_node(scene_node_id node) noexcept 
 gneiss::engine::error scene_document::set_mesh_renderer(scene_node_id node,
                                                         std::string_view mesh_uri,
                                                         std::string_view material_uri) noexcept {
-  if (!is_open() || !node.is_valid() || mesh_uri.empty() || material_uri.empty()) {
+  if (!is_open() || !node.is_valid()) {
     return gneiss::engine::error::invalid_argument;
   }
   const auto found = std::ranges::find(nodes_, node, &scene_node_record::node);
@@ -844,16 +836,17 @@ gneiss::engine::error scene_document::set_mesh_renderer(scene_node_id node,
     return gneiss::engine::error::not_found;
   }
   try {
-    std::string mesh(mesh_uri);
-    std::string material(material_uri);
+    auto components = found->components;
+    components.set(
+        engine::mesh_renderer_description{std::string(mesh_uri), std::string(material_uri)});
 
-    const auto operation = with_scene(
-        [&](auto& service) { return service.set_mesh_renderer(scene_, node, mesh, material); });
+    const auto operation = with_scene([&](auto& service) {
+      return service.set_mesh_renderer(scene_, node, mesh_uri, material_uri);
+    });
     if (operation != gneiss::engine::error::success) {
       return operation;
     }
-    found->mesh_uri.swap(mesh);
-    found->material_uri.swap(material);
+    found->components = std::move(components);
     is_dirty_ = true;
     return gneiss::engine::error::success;
   } catch (const std::bad_alloc&) {
@@ -866,7 +859,7 @@ gneiss::engine::error scene_document::set_mesh_renderer(scene_node_id node,
 gneiss::engine::error scene_document::commit_mesh_renderer(
     scene_node_id node, std::string_view mesh_uri, std::string_view material_uri,
     const std::function<gneiss::engine::error()>& commit) noexcept try {
-  if (!is_open() || !commit || mesh_uri.empty() || material_uri.empty()) {
+  if (!is_open() || !commit) {
     return gneiss::engine::error::invalid_argument;
   }
   const auto found = std::ranges::find(nodes_, node, &scene_node_record::node);
@@ -879,15 +872,14 @@ gneiss::engine::error scene_document::commit_mesh_renderer(
       is_dirty_ = true;
     return status;
   }
-  std::string mesh{mesh_uri};
-  std::string material{material_uri};
+  auto components = found->components;
+  components.set(
+      engine::mesh_renderer_description{std::string(mesh_uri), std::string(material_uri)});
   const auto operation = commit();
   if (operation.failed()) {
     return operation;
   }
-  found->mesh_uri.swap(mesh);
-  found->material_uri.swap(material);
-  found->component_flags |= static_cast<std::uint32_t>(scene_node_components::mesh_renderer);
+  found->components = std::move(components);
   is_dirty_ = true;
   return gneiss::engine::error::success;
 } catch (const std::bad_alloc&) {

@@ -3,6 +3,7 @@
 
 #include "runtime_property_editor.hpp"
 #include "engine/core/error.hpp"
+#include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
 
@@ -152,7 +153,8 @@ gneiss::engine::error runtime_property_editor::execute(const ipc_property_write&
   const auto field = std::ranges::find(description->properties, property_field,
                                        &gneiss::engine::meta::property_info::id);
   if (field == description->properties.end() ||
-      !has_flags(field->capabilities, gneiss::engine::meta::property_capabilities::writable)) {
+      !has_flags(field->capabilities, gneiss::engine::meta::property_capabilities::writable) ||
+      has_flags(field->flags, gneiss::engine::meta::property_flags::editor_read_only)) {
     response.code = field == description->properties.end()
                         ? gneiss::engine::error::not_found.code()
                         : gneiss::engine::error::unsupported.code();

@@ -229,6 +229,12 @@ result<math::transform> scene_tree::get_world_for_entity(std::uint64_t entity) c
   return engine::error::not_ready;
 }
 
+result<scene_node_id> scene_tree::node_for_entity(std::uint64_t entity) const noexcept {
+  for (std::size_t i = 0; i < slots_.size(); ++i)
+    if (slots_[i].value && slots_[i].value->entity == entity)
+      return encode(static_cast<std::uint16_t>(i), slots_[i].generation);
+  return error::not_found;
+}
 const math::transform* scene_tree::get_local_for_entity(std::uint64_t entity) const noexcept {
   if (entity == UINT64_C(0)) {
     return nullptr;

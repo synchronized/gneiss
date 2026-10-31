@@ -10,6 +10,7 @@
 #include "engine/core/math/transform.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
+#include "engine/resource/scene/component_description.hpp"
 #include "ipc_inspection_protocol.hpp"
 
 #include "engine/core/rid.hpp"
@@ -39,10 +40,7 @@ struct runtime_scene_source_node final {
   gneiss::engine::guid prefab_source_node_uuid;
   std::string name;
   gneiss::engine::math::transform local_transform;
-  std::uint32_t component_flags = 0U;
-  gneiss::engine::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  std::string mesh_uri;
-  std::string material_uri;
+  gneiss::engine::component_descriptions components{};
 };
 
 using runtime_scene_snapshot_node = ipc_inspection_node;

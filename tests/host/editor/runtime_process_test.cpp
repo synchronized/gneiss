@@ -3,7 +3,9 @@
 
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
+#include "engine/function/meta_registration.hpp"
 #include "engine/function/world/component_identity.hpp"
+#include "engine/resource/scene/scene_description.hpp"
 #include "runtime_log_adapter.hpp"
 #include "runtime_process.hpp"
 #include "runtime_property_adapter.hpp"
@@ -50,10 +52,9 @@ bool test_scene_adapter() {
         *gneiss::engine::guid::parse("6e84ea5f-f59e-52d7-8b4f-f0488bb637c6");
     change.node.name = std::string(512U, 's');
     change.node.local_transform.translation[1] = 7.0F;
-    change.node.component_flags = 3U;
-    change.node.camera.near = 0.75F;
-    change.node.mesh_uri = "asset://mesh";
-    change.node.material_uri = "asset://material";
+    change.node.components = {
+        gneiss::engine::camera_description{{1.04719755F, 0.75F, 1000.0F}},
+        gneiss::engine::mesh_renderer_description{"asset://mesh", "asset://material"}};
     input.changes.push_back(std::move(change));
     input.changes.push_back(
         {.type = gneiss::host::ipc_inspection_change_type::remove, .id = {51U, 52U}, .node = {}});
@@ -77,8 +78,12 @@ bool test_scene_adapter() {
       node.prefab_source_node_uuid !=
           *gneiss::engine::guid::parse("6e84ea5f-f59e-52d7-8b4f-f0488bb637c6") ||
       node.name != std::string(512U, 's') || node.local_transform.translation[1] != 7.0F ||
-      node.component_flags != 3U || node.camera.near != 0.75F || node.mesh_uri != "asset://mesh" ||
-      node.material_uri != "asset://material" ||
+      node.components.size() != 2U ||
+      node.components.get<gneiss::engine::camera_description>()->settings.near != 0.75F ||
+      node.components.get<gneiss::engine::mesh_renderer_description>()->mesh_uri !=
+          "asset://mesh" ||
+      node.components.get<gneiss::engine::mesh_renderer_description>()->material_uri !=
+          "asset://material" ||
       output.changes[1].type != gneiss::editor::runtime_scene_change_type::remove ||
       output.changes[1].id.value != 51U || output.changes[1].id.generation != 52U) {
     return false;
@@ -139,6 +144,8 @@ bool test_property_adapter() {
 } // namespace
 
 int main() try {
+  if (gneiss::engine::initialize_meta().failed())
+    return 98;
   if (!test_scene_adapter() || !test_property_adapter()) {
     return 91;
   }

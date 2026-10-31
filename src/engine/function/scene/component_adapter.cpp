@@ -39,6 +39,12 @@ result<std::optional<camera_description>> camera_capture(world& owner, scene_nod
     return status;
   return std::optional<camera_description>{{settings, status.ok() && active == id}};
 }
+result<value> camera_read(const camera_description& input, guid type, meta::property_id property) {
+  if (type == camera_description::type_guid)
+    return meta::read_property(type, property, &input);
+  const camera_properties snapshot{input.settings, input.is_primary};
+  return meta::read_property(type, property, &snapshot);
+}
 error camera_edit(camera_description& value, guid type, meta::property_id property,
                   const engine::value& input) {
   if (type == camera_description::type_guid)
@@ -51,44 +57,52 @@ error camera_edit(camera_description& value, guid type, meta::property_id proper
   return status;
 }
 error mesh_valid(const mesh_renderer_description& value) {
-  return validate_uri(value.mesh_uri).ok() && validate_uri(value.material_uri).ok()
+  return (value.mesh_uri.empty() || validate_uri(value.mesh_uri).ok()) &&
+                 (value.material_uri.empty() || validate_uri(value.material_uri).ok())
              ? error::success
              : error::invalid_argument;
 }
 result<mesh_renderer> mesh_resolve(const mesh_renderer_description& value,
                                    resource_service& resources) {
-  auto mesh = resources.find<mesh_resource>(value.mesh_uri);
-  if (!mesh)
-    return mesh.error();
-  auto material = resources.find<material_resource>(value.material_uri);
-  if (!material)
-    return material.error();
-  return mesh_renderer{*mesh, *material};
+  mesh_renderer result;
+  if (!value.mesh_uri.empty()) {
+    auto loaded = resources.find<mesh_resource>(value.mesh_uri);
+    if (!loaded)
+      return loaded.error();
+    result.mesh = std::move(*loaded);
+  }
+  if (!value.material_uri.empty()) {
+    auto loaded = resources.find<material_resource>(value.material_uri);
+    if (!loaded)
+      return loaded.error();
+    result.material = std::move(*loaded);
+  }
+  return result;
 }
 error mesh_install(component_context& context, const mesh_renderer_description& value) {
   auto ready = context.renderer;
-  if (!ready.mesh || !ready.material)
-    return error::not_ready;
-  if (asset_uri(ready.mesh) != value.mesh_uri || asset_uri(ready.material) != value.material_uri) {
+  if (value.mesh_uri.empty())
+    ready.mesh = {};
+  else if (asset_uri(ready.mesh) != value.mesh_uri) {
     if (!context.resources)
       return error::not_ready;
-    if (asset_uri(ready.mesh) != value.mesh_uri) {
-      auto resolved = context.resources->find<mesh_resource>(value.mesh_uri);
-      if (!resolved)
-        return resolved.error();
-      ready.mesh = std::move(*resolved);
-    }
-    if (asset_uri(ready.material) != value.material_uri) {
-      auto resolved = context.resources->find<material_resource>(value.material_uri);
-      if (!resolved)
-        return resolved.error();
-      ready.material = std::move(*resolved);
-    }
+    auto loaded = context.resources->find<mesh_resource>(value.mesh_uri);
+    if (!loaded)
+      return loaded.error();
+    ready.mesh = std::move(*loaded);
   }
-  if (!ready.mesh || !ready.material)
-    return error::not_ready;
-  if (context.resources &&
-      (!context.resources->owns(ready.mesh) || !context.resources->owns(ready.material)))
+  if (value.material_uri.empty())
+    ready.material = {};
+  else if (asset_uri(ready.material) != value.material_uri) {
+    if (!context.resources)
+      return error::not_ready;
+    auto loaded = context.resources->find<material_resource>(value.material_uri);
+    if (!loaded)
+      return loaded.error();
+    ready.material = std::move(*loaded);
+  }
+  if (context.resources && ((ready.mesh && !context.resources->owns(ready.mesh)) ||
+                            (ready.material && !context.resources->owns(ready.material))))
     return error::invalid_argument;
   return context.owner.entity_set_mesh_renderer(entity(context.owner, context.node), ready);
 }
@@ -99,8 +113,6 @@ result<std::optional<mesh_renderer_description>> mesh_capture(world& owner, scen
       return std::optional<mesh_renderer_description>{};
     return value.error();
   }
-  if (asset_uri(value->mesh).empty() || asset_uri(value->material).empty())
-    return error::invalid_state;
   return std::optional<mesh_renderer_description>{
       {std::string(asset_uri(value->mesh)), std::string(asset_uri(value->material))}};
 }
@@ -119,6 +131,7 @@ struct adapter_registry {
                return a.settings.fov == b.settings.fov && a.settings.near == b.settings.near &&
                       a.settings.far == b.settings.far && a.is_primary == b.is_primary;
              },
+         .read = camera_read,
          .edit = camera_edit,
          .property_type = camera_component_type,
          .create_default = []() -> result<camera_description> {
@@ -148,8 +161,12 @@ struct adapter_registry {
              },
          .dependencies =
              [](const mesh_renderer_description& value) {
-               return std::vector<asset_source>{{value.mesh_uri, asset_type::mesh},
-                                                {value.material_uri, asset_type::material}};
+               std::vector<asset_source> result;
+               if (!value.mesh_uri.empty())
+                 result.push_back({value.mesh_uri, asset_type::mesh});
+               if (!value.material_uri.empty())
+                 result.push_back({value.material_uri, asset_type::material});
+               return result;
              },
          .removable = true,
          .editor_route = component_editor_route::mesh_assets}));
@@ -178,8 +195,8 @@ error valid_target(component_context& context) {
 }
 error register_scene_component(component_adapter adapter) noexcept try {
   if (!adapter.type || !adapter.property_type || !adapter.validate || !adapter.install ||
-      !adapter.modify || !adapter.capture || !adapter.remove || !adapter.equal || !adapter.edit ||
-      !adapter.dependencies)
+      !adapter.read || !adapter.modify || !adapter.capture || !adapter.remove || !adapter.equal ||
+      !adapter.edit || !adapter.dependencies)
     return error::invalid_argument;
   auto& state = registry();
   std::lock_guard lock(state.mutex);
@@ -423,6 +440,26 @@ error edit_component(component_descriptions& values, guid type, meta::property_i
 } catch (...) {
   return error::internal;
 }
+result<value> read_runtime_component(world& owner, scene_node_id node, guid type,
+                                     meta::property_id property) noexcept try {
+  component_context context{owner, node};
+  auto status = valid_target(context);
+  if (status.failed())
+    return status;
+  const auto* adapter = find(type, true);
+  if (!adapter)
+    return error::unsupported;
+  auto captured = adapter->capture(owner, node);
+  if (!captured)
+    return captured.error();
+  if (!*captured)
+    return error::not_found;
+  return adapter->read(**captured, type, property);
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
 error edit_runtime_component(component_context context, guid type, meta::property_id property,
                              const value& input) noexcept try {
   auto status = valid_target(context);
@@ -462,8 +499,64 @@ mesh_renderer
 prepared_component_renderer(const component_descriptions& values,
                             const std::function<render_asset_ref(std::string_view)>& lookup) {
   const auto* renderer = values.get<mesh_renderer_description>();
-  return renderer ? mesh_renderer{asset_cast<mesh_resource>(lookup(renderer->mesh_uri)),
-                                  asset_cast<material_resource>(lookup(renderer->material_uri))}
-                  : mesh_renderer{};
+  return renderer
+             ? mesh_renderer{renderer->mesh_uri.empty()
+                                 ? mesh{}
+                                 : asset_cast<mesh_resource>(lookup(renderer->mesh_uri)),
+                             renderer->material_uri.empty()
+                                 ? material{}
+                                 : asset_cast<material_resource>(lookup(renderer->material_uri))}
+             : mesh_renderer{};
+}
+}
+
+namespace gneiss::engine {
+namespace {
+/** World 接口负责线程与实体校验；反射只修改副本，成功后才提交。 */
+template <class Access>
+error access_component(world& world, std::uint64_t entity, guid type, bool write,
+                       Access&& access) noexcept {
+  if (type == transform_component_type) {
+    math::transform value;
+    auto operation = world.entity_get_local_transform(entity_id{entity}, value);
+    if (operation.failed())
+      return operation;
+    operation = access(&value);
+    return operation.failed() || !write
+               ? operation
+               : world.entity_set_local_transform(entity_id{entity}, value);
+  }
+  return error::unsupported;
+}
+}
+error read_component_property(world& world, std::uint64_t entity, guid type,
+                              meta::property_id field, engine::value& value) noexcept {
+  if (type != transform_component_type) {
+    auto node = world.entity_node(entity_id{entity});
+    if (!node)
+      return node.error();
+    auto read = read_runtime_component(world, *node, type, field);
+    if (!read)
+      return read.error();
+    value = std::move(*read);
+    return error::success;
+  }
+  return access_component(world, entity, type, false, [&](auto* object) {
+    auto read = meta::read_property(type, field, object);
+    if (!read)
+      return read.error();
+    value = std::move(*read);
+    return error::success;
+  });
+}
+error write_component_property(world& world, std::uint64_t entity, guid type,
+                               meta::property_id field, const engine::value& value) noexcept {
+  if (type != transform_component_type) {
+    auto node = world.entity_node(entity_id{entity});
+    return node ? edit_runtime_component({world, *node}, type, field, value) : node.error();
+  }
+  return access_component(world, entity, type, true, [&](auto* object) {
+    return meta::write_property(type, field, object, value);
+  });
 }
 }

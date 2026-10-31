@@ -27,6 +27,7 @@ struct component_adapter {
   std::function<result<std::optional<component_description>>(world&, scene_node_id)> capture;
   std::function<error(world&, scene_node_id)> remove;
   std::function<bool(const component_description&, const component_description&)> equal;
+  std::function<result<value>(const component_description&, guid, meta::property_id)> read;
   std::function<result<component_description>(const component_description&, guid, meta::property_id,
                                               const value&)>
       edit;
@@ -49,6 +50,7 @@ template <class T> struct component_operations {
   result<std::optional<T>> (*capture)(world&, scene_node_id){};
   error (*remove)(world&, scene_node_id){};
   bool (*equal)(const T&, const T&){};
+  result<value> (*read)(const T&, guid, meta::property_id){};
   error (*edit)(T&, guid, meta::property_id, const value&){};
   std::vector<asset_source> (*dependencies)(const T&){};
   guid property_type = type_identity<T>::guid();
@@ -87,6 +89,14 @@ template <class T> component_adapter make_component_adapter(component_operations
               [ops](const component_description& a, const component_description& b) {
                 return a.get<T>() && b.get<T>() && ops.equal(*a.get<T>(), *b.get<T>());
               },
+          .read = [ops](const component_description& source, guid type,
+                        meta::property_id property) -> result<value> {
+            const auto* typed = source.get<T>();
+            if (!typed)
+              return error::invalid_argument;
+            return ops.read ? ops.read(*typed, type, property)
+                            : meta::read_property(type, property, typed);
+          },
           .edit = [ops](const component_description& source, guid type, meta::property_id property,
                         const value& input) -> result<component_description> {
             if (!source.get<T>())
@@ -186,6 +196,8 @@ GNEISS_API result<std::vector<asset_source>>
 component_dependencies(const component_descriptions&) noexcept;
 GNEISS_API error edit_component(component_descriptions&, guid, meta::property_id,
                                 const value&) noexcept;
+GNEISS_API result<value> read_runtime_component(world&, scene_node_id, guid,
+                                                meta::property_id) noexcept;
 GNEISS_API error edit_runtime_component(component_context, guid, meta::property_id,
                                         const value&) noexcept;
 /** 内建渲染依赖桥接；类型判断仅在组件适配实现中。 */
@@ -193,4 +205,11 @@ GNEISS_API result<mesh_renderer> resolve_component_renderer(const component_desc
                                                             resource_service&) noexcept;
 GNEISS_API mesh_renderer prepared_component_renderer(
     const component_descriptions&, const std::function<render_asset_ref(std::string_view)>&);
+/** 在 World 所属线程定位节点组件；读出副本后访问，写入成功才提交。不会保留对象指针。
+ * 失败保持既有组件；普通组件使用已注册适配器；未知组件类型返回
+ * unsupported。值及字符串由调用方持有。 */
+[[nodiscard]] GNEISS_API error read_component_property(world& world, std::uint64_t entity, guid,
+                                                       meta::property_id, value&) noexcept;
+[[nodiscard]] GNEISS_API error write_component_property(world& world, std::uint64_t entity, guid,
+                                                        meta::property_id, const value&) noexcept;
 }

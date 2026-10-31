@@ -27,6 +27,7 @@ public:
   [[nodiscard]] const math::transform* get_local(scene_node_id node) const noexcept;
   [[nodiscard]] result<math::transform> get_world(scene_node_id node) const noexcept;
   [[nodiscard]] result<math::transform> get_world_for_entity(std::uint64_t entity) const noexcept;
+  [[nodiscard]] result<scene_node_id> node_for_entity(std::uint64_t entity) const noexcept;
   [[nodiscard]] const math::transform* get_local_for_entity(std::uint64_t entity) const noexcept;
   [[nodiscard]] error set_local_for_entity(std::uint64_t entity,
                                            const math::transform& transform) noexcept;

@@ -76,14 +76,17 @@ int main() try {
           gneiss::engine::error::success ||
       camera_info.node != camera_node || camera_info.parent != gneiss::null_scene_node_id ||
       camera_info.uuid != camera_uuid || camera_info.name != "Camera" ||
-      camera_info.component_flags !=
-          (gneiss::scene_node_components::camera | gneiss::scene_node_components::primary_camera) ||
+      !camera_info.components.get<gneiss::engine::camera_description>() ||
+      !camera_info.components.get<gneiss::engine::camera_description>()->is_primary ||
       application->scenes()->get_node_info(scene, 1U, triangle_info) !=
           gneiss::engine::error::success ||
       triangle_info.node != triangle || triangle_info.parent != camera_node ||
       triangle_info.uuid != triangle_uuid || !triangle_info.name.empty() ||
-      triangle_info.mesh_uri != mesh_uri || triangle_info.material_uri != material_uri ||
-      triangle_info.component_flags != gneiss::scene_node_components::mesh_renderer ||
+      triangle_info.components.get<gneiss::engine::mesh_renderer_description>()->mesh_uri !=
+          mesh_uri ||
+      triangle_info.components.get<gneiss::engine::mesh_renderer_description>()->material_uri !=
+          material_uri ||
+      !triangle_info.components.get<gneiss::engine::mesh_renderer_description>() ||
       application->scenes()->get_node_info(scene, 2U, triangle_info) !=
           gneiss::engine::error::not_found ||
       second_application->scenes()->get_node_count(scene, &node_count) !=
@@ -218,8 +221,7 @@ int main() try {
       application->scenes()->get_node_info(scene, 3U, triangle_info) !=
           gneiss::engine::error::success ||
       triangle_info.node != generic_node || triangle_info.name != "Group" ||
-      triangle_info.local_transform.translation[1] != 2.0F ||
-      triangle_info.component_flags != gneiss::scene_node_components::none) {
+      triangle_info.local_transform.translation[1] != 2.0F || !triangle_info.components.empty()) {
     return 13;
   }
   // 捕获非根子树时不能保留快照外的父引用；恢复时由显式 parent 重新挂接。

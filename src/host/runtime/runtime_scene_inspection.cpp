@@ -5,6 +5,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/scene_types.hpp"
+#include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -26,23 +27,12 @@ bool equal_transform(const gneiss::engine::math::transform& left,
 }
 
 bool equal_node(const gneiss::host::runtime_scene_snapshot_node& left,
-                const gneiss::host::runtime_scene_snapshot_node& right) noexcept {
+                const gneiss::host::runtime_scene_snapshot_node& right) {
   return left.id == right.id && left.parent == right.parent && left.uuid == right.uuid &&
          left.prefab_instance_uuid == right.prefab_instance_uuid &&
          left.prefab_source_node_uuid == right.prefab_source_node_uuid && left.name == right.name &&
          equal_transform(left.local_transform, right.local_transform) &&
-         left.component_flags == right.component_flags && left.camera.fov == right.camera.fov &&
-         left.camera.near == right.camera.near && left.camera.far == right.camera.far &&
-         left.mesh_uri == right.mesh_uri && left.material_uri == right.material_uri;
-}
-
-gneiss::engine::math::camera_settings
-inspection_camera(const std::optional<gneiss::engine::camera_description>& camera) noexcept {
-  gneiss::engine::math::camera_settings output{1.04719755F, 0.1F, 1000.0F};
-  if (camera) {
-    output = camera->settings;
-  }
-  return output;
+         gneiss::engine::equal_components(left.components, right.components);
 }
 
 std::array<gneiss::engine::guid, 3>
@@ -85,8 +75,6 @@ runtime_scene_inspection::capture(std::span<const runtime_scene_source_node> nod
       if (node.native_node == 0U || node.uuid.is_nil() ||
           (!node.prefab_source_node_uuid.is_nil() && node.prefab_instance_uuid.is_nil()) ||
           node.name.size() > runtime_inspection_max_string_size ||
-          node.mesh_uri.size() > runtime_inspection_max_string_size ||
-          node.material_uri.size() > runtime_inspection_max_string_size ||
           !author_keys.insert(author_key(node)).second ||
           !native_nodes.insert(node.native_node).second) {
         return gneiss::engine::error::invalid_argument;
@@ -155,10 +143,7 @@ runtime_scene_inspection::capture(std::span<const runtime_scene_source_node> nod
                                        .prefab_source_node_uuid = source.prefab_source_node_uuid,
                                        .name = source.name,
                                        .local_transform = source.local_transform,
-                                       .component_flags = source.component_flags,
-                                       .camera = source.camera,
-                                       .mesh_uri = source.mesh_uri,
-                                       .material_uri = source.material_uri};
+                                       .components = source.components};
       current.emplace(node.id.value, node);
       if (source.native_entity != UINT64_C(0)) {
         entities.emplace(node.id.value, std::pair{node.id, source.native_entity});
@@ -237,9 +222,7 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
       if (operation != gneiss::engine::error::success) {
         return operation;
       }
-      if (info.name.size() > runtime_inspection_max_string_size ||
-          info.mesh_uri.size() > runtime_inspection_max_string_size ||
-          info.material_uri.size() > runtime_inspection_max_string_size)
+      if (info.name.size() > runtime_inspection_max_string_size)
         return gneiss::engine::error::invalid_argument;
       if (info.prefab && (info.prefab->instance_uuid.is_nil()))
         return gneiss::engine::error::invalid_argument;
@@ -259,10 +242,7 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
                            info.prefab ? info.prefab->source_node_uuid : gneiss::engine::guid{},
                        .name = std::string{info.name},
                        .local_transform = runtime_transform,
-                       .component_flags = static_cast<std::uint32_t>(info.component_flags),
-                       .camera = inspection_camera(info.camera),
-                       .mesh_uri = std::string{info.mesh_uri},
-                       .material_uri = std::string{info.material_uri}});
+                       .components = std::move(info.components)});
     }
     return capture(nodes, force_full, output);
   } catch (const std::bad_alloc&) {

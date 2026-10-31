@@ -41,7 +41,7 @@ add_library(
 )
 target_link_libraries(
   gneiss_app_ipc_protocol
-  PUBLIC gneiss_ipc gneiss::engine
+  PUBLIC gneiss_ipc gneiss::engine gneiss_native_interface
   PRIVATE gneiss_yyjson
 )
 target_include_directories(

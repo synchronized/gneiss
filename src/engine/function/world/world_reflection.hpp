@@ -19,10 +19,4 @@ struct camera_properties {
 
 [[nodiscard]] GNEISS_API guid transform_property_type() noexcept;
 [[nodiscard]] GNEISS_API guid camera_property_type() noexcept;
-/** 在 World 所属线程定位内建组件；读出副本后访问，写入成功才提交。不会保留对象指针。
- * 失败保持既有组件；未知组件类型返回 unsupported。值及字符串由调用方持有。 */
-[[nodiscard]] GNEISS_API error read_component_property(world& world, std::uint64_t entity, guid,
-                                                       meta::property_id, value&) noexcept;
-[[nodiscard]] GNEISS_API error write_component_property(world& world, std::uint64_t entity, guid,
-                                                        meta::property_id, const value&) noexcept;
 } // namespace gneiss::engine

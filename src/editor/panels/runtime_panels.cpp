@@ -5,6 +5,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/scene_types.hpp"
 #include "engine/function/world/component_identity.hpp"
+#include "panels/reflected_property_editor.hpp"
 
 #include "viewport/editor_rotation_math.hpp"
 
@@ -201,30 +202,92 @@ void draw_runtime_inspector(const runtime_scene_node& node,
 
     draw_vec3("Scale", gneiss::engine::transform_scale_field.get(), scale, 0.05F);
   }
-  ImGui::BeginDisabled();
-  if ((node.component_flags & static_cast<std::uint32_t>(gneiss::scene_node_components::camera)) !=
-          0U &&
-      ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
-    auto field_of_view = node.camera.fov;
-    auto near_plane = node.camera.near;
-    auto far_plane = node.camera.far;
-    ImGui::PushID(static_cast<int>(gneiss::engine::camera_vertical_field_of_view_field.get()));
-    ImGui::DragFloat("Vertical FOV (radians)", &field_of_view);
+  for (const auto& component : node.components) {
+    auto view = component.view();
+    if (!view)
+      continue;
+    auto properties = view->properties();
+    auto type = gneiss::engine::meta::describe_type(component.guid());
+    if (!properties || !type)
+      continue;
+    ImGui::PushID(component.guid().string().c_str());
+    if (ImGui::CollapsingHeader(std::string(type->name).c_str())) {
+      for (const auto& property : *properties) {
+        auto child = view->property(property.id);
+        if (!child)
+          continue;
+        auto value = child->read_value();
+        runtime_property_value observed;
+        bool supported = false;
+        if (value) {
+          supported = std::visit(
+              [&](const auto& payload) {
+                using T = std::decay_t<decltype(payload)>;
+                if constexpr (std::is_same_v<T, engine::guid>)
+                  observed.payload = payload.bytes();
+                else if constexpr (std::is_same_v<T, engine::math::vector3>)
+                  observed.payload = std::array{payload.x, payload.y, payload.z};
+                else if constexpr (std::is_same_v<T, engine::math::quaternion>)
+                  observed.payload = std::array{payload.x, payload.y, payload.z, payload.w};
+                else if constexpr (std::is_same_v<T, engine::math::vector2> ||
+                                   std::is_same_v<T, engine::math::vector4> ||
+                                   std::is_same_v<T, std::monostate>)
+                  return false;
+                else
+                  observed.payload = payload;
+                return true;
+              },
+              value->payload);
+        }
+        runtime_property_key key{
+            .object = node.id, .type_id = component.guid().bytes(), .field_id = property.id.get()};
+        const auto* pending = actions.find_edit ? actions.find_edit(actions.context, key) : nullptr;
+        const bool readonly =
+            engine::meta::has_flags(property.flags,
+                                    engine::meta::property_flags::editor_read_only) ||
+            !engine::meta::has_flags(property.capabilities,
+                                     engine::meta::property_capabilities::writable);
+        ImGui::BeginDisabled(!editable || readonly || !supported ||
+                             (pending && pending->state == runtime_property_edit_state::pending));
+        std::uint64_t serial{};
+        engine::error status;
+        ImGui::PushID(static_cast<int>(property.id.get()));
+        if (supported) {
+          if (draw_property_value(std::string(property.name).c_str(), *value, child->type(), serial,
+                                  status)) {
+            // 转换同一种标量，协议不支持的嵌套/容器属性仅展示。
+            runtime_property_value input;
+            std::visit(
+                [&](const auto& payload) {
+                  using T = std::decay_t<decltype(payload)>;
+                  if constexpr (std::is_same_v<T, engine::guid>)
+                    input.payload = payload.bytes();
+                  else if constexpr (std::is_same_v<T, engine::math::vector3>)
+                    input.payload = std::array{payload.x, payload.y, payload.z};
+                  else if constexpr (std::is_same_v<T, engine::math::quaternion>)
+                    input.payload = std::array{payload.x, payload.y, payload.z, payload.w};
+                  else if constexpr (!std::is_same_v<T, engine::math::vector2> &&
+                                     !std::is_same_v<T, engine::math::vector4>)
+                    input.payload = payload;
+                },
+                value->payload);
+            actions.report_result(
+                actions.context,
+                actions.write_property(actions.context, key,
+                                       pending && pending->revision ? pending->revision : 1U,
+                                       std::move(input)));
+          }
+        } else {
+          (void)draw_reflected_properties(*child, std::string(property.name).c_str(), serial,
+                                          status);
+        }
+        ImGui::PopID();
+        ImGui::EndDisabled();
+        if (supported)
+          draw_runtime_property_status(pending, observed);
+      }
+    }
     ImGui::PopID();
-    ImGui::PushID(static_cast<int>(gneiss::engine::camera_near_plane_field.get()));
-    ImGui::DragFloat("Near plane", &near_plane);
-    ImGui::PopID();
-    ImGui::PushID(static_cast<int>(gneiss::engine::camera_far_plane_field.get()));
-    ImGui::DragFloat("Far plane", &far_plane);
-    ImGui::PopID();
-  }
-  ImGui::EndDisabled();
-  if ((node.component_flags &
-       static_cast<std::uint32_t>(gneiss::scene_node_components::mesh_renderer)) != 0U &&
-      ImGui::CollapsingHeader("Mesh Renderer", ImGuiTreeNodeFlags_DefaultOpen)) {
-    ImGui::TextWrapped("Mesh: %s", node.mesh_uri.empty() ? "(none)" : node.mesh_uri.c_str());
-    ImGui::TextWrapped("Material: %s",
-                       node.material_uri.empty() ? "(none)" : node.material_uri.c_str());
   }
 }
 

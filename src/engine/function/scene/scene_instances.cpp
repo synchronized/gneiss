@@ -445,28 +445,14 @@ engine::error scene_instance::get_node_info(std::uint64_t index, scene_node_view
   out_info.name = scene_object_identity(native_world_, object.node).name;
   out_info.prefab = prefab_origin(object.node);
   if (detail != node_query_detail::identity) {
-    auto renderer = native_world_.node_mesh_renderer(object.node);
-    if (renderer) {
-      out_info.mesh_uri = asset_uri(renderer->mesh);
-      out_info.material_uri = asset_uri(renderer->material);
-      out_info.component_flags = scene_node_components::mesh_renderer;
-    } else if (renderer.error() != error::not_found)
-      return renderer.error();
+    auto components = capture_components(native_world_, object.node);
+    if (!components)
+      return components.error();
+    out_info.components = std::move(*components);
   }
   if (detail == node_query_detail::components) {
     result = native_world_.node_get_local_transform(object.node, out_info.local_transform);
     if (result.failed())
-      return result;
-    math::camera_settings camera;
-    result = native_world_.entity_get_camera(entity_id{entity}, camera);
-    if (result.ok()) {
-      entity_id active;
-      const bool primary = native_world_.get_active_camera(active).ok() && active.get() == entity;
-      out_info.camera = camera_description{camera, primary};
-      out_info.component_flags |= scene_node_components::camera;
-      if (primary)
-        out_info.component_flags |= scene_node_components::primary_camera;
-    } else if (result != error::not_found)
       return result;
   }
   return engine::error::success;
@@ -796,7 +782,8 @@ engine::error scene_instance::restore_subtree(const scene_subtree_snapshot& snap
             asset_uri(resources.material) !=
                 author.components.template get<mesh_renderer_description>()->material_uri)
           return error::not_found;
-        if (!loader_.owns(resources.mesh) || !loader_.owns(resources.material))
+        if ((resources.mesh && !loader_.owns(resources.mesh)) ||
+            (resources.material && !loader_.owns(resources.material)))
           return error::invalid_handle;
       }
       // 先扩容，保证创建成功后登记成员不会因分配失败遗漏节点。
@@ -974,7 +961,7 @@ engine::error scene_instance::set_mesh_renderer(scene_node_id node, std::string_
         engine::asset_uri(binding.material) == material_uri ? binding.material : engine::material{};
 
     auto result = engine::error::success;
-    if (!mesh) {
+    if (!mesh && !mesh_uri.empty()) {
       result = engine::error::success;
       {
         auto loaded = loader_.find<mesh_resource>(mesh_uri);
@@ -986,7 +973,7 @@ engine::error scene_instance::set_mesh_renderer(scene_node_id node, std::string_
         }
       };
     }
-    if (result == engine::error::success && !material) {
+    if (result == engine::error::success && !material && !material_uri.empty()) {
       result = engine::error::success;
       {
         auto loaded = loader_.find<material_resource>(material_uri);
@@ -1486,10 +1473,8 @@ engine::error scene_instances::replace_mesh_binding(scene_instance_id instance, 
   if (owner != engine::error::success) {
     return owner;
   }
-  using type = engine::asset_type;
-  if (engine::asset_kind(replacement.mesh) != type::mesh ||
-      engine::asset_kind(replacement.material) != type::material ||
-      !loader_.owns(replacement.mesh) || !loader_.owns(replacement.material)) {
+  if ((replacement.mesh && !loader_.owns(replacement.mesh)) ||
+      (replacement.material && !loader_.owns(replacement.material))) {
     return engine::error::invalid_argument;
   }
   auto* value = instances_.get(instance, resource_type::scene_instance);

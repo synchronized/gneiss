@@ -180,7 +180,7 @@ engine::error editor_asset_edit::request_remove(runtime::application& applicatio
   auto status = application.capture_mesh_binding(scene, node->node, binding);
   if (status.failed())
     return status;
-  if (!binding.mesh || !binding.material)
+  if (!node->components.get<engine::mesh_renderer_description>())
     return engine::error::not_found;
   const auto was_dirty = session.is_dirty();
   status = history.execute({
@@ -245,7 +245,10 @@ engine::error editor_asset_edit::request_property(runtime::application& app,
       app.capture_mesh_binding(document.scene_handle(), locate(document, target), binding);
   if (status.failed())
     return status;
-  if (!binding.mesh || !binding.material)
+  auto present = document.components(locate(document, target));
+  if (!present)
+    return present.error();
+  if (!present->get<mesh_renderer_description>())
     return error::not_found;
   mesh_renderer_description description{std::string(asset_uri(binding.mesh)),
                                         std::string(asset_uri(binding.material))};
@@ -352,13 +355,18 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
       return operation_ = captured.error();
     prefab_before_ = std::move(*captured);
   }
-  if (!creating_ && !target.instance_uuid && (!previous_.mesh || !previous_.material)) {
+  if (!creating_ && !target.instance_uuid &&
+      !application.native_world()->node_mesh_renderer(node_)) {
     previous_ = {};
     return operation_ = gneiss::engine::error::invalid_state;
   }
   std::vector<gneiss::engine::asset_source> missing;
   const auto resolve = [&](std::string_view uri, gneiss::engine::asset_type type,
                            const auto& previous, auto& next) {
+    if (uri.empty()) {
+      next = {};
+      return;
+    }
     if (gneiss::engine::asset_uri(previous) == uri) {
       next = previous;
       return;

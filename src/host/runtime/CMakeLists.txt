@@ -73,7 +73,7 @@ if(BUILD_TESTING)
   add_executable(
     gneiss_runtime_scene_inspection_test "${PROJECT_SOURCE_DIR}/tests/host/runtime/runtime_scene_inspection_test.cpp"
   )
-  target_link_libraries(gneiss_runtime_scene_inspection_test PRIVATE gneiss_runtime_ipc)
+  target_link_libraries(gneiss_runtime_scene_inspection_test PRIVATE gneiss_runtime_ipc EnTT::EnTT)
   target_include_directories(gneiss_runtime_scene_inspection_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_compile_definitions(
     gneiss_runtime_scene_inspection_test
