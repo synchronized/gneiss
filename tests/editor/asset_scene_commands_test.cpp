@@ -177,15 +177,17 @@ int main() try {
   }
   editor_asset_edit removal;
   engine::scene_mesh_binding removed_binding, restored_binding;
-  if (app->capture_mesh_binding(session.scene_handle(), session.find_node(uuid)->node,
-                                removed_binding)
+  if (gneiss::test_support::take_value(
+          app->capture_mesh_binding(session.scene_handle(), session.find_node(uuid)->node),
+          removed_binding)
           .failed() ||
       removal.request_remove(*app, session, history, uuid).failed() ||
       session.find_node(uuid)->components.get<gneiss::engine::mesh_renderer_description>() !=
           nullptr ||
       run_history(true).failed() ||
-      app->capture_mesh_binding(session.scene_handle(), session.find_node(uuid)->node,
-                                restored_binding)
+      gneiss::test_support::take_value(
+          app->capture_mesh_binding(session.scene_handle(), session.find_node(uuid)->node),
+          restored_binding)
           .failed() ||
       session.find_node(uuid)->components.get<gneiss::engine::mesh_renderer_description>() ==
           nullptr ||
@@ -197,11 +199,14 @@ int main() try {
   engine::scene_mesh_binding before, after;
   scene_subtree_snapshot snapshot;
   scene_node_id restored;
-  if (app->capture_mesh_binding(session.scene_handle(), session.find_node(uuid)->node, before)
+  if (gneiss::test_support::take_value(
+          app->capture_mesh_binding(session.scene_handle(), session.find_node(uuid)->node), before)
           .failed() ||
       session.destroy_subtree(session.find_node(uuid)->node, snapshot).failed() ||
       snapshot.resources.size() != 1U || session.restore_subtree(snapshot, restored).failed() ||
-      app->capture_mesh_binding(session.scene_handle(), restored, after).failed() ||
+      gneiss::test_support::take_value(app->capture_mesh_binding(session.scene_handle(), restored),
+                                       after)
+          .failed() ||
       before.mesh != after.mesh || before.material != after.material)
     return 11;
   // Prefab 来源网格移除保留实际资源；历史清空后恢复来源走异步准备。
@@ -235,7 +240,9 @@ int main() try {
       history.undo().failed())
     return 21;
   engine::scene_mesh_binding restored_source;
-  if (app->capture_mesh_binding(session.scene_handle(), mesh_node, restored_source).failed() ||
+  if (gneiss::test_support::take_value(app->capture_mesh_binding(session.scene_handle(), mesh_node),
+                                       restored_source)
+          .failed() ||
       restored_source.mesh != before.mesh || restored_source.material != before.material)
     return 22;
   if (history.redo().failed() || history.clear().failed())

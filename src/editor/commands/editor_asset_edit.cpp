@@ -46,8 +46,7 @@ gneiss::engine::error editor_asset_edit::commit_add(runtime::application& applic
             return session.commit_mesh_node(
                 snapshot,
                 [&](scene_node_id parent, scene_node_id& node) {
-                  scene_node_id created{};
-                  const auto operation =
+                  auto created =
                       application.create_mesh_node_ready(scene,
                                                          {
                                                              .uuid = snapshot.uuid,
@@ -56,9 +55,11 @@ gneiss::engine::error editor_asset_edit::commit_add(runtime::application& applic
                                                              .mesh_uri = snapshot.mesh_uri,
                                                              .material_uri = snapshot.material_uri,
                                                          },
-                                                         leases, created);
-                  node = scene_node_id{created};
-                  return operation;
+                                                         leases);
+                  if (!created)
+                    return created.error();
+                  node = *created;
+                  return engine::error::success;
                 },
                 output);
           },
@@ -85,24 +86,20 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
   if (previous_.mesh == next_.mesh && previous_.material == next_.material)
     return engine::error::success;
   if (prefab_before_) {
-    engine::scene_mesh_binding current;
-    auto captured = application.capture_mesh_binding(scene_, node_, current);
-    if (captured.failed())
-      return captured;
+    auto captured = application.capture_mesh_binding(scene_, node_);
+    if (!captured)
+      return captured.error();
+    const auto& current = *captured;
     if (current.mesh != previous_.mesh || current.material != previous_.material)
       return engine::error::invalid_state;
     engine::prefab_component_state after;
     after.resources = next_;
     {
-      engine::object_description author;
-      engine::prefab_asset_ref source;
       auto status_value =
           application.scenes()->capture_prefab_header(scene_, target_.instance_uuid);
       if (!status_value)
         return status_value.error();
-      author = std::move(status_value->author);
-      source = std::move(status_value->source);
-      auto status = gneiss::engine::error::success;
+      const auto& source = status_value->source;
       auto object = std::ranges::find(source->objects, target_.source_uuid,
                                       &engine::object_description::uuid);
       if (object == source->objects.end())
@@ -112,19 +109,11 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
       if (!original)
         after.added = engine::component_description{description};
       else {
-        const std::array values{description.mesh_uri, description.material_uri};
-        const std::array originals{original->mesh_uri, original->material_uri};
-        for (std::size_t i = 0; i < values.size(); ++i) {
-          status = engine::set_prefab_property_override(
-              after.properties,
-              {.key = {.source_node_uuid = target_.source_uuid,
-                       .type_guid = engine::mesh_renderer_description::type_guid,
-                       .property_id = engine::meta::property_id{static_cast<std::uint32_t>(i + 1)}},
-               .value = engine::value{values[i]}},
-              engine::value{originals[i]});
-          if (status.failed())
-            return status;
-        }
+        auto overrides =
+            engine::prepare_mesh_renderer_overrides(target_.source_uuid, *original, description);
+        if (!overrides)
+          return overrides.error();
+        after.properties = std::move(*overrides);
       }
     }
     auto apply = [&session, scene = scene_,
@@ -141,8 +130,7 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
                             .redo = [apply, after] { return apply(after); },
                             .merge_key = {}});
   }
-  if (previous_.mesh == next_.mesh && previous_.material == next_.material)
-    return engine::error::success;
+
   const auto apply = [&application, &session, scene = scene_, target = target_](
                          const auto& expected, const auto& replacement) -> gneiss::engine::error {
     if (session.scene_handle() != scene) {
@@ -179,14 +167,14 @@ engine::error editor_asset_edit::request_remove(runtime::application& applicatio
   if (!node)
     return engine::error::not_found;
   const auto scene = session.scene_handle();
-  engine::scene_mesh_binding binding;
-  auto status = application.capture_mesh_binding(scene, node->node, binding);
-  if (status.failed())
-    return status;
+  auto captured = application.capture_mesh_binding(scene, node->node);
+  if (!captured)
+    return captured.error();
+  auto binding = std::move(*captured);
   if (!node->components.get<engine::mesh_renderer_description>())
     return engine::error::not_found;
   const auto was_dirty = session.is_dirty();
-  status = history.execute({
+  auto status = history.execute({
       .label = "移除 Mesh Renderer",
       .undo =
           [&application, &session, scene, uuid = uuid, binding] {
@@ -243,11 +231,10 @@ engine::error editor_asset_edit::request_property(runtime::application& app,
   if (target.component_type != mesh_renderer_description::type_guid || edit.object ||
       edit.path.size() != 1 || !std::holds_alternative<meta::property_id>(edit.path.front()))
     return error::invalid_argument;
-  scene_mesh_binding binding;
-  auto status =
-      app.capture_mesh_binding(document.scene_handle(), locate(document, target), binding);
-  if (status.failed())
-    return status;
+  auto captured = app.capture_mesh_binding(document.scene_handle(), locate(document, target));
+  if (!captured)
+    return captured.error();
+  const auto& binding = *captured;
   auto present = document.components(locate(document, target));
   if (!present)
     return present.error();
@@ -255,7 +242,7 @@ engine::error editor_asset_edit::request_property(runtime::application& app,
     return error::not_found;
   mesh_renderer_description description{std::string(resource_uri(binding.mesh)),
                                         std::string(resource_uri(binding.material))};
-  status =
+  auto status =
       meta::write_property(mesh_renderer_description::type_guid,
                            std::get<meta::property_id>(edit.path.front()), &description, edit.data);
   if (status.failed())
@@ -346,17 +333,22 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
   progress_ = {};
   cancelled_ = false;
   visible_ = false;
-  operation_ = creating_ ? gneiss::engine::error::success
-                         : application.capture_mesh_binding(scene_, node_, previous_);
-  if (operation_.failed()) {
-    return operation_;
-  }
+  operation_ = engine::error::success;
   if (target.instance_uuid) {
+    // Application 生命周期检查不能由 Scene 线程/句柄检查替代。
+    if (!application.is_owner_thread() || !application.accepts_requests())
+      return operation_ = engine::error::invalid_state;
     auto captured =
         session.capture_component_override(node_, engine::mesh_renderer_description::type_guid);
     if (!captured)
       return operation_ = captured.error();
     prefab_before_ = std::move(*captured);
+    previous_ = prefab_before_->resources;
+  } else if (!creating_) {
+    auto captured = application.capture_mesh_binding(scene_, node_);
+    if (!captured)
+      return operation_ = captured.error();
+    previous_ = std::move(*captured);
   }
   if (!creating_ && !target.instance_uuid &&
       !application.native_world()->node_mesh_renderer(node_)) {

@@ -36,6 +36,23 @@ int main() {
   if (gneiss::engine::initialize_meta().failed())
     return 1;
 
+  // 共享计算保留其他节点覆盖；恢复原值删除稀疏记录，失败不修改输入。
+  {
+    using namespace gneiss::engine;
+    const mesh_renderer_description original{"asset://base.mesh", "asset://base.material"};
+    const mesh_renderer_description replacement{"asset://next.mesh", "asset://next.material"};
+    const std::vector existing{make_translation(source_b, {1, 2, 3})};
+    auto changed = prepare_mesh_renderer_overrides(source_a, original, replacement, existing);
+    if (!changed || changed->size() != 3 || existing.size() != 1)
+      return 20;
+    auto restored = prepare_mesh_renderer_overrides(source_a, original, original, *changed);
+    if (!restored || restored->size() != 1 || restored->front().key.source_node_uuid != source_b)
+      return 21;
+    auto invalid = prepare_mesh_renderer_overrides({}, original, replacement, existing);
+    if (invalid || invalid.error() != error::invalid_argument || existing.size() != 1)
+      return 22;
+  }
+
   std::vector<gneiss::engine::prefab_property_override> overrides;
   const gneiss::engine::value source{.payload = gneiss::engine::math::vector3{0.0F, 0.0F, 0.0F}};
   auto second = make_translation(source_b, {2.0F, 0.0F, 0.0F});

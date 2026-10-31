@@ -306,21 +306,13 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
       const auto* renderer = source ? source->components.get<mesh_renderer_description>() : nullptr;
       if (!renderer)
         return error::not_found;
-      auto pending = prefab_reference(index).overrides;
-      const std::array originals{renderer->mesh_uri, renderer->material_uri};
-      const std::array replacements{std::string(resource_uri(replacement.mesh)),
-                                    std::string(resource_uri(replacement.material))};
-      for (std::size_t i = 0; i < originals.size(); ++i) {
-        auto status = set_prefab_property_override(
-            pending,
-            {.key = {.source_node_uuid = member.address.source_node_uuid,
-                     .type_guid = mesh_renderer_description::type_guid,
-                     .property_id = meta::property_id{static_cast<std::uint32_t>(i + 1)}},
-             .value = engine::value{replacements[i]}},
-            engine::value{originals[i]});
-        if (status.failed())
-          return status;
-      }
+      auto pending =
+          prepare_mesh_renderer_overrides(member.address.source_node_uuid, *renderer,
+                                          {std::string(resource_uri(replacement.mesh)),
+                                           std::string(resource_uri(replacement.material))},
+                                          prefab_reference(index).overrides);
+      if (!pending)
+        return pending.error();
       const std::array changes{mesh_renderer_replacement{
           .entity = entity_id{scene_object_entity(native_world_, node)},
           .expected = {.mesh = expected.mesh, .material = expected.material},
@@ -328,7 +320,7 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
       auto status = native_world_.replace_mesh_renderers(changes);
       if (status.failed())
         return status;
-      prefab_reference(index).overrides.swap(pending);
+      prefab_reference(index).overrides.swap(*pending);
       return error::success;
     }
   }

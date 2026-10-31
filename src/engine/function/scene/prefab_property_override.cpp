@@ -322,4 +322,29 @@ engine::error prepare_prefab_description(const prefab_description& source,
   return engine::error::internal;
 }
 
+result<std::vector<prefab_property_override>>
+prepare_mesh_renderer_overrides(guid source_node, const mesh_renderer_description& original,
+                                const mesh_renderer_description& replacement,
+                                std::span<const prefab_property_override> existing) noexcept try {
+  std::vector<prefab_property_override> pending(existing.begin(), existing.end());
+  const std::array originals{original.mesh_uri, original.material_uri};
+  const std::array replacements{replacement.mesh_uri, replacement.material_uri};
+  for (std::size_t i = 0; i < originals.size(); ++i) {
+    auto status = set_prefab_property_override(
+        pending,
+        {.key = {.source_node_uuid = source_node,
+                 .type_guid = mesh_renderer_description::type_guid,
+                 .property_id = meta::property_id{static_cast<std::uint32_t>(i + 1)}},
+         .value = engine::value{replacements[i]}},
+        engine::value{originals[i]});
+    if (status.failed())
+      return status;
+  }
+  return pending;
+} catch (const std::bad_alloc&) {
+  return error::out_of_memory;
+} catch (...) {
+  return error::internal;
+}
+
 } // namespace gneiss::engine

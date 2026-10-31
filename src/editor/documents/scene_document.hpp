@@ -25,6 +25,7 @@ class application;
 #include <functional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 namespace gneiss::editor {
@@ -211,9 +212,8 @@ public:
 
 private:
   engine::error encode_scene(std::string& output) const noexcept;
-  template <class F> gneiss::engine::error with_scene(F&& action) const noexcept;
   template <class F>
-  gneiss::engine::error with_node(scene_node_id& output, F&& action) const noexcept;
+  std::invoke_result_t<F, engine::scene_instances&> with_scene(F&& action) const noexcept;
   [[nodiscard]] gneiss::engine::error refresh_nodes() noexcept;
   [[nodiscard]] gneiss::engine::error create_mesh_renderer_node(const mesh_node_creation& snapshot,
                                                                 scene_node_id& out_node) noexcept;

@@ -36,6 +36,16 @@ if (!captured)
 集合管理实现在 `scene_instances.cpp`，单实例实现在 `scene_instance.cpp`，
 编辑和 Prefab 操作分别位于对应 `scene_instance_*` 文件。
 
+## 编辑入口边界
+
+Editor 的 `with_scene` 检查文档、线程及 Application 生命周期后，原样返回操作的 `error` 或
+`result<T>`，不通过输出参数中转节点结果。Application 的 `create_mesh_node_ready` 和
+`capture_mesh_binding` 返回值结果，仍在停止接收请求后返回 `invalid_state`。
+
+Prefab 编辑开始时从组件覆盖快照取得原资源引用；异步加载完成后的冲突检查继续执行。
+网格/材质 URI 覆盖由 `prepare_mesh_renderer_overrides` 统一计算，保留其他覆盖记录，
+恢复来源值时删除对应稀疏覆盖。该函数不应用资源、不写历史、不改变输入；成功后由调用方提交。
+
 ## 准备阶段类型
 
 - `scene_preparation_inputs`：已加载的 Scene/Prefab 不可变描述引用及读取统计。

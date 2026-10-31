@@ -83,8 +83,9 @@ void run(gneiss::engine::execution_mode mode) {
   };
   const auto binding = [&] {
     gneiss::engine::scene_mesh_binding value;
-    check(app->capture_mesh_binding(session.scene_handle(), session.find_node(uuid)->node, value) ==
-          gneiss::engine::error::success);
+    check(gneiss::test_support::take_value(
+              app->capture_mesh_binding(session.scene_handle(), session.find_node(uuid)->node),
+              value) == gneiss::engine::error::success);
     return value;
   };
   const auto initial_binding = binding();
@@ -273,7 +274,9 @@ void prefab_edits(engine::execution_mode mode) {
     e::scene_mesh_binding result;
     const auto* node = document.find_prefab_source(target.instance_uuid, target.source_uuid);
     check(node != nullptr);
-    check(app->capture_mesh_binding(document.scene_handle(), node->node, result).ok());
+    check(gneiss::test_support::take_value(
+              app->capture_mesh_binding(document.scene_handle(), node->node), result)
+              .ok());
     return result;
   };
   const auto drive = [&] {
@@ -374,14 +377,17 @@ void prefab_edits(engine::execution_mode mode) {
   e::scene_mesh_binding loaded;
   const auto* loaded_child = reopened.find_prefab_source(uuid(5), uuid(3));
   check(loaded_child != nullptr);
-  check(
-      reopened_app->capture_mesh_binding(reopened.scene_handle(), loaded_child->node, loaded).ok());
+  check(gneiss::test_support::take_value(
+            reopened_app->capture_mesh_binding(reopened.scene_handle(), loaded_child->node), loaded)
+            .ok());
   check(e::resource_uri(loaded.material) == "asset://b.json");
   check(e::resource_uri(loaded.mesh) == "asset://mesh2.json");
   const auto* loaded_second = reopened.find_prefab_source(uuid(6), uuid(3));
   check(loaded_second != nullptr);
-  check(reopened_app->capture_mesh_binding(reopened.scene_handle(), loaded_second->node, loaded)
-            .ok());
+  check(
+      gneiss::test_support::take_value(
+          reopened_app->capture_mesh_binding(reopened.scene_handle(), loaded_second->node), loaded)
+          .ok());
   check(e::resource_uri(loaded.material) == "asset://a.json");
   check(history.undo().ok() && binding(child).mesh == before.mesh);
   check(request(child, "asset://a.json").ok());

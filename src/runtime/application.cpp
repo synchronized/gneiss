@@ -1072,19 +1072,13 @@ resource_load_group* application::loading_assets() noexcept {
   return storage_->scene_service_.loading_assets();
 }
 
-gneiss::engine::error application::create_mesh_node_ready(
-    gneiss::scene_instance_id scene, const gneiss::engine::mesh_renderer_node_creation& desc,
-    const gneiss::engine::scene_mesh_binding& prepared, scene_node_id& output) noexcept {
-  output = {};
-  const auto valid = is_owner_thread() && accepts_requests() ? gneiss::engine::error::success
-                                                             : gneiss::engine::error::invalid_state;
-  if (valid.failed())
-    return valid;
-  auto scene_result = scenes()->create_mesh_renderer_node_ready(scene, desc, prepared);
-  if (!scene_result)
-    return scene_result.error();
-  output = std::move(*scene_result);
-  return gneiss::engine::error::success;
+gneiss::engine::result<scene_node_id>
+application::create_mesh_node_ready(gneiss::scene_instance_id scene,
+                                    const gneiss::engine::mesh_renderer_node_creation& desc,
+                                    const gneiss::engine::scene_mesh_binding& prepared) noexcept {
+  if (!is_owner_thread() || !accepts_requests())
+    return gneiss::engine::error::invalid_state;
+  return scenes()->create_mesh_renderer_node_ready(scene, desc, prepared);
 }
 
 gneiss::engine::error application::collect_unused_edit_assets() noexcept {
@@ -1116,19 +1110,11 @@ application::query_ready_asset(const gneiss::engine::render_resource_source& sou
   return engine::error::success;
 }
 
-gneiss::engine::error
-application::capture_mesh_binding(gneiss::scene_instance_id scene, scene_node_id node,
-                                  gneiss::engine::scene_mesh_binding& output) noexcept {
-  output = {};
-  const auto valid = is_owner_thread() && accepts_requests() ? gneiss::engine::error::success
-                                                             : gneiss::engine::error::invalid_state;
-  if (valid.failed())
-    return valid;
-  auto scene_result = scenes()->capture_mesh_binding(scene, node);
-  if (!scene_result)
-    return scene_result.error();
-  output = std::move(*scene_result);
-  return gneiss::engine::error::success;
+gneiss::engine::result<gneiss::engine::scene_mesh_binding>
+application::capture_mesh_binding(gneiss::scene_instance_id scene, scene_node_id node) noexcept {
+  if (!is_owner_thread() || !accepts_requests())
+    return gneiss::engine::error::invalid_state;
+  return scenes()->capture_mesh_binding(scene, node);
 }
 
 gneiss::engine::error
