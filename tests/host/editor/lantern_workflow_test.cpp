@@ -161,7 +161,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   }
   for (const auto instance_uuid : instance_uuids) {
     const auto* root_node = session.find_prefab_root(instance_uuid);
-    if (root_node == nullptr || !root_node->is_instance_root || root_node->is_read_only ||
+    if (root_node == nullptr || !root_node->is_instance_root ||
         root_node->prefab_uri != prefab_uri) {
       return 9;
     }

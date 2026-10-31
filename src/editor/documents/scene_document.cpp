@@ -231,7 +231,7 @@ gneiss::engine::error scene_document::refresh_nodes() noexcept {
       if (info.prefab) {
         const gneiss::engine::guid instance_uuid{info.prefab->instance_uuid};
         const auto source_uuid = info.prefab->source_node_uuid;
-        const bool is_root = has_flags(info.prefab->flags, scene_prefab_flags::instance_root);
+        const bool is_root = info.prefab->is_instance_root;
         prefab_records.push_back(
             {.node = scene_node_id{info.node},
              .parent = scene_node_id{info.parent},
@@ -246,13 +246,10 @@ gneiss::engine::error scene_document::refresh_nodes() noexcept {
              .source_local_transform = {info.prefab->source_local_transform.translation,
                                         info.prefab->source_local_transform.rotation,
                                         info.prefab->source_local_transform.scale},
-             .override_flags =
-                 static_cast<std::uint32_t>(info.prefab->flags) &
-                 (static_cast<std::uint32_t>(scene_prefab_flags::translation_overridden) |
-                  static_cast<std::uint32_t>(scene_prefab_flags::rotation_overridden) |
-                  static_cast<std::uint32_t>(scene_prefab_flags::scale_overridden)),
-             .is_instance_root = is_root,
-             .is_read_only = has_flags(info.prefab->flags, scene_prefab_flags::source_read_only)});
+             .is_instance_root = is_root});
+        for (const auto& item : info.prefab->overrides)
+          if (item.key.source_node_uuid == source_uuid)
+            prefab_records.back().overrides.push_back(item.key);
         continue;
       }
       gneiss::engine::guid uuid{info.uuid};
@@ -317,19 +314,8 @@ scene_document::set_local_transform(scene_node_id node,
   }
   if (prefab != prefab_nodes_.end() && !prefab->is_instance_root) {
     prefab->local_transform = value;
-    prefab->override_flags = 0U;
-    if (!(value.translation == prefab->source_local_transform.translation)) {
-      prefab->override_flags |=
-          static_cast<std::uint32_t>(scene_prefab_flags::translation_overridden);
-    }
-    if (!(value.rotation == prefab->source_local_transform.rotation)) {
-      prefab->override_flags |= static_cast<std::uint32_t>(scene_prefab_flags::rotation_overridden);
-    }
-    if (!(value.scale == prefab->source_local_transform.scale)) {
-      prefab->override_flags |= static_cast<std::uint32_t>(scene_prefab_flags::scale_overridden);
-    }
     is_dirty_ = true;
-    return gneiss::engine::error::success;
+    return refresh_nodes();
   }
   if (found != nodes_.end()) {
     found->local_transform = value;

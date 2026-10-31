@@ -482,22 +482,11 @@ std::optional<prefab_origin_view> scene_instance::prefab_origin(scene_node_id no
     const auto found = std::ranges::find(runtime.nodes_, node, &prefab_binding::runtime_node::node);
     if (found == runtime.nodes_.end())
       continue;
-    origin.flags = runtime.root() == node ? scene_prefab_flags::instance_root
-                                          : scene_prefab_flags::source_read_only;
+    origin.is_instance_root = runtime.root() == node;
+    origin.overrides = reference.overrides;
     origin.source_node_uuid = found->address.source_node_uuid;
     if (const auto* source = runtime.find_source_object(origin.source_node_uuid))
       origin.source_local_transform = source->transform;
-    for (const auto& value : reference.overrides) {
-      if (value.key.source_node_uuid != origin.source_node_uuid ||
-          value.key.type_guid != transform_component_type)
-        continue;
-      if (value.key.property_id == transform_translation_field)
-        origin.flags |= scene_prefab_flags::translation_overridden;
-      if (value.key.property_id == transform_rotation_field)
-        origin.flags |= scene_prefab_flags::rotation_overridden;
-      if (value.key.property_id == transform_scale_field)
-        origin.flags |= scene_prefab_flags::scale_overridden;
-    }
     return origin;
   }
   return std::nullopt;
@@ -844,7 +833,7 @@ engine::error scene_instance::destroy_subtree(scene_node_id root) {
   if (member == objects_.end())
     return error::invalid_handle;
   const auto origin = prefab_origin(root);
-  if (origin && has_flags(origin->flags, scene_prefab_flags::source_read_only))
+  if (origin && !origin->is_instance_root)
     return error::invalid_state;
   try {
     std::vector<scene_node_id> removed;

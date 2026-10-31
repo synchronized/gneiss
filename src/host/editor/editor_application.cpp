@@ -2875,12 +2875,13 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
         ImGui::EndDisabled();
       }
       ImGui::Separator();
-      if (prefab->is_read_only) {
+      if (!prefab->is_instance_root) {
         const auto instance_uuid = prefab->instance_uuid;
         const auto source_uuid = prefab->source_node_uuid;
         const auto* current =
             state.editing.document().find_prefab_source(instance_uuid, source_uuid);
-        const bool has_override = current != nullptr && current->override_flags != 0U;
+        const bool has_override =
+            current != nullptr && current->has_overrides(gneiss::engine::transform_component_type);
         ImGui::BeginDisabled(!has_override);
         const bool restore_all = ImGui::Button("Restore All Transform");
         ImGui::EndDisabled();

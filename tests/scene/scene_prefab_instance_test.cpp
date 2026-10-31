@@ -9,6 +9,7 @@
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/function/world/world_reflection.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
 #include "runtime/application.hpp"
 
@@ -48,11 +49,9 @@ int main() try {
           gneiss::engine::error::success ||
       gneiss::test_support::prefab_node_info(*application->scenes(), scene, 1U, prefab_source) !=
           gneiss::engine::error::success ||
-      prefab_root.prefab->flags != gneiss::scene_prefab_flags::instance_root ||
-      (prefab_source.prefab->flags & gneiss::scene_prefab_flags::source_read_only) ==
-          gneiss::scene_prefab_flags::none ||
-      (prefab_source.prefab->flags & gneiss::scene_prefab_flags::translation_overridden) ==
-          gneiss::scene_prefab_flags::none ||
+      !prefab_root.prefab->is_instance_root || prefab_source.prefab->is_instance_root ||
+      !prefab_source.prefab->has_override(gneiss::engine::transform_component_type,
+                                          gneiss::engine::transform_translation_field) ||
       prefab_source.parent != prefab_root.node ||
       prefab_root.prefab->instance_uuid !=
           *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000012") ||
@@ -61,6 +60,23 @@ int main() try {
       prefab_source.local_transform.translation[0] != 3.0F) {
     return 2;
   }
+
+  // 覆盖查询按节点、类型和属性筛选，不限定为 Transform。
+  const auto custom_type = *gneiss::engine::guid::parse("90000000-0000-4000-8000-000000000001");
+  const auto property = gneiss::engine::transform_scale_field;
+  gneiss::engine::prefab_property_override custom;
+  custom.key.source_node_uuid = prefab_source.prefab->source_node_uuid;
+  custom.key.type_guid = custom_type;
+  custom.key.property_id = property;
+  auto origin = *prefab_source.prefab;
+  origin.overrides = {&custom, 1};
+  if (!origin.has_override(custom_type, property) ||
+      origin.has_override(gneiss::engine::transform_component_type, property) ||
+      origin.has_override(custom_type, gneiss::engine::transform_translation_field))
+    return 98;
+  origin.source_node_uuid = {};
+  if (origin.has_override(custom_type, property))
+    return 98;
 
   // 名称与删除入口按操作语义区分，不按 Prefab 类型区分。
   if (application->scenes()->destroy_node(scene, prefab_root.node) !=

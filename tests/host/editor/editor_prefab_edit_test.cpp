@@ -8,6 +8,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/function/world/world_reflection.hpp"
 #include "runtime/application.hpp"
 #include <algorithm>
 #include <chrono>
@@ -397,7 +398,8 @@ void run(gneiss::engine::execution_mode mode) {
     check(session.find_prefab_root(uuid)->display_name == "Renamed");
     check(session.find_prefab_root(uuid)->local_transform.translation[1] == 7.0F);
     check(session.find_prefab_source(uuid, source_uuid)->local_transform.translation[0] == 17.0F);
-    check(session.find_prefab_source(uuid, source_uuid)->override_flags != 0U);
+    check(session.find_prefab_source(uuid, source_uuid)
+              ->has_overrides(gneiss::engine::transform_component_type));
   };
   restore_deleted();
   check(session.find_prefab_root(uuid)->node != root_node);

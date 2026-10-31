@@ -33,11 +33,11 @@ void draw_prefab_node(const author_hierarchy_view& view, author_hierarchy_reques
   ImGui::PushID(node.source_node_uuid.string().c_str());
   const auto label = node.is_instance_root ? std::string{"[Prefab] "} + node.display_name
                                            : node.display_name + " (read-only)";
-  if (node.is_read_only) {
+  if (!node.is_instance_root) {
     ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
   }
   const auto is_open = ImGui::TreeNodeEx(label.c_str(), flags);
-  if (node.is_read_only) {
+  if (!node.is_instance_root) {
     ImGui::PopStyleColor();
   }
   if (ImGui::IsItemClicked()) {
@@ -50,8 +50,7 @@ void draw_prefab_node(const author_hierarchy_view& view, author_hierarchy_reques
   }
   if (ImGui::IsItemHovered()) {
     ImGui::SetTooltip("%s\n%s", node.prefab_uri.c_str(),
-                      node.is_read_only ? "Prefab source node (read-only)"
-                                        : "Prefab instance root");
+                      !node.is_instance_root ? "Prefab source node" : "Prefab instance root");
   }
   if (has_children && is_open) {
     for (const auto& child : nodes) {

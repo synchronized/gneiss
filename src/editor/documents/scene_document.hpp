@@ -61,9 +61,22 @@ struct prefab_node_record final {
   std::string prefab_uri;
   gneiss::engine::math::transform local_transform = {};
   gneiss::engine::math::transform source_local_transform = {};
-  std::uint32_t override_flags = 0U;
+  /** 当前源节点覆盖键的 UI 快照；以 Scene 覆盖列表为准。 */
+  std::vector<engine::prefab_property_override_key> overrides{};
+  [[nodiscard]] bool has_override(engine::guid type,
+                                  engine::meta::property_id property) const noexcept {
+    for (const auto& key : overrides)
+      if (key.type_guid == type && key.property_id == property)
+        return true;
+    return false;
+  }
+  [[nodiscard]] bool has_overrides(engine::guid type) const noexcept {
+    for (const auto& key : overrides)
+      if (key.type_guid == type)
+        return true;
+    return false;
+  }
   bool is_instance_root = false;
-  bool is_read_only = true;
 };
 
 /** 创建网格节点的输入，不是当前场景的持久化快照。 */
