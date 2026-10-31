@@ -197,9 +197,9 @@ void independent_resource_identity() {
   const render_resource_source source_a{"asset://a", render_resource_kind::material};
   const render_resource_source source_b{"asset://b", render_resource_kind::material};
   render_resource_ref a, b;
-  check(gneiss::test_support::take_value(loader.reserve_asset(source_a), a) ==
+  check(gneiss::test_support::take_value(loader.reserve_resource(source_a), a) ==
         gneiss::engine::error::success);
-  check(gneiss::test_support::take_value(loader.reserve_asset(source_b), b) ==
+  check(gneiss::test_support::take_value(loader.reserve_resource(source_b), b) ==
         gneiss::engine::error::success);
   gneiss::test_support::fixture_files different;
   check(different.mount("asset://", std::make_shared<memory_files>()) ==
@@ -209,16 +209,16 @@ void independent_resource_identity() {
   if (isolated.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   render_resource_ref conflict;
-  check(gneiss::test_support::take_value(isolated.reserve_asset(source_a), conflict) ==
+  check(gneiss::test_support::take_value(isolated.reserve_resource(source_a), conflict) ==
             gneiss::engine::error::success &&
-        conflict != a && gneiss::engine::asset_rid(conflict) != gneiss::engine::asset_rid(a));
+        conflict != a && gneiss::engine::resource_rid(conflict) != gneiss::engine::resource_rid(a));
   check(!isolated.owns(a));
   auto& shared = loader;
   if (shared.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
-  check(gneiss::test_support::take_value(shared.reserve_asset(source_a), conflict) ==
+  check(gneiss::test_support::take_value(shared.reserve_resource(source_a), conflict) ==
             gneiss::engine::error::success &&
-        gneiss::engine::asset_rid(conflict) == gneiss::engine::asset_rid(a));
+        gneiss::engine::resource_rid(conflict) == gneiss::engine::resource_rid(a));
 
   const auto adopt = [&](const auto& source, auto& target) {
     decoded_asset decoded;
@@ -229,7 +229,7 @@ void independent_resource_identity() {
   };
   check(adopt(source_a, a).ok());
   check(adopt(source_b, b).ok());
-  const auto retained = resources.share_material(asset_rid(a));
+  const auto retained = resources.share_material(resource_rid(a));
   decoded_asset invalid;
   invalid.uri = source_a.uri;
   check(gneiss::test_support::adopt_render_for_test(loader, invalid, a) == error::invalid_argument);
@@ -237,7 +237,7 @@ void independent_resource_identity() {
   check(gneiss::test_support::adopt_render_for_test(loader, invalid, a) == error::invalid_argument);
   invalid.content = texture_data{};
   check(gneiss::test_support::adopt_render_for_test(loader, invalid, a) == error::invalid_argument);
-  check(resources.share_material(asset_rid(a)) == retained);
+  check(resources.share_material(resource_rid(a)) == retained);
 }
 void reserved_material_lifetime() {
   auto source = std::make_shared<memory_files>();
@@ -252,9 +252,9 @@ void reserved_material_lifetime() {
     throw std::runtime_error("资源管理器渲染绑定失败");
   const render_resource_source request{"asset://material", render_resource_kind::material};
   render_resource_ref target;
-  check(gneiss::test_support::take_value(loader.reserve_asset(request), target) ==
+  check(gneiss::test_support::take_value(loader.reserve_resource(request), target) ==
         gneiss::engine::error::success);
-  const auto rid = gneiss::engine::asset_rid(target);
+  const auto rid = gneiss::engine::resource_rid(target);
   decoded_asset prepared;
   prepared.uri = request.uri;
   prepared.content =
@@ -308,7 +308,7 @@ void cpu_loading(execution_mode mode) {
           .ok());
   check(duplicate.resource() == target);
   until([&] { return bool(backend->callback); });
-  check(resources.texture_status(asset_rid(target)) == error::not_ready);
+  check(resources.texture_status(resource_rid(target)) == error::not_ready);
   request.cancel(); // 另一个调用方仍在等待，不取消共享工作。
   backend->complete(fixture.files.at("texture"));
   until([&] { return bool(backend->callback); });
@@ -316,7 +316,7 @@ void cpu_loading(execution_mode mode) {
   backend->complete(fixture.files.at("image.ktx2"));
   until([&] { return duplicate.status() != error::not_ready; });
   check(duplicate.status().ok());
-  const auto previous = resources.share_texture(asset_rid(target));
+  const auto previous = resources.share_texture(resource_rid(target));
   check(previous && previous->levels.front().pixels.front() == std::byte{42});
   const auto reads = backend->reads;
   check(gneiss::test_support::take_value(loader.load<texture_resource>("asset://texture"), request)
@@ -328,7 +328,7 @@ void cpu_loading(execution_mode mode) {
   until([&] { return bool(backend->callback); });
   backend->complete({}, error::io);
   until([&] { return request.status() != error::not_ready; });
-  check(request.status() == error::io && resources.share_texture(asset_rid(target)) == previous);
+  check(request.status() == error::io && resources.share_texture(resource_rid(target)) == previous);
   check(gneiss::test_support::take_value(loader.load<texture_resource>("asset://texture", true),
                                          request)
             .ok());
@@ -337,7 +337,7 @@ void cpu_loading(execution_mode mode) {
   advance();
   backend->complete(fixture.files.at("texture"));
   advance();
-  check(resources.share_texture(asset_rid(target)) == previous);
+  check(resources.share_texture(resource_rid(target)) == previous);
   fixture.text(
       "mesh",
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[0,0],[0,0]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})");
@@ -353,7 +353,7 @@ void cpu_loading(execution_mode mode) {
     return request.status() != error::not_ready;
   });
   check(request.status().ok());
-  check(request.get<material_resource>()->textures()[0] == asset_cast<texture_resource>(target));
+  check(request.get<material_resource>()->textures()[0] == resource_cast<texture_resource>(target));
   check(gneiss::test_support::take_value(
             loader.load({"asset://mesh", render_resource_kind::mesh}, true), request)
             .ok());

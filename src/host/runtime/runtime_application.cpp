@@ -403,8 +403,13 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
     context.next_statistics_ns = time->elapsed_ns + UINT64_C(250000000);
     std::uint64_t scene_node_count = 0U;
     std::uint64_t entity_count = 0U;
-    auto operation =
-        context.application->scenes()->get_node_count(context.scene, &scene_node_count);
+    auto operation = [&]() -> gneiss::engine::error {
+      auto scene_result = context.application->scenes()->get_node_count(context.scene);
+      if (!scene_result)
+        return scene_result.error();
+      scene_node_count = std::move(*scene_result);
+      return gneiss::engine::error::success;
+    }();
     if (operation == gneiss::engine::error::success) {
       auto count = context.application->native_world()->entity_count();
       if (!count)
@@ -557,10 +562,11 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
               first.type == gneiss::host::ipc_asset_type::scene && first.uri != active_scene_uri;
           if (first.type == gneiss::host::ipc_asset_type::prefab) {
             gneiss::engine::scene_description description;
-            const auto captured =
-                native_application->scenes()->capture_description(scene, description);
-            if (captured.failed())
-              return captured;
+            auto captured_value = native_application->scenes()->capture_description(scene);
+            if (!captured_value)
+              return captured_value.error();
+            description = std::move(*captured_value);
+
             structural_ignored =
                 std::ranges::none_of(description.objects, [&](const auto& instance) {
                   return instance.prefab && instance.prefab->uri == first.uri;

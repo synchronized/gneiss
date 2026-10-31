@@ -237,8 +237,12 @@ void scene_service::instantiate_loaded(load_task& value) {
   progress.total = value.cpu->description.instance_nodes;
   gneiss::scene_instance_id instance{};
   const auto built = gneiss::engine::measure(gneiss::engine::loop_stage::scene_build, [&] {
-    return value.candidate->scenes()->instantiate_prepared(std::move(value.cpu->description),
-                                                           value.bindings, instance);
+    auto scene_result = value.candidate->scenes()->instantiate_prepared(
+        std::move(value.cpu->description), value.bindings);
+    if (!scene_result)
+      return scene_result.error();
+    instance = std::move(*scene_result);
+    return gneiss::engine::error::success;
   });
   if (built != gneiss::engine::error::success) {
     finish(built, scene_load_phase::failed);
@@ -324,7 +328,7 @@ void scene_service::advance_load_impl() {
     const auto end = std::min(value.cursor + 64U, value.requested.size());
     for (; value.cursor < end; ++value.cursor) {
       const auto& source = value.requested[value.cursor];
-      auto reserved = resources_->reserve_asset(source);
+      auto reserved = resources_->reserve_resource(source);
       if (!reserved) {
         finish(reserved.error(), scene_load_phase::failed, "场景资源引用无效");
         return;

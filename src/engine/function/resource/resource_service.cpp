@@ -303,7 +303,7 @@ bool resource_service::implementation::update_material(
   return true;
 }
 
-render_resource_kind asset_kind(const render_resource_ref& asset) noexcept {
+render_resource_kind resource_kind(const render_resource_ref& asset) noexcept {
   if (asset) {
     if (asset->type == engine::runtime_type_of<mesh_resource>())
       return render_resource_kind::mesh;
@@ -315,11 +315,11 @@ render_resource_kind asset_kind(const render_resource_ref& asset) noexcept {
   return render_resource_kind::invalid;
 }
 
-engine::rid asset_rid(const render_resource_ref& asset) noexcept {
+engine::rid resource_rid(const render_resource_ref& asset) noexcept {
   if (!asset || !asset->resource) {
     return 0U;
   }
-  switch (asset_kind(asset)) {
+  switch (resource_kind(asset)) {
   case render_resource_kind::invalid:
     return 0U;
   case render_resource_kind::mesh:
@@ -451,16 +451,16 @@ bool resource_service::owns(const render_resource_ref& lease) const noexcept {
     return false;
   if (!lease || !lease->resource)
     return false;
-  auto identity = identify(lease->uri, static_cast<std::uint32_t>(asset_kind(lease)));
+  auto identity = identify(lease->uri, static_cast<std::uint32_t>(resource_kind(lease)));
   if (!identity || identity->source != lease->source)
     return false;
-  switch (asset_kind(lease)) {
+  switch (resource_kind(lease)) {
   case render_resource_kind::mesh:
-    return impl_->render().mesh_status(asset_rid(lease)) != engine::error::invalid_handle;
+    return impl_->render().mesh_status(resource_rid(lease)) != engine::error::invalid_handle;
   case render_resource_kind::material:
-    return impl_->render().material_status(asset_rid(lease)) != engine::error::invalid_handle;
+    return impl_->render().material_status(resource_rid(lease)) != engine::error::invalid_handle;
   case render_resource_kind::texture:
-    return impl_->render().texture_status(asset_rid(lease)) != engine::error::invalid_handle;
+    return impl_->render().texture_status(resource_rid(lease)) != engine::error::invalid_handle;
   default:
     return false;
   }
@@ -490,13 +490,13 @@ result<render_resource_ref> resource_service::find(const render_resource_source&
     auto status = engine::error::invalid_argument;
     switch (source.type) {
     case render_resource_kind::texture:
-      status = impl_->render().texture_status(asset_rid(target));
+      status = impl_->render().texture_status(resource_rid(target));
       break;
     case render_resource_kind::mesh:
-      status = impl_->render().mesh_status(asset_rid(target));
+      status = impl_->render().mesh_status(resource_rid(target));
       break;
     case render_resource_kind::material:
-      status = impl_->render().material_status(asset_rid(target));
+      status = impl_->render().material_status(resource_rid(target));
       break;
     case render_resource_kind::invalid:
       break;
@@ -529,7 +529,7 @@ result<render_resource_ref> resource_service::find(const render_resource_source&
 }
 
 result<render_resource_ref>
-resource_service::reserve_asset(const render_resource_source& source) noexcept {
+resource_service::reserve_resource(const render_resource_source& source) noexcept {
   if (!impl_ || render_stopping_)
     return error::invalid_state;
   try {
@@ -648,7 +648,7 @@ error resource_service::implementation::adopt(resource_service& assets,
   for (std::size_t slot = 0; slot < dependencies.size(); ++slot) {
     if (!description.texture_uris[slot].empty() &&
         (!assets.owns(dependencies[slot]) ||
-         asset_uri(dependencies[slot]) != description.texture_uris[slot]))
+         resource_uri(dependencies[slot]) != description.texture_uris[slot]))
       return error::invalid_argument;
     value.set_texture(slot, resource_handle(dependencies[slot]));
   }

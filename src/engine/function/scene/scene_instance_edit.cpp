@@ -310,8 +310,8 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
         return error::not_found;
       auto pending = prefab_reference(index).overrides;
       const std::array originals{renderer->mesh_uri, renderer->material_uri};
-      const std::array replacements{std::string(asset_uri(replacement.mesh)),
-                                    std::string(asset_uri(replacement.material))};
+      const std::array replacements{std::string(resource_uri(replacement.mesh)),
+                                    std::string(resource_uri(replacement.material))};
       for (std::size_t i = 0; i < originals.size(); ++i) {
         auto status = set_prefab_property_override(
             pending,

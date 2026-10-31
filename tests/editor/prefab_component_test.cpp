@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/movement_component.hpp"
+#include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
@@ -86,9 +87,10 @@ int main() try {
   instance.prefab = reference;
   std::array<e::scene_mesh_binding, 2> bindings{};
   gneiss::scene_node_id root_node;
-  check(app->scenes()
-            ->instantiate_prefab_ready(document.scene_handle(), instance,
-                                       e::prefab_asset_ref{source}, bindings, false, root_node)
+  check(gneiss::test_support::take_value(
+            app->scenes()->instantiate_prefab_ready(document.scene_handle(), instance,
+                                                    e::prefab_asset_ref{source}, bindings, false),
+            root_node)
             .ok());
   check(document.synchronize_nodes().ok());
   auto* child_node = document.find_prefab_source(instance.uuid, child_id);
@@ -133,7 +135,9 @@ int main() try {
   check(history.undo().ok() && !document.components(node)->find(type));
   // 保存的是增删覆盖，来源资源内容保持不变。
   e::scene_description saved;
-  check(app->scenes()->capture_description(document.scene_handle(), saved).ok());
+  check(gneiss::test_support::assign_value(
+            app->scenes()->capture_description(document.scene_handle()), saved)
+            .ok());
   check(saved.objects[0].prefab->component_overrides.size() == 2);
   auto bytes = e::encode_scene(saved);
   check(bytes.has_value());
@@ -154,9 +158,13 @@ int main() try {
   e::scene_instantiation_data prepared;
   check(e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).ok());
   gneiss::scene_instance_id loaded;
-  check(app->scenes()->instantiate_prepared(std::move(prepared), {}, loaded).ok());
+  check(gneiss::test_support::take_value(
+            app->scenes()->instantiate_prepared(std::move(prepared), {}), loaded)
+            .ok());
   gneiss::scene_node_id loaded_root;
-  check(app->scenes()->find_node(loaded, instance.uuid, loaded_root).ok());
+  check(
+      gneiss::test_support::take_value(app->scenes()->find_node(loaded, instance.uuid), loaded_root)
+          .ok());
   check(e::capture_components(world, loaded_root)->get<movement_description>()->speed == 5);
   check(app->scenes()->unload(loaded).ok());
   // 所有实例预检查后才提交；冲突保持节点身份、旧组件和覆盖不变。

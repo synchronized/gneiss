@@ -33,7 +33,7 @@ public:
   /** 配置 CPU 加载；首次配置后保留执行器与 profile，停止后拒绝重新装配。 */
   error configure_loading(task_executor& executor, texture_prepare_profile profile = {},
                           std::shared_ptr<progress_notification> notification = {});
-  result<render_resource_ref> reserve_asset(const render_resource_source&) noexcept;
+  result<render_resource_ref> reserve_resource(const render_resource_source&) noexcept;
   /** 只查找 CPU 内容已就绪的缓存，不读取文件、不等待 GPU。 */
   result<render_resource_ref> find(const render_resource_source&,
                                    texture_prepare_profile = {}) const noexcept;
@@ -41,7 +41,7 @@ public:
     auto found = find({std::string(uri), kind<T>()}, profile());
     if (!found)
       return found.error();
-    return asset_cast<T>(*found);
+    return resource_cast<T>(*found);
   } catch (const std::bad_alloc&) {
     return error::out_of_memory;
   } catch (...) {

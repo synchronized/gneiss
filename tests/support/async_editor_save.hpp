@@ -4,6 +4,7 @@
 #include "async_application.hpp"
 #include "commands/author_file_save.hpp"
 #include "documents/scene_document_snapshot.hpp"
+#include "value_result.hpp"
 namespace gneiss::test_support {
 // 仅测试驱动回调；生产接口没有同步等待包装。
 template <class Receipt>
@@ -58,7 +59,8 @@ struct author_scene {
   }
   std::string content() {
     std::string text;
-    (void)application->scenes()->serialize(document.scene_handle(), text);
+    (void)gneiss::test_support::assign_value(
+        application->scenes()->serialize(document.scene_handle()), text);
     return text;
   }
   bool apply(const std::vector<editor::author_document_change>& changes, bool save_source) {

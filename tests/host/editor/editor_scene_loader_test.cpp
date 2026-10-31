@@ -152,7 +152,8 @@ void run(gneiss::engine::execution_mode mode) {
   check(session.scene_handle() == stable_scene &&
         after.description.description.objects.front().name == "Snapshot edit");
   // 无效场景的原生查询拒绝，不影响活动场景。
-  check(gneiss::engine::error{app->scenes()->get_node_count(gneiss::scene_instance_id{}, &count)} ==
+  check(gneiss::engine::error{gneiss::test_support::take_value(
+            app->scenes()->get_node_count(gneiss::scene_instance_id{}), count)} ==
         gneiss::engine::error::invalid_handle);
   camera.shutdown();
   session.close();

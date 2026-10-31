@@ -11,10 +11,12 @@ engine::error capture_scene_document(runtime::application& app, const scene_docu
     return engine::error::invalid_state;
   scene_document_snapshot next;
   next.uri = document.uri();
-  const auto status =
-      app.scenes()->capture_prepared(document.scene_handle(), next.description, next.assets);
-  if (status.failed())
-    return status;
+  auto status_value = app.scenes()->capture_prepared(document.scene_handle());
+  if (!status_value)
+    return status_value.error();
+  next.description = std::move(status_value->description);
+  next.assets = std::move(status_value->assets);
+
   output = std::move(next);
   return engine::error::success;
 } catch (const std::bad_alloc&) {
@@ -73,7 +75,7 @@ engine::error prepare_scene_document(const scene_document_snapshot& before,
     return status;
   for (const auto& asset : next.description.assets) {
     const auto found = before.assets.find(asset.uri);
-    if (found == before.assets.end() || engine::asset_kind(found->second) != asset.type) {
+    if (found == before.assets.end() || engine::resource_kind(found->second) != asset.type) {
       if (!missing)
         return engine::error::not_ready;
       pending.push_back(asset);
@@ -97,10 +99,11 @@ engine::error restore_scene_document(runtime::application& app, scene_document& 
       document.uri() != snapshot.uri)
     return engine::error::invalid_state;
   scene_instance_id instance;
-  auto status = app.scenes()->instantiate_prepared(snapshot.description, snapshot.assets, instance);
-  if (status.failed())
-    return status;
-  status = document.adopt(app, app.native_world(), instance, snapshot.uri);
+  auto status_value = app.scenes()->instantiate_prepared(snapshot.description, snapshot.assets);
+  if (!status_value)
+    return status_value.error();
+  instance = std::move(*status_value);
+  auto status = document.adopt(app, app.native_world(), instance, snapshot.uri);
   if (status.failed())
     (void)app.scenes()->unload(instance);
   return status;
@@ -139,7 +142,13 @@ engine::error scene_document_edit::begin(runtime::application& app, scene_docume
   if (status.failed())
     return finish(status);
   scene_ = document.scene_handle();
-  status = app.scenes()->serialize(scene_, baseline_);
+  status = [&]() -> gneiss::engine::error {
+    auto scene_result = app.scenes()->serialize(scene_);
+    if (!scene_result)
+      return scene_result.error();
+    baseline_ = std::move(*scene_result);
+    return gneiss::engine::error::success;
+  }();
   if (status.failed())
     return finish(status);
   for (const auto& asset : missing_) {
@@ -168,7 +177,13 @@ engine::error scene_document_edit::advance(runtime::application& app, scene_docu
       !app.accepts_requests() || !document.is_open() || document.scene_handle() != scene_)
     return finish(error::invalid_state);
   std::string current;
-  auto status = app.scenes()->serialize(scene_, current);
+  auto status = [&]() -> gneiss::engine::error {
+    auto scene_result = app.scenes()->serialize(scene_);
+    if (!scene_result)
+      return scene_result.error();
+    current = std::move(*scene_result);
+    return gneiss::engine::error::success;
+  }();
   if (status.failed())
     return finish(status);
   if (current != baseline_ || history.is_pending())

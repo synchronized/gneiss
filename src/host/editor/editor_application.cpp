@@ -539,8 +539,12 @@ record_author_documents(editor_state& state, std::string label,
   if (!std::string_view(uri).starts_with("asset://"))
     return gneiss::engine::error::invalid_state;
   output.relative_path = std::string_view(uri).substr(8);
-  return state.application->scenes()->serialize(state.editing.document().scene_handle(),
-                                                output.content);
+  auto scene_result =
+      state.application->scenes()->serialize(state.editing.document().scene_handle());
+  if (!scene_result)
+    return scene_result.error();
+  output.content = std::move(*scene_result);
+  return gneiss::engine::error::success;
 }
 
 gneiss::engine::error restore_prefab_component(editor_state& state, gneiss::engine::guid instance,
@@ -569,13 +573,12 @@ void draw_prefab_overrides(editor_state& state) {
     return;
   const auto instance = selected->instance_uuid;
   const auto selected_source = selected->source_node_uuid;
-  object_description author;
-  prefab_asset_ref source;
-  if (state.application->scenes()
-          ->capture_prefab_header(state.editing.document().scene_handle(), instance, author, source)
-          .failed() ||
-      !author.prefab || !source)
+  auto captured = state.application->scenes()->capture_prefab_header(
+      state.editing.document().scene_handle(), instance);
+  if (!captured || !captured->author.prefab || !captured->source)
     return;
+  const auto& author = captured->author;
+  const auto& source = captured->source;
   auto entries = describe_prefab_overrides(*author.prefab, *source);
   if (!entries) {
     state.inspector_error = entries.error();
@@ -642,13 +645,11 @@ void draw_prefab_conflict(editor_state& state) {
   const auto type = read_id("/components/");
   if (!instance || !object || !type)
     return;
-  object_description author;
-  prefab_asset_ref source;
-  if (state.application->scenes()
-          ->capture_prefab_header(state.editing.document().scene_handle(), *instance, author,
-                                  source)
-          .ok() &&
-      source && author.prefab) {
+  auto captured = state.application->scenes()->capture_prefab_header(
+      state.editing.document().scene_handle(), *instance);
+  if (captured && captured->source && captured->author.prefab) {
+    const auto& author = captured->author;
+    const auto& source = captured->source;
     ImGui::Text("Instance: %s", author.name.c_str());
     auto entries = gneiss::editor::describe_prefab_overrides(*author.prefab, *source);
     if (entries)
@@ -681,8 +682,15 @@ void draw_prefab_conflict(editor_state& state) {
 bool has_prefab_overrides(editor_state& state, gneiss::engine::guid instance) {
   gneiss::engine::object_description author;
   gneiss::engine::prefab_asset_ref source;
-  const auto status = state.application->scenes()->capture_prefab_header(
-      state.editing.document().scene_handle(), instance, author, source);
+  const auto status = [&]() -> gneiss::engine::error {
+    auto scene_result = state.application->scenes()->capture_prefab_header(
+        state.editing.document().scene_handle(), instance);
+    if (!scene_result)
+      return scene_result.error();
+    author = std::move(scene_result->author);
+    source = std::move(scene_result->source);
+    return gneiss::engine::error::success;
+  }();
   return status.ok() && author.prefab &&
          (!author.prefab->overrides.empty() || !author.prefab->component_overrides.empty());
 }
@@ -1098,8 +1106,15 @@ void draw_component_descriptions(editor_state& state) {
   bool source_transform = false;
   if (identity.instance_uuid) {
     object_description author;
-    const auto captured = state.application->scenes()->capture_prefab_header(
-        state.editing.document().scene_handle(), identity.instance_uuid, author, source_asset);
+    const auto captured = [&]() -> gneiss::engine::error {
+      auto scene_result = state.application->scenes()->capture_prefab_header(
+          state.editing.document().scene_handle(), identity.instance_uuid);
+      if (!scene_result)
+        return scene_result.error();
+      author = std::move(scene_result->author);
+      source_asset = std::move(scene_result->source);
+      return gneiss::engine::error::success;
+    }();
     if (captured.failed()) {
       state.inspector_error = captured;
       return;
@@ -2586,18 +2601,26 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
               state.editing.document().duplicate_subtree(original.node, original.parent, duplicate);
           if (state.history_error.ok()) {
             auto snapshot = std::make_shared<gneiss::engine::scene_subtree_snapshot>();
-            state.history_error = state.application->scenes()->capture_subtree(
-                state.editing.document().scene_handle(), duplicate, *snapshot);
+            state.history_error = [&]() -> gneiss::engine::error {
+              auto scene_result = state.application->scenes()->capture_subtree(
+                  state.editing.document().scene_handle(), duplicate);
+              if (!scene_result)
+                return scene_result.error();
+              *snapshot = std::move(*scene_result);
+              return gneiss::engine::error::success;
+            }();
             if (state.history_error.ok()) {
               state.history_error = state.editing.history().record(
                   {.label = "复制子树",
                    .undo =
                        [&state, snapshot] {
                          gneiss::scene_node_id root;
-                         auto status = state.application->scenes()->find_node(
-                             state.editing.document().scene_handle(), snapshot->root_uuid, root);
-                         if (status.failed())
-                           return status;
+                         auto status_value = state.application->scenes()->find_node(
+                             state.editing.document().scene_handle(), snapshot->root_uuid);
+                         if (!status_value)
+                           return status_value.error();
+                         root = std::move(*status_value);
+
                          gneiss::editor::scene_subtree_snapshot discarded;
                          return state.editing.document().destroy_subtree(root, discarded);
                        },

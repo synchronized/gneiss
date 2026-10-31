@@ -145,12 +145,14 @@ int run_example(int argc, char** argv) {
   if (native_application->action_map_status() != gneiss::engine::error::success ||
       native_application->find_action("move_horizontal", state.orbit) !=
           gneiss::engine::error::success ||
-      native_application->find_action("quit", state.quit) != gneiss::engine::error::success ||
-      native_application->scenes()->find_node(scene, camera_uuid, state.camera_node) !=
-          gneiss::engine::error::success) {
+      native_application->find_action("quit", state.quit) != gneiss::engine::error::success) {
     return 2;
   }
   const auto input_ready = clock::now();
+  auto camera = native_application->scenes()->find_node(scene, camera_uuid);
+  if (!camera)
+    return 2;
+  state.camera_node = *camera;
   can_update = true;
   if (native_application->run(smoke ? 3U : 0U) != gneiss::engine::error::success) {
     return 3;

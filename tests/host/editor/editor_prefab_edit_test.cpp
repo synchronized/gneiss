@@ -498,7 +498,9 @@ void run_mixed_subtree() {
   scene_node_id copy;
   check(document.duplicate_subtree(restored, {}, copy).ok() && copy != restored);
   engine::scene_subtree_snapshot copied;
-  check(app->scenes()->capture_subtree(document.scene_handle(), copy, copied).ok());
+  check(gneiss::test_support::assign_value(
+            app->scenes()->capture_subtree(document.scene_handle(), copy), copied)
+            .ok());
   check(copied.description.objects.size() == 4U && copied.resources.size() == 2U);
   const auto copied_first = std::ranges::find(copied.description.objects, std::string("First"),
                                               &engine::object_description::name);

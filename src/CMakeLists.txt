@@ -170,6 +170,7 @@ target_sources(
     engine/function/scene/scene_instance.hpp
     engine/function/scene/component_adapter.cpp
     engine/function/scene/scene_instances.cpp
+    engine/function/scene/scene_instance.cpp
     engine/function/scene/scene_instance_edit.cpp
     engine/function/scene/scene_instance_prefab.cpp
     engine/function/scene/scene_instances.hpp

@@ -4,6 +4,7 @@
 #include "../../support/async_document.hpp"
 #include "../../support/async_editor_save.hpp"
 #include "../../support/async_mesh_edit.hpp"
+#include "../../support/value_result.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
@@ -218,10 +219,12 @@ int main() try {
   gneiss::scene_node_id reloaded_created_node;
   gneiss::entity_id camera_entity;
   gneiss::engine::math::transform reloaded_transform{};
-  if (reloaded_application->scenes()->find_node(reloaded_scene, camera_uuid, camera_node) !=
+  if (gneiss::test_support::take_value(
+          reloaded_application->scenes()->find_node(reloaded_scene, camera_uuid), camera_node) !=
           gneiss::engine::error::success ||
-      reloaded_application->scenes()->find_node(
-          reloaded_scene, created_uuid, reloaded_created_node) != gneiss::engine::error::success ||
+      gneiss::test_support::take_value(
+          reloaded_application->scenes()->find_node(reloaded_scene, created_uuid),
+          reloaded_created_node) != gneiss::engine::error::success ||
       reloaded_application->native_world()->node_get_entity(camera_node, camera_entity) !=
           gneiss::engine::error::success ||
       reloaded_application->native_world()->entity_get_local_transform(

@@ -26,7 +26,7 @@
 不能用单缓冲区 register_decoder 覆盖；其他类型先用注册解码器，否则使用反射解码。
 
 `resource_service::reserve_mesh/texture/material()` 返回对应资源引用的 result，
-`reserve_asset(source)` 返回 `result<render_resource_ref>`；它们只预留资源身份，不代表内容已加载。
+`reserve_resource(source)` 返回 `result<render_resource_ref>`；它们只预留资源身份，不代表内容已加载。
 `asset_manager::identify(uri, type)` 返回 `result<asset_identity>`，只解析来源身份，不读取资源内容。
 
 ## URI 规则
@@ -67,7 +67,7 @@ HTTP(S) 地址使用 Fetch URL 基址。借用目录不会在后端销毁时被�
 | Prefab 描述 | `prefab_asset_ref`，即 `asset_ref<const prefab_description>` | 别名引用保活缓存条目；重载不会修改旧描述 |
 | 资产管理器、场景绑定、编辑器历史 | `mesh`、`material`、`texture` 强引用；混合批次另用缓存条目 | CPU 内容采用即完成，资源身份保持稳定，GPU 更新由 Render 独立处理 |
 
-渲染引用通过 `asset_rid`、`asset_kind`、`asset_uri` 访问 RID、类型和 URI；空引用分别返回
+渲染引用通过 `resource_rid`、`resource_kind`、`resource_uri` 访问 RID、类型和 URI；空引用分别返回
 零 RID、invalid 类型和空 URI。场景绑定校验所属服务及来源域，ECS 保存类型化资源强引用。
 上传任务和在途渲染帧对具体数据的共享所有权不等同于资产身份引用。
 

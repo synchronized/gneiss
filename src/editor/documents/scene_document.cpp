@@ -102,8 +102,7 @@ bool scene_document::is_open() const noexcept {
     return false;
   // 地址可能被后续 World 复用；实例 ID 的所属域仍必须匹配当前实例集合。
   auto* scenes = application_->scenes();
-  std::uint64_t count{};
-  return scenes && scenes->get_node_count(scene_, &count).ok();
+  return scenes && scenes->get_node_count(scene_).ok();
 }
 template <class F> gneiss::engine::error scene_document::with_scene(F&& action) const noexcept {
   if (!application_ || !application_->is_owner_thread() || !is_open())
@@ -171,13 +170,12 @@ gneiss::engine::error scene_document::create_empty(runtime::application& applica
     return gneiss::engine::error::invalid_state;
   if (world != application.native_world() || scene_uuid.is_nil())
     return gneiss::engine::error::invalid_argument;
-  scene_instance_id pending{};
-  const auto created = application.scenes()->create_empty(scene_uuid, &pending);
-  if (created != gneiss::engine::error::success)
-    return created;
+  auto created = application.scenes()->create_empty(scene_uuid);
+  if (!created)
+    return created.error();
   close();
   application_ = &application;
-  scene_ = pending;
+  scene_ = *created;
   world_ = world;
   is_dirty_ = true;
   return gneiss::engine::error::success;
@@ -212,8 +210,13 @@ gneiss::engine::error scene_document::synchronize_nodes() noexcept {
 gneiss::engine::error scene_document::refresh_nodes() noexcept {
   try {
     std::uint64_t count = 0;
-    auto operation =
-        with_scene([&](auto& service) { return service.get_node_count(scene_, &count); });
+    auto operation = with_scene([&](auto& service) {
+      auto scene_result = service.get_node_count(scene_);
+      if (!scene_result)
+        return scene_result.error();
+      count = std::move(*scene_result);
+      return gneiss::engine::error::success;
+    });
     if (operation != gneiss::engine::error::success) {
       return operation;
     }
@@ -223,8 +226,13 @@ gneiss::engine::error scene_document::refresh_nodes() noexcept {
     prefab_records.reserve(static_cast<std::size_t>(count));
     for (std::uint64_t index = 0; index < count; ++index) {
       gneiss::engine::scene_node_info info{};
-      operation =
-          with_scene([&](auto& service) { return service.get_node_info(scene_, index, info); });
+      operation = with_scene([&](auto& service) {
+        auto scene_result = service.get_node_info(scene_, index);
+        if (!scene_result)
+          return scene_result.error();
+        info = std::move(*scene_result);
+        return gneiss::engine::error::success;
+      });
       if (operation != gneiss::engine::error::success) {
         return operation;
       }
@@ -376,7 +384,11 @@ gneiss::engine::error scene_document::create_node(std::string_view name, scene_n
     desc.name = name;
     desc.parent = parent;
     auto operation = with_node(out_node, [&](auto& service, auto& output) {
-      return service.create_node(scene_, desc, output);
+      auto scene_result = service.create_node(scene_, desc);
+      if (!scene_result)
+        return scene_result.error();
+      output = std::move(*scene_result);
+      return gneiss::engine::error::success;
     });
     if (operation == gneiss::engine::error::success) {
       selection_ = out_node;
@@ -436,8 +448,13 @@ gneiss::engine::error scene_document::reparent_node(scene_node_id node,
 engine::error scene_document::destroy_subtree(scene_node_id node,
                                               scene_subtree_snapshot& output) noexcept try {
   scene_subtree_snapshot snapshot;
-  auto status =
-      with_scene([&](auto& service) { return service.capture_subtree(scene_, node, snapshot); });
+  auto status = with_scene([&](auto& service) {
+    auto scene_result = service.capture_subtree(scene_, node);
+    if (!scene_result)
+      return scene_result.error();
+    snapshot = std::move(*scene_result);
+    return gneiss::engine::error::success;
+  });
   if (status.failed())
     return status;
   status = with_scene([&](auto& service) { return service.destroy_subtree(scene_, node); });
@@ -457,13 +474,22 @@ engine::error scene_document::restore_subtree(const scene_subtree_snapshot& snap
                                               scene_node_id& output) noexcept {
   scene_node_id parent;
   if (!snapshot.parent_uuid.is_nil()) {
-    const auto status = with_scene(
-        [&](auto& service) { return service.find_node(scene_, snapshot.parent_uuid, parent); });
+    const auto status = with_scene([&](auto& service) {
+      auto scene_result = service.find_node(scene_, snapshot.parent_uuid);
+      if (!scene_result)
+        return scene_result.error();
+      parent = std::move(*scene_result);
+      return gneiss::engine::error::success;
+    });
     if (status.failed())
       return status;
   }
   const auto status = with_node(output, [&](auto& service, auto& node) {
-    return service.restore_subtree(scene_, snapshot, parent, {}, node);
+    auto scene_result = service.restore_subtree(scene_, snapshot, parent, {});
+    if (!scene_result)
+      return scene_result.error();
+    node = std::move(*scene_result);
+    return gneiss::engine::error::success;
   });
   if (status.failed())
     return status;
@@ -475,8 +501,13 @@ engine::error scene_document::restore_subtree(const scene_subtree_snapshot& snap
 engine::error scene_document::duplicate_subtree(scene_node_id node, scene_node_id parent,
                                                 scene_node_id& output) noexcept try {
   scene_subtree_snapshot snapshot;
-  auto status =
-      with_scene([&](auto& service) { return service.capture_subtree(scene_, node, snapshot); });
+  auto status = with_scene([&](auto& service) {
+    auto scene_result = service.capture_subtree(scene_, node);
+    if (!scene_result)
+      return scene_result.error();
+    snapshot = std::move(*scene_result);
+    return gneiss::engine::error::success;
+  });
   if (status.failed())
     return status;
   std::vector<engine::guid> targets;
@@ -487,7 +518,11 @@ engine::error scene_document::duplicate_subtree(scene_node_id node, scene_node_i
   for (std::size_t i = 0; i < targets.size(); ++i)
     mappings.push_back({snapshot.description.objects[i].uuid, targets[i]});
   status = with_node(output, [&](auto& service, auto& result) {
-    return service.restore_subtree(scene_, snapshot, parent, mappings, result);
+    auto scene_result = service.restore_subtree(scene_, snapshot, parent, mappings);
+    if (!scene_result)
+      return scene_result.error();
+    result = std::move(*scene_result);
+    return gneiss::engine::error::success;
   });
   if (status.failed())
     return status;
@@ -719,19 +754,34 @@ gneiss::engine::error scene_document::create_mesh_renderer_node(const mesh_node_
     desc.mesh_uri = snapshot.mesh_uri;
     desc.material_uri = snapshot.material_uri;
     auto operation = with_node(out_node, [&](auto& service, auto& output) {
-      return service.create_mesh_renderer_node(scene_, desc, output);
+      auto scene_result = service.create_mesh_renderer_node(scene_, desc);
+      if (!scene_result)
+        return scene_result.error();
+      output = std::move(*scene_result);
+      return gneiss::engine::error::success;
     });
     if (operation != gneiss::engine::error::success) {
       return operation;
     }
     std::uint64_t count = 0;
     gneiss::engine::scene_node_info info{};
-    operation = with_scene([&](auto& service) { return service.get_node_count(scene_, &count); });
+    operation = with_scene([&](auto& service) {
+      auto scene_result = service.get_node_count(scene_);
+      if (!scene_result)
+        return scene_result.error();
+      count = std::move(*scene_result);
+      return gneiss::engine::error::success;
+    });
     if (operation.ok()) {
       operation = gneiss::engine::error::not_found;
       for (std::uint64_t index = 0; index < count; ++index) {
-        const auto queried =
-            with_scene([&](auto& service) { return service.get_node_info(scene_, index, info); });
+        const auto queried = with_scene([&](auto& service) {
+          auto scene_result = service.get_node_info(scene_, index);
+          if (!scene_result)
+            return scene_result.error();
+          info = std::move(*scene_result);
+          return gneiss::engine::error::success;
+        });
         if (queried.failed()) {
           operation = queried;
           break;
@@ -890,8 +940,13 @@ gneiss::engine::error scene_document::commit_mesh_renderer(
 
 engine::error scene_document::encode_scene(std::string& output) const noexcept try {
   engine::scene_description description;
-  auto status =
-      with_scene([&](auto& service) { return service.capture_description(scene_, description); });
+  auto status = with_scene([&](auto& service) {
+    auto scene_result = service.capture_description(scene_);
+    if (!scene_result)
+      return scene_result.error();
+    description = std::move(*scene_result);
+    return gneiss::engine::error::success;
+  });
   if (status.failed())
     return status;
   auto encoded = engine::meta::serialize(description);

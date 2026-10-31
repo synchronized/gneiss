@@ -84,7 +84,7 @@ void run(gneiss::engine::execution_mode mode) {
   }
   check(completion.result == gneiss::engine::error::success && completion.request == request &&
         completion.assets.size() == 1U &&
-        gneiss::engine::asset_kind(completion.assets.front()) ==
+        gneiss::engine::resource_kind(completion.assets.front()) ==
             gneiss::engine::render_resource_kind::texture);
   const auto wait = [&] {
     bool completed = false;
@@ -115,8 +115,8 @@ void run(gneiss::engine::execution_mode mode) {
             *app, scene_uri, &scene, &scheduler)} == gneiss::engine::error::success);
   const auto capture = [&](std::uint64_t index) {
     gneiss::engine::scene_node_info info;
-    check(gneiss::engine::error{app->scenes()->get_node_info(scene, index, info)} ==
-          gneiss::engine::error::success);
+    check(gneiss::engine::error{gneiss::test_support::take_value(
+              app->scenes()->get_node_info(scene, index), info)} == gneiss::engine::error::success);
     gneiss::engine::scene_mesh_binding value;
     check(app->capture_mesh_binding(scene, info.node, value) == gneiss::engine::error::success);
     return value;
@@ -179,8 +179,8 @@ void run(gneiss::engine::execution_mode mode) {
         completion.assets.empty());
   // 上传期间 ECS 改绑不妨碍资源更新，也不能被重载覆盖。
   gneiss::engine::scene_node_info node;
-  check(gneiss::engine::error{app->scenes()->get_node_info(scene, 0U, node)} ==
-        gneiss::engine::error::success);
+  check(gneiss::engine::error{gneiss::test_support::take_value(
+            app->scenes()->get_node_info(scene, 0U), node)} == gneiss::engine::error::success);
   const auto world = app->native_world();
   check(app->request_assets(uris, 2U, 7U, request, true) == gneiss::engine::error::success);
   gneiss::engine::mesh_renderer external;

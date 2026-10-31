@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/async_document.hpp"
+#include "../../support/value_result.hpp"
 #include "commands/editor_asset_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/math/transform.hpp"
@@ -291,7 +292,9 @@ void prefab_edits(engine::execution_mode mode) {
   };
   const auto capture = [&] {
     e::scene_description current;
-    check(app->scenes()->capture_description(document.scene_handle(), current).ok());
+    check(gneiss::test_support::assign_value(
+              app->scenes()->capture_description(document.scene_handle()), current)
+              .ok());
     return current;
   };
   const auto overrides = [&] {
@@ -358,7 +361,7 @@ void prefab_edits(engine::execution_mode mode) {
             .ok());
   check(edit.active() && binding(child).mesh == before.mesh);
   drive();
-  check(edit.operation().ok() && e::asset_uri(binding(child).mesh) == "asset://mesh2.json");
+  check(edit.operation().ok() && e::resource_uri(binding(child).mesh) == "asset://mesh2.json");
   // 文件保存后通过实际异步场景加载链重建；两实例的差异必须保留。
   write("saved.json", capture());
   std::shared_ptr<runtime::application> reopened_app;
@@ -373,13 +376,13 @@ void prefab_edits(engine::execution_mode mode) {
   check(loaded_child != nullptr);
   check(
       reopened_app->capture_mesh_binding(reopened.scene_handle(), loaded_child->node, loaded).ok());
-  check(e::asset_uri(loaded.material) == "asset://b.json");
-  check(e::asset_uri(loaded.mesh) == "asset://mesh2.json");
+  check(e::resource_uri(loaded.material) == "asset://b.json");
+  check(e::resource_uri(loaded.mesh) == "asset://mesh2.json");
   const auto* loaded_second = reopened.find_prefab_source(uuid(6), uuid(3));
   check(loaded_second != nullptr);
   check(reopened_app->capture_mesh_binding(reopened.scene_handle(), loaded_second->node, loaded)
             .ok());
-  check(e::asset_uri(loaded.material) == "asset://a.json");
+  check(e::resource_uri(loaded.material) == "asset://a.json");
   check(history.undo().ok() && binding(child).mesh == before.mesh);
   check(request(child, "asset://a.json").ok());
   check(overrides() == 1);

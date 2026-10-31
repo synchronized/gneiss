@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/movement_component.hpp"
+#include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
@@ -67,7 +68,9 @@ int main() try {
   check(history.redo().ok() && !current());
   auto snapshot = [&] {
     e::scene_description result;
-    check(app->scenes()->capture_description(document.scene_handle(), result).ok());
+    check(gneiss::test_support::assign_value(
+              app->scenes()->capture_description(document.scene_handle()), result)
+              .ok());
     return result;
   };
   auto removed = snapshot();
@@ -84,9 +87,11 @@ int main() try {
   e::scene_diagnostic diagnostic;
   check(e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).ok());
   gneiss::scene_instance_id loaded;
-  check(app->scenes()->instantiate_prepared(std::move(prepared), {}, loaded).ok());
+  check(gneiss::test_support::take_value(
+            app->scenes()->instantiate_prepared(std::move(prepared), {}), loaded)
+            .ok());
   gneiss::scene_node_id loaded_node;
-  check(app->scenes()->find_node(loaded, uuid, loaded_node).ok());
+  check(gneiss::test_support::take_value(app->scenes()->find_node(loaded, uuid), loaded_node).ok());
   check(state(world).get<movement_component>(entity(world, loaded_node))->data.speed == 4);
   check(app->scenes()->remove_component_description(document.scene_handle(), loaded_node, type) ==
         e::error::invalid_handle);
@@ -129,9 +134,10 @@ int main() try {
   reference.prefab->uri = "asset://movement.prefab";
   const std::array<e::scene_mesh_binding, 2> bindings{};
   gneiss::scene_node_id prefab_node;
-  check(app->scenes()
-            ->instantiate_prefab_ready(document.scene_handle(), reference,
-                                       e::prefab_asset_ref{prefab}, bindings, false, prefab_node)
+  check(gneiss::test_support::take_value(
+            app->scenes()->instantiate_prefab_ready(document.scene_handle(), reference,
+                                                    e::prefab_asset_ref{prefab}, bindings, false),
+            prefab_node)
             .ok());
   check(document.synchronize_nodes().ok());
   check(document.add_component_description(

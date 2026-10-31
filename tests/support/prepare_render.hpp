@@ -27,11 +27,11 @@ inline error adopt_render_for_test(resource_service& service, decoded_asset deco
     return error::invalid_argument;
   if (!target) {
     const auto status =
-        gneiss::test_support::take_value(service.reserve_asset({decoded.uri, kind}), target);
+        gneiss::test_support::take_value(service.reserve_resource({decoded.uri, kind}), target);
     if (status.failed())
       return status;
   }
-  if (asset_kind(target) != kind || asset_uri(target) != decoded.uri)
+  if (resource_kind(target) != kind || resource_uri(target) != decoded.uri)
     return error::invalid_argument;
   return std::visit(
       [&](auto& data) -> error {
@@ -39,11 +39,11 @@ inline error adopt_render_for_test(resource_service& service, decoded_asset deco
         if constexpr (std::is_same_v<T, mesh_data>)
           return resource_service::implementation::adopt(
               service, std::make_shared<const mesh_data>(std::move(data)),
-              asset_cast<mesh_resource>(target), decoded.sources);
+              resource_cast<mesh_resource>(target), decoded.sources);
         else if constexpr (std::is_same_v<T, texture_data>)
           return resource_service::implementation::adopt(
               service, std::make_shared<const texture_data>(std::move(data)),
-              asset_cast<texture_resource>(target), decoded.sources);
+              resource_cast<texture_resource>(target), decoded.sources);
         else if constexpr (std::is_same_v<T, asset_ref<const material_description>>) {
           if (!data)
             return error::invalid_argument;
@@ -53,14 +53,14 @@ inline error adopt_render_for_test(resource_service& service, decoded_asset deco
               continue;
             render_resource_ref entry;
             const auto status = gneiss::test_support::take_value(
-                service.reserve_asset({data->texture_uris[slot], render_resource_kind::texture}),
+                service.reserve_resource({data->texture_uris[slot], render_resource_kind::texture}),
                 entry);
             if (status.failed())
               return status;
-            dependencies[slot] = asset_cast<texture_resource>(entry);
+            dependencies[slot] = resource_cast<texture_resource>(entry);
           }
           return resource_service::implementation::adopt(
-              service, *data, asset_cast<material_resource>(target), std::move(dependencies));
+              service, *data, resource_cast<material_resource>(target), std::move(dependencies));
         } else
           return error::invalid_argument;
       },

@@ -181,8 +181,8 @@ void run_pending_resources() {
                                               {gneiss::engine::texture{}, {}, {}, {}, texture_ref}),
             material_ref)} == gneiss::engine::error::success);
   gneiss::engine::scene_node_info info;
-  check(gneiss::engine::error{app->scenes()->get_node_info(scene, 1U, info)} ==
-        gneiss::engine::error::success);
+  check(gneiss::engine::error{gneiss::test_support::take_value(
+            app->scenes()->get_node_info(scene, 1U), info)} == gneiss::engine::error::success);
   check(info.components.get<gneiss::engine::mesh_renderer_description>() != nullptr);
   const gneiss::engine::mesh_renderer binding{.mesh = resources_factory.find_mesh(mesh),
                                               .material = material_ref};
@@ -822,7 +822,8 @@ void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
           check(changed == active_pixels);
           active_pixels = changed;
           std::uint64_t count{};
-          check(gneiss::engine::error{app->scenes()->get_node_count(old_scene, &count)} ==
+          check(gneiss::engine::error{gneiss::test_support::take_value(
+                    app->scenes()->get_node_count(old_scene), count)} ==
                 gneiss::engine::error::invalid_handle);
           break;
         }

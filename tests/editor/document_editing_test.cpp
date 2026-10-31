@@ -49,7 +49,8 @@ bool save_codec_contract(gneiss::runtime::application& application) {
     return false;
   e::scene_description snapshot;
   snapshot.uuid = *gneiss::engine::guid::parse("c2df6015-0d50-5e09-a7d1-14d5b9c0232e");
-  if (application.scenes()->capture_description(gneiss::scene_instance_id{}, snapshot) !=
+  if (gneiss::test_support::assign_value(
+          application.scenes()->capture_description(gneiss::scene_instance_id{}), snapshot) !=
           e::error::invalid_handle ||
       snapshot.uuid != *gneiss::engine::guid::parse("c2df6015-0d50-5e09-a7d1-14d5b9c0232e"))
     return false;

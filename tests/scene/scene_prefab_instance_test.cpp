@@ -92,7 +92,8 @@ int main() try {
     return 2;
   }
   std::string sparse_json;
-  if (application->scenes()->serialize(scene, sparse_json) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(application->scenes()->serialize(scene), sparse_json) !=
+          gneiss::engine::error::success ||
       sparse_json.empty() || sparse_json.find(R"("overrides":[])") == std::string::npos) {
     return 2;
   }
@@ -124,8 +125,8 @@ int main() try {
   create_desc.name = created_name;
   create_desc.prefab_uri = prefab_uri;
   gneiss::scene_node_id created_root;
-  if (application->scenes()->find_node(scene, anchor_uuid, anchor) !=
-      gneiss::engine::error::success) {
+  if (gneiss::test_support::take_value(application->scenes()->find_node(scene, anchor_uuid),
+                                       anchor) != gneiss::engine::error::success) {
     return 3;
   }
   create_desc.parent = prefab_source.node;
@@ -172,11 +173,13 @@ int main() try {
       .uuid = *gneiss::engine::guid::parse("30000000-0000-4000-8000-000000000014"),
       .name = "Own child",
       .parent = {}};
-  if (application->scenes()->create_node(scene, child, attached).failed() ||
+  if (gneiss::test_support::take_value(application->scenes()->create_node(scene, child), attached)
+          .failed() ||
       application->scenes()->reparent_node(scene, attached, created_root).failed())
     return 12;
   std::string with_child;
-  if (application->scenes()->serialize(scene, with_child).failed())
+  if (gneiss::test_support::assign_value(application->scenes()->serialize(scene), with_child)
+          .failed())
     return 12;
   auto decoded_child = gneiss::engine::decode_scene(std::as_bytes(std::span(with_child)));
   if (!decoded_child || decoded_child->objects.size() != 4U ||
@@ -205,7 +208,8 @@ int main() try {
   }
 
   std::string json;
-  if (application->scenes()->serialize(scene, json) != gneiss::engine::error::success ||
+  if (gneiss::test_support::assign_value(application->scenes()->serialize(scene), json) !=
+          gneiss::engine::error::success ||
       json.empty() || json.find("asset://prefabs/test.prefab.json") == std::string::npos ||
       json.find(created_uuid.string()) == std::string::npos ||
       json.find(renamed) == std::string::npos ||
@@ -214,7 +218,8 @@ int main() try {
   }
   // 统一枚举包含普通父节点及 Prefab 全部节点；删除父节点同时清理来源关系。
   std::uint64_t node_count{};
-  if (application->scenes()->get_node_count(scene, &node_count) != gneiss::engine::error::success) {
+  if (gneiss::test_support::take_value(application->scenes()->get_node_count(scene), node_count) !=
+      gneiss::engine::error::success) {
     std::fprintf(stderr, "子树生命周期检查 0 失败\n");
     return 10;
   }
@@ -226,7 +231,8 @@ int main() try {
     std::fprintf(stderr, "子树生命周期检查 2 失败\n");
     return 10;
   }
-  if (application->scenes()->get_node_count(scene, &node_count) != gneiss::engine::error::success) {
+  if (gneiss::test_support::take_value(application->scenes()->get_node_count(scene), node_count) !=
+      gneiss::engine::error::success) {
     std::fprintf(stderr, "子树生命周期检查 3 失败\n");
     return 10;
   }
@@ -248,7 +254,8 @@ int main() try {
     std::fprintf(stderr, "子树生命周期检查 7 失败\n");
     return 10;
   }
-  if (application->scenes()->serialize(scene, json) != gneiss::engine::error::success) {
+  if (gneiss::test_support::assign_value(application->scenes()->serialize(scene), json) !=
+      gneiss::engine::error::success) {
     std::fprintf(stderr, "子树生命周期检查 8 失败\n");
     return 10;
   }

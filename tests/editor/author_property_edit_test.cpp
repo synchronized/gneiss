@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/scene/scene_instances.hpp"
@@ -103,9 +104,10 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
   author.prefab->uri = "asset://camera.prefab.json";
   gneiss::scene_node_id prefab_root;
   const std::array<e::scene_mesh_binding, 2> bindings{};
-  if (app.scenes()
-          ->instantiate_prefab_ready(session.scene_handle(), author, e::prefab_asset_ref{source},
-                                     bindings, false, prefab_root)
+  if (gneiss::test_support::take_value(
+          app.scenes()->instantiate_prefab_ready(session.scene_handle(), author,
+                                                 e::prefab_asset_ref{source}, bindings, false),
+          prefab_root)
           .failed() ||
       session.synchronize_nodes().failed())
     return 39;
@@ -129,7 +131,8 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
     return 41;
   auto snapshot = [&]() {
     std::string json;
-    if (app.scenes()->serialize(session.scene_handle(), json).failed())
+    if (gneiss::test_support::assign_value(app.scenes()->serialize(session.scene_handle()), json)
+            .failed())
       throw std::runtime_error("serialize");
     auto decoded = e::meta::deserialize<e::scene_description>(
         std::as_bytes(std::span{json.data(), json.size()}));
@@ -197,15 +200,17 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
   if (e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).failed())
     return 43;
   gneiss::scene_instance_id loaded;
-  if (app.scenes()->instantiate_prepared(std::move(prepared), {}, loaded).failed())
+  if (gneiss::test_support::take_value(app.scenes()->instantiate_prepared(std::move(prepared), {}),
+                                       loaded)
+          .failed())
     return 44;
   bool found_ordinary = false, found_prefab = false, found_child = false;
   std::uint64_t count{};
-  if (app.scenes()->get_node_count(loaded, &count).failed())
+  if (gneiss::test_support::take_value(app.scenes()->get_node_count(loaded), count).failed())
     return 45;
   for (std::uint64_t i = 0; i < count; ++i) {
     e::scene_node_info node;
-    if (app.scenes()->get_node_info(loaded, i, node).failed())
+    if (gneiss::test_support::take_value(app.scenes()->get_node_info(loaded, i), node).failed())
       return 46;
     if (node.prefab && node.prefab->instance_uuid == author.uuid) {
       if (node.prefab->source_node_uuid == source->root_uuid)

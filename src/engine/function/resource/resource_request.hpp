@@ -21,7 +21,9 @@ public:
   render_resource_ref resource() const noexcept {
     return state_ ? state_->target : render_resource_ref{};
   }
-  template <class T> asset_ref<const T> get() const noexcept { return asset_cast<T>(resource()); }
+  template <class T> asset_ref<const T> get() const noexcept {
+    return resource_cast<T>(resource());
+  }
   asset_diagnostic diagnostic() const { return state_ ? state_->diagnostic : asset_diagnostic{}; }
   const asset_load_metrics& metrics() const noexcept {
     static const asset_load_metrics empty;

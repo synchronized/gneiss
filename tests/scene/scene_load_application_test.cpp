@@ -114,8 +114,9 @@ void visual_failure(gneiss::engine::execution_mode mode) {
   scene_load_completion completion;
   check(app->activate_scene(request, completion) == gneiss::engine::error::success);
   scene_node_id node;
-  check(app->scenes()->find_node(
-            completion.scene, *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000002"),
+  check(gneiss::test_support::take_value(
+            app->scenes()->find_node(completion.scene, *gneiss::engine::guid::parse(
+                                                           "00000000-0000-4000-8000-000000000002")),
             node) == gneiss::engine::error::success);
   gneiss::engine::scene_mesh_binding binding;
   check(app->capture_mesh_binding(completion.scene, node, binding) ==
@@ -127,12 +128,13 @@ void visual_failure(gneiss::engine::execution_mode mode) {
   gneiss::engine::render_resource_ref ready;
   check(app->query_ready_asset({"asset://mesh.json", gneiss::engine::render_resource_kind::mesh},
                                ready) == gneiss::engine::error::success);
-  check(gneiss::engine::asset_cast<gneiss::engine::mesh_resource>(ready) == binding.mesh);
+  check(gneiss::engine::resource_cast<gneiss::engine::mesh_resource>(ready) == binding.mesh);
   check(app->query_ready_asset(
             {"asset://material.json", gneiss::engine::render_resource_kind::material}, ready) ==
         gneiss::engine::error::not_ready);
   std::uint64_t nodes{};
-  check(app->scenes()->get_node_count(completion.scene, &nodes) == gneiss::engine::error::success &&
+  check(gneiss::test_support::take_value(app->scenes()->get_node_count(completion.scene), nodes) ==
+            gneiss::engine::error::success &&
         nodes == 1U);
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,1,0,1]},"texture_uris":["","","","",""]})";
@@ -146,7 +148,7 @@ void visual_failure(gneiss::engine::execution_mode mode) {
     return finished;
   });
   check(loaded.result == gneiss::engine::error::success &&
-        gneiss::engine::asset_cast<gneiss::engine::material_resource>(loaded.assets.front()) ==
+        gneiss::engine::resource_cast<gneiss::engine::material_resource>(loaded.assets.front()) ==
             material);
   check(app->capture_mesh_binding(completion.scene, node, binding) ==
             gneiss::engine::error::success &&
@@ -371,7 +373,8 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
     const gneiss::engine::guid uuid =
         *gneiss::engine::guid::parse("00000000-0000-4000-8000-000000000002");
     gneiss::scene_node_id node{};
-    check(app->scenes()->find_node(completion.scene, uuid, node) == gneiss::engine::error::success);
+    check(gneiss::test_support::take_value(app->scenes()->find_node(completion.scene, uuid),
+                                           node) == gneiss::engine::error::success);
     gneiss::engine::scene_mesh_binding value;
     check(app->capture_mesh_binding(completion.scene, node, value) ==
           gneiss::engine::error::success);
@@ -391,8 +394,9 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   check(second.application_logical_bytes > 0U);
   check(app->activate_scene(request, completion) == gneiss::engine::error::success);
   auto reused = binding();
-  check(reused.mesh == gneiss::engine::asset_cast<gneiss::engine::mesh_resource>(mesh) &&
-        reused.material == gneiss::engine::asset_cast<gneiss::engine::material_resource>(material));
+  check(reused.mesh == gneiss::engine::resource_cast<gneiss::engine::mesh_resource>(mesh) &&
+        reused.material ==
+            gneiss::engine::resource_cast<gneiss::engine::material_resource>(material));
   gneiss::engine::world* new_world{};
   check((new_world = app->native_world()) != nullptr && old_world != new_world);
   std::uint64_t count{};
@@ -424,23 +428,23 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   (void)prepare();
   check(app->activate_scene(request, completion) == gneiss::engine::error::success);
   auto changed = binding();
-  check(changed.mesh == gneiss::engine::asset_cast<gneiss::engine::mesh_resource>(mesh) &&
+  check(changed.mesh == gneiss::engine::resource_cast<gneiss::engine::mesh_resource>(mesh) &&
         changed.material ==
-            gneiss::engine::asset_cast<gneiss::engine::material_resource>(material));
-  check(gneiss::engine::asset_cast<gneiss::engine::material_resource>(
+            gneiss::engine::resource_cast<gneiss::engine::material_resource>(material));
+  check(gneiss::engine::resource_cast<gneiss::engine::material_resource>(
             selected(gneiss::engine::render_resource_kind::material, "asset://material.json")) ==
         changed.material);
   check(!poll());
-  check(original.mesh == gneiss::engine::asset_cast<gneiss::engine::mesh_resource>(mesh) &&
+  check(original.mesh == gneiss::engine::resource_cast<gneiss::engine::mesh_resource>(mesh) &&
         original.material ==
-            gneiss::engine::asset_cast<gneiss::engine::material_resource>(material));
+            gneiss::engine::resource_cast<gneiss::engine::material_resource>(material));
   // 已缓存资源不因打开场景而隐式重读损坏文件；显式重载独立处理。
   check((new_world = app->native_world()) != nullptr);
   std::ofstream(files.root / "material.json") << "broken";
   (void)prepare();
   check(app->activate_scene(request, completion) == gneiss::engine::error::success);
   drain_visuals(app, scheduler, mode);
-  check(gneiss::engine::asset_cast<gneiss::engine::material_resource>(
+  check(gneiss::engine::resource_cast<gneiss::engine::material_resource>(
             selected(gneiss::engine::render_resource_kind::material, "asset://material.json")) ==
         changed.material);
 }
@@ -506,8 +510,8 @@ void shared_texture_versions(gneiss::engine::execution_mode mode) {
   check(app->activate_scene(request, scene_completion) == gneiss::engine::error::success);
   drain_visuals(app, scheduler, mode);
   std::uint64_t count{};
-  check(app->scenes()->get_node_count(scene_completion.scene, &count) ==
-            gneiss::engine::error::success &&
+  check(gneiss::test_support::take_value(app->scenes()->get_node_count(scene_completion.scene),
+                                         count) == gneiss::engine::error::success &&
         count == 2U);
   const std::array textures{gneiss::engine::render_resource_source{
       .uri = "asset://texture.json", .type = gneiss::engine::render_resource_kind::texture}};

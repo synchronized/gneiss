@@ -53,10 +53,9 @@ bool open_scene(gneiss::engine::task_scheduler& scheduler, std::string_view root
 }
 bool target_for(gneiss::runtime::application& app, gneiss::scene_instance_id scene,
                 gneiss::entity_id& target) {
-  gneiss::scene_node_id node;
+  auto node = app.scenes()->find_node(scene, camera_uuid);
   gneiss::entity_id entity;
-  if (app.scenes()->find_node(scene, camera_uuid, node).failed() ||
-      app.native_world()->node_get_entity(node, entity).failed())
+  if (!node || app.native_world()->node_get_entity(*node, entity).failed())
     return false;
   target = entity;
   return true;
@@ -105,9 +104,10 @@ int main() try {
                                                gneiss::engine::meta::property_id{2}, value)
           .failed())
     return 3;
-  std::string json;
-  if (app->scenes()->serialize(scene, json).failed() || app->scenes()->unload(scene).failed())
+  auto serialized = app->scenes()->serialize(scene);
+  if (!serialized || app->scenes()->unload(scene).failed())
     return 4;
+  auto json = std::move(*serialized);
   scene = {};
   if (app->shutdown().failed())
     return 4;

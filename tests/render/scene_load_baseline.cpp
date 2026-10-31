@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
@@ -185,13 +186,15 @@ int main(int argc, char** argv) try {
       return 11;
     }
     std::uint64_t count{};
-    if (gneiss::engine::error{app->scenes()->get_node_count(previous_scene, &count)} !=
+    if (gneiss::engine::error{gneiss::test_support::take_value(
+            app->scenes()->get_node_count(previous_scene), count)} !=
         gneiss::engine::error::success) {
       return 11;
     }
     for (std::uint64_t index = 0U; index < count; ++index) {
       gneiss::engine::scene_node_info node;
-      if (gneiss::engine::error{app->scenes()->get_node_info(previous_scene, index, node)} !=
+      if (gneiss::engine::error{gneiss::test_support::take_value(
+              app->scenes()->get_node_info(previous_scene, index), node)} !=
           gneiss::engine::error::success) {
         return 11;
       }
@@ -529,8 +532,8 @@ int main(int argc, char** argv) try {
     return 4;
   }
   std::uint64_t nodes{};
-  if (gneiss::engine::error{app->scenes()->get_node_count(scene, &nodes)} !=
-          gneiss::engine::error::success ||
+  if (gneiss::engine::error{gneiss::test_support::take_value(
+          app->scenes()->get_node_count(scene), nodes)} != gneiss::engine::error::success ||
       nodes == 0U) {
     return 5;
   }

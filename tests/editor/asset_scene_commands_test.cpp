@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/value_result.hpp"
 #include "commands/editor_asset_edit.hpp"
 #include "commands/editor_prefab_edit.hpp"
 #include "documents/editor_scene_loader.hpp"
@@ -217,10 +218,11 @@ int main() try {
   mesh_instance.prefab->uri = "asset://prefabs/memory.prefab.json";
   scene_node_id mesh_node;
   const std::array mesh_bindings{before};
-  if (app->scenes()
-          ->instantiate_prefab_ready(session.scene_handle(), mesh_instance,
-                                     engine::prefab_asset_ref{mesh_prefab}, mesh_bindings, false,
-                                     mesh_node)
+  if (gneiss::test_support::take_value(
+          app->scenes()->instantiate_prefab_ready(session.scene_handle(), mesh_instance,
+                                                  engine::prefab_asset_ref{mesh_prefab},
+                                                  mesh_bindings, false),
+          mesh_node)
           .failed() ||
       session.synchronize_nodes().failed())
     return 20;

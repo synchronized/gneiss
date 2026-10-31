@@ -22,11 +22,19 @@ prefab_placement::capture(runtime::application& application, gneiss::engine::gui
     return validation;
   }
   scene_node_id root;
-  auto status = host->scenes()->find_node(scene, uuid, root);
-  if (status.failed())
-    return status;
+  auto status_value = host->scenes()->find_node(scene, uuid);
+  if (!status_value)
+    return status_value.error();
+  root = std::move(*status_value);
+  auto status = gneiss::engine::error::success;
   auto candidate = std::make_shared<engine::scene_subtree_snapshot>();
-  status = host->scenes()->capture_subtree(scene, root, *candidate);
+  status = [&]() -> gneiss::engine::error {
+    auto scene_result = host->scenes()->capture_subtree(scene, root);
+    if (!scene_result)
+      return scene_result.error();
+    *candidate = std::move(*scene_result);
+    return gneiss::engine::error::success;
+  }();
   if (status.failed())
     return status;
   snapshot = std::move(candidate);
@@ -81,7 +89,7 @@ gneiss::engine::error prefab_placement::freeze(
   const auto find = [&](std::string_view uri, engine::render_resource_kind type,
                         engine::render_resource_ref& result) {
     const auto entry = std::ranges::find_if(assets, [&](const auto& asset) {
-      return engine::asset_uri(asset) == uri && engine::asset_kind(asset) == type;
+      return engine::resource_uri(asset) == uri && engine::resource_kind(asset) == type;
     });
     if (entry != assets.end()) {
       result = *entry;
@@ -101,8 +109,8 @@ gneiss::engine::error prefab_placement::freeze(
     status = find(renderer->material_uri, engine::render_resource_kind::material, material);
     if (status.failed())
       return status;
-    binding.source_nodes[i] = {engine::asset_cast<engine::mesh_resource>(mesh),
-                               engine::asset_cast<engine::material_resource>(material)};
+    binding.source_nodes[i] = {engine::resource_cast<engine::mesh_resource>(mesh),
+                               engine::resource_cast<engine::material_resource>(material)};
   }
   output = std::move(value);
   return gneiss::engine::error::success;
@@ -123,11 +131,19 @@ gneiss::engine::error prefab_placement::apply(application& app, scene_instance_i
     if (replacing)
       return error::invalid_argument;
     scene_node_id root;
-    auto status = app.scenes()->find_node(scene, snapshot.root_uuid, root);
-    if (status.failed())
-      return status;
+    auto status_value = app.scenes()->find_node(scene, snapshot.root_uuid);
+    if (!status_value)
+      return status_value.error();
+    root = std::move(*status_value);
+    auto status = gneiss::engine::error::success;
     scene_subtree_snapshot current;
-    status = app.scenes()->capture_subtree(scene, root, current);
+    status = [&]() -> gneiss::engine::error {
+      auto scene_result = app.scenes()->capture_subtree(scene, root);
+      if (!scene_result)
+        return scene_result.error();
+      current = std::move(*scene_result);
+      return gneiss::engine::error::success;
+    }();
     if (status.failed())
       return status;
     // 历史之外新增的对象不在快照中，不能随旧命令静默删除。
@@ -148,16 +164,25 @@ gneiss::engine::error prefab_placement::apply(application& app, scene_instance_i
     auto author = *root;
     if (!snapshot.parent_uuid.is_nil())
       author.parent_uuid = snapshot.parent_uuid;
-    return app.scenes()->instantiate_prefab_ready(scene, author, resources->second.prefab,
-                                                  resources->second.source_nodes, true, output);
+    auto scene_result = app.scenes()->instantiate_prefab_ready(
+        scene, author, resources->second.prefab, resources->second.source_nodes, true);
+    if (!scene_result)
+      return scene_result.error();
+    output = std::move(*scene_result);
+    return gneiss::engine::error::success;
   }
   scene_node_id parent;
   if (!snapshot.parent_uuid.is_nil()) {
-    const auto status = app.scenes()->find_node(scene, snapshot.parent_uuid, parent);
-    if (status.failed())
-      return status;
+    auto status_value = app.scenes()->find_node(scene, snapshot.parent_uuid);
+    if (!status_value)
+      return status_value.error();
+    parent = std::move(*status_value);
   }
-  return app.scenes()->restore_subtree(scene, snapshot, parent, {}, output);
+  auto scene_result = app.scenes()->restore_subtree(scene, snapshot, parent, {});
+  if (!scene_result)
+    return scene_result.error();
+  output = std::move(*scene_result);
+  return gneiss::engine::error::success;
 } catch (const std::bad_alloc&) {
   return gneiss::engine::error::out_of_memory;
 } catch (...) {

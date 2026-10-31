@@ -96,10 +96,13 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
     {
       engine::object_description author;
       engine::prefab_asset_ref source;
-      auto status = application.scenes()->capture_prefab_header(scene_, target_.instance_uuid,
-                                                                author, source);
-      if (status.failed())
-        return status;
+      auto status_value =
+          application.scenes()->capture_prefab_header(scene_, target_.instance_uuid);
+      if (!status_value)
+        return status_value.error();
+      author = std::move(status_value->author);
+      source = std::move(status_value->source);
+      auto status = gneiss::engine::error::success;
       auto object = std::ranges::find(source->objects, target_.source_uuid,
                                       &engine::object_description::uuid);
       if (object == source->objects.end())
@@ -149,8 +152,8 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
     if (!node)
       return engine::error::not_found;
     return session.commit_mesh_renderer(
-        node, gneiss::engine::asset_uri(replacement.mesh),
-        gneiss::engine::asset_uri(replacement.material),
+        node, gneiss::engine::resource_uri(replacement.mesh),
+        gneiss::engine::resource_uri(replacement.material),
         [&] { return application.replace_mesh_binding(scene, node, expected, replacement); });
   };
   const auto was_dirty = session.is_dirty();
@@ -192,8 +195,8 @@ engine::error editor_asset_edit::request_remove(runtime::application& applicatio
             const auto* current = session.find_node(uuid);
             if (!current)
               return engine::error::not_found;
-            return session.commit_mesh_renderer(current->node, engine::asset_uri(binding.mesh),
-                                                engine::asset_uri(binding.material), [&] {
+            return session.commit_mesh_renderer(current->node, engine::resource_uri(binding.mesh),
+                                                engine::resource_uri(binding.material), [&] {
                                                   return application.replace_mesh_binding(
                                                       scene, current->node, {}, binding);
                                                 });
@@ -250,8 +253,8 @@ engine::error editor_asset_edit::request_property(runtime::application& app,
     return present.error();
   if (!present->get<mesh_renderer_description>())
     return error::not_found;
-  mesh_renderer_description description{std::string(asset_uri(binding.mesh)),
-                                        std::string(asset_uri(binding.material))};
+  mesh_renderer_description description{std::string(resource_uri(binding.mesh)),
+                                        std::string(resource_uri(binding.material))};
   status =
       meta::write_property(mesh_renderer_description::type_guid,
                            std::get<meta::property_id>(edit.path.front()), &description, edit.data);
@@ -275,9 +278,11 @@ engine::error editor_asset_edit::request_restore_source(runtime::application& ap
   if (!target.instance_uuid || !document.uri().starts_with("asset://"))
     return engine::error::invalid_argument;
   std::string json;
-  auto status = app.scenes()->serialize(document.scene_handle(), json);
-  if (status.failed())
-    return status;
+  auto status_value = app.scenes()->serialize(document.scene_handle());
+  if (!status_value)
+    return status_value.error();
+  json = std::move(*status_value);
+  auto status = gneiss::engine::error::success;
   auto changes =
       prepare_restore_prefab_component(json, document.uri().substr(8), target.instance_uuid,
                                        target.source_uuid, target.component_type);
@@ -367,7 +372,7 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
       next = {};
       return;
     }
-    if (gneiss::engine::asset_uri(previous) == uri) {
+    if (gneiss::engine::resource_uri(previous) == uri) {
       next = previous;
       return;
     }
@@ -375,7 +380,7 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
     gneiss::engine::render_resource_ref entry;
     const auto ready = application.query_ready_asset(source, entry);
     using resource_type = std::remove_reference_t<decltype(*next)>;
-    next = gneiss::engine::asset_cast<std::remove_const_t<resource_type>>(entry);
+    next = gneiss::engine::resource_cast<std::remove_const_t<resource_type>>(entry);
     if (ready == gneiss::engine::error::not_ready) {
       missing.push_back(std::move(source));
     } else if (ready != gneiss::engine::error::success) {
@@ -450,13 +455,13 @@ void editor_asset_edit::advance(runtime::application& application, scene_documen
   }
   if (operation_.ok()) {
     for (const auto& lease : completion.assets) {
-      if (!next_.mesh && gneiss::engine::asset_uri(lease) == mesh_ &&
-          gneiss::engine::asset_kind(lease) == gneiss::engine::render_resource_kind::mesh) {
-        next_.mesh = gneiss::engine::asset_cast<gneiss::engine::mesh_resource>(lease);
+      if (!next_.mesh && gneiss::engine::resource_uri(lease) == mesh_ &&
+          gneiss::engine::resource_kind(lease) == gneiss::engine::render_resource_kind::mesh) {
+        next_.mesh = gneiss::engine::resource_cast<gneiss::engine::mesh_resource>(lease);
       }
-      if (!next_.material && gneiss::engine::asset_uri(lease) == material_ &&
-          gneiss::engine::asset_kind(lease) == gneiss::engine::render_resource_kind::material) {
-        next_.material = gneiss::engine::asset_cast<gneiss::engine::material_resource>(lease);
+      if (!next_.material && gneiss::engine::resource_uri(lease) == material_ &&
+          gneiss::engine::resource_kind(lease) == gneiss::engine::render_resource_kind::material) {
+        next_.material = gneiss::engine::resource_cast<gneiss::engine::material_resource>(lease);
       }
     }
     operation_ = next_.mesh && next_.material ? commit(application, session, history)

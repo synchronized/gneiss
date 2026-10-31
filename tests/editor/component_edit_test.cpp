@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/movement_component.hpp"
+#include "../support/value_result.hpp"
 #include "commands/author_property_edit.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
@@ -88,9 +89,10 @@ int main() try {
   reference.prefab.emplace();
   reference.prefab->uri = "asset://movement.prefab";
   const std::array<e::scene_mesh_binding, 1> bindings{};
-  check(app->scenes()
-            ->instantiate_prefab_ready(document.scene_handle(), reference,
-                                       e::prefab_asset_ref{prefab}, bindings, false, node)
+  check(gneiss::test_support::take_value(
+            app->scenes()->instantiate_prefab_ready(document.scene_handle(), reference,
+                                                    e::prefab_asset_ref{prefab}, bindings, false),
+            node)
             .ok());
   check(document.synchronize_nodes().ok());
   check(history.clear().ok());
@@ -103,7 +105,9 @@ int main() try {
   check(prefab->objects[0].components.get<movement_description>()->samples[1] == 2);
   auto snapshot = [&] {
     e::scene_description output;
-    check(app->scenes()->capture_description(document.scene_handle(), output).ok());
+    check(gneiss::test_support::assign_value(
+              app->scenes()->capture_description(document.scene_handle()), output)
+              .ok());
     auto bytes = e::encode_scene(output);
     check(bytes.has_value());
     auto decoded = e::decode_scene(*bytes);
@@ -206,13 +210,18 @@ int main() try {
   e::scene_diagnostic diagnostic;
   check(e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).ok());
   gneiss::scene_instance_id loaded;
-  check(app->scenes()->instantiate_prepared(std::move(prepared), {}, loaded).ok());
+  check(gneiss::test_support::take_value(
+            app->scenes()->instantiate_prepared(std::move(prepared), {}), loaded)
+            .ok());
   gneiss::scene_node_id loaded_node;
-  check(app->scenes()->find_node(loaded, reference.uuid, loaded_node).ok());
+  check(gneiss::test_support::take_value(app->scenes()->find_node(loaded, reference.uuid),
+                                         loaded_node)
+            .ok());
   auto reloaded = e::capture_components(world, loaded_node);
   check(reloaded && reloaded->get<movement_description>()->settings.acceleration == 20 &&
         reloaded->get<movement_description>()->samples[1] == 9);
-  check(app->scenes()->find_node(loaded, ordinary, loaded_node).ok());
+  check(gneiss::test_support::take_value(app->scenes()->find_node(loaded, ordinary), loaded_node)
+            .ok());
   reloaded = e::capture_components(world, loaded_node);
   check(reloaded && reloaded->get<movement_description>()->mode == movement_mode::run &&
         reloaded->get<movement_description>()->speed == 4);

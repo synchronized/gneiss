@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/movement_component.hpp"
+#include "../support/value_result.hpp"
 #include "engine/core/meta/registration.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
@@ -91,14 +92,21 @@ int main() try {
   check(decoded.has_value());
   auto prepared = prepare(*decoded);
   check(e::register_scene_component(operations()) == e::error::invalid_state);
-  gneiss::scene_instance_id instance;
-  check(scenes.instantiate_prepared(std::move(prepared), {}, instance).ok());
-  gneiss::scene_node_id node;
-  check(scenes.find_node(instance, first.uuid, node).ok());
-  e::scene_node_info queried;
-  check(scenes.get_node_info(instance, 0, queried).ok());
-  check(queried.components.get<movement_description>() &&
-        queried.components.get<movement_description>()->speed == 2);
+  auto created = scenes.instantiate_prepared(std::move(prepared), {});
+  check(created.has_value());
+  auto instance = *created;
+  auto found = scenes.find_node(instance, first.uuid);
+  check(found.has_value());
+  auto node = *found;
+  auto queried = scenes.get_node_info(instance, 0);
+  check(queried && queried->components.get<movement_description>() &&
+        queried->components.get<movement_description>()->speed == 2);
+  auto invalid = scenes.get_node_count({});
+  check(!invalid && invalid.error() == e::error::invalid_handle);
+  auto missing = scenes.find_node(instance, {});
+  check(!missing && missing.error() == e::error::not_found);
+  auto captured = scenes.capture_prepared(instance);
+  check(captured && captured->description.description.objects.size() == 2);
   auto id = entity(world, node);
   auto* component = state(world).get<movement_component>(id);
   check(component && component->data.speed == 2);
@@ -112,7 +120,7 @@ int main() try {
                                   e::value{-1.0F}) == e::error::invalid_argument);
   check(state(world).get<movement_component>(id)->data.speed == 5);
   e::scene_description saved;
-  check(scenes.capture_description(instance, saved).ok());
+  check(gneiss::test_support::assign_value(scenes.capture_description(instance), saved).ok());
   check(saved.objects[0].components.get<movement_description>()->speed == 5);
   auto saved_bytes = e::encode_scene(saved);
   check(saved_bytes.has_value());
@@ -145,10 +153,11 @@ int main() try {
   check(scenes.reload_loaded(instance, saved).ok());
   lifetime = state(world).get<movement_component>(id)->lifetime;
   e::scene_subtree_snapshot snapshot;
-  check(scenes.capture_subtree(instance, node, snapshot).ok());
+  check(gneiss::test_support::assign_value(scenes.capture_subtree(instance, node), snapshot).ok());
   check(scenes.destroy_subtree(instance, node).ok());
   check(lifetime.expired());
-  check(scenes.restore_subtree(instance, snapshot, {}, {}, node).ok());
+  check(gneiss::test_support::take_value(scenes.restore_subtree(instance, snapshot, {}, {}), node)
+            .ok());
   id = entity(world, node);
   check(state(world).get<movement_component>(id)->data.speed == 5);
   lifetime = state(world).get<movement_component>(id)->lifetime;
@@ -169,8 +178,10 @@ int main() try {
                                          .value = e::value{9.0F}});
   source.objects = {reference};
   e::prefab_asset_ref prefab_ref{prefab};
-  check(scenes.instantiate_prepared(prepare(source, prefab_ref), {}, instance).ok());
-  check(scenes.find_node(instance, reference.uuid, node).ok());
+  check(gneiss::test_support::take_value(
+            scenes.instantiate_prepared(prepare(source, prefab_ref), {}), instance)
+            .ok());
+  check(gneiss::test_support::take_value(scenes.find_node(instance, reference.uuid), node).ok());
   id = entity(world, node);
   check(state(world).get<movement_component>(id)->data.speed == 9);
   auto next = std::make_shared<e::prefab_description>(*prefab);
@@ -178,7 +189,7 @@ int main() try {
   check(
       scenes.reload_prefab_loaded(instance, "asset://test.prefab", e::prefab_asset_ref{next}).ok());
   check(state(world).get<movement_component>(id)->data.speed == 9);
-  check(scenes.capture_description(instance, saved).ok());
+  check(gneiss::test_support::assign_value(scenes.capture_description(instance), saved).ok());
   check(saved.objects[0].components.empty());
   check(saved.objects[0].prefab->overrides.size() == 1);
   lifetime = state(world).get<movement_component>(id)->lifetime;

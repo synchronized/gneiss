@@ -205,7 +205,13 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
     return gneiss::engine::error::invalid_argument;
   }
   std::uint64_t count = 0U;
-  auto operation = application.scenes()->get_node_count(scene, &count);
+  auto operation = [&]() -> gneiss::engine::error {
+    auto scene_result = application.scenes()->get_node_count(scene);
+    if (!scene_result)
+      return scene_result.error();
+    count = std::move(*scene_result);
+    return gneiss::engine::error::success;
+  }();
   if (operation != gneiss::engine::error::success) {
     return operation;
   }
@@ -218,7 +224,13 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
     nodes.reserve(static_cast<std::size_t>(count));
     for (std::uint64_t index = 0U; index < count; ++index) {
       gneiss::engine::scene_node_info info;
-      operation = application.scenes()->get_node_info(scene, index, info);
+      operation = [&]() -> gneiss::engine::error {
+        auto scene_result = application.scenes()->get_node_info(scene, index);
+        if (!scene_result)
+          return scene_result.error();
+        info = std::move(*scene_result);
+        return gneiss::engine::error::success;
+      }();
       if (operation != gneiss::engine::error::success) {
         return operation;
       }

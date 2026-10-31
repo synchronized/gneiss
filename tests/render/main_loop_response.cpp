@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 
@@ -115,7 +116,8 @@ gneiss::engine::error advance_scene(gneiss::runtime::application& app, response_
       progress.phase == scene_load_phase::ready) {
     result = app.activate_scene(state.scene_request, completion);
     if (result == gneiss::engine::error::success) {
-      result = gneiss::engine::error{app.scenes()->get_node_count(completion.scene, &state.nodes)};
+      result = gneiss::engine::error{gneiss::test_support::take_value(
+          app.scenes()->get_node_count(completion.scene), state.nodes)};
       scene_retirement_statistics retirement;
       if (result == gneiss::engine::error::success) {
         retirement = app.scene_retirement();

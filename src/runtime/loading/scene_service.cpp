@@ -186,10 +186,10 @@ engine::error scene_service::request_reload(scene_instance_id instance, std::str
     return engine::error::invalid_state;
   if (reload_ || loading() || visual_loading() || loading_assets()->busy() || retired_)
     return engine::error::not_ready;
-  std::uint64_t count{};
-  const auto valid = scenes()->get_node_count(instance, &count);
-  if (valid.failed())
-    return valid;
+  auto valid_value = scenes()->get_node_count(instance);
+  if (!valid_value)
+    return valid_value.error();
+
   auto next = std::make_unique<reload_task>();
   next->instance = instance;
   next->uri = uri;

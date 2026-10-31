@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_application.hpp"
+#include "../support/value_result.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
@@ -186,13 +187,13 @@ int main(int argc, char** argv) try {
     return 2;
   }
   gneiss::engine::scene_node_info info;
-  if (gneiss::engine::error{app->scenes()->get_node_info(state.scene, 0U, info)} !=
-      gneiss::engine::error::success) {
+  if (gneiss::engine::error{gneiss::test_support::take_value(
+          app->scenes()->get_node_info(state.scene, 0U), info)} != gneiss::engine::error::success) {
     return 3;
   }
   state.camera = info.node;
-  if (gneiss::engine::error{app->scenes()->get_node_info(state.scene, 1U, info)} !=
-      gneiss::engine::error::success) {
+  if (gneiss::engine::error{gneiss::test_support::take_value(
+          app->scenes()->get_node_info(state.scene, 1U), info)} != gneiss::engine::error::success) {
     return 3;
   }
   state.mesh = info.node;

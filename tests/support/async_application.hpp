@@ -6,6 +6,7 @@
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "runtime/application.hpp"
+#include "value_result.hpp"
 #include <chrono>
 #include <thread>
 namespace gneiss::test_support {
@@ -66,7 +67,7 @@ inline engine::error prepare_scene(runtime::application& app, std::string_view u
     if (completion.result.failed())
       return completion.result;
     for (auto& asset : completion.assets) {
-      const auto key = std::string(engine::asset_uri(asset));
+      const auto key = std::string(engine::resource_uri(asset));
       bindings.insert_or_assign(key, std::move(asset));
     }
   }
@@ -83,6 +84,7 @@ inline engine::error load_scene(runtime::application& app, std::string_view uri,
   auto status = prepare_scene(app, uri, prepared, bindings, tasks);
   return status.failed()
              ? status
-             : app.scenes()->instantiate_prepared(std::move(prepared), bindings, *output);
+             : gneiss::test_support::take_value(
+                   app.scenes()->instantiate_prepared(std::move(prepared), bindings), *output);
 }
 }

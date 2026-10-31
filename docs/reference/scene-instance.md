@@ -14,6 +14,27 @@ ECS 组件持有 mesh/material 等引擎资源强引用，不保存第三方后�
 `prefab_binding` 保存模板资源、实例 URI/覆盖与来源 UUID 到实际节点的非拥有映射，借用 World 和资源服务。
 它不在析构时销毁节点，也不保留创建期间的有效描述副本；投影由无状态的 `prepare_prefab_description` 处理。
 
+## 原生结果接口
+
+`scene_instances` 的创建、查询和捕获接口返回 `result<T>`，失败时只返回错误，不提供部分输出。
+原地修改、删除和卸载继续返回 `error`。调用方先检查结果，再取得值：
+
+```cpp
+auto created = scenes.create_empty(scene_uuid);
+if (!created)
+  return created.error();
+auto captured = scenes.capture_description(*created);
+if (!captured)
+  return captured.error();
+// *captured 是自有场景描述，可用于后续编码。
+```
+
+`capture_prepared` 返回 `result<scene_capture>`，将实例化描述与资源绑定一起返回；
+`capture_prefab_header` 返回 `result<prefab_header_snapshot>`，包含对象描述与 Prefab 强引用。
+`get_node_info` 返回的 `scene_node_info` 仍包含借用字段，结果包装不延长场景寿命。
+集合管理实现在 `scene_instances.cpp`，单实例实现在 `scene_instance.cpp`，
+编辑和 Prefab 操作分别位于对应 `scene_instance_*` 文件。
+
 ## 加载阶段
 
 文件读取和依赖准备由异步加载协调器完成，见[调度指南](../guides/task-scheduling.md)。

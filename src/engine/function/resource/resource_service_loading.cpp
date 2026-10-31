@@ -23,7 +23,7 @@ result<resource_request> resource_service::load(const render_resource_source& so
   resource_request output;
   if (!impl_ || !impl_->loading_configured || render_stopping_)
     return error::invalid_state;
-  auto reserved = reserve_asset(source);
+  auto reserved = reserve_resource(source);
   if (!reserved)
     return reserved.error();
   auto target = std::move(*reserved);
@@ -107,12 +107,12 @@ void resource_service::implementation::advance(resource_service& service) {
               }
               if constexpr (std::is_same_v<T, asset_request<mesh_data>>) {
                 state.metrics = request.metrics();
-                return adopt(service, loaded->shared(), asset_cast<mesh_resource>(state.target),
+                return adopt(service, loaded->shared(), resource_cast<mesh_resource>(state.target),
                              state.metrics.sources);
               } else if constexpr (std::is_same_v<T, asset_request<texture_data>>) {
                 state.metrics = request.metrics();
-                return adopt(service, loaded->shared(), asset_cast<texture_resource>(state.target),
-                             state.metrics.sources);
+                return adopt(service, loaded->shared(),
+                             resource_cast<texture_resource>(state.target), state.metrics.sources);
               } else {
                 auto description = std::move(*loaded);
                 auto bytes = sizeof(material_data);
@@ -176,8 +176,8 @@ void resource_service::implementation::advance(resource_service& service) {
       std::array<texture, 5> dependencies;
       for (std::size_t slot = 0; slot < dependencies.size(); ++slot)
         dependencies[slot] = work->dependencies[slot].get<texture_resource>();
-      state.status = adopt(service, *work->description, asset_cast<material_resource>(state.target),
-                           std::move(dependencies));
+      state.status = adopt(service, *work->description,
+                           resource_cast<material_resource>(state.target), std::move(dependencies));
     } catch (const std::bad_alloc&) {
       state.status = error::out_of_memory;
     } catch (...) {

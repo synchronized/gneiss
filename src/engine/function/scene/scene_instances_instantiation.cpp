@@ -11,10 +11,9 @@
 #include <unordered_map>
 
 namespace gneiss::engine {
-engine::error scene_instances::instantiate_prepared(scene_instantiation_data prepared,
-                                                    const asset_bindings& assets,
-                                                    scene_instance_id& output) noexcept {
-  output = {};
+result<scene_instance_id>
+scene_instances::instantiate_prepared(scene_instantiation_data prepared,
+                                      const asset_bindings& assets) noexcept {
   if (!is_valid()) {
     return engine::error::invalid_argument;
   }
@@ -85,17 +84,15 @@ engine::error scene_instances::instantiate_prepared(scene_instantiation_data pre
     auto created = instances_.create(resource_type::scene_instance, std::move(instance));
     if (!created)
       return created.error();
-    output = *created;
-    return error::success;
+    return *created;
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
   } catch (...) {
     return engine::error::internal;
   }
 }
-error scene_instances::capture_prepared(scene_instance_id instance,
-                                        scene_instantiation_data& description,
-                                        asset_bindings& assets) const noexcept try {
+result<scene_capture> scene_instances::capture_prepared(scene_instance_id instance) const noexcept
+    try {
   const auto* value = instances_.get(instance, resource_type::scene_instance);
   if (!value || !*value)
     return error::invalid_handle;
@@ -137,9 +134,7 @@ error scene_instances::capture_prepared(scene_instance_id instance,
       return status;
     bindings.emplace(source.uri, std::move(resource));
   }
-  description = std::move(prepared);
-  assets = std::move(bindings);
-  return error::success;
+  return scene_capture{std::move(prepared), std::move(bindings)};
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {

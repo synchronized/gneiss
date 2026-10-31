@@ -83,7 +83,7 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
   auto ready = context.renderer;
   if (value.mesh_uri.empty())
     ready.mesh = {};
-  else if (asset_uri(ready.mesh) != value.mesh_uri) {
+  else if (resource_uri(ready.mesh) != value.mesh_uri) {
     if (!context.resources)
       return error::not_ready;
     auto loaded = context.resources->find<mesh_resource>(value.mesh_uri);
@@ -93,7 +93,7 @@ error mesh_install(component_context& context, const mesh_renderer_description& 
   }
   if (value.material_uri.empty())
     ready.material = {};
-  else if (asset_uri(ready.material) != value.material_uri) {
+  else if (resource_uri(ready.material) != value.material_uri) {
     if (!context.resources)
       return error::not_ready;
     auto loaded = context.resources->find<material_resource>(value.material_uri);
@@ -114,7 +114,7 @@ result<std::optional<mesh_renderer_description>> mesh_capture(world& owner, scen
     return value.error();
   }
   return std::optional<mesh_renderer_description>{
-      {std::string(asset_uri(value->mesh)), std::string(asset_uri(value->material))}};
+      {std::string(resource_uri(value->mesh)), std::string(resource_uri(value->material))}};
 }
 struct adapter_registry {
   std::mutex mutex;
@@ -502,10 +502,10 @@ prepared_component_renderer(const component_descriptions& values,
   return renderer
              ? mesh_renderer{renderer->mesh_uri.empty()
                                  ? mesh{}
-                                 : asset_cast<mesh_resource>(lookup(renderer->mesh_uri)),
+                                 : resource_cast<mesh_resource>(lookup(renderer->mesh_uri)),
                              renderer->material_uri.empty()
                                  ? material{}
-                                 : asset_cast<material_resource>(lookup(renderer->material_uri))}
+                                 : resource_cast<material_resource>(lookup(renderer->material_uri))}
              : mesh_renderer{};
 }
 }

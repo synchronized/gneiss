@@ -200,11 +200,12 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
     report_failure("查找输入动作", result);
     return 5;
   }
-  result = native_application->scenes()->find_node(scene, camera_uuid, state.camera_node);
-  if (result != gneiss::engine::error::success) {
-    report_failure("查找 Camera", result);
+  auto camera = native_application->scenes()->find_node(scene, camera_uuid);
+  if (!camera) {
+    report_failure("查找 Camera", camera.error());
     return 6;
   }
+  state.camera_node = *camera;
   const auto setup_ready = clock::now();
 
   can_update = true;
