@@ -56,9 +56,9 @@ public:
   bool update_material(const material& target, std::shared_ptr<const material_data> data,
                        std::array<texture, 5> dependencies) noexcept;
   result<texture> create_texture(const texture_view& desc) noexcept;
-  static error adopt(resource_service&, mesh_data, const mesh&,
+  static error adopt(resource_service&, std::shared_ptr<const mesh_data>, const mesh&,
                      std::span<const asset_data_source> = {}) noexcept;
-  static error adopt(resource_service&, texture_data, const texture&,
+  static error adopt(resource_service&, std::shared_ptr<const texture_data>, const texture&,
                      std::span<const asset_data_source> = {}) noexcept;
   static error adopt(resource_service&, const material_description&, const material&,
                      std::array<texture, 5>) noexcept;

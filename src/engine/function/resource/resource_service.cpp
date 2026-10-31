@@ -589,7 +589,8 @@ error resource_service::implementation::validate_sources(
   }
   return error::success;
 }
-error resource_service::implementation::adopt(resource_service& assets, mesh_data content,
+error resource_service::implementation::adopt(resource_service& assets,
+                                              std::shared_ptr<const mesh_data> content,
                                               const mesh& target,
                                               std::span<const asset_data_source> sources) noexcept
     try {
@@ -600,8 +601,7 @@ error resource_service::implementation::adopt(resource_service& assets, mesh_dat
   const auto valid = validate_sources(assets, sources);
   if (valid.failed())
     return valid;
-  auto prepared = assets.impl_->render().prepare_mesh_data(
-      std::make_shared<const mesh_data>(std::move(content)));
+  auto prepared = assets.impl_->render().prepare_mesh_data(std::move(content));
   if (!prepared)
     return prepared.error();
   auto data = std::move(*prepared);
@@ -611,7 +611,8 @@ error resource_service::implementation::adopt(resource_service& assets, mesh_dat
 } catch (...) {
   return error::internal;
 }
-error resource_service::implementation::adopt(resource_service& assets, texture_data content,
+error resource_service::implementation::adopt(resource_service& assets,
+                                              std::shared_ptr<const texture_data> content,
                                               const texture& target,
                                               std::span<const asset_data_source> sources) noexcept
     try {

@@ -10,7 +10,7 @@
 namespace gneiss::engine {
 struct resource_service::implementation::pending_load {
   std::shared_ptr<detail::resource_load_state> state;
-  std::variant<asset_data_request<mesh_data>, asset_data_request<texture_data>,
+  std::variant<asset_request<mesh_data>, asset_request<texture_data>,
                asset_request<material_description>>
       cpu;
   asset_ref<const material_description> description;
@@ -49,14 +49,18 @@ result<resource_request> resource_service::load(const asset_source& source, bool
   work->limit = limit;
   switch (source.type) {
   case asset_type::mesh: {
-    auto loaded = assets_.load_mesh_data(source.uri, limit);
+    auto loaded = assets_.load<mesh_data>(
+        source.uri, {.reload = reload, .maximum_bytes = limit, .cache = asset_cache_policy::weak});
     if (!loaded)
       return loaded.error();
     work->cpu = std::move(*loaded);
     break;
   }
   case asset_type::texture: {
-    auto loaded = assets_.load_texture_data(source.uri, profile(), limit);
+    auto loaded = assets_.load<texture_data>(source.uri, {.reload = reload,
+                                                          .maximum_bytes = limit,
+                                                          .texture_profile = profile(),
+                                                          .cache = asset_cache_policy::weak});
     if (!loaded)
       return loaded.error();
     work->cpu = std::move(*loaded);
@@ -107,14 +111,14 @@ void resource_service::implementation::advance(resource_service& service) {
                               std::move(failure.message), failure.error};
                 return failure.error;
               }
-              if constexpr (std::is_same_v<T, asset_data_request<mesh_data>>) {
-                state.metrics = std::move(loaded->metrics);
-                return adopt(service, std::move(loaded->data),
-                             asset_cast<mesh_resource>(state.target), state.metrics.sources);
-              } else if constexpr (std::is_same_v<T, asset_data_request<texture_data>>) {
-                state.metrics = std::move(loaded->metrics);
-                return adopt(service, std::move(loaded->data),
-                             asset_cast<texture_resource>(state.target), state.metrics.sources);
+              if constexpr (std::is_same_v<T, asset_request<mesh_data>>) {
+                state.metrics = request.metrics();
+                return adopt(service, loaded->shared(), asset_cast<mesh_resource>(state.target),
+                             state.metrics.sources);
+              } else if constexpr (std::is_same_v<T, asset_request<texture_data>>) {
+                state.metrics = request.metrics();
+                return adopt(service, loaded->shared(), asset_cast<texture_resource>(state.target),
+                             state.metrics.sources);
               } else {
                 auto description = std::move(*loaded);
                 auto bytes = sizeof(material_data);

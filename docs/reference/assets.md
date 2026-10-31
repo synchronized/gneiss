@@ -9,16 +9,22 @@
 
 `asset_manager::load<T>(uri, reload)` 返回 `result<asset_request<T>>`，表示是否成功提交请求；
 并不代表异步解码已完成。`find_loaded<T>(uri)` 与 `store<T>(uri, value)` 返回
-`result<asset_ref<const T>>`。网格、纹理一次性加载返回相应的 `result<asset_data_request<T>>`。
+`result<asset_ref<const T>>`。网格和纹理也使用同一个 `load<T>` 与请求类型。
 
 `resource_service::find<T>(uri)` 返回 `result<asset_ref<const T>>`，`load<T>(uri, reload)`
 返回 `result<resource_request>`，`create_mesh/create_texture/create_material` 返回对应资源引用的 result。
 内存资产解码返回 `result<decoded_asset, asset_diagnostic>`。判断与取值规则见 [Core](core.md#错误状态与值结果)。
 
-`asset_request<T>::take()` 返回 `result<asset_ref<const T>, asset_diagnostic>`；
-`asset_data_request<T>::take()` 返回 `result<asset_data<T>, asset_diagnostic>`，其中 `data` 是 CPU 内容，
-`metrics` 是同次读取统计。两者均不等待：not_ready 和其他失败不消费请求，成功后请求失效，
-重复领取返回 invalid_state。返回的内容或引用独立拥有资源，取消请求不会使已领取值失效。
+`asset_request<T>::take()` 返回 `result<asset_ref<const T>, asset_diagnostic>`。
+调用不等待：not_ready 和其他失败不消费请求，成功后请求失效，重复领取返回 invalid_state。
+成功后通过请求的 `metrics()` 查询来源快照、解码字节估算、解码与队列耗时，
+`source_bytes()` 返回读取字节总数。已领取引用不受取消或管理器关闭影响。
+
+`load<T>(uri, asset_load_options)` 可指定 reload、maximum_bytes、texture_profile 和缓存策略。
+`find_loaded<T>` 与 `store<T>` 也支持相同 options；查询和采用须匹配加载参数。
+无 options 的重载对 mesh_data/texture_data 默认使用 weak，其余类型使用 retain；
+显式 options 则以传入的 cache 为准（默认 retain）。内置网格/纹理使用专用 Loader，
+不能用单缓冲区 register_decoder 覆盖；其他类型先用注册解码器，否则使用反射解码。
 
 `resource_service::reserve_mesh/texture/material()` 返回对应资源引用的 result，
 `reserve_asset(source)` 返回 `result<render_asset_ref>`；它们只预留资源身份，不代表内容已加载。
@@ -77,7 +83,9 @@ CPU 数据表位于 `render_service` 私有实现，Loader 与宿主通过其 RI
 
 `resource_cache` 位于 `engine/function/resource/resource_cache.hpp`，与资产管理器同属功能层。
 `asset_manager` 持有 CPU 数据缓存，`resource_service` 持有运行资源缓存；
-两者复用 `resource_cache` 实现，均按「来源域 + URI + C++ 类型」索引，不重复登记同一运行对象。
+两者复用 `resource_cache` 实现。CPU 缓存按「来源域 + URI + C++ 类型 + 加载参数」索引，
+加载参数包含字节上限、完整纹理 profile 和缓存策略；reload 不参与身份。
+运行资源沿用来源域、URI 和类型索引，不重复登记同一运行对象。
 通用 CPU 数据及 Prefab 属于加载器缓存，渲染资产属于资源服务缓存；同 URI 的不同类型或来源各自独立。
 类型键使用 `engine::type_id`，由同一 Engine 按规范 C++ 类型名集中分配，
 只在当前运行期有效，不写入资产文件或公共 ABI；约束见 [Core 身份类型](core.md#内部基础身份类型)。
@@ -93,7 +101,9 @@ CPU 解码由注入的执行器运行，完成结果在所属线程通过同一�
 
 请求取消只放弃当前观察者，不使其他引用失效。
 
-缓存持有强引用，在所属线程调用 `collect_unused()` / `release_unused()` 回收无使用者的条目。
+retain 缓存持有强引用，在所属线程调用 `collect_unused()` / `release_unused()` 回收无使用者条目。
+weak 缓存只保存弱引用；请求结果和 Render 共享数据的别名引用共同保活条目，
+最后一个引用释放后查询立即失效，collect_unused 清理过期索引。
 Application 可分别调用两个对象回收；场景运行资源通过资源服务回收。
 CPU 缓存回收保留在途请求索引；CPU 重载任务暂时持有旧条目，
 避免回收与失败重载叠加导致旧内容提前消失。
@@ -112,9 +122,11 @@ GPU 在途使用的安全回收由 Render 及后端负责，详见[运行资源�
 
 网格使用 `decode_mesh_asset`，纹理使用 `decode_texture_asset` 接收已解析描述与负载；
 材质通过 `adopt_material_asset` 共享已解码描述。各入口不读取文件、不递归加载依赖。
-asset_manager 的 `load_mesh_data`、`load_texture_data` 返回 `result<asset_data_request<T>>`，
-成功领取时移动 CPU 内容；取消只放弃请求，不等待工作线程，完成不会进入长期缓存。
-可领取的 asset_data_metrics 包含来源快照、解码字节估算、解码与队列耗时。
+asset_manager 统一使用 `load<mesh_data>`、`load<texture_data>`。
+私有 `detail/asset_loader.hpp` 的 Loader 消费字节并给出下一读取 URI：网格一次解码，
+纹理先解码描述，再读取并解码所选负载。管理器只编排 I/O、执行器、请求合并与缓存登记。
+成功领取共享只读 CPU 内容，resource_service 直接交给 Render 共享准备入口，不复制大块负载。
+取消只放弃当前观察者，最后一个观察者消失后取消后续工作，不等待工作线程。
 内部 `decoded_asset::content` 使用 `std::variant`，只持有一种内容；`kind()` 从内容推导类型。
 材质不重复保存参数与依赖 URI；内容采用前检查空引用、目标类型和来源身份。
 文件服务返回字节后，加载编排层提交 CPU 任务；thread 与 cooperative 使用同一解码实现。
@@ -190,7 +202,7 @@ Application 提供 `assets()` 和 `resources()`；宿主分发文件完成后分
 CPU 描述类型仍由 load<T> 的 C++ 类型确定。
 `resource_loading.cpp` 保存服务私有的单资源请求状态，`asset_decode` 只解码已有字节。
 `resource_service_impl` 定义服务私有实现；创建、RID 包装、延迟销毁和内容采用均属于服务。
-网格、纹理从一次性 CPU 请求领取后直接传给对应采用函数，不再重新组装 decoded_asset。
+网格、纹理从统一 CPU 请求领取共享引用后直接传给对应采用函数，不再重新组装 decoded_asset。
 来源身份检查仍在采用前执行；材质在依赖完成后直接传递已经持有的纹理强引用。
 缓存条目只有同步创建期间的 is_loading 保护，不维护异步加载状态或失败副本。
 ActionMap 使用通用 load<action_map>；需要重新读文件的调用方显式传 reload=true。
@@ -199,26 +211,26 @@ Runtime 的 `resource_load_group` 仅为场景与编辑器串行组合单资源�
 它不读文件、不解析依赖、不创建后端资源，且不占用资源服务的全局加载槽位。
 
 
-asset_manager 的 load 请求通过 files::service 读取有界字节；完成回调交付字节后只提交一次
+asset_manager 的 load 请求通过 files::service 读取有界字节；每阶段文件完成回调交付字节后提交一次
 asset-decode 任务。等待文件期间不轮询 CPU 任务，不使用同步文件适配。
 普通类型解码器只消费字节。宿主先分发文件完成，再由 advance 推进解码结果登记。
 
 asset_manager 仅接受 shared_ptr<files::service>。`find_loaded<T>` 只查询已完成缓存，
 未命中返回 not_found；`load<T>` 返回请求，不阻塞等待文件或解码。
 `register_decoder<T>(function, maximum_bytes)` 可直接登记
-`result(span<const byte>, T&, serialization_diagnostic&)` 函数，无需类型继承或反射身份。
+`result<T, serialization_diagnostic>(span<const byte>)` 函数，无需类型继承或反射身份。
 仍可继承 asset_decoder 提供有状态解码器；回调必须支持不同输入的并发调用。
 
-加载优先使用显式 decoder；未注册时，按 type_id 查找冻结 Registry 中的 decode。
+普通类型加载优先使用显式 decoder；未注册时，按 type_id 查找冻结 Registry 中的 decode。
 没有解码能力时在读取前返回 unsupported；显式解码失败不再回退。适配器在临时对象上解码，
 成功才进入缓存，失败保留既有缓存资源。`asset_request::take()` 返回的失败结果携带 codec 的路径、消息和字节位置。
 
 首次有效加载进入解码器选择后冻结显式注册，后续反射适配不改变 codec 选择。
-管理器持有 Registry；默认使用进程共享的 Meta Registry，宿主须先完成
+管理器使用进程共享的 Meta Registry，宿主须先完成
 [默认注册表初始化](reflection.md#默认注册表与启动)。内置类型包含 World 属性以及材质、Scene、Prefab codec 和 ActionMap codec。
-构造时也可传入已冻结的自定义 Registry，未冻结或零输入上限抛出 invalid_argument。
+构造时要求默认 Registry 已冻结，未冻结或零输入上限抛出 invalid_argument。
 反射读取默认上限为 64 MiB，可通过构造参数指定；类型声明 `maximum_source_bytes` 时取两者较小值。
-ActionMap 限制为 1 MiB，解析器也检查此上限；显式 decoder 使用自己的上限。
+ActionMap 限制为 1 MiB，解析器也检查此上限；实际读取上限再与 load options 的上限取较小值。
 
 功能层 `asset_manager` 负责 CPU 描述加载，`resource_service` 负责运行资源加载编排。材质描述通过 `load<material_description>` 加载。
 资源服务在所属线程领取描述并请求纹理依赖，工作线程只解码 CPU 数据。

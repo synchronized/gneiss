@@ -112,6 +112,9 @@ public:
   prepare_material_data(const material_data& resource) noexcept;
   [[nodiscard]] result<std::shared_ptr<const texture_data>>
   prepare_texture_data(texture_data resource) noexcept;
+  /** 共享原 CPU 缓冲；校验和后端保活不复制像素或负载。 */
+  [[nodiscard]] result<std::shared_ptr<const texture_data>>
+  prepare_texture_data(std::shared_ptr<const texture_data> resource) noexcept;
   [[nodiscard]] error destroy_mesh(rid mesh) noexcept;
   [[nodiscard]] result<rid> create_material(const material_data& value) noexcept;
   [[nodiscard]] error destroy_material(rid material) noexcept;

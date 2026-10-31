@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "engine/core/meta/serialization_types.hpp"
 #include "engine/core/result.hpp"
-#include "engine/function/resource/asset_data_request.hpp"
+#include "engine/function/resource/asset_load_types.hpp"
 namespace gneiss::test_support {
 template <class T> engine::error take_value(engine::result<T> value, T& output) {
   if (!value) {
@@ -50,15 +51,10 @@ engine::error take_request(R& request, T& output,
   }
   if (diagnostic)
     *diagnostic = {};
-  if constexpr (requires {
-                  value->data;
-                  value->metrics;
-                }) {
-    output = std::move(value->data);
+  output = std::move(*value);
+  if constexpr (requires { request.metrics(); })
     if (metrics)
-      *metrics = std::move(value->metrics);
-  } else
-    output = std::move(*value);
+      *metrics = request.metrics();
   return engine::error::success;
 }
 }

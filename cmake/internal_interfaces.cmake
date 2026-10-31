@@ -38,7 +38,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/asset_diagnostic.hpp
   engine/resource/asset_decoder.hpp
   engine/function/resource/asset_request.hpp
-  engine/function/resource/asset_data_request.hpp
+  engine/function/resource/asset_load_types.hpp
   engine/function/resource/asset_manager.hpp
   engine/function/resource/resource_request.hpp
   engine/function/resource/resource_service.hpp

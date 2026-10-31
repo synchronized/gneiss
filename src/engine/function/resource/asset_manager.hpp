@@ -5,7 +5,7 @@
 
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
-#include "engine/function/resource/asset_data_request.hpp"
+#include "engine/function/resource/asset_load_types.hpp"
 #include "engine/function/resource/asset_request.hpp"
 #include "engine/function/resource/resource_cache.hpp"
 #include "engine/resource/asset_decoder.hpp"
@@ -32,12 +32,6 @@ namespace gneiss::engine {
  * 只负责 CPU 数据加载；运行资源创建由 resource_service 负责。 */
 class GNEISS_API asset_manager final {
 public:
-  /** 一次性 CPU 加载，不查询或写入长期缓存；完成由 advance 在所属线程交付。 */
-  result<asset_data_request<mesh_data>>
-  load_mesh_data(std::string_view uri, std::size_t maximum_bytes = 64U * 1024U * 1024U) noexcept;
-  result<asset_data_request<texture_data>>
-  load_texture_data(std::string_view uri, texture_prepare_profile profile,
-                    std::size_t maximum_bytes = 64U * 1024U * 1024U) noexcept;
   /** 注入同线程文件服务；宿主驱动文件完成分发，advance 只推进 CPU 解码和资源结果。
    * 不提供同步文件读取；缓存查询使用 find_loaded，服务可由宿主共享持有。
    * 使用默认注册表，宿主须先 initialize_meta。 */
@@ -59,7 +53,8 @@ public:
   /** 显式注册 CPU 类型；首次请求后冻结注册。来源身份由注入的文件服务确定。 */
   [[nodiscard]] engine::error
   register_decoder(const std::shared_ptr<const asset_decoder>& loader) noexcept;
-  /** 无需继承或注册反射；注册失败不改变已有解码器，首次加载后禁止注册。 */
+  /** 无需继承或注册反射；注册失败不改变已有解码器，首次加载后禁止注册；内置 mesh_data/texture_data
+   * 使用专用 Loader，不接受覆盖。 */
   template <class T>
   [[nodiscard]] error register_decoder(asset_decode_function<T> function,
                                        std::size_t maximum_bytes) noexcept {
@@ -77,32 +72,56 @@ public:
   /** 默认复用已完成缓存；reload 重新读取并解析，在途同键请求合并。
    * 所属线程调用；执行器须存活至 stop 返回。 */
   template <typename T>
-  [[nodiscard]] result<asset_request<T>> load(std::string_view uri, bool reload = false) noexcept {
+  [[nodiscard]] result<asset_request<T>> load(std::string_view uri,
+                                              asset_load_options options) noexcept {
     std::shared_ptr<detail::asset_state> state;
     const auto status =
-        request(runtime_type_of<T>(), uri, reload, state, &detail::make_reflected_decoder<T>);
+        request(runtime_type_of<T>(), uri, options, state, &detail::make_reflected_decoder<T>);
     if (status.failed())
       return status;
     return asset_request<T>{std::move(state)};
   }
+  template <typename T>
+  [[nodiscard]] result<asset_request<T>> load(std::string_view uri, bool reload = false) noexcept {
+    asset_load_options options{.reload = reload};
+    if constexpr (std::is_same_v<T, mesh_data> || std::is_same_v<T, texture_data>)
+      options.cache = asset_cache_policy::weak;
+    return load<T>(uri, options);
+  }
   /** 只查询已完成缓存，不读取文件或提交任务；未命中返回 not_found。 */
   template <class T>
-  [[nodiscard]] result<asset_ref<const T>> find_loaded(std::string_view uri) const noexcept {
+  [[nodiscard]] result<asset_ref<const T>> find_loaded(std::string_view uri,
+                                                       asset_load_options options) const noexcept {
     std::shared_ptr<const void> value;
-    const auto status = find_loaded_erased(runtime_type_of<T>(), uri, value);
+    const auto status = find_loaded_erased(runtime_type_of<T>(), uri, value, options);
     if (status.failed())
       return status;
     return asset_ref<const T>{std::static_pointer_cast<const T>(value)};
   }
+  template <class T>
+  [[nodiscard]] result<asset_ref<const T>> find_loaded(std::string_view uri) const noexcept {
+    asset_load_options options;
+    if constexpr (std::is_same_v<T, mesh_data> || std::is_same_v<T, texture_data>)
+      options.cache = asset_cache_policy::weak;
+    return find_loaded<T>(uri, options);
+  }
   /** 所属线程采用已经构造的数据；成功后较早异步请求不能覆盖缓存。 */
   template <class T>
-  [[nodiscard]] result<asset_ref<const T>> store(std::string_view uri,
-                                                 std::shared_ptr<const T> value) noexcept {
+  [[nodiscard]] result<asset_ref<const T>>
+  store(std::string_view uri, std::shared_ptr<const T> value, asset_load_options options) noexcept {
     std::shared_ptr<const void> stored;
-    const auto status = store_erased(runtime_type_of<T>(), uri, std::move(value), stored);
+    const auto status = store_erased(runtime_type_of<T>(), uri, std::move(value), stored, options);
     if (status.failed())
       return status;
     return asset_ref<const T>{std::static_pointer_cast<const T>(stored)};
+  }
+  template <class T>
+  [[nodiscard]] result<asset_ref<const T>> store(std::string_view uri,
+                                                 std::shared_ptr<const T> value) noexcept {
+    asset_load_options options;
+    if constexpr (std::is_same_v<T, mesh_data> || std::is_same_v<T, texture_data>)
+      options.cache = asset_cache_policy::weak;
+    return store<T>(uri, std::move(value), options);
   }
   asset_manager(const asset_manager&) = delete;
   asset_manager& operator=(const asset_manager&) = delete;
@@ -117,18 +136,17 @@ public:
   [[nodiscard]] resource_cache& cache() noexcept { return cache_; }
 
 private:
-  error request_data(std::string_view, bool, texture_prepare_profile, std::size_t,
-                     std::shared_ptr<detail::asset_state>,
-                     std::function<void(decoded_asset&&, double, double)>) noexcept;
   using decoder_factory = result<std::shared_ptr<const asset_decoder>> (*)(std::size_t);
   [[nodiscard]] error resolve_decoder(type_id, decoder_factory,
                                       std::shared_ptr<const asset_decoder>&);
-  [[nodiscard]] engine::error request(type_id type, std::string_view uri, bool reload,
+  [[nodiscard]] engine::error request(type_id type, std::string_view uri,
+                                      asset_load_options options,
                                       std::shared_ptr<detail::asset_state>& output,
                                       decoder_factory fallback) noexcept;
-  error find_loaded_erased(type_id, std::string_view, std::shared_ptr<const void>&) const noexcept;
+  error find_loaded_erased(type_id, std::string_view, std::shared_ptr<const void>&,
+                           asset_load_options) const noexcept;
   error store_erased(type_id, std::string_view, std::shared_ptr<const void>,
-                     std::shared_ptr<const void>&) noexcept;
+                     std::shared_ptr<const void>&, asset_load_options) noexcept;
   struct resource_state;
   std::unique_ptr<resource_state> resource_state_;
   resource_cache cache_;

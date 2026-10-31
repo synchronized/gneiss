@@ -628,3 +628,5 @@
 - [反射引用属性访问](plans/PLAN-092-reflection-reference-properties.md)
 
 - [引用持久化与编辑器共享操作](plans/PLAN-093-reference-persistence.md)
+
+- [统一 CPU 资源加载](plans/PLAN-094-unified-asset-loading.md)

@@ -4,7 +4,7 @@
 #pragma once
 
 #include "engine/core/result.hpp"
-#include "engine/function/resource/asset_data_request.hpp"
+#include "engine/function/resource/asset_load_types.hpp"
 #include "engine/function/resource/asset_types.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/mesh/mesh_data.hpp"

@@ -390,7 +390,19 @@ result<rid> render_service::create_texture(const texture_view& desc) noexcept {
 }
 
 result<std::shared_ptr<const texture_data>>
-render_service::prepare_texture_data(texture_data resource) noexcept {
+render_service::prepare_texture_data(texture_data resource) noexcept try {
+  return prepare_texture_data(std::make_shared<const texture_data>(std::move(resource)));
+} catch (const std::bad_alloc&) {
+  return engine::error::out_of_memory;
+} catch (...) {
+  return engine::error::internal;
+}
+
+result<std::shared_ptr<const texture_data>>
+render_service::prepare_texture_data(std::shared_ptr<const texture_data> owner) noexcept {
+  if (!owner)
+    return engine::error::invalid_argument;
+  const auto& resource = *owner;
   if (resource.manifest.empty()) {
     if (!is_valid() || resource.width == 0U || resource.height == 0U ||
         resource.format != texture_format::rgba8_unorm || resource.levels.empty() ||
@@ -423,8 +435,7 @@ render_service::prepare_texture_data(texture_data resource) noexcept {
     }
   }
   try {
-    return track(std::make_shared<const texture_data>(std::move(resource)),
-                 storage_->texture_history_);
+    return track(std::move(owner), storage_->texture_history_);
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
   } catch (...) {

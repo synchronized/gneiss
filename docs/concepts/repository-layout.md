@@ -286,7 +286,8 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 
 `engine/function/resource/asset_request.hpp` 提供移动所有的 `asset_request<T>`；结果为
 `asset_ref<const T>`，取消只放弃当前观察者，不取消独立订阅。成功领取一次，失败保留请求。
-同目录的 `asset_data_request.hpp` 提供一次性 CPU 数据领取与读取统计；两者属于加载流程契约。
+同目录的 `asset_load_types.hpp` 定义加载参数与统计；所有 CPU 类型统一使用 `asset_request<T>`。
+格式步骤位于 `detail/asset_loader.hpp`，调用与缓存契约见[资产参考](../reference/assets.md)。
 `asset_manager` 移植 Granit 示例的共享请求与类型 Loader 模型，固定持有本实例的 VFS 来源；
 任务经宿主执行器运行，结果由 `advance_resources()` 发布，同步成功使较早异步失去缓存写入权。
 `runtime/loading/action_map_application` 领取结果、复制映射并应用 InputService。

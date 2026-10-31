@@ -103,3 +103,5 @@ Reference 和实现为准。
 - [ADR-097：Prefab 组件结构覆盖与冲突边界](ADR-097-prefab-component-overrides.md)
 
 - [ADR-098：共享对象引用统一到 Core](ADR-098-object-reference-ownership.md)
+
+- [ADR-099：统一 CPU 加载协议与缓存生命周期](ADR-099-unified-cpu-loading.md)

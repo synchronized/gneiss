@@ -38,10 +38,12 @@ inline error adopt_render_for_test(resource_service& service, decoded_asset deco
         using T = std::decay_t<decltype(data)>;
         if constexpr (std::is_same_v<T, mesh_data>)
           return resource_service::implementation::adopt(
-              service, std::move(data), asset_cast<mesh_resource>(target), decoded.sources);
+              service, std::make_shared<const mesh_data>(std::move(data)),
+              asset_cast<mesh_resource>(target), decoded.sources);
         else if constexpr (std::is_same_v<T, texture_data>)
           return resource_service::implementation::adopt(
-              service, std::move(data), asset_cast<texture_resource>(target), decoded.sources);
+              service, std::make_shared<const texture_data>(std::move(data)),
+              asset_cast<texture_resource>(target), decoded.sources);
         else if constexpr (std::is_same_v<T, asset_ref<const material_description>>) {
           if (!data)
             return error::invalid_argument;

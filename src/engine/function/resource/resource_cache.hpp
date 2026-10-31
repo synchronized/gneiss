@@ -4,6 +4,7 @@
 #ifndef GNEISS_ASSET_RESOURCE_CACHE_HPP_
 #define GNEISS_ASSET_RESOURCE_CACHE_HPP_
 
+#include "asset_load_types.hpp"
 #include "engine/core/result.hpp"
 #include "engine/resource/asset_identity.hpp"
 #include "engine/resource/asset_ref.hpp"
@@ -23,7 +24,8 @@ namespace gneiss::engine {
 
 class resource_cache final {
 public:
-  using key = std::tuple<std::shared_ptr<const files::source_domain>, std::string, type_id>;
+  using key =
+      std::tuple<std::shared_ptr<const files::source_domain>, std::string, type_id, std::string>;
   resource_cache() = default;
   resource_cache(const resource_cache&) = delete;
   resource_cache& operator=(const resource_cache&) = delete;
@@ -33,6 +35,7 @@ public:
     type_id type{engine::runtime_type_of<void>()};
     bool is_loading{true}; // 仅在同步创建回调期间阻止同键递归。
     std::shared_ptr<const void> resource;
+    asset_data_metrics metrics;
     std::size_t source_bytes{}; // CPU 文件加载统计；程序创建的对象默认为零。
     /** 验证类型后共享运行对象的原控制块，不把缓存条目暴露给类型化使用者。 */
     template <typename T> [[nodiscard]] asset_ref<const T> as() const noexcept {
@@ -49,16 +52,26 @@ public:
   [[nodiscard]] result<asset_ref<const entry>>
   load(std::string_view uri, type_id type, const loader& decode,
        std::shared_ptr<const files::source_domain> source = {}, bool reload = false,
-       std::size_t source_bytes = 0) noexcept;
+       std::size_t source_bytes = 0, std::string parameters = {},
+       asset_cache_policy policy = asset_cache_policy::retain,
+       asset_data_metrics metrics = {}) noexcept;
   void release_unused() noexcept;
   /** 只观察当前身份，不触发加载；返回的弱引用不会阻止卸载。 */
   [[nodiscard]] std::weak_ptr<const entry>
   observe(std::string_view uri, type_id type,
-          std::shared_ptr<const files::source_domain> source = {}) const;
+          std::shared_ptr<const files::source_domain> source = {},
+          std::string parameters = {}) const;
   [[nodiscard]] std::size_t size() const noexcept { return entries_.size(); }
 
 private:
-  std::map<key, asset_ref<const entry>> entries_;
+  struct slot {
+    asset_ref<const entry> retained;
+    std::weak_ptr<const entry> weak;
+    asset_ref<const entry> lock() const {
+      return retained ? retained : asset_ref<const entry>{weak.lock()};
+    }
+  };
+  std::map<key, slot> entries_;
 };
 
 } // namespace gneiss::engine
