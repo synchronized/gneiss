@@ -18,7 +18,8 @@ struct resource_service::implementation::pending_load {
   std::array<resource_request, 5> dependencies;
   std::size_t dependency_cursor{};
 };
-result<resource_request> resource_service::load(const asset_source& source, bool reload) try {
+result<resource_request> resource_service::load(const render_resource_source& source,
+                                                bool reload) try {
   resource_request output;
   if (!impl_ || !impl_->loading_configured || render_stopping_)
     return error::invalid_state;
@@ -44,14 +45,14 @@ result<resource_request> resource_service::load(const asset_source& source, bool
   auto work = std::make_shared<implementation::pending_load>();
   work->state = state;
   switch (source.type) {
-  case asset_type::mesh: {
+  case render_resource_kind::mesh: {
     auto loaded = assets_.load<mesh_data>(source.uri, {.reload = reload});
     if (!loaded)
       return loaded.error();
     work->cpu = std::move(*loaded);
     break;
   }
-  case asset_type::texture: {
+  case render_resource_kind::texture: {
     auto loaded =
         assets_.load<texture_data>(source.uri, {.reload = reload, .texture_profile = profile()});
     if (!loaded)
@@ -59,7 +60,7 @@ result<resource_request> resource_service::load(const asset_source& source, bool
     work->cpu = std::move(*loaded);
     break;
   }
-  case asset_type::material: {
+  case render_resource_kind::material: {
     auto loaded = assets_.load<material_description>(source.uri, reload);
     if (!loaded)
       return loaded.error();

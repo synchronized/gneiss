@@ -40,8 +40,8 @@ int main() try {
   }
 
   std::uint64_t prefab_node_count = 0;
-  gneiss::engine::scene_node_view prefab_root;
-  gneiss::engine::scene_node_view prefab_source;
+  gneiss::engine::scene_node_info prefab_root;
+  gneiss::engine::scene_node_info prefab_source;
   if (gneiss::test_support::prefab_node_count(*application->scenes(), scene, &prefab_node_count) !=
           gneiss::engine::error::success ||
       prefab_node_count != 2U ||

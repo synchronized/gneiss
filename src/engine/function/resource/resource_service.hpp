@@ -33,9 +33,10 @@ public:
   /** 配置 CPU 加载；首次配置后保留执行器与 profile，停止后拒绝重新装配。 */
   error configure_loading(task_executor& executor, texture_prepare_profile profile = {},
                           std::shared_ptr<progress_notification> notification = {});
-  result<render_asset_ref> reserve_asset(const asset_source&) noexcept;
+  result<render_resource_ref> reserve_asset(const render_resource_source&) noexcept;
   /** 只查找 CPU 内容已就绪的缓存，不读取文件、不等待 GPU。 */
-  result<render_asset_ref> find(const asset_source&, texture_prepare_profile = {}) const noexcept;
+  result<render_resource_ref> find(const render_resource_source&,
+                                   texture_prepare_profile = {}) const noexcept;
   template <class T> result<asset_ref<const T>> find(std::string_view uri) const noexcept try {
     auto found = find({std::string(uri), kind<T>()}, profile());
     if (!found)
@@ -49,7 +50,7 @@ public:
   bool owns(const mesh&) const noexcept;
   bool owns(const texture&) const noexcept;
   bool owns(const material&) const noexcept;
-  bool owns(const render_asset_ref&) const noexcept;
+  bool owns(const render_resource_ref&) const noexcept;
   /** 所属线程创建程序化资源并返回强引用；失败返回错误，不接管外部 RID。 */
   result<texture> create_texture(const texture_view&) noexcept;
   result<mesh> create_mesh(const mesh_view&) noexcept;
@@ -63,7 +64,7 @@ public:
   material find_material(rid) const noexcept;
   /** 单资源异步加载；默认复用缓存，同身份的在途请求共享工作（包括 reload）。
    * 输入在返回前复制；提交失败返回错误。每项独立完成，不等待 GPU。 */
-  result<resource_request> load(const asset_source&, bool reload = false);
+  result<resource_request> load(const render_resource_source&, bool reload = false);
   template <class T> result<resource_request> load(std::string_view uri, bool reload = false) try {
     return load({std::string(uri), kind<T>()}, reload);
   } catch (const std::bad_alloc&) {
@@ -75,15 +76,15 @@ public:
   texture_prepare_profile profile() const noexcept;
 
 private:
-  template <class T> static constexpr asset_type kind() {
+  template <class T> static constexpr render_resource_kind kind() {
     static_assert(std::is_same_v<T, mesh_resource> || std::is_same_v<T, texture_resource> ||
                   std::is_same_v<T, material_resource>);
     if constexpr (std::is_same_v<T, mesh_resource>)
-      return asset_type::mesh;
+      return render_resource_kind::mesh;
     else if constexpr (std::is_same_v<T, texture_resource>)
-      return asset_type::texture;
+      return render_resource_kind::texture;
     else
-      return asset_type::material;
+      return render_resource_kind::material;
   }
   result<asset_identity> identify(std::string_view, std::uint32_t) const noexcept;
   asset_manager& assets_;

@@ -20,7 +20,7 @@ public:
   scene_instance& operator=(const scene_instance&) = delete;
 
   /** 只记录场景成员；身份在节点中，组件资源在 ECS 中。 */
-  struct object final {
+  struct node_entry final {
     scene_node_id node = null_scene_node_id;
     bool persistent = true; // Prefab 展开成员仅在运行时枚举，不重复保存。
   };
@@ -35,7 +35,7 @@ public:
   [[nodiscard]] scene_node_id find_node(guid uuid) const noexcept;
   [[nodiscard]] error capture_description(scene_description& output) const;
   [[nodiscard]] error serialize(std::string& out_json) const;
-  [[nodiscard]] error get_node_info(std::uint64_t index, scene_node_view& out_info,
+  [[nodiscard]] error get_node_info(std::uint64_t index, scene_node_info& out_info,
                                     node_query_detail detail) const;
   [[nodiscard]] error set_prefab_source_transform(scene_node_id node,
                                                   const math::transform& transform);
@@ -101,15 +101,16 @@ public:
 
 private:
   friend class scene_instances;
-  [[nodiscard]] std::vector<object>::iterator find_authored_node(scene_node_id node);
-  [[nodiscard]] std::vector<object>::iterator find_ordinary_node(scene_node_id node);
-  [[nodiscard]] std::vector<object>::const_iterator find_ordinary_node(scene_node_id node) const;
+  [[nodiscard]] std::vector<node_entry>::iterator find_authored_node(scene_node_id node);
+  [[nodiscard]] std::vector<node_entry>::iterator find_ordinary_node(scene_node_id node);
+  [[nodiscard]] std::vector<node_entry>::const_iterator
+  find_ordinary_node(scene_node_id node) const;
   [[nodiscard]] std::optional<prefab_origin_view> prefab_origin(scene_node_id node) const;
   void append_prefab_members(const prefab_binding& prefab);
   prefab_reference_description& prefab_reference(std::size_t index);
   const prefab_reference_description& prefab_reference(std::size_t index) const;
 
-  std::vector<object> objects_;
+  std::vector<node_entry> objects_;
   std::vector<std::unique_ptr<prefab_binding>> prefab_instances_;
   guid uuid_;
 

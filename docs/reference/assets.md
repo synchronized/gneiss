@@ -26,7 +26,7 @@
 不能用单缓冲区 register_decoder 覆盖；其他类型先用注册解码器，否则使用反射解码。
 
 `resource_service::reserve_mesh/texture/material()` 返回对应资源引用的 result，
-`reserve_asset(source)` 返回 `result<render_asset_ref>`；它们只预留资源身份，不代表内容已加载。
+`reserve_asset(source)` 返回 `result<render_resource_ref>`；它们只预留资源身份，不代表内容已加载。
 `asset_manager::identify(uri, type)` 返回 `result<asset_identity>`，只解析来源身份，不读取资源内容。
 
 ## URI 规则
@@ -186,7 +186,7 @@ metallic=0、roughness=1；这不免除材质文件必填字段的校验。
 Scene/Editor 通过 resource_service 创建、查询和加载运行资源，通过 asset_manager 加载描述。
 asset_manager 的 `load<T>` 保留 CPU 描述解码契约；resource_service 的
 `load<texture_resource>(uri)` 等接口返回 `result<resource_request>`。
-缓存查询统一为 `find<T>(uri)`，混合类型使用 `find(asset_source, profile)`；
+缓存查询统一为 `find<T>(uri)`，混合类型使用 `find(render_resource_source, profile)`；
 不读取文件、不等待 GPU，失败清空输出。类型化查询使用服务配置的纹理 profile。
 所属线程通过 `status()` 查询，`get<texture_resource>()` 获取强引用；成功表示 CPU 内容与依赖已采用。
 两者共享文件服务与执行器，各自持有缓存。
@@ -198,10 +198,10 @@ Application 提供 `assets()` 和 `resources()`；宿主分发文件完成后分
 各自的 `collect_unused()` 只回收所属缓存；运行资源强引用仍保活对应对象。
 内部加载文件位于 `detail/`，不向宿主开放。资源数据及格式编解码仍位于 `engine/resource`。
 
-`asset_types.hpp` 声明 `asset_source` 及混合资源引用辅助函数；
-场景批量进度和回执位于 Runtime 的 `resource_load_types.hpp`，属于 `gneiss::runtime`。asset_type 当前只枚举 Mesh、Material、Texture，
+`render_resource.hpp` 声明 `render_resource_source` 及混合资源引用辅助函数；
+场景批量进度和回执位于 Runtime 的 `resource_load_types.hpp`，属于 `gneiss::runtime`。render_resource_kind 当前只枚举 Mesh、Material、Texture，
 CPU 描述类型仍由 load<T> 的 C++ 类型确定。
-`resource_loading.cpp` 保存服务私有的单资源请求状态，`asset_decode` 只解码已有字节。
+`resource_service_loading.cpp` 保存服务私有的单资源请求状态，`asset_decode` 只解码已有字节。
 `resource_service_impl` 定义服务私有实现；创建、RID 包装、延迟销毁和内容采用均属于服务。
 网格、纹理从统一 CPU 请求领取共享引用后直接传给对应采用函数，不再重新组装 decoded_asset。
 来源身份检查仍在采用前执行；材质在依赖完成后直接传递已经持有的纹理强引用。

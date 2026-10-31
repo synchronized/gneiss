@@ -464,7 +464,7 @@ add_test(NAME gneiss.scene-load-application COMMAND gneiss_scene_load_applicatio
 
 add_executable(gneiss_scene_load_preparation_test
   scene/scene_load_preparation_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_load_preparation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/scene_codec.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_codec.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
@@ -640,7 +640,7 @@ add_test(NAME gneiss.render_asset_preparation COMMAND gneiss_render_asset_prepar
 add_executable(
   gneiss_render_asset_loader_test
   render/render_asset_loader_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_loading.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_service_loading.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
@@ -667,7 +667,7 @@ add_test(NAME gneiss.render_asset_loader COMMAND gneiss_render_asset_loader_test
 add_executable(
   gneiss_texture_load_service_test
   render/texture_load_service_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_loading.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_service_loading.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
@@ -813,8 +813,8 @@ add_executable(gneiss_scene_instantiation_test scene/scene_instantiation_test.cp
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instances.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance_edit.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance_prefab.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instantiation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_load_preparation.cpp")
+  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instances_instantiation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_preparation.cpp")
 # 测试直接构造私有 manager，编译其实现而不向 DLL 公共 ABI 导出内部类型。
 target_sources(gneiss_scene_instantiation_test PRIVATE
   "${PROJECT_SOURCE_DIR}/src/engine/function/resource/asset_manager.cpp"
@@ -1043,7 +1043,7 @@ foreach(test IN ITEMS gneiss_texture_load_application_test gneiss_asset_pixel_te
 endforeach()
 
 target_sources(gneiss_scene_instantiation_test PRIVATE
-  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_loading.cpp")
+  "${PROJECT_SOURCE_DIR}/src/engine/function/resource/resource_service_loading.cpp")
 
 # 异步资产测试由宿主推进解码任务。
 foreach(test IN ITEMS gneiss_scene_description_test gneiss_prefab_description_test gneiss_prefab_runtime_instance_test)

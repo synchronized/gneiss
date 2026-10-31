@@ -1074,7 +1074,7 @@ resource_load_group* application::loading_assets() noexcept {
 
 gneiss::engine::error application::create_mesh_node_ready(
     gneiss::scene_instance_id scene, const gneiss::engine::mesh_renderer_node_creation& desc,
-    const gneiss::engine::scene_instances::mesh_binding& prepared, scene_node_id& output) noexcept {
+    const gneiss::engine::scene_mesh_binding& prepared, scene_node_id& output) noexcept {
   output = {};
   const auto valid = is_owner_thread() && accepts_requests() ? gneiss::engine::error::success
                                                              : gneiss::engine::error::invalid_state;
@@ -1094,8 +1094,8 @@ gneiss::engine::error application::collect_unused_edit_assets() noexcept {
 }
 
 gneiss::engine::error
-application::query_ready_asset(const gneiss::engine::asset_source& source,
-                               gneiss::engine::render_asset_ref& output) noexcept {
+application::query_ready_asset(const gneiss::engine::render_resource_source& source,
+                               gneiss::engine::render_resource_ref& output) noexcept {
   output = {};
   const auto valid = is_owner_thread() && accepts_requests() ? gneiss::engine::error::success
                                                              : gneiss::engine::error::invalid_state;
@@ -1114,7 +1114,7 @@ application::query_ready_asset(const gneiss::engine::asset_source& source,
 
 gneiss::engine::error
 application::capture_mesh_binding(gneiss::scene_instance_id scene, scene_node_id node,
-                                  gneiss::engine::scene_instances::mesh_binding& output) noexcept {
+                                  gneiss::engine::scene_mesh_binding& output) noexcept {
   output = {};
   const auto valid = is_owner_thread() && accepts_requests() ? gneiss::engine::error::success
                                                              : gneiss::engine::error::invalid_state;
@@ -1123,10 +1123,10 @@ application::capture_mesh_binding(gneiss::scene_instance_id scene, scene_node_id
              : valid;
 }
 
-gneiss::engine::error application::replace_mesh_binding(
-    gneiss::scene_instance_id scene, scene_node_id node,
-    const gneiss::engine::scene_instances::mesh_binding& expected,
-    const gneiss::engine::scene_instances::mesh_binding& replacement) noexcept {
+gneiss::engine::error
+application::replace_mesh_binding(gneiss::scene_instance_id scene, scene_node_id node,
+                                  const gneiss::engine::scene_mesh_binding& expected,
+                                  const gneiss::engine::scene_mesh_binding& replacement) noexcept {
   const auto valid = is_owner_thread() && accepts_requests() ? gneiss::engine::error::success
                                                              : gneiss::engine::error::invalid_state;
   return valid == gneiss::engine::error::success
@@ -1135,7 +1135,7 @@ gneiss::engine::error application::replace_mesh_binding(
 }
 
 gneiss::engine::error
-application::prepare_edit_assets(std::span<const gneiss::engine::asset_source> sources,
+application::prepare_edit_assets(std::span<const gneiss::engine::render_resource_source> sources,
                                  std::uint64_t revision, std::uint64_t& request) noexcept try {
   request = 0U;
   const auto valid = is_owner_thread() && accepts_requests() ? gneiss::engine::error::success
@@ -1209,7 +1209,7 @@ gneiss::engine::error application::cancel_scene(std::uint64_t request) {
 bool application::scene_loading() const noexcept { return storage_->scene_service_.loading(); }
 
 gneiss::engine::error
-application::request_assets(std::span<const gneiss::engine::asset_source> sources,
+application::request_assets(std::span<const gneiss::engine::render_resource_source> sources,
                             std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
                             bool reload) {
   request = 0;

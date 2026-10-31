@@ -39,7 +39,7 @@ struct prefab_origin_view {
 
 /** 名称与 Prefab 来源借用到下次场景修改或销毁；组件集合是自有只读快照。
  * 查询不延长场景寿命。 */
-struct scene_node_view {
+struct scene_node_info {
   scene_node_id node{};
   scene_node_id parent{};
   entity_id entity{};

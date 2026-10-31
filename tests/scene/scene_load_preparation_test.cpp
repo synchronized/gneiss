@@ -9,7 +9,7 @@
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/resource/asset_manager.hpp"
-#include "engine/function/scene/scene_load_preparation.hpp"
+#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "engine/resource/scene/prefab_codec.hpp"
 #include "engine/resource/scene/scene_codec.hpp"
@@ -96,7 +96,7 @@ void run() {
   check(assets.register_decoder<scene_description>(&custom_scene).ok());
   check(assets.register_decoder<prefab_description>(&custom_prefab).ok());
   assets.attach_task_executor(executor);
-  prepared_scene_description output;
+  scene_instantiation_data output;
   gneiss::engine::scene_diagnostic diagnostic;
   auto prepare = [&](scene_prepare_limits limits = {}, const std::function<bool()>& cancel = {}) {
     return gneiss::test_support::prepare_scene_for_test(

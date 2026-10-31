@@ -68,8 +68,8 @@ int main() try {
           gneiss::engine::error::success) {
     return 1;
   }
-  gneiss::engine::scene_node_view camera_info;
-  gneiss::engine::scene_node_view triangle_info;
+  gneiss::engine::scene_node_info camera_info;
+  gneiss::engine::scene_node_info triangle_info;
   if (application->scenes()->get_node_count(scene, &node_count) != gneiss::engine::error::success ||
       node_count != 2U ||
       application->scenes()->get_node_info(scene, 0U, camera_info) !=
@@ -93,7 +93,7 @@ int main() try {
           gneiss::engine::error::invalid_handle) {
     return 2;
   }
-  gneiss::engine::scene_node_view invalid_info;
+  gneiss::engine::scene_node_info invalid_info;
   if (application->scenes()->get_node_info(gneiss::scene_instance_id{}, 0U, invalid_info) !=
       gneiss::engine::error::invalid_handle) {
     return 3;

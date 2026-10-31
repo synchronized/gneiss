@@ -8,38 +8,43 @@
 #include "engine/resource/texture/texture_data.hpp"
 #include <concepts>
 namespace gneiss::engine {
-enum class asset_type : std::uint32_t { invalid = 0U, mesh = 1U, material = 2U, texture = 3U };
-struct asset_source final {
+enum class render_resource_kind : std::uint32_t {
+  invalid = 0U,
+  mesh = 1U,
+  material = 2U,
+  texture = 3U
+};
+struct render_resource_source final {
   std::string uri;
-  asset_type type = asset_type::mesh;
+  render_resource_kind type = render_resource_kind::mesh;
 };
 /** 统一持有资产缓存条目；非空仅表示身份存在，不代表 GPU 就绪。 */
-using render_asset_ref = asset_ref<const resource_cache::entry>;
+using render_resource_ref = asset_ref<const resource_cache::entry>;
 /** 混合加载结果转为类型化引用；空值和类型不符均返回空。 */
 template <typename T>
-[[nodiscard]] asset_ref<const T> asset_cast(const render_asset_ref& asset) noexcept {
+[[nodiscard]] asset_ref<const T> asset_cast(const render_resource_ref& asset) noexcept {
   return asset ? asset->as<T>() : asset_ref<const T>{};
 }
-[[nodiscard]] GNEISS_API rid asset_rid(const render_asset_ref& asset) noexcept;
-[[nodiscard]] GNEISS_API asset_type asset_kind(const render_asset_ref& asset) noexcept;
-[[nodiscard]] inline std::string_view asset_uri(const render_asset_ref& asset) noexcept {
+[[nodiscard]] GNEISS_API rid asset_rid(const render_resource_ref& asset) noexcept;
+[[nodiscard]] GNEISS_API render_resource_kind asset_kind(const render_resource_ref& asset) noexcept;
+[[nodiscard]] inline std::string_view asset_uri(const render_resource_ref& asset) noexcept {
   return asset ? std::string_view(asset->uri) : std::string_view{};
 }
 
-/** 资源分类属于加载层，不让资源对象反向依赖 asset_type。 */
+/** 资源分类属于加载层，不让资源对象反向依赖 render_resource_kind。 */
 template <typename T> struct resource_traits {};
 template <> struct resource_traits<mesh_resource> {
-  static constexpr asset_type kind = asset_type::mesh;
+  static constexpr render_resource_kind kind = render_resource_kind::mesh;
 };
 template <> struct resource_traits<texture_resource> {
-  static constexpr asset_type kind = asset_type::texture;
+  static constexpr render_resource_kind kind = render_resource_kind::texture;
 };
 template <> struct resource_traits<material_resource> {
-  static constexpr asset_type kind = asset_type::material;
+  static constexpr render_resource_kind kind = render_resource_kind::material;
 };
 template <typename T>
 concept render_resource = requires {
-  { resource_traits<T>::kind } -> std::convertible_to<asset_type>;
+  { resource_traits<T>::kind } -> std::convertible_to<render_resource_kind>;
 };
 
 template <render_resource T>
@@ -51,8 +56,8 @@ template <render_resource T>
   return resource_handle(value);
 }
 template <render_resource T>
-[[nodiscard]] inline asset_type asset_kind(const asset_ref<const T>& value) noexcept {
-  return value ? resource_traits<T>::kind : asset_type::invalid;
+[[nodiscard]] inline render_resource_kind asset_kind(const asset_ref<const T>& value) noexcept {
+  return value ? resource_traits<T>::kind : render_resource_kind::invalid;
 }
 
 } // namespace gneiss::engine

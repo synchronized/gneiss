@@ -21,7 +21,7 @@ std::vector<std::byte> bytes(std::string_view text) {
 }
 }
 int main() try {
-  const asset_source mesh{"asset://mesh", asset_type::mesh};
+  const render_resource_source mesh{"asset://mesh", render_resource_kind::mesh};
   constexpr auto text =
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[0,0],[0,0]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})";
   decoded_asset output;
@@ -62,8 +62,8 @@ int main() try {
                                              diagnostic)
             .failed());
   check(std::get<mesh_data>(output.content).vertices.data() == vertices);
-  check(decoded_asset{}.kind() == asset_type::invalid);
-  const asset_source material{"asset://material", asset_type::material};
+  check(decoded_asset{}.kind() == render_resource_kind::invalid);
+  const render_resource_source material{"asset://material", render_resource_kind::material};
   auto description = std::make_shared<material_description>();
   asset_ref<const material_description> reference{description};
   check(gneiss::test_support::assign_decoded(adopt_material_asset(material.uri, reference, 1000),
@@ -96,7 +96,7 @@ int main() try {
   check(gneiss::test_support::assign_decoded(
             decode_texture_asset("asset://texture", parsed, {}, {}), output, diagnostic)
             .failed());
-  check(output.kind() == asset_type::material);
+  check(output.kind() == render_resource_kind::material);
   for (const auto version : {1, 3}) {
     const auto text = std::string{R"({"format":"gneiss.texture","version":)"} +
                       std::to_string(version) +

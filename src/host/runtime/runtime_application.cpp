@@ -577,9 +577,9 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
             structural_reload.reset();
           return accepted;
         }
-        std::vector<gneiss::engine::asset_source> assets;
+        std::vector<gneiss::engine::render_resource_source> assets;
         for (const auto& asset : request.assets) {
-          using type = gneiss::engine::asset_type;
+          using type = gneiss::engine::render_resource_kind;
           assets.push_back(
               {asset.uri, asset.type == gneiss::host::ipc_asset_type::texture    ? type::texture
                           : asset.type == gneiss::host::ipc_asset_type::material ? type::material
@@ -610,7 +610,7 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
         const auto operation = native_application->poll_assets(completion, ready);
         if (ready) {
           for (const auto& item : completion.results) {
-            using type = gneiss::engine::asset_type;
+            using type = gneiss::engine::render_resource_kind;
             items.push_back({.asset = {.uri = item.source.uri,
                                        .type = item.source.type == type::texture
                                                    ? gneiss::host::ipc_asset_type::texture

@@ -5,7 +5,7 @@
 
 #include "engine/core/result.hpp"
 #include "engine/core/type_id.hpp"
-#include "engine/function/resource/asset_load_types.hpp"
+#include "engine/function/resource/asset_loading.hpp"
 #include "engine/function/resource/asset_request.hpp"
 #include "engine/function/resource/resource_cache.hpp"
 #include "engine/resource/asset_decoder.hpp"

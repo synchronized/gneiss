@@ -10,7 +10,7 @@ inline engine::error instantiate_prefab(runtime::application& app, scene_instanc
                                         scene_node_id& root, bool replacing = false,
                                         engine::task_scheduler* tasks = nullptr) {
   root = {};
-  engine::prepared_scene_description prepared;
+  engine::scene_instantiation_data prepared;
   engine::scene_instances::asset_bindings assets;
   auto status = prepare_scene(app, author.prefab->uri, prepared, assets, tasks, true);
   if (status.failed())
@@ -44,7 +44,7 @@ inline engine::error create_prefab(runtime::application& app, scene_instance_id 
     if (status.failed())
       return status;
     for (std::uint64_t i = 0; i < count; ++i) {
-      engine::scene_node_view node;
+      engine::scene_node_info node;
       status = app.scenes()->get_node_info(scene, i, node);
       if (status.failed())
         return status;

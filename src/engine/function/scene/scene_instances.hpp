@@ -36,21 +36,20 @@ struct prefab_component_state {
   scene_mesh_binding resources{};
 };
 class scene_instance;
-struct prepared_scene_description;
+struct scene_instantiation_data;
 
 /** 单个 World 的实例集合，拥有实例与 RID 表；不负责后台加载或活动域切换。 */
 class GNEISS_API scene_instances final {
 public:
-  using mesh_binding = scene_mesh_binding;
-  using asset_bindings = std::map<std::string, render_asset_ref, std::less<>>;
+  using asset_bindings = std::map<std::string, render_resource_ref, std::less<>>;
   /** 所属线程同步创建整个实例；只消费已准备描述和资源引用，不读取文件。
    * 失败回收已创建节点并清空输出；调用期间不支持暂停或取消。 */
-  [[nodiscard]] error instantiate_prepared(prepared_scene_description prepared,
+  [[nodiscard]] error instantiate_prepared(scene_instantiation_data prepared,
                                            const asset_bindings& assets,
                                            scene_instance_id& output) noexcept;
   /** 捕获纯内存描述和已加载资源强引用；不读文件，资源尚未准备时返回失败。 */
   [[nodiscard]] error capture_prepared(scene_instance_id instance,
-                                       prepared_scene_description& description,
+                                       scene_instantiation_data& description,
                                        asset_bindings& assets) const noexcept;
   /** 同步实例化；替换先移除旧实例，失败只清理本次新建节点，不恢复旧实例。 */
   [[nodiscard]] error instantiate_prefab_ready(scene_instance_id instance,
@@ -59,19 +58,19 @@ public:
                                                std::span<const scene_mesh_binding> bindings,
                                                bool replacing, scene_node_id& output) noexcept;
   [[nodiscard]] error remove_prefab_instance(scene_instance_id instance, guid uuid) noexcept;
-  /** 创建仅消费已就绪租约，不加载；失败不留下节点。 */
+  /** 创建仅消费已加载资源引用，不加载；失败不留下节点。 */
   [[nodiscard]] error create_mesh_renderer_node_ready(scene_instance_id instance,
                                                       const mesh_renderer_node_creation& desc,
-                                                      const mesh_binding& prepared,
+                                                      const scene_mesh_binding& prepared,
                                                       scene_node_id& output) noexcept;
-  /** 捕获实际版本租约；所属线程，不读文件。租约须早于渲染服务释放。 */
+  /** 捕获当前资源强引用；所属线程，不读文件。引用须早于渲染服务释放。 */
   [[nodiscard]] error capture_mesh_binding(scene_instance_id instance, scene_node_id node,
-                                           mesh_binding& output) const noexcept;
+                                           scene_mesh_binding& output) const noexcept;
   /** 仅提交资源引用；expected 为空时恢复已移除组件，不加载资产。
    * 替换既有组件时校验旧引用及 ECS，失败保留原描述和资源。Prefab 只更新实例 URI 覆盖。 */
   [[nodiscard]] error replace_mesh_binding(scene_instance_id instance, scene_node_id node,
-                                           const mesh_binding& expected,
-                                           const mesh_binding& replacement) noexcept;
+                                           const scene_mesh_binding& expected,
+                                           const scene_mesh_binding& replacement) noexcept;
   /** 验证普通作者节点或 Prefab 来源节点归属；组件增删仍受各接口限制。 */
   [[nodiscard]] error validate_editable_node(scene_instance_id instance,
                                              scene_node_id node) const noexcept;
@@ -99,16 +98,16 @@ public:
   [[nodiscard]] error get_node_count(scene_instance_id instance,
                                      std::uint64_t* out_count) const noexcept;
   [[nodiscard]] error
-  get_node_info(scene_instance_id instance, std::uint64_t index, scene_node_view& out_info,
+  get_node_info(scene_instance_id instance, std::uint64_t index, scene_node_info& out_info,
                 node_query_detail detail = node_query_detail::components) const noexcept;
-  /** 捕获实际实例版本与作者覆盖，不读文件；所有输出仅在成功时替换。 */
+  /** 捕获当前 Prefab 来源描述与属性覆盖，不读文件；所有输出仅在成功时替换。 */
   [[nodiscard]] error capture_prefab_header(scene_instance_id instance, guid uuid,
                                             object_description& author,
                                             prefab_asset_ref& source) const noexcept;
-  /** 按来源索引捕获实际资源租约，允许调用方分帧构建历史快照。 */
+  /** 按来源索引捕获当前资源强引用，允许调用方分帧构建历史快照。 */
   [[nodiscard]] error capture_prefab_binding(scene_instance_id instance, guid uuid,
                                              std::size_t index,
-                                             mesh_binding& output) const noexcept;
+                                             scene_mesh_binding& output) const noexcept;
   [[nodiscard]] error set_prefab_source_transform(scene_instance_id instance, scene_node_id node,
                                                   const math::transform& transform) noexcept;
   [[nodiscard]] error create_node(scene_instance_id instance, const node_creation& desc,

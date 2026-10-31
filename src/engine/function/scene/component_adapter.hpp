@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/resource/asset_types.hpp"
+#include "engine/function/resource/render_resource.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/scene/scene_description.hpp"
 #include <functional>
@@ -34,7 +34,7 @@ struct component_adapter {
   std::function<result<component_description>(const component_description&,
                                               const std::function<error(meta::mutable_instance)>&)>
       modify;
-  std::function<std::vector<asset_source>(const component_description&)> dependencies;
+  std::function<std::vector<render_resource_source>(const component_description&)> dependencies;
   std::function<result<component_description>()> create_default;
   bool removable = false;
   component_editor_route editor_route = component_editor_route::reflected;
@@ -52,7 +52,7 @@ template <class T> struct component_operations {
   bool (*equal)(const T&, const T&){};
   result<value> (*read)(const T&, guid, meta::property_id){};
   error (*edit)(T&, guid, meta::property_id, const value&){};
-  std::vector<asset_source> (*dependencies)(const T&){};
+  std::vector<render_resource_source> (*dependencies)(const T&){};
   guid property_type = type_identity<T>::guid();
   /** 显式选择加入编辑器；不自动假定 T{} 是可安装的描述。 */
   result<T> (*create_default)(){};
@@ -129,7 +129,7 @@ template <class T> component_adapter make_component_adapter(component_operations
           .dependencies =
               [ops](const component_description& value) {
                 return ops.dependencies ? ops.dependencies(*value.get<T>())
-                                        : std::vector<asset_source>{};
+                                        : std::vector<render_resource_source>{};
               },
           .create_default =
               ops.create_default
@@ -192,7 +192,7 @@ GNEISS_API error install_components(component_context, const component_descripti
 /** 同步替换组件集合；失败由调用方用捕获快照恢复，不改变节点身份。 */
 GNEISS_API error replace_components(component_context, const component_descriptions&) noexcept;
 GNEISS_API bool equal_components(const component_descriptions&, const component_descriptions&);
-GNEISS_API result<std::vector<asset_source>>
+GNEISS_API result<std::vector<render_resource_source>>
 component_dependencies(const component_descriptions&) noexcept;
 GNEISS_API error edit_component(component_descriptions&, guid, meta::property_id,
                                 const value&) noexcept;
@@ -204,7 +204,7 @@ GNEISS_API error edit_runtime_component(component_context, guid, meta::property_
 GNEISS_API result<mesh_renderer> resolve_component_renderer(const component_descriptions&,
                                                             resource_service&) noexcept;
 GNEISS_API mesh_renderer prepared_component_renderer(
-    const component_descriptions&, const std::function<render_asset_ref(std::string_view)>&);
+    const component_descriptions&, const std::function<render_resource_ref(std::string_view)>&);
 /** 在 World 所属线程定位节点组件；读出副本后访问，写入成功才提交。不会保留对象指针。
  * 失败保持既有组件；普通组件使用已注册适配器；未知组件类型返回
  * unsupported。值及字符串由调用方持有。 */

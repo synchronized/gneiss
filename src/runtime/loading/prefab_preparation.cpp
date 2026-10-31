@@ -11,7 +11,7 @@ struct prefab_preparation::state {
   gneiss::engine::scene_description_inputs inputs;
   std::string uri;
   bool submitted{};
-  gneiss::engine::prepared_scene_description prepared;
+  gneiss::engine::scene_instantiation_data prepared;
   gneiss::engine::scene_diagnostic diagnostic;
   gneiss::engine::error result{gneiss::engine::error::invalid_state};
 };
@@ -53,7 +53,7 @@ void prefab_preparation::cancel() {
   cancelled_ = true;
   executor_.cancel_scope(scope_);
 }
-gneiss::engine::error prefab_preparation::poll(gneiss::engine::prepared_scene_description& output,
+gneiss::engine::error prefab_preparation::poll(gneiss::engine::scene_instantiation_data& output,
                                                bool& complete) {
   complete = false;
   if (!state_->submitted) {

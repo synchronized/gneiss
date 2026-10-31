@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/core/meta/serialization_types.hpp"
 #include "engine/core/result.hpp"
-#include "engine/function/resource/asset_load_types.hpp"
+#include "engine/function/resource/asset_loading.hpp"
 namespace gneiss::test_support {
 template <class T> engine::error take_value(engine::result<T> value, T& output) {
   if (!value) {
@@ -40,7 +40,7 @@ template <class T, class E> engine::error assign_decoded(engine::result<T, E> va
 template <class R, class T>
 engine::error take_request(R& request, T& output,
                            engine::meta::serialization_diagnostic* diagnostic = nullptr,
-                           engine::asset_data_metrics* metrics = nullptr) {
+                           engine::asset_load_metrics* metrics = nullptr) {
   auto value = request.take();
   if (!value) {
     auto failure = std::move(value).error();

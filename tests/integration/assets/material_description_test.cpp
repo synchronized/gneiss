@@ -89,7 +89,7 @@ void run(std::size_t limit) {
   check(gneiss::test_support::assign_decoded(decode_material(input), *current, codec_diagnostic)
             .ok());
   decoded_asset prepared;
-  const asset_source source{"asset://material.json", asset_type::material};
+  const render_resource_source source{"asset://material.json", render_resource_kind::material};
   check(gneiss::test_support::assign_decoded(
             adopt_material_asset(source.uri, asset_ref<const material_description>{old}, 256),
             prepared, diagnostic)

@@ -2,16 +2,16 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/error.hpp"
-#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_instances.hpp"
-#include "engine/function/scene/scene_load_preparation.hpp"
+#include "engine/function/scene/scene_preparation.hpp"
+#include "engine/function/scene/scene_types.hpp"
 
 #include <algorithm>
 #include <unordered_map>
 
 namespace gneiss::engine {
-engine::error scene_instances::instantiate_prepared(prepared_scene_description prepared,
+engine::error scene_instances::instantiate_prepared(scene_instantiation_data prepared,
                                                     const asset_bindings& assets,
                                                     scene_instance_id& output) noexcept {
   output = {};
@@ -21,7 +21,7 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
   try {
     const auto find_asset = [&](std::string_view uri) {
       const auto found = assets.find(uri);
-      return found == assets.end() ? engine::render_asset_ref{} : found->second;
+      return found == assets.end() ? engine::render_resource_ref{} : found->second;
     };
     for (const auto& [uri, source] : prepared.prefabs) {
       if (!source.resource)
@@ -94,7 +94,7 @@ engine::error scene_instances::instantiate_prepared(prepared_scene_description p
   }
 }
 error scene_instances::capture_prepared(scene_instance_id instance,
-                                        prepared_scene_description& description,
+                                        scene_instantiation_data& description,
                                         asset_bindings& assets) const noexcept try {
   const auto* value = instances_.get(instance, resource_type::scene_instance);
   if (!value || !*value)
@@ -115,14 +115,14 @@ error scene_instances::capture_prepared(scene_instance_id instance,
       return status;
     inputs.prefabs.insert_or_assign(prefab.prefab->uri, std::move(source));
   }
-  prepared_scene_description prepared;
+  scene_instantiation_data prepared;
   scene_diagnostic diagnostic;
   status = prepare_loaded_scene(inputs, {}, prepared, diagnostic, {});
   if (status.failed())
     return status;
   asset_bindings bindings;
   for (const auto& source : prepared.assets) {
-    render_asset_ref resource;
+    render_resource_ref resource;
     status = engine::error::success;
     {
       auto loaded = loader_.find(source);

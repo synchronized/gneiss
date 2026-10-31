@@ -69,9 +69,10 @@ int main() try {
           "asset://must-not-write", {}, {}, [](auto) {}, forbidden) != error::unsupported ||
       forbidden.value != 0)
     return 18;
-  std::shared_ptr<const gneiss::engine::files::source_domain> asset_source, user_source;
-  if (files->resolve_source("asset://example", asset_source).failed() ||
-      files->resolve_source("user://example", user_source).failed() || asset_source == user_source)
+  std::shared_ptr<const gneiss::engine::files::source_domain> render_resource_source, user_source;
+  if (files->resolve_source("asset://example", render_resource_source).failed() ||
+      files->resolve_source("user://example", user_source).failed() ||
+      render_resource_source == user_source)
     return 19;
   auto pump = [&](auto pending) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);

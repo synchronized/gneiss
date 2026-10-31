@@ -11,7 +11,7 @@ struct asset_load_task {
   std::string uri, next_uri;
   std::uint32_t source_type{};
   std::shared_ptr<const void> value;
-  asset_data_metrics metrics;
+  asset_load_metrics metrics;
   meta::serialization_diagnostic diagnostic;
   error status{error::not_ready};
   explicit asset_load_task(std::string path) : uri(std::move(path)), next_uri(uri) {}
@@ -39,7 +39,7 @@ struct object_load_task final : asset_load_task {
 };
 struct mesh_load_task final : asset_load_task {
   explicit mesh_load_task(std::string uri) : asset_load_task(std::move(uri)) {
-    source_type = static_cast<std::uint32_t>(asset_type::mesh);
+    source_type = static_cast<std::uint32_t>(render_resource_kind::mesh);
   }
   void decode(const std::vector<std::byte>& bytes) override {
     auto result = decode_mesh_asset(uri, bytes);
@@ -57,7 +57,7 @@ struct texture_load_task final : asset_load_task {
   std::optional<texture_description> description;
   texture_load_task(std::string uri, const asset_load_options& options)
       : asset_load_task(std::move(uri)), profile(options.texture_profile) {
-    source_type = static_cast<std::uint32_t>(asset_type::texture);
+    source_type = static_cast<std::uint32_t>(render_resource_kind::texture);
   }
   void decode(const std::vector<std::byte>& bytes) override {
     if (!description) {

@@ -39,7 +39,8 @@ prefab_placement::capture(runtime::application& application, gneiss::engine::gui
 
 gneiss::engine::error prefab_placement::freeze(
     runtime::application& application, gneiss::engine::prepared_prefab_description prepared,
-    gneiss::engine::object_description author, std::vector<gneiss::engine::render_asset_ref> assets,
+    gneiss::engine::object_description author,
+    std::vector<gneiss::engine::render_resource_ref> assets,
     std::shared_ptr<const engine::scene_subtree_snapshot>& output) noexcept try {
   auto* host = &application;
   const auto validation = host->is_owner_thread() && host->accepts_requests()
@@ -77,8 +78,8 @@ gneiss::engine::error prefab_placement::freeze(
   auto& binding = value->resources[value->root_uuid];
   binding.prefab = std::move(prepared.resource);
   binding.source_nodes.resize(binding.prefab->objects.size());
-  const auto find = [&](std::string_view uri, engine::asset_type type,
-                        engine::render_asset_ref& result) {
+  const auto find = [&](std::string_view uri, engine::render_resource_kind type,
+                        engine::render_resource_ref& result) {
     const auto entry = std::ranges::find_if(assets, [&](const auto& asset) {
       return engine::asset_uri(asset) == uri && engine::asset_kind(asset) == type;
     });
@@ -93,11 +94,11 @@ gneiss::engine::error prefab_placement::freeze(
     const auto* renderer = effective.objects[i].components.get<engine::mesh_renderer_description>();
     if (!renderer)
       continue;
-    engine::render_asset_ref mesh, material;
-    status = find(renderer->mesh_uri, engine::asset_type::mesh, mesh);
+    engine::render_resource_ref mesh, material;
+    status = find(renderer->mesh_uri, engine::render_resource_kind::mesh, mesh);
     if (status.failed())
       return status;
-    status = find(renderer->material_uri, engine::asset_type::material, material);
+    status = find(renderer->material_uri, engine::render_resource_kind::material, material);
     if (status.failed())
       return status;
     binding.source_nodes[i] = {engine::asset_cast<engine::mesh_resource>(mesh),

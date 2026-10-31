@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include "asset_load_types.hpp"
+#include "asset_loading.hpp"
 #include "engine/core/meta/serialization_types.hpp"
 #include "engine/core/result.hpp"
 #include "engine/resource/asset_diagnostic.hpp"
@@ -21,7 +21,7 @@ struct asset_state {
   std::shared_ptr<const void> value;
   meta::serialization_diagnostic diagnostic;
   std::size_t source_bytes{};
-  asset_data_metrics metrics;
+  asset_load_metrics metrics;
 };
 }
 /** 内部移动请求；取消仅放弃本观察者，成功领取一次只读结果。
@@ -40,7 +40,7 @@ public:
   [[nodiscard]] explicit operator bool() const noexcept { return state_ != nullptr; }
   void cancel() noexcept { state_.reset(); }
   /** 最近一次成功领取的读取与解码统计；取消不清除已领取统计。 */
-  const asset_data_metrics& metrics() const noexcept { return metrics_; }
+  const asset_load_metrics& metrics() const noexcept { return metrics_; }
   /** 最近一次成功领取的源文件字节数；尚未成功领取时为零，成功后可在请求失效时查询。 */
   [[nodiscard]] std::size_t source_bytes() const noexcept { return source_bytes_; }
   /** 非阻塞领取；not_ready 保留请求，成功后请求失效。失败携带解析诊断。 */
@@ -68,6 +68,6 @@ public:
 private:
   std::shared_ptr<detail::asset_state> state_;
   std::size_t source_bytes_{};
-  asset_data_metrics metrics_;
+  asset_load_metrics metrics_;
 };
 }

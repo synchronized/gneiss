@@ -4,7 +4,7 @@
 #include "commands/author_property_edit.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/scene/scene_instances.hpp"
-#include "engine/function/scene/scene_load_preparation.hpp"
+#include "engine/function/scene/scene_preparation.hpp"
 #include "panels/reflected_property_editor.hpp"
 #include "runtime/application.hpp"
 #include <cstdio>
@@ -202,7 +202,7 @@ int main() try {
   inputs.scene = e::asset_ref<const e::scene_description>{
       std::make_shared<const e::scene_description>(snapshot())};
   inputs.prefabs.emplace(reference.prefab->uri, e::prefab_asset_ref{prefab});
-  e::prepared_scene_description prepared;
+  e::scene_instantiation_data prepared;
   e::scene_diagnostic diagnostic;
   check(e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).ok());
   gneiss::scene_instance_id loaded;

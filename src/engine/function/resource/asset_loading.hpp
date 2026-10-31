@@ -9,13 +9,13 @@
 namespace gneiss::engine {
 class asset_manager;
 /** 本次实际读取的来源快照，不是缓存版本或事务标识。 */
-struct asset_data_source {
+struct asset_read_record {
   asset_identity identity;
   std::uint64_t bytes{};
   sha256_digest digest{};
 };
-struct asset_data_metrics {
-  std::vector<asset_data_source> sources;
+struct asset_load_metrics {
+  std::vector<asset_read_record> sources;
   std::size_t bytes{};
   double decode_ms{};
   double queue_ms{};

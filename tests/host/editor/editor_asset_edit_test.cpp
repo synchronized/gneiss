@@ -81,7 +81,7 @@ void run(gneiss::engine::execution_mode mode) {
         {.path = {engine::meta::property_id{2}}, .data = engine::value{std::string(material)}});
   };
   const auto binding = [&] {
-    gneiss::engine::scene_instances::mesh_binding value;
+    gneiss::engine::scene_mesh_binding value;
     check(app->capture_mesh_binding(session.scene_handle(), session.find_node(uuid)->node, value) ==
           gneiss::engine::error::success);
     return value;
@@ -183,10 +183,10 @@ void run(gneiss::engine::execution_mode mode) {
   drive();
   check(edit.operation() == gneiss::engine::error::invalid_state &&
         history.size() == creation_count);
-  gneiss::engine::render_asset_ref unused;
+  gneiss::engine::render_resource_ref unused;
   check(app->query_ready_asset(
-            {.uri = "asset://c.json", .type = gneiss::engine::asset_type::material}, unused) ==
-            gneiss::engine::error::not_ready &&
+            {.uri = "asset://c.json", .type = gneiss::engine::render_resource_kind::material},
+            unused) == gneiss::engine::error::not_ready &&
         !unused);
   history.clear();
   // 旧请求还在准备时切换到另一个有效场景；不能污染新场景或采用旧候选。
@@ -205,8 +205,8 @@ void run(gneiss::engine::execution_mode mode) {
   check(edit.operation() == gneiss::engine::error::invalid_state &&
         session.scene_handle() == new_scene && session.nodes().empty() && history.size() == 0U);
   check(app->query_ready_asset(
-            {.uri = "asset://d.json", .type = gneiss::engine::asset_type::material}, unused) ==
-        gneiss::engine::error::not_ready);
+            {.uri = "asset://d.json", .type = gneiss::engine::render_resource_kind::material},
+            unused) == gneiss::engine::error::not_ready);
   session.close();
 }
 void prefab_edits(engine::execution_mode mode) {

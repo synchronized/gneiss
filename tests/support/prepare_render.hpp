@@ -21,9 +21,9 @@ struct prepared_batch {
 namespace gneiss::test_support {
 using namespace gneiss::engine;
 inline error adopt_render_for_test(resource_service& service, decoded_asset decoded,
-                                   render_asset_ref& target) {
+                                   render_resource_ref& target) {
   const auto kind = decoded.kind();
-  if (kind == asset_type::invalid)
+  if (kind == render_resource_kind::invalid)
     return error::invalid_argument;
   if (!target) {
     const auto status =
@@ -51,9 +51,10 @@ inline error adopt_render_for_test(resource_service& service, decoded_asset deco
           for (std::size_t slot = 0; slot < dependencies.size(); ++slot) {
             if (data->texture_uris[slot].empty())
               continue;
-            render_asset_ref entry;
+            render_resource_ref entry;
             const auto status = gneiss::test_support::take_value(
-                service.reserve_asset({data->texture_uris[slot], asset_type::texture}), entry);
+                service.reserve_asset({data->texture_uris[slot], render_resource_kind::texture}),
+                entry);
             if (status.failed())
               return status;
             dependencies[slot] = asset_cast<texture_resource>(entry);
@@ -67,7 +68,7 @@ inline error adopt_render_for_test(resource_service& service, decoded_asset deco
 }
 // 仅组织内存测试夹具；生产解码器只消费字节，不负责读取与递归依赖。
 inline error decode_fixture(const gneiss::test_support::fixture_files& files,
-                            const asset_source& source, decoded_asset& output,
+                            const render_resource_source& source, decoded_asset& output,
                             asset_diagnostic& diagnostic, std::size_t input_limit,
                             std::size_t output_limit, texture_prepare_profile profile = {}) {
   std::vector<std::byte> description, payload;
@@ -76,7 +77,7 @@ inline error decode_fixture(const gneiss::test_support::fixture_files& files,
     return status;
   std::string payload_uri;
   texture_description parsed;
-  if (source.type == asset_type::texture) {
+  if (source.type == render_resource_kind::texture) {
     status = assign_decoded(detail::parse_texture(description), parsed, diagnostic);
     if (status.failed())
       return status;
@@ -88,10 +89,10 @@ inline error decode_fixture(const gneiss::test_support::fixture_files& files,
   const auto description_digest = sha256(description);
   const auto payload_digest = sha256(payload);
   const auto description_size = description.size(), payload_size = payload.size();
-  if (source.type == asset_type::texture)
+  if (source.type == render_resource_kind::texture)
     status = gneiss::test_support::assign_decoded(
         decode_texture_asset(source.uri, parsed, payload, profile), output, diagnostic);
-  else if (source.type == asset_type::mesh)
+  else if (source.type == render_resource_kind::mesh)
     status = gneiss::test_support::assign_decoded(decode_mesh_asset(source.uri, description),
                                                   output, diagnostic);
   else
@@ -124,15 +125,15 @@ inline error decode_texture_fixture(const gneiss::test_support::fixture_files& f
   output = {};
   diagnostic = {};
   decoded_asset decoded;
-  const auto status = decode_fixture(files, {std::string(uri), asset_type::texture}, decoded,
-                                     diagnostic, input_limit, output_limit, profile);
+  const auto status = decode_fixture(files, {std::string(uri), render_resource_kind::texture},
+                                     decoded, diagnostic, input_limit, output_limit, profile);
   if (status.ok())
     output = std::move(std::get<texture_data>(decoded.content));
   return status;
 }
 inline error prepare_render_for_test(asset_manager& assets,
                                      const gneiss::test_support::fixture_files& files,
-                                     std::span<const asset_source> requested,
+                                     std::span<const render_resource_source> requested,
                                      prepared_batch& output, asset_diagnostic& diagnostic,
                                      const std::function<bool()>& cancelled,
                                      std::size_t maximum_assets = 256U,
@@ -143,8 +144,8 @@ inline error prepare_render_for_test(asset_manager& assets,
   if (requested.empty() || requested.size() > maximum_assets)
     return error::invalid_argument;
   prepared_batch batch;
-  std::vector<asset_source> pending(requested.begin(), requested.end());
-  std::set<std::pair<std::string, asset_type>> seen;
+  std::vector<render_resource_source> pending(requested.begin(), requested.end());
+  std::set<std::pair<std::string, render_resource_kind>> seen;
   for (std::size_t index = 0; index < pending.size(); ++index) {
     if (cancelled && cancelled())
       return error::invalid_state;
@@ -155,7 +156,7 @@ inline error prepare_render_for_test(asset_manager& assets,
       return error::out_of_memory;
     decoded_asset decoded;
     error status;
-    if (source.type == asset_type::material) {
+    if (source.type == render_resource_kind::material) {
       asset_ref<const material_description> material;
       meta::serialization_diagnostic error;
       status = load_asset(assets, source.uri, material, reload, &error);
@@ -180,12 +181,12 @@ inline error prepare_render_for_test(asset_manager& assets,
     if (const auto* material = std::get_if<asset_ref<const material_description>>(&decoded.content))
       for (const auto& uri : (*material)->texture_uris)
         if (!uri.empty())
-          pending.push_back({uri, asset_type::texture});
+          pending.push_back({uri, render_resource_kind::texture});
     batch.assets.push_back(std::move(decoded));
   }
   std::stable_sort(batch.assets.begin(), batch.assets.end(), [](const auto& a, const auto& b) {
-    const auto order = [](asset_type type) {
-      return type == asset_type::texture ? 0 : type == asset_type::mesh ? 1 : 2;
+    const auto order = [](render_resource_kind type) {
+      return type == render_resource_kind::texture ? 0 : type == render_resource_kind::mesh ? 1 : 2;
     };
     return order(a.kind()) < order(b.kind());
   });

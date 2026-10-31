@@ -5,7 +5,7 @@
 
 #include "engine/core/error.hpp"
 #include "engine/function/resource/asset_manager.hpp"
-#include "engine/function/resource/asset_types.hpp"
+#include "engine/function/resource/render_resource.hpp"
 #include "engine/resource/scene/prefab_description.hpp"
 
 #include <functional>
@@ -30,11 +30,11 @@ struct prepared_prefab_description {
 /** 工作者自有的准备结果；持有不可变 Prefab 引用，不含 World 或后端资源。
  * Prefab v1 不支持嵌套实例；渲染依赖的材质/纹理闭包由资产准备阶段解析。
  * source_bytes 是加载统计，不代表解析后内存用量。 */
-struct prepared_scene_description {
+struct scene_instantiation_data {
   scene_description description;
   std::vector<std::size_t> parent_first;
   std::map<std::string, prepared_prefab_description> prefabs;
-  std::vector<asset_source> assets;
+  std::vector<render_resource_source> assets;
   std::size_t instance_nodes{};
   // 累计读取的源文件字节数；单文件读取上限由 codec 规定。
   std::size_t source_bytes{};
@@ -62,7 +62,7 @@ private:
 /** 纯 CPU 排序和依赖收集；prefab_uri 非空表示仅准备一个 Prefab。 */
 [[nodiscard]] GNEISS_API error prepare_loaded_scene(const scene_description_inputs&,
                                                     std::string_view prefab_uri,
-                                                    prepared_scene_description&, scene_diagnostic&,
+                                                    scene_instantiation_data&, scene_diagnostic&,
                                                     const std::function<bool()>& cancelled,
                                                     scene_prepare_limits limits = {}) noexcept;
 } // namespace gneiss::engine

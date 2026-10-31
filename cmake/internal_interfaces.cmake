@@ -38,11 +38,11 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/asset_diagnostic.hpp
   engine/resource/asset_decoder.hpp
   engine/function/resource/asset_request.hpp
-  engine/function/resource/asset_load_types.hpp
+  engine/function/resource/asset_loading.hpp
   engine/function/resource/asset_manager.hpp
   engine/function/resource/resource_request.hpp
   engine/function/resource/resource_service.hpp
-  engine/function/resource/asset_types.hpp
+  engine/function/resource/render_resource.hpp
   engine/resource/scene/component_description.hpp
   engine/resource/scene/scene_codec.hpp
   engine/resource/scene/prefab_codec.hpp
@@ -117,7 +117,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/resource/scene/scene_description.hpp
   engine/function/scene/component_adapter.hpp
   engine/function/scene/scene_instances.hpp
-  engine/function/scene/scene_load_preparation.hpp
+  engine/function/scene/scene_preparation.hpp
   engine/function/scene/scene_query.hpp
   engine/function/world/world.hpp
   engine/function/world/world_components.hpp

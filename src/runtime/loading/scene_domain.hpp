@@ -11,7 +11,7 @@
 namespace gneiss::runtime {
 
 /** 一个完整场景域，拥有 World 和场景实例集合；可容纳多个 Scene。
- * 仅所属线程操作。实例集合借用的资源管理器与渲染加载器必须比域更晚销毁。
+ * 仅所属线程操作。实例集合借用的资源服务必须比域更晚销毁。
  * 候选域未激活前，Application 的查询仍访问旧域。 */
 class scene_domain final {
 public:
@@ -20,7 +20,8 @@ public:
   scene_domain(const scene_domain&) = delete;
   scene_domain& operator=(const scene_domain&) = delete;
   /** 全部初始化成功后发布；失败保持空域，可重试。重复初始化拒绝且保持原状态。 */
-  [[nodiscard]] gneiss::engine::error initialize(gneiss::engine::resource_service& render) noexcept;
+  [[nodiscard]] gneiss::engine::error
+  initialize(gneiss::engine::resource_service& resources) noexcept;
   [[nodiscard]] gneiss::engine::world* native_world() const noexcept { return world_owner_.get(); }
   /** 借用实例集合；初始化前为空，有效期不超过本域。 */
   [[nodiscard]] gneiss::engine::scene_instances* scenes() const noexcept { return scenes_.get(); }

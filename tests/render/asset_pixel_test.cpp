@@ -88,7 +88,7 @@ void run_asset_reload() {
   check(gneiss::engine::error{runtime::application::create(desc, app)} ==
         gneiss::engine::error::success);
   check(app->attach_task_executor(scheduler).ok());
-  const auto reload = [&](std::span<const gneiss::engine::asset_source> requests) {
+  const auto reload = [&](std::span<const gneiss::engine::render_resource_source> requests) {
     std::uint64_t request{};
     auto status = app->request_assets(requests, 1, 1, request, true);
     if (status.failed())
@@ -131,8 +131,8 @@ void run_asset_reload() {
   const auto initial = await_color(false);
   check(initial[0] > initial[1] + 30U);
   files.color(std::byte{0}, std::byte{255});
-  const std::array requests{gneiss::engine::asset_source{
-      .uri = "asset://t.texture.json", .type = gneiss::engine::asset_type::texture}};
+  const std::array requests{gneiss::engine::render_resource_source{
+      .uri = "asset://t.texture.json", .type = gneiss::engine::render_resource_kind::texture}};
   check(reload(requests) == gneiss::engine::error::success);
   // 不重载场景、不重建材质：已有引用必须看到同一纹理 RID 的新内容。
   const auto updated = await_color(true);
@@ -180,7 +180,7 @@ void run_pending_resources() {
             resources_factory.create_material(material_desc.parameters,
                                               {gneiss::engine::texture{}, {}, {}, {}, texture_ref}),
             material_ref)} == gneiss::engine::error::success);
-  gneiss::engine::scene_node_view info;
+  gneiss::engine::scene_node_info info;
   check(gneiss::engine::error{app->scenes()->get_node_info(scene, 1U, info)} ==
         gneiss::engine::error::success);
   check(info.components.get<gneiss::engine::mesh_renderer_description>() != nullptr);
@@ -687,12 +687,14 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
   std::printf("before=%u,%u,%u\n", blue[0], blue[1], blue[2]);
   check(blue[2] > blue[0] + 30U);
   const auto reload = [&](bool mixed = false) {
-    using type = gneiss::engine::asset_type;
-    const std::vector<gneiss::engine::asset_source> assets =
-        mixed
-            ? std::vector<gneiss::engine::asset_source>{{"asset://g.mesh.json", type::mesh},
-                                                        {"asset://m.material.json", type::material}}
-            : std::vector<gneiss::engine::asset_source>{{"asset://t.texture.json", type::texture}};
+    using type = gneiss::engine::render_resource_kind;
+    const std::vector<gneiss::engine::render_resource_source> assets =
+        mixed ? std::vector<gneiss::engine::render_resource_source>{{"asset://g.mesh.json",
+                                                                     type::mesh},
+                                                                    {"asset://m.material.json",
+                                                                     type::material}}
+              : std::vector<gneiss::engine::render_resource_source>{
+                    {"asset://t.texture.json", type::texture}};
     std::uint64_t request{};
     check(app->request_assets(assets, 1U, 1U, request, true) == gneiss::engine::error::success);
     gneiss::runtime::asset_load_completion completed;

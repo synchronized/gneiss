@@ -4,7 +4,7 @@
 #include "commands/author_property_edit.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/scene/scene_instances.hpp"
-#include "engine/function/scene/scene_load_preparation.hpp"
+#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -192,7 +192,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
   inputs.scene =
       e::asset_ref<const e::scene_description>{std::make_shared<e::scene_description>(saved)};
   inputs.prefabs.emplace(author.prefab->uri, e::prefab_asset_ref{source});
-  e::prepared_scene_description prepared;
+  e::scene_instantiation_data prepared;
   e::scene_diagnostic diagnostic;
   if (e::prepare_loaded_scene(inputs, {}, prepared, diagnostic, {}).failed())
     return 43;
@@ -204,7 +204,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
   if (app.scenes()->get_node_count(loaded, &count).failed())
     return 45;
   for (std::uint64_t i = 0; i < count; ++i) {
-    e::scene_node_view node;
+    e::scene_node_info node;
     if (app.scenes()->get_node_info(loaded, i, node).failed())
       return 46;
     if (node.prefab && node.prefab->instance_uuid == author.uuid) {

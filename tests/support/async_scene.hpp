@@ -3,13 +3,13 @@
 #pragma once
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/resource/asset_manager.hpp"
-#include "engine/function/scene/scene_load_preparation.hpp"
+#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include <chrono>
 namespace gneiss::test_support {
 inline engine::error
 prepare_scene_for_test(engine::asset_manager& assets, engine::task_scheduler& executor, bool prefab,
-                       std::string_view uri, engine::prepared_scene_description& output,
+                       std::string_view uri, engine::scene_instantiation_data& output,
                        engine::scene_diagnostic& diagnostic, const std::function<bool()>& cancelled,
                        engine::scene_prepare_limits limits = {}) {
   output = {};

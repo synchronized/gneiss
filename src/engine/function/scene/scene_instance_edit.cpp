@@ -271,7 +271,7 @@ error scene_instance::set_component_description(scene_node_id node,
 error scene_instance::capture_mesh_binding(scene_node_id node,
                                            scene_mesh_binding& output) const noexcept {
   output = {};
-  const auto found = std::ranges::find(objects_, node, &object::node);
+  const auto found = std::ranges::find(objects_, node, &node_entry::node);
   if (found == objects_.end()) {
     return error::invalid_handle;
   }
@@ -366,6 +366,6 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
 }
 
 bool scene_instance::contains_editable_node(scene_node_id node) const noexcept {
-  return std::ranges::find(objects_, node, &object::node) != objects_.end();
+  return std::ranges::find(objects_, node, &node_entry::node) != objects_.end();
 }
 } // namespace gneiss::engine

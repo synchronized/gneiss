@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/error.hpp"
-#include "engine/function/resource/asset_types.hpp"
+#include "engine/function/resource/render_resource.hpp"
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
@@ -103,8 +103,8 @@ void test_asset_request_boundaries() {
           scene_completion.scene == gneiss::scene_instance_id{29});
     gneiss::runtime::asset_load_completion completion;
     completion.request = 23;
-    gneiss::engine::render_asset_ref lease;
-    gneiss::engine::scene_instances::mesh_binding binding;
+    gneiss::engine::render_resource_ref lease;
+    gneiss::engine::scene_mesh_binding binding;
     gneiss::scene_node_id created{19};
     check(app->create_mesh_node_ready({}, {}, {}, created) ==
               gneiss::engine::error::invalid_state &&

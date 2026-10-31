@@ -73,6 +73,20 @@ clang-format -i <files...>
 
 缩写视为普通单词，例如使用 `entity_id`、`resource_id`，不使用 `entityID` 或 `resourceID`。RID 作为项目术语可以出现在文档中，代码标识符使用 `rid`。
 
+### 对象职责与文件命名
+
+- `*_description` 表示可保存的描述；`*_resource` 表示上层持有的运行时资源；
+  `*_data` 用于具体数据负载或明确用途的操作输入，如 `scene_instantiation_data`。
+- `*_view` 强调借用数据，必须注明有效期；`*_snapshot` 表示自有快照。
+  混合借用字段和自有快照的查询结果使用 `*_info`，逐项说明所有权。
+- `*_request` 表示请求及其观察状态；`*_metrics` 表示统计；`*_record` 表示一次操作记录。
+- `asset_manager` 负责 CPU 资产加载，`resource_service` 组织运行时资源，
+  `render_service` 管理渲染后端；对应局部参数优先使用 `assets`、`resources`、`renderer`。
+- `render_resource_kind` 只描述渲染资源类别，不用于枚举所有 CPU 资产类型。
+- 文件名体现主要对象或职责；拆分实现优先沿用所属类前缀，如
+  `resource_service_loading.cpp`。相关小结构可以集中定义，不要求每个类型一个文件。
+- 不保留仅为兼容旧名称而增加的别名；不因字段相同就合并所有权或职责不同的类型。
+
 ### 布尔值和动作命名
 
 - 布尔变量和查询函数使用 `is_`、`has_`、`can_` 或 `should_` 前缀。

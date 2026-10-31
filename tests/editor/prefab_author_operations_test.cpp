@@ -203,7 +203,7 @@ int main() try {
   ed::scene_document_snapshot missing_snapshot;
   check(ed::prepare_scene_document(needs_assets, *restore_all, missing_snapshot) ==
         e::error::not_ready);
-  std::vector<e::asset_source> missing_assets;
+  std::vector<e::render_resource_source> missing_assets;
   check(ed::prepare_scene_document(needs_assets, *restore_all, missing_snapshot, &missing_assets)
             .ok());
   check(missing_assets.size() == 2 && missing_snapshot.assets.empty());

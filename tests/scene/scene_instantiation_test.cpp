@@ -16,7 +16,7 @@
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/resource/detail/resource_service_impl.hpp"
 #include "engine/function/resource/resource_service.hpp"
-#include "engine/function/scene/scene_load_preparation.hpp"
+#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/loading/scene_domain.hpp"
 #include <algorithm>
@@ -99,9 +99,9 @@ void unified_resource_index() {
                 "asset://same",
                 std::make_shared<const gneiss::engine::prefab_description>(std::move(description))),
             prefab) == error::success);
-  gneiss::engine::render_asset_ref material;
+  gneiss::engine::render_resource_ref material;
   check(gneiss::test_support::take_value(
-            render.reserve_asset({"asset://same", gneiss::engine::asset_type::material}),
+            render.reserve_asset({"asset://same", gneiss::engine::render_resource_kind::material}),
             material) == error::success);
   assets.collect_unused();
   check(assets.cache().size() == 2U && render.cache().size() == 1U && *cpu == "cpu" &&
@@ -144,14 +144,14 @@ void run() {
   if (candidate_render.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   {
-    gneiss::engine::render_asset_ref first, second;
+    gneiss::engine::render_resource_ref first, second;
     gneiss::engine::asset_diagnostic diagnostic;
-    check(gneiss::test_support::load_render(active_render, gneiss::engine::asset_type::mesh,
-                                            "asset://m.mesh", first,
-                                            diagnostic) == gneiss::engine::error::success);
-    check(gneiss::test_support::load_render(active_render, gneiss::engine::asset_type::mesh,
-                                            "asset://m.mesh", second,
-                                            diagnostic) == gneiss::engine::error::success);
+    check(gneiss::test_support::load_render(
+              active_render, gneiss::engine::render_resource_kind::mesh, "asset://m.mesh", first,
+              diagnostic) == gneiss::engine::error::success);
+    check(gneiss::test_support::load_render(
+              active_render, gneiss::engine::render_resource_kind::mesh, "asset://m.mesh", second,
+              diagnostic) == gneiss::engine::error::success);
     check(gneiss::engine::asset_rid(first) == gneiss::engine::asset_rid(second));
     active_assets.collect_unused();
     active_render.collect_unused();
@@ -165,7 +165,7 @@ void run() {
     check(resources.live_resource_count() == render_count);
     active_assets.collect_unused();
     check(resources.get_mesh(gneiss::engine::asset_rid(first)) != nullptr);
-    gneiss::engine::render_asset_ref invalid;
+    gneiss::engine::render_resource_ref invalid;
     check(!active_render.owns(invalid));
     gneiss::engine::render_service foreign_resources;
 
@@ -173,10 +173,10 @@ void run() {
     gneiss::engine::resource_service foreign_assets{foreign_owner};
     if (foreign_assets.attach_render(foreign_resources).failed())
       throw std::runtime_error("资源管理器渲染绑定失败");
-    gneiss::engine::render_asset_ref foreign_mesh;
-    check(gneiss::test_support::load_render(foreign_assets, gneiss::engine::asset_type::mesh,
-                                            "asset://m.mesh", foreign_mesh,
-                                            diagnostic) == gneiss::engine::error::success);
+    gneiss::engine::render_resource_ref foreign_mesh;
+    check(gneiss::test_support::load_render(
+              foreign_assets, gneiss::engine::render_resource_kind::mesh, "asset://m.mesh",
+              foreign_mesh, diagnostic) == gneiss::engine::error::success);
     check(!active_render.owns(foreign_mesh));
   }
   auto active = std::make_unique<runtime::scene_domain>();
@@ -189,14 +189,14 @@ void run() {
   check(active->native_world() == initialized_world && active->scenes() == initialized_scenes);
 
   gneiss::scene_instance_id old_scene{};
-  engine::prepared_scene_description initial;
+  engine::scene_instantiation_data initial;
   engine::scene_diagnostic initial_error;
   check(test_support::prepare_scene_for_test(active_assets, executor, false, "asset://s.scene",
                                              initial, initial_error, {})
             .ok());
   engine::scene_instances::asset_bindings initial_bindings;
   for (const auto& request : initial.assets) {
-    engine::render_asset_ref reference;
+    engine::render_resource_ref reference;
     engine::asset_diagnostic error;
     check(gneiss::test_support::load_render(active_render, request.type, request.uri, reference,
                                             error)
@@ -206,13 +206,13 @@ void run() {
   check(
       active->scenes()->instantiate_prepared(std::move(initial), initial_bindings, old_scene).ok());
   initial_bindings.clear();
-  gneiss::engine::scene_node_view old_info;
+  gneiss::engine::scene_node_info old_info;
   check(active->scenes()->get_node_info(old_scene, 0U, old_info) == gneiss::engine::error::success);
-  gneiss::engine::render_asset_ref old_material;
+  gneiss::engine::render_resource_ref old_material;
   gneiss::engine::asset_diagnostic diagnostic;
-  check(gneiss::test_support::load_render(active_render, gneiss::engine::asset_type::material,
-                                          "asset://m.material", old_material,
-                                          diagnostic) == gneiss::engine::error::success);
+  check(gneiss::test_support::load_render(
+            active_render, gneiss::engine::render_resource_kind::material, "asset://m.material",
+            old_material, diagnostic) == gneiss::engine::error::success);
   auto old_pixels = resources.share_material(gneiss::engine::asset_rid(old_material));
   check(old_pixels && old_pixels->parameters.color[0] == 1.0F);
   files->files["m.material"] =
@@ -220,25 +220,27 @@ void run() {
   files->files["s.scene"].insert(
       files->files["s.scene"].size() - 2U,
       R"(,{"uuid":"00000000-0000-4000-8000-000000000004","prefab":{"uri":"asset://p.prefab","overrides":[]},"parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]}})");
-  gneiss::engine::prepared_scene_description prepared;
+  gneiss::engine::scene_instantiation_data prepared;
   gneiss::engine::scene_diagnostic scene_error;
   check(gneiss::test_support::prepare_scene_for_test(active_assets, executor, false,
                                                      "asset://s.scene", prepared, scene_error,
                                                      {}) == gneiss::engine::error::success);
   auto candidate = std::make_unique<runtime::scene_domain>();
   check(candidate->initialize(candidate_render) == gneiss::engine::error::success);
-  check(!gneiss::engine::render_asset_ref{});
-  check(!gneiss::engine::render_asset_ref{});
+  check(!gneiss::engine::render_resource_ref{});
+  check(!gneiss::engine::render_resource_ref{});
   const std::array requests{
-      gneiss::engine::asset_source{"asset://m.mesh", gneiss::engine::asset_type::mesh},
-      gneiss::engine::asset_source{"asset://m.material", gneiss::engine::asset_type::material}};
+      gneiss::engine::render_resource_source{"asset://m.mesh",
+                                             gneiss::engine::render_resource_kind::mesh},
+      gneiss::engine::render_resource_source{"asset://m.material",
+                                             gneiss::engine::render_resource_kind::material}};
   gneiss::engine::prepared_batch batch;
   check(gneiss::test_support::prepare_render_for_test(candidate_assets, vfs, requests, batch,
                                                       diagnostic,
                                                       {}) == gneiss::engine::error::success);
   gneiss::engine::scene_instances::asset_bindings bindings;
   for (auto& asset : batch.assets) {
-    gneiss::engine::render_asset_ref target;
+    gneiss::engine::render_resource_ref target;
     check(gneiss::test_support::adopt_render_for_test(candidate_render, std::move(asset), target)
               .ok());
     bindings.emplace(std::string(gneiss::engine::asset_uri(target)), target);
@@ -252,16 +254,16 @@ void run() {
       bindings.at("asset://m.material")));
   check(!gneiss::engine::asset_cast<gneiss::engine::material_resource>(
       bindings.at("asset://m.mesh")));
-  gneiss::engine::render_asset_ref uncached;
+  gneiss::engine::render_resource_ref uncached;
   check(gneiss::test_support::take_value(candidate_render.find(requests.front()), uncached) ==
         gneiss::engine::error::success);
   // 绑定复用稳定资源；另一个 URI 的蓝色材质不影响它。
   files->files["blue.material"] =
       R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,0,1,1]},"texture_uris":["","","","",""]})";
-  gneiss::engine::render_asset_ref unrelated;
-  check(gneiss::test_support::load_render(candidate_render, gneiss::engine::asset_type::material,
-                                          "asset://blue.material", unrelated,
-                                          diagnostic) == gneiss::engine::error::success);
+  gneiss::engine::render_resource_ref unrelated;
+  check(gneiss::test_support::load_render(
+            candidate_render, gneiss::engine::render_resource_kind::material,
+            "asset://blue.material", unrelated, diagnostic) == gneiss::engine::error::success);
   check(gneiss::engine::asset_rid(unrelated) != gneiss::engine::asset_rid(material));
   const auto reads = files->reads;
   gneiss::scene_instance_id new_scene{};
@@ -357,11 +359,11 @@ void run() {
   candidate_render.collect_unused();
   check(resources.get_material(selected_material) != nullptr &&
         resources.get_material(selected_material)->parameters.color[1] == 1.0F);
-  gneiss::engine::render_asset_ref next_version;
+  gneiss::engine::render_resource_ref next_version;
   check(gneiss::test_support::take_value(candidate_render.find(requests.back()), next_version) ==
         gneiss::engine::error::success);
-  gneiss::engine::scene_node_view ordinary;
-  gneiss::engine::scene_node_view prefab_node;
+  gneiss::engine::scene_node_info ordinary;
+  gneiss::engine::scene_node_info prefab_node;
   check(candidate->scenes()->get_node_info(new_scene, 0U, ordinary) ==
         gneiss::engine::error::success);
   check(gneiss::test_support::prefab_node_info(*candidate->scenes(), new_scene, 0U, prefab_node) ==
@@ -384,8 +386,9 @@ void run() {
   check(candidate->native_world()->replace_mesh_renderers(unchanged) ==
         gneiss::engine::error::success);
   files->files["other.material"] = files->files["m.material"];
-  gneiss::engine::render_asset_ref edited_material;
-  check(gneiss::test_support::load_render(candidate_render, gneiss::engine::asset_type::material,
+  gneiss::engine::render_resource_ref edited_material;
+  check(gneiss::test_support::load_render(candidate_render,
+                                          gneiss::engine::render_resource_kind::material,
                                           "asset://other.material", edited_material,
                                           diagnostic) == gneiss::engine::error::success);
   check(candidate->scenes()->set_mesh_renderer(new_scene, ordinary.node, "asset://m.mesh",
@@ -405,7 +408,7 @@ void run() {
   candidate_render.collect_unused();
   check(resources.get_material(selected_material) != nullptr);
   {
-    using binding = gneiss::engine::scene_instances::mesh_binding;
+    using binding = gneiss::engine::scene_mesh_binding;
     binding before;
     const auto reads = files->reads;
     check(candidate->scenes()->capture_mesh_binding(new_scene, ordinary.node, before) ==

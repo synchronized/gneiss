@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/scene/scene_load_preparation.hpp"
+#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/core/error.hpp"
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/scene/component_adapter.hpp"
@@ -36,12 +36,12 @@ public:
   scene_diagnostic* diagnostic{};
   const std::function<bool()>& cancelled;
   scene_prepare_limits limits;
-  prepared_scene_description candidate;
-  std::map<std::string, engine::asset_type> dependencies;
+  scene_instantiation_data candidate;
+  std::map<std::string, engine::render_resource_kind> dependencies;
   std::map<guid, std::size_t> scene_depths;
 
   engine::error collect(const std::vector<object_description>& objects) {
-    using engine::asset_type;
+    using engine::render_resource_kind;
     for (const auto& object : objects) {
       if (cancelled && cancelled())
         return error::invalid_state;
@@ -156,7 +156,7 @@ public:
 } // namespace
 
 error prepare_loaded_scene(const scene_description_inputs& inputs, std::string_view prefab_uri,
-                           prepared_scene_description& output, scene_diagnostic& diagnostic,
+                           scene_instantiation_data& output, scene_diagnostic& diagnostic,
                            const std::function<bool()>& cancelled,
                            scene_prepare_limits limits) noexcept try {
   output = {};

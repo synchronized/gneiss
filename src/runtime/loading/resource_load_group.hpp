@@ -14,8 +14,9 @@ class resource_load_group final {
 public:
   explicit resource_load_group(engine::resource_service& service) : service_(service) {}
   engine::texture_prepare_profile profile() const noexcept { return service_.profile(); }
-  engine::error submit_assets(std::span<const engine::asset_source> sources, std::uint64_t session,
-                              std::uint64_t revision, std::uint64_t& request, bool reload = true) {
+  engine::error submit_assets(std::span<const engine::render_resource_source> sources,
+                              std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
+                              bool reload = true) {
     using engine::error;
     request = 0;
     if (stopping_)
@@ -27,8 +28,9 @@ public:
     std::set<std::string> unique;
     for (const auto& source : sources)
       if (engine::validate_uri(source.uri).failed() || !unique.insert(source.uri).second ||
-          (source.type != engine::asset_type::mesh && source.type != engine::asset_type::texture &&
-           source.type != engine::asset_type::material))
+          (source.type != engine::render_resource_kind::mesh &&
+           source.type != engine::render_resource_kind::texture &&
+           source.type != engine::render_resource_kind::material))
         return error::invalid_argument;
     runtime::asset_load_completion next;
     for (const auto& source : sources)

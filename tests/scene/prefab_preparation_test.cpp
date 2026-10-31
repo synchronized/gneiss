@@ -31,7 +31,7 @@ bool run(gneiss::engine::execution_mode mode) {
     }
     bool complete{};
     gneiss::engine::error result = gneiss::engine::error::success;
-    gneiss::engine::prepared_scene_description output;
+    gneiss::engine::scene_instantiation_data output;
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     while (!complete && std::chrono::steady_clock::now() < deadline) {
       if (mode == gneiss::engine::execution_mode::cooperative) {

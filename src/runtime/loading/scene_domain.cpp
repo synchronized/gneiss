@@ -9,7 +9,8 @@ namespace gneiss::runtime {
 
 scene_domain::~scene_domain() noexcept = default;
 
-gneiss::engine::error scene_domain::initialize(gneiss::engine::resource_service& render) noexcept {
+gneiss::engine::error
+scene_domain::initialize(gneiss::engine::resource_service& resources) noexcept {
   if (world_owner_) {
     return gneiss::engine::error::invalid_state;
   }
@@ -17,7 +18,7 @@ gneiss::engine::error scene_domain::initialize(gneiss::engine::resource_service&
   if (!next_world)
     return next_world.error();
   try {
-    auto next_scenes = std::make_unique<gneiss::engine::scene_instances>(**next_world, render);
+    auto next_scenes = std::make_unique<gneiss::engine::scene_instances>(**next_world, resources);
     if (!next_scenes->is_valid()) {
       return gneiss::engine::error::out_of_memory;
     }

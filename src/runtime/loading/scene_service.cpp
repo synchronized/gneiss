@@ -16,29 +16,29 @@
 
 namespace gneiss::runtime {
 
-gneiss::engine::error scene_service::initialize(gneiss::engine::resource_service& assets) {
+gneiss::engine::error scene_service::initialize(gneiss::engine::resource_service& resources) {
   if (active_ || stopping_) {
     return gneiss::engine::error::invalid_state;
   }
   auto next = std::make_unique<scene_domain>();
-  const auto result = next->initialize(assets);
+  const auto result = next->initialize(resources);
   if (result != gneiss::engine::error::success) {
     return result;
   }
-  asset_owner_ = &assets;
+  resources_ = &resources;
   active_ = std::move(next);
   return gneiss::engine::error::success;
 }
 
 gneiss::engine::error scene_service::attach_executor(
-    gneiss::engine::task_executor& executor, gneiss::engine::render_service& resources,
+    gneiss::engine::task_executor& executor, gneiss::engine::render_service& renderer,
     gneiss::engine::texture_prepare_profile profile,
     std::shared_ptr<gneiss::engine::progress_notification> notification) {
   if (loading_assets() || !active_) {
     return gneiss::engine::error::invalid_state;
   }
   // 先构造可失败依赖，再发布装配状态，失败时不留下半装配服务。
-  const auto configured = asset_owner_->configure_loading(executor, profile, notification);
+  const auto configured = resources_->configure_loading(executor, profile, notification);
   if (configured.failed())
     return configured;
   const auto scope = executor.make_scope();
@@ -47,9 +47,9 @@ gneiss::engine::error scene_service::attach_executor(
   }
   executor_ = &executor;
   scope_ = scope;
-  resources_ = &resources;
+  renderer_ = &renderer;
   notification_ = std::move(notification);
-  loading_ = std::make_unique<resource_load_group>(*asset_owner_);
+  loading_ = std::make_unique<resource_load_group>(*resources_);
   return gneiss::engine::error::success;
 }
 
@@ -63,7 +63,7 @@ void scene_service::advance() {
     const auto start = std::chrono::steady_clock::now();
     const gneiss::engine::loop_span span(gneiss::engine::loop_stage::retirement);
     retired_.reset();
-    asset_owner_->collect_unused();
+    resources_->collect_unused();
     retirement_.last_ms =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
     ++retirement_.retired_domains;
@@ -129,10 +129,10 @@ void scene_service::shutdown() noexcept {
   loading_.reset();
   retired_.reset();
   active_.reset();
-  if (asset_owner_ != nullptr) {
-    asset_owner_->collect_unused();
+  if (resources_ != nullptr) {
+    resources_->collect_unused();
   }
-  asset_owner_ = nullptr;
+  resources_ = nullptr;
 }
 
 bool scene_service::can_start_load() const noexcept {
@@ -156,7 +156,7 @@ gneiss::engine::scene_instances* scene_service::scenes() noexcept {
 }
 resource_load_group* scene_service::loading_assets() const noexcept { return loading_.get(); }
 gneiss::engine::error
-scene_service::request_assets(std::span<const gneiss::engine::asset_source> sources,
+scene_service::request_assets(std::span<const gneiss::engine::render_resource_source> sources,
                               std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
                               bool reload) {
   request = 0U;
@@ -182,7 +182,7 @@ gneiss::engine::error scene_service::poll_assets(gneiss::runtime::asset_load_com
 engine::error scene_service::request_reload(scene_instance_id instance, std::string_view uri,
                                             bool prefab) {
   check_owner();
-  if (stopping_ || !active_ || !loading_assets() || !asset_owner_)
+  if (stopping_ || !active_ || !loading_assets() || !resources_)
     return engine::error::invalid_state;
   if (reload_ || loading() || visual_loading() || loading_assets()->busy() || retired_)
     return engine::error::not_ready;
@@ -194,8 +194,8 @@ engine::error scene_service::request_reload(scene_instance_id instance, std::str
   next->instance = instance;
   next->uri = uri;
   next->prefab = prefab;
-  next->descriptions = std::make_unique<engine::scene_description_request>(asset_owner_->assets(),
-                                                                           next->uri, prefab);
+  next->descriptions =
+      std::make_unique<engine::scene_description_request>(resources_->assets(), next->uri, prefab);
   reload_ = std::move(next);
   return engine::error::success;
 }

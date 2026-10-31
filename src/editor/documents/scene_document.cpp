@@ -222,7 +222,7 @@ gneiss::engine::error scene_document::refresh_nodes() noexcept {
     std::vector<prefab_node_record> prefab_records;
     prefab_records.reserve(static_cast<std::size_t>(count));
     for (std::uint64_t index = 0; index < count; ++index) {
-      gneiss::engine::scene_node_view info{};
+      gneiss::engine::scene_node_info info{};
       operation =
           with_scene([&](auto& service) { return service.get_node_info(scene_, index, info); });
       if (operation != gneiss::engine::error::success) {
@@ -725,7 +725,7 @@ gneiss::engine::error scene_document::create_mesh_renderer_node(const mesh_node_
       return operation;
     }
     std::uint64_t count = 0;
-    gneiss::engine::scene_node_view info{};
+    gneiss::engine::scene_node_info info{};
     operation = with_scene([&](auto& service) { return service.get_node_count(scene_, &count); });
     if (operation.ok()) {
       operation = gneiss::engine::error::not_found;

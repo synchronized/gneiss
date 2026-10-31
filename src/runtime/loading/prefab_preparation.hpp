@@ -5,7 +5,7 @@
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/scene/scene_load_preparation.hpp"
+#include "engine/function/scene/scene_preparation.hpp"
 #include <memory>
 
 namespace gneiss::runtime {
@@ -23,7 +23,7 @@ public:
                                       std::unique_ptr<prefab_preparation>& output) noexcept;
   ~prefab_preparation();
   void cancel();
-  gneiss::engine::error poll(gneiss::engine::prepared_scene_description& output, bool& complete);
+  gneiss::engine::error poll(gneiss::engine::scene_instantiation_data& output, bool& complete);
 
 private:
   struct state;

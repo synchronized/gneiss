@@ -5,10 +5,10 @@
 #include "engine/core/diagnostics/task_submission.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/resource_service.hpp"
-#include "engine/function/scene/scene_load_preparation.hpp"
+#include "engine/function/scene/scene_preparation.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "runtime/loading/scene_service.hpp"
 
 #include "engine/resource/asset_uri.hpp"
@@ -26,7 +26,7 @@ double elapsed(clock_type::time_point start) {
 
 struct scene_service::load_task {
   struct cpu_result {
-    gneiss::engine::prepared_scene_description description;
+    gneiss::engine::scene_instantiation_data description;
     gneiss::engine::scene_description_inputs inputs;
     gneiss::engine::scene_diagnostic diagnostic;
     gneiss::engine::error result{gneiss::engine::error::internal};
@@ -37,7 +37,7 @@ struct scene_service::load_task {
   scene_load_completion result;
   std::unique_ptr<scene_domain> candidate;
   gneiss::engine::scene_instances::asset_bindings bindings;
-  std::vector<gneiss::engine::asset_source> requested;
+  std::vector<gneiss::engine::render_resource_source> requested;
   std::size_t cursor{};
   bool preparing{true};
   bool cancelled{};
@@ -85,7 +85,7 @@ void scene_service::stop_load() noexcept {
   completed_.reset();
   executor_ = nullptr;
   scope_ = {};
-  resources_ = nullptr;
+  renderer_ = nullptr;
   notification_.reset();
 }
 void scene_service::check_owner() const {
@@ -108,7 +108,7 @@ gneiss::engine::error scene_service::request_scene(std::string_view uri, std::ui
   next->result.progress = {
       .request = ++sequence_, .session = session, .revision = revision, .can_cancel = true};
   next->description_request = std::make_unique<gneiss::engine::scene_description_request>(
-      asset_owner_->assets(), std::string(uri), false);
+      resources_->assets(), std::string(uri), false);
   request = next->result.progress.request;
   pending_ = std::move(next);
   visual_queue_.clear();
@@ -119,10 +119,10 @@ gneiss::engine::error scene_service::request_scene(std::string_view uri, std::ui
   return gneiss::engine::error::success;
 }
 void scene_service::sample_budget(scene_load_progress& value) const {
-  const auto usage = resources_->memory_usage();
+  const auto usage = renderer_->memory_usage();
   value.application_logical_bytes = usage.logical_bytes;
   value.application_cpu_data_bytes = usage.cpu_data_bytes;
-  value.available_bytes = resources_->available_memory_bytes();
+  value.available_bytes = renderer_->available_memory_bytes();
 }
 bool scene_service::scene_progress(scene_load_progress& value) const {
   check_owner();
@@ -157,7 +157,7 @@ void scene_service::finish(gneiss::engine::error result, scene_load_phase phase,
   auto completion = std::move(pending_->result);
   const auto cleanup_started = clock_type::now();
   pending_.reset();
-  asset_owner_->collect_unused();
+  resources_->collect_unused();
   // 候选分项保留结束前的诊断值，Application/上传账本必须在请求销毁后采样。
   sample_budget(completion.progress);
   completion.progress.cleanup_complete = true;
@@ -301,7 +301,7 @@ void scene_service::advance_load_impl() {
       return;
     }
     value.candidate = std::make_unique<scene_domain>();
-    const auto initialized = value.candidate->initialize(*asset_owner_);
+    const auto initialized = value.candidate->initialize(*resources_);
     if (initialized != gneiss::engine::error::success) {
       finish(initialized, scene_load_phase::failed);
       return;
@@ -324,7 +324,7 @@ void scene_service::advance_load_impl() {
     const auto end = std::min(value.cursor + 64U, value.requested.size());
     for (; value.cursor < end; ++value.cursor) {
       const auto& source = value.requested[value.cursor];
-      auto reserved = asset_owner_->reserve_asset(source);
+      auto reserved = resources_->reserve_asset(source);
       if (!reserved) {
         finish(reserved.error(), scene_load_phase::failed, "场景资源引用无效");
         return;

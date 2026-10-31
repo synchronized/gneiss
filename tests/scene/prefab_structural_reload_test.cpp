@@ -51,7 +51,7 @@ gneiss::engine::error find_source(const std::shared_ptr<gneiss::runtime::applica
                                   gneiss::scene_instance_id scene,
                                   gneiss::engine::guid instance_uuid,
                                   gneiss::engine::guid source_uuid,
-                                  gneiss::engine::scene_node_view& output) {
+                                  gneiss::engine::scene_node_info& output) {
   std::uint64_t count = 0U;
   auto result = gneiss::engine::error{
       gneiss::test_support::prefab_node_count(*application->scenes(), scene, &count)};
@@ -97,8 +97,8 @@ int main() try {
     return 2;
   }
 
-  gneiss::engine::scene_node_view first_before;
-  gneiss::engine::scene_node_view second_before;
+  gneiss::engine::scene_node_info first_before;
+  gneiss::engine::scene_node_info second_before;
   if (find_source(application, scene, first_instance_uuid, source_root_uuid, first_before) !=
           gneiss::engine::error::success ||
       find_source(application, scene, second_instance_uuid, source_root_uuid, second_before) !=
@@ -112,9 +112,9 @@ int main() try {
                                                   true) != gneiss::engine::error::success) {
     return 4;
   }
-  gneiss::engine::scene_node_view first_after;
-  gneiss::engine::scene_node_view second_after;
-  gneiss::engine::scene_node_view child;
+  gneiss::engine::scene_node_info first_after;
+  gneiss::engine::scene_node_info second_after;
+  gneiss::engine::scene_node_info child;
   std::uint64_t count = 0U;
   if (find_source(application, scene, first_instance_uuid, source_root_uuid, first_after) !=
           gneiss::engine::error::success ||

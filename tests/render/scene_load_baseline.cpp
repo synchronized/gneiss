@@ -169,7 +169,7 @@ int main(int argc, char** argv) try {
   constexpr std::string_view uri = "asset://scenes/scene.scene.json";
   gneiss::scene_instance_id previous_scene{};
   gneiss::engine::world* previous_world{};
-  gneiss::engine::scene_node_view camera;
+  gneiss::engine::scene_node_info camera;
   std::uint64_t previous_resources{};
   gneiss::engine::frame_image previous_image;
   const bool preserve = scenario == "failure" || scenario.starts_with("cancel-");
@@ -190,7 +190,7 @@ int main(int argc, char** argv) try {
       return 11;
     }
     for (std::uint64_t index = 0U; index < count; ++index) {
-      gneiss::engine::scene_node_view node;
+      gneiss::engine::scene_node_info node;
       if (gneiss::engine::error{app->scenes()->get_node_info(previous_scene, index, node)} !=
           gneiss::engine::error::success) {
         return 11;

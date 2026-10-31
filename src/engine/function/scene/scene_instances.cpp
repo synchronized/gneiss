@@ -104,19 +104,19 @@ scene_instance::scene_instance(world& native_world, resource_service& loader) no
 
 scene_instance::~scene_instance() noexcept { rollback(); }
 
-std::vector<scene_instance::object>::iterator
+std::vector<scene_instance::node_entry>::iterator
 scene_instance::find_authored_node(scene_node_id node) {
   return std::ranges::find_if(
       objects_, [node](const auto& value) { return value.node == node && value.persistent; });
 }
-std::vector<scene_instance::object>::iterator
+std::vector<scene_instance::node_entry>::iterator
 scene_instance::find_ordinary_node(scene_node_id node) {
   auto found = find_authored_node(node);
   return std::ranges::any_of(prefab_instances_, [node](const auto& p) { return p->root() == node; })
              ? objects_.end()
              : found;
 }
-std::vector<scene_instance::object>::const_iterator
+std::vector<scene_instance::node_entry>::const_iterator
 scene_instance::find_ordinary_node(scene_node_id node) const {
   auto found = std::ranges::find_if(
       objects_, [node](const auto& value) { return value.node == node && value.persistent; });
@@ -217,7 +217,7 @@ engine::error scene_instance::reload(scene_description candidate) {
     staged.push_back(std::move(target));
   }
 
-  std::vector<object> members;
+  std::vector<node_entry> members;
   members.reserve(staged.size() + objects_.size());
   std::vector<scene_node_identity> identities;
   identities.reserve(candidate.objects.size());
@@ -419,7 +419,7 @@ engine::error scene_instance::reload_prefab(std::string_view uri, prefab_asset_r
   return engine::error::success;
 }
 
-engine::error scene_instance::get_node_info(std::uint64_t index, scene_node_view& out_info,
+engine::error scene_instance::get_node_info(std::uint64_t index, scene_node_info& out_info,
                                             node_query_detail detail) const {
   if (index >= objects_.size()) {
     return engine::error::not_found;
@@ -494,7 +494,7 @@ engine::error scene_instances::capture_prefab_header(scene_instance_id instance,
 
 engine::error scene_instances::capture_prefab_binding(scene_instance_id instance,
                                                       gneiss::engine::guid uuid, std::size_t index,
-                                                      mesh_binding& output) const noexcept {
+                                                      scene_mesh_binding& output) const noexcept {
   if (!native_world_.is_owner_thread()) {
     return engine::error::invalid_state;
   }
@@ -816,7 +816,7 @@ engine::error scene_instance::restore_subtree(const scene_subtree_snapshot& snap
 }
 
 engine::error scene_instance::destroy_subtree(scene_node_id root) {
-  const auto member = std::ranges::find(objects_, root, &object::node);
+  const auto member = std::ranges::find(objects_, root, &node_entry::node);
   if (member == objects_.end())
     return error::invalid_handle;
   const auto origin = prefab_origin(root);
@@ -861,11 +861,12 @@ engine::error scene_instance::destroy_subtree(scene_node_id root) {
 engine::error scene_instance::create_mesh_renderer_node(const mesh_renderer_node_creation& desc,
                                                         scene_node_id* out_node,
                                                         const scene_mesh_binding* prepared) {
-  if (prepared && (engine::asset_kind(prepared->mesh) != engine::asset_type::mesh ||
-                   engine::asset_kind(prepared->material) != engine::asset_type::material ||
-                   !loader_.owns(prepared->mesh) || !loader_.owns(prepared->material) ||
-                   engine::asset_uri(prepared->mesh) != desc.mesh_uri ||
-                   engine::asset_uri(prepared->material) != desc.material_uri)) {
+  if (prepared &&
+      (engine::asset_kind(prepared->mesh) != engine::render_resource_kind::mesh ||
+       engine::asset_kind(prepared->material) != engine::render_resource_kind::material ||
+       !loader_.owns(prepared->mesh) || !loader_.owns(prepared->material) ||
+       engine::asset_uri(prepared->mesh) != desc.mesh_uri ||
+       engine::asset_uri(prepared->material) != desc.material_uri)) {
     return engine::error::invalid_argument;
   }
   const auto uuid = desc.uuid;
@@ -1301,7 +1302,7 @@ scene_instances::set_prefab_source_transform(scene_instance_id instance, scene_n
 }
 
 engine::error scene_instances::get_node_info(scene_instance_id instance, std::uint64_t index,
-                                             scene_node_view& out_info,
+                                             scene_node_info& out_info,
                                              node_query_detail detail) const noexcept {
   out_info = {};
   const auto* value = instances_.get(instance, resource_type::scene_instance);
@@ -1433,7 +1434,7 @@ engine::error scene_instances::create_mesh_renderer_node(scene_instance_id insta
 
 engine::error scene_instances::create_mesh_renderer_node_ready(
     scene_instance_id instance, const mesh_renderer_node_creation& desc,
-    const mesh_binding& prepared, scene_node_id& output_value) noexcept try {
+    const scene_mesh_binding& prepared, scene_node_id& output_value) noexcept try {
   auto output = output_value;
   const auto operation_result = [&]() -> engine::error {
     output = null_scene_node_id;
@@ -1455,7 +1456,7 @@ engine::error scene_instances::create_mesh_renderer_node_ready(
 }
 
 engine::error scene_instances::capture_mesh_binding(scene_instance_id instance, scene_node_id node,
-                                                    mesh_binding& output) const noexcept {
+                                                    scene_mesh_binding& output) const noexcept {
   output = {};
   const auto owner = native_world_.replace_mesh_renderers({});
   if (owner != engine::error::success) {
@@ -1466,9 +1467,10 @@ engine::error scene_instances::capture_mesh_binding(scene_instance_id instance, 
                                                : (*value)->capture_mesh_binding(node, output);
 }
 
-engine::error scene_instances::replace_mesh_binding(scene_instance_id instance, scene_node_id node,
-                                                    const mesh_binding& expected,
-                                                    const mesh_binding& replacement) noexcept {
+engine::error
+scene_instances::replace_mesh_binding(scene_instance_id instance, scene_node_id node,
+                                      const scene_mesh_binding& expected,
+                                      const scene_mesh_binding& replacement) noexcept {
   const auto owner = native_world_.replace_mesh_renderers({});
   if (owner != engine::error::success) {
     return owner;

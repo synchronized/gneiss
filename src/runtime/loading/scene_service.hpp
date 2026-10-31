@@ -8,7 +8,7 @@
 #include "engine/core/rid.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/resource/resource_service.hpp"
-#include "engine/function/scene/scene_load_preparation.hpp"
+#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/loading/resource_load_group.hpp"
 #include "runtime/loading/scene_domain.hpp"
@@ -29,10 +29,9 @@ public:
   scene_service(const scene_service&) = delete;
   scene_service& operator=(const scene_service&) = delete;
 
-  [[nodiscard]] gneiss::engine::error initialize(gneiss::engine::resource_service& assets);
+  [[nodiscard]] gneiss::engine::error initialize(gneiss::engine::resource_service& resources);
   [[nodiscard]] gneiss::engine::error
-  attach_executor(gneiss::engine::task_executor& executor,
-                  gneiss::engine::render_service& resources,
+  attach_executor(gneiss::engine::task_executor& executor, gneiss::engine::render_service& renderer,
                   gneiss::engine::texture_prepare_profile profile,
                   std::shared_ptr<gneiss::engine::progress_notification> notification);
   void advance();
@@ -66,8 +65,9 @@ public:
   [[nodiscard]] gneiss::engine::error cancel_scene(std::uint64_t request);
   /** 更新稳定资源的内容，活动 World 的引用不变；失败项保留旧内容。 */
   [[nodiscard]] gneiss::engine::error
-  request_assets(std::span<const gneiss::engine::asset_source> sources, std::uint64_t session,
-                 std::uint64_t revision, std::uint64_t& request, bool reload);
+  request_assets(std::span<const gneiss::engine::render_resource_source> sources,
+                 std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
+                 bool reload);
   /** 所属线程、渲染快照捕获之前调用；回执报告内容更新结果，不改变场景引用。 */
   [[nodiscard]] gneiss::engine::error
   poll_assets(gneiss::runtime::asset_load_completion& completion, bool& ready);
@@ -85,8 +85,8 @@ private:
     bool prefab{};
     std::unique_ptr<engine::scene_description_request> descriptions;
     engine::scene_description_inputs inputs;
-    engine::prepared_scene_description prepared;
-    std::vector<engine::render_asset_ref> retained;
+    engine::scene_instantiation_data prepared;
+    std::vector<engine::render_resource_ref> retained;
     std::size_t cursor{};
     bool asset_pending{};
     engine::error result{engine::error::not_ready};
@@ -96,13 +96,13 @@ private:
   void advance_visuals();
   void advance_stop();
   bool stopping_{};
-  std::vector<gneiss::engine::asset_source> visual_queue_;
+  std::vector<gneiss::engine::render_resource_source> visual_queue_;
   std::size_t visual_cursor_{};
   std::uint64_t visual_session_{};
   std::uint64_t visual_revision_{};
   bool visual_pending_{};
   std::optional<gneiss::runtime::asset_load_completion> visual_completion_;
-  gneiss::engine::resource_service* asset_owner_{};
+  gneiss::engine::resource_service* resources_{};
   std::unique_ptr<scene_domain> active_;
   std::unique_ptr<scene_domain> retired_;
   scene_retirement_statistics retirement_;
@@ -117,7 +117,7 @@ private:
   void check_owner() const;
   gneiss::engine::task_executor* executor_{};
   gneiss::engine::task_scope scope_{};
-  gneiss::engine::render_service* resources_{};
+  gneiss::engine::render_service* renderer_{};
   std::shared_ptr<gneiss::engine::progress_notification> notification_;
   std::unique_ptr<load_task> pending_;
   std::optional<scene_load_completion> completed_;

@@ -58,7 +58,7 @@ target_sources(
     engine/resource/texture/texture_ktx2.hpp
     engine/resource/texture/texture_binary.cpp
     engine/resource/texture/texture_binary.hpp
-    engine/function/resource/resource_loading.cpp
+    engine/function/resource/resource_service_loading.cpp
     engine/function/resource/resource_cache.cpp
     engine/function/resource/resource_cache.hpp
     engine/core/service_registry.cpp
@@ -153,9 +153,9 @@ target_sources(
     engine/function/scene/scene_tree.cpp
     engine/function/scene/scene_object.hpp
     engine/function/scene/scene_tree.hpp
-    engine/function/scene/scene_instantiation.cpp
-    engine/function/scene/scene_load_preparation.cpp
-    engine/function/scene/scene_load_preparation.hpp
+    engine/function/scene/scene_instances_instantiation.cpp
+    engine/function/scene/scene_preparation.cpp
+    engine/function/scene/scene_preparation.hpp
     engine/resource/scene/component_description.hpp
     engine/resource/scene/scene_description.hpp
     engine/function/scene/scene_subtree_snapshot.hpp

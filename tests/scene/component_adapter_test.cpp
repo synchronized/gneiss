@@ -6,7 +6,7 @@
 #include "engine/function/resource/asset_manager.hpp"
 #include "engine/function/scene/component_adapter.hpp"
 #include "engine/function/scene/scene_instances.hpp"
-#include "engine/function/scene/scene_load_preparation.hpp"
+#include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/component_identity.hpp"
 #include "engine/function/world/world_component_access.hpp"
 #include "engine/platform/files/file_service.hpp"
@@ -25,13 +25,13 @@ using namespace gneiss::test_support;
 struct unknown_description {
   inline static constexpr e::guid type_guid = e::guid::from_bytes({84, 2});
 };
-e::prepared_scene_description prepare(e::scene_description scene, e::prefab_asset_ref prefab = {}) {
+e::scene_instantiation_data prepare(e::scene_description scene, e::prefab_asset_ref prefab = {}) {
   e::scene_description_inputs input;
   input.scene = e::asset_ref<const e::scene_description>{
       std::make_shared<const e::scene_description>(std::move(scene))};
   if (prefab)
     input.prefabs.emplace("asset://test.prefab", std::move(prefab));
-  e::prepared_scene_description output;
+  e::scene_instantiation_data output;
   e::scene_diagnostic diagnostic;
   check(e::prepare_loaded_scene(input, {}, output, diagnostic, {}).ok());
   check(output.assets.empty());
@@ -95,7 +95,7 @@ int main() try {
   check(scenes.instantiate_prepared(std::move(prepared), {}, instance).ok());
   gneiss::scene_node_id node;
   check(scenes.find_node(instance, first.uuid, node).ok());
-  e::scene_node_view queried;
+  e::scene_node_info queried;
   check(scenes.get_node_info(instance, 0, queried).ok());
   check(queried.components.get<movement_description>() &&
         queried.components.get<movement_description>()->speed == 2);

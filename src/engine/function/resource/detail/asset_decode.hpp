@@ -4,8 +4,8 @@
 #pragma once
 
 #include "engine/core/result.hpp"
-#include "engine/function/resource/asset_load_types.hpp"
-#include "engine/function/resource/asset_types.hpp"
+#include "engine/function/resource/asset_loading.hpp"
+#include "engine/function/resource/render_resource.hpp"
 #include "engine/resource/material/material_description.hpp"
 #include "engine/resource/mesh/mesh_data.hpp"
 #include "engine/resource/texture/texture_data.hpp"
@@ -22,17 +22,17 @@ using decoded_content =
     std::variant<std::monostate, mesh_data, texture_data, asset_ref<const material_description>>;
 struct decoded_asset {
   std::string uri;
-  std::vector<asset_data_source> sources;
+  std::vector<asset_read_record> sources;
   decoded_content content;
   std::size_t bytes{};
-  [[nodiscard]] asset_type kind() const noexcept {
+  [[nodiscard]] render_resource_kind kind() const noexcept {
     if (std::holds_alternative<mesh_data>(content))
-      return asset_type::mesh;
+      return render_resource_kind::mesh;
     if (std::holds_alternative<texture_data>(content))
-      return asset_type::texture;
+      return render_resource_kind::texture;
     if (std::holds_alternative<asset_ref<const material_description>>(content))
-      return asset_type::material;
-    return asset_type::invalid;
+      return render_resource_kind::material;
+    return render_resource_kind::invalid;
   }
 };
 /** 纯内存网格解码；失败返回诊断，不读取文件或创建渲染资源。 */

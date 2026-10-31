@@ -70,7 +70,7 @@ domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
 当前 Loader 的混合请求仍返回缓存条目，`entry::as<T>()` 检查类型并取得同一对象的强引用。
 缓存清理同时检查条目租约和运行对象强引用，避免对象仍被使用时丢失 URI 身份。
 ECS、场景编辑绑定、UI 命令和上层帧快照使用类型化强引用。
-`acquire_mesh/material/texture` 返回对应引用；混合请求使用 `render_asset_ref`，在边界用 `asset_cast<T>` 转换。
+`acquire_mesh/material/texture` 返回对应引用；混合请求使用 `render_resource_ref`，在边界用 `asset_cast<T>` 转换。
 场景和 Prefab 的绑定记录仍用于作者编辑、预加载及失败恢复；不再额外采集全场景资源保活集合。
 资源 `source()` 保存来源域、URI 和资产类型；程序生成对象没有文件来源。
 Mesh/Texture 的 `metadata()` 在 CPU 内容采用后可读；未加载时为空，容器纹理未知的 Mip/格式字段也为空。

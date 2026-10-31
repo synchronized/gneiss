@@ -10,8 +10,9 @@
 #include <stdexcept>
 namespace gneiss::test_support {
 inline engine::task_scheduler& render_tasks() { return asset_tasks(); }
-inline engine::error load_render(engine::resource_service& loader, engine::asset_type type,
-                                 std::string_view uri, engine::render_asset_ref& output,
+inline engine::error load_render(engine::resource_service& loader,
+                                 engine::render_resource_kind type, std::string_view uri,
+                                 engine::render_resource_ref& output,
                                  engine::asset_diagnostic& diagnostic) {
   auto status = gneiss::test_support::take_value(loader.find({std::string(uri), type}), output);
   if (status != engine::error::not_found)
@@ -20,7 +21,7 @@ inline engine::error load_render(engine::resource_service& loader, engine::asset
   status = loader.configure_loading(tasks);
   if (status.failed())
     return status;
-  const engine::asset_source source{std::string(uri), type};
+  const engine::render_resource_source source{std::string(uri), type};
   runtime::resource_load_group group{loader};
   std::uint64_t request{};
   status = group.submit_assets(std::span(&source, 1), 1, 1, request, false);

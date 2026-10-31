@@ -161,11 +161,11 @@ struct adapter_registry {
              },
          .dependencies =
              [](const mesh_renderer_description& value) {
-               std::vector<asset_source> result;
+               std::vector<render_resource_source> result;
                if (!value.mesh_uri.empty())
-                 result.push_back({value.mesh_uri, asset_type::mesh});
+                 result.push_back({value.mesh_uri, render_resource_kind::mesh});
                if (!value.material_uri.empty())
-                 result.push_back({value.material_uri, asset_type::material});
+                 result.push_back({value.material_uri, render_resource_kind::material});
                return result;
              },
          .removable = true,
@@ -405,12 +405,12 @@ bool equal_components(const component_descriptions& a, const component_descripti
   }
   return true;
 }
-result<std::vector<asset_source>>
+result<std::vector<render_resource_source>>
 component_dependencies(const component_descriptions& values) noexcept try {
   auto status = validate_components(values);
   if (status.failed())
     return status;
-  std::vector<asset_source> result;
+  std::vector<render_resource_source> result;
   for (const auto& value : values) {
     auto next = find(value.guid())->dependencies(value);
     result.insert(result.end(), std::make_move_iterator(next.begin()),
@@ -497,7 +497,7 @@ result<mesh_renderer> resolve_component_renderer(const component_descriptions& v
 }
 mesh_renderer
 prepared_component_renderer(const component_descriptions& values,
-                            const std::function<render_asset_ref(std::string_view)>& lookup) {
+                            const std::function<render_resource_ref(std::string_view)>& lookup) {
   const auto* renderer = values.get<mesh_renderer_description>();
   return renderer
              ? mesh_renderer{renderer->mesh_uri.empty()

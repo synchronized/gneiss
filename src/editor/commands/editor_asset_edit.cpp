@@ -360,8 +360,8 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
     previous_ = {};
     return operation_ = gneiss::engine::error::invalid_state;
   }
-  std::vector<gneiss::engine::asset_source> missing;
-  const auto resolve = [&](std::string_view uri, gneiss::engine::asset_type type,
+  std::vector<gneiss::engine::render_resource_source> missing;
+  const auto resolve = [&](std::string_view uri, gneiss::engine::render_resource_kind type,
                            const auto& previous, auto& next) {
     if (uri.empty()) {
       next = {};
@@ -371,8 +371,8 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
       next = previous;
       return;
     }
-    gneiss::engine::asset_source source{.uri = std::string(uri), .type = type};
-    gneiss::engine::render_asset_ref entry;
+    gneiss::engine::render_resource_source source{.uri = std::string(uri), .type = type};
+    gneiss::engine::render_resource_ref entry;
     const auto ready = application.query_ready_asset(source, entry);
     using resource_type = std::remove_reference_t<decltype(*next)>;
     next = gneiss::engine::asset_cast<std::remove_const_t<resource_type>>(entry);
@@ -382,8 +382,9 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
       operation_ = ready;
     }
   };
-  resolve(mesh_, gneiss::engine::asset_type::mesh, previous_.mesh, next_.mesh);
-  resolve(material_, gneiss::engine::asset_type::material, previous_.material, next_.material);
+  resolve(mesh_, gneiss::engine::render_resource_kind::mesh, previous_.mesh, next_.mesh);
+  resolve(material_, gneiss::engine::render_resource_kind::material, previous_.material,
+          next_.material);
   if (operation_.failed()) {
     previous_ = {};
     next_ = {};
@@ -450,11 +451,11 @@ void editor_asset_edit::advance(runtime::application& application, scene_documen
   if (operation_.ok()) {
     for (const auto& lease : completion.assets) {
       if (!next_.mesh && gneiss::engine::asset_uri(lease) == mesh_ &&
-          gneiss::engine::asset_kind(lease) == gneiss::engine::asset_type::mesh) {
+          gneiss::engine::asset_kind(lease) == gneiss::engine::render_resource_kind::mesh) {
         next_.mesh = gneiss::engine::asset_cast<gneiss::engine::mesh_resource>(lease);
       }
       if (!next_.material && gneiss::engine::asset_uri(lease) == material_ &&
-          gneiss::engine::asset_kind(lease) == gneiss::engine::asset_type::material) {
+          gneiss::engine::asset_kind(lease) == gneiss::engine::render_resource_kind::material) {
         next_.material = gneiss::engine::asset_cast<gneiss::engine::material_resource>(lease);
       }
     }

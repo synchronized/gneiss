@@ -21,7 +21,7 @@ foreach(source IN LISTS sources)
   endif()
 
   if(content MATCHES "engine/function/resource/detail/" AND
-      NOT source MATCHES "/src/engine/function/resource/(detail/|resource_(service|loading)[.]cpp$|asset_manager[.]cpp$)")
+      NOT source MATCHES "/src/engine/function/resource/(detail/|resource_service(_loading)?[.]cpp$|asset_manager[.]cpp$)")
     message(FATAL_ERROR "资产加载私有实现不得泄漏到普通调用方：${source}")
   endif()
 
@@ -103,7 +103,7 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "输入服务不得依赖资源管理器、文件后端或 CAORS：${source}")
   endif()
 
-  if(source MATCHES "/src/engine/function/(scene/(scene_tree|scene_query|scene_creation|scene_instances|prefab_binding|scene_instantiation)|world/(render_snapshot|world|world_types))[.](hpp|cpp)$" AND
+  if(source MATCHES "/src/engine/function/(scene/(scene_tree|scene_query|scene_creation|scene_instances|prefab_binding|scene_instances_instantiation)|world/(render_snapshot|world|world_types))[.](hpp|cpp)$" AND
       content MATCHES "gneiss_transform|GNEISS_TRANSFORM_IDENTITY")
     message(FATAL_ERROR "原生场景树与快照不得使用 C TRS 布局：${source}")
   endif()

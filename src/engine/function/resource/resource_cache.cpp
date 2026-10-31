@@ -18,7 +18,7 @@ result<asset_ref<const resource_cache::entry>>
 resource_cache::load(std::string_view uri, type_id type, const loader& decode,
                      std::shared_ptr<const files::source_domain> source, bool reload,
                      std::size_t source_bytes, std::string parameters,
-                     asset_data_metrics metrics) noexcept {
+                     asset_load_metrics metrics) noexcept {
   using engine::error;
   if (type == engine::runtime_type_of<void>() || !decode || validate_uri(uri) != error::success)
     return error::invalid_argument;
