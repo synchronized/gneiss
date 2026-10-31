@@ -341,7 +341,7 @@ void prefab_edits(engine::execution_mode mode) {
         "asset://a.json");
   // 来源刷新快照必须持有覆盖资源，撤销/重做不依赖文件或弱缓存。
   std::shared_ptr<const e::scene_subtree_snapshot> frozen;
-  e::prepared_prefab_description prepared;
+  e::prefab_instantiation_data prepared;
   prepared.resource = captured_source;
   check(runtime::prefab_placement::freeze(*app, prepared, captured_author, {}, frozen).ok());
   check(frozen->resources.at(uuid(5)).source_nodes[1].material == changed.material);

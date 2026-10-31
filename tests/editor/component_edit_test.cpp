@@ -202,7 +202,7 @@ int main() try {
   malformed.replace(array_start, array_end - array_start + 1, R"([{"index":-1}])");
   auto rejected = e::decode_scene(std::as_bytes(std::span{malformed.data(), malformed.size()}));
   check(!rejected && rejected.error().path.find("/path") != std::string::npos);
-  e::scene_description_inputs inputs;
+  e::scene_preparation_inputs inputs;
   inputs.scene = e::asset_ref<const e::scene_description>{
       std::make_shared<const e::scene_description>(snapshot())};
   inputs.prefabs.emplace(reference.prefab->uri, e::prefab_asset_ref{prefab});

@@ -80,7 +80,7 @@ int main() try {
   check(encoded.has_value());
   auto decoded = e::decode_scene(*encoded);
   check(decoded.has_value());
-  e::scene_description_inputs inputs;
+  e::scene_preparation_inputs inputs;
   inputs.scene = e::asset_ref<const e::scene_description>{
       std::make_shared<const e::scene_description>(std::move(*decoded))};
   e::scene_instantiation_data prepared;

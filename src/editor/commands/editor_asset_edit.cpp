@@ -277,19 +277,17 @@ engine::error editor_asset_edit::request_restore_source(runtime::application& ap
     return engine::error::not_ready;
   if (!target.instance_uuid || !document.uri().starts_with("asset://"))
     return engine::error::invalid_argument;
-  std::string json;
   auto status_value = app.scenes()->serialize(document.scene_handle());
   if (!status_value)
     return status_value.error();
-  json = std::move(*status_value);
-  auto status = gneiss::engine::error::success;
+  const auto& json = *status_value;
   auto changes =
       prepare_restore_prefab_component(json, document.uri().substr(8), target.instance_uuid,
                                        target.source_uuid, target.component_type);
   if (!changes)
     return changes.error();
   restore_ = std::make_shared<scene_document_edit>();
-  status = restore_->begin(app, document, *changes, "恢复来源组件");
+  auto status = restore_->begin(app, document, *changes, "恢复来源组件");
   if (status.failed()) {
     restore_.reset();
     return status;

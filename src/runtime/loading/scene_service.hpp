@@ -84,7 +84,7 @@ private:
     std::string uri;
     bool prefab{};
     std::unique_ptr<engine::scene_description_request> descriptions;
-    engine::scene_description_inputs inputs;
+    engine::scene_preparation_inputs inputs;
     engine::scene_instantiation_data prepared;
     std::vector<engine::render_resource_ref> retained;
     std::size_t cursor{};

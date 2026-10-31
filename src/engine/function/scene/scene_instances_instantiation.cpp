@@ -13,7 +13,7 @@
 namespace gneiss::engine {
 result<scene_instance_id>
 scene_instances::instantiate_prepared(scene_instantiation_data prepared,
-                                      const asset_bindings& assets) noexcept {
+                                      const resource_bindings& assets) noexcept {
   if (!is_valid()) {
     return engine::error::invalid_argument;
   }
@@ -96,43 +96,31 @@ result<scene_capture> scene_instances::capture_prepared(scene_instance_id instan
   const auto* value = instances_.get(instance, resource_type::scene_instance);
   if (!value || !*value)
     return error::invalid_handle;
-  auto scene = std::make_shared<scene_description>();
-  auto status = (*value)->capture_description(*scene);
-  if (status.failed())
-    return status;
-  scene_description_inputs inputs;
+  auto captured = (*value)->capture_description();
+  if (!captured)
+    return captured.error();
+  auto scene = std::make_shared<scene_description>(std::move(*captured));
+  scene_preparation_inputs inputs;
   inputs.scene = asset_ref<const scene_description>{scene};
   for (const auto& prefab : scene->objects) {
     if (!prefab.prefab)
       continue;
-    object_description author;
-    prefab_asset_ref source;
-    status = (*value)->capture_prefab_instance_header(prefab.uuid, author, source);
-    if (status.failed())
-      return status;
-    inputs.prefabs.insert_or_assign(prefab.prefab->uri, std::move(source));
+    auto header = (*value)->capture_prefab_instance_header(prefab.uuid);
+    if (!header)
+      return header.error();
+    inputs.prefabs.insert_or_assign(prefab.prefab->uri, std::move(header->source));
   }
   scene_instantiation_data prepared;
   scene_diagnostic diagnostic;
-  status = prepare_loaded_scene(inputs, {}, prepared, diagnostic, {});
+  auto status = prepare_loaded_scene(inputs, {}, prepared, diagnostic, {});
   if (status.failed())
     return status;
-  asset_bindings bindings;
+  resource_bindings bindings;
   for (const auto& source : prepared.assets) {
-    render_resource_ref resource;
-    status = engine::error::success;
-    {
-      auto loaded = loader_.find(source);
-      if (loaded)
-        resource = std::move(*loaded);
-      else {
-        resource = {};
-        status = loaded.error();
-      }
-    };
-    if (status.failed())
-      return status;
-    bindings.emplace(source.uri, std::move(resource));
+    auto loaded = loader_.find(source);
+    if (!loaded)
+      return loaded.error();
+    bindings.emplace(source.uri, std::move(*loaded));
   }
   return scene_capture{std::move(prepared), std::move(bindings)};
 } catch (const std::bad_alloc&) {

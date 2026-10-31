@@ -12,7 +12,7 @@ namespace gneiss::editor {
 struct scene_document_snapshot {
   std::string uri;
   engine::scene_instantiation_data description;
-  engine::scene_instances::asset_bindings assets;
+  engine::scene_instances::resource_bindings assets;
 };
 [[nodiscard]] engine::error capture_scene_document(runtime::application&, const scene_document&,
                                                    scene_document_snapshot&) noexcept;

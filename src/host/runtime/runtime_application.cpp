@@ -403,13 +403,11 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
     context.next_statistics_ns = time->elapsed_ns + UINT64_C(250000000);
     std::uint64_t scene_node_count = 0U;
     std::uint64_t entity_count = 0U;
-    auto operation = [&]() -> gneiss::engine::error {
-      auto scene_result = context.application->scenes()->get_node_count(context.scene);
-      if (!scene_result)
-        return scene_result.error();
-      scene_node_count = std::move(*scene_result);
-      return gneiss::engine::error::success;
-    }();
+    auto scenes_result = context.application->scenes()->get_node_count(context.scene);
+    auto operation = scenes_result ? gneiss::engine::error::success : scenes_result.error();
+    if (scenes_result) {
+      scene_node_count = std::move(*scenes_result);
+    }
     if (operation == gneiss::engine::error::success) {
       auto count = context.application->native_world()->entity_count();
       if (!count)

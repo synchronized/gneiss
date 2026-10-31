@@ -8,7 +8,7 @@
 namespace gneiss::runtime {
 struct prefab_preparation::state {
   std::unique_ptr<gneiss::engine::scene_description_request> request;
-  gneiss::engine::scene_description_inputs inputs;
+  gneiss::engine::scene_preparation_inputs inputs;
   std::string uri;
   bool submitted{};
   gneiss::engine::scene_instantiation_data prepared;

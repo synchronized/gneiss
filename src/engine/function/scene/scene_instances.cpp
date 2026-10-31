@@ -28,11 +28,7 @@ result<prefab_header_snapshot> scene_instances::capture_prefab_header(scene_inst
   auto* slot = instances_.get(instance, resource_type::scene_instance);
   if (!slot || !*slot)
     return error::invalid_handle;
-  prefab_header_snapshot output{};
-  const auto status = (*slot)->capture_prefab_instance_header(uuid, output.author, output.source);
-  if (status.failed())
-    return status;
-  return output;
+  return (*slot)->capture_prefab_instance_header(uuid);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -48,11 +44,7 @@ result<scene_mesh_binding> scene_instances::capture_prefab_binding(scene_instanc
   auto* slot = instances_.get(instance, resource_type::scene_instance);
   if (!slot || !*slot)
     return error::invalid_handle;
-  scene_mesh_binding output{};
-  const auto status = (*slot)->capture_prefab_instance_binding(uuid, index, output);
-  if (status.failed())
-    return status;
-  return output;
+  return (*slot)->capture_prefab_instance_binding(uuid, index);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -67,12 +59,7 @@ result<scene_node_id> scene_instances::instantiate_prefab_ready(
   auto* slot = instances_.get(instance, resource_type::scene_instance);
   if (!slot || !*slot)
     return error::invalid_handle;
-  scene_node_id output{};
-  const auto status =
-      (*slot)->instantiate_prefab_ready(author, std::move(prefab), bindings, replacing, output);
-  if (status.failed())
-    return status;
-  return output;
+  return (*slot)->instantiate_prefab_ready(author, std::move(prefab), bindings, replacing);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -144,11 +131,7 @@ scene_instances::capture_description(scene_instance_id instance) const noexcept 
   auto* slot = instances_.get(instance, resource_type::scene_instance);
   if (!slot || !*slot)
     return error::invalid_handle;
-  scene_description output{};
-  const auto status = (*slot)->capture_description(output);
-  if (status.failed())
-    return status;
-  return output;
+  return (*slot)->capture_description();
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -161,11 +144,7 @@ result<std::string> scene_instances::serialize(scene_instance_id instance) const
   auto* slot = instances_.get(instance, resource_type::scene_instance);
   if (!slot || !*slot)
     return error::invalid_handle;
-  std::string output{};
-  const auto status = (*slot)->serialize(output);
-  if (status.failed())
-    return status;
-  return output;
+  return (*slot)->serialize();
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -232,11 +211,7 @@ result<scene_node_info> scene_instances::get_node_info(scene_instance_id instanc
   auto* slot = instances_.get(instance, resource_type::scene_instance);
   if (!slot || !*slot)
     return error::invalid_handle;
-  scene_node_info output{};
-  const auto status = (*slot)->get_node_info(index, output, detail);
-  if (status.failed())
-    return status;
-  return output;
+  return (*slot)->get_node_info(index, detail);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -250,11 +225,7 @@ result<scene_node_id> scene_instances::create_node(scene_instance_id instance,
   auto* slot = instances_.get(instance, resource_type::scene_instance);
   if (!slot || !*slot)
     return error::invalid_handle;
-  scene_node_id output{};
-  const auto status = (*slot)->create_node(desc, &output);
-  if (status.failed())
-    return status;
-  return output;
+  return (*slot)->create_node(desc);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -294,11 +265,7 @@ result<scene_subtree_snapshot> scene_instances::capture_subtree(scene_instance_i
   auto* slot = instances_.get(instance, resource_type::scene_instance);
   if (!slot || !*slot)
     return error::invalid_handle;
-  scene_subtree_snapshot output{};
-  const auto status = (*slot)->capture_subtree(root, output);
-  if (status.failed())
-    return status;
-  return output;
+  return (*slot)->capture_subtree(root);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -314,11 +281,7 @@ scene_instances::restore_subtree(scene_instance_id instance, const scene_subtree
   auto* slot = instances_.get(instance, resource_type::scene_instance);
   if (!slot || !*slot)
     return error::invalid_handle;
-  scene_node_id output{};
-  const auto status = (*slot)->restore_subtree(snapshot, parent, mappings, &output);
-  if (status.failed())
-    return status;
-  return output;
+  return (*slot)->restore_subtree(snapshot, parent, mappings);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -345,11 +308,7 @@ scene_instances::create_mesh_renderer_node(scene_instance_id instance,
   auto* slot = instances_.get(instance, resource_type::scene_instance);
   if (!slot || !*slot)
     return error::invalid_handle;
-  scene_node_id output{};
-  const auto status = (*slot)->create_mesh_renderer_node(desc, &output);
-  if (status.failed())
-    return status;
-  return output;
+  return (*slot)->create_mesh_renderer_node(desc);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -365,11 +324,7 @@ scene_instances::create_mesh_renderer_node_ready(scene_instance_id instance,
   auto* slot = instances_.get(instance, resource_type::scene_instance);
   if (!slot || !*slot)
     return error::invalid_handle;
-  scene_node_id output{};
-  const auto status = (*slot)->create_mesh_renderer_node(desc, &output, &prepared);
-  if (status.failed())
-    return status;
-  return output;
+  return (*slot)->create_mesh_renderer_node(desc, &prepared);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
@@ -384,11 +339,7 @@ result<scene_mesh_binding> scene_instances::capture_mesh_binding(scene_instance_
   auto* slot = instances_.get(instance, resource_type::scene_instance);
   if (!slot || !*slot)
     return error::invalid_handle;
-  scene_mesh_binding output{};
-  const auto status = (*slot)->capture_mesh_binding(node, output);
-  if (status.failed())
-    return status;
-  return output;
+  return (*slot)->capture_mesh_binding(node);
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {

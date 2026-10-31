@@ -27,7 +27,7 @@ double elapsed(clock_type::time_point start) {
 struct scene_service::load_task {
   struct cpu_result {
     gneiss::engine::scene_instantiation_data description;
-    gneiss::engine::scene_description_inputs inputs;
+    gneiss::engine::scene_preparation_inputs inputs;
     gneiss::engine::scene_diagnostic diagnostic;
     gneiss::engine::error result{gneiss::engine::error::internal};
   };
@@ -36,7 +36,7 @@ struct scene_service::load_task {
   std::unique_ptr<gneiss::engine::scene_description_request> description_request;
   scene_load_completion result;
   std::unique_ptr<scene_domain> candidate;
-  gneiss::engine::scene_instances::asset_bindings bindings;
+  gneiss::engine::scene_instances::resource_bindings bindings;
   std::vector<gneiss::engine::render_resource_source> requested;
   std::size_t cursor{};
   bool preparing{true};
@@ -235,20 +235,15 @@ void scene_service::instantiate_loaded(load_task& value) {
   progress.phase = scene_load_phase::instantiating;
   progress.completed = 0U;
   progress.total = value.cpu->description.instance_nodes;
-  gneiss::scene_instance_id instance{};
   const auto built = gneiss::engine::measure(gneiss::engine::loop_stage::scene_build, [&] {
-    auto scene_result = value.candidate->scenes()->instantiate_prepared(
-        std::move(value.cpu->description), value.bindings);
-    if (!scene_result)
-      return scene_result.error();
-    instance = std::move(*scene_result);
-    return gneiss::engine::error::success;
+    return value.candidate->scenes()->instantiate_prepared(std::move(value.cpu->description),
+                                                           value.bindings);
   });
-  if (built != gneiss::engine::error::success) {
-    finish(built, scene_load_phase::failed);
+  if (!built) {
+    finish(built.error(), scene_load_phase::failed);
     return;
   }
-  value.result.scene = instance;
+  value.result.scene = *built;
   progress.completed = progress.total;
   progress.phase = scene_load_phase::ready;
 }

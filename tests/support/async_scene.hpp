@@ -15,7 +15,7 @@ prepare_scene_for_test(engine::asset_manager& assets, engine::task_scheduler& ex
   output = {};
   diagnostic = {};
   engine::scene_description_request request(assets, std::string(uri), prefab, limits);
-  engine::scene_description_inputs inputs;
+  engine::scene_preparation_inputs inputs;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   for (;;) {
     if (cancelled && cancelled())

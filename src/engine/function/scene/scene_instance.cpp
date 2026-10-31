@@ -171,10 +171,10 @@ scene_node_id scene_instance::find_node(gneiss::engine::guid uuid) const noexcep
 }
 
 engine::error scene_instance::reload(scene_description candidate) {
-  scene_description current;
-  auto captured = capture_description(current);
-  if (captured.failed())
-    return captured;
+  auto captured = capture_description();
+  if (!captured)
+    return captured.error();
+  const auto& current = *captured;
   if (candidate.uuid != current.uuid || !equal_prefab_references(current, candidate)) {
     return engine::error::invalid_argument;
   }
@@ -410,8 +410,8 @@ engine::error scene_instance::reload_prefab(std::string_view uri, prefab_asset_r
   return engine::error::success;
 }
 
-engine::error scene_instance::get_node_info(std::uint64_t index, scene_node_info& out_info,
-                                            node_query_detail detail) const {
+result<scene_node_info> scene_instance::get_node_info(std::uint64_t index,
+                                                      node_query_detail detail) const {
   if (index >= objects_.size()) {
     return engine::error::not_found;
   }
@@ -428,7 +428,7 @@ engine::error scene_instance::get_node_info(std::uint64_t index, scene_node_info
   if (result != engine::error::success) {
     return result;
   }
-  out_info = {};
+  scene_node_info out_info{};
   out_info.node = scene_node_id{object.node};
   out_info.parent = scene_node_id{parent};
   out_info.entity = entity_id{entity};
@@ -446,7 +446,7 @@ engine::error scene_instance::get_node_info(std::uint64_t index, scene_node_info
     if (result.failed())
       return result;
   }
-  return engine::error::success;
+  return out_info;
 }
 
 std::optional<prefab_origin_view> scene_instance::prefab_origin(scene_node_id node) const {
@@ -523,7 +523,7 @@ engine::error scene_instance::set_prefab_source_transform(scene_node_id node,
   return engine::error::invalid_handle;
 }
 
-engine::error scene_instance::create_node(const node_creation& desc, scene_node_id* out_node) {
+result<scene_node_id> scene_instance::create_node(const node_creation& desc) {
   const auto uuid = desc.uuid;
   const auto name = desc.name;
   if (!uuid || find_node(uuid) != null_scene_node_id) {
@@ -556,9 +556,8 @@ engine::error scene_instance::create_node(const node_creation& desc, scene_node_
       }
       return result;
     }
-    *out_node = target.node;
     objects_.push_back({target.node});
-    return engine::error::success;
+    return target.node;
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
   } catch (...) {
@@ -591,8 +590,7 @@ engine::error scene_instance::reparent_node(scene_node_id node, scene_node_id pa
   return native_world_.node_reparent(node, parent);
 }
 
-engine::error scene_instance::capture_subtree(scene_node_id root,
-                                              scene_subtree_snapshot& output) const {
+result<scene_subtree_snapshot> scene_instance::capture_subtree(scene_node_id root) const {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
   if (!std::ranges::any_of(objects_, [root](const auto& member) {
@@ -600,9 +598,10 @@ engine::error scene_instance::capture_subtree(scene_node_id root,
       }))
     return error::invalid_handle;
   scene_subtree_snapshot snapshot;
-  auto status = capture_description(snapshot.description);
-  if (status.failed())
-    return status;
+  auto description = capture_description();
+  if (!description)
+    return description.error();
+  snapshot.description = std::move(*description);
   snapshot.root_uuid = scene_object_identity(native_world_, root).uuid;
   const auto root_description = std::ranges::find(snapshot.description.objects, snapshot.root_uuid,
                                                   &object_description::uuid);
@@ -634,9 +633,10 @@ engine::error scene_instance::capture_subtree(scene_node_id root,
       resources.prefab = (*binding)->prefab_lease();
       resources.source_nodes.resize((*binding)->node_count());
       for (std::size_t i = 0; i < resources.source_nodes.size(); ++i) {
-        status = capture_prefab_instance_binding(author.uuid, i, resources.source_nodes[i]);
-        if (status.failed())
-          return status;
+        auto binding = capture_prefab_instance_binding(author.uuid, i);
+        if (!binding)
+          return binding.error();
+        resources.source_nodes[i] = std::move(*binding);
       }
     } else if (author.components.template get<mesh_renderer_description>()) {
       const auto renderer = native_world_.node_mesh_renderer(find_node(author.uuid));
@@ -645,15 +645,12 @@ engine::error scene_instance::capture_subtree(scene_node_id root,
       snapshot.resources[author.uuid].renderer = {renderer->mesh, renderer->material};
     }
   }
-  output = std::move(snapshot);
-  return error::success;
+  return snapshot;
 }
 
-engine::error scene_instance::restore_subtree(const scene_subtree_snapshot& snapshot,
-                                              scene_node_id parent,
-                                              std::span<const uuid_mapping> mappings,
-                                              scene_node_id* output) {
-  *output = {};
+result<scene_node_id> scene_instance::restore_subtree(const scene_subtree_snapshot& snapshot,
+                                                      scene_node_id parent,
+                                                      std::span<const uuid_mapping> mappings) {
   if (!native_world_.is_owner_thread())
     return error::invalid_state;
   if (parent && find_authored_node(parent) == objects_.end())
@@ -711,9 +708,11 @@ engine::error scene_instance::restore_subtree(const scene_subtree_snapshot& snap
     if (author.prefab) {
       if (asset == snapshot.resources.end() || !asset->second.prefab)
         return error::not_found;
-      scene_node_id created;
-      status = staged.instantiate_prefab_ready(author, asset->second.prefab,
-                                               asset->second.source_nodes, false, created);
+      auto created = staged.instantiate_prefab_ready(author, asset->second.prefab,
+                                                     asset->second.source_nodes, false);
+      if (!created)
+        return created.error();
+      status = error::success;
     } else {
       scene_mesh_binding resources;
       if (author.components.template get<mesh_renderer_description>()) {
@@ -754,8 +753,7 @@ engine::error scene_instance::restore_subtree(const scene_subtree_snapshot& snap
   staged.objects_.clear();
   staged.prefab_instances_.clear();
   camera.committed = true;
-  *output = created_root;
-  return error::success;
+  return created_root;
 }
 
 engine::error scene_instance::destroy_subtree(scene_node_id root) {
@@ -801,9 +799,9 @@ engine::error scene_instance::destroy_subtree(scene_node_id root) {
   }
 }
 
-engine::error scene_instance::create_mesh_renderer_node(const mesh_renderer_node_creation& desc,
-                                                        scene_node_id* out_node,
-                                                        const scene_mesh_binding* prepared) {
+result<scene_node_id>
+scene_instance::create_mesh_renderer_node(const mesh_renderer_node_creation& desc,
+                                          const scene_mesh_binding* prepared) {
   if (prepared &&
       (engine::resource_kind(prepared->mesh) != engine::render_resource_kind::mesh ||
        engine::resource_kind(prepared->material) != engine::render_resource_kind::material ||
@@ -878,9 +876,8 @@ engine::error scene_instance::create_mesh_renderer_node(const mesh_renderer_node
       }
       return result;
     }
-    *out_node = target.node;
     objects_.push_back({target.node});
-    return engine::error::success;
+    return target.node;
   } catch (const std::bad_alloc&) {
     return engine::error::out_of_memory;
   } catch (...) {
@@ -1051,7 +1048,7 @@ engine::error scene_instance::destroy_node(scene_node_id node) {
   return destroy_subtree(node);
 }
 
-engine::error scene_instance::capture_description(scene_description& output) const {
+result<scene_description> scene_instance::capture_description() const {
   scene_description current;
   current.uuid = uuid_;
   current.objects.reserve(objects_.size());
@@ -1081,21 +1078,14 @@ engine::error scene_instance::capture_description(scene_description& output) con
       captured->prefab = (*prefab)->reference_;
     current.objects.push_back(std::move(*captured));
   }
-  output = std::move(current);
-  return error::success;
+  return current;
 }
 
-engine::error scene_instance::serialize(std::string& out_json) const {
-  scene_description current;
-  const auto status = capture_description(current);
-  if (status.failed())
-    return status;
-  auto decoded_result = serialize_scene_description(current);
-  if (!decoded_result) {
-    return decoded_result.error();
-  }
-  out_json = std::move(*decoded_result);
-  return gneiss::engine::error::success;
+result<std::string> scene_instance::serialize() const {
+  auto current = capture_description();
+  if (!current)
+    return current.error();
+  return serialize_scene_description(*current);
 }
 
 } // namespace gneiss::engine

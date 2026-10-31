@@ -34,7 +34,7 @@ engine::error prepare_scene_document(const scene_document_snapshot& before,
     missing->clear();
   std::vector<engine::render_resource_source> pending;
   auto scene = std::make_shared<engine::scene_description>(before.description.description);
-  engine::scene_description_inputs inputs;
+  engine::scene_preparation_inputs inputs;
   for (const auto& [uri, prefab] : before.description.prefabs)
     inputs.prefabs.emplace(uri, prefab.resource);
   const auto decode = [&](const std::string& json, auto& output) {
@@ -142,15 +142,12 @@ engine::error scene_document_edit::begin(runtime::application& app, scene_docume
   if (status.failed())
     return finish(status);
   scene_ = document.scene_handle();
-  status = [&]() -> gneiss::engine::error {
-    auto scene_result = app.scenes()->serialize(scene_);
-    if (!scene_result)
-      return scene_result.error();
-    baseline_ = std::move(*scene_result);
-    return gneiss::engine::error::success;
-  }();
-  if (status.failed())
-    return finish(status);
+  auto serialize_result = app.scenes()->serialize(scene_);
+  if (!serialize_result)
+    return finish(serialize_result.error());
+
+  baseline_ = std::move(*serialize_result);
+
   for (const auto& asset : missing_) {
     auto request = app.resources().load(asset);
     if (!request)
@@ -176,16 +173,13 @@ engine::error scene_document_edit::advance(runtime::application& app, scene_docu
   if (&app != application_ || &document != document_ || !app.is_owner_thread() ||
       !app.accepts_requests() || !document.is_open() || document.scene_handle() != scene_)
     return finish(error::invalid_state);
-  std::string current;
-  auto status = [&]() -> gneiss::engine::error {
-    auto scene_result = app.scenes()->serialize(scene_);
-    if (!scene_result)
-      return scene_result.error();
-    current = std::move(*scene_result);
-    return gneiss::engine::error::success;
-  }();
-  if (status.failed())
-    return finish(status);
+  auto serialize_result = app.scenes()->serialize(scene_);
+  if (!serialize_result)
+    return finish(serialize_result.error());
+
+  const auto& current = *serialize_result;
+
+  auto status = gneiss::engine::error::success;
   if (current != baseline_ || history.is_pending())
     return finish(error::invalid_state);
   bool waiting = false;

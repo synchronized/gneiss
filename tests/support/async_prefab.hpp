@@ -12,7 +12,7 @@ inline engine::error instantiate_prefab(runtime::application& app, scene_instanc
                                         engine::task_scheduler* tasks = nullptr) {
   root = {};
   engine::scene_instantiation_data prepared;
-  engine::scene_instances::asset_bindings assets;
+  engine::scene_instances::resource_bindings assets;
   auto status = prepare_scene(app, author.prefab->uri, prepared, assets, tasks, true);
   if (status.failed())
     return status;

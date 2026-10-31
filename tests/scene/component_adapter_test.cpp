@@ -27,7 +27,7 @@ struct unknown_description {
   inline static constexpr e::guid type_guid = e::guid::from_bytes({84, 2});
 };
 e::scene_instantiation_data prepare(e::scene_description scene, e::prefab_asset_ref prefab = {}) {
-  e::scene_description_inputs input;
+  e::scene_preparation_inputs input;
   input.scene = e::asset_ref<const e::scene_description>{
       std::make_shared<const e::scene_description>(std::move(scene))};
   if (prefab)

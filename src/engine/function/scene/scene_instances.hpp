@@ -51,11 +51,11 @@ struct prefab_header_snapshot {
 /** 单个 World 的实例集合，拥有实例与 RID 表；不负责后台加载或活动域切换。 */
 class GNEISS_API scene_instances final {
 public:
-  using asset_bindings = std::map<std::string, render_resource_ref, std::less<>>;
+  using resource_bindings = std::map<std::string, render_resource_ref, std::less<>>;
   /** 所属线程同步创建整个实例；只消费已准备描述和资源引用，不读取文件。
    * 失败回收已创建节点；调用期间不支持暂停或取消。 */
   [[nodiscard]] result<scene_instance_id>
-  instantiate_prepared(scene_instantiation_data prepared, const asset_bindings& assets) noexcept;
+  instantiate_prepared(scene_instantiation_data prepared, const resource_bindings& assets) noexcept;
   /** 捕获纯内存描述和已加载资源强引用；不读文件，资源尚未准备时返回失败。 */
   [[nodiscard]] result<scene_capture> capture_prepared(scene_instance_id instance) const noexcept;
   /** 同步实例化；替换先移除旧实例，失败只清理本次新建节点，不恢复旧实例。 */

@@ -195,7 +195,7 @@ void run() {
   check(test_support::prepare_scene_for_test(active_assets, executor, false, "asset://s.scene",
                                              initial, initial_error, {})
             .ok());
-  engine::scene_instances::asset_bindings initial_bindings;
+  engine::scene_instances::resource_bindings initial_bindings;
   for (const auto& request : initial.assets) {
     engine::render_resource_ref reference;
     engine::asset_diagnostic error;
@@ -241,7 +241,7 @@ void run() {
   check(gneiss::test_support::prepare_render_for_test(candidate_assets, vfs, requests, batch,
                                                       diagnostic,
                                                       {}) == gneiss::engine::error::success);
-  gneiss::engine::scene_instances::asset_bindings bindings;
+  gneiss::engine::scene_instances::resource_bindings bindings;
   for (auto& asset : batch.assets) {
     gneiss::engine::render_resource_ref target;
     check(gneiss::test_support::adopt_render_for_test(candidate_render, std::move(asset), target)

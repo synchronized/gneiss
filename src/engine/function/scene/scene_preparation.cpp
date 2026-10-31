@@ -32,7 +32,7 @@ engine::error order_nodes(const std::vector<object_description>& objects,
 
 class preparation final {
 public:
-  const scene_description_inputs& inputs;
+  const scene_preparation_inputs& inputs;
   scene_diagnostic* diagnostic{};
   const std::function<bool()>& cancelled;
   scene_prepare_limits limits;
@@ -68,7 +68,7 @@ public:
       const auto input = inputs.prefabs.find(instance.prefab->uri);
       if (input == inputs.prefabs.end() || !input->second)
         return error::not_found;
-      prepared_prefab_description prefab;
+      prefab_instantiation_data prefab;
       prefab.resource = input->second;
       if (result == engine::error::success && prefab.resource->objects.size() > limits.nodes) {
         return engine::error::invalid_argument;
@@ -155,7 +155,7 @@ public:
 
 } // namespace
 
-error prepare_loaded_scene(const scene_description_inputs& inputs, std::string_view prefab_uri,
+error prepare_loaded_scene(const scene_preparation_inputs& inputs, std::string_view prefab_uri,
                            scene_instantiation_data& output, scene_diagnostic& diagnostic,
                            const std::function<bool()>& cancelled,
                            scene_prepare_limits limits) noexcept try {
@@ -203,7 +203,7 @@ struct scene_description_request::state {
   scene_prepare_limits limits;
   asset_request<scene_description> scene;
   asset_request<prefab_description> current;
-  scene_description_inputs inputs;
+  scene_preparation_inputs inputs;
   std::vector<std::string> uris;
   std::size_t cursor{}, bytes{};
 };
@@ -218,7 +218,7 @@ scene_description_request::scene_description_request(asset_manager& assets, std:
                                            .inputs = {},
                                            .uris = {}})) {}
 scene_description_request::~scene_description_request() = default;
-error scene_description_request::advance(scene_description_inputs& output,
+error scene_description_request::advance(scene_preparation_inputs& output,
                                          scene_diagnostic& diagnostic) {
   auto& s = *state_;
   const auto fail = [&](error status) {

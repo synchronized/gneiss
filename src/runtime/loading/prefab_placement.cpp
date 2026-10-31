@@ -21,23 +21,13 @@ prefab_placement::capture(runtime::application& application, gneiss::engine::gui
   if (validation != gneiss::engine::error::success) {
     return validation;
   }
-  scene_node_id root;
-  auto status_value = host->scenes()->find_node(scene, uuid);
-  if (!status_value)
-    return status_value.error();
-  root = std::move(*status_value);
-  auto status = gneiss::engine::error::success;
-  auto candidate = std::make_shared<engine::scene_subtree_snapshot>();
-  status = [&]() -> gneiss::engine::error {
-    auto scene_result = host->scenes()->capture_subtree(scene, root);
-    if (!scene_result)
-      return scene_result.error();
-    *candidate = std::move(*scene_result);
-    return gneiss::engine::error::success;
-  }();
-  if (status.failed())
-    return status;
-  snapshot = std::move(candidate);
+  auto root = application.scenes()->find_node(scene, uuid);
+  if (!root)
+    return root.error();
+  auto captured = application.scenes()->capture_subtree(scene, *root);
+  if (!captured)
+    return captured.error();
+  snapshot = std::make_shared<engine::scene_subtree_snapshot>(std::move(*captured));
   return engine::error::success;
 } catch (const std::bad_alloc&) {
   return gneiss::engine::error::out_of_memory;
@@ -46,7 +36,7 @@ prefab_placement::capture(runtime::application& application, gneiss::engine::gui
 }
 
 gneiss::engine::error prefab_placement::freeze(
-    runtime::application& application, gneiss::engine::prepared_prefab_description prepared,
+    runtime::application& application, gneiss::engine::prefab_instantiation_data prepared,
     gneiss::engine::object_description author,
     std::vector<gneiss::engine::render_resource_ref> assets,
     std::shared_ptr<const engine::scene_subtree_snapshot>& output) noexcept try {
@@ -130,22 +120,13 @@ gneiss::engine::error prefab_placement::apply(application& app, scene_instance_i
   if (removing) {
     if (replacing)
       return error::invalid_argument;
-    scene_node_id root;
-    auto status_value = app.scenes()->find_node(scene, snapshot.root_uuid);
-    if (!status_value)
-      return status_value.error();
-    root = std::move(*status_value);
-    auto status = gneiss::engine::error::success;
-    scene_subtree_snapshot current;
-    status = [&]() -> gneiss::engine::error {
-      auto scene_result = app.scenes()->capture_subtree(scene, root);
-      if (!scene_result)
-        return scene_result.error();
-      current = std::move(*scene_result);
-      return gneiss::engine::error::success;
-    }();
-    if (status.failed())
-      return status;
+    auto root = app.scenes()->find_node(scene, snapshot.root_uuid);
+    if (!root)
+      return root.error();
+    auto captured = app.scenes()->capture_subtree(scene, *root);
+    if (!captured)
+      return captured.error();
+    const auto& current = *captured;
     // 历史之外新增的对象不在快照中，不能随旧命令静默删除。
     if (current.description.objects.size() != snapshot.description.objects.size())
       return error::invalid_state;
@@ -153,7 +134,7 @@ gneiss::engine::error prefab_placement::apply(application& app, scene_instance_i
       if (std::ranges::find(snapshot.description.objects, object.uuid, &object_description::uuid) ==
           snapshot.description.objects.end())
         return error::invalid_state;
-    return app.scenes()->destroy_subtree(scene, root);
+    return app.scenes()->destroy_subtree(scene, *root);
   }
   if (replacing) {
     const auto root = std::ranges::find(snapshot.description.objects, snapshot.root_uuid,

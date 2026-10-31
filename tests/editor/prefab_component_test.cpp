@@ -151,7 +151,7 @@ int main() try {
                .property_id = e::meta::property_id{1}},
        .value = e::value{2.0F}});
   check(!e::encode_scene(contradictory));
-  e::scene_description_inputs inputs;
+  e::scene_preparation_inputs inputs;
   inputs.scene = e::asset_ref<const e::scene_description>{
       std::make_shared<const e::scene_description>(*decoded)};
   inputs.prefabs.emplace(reference.uri, e::prefab_asset_ref{source});

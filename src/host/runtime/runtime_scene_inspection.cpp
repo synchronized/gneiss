@@ -204,17 +204,12 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
   if (!scene.is_valid()) {
     return gneiss::engine::error::invalid_argument;
   }
-  std::uint64_t count = 0U;
-  auto operation = [&]() -> gneiss::engine::error {
-    auto scene_result = application.scenes()->get_node_count(scene);
-    if (!scene_result)
-      return scene_result.error();
-    count = std::move(*scene_result);
-    return gneiss::engine::error::success;
-  }();
-  if (operation != gneiss::engine::error::success) {
-    return operation;
-  }
+  auto get_node_count_result = application.scenes()->get_node_count(scene);
+  if (!get_node_count_result)
+    return get_node_count_result.error();
+
+  const auto count = *get_node_count_result;
+
   if (count > runtime_inspection_max_nodes) {
     return gneiss::engine::error::out_of_memory;
   }
@@ -223,23 +218,18 @@ runtime_scene_inspection::capture_scene(::gneiss::runtime::application& applicat
     std::vector<runtime_scene_source_node> nodes;
     nodes.reserve(static_cast<std::size_t>(count));
     for (std::uint64_t index = 0U; index < count; ++index) {
-      gneiss::engine::scene_node_info info;
-      operation = [&]() -> gneiss::engine::error {
-        auto scene_result = application.scenes()->get_node_info(scene, index);
-        if (!scene_result)
-          return scene_result.error();
-        info = std::move(*scene_result);
-        return gneiss::engine::error::success;
-      }();
-      if (operation != gneiss::engine::error::success) {
-        return operation;
-      }
+      auto get_node_info_result = application.scenes()->get_node_info(scene, index);
+      if (!get_node_info_result)
+        return get_node_info_result.error();
+
+      auto& info = *get_node_info_result;
+
       if (info.name.size() > runtime_inspection_max_string_size)
         return gneiss::engine::error::invalid_argument;
       if (info.prefab && (info.prefab->instance_uuid.is_nil()))
         return gneiss::engine::error::invalid_argument;
       auto runtime_transform = info.local_transform;
-      operation =
+      const auto operation =
           world.entity_get_local_transform(gneiss::entity_id{info.entity.get()}, runtime_transform);
       if (operation != gneiss::engine::error::success) {
         return operation;

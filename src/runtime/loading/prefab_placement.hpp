@@ -21,7 +21,7 @@ public:
           gneiss::scene_instance_id scene,
           std::shared_ptr<engine::scene_subtree_snapshot>& snapshot) noexcept;
   static gneiss::engine::error
-  freeze(runtime::application& application, gneiss::engine::prepared_prefab_description prepared,
+  freeze(runtime::application& application, gneiss::engine::prefab_instantiation_data prepared,
          gneiss::engine::object_description author,
          std::vector<gneiss::engine::render_resource_ref> assets,
          std::shared_ptr<const engine::scene_subtree_snapshot>& output) noexcept;

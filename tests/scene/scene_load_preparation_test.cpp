@@ -118,7 +118,7 @@ void run() {
   check(bool(cached_scene) && cached_request->source_bytes() == memory->files.at("main.scene").size());
   check(scene_decodes == 2U && prefab_decodes == 1U);
   scene_description_request request(assets, "asset://main.scene", false);
-  scene_description_inputs inputs;
+  scene_preparation_inputs inputs;
   auto status = error::not_ready;
   for (unsigned i = 0; i < 100U && status == error::not_ready; ++i) {
     check(assets.async_files()->dispatch_completions(64).ok());

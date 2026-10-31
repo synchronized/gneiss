@@ -32,8 +32,18 @@ if (!captured)
 `capture_prepared` 返回 `result<scene_capture>`，将实例化描述与资源绑定一起返回；
 `capture_prefab_header` 返回 `result<prefab_header_snapshot>`，包含对象描述与 Prefab 强引用。
 `get_node_info` 返回的 `scene_node_info` 仍包含借用字段，结果包装不延长场景寿命。
+单实例与集合层共用值结果接口，集合层只校验线程、句柄并转发；不再构造输出参数再包装结果。
 集合管理实现在 `scene_instances.cpp`，单实例实现在 `scene_instance.cpp`，
 编辑和 Prefab 操作分别位于对应 `scene_instance_*` 文件。
+
+## 准备阶段类型
+
+- `scene_preparation_inputs`：已加载的 Scene/Prefab 不可变描述引用及读取统计。
+- `prefab_instantiation_data`：Prefab 描述引用、父节点优先顺序与层级深度，不是文件格式描述。
+- `scene_instantiation_data`：完成排序与依赖收集的实例化输入。
+- `scene_instances::resource_bindings`：URI 到运行资源强引用的映射，不是 CPU 资产加载缓存。
+
+这些名称替换旧名称，不增加新状态或兼容别名。
 
 ## 加载阶段
 

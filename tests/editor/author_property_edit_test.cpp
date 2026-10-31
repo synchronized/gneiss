@@ -191,7 +191,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
     return 57;
   auto saved = snapshot();
   // 保存后的描述重新准备和实例化，普通组件与 Prefab 差异均必须恢复。
-  e::scene_description_inputs inputs;
+  e::scene_preparation_inputs inputs;
   inputs.scene =
       e::asset_ref<const e::scene_description>{std::make_shared<e::scene_description>(saved)};
   inputs.prefabs.emplace(author.prefab->uri, e::prefab_asset_ref{source});

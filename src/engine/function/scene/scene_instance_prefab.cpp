@@ -12,9 +12,8 @@
 #include <utility>
 
 namespace gneiss::engine {
-error scene_instance::capture_prefab_instance_header(gneiss::engine::guid uuid,
-                                                     object_description& author,
-                                                     prefab_asset_ref& source) const noexcept try {
+result<prefab_header_snapshot>
+scene_instance::capture_prefab_instance_header(guid uuid) const noexcept try {
   const auto found = std::ranges::find_if(
       prefab_instances_, [&](const auto& value) { return value->instance_uuid_ == uuid; });
   if (found == prefab_instances_.end())
@@ -25,17 +24,15 @@ error scene_instance::capture_prefab_instance_header(gneiss::engine::guid uuid,
     return captured.error();
   auto copy = std::move(*captured);
   copy.prefab = (*found)->reference_;
-  source = prefab_instances_[index]->prefab_lease();
-  author = std::move(copy);
-  return error::success;
+  return prefab_header_snapshot{std::move(copy), prefab_instances_[index]->prefab_lease()};
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {
   return error::internal;
 }
 
-error scene_instance::capture_prefab_instance_binding(gneiss::engine::guid uuid, std::size_t index,
-                                                      scene_mesh_binding& output) const noexcept {
+result<scene_mesh_binding>
+scene_instance::capture_prefab_instance_binding(guid uuid, std::size_t index) const noexcept {
   const auto found = std::ranges::find_if(
       prefab_instances_, [&](const auto& value) { return value->instance_uuid_ == uuid; });
   if (found == prefab_instances_.end()) {
@@ -47,18 +44,16 @@ error scene_instance::capture_prefab_instance_binding(gneiss::engine::guid uuid,
   const auto& node = (*found)->nodes_[index];
   auto renderer = native_world_.node_mesh_renderer(node.node);
   if (!renderer) {
-    output = {};
-    return renderer.error() == error::not_found ? error::success : renderer.error();
+    return renderer.error() == error::not_found ? result<scene_mesh_binding>{scene_mesh_binding{}}
+                                                : result<scene_mesh_binding>{renderer.error()};
   }
-  output = {.mesh = renderer->mesh, .material = renderer->material};
-  return error::success;
+  return scene_mesh_binding{renderer->mesh, renderer->material};
 }
 
-error scene_instance::instantiate_prefab_ready(const object_description& author,
-                                               prefab_asset_ref prefab,
-                                               std::span<const scene_mesh_binding> bindings,
-                                               bool replacing, scene_node_id& output) noexcept try {
-  output = {};
+result<scene_node_id>
+scene_instance::instantiate_prefab_ready(const object_description& author, prefab_asset_ref prefab,
+                                         std::span<const scene_mesh_binding> bindings,
+                                         bool replacing) noexcept try {
   if (!author.prefab || !author.components.empty() || !prefab ||
       bindings.size() != prefab.get()->objects.size() || !author.uuid ||
       (!replacing && find_node(author.uuid)))
@@ -135,8 +130,7 @@ error scene_instance::instantiate_prefab_ready(const object_description& author,
     if (restored.failed())
       return restored;
   }
-  output = root;
-  return error::success;
+  return root;
 } catch (const std::bad_alloc&) {
   return error::out_of_memory;
 } catch (...) {

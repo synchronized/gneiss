@@ -98,9 +98,10 @@ result<prefab_component_state> scene_instance::capture_component_override(scene_
             component_description_type(change.key.type_guid) == type)
           state.properties.push_back(change);
       if (type == mesh_renderer_description::type_guid) {
-        auto status = capture_mesh_binding(node, state.resources);
-        if (status.failed())
-          return status;
+        auto resources = capture_mesh_binding(node);
+        if (!resources)
+          return resources.error();
+        state.resources = std::move(*resources);
       }
       return state;
     }
@@ -268,18 +269,16 @@ error scene_instance::set_component_description(scene_node_id node,
   return error::internal;
 }
 
-error scene_instance::capture_mesh_binding(scene_node_id node,
-                                           scene_mesh_binding& output) const noexcept {
-  output = {};
+result<scene_mesh_binding> scene_instance::capture_mesh_binding(scene_node_id node) const noexcept {
   const auto found = std::ranges::find(objects_, node, &node_entry::node);
   if (found == objects_.end()) {
     return error::invalid_handle;
   }
   auto renderer = native_world_.node_mesh_renderer(node);
   if (!renderer)
-    return renderer.error() == error::not_found ? error::success : renderer.error();
-  output = {.mesh = renderer->mesh, .material = renderer->material};
-  return error::success;
+    return renderer.error() == error::not_found ? result<scene_mesh_binding>{scene_mesh_binding{}}
+                                                : result<scene_mesh_binding>{renderer.error()};
+  return scene_mesh_binding{renderer->mesh, renderer->material};
 }
 
 error scene_instance::replace_mesh_binding(scene_node_id node_value,
@@ -290,11 +289,10 @@ error scene_instance::replace_mesh_binding(scene_node_id node_value,
     return error::invalid_argument;
   }
   const auto node = node_value;
-  scene_mesh_binding current;
-  const auto captured = capture_mesh_binding(node_value, current);
-  if (captured != error::success) {
-    return captured;
-  }
+  const auto captured = capture_mesh_binding(node_value);
+  if (!captured)
+    return captured.error();
+  const auto& current = *captured;
   if (current.mesh != expected.mesh || current.material != expected.material) {
     return error::invalid_state;
   }
