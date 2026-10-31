@@ -33,3 +33,5 @@ CPU 引用及从缓存取得的类型化运行资源引用共享缓存条目控�
 
 历史唯一缓存决策见 [ADR-078](ADR-078-unified-asset-index.md)；当前 CPU 与运行资源各自缓存的接口见
 [资产参考](../reference/assets.md)，实施见 [PLAN-094](../plans/PLAN-094-unified-asset-loading.md)。
+
+读取额度已由 [ADR-100](ADR-100-loading-limits.md) 移至文件服务，CPU 缓存键不再包含读取上限。

@@ -33,7 +33,6 @@ public:
   /** 配置 CPU 加载；首次配置后保留执行器与 profile，停止后拒绝重新装配。 */
   error configure_loading(task_executor& executor, texture_prepare_profile profile = {},
                           std::shared_ptr<progress_notification> notification = {});
-  static constexpr std::size_t maximum_prepared_bytes = 256U * 1024U * 1024U;
   result<render_asset_ref> reserve_asset(const asset_source&) noexcept;
   /** 只查找 CPU 内容已就绪的缓存，不读取文件、不等待 GPU。 */
   result<render_asset_ref> find(const asset_source&, texture_prepare_profile = {}) const noexcept;
@@ -64,8 +63,7 @@ public:
   material find_material(rid) const noexcept;
   /** 单资源异步加载；默认复用缓存，同身份的在途请求共享工作（包括 reload）。
    * 输入在返回前复制；提交失败返回错误。每项独立完成，不等待 GPU。 */
-  result<resource_request> load(const asset_source&, bool reload = false,
-                                std::size_t limit = 64U * 1024U * 1024U);
+  result<resource_request> load(const asset_source&, bool reload = false);
   template <class T> result<resource_request> load(std::string_view uri, bool reload = false) try {
     return load({std::string(uri), kind<T>()}, reload);
   } catch (const std::bad_alloc&) {

@@ -14,17 +14,15 @@ class resource_load_group final {
 public:
   explicit resource_load_group(engine::resource_service& service) : service_(service) {}
   engine::texture_prepare_profile profile() const noexcept { return service_.profile(); }
-  engine::error
-  submit_assets(std::span<const engine::asset_source> sources, std::uint64_t session,
-                std::uint64_t revision, std::uint64_t& request, bool reload = true,
-                std::size_t limit = engine::resource_service::maximum_prepared_bytes) {
+  engine::error submit_assets(std::span<const engine::asset_source> sources, std::uint64_t session,
+                              std::uint64_t revision, std::uint64_t& request, bool reload = true) {
     using engine::error;
     request = 0;
     if (stopping_)
       return error::invalid_state;
     if (busy())
       return error::not_ready;
-    if (sources.empty() || sources.size() > 256 || session == 0 || revision == 0 || limit == 0)
+    if (sources.empty() || sources.size() > 256 || session == 0 || revision == 0)
       return error::invalid_argument;
     std::set<std::string> unique;
     for (const auto& source : sources)
@@ -44,7 +42,6 @@ public:
     completion_ = std::move(next);
     cursor_ = 0;
     reload_ = reload;
-    limit_ = limit;
     started_ = std::chrono::steady_clock::now();
     request = completion_->request;
     return error::success;
@@ -57,8 +54,7 @@ public:
     auto& completion = *completion_;
     auto& item = completion.results[cursor_];
     if (!current_) {
-      auto loaded =
-          service_.load(item.source, reload_, std::min(limit_, std::size_t{64U * 1024U * 1024U}));
+      auto loaded = service_.load(item.source, reload_);
       if (!loaded)
         item.result = loaded.error();
       else
@@ -134,7 +130,7 @@ private:
   std::optional<runtime::asset_load_completion> completion_;
   std::chrono::steady_clock::time_point started_;
   std::uint64_t sequence_{};
-  std::size_t cursor_{}, limit_{};
+  std::size_t cursor_{};
   bool reload_{}, stopping_{};
 };
 }

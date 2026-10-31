@@ -72,7 +72,6 @@ void unified_resource_index() {
     gneiss::engine::type_id target_type() const noexcept override {
       return gneiss::engine::runtime_type_of<std::string>();
     }
-    std::size_t maximum_bytes() const noexcept override { return 64U; }
     result<std::shared_ptr<const void>, meta::serialization_diagnostic>
     decode(const std::vector<std::byte>& bytes) const override {
       return std::shared_ptr<const void>{

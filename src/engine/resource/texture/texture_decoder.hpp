@@ -11,6 +11,5 @@ namespace gneiss::engine::detail {
 parse_texture(const std::vector<std::byte>& bytes);
 [[nodiscard]] result<texture_data, asset_diagnostic>
 decode_texture_payload(const texture_description& source, const std::vector<std::byte>& image_bytes,
-                       std::size_t input_limit, std::size_t output_limit,
                        texture_prepare_profile profile) noexcept;
 }

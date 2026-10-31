@@ -35,8 +35,7 @@ public:
   /** 注入同线程文件服务；宿主驱动文件完成分发，advance 只推进 CPU 解码和资源结果。
    * 不提供同步文件读取；缓存查询使用 find_loaded，服务可由宿主共享持有。
    * 使用默认注册表，宿主须先 initialize_meta。 */
-  explicit asset_manager(std::shared_ptr<engine::files::service> files,
-                         std::size_t fallback_limit = 64U * 1024U * 1024U);
+  explicit asset_manager(std::shared_ptr<engine::files::service> files);
   ~asset_manager();
   /** 借用宿主解码执行器；文件 I/O 由服务后端执行，不创建独立线程池。 */
   void attach_task_executor(engine::task_executor& executor);
@@ -56,13 +55,11 @@ public:
   /** 无需继承或注册反射；注册失败不改变已有解码器，首次加载后禁止注册；内置 mesh_data/texture_data
    * 使用专用 Loader，不接受覆盖。 */
   template <class T>
-  [[nodiscard]] error register_decoder(asset_decode_function<T> function,
-                                       std::size_t maximum_bytes) noexcept {
-    if (!function || maximum_bytes == 0)
+  [[nodiscard]] error register_decoder(asset_decode_function<T> function) noexcept {
+    if (!function)
       return error::invalid_argument;
     try {
-      return register_decoder(
-          std::make_shared<detail::typed_asset_decoder<T>>(function, maximum_bytes));
+      return register_decoder(std::make_shared<detail::typed_asset_decoder<T>>(function));
     } catch (const std::bad_alloc&) {
       return error::out_of_memory;
     } catch (...) {
@@ -130,7 +127,7 @@ public:
   [[nodiscard]] resource_cache& cache() noexcept { return cache_; }
 
 private:
-  using decoder_factory = result<std::shared_ptr<const asset_decoder>> (*)(std::size_t);
+  using decoder_factory = result<std::shared_ptr<const asset_decoder>> (*)();
   [[nodiscard]] error resolve_decoder(type_id, decoder_factory,
                                       std::shared_ptr<const asset_decoder>&);
   [[nodiscard]] engine::error request(type_id type, std::string_view uri,

@@ -44,6 +44,9 @@ public:
 
   /** 首次接受请求后禁止修改挂载，前缀以 / 结尾；最长前缀匹配。 */
   [[nodiscard]] error mount(mount_description description) noexcept;
+  /** 使用服务配置的单文件上限；需要更严格限制时使用 read_options 重载。 */
+  [[nodiscard]] error read(std::string_view uri, files::callback<files::bytes> callback,
+                           request_id& request) noexcept;
   [[nodiscard]] error read(std::string_view uri, read_options options,
                            files::callback<files::bytes> callback, request_id& request) noexcept;
   [[nodiscard]] error read_range(std::string_view uri, range range,

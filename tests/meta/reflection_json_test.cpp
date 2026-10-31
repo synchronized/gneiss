@@ -167,7 +167,7 @@ int main() try {
   auto shared = m::default_registry();
   if (!shared || register_sample(*shared).failed() || m::freeze().failed())
     return 16;
-  auto loader = e::detail::make_reflected_decoder<sample>(4096);
+  auto loader = e::detail::make_reflected_decoder<sample>();
   auto weak = std::weak_ptr<e::meta::type_registry_state>(*other);
   other->reset();
   if (!weak.expired() || !loader || !(*loader)->decode(*encoded))

@@ -287,6 +287,11 @@ error service::mount(mount_description description) noexcept {
   }
 }
 
+error service::read(std::string_view uri, files::callback<files::bytes> callback,
+                    request_id& request) noexcept {
+  return read(uri, {impl_->options.max_file_bytes}, std::move(callback), request);
+}
+
 error service::read(std::string_view uri, read_options options,
                     files::callback<files::bytes> callback, request_id& request) noexcept {
   request = {};

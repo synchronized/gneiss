@@ -268,9 +268,8 @@ void reserved_material_lifetime() {
 void cpu_loading(execution_mode mode) {
   task_scheduler scheduler({.mode = mode});
   auto backend = std::make_shared<delayed_backend>();
-  auto files =
-      std::make_shared<gneiss::engine::files::service>(gneiss::engine::files::service_options{
-          .max_file_bytes = resource_service::maximum_prepared_bytes});
+  auto files = std::make_shared<gneiss::engine::files::service>(
+      gneiss::engine::files::service_options{.max_file_bytes = 64U * 1024U * 1024U});
   check(files->mount({.prefix = "asset://", .readers = {backend}, .writer = {}}).ok());
   render_service resources;
   gneiss::engine::resource_service::implementation resources_factory{resources};
@@ -354,7 +353,7 @@ void cpu_loading(execution_mode mode) {
   });
   check(request.status().ok());
   check(request.get<material_resource>()->textures()[0] == asset_cast<texture_resource>(target));
-  check(gneiss::test_support::take_value(loader.load({"asset://mesh", asset_type::mesh}, true, 1),
+  check(gneiss::test_support::take_value(loader.load({"asset://mesh", asset_type::mesh}, true),
                                          request)
             .ok());
   until([&] {
@@ -362,7 +361,7 @@ void cpu_loading(execution_mode mode) {
       backend->complete(fixture.files.at(backend->path));
     return request.status() != error::not_ready;
   });
-  check(request.status().failed());
+  check(request.status().ok());
   check(gneiss::test_support::take_value(loader.load<texture_resource>("asset://texture", true),
                                          request)
             .ok());
@@ -468,10 +467,6 @@ void cpu_loading(execution_mode mode) {
     check(other.get() != texture_content.get() && backend->reads == before_reads + 2U);
     auto found_variant = manager.find_loaded<texture_data>("asset://cpu_texture", variant);
     check(found_variant && found_variant->get() == other.get());
-    asset_load_options smaller = variant;
-    --smaller.maximum_bytes;
-    check(manager.find_loaded<texture_data>("asset://cpu_texture", smaller).error() ==
-          error::not_found);
   }
   {
     auto prepared = resources.prepare_texture_data(texture_content.shared());

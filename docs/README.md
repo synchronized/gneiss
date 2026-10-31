@@ -630,3 +630,5 @@
 - [引用持久化与编辑器共享操作](plans/PLAN-093-reference-persistence.md)
 
 - [统一 CPU 资源加载](plans/PLAN-094-unified-asset-loading.md)
+
+- [简化资源加载额度](plans/PLAN-095-loading-limits.md)

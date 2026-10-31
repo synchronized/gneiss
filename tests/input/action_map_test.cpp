@@ -256,7 +256,7 @@ int main() {
     output.actions = {{.name = "override", .bindings = {{.physical_key = 4, .scale = 1.0F}}}};
     return output;
   };
-  if (custom.register_decoder<action_map>(override_decode, maximum_action_map_bytes).failed() ||
+  if (custom.register_decoder<action_map>(override_decode).failed() ||
       load_map_for_test(custom, executor, "asset://input/map", map).failed() ||
       map.actions.front().name != "override")
     return 19;

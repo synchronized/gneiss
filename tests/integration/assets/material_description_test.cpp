@@ -90,11 +90,10 @@ void run(std::size_t limit) {
             .ok());
   decoded_asset prepared;
   const asset_source source{"asset://material.json", asset_type::material};
-  check(
-      gneiss::test_support::assign_decoded(
-          adopt_material_asset(source.uri, asset_ref<const material_description>{old}, limit, 256),
-          prepared, diagnostic)
-          .ok());
+  check(gneiss::test_support::assign_decoded(
+            adopt_material_asset(source.uri, asset_ref<const material_description>{old}, 256),
+            prepared, diagnostic)
+            .ok());
   old.reset();
   input.clear();
   check(std::get<asset_ref<const material_description>>(prepared.content) &&
@@ -103,15 +102,14 @@ void run(std::size_t limit) {
         current->parameters.color[1] == 1);
   check(prepared.sources.empty());
   check(gneiss::test_support::assign_decoded(
-            adopt_material_asset(source.uri, asset_ref<const material_description>{current}, limit,
-                                 256),
+            adopt_material_asset(source.uri, asset_ref<const material_description>{current}, 256),
             prepared, diagnostic)
             .ok());
   check(std::get<asset_ref<const material_description>>(prepared.content)->texture_uris[0] ==
         "asset://missing");
   const auto retained = std::get<asset_ref<const material_description>>(prepared.content);
-  check(gneiss::test_support::assign_decoded(adopt_material_asset(source.uri, retained, 1, 256),
-                                             prepared, diagnostic) == error::out_of_memory);
+  check(gneiss::test_support::assign_decoded(adopt_material_asset(source.uri, {}, 256), prepared,
+                                             diagnostic) == error::invalid_argument);
   check(std::get<asset_ref<const material_description>>(prepared.content) == retained &&
         std::get<asset_ref<const material_description>>(prepared.content)->parameters.color[1] ==
             1);

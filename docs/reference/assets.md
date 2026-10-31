@@ -20,7 +20,7 @@
 成功后通过请求的 `metrics()` 查询来源快照、解码字节估算、解码与队列耗时，
 `source_bytes()` 返回读取字节总数。已领取引用不受取消或管理器关闭影响。
 
-`load<T>(uri, asset_load_options)` 可指定 reload、maximum_bytes、texture_profile。
+`load<T>(uri, asset_load_options)` 可指定 reload、texture_profile。
 `find_loaded<T>` 与 `store<T>` 也支持相同 options；查询和采用须匹配加载参数。
 所有类型统一使用弱缓存，无缓存策略参数。内置网格/纹理使用专用 Loader，
 不能用单缓冲区 register_decoder 覆盖；其他类型先用注册解码器，否则使用反射解码。
@@ -83,7 +83,7 @@ CPU 数据表位于 `render_service` 私有实现，Loader 与宿主通过其 RI
 `resource_cache` 位于 `engine/function/resource/resource_cache.hpp`，与资产管理器同属功能层。
 `asset_manager` 持有 CPU 数据缓存，`resource_service` 持有运行资源缓存；
 两者复用 `resource_cache` 实现。CPU 缓存按「来源域 + URI + C++ 类型 + 加载参数」索引，
-加载参数包含字节上限和完整纹理 profile ；reload 不参与身份。
+加载参数包含完整纹理 profile；reload 不参与身份。
 运行资源沿用来源域、URI 和类型索引，不重复登记同一运行对象。
 通用 CPU 数据及 Prefab 属于加载器缓存，渲染资产属于资源服务缓存；同 URI 的不同类型或来源各自独立。
 类型键使用 `engine::type_id`，由同一 Engine 按规范 C++ 类型名集中分配，
@@ -218,7 +218,7 @@ asset-decode 任务。等待文件期间不轮询 CPU 任务，不使用同步�
 
 asset_manager 仅接受 shared_ptr<files::service>。`find_loaded<T>` 只查询已完成缓存，
 未命中返回 not_found；`load<T>` 返回请求，不阻塞等待文件或解码。
-`register_decoder<T>(function, maximum_bytes)` 可直接登记
+`register_decoder<T>(function)` 可直接登记
 `result<T, serialization_diagnostic>(span<const byte>)` 函数，无需类型继承或反射身份。
 仍可继承 asset_decoder 提供有状态解码器；回调必须支持不同输入的并发调用。
 
@@ -229,24 +229,25 @@ asset_manager 仅接受 shared_ptr<files::service>。`find_loaded<T>` 只查询�
 首次有效加载进入解码器选择后冻结显式注册，后续反射适配不改变 codec 选择。
 管理器使用进程共享的 Meta Registry，宿主须先完成
 [默认注册表初始化](reflection.md#默认注册表与启动)。内置类型包含 World 属性以及材质、Scene、Prefab codec 和 ActionMap codec。
-构造时要求默认 Registry 已冻结，未冻结或零输入上限抛出 invalid_argument。
-反射读取默认上限为 64 MiB，可通过构造参数指定；类型声明 `maximum_source_bytes` 时取两者较小值。
-ActionMap 限制为 1 MiB，解析器也检查此上限；实际读取上限再与 load options 的上限取较小值。
+构造时要求默认 Registry 已冻结，未冻结时抛出 invalid_argument。
+普通加载不传递字节额度，按注入文件服务的 max_file_bytes 读取。
+Scene / Prefab、ActionMap 等格式自己的长度校验仍在 codec 中执行，不再通过类型 traits 限制读取。
 
 功能层 `asset_manager` 负责 CPU 描述加载，`resource_service` 负责运行资源加载编排。材质描述通过 `load<material_description>` 加载。
 资源服务在所属线程领取描述并请求纹理依赖，工作线程只解码 CPU 数据。
 网格和纹理由 asset_manager 的类型化入口加载，与描述请求共用文件读取、任务调度和关闭流程。
 网格读取后解码一次；纹理先读取并解析描述，再读取负载，按请求携带的设备能力解码。
-描述与负载合计受输入预算限制，输出另行校验预算；失败不采用内容。
-一次性请求不合并独立调用，运行资源请求的复用由 resource_service 保证。
+描述与负载分别按文件服务上限读取；相同身份的 CPU 请求共享在途工作与只读结果。
 资源服务领取 CPU 数据、校验来源并装配依赖，不直接访问文件服务或解码执行器。
-材质仍领取缓存描述，预算检查和纹理强引用装配属于资源服务。
+材质领取缓存描述并装配纹理强引用，字节统计保留溢出检查。
 
 texture_description 表示现有纹理 JSON 的运行时视图；尺寸、变体和 mip 布局仍来自容器 Manifest。
-网格复用 GNMS 文件头，不增加重复描述文件。当前不是 mip/LOD 流送：每项输入与解码输出各有
-默认 64 MiB 上限，纹理描述和负载输入合计也受该上限限制；不再设置跨资源的批次预算，
-直接单资源接口可显式设置上限（最多 256 MiB），这不代表全局内存预算或流送调度；
-注入文件服务须配置可接受相应 max_bytes 的上限，否则提交返回 invalid_argument。
+网格复用 GNMS 文件头，不增加重复描述文件。当前不是 mip/LOD 流送。
+asset_manager/resource_service 不设统一的单资源输出额度，也不累计描述与负载的读取额度。
+文件服务集中配置单文件大小及在途缓冲预算；Application 当前配置单文件 64 MiB，可由宿主调整。
+格式解码器保留长度、数量、尺寸与整数溢出检查；PNG 解码保留默认 256 MiB 像素输出保护，
+这是压缩展开保护，不是通用加载额度。KTX2 当前只接受无超级压缩的 RGBA8 数据。
+总驻留预算、流送与淘汰尚未实现。
 多个纹理变体可能全部被读取，但有设备 profile 时只保留选中变体的 CPU 负载和 Manifest。
 运行异步路径释放原文件来源，GPU 恢复直接复用 CPU 数据；代价是该数据随资源引用常驻。
 旧 prepare_assets/prepare_texture 和分步 asset_preparation 接口已删除。

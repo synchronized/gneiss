@@ -49,8 +49,8 @@ private:
 // 单挂载的测试装配；真正的路由、来源身份与完成分发全部由 file_service 实现。
 struct fixture_files {
   std::shared_ptr<gneiss::engine::files::service> service =
-      std::make_shared<gneiss::engine::files::service>(gneiss::engine::files::service_options{
-          .max_file_bytes = std::numeric_limits<std::size_t>::max()});
+      std::make_shared<gneiss::engine::files::service>(
+          gneiss::engine::files::service_options{.max_file_bytes = 64U * 1024U * 1024U});
   std::shared_ptr<memory_file_fixture> memory;
   std::string prefix;
   engine::error mount(std::string_view point, std::shared_ptr<memory_file_fixture> backend) {

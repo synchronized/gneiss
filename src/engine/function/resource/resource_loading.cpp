@@ -7,6 +7,7 @@
 #include "engine/function/resource/detail/resource_service_impl.hpp"
 #include "engine/function/resource/resource_service.hpp"
 #include <algorithm>
+#include <limits>
 namespace gneiss::engine {
 struct resource_service::implementation::pending_load {
   std::shared_ptr<detail::resource_load_state> state;
@@ -16,15 +17,11 @@ struct resource_service::implementation::pending_load {
   asset_ref<const material_description> description;
   std::array<resource_request, 5> dependencies;
   std::size_t dependency_cursor{};
-  std::size_t limit{};
 };
-result<resource_request> resource_service::load(const asset_source& source, bool reload,
-                                                std::size_t limit) try {
+result<resource_request> resource_service::load(const asset_source& source, bool reload) try {
   resource_request output;
   if (!impl_ || !impl_->loading_configured || render_stopping_)
     return error::invalid_state;
-  if (limit == 0 || limit > maximum_prepared_bytes)
-    return error::invalid_argument;
   auto reserved = reserve_asset(source);
   if (!reserved)
     return reserved.error();
@@ -46,18 +43,17 @@ result<resource_request> resource_service::load(const asset_source& source, bool
   }
   auto work = std::make_shared<implementation::pending_load>();
   work->state = state;
-  work->limit = limit;
   switch (source.type) {
   case asset_type::mesh: {
-    auto loaded = assets_.load<mesh_data>(source.uri, {.reload = reload, .maximum_bytes = limit});
+    auto loaded = assets_.load<mesh_data>(source.uri, {.reload = reload});
     if (!loaded)
       return loaded.error();
     work->cpu = std::move(*loaded);
     break;
   }
   case asset_type::texture: {
-    auto loaded = assets_.load<texture_data>(
-        source.uri, {.reload = reload, .maximum_bytes = limit, .texture_profile = profile()});
+    auto loaded =
+        assets_.load<texture_data>(source.uri, {.reload = reload, .texture_profile = profile()});
     if (!loaded)
       return loaded.error();
     work->cpu = std::move(*loaded);
@@ -119,10 +115,8 @@ void resource_service::implementation::advance(resource_service& service) {
               } else {
                 auto description = std::move(*loaded);
                 auto bytes = sizeof(material_data);
-                if (bytes > work->limit)
-                  return error::out_of_memory;
                 for (const auto& uri : description->texture_uris) {
-                  if (uri.size() > work->limit - bytes)
+                  if (uri.size() > std::numeric_limits<std::size_t>::max() - bytes)
                     return error::out_of_memory;
                   bytes += uri.size();
                 }

@@ -181,7 +181,7 @@ int main() {
   kept.reset();
   if (!weak_object.expired())
     return 26;
-  auto decoder = e::detail::make_reflected_decoder<move_only>(64);
+  auto decoder = e::detail::make_reflected_decoder<move_only>();
   if (!decoder)
     return 22;
   auto decoded = (*decoder)->decode({std::byte{42}});

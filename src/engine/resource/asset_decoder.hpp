@@ -17,7 +17,6 @@ class asset_decoder {
 public:
   virtual ~asset_decoder() = default;
   [[nodiscard]] virtual type_id target_type() const noexcept = 0;
-  [[nodiscard]] virtual std::size_t maximum_bytes() const noexcept = 0;
   [[nodiscard]] virtual result<std::shared_ptr<const void>, meta::serialization_diagnostic>
   decode(const std::vector<std::byte>& bytes) const = 0;
 };
@@ -29,10 +28,8 @@ using asset_decode_function =
 namespace detail {
 template <class T> class typed_asset_decoder final : public asset_decoder {
 public:
-  typed_asset_decoder(asset_decode_function<T> function, std::size_t limit)
-      : function_(function), limit_(limit) {}
+  explicit typed_asset_decoder(asset_decode_function<T> function) : function_(function) {}
   type_id target_type() const noexcept override { return runtime_type_of<T>(); }
-  std::size_t maximum_bytes() const noexcept override { return limit_; }
   result<std::shared_ptr<const void>, meta::serialization_diagnostic>
   decode(const std::vector<std::byte>& bytes) const override try {
     if (function_) {
@@ -55,20 +52,15 @@ public:
 
 private:
   asset_decode_function<T> function_{};
-  std::size_t limit_{};
 };
-template <class T>
-result<std::shared_ptr<const asset_decoder>> make_reflected_decoder(std::size_t limit) {
+template <class T> result<std::shared_ptr<const asset_decoder>> make_reflected_decoder() {
   auto binding = meta::find_serialization(runtime_type_of<T>());
   if (!binding)
     return binding.error() == error::not_found ? error::unsupported : binding.error();
   if (!binding->decode && !binding->reflected_json)
     return error::unsupported;
   if constexpr (std::is_move_constructible_v<T> && !std::is_const_v<T>) {
-    if constexpr (requires { T::maximum_source_bytes; })
-      limit = std::min(limit, static_cast<std::size_t>(T::maximum_source_bytes));
-    return std::shared_ptr<const asset_decoder>{
-        std::make_shared<typed_asset_decoder<T>>(nullptr, limit)};
+    return std::shared_ptr<const asset_decoder>{std::make_shared<typed_asset_decoder<T>>(nullptr)};
   } else {
     return error::unsupported;
   }

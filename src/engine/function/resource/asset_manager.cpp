@@ -47,6 +47,10 @@ struct asset_manager::resource_state {
         : identity(std::move(id)), generation(version), loader(std::move(parser)) {}
     void decode() {
       const auto started = std::chrono::steady_clock::now();
+      if (bytes.size() > std::numeric_limits<std::size_t>::max() - loader->input_bytes) {
+        status = error::out_of_memory;
+        return;
+      }
       loader->input_bytes += bytes.size();
       if (!loader->metrics.sources.empty()) {
         loader->metrics.sources.back().bytes = bytes.size();
@@ -80,12 +84,11 @@ struct asset_manager::resource_state {
   task_executor* executor{};
   task_scope scope{};
   bool frozen{}, stopped{};
-  std::size_t fallback_limit{};
   std::map<type_id, std::shared_ptr<const asset_decoder>> decoders;
   std::map<key, entry> requests;
   std::vector<std::shared_ptr<operation>> active;
 
-  error read(const std::shared_ptr<operation>& work, std::string_view uri, std::size_t limit) {
+  error read(const std::shared_ptr<operation>& work, std::string_view uri) {
     if (work->loader->source_type) {
       std::shared_ptr<const files::source_domain> domain;
       auto status = files->resolve_source(uri, domain);
@@ -99,7 +102,7 @@ struct asset_manager::resource_state {
     work->read_complete = false;
     work->settled.store(false, std::memory_order_relaxed);
     return files->read(
-        uri, {limit},
+        uri,
         [weak = std::weak_ptr(work),
          path = std::string(uri)](files::completion<files::bytes> completed) {
           if (auto operation = weak.lock()) {
@@ -202,16 +205,14 @@ result<asset_identity> asset_manager::identify(std::string_view uri,
   }
 }
 
-asset_manager::asset_manager(std::shared_ptr<engine::files::service> files,
-                             std::size_t fallback_limit)
+asset_manager::asset_manager(std::shared_ptr<engine::files::service> files)
     : resource_state_(std::make_unique<resource_state>()) {
   if (!files)
     throw std::invalid_argument("文件服务不能为空");
   resource_state_->files = std::move(files);
   auto frozen = meta::is_frozen();
-  if (fallback_limit == 0 || !frozen || !*frozen)
-    throw std::invalid_argument("资源 Registry 必须冻结，输入上限必须非零");
-  resource_state_->fallback_limit = fallback_limit;
+  if (!frozen || !*frozen)
+    throw std::invalid_argument("资源 Registry 必须冻结");
 }
 error asset_manager::store_erased(type_id type, std::string_view uri,
                                   std::shared_ptr<const void> value,
@@ -259,7 +260,7 @@ error asset_manager::register_decoder(const std::shared_ptr<const asset_decoder>
   if (state.stopped || state.frozen) {
     return error::invalid_state;
   }
-  if (!loader || loader->maximum_bytes() == 0) {
+  if (!loader) {
     return error::invalid_argument;
   }
   const auto type = loader->target_type();
@@ -281,7 +282,7 @@ error asset_manager::resolve_decoder(type_id type, decoder_factory fallback,
     output = found->second;
     return error::success;
   }
-  auto decoded = fallback(state.fallback_limit);
+  auto decoded = fallback();
   if (!decoded)
     return decoded.error();
   output = std::move(*decoded);
@@ -302,8 +303,6 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
   if (validate_uri(uri).failed()) {
     return error::invalid_argument;
   }
-  if (options.maximum_bytes == 0)
-    return error::invalid_argument;
   auto task = detail::make_asset_load_task(
       type, std::string(uri), options, [&]() -> result<std::shared_ptr<const asset_decoder>> {
         std::shared_ptr<const asset_decoder> decoder;
@@ -339,7 +338,7 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
   work->previous = cached;
   state.active.push_back(work);
   try {
-    const auto submitted = state.read(work, uri, work->loader->limit);
+    const auto submitted = state.read(work, uri);
     if (submitted != error::success) {
       state.active.pop_back();
       return submitted;
@@ -443,7 +442,7 @@ void asset_manager::advance() {
     if (work->status.ok() && !work->loader->next_uri.empty()) {
       try {
         const auto next_uri = work->loader->next_uri;
-        work->status = state.read(work, next_uri, work->loader->remaining());
+        work->status = state.read(work, next_uri);
       } catch (const std::bad_alloc&) {
         work->status = error::out_of_memory;
       } catch (...) {

@@ -26,7 +26,7 @@ Application 已直接装配后端；普通 CPU、网格和纹理加载统一使�
 
 | 接口 | 当前语义 |
 | --- | --- |
-| read | 有界整文件读取，max_bytes 必须大于零 |
+| read | 有界整文件读取；省略 read_options 使用服务 max_file_bytes，显式 max_bytes 必须大于零且不超过服务上限 |
 | read_range | 精确范围，允许 EOF 处零长度，越界失败 |
 | write | 单文件安全写入，replace 替换、create_new 拒绝覆盖；持久化另见后端约定 |
 | stat | 文件/目录及可选字节数；未知与零长度不同 |

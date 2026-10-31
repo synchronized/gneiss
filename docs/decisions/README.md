@@ -105,3 +105,5 @@ Reference 和实现为准。
 - [ADR-098：共享对象引用统一到 Core](ADR-098-object-reference-ownership.md)
 
 - [ADR-099：统一 CPU 加载协议与缓存生命周期](ADR-099-unified-cpu-loading.md)
+
+- [ADR-100：加载保护边界](ADR-100-loading-limits.md)

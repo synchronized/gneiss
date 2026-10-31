@@ -79,7 +79,6 @@ public:
   gneiss::engine::type_id target_type() const noexcept override {
     return gneiss::engine::runtime_type_of<value>();
   }
-  std::size_t maximum_bytes() const noexcept override { return 8; }
   result<std::shared_ptr<const void>, meta::serialization_diagnostic>
   decode(const std::vector<std::byte>& bytes) const override {
     ++decodes;
@@ -97,8 +96,10 @@ result<value, meta::serialization_diagnostic> explicit_decode(std::span<const st
 class delayed_files final : public gneiss::engine::files::backend {
 public:
   gneiss::engine::files::callback<gneiss::engine::files::bytes> pending;
-  error read(std::string_view, gneiss::engine::files::read_options,
+  std::size_t last_read_limit{};
+  error read(std::string_view, gneiss::engine::files::read_options options,
              gneiss::engine::files::callback<gneiss::engine::files::bytes> callback) override {
+    last_read_limit = options.max_bytes;
     pending = std::move(callback);
     return error::success;
   }
@@ -110,7 +111,7 @@ public:
 void injected_file_service() {
   auto backend = std::make_shared<delayed_files>();
   auto files = std::make_shared<gneiss::engine::files::service>(
-      gneiss::engine::files::service_options{1, 64});
+      gneiss::engine::files::service_options{1, 512U * 1024U * 1024U, 512U * 1024U * 1024U});
   check(files->mount({"asset://", {backend}, {}}).ok(), "service mount");
   auto& executor = gneiss::test_support::asset_tasks();
   auto assets = std::make_unique<asset_manager>(gneiss::test_support::test_files(files));
@@ -155,6 +156,8 @@ void injected_file_service() {
     advance_assets_for_test(*assets);
   check(executor.stats().submitted == 0 && decoder->decodes == 0,
         "IO waiting submits no CPU polling task");
+  check(backend->last_read_limit == 512U * 1024U * 1024U,
+        "loading uses configured file limit without a 64/256 MiB cap");
   backend->finish('q');
   advance_assets_for_test(*assets);
   check(executor.stats().submitted == 1 && decoder->decodes == 0,
@@ -262,7 +265,7 @@ void decoder_selection() {
         "reflection failure preserves output");
   check(failure.byte_offset == 7U && failure.path == "/value" && failure.message == "invalid value",
         "load diagnostic");
-  check(reflected.register_decoder<value>(&explicit_decode, 8) == error::invalid_state,
+  check(reflected.register_decoder<value>(&explicit_decode) == error::invalid_state,
         "fallback freezes registration");
   source->byte = 'a';
   reflected.attach_task_executor(executor);
@@ -307,9 +310,9 @@ void decoder_selection() {
   source->byte = 'a';
   // 同一个类型同时具备反射与显式解码器时，只采用显式函数。
   asset_manager explicit_assets(gneiss::test_support::test_files(files));
-  check(explicit_assets.register_decoder<value>(&explicit_decode, 8) == error::success,
+  check(explicit_assets.register_decoder<value>(&explicit_decode) == error::success,
         "typed decoder");
-  check(explicit_assets.register_decoder<value>(&explicit_decode, 8) == error::invalid_argument,
+  check(explicit_assets.register_decoder<value>(&explicit_decode) == error::invalid_argument,
         "duplicate decoder");
   check(gneiss::test_support::load_asset(explicit_assets, "asset://explicit", output, true) ==
                 error::success &&
@@ -333,8 +336,7 @@ void decoder_selection() {
             +[](std::span<const std::byte>)
                 -> result<unreflected_value, meta::serialization_diagnostic> {
               return unreflected_value{'x'};
-            },
-            8) == error::success,
+            }) == error::success,
         "unreflected decoder registration");
   source->byte = 'a';
   asset_ref<const unreflected_value> native_output;
@@ -354,12 +356,15 @@ void decoder_selection() {
                 error::success &&
             material->parameters.metallic == 0.25F,
         "builtin material reflection load");
-  asset_manager limited(gneiss::test_support::test_files(files), 1);
+  auto limited_files =
+      std::make_shared<engine::files::service>(engine::files::service_options{.max_file_bytes = 1});
+  check(limited_files->mount({"asset://", {source}, {}}).ok(), "limited mount");
+  asset_manager limited(limited_files);
   auto saved = material;
   check(gneiss::test_support::load_asset(limited, "asset://material", material) ==
                 error::invalid_argument &&
             material == saved,
-        "reflection input limit preserves output");
+        "file service input limit preserves output");
   reflected.stop();
 }
 void reference_lifetime() {
@@ -756,7 +761,6 @@ void nonblocking_decode_shutdown() {
   struct gated_decoder final : asset_decoder {
     mutable std::atomic_bool entered{}, released{};
     type_id target_type() const noexcept override { return runtime_type_of<value>(); }
-    std::size_t maximum_bytes() const noexcept override { return 8; }
     result<std::shared_ptr<const void>, meta::serialization_diagnostic>
     decode(const std::vector<std::byte>&) const override {
       entered.store(true, std::memory_order_release);

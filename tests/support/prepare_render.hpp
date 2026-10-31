@@ -90,13 +90,10 @@ inline error decode_fixture(const gneiss::test_support::fixture_files& files,
   const auto description_size = description.size(), payload_size = payload.size();
   if (source.type == asset_type::texture)
     status = gneiss::test_support::assign_decoded(
-        decode_texture_asset(source.uri, parsed, payload, std::max(input_limit, output_limit),
-                             profile),
-        output, diagnostic);
+        decode_texture_asset(source.uri, parsed, payload, profile), output, diagnostic);
   else if (source.type == asset_type::mesh)
-    status = gneiss::test_support::assign_decoded(
-        decode_mesh_asset(source.uri, description, std::max(input_limit, output_limit)), output,
-        diagnostic);
+    status = gneiss::test_support::assign_decoded(decode_mesh_asset(source.uri, description),
+                                                  output, diagnostic);
   else
     return error::invalid_argument;
   if (status.failed())
@@ -167,9 +164,8 @@ inline error prepare_render_for_test(asset_manager& assets,
         return status;
       }
       status = gneiss::test_support::assign_decoded(
-          adopt_material_asset(source.uri, std::move(material), maximum_bytes,
-                               sizeof(material_data)),
-          decoded, diagnostic);
+          adopt_material_asset(source.uri, std::move(material), sizeof(material_data)), decoded,
+          diagnostic);
     } else {
       status = decode_fixture(files, source, decoded, diagnostic, 64U * 1024U * 1024U,
                               maximum_bytes, profile);

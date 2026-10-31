@@ -72,7 +72,6 @@ parse_texture(const std::vector<std::byte>& bytes) try {
 
 result<texture_data, asset_diagnostic>
 decode_texture_payload(const texture_description& source, const std::vector<std::byte>& image_bytes,
-                       [[maybe_unused]] std::size_t input_limit, std::size_t output_limit,
                        texture_prepare_profile profile) noexcept try {
   texture_data output;
   asset_diagnostic diagnostic;
@@ -153,18 +152,6 @@ decode_texture_payload(const texture_description& source, const std::vector<std:
             (static_cast<std::uint32_t>(variant.usage) & usage) != usage) {
           continue;
         }
-        if (output.manifest.size() > output_limit ||
-            variant.payload_size > output_limit - output.manifest.size() ||
-            variant.payload_size > input_limit) {
-          const auto manifest_bytes = output.manifest.size();
-
-          fail(diagnostic, engine::error::out_of_memory, "/source",
-               "纹理准备预算不足：所选负载需要 " + std::to_string(variant.payload_size) +
-                   " 字节，Manifest 需要 " + std::to_string(manifest_bytes) +
-                   " 字节，负载读取上限 " + std::to_string(input_limit) + " 字节，合计可用 " +
-                   std::to_string(output_limit) + " 字节");
-          return failure(engine::error::out_of_memory);
-        }
         output.payload.resize(static_cast<std::size_t>(variant.payload_size));
         const auto selected_bytes = binary->payload.subspan(
             static_cast<std::size_t>(variant.payload_offset), output.payload.size());
@@ -218,7 +205,7 @@ decode_texture_payload(const texture_description& source, const std::vector<std:
               .manifest = {},
               .payload = {}};
   } else {
-    auto decoded = engine::decode_png(image_bytes, output_limit);
+    auto decoded = engine::decode_png(image_bytes);
     if (!decoded) {
       auto failure = std::move(decoded).error();
       fail(diagnostic, failure.error, "/source",

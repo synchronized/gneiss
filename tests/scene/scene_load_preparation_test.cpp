@@ -93,14 +93,8 @@ void run() {
   check(files.mount("asset://", memory) == gneiss::engine::error::success);
   auto& executor = gneiss::test_support::asset_tasks();
   asset_manager assets(gneiss::test_support::test_files(files));
-  check(assets
-            .register_decoder<scene_description>(&custom_scene,
-                                                 scene_description::maximum_source_bytes)
-            .ok());
-  check(assets
-            .register_decoder<prefab_description>(&custom_prefab,
-                                                  prefab_description::maximum_source_bytes)
-            .ok());
+  check(assets.register_decoder<scene_description>(&custom_scene).ok());
+  check(assets.register_decoder<prefab_description>(&custom_prefab).ok());
   assets.attach_task_executor(executor);
   prepared_scene_description output;
   gneiss::engine::scene_diagnostic diagnostic;
@@ -114,11 +108,15 @@ void run() {
         output.parent_first == std::vector<std::size_t>({0U, 1U, 2U}));
   const auto bytes = memory->files.at("main.scene").size() + memory->files.at("p.prefab").size();
   check(output.source_bytes == bytes);
+  // 准备结果拥有场景值副本；没有原始引用时弱缓存立即失效。
+  check(assets.find_loaded<scene_description>("asset://main.scene").error() == error::not_found);
+  asset_ref<const scene_description> held_scene;
+  check(gneiss::test_support::load_asset(assets, "asset://main.scene", held_scene).ok());
   auto cached_request = assets.load<scene_description>("asset://main.scene");
   check(bool(cached_request));
   auto cached_scene = cached_request->take();
   check(bool(cached_scene) && cached_request->source_bytes() == memory->files.at("main.scene").size());
-  check(scene_decodes == 1U && prefab_decodes == 1U);
+  check(scene_decodes == 2U && prefab_decodes == 1U);
   scene_description_request request(assets, "asset://main.scene", false);
   scene_description_inputs inputs;
   auto status = error::not_ready;
@@ -128,7 +126,7 @@ void run() {
     status = request.advance(inputs, diagnostic);
     check(executor.run_ready().status == drive_status::success);
   }
-  check(status.ok() && scene_decodes == 2U && prefab_decodes == 2U);
+  check(status.ok() && scene_decodes == 3U && prefab_decodes == 2U);
   const auto reads = memory->reads;
   check(prepare_loaded_scene(inputs, {}, output, diagnostic, {}).ok());
   check(memory->reads == reads &&

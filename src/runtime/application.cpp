@@ -1147,8 +1147,7 @@ application::prepare_edit_assets(std::span<const gneiss::engine::asset_source> s
   if (!service || scene_loading() || visual_assets_loading() || service->busy()) {
     return gneiss::engine::error::not_ready;
   }
-  return service->submit_assets(sources, 1U, revision, request, true,
-                                gneiss::engine::resource_service::maximum_prepared_bytes);
+  return service->submit_assets(sources, 1U, revision, request, true);
 } catch (const std::bad_alloc&) {
   return gneiss::engine::error::out_of_memory;
 } catch (...) {
