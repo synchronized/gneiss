@@ -38,8 +38,8 @@ public:
   engine::error request_property(runtime::application&, scene_document&, editor_command_history&,
                                  const component_edit_target&, const property_edit&);
   /** 移除组件并把资源强引用保存在历史中；撤销不加载文件。 */
-  gneiss::engine::error request_remove(runtime::application& application, scene_document& session,
-                                       editor_command_history& history, gneiss::engine::guid uuid);
+  gneiss::engine::error request_remove(scene_document& session, editor_command_history& history,
+                                       gneiss::engine::guid uuid);
   void advance(runtime::application& application, scene_document& session,
                editor_command_history& history);
   void cancel(runtime::application& application);

@@ -41,7 +41,10 @@ if (!captured)
 Editor 的 `with_scene` 检查文档、线程及 Application 生命周期后，原样返回操作的 `error` 或
 `result<T>`，不通过输出参数中转节点结果。文档的 `create_mesh_node` 接收已准备资源，
 `capture_mesh_binding` 捕获当前文档的节点资源；两者通过 `with_scene` 直接调用 Scene，
-文档关闭或 Application 停止接收请求后返回 `invalid_state`。Application 不提供这两项业务转发。
+文档关闭或 Application 停止接收请求后返回 `invalid_state`。Application 不提供这些业务转发。
+`replace_mesh_binding(node, expected, replacement)` 通过同一文档边界直接调用 Scene，
+当前资源不匹配 `expected` 时拒绝，失败不标脏；成功后标脏。资源必须已经准备完成。
+历史命令撤销时交换 expected/replacement，重做时使用原方向；Prefab 编辑继续使用组件覆盖入口。
 
 文档不保存节点数组。`capture_nodes()` 返回独立的列表快照，`find_node`、Prefab 查询及
 选择查询返回自有结果值；调用方持有这些值，不能保存临时查询结果内部的指针。

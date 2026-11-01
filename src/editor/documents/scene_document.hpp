@@ -22,7 +22,6 @@ class application;
 
 #include <cstdint>
 #include <filesystem>
-#include <functional>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -128,10 +127,10 @@ public:
   [[nodiscard]] engine::result<engine::scene_mesh_binding>
   capture_mesh_binding(scene_node_id node) const noexcept;
   [[nodiscard]] gneiss::scene_instance_id scene_handle() const noexcept { return scene_; }
-  /** 校验目标后调用提交；成功后标脏，不执行资产加载。 */
-  [[nodiscard]] gneiss::engine::error
-  commit_mesh_renderer(scene_node_id node,
-                       const std::function<gneiss::engine::error()>& commit) noexcept;
+  /** 替换已准备资源；当前绑定不匹配 expected 时拒绝，成功后标脏，不加载资产。 */
+  [[nodiscard]] engine::error
+  replace_mesh_binding(scene_node_id node, const engine::scene_mesh_binding& expected,
+                       const engine::scene_mesh_binding& replacement) noexcept;
   [[nodiscard]] bool is_dirty() const noexcept { return is_dirty_; }
   [[nodiscard]] std::string_view uri() const noexcept { return uri_; }
   [[nodiscard]] engine::result<scene_node_record> query_node(scene_node_id node) const noexcept;

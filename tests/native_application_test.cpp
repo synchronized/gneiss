@@ -104,11 +104,8 @@ void test_asset_request_boundaries() {
     gneiss::runtime::asset_load_completion completion;
     completion.request = 23;
     gneiss::engine::render_resource_ref lease;
-    gneiss::engine::scene_mesh_binding binding;
     check(app->collect_unused_edit_assets() == gneiss::engine::error::invalid_state);
     check(app->query_ready_asset({}, lease) == gneiss::engine::error::invalid_state && !lease);
-    check(app->replace_mesh_binding({}, {}, binding, binding) ==
-          gneiss::engine::error::invalid_state);
     check(app->prepare_edit_assets({}, 1, request) == gneiss::engine::error::invalid_state &&
           request == 0);
     return app->request_assets({}, 1, 1, request, true) == gneiss::engine::error::invalid_state &&

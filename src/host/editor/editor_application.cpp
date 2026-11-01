@@ -3002,8 +3002,8 @@ gneiss::engine::error update_editor(const gneiss::engine::frame_time* time, void
       const auto remove_mesh_requested = ImGui::Button("Remove Mesh Renderer");
       ImGui::EndDisabled();
       if (remove_mesh_requested) {
-        state.history_error = state.editing.assets().request_remove(
-            *state.application, state.editing.document(), state.editing.history(), uuid);
+        state.history_error = state.editing.assets().request_remove(state.editing.document(),
+                                                                    state.editing.history(), uuid);
       }
       if (!has_mesh) {
         ImGui::TextDisabled("Select a mesh in Asset Browser to add Mesh Renderer");

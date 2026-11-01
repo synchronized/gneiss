@@ -108,7 +108,7 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
                             .merge_key = {}});
   }
 
-  const auto apply = [&application, &session, scene = scene_, target = target_](
+  const auto apply = [&session, scene = scene_, target = target_](
                          const auto& expected, const auto& replacement) -> gneiss::engine::error {
     if (session.scene_handle() != scene) {
       return gneiss::engine::error::invalid_state;
@@ -116,8 +116,7 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
     const auto node = locate(session, target);
     if (!node)
       return engine::error::not_found;
-    return session.commit_mesh_renderer(
-        node, [&] { return application.replace_mesh_binding(scene, node, expected, replacement); });
+    return session.replace_mesh_binding(node, expected, replacement);
   };
   const auto was_dirty = session.is_dirty();
   const auto operation = history.execute({
@@ -132,8 +131,7 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
   return operation;
 }
 
-engine::error editor_asset_edit::request_remove(runtime::application& application,
-                                                scene_document& session,
+engine::error editor_asset_edit::request_remove(scene_document& session,
                                                 editor_command_history& history,
                                                 gneiss::engine::guid uuid) try {
   if (active_ || history.is_pending())
@@ -152,15 +150,13 @@ engine::error editor_asset_edit::request_remove(runtime::application& applicatio
   auto status = history.execute({
       .label = "移除 Mesh Renderer",
       .undo =
-          [&application, &session, scene, uuid = uuid, binding] {
+          [&session, scene, uuid = uuid, binding] {
             if (session.scene_handle() != scene)
               return engine::error::invalid_state;
             const auto current = session.find_node(uuid);
             if (!current)
               return engine::error::not_found;
-            return session.commit_mesh_renderer(current->node, [&] {
-              return application.replace_mesh_binding(scene, current->node, {}, binding);
-            });
+            return session.replace_mesh_binding(current->node, {}, binding);
           },
       .redo =
           [&session, scene, uuid = uuid] {

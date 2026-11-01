@@ -18,6 +18,7 @@
 #include <fstream>
 #include <source_location>
 #include <stdexcept>
+#include <thread>
 
 namespace {
 using namespace gneiss;
@@ -107,6 +108,22 @@ void run(gneiss::engine::execution_mode mode) {
             ->material_uri == "asset://b.json");
   const auto changed_binding = binding();
   check(initial_binding.material != changed_binding.material);
+  // 过期 expected 必须拒绝，资源与文档状态均不改变。
+  const auto was_dirty = session.is_dirty();
+  session.clear_dirty();
+  const auto target_node = session.find_node(uuid)->node;
+  check(session.replace_mesh_binding(target_node, initial_binding, initial_binding) ==
+        engine::error::invalid_state);
+  check(binding().material == changed_binding.material && !session.is_dirty());
+  auto foreign = engine::error{engine::error::success};
+  std::thread worker([&] {
+    foreign = session.replace_mesh_binding(target_node, changed_binding, initial_binding);
+  });
+  worker.join();
+  check(foreign == engine::error::invalid_state && binding().material == changed_binding.material &&
+        !session.is_dirty());
+  if (was_dirty)
+    session.mark_dirty();
   std::ofstream(files.root / "a.json") << "broken";
   std::ofstream(files.root / "b.json") << "broken";
   check(history.undo() == gneiss::engine::error::success &&
@@ -235,11 +252,13 @@ void run(gneiss::engine::execution_mode mode) {
             unused) == gneiss::engine::error::not_ready);
   // 文档入口负责应用停止和关闭边界，Scene 不依赖 Application。
   check(app->request_shutdown().ok());
+  check(session.replace_mesh_binding({}, {}, {}) == engine::error::invalid_state);
   auto stopped_create = session.create_mesh_node({}, {});
   auto stopped_capture = session.capture_mesh_binding({});
   check(!stopped_create && stopped_create.error() == engine::error::invalid_state);
   check(!stopped_capture && stopped_capture.error() == engine::error::invalid_state);
   session.close();
+  check(session.replace_mesh_binding({}, {}, {}) == engine::error::invalid_state);
   auto closed_create = session.create_mesh_node({}, {});
   auto closed_capture = session.capture_mesh_binding({});
   check(!closed_create && closed_create.error() == engine::error::invalid_state);

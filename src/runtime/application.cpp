@@ -1102,17 +1102,6 @@ application::query_ready_asset(const gneiss::engine::render_resource_source& sou
 }
 
 gneiss::engine::error
-application::replace_mesh_binding(gneiss::scene_instance_id scene, scene_node_id node,
-                                  const gneiss::engine::scene_mesh_binding& expected,
-                                  const gneiss::engine::scene_mesh_binding& replacement) noexcept {
-  const auto valid = is_owner_thread() && accepts_requests() ? gneiss::engine::error::success
-                                                             : gneiss::engine::error::invalid_state;
-  return valid == gneiss::engine::error::success
-             ? scenes()->replace_mesh_binding(scene, node, expected, replacement)
-             : valid;
-}
-
-gneiss::engine::error
 application::prepare_edit_assets(std::span<const gneiss::engine::render_resource_source> sources,
                                  std::uint64_t revision, std::uint64_t& request) noexcept try {
   request = 0U;

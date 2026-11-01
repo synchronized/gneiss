@@ -738,22 +738,15 @@ gneiss::engine::error scene_document::set_mesh_renderer(scene_node_id node,
   return status;
 }
 
-gneiss::engine::error scene_document::commit_mesh_renderer(
-    scene_node_id node, const std::function<gneiss::engine::error()>& commit) noexcept try {
-  if (!commit)
-    return engine::error::invalid_argument;
-  auto valid =
-      with_scene([&](auto& scenes) { return scenes.validate_editable_node(scene_, node); });
-  if (valid.failed())
-    return valid;
-  const auto status = commit();
+engine::error
+scene_document::replace_mesh_binding(scene_node_id node, const engine::scene_mesh_binding& expected,
+                                     const engine::scene_mesh_binding& replacement) noexcept {
+  const auto status = with_scene([&](auto& scenes) {
+    return scenes.replace_mesh_binding(scene_, node, expected, replacement);
+  });
   if (status.ok())
     is_dirty_ = true;
   return status;
-} catch (const std::bad_alloc&) {
-  return engine::error::out_of_memory;
-} catch (...) {
-  return engine::error::internal;
 }
 
 engine::error scene_document::encode_scene(std::string& output) const noexcept try {

@@ -68,10 +68,6 @@ public:
   query_ready_asset(const gneiss::engine::render_resource_source& source,
                     gneiss::engine::render_resource_ref& output) noexcept;
   [[nodiscard]] gneiss::engine::error
-  replace_mesh_binding(gneiss::scene_instance_id scene, scene_node_id node,
-                       const gneiss::engine::scene_mesh_binding& expected,
-                       const gneiss::engine::scene_mesh_binding& replacement) noexcept;
-  [[nodiscard]] gneiss::engine::error
   prepare_edit_assets(std::span<const gneiss::engine::render_resource_source> sources,
                       std::uint64_t revision, std::uint64_t& request) noexcept;
   [[nodiscard]] gneiss::engine::error request_scene(std::string_view uri, std::uint64_t session,

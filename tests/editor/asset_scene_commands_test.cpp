@@ -185,7 +185,7 @@ int main() try {
   if (gneiss::test_support::take_value(session.capture_mesh_binding(session.find_node(uuid)->node),
                                        removed_binding)
           .failed() ||
-      removal.request_remove(*app, session, history, uuid).failed() ||
+      removal.request_remove(session, history, uuid).failed() ||
       session.find_node(uuid)->components.get<gneiss::engine::mesh_renderer_description>() !=
           nullptr ||
       run_history(true).failed() ||
