@@ -226,9 +226,11 @@ void run(gneiss::engine::execution_mode mode) {
   check(edit.operation() == gneiss::engine::error::invalid_state &&
         history.size() == creation_count);
   gneiss::engine::render_resource_ref unused;
-  check(app->query_ready_asset(
-            {.uri = "asset://c.json", .type = gneiss::engine::render_resource_kind::material},
-            unused) == gneiss::engine::error::not_ready &&
+  check(gneiss::test_support::take_value(
+            app->resources().find(
+                {.uri = "asset://c.json", .type = gneiss::engine::render_resource_kind::material},
+                app->resources().profile()),
+            unused) == gneiss::engine::error::not_found &&
         !unused);
   history.clear();
   // 旧请求还在准备时切换到另一个有效场景；不能污染新场景或采用旧候选。
@@ -247,9 +249,11 @@ void run(gneiss::engine::execution_mode mode) {
   check(edit.operation() == gneiss::engine::error::invalid_state &&
         session.scene_handle() == new_scene &&
         gneiss::test_support::scene_query(session).nodes.empty() && history.size() == 0U);
-  check(app->query_ready_asset(
-            {.uri = "asset://d.json", .type = gneiss::engine::render_resource_kind::material},
-            unused) == gneiss::engine::error::not_ready);
+  check(gneiss::test_support::take_value(
+            app->resources().find(
+                {.uri = "asset://d.json", .type = gneiss::engine::render_resource_kind::material},
+                app->resources().profile()),
+            unused) == gneiss::engine::error::not_found);
   // 文档入口负责应用停止和关闭边界，Scene 不依赖 Application。
   check(app->request_shutdown().ok());
   check(session.replace_mesh_binding({}, {}, {}) == engine::error::invalid_state);

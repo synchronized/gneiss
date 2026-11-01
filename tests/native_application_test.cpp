@@ -6,6 +6,7 @@
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
+#include "runtime/loading/scene_service.hpp"
 
 #include <atomic>
 #include <cstdio>
@@ -103,11 +104,8 @@ void test_asset_request_boundaries() {
           scene_completion.scene == gneiss::scene_instance_id{29});
     gneiss::runtime::asset_load_completion completion;
     completion.request = 23;
-    gneiss::engine::render_resource_ref lease;
-    check(app->collect_unused_edit_assets() == gneiss::engine::error::invalid_state);
-    check(app->query_ready_asset({}, lease) == gneiss::engine::error::invalid_state && !lease);
-    check(app->prepare_edit_assets({}, 1, request) == gneiss::engine::error::invalid_state &&
-          request == 0);
+    auto prepared = app->scene_loading_service().prepare_assets({}, 1);
+    check(!prepared && prepared.error() == gneiss::engine::error::invalid_state);
     return app->request_assets({}, 1, 1, request, true) == gneiss::engine::error::invalid_state &&
            request == 0 &&
            app->poll_assets(completion, ready) == gneiss::engine::error::invalid_state && !ready &&

@@ -7,6 +7,8 @@
 #include "engine/core/rid.hpp"
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/function/world/world.hpp"
+#include "runtime/loading/resource_load_group.hpp"
+#include "runtime/loading/scene_domain.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -154,7 +156,21 @@ gneiss::engine::world* scene_service::native_world() const noexcept {
 gneiss::engine::scene_instances* scene_service::scenes() noexcept {
   return active_ ? active_->scenes() : nullptr;
 }
+bool scene_service::can_activate() const noexcept {
+  return !stopping_ && !reload_ && !retired_ && loading_assets() && !loading_assets()->busy();
+}
 resource_load_group* scene_service::loading_assets() const noexcept { return loading_.get(); }
+engine::result<asset_load_completion>
+scene_service::prepare_assets(std::span<const engine::render_resource_source> sources,
+                              std::uint64_t revision, bool reload) {
+  if (std::this_thread::get_id() != owner_ || stopping_)
+    return engine::error::invalid_state;
+  if (!loading_assets())
+    return engine::error::not_ready;
+  return loading_assets()->prepare_assets(sources, 1U, revision, reload,
+                                          !reload_ && !loading() && !visual_loading() && !retired_);
+}
+
 gneiss::engine::error
 scene_service::request_assets(std::span<const gneiss::engine::render_resource_source> sources,
                               std::uint64_t session, std::uint64_t revision, std::uint64_t& request,

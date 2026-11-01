@@ -86,7 +86,12 @@ gneiss::engine::error prefab_placement::freeze(
       return engine::error::success;
     }
     // 刷新来源时，实例覆盖仍引用当前已加载资源；快照必须强持有它们。
-    return application.query_ready_asset({std::string(uri), type}, result);
+    auto found =
+        application.resources().find({std::string(uri), type}, application.resources().profile());
+    if (!found)
+      return found.error() == engine::error::not_found ? engine::error::not_ready : found.error();
+    result = std::move(*found);
+    return engine::error{engine::error::success};
   };
   for (std::size_t i = 0; i < binding.source_nodes.size(); ++i) {
     const auto* renderer = effective.objects[i].components.get<engine::mesh_renderer_description>();

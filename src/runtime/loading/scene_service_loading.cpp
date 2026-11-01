@@ -9,6 +9,8 @@
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/scene/scene_types.hpp"
+#include "runtime/loading/resource_load_group.hpp"
+#include "runtime/loading/scene_domain.hpp"
 #include "runtime/loading/scene_service.hpp"
 
 #include "engine/resource/asset_uri.hpp"

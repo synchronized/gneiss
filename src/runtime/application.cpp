@@ -7,15 +7,16 @@
 #include "engine/core/error.hpp"
 #include "engine/core/log/log.hpp"
 #include "engine/core/rid.hpp"
-#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/input/input_service.hpp"
 #include "engine/function/meta_registration.hpp"
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/resource/asset_manager.hpp"
+#include "engine/function/scene/scene_types.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/platform/files/file_service.hpp"
 #include "runtime/loading/action_map_application.hpp"
+#include "runtime/loading/resource_load_group.hpp"
 #include "runtime/loading/scene_service.hpp"
 #include <atomic>
 #include <optional>
@@ -1072,53 +1073,8 @@ resource_load_group* application::loading_assets() noexcept {
   return storage_->scene_service_.loading_assets();
 }
 
-gneiss::engine::error application::collect_unused_edit_assets() noexcept {
-  const auto valid = is_owner_thread() && accepts_requests() ? gneiss::engine::error::success
-                                                             : gneiss::engine::error::invalid_state;
-  if (valid == gneiss::engine::error::success) {
-    storage_->resource_service_->collect_unused();
-    storage_->asset_manager_->collect_unused();
-  }
-  return valid;
-}
-
-gneiss::engine::error
-application::query_ready_asset(const gneiss::engine::render_resource_source& source,
-                               gneiss::engine::render_resource_ref& output) noexcept {
-  output = {};
-  const auto valid = is_owner_thread() && accepts_requests() ? gneiss::engine::error::success
-                                                             : gneiss::engine::error::invalid_state;
-  if (valid != gneiss::engine::error::success) {
-    return valid;
-  }
-  auto* service = loading_assets();
-  if (!service)
-    return engine::error::not_ready;
-  auto found = storage_->resource_service_->find(source, service->profile());
-  if (!found)
-    return found.error() == engine::error::not_found ? engine::error::not_ready : found.error();
-  output = std::move(*found);
-  return engine::error::success;
-}
-
-gneiss::engine::error
-application::prepare_edit_assets(std::span<const gneiss::engine::render_resource_source> sources,
-                                 std::uint64_t revision, std::uint64_t& request) noexcept try {
-  request = 0U;
-  const auto valid = is_owner_thread() && accepts_requests() ? gneiss::engine::error::success
-                                                             : gneiss::engine::error::invalid_state;
-  if (valid != gneiss::engine::error::success) {
-    return valid;
-  }
-  auto* service = loading_assets();
-  if (!service || scene_loading() || visual_assets_loading() || service->busy()) {
-    return gneiss::engine::error::not_ready;
-  }
-  return service->submit_assets(sources, 1U, revision, request, true);
-} catch (const std::bad_alloc&) {
-  return gneiss::engine::error::out_of_memory;
-} catch (...) {
-  return gneiss::engine::error::internal;
+runtime::scene_service& application::scene_loading_service() noexcept {
+  return storage_->scene_service_;
 }
 
 gneiss::engine::error application::request_scene(std::string_view uri, std::uint64_t session,
@@ -1236,6 +1192,8 @@ gneiss::engine::error application::advance_resource_io() {
   }
   storage_->resource_service_->advance();
   storage_->asset_manager_->advance();
+  storage_->resource_service_->collect_unused();
+  storage_->asset_manager_->collect_unused();
   if (auto state = storage_->environment_; state && state->ready) {
     if (state->status.failed()) {
       storage_->environment_.reset();

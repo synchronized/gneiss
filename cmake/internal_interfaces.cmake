@@ -92,6 +92,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   runtime/loading/prefab_preparation.hpp
   runtime/loading/resource_load_types.hpp
   runtime/loading/scene_load_types.hpp
+  runtime/loading/scene_service.hpp
   engine/resource/input/action_map.hpp
   engine/function/input/input_service.hpp
   engine/core/math/camera.hpp

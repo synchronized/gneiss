@@ -10,13 +10,19 @@
 #include "engine/function/resource/resource_service.hpp"
 #include "engine/function/scene/scene_preparation.hpp"
 #include "engine/function/world/world.hpp"
-#include "runtime/loading/resource_load_group.hpp"
-#include "runtime/loading/scene_domain.hpp"
+#include "runtime/loading/resource_load_types.hpp"
+
 #include "runtime/loading/scene_load_types.hpp"
 #include <optional>
 #include <thread>
 
+namespace gneiss::engine {
+class scene_instances;
+}
+
 namespace gneiss::runtime {
+class scene_domain;
+class resource_load_group;
 
 /** 场景生命周期的唯一拥有者；全部调用限宿主线程。
  * 借用的资产管理器、渲染服务与执行器必须存活至 shutdown 返回。
@@ -29,6 +35,10 @@ public:
   scene_service(const scene_service&) = delete;
   scene_service& operator=(const scene_service&) = delete;
 
+  /** 复用已就绪资源，只为缺失项提交加载；刷新时显式指定 reload。 */
+  [[nodiscard]] GNEISS_API engine::result<asset_load_completion>
+  prepare_assets(std::span<const engine::render_resource_source> sources, std::uint64_t revision,
+                 bool reload = false);
   [[nodiscard]] gneiss::engine::error initialize(gneiss::engine::resource_service& resources);
   [[nodiscard]] gneiss::engine::error
   attach_executor(gneiss::engine::task_executor& executor, gneiss::engine::render_service& renderer,
@@ -48,9 +58,7 @@ public:
   void shutdown() noexcept;
 
   [[nodiscard]] bool can_start_load() const noexcept;
-  [[nodiscard]] bool can_activate() const noexcept {
-    return !stopping_ && !reload_ && !retired_ && loading_assets() && !loading_assets()->busy();
-  }
+  [[nodiscard]] bool can_activate() const noexcept;
   [[nodiscard]] bool loading() const noexcept;
   [[nodiscard]] scene_retirement_statistics retirement() const noexcept;
   [[nodiscard]] gneiss::engine::world* native_world() const noexcept;

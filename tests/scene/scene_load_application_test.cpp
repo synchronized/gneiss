@@ -127,12 +127,16 @@ void visual_failure(gneiss::engine::execution_mode mode) {
   until([&] { return !app->visual_assets_loading(); });
   check(failures == 1U);
   gneiss::engine::render_resource_ref ready;
-  check(app->query_ready_asset({"asset://mesh.json", gneiss::engine::render_resource_kind::mesh},
-                               ready) == gneiss::engine::error::success);
+  check(gneiss::test_support::take_value(
+            app->resources().find({"asset://mesh.json", gneiss::engine::render_resource_kind::mesh},
+                                  app->resources().profile()),
+            ready) == gneiss::engine::error::success);
   check(gneiss::engine::resource_cast<gneiss::engine::mesh_resource>(ready) == binding.mesh);
-  check(app->query_ready_asset(
-            {"asset://material.json", gneiss::engine::render_resource_kind::material}, ready) ==
-        gneiss::engine::error::not_ready);
+  check(gneiss::test_support::take_value(
+            app->resources().find(
+                {"asset://material.json", gneiss::engine::render_resource_kind::material},
+                app->resources().profile()),
+            ready) == gneiss::engine::error::not_ready);
   std::uint64_t nodes{};
   check(gneiss::test_support::take_value(app->scenes()->get_node_count(completion.scene), nodes) ==
             gneiss::engine::error::success &&
@@ -224,8 +228,10 @@ void run(gneiss::engine::execution_mode mode) {
   const auto prepared = await_phase(scene_load_phase::ready);
   // 结构 ready 时视觉内容尚未读取或上传。
   gneiss::engine::render_resource_ref not_ready;
-  check(app->query_ready_asset({"asset://mesh.json", gneiss::engine::render_resource_kind::mesh},
-                               not_ready) == gneiss::engine::error::not_ready);
+  check(gneiss::test_support::take_value(
+            app->resources().find({"asset://mesh.json", gneiss::engine::render_resource_kind::mesh},
+                                  app->resources().profile()),
+            not_ready) == gneiss::engine::error::not_ready);
   check(prepared.cpu_data_bytes == prepared.resident_bytes);
   check(prepared.application_logical_bytes >= prepared.resident_bytes);
   check(prepared.application_cpu_data_bytes >= prepared.cpu_data_bytes);
@@ -367,8 +373,9 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
   };
   auto selected = [&](gneiss::engine::render_resource_kind type, const char* uri) {
     gneiss::engine::render_resource_ref lease;
-    check(app->query_ready_asset({.uri = uri, .type = type}, lease) ==
-          gneiss::engine::error::success);
+    check(gneiss::test_support::take_value(
+              app->resources().find({.uri = uri, .type = type}, app->resources().profile()),
+              lease) == gneiss::engine::error::success);
     return lease;
   };
   auto binding = [&] {

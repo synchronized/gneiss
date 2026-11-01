@@ -10,6 +10,7 @@
 #include "engine/function/render/render_service.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/resource/texture/texture_ktx2.hpp"
+#include "runtime/loading/scene_service.hpp"
 
 #include "engine/function/scene/scene_instances.hpp"
 #include "runtime/application.hpp"
@@ -132,14 +133,44 @@ void run(gneiss::engine::execution_mode mode) {
   const gneiss::engine::render_resource_source material_source{
       .uri = "asset://m.material", .type = gneiss::engine::render_resource_kind::material};
   gneiss::engine::render_resource_ref selected_before;
-  check(app->query_ready_asset(material_source, selected_before) == gneiss::engine::error::success);
-  write_material(false);
-  check(app->prepare_edit_assets({&material_source, 1}, 31U, request) ==
+  check(gneiss::test_support::take_value(
+            app->resources().find(material_source, app->resources().profile()), selected_before) ==
         gneiss::engine::error::success);
+  // 缓存命中立即返回；混合请求只加载缺失项，缓存资源仍保持同一引用。
+  {
+    auto cached = app->scene_loading_service().prepare_assets({&material_source, 1}, 30U);
+    check(cached && cached->request == 0 &&
+          cached->state == gneiss::runtime::asset_load_state::applied &&
+          cached->assets.size() == 1 && cached->assets.front() == selected_before);
+    std::ofstream(files.root / "extra.material")
+        << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[1,1,1,1]},"texture_uris":["","","","",""]})";
+    const std::array mixed_sources{gneiss::engine::render_resource_source{
+                                       .uri = "asset://extra.material",
+                                       .type = gneiss::engine::render_resource_kind::material},
+                                   material_source};
+    auto mixed = app->scene_loading_service().prepare_assets(mixed_sources, 30U);
+    check(mixed && mixed->request != 0 &&
+          mixed->state == gneiss::runtime::asset_load_state::preparing);
+    auto blocked = app->scene_loading_service().prepare_assets(mixed_sources, 30U);
+    check(!blocked && blocked.error() == gneiss::engine::error::not_ready);
+    cached = app->scene_loading_service().prepare_assets({&material_source, 1}, 30U);
+    check(cached && cached->request == 0 && cached->assets.front() == selected_before);
+    wait();
+    check(completion.request == mixed->request && completion.result.ok() &&
+          completion.assets.size() == 2 && completion.results.size() == 2 &&
+          completion.assets.front() == selected_before);
+    check(completion.results[0].applied && completion.results[1].applied);
+  }
+  write_material(false);
+  auto preparation = app->scene_loading_service().prepare_assets({&material_source, 1}, 31U, true);
+  check(bool(preparation));
+  request = preparation->request;
   wait();
   check(completion.result == gneiss::engine::error::success);
   gneiss::engine::render_resource_ref selected_after;
-  check(app->query_ready_asset(material_source, selected_after) == gneiss::engine::error::success &&
+  check(gneiss::test_support::take_value(
+            app->resources().find(material_source, app->resources().profile()), selected_after) ==
+            gneiss::engine::error::success &&
         selected_before == selected_after);
   // 恢复后续重载用例的输入；这里不修改场景使用者。
   write_material(true);

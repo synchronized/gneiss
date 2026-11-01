@@ -20,14 +20,14 @@
 #error "资源私有访问器泄漏到宿主"
 #endif
 
-#if __has_include("runtime/loading/scene_domain.hpp")
+#if __has_include("runtime/loading/resource_load_group.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
 #if __has_include("engine/function/resource/detail/asset_decode.hpp") ||                           \
                   __has_include("engine/function/resource/detail/resource_service_impl.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
-#if __has_include("runtime/loading/scene_service.hpp")
+#if __has_include("runtime/loading/scene_domain.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
 #if __has_include("engine/core/meta/registration.hpp")

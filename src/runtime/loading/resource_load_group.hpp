@@ -48,6 +48,61 @@ public:
     request = completion_->request;
     return error::success;
   }
+  /** 就绪项立即返回；缺失项进入同一加载组，回执包含全部请求的资源。 */
+  engine::result<asset_load_completion>
+  prepare_assets(std::span<const engine::render_resource_source> sources, std::uint64_t session,
+                 std::uint64_t revision, bool reload, bool allow_load) try {
+    using engine::error;
+    if (stopping_)
+      return error::invalid_state;
+    if (sources.size() > 256 || !session || !revision)
+      return error::invalid_argument;
+    asset_load_completion ready;
+    ready.session = session;
+    ready.revision = revision;
+    ready.profile = profile();
+    ready.state = asset_load_state::applied;
+    ready.result = error::success;
+    std::vector<engine::render_resource_source> missing;
+    std::set<std::string> unique;
+    for (const auto& source : sources) {
+      if (engine::validate_uri(source.uri).failed() || !unique.insert(source.uri).second ||
+          (source.type != engine::render_resource_kind::mesh &&
+           source.type != engine::render_resource_kind::material &&
+           source.type != engine::render_resource_kind::texture))
+        return error::invalid_argument;
+      auto found = reload ? engine::result<engine::render_resource_ref>{error::not_found}
+                          : service_.find(source, profile());
+      if (found) {
+        ready.assets.push_back(std::move(*found));
+        ready.results.push_back({.source = source, .result = error::success, .applied = true});
+      } else if (found.error() == error::not_found || found.error() == error::not_ready) {
+        missing.push_back(source);
+      } else
+        return found.error();
+    }
+    if (missing.empty())
+      return ready;
+    if (!allow_load || busy())
+      return error::not_ready;
+    const auto cached_count = ready.results.size();
+    for (const auto& source : missing)
+      ready.results.push_back({.source = source});
+    std::uint64_t request{};
+    auto status = submit_assets(missing, session, revision, request, true);
+    if (status.failed())
+      return status;
+    completion_->assets = std::move(ready.assets);
+    completion_->results = std::move(ready.results);
+    cursor_ = cached_count;
+    ready.request = request;
+    ready.state = asset_load_state::preparing;
+    return ready;
+  } catch (const std::bad_alloc&) {
+    return engine::error::out_of_memory;
+  } catch (...) {
+    return engine::error::internal;
+  }
   void advance() {
     using engine::error;
     service_.advance();

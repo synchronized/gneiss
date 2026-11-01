@@ -7,6 +7,7 @@
 #include "engine/core/meta/serialization.hpp"
 #include "engine/function/scene/prefab_property_override.hpp"
 #include "runtime/application.hpp"
+#include "runtime/loading/scene_service.hpp"
 #include <algorithm>
 
 namespace gneiss::editor {
@@ -324,52 +325,40 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
     previous_ = {};
     return operation_ = gneiss::engine::error::invalid_state;
   }
-  std::vector<gneiss::engine::render_resource_source> missing;
-  const auto resolve = [&](std::string_view uri, gneiss::engine::render_resource_kind type,
-                           const auto& previous, auto& next) {
-    if (uri.empty()) {
+  std::vector<engine::render_resource_source> sources;
+  const auto select = [&](std::string_view uri, engine::render_resource_kind type,
+                          const auto& previous, auto& next) {
+    if (uri.empty())
       next = {};
-      return;
-    }
-    if (gneiss::engine::resource_uri(previous) == uri) {
+    else if (engine::resource_uri(previous) == uri)
       next = previous;
-      return;
-    }
-    gneiss::engine::render_resource_source source{.uri = std::string(uri), .type = type};
-    gneiss::engine::render_resource_ref entry;
-    const auto ready = application.query_ready_asset(source, entry);
-    using resource_type = std::remove_reference_t<decltype(*next)>;
-    next = gneiss::engine::resource_cast<std::remove_const_t<resource_type>>(entry);
-    if (ready == gneiss::engine::error::not_ready) {
-      missing.push_back(std::move(source));
-    } else if (ready != gneiss::engine::error::success) {
-      operation_ = ready;
-    }
+    else
+      sources.push_back({std::string(uri), type});
   };
-  resolve(mesh_, gneiss::engine::render_resource_kind::mesh, previous_.mesh, next_.mesh);
-  resolve(material_, gneiss::engine::render_resource_kind::material, previous_.material,
-          next_.material);
-  if (operation_.failed()) {
+  select(mesh_, engine::render_resource_kind::mesh, previous_.mesh, next_.mesh);
+  select(material_, engine::render_resource_kind::material, previous_.material, next_.material);
+  runtime::asset_load_completion prepared;
+  prepared.state = runtime::asset_load_state::applied;
+  if (!sources.empty()) {
+    auto result = application.scene_loading_service().prepare_assets(sources, ++revision_);
+    if (!result)
+      operation_ = result.error();
+    else
+      prepared = std::move(*result);
+  }
+  if (operation_.failed() || prepared.state == runtime::asset_load_state::applied) {
+    if (operation_.ok()) {
+      accept_assets(prepared.assets);
+      operation_ = commit(application, session, history);
+    }
     previous_ = {};
     next_ = {};
     prefab_before_.reset();
     return operation_;
   }
-  if (missing.empty()) {
-    operation_ = commit(application, session, history);
-    previous_ = {};
-    next_ = {};
-    prefab_before_.reset();
-    return operation_;
-  }
-  operation_ = application.prepare_edit_assets(missing, ++revision_, request_);
-  active_ = operation_.ok();
-  visible_ = active_;
-  if (!active_) {
-    previous_ = {};
-    next_ = {};
-    prefab_before_.reset();
-  }
+  request_ = prepared.request;
+  active_ = true;
+  visible_ = true;
   return operation_;
 } catch (const std::bad_alloc&) {
   previous_ = {};
@@ -381,6 +370,19 @@ editor_asset_edit::request_impl(runtime::application& application, scene_documen
   next_ = {};
   prefab_before_.reset();
   return operation_ = gneiss::engine::error::internal;
+}
+
+void editor_asset_edit::accept_assets(std::span<const engine::render_resource_ref> assets) {
+  for (const auto& lease : assets) {
+    if (!next_.mesh && gneiss::engine::resource_uri(lease) == mesh_ &&
+        gneiss::engine::resource_kind(lease) == gneiss::engine::render_resource_kind::mesh) {
+      next_.mesh = gneiss::engine::resource_cast<gneiss::engine::mesh_resource>(lease);
+    }
+    if (!next_.material && gneiss::engine::resource_uri(lease) == material_ &&
+        gneiss::engine::resource_kind(lease) == gneiss::engine::render_resource_kind::material) {
+      next_.material = gneiss::engine::resource_cast<gneiss::engine::material_resource>(lease);
+    }
+  }
 }
 
 void editor_asset_edit::advance(runtime::application& application, scene_document& session,
@@ -413,16 +415,7 @@ void editor_asset_edit::advance(runtime::application& application, scene_documen
     operation_ = gneiss::engine::error::invalid_state;
   }
   if (operation_.ok()) {
-    for (const auto& lease : completion.assets) {
-      if (!next_.mesh && gneiss::engine::resource_uri(lease) == mesh_ &&
-          gneiss::engine::resource_kind(lease) == gneiss::engine::render_resource_kind::mesh) {
-        next_.mesh = gneiss::engine::resource_cast<gneiss::engine::mesh_resource>(lease);
-      }
-      if (!next_.material && gneiss::engine::resource_uri(lease) == material_ &&
-          gneiss::engine::resource_kind(lease) == gneiss::engine::render_resource_kind::material) {
-        next_.material = gneiss::engine::resource_cast<gneiss::engine::material_resource>(lease);
-      }
-    }
+    accept_assets(completion.assets);
     operation_ = next_.mesh && next_.material ? commit(application, session, history)
                                               : gneiss::engine::error::invalid_state;
   }
@@ -432,7 +425,6 @@ void editor_asset_edit::advance(runtime::application& application, scene_documen
   next_ = {};
   prefab_before_.reset();
   completion = {};
-  (void)application.collect_unused_edit_assets();
 }
 void editor_asset_edit::cancel(runtime::application& application) {
   if (!active_) {

@@ -7,6 +7,7 @@
 #include "runtime/application.hpp"
 #include "runtime/loading/prefab_placement.hpp"
 #include "runtime/loading/prefab_preparation.hpp"
+#include "runtime/loading/scene_service.hpp"
 #include <algorithm>
 
 namespace gneiss::editor {
@@ -190,7 +191,6 @@ struct editor_prefab_edit::state {
     prepared.assets.clear();
     prepared.parent_first.clear();
     assets.clear();
-    (void)application.collect_unused_edit_assets();
   }
 
   void prepare_refresh() {
@@ -240,26 +240,17 @@ struct editor_prefab_edit::state {
     }
     preparation.reset();
     if (status.ok() && !cancelled) {
-      std::vector<gneiss::engine::render_resource_source> missing;
-      for (const auto& asset : prepared.assets) {
-        gneiss::engine::render_resource_ref lease;
-        const auto ready = refreshing ? gneiss::engine::error::not_ready
-                                      : application.query_ready_asset(asset, lease);
-        if (ready == gneiss::engine::error::success) {
-          assets.push_back(std::move(lease));
-        } else if (ready == gneiss::engine::error::not_ready) {
-          missing.push_back(asset);
-        } else {
-          status = ready;
-          break;
-        }
-      }
-      if (status.ok() && !missing.empty()) {
-        status = application.prepare_edit_assets(missing, 1U, request);
-        asset_pending = status.ok();
-        if (asset_pending) {
+      auto submitted =
+          application.scene_loading_service().prepare_assets(prepared.assets, 1U, refreshing);
+      if (!submitted)
+        status = submitted.error();
+      else {
+        completion = std::move(*submitted);
+        request = completion.request;
+        asset_pending = completion.state == runtime::asset_load_state::preparing;
+        if (asset_pending)
           return false;
-        }
+        assets = std::move(completion.assets);
       }
     }
 
@@ -280,7 +271,7 @@ struct editor_prefab_edit::state {
       status = gneiss::engine::error::invalid_state;
     }
     if (status.ok()) {
-      assets.insert(assets.end(), completion.assets.begin(), completion.assets.end());
+      assets = std::move(completion.assets);
     }
 
     return true;

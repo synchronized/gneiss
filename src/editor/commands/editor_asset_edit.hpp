@@ -54,6 +54,7 @@ public:
   const gneiss::runtime::asset_load_progress& progress() const noexcept { return progress_; }
 
 private:
+  void accept_assets(std::span<const engine::render_resource_ref> assets);
   gneiss::engine::error request_impl(runtime::application& application, scene_document& session,
                                      editor_command_history& history,
                                      const component_edit_target& target, std::string_view name,

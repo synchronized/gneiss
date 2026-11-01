@@ -46,6 +46,7 @@ class world;
 
 namespace gneiss::runtime {
 class resource_load_group;
+class scene_service;
 
 /** 内部真实运行对象；仅所属线程操作和释放最后一个持有引用。
  * 私有装配存储位于实现文件；此内部模块接口随源码构建，不属于安装 SDK。 */
@@ -63,13 +64,8 @@ public:
   [[nodiscard]] gneiss::engine::error
   attach_task_executor(gneiss::engine::task_executor& executor) noexcept;
   [[nodiscard]] bool has_asset_loading_service() const noexcept;
-  [[nodiscard]] gneiss::engine::error collect_unused_edit_assets() noexcept;
-  [[nodiscard]] gneiss::engine::error
-  query_ready_asset(const gneiss::engine::render_resource_source& source,
-                    gneiss::engine::render_resource_ref& output) noexcept;
-  [[nodiscard]] gneiss::engine::error
-  prepare_edit_assets(std::span<const gneiss::engine::render_resource_source> sources,
-                      std::uint64_t revision, std::uint64_t& request) noexcept;
+  /** 借用加载协调服务；必须在 Application 生命周期内、所属线程使用。 */
+  [[nodiscard]] runtime::scene_service& scene_loading_service() noexcept;
   [[nodiscard]] gneiss::engine::error request_scene(std::string_view uri, std::uint64_t session,
                                                     std::uint64_t revision, std::uint64_t& request);
   [[nodiscard]] bool scene_progress(runtime::scene_load_progress& progress) const;
