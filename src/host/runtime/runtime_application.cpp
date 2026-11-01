@@ -10,6 +10,7 @@
 #include "engine/function/scene/scene_instances.hpp"
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
+#include "runtime/loading/scene_service.hpp"
 #include <gneiss/app/project_description.hpp>
 
 #include "runtime_asset_reloader.hpp"
@@ -78,6 +79,7 @@ struct runtime_context final {
   std::uint64_t logged_scene_session{};
   std::uint64_t logged_scene_revision{};
   int logged_scene_phase{-1};
+  std::uint64_t asset_request{};
   bool asset_waiting{};
   bool asset_cancelled{};
   std::uint64_t next_asset_progress_ns{};
@@ -232,7 +234,9 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
       if (context.asset_waiting && !context.pending_assets.empty()) {
         const auto& active = context.pending_assets.front().request;
         if (active.session_id == cancel.session_id && active.revision == cancel.revision &&
-            context.application->cancel_assets() == gneiss::engine::error::success)
+            context.asset_request != 0 &&
+            context.application->cancel_assets(context.asset_request) ==
+                gneiss::engine::error::success)
           context.asset_cancelled = true;
         context.next_asset_progress_ns = 0U;
       }
@@ -265,7 +269,8 @@ gneiss::engine::error update_runtime(const gneiss::engine::frame_time* time, voi
       if (!ready && asset_result == gneiss::engine::error::success &&
           time->elapsed_ns >= context.next_asset_progress_ns) {
         gneiss::runtime::asset_load_progress progress;
-        if (context.application->asset_progress(progress)) {
+        if (context.application->asset_progress(progress) &&
+            progress.request == context.asset_request) {
           const gneiss::host::ipc_asset_reload_result event{
               .session_id = progress.session,
               .revision = progress.revision,
@@ -589,51 +594,75 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
                           : asset.type == gneiss::host::ipc_asset_type::material ? type::material
                                                                                  : type::mesh});
         }
-        std::uint64_t accepted{};
         return native_application->request_assets(assets, request.session_id, request.revision,
-                                                  accepted, true);
+                                                  context.asset_request, true);
       },
       [&, native_application = application.get()](
           gneiss::engine::error& result, std::vector<gneiss::host::ipc_asset_item_result>& items,
           bool& ready) {
-        if (structural_reload) {
-          auto operation = gneiss::engine::error::success;
-          if (structural_ignored) {
-            result = gneiss::engine::error::success;
-            ready = true;
-          } else {
-            operation = native_application->poll_scene_reload(result, ready);
+        try {
+          if (structural_reload) {
+            auto operation = gneiss::engine::error::success;
+            if (structural_ignored) {
+              result = gneiss::engine::error::success;
+              ready = true;
+            } else {
+              operation = native_application->poll_scene_reload(result, ready);
+            }
+            if (ready)
+              items.push_back({*structural_reload, result, result.ok()});
+            if (ready || (operation.failed() && operation != gneiss::engine::error::not_ready))
+              structural_reload.reset();
+            return operation;
           }
+          ready = false;
+          native_application->advance_scene_load();
+          auto polled = native_application->scene_loading_service().poll_prepared_assets(
+              context.asset_request);
+          if (!polled) {
+            if (polled.error() == gneiss::engine::error::not_ready)
+              return gneiss::engine::error{gneiss::engine::error::success};
+            (void)native_application->scene_loading_service().discard_prepared_assets(
+                context.asset_request);
+            context.asset_request = 0;
+            return polled.error();
+          }
+          context.asset_request = 0;
+          ready = true;
+          auto completion = std::move(*polled);
           if (ready) {
-            items.push_back({*structural_reload, result, result.ok()});
-            structural_reload.reset();
+            for (const auto& item : completion.results) {
+              using type = gneiss::engine::render_resource_kind;
+              items.push_back({.asset = {.uri = item.source.uri,
+                                         .type = item.source.type == type::texture
+                                                     ? gneiss::host::ipc_asset_type::texture
+                                                 : item.source.type == type::material
+                                                     ? gneiss::host::ipc_asset_type::material
+                                                     : gneiss::host::ipc_asset_type::static_mesh},
+                               .operation = item.result,
+                               .applied = item.applied});
+            }
+            result = completion.result;
+            const auto metrics = "prepare_ms=" + std::to_string(completion.prepare_ms) +
+                                 " commit_ms=" + std::to_string(completion.commit_ms) +
+                                 " prepared_bytes=" + std::to_string(completion.prepared_bytes) +
+                                 " queue_ms=" + std::to_string(completion.queue_ms) + " " +
+                                 completion.message;
+            log.write(completion.result == gneiss::engine::error::success ? "INFO" : "ERROR",
+                      "texture_load", completion.result, metrics);
           }
-          return operation;
+          return gneiss::engine::error{gneiss::engine::error::success};
+        } catch (const std::bad_alloc&) {
+          (void)application->scene_loading_service().discard_prepared_assets(context.asset_request);
+          context.asset_request = 0;
+          structural_reload.reset();
+          return gneiss::engine::error{gneiss::engine::error::out_of_memory};
+        } catch (...) {
+          (void)application->scene_loading_service().discard_prepared_assets(context.asset_request);
+          context.asset_request = 0;
+          structural_reload.reset();
+          return gneiss::engine::error{gneiss::engine::error::internal};
         }
-        gneiss::runtime::asset_load_completion completion;
-        const auto operation = native_application->poll_assets(completion, ready);
-        if (ready) {
-          for (const auto& item : completion.results) {
-            using type = gneiss::engine::render_resource_kind;
-            items.push_back({.asset = {.uri = item.source.uri,
-                                       .type = item.source.type == type::texture
-                                                   ? gneiss::host::ipc_asset_type::texture
-                                               : item.source.type == type::material
-                                                   ? gneiss::host::ipc_asset_type::material
-                                                   : gneiss::host::ipc_asset_type::static_mesh},
-                             .operation = item.result,
-                             .applied = item.applied});
-          }
-          result = completion.result;
-          const auto metrics = "prepare_ms=" + std::to_string(completion.prepare_ms) +
-                               " commit_ms=" + std::to_string(completion.commit_ms) +
-                               " prepared_bytes=" + std::to_string(completion.prepared_bytes) +
-                               " queue_ms=" + std::to_string(completion.queue_ms) + " " +
-                               completion.message;
-          log.write(completion.result == gneiss::engine::error::success ? "INFO" : "ERROR",
-                    "texture_load", completion.result, metrics);
-        }
-        return operation;
       });
   context.asset_reloader = &asset_reloader;
 
@@ -726,6 +755,10 @@ void write_application_log(const gneiss::engine::event_view& source, runtime_con
         operation == gneiss::engine::error::success ? 0 : operation.code());
   }
   context.ipc_session = nullptr;
+  if (context.asset_request) {
+    (void)application->scene_loading_service().discard_prepared_assets(context.asset_request);
+    context.asset_request = 0;
+  }
   context.asset_reloader = nullptr;
   context.property_editor = nullptr;
   context.scene_inspection = nullptr;

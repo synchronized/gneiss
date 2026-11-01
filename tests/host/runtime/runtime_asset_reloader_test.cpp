@@ -183,5 +183,45 @@ int main() {
       }
     }
   }
+  // 轮询失败必须生成一次失败终态并释放请求，不能推进已应用修订。
+  engine::error poll_error = engine::error::not_ready;
+  bool throw_poll = false;
+  runtime_asset_reloader failing(
+      [](const auto&) { return engine::error{engine::error::success}; },
+      [&](engine::error& result, auto&, bool& complete) -> engine::error {
+        if (throw_poll)
+          throw 1;
+        result = engine::error::success;
+        complete = poll_error.ok();
+        return poll_error;
+      });
+  request.assets = {{"asset://retry.material.json", ipc_asset_type::material}};
+  request.session_id = 41;
+  request.revision = 7;
+  if (failing.execute(request, response) != engine::error::not_ready ||
+      failing.advance(response, ready).failed() || ready)
+    return 19;
+  for (auto failure :
+       {engine::error::io, engine::error::invalid_handle, engine::error::invalid_state}) {
+    poll_error = failure;
+    if (failing.advance(response, ready).failed() || !ready ||
+        response.status != ipc_asset_apply_status::failed || response.session_id != 41 ||
+        response.revision != 7 || failing.applied_revision() != 0)
+      return 20;
+    if (failing.advance(response, ready).failed() || ready)
+      return 21;
+    if (failing.execute(request, response) != engine::error::not_ready)
+      return 22;
+  }
+  throw_poll = true;
+  if (failing.advance(response, ready).failed() || !ready ||
+      response.status != ipc_asset_apply_status::failed)
+    return 23;
+  throw_poll = false;
+  poll_error = engine::error::success;
+  if (failing.execute(request, response) != engine::error::not_ready ||
+      failing.advance(response, ready).failed() || !ready ||
+      response.status != ipc_asset_apply_status::applied || failing.applied_revision() != 7)
+    return 24;
   return 0;
 }

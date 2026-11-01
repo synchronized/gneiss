@@ -101,9 +101,19 @@ gneiss::engine::error runtime_asset_reloader::advance(ipc_asset_reload_result& r
   gneiss::engine::error applied;
   bool completed{};
   std::vector<ipc_asset_item_result> items;
-  const auto operation = poll_(applied, items, completed);
-  if (operation != gneiss::engine::error::success) {
-    return operation;
+  auto operation = gneiss::engine::error{gneiss::engine::error::success};
+  try {
+    operation = poll_(applied, items, completed);
+  } catch (const std::bad_alloc&) {
+    operation = gneiss::engine::error::out_of_memory;
+  } catch (...) {
+    operation = gneiss::engine::error::internal;
+  }
+  if (operation == gneiss::engine::error::not_ready)
+    return gneiss::engine::error::success;
+  if (operation.failed()) {
+    applied = operation;
+    completed = true;
   }
   if (!completed) {
     return gneiss::engine::error::success;

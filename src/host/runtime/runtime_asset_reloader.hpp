@@ -23,7 +23,7 @@ public:
 
   explicit runtime_asset_reloader(begin_function begin, poll_function poll);
   /** 所有资产只经 begin/poll 处理；接受后 execute 返回 not_ready。
-   * 只有 advance 消费终态后才更新已应用修订。 */
+   * 只有 advance 消费成功终态后才更新已应用修订；轮询失败生成失败回执并释放请求。 */
   [[nodiscard]] gneiss::engine::error advance(ipc_asset_reload_result& response,
                                               bool& ready) noexcept;
 
