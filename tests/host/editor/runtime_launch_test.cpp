@@ -3,6 +3,7 @@
 
 #include "../../support/async_document.hpp"
 #include "../../support/async_editor_save.hpp"
+#include "../../support/scene_query.hpp"
 #include "commands/runtime_author_apply.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
@@ -79,10 +80,10 @@ int main() try {
       author_session.is_dirty() || request.project_root != project_root) {
     return 5;
   }
-  const auto author_node_count = author_session.nodes().size();
+  const auto author_node_count = gneiss::test_support::scene_query(author_session).nodes.size();
 
-  const auto* created_author = author_session.find_node(author_session.selected_node()->uuid);
-  if (created_author == nullptr) {
+  const auto created_author = author_session.find_node(author_session.selected_node()->uuid);
+  if (!created_author) {
     return 6;
   }
   const gneiss::engine::guid author_uuid = created_author->uuid;
@@ -129,7 +130,8 @@ int main() try {
   gneiss::scene_node_id runtime_node;
   if (runtime_session.create_node("Runtime Only", {}, runtime_node) !=
           gneiss::engine::error::success ||
-      author_session.nodes().size() != author_node_count || author_session.is_dirty()) {
+      gneiss::test_support::scene_query(author_session).nodes.size() != author_node_count ||
+      author_session.is_dirty()) {
     return 7;
   }
 

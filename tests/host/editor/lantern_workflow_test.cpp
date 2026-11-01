@@ -4,6 +4,7 @@
 #include "../../support/async_editor_save.hpp"
 #include "../../support/async_mesh_edit.hpp"
 #include "../../support/async_prefab_edit.hpp"
+#include "../../support/scene_query.hpp"
 #include "asset_browser_model.hpp"
 #include "asset_import_controller.hpp"
 #include "commands/editor_command_history.hpp"
@@ -73,8 +74,9 @@ void write_text(const std::filesystem::path& path, std::string_view text) {
 
 [[nodiscard]] std::size_t count_prefab_name(const gneiss::editor::scene_document& session,
                                             std::string_view name) {
-  return static_cast<std::size_t>(std::ranges::count_if(
-      session.prefab_nodes(), [name](const auto& node) { return node.display_name == name; }));
+  return static_cast<std::size_t>(
+      std::ranges::count_if(gneiss::test_support::scene_query(session).prefab_nodes,
+                            [name](const auto& node) { return node.display_name == name; }));
 }
 
 } // namespace
@@ -152,23 +154,24 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
       *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000010"),
       *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000020"),
       *gneiss::engine::guid::parse("20000000-0000-4000-8000-000000000030")};
-  if (session.nodes().size() != 7U || session.prefab_nodes().size() != 12U ||
+  if (gneiss::test_support::scene_query(session).nodes.size() != 7U ||
+      gneiss::test_support::scene_query(session).prefab_nodes.size() != 12U ||
       count_prefab_name(session, "Lantern Glass") != 3U ||
-      std::ranges::any_of(session.nodes(), [](const auto& current) {
-        return current.display_name.empty() || current.display_name == current.uuid.string();
-      })) {
+      std::ranges::any_of(
+          gneiss::test_support::scene_query(session).nodes, [](const auto& current) {
+            return current.display_name.empty() || current.display_name == current.uuid.string();
+          })) {
     return 9;
   }
   for (const auto instance_uuid : instance_uuids) {
-    const auto* root_node = session.find_prefab_root(instance_uuid);
-    if (root_node == nullptr || !root_node->is_instance_root ||
-        root_node->prefab_uri != prefab_uri) {
+    const auto root_node = session.find_prefab_root(instance_uuid);
+    if (!root_node || !root_node->is_instance_root || root_node->prefab_uri != prefab_uri) {
       return 9;
     }
   }
-  const auto* left = session.find_prefab_root(instance_uuids[0]);
-  const auto* center = session.find_prefab_root(instance_uuids[1]);
-  const auto* right = session.find_prefab_root(instance_uuids[2]);
+  const auto left = session.find_prefab_root(instance_uuids[0]);
+  const auto center = session.find_prefab_root(instance_uuids[1]);
+  const auto right = session.find_prefab_root(instance_uuids[2]);
   if (left->local_transform.translation[0] != -3.0F ||
       center->local_transform.translation[2] != -0.8F ||
       right->local_transform.translation[0] != 3.0F) {
@@ -185,7 +188,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   write_text(prefab_path, prefab_text);
   gneiss::editor::editor_command_history refresh_history;
   for (const auto instance_uuid : instance_uuids) {
-    const auto* root_node = session.find_prefab_root(instance_uuid);
+    const auto root_node = session.find_prefab_root(instance_uuid);
     if (!root_node || gneiss::test_support::refresh_prefab_document(
                           *application, session, refresh_history, root_node->node)
                           .failed())
@@ -208,7 +211,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
                                                  &history) != gneiss::engine::error::success) {
     return 10;
   }
-  const auto* created = session.selected_node();
+  const auto created = session.selected_node();
   const gneiss::editor::mesh_node_creation snapshot{
       .uuid = created->uuid,
       .parent_uuid = {},
@@ -216,10 +219,9 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
       .mesh_uri = created->components.get<gneiss::engine::mesh_renderer_description>()->mesh_uri,
       .material_uri =
           created->components.get<gneiss::engine::mesh_renderer_description>()->material_uri};
-  if (history.undo() != gneiss::engine::error::success ||
-      session.find_node(snapshot.uuid) != nullptr ||
+  if (history.undo() != gneiss::engine::error::success || session.find_node(snapshot.uuid).ok() ||
       history.redo() != gneiss::engine::error::success ||
-      session.find_node(snapshot.uuid) == nullptr ||
+      session.find_node(snapshot.uuid).failed() ||
       gneiss::test_support::save_document(session, project.asset_root) !=
           gneiss::engine::error::success) {
     return 11;
@@ -229,7 +231,8 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   gneiss::editor::scene_document reloaded;
   if (gneiss::test_support::open_document(reloaded, *application, world, project.startup_scene) !=
           gneiss::engine::error::success ||
-      reloaded.find_node(snapshot.uuid) == nullptr || reloaded.prefab_nodes().size() != 12U ||
+      reloaded.find_node(snapshot.uuid).failed() ||
+      gneiss::test_support::scene_query(reloaded).prefab_nodes.size() != 12U ||
       count_prefab_name(reloaded, "Lantern Glass Updated") != 3U) {
     return 12;
   }

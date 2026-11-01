@@ -139,13 +139,13 @@ int main() try {
                                                     e::prefab_asset_ref{prefab}, bindings, false),
             prefab_node)
             .ok());
-  check(document.synchronize_nodes().ok());
+  check(document.validate_selection().ok());
   check(document.add_component_description(
             prefab_node, *e::default_component_description(e::camera_description::type_guid)) ==
         e::error::success);
   check(document.remove_component_description(prefab_node, type) == e::error::success);
-  const auto* child_node = document.find_prefab_source(reference.uuid, child.uuid);
-  check(child_node != nullptr);
+  const auto child_node = document.find_prefab_source(reference.uuid, child.uuid);
+  check(bool(child_node));
   const auto child_handle = child_node->node;
   check(document.remove_component_description(child_handle, type) == e::error::success);
   check(document.add_component_description(

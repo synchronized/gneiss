@@ -32,10 +32,10 @@ void reset_transform_gizmo() noexcept {
 
 bool draw_transform_gizmo(const transform_gizmo_context& context, const ImVec2& minimum,
                           const ImVec2& size) noexcept {
-  const auto* selected = context.session.selected_node();
-  const auto* prefab = context.session.selected_prefab_node();
-  const auto editable_prefab = prefab != nullptr && !prefab->is_instance_root;
-  if ((selected == nullptr && !editable_prefab) || size.x <= 1.0F || size.y <= 1.0F) {
+  const auto selected = context.session.selected_node();
+  const auto prefab = context.session.selected_prefab_node();
+  const auto editable_prefab = bool(prefab) && !prefab->is_instance_root;
+  if ((!selected && !editable_prefab) || size.x <= 1.0F || size.y <= 1.0F) {
     if (context.drag.is_active()) {
       context.error = context.drag.finish(context.session, context.history);
       context.wait_release = ImGui::IsMouseDown(ImGuiMouseButton_Left);
@@ -56,7 +56,7 @@ bool draw_transform_gizmo(const transform_gizmo_context& context, const ImVec2& 
     }
     context.wait_release = false;
   }
-  const auto node = selected != nullptr ? selected->node : prefab->node;
+  const auto node = bool(selected) ? selected->node : prefab->node;
 
   gneiss::engine::math::transform world{};
   auto operation = context.session.get_world_transform(node, world);
@@ -70,7 +70,7 @@ bool draw_transform_gizmo(const transform_gizmo_context& context, const ImVec2& 
   }
 
   const auto* viewport = ImGui::GetMainViewport();
-  if (viewport == nullptr || viewport->Size.x <= 1.0F || viewport->Size.y <= 1.0F) {
+  if (!viewport || viewport->Size.x <= 1.0F || viewport->Size.y <= 1.0F) {
     return false;
   }
   auto view = gneiss::editor::build_gizmo_view_matrix(context.camera);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/async_document.hpp"
+#include "../../support/scene_query.hpp"
 #include "../../support/value_result.hpp"
 #include "commands/editor_asset_edit.hpp"
 #include "engine/core/error.hpp"
@@ -63,7 +64,7 @@ void run(gneiss::engine::execution_mode mode) {
   editor::editor_asset_edit edit;
   check(gneiss::test_support::open_document(session, *app, world, "asset://scene.json",
                                             &scheduler) == gneiss::engine::error::success);
-  const auto uuid = session.nodes().front().uuid;
+  const auto uuid = gneiss::test_support::scene_query(session).nodes.front().uuid;
   const auto drive = [&] {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     while (edit.active()) {
@@ -92,16 +93,16 @@ void run(gneiss::engine::execution_mode mode) {
   check(request("asset://b.json") == gneiss::engine::error::success && edit.active() &&
         edit.visible());
   check(history.size() == 0U &&
-        session.nodes()
-                .front()
+        gneiss::test_support::scene_query(session)
+                .nodes.front()
                 .components.get<gneiss::engine::mesh_renderer_description>()
                 ->material_uri == "asset://a.json");
   check(request("asset://b.json") == gneiss::engine::error::not_ready);
   drive();
   check(edit.operation() == gneiss::engine::error::success && !edit.visible() &&
         history.size() == 1U);
-  check(session.nodes()
-            .front()
+  check(gneiss::test_support::scene_query(session)
+            .nodes.front()
             .components.get<gneiss::engine::mesh_renderer_description>()
             ->material_uri == "asset://b.json");
   const auto changed_binding = binding();
@@ -109,14 +110,14 @@ void run(gneiss::engine::execution_mode mode) {
   std::ofstream(files.root / "a.json") << "broken";
   std::ofstream(files.root / "b.json") << "broken";
   check(history.undo() == gneiss::engine::error::success &&
-        session.nodes()
-                .front()
+        gneiss::test_support::scene_query(session)
+                .nodes.front()
                 .components.get<gneiss::engine::mesh_renderer_description>()
                 ->material_uri == "asset://a.json");
   check(binding().material == initial_binding.material);
   check(history.redo() == gneiss::engine::error::success &&
-        session.nodes()
-                .front()
+        gneiss::test_support::scene_query(session)
+                .nodes.front()
                 .components.get<gneiss::engine::mesh_renderer_description>()
                 ->material_uri == "asset://b.json");
   check(binding().material == changed_binding.material);
@@ -138,8 +139,8 @@ void run(gneiss::engine::execution_mode mode) {
   check(request("asset://missing.json") == gneiss::engine::error::success);
   drive();
   check(edit.operation().failed() && history.size() == count &&
-        session.nodes()
-                .front()
+        gneiss::test_support::scene_query(session)
+                .nodes.front()
                 .components.get<gneiss::engine::mesh_renderer_description>()
                 ->material_uri == "asset://b.json");
   edit.dismiss();
@@ -152,10 +153,12 @@ void run(gneiss::engine::execution_mode mode) {
                                                 .material_uri = "asset://b.json"};
   check(edit.request_add(*app, session, history, "new node", new_assets) ==
         gneiss::engine::error::success);
-  check(!edit.active() && session.nodes().size() == 2U && history.size() == count + 1U);
+  check(!edit.active() && gneiss::test_support::scene_query(session).nodes.size() == 2U &&
+        history.size() == count + 1U);
   drive();
-  check(edit.operation() == gneiss::engine::error::success && session.nodes().size() == 2U);
-  const auto created_uuid = session.nodes().back().uuid;
+  check(edit.operation() == gneiss::engine::error::success &&
+        gneiss::test_support::scene_query(session).nodes.size() == 2U);
+  const auto created_uuid = gneiss::test_support::scene_query(session).nodes.back().uuid;
   // 直接文档入口拒绝重复身份和不匹配资源，失败不改变场景、选择或脏状态。
   const auto selected = session.selection();
   auto prepared = session.capture_mesh_binding(selected);
@@ -171,28 +174,30 @@ void run(gneiss::engine::execution_mode mode) {
   check(editor::make_editor_uuid(creation.uuid).ok());
   auto invalid_resources = session.create_mesh_node(creation, {});
   check(!invalid_resources && invalid_resources.error() == engine::error::invalid_argument);
-  check(session.nodes().size() == 2U && session.selection() == selected && !session.is_dirty());
-  check(!session.find_node(creation.uuid));
+  check(gneiss::test_support::scene_query(session).nodes.size() == 2U &&
+        session.selection() == selected && !session.is_dirty());
+  check(bool(!session.find_node(creation.uuid)));
   check(!app->scenes()->find_node(session.scene_handle(), creation.uuid));
   std::ofstream(files.root / "mesh.json") << "broken";
   check(history.undo() == gneiss::engine::error::success &&
-        session.find_node(created_uuid) == nullptr);
-  check(history.redo() == gneiss::engine::error::success &&
-        session.find_node(created_uuid) != nullptr);
+        session.find_node(created_uuid).failed());
+  check(history.redo() == gneiss::engine::error::success && session.find_node(created_uuid).ok());
   editor::editor_command_history disabled{0U};
   check(edit.request_add(*app, session, disabled, "rejected", new_assets) ==
         gneiss::engine::error::invalid_argument);
-  check(!edit.active() && session.nodes().size() == 2U);
+  check(!edit.active() && gneiss::test_support::scene_query(session).nodes.size() == 2U);
   check(edit.request_add(*app, session, history, "ready node", new_assets) ==
         gneiss::engine::error::success);
-  check(!edit.active() && !edit.visible() && session.nodes().size() == 3U);
+  check(!edit.active() && !edit.visible() &&
+        gneiss::test_support::scene_query(session).nodes.size() == 3U);
   const auto creation_count = history.size();
   check(
       edit.request_add(*app, session, history, "missing",
                        {.mesh_uri = "asset://mesh.json", .material_uri = "asset://missing.json"}) ==
       gneiss::engine::error::success);
   drive();
-  check(edit.operation().failed() && session.nodes().size() == 3U &&
+  check(edit.operation().failed() &&
+        gneiss::test_support::scene_query(session).nodes.size() == 3U &&
         history.size() == creation_count);
   edit.dismiss();
   // 文档已经关闭的迟到成功回执不能提交历史或采用新版本。
@@ -223,7 +228,8 @@ void run(gneiss::engine::execution_mode mode) {
   check(new_scene != previous_scene);
   drive();
   check(edit.operation() == gneiss::engine::error::invalid_state &&
-        session.scene_handle() == new_scene && session.nodes().empty() && history.size() == 0U);
+        session.scene_handle() == new_scene &&
+        gneiss::test_support::scene_query(session).nodes.empty() && history.size() == 0U);
   check(app->query_ready_asset(
             {.uri = "asset://d.json", .type = gneiss::engine::render_resource_kind::material},
             unused) == gneiss::engine::error::not_ready);
@@ -300,8 +306,8 @@ void prefab_edits(engine::execution_mode mode) {
   root.source_uuid = prefab.root_uuid;
   const auto binding = [&](const editor::component_edit_target& target) {
     e::scene_mesh_binding result;
-    const auto* node = document.find_prefab_source(target.instance_uuid, target.source_uuid);
-    check(node != nullptr);
+    const auto node = document.find_prefab_source(target.instance_uuid, target.source_uuid);
+    check(bool(node));
     check(gneiss::test_support::take_value(document.capture_mesh_binding(node->node), result).ok());
     return result;
   };
@@ -378,7 +384,7 @@ void prefab_edits(engine::execution_mode mode) {
   check(runtime::prefab_placement::apply(*app, document.scene_handle(), *frozen, false, true,
                                          replaced)
             .ok());
-  check(document.synchronize_nodes().ok());
+  check(document.validate_selection().ok());
   check(binding(child).material == changed.material);
   check(history.undo().ok() && binding(root).material == before.material);
   check(history.redo().ok() && binding(root).material == changed.material);
@@ -401,14 +407,14 @@ void prefab_edits(engine::execution_mode mode) {
                                     "asset://saved.json", &scheduler)
             .ok());
   e::scene_mesh_binding loaded;
-  const auto* loaded_child = reopened.find_prefab_source(uuid(5), uuid(3));
-  check(loaded_child != nullptr);
+  const auto loaded_child = reopened.find_prefab_source(uuid(5), uuid(3));
+  check(bool(loaded_child));
   check(gneiss::test_support::take_value(reopened.capture_mesh_binding(loaded_child->node), loaded)
             .ok());
   check(e::resource_uri(loaded.material) == "asset://b.json");
   check(e::resource_uri(loaded.mesh) == "asset://mesh2.json");
-  const auto* loaded_second = reopened.find_prefab_source(uuid(6), uuid(3));
-  check(loaded_second != nullptr);
+  const auto loaded_second = reopened.find_prefab_source(uuid(6), uuid(3));
+  check(bool(loaded_second));
   check(gneiss::test_support::take_value(reopened.capture_mesh_binding(loaded_second->node), loaded)
             .ok());
   check(e::resource_uri(loaded.material) == "asset://a.json");

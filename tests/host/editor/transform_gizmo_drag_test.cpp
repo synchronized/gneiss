@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../support/async_document.hpp"
+#include "../../support/scene_query.hpp"
 #include "engine/core/error.hpp"
 #include "engine/core/guid.hpp"
 #include "engine/core/rid.hpp"
@@ -52,9 +53,9 @@ int main() try {
           gneiss::engine::error::success) {
     return 1;
   }
-  const auto parent = session.nodes()[0].node;
-  const auto child = session.nodes()[1].node;
-  auto parent_transform = session.nodes()[0].local_transform;
+  const auto parent = gneiss::test_support::scene_query(session).nodes[0].node;
+  const auto child = gneiss::test_support::scene_query(session).nodes[1].node;
+  auto parent_transform = gneiss::test_support::scene_query(session).nodes[0].local_transform;
   parent_transform.rotation[2] = 0.70710678F;
   parent_transform.rotation[3] = 0.70710678F;
   parent_transform.scale[0] = 2.0F;
@@ -155,7 +156,8 @@ int main() try {
   if (gneiss::test_support::open_document(session, *application, world,
                                           "asset://scenes/prefab.scene.json") !=
           gneiss::engine::error::success ||
-      session.select(session.prefab_nodes()[1].node) != gneiss::engine::error::success) {
+      session.select(gneiss::test_support::scene_query(session).prefab_nodes[1].node) !=
+          gneiss::engine::error::success) {
     return 13;
   }
   const auto prefab_id = session.selection();
@@ -182,7 +184,8 @@ int main() try {
   if (gneiss::test_support::open_document(session, *application, world,
                                           "asset://scenes/triangle.scene.json") !=
           gneiss::engine::error::success ||
-      session.select(session.nodes()[1].node) != gneiss::engine::error::success) {
+      session.select(gneiss::test_support::scene_query(session).nodes[1].node) !=
+          gneiss::engine::error::success) {
     return 16;
   }
   const auto uuid = session.selected_node()->uuid;
@@ -217,8 +220,8 @@ int main() try {
               },
           .redo =
               [&session, uuid] {
-                const auto* current = session.find_node(uuid);
-                if (current == nullptr) {
+                const auto current = session.find_node(uuid);
+                if (!current) {
                   return gneiss::engine::error::not_found;
                 }
                 gneiss::editor::scene_subtree_snapshot discarded;
@@ -237,7 +240,7 @@ int main() try {
   if (history.undo() != gneiss::engine::error::success) {
     return 22;
   }
-  if (session.find_node(uuid) == nullptr ||
+  if (session.find_node(uuid).failed() ||
       !near(session.find_node(uuid)->local_transform, deletion_before)) {
     return 23;
   }
@@ -247,7 +250,7 @@ int main() try {
   if (history.redo() != gneiss::engine::error::success) {
     return 25;
   }
-  if (session.find_node(uuid) != nullptr) {
+  if (session.find_node(uuid).ok()) {
     return 26;
   }
   std::puts(

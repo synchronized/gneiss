@@ -15,12 +15,12 @@ gneiss::scene_node_id resolve_author_node(gneiss::editor::scene_document& sessio
                                           gneiss::engine::guid instance_uuid,
                                           gneiss::engine::guid source_uuid) noexcept {
   if (instance_uuid.is_nil()) {
-    const auto* node = session.find_node(uuid);
-    return node == nullptr ? gneiss::scene_node_id{} : node->node;
+    const auto node = session.find_node(uuid);
+    return !node ? gneiss::scene_node_id{} : node->node;
   }
-  const auto* node = source_uuid.is_nil() ? session.find_prefab_root(instance_uuid)
-                                          : session.find_prefab_source(instance_uuid, source_uuid);
-  return node == nullptr ? gneiss::scene_node_id{} : node->node;
+  const auto node = source_uuid.is_nil() ? session.find_prefab_root(instance_uuid)
+                                         : session.find_prefab_source(instance_uuid, source_uuid);
+  return !node ? gneiss::scene_node_id{} : node->node;
 }
 
 } // namespace
@@ -37,22 +37,24 @@ apply_runtime_transform_to_author(scene_document& session, editor_command_histor
   if (!has_prefab_identity && !runtime_node.prefab_source_node_uuid.is_nil()) {
     return gneiss::engine::error::invalid_argument;
   }
-  const auto* author_node = has_prefab_identity ? nullptr : session.find_node(runtime_node.uuid);
-  const auto* prefab_node =
+  const auto author_node = has_prefab_identity
+                               ? gneiss::engine::error{gneiss::engine::error::not_found}
+                               : session.find_node(runtime_node.uuid);
+  const auto prefab_node =
       !has_prefab_identity
-          ? nullptr
+          ? gneiss::engine::error{gneiss::engine::error::not_found}
           : (runtime_node.prefab_source_node_uuid.is_nil()
                  ? session.find_prefab_root(runtime_node.prefab_instance_uuid)
                  : session.find_prefab_source(runtime_node.prefab_instance_uuid,
                                               runtime_node.prefab_source_node_uuid));
-  if (author_node == nullptr && prefab_node == nullptr) {
+  if (!author_node && !prefab_node) {
     return gneiss::engine::error::not_found;
   }
   const gneiss::engine::guid uuid(runtime_node.uuid);
   const gneiss::engine::guid instance_uuid(runtime_node.prefab_instance_uuid);
   const gneiss::engine::guid source_uuid(runtime_node.prefab_source_node_uuid);
   const auto before =
-      author_node != nullptr ? author_node->local_transform : prefab_node->local_transform;
+      bool(author_node) ? author_node->local_transform : prefab_node->local_transform;
   const auto after = runtime_node.local_transform;
   return history.execute({.label = "应用 Runtime Transform",
                           .undo =

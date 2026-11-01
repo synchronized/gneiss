@@ -109,12 +109,12 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
                                                  e::prefab_asset_ref{source}, bindings, false),
           prefab_root)
           .failed() ||
-      session.synchronize_nodes().failed())
+      session.validate_selection().failed())
     return 39;
   ed::component_edit_target prefab_target{.instance_uuid = author.uuid,
                                           .source_uuid = source->root_uuid,
                                           .component_type = e::camera_description::type_guid};
-  const auto* prefab_node = session.find_prefab_source(author.uuid, source->root_uuid);
+  const auto prefab_node = session.find_prefab_source(author.uuid, source->root_uuid);
   if (!prefab_node)
     return 40;
   auto prefab_entity = prefab_node->entity;
@@ -227,7 +227,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_docume
     return 47;
   // 移除后不把旧历史应用到另一个节点。
   if (app.scenes()->remove_prefab_instance(session.scene_handle(), author.uuid).failed() ||
-      session.synchronize_nodes().failed() || prefab_history.undo() != e::error::not_found)
+      session.validate_selection().failed() || prefab_history.undo() != e::error::not_found)
     return 48;
   return 0;
 }

@@ -4,6 +4,7 @@
 #include "../../support/async_document.hpp"
 #include "../../support/async_editor_save.hpp"
 #include "../../support/async_mesh_edit.hpp"
+#include "../../support/scene_query.hpp"
 #include "../../support/value_result.hpp"
 #include "documents/scene_document.hpp"
 #include "engine/core/error.hpp"
@@ -80,7 +81,8 @@ int main() try {
       (world = application->native_world()) == nullptr ||
       gneiss::test_support::open_document(session, *application, world, scene_uri) !=
           gneiss::engine::error::success ||
-      session.select(session.nodes()[0].node) != gneiss::engine::error::success) {
+      session.select(gneiss::test_support::scene_query(session).nodes[0].node) !=
+          gneiss::engine::error::success) {
     return 3;
   }
   gneiss::engine::math::transform transform{};
@@ -94,7 +96,7 @@ int main() try {
   if (gneiss::test_support::create_mesh_document(*application, session, "Created", mesh_uri,
                                                  material_uri,
                                                  created_node) != gneiss::engine::error::success ||
-      !created_node.is_valid() || session.nodes().size() != 3U ||
+      !created_node.is_valid() || gneiss::test_support::scene_query(session).nodes.size() != 3U ||
       session.set_mesh_renderer(created_node, mesh_uri, material_uri) !=
           gneiss::engine::error::success) {
     return 5;
@@ -128,17 +130,17 @@ int main() try {
   const auto parent_uuid = session.find_node(session.selected_node()->uuid)->uuid;
   gneiss::editor::scene_subtree_snapshot subtree;
   if (session.destroy_subtree(empty_parent, subtree) != gneiss::engine::error::success ||
-      session.find_node(parent_uuid) != nullptr ||
+      session.find_node(parent_uuid).ok() ||
       session.restore_subtree(subtree, empty_parent) != gneiss::engine::error::success ||
-      session.find_node(parent_uuid) == nullptr) {
+      session.find_node(parent_uuid).failed()) {
     return 14;
   }
   gneiss::scene_node_id duplicate;
   gneiss::editor::scene_subtree_snapshot duplicate_snapshot;
   if (session.duplicate_subtree(empty_parent, {}, duplicate) != gneiss::engine::error::success ||
-      duplicate == empty_parent || session.nodes().size() != 8U ||
+      duplicate == empty_parent || gneiss::test_support::scene_query(session).nodes.size() != 8U ||
       session.destroy_subtree(duplicate, duplicate_snapshot) != gneiss::engine::error::success ||
-      session.nodes().size() != 5U) {
+      gneiss::test_support::scene_query(session).nodes.size() != 5U) {
     return 15;
   }
   created_node = session.find_node(created_uuid)->node;
@@ -151,9 +153,11 @@ int main() try {
   if (session.destroy_subtree(created_node, snapshot) != gneiss::engine::error::success ||
       snapshot.description.objects.size() != 1U ||
       snapshot.description.objects.front().name != "Live snapshot" ||
-      session.find_node(created_uuid) != nullptr || session.nodes().size() != 4U ||
+      session.find_node(created_uuid).ok() ||
+      gneiss::test_support::scene_query(session).nodes.size() != 4U ||
       session.restore_subtree(snapshot, created_node) != gneiss::engine::error::success ||
-      session.find_node(created_uuid) == nullptr || session.nodes().size() != 5U) {
+      session.find_node(created_uuid).failed() ||
+      gneiss::test_support::scene_query(session).nodes.size() != 5U) {
     return 6;
   }
   if (gneiss::test_support::save_document(session, root) != gneiss::engine::error::success ||

@@ -20,11 +20,11 @@ namespace {
 engine::result<std::pair<scene_node_id, entity_id>>
 locate_component(scene_document& document, const component_edit_target& target) {
   if (target.instance_uuid) {
-    const auto* node = document.find_prefab_source(target.instance_uuid, target.source_uuid);
+    const auto node = document.find_prefab_source(target.instance_uuid, target.source_uuid);
     if (node)
       return std::pair{node->node, node->entity};
   } else {
-    const auto* node = document.find_node(target.object_uuid);
+    const auto node = document.find_node(target.object_uuid);
     if (node)
       return std::pair{node->node, node->entity};
   }
@@ -91,7 +91,7 @@ namespace {
 engine::error component_lifecycle(scene_document& document, editor_command_history& history,
                                   engine::guid object, engine::guid type, bool adding) {
   using namespace engine;
-  const auto* node = document.find_node(object);
+  const auto node = document.find_node(object);
   if (!node)
     return error::not_found;
   auto source = [&]() -> result<component_description> {
@@ -122,11 +122,11 @@ engine::error component_lifecycle(scene_document& document, editor_command_histo
   if (!dependencies->empty())
     return error::unsupported;
   auto add = [&document, object, value = *source]() -> error {
-    const auto* target = document.find_node(object);
+    const auto target = document.find_node(object);
     return target ? document.add_component_description(target->node, value) : error::not_found;
   };
   auto remove = [&document, object, value = *source]() -> error {
-    const auto* target = document.find_node(object);
+    const auto target = document.find_node(object);
     if (!target)
       return error::not_found;
     auto current = document.components(target->node);

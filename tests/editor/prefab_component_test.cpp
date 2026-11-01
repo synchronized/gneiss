@@ -92,9 +92,9 @@ int main() try {
                                                     e::prefab_asset_ref{source}, bindings, false),
             root_node)
             .ok());
-  check(document.synchronize_nodes().ok());
-  auto* child_node = document.find_prefab_source(instance.uuid, child_id);
-  check(child_node != nullptr);
+  check(document.validate_selection().ok());
+  auto child_node = document.find_prefab_source(instance.uuid, child_id);
+  check(bool(child_node));
   const auto node = child_node->node;
   ed::editor_command_history history;
   ed::component_edit_target target{

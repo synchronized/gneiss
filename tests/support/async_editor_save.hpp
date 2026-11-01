@@ -4,6 +4,7 @@
 #include "async_application.hpp"
 #include "commands/author_file_save.hpp"
 #include "documents/scene_document_snapshot.hpp"
+#include "scene_query.hpp"
 #include "value_result.hpp"
 namespace gneiss::test_support {
 // 仅测试驱动回调；生产接口没有同步等待包装。
@@ -86,7 +87,8 @@ struct author_scene {
     return true;
   }
   bool counts(std::size_t nodes, std::size_t prefabs) const {
-    return document.nodes().size() == nodes && document.prefab_nodes().size() == prefabs;
+    return gneiss::test_support::scene_query(document).nodes.size() == nodes &&
+           gneiss::test_support::scene_query(document).prefab_nodes.size() == prefabs;
   }
 };
 }

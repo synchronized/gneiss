@@ -113,7 +113,7 @@ void run(scenario mode) {
   check(operation.advance(*editing.application, editing.document, history) == status);
   if (mode == scenario::success) {
     check(status.ok() && history.size() == 1 && redo_count == 1);
-    auto* node = editing.document.find_prefab_root(instance.uuid);
+    auto node = editing.document.find_prefab_root(instance.uuid);
     check(node && editing.document.components(node->node)->get<e::mesh_renderer_description>());
     // 文件变坏也不能影响历史重放：快照持有已加载资源。
     write(files.path / "mesh.json", "broken");
@@ -131,7 +131,7 @@ void run(scenario mode) {
     if (mode == scenario::modified || mode == scenario::closed || mode == scenario::switched)
       check(status == e::error::invalid_state);
     if (editing.document.is_open()) {
-      const auto* node = editing.document.find_prefab_root(instance.uuid);
+      const auto node = editing.document.find_prefab_root(instance.uuid);
       check(node && !editing.document.components(node->node)->get<e::mesh_renderer_description>());
       if (mode == scenario::modified)
         check(node->display_name == "Changed");

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../support/scene_query.hpp"
 #include "../../support/value_result.hpp"
 #include "documents/editor_scene_loader.hpp"
 #include "documents/scene_document_snapshot.hpp"
@@ -69,9 +70,9 @@ void run(gneiss::engine::execution_mode mode) {
   check(!loader.visible() && loader.operation() == gneiss::engine::error::success &&
         world != original);
   check(session.is_open() && !session.is_dirty() && session.uri() == uri);
-  check(session.nodes().size() == 2U && camera.is_valid());
+  check(gneiss::test_support::scene_query(session).nodes.size() == 2U && camera.is_valid());
   const auto current = world;
-  const auto node = session.nodes()[1].node;
+  const auto node = gneiss::test_support::scene_query(session).nodes[1].node;
   check(session.select(node) == gneiss::engine::error::success);
   check(session.rename_node(node, "Edited") == gneiss::engine::error::success);
   auto command =
@@ -100,7 +101,7 @@ void run(gneiss::engine::execution_mode mode) {
   check(loader.request(*app, editing, uri) == gneiss::engine::error::success);
   drain();
   check(world != current && !session.selection().is_valid() && !history.can_undo());
-  check(camera.is_valid() && session.nodes().size() == 2U);
+  check(camera.is_valid() && gneiss::test_support::scene_query(session).nodes.size() == 2U);
   tick();
   std::uint64_t count{};
   // current 是旧域的借用指针，域销毁后不能再解引用。
@@ -108,8 +109,9 @@ void run(gneiss::engine::execution_mode mode) {
   check(loader.request(*app, editing, "asset://scenes/prefab.scene.json") ==
         gneiss::engine::error::success);
   drain();
-  check(loader.operation() == gneiss::engine::error::success && session.nodes().size() == 1U &&
-        session.prefab_nodes().size() == 2U && camera.is_valid());
+  check(loader.operation() == gneiss::engine::error::success &&
+        gneiss::test_support::scene_query(session).nodes.size() == 1U &&
+        gneiss::test_support::scene_query(session).prefab_nodes.size() == 2U && camera.is_valid());
   const auto visual_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (app->visual_assets_loading()) {
     check(std::chrono::steady_clock::now() < visual_deadline);
@@ -135,11 +137,12 @@ void run(gneiss::engine::execution_mode mode) {
   editor::scene_document_snapshot after;
   check(editor::prepare_scene_document(before, std::span(&change, 1), after).ok());
   check(editor::restore_scene_document(*app, session, after).ok());
-  check(app->native_world() == world && session.nodes().front().display_name == "Snapshot edit" &&
-        session.prefab_nodes().size() == 2U);
+  check(app->native_world() == world &&
+        gneiss::test_support::scene_query(session).nodes.front().display_name == "Snapshot edit" &&
+        gneiss::test_support::scene_query(session).prefab_nodes.size() == 2U);
   check(editor::restore_scene_document(*app, session, before).ok());
-  check(session.nodes().front().display_name == original_name &&
-        session.prefab_nodes().size() == 2U);
+  check(gneiss::test_support::scene_query(session).nodes.front().display_name == original_name &&
+        gneiss::test_support::scene_query(session).prefab_nodes.size() == 2U);
   // 引入未准备依赖时失败，保留输出与当前实例，不触发加载。
   changed_description.objects.front().components.set(engine::mesh_renderer_description{
       .mesh_uri = "asset://missing.mesh.json", .material_uri = "asset://missing.material.json"});

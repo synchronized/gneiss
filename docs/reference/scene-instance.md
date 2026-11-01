@@ -43,9 +43,11 @@ Editor 的 `with_scene` 检查文档、线程及 Application 生命周期后，�
 `capture_mesh_binding` 捕获当前文档的节点资源；两者通过 `with_scene` 直接调用 Scene，
 文档关闭或 Application 停止接收请求后返回 `invalid_state`。Application 不提供这两项业务转发。
 
-创建前预构造查询记录并预留容量，创建后直接取得关联实体，不遍历场景查找新节点。
-实体查询失败时回滚节点；回滚失败返回清理错误并保留脏标记。历史命令按稳定 UUID 撤销，
-重做复用持有的资源引用，不重新读取文件。
+文档不保存节点数组。`capture_nodes()` 返回独立的列表快照，`find_node`、Prefab 查询及
+选择查询返回自有结果值；调用方持有这些值，不能保存临时查询结果内部的指针。
+直接 Scene 修改在下次查询立即可见；旧快照保持原值。查询不自动标记 dirty。
+创建成功后只更新选择和 dirty，不构造 UI 记录，也不因 UI 分配失败回滚创建。
+历史命令按稳定 UUID 撤销，重做复用资源引用。`validate_selection()` 清除已删除的选择。
 
 Prefab 编辑开始时从组件覆盖快照取得原资源引用；异步加载完成后的冲突检查继续执行。
 网格/材质 URI 覆盖由 `prepare_mesh_renderer_overrides` 统一计算，保留其他覆盖记录，

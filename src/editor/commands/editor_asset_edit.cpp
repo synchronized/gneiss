@@ -13,10 +13,10 @@ namespace gneiss::editor {
 namespace {
 scene_node_id locate(scene_document& document, const component_edit_target& target) {
   if (target.instance_uuid) {
-    const auto* node = document.find_prefab_source(target.instance_uuid, target.source_uuid);
+    const auto node = document.find_prefab_source(target.instance_uuid, target.source_uuid);
     return node ? node->node : scene_node_id{};
   }
-  const auto* node = document.find_node(target.object_uuid);
+  const auto node = document.find_node(target.object_uuid);
   return node ? node->node : scene_node_id{};
 }
 }
@@ -30,8 +30,8 @@ gneiss::engine::error editor_asset_edit::commit_add(scene_document& session,
             if (session.scene_handle() != scene) {
               return gneiss::engine::error{gneiss::engine::error::invalid_state};
             }
-            const auto* node = session.find_node(uuid);
-            if (node == nullptr) {
+            const auto node = session.find_node(uuid);
+            if (!node) {
               return gneiss::engine::error{gneiss::engine::error::not_found};
             }
             return session.destroy_node(node->node);
@@ -117,9 +117,7 @@ gneiss::engine::error editor_asset_edit::commit(runtime::application& applicatio
     if (!node)
       return engine::error::not_found;
     return session.commit_mesh_renderer(
-        node, gneiss::engine::resource_uri(replacement.mesh),
-        gneiss::engine::resource_uri(replacement.material),
-        [&] { return application.replace_mesh_binding(scene, node, expected, replacement); });
+        node, [&] { return application.replace_mesh_binding(scene, node, expected, replacement); });
   };
   const auto was_dirty = session.is_dirty();
   const auto operation = history.execute({
@@ -140,7 +138,7 @@ engine::error editor_asset_edit::request_remove(runtime::application& applicatio
                                                 gneiss::engine::guid uuid) try {
   if (active_ || history.is_pending())
     return engine::error::not_ready;
-  const auto* node = session.find_node(uuid);
+  const auto node = session.find_node(uuid);
   if (!node)
     return engine::error::not_found;
   const auto scene = session.scene_handle();
@@ -157,20 +155,18 @@ engine::error editor_asset_edit::request_remove(runtime::application& applicatio
           [&application, &session, scene, uuid = uuid, binding] {
             if (session.scene_handle() != scene)
               return engine::error::invalid_state;
-            const auto* current = session.find_node(uuid);
+            const auto current = session.find_node(uuid);
             if (!current)
               return engine::error::not_found;
-            return session.commit_mesh_renderer(current->node, engine::resource_uri(binding.mesh),
-                                                engine::resource_uri(binding.material), [&] {
-                                                  return application.replace_mesh_binding(
-                                                      scene, current->node, {}, binding);
-                                                });
+            return session.commit_mesh_renderer(current->node, [&] {
+              return application.replace_mesh_binding(scene, current->node, {}, binding);
+            });
           },
       .redo =
           [&session, scene, uuid = uuid] {
             if (session.scene_handle() != scene)
               return engine::error::invalid_state;
-            const auto* current = session.find_node(uuid);
+            const auto current = session.find_node(uuid);
             return current ? session.remove_mesh_renderer(current->node) : engine::error::not_found;
           },
       .merge_key = {},

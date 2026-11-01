@@ -23,17 +23,17 @@ gneiss::engine::error transform_gizmo_drag::begin(scene_document& session) noexc
   if (is_active()) {
     return gneiss::engine::error::invalid_state;
   }
-  const auto* node = session.selected_node();
-  const auto* prefab = session.selected_prefab_node();
-  if (node == nullptr && (prefab == nullptr || prefab->is_instance_root)) {
+  const auto node = session.selected_node();
+  const auto prefab = session.selected_prefab_node();
+  if (!node && (!prefab || prefab->is_instance_root)) {
     return gneiss::engine::error::not_ready;
   }
   try {
-    uuid_ = node != nullptr ? node->uuid : engine::guid{};
-    instance_uuid_ = node == nullptr ? prefab->instance_uuid : engine::guid{};
-    source_uuid_ = node == nullptr ? prefab->source_node_uuid : engine::guid{};
-    parent_ = node != nullptr ? node->parent : prefab->parent;
-    before_ = node != nullptr ? node->local_transform : prefab->local_transform;
+    uuid_ = bool(node) ? node->uuid : engine::guid{};
+    instance_uuid_ = !node ? prefab->instance_uuid : engine::guid{};
+    source_uuid_ = !node ? prefab->source_node_uuid : engine::guid{};
+    parent_ = bool(node) ? node->parent : prefab->parent;
+    before_ = bool(node) ? node->local_transform : prefab->local_transform;
     was_dirty_ = session.is_dirty();
     node_ = session.selection();
     return gneiss::engine::error::success;
@@ -68,15 +68,16 @@ gneiss::engine::error transform_gizmo_drag::finish(scene_document& session,
   }
   const auto original_node = node_;
   node_ = {};
-  const auto* node = uuid_.is_nil() ? nullptr : session.find_node(uuid_);
-  const auto* prefab =
-      source_uuid_.is_nil() ? nullptr : session.find_prefab_source(instance_uuid_, source_uuid_);
+  const auto node = uuid_.is_nil() ? gneiss::engine::error{gneiss::engine::error::not_found}
+                                   : session.find_node(uuid_);
+  const auto prefab = source_uuid_.is_nil()
+                          ? gneiss::engine::error{gneiss::engine::error::not_found}
+                          : session.find_prefab_source(instance_uuid_, source_uuid_);
   // 场景已被替换或节点已删除时，不能向复用 UUID 的新对象提交旧拖动。
-  if ((node == nullptr || node->node != original_node) &&
-      (prefab == nullptr || prefab->node != original_node)) {
+  if ((!node || node->node != original_node) && (!prefab || prefab->node != original_node)) {
     return gneiss::engine::error::not_found;
   }
-  const auto after = node != nullptr ? node->local_transform : prefab->local_transform;
+  const auto after = bool(node) ? node->local_transform : prefab->local_transform;
   if (equal(before_, after)) {
     return gneiss::engine::error::success;
   }
@@ -84,13 +85,15 @@ gneiss::engine::error transform_gizmo_drag::finish(scene_document& session,
   try {
     const auto resolve = [&session, uuid = uuid_, instance = instance_uuid_,
                           source = source_uuid_](const gneiss::engine::math::transform& value) {
-      const auto* target = uuid.is_nil() ? nullptr : session.find_node(uuid);
-      const auto* prefab_target =
-          source.is_nil() ? nullptr : session.find_prefab_source(instance, source);
-      if (target != nullptr) {
+      const auto target = uuid.is_nil() ? gneiss::engine::error{gneiss::engine::error::not_found}
+                                        : session.find_node(uuid);
+      const auto prefab_target = source.is_nil()
+                                     ? gneiss::engine::error{gneiss::engine::error::not_found}
+                                     : session.find_prefab_source(instance, source);
+      if (bool(target)) {
         return session.set_local_transform(target->node, value);
       }
-      const auto id = prefab_target != nullptr ? prefab_target->node : scene_node_id{};
+      const auto id = bool(prefab_target) ? prefab_target->node : scene_node_id{};
       return id.is_valid() ? session.set_local_transform(id, value)
                            : gneiss::engine::error::not_found;
     };

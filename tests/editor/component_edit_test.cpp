@@ -94,7 +94,7 @@ int main() try {
                                                     e::prefab_asset_ref{prefab}, bindings, false),
             node)
             .ok());
-  check(document.synchronize_nodes().ok());
+  check(document.validate_selection().ok());
   check(history.clear().ok());
   target = {.instance_uuid = reference.uuid,
             .source_uuid = root.uuid,
@@ -227,7 +227,7 @@ int main() try {
         reloaded->get<movement_description>()->speed == 4);
   check(app->scenes()->unload(loaded).ok());
   check(app->scenes()->remove_prefab_instance(document.scene_handle(), reference.uuid).ok());
-  check(document.synchronize_nodes().ok());
+  check(document.validate_selection().ok());
   check(history.undo() == e::error::not_found);
   return 0;
 } catch (const std::exception& failure) {

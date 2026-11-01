@@ -207,7 +207,7 @@ int main() try {
   check(ed::prepare_scene_document(needs_assets, *restore_all, missing_snapshot, &missing_assets)
             .ok());
   check(missing_assets.size() == 2 && missing_snapshot.assets.empty());
-  check(editing.document.find_prefab_root(first.uuid));
+  check(bool(editing.document.find_prefab_root(first.uuid)));
   check(ed::prepare_scene_document(before, changes, after).ok());
   ed::editor_command_history history;
   check(history
@@ -224,20 +224,20 @@ int main() try {
                           },
                       .merge_key = {}})
             .ok());
-  check(editing.document.find_prefab_root(first.uuid) == nullptr &&
+  check(editing.document.find_prefab_root(first.uuid).failed() &&
         editing.document.find_node(id(8)));
-  check(history.undo().ok() && editing.document.find_prefab_root(first.uuid));
-  check(history.redo().ok() && editing.document.find_node(id(8)));
+  check(bool(history.undo().ok() && editing.document.find_prefab_root(first.uuid)));
+  check(bool(history.redo().ok() && editing.document.find_node(id(8))));
   check(save_document(editing.document, directory).ok());
   check(history.clear().ok());
   editing.document.close();
   editing.application.reset();
   check(editing.open(directory, "asset://scenes/main.scene.json"));
-  auto* loaded_root = editing.document.find_node(id(8));
-  check(loaded_root);
+  auto loaded_root = editing.document.find_node(id(8));
+  check(bool(loaded_root));
   check(editing.document.components(loaded_root->node)->get<movement_description>()->speed == 4);
-  auto* loaded_child = editing.document.find_node(id(9));
-  check(loaded_child);
+  auto loaded_child = editing.document.find_node(id(9));
+  check(bool(loaded_child));
   check(!editing.document.components(loaded_child->node)->get<e::camera_description>());
   editing.document.close();
   editing.application.reset();
@@ -273,8 +273,8 @@ int main() try {
   editing.application.reset();
   check(editing.open(directory, "asset://scenes/main.scene.json"));
   check(!root_movement());
-  auto* restored_child = editing.document.find_prefab_source(first.uuid, child.uuid);
-  check(restored_child);
+  auto restored_child = editing.document.find_prefab_source(first.uuid, child.uuid);
+  check(bool(restored_child));
   auto restored_components = editing.document.components(restored_child->node);
   check(restored_components->get<e::camera_description>());
   check(restored_components->get<movement_description>()->settings.acceleration ==

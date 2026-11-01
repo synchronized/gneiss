@@ -35,7 +35,7 @@ public:
     if (cancelled_ || session_.scene_handle() != scene_)
       return error::invalid_state;
     engine::guid selected_instance, selected_source;
-    if (const auto* selected = session_.selected_prefab_node()) {
+    if (const auto selected = session_.selected_prefab_node()) {
       selected_instance = selected->instance_uuid;
       selected_source = selected->source_node_uuid;
     }
@@ -49,11 +49,11 @@ public:
         break;
     }
     session_.mark_dirty();
-    const auto refreshed = session_.synchronize_nodes();
+    const auto refreshed = session_.validate_selection();
     if (refreshed.failed())
       return refreshed;
     if (replacing_ && !selected_instance.is_nil()) {
-      const auto* selected = session_.find_prefab_source(selected_instance, selected_source);
+      auto selected = session_.find_prefab_source(selected_instance, selected_source);
       if (!selected)
         selected = session_.find_prefab_root(selected_instance);
       if (selected)
@@ -337,8 +337,11 @@ gneiss::engine::error editor_prefab_edit::request(runtime::application& applicat
   next->author.name = name;
   next->author.prefab->uri = uri;
   if (parent.is_valid()) {
-    const auto found = std::ranges::find(session.nodes(), parent, &scene_node_record::node);
-    if (found == session.nodes().end()) {
+    auto snapshot = session.capture_nodes();
+    if (!snapshot)
+      return snapshot.error();
+    const auto found = std::ranges::find(snapshot->nodes, parent, &scene_node_record::node);
+    if (found == snapshot->nodes.end()) {
       return gneiss::engine::error::invalid_handle;
     }
     next->author.parent_uuid = found->uuid;
@@ -362,8 +365,11 @@ gneiss::engine::error editor_prefab_edit::request_remove(runtime::application& a
   if (active() || history.is_pending() || !session.is_open()) {
     return gneiss::engine::error::not_ready;
   }
-  const auto found = std::ranges::find(session.prefab_nodes(), root, &prefab_node_record::node);
-  if (found == session.prefab_nodes().end() || !found->is_instance_root) {
+  auto snapshot = session.capture_nodes();
+  if (!snapshot)
+    return snapshot.error();
+  const auto found = std::ranges::find(snapshot->prefab_nodes, root, &prefab_node_record::node);
+  if (found == snapshot->prefab_nodes.end() || !found->is_instance_root) {
     return gneiss::engine::error::invalid_handle;
   }
   auto next = std::make_unique<state>(application);
@@ -388,8 +394,11 @@ gneiss::engine::error editor_prefab_edit::request_refresh(runtime::application& 
   if (active() || history.is_pending() || !session.is_open()) {
     return gneiss::engine::error::not_ready;
   }
-  const auto found = std::ranges::find(session.prefab_nodes(), root, &prefab_node_record::node);
-  if (found == session.prefab_nodes().end() || !found->is_instance_root) {
+  auto snapshot = session.capture_nodes();
+  if (!snapshot)
+    return snapshot.error();
+  const auto found = std::ranges::find(snapshot->prefab_nodes, root, &prefab_node_record::node);
+  if (found == snapshot->prefab_nodes.end() || !found->is_instance_root) {
     return gneiss::engine::error::invalid_handle;
   }
   auto next = std::make_unique<state>(application);
@@ -398,7 +407,7 @@ gneiss::engine::error editor_prefab_edit::request_refresh(runtime::application& 
   next->history = &history;
   next->author.prefab.emplace();
   next->author.prefab->uri = found->prefab_uri;
-  for (const auto& record : session.prefab_nodes()) {
+  for (const auto& record : snapshot->prefab_nodes) {
     if (record.is_instance_root && record.prefab_uri == found->prefab_uri) {
       next->refresh_targets.push_back(record.instance_uuid);
     }
