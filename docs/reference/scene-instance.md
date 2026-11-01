@@ -271,5 +271,8 @@ Prefab 覆盖捕获、恢复及有效描述准备共用此查询，相机身份�
 `not_ready`，不存在或过期编号返回 `invalid_handle`。`discard_prepared_assets(request)` 释放
 该请求的观察权及回执槽位，关闭期间也可清理，绝不影响其他编号；底层在途 I/O 由资源服务回收。
 文档恢复取消、失败或析构都会放弃自己的编号，Application 必须覆盖该操作的完整寿命。
-旧的 `cancel_assets(request)` 保留取消回执，供资产与 Prefab 命令后续消费；不传编号的宿主入口
-仍表示取消当前请求。
+网格编辑、Prefab 编辑与文档恢复统一按编号领取结果，均不消费其他编号的回执。
+网格及 Prefab 的资源阶段取消直接放弃请求、结束该阶段，返回 `cancelled`；文档关闭或应用停止
+则清理请求并返回 `invalid_state`。Prefab 文件准备和历史操作仍遵循各自的取消/排空要求。
+Application 负责推进 I/O，编辑命令通过既有 `advance_scene_load` 推进入口后再领取对应结果。
+宿主的 `cancel_assets(request)` 仍保留取消回执；不传编号表示取消当前请求。

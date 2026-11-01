@@ -12,6 +12,7 @@
 #include "engine/function/world/world.hpp"
 #include "runtime/application.hpp"
 #include "runtime/loading/prefab_placement.hpp"
+#include "runtime/loading/scene_service.hpp"
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>
@@ -163,7 +164,22 @@ void run(gneiss::engine::execution_mode mode) {
   edit.dismiss();
   check(request("asset://missing.json") == gneiss::engine::error::success);
   edit.cancel(*app);
-  drive();
+  check(!edit.active() && edit.operation() == engine::error::cancelled);
+  check(request("asset://missing.json").ok());
+  // 原编号失效后，旧操作不能领取新请求的回执，也不能取消新请求。
+  runtime::asset_load_progress pending;
+  check(app->asset_progress(pending));
+  check(app->scene_loading_service().discard_prepared_assets(pending.request).ok());
+  const engine::render_resource_source replacement{"asset://missing-other.json",
+                                                   engine::render_resource_kind::material};
+  auto other = app->scene_loading_service().prepare_assets({&replacement, 1}, 1);
+  check(other && other->request != pending.request);
+  edit.advance(*app, session, history);
+  check(!edit.active() && edit.operation() == engine::error::invalid_handle);
+  edit.cancel(*app);
+  check(app->asset_progress(pending) && pending.request == other->request);
+  check(app->scene_loading_service().discard_prepared_assets(other->request).ok());
+  edit.dismiss();
   check(!edit.visible() && history.size() == count);
   // 创建同样先准备，成功才产生节点；命令持有资源引用，坏文件不影响当前成功内容的复用。
   const editor::mesh_asset_reference new_assets{.mesh_uri = "asset://mesh.json",
@@ -255,7 +271,13 @@ void run(gneiss::engine::execution_mode mode) {
                 app->resources().profile()),
             unused) == gneiss::engine::error::not_found);
   // 文档入口负责应用停止和关闭边界，Scene 不依赖 Application。
+  check(edit.request_add(*app, session, history, "stopping",
+                         {.mesh_uri = "asset://mesh.json", .material_uri = "asset://d.json"})
+            .ok());
+  check(edit.active());
   check(app->request_shutdown().ok());
+  edit.advance(*app, session, history);
+  check(!edit.active() && edit.operation() == engine::error::invalid_state);
   check(session.replace_mesh_binding({}, {}, {}) == engine::error::invalid_state);
   auto stopped_create = session.create_mesh_node({}, {});
   auto stopped_capture = session.capture_mesh_binding({});

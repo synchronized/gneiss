@@ -400,32 +400,41 @@ void editor_asset_edit::advance(runtime::application& application, scene_documen
     visible_ = operation_.failed() && !cancelled_;
     return;
   }
-  (void)application.asset_progress(progress_);
-  gneiss::runtime::asset_load_completion completion;
-  bool ready{};
-  const auto polled = application.poll_assets(completion, ready);
-  if (polled == gneiss::engine::error::success && !ready) {
+  if (!application.accepts_requests() || !session.is_open() || session.scene_handle() != scene_) {
+    operation_ = engine::error::invalid_state;
+    finish(application);
     return;
   }
-  operation_ = polled == gneiss::engine::error::success ? completion.result : polled;
-  if (cancelled_) {
-    operation_ = gneiss::engine::error::invalid_state;
-  }
-  if (operation_.ok() && completion.request != request_) {
-    operation_ = gneiss::engine::error::invalid_state;
-  }
+  application.advance_scene_load();
+  (void)application.asset_progress(progress_);
+  if (progress_.request != request_)
+    progress_ = {};
+  auto completion = application.scene_loading_service().poll_prepared_assets(request_);
+  if (!completion && completion.error() == engine::error::not_ready)
+    return;
+  operation_ = completion ? completion->result : completion.error();
+  if (completion)
+    request_ = 0;
   if (operation_.ok()) {
-    accept_assets(completion.assets);
+    accept_assets(completion->assets);
     operation_ = next_.mesh && next_.material ? commit(application, session, history)
-                                              : gneiss::engine::error::invalid_state;
+                                              : engine::error::invalid_state;
+  }
+  finish(application);
+}
+void editor_asset_edit::finish(runtime::application& application) {
+  if (request_) {
+    (void)application.scene_loading_service().discard_prepared_assets(request_);
+    request_ = 0;
   }
   active_ = false;
   visible_ = operation_.failed() && !cancelled_;
   previous_ = {};
   next_ = {};
   prefab_before_.reset();
-  completion = {};
+  progress_ = {};
 }
+
 void editor_asset_edit::cancel(runtime::application& application) {
   if (!active_) {
     return;
@@ -433,9 +442,9 @@ void editor_asset_edit::cancel(runtime::application& application) {
   cancelled_ = true;
   if (restore_) {
     restore_->cancel();
-    return;
+    restore_.reset();
   }
-  // 上传已开始时继续推进至安全终态，回执到达后丢弃候选，不提交编辑。
-  (void)application.cancel_assets(request_);
+  operation_ = engine::error::cancelled;
+  finish(application);
 }
 }

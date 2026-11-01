@@ -11,6 +11,7 @@
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include "runtime/application.hpp"
+#include "runtime/loading/scene_service.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -284,6 +285,35 @@ void run(gneiss::engine::execution_mode mode) {
     }
     check(outcome == expected);
   };
+  // 资源阶段取消立即释放槽位；失效的旧请求不消费另一个请求的回执。
+  const auto await_assets = [&] {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (edit.active() && edit.phase() != editor::prefab_edit_phase::assets) {
+      step();
+      check(std::chrono::steady_clock::now() < deadline);
+    }
+    check(edit.phase() == editor::prefab_edit_phase::assets);
+  };
+  check(request().ok());
+  await_assets();
+  edit.cancel();
+  check(!edit.active() && edit.operation() == engine::error::cancelled);
+  check(request().ok());
+  await_assets();
+  runtime::asset_load_progress pending;
+  check(app->asset_progress(pending));
+  check(app->scene_loading_service().discard_prepared_assets(pending.request).ok());
+  const engine::render_resource_source replacement{"asset://other-missing.json",
+                                                   engine::render_resource_kind::material};
+  auto other = app->scene_loading_service().prepare_assets({&replacement, 1}, 1);
+  check(other && other->request != pending.request);
+  edit.advance();
+  check(!edit.active() && edit.operation() == engine::error::invalid_handle);
+  edit.cancel();
+  check(app->asset_progress(pending) && pending.request == other->request);
+  check(app->scene_loading_service().discard_prepared_assets(other->request).ok());
+  check(history.size() == 0);
+  edit.dismiss();
   // 已加载实例支持直接删除与基于快照的历史恢复。
   scene_node_id legacy;
   check(test_support::create_prefab_document(*app, session, "Legacy", "asset://prefab.json", {},

@@ -163,7 +163,6 @@ struct editor_prefab_edit::state {
   gneiss::engine::object_description author;
   gneiss::engine::scene_instantiation_data prepared;
   std::vector<gneiss::engine::render_resource_ref> assets;
-  gneiss::runtime::asset_load_completion completion;
   std::unique_ptr<editor_command> command;
   std::unique_ptr<editor_history_operation> operation;
   std::shared_ptr<scene_subtree_snapshot> captured;
@@ -176,6 +175,11 @@ struct editor_prefab_edit::state {
   gneiss::engine::error status{gneiss::engine::error::success};
   gneiss::engine::error failure{gneiss::engine::error::success};
   void finish() noexcept {
+    if (request) {
+      (void)application.scene_loading_service().discard_prepared_assets(request);
+      request = 0;
+    }
+    asset_pending = false;
     active = false;
     if (failure.failed()) {
       status = failure;
@@ -186,7 +190,6 @@ struct editor_prefab_edit::state {
     captured.reset();
     before.clear();
     after.clear();
-    completion = {};
     prepared.prefabs.clear();
     prepared.assets.clear();
     prepared.parent_first.clear();
@@ -245,35 +248,28 @@ struct editor_prefab_edit::state {
       if (!submitted)
         status = submitted.error();
       else {
-        completion = std::move(*submitted);
-        request = completion.request;
-        asset_pending = completion.state == runtime::asset_load_state::preparing;
+        request = submitted->request;
+        asset_pending = submitted->state == runtime::asset_load_state::preparing;
         if (asset_pending)
           return false;
-        assets = std::move(completion.assets);
+        assets = std::move(submitted->assets);
       }
     }
 
     return true;
   }
   bool poll_assets() {
-
-    bool ready{};
-    status = application.poll_assets(completion, ready);
-    if (status.ok() && !ready) {
-      return false;
+    application.advance_scene_load();
+    auto polled = application.scene_loading_service().poll_prepared_assets(request);
+    if (!polled) {
+      status = polled.error();
+      return status != engine::error::not_ready;
     }
+    request = 0;
     asset_pending = false;
-    if (status.ok()) {
-      status = completion.result;
-    }
-    if (status.ok() && completion.request != request) {
-      status = gneiss::engine::error::invalid_state;
-    }
-    if (status.ok()) {
-      assets = std::move(completion.assets);
-    }
-
+    status = polled->result;
+    if (status.ok())
+      assets = std::move(polled->assets);
     return true;
   }
 };
@@ -427,7 +423,9 @@ void editor_prefab_edit::cancel() {
     value.preparation->cancel();
   }
   if (value.asset_pending) {
-    (void)value.application.cancel_assets(value.request);
+    value.status = engine::error::cancelled;
+    value.finish();
+    return;
   }
   if (value.operation) {
     value.operation->cancel();
@@ -452,6 +450,12 @@ void editor_prefab_edit::advance() {
       return;
     }
     if (value.preparation && !value.poll_preparation()) {
+      return;
+    }
+    if (value.asset_pending &&
+        (!value.application.accepts_requests() || value.session->scene_handle() != value.scene)) {
+      value.status = engine::error::invalid_state;
+      value.finish();
       return;
     }
     if (value.asset_pending && !value.poll_assets()) {
