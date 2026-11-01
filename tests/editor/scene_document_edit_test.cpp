@@ -23,7 +23,7 @@ void write(const std::filesystem::path& path, std::string_view text) {
 std::string text(const std::vector<std::byte>& bytes) {
   return {reinterpret_cast<const char*>(bytes.data()), bytes.size()};
 }
-enum class scenario { success, failure, modified, closed, switched, cancelled };
+enum class scenario { success, failure, modified, world_modified, closed, switched, cancelled };
 void run(scenario mode) {
   struct directory {
     std::filesystem::path path =
@@ -91,6 +91,14 @@ void run(scenario mode) {
     check(editing.document
               .rename_node(editing.document.find_prefab_root(instance.uuid)->node, "Changed")
               .ok());
+  if (mode == scenario::world_modified) {
+    // 绕过文档的直接 World 写入，同样必须在提交前发现。
+    const auto node = editing.document.find_prefab_root(instance.uuid);
+    check(bool(node));
+    auto changed = node->local_transform;
+    changed.translation.x = 17;
+    check(editing.application->native_world()->node_set_local_transform(node->node, changed).ok());
+  }
   if (mode == scenario::closed || mode == scenario::switched)
     editing.document.close();
   if (mode == scenario::switched) {
@@ -132,13 +140,16 @@ void run(scenario mode) {
     check(status.failed() && history.size() == 0 && redo_count == 0 && undo_count == 0);
     if (mode == scenario::cancelled)
       check(status == e::error::cancelled);
-    if (mode == scenario::modified || mode == scenario::closed || mode == scenario::switched)
+    if (mode == scenario::modified || mode == scenario::world_modified ||
+        mode == scenario::closed || mode == scenario::switched)
       check(status == e::error::invalid_state);
     if (editing.document.is_open()) {
       const auto node = editing.document.find_prefab_root(instance.uuid);
       check(node && !editing.document.components(node->node)->get<e::mesh_renderer_description>());
       if (mode == scenario::modified)
         check(node->display_name == "Changed");
+      if (mode == scenario::world_modified)
+        check(node->local_transform.translation.x == 17);
       if (mode != scenario::switched)
         check(editing.document.scene_handle() == scene_id);
     }
@@ -163,8 +174,9 @@ void run(scenario mode) {
   editing.document.close();
 }
 int main() try {
-  for (auto mode : {scenario::success, scenario::failure, scenario::modified, scenario::closed,
-                    scenario::switched, scenario::cancelled})
+  for (auto mode :
+       {scenario::success, scenario::failure, scenario::modified, scenario::world_modified,
+        scenario::closed, scenario::switched, scenario::cancelled})
     run(mode);
   return 0;
 } catch (const std::exception& error) {

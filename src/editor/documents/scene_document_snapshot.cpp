@@ -168,14 +168,7 @@ engine::error scene_document_edit::advance(runtime::application& app, scene_docu
   if (&app != application_ || &document != document_ || !app.is_owner_thread() ||
       !app.accepts_requests() || !document.is_open() || document.scene_handle() != scene_)
     return finish(error::invalid_state);
-  auto serialize_result = app.scenes()->serialize(scene_);
-  if (!serialize_result)
-    return finish(serialize_result.error());
-
-  const auto& current = *serialize_result;
-
-  auto status = gneiss::engine::error::success;
-  if (current != baseline_ || history.is_pending())
+  if (history.is_pending())
     return finish(error::invalid_state);
   if (request_) {
     auto completed = app.scene_loading_service().poll_prepared_assets(request_);
@@ -190,6 +183,14 @@ engine::error scene_document_edit::advance(runtime::application& app, scene_docu
     for (auto& asset : completed->assets)
       after_->assets.insert_or_assign(std::string(engine::resource_uri(asset)), std::move(asset));
   }
+  // 只在依赖全部就绪后比较当前内容；等待期间不重复编码整场景。
+  // 直接 World/ECS 修改未统一进入修订通知，因此不能只比较编辑器修订号。
+  auto current = app.scenes()->serialize(scene_);
+  if (!current)
+    return finish(current.error());
+  if (*current != baseline_)
+    return finish(error::invalid_state);
+  auto status = error{error::success};
   const auto apply = [&app, &document, selection = selection_](
                          const std::shared_ptr<scene_document_snapshot>& snapshot, bool undo) {
     auto result = restore_scene_document(app, document, *snapshot);
