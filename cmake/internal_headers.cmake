@@ -6,7 +6,6 @@ include_guard(GLOBAL)
 # 避免源目录相对包含意外穿透隔离。configure_file 跟踪原头变更并触发重配。
 function(gneiss_internal_headers target source_root)
   add_library(${target} INTERFACE)
-  target_link_libraries(${target} INTERFACE gneiss_math_dependency)
   target_compile_features(${target} INTERFACE cxx_std_20)
   # 清单变化使用新目录，移除的头不会因旧构建缓存继续可见。
   string(SHA256 manifest_hash "${ARGN}")

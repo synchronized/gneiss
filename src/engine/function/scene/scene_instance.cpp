@@ -300,11 +300,11 @@ engine::error scene_instance::reload(scene_description candidate) {
     }
     if (result == engine::error::success &&
         has_change(update.changes, structural_change::components)) {
-      auto captured = capture_components(native_world_, target.node);
-      if (captured)
-        snapshot.components = std::move(*captured);
+      auto components = capture_components(native_world_, target.node);
+      if (components)
+        snapshot.components = std::move(*components);
       else
-        result = captured.error();
+        result = components.error();
     }
     if (result != engine::error::success) {
       rollback_updates();
@@ -633,10 +633,10 @@ result<scene_subtree_snapshot> scene_instance::capture_subtree(scene_node_id roo
       resources.prefab = (*binding)->prefab_lease();
       resources.source_nodes.resize((*binding)->node_count());
       for (std::size_t i = 0; i < resources.source_nodes.size(); ++i) {
-        auto binding = capture_prefab_instance_binding(author.uuid, i);
-        if (!binding)
-          return binding.error();
-        resources.source_nodes[i] = std::move(*binding);
+        auto node_binding = capture_prefab_instance_binding(author.uuid, i);
+        if (!node_binding)
+          return node_binding.error();
+        resources.source_nodes[i] = std::move(*node_binding);
       }
     } else if (author.components.template get<mesh_renderer_description>()) {
       const auto renderer = native_world_.node_mesh_renderer(find_node(author.uuid));
@@ -757,8 +757,8 @@ result<scene_node_id> scene_instance::restore_subtree(const scene_subtree_snapsh
 }
 
 engine::error scene_instance::destroy_subtree(scene_node_id root) {
-  const auto member = std::ranges::find(objects_, root, &node_entry::node);
-  if (member == objects_.end())
+  const auto root_member = std::ranges::find(objects_, root, &node_entry::node);
+  if (root_member == objects_.end())
     return error::invalid_handle;
   const auto origin = prefab_origin(root);
   if (origin && !origin->is_instance_root)

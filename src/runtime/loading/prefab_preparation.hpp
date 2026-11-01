@@ -16,18 +16,19 @@ namespace gneiss::runtime {
  * Application 须先通过 attach_task_executor 接入同一执行器及平台异步文件后端。
  * 所属线程操作。取消后仍须 poll 至完成；Application、资产管理器与执行器须晚于该对象销毁。
  */
-class GNEISS_API prefab_preparation final {
+class prefab_preparation final {
 public:
-  static gneiss::engine::error create(runtime::application& application,
-                                      gneiss::engine::task_executor& executor, std::string_view uri,
-                                      std::unique_ptr<prefab_preparation>& output) noexcept;
-  ~prefab_preparation();
-  void cancel();
-  gneiss::engine::error poll(gneiss::engine::scene_instantiation_data& output, bool& complete);
+  static GNEISS_API gneiss::engine::error
+  create(runtime::application& application, gneiss::engine::task_executor& executor,
+         std::string_view uri, std::unique_ptr<prefab_preparation>& output) noexcept;
+  GNEISS_API ~prefab_preparation();
+  GNEISS_API void cancel();
+  GNEISS_API gneiss::engine::error poll(gneiss::engine::scene_instantiation_data& output,
+                                        bool& complete);
 
 private:
   struct state;
-  prefab_preparation(gneiss::engine::task_executor& executor);
+  GNEISS_API prefab_preparation(gneiss::engine::task_executor& executor);
   gneiss::engine::task_executor& executor_;
   gneiss::engine::task_scope scope_;
   std::shared_ptr<state> state_;

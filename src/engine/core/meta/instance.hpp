@@ -17,12 +17,12 @@ class mutable_instance;
 /** 只读借用视图。持有注册表，不持有目标对象；父对象销毁、移动或成员地址失效后不可使用。
  * 基础属性保存访问位置，read_value 每次调用 getter 并返回自有副本，不借用 getter 临时值。
  * 共享视图不代表目标线程安全，调用方负责同步。 */
-class GNEISS_API instance {
+class instance {
 public:
   instance() = default;
   /** 类型擦除入口：调用方保证 object 的实际类型匹配 id，且地址在视图使用期间稳定。 */
-  static result<instance> from_object(registry_ref registry, engine::type_id id,
-                                      const void* object) noexcept;
+  static GNEISS_API result<instance> from_object(registry_ref registry, engine::type_id id,
+                                                 const void* object) noexcept;
   template <class T>
   static result<instance> from(const registry_ref& registry, T& object) noexcept {
     return from_access(registry, detail::access_of<std::remove_cv_t<T>>(), std::addressof(object));
@@ -39,30 +39,30 @@ public:
   template <class T>
     requires(!std::is_lvalue_reference_v<T>)
   static result<instance> from(T&&) = delete;
-  [[nodiscard]] meta::type type() const noexcept;
+  [[nodiscard]] GNEISS_API meta::type type() const noexcept;
   [[nodiscard]] type_kind kind() const noexcept { return kind_; }
   [[nodiscard]] value_kind scalar_kind() const noexcept { return scalar_kind_; }
   [[nodiscard]] engine::guid guid() const noexcept { return type_; }
   [[nodiscard]] engine::type_id type_id() const noexcept { return cpp_type_; }
-  [[nodiscard]] result<sequence_view> as_sequence() const noexcept;
-  [[nodiscard]] result<associative_view> as_associative() const noexcept;
-  [[nodiscard]] result<optional_view> as_optional() const noexcept;
+  [[nodiscard]] GNEISS_API result<sequence_view> as_sequence() const noexcept;
+  [[nodiscard]] GNEISS_API result<associative_view> as_associative() const noexcept;
+  [[nodiscard]] GNEISS_API result<optional_view> as_optional() const noexcept;
   /** 引用目标借用视图；空引用返回 not_found。重置/替换引用后须重新获取。 */
-  [[nodiscard]] result<instance> dereference() const noexcept;
+  [[nodiscard]] GNEISS_API result<instance> dereference() const noexcept;
   /** 序列化保活入口；只复制现有控制块，目标类型由 type().element_type() 描述。 */
-  [[nodiscard]] result<ref<const void>> reference_owner() const noexcept;
-  [[nodiscard]] result<std::vector<property_info>> properties() const noexcept;
-  [[nodiscard]] result<instance> property(property_id id) const noexcept;
-  [[nodiscard]] result<instance> property(std::string_view name) const noexcept;
-  [[nodiscard]] result<value> read_value() const noexcept;
+  [[nodiscard]] GNEISS_API result<ref<const void>> reference_owner() const noexcept;
+  [[nodiscard]] GNEISS_API result<std::vector<property_info>> properties() const noexcept;
+  [[nodiscard]] GNEISS_API result<instance> property(property_id id) const noexcept;
+  [[nodiscard]] GNEISS_API result<instance> property(std::string_view name) const noexcept;
+  [[nodiscard]] GNEISS_API result<value> read_value() const noexcept;
   /** 仅对象视图有稳定对象地址；基础属性（含 getter）返回 unsupported。 */
-  [[nodiscard]] result<const void*> object_data() const noexcept;
+  [[nodiscard]] GNEISS_API result<const void*> object_data() const noexcept;
 
 private:
   friend class mutable_instance;
   template <bool, type_kind> friend class container_view;
-  static result<instance> from_access(registry_ref, const detail::type_access&,
-                                      const void*) noexcept;
+  static GNEISS_API result<instance> from_access(registry_ref, const detail::type_access&,
+                                                 const void*) noexcept;
   const detail::type_access* access_{};
   registry_ref registry_;
   engine::guid type_{};
@@ -77,11 +77,11 @@ private:
 };
 /** 显式可写借用视图。setter 校验规则保持不变，不自动回滚外部副作用。
  * 修改完整对象后，业务方仍需执行类型校验；不能假定单字段修改保持所有跨字段约束。 */
-class GNEISS_API mutable_instance {
+class mutable_instance {
 public:
   mutable_instance() = default;
-  static result<mutable_instance> from_object(registry_ref registry, engine::type_id id,
-                                              void* object) noexcept;
+  static GNEISS_API result<mutable_instance> from_object(registry_ref registry, engine::type_id id,
+                                                         void* object) noexcept;
   template <class T>
     requires(!std::is_const_v<T>)
   static result<mutable_instance> from(const registry_ref& registry, T& object) noexcept {
@@ -95,32 +95,33 @@ public:
       return registry.error();
     return from(*registry, object);
   }
-  [[nodiscard]] result<mutable_sequence_view> as_sequence() const noexcept;
-  [[nodiscard]] result<mutable_associative_view> as_associative() const noexcept;
-  [[nodiscard]] result<mutable_optional_view> as_optional() const noexcept;
+  [[nodiscard]] GNEISS_API result<mutable_sequence_view> as_sequence() const noexcept;
+  [[nodiscard]] GNEISS_API result<mutable_associative_view> as_associative() const noexcept;
+  [[nodiscard]] GNEISS_API result<mutable_optional_view> as_optional() const noexcept;
   /** ref<const T> 不允许可写解引用；可通过 as_const 获取只读目标。 */
-  [[nodiscard]] result<mutable_instance> dereference() const noexcept;
+  [[nodiscard]] GNEISS_API result<mutable_instance> dereference() const noexcept;
   /** 仅重置此引用，不修改其他拥有者；最后一次释放遵循原删除器。 */
-  [[nodiscard]] error reset_reference() const noexcept;
+  [[nodiscard]] GNEISS_API error reset_reference() const noexcept;
   /** 解码入口；调用方保证 owner 的真实类型匹配 id，不接受动态派生转换。 */
-  [[nodiscard]] error assign_reference(engine::type_id id, const ref<void>& owner) const noexcept;
+  [[nodiscard]] GNEISS_API error assign_reference(engine::type_id id,
+                                                  const ref<void>& owner) const noexcept;
   [[nodiscard]] instance as_const() const noexcept { return view_; }
   [[nodiscard]] type_kind kind() const noexcept { return view_.kind(); }
-  [[nodiscard]] result<mutable_instance> property(property_id id) const noexcept;
-  [[nodiscard]] result<mutable_instance> property(std::string_view name) const noexcept;
+  [[nodiscard]] GNEISS_API result<mutable_instance> property(property_id id) const noexcept;
+  [[nodiscard]] GNEISS_API result<mutable_instance> property(std::string_view name) const noexcept;
   [[nodiscard]] meta::type type() const noexcept { return view_.type(); }
   [[nodiscard]] result<value> read_value() const noexcept { return view_.read_value(); }
-  [[nodiscard]] error write_value(const value& input) const noexcept;
-  [[nodiscard]] result<void*> object_data() const noexcept;
+  [[nodiscard]] GNEISS_API error write_value(const value& input) const noexcept;
+  [[nodiscard]] GNEISS_API result<void*> object_data() const noexcept;
   /** 同类型对象或引用复制赋值；引用共享原控制块，不复制目标。不提供回滚或业务校验，调用方应修改候选副本。 */
-  [[nodiscard]] error assign(const instance& source) const noexcept;
+  [[nodiscard]] GNEISS_API error assign(const instance& source) const noexcept;
   /** 解码专用移动赋值；source 类型须匹配，成功后其内容已移出。 */
-  [[nodiscard]] error assign_object(engine::type_id id, void* source) const noexcept;
+  [[nodiscard]] GNEISS_API error assign_object(engine::type_id id, void* source) const noexcept;
 
 private:
   template <bool, type_kind> friend class container_view;
-  static result<mutable_instance> from_access(registry_ref, const detail::type_access&,
-                                              void*) noexcept;
+  static GNEISS_API result<mutable_instance> from_access(registry_ref, const detail::type_access&,
+                                                         void*) noexcept;
   instance view_;
   void* data_{};
   void* parent_{};

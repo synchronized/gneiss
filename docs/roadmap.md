@@ -77,7 +77,7 @@
 | 0.48.0 C++ SDK 可读性与调用一致性 | 接口与适配分离、原生示例与完整验收 | 已发布 |
 | 0.49.0 大场景加载响应性与生命周期稳定性 | 当前基线、协作模式响应、资源回收与 IPC 稳定性 | 已发布 |
 | 0.50.0 后台加载主线程延迟 | 异步 I/O、Editor 加载与延迟观测，接受已记录遗留项 | 已发布 |
-| 0.51.0 源码架构与模块边界收敛 | 内部 C++、SDK 边界、所有权与构建约束 | 实施中；资产所有权已局部验收，原生 C++ / SDK 分离待实施 |
+| 0.51.0 源码架构与模块边界收敛 | 原生 C++、资源/场景所有权、Meta 与构建约束 | 发布候选验证中 |
 | 1.0.0 稳定运行时 | 冻结首批稳定公共能力和兼容承诺 | 待开始 |
 
 ## 0.1.0：最小运行时
@@ -832,18 +832,14 @@ M-312～M-317 已完成：分步准备与复验、取消/清理分离、IPC 回�
 
 ## 0.51.0：源码架构与模块边界收敛
 
-资源依赖替换已完成：移除 CAORS，采用 Granit 示例资产管理模型；额外语义简化仍待逐项评估。
-详细批次、八项复杂度分析与验收见[替换计划](plans/PLAN-051-asset-manager-replacement.md)。
-后续默认方向已确认，尚未实施：视觉资源逐步就绪、更新期间保留旧资源，具体结构与阶段见
-[渐进加载简化计划](plans/PLAN-051-progressive-render-assets.md)。
+进入发布候选验证。公共 SDK、C ABI 和动态 Game Module 已撤销；内部使用原生 C++ 接口，
+Asset Manager、Resource Service 与 Render Service 分别承担 CPU 加载、资源引用和后端 RID。
+Scene/World、Prefab 与编辑器 Document 的所有权已收敛，Meta 与通用序列化已接入。
+本次不再恢复早期计划中的候选发布事务或公共 SDK，不扩展流送与插件能力。
 
-最高优先级。先审计职责、依赖和所有权，再重构场景加载完整链路、Application 与宿主边界。
-保留外部 C ABI/RAII SDK，内部使用明确的 C++ 接口；不开发插件或 Editor 公共 API。
-范围见 [VER-051](plans/VER-051-0.51.0-architecture-boundaries.md)，
-实施见 [DEV-051](plans/DEV-051-architecture-boundaries.md)。0.50 遗留问题仍以版本归档为准。
-[共享资产与场景实例分离方案](plans/asset-scene-ownership.md) 的所有权迁移已完成局部验收。
-已确认将原生 C++ 对象与 SDK 命名分离纳入本版，先完成 Application 纵向迁移，
-再推广到 World、Scene 与资产；范围与验收以 VER-051 / DEV-051 为准，尚未实现。
+具体交付与验证以[发布验收](records/2026-11-01-0.51.0-release-validation.md)为准。
+[版本计划](plans/VER-051-0.51.0-architecture-boundaries.md)保留早期决策演进；
+0.50 性能遗留问题仍以[原版本归档](versions/0.50.0.md)为准。
 
 ## 未排期：大型场景视口性能
 

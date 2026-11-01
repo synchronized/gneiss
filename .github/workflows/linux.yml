@@ -91,7 +91,23 @@ jobs:
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build --preset "${{ steps.preset.outputs.name }}"
-          ctest --preset "${{ steps.preset.outputs.name }}"
+          # 核心构建也包含原生图形示例，必须提供显示服务，而非依赖宿主桌面。
+          export XDG_RUNTIME_DIR="$RUNNER_TEMP/gneiss-wayland-core"
+          install -d -m 700 "$XDG_RUNTIME_DIR"
+          export WAYLAND_DISPLAY=gneiss-wayland
+          weston --backend=headless-backend.so --socket="$WAYLAND_DISPLAY" --idle-time=0 \
+            >"$RUNNER_TEMP/gneiss-weston-core.log" 2>&1 &
+          weston_pid=$!
+          trap 'kill "$weston_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..50}; do
+            [[ -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]] && break
+            sleep 0.1
+          done
+          [[ -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]] || {
+            cat "$RUNNER_TEMP/gneiss-weston-core.log"
+            exit 1
+          }
+          xvfb-run -a ctest --preset "${{ steps.preset.outputs.name }}" --timeout 180
           python3 -B scripts/performance/test_prepare_sponza.py
           python3 -B scripts/performance/test_validate_runtime_loop.py
       - name: 输出编译缓存统计

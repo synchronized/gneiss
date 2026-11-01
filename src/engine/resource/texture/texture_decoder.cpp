@@ -207,9 +207,9 @@ decode_texture_payload(const texture_description& source, const std::vector<std:
   } else {
     auto decoded = engine::decode_png(image_bytes);
     if (!decoded) {
-      auto failure = std::move(decoded).error();
-      fail(diagnostic, failure.error, "/source",
-           failure.message.empty() ? "PNG 解码失败" : failure.message);
+      auto decode_failure = std::move(decoded).error();
+      fail(diagnostic, decode_failure.error, "/source",
+           decode_failure.message.empty() ? "PNG 解码失败" : decode_failure.message);
       return diagnostic;
     }
     auto image = std::move(*decoded);

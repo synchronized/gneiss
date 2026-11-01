@@ -36,7 +36,7 @@ struct operation : std::enable_shared_from_this<operation> {
   stage step{};
   std::string root, relative, path, canonical_root, temporary;
   files::bytes bytes;
-  range range{};
+  files::range range{};
   std::size_t limit{}, position{}, skip{};
   bool ranged{}, create_new{}, temporary_created{};
   int descriptor{-1};

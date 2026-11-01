@@ -47,7 +47,7 @@ struct fetch_operation : std::enable_shared_from_this<fetch_operation> {
   std::string url, range_header;
   files::callback<files::bytes> on_read;
   files::callback<files::info> on_stat;
-  range range{};
+  files::range range{};
   std::size_t limit{};
   bool ranged{}, head{}, finished{};
   static void error(emscripten_fetch_t* fetch) {

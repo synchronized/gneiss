@@ -61,17 +61,18 @@ scene_instances::instantiate_prepared(scene_instantiation_data prepared,
         return result;
       std::unordered_map<guid, scene_node_id, guid_hash> prefab_nodes;
       prefab_nodes.reserve(lease.get()->objects.size());
-      for (const auto index : prepared.prefabs.at(source.prefab->uri).parent_first) {
-        const auto& node = effective.objects.at(index);
+      for (const auto node_index : prepared.prefabs.at(source.prefab->uri).parent_first) {
+        const auto& node = effective.objects.at(node_index);
         const auto renderer = prepared_component_renderer(node.components, find_asset);
-        result = prefab->create_node(
-            index, node, node.parent_uuid ? prefab_nodes.at(*node.parent_uuid) : prefab->root(),
-            renderer.mesh, renderer.material);
+        result = prefab->create_node(node_index, node,
+                                     node.parent_uuid ? prefab_nodes.at(*node.parent_uuid)
+                                                      : prefab->root(),
+                                     renderer.mesh, renderer.material);
         if (result != engine::error::success) {
           return result;
         }
         prefab_binding::node_info info;
-        result = prefab->get_node_info(index, info);
+        result = prefab->get_node_info(node_index, info);
         if (result != engine::error::success) {
           return result;
         }

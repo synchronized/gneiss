@@ -13,7 +13,7 @@ namespace detail {
 struct type_factory;
 }
 /** 只读类型视图；持有注册表，不持有对象。借出的元数据不得超过本视图寿命。 */
-class GNEISS_API type {
+class type {
 public:
   type() = default;
   [[nodiscard]] type_kind kind() const noexcept { return kind_; }
@@ -21,10 +21,10 @@ public:
   [[nodiscard]] engine::type_id id() const noexcept { return id_; }
   [[nodiscard]] engine::guid guid() const noexcept { return enumeration_ ? engine::guid{} : guid_; }
   [[nodiscard]] value_kind scalar_kind() const noexcept { return scalar_; }
-  [[nodiscard]] result<std::span<const enum_entry>> enum_entries() const noexcept;
-  [[nodiscard]] result<std::vector<property_info>> properties() const noexcept;
+  [[nodiscard]] GNEISS_API result<std::span<const enum_entry>> enum_entries() const noexcept;
+  [[nodiscard]] GNEISS_API result<std::vector<property_info>> properties() const noexcept;
   /** sequence/optional/reference 返回元素或静态目标类型，associative 返回映射值类型。 */
-  [[nodiscard]] result<type> element_type() const noexcept;
+  [[nodiscard]] GNEISS_API result<type> element_type() const noexcept;
 
 private:
   friend class instance;

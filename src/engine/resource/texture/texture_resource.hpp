@@ -25,10 +25,10 @@ struct texture_metadata {
 };
 
 /** 稳定运行身份，与 texture_data 的 CPU 内容寿命分离。由资源工厂创建并延迟析构。 */
-class GNEISS_API texture_resource final {
+class texture_resource final {
 public:
   [[nodiscard]] const asset_identity& source() const noexcept { return identity_; }
-  ~texture_resource();
+  GNEISS_API ~texture_resource();
   /** 所属线程查询轻量信息；未加载时为空，不持有 CPU 数组。 */
   [[nodiscard]] const std::optional<texture_metadata>& metadata() const noexcept {
     return metadata_;
@@ -38,7 +38,7 @@ public:
 
 private:
   friend struct detail::texture_resource_access;
-  texture_resource(rid value) noexcept;
+  GNEISS_API texture_resource(rid value) noexcept;
   rid rid_;
   mutable asset_identity identity_;
   mutable std::optional<texture_metadata> metadata_;

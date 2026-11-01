@@ -560,8 +560,11 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
     }
     if (test.reverse_submission)
       scene_text.insert(scene_text.find("\"objects\":[") + 11U, object + ',');
-    else
-      scene_text.insert(scene_text.rfind("],\"prefab_instances\""), ',' + object);
+    else {
+      const auto objects_end = scene_text.rfind("]}");
+      check(objects_end != std::string::npos);
+      scene_text.insert(objects_end, ',' + object);
+    }
     std::ofstream(files.root / "s.scene.json") << scene_text;
   }
   std::shared_ptr<runtime::application> app;
@@ -722,7 +725,7 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
   const auto resized = capture(192U);
   const auto resized_red = center(resized);
   check(resized_red[0] > resized_red[2] + 30U);
-  // 材质引入未显式请求的新依赖，网格同时缩小；一次发布后像素颜色和覆盖范围都必须改变。
+  // 材质引入新依赖，网格同时缩小；各资源完成后像素颜色和覆盖范围都必须改变。
   files.color(std::byte{20}, std::byte{240});
   std::ofstream(files.root / "new.texture.json")
       << R"({"format":"gneiss.texture","version":2,"source":"asset://image.ktx2","color_space":"srgb","usage":"default"})";
@@ -744,13 +747,24 @@ void run(gneiss::engine::execution_mode mode, bool pbr = false) {
     return count;
   };
   check(coverage(mixed) > 0U && coverage(mixed) < coverage(after) / 2U);
-  // 准备阶段遇到损坏网格时，本批尚未进入采用，已有画面保持不变。
+  std::ifstream mesh_input(files.root / "g.mesh.json");
+  const std::string valid_mesh{std::istreambuf_iterator<char>{mesh_input},
+                               std::istreambuf_iterator<char>{}};
+  mesh_input.close();
+  // 批次逐项采用：网格失败保留旧几何，成功材质仍更新，不提供跨资源回滚。
   std::ofstream(files.root / "m.material.json")
       << R"({"format":"gneiss.material","version":6,"parameters":{"color":[1,0,0,1],"metallic":0,"roughness":1},"texture_uris":["","","","",""]})";
   std::ofstream(files.root / "g.mesh.json") << "broken";
   check(reload(true) != gneiss::engine::error::success);
-  check(capture().pixels == mixed.pixels);
-  check(center(capture(192U))[2] > center(capture(192U))[0] + 30U);
+  const auto partial = await_capture(false);
+  check(center(partial)[0] > center(partial)[2] + 30U);
+  check(coverage(partial) > 0U && coverage(partial) < coverage(after) / 2U);
+  // 恢复相同网格后再次成功重载：同材质的完整图像必须与失败时保留的几何一致。
+  std::ofstream(files.root / "g.mesh.json") << valid_mesh;
+  check(reload(true) == gneiss::engine::error::success);
+  check(capture().pixels == partial.pixels);
+  const auto partial_resized = center(capture(192U));
+  check(partial_resized[0] > partial_resized[2] + 30U);
 }
 void run_scene(gneiss::engine::execution_mode mode, bool pbr = false) {
   using namespace runtime;

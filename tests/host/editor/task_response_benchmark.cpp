@@ -79,7 +79,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
   scene_document session;
   require(gneiss::engine::error{gneiss::runtime::application::create(desc, app)} ==
                   gneiss::engine::error::success &&
-              (world = app->native_world()) != gneiss::engine::null_rid,
+              (world = app->native_world()) != nullptr,
           "基准应用创建失败");
   require(authors.initialize(app->async_files()) == gneiss::engine::error::success,
           "作者服务启动失败");

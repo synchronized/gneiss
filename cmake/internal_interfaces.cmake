@@ -149,5 +149,6 @@ gneiss_internal_headers(gneiss_tooling_interface "${PROJECT_SOURCE_DIR}/src"
   tooling/asset_import/import_ir.hpp
 )
 
+target_link_libraries(gneiss_value_interface INTERFACE gneiss_math_dependency)
 target_link_libraries(gneiss_native_interface INTERFACE gneiss_value_interface)
 target_link_libraries(gneiss_tooling_interface INTERFACE gneiss_value_interface)

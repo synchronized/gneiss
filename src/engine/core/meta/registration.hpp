@@ -229,7 +229,7 @@ public:
     }
     if constexpr (Encode != nullptr)
       codec_.encode =
-          [](const registry_ref& registry,
+          []([[maybe_unused]] const registry_ref& registry,
              const void* object) -> result<std::vector<std::byte>, serialization_diagnostic> {
         if constexpr (std::is_invocable_v<decltype(Encode), const registry_ref&,
                                           const object_type&>)
@@ -239,7 +239,7 @@ public:
       };
     if constexpr (Decode != nullptr)
       codec_.decode =
-          [](const registry_ref& registry,
+          []([[maybe_unused]] const registry_ref& registry,
              std::span<const std::byte> bytes) -> result<ref<void>, serialization_diagnostic> {
         auto decoded = [&] {
           if constexpr (std::is_invocable_v<decltype(Decode), const registry_ref&,

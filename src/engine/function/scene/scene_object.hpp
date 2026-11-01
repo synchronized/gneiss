@@ -48,10 +48,10 @@ inline result<object_description> capture_scene_object(world& owner, scene_node_
   if (status.failed())
     return status;
   if (parent) {
-    auto identity = owner.node_identity(parent);
-    if (!identity)
-      return identity.error();
-    output.parent_uuid = identity->uuid;
+    auto parent_identity = owner.node_identity(parent);
+    if (!parent_identity)
+      return parent_identity.error();
+    output.parent_uuid = parent_identity->uuid;
   }
   status = owner.node_get_local_transform(node, output.transform);
   if (status.failed())
