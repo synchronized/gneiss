@@ -63,16 +63,10 @@ public:
   [[nodiscard]] gneiss::engine::error
   attach_task_executor(gneiss::engine::task_executor& executor) noexcept;
   [[nodiscard]] bool has_asset_loading_service() const noexcept;
-  [[nodiscard]] gneiss::engine::result<scene_node_id>
-  create_mesh_node_ready(gneiss::scene_instance_id scene,
-                         const gneiss::engine::mesh_renderer_node_creation& desc,
-                         const gneiss::engine::scene_mesh_binding& prepared) noexcept;
   [[nodiscard]] gneiss::engine::error collect_unused_edit_assets() noexcept;
   [[nodiscard]] gneiss::engine::error
   query_ready_asset(const gneiss::engine::render_resource_source& source,
                     gneiss::engine::render_resource_ref& output) noexcept;
-  [[nodiscard]] gneiss::engine::result<gneiss::engine::scene_mesh_binding>
-  capture_mesh_binding(gneiss::scene_instance_id scene, scene_node_id node) noexcept;
   [[nodiscard]] gneiss::engine::error
   replace_mesh_binding(gneiss::scene_instance_id scene, scene_node_id node,
                        const gneiss::engine::scene_mesh_binding& expected,

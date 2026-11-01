@@ -118,8 +118,8 @@ void run(gneiss::engine::execution_mode mode) {
     check(gneiss::engine::error{gneiss::test_support::take_value(
               app->scenes()->get_node_info(scene, index), info)} == gneiss::engine::error::success);
     gneiss::engine::scene_mesh_binding value;
-    check(gneiss::test_support::take_value(app->capture_mesh_binding(scene, info.node), value) ==
-          gneiss::engine::error::success);
+    check(gneiss::test_support::take_value(app->scenes()->capture_mesh_binding(scene, info.node),
+                                           value) == gneiss::engine::error::success);
     return value;
   };
   const auto initial = capture(0);

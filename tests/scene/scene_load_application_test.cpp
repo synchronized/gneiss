@@ -119,8 +119,9 @@ void visual_failure(gneiss::engine::execution_mode mode) {
                                                            "00000000-0000-4000-8000-000000000002")),
             node) == gneiss::engine::error::success);
   gneiss::engine::scene_mesh_binding binding;
-  check(gneiss::test_support::take_value(app->capture_mesh_binding(completion.scene, node),
-                                         binding) == gneiss::engine::error::success);
+  check(
+      gneiss::test_support::take_value(app->scenes()->capture_mesh_binding(completion.scene, node),
+                                       binding) == gneiss::engine::error::success);
   check(binding.mesh && binding.material);
   auto material = binding.material;
   until([&] { return !app->visual_assets_loading(); });
@@ -150,9 +151,10 @@ void visual_failure(gneiss::engine::execution_mode mode) {
   check(loaded.result == gneiss::engine::error::success &&
         gneiss::engine::resource_cast<gneiss::engine::material_resource>(loaded.assets.front()) ==
             material);
-  check(gneiss::test_support::take_value(app->capture_mesh_binding(completion.scene, node),
-                                         binding) == gneiss::engine::error::success &&
-        binding.material == material);
+  check(
+      gneiss::test_support::take_value(app->scenes()->capture_mesh_binding(completion.scene, node),
+                                       binding) == gneiss::engine::error::success &&
+      binding.material == material);
   // 已激活场景继续持有稳定资源，关闭会等待所属任务并释放其作用域。
   binding = {};
   material = {};
@@ -376,8 +378,9 @@ void shared_scene_assets(gneiss::engine::execution_mode mode) {
     check(gneiss::test_support::take_value(app->scenes()->find_node(completion.scene, uuid),
                                            node) == gneiss::engine::error::success);
     gneiss::engine::scene_mesh_binding value;
-    check(gneiss::test_support::take_value(app->capture_mesh_binding(completion.scene, node),
-                                           value) == gneiss::engine::error::success);
+    check(gneiss::test_support::take_value(
+              app->scenes()->capture_mesh_binding(completion.scene, node), value) ==
+          gneiss::engine::error::success);
     return value;
   };
   (void)prepare();

@@ -39,8 +39,13 @@ if (!captured)
 ## 编辑入口边界
 
 Editor 的 `with_scene` 检查文档、线程及 Application 生命周期后，原样返回操作的 `error` 或
-`result<T>`，不通过输出参数中转节点结果。Application 的 `create_mesh_node_ready` 和
-`capture_mesh_binding` 返回值结果，仍在停止接收请求后返回 `invalid_state`。
+`result<T>`，不通过输出参数中转节点结果。文档的 `create_mesh_node` 接收已准备资源，
+`capture_mesh_binding` 捕获当前文档的节点资源；两者通过 `with_scene` 直接调用 Scene，
+文档关闭或 Application 停止接收请求后返回 `invalid_state`。Application 不提供这两项业务转发。
+
+创建前预构造查询记录并预留容量，创建后直接取得关联实体，不遍历场景查找新节点。
+实体查询失败时回滚节点；回滚失败返回清理错误并保留脏标记。历史命令按稳定 UUID 撤销，
+重做复用持有的资源引用，不重新读取文件。
 
 Prefab 编辑开始时从组件覆盖快照取得原资源引用；异步加载完成后的冲突检查继续执行。
 网格/材质 URI 覆盖由 `prepare_mesh_renderer_overrides` 统一计算，保留其他覆盖记录，

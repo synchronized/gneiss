@@ -84,8 +84,8 @@ void run(gneiss::engine::execution_mode mode) {
   const auto binding = [&] {
     gneiss::engine::scene_mesh_binding value;
     check(gneiss::test_support::take_value(
-              app->capture_mesh_binding(session.scene_handle(), session.find_node(uuid)->node),
-              value) == gneiss::engine::error::success);
+              session.capture_mesh_binding(session.find_node(uuid)->node), value) ==
+          gneiss::engine::error::success);
     return value;
   };
   const auto initial_binding = binding();
@@ -156,6 +156,24 @@ void run(gneiss::engine::execution_mode mode) {
   drive();
   check(edit.operation() == gneiss::engine::error::success && session.nodes().size() == 2U);
   const auto created_uuid = session.nodes().back().uuid;
+  // 直接文档入口拒绝重复身份和不匹配资源，失败不改变场景、选择或脏状态。
+  const auto selected = session.selection();
+  auto prepared = session.capture_mesh_binding(selected);
+  check(bool(prepared));
+  editor::mesh_node_creation creation{.uuid = created_uuid,
+                                      .parent_uuid = {},
+                                      .display_name = "duplicate",
+                                      .mesh_uri = std::string(new_assets.mesh_uri),
+                                      .material_uri = std::string(new_assets.material_uri)};
+  session.clear_dirty();
+  auto duplicate = session.create_mesh_node(creation, *prepared);
+  check(!duplicate && duplicate.error() == engine::error::invalid_argument);
+  check(editor::make_editor_uuid(creation.uuid).ok());
+  auto invalid_resources = session.create_mesh_node(creation, {});
+  check(!invalid_resources && invalid_resources.error() == engine::error::invalid_argument);
+  check(session.nodes().size() == 2U && session.selection() == selected && !session.is_dirty());
+  check(!session.find_node(creation.uuid));
+  check(!app->scenes()->find_node(session.scene_handle(), creation.uuid));
   std::ofstream(files.root / "mesh.json") << "broken";
   check(history.undo() == gneiss::engine::error::success &&
         session.find_node(created_uuid) == nullptr);
@@ -209,7 +227,17 @@ void run(gneiss::engine::execution_mode mode) {
   check(app->query_ready_asset(
             {.uri = "asset://d.json", .type = gneiss::engine::render_resource_kind::material},
             unused) == gneiss::engine::error::not_ready);
+  // 文档入口负责应用停止和关闭边界，Scene 不依赖 Application。
+  check(app->request_shutdown().ok());
+  auto stopped_create = session.create_mesh_node({}, {});
+  auto stopped_capture = session.capture_mesh_binding({});
+  check(!stopped_create && stopped_create.error() == engine::error::invalid_state);
+  check(!stopped_capture && stopped_capture.error() == engine::error::invalid_state);
   session.close();
+  auto closed_create = session.create_mesh_node({}, {});
+  auto closed_capture = session.capture_mesh_binding({});
+  check(!closed_create && closed_create.error() == engine::error::invalid_state);
+  check(!closed_capture && closed_capture.error() == engine::error::invalid_state);
 }
 void prefab_edits(engine::execution_mode mode) {
   namespace e = engine;
@@ -274,9 +302,7 @@ void prefab_edits(engine::execution_mode mode) {
     e::scene_mesh_binding result;
     const auto* node = document.find_prefab_source(target.instance_uuid, target.source_uuid);
     check(node != nullptr);
-    check(gneiss::test_support::take_value(
-              app->capture_mesh_binding(document.scene_handle(), node->node), result)
-              .ok());
+    check(gneiss::test_support::take_value(document.capture_mesh_binding(node->node), result).ok());
     return result;
   };
   const auto drive = [&] {
@@ -377,17 +403,14 @@ void prefab_edits(engine::execution_mode mode) {
   e::scene_mesh_binding loaded;
   const auto* loaded_child = reopened.find_prefab_source(uuid(5), uuid(3));
   check(loaded_child != nullptr);
-  check(gneiss::test_support::take_value(
-            reopened_app->capture_mesh_binding(reopened.scene_handle(), loaded_child->node), loaded)
+  check(gneiss::test_support::take_value(reopened.capture_mesh_binding(loaded_child->node), loaded)
             .ok());
   check(e::resource_uri(loaded.material) == "asset://b.json");
   check(e::resource_uri(loaded.mesh) == "asset://mesh2.json");
   const auto* loaded_second = reopened.find_prefab_source(uuid(6), uuid(3));
   check(loaded_second != nullptr);
-  check(
-      gneiss::test_support::take_value(
-          reopened_app->capture_mesh_binding(reopened.scene_handle(), loaded_second->node), loaded)
-          .ok());
+  check(gneiss::test_support::take_value(reopened.capture_mesh_binding(loaded_second->node), loaded)
+            .ok());
   check(e::resource_uri(loaded.material) == "asset://a.json");
   check(history.undo().ok() && binding(child).mesh == before.mesh);
   check(request(child, "asset://a.json").ok());

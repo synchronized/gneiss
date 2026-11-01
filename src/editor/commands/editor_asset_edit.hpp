@@ -58,8 +58,7 @@ private:
                                      editor_command_history& history,
                                      const component_edit_target& target, std::string_view name,
                                      mesh_asset_reference assets, bool creating);
-  gneiss::engine::error commit_add(runtime::application& application, scene_document& session,
-                                   editor_command_history& history);
+  gneiss::engine::error commit_add(scene_document& session, editor_command_history& history);
   mesh_node_creation snapshot_;
   bool creating_{};
   std::shared_ptr<scene_document_edit> restore_;

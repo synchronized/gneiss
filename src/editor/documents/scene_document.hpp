@@ -114,11 +114,13 @@ public:
   void close() noexcept;
 
   [[nodiscard]] bool is_open() const noexcept;
-  /** 预分配镜像后调用就绪创建；成功后发布节点记录，不加载资产。 */
-  [[nodiscard]] gneiss::engine::error commit_mesh_node(
-      const mesh_node_creation& snapshot,
-      const std::function<gneiss::engine::error(scene_node_id, scene_node_id&)>& create,
-      scene_node_id& output) noexcept;
+  /** 使用已准备资源创建节点；成功后更新查询记录、选择和脏状态，不加载资产。 */
+  [[nodiscard]] engine::result<scene_node_id>
+  create_mesh_node(const mesh_node_creation& description,
+                   const engine::scene_mesh_binding& resources) noexcept;
+  /** 捕获当前文档节点的资源强引用；文档关闭或应用停止后拒绝调用。 */
+  [[nodiscard]] engine::result<engine::scene_mesh_binding>
+  capture_mesh_binding(scene_node_id node) const noexcept;
   [[nodiscard]] gneiss::scene_instance_id scene_handle() const noexcept { return scene_; }
   /** 预分配作者值后调用提交；回调失败不改编辑器镜像，不执行资产加载。 */
   [[nodiscard]] gneiss::engine::error
@@ -171,10 +173,6 @@ public:
   set_camera(scene_node_id node, const gneiss::engine::camera_description& desc) noexcept;
   [[nodiscard]] gneiss::engine::error remove_camera(scene_node_id node) noexcept;
   [[nodiscard]] gneiss::engine::error remove_mesh_renderer(scene_node_id node) noexcept;
-  [[nodiscard]] gneiss::engine::error create_mesh_renderer_node(std::string_view name,
-                                                                std::string_view mesh_uri,
-                                                                std::string_view material_uri,
-                                                                scene_node_id& out_node) noexcept;
   [[nodiscard]] gneiss::engine::error set_mesh_renderer(scene_node_id node,
                                                         std::string_view mesh_uri,
                                                         std::string_view material_uri) noexcept;
@@ -215,8 +213,6 @@ private:
   template <class F>
   std::invoke_result_t<F, engine::scene_instances&> with_scene(F&& action) const noexcept;
   [[nodiscard]] gneiss::engine::error refresh_nodes() noexcept;
-  [[nodiscard]] gneiss::engine::error create_mesh_renderer_node(const mesh_node_creation& snapshot,
-                                                                scene_node_id& out_node) noexcept;
   gneiss::engine::world* world_ = nullptr;
   // 借用宿主；宿主必须在关闭/销毁 Application 前关闭编辑文档。
   runtime::application* application_{};
