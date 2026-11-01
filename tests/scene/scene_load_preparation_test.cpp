@@ -149,8 +149,14 @@ void run() {
                              [](const auto& asset) { return asset.uri == "asset://m.material"; }));
   check(std::ranges::any_of(
       output.assets, [](const auto& asset) { return asset.uri == "asset://override.material"; }));
-  // URI 非法时，在创建实体或开始资源加载前拒绝。
-  overridden->objects.front().prefab->overrides.front().value = value{std::string{}};
+  // 空材质表示清除引用；不产生材质依赖。
+  for (auto& node : overridden->objects)
+    node.prefab->overrides.front().value = value{std::string{}};
+  check(prepare_loaded_scene(overridden_inputs, {}, output, diagnostic, {}).ok());
+  check(output.assets.size() == 1 && output.assets.front().type == render_resource_kind::mesh);
+  // 非空但非法的 URI 仍在创建实体或开始资源加载前拒绝。
+  overridden->objects.front().prefab->overrides.front().value =
+      value{std::string{"not-an-asset-uri"}};
   check(prepare_loaded_scene(overridden_inputs, {}, output, diagnostic, {}).failed());
   check(output.assets.empty());
   check(prepare_loaded_scene(inputs, {}, output, diagnostic, {}).ok());

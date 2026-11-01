@@ -32,3 +32,5 @@ Runtime 宿主保存资源服务接受的实际请求编号，按编号轮询、
 修复后 Windows Clang Debug 完整构建及 10 项相关回归全部通过，包含跨进程场景加载与进程关闭。
 初始化约定见[反射参考](../reference/reflection.md#跨进程组件描述)。
 未运行大场景、浏览器或远端 CI；未推送。
+
+集中验收见 [2026-11-01 验收记录](../records/2026-11-01-editor-resource-consolidated-validation.md)。

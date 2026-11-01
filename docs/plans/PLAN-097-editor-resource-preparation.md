@@ -45,3 +45,5 @@
 删除事后检查回执编号的旧路径、取消等待注释和 Prefab 常驻回执；其他准备/历史阶段保持原清理契约。
 2026-11-01 Windows Clang Debug 构建及 14 项相关 CPU 测试通过。
 新增覆盖取消立即重试、旧操作不消费/清理新请求，以及应用停止时资源编辑退出；未运行 GPU、大场景或 CI。
+
+集中验收见 [2026-11-01 验收记录](../records/2026-11-01-editor-resource-consolidated-validation.md)。
